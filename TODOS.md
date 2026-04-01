@@ -1,5 +1,27 @@
 # TODOS
 
+## P0 — Architecture Decisions (Confirmed by Eng Review 2026-04-01)
+
+### State Management: Provider + ChangeNotifier
+**What:** Flutter 状态管理使用 Provider + ChangeNotifier。
+**Why:** 官方推荐，对这个规模的应用刚好。不需要 Riverpod 的编译时安全，也不需要 BLoC 的严格单向流。
+**Context:** Eng Review v3 (2026-04-01) 确认。
+
+### Deployment: Docker Container
+**What:** 后端使用 Docker 容器部署。本地开发跑 Docker，生产部署到阿里云 ECS。
+**Why:** 最灵活的方案。Spring Boot 4 + JDK 21 的冷启动时间不适合 Serverless，Docker 常驻运行避免冷启动。
+**Context:** Eng Review v3 (2026-04-01) 确认。原设计说"阿里云 FC"但 Java 冷启动 5-15s 不可接受。
+
+### Authentication: JWT + Refresh Token
+**What:** 用户认证使用 JWT (access token 15min) + Refresh Token (30天)。Hive 本地存储 token。
+**Why:** 移动 app 标准做法，无状态服务器更简单，离线时仍可验证 access token。Spring Security 内置支持。
+**Context:** Eng Review v3 (2026-04-01) 确认。API 端点已定义在 test-plan-v2.md。
+
+### Ask Coach Latency Strategy: Text-First + Async TTS
+**What:** Ask Coach 响应策略：LLM 文字返回后立即流式显示，TTS 音频异步生成。用户先看到短语文字（~2s），音频几秒后自动可播放。
+**Why:** 全链路 worst case 8s（网络+RAG+LLM+TTS），文字先行可将感知延迟降到 2-3s。
+**Context:** Eng Review v3 (2026-04-01) 确认。设计文档要求 <3s 文字显示。
+
 ## P1 — Blocks Production
 
 ### Update Design Doc for Native Pivot
