@@ -1,0 +1,1168 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Baby Talk 2 — UI 设计方案</title>
+<style>
+  :root {
+    --warm-bg: #FFF8F0;
+    --card-bg: #FFFFFF;
+    --accent: #FF8C42;
+    --accent-light: #FFF0E5;
+    --text-primary: #2D2926;
+    --text-secondary: #6B5E57;
+    --text-muted: #A89B94;
+    --english-blue: #2563EB;
+    --success-green: #34D399;
+    --border: #F0E8E0;
+    --shadow: 0 2px 12px rgba(45, 41, 38, 0.08);
+    --radius: 16px;
+    --font-cn: "PingFang SC", "Noto Sans SC", "Microsoft YaHei", sans-serif;
+    --font-en: "DM Sans", "Inter", sans-serif;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: var(--font-cn);
+    background: #F5F0EB;
+    color: var(--text-primary);
+    padding: 40px 20px;
+    line-height: 1.5;
+  }
+
+  h1 {
+    text-align: center;
+    font-size: 28px;
+    margin-bottom: 8px;
+    font-weight: 700;
+  }
+
+  .subtitle {
+    text-align: center;
+    color: var(--text-secondary);
+    font-size: 14px;
+    margin-bottom: 40px;
+  }
+
+  .screens {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 40px;
+    justify-content: center;
+    max-width: 1400px;
+    margin: 0 auto;
+  }
+
+  .screen-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .screen-label {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+
+  .screen-desc {
+    font-size: 12px;
+    color: var(--text-secondary);
+    max-width: 375px;
+    text-align: center;
+  }
+
+  .phone {
+    width: 375px;
+    height: 812px;
+    background: var(--warm-bg);
+    border-radius: 40px;
+    overflow: hidden;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.15), inset 0 0 0 8px #1a1a1a;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .phone-inner {
+    flex: 1;
+    overflow-y: auto;
+    padding: 60px 20px 90px;
+  }
+
+  .phone-inner::-webkit-scrollbar { display: none; }
+
+  /* Status bar */
+  .status-bar {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 54px;
+    background: var(--warm-bg);
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    padding-bottom: 8px;
+    z-index: 10;
+    font-size: 14px;
+    font-weight: 600;
+  }
+
+  .notch {
+    width: 150px;
+    height: 30px;
+    background: #1a1a1a;
+    border-radius: 0 0 20px 20px;
+    position: absolute;
+    top: 0;
+    left: 50%;
+    transform: translateX(-50%);
+  }
+
+  /* Bottom nav */
+  .bottom-nav {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 84px;
+    background: var(--card-bg);
+    border-top: 1px solid var(--border);
+    display: flex;
+    justify-content: space-around;
+    align-items: flex-start;
+    padding-top: 10px;
+    z-index: 10;
+  }
+
+  .nav-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    font-size: 10px;
+    color: var(--text-muted);
+    cursor: pointer;
+  }
+
+  .nav-item.active { color: var(--accent); }
+
+  .nav-item .icon { font-size: 22px; }
+
+  /* Greeting */
+  .greeting {
+    margin-bottom: 4px;
+  }
+
+  .greeting-name {
+    font-size: 24px;
+    font-weight: 700;
+    color: var(--text-primary);
+  }
+
+  .greeting-stage {
+    font-size: 13px;
+    color: var(--text-secondary);
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .stage-badge {
+    background: var(--accent-light);
+    color: var(--accent);
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 600;
+  }
+
+  /* Phrase of the Day */
+  .phrase-card {
+    background: var(--card-bg);
+    border-radius: var(--radius);
+    padding: 24px 20px;
+    box-shadow: var(--shadow);
+    margin-bottom: 16px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .phrase-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, var(--accent), #FFB88C);
+  }
+
+  .phrase-label {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--accent);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .phrase-english {
+    font-family: var(--font-en);
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--english-blue);
+    line-height: 1.3;
+    margin-bottom: 6px;
+  }
+
+  .phrase-chinese {
+    font-size: 15px;
+    color: var(--text-secondary);
+    margin-bottom: 16px;
+  }
+
+  .phrase-context {
+    font-size: 12px;
+    color: var(--text-muted);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 14px;
+  }
+
+  .phrase-actions {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .btn-play {
+    background: var(--accent);
+    color: white;
+    border: none;
+    border-radius: 24px;
+    padding: 10px 20px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .btn-scene {
+    color: var(--accent);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    background: none;
+    border: none;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  /* Nudge banner */
+  .nudge {
+    background: linear-gradient(135deg, #FFF5EB, #FFF0E0);
+    border-radius: 12px;
+    padding: 14px 16px;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    position: relative;
+    border: 1px solid #FFE0C4;
+  }
+
+  .nudge-icon { font-size: 20px; flex-shrink: 0; }
+
+  .nudge-text {
+    font-size: 13px;
+    color: var(--text-secondary);
+    line-height: 1.5;
+    flex: 1;
+  }
+
+  .nudge-close {
+    position: absolute;
+    top: 10px;
+    right: 12px;
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    font-size: 16px;
+    cursor: pointer;
+  }
+
+  /* Activities */
+  .section-title {
+    font-size: 16px;
+    font-weight: 700;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .see-all {
+    font-size: 12px;
+    color: var(--accent);
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  .activities-scroll {
+    display: flex;
+    gap: 12px;
+    overflow-x: auto;
+    padding-bottom: 4px;
+    margin-bottom: 16px;
+    scroll-snap-type: x mandatory;
+  }
+
+  .activities-scroll::-webkit-scrollbar { display: none; }
+
+  .activity-card {
+    min-width: 150px;
+    max-width: 150px;
+    background: var(--card-bg);
+    border-radius: 14px;
+    padding: 16px;
+    box-shadow: 0 1px 6px rgba(0,0,0,0.06);
+    scroll-snap-align: start;
+    cursor: pointer;
+    transition: transform 0.15s;
+  }
+
+  .activity-card:hover { transform: translateY(-2px); }
+
+  .activity-type {
+    font-size: 24px;
+    margin-bottom: 8px;
+  }
+
+  .activity-title {
+    font-size: 14px;
+    font-weight: 600;
+    margin-bottom: 4px;
+    color: var(--text-primary);
+  }
+
+  .activity-detail {
+    font-size: 11px;
+    color: var(--text-muted);
+  }
+
+  .activity-duration {
+    font-size: 11px;
+    color: var(--accent);
+    font-weight: 600;
+    margin-top: 8px;
+  }
+
+  /* FAB */
+  .fab {
+    position: absolute;
+    bottom: 100px;
+    right: 28px;
+    width: 56px;
+    height: 56px;
+    background: var(--accent);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 16px rgba(255, 140, 66, 0.4);
+    cursor: pointer;
+    z-index: 5;
+    font-size: 24px;
+    color: white;
+    transition: transform 0.2s;
+  }
+
+  .fab:hover { transform: scale(1.1); }
+
+  /* ========== SCENE COACHING SCREEN ========== */
+  .scene-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+  }
+
+  .scene-back {
+    font-size: 14px;
+    color: var(--text-secondary);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .scene-name {
+    font-size: 18px;
+    font-weight: 700;
+  }
+
+  .couple-toggle {
+    background: var(--accent-light);
+    color: var(--accent);
+    border: none;
+    border-radius: 20px;
+    padding: 6px 14px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  .coaching-card {
+    background: var(--card-bg);
+    border-radius: 20px;
+    padding: 32px 24px;
+    box-shadow: var(--shadow);
+    text-align: center;
+    margin-bottom: 20px;
+    min-height: 280px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+
+  .coaching-english {
+    font-family: var(--font-en);
+    font-size: 26px;
+    font-weight: 700;
+    color: var(--english-blue);
+    line-height: 1.3;
+    margin-bottom: 8px;
+  }
+
+  .coaching-chinese {
+    font-size: 16px;
+    color: var(--text-secondary);
+    margin-bottom: 20px;
+  }
+
+  .coaching-play {
+    width: 52px;
+    height: 52px;
+    background: var(--accent);
+    border: none;
+    border-radius: 50%;
+    color: white;
+    font-size: 22px;
+    cursor: pointer;
+    margin: 0 auto 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .coaching-tip {
+    background: #F5F0FF;
+    border-radius: 12px;
+    padding: 12px 16px;
+    text-align: left;
+    font-size: 13px;
+    color: #5B4A8A;
+    line-height: 1.5;
+  }
+
+  .coaching-tip strong { color: #7C3AED; }
+
+  .reactions {
+    display: flex;
+    justify-content: center;
+    gap: 16px;
+    margin-bottom: 20px;
+  }
+
+  .reaction-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    background: var(--card-bg);
+    border: 2px solid var(--border);
+    border-radius: 16px;
+    padding: 14px 20px;
+    cursor: pointer;
+    transition: all 0.15s;
+    font-size: 12px;
+    color: var(--text-secondary);
+  }
+
+  .reaction-btn:hover {
+    border-color: var(--accent);
+    background: var(--accent-light);
+  }
+
+  .reaction-btn .emoji { font-size: 28px; }
+
+  .progress-bar-container {
+    margin-bottom: 8px;
+  }
+
+  .progress-bar-bg {
+    background: var(--border);
+    height: 6px;
+    border-radius: 3px;
+    overflow: hidden;
+    margin-bottom: 8px;
+  }
+
+  .progress-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent), #FFB88C);
+    border-radius: 3px;
+    transition: width 0.3s;
+  }
+
+  .difficulty-tabs {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+    font-size: 12px;
+  }
+
+  .diff-tab {
+    padding: 4px 12px;
+    border-radius: 12px;
+    cursor: pointer;
+  }
+
+  .diff-tab.active { background: var(--accent-light); color: var(--accent); font-weight: 600; }
+  .diff-tab.locked { color: var(--text-muted); opacity: 0.5; }
+
+  /* ========== COUPLE MODE ========== */
+  .couple-screen {
+    background: #1A1520;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    color: white;
+  }
+
+  .couple-screen .phone-inner {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+  }
+
+  .countdown {
+    font-size: 72px;
+    font-weight: 800;
+    color: var(--accent);
+    margin-bottom: 40px;
+    font-family: var(--font-en);
+  }
+
+  .couple-english {
+    font-family: var(--font-en);
+    font-size: 36px;
+    font-weight: 700;
+    color: white;
+    line-height: 1.2;
+    margin-bottom: 16px;
+    padding: 0 20px;
+  }
+
+  .couple-chinese {
+    font-size: 22px;
+    color: rgba(255,255,255,0.7);
+    margin-bottom: 60px;
+  }
+
+  .couple-done {
+    background: var(--accent);
+    color: white;
+    border: none;
+    border-radius: 30px;
+    padding: 16px 48px;
+    font-size: 18px;
+    font-weight: 700;
+    cursor: pointer;
+  }
+
+  /* ========== AI COACH MODAL ========== */
+  .coach-bg { background: var(--card-bg); }
+  .coach-bg .phone-inner { padding-top: 60px; }
+
+  .coach-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 24px;
+  }
+
+  .coach-header h2 { font-size: 20px; font-weight: 700; }
+
+  .coach-close {
+    width: 32px;
+    height: 32px;
+    background: var(--border);
+    border: none;
+    border-radius: 50%;
+    font-size: 16px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .coach-input-area {
+    margin-bottom: 20px;
+  }
+
+  .coach-input {
+    width: 100%;
+    min-height: 80px;
+    background: #F5F0EB;
+    border: 2px solid var(--border);
+    border-radius: 14px;
+    padding: 14px;
+    font-size: 15px;
+    font-family: var(--font-cn);
+    color: var(--text-primary);
+    resize: none;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  .coach-input:focus { border-color: var(--accent); }
+
+  .coach-input-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 8px;
+  }
+
+  .coach-remaining {
+    font-size: 12px;
+    color: var(--text-muted);
+  }
+
+  .coach-send {
+    background: var(--accent);
+    color: white;
+    border: none;
+    border-radius: 20px;
+    padding: 8px 20px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  .coach-response {
+    background: #F8F5FF;
+    border-radius: 16px;
+    padding: 20px;
+    margin-top: 20px;
+  }
+
+  .coach-phrase-en {
+    font-family: var(--font-en);
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--english-blue);
+    margin-bottom: 6px;
+  }
+
+  .coach-phrase-cn {
+    font-size: 14px;
+    color: var(--text-secondary);
+    margin-bottom: 14px;
+  }
+
+  .coach-tip {
+    background: white;
+    border-radius: 10px;
+    padding: 12px;
+    font-size: 13px;
+    color: var(--text-secondary);
+    line-height: 1.5;
+    margin-bottom: 14px;
+  }
+
+  .coach-tip strong {
+    color: var(--accent);
+  }
+
+  .coach-actions {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .coach-play-btn {
+    background: var(--english-blue);
+    color: white;
+    border: none;
+    border-radius: 20px;
+    padding: 8px 16px;
+    font-size: 13px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .coach-feedback {
+    display: flex;
+    gap: 8px;
+  }
+
+  .coach-feedback button {
+    background: var(--border);
+    border: none;
+    border-radius: 20px;
+    padding: 6px 14px;
+    font-size: 16px;
+    cursor: pointer;
+  }
+
+  /* ========== CELEBRATION SCREEN ========== */
+  .celebration {
+    background: linear-gradient(135deg, #FFF0E0, #FFE0F0, #E0F0FF);
+    text-align: center;
+  }
+
+  .celebration .phone-inner {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .celebration-emoji {
+    font-size: 64px;
+    margin-bottom: 24px;
+    animation: bounce 0.6s ease-in-out infinite alternate;
+  }
+
+  @keyframes bounce {
+    from { transform: translateY(0); }
+    to { transform: translateY(-10px); }
+  }
+
+  .celebration-title {
+    font-size: 28px;
+    font-weight: 800;
+    color: var(--text-primary);
+    margin-bottom: 24px;
+  }
+
+  .celebration-card {
+    background: white;
+    border-radius: 20px;
+    padding: 32px 24px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+    margin-bottom: 32px;
+    max-width: 300px;
+  }
+
+  .celebration-phrase {
+    font-family: var(--font-en);
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--english-blue);
+    margin-bottom: 6px;
+  }
+
+  .celebration-phrase-cn {
+    font-size: 15px;
+    color: var(--text-secondary);
+    margin-bottom: 16px;
+  }
+
+  .celebration-meta {
+    font-size: 13px;
+    color: var(--text-muted);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+  }
+
+  .celebration-share {
+    background: var(--accent);
+    color: white;
+    border: none;
+    border-radius: 28px;
+    padding: 14px 32px;
+    font-size: 16px;
+    font-weight: 700;
+    cursor: pointer;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .celebration-dismiss {
+    color: var(--text-muted);
+    font-size: 13px;
+    cursor: pointer;
+    background: none;
+    border: none;
+  }
+
+  /* ========== ONBOARDING ========== */
+  .onboarding-bg { background: var(--warm-bg); }
+
+  .onboarding-bg .phone-inner {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 80px 28px;
+  }
+
+  .onboard-step {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-bottom: 8px;
+    font-weight: 600;
+  }
+
+  .onboard-title {
+    font-size: 28px;
+    font-weight: 800;
+    margin-bottom: 8px;
+    line-height: 1.2;
+  }
+
+  .onboard-subtitle {
+    font-size: 15px;
+    color: var(--text-secondary);
+    margin-bottom: 32px;
+    line-height: 1.5;
+  }
+
+  .onboard-input {
+    width: 100%;
+    background: var(--card-bg);
+    border: 2px solid var(--border);
+    border-radius: 14px;
+    padding: 16px;
+    font-size: 18px;
+    font-family: var(--font-cn);
+    outline: none;
+    margin-bottom: 24px;
+    transition: border-color 0.2s;
+  }
+
+  .onboard-input:focus { border-color: var(--accent); }
+
+  .onboard-input::placeholder { color: var(--text-muted); }
+
+  .onboard-btn {
+    width: 100%;
+    background: var(--accent);
+    color: white;
+    border: none;
+    border-radius: 14px;
+    padding: 16px;
+    font-size: 16px;
+    font-weight: 700;
+    cursor: pointer;
+    font-family: var(--font-cn);
+  }
+
+  .onboard-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+
+  /* Section header */
+  .section-header {
+    text-align: center;
+    padding: 30px 0;
+    border-bottom: 2px solid var(--border);
+    margin-bottom: 40px;
+  }
+
+  .section-header h2 {
+    font-size: 20px;
+    color: var(--text-primary);
+  }
+
+  .section-header p {
+    font-size: 13px;
+    color: var(--text-secondary);
+  }
+</style>
+</head>
+<body>
+
+<h1>Baby Talk 2 — UI 设计方案</h1>
+<p class="subtitle">设计审查 · 2026-04-01 · 6 个核心屏幕</p>
+
+<div class="screens">
+
+<!-- ==================== SMART HOME ==================== -->
+<div class="screen-container">
+  <div class="screen-label">1. Smart Home 主屏幕</div>
+  <div class="screen-desc">每日核心入口。今日短语 → 路线图活动 → Ask Coach</div>
+  <div class="phone">
+    <div class="status-bar"><div class="notch"></div></div>
+    <div class="phone-inner">
+      <div class="greeting">
+        <div class="greeting-name">小明妈妈，早上好 ☀️</div>
+      </div>
+      <div class="greeting-stage">
+        <span class="stage-badge">阶段 2</span>
+        日常对话 · 8个月
+      </div>
+
+      <div class="phrase-card">
+        <div class="phrase-label">🔤 今日短语</div>
+        <div class="phrase-english">"Splash splash!<br>Can you splash with me?"</div>
+        <div class="phrase-chinese">泼水泼水！你能和我一起泼吗？</div>
+        <div class="phrase-context">🛁 洗澡时间 · 今晚给宝宝洗澡时试试</div>
+        <div class="phrase-actions">
+          <button class="btn-play">▶ 听发音</button>
+          <button class="btn-scene">进入场景 →</button>
+        </div>
+      </div>
+
+      <div class="nudge">
+        <span class="nudge-icon">💛</span>
+        <span class="nudge-text">小明还需要听到你的声音。哪怕只说一句 "good morning"，对她来说就是最好的礼物。</span>
+        <button class="nudge-close">×</button>
+      </div>
+
+      <div class="section-title">
+        今日活动
+        <span class="see-all">查看全部 →</span>
+      </div>
+      <div class="activities-scroll">
+        <div class="activity-card">
+          <div class="activity-type">🤸</div>
+          <div class="activity-title">TPR 练习</div>
+          <div class="activity-detail">举手手！Arms up!</div>
+          <div class="activity-duration">⏱ 2 分钟</div>
+        </div>
+        <div class="activity-card">
+          <div class="activity-type">📖</div>
+          <div class="activity-title">绘本引导</div>
+          <div class="activity-detail">Brown Bear, Brown Bear</div>
+          <div class="activity-duration">⏱ 10 分钟</div>
+        </div>
+        <div class="activity-card">
+          <div class="activity-type">🔤</div>
+          <div class="activity-title">短语练习</div>
+          <div class="activity-detail">换尿布场景</div>
+          <div class="activity-duration">⏱ 5 分钟</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="fab">🤖</div>
+
+    <div class="bottom-nav">
+      <div class="nav-item active">
+        <span class="icon">🏠</span>
+        <span>首页</span>
+      </div>
+      <div class="nav-item">
+        <span class="icon">📚</span>
+        <span>场景</span>
+      </div>
+      <div class="nav-item">
+        <span class="icon">🎙</span>
+        <span>旅程</span>
+      </div>
+      <div class="nav-item">
+        <span class="icon">📊</span>
+        <span>进度</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== SCENE COACHING ==================== -->
+<div class="screen-container">
+  <div class="screen-label">2. 场景辅导屏幕</div>
+  <div class="screen-desc">短语卡片 + 发音播放 + 教练提示 + 反应追踪</div>
+  <div class="phone">
+    <div class="status-bar"><div class="notch"></div></div>
+    <div class="phone-inner">
+      <div class="scene-header">
+        <span class="scene-back">← 返回</span>
+        <span class="scene-name">🛁 洗澡时间</span>
+        <button class="couple-toggle">👫 一起说</button>
+      </div>
+
+      <div class="coaching-card">
+        <div class="coaching-english">"Splash splash!<br>Can you splash<br>with me?"</div>
+        <div class="coaching-chinese">泼水泼水！你能和我一起泼吗？</div>
+        <button class="coaching-play">▶</button>
+        <div class="coaching-tip">
+          <strong>💡 辅导提示：</strong>洗澡时用手泼水，配合说 splash，让宝宝把动作和英文关联起来。重复 2-3 遍，语气夸张一点效果更好。
+        </div>
+      </div>
+
+      <div class="reactions">
+        <button class="reaction-btn">
+          <span class="emoji">😄</span>
+          看着我了
+        </button>
+        <button class="reaction-btn">
+          <span class="emoji">🗣️</span>
+          我说了
+        </button>
+        <button class="reaction-btn">
+          <span class="emoji">👶</span>
+          咿呀学语
+        </button>
+      </div>
+
+      <div class="progress-bar-container">
+        <div class="progress-bar-bg">
+          <div class="progress-bar-fill" style="width: 30%"></div>
+        </div>
+        <div class="difficulty-tabs">
+          <span class="diff-tab active">⭐ 初级 3/5</span>
+          <span class="diff-tab">⭐⭐ 中级 0/5</span>
+          <span class="diff-tab locked">🔒 高级</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="fab">🤖</div>
+
+    <div class="bottom-nav">
+      <div class="nav-item">
+        <span class="icon">🏠</span>
+        <span>首页</span>
+      </div>
+      <div class="nav-item active">
+        <span class="icon">📚</span>
+        <span>场景</span>
+      </div>
+      <div class="nav-item">
+        <span class="icon">🎙</span>
+        <span>旅程</span>
+      </div>
+      <div class="nav-item">
+        <span class="icon">📊</span>
+        <span>进度</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== COUPLE MODE ==================== -->
+<div class="screen-container">
+  <div class="screen-label">3. 情侣模式</div>
+  <div class="screen-desc">全屏大字 + 倒计时，两人一起朗读</div>
+  <div class="phone couple-screen">
+    <div class="status-bar" style="background: #1A1520;"><div class="notch"></div></div>
+    <div class="phone-inner">
+      <div class="countdown">3</div>
+      <div class="couple-english">"Splash splash!<br>Can you splash with me?"</div>
+      <div class="couple-chinese">泼水泼水！你能和我一起泼吗？</div>
+      <button class="couple-done">✓ 完成</button>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== AI COACH ==================== -->
+<div class="screen-container">
+  <div class="screen-label">4. AI 教练</div>
+  <div class="screen-desc">描述场景 → 获得英文短语 + 教育方法提示</div>
+  <div class="phone coach-bg">
+    <div class="status-bar" style="background: var(--card-bg);"><div class="notch"></div></div>
+    <div class="phone-inner">
+      <div class="coach-header">
+        <h2>🤖 问教练</h2>
+        <button class="coach-close">×</button>
+      </div>
+
+      <div class="coach-input-area">
+        <textarea class="coach-input" placeholder="描述你现在的场景...">宝宝在吃饭时把食物扔到地上</textarea>
+        <div class="coach-input-footer">
+          <span class="coach-remaining">今日剩余: 8/10 次</span>
+          <button class="coach-send">发送 →</button>
+        </div>
+      </div>
+
+      <div class="coach-response">
+        <div class="coach-phrase-en">"Food stays on the plate, sweetie."</div>
+        <div class="coach-phrase-cn">宝贝，食物要放在盘子里哦。</div>
+        <div class="coach-tip">
+          <strong>💡 正向引导：</strong>先共情再引导。你可以说 "I see you're having fun exploring"（我看到你在探索），然后再引导 "but food stays on the plate"。不要说"不许扔"，用正面语言代替。
+        </div>
+        <div class="coach-actions">
+          <button class="coach-play-btn">▶ 听发音</button>
+          <div class="coach-feedback">
+            <button>👍</button>
+            <button>👎</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== CELEBRATION ==================== -->
+<div class="screen-container">
+  <div class="screen-label">5. 庆祝屏幕</div>
+  <div class="screen-desc">宝宝第一次咿呀学语 → 全屏庆祝 + 分享</div>
+  <div class="phone celebration">
+    <div class="status-bar" style="background: transparent;"><div class="notch"></div></div>
+    <div class="phone-inner">
+      <div class="celebration-emoji">🎉 ✨ 🎊</div>
+      <div class="celebration-title">小明的第一个英文词！</div>
+      <div class="celebration-card">
+        <div class="celebration-phrase">"Splash splash!"</div>
+        <div class="celebration-phrase-cn">泼水泼水！</div>
+        <div class="celebration-meta">
+          🛁 洗澡时间 · 2026年4月1日
+        </div>
+      </div>
+      <button class="celebration-share">📤 分享给家人</button>
+      <button class="celebration-dismiss">不太对？取消</button>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== ONBOARDING ==================== -->
+<div class="screen-container">
+  <div class="screen-label">6. Onboarding</div>
+  <div class="screen-desc">首次使用：输入孩子名字和生日</div>
+  <div class="phone onboarding-bg">
+    <div class="status-bar"><div class="notch"></div></div>
+    <div class="phone-inner">
+      <div class="onboard-step">步骤 1/3</div>
+      <div class="onboard-title">你的宝贝叫什么名字？</div>
+      <div class="onboard-subtitle">我们会用 ta 的名字让每天的英语练习更亲切 🥰</div>
+      <input class="onboard-input" type="text" placeholder="输入宝宝的小名" value="小明">
+      <button class="onboard-btn">下一步 →</button>
+    </div>
+  </div>
+</div>
+
+</div>
+
+<div style="text-align: center; margin-top: 60px; padding: 20px; color: var(--text-muted); font-size: 12px;">
+  Baby Talk 2 · Design Review · 2026-04-01 · Generated by /plan-design-review
+</div>
+
+</body>
+</html>
