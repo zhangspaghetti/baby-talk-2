@@ -2,6 +2,20 @@
 
 ## P1 — Blocks Production
 
+### Update Design Doc for Native Pivot
+**What:** 将 `docs/designs/baby-talk-extended-mvp.md` 中所有 "Flutter Web first" 的引用更新为 "Flutter Native first"。移除所有 "hidden on Flutter Web" / "native-only" 的条件逻辑。更新 Build Order、Key Implementation Decisions、Known Risks 等章节。
+**Why:** 现有设计文档和新的 CEO Plan (`ceo-plans/2026-04-01-native-app-pivot.md`) 矛盾。开发者会困惑。
+**Context:** CEO Review (2026-04-01) 确认 Phase 1 改为 Flutter Native (Android APK + iOS i4Tools 自签名)。设计文档需要同步更新。
+**Effort:** S (CC: ~15 分钟，批量替换)
+**Depends on:** CEO Plan 已完成 ✅
+
+### Alibaba Cloud ASR Flutter Integration Spike
+**What:** 验证阿里云 ASR 的 Flutter 集成方式。是否有现成 Flutter plugin？还是需要 Platform Channel 桥接原生 SDK？
+**Why:** 如果需要 Platform Channel，AI 教练语音输入的工时从 S 变成 M。影响 Sprint 3-4 排期。
+**Context:** CEO Review (2026-04-01) 将 AI 教练语音输入提前到 Phase 1。Layer 0 tech spike 需要 Sprint 1 Day 1-2 完成。
+**Effort:** S (CC: ~30 分钟研究 + 原型)
+**Depends on:** Nothing. Start immediately.
+
 ### Pre-Launch Admin Dependencies (START IMMEDIATELY)
 **What:** ICP filing + Alibaba Cloud SMS template approval + Alibaba Cloud enterprise certification. These are administrative processes that run in parallel with development.
 **Why:** Without ICP filing, backend server domain cannot be accessed in China. Without SMS template approval, cannot send verification codes. Without enterprise certification, Alibaba Cloud API call limits are too low for production.
@@ -13,7 +27,7 @@
 ### WeChat Share Card Enhancement
 **What:** Custom OG meta tags for WeChat card preview when sharing celebration links. Currently shares as plain URL.
 **Why:** Rich preview cards get significantly higher tap-through rates in WeChat groups. The celebration card is the primary viral growth mechanic.
-**Context:** Phase 1 shares via plain URL (landing page link, not in-app). Custom OG card preview requires WeChat Open Platform app ID registration and server-side OG tag rendering endpoint. Architecture changed: now native app with web landing page, not Flutter Web.
+**Context:** Phase 1 shares via plain URL (landing page link, not in-app). Custom OG card preview requires WeChat Open Platform app ID registration and server-side OG tag rendering endpoint. Architecture changed: now native app with web landing page, not Flutter Web. Phase 1 landing page 不含 OG 标签（需要微信平台注册审批时间）。Phase 2 加入 OG 标签支持。
 **Effort:** M (human: ~1 week with registration / CC: ~30 min)
 **Depends on:** WeChat Open Platform account registration
 
@@ -25,6 +39,13 @@
 **Depends on:** Chinese legal entity registration (if not already done)
 
 ## P2 — Post-Validation
+
+### Hive Data Migration Strategy
+**What:** 定义 Hive schema 演进策略。当数据模型变更时（加字段、改类型），旧版 app 的本地数据如何迁移到新版。
+**Why:** Native app 更新是覆盖安装，Hive 数据会保留。如果新版的数据模型不兼容旧数据，app 会 crash。
+**Context:** Phase 1 用 Hive 做本地存储。第一次 APK 更新前必须有迁移策略。可以用 version 字段 + migration runner 模式。
+**Effort:** S (CC: ~15 分钟，写一个 migration runner)
+**Depends on:** Phase 1 数据模型确定
 
 ### JPush Vendor Channel Push Notifications
 **What:** Replace flutter_local_notifications with JPush SDK + vendor-specific push channels (Huawei Push Kit, Xiaomi MiPush, OPPO Push, etc.) for reliable push delivery.
