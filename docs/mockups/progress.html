@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>我的 / 进度 Profile — Baby Talk 2</title>
+<link rel="stylesheet" href="tokens.css">
+<style>
+.profile-header {
+  text-align: center;
+  padding: var(--space-md) var(--space-md) var(--space-lg);
+}
+.profile-avatar {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: var(--accent-light);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 32px;
+  margin: 0 auto var(--space-sm);
+}
+.profile-name {
+  font-size: 18px;
+  font-weight: 700;
+}
+.profile-stage {
+  font-size: 13px;
+  color: var(--text-muted);
+  font-family: 'DM Sans', sans-serif;
+  margin-top: 2px;
+}
+
+/* 圆环图 */
+.ring-chart {
+  width: 140px;
+  height: 140px;
+  margin: 0 auto var(--space-lg);
+  position: relative;
+}
+.ring-chart svg { transform: rotate(-90deg); }
+.ring-chart .ring-label {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+.ring-chart .ring-number {
+  font-size: 32px;
+  font-weight: 700;
+  font-family: 'DM Sans', sans-serif;
+  color: var(--accent);
+}
+.ring-chart .ring-text {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+/* 本周小结 */
+.week-stats {
+  display: flex;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-lg);
+}
+.week-stat {
+  flex: 1;
+  background: var(--bg-surface);
+  border-radius: var(--radius-md);
+  padding: var(--space-md);
+  box-shadow: var(--shadow-sm);
+  text-align: center;
+}
+.week-stat .num {
+  font-size: 24px;
+  font-weight: 700;
+  font-family: 'DM Sans', sans-serif;
+}
+.week-stat .label {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+/* 场景 mastery 条形图 */
+.mastery-section { margin-bottom: var(--space-lg); }
+.mastery-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-md);
+}
+.mastery-item .scene-emoji {
+  width: 32px;
+  text-align: center;
+  font-size: 20px;
+}
+.mastery-item .scene-label {
+  width: 60px;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+.mastery-item .bar-track {
+  flex: 1;
+  height: 8px;
+  background: var(--border);
+  border-radius: 4px;
+  overflow: hidden;
+}
+.mastery-item .bar-fill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.5s ease-out;
+}
+.mastery-item .bar-num {
+  width: 30px;
+  text-align: right;
+  font-size: 13px;
+  font-family: 'DM Sans', sans-serif;
+  color: var(--text-muted);
+}
+
+/* 里程碑时间线 */
+.milestone-section { margin-bottom: var(--space-lg); }
+.milestone-item {
+  display: flex;
+  gap: var(--space-md);
+  margin-bottom: var(--space-md);
+}
+.milestone-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  flex-shrink: 0;
+}
+.milestone-info { flex: 1; }
+.milestone-info .title { font-size: 14px; font-weight: 600; }
+.milestone-info .desc { font-size: 13px; color: var(--text-secondary); line-height: 1.4; }
+.milestone-info .date { font-size: 11px; color: var(--text-muted); font-family:'DM Sans',sans-serif; margin-top: 2px; }
+
+/* Bedtime Summary 推送预览 (E5) */
+.bedtime-card {
+  background: linear-gradient(135deg, #2D2926 0%, #3D352F 100%);
+  border-radius: var(--radius-md);
+  padding: var(--space-lg);
+  color: white;
+  margin-bottom: var(--space-md);
+  box-shadow: var(--shadow-md);
+}
+.bedtime-card .moon { font-size: 28px; margin-bottom: var(--space-sm); }
+.bedtime-card .msg { font-size: 15px; line-height: 1.6; }
+.bedtime-card .msg .highlight { color: var(--accent); font-weight: 600; }
+
+.back-link {
+  display: inline-block;
+  margin: var(--space-md);
+  font-size: 13px;
+  color: var(--text-muted);
+  text-decoration: none;
+  font-family: 'DM Sans', sans-serif;
+}
+</style>
+</head>
+<body>
+<a href="index.html" class="back-link">← 返回目录</a>
+
+<div class="phone-frame">
+  <div class="status-bar">
+    <span>9:41</span>
+    <span>📶 🔋</span>
+  </div>
+
+  <div class="top-bar">
+    <div class="avatar">👩</div>
+    <div class="notification">🔔</div>
+  </div>
+
+  <div class="content">
+    <div class="profile-header">
+      <div class="profile-avatar">👶</div>
+      <div class="profile-name">小明的英语旅程</div>
+      <div class="profile-stage">阶段 2 · 已学 21 个短语 · 加入第 12 天</div>
+    </div>
+
+    <!-- 圆环图 -->
+    <div class="ring-chart">
+      <svg width="140" height="140" viewBox="0 0 140 140">
+        <circle cx="70" cy="70" r="60" fill="none" stroke="#E8E2DC" stroke-width="10"/>
+        <circle cx="70" cy="70" r="60" fill="none" stroke="#FF8C42" stroke-width="10"
+                stroke-dasharray="377" stroke-dashoffset="245" stroke-linecap="round"/>
+      </svg>
+      <div class="ring-label">
+        <div class="ring-number">35%</div>
+        <div class="ring-text">阶段 2 进度</div>
+      </div>
+    </div>
+
+    <!-- 本周小结 -->
+    <div class="section-title">这周</div>
+    <div class="week-stats">
+      <div class="week-stat">
+        <div class="num" style="color:var(--accent);">23</div>
+        <div class="label">句英语</div>
+      </div>
+      <div class="week-stat">
+        <div class="num" style="color:var(--english);">4</div>
+        <div class="label">个场景</div>
+      </div>
+      <div class="week-stat">
+        <div class="num" style="color:var(--success);">1</div>
+        <div class="label">次咿呀</div>
+      </div>
+    </div>
+
+    <!-- 场景 mastery -->
+    <div class="mastery-section">
+      <div class="section-title">各场景进度</div>
+      <div class="mastery-item">
+        <span class="scene-emoji">😴</span>
+        <span class="scene-label">睡前</span>
+        <div class="bar-track"><div class="bar-fill" style="width:60%; background:var(--english);"></div></div>
+        <span class="bar-num">9</span>
+      </div>
+      <div class="mastery-item">
+        <span class="scene-emoji">🛁</span>
+        <span class="scene-label">洗澡</span>
+        <div class="bar-track"><div class="bar-fill" style="width:40%; background:var(--accent);"></div></div>
+        <span class="bar-num">6</span>
+      </div>
+      <div class="mastery-item">
+        <span class="scene-emoji">🩱</span>
+        <span class="scene-label">换尿布</span>
+        <div class="bar-track"><div class="bar-fill" style="width:20%; background:var(--warning);"></div></div>
+        <span class="bar-num">3</span>
+      </div>
+      <div class="mastery-item">
+        <span class="scene-emoji">👗</span>
+        <span class="scene-label">穿衣</span>
+        <div class="bar-track"><div class="bar-fill" style="width:13%; background:var(--success);"></div></div>
+        <span class="bar-num">2</span>
+      </div>
+      <div class="mastery-item">
+        <span class="scene-emoji">🤸</span>
+        <span class="scene-label">玩耍</span>
+        <div class="bar-track"><div class="bar-fill" style="width:7%; background:var(--info);"></div></div>
+        <span class="bar-num">1</span>
+      </div>
+      <div class="mastery-item">
+        <span class="scene-emoji">🍼</span>
+        <span class="scene-label">喂奶</span>
+        <div class="bar-track"><div class="bar-fill" style="width:0%;"></div></div>
+        <span class="bar-num">0</span>
+      </div>
+    </div>
+
+    <!-- 里程碑 -->
+    <div class="milestone-section">
+      <div class="section-title">里程碑 🎉</div>
+      <div class="milestone-item">
+        <div class="milestone-icon" style="background:var(--accent-light);">🎉</div>
+        <div class="milestone-info">
+          <div class="title">小明第一次咿呀学语！</div>
+          <div class="desc">在洗澡时间说 "Splash" 后，小明发出了 "pa-pa" 的声音</div>
+          <div class="date">2026-03-28 · 洗澡场景</div>
+        </div>
+      </div>
+      <div class="milestone-item">
+        <div class="milestone-icon" style="background:var(--success-soft);">✅</div>
+        <div class="milestone-info">
+          <div class="title">睡前场景初级完成！</div>
+          <div class="desc">你已经掌握了睡前时光所有初级短语</div>
+          <div class="date">2026-03-25</div>
+        </div>
+      </div>
+      <div class="milestone-item">
+        <div class="milestone-icon" style="background:var(--english-soft);">🌟</div>
+        <div class="milestone-info">
+          <div class="title">连续 7 天打卡</div>
+          <div class="desc">你已经连续 7 天和小明说英语了！</div>
+          <div class="date">2026-03-24</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Bedtime Summary (E5) 预览 -->
+    <div class="section-title">晚安小结</div>
+    <div class="bedtime-card">
+      <div class="moon">🌙</div>
+      <div class="msg">今天你和<span class="highlight">小明</span>说了 <span class="highlight">5 句</span>英语，覆盖了洗澡和换尿布 2 个场景。小明对 "Splash!" 笑了 😊</div>
+    </div>
+  </div>
+
+  <div class="bottom-nav">
+    <div class="nav-item">
+      <span class="icon">🏠</span>
+      <span>首页</span>
+    </div>
+    <div class="nav-item">
+      <span class="icon">🔍</span>
+      <span>发现</span>
+    </div>
+    <div class="nav-item">
+      <span class="icon">📝</span>
+      <span>笔记</span>
+    </div>
+    <div class="nav-item active">
+      <span class="icon">👤</span>
+      <span>我的</span>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

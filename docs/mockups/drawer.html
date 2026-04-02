@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>侧栏 Drawer — Baby Talk 2</title>
+<link rel="stylesheet" href="tokens.css">
+<style>
+.drawer-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(45,41,38,0.4);
+  z-index: 50;
+}
+.drawer-panel {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 280px;
+  background: var(--bg-surface);
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  box-shadow: var(--shadow-lg);
+  animation: slideIn 0.2s ease-out;
+}
+@keyframes slideIn {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(0); }
+}
+
+.drawer-header {
+  padding: 60px var(--space-lg) var(--space-lg);
+  background: var(--bg-base);
+}
+.drawer-avatar {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: var(--accent-light);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28px;
+  margin-bottom: var(--space-sm);
+}
+.drawer-name {
+  font-size: 18px;
+  font-weight: 700;
+}
+.drawer-phone {
+  font-size: 13px;
+  color: var(--text-muted);
+  font-family: 'DM Sans', sans-serif;
+  margin-top: 2px;
+}
+
+.drawer-menu {
+  flex: 1;
+  padding: var(--space-md) 0;
+}
+.drawer-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  padding: var(--space-md) var(--space-lg);
+  cursor: pointer;
+  transition: background 0.1s;
+}
+.drawer-item:active { background: var(--bg-sunken); }
+.drawer-item .icon { font-size: 20px; width: 28px; text-align: center; }
+.drawer-item .text { font-size: 15px; flex: 1; }
+.drawer-item .badge-new {
+  font-size: 10px;
+  background: var(--accent);
+  color: white;
+  padding: 1px 6px;
+  border-radius: var(--radius-full);
+  font-family: 'DM Sans', sans-serif;
+}
+.drawer-item.disabled { opacity: 0.5; }
+.drawer-item.disabled .text::after {
+  content: ' (Phase 2)';
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.drawer-divider {
+  height: 1px;
+  background: var(--border);
+  margin: var(--space-sm) var(--space-lg);
+}
+
+.drawer-footer {
+  padding: var(--space-md) var(--space-lg);
+  border-top: 1px solid var(--border);
+}
+.drawer-footer .version {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-family: 'DM Sans', sans-serif;
+}
+
+.back-link {
+  display: inline-block;
+  margin: var(--space-md);
+  font-size: 13px;
+  color: var(--text-muted);
+  text-decoration: none;
+  font-family: 'DM Sans', sans-serif;
+}
+</style>
+</head>
+<body>
+<a href="index.html" class="back-link">← 返回目录</a>
+
+<div class="phone-frame">
+  <div class="status-bar"><span>9:41</span><span>📶 🔋</span></div>
+  
+  <!-- 背景内容 （模糊） -->
+  <div style="flex:1; opacity:0.3; padding:var(--space-md);">
+    <div style="background:var(--bg-surface); border-radius:var(--radius-md); padding:var(--space-lg); box-shadow:var(--shadow-sm); margin-bottom:var(--space-md);">
+      <div style="font-size:16px; color:var(--text-muted);">Smart Home 内容...</div>
+    </div>
+  </div>
+  
+  <div class="bottom-nav" style="opacity:0.3;">
+    <div class="nav-item active"><span class="icon">🏠</span><span>首页</span></div>
+    <div class="nav-item"><span class="icon">🔍</span><span>发现</span></div>
+    <div class="nav-item"><span class="icon">📝</span><span>笔记</span></div>
+    <div class="nav-item"><span class="icon">👤</span><span>我的</span></div>
+  </div>
+
+  <!-- Drawer Overlay -->
+  <div class="drawer-overlay"></div>
+
+  <!-- Drawer Panel -->
+  <div class="drawer-panel">
+    <div class="drawer-header">
+      <div class="drawer-avatar">👩</div>
+      <div class="drawer-name">小明妈妈</div>
+      <div class="drawer-phone">138****5678</div>
+    </div>
+
+    <div class="drawer-menu">
+      <div class="drawer-item">
+        <span class="icon">⚙️</span>
+        <span class="text">设置</span>
+      </div>
+      <div class="drawer-item">
+        <span class="icon">🔔</span>
+        <span class="text">推送提醒</span>
+        <span class="badge-new">每日 6pm</span>
+      </div>
+      <div class="drawer-divider"></div>
+      <div class="drawer-item disabled">
+        <span class="icon">👑</span>
+        <span class="text">会员中心</span>
+      </div>
+      <div class="drawer-item disabled">
+        <span class="icon">📷</span>
+        <span class="text">扫码</span>
+      </div>
+      <div class="drawer-divider"></div>
+      <div class="drawer-item">
+        <span class="icon">💬</span>
+        <span class="text">客服反馈</span>
+      </div>
+      <div class="drawer-item">
+        <span class="icon">📋</span>
+        <span class="text">隐私政策</span>
+      </div>
+      <div class="drawer-item">
+        <span class="icon">ℹ️</span>
+        <span class="text">关于</span>
+      </div>
+    </div>
+
+    <div class="drawer-footer">
+      <div class="version">Baby Talk v1.0.0 · 阶段 2</div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

@@ -181,7 +181,9 @@
 | SceneListItem | 场景列表项 | --bg-surface, --radius-md, full-width |
 | ProgressBar | 短语进度条 | 4px height, --border track, --accent fill |
 | AlertBanner | 提示/错误横幅 | semantic color soft bg, --radius-sm |
-| BottomNav | 底部导航栏 | 4 tabs (首页/发现/笔记/我的), --bg-surface |
+| BottomNav | 底部导航栏 | 5 tabs (首页/发现/教练/笔记/我的), --bg-surface, 中央教练图标突出 |
+| Drawer | 左侧抽屉菜单 | --bg-surface, --shadow-lg, --radius-lg (右侧圆角), 280px 宽 |
+| VoiceMemoCard | 语音备忘条 | --bg-surface, --radius-md, 波形可视化, 时长+场景标签 |
 
 ## Decisions Log
 | Date | Decision | Rationale |
@@ -193,3 +195,8 @@
 | 2026-04-02 | Keep #FFF8F0 + #FF8C42 core palette | SAFE: validated across 12 existing HTML mockups. Changing would require redoing all mockups. |
 | 2026-04-02 | Hierarchical border radius 8/16/24/full | Replaces flat 16px everywhere. Small elements sharper, large containers softer. |
 | 2026-04-02 | Warm shadows rgba(45,41,38) instead of cool gray | Blends naturally with cream background. Subtle but noticeable difference. |
+| 2026-04-02 | Navigation: 4-tab+FAB → 5-tab with center Coach icon | Design Review v2. 单手抱宝宝操作，中央图标比 FAB 更易触达。导航: 首页/发现/教练/笔记/我的 |
+| 2026-04-02 | Dark Mode: follow system setting | Design Review v2. 跟随系统设置，使用 DESIGN.md dark mode token 策略。|
+| 2026-04-02 | Screen orientation: portrait lock | Design Review v2. Phase 1 锁定竖屏，简化布局开发。|
+| 2026-04-02 | Discovery: single-column variable-height cards | Design Review v2. Anti-slop: 不用 2x3 网格，改用单列不等高卡片流。|
+| 2026-04-02 | Notes tab active in Phase 1 as Voice Memo | Design Review v2. 语音备忘录功能提前到 Phase 1，本地 Isar 存储，不需要 OSS。|

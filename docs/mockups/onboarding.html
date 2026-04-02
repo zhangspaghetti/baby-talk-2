@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>入门引导 Onboarding — Baby Talk 2</title>
+<link rel="stylesheet" href="tokens.css">
+<style>
+body { background: var(--bg-base); }
+
+/* 步骤导航 */
+.steps-indicator {
+  display: flex;
+  gap: var(--space-xs);
+  justify-content: center;
+  padding: var(--space-md);
+}
+.step-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 4px;
+  background: var(--border);
+  transition: all 0.2s;
+}
+.step-dot.active { width: 24px; background: var(--accent); }
+.step-dot.done { background: var(--success); }
+
+/* Onboarding 内容 */
+.ob-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-xl) var(--space-lg);
+  text-align: center;
+}
+.ob-emoji { font-size: 64px; margin-bottom: var(--space-lg); }
+.ob-title {
+  font-size: 24px;
+  font-weight: 700;
+  margin-bottom: var(--space-sm);
+  line-height: 1.3;
+}
+.ob-desc {
+  font-size: 15px;
+  color: var(--text-secondary);
+  line-height: 1.6;
+  margin-bottom: var(--space-xl);
+  max-width: 300px;
+}
+.ob-input-area {
+  width: 100%;
+  max-width: 300px;
+  margin-bottom: var(--space-lg);
+}
+.ob-input-area label {
+  display: block;
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: var(--space-sm);
+  text-align: left;
+}
+
+/* 阶段匹配动画 */
+.stage-match {
+  width: 200px;
+  height: 200px;
+  border-radius: 50%;
+  background: var(--accent-light);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: var(--space-lg);
+  animation: pulse 2s ease-in-out infinite;
+}
+@keyframes pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+}
+.stage-match .number {
+  font-size: 48px;
+  font-weight: 700;
+  font-family: 'DM Sans', sans-serif;
+  color: var(--accent);
+}
+.stage-match .label {
+  font-size: 14px;
+  color: var(--accent-dark);
+  font-weight: 500;
+}
+
+/* 过渡页 (情感投入) */
+.transition-page {
+  background: linear-gradient(170deg, #FFF8F0 0%, #D4E8E3 100%);
+}
+.transition-page .phrase {
+  font-family: 'Fraunces', Georgia, serif;
+  font-size: 28px;
+  font-weight: 500;
+  color: var(--english);
+  line-height: 1.3;
+  margin-bottom: var(--space-md);
+}
+
+/* 登录页 */
+.login-section {
+  width: 100%;
+  max-width: 300px;
+}
+.login-section .phone-input {
+  display: flex;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-sm);
+}
+.login-section .phone-input .prefix {
+  width: 70px;
+  padding: 14px var(--space-sm);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: 16px;
+  background: var(--bg-sunken);
+  color: var(--text-secondary);
+  text-align: center;
+}
+.login-section .sms-row {
+  display: flex;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-md);
+}
+.login-section .sms-row input { flex: 1; }
+.login-section .sms-btn {
+  white-space: nowrap;
+  padding: 14px var(--space-md);
+  background: var(--accent-light);
+  color: var(--accent-dark);
+  border: none;
+  border-radius: var(--radius-sm);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+}
+.login-section .alt-login {
+  text-align: center;
+  margin-top: var(--space-md);
+  font-size: 13px;
+  color: var(--text-muted);
+}
+.login-section .alt-login a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+/* PIPL 弹窗 */
+.pipl-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(45,41,38,0.5);
+  display: flex;
+  align-items: flex-end;
+  z-index: 50;
+}
+.pipl-sheet {
+  background: var(--bg-surface);
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  padding: var(--space-lg);
+  width: 100%;
+}
+.pipl-sheet h3 {
+  font-size: 18px;
+  font-weight: 700;
+  margin-bottom: var(--space-md);
+}
+.pipl-sheet .pipl-text {
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.7;
+  margin-bottom: var(--space-lg);
+  max-height: 200px;
+  overflow-y: auto;
+}
+.pipl-sheet .pipl-text a { color: var(--accent); }
+.pipl-sheet .checkbox-row {
+  display: flex;
+  gap: var(--space-sm);
+  align-items: flex-start;
+  margin-bottom: var(--space-md);
+}
+.pipl-sheet .checkbox-row input { margin-top: 3px; }
+.pipl-sheet .checkbox-row label { font-size: 13px; line-height: 1.5; }
+
+.btn-row { display:flex; gap:var(--space-sm); margin-top:var(--space-sm); }
+.btn-row .btn-primary, .btn-row .btn-secondary { flex:1; text-align:center; }
+
+/* 步骤切换提示 */
+.step-nav {
+  text-align: center;
+  padding: var(--space-md);
+  font-size: 12px;
+  color: var(--text-muted);
+  font-family: 'DM Sans', sans-serif;
+}
+
+.back-link {
+  display: inline-block;
+  margin: var(--space-md);
+  font-size: 13px;
+  color: var(--text-muted);
+  text-decoration: none;
+  font-family: 'DM Sans', sans-serif;
+}
+</style>
+</head>
+<body>
+<a href="index.html" class="back-link">← 返回目录</a>
+
+<div style="display:flex; flex-wrap:wrap; gap:var(--space-lg); justify-content:center;">
+
+<!-- Step 1: 欢迎 -->
+<div class="phone-frame">
+  <div class="status-bar"><span>9:41</span><span>📶 🔋</span></div>
+  <div class="steps-indicator">
+    <div class="step-dot active"></div>
+    <div class="step-dot"></div>
+    <div class="step-dot"></div>
+    <div class="step-dot"></div>
+    <div class="step-dot"></div>
+  </div>
+  <div class="ob-content">
+    <div class="ob-emoji">👶</div>
+    <div class="ob-title">和宝宝一起<br>说英语</div>
+    <div class="ob-desc">让中国父母在日常场景中，自然地对宝宝说英文。不需要完美发音，只需要你的声音和爱。</div>
+    <button class="btn-primary" style="max-width:300px;">开始 →</button>
+  </div>
+  <div class="step-nav">Step 1 / 7 — 欢迎页</div>
+</div>
+
+<!-- Step 2: 输入名字 -->
+<div class="phone-frame">
+  <div class="status-bar"><span>9:41</span><span>📶 🔋</span></div>
+  <div class="steps-indicator">
+    <div class="step-dot done"></div>
+    <div class="step-dot active"></div>
+    <div class="step-dot"></div>
+    <div class="step-dot"></div>
+    <div class="step-dot"></div>
+  </div>
+  <div class="ob-content">
+    <div class="ob-emoji">🍼</div>
+    <div class="ob-title">你的宝宝叫什么？</div>
+    <div class="ob-desc">我们会用宝宝的名字让每个短语更有温度。"小明等着听你说英语！"</div>
+    <div class="ob-input-area">
+      <label>宝宝的名字</label>
+      <input type="text" class="input-field" placeholder="例如：小明" value="小明">
+    </div>
+    <button class="btn-primary" style="max-width:300px;">下一步 →</button>
+  </div>
+  <div class="step-nav">Step 2 / 7 — 输入名字 (名字清洗: trim+normalize)</div>
+</div>
+
+<!-- Step 3: 输入生日 -->
+<div class="phone-frame">
+  <div class="status-bar"><span>9:41</span><span>📶 🔋</span></div>
+  <div class="steps-indicator">
+    <div class="step-dot done"></div>
+    <div class="step-dot done"></div>
+    <div class="step-dot active"></div>
+    <div class="step-dot"></div>
+    <div class="step-dot"></div>
+  </div>
+  <div class="ob-content">
+    <div class="ob-emoji">🎂</div>
+    <div class="ob-title">小明的生日</div>
+    <div class="ob-desc">我们会根据宝宝的年龄，推荐最合适的英文短语和互动方式。</div>
+    <div class="ob-input-area">
+      <label>出生日期</label>
+      <input type="date" class="input-field" value="2025-08-15">
+    </div>
+    <button class="btn-primary" style="max-width:300px;">下一步 →</button>
+  </div>
+  <div class="step-nav">Step 3 / 7 — 输入生日</div>
+</div>
+
+<!-- Step 4: 阶段匹配动画 -->
+<div class="phone-frame">
+  <div class="status-bar"><span>9:41</span><span>📶 🔋</span></div>
+  <div class="steps-indicator">
+    <div class="step-dot done"></div>
+    <div class="step-dot done"></div>
+    <div class="step-dot done"></div>
+    <div class="step-dot active"></div>
+    <div class="step-dot"></div>
+  </div>
+  <div class="ob-content">
+    <div class="stage-match">
+      <div class="number">2</div>
+      <div class="label">日常对话</div>
+    </div>
+    <div class="ob-title">小明在阶段 2！</div>
+    <div class="ob-desc">8 个月大的宝宝正在快速吸收语言。在日常场景中说英文，小明会开始关联声音和动作。</div>
+    <button class="btn-primary" style="max-width:300px;">太好了！→</button>
+  </div>
+  <div class="step-nav">Step 4 / 7 — 阶段匹配动画</div>
+</div>
+
+<!-- Step 5: 情感过渡页 -->
+<div class="phone-frame transition-page">
+  <div class="status-bar"><span>9:41</span><span>📶 🔋</span></div>
+  <div class="steps-indicator">
+    <div class="step-dot done"></div>
+    <div class="step-dot done"></div>
+    <div class="step-dot done"></div>
+    <div class="step-dot done"></div>
+    <div class="step-dot active"></div>
+  </div>
+  <div class="ob-content">
+    <div class="ob-emoji">💛</div>
+    <div class="phrase" style="font-family:'Fraunces',serif; font-size:28px; color:var(--english); font-weight:500; line-height:1.3; margin-bottom:var(--space-md);">
+      "小明等着<br>听你说英语"
+    </div>
+    <div class="ob-desc">注册账号，保存小明的学习记录。<br>一切从第一个短语开始。</div>
+    <button class="btn-primary" style="max-width:300px;">注册保存记录</button>
+    <button style="margin-top:var(--space-sm); background:none; border:none; color:var(--text-muted); font-size:14px; cursor:pointer;">先看看再说</button>
+  </div>
+  <div class="step-nav">Step 5 / 7 — 注册过渡页 (情感投入)</div>
+</div>
+
+<!-- Step 6: 登录 -->
+<div class="phone-frame">
+  <div class="status-bar"><span>9:41</span><span>📶 🔋</span></div>
+  <div class="ob-content">
+    <div class="ob-title" style="margin-bottom:var(--space-lg);">登录</div>
+    <div class="login-section">
+      <label style="display:block; font-size:14px; font-weight:600; margin-bottom:var(--space-sm); text-align:left;">手机号</label>
+      <div class="phone-input">
+        <div class="prefix">+86</div>
+        <input type="tel" class="input-field" placeholder="请输入手机号" style="flex:1;">
+      </div>
+      <label style="display:block; font-size:14px; font-weight:600; margin-bottom:var(--space-sm); text-align:left; margin-top:var(--space-md);">验证码</label>
+      <div class="sms-row">
+        <input type="text" class="input-field" placeholder="6 位验证码">
+        <button class="sms-btn">发送验证码</button>
+      </div>
+      <button class="btn-primary">登录</button>
+      <div class="alt-login">
+        或 <a href="#">使用账号密码登录</a>
+      </div>
+    </div>
+  </div>
+  <div class="step-nav">Step 6 / 7 — 手机号+SMS 登录</div>
+</div>
+
+<!-- Step 7: PIPL 隐私同意 -->
+<div class="phone-frame">
+  <div class="status-bar"><span>9:41</span><span>📶 🔋</span></div>
+  <div style="flex:1;"></div>
+  <div class="pipl-overlay">
+    <div class="pipl-sheet">
+      <h3>🔒 隐私保护说明</h3>
+      <div class="pipl-text">
+        <p>根据《个人信息保护法》(PIPL)，我们需要获得您的同意才能处理以下信息：</p>
+        <br>
+        <p><strong>我们收集的信息：</strong></p>
+        <p>· 手机号码（用于账号登录）</p>
+        <p>· 宝宝昵称和出生日期（用于个性化推荐）</p>
+        <p>· 使用记录（用于进度追踪和改进）</p>
+        <br>
+        <p><strong>我们不会：</strong></p>
+        <p>· 将您的信息出售给第三方</p>
+        <p>· 记录您的语音内容</p>
+        <p>· 在未经同意的情况下发送营销信息</p>
+        <br>
+        <p>所有数据存储在中国大陆境内的阿里云服务器。</p>
+        <p>阅读完整 <a href="#">隐私政策</a> 和 <a href="#">用户协议</a>。</p>
+      </div>
+      <div class="checkbox-row">
+        <input type="checkbox" id="pipl" checked>
+        <label for="pipl">我已阅读并同意《隐私政策》和《用户协议》</label>
+      </div>
+      <button class="btn-primary">同意并继续</button>
+      <button class="btn-secondary" style="margin-top:var(--space-sm);">不同意</button>
+    </div>
+  </div>
+  <div class="step-nav" style="position:relative; z-index:0;">Step 7 / 7 — PIPL 隐私同意弹窗</div>
+</div>
+
+</div>
+
+</body>
+</html>

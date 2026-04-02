@@ -48,7 +48,7 @@ Phase 1 验证核心假设：**父母会不会真的每天对着宝宝说英文�
 | Vector DB | pgvector (PostgreSQL 扩展) | RAG 相似度检索 |
 | CI/CD | GitHub Actions | flutter build apk/ipa + docker build |
 
-## Phase 1 范围 — 6 个核心功能
+## Phase 1 范围 — 7 个核心功能
 
 | # | 功能 | 说明 | 复杂度 |
 |---|------|------|--------|
@@ -58,6 +58,7 @@ Phase 1 验证核心假设：**父母会不会真的每天对着宝宝说英文�
 | 4 | **Roadmap + Difficulty** | 5 个发展阶段 (0-36月), 3 个难度级别 (初/中/高), 基于生日自动匹配阶段 | S |
 | 5 | **Progress Screen** | 阶段圆环图, 各场景 mastery 条形图, 本周数据, 里程碑时间线 | S |
 | 6 | **Celebration Screen** | 宝宝首次 babble 全屏动画 + 分享链接到 landing page (无 OG 标签) | S |
+| 7 | **Voice Memo (Notes)** | 语音备忘录: 本地录音+回放, 自动关联场景/短语, Isar 存储 (不需要 OSS) | S |
 
 ### 跨功能需求
 
@@ -69,13 +70,64 @@ Phase 1 验证核心假设：**父母会不会真的每天对着宝宝说英文�
 | 设计系统 | 参见 DESIGN.md，不在本文件重复 |
 | 数据埋点 | screen view, session duration, feature usage 事件跟踪 |
 | API 版本协商 | X-App-Version 头 + 426 Upgrade Required |
+| 屏幕方向 | **锁定竖屏** (Design Review v2: 简化开发，Phase 1 不支持横屏) |
+| Dark Mode | **跟随系统设置** (Design Review v2: 参见 DESIGN.md Dark Mode Strategy) |
+
+### 离线降级策略 (Design Review v2 新增)
+
+**原则:** 全局离线 banner + 灰掉不可用功能。用温暖文案而非技术术语。
+
+**全局离线 Banner:**
+```
+┌─────────────────────────────────────┐
+│ ☁️ 没有网络，部分功能暂时休息      │  ← --warning-soft 背景
+│    恢复联网后自动同步哦             │     固定在顶部，轻触可收起
+└─────────────────────────────────────┘
+```
+
+**各功能离线状态:**
+
+| 功能 | 离线可用性 | 降级 UI |
+|------|-----------|---------|
+| Scene Coaching (种子短语) | ✅ 完全可用 | 无变化 (assets 打包) |
+| TTS 播放 (种子短语) | ✅ 完全可用 | 无变化 (assets 打包) |
+| ReactionChip 追踪 | ✅ 可用，离线存储 | 记录到 Isar，联网后上传 |
+| Progress 屏幕 | ⚠️ 显示本地数据 | 本地数据 + "未同步" 标签 |
+| AI Coach | ❌ 不可用 | 灰色覆盖 + "需要网络" + 建议: "试试场景练习吧" |
+| 笔记录音 | ✅ 可用 (本地存储) | 无变化 |
+| Smart Home 推荐 | ⚠️ 基于本地数据 | 推荐可能不够智能，但仍可显示短语 |
+| Data Sync | ❌ 不可用 | 静默排队，联网后自动上传 |
+| 登录/注册 | ❌ 不可用 | 灰色 + "需要网络发送验证码" |
+
+### 关键交互状态矩阵 (Design Review v2 新增)
+
+**AI Coach 聊天状态:**
+
+| 状态 | 视觉表现 |
+|------|----------|
+| 首次进入 (空聊天) | Quick Ask chips (E7): "我不知道该说什么" / "洗澡时说什么" / "宝宝不配合怎么办" + 欢迎语: "你好！我是{child_name}的英语教练 👋" |
+| 等待 LLM 响应 | 教练头像 + 打字动画 (3 个跳跃圆点) |
+| SSE 流式输出 | 文字逐字出现，英文短语用 Fraunces + --english 高亮 |
+| TTS 就绪 | 英文短语旁出现 ▶ 播放小按钮 (淡入) |
+| TTS 加载中 | ▶ 按钮变为旋转 spinner |
+| SSE 断连重连 | 已有文字保留 + "正在重新连接..." 灰色提示 |
+| 重连失败 (3次) | 已有文字保留 + "网络不稳定，显示部分回答" 黄色 banner |
+| 速率限制 | "今天已用 10/10 次" 灰色提示 + disabled 输入框 |
+| ASR 录音中 | 麦克风按钮脉动 + 声波动画 + "说话中..." |
+| ASR 识别失败 | "没听清，试试打字吧" + 自动切到文字输入 |
+
+**Event Sync 指示器:**
+- 待上传事件 >0: Profile 页显示小圆点 badge
+- 上传中: 顶部微型进度条 (2px, --accent)
+- 上传成功: 进度条消失，badge 清除
+- 上传失败: "数据同步失败，稍后重试" toast (不打断用户)
 
 ### Phase 1 明确不包含 (移到 Phase 2)
 
 | 功能 | 原因 |
 |------|------|
 | 情侣模式 (#11) | 纯 UI 功能，不验证核心假设 |
-| 语音备忘录 (#6) | 需要 OSS 上传，增加后端复杂度 |
+| ~~语音备忘录 (#6)~~ | ~~需要 OSS 上传~~ **已加回 Phase 1** (Design Review v2: 笔记 tab 功能, 仅本地存储, 不需要 OSS) |
 | 发音对比 (#2) | 不验证核心假设 |
 | 48h 沉默提醒 (#10) | 可以 Phase 2 加，不影响验证 |
 | 今日短语 widget (#9) | Smart Home 简化版足够 |
@@ -83,26 +135,30 @@ Phase 1 验证核心假设：**父母会不会真的每天对着宝宝说英文�
 | RAG 知识库 | ~~Phase 1 用 LLM-only~~ **已加回 Phase 1** (Eng Review v5 确认, pgvector) |
 | Refresh Token 吊销 | Phase 1 用户少，Phase 2 加 |
 
-## 导航架构 (Design Review 2026-04-02 确认)
+## 导航架构 (Design Review v2 2026-04-02 确认)
 
 ```
-┌─────────────────────────────────────┐
-│  [👤 Drawer]              [通知 🔔] │  ← 左上角头像触发 Drawer
-├─────────────────────────────────────┤
-│                                     │
-│            (内容区域)                │
-│                                     │
-├─────────────────────────────────────┤
-│  🏠 首页  │  🔍 发现  │  📝 笔记  │  👤 我的  │
-└─────────────────────────────────────┘
-
-Drawer 内容: 头像/昵称, 设置, 会员中心(Phase 2), 扫码, 客服
+┌──────────────────────────────────────────┐
+│  [👤 Drawer]                     [通知 🔔] │  ← 左上角头像触发 Drawer
+├──────────────────────────────────────────┤
+│                                          │
+│              (内容区域)                   │
+│                                          │
+├──────────────────────────────────────────┤
+│  🏠首页 │ 🔍发现 │ 🤖教练 │ 🎙笔记 │ 👤我的 │
+└──────────────────────────────────────────┘
 ```
 
-- **首页 (Home):** Smart Home 主屏幕。个性化问候 + 推荐场景/短语 + Ask Coach 入口
-- **发现 (Discover):** 场景列表 + 路线图活动（合并原"场景"和"旅程"tab）
-- **笔记 (Notes):** Phase 1 仅占位。Phase 2 承载录音+文字笔记+社交
-- **我的 (Profile):** 进度数据 + 成就（合并原"进度"tab + 部分设置）
+**导航变更 (Design Review v2):** 4-tab + FAB → **5-tab**，AI Coach 入口移到底部导航中央。
+理由: 父母单手抱宝宝操作时，底部中央图标比右下 FAB 更容易触达。中央位置也暗示这是核心功能。
+
+Drawer 内容: 头像/昵称, 设置 (推送时间/语言偏好/账号管理), 会员中心(Phase 2), 客服反馈, 隐私政策, 关于
+
+- **首页 (Home):** Smart Home 主屏幕。个性化问候 + 时段智能推荐场景/短语 + 本周速览
+- **发现 (Discover):** 场景列表 (单列不等高卡片流) + 路线图时间线
+- **教练 (Coach):** AI Coach 聊天界面。点击直接进入对话，Quick Ask chips (E7) 在顶部
+- **笔记 (Notes):** Phase 1: 语音备忘录 — 录下和宝宝说英语的瞬间。Phase 2: 加文字笔记 + 社交分享
+- **我的 (Profile):** 阶段圆环进度 + 各场景 mastery 条形图 + 里程碑时间线 + 本周数据
 
 ## Smart Home Screen
 
@@ -126,12 +182,33 @@ Drawer 内容: 头像/昵称, 设置, 会员中心(Phase 2), 扫码, 客服
 │  │ 举手手！  │ │ Brown Bear│         │
 │  └──────────┘ └──────────┘         │
 │                                     │
-│              [🤖 问教练]            │  ← Ask Coach FAB
+│  本周速览                           │  ← WeekStats 组件
+│  📣 说了 23 句 │ 🔥 连续 5 天       │
 │                                     │
-├─────────────────────────────────────┤
-│  🏠 首页  🔍 发现  📝 笔记  👤 我的 │
-└─────────────────────────────────────┘
+├──────────────────────────────────────────┤
+│  🏠首页 │ 🔍发现 │ 🤖教练 │ 🎙笔记 │ 👤我的 │
+└──────────────────────────────────────────┘
 ```
+
+### Smart Home 推荐算法 (Design Review v2)
+
+时段智能推荐逻辑 — 根据当前时间推荐最相关的场景和短语:
+- **早晨 (6-9am):** 换尿布、穿衣服 → 晨间护理短语
+- **上午 (9am-12pm):** 游戏时间 → TPR 动作短语
+- **下午 (12-5pm):** 喂奶、绘本 → 亲密互动短语
+- **傍晚 (5-8pm):** 洗澡时间 → 感官探索短语
+- **夜间 (8pm+):** 睡前 → 轻柔道晚安短语
+
+选词规则: 优先显示当前时段场景中用户**尚未掌握的**最低难度短语。
+如果当前时段的所有初级短语已掌握 → 升级到中级。
+如果所有场景在该时段都已掌握 → 显示"今天真棒"温暖总结 + 下一阶段预览。
+
+### 复访欢迎逻辑 (Design Review v2)
+
+- **首次:** First-Use Demo (E3) overlay
+- **连续使用 (≥2 天):** "又见面了！昨天{child_name}学了{yesterday_phrase}" + 新推荐
+- **中断 ≥3 天:** 温暖回归: "好久不见！{child_name}想你了 ☀️" + 复习上次的短语
+- **里程碑日:** 如果今天是宝宝月龄变化日: "🎂 {child_name}今天{X}个月了！解锁新阶段"
 
 ## Scene Coaching Screen
 
@@ -156,11 +233,165 @@ Drawer 内容: 头像/昵称, 设置, 会员中心(Phase 2), 扫码, 客服
 │  进度: ●●●○○○○○○○ 3/10            │
 │  [初级 ★★★] [中级 ☆☆] [高级 🔒]   │
 │                                     │
-│              [🤖 问教练]            │
 ├─────────────────────────────────────┤
-│  🏠 首页  🔍 发现  📝 笔记  👤 我的 │
+│  🏠首页 🔍发现 🤖教练 🎙笔记 👤我的 │
 └─────────────────────────────────────┘
 ```
+
+### PhraseCard 交互状态 (Design Review v2 新增)
+
+| 状态 | 视觉表现 |
+|------|----------|
+| 默认 | 白色卡片, --shadow-md, Fraunces 英文 + PingFang 中文 |
+| TTS 播放中 | Play 按钮变 Pause 图标, 声波动画 (3 bar equalizer), 英文高亮 --english 底色 |
+| TTS 失败 | Play 按钮变刷新图标, 红色 --error 底色, "播放失败，点击重试" 文案 |
+| Auto-Flow 等待中 | 底部 10 秒进度条 (--accent 填充), "⏸ 暂停" 按钮出现 |
+| Auto-Flow 暂停 | 进度条停止, "▶ 继续" 按钮, 暗淡 overlay |
+| 已掌握 | 左上角 ✅ 绿色 check, 卡片轻微透明 (opacity 0.7) |
+| 最后一个短语完成 | 🎉 场景完成 → 弹出 "场景掌握!" + 升级难度提示 or 返回发现 |
+
+## Discovery Screen (Design Review v2 新增)
+
+```
+┌─────────────────────────────────────┐
+│  [←] 发现                      [🔔] │
+├─────────────────────────────────────┤
+│  [场景列表] [路线图]                │  ← Tab 切换
+│                                     │
+│  ┌─────────────────────────────┐    │  ← 单列不等高卡片流
+│  │  🛁 洗澡时间                │    │     (anti-slop: 不用网格)
+│  │  "Splash splash!"          │    │
+│  │  ████████░░ 8/10 初级       │    │
+│  │  上次: 2 天前               │    │
+│  └─────────────────────────────┘    │
+│                                     │
+│  ┌─────────────────────────────┐    │  ← 不同高度 (有的有缩略短语)
+│  │  🍼 喂奶时间                │    │
+│  │  ████░░░░░░ 4/10 初级       │    │
+│  └─────────────────────────────┘    │
+│                                     │
+│  ┌─────────────────────────────┐    │
+│  │  👶 换尿布                  │    │
+│  │  "Time to change your      │    │
+│  │   diaper!"                 │    │
+│  │  ██░░░░░░░░ 2/10 初级       │    │
+│  │  🆕 新场景推荐              │    │
+│  └─────────────────────────────┘    │
+│  ...                                │
+├─────────────────────────────────────┤
+│  🏠首页 🔍发现 🤖教练 🎙笔记 👤我的 │
+└─────────────────────────────────────┘
+```
+
+### Discovery 卡片信息架构
+- 排序: 按"最近使用在前 + 未开始在后" (不按固定顺序)
+- 卡片高度: 有进度的场景显示缩略短语 → 更高; 新场景只显示名称和 emoji → 更矮
+- 进度条: 4px, --border 轨道, --accent 填充 (同 DESIGN.md ProgressBar token)
+- 点击 → 进入 Scene Coaching
+
+### 路线图 Tab
+5 个发展阶段竖向时间线:
+```
+● 阶段1: 语音启蒙 (0-6月)     ← 已完成: 绿色 ✅
+├── 活动1: Tummy Time 英语   ← 可点击展开
+├── 活动2: 感官词汇
+│
+● 阶段2: 日常对话 (6-12月)    ← 当前: --accent 高亮
+├── ...
+│
+○ 阶段3: 互动游戏 (12-18月)  ← 未解锁: 灰色
+```
+
+## Notes Screen (Design Review v2 新增)
+
+```
+┌─────────────────────────────────────┐
+│  [←] 我的笔记                      │
+├─────────────────────────────────────┤
+│                                     │
+│  今天                               │
+│  ┌─────────────────────────────┐    │
+│  │  🎙 0:12 · 洗澡时间        │    │  ← 语音条 + 波形
+│  │  "Splash splash!"           │    │     点击播放回顾
+│  │  9:41 AM                    │    │
+│  └─────────────────────────────┘    │
+│                                     │
+│  昨天                               │
+│  ┌─────────────────────────────┐    │
+│  │  🎙 0:08 · 换尿布           │    │
+│  │  "Let's change your diaper" │    │
+│  │  6:32 PM                    │    │
+│  └─────────────────────────────┘    │
+│                                     │
+│  空状态:                            │
+│  ┌─────────────────────────────┐    │
+│  │  🎙                         │    │
+│  │  录下和{child_name}说英语    │    │
+│  │  的瞬间吧！                  │    │
+│  │                             │    │
+│  │  在场景练习时长按录音按钮    │    │
+│  └─────────────────────────────┘    │
+│                                     │
+│              [🎙 录一段]            │  ← 底部录音 FAB
+├─────────────────────────────────────┤
+│  🏠首页 🔍发现 🤖教练 🎙笔记 👤我的 │
+└─────────────────────────────────────┘
+```
+
+### 笔记功能范围 (Design Review v2)
+
+**Phase 1:** 纯语音备忘。
+- 录音入口: 笔记页底部 FAB + 场景练习中的长按录音
+- 自动关联当前场景和短语
+- 本地存储 (Isar), 不上传服务器 (Phase 1 无 OSS)
+- 按日期分组列表，显示时长 + 关联短语
+
+**Phase 2:** 加文字笔记 + 社交分享 + 云端同步
+
+## Profile Screen (Design Review v2 新增)
+
+```
+┌─────────────────────────────────────┐
+│  [Drawer]  {child_name}的成长记录    │
+├─────────────────────────────────────┤
+│                                     │
+│  ┌──────────┐  本周你和{child_name} │
+│  │          │  说了 23 句英语 ✨     │
+│  │   35%    │  累计 157 句           │
+│  │  ◯ 圆环  │  连续 5 天 🔥          │
+│  │          │                       │
+│  └──────────┘                       │
+│                                     │
+│  场景掌握                           │
+│  🛁 洗澡   ████████░░ 8/10         │
+│  🍼 喂奶   ████░░░░░░ 4/10         │
+│  👶 换尿布  ██░░░░░░░░ 2/10         │
+│  🎮 游戏   █░░░░░░░░░ 1/10         │
+│  📖 绘本   ░░░░░░░░░░ 0/10         │
+│  🌙 睡前   ███░░░░░░░ 3/10         │
+│                                     │
+│  里程碑 🏆                          │
+│  ✅ 第一次 babble (洗澡时间)  4/1   │
+│  ✅ 连续 3 天使用             4/3   │
+│  ⬜ 完成第一个场景             —     │
+│                                     │
+│  Bedtime Summary (E5) 卡片:         │
+│  ┌─────────────────────────────┐    │
+│  │ 🌙 今天的睡前总结           │    │
+│  │ {child_name}听了 5 句新短语  │    │
+│  │ 最喜欢: "Splash splash!"   │    │
+│  │ 明天试试: 喂奶时间 🍼       │    │
+│  └─────────────────────────────┘    │
+│                                     │
+├─────────────────────────────────────┤
+│  🏠首页 🔍发现 🤖教练 🎙笔记 👤我的 │
+└─────────────────────────────────────┘
+```
+
+### Profile 空状态 (新用户)
+- 圆环：0%，文案变为 "{child_name}等着听你说英语"
+- 场景 mastery：全部 0/10 但不灰掉，每个场景旁有"开始 →"按钮
+- 里程碑：全部 ⬜ 未达成，但可见（激励目标）
 
 ## AI Coach (Ask Coach)
 
@@ -518,18 +749,21 @@ LAYER 1 (核心 UX, 依赖 Layer 0, Sprint 1 Day 3 - Sprint 2):
   ├── Scene Coaching 屏幕 + PhraseCard 组件
   ├── TTS 音频播放 (audioplayers)
   ├── Isar 本地存储 (UserProgress, InteractionEvent)
-  ├── 底部导航 + 基础路由
+  ├── 底部导航 (5-tab: 首页/发现/教练/笔记/我的) + 基础路由
   └── Layer 1 单元测试 (Auth + Onboarding + PhraseCard)
 
 LAYER 2 (功能, 依赖 Layer 1, Sprint 2-3):
   ├── Difficulty progression (初/中/高)
   ├── Roadmap stages (5 阶段, 基于生日)
   ├── 反应追踪 + mastery 计算 (单条 GROUP BY 聚合, Issue 15)
-  ├── Progress 屏幕 (圆环 + 条形图 + 里程碑)
-  ├── Smart Home 屏幕 (推荐 + 活动)
+  ├── Progress 屏幕 (圆环 + 条形图 + 里程碑 + 空状态)
+  ├── Smart Home 屏幕 (时段智能推荐 + 复访欢迎逻辑 + 本周速览)
+  ├── Discovery 屏幕 (单列不等高卡片 + 路线图时间线)
+  ├── Voice Memo 笔记屏 (本地录音/回放 + 场景关联 + Isar 存储, Design Review v2)
   ├── NotificationService 统一推送管理 (6pm默认 + Smart Push + Bedtime Summary, Issue 12)
   ├── 数据埋点 (screen view, feature usage, auto-flow events)
-  └── Layer 2 单元测试 (Mastery + Progress + Notifications)
+  ├── 全局离线降级 UI (离线 banner + 功能灰掉, Design Review v2)
+  └── Layer 2 单元测试 (Mastery + Progress + Notifications + Offline)
 
 LAYER 3 (后端依赖, Sprint 3-4):
   ├── EmbeddingService + pgvector RAG 检索 (Eng Review v5 新增)
@@ -653,7 +887,48 @@ Build Order 追加: E3+E4 → Layer 1 末尾, E1+E2+E5 → Layer 2 末尾, E6+E7
 | CEO Review | `/plan-ceo-review` | Scope & strategy | 1 | CLEAR | 7 proposals, 7 accepted, 0 deferred |
 | Codex Review | `/codex review` | Independent 2nd opinion | 1 | ISSUES_FOUND | via claude subagent |
 | Eng Review | `/plan-eng-review` | Architecture & tests (required) | 2 | CLEAR | 15 issues + RAG expansion, 0 critical gaps |
-| Design Review | `/plan-design-review` | UI/UX gaps | 0 | — | — |
+| Design Review | `/plan-design-review` | UI/UX gaps | 1 | CLEAR | 7 dimensions reviewed, 27 issues found, all resolved |
+
+### Design Review v2 Summary (2026-04-02)
+
+**Overall Score: 6/10 → 8/10** (after fixes applied to this plan)
+
+| Dimension | Before | After | Key Changes |
+|-----------|--------|-------|-------------|
+| 信息架构 | 7 | 9 | 5-tab 导航, Discovery/Profile/Notes wireframe 补全 |
+| 交互状态 | 4 | 8 | PhraseCard 状态机, AI Coach 全状态, 离线策略, Event Sync |
+| 用户旅程 | 6 | 8 | 时段推荐, 复访欢迎逻辑, 情感低谷处理 |
+| AI Slop | 8 | 9 | 场景卡片改为单列不等高, Progress 强化情感文案 |
+| 设计系统 | 7 | 8 | Dark Mode 跟随系统, Drawer 组件, token 对齐 |
+| 响应式/A11Y | 5 | 7 | 锁定竖屏, ReactionChip 触摸目标, FAB→中央导航 |
+| 未决决策 | 5 | 9 | 7个决策全部已决 |
+
+**Design Decisions Made:**
+1. 笔记 Tab → Phase 1 启用语音备忘录功能 (Voice Memo, 本地存储)
+2. 离线模式 → 全局 banner + 灰掉不可用功能
+3. Smart Home 推荐 → 时段智能推荐
+4. Dark Mode → 跟随系统设置
+5. AI Coach 入口 → 底部导航中央图标 (4-tab→5-tab)
+6. 屏幕方向 → 锁定竖屏
+7. 场景卡片 → 单列不等高卡片流
+
+**Scope Changes:**
+- Phase 1 范围: 6→7 个核心功能 (加入 Voice Memo)
+- 导航: 4-tab + FAB → 5-tab (首页/发现/教练/笔记/我的)
+- 新增 wireframe: Discovery, Notes, Profile, Drawer
+
+**NOT in Scope (Design Review):**
+- 横屏布局
+- 色盲专用模式 (Phase 2 可加深色/形状区分)
+- 品牌化 BottomNav 图标 (Phase 1 用系统图标)
+- Onboarding A/B 测试
+- PhraseCard 手势 (双指缩放字号等)
+
+**What Already Exists:**
+- DESIGN.md: 完整设计系统 (token, 组件, 字体, 颜色)
+- HTML Mockups: docs/mockups/ (8 个屏幕 + index)
+- ASCII Wireframes: Smart Home + Scene Coaching (已在本文件)
+- Anti-slop rules + 情感设计规则
 
 - **UNRESOLVED:** 0 decisions unresolved
-- **VERDICT:** CEO + ENG CLEARED — ready to implement. Design review recommended for UI components.
+- **VERDICT:** CEO + ENG + DESIGN **ALL CLEARED** — ready to implement.

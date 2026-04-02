@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>场景教练 Scene Coaching — Baby Talk 2</title>
+<link rel="stylesheet" href="tokens.css">
+<style>
+.scene-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-sm) var(--space-md);
+}
+.scene-header .back { font-size: 20px; cursor: pointer; color: var(--text-primary); text-decoration: none; }
+.scene-header .title { font-size: 18px; font-weight: 700; }
+
+/* 短语卡 swipe 容器 */
+.swipe-container {
+  position: relative;
+  overflow: hidden;
+}
+.swipe-hint {
+  text-align: center;
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: var(--space-xs);
+  font-family: 'DM Sans', sans-serif;
+}
+.phrase-card-big {
+  background: var(--bg-surface);
+  border-radius: var(--radius-md);
+  padding: var(--space-xl) 20px;
+  box-shadow: var(--shadow-md);
+  margin-bottom: var(--space-sm);
+  text-align: center;
+}
+.phrase-card-big .phrase-en {
+  font-family: 'Fraunces', Georgia, serif;
+  font-size: 28px;
+  font-weight: 500;
+  color: var(--english);
+  line-height: 1.3;
+  margin-bottom: var(--space-md);
+}
+.phrase-card-big .phrase-zh {
+  font-size: 15px;
+  color: var(--text-secondary);
+  line-height: 1.6;
+  margin-bottom: var(--space-lg);
+}
+.phrase-card-big .play-row {
+  display: flex;
+  justify-content: center;
+  margin-bottom: var(--space-md);
+}
+.phrase-card-big .ipa {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 14px;
+  color: var(--text-muted);
+  margin-top: var(--space-sm);
+}
+
+/* 难度切换 */
+.difficulty-tabs {
+  display: flex;
+  gap: var(--space-xs);
+  margin-bottom: var(--space-md);
+}
+.diff-tab {
+  flex: 1;
+  padding: var(--space-sm);
+  text-align: center;
+  font-size: 13px;
+  font-weight: 500;
+  border-radius: var(--radius-sm);
+  border: 1.5px solid var(--border);
+  background: var(--bg-surface);
+  cursor: pointer;
+}
+.diff-tab.active {
+  border-color: var(--accent);
+  background: var(--accent-light);
+  color: var(--accent-dark);
+}
+.diff-tab.locked {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* 进度 */
+.progress-section {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  margin: var(--space-md) 0;
+}
+.progress-section .label {
+  font-size: 13px;
+  color: var(--text-muted);
+  font-family: 'DM Sans', sans-serif;
+  white-space: nowrap;
+}
+.progress-section .progress-bar { flex: 1; }
+
+/* Auto-Flow 控件 (E1) */
+.auto-flow-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  background: var(--bg-sunken);
+  border-radius: var(--radius-sm);
+  padding: var(--space-sm) var(--space-md);
+  margin-bottom: var(--space-md);
+}
+.auto-flow-bar .icon { font-size: 16px; }
+.auto-flow-bar .text { flex: 1; font-size: 13px; color: var(--text-secondary); }
+.auto-flow-bar .toggle {
+  width: 44px;
+  height: 24px;
+  border-radius: 12px;
+  background: var(--accent);
+  position: relative;
+  cursor: pointer;
+}
+.auto-flow-bar .toggle::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: white;
+}
+
+/* Haptic + Particle 视觉反馈 (E4) */
+.reaction-chip.just-tapped {
+  animation: chipPop 0.25s ease-out;
+}
+@keyframes chipPop {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.1); }
+  100% { transform: scale(1); }
+}
+.particle-burst {
+  position: absolute;
+  pointer-events: none;
+  font-size: 10px;
+}
+.particle-burst span {
+  position: absolute;
+  animation: particleFly 0.6s ease-out forwards;
+}
+@keyframes particleFly {
+  0% { opacity: 1; transform: translate(0,0) scale(1); }
+  100% { opacity: 0; transform: translate(var(--tx), var(--ty)) scale(0.5); }
+}
+
+.back-link {
+  display: inline-block;
+  margin: var(--space-md);
+  font-size: 13px;
+  color: var(--text-muted);
+  text-decoration: none;
+  font-family: 'DM Sans', sans-serif;
+}
+</style>
+</head>
+<body>
+<a href="index.html" class="back-link">← 返回目录</a>
+
+<div class="phone-frame">
+  <div class="status-bar">
+    <span>9:41</span>
+    <span>📶 🔋</span>
+  </div>
+
+  <div class="scene-header">
+    <a href="home.html" class="back">←</a>
+    <span class="title">🛁 洗澡时间</span>
+  </div>
+
+  <div class="content">
+    <!-- Auto-Flow 控件 (E1) -->
+    <div class="auto-flow-bar">
+      <span class="icon">🔄</span>
+      <span class="text">自动播放模式</span>
+      <div class="toggle"></div>
+    </div>
+
+    <!-- 短语卡 -->
+    <div class="swipe-container">
+      <div class="phrase-card-big">
+        <div class="phrase-en">"Splash splash!<br>Can you splash with me?"</div>
+        <div class="phrase-zh">泼水泼水！你能和我一起泼吗？</div>
+        <div class="play-row">
+          <button class="play-btn">▶</button>
+        </div>
+        <div class="ipa">/splæʃ splæʃ/</div>
+      </div>
+      <div class="swipe-hint">← 左右滑动切换短语 →</div>
+    </div>
+
+    <!-- 教练提示 -->
+    <div class="coach-tip" style="margin:var(--space-md) 0;">
+      <span class="icon">💡</span>
+      <span>洗澡时用手泼水，配合说 splash，让宝宝关联动作和声音。宝宝可能会模仿你的手部动作！</span>
+    </div>
+
+    <!-- 反应按钮 -->
+    <div style="margin-bottom:var(--space-md);">
+      <div style="font-size:14px; font-weight:600; margin-bottom:var(--space-sm);">宝宝的反应</div>
+      <div class="reaction-chips">
+        <div class="reaction-chip" onclick="this.classList.toggle('active')">
+          <span class="emoji">😄</span>
+          <span>看着我</span>
+        </div>
+        <div class="reaction-chip" onclick="this.classList.toggle('active')">
+          <span class="emoji">🗣️</span>
+          <span>我说了</span>
+        </div>
+        <div class="reaction-chip active" onclick="this.classList.toggle('active')">
+          <span class="emoji">👶</span>
+          <span>咿呀学语</span>
+        </div>
+        <div class="reaction-chip" onclick="this.classList.toggle('active')">
+          <span class="emoji">😣</span>
+          <span>不开心</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 进度 -->
+    <div class="progress-section">
+      <span class="label">3/15</span>
+      <div class="progress-bar"><div class="fill" style="width:20%"></div></div>
+    </div>
+
+    <!-- 难度切换 -->
+    <div class="difficulty-tabs">
+      <div class="diff-tab active">初级 ★★★</div>
+      <div class="diff-tab">中级 ☆☆</div>
+      <div class="diff-tab locked">高级 🔒</div>
+    </div>
+  </div>
+
+  <!-- Ask Coach FAB -->
+  <button class="fab">🤖</button>
+
+  <div class="bottom-nav">
+    <div class="nav-item active">
+      <span class="icon">🏠</span>
+      <span>首页</span>
+    </div>
+    <div class="nav-item">
+      <span class="icon">🔍</span>
+      <span>发现</span>
+    </div>
+    <div class="nav-item">
+      <span class="icon">📝</span>
+      <span>笔记</span>
+    </div>
+    <div class="nav-item">
+      <span class="icon">👤</span>
+      <span>我的</span>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

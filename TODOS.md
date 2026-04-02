@@ -28,20 +28,13 @@
 **What:** 跑 /design-consultation 生成正式 DESIGN.md。
 **Status:** 已完成 (2026-04-02)。DESIGN.md 已创建。计划文件内联 token 需要删除（见下方 P1 项）。
 
-### Update Design Docs for New Navigation Architecture
-**What:** 更新所有设计文档中的导航结构。旧: 4 tab（首页/场景/旅程/进度）。新: 4 tab（首页/发现/笔记/我的）+ 左上角 Drawer（头像/设置/会员中心/扫码/客服）。更新 ASCII wireframe、导航流程图、底部导航描述。
-**Status:** 合并计划已更新导航架构。旧计划中仍为旧导航（已标记 SUPERSEDED）。
-**Why:** Design Review (2026-04-02) Pass 1 确认了导航重设计。文档还是旧架构，开发者按旧文档实现会做错。
-**Context:** 新导航决策: "发现"承载场景列表+路线图活动，"笔记"承载录音+文字笔记(Phase 2+社交)，"我的"合并进度+设置。首次流程: Onboarding→登录→Home。
-**Effort:** S (CC: ~15 分钟，批量替换)
-**Depends on:** Nothing.
+### ~~Update Design Docs for New Navigation Architecture~~ ✅ DONE (Design Review v2)
+**What:** 导航架构从 4-tab+FAB 更新为 5-tab（首页/发现/教练/笔记/我的）。AI Coach 入口从 FAB 移到底部导航中央。笔记 tab 从占位改为 Phase 1 语音备忘录功能。
+**Status:** 已完成 (2026-04-02)。合并计划已更新。DESIGN.md BottomNav 组件已更新。
 
-### Complete Onboarding Flow Mockup
-**What:** 补充完整的 Onboarding 流程 HTML mockup。现有只有"输入名字"一屏。需要补充: 欢迎页 → 输入名字 → 输入生日 → 阶段匹配动画 → "注册保存记录"过渡页 → 登录 → PIPL 隐私同意弹窗 → Home。
-**Why:** Onboarding 是用户的第一印象。Pass 1 确认了 Onboarding→登录流程，但中间的情感过渡页（"小明等着听你说英语"）缺失会让注册感觉突兀。
-**Context:** Design Review (2026-04-02) 确认 B 方案（先 Onboarding 后登录），需要在 Onboarding 末尾自然过渡到注册。
-**Effort:** S (CC: ~15 分钟)
-**Depends on:** Nothing.
+### ~~Complete Onboarding Flow Mockup~~ ✅ DONE (Design Review v2)
+**What:** 完整 Onboarding 流程 HTML mockup 已创建: 欢迎页 → 输入名字 → 输入生日 → 阶段匹配动画 → 过渡页 → 登录 → PIPL 隐私同意。
+**Status:** 已完成 (2026-04-02)。见 docs/mockups/onboarding.html。
 
 ### Update Design Doc for Native Pivot
 **What:** 将 `docs/designs/baby-talk-extended-mvp.md` 中所有 "Flutter Web first" 的引用更新为 "Flutter Native first"。移除所有 "hidden on Flutter Web" / "native-only" 的条件逻辑。更新 Build Order、Key Implementation Decisions、Known Risks 等章节。
@@ -150,6 +143,34 @@
 **Context:** Outside Voice (2026-04-02) 发现。阿里云 STS AssumeRole 支持 Policy 参数限制资源路径。
 **Effort:** S (CC: ~10 分钟)
 **Depends on:** 阿里云 OSS bucket 创建
+
+### Voice Memo 本地录音实现 (Design Review v2 新增)
+**What:** 实现笔记 tab 的语音备忘录功能。需要: 录音权限请求, flutter_sound 或 record 插件, Isar 存储录音元数据 (路径/时长/关联场景/关联短语), 波形可视化, 按日期分组列表。
+**Why:** Design Review v2 将语音备忘从 Phase 2 提前到 Phase 1。笔记 tab 需要有实际功能而非空占位。
+**Context:** 录音存储为本地文件 (app 沙箱目录), 不上传 OSS。Isar 存储元数据。录音入口: 笔记页底部 FAB + 场景练习中长按录音。
+**Effort:** S-M (CC: ~1-2 小时)
+**Depends on:** Flutter 项目脚手架 + Isar 配置
+
+### 全局离线降级 UI (Design Review v2 新增)
+**What:** 实现全局离线 banner + 各功能离线状态处理。banner 用 --warning-soft 背景固定顶部, AI Coach 灰掉, Scene Coaching 正常可用, Progress 显示本地数据+未同步标签。
+**Why:** Design Review v2 确认离线策略: 用温暖文案而非技术术语, 全局 banner 让用户知道状态。
+**Context:** 需要 connectivity_plus 插件监听网络状态。全局 ConnectivityProvider 控制 banner 显示和功能可用性。
+**Effort:** S (CC: ~1 小时)
+**Depends on:** 底部导航 + 基础路由
+
+### Dark Mode 支持 (Design Review v2 新增)
+**What:** 实现跟随系统设置的 Dark Mode。使用 DESIGN.md 中已定义的 dark mode token: 背景 #1C1816, 卡片 #2A2420, 强调色微调 #FF9E5C, 英文青绿提亮 #5AAFA0。
+**Why:** Design Review v2 确认 Phase 1 跟随系统设置。DESIGN.md 已有完整 dark mode token 策略。
+**Context:** Flutter ThemeData.dark() + 自定义 ColorScheme。需要确保所有组件引用 theme token 而非硬编码颜色。
+**Effort:** M (CC: ~2 小时，需要确保所有屏幕适配)
+**Depends on:** 所有屏幕 UI 基本完成后统一适配
+
+### ReactionChip 触摸目标优化 (Design Review v2 新增)
+**What:** 确保 ReactionChip 按钮满足 48x48px 最小触摸目标。当前 mockup 中尺寸偏小。增加 padding 或使用 InkWell 的 materialTapTargetSize。
+**Why:** 父母单手抱宝宝操作，小按钮容易误触或触不到。DESIGN.md 要求 44px min, 推荐 48px。
+**Context:** Design Review v2 Pass 6 发现。Flutter InkWell 默认 materialTapTargetSize.padded = 48px。
+**Effort:** XS (CC: ~10 分钟)
+**Depends on:** Scene Coaching 页实现
 
 ## P2 — Post-Validation
 

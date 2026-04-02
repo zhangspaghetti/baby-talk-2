@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>首页 Home — Baby Talk 2</title>
+<link rel="stylesheet" href="tokens.css">
+<style>
+.greeting { padding: 0 0 var(--space-sm); }
+.greeting .name {
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1.4;
+}
+.greeting .stage {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-top: var(--space-2xs);
+  font-family: 'DM Sans', sans-serif;
+}
+.phrase-card .row-bottom {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: var(--space-md);
+}
+.phrase-card .scene-enter {
+  font-size: 14px;
+  color: var(--accent);
+  font-weight: 500;
+  text-decoration: none;
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+}
+.activity-section { margin-top: var(--space-lg); }
+.activity-scroll {
+  display: flex;
+  gap: var(--space-sm);
+  overflow-x: auto;
+  padding-bottom: var(--space-sm);
+  scroll-snap-type: x mandatory;
+}
+.activity-scroll::-webkit-scrollbar { display: none; }
+.activity-card {
+  flex: 0 0 160px;
+  background: var(--bg-surface);
+  border-radius: var(--radius-md);
+  padding: var(--space-md);
+  box-shadow: var(--shadow-sm);
+  scroll-snap-align: start;
+}
+.activity-card .emoji { font-size: 28px; margin-bottom: var(--space-sm); }
+.activity-card .act-title { font-size: 14px; font-weight: 600; margin-bottom: var(--space-2xs); }
+.activity-card .act-desc { font-size: 12px; color: var(--text-muted); line-height: 1.4; }
+
+/* 首次使用 Demo Overlay (E3) */
+.demo-overlay {
+  display: none;
+  position: absolute;
+  inset: 0;
+  background: rgba(45,41,38,0.7);
+  z-index: 50;
+  padding: var(--space-2xl) var(--space-md);
+}
+.demo-overlay.show { display: flex; flex-direction: column; align-items: center; justify-content: center; }
+.demo-bubble {
+  background: var(--bg-surface);
+  border-radius: var(--radius-md);
+  padding: var(--space-lg);
+  max-width: 300px;
+  text-align: center;
+  box-shadow: var(--shadow-lg);
+}
+.demo-bubble h3 { font-size: 18px; font-weight: 700; margin-bottom: var(--space-sm); }
+.demo-bubble p { font-size: 14px; color: var(--text-secondary); line-height: 1.6; margin-bottom: var(--space-md); }
+.demo-bubble .step-dots {
+  display: flex;
+  gap: var(--space-xs);
+  justify-content: center;
+  margin-top: var(--space-md);
+}
+.demo-bubble .dot {
+  width: 6px; height: 6px; border-radius: 50%; background: var(--border);
+}
+.demo-bubble .dot.active { background: var(--accent); width: 18px; border-radius: 3px; }
+
+/* 空状态 */
+.empty-state {
+  text-align: center;
+  padding: var(--space-2xl) var(--space-md);
+}
+.empty-state .emoji { font-size: 48px; margin-bottom: var(--space-md); }
+.empty-state .title { font-size: 18px; font-weight: 600; margin-bottom: var(--space-sm); }
+.empty-state .desc { font-size: 14px; color: var(--text-secondary); line-height: 1.6; margin-bottom: var(--space-lg); }
+
+.back-link {
+  display: inline-block;
+  margin: var(--space-md);
+  font-size: 13px;
+  color: var(--text-muted);
+  text-decoration: none;
+  font-family: 'DM Sans', sans-serif;
+}
+.back-link:hover { color: var(--accent); }
+</style>
+</head>
+<body>
+<a href="index.html" class="back-link">← 返回目录</a>
+
+<!-- 正常状态 -->
+<div class="phone-frame">
+  <div class="status-bar">
+    <span>9:41</span>
+    <span>📶 🔋</span>
+  </div>
+
+  <div class="top-bar">
+    <div class="avatar">👩</div>
+    <div class="notification">🔔</div>
+  </div>
+
+  <div class="content">
+    <div class="greeting">
+      <div class="name">小明妈妈，早上好 ☀️</div>
+      <div class="stage">阶段 2: 日常对话 · 8个月</div>
+    </div>
+
+    <!-- 推荐短语卡 -->
+    <div class="phrase-card">
+      <div class="phrase-en">"Splash splash!<br>Can you splash with me?"</div>
+      <div class="phrase-zh">泼水泼水！你能和我一起泼吗？</div>
+      <div class="row-bottom">
+        <span class="scene-tag">🛁 洗澡时间</span>
+        <div style="display:flex; align-items:center; gap:var(--space-sm);">
+          <button class="play-btn" style="width:44px; height:44px; font-size:16px;">▶</button>
+          <a href="scene-coaching.html" class="scene-enter">进入场景 →</a>
+        </div>
+      </div>
+    </div>
+
+    <!-- 教练提示 -->
+    <div class="coach-tip" style="margin-bottom:var(--space-lg);">
+      <span class="icon">💡</span>
+      <span>洗澡时用手泼水，配合说 splash，让宝宝关联动作和声音</span>
+    </div>
+
+    <!-- 今日活动 -->
+    <div class="activity-section">
+      <div class="section-title">今日活动</div>
+      <div class="activity-scroll">
+        <div class="activity-card">
+          <div class="emoji">🤸</div>
+          <div class="act-title">TPR 互动</div>
+          <div class="act-desc">举手手！Hands up! 配合动作说英语</div>
+        </div>
+        <div class="activity-card">
+          <div class="emoji">📖</div>
+          <div class="act-title">绘本时间</div>
+          <div class="act-desc">Brown Bear, Brown Bear, What Do You See?</div>
+        </div>
+        <div class="activity-card">
+          <div class="emoji">🎵</div>
+          <div class="act-title">英文儿歌</div>
+          <div class="act-desc">Twinkle Twinkle Little Star 跟唱</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 本周小结 -->
+    <div style="margin-top:var(--space-lg);">
+      <div class="section-title">这周和小明</div>
+      <div style="display:flex; gap:var(--space-md);">
+        <div style="flex:1; background:var(--bg-surface); border-radius:var(--radius-md); padding:var(--space-md); box-shadow:var(--shadow-sm); text-align:center;">
+          <div style="font-size:28px; font-weight:700; color:var(--accent); font-family:'DM Sans',sans-serif;">23</div>
+          <div style="font-size:12px; color:var(--text-muted);">句英语</div>
+        </div>
+        <div style="flex:1; background:var(--bg-surface); border-radius:var(--radius-md); padding:var(--space-md); box-shadow:var(--shadow-sm); text-align:center;">
+          <div style="font-size:28px; font-weight:700; color:var(--english); font-family:'DM Sans',sans-serif;">4</div>
+          <div style="font-size:12px; color:var(--text-muted);">个场景</div>
+        </div>
+        <div style="flex:1; background:var(--bg-surface); border-radius:var(--radius-md); padding:var(--space-md); box-shadow:var(--shadow-sm); text-align:center;">
+          <div style="font-size:28px; font-weight:700; color:var(--success); font-family:'DM Sans',sans-serif;">1</div>
+          <div style="font-size:12px; color:var(--text-muted);">次咿呀</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Ask Coach FAB -->
+  <button class="fab">🤖</button>
+
+  <div class="bottom-nav">
+    <div class="nav-item active">
+      <span class="icon">🏠</span>
+      <span>首页</span>
+    </div>
+    <div class="nav-item">
+      <span class="icon">🔍</span>
+      <span>发现</span>
+    </div>
+    <div class="nav-item">
+      <span class="icon">📝</span>
+      <span>笔记</span>
+    </div>
+    <div class="nav-item">
+      <span class="icon">👤</span>
+      <span>我的</span>
+    </div>
+  </div>
+
+  <!-- First-Use Demo Overlay (E3) -->
+  <div class="demo-overlay show" id="demoOverlay" onclick="this.classList.remove('show')">
+    <div class="demo-bubble" onclick="event.stopPropagation()">
+      <h3>欢迎来到 Baby Talk! 👋</h3>
+      <p>点击短语卡上的 ▶ 按钮，先听英文发音，然后对宝宝说出来。<br><br>宝宝有反应？点击下方的表情按钮记录！</p>
+      <button class="btn-primary" style="margin-top:var(--space-sm);" onclick="document.getElementById('demoOverlay').classList.remove('show')">知道了，开始吧！</button>
+      <div class="step-dots">
+        <div class="dot active"></div>
+        <div class="dot"></div>
+        <div class="dot"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

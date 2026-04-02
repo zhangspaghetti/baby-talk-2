@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Baby Talk 2 — Design Mockups</title>
+<link rel="stylesheet" href="tokens.css">
+<style>
+body {
+  background: var(--bg-base);
+  padding: var(--space-2xl);
+  display: block;
+}
+.index-header {
+  max-width: 800px;
+  margin: 0 auto var(--space-2xl);
+}
+.index-header h1 {
+  font-family: 'Fraunces', Georgia, serif;
+  font-size: 36px;
+  font-weight: 500;
+  color: var(--english);
+  margin-bottom: var(--space-sm);
+}
+.index-header p {
+  font-size: 15px;
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+.index-header .meta {
+  margin-top: var(--space-md);
+  font-size: 13px;
+  color: var(--text-muted);
+  font-family: 'DM Sans', sans-serif;
+}
+.screen-grid {
+  max-width: 800px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: var(--space-lg);
+}
+.screen-card {
+  background: var(--bg-surface);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  box-shadow: var(--shadow-md);
+  text-decoration: none;
+  color: inherit;
+  transition: transform 0.2s ease-out, box-shadow 0.2s ease-out;
+}
+.screen-card:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-lg);
+}
+.screen-card .preview {
+  height: 280px;
+  background: var(--bg-sunken);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 64px;
+  position: relative;
+  overflow: hidden;
+}
+.screen-card .preview .mini-phone {
+  width: 140px;
+  height: 240px;
+  background: var(--bg-base);
+  border-radius: 20px;
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  transform: scale(0.85);
+}
+.screen-card .preview .mini-phone .mini-status {
+  height: 20px;
+  background: var(--bg-base);
+}
+.screen-card .preview .mini-phone .mini-content {
+  flex: 1;
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.screen-card .preview .mini-phone .mini-nav {
+  height: 16px;
+  background: var(--bg-surface);
+  border-top: 1px solid var(--border);
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  font-size: 6px;
+}
+.mini-bar { height: 6px; border-radius: 3px; }
+.mini-card-placeholder {
+  background: var(--bg-surface);
+  border-radius: 6px;
+  padding: 4px;
+  box-shadow: var(--shadow-sm);
+}
+.screen-card .label {
+  padding: var(--space-md);
+}
+.screen-card .label h3 {
+  font-size: 15px;
+  font-weight: 600;
+  margin-bottom: var(--space-xs);
+}
+.screen-card .label p {
+  font-size: 13px;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+.screen-card .label .badge {
+  display: inline-block;
+  margin-top: var(--space-sm);
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  font-family: 'DM Sans', sans-serif;
+}
+.badge-core { background: var(--english-soft); color: var(--english); }
+.badge-new { background: var(--warning-soft); color: var(--warning); }
+.badge-expansion { background: var(--accent-light); color: var(--accent-dark); }
+
+.color-grid {
+  max-width: 800px;
+  margin: var(--space-2xl) auto 0;
+}
+.color-grid h2 {
+  font-size: 20px;
+  font-weight: 700;
+  margin-bottom: var(--space-md);
+}
+.color-swatches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+}
+.swatch {
+  width: 80px;
+  height: 80px;
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  padding: var(--space-xs);
+  font-size: 9px;
+  font-family: 'JetBrains Mono', monospace;
+  color: var(--text-primary);
+}
+.swatch.dark-text { color: white; }
+</style>
+</head>
+<body>
+
+<div class="index-header">
+  <h1>Baby Talk 2</h1>
+  <p>Flutter 原生亲子英语启蒙 app — Phase 1 设计 Mockups</p>
+  <p>暖纸亲和（Warm Paper Kindness）设计系统。用户是父母，不是小孩。</p>
+  <div class="meta">
+    Design Review 2026-04-02 · Branch: main · 基于 DESIGN.md + 合并计划
+  </div>
+</div>
+
+<div class="screen-grid">
+
+  <a href="home.html" class="screen-card">
+    <div class="preview">
+      <div class="mini-phone">
+        <div class="mini-status"></div>
+        <div class="mini-content">
+          <div class="mini-bar" style="width:60%; background:var(--text-muted); opacity:0.3;"></div>
+          <div style="height:4px"></div>
+          <div class="mini-card-placeholder">
+            <div class="mini-bar" style="width:80%; background:var(--english); opacity:0.5; margin-bottom:3px"></div>
+            <div class="mini-bar" style="width:50%; background:var(--text-muted); opacity:0.3;"></div>
+          </div>
+          <div style="height:4px"></div>
+          <div class="mini-bar" style="width:40%; background:var(--text-muted); opacity:0.3;"></div>
+          <div style="display:flex; gap:4px">
+            <div style="flex:1; height:30px; background:var(--accent-light); border-radius:4px;"></div>
+            <div style="flex:1; height:30px; background:var(--english-soft); border-radius:4px;"></div>
+          </div>
+        </div>
+        <div class="mini-nav">
+          <span style="color:var(--accent)">🏠</span>
+          <span>🔍</span>
+          <span>📝</span>
+          <span>👤</span>
+        </div>
+      </div>
+    </div>
+    <div class="label">
+      <h3>首页 Home</h3>
+      <p>Smart Home 主屏幕。个性化问候 + 推荐短语卡 + 今日活动</p>
+      <span class="badge badge-core">核心屏幕</span>
+    </div>
+  </a>
+
+  <a href="scene-coaching.html" class="screen-card">
+    <div class="preview">
+      <div class="mini-phone">
+        <div class="mini-status"></div>
+        <div class="mini-content">
+          <div class="mini-bar" style="width:50%; background:var(--text-muted); opacity:0.3;"></div>
+          <div style="height:4px"></div>
+          <div class="mini-card-placeholder" style="padding:6px;">
+            <div class="mini-bar" style="width:90%; background:var(--english); opacity:0.6; height:8px; margin-bottom:3px"></div>
+            <div class="mini-bar" style="width:70%; background:var(--english); opacity:0.4; margin-bottom:4px"></div>
+            <div class="mini-bar" style="width:45%; background:var(--text-muted); opacity:0.3;"></div>
+            <div style="display:flex; justify-content:center; margin-top:6px">
+              <div style="width:20px; height:20px; border-radius:50%; background:var(--accent);"></div>
+            </div>
+          </div>
+          <div style="display:flex; gap:3px; margin-top:4px">
+            <div style="flex:1; height:18px; background:var(--border); border-radius:9px;"></div>
+            <div style="flex:1; height:18px; background:var(--border); border-radius:9px;"></div>
+            <div style="flex:1; height:18px; background:var(--border); border-radius:9px;"></div>
+          </div>
+        </div>
+        <div class="mini-nav">
+          <span>🏠</span>
+          <span>🔍</span>
+          <span>📝</span>
+          <span>👤</span>
+        </div>
+      </div>
+    </div>
+    <div class="label">
+      <h3>场景教练 Scene</h3>
+      <p>英文短语卡展示、TTS 播放、宝宝反应追踪、教练提示</p>
+      <span class="badge badge-core">核心屏幕</span>
+    </div>
+  </a>
+
+  <a href="ai-coach.html" class="screen-card">
+    <div class="preview">
+      <div class="mini-phone">
+        <div class="mini-status"></div>
+        <div class="mini-content">
+          <div class="mini-bar" style="width:40%; background:var(--text-muted); opacity:0.3;"></div>
+          <div style="flex:1; display:flex; flex-direction:column; justify-content:flex-end; gap:4px; padding-top:8px;">
+            <div style="align-self:flex-start; background:var(--bg-sunken); border-radius:6px; padding:4px; width:70%;">
+              <div class="mini-bar" style="width:90%; background:var(--text-muted); opacity:0.3;"></div>
+            </div>
+            <div style="align-self:flex-end; background:var(--english-soft); border-radius:6px; padding:4px; width:60%;">
+              <div class="mini-bar" style="width:80%; background:var(--english); opacity:0.4;"></div>
+            </div>
+            <div style="align-self:flex-start; background:var(--bg-sunken); border-radius:6px; padding:4px; width:75%;">
+              <div class="mini-bar" style="width:70%; background:var(--text-muted); opacity:0.3;"></div>
+            </div>
+          </div>
+          <div style="height:20px; background:var(--bg-surface); border-radius:6px; border:1px solid var(--border); margin-top:4px;"></div>
+        </div>
+      </div>
+    </div>
+    <div class="label">
+      <h3>AI 教练 Coach</h3>
+      <p>RAG+LLM 对话、SSE 流式显示、异步 TTS、Quick Ask</p>
+      <span class="badge badge-core">核心屏幕</span>
+    </div>
+  </a>
+
+  <a href="discovery.html" class="screen-card">
+    <div class="preview">
+      <div class="mini-phone">
+        <div class="mini-status"></div>
+        <div class="mini-content">
+          <div class="mini-bar" style="width:35%; background:var(--text-muted); opacity:0.3; margin-bottom:6px;"></div>
+          <div class="list-mini-item" style="display:flex; gap:4px; align-items:center; background:var(--bg-surface); border-radius:4px; padding:4px; margin-bottom:3px;">
+            <div style="width:14px; height:14px; border-radius:50%; background:var(--accent-light);"></div>
+            <div style="flex:1;"><div class="mini-bar" style="width:60%; background:var(--text-muted); opacity:0.3;"></div></div>
+          </div>
+          <div class="list-mini-item" style="display:flex; gap:4px; align-items:center; background:var(--bg-surface); border-radius:4px; padding:4px; margin-bottom:3px;">
+            <div style="width:14px; height:14px; border-radius:50%; background:var(--english-soft);"></div>
+            <div style="flex:1;"><div class="mini-bar" style="width:50%; background:var(--text-muted); opacity:0.3;"></div></div>
+          </div>
+          <div class="list-mini-item" style="display:flex; gap:4px; align-items:center; background:var(--bg-surface); border-radius:4px; padding:4px; margin-bottom:3px;">
+            <div style="width:14px; height:14px; border-radius:50%; background:var(--success-soft);"></div>
+            <div style="flex:1;"><div class="mini-bar" style="width:55%; background:var(--text-muted); opacity:0.3;"></div></div>
+          </div>
+          <div style="height:4px"></div>
+          <div class="mini-bar" style="width:30%; background:var(--text-muted); opacity:0.3; margin-bottom:4px;"></div>
+          <div style="background:var(--bg-surface); border-radius:4px; padding:4px;">
+            <div class="mini-bar" style="width:70%; background:var(--text-muted); opacity:0.2;"></div>
+          </div>
+        </div>
+        <div class="mini-nav">
+          <span>🏠</span>
+          <span style="color:var(--accent)">🔍</span>
+          <span>📝</span>
+          <span>👤</span>
+        </div>
+      </div>
+    </div>
+    <div class="label">
+      <h3>发现 Discovery</h3>
+      <p>场景列表 + 路线图活动，合并原"场景"和"旅程"tab</p>
+      <span class="badge badge-new">需设计</span>
+    </div>
+  </a>
+
+  <a href="progress.html" class="screen-card">
+    <div class="preview">
+      <div class="mini-phone">
+        <div class="mini-status"></div>
+        <div class="mini-content">
+          <div class="mini-bar" style="width:30%; background:var(--text-muted); opacity:0.3; margin-bottom:6px;"></div>
+          <div style="display:flex; justify-content:center; margin-bottom:6px;">
+            <div style="width:50px; height:50px; border-radius:50%; border:3px solid var(--accent); display:flex; align-items:center; justify-content:center; font-size:10px; font-weight:bold; color:var(--accent);">67%</div>
+          </div>
+          <div style="margin-bottom:4px;">
+            <div style="display:flex; align-items:center; gap:3px; margin-bottom:3px;">
+              <div style="width:6px; height:6px; border-radius:50%; background:var(--accent);"></div>
+              <div class="mini-bar" style="flex:1; background:var(--border);"><div style="width:70%; height:6px; background:var(--accent); border-radius:3px;"></div></div>
+            </div>
+            <div style="display:flex; align-items:center; gap:3px; margin-bottom:3px;">
+              <div style="width:6px; height:6px; border-radius:50%; background:var(--english);"></div>
+              <div class="mini-bar" style="flex:1; background:var(--border);"><div style="width:40%; height:6px; background:var(--english); border-radius:3px;"></div></div>
+            </div>
+          </div>
+          <div class="mini-bar" style="width:25%; background:var(--text-muted); opacity:0.3; margin-bottom:3px;"></div>
+          <div style="display:flex; gap:3px;">
+            <div style="width:6px; height:6px; border-radius:50%; background:var(--success);"></div>
+            <div class="mini-bar" style="width:80%; background:var(--text-muted); opacity:0.2;"></div>
+          </div>
+        </div>
+        <div class="mini-nav">
+          <span>🏠</span>
+          <span>🔍</span>
+          <span>📝</span>
+          <span style="color:var(--accent)">👤</span>
+        </div>
+      </div>
+    </div>
+    <div class="label">
+      <h3>我的 / 进度 Profile</h3>
+      <p>阶段圆环图 + 各场景 mastery + 本周数据 + 里程碑</p>
+      <span class="badge badge-new">需设计</span>
+    </div>
+  </a>
+
+  <a href="celebration.html" class="screen-card">
+    <div class="preview" style="background: linear-gradient(135deg, var(--accent-light), var(--english-soft));">
+      <div style="text-align:center;">
+        <div style="font-size:48px; margin-bottom:8px;">🎉</div>
+        <div style="font-family:'Fraunces',serif; font-size:14px; color:var(--english); font-weight:500;">First word!</div>
+      </div>
+    </div>
+    <div class="label">
+      <h3>庆祝屏 Celebration</h3>
+      <p>宝宝首次 babble 全屏动画 + 分享链接 + 微信文案</p>
+      <span class="badge badge-new">需设计</span>
+    </div>
+  </a>
+
+  <a href="onboarding.html" class="screen-card">
+    <div class="preview">
+      <div class="mini-phone">
+        <div class="mini-status"></div>
+        <div class="mini-content" style="display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px;">
+          <div style="font-size:28px;">👶</div>
+          <div class="mini-bar" style="width:60%; background:var(--english); opacity:0.4; height:8px;"></div>
+          <div class="mini-bar" style="width:40%; background:var(--text-muted); opacity:0.3;"></div>
+          <div style="height:8px;"></div>
+          <div style="width:70%; height:18px; background:var(--accent); border-radius:4px;"></div>
+        </div>
+      </div>
+    </div>
+    <div class="label">
+      <h3>入门引导 Onboarding</h3>
+      <p>欢迎页 → 名字 → 生日 → 阶段匹配 → 注册过渡 → 登录 → PIPL</p>
+      <span class="badge badge-core">核心流程</span>
+    </div>
+  </a>
+
+  <a href="drawer.html" class="screen-card">
+    <div class="preview">
+      <div class="mini-phone">
+        <div class="mini-status"></div>
+        <div class="mini-content" style="background:var(--bg-surface);">
+          <div style="display:flex; align-items:center; gap:4px; margin-bottom:8px; padding-top:4px;">
+            <div style="width:20px; height:20px; border-radius:50%; background:var(--accent-light);"></div>
+            <div>
+              <div class="mini-bar" style="width:30px; background:var(--text-muted); opacity:0.4;"></div>
+            </div>
+          </div>
+          <div style="border-top:1px solid var(--border); padding-top:6px;">
+            <div class="mini-bar" style="width:60%; background:var(--text-muted); opacity:0.2; margin-bottom:6px;"></div>
+            <div class="mini-bar" style="width:50%; background:var(--text-muted); opacity:0.2; margin-bottom:6px;"></div>
+            <div class="mini-bar" style="width:55%; background:var(--text-muted); opacity:0.2; margin-bottom:6px;"></div>
+            <div class="mini-bar" style="width:45%; background:var(--text-muted); opacity:0.2; margin-bottom:6px;"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="label">
+      <h3>侧栏 Drawer</h3>
+      <p>头像/昵称 · 设置 · 会员中心(P2) · 扫码 · 客服</p>
+      <span class="badge badge-expansion">辅助界面</span>
+    </div>
+  </a>
+
+</div>
+
+<div class="color-grid">
+  <h2>设计系统预览</h2>
+  <div class="color-swatches">
+    <div class="swatch" style="background:var(--bg-base);">bg-base<br>#FFF8F0</div>
+    <div class="swatch" style="background:var(--bg-surface); border:1px solid var(--border);">surface<br>#FFF</div>
+    <div class="swatch" style="background:var(--bg-sunken);">sunken<br>#F5F0EB</div>
+    <div class="swatch dark-text" style="background:var(--accent);">accent<br>#FF8C42</div>
+    <div class="swatch" style="background:var(--accent-light);">accent-lt<br>#FFF0E5</div>
+    <div class="swatch dark-text" style="background:var(--english);">english<br>#3B8577</div>
+    <div class="swatch" style="background:var(--english-soft);">english-sf<br>#D4E8E3</div>
+    <div class="swatch dark-text" style="background:var(--text-primary);">primary<br>#2D2926</div>
+    <div class="swatch dark-text" style="background:var(--text-secondary);">secondary<br>#6B5E57</div>
+    <div class="swatch" style="background:var(--success-soft);">success<br>#E8F0E5</div>
+    <div class="swatch" style="background:var(--warning-soft);">warning<br>#FFF5D9</div>
+    <div class="swatch" style="background:var(--error-soft);">error<br>#FDE8E6</div>
+  </div>
+</div>
+
+</body>
+</html>
