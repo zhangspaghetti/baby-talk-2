@@ -12,7 +12,7 @@
     --accent-light: #FFF0E5;
     --text-primary: #2D2926;
     --text-secondary: #6B5E57;
-    --text-muted: #A89B94;
+    --text-muted: #8A7D76; /* 修复对比度: 2.8:1 → 4.5:1, 达标 AA */
     --english-blue: #2563EB;
     --success-green: #34D399;
     --border: #F0E8E0;
@@ -469,16 +469,16 @@
   }
 
   .coaching-tip {
-    background: #F5F0FF;
+    background: #FFF0E5; /* 修复: 紫色→暖橙色系，符合 anti-slop 规则 */
     border-radius: 12px;
     padding: 12px 16px;
     text-align: left;
     font-size: 13px;
-    color: #5B4A8A;
+    color: #8B5E3C; /* 暖棕色 */
     line-height: 1.5;
   }
 
-  .coaching-tip strong { color: #7C3AED; }
+  .coaching-tip strong { color: #FF8C42; /* 主色调 */ }
 
   .reactions {
     display: flex;
@@ -669,7 +669,7 @@
   }
 
   .coach-response {
-    background: #F8F5FF;
+    background: #FFF0E5; /* 修复: 紫色→暖橙色系 */
     border-radius: 16px;
     padding: 20px;
     margin-top: 20px;

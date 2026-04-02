@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Baby Talk 2 — 进度页</title>
+<link rel="stylesheet" href="shared.css">
+<style>
+  .page-title {
+    font-size: 24px;
+    font-weight: 700;
+    margin-bottom: 20px;
+  }
+
+  /* 阶段圆环 */
+  .stage-ring-card {
+    background: var(--card-bg);
+    border-radius: var(--radius);
+    padding: 28px 24px;
+    box-shadow: var(--shadow);
+    margin-bottom: 20px;
+    text-align: center;
+  }
+
+  .ring-container {
+    width: 140px;
+    height: 140px;
+    margin: 0 auto 16px;
+    position: relative;
+  }
+
+  .ring-svg {
+    width: 140px;
+    height: 140px;
+    transform: rotate(-90deg);
+  }
+
+  .ring-bg {
+    fill: none;
+    stroke: var(--border);
+    stroke-width: 10;
+  }
+
+  .ring-fill {
+    fill: none;
+    stroke: var(--accent);
+    stroke-width: 10;
+    stroke-linecap: round;
+    stroke-dasharray: 377;
+    stroke-dashoffset: 151; /* 60% = 377 * 0.4 */
+    transition: stroke-dashoffset 1s ease-in-out;
+  }
+
+  .ring-text {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+  }
+
+  .ring-percent {
+    font-size: 32px;
+    font-weight: 800;
+    color: var(--text-primary);
+    display: block;
+    line-height: 1;
+  }
+
+  .ring-label {
+    font-size: 13px;
+    color: var(--text-muted);
+  }
+
+  .stage-name {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 4px;
+  }
+
+  .stage-desc {
+    font-size: 14px;
+    color: var(--text-secondary);
+    line-height: 1.5;
+  }
+
+  /* 本周数据 */
+  .weekly-stats {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+
+  .stat-card {
+    flex: 1;
+    background: var(--card-bg);
+    border-radius: var(--radius);
+    padding: 20px 16px;
+    box-shadow: var(--shadow);
+    text-align: center;
+  }
+
+  .stat-number {
+    font-size: 36px;
+    font-weight: 800;
+    color: var(--accent);
+    line-height: 1;
+    margin-bottom: 4px;
+  }
+
+  .stat-unit {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+
+  .stat-detail {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-top: 2px;
+  }
+
+  /* 场景掌握度 */
+  .mastery-section {
+    margin-bottom: 20px;
+  }
+
+  .mastery-title {
+    font-size: 16px;
+    font-weight: 700;
+    margin-bottom: 12px;
+  }
+
+  .mastery-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 10px;
+  }
+
+  .mastery-label {
+    font-size: 14px;
+    width: 56px;
+    flex-shrink: 0;
+    color: var(--text-primary);
+  }
+
+  .mastery-bar-bg {
+    flex: 1;
+    height: 8px;
+    background: var(--border);
+    border-radius: 4px;
+    overflow: hidden;
+  }
+
+  .mastery-bar-fill {
+    height: 100%;
+    border-radius: 4px;
+    transition: width 0.5s ease-out;
+  }
+
+  .mastery-bar-fill.high { background: var(--success-green); }
+  .mastery-bar-fill.mid { background: var(--accent); }
+  .mastery-bar-fill.low { background: #FFB88C; }
+  .mastery-bar-fill.zero { background: var(--border); }
+
+  .mastery-pct {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-muted);
+    width: 36px;
+    text-align: right;
+    flex-shrink: 0;
+  }
+
+  /* 里程碑 */
+  .milestone-section { margin-bottom: 20px; }
+
+  .milestone-title {
+    font-size: 16px;
+    font-weight: 700;
+    margin-bottom: 12px;
+  }
+
+  .milestone-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    margin-bottom: 14px;
+    padding-left: 4px;
+  }
+
+  .milestone-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--accent);
+    margin-top: 5px;
+    flex-shrink: 0;
+  }
+
+  .milestone-line {
+    border-left: 2px solid var(--border);
+    padding-left: 14px;
+    margin-left: -13px;
+    padding-bottom: 8px;
+  }
+
+  .milestone-date {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-bottom: 2px;
+  }
+
+  .milestone-text {
+    font-size: 14px;
+    color: var(--text-primary);
+    line-height: 1.4;
+  }
+</style>
+</head>
+<body>
+
+<a href="index.html" class="back-link">← 返回总览</a>
+<h1>进度页 (Progress)</h1>
+<p class="subtitle">圆环进度图 + 本周数据 + 场景掌握度 + 里程碑时间线</p>
+
+<div class="screens">
+<div class="screen-container">
+  <div class="screen-label">8. 进度页</div>
+  <div class="screen-desc">用温度替代冷数字："小明的成长"不是"统计"</div>
+  <div class="phone">
+    <div class="status-bar"><div class="notch"></div></div>
+    <div class="phone-inner">
+      <div class="page-title">小明的成长</div>
+
+      <!-- 阶段圆环 -->
+      <div class="stage-ring-card">
+        <div class="ring-container">
+          <svg class="ring-svg" viewBox="0 0 140 140">
+            <circle class="ring-bg" cx="70" cy="70" r="60"/>
+            <circle class="ring-fill" cx="70" cy="70" r="60"/>
+          </svg>
+          <div class="ring-text">
+            <span class="ring-percent">60%</span>
+            <span class="ring-label">阶段 2</span>
+          </div>
+        </div>
+        <div class="stage-name">日常对话 · 6-12 个月</div>
+        <div class="stage-desc">"小明已经能认出一些词了"</div>
+      </div>
+
+      <!-- 本周数据 -->
+      <div class="weekly-stats">
+        <div class="stat-card">
+          <div class="stat-number">20</div>
+          <div class="stat-unit">句英语</div>
+          <div class="stat-detail">说给小明听</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-number">5</div>
+          <div class="stat-unit">天练习</div>
+          <div class="stat-detail">连续打卡</div>
+        </div>
+      </div>
+
+      <!-- 各场景掌握度 -->
+      <div class="mastery-section">
+        <div class="mastery-title">各场景掌握度</div>
+
+        <div class="mastery-row">
+          <span class="mastery-label">🛁 洗澡</span>
+          <div class="mastery-bar-bg">
+            <div class="mastery-bar-fill high" style="width: 80%"></div>
+          </div>
+          <span class="mastery-pct">80%</span>
+        </div>
+
+        <div class="mastery-row">
+          <span class="mastery-label">🍼 喂奶</span>
+          <div class="mastery-bar-bg">
+            <div class="mastery-bar-fill mid" style="width: 30%"></div>
+          </div>
+          <span class="mastery-pct">30%</span>
+        </div>
+
+        <div class="mastery-row">
+          <span class="mastery-label">👶 尿布</span>
+          <div class="mastery-bar-bg">
+            <div class="mastery-bar-fill low" style="width: 10%"></div>
+          </div>
+          <span class="mastery-pct">10%</span>
+        </div>
+
+        <div class="mastery-row">
+          <span class="mastery-label">🧸 玩耍</span>
+          <div class="mastery-bar-bg">
+            <div class="mastery-bar-fill zero" style="width: 0%"></div>
+          </div>
+          <span class="mastery-pct">0%</span>
+        </div>
+
+        <div class="mastery-row">
+          <span class="mastery-label">🌙 睡前</span>
+          <div class="mastery-bar-bg">
+            <div class="mastery-bar-fill zero" style="width: 0%"></div>
+          </div>
+          <span class="mastery-pct">0%</span>
+        </div>
+      </div>
+
+      <!-- 里程碑 -->
+      <div class="milestone-section">
+        <div class="milestone-title">里程碑</div>
+
+        <div class="milestone-item">
+          <div class="milestone-dot"></div>
+          <div class="milestone-line">
+            <div class="milestone-date">4月1日</div>
+            <div class="milestone-text">🎉 小明第一次 babble 回应了 "splash"！</div>
+          </div>
+        </div>
+
+        <div class="milestone-item">
+          <div class="milestone-dot" style="background: var(--success-green)"></div>
+          <div class="milestone-line">
+            <div class="milestone-date">3月28日</div>
+            <div class="milestone-text">🌟 完成第一个场景的全部初级短语</div>
+          </div>
+        </div>
+
+        <div class="milestone-item">
+          <div class="milestone-dot" style="background: var(--english-blue)"></div>
+          <div class="milestone-line">
+            <div class="milestone-date">3月25日</div>
+            <div class="milestone-text">🚀 开始了英语旅程</div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="bottom-nav">
+      <div class="nav-item">
+        <span class="icon">🏠</span><span>首页</span>
+      </div>
+      <div class="nav-item">
+        <span class="icon">📚</span><span>场景</span>
+      </div>
+      <div class="nav-item">
+        <span class="icon">🎙</span><span>旅程</span>
+      </div>
+      <div class="nav-item active">
+        <span class="icon">📊</span><span>进度</span>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+
+</body>
+</html>

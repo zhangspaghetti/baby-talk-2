@@ -1,0 +1,33 @@
+[2026-04-02T00:30:35.292Z] [info] refreshState触发
+[2026-04-02T00:30:35.292Z] [info] refreshState触发
+[2026-04-02T00:30:35.292Z] [info] refreshState触发
+[2026-04-02T00:30:35.292Z] [info] refreshState触发
+[2026-04-02T00:30:38.251Z] [info] [@ipalfish/reportlog] environment: production.
+[2026-04-02T00:30:38.276Z] [info] [@ipalfish/sentry info]: Sentry initialization Vue project.
+[2026-04-02T00:30:38.281Z] [info] [@ipalfish/sentry info]: process variable: { NODE_ENV: production, SENTRY_KEY: https://2881840a15944cd18cd793dec3cc9670@sentrynew.pri.ibanyu.com/419, SENTRY_RELEASE: 2026-02-10-8-48-51, DEPLOY_ENV: prod }.
+[2026-04-02T00:30:38.281Z] [info] [@ipalfish/sentry info]: final inject variable: { dsn: https://2881840a15944cd18cd793dec3cc9670@sentrynew.pri.ibanyu.com/419, environment: prod, release: 2026-02-10-8-48-51 }.
+[2026-04-02T00:30:38.333Z] [log] zh-cn
+[2026-04-02T00:30:58.137Z] [info] refreshState触发
+[2026-04-02T00:30:58.137Z] [info] refreshState触发
+[2026-04-02T00:30:58.137Z] [info] refreshState触发
+[2026-04-02T00:30:58.137Z] [info] refreshState触发
+[2026-04-02T00:30:58.318Z] [info] refreshState触发
+[2026-04-02T00:30:58.318Z] [info] refreshState触发
+[2026-04-02T00:30:58.318Z] [info] refreshState触发
+[2026-04-02T00:30:58.318Z] [info] refreshState触发
+[2026-04-02T00:31:17.933Z] [log] Challenge: U1DYsAJRzWRp5HyG => b468f928d0f1b68321a1657aebebdead90069dd68384d6219de342c58e652161
+[2026-04-02T00:31:17.939Z] [log] found answer: a5
+[2026-04-02T00:31:21.148Z] [error] Failed to load resource: the server responded with a status of 403 ()
+[2026-04-02T00:31:38.408Z] [error] Failed to load resource: the server responded with a status of 404 ()
+[2026-04-02T00:31:38.428Z] [error] Failed to load resource: the server responded with a status of 404 ()
+[2026-04-02T00:31:38.940Z] [error] Failed to load resource: the server responded with a status of 404 ()
+[2026-04-02T00:31:39.172Z] [error] Failed to load resource: net::ERR_CONNECTION_CLOSED
+[2026-04-02T00:32:01.899Z] [log] JQMIGRATE: Migrate is installed, version 3.4.1
+[2026-04-02T00:32:02.274Z] [warning] jQuery.Deferred exception: r.jetStickySection is not a function TypeError: r.jetStickySection is not a function
+    at https://www.littlebridge.com/wp-content/plugins/jet-blocks/assets/js/jet-blocks.min.js?ver=1.3.16:1:16915
+    at Array.forEach (<anonymous>)
+    at c (https://www.littlebridge.com/wp-content/plugins/jet-blocks/assets/js/jet-blocks.min.js?ver=1.3.16:1:16838)
+    at Object.run (https://www.littlebridge.com/wp-content/plugins/jet-blocks/assets/js/jet-blocks.min.js?ver=1.3.16:1:17442)
+    at HTMLDocument.<anonymous> (https://www.littlebridge.com/wp-content/plugins/jet-blocks/assets/js/jet-blocks.min.js?ver=1.3.16:1:15366)
+    at e (https://www.littlebridge.com/wp-includes/js/jquery/jquery.min.js?ver=3.7.1:2:27028)
+    at t (https://www.littlebridge.com/wp-includes/js/jquery/jquery.min.js?ver=3.7.1:2:27330) undefined

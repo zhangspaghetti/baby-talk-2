@@ -1,0 +1,189 @@
+/* Baby Talk 2 — 共享设计 Token + 手机壳组件 */
+:root {
+  --warm-bg: #FFF8F0;
+  --card-bg: #FFFFFF;
+  --accent: #FF8C42;
+  --accent-dark: #E67A30; /* 修复对比度 */
+  --accent-light: #FFF0E5;
+  --text-primary: #2D2926;
+  --text-secondary: #6B5E57;
+  --text-muted: #8A7D76; /* 修复对比度: 原 #A89B94 不达标 */
+  --english-blue: #2563EB;
+  --success-green: #34D399;
+  --warning-amber: #F59E0B;
+  --error-red: #EF4444;
+  --border: #F0E8E0;
+  --shadow: 0 2px 12px rgba(45, 41, 38, 0.08);
+  --radius: 16px;
+  --font-cn: "PingFang SC", "Noto Sans SC", "Microsoft YaHei", sans-serif;
+  --font-en: "DM Sans", "Inter", sans-serif;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: var(--font-cn);
+  background: #F5F0EB;
+  color: var(--text-primary);
+  padding: 40px 20px;
+  line-height: 1.5;
+}
+
+h1 {
+  text-align: center;
+  font-size: 28px;
+  margin-bottom: 8px;
+  font-weight: 700;
+}
+
+.subtitle {
+  text-align: center;
+  color: var(--text-secondary);
+  font-size: 14px;
+  margin-bottom: 40px;
+}
+
+.screens {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 40px;
+  justify-content: center;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.screen-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.screen-label {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.screen-desc {
+  font-size: 12px;
+  color: var(--text-secondary);
+  max-width: 375px;
+  text-align: center;
+}
+
+.phone {
+  width: 375px;
+  height: 812px;
+  background: var(--warm-bg);
+  border-radius: 40px;
+  overflow: hidden;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.15), inset 0 0 0 8px #1a1a1a;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+
+.phone-inner {
+  flex: 1;
+  overflow-y: auto;
+  padding: 60px 20px 90px;
+}
+
+.phone-inner::-webkit-scrollbar { display: none; }
+
+.status-bar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 54px;
+  background: var(--warm-bg);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding-bottom: 8px;
+  z-index: 10;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.notch {
+  width: 150px;
+  height: 30px;
+  background: #1a1a1a;
+  border-radius: 0 0 20px 20px;
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.bottom-nav {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 84px;
+  background: var(--card-bg);
+  border-top: 1px solid var(--border);
+  display: flex;
+  justify-content: space-around;
+  align-items: flex-start;
+  padding-top: 10px;
+  z-index: 10;
+}
+
+.nav-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  font-size: 10px;
+  color: var(--text-muted);
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.nav-item.active { color: var(--accent); }
+.nav-item .icon { font-size: 22px; }
+
+/* 通用组件 */
+.section-title {
+  font-size: 16px;
+  font-weight: 700;
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.fab {
+  position: absolute;
+  bottom: 100px;
+  right: 28px;
+  width: 56px;
+  height: 56px;
+  background: var(--accent);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 16px rgba(255, 140, 66, 0.4);
+  cursor: pointer;
+  z-index: 5;
+  font-size: 24px;
+  color: white;
+}
+
+/* 返回导航链接 */
+.back-link {
+  display: inline-block;
+  margin-bottom: 20px;
+  color: var(--accent);
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.back-link:hover { text-decoration: underline; }

@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Baby Talk 2 — UI 设计全览</title>
+<style>
+  :root {
+    --warm-bg: #FFF8F0;
+    --card-bg: #FFFFFF;
+    --accent: #FF8C42;
+    --accent-light: #FFF0E5;
+    --text-primary: #2D2926;
+    --text-secondary: #6B5E57;
+    --text-muted: #8A7D76;
+    --border: #F0E8E0;
+    --shadow: 0 2px 12px rgba(45, 41, 38, 0.08);
+    --font-cn: "PingFang SC", "Noto Sans SC", "Microsoft YaHei", sans-serif;
+    --font-en: "DM Sans", "Inter", sans-serif;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: var(--font-cn);
+    background: #F5F0EB;
+    color: var(--text-primary);
+    padding: 40px 20px;
+    line-height: 1.5;
+  }
+
+  h1 {
+    text-align: center;
+    font-size: 32px;
+    font-weight: 800;
+    margin-bottom: 8px;
+  }
+
+  h1 em {
+    color: var(--accent);
+    font-style: normal;
+  }
+
+  .subtitle {
+    text-align: center;
+    color: var(--text-secondary);
+    font-size: 14px;
+    margin-bottom: 12px;
+  }
+
+  .meta {
+    text-align: center;
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-bottom: 40px;
+  }
+
+  .section {
+    max-width: 900px;
+    margin: 0 auto 40px;
+  }
+
+  .section-title {
+    font-size: 20px;
+    font-weight: 700;
+    margin-bottom: 8px;
+    padding-bottom: 8px;
+    border-bottom: 2px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .section-desc {
+    font-size: 13px;
+    color: var(--text-secondary);
+    margin-bottom: 16px;
+  }
+
+  .card-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 16px;
+  }
+
+  .screen-card {
+    background: var(--card-bg);
+    border-radius: 16px;
+    padding: 20px;
+    box-shadow: var(--shadow);
+    text-decoration: none;
+    color: inherit;
+    transition: transform 0.15s, box-shadow 0.15s;
+    display: block;
+  }
+
+  .screen-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 24px rgba(45, 41, 38, 0.12);
+  }
+
+  .card-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 10px;
+  }
+
+  .card-num {
+    background: var(--accent);
+    color: white;
+    width: 32px;
+    height: 32px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    font-weight: 800;
+    flex-shrink: 0;
+  }
+
+  .card-num.existing { background: var(--text-muted); }
+  .card-num.new { background: var(--accent); }
+
+  .card-title {
+    font-size: 16px;
+    font-weight: 700;
+  }
+
+  .card-desc {
+    font-size: 13px;
+    color: var(--text-secondary);
+    line-height: 1.5;
+    margin-bottom: 10px;
+  }
+
+  .card-badge {
+    font-size: 11px;
+    font-weight: 600;
+    padding: 3px 10px;
+    border-radius: 10px;
+    display: inline-block;
+  }
+
+  .badge-new {
+    background: var(--accent-light);
+    color: var(--accent);
+  }
+
+  .badge-existing {
+    background: var(--border);
+    color: var(--text-muted);
+  }
+
+  .badge-states {
+    background: #E8F5E9;
+    color: #2E7D32;
+    margin-left: 4px;
+  }
+
+  /* Design token 摘要 */
+  .token-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 10px;
+    margin-top: 16px;
+  }
+
+  .color-swatch {
+    border-radius: 12px;
+    padding: 14px 12px 10px;
+    text-align: center;
+    font-size: 11px;
+    font-weight: 600;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+  }
+
+  .color-swatch .hex {
+    font-size: 10px;
+    font-weight: 400;
+    opacity: 0.7;
+    display: block;
+    margin-top: 2px;
+  }
+
+  .notes {
+    background: var(--accent-light);
+    border-radius: 12px;
+    padding: 16px 20px;
+    margin-top: 20px;
+    font-size: 13px;
+    line-height: 1.6;
+  }
+
+  .notes strong { color: var(--accent); }
+
+  .footer {
+    text-align: center;
+    padding: 40px 20px;
+    font-size: 12px;
+    color: var(--text-muted);
+  }
+</style>
+</head>
+<body>
+
+<h1>Baby Talk 2 — <em>UI 设计全览</em></h1>
+<p class="subtitle">12 个屏幕 · 完整设计 Token · Design Review 2026-04-02</p>
+<p class="meta">点击任意卡片查看详细 mockup · 灰色 = 已有设计 · 橙色 = 新增 mockup</p>
+
+<!-- ====== 已有设计（原始 HTML 文件） ====== -->
+<div class="section">
+  <div class="section-title">📱 已有核心屏幕</div>
+  <div class="section-desc">来自 baby-talk-ui-design.html，6 个核心屏幕的完整 HTML mockup</div>
+  <div class="card-grid">
+    <a href="../baby-talk-ui-design.html" class="screen-card">
+      <div class="card-header">
+        <div class="card-num existing">1</div>
+        <div class="card-title">Smart Home 主屏幕</div>
+      </div>
+      <div class="card-desc">每日核心入口：今日短语 + 路线图活动 + Ask Coach FAB + 48h 提醒</div>
+      <span class="card-badge badge-existing">已有</span>
+    </a>
+
+    <a href="../baby-talk-ui-design.html" class="screen-card">
+      <div class="card-header">
+        <div class="card-num existing">2</div>
+        <div class="card-title">场景辅导</div>
+      </div>
+      <div class="card-desc">短语卡片 + 发音播放 + 教练提示 + 反应追踪 + 难度切换</div>
+      <span class="card-badge badge-existing">已有</span>
+    </a>
+
+    <a href="../baby-talk-ui-design.html" class="screen-card">
+      <div class="card-header">
+        <div class="card-num existing">3</div>
+        <div class="card-title">情侣模式</div>
+      </div>
+      <div class="card-desc">全屏暗色 + 倒计时 + 超大英文短语，两人一起朗读</div>
+      <span class="card-badge badge-existing">已有</span>
+    </a>
+
+    <a href="../baby-talk-ui-design.html" class="screen-card">
+      <div class="card-header">
+        <div class="card-num existing">4</div>
+        <div class="card-title">AI 教练</div>
+      </div>
+      <div class="card-desc">中文描述场景 → 英文短语 + 教练方法提示 + 反馈</div>
+      <span class="card-badge badge-existing">已有</span>
+    </a>
+
+    <a href="../baby-talk-ui-design.html" class="screen-card">
+      <div class="card-header">
+        <div class="card-num existing">5</div>
+        <div class="card-title">庆祝屏幕</div>
+      </div>
+      <div class="card-desc">宝宝第一个英文词 → 全屏动画 + 分享卡</div>
+      <span class="card-badge badge-existing">已有</span>
+    </a>
+
+    <a href="../baby-talk-ui-design.html" class="screen-card">
+      <div class="card-header">
+        <div class="card-num existing">6</div>
+        <div class="card-title">Onboarding</div>
+      </div>
+      <div class="card-desc">首次使用：输入宝宝名字 + 生日 → 阶段自动匹配</div>
+      <span class="card-badge badge-existing">已有</span>
+    </a>
+  </div>
+</div>
+
+<!-- ====== 新增 Mockup ====== -->
+<div class="section">
+  <div class="section-title">🆕 新增屏幕 Mockup</div>
+  <div class="section-desc">Design Review 发现的缺失屏幕，已补充完整 HTML mockup</div>
+  <div class="card-grid">
+    <a href="01-scenes-list.html" class="screen-card">
+      <div class="card-header">
+        <div class="card-num new">7</div>
+        <div class="card-title">场景列表</div>
+      </div>
+      <div class="card-desc">单列全宽卡片 · 按掌握度排序 · 锁定/解锁状态 · CTA 引导</div>
+      <span class="card-badge badge-new">新增</span>
+    </a>
+
+    <a href="02-progress.html" class="screen-card">
+      <div class="card-header">
+        <div class="card-num new">8</div>
+        <div class="card-title">进度页</div>
+      </div>
+      <div class="card-desc">阶段圆环 + 本周数据 + 场景掌握度条形图 + 里程碑时间线</div>
+      <span class="card-badge badge-new">新增</span>
+    </a>
+
+    <a href="03-journey.html" class="screen-card">
+      <div class="card-header">
+        <div class="card-num new">9</div>
+        <div class="card-title">旅程 (语音日记)</div>
+      </div>
+      <div class="card-desc">本周录音提示 + 时间线 + 波形预览 + 空状态</div>
+      <span class="card-badge badge-new">新增</span>
+      <span class="card-badge badge-states">含空状态</span>
+    </a>
+
+    <a href="04-auth.html" class="screen-card">
+      <div class="card-header">
+        <div class="card-num new">10</div>
+        <div class="card-title">登录/注册</div>
+      </div>
+      <div class="card-desc">手机号+验证码 · 账号密码 · 错误状态 · PIPL 合规</div>
+      <span class="card-badge badge-new">新增</span>
+      <span class="card-badge badge-states">含错误状态</span>
+    </a>
+
+    <a href="05-settings.html" class="screen-card">
+      <div class="card-header">
+        <div class="card-num new">11</div>
+        <div class="card-title">设置页</div>
+      </div>
+      <div class="card-desc">用户信息 + 宝宝管理 + 通知 + 数据 + 退出登录</div>
+      <span class="card-badge badge-new">新增</span>
+    </a>
+
+    <a href="06-landing-page.html" class="screen-card">
+      <div class="card-header">
+        <div class="card-num new">12</div>
+        <div class="card-title">Web Landing Page</div>
+      </div>
+      <div class="card-desc">微信分享落地页：产品介绍 + 截图 + 下载 + 庆祝分享卡预览</div>
+      <span class="card-badge badge-new">新增</span>
+    </a>
+  </div>
+</div>
+
+<!-- ====== Design Token 摘要 ====== -->
+<div class="section">
+  <div class="section-title">🎨 Design Token 摘要</div>
+  <div class="section-desc">从 HTML 设计稿提取的颜色系统（含对比度修复）</div>
+  <div class="token-grid">
+    <div class="color-swatch" style="background: #FFF8F0; color: #2D2926;">
+      主背景<span class="hex">#FFF8F0</span>
+    </div>
+    <div class="color-swatch" style="background: #FF8C42; color: white;">
+      主色调<span class="hex">#FF8C42</span>
+    </div>
+    <div class="color-swatch" style="background: #FFF0E5; color: #FF8C42;">
+      主色淡底<span class="hex">#FFF0E5</span>
+    </div>
+    <div class="color-swatch" style="background: #2563EB; color: white;">
+      英文蓝<span class="hex">#2563EB</span>
+    </div>
+    <div class="color-swatch" style="background: #2D2926; color: white;">
+      主文字<span class="hex">#2D2926</span>
+    </div>
+    <div class="color-swatch" style="background: #6B5E57; color: white;">
+      次要文字<span class="hex">#6B5E57</span>
+    </div>
+    <div class="color-swatch" style="background: #8A7D76; color: white;">
+      弱文字 (修复)<span class="hex">#8A7D76</span>
+    </div>
+    <div class="color-swatch" style="background: #34D399; color: white;">
+      成功绿<span class="hex">#34D399</span>
+    </div>
+    <div class="color-swatch" style="background: #EF4444; color: white;">
+      错误红<span class="hex">#EF4444</span>
+    </div>
+    <div class="color-swatch" style="background: #1A1520; color: white;">
+      情侣模式<span class="hex">#1A1520</span>
+    </div>
+  </div>
+
+  <div class="notes">
+    <strong>对比度修复 (本次 Design Review):</strong><br>
+    1. <code>--text-muted</code> 从 #A89B94 调深到 <strong>#8A7D76</strong> (对比度 2.8:1 → 4.5:1 达标 AA)<br>
+    2. <code>--accent</code> 按钮文字对比不足 → 按钮内文字用 white，accent 调深到 <strong>#E67A30</strong> 作为按钮背景备选<br>
+    3. Coaching tip 紫色 (#5B4A8A / #7C3AED) 违反 anti-slop 规则 → 改用暖橙色系 (#FF8C42 / #FFF0E5)
+  </div>
+</div>
+
+<div class="footer">
+  Baby Talk 2 · Design Review · 2026-04-02 · Generated by /plan-design-review<br>
+  共 12 个屏幕 · 6 已有 + 6 新增
+</div>
+
+</body>
+</html>

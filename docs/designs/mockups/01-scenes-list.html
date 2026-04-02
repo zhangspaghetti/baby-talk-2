@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Baby Talk 2 — 场景列表</title>
+<link rel="stylesheet" href="shared.css">
+<style>
+  .scene-list-item {
+    background: var(--card-bg);
+    border-radius: var(--radius);
+    padding: 20px;
+    margin-bottom: 12px;
+    box-shadow: var(--shadow);
+    cursor: pointer;
+    transition: transform 0.15s;
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+  }
+  .scene-list-item:hover { transform: translateY(-2px); }
+
+  .scene-emoji {
+    font-size: 36px;
+    flex-shrink: 0;
+    width: 48px;
+    height: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .scene-info { flex: 1; }
+
+  .scene-name-row {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    margin-bottom: 4px;
+  }
+
+  .scene-name-cn {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--text-primary);
+  }
+
+  .scene-name-en {
+    font-family: var(--font-en);
+    font-size: 13px;
+    color: var(--text-muted);
+    font-weight: 500;
+  }
+
+  .scene-progress-bar {
+    height: 6px;
+    background: var(--border);
+    border-radius: 3px;
+    overflow: hidden;
+    margin: 8px 0;
+  }
+
+  .scene-progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent), #FFB88C);
+    border-radius: 3px;
+    transition: width 0.3s;
+  }
+
+  .scene-progress-text {
+    font-size: 12px;
+    color: var(--text-muted);
+  }
+
+  .scene-cta {
+    color: var(--accent);
+    font-size: 13px;
+    font-weight: 600;
+    margin-top: 8px;
+    display: inline-block;
+  }
+
+  .scene-locked {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .scene-locked:hover { transform: none; }
+
+  .lock-badge {
+    font-size: 12px;
+    color: var(--text-muted);
+    background: var(--border);
+    padding: 2px 10px;
+    border-radius: 12px;
+    margin-top: 4px;
+    display: inline-block;
+  }
+
+  .page-title {
+    font-size: 24px;
+    font-weight: 700;
+    margin-bottom: 4px;
+  }
+
+  .page-subtitle {
+    font-size: 14px;
+    color: var(--text-secondary);
+    margin-bottom: 20px;
+  }
+</style>
+</head>
+<body>
+
+<a href="index.html" class="back-link">← 返回总览</a>
+<h1>场景列表 (Scenes List)</h1>
+<p class="subtitle">单列全宽卡片 · 按掌握度排序 · 未开始场景有 CTA · 锁定场景灰色</p>
+
+<div class="screens">
+<div class="screen-container">
+  <div class="screen-label">7. 场景列表</div>
+  <div class="screen-desc">所有场景入口，按"最需要练习"动态排序</div>
+  <div class="phone">
+    <div class="status-bar"><div class="notch"></div></div>
+    <div class="phone-inner">
+      <div class="page-title">场景</div>
+      <div class="page-subtitle">小明的英语世界</div>
+
+      <!-- 洗澡 — 进行中 -->
+      <div class="scene-list-item">
+        <div class="scene-emoji">🛁</div>
+        <div class="scene-info">
+          <div class="scene-name-row">
+            <span class="scene-name-cn">洗澡时间</span>
+            <span class="scene-name-en">Bath Time</span>
+          </div>
+          <div class="scene-progress-bar">
+            <div class="scene-progress-fill" style="width: 60%"></div>
+          </div>
+          <div class="scene-progress-text">●●●○○ 3/5 初级短语已掌握</div>
+        </div>
+      </div>
+
+      <!-- 喂奶 — 刚开始 -->
+      <div class="scene-list-item">
+        <div class="scene-emoji">🍼</div>
+        <div class="scene-info">
+          <div class="scene-name-row">
+            <span class="scene-name-cn">喂奶时间</span>
+            <span class="scene-name-en">Feeding Time</span>
+          </div>
+          <div class="scene-progress-bar">
+            <div class="scene-progress-fill" style="width: 20%"></div>
+          </div>
+          <div class="scene-progress-text">●○○○○ 1/5 初级短语已掌握</div>
+        </div>
+      </div>
+
+      <!-- 换尿布 — 未开始 -->
+      <div class="scene-list-item">
+        <div class="scene-emoji">👶</div>
+        <div class="scene-info">
+          <div class="scene-name-row">
+            <span class="scene-name-cn">换尿布</span>
+            <span class="scene-name-en">Diaper Time</span>
+          </div>
+          <div class="scene-progress-bar">
+            <div class="scene-progress-fill" style="width: 0%"></div>
+          </div>
+          <div class="scene-progress-text">○○○○○ 尚未开始</div>
+          <span class="scene-cta">开始第一个短语 →</span>
+        </div>
+      </div>
+
+      <!-- 玩耍 — 未开始 -->
+      <div class="scene-list-item">
+        <div class="scene-emoji">🧸</div>
+        <div class="scene-info">
+          <div class="scene-name-row">
+            <span class="scene-name-cn">玩耍时间</span>
+            <span class="scene-name-en">Play Time</span>
+          </div>
+          <div class="scene-progress-bar">
+            <div class="scene-progress-fill" style="width: 0%"></div>
+          </div>
+          <div class="scene-progress-text">○○○○○ 尚未开始</div>
+          <span class="scene-cta">开始第一个短语 →</span>
+        </div>
+      </div>
+
+      <!-- 睡前 — 未开始 -->
+      <div class="scene-list-item">
+        <div class="scene-emoji">🌙</div>
+        <div class="scene-info">
+          <div class="scene-name-row">
+            <span class="scene-name-cn">睡前时间</span>
+            <span class="scene-name-en">Bedtime</span>
+          </div>
+          <div class="scene-progress-bar">
+            <div class="scene-progress-fill" style="width: 0%"></div>
+          </div>
+          <div class="scene-progress-text">○○○○○ 尚未开始</div>
+          <span class="scene-cta">开始第一个短语 →</span>
+        </div>
+      </div>
+
+      <!-- 穿衣 — 锁定 -->
+      <div class="scene-list-item scene-locked">
+        <div class="scene-emoji">👕</div>
+        <div class="scene-info">
+          <div class="scene-name-row">
+            <span class="scene-name-cn">穿衣时间</span>
+            <span class="scene-name-en">Dressing Time</span>
+          </div>
+          <span class="lock-badge">🔒 阶段 3 解锁 (12-18月)</span>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="bottom-nav">
+      <div class="nav-item">
+        <span class="icon">🏠</span><span>首页</span>
+      </div>
+      <div class="nav-item active">
+        <span class="icon">📚</span><span>场景</span>
+      </div>
+      <div class="nav-item">
+        <span class="icon">🎙</span><span>旅程</span>
+      </div>
+      <div class="nav-item">
+        <span class="icon">📊</span><span>进度</span>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+
+</body>
+</html>

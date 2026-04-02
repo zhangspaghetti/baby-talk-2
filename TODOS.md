@@ -24,6 +24,27 @@
 
 ## P1 — Blocks Production
 
+### Run /design-consultation to Generate DESIGN.md
+**What:** 跑 /design-consultation 生成正式 DESIGN.md。将内联的 Design Token Summary（颜色、字体、间距、圆角、组件词汇）提升为正式的设计系统文件。
+**Why:** 当前的 token 分散在 `baby-talk-extended-mvp.md` 内联和 `baby-talk-ui-design.html` CSS 中，没有单一权威参考。多人开发时会导致"这个圆角用 12 还是 16"的反复确认。
+**Context:** Design Review (2026-04-02) Pass 5 评分 7/10，唯一原因就是缺 DESIGN.md。
+**Effort:** S (CC: ~20 分钟)
+**Depends on:** Nothing. Start immediately.
+
+### Update Design Docs for New Navigation Architecture
+**What:** 更新所有设计文档中的导航结构。旧: 4 tab（首页/场景/旅程/进度）。新: 4 tab（首页/发现/笔记/我的）+ 左上角 Drawer（头像/设置/会员中心/扫码/客服）。更新 ASCII wireframe、导航流程图、底部导航描述。
+**Why:** Design Review (2026-04-02) Pass 1 确认了导航重设计。文档还是旧架构，开发者按旧文档实现会做错。
+**Context:** 新导航决策: "发现"承载场景列表+路线图活动，"笔记"承载录音+文字笔记(Phase 2+社交)，"我的"合并进度+设置。首次流程: Onboarding→登录→Home。
+**Effort:** S (CC: ~15 分钟，批量替换)
+**Depends on:** Nothing.
+
+### Complete Onboarding Flow Mockup
+**What:** 补充完整的 Onboarding 流程 HTML mockup。现有只有"输入名字"一屏。需要补充: 欢迎页 → 输入名字 → 输入生日 → 阶段匹配动画 → "注册保存记录"过渡页 → 登录 → PIPL 隐私同意弹窗 → Home。
+**Why:** Onboarding 是用户的第一印象。Pass 1 确认了 Onboarding→登录流程，但中间的情感过渡页（"小明等着听你说英语"）缺失会让注册感觉突兀。
+**Context:** Design Review (2026-04-02) 确认 B 方案（先 Onboarding 后登录），需要在 Onboarding 末尾自然过渡到注册。
+**Effort:** S (CC: ~15 分钟)
+**Depends on:** Nothing.
+
 ### Update Design Doc for Native Pivot
 **What:** 将 `docs/designs/baby-talk-extended-mvp.md` 中所有 "Flutter Web first" 的引用更新为 "Flutter Native first"。移除所有 "hidden on Flutter Web" / "native-only" 的条件逻辑。更新 Build Order、Key Implementation Decisions、Known Risks 等章节。
 **Why:** 现有设计文档和新的 CEO Plan (`ceo-plans/2026-04-01-native-app-pivot.md`) 矛盾。开发者会困惑。

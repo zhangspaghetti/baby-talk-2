@@ -1,0 +1,15 @@
+{
+  "servers": {
+    "tavily": {
+      "command": "npx",
+      "args": ["-y", "tavily-mcp@latest"],
+      "env": {
+        "TAVILY_API_KEY": "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"
+      }
+    },
+    "context7": {
+      "command": "npx",
+      "args": ["-y", "@upstash/context7-mcp@latest"]
+    }
+  }
+}

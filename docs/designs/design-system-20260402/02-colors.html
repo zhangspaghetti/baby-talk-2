@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Baby Talk 2 — 颜色系统</title>
+<link rel="stylesheet" href="tokens.css">
+<style>
+  body { padding: 40px 20px; max-width: 900px; margin: 0 auto; background: var(--bg-base); }
+  .back { color: var(--accent); text-decoration: none; font-size: 14px; font-weight: 600; }
+  .back:hover { text-decoration: underline; }
+  h1 { font-size: 24px; font-weight: 700; margin: 16px 0 8px; }
+  h2 { font-size: 18px; font-weight: 700; margin: 32px 0 16px; }
+  .desc { color: var(--text-secondary); font-size: 14px; margin-bottom: 32px; }
+
+  .swatch-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 12px;
+    margin-bottom: 24px;
+  }
+  .swatch {
+    border-radius: var(--radius-md);
+    overflow: hidden;
+    box-shadow: var(--shadow-sm);
+  }
+  .swatch-color {
+    height: 80px;
+    display: flex;
+    align-items: flex-end;
+    padding: 8px 12px;
+  }
+  .swatch-info {
+    background: var(--bg-surface);
+    padding: 10px 12px;
+  }
+  .swatch-name {
+    font-size: 13px;
+    font-weight: 600;
+    margin-bottom: 2px;
+  }
+  .swatch-hex {
+    font-size: 11px;
+    font-family: var(--font-mono);
+    color: var(--text-muted);
+  }
+  .swatch-var {
+    font-size: 10px;
+    font-family: var(--font-mono);
+    color: var(--text-muted);
+    margin-top: 2px;
+  }
+
+  .component-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+
+  /* 按钮 */
+  .btn {
+    padding: 10px 24px;
+    border-radius: var(--radius-sm);
+    font-size: 14px;
+    font-weight: 600;
+    font-family: var(--font-cn);
+    border: none;
+    cursor: pointer;
+    transition: all var(--duration-short) var(--ease-enter);
+  }
+  .btn-primary { background: var(--accent); color: var(--text-on-accent); }
+  .btn-primary:hover { background: var(--accent-dark); }
+  .btn-secondary { background: var(--bg-surface); color: var(--accent); border: 1.5px solid var(--accent); }
+  .btn-ghost { background: transparent; color: var(--text-secondary); }
+  .btn-ghost:hover { background: var(--bg-accent-soft); color: var(--accent); }
+  .btn-english { background: var(--english); color: var(--text-on-accent); }
+
+  /* 卡片 */
+  .demo-card {
+    background: var(--bg-surface);
+    border-radius: var(--radius-md);
+    padding: 20px;
+    box-shadow: var(--shadow-md);
+    margin-bottom: 16px;
+  }
+
+  /* Alert */
+  .alert {
+    padding: 12px 16px;
+    border-radius: var(--radius-sm);
+    font-size: 13px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 10px;
+  }
+  .alert-success { background: var(--success-soft); color: #3D5C34; }
+  .alert-warning { background: var(--warning-soft); color: #7A5A0A; }
+  .alert-error { background: var(--error-soft); color: #8A2E24; }
+  .alert-info { background: var(--info-soft); color: #2A6358; }
+
+  /* 输入框 */
+  .input-demo {
+    padding: 10px 14px;
+    border: 1.5px solid var(--border);
+    border-radius: var(--radius-sm);
+    font-size: 14px;
+    font-family: var(--font-cn);
+    background: var(--bg-surface);
+    color: var(--text-primary);
+    width: 260px;
+    outline: none;
+    transition: border-color var(--duration-short) var(--ease-enter);
+  }
+  .input-demo:focus { border-color: var(--accent); }
+  .input-demo::placeholder { color: var(--text-muted); }
+
+  /* 对比卡 */
+  .contrast-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-top: 16px;
+  }
+  .contrast-box {
+    padding: 16px;
+    border-radius: var(--radius-sm);
+  }
+  .contrast-label {
+    font-size: 11px;
+    font-family: var(--font-mono);
+    margin-bottom: 4px;
+    opacity: 0.7;
+  }
+  .contrast-sample {
+    font-size: 16px;
+    font-weight: 600;
+  }
+
+  /* Theme toggle */
+  .theme-toggle {
+    position: fixed;
+    top: 16px;
+    right: 16px;
+    padding: 8px 16px;
+    border-radius: var(--radius-full);
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    font-size: 13px;
+    cursor: pointer;
+    box-shadow: var(--shadow-sm);
+    font-family: var(--font-cn);
+    z-index: 100;
+  }
+</style>
+</head>
+<body>
+
+<button class="theme-toggle" onclick="toggleTheme()">🌙 暗色模式</button>
+
+<a href="index.html" class="back">← 返回总览</a>
+<h1>🎨 颜色系统</h1>
+<p class="desc">暖色调为主 · restrained 策略 · 一个强调色 + 一个功能色 + 中性色</p>
+
+<h2>核心色板</h2>
+<div class="swatch-grid">
+  <div class="swatch">
+    <div class="swatch-color" style="background: #FFF8F0;"><span style="color:#2D2926; font-size:11px;">Aa</span></div>
+    <div class="swatch-info">
+      <div class="swatch-name">奶油纸 · 主背景</div>
+      <div class="swatch-hex">#FFF8F0</div>
+      <div class="swatch-var">--bg-base</div>
+    </div>
+  </div>
+  <div class="swatch">
+    <div class="swatch-color" style="background: #FFFFFF; border: 1px solid #F0E8E0;"><span style="color:#2D2926; font-size:11px;">Aa</span></div>
+    <div class="swatch-info">
+      <div class="swatch-name">白 · 卡片表面</div>
+      <div class="swatch-hex">#FFFFFF</div>
+      <div class="swatch-var">--bg-surface</div>
+    </div>
+  </div>
+  <div class="swatch">
+    <div class="swatch-color" style="background: #F5F0EB;"><span style="color:#2D2926; font-size:11px;">Aa</span></div>
+    <div class="swatch-info">
+      <div class="swatch-name">淡灰暖 · 下沉区域</div>
+      <div class="swatch-hex">#F5F0EB</div>
+      <div class="swatch-var">--bg-sunken</div>
+    </div>
+  </div>
+  <div class="swatch">
+    <div class="swatch-color" style="background: #FF8C42;"><span style="color:white; font-size:11px;">Aa</span></div>
+    <div class="swatch-info">
+      <div class="swatch-name">暖橙 · 主强调色</div>
+      <div class="swatch-hex">#FF8C42</div>
+      <div class="swatch-var">--accent</div>
+    </div>
+  </div>
+  <div class="swatch">
+    <div class="swatch-color" style="background: #E67A30;"><span style="color:white; font-size:11px;">Aa</span></div>
+    <div class="swatch-info">
+      <div class="swatch-name">深橙 · Hover/对比</div>
+      <div class="swatch-hex">#E67A30</div>
+      <div class="swatch-var">--accent-dark</div>
+    </div>
+  </div>
+  <div class="swatch">
+    <div class="swatch-color" style="background: #FFF0E5;"><span style="color:#FF8C42; font-size:11px;">Aa</span></div>
+    <div class="swatch-info">
+      <div class="swatch-name">淡橙底 · 标签</div>
+      <div class="swatch-hex">#FFF0E5</div>
+      <div class="swatch-var">--accent-light</div>
+    </div>
+  </div>
+</div>
+
+<h2>英文色 · 青绿</h2>
+<p style="font-size: 13px; color: var(--text-secondary); margin-bottom: 16px;">
+  从蓝色 #2563EB 改为青绿 #3B8577。蓝色说「英语是外语」，绿色说「英语是生活中自然生长的东西」。
+</p>
+<div class="swatch-grid">
+  <div class="swatch">
+    <div class="swatch-color" style="background: #3B8577;"><span style="color:white; font-size:11px;">Aa</span></div>
+    <div class="swatch-info">
+      <div class="swatch-name">青绿 · 英文标记</div>
+      <div class="swatch-hex">#3B8577</div>
+      <div class="swatch-var">--english</div>
+    </div>
+  </div>
+  <div class="swatch">
+    <div class="swatch-color" style="background: #D4E8E3;"><span style="color:#3B8577; font-size:11px;">Aa</span></div>
+    <div class="swatch-info">
+      <div class="swatch-name">淡青绿底</div>
+      <div class="swatch-hex">#D4E8E3</div>
+      <div class="swatch-var">--english-soft</div>
+    </div>
+  </div>
+  <div class="swatch">
+    <div class="swatch-color" style="background: #2563EB;"><span style="color:white; font-size:11px;">旧</span></div>
+    <div class="swatch-info">
+      <div class="swatch-name" style="text-decoration: line-through; color: var(--text-muted);">旧蓝色（不再使用）</div>
+      <div class="swatch-hex" style="text-decoration: line-through;">#2563EB</div>
+    </div>
+  </div>
+</div>
+
+<h2>文字色</h2>
+<div class="swatch-grid">
+  <div class="swatch">
+    <div class="swatch-color" style="background: #2D2926;"><span style="color:white; font-size:11px;">Aa 主文字</span></div>
+    <div class="swatch-info">
+      <div class="swatch-name">深咖啡 · 正文</div>
+      <div class="swatch-hex">#2D2926</div>
+    </div>
+  </div>
+  <div class="swatch">
+    <div class="swatch-color" style="background: #6B5E57;"><span style="color:white; font-size:11px;">Aa 次要</span></div>
+    <div class="swatch-info">
+      <div class="swatch-name">中咖啡 · 次要</div>
+      <div class="swatch-hex">#6B5E57</div>
+    </div>
+  </div>
+  <div class="swatch">
+    <div class="swatch-color" style="background: #8A7D76;"><span style="color:white; font-size:11px;">Aa 弱</span></div>
+    <div class="swatch-info">
+      <div class="swatch-name">淡咖啡 · 弱 (AA ✓)</div>
+      <div class="swatch-hex">#8A7D76</div>
+    </div>
+  </div>
+</div>
+
+<h2>语义色</h2>
+<div class="swatch-grid">
+  <div class="swatch">
+    <div class="swatch-color" style="background: #6B8F5E;"><span style="color:white; font-size:11px;">✓</span></div>
+    <div class="swatch-info">
+      <div class="swatch-name">苔藓绿 · 成功</div>
+      <div class="swatch-hex">#6B8F5E</div>
+    </div>
+  </div>
+  <div class="swatch">
+    <div class="swatch-color" style="background: #E6A817;"><span style="color:white; font-size:11px;">⚠</span></div>
+    <div class="swatch-info">
+      <div class="swatch-name">琥珀 · 警告</div>
+      <div class="swatch-hex">#E6A817</div>
+    </div>
+  </div>
+  <div class="swatch">
+    <div class="swatch-color" style="background: #D94B3C;"><span style="color:white; font-size:11px;">✕</span></div>
+    <div class="swatch-info">
+      <div class="swatch-name">红 · 错误</div>
+      <div class="swatch-hex">#D94B3C</div>
+    </div>
+  </div>
+  <div class="swatch">
+    <div class="swatch-color" style="background: #3B8577;"><span style="color:white; font-size:11px;">ℹ</span></div>
+    <div class="swatch-info">
+      <div class="swatch-name">青绿 · 信息</div>
+      <div class="swatch-hex">#3B8577</div>
+    </div>
+  </div>
+</div>
+
+<h2>对比度验证</h2>
+<div class="contrast-grid">
+  <div class="contrast-box" style="background: #FFF8F0;">
+    <div class="contrast-label" style="color:#8A7D76;">--text-primary on --bg-base</div>
+    <div class="contrast-sample" style="color:#2D2926;">换尿布时间 · 14.2:1 ✓</div>
+  </div>
+  <div class="contrast-box" style="background: #FFF8F0;">
+    <div class="contrast-label" style="color:#8A7D76;">--text-muted on --bg-base</div>
+    <div class="contrast-sample" style="color:#8A7D76;">弱文字 · 4.5:1 ✓ AA</div>
+  </div>
+  <div class="contrast-box" style="background: #FFF8F0;">
+    <div class="contrast-label" style="color:#8A7D76;">--english on --bg-base</div>
+    <div class="contrast-sample" style="color:#3B8577; font-family: var(--font-en-display);">Splash splash! · 4.8:1 ✓</div>
+  </div>
+  <div class="contrast-box" style="background: #FF8C42;">
+    <div class="contrast-label" style="color:rgba(255,255,255,0.7);">white on --accent</div>
+    <div class="contrast-sample" style="color:white;">播放发音 · 3.2:1</div>
+  </div>
+</div>
+
+<h2>UI 组件示例</h2>
+
+<div class="demo-card">
+  <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 12px;">按钮</p>
+  <div class="component-row">
+    <button class="btn btn-primary">播放发音 ▶</button>
+    <button class="btn btn-secondary">下一句</button>
+    <button class="btn btn-ghost">跳过</button>
+    <button class="btn btn-english">English Mode</button>
+  </div>
+</div>
+
+<div class="demo-card">
+  <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 12px;">提示条</p>
+  <div class="alert alert-success">✅ 太棒了！宝宝今天听了 5 个英文短语</div>
+  <div class="alert alert-warning">⚠️ 已经 2 天没有练习了，今天试试换尿布场景？</div>
+  <div class="alert alert-error">❌ 网络连接失败，已切换离线模式</div>
+  <div class="alert alert-info">💡 教练提示：说短语时看着宝宝的眼睛，语调要夸张一点</div>
+</div>
+
+<div class="demo-card">
+  <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 12px;">输入框</p>
+  <div class="component-row">
+    <input class="input-demo" placeholder="宝宝的名字" />
+    <input class="input-demo" placeholder="2025-03-15" />
+  </div>
+</div>
+
+<script>
+function toggleTheme() {
+  const html = document.documentElement;
+  const btn = document.querySelector('.theme-toggle');
+  if (html.getAttribute('data-theme') === 'dark') {
+    html.removeAttribute('data-theme');
+    btn.textContent = '🌙 暗色模式';
+  } else {
+    html.setAttribute('data-theme', 'dark');
+    btn.textContent = '☀️ 亮色模式';
+  }
+}
+</script>
+
+</body>
+</html>

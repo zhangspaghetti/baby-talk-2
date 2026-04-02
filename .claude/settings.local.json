@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__tavily__tavily_search",
+      "Bash(~/.claude/skills/gstack/bin/gstack-review-read)",
+      "Skill(design-consultation)",
+      "Skill(design-consultation:*)"
+    ]
+  }
+}
