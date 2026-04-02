@@ -1,0 +1,14 @@
+{"skill":"codex-plan-review","timestamp":"2026-03-31T23:14:07Z","status":"issues_found","source":"claude","commit":"6cd5dba"}
+{"skill":"plan-ceo-review","timestamp":"2026-03-31T23:25:11Z","status":"clean","unresolved":0,"critical_gaps":0,"mode":"SCOPE_EXPANSION","scope_proposed":7,"scope_accepted":5,"scope_deferred":2,"commit":"6cd5dba"}
+{"skill":"plan-ceo-review","timestamp":"2026-03-31T23:57:03Z","status":"clean","unresolved":0,"critical_gaps":0,"mode":"SCOPE_EXPANSION","scope_proposed":8,"scope_accepted":6,"scope_deferred":2,"commit":"6cd5dba"}
+{"skill":"codex-plan-review","timestamp":"2026-04-01T10:01:52Z","status":"issues_found","source":"claude","commit":"6cd5dba"}
+{"skill":"plan-ceo-review","timestamp":"2026-04-01T10:14:08Z","status":"clean","unresolved":0,"critical_gaps":0,"mode":"SCOPE_EXPANSION","scope_proposed":7,"scope_accepted":4,"scope_deferred":3,"commit":"6cd5dba"}
+{"skill":"codex-plan-review","timestamp":"2026-04-01T11:35:10Z","status":"issues_found","source":"claude","commit":"6cd5dba"}
+{"skill":"plan-eng-review","timestamp":"2026-04-01T11:52:00Z","status":"clean","unresolved":0,"critical_gaps":4,"issues_found":12,"mode":"FULL_REVIEW","commit":"6cd5dba"}
+{"skill":"codex-plan-review","timestamp":"2026-04-01T14:19:40Z","status":"issues_found","source":"claude","commit":"561ade8"}
+{"skill":"plan-ceo-review","timestamp":"2026-04-01T14:22:14Z","status":"issues_open","unresolved":0,"critical_gaps":2,"mode":"SELECTIVE_EXPANSION","scope_proposed":7,"scope_accepted":7,"scope_deferred":0,"commit":"561ade8"}
+{"skill":"plan-eng-review","timestamp":"2026-04-01T14:39:13Z","status":"clean","unresolved":0,"critical_gaps":0,"issues_found":0,"mode":"SCOPE_REDUCED","commit":"8c473d6"}
+{"skill":"codex-plan-review","timestamp":"2026-04-01T15:06:56Z","status":"issues_found","source":"claude","commit":"8c473d6"}
+{"skill":"plan-eng-review","timestamp":"2026-04-01T15:07:30Z","status":"clean","unresolved":0,"critical_gaps":0,"issues_found":4,"mode":"FULL_REVIEW","commit":"8c473d6"}
+{"skill":"plan-design-review","timestamp":"2026-04-02T00:24:06Z","status":"clean","initial_score":7,"overall_score":9,"unresolved":2,"decisions_made":5,"commit":"7aa0ded"}
+{"skill":"design-outside-voices","timestamp":"2026-04-02T00:35:56Z","status":"clean","source":"subagent-only","commit":"7aa0ded"}

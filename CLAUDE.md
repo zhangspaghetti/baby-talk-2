@@ -14,6 +14,9 @@
 - 命令行指令保持原样
 - 配置文件内容根据实际需要决定语言
 
+## 回答
+所有AskUserQuestion都需要我手动确认
+
 # gstack
 
 Use the `/browse` skill from gstack for all web browsing. Never use `mcp__claude-in-chrome__*` tools.

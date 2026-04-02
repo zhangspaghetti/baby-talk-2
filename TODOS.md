@@ -24,12 +24,9 @@
 
 ## P1 — Blocks Production
 
-### Run /design-consultation to Generate DESIGN.md
-**What:** 跑 /design-consultation 生成正式 DESIGN.md。将内联的 Design Token Summary（颜色、字体、间距、圆角、组件词汇）提升为正式的设计系统文件。
-**Why:** 当前的 token 分散在 `baby-talk-extended-mvp.md` 内联和 `baby-talk-ui-design.html` CSS 中，没有单一权威参考。多人开发时会导致"这个圆角用 12 还是 16"的反复确认。
-**Context:** Design Review (2026-04-02) Pass 5 评分 7/10，唯一原因就是缺 DESIGN.md。
-**Effort:** S (CC: ~20 分钟)
-**Depends on:** Nothing. Start immediately.
+### ~~Run /design-consultation to Generate DESIGN.md~~ ✅ DONE
+**What:** 跑 /design-consultation 生成正式 DESIGN.md。
+**Status:** 已完成 (2026-04-02)。DESIGN.md 已创建。计划文件内联 token 需要删除（见下方 P1 项）。
 
 ### Update Design Docs for New Navigation Architecture
 **What:** 更新所有设计文档中的导航结构。旧: 4 tab（首页/场景/旅程/进度）。新: 4 tab（首页/发现/笔记/我的）+ 左上角 Drawer（头像/设置/会员中心/扫码/客服）。更新 ASCII wireframe、导航流程图、底部导航描述。
@@ -80,6 +77,62 @@
 **Context:** Currently noted as a "known risk" in the CEO plan but needs its own timeline. Engineering work (consent flow UI) is S-effort. The bottleneck is legal/admin: entity registration, ICP filing, privacy policy drafting and registration. Start immediately, don't wait for code to be ready.
 **Effort:** XL for admin/legal (2-4 weeks calendar time), S for engineering (consent flow UI)
 **Depends on:** Chinese legal entity registration (if not already done)
+
+### 🔥 Update Plan for Scope Reduction (12→6 features) + Native Pivot Sync
+**What:** 更新 `baby-talk-extended-mvp.md`：(1) 范围从 12 缩减到 6 个核心功能，AI Coach 提到 Layer 1；(2) 同步所有 Flutter Web→Native 的引用；(3) 删除内联 Design Token Summary，改为引用 DESIGN.md；(4) 合并 Ask Coach 重复描述为单一来源；(5) 更新 Build Order 依赖图。
+**Why:** Eng Review v2 (2026-04-02) + Outside Voice 确认：CET-4/6 用户需要 AI 教练作为核心价值，静态短语卡对他们吸引力低。12 个功能分散在 20+ 天里会导致半成品。6 个核心功能 + AI Coach 在 Layer 1 才是正确的验证组合。
+**Context:** 保留的 6 功能：Core coaching + phrases、AI Coach (LLM+TTS)、Auth + Onboarding、Roadmap + Difficulty、Progress screen、Celebration screen。移到 Phase 2：情侣模式、语音备忘录、发音对比、48h 提醒、今日短语 widget、WeChat 分享。
+**Effort:** S (CC: ~20 分钟)
+**Depends on:** Nothing. Start immediately.
+
+### 🔥 补充后端架构设计
+**What:** 在计划中补充：(1) PostgreSQL + Redis schema 设计；(2) Spring Boot 服务分层图（Controller→Service→Repository）；(3) 阿里云服务连接图（TTS/ASR/SMS/OSS/LLM）；(4) CI/CD 管道（APK/IPA 构建）；(5) LLM system prompt 完整模板。
+**Why:** Eng Review v2 (2026-04-02) 发现后端架构完全未定义。test-plan-v3 提到 PostgreSQL+pgvector+Redis 但计划文档没有指定。开发者不知道表怎么设计。
+**Context:** 单体 Spring Boot 4 应用，PostgreSQL 主数据库 + Redis 缓存。CI/CD 用 GitHub Actions + flutter build apk。
+**Effort:** M (CC: ~1 小时)
+**Depends on:** Scope reduction decision (6 功能确认后再设计)
+
+### 🔥 字体打包进 APK Assets
+**What:** 将 Fraunces (variable)、DM Sans、JetBrains Mono 字体文件打包为 Flutter asset，不使用 google_fonts package 的 CDN 动态加载。
+**Why:** Google Fonts CDN (fonts.googleapis.com) 在中国大陆不可用。中国用户首屏会卡在字体加载或回退系统字体，破坏"暖纸亲和"设计。
+**Context:** Outside Voice (2026-04-02) 发现。约增加 ~500KB APK 大小。需同步更新 DESIGN.md 的 Loading 章节。
+**Effort:** S (CC: ~10 分钟)
+**Depends on:** Nothing.
+
+### 🔥 数据埋点设计
+**What:** 设计并实现 analytics 系统：screen view、session duration、feature usage 事件跟踪。本地收集 + 有网时上传。
+**Why:** Phase 1 用 10-20 人验证假设。没有行为数据只能得到"挺好的"主观反馈。需要知道：哪个场景最常用、用户每次停留多久、AI Coach 使用频率。
+**Context:** Outside Voice (2026-04-02) 发现。InteractionEvent 只记录短语反应，不记录页面访问和会话数据。可以扩展 InteractionEvent 模型或创建独立的 AnalyticsEvent 模型。
+**Effort:** S (CC: ~15 分钟设计 + ~1 小时实现)
+**Depends on:** 后端架构设计完成
+
+### 同步策略改为 Event Sourcing
+**What:** 明确 InteractionEvents 为单一真相来源。客户端上传 events，服务端根据 events 重新计算 progress（mastery counts、stage completion 等）。移除 last-write-wins 同步逻辑。
+**Why:** Progress 是聚合数据。Last-write-wins 对聚合数据是灾难性的——旧设备的 mastery=5 会覆盖新设备的 mastery=8。
+**Context:** Outside Voice (2026-04-02) 发现。计划已有 events 上传端点（POST /api/v1/sync/events），只需声明这是唯一真相源，progress 不再双向同步。
+**Effort:** S (CC: ~15 分钟文档 + ~30 分钟实现调整)
+**Depends on:** 后端架构设计完成
+
+### API 版本协商 + 强制更新机制
+**What:** 客户端每次请求带 `X-App-Version` 头。后端维护 minimum_supported_version 配置。低于最低版本的请求返回 426 Upgrade Required + 下载链接。
+**Why:** Native app 不能强制同时更新。后端改了 API schema，旧版 APK 会崩溃。
+**Context:** Outside Voice (2026-04-02) 发现。简单实现：Spring Boot interceptor 检查版本头，低于阈值返回 426。
+**Effort:** S (CC: ~15 分钟)
+**Depends on:** 后端架构设计完成
+
+### LLM 后端输入/输出安全过滤
+**What:** 后端 Ask Coach 端点加入：(1) 输入过滤（亵渎/注入检测），不依赖客户端；(2) 输出过滤（确保 LLM 响应符合正面育儿方法论）；(3) Admin 审核页使用独立认证（不共用用户 JWT）。
+**Why:** 客户端过滤可被绕过（直接调 API）。用户可以让 LLM 生成不当内容。Admin 页共用用户 JWT 意味着任何用户都能访问。
+**Context:** Eng Review v2 (2026-04-02) 发现。OWASP Top 10: A01 Broken Access Control + A03 Injection。
+**Effort:** S (CC: ~30 分钟)
+**Depends on:** 后端架构设计完成
+
+### OSS 直传 STS Scope 设计
+**What:** 定义 STS 临时凭证的 scope：只允许写入 `voice-memo/{user_id}/` 路径。后端 STS 端点按 user_id 生成限定 scope 的临时凭证。
+**Why:** 如果 STS scope 不限制，任何用户拿到临时凭证可以覆盖其他用户的语音文件。基础安全设计。
+**Context:** Outside Voice (2026-04-02) 发现。阿里云 STS AssumeRole 支持 Policy 参数限制资源路径。
+**Effort:** S (CC: ~10 分钟)
+**Depends on:** 阿里云 OSS bucket 创建
 
 ## P2 — Post-Validation
 
@@ -138,6 +191,20 @@
 **Context:** Smart Home screen already does time-of-day scene recommendations. Custom routine builder adds UI complexity (drag-to-reorder, save/edit/delete). Build after Phase 1 usage data shows whether parents actually follow predictable scene sequences.
 **Effort:** M (human: ~1 week / CC: ~30 min)
 **Depends on:** Phase 1 usage data showing scene sequence patterns
+
+### Refresh Token 吐销机制
+**What:** 实现 refresh token 吐销能力。Redis 维护一个 token 黑名单（或 family ID 方案），支持强制下线。
+**Why:** 当前 30 天 refresh token 存在 Hive 里无法吐销。手机丢失或账号被盗时无法使任何设备下线。
+**Context:** Eng Review v2 (2026-04-02) + Outside Voice 发现。Phase 1 用户少风险低，但应在用户量增长前解决。实现可以用 Redis 存 token family ID，refresh 时检查黑名单。
+**Effort:** S (CC: ~15 分钟)
+**Depends on:** Phase 1 发布后
+
+### Phase 2 功能回收（范围缩减移出的 6 个功能）
+**What:** 将 Eng Review 范围缩减中移出的 6 个功能加回：(1) 情侣模式 (#11)；(2) 语音备忘录 (#6)；(3) 发音对比 (#2)；(4) 48h 沉默提醒 (#10)；(5) 今日短语 widget (#9)；(6) 庆祝屏 WeChat 分享。
+**Why:** 这些功能不是没有价值，而是不应该在核心假设验证前分散精力。Phase 1 验证通过后按优先级加回。
+**Context:** Eng Review v2 (2026-04-02) + Outside Voice 范围缩减决策。优先级建议：48h 提醒 > 情侣模式 > 今日短语 > 语音备忘录 > 发音对比 > WeChat 分享（按留存影响排序）。
+**Effort:** M (总计，每个功能 S)
+**Depends on:** Phase 1 核心假设验证通过 (30+ 天留存数据)
 
 ## P3 — Nice to Have
 
