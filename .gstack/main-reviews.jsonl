@@ -12,3 +12,6 @@
 {"skill":"plan-eng-review","timestamp":"2026-04-01T15:07:30Z","status":"clean","unresolved":0,"critical_gaps":0,"issues_found":4,"mode":"FULL_REVIEW","commit":"8c473d6"}
 {"skill":"plan-design-review","timestamp":"2026-04-02T00:24:06Z","status":"clean","initial_score":7,"overall_score":9,"unresolved":2,"decisions_made":5,"commit":"7aa0ded"}
 {"skill":"design-outside-voices","timestamp":"2026-04-02T00:35:56Z","status":"clean","source":"subagent-only","commit":"7aa0ded"}
+{"skill":"plan-eng-review","timestamp":"2026-04-02T21:52:00Z","status":"clean","unresolved":0,"critical_gaps":2,"issues_found":9,"mode":"FULL_REVIEW","commit":"a6476eb"}
+{"skill":"plan-ceo-review","timestamp":"2026-04-02T22:35:01","status":"clean","unresolved":0,"critical_gaps":0,"mode":"SCOPE_EXPANSION","scope_proposed":7,"scope_accepted":7,"scope_deferred":0,"commit":"a6476eb"}
+{"skill":"plan-eng-review","timestamp":"2026-04-02T22:55:00Z","status":"clean","unresolved":0,"critical_gaps":0,"issues_found":15,"mode":"FULL_REVIEW","commit":"a6476eb"}

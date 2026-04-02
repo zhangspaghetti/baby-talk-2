@@ -32,10 +32,12 @@
   - 用于 IPA 音标和发音指南，等宽字体创造「技术辅助」的视觉分隔
 
 ### Loading
-- Google Fonts CDN: `Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,500;0,9..144,600;0,9..144,700;1,9..144,400`
-- Google Fonts CDN: `DM+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400`
-- Google Fonts CDN: `JetBrains+Mono:wght@400;500`
-- Flutter: 使用 google_fonts package 动态加载
+- **Flutter APK/IPA 内置字体** — 不使用 Google Fonts CDN（中国大陆不可用）
+- Fraunces (variable, opsz 9-144, wght 300-700) → `pubspec.yaml` assets 打包
+- DM Sans (wght 400-700) → `pubspec.yaml` assets 打包
+- JetBrains Mono (wght 400-500) → `pubspec.yaml` assets 打包
+- 预计增加 APK 大小 ~500KB
+- 不使用 `google_fonts` package，直接用 `TextStyle(fontFamily: 'Fraunces')` 引用
 
 ### Type Scale
 | Level | Size | Weight | Line Height | Usage |

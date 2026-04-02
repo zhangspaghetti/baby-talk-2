@@ -30,6 +30,7 @@
 
 ### Update Design Docs for New Navigation Architecture
 **What:** 更新所有设计文档中的导航结构。旧: 4 tab（首页/场景/旅程/进度）。新: 4 tab（首页/发现/笔记/我的）+ 左上角 Drawer（头像/设置/会员中心/扫码/客服）。更新 ASCII wireframe、导航流程图、底部导航描述。
+**Status:** 合并计划已更新导航架构。旧计划中仍为旧导航（已标记 SUPERSEDED）。
 **Why:** Design Review (2026-04-02) Pass 1 确认了导航重设计。文档还是旧架构，开发者按旧文档实现会做错。
 **Context:** 新导航决策: "发现"承载场景列表+路线图活动，"笔记"承载录音+文字笔记(Phase 2+社交)，"我的"合并进度+设置。首次流程: Onboarding→登录→Home。
 **Effort:** S (CC: ~15 分钟，批量替换)
@@ -78,15 +79,17 @@
 **Effort:** XL for admin/legal (2-4 weeks calendar time), S for engineering (consent flow UI)
 **Depends on:** Chinese legal entity registration (if not already done)
 
-### 🔥 Update Plan for Scope Reduction (12→6 features) + Native Pivot Sync
+### ~~Update Plan for Scope Reduction (12→6 features) + Native Pivot Sync~~ ✅ DONE
 **What:** 更新 `baby-talk-extended-mvp.md`：(1) 范围从 12 缩减到 6 个核心功能，AI Coach 提到 Layer 1；(2) 同步所有 Flutter Web→Native 的引用；(3) 删除内联 Design Token Summary，改为引用 DESIGN.md；(4) 合并 Ask Coach 重复描述为单一来源；(5) 更新 Build Order 依赖图。
+**Status:** 已完成 (2026-04-02)。合并计划 `2026-04-02-baby-talk-phase1-consolidated.md` 已创建。旧计划已标记 SUPERSEDED。
 **Why:** Eng Review v2 (2026-04-02) + Outside Voice 确认：CET-4/6 用户需要 AI 教练作为核心价值，静态短语卡对他们吸引力低。12 个功能分散在 20+ 天里会导致半成品。6 个核心功能 + AI Coach 在 Layer 1 才是正确的验证组合。
 **Context:** 保留的 6 功能：Core coaching + phrases、AI Coach (LLM+TTS)、Auth + Onboarding、Roadmap + Difficulty、Progress screen、Celebration screen。移到 Phase 2：情侣模式、语音备忘录、发音对比、48h 提醒、今日短语 widget、WeChat 分享。
 **Effort:** S (CC: ~20 分钟)
 **Depends on:** Nothing. Start immediately.
 
-### 🔥 补充后端架构设计
+### ~~补充后端架构设计~~ ✅ DONE
 **What:** 在计划中补充：(1) PostgreSQL + Redis schema 设计；(2) Spring Boot 服务分层图（Controller→Service→Repository）；(3) 阿里云服务连接图（TTS/ASR/SMS/OSS/LLM）；(4) CI/CD 管道（APK/IPA 构建）；(5) LLM system prompt 完整模板。
+**Status:** 已完成 (2026-04-02)。合并计划中包含 PostgreSQL schema + Spring Boot 分层 + CI/CD + 阿里云连接图。LLM prompt 模板待创始人编写。
 **Why:** Eng Review v2 (2026-04-02) 发现后端架构完全未定义。test-plan-v3 提到 PostgreSQL+pgvector+Redis 但计划文档没有指定。开发者不知道表怎么设计。
 **Context:** 单体 Spring Boot 4 应用，PostgreSQL 主数据库 + Redis 缓存。CI/CD 用 GitHub Actions + flutter build apk。
 **Effort:** M (CC: ~1 小时)
@@ -99,10 +102,24 @@
 **Effort:** S (CC: ~10 分钟)
 **Depends on:** Nothing.
 
+### 🔥 Batch Event Insert 需要事务包裹
+**What:** `POST /sync/events` 的批量 event 入库必须包裹在数据库事务中。部分失败时全部回滚。Progress 重算只在整个 batch 成功入库后执行一次。
+**Why:** Eng Review v4 (2026-04-02) 发现的 critical gap。如果 1000 条 events 中第 500 条失败，前 499 条已入库，progress 重算基于不完整数据。用户的 mastery 数据会不准。
+**Context:** SyncService 实现时用 `@Transactional` 注解包裹 batch insert。Progress recalculate 在事务提交后调用。
+**Effort:** S (CC: ~5 分钟)
+**Depends on:** 后端 SyncService 实现
+
+### 🔥 里程碑检测幂等性
+**What:** milestone 检测逻辑需要幂等性。同一个 phrase_id 的 first_babble 只触发一次 milestone 记录。防止并发上传或网络重试导致重复庆祝。
+**Why:** Eng Review v4 (2026-04-02) 发现的 critical gap。两个设备同时上传 babble event，或网络重试导致重复 event，会创建重复 milestone，用户看到两次庆祝屏幕。
+**Context:** ProgressService.checkMilestones() 实现时先查询已有 milestone（SELECT WHERE type='first_babble'），已存在则跳过。或用 UNIQUE 约束 (user_id, type, scene_id) 做数据库级幂等。
+**Effort:** S (CC: ~10 分钟)
+**Depends on:** 后端 ProgressService + milestones 表实现
+
 ### 🔥 数据埋点设计
-**What:** 设计并实现 analytics 系统：screen view、session duration、feature usage 事件跟踪。本地收集 + 有网时上传。
-**Why:** Phase 1 用 10-20 人验证假设。没有行为数据只能得到"挺好的"主观反馈。需要知道：哪个场景最常用、用户每次停留多久、AI Coach 使用频率。
-**Context:** Outside Voice (2026-04-02) 发现。InteractionEvent 只记录短语反应，不记录页面访问和会话数据。可以扩展 InteractionEvent 模型或创建独立的 AnalyticsEvent 模型。
+**What:** 设计并实现 analytics 系统：screen view、session duration、feature usage 事件跟踪。本地收集 + 有网时上传。需覆盖 CEO Review Expansion events: auto_flow_started/completed/paused, smart_push_sent/tapped, demo_shown/skipped, bedtime_push_sent/tapped, celebration_shared, quick_ask_tapped。
+**Why:** Phase 1 用 10-20 人验证假设。没有行为数据只能得到"挺好的"主观反馈。需要知道：哪个场景最常用、用户每次停留多久、AI Coach 使用频率、Auto-Flow vs 手动模式比例、推送打开率。
+**Context:** Outside Voice (2026-04-02) + CEO Review Expansion (2026-04-02)。InteractionEvent 只记录短语反应，不记录页面访问和会话数据。可以扩展 InteractionEvent 模型或创建独立的 AnalyticsEvent 模型。
 **Effort:** S (CC: ~15 分钟设计 + ~1 小时实现)
 **Depends on:** 后端架构设计完成
 
@@ -221,3 +238,24 @@
 **Context:** Deferred during CEO review expansion ceremony. Not core to validation. Needs audio asset sourcing (~1MB bundle increase).
 **Effort:** S (human: ~2 hours sourcing / CC: ~10 min to integrate)
 **Depends on:** Core scene coaching working
+
+### 🔥 Redis 不可用降级策略
+**What:** 当 Redis 宕机或网络不通时，SMS 验证码、TTS 缓存、速率限制全部失效。需要内存 fallback：限流用 ConcurrentHashMap（不精确但可用），SMS 拒绝发送（安全优先），TTS 跳过缓存直接生成。
+**Why:** Redis 是单点。如果 Redis 挂了：(1) 速率限制失效 → Coach API 可被无限调用 → LLM 费用爆炸；(2) SMS 验证码无法存储 → 登录不可用；(3) TTS 缓存失效 → 每次生成新音频 → 延迟增加。
+**Context:** Eng Review v5 (2026-04-02) 的 critical gap。Phase 1 单 ECS + Redis 在同一台机器上，实际风险低，但 Spring Boot 的 try-catch 包裹成本极低。
+**Effort:** S (CC: ~15 分钟)
+**Depends on:** 后端 Spring Boot 架构实现
+
+### 🔥 E2E 测试框架选型
+**What:** 确定 Flutter E2E 测试框架：Flutter integration_test（官方内置）、Patrol（社区增强版）、或 Maestro（声明式，YAML 驱动）。8 个 E2E 关键路径需要覆盖。
+**Why:** Eng Review v5 (2026-04-02) 识别了 8 个 E2E-worthy 用户流。没有框架选型就无法在 Build Order 中安排 E2E 测试任务。
+**Context:** Flutter integration_test 是 Layer 1 boring 选择。建议 integration_test + permission_handler mock。
+**Effort:** S (CC: ~30 分钟 spike)
+**Depends on:** Flutter 项目脚手架
+
+### 🔥 Hive → Isar 迁移
+**What:** 将计划中所有 Hive 引用替换为 Isar。本地存储、Token 存储、InteractionEvent 缓存全部改为 Isar。
+**Why:** Eng Review v5 (2026-04-02) 确认 Hive 2.x 不再积极维护。现在换比 Phase 2 迁移成本低 10x。
+**Context:** Isar 是 Hive 作者的新项目，API 兼容性好。需要更新 pubspec.yaml、数据模型注解、查询语法。
+**Effort:** S (CC: ~15 分钟批量替换)
+**Depends on:** Nothing. 在开始写代码前完成。
