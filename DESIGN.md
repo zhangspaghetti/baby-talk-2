@@ -171,19 +171,84 @@
 
 ## Component Vocabulary (Flutter)
 
+### 核心组件
+
 | Component | Usage | Key tokens |
 |-----------|-------|-----------|
-| PhraseCard | 英文短语展示卡 | Fraunces font, --english color, --radius-md, --shadow-md |
+| PhraseCard | 英文短语展示卡 (激活框模式下可展开/收缩) | Fraunces font, --english color, --radius-md, --shadow-md |
 | PlayButton | 发音播放按钮 | --accent, 56-72px, circular, --shadow-md with accent tint |
-| SceneTag | 场景标签 | --accent-light bg, --accent text, --radius-full |
+| SceneTag | 场景/空间标签 | --accent-light bg, --accent text, --radius-full |
 | CoachTip | 教练提示条 | --accent-light bg, --text-secondary, --radius-sm |
-| ReactionChip | 宝宝反应按钮 | --border stroke, --radius-full, active: --accent-light |
-| SceneListItem | 场景列表项 | --bg-surface, --radius-md, full-width |
+| ReactionChip | 宝宝反应按钮 | --border stroke, --radius-full, active: --accent-light, min 48x48px 触摸目标 |
 | ProgressBar | 短语进度条 | 4px height, --border track, --accent fill |
 | AlertBanner | 提示/错误横幅 | semantic color soft bg, --radius-sm |
-| BottomNav | 底部导航栏 | 5 tabs (首页/发现/教练/笔记/我的), --bg-surface, 中央教练图标突出 |
-| Drawer | 左侧抽屉菜单 | --bg-surface, --shadow-lg, --radius-lg (右侧圆角), 280px 宽 |
-| VoiceMemoCard | 语音备忘条 | --bg-surface, --radius-md, 波形可视化, 时长+场景标签 |
+
+### 导航组件 (Design Review v3 更新)
+
+| Component | Usage | Key tokens |
+|-----------|-------|-----------|
+| BottomNav | 底部导航栏 | 4 tabs (首页/发现/花园/成长), --bg-surface |
+| Drawer | 右侧抽屉菜单 (首页左上角头像/汉堡触发) | --bg-surface, --shadow-lg, --radius-lg (左侧圆角), 310px 宽 |
+| MentorFAB | 小禾老师全局悬浮按钮 (所有页面) | --accent, 56px, circular, --shadow-lg, 右下角固定 |
+| MentorPanel | 小禾老师双模式面板 (建议+聊天) | --bg-surface, --radius-lg (顶部圆角), 60%屏高, backdrop-filter: blur(8px) |
+
+### 花园组件 (Design Review v3 新增)
+
+| Component | Usage | Key tokens |
+|-----------|-------|-----------|
+| GardenMap | 可拖动花圃地图画布 | --bg-paper + 极淡绿色渐变, 760x760px 画布 |
+| FlowerPatch | 花圃组件 (空间级别) | 圆形卡片 + SVG 进度环, --radius-full |
+| FlowerBud | 花朵组件 (活动级别) | 5 阶段: 种子→发芽→生长→开花→盛放, SVG/Lottie 动画 |
+| WaterButton | 浇水按钮 (底部浮层) | --accent, --radius-full, 触觉反馈 |
+| GardenToast | 练习→花园因果反馈 toast | --success-soft bg, 花圃缩略图, 3s 自动消失 |
+
+### 场景练习组件 (Design Review v3 更新)
+
+| Component | Usage | Key tokens |
+|-----------|-------|-----------|
+| ActivationFrame | 屏幕中部激活区域 | --english-soft border, 标记当前练习的卡片 |
+| CardSummary | 收缩态短语卡 | 步骤号圆点 + 标题 + 短语preview + 完成badge, --bg-sunken |
+| CardExpanded | 展开态短语卡 | Fraunces 大号 + IPA(JetBrains Mono) + 播放 + 速度 + 反应chips |
+| StepProgressBar | 步骤进度条 (固定顶部) | --accent fill, 步数计数器 |
+| DifficultyPill | 难度选择 pill | --radius-full, 初级/中级/高级, 锁定态用 --text-muted + 🔒 |
+
+### 成长组件 (Design Review v3 新增)
+
+| Component | Usage | Key tokens |
+|-----------|-------|-----------|
+| DiaryCard | 自动日记卡片 | --bg-surface, --radius-md, 左边框颜色分类 (练习=teal, 里程碑=orange) |
+| ManualNoteCard | 手动笔记卡片 | --bg-surface, --radius-md, 用户文字 + 时间戳 |
+| StageProgressBar | 阶段总进度条 | --accent fill, 阶段标签 + 百分比 |
+| SceneProgressCard | 空间进度卡片 | --bg-surface, --radius-md, 条形图 + 练习次数 + 宝宝回应次数 |
+| MilestoneItem | 里程碑条目 | ✅/⬜ 图标, 时间戳, --success or --text-muted |
+
+### Onboarding 组件 (Design Review v3 更新)
+
+| Component | Usage | Key tokens |
+|-----------|-------|-----------|
+| MentorBubble | 小禾老师对话气泡 | --bg-surface, --shadow-sm, 左对齐 + 头像 |
+| UserBubble | 用户对话气泡 | --accent bg, --text-on-accent, 右对齐 |
+| QuickSelectCard | 月龄快速选择 (4格) | --bg-surface, --radius-md, active: --accent border |
+| MiniSceneCard | 迷你场景体验卡 | --english-soft bg, Fraunces 短语, 播放按钮 |
+
+### 首页组件 (Design Review v3 更新)
+
+| Component | Usage | Key tokens |
+|-----------|-------|-----------|
+| BabyStatusBar | 宝宝状态条 (天气=情绪映射) | --bg-sunken, emoji天气图标, --text-secondary |
+| TodaySceneCard | 今日场景大卡片 (核心 CTA) | --bg-surface, --shadow-md, --radius-lg, 播放按钮 |
+| GardenMiniEntry | 花园迷你入口 | --success-soft bg, 花圃缩略图, "查看花园→" |
+| WeekStats | 本周统计条 | --bg-sunken, 短语数 + 连续天数 |
+
+### 发现组件 (Design Review v3 更新)
+
+| Component | Usage | Key tokens |
+|-----------|-------|-----------|
+| DualTabBar | 双维度 Tab (按活动/按空间) | --bg-sunken tab bar, --accent active indicator |
+| SearchBar | 搜索框 (与标题同行) | --bg-sunken, --radius-sm, 16px 搜索图标 |
+| StageFilterStrip | 阶段筛选横滑条 | --radius-full pills, --accent active, 默认匹配当前阶段 |
+| ActivityCard | 活动卡片 (按活动视图) | --bg-surface, 左侧彩色条纹, 英文预览 + 进度条 |
+| SpaceGridItem | 空间宫格项 (按空间视图) | 2x3 grid, 渐变色背景 + 进度 |
 
 ## Decisions Log
 | Date | Decision | Rationale |
@@ -195,9 +260,20 @@
 | 2026-04-02 | Keep #FFF8F0 + #FF8C42 core palette | SAFE: validated across 12 existing HTML mockups. Changing would require redoing all mockups. |
 | 2026-04-02 | Hierarchical border radius 8/16/24/full | Replaces flat 16px everywhere. Small elements sharper, large containers softer. |
 | 2026-04-02 | Warm shadows rgba(45,41,38) instead of cool gray | Blends naturally with cream background. Subtle but noticeable difference. |
-| 2026-04-02 | Navigation: 4-tab+FAB → 5-tab with center Coach icon | Design Review v2. 单手抱宝宝操作，中央图标比 FAB 更易触达。导航: 首页/发现/教练/笔记/我的 |
+| 2026-04-02 | ~~Navigation: 4-tab+FAB → 5-tab with center Coach icon~~ | ~~Design Review v2~~ **SUPERSEDED by Design Review v3** |
 | 2026-04-02 | Dark Mode: follow system setting | Design Review v2. 跟随系统设置，使用 DESIGN.md dark mode token 策略。|
 | 2026-04-02 | Screen orientation: portrait lock | Design Review v2. Phase 1 锁定竖屏，简化布局开发。|
+| 2026-04-04 | Navigation: 5-tab → 4-tab + Drawer + Mentor FAB | Design Review v3. 4 tabs (首页/发现/花园/成长)。"我的"取消，改为头像/汉堡→右侧抽屉。AI Coach 改为全局小禾老师 FAB。|
+| 2026-04-04 | 花园系统 Phase 1 完整版 | Design Review v3. 可拖动花圃地图 + 生长点系统 + 播种仪式。不简化。|
+| 2026-04-04 | 3 层内容模型: 空间→活动→短语 | Design Review v3. 替代 6 扁平场景。空间=花圃，活动=花朵，短语=练习。|
+| 2026-04-04 | 全局小禾老师 Mentor FAB | Design Review v3 + Design Shotgun. 双模式面板(建议+聊天)，替代独立 Coach tab。离线时显示本地预设建议。|
+| 2026-04-04 | 对话式 Onboarding (小禾老师导师) | Design Shotgun. 导师角色贯穿 + 月龄快选 + 迷你场景体验30s + 注册。|
+| 2026-04-04 | 场景练习: C3 激活框 scroll 模式 | Design Shotgun. 卡片滚过激活框时展开，离开时收缩。步骤引导流。|
+| 2026-04-04 | 成长 tab 默认日记视图 | Design Review v3. 日记 > 场景进展 > 里程碑。自动生成 + 手动添加。|
+| 2026-04-04 | 练习→花园因果 toast | Design Review v3. 完成练习后底部 toast: "你的🌱洗澡花刚发芽了!" + 缩略图。|
+| 2026-04-04 | 家长圈社交 → Phase 2 | Design Review v3. 10 人规模社交内容密度不够。|
+| 2026-04-04 | 笔记/语音备忘 → 分散到成长+FAB | Design Review v3. 日记在成长tab，语音输入在 FAB。不单独做。|
+| 2026-04-04 | Emoji → 插画/SVG 替换 | Design Shotgun 确认。实现时所有 emoji 占位替换为精美插画/图标/Lottie。|
 | 2026-04-02 | Discovery: single-column variable-height cards | Design Review v2. Anti-slop: 不用 2x3 网格，改用单列不等高卡片流。|
 | 2026-04-02 | Notes tab active in Phase 1 as Voice Memo | Design Review v2. 语音备忘录功能提前到 Phase 1，本地 Isar 存储，不需要 OSS。|
 | 2026-04-02 | Mockup audit: 5-tab nav synced to all pages | 审计修复。所有 mockup HTML 从 4-tab+FAB 更新为 5-tab（首页/发现/教练/笔记/我的），中央教练图标突出。|

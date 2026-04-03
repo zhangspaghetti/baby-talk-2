@@ -28,9 +28,9 @@
 **What:** 跑 /design-consultation 生成正式 DESIGN.md。
 **Status:** 已完成 (2026-04-02)。DESIGN.md 已创建。计划文件内联 token 需要删除（见下方 P1 项）。
 
-### ~~Update Design Docs for New Navigation Architecture~~ ✅ DONE (Design Review v2)
-**What:** 导航架构从 4-tab+FAB 更新为 5-tab（首页/发现/教练/笔记/我的）。AI Coach 入口从 FAB 移到底部导航中央。笔记 tab 从占位改为 Phase 1 语音备忘录功能。
-**Status:** 已完成 (2026-04-02)。合并计划已更新。DESIGN.md BottomNav 组件已更新。
+### ~~Update Design Docs for New Navigation Architecture~~ ✅ DONE → ⚠️ SUPERSEDED by Design Review v3
+**What:** ~~导航架构从 4-tab+FAB 更新为 5-tab。~~ **Design Review v3 (2026-04-04) 再次变更: 5-tab → 4-tab (首页/发现/花园/成长) + Drawer + 全局小禾老师 Mentor FAB。**
+**Status:** 计划文件已更新 (2026-04-04)。DESIGN.md 已更新。
 
 ### ~~Complete Onboarding Flow Mockup~~ ✅ DONE (Design Review v2)
 **What:** 完整 Onboarding 流程 HTML mockup 已创建: 欢迎页 → 输入名字 → 输入生日 → 阶段匹配动画 → 过渡页 → 登录 → PIPL 隐私同意。
@@ -144,16 +144,13 @@
 **Effort:** S (CC: ~10 分钟)
 **Depends on:** 阿里云 OSS bucket 创建
 
-### Voice Memo 本地录音实现 (Design Review v2 新增)
-**What:** 实现笔记 tab 的语音备忘录功能。需要: 录音权限请求, flutter_sound 或 record 插件, Isar 存储录音元数据 (路径/时长/关联场景/关联短语), 波形可视化, 按日期分组列表。
-**Why:** Design Review v2 将语音备忘从 Phase 2 提前到 Phase 1。笔记 tab 需要有实际功能而非空占位。
-**Context:** 录音存储为本地文件 (app 沙箱目录), 不上传 OSS。Isar 存储元数据。录音入口: 笔记页底部 FAB + 场景练习中长按录音。
-**Effort:** S-M (CC: ~1-2 小时)
-**Depends on:** Flutter 项目脚手架 + Isar 配置
+### ~~Voice Memo 本地录音实现~~ ❌ REMOVED (Design Review v3)
+**What:** ~~实现笔记 tab 的语音备忘录功能。~~
+**Status:** Design Review v3 (2026-04-04) 决定: 笔记 tab 移除，语音功能分散到成长日记 (手动文字记录) + Mentor FAB 语音输入。不再需要独立录音功能。
 
-### 全局离线降级 UI (Design Review v2 新增)
-**What:** 实现全局离线 banner + 各功能离线状态处理。banner 用 --warning-soft 背景固定顶部, AI Coach 灰掉, Scene Coaching 正常可用, Progress 显示本地数据+未同步标签。
-**Why:** Design Review v2 确认离线策略: 用温暖文案而非技术术语, 全局 banner 让用户知道状态。
+### 全局离线降级 UI (Design Review v2+v3 更新)
+**What:** 实现全局离线 banner + 各功能离线状态处理。banner 用 --warning-soft 背景固定顶部, **Mentor FAB 建议 tab 仍可用(本地预设)**, 聊天 tab 灰掉, Scene Coaching 正常可用, 花园显示本地数据, 成长日记显示本地数据+未同步标签。
+**Why:** Design Review v3 更新: Mentor FAB 离线时不灰掉，显示本地预设建议。
 **Context:** 需要 connectivity_plus 插件监听网络状态。全局 ConnectivityProvider 控制 banner 显示和功能可用性。
 **Effort:** S (CC: ~1 小时)
 **Depends on:** 底部导航 + 基础路由
@@ -178,6 +175,55 @@
 **Context:** Eng Review v6 (2026-04-03) Outside Voice 建议。留存分析可以后端 SQL 查询，不需要第三方分析工具。
 **Effort:** S (CC: ~30 分钟)
 **Depends on:** 数据埋点设计 + 后端 interaction_events 表
+
+### 🔥 花园系统实现 (Design Review v3 新增)
+**What:** 实现完整花园系统: GardenMap 可拖动画布, FlowerPatch 花圃组件, 花朵成长 4 阶段 (种子→发芽→含苞→盛开), 生长点系统 (练习赚点+浇水消耗), 播种仪式空状态动画。
+**Why:** Design Review v3 + Design Shotgun 确认花园为 Phase 1 完整版。花园是核心游戏化循环。
+**Context:** Flutter CustomPainter 或 Stack+Positioned 实现地图。garden_flowers 表 + growth_points 字段。约增加 3 天工时。
+**Effort:** M (CC: ~4 小时)
+**Depends on:** PostgreSQL schema (spaces/activities/garden_flowers 表) + Isar 本地模型
+
+### 🔥 3 层内容模型迁移 (Design Review v3 新增)
+**What:** 6个扁平 scene → space→activity→phrase 三层模型。新增 spaces + activities 表, phrases 表加 space_id + activity_id。更新 Flyway 迁移。
+**Why:** "换尿布和穿衣服不是独立场景，而是晨间护理下的活动"。3 层模型更符合真实生活。
+**Effort:** S (CC: ~1 小时)
+**Depends on:** Nothing. Layer 0 完成。
+
+### 🔥 小禾老师 Mentor FAB 实现 (Design Review v3 新增)
+**What:** 全局 FAB + BottomSheet 面板, 双 tab (建议+聊天)。离线时建议 tab 显示本地预设。
+**Why:** 替代旧 AI Coach 独立 tab。任何页面可触达。
+**Effort:** M (CC: ~3 小时, Layer 1 骨架 + Layer 3 AI)
+**Depends on:** 底部导航 + 基础路由
+
+### 🔥 C3 激活框场景练习 (Design Review v3 新增)
+**What:** Scene Coaching C3 激活框 scroll 模式。卡片滚入中部 ActivationFrame 时展开, 滚出时收缩。
+**Why:** Design Shotgun 确认。比左右滑动更适合单手操作。
+**Effort:** M (CC: ~2 小时)
+**Depends on:** PhraseCard 组件 + TTS 播放
+
+### 🔥 成长 Tab (Design Review v3 新增)
+**What:** 替代 Progress + Notes。3 sub-tab: 日记(默认)/场景进展/里程碑。日记自动生成+手动添加。
+**Effort:** M (CC: ~2 小时)
+**Depends on:** interaction_events 表 + diary_entries 表
+
+### 🔥 对话式 Onboarding (Design Review v3 新增)
+**What:** 小禾老师对话式 Onboarding: 欢迎→名字→月龄快选→阶段匹配→30s迷你体验→注册→PIPL→首页。
+**Effort:** S-M (CC: ~1.5 小时)
+**Depends on:** PhraseCard 组件 + 小禾老师角色
+
+### Emoji→插画替换 (Design Review v3 新增)
+**What:** 所有 emoji 占位替换为插画/SVG/Lottie。花朵成长、空间图标、导航图标。
+**Effort:** M (需要插画 assets)
+**Depends on:** DESIGN.md 视觉风格确认
+
+### Mockup Token 漂移修复 (Design Review v3 发现)
+**What:** 修复 home.html --radius-md: 12px→16px。清理旧版 garden.html/mentor-fab.html。
+**Effort:** XS (CC: ~5 分钟)
+
+### A11Y: 花园地图无障碍 (Design Review v3 新增)
+**What:** 花园 Semantics 标注 + 拖动替代的列表模式。
+**Effort:** S (CC: ~30 分钟)
+**Depends on:** 花园系统实现
 
 ## P2 — Post-Validation
 

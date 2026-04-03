@@ -15,8 +15,10 @@ Repo: zhangspaghetti/baby-talk-2
 **决策来源:**
 - CEO Review v3 (2026-04-01): native pivot + scope decisions
 - Eng Review v3 (2026-04-01): scope reduction 12→6, event sourcing, API versioning
-- Design Review (2026-04-02): 导航重设计, DESIGN.md 创建
+- Design Review v2 (2026-04-02): 5-tab 导航, DESIGN.md 创建
 - Outside Voice (2026-04-02): 字体打包, 数据埋点, LLM 安全, 同步策略
+- Design Shotgun (2026-04-03): 全新视觉方案 — 花园、小禾老师 FAB、对话式 Onboarding、C3 场景练习
+- Design Review v3 (2026-04-04): 3层内容模型, 4-tab+Drawer+FAB 导航, 花园系统, 成长日记
 
 ---
 
@@ -52,32 +54,59 @@ Phase 1 验证核心假设：**父母会不会真的每天对着宝宝说英文�
 | 监控 | Spring Boot Actuator | /health 端点，Docker 健康检查 |
 | CI/CD | GitHub Actions | flutter build apk/ipa + docker build |
 
-## Phase 1 范围 — 7 个核心功能
+## Phase 1 范围 — 8 个核心功能 (Design Review v3 重构)
+
+### 3 层内容模型 (Design Review v3 2026-04-04)
+
+**旧模型:** 6 个扁平场景 (bath, diaper, feeding, play, reading, bedtime) × 15 短语 = 90 短语
+**新模型:** 空间 → 活动 → 短语 三层结构
+
+```
+空间 (Space / 花圃)           活动 (Activity / 花朵)           短语 (Phrase / 练习)
+├── 晨间护理                  ├── 换尿布                       ├── "Let's change your diaper!"
+│   (Morning Care)            ├── 穿衣服                       ├── "Arms up! Let's get dressed"
+│                             └── 洗脸刷牙                     └── ...
+├── 感官探索                  ├── 洗澡                         ├── "Splash splash!"
+│   (Sensory Play)            ├── 触觉游戏                     └── ...
+├── 亲密互动                  ├── 喂奶/辅食                    ├── "Open wide!"
+│   (Bonding)                 ├── 拥抱安抚                     └── ...
+├── 活力游戏                  ├── TPR 动作                     ├── "Clap your hands!"
+│   (Active Play)             ├── 户外散步                     └── ...
+├── 阅读时光                  ├── 绘本共读                     ├── "What do you see?"
+│   (Story Time)              └── 儿歌                         └── ...
+└── 睡前仪式                  ├── 摇篮曲                       ├── "Time to sleep, little one"
+    (Bedtime)                 └── 道晚安                       └── ...
+```
+
+**映射到花园:** 每个空间 = 一个花圃 (FlowerPatch)，每个活动 = 一朵花 (Flower)，练习短语 = 浇水/施肥动作。
 
 | # | 功能 | 说明 | 复杂度 |
 |---|------|------|--------|
-| 1 | **Core Coaching + Phrases** | 6 场景 x 15 短语 = 90 短语, TTS 播放, 宝宝反应追踪, mastery | M |
-| 2 | **AI Coach (LLM+RAG+TTS)** | 文字+语音输入 → pgvector 检索相关短语 → LLM 生成英文短语 → TTS 音频。RAG pipeline + 60 种子短语向量化 | M |
-| 3 | **Auth + Onboarding** | 手机号+验证码登录 + 账号密码选项, JWT(15min)+RefreshToken(30天), Onboarding(名字+生日+PIPL 同意), Isar 存储 token | S |
+| 1 | **Core Coaching + Phrases** | 6 空间 × N 活动 × 短语 = ~90 短语, TTS 播放, 宝宝反应追踪, mastery | M |
+| 2 | **小禾老师 Mentor FAB** | 全局浮动按钮 → 双模式面板(建议列表+聊天)。RAG+LLM 生成短语，语音输入/输出。替代独立 Coach tab | M |
+| 3 | **Auth + Onboarding** | 对话式 Onboarding (小禾老师导师角色) + 手机号+验证码登录 + JWT | S |
 | 4 | **Roadmap + Difficulty** | 5 个发展阶段 (0-36月), 3 个难度级别 (初/中/高), 基于生日自动匹配阶段 | S |
-| 5 | **Progress Screen** | 阶段圆环图, 各场景 mastery 条形图, 本周数据, 里程碑时间线 | S |
-| 6 | **Celebration Screen** | 宝宝首次 babble 全屏动画 + 分享链接到 landing page (无 OG 标签) | S |
-| 7 | **Voice Memo (Notes)** | 语音备忘录: 本地录音+回放, 自动关联场景/短语, Isar 存储 (不需要 OSS) | S |
+| 5 | **花园系统 (Garden)** | 可拖动花圃地图, 每空间=花圃, 每活动=花朵, 练习赚生长点, 浇水消耗生长点, 播种仪式空状态 | M |
+| 6 | **成长 (Growth)** | 替代旧 Progress + Notes。默认日记视图 (自动生成+手动), 场景进展, 里程碑 | S |
+| 7 | **Celebration Screen** | 宝宝首次 babble 全屏动画 + 分享链接到 landing page (无 OG 标签) | S |
+| 8 | **Scene Coaching (C3)** | 激活框滚动模式 — 短语卡滚过激活框时展开步骤引导，离开时收缩 | M |
 
 ### 跨功能需求
 
 | 需求 | 说明 |
 |------|------|
 | 本地推送 | flutter_local_notifications + alarm_manager, 每天 6pm |
-| 离线支持 | 种子短语 + TTS 音频打包为 assets。进度 Isar 本地存储。有网时上传 events |
+| 离线支持 | 种子短语 + TTS 音频打包为 assets。进度 Isar 本地存储。有网时上传 events。FAB 离线显示本地建议 |
 | 字体 | Fraunces + DM Sans + JetBrains Mono **打包进 APK assets**（Google Fonts CDN 中国不可用）|
 | 设计系统 | 参见 DESIGN.md，不在本文件重复 |
 | 数据埋点 | screen view, session duration, feature usage 事件跟踪 |
 | API 版本协商 | X-App-Version 头 + 426 Upgrade Required |
 | 屏幕方向 | **锁定竖屏** (Design Review v2: 简化开发，Phase 1 不支持横屏) |
 | Dark Mode | **跟随系统设置** (Design Review v2: 参见 DESIGN.md Dark Mode Strategy) |
+| 小禾老师角色 | 贯穿全 app 的导师角色 — Onboarding 引导 + FAB 交互 + 日记感叹 |
+| 花园因果 | 练习→赚生长点→浇水→花朵成长，形成正向循环 |
 
-### 离线降级策略 (Design Review v2 新增)
+### 离线降级策略 (Design Review v3 更新)
 
 **原则:** 全局离线 banner + 灰掉不可用功能。用温暖文案而非技术术语。
 
@@ -96,32 +125,70 @@ Phase 1 验证核心假设：**父母会不会真的每天对着宝宝说英文�
 | Scene Coaching (种子短语) | ✅ 完全可用 | 无变化 (assets 打包) |
 | TTS 播放 (种子短语) | ✅ 完全可用 | 无变化 (assets 打包) |
 | ReactionChip 追踪 | ✅ 可用，离线存储 | 记录到 Isar，联网后上传 |
-| Progress 屏幕 | ⚠️ 显示本地数据 | 本地数据 + "未同步" 标签 |
-| AI Coach | ❌ 不可用 | 灰色覆盖 + "需要网络" + 建议: "试试场景练习吧" |
-| 笔记录音 | ✅ 可用 (本地存储) | 无变化 |
+| 花园地图 | ✅ 可用，本地数据 | 正常显示，生长点变化联网后同步 |
+| 成长日记 | ⚠️ 显示本地数据 | 本地数据 + "未同步" 标签 |
+| **小禾老师 FAB 建议** | **⚠️ 本地模式** | **点击仍可展开 → 显示 5-8 条本地预设建议。不灰掉** |
+| 小禾老师 FAB 聊天 | ❌ 不可用 | 聊天 tab 灰色 + "需要网络" 提示 |
 | Smart Home 推荐 | ⚠️ 基于本地数据 | 推荐可能不够智能，但仍可显示短语 |
 | Data Sync | ❌ 不可用 | 静默排队，联网后自动上传 |
 | 登录/注册 | ❌ 不可用 | 灰色 + "需要网络发送验证码" |
 
-### 关键交互状态矩阵 (Design Review v2 新增)
+### 关键交互状态矩阵 (Design Review v3 更新)
 
-**AI Coach 聊天状态:**
+**小禾老师 Mentor FAB 状态:**
 
 | 状态 | 视觉表现 |
 |------|----------|
-| 首次进入 (空聊天) | Quick Ask chips (E7): "我不知道该说什么" / "洗澡时说什么" / "宝宝不配合怎么办" + 欢迎语: "你好！我是{child_name}的英语教练 👋" |
-| 等待 LLM 响应 | 教练头像 + 打字动画 (3 个跳跃圆点) |
+| FAB 折叠 (默认) | 圆形按钮 🌱 icon, 右下角固定, 轻微呼吸动画 |
+| FAB 展开 → 建议 tab | BottomSheet 60% 高度, 情境建议列表 + Quick Ask chips |
+| FAB 展开 → 聊天 tab | BottomSheet 70% 高度, 对话界面 |
+| 首次展开 | 小禾老师欢迎语 + Quick Ask chips (E7) |
+| 等待 LLM 响应 | 小禾头像 + 打字动画 (3 个跳跃圆点) |
 | SSE 流式输出 | 文字逐字出现，英文短语用 Fraunces + --english 高亮 |
 | TTS 就绪 | 英文短语旁出现 ▶ 播放小按钮 (淡入) |
-| TTS 加载中 | ▶ 按钮变为旋转 spinner |
 | SSE 断连重连 | 已有文字保留 + "正在重新连接..." 灰色提示 |
 | 重连失败 (3次) | 已有文字保留 + "网络不稳定，显示部分回答" 黄色 banner |
 | 速率限制 | "今天已用 10/10 次" 灰色提示 + disabled 输入框 |
 | ASR 录音中 | 麦克风按钮脉动 + 声波动画 + "说话中..." |
 | ASR 识别失败 | "没听清，试试打字吧" + 自动切到文字输入 |
+| 离线 | 建议 tab 可用 (本地预设), 聊天 tab 灰掉 + "需要网络" |
+
+**C3 激活框状态 (Scene Coaching):**
+
+| 状态 | 视觉表现 |
+|------|----------|
+| 收缩态 (默认) | 紧凑卡片: 英文标题 + 中文翻译, 低透明度 |
+| 展开态 (激活框内) | 完整卡片: 英文+中文+TTS按钮+提示+ReactionChips, 300ms 过渡 |
+| TTS 播放中 | Play→Pause, 声波动画, 英文 --english 底色高亮 |
+| Auto-Flow 等待 | 底部 10秒进度条 (--accent), "⏸ 暂停" 按钮 |
+| Auto-Flow 暂停 | 进度条停止, "▶ 继续" 按钮 |
+| 已掌握 | 左上角 ✅, 卡片 opacity 0.7 |
+| 完成短语 | Toast: "🌱 你的{activity}花刚发芽了!" + 花圃缩略图 |
+| 场景完成 | 全屏动画 + "花园更新了!" + 返回选项 |
+
+**花园状态:**
+
+| 状态 | 视觉表现 |
+|------|----------|
+| 空花园 (首次) | 全部空地 + 🌰 播种按钮 + 小禾老师引导文案 |
+| 播种仪式 | 点击种子 → 种子入土动画 (300ms) → 发芽 → 跳转练习 |
+| 花朵成长 | 种子🌰 → 发芽🌱 → 含苞🌼 → 盛开🌸 (阶段性变化) |
+| 生长点不足 | 浇水按钮灰掉 + "去练习赚取生长点" 提示 |
+| 浇水动画 | 水滴落下 (Lottie) + 花朵微微晃动 |
+| 花圃展开 | 点击花圃 → 展开详情面板 (活动列表+花朵状态) |
+
+**成长页状态:**
+
+| 状态 | 视觉表现 |
+|------|----------|
+| 日记空状态 | "和{child_name}的英语旅程还没开始" + [开始练习] CTA |
+| 日记有数据 | 按日期分组 (今天/昨天/更早), 自动+手动条目混排 |
+| 手动添加 | [+添加记录] → 文字输入弹窗 → 保存到 Isar |
+| 场景进展空状态 | 圆环 0% + "等着听你说英语" |
+| 里程碑全空 | 全部 ⬜ 但可见 (激励目标) |
 
 **Event Sync 指示器:**
-- 待上传事件 >0: Profile 页显示小圆点 badge
+- 待上传事件 >0: Drawer 头像显示小圆点 badge
 - 上传中: 顶部微型进度条 (2px, --accent)
 - 上传成功: 进度条消失，badge 清除
 - 上传失败: "数据同步失败，稍后重试" toast (不打断用户)
@@ -131,67 +198,99 @@ Phase 1 验证核心假设：**父母会不会真的每天对着宝宝说英文�
 | 功能 | 原因 |
 |------|------|
 | 情侣模式 (#11) | 纯 UI 功能，不验证核心假设 |
-| ~~语音备忘录 (#6)~~ | ~~需要 OSS 上传~~ **已加回 Phase 1** (Design Review v2: 笔记 tab 功能, 仅本地存储, 不需要 OSS) |
 | 发音对比 (#2) | 不验证核心假设 |
 | 48h 沉默提醒 (#10) | 可以 Phase 2 加，不影响验证 |
 | 今日短语 widget (#9) | Smart Home 简化版足够 |
 | WeChat OG 分享卡 | 需要微信开放平台注册审批 |
 | RAG 知识库 | ~~Phase 1 用 LLM-only~~ **已加回 Phase 1** (Eng Review v5 确认, pgvector) |
 | Refresh Token 吊销 | Phase 1 用户少，Phase 2 加 |
+| 独立语音备忘录 | Design Review v3: 语音功能分散到成长日记 + FAB 语音输入 |
+| 家长圈社交 feed | Design Review v3: 10人规模社交内容密度不够, Phase 2 |
+| 色盲专用模式 | Phase 2 可加深色/形状区分 |
+| 横屏布局 | 锁定竖屏 |
 
-## 导航架构 (Design Review v2 2026-04-02 确认)
+## 导航架构 (Design Review v3 2026-04-04 确认)
 
 ```
 ┌──────────────────────────────────────────┐
-│  [👤 Drawer]                     [通知 🔔] │  ← 左上角头像触发 Drawer
+│  [🍔 ≡]  小明妈妈，早上好          [🔔] │  ← 左上角汉堡/头像 → 右侧 Drawer
 ├──────────────────────────────────────────┤
 │                                          │
 │              (内容区域)                   │
 │                                          │
+│                              ┌──────┐    │
+│                              │ 🌱   │    │  ← 全局小禾老师 Mentor FAB
+│                              │小禾   │    │     固定右下角，所有页面可见
+│                              └──────┘    │
 ├──────────────────────────────────────────┤
-│  🏠首页 │ 🔍发现 │ 🤖教练 │ 🎙笔记 │ 👤我的 │
+│   🏠首页  │  🔍发现  │  🌺花园  │  📈成长  │
 └──────────────────────────────────────────┘
 ```
 
-**导航变更 (Design Review v2):** 4-tab + FAB → **5-tab**，AI Coach 入口移到底部导航中央。
-理由: 父母单手抱宝宝操作时，底部中央图标比右下 FAB 更容易触达。中央位置也暗示这是核心功能。
+**导航变更 (Design Review v3):** 5-tab → **4-tab + Drawer + 全局 Mentor FAB**
+- **"我的" tab 移除:** 内容太薄 (仅设置/账号)，改为 Drawer
+- **"教练" tab 移除:** 替换为全局小禾老师 Mentor FAB，任何页面可用
+- **"笔记" tab 移除:** 语音备忘功能分散到成长日记 + FAB 语音输入
+- **新增 "花园" tab:** Design Shotgun 引入，花圃可视化 + 游戏化
+- **新增 "成长" tab:** 合并旧 Progress + Notes，默认日记视图
 
-Drawer 内容: 头像/昵称, 设置 (推送时间/语言偏好/账号管理), 会员中心(Phase 2), 客服反馈, 隐私政策, 关于
+**Drawer 内容** (右侧滑出):
+- 头像 + 昵称 + 宝宝月龄
+- 设置 (推送时间/语言偏好)
+- 账号管理 (手机号/密码)
+- 客服反馈
+- 隐私政策 + 关于
+- 会员中心 (Phase 2)
 
-- **首页 (Home):** Smart Home 主屏幕。个性化问候 + 时段智能推荐场景/短语 + 本周速览
-- **发现 (Discover):** 场景列表 (单列不等高卡片流) + 路线图时间线
-- **教练 (Coach):** AI Coach 聊天界面。点击直接进入对话，Quick Ask chips (E7) 在顶部
-- **笔记 (Notes):** Phase 1: 语音备忘录 — 录下和宝宝说英语的瞬间。Phase 2: 加文字笔记 + 社交分享
-- **我的 (Profile):** 阶段圆环进度 + 各场景 mastery 条形图 + 里程碑时间线 + 本周数据
+**小禾老师 Mentor FAB** (全局浮动按钮):
+- 固定在右下角 (BottomNav 上方)
+- 点击 → 展开面板: 建议列表 tab + 聊天 tab
+- 离线时仍可点击 → 显示本地预设建议 (不灰掉)
+- 语音输入按钮在面板内 (阿里云 ASR)
 
-## Smart Home Screen
+**4 个 Tab:**
+- **首页 (Home):** Smart Home 主屏幕。个性化问候 + 时段智能推荐 + 花园概览 + 本周速览
+- **发现 (Discover):** 双 tab — 分类浏览 (空间→活动) + 推荐列表
+- **花园 (Garden):** 可拖动花圃地图。每个空间一个花圃，练习浇灌花朵成长
+- **成长 (Growth):** 3 个 sub-tab — 日记(默认) / 场景进展 / 里程碑
+
+## Smart Home Screen (Design Shotgun + Design Review v3)
 
 ```
 ┌─────────────────────────────────────┐
-│  [👤]  小明妈妈，早上好 ☀️    [🔔] │
+│  [≡]  小明妈妈，早上好 ☀️    [🔔] │
 │  阶段 2: 日常对话 · 8个月           │
 ├─────────────────────────────────────┤
 │                                     │
-│  ┌─────────────────────────────┐    │
-│  │  "Splash splash!            │    │  ← 推荐短语卡 (PhraseCard)
-│  │   Can you splash with me?"  │    │     Fraunces 字体, --english 颜色
-│  │  泼水泼水！你能和我一起泼吗？│    │
-│  │  🛁 洗澡时间  [▶ 播放]     │    │
-│  │  [进入场景 →]               │    │
+│  🌺 花园速览                        │  ← 迷你花园地图 (GardenPreview)
+│  ┌─────────────────────────────┐    │     点击→跳转花园 tab
+│  │ [晨间🌸] [感官🌼] [亲密💐]  │    │     显示最近浇灌的3朵花
+│  │  +12 生长点可用              │    │
 │  └─────────────────────────────┘    │
 │                                     │
-│  今日活动                           │
-│  ┌──────────┐ ┌──────────┐         │  ← 水平滚动 ActivityCard 列表
+│  现在试试                           │  ← 时段智能推荐 (RecommendCard)
+│  ┌─────────────────────────────┐    │
+│  │  "Splash splash!            │    │     Fraunces 字体, --english 颜色
+│  │   Can you splash with me?"  │    │
+│  │  泼水泼水！你能和我一起泼吗？│    │
+│  │  🛁 洗澡 · 感官探索  [▶]   │    │     空间→活动标签
+│  │  [开始练习 →]               │    │
+│  └─────────────────────────────┘    │
+│                                     │
+│  今日活动                           │  ← 水平滚动 ActivityCard 列表
+│  ┌──────────┐ ┌──────────┐         │
 │  │ 🤸 TPR    │ │ 📖 绘本   │         │
 │  │ 举手手！  │ │ Brown Bear│         │
 │  └──────────┘ └──────────┘         │
 │                                     │
 │  本周速览                           │  ← WeekStats 组件
 │  📣 说了 23 句 │ 🔥 连续 5 天       │
-│                                     │
-├──────────────────────────────────────────┤
-│  🏠首页 │ 🔍发现 │ 🤖教练 │ 🎙笔记 │ 👤我的 │
-└──────────────────────────────────────────┘
+│                       ┌──────┐      │
+│                       │🌱小禾│      │  ← Mentor FAB
+│                       └──────┘      │
+├─────────────────────────────────────┤
+│  🏠首页  │  🔍发现  │  🌺花园  │  📈成长 │
+└─────────────────────────────────────┘
 ```
 
 ### Smart Home 推荐算法 (Design Review v2)
@@ -214,86 +313,127 @@ Drawer 内容: 头像/昵称, 设置 (推送时间/语言偏好/账号管理), �
 - **中断 ≥3 天:** 温暖回归: "好久不见！{child_name}想你了 ☀️" + 复习上次的短语
 - **里程碑日:** 如果今天是宝宝月龄变化日: "🎂 {child_name}今天{X}个月了！解锁新阶段"
 
-## Scene Coaching Screen
+## Scene Coaching Screen — C3 激活框模式 (Design Shotgun + Design Review v3)
 
 ```
 ┌─────────────────────────────────────┐
-│  [←] 洗澡时间 🛁                   │
+│  [←] 洗澡 · 感官探索           [⋯] │
 ├─────────────────────────────────────┤
-│  ┌─────────────────────────────┐    │
-│  │  "Splash splash!            │    │  ← PhraseCard, 左右滑动
-│  │   Can you splash with me?"  │    │     Fraunces 24px+
-│  │  泼水泼水！你能和我一起泼吗？│    │
-│  │  [▶ 播放发音]               │    │
-│  │  💡 洗澡时用手泼水，配合说   │    │
-│  │     splash，让宝宝关联动作   │    │
+│                                     │
+│  ┌─────────────────────────────┐    │  ← 收缩卡片 (滚过激活框之前)
+│  │  "Water time!"              │    │     仅显示英文+中文，低透明度
+│  │  水时间到了！               │    │
 │  └─────────────────────────────┘    │
 │                                     │
-│  ┌─────┐ ┌─────┐ ┌─────┐          │  ← ReactionChip 按钮
-│  │ 😄  │ │ 🗣️  │ │ 👶  │          │
-│  │看着我│ │我说了│ │咿呀学语│         │
-│  └─────┘ └─────┘ └─────┘          │
+│  ╔═════════════════════════════╗    │  ← ActivationFrame (激活框)
+│  ║                             ║    │     当前激活的短语卡
+│  ║  "Splash splash!            ║    │     展开显示完整内容:
+│  ║   Can you splash with me?"  ║    │     - Fraunces 24px+ 英文
+│  ║  泼水泼水！你能和我一起泼吗？║    │     - 中文翻译
+│  ║                             ║    │     - [▶ 播放发音] TTS 按钮
+│  ║  [▶ 播放发音]               ║    │     - 💡 情境提示
+│  ║  💡 洗澡时用手泼水，配合说   ║    │     - ReactionChip 按钮
+│  ║     splash，让宝宝关联动作   ║    │
+│  ║                             ║    │
+│  ║  ┌─────┐ ┌─────┐ ┌─────┐  ║    │  ← ReactionChip (48px 触摸目标)
+│  ║  │ 😄  │ │ 🗣️  │ │ 👶  │  ║    │
+│  ║  │看着我│ │我说了│ │咿呀学语│ ║    │
+│  ║  └─────┘ └─────┘ └─────┘  ║    │
+│  ╚═════════════════════════════╝    │
+│                                     │
+│  ┌─────────────────────────────┐    │  ← 收缩卡片 (激活框之后)
+│  │  "Rubber ducky!"            │    │     仅显示英文+中文
+│  │  小黄鸭！                   │    │
+│  └─────────────────────────────┘    │
 │                                     │
 │  进度: ●●●○○○○○○○ 3/10            │
 │  [初级 ★★★] [中级 ☆☆] [高级 🔒]   │
-│                                     │
+│                       ┌──────┐      │
+│                       │🌱小禾│      │  ← Mentor FAB
+│                       └──────┘      │
 ├─────────────────────────────────────┤
-│  🏠首页 🔍发现 🤖教练 🎙笔记 👤我的 │
+│  🏠首页  │  🔍发现  │  🌺花园  │  📈成长 │
 └─────────────────────────────────────┘
 ```
 
-### PhraseCard 交互状态 (Design Review v2 新增)
+### C3 激活框交互规则 (Design Review v3)
+
+| 行为 | 说明 |
+|------|------|
+| 滚入激活框 | 卡片从收缩态 smooth 展开为完整态 (~300ms) |
+| 滚出激活框 | 卡片 smooth 收缩回标题态 |
+| 点击 ReactionChip | 反应记录 + 星星粒子 + 手机微振 |
+| 完成短语 (spoken/babbled) | 自动滚动到下一个短语 + toast: "🌱 你的洗澡花刚发芽了!" |
+| Auto-Flow 模式 | TTS 播完 → 10秒倒计时 → 自动滚到下一个 |
+| 最后一个短语完成 | 全屏场景完成动画 + 返回花园/发现选项 |
+
+### PhraseCard 交互状态 (Design Review v3: C3 激活框内)
 
 | 状态 | 视觉表现 |
 |------|----------|
-| 默认 | 白色卡片, --shadow-md, Fraunces 英文 + PingFang 中文 |
-| TTS 播放中 | Play 按钮变 Pause 图标, 声波动画 (3 bar equalizer), 英文高亮 --english 底色 |
-| TTS 失败 | Play 按钮变刷新图标, 红色 --error 底色, "播放失败，点击重试" 文案 |
-| Auto-Flow 等待中 | 底部 10 秒进度条 (--accent 填充), "⏸ 暂停" 按钮出现 |
-| Auto-Flow 暂停 | 进度条停止, "▶ 继续" 按钮, 暗淡 overlay |
-| 已掌握 | 左上角 ✅ 绿色 check, 卡片轻微透明 (opacity 0.7) |
-| 最后一个短语完成 | 🎉 场景完成 → 弹出 "场景掌握!" + 升级难度提示 or 返回发现 |
+| 收缩态 (激活框外) | 紧凑: 英文+中文标题, opacity 0.6, 无交互按钮 |
+| 展开态 (激活框内) | 完整: Fraunces 英文 + PingFang 中文 + TTS + 提示 + ReactionChips |
+| TTS 播放中 | Play→Pause, 声波动画 (3 bar equalizer), 英文 --english 底色 |
+| TTS 失败 | Play→刷新图标, --error 底色, "播放失败，点击重试" |
+| Auto-Flow 等待中 | 底部 10 秒进度条 (--accent), "⏸ 暂停" 按钮 |
+| Auto-Flow 暂停 | 进度条停止, "▶ 继续" 按钮 |
+| 已掌握 | 左上角 ✅, opacity 0.7 |
+| 完成短语 (spoken/babbled) | Toast: "🌱 你的{activity}花刚发芽了!" + 花圃缩略图 |
+| 最后一个短语完成 | 🎉 场景完成动画 + "花园更新了!" + 返回选项 |
 
-## Discovery Screen (Design Review v2 新增)
+## Discovery Screen — 双 Tab (Design Shotgun + Design Review v3)
 
 ```
 ┌─────────────────────────────────────┐
-│  [←] 发现                      [🔔] │
+│  [≡] 发现                      [🔔] │
 ├─────────────────────────────────────┤
-│  [场景列表] [路线图]                │  ← Tab 切换
+│  [分类浏览] [为你推荐]              │  ← 双 Tab 切换
 │                                     │
-│  ┌─────────────────────────────┐    │  ← 单列不等高卡片流
-│  │  🛁 洗澡时间                │    │     (anti-slop: 不用网格)
+│  ── 分类浏览 tab ──                 │
+│                                     │
+│  空间                               │
+│  ┌──────────┐ ┌──────────┐         │  ← 空间卡片 (SpaceCard) 网格
+│  │ ☀️ 晨间  │ │ 🫧 感官  │         │
+│  │ 护理     │ │ 探索     │         │
+│  │ 3/5 活动 │ │ 2/4 活动 │         │
+│  └──────────┘ └──────────┘         │
+│  ┌──────────┐ ┌──────────┐         │
+│  │ 💕 亲密  │ │ 🤸 活力  │         │
+│  │ 互动     │ │ 游戏     │         │
+│  └──────────┘ └──────────┘         │
+│  ┌──────────┐ ┌──────────┐         │
+│  │ 📖 阅读  │ │ 🌙 睡前  │         │
+│  │ 时光     │ │ 仪式     │         │
+│  └──────────┘ └──────────┘         │
+│                                     │
+│  点击空间 → 展开活动列表:           │
+│  ┌─────────────────────────────┐    │
+│  │  ☀️ 晨间护理                │    │
+│  │  ├── 🌸 换尿布  ████░░ 4/8 │    │  ← 每个活动一朵花
+│  │  ├── 🌸 穿衣服  ██░░░░ 2/8 │    │
+│  │  └── 🌸 洗脸    ░░░░░░ 0/8 │    │
+│  └─────────────────────────────┘    │
+│                                     │
+│  ── 为你推荐 tab ──                 │
+│                                     │
+│  ┌─────────────────────────────┐    │  ← 基于时段+进度的推荐列表
+│  │  🛁 洗澡 · 感官探索        │    │     单列不等高卡片
 │  │  "Splash splash!"          │    │
 │  │  ████████░░ 8/10 初级       │    │
-│  │  上次: 2 天前               │    │
 │  └─────────────────────────────┘    │
-│                                     │
-│  ┌─────────────────────────────┐    │  ← 不同高度 (有的有缩略短语)
-│  │  🍼 喂奶时间                │    │
+│  ┌─────────────────────────────┐    │
+│  │  🍼 喂奶 · 亲密互动        │    │
 │  │  ████░░░░░░ 4/10 初级       │    │
 │  └─────────────────────────────┘    │
-│                                     │
-│  ┌─────────────────────────────┐    │
-│  │  👶 换尿布                  │    │
-│  │  "Time to change your      │    │
-│  │   diaper!"                 │    │
-│  │  ██░░░░░░░░ 2/10 初级       │    │
-│  │  🆕 新场景推荐              │    │
-│  └─────────────────────────────┘    │
-│  ...                                │
+│                       ┌──────┐      │
+│                       │🌱小禾│      │
+│                       └──────┘      │
 ├─────────────────────────────────────┤
-│  🏠首页 🔍发现 🤖教练 🎙笔记 👤我的 │
+│  🏠首页  │  🔍发现  │  🌺花园  │  📈成长 │
 └─────────────────────────────────────┘
 ```
 
-### Discovery 卡片信息架构
-- 排序: 按"最近使用在前 + 未开始在后" (不按固定顺序)
-- 卡片高度: 有进度的场景显示缩略短语 → 更高; 新场景只显示名称和 emoji → 更矮
-- 进度条: 4px, --border 轨道, --accent 填充 (同 DESIGN.md ProgressBar token)
-- 点击 → 进入 Scene Coaching
-
-### 路线图 Tab
+### 路线图 (在分类浏览 tab 底部)
 5 个发展阶段竖向时间线:
 ```
 ● 阶段1: 语音启蒙 (0-6月)     ← 已完成: 绿色 ✅
@@ -306,101 +446,202 @@ Drawer 内容: 头像/昵称, 设置 (推送时间/语言偏好/账号管理), �
 ○ 阶段3: 互动游戏 (12-18月)  ← 未解锁: 灰色
 ```
 
-## Notes Screen (Design Review v2 新增)
+## Garden Screen — 花园系统 (Design Shotgun + Design Review v3)
 
 ```
 ┌─────────────────────────────────────┐
-│  [←] 我的笔记                      │
+│  [≡] 🌺 我的花园            [🔔]   │
+│  🌟 生长点: 42                      │
 ├─────────────────────────────────────┤
 │                                     │
-│  今天                               │
+│  ┌─────────────────────────────┐    │  ← GardenMap (可拖动)
+│  │                             │    │     整个画布可以平移
+│  │    [晨间护理🌸]             │    │
+│  │        🌱🌸🌼              │    │  ← FlowerPatch 花圃
+│  │                             │    │     花朵大小=活动进度
+│  │  [感官探索🫧]   [亲密💕]   │    │
+│  │     🌸🌸          🌱🌱     │    │
+│  │                             │    │
+│  │     [活力🤸]  [阅读📖]     │    │
+│  │       🌱        ⬜         │    │  ← ⬜ = 未播种 (空状态)
+│  │                             │    │
+│  │         [睡前🌙]            │    │
+│  │           🌱🌸             │    │
+│  │                             │    │
+│  └─────────────────────────────┘    │
+│                                     │
+│  点击花圃 → 展开详情:              │
 │  ┌─────────────────────────────┐    │
-│  │  🎙 0:12 · 洗澡时间        │    │  ← 语音条 + 波形
-│  │  "Splash splash!"           │    │     点击播放回顾
-│  │  9:41 AM                    │    │
+│  │  ☀️ 晨间护理                │    │
+│  │  换尿布 🌸🌸🌸 (盛开)      │    │  ← 花朵成长阶段
+│  │  穿衣服 🌼 (含苞)           │    │     种子→发芽→含苞→盛开
+│  │  洗脸   [🌰 播种]           │    │  ← 未开始=播种按钮
+│  │                             │    │
+│  │  [浇水 -5🌟]  [查看练习 →] │    │
+│  └─────────────────────────────┘    │
+│                       ┌──────┐      │
+│                       │🌱小禾│      │
+│                       └──────┘      │
+├─────────────────────────────────────┤
+│  🏠首页  │  🔍发现  │  🌺花园  │  📈成长 │
+└─────────────────────────────────────┘
+```
+
+### 花园生长模型 (Design Review v3)
+
+**生长点 (Growth Points) 系统:**
+- 练习短语 → 赚取生长点 (+1 looked, +2 spoken, +3 babbled)
+- 浇水花朵 → 消耗生长点 (-5 per watering)
+- 浇水促进花朵成长阶段推进
+- 生长点余额显示在花园顶部
+
+**花朵成长阶段:**
+| 阶段 | 视觉 | 条件 |
+|------|------|------|
+| 种子 🌰 | 播种按钮 | 活动未开始 |
+| 发芽 🌱 | 小芽 | 首次练习该活动 |
+| 含苞 🌼 | 花苞 | 掌握 40% 短语 |
+| 盛开 🌸 | 绽放花朵 | 掌握 80% 短语 |
+
+**播种仪式 (空状态):**
+- 首次进入花园 → 全部花圃显示空地 + 🌰 播种按钮
+- 点击种子按钮 → 播种微动画 (种子入土 + 发芽300ms) → 自动跳转到该空间的场景练习
+- **花园从不为空:** 至少在 Onboarding 时自动播种 1 颗种子
+
+**练习→花园因果 Toast:**
+- 在场景练习中完成 spoken/babbled → 底部弹出 toast:
+  "🌱 你的洗澡花刚发芽了!" + 花圃缩略图
+- Toast 3秒后自动消失，点击可跳转花园
+
+## Growth Screen — 成长 (Design Shotgun + Design Review v3)
+
+**替代旧 Progress Screen + Notes Screen**
+
+```
+┌─────────────────────────────────────┐
+│  [≡] {child_name}的成长         [🔔]│
+├─────────────────────────────────────┤
+│  [日记] [场景进展] [里程碑]         │  ← 3 个 sub-tab, 默认日记
+│                                     │
+│  ── 日记 tab (默认) ──              │
+│                                     │
+│  今天                               │
+│  ┌─────────────────────────────┐    │  ← DiaryCard (自动生成)
+│  │  ☀️ 9:41 AM                 │    │
+│  │  小明和妈妈练习了洗澡场景    │    │
+│  │  说了 "Splash splash!" 🌊   │    │
+│  │  花园里，感官探索的花儿       │    │
+│  │  长大了一点 🌱→🌼            │    │
+│  └─────────────────────────────┘    │
+│  ┌─────────────────────────────┐    │  ← DiaryCard (手动添加)
+│  │  📝 3:22 PM                 │    │
+│  │  "今天小明主动指着水说        │    │
+│  │   water！太开心了"           │    │     用户手动记录
 │  └─────────────────────────────┘    │
 │                                     │
 │  昨天                               │
 │  ┌─────────────────────────────┐    │
-│  │  🎙 0:08 · 换尿布           │    │
-│  │  "Let's change your diaper" │    │
-│  │  6:32 PM                    │    │
+│  │  🌙 8:30 PM                 │    │
+│  │  睡前和小明说了 3 句新短语    │    │
 │  └─────────────────────────────┘    │
 │                                     │
-│  空状态:                            │
-│  ┌─────────────────────────────┐    │
-│  │  🎙                         │    │
-│  │  录下和{child_name}说英语    │    │
-│  │  的瞬间吧！                  │    │
-│  │                             │    │
-│  │  在场景练习时长按录音按钮    │    │
-│  └─────────────────────────────┘    │
+│  [+ 添加记录]                       │  ← 手动添加日记按钮
 │                                     │
-│              [🎙 录一段]            │  ← 底部录音 FAB
-├─────────────────────────────────────┤
-│  🏠首页 🔍发现 🤖教练 🎙笔记 👤我的 │
-└─────────────────────────────────────┘
-```
-
-### 笔记功能范围 (Design Review v2)
-
-**Phase 1:** 纯语音备忘。
-- 录音入口: 笔记页底部 FAB + 场景练习中的长按录音
-- **自动关联逻辑 (Eng Review v6):** 录音时取当前 scene_id (如果在场景练习中) + 最后播放的 phrase_id。不在场景中录音则 scene_id=null
-- 本地存储 (Isar), 不上传服务器 (Phase 1 无 OSS)
-- 按日期分组列表，显示时长 + 关联短语
-
-**Phase 2:** 加文字笔记 + 社交分享 + 云端同步
-
-## Profile Screen (Design Review v2 新增)
-
-```
-┌─────────────────────────────────────┐
-│  [Drawer]  {child_name}的成长记录    │
-├─────────────────────────────────────┤
+│  ── 场景进展 tab ──                 │
 │                                     │
 │  ┌──────────┐  本周你和{child_name} │
 │  │          │  说了 23 句英语 ✨     │
 │  │   35%    │  累计 157 句           │
 │  │  ◯ 圆环  │  连续 5 天 🔥          │
-│  │          │                       │
 │  └──────────┘                       │
 │                                     │
-│  场景掌握                           │
-│  🛁 洗澡   ████████░░ 8/10         │
-│  🍼 喂奶   ████░░░░░░ 4/10         │
-│  👶 换尿布  ██░░░░░░░░ 2/10         │
-│  🎮 游戏   █░░░░░░░░░ 1/10         │
-│  📖 绘本   ░░░░░░░░░░ 0/10         │
+│  空间掌握                           │
+│  ☀️ 晨间   ████████░░ 8/10         │
+│  🫧 感官   ████░░░░░░ 4/10         │
+│  💕 亲密   ██░░░░░░░░ 2/10         │
+│  🤸 活力   █░░░░░░░░░ 1/10         │
+│  📖 阅读   ░░░░░░░░░░ 0/10         │
 │  🌙 睡前   ███░░░░░░░ 3/10         │
 │                                     │
-│  里程碑 🏆                          │
-│  ✅ 第一次 babble (洗澡时间)  4/1   │
+│  ── 里程碑 tab ──                   │
+│                                     │
+│  🏆 里程碑                          │
+│  ✅ 第一次 babble (洗澡)      4/1   │
 │  ✅ 连续 3 天使用             4/3   │
-│  ⬜ 完成第一个场景             —     │
-│                                     │
-│  Bedtime Summary (E5) 卡片:         │
-│  ┌─────────────────────────────┐    │
-│  │ 🌙 今天的睡前总结           │    │
-│  │ {child_name}听了 5 句新短语  │    │
-│  │ 最喜欢: "Splash splash!"   │    │
-│  │ 明天试试: 喂奶时间 🍼       │    │
-│  └─────────────────────────────┘    │
-│                                     │
+│  ✅ 第一个花朵盛开 🌸         4/5   │
+│  ⬜ 完成第一个空间             —     │
+│  ⬜ 花园全花盛开               —     │
+│                       ┌──────┐      │
+│                       │🌱小禾│      │
+│                       └──────┘      │
 ├─────────────────────────────────────┤
-│  🏠首页 🔍发现 🤖教练 🎙笔记 👤我的 │
+│  🏠首页  │  🔍发现  │  🌺花园  │  📈成长 │
 └─────────────────────────────────────┘
 ```
 
-### Profile 空状态 (新用户)
-- 圆环：0%，文案变为 "{child_name}等着听你说英语"
-- 场景 mastery：全部 0/10 但不灰掉，每个场景旁有"开始 →"按钮
-- 里程碑：全部 ⬜ 未达成，但可见（激励目标）
+### 日记数据来源 (Design Review v3)
+- **自动生成:** 从 interaction_events 自动组装日记条目 (练习了哪些场景, 花园变化, 里程碑)
+- **手动添加:** 父母可以添加文字记录 (存 Isar 本地, Phase 1 不上传)
+- **按日期分组:** 今天 / 昨天 / 更早
 
-## AI Coach (Ask Coach)
+### Growth 空状态 (新用户)
+- 日记: "和{child_name}的第一段英语旅程还没开始" + [开始练习] CTA
+- 场景进展: 圆环 0%, 全部 0/10 + 每空间旁 [开始→] 按钮
+- 里程碑: 全部 ⬜ 未达成但可见 (激励目标)
 
-**Phase 1: RAG + LLM**
+## 小禾老师 Mentor FAB (替代旧 AI Coach Tab — Design Shotgun + Design Review v3)
 
+**Phase 1: 全局浮动按钮 + 双模式面板**
+
+```
+点击 Mentor FAB → 展开 MentorPanel:
+
+┌─────────────────────────────────────┐
+│  🌱 小禾老师                    [×] │
+├─────────────────────────────────────┤
+│  [💡 建议] [💬 聊天]               │  ← 双 tab 模式
+│                                     │
+│  ── 建议 tab ──                     │
+│  ┌─────────────────────────────┐    │
+│  │ 💡 现在正好是洗澡时间，     │    │  ← 情境感知建议
+│  │    试试说 "Splash splash!"   │    │     基于时段+最近练习
+│  │    [去练习 →]                │    │
+│  └─────────────────────────────┘    │
+│  ┌─────────────────────────────┐    │
+│  │ 💡 小明已经 2 天没听过      │    │  ← 回归建议
+│  │    穿衣服的短语了            │    │
+│  │    [去练习 →]                │    │
+│  └─────────────────────────────┘    │
+│                                     │
+│  Quick Ask chips:                   │
+│  [我不知道该说什么] [推荐新短语]    │
+│  [宝宝不配合怎么办]                │
+│                                     │
+│  ── 聊天 tab ──                     │
+│  (RAG + LLM 对话，同旧 AI Coach)   │
+│  ┌─────────────────────────────┐    │
+│  │ 🌱: 你好！我是小禾老师 👋   │    │
+│  │    有什么我可以帮你的吗？    │    │
+│  └─────────────────────────────┘    │
+│                                     │
+│  ┌────────────────────┐ [🎤]       │  ← 文字输入 + 语音按钮
+│  │ 输入问题...         │            │
+│  └────────────────────┘             │
+└─────────────────────────────────────┘
+```
+
+### Mentor FAB 交互行为
+
+| 状态 | 行为 |
+|------|------|
+| 在线 | 建议 tab: 情境感知 (时段+进度)。聊天 tab: RAG+LLM 流式对话 |
+| 离线 | 建议 tab: 显示本地预设建议 (5-8 条基于进度的通用建议)。聊天 tab: 灰掉，提示"需要网络" |
+| FAB 折叠 | 小圆形按钮带🌱 icon, 右下角固定，所有页面可见 (除 onboarding) |
+| FAB 展开 | 底部弹出面板 (BottomSheet), 占屏幕 60-70% 高度 |
+| 首次展开 | 小禾老师欢迎语: "你好！我是{child_name}的英语伙伴小禾老师 🌱" |
+| 语音输入 | 🎤 按钮 → 阿里云 ASR → 识别文字填入输入框 → 自动发送 |
+
+**RAG 管道** (同旧 AI Coach):
 ```
 用户输入 (文字 or 语音 via 阿里云 ASR)
   → 后端接收 + 输入过滤 (亵渎/注入检测)
@@ -409,47 +650,12 @@ Drawer 内容: 头像/昵称, 设置 (推送时间/语言偏好/账号管理), �
   → System prompt 拼接: 育儿方法论 + 检索到的相关短语 + 用户输入
   → LLM 调用 (流式 SSE)
   → 输出过滤 (确保 LLM 响应符合正面育儿方法论)
-  → 前端流式显示文字
+  → 前端流式显示文字 (小禾老师人格)
   → 异步 TTS 生成音频
   → 音频就绪后自动可播放
 ```
 
-**RAG 架构:**
-- Vector DB: pgvector 扩展 (在现有 PostgreSQL 上, 不加新服务)
-- Embedding model: 阿里云 text-embedding-v3 (或 OpenAI text-embedding-3-small, Layer 0 spike 决定)
-- 索引: 90 种子短语 + coaching tips → 向量化 → phrases_embeddings 表
-- 检索策略: cosine similarity, Top-5, score threshold > 0.7
-- Fallback: 如果 pgvector 查询失败, 降级为全量种子短语 system prompt (LLM-only 模式)
-
-**延迟策略:** 文字先行 (~2s 感知延迟), TTS 异步 (~5s 后可播放)
-
-**SSE 断连处理 (Eng Review Issue 7):**
-- 客户端 SSE 断连后自动重连 (最多 3 次, 指数退避)
-- 已收到的文字保留在 UI, 重连后接续拼接
-- 3 次重连失败 → 显示已收到的部分文字 + "网络不稳定" 提示
-
-**安全:**
-- 后端输入过滤 (亵渎/注入检测, 不依赖客户端)
-- 后端输出过滤 (确保 LLM 响应符合正面育儿方法论)
-- System prompt 强制正面育儿原则
-- Admin 审核页使用独立认证: 环境变量配置的 static Bearer token (Eng Review Issue 9)
-
-**速率限制:** 10 次/用户/天, 服务端计数, UTC midnight 重置
-
-**数据模型:**
-```
-PhraseRequest {
-  id: UUID
-  user_id: UUID
-  input_text: String
-  input_language: String (zh/en)
-  generated_phrase_en: String
-  generated_phrase_zh: String
-  generated_tip: String
-  timestamp: DateTime
-  was_helpful: Boolean? (null = 未评价)
-}
-```
+**安全、延迟策略、SSE 断连处理、速率限制 (10次/天)、数据模型:** 同旧 AI Coach 规格，不变。
 
 ## 后端架构
 
@@ -532,10 +738,32 @@ CREATE INDEX idx_refresh_tokens_expire ON refresh_tokens(expires_at);
 --   Redis key: sms_rate:{phone} → TTL 60s (同一手机号 1 分钟内不能重发)
 --   Redis key: sms_ip_rate:{ip} → counter, TTL 1h (同一 IP 每小时最多 20 条)
 
--- 种子短语表 (前后端同份数据)
+-- 空间表 (Design Review v3: 3层内容模型)
+CREATE TABLE spaces (
+    id          VARCHAR(50) PRIMARY KEY,  -- e.g. "morning_care"
+    name_zh     VARCHAR(100) NOT NULL,    -- e.g. "晨间护理"
+    name_en     VARCHAR(100) NOT NULL,    -- e.g. "Morning Care"
+    icon        VARCHAR(20),              -- emoji or icon ref
+    sort_order  INTEGER DEFAULT 0,
+    created_at  TIMESTAMPTZ DEFAULT now()
+);
+
+-- 活动表 (Design Review v3: 3层内容模型)
+CREATE TABLE activities (
+    id          VARCHAR(50) PRIMARY KEY,  -- e.g. "diaper_change"
+    space_id    VARCHAR(50) NOT NULL REFERENCES spaces(id),
+    name_zh     VARCHAR(100) NOT NULL,    -- e.g. "换尿布"
+    name_en     VARCHAR(100) NOT NULL,    -- e.g. "Diaper Change"
+    sort_order  INTEGER DEFAULT 0,
+    created_at  TIMESTAMPTZ DEFAULT now()
+);
+CREATE INDEX idx_activities_space ON activities(space_id);
+
+-- 种子短语表 (Design Review v3: 加 space_id + activity_id)
 CREATE TABLE phrases (
-    id          VARCHAR(100) PRIMARY KEY,  -- e.g. "bath_beginner_01"
-    scene_id    VARCHAR(50) NOT NULL,
+    id          VARCHAR(100) PRIMARY KEY,  -- e.g. "morning_care_diaper_beginner_01"
+    space_id    VARCHAR(50) NOT NULL REFERENCES spaces(id),
+    activity_id VARCHAR(50) NOT NULL REFERENCES activities(id),
     difficulty  VARCHAR(20) NOT NULL,      -- beginner, intermediate, advanced
     phrase_en   TEXT NOT NULL,
     phrase_zh   TEXT NOT NULL,
@@ -543,7 +771,8 @@ CREATE TABLE phrases (
     sort_order  INTEGER DEFAULT 0,
     created_at  TIMESTAMPTZ DEFAULT now()
 );
-CREATE INDEX idx_phrases_scene ON phrases(scene_id, difficulty);
+CREATE INDEX idx_phrases_space ON phrases(space_id, difficulty);
+CREATE INDEX idx_phrases_activity ON phrases(activity_id, difficulty);
 
 -- RAG: 短语向量嵌入表 (pgvector, Eng Review v5 新增)
 CREATE EXTENSION IF NOT EXISTS vector;
@@ -603,6 +832,33 @@ CREATE TABLE milestones (
     UNIQUE (user_id, type, scene_id, phrase_id)  -- Eng Review v6: 幂等性，防重复里程碑
 );
 CREATE INDEX idx_milestones_user ON milestones(user_id);
+
+-- 花园数据 (Design Review v3: 花园系统)
+CREATE TABLE garden_flowers (
+    id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id     UUID NOT NULL REFERENCES users(id),
+    activity_id VARCHAR(50) NOT NULL REFERENCES activities(id),
+    growth_stage VARCHAR(20) NOT NULL DEFAULT 'seed',  -- seed, sprout, bud, bloom
+    growth_points_spent INTEGER DEFAULT 0,
+    created_at  TIMESTAMPTZ DEFAULT now(),
+    updated_at  TIMESTAMPTZ DEFAULT now(),
+    UNIQUE (user_id, activity_id)
+);
+CREATE INDEX idx_garden_user ON garden_flowers(user_id);
+
+-- 用户生长点余额 (Design Review v3)
+-- 存在 users 表中: ALTER TABLE users ADD COLUMN growth_points INTEGER DEFAULT 0;
+
+-- 日记条目 (Design Review v3: 成长日记)
+CREATE TABLE diary_entries (
+    id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id     UUID NOT NULL REFERENCES users(id),
+    entry_type  VARCHAR(20) NOT NULL,    -- auto_generated, manual
+    content     TEXT NOT NULL,
+    metadata    JSONB,                   -- 自动生成时: {space_id, activity_id, phrases_practiced, garden_change}
+    created_at  TIMESTAMPTZ DEFAULT now()
+);
+CREATE INDEX idx_diary_user ON diary_entries(user_id, created_at DESC);
 
 -- AI 教练请求
 CREATE TABLE phrase_requests (
@@ -739,78 +995,107 @@ on push to main:
 - iOS: i4Tools 自签名 (7 天有效期, 需定期重签)
 - 微信分享: 简单 HTML landing page (GitHub Pages), 无 OG 标签
 
-## Build Order (1 人开发 + CC+gstack)
+## Build Order (1 人开发 + CC+gstack) — Design Review v3 更新
 
 ```
 LAYER 0 (基础, 无依赖, Sprint 1 Day 1-2):
   ├── Flutter 项目脚手架 (Android + iOS config)
   ├── 后端 Spring Boot 4 脚手架 + Docker 配置
-  ├── CI/CD: GitHub Actions workflow 文件 (mvn test + flutter test + docker build + APK build) (Eng Review Issue 2)
-  ├── PostgreSQL schema 初始化 + pgvector 扩展安装
-  ├── 90 种子短语内容 (6 场景 x 15 短语 x 3 难度)
-  ├── 种子短语向量化: embedding 生成 → phrase_embeddings 表 (RAG 准备)
-  ├── TTS 音频预生成 + 打包为 Flutter assets (不走 Redis, Issue 10)
-  ├── 字体文件打包 (Fraunces + DM Sans + JetBrains Mono, 不用 google_fonts CDN)
-  ├── Tech spike: 阿里云 ASR Flutter 集成方式
-  ├── Tech spike: LLM API 选型 (通义千问 vs OpenAI+代理) + Spring AI provider 配置
-  ├── Tech spike: Embedding model 选型 (阿里云 text-embedding vs OpenAI embedding) + 确定向量维度后更新 schema
-  ├── Tech spike: E2E 测试框架选型 (flutter integration_test)
-  ├── **Flyway 迁移初始化** (Eng Review v6: V1__init_schema.sql)
-  ├── **Spring AI + Spring Boot Actuator 依赖配置** (Eng Review v6)
+  ├── CI/CD: GitHub Actions workflow 文件
+  ├── PostgreSQL schema 初始化 + pgvector + spaces/activities 表
+  ├── 90 种子短语内容 (6 空间 × N 活动 × 短语 × 3 难度)
+  ├── 种子短语向量化: embedding → phrase_embeddings
+  ├── TTS 音频预生成 + Flutter assets 打包
+  ├── 字体文件打包 (Fraunces + DM Sans + JetBrains Mono)
+  ├── Tech spike: 阿里云 ASR Flutter 集成
+  ├── Tech spike: LLM API 选型 + Spring AI provider 配置
+  ├── Tech spike: Embedding model 选型 + 向量维度确定
+  ├── Flyway 迁移初始化 (V1__init_schema.sql, 含 spaces/activities/garden 表)
+  ├── Spring AI + Spring Boot Actuator 依赖配置
   └── 行政: ICP 备案 + 阿里云 SMS 模板 + 企业认证 (并行)
 
 LAYER 1 (核心 UX, 依赖 Layer 0, Sprint 1 Day 3 - Sprint 2):
-  ├── 认证系统 (SMS + 密码登录 + 双层限流 + **5次错误锁定**, JWT, Spring Security)
-  ├── Onboarding 流程 (名字清洗在输入时一次完成, Issue 13 + 生日 + PIPL 同意。**PIPL 同意前数据只存 Isar 本地** Eng Review v6)
-  ├── Scene Coaching 屏幕 + PhraseCard 组件
+  ├── 认证系统 (SMS + 密码登录 + 双层限流 + 5次错误锁定, JWT)
+  ├── 对话式 Onboarding (小禾老师导师角色 + 月龄快选 + 迷你场景体验)
+  ├── Scene Coaching C3 激活框 + PhraseCard 展开/收缩
   ├── TTS 音频播放 (audioplayers)
   ├── Isar 本地存储 (UserProgress, InteractionEvent)
-  ├── 底部导航 (5-tab: 首页/发现/教练/笔记/我的) + 基础路由
-  └── Layer 1 单元测试 (Auth + Onboarding + PhraseCard)
+  ├── 4-tab 底部导航 (首页/发现/花园/成长) + 基础路由
+  ├── 全局小禾老师 Mentor FAB 骨架 (按钮+面板框架)
+  ├── Drawer 组件 (设置/账号/关于)
+  └── Layer 1 单元测试
 
 LAYER 2 (功能, 依赖 Layer 1, Sprint 2-3):
   ├── Difficulty progression (初/中/高)
   ├── Roadmap stages (5 阶段, 基于生日)
-  ├── 反应追踪 + mastery 计算 (单条 GROUP BY 聚合, Issue 15)
-  ├── Progress 屏幕 (圆环 + 条形图 + 里程碑 + 空状态)
-  ├── Smart Home 屏幕 (时段智能推荐 + 复访欢迎逻辑 + 本周速览)
-  ├── Discovery 屏幕 (单列不等高卡片 + 路线图时间线)
-  ├── Voice Memo 笔记屏 (本地录音/回放 + 场景关联 + Isar 存储, Design Review v2)
-  ├── NotificationStrategy 接口 + 3 个实现类 (DailyReminder + SmartPush + BedtimeSummary, Eng Review v6)
-  ├── 数据埋点 (screen view, feature usage, auto-flow events)
-  ├── 全局离线降级 UI (离线 banner + 功能灰掉, Design Review v2)
-  └── Layer 2 单元测试 (Mastery + Progress + Notifications + Offline)
+  ├── 反应追踪 + mastery 计算 (单条 GROUP BY)
+  ├── Smart Home 屏幕 (时段推荐 + 花园速览 + 本周速览)
+  ├── Discovery 双 tab 屏幕 (分类浏览: 空间→活动 + 推荐列表)
+  ├── **花园系统 (GardenMap + FlowerPatch + 生长点 + 播种仪式 + 浇水)**
+  ├── **成长 tab (日记自动生成 + 手动添加 + 场景进展 + 里程碑)**
+  ├── 练习→花园因果 Toast
+  ├── NotificationStrategy 接口 + 3 实现类
+  ├── 数据埋点 (screen view, feature usage)
+  ├── 全局离线降级 UI (离线 banner + FAB 本地建议)
+  └── Layer 2 单元测试
 
-LAYER 3 (后端依赖, Sprint 3-4):
-  ├── RagService + Spring AI PgVectorStore RAG 检索 (Eng Review v6: 替代自建 EmbeddingService)
-  ├── Ask Coach 文字版 (Spring AI ChatModel + **WebFlux SSE** 流式 + **Last-Event-Id** 断连恢复, Eng Review v6)
-  ├── Ask Coach 语音输入 (阿里云 ASR)
-  ├── Ask Coach TTS on-demand (预加载下一条, Issue 16)
-  ├── Celebration 屏幕 (babble reaction → 动画)
+LAYER 3 (后端 + AI, Sprint 3-4):
+  ├── RagService + Spring AI PgVectorStore RAG 检索
+  ├── 小禾老师 Mentor FAB 聊天 (Spring AI ChatModel + WebFlux SSE)
+  ├── 小禾老师建议 tab (情境感知建议 + 本地预设 fallback)
+  ├── 语音输入 (阿里云 ASR)
+  ├── TTS on-demand (预加载下一条)
+  ├── Celebration 屏幕 (babble → 动画)
   ├── Landing page (静态 HTML + APK 下载)
-  ├── Event sync service (events 上传@Transactional + progress 下载)
+  ├── Event sync service (@Transactional + progress 下载)
   ├── API 版本协商 (X-App-Version + 426)
-  ├── Admin 审核页 (static Bearer token 认证, 服务端渲染)
-  └── Layer 3 单元测试 (Coach + RAG + Sync + Admin)
+  ├── Admin 审核页
+  └── Layer 3 单元测试
 
-BUILD ORDER (14 天):
-  Sprint 1 (Day 1-3):  Layer 0 + Layer 1 → 能看到短语卡, 能播放 TTS, CI/CD 跑起来
-  Sprint 2 (Day 4-7):  Layer 2 → 路线图, 难度, 进度, 统一推送
-  Sprint 3 (Day 8-11): Layer 3 → RAG + AI 教练, 庆祝, 同步, landing page
-  Sprint 4 (Day 12-14): 8 个 E2E 集成测试 + APK 构建 + iOS IPA + 部署
+BUILD ORDER (17 天, Design Review v3: +3 天花园+成长):
+  Sprint 1 (Day 1-3):  Layer 0 + Layer 1 → 能看到 C3 场景练习, 对话式 Onboarding, 4-tab 导航
+  Sprint 2 (Day 4-8):  Layer 2 → 花园系统, 成长日记, 发现双 tab, Smart Home
+  Sprint 3 (Day 9-13): Layer 3 → 小禾老师 AI, 庆祝, 同步, landing page
+  Sprint 4 (Day 14-17): E2E 测试 + APK/IPA 构建 + 部署
 ```
 
-## Onboarding 流程 (Design Review 2026-04-02 确认)
+## Onboarding 流程 — 对话式 (Design Shotgun + Design Review v3)
+
+**AB 合并设计:** 小禾老师作为导师角色贯穿整个 Onboarding
 
 ```
-欢迎页 → 输入名字 → 输入生日 → 阶段匹配动画
-→ "注册保存记录"过渡页 ("小明等着听你说英语")
-→ 登录 (手机号+验证码 or 账号密码)
-→ PIPL 隐私同意弹窗
-→ Smart Home
+Step 1: 小禾老师欢迎
+  🌱 "你好！我是小禾老师，{app_name}的英语伙伴"
+  🌱 "我来帮你和宝宝开始英语旅程"
+  [开始 →]
+
+Step 2: 宝宝信息 (对话式)
+  🌱 "宝宝叫什么名字呀？"
+  [输入名字 ___________]
+  🌱 "小明！好可爱的名字 ☀️"
+  🌱 "小明多大了？"
+  [月龄快选: 0-6月 / 6-12月 / 12-18月 / 18-24月 / 24-36月]
+
+Step 3: 阶段匹配
+  🌱 "小明 8 个月了！正是语言敏感期"
+  🌱 "我帮小明选了最适合的英语短语"
+  [阶段匹配动画 → 适配结果展示]
+
+Step 4: 迷你场景体验 (~30秒)
+  🌱 "来试试！跟小明说一句英语"
+  [展示 1 个短语卡: "Splash splash!"]
+  [▶ 播放发音]  [我说了 ✓]
+  🌱 "太棒了！小明的花园里有第一颗种子了 🌱"
+
+Step 5: 注册
+  🌱 "注册保存小明的进度吧"
+  [手机号 + 验证码]  or  [账号 + 密码]
+  [PIPL 隐私同意弹窗]
+
+Step 6: 进入首页
+  → Smart Home (花园已有 1 颗发芽的种子)
 ```
 
-先 Onboarding 后登录，在注册前建立情感投入。
 **PIPL 合规 (Eng Review v6):** 名字/生日在 PIPL 同意前只存 Isar 本地，不上传服务器。PIPL 同意后才调用注册接口上传个人信息。
 
 ## 情感设计规则 (从 extended-mvp 继承)
@@ -934,11 +1219,13 @@ Build Order 追加: E3+E4 → Layer 1 末尾, E1+E2+E5 → Layer 2 末尾, E6+E7
 | CEO Review | `/plan-ceo-review` | Scope & strategy | 1 | CLEAR | 7 proposals, 7 accepted, 0 deferred |
 | Codex Review | `/codex review` | Independent 2nd opinion | 2 | ISSUES_FOUND | v1: claude subagent; v2: claude subagent (Eng Review v6) |
 | Eng Review | `/plan-eng-review` | Architecture & tests (required) | 3 | CLEAR | v6: 16 issues + 6 OV findings, 0 critical gaps |
-| Design Review | `/plan-design-review` | UI/UX gaps | 1 | CLEAR | 7 dimensions reviewed, 27 issues found, all resolved |
+| Design Review | `/plan-design-review` | UI/UX gaps | 2 | CLEAR | v2: 7 dim, 27 issues. **v3: full shotgun sync, 3-layer model, garden+FAB** |
+| Design Shotgun | `/design-shotgun` | Visual exploration | 1 | APPROVED | 10 screen designs, all approved by user |
 
 ### Design Review v2 Summary (2026-04-02)
 
 **Overall Score: 6/10 → 8/10** (after fixes applied to this plan)
+**SUPERSEDED by Design Review v3 (2026-04-04)** — 下方 v3 包含最新决策
 
 | Dimension | Before | After | Key Changes |
 |-----------|--------|-------|-------------|
@@ -950,31 +1237,60 @@ Build Order 追加: E3+E4 → Layer 1 末尾, E1+E2+E5 → Layer 2 末尾, E6+E7
 | 响应式/A11Y | 5 | 7 | 锁定竖屏, ReactionChip 触摸目标, FAB→中央导航 |
 | 未决决策 | 5 | 9 | 7个决策全部已决 |
 
-**Design Decisions Made:**
-1. 笔记 Tab → Phase 1 启用语音备忘录功能 (Voice Memo, 本地存储)
+### Design Review v3 Summary (2026-04-04)
+
+**Overall Score: 7/10 → 9/10** (comprehensive shotgun design sync)
+
+| Dimension | Before | After | Key Changes |
+|-----------|--------|-------|-------------|
+| 信息架构 | 6 | 8 | 3 层内容模型 (空间→活动→短语), 4-tab+Drawer+FAB 导航 |
+| 交互状态 | 4 | 8 | C3 激活框, Mentor FAB 状态机, 花园状态, 成长日记状态 |
+| 用户旅程 | 7 | 8 | 练习→花园因果 toast, 对话式 Onboarding, 日记自动生成 |
+| AI Slop | 8 | 9 | Emoji→插画替换确认, 花园有机布局 |
+| 设计系统 | 6 | 9 | DESIGN.md 组件词汇全面更新 (40+ 组件), token 对齐 |
+| 响应式/A11Y | 5 | 7 | FAB 语音按钮 36→44px, 难度 tab padding |
+| 未决决策 | 5 | 9 | 花园生长/内容架构/导航/激活框/日记全部已决 |
+
+**Design Review v3 Key Decisions:**
+1. 导航: 5-tab → 4-tab (首页/发现/花园/成长) + Drawer + 全局 Mentor FAB
+2. 内容模型: 6 扁平场景 → 3 层 (空间→活动→短语)
+3. 花园系统: Phase 1 完整版 (可拖动地图 + 生长点 + 播种仪式)
+4. 场景练习: C3 激活框 scroll 模式
+5. AI Coach: 独立 tab → 全局小禾老师 Mentor FAB (建议+聊天双模式)
+6. 笔记: 独立 tab → 分散到成长日记 + FAB 语音输入
+7. 成长 tab: 合并旧 Progress + Notes, 默认日记视图
+8. Onboarding: 对话式 (小禾老师导师) + 月龄快选 + 30s 迷你体验
+9. 社交 feed → Phase 2
+
+**Scope Changes (v3):**
+- Phase 1 范围: 7→8 功能 (加 Garden, Scene Coaching C3 单独列出, 移除 Voice Memo 独立功能)
+- Build Order: 14→17 天 (+3 天花园+成长)
+- DB Schema: 新增 spaces, activities, garden_flowers, diary_entries 表
+- 导航: 5-tab → 4-tab + Drawer + FAB
+
+**Design Decisions Made (v2):**
+1. 笔记 Tab → ~~Phase 1 启用语音备忘录功能~~ **SUPERSEDED by v3: 分散到成长+FAB**
 2. 离线模式 → 全局 banner + 灰掉不可用功能
 3. Smart Home 推荐 → 时段智能推荐
 4. Dark Mode → 跟随系统设置
-5. AI Coach 入口 → 底部导航中央图标 (4-tab→5-tab)
+5. AI Coach 入口 → ~~底部导航中央图标~~ **SUPERSEDED by v3: 全局 Mentor FAB**
 6. 屏幕方向 → 锁定竖屏
-7. 场景卡片 → 单列不等高卡片流
+7. 场景卡片 → ~~单列不等高卡片流~~ **SUPERSEDED by v3: C3 激活框模式**
 
-**Scope Changes:**
-- Phase 1 范围: 6→7 个核心功能 (加入 Voice Memo)
-- 导航: 4-tab + FAB → 5-tab (首页/发现/教练/笔记/我的)
-- 新增 wireframe: Discovery, Notes, Profile, Drawer
-
-**NOT in Scope (Design Review):**
+**NOT in Scope (Design Review v2+v3):**
 - 横屏布局
-- 色盲专用模式 (Phase 2 可加深色/形状区分)
+- 色盲专用模式 (Phase 2)
 - 品牌化 BottomNav 图标 (Phase 1 用系统图标)
 - Onboarding A/B 测试
 - PhraseCard 手势 (双指缩放字号等)
+- 独立语音备忘录功能
+- 家长圈社交 feed
 
 **What Already Exists:**
-- DESIGN.md: 完整设计系统 (token, 组件, 字体, 颜色)
-- HTML Mockups: docs/mockups/ (8 个屏幕 + index)
-- ASCII Wireframes: Smart Home + Scene Coaching (已在本文件)
+- DESIGN.md: 完整设计系统 (token, 40+ 组件词汇, 字体, 颜色, Decisions Log)
+- HTML Mockups: docs/mockups/ (12 个页面 + tokens.css)
+- Design Shotgun 设计: 10 组批准的视觉方案 (gstack artifacts)
+- ASCII Wireframes: 全部屏幕已在本文件 (Home, C3 Scene, Discovery, Garden, Growth, Mentor FAB, Onboarding)
 - Anti-slop rules + 情感设计规则
 
 ### Eng Review v6 Failure Modes (2026-04-03)
@@ -1013,4 +1329,4 @@ Build Order 追加: E3+E4 → Layer 1 末尾, E1+E2+E5 → Layer 2 末尾, E6+E7
 - TODOS.md: P0-P3 优先级任务列表 (290+ 行)
 
 - **UNRESOLVED:** 0 decisions unresolved
-- **VERDICT:** CEO + ENG (v6) + DESIGN **ALL CLEARED** — ready to implement.
+- **VERDICT:** CEO + ENG (v6) + DESIGN (v3) + SHOTGUN **ALL CLEARED** — ready to implement.
