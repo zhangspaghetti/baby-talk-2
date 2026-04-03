@@ -172,6 +172,13 @@
 **Effort:** XS (CC: ~10 分钟)
 **Depends on:** Scene Coaching 页实现
 
+### 用户留存指标定义 + 埋点 (Eng Review v6 新增)
+**What:** 定义并实现 D1/D7/D30 用户留存率指标。在后端基于 interaction_events 计算：D1 = 注册后第 2 天有 event 的用户比例，D7/D30 同理。前端增加首次打开 app_opened 事件上报。
+**Why:** Phase 1 验证 10-20 人，没有留存数据意味着只能凭感觉判断产品是否有价值。D1 > 40% 才值得继续迭代。
+**Context:** Eng Review v6 (2026-04-03) Outside Voice 建议。留存分析可以后端 SQL 查询，不需要第三方分析工具。
+**Effort:** S (CC: ~30 分钟)
+**Depends on:** 数据埋点设计 + 后端 interaction_events 表
+
 ## P2 — Post-Validation
 
 ### Hive Data Migration Strategy

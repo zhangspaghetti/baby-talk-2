@@ -2,224 +2,699 @@
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>首页 Home — Baby Talk 2</title>
-<link rel="stylesheet" href="tokens.css">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Baby Talk · 首页 · C1-lite 精简版</title>
 <style>
-.greeting { padding: 0 0 var(--space-sm); }
-.greeting .name {
-  font-size: 20px;
-  font-weight: 700;
-  line-height: 1.4;
-}
-.greeting .stage {
-  font-size: 13px;
-  color: var(--text-muted);
-  margin-top: var(--space-2xs);
-  font-family: 'DM Sans', sans-serif;
-}
-.phrase-card .row-bottom {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-top: var(--space-md);
-}
-.phrase-card .scene-enter {
-  font-size: 14px;
-  color: var(--accent);
-  font-weight: 500;
-  text-decoration: none;
-  display: flex;
-  align-items: center;
-  gap: var(--space-xs);
-}
-.activity-section { margin-top: var(--space-lg); }
-.activity-scroll {
-  display: flex;
-  gap: var(--space-sm);
-  overflow-x: auto;
-  padding-bottom: var(--space-sm);
-  scroll-snap-type: x mandatory;
-}
-.activity-scroll::-webkit-scrollbar { display: none; }
-.activity-card {
-  flex: 0 0 160px;
-  background: var(--bg-surface);
-  border-radius: var(--radius-md);
-  padding: var(--space-md);
-  box-shadow: var(--shadow-sm);
-  scroll-snap-align: start;
-}
-.activity-card .emoji { font-size: 28px; margin-bottom: var(--space-sm); }
-.activity-card .act-title { font-size: 14px; font-weight: 600; margin-bottom: var(--space-2xs); }
-.activity-card .act-desc { font-size: 12px; color: var(--text-muted); line-height: 1.4; }
+  /* ── Design Tokens (from DESIGN.md) ─────────────── */
+  :root {
+    --bg-paper: #FFF8F0;
+    --bg-warm: #FFF1E6;
+    --bg-card: #FFFFFF;
+    --text-primary: #2D2D2D;
+    --text-secondary: #6B6B6B;
+    --text-hint: #9B9B9B;
+    --accent-orange: #FF8C42;
+    --accent-orange-light: #FFD4B2;
+    --accent-teal: #3B8577;
+    --accent-teal-light: #E8F5F1;
+    --success: #4CAF50;
+    --radius-sm: 8px;
+    --radius-md: 12px;
+    --radius-lg: 16px;
+    --radius-xl: 24px;
+    --shadow-sm: 0 1px 3px rgba(139,90,43,0.08);
+    --shadow-md: 0 4px 12px rgba(139,90,43,0.10);
+    --shadow-lg: 0 8px 24px rgba(139,90,43,0.12);
+    --font-display: 'Fraunces', 'PingFang SC', serif;
+    --font-body: 'DM Sans', 'PingFang SC', sans-serif;
+    --font-mono: 'JetBrains Mono', monospace;
+  }
 
-/* 首次使用 Demo Overlay (E3) */
-.demo-overlay {
-  display: none;
-  position: absolute;
-  inset: 0;
-  background: rgba(45,41,38,0.7);
-  z-index: 50;
-  padding: var(--space-2xl) var(--space-md);
-}
-.demo-overlay.show { display: flex; flex-direction: column; align-items: center; justify-content: center; }
-.demo-bubble {
-  background: var(--bg-surface);
-  border-radius: var(--radius-md);
-  padding: var(--space-lg);
-  max-width: 300px;
-  text-align: center;
-  box-shadow: var(--shadow-lg);
-}
-.demo-bubble h3 { font-size: 18px; font-weight: 700; margin-bottom: var(--space-sm); }
-.demo-bubble p { font-size: 14px; color: var(--text-secondary); line-height: 1.6; margin-bottom: var(--space-md); }
-.demo-bubble .step-dots {
-  display: flex;
-  gap: var(--space-xs);
-  justify-content: center;
-  margin-top: var(--space-md);
-}
-.demo-bubble .dot {
-  width: 6px; height: 6px; border-radius: 50%; background: var(--border);
-}
-.demo-bubble .dot.active { background: var(--accent); width: 18px; border-radius: 3px; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
 
-/* 空状态 */
-.empty-state {
-  text-align: center;
-  padding: var(--space-2xl) var(--space-md);
-}
-.empty-state .emoji { font-size: 48px; margin-bottom: var(--space-md); }
-.empty-state .title { font-size: 18px; font-weight: 600; margin-bottom: var(--space-sm); }
-.empty-state .desc { font-size: 14px; color: var(--text-secondary); line-height: 1.6; margin-bottom: var(--space-lg); }
+  body {
+    font-family: var(--font-body);
+    background: #F5F0EB;
+    display: flex;
+    justify-content: center;
+    min-height: 100vh;
+    color: var(--text-primary);
+    -webkit-font-smoothing: antialiased;
+  }
 
-.back-link {
-  display: inline-block;
-  margin: var(--space-md);
-  font-size: 13px;
-  color: var(--text-muted);
-  text-decoration: none;
-  font-family: 'DM Sans', sans-serif;
-}
-.back-link:hover { color: var(--accent); }
+  .phone-frame {
+    width: 390px;
+    min-height: 844px;
+    background: var(--bg-paper);
+    position: relative;
+    overflow: hidden;
+  }
+
+  /* ── 状态栏 ──────────────────────────── */
+  .status-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 24px 4px;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+  .status-bar .icons { display: flex; gap: 4px; font-size: 12px; }
+
+  /* ── 顶部问候区 ─────────────────────── */
+  .greeting-section {
+    padding: 8px 24px 16px;
+  }
+  .greeting-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+  }
+  .greeting-text h1 {
+    font-family: var(--font-display);
+    font-size: 26px;
+    font-weight: 700;
+    line-height: 1.3;
+    color: var(--text-primary);
+  }
+  .greeting-text h1 .baby-name {
+    color: var(--accent-orange);
+  }
+  .greeting-text .sub {
+    font-size: 14px;
+    color: var(--text-secondary);
+    margin-top: 4px;
+  }
+  .greeting-text .sub .eng {
+    font-family: var(--font-mono);
+    color: var(--accent-teal);
+    font-size: 13px;
+  }
+  .avatar {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: var(--accent-orange-light);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+    flex-shrink: 0;
+    margin-left: 16px;
+    margin-top: 4px;
+  }
+
+  /* ── 天气/宝宝状态条 ────────────────── */
+  .baby-status-bar {
+    margin: 0 24px 16px;
+    padding: 10px 14px;
+    background: linear-gradient(135deg, #E8F5F1, #FFF8F0);
+    border-radius: var(--radius-md);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: var(--text-secondary);
+  }
+  .baby-status-bar .emoji { font-size: 18px; }
+  .baby-status-bar .status-text { flex: 1; }
+  .baby-status-bar .tap-hint {
+    font-size: 11px;
+    color: var(--text-hint);
+    background: rgba(255,255,255,0.6);
+    padding: 2px 8px;
+    border-radius: 10px;
+  }
+
+  /* ── 今日场景卡片 (核心CTA) ─────────── */
+  .scene-card {
+    margin: 0 24px 16px;
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    box-shadow: var(--shadow-lg);
+    position: relative;
+  }
+  .scene-card-header {
+    background: linear-gradient(135deg, var(--accent-orange), #FFB074);
+    padding: 20px 20px 16px;
+    color: white;
+    position: relative;
+  }
+  .scene-label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    opacity: 0.85;
+    margin-bottom: 6px;
+    font-weight: 600;
+  }
+  .scene-title {
+    font-family: var(--font-display);
+    font-size: 22px;
+    font-weight: 700;
+    margin-bottom: 4px;
+  }
+  .scene-subtitle {
+    font-size: 13px;
+    opacity: 0.9;
+  }
+  .scene-subtitle .eng {
+    font-family: var(--font-mono);
+    font-size: 12px;
+  }
+  .scene-time-badge {
+    position: absolute;
+    top: 16px;
+    right: 16px;
+    background: rgba(255,255,255,0.25);
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 11px;
+    color: white;
+    backdrop-filter: blur(4px);
+  }
+  .scene-card-body {
+    background: var(--bg-card);
+    padding: 16px 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .scene-phrases {
+    flex: 1;
+  }
+  .scene-phrases .phrase-preview {
+    font-size: 13px;
+    color: var(--text-secondary);
+    margin-bottom: 4px;
+  }
+  .scene-phrases .phrase-preview .eng-word {
+    font-family: var(--font-mono);
+    color: var(--accent-teal);
+    font-weight: 600;
+  }
+  .scene-phrases .phrase-count {
+    font-size: 11px;
+    color: var(--text-hint);
+    margin-top: 6px;
+  }
+  .play-btn {
+    width: 52px;
+    height: 52px;
+    border-radius: 50%;
+    background: var(--accent-orange);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 16px rgba(255,140,66,0.35);
+    flex-shrink: 0;
+    margin-left: 16px;
+    cursor: pointer;
+    transition: transform 0.15s ease;
+  }
+  .play-btn:active { transform: scale(0.93); }
+  .play-btn svg {
+    width: 22px;
+    height: 22px;
+    fill: white;
+    margin-left: 2px;
+  }
+
+  /* ── 今日进度条 ──────────────────────── */
+  .daily-progress {
+    margin: 0 24px 20px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .progress-bar-track {
+    flex: 1;
+    height: 6px;
+    background: #F0E8DF;
+    border-radius: 3px;
+    overflow: hidden;
+  }
+  .progress-bar-fill {
+    height: 100%;
+    width: 33%;
+    background: linear-gradient(90deg, var(--accent-orange), #FFB074);
+    border-radius: 3px;
+    transition: width 0.5s ease;
+  }
+  .progress-text {
+    font-size: 12px;
+    color: var(--text-hint);
+    white-space: nowrap;
+  }
+
+  /* ── 成长物入口（迷你卡片）──────────── */
+  .growth-entry {
+    margin: 0 24px 20px;
+    padding: 14px 16px;
+    background: linear-gradient(135deg, #FFF8F0 0%, #FFF1E6 50%, #E8F5F1 100%);
+    border-radius: var(--radius-lg);
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    cursor: pointer;
+    box-shadow: var(--shadow-sm);
+    border: 1px solid rgba(255,140,66,0.12);
+    transition: transform 0.15s ease;
+  }
+  .growth-entry:active { transform: scale(0.98); }
+  .growth-preview {
+    width: 56px;
+    height: 56px;
+    border-radius: var(--radius-md);
+    background: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 32px;
+    box-shadow: var(--shadow-sm);
+    position: relative;
+    overflow: hidden;
+  }
+  .growth-preview .sparkle {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    font-size: 10px;
+    animation: sparkle 2s infinite;
+  }
+  @keyframes sparkle {
+    0%, 100% { opacity: 0.3; transform: scale(0.8); }
+    50% { opacity: 1; transform: scale(1.2); }
+  }
+  .growth-info { flex: 1; }
+  .growth-info .title {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 2px;
+  }
+  .growth-info .desc {
+    font-size: 12px;
+    color: var(--text-secondary);
+  }
+  .growth-info .streak {
+    font-size: 11px;
+    color: var(--accent-orange);
+    font-weight: 600;
+    margin-top: 4px;
+  }
+  .growth-arrow {
+    font-size: 16px;
+    color: var(--text-hint);
+  }
+
+  /* ── 家长圈（社交推荐）────────────── */
+  .parent-feed {
+    margin: 0 0 20px;
+  }
+  .parent-feed-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0 24px;
+    margin-bottom: 10px;
+  }
+  .parent-feed-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    letter-spacing: 0.5px;
+  }
+  .parent-feed-more {
+    font-size: 12px;
+    color: var(--accent-teal);
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .feed-scroll {
+    display: flex;
+    gap: 10px;
+    overflow-x: auto;
+    padding: 0 24px 4px;
+    scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .feed-scroll::-webkit-scrollbar { display: none; }
+  .feed-card {
+    min-width: 200px;
+    max-width: 200px;
+    background: var(--bg-card);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-sm);
+    overflow: hidden;
+    scroll-snap-align: start;
+    cursor: pointer;
+    transition: transform 0.12s ease;
+    flex-shrink: 0;
+  }
+  .feed-card:active { transform: scale(0.97); }
+  .feed-card-top {
+    padding: 12px 14px 8px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .feed-avatar {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: var(--accent-orange-light);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    flex-shrink: 0;
+  }
+  .feed-user {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+  .feed-badge {
+    font-size: 9px;
+    background: var(--accent-teal-light);
+    color: var(--accent-teal);
+    padding: 1px 6px;
+    border-radius: 6px;
+    font-weight: 600;
+    margin-left: auto;
+  }
+  .feed-content {
+    padding: 0 14px 10px;
+    font-size: 13px;
+    color: var(--text-primary);
+    line-height: 1.5;
+  }
+  .feed-content .eng-word {
+    font-family: var(--font-mono);
+    color: var(--accent-teal);
+    font-weight: 600;
+    font-size: 12px;
+  }
+  .feed-footer {
+    padding: 8px 14px;
+    border-top: 1px solid rgba(0,0,0,0.04);
+    display: flex;
+    gap: 12px;
+    font-size: 11px;
+    color: var(--text-hint);
+  }
+  .feed-action { cursor: pointer; }
+  .feed-action:hover { color: var(--text-secondary); }
+
+  /* ── AI 教练提示 ─────────────────────── */
+  .coach-tip {
+    margin: 0 24px 20px;
+    padding: 14px 16px;
+    background: var(--accent-teal-light);
+    border-radius: var(--radius-md);
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+    cursor: pointer;
+  }
+  .coach-emoji { font-size: 20px; flex-shrink: 0; margin-top: 1px; }
+  .coach-content { flex: 1; }
+  .coach-content .tip-text {
+    font-size: 13px;
+    color: var(--text-primary);
+    line-height: 1.5;
+  }
+  .coach-content .tip-text .eng-phrase {
+    font-family: var(--font-mono);
+    color: var(--accent-teal);
+    font-weight: 600;
+    font-size: 12px;
+  }
+  .coach-content .tip-action {
+    font-size: 12px;
+    color: var(--accent-teal);
+    font-weight: 600;
+    margin-top: 6px;
+  }
+
+  /* ── 本周统计 ────────────────────────── */
+  .week-stats {
+    margin: 0 24px 20px;
+  }
+  .week-stats-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    margin-bottom: 10px;
+    letter-spacing: 0.5px;
+  }
+  .stats-row {
+    display: flex;
+    gap: 10px;
+  }
+  .stat-card {
+    flex: 1;
+    padding: 14px;
+    background: var(--bg-card);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-sm);
+    text-align: center;
+  }
+  .stat-value {
+    font-family: var(--font-display);
+    font-size: 24px;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 2px;
+  }
+  .stat-value.orange { color: var(--accent-orange); }
+  .stat-value.teal { color: var(--accent-teal); }
+  .stat-label {
+    font-size: 11px;
+    color: var(--text-hint);
+  }
+
+  /* ── 底部导航 ────────────────────────── */
+  .bottom-nav {
+    position: sticky;
+    bottom: 0;
+    background: var(--bg-card);
+    border-top: 1px solid rgba(0,0,0,0.06);
+    display: flex;
+    padding: 8px 0 28px;
+  }
+  .nav-item {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    cursor: pointer;
+    padding-top: 6px;
+  }
+  .nav-icon { font-size: 20px; opacity: 0.4; }
+  .nav-label { font-size: 10px; color: var(--text-hint); }
+  .nav-item.active .nav-icon { opacity: 1; }
+  .nav-item.active .nav-label { color: var(--accent-orange); font-weight: 600; }
+
+  /* ── 标注说明（设计稿专用）──────────── */
+  .annotation {
+    position: absolute;
+    right: -8px;
+    background: #FF6B6B;
+    color: white;
+    font-size: 9px;
+    padding: 2px 6px;
+    border-radius: 4px;
+    white-space: nowrap;
+    transform: translateX(100%);
+    z-index: 10;
+    font-weight: 600;
+  }
 </style>
 </head>
 <body>
-<a href="index.html" class="back-link">← 返回目录</a>
 
-<!-- 正常状态 -->
 <div class="phone-frame">
+  <!-- 状态栏 -->
   <div class="status-bar">
     <span>9:41</span>
-    <span>📶 🔋</span>
+    <div class="icons">📶 🔋</div>
   </div>
 
-  <div class="top-bar">
-    <div class="avatar">👩</div>
-    <div class="notification">🔔</div>
+  <!-- 问候区 -->
+  <div class="greeting-section">
+    <div class="greeting-row">
+      <div class="greeting-text">
+        <h1>Good morning,<br><span class="baby-name">小橙子</span> 🌞</h1>
+        <div class="sub">学习第 <strong>23</strong> 天 · <span class="eng">Day 23</span></div>
+      </div>
+      <div class="avatar">🧒</div>
+    </div>
   </div>
 
-  <div class="content">
-    <div class="greeting">
-      <div class="name">小明妈妈，早上好 ☀️</div>
-      <div class="stage">阶段 2: 日常对话 · 8个月</div>
-    </div>
+  <!-- 宝宝状态条 -->
+  <div class="baby-status-bar">
+    <span class="emoji">☀️</span>
+    <span class="status-text">宝宝状态很好，适合互动学习</span>
+    <span class="tap-hint">点击记录 ›</span>
+  </div>
 
-    <!-- 推荐短语卡 -->
-    <div class="phrase-card">
-      <div class="phrase-en">"Splash splash!<br>Can you splash with me?"</div>
-      <div class="phrase-zh">泼水泼水！你能和我一起泼吗？</div>
-      <div class="row-bottom">
-        <span class="scene-tag">🛁 洗澡时间</span>
-        <div style="display:flex; align-items:center; gap:var(--space-sm);">
-          <button class="play-btn" style="width:44px; height:44px; font-size:16px;">▶</button>
-          <a href="scene-coaching.html" class="scene-enter">进入场景 →</a>
-        </div>
+  <!-- 今日场景卡片（核心CTA） -->
+  <div class="scene-card">
+    <div class="scene-card-header">
+      <div class="scene-label">今日场景 · TODAY'S SCENE</div>
+      <div class="scene-title">厨房小帮手 🍳</div>
+      <div class="scene-subtitle">早餐时间 · <span class="eng">Breakfast Time</span></div>
+      <div class="scene-time-badge">⏱ 约5分钟</div>
+    </div>
+    <div class="scene-card-body">
+      <div class="scene-phrases">
+        <div class="phrase-preview">"<span class="eng-word">Yummy!</span> 好好吃！"</div>
+        <div class="phrase-preview">"<span class="eng-word">More please!</span> 还要！"</div>
+        <div class="phrase-count">共 6 个短语 · 含 2 个新词</div>
       </div>
-    </div>
-
-    <!-- 教练提示 -->
-    <div class="coach-tip" style="margin-bottom:var(--space-lg);">
-      <span class="icon">💡</span>
-      <span>洗澡时用手泼水，配合说 splash，让宝宝关联动作和声音</span>
-    </div>
-
-    <!-- 今日活动 -->
-    <div class="activity-section">
-      <div class="section-title">今日活动</div>
-      <div class="activity-scroll">
-        <div class="activity-card">
-          <div class="emoji">🤸</div>
-          <div class="act-title">TPR 互动</div>
-          <div class="act-desc">举手手！Hands up! 配合动作说英语</div>
-        </div>
-        <div class="activity-card">
-          <div class="emoji">📖</div>
-          <div class="act-title">绘本时间</div>
-          <div class="act-desc">Brown Bear, Brown Bear, What Do You See?</div>
-        </div>
-        <div class="activity-card">
-          <div class="emoji">🎵</div>
-          <div class="act-title">英文儿歌</div>
-          <div class="act-desc">Twinkle Twinkle Little Star 跟唱</div>
-        </div>
-      </div>
-    </div>
-
-    <!-- 本周小结 -->
-    <div style="margin-top:var(--space-lg);">
-      <div class="section-title">这周和小明</div>
-      <div style="display:flex; gap:var(--space-md);">
-        <div style="flex:1; background:var(--bg-surface); border-radius:var(--radius-md); padding:var(--space-md); box-shadow:var(--shadow-sm); text-align:center;">
-          <div style="font-size:28px; font-weight:700; color:var(--accent); font-family:'DM Sans',sans-serif;">23</div>
-          <div style="font-size:12px; color:var(--text-muted);">句英语</div>
-        </div>
-        <div style="flex:1; background:var(--bg-surface); border-radius:var(--radius-md); padding:var(--space-md); box-shadow:var(--shadow-sm); text-align:center;">
-          <div style="font-size:28px; font-weight:700; color:var(--english); font-family:'DM Sans',sans-serif;">4</div>
-          <div style="font-size:12px; color:var(--text-muted);">个场景</div>
-        </div>
-        <div style="flex:1; background:var(--bg-surface); border-radius:var(--radius-md); padding:var(--space-md); box-shadow:var(--shadow-sm); text-align:center;">
-          <div style="font-size:28px; font-weight:700; color:var(--success); font-family:'DM Sans',sans-serif;">1</div>
-          <div style="font-size:12px; color:var(--text-muted);">次咿呀</div>
-        </div>
+      <div class="play-btn">
+        <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
       </div>
     </div>
   </div>
 
-  <!-- Ask Coach FAB -->
-  <button class="fab">🤖</button>
+  <!-- 今日进度 -->
+  <div class="daily-progress">
+    <div class="progress-bar-track">
+      <div class="progress-bar-fill"></div>
+    </div>
+    <span class="progress-text">今日 1/3 场景</span>
+  </div>
 
+  <!-- 成长物入口（迷你版，核心改动） -->
+  <div class="growth-entry">
+    <div class="growth-preview">
+      🌸
+      <span class="sparkle">✨</span>
+    </div>
+    <div class="growth-info">
+      <div class="title">小橙子的花园</div>
+      <div class="desc">你的绣球花正在开花中 🌱→🌸</div>
+      <div class="streak">🔥 连续浇水 5 天</div>
+    </div>
+    <span class="growth-arrow">›</span>
+  </div>
+
+  <!-- 家长圈（社交推荐横滑卡片） -->
+  <div class="parent-feed">
+    <div class="parent-feed-header">
+      <span class="parent-feed-title">家长圈 · 今天在聊</span>
+      <span class="parent-feed-more">查看更多 ›</span>
+    </div>
+    <div class="feed-scroll">
+      <!-- 卡片1：场景分享 -->
+      <div class="feed-card">
+        <div class="feed-card-top">
+          <div class="feed-avatar">👩</div>
+          <span class="feed-user">果果妈</span>
+          <span class="feed-badge">Day 45</span>
+        </div>
+        <div class="feed-content">
+          今天早餐女儿主动说了 <span class="eng-word">"more please"</span>！虽然发音不标准，但好开心 😭❤️
+        </div>
+        <div class="feed-footer">
+          <span class="feed-action">❤️ 28</span>
+          <span class="feed-action">💬 6</span>
+          <span class="feed-action">🔗 转发</span>
+        </div>
+      </div>
+      <!-- 卡片2：技巧分享 -->
+      <div class="feed-card">
+        <div class="feed-card-top">
+          <div class="feed-avatar">👨</div>
+          <span class="feed-user">小鱼爸</span>
+          <span class="feed-badge">Day 120</span>
+        </div>
+        <div class="feed-content">
+          分享一个洗澡场景的小技巧：用 <span class="eng-word">"splash splash"</span> 配合拍水动作，宝宝超爱模仿！
+        </div>
+        <div class="feed-footer">
+          <span class="feed-action">❤️ 53</span>
+          <span class="feed-action">💬 12</span>
+          <span class="feed-action">🔗 转发</span>
+        </div>
+      </div>
+      <!-- 卡片3：花园展示 -->
+      <div class="feed-card">
+        <div class="feed-card-top">
+          <div class="feed-avatar">👩</div>
+          <span class="feed-user">豆豆妈</span>
+          <span class="feed-badge">🌸 30天</span>
+        </div>
+        <div class="feed-content">
+          我的花园终于开花啦 🌺 连续30天没断过，看到花开的一刻好有成就感！
+        </div>
+        <div class="feed-footer">
+          <span class="feed-action">❤️ 89</span>
+          <span class="feed-action">💬 15</span>
+          <span class="feed-action">🔗 转发</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- AI 教练提示 -->
+  <div class="coach-tip">
+    <span class="coach-emoji">💡</span>
+    <div class="coach-content">
+      <div class="tip-text">
+        小橙子已掌握 <strong>12</strong> 个食物词汇！
+        试试在早餐时说 <span class="eng-phrase">"Do you want some milk?"</span>
+      </div>
+      <div class="tip-action">查看更多建议 ›</div>
+    </div>
+  </div>
+
+  <!-- 本周统计 -->
+  <div class="week-stats">
+    <div class="week-stats-title">本周成绩</div>
+    <div class="stats-row">
+      <div class="stat-card">
+        <div class="stat-value orange">5</div>
+        <div class="stat-label">互动天数</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value teal">38</div>
+        <div class="stat-label">练习短语</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" style="color:#9370DB;">12</div>
+        <div class="stat-label">新词汇</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 底部导航 -->
   <div class="bottom-nav">
     <div class="nav-item active">
-      <span class="icon">🏠</span>
-      <span>首页</span>
+      <span class="nav-icon">🏠</span>
+      <span class="nav-label">首页</span>
     </div>
     <div class="nav-item">
-      <span class="icon">🔍</span>
-      <span>发现</span>
+      <span class="nav-icon">🔍</span>
+      <span class="nav-label">发现</span>
     </div>
     <div class="nav-item">
-      <span class="icon">📝</span>
-      <span>笔记</span>
+      <span class="nav-icon">🌱</span>
+      <span class="nav-label">花园</span>
     </div>
     <div class="nav-item">
-      <span class="icon">👤</span>
-      <span>我的</span>
+      <span class="nav-icon">📊</span>
+      <span class="nav-label">成长</span>
     </div>
-  </div>
-
-  <!-- First-Use Demo Overlay (E3) -->
-  <div class="demo-overlay show" id="demoOverlay" onclick="this.classList.remove('show')">
-    <div class="demo-bubble" onclick="event.stopPropagation()">
-      <h3>欢迎来到 Baby Talk! 👋</h3>
-      <p>点击短语卡上的 ▶ 按钮，先听英文发音，然后对宝宝说出来。<br><br>宝宝有反应？点击下方的表情按钮记录！</p>
-      <button class="btn-primary" style="margin-top:var(--space-sm);" onclick="document.getElementById('demoOverlay').classList.remove('show')">知道了，开始吧！</button>
-      <div class="step-dots">
-        <div class="dot active"></div>
-        <div class="dot"></div>
-        <div class="dot"></div>
-      </div>
+    <div class="nav-item">
+      <span class="nav-icon">👤</span>
+      <span class="nav-label">我的</span>
     </div>
   </div>
 </div>

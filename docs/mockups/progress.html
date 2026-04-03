@@ -2,319 +2,380 @@
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>我的 / 进度 Profile — Baby Talk 2</title>
-<link rel="stylesheet" href="tokens.css">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>成长 Tab · C · 场景进展+日记卡</title>
 <style>
-.profile-header {
-  text-align: center;
-  padding: var(--space-md) var(--space-md) var(--space-lg);
-}
-.profile-avatar {
-  width: 64px;
-  height: 64px;
-  border-radius: 50%;
-  background: var(--accent-light);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 32px;
-  margin: 0 auto var(--space-sm);
-}
-.profile-name {
-  font-size: 18px;
-  font-weight: 700;
-}
-.profile-stage {
-  font-size: 13px;
-  color: var(--text-muted);
-  font-family: 'DM Sans', sans-serif;
-  margin-top: 2px;
-}
+  @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300..700&family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+  :root {
+    --bg-paper: #FFF8F0;
+    --bg-card: #FFFFFF;
+    --bg-sunken: #F5F0EB;
+    --text-primary: #2D2926;
+    --text-secondary: #6B5E57;
+    --text-hint: #8A7D76;
+    --accent: #FF8C42;
+    --accent-light: #FFF0E5;
+    --english: #3B8577;
+    --english-soft: #D4E8E3;
+    --success: #6B8F5E;
+    --success-soft: #E8F0E5;
+    --radius-sm: 8px;
+    --radius-md: 16px;
+    --radius-lg: 24px;
+    --shadow-sm: 0 1px 3px rgba(45,41,38,0.06);
+    --shadow-md: 0 2px 12px rgba(45,41,38,0.08);
+    --font-display: 'Fraunces', Georgia, serif;
+    --font-body: 'DM Sans', 'PingFang SC', sans-serif;
+    --font-mono: 'JetBrains Mono', monospace;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: var(--font-body);
+    background: var(--bg-sunken);
+    display: flex; justify-content: center;
+    min-height: 100vh;
+    color: var(--text-primary);
+    -webkit-font-smoothing: antialiased;
+  }
+  .phone-frame {
+    width: 390px; height: 844px;
+    background: var(--bg-paper);
+    position: relative; overflow: hidden;
+    display: flex; flex-direction: column;
+  }
+  .status-bar {
+    display: flex; justify-content: space-between;
+    padding: 14px 20px 4px; font-size: 14px; font-weight: 600;
+    flex-shrink: 0;
+  }
 
-/* 圆环图 */
-.ring-chart {
-  width: 140px;
-  height: 140px;
-  margin: 0 auto var(--space-lg);
-  position: relative;
-}
-.ring-chart svg { transform: rotate(-90deg); }
-.ring-chart .ring-label {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-}
-.ring-chart .ring-number {
-  font-size: 32px;
-  font-weight: 700;
-  font-family: 'DM Sans', sans-serif;
-  color: var(--accent);
-}
-.ring-chart .ring-text {
-  font-size: 12px;
-  color: var(--text-muted);
-}
+  /* 页头 + 总进度 */
+  .page-header {
+    padding: 8px 20px 14px;
+    flex-shrink: 0;
+  }
+  .header-top {
+    display: flex; justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+  }
+  .page-title { font-size: 22px; font-weight: 700; }
+  .stage-pill {
+    padding: 4px 12px;
+    border-radius: 12px;
+    background: var(--english-soft);
+    font-size: 12px; font-weight: 600;
+    color: var(--english);
+  }
 
-/* 本周小结 */
-.week-stats {
-  display: flex;
-  gap: var(--space-sm);
-  margin-bottom: var(--space-lg);
-}
-.week-stat {
-  flex: 1;
-  background: var(--bg-surface);
-  border-radius: var(--radius-md);
-  padding: var(--space-md);
-  box-shadow: var(--shadow-sm);
-  text-align: center;
-}
-.week-stat .num {
-  font-size: 24px;
-  font-weight: 700;
-  font-family: 'DM Sans', sans-serif;
-}
-.week-stat .label {
-  font-size: 11px;
-  color: var(--text-muted);
-  margin-top: 2px;
-}
+  /* 总进度条 */
+  .total-progress {
+    background: var(--bg-card);
+    border-radius: var(--radius-sm);
+    padding: 12px 14px;
+    box-shadow: var(--shadow-sm);
+  }
+  .progress-top {
+    display: flex; justify-content: space-between;
+    align-items: center;
+    margin-bottom: 6px;
+  }
+  .progress-label { font-size: 13px; font-weight: 600; }
+  .progress-pct {
+    font-size: 13px; font-weight: 700;
+    color: var(--accent);
+    font-variant-numeric: tabular-nums;
+  }
+  .progress-bar {
+    height: 8px; border-radius: 4px;
+    background: var(--bg-sunken);
+    overflow: hidden;
+    margin-bottom: 6px;
+  }
+  .progress-fill {
+    height: 100%; border-radius: 4px;
+    background: linear-gradient(90deg, var(--accent), #FFB07A);
+    transition: width 0.5s;
+  }
+  .progress-sub {
+    font-size: 11px; color: var(--text-hint);
+  }
 
-/* 场景 mastery 条形图 */
-.mastery-section { margin-bottom: var(--space-lg); }
-.mastery-item {
-  display: flex;
-  align-items: center;
-  gap: var(--space-sm);
-  margin-bottom: var(--space-md);
-}
-.mastery-item .scene-emoji {
-  width: 32px;
-  text-align: center;
-  font-size: 20px;
-}
-.mastery-item .scene-label {
-  width: 60px;
-  font-size: 13px;
-  color: var(--text-secondary);
-}
-.mastery-item .bar-track {
-  flex: 1;
-  height: 8px;
-  background: var(--border);
-  border-radius: 4px;
-  overflow: hidden;
-}
-.mastery-item .bar-fill {
-  height: 100%;
-  border-radius: 4px;
-  transition: width 0.5s ease-out;
-}
-.mastery-item .bar-num {
-  width: 30px;
-  text-align: right;
-  font-size: 13px;
-  font-family: 'DM Sans', sans-serif;
-  color: var(--text-muted);
-}
+  /* Tab切换 */
+  .tab-row {
+    display: flex; gap: 0;
+    padding: 0 20px;
+    border-bottom: 1.5px solid rgba(0,0,0,0.05);
+    flex-shrink: 0;
+  }
+  .tab {
+    flex: 1; padding: 10px 0;
+    text-align: center;
+    font-size: 13px; font-weight: 600;
+    color: var(--text-hint);
+    cursor: pointer;
+    position: relative;
+  }
+  .tab.active { color: var(--accent); }
+  .tab.active::after {
+    content: '';
+    position: absolute;
+    bottom: -1.5px;
+    left: 20%; right: 20%;
+    height: 2.5px;
+    border-radius: 2px;
+    background: var(--accent);
+  }
 
-/* 里程碑时间线 */
-.milestone-section { margin-bottom: var(--space-lg); }
-.milestone-item {
-  display: flex;
-  gap: var(--space-md);
-  margin-bottom: var(--space-md);
-}
-.milestone-icon {
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 20px;
-  flex-shrink: 0;
-}
-.milestone-info { flex: 1; }
-.milestone-info .title { font-size: 14px; font-weight: 600; }
-.milestone-info .desc { font-size: 13px; color: var(--text-secondary); line-height: 1.4; }
-.milestone-info .date { font-size: 11px; color: var(--text-muted); font-family:'DM Sans',sans-serif; margin-top: 2px; }
+  .scroll-area {
+    flex: 1; overflow-y: auto;
+    padding: 12px 20px 100px;
+  }
 
-/* Bedtime Summary 推送预览 (E5) */
-.bedtime-card {
-  background: linear-gradient(135deg, #2D2926 0%, #3D352F 100%);
-  border-radius: var(--radius-md);
-  padding: var(--space-lg);
-  color: white;
-  margin-bottom: var(--space-md);
-  box-shadow: var(--shadow-md);
-}
-.bedtime-card .moon { font-size: 28px; margin-bottom: var(--space-sm); }
-.bedtime-card .msg { font-size: 15px; line-height: 1.6; }
-.bedtime-card .msg .highlight { color: var(--accent); font-weight: 600; }
+  /* ═══ 场景进展视图 ═══ */
+  .scene-progress-card {
+    background: var(--bg-card);
+    border-radius: var(--radius-md);
+    padding: 14px;
+    box-shadow: var(--shadow-sm);
+    margin-bottom: 10px;
+    display: flex; align-items: center; gap: 12px;
+  }
+  .scene-icon {
+    width: 44px; height: 44px;
+    border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 22px;
+    flex-shrink: 0;
+  }
+  .scene-icon.bath { background: #E0F0FF; }
+  .scene-icon.sleep { background: #E8E0F0; }
+  .scene-icon.diaper { background: var(--accent-light); }
+  .scene-icon.dress { background: var(--success-soft); }
+  .scene-icon.play { background: var(--english-soft); }
 
-.back-link {
-  display: inline-block;
-  margin: var(--space-md);
-  font-size: 13px;
-  color: var(--text-muted);
-  text-decoration: none;
-  font-family: 'DM Sans', sans-serif;
-}
+  .scene-info { flex: 1; }
+  .scene-name { font-size: 14px; font-weight: 600; margin-bottom: 4px; }
+  .scene-stats {
+    font-size: 11px; color: var(--text-hint);
+    display: flex; gap: 8px;
+  }
+  .scene-bar {
+    height: 5px; border-radius: 3px;
+    background: var(--bg-sunken);
+    margin-top: 6px;
+    overflow: hidden;
+  }
+  .scene-bar-fill {
+    height: 100%; border-radius: 3px;
+  }
+  .fill-bath { background: var(--english); width: 60%; }
+  .fill-sleep { background: #8B6FB0; width: 45%; }
+  .fill-diaper { background: var(--accent); width: 30%; }
+  .fill-dress { background: var(--success); width: 15%; }
+  .fill-play { background: var(--english); width: 8%; }
+
+  .scene-frac {
+    font-size: 12px; font-weight: 600;
+    color: var(--text-secondary);
+    white-space: nowrap;
+  }
+
+  /* ═══ 日记卡片 (切到日记tab后显示) ═══ */
+  .diary-card {
+    background: var(--bg-card);
+    border-radius: var(--radius-md);
+    padding: 14px;
+    box-shadow: var(--shadow-sm);
+    margin-bottom: 10px;
+    border-left: 3px solid var(--english);
+  }
+  .diary-card.milestone { border-left-color: var(--accent); }
+
+  .diary-header {
+    display: flex; justify-content: space-between;
+    align-items: center;
+    margin-bottom: 6px;
+  }
+  .diary-time {
+    font-size: 11px; color: var(--text-hint);
+    font-family: var(--font-mono);
+  }
+  .diary-scene {
+    font-size: 12px; font-weight: 600;
+    color: var(--text-secondary);
+  }
+  .diary-body {
+    font-size: 14px; line-height: 1.6;
+    color: var(--text-primary);
+    margin-bottom: 6px;
+  }
+  .diary-body .phrase {
+    font-family: var(--font-display);
+    color: var(--english);
+    font-weight: 500;
+  }
+  .diary-reaction {
+    font-size: 12px; color: var(--text-hint);
+    background: var(--bg-paper);
+    border-radius: 6px;
+    padding: 6px 10px;
+    display: flex; align-items: center; gap: 4px;
+  }
+
+  /* bottom nav */
+  .bottom-nav {
+    position: absolute; bottom: 0; left: 0; right: 0;
+    background: var(--bg-card);
+    border-top: 1px solid rgba(0,0,0,0.05);
+    display: flex; height: 56px; padding-bottom: 8px; z-index: 50;
+  }
+  .nav-item {
+    flex: 1; display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    font-size: 10px; color: var(--text-hint); gap: 2px;
+  }
+  .nav-item .icon { font-size: 18px; }
+  .nav-item.active { color: var(--accent); }
+  .fab {
+    position: absolute; bottom: 68px; right: 16px;
+    width: 48px; height: 48px; border-radius: 50%;
+    background: linear-gradient(135deg, var(--english), #2D7566);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 22px;
+    box-shadow: 0 4px 16px rgba(59,133,119,0.35); z-index: 60;
+  }
 </style>
 </head>
 <body>
-<a href="index.html" class="back-link">← 返回目录</a>
-
 <div class="phone-frame">
-  <div class="status-bar">
-    <span>9:41</span>
-    <span>📶 🔋</span>
-  </div>
+  <div class="status-bar"><span>9:41</span><span>📶 🔋</span></div>
 
-  <div class="top-bar">
-    <div class="avatar">👩</div>
-    <div class="notification">🔔</div>
-  </div>
-
-  <div class="content">
-    <div class="profile-header">
-      <div class="profile-avatar">👶</div>
-      <div class="profile-name">小明的英语旅程</div>
-      <div class="profile-stage">阶段 2 · 已学 21 个短语 · 加入第 12 天</div>
+  <div class="page-header">
+    <div class="header-top">
+      <div class="page-title">📈 成长</div>
+      <div class="stage-pill">阶段 2 · 日常对话</div>
     </div>
-
-    <!-- 圆环图 -->
-    <div class="ring-chart">
-      <svg width="140" height="140" viewBox="0 0 140 140">
-        <circle cx="70" cy="70" r="60" fill="none" stroke="#E8E2DC" stroke-width="10"/>
-        <circle cx="70" cy="70" r="60" fill="none" stroke="#FF8C42" stroke-width="10"
-                stroke-dasharray="377" stroke-dashoffset="245" stroke-linecap="round"/>
-      </svg>
-      <div class="ring-label">
-        <div class="ring-number">35%</div>
-        <div class="ring-text">阶段 2 进度</div>
+    <div class="total-progress">
+      <div class="progress-top">
+        <span class="progress-label">阶段2总进度</span>
+        <span class="progress-pct">35%</span>
       </div>
-    </div>
-
-    <!-- 本周小结 -->
-    <div class="section-title">这周</div>
-    <div class="week-stats">
-      <div class="week-stat">
-        <div class="num" style="color:var(--accent);">23</div>
-        <div class="label">句英语</div>
+      <div class="progress-bar">
+        <div class="progress-fill" style="width: 35%;"></div>
       </div>
-      <div class="week-stat">
-        <div class="num" style="color:var(--english);">4</div>
-        <div class="label">个场景</div>
-      </div>
-      <div class="week-stat">
-        <div class="num" style="color:var(--success);">1</div>
-        <div class="label">次咿呀</div>
-      </div>
-    </div>
-
-    <!-- 场景 mastery -->
-    <div class="mastery-section">
-      <div class="section-title">各场景进度</div>
-      <div class="mastery-item">
-        <span class="scene-emoji">😴</span>
-        <span class="scene-label">睡前</span>
-        <div class="bar-track"><div class="bar-fill" style="width:60%; background:var(--english);"></div></div>
-        <span class="bar-num">9</span>
-      </div>
-      <div class="mastery-item">
-        <span class="scene-emoji">🛁</span>
-        <span class="scene-label">洗澡</span>
-        <div class="bar-track"><div class="bar-fill" style="width:40%; background:var(--accent);"></div></div>
-        <span class="bar-num">6</span>
-      </div>
-      <div class="mastery-item">
-        <span class="scene-emoji">🩱</span>
-        <span class="scene-label">换尿布</span>
-        <div class="bar-track"><div class="bar-fill" style="width:20%; background:var(--warning);"></div></div>
-        <span class="bar-num">3</span>
-      </div>
-      <div class="mastery-item">
-        <span class="scene-emoji">👗</span>
-        <span class="scene-label">穿衣</span>
-        <div class="bar-track"><div class="bar-fill" style="width:13%; background:var(--success);"></div></div>
-        <span class="bar-num">2</span>
-      </div>
-      <div class="mastery-item">
-        <span class="scene-emoji">🤸</span>
-        <span class="scene-label">玩耍</span>
-        <div class="bar-track"><div class="bar-fill" style="width:7%; background:var(--info);"></div></div>
-        <span class="bar-num">1</span>
-      </div>
-      <div class="mastery-item">
-        <span class="scene-emoji">🍼</span>
-        <span class="scene-label">喂奶</span>
-        <div class="bar-track"><div class="bar-fill" style="width:0%;"></div></div>
-        <span class="bar-num">0</span>
-      </div>
-    </div>
-
-    <!-- 里程碑 -->
-    <div class="milestone-section">
-      <div class="section-title">里程碑 🎉</div>
-      <div class="milestone-item">
-        <div class="milestone-icon" style="background:var(--accent-light);">🎉</div>
-        <div class="milestone-info">
-          <div class="title">小明第一次咿呀学语！</div>
-          <div class="desc">在洗澡时间说 "Splash" 后，小明发出了 "pa-pa" 的声音</div>
-          <div class="date">2026-03-28 · 洗澡场景</div>
-        </div>
-      </div>
-      <div class="milestone-item">
-        <div class="milestone-icon" style="background:var(--success-soft);">✅</div>
-        <div class="milestone-info">
-          <div class="title">睡前场景初级完成！</div>
-          <div class="desc">你已经掌握了睡前时光所有初级短语</div>
-          <div class="date">2026-03-25</div>
-        </div>
-      </div>
-      <div class="milestone-item">
-        <div class="milestone-icon" style="background:var(--english-soft);">🌟</div>
-        <div class="milestone-info">
-          <div class="title">连续 7 天打卡</div>
-          <div class="desc">你已经连续 7 天和小明说英语了！</div>
-          <div class="date">2026-03-24</div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Bedtime Summary (E5) 预览 -->
-    <div class="section-title">晚安小结</div>
-    <div class="bedtime-card">
-      <div class="moon">🌙</div>
-      <div class="msg">今天你和<span class="highlight">小明</span>说了 <span class="highlight">5 句</span>英语，覆盖了洗澡和换尿布 2 个场景。小明对 "Splash!" 笑了 😊</div>
+      <div class="progress-sub">已掌握 21/60 个核心短语 · 还需约 39 个短语进入阶段3</div>
     </div>
   </div>
 
+  <!-- Tab -->
+  <div class="tab-row">
+    <div class="tab active">📊 场景进展</div>
+    <div class="tab">📝 日记</div>
+    <div class="tab">🏅 里程碑</div>
+  </div>
+
+  <div class="scroll-area">
+    <!-- 场景进展 -->
+    <div class="scene-progress-card">
+      <div class="scene-icon bath">🛁</div>
+      <div class="scene-info">
+        <div class="scene-name">洗澡时间</div>
+        <div class="scene-stats">
+          <span>练习 12 次</span>
+          <span>·</span>
+          <span>宝宝回应 3 次</span>
+        </div>
+        <div class="scene-bar"><div class="scene-bar-fill fill-bath"></div></div>
+      </div>
+      <div class="scene-frac">9/15</div>
+    </div>
+
+    <div class="scene-progress-card">
+      <div class="scene-icon sleep">😴</div>
+      <div class="scene-info">
+        <div class="scene-name">睡前时光</div>
+        <div class="scene-stats">
+          <span>练习 8 次</span>
+          <span>·</span>
+          <span>宝宝回应 1 次</span>
+        </div>
+        <div class="scene-bar"><div class="scene-bar-fill fill-sleep"></div></div>
+      </div>
+      <div class="scene-frac">7/15</div>
+    </div>
+
+    <div class="scene-progress-card">
+      <div class="scene-icon diaper">🩱</div>
+      <div class="scene-info">
+        <div class="scene-name">换尿布</div>
+        <div class="scene-stats">
+          <span>练习 4 次</span>
+          <span>·</span>
+          <span>宝宝回应 0 次</span>
+        </div>
+        <div class="scene-bar"><div class="scene-bar-fill fill-diaper"></div></div>
+      </div>
+      <div class="scene-frac">3/10</div>
+    </div>
+
+    <div class="scene-progress-card">
+      <div class="scene-icon dress">👗</div>
+      <div class="scene-info">
+        <div class="scene-name">穿衣服</div>
+        <div class="scene-stats">
+          <span>练习 2 次</span>
+        </div>
+        <div class="scene-bar"><div class="scene-bar-fill fill-dress"></div></div>
+      </div>
+      <div class="scene-frac">2/10</div>
+    </div>
+
+    <div class="scene-progress-card">
+      <div class="scene-icon play">🤸</div>
+      <div class="scene-info">
+        <div class="scene-name">玩耍时间</div>
+        <div class="scene-stats">
+          <span>练习 1 次</span>
+        </div>
+        <div class="scene-bar"><div class="scene-bar-fill fill-play"></div></div>
+      </div>
+      <div class="scene-frac">1/12</div>
+    </div>
+
+    <!-- 日记预览（最近一条） -->
+    <div style="margin-top:14px; margin-bottom:8px; font-size:13px; font-weight:700; color:var(--text-secondary);">📝 最近记录</div>
+
+    <div class="diary-card">
+      <div class="diary-header">
+        <span class="diary-scene">🛁 洗澡时间</span>
+        <span class="diary-time">今天 18:42</span>
+      </div>
+      <div class="diary-body">
+        练了 3 个短语：<span class="phrase">"Splash!"</span> <span class="phrase">"Kick kick!"</span> <span class="phrase">"Warm water"</span>
+      </div>
+      <div class="diary-reaction">👶 小橙子对 "Splash" 发出了咿呀回应 😊</div>
+    </div>
+
+    <div class="diary-card milestone">
+      <div class="diary-header">
+        <span class="diary-scene">🏅 里程碑</span>
+        <span class="diary-time">今天 18:42</span>
+      </div>
+      <div class="diary-body">
+        达成「语音启蒙者」！宝宝第一次回应了英语短语。
+      </div>
+    </div>
+  </div>
+
+  <div class="fab">🌿</div>
   <div class="bottom-nav">
-    <div class="nav-item">
-      <span class="icon">🏠</span>
-      <span>首页</span>
-    </div>
-    <div class="nav-item">
-      <span class="icon">🔍</span>
-      <span>发现</span>
-    </div>
-    <div class="nav-item">
-      <span class="icon">📝</span>
-      <span>笔记</span>
-    </div>
-    <div class="nav-item active">
-      <span class="icon">👤</span>
-      <span>我的</span>
-    </div>
+    <div class="nav-item"><span class="icon">🏠</span><span>首页</span></div>
+    <div class="nav-item"><span class="icon">🔍</span><span>发现</span></div>
+    <div class="nav-item"><span class="icon">🌸</span><span>花园</span></div>
+    <div class="nav-item active"><span class="icon">📈</span><span>成长</span></div>
+    <div class="nav-item"><span class="icon">👤</span><span>我的</span></div>
   </div>
 </div>
-
 </body>
 </html>

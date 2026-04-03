@@ -200,3 +200,9 @@
 | 2026-04-02 | Screen orientation: portrait lock | Design Review v2. Phase 1 锁定竖屏，简化布局开发。|
 | 2026-04-02 | Discovery: single-column variable-height cards | Design Review v2. Anti-slop: 不用 2x3 网格，改用单列不等高卡片流。|
 | 2026-04-02 | Notes tab active in Phase 1 as Voice Memo | Design Review v2. 语音备忘录功能提前到 Phase 1，本地 Isar 存储，不需要 OSS。|
+| 2026-04-02 | Mockup audit: 5-tab nav synced to all pages | 审计修复。所有 mockup HTML 从 4-tab+FAB 更新为 5-tab（首页/发现/教练/笔记/我的），中央教练图标突出。|
+| 2026-04-02 | Mockup audit: dark mode CSS tokens added | 审计修复。tokens.css 增加 @media (prefers-color-scheme: dark) 完整 token 集。|
+| 2026-04-02 | Mockup audit: --shadow-accent token added | 审计修复。play button hover 阴影从 hardcoded 改为 CSS custom property。|
+| 2026-04-02 | Mockup audit: scene-icon semantic classes | 审计修复。discovery.html 场景图标背景色从 inline style 改为语义类（.bath/.diaper/.feeding 等）。|
+| 2026-04-02 | Mockup audit: tabular-nums enabled | 审计修复。所有数字显示加 font-variant-numeric: tabular-nums，保证数据对齐。|
+| 2026-04-02 | Mockup audit: Fraunces min 24px enforced | 审计修复。ai-coach.html .phrase-highlight 从 20px 修正为 24px。|

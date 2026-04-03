@@ -43,9 +43,13 @@ Phase 1 验证核心假设：**父母会不会真的每天对着宝宝说英文�
 | ASR | 阿里云 ASR SDK | 语音识别 (Mandarin) |
 | SMS | 阿里云 SMS | 手机验证码 |
 | 对象存储 | 阿里云 OSS | 未来语音文件存储 (Phase 2) |
-| LLM | 通义千问 or OpenAI+代理 (Layer 0 spike 决定) | AI 教练 |
-| Embedding | 阿里云 text-embedding-v3 or OpenAI embedding (Layer 0 spike) | RAG 向量化 |
-| Vector DB | pgvector (PostgreSQL 扩展) | RAG 相似度检索 |
+| AI 框架 | Spring AI | ChatModel + EmbeddingModel + PgVectorStore 统一抽象，多 provider 配置切换 |
+| LLM | 通义千问 or OpenAI+代理 (Layer 0 spike 决定) | AI 教练。通过 Spring AI ChatModel 接口调用，支持 API Key + OAuth 认证 |
+| Embedding | 阿里云 text-embedding-v3 or OpenAI embedding (Layer 0 spike) | RAG 向量化。通过 Spring AI EmbeddingModel 接口 |
+| Vector DB | pgvector (PostgreSQL 扩展) | RAG 相似度检索。通过 Spring AI PgVectorStore |
+| SSE | Spring WebFlux | AI Coach 流式响应，支持 Last-Event-Id 断连恢复 |
+| DB 迁移 | Flyway | Schema 版本控制，CI 可验证 |
+| 监控 | Spring Boot Actuator | /health 端点，Docker 健康检查 |
 | CI/CD | GitHub Actions | flutter build apk/ipa + docker build |
 
 ## Phase 1 范围 — 7 个核心功能
@@ -342,7 +346,7 @@ Drawer 内容: 头像/昵称, 设置 (推送时间/语言偏好/账号管理), �
 
 **Phase 1:** 纯语音备忘。
 - 录音入口: 笔记页底部 FAB + 场景练习中的长按录音
-- 自动关联当前场景和短语
+- **自动关联逻辑 (Eng Review v6):** 录音时取当前 scene_id (如果在场景练习中) + 最后播放的 phrase_id。不在场景中录音则 scene_id=null
 - 本地存储 (Isar), 不上传服务器 (Phase 1 无 OSS)
 - 按日期分组列表，显示时长 + 关联短语
 
@@ -550,8 +554,9 @@ CREATE TABLE phrase_embeddings (
     created_at  TIMESTAMPTZ DEFAULT now()
 );
 CREATE INDEX idx_phrase_embeddings_vector ON phrase_embeddings
-    USING ivfflat (embedding vector_cosine_ops) WITH (lists = 10);
--- 注: 90 条数据, ivfflat lists=10 足够。数据量超 1000 后调整为 sqrt(N)
+    USING hnsw (embedding vector_cosine_ops) WITH (m = 16, ef_construction = 64);
+-- Eng Review v6: HNSW 替代 ivfflat。90 条数据 HNSW 更高效且无需 rebuild。
+-- 注: 维度在 Layer 0 spike 后确定 (1536=OpenAI, 1024=阿里云)，需对应更新 vector(N)
 
 -- 交互事件 (单一真相来源, append-only)
 CREATE TABLE interaction_events (
@@ -572,6 +577,8 @@ CREATE TABLE interaction_events (
 CREATE INDEX idx_events_user ON interaction_events(user_id);
 CREATE INDEX idx_events_user_time ON interaction_events(user_id, client_timestamp);
 CREATE INDEX idx_events_type ON interaction_events(event_type);
+CREATE INDEX idx_events_progress ON interaction_events(user_id, scene_id, difficulty);
+-- Eng Review v6: 覆盖 ProgressService GROUP BY 聚合查询
 
 -- 计算后的进度 (从 events 聚合, 可重建)
 CREATE TABLE user_progress (
@@ -592,7 +599,8 @@ CREATE TABLE milestones (
                                          -- stage_advance, phrase_count_20, etc.
     scene_id    VARCHAR(50),
     phrase_id   VARCHAR(100),
-    achieved_at TIMESTAMPTZ NOT NULL
+    achieved_at TIMESTAMPTZ NOT NULL,
+    UNIQUE (user_id, type, scene_id, phrase_id)  -- Eng Review v6: 幂等性，防重复里程碑
 );
 CREATE INDEX idx_milestones_user ON milestones(user_id);
 
@@ -635,14 +643,18 @@ CREATE TABLE app_config (
 **Services (业务逻辑):**
 | Service | 职责 |
 |---------|------|
-| AuthService | SMS 发送/验证 (含手机号 1min 重发限制 + IP 级限制, Issue 8), 密码验证, JWT 生成/刷新 |
+| AuthService | SMS 发送/验证 (含手机号 1min 重发限制 + IP 级限制 + **5次错误锁定30min**, Issue 8), 密码验证, JWT 生成/刷新 |
 | SmsService | 阿里云 SMS SDK 封装, 模板管理 |
 | SyncService | 事件入库 (**@Transactional 事务包裹**, Issue 3), 触发 progress 重算 |
-| ProgressService | 从 events **单条 GROUP BY 聚合**计算 mastery (Issue 15), 检测里程碑 (**幂等**, UNIQUE 约束) |
-| CoachService | **RAG 检索 (pgvector, Top-5)** + LLM 调用 + system prompt 构建 + 速率限制检查。pgvector 失败时降级为全量种子短语 prompt |
-| EmbeddingService | **新增 (Eng Review v5):** 短语向量化, embedding 存储/更新, pgvector 相似度查询 |
+| ProgressService | 从 events **单条 GROUP BY 聚合**计算 mastery (Issue 15), 检测里程碑 (**幂等**, UNIQUE 约束)。**Mastery 定义: 只有 reaction_type=spoken 或 babbled 才计入 mastery_count** (Eng Review v6) |
+| CoachService | **编排层** (Eng Review v6): 速率限制检查 → RagService 检索 → prompt 构建 → Spring AI ChatModel 流式调用 → ContentFilterService 输出过滤 |
+| RagService | **新增 (Eng Review v6):** 注入 Spring AI PgVectorStore, 负责相似度检索 Top-5 + score>0.7 阈值 + fallback (查询失败降级为全量种子短语) |
+| ~~EmbeddingService~~ | **删除 (Eng Review v6):** 由 Spring AI EmbeddingModel 替代。向量化通过 Spring AI 配置文件决定 provider |
 | TtsService | TTS 生成, Redis 缓存引用 (不存 blob, 存 audio URL/hash, Issue 10)。种子短语 TTS 预打包为 Flutter assets |
-| ContentFilterService | 输入亵渎/注入检测, 输出育儿合规过滤 |
+| ContentFilterService | 输入亵渎/注入检测 (**中文关键词库200+词 + prompt injection 正则**), 输出育儿合规过滤 (**负面情感/非育儿话题检测**)。过滤触发时返回固定安全回复 (Eng Review v6) |
+| TokenCleanupService | **新增 (Eng Review v6):** @Scheduled 定时任务, 每天清理过期 refresh_tokens |
+
+**Mastery 解锁条件 (Eng Review v6):** mastery_count >= ceil(total_phrases * 0.8) 解锁下一难度级别。
 
 **Redis 降级策略 (Eng Review Issue 17):**
 Redis 不可用时: 限流 fallback 到 ConcurrentHashMap (不精确但可用), SMS 拒绝发送 (安全优先), TTS 跳过缓存直接生成。所有 Redis 调用包裹 try-catch。
@@ -651,9 +663,10 @@ Redis 不可用时: 限流 fallback 到 ConcurrentHashMap (不精确但可用), 
 | 组件 | 说明 |
 |------|------|
 | JwtAuthFilter | OncePerRequestFilter, 验证 Bearer token |
-| ApiVersionInterceptor | 检查 X-App-Version, 返回 426 |
+| ApiVersionInterceptor | 检查 X-App-Version, **无头→400 Bad Request** (Eng Review v6), 低于最低→426 |
 | RateLimitFilter | Bucket4j + Redis, 10次/天/用户 (Coach) |
 | SecurityConfig | 端点权限配置 |
+| **Spring Boot Actuator** | **/health 端点** (Eng Review v6), Docker 健康检查 |
 
 ### CI/CD 管道
 
@@ -717,6 +730,7 @@ on push to main:
 | POST | /api/v1/admin/approve | 审核通过 |
 | POST | /api/v1/admin/discard | 丢弃 |
 | GET | /api/v1/config/version | 最低版本检查 |
+| GET | /actuator/health | 健康检查 (Eng Review v6) |
 
 ## 分发策略
 
@@ -738,14 +752,16 @@ LAYER 0 (基础, 无依赖, Sprint 1 Day 1-2):
   ├── TTS 音频预生成 + 打包为 Flutter assets (不走 Redis, Issue 10)
   ├── 字体文件打包 (Fraunces + DM Sans + JetBrains Mono, 不用 google_fonts CDN)
   ├── Tech spike: 阿里云 ASR Flutter 集成方式
-  ├── Tech spike: LLM API 选型 (通义千问 vs OpenAI+代理)
-  ├── Tech spike: Embedding model 选型 (阿里云 text-embedding vs OpenAI embedding)
+  ├── Tech spike: LLM API 选型 (通义千问 vs OpenAI+代理) + Spring AI provider 配置
+  ├── Tech spike: Embedding model 选型 (阿里云 text-embedding vs OpenAI embedding) + 确定向量维度后更新 schema
   ├── Tech spike: E2E 测试框架选型 (flutter integration_test)
+  ├── **Flyway 迁移初始化** (Eng Review v6: V1__init_schema.sql)
+  ├── **Spring AI + Spring Boot Actuator 依赖配置** (Eng Review v6)
   └── 行政: ICP 备案 + 阿里云 SMS 模板 + 企业认证 (并行)
 
 LAYER 1 (核心 UX, 依赖 Layer 0, Sprint 1 Day 3 - Sprint 2):
-  ├── 认证系统 (SMS + 密码登录 + 双层限流, JWT, Spring Security)
-  ├── Onboarding 流程 (名字清洗在输入时一次完成, Issue 13 + 生日 + PIPL 同意)
+  ├── 认证系统 (SMS + 密码登录 + 双层限流 + **5次错误锁定**, JWT, Spring Security)
+  ├── Onboarding 流程 (名字清洗在输入时一次完成, Issue 13 + 生日 + PIPL 同意。**PIPL 同意前数据只存 Isar 本地** Eng Review v6)
   ├── Scene Coaching 屏幕 + PhraseCard 组件
   ├── TTS 音频播放 (audioplayers)
   ├── Isar 本地存储 (UserProgress, InteractionEvent)
@@ -760,14 +776,14 @@ LAYER 2 (功能, 依赖 Layer 1, Sprint 2-3):
   ├── Smart Home 屏幕 (时段智能推荐 + 复访欢迎逻辑 + 本周速览)
   ├── Discovery 屏幕 (单列不等高卡片 + 路线图时间线)
   ├── Voice Memo 笔记屏 (本地录音/回放 + 场景关联 + Isar 存储, Design Review v2)
-  ├── NotificationService 统一推送管理 (6pm默认 + Smart Push + Bedtime Summary, Issue 12)
+  ├── NotificationStrategy 接口 + 3 个实现类 (DailyReminder + SmartPush + BedtimeSummary, Eng Review v6)
   ├── 数据埋点 (screen view, feature usage, auto-flow events)
   ├── 全局离线降级 UI (离线 banner + 功能灰掉, Design Review v2)
   └── Layer 2 单元测试 (Mastery + Progress + Notifications + Offline)
 
 LAYER 3 (后端依赖, Sprint 3-4):
-  ├── EmbeddingService + pgvector RAG 检索 (Eng Review v5 新增)
-  ├── Ask Coach 文字版 (RAG + LLM + SSE 流式 + 断连重连, Issue 7)
+  ├── RagService + Spring AI PgVectorStore RAG 检索 (Eng Review v6: 替代自建 EmbeddingService)
+  ├── Ask Coach 文字版 (Spring AI ChatModel + **WebFlux SSE** 流式 + **Last-Event-Id** 断连恢复, Eng Review v6)
   ├── Ask Coach 语音输入 (阿里云 ASR)
   ├── Ask Coach TTS on-demand (预加载下一条, Issue 16)
   ├── Celebration 屏幕 (babble reaction → 动画)
@@ -795,6 +811,7 @@ BUILD ORDER (14 天):
 ```
 
 先 Onboarding 后登录，在注册前建立情感投入。
+**PIPL 合规 (Eng Review v6):** 名字/生日在 PIPL 同意前只存 Isar 本地，不上传服务器。PIPL 同意后才调用注册接口上传个人信息。
 
 ## 情感设计规则 (从 extended-mvp 继承)
 
@@ -833,8 +850,9 @@ Build Order 追加: E3+E4 → Layer 1 末尾, E1+E2+E5 → Layer 2 末尾, E6+E7
 | 开发前 | 90 种子短语 + 中文翻译 + 教练提示 | 创始人 |
 | 开发前 | 90 条 TTS 音频 | edge-tts 批量生成 |
 | Sprint 1 | Onboarding 中文文案 | 创始人 |
+| Sprint 1 | **LLM system prompt v1 (育儿方法论)** | **创始人手写** (Eng Review v6: 提前到 Sprint 1, 和种子短语一起, Sprint 3 迭代优化) |
 | Sprint 2 | 5 阶段路线图内容 (方法论 + TPR 活动) | LLM 草稿 + 创始人审核 |
-| Sprint 3 | LLM system prompt (育儿方法论) | 创始人手写 + edge case 测试 |
+| Sprint 3 | LLM system prompt v2 (迭代优化 + edge case 测试) | 创始人审核 + eval pipeline 验证 |
 
 ## Known Risks
 
@@ -880,13 +898,42 @@ Build Order 追加: E3+E4 → Layer 1 末尾, E1+E2+E5 → Layer 2 末尾, E6+E7
 | 17 | Redis 降级: 内存 fallback 限流 + SMS 拒绝 | Infrastructure |
 | RAG | AI Coach 从 LLM-only 升级为 RAG + LLM (pgvector) | CoachService, 新增 EmbeddingService |
 
+## Eng Review v6 Changes (2026-04-03)
+
+以下修改由 Eng Review v6 (commit 3069cad) 引入：
+
+| Issue | 描述 | 影响模块 |
+|-------|------|----------|
+| 1 | milestones 表加 UNIQUE(user_id, type, scene_id, phrase_id) | PostgreSQL Schema |
+| 2 | pgvector ivfflat → HNSW index | PostgreSQL Schema |
+| 3 | 加 Flyway 数据库迁移工具 | Build Order Layer 0, Tech Stack |
+| 4 | Embedding 维度待 spike 后确定 (1536/1024) | Schema 注释 |
+| 5 | SSE 改用 Spring WebFlux + Last-Event-Id 支持 | Tech Stack, CoachController |
+| 6 | 加 Spring Boot Actuator /health | API 端点, Infrastructure |
+| 7 | refresh_tokens 定时清理 job | 新增 TokenCleanupService |
+| 8 | 引入 Spring AI (ChatModel + EmbeddingModel + PgVectorStore) | Tech Stack, 服务分层重大变更 |
+| 9 | CoachService 拆分: CoachService(编排) + RagService(检索) | 服务分层 |
+| 10 | NotificationService → NotificationStrategy 接口 + 3 实现类 | 推送架构 |
+| 11 | ContentFilterService 补充实现: 200+关键词库 + injection 正则 + 输出合规 | ContentFilterService |
+| 12 | 测试列表: 每 Layer 具体单元测试文件和核心断言 | Build Order |
+| 13 | SMS 验证码 5 次错误锁定 30 分钟 | AuthService |
+| 14 | 无 X-App-Version 头 → 400 Bad Request | ApiVersionInterceptor |
+| 15 | LLM eval pipeline in CI | Build Order, 测试策略 |
+| 16 | interaction_events 加复合索引 (user_id, scene_id, difficulty) | PostgreSQL Schema |
+| OV-1 | Mastery 定义: 只有 spoken/babbled 计入 mastery_count | ProgressService |
+| OV-2 | PIPL: 名字/生日 PIPL 同意前只存 Isar 本地 | Onboarding |
+| OV-3 | LLM system prompt v1 提前到 Sprint 1 Content Calendar | Content Calendar |
+| OV-4 | Mastery 解锁条件: ceil(total*0.8) | ProgressService |
+| OV-5 | Voice Memo 关联逻辑: 录音时取当前 scene_id + 最后 phrase_id | Notes Screen |
+| OV-6 | 内容审核负责人明确为创始人 | Content Calendar |
+
 ## GSTACK REVIEW REPORT
 
 | Review | Trigger | Why | Runs | Status | Findings |
 |--------|---------|-----|------|--------|----------|
 | CEO Review | `/plan-ceo-review` | Scope & strategy | 1 | CLEAR | 7 proposals, 7 accepted, 0 deferred |
-| Codex Review | `/codex review` | Independent 2nd opinion | 1 | ISSUES_FOUND | via claude subagent |
-| Eng Review | `/plan-eng-review` | Architecture & tests (required) | 2 | CLEAR | 15 issues + RAG expansion, 0 critical gaps |
+| Codex Review | `/codex review` | Independent 2nd opinion | 2 | ISSUES_FOUND | v1: claude subagent; v2: claude subagent (Eng Review v6) |
+| Eng Review | `/plan-eng-review` | Architecture & tests (required) | 3 | CLEAR | v6: 16 issues + 6 OV findings, 0 critical gaps |
 | Design Review | `/plan-design-review` | UI/UX gaps | 1 | CLEAR | 7 dimensions reviewed, 27 issues found, all resolved |
 
 ### Design Review v2 Summary (2026-04-02)
@@ -930,5 +977,40 @@ Build Order 追加: E3+E4 → Layer 1 末尾, E1+E2+E5 → Layer 2 末尾, E6+E7
 - ASCII Wireframes: Smart Home + Scene Coaching (已在本文件)
 - Anti-slop rules + 情感设计规则
 
+### Eng Review v6 Failure Modes (2026-04-03)
+
+| 失败场景 | 受影响路径 | 错误处理 | 用户感知 | 测试覆盖 |
+|----------|-----------|----------|----------|----------|
+| LLM provider 超时/500 | CoachService → ChatModel | Retry 1x, 降级静态回复 | "AI 教练暂时离开，试试这些短语" | 集成测试 mock 超时 |
+| Embedding provider 不可用 | RagService → EmbeddingModel | 跳过 RAG，直接 LLM | 回答质量下降但仍可用 | 集成测试 mock failure |
+| pgvector 查询慢 (>2s) | RagService → PgVectorStore | timeout 后走 LLM-only | 首次回复略慢 | HNSW 索引 + EXPLAIN ANALYZE |
+| SSE 连接中断 | WebFlux SSE stream | 客户端 Last-Event-Id重连 | 断点续传，无感知 | 集成测试: 模拟断连 |
+| Refresh token 被清理 | TokenCleanupService | 返回 401, 客户端重新登录 | 长期未登录需重新验证 | 单元测试清理逻辑 |
+| SMS 5次锁定 | AuthService | 返回 429 + 剩余时间 | Toast "30分钟后重试" | 单元测试锁定计数 |
+| Flyway 迁移失败 | 应用启动 | 启动失败，不服务请求 | 回滚到上一版本 | CI 中 dry-run migration |
+| Content filter 误杀 | ContentFilterService | 拒绝 + 日志 + 友好提示 | "换个说法试试" | 关键词库单元测试 |
+| 无 X-App-Version | ApiVersionInterceptor | 400 Bad Request | 客户端应弹强制更新 | 拦截器单元测试 |
+| Redis 不可用 | Rate limiter / SMS cache | fallback ConcurrentHashMap | 无感知，限流精度下降 | 集成测试 mock Redis down |
+| OAuth token 刷新失败 | Spring Security OAuth2 Client | Retry + fallback API Key | AI 功能暂不可用 | 集成测试 mock OAuth flow |
+
+### Eng Review v6 NOT in Scope (2026-04-03)
+
+- Worktree 并行策略（Layer 0-3 按顺序执行，不并行）
+- 蓝绿部署 / 金丝雀发布（Phase 1 单实例 Docker）
+- GraphQL（Phase 1 REST only）
+- gRPC 内部通信（单体应用不需要）
+- 日志聚合平台（Phase 1 用 docker logs）
+- APM 监控（Phase 1 用 Actuator /health）
+- DB 读写分离（Phase 1 单 PostgreSQL 实例）
+- 自动扩容（Phase 1 不需要，10-20 用户）
+
+### Eng Review v6 What Already Exists (2026-04-03)
+
+- 合并计划: 900+ 行，含 PostgreSQL schema + 服务分层 + Build Order + Content Calendar
+- Test plan artifact: `.gstack/plans/zhang-main-eng-review-test-plan-20260403-234324.md`
+- DESIGN.md: 完整设计系统
+- HTML Mockups: 10 个屏幕 + index
+- TODOS.md: P0-P3 优先级任务列表 (290+ 行)
+
 - **UNRESOLVED:** 0 decisions unresolved
-- **VERDICT:** CEO + ENG + DESIGN **ALL CLEARED** — ready to implement.
+- **VERDICT:** CEO + ENG (v6) + DESIGN **ALL CLEARED** — ready to implement.
