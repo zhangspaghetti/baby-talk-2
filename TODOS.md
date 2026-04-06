@@ -333,3 +333,101 @@
 **Context:** Isar 是 Hive 作者的新项目，API 兼容性好。需要更新 pubspec.yaml、数据模型注解、查询语法。
 **Effort:** S (CC: ~15 分钟批量替换)
 **Depends on:** Nothing. 在开始写代码前完成。
+
+## /autoplan Deferred Items (2026-04-06)
+
+### 🔥 Event Sourcing Append-Only 强制 (Eng #1, CRITICAL)
+**What:** interaction_events 表添加 PostgreSQL trigger 阻止 DELETE 和非 synced 字段的 UPDATE。确保事件溯源不可变性。
+**Why:** 当前表允许 DELETE/UPDATE，任何误操作会破坏 mastery 计算和 garden 状态。数据完整性基础。
+**Context:** /autoplan Eng Review (2026-04-06) 发现。Day 1 必须修复，第一个事件写入前完成。
+**Effort:** S (CC: ~30 分钟)
+**Depends on:** PostgreSQL schema 迁移
+
+### 🔥 Layer 0 Spike 成功标准 (Eng #10, CRITICAL)
+**What:** 为 Embedding 选型和 ASR Flutter 集成 spike 添加明确的决策检查点。Day 2 2pm 前确定 embedding 维度(1536 vs 1024)，Day 2 5pm 前确定 ASR 集成路径。
+**Why:** 无成功标准的 spike 会导致 Day 3 schema 迁移与 spike 结论不匹配，阻塞整个 build order。
+**Context:** /autoplan Eng Review (2026-04-06)。需在 Flyway V1__init_schema.sql 中使用正确的 vector(N) 维度。
+**Effort:** S (CC: ~15 分钟文档)
+**Depends on:** Nothing. Day 1 开始。
+
+### 🔥 Mastery 计算规格定义 (Eng #6, HIGH)
+**What:** 明确定义: (1) mastery 是 phrase 级还是 activity 级；(2) 多少次 spoken/babbled = mastered（唯一 phrase 计数）；(3) 30 天衰减机制。
+**Why:** 当前 ProgressService 计算逻辑模糊——不区分同一 phrase 的重复 vs 不同 phrase 的进展，导致用户卡在某关卡。
+**Context:** /autoplan Eng Review (2026-04-06)。ProgressService 编码前必须定义。
+**Effort:** S (CC: ~15 分钟规格 + ~30 分钟实现)
+**Depends on:** Nothing. Day 1 定义。
+
+### 🔥 Isar 同步幂等队列 (Eng #4, CRITICAL)
+**What:** SyncWorker 使用序列号隔离批次，上传期间新增事件不会被错误标记为已同步。使用 cutoff ID 确保只确认服务器返回的事件 ID。
+**Why:** 当前竞态条件：快速操作期间 SyncWorker 可能遗漏事件，导致静默数据丢失。
+**Context:** /autoplan Eng Review (2026-04-06)。Day 3 前必须修复。
+**Effort:** M (CC: ~2 天)
+**Depends on:** Isar schema 设计
+
+### 🔥 PIPL 同意流程实现 (Eng #12, HIGH)
+**What:** 实现完整 PIPL 合规: (1) 同意状态管理 (NOT_ASKED/DENIED/ACCEPTED/REVOKED)；(2) 同意前数据只存本地；(3) 撤回同意时删除服务器数据(Article 17)；(4) 审计日志记录。
+**Why:** PIPL 合规是法律要求。当前 "名字/生日 PIPL 同意前只存 Isar 本地" 缺乏实现细节和数据删除机制。
+**Context:** /autoplan Eng Review (2026-04-06)。Day 3 前设计，Layer 1-2 实现。
+**Effort:** M (CC: ~2 天)
+**Depends on:** 后端 User/Auth 模块
+
+### 🔥 @Transactional Propagation 指定 (Eng #9, HIGH)
+**What:** SyncService 所有事务方法指定 `propagation = REQUIRES_NEW, isolation = REPEATABLE_READ, rollbackFor = Exception.class`。Controller 层不加 @Transactional。
+**Why:** 默认 REQUIRED propagation 会导致嵌套调用时外层事务回滚影响内层已完成的工作，客户端以为上传成功但数据库已回滚。
+**Context:** /autoplan Eng Review (2026-04-06)。Day 1 修复。
+**Effort:** S (CC: ~15 分钟)
+**Depends on:** SyncService 实现
+
+### SSE Last-Event-Id Session Store (Eng #8, HIGH)
+**What:** 实现 SSE 事件持久化: 服务端持久化 event stream session，客户端存储 last-received event ID 到 Isar，支持断线重连时 replay 已缓存事件。
+**Why:** 当前 SSE 重连后丢失之前的 LLM 响应内容。App 崩溃或网络中断后 Mentor FAB 对话丢失。
+**Context:** /autoplan Eng Review (2026-04-06)。Layer 3 实现。
+**Effort:** M (CC: ~2 天)
+**Depends on:** Spring WebFlux SSE 端点
+
+### ContentFilterService 语义层 (Eng #7, HIGH)
+**What:** LLM 输出过滤增加语义安全检查层: (1) 关键词黑名单；(2) 审计 LLM 分类器判断内容是否违反育儿安全规则（不建议体罚、不建议未验证医疗、不产生内疚感等）。
+**Why:** 当前 200+关键词库无法防御 LLM 改述的有害内容。品牌/法律风险。
+**Context:** /autoplan Eng Review (2026-04-06)。Layer 3 实现。
+**Effort:** M (CC: ~3 天)
+**Depends on:** Mentor FAB CoachService 实现
+
+### CI/CD macOS Runner 方案 (Eng #11, HIGH)
+**What:** GitHub Actions 免费 macOS runner 每月 200 分钟不够 17 天 sprint。选择方案: Codemagic (公开仓库免费) 或 GitHub Actions 付费 ($0.008/min)。
+**Why:** Day 10 发现 iOS 无法构建 = sprint 失败。
+**Context:** /autoplan Eng Review (2026-04-06)。Layer 3 前确定方案。
+**Effort:** S (CC: ~1 天设置)
+**Depends on:** Flutter 项目脚手架
+
+### Garden 状态 last-write-wins → 计算视图 (Eng #5, Phase 2)
+**What:** Garden growth_stage 改为从 interaction_events 聚合计算，不再存储在 garden_flowers 表。使用 PostgreSQL VIEW 或物化视图。
+**Why:** 多设备场景下 last-write-wins 导致 garden 状态不一致。Phase 1 单设备不触发。
+**Context:** /autoplan Eng Review (2026-04-06) 延期到 Phase 2。
+**Effort:** M (CC: ~1 天)
+**Depends on:** Phase 2 多设备支持
+
+### 反规范化策略 (Eng #2, Phase 2)
+**What:** ProgressService GROUP BY 查询在 100+ 用户时性能下降。实现物化视图或预计算表缓存 mastery 聚合数据。
+**Why:** Phase 1 用户 <100 不触发。Phase 2 扩展时需要。
+**Context:** /autoplan Eng Review (2026-04-06) 延期到 Phase 2。
+**Effort:** M (CC: ~2 天)
+**Depends on:** Phase 1 用户量数据
+
+### C3 滚动动画优化 (Eng #13, Phase 2)
+**What:** C3 激活帧模型在高速滚动 (>2000px/sec) 下动画闪烁。需要 50% overlap 阈值 + 100ms 防抖 + 动画时长从 300ms 减到 200ms。
+**Why:** 先测量后优化。Phase 1 先实现基础版本，收集帧率数据。
+**Context:** /autoplan Eng Review (2026-04-06) 延期到 Phase 2。
+**Effort:** S (CC: ~1 天)
+**Depends on:** C3 Scene Coaching UI 实现 + 帧率测量
+
+### A11y Keyboard/ARIA 支持 (Design #15, Phase 2)
+**What:** 键盘导航和 ARIA 标签支持。Phase 1 纯移动端触控不需要。
+**Context:** /autoplan Design Review (2026-04-06) 延期到 Phase 2。
+**Effort:** M
+**Depends on:** Phase 2 Web 版本
+
+### prefers-reduced-motion 支持 (Design #16, Phase 2)
+**What:** 支持系统级减少动画偏好设置。
+**Context:** /autoplan Design Review (2026-04-06) 应支持，但不阻塞 Phase 1。
+**Effort:** S
+**Depends on:** 动画系统完成
