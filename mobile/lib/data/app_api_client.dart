@@ -7,11 +7,14 @@ import 'package:http/http.dart' as http;
 abstract class BabyTalkSyncApi {
   const BabyTalkSyncApi();
 
+  Future<String> createSession();
+
   Future<AppVersionStatus> fetchVersionStatus();
 
-  Future<AppSnapshot> fetchBootstrap();
+  Future<AppSnapshot> fetchBootstrap({required String sessionId});
 
   Future<AppSnapshot> completeOnboarding({
+    required String sessionId,
     required String caregiverName,
     required String childName,
     required int childAgeMonths,
@@ -19,18 +22,30 @@ abstract class BabyTalkSyncApi {
   });
 
   Future<AppActionResult> submitPhraseReaction({
+    required String sessionId,
     required String activityId,
     required String phraseId,
     required PhraseReaction reaction,
   });
 
-  Future<AppActionResult> waterPatch({required String spaceId});
+  Future<AppActionResult> waterPatch({
+    required String sessionId,
+    required String spaceId,
+  });
 
-  Future<CoachChatReply> askCoach({required String prompt});
+  Future<CoachChatReply> askCoach({
+    required String sessionId,
+    required String prompt,
+  });
 }
 
 class DisabledBabyTalkApiClient extends BabyTalkSyncApi {
   const DisabledBabyTalkApiClient();
+
+  @override
+  Future<String> createSession() {
+    return Future<String>.error(const BabyTalkApiException('远端同步已禁用。'));
+  }
 
   @override
   Future<AppVersionStatus> fetchVersionStatus() {
@@ -40,12 +55,13 @@ class DisabledBabyTalkApiClient extends BabyTalkSyncApi {
   }
 
   @override
-  Future<AppSnapshot> fetchBootstrap() {
+  Future<AppSnapshot> fetchBootstrap({required String sessionId}) {
     return Future<AppSnapshot>.error(const BabyTalkApiException('远端同步已禁用。'));
   }
 
   @override
   Future<AppSnapshot> completeOnboarding({
+    required String sessionId,
     required String caregiverName,
     required String childName,
     required int childAgeMonths,
@@ -56,6 +72,7 @@ class DisabledBabyTalkApiClient extends BabyTalkSyncApi {
 
   @override
   Future<AppActionResult> submitPhraseReaction({
+    required String sessionId,
     required String activityId,
     required String phraseId,
     required PhraseReaction reaction,
@@ -66,14 +83,20 @@ class DisabledBabyTalkApiClient extends BabyTalkSyncApi {
   }
 
   @override
-  Future<AppActionResult> waterPatch({required String spaceId}) {
+  Future<AppActionResult> waterPatch({
+    required String sessionId,
+    required String spaceId,
+  }) {
     return Future<AppActionResult>.error(
       const BabyTalkApiException('远端同步已禁用。'),
     );
   }
 
   @override
-  Future<CoachChatReply> askCoach({required String prompt}) {
+  Future<CoachChatReply> askCoach({
+    required String sessionId,
+    required String prompt,
+  }) {
     return Future<CoachChatReply>.error(const BabyTalkApiException('远端同步已禁用。'));
   }
 }
@@ -98,6 +121,12 @@ class HttpBabyTalkApiClient extends BabyTalkSyncApi {
   static const Duration _timeout = Duration(seconds: 3);
 
   @override
+  Future<String> createSession() async {
+    final json = await _postJson('/api/v1/auth/session', const {});
+    return _stringValue(json, 'sessionId');
+  }
+
+  @override
   Future<AppVersionStatus> fetchVersionStatus() async {
     final json = await _getJson(
       '/api/v1/config/version',
@@ -117,13 +146,14 @@ class HttpBabyTalkApiClient extends BabyTalkSyncApi {
   }
 
   @override
-  Future<AppSnapshot> fetchBootstrap() async {
-    final json = await _getJson('/api/v1/app/bootstrap');
+  Future<AppSnapshot> fetchBootstrap({required String sessionId}) async {
+    final json = await _getJson('/api/v1/app/bootstrap', sessionId: sessionId);
     return _snapshotFromJson(json);
   }
 
   @override
   Future<AppSnapshot> completeOnboarding({
+    required String sessionId,
     required String caregiverName,
     required String childName,
     required int childAgeMonths,
@@ -134,13 +164,14 @@ class HttpBabyTalkApiClient extends BabyTalkSyncApi {
       'childName': childName,
       'childAgeMonths': childAgeMonths,
       'difficulty': difficulty.name,
-    });
+    }, sessionId: sessionId);
 
     return _snapshotFromJson(json);
   }
 
   @override
   Future<AppActionResult> submitPhraseReaction({
+    required String sessionId,
     required String activityId,
     required String phraseId,
     required PhraseReaction reaction,
@@ -149,31 +180,45 @@ class HttpBabyTalkApiClient extends BabyTalkSyncApi {
       'activityId': activityId,
       'phraseId': phraseId,
       'reaction': reaction.name,
-    });
+    }, sessionId: sessionId);
 
     return _actionResultFromJson(json);
   }
 
   @override
-  Future<AppActionResult> waterPatch({required String spaceId}) async {
-    final json = await _postJson('/api/v1/app/water', {'spaceId': spaceId});
+  Future<AppActionResult> waterPatch({
+    required String sessionId,
+    required String spaceId,
+  }) async {
+    final json = await _postJson('/api/v1/app/water', {
+      'spaceId': spaceId,
+    }, sessionId: sessionId);
     return _actionResultFromJson(json);
   }
 
   @override
-  Future<CoachChatReply> askCoach({required String prompt}) async {
-    final json = await _postJson('/api/v1/coach/ask', {'prompt': prompt});
+  Future<CoachChatReply> askCoach({
+    required String sessionId,
+    required String prompt,
+  }) async {
+    final json = await _postJson('/api/v1/coach/ask', {
+      'prompt': prompt,
+    }, sessionId: sessionId);
     return _coachReplyFromJson(json);
   }
 
   Future<Map<String, dynamic>> _getJson(
     String path, {
     bool includeVersionHeader = true,
+    String? sessionId,
   }) async {
     return _send(
       (client) => client.get(
         _uri(path),
-        headers: _headers(includeVersionHeader: includeVersionHeader),
+        headers: _headers(
+          includeVersionHeader: includeVersionHeader,
+          sessionId: sessionId,
+        ),
       ),
     );
   }
@@ -182,6 +227,7 @@ class HttpBabyTalkApiClient extends BabyTalkSyncApi {
     String path,
     Map<String, Object?> body, {
     bool includeVersionHeader = true,
+    String? sessionId,
   }) async {
     return _send(
       (client) => client.post(
@@ -189,6 +235,7 @@ class HttpBabyTalkApiClient extends BabyTalkSyncApi {
         headers: _headers(
           includeContentType: true,
           includeVersionHeader: includeVersionHeader,
+          sessionId: sessionId,
         ),
         body: jsonEncode(body),
       ),
@@ -203,6 +250,9 @@ class HttpBabyTalkApiClient extends BabyTalkSyncApi {
 
     try {
       final response = await request(client).timeout(_timeout);
+      if (response.statusCode == 401) {
+        throw const BabyTalkSessionExpiredException('同步会话已失效，请重新建立。');
+      }
       if (response.statusCode == 426) {
         throw _upgradeExceptionFromResponse(response);
       }
@@ -233,6 +283,7 @@ class HttpBabyTalkApiClient extends BabyTalkSyncApi {
   Map<String, String> _headers({
     bool includeContentType = false,
     bool includeVersionHeader = true,
+    String? sessionId,
   }) {
     final headers = <String, String>{};
     if (includeContentType) {
@@ -240,6 +291,9 @@ class HttpBabyTalkApiClient extends BabyTalkSyncApi {
     }
     if (includeVersionHeader) {
       headers['X-App-Version'] = appVersion;
+    }
+    if (sessionId != null && sessionId.isNotEmpty) {
+      headers['X-Session-Id'] = sessionId;
     }
     return headers;
   }
@@ -645,6 +699,10 @@ class BabyTalkUpgradeRequiredException extends BabyTalkApiException {
   final String appVersion;
   final String? currentVersion;
   final String? minSupportedVersion;
+}
+
+class BabyTalkSessionExpiredException extends BabyTalkApiException {
+  const BabyTalkSessionExpiredException(super.message);
 }
 
 class AppVersionStatus {

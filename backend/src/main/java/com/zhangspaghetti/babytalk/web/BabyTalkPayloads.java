@@ -108,6 +108,9 @@ public final class BabyTalkPayloads {
     public record WaterPatchRequest(String spaceId) {
     }
 
+        public record SessionResponse(String sessionId) {
+        }
+
     public record CoachAskRequest(String prompt) {
     }
 

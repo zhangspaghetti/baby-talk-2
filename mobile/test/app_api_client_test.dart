@@ -6,7 +6,7 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
 void main() {
-  test('adds X-App-Version header to coach requests', () async {
+  test('adds version and session headers to coach requests', () async {
     final client = HttpBabyTalkApiClient(
       baseUrl: 'http://example.com',
       appVersion: '1.0.0+1',
@@ -16,6 +16,14 @@ void main() {
             (entry) =>
                 entry.key.toLowerCase() == 'x-app-version' &&
                 entry.value == '1.0.0+1',
+          ),
+          isTrue,
+        );
+        expect(
+          request.headers.entries.any(
+            (entry) =>
+                entry.key.toLowerCase() == 'x-session-id' &&
+                entry.value == 'session-1',
           ),
           isTrue,
         );
@@ -32,7 +40,10 @@ void main() {
       }),
     );
 
-    final reply = await client.askCoach(prompt: '洗澡怎么开口');
+    final reply = await client.askCoach(
+      sessionId: 'session-1',
+      prompt: '洗澡怎么开口',
+    );
     expect(reply.answer, '先陪我试一句。');
   });
 
@@ -76,6 +87,36 @@ void main() {
     );
   });
 
+  test('creates session and maps 401 to session exception', () async {
+    final client = HttpBabyTalkApiClient(
+      baseUrl: 'http://example.com',
+      appVersion: '1.0.0+1',
+      httpClient: MockClient((request) async {
+        if (request.url.path == '/api/v1/auth/session') {
+          return http.Response(
+            jsonEncode({'sessionId': 'session-1'}),
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }
+
+        return http.Response(
+          '',
+          401,
+          headers: {'content-type': 'application/json'},
+        );
+      }),
+    );
+
+    final sessionId = await client.createSession();
+    expect(sessionId, 'session-1');
+
+    expect(
+      client.fetchBootstrap(sessionId: sessionId),
+      throwsA(isA<BabyTalkSessionExpiredException>()),
+    );
+  });
+
   test('maps 426 responses to upgrade exceptions', () async {
     final client = HttpBabyTalkApiClient(
       baseUrl: 'http://example.com',
@@ -96,7 +137,7 @@ void main() {
     );
 
     expect(
-      client.askCoach(prompt: '哭闹时怎么办'),
+      client.askCoach(sessionId: 'session-1', prompt: '哭闹时怎么办'),
       throwsA(
         isA<BabyTalkUpgradeRequiredException>()
             .having((error) => error.currentVersion, 'currentVersion', '1.0.0')

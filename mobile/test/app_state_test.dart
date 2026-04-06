@@ -103,15 +103,26 @@ class _FakeSyncApi extends BabyTalkSyncApi {
 
   final AppSnapshot snapshot;
   final bool failBootstrap;
+  int createSessionCallCount = 0;
   int fetchBootstrapCallCount = 0;
 
   @override
-  Future<CoachChatReply> askCoach({required String prompt}) {
+  Future<CoachChatReply> askCoach({
+    required String sessionId,
+    required String prompt,
+  }) {
     throw UnimplementedError();
   }
 
   @override
+  Future<String> createSession() async {
+    createSessionCallCount += 1;
+    return 'session-1';
+  }
+
+  @override
   Future<AppSnapshot> completeOnboarding({
+    required String sessionId,
     required String caregiverName,
     required String childName,
     required int childAgeMonths,
@@ -121,7 +132,7 @@ class _FakeSyncApi extends BabyTalkSyncApi {
   }
 
   @override
-  Future<AppSnapshot> fetchBootstrap() async {
+  Future<AppSnapshot> fetchBootstrap({required String sessionId}) async {
     fetchBootstrapCallCount += 1;
     if (failBootstrap) {
       throw const BabyTalkApiException('远端同步暂时不可用。');
@@ -140,6 +151,7 @@ class _FakeSyncApi extends BabyTalkSyncApi {
 
   @override
   Future<AppActionResult> submitPhraseReaction({
+    required String sessionId,
     required String activityId,
     required String phraseId,
     required PhraseReaction reaction,
@@ -148,7 +160,10 @@ class _FakeSyncApi extends BabyTalkSyncApi {
   }
 
   @override
-  Future<AppActionResult> waterPatch({required String spaceId}) {
+  Future<AppActionResult> waterPatch({
+    required String sessionId,
+    required String spaceId,
+  }) {
     throw UnimplementedError();
   }
 }

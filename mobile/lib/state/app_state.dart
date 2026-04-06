@@ -33,6 +33,7 @@ class BabyTalkAppState extends ChangeNotifier {
 
   int _selectedTabIndex = 0;
   int _growthPoints = 42;
+  String? _sessionId;
   String _selectedSpaceId;
   String _caregiverName;
   String _childName;
@@ -162,7 +163,9 @@ class BabyTalkAppState extends ChangeNotifier {
 
     try {
       await _apiClient.fetchVersionStatus();
-      final snapshot = await _apiClient.fetchBootstrap();
+      final snapshot = await _runWithSession(
+        (sessionId) => _apiClient.fetchBootstrap(sessionId: sessionId),
+      );
       _markRemoteSyncHealthy();
       _applySnapshot(snapshot);
     } catch (error) {
@@ -257,11 +260,14 @@ class BabyTalkAppState extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final snapshot = await _apiClient.completeOnboarding(
-        caregiverName: caregiverName,
-        childName: childName,
-        childAgeMonths: childAgeMonths,
-        difficulty: difficulty,
+      final snapshot = await _runWithSession(
+        (sessionId) => _apiClient.completeOnboarding(
+          sessionId: sessionId,
+          caregiverName: caregiverName,
+          childName: childName,
+          childAgeMonths: childAgeMonths,
+          difficulty: difficulty,
+        ),
       );
       _markRemoteSyncHealthy();
       _applySnapshot(snapshot);
@@ -319,10 +325,13 @@ class BabyTalkAppState extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final result = await _apiClient.submitPhraseReaction(
-        activityId: activityId,
-        phraseId: phraseId,
-        reaction: reaction,
+      final result = await _runWithSession(
+        (sessionId) => _apiClient.submitPhraseReaction(
+          sessionId: sessionId,
+          activityId: activityId,
+          phraseId: phraseId,
+          reaction: reaction,
+        ),
       );
       _markRemoteSyncHealthy();
       _applySnapshot(result.snapshot);
@@ -366,7 +375,10 @@ class BabyTalkAppState extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final result = await _apiClient.waterPatch(spaceId: spaceId);
+      final result = await _runWithSession(
+        (sessionId) =>
+            _apiClient.waterPatch(sessionId: sessionId, spaceId: spaceId),
+      );
       _markRemoteSyncHealthy();
       _applySnapshot(result.snapshot);
       return true;
@@ -407,7 +419,10 @@ class BabyTalkAppState extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final reply = await _apiClient.askCoach(prompt: trimmed);
+      final reply = await _runWithSession(
+        (sessionId) =>
+            _apiClient.askCoach(sessionId: sessionId, prompt: trimmed),
+      );
       _markRemoteSyncHealthy();
       _appendMentorReply(reply);
     } catch (error) {
@@ -505,6 +520,25 @@ class BabyTalkAppState extends ChangeNotifier {
   void _markRemoteSyncHealthy() {
     _clearUpgradeRequirement();
     _isUsingLocalMode = false;
+  }
+
+  Future<T> _runWithSession<T>(
+    Future<T> Function(String sessionId) request,
+  ) async {
+    var attempts = 0;
+
+    while (true) {
+      attempts += 1;
+      final sessionId = _sessionId ??= await _apiClient.createSession();
+      try {
+        return await request(sessionId);
+      } on BabyTalkSessionExpiredException {
+        _sessionId = null;
+        if (attempts >= 2) {
+          rethrow;
+        }
+      }
+    }
   }
 
   void _clearUpgradeRequirement() {
