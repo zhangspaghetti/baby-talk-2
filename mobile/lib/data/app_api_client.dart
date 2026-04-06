@@ -33,6 +33,11 @@ abstract class BabyTalkSyncApi {
     required String spaceId,
   });
 
+  Future<void> uploadAnalyticsEvents({
+    required String sessionId,
+    required List<AnalyticsEvent> events,
+  });
+
   Future<CoachChatReply> askCoach({
     required String sessionId,
     required String prompt,
@@ -90,6 +95,14 @@ class DisabledBabyTalkApiClient extends BabyTalkSyncApi {
     return Future<AppActionResult>.error(
       const BabyTalkApiException('远端同步已禁用。'),
     );
+  }
+
+  @override
+  Future<void> uploadAnalyticsEvents({
+    required String sessionId,
+    required List<AnalyticsEvent> events,
+  }) {
+    return Future<void>.error(const BabyTalkApiException('远端同步已禁用。'));
   }
 
   @override
@@ -194,6 +207,16 @@ class HttpBabyTalkApiClient extends BabyTalkSyncApi {
       'spaceId': spaceId,
     }, sessionId: sessionId);
     return _actionResultFromJson(json);
+  }
+
+  @override
+  Future<void> uploadAnalyticsEvents({
+    required String sessionId,
+    required List<AnalyticsEvent> events,
+  }) async {
+    await _postJson('/api/v1/analytics/events', {
+      'events': events.map((event) => event.toJson()).toList(growable: false),
+    }, sessionId: sessionId);
   }
 
   @override

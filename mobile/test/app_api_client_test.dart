@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:baby_talk_mobile/data/app_api_client.dart';
+import 'package:baby_talk_mobile/models/app_models.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -147,6 +148,45 @@ void main() {
               '1.0.0',
             ),
       ),
+    );
+  });
+
+  test('uploads analytics events with session and version headers', () async {
+    final client = HttpBabyTalkApiClient(
+      baseUrl: 'http://example.com',
+      appVersion: '1.0.0+1',
+      httpClient: MockClient((request) async {
+        expect(request.url.path, '/api/v1/analytics/events');
+        expect(request.method, 'POST');
+        expect(request.headers['X-App-Version'], '1.0.0+1');
+        expect(request.headers['X-Session-Id'], 'session-1');
+
+        final decoded = jsonDecode(request.body) as Map<String, dynamic>;
+        final events = decoded['events'] as List<dynamic>;
+        expect(events, hasLength(1));
+        expect(
+          (events.first as Map<String, dynamic>)['eventName'],
+          'app_opened',
+        );
+
+        return http.Response(
+          jsonEncode({'acceptedCount': 1}),
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      }),
+    );
+
+    await client.uploadAnalyticsEvents(
+      sessionId: 'session-1',
+      events: [
+        AnalyticsEvent(
+          eventId: 'evt-1',
+          eventName: 'app_opened',
+          occurredAt: DateTime.utc(2026, 4, 6, 9),
+          screenName: 'home',
+        ),
+      ],
     );
   });
 }

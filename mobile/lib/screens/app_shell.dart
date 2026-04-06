@@ -860,6 +860,7 @@ class _MentorFab extends StatelessWidget {
     return FloatingActionButton.extended(
       key: const Key('mentor-fab'),
       onPressed: () {
+        context.read<BabyTalkAppState>().trackMentorOpened();
         showModalBottomSheet<void>(
           context: context,
           isScrollControlled: true,

@@ -29,6 +29,18 @@ class _SceneCoachingScreenState extends State<SceneCoachingScreen> {
           _page = _controller.page ?? _controller.initialPage.toDouble();
         });
       });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) {
+        return;
+      }
+
+      final appState = context.read<BabyTalkAppState>();
+      final space = appState.spaceForActivity(widget.activityId);
+      appState.trackSceneCoachingOpened(
+        activityId: widget.activityId,
+        spaceId: space.id,
+      );
+    });
   }
 
   @override

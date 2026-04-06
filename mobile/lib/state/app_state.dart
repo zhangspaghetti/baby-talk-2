@@ -1,16 +1,20 @@
 import 'dart:async';
 
 import 'package:baby_talk_mobile/data/app_api_client.dart';
+import 'package:baby_talk_mobile/data/app_local_store.dart';
 import 'package:baby_talk_mobile/data/connectivity_monitor.dart';
 import 'package:baby_talk_mobile/data/seed_content.dart';
 import 'package:baby_talk_mobile/models/app_models.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
 
-class BabyTalkAppState extends ChangeNotifier {
+class BabyTalkAppState extends ChangeNotifier with WidgetsBindingObserver {
   BabyTalkAppState({
     BabyTalkSyncApi? apiClient,
     ConnectivityMonitor? connectivityMonitor,
+    AppLocalStore? localStore,
   }) : _apiClient = apiClient ?? const HttpBabyTalkApiClient(),
+       _localStore = localStore ?? MemoryAppLocalStore(),
        _connectivityMonitor =
            connectivityMonitor ?? InternetConnectivityMonitor(),
        _selectedSpaceId = SeedContent.spaces.first.id,
@@ -22,6 +26,7 @@ class BabyTalkAppState extends ChangeNotifier {
   }
 
   final BabyTalkSyncApi _apiClient;
+  final AppLocalStore _localStore;
   final ConnectivityMonitor _connectivityMonitor;
   final Map<String, double> _activityProgress = {};
   final Map<String, Set<String>> _activityMasteredPhraseIds = {};
@@ -30,6 +35,7 @@ class BabyTalkAppState extends ChangeNotifier {
   final List<MilestoneEntry> _milestones = [];
   final List<CoachSuggestion> _coachSuggestions = [];
   final List<CoachChatMessage> _coachChatMessages = [];
+  final List<AnalyticsEvent> _pendingAnalyticsEvents = [];
 
   int _selectedTabIndex = 0;
   int _growthPoints = 42;
@@ -44,14 +50,17 @@ class BabyTalkAppState extends ChangeNotifier {
   bool _isUsingLocalMode = false;
   bool _isSyncing = false;
   bool _isCoachReplying = false;
+  bool _isFlushingAnalytics = false;
   bool _hasInitialized = false;
   StreamSubscription<bool>? _connectivitySubscription;
   String? _upgradeRequiredMessage;
   int _weeklyPhraseCount = 23;
   int _streakDays = 5;
   int _coachMessageCounter = 0;
+  int _analyticsEventCounter = 0;
   List<SpaceItem> _spaceTemplates = [];
   CelebrationMoment? _pendingCelebration;
+  DateTime? _activeSessionStartedAt;
 
   int get selectedTabIndex => _selectedTabIndex;
   int get growthPoints => _growthPoints;
@@ -118,20 +127,44 @@ class BabyTalkAppState extends ChangeNotifier {
     }
 
     _hasInitialized = true;
+    WidgetsBinding.instance.addObserver(this);
+    _sessionId = await _localStore.readSessionId();
+    _beginForegroundSession();
+    _queueAnalyticsEvent('app_opened');
     await _startConnectivityMonitoring();
     if (_isOffline) {
       _enableLocalMode();
+      _trackCurrentScreenView();
       notifyListeners();
       return;
     }
 
     await _syncBootstrapFromRemote();
+    _trackCurrentScreenView();
+    _flushAnalyticsIfPossible();
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _connectivitySubscription?.cancel();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    switch (state) {
+      case AppLifecycleState.resumed:
+        _beginForegroundSession();
+        _flushAnalyticsIfPossible();
+        return;
+      case AppLifecycleState.inactive:
+      case AppLifecycleState.hidden:
+      case AppLifecycleState.paused:
+      case AppLifecycleState.detached:
+        _endForegroundSession(state.name);
+        return;
+    }
   }
 
   Future<void> _startConnectivityMonitoring() async {
@@ -168,6 +201,7 @@ class BabyTalkAppState extends ChangeNotifier {
       );
       _markRemoteSyncHealthy();
       _applySnapshot(snapshot);
+      _flushAnalyticsIfPossible();
     } catch (error) {
       if (_captureUpgradeRequirement(error)) {
         return;
@@ -184,6 +218,8 @@ class BabyTalkAppState extends ChangeNotifier {
       return;
     }
     _selectedTabIndex = index;
+    _trackScreenView(_screenNameForTab(index));
+    _flushAnalyticsIfPossible();
     notifyListeners();
   }
 
@@ -252,6 +288,14 @@ class BabyTalkAppState extends ChangeNotifier {
         childAgeMonths: childAgeMonths,
         difficulty: difficulty,
       );
+      _queueAnalyticsEvent(
+        'onboarding_completed',
+        properties: {
+          'difficulty': difficulty.name,
+          'childAgeMonths': childAgeMonths,
+        },
+      );
+      _trackScreenView('home');
       notifyListeners();
       return;
     }
@@ -271,6 +315,15 @@ class BabyTalkAppState extends ChangeNotifier {
       );
       _markRemoteSyncHealthy();
       _applySnapshot(snapshot);
+      _queueAnalyticsEvent(
+        'onboarding_completed',
+        properties: {
+          'difficulty': difficulty.name,
+          'childAgeMonths': childAgeMonths,
+        },
+      );
+      _trackScreenView('home');
+      _flushAnalyticsIfPossible();
     } catch (error) {
       if (_captureUpgradeRequirement(error)) {
         return;
@@ -282,6 +335,14 @@ class BabyTalkAppState extends ChangeNotifier {
         childAgeMonths: childAgeMonths,
         difficulty: difficulty,
       );
+      _queueAnalyticsEvent(
+        'onboarding_completed',
+        properties: {
+          'difficulty': difficulty.name,
+          'childAgeMonths': childAgeMonths,
+        },
+      );
+      _trackScreenView('home');
     } finally {
       _isSyncing = false;
       notifyListeners();
@@ -310,6 +371,16 @@ class BabyTalkAppState extends ChangeNotifier {
       return null;
     }
 
+    _queueAnalyticsEvent(
+      'phrase_reaction',
+      properties: {
+        'activityId': activityId,
+        'phraseId': phraseId,
+        'reaction': reaction.name,
+      },
+    );
+    _flushAnalyticsIfPossible();
+
     if (_isOffline) {
       _enableLocalMode();
       final celebration = _registerPhraseReactionLocal(
@@ -317,6 +388,9 @@ class BabyTalkAppState extends ChangeNotifier {
         phraseId: phraseId,
         reaction: reaction,
       );
+      if (celebration != null) {
+        _queueCelebrationShown(celebration);
+      }
       notifyListeners();
       return celebration;
     }
@@ -336,17 +410,25 @@ class BabyTalkAppState extends ChangeNotifier {
       _markRemoteSyncHealthy();
       _applySnapshot(result.snapshot);
       _pendingCelebration = result.celebration;
+      if (result.celebration != null) {
+        _queueCelebrationShown(result.celebration!);
+      }
+      _flushAnalyticsIfPossible();
       return result.celebration;
     } catch (error) {
       if (_captureUpgradeRequirement(error)) {
         return null;
       }
       _enableLocalMode();
-      return _registerPhraseReactionLocal(
+      final celebration = _registerPhraseReactionLocal(
         activityId: activityId,
         phraseId: phraseId,
         reaction: reaction,
       );
+      if (celebration != null) {
+        _queueCelebrationShown(celebration);
+      }
+      return celebration;
     } finally {
       _isSyncing = false;
       notifyListeners();
@@ -367,6 +449,12 @@ class BabyTalkAppState extends ChangeNotifier {
     if (_isOffline) {
       _enableLocalMode();
       final success = _waterSelectedPatchLocal(spaceId);
+      if (success) {
+        _queueAnalyticsEvent(
+          'garden_watered',
+          properties: {'spaceId': spaceId},
+        );
+      }
       notifyListeners();
       return success;
     }
@@ -381,13 +469,22 @@ class BabyTalkAppState extends ChangeNotifier {
       );
       _markRemoteSyncHealthy();
       _applySnapshot(result.snapshot);
+      _queueAnalyticsEvent('garden_watered', properties: {'spaceId': spaceId});
+      _flushAnalyticsIfPossible();
       return true;
     } catch (error) {
       if (_captureUpgradeRequirement(error)) {
         return false;
       }
       _enableLocalMode();
-      return _waterSelectedPatchLocal(spaceId);
+      final success = _waterSelectedPatchLocal(spaceId);
+      if (success) {
+        _queueAnalyticsEvent(
+          'garden_watered',
+          properties: {'spaceId': spaceId},
+        );
+      }
+      return success;
     } finally {
       _isSyncing = false;
       notifyListeners();
@@ -399,6 +496,15 @@ class BabyTalkAppState extends ChangeNotifier {
     if (trimmed.isEmpty || _isCoachReplying || requiresUpgrade) {
       return;
     }
+
+    _queueAnalyticsEvent(
+      'quick_ask_tapped',
+      properties: {
+        'promptLength': trimmed.length,
+        'selectedTabIndex': _selectedTabIndex,
+      },
+    );
+    _flushAnalyticsIfPossible();
 
     _coachChatMessages.add(
       CoachChatMessage(
@@ -425,6 +531,7 @@ class BabyTalkAppState extends ChangeNotifier {
       );
       _markRemoteSyncHealthy();
       _appendMentorReply(reply);
+      _flushAnalyticsIfPossible();
     } catch (error) {
       if (_captureUpgradeRequirement(error)) {
         return;
@@ -529,16 +636,29 @@ class BabyTalkAppState extends ChangeNotifier {
 
     while (true) {
       attempts += 1;
-      final sessionId = _sessionId ??= await _apiClient.createSession();
+      final sessionId = await _getOrCreateSessionId();
       try {
         return await request(sessionId);
       } on BabyTalkSessionExpiredException {
         _sessionId = null;
+        await _localStore.clearSessionId();
         if (attempts >= 2) {
           rethrow;
         }
       }
     }
+  }
+
+  Future<String> _getOrCreateSessionId() async {
+    final existingSessionId = _sessionId;
+    if (existingSessionId != null && existingSessionId.isNotEmpty) {
+      return existingSessionId;
+    }
+
+    final sessionId = await _apiClient.createSession();
+    _sessionId = sessionId;
+    await _localStore.writeSessionId(sessionId);
+    return sessionId;
   }
 
   void _clearUpgradeRequirement() {
@@ -547,6 +667,26 @@ class BabyTalkAppState extends ChangeNotifier {
 
   void _enableLocalMode() {
     _isUsingLocalMode = true;
+  }
+
+  void trackMentorOpened() {
+    _queueAnalyticsEvent(
+      'mentor_opened',
+      screenName: 'mentor_sheet',
+      properties: {'selectedTabIndex': _selectedTabIndex},
+    );
+    _flushAnalyticsIfPossible();
+  }
+
+  void trackSceneCoachingOpened({
+    required String activityId,
+    required String spaceId,
+  }) {
+    _trackScreenView(
+      'scene_coaching',
+      properties: {'activityId': activityId, 'spaceId': spaceId},
+    );
+    _flushAnalyticsIfPossible();
   }
 
   void _updateConnectivityState(bool hasConnection, {bool notify = true}) {
@@ -560,6 +700,146 @@ class BabyTalkAppState extends ChangeNotifier {
 
     if (didChange && notify) {
       notifyListeners();
+    }
+  }
+
+  void _beginForegroundSession() {
+    if (_activeSessionStartedAt != null) {
+      return;
+    }
+
+    _activeSessionStartedAt = DateTime.now().toUtc();
+    _queueAnalyticsEvent(
+      'session_started',
+      properties: {
+        'isOffline': _isOffline,
+        'isUsingLocalMode': _isUsingLocalMode,
+      },
+    );
+  }
+
+  void _endForegroundSession(String exitState) {
+    final startedAt = _activeSessionStartedAt;
+    if (startedAt == null) {
+      return;
+    }
+
+    _activeSessionStartedAt = null;
+    final durationSeconds = DateTime.now()
+        .toUtc()
+        .difference(startedAt)
+        .inSeconds;
+    _queueAnalyticsEvent(
+      'session_duration',
+      properties: {
+        'durationSeconds': durationSeconds <= 0 ? 1 : durationSeconds,
+        'exitState': exitState,
+      },
+    );
+    _flushAnalyticsIfPossible();
+  }
+
+  void _trackCurrentScreenView() {
+    if (needsOnboarding) {
+      _trackScreenView('onboarding');
+      return;
+    }
+
+    _trackScreenView(_screenNameForTab(_selectedTabIndex));
+  }
+
+  void _trackScreenView(
+    String screenName, {
+    Map<String, Object?> properties = const {},
+  }) {
+    _queueAnalyticsEvent(
+      'screen_view',
+      screenName: screenName,
+      properties: properties,
+    );
+  }
+
+  String _screenNameForTab(int tabIndex) {
+    switch (tabIndex) {
+      case 0:
+        return 'home';
+      case 1:
+        return 'discover';
+      case 2:
+        return 'garden';
+      case 3:
+        return 'growth';
+    }
+
+    return 'home';
+  }
+
+  void _queueCelebrationShown(CelebrationMoment celebration) {
+    _queueAnalyticsEvent(
+      'celebration_shown',
+      screenName: 'celebration',
+      properties: {
+        'activityName': celebration.activityName,
+        'gainedPoints': celebration.gainedPoints,
+      },
+    );
+  }
+
+  void _queueAnalyticsEvent(
+    String eventName, {
+    String? screenName,
+    Map<String, Object?> properties = const {},
+  }) {
+    final now = DateTime.now().toUtc();
+    _pendingAnalyticsEvents.add(
+      AnalyticsEvent(
+        eventId:
+            'evt-${now.microsecondsSinceEpoch}-${_analyticsEventCounter++}',
+        eventName: eventName,
+        occurredAt: now,
+        screenName: screenName,
+        properties: properties,
+      ),
+    );
+  }
+
+  void _flushAnalyticsIfPossible() {
+    if (_isOffline || _isUsingLocalMode || requiresUpgrade) {
+      return;
+    }
+    if (_pendingAnalyticsEvents.isEmpty || _isFlushingAnalytics) {
+      return;
+    }
+
+    unawaited(_flushAnalyticsEvents());
+  }
+
+  Future<void> _flushAnalyticsEvents() async {
+    if (_pendingAnalyticsEvents.isEmpty || _isFlushingAnalytics) {
+      return;
+    }
+    if (_isOffline || _isUsingLocalMode || requiresUpgrade) {
+      return;
+    }
+
+    _isFlushingAnalytics = true;
+    final batch = List<AnalyticsEvent>.from(_pendingAnalyticsEvents);
+
+    try {
+      await _runWithSession(
+        (sessionId) => _apiClient.uploadAnalyticsEvents(
+          sessionId: sessionId,
+          events: batch,
+        ),
+      );
+      final sentEventIds = batch.map((event) => event.eventId).toSet();
+      _pendingAnalyticsEvents.removeWhere(
+        (event) => sentEventIds.contains(event.eventId),
+      );
+    } catch (error) {
+      _captureUpgradeRequirement(error);
+    } finally {
+      _isFlushingAnalytics = false;
     }
   }
 

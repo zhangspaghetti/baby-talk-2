@@ -1,4 +1,5 @@
 import 'package:baby_talk_mobile/data/app_api_client.dart';
+import 'package:baby_talk_mobile/data/app_local_store.dart';
 import 'package:baby_talk_mobile/data/connectivity_monitor.dart';
 import 'package:baby_talk_mobile/screens/app_shell.dart';
 import 'package:baby_talk_mobile/screens/onboarding_flow.dart';
@@ -13,11 +14,14 @@ class BabyTalkApp extends StatelessWidget {
     super.key,
     BabyTalkSyncApi? apiClient,
     ConnectivityMonitor? connectivityMonitor,
+    AppLocalStore? localStore,
   }) : _apiClient = apiClient ?? const HttpBabyTalkApiClient(),
-       _connectivityMonitor = connectivityMonitor;
+       _connectivityMonitor = connectivityMonitor,
+       _localStore = localStore;
 
   final BabyTalkSyncApi _apiClient;
   final ConnectivityMonitor? _connectivityMonitor;
+  final AppLocalStore? _localStore;
 
   @override
   Widget build(BuildContext context) {
@@ -25,6 +29,7 @@ class BabyTalkApp extends StatelessWidget {
       create: (_) => BabyTalkAppState(
         apiClient: _apiClient,
         connectivityMonitor: _connectivityMonitor,
+        localStore: _localStore ?? MemoryAppLocalStore(),
       )..initialize(),
       child: MaterialApp(
         title: 'Baby Talk',

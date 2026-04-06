@@ -113,6 +113,37 @@ class AppActionResult {
   final CelebrationMoment? celebration;
 }
 
+class AnalyticsEvent {
+  const AnalyticsEvent({
+    required this.eventId,
+    required this.eventName,
+    required this.occurredAt,
+    this.screenName,
+    this.properties = const {},
+  });
+
+  final String eventId;
+  final String eventName;
+  final DateTime occurredAt;
+  final String? screenName;
+  final Map<String, Object?> properties;
+
+  Map<String, Object?> toJson() {
+    final json = <String, Object?>{
+      'eventId': eventId,
+      'eventName': eventName,
+      'occurredAt': occurredAt.toUtc().toIso8601String(),
+    };
+    if (screenName != null) {
+      json['screenName'] = screenName;
+    }
+    if (properties.isNotEmpty) {
+      json['properties'] = properties;
+    }
+    return json;
+  }
+}
+
 enum CoachChatRole { mentor, caregiver }
 
 class CoachChatReply {

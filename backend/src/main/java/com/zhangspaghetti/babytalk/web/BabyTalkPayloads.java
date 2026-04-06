@@ -1,6 +1,7 @@
 package com.zhangspaghetti.babytalk.web;
 
 import java.util.List;
+import java.util.Map;
 
 public final class BabyTalkPayloads {
 
@@ -108,8 +109,34 @@ public final class BabyTalkPayloads {
     public record WaterPatchRequest(String spaceId) {
     }
 
-        public record SessionResponse(String sessionId) {
-        }
+    public record SessionResponse(String sessionId) {
+    }
+
+    public record AnalyticsBatchRequest(List<AnalyticsEventRequest> events) {
+    }
+
+    public record AnalyticsEventRequest(
+            String eventId,
+            String eventName,
+            String screenName,
+            String occurredAt,
+            Map<String, Object> properties
+    ) {
+    }
+
+    public record AnalyticsIngestResponse(int acceptedCount) {
+    }
+
+    public record RetentionWindowResponse(
+            int days,
+            int cohortUsers,
+            int retainedUsers,
+            double retentionRate
+    ) {
+    }
+
+    public record RetentionSummaryResponse(List<RetentionWindowResponse> windows) {
+    }
 
     public record CoachAskRequest(String prompt) {
     }
