@@ -2,6 +2,7 @@ import 'package:baby_talk_mobile/models/app_models.dart';
 import 'package:baby_talk_mobile/screens/scene_coaching_screen.dart';
 import 'package:baby_talk_mobile/state/app_state.dart';
 import 'package:baby_talk_mobile/theme/app_theme.dart';
+import 'package:baby_talk_mobile/widgets/sync_mode_banner.dart';
 import 'package:baby_talk_mobile/widgets/upgrade_required_banner.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -22,7 +23,10 @@ class AppShell extends StatelessWidget {
           body: SafeArea(
             child: Column(
               children: [
-                if (appState.isOffline) const _OfflineBanner(),
+                if (appState.isOffline)
+                  const SyncModeBanner.offline()
+                else if (appState.isUsingLocalMode)
+                  const SyncModeBanner.local(),
                 _ShellHeader(header: header),
                 Expanded(
                   child: IndexedStack(
@@ -1089,14 +1093,10 @@ class _MentorChatTabState extends State<_MentorChatTab> {
           ),
           const SizedBox(height: 12),
         ],
-        if (appState.isOffline) ...[
-          _PaperCard(
-            color: Theme.of(context).extension<AppThemeTone>()!.paperSunken,
-            child: Text(
-              '当前是本地建议模式，恢复联网后会切回远端教练。',
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
-          ),
+        if (appState.isUsingLocalMode && !appState.requiresUpgrade) ...[
+          (appState.isOffline
+              ? const SyncModeBanner.offline(compact: true)
+              : const SyncModeBanner.local(compact: true)),
           const SizedBox(height: 12),
         ],
         Wrap(
@@ -1297,26 +1297,6 @@ class _AccountDrawer extends StatelessWidget {
             ),
           ],
         ),
-      ),
-    );
-  }
-}
-
-class _OfflineBanner extends StatelessWidget {
-  const _OfflineBanner();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.fromLTRB(16, 4, 16, 8),
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      decoration: BoxDecoration(
-        color: AppPalette.warningSoft,
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Text(
-        '没有网络，部分功能暂时休息。恢复联网后自动同步。',
-        style: Theme.of(context).textTheme.bodySmall,
       ),
     );
   }

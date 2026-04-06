@@ -1,20 +1,28 @@
+import 'dart:async';
+
 import 'package:baby_talk_mobile/data/app_api_client.dart';
+import 'package:baby_talk_mobile/data/connectivity_monitor.dart';
 import 'package:baby_talk_mobile/data/seed_content.dart';
 import 'package:baby_talk_mobile/models/app_models.dart';
 import 'package:flutter/foundation.dart';
 
 class BabyTalkAppState extends ChangeNotifier {
-  BabyTalkAppState({BabyTalkSyncApi? apiClient})
-    : _apiClient = apiClient ?? const HttpBabyTalkApiClient(),
-      _selectedSpaceId = SeedContent.spaces.first.id,
-      _caregiverName = '小明妈妈',
-      _childName = '小明',
-      _childAgeMonths = 8,
-      _difficulty = AppDifficulty.balanced {
+  BabyTalkAppState({
+    BabyTalkSyncApi? apiClient,
+    ConnectivityMonitor? connectivityMonitor,
+  }) : _apiClient = apiClient ?? const HttpBabyTalkApiClient(),
+       _connectivityMonitor =
+           connectivityMonitor ?? InternetConnectivityMonitor(),
+       _selectedSpaceId = SeedContent.spaces.first.id,
+       _caregiverName = '小明妈妈',
+       _childName = '小明',
+       _childAgeMonths = 8,
+       _difficulty = AppDifficulty.balanced {
     _resetSeedContent();
   }
 
   final BabyTalkSyncApi _apiClient;
+  final ConnectivityMonitor _connectivityMonitor;
   final Map<String, double> _activityProgress = {};
   final Map<String, Set<String>> _activityMasteredPhraseIds = {};
   final Set<String> _earnedMilestones = <String>{};
@@ -32,9 +40,11 @@ class BabyTalkAppState extends ChangeNotifier {
   AppDifficulty _difficulty;
   bool _onboardingComplete = false;
   bool _isOffline = false;
+  bool _isUsingLocalMode = false;
   bool _isSyncing = false;
   bool _isCoachReplying = false;
   bool _hasInitialized = false;
+  StreamSubscription<bool>? _connectivitySubscription;
   String? _upgradeRequiredMessage;
   int _weeklyPhraseCount = 23;
   int _streakDays = 5;
@@ -49,6 +59,7 @@ class BabyTalkAppState extends ChangeNotifier {
   AppDifficulty get difficulty => _difficulty;
   bool get needsOnboarding => !_onboardingComplete;
   bool get isOffline => _isOffline;
+  bool get isUsingLocalMode => _isUsingLocalMode;
   bool get isSyncing => _isSyncing;
   bool get isCoachReplying => _isCoachReplying;
   bool get requiresUpgrade => _upgradeRequiredMessage != null;
@@ -106,20 +117,59 @@ class BabyTalkAppState extends ChangeNotifier {
     }
 
     _hasInitialized = true;
+    await _startConnectivityMonitoring();
+    if (_isOffline) {
+      _enableLocalMode();
+      notifyListeners();
+      return;
+    }
+
+    await _syncBootstrapFromRemote();
+  }
+
+  @override
+  void dispose() {
+    _connectivitySubscription?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _startConnectivityMonitoring() async {
+    final hasConnection = await _connectivityMonitor.hasConnection;
+    _updateConnectivityState(hasConnection, notify: false);
+
+    _connectivitySubscription?.cancel();
+    _connectivitySubscription = _connectivityMonitor.onStatusChange.listen((
+      hasConnection,
+    ) {
+      final shouldRefresh =
+          hasConnection &&
+          !requiresUpgrade &&
+          (_isOffline || _isUsingLocalMode);
+      _updateConnectivityState(hasConnection);
+      if (shouldRefresh) {
+        unawaited(_syncBootstrapFromRemote());
+      }
+    });
+  }
+
+  Future<void> _syncBootstrapFromRemote() async {
+    if (_isSyncing || requiresUpgrade) {
+      return;
+    }
+
     _isSyncing = true;
     notifyListeners();
 
     try {
       await _apiClient.fetchVersionStatus();
       final snapshot = await _apiClient.fetchBootstrap();
-      _clearUpgradeRequirement();
+      _markRemoteSyncHealthy();
       _applySnapshot(snapshot);
-      _isOffline = false;
     } catch (error) {
       if (_captureUpgradeRequirement(error)) {
         return;
       }
-      _isOffline = true;
+      _enableLocalMode();
     } finally {
       _isSyncing = false;
       notifyListeners();
@@ -191,6 +241,18 @@ class BabyTalkAppState extends ChangeNotifier {
       return;
     }
 
+    if (_isOffline) {
+      _enableLocalMode();
+      _completeOnboardingLocal(
+        caregiverName: caregiverName,
+        childName: childName,
+        childAgeMonths: childAgeMonths,
+        difficulty: difficulty,
+      );
+      notifyListeners();
+      return;
+    }
+
     _isSyncing = true;
     notifyListeners();
 
@@ -201,20 +263,19 @@ class BabyTalkAppState extends ChangeNotifier {
         childAgeMonths: childAgeMonths,
         difficulty: difficulty,
       );
-      _clearUpgradeRequirement();
+      _markRemoteSyncHealthy();
       _applySnapshot(snapshot);
-      _isOffline = false;
     } catch (error) {
       if (_captureUpgradeRequirement(error)) {
         return;
       }
+      _enableLocalMode();
       _completeOnboardingLocal(
         caregiverName: caregiverName,
         childName: childName,
         childAgeMonths: childAgeMonths,
         difficulty: difficulty,
       );
-      _isOffline = true;
     } finally {
       _isSyncing = false;
       notifyListeners();
@@ -231,12 +292,7 @@ class BabyTalkAppState extends ChangeNotifier {
   }
 
   void setOfflineMode(bool isOffline) {
-    if (_isOffline == isOffline) {
-      return;
-    }
-
-    _isOffline = isOffline;
-    notifyListeners();
+    _updateConnectivityState(!isOffline);
   }
 
   Future<CelebrationMoment?> registerPhraseReaction({
@@ -248,6 +304,17 @@ class BabyTalkAppState extends ChangeNotifier {
       return null;
     }
 
+    if (_isOffline) {
+      _enableLocalMode();
+      final celebration = _registerPhraseReactionLocal(
+        activityId: activityId,
+        phraseId: phraseId,
+        reaction: reaction,
+      );
+      notifyListeners();
+      return celebration;
+    }
+
     _isSyncing = true;
     notifyListeners();
 
@@ -257,16 +324,15 @@ class BabyTalkAppState extends ChangeNotifier {
         phraseId: phraseId,
         reaction: reaction,
       );
-      _clearUpgradeRequirement();
+      _markRemoteSyncHealthy();
       _applySnapshot(result.snapshot);
       _pendingCelebration = result.celebration;
-      _isOffline = false;
       return result.celebration;
     } catch (error) {
       if (_captureUpgradeRequirement(error)) {
         return null;
       }
-      _isOffline = true;
+      _enableLocalMode();
       return _registerPhraseReactionLocal(
         activityId: activityId,
         phraseId: phraseId,
@@ -289,20 +355,26 @@ class BabyTalkAppState extends ChangeNotifier {
       return false;
     }
 
+    if (_isOffline) {
+      _enableLocalMode();
+      final success = _waterSelectedPatchLocal(spaceId);
+      notifyListeners();
+      return success;
+    }
+
     _isSyncing = true;
     notifyListeners();
 
     try {
       final result = await _apiClient.waterPatch(spaceId: spaceId);
-      _clearUpgradeRequirement();
+      _markRemoteSyncHealthy();
       _applySnapshot(result.snapshot);
-      _isOffline = false;
       return true;
     } catch (error) {
       if (_captureUpgradeRequirement(error)) {
         return false;
       }
-      _isOffline = true;
+      _enableLocalMode();
       return _waterSelectedPatchLocal(spaceId);
     } finally {
       _isSyncing = false;
@@ -323,20 +395,27 @@ class BabyTalkAppState extends ChangeNotifier {
         body: trimmed,
       ),
     );
+
+    if (_isOffline) {
+      _enableLocalMode();
+      _appendMentorReply(_buildLocalCoachReply(trimmed));
+      notifyListeners();
+      return;
+    }
+
     _isCoachReplying = true;
     notifyListeners();
 
     try {
       final reply = await _apiClient.askCoach(prompt: trimmed);
-      _clearUpgradeRequirement();
+      _markRemoteSyncHealthy();
       _appendMentorReply(reply);
-      _isOffline = false;
     } catch (error) {
       if (_captureUpgradeRequirement(error)) {
         return;
       }
+      _enableLocalMode();
       _appendMentorReply(_buildLocalCoachReply(trimmed));
-      _isOffline = true;
     } finally {
       _isCoachReplying = false;
       notifyListeners();
@@ -420,12 +499,34 @@ class BabyTalkAppState extends ChangeNotifier {
     }
 
     _upgradeRequiredMessage = error.message;
-    _isOffline = false;
     return true;
+  }
+
+  void _markRemoteSyncHealthy() {
+    _clearUpgradeRequirement();
+    _isUsingLocalMode = false;
   }
 
   void _clearUpgradeRequirement() {
     _upgradeRequiredMessage = null;
+  }
+
+  void _enableLocalMode() {
+    _isUsingLocalMode = true;
+  }
+
+  void _updateConnectivityState(bool hasConnection, {bool notify = true}) {
+    final nextOffline = !hasConnection;
+    final nextLocalMode = nextOffline ? true : _isUsingLocalMode;
+    final didChange =
+        _isOffline != nextOffline || _isUsingLocalMode != nextLocalMode;
+
+    _isOffline = nextOffline;
+    _isUsingLocalMode = nextLocalMode;
+
+    if (didChange && notify) {
+      notifyListeners();
+    }
   }
 
   void _appendMentorReply(CoachChatReply reply) {

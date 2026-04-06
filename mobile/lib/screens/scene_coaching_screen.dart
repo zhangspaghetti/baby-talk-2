@@ -2,6 +2,7 @@ import 'package:baby_talk_mobile/models/app_models.dart';
 import 'package:baby_talk_mobile/screens/celebration_screen.dart';
 import 'package:baby_talk_mobile/state/app_state.dart';
 import 'package:baby_talk_mobile/theme/app_theme.dart';
+import 'package:baby_talk_mobile/widgets/sync_mode_banner.dart';
 import 'package:baby_talk_mobile/widgets/upgrade_required_banner.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -69,6 +70,13 @@ class _SceneCoachingScreenState extends State<SceneCoachingScreen> {
                       message: appState.upgradeRequiredMessage,
                       compact: true,
                     ),
+                    const SizedBox(height: 12),
+                  ],
+                  if (appState.isUsingLocalMode &&
+                      !appState.requiresUpgrade) ...[
+                    (appState.isOffline
+                        ? const SyncModeBanner.offline(compact: true)
+                        : const SyncModeBanner.local(compact: true)),
                     const SizedBox(height: 12),
                   ],
                   Row(

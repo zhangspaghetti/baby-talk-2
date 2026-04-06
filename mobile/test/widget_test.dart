@@ -7,11 +7,15 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 
 import 'package:baby_talk_mobile/app.dart';
+import 'package:baby_talk_mobile/data/connectivity_monitor.dart';
 
 void main() {
   testWidgets('completes onboarding and lands in app shell', (tester) async {
     await tester.pumpWidget(
-      const BabyTalkApp(apiClient: DisabledBabyTalkApiClient()),
+      const BabyTalkApp(
+        apiClient: DisabledBabyTalkApiClient(),
+        connectivityMonitor: _StaticConnectivityMonitor.connected(),
+      ),
     );
 
     expect(find.text('先把第一句说出来'), findsOneWidget);
@@ -25,7 +29,10 @@ void main() {
 
   testWidgets('opens mentor sheet after onboarding', (tester) async {
     await tester.pumpWidget(
-      const BabyTalkApp(apiClient: DisabledBabyTalkApiClient()),
+      const BabyTalkApp(
+        apiClient: DisabledBabyTalkApiClient(),
+        connectivityMonitor: _StaticConnectivityMonitor.connected(),
+      ),
     );
 
     await _completeOnboarding(tester);
@@ -44,7 +51,10 @@ void main() {
     tester,
   ) async {
     await tester.pumpWidget(
-      const BabyTalkApp(apiClient: DisabledBabyTalkApiClient()),
+      const BabyTalkApp(
+        apiClient: DisabledBabyTalkApiClient(),
+        connectivityMonitor: _StaticConnectivityMonitor.connected(),
+      ),
     );
 
     await _completeOnboarding(tester);
@@ -69,7 +79,10 @@ void main() {
     tester,
   ) async {
     await tester.pumpWidget(
-      BabyTalkApp(apiClient: const _UpgradeRequiredApi()),
+      BabyTalkApp(
+        apiClient: const _UpgradeRequiredApi(),
+        connectivityMonitor: const _StaticConnectivityMonitor.connected(),
+      ),
     );
     await tester.pumpAndSettle();
 
@@ -83,8 +96,10 @@ void main() {
   ) async {
     await tester.pumpWidget(
       ChangeNotifierProvider(
-        create: (_) =>
-            BabyTalkAppState(apiClient: const DisabledBabyTalkApiClient()),
+        create: (_) => BabyTalkAppState(
+          apiClient: const DisabledBabyTalkApiClient(),
+          connectivityMonitor: const _StaticConnectivityMonitor.connected(),
+        ),
         child: MaterialApp(
           theme: AppTheme.light(),
           darkTheme: AppTheme.dark(),
@@ -135,4 +150,16 @@ class _UpgradeRequiredApi extends DisabledBabyTalkApiClient {
       ),
     );
   }
+}
+
+class _StaticConnectivityMonitor extends ConnectivityMonitor {
+  const _StaticConnectivityMonitor.connected() : _hasConnection = true;
+
+  final bool _hasConnection;
+
+  @override
+  Future<bool> get hasConnection async => _hasConnection;
+
+  @override
+  Stream<bool> get onStatusChange => const Stream<bool>.empty();
 }
