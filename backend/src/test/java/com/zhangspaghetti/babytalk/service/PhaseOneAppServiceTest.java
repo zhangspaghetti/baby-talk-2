@@ -4,12 +4,21 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.zhangspaghetti.babytalk.web.BabyTalkPayloads;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.jdbc.core.JdbcTemplate;
 
+@SpringBootTest
 class PhaseOneAppServiceTest {
+
+    @Autowired
+    private PhaseOneAppService service;
+
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
 
     @Test
     void bootstrapExposesSeedSnapshot() {
-        PhaseOneAppService service = new PhaseOneAppService();
         String sessionId = service.createSession().sessionId();
 
         BabyTalkPayloads.AppSnapshotResponse snapshot = service.bootstrap(sessionId);
@@ -22,7 +31,6 @@ class PhaseOneAppServiceTest {
 
     @Test
     void babbledReactionReturnsCelebrationAndSnapshotUpdate() {
-        PhaseOneAppService service = new PhaseOneAppService();
         String sessionId = service.createSession().sessionId();
 
         service.completeOnboarding(sessionId, new BabyTalkPayloads.OnboardingRequest(
@@ -52,7 +60,6 @@ class PhaseOneAppServiceTest {
 
     @Test
     void coachReplyReturnsUsablePhraseForBathPrompt() {
-        PhaseOneAppService service = new PhaseOneAppService();
         String sessionId = service.createSession().sessionId();
 
         BabyTalkPayloads.CoachAskResponse response = service.askCoach(
@@ -67,7 +74,6 @@ class PhaseOneAppServiceTest {
 
     @Test
     void sessionsKeepSnapshotsIsolated() {
-        PhaseOneAppService service = new PhaseOneAppService();
         String firstSessionId = service.createSession().sessionId();
         String secondSessionId = service.createSession().sessionId();
 
@@ -84,5 +90,26 @@ class PhaseOneAppServiceTest {
         assertThat(firstSnapshot.caregiverName()).isEqualTo("大宝妈妈");
         assertThat(secondSnapshot.caregiverName()).isEqualTo("小明妈妈");
         assertThat(secondSnapshot.onboardingComplete()).isFalse();
+    }
+
+    @Test
+    void completeOnboardingPersistsSnapshotToDatabase() {
+        String sessionId = service.createSession().sessionId();
+
+        service.completeOnboarding(sessionId, new BabyTalkPayloads.OnboardingRequest(
+                "乐乐爸爸",
+                "乐乐",
+                10,
+                "gentle"
+        ));
+
+        String snapshotJson = jdbcTemplate.queryForObject(
+                "select snapshot_json from app_sessions where session_id = ?",
+                String.class,
+                sessionId
+        );
+
+        assertThat(snapshotJson).contains("乐乐爸爸");
+        assertThat(snapshotJson).contains("\"onboardingComplete\":true");
     }
 }

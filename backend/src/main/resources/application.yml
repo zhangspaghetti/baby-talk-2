@@ -1,6 +1,14 @@
 spring:
   application:
     name: babytalk-backend
+  datasource:
+    url: ${BABY_TALK_DB_URL:jdbc:h2:file:./data/babytalk;MODE=PostgreSQL;AUTO_SERVER=TRUE;DATABASE_TO_LOWER=TRUE;DB_CLOSE_ON_EXIT=FALSE}
+    username: ${BABY_TALK_DB_USERNAME:sa}
+    password: ${BABY_TALK_DB_PASSWORD:}
+    driver-class-name: ${BABY_TALK_DB_DRIVER:org.h2.Driver}
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
 
 server:
   port: 8080

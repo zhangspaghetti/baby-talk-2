@@ -1,14 +1,18 @@
 package com.zhangspaghetti.babytalk.service;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.zhangspaghetti.babytalk.web.BabyTalkPayloads;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
+import java.sql.Timestamp;
+import java.time.Instant;
 import java.util.UUID;
 import org.springframework.http.HttpStatus;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -16,17 +20,20 @@ import org.springframework.web.server.ResponseStatusException;
 public class PhaseOneAppService {
 
     private final Object monitor = new Object();
-        private final Map<String, AppProfileState> sessions = new HashMap<>();
+        private final JdbcTemplate jdbcTemplate;
+        private final ObjectMapper objectMapper;
         private AppProfileState state;
 
-        public PhaseOneAppService() {
+        public PhaseOneAppService(JdbcTemplate jdbcTemplate, ObjectMapper objectMapper) {
+                this.jdbcTemplate = jdbcTemplate;
+                this.objectMapper = objectMapper;
                 state = createSeedState();
         }
 
         public BabyTalkPayloads.SessionResponse createSession() {
                 synchronized (monitor) {
                         String sessionId = UUID.randomUUID().toString();
-                        sessions.put(sessionId, createSeedState());
+                        persistNewSession(sessionId, toSnapshot(createSeedState()));
                         return new BabyTalkPayloads.SessionResponse(sessionId);
         }
         }
@@ -55,7 +62,9 @@ public class PhaseOneAppService {
                     "刚刚",
                     "auto_note"
             );
-            return toSnapshot(state);
+                        BabyTalkPayloads.AppSnapshotResponse snapshot = toSnapshot(state);
+                        persistSession(sessionId, snapshot);
+                        return snapshot;
         }
     }
 
@@ -128,7 +137,9 @@ public class PhaseOneAppService {
                 );
             }
 
-            return new BabyTalkPayloads.AppActionResponse(toSnapshot(state), celebration);
+                        BabyTalkPayloads.AppSnapshotResponse snapshot = toSnapshot(state);
+                        persistSession(sessionId, snapshot);
+                        return new BabyTalkPayloads.AppActionResponse(snapshot, celebration);
         }
     }
 
@@ -148,7 +159,9 @@ public class PhaseOneAppService {
                         "auto_note"
                 );
             }
-            return new BabyTalkPayloads.AppActionResponse(toSnapshot(state), null);
+                        BabyTalkPayloads.AppSnapshotResponse snapshot = toSnapshot(state);
+                        persistSession(sessionId, snapshot);
+                        return new BabyTalkPayloads.AppActionResponse(snapshot, null);
         }
     }
 
@@ -174,13 +187,132 @@ public class PhaseOneAppService {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Missing X-Session-Id header");
         }
 
-        AppProfileState sessionState = sessions.get(sessionId);
-        if (sessionState == null) {
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Unknown session: " + sessionId);
+                try {
+                        String snapshotJson = jdbcTemplate.queryForObject(
+                                        "select snapshot_json from app_sessions where session_id = ?",
+                                        String.class,
+                                        sessionId
+                        );
+                        BabyTalkPayloads.AppSnapshotResponse snapshot = objectMapper.readValue(
+                                        snapshotJson,
+                                        BabyTalkPayloads.AppSnapshotResponse.class
+                        );
+                        state = fromSnapshot(snapshot);
+                        touchSession(sessionId);
+                } catch (EmptyResultDataAccessException error) {
+                        throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Unknown session: " + sessionId, error);
+                } catch (JsonProcessingException error) {
+                        throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Stored session snapshot is invalid", error);
+        }
+    }
+
+        private void persistNewSession(String sessionId, BabyTalkPayloads.AppSnapshotResponse snapshot) {
+                Timestamp now = Timestamp.from(Instant.now());
+                jdbcTemplate.update(
+                                "insert into app_sessions (session_id, snapshot_json, created_at, updated_at, last_seen_at) values (?, ?, ?, ?, ?)",
+                                sessionId,
+                                writeSnapshot(snapshot),
+                                now,
+                                now,
+                                now
+                );
         }
 
-        state = sessionState;
-    }
+        private void persistSession(String sessionId, BabyTalkPayloads.AppSnapshotResponse snapshot) {
+                Timestamp now = Timestamp.from(Instant.now());
+                jdbcTemplate.update(
+                                "update app_sessions set snapshot_json = ?, updated_at = ?, last_seen_at = ? where session_id = ?",
+                                writeSnapshot(snapshot),
+                                now,
+                                now,
+                                sessionId
+                );
+        }
+
+        private void touchSession(String sessionId) {
+                jdbcTemplate.update(
+                                "update app_sessions set last_seen_at = ? where session_id = ?",
+                                Timestamp.from(Instant.now()),
+                                sessionId
+                );
+        }
+
+        private String writeSnapshot(BabyTalkPayloads.AppSnapshotResponse snapshot) {
+                try {
+                        return objectMapper.writeValueAsString(snapshot);
+                } catch (JsonProcessingException error) {
+                        throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Failed to persist session snapshot", error);
+                }
+        }
+
+        private AppProfileState fromSnapshot(BabyTalkPayloads.AppSnapshotResponse snapshot) {
+                List<BabyTalkPayloads.CoachSuggestionResponse> persistedCoachSuggestions = snapshot.coachSuggestions();
+                if (!persistedCoachSuggestions.isEmpty() && persistedCoachSuggestions.get(0).title().contains("当前最该做什么")) {
+                        persistedCoachSuggestions = persistedCoachSuggestions.subList(1, persistedCoachSuggestions.size());
+                }
+
+                return new AppProfileState(
+                                snapshot.caregiverName(),
+                                snapshot.childName(),
+                                snapshot.childAgeMonths(),
+                                snapshot.difficulty(),
+                                snapshot.onboardingComplete(),
+                                snapshot.growthPoints(),
+                                snapshot.weeklyPhraseCount(),
+                                snapshot.streakDays(),
+                                snapshot.spaces().stream()
+                                                .map(this::fromSpace)
+                                                .collect(ArrayList::new, ArrayList::add, ArrayList::addAll),
+                                snapshot.diaryEntries().stream()
+                                                .map(entry -> new DiaryEntryState(entry.title(), entry.subtitle(), entry.timeLabel(), entry.type()))
+                                                .collect(ArrayList::new, ArrayList::add, ArrayList::addAll),
+                                snapshot.milestones().stream()
+                                                .map(entry -> new MilestoneState(entry.title(), entry.detail(), entry.timeLabel()))
+                                                .collect(ArrayList::new, ArrayList::add, ArrayList::addAll),
+                                persistedCoachSuggestions.stream()
+                                                .map(entry -> new CoachSuggestionState(entry.title(), entry.detail()))
+                                                .collect(ArrayList::new, ArrayList::add, ArrayList::addAll),
+                                new HashSet<>(snapshot.earnedMilestoneIds())
+                );
+        }
+
+        private SpaceState fromSpace(BabyTalkPayloads.SpaceResponse snapshot) {
+                return new SpaceState(
+                                snapshot.id(),
+                                snapshot.name(),
+                                snapshot.subtitle(),
+                                snapshot.iconKey(),
+                                snapshot.colorHex(),
+                                snapshot.mapOffsetX(),
+                                snapshot.mapOffsetY(),
+                                snapshot.activities().stream()
+                                                .map(this::fromActivity)
+                                                .collect(ArrayList::new, ArrayList::add, ArrayList::addAll)
+                );
+        }
+
+        private ActivityState fromActivity(BabyTalkPayloads.ActivityResponse snapshot) {
+                return new ActivityState(
+                                snapshot.id(),
+                                snapshot.name(),
+                                snapshot.shortLabel(),
+                                snapshot.iconKey(),
+                                snapshot.progress(),
+                                snapshot.growthStage(),
+                                snapshot.phrases().stream()
+                                                .map(this::fromPhrase)
+                                                .collect(ArrayList::new, ArrayList::add, ArrayList::addAll)
+                );
+        }
+
+        private PhraseState fromPhrase(BabyTalkPayloads.PhraseResponse snapshot) {
+                return new PhraseState(
+                                snapshot.id(),
+                                snapshot.english(),
+                                snapshot.chinese(),
+                                snapshot.mastered()
+                );
+        }
 
     private BabyTalkPayloads.AppSnapshotResponse toSnapshot(AppProfileState currentState) {
         List<BabyTalkPayloads.SpaceResponse> spaces = currentState.spaces.stream()
@@ -809,13 +941,13 @@ public class PhaseOneAppService {
     private record CoachSuggestionState(String title, String detail) {
     }
 
-        private record CoachReplyBlueprint(
-                        String answer,
-                        String suggestedPhraseEnglish,
-                        String suggestedPhraseChinese,
-                        String followUpPrompt
-        ) {
-        }
+            private record CoachReplyBlueprint(
+                    String answer,
+                    String suggestedPhraseEnglish,
+                    String suggestedPhraseChinese,
+                    String followUpPrompt
+            ) {
+            }
 
     private record StageInfo(String badge, String title, int minMonths, int maxMonths, String coachCopy) {
     }
