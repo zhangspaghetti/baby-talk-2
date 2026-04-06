@@ -887,7 +887,7 @@ class _MentorFab extends StatelessWidget {
                                   ).textTheme.titleMedium,
                                 ),
                                 Text(
-                                  '先给你能立刻用上的建议，再慢慢接入真聊天。',
+                                  '先给你一句马上能用的话，再陪你把今天这个场景说顺。',
                                   style: Theme.of(context).textTheme.bodySmall,
                                 ),
                               ],
@@ -968,49 +968,7 @@ class _MentorFab extends StatelessWidget {
                           ),
                           Padding(
                             padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                _PaperCard(
-                                  color: Theme.of(
-                                    context,
-                                  ).extension<AppThemeTone>()!.paperSunken,
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        '聊天接口还没接',
-                                        style: Theme.of(
-                                          context,
-                                        ).textTheme.titleMedium,
-                                      ),
-                                      const SizedBox(height: 8),
-                                      Text(
-                                        '这个分支先把壳层和本地建议跑起来。下一层再接 SSE、ASR、速率限制和断线重连。',
-                                        style: Theme.of(
-                                          context,
-                                        ).textTheme.bodySmall,
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                const SizedBox(height: 16),
-                                TextField(
-                                  enabled: false,
-                                  decoration: const InputDecoration(
-                                    hintText: '联网后可向小禾老师提问',
-                                    prefixIcon: Icon(Icons.chat_bubble_outline),
-                                  ),
-                                ),
-                                const SizedBox(height: 12),
-                                OutlinedButton.icon(
-                                  onPressed: null,
-                                  icon: const Icon(Icons.mic_none_outlined),
-                                  label: const Text('语音输入待接入阿里云 ASR'),
-                                ),
-                              ],
-                            ),
+                            child: const _MentorChatTab(),
                           ),
                         ],
                       ),
@@ -1070,6 +1028,202 @@ class _ShellHeader extends StatelessWidget {
             tooltip: '通知',
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _MentorChatTab extends StatefulWidget {
+  const _MentorChatTab();
+
+  @override
+  State<_MentorChatTab> createState() => _MentorChatTabState();
+}
+
+class _MentorChatTabState extends State<_MentorChatTab> {
+  final TextEditingController _controller = TextEditingController();
+  final ScrollController _scrollController = ScrollController();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _sendPrompt(String prompt) async {
+    final trimmed = prompt.trim();
+    if (trimmed.isEmpty) {
+      return;
+    }
+
+    _controller.clear();
+    await context.read<BabyTalkAppState>().askCoach(trimmed);
+    if (!mounted) {
+      return;
+    }
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_scrollController.hasClients) {
+        _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final appState = context.watch<BabyTalkAppState>();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (appState.isOffline) ...[
+          _PaperCard(
+            color: Theme.of(context).extension<AppThemeTone>()!.paperSunken,
+            child: Text(
+              '当前是本地建议模式，恢复联网后会切回远端教练。',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+          ),
+          const SizedBox(height: 12),
+        ],
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            for (final suggestion in appState.coachSuggestions.take(3))
+              ActionChip(
+                label: Text(suggestion.title),
+                onPressed: appState.isCoachReplying
+                    ? null
+                    : () => _sendPrompt(suggestion.title),
+              ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        Expanded(
+          child: ListView.separated(
+            key: const Key('mentor-chat-thread'),
+            controller: _scrollController,
+            itemCount:
+                appState.coachChatMessages.length +
+                (appState.isCoachReplying ? 1 : 0),
+            separatorBuilder: (_, _) => const SizedBox(height: 12),
+            itemBuilder: (context, index) {
+              if (index >= appState.coachChatMessages.length) {
+                return _PaperCard(
+                  color: Theme.of(
+                    context,
+                  ).extension<AppThemeTone>()!.paperSunken,
+                  child: Text(
+                    '小禾老师正在整理一句马上能用的话…',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                );
+              }
+
+              final message = appState.coachChatMessages[index];
+              return _MentorChatBubble(message: message);
+            },
+          ),
+        ),
+        const SizedBox(height: 16),
+        Row(
+          children: [
+            Expanded(
+              child: TextField(
+                key: const Key('mentor-chat-input'),
+                controller: _controller,
+                onSubmitted: _sendPrompt,
+                enabled: !appState.isCoachReplying,
+                decoration: const InputDecoration(
+                  hintText: '把你现在卡住的时刻告诉小禾老师',
+                  prefixIcon: Icon(Icons.chat_bubble_outline),
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            FilledButton(
+              key: const Key('mentor-chat-send'),
+              onPressed: appState.isCoachReplying
+                  ? null
+                  : () => _sendPrompt(_controller.text),
+              child: const Icon(Icons.send_rounded),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        OutlinedButton.icon(
+          onPressed: null,
+          icon: const Icon(Icons.mic_none_outlined),
+          label: const Text('语音输入待接入阿里云 ASR'),
+        ),
+      ],
+    );
+  }
+}
+
+class _MentorChatBubble extends StatelessWidget {
+  const _MentorChatBubble({required this.message});
+
+  final CoachChatMessage message;
+
+  @override
+  Widget build(BuildContext context) {
+    final isUser = message.role == CoachChatRole.caregiver;
+    final tone = Theme.of(context).extension<AppThemeTone>()!;
+
+    return Align(
+      alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 320),
+        child: _PaperCard(
+          color: isUser
+              ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.14)
+              : tone.paperSunken,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(message.body, style: Theme.of(context).textTheme.bodyLarge),
+              if (message.suggestedPhraseEnglish != null) ...[
+                const SizedBox(height: 12),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.secondary.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(18),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        message.suggestedPhraseEnglish!,
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
+                      if (message.suggestedPhraseChinese != null) ...[
+                        const SizedBox(height: 6),
+                        Text(
+                          message.suggestedPhraseChinese!,
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ],
+              if (message.followUpPrompt != null) ...[
+                const SizedBox(height: 10),
+                Text(
+                  message.followUpPrompt!,
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ],
+            ],
+          ),
+        ),
       ),
     );
   }

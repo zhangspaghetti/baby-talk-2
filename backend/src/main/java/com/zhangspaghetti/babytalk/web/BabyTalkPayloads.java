@@ -107,4 +107,15 @@ public final class BabyTalkPayloads {
 
     public record WaterPatchRequest(String spaceId) {
     }
+
+        public record CoachAskRequest(String prompt) {
+        }
+
+        public record CoachAskResponse(
+                        String answer,
+                        String suggestedPhraseEnglish,
+                        String suggestedPhraseChinese,
+                        String followUpPrompt
+        ) {
+        }
 }

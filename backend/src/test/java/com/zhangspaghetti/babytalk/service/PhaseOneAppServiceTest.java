@@ -46,4 +46,17 @@ class PhaseOneAppServiceTest {
                         .progress()
         ).isGreaterThan(0.18);
     }
+
+    @Test
+    void coachReplyReturnsUsablePhraseForBathPrompt() {
+        PhaseOneAppService service = new PhaseOneAppService();
+
+        BabyTalkPayloads.CoachAskResponse response = service.askCoach(
+                new BabyTalkPayloads.CoachAskRequest("洗澡怎么开口")
+        );
+
+        assertThat(response.answer()).contains("洗澡时先别追求完整句");
+        assertThat(response.suggestedPhraseEnglish()).isEqualTo("Splash splash! Can you splash with me?");
+        assertThat(response.followUpPrompt()).contains("Water time feels warm and safe.");
+    }
 }

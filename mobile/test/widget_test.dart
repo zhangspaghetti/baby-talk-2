@@ -40,6 +40,31 @@ void main() {
     expect(find.text('马上要洗澡了，先练两句轻快的短语'), findsOneWidget);
   });
 
+  testWidgets('asks mentor a question and gets local fallback reply', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      const BabyTalkApp(apiClient: DisabledBabyTalkApiClient()),
+    );
+
+    await _completeOnboarding(tester);
+    await tester.tap(find.byKey(const Key('mentor-fab')));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('聊天'));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(
+      find.byKey(const Key('mentor-chat-input')),
+      '洗澡怎么开口',
+    );
+    await tester.tap(find.byKey(const Key('mentor-chat-send')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('洗澡时先别追求完整句。你先把水声、动作和一句英语绑在一起，宝宝比较容易接住。'), findsOneWidget);
+    expect(find.text('Splash splash! Can you splash with me?'), findsOneWidget);
+  });
+
   testWidgets('finishes a practice reaction and shows celebration', (
     tester,
   ) async {

@@ -129,6 +129,21 @@ public class PhaseOneAppService {
         }
     }
 
+        public BabyTalkPayloads.CoachAskResponse askCoach(
+                        BabyTalkPayloads.CoachAskRequest request
+        ) {
+                synchronized (monitor) {
+                        String prompt = request.prompt() == null ? "" : request.prompt().trim();
+                        CoachReplyBlueprint blueprint = coachReplyForPrompt(prompt);
+                        return new BabyTalkPayloads.CoachAskResponse(
+                                        blueprint.answer(),
+                                        blueprint.suggestedPhraseEnglish(),
+                                        blueprint.suggestedPhraseChinese(),
+                                        blueprint.followUpPrompt()
+                        );
+                }
+        }
+
     private BabyTalkPayloads.AppSnapshotResponse toSnapshot(AppProfileState currentState) {
         List<BabyTalkPayloads.SpaceResponse> spaces = currentState.spaces.stream()
                 .map(space -> new BabyTalkPayloads.SpaceResponse(
@@ -261,6 +276,59 @@ public class PhaseOneAppService {
             default -> throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Unknown reaction: " + reaction);
         };
     }
+
+            private CoachReplyBlueprint coachReplyForPrompt(String prompt) {
+                String normalized = prompt.toLowerCase();
+
+                if (prompt.contains("洗澡") || normalized.contains("bath")) {
+                    return coachReplyForActivity(
+                            "bath-time",
+                            "洗澡时先别追求完整句。你先把水声、动作和一句英语绑在一起，宝宝比较容易接住。"
+                    );
+                }
+                if (prompt.contains("哭") || prompt.contains("安抚") || prompt.contains("抱")) {
+                    return coachReplyForActivity(
+                            "comfort",
+                            "哭闹时先把语速放慢。先用一小句让宝宝听见你在，再决定要不要补第二句。"
+                    );
+                }
+                if (prompt.contains("喂") || prompt.contains("饭") || prompt.contains("辅食")) {
+                    return coachReplyForActivity(
+                            "feeding",
+                            "喂饭是最好建立反馈的时刻。勺子靠近嘴巴时说一句，最容易让宝宝把动作和声音连起来。"
+                    );
+                }
+                if (prompt.contains("睡") || prompt.contains("晚安") || prompt.contains("睡前")) {
+                    return coachReplyForActivity(
+                            "lullaby",
+                            "睡前不要换太多句子。今晚只要把一句安稳的短语重复两三次，就已经很够用了。"
+                    );
+                }
+
+                ActivityState fallbackActivity = state.spaces.stream()
+                        .flatMap(space -> space.activities.stream())
+                        .min((left, right) -> Double.compare(left.progress, right.progress))
+                        .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "No activities available"));
+                return coachReplyForActivity(
+                        fallbackActivity.id,
+                        "先抓一个今天一定会发生的时刻，不要同时想三件事。" + difficultyLabel(state.difficulty) + "难度下，一句能说出口的话比完整流程更重要。"
+                );
+            }
+
+            private CoachReplyBlueprint coachReplyForActivity(String activityId, String answer) {
+                ActivityState activity = findActivity(activityId);
+                PhraseState leadPhrase = activity.phrases.get(0);
+                PhraseState followUpPhrase = activity.phrases.size() > 1
+                        ? activity.phrases.get(1)
+                        : leadPhrase;
+
+                return new CoachReplyBlueprint(
+                        answer,
+                        leadPhrase.english,
+                        leadPhrase.chinese,
+                        "如果这一句顺了，再补一句 “" + followUpPhrase.english + "”。"
+                );
+            }
 
     private String normalizeDifficulty(String difficulty) {
         if (difficulty == null || difficulty.isBlank()) {
@@ -702,6 +770,14 @@ public class PhaseOneAppService {
 
     private record CoachSuggestionState(String title, String detail) {
     }
+
+        private record CoachReplyBlueprint(
+                        String answer,
+                        String suggestedPhraseEnglish,
+                        String suggestedPhraseChinese,
+                        String followUpPrompt
+        ) {
+        }
 
     private record StageInfo(String badge, String title, int minMonths, int maxMonths, String coachCopy) {
     }

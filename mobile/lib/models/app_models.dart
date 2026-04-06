@@ -113,6 +113,40 @@ class AppActionResult {
   final CelebrationMoment? celebration;
 }
 
+enum CoachChatRole { mentor, caregiver }
+
+class CoachChatReply {
+  const CoachChatReply({
+    required this.answer,
+    this.suggestedPhraseEnglish,
+    this.suggestedPhraseChinese,
+    this.followUpPrompt,
+  });
+
+  final String answer;
+  final String? suggestedPhraseEnglish;
+  final String? suggestedPhraseChinese;
+  final String? followUpPrompt;
+}
+
+class CoachChatMessage {
+  const CoachChatMessage({
+    required this.id,
+    required this.role,
+    required this.body,
+    this.suggestedPhraseEnglish,
+    this.suggestedPhraseChinese,
+    this.followUpPrompt,
+  });
+
+  final String id;
+  final CoachChatRole role;
+  final String body;
+  final String? suggestedPhraseEnglish;
+  final String? suggestedPhraseChinese;
+  final String? followUpPrompt;
+}
+
 class PhraseItem {
   const PhraseItem({
     required this.id,

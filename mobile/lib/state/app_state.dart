@@ -21,6 +21,7 @@ class BabyTalkAppState extends ChangeNotifier {
   final List<DiaryEntry> _diaryEntries = [];
   final List<MilestoneEntry> _milestones = [];
   final List<CoachSuggestion> _coachSuggestions = [];
+  final List<CoachChatMessage> _coachChatMessages = [];
 
   int _selectedTabIndex = 0;
   int _growthPoints = 42;
@@ -32,9 +33,11 @@ class BabyTalkAppState extends ChangeNotifier {
   bool _onboardingComplete = false;
   bool _isOffline = false;
   bool _isSyncing = false;
+  bool _isCoachReplying = false;
   bool _hasInitialized = false;
   int _weeklyPhraseCount = 23;
   int _streakDays = 5;
+  int _coachMessageCounter = 0;
   List<SpaceItem> _spaceTemplates = [];
   CelebrationMoment? _pendingCelebration;
 
@@ -46,6 +49,7 @@ class BabyTalkAppState extends ChangeNotifier {
   bool get needsOnboarding => !_onboardingComplete;
   bool get isOffline => _isOffline;
   bool get isSyncing => _isSyncing;
+  bool get isCoachReplying => _isCoachReplying;
   RoadmapStage get currentRoadmapStage =>
       RoadmapStage.forAgeMonths(_childAgeMonths);
   String get phaseLabel => currentRoadmapStage.label;
@@ -78,6 +82,8 @@ class BabyTalkAppState extends ChangeNotifier {
       List.unmodifiable(_spaceTemplates.map(_spaceWithState));
   List<DiaryEntry> get diaryEntries => List.unmodifiable(_diaryEntries);
   List<MilestoneEntry> get milestones => List.unmodifiable(_milestones);
+  List<CoachChatMessage> get coachChatMessages =>
+      List.unmodifiable(_coachChatMessages);
   List<CoachSuggestion> get coachSuggestions => List.unmodifiable([
     CoachSuggestion(
       title: '${currentRoadmapStage.title} 当前最该做什么？',
@@ -275,6 +281,35 @@ class BabyTalkAppState extends ChangeNotifier {
     }
   }
 
+  Future<void> askCoach(String prompt) async {
+    final trimmed = prompt.trim();
+    if (trimmed.isEmpty || _isCoachReplying) {
+      return;
+    }
+
+    _coachChatMessages.add(
+      CoachChatMessage(
+        id: _nextCoachMessageId(),
+        role: CoachChatRole.caregiver,
+        body: trimmed,
+      ),
+    );
+    _isCoachReplying = true;
+    notifyListeners();
+
+    try {
+      final reply = await _apiClient.askCoach(prompt: trimmed);
+      _appendMentorReply(reply);
+      _isOffline = false;
+    } catch (_) {
+      _appendMentorReply(_buildLocalCoachReply(trimmed));
+      _isOffline = true;
+    } finally {
+      _isCoachReplying = false;
+      notifyListeners();
+    }
+  }
+
   void _applySnapshot(AppSnapshot snapshot) {
     _caregiverName = snapshot.caregiverName;
     _childName = snapshot.childName;
@@ -332,9 +367,89 @@ class BabyTalkAppState extends ChangeNotifier {
     _coachSuggestions
       ..clear()
       ..addAll(SeedContent.coachSuggestions);
+    _coachChatMessages
+      ..clear()
+      ..add(
+        CoachChatMessage(
+          id: _nextCoachMessageId(),
+          role: CoachChatRole.mentor,
+          body: '我在。告诉我你现在最容易卡住的时刻，我先给你一句马上能用的话。',
+          followUpPrompt: '比如：洗澡怎么开口？宝宝哭闹时说什么？',
+        ),
+      );
     _earnedMilestones.clear();
     _rebuildActivityStateFromTemplates();
   }
+
+  void _appendMentorReply(CoachChatReply reply) {
+    _coachChatMessages.add(
+      CoachChatMessage(
+        id: _nextCoachMessageId(),
+        role: CoachChatRole.mentor,
+        body: reply.answer,
+        suggestedPhraseEnglish: reply.suggestedPhraseEnglish,
+        suggestedPhraseChinese: reply.suggestedPhraseChinese,
+        followUpPrompt: reply.followUpPrompt,
+      ),
+    );
+  }
+
+  CoachChatReply _buildLocalCoachReply(String prompt) {
+    final normalized = prompt.toLowerCase();
+
+    if (prompt.contains('洗澡') || normalized.contains('bath')) {
+      return _replyForActivity(
+        activityId: 'bath-time',
+        answer: '洗澡时先别追求完整句。你先把水声、动作和一句英语绑在一起，宝宝比较容易接住。',
+      );
+    }
+    if (prompt.contains('哭') || prompt.contains('安抚') || prompt.contains('抱')) {
+      return _replyForActivity(
+        activityId: 'comfort',
+        answer: '哭闹时先把语速放慢。先用一小句让宝宝听见“你在”，再决定要不要补第二句。',
+      );
+    }
+    if (prompt.contains('喂') || prompt.contains('饭') || prompt.contains('辅食')) {
+      return _replyForActivity(
+        activityId: 'feeding',
+        answer: '喂饭是最好建立反馈的时刻。嘴巴张开、勺子靠近，这两个动作本身就能托住英文句子。',
+      );
+    }
+    if (prompt.contains('睡') ||
+        prompt.contains('晚安') ||
+        prompt.contains('睡前')) {
+      return _replyForActivity(
+        activityId: 'lullaby',
+        answer: '睡前别换太多花样。今晚只要把一句安稳的短语重复两三次，就已经很够用了。',
+      );
+    }
+
+    return _replyForActivity(
+      activityId: featuredActivity.id,
+      answer:
+          '先抓一个你今天一定会遇到的时刻，不要同时想三件事。${difficulty.label} 难度下，一句能说出口的话比完整流程更重要。',
+    );
+  }
+
+  CoachChatReply _replyForActivity({
+    required String activityId,
+    required String answer,
+  }) {
+    final activity = activityById(activityId);
+    final leadPhrase = activity.phrases.first;
+    final followUpPhrase = activity.phrases.length > 1
+        ? activity.phrases[1]
+        : activity.phrases.first;
+
+    return CoachChatReply(
+      answer: answer,
+      suggestedPhraseEnglish: leadPhrase.english,
+      suggestedPhraseChinese: leadPhrase.chinese,
+      followUpPrompt: '如果这一句顺了，再补一句 “${followUpPhrase.english}”。',
+    );
+  }
+
+  String _nextCoachMessageId() => 'coach-${_coachMessageCounter++}';
 
   void _rebuildActivityStateFromTemplates() {
     _activityProgress.clear();

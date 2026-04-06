@@ -23,6 +23,8 @@ abstract class BabyTalkSyncApi {
   });
 
   Future<AppActionResult> waterPatch({required String spaceId});
+
+  Future<CoachChatReply> askCoach({required String prompt});
 }
 
 class DisabledBabyTalkApiClient extends BabyTalkSyncApi {
@@ -59,6 +61,11 @@ class DisabledBabyTalkApiClient extends BabyTalkSyncApi {
     return Future<AppActionResult>.error(
       const BabyTalkApiException('远端同步已禁用。'),
     );
+  }
+
+  @override
+  Future<CoachChatReply> askCoach({required String prompt}) {
+    return Future<CoachChatReply>.error(const BabyTalkApiException('远端同步已禁用。'));
   }
 }
 
@@ -118,6 +125,12 @@ class HttpBabyTalkApiClient extends BabyTalkSyncApi {
   Future<AppActionResult> waterPatch({required String spaceId}) async {
     final json = await _postJson('/api/v1/app/water', {'spaceId': spaceId});
     return _actionResultFromJson(json);
+  }
+
+  @override
+  Future<CoachChatReply> askCoach({required String prompt}) async {
+    final json = await _postJson('/api/v1/coach/ask', {'prompt': prompt});
+    return _coachReplyFromJson(json);
   }
 
   Future<Map<String, dynamic>> _getJson(String path) async {
@@ -215,6 +228,21 @@ class HttpBabyTalkApiClient extends BabyTalkSyncApi {
       detail: _stringValue(json, 'detail'),
       activityName: _stringValue(json, 'activityName'),
       gainedPoints: _intValue(json, 'gainedPoints'),
+    );
+  }
+
+  CoachChatReply _coachReplyFromJson(Map<String, dynamic> json) {
+    return CoachChatReply(
+      answer: _stringValue(json, 'answer'),
+      suggestedPhraseEnglish: _nullableStringValue(
+        json,
+        'suggestedPhraseEnglish',
+      ),
+      suggestedPhraseChinese: _nullableStringValue(
+        json,
+        'suggestedPhraseChinese',
+      ),
+      followUpPrompt: _nullableStringValue(json, 'followUpPrompt'),
     );
   }
 
@@ -318,6 +346,17 @@ class HttpBabyTalkApiClient extends BabyTalkSyncApi {
       return value;
     }
     throw BabyTalkApiException('缺少字符串字段 $key。');
+  }
+
+  String? _nullableStringValue(Map<String, dynamic> json, String key) {
+    final value = json[key];
+    if (value == null) {
+      return null;
+    }
+    if (value is String) {
+      return value;
+    }
+    throw BabyTalkApiException('字段 $key 不是字符串。');
   }
 
   int _intValue(Map<String, dynamic> json, String key) {
