@@ -35,6 +35,7 @@ class BabyTalkAppState extends ChangeNotifier {
   bool _isSyncing = false;
   bool _isCoachReplying = false;
   bool _hasInitialized = false;
+  String? _upgradeRequiredMessage;
   int _weeklyPhraseCount = 23;
   int _streakDays = 5;
   int _coachMessageCounter = 0;
@@ -50,6 +51,9 @@ class BabyTalkAppState extends ChangeNotifier {
   bool get isOffline => _isOffline;
   bool get isSyncing => _isSyncing;
   bool get isCoachReplying => _isCoachReplying;
+  bool get requiresUpgrade => _upgradeRequiredMessage != null;
+  String get upgradeRequiredMessage =>
+      _upgradeRequiredMessage ?? '当前 App 版本过旧，请升级后继续同步。';
   RoadmapStage get currentRoadmapStage =>
       RoadmapStage.forAgeMonths(_childAgeMonths);
   String get phaseLabel => currentRoadmapStage.label;
@@ -106,10 +110,15 @@ class BabyTalkAppState extends ChangeNotifier {
     notifyListeners();
 
     try {
+      await _apiClient.fetchVersionStatus();
       final snapshot = await _apiClient.fetchBootstrap();
+      _clearUpgradeRequirement();
       _applySnapshot(snapshot);
       _isOffline = false;
-    } catch (_) {
+    } catch (error) {
+      if (_captureUpgradeRequirement(error)) {
+        return;
+      }
       _isOffline = true;
     } finally {
       _isSyncing = false;
@@ -178,6 +187,10 @@ class BabyTalkAppState extends ChangeNotifier {
     required int childAgeMonths,
     required AppDifficulty difficulty,
   }) async {
+    if (requiresUpgrade) {
+      return;
+    }
+
     _isSyncing = true;
     notifyListeners();
 
@@ -188,9 +201,13 @@ class BabyTalkAppState extends ChangeNotifier {
         childAgeMonths: childAgeMonths,
         difficulty: difficulty,
       );
+      _clearUpgradeRequirement();
       _applySnapshot(snapshot);
       _isOffline = false;
-    } catch (_) {
+    } catch (error) {
+      if (_captureUpgradeRequirement(error)) {
+        return;
+      }
       _completeOnboardingLocal(
         caregiverName: caregiverName,
         childName: childName,
@@ -227,6 +244,10 @@ class BabyTalkAppState extends ChangeNotifier {
     required String phraseId,
     required PhraseReaction reaction,
   }) async {
+    if (requiresUpgrade) {
+      return null;
+    }
+
     _isSyncing = true;
     notifyListeners();
 
@@ -236,11 +257,15 @@ class BabyTalkAppState extends ChangeNotifier {
         phraseId: phraseId,
         reaction: reaction,
       );
+      _clearUpgradeRequirement();
       _applySnapshot(result.snapshot);
       _pendingCelebration = result.celebration;
       _isOffline = false;
       return result.celebration;
-    } catch (_) {
+    } catch (error) {
+      if (_captureUpgradeRequirement(error)) {
+        return null;
+      }
       _isOffline = true;
       return _registerPhraseReactionLocal(
         activityId: activityId,
@@ -260,7 +285,7 @@ class BabyTalkAppState extends ChangeNotifier {
   }
 
   Future<bool> waterSelectedPatch(String spaceId) async {
-    if (_growthPoints < 5) {
+    if (requiresUpgrade || _growthPoints < 5) {
       return false;
     }
 
@@ -269,10 +294,14 @@ class BabyTalkAppState extends ChangeNotifier {
 
     try {
       final result = await _apiClient.waterPatch(spaceId: spaceId);
+      _clearUpgradeRequirement();
       _applySnapshot(result.snapshot);
       _isOffline = false;
       return true;
-    } catch (_) {
+    } catch (error) {
+      if (_captureUpgradeRequirement(error)) {
+        return false;
+      }
       _isOffline = true;
       return _waterSelectedPatchLocal(spaceId);
     } finally {
@@ -283,7 +312,7 @@ class BabyTalkAppState extends ChangeNotifier {
 
   Future<void> askCoach(String prompt) async {
     final trimmed = prompt.trim();
-    if (trimmed.isEmpty || _isCoachReplying) {
+    if (trimmed.isEmpty || _isCoachReplying || requiresUpgrade) {
       return;
     }
 
@@ -299,9 +328,13 @@ class BabyTalkAppState extends ChangeNotifier {
 
     try {
       final reply = await _apiClient.askCoach(prompt: trimmed);
+      _clearUpgradeRequirement();
       _appendMentorReply(reply);
       _isOffline = false;
-    } catch (_) {
+    } catch (error) {
+      if (_captureUpgradeRequirement(error)) {
+        return;
+      }
       _appendMentorReply(_buildLocalCoachReply(trimmed));
       _isOffline = true;
     } finally {
@@ -379,6 +412,20 @@ class BabyTalkAppState extends ChangeNotifier {
       );
     _earnedMilestones.clear();
     _rebuildActivityStateFromTemplates();
+  }
+
+  bool _captureUpgradeRequirement(Object error) {
+    if (error is! BabyTalkUpgradeRequiredException) {
+      return false;
+    }
+
+    _upgradeRequiredMessage = error.message;
+    _isOffline = false;
+    return true;
+  }
+
+  void _clearUpgradeRequirement() {
+    _upgradeRequiredMessage = null;
   }
 
   void _appendMentorReply(CoachChatReply reply) {

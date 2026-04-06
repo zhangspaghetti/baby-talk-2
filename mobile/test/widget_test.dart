@@ -65,6 +65,19 @@ void main() {
     expect(find.text('Splash splash! Can you splash with me?'), findsOneWidget);
   });
 
+  testWidgets('shows upgrade banner when app version is unsupported', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      BabyTalkApp(apiClient: const _UpgradeRequiredApi()),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('upgrade-required-banner')), findsOneWidget);
+    expect(find.text('当前 App 版本过旧，请升级到 1.0.0 或更高版本后继续同步。'), findsOneWidget);
+    expect(find.text('先把第一句说出来'), findsOneWidget);
+  });
+
   testWidgets('finishes a practice reaction and shows celebration', (
     tester,
   ) async {
@@ -106,4 +119,20 @@ Future<void> _completeOnboarding(WidgetTester tester) async {
 
   await tester.tap(find.byKey(const Key('onboarding-finish-button')));
   await tester.pumpAndSettle();
+}
+
+class _UpgradeRequiredApi extends DisabledBabyTalkApiClient {
+  const _UpgradeRequiredApi();
+
+  @override
+  Future<AppVersionStatus> fetchVersionStatus() {
+    return Future<AppVersionStatus>.error(
+      const BabyTalkUpgradeRequiredException(
+        message: '当前 App 版本过旧，请升级到 1.0.0 或更高版本后继续同步。',
+        appVersion: '0.9.0',
+        currentVersion: '1.0.0',
+        minSupportedVersion: '1.0.0',
+      ),
+    );
+  }
 }

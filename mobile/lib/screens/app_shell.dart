@@ -2,6 +2,7 @@ import 'package:baby_talk_mobile/models/app_models.dart';
 import 'package:baby_talk_mobile/screens/scene_coaching_screen.dart';
 import 'package:baby_talk_mobile/state/app_state.dart';
 import 'package:baby_talk_mobile/theme/app_theme.dart';
+import 'package:baby_talk_mobile/widgets/upgrade_required_banner.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -622,23 +623,27 @@ class _GardenTab extends StatelessWidget {
                 const SizedBox(height: 16),
               ],
               FilledButton.icon(
-                onPressed: () async {
-                  final success = await appState.waterSelectedPatch(
-                    appState.spaces.first.id,
-                  );
-                  if (!context.mounted) {
-                    return;
-                  }
-                  final messenger = ScaffoldMessenger.of(context);
-                  messenger.hideCurrentSnackBar();
-                  messenger.showSnackBar(
-                    SnackBar(
-                      content: Text(
-                        success ? '🌱 已浇水，先把循环跑顺，动画下一层接。' : '生长点不够了，先去练几句。',
-                      ),
-                    ),
-                  );
-                },
+                onPressed: appState.requiresUpgrade || appState.isSyncing
+                    ? null
+                    : () async {
+                        final success = await appState.waterSelectedPatch(
+                          appState.spaces.first.id,
+                        );
+                        if (!context.mounted) {
+                          return;
+                        }
+                        final messenger = ScaffoldMessenger.of(context);
+                        messenger.hideCurrentSnackBar();
+                        messenger.showSnackBar(
+                          SnackBar(
+                            content: Text(
+                              success
+                                  ? '🌱 已浇水，先把循环跑顺，动画下一层接。'
+                                  : '生长点不够了，先去练几句。',
+                            ),
+                          ),
+                        );
+                      },
                 icon: const Icon(Icons.water_drop_outlined),
                 label: const Text('浇水 -5 生长点'),
               ),
@@ -1077,6 +1082,13 @@ class _MentorChatTabState extends State<_MentorChatTab> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        if (appState.requiresUpgrade) ...[
+          UpgradeRequiredBanner(
+            message: appState.upgradeRequiredMessage,
+            compact: true,
+          ),
+          const SizedBox(height: 12),
+        ],
         if (appState.isOffline) ...[
           _PaperCard(
             color: Theme.of(context).extension<AppThemeTone>()!.paperSunken,
@@ -1094,7 +1106,7 @@ class _MentorChatTabState extends State<_MentorChatTab> {
             for (final suggestion in appState.coachSuggestions.take(3))
               ActionChip(
                 label: Text(suggestion.title),
-                onPressed: appState.isCoachReplying
+                onPressed: appState.isCoachReplying || appState.requiresUpgrade
                     ? null
                     : () => _sendPrompt(suggestion.title),
               ),
@@ -1135,7 +1147,7 @@ class _MentorChatTabState extends State<_MentorChatTab> {
                 key: const Key('mentor-chat-input'),
                 controller: _controller,
                 onSubmitted: _sendPrompt,
-                enabled: !appState.isCoachReplying,
+                enabled: !appState.isCoachReplying && !appState.requiresUpgrade,
                 decoration: const InputDecoration(
                   hintText: '把你现在卡住的时刻告诉小禾老师',
                   prefixIcon: Icon(Icons.chat_bubble_outline),
@@ -1145,7 +1157,7 @@ class _MentorChatTabState extends State<_MentorChatTab> {
             const SizedBox(width: 12),
             FilledButton(
               key: const Key('mentor-chat-send'),
-              onPressed: appState.isCoachReplying
+              onPressed: appState.isCoachReplying || appState.requiresUpgrade
                   ? null
                   : () => _sendPrompt(_controller.text),
               child: const Icon(Icons.send_rounded),

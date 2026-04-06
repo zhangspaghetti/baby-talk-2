@@ -2,6 +2,7 @@ import 'package:baby_talk_mobile/models/app_models.dart';
 import 'package:baby_talk_mobile/screens/celebration_screen.dart';
 import 'package:baby_talk_mobile/state/app_state.dart';
 import 'package:baby_talk_mobile/theme/app_theme.dart';
+import 'package:baby_talk_mobile/widgets/upgrade_required_banner.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -63,6 +64,13 @@ class _SceneCoachingScreenState extends State<SceneCoachingScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  if (appState.requiresUpgrade) ...[
+                    UpgradeRequiredBanner(
+                      message: appState.upgradeRequiredMessage,
+                      compact: true,
+                    ),
+                    const SizedBox(height: 12),
+                  ],
                   Row(
                     children: [
                       Expanded(
@@ -152,7 +160,9 @@ class _SceneCoachingScreenState extends State<SceneCoachingScreen> {
                             child: expanded
                                 ? _ExpandedPhraseCard(
                                     phrase: phrase,
-                                    isBusy: appState.isSyncing,
+                                    isBusy:
+                                        appState.isSyncing ||
+                                        appState.requiresUpgrade,
                                     onReactionSelected: (reaction) =>
                                         _handleReaction(
                                           context,

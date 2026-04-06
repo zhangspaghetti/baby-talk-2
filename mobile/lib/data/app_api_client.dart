@@ -7,6 +7,8 @@ import 'package:http/http.dart' as http;
 abstract class BabyTalkSyncApi {
   const BabyTalkSyncApi();
 
+  Future<AppVersionStatus> fetchVersionStatus();
+
   Future<AppSnapshot> fetchBootstrap();
 
   Future<AppSnapshot> completeOnboarding({
@@ -29,6 +31,13 @@ abstract class BabyTalkSyncApi {
 
 class DisabledBabyTalkApiClient extends BabyTalkSyncApi {
   const DisabledBabyTalkApiClient();
+
+  @override
+  Future<AppVersionStatus> fetchVersionStatus() {
+    return Future<AppVersionStatus>.error(
+      const BabyTalkApiException('远端同步已禁用。'),
+    );
+  }
 
   @override
   Future<AppSnapshot> fetchBootstrap() {
@@ -75,13 +84,37 @@ class HttpBabyTalkApiClient extends BabyTalkSyncApi {
       'BABY_TALK_API_BASE_URL',
       defaultValue: 'http://127.0.0.1:8080',
     ),
+    this.appVersion = const String.fromEnvironment(
+      'BABY_TALK_APP_VERSION',
+      defaultValue: '1.0.0+1',
+    ),
     http.Client? httpClient,
   }) : _httpClient = httpClient;
 
   final String baseUrl;
+  final String appVersion;
   final http.Client? _httpClient;
 
   static const Duration _timeout = Duration(seconds: 3);
+
+  @override
+  Future<AppVersionStatus> fetchVersionStatus() async {
+    final json = await _getJson(
+      '/api/v1/config/version',
+      includeVersionHeader: false,
+    );
+    final status = _versionStatusFromJson(json);
+    if (!_isVersionSupported(appVersion, status.minSupportedVersion)) {
+      throw BabyTalkUpgradeRequiredException(
+        message: '当前 App 版本过旧，请升级到 ${status.minSupportedVersion} 或更高版本后继续同步。',
+        appVersion: appVersion,
+        currentVersion: status.currentVersion,
+        minSupportedVersion: status.minSupportedVersion,
+      );
+    }
+
+    return status;
+  }
 
   @override
   Future<AppSnapshot> fetchBootstrap() async {
@@ -133,18 +166,30 @@ class HttpBabyTalkApiClient extends BabyTalkSyncApi {
     return _coachReplyFromJson(json);
   }
 
-  Future<Map<String, dynamic>> _getJson(String path) async {
-    return _send((client) => client.get(_uri(path)));
+  Future<Map<String, dynamic>> _getJson(
+    String path, {
+    bool includeVersionHeader = true,
+  }) async {
+    return _send(
+      (client) => client.get(
+        _uri(path),
+        headers: _headers(includeVersionHeader: includeVersionHeader),
+      ),
+    );
   }
 
   Future<Map<String, dynamic>> _postJson(
     String path,
-    Map<String, Object?> body,
-  ) async {
+    Map<String, Object?> body, {
+    bool includeVersionHeader = true,
+  }) async {
     return _send(
       (client) => client.post(
         _uri(path),
-        headers: const {'Content-Type': 'application/json'},
+        headers: _headers(
+          includeContentType: true,
+          includeVersionHeader: includeVersionHeader,
+        ),
         body: jsonEncode(body),
       ),
     );
@@ -158,12 +203,15 @@ class HttpBabyTalkApiClient extends BabyTalkSyncApi {
 
     try {
       final response = await request(client).timeout(_timeout);
+      if (response.statusCode == 426) {
+        throw _upgradeExceptionFromResponse(response);
+      }
       if (response.statusCode < 200 || response.statusCode >= 300) {
         throw BabyTalkApiException('接口返回异常状态 ${response.statusCode}。');
       }
 
-      final decoded = jsonDecode(response.body);
-      if (decoded is! Map<String, dynamic>) {
+      final decoded = _decodeObject(response.body);
+      if (decoded == null) {
         throw const BabyTalkApiException('接口响应不是对象结构。');
       }
 
@@ -181,6 +229,61 @@ class HttpBabyTalkApiClient extends BabyTalkSyncApi {
   }
 
   Uri _uri(String path) => Uri.parse('$baseUrl$path');
+
+  Map<String, String> _headers({
+    bool includeContentType = false,
+    bool includeVersionHeader = true,
+  }) {
+    final headers = <String, String>{};
+    if (includeContentType) {
+      headers['Content-Type'] = 'application/json';
+    }
+    if (includeVersionHeader) {
+      headers['X-App-Version'] = appVersion;
+    }
+    return headers;
+  }
+
+  Map<String, dynamic>? _decodeObject(String body) {
+    final trimmed = body.trim();
+    if (trimmed.isEmpty) {
+      return null;
+    }
+
+    try {
+      final decoded = jsonDecode(trimmed);
+      if (decoded is Map<String, dynamic>) {
+        return decoded;
+      }
+    } on FormatException {
+      return null;
+    }
+
+    return null;
+  }
+
+  BabyTalkUpgradeRequiredException _upgradeExceptionFromResponse(
+    http.Response response,
+  ) {
+    final json = _decodeObject(response.body);
+    if (json != null) {
+      return BabyTalkUpgradeRequiredException(
+        message:
+            _nullableStringValue(json, 'message') ?? '当前 App 版本过旧，请升级后继续同步。',
+        appVersion:
+            _nullableStringValue(json, 'requestedVersion') ?? appVersion,
+        currentVersion: _nullableStringValue(json, 'currentVersion'),
+        minSupportedVersion: _nullableStringValue(json, 'minSupportedVersion'),
+      );
+    }
+
+    return BabyTalkUpgradeRequiredException(
+      message: '当前 App 版本过旧，请升级后继续同步。',
+      appVersion: appVersion,
+      currentVersion: response.headers['x-current-version'],
+      minSupportedVersion: response.headers['x-min-supported-version'],
+    );
+  }
 
   AppActionResult _actionResultFromJson(Map<String, dynamic> json) {
     return AppActionResult(
@@ -243,6 +346,15 @@ class HttpBabyTalkApiClient extends BabyTalkSyncApi {
         'suggestedPhraseChinese',
       ),
       followUpPrompt: _nullableStringValue(json, 'followUpPrompt'),
+    );
+  }
+
+  AppVersionStatus _versionStatusFromJson(Map<String, dynamic> json) {
+    return AppVersionStatus(
+      currentVersion: _stringValue(json, 'currentVersion'),
+      minSupportedVersion: _stringValue(json, 'minSupportedVersion'),
+      upgradeRequired: json['upgradeRequired'] as bool? ?? false,
+      message: _nullableStringValue(json, 'message'),
     );
   }
 
@@ -381,6 +493,52 @@ class HttpBabyTalkApiClient extends BabyTalkSyncApi {
     throw BabyTalkApiException('缺少数字字段 $key。');
   }
 
+  bool _isVersionSupported(String version, String minSupportedVersion) {
+    return _compareVersions(version, minSupportedVersion) >= 0;
+  }
+
+  int _compareVersions(String left, String right) {
+    final leftParts = _parseVersion(left);
+    final rightParts = _parseVersion(right);
+    final length = leftParts.length > rightParts.length
+        ? leftParts.length
+        : rightParts.length;
+
+    for (var index = 0; index < length; index += 1) {
+      final leftPart = index < leftParts.length ? leftParts[index] : 0;
+      final rightPart = index < rightParts.length ? rightParts[index] : 0;
+      if (leftPart != rightPart) {
+        return leftPart.compareTo(rightPart);
+      }
+    }
+
+    return 0;
+  }
+
+  List<int> _parseVersion(String value) {
+    var normalized = value.trim();
+    final buildSeparator = normalized.indexOf('+');
+    if (buildSeparator >= 0) {
+      normalized = normalized.substring(0, buildSeparator);
+    }
+
+    final preReleaseSeparator = normalized.indexOf('-');
+    if (preReleaseSeparator >= 0) {
+      normalized = normalized.substring(0, preReleaseSeparator);
+    }
+
+    final tokens = normalized.split('.');
+    final parts = <int>[];
+    for (final token in tokens) {
+      final digits = token.replaceAll(RegExp('[^0-9]'), '');
+      parts.add(int.tryParse(digits.isEmpty ? '0' : digits) ?? 0);
+    }
+    while (parts.length < 3) {
+      parts.add(0);
+    }
+    return parts;
+  }
+
   AppDifficulty _difficultyFromString(String value) {
     switch (value) {
       case 'gentle':
@@ -474,4 +632,31 @@ class BabyTalkApiException implements Exception {
 
   @override
   String toString() => message;
+}
+
+class BabyTalkUpgradeRequiredException extends BabyTalkApiException {
+  const BabyTalkUpgradeRequiredException({
+    required String message,
+    required this.appVersion,
+    this.currentVersion,
+    this.minSupportedVersion,
+  }) : super(message);
+
+  final String appVersion;
+  final String? currentVersion;
+  final String? minSupportedVersion;
+}
+
+class AppVersionStatus {
+  const AppVersionStatus({
+    required this.currentVersion,
+    required this.minSupportedVersion,
+    required this.upgradeRequired,
+    this.message,
+  });
+
+  final String currentVersion;
+  final String minSupportedVersion;
+  final bool upgradeRequired;
+  final String? message;
 }

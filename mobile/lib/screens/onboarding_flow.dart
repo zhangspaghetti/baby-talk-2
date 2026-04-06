@@ -183,7 +183,9 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
                             ? 'onboarding-start-button'
                             : 'onboarding-next-button',
                       ),
-                      onPressed: appState.isSyncing && isLastStep
+                      onPressed:
+                          (appState.isSyncing && isLastStep) ||
+                              (appState.requiresUpgrade && isLastStep)
                           ? null
                           : () async {
                               if (isLastStep) {
