@@ -1,0 +1,48 @@
+{
+  "schemaVersion": 1,
+  "spaces": [
+    {
+      "id": "daily_care",
+      "title": "日常照护",
+      "description": "把洗澡时间变成一个温柔、可重复的英文互动时刻。",
+      "activities": [
+        {
+          "id": "bath_time",
+          "title": "洗澡时间",
+          "summary": "从暖水、泼水到收尾，一次完成三句真实可说出口的 bath time 短语。",
+          "sceneTag": "Bath time",
+          "coachTip": "用慢速、夸张表情和重复节奏，让宝宝先把英语和舒服、安全的体验绑定起来。",
+          "phrases": [
+            {
+              "id": "bath_time_warm_water",
+              "step": 1,
+              "english": "Warm water.",
+              "chinese": "水暖暖的。",
+              "pronunciation": "wɔːrm ˈwɔː.t̬ɚ",
+              "difficulty": "starter",
+              "audioAsset": "assets/audio/phrases/bath_time_warm_water.mp3"
+            },
+            {
+              "id": "bath_time_splash_splash",
+              "step": 2,
+              "english": "Splash, splash!",
+              "chinese": "哗啦，哗啦！",
+              "pronunciation": "splæʃ splæʃ",
+              "difficulty": "starter",
+              "audioAsset": "assets/audio/phrases/bath_time_splash_splash.mp3"
+            },
+            {
+              "id": "bath_time_all_clean",
+              "step": 3,
+              "english": "All clean.",
+              "chinese": "洗干净啦。",
+              "pronunciation": "ɔːl kliːn",
+              "difficulty": "starter",
+              "audioAsset": "assets/audio/phrases/bath_time_all_clean.mp3"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,53 @@
+name: mobile
+description: "Baby Talk 2 mobile shell"
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.11.4
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.8
+  provider: ^6.1.5
+  audioplayers: ^6.5.1
+  isar: ^3.1.0+1
+  isar_flutter_libs: ^3.1.0+1
+  path_provider: ^2.1.5
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  integration_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+  build_runner: ^2.4.13
+  isar_generator: ^3.1.0+1
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/content/seed_content.json
+    - assets/audio/phrases/bath_time_warm_water.mp3
+    - assets/audio/phrases/bath_time_splash_splash.mp3
+    - assets/audio/phrases/bath_time_all_clean.mp3
+  fonts:
+    - family: Fraunces
+      fonts:
+        - asset: assets/fonts/fraunces/Fraunces-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/fraunces/Fraunces-Bold.ttf
+          weight: 700
+    - family: DM Sans
+      fonts:
+        - asset: assets/fonts/dm_sans/DMSans-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/dm_sans/DMSans-Bold.ttf
+          weight: 700
+    - family: JetBrains Mono
+      fonts:
+        - asset: assets/fonts/jetbrains_mono/JetBrainsMono-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/jetbrains_mono/JetBrainsMono-Medium.ttf
+          weight: 500
