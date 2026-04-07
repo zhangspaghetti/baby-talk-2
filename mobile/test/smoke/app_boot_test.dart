@@ -47,29 +47,30 @@ void main() {
     expect(bundle.validateAssets(rootBundle), throwsFormatException);
   });
 
-  testWidgets('app boot smoke renders safe empty state and loads bundled assets', (
-    WidgetTester tester,
-  ) async {
-    final bootState = await AppBootState.load(rootBundle);
+  testWidgets(
+    'app boot smoke renders safe empty state and loads bundled assets',
+    (WidgetTester tester) async {
+      final bootState = await AppBootState.load(rootBundle);
 
-    expect(bootState.isReady, isTrue);
-    expect(bootState.content, isNotNull);
+      expect(bootState.isReady, isTrue);
+      expect(bootState.content, isNotNull);
 
-    await tester.pumpWidget(BabyTalkApp(bootState: bootState));
-    await tester.pumpAndSettle();
+      await tester.pumpWidget(BabyTalkApp(bootState: bootState));
+      await tester.pumpAndSettle();
 
-    expect(find.text('开始练习'), findsOneWidget);
-    expect(find.text('离线种子已就绪'), findsOneWidget);
-    await tester.scrollUntilVisible(
-      find.byKey(const Key('recent-result-empty')),
-      200,
-    );
-    expect(find.byKey(const Key('recent-result-empty')), findsOneWidget);
+      expect(find.text('开始练习'), findsOneWidget);
+      expect(find.text('离线种子已就绪'), findsOneWidget);
+      await tester.scrollUntilVisible(
+        find.byKey(const Key('recent-result-empty')),
+        200,
+      );
+      expect(find.byKey(const Key('recent-result-empty')), findsOneWidget);
 
-    final phrases = bootState.content!.primaryActivity.phrases;
-    for (final phrase in phrases) {
-      final audioBytes = await rootBundle.load(phrase.audioAsset);
-      expect(audioBytes.lengthInBytes, greaterThan(0));
-    }
-  });
+      final phrases = bootState.content!.primaryActivity.phrases;
+      for (final phrase in phrases) {
+        final audioBytes = await rootBundle.load(phrase.audioAsset);
+        expect(audioBytes.lengthInBytes, greaterThan(0));
+      }
+    },
+  );
 }

@@ -4,7 +4,9 @@ import 'package:mobile/app/app.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await SystemChrome.setPreferredOrientations(const [DeviceOrientation.portraitUp]);
+  await SystemChrome.setPreferredOrientations(const [
+    DeviceOrientation.portraitUp,
+  ]);
   final bootState = await AppBootState.load(rootBundle);
   runApp(BabyTalkApp(bootState: bootState));
 }

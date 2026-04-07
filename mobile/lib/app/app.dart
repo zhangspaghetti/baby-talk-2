@@ -1,10 +1,12 @@
-import 'dart:convert';
-
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
 import 'package:mobile/app/router/app_router.dart';
 import 'package:mobile/app/theme/app_theme.dart';
+import 'package:mobile/features/practice/data/services/asset_phrase_service.dart';
 import 'package:provider/provider.dart';
+
+export 'package:mobile/features/practice/data/services/asset_phrase_service.dart'
+    show SeedActivity, SeedContentBundle, SeedPhrase, SeedSpace;
 
 class AppBootState {
   const AppBootState._({required this.content, this.errorMessage});
@@ -16,168 +18,13 @@ class AppBootState {
 
   static Future<AppBootState> load(AssetBundle bundle) async {
     try {
-      final rawJson = await bundle.loadString('assets/content/seed_content.json');
-      final content = SeedContentBundle.fromJsonString(rawJson);
-      await content.validateAssets(bundle);
+      final content = await AssetPhraseService(
+        bundle: bundle,
+      ).loadSeedContent();
       return AppBootState._(content: content);
     } catch (error) {
-      return AppBootState._(
-        content: null,
-        errorMessage: 'Boot failed: $error',
-      );
+      return AppBootState._(content: null, errorMessage: 'Boot failed: $error');
     }
-  }
-}
-
-class SeedContentBundle {
-  SeedContentBundle({required this.spaces});
-
-  final List<SeedSpace> spaces;
-
-  SeedActivity get primaryActivity {
-    if (spaces.isEmpty || spaces.first.activities.isEmpty) {
-      throw const FormatException('种子内容缺少可练习 activity。');
-    }
-    return spaces.first.activities.first;
-  }
-
-  static SeedContentBundle fromJsonString(String rawJson) {
-    final decoded = jsonDecode(rawJson);
-    if (decoded is! Map<String, dynamic>) {
-      throw const FormatException('seed_content.json 顶层必须是对象。');
-    }
-
-    final spacesJson = decoded['spaces'];
-    if (spacesJson is! List || spacesJson.isEmpty) {
-      throw const FormatException('seed_content.json 必须至少包含一个 space。');
-    }
-
-    return SeedContentBundle(
-      spaces: spacesJson
-          .map((space) => SeedSpace.fromMap(space as Map<String, dynamic>))
-          .toList(growable: false),
-    );
-  }
-
-  Future<void> validateAssets(AssetBundle bundle) async {
-    for (final space in spaces) {
-      for (final activity in space.activities) {
-        for (final phrase in activity.phrases) {
-          if (!phrase.audioAsset.startsWith('assets/audio/')) {
-            throw FormatException(
-              'audioAsset 必须以 assets/audio/ 开头: ${phrase.audioAsset}',
-            );
-          }
-          await bundle.load(phrase.audioAsset);
-        }
-      }
-    }
-  }
-}
-
-class SeedSpace {
-  SeedSpace({
-    required this.id,
-    required this.title,
-    required this.description,
-    required this.activities,
-  });
-
-  final String id;
-  final String title;
-  final String description;
-  final List<SeedActivity> activities;
-
-  factory SeedSpace.fromMap(Map<String, dynamic> json) {
-    final activitiesJson = json['activities'];
-    if (activitiesJson is! List || activitiesJson.isEmpty) {
-      throw FormatException('space ${json['id']} 缺少 activities。');
-    }
-
-    return SeedSpace(
-      id: json['id'] as String? ?? (throw const FormatException('space.id 缺失。')),
-      title: json['title'] as String? ?? '',
-      description: json['description'] as String? ?? '',
-      activities: activitiesJson
-          .map((activity) => SeedActivity.fromMap(activity as Map<String, dynamic>))
-          .toList(growable: false),
-    );
-  }
-}
-
-class SeedActivity {
-  SeedActivity({
-    required this.id,
-    required this.title,
-    required this.summary,
-    required this.sceneTag,
-    required this.coachTip,
-    required this.phrases,
-  });
-
-  final String id;
-  final String title;
-  final String summary;
-  final String sceneTag;
-  final String coachTip;
-  final List<SeedPhrase> phrases;
-
-  factory SeedActivity.fromMap(Map<String, dynamic> json) {
-    final phrasesJson = json['phrases'];
-    if (phrasesJson is! List || phrasesJson.isEmpty) {
-      throw FormatException('activity ${json['id']} 缺少 phrases。');
-    }
-
-    return SeedActivity(
-      id: json['id'] as String? ?? (throw const FormatException('activity.id 缺失。')),
-      title: json['title'] as String? ?? '',
-      summary: json['summary'] as String? ?? '',
-      sceneTag: json['sceneTag'] as String? ?? '',
-      coachTip: json['coachTip'] as String? ?? '',
-      phrases: phrasesJson
-          .map((phrase) => SeedPhrase.fromMap(phrase as Map<String, dynamic>))
-          .toList(growable: false),
-    );
-  }
-}
-
-class SeedPhrase {
-  SeedPhrase({
-    required this.id,
-    required this.step,
-    required this.english,
-    required this.chinese,
-    required this.pronunciation,
-    required this.difficulty,
-    required this.audioAsset,
-  });
-
-  final String id;
-  final int step;
-  final String english;
-  final String chinese;
-  final String pronunciation;
-  final String difficulty;
-  final String audioAsset;
-
-  String get audioPlayerAsset =>
-      audioAsset.startsWith('assets/') ? audioAsset.substring(7) : audioAsset;
-
-  factory SeedPhrase.fromMap(Map<String, dynamic> json) {
-    final audioAsset = json['audioAsset'] as String? ?? '';
-    if (audioAsset.isEmpty) {
-      throw FormatException('phrase ${json['id']} 缺少 audioAsset。');
-    }
-
-    return SeedPhrase(
-      id: json['id'] as String? ?? (throw const FormatException('phrase.id 缺失。')),
-      step: json['step'] as int? ?? 0,
-      english: json['english'] as String? ?? '',
-      chinese: json['chinese'] as String? ?? '',
-      pronunciation: json['pronunciation'] as String? ?? '',
-      difficulty: json['difficulty'] as String? ?? '',
-      audioAsset: audioAsset,
-    );
   }
 }
 
@@ -263,9 +110,9 @@ class HomeScreen extends StatelessWidget {
       floatingActionButton: FloatingActionButton.small(
         tooltip: '小禾老师',
         onPressed: () {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('小禾老师入口已预留，后续任务接入。')),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text('小禾老师入口已预留，后续任务接入。')));
         },
         child: const Icon(Icons.auto_awesome),
       ),
@@ -293,9 +140,9 @@ class HomeScreen extends StatelessWidget {
                 const SizedBox(height: 12),
                 Text(
                   'Bath time, baby.',
-                  style: Theme.of(context).textTheme.displayMedium?.copyWith(
-                        color: AppTheme.english,
-                      ),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.displayMedium?.copyWith(color: AppTheme.english),
                 ),
                 const SizedBox(height: 12),
                 Text(
@@ -323,7 +170,9 @@ class HomeScreen extends StatelessWidget {
                         const SizedBox(height: 20),
                         ElevatedButton(
                           onPressed: () {
-                            Navigator.of(context).pushNamed(AppRouteNames.practice);
+                            Navigator.of(
+                              context,
+                            ).pushNamed(AppRouteNames.practice);
                           },
                           child: const Text('开始练习'),
                         ),
@@ -471,7 +320,8 @@ class _PracticeScreenState extends State<PracticeScreen> {
                             const SizedBox(height: 12),
                             Text(
                               phrase.english,
-                              style: Theme.of(context).textTheme.displayMedium?.copyWith(
+                              style: Theme.of(context).textTheme.displayMedium
+                                  ?.copyWith(
                                     fontSize: 28,
                                     color: AppTheme.english,
                                   ),
@@ -479,9 +329,8 @@ class _PracticeScreenState extends State<PracticeScreen> {
                             const SizedBox(height: 8),
                             Text(
                               phrase.pronunciation,
-                              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                    fontFamily: 'JetBrains Mono',
-                                  ),
+                              style: Theme.of(context).textTheme.bodyMedium
+                                  ?.copyWith(fontFamily: 'JetBrains Mono'),
                             ),
                             const SizedBox(height: 8),
                             Text(
@@ -511,7 +360,9 @@ class _PracticeScreenState extends State<PracticeScreen> {
                                 Expanded(
                                   child: Text(
                                     '已接入离线音频 asset，后续任务会在这里补上 ReactionChip 与本地记录。',
-                                    style: Theme.of(context).textTheme.bodySmall,
+                                    style: Theme.of(
+                                      context,
+                                    ).textTheme.bodySmall,
                                   ),
                                 ),
                               ],
