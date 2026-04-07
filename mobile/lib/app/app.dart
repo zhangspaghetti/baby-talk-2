@@ -1,66 +1,189 @@
-import 'package:audioplayers/audioplayers.dart';
+import 'dart:io';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:mobile/app/router/app_router.dart';
 import 'package:mobile/app/theme/app_theme.dart';
+import 'package:mobile/core/device/installation_id_service.dart';
+import 'package:mobile/features/practice/data/local/practice_local_data_source.dart';
+import 'package:mobile/features/practice/data/repositories/practice_repository.dart';
 import 'package:mobile/features/practice/data/services/asset_phrase_service.dart';
+import 'package:mobile/features/practice/presentation/practice_session_view_model.dart';
+import 'package:mobile/features/practice/presentation/screens/home_screen.dart';
+import 'package:mobile/features/practice/presentation/screens/practice_session_screen.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
 
 export 'package:mobile/features/practice/data/services/asset_phrase_service.dart'
     show SeedActivity, SeedContentBundle, SeedPhrase, SeedSpace;
 
 class AppBootState {
-  const AppBootState._({required this.content, this.errorMessage});
+  const AppBootState._({
+    required this.content,
+    required this.assetPhraseService,
+    required this.primarySpaceId,
+    required this.primaryActivityId,
+    this.errorMessage,
+  });
 
   final SeedContentBundle? content;
+  final AssetPhraseService? assetPhraseService;
+  final String? primarySpaceId;
+  final String? primaryActivityId;
   final String? errorMessage;
 
-  bool get isReady => content != null && errorMessage == null;
+  bool get isReady {
+    return content != null &&
+        assetPhraseService != null &&
+        primarySpaceId != null &&
+        primaryActivityId != null &&
+        errorMessage == null;
+  }
 
   static Future<AppBootState> load(AssetBundle bundle) async {
+    final assetPhraseService = AssetPhraseService(bundle: bundle);
     try {
-      final content = await AssetPhraseService(
-        bundle: bundle,
-      ).loadSeedContent();
-      return AppBootState._(content: content);
+      final content = await assetPhraseService.loadSeedContent();
+      final primarySpace = content.spaces.first;
+      final primaryActivity = primarySpace.activities.first;
+      return AppBootState._(
+        content: content,
+        assetPhraseService: assetPhraseService,
+        primarySpaceId: primarySpace.id,
+        primaryActivityId: primaryActivity.id,
+      );
     } catch (error) {
-      return AppBootState._(content: null, errorMessage: 'Boot failed: $error');
+      return AppBootState._(
+        content: null,
+        assetPhraseService: null,
+        primarySpaceId: null,
+        primaryActivityId: null,
+        errorMessage: 'Boot failed: $error',
+      );
     }
   }
 }
 
-class GuestShellController extends ChangeNotifier {
-  GuestShellController({required this.content}) : recentResult = null;
+typedef PracticeRepositoryFactory =
+    Future<PracticeRepository> Function(AssetPhraseService assetPhraseService);
 
-  final SeedContentBundle content;
-  String? recentResult;
-
-  SeedActivity get activity => content.primaryActivity;
-}
-
-class BabyTalkApp extends StatelessWidget {
-  const BabyTalkApp({super.key, required this.bootState});
+class BabyTalkApp extends StatefulWidget {
+  const BabyTalkApp({
+    super.key,
+    required this.bootState,
+    this.repositoryFactory,
+  });
 
   final AppBootState bootState;
+  final PracticeRepositoryFactory? repositoryFactory;
+
+  @override
+  State<BabyTalkApp> createState() => _BabyTalkAppState();
+}
+
+class _BabyTalkAppState extends State<BabyTalkApp> {
+  late final Future<PracticeRepository> _repositoryFuture = _loadRepository();
 
   @override
   Widget build(BuildContext context) {
-    if (!bootState.isReady) {
+    if (!widget.bootState.isReady) {
       return MaterialApp(
         debugShowCheckedModeBanner: false,
         theme: AppTheme.build(),
-        home: BootFailureScreen(message: bootState.errorMessage ?? '未知启动错误'),
+        home: BootFailureScreen(
+          message: widget.bootState.errorMessage ?? '未知启动错误',
+        ),
       );
     }
 
-    return ChangeNotifierProvider<GuestShellController>(
-      create: (_) => GuestShellController(content: bootState.content!),
-      child: MaterialApp(
-        debugShowCheckedModeBanner: false,
-        title: 'Baby Talk 2',
-        theme: AppTheme.build(),
-        onGenerateRoute: AppRouter.onGenerateRoute(
-          homeBuilder: (_) => const HomeScreen(),
-          practiceBuilder: (_) => const PracticeScreen(),
+    return FutureBuilder<PracticeRepository>(
+      future: _repositoryFuture,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState != ConnectionState.done) {
+          return MaterialApp(
+            debugShowCheckedModeBanner: false,
+            theme: AppTheme.build(),
+            home: const BootLoadingScreen(),
+          );
+        }
+
+        if (snapshot.hasError) {
+          return MaterialApp(
+            debugShowCheckedModeBanner: false,
+            theme: AppTheme.build(),
+            home: BootFailureScreen(message: '本地练习初始化失败：${snapshot.error}'),
+          );
+        }
+
+        final repository = snapshot.requireData;
+        return MultiProvider(
+          providers: [
+            Provider<PracticeRepository>.value(value: repository),
+            ChangeNotifierProvider<PracticeSessionViewModel>(
+              create: (_) => PracticeSessionViewModel(
+                repository: repository,
+                spaceId: widget.bootState.primarySpaceId!,
+                activityId: widget.bootState.primaryActivityId!,
+              )..initialize(),
+            ),
+          ],
+          child: MaterialApp(
+            debugShowCheckedModeBanner: false,
+            title: 'Baby Talk 2',
+            theme: AppTheme.build(),
+            onGenerateRoute: AppRouter.onGenerateRoute(
+              homeBuilder: (_) => const HomeScreen(),
+              practiceBuilder: (_) => const PracticeSessionScreen(),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Future<PracticeRepository> _loadRepository() async {
+    final factory = widget.repositoryFactory ?? _defaultRepositoryFactory;
+    return factory(widget.bootState.assetPhraseService!);
+  }
+
+  Future<PracticeRepository> _defaultRepositoryFactory(
+    AssetPhraseService assetPhraseService,
+  ) async {
+    final directory = await _resolvePracticeDirectory();
+    final localDataSource = await PracticeLocalDataSource.open(
+      directory: directory.path,
+    );
+    return PracticeRepository(
+      assetPhraseService: assetPhraseService,
+      localDataSource: localDataSource,
+      installationIdService: InstallationIdService(
+        directoryResolver: () async => directory,
+      ),
+    );
+  }
+
+  Future<Directory> _resolvePracticeDirectory() async {
+    try {
+      return await getApplicationSupportDirectory();
+    } on MissingPluginException {
+      final directory = Directory(
+        '${Directory.systemTemp.path}${Platform.pathSeparator}baby_talk_2_support',
+      );
+      await directory.create(recursive: true);
+      return directory;
+    }
+  }
+}
+
+class BootLoadingScreen extends StatelessWidget {
+  const BootLoadingScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return const Scaffold(
+      body: SafeArea(
+        child: Center(
+          child: CircularProgressIndicator(key: Key('boot-loading')),
         ),
       ),
     );
@@ -83,297 +206,13 @@ class BootFailureScreen extends StatelessWidget {
               key: const Key('boot-status-failed'),
               padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
-                color: const Color(0xFFFDE8E6),
+                color: AppTheme.errorSoft,
                 borderRadius: BorderRadius.circular(24),
               ),
               child: Text(
                 message,
                 style: Theme.of(context).textTheme.bodyLarge,
               ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class HomeScreen extends StatelessWidget {
-  const HomeScreen({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    final controller = context.watch<GuestShellController>();
-    final activity = controller.activity;
-
-    return Scaffold(
-      floatingActionButton: FloatingActionButton.small(
-        tooltip: '小禾老师',
-        onPressed: () {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(const SnackBar(content: Text('小禾老师入口已预留，后续任务接入。')));
-        },
-        child: const Icon(Icons.auto_awesome),
-      ),
-      body: SafeArea(
-        child: Align(
-          alignment: Alignment.topCenter,
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 430),
-            child: ListView(
-              padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
-              children: [
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: const [
-                    Chip(label: Text('离线种子已就绪')),
-                    Chip(label: Text('Guest 模式')),
-                  ],
-                ),
-                const SizedBox(height: 24),
-                Text(
-                  '今晚试试把洗澡时间变成一句句自然的英文。',
-                  style: Theme.of(context).textTheme.titleLarge,
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  'Bath time, baby.',
-                  style: Theme.of(
-                    context,
-                  ).textTheme.displayMedium?.copyWith(color: AppTheme.english),
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  'Warm Paper 风格首页已就绪，后续 Home → Practice 的真实闭环将从这张今日场景卡继续扩展。',
-                  style: Theme.of(context).textTheme.bodyMedium,
-                ),
-                const SizedBox(height: 24),
-                Card(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 24, 20, 24),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Chip(label: Text(activity.sceneTag)),
-                        const SizedBox(height: 16),
-                        Text(
-                          activity.title,
-                          style: Theme.of(context).textTheme.titleLarge,
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          activity.summary,
-                          style: Theme.of(context).textTheme.bodyMedium,
-                        ),
-                        const SizedBox(height: 20),
-                        ElevatedButton(
-                          onPressed: () {
-                            Navigator.of(
-                              context,
-                            ).pushNamed(AppRouteNames.practice);
-                          },
-                          child: const Text('开始练习'),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 20),
-                Container(
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    color: AppTheme.bgSunken,
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        '最近一次本地结果',
-                        style: Theme.of(context).textTheme.titleMedium,
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        controller.recentResult ?? '还没有本地练习记录，第一次打开也会看到安全空态。',
-                        key: const Key('recent-result-empty'),
-                        style: Theme.of(context).textTheme.bodyMedium,
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  'boot: ready',
-                  key: const Key('boot-status-ready'),
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class PracticeScreen extends StatefulWidget {
-  const PracticeScreen({super.key});
-
-  @override
-  State<PracticeScreen> createState() => _PracticeScreenState();
-}
-
-class _PracticeScreenState extends State<PracticeScreen> {
-  late final AudioPlayer _audioPlayer;
-  String? _playingPhraseId;
-
-  @override
-  void initState() {
-    super.initState();
-    _audioPlayer = AudioPlayer();
-    _audioPlayer.onPlayerComplete.listen((_) {
-      if (!mounted) {
-        return;
-      }
-      setState(() {
-        _playingPhraseId = null;
-      });
-    });
-  }
-
-  @override
-  void dispose() {
-    _audioPlayer.dispose();
-    super.dispose();
-  }
-
-  Future<void> _playPhrase(SeedPhrase phrase) async {
-    setState(() {
-      _playingPhraseId = phrase.id;
-    });
-    await _audioPlayer.stop();
-    await _audioPlayer.play(AssetSource(phrase.audioPlayerAsset));
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final activity = context.watch<GuestShellController>().activity;
-
-    return Scaffold(
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        surfaceTintColor: Colors.transparent,
-        title: Text(activity.title),
-      ),
-      body: SafeArea(
-        child: Align(
-          alignment: Alignment.topCenter,
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 430),
-            child: ListView(
-              padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
-              children: [
-                LinearProgressIndicator(
-                  value: 1 / activity.phrases.length,
-                  minHeight: 4,
-                  borderRadius: BorderRadius.circular(999),
-                  color: AppTheme.accent,
-                  backgroundColor: const Color(0xFFD8CFC8),
-                ),
-                const SizedBox(height: 16),
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: AppTheme.bgAccentSoft,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(
-                    activity.coachTip,
-                    style: Theme.of(context).textTheme.bodyMedium,
-                  ),
-                ),
-                const SizedBox(height: 20),
-                ...activity.phrases.map(
-                  (phrase) => Padding(
-                    padding: const EdgeInsets.only(bottom: 16),
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(
-                          color: _playingPhraseId == phrase.id
-                              ? AppTheme.english
-                              : const Color(0xFFE7DDD6),
-                        ),
-                      ),
-                      child: Padding(
-                        padding: const EdgeInsets.all(20),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'STEP ${phrase.step}',
-                              style: Theme.of(context).textTheme.labelMedium,
-                            ),
-                            const SizedBox(height: 12),
-                            Text(
-                              phrase.english,
-                              style: Theme.of(context).textTheme.displayMedium
-                                  ?.copyWith(
-                                    fontSize: 28,
-                                    color: AppTheme.english,
-                                  ),
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              phrase.pronunciation,
-                              style: Theme.of(context).textTheme.bodyMedium
-                                  ?.copyWith(fontFamily: 'JetBrains Mono'),
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              phrase.chinese,
-                              style: Theme.of(context).textTheme.bodyMedium,
-                            ),
-                            const SizedBox(height: 16),
-                            Row(
-                              children: [
-                                SizedBox(
-                                  width: 56,
-                                  height: 56,
-                                  child: ElevatedButton(
-                                    style: ElevatedButton.styleFrom(
-                                      shape: const CircleBorder(),
-                                      padding: EdgeInsets.zero,
-                                    ),
-                                    onPressed: () => _playPhrase(phrase),
-                                    child: Icon(
-                                      _playingPhraseId == phrase.id
-                                          ? Icons.graphic_eq
-                                          : Icons.play_arrow,
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(width: 16),
-                                Expanded(
-                                  child: Text(
-                                    '已接入离线音频 asset，后续任务会在这里补上 ReactionChip 与本地记录。',
-                                    style: Theme.of(
-                                      context,
-                                    ).textTheme.bodySmall,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
             ),
           ),
         ),

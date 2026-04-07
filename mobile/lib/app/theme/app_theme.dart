@@ -11,6 +11,14 @@ class AppTheme {
   static const Color textPrimary = Color(0xFF2D2926);
   static const Color textSecondary = Color(0xFF6B5E57);
   static const Color textMuted = Color(0xFF8A7D76);
+  static const Color success = Color(0xFF6B8F5E);
+  static const Color successSoft = Color(0xFFE8F0E5);
+  static const Color warning = Color(0xFFE6A817);
+  static const Color warningSoft = Color(0xFFFFF5D9);
+  static const Color error = Color(0xFFD94B3C);
+  static const Color errorSoft = Color(0xFFFDE8E6);
+  static const Color info = Color(0xFF3B8577);
+  static const Color infoSoft = Color(0xFFD4E8E3);
 
   static ThemeData build() {
     final colorScheme = ColorScheme.fromSeed(
@@ -74,6 +82,13 @@ class AppTheme {
     );
 
     return base.copyWith(
+      appBarTheme: const AppBarTheme(
+        centerTitle: false,
+        backgroundColor: Colors.transparent,
+        foregroundColor: textPrimary,
+        elevation: 0,
+        surfaceTintColor: Colors.transparent,
+      ),
       cardTheme: CardThemeData(
         color: bgSurface,
         elevation: 0,
