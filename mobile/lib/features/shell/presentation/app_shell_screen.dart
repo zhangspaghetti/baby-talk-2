@@ -1,9 +1,15 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:mobile/app/theme/app_theme.dart';
 import 'package:mobile/features/account/presentation/screens/account_entry_screen.dart';
 import 'package:mobile/features/onboarding/domain/models/onboarding_snapshot.dart';
 import 'package:mobile/features/onboarding/domain/models/stage_match.dart';
+import 'package:mobile/features/practice/presentation/garden_growth_view_model.dart';
 import 'package:mobile/features/practice/presentation/screens/home_screen.dart';
+import 'package:mobile/features/shell/presentation/screens/garden_screen.dart';
+import 'package:mobile/features/shell/presentation/screens/growth_screen.dart';
+import 'package:provider/provider.dart';
 
 class AppShellScreen extends StatefulWidget {
   const AppShellScreen({super.key, this.onboardingSnapshot});
@@ -69,25 +75,21 @@ class _AppShellScreenState extends State<AppShellScreen> {
             body: '这一页会在后续切片接入阶段筛选、活动卡片和搜索。当前先保留稳定入口。',
             icon: Icons.explore_outlined,
           ),
-          const _ShellPlaceholderTab(
-            pageKey: Key('shell-tab-garden'),
-            eyebrow: '花园',
-            title: '每次开口之后，都该看到生长。',
-            body: 'S04 会把空间花圃、成长点和练习后的因果反馈接进来。',
-            icon: Icons.local_florist_outlined,
-          ),
-          const _ShellPlaceholderTab(
-            pageKey: Key('shell-tab-growth'),
-            eyebrow: '成长',
-            title: '把今天的练习，沉淀成可回看的变化。',
-            body: 'S04 也会把日记、阶段进度和里程碑放到这里。',
-            icon: Icons.timeline_outlined,
-          ),
+          const GardenScreen(),
+          const GrowthScreen(),
         ],
       ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _selectedIndex,
         onDestinationSelected: (index) {
+          if (index == 2 || index == 3) {
+            final gardenGrowthViewModel = context
+                .read<GardenGrowthViewModel?>();
+            if (gardenGrowthViewModel != null &&
+                gardenGrowthViewModel.status == GardenGrowthLoadStatus.idle) {
+              unawaited(gardenGrowthViewModel.initialize());
+            }
+          }
           setState(() {
             _selectedIndex = index;
           });
