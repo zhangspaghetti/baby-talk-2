@@ -530,10 +530,21 @@ class _RepositoryHarness {
 class _StaticAccountRepository implements AccountRepository {
   _StaticAccountRepository({required this.snapshot});
 
+  @override
+  final String consentVersion = 'pipl-v1';
+
   final AccountLocalSnapshot snapshot;
 
   @override
   Future<AccountLocalSnapshot> loadSnapshot() async => snapshot;
+
+  @override
+  Future<AccountLocalSnapshot> signIn({
+    required String phoneNumber,
+    required String verificationCode,
+  }) async {
+    return snapshot;
+  }
 
   @override
   Future<AccountLocalSnapshot> savePlaceholderSession({
@@ -544,11 +555,33 @@ class _StaticAccountRepository implements AccountRepository {
   }
 
   @override
+  Future<AccountLocalSnapshot> refreshRuntimeState({
+    required AccountRuntimeTrigger trigger,
+    AccountLocalSnapshot? seedSnapshot,
+    bool forceBootstrap = false,
+  }) async {
+    return seedSnapshot ?? snapshot;
+  }
+
+  @override
   Future<AccountLocalSnapshot> clearPlaceholderSession({
     bool revertToLocalOnly = false,
   }) async {
     return snapshot;
   }
+
+  @override
+  Future<AccountLocalSnapshot> revokeConsent({String reason = 'user_requested'}) async {
+    return snapshot;
+  }
+
+  @override
+  Future<AccountLocalSnapshot> deleteAccount({String reason = 'forget_me'}) async {
+    return snapshot;
+  }
+
+  @override
+  Future<void> close() async {}
 }
 
 class _FakePracticeAudioController implements PracticeAudioController {

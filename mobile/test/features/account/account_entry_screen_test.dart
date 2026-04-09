@@ -52,7 +52,7 @@ void main() {
     expect(repository.saveCalls, 0);
     expect(find.text('请输入 11 位手机号。'), findsOneWidget);
     expect(find.text('请输入 6 位验证码。'), findsOneWidget);
-    expect(find.text('手机号或验证码格式不正确，未写入任何本地账号状态。'), findsOneWidget);
+    expect(find.text('手机号或验证码格式不正确，未发起真实登录。'), findsOneWidget);
     expect(find.byKey(const Key('account-status-local-only')), findsOneWidget);
   });
 
@@ -86,7 +86,7 @@ void main() {
     );
     expect(find.textContaining('138****8000'), findsWidgets);
     expect(find.textContaining('待同步 3'), findsOneWidget);
-    expect(find.textContaining('账号占位状态已保存，可返回首页查看。'), findsOneWidget);
+    expect(find.textContaining('登录已完成：仍有 3 条待同步事件。'), findsOneWidget);
   });
 
   testWidgets('账号状态读取失败时暴露 error 态，并允许重试恢复', (WidgetTester tester) async {
@@ -181,6 +181,9 @@ class FakeAccountRepository implements AccountRepository {
     this.failedCount = 0,
   });
 
+  @override
+  final String consentVersion = 'pipl-v1';
+
   AccountLocalSnapshot currentSnapshot;
   Object? loadError;
   final int pendingSyncCount;
@@ -199,6 +202,17 @@ class FakeAccountRepository implements AccountRepository {
       throw Exception(error);
     }
     return currentSnapshot;
+  }
+
+  @override
+  Future<AccountLocalSnapshot> signIn({
+    required String phoneNumber,
+    required String verificationCode,
+  }) {
+    return savePlaceholderSession(
+      phoneNumber: phoneNumber,
+      verificationCode: verificationCode,
+    );
   }
 
   @override
@@ -233,6 +247,15 @@ class FakeAccountRepository implements AccountRepository {
   }
 
   @override
+  Future<AccountLocalSnapshot> refreshRuntimeState({
+    required AccountRuntimeTrigger trigger,
+    AccountLocalSnapshot? seedSnapshot,
+    bool forceBootstrap = false,
+  }) async {
+    return seedSnapshot ?? currentSnapshot;
+  }
+
+  @override
   Future<AccountLocalSnapshot> clearPlaceholderSession({
     bool revertToLocalOnly = false,
   }) async {
@@ -242,4 +265,31 @@ class FakeAccountRepository implements AccountRepository {
         : AccountLocalSnapshot.signedOut;
     return currentSnapshot;
   }
+
+  @override
+  Future<AccountLocalSnapshot> revokeConsent({String reason = 'user_requested'}) async {
+    currentSnapshot = currentSnapshot.copyWith(
+      consentState: AccountConsentState.revoked,
+      lastSyncPhase: 'consent_revoked',
+      lastVisibleError: '同意已撤回；重新登录并再次同意后才能继续同步。',
+      lastSyncAt: DateTime.utc(2026, 4, 9, 1, 30),
+    );
+    return currentSnapshot;
+  }
+
+  @override
+  Future<AccountLocalSnapshot> deleteAccount({String reason = 'forget_me'}) async {
+    currentSnapshot = currentSnapshot.copyWith(
+      consentState: AccountConsentState.deleted,
+      clearSession: true,
+      clearChallenge: true,
+      lastSyncPhase: 'account_deleted',
+      lastVisibleError: '账号已删除；如需重新同步，请重新注册。',
+      lastSyncAt: DateTime.utc(2026, 4, 9, 1, 31),
+    );
+    return currentSnapshot;
+  }
+
+  @override
+  Future<void> close() async {}
 }

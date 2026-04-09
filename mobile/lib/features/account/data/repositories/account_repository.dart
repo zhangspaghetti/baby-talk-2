@@ -5,7 +5,6 @@ import 'package:mobile/features/account/data/services/account_api_service.dart';
 import 'package:mobile/features/account/domain/models/account_consent_state.dart';
 import 'package:mobile/features/account/domain/models/account_session.dart';
 import 'package:mobile/features/practice/data/repositories/practice_repository.dart';
-import 'package:mobile/features/practice/domain/models/interaction_event_payload.dart';
 
 typedef AccountConnectivityChecker = Future<bool> Function();
 
@@ -633,11 +632,11 @@ class AccountRepository {
     sanitized = sanitized.replaceAll(RegExp(r'1\d{10}'), '***手机号***');
     sanitized = sanitized.replaceAll(RegExp(r'\b\d{4,8}\b'), '***验证码***');
     sanitized = sanitized.replaceAll(
-      RegExp(r'(?i)token\s*[:=]\s*[^\s,;]+'),
+      RegExp(r'token\s*[:=]\s*[^\s,;]+', caseSensitive: false),
       'token=***',
     );
     sanitized = sanitized.replaceAll(
-      RegExp(r'(?i)session\s*[:=]\s*[^\s,;]+'),
+      RegExp(r'session\s*[:=]\s*[^\s,;]+', caseSensitive: false),
       'session=***',
     );
     return sanitized;

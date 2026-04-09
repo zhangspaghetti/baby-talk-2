@@ -229,7 +229,7 @@ String _usage() {
     '  --seed-content <path> 可选的 seed_content.json 路径，用于补充 phraseEnglish',
     '  --help, -h            显示帮助',
     '',
-    '输出仅包含 eventKey、installationId、localEventId、spaceId、activityId、phraseId、reactionType、syncState、pending/synced/failed 计数与最近 sync phase/error/time；不会输出手机号、验证码、token 或同意前宝宝 PII。',
+    '输出仅包含 eventKey、installationId、localEventId、spaceId、activityId、phraseId、reactionType、syncState、pending/synced/failed 计数与最近 sync phase/error/time；不会输出手机号、验证码、token、session secret 或同意前宝宝 PII。',
   ].join('\n');
 }
 
@@ -347,7 +347,7 @@ String _resolveBundledIsarLibraryPath() {
   throw StateError('未在 pub cache 中找到 isar_flutter_libs/windows/isar.dll');
 }
 
-String? _redactSensitiveText(String? value) {
+String? redactSensitiveTextForInspect(String? value) {
   if (value == null) {
     return null;
   }
@@ -364,5 +364,16 @@ String? _redactSensitiveText(String? value) {
     RegExp(r'(token|authorization|bearer)[=: ]+([^\s,;]+)', caseSensitive: false),
     (match) => '${match.group(1)}=[REDACTED]',
   );
+  redacted = redacted.replaceAllMapped(
+    RegExp(
+      r'(session(?:[_-]?id|[_-]?secret)?|secret)[=: ]+([^\s,;]+)',
+      caseSensitive: false,
+    ),
+    (match) => '${match.group(1)}=[REDACTED]',
+  );
   return redacted;
+}
+
+String? _redactSensitiveText(String? value) {
+  return redactSensitiveTextForInspect(value);
 }

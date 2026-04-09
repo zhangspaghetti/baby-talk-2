@@ -18,8 +18,10 @@ import 'package:mobile/features/onboarding/domain/models/onboarding_snapshot.dar
 import 'package:mobile/features/onboarding/presentation/onboarding_view_model.dart';
 import 'package:mobile/features/onboarding/presentation/screens/onboarding_screen.dart';
 import 'package:mobile/features/practice/data/local/practice_local_data_source.dart';
+import 'package:mobile/features/practice/data/repositories/garden_growth_repository.dart';
 import 'package:mobile/features/practice/data/repositories/practice_repository.dart';
 import 'package:mobile/features/practice/data/services/asset_phrase_service.dart';
+import 'package:mobile/features/practice/presentation/garden_growth_view_model.dart';
 import 'package:mobile/features/practice/presentation/practice_session_view_model.dart';
 import 'package:mobile/features/practice/presentation/screens/practice_session_screen.dart';
 import 'package:mobile/features/shell/presentation/app_shell_screen.dart';
@@ -120,6 +122,7 @@ class BabyTalkApp extends StatefulWidget {
     super.key,
     required this.bootState,
     this.repositoryFactory,
+    this.accountRepositoryFactory,
     this.appDirectoryResolver,
     this.audioControllerFactory,
     this.completedSnapshotLoader,
@@ -127,6 +130,7 @@ class BabyTalkApp extends StatefulWidget {
 
   final AppBootState bootState;
   final PracticeRepositoryFactory? repositoryFactory;
+  final AccountRepositoryFactory? accountRepositoryFactory;
   final AppDirectoryResolver? appDirectoryResolver;
   final PracticeAudioControllerFactory? audioControllerFactory;
   final OnboardingCompletedSnapshotLoader? completedSnapshotLoader;
@@ -150,6 +154,7 @@ class _BabyTalkAppState extends State<BabyTalkApp> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.bootState != widget.bootState ||
         oldWidget.repositoryFactory != widget.repositoryFactory ||
+        oldWidget.accountRepositoryFactory != widget.accountRepositoryFactory ||
         oldWidget.appDirectoryResolver != widget.appDirectoryResolver ||
         oldWidget.audioControllerFactory != widget.audioControllerFactory ||
         oldWidget.completedSnapshotLoader != widget.completedSnapshotLoader) {
@@ -203,9 +208,20 @@ class _BabyTalkAppState extends State<BabyTalkApp> {
             Provider<PracticeRepository>.value(value: practiceRepository),
             Provider<OnboardingRepository>.value(value: onboardingRepository),
             Provider<AccountRepository>.value(value: accountRepository),
+            Provider<GardenGrowthRepository>(
+              create: (_) => GardenGrowthRepository(
+                practiceRepository: practiceRepository,
+                assetPhraseService: widget.bootState.assetPhraseService!,
+              ),
+            ),
             ChangeNotifierProvider<AccountViewModel>(
               create: (_) =>
                   AccountViewModel(repository: accountRepository)..initialize(),
+            ),
+            ChangeNotifierProvider<GardenGrowthViewModel>(
+              create: (context) => GardenGrowthViewModel(
+                repository: context.read<GardenGrowthRepository>(),
+              )..initialize(),
             ),
             ChangeNotifierProvider<PracticeSessionViewModel>(
               create: (_) => PracticeSessionViewModel(
@@ -279,9 +295,11 @@ class _BabyTalkAppState extends State<BabyTalkApp> {
         starterSpaceId: widget.bootState.primarySpaceId!,
         starterActivityId: widget.bootState.primaryActivityId!,
       );
-      final accountRepository = AccountRepository(
-        localStore: AccountLocalStore(directoryResolver: () async => directory),
-        practiceRepository: repository,
+      final accountRepositoryFactory =
+          widget.accountRepositoryFactory ?? _defaultAccountRepositoryFactory;
+      final accountRepository = await accountRepositoryFactory(
+        repository,
+        directory,
       );
       final completedSnapshotLoader = widget.completedSnapshotLoader;
       final completedSnapshot = completedSnapshotLoader == null
@@ -318,6 +336,34 @@ class _BabyTalkAppState extends State<BabyTalkApp> {
       installationIdService: InstallationIdService(
         directoryResolver: () async => directory,
       ),
+    );
+  }
+
+  Future<AccountRepository> _defaultAccountRepositoryFactory(
+    PracticeRepository practiceRepository,
+    Directory directory,
+  ) async {
+    final connectivity = Connectivity();
+    return AccountRepository(
+      localStore: AccountLocalStore(directoryResolver: () async => directory),
+      practiceRepository: practiceRepository,
+      apiService: AccountApiService(client: http.Client()),
+      connectivityChecker: () async {
+        try {
+          final dynamic status = await connectivity.checkConnectivity();
+          if (status is List<ConnectivityResult>) {
+            return status.any((entry) => entry != ConnectivityResult.none);
+          }
+          if (status is ConnectivityResult) {
+            return status != ConnectivityResult.none;
+          }
+          return true;
+        } on MissingPluginException {
+          return true;
+        } catch (_) {
+          return true;
+        }
+      },
     );
   }
 

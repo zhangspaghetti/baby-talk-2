@@ -8,7 +8,9 @@ import 'package:mobile/features/account/presentation/screens/account_entry_scree
 import 'package:mobile/features/onboarding/domain/models/onboarding_snapshot.dart';
 import 'package:mobile/features/onboarding/domain/models/stage_match.dart';
 import 'package:mobile/features/practice/data/repositories/practice_repository.dart';
+import 'package:mobile/features/practice/domain/models/garden_growth_snapshot.dart';
 import 'package:mobile/features/practice/domain/models/practice_phrase.dart';
+import 'package:mobile/features/practice/presentation/garden_growth_view_model.dart';
 import 'package:mobile/features/practice/presentation/practice_session_view_model.dart';
 import 'package:provider/provider.dart';
 
@@ -39,6 +41,10 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
         return;
       }
       context.read<AccountViewModel>().handleHomeVisible();
+      final gardenGrowthViewModel = context.read<GardenGrowthViewModel?>();
+      if (gardenGrowthViewModel != null) {
+        unawaited(gardenGrowthViewModel.refresh());
+      }
     });
   }
 
@@ -66,6 +72,10 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
   @override
   void didPopNext() {
     context.read<AccountViewModel>().handleHomeVisible();
+    final gardenGrowthViewModel = context.read<GardenGrowthViewModel?>();
+    if (gardenGrowthViewModel != null) {
+      unawaited(gardenGrowthViewModel.refresh());
+    }
   }
 
   @override
@@ -86,12 +96,20 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
       return;
     }
     _lastRuntimeToken = accountViewModel.runtimeChangeToken;
+    if (!accountViewModel.isSignedIn) {
+      return;
+    }
     unawaited(context.read<PracticeSessionViewModel>().retryHomeLoad());
+    final gardenGrowthViewModel = context.read<GardenGrowthViewModel?>();
+    if (gardenGrowthViewModel != null) {
+      unawaited(gardenGrowthViewModel.refresh());
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final viewModel = context.watch<PracticeSessionViewModel>();
+    final gardenGrowthViewModel = context.watch<GardenGrowthViewModel?>();
     final activity = viewModel.activitySnapshot;
     final homeSummary = viewModel.homeSummary;
     final stageMatch = _resolveStageMatch(widget.onboardingSnapshot);
@@ -208,6 +226,14 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
                     _WeekStatsCard(
                       homeSummary: homeSummary,
                       stageMatch: stageMatch,
+                    ),
+                    const SizedBox(height: 16),
+                    _GardenMiniEntry(
+                      viewModel: gardenGrowthViewModel,
+                    ),
+                    const SizedBox(height: 16),
+                    _GrowthSummaryCard(
+                      viewModel: gardenGrowthViewModel,
                     ),
                     const SizedBox(height: 16),
                     _RecentResultCard(
@@ -523,6 +549,158 @@ class _StatCell extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           Text(hint, style: theme.textTheme.bodySmall),
+        ],
+      ),
+    );
+  }
+}
+
+class _GardenMiniEntry extends StatelessWidget {
+  const _GardenMiniEntry({required this.viewModel});
+
+  final GardenGrowthViewModel? viewModel;
+
+  @override
+  Widget build(BuildContext context) {
+    final effectiveViewModel = viewModel;
+    final snapshot = effectiveViewModel?.snapshot ?? GardenGrowthSnapshot.empty();
+    final primarySpace = snapshot.primarySpace;
+    final primaryActivity = snapshot.primaryActivity;
+    final status = effectiveViewModel?.status ?? GardenGrowthLoadStatus.empty;
+
+    String title;
+    String body;
+    Color backgroundColor = AppTheme.successSoft;
+    Color foregroundColor = AppTheme.success;
+
+    switch (status) {
+      case GardenGrowthLoadStatus.loading:
+      case GardenGrowthLoadStatus.idle:
+        title = '花园正在整理今天的变化';
+        body = '先把事件投影成花圃和花朵阶段，马上就能看到结果。';
+        backgroundColor = AppTheme.bgSunken;
+        foregroundColor = AppTheme.textSecondary;
+        break;
+      case GardenGrowthLoadStatus.error:
+        title = '花园入口暂时没整理好';
+        body = effectiveViewModel?.message ?? '先保留最近一次稳定结果，你也可以稍后刷新。';
+        backgroundColor = AppTheme.warningSoft;
+        foregroundColor = AppTheme.warning;
+        break;
+      case GardenGrowthLoadStatus.empty:
+        title = '你的花园会从第一句开口开始';
+        body = '还没有练习记录，先说出一句 Warm water.，花圃就会醒来。';
+        backgroundColor = AppTheme.bgAccentSoft;
+        foregroundColor = AppTheme.accentDark;
+        break;
+      case GardenGrowthLoadStatus.ready:
+        title = primarySpace == null
+            ? '花园入口已准备好'
+            : '${primarySpace.title} · ${primarySpace.stage.label}';
+        body = primaryActivity == null
+            ? '花圃已经有变化，后续会继续接入完整花园页。'
+            : '${primaryActivity.title} 现在是“${primaryActivity.stage.label}”，${primaryActivity.careNote}';
+        break;
+    }
+
+    return Container(
+      key: const Key('home-garden-mini-entry'),
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: backgroundColor,
+        borderRadius: BorderRadius.circular(24),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('GardenMiniEntry', style: Theme.of(context).textTheme.labelMedium),
+          const SizedBox(height: 10),
+          Text(
+            title,
+            key: const Key('home-garden-mini-entry-title'),
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+              color: foregroundColor,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            body,
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              color: foregroundColor,
+            ),
+          ),
+          if (snapshot.hasIssues && snapshot.projectionWarning != null) ...[
+            const SizedBox(height: 10),
+            Text(
+              snapshot.projectionWarning!,
+              key: const Key('home-garden-mini-entry-warning'),
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: foregroundColor,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _GrowthSummaryCard extends StatelessWidget {
+  const _GrowthSummaryCard({required this.viewModel});
+
+  final GardenGrowthViewModel? viewModel;
+
+  @override
+  Widget build(BuildContext context) {
+    final effectiveViewModel = viewModel;
+    final snapshot = effectiveViewModel?.snapshot ?? GardenGrowthSnapshot.empty();
+    final impact = snapshot.latestImpact;
+
+    String title;
+    String body;
+
+    if (effectiveViewModel?.hasError ?? false) {
+      title = '最近成长摘要暂时不可用';
+      body = effectiveViewModel?.message ?? '投影失败时会保留安全空态，不会让首页白屏。';
+    } else if (impact == null || effectiveViewModel == null || effectiveViewModel.isEmpty) {
+      title = '最近成长会写在这里';
+      body = '完成一次练习后，这里会告诉你这次开口让什么发生了变化。';
+    } else {
+      title = impact.headline;
+      body = impact.detail;
+    }
+
+    return Container(
+      key: const Key('home-growth-summary'),
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: AppTheme.bgSurface,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: AppTheme.outlineSoft),
+        boxShadow: AppTheme.warmShadowSm,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('最近成长摘要', style: Theme.of(context).textTheme.labelMedium),
+          const SizedBox(height: 10),
+          Text(
+            title,
+            key: const Key('home-growth-summary-title'),
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
+          const SizedBox(height: 8),
+          Text(body, style: Theme.of(context).textTheme.bodyMedium),
+          if (snapshot.hasIssues && snapshot.projectionWarning != null) ...[
+            const SizedBox(height: 10),
+            Text(
+              snapshot.projectionWarning!,
+              key: const Key('home-growth-summary-warning'),
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+          ],
         ],
       ),
     );
