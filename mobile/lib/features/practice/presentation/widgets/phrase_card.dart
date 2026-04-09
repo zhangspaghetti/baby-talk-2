@@ -123,15 +123,25 @@ class PhraseCard extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
               'STEP ${phrase.step}',
               style: Theme.of(context).textTheme.labelMedium,
             ),
-            const Spacer(),
-            _StatusPill(label: '音频 · ${_playbackLabel(playbackStatus)}'),
-            const SizedBox(width: 8),
-            _StatusPill(label: '保存 · ${_saveLabel(saveStatus)}'),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Wrap(
+                alignment: WrapAlignment.end,
+                runAlignment: WrapAlignment.center,
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  _StatusPill(label: '音频 · ${_playbackLabel(playbackStatus)}'),
+                  _StatusPill(label: '保存 · ${_saveLabel(saveStatus)}'),
+                ],
+              ),
+            ),
           ],
         ),
         const SizedBox(height: 16),

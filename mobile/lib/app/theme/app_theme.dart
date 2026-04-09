@@ -8,6 +8,7 @@ class AppTheme {
   static const Color accent = Color(0xFFFF8C42);
   static const Color accentDark = Color(0xFFE67A30);
   static const Color english = Color(0xFF3B8577);
+  static const Color englishSoft = Color(0xFFD4E8E3);
   static const Color textPrimary = Color(0xFF2D2926);
   static const Color textSecondary = Color(0xFF6B5E57);
   static const Color textMuted = Color(0xFF8A7D76);
@@ -19,6 +20,15 @@ class AppTheme {
   static const Color errorSoft = Color(0xFFFDE8E6);
   static const Color info = Color(0xFF3B8577);
   static const Color infoSoft = Color(0xFFD4E8E3);
+  static const Color outlineSoft = Color(0xFFD8CFC8);
+
+  static const List<BoxShadow> warmShadowSm = [
+    BoxShadow(color: Color(0x0F2D2926), blurRadius: 6, offset: Offset(0, 2)),
+  ];
+
+  static const List<BoxShadow> warmShadowMd = [
+    BoxShadow(color: Color(0x142D2926), blurRadius: 16, offset: Offset(0, 6)),
+  ];
 
   static ThemeData build() {
     final colorScheme = ColorScheme.fromSeed(
@@ -27,6 +37,7 @@ class AppTheme {
       primary: accent,
       secondary: english,
       surface: bgSurface,
+      error: error,
     );
 
     final base = ThemeData(
@@ -34,6 +45,7 @@ class AppTheme {
       colorScheme: colorScheme,
       scaffoldBackgroundColor: bgBase,
       fontFamily: 'DM Sans',
+      dividerColor: outlineSoft,
       textTheme: const TextTheme(
         displayMedium: TextStyle(
           fontFamily: 'Fraunces',
@@ -95,7 +107,45 @@ class AppTheme {
         margin: EdgeInsets.zero,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(24),
-          side: const BorderSide(color: Color(0x14000000)),
+          side: const BorderSide(color: outlineSoft),
+        ),
+      ),
+      inputDecorationTheme: InputDecorationTheme(
+        filled: true,
+        fillColor: bgSurface,
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 18,
+        ),
+        labelStyle: const TextStyle(
+          fontSize: 13,
+          fontWeight: FontWeight.w600,
+          color: textSecondary,
+        ),
+        hintStyle: const TextStyle(
+          fontSize: 15,
+          fontWeight: FontWeight.w400,
+          color: textMuted,
+        ),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: const BorderSide(color: outlineSoft),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: const BorderSide(color: outlineSoft),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: const BorderSide(color: accent, width: 1.4),
+        ),
+        errorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: const BorderSide(color: error),
+        ),
+        focusedErrorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: const BorderSide(color: error, width: 1.4),
         ),
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
@@ -118,10 +168,33 @@ class AppTheme {
         style: OutlinedButton.styleFrom(
           minimumSize: const Size(48, 48),
           foregroundColor: textPrimary,
-          side: const BorderSide(color: Color(0xFFD8CFC8)),
+          side: const BorderSide(color: outlineSoft),
           backgroundColor: bgSurface,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(9999),
+            borderRadius: BorderRadius.circular(16),
+          ),
+        ),
+      ),
+      navigationBarTheme: const NavigationBarThemeData(
+        backgroundColor: bgSurface,
+        indicatorColor: bgAccentSoft,
+        elevation: 0,
+        surfaceTintColor: Colors.transparent,
+        labelTextStyle: WidgetStatePropertyAll(
+          TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.w600,
+            color: textPrimary,
+          ),
+        ),
+      ),
+      drawerTheme: const DrawerThemeData(
+        backgroundColor: bgSurface,
+        surfaceTintColor: Colors.transparent,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.only(
+            topLeft: Radius.circular(24),
+            bottomLeft: Radius.circular(24),
           ),
         ),
       ),
@@ -137,6 +210,14 @@ class AppTheme {
           fontWeight: FontWeight.w600,
           color: accentDark,
         ),
+      ),
+      snackBarTheme: SnackBarThemeData(
+        backgroundColor: bgSurface,
+        contentTextStyle: base.textTheme.bodyMedium?.copyWith(
+          color: textPrimary,
+        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        behavior: SnackBarBehavior.floating,
       ),
       floatingActionButtonTheme: const FloatingActionButtonThemeData(
         backgroundColor: accent,

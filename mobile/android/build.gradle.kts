@@ -1,3 +1,6 @@
+import com.android.build.gradle.LibraryExtension
+import org.gradle.api.tasks.Delete
+
 allprojects {
     repositories {
         google()
@@ -5,18 +8,26 @@ allprojects {
     }
 }
 
-val newBuildDir: Directory =
-    rootProject.layout.buildDirectory
-        .dir("../../build")
-        .get()
+val newBuildDir = rootProject.layout.buildDirectory.dir("../../build").get()
 rootProject.layout.buildDirectory.value(newBuildDir)
 
 subprojects {
-    val newSubprojectBuildDir: Directory = newBuildDir.dir(project.name)
-    project.layout.buildDirectory.value(newSubprojectBuildDir)
+    val newSubprojectBuildDir = newBuildDir.dir(name)
+    layout.buildDirectory.value(newSubprojectBuildDir)
+    evaluationDependsOn(":app")
 }
+
 subprojects {
-    project.evaluationDependsOn(":app")
+    plugins.withId("com.android.library") {
+        extensions.configure<LibraryExtension>("android") {
+            if (namespace.isNullOrBlank()) {
+                namespace = when (project.name) {
+                    "isar_flutter_libs" -> "dev.isar.isar_flutter_libs"
+                    else -> "dev.flutter.${project.name.replace('-', '_')}"
+                }
+            }
+        }
+    }
 }
 
 tasks.register<Delete>("clean") {

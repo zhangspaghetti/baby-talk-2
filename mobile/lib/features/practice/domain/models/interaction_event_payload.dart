@@ -117,6 +117,8 @@ class InteractionEventPayload {
   final DateTime clientTimestamp;
   final InteractionSyncState syncState;
 
+  String get eventKey => '$installationId:$localEventId';
+
   Map<String, Object?> toFactMap() {
     return {
       'localEventId': localEventId,

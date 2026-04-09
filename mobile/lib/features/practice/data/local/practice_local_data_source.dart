@@ -48,6 +48,21 @@ class PracticeLocalDataSource {
     }
   }
 
+  static InteractionEventPayload payloadFromEntity(
+    InteractionEventEntity entity,
+  ) {
+    return InteractionEventPayload.fromWire(
+      localEventId: entity.localEventId,
+      installationId: entity.installationId,
+      spaceId: entity.spaceId,
+      activityId: entity.activityId,
+      phraseId: entity.phraseId,
+      reactionType: entity.reactionType,
+      clientTimestamp: entity.clientTimestamp,
+      syncState: entity.syncState,
+    );
+  }
+
   Future<void> appendInteractionEvent(InteractionEventPayload payload) async {
     final existingEvents = await listRawEntities();
     final duplicateFound = existingEvents.any(
@@ -64,60 +79,69 @@ class PracticeLocalDataSource {
     });
   }
 
+  Future<int> countInteractionEvents({String? activityId}) async {
+    return _isar.txn(() async {
+      final collection = _isar.collection<InteractionEventEntity>();
+      if (activityId == null) {
+        return collection.where().count();
+      }
+      return collection.where().activityIdEqualTo(activityId).count();
+    });
+  }
+
   Future<List<InteractionEventPayload>> listInteractionEvents({
     String? activityId,
   }) async {
     final entities = await listRawEntities(activityId: activityId);
-    return entities.map(_payloadFromEntity).toList(growable: false);
+    return entities.map(payloadFromEntity).toList(growable: false);
   }
 
   Future<List<InteractionEventEntity>> listRawEntities({
     String? activityId,
   }) async {
     final entities = await _isar.txn(() async {
-      return _isar.collection<InteractionEventEntity>().where().findAll();
+      final collection = _isar.collection<InteractionEventEntity>();
+      if (activityId == null) {
+        return collection.where().findAll();
+      }
+      return collection.where().activityIdEqualTo(activityId).findAll();
     });
 
-    final filtered = activityId == null
-        ? entities
-        : entities
-              .where((entity) => entity.activityId == activityId)
-              .toList(growable: false);
-
-    filtered.sort((a, b) {
+    entities.sort((a, b) {
       final byTimestamp = a.clientTimestamp.compareTo(b.clientTimestamp);
       if (byTimestamp != 0) {
         return byTimestamp;
       }
       return a.localEventId.compareTo(b.localEventId);
     });
-    return filtered;
+    return entities;
   }
 
   Future<InteractionEventPayload?> latestInteractionEvent({
     String? activityId,
   }) async {
-    final events = await listInteractionEvents(activityId: activityId);
-    if (events.isEmpty) {
+    final entity = await latestRawEntity(activityId: activityId);
+    if (entity == null) {
       return null;
     }
-    return events.last;
+    return payloadFromEntity(entity);
+  }
+
+  Future<InteractionEventEntity?> latestRawEntity({String? activityId}) async {
+    return _isar.txn(() async {
+      final collection = _isar.collection<InteractionEventEntity>();
+      if (activityId == null) {
+        return collection.where().sortByClientTimestampDesc().findFirst();
+      }
+      return collection
+          .where()
+          .activityIdEqualTo(activityId)
+          .sortByClientTimestampDesc()
+          .findFirst();
+    });
   }
 
   Future<void> close({bool deleteFromDisk = false}) async {
     await _isar.close(deleteFromDisk: deleteFromDisk);
-  }
-
-  InteractionEventPayload _payloadFromEntity(InteractionEventEntity entity) {
-    return InteractionEventPayload.fromWire(
-      localEventId: entity.localEventId,
-      installationId: entity.installationId,
-      spaceId: entity.spaceId,
-      activityId: entity.activityId,
-      phraseId: entity.phraseId,
-      reactionType: entity.reactionType,
-      clientTimestamp: entity.clientTimestamp,
-      syncState: entity.syncState,
-    );
   }
 }

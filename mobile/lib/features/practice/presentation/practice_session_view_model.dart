@@ -115,8 +115,12 @@ class PracticeSessionViewModel extends ChangeNotifier {
   PracticeResumeInfo? _resumeInfo;
   int _currentPhraseIndex = 0;
   bool _sessionCompleted = false;
+  String? _installationId;
+  String? _restoreStatusMessage;
+  bool _hasRecoverableRestoreIssue = false;
   String? _homeErrorMessage;
   String? _sessionErrorMessage;
+  bool _hasPreparedSession = false;
   PracticePlaybackStatus _playbackStatus = PracticePlaybackStatus.idle;
   PracticeSaveStatus _saveStatus = PracticeSaveStatus.idle;
   String? _playbackMessage;
@@ -129,8 +133,12 @@ class PracticeSessionViewModel extends ChangeNotifier {
   PracticeResumeInfo? get resumeInfo => _resumeInfo;
   int get currentPhraseIndex => _currentPhraseIndex;
   bool get sessionCompleted => _sessionCompleted;
+  String? get installationId => _installationId;
+  String? get restoreStatusMessage => _restoreStatusMessage;
+  bool get hasRecoverableRestoreIssue => _hasRecoverableRestoreIssue;
   String? get homeErrorMessage => _homeErrorMessage;
   String? get sessionErrorMessage => _sessionErrorMessage;
+  bool get hasPreparedSession => _hasPreparedSession;
   PracticePlaybackStatus get playbackStatus => _playbackStatus;
   PracticeSaveStatus get saveStatus => _saveStatus;
   String? get playbackMessage => _playbackMessage;
@@ -207,34 +215,31 @@ class PracticeSessionViewModel extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final snapshot =
-          _activitySnapshot ??
-          await _repository.getActivitySnapshot(
-            spaceId: spaceId,
-            activityId: activityId,
-          );
+      final restored = await _repository.restorePracticeState(
+        spaceId: spaceId,
+        activityId: activityId,
+      );
+      _applyRestoreSnapshot(restored);
+
+      final snapshot = restored.activitySnapshot;
       if (snapshot.phrases.isEmpty) {
         throw const FormatException('当前活动暂无可用短语，请返回首页重试。');
       }
 
-      final resume = await _repository.getResumeInfo(
-        spaceId: spaceId,
-        activityId: activityId,
-      );
-      _activitySnapshot = snapshot;
-      _resumeInfo = resume;
       _currentPhraseIndex = _resolveCurrentPhraseIndex(
         phrases: snapshot.phrases,
-        resume: resume,
+        resume: restored.resumeInfo,
       );
       _sessionCompleted = false;
       _saveStatus = PracticeSaveStatus.idle;
       _saveMessage = null;
       _sessionErrorMessage = null;
+      _hasPreparedSession = true;
       _resetPlaybackState(clearMessage: true, notify: false);
       return true;
     } catch (error) {
       _sessionErrorMessage = '练习页加载失败：$error';
+      _hasPreparedSession = false;
       return false;
     } finally {
       _isSessionLoading = false;
@@ -353,18 +358,14 @@ class PracticeSessionViewModel extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final snapshot = await _repository.getActivitySnapshot(
+      final restored = await _repository.restorePracticeState(
         spaceId: spaceId,
         activityId: activityId,
       );
-      if (snapshot.phrases.isEmpty) {
+      if (restored.activitySnapshot.phrases.isEmpty) {
         throw const FormatException('首页内容加载到空短语列表。');
       }
-      _activitySnapshot = snapshot;
-      _homeSummary = await _repository.getHomeSummary(
-        spaceId: spaceId,
-        activityId: activityId,
-      );
+      _applyRestoreSnapshot(restored);
     } catch (error) {
       _homeErrorMessage = '首页加载失败：$error';
     } finally {
@@ -374,14 +375,20 @@ class PracticeSessionViewModel extends ChangeNotifier {
   }
 
   Future<void> _reloadDerivedState() async {
-    _homeSummary = await _repository.getHomeSummary(
+    final restored = await _repository.restorePracticeState(
       spaceId: spaceId,
       activityId: activityId,
     );
-    _resumeInfo = await _repository.getResumeInfo(
-      spaceId: spaceId,
-      activityId: activityId,
-    );
+    _applyRestoreSnapshot(restored);
+  }
+
+  void _applyRestoreSnapshot(PracticeRestoreSnapshot restored) {
+    _installationId = restored.installationId;
+    _activitySnapshot = restored.activitySnapshot;
+    _homeSummary = restored.homeSummary;
+    _resumeInfo = restored.resumeInfo;
+    _restoreStatusMessage = restored.restoreMessage;
+    _hasRecoverableRestoreIssue = restored.hasRecoverableIssue;
   }
 
   int _resolveCurrentPhraseIndex({

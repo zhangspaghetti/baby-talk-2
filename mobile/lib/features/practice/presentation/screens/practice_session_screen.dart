@@ -20,7 +20,11 @@ class _PracticeSessionScreenState extends State<PracticeSessionScreen> {
       if (!mounted) {
         return;
       }
-      context.read<PracticeSessionViewModel>().ensureSessionReady();
+      final viewModel = context.read<PracticeSessionViewModel>();
+      if (viewModel.hasPreparedSession) {
+        return;
+      }
+      viewModel.ensureSessionReady();
     });
   }
 
