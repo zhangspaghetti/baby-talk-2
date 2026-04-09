@@ -55,7 +55,11 @@ class _AppShellScreenState extends State<AppShellScreen> {
       floatingActionButton: FloatingActionButton(
         key: const Key('shell-mentor-fab'),
         tooltip: '小禾老师',
-        onPressed: () => openMentorPanelSheet(context, launcher: 'shell_fab'),
+        onPressed: () => openMentorPanelSheet(
+          context,
+          launcher: 'shell_fab',
+          surface: _surfaceForIndex(_selectedIndex),
+        ),
         child: const Icon(Icons.auto_awesome),
       ),
       body: IndexedStack(
@@ -133,6 +137,20 @@ class _AppShellScreenState extends State<AppShellScreen> {
         return '成长';
     }
     return 'Baby Talk 2';
+  }
+
+  String _surfaceForIndex(int index) {
+    switch (index) {
+      case 0:
+        return 'home';
+      case 1:
+        return 'discover';
+      case 2:
+        return 'garden';
+      case 3:
+        return 'growth';
+    }
+    return 'home';
   }
 
   StageMatch? _resolveStageMatch(OnboardingSnapshot? snapshot) {

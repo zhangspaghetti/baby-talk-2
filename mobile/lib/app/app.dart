@@ -250,6 +250,7 @@ class _BabyTalkAppState extends State<BabyTalkApp> {
             debugShowCheckedModeBanner: false,
             title: 'Baby Talk 2',
             theme: AppTheme.build(),
+            navigatorObservers: [appRouteObserver],
             initialRoute: launchState.initialRoute,
             onGenerateRoute: AppRouter.onGenerateRoute(
               onboardingBuilder: (_) =>

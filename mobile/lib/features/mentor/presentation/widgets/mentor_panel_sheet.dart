@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:mobile/app/theme/app_theme.dart';
-import 'package:mobile/features/account/data/repositories/account_repository.dart';
 import 'package:mobile/features/account/presentation/account_view_model.dart';
+import 'package:mobile/features/mentor/data/services/mentor_api_service.dart'
+    show mentorPromptMaxLength;
 import 'package:mobile/features/mentor/presentation/mentor_view_model.dart';
 import 'package:mobile/features/mentor/presentation/widgets/mentor_suggestion_tab.dart';
 import 'package:mobile/features/onboarding/presentation/widgets/mentor_bubble.dart';
@@ -10,6 +11,7 @@ import 'package:provider/provider.dart';
 Future<void> openMentorPanelSheet(
   BuildContext context, {
   required String launcher,
+  String surface = 'home',
 }) async {
   final viewModel = Provider.of<MentorViewModel?>(context, listen: false);
   if (viewModel == null) {
@@ -19,7 +21,10 @@ Future<void> openMentorPanelSheet(
     return;
   }
 
-  final shouldOpen = await viewModel.beginPanelSession(launcher: launcher);
+  final shouldOpen = await viewModel.beginPanelSession(
+    launcher: launcher,
+    surface: surface,
+  );
   if (!shouldOpen) {
     return;
   }
@@ -50,7 +55,7 @@ class MentorPanelSheet extends StatelessWidget {
   Widget build(BuildContext context) {
     final viewModel = context.watch<MentorViewModel>();
     final mediaQuery = MediaQuery.of(context);
-    final maxHeight = mediaQuery.size.height * 0.76;
+    final maxHeight = mediaQuery.size.height * 0.78;
 
     return SafeArea(
       child: Align(
@@ -222,7 +227,7 @@ class _MentorChatTab extends StatelessWidget {
           caption: availability.title,
           message: availability.detail,
           trailing: Text(
-            '这一版不会发出任何聊天网络请求；你仍然可以直接使用建议 tab 里的文本援助。',
+            'Mentor 只返回一条 text-first 受控回应；不会在面板里展示 raw provider 输出。',
             key: const Key('mentor-chat-text-first-note'),
             style: theme.textTheme.bodySmall,
           ),
@@ -231,9 +236,18 @@ class _MentorChatTab extends StatelessWidget {
         _ChatBanner(
           key: const Key('mentor-chat-banner'),
           title: availability.title,
-          detail: availability.detail,
-          code: availability.code.wireValue,
+          detail: viewModel.bannerMessage ?? availability.detail,
+          code: viewModel.bannerCode ?? availability.code.wireValue,
         ),
+        if (viewModel.audioStatusMessage != null) ...[
+          const SizedBox(height: 12),
+          _ChatBanner(
+            key: const Key('mentor-chat-audio-banner'),
+            title: '朗读状态',
+            detail: viewModel.audioStatusMessage!,
+            code: viewModel.audioStatusCode ?? 'tts',
+          ),
+        ],
         const SizedBox(height: 16),
         Wrap(
           spacing: 8,
@@ -241,7 +255,9 @@ class _MentorChatTab extends StatelessWidget {
           children: [
             Chip(
               key: const Key('mentor-chat-phase-chip'),
-              label: Text('phase · ${availability.phase}'),
+              label: Text(
+                'phase · ${viewModel.chatResponsePhase ?? availability.phase}',
+              ),
             ),
             Chip(
               key: const Key('mentor-chat-status-chip'),
@@ -254,27 +270,134 @@ class _MentorChatTab extends StatelessWidget {
                   'account · ${accountViewModel.snapshot.lastSyncPhase}',
                 ),
               ),
+            if (viewModel.chatRateLimit != null)
+              Chip(
+                key: const Key('mentor-chat-rate-chip'),
+                label: Text(
+                  'limit · ${viewModel.chatRateLimit!.remaining}/${viewModel.chatRateLimit!.limit}',
+                ),
+              ),
           ],
         ),
         const SizedBox(height: 16),
-        Row(
-          children: [
-            OutlinedButton(
-              key: const Key('mentor-chat-retry-button'),
-              onPressed: availability.retryable
-                  ? viewModel.retryChatAvailability
-                  : null,
-              child: const Text('重新检查'),
-            ),
-            const SizedBox(width: 12),
-            FilledButton.tonal(
-              key: const Key('mentor-chat-back-to-suggestions'),
-              onPressed: () => viewModel.selectTab(MentorPanelTab.suggestions),
-              child: const Text('回到建议'),
-            ),
-          ],
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: AppTheme.bgSunken,
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('说出你现在卡住的地方', style: theme.textTheme.titleMedium),
+              const SizedBox(height: 10),
+              TextField(
+                key: const Key('mentor-chat-input'),
+                minLines: 3,
+                maxLines: 5,
+                maxLength: mentorPromptMaxLength,
+                enabled: !viewModel.isSubmittingChat,
+                onChanged: viewModel.updateChatDraft,
+                decoration: const InputDecoration(
+                  hintText: '例如：宝宝一直哭，我现在该怎么开口安抚？',
+                ),
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  FilledButton(
+                    key: const Key('mentor-chat-submit-button'),
+                    onPressed: viewModel.canSubmitChat
+                        ? viewModel.submitChat
+                        : null,
+                    child: Text(viewModel.isSubmittingChat ? '发送中…' : '发起一次求助'),
+                  ),
+                  const SizedBox(width: 12),
+                  OutlinedButton(
+                    key: const Key('mentor-chat-retry-button'),
+                    onPressed: availability.retryable
+                        ? viewModel.retryChatAvailability
+                        : null,
+                    child: const Text('重新检查'),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+        if (viewModel.isSubmittingChat) ...[
+          const SizedBox(height: 16),
+          const LinearProgressIndicator(key: Key('mentor-chat-loading-bar')),
+        ],
+        if (viewModel.chatResponseText != null) ...[
+          const SizedBox(height: 16),
+          _ChatResponseCard(viewModel: viewModel),
+        ],
+        const SizedBox(height: 16),
+        FilledButton.tonal(
+          key: const Key('mentor-chat-back-to-suggestions'),
+          onPressed: () => viewModel.selectTab(MentorPanelTab.suggestions),
+          child: const Text('回到建议'),
         ),
       ],
+    );
+  }
+}
+
+class _ChatResponseCard extends StatelessWidget {
+  const _ChatResponseCard({required this.viewModel});
+
+  final MentorViewModel viewModel;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      key: const Key('mentor-chat-response-card'),
+      width: double.infinity,
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: AppTheme.bgSurface,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: AppTheme.outlineSoft),
+        boxShadow: AppTheme.warmShadowSm,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('受控回应', style: theme.textTheme.titleMedium),
+          const SizedBox(height: 10),
+          Text(
+            viewModel.chatResponseText!,
+            key: const Key('mentor-chat-response-text'),
+            style: theme.textTheme.bodyMedium,
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              if (viewModel.chatResponseCode != null)
+                Chip(label: Text('code · ${viewModel.chatResponseCode}')),
+              if (viewModel.chatAuthenticated)
+                const Chip(label: Text('auth · session'))
+              else
+                const Chip(label: Text('auth · anon')),
+              if (viewModel.chatFallbackUsed)
+                const Chip(label: Text('fallback · yes')),
+            ],
+          ),
+          const SizedBox(height: 12),
+          OutlinedButton.icon(
+            key: const Key('mentor-chat-read-aloud'),
+            onPressed: viewModel.isSpeaking
+                ? null
+                : viewModel.replayChatResponse,
+            icon: const Icon(Icons.volume_up_outlined),
+            label: Text(viewModel.isSpeaking ? '朗读中…' : '朗读回应'),
+          ),
+        ],
+      ),
     );
   }
 }

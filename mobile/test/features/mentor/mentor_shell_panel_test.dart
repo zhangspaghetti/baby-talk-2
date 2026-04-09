@@ -13,9 +13,11 @@ import 'package:mobile/features/account/domain/models/account_consent_state.dart
 import 'package:mobile/features/account/domain/models/account_session.dart';
 import 'package:mobile/features/account/presentation/account_view_model.dart';
 import 'package:mobile/features/mentor/data/repositories/mentor_repository.dart';
+import 'package:mobile/features/mentor/data/services/mentor_api_service.dart';
 import 'package:mobile/features/mentor/domain/models/local_mentor_suggestion.dart';
 import 'package:mobile/features/mentor/domain/models/mentor_fact_event.dart';
 import 'package:mobile/features/mentor/domain/services/local_mentor_suggestion_service.dart';
+import 'package:mobile/features/mentor/presentation/mentor_audio_controller.dart';
 import 'package:mobile/features/mentor/presentation/mentor_view_model.dart';
 import 'package:mobile/features/onboarding/domain/models/onboarding_snapshot.dart';
 import 'package:mobile/features/onboarding/domain/models/stage_match.dart';
@@ -76,13 +78,13 @@ void main() {
     });
 
     await tester.pumpWidget(harness.buildShell());
-    await tester.pump();
+    await _pumpBriefly(tester);
     await tester.tap(find.byTooltip('发现'));
-    await tester.pumpAndSettle();
+    await _pumpBriefly(tester);
 
     await tester.tap(find.byKey(const Key('shell-mentor-fab')));
     await tester.pump();
-    await tester.pump(const Duration(milliseconds: 250));
+    await _pumpBriefly(tester);
 
     expect(find.byKey(const Key('mentor-panel-sheet')), findsOneWidget);
     expect(find.byKey(const Key('mentor-suggestion-tab')), findsOneWidget);
@@ -91,7 +93,7 @@ void main() {
     expect(find.textContaining('离线'), findsWidgets);
 
     await tester.tap(find.byKey(const Key('mentor-tab-chat-button')));
-    await tester.pumpAndSettle();
+    await _pumpBriefly(tester);
 
     expect(find.byKey(const Key('mentor-chat-tab')), findsOneWidget);
     expect(find.byKey(const Key('mentor-chat-retry-button')), findsOneWidget);
@@ -129,11 +131,11 @@ void main() {
     });
 
     await tester.pumpWidget(harness.buildStandaloneHome());
-    await tester.pumpAndSettle();
+    await _pumpBriefly(tester);
 
     await tester.tap(find.byKey(const Key('home-mentor-fab')));
     await tester.pump();
-    await tester.pump(const Duration(milliseconds: 250));
+    await _pumpBriefly(tester);
 
     expect(find.byKey(const Key('mentor-panel-sheet')), findsOneWidget);
     expect(find.byKey(const Key('mentor-suggestion-tab')), findsOneWidget);
@@ -143,6 +145,76 @@ void main() {
     );
     expect(find.textContaining('还没读到 onboarding 档案'), findsOneWidget);
   });
+
+  testWidgets('chat tab 可提交一次匿名求助并显示受控回应', (tester) async {
+    final harness = await _Harness.create(
+      accountSeedSnapshot: AccountLocalSnapshot.signedOut,
+      mentorSuggestionResult: const LocalMentorSuggestionService().derive(
+        const LocalMentorSuggestionContext(
+          contextFallbackUsed: true,
+          fallbackReasonCode: 'onboarding_missing',
+        ),
+      ),
+      chatResponse: MentorChatResponse(
+        correlationId: 'corr_widget_success',
+        responseText: '先抱近一点，只说一句：I\'m here with you.',
+        code: 'ok',
+        phase: 'response_delivered',
+        retryable: false,
+        fallbackUsed: false,
+        authenticated: false,
+        rateLimit: const MentorRateLimitStatus(
+          limited: false,
+          limit: 3,
+          remaining: 2,
+          windowSeconds: 600,
+        ),
+        respondedAt: DateTime.utc(2026, 4, 10, 0),
+      ),
+    );
+    addTearDown(harness.dispose);
+
+    await tester.runAsync(() async {
+      await Future.wait([
+        harness.accountViewModel.initialize(),
+        harness.practiceSessionViewModel.initialize(),
+      ]);
+    });
+
+    await tester.pumpWidget(harness.buildStandaloneHome());
+    await _pumpBriefly(tester);
+
+    await tester.tap(find.byKey(const Key('home-mentor-fab')));
+    await tester.pump();
+    await _pumpBriefly(tester);
+    await tester.tap(find.byKey(const Key('mentor-tab-chat-button')));
+    await _pumpBriefly(tester);
+
+    await tester.enterText(
+      find.byKey(const Key('mentor-chat-input')),
+      '宝宝一直哭，我现在该怎么说？',
+    );
+    await _pumpBriefly(tester);
+    await tester.tap(find.byKey(const Key('mentor-chat-submit-button')));
+    await _pumpBriefly(tester);
+
+    expect(find.byKey(const Key('mentor-chat-response-card')), findsOneWidget);
+    expect(find.byKey(const Key('mentor-chat-response-text')), findsOneWidget);
+    expect(find.textContaining('I\'m here with you.'), findsOneWidget);
+    expect(
+      harness.mentorRepository.appendedFacts.map((fact) => fact.eventType),
+      containsAll([
+        MentorFactType.chatRequested,
+        MentorFactType.chatResponseDelivered,
+      ]),
+    );
+  });
+}
+
+Future<void> _pumpBriefly(WidgetTester tester) async {
+  await tester.pump(const Duration(milliseconds: 16));
+  await tester.pump(const Duration(milliseconds: 80));
+  await tester.pump(const Duration(milliseconds: 160));
 }
 
 class _Harness {
@@ -165,6 +237,8 @@ class _Harness {
   static Future<_Harness> create({
     required AccountLocalSnapshot accountSeedSnapshot,
     required LocalMentorSuggestionResult mentorSuggestionResult,
+    MentorChatResponse? chatResponse,
+    MentorApiException? chatError,
   }) async {
     final tempDir = await Directory.systemTemp.createTemp('mentor_shell_test_');
     final practiceLocalDataSource = await PracticeLocalDataSource.open(
@@ -188,6 +262,11 @@ class _Harness {
     final mentorViewModel = MentorViewModel(
       repository: mentorRepository,
       accountViewModel: accountViewModel,
+      apiService: _FakeMentorApiService(
+        response: chatResponse,
+        error: chatError,
+      ),
+      audioController: _SilentMentorAudioController(),
     );
     final practiceSessionViewModel = PracticeSessionViewModel(
       repository: practiceRepository,
@@ -396,6 +475,63 @@ class _SilentPracticeAudioController implements PracticeAudioController {
 
   @override
   Future<void> playAsset(String assetPath) async {}
+
+  @override
+  Future<void> stop() async {}
+}
+
+class _FakeMentorApiService extends MentorApiService {
+  _FakeMentorApiService({this.response, this.error})
+      : super(baseUri: Uri.parse('http://localhost:8080'));
+
+  final MentorChatResponse? response;
+  final MentorApiException? error;
+
+  @override
+  Future<MentorChatResponse> sendChat({
+    required String installationId,
+    required String prompt,
+    required String surface,
+    required String mode,
+    required String correlationId,
+    String? sessionId,
+    String? contextSummary,
+  }) async {
+    if (error != null) {
+      throw error!;
+    }
+    return response ??
+        MentorChatResponse(
+          correlationId: correlationId,
+          responseText: '先把语速放慢，说一句：I\'m here with you.',
+          code: 'ok',
+          phase: 'response_delivered',
+          retryable: false,
+          fallbackUsed: false,
+          authenticated: sessionId != null,
+          rateLimit: const MentorRateLimitStatus(
+            limited: false,
+            limit: 3,
+            remaining: 2,
+            windowSeconds: 600,
+          ),
+          respondedAt: DateTime.utc(2026, 4, 10, 0),
+        );
+  }
+
+  @override
+  Future<void> close() async {}
+}
+
+class _SilentMentorAudioController implements MentorAudioController {
+  @override
+  Future<void> dispose() async {}
+
+  @override
+  Future<bool> ensureAvailable() async => true;
+
+  @override
+  Future<void> speakText(String text) async {}
 
   @override
   Future<void> stop() async {}

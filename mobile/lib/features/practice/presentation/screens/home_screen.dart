@@ -260,7 +260,11 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
       floatingActionButton: FloatingActionButton.small(
         key: const Key('home-mentor-fab'),
         tooltip: '小禾老师',
-        onPressed: () => openMentorPanelSheet(context, launcher: 'home_fab'),
+        onPressed: () => openMentorPanelSheet(
+          context,
+          launcher: 'home_fab',
+          surface: 'standalone_home',
+        ),
         child: const Icon(Icons.auto_awesome),
       ),
       body: body,

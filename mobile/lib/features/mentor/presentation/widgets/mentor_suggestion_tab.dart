@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:mobile/app/theme/app_theme.dart';
+import 'package:mobile/features/mentor/domain/models/local_mentor_suggestion.dart';
 import 'package:mobile/features/mentor/presentation/mentor_view_model.dart';
 import 'package:mobile/features/onboarding/presentation/widgets/mentor_bubble.dart';
 import 'package:provider/provider.dart';
@@ -28,7 +29,17 @@ class MentorSuggestionTab extends StatelessWidget {
             foregroundColor: _foregroundColorForStatus(viewModel.panelStatus),
             backgroundColor: _backgroundColorForStatus(viewModel.panelStatus),
           ),
-        if (viewModel.bannerMessage != null) const SizedBox(height: 16),
+        if (viewModel.audioStatusMessage != null) ...[
+          if (viewModel.bannerMessage != null) const SizedBox(height: 12),
+          _MentorAlertBanner(
+            key: const Key('mentor-audio-banner'),
+            message: viewModel.audioStatusMessage!,
+            foregroundColor: AppTheme.warning,
+            backgroundColor: AppTheme.warningSoft,
+          ),
+        ],
+        if (viewModel.bannerMessage != null || viewModel.audioStatusMessage != null)
+          const SizedBox(height: 16),
         Wrap(
           spacing: 8,
           runSpacing: 8,
@@ -108,11 +119,9 @@ class MentorSuggestionTab extends StatelessWidget {
             (suggestion) => Padding(
               padding: const EdgeInsets.only(bottom: 12),
               child: _SuggestionCard(
-                suggestionId: suggestion.suggestionId,
-                title: suggestion.title,
-                body: suggestion.body,
-                phraseEnglish: suggestion.phraseEnglish,
-                reasonCode: suggestion.reasonCode,
+                suggestion: suggestion,
+                onReadAloud: () => viewModel.replaySuggestion(suggestion),
+                isSpeaking: viewModel.isSpeaking,
               ),
             ),
           ),
@@ -164,24 +173,20 @@ class MentorSuggestionTab extends StatelessWidget {
 
 class _SuggestionCard extends StatelessWidget {
   const _SuggestionCard({
-    required this.suggestionId,
-    required this.title,
-    required this.body,
-    this.phraseEnglish,
-    this.reasonCode,
+    required this.suggestion,
+    required this.onReadAloud,
+    required this.isSpeaking,
   });
 
-  final String suggestionId;
-  final String title;
-  final String body;
-  final String? phraseEnglish;
-  final String? reasonCode;
+  final LocalMentorSuggestion suggestion;
+  final VoidCallback onReadAloud;
+  final bool isSpeaking;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Container(
-      key: Key('mentor-suggestion-card-$suggestionId'),
+      key: Key('mentor-suggestion-card-${suggestion.suggestionId}'),
       width: double.infinity,
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -193,11 +198,12 @@ class _SuggestionCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(title, style: theme.textTheme.titleMedium),
+          Text(suggestion.title, style: theme.textTheme.titleMedium),
           const SizedBox(height: 10),
-          if (phraseEnglish != null && phraseEnglish!.trim().isNotEmpty) ...[
+          if (suggestion.phraseEnglish != null &&
+              suggestion.phraseEnglish!.trim().isNotEmpty) ...[
             Text(
-              phraseEnglish!,
+              suggestion.phraseEnglish!,
               style: theme.textTheme.displayMedium?.copyWith(
                 fontSize: 24,
                 color: AppTheme.english,
@@ -205,11 +211,29 @@ class _SuggestionCard extends StatelessWidget {
             ),
             const SizedBox(height: 10),
           ],
-          Text(body, style: theme.textTheme.bodyMedium),
-          if (reasonCode != null && reasonCode!.trim().isNotEmpty) ...[
-            const SizedBox(height: 12),
-            Chip(label: Text('reason · $reasonCode')),
-          ],
+          Text(suggestion.body, style: theme.textTheme.bodyMedium),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              OutlinedButton.icon(
+                key: Key('mentor-suggestion-audio-${suggestion.suggestionId}'),
+                onPressed: isSpeaking ? null : onReadAloud,
+                icon: const Icon(Icons.volume_up_outlined),
+                label: Text(isSpeaking ? '朗读中…' : '朗读'),
+              ),
+              if (suggestion.reasonCode != null &&
+                  suggestion.reasonCode!.trim().isNotEmpty) ...[
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [Chip(label: Text('reason · ${suggestion.reasonCode}'))],
+                  ),
+                ),
+              ],
+            ],
+          ),
         ],
       ),
     );

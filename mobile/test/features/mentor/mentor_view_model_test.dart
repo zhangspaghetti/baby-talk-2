@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mobile/features/account/data/local/account_local_store.dart';
 import 'package:mobile/features/account/data/repositories/account_repository.dart';
@@ -7,9 +5,11 @@ import 'package:mobile/features/account/domain/models/account_consent_state.dart
 import 'package:mobile/features/account/domain/models/account_session.dart';
 import 'package:mobile/features/account/presentation/account_view_model.dart';
 import 'package:mobile/features/mentor/data/repositories/mentor_repository.dart';
+import 'package:mobile/features/mentor/data/services/mentor_api_service.dart';
 import 'package:mobile/features/mentor/domain/models/local_mentor_suggestion.dart';
 import 'package:mobile/features/mentor/domain/models/mentor_fact_event.dart';
 import 'package:mobile/features/mentor/domain/services/local_mentor_suggestion_service.dart';
+import 'package:mobile/features/mentor/presentation/mentor_audio_controller.dart';
 import 'package:mobile/features/mentor/presentation/mentor_view_model.dart';
 
 void main() {
@@ -55,6 +55,8 @@ void main() {
       final viewModel = MentorViewModel(
         repository: repository,
         accountViewModel: accountViewModel,
+        apiService: _FakeMentorApiService(),
+        audioController: _SilentMentorAudioController(),
       );
       addTearDown(viewModel.dispose);
       addTearDown(accountViewModel.dispose);
@@ -93,6 +95,8 @@ void main() {
       final viewModel = MentorViewModel(
         repository: repository,
         accountViewModel: accountViewModel,
+        apiService: _FakeMentorApiService(),
+        audioController: _SilentMentorAudioController(),
       );
       addTearDown(viewModel.dispose);
       addTearDown(accountViewModel.dispose);
@@ -114,7 +118,7 @@ void main() {
       );
     });
 
-    test('账号尚未加载时，聊天状态按 unknown/loading 暴露而不是空白', () {
+    test('账号尚未加载时，聊天状态按 loading 暴露而不是空白', () {
       final accountViewModel = AccountViewModel(
         repository: _StaticAccountRepository(
           seedSnapshot: AccountLocalSnapshot.signedOut,
@@ -124,6 +128,8 @@ void main() {
       final viewModel = MentorViewModel(
         repository: repository,
         accountViewModel: accountViewModel,
+        apiService: _FakeMentorApiService(),
+        audioController: _SilentMentorAudioController(),
       );
       addTearDown(viewModel.dispose);
       addTearDown(accountViewModel.dispose);
@@ -133,6 +139,167 @@ void main() {
         MentorChatAvailabilityCode.accountLoading,
       );
       expect(viewModel.chatAvailability.detail, contains('账号状态还在加载中'));
+    });
+
+    test('在线聊天成功时会保留受控回应并记录请求/响应 facts', () async {
+      final accountViewModel = AccountViewModel(
+        repository: _StaticAccountRepository(
+          seedSnapshot: AccountLocalSnapshot.signedOut,
+        ),
+      );
+      await accountViewModel.initialize();
+      final repository = _RecordingMentorRepository(
+        deriveResult: LocalMentorSuggestionResult(
+          suggestions: [
+            LocalMentorSuggestion(
+              suggestionId: 'safe_default',
+              origin: LocalMentorSuggestionOrigin.safeFallback,
+              title: '先把节奏放慢',
+              body: '先说一句短句，然后停两秒等回应。',
+              reasonCode: 'fallback',
+            ),
+          ],
+          primaryOrigin: LocalMentorSuggestionOrigin.safeFallback,
+          contextFallbackUsed: true,
+          fallbackReasonCode: 'fallback',
+          redactedContextSummary: 'fallback:fallback',
+        ),
+      );
+      final viewModel = MentorViewModel(
+        repository: repository,
+        accountViewModel: accountViewModel,
+        apiService: _FakeMentorApiService(
+          response: MentorChatResponse(
+            correlationId: 'corr_success',
+            responseText: '先抱近一点，只说一句：I\'m here with you.',
+            code: 'ok',
+            phase: 'response_delivered',
+            retryable: false,
+            fallbackUsed: false,
+            authenticated: false,
+            rateLimit: const MentorRateLimitStatus(
+              limited: false,
+              limit: 3,
+              remaining: 2,
+              windowSeconds: 600,
+            ),
+            respondedAt: DateTime.utc(2026, 4, 10, 0),
+          ),
+        ),
+        audioController: _SilentMentorAudioController(),
+      );
+      addTearDown(viewModel.dispose);
+      addTearDown(accountViewModel.dispose);
+
+      await viewModel.beginPanelSession(launcher: 'home_fab');
+      await Future<void>.delayed(const Duration(milliseconds: 1));
+      viewModel.selectTab(MentorPanelTab.chat);
+      viewModel.updateChatDraft('宝宝一直哭，我现在该怎么说？');
+
+      await viewModel.submitChat();
+
+      expect(viewModel.chatResponseText, contains('I\'m here with you.'));
+      expect(viewModel.chatResponseCode, 'ok');
+      expect(viewModel.chatResponsePhase, 'response_delivered');
+      expect(viewModel.chatAuthenticated, isFalse);
+      expect(
+        repository.appendedFacts.map((fact) => fact.eventType),
+        containsAll([
+          MentorFactType.chatRequested,
+          MentorFactType.chatResponseDelivered,
+        ]),
+      );
+    });
+
+    test('在线聊天超时时会暴露 banner/code 并记录 chatFailed fact', () async {
+      final accountViewModel = AccountViewModel(
+        repository: _StaticAccountRepository(
+          seedSnapshot: AccountLocalSnapshot.signedOut,
+        ),
+      );
+      await accountViewModel.initialize();
+      final repository = _RecordingMentorRepository();
+      final viewModel = MentorViewModel(
+        repository: repository,
+        accountViewModel: accountViewModel,
+        apiService: _FakeMentorApiService(
+          error: const MentorApiException(
+            kind: MentorApiFailureKind.http,
+            message: 'provider timeout',
+            statusCode: 504,
+            code: 'provider_timeout',
+            details: <String, Object?>{
+              'phase': 'provider_timeout',
+              'retryable': true,
+            },
+          ),
+        ),
+        audioController: _SilentMentorAudioController(),
+      );
+      addTearDown(viewModel.dispose);
+      addTearDown(accountViewModel.dispose);
+
+      await viewModel.beginPanelSession(launcher: 'home_fab');
+      await Future<void>.delayed(const Duration(milliseconds: 1));
+      viewModel.selectTab(MentorPanelTab.chat);
+      viewModel.updateChatDraft('宝宝一直哭，我现在该怎么说？');
+
+      await viewModel.submitChat();
+
+      expect(viewModel.chatResponseText, isNull);
+      expect(viewModel.chatResponseCode, 'timeout');
+      expect(viewModel.chatResponsePhase, 'provider_timeout');
+      expect(viewModel.bannerMessage, contains('超时'));
+      expect(
+        repository.appendedFacts.map((fact) => fact.eventType),
+        containsAll([MentorFactType.chatRequested, MentorFactType.chatFailed]),
+      );
+    });
+
+    test('TTS 不可用时会暴露诊断并记录 tts_unavailable fact', () async {
+      final accountViewModel = AccountViewModel(
+        repository: _StaticAccountRepository(
+          seedSnapshot: AccountLocalSnapshot.signedOut,
+        ),
+      );
+      await accountViewModel.initialize();
+      final repository = _RecordingMentorRepository(
+        deriveResult: LocalMentorSuggestionResult(
+          suggestions: [
+            LocalMentorSuggestion(
+              suggestionId: 'safe_small_step',
+              origin: LocalMentorSuggestionOrigin.safeFallback,
+              title: '先做一个小动作',
+              body: '先说一句 I\'m here with you. 然后停半拍。',
+              phraseEnglish: 'I\'m here with you.',
+              reasonCode: 'safe_small_step',
+            ),
+          ],
+          primaryOrigin: LocalMentorSuggestionOrigin.safeFallback,
+          contextFallbackUsed: true,
+          fallbackReasonCode: 'fallback',
+          redactedContextSummary: 'fallback:fallback',
+        ),
+      );
+      final viewModel = MentorViewModel(
+        repository: repository,
+        accountViewModel: accountViewModel,
+        apiService: _FakeMentorApiService(),
+        audioController: _UnavailableMentorAudioController(),
+      );
+      addTearDown(viewModel.dispose);
+      addTearDown(accountViewModel.dispose);
+
+      await viewModel.beginPanelSession(launcher: 'home_fab');
+      await Future<void>.delayed(const Duration(milliseconds: 1));
+      await viewModel.replaySuggestion(viewModel.suggestions.first);
+
+      expect(viewModel.audioStatusCode, 'tts_unavailable');
+      expect(viewModel.audioStatusMessage, contains('当前设备不支持朗读'));
+      expect(
+        repository.appendedFacts.map((fact) => fact.eventType),
+        contains(MentorFactType.ttsUnavailable),
+      );
     });
   });
 }
@@ -294,4 +461,80 @@ class _StaticAccountRepository implements AccountRepository {
 
   @override
   Future<void> close() async {}
+}
+
+class _FakeMentorApiService extends MentorApiService {
+  _FakeMentorApiService({this.response, this.error})
+    : super(baseUri: Uri.parse('http://localhost:8080'));
+
+  final MentorChatResponse? response;
+  final MentorApiException? error;
+
+  @override
+  Future<MentorChatResponse> sendChat({
+    required String installationId,
+    required String prompt,
+    required String surface,
+    required String mode,
+    required String correlationId,
+    String? sessionId,
+    String? contextSummary,
+  }) async {
+    if (error != null) {
+      throw error!;
+    }
+    return response ??
+        MentorChatResponse(
+          correlationId: correlationId,
+          responseText: '先把语速放慢，说一句：I\'m here with you.',
+          code: 'ok',
+          phase: 'response_delivered',
+          retryable: false,
+          fallbackUsed: false,
+          authenticated: sessionId != null,
+          rateLimit: const MentorRateLimitStatus(
+            limited: false,
+            limit: 3,
+            remaining: 2,
+            windowSeconds: 600,
+          ),
+          respondedAt: DateTime.utc(2026, 4, 10, 0),
+        );
+  }
+
+  @override
+  Future<void> close() async {}
+}
+
+class _SilentMentorAudioController implements MentorAudioController {
+  @override
+  Future<void> dispose() async {}
+
+  @override
+  Future<bool> ensureAvailable() async => true;
+
+  @override
+  Future<void> speakText(String text) async {}
+
+  @override
+  Future<void> stop() async {}
+}
+
+class _UnavailableMentorAudioController implements MentorAudioController {
+  @override
+  Future<void> dispose() async {}
+
+  @override
+  Future<bool> ensureAvailable() async => false;
+
+  @override
+  Future<void> speakText(String text) async {
+    throw const MentorAudioException(
+      kind: MentorAudioFailureKind.unavailable,
+      message: '当前设备不支持朗读。',
+    );
+  }
+
+  @override
+  Future<void> stop() async {}
 }
