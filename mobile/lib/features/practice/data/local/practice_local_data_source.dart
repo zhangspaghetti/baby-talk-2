@@ -52,6 +52,7 @@ class PracticeLocalDataSource {
     InteractionEventEntity entity,
   ) {
     return InteractionEventPayload.fromWire(
+      eventKey: entity.eventKey,
       localEventId: entity.localEventId,
       installationId: entity.installationId,
       spaceId: entity.spaceId,
@@ -60,22 +61,20 @@ class PracticeLocalDataSource {
       reactionType: entity.reactionType,
       clientTimestamp: entity.clientTimestamp,
       syncState: entity.syncState,
+      lastSyncPhase: entity.lastSyncPhase,
+      lastSyncError: entity.lastSyncError,
+      lastSyncAt: entity.lastSyncAt,
     );
   }
 
   Future<void> appendInteractionEvent(InteractionEventPayload payload) async {
-    final existingEvents = await listRawEntities();
-    final duplicateFound = existingEvents.any(
-      (entity) => entity.localEventId == payload.localEventId,
-    );
-    if (duplicateFound) {
-      throw const FormatException('localEventId 已存在，append-only 事件不可覆盖。');
-    }
-
     final collection = _isar.collection<InteractionEventEntity>();
-    final entity = InteractionEventEntity.fromPayload(payload);
     await _isar.writeTxn(() async {
-      await collection.put(entity);
+      final existing = await collection.getByEventKey(payload.eventKey);
+      if (existing != null) {
+        throw const FormatException('eventKey 已存在，append-only 事件不可覆盖。');
+      }
+      await collection.putByEventKey(InteractionEventEntity.fromPayload(payload));
     });
   }
 
@@ -96,6 +95,17 @@ class PracticeLocalDataSource {
     return entities.map(payloadFromEntity).toList(growable: false);
   }
 
+  Future<List<InteractionEventPayload>> listPendingEvents({
+    String? activityId,
+    int? limit,
+  }) async {
+    final entities = await listPendingRawEntities(
+      activityId: activityId,
+      limit: limit,
+    );
+    return entities.map(payloadFromEntity).toList(growable: false);
+  }
+
   Future<List<InteractionEventEntity>> listRawEntities({
     String? activityId,
   }) async {
@@ -107,14 +117,34 @@ class PracticeLocalDataSource {
       return collection.where().activityIdEqualTo(activityId).findAll();
     });
 
-    entities.sort((a, b) {
-      final byTimestamp = a.clientTimestamp.compareTo(b.clientTimestamp);
-      if (byTimestamp != 0) {
-        return byTimestamp;
-      }
-      return a.localEventId.compareTo(b.localEventId);
-    });
+    entities.sort(_compareEntities);
     return entities;
+  }
+
+  Future<List<InteractionEventEntity>> listPendingRawEntities({
+    String? activityId,
+    int? limit,
+  }) async {
+    final entities = await _isar.txn(() async {
+      final collection = _isar.collection<InteractionEventEntity>();
+      if (activityId == null) {
+        return collection
+            .where()
+            .syncStateEqualTo(InteractionSyncState.pending.wireValue)
+            .findAll();
+      }
+      return collection
+          .filter()
+          .activityIdEqualTo(activityId)
+          .syncStateEqualTo(InteractionSyncState.pending.wireValue)
+          .findAll();
+    });
+
+    entities.sort(_compareEntities);
+    if (limit == null || limit >= entities.length) {
+      return entities;
+    }
+    return entities.take(limit).toList(growable: false);
   }
 
   Future<InteractionEventPayload?> latestInteractionEvent({
@@ -141,7 +171,158 @@ class PracticeLocalDataSource {
     });
   }
 
+  Future<void> markEventsSynced(
+    Iterable<String> eventKeys, {
+    String phase = 'batch_ack_applied',
+    DateTime? syncedAt,
+  }) async {
+    final normalizedKeys = _normalizeEventKeys(eventKeys);
+    if (normalizedKeys.isEmpty) {
+      return;
+    }
+
+    final timestamp = (syncedAt ?? DateTime.now()).toUtc();
+    final collection = _isar.collection<InteractionEventEntity>();
+    await _isar.writeTxn(() async {
+      final entities = await _loadEntitiesForMutation(collection, normalizedKeys);
+      for (final entity in entities) {
+        entity.syncState = InteractionSyncState.synced.wireValue;
+        entity.lastSyncPhase = phase;
+        entity.lastSyncError = null;
+        entity.lastSyncAt = timestamp;
+        await collection.putByEventKey(entity);
+      }
+    });
+  }
+
+  Future<void> markEventsFailed(
+    Iterable<String> eventKeys, {
+    required String phase,
+    required String errorMessage,
+    DateTime? failedAt,
+    bool keepPending = false,
+  }) async {
+    if (phase.trim().isEmpty) {
+      throw const FormatException('phase 不能为空。');
+    }
+    if (errorMessage.trim().isEmpty) {
+      throw const FormatException('errorMessage 不能为空。');
+    }
+
+    final normalizedKeys = _normalizeEventKeys(eventKeys);
+    if (normalizedKeys.isEmpty) {
+      return;
+    }
+
+    final timestamp = (failedAt ?? DateTime.now()).toUtc();
+    final targetState = keepPending
+        ? InteractionSyncState.pending.wireValue
+        : InteractionSyncState.failed.wireValue;
+    final collection = _isar.collection<InteractionEventEntity>();
+    await _isar.writeTxn(() async {
+      final entities = await _loadEntitiesForMutation(collection, normalizedKeys);
+      for (final entity in entities) {
+        entity.syncState = targetState;
+        entity.lastSyncPhase = phase;
+        entity.lastSyncError = errorMessage;
+        entity.lastSyncAt = timestamp;
+        await collection.putByEventKey(entity);
+      }
+    });
+  }
+
+  Future<void> importServerEvents(
+    Iterable<InteractionEventPayload> events,
+  ) async {
+    final collection = _isar.collection<InteractionEventEntity>();
+    final incoming = events.toList(growable: false);
+    await _isar.writeTxn(() async {
+      final seenKeys = <String>{};
+      for (final payload in incoming) {
+        if (!seenKeys.add(payload.eventKey)) {
+          throw FormatException('bootstrap 导入收到重复 eventKey: ${payload.eventKey}');
+        }
+
+        final existing = await collection.getByEventKey(payload.eventKey);
+        if (existing == null) {
+          await collection.putByEventKey(InteractionEventEntity.fromPayload(payload));
+          continue;
+        }
+
+        final existingPayload = payloadFromEntity(existing);
+        final sameFacts = _mapsEqual(
+          existingPayload.toFactMap(),
+          payload.toFactMap(),
+        );
+        if (!sameFacts) {
+          throw FormatException(
+            'bootstrap 导入收到冲突 eventKey: ${payload.eventKey}',
+          );
+        }
+      }
+    });
+  }
+
   Future<void> close({bool deleteFromDisk = false}) async {
     await _isar.close(deleteFromDisk: deleteFromDisk);
+  }
+
+  List<String> _normalizeEventKeys(Iterable<String> eventKeys) {
+    final normalized = <String>[];
+    final seen = <String>{};
+    for (final rawKey in eventKeys) {
+      final key = rawKey.trim();
+      if (key.isEmpty) {
+        throw const FormatException('eventKey 不能为空。');
+      }
+      if (!seen.add(key)) {
+        throw FormatException('eventKeys 中包含重复值：$key');
+      }
+      normalized.add(key);
+    }
+    return normalized;
+  }
+
+  Future<List<InteractionEventEntity>> _loadEntitiesForMutation(
+    IsarCollection<InteractionEventEntity> collection,
+    List<String> eventKeys,
+  ) async {
+    final entities = <InteractionEventEntity>[];
+    final missingKeys = <String>[];
+    for (final eventKey in eventKeys) {
+      final entity = await collection.getByEventKey(eventKey);
+      if (entity == null) {
+        missingKeys.add(eventKey);
+        continue;
+      }
+      entities.add(entity);
+    }
+    if (missingKeys.isNotEmpty) {
+      throw FormatException('同步响应包含未知 eventKey: ${missingKeys.join(', ')}');
+    }
+    return entities;
+  }
+
+  int _compareEntities(InteractionEventEntity a, InteractionEventEntity b) {
+    final byTimestamp = a.clientTimestamp.compareTo(b.clientTimestamp);
+    if (byTimestamp != 0) {
+      return byTimestamp;
+    }
+    return a.eventKey.compareTo(b.eventKey);
+  }
+
+  bool _mapsEqual(Map<String, Object?> left, Map<String, Object?> right) {
+    if (left.length != right.length) {
+      return false;
+    }
+    for (final entry in left.entries) {
+      if (!right.containsKey(entry.key)) {
+        return false;
+      }
+      if (right[entry.key] != entry.value) {
+        return false;
+      }
+    }
+    return true;
   }
 }

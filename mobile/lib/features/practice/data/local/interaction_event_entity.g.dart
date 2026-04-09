@@ -28,33 +28,53 @@ const InteractionEventEntitySchema = CollectionSchema(
       name: r'clientTimestamp',
       type: IsarType.dateTime,
     ),
-    r'installationId': PropertySchema(
+    r'eventKey': PropertySchema(
       id: 2,
+      name: r'eventKey',
+      type: IsarType.string,
+    ),
+    r'installationId': PropertySchema(
+      id: 3,
       name: r'installationId',
       type: IsarType.string,
     ),
+    r'lastSyncAt': PropertySchema(
+      id: 4,
+      name: r'lastSyncAt',
+      type: IsarType.dateTime,
+    ),
+    r'lastSyncError': PropertySchema(
+      id: 5,
+      name: r'lastSyncError',
+      type: IsarType.string,
+    ),
+    r'lastSyncPhase': PropertySchema(
+      id: 6,
+      name: r'lastSyncPhase',
+      type: IsarType.string,
+    ),
     r'localEventId': PropertySchema(
-      id: 3,
+      id: 7,
       name: r'localEventId',
       type: IsarType.string,
     ),
     r'phraseId': PropertySchema(
-      id: 4,
+      id: 8,
       name: r'phraseId',
       type: IsarType.string,
     ),
     r'reactionType': PropertySchema(
-      id: 5,
+      id: 9,
       name: r'reactionType',
       type: IsarType.string,
     ),
     r'spaceId': PropertySchema(
-      id: 6,
+      id: 10,
       name: r'spaceId',
       type: IsarType.string,
     ),
     r'syncState': PropertySchema(
-      id: 7,
+      id: 11,
       name: r'syncState',
       type: IsarType.string,
     )
@@ -65,6 +85,19 @@ const InteractionEventEntitySchema = CollectionSchema(
   deserializeProp: _interactionEventEntityDeserializeProp,
   idName: r'id',
   indexes: {
+    r'eventKey': IndexSchema(
+      id: -6167434590247707527,
+      name: r'eventKey',
+      unique: true,
+      replace: false,
+      properties: [
+        IndexPropertySchema(
+          name: r'eventKey',
+          type: IndexType.hash,
+          caseSensitive: true,
+        )
+      ],
+    ),
     r'localEventId': IndexSchema(
       id: -8917523126984297887,
       name: r'localEventId',
@@ -159,7 +192,20 @@ int _interactionEventEntityEstimateSize(
 ) {
   var bytesCount = offsets.last;
   bytesCount += 3 + object.activityId.length * 3;
+  bytesCount += 3 + object.eventKey.length * 3;
   bytesCount += 3 + object.installationId.length * 3;
+  {
+    final value = object.lastSyncError;
+    if (value != null) {
+      bytesCount += 3 + value.length * 3;
+    }
+  }
+  {
+    final value = object.lastSyncPhase;
+    if (value != null) {
+      bytesCount += 3 + value.length * 3;
+    }
+  }
   bytesCount += 3 + object.localEventId.length * 3;
   bytesCount += 3 + object.phraseId.length * 3;
   bytesCount += 3 + object.reactionType.length * 3;
@@ -176,12 +222,16 @@ void _interactionEventEntitySerialize(
 ) {
   writer.writeString(offsets[0], object.activityId);
   writer.writeDateTime(offsets[1], object.clientTimestamp);
-  writer.writeString(offsets[2], object.installationId);
-  writer.writeString(offsets[3], object.localEventId);
-  writer.writeString(offsets[4], object.phraseId);
-  writer.writeString(offsets[5], object.reactionType);
-  writer.writeString(offsets[6], object.spaceId);
-  writer.writeString(offsets[7], object.syncState);
+  writer.writeString(offsets[2], object.eventKey);
+  writer.writeString(offsets[3], object.installationId);
+  writer.writeDateTime(offsets[4], object.lastSyncAt);
+  writer.writeString(offsets[5], object.lastSyncError);
+  writer.writeString(offsets[6], object.lastSyncPhase);
+  writer.writeString(offsets[7], object.localEventId);
+  writer.writeString(offsets[8], object.phraseId);
+  writer.writeString(offsets[9], object.reactionType);
+  writer.writeString(offsets[10], object.spaceId);
+  writer.writeString(offsets[11], object.syncState);
 }
 
 InteractionEventEntity _interactionEventEntityDeserialize(
@@ -193,13 +243,17 @@ InteractionEventEntity _interactionEventEntityDeserialize(
   final object = InteractionEventEntity();
   object.activityId = reader.readString(offsets[0]);
   object.clientTimestamp = reader.readDateTime(offsets[1]);
+  object.eventKey = reader.readString(offsets[2]);
   object.id = id;
-  object.installationId = reader.readString(offsets[2]);
-  object.localEventId = reader.readString(offsets[3]);
-  object.phraseId = reader.readString(offsets[4]);
-  object.reactionType = reader.readString(offsets[5]);
-  object.spaceId = reader.readString(offsets[6]);
-  object.syncState = reader.readString(offsets[7]);
+  object.installationId = reader.readString(offsets[3]);
+  object.lastSyncAt = reader.readDateTimeOrNull(offsets[4]);
+  object.lastSyncError = reader.readStringOrNull(offsets[5]);
+  object.lastSyncPhase = reader.readStringOrNull(offsets[6]);
+  object.localEventId = reader.readString(offsets[7]);
+  object.phraseId = reader.readString(offsets[8]);
+  object.reactionType = reader.readString(offsets[9]);
+  object.spaceId = reader.readString(offsets[10]);
+  object.syncState = reader.readString(offsets[11]);
   return object;
 }
 
@@ -219,12 +273,20 @@ P _interactionEventEntityDeserializeProp<P>(
     case 3:
       return (reader.readString(offset)) as P;
     case 4:
-      return (reader.readString(offset)) as P;
+      return (reader.readDateTimeOrNull(offset)) as P;
     case 5:
-      return (reader.readString(offset)) as P;
+      return (reader.readStringOrNull(offset)) as P;
     case 6:
-      return (reader.readString(offset)) as P;
+      return (reader.readStringOrNull(offset)) as P;
     case 7:
+      return (reader.readString(offset)) as P;
+    case 8:
+      return (reader.readString(offset)) as P;
+    case 9:
+      return (reader.readString(offset)) as P;
+    case 10:
+      return (reader.readString(offset)) as P;
+    case 11:
       return (reader.readString(offset)) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
@@ -247,6 +309,61 @@ void _interactionEventEntityAttach(
 
 extension InteractionEventEntityByIndex
     on IsarCollection<InteractionEventEntity> {
+  Future<InteractionEventEntity?> getByEventKey(String eventKey) {
+    return getByIndex(r'eventKey', [eventKey]);
+  }
+
+  InteractionEventEntity? getByEventKeySync(String eventKey) {
+    return getByIndexSync(r'eventKey', [eventKey]);
+  }
+
+  Future<bool> deleteByEventKey(String eventKey) {
+    return deleteByIndex(r'eventKey', [eventKey]);
+  }
+
+  bool deleteByEventKeySync(String eventKey) {
+    return deleteByIndexSync(r'eventKey', [eventKey]);
+  }
+
+  Future<List<InteractionEventEntity?>> getAllByEventKey(
+      List<String> eventKeyValues) {
+    final values = eventKeyValues.map((e) => [e]).toList();
+    return getAllByIndex(r'eventKey', values);
+  }
+
+  List<InteractionEventEntity?> getAllByEventKeySync(
+      List<String> eventKeyValues) {
+    final values = eventKeyValues.map((e) => [e]).toList();
+    return getAllByIndexSync(r'eventKey', values);
+  }
+
+  Future<int> deleteAllByEventKey(List<String> eventKeyValues) {
+    final values = eventKeyValues.map((e) => [e]).toList();
+    return deleteAllByIndex(r'eventKey', values);
+  }
+
+  int deleteAllByEventKeySync(List<String> eventKeyValues) {
+    final values = eventKeyValues.map((e) => [e]).toList();
+    return deleteAllByIndexSync(r'eventKey', values);
+  }
+
+  Future<Id> putByEventKey(InteractionEventEntity object) {
+    return putByIndex(r'eventKey', object);
+  }
+
+  Id putByEventKeySync(InteractionEventEntity object, {bool saveLinks = true}) {
+    return putByIndexSync(r'eventKey', object, saveLinks: saveLinks);
+  }
+
+  Future<List<Id>> putAllByEventKey(List<InteractionEventEntity> objects) {
+    return putAllByIndex(r'eventKey', objects);
+  }
+
+  List<Id> putAllByEventKeySync(List<InteractionEventEntity> objects,
+      {bool saveLinks = true}) {
+    return putAllByIndexSync(r'eventKey', objects, saveLinks: saveLinks);
+  }
+
   Future<InteractionEventEntity?> getByLocalEventId(String localEventId) {
     return getByIndex(r'localEventId', [localEventId]);
   }
@@ -390,6 +507,51 @@ extension InteractionEventEntityQueryWhere on QueryBuilder<
         upper: upperId,
         includeUpper: includeUpper,
       ));
+    });
+  }
+
+  QueryBuilder<InteractionEventEntity, InteractionEventEntity,
+      QAfterWhereClause> eventKeyEqualTo(String eventKey) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(IndexWhereClause.equalTo(
+        indexName: r'eventKey',
+        value: [eventKey],
+      ));
+    });
+  }
+
+  QueryBuilder<InteractionEventEntity, InteractionEventEntity,
+      QAfterWhereClause> eventKeyNotEqualTo(String eventKey) {
+    return QueryBuilder.apply(this, (query) {
+      if (query.whereSort == Sort.asc) {
+        return query
+            .addWhereClause(IndexWhereClause.between(
+              indexName: r'eventKey',
+              lower: [],
+              upper: [eventKey],
+              includeUpper: false,
+            ))
+            .addWhereClause(IndexWhereClause.between(
+              indexName: r'eventKey',
+              lower: [eventKey],
+              includeLower: false,
+              upper: [],
+            ));
+      } else {
+        return query
+            .addWhereClause(IndexWhereClause.between(
+              indexName: r'eventKey',
+              lower: [eventKey],
+              includeLower: false,
+              upper: [],
+            ))
+            .addWhereClause(IndexWhereClause.between(
+              indexName: r'eventKey',
+              lower: [],
+              upper: [eventKey],
+              includeUpper: false,
+            ));
+      }
     });
   }
 
@@ -909,6 +1071,144 @@ extension InteractionEventEntityQueryFilter on QueryBuilder<
   }
 
   QueryBuilder<InteractionEventEntity, InteractionEventEntity,
+      QAfterFilterCondition> eventKeyEqualTo(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'eventKey',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<InteractionEventEntity, InteractionEventEntity,
+      QAfterFilterCondition> eventKeyGreaterThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'eventKey',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<InteractionEventEntity, InteractionEventEntity,
+      QAfterFilterCondition> eventKeyLessThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'eventKey',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<InteractionEventEntity, InteractionEventEntity,
+      QAfterFilterCondition> eventKeyBetween(
+    String lower,
+    String upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'eventKey',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<InteractionEventEntity, InteractionEventEntity,
+      QAfterFilterCondition> eventKeyStartsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.startsWith(
+        property: r'eventKey',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<InteractionEventEntity, InteractionEventEntity,
+      QAfterFilterCondition> eventKeyEndsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.endsWith(
+        property: r'eventKey',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<InteractionEventEntity, InteractionEventEntity,
+          QAfterFilterCondition>
+      eventKeyContains(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.contains(
+        property: r'eventKey',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<InteractionEventEntity, InteractionEventEntity,
+          QAfterFilterCondition>
+      eventKeyMatches(String pattern, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.matches(
+        property: r'eventKey',
+        wildcard: pattern,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<InteractionEventEntity, InteractionEventEntity,
+      QAfterFilterCondition> eventKeyIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'eventKey',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<InteractionEventEntity, InteractionEventEntity,
+      QAfterFilterCondition> eventKeyIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        property: r'eventKey',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<InteractionEventEntity, InteractionEventEntity,
       QAfterFilterCondition> idEqualTo(Id value) {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(FilterCondition.equalTo(
@@ -1097,6 +1397,392 @@ extension InteractionEventEntityQueryFilter on QueryBuilder<
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(FilterCondition.greaterThan(
         property: r'installationId',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<InteractionEventEntity, InteractionEventEntity,
+      QAfterFilterCondition> lastSyncAtIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'lastSyncAt',
+      ));
+    });
+  }
+
+  QueryBuilder<InteractionEventEntity, InteractionEventEntity,
+      QAfterFilterCondition> lastSyncAtIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'lastSyncAt',
+      ));
+    });
+  }
+
+  QueryBuilder<InteractionEventEntity, InteractionEventEntity,
+      QAfterFilterCondition> lastSyncAtEqualTo(DateTime? value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'lastSyncAt',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<InteractionEventEntity, InteractionEventEntity,
+      QAfterFilterCondition> lastSyncAtGreaterThan(
+    DateTime? value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'lastSyncAt',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<InteractionEventEntity, InteractionEventEntity,
+      QAfterFilterCondition> lastSyncAtLessThan(
+    DateTime? value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'lastSyncAt',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<InteractionEventEntity, InteractionEventEntity,
+      QAfterFilterCondition> lastSyncAtBetween(
+    DateTime? lower,
+    DateTime? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'lastSyncAt',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+      ));
+    });
+  }
+
+  QueryBuilder<InteractionEventEntity, InteractionEventEntity,
+      QAfterFilterCondition> lastSyncErrorIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'lastSyncError',
+      ));
+    });
+  }
+
+  QueryBuilder<InteractionEventEntity, InteractionEventEntity,
+      QAfterFilterCondition> lastSyncErrorIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'lastSyncError',
+      ));
+    });
+  }
+
+  QueryBuilder<InteractionEventEntity, InteractionEventEntity,
+      QAfterFilterCondition> lastSyncErrorEqualTo(
+    String? value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'lastSyncError',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<InteractionEventEntity, InteractionEventEntity,
+      QAfterFilterCondition> lastSyncErrorGreaterThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'lastSyncError',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<InteractionEventEntity, InteractionEventEntity,
+      QAfterFilterCondition> lastSyncErrorLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'lastSyncError',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<InteractionEventEntity, InteractionEventEntity,
+      QAfterFilterCondition> lastSyncErrorBetween(
+    String? lower,
+    String? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'lastSyncError',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<InteractionEventEntity, InteractionEventEntity,
+      QAfterFilterCondition> lastSyncErrorStartsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.startsWith(
+        property: r'lastSyncError',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<InteractionEventEntity, InteractionEventEntity,
+      QAfterFilterCondition> lastSyncErrorEndsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.endsWith(
+        property: r'lastSyncError',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<InteractionEventEntity, InteractionEventEntity,
+          QAfterFilterCondition>
+      lastSyncErrorContains(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.contains(
+        property: r'lastSyncError',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<InteractionEventEntity, InteractionEventEntity,
+          QAfterFilterCondition>
+      lastSyncErrorMatches(String pattern, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.matches(
+        property: r'lastSyncError',
+        wildcard: pattern,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<InteractionEventEntity, InteractionEventEntity,
+      QAfterFilterCondition> lastSyncErrorIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'lastSyncError',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<InteractionEventEntity, InteractionEventEntity,
+      QAfterFilterCondition> lastSyncErrorIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        property: r'lastSyncError',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<InteractionEventEntity, InteractionEventEntity,
+      QAfterFilterCondition> lastSyncPhaseIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'lastSyncPhase',
+      ));
+    });
+  }
+
+  QueryBuilder<InteractionEventEntity, InteractionEventEntity,
+      QAfterFilterCondition> lastSyncPhaseIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'lastSyncPhase',
+      ));
+    });
+  }
+
+  QueryBuilder<InteractionEventEntity, InteractionEventEntity,
+      QAfterFilterCondition> lastSyncPhaseEqualTo(
+    String? value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'lastSyncPhase',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<InteractionEventEntity, InteractionEventEntity,
+      QAfterFilterCondition> lastSyncPhaseGreaterThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'lastSyncPhase',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<InteractionEventEntity, InteractionEventEntity,
+      QAfterFilterCondition> lastSyncPhaseLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'lastSyncPhase',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<InteractionEventEntity, InteractionEventEntity,
+      QAfterFilterCondition> lastSyncPhaseBetween(
+    String? lower,
+    String? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'lastSyncPhase',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<InteractionEventEntity, InteractionEventEntity,
+      QAfterFilterCondition> lastSyncPhaseStartsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.startsWith(
+        property: r'lastSyncPhase',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<InteractionEventEntity, InteractionEventEntity,
+      QAfterFilterCondition> lastSyncPhaseEndsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.endsWith(
+        property: r'lastSyncPhase',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<InteractionEventEntity, InteractionEventEntity,
+          QAfterFilterCondition>
+      lastSyncPhaseContains(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.contains(
+        property: r'lastSyncPhase',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<InteractionEventEntity, InteractionEventEntity,
+          QAfterFilterCondition>
+      lastSyncPhaseMatches(String pattern, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.matches(
+        property: r'lastSyncPhase',
+        wildcard: pattern,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<InteractionEventEntity, InteractionEventEntity,
+      QAfterFilterCondition> lastSyncPhaseIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'lastSyncPhase',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<InteractionEventEntity, InteractionEventEntity,
+      QAfterFilterCondition> lastSyncPhaseIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        property: r'lastSyncPhase',
         value: '',
       ));
     });
@@ -1830,6 +2516,20 @@ extension InteractionEventEntityQuerySortBy
   }
 
   QueryBuilder<InteractionEventEntity, InteractionEventEntity, QAfterSortBy>
+      sortByEventKey() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'eventKey', Sort.asc);
+    });
+  }
+
+  QueryBuilder<InteractionEventEntity, InteractionEventEntity, QAfterSortBy>
+      sortByEventKeyDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'eventKey', Sort.desc);
+    });
+  }
+
+  QueryBuilder<InteractionEventEntity, InteractionEventEntity, QAfterSortBy>
       sortByInstallationId() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'installationId', Sort.asc);
@@ -1840,6 +2540,48 @@ extension InteractionEventEntityQuerySortBy
       sortByInstallationIdDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'installationId', Sort.desc);
+    });
+  }
+
+  QueryBuilder<InteractionEventEntity, InteractionEventEntity, QAfterSortBy>
+      sortByLastSyncAt() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'lastSyncAt', Sort.asc);
+    });
+  }
+
+  QueryBuilder<InteractionEventEntity, InteractionEventEntity, QAfterSortBy>
+      sortByLastSyncAtDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'lastSyncAt', Sort.desc);
+    });
+  }
+
+  QueryBuilder<InteractionEventEntity, InteractionEventEntity, QAfterSortBy>
+      sortByLastSyncError() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'lastSyncError', Sort.asc);
+    });
+  }
+
+  QueryBuilder<InteractionEventEntity, InteractionEventEntity, QAfterSortBy>
+      sortByLastSyncErrorDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'lastSyncError', Sort.desc);
+    });
+  }
+
+  QueryBuilder<InteractionEventEntity, InteractionEventEntity, QAfterSortBy>
+      sortByLastSyncPhase() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'lastSyncPhase', Sort.asc);
+    });
+  }
+
+  QueryBuilder<InteractionEventEntity, InteractionEventEntity, QAfterSortBy>
+      sortByLastSyncPhaseDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'lastSyncPhase', Sort.desc);
     });
   }
 
@@ -1945,6 +2687,20 @@ extension InteractionEventEntityQuerySortThenBy on QueryBuilder<
   }
 
   QueryBuilder<InteractionEventEntity, InteractionEventEntity, QAfterSortBy>
+      thenByEventKey() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'eventKey', Sort.asc);
+    });
+  }
+
+  QueryBuilder<InteractionEventEntity, InteractionEventEntity, QAfterSortBy>
+      thenByEventKeyDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'eventKey', Sort.desc);
+    });
+  }
+
+  QueryBuilder<InteractionEventEntity, InteractionEventEntity, QAfterSortBy>
       thenById() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'id', Sort.asc);
@@ -1969,6 +2725,48 @@ extension InteractionEventEntityQuerySortThenBy on QueryBuilder<
       thenByInstallationIdDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'installationId', Sort.desc);
+    });
+  }
+
+  QueryBuilder<InteractionEventEntity, InteractionEventEntity, QAfterSortBy>
+      thenByLastSyncAt() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'lastSyncAt', Sort.asc);
+    });
+  }
+
+  QueryBuilder<InteractionEventEntity, InteractionEventEntity, QAfterSortBy>
+      thenByLastSyncAtDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'lastSyncAt', Sort.desc);
+    });
+  }
+
+  QueryBuilder<InteractionEventEntity, InteractionEventEntity, QAfterSortBy>
+      thenByLastSyncError() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'lastSyncError', Sort.asc);
+    });
+  }
+
+  QueryBuilder<InteractionEventEntity, InteractionEventEntity, QAfterSortBy>
+      thenByLastSyncErrorDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'lastSyncError', Sort.desc);
+    });
+  }
+
+  QueryBuilder<InteractionEventEntity, InteractionEventEntity, QAfterSortBy>
+      thenByLastSyncPhase() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'lastSyncPhase', Sort.asc);
+    });
+  }
+
+  QueryBuilder<InteractionEventEntity, InteractionEventEntity, QAfterSortBy>
+      thenByLastSyncPhaseDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'lastSyncPhase', Sort.desc);
     });
   }
 
@@ -2060,9 +2858,39 @@ extension InteractionEventEntityQueryWhereDistinct
   }
 
   QueryBuilder<InteractionEventEntity, InteractionEventEntity, QDistinct>
+      distinctByEventKey({bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'eventKey', caseSensitive: caseSensitive);
+    });
+  }
+
+  QueryBuilder<InteractionEventEntity, InteractionEventEntity, QDistinct>
       distinctByInstallationId({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'installationId',
+          caseSensitive: caseSensitive);
+    });
+  }
+
+  QueryBuilder<InteractionEventEntity, InteractionEventEntity, QDistinct>
+      distinctByLastSyncAt() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'lastSyncAt');
+    });
+  }
+
+  QueryBuilder<InteractionEventEntity, InteractionEventEntity, QDistinct>
+      distinctByLastSyncError({bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'lastSyncError',
+          caseSensitive: caseSensitive);
+    });
+  }
+
+  QueryBuilder<InteractionEventEntity, InteractionEventEntity, QDistinct>
+      distinctByLastSyncPhase({bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'lastSyncPhase',
           caseSensitive: caseSensitive);
     });
   }
@@ -2126,9 +2954,37 @@ extension InteractionEventEntityQueryProperty on QueryBuilder<
   }
 
   QueryBuilder<InteractionEventEntity, String, QQueryOperations>
+      eventKeyProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'eventKey');
+    });
+  }
+
+  QueryBuilder<InteractionEventEntity, String, QQueryOperations>
       installationIdProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'installationId');
+    });
+  }
+
+  QueryBuilder<InteractionEventEntity, DateTime?, QQueryOperations>
+      lastSyncAtProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'lastSyncAt');
+    });
+  }
+
+  QueryBuilder<InteractionEventEntity, String?, QQueryOperations>
+      lastSyncErrorProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'lastSyncError');
+    });
+  }
+
+  QueryBuilder<InteractionEventEntity, String?, QQueryOperations>
+      lastSyncPhaseProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'lastSyncPhase');
     });
   }
 

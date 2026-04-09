@@ -8,6 +8,7 @@ class InteractionEventEntity {
   InteractionEventEntity();
 
   InteractionEventEntity.fromPayload(InteractionEventPayload payload) {
+    eventKey = payload.eventKey;
     localEventId = payload.localEventId;
     installationId = payload.installationId;
     spaceId = payload.spaceId;
@@ -16,9 +17,15 @@ class InteractionEventEntity {
     reactionType = payload.reactionType.wireValue;
     clientTimestamp = payload.clientTimestamp;
     syncState = payload.syncState.wireValue;
+    lastSyncPhase = payload.lastSyncPhase;
+    lastSyncError = payload.lastSyncError;
+    lastSyncAt = payload.lastSyncAt;
   }
 
   Id id = Isar.autoIncrement;
+
+  @Index(unique: true, replace: false)
+  late String eventKey;
 
   @Index(unique: true, replace: false)
   late String localEventId;
@@ -42,9 +49,16 @@ class InteractionEventEntity {
   @Index()
   late String syncState;
 
+  String? lastSyncPhase;
+
+  String? lastSyncError;
+
+  DateTime? lastSyncAt;
+
   Map<String, Object?> toPersistedFactMap() {
     return {
       'id': id,
+      'eventKey': eventKey,
       'localEventId': localEventId,
       'installationId': installationId,
       'spaceId': spaceId,
@@ -52,7 +66,15 @@ class InteractionEventEntity {
       'phraseId': phraseId,
       'reactionType': reactionType,
       'clientTimestamp': clientTimestamp.toIso8601String(),
+    };
+  }
+
+  Map<String, Object?> toPersistedSyncMetadataMap() {
+    return {
       'syncState': syncState,
+      'lastSyncPhase': lastSyncPhase,
+      'lastSyncError': lastSyncError,
+      'lastSyncAt': lastSyncAt?.toIso8601String(),
     };
   }
 }

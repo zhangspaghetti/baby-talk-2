@@ -64,6 +64,9 @@ void main() {
         spaceId: 'daily_care',
         activityId: 'bath_time',
       );
+      final syncSummary = await repository.getSyncSummary(
+        activityId: 'bath_time',
+      );
 
       expect(snapshot.title, '洗澡时间');
       expect(snapshot.phrases, hasLength(3));
@@ -77,6 +80,11 @@ void main() {
       expect(resumeInfo.completedCount, 0);
       expect(resumeInfo.nextPhraseId, 'bath_time_warm_water');
       expect(resumeInfo.lastEventTime, isNull);
+
+      expect(syncSummary.pendingCount, 0);
+      expect(syncSummary.syncedCount, 0);
+      expect(syncSummary.failedCount, 0);
+      expect(syncSummary.lastSyncPhase, isNull);
     });
 
     test('追加事件后保留原始历史，并派生最近结果与恢复信息', () async {
@@ -98,6 +106,9 @@ void main() {
       );
 
       final events = await repository.listEventHistory(activityId: 'bath_time');
+      final pendingUploads = await repository.listPendingUploadRecords(
+        activityId: 'bath_time',
+      );
       final homeSummary = await repository.getHomeSummary(
         spaceId: 'daily_care',
         activityId: 'bath_time',
@@ -112,6 +123,25 @@ void main() {
       expect(events.map((event) => event.installationId).toSet(), {
         'install_test',
       });
+      expect(events.first.eventKey, 'install_test:evt_1');
+      expect(pendingUploads, hasLength(2));
+      expect(
+        pendingUploads.first.toJsonMap().keys,
+        containsAll([
+          'eventKey',
+          'localEventId',
+          'installationId',
+          'spaceId',
+          'activityId',
+          'phraseId',
+          'reactionType',
+          'clientTimestamp',
+        ]),
+      );
+      expect(
+        pendingUploads.first.toJsonMap().keys,
+        isNot(contains('syncState')),
+      );
 
       expect(homeSummary.isEmpty, isFalse);
       expect(homeSummary.totalEvents, 2);
@@ -175,40 +205,97 @@ void main() {
       expect(resumeInfo.lastEventTime, DateTime.utc(2026, 4, 7, 12, 2));
     });
 
-    test('事件行只持久化事实字段，不写回派生结果', () async {
-      await repository.recordReaction(
+    test('同步 ack/failure 只改 metadata，不回写事实字段，并支持 bootstrap 导入', () async {
+      final first = await repository.recordReaction(
         spaceId: 'daily_care',
         activityId: 'bath_time',
         phraseId: 'bath_time_warm_water',
         reactionType: BabyReactionType.calm,
         clientTimestamp: DateTime.utc(2026, 4, 7, 12, 3),
-        localEventId: 'evt_fact_only',
+        localEventId: 'evt_fact_1',
+      );
+      final second = await repository.recordReaction(
+        spaceId: 'daily_care',
+        activityId: 'bath_time',
+        phraseId: 'bath_time_splash_splash',
+        reactionType: BabyReactionType.engaged,
+        clientTimestamp: DateTime.utc(2026, 4, 7, 12, 4),
+        localEventId: 'evt_fact_2',
       );
 
-      final entities = await localDataSource.listRawEntities(
+      final beforeFacts = (await localDataSource.listRawEntities(
+        activityId: 'bath_time',
+      )).map((entity) => entity.toPersistedFactMap()).toList(growable: false);
+
+      await repository.markEventsSynced(
+        [first.eventKey],
+        phase: 'batch_ack_applied',
+        syncedAt: DateTime.utc(2026, 4, 7, 12, 5),
+      );
+      await repository.markEventsFailed(
+        [second.eventKey],
+        phase: 'batch_upload_failed',
+        errorMessage: 'server 500 while syncing',
+        failedAt: DateTime.utc(2026, 4, 7, 12, 6),
+      );
+
+      await repository.importServerEvents([
+        second.copyWithSyncMetadata(
+          syncState: InteractionSyncState.failed,
+          lastSyncPhase: 'batch_upload_failed',
+          lastSyncError: 'server 500 while syncing',
+          lastSyncAt: DateTime.utc(2026, 4, 7, 12, 6),
+        ),
+        InteractionEventPayload.fromWire(
+          eventKey: 'install_test:evt_remote',
+          localEventId: 'evt_remote',
+          installationId: 'install_test',
+          spaceId: 'daily_care',
+          activityId: 'bath_time',
+          phraseId: 'bath_time_all_clean',
+          reactionType: 'imitated',
+          clientTimestamp: DateTime.utc(2026, 4, 7, 12, 7),
+          syncState: 'synced',
+          lastSyncPhase: 'bootstrap_import',
+          lastSyncAt: DateTime.utc(2026, 4, 7, 12, 8),
+        ),
+      ]);
+
+      final events = await repository.listEventHistory(activityId: 'bath_time');
+      final afterEntities = await localDataSource.listRawEntities(
         activityId: 'bath_time',
       );
-      final stored = entities.single.toPersistedFactMap();
+      final afterFacts = afterEntities
+          .take(2)
+          .map((entity) => entity.toPersistedFactMap())
+          .toList(growable: false);
+      final syncSummary = await repository.getSyncSummary(activityId: 'bath_time');
 
+      expect(events, hasLength(3));
+      expect(events[0].syncState, InteractionSyncState.synced);
+      expect(events[0].lastSyncPhase, 'batch_ack_applied');
+      expect(events[0].lastSyncError, isNull);
+      expect(events[1].syncState, InteractionSyncState.failed);
+      expect(events[1].lastSyncPhase, 'batch_upload_failed');
+      expect(events[1].lastSyncError, 'server 500 while syncing');
+      expect(events[2].eventKey, 'install_test:evt_remote');
+      expect(events[2].syncState, InteractionSyncState.synced);
+      expect(events[2].lastSyncPhase, 'bootstrap_import');
+
+      expect(afterFacts, beforeFacts);
+      expect(syncSummary.pendingCount, 0);
+      expect(syncSummary.syncedCount, 2);
+      expect(syncSummary.failedCount, 1);
+      expect(syncSummary.lastSyncPhase, 'bootstrap_import');
+      expect(syncSummary.lastSyncAt, DateTime.utc(2026, 4, 7, 12, 8));
+      expect(syncSummary.lastSyncError, isNull);
       expect(
-        stored.keys,
-        containsAll([
-          'localEventId',
-          'installationId',
-          'spaceId',
-          'activityId',
-          'phraseId',
-          'reactionType',
-          'clientTimestamp',
-          'syncState',
-        ]),
+        afterEntities.first.toPersistedSyncMetadataMap().keys,
+        containsAll(['syncState', 'lastSyncPhase', 'lastSyncError', 'lastSyncAt']),
       );
-      expect(stored.keys, isNot(contains('summary')));
-      expect(stored.keys, isNot(contains('mastery')));
-      expect(stored.keys, isNot(contains('garden')));
     });
 
-    test('拒绝未知 reaction、空 phraseId 和重复 localEventId', () async {
+    test('拒绝未知 reaction、空 phraseId、错误 eventKey、重复 eventKey 与未知 ack id', () async {
       expect(
         () => InteractionEventPayload.fromWire(
           localEventId: 'evt_bad_reaction',
@@ -235,7 +322,21 @@ void main() {
         throwsFormatException,
       );
 
-      await repository.recordReaction(
+      expect(
+        () => InteractionEventPayload.fromWire(
+          eventKey: 'mismatch',
+          localEventId: 'evt_bad_key',
+          installationId: 'install_test',
+          spaceId: 'daily_care',
+          activityId: 'bath_time',
+          phraseId: 'bath_time_warm_water',
+          reactionType: 'calm',
+          clientTimestamp: DateTime.utc(2026, 4, 7, 12, 4),
+        ),
+        throwsFormatException,
+      );
+
+      final duplicated = await repository.recordReaction(
         spaceId: 'daily_care',
         activityId: 'bath_time',
         phraseId: 'bath_time_warm_water',
@@ -253,6 +354,32 @@ void main() {
           clientTimestamp: DateTime.utc(2026, 4, 7, 12, 6),
           localEventId: 'evt_duplicate',
         ),
+        throwsFormatException,
+      );
+
+      await expectLater(
+        repository.markEventsSynced(['install_test:missing_event']),
+        throwsFormatException,
+      );
+
+      await expectLater(
+        repository.markEventsSynced([duplicated.eventKey, duplicated.eventKey]),
+        throwsFormatException,
+      );
+
+      await expectLater(
+        repository.importServerEvents([
+          InteractionEventPayload.fromWire(
+            eventKey: duplicated.eventKey,
+            localEventId: duplicated.localEventId,
+            installationId: duplicated.installationId,
+            spaceId: duplicated.spaceId,
+            activityId: duplicated.activityId,
+            phraseId: 'bath_time_all_clean',
+            reactionType: duplicated.reactionType.wireValue,
+            clientTimestamp: duplicated.clientTimestamp,
+          ),
+        ]),
         throwsFormatException,
       );
     });

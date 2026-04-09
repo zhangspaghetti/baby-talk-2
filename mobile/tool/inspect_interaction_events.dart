@@ -5,6 +5,7 @@ import 'dart:io';
 import 'package:isar/isar.dart';
 import 'package:mobile/features/practice/data/local/practice_local_data_source.dart';
 import 'package:mobile/features/practice/domain/models/interaction_event_payload.dart';
+import 'package:mobile/features/sync/data/repositories/sync_repository.dart';
 
 Future<void> main(List<String> args) async {
   final parsed = _parseArgs(args);
@@ -13,11 +14,12 @@ Future<void> main(List<String> args) async {
     return;
   }
 
-  final directory =
+  final resolvedDirectory =
       parsed.directory ?? Platform.environment['BABY_TALK_PRACTICE_DIR'];
-  if (directory == null || directory.trim().isEmpty) {
+  if (resolvedDirectory == null || resolvedDirectory.trim().isEmpty) {
     _fail('缺少 --directory，且环境变量 BABY_TALK_PRACTICE_DIR 未设置。', 64);
   }
+  final directory = resolvedDirectory;
 
   if (Platform.isWindows) {
     await Isar.initializeIsarCore(
@@ -35,6 +37,11 @@ Future<void> main(List<String> args) async {
       directory: directory,
       name: parsed.dbName,
     );
+    final syncRepository = SyncRepository(
+      localDataSource: localDataSource,
+      installationIdReader: () => _readInstallationId(directory),
+    );
+
     final rawEntities = await localDataSource.listRawEntities(
       activityId: parsed.activityId,
     );
@@ -46,33 +53,38 @@ Future<void> main(List<String> args) async {
         validEvents.add(PracticeLocalDataSource.payloadFromEntity(entity));
       } catch (error) {
         issues.add(
-          'localEventId=${entity.localEventId} @ ${entity.clientTimestamp.toIso8601String()} -> $error',
+          _redactSensitiveText(
+            'eventKey=${entity.eventKey} @ ${entity.clientTimestamp.toIso8601String()} -> $error',
+          )!,
         );
       }
     }
 
+    final queueInspection = await syncRepository.inspectQueue(
+      activityId: parsed.activityId,
+      pendingLimit: parsed.limit,
+    );
     final visibleEvents = parsed.limit >= validEvents.length
         ? validEvents
         : validEvents.sublist(validEvents.length - parsed.limit);
-    final pendingCount = validEvents
-        .where((event) => event.syncState == InteractionSyncState.pending)
-        .length;
-    final syncedCount = validEvents
-        .where((event) => event.syncState == InteractionSyncState.synced)
-        .length;
-    final failedCount = validEvents
-        .where((event) => event.syncState == InteractionSyncState.failed)
-        .length;
-    final installationId = await _readInstallationId(directory);
 
-    stdout.writeln('installationId: ${installationId ?? '(missing)'}');
+    stdout.writeln('installationId: ${queueInspection.installationId ?? '(missing)'}');
     stdout.writeln('dbName: ${parsed.dbName}');
     stdout.writeln('activityId: ${parsed.activityId ?? '(all)'}');
     stdout.writeln('storedEvents: ${rawEntities.length}');
     stdout.writeln('validEvents: ${validEvents.length}');
-    stdout.writeln('pendingEvents: $pendingCount');
-    stdout.writeln('syncedEvents: $syncedCount');
-    stdout.writeln('failedEvents: $failedCount');
+    stdout.writeln('pendingEvents: ${queueInspection.summary.pendingCount}');
+    stdout.writeln('syncedEvents: ${queueInspection.summary.syncedCount}');
+    stdout.writeln('failedEvents: ${queueInspection.summary.failedCount}');
+    stdout.writeln(
+      'lastSyncPhase: ${queueInspection.summary.lastSyncPhase ?? '(none)'}',
+    );
+    stdout.writeln(
+      'lastSyncAt: ${queueInspection.summary.lastSyncAt?.toIso8601String() ?? '(none)'}',
+    );
+    stdout.writeln(
+      'lastSyncError: ${_redactSensitiveText(queueInspection.summary.lastSyncError) ?? '(none)'}',
+    );
     stdout.writeln('skippedEvents: ${issues.length}');
     stdout.writeln('showingLast: ${visibleEvents.length}');
 
@@ -91,19 +103,29 @@ Future<void> main(List<String> args) async {
       final englishPart = phraseEnglish == null
           ? ''
           : ' phraseEnglish="$phraseEnglish"';
+      final syncErrorPart = event.lastSyncError == null
+          ? ''
+          : ' lastSyncError="${_redactSensitiveText(event.lastSyncError)!}"';
+      final syncPhasePart = event.lastSyncPhase == null
+          ? ''
+          : ' lastSyncPhase=${event.lastSyncPhase}';
+      final syncAtPart = event.lastSyncAt == null
+          ? ''
+          : ' lastSyncAt=${event.lastSyncAt!.toIso8601String()}';
       stdout.writeln(
         '- ${event.clientTimestamp.toIso8601String()} '
+        'eventKey=${event.eventKey} '
         'localEventId=${event.localEventId} '
         'installationId=${event.installationId} '
         'spaceId=${event.spaceId} '
         'activityId=${event.activityId} '
         'phraseId=${event.phraseId}$englishPart '
         'reactionType=${event.reactionType.wireValue} '
-        'syncState=${event.syncState.wireValue}',
+        'syncState=${event.syncState.wireValue}$syncPhasePart$syncAtPart$syncErrorPart',
       );
     }
   } catch (error) {
-    _fail('读取本地事件失败：$error', 1);
+    _fail('读取本地事件失败：${_redactSensitiveText('$error')}', 1);
   } finally {
     await localDataSource?.close();
   }
@@ -207,7 +229,7 @@ String _usage() {
     '  --seed-content <path> 可选的 seed_content.json 路径，用于补充 phraseEnglish',
     '  --help, -h            显示帮助',
     '',
-    '输出仅包含 installationId、localEventId、spaceId、activityId、phraseId、reactionType、syncState、pending/synced/failed 计数与时间戳，不包含宝宝姓名、生日等 PII。',
+    '输出仅包含 eventKey、installationId、localEventId、spaceId、activityId、phraseId、reactionType、syncState、pending/synced/failed 计数与最近 sync phase/error/time；不会输出手机号、验证码、token 或同意前宝宝 PII。',
   ].join('\n');
 }
 
@@ -323,4 +345,24 @@ String _resolveBundledIsarLibraryPath() {
   }
 
   throw StateError('未在 pub cache 中找到 isar_flutter_libs/windows/isar.dll');
+}
+
+String? _redactSensitiveText(String? value) {
+  if (value == null) {
+    return null;
+  }
+  var redacted = value;
+  redacted = redacted.replaceAllMapped(
+    RegExp(r'\b(1\d{2})\d{4}(\d{4})\b'),
+    (match) => '${match.group(1)}****${match.group(2)}',
+  );
+  redacted = redacted.replaceAllMapped(
+    RegExp(r'\b\d{4,8}\b'),
+    (match) => match.group(0)!.length == 6 ? '******' : match.group(0)!,
+  );
+  redacted = redacted.replaceAllMapped(
+    RegExp(r'(token|authorization|bearer)[=: ]+([^\s,;]+)', caseSensitive: false),
+    (match) => '${match.group(1)}=[REDACTED]',
+  );
+  return redacted;
 }

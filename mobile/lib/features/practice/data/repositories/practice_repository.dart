@@ -74,6 +74,9 @@ class PracticeSyncSummary {
     this.lastPendingAt,
     this.lastSyncedAt,
     this.lastFailedAt,
+    this.lastSyncPhase,
+    this.lastSyncError,
+    this.lastSyncAt,
   });
 
   final int pendingCount;
@@ -82,8 +85,14 @@ class PracticeSyncSummary {
   final DateTime? lastPendingAt;
   final DateTime? lastSyncedAt;
   final DateTime? lastFailedAt;
+  final String? lastSyncPhase;
+  final String? lastSyncError;
+  final DateTime? lastSyncAt;
 
   DateTime? get lastEventAt {
+    if (lastSyncAt != null) {
+      return lastSyncAt;
+    }
     final candidates = [
       lastPendingAt,
       lastSyncedAt,
@@ -95,6 +104,56 @@ class PracticeSyncSummary {
     candidates.sort();
     return candidates.last;
   }
+}
+
+PracticeSyncSummary summarizePracticeSyncEvents(
+  List<InteractionEventPayload> events,
+) {
+  DateTime? lastPendingAt;
+  DateTime? lastSyncedAt;
+  DateTime? lastFailedAt;
+  var pendingCount = 0;
+  var syncedCount = 0;
+  var failedCount = 0;
+  InteractionEventPayload? lastSyncedMetadataSource;
+
+  for (final event in events) {
+    switch (event.syncState) {
+      case InteractionSyncState.pending:
+        pendingCount += 1;
+        lastPendingAt = event.clientTimestamp;
+        break;
+      case InteractionSyncState.synced:
+        syncedCount += 1;
+        lastSyncedAt = event.lastSyncAt ?? event.clientTimestamp;
+        break;
+      case InteractionSyncState.failed:
+        failedCount += 1;
+        lastFailedAt = event.lastSyncAt ?? event.clientTimestamp;
+        break;
+    }
+
+    final syncTimestamp = event.lastSyncAt;
+    if (syncTimestamp == null) {
+      continue;
+    }
+    final currentLastTimestamp = lastSyncedMetadataSource?.lastSyncAt;
+    if (currentLastTimestamp == null || syncTimestamp.isAfter(currentLastTimestamp)) {
+      lastSyncedMetadataSource = event;
+    }
+  }
+
+  return PracticeSyncSummary(
+    pendingCount: pendingCount,
+    syncedCount: syncedCount,
+    failedCount: failedCount,
+    lastPendingAt: lastPendingAt,
+    lastSyncedAt: lastSyncedAt,
+    lastFailedAt: lastFailedAt,
+    lastSyncPhase: lastSyncedMetadataSource?.lastSyncPhase,
+    lastSyncError: lastSyncedMetadataSource?.lastSyncError,
+    lastSyncAt: lastSyncedMetadataSource?.lastSyncAt,
+  );
 }
 
 class PracticeResumeInfo {
@@ -359,42 +418,61 @@ class PracticeRepository {
 
   Future<PracticeSyncSummary> getSyncSummary({String? activityId}) async {
     final events = await listEventHistory(activityId: activityId);
-    DateTime? lastPendingAt;
-    DateTime? lastSyncedAt;
-    DateTime? lastFailedAt;
-    var pendingCount = 0;
-    var syncedCount = 0;
-    var failedCount = 0;
-
-    for (final event in events) {
-      switch (event.syncState) {
-        case InteractionSyncState.pending:
-          pendingCount += 1;
-          lastPendingAt = event.clientTimestamp;
-          break;
-        case InteractionSyncState.synced:
-          syncedCount += 1;
-          lastSyncedAt = event.clientTimestamp;
-          break;
-        case InteractionSyncState.failed:
-          failedCount += 1;
-          lastFailedAt = event.clientTimestamp;
-          break;
-      }
-    }
-
-    return PracticeSyncSummary(
-      pendingCount: pendingCount,
-      syncedCount: syncedCount,
-      failedCount: failedCount,
-      lastPendingAt: lastPendingAt,
-      lastSyncedAt: lastSyncedAt,
-      lastFailedAt: lastFailedAt,
-    );
+    return summarizePracticeSyncEvents(events);
   }
 
   Future<List<InteractionEventPayload>> listEventHistory({String? activityId}) {
     return _localDataSource.listInteractionEvents(activityId: activityId);
+  }
+
+  Future<List<InteractionEventPayload>> listPendingEvents({
+    String? activityId,
+    int? limit,
+  }) {
+    return _localDataSource.listPendingEvents(
+      activityId: activityId,
+      limit: limit,
+    );
+  }
+
+  Future<List<InteractionEventUploadRecord>> listPendingUploadRecords({
+    String? activityId,
+    int? limit,
+  }) async {
+    final events = await listPendingEvents(activityId: activityId, limit: limit);
+    return events.map((event) => event.uploadRecord).toList(growable: false);
+  }
+
+  Future<void> markEventsSynced(
+    Iterable<String> eventKeys, {
+    String phase = 'batch_ack_applied',
+    DateTime? syncedAt,
+  }) {
+    return _localDataSource.markEventsSynced(
+      eventKeys,
+      phase: phase,
+      syncedAt: syncedAt,
+    );
+  }
+
+  Future<void> markEventsFailed(
+    Iterable<String> eventKeys, {
+    required String phase,
+    required String errorMessage,
+    DateTime? failedAt,
+    bool keepPending = false,
+  }) {
+    return _localDataSource.markEventsFailed(
+      eventKeys,
+      phase: phase,
+      errorMessage: errorMessage,
+      failedAt: failedAt,
+      keepPending: keepPending,
+    );
+  }
+
+  Future<void> importServerEvents(Iterable<InteractionEventPayload> events) {
+    return _localDataSource.importServerEvents(events);
   }
 
   Future<void> close({bool deleteFromDisk = false}) async {
