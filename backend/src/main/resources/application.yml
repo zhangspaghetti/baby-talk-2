@@ -1,0 +1,35 @@
+spring:
+  application:
+    name: babytalk-backend
+  datasource:
+    url: ${BABY_TALK_DB_URL:jdbc:h2:file:./.data/babytalk;MODE=PostgreSQL;AUTO_SERVER=TRUE;DATABASE_TO_UPPER=false}
+    username: ${BABY_TALK_DB_USERNAME:sa}
+    password: ${BABY_TALK_DB_PASSWORD:}
+    driver-class-name: org.h2.Driver
+  flyway:
+    enabled: true
+    baseline-on-migrate: false
+  jackson:
+    serialization:
+      write-dates-as-timestamps: false
+  mvc:
+    problemdetails:
+      enabled: false
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+app:
+  contract:
+    min-supported-version: ${BABY_TALK_MIN_SUPPORTED_VERSION:1.2.0}
+    upgrade-url: ${BABY_TALK_UPGRADE_URL:https://example.com/baby-talk/download}
+    sync-max-batch-size: ${BABY_TALK_SYNC_MAX_BATCH_SIZE:100}
+    bootstrap-max-events: ${BABY_TALK_BOOTSTRAP_MAX_EVENTS:200}
+  sms:
+    provider-mode: ${BABY_TALK_SMS_PROVIDER_MODE:dev}
+    dev-code: ${BABY_TALK_SMS_DEV_CODE:246810}
+    challenge-ttl: ${BABY_TALK_SMS_CHALLENGE_TTL:PT5M}
+    simulate-timeout: ${BABY_TALK_SMS_SIMULATE_TIMEOUT:false}
