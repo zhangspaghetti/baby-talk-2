@@ -33,3 +33,27 @@ app:
     dev-code: ${BABY_TALK_SMS_DEV_CODE:246810}
     challenge-ttl: ${BABY_TALK_SMS_CHALLENGE_TTL:PT5M}
     simulate-timeout: ${BABY_TALK_SMS_SIMULATE_TIMEOUT:false}
+  mentor:
+    provider-mode: ${BABY_TALK_MENTOR_PROVIDER_MODE:dev}
+    provider-timeout: ${BABY_TALK_MENTOR_PROVIDER_TIMEOUT:PT4S}
+    rate-limit-max-requests: ${BABY_TALK_MENTOR_RATE_LIMIT_MAX_REQUESTS:3}
+    rate-limit-window: ${BABY_TALK_MENTOR_RATE_LIMIT_WINDOW:PT10M}
+    prompt-max-length: ${BABY_TALK_MENTOR_PROMPT_MAX_LENGTH:280}
+    response-max-length: ${BABY_TALK_MENTOR_RESPONSE_MAX_LENGTH:280}
+    allowed-surfaces:
+      - home
+      - discover
+      - garden
+      - growth
+      - standalone_home
+    allowed-modes:
+      - single_turn
+    blocked-keywords:
+      - slap
+      - hit
+      - 体罚
+      - 羞辱
+      - 打宝宝
+    simulate-timeout-token: ${BABY_TALK_MENTOR_SIMULATE_TIMEOUT_TOKEN:[timeout]}
+    simulate-malformed-token: ${BABY_TALK_MENTOR_SIMULATE_MALFORMED_TOKEN:[malformed]}
+    simulate-unavailable-token: ${BABY_TALK_MENTOR_SIMULATE_UNAVAILABLE_TOKEN:[unavailable]}
