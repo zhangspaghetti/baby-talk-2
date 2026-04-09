@@ -1,4 +1,10 @@
-enum AccountConsentState { localOnly, signedOut, acceptedPendingSync, revoked }
+enum AccountConsentState {
+  localOnly,
+  signedOut,
+  acceptedPendingSync,
+  revoked,
+  deleted,
+}
 
 extension AccountConsentStateWire on AccountConsentState {
   String get wireValue {
@@ -11,6 +17,8 @@ extension AccountConsentStateWire on AccountConsentState {
         return 'accepted_pending_sync';
       case AccountConsentState.revoked:
         return 'revoked';
+      case AccountConsentState.deleted:
+        return 'deleted';
     }
   }
 }
@@ -25,6 +33,8 @@ AccountConsentState parseAccountConsentState(String value) {
       return AccountConsentState.acceptedPendingSync;
     case 'revoked':
       return AccountConsentState.revoked;
+    case 'deleted':
+      return AccountConsentState.deleted;
     default:
       throw FormatException('未知 account consentState: $value');
   }

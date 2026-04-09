@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:mobile/app/router/app_router.dart';
 import 'package:mobile/app/theme/app_theme.dart';
+import 'package:mobile/features/account/presentation/account_view_model.dart';
 import 'package:mobile/features/account/presentation/screens/account_entry_screen.dart';
 import 'package:mobile/features/onboarding/domain/models/onboarding_snapshot.dart';
 import 'package:mobile/features/onboarding/domain/models/stage_match.dart';
@@ -9,7 +12,7 @@ import 'package:mobile/features/practice/domain/models/practice_phrase.dart';
 import 'package:mobile/features/practice/presentation/practice_session_view_model.dart';
 import 'package:provider/provider.dart';
 
-class HomeScreen extends StatelessWidget {
+class HomeScreen extends StatefulWidget {
   const HomeScreen({
     super.key,
     this.onboardingSnapshot,
@@ -20,14 +23,81 @@ class HomeScreen extends StatelessWidget {
   final bool embeddedInShell;
 
   @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> with RouteAware {
+  AccountViewModel? _accountViewModel;
+  int _lastRuntimeToken = -1;
+  ModalRoute<dynamic>? _subscribedRoute;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) {
+        return;
+      }
+      context.read<AccountViewModel>().handleHomeVisible();
+    });
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final route = ModalRoute.of(context);
+    if (_subscribedRoute != route && route is PageRoute<dynamic>) {
+      if (_subscribedRoute is PageRoute<dynamic>) {
+        appRouteObserver.unsubscribe(this);
+      }
+      _subscribedRoute = route;
+      appRouteObserver.subscribe(this, route);
+    }
+
+    final accountViewModel = context.read<AccountViewModel>();
+    if (!identical(_accountViewModel, accountViewModel)) {
+      _accountViewModel?.removeListener(_handleAccountRuntimeChange);
+      _accountViewModel = accountViewModel;
+      _lastRuntimeToken = accountViewModel.runtimeChangeToken;
+      accountViewModel.addListener(_handleAccountRuntimeChange);
+    }
+  }
+
+  @override
+  void didPopNext() {
+    context.read<AccountViewModel>().handleHomeVisible();
+  }
+
+  @override
+  void dispose() {
+    _accountViewModel?.removeListener(_handleAccountRuntimeChange);
+    if (_subscribedRoute is PageRoute<dynamic>) {
+      appRouteObserver.unsubscribe(this);
+    }
+    super.dispose();
+  }
+
+  void _handleAccountRuntimeChange() {
+    final accountViewModel = _accountViewModel;
+    if (!mounted || accountViewModel == null) {
+      return;
+    }
+    if (_lastRuntimeToken == accountViewModel.runtimeChangeToken) {
+      return;
+    }
+    _lastRuntimeToken = accountViewModel.runtimeChangeToken;
+    unawaited(context.read<PracticeSessionViewModel>().retryHomeLoad());
+  }
+
+  @override
   Widget build(BuildContext context) {
     final viewModel = context.watch<PracticeSessionViewModel>();
     final activity = viewModel.activitySnapshot;
     final homeSummary = viewModel.homeSummary;
-    final stageMatch = _resolveStageMatch(onboardingSnapshot);
-    final starterPhrase = _resolveStarterPhrase(activity, onboardingSnapshot);
+    final stageMatch = _resolveStageMatch(widget.onboardingSnapshot);
+    final starterPhrase = _resolveStarterPhrase(activity, widget.onboardingSnapshot);
     final body = SafeArea(
-      top: !embeddedInShell,
+      top: !widget.embeddedInShell,
       child: Align(
         alignment: Alignment.topCenter,
         child: ConstrainedBox(
@@ -37,16 +107,16 @@ class HomeScreen extends StatelessWidget {
               : ListView(
                   padding: EdgeInsets.fromLTRB(
                     20,
-                    embeddedInShell ? 12 : 20,
+                    widget.embeddedInShell ? 12 : 20,
                     20,
-                    embeddedInShell ? 120 : 32,
+                    widget.embeddedInShell ? 120 : 32,
                   ),
                   children: [
-                    if (onboardingSnapshot != null) ...[
-                      _LocalOnlyBanner(snapshot: onboardingSnapshot!),
+                    if (widget.onboardingSnapshot != null) ...[
+                      _LocalOnlyBanner(snapshot: widget.onboardingSnapshot!),
                       const SizedBox(height: 20),
                       _PersonalizedHero(
-                        snapshot: onboardingSnapshot!,
+                        snapshot: widget.onboardingSnapshot!,
                         stageMatch: stageMatch,
                         starterPhrase: starterPhrase,
                         activitySceneTag: activity?.sceneTag,
@@ -80,7 +150,7 @@ class HomeScreen extends StatelessWidget {
                     const SizedBox(height: 20),
                     AccountStatusCard(
                       scopeKeyPrefix: 'home',
-                      onboardingSnapshot: onboardingSnapshot,
+                      onboardingSnapshot: widget.onboardingSnapshot,
                     ),
                     if (viewModel.restoreStatusMessage != null) ...[
                       const SizedBox(height: 20),
@@ -156,7 +226,7 @@ class HomeScreen extends StatelessWidget {
       ),
     );
 
-    if (embeddedInShell) {
+    if (widget.embeddedInShell) {
       return body;
     }
 

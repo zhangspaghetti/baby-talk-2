@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 
+final RouteObserver<PageRoute<dynamic>> appRouteObserver =
+    RouteObserver<PageRoute<dynamic>>();
+
 class AppRouteNames {
   static const shell = '/';
   static const home = shell;
