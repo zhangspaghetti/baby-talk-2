@@ -12,6 +12,9 @@ import 'package:mobile/features/account/data/local/account_local_store.dart';
 import 'package:mobile/features/account/data/repositories/account_repository.dart';
 import 'package:mobile/features/account/data/services/account_api_service.dart';
 import 'package:mobile/features/account/presentation/account_view_model.dart';
+import 'package:mobile/features/mentor/data/local/mentor_local_data_source.dart';
+import 'package:mobile/features/mentor/data/repositories/mentor_repository.dart';
+import 'package:mobile/features/mentor/presentation/mentor_view_model.dart';
 import 'package:mobile/features/onboarding/data/local/onboarding_snapshot_store.dart';
 import 'package:mobile/features/onboarding/data/repositories/onboarding_repository.dart';
 import 'package:mobile/features/onboarding/domain/models/onboarding_snapshot.dart';
@@ -97,6 +100,7 @@ class _AppLaunchState {
     required this.practiceRepository,
     required this.onboardingRepository,
     required this.accountRepository,
+    required this.mentorRepository,
     required this.destination,
     this.completedSnapshot,
   });
@@ -104,6 +108,7 @@ class _AppLaunchState {
   final PracticeRepository practiceRepository;
   final OnboardingRepository onboardingRepository;
   final AccountRepository accountRepository;
+  final MentorRepository mentorRepository;
   final AppLaunchDestination destination;
   final OnboardingSnapshot? completedSnapshot;
 
@@ -142,6 +147,7 @@ class BabyTalkApp extends StatefulWidget {
 class _BabyTalkAppState extends State<BabyTalkApp> {
   late Future<_AppLaunchState> _launchStateFuture;
   PracticeRepository? _repository;
+  MentorRepository? _mentorRepository;
 
   @override
   void initState() {
@@ -203,11 +209,13 @@ class _BabyTalkAppState extends State<BabyTalkApp> {
         final practiceRepository = launchState.practiceRepository;
         final onboardingRepository = launchState.onboardingRepository;
         final accountRepository = launchState.accountRepository;
+        final mentorRepository = launchState.mentorRepository;
         return MultiProvider(
           providers: [
             Provider<PracticeRepository>.value(value: practiceRepository),
             Provider<OnboardingRepository>.value(value: onboardingRepository),
             Provider<AccountRepository>.value(value: accountRepository),
+            Provider<MentorRepository>.value(value: mentorRepository),
             Provider<GardenGrowthRepository>(
               create: (_) => GardenGrowthRepository(
                 practiceRepository: practiceRepository,
@@ -217,6 +225,12 @@ class _BabyTalkAppState extends State<BabyTalkApp> {
             ChangeNotifierProvider<AccountViewModel>(
               create: (_) =>
                   AccountViewModel(repository: accountRepository)..initialize(),
+            ),
+            ChangeNotifierProvider<MentorViewModel>(
+              create: (context) => MentorViewModel(
+                repository: context.read<MentorRepository>(),
+                accountViewModel: context.read<AccountViewModel>(),
+              ),
             ),
             ChangeNotifierProvider<GardenGrowthViewModel>(
               create: (context) => GardenGrowthViewModel(
@@ -269,8 +283,12 @@ class _BabyTalkAppState extends State<BabyTalkApp> {
   @override
   void dispose() {
     final repository = _repository;
+    final mentorRepository = _mentorRepository;
     if (repository != null) {
       unawaited(repository.close());
+    }
+    if (mentorRepository != null) {
+      unawaited(mentorRepository.close());
     }
     super.dispose();
   }
@@ -283,14 +301,16 @@ class _BabyTalkAppState extends State<BabyTalkApp> {
 
   Future<_AppLaunchState> _loadLaunchState() async {
     PracticeRepository? repository;
+    MentorRepository? mentorRepository;
     try {
       final factory = widget.repositoryFactory ?? _defaultRepositoryFactory;
       final directory = await _resolveAppDirectory();
       repository = await factory(widget.bootState.assetPhraseService!);
+      final onboardingStore = OnboardingSnapshotStore(
+        directoryResolver: () async => directory,
+      );
       final onboardingRepository = OnboardingRepository(
-        snapshotStore: OnboardingSnapshotStore(
-          directoryResolver: () async => directory,
-        ),
+        snapshotStore: onboardingStore,
         practiceRepository: repository,
         starterSpaceId: widget.bootState.primarySpaceId!,
         starterActivityId: widget.bootState.primaryActivityId!,
@@ -301,21 +321,34 @@ class _BabyTalkAppState extends State<BabyTalkApp> {
         repository,
         directory,
       );
+      mentorRepository = MentorRepository(
+        localDataSource: await MentorLocalDataSource.open(
+          directory: directory.path,
+        ),
+        practiceRepository: repository,
+        onboardingSnapshotStore: onboardingStore,
+      );
       final completedSnapshotLoader = widget.completedSnapshotLoader;
       final completedSnapshot = completedSnapshotLoader == null
           ? await onboardingRepository.readCompletedSnapshot()
           : await completedSnapshotLoader();
       _repository = repository;
+      _mentorRepository = mentorRepository;
       return _AppLaunchState(
         practiceRepository: repository,
         onboardingRepository: onboardingRepository,
         accountRepository: accountRepository,
+        mentorRepository: mentorRepository,
         destination: completedSnapshot == null
             ? AppLaunchDestination.onboarding
             : AppLaunchDestination.shell,
         completedSnapshot: completedSnapshot,
       );
     } catch (error) {
+      if (mentorRepository != null &&
+          !identical(mentorRepository, _mentorRepository)) {
+        await mentorRepository.close();
+      }
       if (repository != null && !identical(repository, _repository)) {
         await repository.close();
       }

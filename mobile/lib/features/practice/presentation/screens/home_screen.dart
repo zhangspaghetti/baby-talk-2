@@ -5,6 +5,7 @@ import 'package:mobile/app/router/app_router.dart';
 import 'package:mobile/app/theme/app_theme.dart';
 import 'package:mobile/features/account/presentation/account_view_model.dart';
 import 'package:mobile/features/account/presentation/screens/account_entry_screen.dart';
+import 'package:mobile/features/mentor/presentation/widgets/mentor_panel_sheet.dart';
 import 'package:mobile/features/onboarding/domain/models/onboarding_snapshot.dart';
 import 'package:mobile/features/onboarding/domain/models/stage_match.dart';
 import 'package:mobile/features/practice/data/repositories/practice_repository.dart';
@@ -113,7 +114,10 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
     final activity = viewModel.activitySnapshot;
     final homeSummary = viewModel.homeSummary;
     final stageMatch = _resolveStageMatch(widget.onboardingSnapshot);
-    final starterPhrase = _resolveStarterPhrase(activity, widget.onboardingSnapshot);
+    final starterPhrase = _resolveStarterPhrase(
+      activity,
+      widget.onboardingSnapshot,
+    );
     final body = SafeArea(
       top: !widget.embeddedInShell,
       child: Align(
@@ -228,13 +232,9 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
                       stageMatch: stageMatch,
                     ),
                     const SizedBox(height: 16),
-                    _GardenMiniEntry(
-                      viewModel: gardenGrowthViewModel,
-                    ),
+                    _GardenMiniEntry(viewModel: gardenGrowthViewModel),
                     const SizedBox(height: 16),
-                    _GrowthSummaryCard(
-                      viewModel: gardenGrowthViewModel,
-                    ),
+                    _GrowthSummaryCard(viewModel: gardenGrowthViewModel),
                     const SizedBox(height: 16),
                     _RecentResultCard(
                       homeSummary: homeSummary,
@@ -258,12 +258,9 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
 
     return Scaffold(
       floatingActionButton: FloatingActionButton.small(
+        key: const Key('home-mentor-fab'),
         tooltip: '小禾老师',
-        onPressed: () {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(const SnackBar(content: Text('小禾老师入口已预留，后续任务接入。')));
-        },
+        onPressed: () => openMentorPanelSheet(context, launcher: 'home_fab'),
         child: const Icon(Icons.auto_awesome),
       ),
       body: body,
@@ -563,7 +560,8 @@ class _GardenMiniEntry extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final effectiveViewModel = viewModel;
-    final snapshot = effectiveViewModel?.snapshot ?? GardenGrowthSnapshot.empty();
+    final snapshot =
+        effectiveViewModel?.snapshot ?? GardenGrowthSnapshot.empty();
     final primarySpace = snapshot.primarySpace;
     final primaryActivity = snapshot.primaryActivity;
     final status = effectiveViewModel?.status ?? GardenGrowthLoadStatus.empty;
@@ -614,30 +612,33 @@ class _GardenMiniEntry extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('GardenMiniEntry', style: Theme.of(context).textTheme.labelMedium),
+          Text(
+            'GardenMiniEntry',
+            style: Theme.of(context).textTheme.labelMedium,
+          ),
           const SizedBox(height: 10),
           Text(
             title,
             key: const Key('home-garden-mini-entry-title'),
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-              color: foregroundColor,
-            ),
+            style: Theme.of(
+              context,
+            ).textTheme.titleMedium?.copyWith(color: foregroundColor),
           ),
           const SizedBox(height: 8),
           Text(
             body,
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: foregroundColor,
-            ),
+            style: Theme.of(
+              context,
+            ).textTheme.bodyMedium?.copyWith(color: foregroundColor),
           ),
           if (snapshot.hasIssues && snapshot.projectionWarning != null) ...[
             const SizedBox(height: 10),
             Text(
               snapshot.projectionWarning!,
               key: const Key('home-garden-mini-entry-warning'),
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: foregroundColor,
-              ),
+              style: Theme.of(
+                context,
+              ).textTheme.bodySmall?.copyWith(color: foregroundColor),
             ),
           ],
         ],
@@ -654,7 +655,8 @@ class _GrowthSummaryCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final effectiveViewModel = viewModel;
-    final snapshot = effectiveViewModel?.snapshot ?? GardenGrowthSnapshot.empty();
+    final snapshot =
+        effectiveViewModel?.snapshot ?? GardenGrowthSnapshot.empty();
     final impact = snapshot.latestImpact;
 
     String title;
@@ -663,7 +665,9 @@ class _GrowthSummaryCard extends StatelessWidget {
     if (effectiveViewModel?.hasError ?? false) {
       title = '最近成长摘要暂时不可用';
       body = effectiveViewModel?.message ?? '投影失败时会保留安全空态，不会让首页白屏。';
-    } else if (impact == null || effectiveViewModel == null || effectiveViewModel.isEmpty) {
+    } else if (impact == null ||
+        effectiveViewModel == null ||
+        effectiveViewModel.isEmpty) {
       title = '最近成长会写在这里';
       body = '完成一次练习后，这里会告诉你这次开口让什么发生了变化。';
     } else {

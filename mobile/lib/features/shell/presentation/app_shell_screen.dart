@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:mobile/app/theme/app_theme.dart';
 import 'package:mobile/features/account/presentation/screens/account_entry_screen.dart';
+import 'package:mobile/features/mentor/presentation/widgets/mentor_panel_sheet.dart';
 import 'package:mobile/features/onboarding/domain/models/onboarding_snapshot.dart';
 import 'package:mobile/features/onboarding/domain/models/stage_match.dart';
 import 'package:mobile/features/practice/presentation/garden_growth_view_model.dart';
@@ -54,11 +55,7 @@ class _AppShellScreenState extends State<AppShellScreen> {
       floatingActionButton: FloatingActionButton(
         key: const Key('shell-mentor-fab'),
         tooltip: '小禾老师',
-        onPressed: () {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(const SnackBar(content: Text('小禾老师入口已预留，后续任务接入。')));
-        },
+        onPressed: () => openMentorPanelSheet(context, launcher: 'shell_fab'),
         child: const Icon(Icons.auto_awesome),
       ),
       body: IndexedStack(
