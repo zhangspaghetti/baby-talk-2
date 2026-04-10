@@ -67,8 +67,13 @@ class InMemoryDemoBackend {
     String upgradeUrl = 'https://download.example.com/babytalk.apk',
     Duration simulatedSlowResponse = const Duration(milliseconds: 250),
     int mentorRateLimit = 1,
+    InternetAddress? bindAddress,
+    int port = 0,
   }) async {
-    final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+    final server = await HttpServer.bind(
+      bindAddress ?? InternetAddress.loopbackIPv4,
+      port,
+    );
     return InMemoryDemoBackend._(
       server: server,
       minSupportedVersion: minSupportedVersion,

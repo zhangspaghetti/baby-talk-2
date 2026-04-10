@@ -1,9 +1,28 @@
 import com.android.build.gradle.LibraryExtension
 import org.gradle.api.tasks.Delete
 
+buildscript {
+    repositories {
+        maven { url = uri("https://maven.aliyun.com/repository/public/") }
+        maven { url = uri("https://maven.aliyun.com/repository/spring/")}
+        maven { url = uri("https://maven.aliyun.com/repository/google/")}
+        maven { url = uri("https://maven.aliyun.com/repository/gradle-plugin/")}
+        maven { url = uri("https://maven.aliyun.com/repository/spring-plugin/")}
+        maven { url = uri("https://maven.aliyun.com/repository/grails-core/")}
+        maven { url = uri("https://maven.aliyun.com/repository/apache-snapshots/")}
+        google()
+        mavenCentral()
+    }
+    dependencies {
+        classpath("com.android.tools.build:gradle:8.13.2")
+    }
+}
+
 allprojects {
     repositories {
-        google()
+        maven { url = uri("https://maven.aliyun.com/repository/public/") }
+        maven { url = uri("https://mirrors.huaweicloud.com/repository/maven/") }
+        google() // Android项目必需
         mavenCentral()
     }
 }
