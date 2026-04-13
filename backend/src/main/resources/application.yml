@@ -1,0 +1,59 @@
+spring:
+  application:
+    name: babytalk-backend
+  datasource:
+    url: ${BABY_TALK_DB_URL:jdbc:h2:file:./.data/babytalk;MODE=PostgreSQL;AUTO_SERVER=TRUE;DATABASE_TO_UPPER=false}
+    username: ${BABY_TALK_DB_USERNAME:sa}
+    password: ${BABY_TALK_DB_PASSWORD:}
+    driver-class-name: org.h2.Driver
+  flyway:
+    enabled: true
+    baseline-on-migrate: false
+  jackson:
+    serialization:
+      write-dates-as-timestamps: false
+  mvc:
+    problemdetails:
+      enabled: false
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+app:
+  contract:
+    min-supported-version: ${BABY_TALK_MIN_SUPPORTED_VERSION:1.2.0}
+    upgrade-url: ${BABY_TALK_UPGRADE_URL:https://example.com/baby-talk/download}
+    sync-max-batch-size: ${BABY_TALK_SYNC_MAX_BATCH_SIZE:100}
+    bootstrap-max-events: ${BABY_TALK_BOOTSTRAP_MAX_EVENTS:200}
+  sms:
+    provider-mode: ${BABY_TALK_SMS_PROVIDER_MODE:dev}
+    dev-code: ${BABY_TALK_SMS_DEV_CODE:246810}
+    challenge-ttl: ${BABY_TALK_SMS_CHALLENGE_TTL:PT5M}
+    simulate-timeout: ${BABY_TALK_SMS_SIMULATE_TIMEOUT:false}
+  mentor:
+    provider-mode: ${BABY_TALK_MENTOR_PROVIDER_MODE:dev}
+    provider-timeout: ${BABY_TALK_MENTOR_PROVIDER_TIMEOUT:PT4S}
+    rate-limit-max-requests: ${BABY_TALK_MENTOR_RATE_LIMIT_MAX_REQUESTS:3}
+    rate-limit-window: ${BABY_TALK_MENTOR_RATE_LIMIT_WINDOW:PT10M}
+    prompt-max-length: ${BABY_TALK_MENTOR_PROMPT_MAX_LENGTH:280}
+    response-max-length: ${BABY_TALK_MENTOR_RESPONSE_MAX_LENGTH:280}
+    allowed-surfaces:
+      - home
+      - discover
+      - garden
+      - growth
+      - standalone_home
+    allowed-modes:
+      - single_turn
+    blocked-keywords:
+      - slap
+      - hit
+      - 体罚
+      - 羞辱
+      - 打宝宝
+    simulate-timeout-token: ${BABY_TALK_MENTOR_SIMULATE_TIMEOUT_TOKEN:[timeout]}
+    simulate-malformed-token: ${BABY_TALK_MENTOR_SIMULATE_MALFORMED_TOKEN:[malformed]}
+    simulate-unavailable-token: ${BABY_TALK_MENTOR_SIMULATE_UNAVAILABLE_TOKEN:[unavailable]}

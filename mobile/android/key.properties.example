@@ -1,0 +1,9 @@
+# Baby Talk Android release signing example
+# 复制为 mobile/android/key.properties 后再填入真实值。
+# 注意：profile demo 包不依赖此文件；release 构建在未配置时会显式失败。
+
+# 相对 mobile/android/ 的 keystore 路径，例如：../secrets/baby-talk-demo-upload.jks
+storeFile=../secrets/baby-talk-demo-upload.jks
+storePassword=replace-me
+keyAlias=baby-talk-upload
+keyPassword=replace-me
