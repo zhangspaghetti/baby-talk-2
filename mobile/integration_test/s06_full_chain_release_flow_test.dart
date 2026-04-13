@@ -6,7 +6,7 @@ import 'package:mobile/features/mentor/domain/models/mentor_fact_event.dart';
 import 'support/full_chain_test_harness.dart';
 
 void main() {
-  TestWidgetsFlutterBinding.ensureInitialized();
+  IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
   testWidgets(
     'fresh install 会从真实 app 入口串起 onboarding 到 mentor blocked fallback 全链路 proof',

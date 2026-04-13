@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:integration_test/integration_test.dart';
 import 'package:mobile/app/app.dart';
 import 'package:mobile/core/device/installation_id_service.dart';
 import 'package:mobile/features/account/data/local/account_local_store.dart';
@@ -284,6 +285,4 @@ Future<void> _pumpUntilFound(
   }
 
   fail('Timed out waiting for expected widget.');
-}
-('Timed out waiting for expected widget.');
 }
