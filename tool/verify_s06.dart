@@ -20,10 +20,11 @@ Future<void> main(List<String> args) async {
   final steps = <_VerifyStep>[];
   if (runIntegration) {
     const baseUrl = 'http://127.0.0.1:18080';
+    final flutterExecutable = _resolveFlutterExecutable();
     steps.addAll([
       _VerifyStep(
         label: 'S03 account sync restore integration',
-        executable: 'flutter',
+        executable: flutterExecutable,
         arguments: const [
           'test',
           'integration_test/s03_account_sync_restore_flow_test.dart',
@@ -35,7 +36,7 @@ Future<void> main(List<String> args) async {
       ),
       _VerifyStep(
         label: 'S06 full-chain release integration',
-        executable: 'flutter',
+        executable: flutterExecutable,
         arguments: const [
           'test',
           'integration_test/s06_full_chain_release_flow_test.dart',
@@ -116,6 +117,31 @@ String _formatCommand(_VerifyStep step) {
       : '(cd ${step.workingDirectory} && ';
   final suffix = step.workingDirectory == null ? '' : ')';
   return '$prefix${step.executable} ${step.arguments.join(' ')}$suffix';
+}
+
+String _resolveFlutterExecutable() {
+  final executableName = Platform.isWindows ? 'flutter.bat' : 'flutter';
+
+  final flutterRoot = Platform.environment['FLUTTER_ROOT'];
+  if (flutterRoot != null && flutterRoot.isNotEmpty) {
+    final candidate = File(
+      '$flutterRoot${Platform.pathSeparator}bin${Platform.pathSeparator}$executableName',
+    );
+    if (candidate.existsSync()) {
+      return candidate.path;
+    }
+  }
+
+  final dartBinDirectory = File(Platform.resolvedExecutable).parent;
+  final inferredFlutterBin = dartBinDirectory.parent.parent.parent;
+  final inferredCandidate = File(
+    '${inferredFlutterBin.path}${Platform.pathSeparator}$executableName',
+  );
+  if (inferredCandidate.existsSync()) {
+    return inferredCandidate.path;
+  }
+
+  return executableName;
 }
 
 class _VerifyStep {
