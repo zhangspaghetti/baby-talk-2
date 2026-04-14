@@ -65,8 +65,10 @@ void main() {
         activityId: 'bath_time',
       );
       final syncSummary = await repository.getSyncSummary(
+        spaceId: 'daily_care',
         activityId: 'bath_time',
       );
+      final catalog = await repository.getActivityCatalog();
 
       expect(snapshot.title, '洗澡时间');
       expect(snapshot.phrases, hasLength(3));
@@ -85,6 +87,29 @@ void main() {
       expect(syncSummary.syncedCount, 0);
       expect(syncSummary.failedCount, 0);
       expect(syncSummary.lastSyncPhase, isNull);
+
+      expect(catalog.spaces.map((space) => space.spaceId), [
+        'daily_care',
+        'family_rhythm',
+      ]);
+      expect(catalog.activities.map((activity) => activity.activityId), [
+        'bath_time',
+        'diaper_change',
+        'feeding_time',
+        'bedtime',
+      ]);
+      expect(catalog.totalStoredEvents, 0);
+      expect(catalog.validEvents, 0);
+      expect(catalog.knownEvents, 0);
+      expect(catalog.catalogWarning, isNull);
+
+      for (final activity in catalog.activities) {
+        expect(activity.isEmpty, isTrue);
+        expect(activity.recentResult, isNull);
+        expect(activity.warningMessage, isNull);
+        expect(activity.nextPhraseId, isNotNull);
+        expect(activity.nextPhraseEnglish, isNotNull);
+      }
     });
 
     test('追加事件后保留原始历史，并派生最近结果与恢复信息', () async {
@@ -158,6 +183,112 @@ void main() {
       expect(resumeInfo.nextPhraseId, 'bath_time_all_clean');
       expect(resumeInfo.completedCount, 2);
       expect(resumeInfo.lastEventTime, DateTime.utc(2026, 4, 7, 12, 1));
+    });
+
+    test('catalog 只统计各自 space/activity 的事件，并把未知内容留在局部 warning', () async {
+      await repository.recordReaction(
+        spaceId: 'daily_care',
+        activityId: 'bath_time',
+        phraseId: 'bath_time_warm_water',
+        reactionType: BabyReactionType.engaged,
+        clientTimestamp: DateTime.utc(2026, 4, 7, 13, 0),
+        localEventId: 'evt_catalog_bath',
+      );
+      await repository.recordReaction(
+        spaceId: 'family_rhythm',
+        activityId: 'feeding_time',
+        phraseId: 'feeding_time_open_wide',
+        reactionType: BabyReactionType.calm,
+        clientTimestamp: DateTime.utc(2026, 4, 7, 13, 1),
+        localEventId: 'evt_catalog_feed',
+      );
+      await localDataSource.appendInteractionEvent(
+        InteractionEventPayload(
+          localEventId: 'evt_catalog_unknown_phrase',
+          installationId: 'install_test',
+          spaceId: 'daily_care',
+          activityId: 'bath_time',
+          phraseId: 'bath_time_unknown',
+          reactionType: BabyReactionType.needsBreak,
+          clientTimestamp: DateTime.utc(2026, 4, 7, 13, 2),
+        ),
+      );
+      await localDataSource.appendInteractionEvent(
+        InteractionEventPayload(
+          localEventId: 'evt_catalog_unknown_activity',
+          installationId: 'install_test',
+          spaceId: 'family_rhythm',
+          activityId: 'mystery_time',
+          phraseId: 'mystery_phrase',
+          reactionType: BabyReactionType.engaged,
+          clientTimestamp: DateTime.utc(2026, 4, 7, 13, 3),
+        ),
+      );
+
+      final bathRestore = await repository.restorePracticeState(
+        spaceId: 'daily_care',
+        activityId: 'bath_time',
+      );
+      final feedingRestore = await repository.restorePracticeState(
+        spaceId: 'family_rhythm',
+        activityId: 'feeding_time',
+      );
+      final catalog = await repository.getActivityCatalog();
+      final bath = catalog.activities.firstWhere(
+        (activity) =>
+            activity.spaceId == 'daily_care' && activity.activityId == 'bath_time',
+      );
+      final diaper = catalog.activities.firstWhere(
+        (activity) =>
+            activity.spaceId == 'daily_care' &&
+            activity.activityId == 'diaper_change',
+      );
+      final feeding = catalog.activities.firstWhere(
+        (activity) =>
+            activity.spaceId == 'family_rhythm' &&
+            activity.activityId == 'feeding_time',
+      );
+      final bedtime = catalog.activities.firstWhere(
+        (activity) =>
+            activity.spaceId == 'family_rhythm' && activity.activityId == 'bedtime',
+      );
+
+      expect(bathRestore.homeSummary.totalEvents, 1);
+      expect(bathRestore.homeSummary.recentResult?.phraseId, 'bath_time_warm_water');
+      expect(bathRestore.hasRecoverableIssue, isTrue);
+      expect(bathRestore.restoreMessage, contains('未知短语记录'));
+
+      expect(feedingRestore.homeSummary.totalEvents, 1);
+      expect(
+        feedingRestore.homeSummary.recentResult?.phraseId,
+        'feeding_time_open_wide',
+      );
+      expect(feedingRestore.hasRecoverableIssue, isFalse);
+
+      expect(catalog.totalStoredEvents, 4);
+      expect(catalog.validEvents, 4);
+      expect(catalog.knownEvents, 2);
+      expect(catalog.skippedMalformedEvents, 0);
+      expect(catalog.skippedUnknownContentEvents, 2);
+      expect(catalog.catalogWarning, contains('未知内容记录'));
+
+      expect(bath.totalEvents, 1);
+      expect(bath.recentResult?.phraseId, 'bath_time_warm_water');
+      expect(bath.skippedUnknownPhraseCount, 1);
+      expect(bath.warningMessage, contains('未知短语'));
+
+      expect(diaper.isEmpty, isTrue);
+      expect(diaper.totalEvents, 0);
+      expect(diaper.warningMessage, isNull);
+
+      expect(feeding.totalEvents, 1);
+      expect(feeding.recentResult?.phraseId, 'feeding_time_open_wide');
+      expect(feeding.skippedUnknownPhraseCount, 0);
+      expect(feeding.warningMessage, isNull);
+
+      expect(bedtime.isEmpty, isTrue);
+      expect(catalog.spaces.first.totalEvents, 1);
+      expect(catalog.spaces.last.totalEvents, 1);
     });
 
     test('重开 Isar 后仍能从 append-only 事件重建最近结果', () async {

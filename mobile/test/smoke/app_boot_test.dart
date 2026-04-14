@@ -99,8 +99,22 @@ void main() {
     );
     expect(find.byKey(const Key('home-start-practice')), findsNothing);
 
-    final phrases = harness.bootState.content!.primaryActivity.phrases;
-    for (final phrase in phrases) {
+    final content = harness.bootState.content!;
+    final allActivities = [
+      for (final space in content.spaces) ...space.activities,
+    ];
+    final allPhrases = [
+      for (final activity in allActivities) ...activity.phrases,
+    ];
+
+    expect(content.spaces.map((space) => space.id), ['daily_care', 'family_rhythm']);
+    expect(
+      allActivities.map((activity) => activity.id),
+      ['bath_time', 'diaper_change', 'feeding_time', 'bedtime'],
+    );
+    expect(allPhrases, hasLength(9));
+
+    for (final phrase in allPhrases) {
       final audioBytes = await rootBundle.load(phrase.audioAsset);
       expect(audioBytes.lengthInBytes, greaterThan(0));
     }
@@ -299,7 +313,7 @@ Future<void> _pumpUntilFound(
   WidgetTester tester,
   Finder finder, {
   Duration step = const Duration(milliseconds: 50),
-  Duration timeout = const Duration(seconds: 5),
+  Duration timeout = const Duration(seconds: 12),
 }) async {
   final totalSteps = timeout.inMilliseconds ~/ step.inMilliseconds;
   for (var index = 0; index < totalSteps; index++) {

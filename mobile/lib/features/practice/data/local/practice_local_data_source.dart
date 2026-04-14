@@ -78,28 +78,32 @@ class PracticeLocalDataSource {
     });
   }
 
-  Future<int> countInteractionEvents({String? activityId}) async {
-    return _isar.txn(() async {
-      final collection = _isar.collection<InteractionEventEntity>();
-      if (activityId == null) {
-        return collection.where().count();
-      }
-      return collection.where().activityIdEqualTo(activityId).count();
-    });
+  Future<int> countInteractionEvents({
+    String? spaceId,
+    String? activityId,
+  }) async {
+    final entities = await listRawEntities(spaceId: spaceId, activityId: activityId);
+    return entities.length;
   }
 
   Future<List<InteractionEventPayload>> listInteractionEvents({
+    String? spaceId,
     String? activityId,
   }) async {
-    final entities = await listRawEntities(activityId: activityId);
+    final entities = await listRawEntities(
+      spaceId: spaceId,
+      activityId: activityId,
+    );
     return entities.map(payloadFromEntity).toList(growable: false);
   }
 
   Future<List<InteractionEventPayload>> listPendingEvents({
+    String? spaceId,
     String? activityId,
     int? limit,
   }) async {
     final entities = await listPendingRawEntities(
+      spaceId: spaceId,
       activityId: activityId,
       limit: limit,
     );
@@ -107,14 +111,25 @@ class PracticeLocalDataSource {
   }
 
   Future<List<InteractionEventEntity>> listRawEntities({
+    String? spaceId,
     String? activityId,
   }) async {
     final entities = await _isar.txn(() async {
       final collection = _isar.collection<InteractionEventEntity>();
-      if (activityId == null) {
+      if (spaceId == null && activityId == null) {
         return collection.where().findAll();
       }
-      return collection.where().activityIdEqualTo(activityId).findAll();
+      if (spaceId != null && activityId != null) {
+        return collection
+            .filter()
+            .spaceIdEqualTo(spaceId)
+            .activityIdEqualTo(activityId)
+            .findAll();
+      }
+      if (spaceId != null) {
+        return collection.filter().spaceIdEqualTo(spaceId).findAll();
+      }
+      return collection.filter().activityIdEqualTo(activityId!).findAll();
     });
 
     entities.sort(_compareEntities);
@@ -122,20 +137,36 @@ class PracticeLocalDataSource {
   }
 
   Future<List<InteractionEventEntity>> listPendingRawEntities({
+    String? spaceId,
     String? activityId,
     int? limit,
   }) async {
     final entities = await _isar.txn(() async {
       final collection = _isar.collection<InteractionEventEntity>();
-      if (activityId == null) {
+      if (spaceId == null && activityId == null) {
         return collection
             .where()
             .syncStateEqualTo(InteractionSyncState.pending.wireValue)
             .findAll();
       }
+      if (spaceId != null && activityId != null) {
+        return collection
+            .filter()
+            .spaceIdEqualTo(spaceId)
+            .activityIdEqualTo(activityId)
+            .syncStateEqualTo(InteractionSyncState.pending.wireValue)
+            .findAll();
+      }
+      if (spaceId != null) {
+        return collection
+            .filter()
+            .spaceIdEqualTo(spaceId)
+            .syncStateEqualTo(InteractionSyncState.pending.wireValue)
+            .findAll();
+      }
       return collection
           .filter()
-          .activityIdEqualTo(activityId)
+          .activityIdEqualTo(activityId!)
           .syncStateEqualTo(InteractionSyncState.pending.wireValue)
           .findAll();
     });
