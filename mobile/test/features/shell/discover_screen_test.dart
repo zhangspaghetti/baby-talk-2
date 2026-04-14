@@ -54,6 +54,7 @@ void main() {
   testWidgets('Discover activity / space 视图切换不重读目录，并把 route args 传给 opener', (
     tester,
   ) async {
+    _setTallViewport(tester);
     var loadCount = 0;
     PracticeRouteArgs? openedArgs;
 
@@ -139,6 +140,7 @@ void main() {
   });
 
   testWidgets('Discover 遇到缺失 route args 的坏卡片时禁止导航并暴露 UI 级错误', (tester) async {
+    _setTallViewport(tester);
     var openCount = 0;
 
     await tester.pumpWidget(
@@ -151,6 +153,11 @@ void main() {
     );
     await tester.pumpAndSettle();
 
+    await tester.dragUntilVisible(
+      find.byKey(const Key('discover-route-target--mystery_time')),
+      find.byType(Scrollable).first,
+      const Offset(0, -300),
+    );
     await tester.tap(
       find.byKey(const Key('discover-route-target--mystery_time')),
     );
@@ -160,6 +167,13 @@ void main() {
     expect(find.byKey(const Key('discover-navigation-error')), findsOneWidget);
     expect(find.textContaining('缺少有效的 spaceId/activityId'), findsOneWidget);
   });
+}
+
+void _setTallViewport(WidgetTester tester) {
+  tester.view.devicePixelRatio = 1.0;
+  tester.view.physicalSize = const Size(800, 4000);
+  addTearDown(tester.view.resetDevicePixelRatio);
+  addTearDown(tester.view.resetPhysicalSize);
 }
 
 Widget _buildApp({
@@ -190,7 +204,7 @@ PracticeActivityCatalog _buildCatalog({bool includeMalformedCard = false}) {
       completedPhrases: 1,
       totalEvents: 1,
       nextPhraseEnglish: 'Splash, splash!',
-      recentResult: const PracticeCatalogRecentResultSummary(
+      recentResult: PracticeCatalogRecentResultSummary(
         phraseId: 'bath_time_warm_water',
         phraseEnglish: 'Warm water.',
         reactionType: BabyReactionType.engaged,

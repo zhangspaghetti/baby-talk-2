@@ -397,7 +397,7 @@ class _DiscoverEmptyState extends StatelessWidget {
           Text('目录还是空的', style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: 8),
           Text(
-            '目前没有可展示的 activity。稍后重试时不会把你带回旧 placeholder。',
+            '目前没有可展示的 activity。稍后重试即可重新读取本地目录。',
             style: Theme.of(context).textTheme.bodyMedium,
           ),
           const SizedBox(height: 16),
