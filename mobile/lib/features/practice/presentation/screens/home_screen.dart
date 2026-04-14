@@ -10,9 +10,10 @@ import 'package:mobile/features/onboarding/domain/models/onboarding_snapshot.dar
 import 'package:mobile/features/onboarding/domain/models/stage_match.dart';
 import 'package:mobile/features/practice/data/repositories/practice_repository.dart';
 import 'package:mobile/features/practice/domain/models/garden_growth_snapshot.dart';
+import 'package:mobile/features/practice/domain/models/interaction_event_payload.dart';
 import 'package:mobile/features/practice/domain/models/practice_phrase.dart';
 import 'package:mobile/features/practice/presentation/garden_growth_view_model.dart';
-import 'package:mobile/features/practice/presentation/practice_session_view_model.dart';
+import 'package:mobile/features/practice/presentation/practice_route_args.dart';
 import 'package:provider/provider.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -33,6 +34,12 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
   AccountViewModel? _accountViewModel;
   int _lastRuntimeToken = -1;
   ModalRoute<dynamic>? _subscribedRoute;
+  PracticeRouteArgs? _practiceArgs;
+  PracticeRestoreSnapshot? _practiceRestoreSnapshot;
+  String? _homeErrorMessage;
+  String? _launcherErrorMessage;
+  bool _isHomeLoading = false;
+  String? _lastResolvedScopeLabel;
 
   @override
   void initState() {
@@ -46,7 +53,21 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
       if (gardenGrowthViewModel != null) {
         unawaited(gardenGrowthViewModel.refresh());
       }
+      unawaited(_refreshHomePracticeState());
     });
+  }
+
+  @override
+  void didUpdateWidget(covariant HomeScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.onboardingSnapshot != widget.onboardingSnapshot) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) {
+          return;
+        }
+        unawaited(_refreshHomePracticeState());
+      });
+    }
   }
 
   @override
@@ -68,6 +89,18 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
       _lastRuntimeToken = accountViewModel.runtimeChangeToken;
       accountViewModel.addListener(_handleAccountRuntimeChange);
     }
+
+    final resolvedArgs = _resolvePracticeArgs();
+    final resolvedScopeLabel = resolvedArgs?.scopeLabel;
+    if (_lastResolvedScopeLabel != resolvedScopeLabel) {
+      _lastResolvedScopeLabel = resolvedScopeLabel;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) {
+          return;
+        }
+        unawaited(_refreshHomePracticeState());
+      });
+    }
   }
 
   @override
@@ -77,6 +110,7 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
     if (gardenGrowthViewModel != null) {
       unawaited(gardenGrowthViewModel.refresh());
     }
+    unawaited(_refreshHomePracticeState());
   }
 
   @override
@@ -100,7 +134,7 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
     if (!accountViewModel.isSignedIn) {
       return;
     }
-    unawaited(context.read<PracticeSessionViewModel>().retryHomeLoad());
+    unawaited(_refreshHomePracticeState());
     final gardenGrowthViewModel = context.read<GardenGrowthViewModel?>();
     if (gardenGrowthViewModel != null) {
       unawaited(gardenGrowthViewModel.refresh());
@@ -109,10 +143,16 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
 
   @override
   Widget build(BuildContext context) {
-    final viewModel = context.watch<PracticeSessionViewModel>();
     final gardenGrowthViewModel = context.watch<GardenGrowthViewModel?>();
-    final activity = viewModel.activitySnapshot;
-    final homeSummary = viewModel.homeSummary;
+    final restoreSnapshot = _practiceRestoreSnapshot;
+    final activity = restoreSnapshot?.activitySnapshot;
+    final homeSummary = restoreSnapshot?.homeSummary;
+    final practiceArgs = _practiceArgs;
+    final canLaunchPractice =
+        practiceArgs != null &&
+        !_isHomeLoading &&
+        _homeErrorMessage == null &&
+        activity != null;
     final stageMatch = _resolveStageMatch(widget.onboardingSnapshot);
     final starterPhrase = _resolveStarterPhrase(
       activity,
@@ -124,7 +164,7 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
         alignment: Alignment.topCenter,
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 430),
-          child: viewModel.isHomeLoading && activity == null
+          child: _isHomeLoading && activity == null
               ? const _HomeLoadingState()
               : ListView(
                   padding: EdgeInsets.fromLTRB(
@@ -174,34 +214,43 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
                       scopeKeyPrefix: 'home',
                       onboardingSnapshot: widget.onboardingSnapshot,
                     ),
-                    if (viewModel.restoreStatusMessage != null) ...[
+                    if (restoreSnapshot?.restoreMessage != null) ...[
                       const SizedBox(height: 20),
                       _HomeBanner(
                         key: const Key('home-restore-banner'),
-                        message: viewModel.restoreStatusMessage!,
-                        backgroundColor: viewModel.hasRecoverableRestoreIssue
+                        message: restoreSnapshot!.restoreMessage,
+                        backgroundColor: restoreSnapshot.hasRecoverableIssue
                             ? AppTheme.warningSoft
                             : AppTheme.infoSoft,
-                        foregroundColor: viewModel.hasRecoverableRestoreIssue
+                        foregroundColor: restoreSnapshot.hasRecoverableIssue
                             ? AppTheme.warning
                             : AppTheme.info,
-                        actionLabel: viewModel.hasRecoverableRestoreIssue
+                        actionLabel: restoreSnapshot.hasRecoverableIssue
                             ? '重新恢复'
                             : null,
-                        onAction: viewModel.hasRecoverableRestoreIssue
-                            ? viewModel.retryHomeLoad
+                        onAction: restoreSnapshot.hasRecoverableIssue
+                            ? _refreshHomePracticeState
                             : null,
                       ),
                     ],
-                    if (viewModel.homeErrorMessage != null) ...[
+                    if (_homeErrorMessage != null) ...[
                       const SizedBox(height: 20),
                       _HomeBanner(
                         key: const Key('home-error-banner'),
-                        message: viewModel.homeErrorMessage!,
+                        message: _homeErrorMessage!,
                         backgroundColor: AppTheme.errorSoft,
                         foregroundColor: AppTheme.error,
                         actionLabel: '重试',
-                        onAction: viewModel.retryHomeLoad,
+                        onAction: _refreshHomePracticeState,
+                      ),
+                    ],
+                    if (_launcherErrorMessage != null) ...[
+                      const SizedBox(height: 20),
+                      _HomeBanner(
+                        key: const Key('home-launcher-bad-args'),
+                        message: _launcherErrorMessage!,
+                        backgroundColor: AppTheme.warningSoft,
+                        foregroundColor: AppTheme.warning,
                       ),
                     ],
                     const SizedBox(height: 20),
@@ -212,17 +261,9 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
                       buttonLabel: homeSummary?.isEmpty ?? true
                           ? '开始练习'
                           : '继续练习',
-                      onPressed: viewModel.canStartPractice
+                      onPressed: canLaunchPractice
                           ? () async {
-                              final ready = await context
-                                  .read<PracticeSessionViewModel>()
-                                  .ensureSessionReady();
-                              if (!context.mounted || !ready) {
-                                return;
-                              }
-                              Navigator.of(
-                                context,
-                              ).pushNamed(AppRouteNames.practice);
+                              await practiceArgs.push(context);
                             }
                           : null,
                     ),
@@ -236,13 +277,10 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
                     const SizedBox(height: 16),
                     _GrowthSummaryCard(viewModel: gardenGrowthViewModel),
                     const SizedBox(height: 16),
-                    _RecentResultCard(
-                      homeSummary: homeSummary,
-                      viewModel: viewModel,
-                    ),
+                    _RecentResultCard(homeSummary: homeSummary),
                     const SizedBox(height: 12),
                     Text(
-                      'boot: ready${viewModel.installationId == null ? '' : ' · install: ${_shortInstallationId(viewModel.installationId!)}'}',
+                      'boot: ready${restoreSnapshot?.installationId == null ? '' : ' · install: ${_shortInstallationId(restoreSnapshot!.installationId!)}'}',
                       key: const Key('boot-status-ready'),
                       style: Theme.of(context).textTheme.bodySmall,
                     ),
@@ -269,6 +307,73 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
       ),
       body: body,
     );
+  }
+
+  Future<void> _refreshHomePracticeState() async {
+    final practiceArgs = _resolvePracticeArgs();
+    if (practiceArgs == null) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _practiceArgs = null;
+        _practiceRestoreSnapshot = null;
+        _homeErrorMessage = null;
+        _launcherErrorMessage = '当前入口缺少 activity 参数，开始练习已禁用。';
+        _isHomeLoading = false;
+      });
+      return;
+    }
+
+    if (mounted) {
+      setState(() {
+        _practiceArgs = practiceArgs;
+        _launcherErrorMessage = null;
+        _homeErrorMessage = null;
+        _isHomeLoading = true;
+      });
+    }
+
+    try {
+      final restored = await context
+          .read<PracticeRepository>()
+          .restorePracticeState(
+            spaceId: practiceArgs.spaceId,
+            activityId: practiceArgs.activityId,
+          );
+      if (mounted) {
+        setState(() {
+          _practiceArgs = practiceArgs;
+          _practiceRestoreSnapshot = restored;
+          _homeErrorMessage = null;
+        });
+      }
+    } catch (error) {
+      if (mounted) {
+        setState(() {
+          _practiceArgs = practiceArgs;
+          _practiceRestoreSnapshot = null;
+          _homeErrorMessage = '首页加载失败：$error';
+        });
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isHomeLoading = false;
+        });
+      }
+    }
+  }
+
+  PracticeRouteArgs? _resolvePracticeArgs() {
+    final snapshotArgs = PracticeRouteArgs.maybeCreate(
+      spaceId: widget.onboardingSnapshot?.starterSpaceId,
+      activityId: widget.onboardingSnapshot?.starterActivityId,
+    );
+    if (snapshotArgs != null) {
+      return snapshotArgs;
+    }
+    return Provider.of<PracticeRouteArgs?>(context, listen: false);
   }
 
   StageMatch? _resolveStageMatch(OnboardingSnapshot? snapshot) {
@@ -716,10 +821,9 @@ class _GrowthSummaryCard extends StatelessWidget {
 }
 
 class _RecentResultCard extends StatelessWidget {
-  const _RecentResultCard({required this.homeSummary, required this.viewModel});
+  const _RecentResultCard({required this.homeSummary});
 
   final PracticeHomeSummary? homeSummary;
-  final PracticeSessionViewModel viewModel;
 
   @override
   Widget build(BuildContext context) {
@@ -746,7 +850,7 @@ class _RecentResultCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  '${homeSummary!.recentResult!.phraseEnglish} · ${viewModel.labelForReaction(homeSummary!.recentResult!.reactionType)}',
+                  '${homeSummary!.recentResult!.phraseEnglish} · ${_labelForReaction(homeSummary!.recentResult!.reactionType)}',
                   style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                     color: AppTheme.textPrimary,
                     fontWeight: FontWeight.w700,
@@ -762,6 +866,19 @@ class _RecentResultCard extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  String _labelForReaction(BabyReactionType reactionType) {
+    switch (reactionType) {
+      case BabyReactionType.calm:
+        return '宝宝放松';
+      case BabyReactionType.engaged:
+        return '宝宝在看';
+      case BabyReactionType.imitated:
+        return '宝宝模仿';
+      case BabyReactionType.needsBreak:
+        return '先休息';
+    }
   }
 
   String _formatTime(DateTime dateTime) {

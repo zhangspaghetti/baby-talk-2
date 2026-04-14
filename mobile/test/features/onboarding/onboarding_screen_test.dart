@@ -398,7 +398,7 @@ Future<void> _pumpOnboardingScreen(
           shellBuilder: (_) => const Scaffold(
             body: Center(child: Text('shell ready', key: Key('shell-ready'))),
           ),
-          practiceBuilder: (_) => const SizedBox.shrink(),
+          practiceBuilder: (_, settings) => const SizedBox.shrink(),
         ),
       ),
     ),

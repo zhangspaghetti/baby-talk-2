@@ -16,6 +16,7 @@ import 'package:mobile/features/practice/data/repositories/practice_repository.d
 import 'package:mobile/features/practice/data/services/asset_phrase_service.dart';
 import 'package:mobile/features/practice/domain/models/interaction_event_payload.dart';
 import 'package:mobile/features/practice/presentation/garden_growth_view_model.dart';
+import 'package:mobile/features/practice/presentation/practice_route_args.dart';
 import 'package:mobile/features/practice/presentation/practice_session_view_model.dart';
 import 'package:mobile/features/practice/presentation/screens/home_screen.dart';
 import 'package:provider/provider.dart';
@@ -89,7 +90,10 @@ void main() {
     expect(find.textContaining('日常照护'), findsWidgets);
     expect(find.byKey(const Key('home-growth-summary')), findsOneWidget);
     expect(find.textContaining('Warm water.'), findsWidgets);
-    expect(find.byKey(const Key('home-growth-summary-warning')), findsOneWidget);
+    expect(
+      find.byKey(const Key('home-growth-summary-warning')),
+      findsOneWidget,
+    );
     expect(find.textContaining('未知内容事件'), findsOneWidget);
   });
 }
@@ -155,6 +159,12 @@ class _Harness {
     return MultiProvider(
       providers: [
         Provider<PracticeRepository>.value(value: practiceRepository),
+        Provider<PracticeRouteArgs>.value(
+          value: const PracticeRouteArgs(
+            spaceId: 'daily_care',
+            activityId: 'bath_time',
+          ),
+        ),
         ChangeNotifierProvider<AccountViewModel>.value(value: accountViewModel),
         ChangeNotifierProvider<PracticeSessionViewModel>.value(
           value: practiceSessionViewModel,
@@ -220,12 +230,16 @@ class _StaticAccountRepository implements AccountRepository {
   }
 
   @override
-  Future<AccountLocalSnapshot> revokeConsent({String reason = 'user_requested'}) async {
+  Future<AccountLocalSnapshot> revokeConsent({
+    String reason = 'user_requested',
+  }) async {
     return AccountLocalSnapshot.signedOut;
   }
 
   @override
-  Future<AccountLocalSnapshot> deleteAccount({String reason = 'forget_me'}) async {
+  Future<AccountLocalSnapshot> deleteAccount({
+    String reason = 'forget_me',
+  }) async {
     return AccountLocalSnapshot.signedOut;
   }
 

@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:mobile/app/router/app_router.dart';
 import 'package:mobile/app/theme/app_theme.dart';
 import 'package:mobile/features/practice/domain/models/garden_growth_snapshot.dart';
 import 'package:mobile/features/practice/presentation/garden_growth_view_model.dart';
-import 'package:mobile/features/practice/presentation/practice_session_view_model.dart';
+import 'package:mobile/features/practice/presentation/practice_route_args.dart';
 import 'package:provider/provider.dart';
 
 class GardenScreen extends StatelessWidget {
@@ -13,7 +12,10 @@ class GardenScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final viewModel = context.watch<GardenGrowthViewModel?>();
     final snapshot = viewModel?.snapshot ?? GardenGrowthSnapshot.empty();
-    final practiceViewModel = context.read<PracticeSessionViewModel?>();
+    final practiceArgs = PracticeRouteArgs.maybeCreate(
+      spaceId: snapshot.primaryActivity?.spaceId,
+      activityId: snapshot.primaryActivity?.activityId,
+    );
 
     return SafeArea(
       top: false,
@@ -50,7 +52,7 @@ class GardenScreen extends StatelessWidget {
                     _GardenPatchCard(patch: patch),
                     const SizedBox(height: 16),
                   ],
-                  _GardenContinueCard(practiceViewModel: practiceViewModel),
+                  _GardenContinueCard(practiceArgs: practiceArgs),
                 ],
               ],
             ),
@@ -312,13 +314,13 @@ class _GardenFlowerCard extends StatelessWidget {
 }
 
 class _GardenContinueCard extends StatelessWidget {
-  const _GardenContinueCard({required this.practiceViewModel});
+  const _GardenContinueCard({required this.practiceArgs});
 
-  final PracticeSessionViewModel? practiceViewModel;
+  final PracticeRouteArgs? practiceArgs;
 
   @override
   Widget build(BuildContext context) {
-    final canContinue = practiceViewModel?.canStartPractice ?? false;
+    final canContinue = practiceArgs != null;
     return Container(
       key: const Key('garden-continue-card'),
       padding: const EdgeInsets.all(20),
@@ -337,17 +339,24 @@ class _GardenContinueCard extends StatelessWidget {
               context,
             ).textTheme.bodyMedium?.copyWith(color: AppTheme.textPrimary),
           ),
+          if (!canContinue) ...[
+            const SizedBox(height: 12),
+            Text(
+              '当前花园入口缺少 activity 参数，继续练习已禁用。',
+              key: const Key('garden-launcher-bad-args'),
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: AppTheme.warning,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
           const SizedBox(height: 16),
           ElevatedButton(
             key: const Key('garden-continue-practice'),
             onPressed: !canContinue
                 ? null
                 : () async {
-                    final ready = await practiceViewModel!.ensureSessionReady();
-                    if (!context.mounted || !ready) {
-                      return;
-                    }
-                    Navigator.of(context).pushNamed(AppRouteNames.practice);
+                    await practiceArgs!.push(context);
                   },
             child: const Text('继续今天的练习'),
           ),

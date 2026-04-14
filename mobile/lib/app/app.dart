@@ -25,6 +25,7 @@ import 'package:mobile/features/practice/data/repositories/garden_growth_reposit
 import 'package:mobile/features/practice/data/repositories/practice_repository.dart';
 import 'package:mobile/features/practice/data/services/asset_phrase_service.dart';
 import 'package:mobile/features/practice/presentation/garden_growth_view_model.dart';
+import 'package:mobile/features/practice/presentation/practice_route_args.dart';
 import 'package:mobile/features/practice/presentation/practice_session_view_model.dart';
 import 'package:mobile/features/practice/presentation/screens/practice_session_screen.dart';
 import 'package:mobile/features/shell/presentation/app_shell_screen.dart';
@@ -216,6 +217,12 @@ class _BabyTalkAppState extends State<BabyTalkApp> {
             Provider<OnboardingRepository>.value(value: onboardingRepository),
             Provider<AccountRepository>.value(value: accountRepository),
             Provider<MentorRepository>.value(value: mentorRepository),
+            Provider<PracticeRouteArgs>.value(
+              value: PracticeRouteArgs(
+                spaceId: widget.bootState.primarySpaceId!,
+                activityId: widget.bootState.primaryActivityId!,
+              ),
+            ),
             Provider<GardenGrowthRepository>(
               create: (_) => GardenGrowthRepository(
                 practiceRepository: practiceRepository,
@@ -235,14 +242,6 @@ class _BabyTalkAppState extends State<BabyTalkApp> {
             ChangeNotifierProvider<GardenGrowthViewModel>(
               create: (context) => GardenGrowthViewModel(
                 repository: context.read<GardenGrowthRepository>(),
-              )..initialize(),
-            ),
-            ChangeNotifierProvider<PracticeSessionViewModel>(
-              create: (_) => PracticeSessionViewModel(
-                repository: practiceRepository,
-                spaceId: widget.bootState.primarySpaceId!,
-                activityId: widget.bootState.primaryActivityId!,
-                audioController: widget.audioControllerFactory?.call(),
               )..initialize(),
             ),
           ],
@@ -273,7 +272,15 @@ class _BabyTalkAppState extends State<BabyTalkApp> {
                   child: AppShellScreen(onboardingSnapshot: routedSnapshot),
                 );
               },
-              practiceBuilder: (_) => const PracticeSessionScreen(),
+              practiceBuilder: (context, settings) {
+                final routeEntry = PracticeRouteEntry.fromObject(
+                  settings.arguments,
+                );
+                return PracticeSessionScreen(
+                  routeEntry: routeEntry,
+                  audioControllerFactory: widget.audioControllerFactory,
+                );
+              },
             ),
           ),
         );
