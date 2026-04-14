@@ -8,6 +8,7 @@ import 'package:mobile/features/onboarding/domain/models/onboarding_snapshot.dar
 import 'package:mobile/features/onboarding/domain/models/stage_match.dart';
 import 'package:mobile/features/practice/presentation/garden_growth_view_model.dart';
 import 'package:mobile/features/practice/presentation/screens/home_screen.dart';
+import 'package:mobile/features/shell/presentation/screens/discover_screen.dart';
 import 'package:mobile/features/shell/presentation/screens/garden_screen.dart';
 import 'package:mobile/features/shell/presentation/screens/growth_screen.dart';
 import 'package:provider/provider.dart';
@@ -69,13 +70,7 @@ class _AppShellScreenState extends State<AppShellScreen> {
             onboardingSnapshot: widget.onboardingSnapshot,
             embeddedInShell: true,
           ),
-          const _ShellPlaceholderTab(
-            pageKey: Key('shell-tab-discover'),
-            eyebrow: '发现',
-            title: '按活动和空间继续找下一句。',
-            body: '这一页会在后续切片接入阶段筛选、活动卡片和搜索。当前先保留稳定入口。',
-            icon: Icons.explore_outlined,
-          ),
+          const DiscoverScreen(),
           const GardenScreen(),
           const GrowthScreen(),
         ],
