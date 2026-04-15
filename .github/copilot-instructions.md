@@ -30,7 +30,6 @@ Use the `/browse` skill from gstack for all web browsing. Never use `mcp__claude
 - `/design-consultation` - Design consultation
 - `/design-shotgun` - Design shotgun
 - `/design-html` - Design HTML
-- `/work` - start implementation
 - `/review` - Code review
 - `/ship` - Ship code
 - `/land-and-deploy` - Land and deploy

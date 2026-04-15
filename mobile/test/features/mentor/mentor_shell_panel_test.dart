@@ -40,35 +40,38 @@ void main() {
   });
 
   testWidgets('shell 任一 tab 的全局 FAB 会打开默认建议 tab，并明确展示离线降级', (tester) async {
-    final harness = await _Harness.create(
-      accountSeedSnapshot: AccountLocalSnapshot(
-        consentState: AccountConsentState.acceptedPendingSync,
-        session: AccountSession(
-          accountId: 'account_shell',
-          sessionId: 'session_shell',
-          maskedPhoneNumber: '138****1234',
-          createdAt: DateTime.utc(2026, 4, 9, 8),
-        ),
-        pendingSyncCount: 1,
-        lastSyncPhase: 'home_visible_offline',
-        lastVisibleError: '当前离线，已保留本地待同步事件，可稍后重试。',
-      ),
-      mentorSuggestionResult: LocalMentorSuggestionResult(
-        suggestions: [
-          LocalMentorSuggestion(
-            suggestionId: 'starter_1',
-            origin: LocalMentorSuggestionOrigin.starterPhrase,
-            title: '先回到熟悉短句',
-            body: '先把 Warm water. 贴在动作上，说一句就好。',
-            phraseEnglish: 'Warm water.',
-            reasonCode: 'starter_phrase',
+    await _setTallSurface(tester);
+    final harness = (await tester.runAsync<_Harness>(
+      () => _Harness.create(
+        accountSeedSnapshot: AccountLocalSnapshot(
+          consentState: AccountConsentState.acceptedPendingSync,
+          session: AccountSession(
+            accountId: 'account_shell',
+            sessionId: 'session_shell',
+            maskedPhoneNumber: '138****1234',
+            createdAt: DateTime.utc(2026, 4, 9, 8),
           ),
-        ],
-        primaryOrigin: LocalMentorSuggestionOrigin.starterPhrase,
-        contextFallbackUsed: false,
-        redactedContextSummary: 'starter_phrase:bath_time/bath_time_warm_water',
+          pendingSyncCount: 1,
+          lastSyncPhase: 'home_visible_offline',
+          lastVisibleError: '当前离线，已保留本地待同步事件，可稍后重试。',
+        ),
+        mentorSuggestionResult: LocalMentorSuggestionResult(
+          suggestions: [
+            LocalMentorSuggestion(
+              suggestionId: 'starter_1',
+              origin: LocalMentorSuggestionOrigin.starterPhrase,
+              title: '先回到熟悉短句',
+              body: '先把 Warm water. 贴在动作上，说一句就好。',
+              phraseEnglish: 'Warm water.',
+              reasonCode: 'starter_phrase',
+            ),
+          ],
+          primaryOrigin: LocalMentorSuggestionOrigin.starterPhrase,
+          contextFallbackUsed: false,
+          redactedContextSummary: 'starter_phrase:bath_time/bath_time_warm_water',
+        ),
       ),
-    );
+    ))!;
     addTearDown(harness.dispose);
 
     await tester.runAsync(() async {
@@ -79,13 +82,13 @@ void main() {
     });
 
     await tester.pumpWidget(harness.buildShell());
-    await _pumpBriefly(tester);
+    await _pumpUntilFound(tester, find.byKey(const Key('shell-ready')));
     await tester.tap(find.byTooltip('发现'));
     await _pumpBriefly(tester);
 
     await tester.tap(find.byKey(const Key('shell-mentor-fab')));
     await tester.pump();
-    await _pumpBriefly(tester);
+    await _pumpUntilFound(tester, find.byKey(const Key('mentor-panel-sheet')));
 
     expect(find.byKey(const Key('mentor-panel-sheet')), findsOneWidget);
     expect(find.byKey(const Key('mentor-suggestion-tab')), findsOneWidget);
@@ -94,7 +97,13 @@ void main() {
     expect(find.textContaining('离线'), findsWidgets);
 
     await tester.tap(find.byKey(const Key('mentor-tab-chat-button')));
-    await _pumpBriefly(tester);
+    await _pumpUntilFound(tester, find.byKey(const Key('mentor-chat-tab')));
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('mentor-chat-retry-button')),
+      120,
+      scrollable: find.byType(Scrollable).last,
+    );
+    await tester.pump();
 
     expect(find.byKey(const Key('mentor-chat-tab')), findsOneWidget);
     expect(find.byKey(const Key('mentor-chat-retry-button')), findsOneWidget);
@@ -113,15 +122,18 @@ void main() {
   testWidgets('standalone home 小 FAB 在缺失 onboarding 时仍打开同一 Mentor 面板并回退通用建议', (
     tester,
   ) async {
-    final harness = await _Harness.create(
-      accountSeedSnapshot: AccountLocalSnapshot.signedOut,
-      mentorSuggestionResult: const LocalMentorSuggestionService().derive(
-        const LocalMentorSuggestionContext(
-          contextFallbackUsed: true,
-          fallbackReasonCode: 'onboarding_missing',
+    await _setTallSurface(tester);
+    final harness = (await tester.runAsync<_Harness>(
+      () => _Harness.create(
+        accountSeedSnapshot: AccountLocalSnapshot.signedOut,
+        mentorSuggestionResult: const LocalMentorSuggestionService().derive(
+          const LocalMentorSuggestionContext(
+            contextFallbackUsed: true,
+            fallbackReasonCode: 'onboarding_missing',
+          ),
         ),
       ),
-    );
+    ))!;
     addTearDown(harness.dispose);
 
     await tester.runAsync(() async {
@@ -132,14 +144,20 @@ void main() {
     });
 
     await tester.pumpWidget(harness.buildStandaloneHome());
-    await _pumpBriefly(tester);
+    await _pumpUntilFound(tester, find.byKey(const Key('home-mentor-fab')));
 
     await tester.tap(find.byKey(const Key('home-mentor-fab')));
     await tester.pump();
-    await _pumpBriefly(tester);
+    await _pumpUntilFound(tester, find.byKey(const Key('mentor-panel-sheet')));
 
     expect(find.byKey(const Key('mentor-panel-sheet')), findsOneWidget);
     expect(find.byKey(const Key('mentor-suggestion-tab')), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('mentor-suggestion-card-safe_small_step')),
+      120,
+      scrollable: find.byType(Scrollable).last,
+    );
+    await tester.pump();
     expect(
       find.byKey(const Key('mentor-suggestion-card-safe_small_step')),
       findsOneWidget,
@@ -148,31 +166,34 @@ void main() {
   });
 
   testWidgets('chat tab 可提交一次匿名求助并显示受控回应', (tester) async {
-    final harness = await _Harness.create(
-      accountSeedSnapshot: AccountLocalSnapshot.signedOut,
-      mentorSuggestionResult: const LocalMentorSuggestionService().derive(
-        const LocalMentorSuggestionContext(
-          contextFallbackUsed: true,
-          fallbackReasonCode: 'onboarding_missing',
+    await _setTallSurface(tester);
+    final harness = (await tester.runAsync<_Harness>(
+      () => _Harness.create(
+        accountSeedSnapshot: AccountLocalSnapshot.signedOut,
+        mentorSuggestionResult: const LocalMentorSuggestionService().derive(
+          const LocalMentorSuggestionContext(
+            contextFallbackUsed: true,
+            fallbackReasonCode: 'onboarding_missing',
+          ),
+        ),
+        chatResponse: MentorChatResponse(
+          correlationId: 'corr_widget_success',
+          responseText: '先抱近一点，只说一句：I\'m here with you.',
+          code: 'ok',
+          phase: 'response_delivered',
+          retryable: false,
+          fallbackUsed: false,
+          authenticated: false,
+          rateLimit: const MentorRateLimitStatus(
+            limited: false,
+            limit: 3,
+            remaining: 2,
+            windowSeconds: 600,
+          ),
+          respondedAt: DateTime.utc(2026, 4, 10, 0),
         ),
       ),
-      chatResponse: MentorChatResponse(
-        correlationId: 'corr_widget_success',
-        responseText: '先抱近一点，只说一句：I\'m here with you.',
-        code: 'ok',
-        phase: 'response_delivered',
-        retryable: false,
-        fallbackUsed: false,
-        authenticated: false,
-        rateLimit: const MentorRateLimitStatus(
-          limited: false,
-          limit: 3,
-          remaining: 2,
-          windowSeconds: 600,
-        ),
-        respondedAt: DateTime.utc(2026, 4, 10, 0),
-      ),
-    );
+    ))!;
     addTearDown(harness.dispose);
 
     await tester.runAsync(() async {
@@ -183,13 +204,19 @@ void main() {
     });
 
     await tester.pumpWidget(harness.buildStandaloneHome());
-    await _pumpBriefly(tester);
+    await _pumpUntilFound(tester, find.byKey(const Key('home-mentor-fab')));
 
     await tester.tap(find.byKey(const Key('home-mentor-fab')));
     await tester.pump();
-    await _pumpBriefly(tester);
+    await _pumpUntilFound(tester, find.byKey(const Key('mentor-panel-sheet')));
     await tester.tap(find.byKey(const Key('mentor-tab-chat-button')));
-    await _pumpBriefly(tester);
+    await _pumpUntilFound(tester, find.byKey(const Key('mentor-chat-tab')));
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('mentor-chat-input')),
+      120,
+      scrollable: find.byType(Scrollable).last,
+    );
+    await tester.pump();
 
     await tester.enterText(
       find.byKey(const Key('mentor-chat-input')),
@@ -197,7 +224,12 @@ void main() {
     );
     await _pumpBriefly(tester);
     await tester.tap(find.byKey(const Key('mentor-chat-submit-button')));
-    await _pumpBriefly(tester);
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('mentor-chat-response-card')),
+      120,
+      scrollable: find.byType(Scrollable).last,
+    );
+    await tester.pump();
 
     expect(find.byKey(const Key('mentor-chat-response-card')), findsOneWidget);
     expect(find.byKey(const Key('mentor-chat-response-text')), findsOneWidget);
@@ -212,10 +244,34 @@ void main() {
   });
 }
 
+Future<void> _setTallSurface(WidgetTester tester) async {
+  tester.view.devicePixelRatio = 1.0;
+  tester.view.physicalSize = const Size(800, 1400);
+  addTearDown(tester.view.resetPhysicalSize);
+  addTearDown(tester.view.resetDevicePixelRatio);
+}
+
 Future<void> _pumpBriefly(WidgetTester tester) async {
   await tester.pump(const Duration(milliseconds: 16));
   await tester.pump(const Duration(milliseconds: 80));
   await tester.pump(const Duration(milliseconds: 160));
+}
+
+Future<void> _pumpUntilFound(
+  WidgetTester tester,
+  Finder finder, {
+  Duration step = const Duration(milliseconds: 50),
+  Duration timeout = const Duration(seconds: 5),
+}) async {
+  final totalSteps = timeout.inMilliseconds ~/ step.inMilliseconds;
+  for (var index = 0; index < totalSteps; index++) {
+    await tester.pump(step);
+    if (finder.evaluate().isNotEmpty) {
+      return;
+    }
+  }
+
+  fail('Timed out waiting for expected widget.');
 }
 
 class _Harness {
