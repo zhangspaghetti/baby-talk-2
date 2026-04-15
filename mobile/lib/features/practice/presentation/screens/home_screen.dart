@@ -11,6 +11,8 @@ import 'package:mobile/features/onboarding/domain/models/stage_match.dart';
 import 'package:mobile/features/practice/data/repositories/practice_repository.dart';
 import 'package:mobile/features/practice/domain/models/garden_growth_snapshot.dart';
 import 'package:mobile/features/practice/domain/models/interaction_event_payload.dart';
+import 'package:mobile/features/practice/domain/models/practice_activity_catalog.dart';
+import 'package:mobile/features/practice/domain/models/practice_continuity_snapshot.dart';
 import 'package:mobile/features/practice/domain/models/practice_phrase.dart';
 import 'package:mobile/features/practice/presentation/garden_growth_view_model.dart';
 import 'package:mobile/features/practice/presentation/practice_route_args.dart';
@@ -35,9 +37,9 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
   int _lastRuntimeToken = -1;
   ModalRoute<dynamic>? _subscribedRoute;
   PracticeRouteArgs? _practiceArgs;
-  PracticeRestoreSnapshot? _practiceRestoreSnapshot;
+  PracticeContinuitySnapshot? _practiceContinuitySnapshot;
+  PracticeActivitySnapshot? _practiceActivitySnapshot;
   String? _homeErrorMessage;
-  String? _launcherErrorMessage;
   bool _isHomeLoading = false;
   String? _lastResolvedScopeLabel;
 
@@ -91,7 +93,7 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
       accountViewModel.addListener(_handleAccountRuntimeChange);
     }
 
-    final resolvedArgs = _resolvePracticeArgs();
+    final resolvedArgs = _resolveStarterArgs();
     final resolvedScopeLabel = resolvedArgs?.scopeLabel;
     if (_lastResolvedScopeLabel != resolvedScopeLabel) {
       _lastResolvedScopeLabel = resolvedScopeLabel;
@@ -145,9 +147,9 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
   @override
   Widget build(BuildContext context) {
     final gardenGrowthViewModel = context.watch<GardenGrowthViewModel?>();
-    final restoreSnapshot = _practiceRestoreSnapshot;
-    final activity = restoreSnapshot?.activitySnapshot;
-    final homeSummary = restoreSnapshot?.homeSummary;
+    final continuitySnapshot = _practiceContinuitySnapshot;
+    final activity = _practiceActivitySnapshot;
+    final recommendedActivity = continuitySnapshot?.recommendedActivity;
     final practiceArgs = _practiceArgs;
     final canLaunchPractice =
         practiceArgs != null &&
@@ -215,23 +217,24 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
                       scopeKeyPrefix: 'home',
                       onboardingSnapshot: widget.onboardingSnapshot,
                     ),
-                    if (restoreSnapshot?.restoreMessage != null) ...[
+                    if (continuitySnapshot?.fallbackReason != null) ...[
                       const SizedBox(height: 20),
                       _HomeBanner(
-                        key: const Key('home-restore-banner'),
-                        message: restoreSnapshot!.restoreMessage,
-                        backgroundColor: restoreSnapshot.hasRecoverableIssue
-                            ? AppTheme.warningSoft
-                            : AppTheme.infoSoft,
-                        foregroundColor: restoreSnapshot.hasRecoverableIssue
-                            ? AppTheme.warning
-                            : AppTheme.info,
-                        actionLabel: restoreSnapshot.hasRecoverableIssue
-                            ? '重新恢复'
-                            : null,
-                        onAction: restoreSnapshot.hasRecoverableIssue
-                            ? _refreshHomePracticeState
-                            : null,
+                        key: const Key('home-continuity-fallback-banner'),
+                        message: continuitySnapshot!.fallbackReason!,
+                        backgroundColor: AppTheme.infoSoft,
+                        foregroundColor: AppTheme.info,
+                      ),
+                    ],
+                    if (continuitySnapshot?.warningMessage != null) ...[
+                      const SizedBox(height: 20),
+                      _HomeBanner(
+                        key: const Key('home-continuity-warning-banner'),
+                        message: continuitySnapshot!.warningMessage!,
+                        backgroundColor: AppTheme.warningSoft,
+                        foregroundColor: AppTheme.warning,
+                        actionLabel: '重新整理',
+                        onAction: _refreshHomePracticeState,
                       ),
                     ],
                     if (_homeErrorMessage != null) ...[
@@ -245,21 +248,16 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
                         onAction: _refreshHomePracticeState,
                       ),
                     ],
-                    if (_launcherErrorMessage != null) ...[
-                      const SizedBox(height: 20),
-                      _HomeBanner(
-                        key: const Key('home-launcher-bad-args'),
-                        message: _launcherErrorMessage!,
-                        backgroundColor: AppTheme.warningSoft,
-                        foregroundColor: AppTheme.warning,
-                      ),
-                    ],
                     const SizedBox(height: 20),
                     _TodaySceneCard(
+                      activityId: recommendedActivity?.activityId ?? 'loading',
                       activityTitle: activity?.title ?? '洗澡时间',
                       activitySummary: activity?.summary ?? '正在加载今日活动摘要…',
                       sceneTag: activity?.sceneTag,
-                      buttonLabel: homeSummary?.isEmpty ?? true
+                      recommendation: continuitySnapshot?.recommendation,
+                      nextIncompleteActivity:
+                          continuitySnapshot?.nextIncompleteActivity,
+                      buttonLabel: recommendedActivity?.isEmpty ?? true
                           ? '开始练习'
                           : '继续练习',
                       onPressed: canLaunchPractice
@@ -269,19 +267,16 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
                           : null,
                     ),
                     const SizedBox(height: 16),
-                    _WeekStatsCard(
-                      homeSummary: homeSummary,
-                      stageMatch: stageMatch,
-                    ),
+                    _WeekStatsCard(continuitySnapshot: continuitySnapshot),
                     const SizedBox(height: 16),
                     _GardenMiniEntry(viewModel: gardenGrowthViewModel),
                     const SizedBox(height: 16),
                     _GrowthSummaryCard(viewModel: gardenGrowthViewModel),
                     const SizedBox(height: 16),
-                    _RecentResultCard(homeSummary: homeSummary),
+                    _RecentResultCard(continuitySnapshot: continuitySnapshot),
                     const SizedBox(height: 12),
                     Text(
-                      'boot: ready${restoreSnapshot?.installationId == null ? '' : ' · install: ${_shortInstallationId(restoreSnapshot!.installationId!)}'}',
+                      'boot: ready${continuitySnapshot?.catalog.installationId == null ? '' : ' · install: ${_shortInstallationId(continuitySnapshot!.catalog.installationId!)}'}',
                       key: const Key('boot-status-ready'),
                       style: Theme.of(context).textTheme.bodySmall,
                     ),
@@ -311,49 +306,43 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
   }
 
   Future<void> _refreshHomePracticeState() async {
-    final practiceArgs = _resolvePracticeArgs();
-    if (practiceArgs == null) {
-      if (!mounted) {
-        return;
-      }
-      setState(() {
-        _practiceArgs = null;
-        _practiceRestoreSnapshot = null;
-        _homeErrorMessage = null;
-        _launcherErrorMessage = '当前入口缺少 activity 参数，开始练习已禁用。';
-        _isHomeLoading = false;
-      });
-      return;
-    }
+    final starterArgs = _resolveStarterArgs();
 
     if (mounted) {
       setState(() {
-        _practiceArgs = practiceArgs;
-        _launcherErrorMessage = null;
         _homeErrorMessage = null;
         _isHomeLoading = true;
       });
     }
 
     try {
-      final restored = await context
-          .read<PracticeRepository>()
-          .restorePracticeState(
-            spaceId: practiceArgs.spaceId,
-            activityId: practiceArgs.activityId,
-          );
+      final repository = context.read<PracticeRepository>();
+      final continuitySnapshot = await repository.getContinuitySnapshot(
+        starterSpaceId: starterArgs?.spaceId,
+        starterActivityId: starterArgs?.activityId,
+      );
+      final activitySnapshot = await repository.getActivitySnapshot(
+        spaceId: continuitySnapshot.recommendedActivity.spaceId,
+        activityId: continuitySnapshot.recommendedActivity.activityId,
+      );
+      final recommendedArgs = PracticeRouteArgs(
+        spaceId: continuitySnapshot.recommendedActivity.spaceId,
+        activityId: continuitySnapshot.recommendedActivity.activityId,
+      );
       if (mounted) {
         setState(() {
-          _practiceArgs = practiceArgs;
-          _practiceRestoreSnapshot = restored;
+          _practiceArgs = recommendedArgs;
+          _practiceContinuitySnapshot = continuitySnapshot;
+          _practiceActivitySnapshot = activitySnapshot;
           _homeErrorMessage = null;
         });
       }
     } catch (error) {
       if (mounted) {
         setState(() {
-          _practiceArgs = practiceArgs;
-          _practiceRestoreSnapshot = null;
+          _practiceArgs = starterArgs;
+          _practiceContinuitySnapshot = null;
+          _practiceActivitySnapshot = null;
           _homeErrorMessage = '首页加载失败：$error';
         });
       }
@@ -366,7 +355,7 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
     }
   }
 
-  PracticeRouteArgs? _resolvePracticeArgs() {
+  PracticeRouteArgs? _resolveStarterArgs() {
     final snapshotArgs = PracticeRouteArgs.maybeCreate(
       spaceId: widget.onboardingSnapshot?.starterSpaceId,
       activityId: widget.onboardingSnapshot?.starterActivityId,
@@ -542,16 +531,22 @@ class _PersonalizedHero extends StatelessWidget {
 
 class _TodaySceneCard extends StatelessWidget {
   const _TodaySceneCard({
+    required this.activityId,
     required this.activityTitle,
     required this.activitySummary,
     required this.sceneTag,
+    required this.recommendation,
+    required this.nextIncompleteActivity,
     required this.buttonLabel,
     required this.onPressed,
   });
 
+  final String activityId;
   final String activityTitle;
   final String activitySummary;
   final String? sceneTag;
+  final PracticeContinuityRecommendation? recommendation;
+  final PracticeCatalogActivitySummary? nextIncompleteActivity;
   final String buttonLabel;
   final Future<void> Function()? onPressed;
 
@@ -568,17 +563,37 @@ class _TodaySceneCard extends StatelessWidget {
             const SizedBox(height: 16),
             Text(
               activityTitle,
-              key: const Key('home-hero-activity'),
+              key: ValueKey('home-hero-activity-$activityId'),
               style: Theme.of(context).textTheme.titleLarge,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              recommendation?.reasonLabel ?? '正在整理 continuity',
+              key: ValueKey('home-continuity-reason-$activityId'),
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: AppTheme.textSecondary,
+                fontWeight: FontWeight.w700,
+              ),
             ),
             const SizedBox(height: 8),
             Text(
               activitySummary,
               style: Theme.of(context).textTheme.bodyMedium,
             ),
+            if (nextIncompleteActivity != null &&
+                nextIncompleteActivity!.activityId != activityId) ...[
+              const SizedBox(height: 12),
+              Text(
+                '下一步也可以切到 ${nextIncompleteActivity!.title}',
+                key: ValueKey(
+                  'home-next-incomplete-${nextIncompleteActivity!.activityId}',
+                ),
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+            ],
             const SizedBox(height: 20),
             ElevatedButton(
-              key: const Key('home-start-practice'),
+              key: ValueKey('home-start-practice-$activityId'),
               onPressed: onPressed,
               child: Text(buttonLabel),
             ),
@@ -590,15 +605,18 @@ class _TodaySceneCard extends StatelessWidget {
 }
 
 class _WeekStatsCard extends StatelessWidget {
-  const _WeekStatsCard({required this.homeSummary, required this.stageMatch});
+  const _WeekStatsCard({required this.continuitySnapshot});
 
-  final PracticeHomeSummary? homeSummary;
-  final StageMatch? stageMatch;
+  final PracticeContinuitySnapshot? continuitySnapshot;
 
   @override
   Widget build(BuildContext context) {
-    final totalEvents = homeSummary?.totalEvents ?? 0;
+    final recommendedActivity = continuitySnapshot?.recommendedActivity;
+    final cadence = continuitySnapshot?.cadence;
     return Container(
+      key: ValueKey(
+        'home-week-stats-${recommendedActivity?.activityId ?? 'loading'}',
+      ),
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: AppTheme.bgSunken,
@@ -608,17 +626,22 @@ class _WeekStatsCard extends StatelessWidget {
         children: [
           Expanded(
             child: _StatCell(
-              label: '本地记录',
-              value: '$totalEvents',
-              hint: '只统计当前活动',
+              label: '推荐活动',
+              value: recommendedActivity?.title ?? '整理中',
+              hint:
+                  continuitySnapshot?.recommendation.reasonLabel ??
+                  '等待 continuity',
             ),
           ),
           Container(width: 1, height: 40, color: AppTheme.outlineSoft),
           Expanded(
             child: _StatCell(
-              label: '当前阶段',
-              value: stageMatch == null ? '未匹配' : stageMatch!.ageBucket.label,
-              hint: stageMatch?.title ?? '等待 onboarding',
+              key: ValueKey(
+                'home-cadence-summary-${recommendedActivity?.activityId ?? 'loading'}',
+              ),
+              label: '连续节奏',
+              value: cadence?.headline ?? '整理中',
+              hint: cadence?.detail ?? '正在从本地事件派生 cadence',
             ),
           ),
         ],
@@ -629,6 +652,7 @@ class _WeekStatsCard extends StatelessWidget {
 
 class _StatCell extends StatelessWidget {
   const _StatCell({
+    super.key,
     required this.label,
     required this.value,
     required this.hint,
@@ -822,13 +846,18 @@ class _GrowthSummaryCard extends StatelessWidget {
 }
 
 class _RecentResultCard extends StatelessWidget {
-  const _RecentResultCard({required this.homeSummary});
+  const _RecentResultCard({required this.continuitySnapshot});
 
-  final PracticeHomeSummary? homeSummary;
+  final PracticeContinuitySnapshot? continuitySnapshot;
 
   @override
   Widget build(BuildContext context) {
+    final recommendedActivity = continuitySnapshot?.recommendedActivity;
+    final recentResult = recommendedActivity?.recentResult;
+    final activityId = recommendedActivity?.activityId ?? 'empty';
+
     return Container(
+      key: ValueKey('recent-result-$activityId'),
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: AppTheme.bgSunken,
@@ -839,19 +868,19 @@ class _RecentResultCard extends StatelessWidget {
         children: [
           Text('最近一次本地结果', style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: 8),
-          if (homeSummary?.isEmpty ?? true)
+          if (recentResult == null)
             Text(
-              '还没有本地练习记录，第一次打开也会看到安全空态。',
+              continuitySnapshot?.fallbackReason ?? '还没有本地练习记录，第一次打开也会看到安全空态。',
               key: const Key('recent-result-empty'),
               style: Theme.of(context).textTheme.bodyMedium,
             )
           else
             Column(
-              key: const Key('recent-result-summary'),
+              key: ValueKey('recent-result-summary-$activityId'),
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  '${homeSummary!.recentResult!.phraseEnglish} · ${_labelForReaction(homeSummary!.recentResult!.reactionType)}',
+                  '${recommendedActivity!.title} · ${recentResult.phraseEnglish} · ${_labelForReaction(recentResult.reactionType)}',
                   style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                     color: AppTheme.textPrimary,
                     fontWeight: FontWeight.w700,
@@ -859,7 +888,7 @@ class _RecentResultCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  '${homeSummary!.totalEvents} 条本地记录 · 最近一次 ${_formatTime(homeSummary!.recentResult!.eventTime)}',
+                  '${recommendedActivity.totalEvents} 条本地记录 · 最近一次 ${_formatTime(recentResult.eventTime)}',
                   style: Theme.of(context).textTheme.bodyMedium,
                 ),
               ],

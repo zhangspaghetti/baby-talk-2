@@ -6,6 +6,7 @@ import 'package:mobile/features/practice/data/local/practice_local_data_source.d
 import 'package:mobile/features/practice/data/services/asset_phrase_service.dart';
 import 'package:mobile/features/practice/domain/models/interaction_event_payload.dart';
 import 'package:mobile/features/practice/domain/models/practice_activity_catalog.dart';
+import 'package:mobile/features/practice/domain/models/practice_continuity_snapshot.dart';
 import 'package:mobile/features/practice/domain/models/practice_phrase.dart';
 
 class PracticeActivitySnapshot {
@@ -140,7 +141,8 @@ PracticeSyncSummary summarizePracticeSyncEvents(
       continue;
     }
     final currentLastTimestamp = lastSyncedMetadataSource?.lastSyncAt;
-    if (currentLastTimestamp == null || syncTimestamp.isAfter(currentLastTimestamp)) {
+    if (currentLastTimestamp == null ||
+        syncTimestamp.isAfter(currentLastTimestamp)) {
       lastSyncedMetadataSource = event;
     }
   }
@@ -265,10 +267,8 @@ class PracticeRepository {
     final activityStates = <_CatalogActivityKey, _CatalogActivityState>{
       for (final space in content.spaces)
         for (final activity in space.activities)
-          _CatalogActivityKey(space.id, activity.id): _CatalogActivityState.fromSeed(
-            space: space,
-            activity: activity,
-          ),
+          _CatalogActivityKey(space.id, activity.id):
+              _CatalogActivityState.fromSeed(space: space, activity: activity),
     };
 
     var validEvents = 0;
@@ -277,9 +277,11 @@ class PracticeRepository {
     String? lastIssueMessage = scanErrorMessage;
 
     for (final entity in rawEntities) {
-      final activityState = activityStates[
-        _CatalogActivityKey(entity.spaceId, entity.activityId)
-      ];
+      final activityState =
+          activityStates[_CatalogActivityKey(
+            entity.spaceId,
+            entity.activityId,
+          )];
       try {
         final event = PracticeLocalDataSource.payloadFromEntity(entity);
         validEvents += 1;
@@ -320,8 +322,9 @@ class PracticeRepository {
       var completedActivityCount = 0;
 
       for (final activity in space.activities) {
-        final summary = activityStates[_CatalogActivityKey(space.id, activity.id)]!
-            .toSummary();
+        final summary =
+            activityStates[_CatalogActivityKey(space.id, activity.id)]!
+                .toSummary();
         spaceActivities.add(summary);
         activities.add(summary);
         totalEvents += summary.totalEvents;
@@ -331,10 +334,11 @@ class PracticeRepository {
         if (summary.isComplete) {
           completedActivityCount += 1;
         }
-        if (summary.lastEventTime != null &&
+        final summaryLastEventTime = summary.lastEventTime;
+        if (summaryLastEventTime != null &&
             (lastEventTime == null ||
-                summary.lastEventTime!.isAfter(lastEventTime!))) {
-          lastEventTime = summary.lastEventTime;
+                summaryLastEventTime.isAfter(lastEventTime))) {
+          lastEventTime = summaryLastEventTime;
         }
       }
 
@@ -372,6 +376,94 @@ class PracticeRepository {
         skippedMalformedEvents: skippedMalformedEvents,
         skippedUnknownContentEvents: skippedUnknownContentEvents,
       ),
+    );
+  }
+
+  Future<PracticeContinuitySnapshot> getContinuitySnapshot({
+    String? starterSpaceId,
+    String? starterActivityId,
+  }) async {
+    final catalog = await getActivityCatalog();
+    if (catalog.activities.isEmpty) {
+      throw const FormatException('活动目录为空，无法生成 continuity snapshot。');
+    }
+
+    final normalizedStarterSpaceId = (starterSpaceId ?? '').trim();
+    final normalizedStarterActivityId = (starterActivityId ?? '').trim();
+    final hasStarterContext =
+        normalizedStarterSpaceId.isNotEmpty ||
+        normalizedStarterActivityId.isNotEmpty;
+
+    PracticeCatalogActivitySummary? starterActivity;
+    String? starterWarning;
+    if (normalizedStarterSpaceId.isNotEmpty &&
+        normalizedStarterActivityId.isNotEmpty) {
+      starterActivity = catalog.findActivity(
+        spaceId: normalizedStarterSpaceId,
+        activityId: normalizedStarterActivityId,
+      );
+      if (starterActivity == null) {
+        starterWarning =
+            'starter activity 不存在：$normalizedStarterSpaceId/$normalizedStarterActivityId；已忽略原始入口。';
+      }
+    } else if (hasStarterContext) {
+      starterWarning = 'starter activity 参数不完整；已忽略原始入口。';
+    }
+
+    final recentActivity = catalog.mostRecentActivity;
+    final nextIncompleteActivity = catalog.firstIncompleteActivity;
+
+    late final PracticeCatalogActivitySummary recommendedActivity;
+    late final PracticeContinuityReason recommendationReason;
+    late final String? fallbackReason;
+
+    if (recentActivity != null) {
+      recommendedActivity = recentActivity;
+      recommendationReason = PracticeContinuityReason.recentActivity;
+      fallbackReason = null;
+    } else if (starterActivity != null) {
+      recommendedActivity = starterActivity;
+      recommendationReason = PracticeContinuityReason.starterFallback;
+      fallbackReason = '暂无最近 activity，先从 starter activity 继续。';
+    } else if (nextIncompleteActivity != null) {
+      recommendedActivity = nextIncompleteActivity;
+      recommendationReason = PracticeContinuityReason.nextIncomplete;
+      fallbackReason = starterWarning == null
+          ? '暂无最近 activity，先接上尚未完成的 activity。'
+          : 'starter activity 不可用，已退回尚未完成的 activity。';
+    } else {
+      recommendedActivity = catalog.activities.first;
+      recommendationReason = PracticeContinuityReason.safeCatalogFallback;
+      fallbackReason = '未找到可继续的未完成 activity，已回退到目录中的首个 activity。';
+    }
+
+    final warningParts = <String>[
+      if (starterWarning != null && starterWarning.trim().isNotEmpty)
+        starterWarning,
+      if (catalog.catalogWarning != null &&
+          catalog.catalogWarning!.trim().isNotEmpty)
+        catalog.catalogWarning!,
+    ];
+
+    return PracticeContinuitySnapshot(
+      catalog: catalog,
+      recommendedActivity: recommendedActivity,
+      recentActivity: recentActivity,
+      nextIncompleteActivity: nextIncompleteActivity,
+      starterActivity: starterActivity,
+      recommendation: PracticeContinuityRecommendation(
+        spaceId: recommendedActivity.spaceId,
+        activityId: recommendedActivity.activityId,
+        activityTitle: recommendedActivity.title,
+        reason: recommendationReason,
+        reasonLabel: recommendationReason.label,
+        fallbackReason: fallbackReason,
+      ),
+      cadence: _buildContinuityCadenceSummary(
+        catalog: catalog,
+        recommendedActivity: recommendedActivity,
+      ),
+      warningMessage: warningParts.isEmpty ? null : warningParts.join('；'),
     );
   }
 
@@ -810,6 +902,49 @@ class PracticeRepository {
     return parts.join('；');
   }
 
+  PracticeContinuityCadenceSummary _buildContinuityCadenceSummary({
+    required PracticeActivityCatalog catalog,
+    required PracticeCatalogActivitySummary recommendedActivity,
+  }) {
+    final latestEventTime = catalog.mostRecentActivity?.lastEventTime;
+    final startedActivityCount = catalog.startedActivityCount;
+
+    late final String headline;
+    late final String detail;
+
+    if (catalog.knownEvents == 0) {
+      headline = '还没形成 cadence';
+      detail = '先从 ${recommendedActivity.title} 开始，第一条本地记录会从这里累积。';
+    } else if (startedActivityCount <= 1) {
+      headline = '正在围绕单一 activity 形成节奏';
+      detail = latestEventTime == null
+          ? '当前推荐 ${recommendedActivity.title} · 已累计 ${catalog.knownEvents} 条记录。'
+          : '最近一次 ${_formatContinuityTime(latestEventTime)} · 当前推荐 ${recommendedActivity.title}。';
+    } else {
+      headline = '已经带出跨 activity 的节奏';
+      detail = latestEventTime == null
+          ? '已开始 $startedActivityCount 个 activity · 当前推荐 ${recommendedActivity.title}。'
+          : '最近一次 ${_formatContinuityTime(latestEventTime)} · 已开始 $startedActivityCount 个 activity。';
+    }
+
+    return PracticeContinuityCadenceSummary(
+      totalKnownEvents: catalog.knownEvents,
+      startedActivityCount: startedActivityCount,
+      lastEventTime: latestEventTime,
+      headline: headline,
+      detail: detail,
+    );
+  }
+
+  String _formatContinuityTime(DateTime dateTime) {
+    final local = dateTime.toLocal();
+    final month = local.month.toString().padLeft(2, '0');
+    final day = local.day.toString().padLeft(2, '0');
+    final hour = local.hour.toString().padLeft(2, '0');
+    final minute = local.minute.toString().padLeft(2, '0');
+    return '$month-$day $hour:$minute';
+  }
+
   String _generateLocalEventId() {
     final timestamp = DateTime.now().toUtc().microsecondsSinceEpoch;
     final entropy = _random.nextInt(1 << 32).toRadixString(16).padLeft(8, '0');
@@ -819,9 +954,7 @@ class PracticeRepository {
 
 class _CatalogActivityState {
   _CatalogActivityState({required this.space, required this.activity})
-    : _phraseById = {
-        for (final phrase in activity.phrases) phrase.id: phrase,
-      };
+    : _phraseById = {for (final phrase in activity.phrases) phrase.id: phrase};
 
   factory _CatalogActivityState.fromSeed({
     required SeedSpace space,
@@ -850,8 +983,7 @@ class _CatalogActivityState {
 
   void recordUnknownPhrase(InteractionEventPayload event) {
     skippedUnknownPhraseCount += 1;
-    latestWarningMessage =
-        '跳过未知短语记录：${event.activityId}/${event.phraseId}';
+    latestWarningMessage = '跳过未知短语记录：${event.activityId}/${event.phraseId}';
   }
 
   void recordMalformed({
@@ -926,7 +1058,8 @@ class _CatalogActivityState {
     if (skippedUnknownPhraseCount > 0) {
       parts.add('跳过 $skippedUnknownPhraseCount 条未知短语记录');
     }
-    if (latestWarningMessage != null && latestWarningMessage!.trim().isNotEmpty) {
+    if (latestWarningMessage != null &&
+        latestWarningMessage!.trim().isNotEmpty) {
       parts.add(latestWarningMessage!);
     }
     if (parts.isEmpty) {

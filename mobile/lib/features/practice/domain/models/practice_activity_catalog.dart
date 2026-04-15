@@ -138,4 +138,44 @@ class PracticeActivityCatalog {
       skippedMalformedEvents > 0 ||
       skippedUnknownContentEvents > 0 ||
       (catalogWarning?.trim().isNotEmpty ?? false);
+
+  PracticeCatalogActivitySummary? findActivity({
+    required String spaceId,
+    required String activityId,
+  }) {
+    for (final activity in activities) {
+      if (activity.spaceId == spaceId && activity.activityId == activityId) {
+        return activity;
+      }
+    }
+    return null;
+  }
+
+  PracticeCatalogActivitySummary? get mostRecentActivity {
+    PracticeCatalogActivitySummary? candidate;
+    for (final activity in activities) {
+      final eventTime = activity.lastEventTime;
+      if (eventTime == null) {
+        continue;
+      }
+      final candidateEventTime = candidate?.lastEventTime;
+      if (candidateEventTime == null || eventTime.isAfter(candidateEventTime)) {
+        candidate = activity;
+      }
+    }
+    return candidate;
+  }
+
+  PracticeCatalogActivitySummary? get firstIncompleteActivity {
+    for (final activity in activities) {
+      if (!activity.isComplete) {
+        return activity;
+      }
+    }
+    return null;
+  }
+
+  int get startedActivityCount {
+    return activities.where((activity) => !activity.isEmpty).length;
+  }
 }

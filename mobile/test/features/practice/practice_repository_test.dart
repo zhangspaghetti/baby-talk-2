@@ -9,6 +9,7 @@ import 'package:mobile/features/practice/data/local/practice_local_data_source.d
 import 'package:mobile/features/practice/data/repositories/practice_repository.dart';
 import 'package:mobile/features/practice/data/services/asset_phrase_service.dart';
 import 'package:mobile/features/practice/domain/models/interaction_event_payload.dart';
+import 'package:mobile/features/practice/domain/models/practice_continuity_snapshot.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -112,6 +113,27 @@ void main() {
       }
     });
 
+    test(
+      'continuity snapshot 在零事件时显式回退到 starter activity，并给出 cadence',
+      () async {
+        final continuity = await repository.getContinuitySnapshot(
+          starterSpaceId: 'daily_care',
+          starterActivityId: 'bath_time',
+        );
+
+        expect(
+          continuity.recommendation.reason,
+          PracticeContinuityReason.starterFallback,
+        );
+        expect(continuity.recommendedActivity.activityId, 'bath_time');
+        expect(continuity.fallbackReason, contains('starter activity'));
+        expect(continuity.warningMessage, isNull);
+        expect(continuity.cadence.totalKnownEvents, 0);
+        expect(continuity.cadence.headline, '还没形成 cadence');
+        expect(continuity.cadence.detail, contains('洗澡时间'));
+      },
+    );
+
     test('追加事件后保留原始历史，并派生最近结果与恢复信息', () async {
       await repository.recordReaction(
         spaceId: 'daily_care',
@@ -185,6 +207,62 @@ void main() {
       expect(resumeInfo.lastEventTime, DateTime.utc(2026, 4, 7, 12, 1));
     });
 
+    test('continuity snapshot 优先推荐最近 activity，而不是固定 starter', () async {
+      await repository.recordReaction(
+        spaceId: 'family_rhythm',
+        activityId: 'feeding_time',
+        phraseId: 'feeding_time_open_wide',
+        reactionType: BabyReactionType.calm,
+        clientTimestamp: DateTime.utc(2026, 4, 7, 12, 10),
+        localEventId: 'evt_recent_feed_1',
+      );
+      await repository.recordReaction(
+        spaceId: 'family_rhythm',
+        activityId: 'feeding_time',
+        phraseId: 'feeding_time_yummy_bite',
+        reactionType: BabyReactionType.imitated,
+        clientTimestamp: DateTime.utc(2026, 4, 7, 12, 11),
+        localEventId: 'evt_recent_feed_2',
+      );
+
+      final continuity = await repository.getContinuitySnapshot(
+        starterSpaceId: 'daily_care',
+        starterActivityId: 'bath_time',
+      );
+
+      expect(
+        continuity.recommendation.reason,
+        PracticeContinuityReason.recentActivity,
+      );
+      expect(continuity.recommendedActivity.spaceId, 'family_rhythm');
+      expect(continuity.recommendedActivity.activityId, 'feeding_time');
+      expect(
+        continuity.recommendedActivity.recentResult?.phraseId,
+        'feeding_time_yummy_bite',
+      );
+      expect(continuity.fallbackReason, isNull);
+      expect(continuity.cadence.totalKnownEvents, 2);
+      expect(continuity.cadence.detail, contains('吃饭时间'));
+    });
+
+    test(
+      'continuity snapshot 在坏 starter context 下暴露 warning 并退回未完成 activity',
+      () async {
+        final continuity = await repository.getContinuitySnapshot(
+          starterSpaceId: 'daily_care',
+          starterActivityId: 'missing_activity',
+        );
+
+        expect(
+          continuity.recommendation.reason,
+          PracticeContinuityReason.nextIncomplete,
+        );
+        expect(continuity.recommendedActivity.activityId, 'bath_time');
+        expect(continuity.warningMessage, contains('starter activity 不存在'));
+        expect(continuity.fallbackReason, contains('退回尚未完成'));
+      },
+    );
+
     test('catalog 只统计各自 space/activity 的事件，并把未知内容留在局部 warning', () async {
       await repository.recordReaction(
         spaceId: 'daily_care',
@@ -236,7 +314,8 @@ void main() {
       final catalog = await repository.getActivityCatalog();
       final bath = catalog.activities.firstWhere(
         (activity) =>
-            activity.spaceId == 'daily_care' && activity.activityId == 'bath_time',
+            activity.spaceId == 'daily_care' &&
+            activity.activityId == 'bath_time',
       );
       final diaper = catalog.activities.firstWhere(
         (activity) =>
@@ -250,11 +329,15 @@ void main() {
       );
       final bedtime = catalog.activities.firstWhere(
         (activity) =>
-            activity.spaceId == 'family_rhythm' && activity.activityId == 'bedtime',
+            activity.spaceId == 'family_rhythm' &&
+            activity.activityId == 'bedtime',
       );
 
       expect(bathRestore.homeSummary.totalEvents, 1);
-      expect(bathRestore.homeSummary.recentResult?.phraseId, 'bath_time_warm_water');
+      expect(
+        bathRestore.homeSummary.recentResult?.phraseId,
+        'bath_time_warm_water',
+      );
       expect(bathRestore.hasRecoverableIssue, isTrue);
       expect(bathRestore.restoreMessage, contains('未知短语记录'));
 
@@ -400,7 +483,9 @@ void main() {
           .take(2)
           .map((entity) => entity.toPersistedFactMap())
           .toList(growable: false);
-      final syncSummary = await repository.getSyncSummary(activityId: 'bath_time');
+      final syncSummary = await repository.getSyncSummary(
+        activityId: 'bath_time',
+      );
 
       expect(events, hasLength(3));
       expect(events[0].syncState, InteractionSyncState.synced);
@@ -422,98 +507,109 @@ void main() {
       expect(syncSummary.lastSyncError, isNull);
       expect(
         afterEntities.first.toPersistedSyncMetadataMap().keys,
-        containsAll(['syncState', 'lastSyncPhase', 'lastSyncError', 'lastSyncAt']),
-      );
-    });
-
-    test('拒绝未知 reaction、空 phraseId、错误 eventKey、重复 eventKey 与未知 ack id', () async {
-      expect(
-        () => InteractionEventPayload.fromWire(
-          localEventId: 'evt_bad_reaction',
-          installationId: 'install_test',
-          spaceId: 'daily_care',
-          activityId: 'bath_time',
-          phraseId: 'bath_time_warm_water',
-          reactionType: 'mystery',
-          clientTimestamp: DateTime.utc(2026, 4, 7, 12, 4),
-        ),
-        throwsFormatException,
-      );
-
-      expect(
-        () => InteractionEventPayload(
-          localEventId: 'evt_empty_phrase',
-          installationId: 'install_test',
-          spaceId: 'daily_care',
-          activityId: 'bath_time',
-          phraseId: '',
-          reactionType: BabyReactionType.calm,
-          clientTimestamp: DateTime.utc(2026, 4, 7, 12, 4),
-        ),
-        throwsFormatException,
-      );
-
-      expect(
-        () => InteractionEventPayload.fromWire(
-          eventKey: 'mismatch',
-          localEventId: 'evt_bad_key',
-          installationId: 'install_test',
-          spaceId: 'daily_care',
-          activityId: 'bath_time',
-          phraseId: 'bath_time_warm_water',
-          reactionType: 'calm',
-          clientTimestamp: DateTime.utc(2026, 4, 7, 12, 4),
-        ),
-        throwsFormatException,
-      );
-
-      final duplicated = await repository.recordReaction(
-        spaceId: 'daily_care',
-        activityId: 'bath_time',
-        phraseId: 'bath_time_warm_water',
-        reactionType: BabyReactionType.calm,
-        clientTimestamp: DateTime.utc(2026, 4, 7, 12, 5),
-        localEventId: 'evt_duplicate',
-      );
-
-      await expectLater(
-        repository.recordReaction(
-          spaceId: 'daily_care',
-          activityId: 'bath_time',
-          phraseId: 'bath_time_splash_splash',
-          reactionType: BabyReactionType.engaged,
-          clientTimestamp: DateTime.utc(2026, 4, 7, 12, 6),
-          localEventId: 'evt_duplicate',
-        ),
-        throwsFormatException,
-      );
-
-      await expectLater(
-        repository.markEventsSynced(['install_test:missing_event']),
-        throwsFormatException,
-      );
-
-      await expectLater(
-        repository.markEventsSynced([duplicated.eventKey, duplicated.eventKey]),
-        throwsFormatException,
-      );
-
-      await expectLater(
-        repository.importServerEvents([
-          InteractionEventPayload.fromWire(
-            eventKey: duplicated.eventKey,
-            localEventId: duplicated.localEventId,
-            installationId: duplicated.installationId,
-            spaceId: duplicated.spaceId,
-            activityId: duplicated.activityId,
-            phraseId: 'bath_time_all_clean',
-            reactionType: duplicated.reactionType.wireValue,
-            clientTimestamp: duplicated.clientTimestamp,
-          ),
+        containsAll([
+          'syncState',
+          'lastSyncPhase',
+          'lastSyncError',
+          'lastSyncAt',
         ]),
-        throwsFormatException,
       );
     });
+
+    test(
+      '拒绝未知 reaction、空 phraseId、错误 eventKey、重复 eventKey 与未知 ack id',
+      () async {
+        expect(
+          () => InteractionEventPayload.fromWire(
+            localEventId: 'evt_bad_reaction',
+            installationId: 'install_test',
+            spaceId: 'daily_care',
+            activityId: 'bath_time',
+            phraseId: 'bath_time_warm_water',
+            reactionType: 'mystery',
+            clientTimestamp: DateTime.utc(2026, 4, 7, 12, 4),
+          ),
+          throwsFormatException,
+        );
+
+        expect(
+          () => InteractionEventPayload(
+            localEventId: 'evt_empty_phrase',
+            installationId: 'install_test',
+            spaceId: 'daily_care',
+            activityId: 'bath_time',
+            phraseId: '',
+            reactionType: BabyReactionType.calm,
+            clientTimestamp: DateTime.utc(2026, 4, 7, 12, 4),
+          ),
+          throwsFormatException,
+        );
+
+        expect(
+          () => InteractionEventPayload.fromWire(
+            eventKey: 'mismatch',
+            localEventId: 'evt_bad_key',
+            installationId: 'install_test',
+            spaceId: 'daily_care',
+            activityId: 'bath_time',
+            phraseId: 'bath_time_warm_water',
+            reactionType: 'calm',
+            clientTimestamp: DateTime.utc(2026, 4, 7, 12, 4),
+          ),
+          throwsFormatException,
+        );
+
+        final duplicated = await repository.recordReaction(
+          spaceId: 'daily_care',
+          activityId: 'bath_time',
+          phraseId: 'bath_time_warm_water',
+          reactionType: BabyReactionType.calm,
+          clientTimestamp: DateTime.utc(2026, 4, 7, 12, 5),
+          localEventId: 'evt_duplicate',
+        );
+
+        await expectLater(
+          repository.recordReaction(
+            spaceId: 'daily_care',
+            activityId: 'bath_time',
+            phraseId: 'bath_time_splash_splash',
+            reactionType: BabyReactionType.engaged,
+            clientTimestamp: DateTime.utc(2026, 4, 7, 12, 6),
+            localEventId: 'evt_duplicate',
+          ),
+          throwsFormatException,
+        );
+
+        await expectLater(
+          repository.markEventsSynced(['install_test:missing_event']),
+          throwsFormatException,
+        );
+
+        await expectLater(
+          repository.markEventsSynced([
+            duplicated.eventKey,
+            duplicated.eventKey,
+          ]),
+          throwsFormatException,
+        );
+
+        await expectLater(
+          repository.importServerEvents([
+            InteractionEventPayload.fromWire(
+              eventKey: duplicated.eventKey,
+              localEventId: duplicated.localEventId,
+              installationId: duplicated.installationId,
+              spaceId: duplicated.spaceId,
+              activityId: duplicated.activityId,
+              phraseId: 'bath_time_all_clean',
+              reactionType: duplicated.reactionType.wireValue,
+              clientTimestamp: duplicated.clientTimestamp,
+            ),
+          ]),
+          throwsFormatException,
+        );
+      },
+    );
 
     test('本地数据源打开失败时暴露明确错误', () async {
       await expectLater(

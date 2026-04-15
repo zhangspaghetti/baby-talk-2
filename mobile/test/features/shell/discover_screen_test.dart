@@ -146,7 +146,7 @@ void main() {
     await tester.pumpWidget(
       _buildApp(
         catalogLoader: () async => _buildCatalog(includeMalformedCard: true),
-        practiceOpener: (_, __) async {
+        practiceOpener: (_, args) async {
           openCount += 1;
         },
       ),
