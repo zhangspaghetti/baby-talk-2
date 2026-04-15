@@ -43,8 +43,9 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
       }
       context.read<AccountViewModel>().handleHomeVisible();
       final gardenGrowthViewModel = context.read<GardenGrowthViewModel?>();
-      if (gardenGrowthViewModel != null) {
-        unawaited(gardenGrowthViewModel.refresh());
+      if (gardenGrowthViewModel != null &&
+          gardenGrowthViewModel.status == GardenGrowthLoadStatus.idle) {
+        unawaited(gardenGrowthViewModel.initialize());
       }
     });
   }

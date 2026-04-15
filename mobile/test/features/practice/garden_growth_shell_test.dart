@@ -32,7 +32,7 @@ void main() {
   });
 
   testWidgets('shell 在空投影时显示真实花园与成长空态，标题和 drawer 仍可用', (tester) async {
-    final harness = await _Harness.create();
+    final harness = (await tester.runAsync<_Harness>(_Harness.create))!;
     addTearDown(harness.dispose);
 
     await tester.runAsync(() async {
@@ -44,13 +44,13 @@ void main() {
     });
 
     await tester.pumpWidget(harness.buildShell());
-    await tester.pumpAndSettle();
+    await _pumpUntilFound(tester, find.byKey(const Key('shell-ready')));
 
     expect(find.byKey(const Key('shell-ready')), findsOneWidget);
     expect(find.text('米米 的首页'), findsOneWidget);
 
     await tester.tap(find.byTooltip('花园'));
-    await tester.pumpAndSettle();
+    await _pumpUntilFound(tester, find.byKey(const Key('shell-tab-garden')));
 
     expect(find.text('花园'), findsWidgets);
     expect(find.byKey(const Key('shell-tab-garden')), findsOneWidget);
@@ -59,7 +59,7 @@ void main() {
     expect(find.textContaining('S04 会把空间花圃'), findsNothing);
 
     await tester.tap(find.byTooltip('成长'));
-    await tester.pumpAndSettle();
+    await _pumpUntilFound(tester, find.byKey(const Key('shell-tab-growth')));
 
     expect(find.text('成长'), findsWidgets);
     expect(find.byKey(const Key('shell-tab-growth')), findsOneWidget);
@@ -67,7 +67,7 @@ void main() {
     expect(find.textContaining('最近成长会写在这里'), findsWidgets);
 
     await tester.tap(find.byKey(const Key('shell-drawer-trigger')));
-    await tester.pumpAndSettle();
+    await _pumpUntilFound(tester, find.byKey(const Key('shell-end-drawer')));
 
     expect(find.byKey(const Key('shell-end-drawer')), findsOneWidget);
     expect(find.byKey(const Key('shell-drawer-child-name')), findsOneWidget);
@@ -75,28 +75,30 @@ void main() {
   });
 
   testWidgets('shell 花园与成长页消费同一份投影并显示花朵阶段、自动日记与里程碑', (tester) async {
-    final harness = await _Harness.create();
+    final harness = (await tester.runAsync<_Harness>(_Harness.create))!;
     addTearDown(harness.dispose);
-    await harness.practiceRepository.recordReaction(
-      spaceId: 'daily_care',
-      activityId: 'bath_time',
-      phraseId: 'bath_time_warm_water',
-      reactionType: BabyReactionType.engaged,
-      clientTimestamp: DateTime.utc(2026, 4, 9, 9, 0),
-      localEventId: 'evt_shell_1',
-    );
-    await harness.practiceRepository.importServerEvents([
-      InteractionEventPayload.fromWire(
-        eventKey: 'install_garden_shell_test:evt_unknown_1',
-        localEventId: 'evt_unknown_1',
-        installationId: 'install_garden_shell_test',
+    await tester.runAsync(() async {
+      await harness.practiceRepository.recordReaction(
         spaceId: 'daily_care',
         activityId: 'bath_time',
-        phraseId: 'bath_time_unknown',
-        reactionType: 'calm',
-        clientTimestamp: DateTime.utc(2026, 4, 9, 9, 1),
-      ),
-    ]);
+        phraseId: 'bath_time_warm_water',
+        reactionType: BabyReactionType.engaged,
+        clientTimestamp: DateTime.utc(2026, 4, 9, 9, 0),
+        localEventId: 'evt_shell_1',
+      );
+      await harness.practiceRepository.importServerEvents([
+        InteractionEventPayload.fromWire(
+          eventKey: 'install_garden_shell_test:evt_unknown_1',
+          localEventId: 'evt_unknown_1',
+          installationId: 'install_garden_shell_test',
+          spaceId: 'daily_care',
+          activityId: 'bath_time',
+          phraseId: 'bath_time_unknown',
+          reactionType: 'calm',
+          clientTimestamp: DateTime.utc(2026, 4, 9, 9, 1),
+        ),
+      ]);
+    });
 
     await tester.runAsync(() async {
       await Future.wait([
@@ -107,10 +109,10 @@ void main() {
     });
 
     await tester.pumpWidget(harness.buildShell());
-    await tester.pumpAndSettle();
+    await _pumpUntilFound(tester, find.byKey(const Key('shell-ready')));
 
     await tester.tap(find.byTooltip('花园'));
-    await tester.pumpAndSettle();
+    await _pumpUntilFound(tester, find.byKey(const Key('shell-tab-garden')));
 
     expect(find.byKey(const Key('shell-tab-garden')), findsOneWidget);
     expect(find.byKey(const Key('garden-patch-daily_care')), findsOneWidget);
@@ -120,34 +122,60 @@ void main() {
       findsOneWidget,
     );
     expect(find.textContaining('日常照护'), findsWidgets);
-    expect(find.textContaining('发芽'), findsOneWidget);
+    expect(find.textContaining('发芽'), findsWidgets);
     expect(find.byKey(const Key('garden-projection-warning')), findsOneWidget);
     expect(find.textContaining('未知内容事件'), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('garden-continue-practice')),
+      180,
+      scrollable: find.byType(Scrollable).last,
+    );
+    await tester.pump();
     expect(find.byKey(const Key('garden-continue-practice')), findsOneWidget);
 
     await tester.tap(find.byTooltip('成长'));
-    await tester.pumpAndSettle();
+    await _pumpUntilFound(tester, find.byKey(const Key('shell-tab-growth')));
 
     expect(find.byKey(const Key('shell-tab-growth')), findsOneWidget);
     expect(find.byKey(const Key('growth-latest-impact')), findsOneWidget);
-    expect(find.byKey(const Key('growth-diary-evt_shell_1')), findsOneWidget);
+    expect(find.byKey(const Key('growth-projection-warning')), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.byKey(
+        const Key('growth-diary-install_garden_shell_test:evt_shell_1'),
+      ),
+      180,
+      scrollable: find.byType(Scrollable).last,
+    );
+    await tester.pump();
+
+    expect(
+      find.byKey(
+        const Key('growth-diary-install_garden_shell_test:evt_shell_1'),
+      ),
+      findsOneWidget,
+    );
     expect(find.textContaining('Warm water.'), findsWidgets);
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('growth-space-daily_care')),
+      120,
+      scrollable: find.byType(Scrollable).last,
+    );
+    await tester.pump();
+    expect(find.byKey(const Key('growth-space-daily_care')), findsOneWidget);
     await tester.ensureVisible(
       find.byKey(const Key('growth-milestone-first_opening')),
     );
-    await tester.pumpAndSettle();
+    await tester.pump(const Duration(milliseconds: 100));
     expect(
       find.byKey(const Key('growth-milestone-first_opening')),
       findsOneWidget,
     );
-    expect(find.byKey(const Key('growth-space-daily_care')), findsOneWidget);
-    expect(find.byKey(const Key('growth-projection-warning')), findsOneWidget);
   });
 
   testWidgets('缺少 garden provider 时 shell 仍显示安全空态，不会退回 discover placeholder', (
     tester,
   ) async {
-    final harness = await _Harness.create();
+    final harness = (await tester.runAsync<_Harness>(_Harness.create))!;
     addTearDown(harness.dispose);
 
     await tester.runAsync(() async {
@@ -158,18 +186,35 @@ void main() {
     });
 
     await tester.pumpWidget(harness.buildShell(includeGardenProvider: false));
-    await tester.pumpAndSettle();
+    await _pumpUntilFound(tester, find.byKey(const Key('shell-ready')));
 
     await tester.tap(find.byTooltip('花园'));
-    await tester.pumpAndSettle();
+    await _pumpUntilFound(tester, find.byKey(const Key('shell-tab-garden')));
     expect(find.byKey(const Key('garden-empty-state')), findsOneWidget);
     expect(find.textContaining('S04 会把空间花圃'), findsNothing);
 
     await tester.tap(find.byTooltip('成长'));
-    await tester.pumpAndSettle();
+    await _pumpUntilFound(tester, find.byKey(const Key('shell-tab-growth')));
     expect(find.byKey(const Key('growth-empty-state')), findsOneWidget);
     expect(find.textContaining('S04 也会把日记'), findsNothing);
   });
+}
+
+Future<void> _pumpUntilFound(
+  WidgetTester tester,
+  Finder finder, {
+  Duration step = const Duration(milliseconds: 50),
+  Duration timeout = const Duration(seconds: 5),
+}) async {
+  final totalSteps = timeout.inMilliseconds ~/ step.inMilliseconds;
+  for (var index = 0; index < totalSteps; index++) {
+    await tester.pump(step);
+    if (finder.evaluate().isNotEmpty) {
+      return;
+    }
+  }
+
+  fail('Timed out waiting for expected widget.');
 }
 
 class _Harness {

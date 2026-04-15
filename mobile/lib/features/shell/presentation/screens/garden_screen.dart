@@ -43,7 +43,7 @@ class GardenScreen extends StatelessWidget {
                   ),
                 ],
                 const SizedBox(height: 16),
-                if (snapshot.primarySpace == null)
+                if (snapshot.isEmpty)
                   const _GardenEmptyState()
                 else ...[
                   for (final patch in snapshot.spaces) ...[
