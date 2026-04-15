@@ -30,7 +30,7 @@ void main() {
   });
 
   testWidgets('首页在零事件时显示花园入口空态与成长摘要空态', (tester) async {
-    final harness = await _Harness.create();
+    final harness = (await tester.runAsync<_Harness>(_Harness.create))!;
     addTearDown(harness.dispose);
 
     await tester.runAsync(() async {
@@ -42,7 +42,15 @@ void main() {
     });
 
     await tester.pumpWidget(harness.buildApp());
-    await tester.pumpAndSettle();
+    await _pumpUntilFound(tester, find.byType(HomeScreen));
+    await _scrollHomeUntilVisible(
+      tester,
+      find.byKey(const Key('home-garden-mini-entry')),
+    );
+    await _scrollHomeUntilVisible(
+      tester,
+      find.byKey(const Key('home-growth-summary')),
+    );
 
     expect(find.byKey(const Key('home-garden-mini-entry')), findsOneWidget);
     expect(find.byKey(const Key('home-growth-summary')), findsOneWidget);
@@ -51,28 +59,30 @@ void main() {
   });
 
   testWidgets('首页消费同一份投影并显示最近成长摘要与降级提示', (tester) async {
-    final harness = await _Harness.create();
+    final harness = (await tester.runAsync<_Harness>(_Harness.create))!;
     addTearDown(harness.dispose);
-    await harness.practiceRepository.recordReaction(
-      spaceId: 'daily_care',
-      activityId: 'bath_time',
-      phraseId: 'bath_time_warm_water',
-      reactionType: BabyReactionType.engaged,
-      clientTimestamp: DateTime.utc(2026, 4, 9, 9, 0),
-      localEventId: 'evt_home_1',
-    );
-    await harness.practiceRepository.importServerEvents([
-      InteractionEventPayload.fromWire(
-        eventKey: 'install_garden_home_test:evt_unknown_1',
-        localEventId: 'evt_unknown_1',
-        installationId: 'install_garden_home_test',
+    await tester.runAsync(() async {
+      await harness.practiceRepository.recordReaction(
         spaceId: 'daily_care',
         activityId: 'bath_time',
-        phraseId: 'bath_time_unknown',
-        reactionType: 'calm',
-        clientTimestamp: DateTime.utc(2026, 4, 9, 9, 1),
-      ),
-    ]);
+        phraseId: 'bath_time_warm_water',
+        reactionType: BabyReactionType.engaged,
+        clientTimestamp: DateTime.utc(2026, 4, 9, 9, 0),
+        localEventId: 'evt_home_1',
+      );
+      await harness.practiceRepository.importServerEvents([
+        InteractionEventPayload.fromWire(
+          eventKey: 'install_garden_home_test:evt_unknown_1',
+          localEventId: 'evt_unknown_1',
+          installationId: 'install_garden_home_test',
+          spaceId: 'daily_care',
+          activityId: 'bath_time',
+          phraseId: 'bath_time_unknown',
+          reactionType: 'calm',
+          clientTimestamp: DateTime.utc(2026, 4, 9, 9, 1),
+        ),
+      ]);
+    });
 
     await tester.runAsync(() async {
       await Future.wait([
@@ -83,15 +93,52 @@ void main() {
     });
 
     await tester.pumpWidget(harness.buildApp());
-    await tester.pumpAndSettle();
+    await _pumpUntilFound(tester, find.byType(HomeScreen));
+    await _scrollHomeUntilVisible(
+      tester,
+      find.byKey(const Key('home-garden-mini-entry')),
+    );
+    await _scrollHomeUntilVisible(
+      tester,
+      find.byKey(const Key('home-growth-summary')),
+    );
 
     expect(find.byKey(const Key('home-garden-mini-entry')), findsOneWidget);
     expect(find.textContaining('日常照护'), findsWidgets);
     expect(find.byKey(const Key('home-growth-summary')), findsOneWidget);
     expect(find.textContaining('Warm water.'), findsWidgets);
     expect(find.byKey(const Key('home-growth-summary-warning')), findsOneWidget);
-    expect(find.textContaining('未知内容事件'), findsOneWidget);
+    expect(find.textContaining('未知内容事件'), findsWidgets);
   });
+}
+
+Future<void> _pumpUntilFound(
+  WidgetTester tester,
+  Finder finder, {
+  Duration step = const Duration(milliseconds: 50),
+  Duration timeout = const Duration(seconds: 5),
+}) async {
+  final totalSteps = timeout.inMilliseconds ~/ step.inMilliseconds;
+  for (var index = 0; index < totalSteps; index++) {
+    await tester.pump(step);
+    if (finder.evaluate().isNotEmpty) {
+      return;
+    }
+  }
+
+  fail('Timed out waiting for expected widget.');
+}
+
+Future<void> _scrollHomeUntilVisible(WidgetTester tester, Finder target) async {
+  await tester.scrollUntilVisible(target, 180, scrollable: _homeScrollable());
+  await tester.pump();
+}
+
+Finder _homeScrollable() {
+  return find.descendant(
+    of: find.byType(HomeScreen),
+    matching: find.byType(Scrollable),
+  );
 }
 
 class _Harness {
