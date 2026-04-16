@@ -60,6 +60,20 @@ app:
       open-app-targets:
         android: ${BABY_TALK_ANDROID_OPEN_SHARE_URL:babytalk://share/open}
         ios: ${BABY_TALK_IOS_OPEN_SHARE_URL:babytalk://share/open}
+  caregiver-invite:
+    public-base-url: ${BABY_TALK_CAREGIVER_INVITE_PUBLIC_BASE_URL:https://invite.example.com}
+    default-link-ttl: ${BABY_TALK_CAREGIVER_INVITE_TTL:PT72H}
+    download-fallback-path: /download
+    download-fallback-source: caregiver_invite
+    allowed-roles:
+      - caregiver
+    allowed-sources:
+      - household_settings
+      - invite_banner
+      - invite_link
+    open-app-targets:
+      android: ${BABY_TALK_ANDROID_OPEN_INVITE_URL:babytalk://invite/open}
+      ios: ${BABY_TALK_IOS_OPEN_INVITE_URL:babytalk://invite/open}
   sms:
     provider-mode: ${BABY_TALK_SMS_PROVIDER_MODE:dev}
     dev-code: ${BABY_TALK_SMS_DEV_CODE:246810}
