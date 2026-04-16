@@ -24,16 +24,19 @@ public class AuthConsentSyncService {
 
     private final AuthConsentSyncRepository repository;
     private final SmsVerificationProvider smsVerificationProvider;
+    private final HouseholdSharedContextProjector householdSharedContextProjector;
     private final ApiContractProperties contractProperties;
     private final Clock clock = Clock.systemUTC();
 
     public AuthConsentSyncService(
             AuthConsentSyncRepository repository,
             SmsVerificationProvider smsVerificationProvider,
+            HouseholdSharedContextProjector householdSharedContextProjector,
             ApiContractProperties contractProperties
     ) {
         this.repository = repository;
         this.smsVerificationProvider = smsVerificationProvider;
+        this.householdSharedContextProjector = householdSharedContextProjector;
         this.contractProperties = contractProperties;
     }
 
@@ -217,6 +220,14 @@ public class AuthConsentSyncService {
             }
         }
 
+        if (!acceptedEventKeys.isEmpty()) {
+            try {
+                householdSharedContextProjector.refreshForAccount(session.accountId(), now);
+            } catch (ContractException | DataAccessException exception) {
+                throw syncBatchRejectedForProjection(exception);
+            }
+        }
+
         return new SyncBatchResponse(
                 session.accountId(),
                 session.sessionId(),
@@ -374,6 +385,34 @@ public class AuthConsentSyncService {
                 reason,
                 createdAt
         );
+    }
+
+    private ContractException syncBatchRejectedForProjection(Exception exception) {
+        var reason = exception instanceof ContractException contractException
+                ? simplifyProjectionFailureReason(contractException)
+                : simplifyDataAccessMessage((DataAccessException) exception);
+        return new ContractException(
+                HttpStatus.BAD_REQUEST,
+                "sync_batch_rejected",
+                "同步 batch 被拒绝，整批已回滚。",
+                Map.of(
+                        "retryable", true,
+                        "reason", reason,
+                        "phase", "household_shared_context_projection"
+                )
+        );
+    }
+
+    private String simplifyProjectionFailureReason(ContractException exception) {
+        var reason = exception.details().get("reason");
+        if (reason instanceof String value && !value.isBlank()) {
+            return value;
+        }
+        var field = exception.details().get("field");
+        if (field instanceof String value && !value.isBlank()) {
+            return value + "_invalid";
+        }
+        return exception.code();
     }
 
     private String simplifyDataAccessMessage(DataAccessException exception) {

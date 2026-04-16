@@ -214,7 +214,13 @@ class CaregiverInviteRepository {
                     space_id = ?,
                     activity_id = ?,
                     latest_interaction_at = ?,
-                    updated_at = ?
+                    updated_at = ?,
+                    latest_actor_role = ?,
+                    latest_actor_source = ?,
+                    latest_actor_result = ?,
+                    next_step_space_id = ?,
+                    next_step_activity_id = ?,
+                    next_step_reason = ?
                 where household_id = ?
                 """,
                 row.babyProfileSummary(),
@@ -224,6 +230,12 @@ class CaregiverInviteRepository {
                 row.activityId(),
                 Timestamp.from(row.latestInteractionAt()),
                 Timestamp.from(row.updatedAt()),
+                row.latestActorRole(),
+                row.latestActorSource(),
+                row.latestActorResult(),
+                row.nextStepSpaceId(),
+                row.nextStepActivityId(),
+                row.nextStepReason(),
                 row.householdId()
         );
         if (updated == 0) {
@@ -237,8 +249,14 @@ class CaregiverInviteRepository {
                         space_id,
                         activity_id,
                         latest_interaction_at,
-                        updated_at
-                    ) values (?, ?, ?, ?, ?, ?, ?, ?)
+                        updated_at,
+                        latest_actor_role,
+                        latest_actor_source,
+                        latest_actor_result,
+                        next_step_space_id,
+                        next_step_activity_id,
+                        next_step_reason
+                    ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     row.householdId(),
                     row.babyProfileSummary(),
@@ -247,7 +265,13 @@ class CaregiverInviteRepository {
                     row.spaceId(),
                     row.activityId(),
                     Timestamp.from(row.latestInteractionAt()),
-                    Timestamp.from(row.updatedAt())
+                    Timestamp.from(row.updatedAt()),
+                    row.latestActorRole(),
+                    row.latestActorSource(),
+                    row.latestActorResult(),
+                    row.nextStepSpaceId(),
+                    row.nextStepActivityId(),
+                    row.nextStepReason()
             );
         }
     }
@@ -264,13 +288,83 @@ class CaregiverInviteRepository {
                        sc.space_id,
                        sc.activity_id,
                        sc.latest_interaction_at,
-                       sc.updated_at
+                       sc.updated_at,
+                       sc.latest_actor_role,
+                       sc.latest_actor_source,
+                       sc.latest_actor_result,
+                       sc.next_step_space_id,
+                       sc.next_step_activity_id,
+                       sc.next_step_reason
                 from household_members hm
                 join household_shared_context sc on sc.household_id = hm.household_id
                 where hm.account_id = ? and hm.status = 'active'
                 """,
                 this::mapSharedContextViewRow,
                 accountId
+        );
+    }
+
+    Optional<HouseholdProjectionRow> findHouseholdProjection(String householdId) {
+        return findOne(
+                """
+                with household_events as (
+                    select ie.event_key,
+                           ie.space_id,
+                           ie.activity_id,
+                           ie.reaction_type,
+                           ie.client_timestamp,
+                           hm.role as actor_role
+                    from interaction_events ie
+                    join household_members hm on hm.account_id = ie.account_id
+                    where hm.household_id = ? and hm.status = 'active'
+                ),
+                latest as (
+                    select space_id,
+                           activity_id,
+                           reaction_type,
+                           client_timestamp,
+                           actor_role
+                    from household_events
+                    order by client_timestamp desc, event_key desc
+                    limit 1
+                ),
+                totals as (
+                    select count(*) as total_events
+                    from household_events
+                ),
+                members as (
+                    select count(*) as member_count
+                    from household_members
+                    where household_id = ? and status = 'active'
+                ),
+                top_activity as (
+                    select space_id,
+                           activity_id,
+                           count(*) as event_count,
+                           max(client_timestamp) as latest_interaction_at
+                    from household_events
+                    group by space_id, activity_id
+                    order by count(*) desc, max(client_timestamp) desc, space_id asc, activity_id asc
+                    limit 1
+                )
+                select latest.space_id as latest_space_id,
+                       latest.activity_id as latest_activity_id,
+                       latest.reaction_type as latest_reaction_type,
+                       latest.client_timestamp as latest_interaction_at,
+                       latest.actor_role as latest_actor_role,
+                       totals.total_events,
+                       members.member_count,
+                       coalesce(top_activity.space_id, latest.space_id) as next_step_space_id,
+                       coalesce(top_activity.activity_id, latest.activity_id) as next_step_activity_id,
+                       coalesce(top_activity.event_count, totals.total_events) as next_step_event_count
+                from latest
+                cross join totals
+                cross join members
+                left join top_activity on true
+                """,
+                this::mapHouseholdProjectionRow,
+                householdId,
+                householdId
         );
     }
 
@@ -412,7 +506,28 @@ class CaregiverInviteRepository {
                 rs.getString("space_id"),
                 rs.getString("activity_id"),
                 rs.getTimestamp("latest_interaction_at").toInstant(),
-                rs.getTimestamp("updated_at").toInstant()
+                rs.getTimestamp("updated_at").toInstant(),
+                rs.getString("latest_actor_role"),
+                rs.getString("latest_actor_source"),
+                rs.getString("latest_actor_result"),
+                rs.getString("next_step_space_id"),
+                rs.getString("next_step_activity_id"),
+                rs.getString("next_step_reason")
+        );
+    }
+
+    private HouseholdProjectionRow mapHouseholdProjectionRow(ResultSet rs, int rowNum) throws SQLException {
+        return new HouseholdProjectionRow(
+                rs.getString("latest_space_id"),
+                rs.getString("latest_activity_id"),
+                rs.getString("latest_reaction_type"),
+                rs.getTimestamp("latest_interaction_at").toInstant(),
+                rs.getString("latest_actor_role"),
+                rs.getInt("total_events"),
+                rs.getInt("member_count"),
+                rs.getString("next_step_space_id"),
+                rs.getString("next_step_activity_id"),
+                rs.getInt("next_step_event_count")
         );
     }
 
@@ -489,7 +604,13 @@ class CaregiverInviteRepository {
             String spaceId,
             String activityId,
             Instant latestInteractionAt,
-            Instant updatedAt
+            Instant updatedAt,
+            String latestActorRole,
+            String latestActorSource,
+            String latestActorResult,
+            String nextStepSpaceId,
+            String nextStepActivityId,
+            String nextStepReason
     ) {
     }
 
@@ -503,7 +624,27 @@ class CaregiverInviteRepository {
             String spaceId,
             String activityId,
             Instant latestInteractionAt,
-            Instant updatedAt
+            Instant updatedAt,
+            String latestActorRole,
+            String latestActorSource,
+            String latestActorResult,
+            String nextStepSpaceId,
+            String nextStepActivityId,
+            String nextStepReason
+    ) {
+    }
+
+    record HouseholdProjectionRow(
+            String latestSpaceId,
+            String latestActivityId,
+            String latestActorResult,
+            Instant latestInteractionAt,
+            String latestActorRole,
+            int totalEvents,
+            int activeMemberCount,
+            String nextStepSpaceId,
+            String nextStepActivityId,
+            int nextStepEventCount
     ) {
     }
 

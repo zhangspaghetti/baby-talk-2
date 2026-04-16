@@ -98,6 +98,12 @@ class CaregiverInviteApiWebTest {
                 .andExpect(jsonPath("$.role").value("caregiver"))
                 .andExpect(jsonPath("$.sharedContext.snapshot.practice.spaceId").value("daily_care"))
                 .andExpect(jsonPath("$.sharedContext.snapshot.practice.activityId").value("bath_time"))
+                .andExpect(jsonPath("$.sharedContext.snapshot.actor.role").value("primary_caregiver"))
+                .andExpect(jsonPath("$.sharedContext.snapshot.actor.source").value("sync_event"))
+                .andExpect(jsonPath("$.sharedContext.snapshot.actor.result").value("engaged"))
+                .andExpect(jsonPath("$.sharedContext.snapshot.nextStep.spaceId").value("daily_care"))
+                .andExpect(jsonPath("$.sharedContext.snapshot.nextStep.activityId").value("bath_time"))
+                .andExpect(jsonPath("$.sharedContext.snapshot.nextStep.reason").value("latest_activity"))
                 .andExpect(jsonPath("$.sharedContext.snapshot.babyProfileSummary").value(org.hamcrest.Matchers.containsString("已同步 2 条互动")))
                 .andReturn();
 

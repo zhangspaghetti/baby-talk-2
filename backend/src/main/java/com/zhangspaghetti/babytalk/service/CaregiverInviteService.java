@@ -31,8 +31,6 @@ public class CaregiverInviteService {
     public static final String AUDIT_HEADER = "X-Invite-Audit";
     public static final String FAILURE_REASON_HEADER = "X-Invite-Failure-Reason";
 
-    private static final DateTimeFormatter SUMMARY_TIME_FORMATTER =
-            DateTimeFormatter.ofPattern("M月d日 HH:mm").withZone(ZoneOffset.UTC);
     private static final DateTimeFormatter EXPIRY_TIME_FORMATTER =
             DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm 'UTC'").withZone(ZoneOffset.UTC);
     private static final Pattern PUBLIC_TOKEN_PATTERN = Pattern.compile("^[A-Za-z0-9_-]{12,64}$");
@@ -52,6 +50,7 @@ public class CaregiverInviteService {
 
     private final CaregiverInviteRepository repository;
     private final AuthConsentSyncRepository authConsentSyncRepository;
+    private final HouseholdSharedContextProjector householdSharedContextProjector;
     private final CaregiverInviteProperties properties;
     private final Clock clock = Clock.systemUTC();
     private final TransactionTemplate auditTransactionTemplate;
@@ -59,11 +58,13 @@ public class CaregiverInviteService {
     public CaregiverInviteService(
             CaregiverInviteRepository repository,
             AuthConsentSyncRepository authConsentSyncRepository,
+            HouseholdSharedContextProjector householdSharedContextProjector,
             CaregiverInviteProperties properties,
             org.springframework.transaction.PlatformTransactionManager transactionManager
     ) {
         this.repository = repository;
         this.authConsentSyncRepository = authConsentSyncRepository;
+        this.householdSharedContextProjector = householdSharedContextProjector;
         this.properties = properties;
         this.auditTransactionTemplate = new TransactionTemplate(transactionManager);
         this.auditTransactionTemplate.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
@@ -136,16 +137,6 @@ public class CaregiverInviteService {
                 );
             }
 
-            var snapshot = buildSharedContextProjection(
-                    invite.householdId(),
-                    now,
-                    "accept",
-                    token,
-                    session.accountId(),
-                    source,
-                    invite.targetRole(),
-                    1
-            );
             repository.insertMember(new CaregiverInviteRepository.HouseholdMemberRow(
                     0,
                     invite.householdId(),
@@ -156,15 +147,24 @@ public class CaregiverInviteService {
                     now,
                     now
             ));
-            repository.upsertSharedContext(snapshot);
+            refreshSharedContextProjectionOrThrow(
+                    invite.householdId(),
+                    now,
+                    "accept",
+                    token,
+                    session.accountId(),
+                    source,
+                    invite.targetRole()
+            );
             repository.markInviteAccepted(token, session.accountId(), now);
             repository.insertEvent(eventRow(token, invite.householdId(), session.accountId(), "accept", source, invite.targetRole(),
                     "accept", null, now));
+            var sharedContext = requireSharedContextResponse(session.accountId());
             return new AcceptInviteResponse(
                     invite.householdId(),
                     invite.targetRole(),
                     now,
-                    toSharedContextResponse(invite.targetRole(), now, snapshot)
+                    sharedContext
             );
         } catch (ContractException exception) {
             throw exception;
@@ -227,37 +227,16 @@ public class CaregiverInviteService {
                                 "role_not_allowed", "household_membership_missing", now));
                         return new ContractException(HttpStatus.FORBIDDEN, "role_not_allowed", "当前账号尚未加入共享家庭。");
                     });
-            var snapshot = buildSharedContextProjection(
+            refreshSharedContextProjectionOrThrow(
                     membership.householdId(),
                     now,
                     "shared_context",
                     null,
                     session.accountId(),
                     null,
-                    membership.role(),
-                    0
+                    membership.role()
             );
-            repository.upsertSharedContext(snapshot);
-            var response = repository.findSharedContextByAccount(session.accountId())
-                    .orElseThrow(() -> new ContractException(
-                            HttpStatus.SERVICE_UNAVAILABLE,
-                            "shared_context_unavailable",
-                            "共享上下文暂时不可用，请稍后重试。",
-                            Map.of("retryable", true)
-                    ));
-            return new SharedContextResponse(
-                    response.householdId(),
-                    response.role(),
-                    response.lastAcceptedAt(),
-                    new SharedContextSnapshot(
-                            response.babyProfileSummary(),
-                            response.continuitySummary(),
-                            response.gardenSummary(),
-                            new PracticeRouteArgs(response.spaceId(), response.activityId()),
-                            response.latestInteractionAt(),
-                            response.updatedAt()
-                    )
-            );
+            return requireSharedContextResponse(session.accountId());
         } catch (ContractException exception) {
             throw exception;
         } catch (DataAccessException exception) {
@@ -491,57 +470,33 @@ public class CaregiverInviteService {
         }
     }
 
-    private CaregiverInviteRepository.SharedContextRow buildSharedContextProjection(
+    private CaregiverInviteRepository.SharedContextRow refreshSharedContextProjectionOrThrow(
             String householdId,
             Instant now,
             String entrypoint,
             String token,
             String actorAccountId,
             String source,
-            String requestedRole,
-            int additionalActiveMembers
+            String requestedRole
     ) {
-        var latest = repository.findLatestHouseholdInteraction(householdId).orElse(null);
-        if (latest == null) {
-            recordEventSafely(eventRow(token, householdId, actorAccountId, entrypoint, source, requestedRole,
-                    "shared_context_unavailable", "no_household_activity", now));
-            throw new ContractException(
-                    HttpStatus.SERVICE_UNAVAILABLE,
-                    "shared_context_unavailable",
-                    "共享上下文尚未准备好，请主照护者先完成一次同步后再重试。",
-                    Map.of("retryable", true)
-            );
+        try {
+            return householdSharedContextProjector.refreshForHousehold(householdId, now);
+        } catch (ContractException exception) {
+            if ("shared_context_unavailable".equals(exception.code())) {
+                recordEventSafely(eventRow(
+                        token,
+                        householdId,
+                        actorAccountId,
+                        entrypoint,
+                        source,
+                        requestedRole,
+                        "shared_context_unavailable",
+                        sharedContextFailureReason(exception),
+                        now
+                ));
+            }
+            throw exception;
         }
-        var spaceId = normalizeRouteArg(latest.spaceId(), "spaceId");
-        var activityId = normalizeRouteArg(latest.activityId(), "activityId");
-        var totalEvents = repository.countHouseholdInteractions(householdId);
-        var memberCount = repository.countActiveMembers(householdId) + additionalActiveMembers;
-        var topActivity = repository.findTopActivity(householdId).orElse(new CaregiverInviteRepository.ActivitySummaryRow(
-                spaceId,
-                activityId,
-                totalEvents,
-                latest.clientTimestamp()
-        ));
-        var latestTime = SUMMARY_TIME_FORMATTER.format(latest.clientTimestamp());
-        return new CaregiverInviteRepository.SharedContextRow(
-                householdId,
-                truncate("共享宝宝档案：家庭已同步 %d 条互动，当前由 %d 位照护者共看护。".formatted(totalEvents, memberCount), 240),
-                truncate("最近 continuity：%s/%s 在 %s 记录到 %s 反馈。".formatted(
-                        spaceId,
-                        activityId,
-                        latestTime,
-                        latest.reactionType()
-                ), 240),
-                truncate("花园上下文：%s/%s 已累计 %d 条互动。".formatted(
-                        topActivity.spaceId(),
-                        topActivity.activityId(),
-                        topActivity.eventCount()
-                ), 240),
-                spaceId,
-                activityId,
-                latest.clientTimestamp(),
-                now
-        );
     }
 
     private ContractException notFoundInvite(String token, String actorAccountId, String source, Instant now) {
@@ -575,24 +530,59 @@ public class CaregiverInviteService {
         );
     }
 
-    private SharedContextResponse toSharedContextResponse(
-            String role,
-            Instant lastAcceptedAt,
-            CaregiverInviteRepository.SharedContextRow snapshot
-    ) {
+    private SharedContextResponse requireSharedContextResponse(String accountId) {
+        var response = repository.findSharedContextByAccount(accountId)
+                .orElseThrow(() -> new ContractException(
+                        HttpStatus.SERVICE_UNAVAILABLE,
+                        "shared_context_unavailable",
+                        "共享上下文暂时不可用，请稍后重试。",
+                        Map.of("retryable", true)
+                ));
+        return toSharedContextResponse(response);
+    }
+
+    private SharedContextResponse toSharedContextResponse(CaregiverInviteRepository.SharedContextViewRow response) {
         return new SharedContextResponse(
-                snapshot.householdId(),
-                role,
-                lastAcceptedAt,
+                response.householdId(),
+                response.role(),
+                response.lastAcceptedAt(),
                 new SharedContextSnapshot(
-                        snapshot.babyProfileSummary(),
-                        snapshot.continuitySummary(),
-                        snapshot.gardenSummary(),
-                        new PracticeRouteArgs(snapshot.spaceId(), snapshot.activityId()),
-                        snapshot.latestInteractionAt(),
-                        snapshot.updatedAt()
+                        response.babyProfileSummary(),
+                        response.continuitySummary(),
+                        response.gardenSummary(),
+                        new PracticeRouteArgs(response.spaceId(), response.activityId()),
+                        response.latestInteractionAt(),
+                        response.updatedAt(),
+                        toLatestActor(response.latestActorRole(), response.latestActorSource(), response.latestActorResult()),
+                        toNextStep(response.nextStepSpaceId(), response.nextStepActivityId(), response.nextStepReason())
                 )
         );
+    }
+
+    private LatestActor toLatestActor(String role, String source, String result) {
+        if (role == null && source == null && result == null) {
+            return null;
+        }
+        return new LatestActor(role, source, result);
+    }
+
+    private NextStep toNextStep(String spaceId, String activityId, String reason) {
+        if (spaceId == null || activityId == null) {
+            return null;
+        }
+        return new NextStep(spaceId, activityId, reason);
+    }
+
+    private String sharedContextFailureReason(ContractException exception) {
+        var reason = exception.details().get("reason");
+        if (reason instanceof String value && !value.isBlank()) {
+            return value;
+        }
+        var field = exception.details().get("field");
+        if (field instanceof String value && !value.isBlank()) {
+            return value + "_invalid";
+        }
+        return "projection_refresh_failed";
     }
 
     private PublicInviteResolution resolveInvite(String rawToken, String entrypoint, String platform) {
@@ -1248,21 +1238,6 @@ public class CaregiverInviteService {
         return normalized;
     }
 
-    private String normalizeRouteArg(String value, String fieldName) {
-        var normalized = requireTrimmed(value, fieldName);
-        if (normalized.length() > 64) {
-            recordEventSafely(eventRow(null, null, null, "shared_context", null, null,
-                    "shared_context_unavailable", fieldName + "_too_long", Instant.now(clock)));
-            throw new ContractException(
-                    HttpStatus.SERVICE_UNAVAILABLE,
-                    "shared_context_unavailable",
-                    "共享上下文缺少安全路由参数，已拒绝输出 deep link。",
-                    Map.of("retryable", true, "field", fieldName)
-            );
-        }
-        return normalized;
-    }
-
     private String buildInviteUrl(String token) {
         return publicInviteUrl(token);
     }
@@ -1428,7 +1403,23 @@ public class CaregiverInviteService {
             String gardenSummary,
             PracticeRouteArgs practice,
             Instant latestInteractionAt,
-            Instant updatedAt
+            Instant updatedAt,
+            LatestActor actor,
+            NextStep nextStep
+    ) {
+    }
+
+    public record LatestActor(
+            String role,
+            String source,
+            String result
+    ) {
+    }
+
+    public record NextStep(
+            String spaceId,
+            String activityId,
+            String reason
     ) {
     }
 

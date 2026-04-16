@@ -4,3 +4,6 @@ select entrypoint, release_channel, source, platform, result, failure_reason fro
 2026-04-16 17:36:02.872216+08:00 jdbc[3]: exception
 org.h2.jdbc.JdbcSQLSyntaxErrorException: Table "release_distribution_events" not found (this database is empty); SQL statement:
 select release_channel, source, entrypoint, result, count(*) as event_count from release_distribution_events group by release_channel, source, entrypoint, result order by release_channel, source, entrypoint, result [42104-232]
+2026-04-17 06:16:20.872741+08:00 jdbc[3]: exception
+org.h2.jdbc.JdbcSQLSyntaxErrorException: Table "caregiver_invite_events" not found (this database is empty); SQL statement:
+select entrypoint, result, count(*) as total from caregiver_invite_events group by entrypoint, result order by entrypoint, result [42104-232]
