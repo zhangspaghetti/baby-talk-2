@@ -36,6 +36,7 @@ app:
       - public_link
       - version_gate
       - share_card
+      - caregiver_invite
       - manual_retry
     channels:
       stable:
