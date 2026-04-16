@@ -1,4 +1,7 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:mobile/features/practice/presentation/practice_route_args.dart';
 
 final RouteObserver<PageRoute<dynamic>> appRouteObserver =
     RouteObserver<PageRoute<dynamic>>();
@@ -52,5 +55,32 @@ class AppRouter {
           );
       }
     };
+  }
+
+  static void navigateToShellFallback({required NavigatorState navigator}) {
+    var shellRouteFound = false;
+    navigator.popUntil((route) {
+      final isShellRoute =
+          route.settings.name == AppRouteNames.shell || route.settings.name == null;
+      shellRouteFound = shellRouteFound || isShellRoute;
+      return isShellRoute;
+    });
+    if (!shellRouteFound) {
+      navigator.pushNamedAndRemoveUntil(AppRouteNames.shell, (_) => false);
+    }
+  }
+
+  static void navigateToPracticeSeam({
+    required NavigatorState navigator,
+    required PracticeRouteArgs args,
+  }) {
+    final normalizedArgs = args.normalized();
+    navigateToShellFallback(navigator: navigator);
+    scheduleMicrotask(() {
+      navigator.pushNamed(
+        AppRouteNames.practice,
+        arguments: normalizedArgs,
+      );
+    });
   }
 }

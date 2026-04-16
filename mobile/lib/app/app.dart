@@ -1,11 +1,13 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:app_links/app_links.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:mobile/app/router/app_router.dart';
+import 'package:mobile/app/share_reentry_coordinator.dart';
 import 'package:mobile/app/theme/app_theme.dart';
 import 'package:mobile/core/device/installation_id_service.dart';
 import 'package:mobile/features/account/data/local/account_local_store.dart';
@@ -158,6 +160,8 @@ class BabyTalkApp extends StatefulWidget {
     this.appDirectoryResolver,
     this.audioControllerFactory,
     this.completedSnapshotLoader,
+    this.shareUriStream,
+    this.shareReentryCoordinator,
     this.practiceContinuityRefreshTimeout = const Duration(seconds: 4),
     this.gardenGrowthRefreshTimeout = const Duration(seconds: 4),
   });
@@ -168,6 +172,8 @@ class BabyTalkApp extends StatefulWidget {
   final AppDirectoryResolver? appDirectoryResolver;
   final PracticeAudioControllerFactory? audioControllerFactory;
   final OnboardingCompletedSnapshotLoader? completedSnapshotLoader;
+  final Stream<Uri>? shareUriStream;
+  final ShareReentryCoordinator? shareReentryCoordinator;
   final Duration practiceContinuityRefreshTimeout;
   final Duration gardenGrowthRefreshTimeout;
 
@@ -177,18 +183,30 @@ class BabyTalkApp extends StatefulWidget {
 
 class _BabyTalkAppState extends State<BabyTalkApp> {
   late Future<_AppLaunchState> _launchStateFuture;
+  late final ShareReentryCoordinator _shareReentryCoordinator;
+  late final bool _ownsShareReentryCoordinator;
+  final GlobalKey<NavigatorState> _navigatorKey = GlobalKey<NavigatorState>();
+  StreamSubscription<Uri>? _shareUriSubscription;
   PracticeRepository? _repository;
   MentorRepository? _mentorRepository;
+  _AppLaunchState? _resolvedLaunchState;
 
   @override
   void initState() {
     super.initState();
+    _ownsShareReentryCoordinator = widget.shareReentryCoordinator == null;
+    _shareReentryCoordinator =
+        widget.shareReentryCoordinator ?? ShareReentryCoordinator();
+    _configureShareUriSubscription();
     _launchStateFuture = _loadLaunchState();
   }
 
   @override
   void didUpdateWidget(covariant BabyTalkApp oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (oldWidget.shareUriStream != widget.shareUriStream) {
+      _configureShareUriSubscription();
+    }
     if (oldWidget.bootState != widget.bootState ||
         oldWidget.repositoryFactory != widget.repositoryFactory ||
         oldWidget.accountRepositoryFactory != widget.accountRepositoryFactory ||
@@ -241,12 +259,19 @@ class _BabyTalkAppState extends State<BabyTalkApp> {
         }
 
         final launchState = snapshot.requireData;
+        _resolvedLaunchState = launchState;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _drainPendingShareReentry();
+        });
         final practiceRepository = launchState.practiceRepository;
         final onboardingRepository = launchState.onboardingRepository;
         final accountRepository = launchState.accountRepository;
         final mentorRepository = launchState.mentorRepository;
         return MultiProvider(
           providers: [
+            ChangeNotifierProvider<ShareReentryCoordinator>.value(
+              value: _shareReentryCoordinator,
+            ),
             Provider<PracticeRepository>.value(value: practiceRepository),
             Provider<OnboardingRepository>.value(value: onboardingRepository),
             Provider<AccountRepository>.value(value: accountRepository),
@@ -317,6 +342,8 @@ class _BabyTalkAppState extends State<BabyTalkApp> {
             ),
           ],
           child: MaterialApp(
+            navigatorKey: _navigatorKey,
+            builder: (context, child) => _ShareReentryOverlay(child: child),
             debugShowCheckedModeBanner: false,
             title: 'Baby Talk 2',
             theme: AppTheme.build(),
@@ -363,6 +390,10 @@ class _BabyTalkAppState extends State<BabyTalkApp> {
   void dispose() {
     final repository = _repository;
     final mentorRepository = _mentorRepository;
+    unawaited(_shareUriSubscription?.cancel() ?? Future<void>.value());
+    if (_ownsShareReentryCoordinator) {
+      _shareReentryCoordinator.dispose();
+    }
     if (repository != null) {
       unawaited(repository.close());
     }
@@ -370,6 +401,71 @@ class _BabyTalkAppState extends State<BabyTalkApp> {
       unawaited(mentorRepository.close());
     }
     super.dispose();
+  }
+
+  Future<void> _configureShareUriSubscription() async {
+    await _shareUriSubscription?.cancel();
+    final stream = widget.shareUriStream ?? AppLinks().uriLinkStream;
+    _shareUriSubscription = stream.listen(
+      _handleShareUri,
+      onError: (Object error, StackTrace stackTrace) {
+        _shareReentryCoordinator.markFallback(
+          message: '分享回流监听异常，已停留在首页安全入口。',
+        );
+      },
+    );
+  }
+
+  void _handleShareUri(Uri uri) {
+    final decision = _shareReentryCoordinator.acceptUri(uri);
+    if (decision.dispatchTarget == ShareReentryDispatchTarget.none) {
+      return;
+    }
+    _drainPendingShareReentry();
+  }
+
+  void _drainPendingShareReentry() {
+    final launchState = _resolvedLaunchState;
+    final navigator = _navigatorKey.currentState;
+    if (!mounted || launchState == null || navigator == null) {
+      return;
+    }
+
+    if (launchState.destination != AppLaunchDestination.shell) {
+      final hadPendingPractice =
+          _shareReentryCoordinator.takePendingPracticeArgs() != null;
+      final hadPendingFallback = _shareReentryCoordinator.takePendingShellFallback();
+      if (hadPendingPractice || hadPendingFallback) {
+        _shareReentryCoordinator.markFallback(
+          message: '分享回流已收到，但当前 app 还不能安全进入练习；已停留在安全入口。',
+        );
+      }
+      return;
+    }
+
+    if (_shareReentryCoordinator.takePendingShellFallback()) {
+      AppRouter.navigateToShellFallback(navigator: navigator);
+      _shareReentryCoordinator.markFallback(
+        message: _shareReentryCoordinator.lastErrorSurface ??
+            '分享链接不可用，已停留在首页安全入口。',
+      );
+      return;
+    }
+
+    final practiceArgs = _shareReentryCoordinator.takePendingPracticeArgs();
+    if (practiceArgs == null) {
+      return;
+    }
+    if (!practiceArgs.isSupportedBy(widget.bootState.content!)) {
+      AppRouter.navigateToShellFallback(navigator: navigator);
+      _shareReentryCoordinator.markFallback(
+        message: '分享链接里的 activity 不受支持，已停留在首页安全入口。',
+      );
+      return;
+    }
+
+    AppRouter.navigateToPracticeSeam(navigator: navigator, args: practiceArgs);
+    _shareReentryCoordinator.markHandled(args: practiceArgs);
   }
 
   Future<void> _retryLaunchState() async {
