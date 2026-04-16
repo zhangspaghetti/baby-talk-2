@@ -46,10 +46,10 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
       if (!mounted) {
         return;
       }
-      context.read<AccountViewModel>().handleHomeVisible();
+      final accountViewModel = context.read<AccountViewModel>();
+      unawaited(accountViewModel.initialize());
       final gardenGrowthViewModel = context.read<GardenGrowthViewModel?>();
-      if (gardenGrowthViewModel != null &&
-          gardenGrowthViewModel.status == GardenGrowthLoadStatus.idle) {
+      if (gardenGrowthViewModel != null) {
         unawaited(gardenGrowthViewModel.initialize());
       }
       final continuityViewModel = context.read<PracticeContinuityViewModel?>();
@@ -57,10 +57,10 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
         unawaited(
           continuityViewModel.configureStarterArgs(
             _resolveStarterArgs(),
-            reason: 'home_visible',
+            reason: 'home_bootstrap',
           ),
         );
-        unawaited(continuityViewModel.initialize(reason: 'home_visible'));
+        unawaited(continuityViewModel.initialize(reason: 'home_bootstrap'));
       }
     });
   }
@@ -108,7 +108,9 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
         if (!mounted) {
           return;
         }
-        unawaited(_syncContinuityStarterArgs(reason: 'starter_context_changed'));
+        unawaited(
+          _syncContinuityStarterArgs(reason: 'starter_context_changed'),
+        );
       });
     }
   }
@@ -222,7 +224,8 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
                       ),
                       const SizedBox(height: 12),
                       Text(
-                        activity?.phrases.first.english ?? 'Continuity unavailable.',
+                        activity?.phrases.first.english ??
+                            'Continuity unavailable.',
                         style: Theme.of(context).textTheme.displayMedium
                             ?.copyWith(color: AppTheme.english),
                       ),
@@ -264,10 +267,14 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
                         message: homeWarningMessage,
                         backgroundColor: AppTheme.warningSoft,
                         foregroundColor: AppTheme.warning,
-                        actionLabel: continuityViewModel == null ? null : '重新整理',
+                        actionLabel: continuityViewModel == null
+                            ? null
+                            : '重新整理',
                         onAction: continuityViewModel == null
                             ? null
-                            : () => _refreshContinuity(reason: 'home_manual_refresh'),
+                            : () => _refreshContinuity(
+                                reason: 'home_manual_refresh',
+                              ),
                       ),
                     ],
                     if (homeDisabledReason != null) ...[
@@ -285,9 +292,11 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
                     ],
                     const SizedBox(height: 20),
                     _TodaySceneCard(
-                      activityId: recommendedActivity?.activityId ?? 'safe-empty',
+                      activityId:
+                          recommendedActivity?.activityId ?? 'safe-empty',
                       activityTitle: activity?.title ?? '继续入口暂不可用',
-                      activitySummary: activity?.summary ??
+                      activitySummary:
+                          activity?.summary ??
                           _resolveSafeHomeSummary(continuityViewModel),
                       sceneTag: activity?.sceneTag,
                       recommendation: continuitySnapshot?.recommendation,
@@ -365,8 +374,12 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
       return;
     }
     final starterArgs = _resolveStarterArgs();
-    if (continuityViewModel.starterArgs?.scopeLabel != starterArgs?.scopeLabel) {
-      await continuityViewModel.configureStarterArgs(starterArgs, reason: reason);
+    if (continuityViewModel.starterArgs?.scopeLabel !=
+        starterArgs?.scopeLabel) {
+      await continuityViewModel.configureStarterArgs(
+        starterArgs,
+        reason: reason,
+      );
       return;
     }
     await continuityViewModel.refresh(reason: reason);
@@ -399,7 +412,8 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
 
   String _resolveButtonLabel(PracticeContinuitySnapshot? continuitySnapshot) {
     final recommendedActivity = continuitySnapshot?.recommendedActivity;
-    if (recommendedActivity == null || recommendedActivity.recentResult == null) {
+    if (recommendedActivity == null ||
+        recommendedActivity.recentResult == null) {
       return '开始练习';
     }
     return '继续练习';

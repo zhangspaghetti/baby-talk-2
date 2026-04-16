@@ -1,195 +1,180 @@
-# S06 Android-first Demo / Release Runbook
+# S06 Continuity / Mentor / Retention Proof Pack Runbook
 
 ## 目标
 
-把 M001/S06 既有 seam 收口成一条可重复执行的 Android-first 演示路径：
+把 M002/S03 的 final-assembly 验证链固定成一条未来 agent 可直接复跑的仓库内路径：
 
-1. fresh install
-2. onboarding
-3. practice
-4. garden / growth 反馈
-5. sign-in sync
-6. Mentor 求助
-7. profile APK 产物验证
+1. cold boot / recent activity continuity
+2. Home / Garden / Mentor 下一步一致性
+3. Mentor 本地辅导与 timeout / blocked fallback 可见性
+4. inspect triage
+5. SQL retention / mentor delivery proof
 
-这份 runbook 只复用仓库里已经存在的移动端、backend、inspect CLI、integration proof 与 SQL 查询包；**不引入新的 analytics 子系统**。
+这份 runbook **只复用现有 append-only events、mentor fact log、inspect wrapper、测试与 SQL query pack**；**不新增 progress store、analytics、埋点服务或新留存系统**。
 
 ---
 
-## 0. 先决条件
+## 0. Root-safe 入口
 
-### 目录约束
+### 0.1 一条 proof pack 入口
 
-- Flutter 构建、测试、安装包输出都发生在 `mobile/` 子工程。
-- **不要**在仓库根目录直接执行 `flutter build apk ...`，根目录没有 `pubspec.yaml`，会直接报 `No pubspec.yaml file found`。
-- Windows 上不要用 `test -f ...` 检查 APK 是否存在；请改用 PowerShell `Test-Path`，或在支持 POSIX 的 shell 中使用 `[ -f ... ]`。
-
-### 运行时前提
-
-- 已安装 Flutter / Android SDK / JDK 17。
-- backend 可通过 `mvn -q -f backend/pom.xml test` 与 `spring-boot:run` 启动。
-- 若要做真机 smoke，需要至少一台可安装 Android APK 的设备。
-- release 签名不是本 runbook 的内建能力：`mobile/android/key.properties` 缺失时，release build 会显式失败，避免误产出 debug-signed 包。
-
----
-
-## 1. 环境合同
-
-### 1.1 Mobile build-time dart-define
-
-| Key | 作用位置 | 默认值 | 演示要求 |
-|---|---|---|---|
-| `BABY_TALK_API_BASE_URL` | mobile HTTP client | `http://127.0.0.1:8080` | profile/demo build 时必须显式指向可达 backend；不能把真机包留在 `127.0.0.1`。 |
-| `BABY_TALK_API_VERSION` | mobile `X-App-Version` | `1.2.0` | 与 backend `BABY_TALK_MIN_SUPPORTED_VERSION` 对齐。 |
-
-### 1.2 Backend env contract
-
-| Key | 作用位置 | 默认值 | 演示要求 |
-|---|---|---|---|
-| `BABY_TALK_MIN_SUPPORTED_VERSION` | backend version gate | `1.2.0` | 低于该版本返回 `426 Upgrade Required`。 |
-| `BABY_TALK_UPGRADE_URL` | backend 426 header/body | `https://example.com/baby-talk/download` | 演示环境必须替换成真实下载页或受控占位下载页。 |
-| `BABY_TALK_SMS_PROVIDER_MODE` | auth challenge provider | `dev` | M001 演示允许用 dev stub；上线前必须切换真实短信能力。 |
-| `BABY_TALK_MENTOR_PROVIDER_MODE` | mentor provider | `dev` | M001 演示允许 dev provider，仍要保留 timeout / malformed / unavailable failure surface。 |
-
-> 说明：`BABY_TALK_UPGRADE_URL` 不是 Flutter dart-define，而是 backend 通过 `X-Upgrade-Url` header 和响应体回传给客户端的升级指引。
-
----
-
-## 2. Backend 启动与合同预检
-
-### 2.1 先跑 backend proof
+从仓库根执行：
 
 ```bash
-mvn -q -f backend/pom.xml -Dtest=ApiVersionHandshakeWebTest,AuthConsentSyncWebTest,MentorWebTest test
+dart run tool/verify_s06.dart --inspect
+dart run tool/verify_s06.dart --integration
 ```
 
-只有这组 contract tests 通过，才继续做 build / install / smoke。
+含义：
 
-### 2.2 启动 backend（开发 / 演示环境）
+- `--inspect`：顺序代理 root-safe inspect wrappers
+  - `dart run tool/inspect_interaction_events.dart --help`
+  - `dart run tool/inspect_mentor_facts.dart --help`
+- `--integration`：顺序代理当前 S03 proof tests
+  - `mobile/test/smoke/app_boot_test.dart`
+  - `mobile/test/features/mentor/mentor_shell_panel_test.dart`
+  - `mobile/integration_test/s06_full_chain_release_flow_test.dart`
+- 不带参数：同时执行两组 proof。
 
-#### PowerShell
+### 0.2 失败合同
 
-```powershell
-$env:BABY_TALK_MIN_SUPPORTED_VERSION = '1.2.0'
-$env:BABY_TALK_UPGRADE_URL = 'https://demo.example.com/download'
-$env:BABY_TALK_SMS_PROVIDER_MODE = 'dev'
-$env:BABY_TALK_MENTOR_PROVIDER_MODE = 'dev'
-mvn -q -f backend/pom.xml spring-boot:run
-```
-
-#### POSIX shell
-
-```bash
-BABY_TALK_MIN_SUPPORTED_VERSION=1.2.0 \
-BABY_TALK_UPGRADE_URL=https://demo.example.com/download \
-BABY_TALK_SMS_PROVIDER_MODE=dev \
-BABY_TALK_MENTOR_PROVIDER_MODE=dev \
-mvn -q -f backend/pom.xml spring-boot:run
-```
-
-如需本地文件库，默认 H2 file DB 已由 `backend/src/main/resources/application.yml` 提供，无需额外修改。
+- 缺失 `mobile/`、缺失 root wrapper、缺失 `mobile/tool/*`、缺失测试文件：wrapper 返回 **exit code 64**。
+- 任一步测试失败：wrapper 返回对应非零 exit code，并打印 **失败 step label**。
+- 任一步超时：wrapper 终止该 step，并返回 **124**。
 
 ---
 
-## 3. Android-first profile APK 构建
+## 1. 当前 runtime / UI proof surface
 
-### 3.1 构建命令
+未来排查 S03 问题时，先对齐这些 surface，再决定看 inspect 还是 SQL。
+
+### 1.1 Continuity / Home / Garden
+
+| Surface | 期望 | 当前定位方式 |
+|---|---|---|
+| `PracticeContinuityViewModel.status` | 有明确 ready / disabled / timeout 等状态 | Home / Garden debug 文案与测试断言 |
+| `PracticeContinuityViewModel.lastRefreshReason` | cold boot / account runtime 变更后有明确 refresh reason | `app_boot_test.dart` / Home-Garden 行为 |
+| `PracticeContinuityViewModel.disabledReason` | continuity timeout / bad args / provider 缺失时给出明确禁用原因 | Home / Garden disabled state |
+| Home 下一步 CTA | `home-start-practice-<activityId>` | Home 测试与 UI key |
+| Garden 下一步 CTA | `garden-continue-target-<activityId>` | Garden 测试与 UI key |
+| `GardenGrowthViewModel.status` / `message` | growth 有明确 ready / disabled / message | Garden / Growth runtime 文案 |
+
+### 1.2 Account / Mentor / Boot gate
+
+| Surface | 期望 | 当前定位方式 |
+|---|---|---|
+| `AccountViewModel.runtimeChangeToken` | account runtime 变更可驱动 continuity / account 刷新 | Home / Account 联动 |
+| `AccountViewModel.submissionMessage` | sync / sign-in / refresh 失败不能静默 | Account banner / 文案 |
+| Mentor banner `code / phase / correlationId` | timeout / blocked_fallback / unavailable 都有明确 banner | `mentor_shell_panel_test.dart` / `s06_full_chain_release_flow_test.dart` |
+| boot route gate key | `boot-route-gate-ready` / `boot-route-gate-failed` 明确 | `app_boot_test.dart` / integration boot failure |
+
+---
+
+## 2. 推荐排查顺序
+
+严格按这个顺序，不要跳步：
+
+1. **先看测试 / UI surface**：判断是 continuity、boot gate、account sync，还是 Mentor 失败面。
+2. **再看 inspect wrappers**：判断本地 append-only facts 是否存在、是否 redacted、是否与 UI 一致。
+3. **再看 SQL query pack**：判断 retention / help usage / mentor delivery 指标是否成立。
+4. **最后再看环境或回归**：重跑 proof tests，区分代码回归与本机 toolchain / backend 环境问题。
+
+这样可以先分清：
+
+- 单机本地事实缺失
+- UI/route gate 回归
+- Mentor delivery 失败
+- retention / query drift
+- 还是纯环境阻塞
+
+---
+
+## 3. Proof pack 顺序
+
+### 3.1 Smoke：cold boot / continuity 基线
 
 ```bash
-cd mobile && flutter build apk --profile \
-  --dart-define=BABY_TALK_API_BASE_URL=https://demo.example.com \
+cd mobile && flutter test test/smoke/app_boot_test.dart
+```
+
+覆盖点：
+
+- fresh install 进入 onboarding，而不是直接 guest home
+- completed snapshot 存在时 cold boot 进入 shell
+- recent activity 会 seed continuity recommendation
+- Garden 能展示 `garden-continue-target-<activityId>`
+- malformed snapshot / 目录失败时进入 `boot-route-gate-failed`
+
+重点断言：
+
+- `boot-route-gate-ready`
+- `boot-route-gate-failed`
+- `garden-continue-target-feeding_time`
+- `PracticeContinuityViewModel.lastRefreshReason == 'boot_seed_recent_activity'`
+
+### 3.2 Widget：Mentor shell / local fallback surface
+
+```bash
+cd mobile && flutter test test/features/mentor/mentor_shell_panel_test.dart
+```
+
+覆盖点：
+
+- shell / standalone home 都能打开同一 Mentor 面板
+- 离线或 onboarding 缺失时仍有本地建议，不出现空白面板
+- chat tab 可见 retry / phase / first-note 等失败 surface
+- 面板打开、求助提交、回应交付会落本地 mentor facts
+
+重点断言：
+
+- `mentor-panel-banner`
+- `mentor-chat-phase-chip`
+- `mentor-chat-retry-button`
+- `MentorFactType.panelOpened`
+- `MentorFactType.chatRequested`
+- `MentorFactType.chatResponseDelivered`
+
+### 3.3 Integration：full chain continuity → sync → Mentor
+
+```bash
+cd mobile && flutter test integration_test/s06_full_chain_release_flow_test.dart \
+  --dart-define=BABY_TALK_API_BASE_URL=http://127.0.0.1:18080 \
   --dart-define=BABY_TALK_API_VERSION=1.2.0
 ```
 
-### 3.2 产物路径
+覆盖点：
 
-- `mobile/build/app/outputs/flutter-apk/app-profile.apk`
+- onboarding → starter practice → Garden / Growth
+- sign-in / sync 后 recent result 与 account 状态一致
+- Mentor blocked prompt 时展示 `blocked_fallback`
+- timeout 时展示 `code · timeout` / `phase · provider_timeout`
+- integration 结束后 inspect 读到同一 installation 的 mentor facts / sync facts
 
-### 3.3 产物存在性检查
+重点断言：
 
-#### PowerShell
-
-```powershell
-Test-Path mobile/build/app/outputs/flutter-apk/app-profile.apk
-```
-
-#### POSIX shell
-
-```bash
-[ -f mobile/build/app/outputs/flutter-apk/app-profile.apk ]
-```
-
-### 3.4 身份与权限检查
-
-```bash
-rg -n "Baby Talk|com\.babytalk\.mobile|INTERNET" \
-  mobile/android/app/build.gradle.kts \
-  mobile/android/app/src/main/AndroidManifest.xml \
-  mobile/ios/Runner/Info.plist \
-  mobile/ios/Runner.xcodeproj/project.pbxproj
-```
-
-期望看到：
-
-- Android package / namespace：`com.babytalk.mobile`
-- App label：`Baby Talk`
-- Android 主 manifest 含 `android.permission.INTERNET`
-- iOS display name / bundle metadata 不再保留模板值
+- `blocked_fallback`
+- `phase · blocked_fallback`
+- `fallback · yes`
+- `correlationId`
+- `boot-route-gate-failed`
+- `provider_timeout`
 
 ---
 
-## 4. 安装与真机 smoke 顺序
+## 4. Inspect triage
 
-### 4.1 安装
+### 4.1 Root-safe help
 
-1. 将 `mobile/build/app/outputs/flutter-apk/app-profile.apk` 安装到 Android 真机。
-2. 若设备上已有旧 demo，先卸载，确保是 **fresh install**。
-3. 首次启动时确认没有历史数据污染。
-
-### 4.2 主链路 smoke
-
-按下面顺序走一次完整链路：
-
-1. **fresh install / first open**：确认进入 onboarding，而不是恢复页。
-2. **onboarding**：完成基础设置，进入首页。
-3. **practice**：完成 starter practice，确认 recent result 可见。
-4. **garden / growth**：确认花园 patch、成长 summary 与投影反馈已出现。
-5. **sign-in sync**：进入账号面板，完成 challenge / verify / consent / sync，确认 sync banner、phase、可见 code 与 recent result 状态变更。
-6. **Mentor 求助**：
-   - 先走一次普通求助，确认 `code=ok` / `phase=response_delivered`。
-   - 再走一次 blocked fallback，确认 `code=blocked_fallback`、`fallbackUsed=true`、`correlationId` 可见。
-7. **upgrade visibility**：若故意制造低版本 / 错版本环境，客户端必须看到 `426` 对应的升级指引，而不是静默失败。
-
-### 4.3 边界条件解释
-
-- **首次安装零历史**：本地 inspect 允许显示 empty，不算失败；只要 onboarding→practice 能产生第一条事件即可。
-- **只做 practice 不登录**：属于允许路径；此时不应把“未同步”误判为“同步失败”。
-- **登录后 sync / mentor 各发生一次**：这是本切片最小有效 smoke；若只验证 practice，不算完成 S06。
-- **D1 / D7 / D30 尚无数据**：只记为“样本未成熟”，不是“留存失败”。
-
----
-
-## 5. 诊断入口与排查顺序
-
-### 5.1 总顺序
-
-未来 agent 或执行者在 smoke 失败时，按这个顺序排查：
-
-1. **看 UI 上的 banner / code / phase / correlationId**
-2. **看本地 inspect CLI**（判断 practice / sync / mentor 本地事实是否存在）
-3. **看 SQL query pack**（判断 backend 审计与成功阈值口径是否成立）
-4. **最后回放 integration proof / backend contract tests**（判断是否是代码回归，而不是环境或数据问题）
-
-### 5.2 Inspect CLI
-
-#### 从仓库根查看帮助（root-safe wrapper）
+从仓库根执行：
 
 ```bash
 dart run tool/inspect_interaction_events.dart --help
 dart run tool/inspect_mentor_facts.dart --help
 ```
 
-#### 查看 practice / sync 本地事实
+这两个 wrapper 只负责代理到 `mobile/tool/*`，不会要求你手动 `cd mobile` 才能发现入口是否存在。
+
+### 4.2 Interaction events：continuity / sync triage
 
 ```bash
 cd mobile && dart run tool/inspect_interaction_events.dart \
@@ -197,15 +182,23 @@ cd mobile && dart run tool/inspect_interaction_events.dart \
   --limit 20
 ```
 
-可观察信号：
+先看这些字段：
 
-- `pendingEvents` / `syncedEvents` / `failedEvents`
+- `pendingEvents`
+- `syncedEvents`
+- `failedEvents`
 - `lastSyncPhase`
 - `lastSyncAt`
 - `lastSyncError`
-- 最近一批 `eventKey / localEventId / installationId / activityId / phraseId / reactionType / syncState`
+- 最近事件的 `activityId / phraseId / reactionType / syncState`
 
-#### 查看 Mentor 本地事实
+判读方式：
+
+- Home 的 `home-start-practice-<activityId>` 与 Garden 的 `garden-continue-target-<activityId>` 应该能映射回 inspect 里最近的 `activityId`。
+- 如果 UI 有 continuity 卡片，但 inspect 没有 recent activity，优先怀疑 UI seed / route gating 回归。
+- 如果 inspect 有 recent activity，但 Home / Garden 没有对应 CTA，优先怀疑 continuity refresh / disabledReason / bad args。
+
+### 4.3 Mentor facts：timeout / blocked fallback triage
 
 ```bash
 cd mobile && dart run tool/inspect_mentor_facts.dart \
@@ -213,104 +206,113 @@ cd mobile && dart run tool/inspect_mentor_facts.dart \
   --limit 20
 ```
 
-可观察信号：
+先看这些字段：
 
 - `eventType`
 - `phase`
 - `correlationId`
-- `visibleStatus / visibleDetail`
+- `visibleStatus`
+- `visibleDetail`
 - `retryable`
 - `contextFallbackUsed`
 
-> Redaction 约束：`inspect_interaction_events` 与 `inspect_mentor_facts` 只能输出 redacted diagnostics；不得回显手机号、验证码、session secret、同意前宝宝 PII、raw prompt 或 raw response。
+判读方式：
 
-### 5.3 SQL query pack
+- `blocked_fallback`：应看到可交付 fact，而不是只有失败日志。
+- `provider_timeout`：应看到 `retryable=true` 与可见 timeout surface，而不是聊天 UI 空白挂住。
+- `correlationId`：UI banner、inspect facts、backend audit 应能串起来。
 
-成功阈值与 backend 审计查询统一看：
+---
+
+## 5. SQL proof pack
+
+统一入口：
 
 - `docs/runbooks/s06-success-metrics.md`
 - `backend/src/main/resources/sql/s06_success_queries.sql`
 
-排查重点：
+### 5.1 SQL 关注面
 
-1. `interaction_events`：practice / revisit / D1-D7-D30 cohort
-2. `consent_audit_logs`：sign-in / consent 是否真正落账
-3. `mentor_audit_logs`：chat_requested / rate_limited / timeout / malformed / blocked_fallback
-4. `mentor_turns`：成功或 fallback 的最终可交付 response 是否存在
+| 表 / 查询 | 用来回答什么 |
+|---|---|
+| `interaction_events` | recent activity continuity、first-practice cohort、D1 / D7 / D30 |
+| `consent_audit_logs` | activation（practice 后 24h 内 accept/applied） |
+| `mentor_audit_logs` | chat_requested、timeout、rate_limited、blocked_fallback 相关审计 |
+| `mentor_turns` | success / fallback 是否真的形成可交付回应 |
+| `retained_rate_d1_pct` | D1 retention 聚合结果 |
+| `mentor_delivery_rate_pct` | mentor request → delivered 的聚合结果 |
 
-### 5.4 Integration proof / wrapper
+### 5.2 先看 continuity，再看 retention
+
+推荐顺序：
+
+1. 先看 SQL 里的 recent continuity query，确认 installation 最近一次 `activity_id`
+2. 再比对 inspect / UI key：
+   - `home-start-practice-<activityId>`
+   - `garden-continue-target-<activityId>`
+3. 最后再看 cohort 级 retention / mentor delivery 指标
+
+这样可以避免把“单台设备 continuity 没对齐”误当成“全局留存差”。
+
+---
+
+## 6. Failure surface 对照表
+
+| 症状 | 先看哪里 | 应看到的明确 surface | 不应出现的坏结果 |
+|---|---|---|---|
+| continuity timeout | Home / Garden + inspect | `disabledReason`、continuity status、明确 message | 空白 CTA / 无提示 |
+| continuity bad args | Home / Garden + smoke test | disabled state + reason code | 点击后错误导航 |
+| boot route gate failure | cold boot smoke / integration | `boot-route-gate-failed` + retry | 直接跳错页面 |
+| account/provider timeout | Account banner / inspect | `submissionMessage` 或 sync error | 静默失败 |
+| Mentor timeout | Mentor banner / inspect | `code · timeout`、`phase · provider_timeout`、retryable | chat flow hang 住 |
+| blocked fallback | Mentor banner / inspect / SQL | `blocked_fallback`、`correlationId`、fallback delivered | 只有失败，没有可见建议 |
+| inspect wrapper 缺失 | `dart run tool/verify_s06.dart --inspect` | exit code 64 + 明确缺失路径 | 静默成功 |
+
+---
+
+## 7. Redaction 红线
+
+所有 proof surface 继续只允许输出 **redacted diagnostics**：
+
+- 禁止回显 raw prompt
+- 禁止回显 raw response
+- 禁止回显手机号 / 验证码
+- 禁止回显 session secret / token
+- 禁止回显同意前宝宝 PII
+
+允许输出的只有：
+
+- `activityId / phraseId / reactionType / syncState`
+- `code / phase / correlationId`
+- `visibleStatus / visibleDetail`
+- 聚合 retention / mentor delivery 指标
+
+如果截图、SQL 导出、inspect 文本里出现未脱敏原文，先修 redaction，再继续 proof。
+
+---
+
+## 8. 最小复跑清单
+
+### 8.1 Root-safe proof
 
 ```bash
 dart run tool/verify_s06.dart --inspect
 dart run tool/verify_s06.dart --integration
 ```
 
-若 `--integration` 失败，优先区分：
-
-- **设备/模拟器缺失**：环境问题
-- **Flutter / Gradle 构建失败**：构建合同问题
-- **test assertion 失败**：代码回归
-- **backend 不可达或 version gate 不匹配**：环境配置问题
-
----
-
-## 6. 常见失败面与定位提示
-
-| 症状 | 先看哪里 | 常见原因 | 下一步 |
-|---|---|---|---|
-| `No pubspec.yaml file found` | 当前命令执行目录 | 在仓库根直接跑 Flutter build/test | 切到 `mobile/` 后重试。 |
-| APK 没产出 | `mobile/build/app/outputs/flutter-apk/` | build 未在 `mobile/` 中执行、dart-define 缺失、Gradle 失败 | 先复查 build 命令，再看 Flutter/Gradle stderr。 |
-| sync banner 报错 | `inspect_interaction_events` + `consent_audit_logs` | session 失效、consent 未完成、版本门禁、网络失败 | 先看 `lastSyncPhase` / `lastSyncError`，再查 consent 审计。 |
-| Mentor 显示 timeout / unavailable / fallback | `inspect_mentor_facts` + `mentor_audit_logs` | provider timeout、rate limit、blocked keyword、安装包指错环境 | 先看 `phase / correlationId`，再查 SQL audit。 |
-| version blocked | UI banner + backend response headers | `BABY_TALK_API_VERSION` 低于 backend 最低支持版本 | 对齐 `BABY_TALK_API_VERSION` 与 `BABY_TALK_MIN_SUPPORTED_VERSION`。 |
-| 只有 practice 成功，garden/growth 没刷新 | 本地 inspect + integration proof | 事件落本地但投影未刷新，或 smoke 顺序错误 | 先确认 interaction event 已存在，再复跑 S06 full-chain proof。 |
-
----
-
-## 7. 外部 admin blocker checklist
-
-以下事项**不在当前代码仓库内自动完成**；若缺项，M001 只能算 Android-first 演示版，不算可正式发布版：
-
-- [ ] ICP / 备案路径明确，下载页或官网文案可合法上线
-- [ ] 短信模板已申请并通过审核，非 dev provider 的 challenge/verify 路径可切换
-- [ ] 企业认证 / 主体资质材料已准备，满足商店与短信服务要求
-- [ ] 隐私政策、用户协议、儿童/未成年人相关披露页已准备，并与账号/同步/求助行为一致
-- [ ] Android 下载地址、签名物料、上传 keystore 与轮换责任人明确
-- [ ] Android 包名、应用名、图标、版本号策略已冻结到可分发语义
-- [ ] iOS 签名、Bundle ID、TestFlight 路径与责任人明确（即便 M001 先走 Android-first，也要把路径写清）
-- [ ] 演示环境的 `BABY_TALK_UPGRADE_URL` 指向受控下载页，而不是模板占位地址
-- [ ] smoke 截图 / SQL 截图 / CLI 输出已做 redaction 审查
-
----
-
-## 8. 交付前最小检查清单
-
-### 必跑命令
+### 8.2 文档 / SQL 对齐检查
 
 ```bash
-flutter analyze mobile
-cd mobile && flutter test integration_test/s03_account_sync_restore_flow_test.dart
-cd mobile && flutter test integration_test/s06_full_chain_release_flow_test.dart
-mvn -q -f backend/pom.xml -Dtest=ApiVersionHandshakeWebTest,AuthConsentSyncWebTest,MentorWebTest test
-dart run tool/inspect_interaction_events.dart --help
-dart run tool/inspect_mentor_facts.dart --help
-cd mobile && flutter build apk --profile --dart-define=BABY_TALK_API_BASE_URL=https://demo.example.com --dart-define=BABY_TALK_API_VERSION=1.2.0
+rg -n "app_boot_test|mentor_shell_panel_test|s06_full_chain_release_flow_test|home-start-practice-|garden-continue-target-|blocked_fallback|mentor_delivery_rate_pct|retained_rate_d1_pct" \
+  tool/verify_s06.dart \
+  docs/runbooks/s06-demo-release.md \
+  docs/runbooks/s06-success-metrics.md \
+  backend/src/main/resources/sql/s06_success_queries.sql
 ```
 
-### 产物与文档
+通过标准：
 
-- [ ] `mobile/build/app/outputs/flutter-apk/app-profile.apk` 存在
-- [ ] `docs/runbooks/s06-success-metrics.md` 已同步最新 D1 / D7 / D30 解释口径
-- [ ] `backend/src/main/resources/sql/s06_success_queries.sql` 未引入仓库外的新表
-- [ ] 手工 smoke 至少跑过一次完整链路并记录结果
-
----
-
-## 9. 成功阈值入口
-
-最小 success metrics、解释口径与 SQL 见：
-
-- `docs/runbooks/s06-success-metrics.md`
-- `backend/src/main/resources/sql/s06_success_queries.sql`
-
-关键词：`D1` / `D7` / `D30`、activation、revisit、help usage、blocked_fallback、rate_limited。
+- root-safe wrapper 能找到 inspect 入口与 smoke/widget/integration 入口
+- runbook 明确指出 current continuity surface 与 Mentor failure surface
+- success metrics 与 SQL query pack 仍只依赖现有表
+- 不再引用旧 generic key、旧流程或新 analytics 假设

@@ -99,6 +99,10 @@ class PracticeContinuityViewModel extends ChangeNotifier {
   String? _warningMessage;
   String? _disabledReason;
   String? _lastRefreshReason;
+  bool _disposed = false;
+  Future<void>? _refreshFuture;
+  String? _queuedRefreshReason;
+  Timer? _refreshTimeoutTimer;
 
   PracticeRouteArgs? get starterArgs => _starterArgs;
   PracticeContinuitySnapshot? get snapshot => _snapshot;
@@ -123,7 +127,7 @@ class PracticeContinuityViewModel extends ChangeNotifier {
 
   Future<void> initialize({String reason = 'initial_load'}) {
     if (_status != PracticeContinuityLoadStatus.idle || _isRefreshing) {
-      return Future.value();
+      return _refreshFuture ?? Future.value();
     }
     return refresh(reason: reason);
   }
@@ -134,17 +138,36 @@ class PracticeContinuityViewModel extends ChangeNotifier {
   }) async {
     final normalized = _normalizeArgs(args);
     if (_sameArgs(_starterArgs, normalized)) {
-      return;
+      return _refreshFuture ?? Future.value();
     }
     _starterArgs = normalized;
+    if (_isRefreshing) {
+      _queuedRefreshReason = reason;
+      return _refreshFuture ?? Future.value();
+    }
     await refresh(reason: reason);
   }
 
-  Future<void> refresh({required String reason}) async {
+  Future<void> refresh({required String reason}) {
+    if (_disposed) {
+      return Future.value();
+    }
     if (_isRefreshing) {
-      return;
+      _queuedRefreshReason = reason;
+      return _refreshFuture ?? Future.value();
     }
 
+    final future = _refreshInternal(reason: reason);
+    _refreshFuture = future;
+    return future.whenComplete(() {
+      if (identical(_refreshFuture, future)) {
+        _refreshFuture = null;
+      }
+    });
+  }
+
+  Future<void> _refreshInternal({required String reason}) async {
+    final starterArgs = _starterArgs;
     _isRefreshing = true;
     _lastRefreshReason = reason;
     if (!hasResolvedRecommendation) {
@@ -153,10 +176,15 @@ class PracticeContinuityViewModel extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final nextSnapshot = await _continuitySnapshotLoader(
-        starterSpaceId: _starterArgs?.spaceId,
-        starterActivityId: _starterArgs?.activityId,
-      ).timeout(refreshTimeout);
+      final nextSnapshot = await _runWithTimeout(
+        _continuitySnapshotLoader(
+          starterSpaceId: starterArgs?.spaceId,
+          starterActivityId: starterArgs?.activityId,
+        ),
+      );
+      if (_disposed) {
+        return;
+      }
       final recommendedArgs = PracticeRouteArgs.maybeCreate(
         spaceId: nextSnapshot.recommendedActivity.spaceId,
         activityId: nextSnapshot.recommendedActivity.activityId,
@@ -166,10 +194,15 @@ class PracticeContinuityViewModel extends ChangeNotifier {
         return;
       }
 
-      final nextActivitySnapshot = await _activitySnapshotLoader(
-        spaceId: recommendedArgs.spaceId,
-        activityId: recommendedArgs.activityId,
-      ).timeout(refreshTimeout);
+      final nextActivitySnapshot = await _runWithTimeout(
+        _activitySnapshotLoader(
+          spaceId: recommendedArgs.spaceId,
+          activityId: recommendedArgs.activityId,
+        ),
+      );
+      if (_disposed) {
+        return;
+      }
 
       _snapshot = nextSnapshot;
       _activitySnapshot = nextActivitySnapshot;
@@ -178,6 +211,9 @@ class PracticeContinuityViewModel extends ChangeNotifier {
       _warningMessage = _cleanMessage(nextSnapshot.warningMessage);
       _disabledReason = null;
     } on TimeoutException {
+      if (_disposed) {
+        return;
+      }
       _status = PracticeContinuityLoadStatus.error;
       _warningMessage = _mergeMessages(
         _snapshot?.warningMessage,
@@ -185,6 +221,9 @@ class PracticeContinuityViewModel extends ChangeNotifier {
       );
       _disabledReason = 'continuity 刷新超时，请重新整理后再继续练习。';
     } catch (error) {
+      if (_disposed) {
+        return;
+      }
       _status = PracticeContinuityLoadStatus.error;
       _warningMessage = _mergeMessages(
         _snapshot?.warningMessage,
@@ -194,7 +233,70 @@ class PracticeContinuityViewModel extends ChangeNotifier {
     } finally {
       _isRefreshing = false;
       notifyListeners();
+      final queuedRefreshReason = _queuedRefreshReason;
+      _queuedRefreshReason = null;
+      if (!_disposed && queuedRefreshReason != null) {
+        unawaited(refresh(reason: queuedRefreshReason));
+      }
     }
+  }
+
+  Future<T> _runWithTimeout<T>(Future<T> future) {
+    if (refreshTimeout <= Duration.zero) {
+      return future;
+    }
+    final completer = Completer<T>();
+    final timer = Timer(refreshTimeout, () {
+      if (!completer.isCompleted) {
+        completer.completeError(
+          TimeoutException('continuity_refresh', refreshTimeout),
+        );
+      }
+    });
+    _refreshTimeoutTimer = timer;
+
+    future
+        .then(
+          (value) {
+            if (!completer.isCompleted) {
+              completer.complete(value);
+            }
+          },
+          onError: (Object error, StackTrace stackTrace) {
+            if (!completer.isCompleted) {
+              completer.completeError(error, stackTrace);
+            }
+          },
+        )
+        .whenComplete(() {
+          timer.cancel();
+          if (identical(_refreshTimeoutTimer, timer)) {
+            _refreshTimeoutTimer = null;
+          }
+        });
+
+    return completer.future.whenComplete(() {
+      timer.cancel();
+      if (identical(_refreshTimeoutTimer, timer)) {
+        _refreshTimeoutTimer = null;
+      }
+    });
+  }
+
+  @override
+  void notifyListeners() {
+    if (_disposed) {
+      return;
+    }
+    super.notifyListeners();
+  }
+
+  @override
+  void dispose() {
+    _disposed = true;
+    _refreshTimeoutTimer?.cancel();
+    _refreshTimeoutTimer = null;
+    super.dispose();
   }
 
   void _applyMalformedSnapshot(PracticeContinuitySnapshot snapshot) {

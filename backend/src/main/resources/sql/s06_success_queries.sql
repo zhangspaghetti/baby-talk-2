@@ -1,4 +1,4 @@
--- S06 success / diagnostics query pack
+-- S06 continuity / mentor / retention proof pack
 -- 仅复用现有表：interaction_events / consent_audit_logs / mentor_audit_logs / mentor_turns
 -- 口径说明见 docs/runbooks/s06-success-metrics.md
 
@@ -18,7 +18,32 @@ from first_practice
 order by first_practice_at desc;
 
 -- ============================================================
+-- 0b) Recent continuity diagnostics
+-- SQL 看最近一次 activity_id；UI 应映射到：
+--   home-start-practice-<activityId>
+--   garden-continue-target-<activityId>
+-- ============================================================
+with ranked_recent_activity as (
+    select installation_id,
+           activity_id,
+           client_timestamp,
+           row_number() over (
+               partition by installation_id
+               order by client_timestamp desc, activity_id asc
+           ) as row_number_in_installation
+    from interaction_events
+)
+select installation_id,
+       activity_id as recent_activity_id,
+       client_timestamp as recent_activity_at,
+       cast(client_timestamp as date) as recent_activity_day
+from ranked_recent_activity
+where row_number_in_installation = 1
+order by recent_activity_at desc;
+
+-- ============================================================
 -- 1) D1 / D7 / D30 retention（practice-first cohort）
+-- retained_rate_d1_pct / retained_rate_d7_pct / retained_rate_d30_pct
 -- ============================================================
 with first_practice as (
     select installation_id,
@@ -152,6 +177,7 @@ order by cohort_day desc;
 
 -- ============================================================
 -- 5) Mentor delivery rate：success + fallback 都算 delivered
+-- mentor_delivery_rate_pct 是主要聚合口径
 -- ============================================================
 with requested as (
     select correlation_id,
@@ -166,6 +192,7 @@ delivered as (
            installation_id,
            min(created_at) as delivered_at
     from mentor_turns
+    where result in ('success', 'fallback')
     group by correlation_id, installation_id
 )
 select cast(r.requested_at as date) as request_day,
@@ -181,6 +208,7 @@ order by request_day desc;
 
 -- ============================================================
 -- 6) Mentor failure / fallback breakdown
+-- timeout / malformed / rate limit / blocked_fallback 的高层审计入口
 -- ============================================================
 select cast(created_at as date) as audit_day,
        coalesce(failure_code, phase) as outcome,
@@ -194,6 +222,7 @@ order by audit_day desc, outcome;
 
 -- ============================================================
 -- 7) blocked_fallback 可见性
+-- 这里证明 blocked 请求最终仍形成可交付 fallback，而不是静默失败
 -- ============================================================
 select cast(created_at as date) as created_day,
        result,
@@ -206,7 +235,7 @@ group by cast(created_at as date), result, phase, blocked_fallback
 order by created_day desc;
 
 -- ============================================================
--- 8) 单 installation 诊断：practice + consent + mentor timeline
+-- 8) 单 installation 诊断：practice + consent + mentor audit + mentor turns timeline
 -- 将 :installation_id 替换成目标 installation
 -- ============================================================
 select 'interaction_events' as source,
@@ -238,6 +267,17 @@ select 'mentor_audit_logs' as source,
        phase as detail_b,
        coalesce(failure_code, '-') as detail_c
 from mentor_audit_logs
+where installation_id = :installation_id
+
+union all
+
+select 'mentor_turns' as source,
+       installation_id,
+       created_at as happened_at,
+       result as detail_a,
+       phase as detail_b,
+       case when blocked_fallback then 'blocked_fallback' else coalesce(correlation_id, '-') end as detail_c
+from mentor_turns
 where installation_id = :installation_id
 
 order by happened_at asc;

@@ -24,6 +24,7 @@ import 'package:mobile/features/practice/data/local/practice_local_data_source.d
 import 'package:mobile/features/practice/data/repositories/garden_growth_repository.dart';
 import 'package:mobile/features/practice/data/repositories/practice_repository.dart';
 import 'package:mobile/features/practice/data/services/asset_phrase_service.dart';
+import 'package:mobile/features/practice/domain/models/practice_continuity_snapshot.dart';
 import 'package:mobile/features/practice/presentation/garden_growth_view_model.dart';
 import 'package:mobile/features/practice/presentation/practice_continuity_view_model.dart';
 import 'package:mobile/features/practice/presentation/practice_route_args.dart';
@@ -153,6 +154,8 @@ class BabyTalkApp extends StatefulWidget {
     this.appDirectoryResolver,
     this.audioControllerFactory,
     this.completedSnapshotLoader,
+    this.practiceContinuityRefreshTimeout = const Duration(seconds: 4),
+    this.gardenGrowthRefreshTimeout = const Duration(seconds: 4),
   });
 
   final AppBootState bootState;
@@ -161,6 +164,8 @@ class BabyTalkApp extends StatefulWidget {
   final AppDirectoryResolver? appDirectoryResolver;
   final PracticeAudioControllerFactory? audioControllerFactory;
   final OnboardingCompletedSnapshotLoader? completedSnapshotLoader;
+  final Duration practiceContinuityRefreshTimeout;
+  final Duration gardenGrowthRefreshTimeout;
 
   @override
   State<BabyTalkApp> createState() => _BabyTalkAppState();
@@ -185,7 +190,11 @@ class _BabyTalkAppState extends State<BabyTalkApp> {
         oldWidget.accountRepositoryFactory != widget.accountRepositoryFactory ||
         oldWidget.appDirectoryResolver != widget.appDirectoryResolver ||
         oldWidget.audioControllerFactory != widget.audioControllerFactory ||
-        oldWidget.completedSnapshotLoader != widget.completedSnapshotLoader) {
+        oldWidget.completedSnapshotLoader != widget.completedSnapshotLoader ||
+        oldWidget.practiceContinuityRefreshTimeout !=
+            widget.practiceContinuityRefreshTimeout ||
+        oldWidget.gardenGrowthRefreshTimeout !=
+            widget.gardenGrowthRefreshTimeout) {
       _launchStateFuture = _loadLaunchState();
     }
   }
@@ -252,11 +261,11 @@ class _BabyTalkAppState extends State<BabyTalkApp> {
                 repository: practiceRepository,
                 initialStarterArgs: launchState.starterArgs,
                 seedState: launchState.continuitySeed,
-              )..initialize(reason: 'app_boot'),
+                refreshTimeout: widget.practiceContinuityRefreshTimeout,
+              ),
             ),
             ChangeNotifierProvider<AccountViewModel>(
-              create: (_) =>
-                  AccountViewModel(repository: accountRepository)..initialize(),
+              create: (_) => AccountViewModel(repository: accountRepository),
             ),
             ChangeNotifierProvider<MentorViewModel>(
               create: (context) => MentorViewModel(
@@ -267,7 +276,8 @@ class _BabyTalkAppState extends State<BabyTalkApp> {
             ChangeNotifierProvider<GardenGrowthViewModel>(
               create: (context) => GardenGrowthViewModel(
                 repository: context.read<GardenGrowthRepository>(),
-              )..initialize(),
+                refreshTimeout: widget.gardenGrowthRefreshTimeout,
+              ),
             ),
           ],
           child: MaterialApp(
