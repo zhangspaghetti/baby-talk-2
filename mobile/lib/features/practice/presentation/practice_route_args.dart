@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:mobile/app/router/app_router.dart';
 import 'package:mobile/features/practice/data/services/asset_phrase_service.dart';
 
-enum PracticeRouteEntrySource { inApp, shareReentry }
+enum PracticeRouteEntrySource { inApp, shareReentry, inviteReentry }
 
 class PracticeRouteArgs {
   const PracticeRouteArgs({
@@ -20,6 +20,7 @@ class PracticeRouteArgs {
   String get normalizedSpaceId => spaceId.trim();
   String get normalizedActivityId => activityId.trim();
   String? get normalizedShareToken => _trimToNull(shareToken);
+  String? get reentryToken => normalizedShareToken;
   String get scopeLabel => '$normalizedSpaceId/$normalizedActivityId';
 
   bool get isValid =>
