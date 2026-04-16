@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:mobile/features/account/data/local/account_local_store.dart';
 import 'package:mobile/features/account/data/services/account_api_service.dart';
+import 'package:mobile/features/account/data/services/account_external_link_opener.dart';
 import 'package:mobile/features/account/domain/models/account_consent_state.dart';
 import 'package:mobile/features/account/domain/models/account_session.dart';
 import 'package:mobile/features/practice/data/repositories/practice_repository.dart';
@@ -161,6 +162,7 @@ class AccountRepository {
         consentState: AccountConsentState.revoked,
         lastSyncPhase: 'consent_revoked_local',
         lastVisibleError: '同意已撤回；重新登录并再次同意后才能继续同步。',
+        clearUpgradeUrl: true,
         lastSyncAt: DateTime.now().toUtc(),
       );
       await _localStore.write(snapshot);
@@ -176,6 +178,7 @@ class AccountRepository {
         consentState: AccountConsentState.revoked,
         lastSyncPhase: 'consent_revoked',
         lastVisibleError: '同意已撤回；重新登录并再次同意后才能继续同步。',
+        clearUpgradeUrl: true,
         lastSyncAt: response.updatedAt,
       );
       await _localStore.write(snapshot);
@@ -204,6 +207,7 @@ class AccountRepository {
         clearChallenge: true,
         lastSyncPhase: 'account_deleted_local',
         lastVisibleError: '账号已删除；如需重新同步，请重新注册。',
+        clearUpgradeUrl: true,
         lastSyncAt: DateTime.now().toUtc(),
       );
       await _localStore.write(snapshot);
@@ -221,6 +225,7 @@ class AccountRepository {
         clearChallenge: true,
         lastSyncPhase: 'account_deleted',
         lastVisibleError: '账号已删除；如需重新同步，请重新注册。',
+        clearUpgradeUrl: true,
         lastSyncAt: response.updatedAt,
       );
       await _localStore.write(snapshot);
@@ -319,9 +324,17 @@ class AccountRepository {
 
     final isConnected = await (_connectivityChecker?.call() ?? Future.value(true));
     if (!isConnected) {
+      final preserveUpgradeState = _shouldPreserveUpgradeState(current);
       final snapshot = current.copyWith(
-        lastSyncPhase: '${trigger.wireValue}_offline',
-        lastVisibleError: '当前离线，已保留本地待同步事件，可稍后重试。',
+        lastSyncPhase: preserveUpgradeState
+            ? current.lastSyncPhase
+            : '${trigger.wireValue}_offline',
+        lastVisibleError: preserveUpgradeState
+            ? _visibleUpgradeMessage(
+                minimumSupportedVersion: null,
+                upgradeFailureKind: _validateUpgradeFailureKind(current.upgradeUrl),
+              )
+            : '当前离线，已保留本地待同步事件，可稍后重试。',
         lastSyncAt: DateTime.now().toUtc(),
       );
       await _localStore.write(snapshot);
@@ -345,6 +358,7 @@ class AccountRepository {
               ? 'bootstrap_empty'
               : 'bootstrap_imported',
           clearLastVisibleError: true,
+          clearUpgradeUrl: true,
           lastSyncAt: bootstrap.bootstrapAt,
         );
         await _localStore.write(workingSnapshot);
@@ -373,6 +387,7 @@ class AccountRepository {
         workingSnapshot.copyWith(
           lastSyncPhase: 'sync_idle_no_pending',
           clearLastVisibleError: true,
+          clearUpgradeUrl: true,
           lastSyncAt: DateTime.now().toUtc(),
         ),
         await _readSyncSummarySafely(),
@@ -402,6 +417,7 @@ class AccountRepository {
               ? 'batch_ack_duplicate_applied'
               : 'batch_ack_applied',
           clearLastVisibleError: true,
+          clearUpgradeUrl: true,
           lastSyncAt: response.syncedAt,
         ),
         await _readSyncSummarySafely(),
@@ -441,6 +457,7 @@ class AccountRepository {
           clearSession: !preserveSession,
           lastSyncPhase: '${phasePrefix}_session_expired',
           lastVisibleError: '登录已过期，请重新登录后再试。',
+          clearUpgradeUrl: true,
           lastSyncAt: DateTime.now().toUtc(),
         ),
         syncSummary,
@@ -452,6 +469,7 @@ class AccountRepository {
           consentState: AccountConsentState.revoked,
           lastSyncPhase: '${phasePrefix}_consent_revoked',
           lastVisibleError: '同意已撤回；重新登录并再次同意后才能继续同步。',
+          clearUpgradeUrl: true,
           lastSyncAt: DateTime.now().toUtc(),
         ),
         syncSummary,
@@ -465,20 +483,24 @@ class AccountRepository {
           clearChallenge: true,
           lastSyncPhase: '${phasePrefix}_account_deleted',
           lastVisibleError: '账号已删除；如需重新同步，请重新注册。',
+          clearUpgradeUrl: true,
           lastSyncAt: DateTime.now().toUtc(),
         ),
         syncSummary,
       );
     }
     if (error.isVersionBlocked) {
-      final minVersion = error.minimumSupportedVersion;
-      final upgradeHint = minVersion == null || minVersion.trim().isEmpty
-          ? '当前版本过旧，请升级后再同步。'
-          : '当前版本过旧，最低需要 $minVersion。';
+      final validation = validateAccountUpgradeUrl(error.upgradeUrl);
+      final upgradeFailureKind = validation.failureKind;
       return _mergeSyncSummary(
         currentSnapshot.copyWith(
           lastSyncPhase: '${phasePrefix}_upgrade_required_426',
-          lastVisibleError: upgradeHint,
+          lastVisibleError: _visibleUpgradeMessage(
+            minimumSupportedVersion: error.minimumSupportedVersion,
+            upgradeFailureKind: upgradeFailureKind,
+          ),
+          upgradeUrl: validation.normalizedUrl,
+          clearUpgradeUrl: !validation.isValid,
           lastSyncAt: DateTime.now().toUtc(),
         ),
         syncSummary,
@@ -488,6 +510,7 @@ class AccountRepository {
       currentSnapshot.copyWith(
         lastSyncPhase: '${phasePrefix}_${_phaseSuffixForError(error)}',
         lastVisibleError: _visibleMessageForError(error),
+        clearUpgradeUrl: true,
         lastSyncAt: DateTime.now().toUtc(),
       ),
       syncSummary,
@@ -522,6 +545,8 @@ class AccountRepository {
     } else if (snapshot.consentState == AccountConsentState.revoked) {
       phase = snapshot.lastSyncPhase;
     } else if (snapshot.consentState == AccountConsentState.deleted) {
+      phase = snapshot.lastSyncPhase;
+    } else if (_shouldPreserveUpgradeState(snapshot)) {
       phase = snapshot.lastSyncPhase;
     } else if (syncSummary.pendingCount > 0) {
       phase = syncSummary.lastSyncPhase ?? snapshot.lastSyncPhase;
@@ -596,6 +621,29 @@ class AccountRepository {
     return 'request_failed';
   }
 
+  bool _shouldPreserveUpgradeState(AccountLocalSnapshot snapshot) {
+    return snapshot.isUpgradeRequired;
+  }
+
+  AccountExternalLinkFailureKind? _validateUpgradeFailureKind(String? upgradeUrl) {
+    final validation = validateAccountUpgradeUrl(upgradeUrl);
+    return validation.failureKind;
+  }
+
+  String _visibleUpgradeMessage({
+    required String? minimumSupportedVersion,
+    required AccountExternalLinkFailureKind? upgradeFailureKind,
+  }) {
+    final versionHint =
+        minimumSupportedVersion == null || minimumSupportedVersion.trim().isEmpty
+        ? '当前版本过旧，请升级后再同步。'
+        : '当前版本过旧，最低需要 $minimumSupportedVersion。';
+    if (upgradeFailureKind == null) {
+      return versionHint;
+    }
+    return '$versionHint ${messageForAccountUpgradeUrlFailure(upgradeFailureKind)}';
+  }
+
   String _visibleMessageForError(AccountApiException error) {
     if (error.kind == AccountApiFailureKind.timeout) {
       return '同步超时，已保留本地待同步事件，可稍后重试。';
@@ -604,10 +652,10 @@ class AccountRepository {
       return '当前离线，已保留本地待同步事件，可稍后重试。';
     }
     if (error.isVersionBlocked) {
-      final minVersion = error.minimumSupportedVersion;
-      return minVersion == null || minVersion.trim().isEmpty
-          ? '当前版本过旧，请升级后再同步。'
-          : '当前版本过旧，最低需要 $minVersion。';
+      return _visibleUpgradeMessage(
+        minimumSupportedVersion: error.minimumSupportedVersion,
+        upgradeFailureKind: validateAccountUpgradeUrl(error.upgradeUrl).failureKind,
+      );
     }
     if (error.isUnauthorized) {
       return '登录已过期，请重新登录后再试。';

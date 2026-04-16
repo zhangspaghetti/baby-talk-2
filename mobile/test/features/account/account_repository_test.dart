@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:ffi' show Abi;
 import 'dart:io';
 
@@ -72,6 +73,7 @@ void main() {
       expect(snapshot.failedCount, 0);
       expect(snapshot.lastSyncPhase, 'batch_ack_applied');
       expect(snapshot.lastVisibleError, isNull);
+      expect(snapshot.upgradeUrl, isNull);
       expect(harness.api.syncedBatches, hasLength(1));
       expect(harness.api.syncedBatches.single, hasLength(1));
       expect(
@@ -123,6 +125,7 @@ void main() {
       expect(snapshot.failedCount, 0);
       expect(snapshot.lastSyncPhase, 'manual_retry_offline');
       expect(snapshot.lastVisibleError, contains('当前离线'));
+      expect(snapshot.upgradeUrl, isNull);
       expect(
         await harness.practiceRepository.listPendingUploadRecords(),
         hasLength(1),
@@ -130,7 +133,7 @@ void main() {
       expect(harness.api.syncedBatches, isEmpty);
     });
 
-    test('426 会转成升级提示且不清空本地 pending', () async {
+    test('426 会保留 upgradeUrl 并落盘到 snapshot', () async {
       await harness.practiceRepository.recordReaction(
         spaceId: 'daily_care',
         activityId: 'bath_time',
@@ -141,6 +144,8 @@ void main() {
       );
       await harness.seedSignedInSnapshot();
       harness.api.throwVersionBlockedOnBootstrap = true;
+      harness.api.versionBlockedUpgradeUrl =
+          'https://download.example.com/upgrade?channel=stable&source=version_gate';
       final repository = harness.buildRepository();
 
       final snapshot = await repository.refreshRuntimeState(
@@ -150,11 +155,96 @@ void main() {
       expect(snapshot.pendingSyncCount, 1);
       expect(snapshot.lastSyncPhase, 'bootstrap_failed_upgrade_required_426');
       expect(snapshot.lastVisibleError, contains('最低需要 9.9.9'));
+      expect(snapshot.upgradeUrl, harness.api.versionBlockedUpgradeUrl);
       expect(
         await harness.practiceRepository.listPendingUploadRecords(),
         hasLength(1),
       );
       expect(harness.api.syncedBatches, isEmpty);
+
+      final persisted = await harness.accountLocalStore.read();
+      expect(persisted.upgradeUrl, harness.api.versionBlockedUpgradeUrl);
+      expect(persisted.isUpgradeRequired, isTrue);
+    });
+
+    test('426 缺失 upgradeUrl 时保持 version-blocked 并给出显式说明', () async {
+      await harness.practiceRepository.recordReaction(
+        spaceId: 'daily_care',
+        activityId: 'bath_time',
+        phraseId: 'bath_time_all_clean',
+        reactionType: BabyReactionType.calm,
+        clientTimestamp: DateTime.utc(2026, 4, 9, 4, 30),
+        localEventId: 'evt_upgrade_missing_url',
+      );
+      await harness.seedSignedInSnapshot();
+      harness.api.throwVersionBlockedOnBootstrap = true;
+      harness.api.versionBlockedUpgradeUrl = null;
+      final repository = harness.buildRepository();
+
+      final snapshot = await repository.refreshRuntimeState(
+        trigger: AccountRuntimeTrigger.manualRetry,
+      );
+
+      expect(snapshot.lastSyncPhase, 'bootstrap_failed_upgrade_required_426');
+      expect(snapshot.upgradeUrl, isNull);
+      expect(snapshot.isUpgradeRequired, isTrue);
+      expect(snapshot.lastVisibleError, contains('升级入口暂未配置'));
+    });
+
+    test('426 非法 scheme 不会保留 upgradeUrl，并提示配置错误', () async {
+      await harness.practiceRepository.recordReaction(
+        spaceId: 'daily_care',
+        activityId: 'bath_time',
+        phraseId: 'bath_time_all_clean',
+        reactionType: BabyReactionType.calm,
+        clientTimestamp: DateTime.utc(2026, 4, 9, 4, 45),
+        localEventId: 'evt_upgrade_bad_url',
+      );
+      await harness.seedSignedInSnapshot();
+      harness.api.throwVersionBlockedOnBootstrap = true;
+      harness.api.versionBlockedUpgradeUrl = 'javascript:alert(1)';
+      final repository = harness.buildRepository();
+
+      final snapshot = await repository.refreshRuntimeState(
+        trigger: AccountRuntimeTrigger.manualRetry,
+      );
+
+      expect(snapshot.lastSyncPhase, 'bootstrap_failed_upgrade_required_426');
+      expect(snapshot.upgradeUrl, isNull);
+      expect(snapshot.isUpgradeRequired, isTrue);
+      expect(snapshot.lastVisibleError, contains('升级链接配置错误'));
+    });
+
+    test('旧版 snapshot 缺失 upgradeUrl 字段时仍可兼容读取', () async {
+      final repository = harness.buildRepository();
+      await harness.writeRawSnapshot(<String, Object?>{
+        'consentState': 'accepted_pending_sync',
+        'session': <String, Object?>{
+          'accountId': 'acct_legacy',
+          'sessionId': 'sess_legacy',
+          'maskedPhoneNumber': '138****8000',
+          'createdAt': DateTime.utc(2026, 4, 9, 2).toIso8601String(),
+        },
+        'challenge': <String, Object?>{
+          'maskedPhoneNumber': '138****8000',
+          'codeLength': 6,
+          'issuedAt': DateTime.utc(2026, 4, 9, 2).toIso8601String(),
+        },
+        'pendingSyncCount': 1,
+        'syncedCount': 5,
+        'failedCount': 0,
+        'lastSyncPhase': 'bootstrap_imported',
+        'lastVisibleError': null,
+        'lastSyncAt': DateTime.utc(2026, 4, 9, 2, 3).toIso8601String(),
+      });
+
+      final snapshot = await repository.loadSnapshot();
+
+      expect(snapshot.consentState, AccountConsentState.acceptedPendingSync);
+      expect(snapshot.session?.sessionId, 'sess_legacy');
+      expect(snapshot.lastSyncPhase, 'bootstrap_imported');
+      expect(snapshot.upgradeUrl, isNull);
+      expect(snapshot.isUpgradeRequired, isFalse);
     });
   });
 }
@@ -246,6 +336,13 @@ class _AccountRepositoryHarness {
     return snapshot;
   }
 
+  Future<void> writeRawSnapshot(Map<String, Object?> json) async {
+    final file = File(
+      '${tempDir.path}${Platform.pathSeparator}${accountLocalStore.fileName}',
+    );
+    await file.writeAsString(jsonEncode(json), flush: true);
+  }
+
   Future<void> dispose() async {
     await practiceRepository.close();
     if (await tempDir.exists()) {
@@ -261,6 +358,8 @@ class _FakeAccountApiService extends AccountApiService {
   final List<List<InteractionEventUploadRecord>> syncedBatches = [];
   List<InteractionEventPayload> bootstrapEvents = [];
   bool throwVersionBlockedOnBootstrap = false;
+  String? versionBlockedUpgradeUrl;
+  String versionBlockedMinimumSupportedVersion = '9.9.9';
 
   @override
   Future<AccountChallengeResponse> createChallenge({
@@ -315,12 +414,13 @@ class _FakeAccountApiService extends AccountApiService {
     expect(sessionId, isNotEmpty);
     expect(installationId, this.installationId);
     if (throwVersionBlockedOnBootstrap) {
-      throw const AccountApiException(
+      throw AccountApiException(
         kind: AccountApiFailureKind.http,
         message: 'version blocked',
         statusCode: 426,
         code: 'app_version_required',
-        minimumSupportedVersion: '9.9.9',
+        minimumSupportedVersion: versionBlockedMinimumSupportedVersion,
+        upgradeUrl: versionBlockedUpgradeUrl,
       );
     }
     return BootstrapResponse(

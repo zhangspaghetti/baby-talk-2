@@ -61,8 +61,9 @@ class AccountLocalSnapshot {
     this.failedCount = 0,
     this.lastSyncPhase = 'idle',
     this.lastVisibleError,
+    String? upgradeUrl,
     this.lastSyncAt,
-  }) {
+  }) : upgradeUrl = _normalizeOptionalString(upgradeUrl) {
     if (pendingSyncCount < 0) {
       throw const FormatException('pendingSyncCount 不能小于 0。');
     }
@@ -85,9 +86,13 @@ class AccountLocalSnapshot {
   final int failedCount;
   final String lastSyncPhase;
   final String? lastVisibleError;
+  final String? upgradeUrl;
   final DateTime? lastSyncAt;
 
   bool get isSignedIn => session != null;
+
+  bool get isUpgradeRequired =>
+      lastSyncPhase.contains('426') || upgradeUrl != null;
 
   static final AccountLocalSnapshot localOnly = AccountLocalSnapshot(
     consentState: AccountConsentState.localOnly,
@@ -109,6 +114,8 @@ class AccountLocalSnapshot {
     String? lastSyncPhase,
     String? lastVisibleError,
     bool clearLastVisibleError = false,
+    String? upgradeUrl,
+    bool clearUpgradeUrl = false,
     DateTime? lastSyncAt,
     bool clearLastSyncAt = false,
   }) {
@@ -123,6 +130,7 @@ class AccountLocalSnapshot {
       lastVisibleError: clearLastVisibleError
           ? null
           : (lastVisibleError ?? this.lastVisibleError),
+      upgradeUrl: clearUpgradeUrl ? null : (upgradeUrl ?? this.upgradeUrl),
       lastSyncAt: clearLastSyncAt ? null : (lastSyncAt ?? this.lastSyncAt),
     );
   }
@@ -137,6 +145,7 @@ class AccountLocalSnapshot {
       'failedCount': failedCount,
       'lastSyncPhase': lastSyncPhase,
       'lastVisibleError': lastVisibleError,
+      'upgradeUrl': upgradeUrl,
       'lastSyncAt': lastSyncAt?.toIso8601String(),
     };
   }
@@ -170,6 +179,7 @@ class AccountLocalSnapshot {
       failedCount: _readOptionalInt(json, 'failedCount') ?? 0,
       lastSyncPhase: _readOptionalString(json, 'lastSyncPhase') ?? 'idle',
       lastVisibleError: _readOptionalString(json, 'lastVisibleError'),
+      upgradeUrl: _readOptionalString(json, 'upgradeUrl'),
       lastSyncAt: _readOptionalDateTime(json, 'lastSyncAt'),
     );
   }
@@ -252,6 +262,17 @@ String? _readOptionalString(Map<String, dynamic> json, String key) {
     throw FormatException('字段 `$key` 不是字符串。');
   }
   return value;
+}
+
+String? _normalizeOptionalString(String? value) {
+  if (value == null) {
+    return null;
+  }
+  final normalized = value.trim();
+  if (normalized.isEmpty) {
+    return null;
+  }
+  return normalized;
 }
 
 int _readRequiredInt(Map<String, dynamic> json, String key) {

@@ -3,16 +3,21 @@ import 'dart:async';
 import 'package:flutter/widgets.dart';
 import 'package:mobile/features/account/data/local/account_local_store.dart';
 import 'package:mobile/features/account/data/repositories/account_repository.dart';
+import 'package:mobile/features/account/data/services/account_external_link_opener.dart';
 import 'package:mobile/features/account/domain/models/account_consent_state.dart';
 
 const _localOnlyPhoneHint = '先离线练习也没关系，登录后会把 append-only 事件补传到后端。';
 const _signedOutPhoneHint = '请输入手机号与验证码，完成登录并同意后再同步。';
 
 class AccountViewModel extends ChangeNotifier with WidgetsBindingObserver {
-  AccountViewModel({required AccountRepository repository})
-    : _repository = repository;
+  AccountViewModel({
+    required AccountRepository repository,
+    AccountExternalLinkOpener? linkOpener,
+  }) : _repository = repository,
+       _linkOpener = linkOpener ?? const UrlLauncherAccountExternalLinkOpener();
 
   final AccountRepository _repository;
+  final AccountExternalLinkOpener _linkOpener;
 
   bool _isLoading = false;
   bool _hasLoaded = false;
@@ -65,7 +70,32 @@ class AccountViewModel extends ChangeNotifier with WidgetsBindingObserver {
 
   bool get isDeleted => _snapshot.consentState == AccountConsentState.deleted;
 
-  bool get isVersionBlocked => _snapshot.lastSyncPhase.contains('426');
+  bool get isVersionBlocked => _snapshot.isUpgradeRequired;
+
+  String? get upgradeUrl => _snapshot.upgradeUrl;
+
+  bool get showUpgradeAction => isVersionBlocked;
+
+  bool get canOpenUpgradePage {
+    if (!showUpgradeAction || _isBusy) {
+      return false;
+    }
+    return validateAccountUpgradeUrl(_snapshot.upgradeUrl).isValid;
+  }
+
+  String get upgradeActionLabel =>
+      canOpenUpgradePage ? '立即升级' : '升级入口暂不可用';
+
+  String? get upgradeActionHint {
+    if (!showUpgradeAction) {
+      return null;
+    }
+    final failureKind = validateAccountUpgradeUrl(_snapshot.upgradeUrl).failureKind;
+    if (failureKind != null) {
+      return messageForAccountUpgradeUrlFailure(failureKind);
+    }
+    return '升级完成后返回这里，再点一次“重试同步”即可恢复。';
+  }
 
   String get maskedPhoneNumber =>
       _snapshot.session?.maskedPhoneNumber ??
@@ -78,6 +108,13 @@ class AccountViewModel extends ChangeNotifier with WidgetsBindingObserver {
     }
     if (isRevoked) {
       return '同意已撤回；重新登录并再次同意后才能继续同步。';
+    }
+    if (isVersionBlocked) {
+      final upgradeHint = upgradeActionHint;
+      if (upgradeHint == null) {
+        return '当前版本已被服务端拦截，请升级后再返回重试同步。';
+      }
+      return '当前版本已被服务端拦截。$upgradeHint';
     }
     if (isSignedIn && hasPendingSync) {
       return '当前仍有待同步事件；可以继续练习，前台会在合适时机自动重试。';
@@ -283,6 +320,43 @@ class AccountViewModel extends ChangeNotifier with WidgetsBindingObserver {
         return;
       }
       _submissionMessage = '刷新同步状态失败：$error';
+    } finally {
+      _isBusy = false;
+      notifyListeners();
+    }
+  }
+
+  Future<bool> openUpgradePage() async {
+    if (!showUpgradeAction) {
+      return false;
+    }
+    if (_isBusy) {
+      return false;
+    }
+
+    final validation = validateAccountUpgradeUrl(_snapshot.upgradeUrl);
+    if (!validation.isValid) {
+      _submissionMessage = messageForAccountUpgradeUrlFailure(
+        validation.failureKind ?? AccountExternalLinkFailureKind.launchFailed,
+      );
+      notifyListeners();
+      return false;
+    }
+
+    _isBusy = true;
+    _submissionMessage = '正在打开升级页面…';
+    notifyListeners();
+
+    try {
+      await _linkOpener.openUpgradeUrl(validation.normalizedUrl!);
+      _submissionMessage = '已打开升级页面；升级完成后请返回再试。';
+      return true;
+    } on AccountExternalLinkException catch (error) {
+      _submissionMessage = error.message;
+      return false;
+    } catch (error) {
+      _submissionMessage = '打开升级页面失败：$error';
+      return false;
     } finally {
       _isBusy = false;
       notifyListeners();

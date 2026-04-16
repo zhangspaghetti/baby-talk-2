@@ -95,6 +95,17 @@ class AccountStatusCard extends StatelessWidget {
               style: theme.textTheme.bodySmall,
             ),
           ],
+          if (phase == AccountSurfacePhase.versionBlocked &&
+              viewModel.upgradeActionHint != null) ...[
+            const SizedBox(height: 12),
+            Text(
+              viewModel.upgradeActionHint!,
+              key: Key('$scopeKeyPrefix-account-upgrade-hint'),
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: AppTheme.textSecondary,
+              ),
+            ),
+          ],
           const SizedBox(height: 14),
           Wrap(
             spacing: 12,
@@ -109,6 +120,14 @@ class AccountStatusCard extends StatelessWidget {
                   viewModel.isSignedIn ? '查看账号状态' : '注册 / 登录',
                 ),
               ),
+              if (phase == AccountSurfacePhase.versionBlocked)
+                FilledButton(
+                  key: Key('$scopeKeyPrefix-account-upgrade-button'),
+                  onPressed: viewModel.canOpenUpgradePage
+                      ? viewModel.openUpgradePage
+                      : null,
+                  child: Text(viewModel.upgradeActionLabel),
+                ),
               if (phase == AccountSurfacePhase.error)
                 OutlinedButton(
                   key: Key('$scopeKeyPrefix-account-retry-load'),
@@ -216,7 +235,9 @@ class AccountStatusCard extends StatelessWidget {
       case AccountSurfacePhase.deleted:
         return '删除后远端账号不可恢复；本机仍可继续 guest/local-only 使用。';
       case AccountSurfacePhase.versionBlocked:
-        return '服务端已拒绝当前版本；升级后才能继续 bootstrap / sync。';
+        return viewModel.canOpenUpgradePage
+            ? '服务端已拒绝当前版本；请先打开升级页面安装新版本，再返回重试同步。'
+            : '服务端已拒绝当前版本；当前会保留升级受阻提示，但升级入口暂不可用。';
       case AccountSurfacePhase.error:
         return viewModel.loadErrorMessage ??
             '账号状态读取失败，但 onboarding / practice 路由不会因此崩溃。';
@@ -451,6 +472,17 @@ class _AccountEntryScreenState extends State<AccountEntryScreen> {
                           style: theme.textTheme.bodySmall,
                         ),
                       ],
+                      if (phase == AccountSurfacePhase.versionBlocked &&
+                          viewModel.upgradeActionHint != null) ...[
+                        const SizedBox(height: 12),
+                        Text(
+                          viewModel.upgradeActionHint!,
+                          key: const Key('account-upgrade-hint'),
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: AppTheme.textSecondary,
+                          ),
+                        ),
+                      ],
                       const SizedBox(height: 20),
                       Wrap(
                         spacing: 12,
@@ -477,6 +509,16 @@ class _AccountEntryScreenState extends State<AccountEntryScreen> {
                               viewModel.isBusy ? '处理中…' : '登录并同意',
                             ),
                           ),
+                          if (phase == AccountSurfacePhase.versionBlocked)
+                            FilledButton(
+                              key: const Key('account-upgrade-button'),
+                              onPressed: viewModel.canOpenUpgradePage
+                                  ? () => context
+                                        .read<AccountViewModel>()
+                                        .openUpgradePage()
+                                  : null,
+                              child: Text(viewModel.upgradeActionLabel),
+                            ),
                           OutlinedButton(
                             key: const Key('account-sync-retry-button'),
                             onPressed: viewModel.isBusy
