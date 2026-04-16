@@ -30,6 +30,10 @@ import 'package:mobile/features/practice/presentation/practice_continuity_view_m
 import 'package:mobile/features/practice/presentation/practice_route_args.dart';
 import 'package:mobile/features/practice/presentation/practice_session_view_model.dart';
 import 'package:mobile/features/practice/presentation/screens/practice_session_screen.dart';
+import 'package:mobile/features/share/data/repositories/share_repository.dart';
+import 'package:mobile/features/share/data/services/share_api_service.dart';
+import 'package:mobile/features/share/data/services/share_sheet_launcher.dart';
+import 'package:mobile/features/share/presentation/share_view_model.dart';
 import 'package:mobile/features/shell/presentation/app_shell_screen.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
@@ -278,6 +282,38 @@ class _BabyTalkAppState extends State<BabyTalkApp> {
                 repository: context.read<GardenGrowthRepository>(),
                 refreshTimeout: widget.gardenGrowthRefreshTimeout,
               ),
+            ),
+            Provider<ShareApiService>(
+              create: (_) => ShareApiService(),
+              dispose: (_, service) => service.close(),
+            ),
+            Provider<ShareRepository>(
+              create: (context) => ShareRepository(
+                apiService: context.read<ShareApiService>(),
+                shareSheetLauncher: const SharePlusSheetLauncher(),
+              ),
+            ),
+            ChangeNotifierProxyProvider2<
+              GardenGrowthViewModel,
+              PracticeContinuityViewModel,
+              ShareViewModel
+            >(
+              create: (context) => ShareViewModel(
+                repository: context.read<ShareRepository>(),
+              ),
+              update: (context, gardenGrowthViewModel, continuityViewModel, shareViewModel) {
+                final nextViewModel =
+                    shareViewModel ??
+                    ShareViewModel(repository: context.read<ShareRepository>());
+                nextViewModel.updateSnapshots(
+                  growthSnapshot: gardenGrowthViewModel.snapshot,
+                  continuitySnapshot: continuityViewModel.hasResolvedRecommendation
+                      ? continuityViewModel.snapshot
+                      : null,
+                  notify: false,
+                );
+                return nextViewModel;
+              },
             ),
           ],
           child: MaterialApp(

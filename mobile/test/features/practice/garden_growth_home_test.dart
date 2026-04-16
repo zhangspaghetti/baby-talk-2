@@ -20,6 +20,11 @@ import 'package:mobile/features/practice/presentation/practice_continuity_view_m
 import 'package:mobile/features/practice/presentation/practice_route_args.dart';
 import 'package:mobile/features/practice/presentation/practice_session_view_model.dart';
 import 'package:mobile/features/practice/presentation/screens/home_screen.dart';
+import 'package:mobile/features/share/data/repositories/share_repository.dart';
+import 'package:mobile/features/share/data/services/share_api_service.dart';
+import 'package:mobile/features/share/data/services/share_sheet_launcher.dart';
+import 'package:mobile/features/share/domain/models/share_link_draft.dart';
+import 'package:mobile/features/share/presentation/share_view_model.dart';
 import 'package:provider/provider.dart';
 
 void main() {
@@ -275,6 +280,124 @@ void main() {
       ).onPressed,
       isNull,
     );
+    expect(find.byKey(const Key('home-share-card')), findsNothing);
+  });
+
+  testWidgets('首页分享 CTA 会显示 disabled 状态，并在失败时保留可见错误', (tester) async {
+    final disabledHarness = (await tester.runAsync<_Harness>(_Harness.create))!;
+    addTearDown(disabledHarness.dispose);
+
+    await tester.runAsync(() async {
+      await Future.wait([
+        disabledHarness.accountViewModel.initialize(),
+        disabledHarness.practiceSessionViewModel.initialize(),
+        disabledHarness.gardenGrowthViewModel.initialize(),
+      ]);
+    });
+
+    final disabledRepository = ShareRepository(
+      apiService: _FakeShareApiService(),
+      shareSheetLauncher: _StaticShareSheetLauncher(),
+      platformHintResolver: () => 'android',
+    );
+
+    await tester.pumpWidget(
+      disabledHarness.buildApp(
+        includeContinuityProvider: false,
+        includeShareProvider: true,
+        shareRepository: disabledRepository,
+      ),
+    );
+    await _pumpUntilHomeLoaded(tester);
+    await _scrollHomeUntilVisible(
+      tester,
+      find.byKey(const Key('home-share-card')),
+    );
+
+    expect(find.byKey(const Key('home-share-card')), findsOneWidget);
+    expect(find.byKey(const Key('home-share-state-disabled')), findsOneWidget);
+    expect(
+      tester.widget<ElevatedButton>(
+        find.byKey(const Key('home-share-button')),
+      ).onPressed,
+      isNull,
+    );
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump();
+
+    final failingHarness = (await tester.runAsync<_Harness>(_Harness.create))!;
+    addTearDown(failingHarness.dispose);
+
+    await tester.runAsync(() async {
+      await failingHarness.practiceRepository.recordReaction(
+        spaceId: 'daily_care',
+        activityId: 'bath_time',
+        phraseId: 'bath_time_warm_water',
+        reactionType: BabyReactionType.engaged,
+        clientTimestamp: DateTime.utc(2026, 4, 9, 9, 5),
+        localEventId: 'evt_home_share_1',
+      );
+      await failingHarness.practiceRepository.importServerEvents([
+        InteractionEventPayload.fromWire(
+          eventKey: 'install_garden_home_test:evt_unknown_share',
+          localEventId: 'evt_unknown_share',
+          installationId: 'install_garden_home_test',
+          spaceId: 'daily_care',
+          activityId: 'bath_time',
+          phraseId: 'bath_time_unknown',
+          reactionType: 'calm',
+          clientTimestamp: DateTime.utc(2026, 4, 9, 9, 6),
+        ),
+      ]);
+      await Future.wait([
+        failingHarness.accountViewModel.initialize(),
+        failingHarness.practiceSessionViewModel.initialize(),
+        failingHarness.gardenGrowthViewModel.refresh(),
+      ]);
+    });
+
+    final pendingLauncher = _PendingShareSheetLauncher();
+    final failingRepository = ShareRepository(
+      apiService: _FakeShareApiService(),
+      shareSheetLauncher: pendingLauncher,
+      platformHintResolver: () => 'android',
+    );
+
+    await tester.pumpWidget(
+      failingHarness.buildApp(
+        includeShareProvider: true,
+        shareRepository: failingRepository,
+      ),
+    );
+    await _pumpUntilHomeLoaded(tester);
+    await _scrollHomeUntilVisible(
+      tester,
+      find.byKey(const Key('home-share-card')),
+    );
+
+    expect(find.byKey(const Key('home-share-cta-visible')), findsOneWidget);
+    expect(find.byKey(const Key('home-share-state-ready')), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('home-share-card')),
+        matching: find.textContaining('未知内容事件'),
+      ),
+      findsNothing,
+    );
+
+    await tester.tap(find.byKey(const Key('home-share-button')));
+    await tester.pump();
+    expect(find.byKey(const Key('home-share-state-loading')), findsOneWidget);
+
+    pendingLauncher.complete(
+      const ShareSheetLaunchResult(status: ShareSheetLaunchStatus.unavailable),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 10));
+
+    expect(find.byKey(const Key('home-share-state-error')), findsOneWidget);
+    expect(find.textContaining('无法打开分享面板'), findsOneWidget);
   });
 }
 
@@ -374,6 +497,8 @@ class _Harness {
   Widget buildApp({
     PracticeRouteArgs? practiceArgs,
     bool includeContinuityProvider = true,
+    bool includeShareProvider = false,
+    ShareRepository? shareRepository,
   }) {
     final resolvedPracticeArgs =
         practiceArgs ??
@@ -400,6 +525,32 @@ class _Harness {
         ChangeNotifierProvider<GardenGrowthViewModel>.value(
           value: gardenGrowthViewModel,
         ),
+        if (includeShareProvider && shareRepository != null)
+          Provider<ShareRepository>.value(value: shareRepository),
+        if (includeShareProvider && shareRepository != null)
+          ChangeNotifierProxyProvider2<
+            GardenGrowthViewModel,
+            PracticeContinuityViewModel?,
+            ShareViewModel
+          >(
+            create: (context) => ShareViewModel(
+              repository: context.read<ShareRepository>(),
+            ),
+            update: (context, growthViewModel, continuityViewModel, shareViewModel) {
+              final nextViewModel =
+                  shareViewModel ??
+                  ShareViewModel(repository: context.read<ShareRepository>());
+              nextViewModel.updateSnapshots(
+                growthSnapshot: growthViewModel.snapshot,
+                continuitySnapshot:
+                    continuityViewModel?.hasResolvedRecommendation == true
+                    ? continuityViewModel?.snapshot
+                    : null,
+                notify: false,
+              );
+              return nextViewModel;
+            },
+          ),
       ],
       child: MaterialApp(theme: AppTheme.build(), home: const HomeScreen()),
     );
@@ -489,6 +640,62 @@ class _SilentPracticeAudioController implements PracticeAudioController {
 
   @override
   Future<void> stop() async {}
+}
+
+class _FakeShareApiService extends ShareApiService {
+  _FakeShareApiService({this.error})
+    : super(baseUri: Uri.parse('http://localhost:8080'));
+
+  final ShareApiException? error;
+
+  @override
+  Future<ShareCreateLinkResponse> createShareLink({
+    required ShareLinkDraft draft,
+    String? platformHint,
+  }) async {
+    if (error != null) {
+      throw error!;
+    }
+    return ShareCreateLinkResponse(
+      token: 'share_token',
+      shareUrl: 'https://share.example.com/share/share_token',
+      expiresAt: DateTime.utc(2026, 4, 16, 12),
+    );
+  }
+
+  @override
+  Future<void> close() async {}
+}
+
+class _PendingShareSheetLauncher implements ShareSheetLauncher {
+  final Completer<ShareSheetLaunchResult> _completer =
+      Completer<ShareSheetLaunchResult>();
+
+  @override
+  Future<ShareSheetLaunchResult> shareText(String text, {String? subject}) {
+    return _completer.future;
+  }
+
+  void complete(ShareSheetLaunchResult result) {
+    if (!_completer.isCompleted) {
+      _completer.complete(result);
+    }
+  }
+}
+
+class _StaticShareSheetLauncher implements ShareSheetLauncher {
+  _StaticShareSheetLauncher({
+    this.result = const ShareSheetLaunchResult(
+      status: ShareSheetLaunchStatus.success,
+    ),
+  });
+
+  final ShareSheetLaunchResult result;
+
+  @override
+  Future<ShareSheetLaunchResult> shareText(String text, {String? subject}) async {
+    return result;
+  }
 }
 
 String _resolveBundledIsarLibraryPath() {

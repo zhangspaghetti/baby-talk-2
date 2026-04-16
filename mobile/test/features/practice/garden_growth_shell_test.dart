@@ -23,6 +23,11 @@ import 'package:mobile/features/practice/presentation/garden_growth_view_model.d
 import 'package:mobile/features/practice/presentation/practice_continuity_view_model.dart';
 import 'package:mobile/features/practice/presentation/practice_route_args.dart';
 import 'package:mobile/features/practice/presentation/practice_session_view_model.dart';
+import 'package:mobile/features/share/data/repositories/share_repository.dart';
+import 'package:mobile/features/share/data/services/share_api_service.dart';
+import 'package:mobile/features/share/data/services/share_sheet_launcher.dart';
+import 'package:mobile/features/share/domain/models/share_link_draft.dart';
+import 'package:mobile/features/share/presentation/share_view_model.dart';
 import 'package:mobile/features/shell/presentation/app_shell_screen.dart';
 import 'package:provider/provider.dart';
 

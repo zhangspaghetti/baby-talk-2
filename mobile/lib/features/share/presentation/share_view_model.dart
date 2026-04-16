@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:mobile/features/practice/domain/models/garden_growth_snapshot.dart';
 import 'package:mobile/features/practice/domain/models/practice_continuity_snapshot.dart';
 import 'package:mobile/features/share/data/repositories/share_repository.dart';
+import 'package:mobile/features/share/domain/models/share_link_draft.dart';
 
 enum ShareViewStatus { idle, success, cancelled, error }
 
@@ -27,12 +28,14 @@ class ShareViewModel extends ChangeNotifier {
   bool _disposed = false;
   Future<ShareExecutionResult>? _shareFuture;
 
-  bool get canShare =>
-      !_isSharing &&
-      _repository.canShare(
-        growthSnapshot: _growthSnapshot,
-        continuitySnapshot: _continuitySnapshot,
-      );
+  ShareLinkDraft? get currentDraft => _repository.buildDraft(
+    growthSnapshot: _growthSnapshot,
+    continuitySnapshot: _continuitySnapshot,
+  );
+
+  bool get hasShareDraft => currentDraft != null;
+
+  bool get canShare => !_isSharing && hasShareDraft;
 
   bool get isSharing => _isSharing;
   ShareViewStatus get lastShareStatus => _lastShareStatus;
@@ -42,10 +45,15 @@ class ShareViewModel extends ChangeNotifier {
   void updateSnapshots({
     GardenGrowthSnapshot? growthSnapshot,
     PracticeContinuitySnapshot? continuitySnapshot,
+    bool notify = true,
   }) {
+    final previousDraftSignature = _draftSignature(currentDraft);
     _growthSnapshot = growthSnapshot;
     _continuitySnapshot = continuitySnapshot;
-    notifyListeners();
+    final nextDraftSignature = _draftSignature(currentDraft);
+    if (notify && previousDraftSignature != nextDraftSignature) {
+      notifyListeners();
+    }
   }
 
   Future<ShareExecutionResult> shareCurrent() {
@@ -110,5 +118,21 @@ class ShareViewModel extends ChangeNotifier {
   void dispose() {
     _disposed = true;
     super.dispose();
+  }
+
+  String? _draftSignature(ShareLinkDraft? draft) {
+    if (draft == null) {
+      return null;
+    }
+    return [
+      draft.source.wireValue,
+      draft.headline,
+      draft.storyText,
+      draft.phraseText,
+      draft.recommendationTitle,
+      draft.recommendationReason,
+      draft.spaceId,
+      draft.activityId,
+    ].join('|');
   }
 }

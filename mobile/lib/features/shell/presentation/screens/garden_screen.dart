@@ -6,6 +6,8 @@ import 'package:mobile/features/practice/domain/models/practice_continuity_snaps
 import 'package:mobile/features/practice/presentation/garden_growth_view_model.dart';
 import 'package:mobile/features/practice/presentation/practice_continuity_view_model.dart';
 import 'package:mobile/features/practice/presentation/practice_route_args.dart';
+import 'package:mobile/features/share/presentation/share_view_model.dart';
+import 'package:mobile/features/share/presentation/widgets/share_callout_card.dart';
 import 'package:provider/provider.dart';
 
 class GardenScreen extends StatelessWidget {
@@ -15,6 +17,7 @@ class GardenScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final viewModel = context.watch<GardenGrowthViewModel?>();
     final continuityViewModel = context.watch<PracticeContinuityViewModel?>();
+    final shareViewModel = context.watch<ShareViewModel?>();
     final snapshot = viewModel?.snapshot ?? GardenGrowthSnapshot.empty();
     final continuitySnapshot = continuityViewModel?.snapshot;
     final continuityActivity = continuityViewModel?.activitySnapshot;
@@ -46,6 +49,16 @@ class GardenScreen extends StatelessWidget {
                   continuitySnapshot: continuitySnapshot,
                   continuityActivity: continuityActivity,
                 ),
+                if (shareViewModel != null) ...[
+                  const SizedBox(height: 16),
+                  ShareCalloutCard(
+                    surfaceKeyPrefix: 'garden',
+                    viewModel: shareViewModel,
+                    sectionLabel: '把花园里的这次变化分享给家人',
+                    emptyMessage: '等最近成长和继续建议整理稳定后，再生成一条脱敏分享链接。',
+                    onShare: () => shareViewModel.shareCurrent(),
+                  ),
+                ],
                 if (viewModel?.hasError ?? false) ...[
                   const SizedBox(height: 16),
                   _GardenBanner(

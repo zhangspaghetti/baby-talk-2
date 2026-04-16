@@ -17,6 +17,8 @@ import 'package:mobile/features/practice/domain/models/practice_phrase.dart';
 import 'package:mobile/features/practice/presentation/garden_growth_view_model.dart';
 import 'package:mobile/features/practice/presentation/practice_continuity_view_model.dart';
 import 'package:mobile/features/practice/presentation/practice_route_args.dart';
+import 'package:mobile/features/share/presentation/share_view_model.dart';
+import 'package:mobile/features/share/presentation/widgets/share_callout_card.dart';
 import 'package:provider/provider.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -157,6 +159,7 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
   Widget build(BuildContext context) {
     final gardenGrowthViewModel = context.watch<GardenGrowthViewModel?>();
     final continuityViewModel = context.watch<PracticeContinuityViewModel?>();
+    final shareViewModel = context.watch<ShareViewModel?>();
     final hasResolvedContinuity =
         continuityViewModel?.hasResolvedRecommendation ?? false;
     final continuitySnapshot = hasResolvedContinuity
@@ -318,6 +321,16 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
                     _GardenMiniEntry(viewModel: gardenGrowthViewModel),
                     const SizedBox(height: 16),
                     _GrowthSummaryCard(viewModel: gardenGrowthViewModel),
+                    if (shareViewModel != null) ...[
+                      const SizedBox(height: 16),
+                      ShareCalloutCard(
+                        surfaceKeyPrefix: 'home',
+                        viewModel: shareViewModel,
+                        sectionLabel: '把这次成长分享给家人',
+                        emptyMessage: '等最近成长或继续建议整理稳定后，再生成一条脱敏分享链接。',
+                        onShare: () => shareViewModel.shareCurrent(),
+                      ),
+                    ],
                     const SizedBox(height: 16),
                     _RecentResultCard(continuitySnapshot: continuitySnapshot),
                     const SizedBox(height: 12),
