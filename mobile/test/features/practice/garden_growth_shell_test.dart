@@ -10,6 +10,11 @@ import 'package:mobile/core/device/installation_id_service.dart';
 import 'package:mobile/features/account/data/local/account_local_store.dart';
 import 'package:mobile/features/account/data/repositories/account_repository.dart';
 import 'package:mobile/features/account/presentation/account_view_model.dart';
+import 'package:mobile/features/household/data/local/household_local_store.dart';
+import 'package:mobile/features/household/data/repositories/household_repository.dart';
+import 'package:mobile/features/household/domain/models/household_role.dart';
+import 'package:mobile/features/household/domain/models/household_shared_context.dart';
+import 'package:mobile/features/household/presentation/household_view_model.dart';
 import 'package:mobile/features/onboarding/domain/models/onboarding_snapshot.dart';
 import 'package:mobile/features/onboarding/domain/models/stage_match.dart';
 import 'package:mobile/features/practice/data/local/practice_local_data_source.dart';
@@ -67,6 +72,12 @@ void main() {
 
     expect(find.text('花园'), findsWidgets);
     expect(find.byKey(const Key('shell-tab-garden')), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('garden-empty-state')),
+      160,
+      scrollable: find.byType(Scrollable).last,
+    );
+    await tester.pump();
     expect(find.byKey(const Key('garden-empty-state')), findsOneWidget);
     expect(find.textContaining('第一颗种子还没落下'), findsOneWidget);
     expect(find.textContaining('S04 会把空间花圃'), findsNothing);
@@ -76,6 +87,12 @@ void main() {
 
     expect(find.text('成长'), findsWidgets);
     expect(find.byKey(const Key('shell-tab-growth')), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('growth-empty-state')),
+      160,
+      scrollable: find.byType(Scrollable).last,
+    );
+    await tester.pump();
     expect(find.byKey(const Key('growth-empty-state')), findsOneWidget);
     expect(find.textContaining('最近成长会写在这里'), findsWidgets);
 
@@ -85,6 +102,91 @@ void main() {
     expect(find.byKey(const Key('shell-end-drawer')), findsOneWidget);
     expect(find.byKey(const Key('shell-drawer-child-name')), findsOneWidget);
     expect(find.text('米米'), findsWidgets);
+  });
+
+  testWidgets('shell 会把 household shared context 接进 drawer 与 garden', (
+    tester,
+  ) async {
+    final harness = (await tester.runAsync<_Harness>(_Harness.create))!;
+    addTearDown(harness.dispose);
+    addTearDown(() async {
+      await _disposeWidgetTree(tester);
+    });
+    final householdViewModel = HouseholdViewModel(
+      repository: _FakeHouseholdRepository(
+        loadSnapshotResult: HouseholdLocalSnapshot(
+          householdId: 'household_1',
+          role: HouseholdRole.caregiver,
+          sharedContext: _sharedContext(
+            const PracticeRouteArgs(
+              spaceId: 'family_rhythm',
+              activityId: 'feeding_time',
+            ),
+          ),
+          lastPhase: 'shared_context_ready',
+          lastAcceptedAt: DateTime.utc(2026, 4, 16, 12),
+        ),
+      ),
+    );
+    addTearDown(householdViewModel.dispose);
+
+    await tester.runAsync(() async {
+      await harness.practiceRepository.recordReaction(
+        spaceId: 'family_rhythm',
+        activityId: 'feeding_time',
+        phraseId: 'feeding_time_open_wide',
+        reactionType: BabyReactionType.engaged,
+        clientTimestamp: DateTime.utc(2026, 4, 9, 9, 0),
+        localEventId: 'evt_shell_household_1',
+      );
+      await harness.practiceRepository.recordReaction(
+        spaceId: 'family_rhythm',
+        activityId: 'feeding_time',
+        phraseId: 'feeding_time_yummy_bite',
+        reactionType: BabyReactionType.imitated,
+        clientTimestamp: DateTime.utc(2026, 4, 9, 9, 1),
+        localEventId: 'evt_shell_household_2',
+      );
+      await Future.wait([
+        householdViewModel.initialize(),
+        harness.accountViewModel.initialize(),
+        harness.practiceSessionViewModel.initialize(),
+        harness.gardenGrowthViewModel.refresh(),
+      ]);
+    });
+
+    await tester.pumpWidget(
+      harness.buildShell(householdViewModel: householdViewModel),
+    );
+    await _pumpUntilFound(tester, find.byKey(const Key('shell-ready')));
+    await _pumpShellAsync(tester);
+
+    await tester.tap(find.byKey(const Key('shell-drawer-trigger')));
+    await _pumpUntilFound(tester, find.byKey(const Key('shell-end-drawer')));
+
+    expect(find.byKey(const Key('shell-drawer-role-badge')), findsOneWidget);
+    expect(find.textContaining('次照护者'), findsWidgets);
+
+    await tester.tapAt(const Offset(16, 120));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('花园'));
+    await _pumpUntilFound(tester, find.byKey(const Key('shell-tab-garden')));
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('garden-household-shared-context-card')),
+      160,
+      scrollable: find.byType(Scrollable).last,
+    );
+    await tester.pump();
+
+    expect(
+      find.byKey(const Key('garden-household-shared-context-card')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const Key('garden-household-continuity-summary')),
+      findsOneWidget,
+    );
+    expect(find.textContaining('共享宝宝档案'), findsWidgets);
   });
 
   testWidgets('shell 花园与首页消费同一份 continuity recommendation', (tester) async {
@@ -244,6 +346,12 @@ void main() {
 
     await tester.tap(find.byTooltip('花园'));
     await _pumpUntilFound(tester, find.byKey(const Key('shell-tab-garden')));
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('garden-empty-state')),
+      160,
+      scrollable: find.byType(Scrollable).last,
+    );
+    await tester.pump();
     expect(find.byKey(const Key('garden-empty-state')), findsOneWidget);
     expect(find.textContaining('S04 会把空间花圃'), findsNothing);
 
@@ -493,6 +601,7 @@ class _Harness {
     bool includeContinuityProvider = true,
     PracticeContinuityViewModel Function(PracticeRouteArgs initialArgs)?
     continuityViewModelFactory,
+    HouseholdViewModel? householdViewModel,
   }) {
     const starterArgs = PracticeRouteArgs(
       spaceId: 'daily_care',
@@ -502,6 +611,10 @@ class _Harness {
       Provider<PracticeRepository>.value(value: practiceRepository),
       Provider<PracticeRouteArgs?>.value(value: starterArgs),
       ChangeNotifierProvider<AccountViewModel>.value(value: accountViewModel),
+      if (householdViewModel != null)
+        ChangeNotifierProvider<HouseholdViewModel>.value(
+          value: householdViewModel,
+        ),
       ChangeNotifierProvider<PracticeSessionViewModel>.value(
         value: practiceSessionViewModel,
       ),
@@ -548,9 +661,71 @@ class _Harness {
     gardenGrowthViewModel.dispose();
     await practiceRepository.close(deleteFromDisk: true);
     if (await tempDir.exists()) {
-      await tempDir.delete(recursive: true);
+      try {
+        await tempDir.delete(recursive: true);
+      } on PathAccessException {
+        // Windows test runs occasionally keep an isar handle briefly alive.
+      }
     }
   }
+}
+
+class _FakeHouseholdRepository implements HouseholdRepository {
+  _FakeHouseholdRepository({required this.loadSnapshotResult});
+
+  HouseholdLocalSnapshot loadSnapshotResult;
+
+  @override
+  Future<HouseholdCreateInviteResult> createInvite({
+    HouseholdRole role = HouseholdRole.caregiver,
+    String source = 'household_settings',
+  }) async {
+    return const HouseholdCreateInviteResult(
+      snapshot: HouseholdLocalSnapshot(
+        lastPhase: 'create_invite_unavailable',
+        lastVisibleError: '邀请服务暂时不可用，请稍后重试。',
+      ),
+      message: '邀请服务暂时不可用，请稍后重试。',
+    );
+  }
+
+  @override
+  Future<HouseholdInviteAcceptResult> acceptInvite({
+    required String token,
+    required String source,
+  }) async {
+    return const HouseholdInviteAcceptResult(
+      snapshot: HouseholdLocalSnapshot(
+        lastPhase: 'accept_invite_unavailable',
+        lastVisibleError: '邀请服务暂时不可用，请稍后重试。',
+      ),
+      message: '邀请服务暂时不可用，请稍后重试。',
+    );
+  }
+
+  @override
+  Future<void> close() async {}
+
+  @override
+  Future<HouseholdLocalSnapshot> loadSnapshot() async => loadSnapshotResult;
+
+  @override
+  Future<HouseholdLocalSnapshot> refreshSharedContext({
+    String reason = 'manual_refresh',
+  }) async {
+    return loadSnapshotResult;
+  }
+}
+
+HouseholdSharedContext _sharedContext(PracticeRouteArgs practiceArgs) {
+  return HouseholdSharedContext(
+    babyProfileSummary: '共享宝宝档案：家庭已同步 2 条互动。',
+    continuitySummary: '最近 continuity：先继续这条共享 activity。',
+    gardenSummary: '花园上下文：共享花圃正在缓慢生长。',
+    practiceArgs: practiceArgs,
+    latestInteractionAt: DateTime.utc(2026, 4, 16, 11, 50),
+    updatedAt: DateTime.utc(2026, 4, 16, 12),
+  );
 }
 
 class _StaticAccountRepository implements AccountRepository {

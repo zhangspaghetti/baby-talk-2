@@ -11,6 +11,11 @@ import 'package:mobile/core/device/installation_id_service.dart';
 import 'package:mobile/features/account/data/local/account_local_store.dart';
 import 'package:mobile/features/account/data/repositories/account_repository.dart';
 import 'package:mobile/features/account/presentation/account_view_model.dart';
+import 'package:mobile/features/household/data/local/household_local_store.dart';
+import 'package:mobile/features/household/data/repositories/household_repository.dart';
+import 'package:mobile/features/household/domain/models/household_role.dart';
+import 'package:mobile/features/household/domain/models/household_shared_context.dart';
+import 'package:mobile/features/household/presentation/household_view_model.dart';
 import 'package:mobile/features/practice/data/local/practice_local_data_source.dart';
 import 'package:mobile/features/practice/data/repositories/garden_growth_repository.dart';
 import 'package:mobile/features/practice/data/repositories/practice_repository.dart';
@@ -204,6 +209,91 @@ void main() {
     expect(find.textContaining('Yummy bite.'), findsWidgets);
   });
 
+  testWidgets('首页优先消费 household shared context 的 practice args，并显示共享照护摘要', (
+    tester,
+  ) async {
+    final harness = (await tester.runAsync<_Harness>(_Harness.create))!;
+    addTearDown(harness.dispose);
+    final householdViewModel = HouseholdViewModel(
+      repository: _FakeHouseholdRepository(
+        loadSnapshotResult: HouseholdLocalSnapshot(
+          householdId: 'household_1',
+          role: HouseholdRole.caregiver,
+          sharedContext: _sharedContext(
+            const PracticeRouteArgs(
+              spaceId: 'family_rhythm',
+              activityId: 'feeding_time',
+            ),
+          ),
+          lastPhase: 'shared_context_ready',
+          lastAcceptedAt: DateTime.utc(2026, 4, 16, 12),
+        ),
+      ),
+    );
+    addTearDown(householdViewModel.dispose);
+
+    await tester.runAsync(() async {
+      await harness.practiceRepository.recordReaction(
+        spaceId: 'family_rhythm',
+        activityId: 'feeding_time',
+        phraseId: 'feeding_time_open_wide',
+        reactionType: BabyReactionType.calm,
+        clientTimestamp: DateTime.utc(2026, 4, 9, 9, 2),
+        localEventId: 'evt_home_household_1',
+      );
+      await harness.practiceRepository.recordReaction(
+        spaceId: 'family_rhythm',
+        activityId: 'feeding_time',
+        phraseId: 'feeding_time_yummy_bite',
+        reactionType: BabyReactionType.imitated,
+        clientTimestamp: DateTime.utc(2026, 4, 9, 9, 3),
+        localEventId: 'evt_home_household_2',
+      );
+      await Future.wait([
+        householdViewModel.initialize(),
+        harness.accountViewModel.initialize(),
+        harness.practiceSessionViewModel.initialize(),
+        harness.gardenGrowthViewModel.refresh(),
+      ]);
+    });
+
+    await tester.pumpWidget(
+      harness.buildApp(
+        practiceArgs: const PracticeRouteArgs(
+          spaceId: 'daily_care',
+          activityId: 'bath_time',
+        ),
+        householdViewModel: householdViewModel,
+      ),
+    );
+    await _pumpUntilHomeLoaded(tester);
+    await _scrollHomeUntilVisible(
+      tester,
+      find.byKey(const Key('home-household-profile-summary')),
+    );
+
+    expect(
+      find.byKey(const Key('home-household-profile-summary')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const Key('home-household-continuity-summary')),
+      findsOneWidget,
+    );
+    expect(find.textContaining('共享宝宝档案'), findsWidgets);
+
+    await _scrollHomeUntilVisible(
+      tester,
+      find.byKey(const ValueKey('home-start-practice-feeding_time')),
+    );
+
+    expect(
+      find.byKey(const ValueKey('home-start-practice-feeding_time')),
+      findsOneWidget,
+    );
+    expect(find.textContaining('吃饭时间'), findsWidgets);
+  });
+
   testWidgets('首页在坏 starter context 下显示 warning 并回退到安全 activity', (
     tester,
   ) async {
@@ -257,9 +347,7 @@ void main() {
       ]);
     });
 
-    await tester.pumpWidget(
-      harness.buildApp(includeContinuityProvider: false),
-    );
+    await tester.pumpWidget(harness.buildApp(includeContinuityProvider: false));
     await _pumpUntilHomeLoaded(tester);
     await _scrollHomeUntilVisible(
       tester,
@@ -276,9 +364,11 @@ void main() {
     );
     expect(find.textContaining('不会回退到默认 activity'), findsWidgets);
     expect(
-      tester.widget<ElevatedButton>(
-        find.byKey(const ValueKey('home-start-practice-safe-empty')),
-      ).onPressed,
+      tester
+          .widget<ElevatedButton>(
+            find.byKey(const ValueKey('home-start-practice-safe-empty')),
+          )
+          .onPressed,
       isNull,
     );
     expect(find.byKey(const Key('home-share-card')), findsNothing);
@@ -318,9 +408,9 @@ void main() {
     expect(find.byKey(const Key('home-share-card')), findsOneWidget);
     expect(find.byKey(const Key('home-share-state-disabled')), findsOneWidget);
     expect(
-      tester.widget<ElevatedButton>(
-        find.byKey(const Key('home-share-button')),
-      ).onPressed,
+      tester
+          .widget<ElevatedButton>(find.byKey(const Key('home-share-button')))
+          .onPressed,
       isNull,
     );
 
@@ -500,13 +590,11 @@ class _Harness {
     bool includeContinuityProvider = true,
     bool includeShareProvider = false,
     ShareRepository? shareRepository,
+    HouseholdViewModel? householdViewModel,
   }) {
     final resolvedPracticeArgs =
         practiceArgs ??
-        const PracticeRouteArgs(
-          spaceId: 'daily_care',
-          activityId: 'bath_time',
-        );
+        const PracticeRouteArgs(spaceId: 'daily_care', activityId: 'bath_time');
 
     return MultiProvider(
       providers: [
@@ -520,6 +608,10 @@ class _Harness {
             )..initialize(reason: 'test_boot'),
           ),
         ChangeNotifierProvider<AccountViewModel>.value(value: accountViewModel),
+        if (householdViewModel != null)
+          ChangeNotifierProvider<HouseholdViewModel>.value(
+            value: householdViewModel,
+          ),
         ChangeNotifierProvider<PracticeSessionViewModel>.value(
           value: practiceSessionViewModel,
         ),
@@ -534,23 +626,30 @@ class _Harness {
             PracticeContinuityViewModel?,
             ShareViewModel
           >(
-            create: (context) => ShareViewModel(
-              repository: context.read<ShareRepository>(),
-            ),
-            update: (context, growthViewModel, continuityViewModel, shareViewModel) {
-              final nextViewModel =
-                  shareViewModel ??
-                  ShareViewModel(repository: context.read<ShareRepository>());
-              nextViewModel.updateSnapshots(
-                growthSnapshot: growthViewModel.snapshot,
-                continuitySnapshot:
-                    continuityViewModel?.hasResolvedRecommendation == true
-                    ? continuityViewModel?.snapshot
-                    : null,
-                notify: false,
-              );
-              return nextViewModel;
-            },
+            create: (context) =>
+                ShareViewModel(repository: context.read<ShareRepository>()),
+            update:
+                (
+                  context,
+                  growthViewModel,
+                  continuityViewModel,
+                  shareViewModel,
+                ) {
+                  final nextViewModel =
+                      shareViewModel ??
+                      ShareViewModel(
+                        repository: context.read<ShareRepository>(),
+                      );
+                  nextViewModel.updateSnapshots(
+                    growthSnapshot: growthViewModel.snapshot,
+                    continuitySnapshot:
+                        continuityViewModel?.hasResolvedRecommendation == true
+                        ? continuityViewModel?.snapshot
+                        : null,
+                    notify: false,
+                  );
+                  return nextViewModel;
+                },
           ),
       ],
       child: MaterialApp(theme: AppTheme.build(), home: const HomeScreen()),
@@ -566,6 +665,64 @@ class _Harness {
       await tempDir.delete(recursive: true);
     }
   }
+}
+
+class _FakeHouseholdRepository implements HouseholdRepository {
+  _FakeHouseholdRepository({required this.loadSnapshotResult});
+
+  HouseholdLocalSnapshot loadSnapshotResult;
+
+  @override
+  Future<HouseholdCreateInviteResult> createInvite({
+    HouseholdRole role = HouseholdRole.caregiver,
+    String source = 'household_settings',
+  }) async {
+    return const HouseholdCreateInviteResult(
+      snapshot: HouseholdLocalSnapshot(
+        lastPhase: 'create_invite_unavailable',
+        lastVisibleError: '邀请服务暂时不可用，请稍后重试。',
+      ),
+      message: '邀请服务暂时不可用，请稍后重试。',
+    );
+  }
+
+  @override
+  Future<HouseholdInviteAcceptResult> acceptInvite({
+    required String token,
+    required String source,
+  }) async {
+    return const HouseholdInviteAcceptResult(
+      snapshot: HouseholdLocalSnapshot(
+        lastPhase: 'accept_invite_unavailable',
+        lastVisibleError: '邀请服务暂时不可用，请稍后重试。',
+      ),
+      message: '邀请服务暂时不可用，请稍后重试。',
+    );
+  }
+
+  @override
+  Future<void> close() async {}
+
+  @override
+  Future<HouseholdLocalSnapshot> loadSnapshot() async => loadSnapshotResult;
+
+  @override
+  Future<HouseholdLocalSnapshot> refreshSharedContext({
+    String reason = 'manual_refresh',
+  }) async {
+    return loadSnapshotResult;
+  }
+}
+
+HouseholdSharedContext _sharedContext(PracticeRouteArgs practiceArgs) {
+  return HouseholdSharedContext(
+    babyProfileSummary: '共享宝宝档案：家庭已同步 2 条互动。',
+    continuitySummary: '最近 continuity：先继续这条共享 activity。',
+    gardenSummary: '花园上下文：共享花圃正在缓慢生长。',
+    practiceArgs: practiceArgs,
+    latestInteractionAt: DateTime.utc(2026, 4, 16, 11, 50),
+    updatedAt: DateTime.utc(2026, 4, 16, 12),
+  );
 }
 
 class _StaticAccountRepository implements AccountRepository {
@@ -694,7 +851,10 @@ class _StaticShareSheetLauncher implements ShareSheetLauncher {
   final ShareSheetLaunchResult result;
 
   @override
-  Future<ShareSheetLaunchResult> shareText(String text, {String? subject}) async {
+  Future<ShareSheetLaunchResult> shareText(
+    String text, {
+    String? subject,
+  }) async {
     return result;
   }
 }

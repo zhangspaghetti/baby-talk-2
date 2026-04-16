@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:mobile/app/theme/app_theme.dart';
 import 'package:mobile/features/account/data/repositories/account_repository.dart';
 import 'package:mobile/features/account/presentation/account_view_model.dart';
+import 'package:mobile/features/household/presentation/household_view_model.dart';
+import 'package:mobile/features/household/presentation/widgets/household_invite_card.dart';
+import 'package:mobile/features/household/presentation/widgets/household_shared_context_card.dart';
 import 'package:mobile/features/onboarding/domain/models/onboarding_snapshot.dart';
 import 'package:provider/provider.dart';
 
@@ -113,12 +116,11 @@ class AccountStatusCard extends StatelessWidget {
             children: [
               FilledButton(
                 key: Key('$scopeKeyPrefix-account-open-entry'),
-                onPressed: phase == AccountSurfacePhase.loading || viewModel.isBusy
+                onPressed:
+                    phase == AccountSurfacePhase.loading || viewModel.isBusy
                     ? null
                     : () => openAccountEntryScreen(context),
-                child: Text(
-                  viewModel.isSignedIn ? '查看账号状态' : '注册 / 登录',
-                ),
+                child: Text(viewModel.isSignedIn ? '查看账号状态' : '注册 / 登录'),
               ),
               if (phase == AccountSurfacePhase.versionBlocked)
                 FilledButton(
@@ -143,8 +145,8 @@ class AccountStatusCard extends StatelessWidget {
                   onPressed: viewModel.isBusy
                       ? null
                       : () => viewModel.refreshRuntimeState(
-                            trigger: AccountRuntimeTrigger.manualRetry,
-                          ),
+                          trigger: AccountRuntimeTrigger.manualRetry,
+                        ),
                   child: const Text('重试同步'),
                 ),
             ],
@@ -346,6 +348,7 @@ class _AccountEntryScreenState extends State<AccountEntryScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final viewModel = context.watch<AccountViewModel>();
+    final householdViewModel = context.watch<HouseholdViewModel?>();
     final phase = _resolvePhase(viewModel);
 
     if (_phoneController.text != viewModel.phoneNumber) {
@@ -387,7 +390,10 @@ class _AccountEntryScreenState extends State<AccountEntryScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('S03 账号 / 同意 / 同步闭环', style: theme.textTheme.labelMedium),
+                      Text(
+                        'S03 账号 / 同意 / 同步闭环',
+                        style: theme.textTheme.labelMedium,
+                      ),
                       const SizedBox(height: 12),
                       Text(
                         _headlineForPhase(phase, viewModel),
@@ -453,7 +459,9 @@ class _AccountEntryScreenState extends State<AccountEntryScreen> {
                         style: theme.textTheme.bodySmall,
                       ),
                       if (viewModel.snapshot.lastVisibleError != null &&
-                          viewModel.snapshot.lastVisibleError!.trim().isNotEmpty) ...[
+                          viewModel.snapshot.lastVisibleError!
+                              .trim()
+                              .isNotEmpty) ...[
                         const SizedBox(height: 12),
                         Text(
                           '最近错误：${viewModel.snapshot.lastVisibleError!}',
@@ -484,6 +492,19 @@ class _AccountEntryScreenState extends State<AccountEntryScreen> {
                         ),
                       ],
                       const SizedBox(height: 20),
+                      HouseholdSharedContextCard(
+                        surfaceKeyPrefix: 'account',
+                        viewModel: householdViewModel,
+                        title: '共享照护状态',
+                        retryReason: 'account_entry_manual_refresh',
+                      ),
+                      const SizedBox(height: 16),
+                      HouseholdInviteCard(
+                        surfaceKeyPrefix: 'account',
+                        viewModel: householdViewModel,
+                        inviteSource: 'account_entry',
+                      ),
+                      const SizedBox(height: 20),
                       Wrap(
                         spacing: 12,
                         runSpacing: 12,
@@ -505,9 +526,7 @@ class _AccountEntryScreenState extends State<AccountEntryScreen> {
                                       ),
                                     );
                                   },
-                            child: Text(
-                              viewModel.isBusy ? '处理中…' : '登录并同意',
-                            ),
+                            child: Text(viewModel.isBusy ? '处理中…' : '登录并同意'),
                           ),
                           if (phase == AccountSurfacePhase.versionBlocked)
                             FilledButton(
@@ -526,7 +545,8 @@ class _AccountEntryScreenState extends State<AccountEntryScreen> {
                                 : () => context
                                       .read<AccountViewModel>()
                                       .refreshRuntimeState(
-                                        trigger: AccountRuntimeTrigger.manualRetry,
+                                        trigger:
+                                            AccountRuntimeTrigger.manualRetry,
                                       ),
                             child: const Text('重试同步'),
                           ),
@@ -534,21 +554,27 @@ class _AccountEntryScreenState extends State<AccountEntryScreen> {
                             key: const Key('account-revoke-button'),
                             onPressed: viewModel.isBusy || !viewModel.isSignedIn
                                 ? null
-                                : () => context.read<AccountViewModel>().revokeConsent(),
+                                : () => context
+                                      .read<AccountViewModel>()
+                                      .revokeConsent(),
                             child: const Text('撤回同意'),
                           ),
                           OutlinedButton(
                             key: const Key('account-delete-button'),
                             onPressed: viewModel.isBusy || !viewModel.isSignedIn
                                 ? null
-                                : () => context.read<AccountViewModel>().deleteAccount(),
+                                : () => context
+                                      .read<AccountViewModel>()
+                                      .deleteAccount(),
                             child: const Text('删除账号'),
                           ),
                           OutlinedButton(
                             key: const Key('account-clear-button'),
                             onPressed: viewModel.isBusy
                                 ? null
-                                : () => context.read<AccountViewModel>().clearSession(),
+                                : () => context
+                                      .read<AccountViewModel>()
+                                      .clearSession(),
                             child: const Text('退出为未登录'),
                           ),
                           OutlinedButton(

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:mobile/app/theme/app_theme.dart';
+import 'package:mobile/features/household/presentation/household_view_model.dart';
+import 'package:mobile/features/household/presentation/widgets/household_shared_context_card.dart';
 import 'package:mobile/features/practice/data/repositories/practice_repository.dart';
 import 'package:mobile/features/practice/domain/models/garden_growth_snapshot.dart';
 import 'package:mobile/features/practice/domain/models/practice_continuity_snapshot.dart';
@@ -17,6 +19,7 @@ class GardenScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final viewModel = context.watch<GardenGrowthViewModel?>();
     final continuityViewModel = context.watch<PracticeContinuityViewModel?>();
+    final householdViewModel = context.watch<HouseholdViewModel?>();
     final shareViewModel = context.watch<ShareViewModel?>();
     final snapshot = viewModel?.snapshot ?? GardenGrowthSnapshot.empty();
     final continuitySnapshot = continuityViewModel?.snapshot;
@@ -48,6 +51,13 @@ class GardenScreen extends StatelessWidget {
                   continuityViewModel: continuityViewModel,
                   continuitySnapshot: continuitySnapshot,
                   continuityActivity: continuityActivity,
+                ),
+                const SizedBox(height: 16),
+                HouseholdSharedContextCard(
+                  surfaceKeyPrefix: 'garden',
+                  viewModel: householdViewModel,
+                  title: '共享花园上下文',
+                  retryReason: 'garden_household_manual_refresh',
                 ),
                 if (shareViewModel != null) ...[
                   const SizedBox(height: 16),
@@ -112,7 +122,8 @@ class _GardenHeroCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final impact = snapshot.latestImpact;
     final theme = Theme.of(context);
-    final continuityReasonLabel = continuitySnapshot?.recommendation.reasonLabel;
+    final continuityReasonLabel =
+        continuitySnapshot?.recommendation.reasonLabel;
     final continuityActivityTitle = continuityActivity?.title;
 
     String eyebrow = '花园今日变化';
@@ -130,7 +141,9 @@ class _GardenHeroCard extends StatelessWidget {
       body = 'shared continuity provider 缺失时，花园不会回退到默认 activity。';
     } else if (continuityViewModel!.disabledReason != null) {
       eyebrow = '回来继续';
-      title = continuityActivityTitle == null ? '继续入口暂不可用' : '继续 $continuityActivityTitle';
+      title = continuityActivityTitle == null
+          ? '继续入口暂不可用'
+          : '继续 $continuityActivityTitle';
       body = continuityViewModel!.disabledReason!;
     } else if (impact != null) {
       eyebrow = impact.spaceTitle;
@@ -139,9 +152,10 @@ class _GardenHeroCard extends StatelessWidget {
           : impact.headline;
       body = continuityActivityTitle == null
           ? impact.detail
-          : impact.activityId == continuitySnapshot?.recommendedActivity.activityId
-              ? '${impact.detail} 现在继续会回到 $continuityActivityTitle。'
-              : '最新影响来自 ${impact.activityTitle}；回来继续会去 $continuityActivityTitle（${continuityReasonLabel ?? '共享 continuity'}）。';
+          : impact.activityId ==
+                continuitySnapshot?.recommendedActivity.activityId
+          ? '${impact.detail} 现在继续会回到 $continuityActivityTitle。'
+          : '最新影响来自 ${impact.activityTitle}；回来继续会去 $continuityActivityTitle（${continuityReasonLabel ?? '共享 continuity'}）。';
     } else if (continuityActivityTitle != null) {
       eyebrow = '回来继续';
       title = '继续 $continuityActivityTitle';
@@ -407,8 +421,10 @@ class _GardenContinueCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final canContinue =
-        practiceArgs != null && !(continuityViewModel?.isActionDisabled ?? true);
-    final activityId = continuitySnapshot?.recommendedActivity.activityId ?? 'safe-empty';
+        practiceArgs != null &&
+        !(continuityViewModel?.isActionDisabled ?? true);
+    final activityId =
+        continuitySnapshot?.recommendedActivity.activityId ?? 'safe-empty';
     final activityTitle = continuityActivity?.title ?? '继续入口暂不可用';
     final reasonLabel =
         continuitySnapshot?.recommendation.reasonLabel ?? '共享 continuity 暂不可用';
@@ -432,9 +448,9 @@ class _GardenContinueCard extends StatelessWidget {
           Text(
             activityTitle,
             key: Key('garden-continue-target-$activityId'),
-            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-              color: AppTheme.textPrimary,
-            ),
+            style: Theme.of(
+              context,
+            ).textTheme.titleLarge?.copyWith(color: AppTheme.textPrimary),
           ),
           const SizedBox(height: 8),
           Text(

@@ -5,6 +5,8 @@ import 'package:mobile/app/router/app_router.dart';
 import 'package:mobile/app/theme/app_theme.dart';
 import 'package:mobile/features/account/presentation/account_view_model.dart';
 import 'package:mobile/features/account/presentation/screens/account_entry_screen.dart';
+import 'package:mobile/features/household/presentation/household_view_model.dart';
+import 'package:mobile/features/household/presentation/widgets/household_shared_context_card.dart';
 import 'package:mobile/features/mentor/presentation/widgets/mentor_panel_sheet.dart';
 import 'package:mobile/features/onboarding/domain/models/onboarding_snapshot.dart';
 import 'package:mobile/features/onboarding/domain/models/stage_match.dart';
@@ -159,6 +161,7 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
   Widget build(BuildContext context) {
     final gardenGrowthViewModel = context.watch<GardenGrowthViewModel?>();
     final continuityViewModel = context.watch<PracticeContinuityViewModel?>();
+    final householdViewModel = context.watch<HouseholdViewModel?>();
     final shareViewModel = context.watch<ShareViewModel?>();
     final hasResolvedContinuity =
         continuityViewModel?.hasResolvedRecommendation ?? false;
@@ -244,6 +247,13 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
                     AccountStatusCard(
                       scopeKeyPrefix: 'home',
                       onboardingSnapshot: widget.onboardingSnapshot,
+                    ),
+                    const SizedBox(height: 20),
+                    HouseholdSharedContextCard(
+                      surfaceKeyPrefix: 'home',
+                      viewModel: householdViewModel,
+                      title: '共享照护摘要',
+                      retryReason: 'home_household_manual_refresh',
                     ),
                     if (continuityViewModel == null) ...[
                       const SizedBox(height: 20),
@@ -433,6 +443,14 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
   }
 
   PracticeRouteArgs? _resolveStarterArgs() {
+    final householdArgs = Provider.of<HouseholdViewModel?>(
+      context,
+      listen: false,
+    )?.snapshot.sharedContext?.practiceArgs;
+    if (householdArgs != null && householdArgs.isValid) {
+      return householdArgs.normalized();
+    }
+
     final snapshotArgs = PracticeRouteArgs.maybeCreate(
       spaceId: widget.onboardingSnapshot?.starterSpaceId,
       activityId: widget.onboardingSnapshot?.starterActivityId,

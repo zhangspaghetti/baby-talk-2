@@ -3,6 +3,10 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:mobile/app/theme/app_theme.dart';
 import 'package:mobile/features/account/presentation/screens/account_entry_screen.dart';
+import 'package:mobile/features/household/domain/models/household_role.dart';
+import 'package:mobile/features/household/presentation/household_view_model.dart';
+import 'package:mobile/features/household/presentation/widgets/household_invite_card.dart';
+import 'package:mobile/features/household/presentation/widgets/household_shared_context_card.dart';
 import 'package:mobile/features/mentor/presentation/widgets/mentor_panel_sheet.dart';
 import 'package:mobile/features/onboarding/domain/models/onboarding_snapshot.dart';
 import 'package:mobile/features/onboarding/domain/models/stage_match.dart';
@@ -198,10 +202,13 @@ class _HouseholdDrawer extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final householdViewModel = context.watch<HouseholdViewModel?>();
+    final householdSnapshot = householdViewModel?.snapshot;
     final childName = snapshot?.childDisplayName.trim();
     final displayName = childName == null || childName.isEmpty
         ? '这位宝宝'
         : childName;
+    final role = householdSnapshot?.role;
 
     return Drawer(
       key: const Key('shell-end-drawer'),
@@ -234,6 +241,24 @@ class _HouseholdDrawer extends StatelessWidget {
                 style: theme.textTheme.titleMedium,
               ),
               const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  _DrawerRoleChip(
+                    key: const Key('shell-drawer-role-badge'),
+                    label: role?.label ?? '共享未接通',
+                    backgroundColor: _drawerRoleBackground(role),
+                    foregroundColor: _drawerRoleForeground(role),
+                  ),
+                  _DrawerRoleChip(
+                    label: householdSnapshot?.lastPhase ?? 'idle',
+                    backgroundColor: AppTheme.bgSunken,
+                    foregroundColor: AppTheme.textSecondary,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
               Text(
                 stageMatch?.summary ?? '当前还没有完整阶段说明，后续完成 onboarding 后会显示这里。',
                 style: theme.textTheme.bodyMedium,
@@ -248,7 +273,7 @@ class _HouseholdDrawer extends StatelessWidget {
                   borderRadius: BorderRadius.circular(16),
                 ),
                 child: Text(
-                  '同意前，这里的昵称、月龄档和阶段仅保存在这台设备上，不进入练习事件诊断。',
+                  '同意前，这里的昵称、月龄档和阶段仅保存在这台设备上；共享照护只会显示脱敏后的角色、phase 和上下文摘要。',
                   style: theme.textTheme.bodyMedium,
                 ),
               ),
@@ -256,6 +281,21 @@ class _HouseholdDrawer extends StatelessWidget {
               AccountStatusCard(
                 scopeKeyPrefix: 'shell',
                 onboardingSnapshot: snapshot,
+                compact: true,
+              ),
+              const SizedBox(height: 20),
+              HouseholdSharedContextCard(
+                surfaceKeyPrefix: 'shell',
+                viewModel: householdViewModel,
+                title: '共享家庭档案',
+                compact: true,
+                retryReason: 'shell_drawer_manual_refresh',
+              ),
+              const SizedBox(height: 20),
+              HouseholdInviteCard(
+                surfaceKeyPrefix: 'shell',
+                viewModel: householdViewModel,
+                inviteSource: 'shell_drawer',
                 compact: true,
               ),
               const SizedBox(height: 20),
@@ -281,13 +321,13 @@ class _HouseholdDrawer extends StatelessWidget {
                       value: stageMatch?.title ?? '待匹配',
                     ),
                     const SizedBox(height: 8),
-                    _DrawerMetaRow(label: '起步方式', value: '先从洗澡时间这句开始'),
+                    _DrawerMetaRow(label: '共享角色', value: role?.label ?? '待同步'),
                   ],
                 ),
               ),
               const SizedBox(height: 20),
               Text(
-                'Drawer 和 4-tab 壳已稳定下来，后续切片会继续往这里接花园、成长和 Mentor。',
+                'Drawer 现在会直接显示 invite CTA、角色 badge、共享宝宝档案摘要和最近 continuity / 花园状态。',
                 style: theme.textTheme.bodySmall,
               ),
             ],
@@ -295,6 +335,58 @@ class _HouseholdDrawer extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+class _DrawerRoleChip extends StatelessWidget {
+  const _DrawerRoleChip({
+    super.key,
+    required this.label,
+    required this.backgroundColor,
+    required this.foregroundColor,
+  });
+
+  final String label;
+  final Color backgroundColor;
+  final Color foregroundColor;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: backgroundColor,
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        label,
+        style: Theme.of(
+          context,
+        ).textTheme.labelMedium?.copyWith(color: foregroundColor),
+      ),
+    );
+  }
+}
+
+Color _drawerRoleBackground(HouseholdRole? role) {
+  switch (role) {
+    case HouseholdRole.primaryCaregiver:
+      return AppTheme.bgAccentSoft;
+    case HouseholdRole.caregiver:
+      return AppTheme.englishSoft;
+    case null:
+      return AppTheme.bgSunken;
+  }
+}
+
+Color _drawerRoleForeground(HouseholdRole? role) {
+  switch (role) {
+    case HouseholdRole.primaryCaregiver:
+      return AppTheme.accentDark;
+    case HouseholdRole.caregiver:
+      return AppTheme.english;
+    case null:
+      return AppTheme.textSecondary;
   }
 }
 
