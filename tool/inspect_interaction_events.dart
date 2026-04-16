@@ -7,13 +7,21 @@ Future<void> main(List<String> args) async {
     exit(64);
   }
 
-  final result = await Process.run(
-    Platform.resolvedExecutable,
-    ['run', 'tool/inspect_interaction_events.dart', ...args],
-    workingDirectory: mobileDirectory.path,
+  final delegatedScript = File(
+    '${mobileDirectory.path}${Platform.pathSeparator}tool${Platform.pathSeparator}inspect_interaction_events.dart',
   );
+  if (!delegatedScript.existsSync()) {
+    stderr.writeln('未找到 mobile/tool/inspect_interaction_events.dart，无法继续代理。');
+    exit(64);
+  }
+
+  final result = await Process.run(Platform.resolvedExecutable, [
+    'run',
+    'tool/inspect_interaction_events.dart',
+    ...args,
+  ], workingDirectory: mobileDirectory.path);
 
   stdout.write(result.stdout);
   stderr.write(result.stderr);
-  exit(result.exitCode is int ? result.exitCode as int : 1);
+  exit(result.exitCode);
 }

@@ -1,9 +1,12 @@
 import 'dart:math';
 
 import 'package:mobile/core/device/installation_id_service.dart';
+import 'package:mobile/features/practice/data/local/interaction_event_entity.dart';
 import 'package:mobile/features/practice/data/local/practice_local_data_source.dart';
 import 'package:mobile/features/practice/data/services/asset_phrase_service.dart';
 import 'package:mobile/features/practice/domain/models/interaction_event_payload.dart';
+import 'package:mobile/features/practice/domain/models/practice_activity_catalog.dart';
+import 'package:mobile/features/practice/domain/models/practice_continuity_snapshot.dart';
 import 'package:mobile/features/practice/domain/models/practice_phrase.dart';
 
 class PracticeActivitySnapshot {
@@ -138,7 +141,8 @@ PracticeSyncSummary summarizePracticeSyncEvents(
       continue;
     }
     final currentLastTimestamp = lastSyncedMetadataSource?.lastSyncAt;
-    if (currentLastTimestamp == null || syncTimestamp.isAfter(currentLastTimestamp)) {
+    if (currentLastTimestamp == null ||
+        syncTimestamp.isAfter(currentLastTimestamp)) {
       lastSyncedMetadataSource = event;
     }
   }
@@ -247,6 +251,222 @@ class PracticeRepository {
   final Random _random;
   bool _isClosed = false;
 
+  Future<PracticeActivityCatalog> getActivityCatalog() async {
+    final content = await _assetPhraseService.loadSeedContent();
+    final installationId = await _safeEnsureInstallationId();
+
+    List<InteractionEventEntity> rawEntities;
+    String? scanErrorMessage;
+    try {
+      rawEntities = await _localDataSource.listRawEntities();
+    } catch (error) {
+      rawEntities = const <InteractionEventEntity>[];
+      scanErrorMessage = '本地事件读取失败：$error';
+    }
+
+    final activityStates = <_CatalogActivityKey, _CatalogActivityState>{
+      for (final space in content.spaces)
+        for (final activity in space.activities)
+          _CatalogActivityKey(space.id, activity.id):
+              _CatalogActivityState.fromSeed(space: space, activity: activity),
+    };
+
+    var validEvents = 0;
+    var skippedMalformedEvents = 0;
+    var skippedUnknownContentEvents = 0;
+    String? lastIssueMessage = scanErrorMessage;
+
+    for (final entity in rawEntities) {
+      final activityState =
+          activityStates[_CatalogActivityKey(
+            entity.spaceId,
+            entity.activityId,
+          )];
+      try {
+        final event = PracticeLocalDataSource.payloadFromEntity(entity);
+        validEvents += 1;
+
+        if (activityState == null) {
+          skippedUnknownContentEvents += 1;
+          lastIssueMessage =
+              '跳过未知 activity 事件：${event.spaceId}/${event.activityId}/${event.phraseId}';
+          continue;
+        }
+        if (!activityState.containsPhrase(event.phraseId)) {
+          activityState.recordUnknownPhrase(event);
+          skippedUnknownContentEvents += 1;
+          lastIssueMessage =
+              '跳过未知短语事件：${event.spaceId}/${event.activityId}/${event.phraseId}';
+          continue;
+        }
+
+        activityState.record(event);
+      } catch (error) {
+        skippedMalformedEvents += 1;
+        lastIssueMessage = '$error';
+        activityState?.recordMalformed(
+          localEventId: entity.localEventId,
+          clientTimestamp: entity.clientTimestamp,
+          message: '$error',
+        );
+      }
+    }
+
+    final spaces = <PracticeCatalogSpaceSummary>[];
+    final activities = <PracticeCatalogActivitySummary>[];
+    for (final space in content.spaces) {
+      final spaceActivities = <PracticeCatalogActivitySummary>[];
+      DateTime? lastEventTime;
+      var totalEvents = 0;
+      var startedActivityCount = 0;
+      var completedActivityCount = 0;
+
+      for (final activity in space.activities) {
+        final summary =
+            activityStates[_CatalogActivityKey(space.id, activity.id)]!
+                .toSummary();
+        spaceActivities.add(summary);
+        activities.add(summary);
+        totalEvents += summary.totalEvents;
+        if (!summary.isEmpty) {
+          startedActivityCount += 1;
+        }
+        if (summary.isComplete) {
+          completedActivityCount += 1;
+        }
+        final summaryLastEventTime = summary.lastEventTime;
+        if (summaryLastEventTime != null &&
+            (lastEventTime == null ||
+                summaryLastEventTime.isAfter(lastEventTime))) {
+          lastEventTime = summaryLastEventTime;
+        }
+      }
+
+      spaces.add(
+        PracticeCatalogSpaceSummary(
+          spaceId: space.id,
+          title: space.title,
+          description: space.description,
+          activities: List.unmodifiable(spaceActivities),
+          totalEvents: totalEvents,
+          startedActivityCount: startedActivityCount,
+          completedActivityCount: completedActivityCount,
+          lastEventTime: lastEventTime,
+        ),
+      );
+    }
+
+    final knownEvents = activities.fold<int>(
+      0,
+      (sum, activity) => sum + activity.totalEvents,
+    );
+
+    return PracticeActivityCatalog(
+      installationId: installationId,
+      spaces: List.unmodifiable(spaces),
+      activities: List.unmodifiable(activities),
+      totalStoredEvents: rawEntities.length,
+      validEvents: validEvents,
+      knownEvents: knownEvents,
+      skippedMalformedEvents: skippedMalformedEvents,
+      skippedUnknownContentEvents: skippedUnknownContentEvents,
+      lastIssueMessage: lastIssueMessage,
+      catalogWarning: _buildCatalogWarning(
+        scanErrorMessage: scanErrorMessage,
+        skippedMalformedEvents: skippedMalformedEvents,
+        skippedUnknownContentEvents: skippedUnknownContentEvents,
+      ),
+    );
+  }
+
+  Future<PracticeContinuitySnapshot> getContinuitySnapshot({
+    String? starterSpaceId,
+    String? starterActivityId,
+  }) async {
+    final catalog = await getActivityCatalog();
+    if (catalog.activities.isEmpty) {
+      throw const FormatException('活动目录为空，无法生成 continuity snapshot。');
+    }
+
+    final normalizedStarterSpaceId = (starterSpaceId ?? '').trim();
+    final normalizedStarterActivityId = (starterActivityId ?? '').trim();
+    final hasStarterContext =
+        normalizedStarterSpaceId.isNotEmpty ||
+        normalizedStarterActivityId.isNotEmpty;
+
+    PracticeCatalogActivitySummary? starterActivity;
+    String? starterWarning;
+    if (normalizedStarterSpaceId.isNotEmpty &&
+        normalizedStarterActivityId.isNotEmpty) {
+      starterActivity = catalog.findActivity(
+        spaceId: normalizedStarterSpaceId,
+        activityId: normalizedStarterActivityId,
+      );
+      if (starterActivity == null) {
+        starterWarning =
+            'starter activity 不存在：$normalizedStarterSpaceId/$normalizedStarterActivityId；已忽略原始入口。';
+      }
+    } else if (hasStarterContext) {
+      starterWarning = 'starter activity 参数不完整；已忽略原始入口。';
+    }
+
+    final recentActivity = catalog.mostRecentActivity;
+    final nextIncompleteActivity = catalog.firstIncompleteActivity;
+
+    late final PracticeCatalogActivitySummary recommendedActivity;
+    late final PracticeContinuityReason recommendationReason;
+    late final String? fallbackReason;
+
+    if (recentActivity != null) {
+      recommendedActivity = recentActivity;
+      recommendationReason = PracticeContinuityReason.recentActivity;
+      fallbackReason = null;
+    } else if (starterActivity != null) {
+      recommendedActivity = starterActivity;
+      recommendationReason = PracticeContinuityReason.starterFallback;
+      fallbackReason = '暂无最近 activity，先从 starter activity 继续。';
+    } else if (nextIncompleteActivity != null) {
+      recommendedActivity = nextIncompleteActivity;
+      recommendationReason = PracticeContinuityReason.nextIncomplete;
+      fallbackReason = starterWarning == null
+          ? '暂无最近 activity，先接上尚未完成的 activity。'
+          : 'starter activity 不可用，已退回尚未完成的 activity。';
+    } else {
+      recommendedActivity = catalog.activities.first;
+      recommendationReason = PracticeContinuityReason.safeCatalogFallback;
+      fallbackReason = '未找到可继续的未完成 activity，已回退到目录中的首个 activity。';
+    }
+
+    final warningParts = <String>[
+      if (starterWarning != null && starterWarning.trim().isNotEmpty)
+        starterWarning,
+      if (catalog.catalogWarning != null &&
+          catalog.catalogWarning!.trim().isNotEmpty)
+        catalog.catalogWarning!,
+    ];
+
+    return PracticeContinuitySnapshot(
+      catalog: catalog,
+      recommendedActivity: recommendedActivity,
+      recentActivity: recentActivity,
+      nextIncompleteActivity: nextIncompleteActivity,
+      starterActivity: starterActivity,
+      recommendation: PracticeContinuityRecommendation(
+        spaceId: recommendedActivity.spaceId,
+        activityId: recommendedActivity.activityId,
+        activityTitle: recommendedActivity.title,
+        reason: recommendationReason,
+        reasonLabel: recommendationReason.label,
+        fallbackReason: fallbackReason,
+      ),
+      cadence: _buildContinuityCadenceSummary(
+        catalog: catalog,
+        recommendedActivity: recommendedActivity,
+      ),
+      warningMessage: warningParts.isEmpty ? null : warningParts.join('；'),
+    );
+  }
+
   Future<PracticeActivitySnapshot> getActivitySnapshot({
     required String spaceId,
     required String activityId,
@@ -321,6 +541,7 @@ class PracticeRepository {
 
     final installationId = await _safeEnsureInstallationId();
     final inspection = await _safeInspectEventLog(
+      spaceId: spaceId,
       activityId: activityId,
       installationId: installationId,
     );
@@ -382,10 +603,12 @@ class PracticeRepository {
   }
 
   Future<PracticeEventInspection> inspectEventLog({
+    String? spaceId,
     String? activityId,
     String? installationIdOverride,
   }) async {
     final rawEntities = await _localDataSource.listRawEntities(
+      spaceId: spaceId,
       activityId: activityId,
     );
 
@@ -416,30 +639,49 @@ class PracticeRepository {
     );
   }
 
-  Future<PracticeSyncSummary> getSyncSummary({String? activityId}) async {
-    final events = await listEventHistory(activityId: activityId);
+  Future<PracticeSyncSummary> getSyncSummary({
+    String? spaceId,
+    String? activityId,
+  }) async {
+    final events = await listEventHistory(
+      spaceId: spaceId,
+      activityId: activityId,
+    );
     return summarizePracticeSyncEvents(events);
   }
 
-  Future<List<InteractionEventPayload>> listEventHistory({String? activityId}) {
-    return _localDataSource.listInteractionEvents(activityId: activityId);
+  Future<List<InteractionEventPayload>> listEventHistory({
+    String? spaceId,
+    String? activityId,
+  }) {
+    return _localDataSource.listInteractionEvents(
+      spaceId: spaceId,
+      activityId: activityId,
+    );
   }
 
   Future<List<InteractionEventPayload>> listPendingEvents({
+    String? spaceId,
     String? activityId,
     int? limit,
   }) {
     return _localDataSource.listPendingEvents(
+      spaceId: spaceId,
       activityId: activityId,
       limit: limit,
     );
   }
 
   Future<List<InteractionEventUploadRecord>> listPendingUploadRecords({
+    String? spaceId,
     String? activityId,
     int? limit,
   }) async {
-    final events = await listPendingEvents(activityId: activityId, limit: limit);
+    final events = await listPendingEvents(
+      spaceId: spaceId,
+      activityId: activityId,
+      limit: limit,
+    );
     return events.map((event) => event.uploadRecord).toList(growable: false);
   }
 
@@ -492,11 +734,13 @@ class PracticeRepository {
   }
 
   Future<PracticeEventInspection> _safeInspectEventLog({
+    required String spaceId,
     required String activityId,
     required String? installationId,
   }) async {
     try {
       return await inspectEventLog(
+        spaceId: spaceId,
         activityId: activityId,
         installationIdOverride: installationId,
       );
@@ -637,9 +881,207 @@ class PracticeRepository {
     return '已从本地恢复最近一次练习结果，共 ${homeSummary.totalEvents} 条记录。';
   }
 
+  String? _buildCatalogWarning({
+    required String? scanErrorMessage,
+    required int skippedMalformedEvents,
+    required int skippedUnknownContentEvents,
+  }) {
+    final parts = <String>[];
+    if (scanErrorMessage != null && scanErrorMessage.trim().isNotEmpty) {
+      parts.add(scanErrorMessage);
+    }
+    if (skippedMalformedEvents > 0) {
+      parts.add('跳过 $skippedMalformedEvents 条损坏记录');
+    }
+    if (skippedUnknownContentEvents > 0) {
+      parts.add('跳过 $skippedUnknownContentEvents 条未知内容记录');
+    }
+    if (parts.isEmpty) {
+      return null;
+    }
+    return parts.join('；');
+  }
+
+  PracticeContinuityCadenceSummary _buildContinuityCadenceSummary({
+    required PracticeActivityCatalog catalog,
+    required PracticeCatalogActivitySummary recommendedActivity,
+  }) {
+    final latestEventTime = catalog.mostRecentActivity?.lastEventTime;
+    final startedActivityCount = catalog.startedActivityCount;
+
+    late final String headline;
+    late final String detail;
+
+    if (catalog.knownEvents == 0) {
+      headline = '还没形成 cadence';
+      detail = '先从 ${recommendedActivity.title} 开始，第一条本地记录会从这里累积。';
+    } else if (startedActivityCount <= 1) {
+      headline = '正在围绕单一 activity 形成节奏';
+      detail = latestEventTime == null
+          ? '当前推荐 ${recommendedActivity.title} · 已累计 ${catalog.knownEvents} 条记录。'
+          : '最近一次 ${_formatContinuityTime(latestEventTime)} · 当前推荐 ${recommendedActivity.title}。';
+    } else {
+      headline = '已经带出跨 activity 的节奏';
+      detail = latestEventTime == null
+          ? '已开始 $startedActivityCount 个 activity · 当前推荐 ${recommendedActivity.title}。'
+          : '最近一次 ${_formatContinuityTime(latestEventTime)} · 已开始 $startedActivityCount 个 activity。';
+    }
+
+    return PracticeContinuityCadenceSummary(
+      totalKnownEvents: catalog.knownEvents,
+      startedActivityCount: startedActivityCount,
+      lastEventTime: latestEventTime,
+      headline: headline,
+      detail: detail,
+    );
+  }
+
+  String _formatContinuityTime(DateTime dateTime) {
+    final local = dateTime.toLocal();
+    final month = local.month.toString().padLeft(2, '0');
+    final day = local.day.toString().padLeft(2, '0');
+    final hour = local.hour.toString().padLeft(2, '0');
+    final minute = local.minute.toString().padLeft(2, '0');
+    return '$month-$day $hour:$minute';
+  }
+
   String _generateLocalEventId() {
     final timestamp = DateTime.now().toUtc().microsecondsSinceEpoch;
     final entropy = _random.nextInt(1 << 32).toRadixString(16).padLeft(8, '0');
     return 'evt_${timestamp}_$entropy';
   }
+}
+
+class _CatalogActivityState {
+  _CatalogActivityState({required this.space, required this.activity})
+    : _phraseById = {for (final phrase in activity.phrases) phrase.id: phrase};
+
+  factory _CatalogActivityState.fromSeed({
+    required SeedSpace space,
+    required SeedActivity activity,
+  }) {
+    return _CatalogActivityState(space: space, activity: activity);
+  }
+
+  final SeedSpace space;
+  final SeedActivity activity;
+  final Map<String, SeedPhrase> _phraseById;
+  final Set<String> _completedPhraseIds = <String>{};
+  int totalEvents = 0;
+  int skippedUnknownPhraseCount = 0;
+  int skippedMalformedEventCount = 0;
+  InteractionEventPayload? latestKnownEvent;
+  String? latestWarningMessage;
+
+  bool containsPhrase(String phraseId) => _phraseById.containsKey(phraseId);
+
+  void record(InteractionEventPayload event) {
+    totalEvents += 1;
+    _completedPhraseIds.add(event.phraseId);
+    latestKnownEvent = event;
+  }
+
+  void recordUnknownPhrase(InteractionEventPayload event) {
+    skippedUnknownPhraseCount += 1;
+    latestWarningMessage = '跳过未知短语记录：${event.activityId}/${event.phraseId}';
+  }
+
+  void recordMalformed({
+    required String? localEventId,
+    required DateTime? clientTimestamp,
+    required String message,
+  }) {
+    skippedMalformedEventCount += 1;
+    final detail = [
+      if (localEventId != null && localEventId.trim().isNotEmpty)
+        'localEventId=$localEventId',
+      if (clientTimestamp != null) clientTimestamp.toIso8601String(),
+      message,
+    ].join(' @ ');
+    latestWarningMessage = '跳过损坏记录：$detail';
+  }
+
+  PracticeCatalogActivitySummary toSummary() {
+    final completedPhraseIds = activity.phrases
+        .where((phrase) => _completedPhraseIds.contains(phrase.id))
+        .map((phrase) => phrase.id)
+        .toList(growable: false);
+
+    SeedPhrase? nextPhrase;
+    for (final phrase in activity.phrases) {
+      if (!_completedPhraseIds.contains(phrase.id)) {
+        nextPhrase = phrase;
+        break;
+      }
+    }
+    nextPhrase ??= activity.phrases.isEmpty ? null : activity.phrases.last;
+
+    final latestPhrase = latestKnownEvent == null
+        ? null
+        : _phraseById[latestKnownEvent!.phraseId];
+
+    return PracticeCatalogActivitySummary(
+      spaceId: space.id,
+      spaceTitle: space.title,
+      activityId: activity.id,
+      title: activity.title,
+      summary: activity.summary,
+      sceneTag: activity.sceneTag,
+      coachTip: activity.coachTip,
+      totalPhraseCount: activity.phrases.length,
+      completedPhraseCount: completedPhraseIds.length,
+      completedPhraseIds: List.unmodifiable(completedPhraseIds),
+      nextPhraseId: nextPhrase?.id,
+      nextPhraseEnglish: nextPhrase?.english,
+      totalEvents: totalEvents,
+      skippedUnknownPhraseCount: skippedUnknownPhraseCount,
+      skippedMalformedEventCount: skippedMalformedEventCount,
+      lastEventTime: latestKnownEvent?.clientTimestamp,
+      recentResult: latestKnownEvent == null || latestPhrase == null
+          ? null
+          : PracticeCatalogRecentResultSummary(
+              phraseId: latestKnownEvent!.phraseId,
+              phraseEnglish: latestPhrase.english,
+              reactionType: latestKnownEvent!.reactionType,
+              eventTime: latestKnownEvent!.clientTimestamp,
+              totalEvents: totalEvents,
+            ),
+      warningMessage: _buildWarningMessage(),
+    );
+  }
+
+  String? _buildWarningMessage() {
+    final parts = <String>[];
+    if (skippedMalformedEventCount > 0) {
+      parts.add('跳过 $skippedMalformedEventCount 条损坏记录');
+    }
+    if (skippedUnknownPhraseCount > 0) {
+      parts.add('跳过 $skippedUnknownPhraseCount 条未知短语记录');
+    }
+    if (latestWarningMessage != null &&
+        latestWarningMessage!.trim().isNotEmpty) {
+      parts.add(latestWarningMessage!);
+    }
+    if (parts.isEmpty) {
+      return null;
+    }
+    return parts.join('；');
+  }
+}
+
+class _CatalogActivityKey {
+  const _CatalogActivityKey(this.spaceId, this.activityId);
+
+  final String spaceId;
+  final String activityId;
+
+  @override
+  bool operator ==(Object other) {
+    return other is _CatalogActivityKey &&
+        other.spaceId == spaceId &&
+        other.activityId == activityId;
+  }
+
+  @override
+  int get hashCode => Object.hash(spaceId, activityId);
 }

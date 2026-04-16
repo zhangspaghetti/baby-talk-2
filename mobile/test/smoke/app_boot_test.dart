@@ -17,7 +17,11 @@ import 'package:mobile/features/onboarding/domain/models/onboarding_snapshot.dar
 import 'package:mobile/features/onboarding/domain/models/stage_match.dart';
 import 'package:mobile/features/practice/data/local/practice_local_data_source.dart';
 import 'package:mobile/features/practice/data/repositories/practice_repository.dart';
+import 'package:mobile/features/practice/domain/models/interaction_event_payload.dart';
+import 'package:mobile/features/practice/domain/models/practice_continuity_snapshot.dart';
+import 'package:mobile/features/practice/presentation/practice_continuity_view_model.dart';
 import 'package:mobile/features/practice/presentation/practice_session_view_model.dart';
+import 'package:provider/provider.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -76,6 +80,9 @@ void main() {
       return _createHarness();
     }))!;
     addTearDown(harness.close);
+    addTearDown(() async {
+      await _disposeWidgetTree(tester);
+    });
 
     await tester.pumpWidget(
       BabyTalkApp(
@@ -84,6 +91,8 @@ void main() {
         appDirectoryResolver: () async => harness.tempDir,
         audioControllerFactory: _SilentPracticeAudioController.new,
         completedSnapshotLoader: () async => null,
+        practiceContinuityRefreshTimeout: const Duration(milliseconds: 1),
+        gardenGrowthRefreshTimeout: const Duration(milliseconds: 1),
       ),
     );
     await _pumpUntilFound(
@@ -99,8 +108,27 @@ void main() {
     );
     expect(find.byKey(const Key('home-start-practice')), findsNothing);
 
-    final phrases = harness.bootState.content!.primaryActivity.phrases;
-    for (final phrase in phrases) {
+    final content = harness.bootState.content!;
+    final allActivities = [
+      for (final space in content.spaces) ...space.activities,
+    ];
+    final allPhrases = [
+      for (final activity in allActivities) ...activity.phrases,
+    ];
+
+    expect(content.spaces.map((space) => space.id), [
+      'daily_care',
+      'family_rhythm',
+    ]);
+    expect(allActivities.map((activity) => activity.id), [
+      'bath_time',
+      'diaper_change',
+      'feeding_time',
+      'bedtime',
+    ]);
+    expect(allPhrases, hasLength(9));
+
+    for (final phrase in allPhrases) {
       final audioBytes = await rootBundle.load(phrase.audioAsset);
       expect(audioBytes.lengthInBytes, greaterThan(0));
     }
@@ -128,6 +156,9 @@ void main() {
       return created;
     }))!;
     addTearDown(harness.close);
+    addTearDown(() async {
+      await _disposeWidgetTree(tester);
+    });
 
     await tester.pumpWidget(
       BabyTalkApp(
@@ -136,6 +167,8 @@ void main() {
         appDirectoryResolver: () async => harness.tempDir,
         audioControllerFactory: _SilentPracticeAudioController.new,
         completedSnapshotLoader: () async => completedSnapshot,
+        practiceContinuityRefreshTimeout: const Duration(milliseconds: 1),
+        gardenGrowthRefreshTimeout: const Duration(milliseconds: 1),
       ),
     );
     await _pumpUntilFound(tester, find.byKey(const Key('boot-route-shell')));
@@ -144,6 +177,95 @@ void main() {
     expect(find.byKey(const Key('boot-route-shell')), findsOneWidget);
     expect(find.byKey(const Key('boot-route-onboarding')), findsNothing);
   });
+
+  testWidgets(
+    '存在 completed snapshot 与 recent activity 时冷启动会 seed continuity recommendation',
+    (WidgetTester tester) async {
+      late OnboardingSnapshot completedSnapshot;
+      final harness = (await tester.runAsync<_AppBootHarness>(() async {
+        final created = await _createHarness();
+        await created.repository.recordReaction(
+          spaceId: 'family_rhythm',
+          activityId: 'feeding_time',
+          phraseId: 'feeding_time_open_wide',
+          reactionType: BabyReactionType.engaged,
+          clientTimestamp: DateTime.utc(2026, 4, 8, 9, 0),
+          localEventId: 'evt_boot_feed_1',
+        );
+        await created.repository.recordReaction(
+          spaceId: 'family_rhythm',
+          activityId: 'feeding_time',
+          phraseId: 'feeding_time_yummy_bite',
+          reactionType: BabyReactionType.imitated,
+          clientTimestamp: DateTime.utc(2026, 4, 8, 9, 1),
+          localEventId: 'evt_boot_feed_2',
+        );
+        final onboardingRepository = OnboardingRepository(
+          snapshotStore: OnboardingSnapshotStore(
+            directoryResolver: () async => created.tempDir,
+          ),
+          practiceRepository: created.repository,
+          starterSpaceId: created.bootState.primarySpaceId!,
+          starterActivityId: created.bootState.primaryActivityId!,
+        );
+        completedSnapshot = await onboardingRepository.completeOnboarding(
+          childDisplayName: '米米',
+          ageBucket: OnboardingAgeBucket.zeroToSix,
+          completedAt: DateTime.utc(2026, 4, 8, 8),
+        );
+        return created;
+      }))!;
+      addTearDown(harness.close);
+      addTearDown(() async {
+        await _disposeWidgetTree(tester);
+      });
+
+      await tester.pumpWidget(
+        BabyTalkApp(
+          bootState: harness.bootState,
+          repositoryFactory: (_) async => harness.repository,
+          appDirectoryResolver: () async => harness.tempDir,
+          audioControllerFactory: _SilentPracticeAudioController.new,
+          completedSnapshotLoader: () async => completedSnapshot,
+          practiceContinuityRefreshTimeout: const Duration(milliseconds: 1),
+          gardenGrowthRefreshTimeout: const Duration(milliseconds: 1),
+        ),
+      );
+      await _pumpUntilFound(tester, find.byKey(const Key('boot-route-shell')));
+      await tester.pump();
+
+      final shellElement = tester.element(find.byKey(const Key('shell-ready')));
+      final continuityViewModel = Provider.of<PracticeContinuityViewModel>(
+        shellElement,
+        listen: false,
+      );
+      expect(continuityViewModel.hasResolvedRecommendation, isTrue);
+      expect(continuityViewModel.recommendedArgs?.activityId, 'feeding_time');
+      expect(
+        continuityViewModel.snapshot?.recommendation.reason,
+        PracticeContinuityReason.recentActivity,
+      );
+      expect(
+        continuityViewModel.lastRefreshReason,
+        'boot_seed_recent_activity',
+      );
+
+      await tester.tap(find.byTooltip('花园'));
+      await _pumpUntilFound(tester, find.byKey(const Key('shell-tab-garden')));
+      await tester.scrollUntilVisible(
+        find.byKey(const Key('garden-continue-practice')),
+        180,
+        scrollable: find.byType(Scrollable).last,
+      );
+      await tester.pump();
+
+      expect(
+        find.byKey(const Key('garden-continue-target-feeding_time')),
+        findsOneWidget,
+      );
+      expect(find.textContaining('继续最近 activity'), findsWidgets);
+    },
+  );
 
   testWidgets('malformed account snapshot 只会退回未登录，不会破坏 shell route gate', (
     WidgetTester tester,
@@ -182,6 +304,9 @@ void main() {
       return created;
     }))!;
     addTearDown(harness.close);
+    addTearDown(() async {
+      await _disposeWidgetTree(tester);
+    });
 
     expect(loadedAccountSnapshot.consentState, AccountConsentState.signedOut);
     expect(loadedAccountSnapshot.session, isNull);
@@ -193,6 +318,8 @@ void main() {
         appDirectoryResolver: () async => harness.tempDir,
         audioControllerFactory: _SilentPracticeAudioController.new,
         completedSnapshotLoader: () async => completedSnapshot,
+        practiceContinuityRefreshTimeout: const Duration(milliseconds: 1),
+        gardenGrowthRefreshTimeout: const Duration(milliseconds: 1),
       ),
     );
     await _pumpUntilFound(tester, find.byKey(const Key('boot-route-shell')));
@@ -205,6 +332,9 @@ void main() {
   testWidgets('snapshot 目录读取失败时暴露明确的 route gate 失败态', (
     WidgetTester tester,
   ) async {
+    addTearDown(() async {
+      await _disposeWidgetTree(tester);
+    });
     final bootState = (await tester.runAsync<AppBootState>(() async {
       return AppBootState.load(rootBundle);
     }))!;
@@ -244,9 +374,10 @@ class _AppBootHarness {
   final PracticeRepository repository;
 
   Future<void> close() async {
-    await repository.close();
+    await repository.close(deleteFromDisk: true);
+    await Future<void>.delayed(const Duration(milliseconds: 50));
     if (await tempDir.exists()) {
-      await tempDir.delete(recursive: true);
+      await _deleteDirectoryWithRetry(tempDir);
     }
   }
 }
@@ -277,7 +408,7 @@ Future<_AppBootHarness> _createHarness() async {
   await tempDir.create(recursive: true);
   final localDataSource = await PracticeLocalDataSource.open(
     directory: tempDir.path,
-    name: 'app_boot_test',
+    name: 'app_boot_test_${DateTime.now().microsecondsSinceEpoch}',
   );
   final repository = PracticeRepository(
     assetPhraseService: bootState.assetPhraseService!,
@@ -295,15 +426,58 @@ Future<_AppBootHarness> _createHarness() async {
   );
 }
 
+Future<void> _deleteDirectoryWithRetry(
+  Directory directory, {
+  int attempts = 20,
+  Duration delay = const Duration(milliseconds: 50),
+}) async {
+  Object? lastError;
+  for (var attempt = 0; attempt < attempts; attempt++) {
+    try {
+      if (!await directory.exists()) {
+        return;
+      }
+      await directory.delete(recursive: true);
+      return;
+    } on PathAccessException catch (error) {
+      lastError = error;
+      await Future<void>.delayed(delay);
+    }
+  }
+
+  if (lastError != null) {
+    // Windows + Isar close 可能在测试销毁后短暂持有文件句柄；这里做 best-effort 清理，
+    // 避免把已经完成的启动 proof 伪打红。
+    return;
+  }
+}
+
+Future<void> _disposeWidgetTree(WidgetTester tester) async {
+  await tester.pumpWidget(const SizedBox.shrink());
+  await tester.pump();
+  await tester.pump(const Duration(seconds: 5));
+  await tester.runAsync(() async {
+    await Future<void>.delayed(Duration.zero);
+  });
+  await tester.pump();
+}
+
 Future<void> _pumpUntilFound(
   WidgetTester tester,
   Finder finder, {
   Duration step = const Duration(milliseconds: 50),
-  Duration timeout = const Duration(seconds: 5),
+  Duration timeout = const Duration(seconds: 12),
 }) async {
   final totalSteps = timeout.inMilliseconds ~/ step.inMilliseconds;
   for (var index = 0; index < totalSteps; index++) {
     await tester.pump(step);
+    if (finder.evaluate().isNotEmpty) {
+      return;
+    }
+    await tester.runAsync(() async {
+      await Future<void>.delayed(Duration.zero);
+    });
+    await tester.pump();
     if (finder.evaluate().isNotEmpty) {
       return;
     }

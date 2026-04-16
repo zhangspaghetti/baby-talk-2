@@ -18,7 +18,10 @@ class AccountViewModel extends ChangeNotifier with WidgetsBindingObserver {
   bool _hasLoaded = false;
   bool _isBusy = false;
   bool _observerAttached = false;
+  bool _disposed = false;
   int _runtimeChangeToken = 0;
+  Future<void>? _initializeFuture;
+  Future<void>? _runtimeRefreshFuture;
   AccountLocalSnapshot _snapshot = AccountLocalSnapshot.localOnly;
   String? _loadErrorMessage;
   String? _submissionMessage;
@@ -88,15 +91,31 @@ class AccountViewModel extends ChangeNotifier with WidgetsBindingObserver {
     return _localOnlyPhoneHint;
   }
 
-  Future<void> initialize() async {
+  Future<void> initialize() {
     if (_observerAttached == false) {
       WidgetsBinding.instance.addObserver(this);
       _observerAttached = true;
     }
+    if (_disposed) {
+      return Future.value();
+    }
     if (_hasLoaded || _isLoading) {
+      return _initializeFuture ?? Future.value();
+    }
+    final future = _initializeInternal();
+    _initializeFuture = future;
+    return future.whenComplete(() {
+      if (identical(_initializeFuture, future)) {
+        _initializeFuture = null;
+      }
+    });
+  }
+
+  Future<void> _initializeInternal() async {
+    await reload();
+    if (_disposed) {
       return;
     }
-    await reload();
     unawaited(
       refreshRuntimeState(
         trigger: AccountRuntimeTrigger.appBoot,
@@ -118,7 +137,7 @@ class AccountViewModel extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   Future<void> reload() async {
-    if (_isLoading) {
+    if (_disposed || _isLoading) {
       return;
     }
     _isLoading = true;
@@ -126,10 +145,17 @@ class AccountViewModel extends ChangeNotifier with WidgetsBindingObserver {
     notifyListeners();
 
     try {
-      _snapshot = await _repository.loadSnapshot();
+      final nextSnapshot = await _repository.loadSnapshot();
+      if (_disposed) {
+        return;
+      }
+      _snapshot = nextSnapshot;
       _hasLoaded = true;
       _bumpRuntimeToken();
     } catch (error) {
+      if (_disposed) {
+        return;
+      }
       _loadErrorMessage = '账号状态读取失败：$error';
     } finally {
       _isLoading = false;
@@ -210,10 +236,30 @@ class AccountViewModel extends ChangeNotifier with WidgetsBindingObserver {
   Future<void> refreshRuntimeState({
     required AccountRuntimeTrigger trigger,
     bool announceIdleNoop = true,
-  }) async {
-    if (_isBusy) {
-      return;
+  }) {
+    if (_disposed) {
+      return Future.value();
     }
+    if (_isBusy) {
+      return _runtimeRefreshFuture ?? Future.value();
+    }
+
+    final future = _refreshRuntimeStateInternal(
+      trigger: trigger,
+      announceIdleNoop: announceIdleNoop,
+    );
+    _runtimeRefreshFuture = future;
+    return future.whenComplete(() {
+      if (identical(_runtimeRefreshFuture, future)) {
+        _runtimeRefreshFuture = null;
+      }
+    });
+  }
+
+  Future<void> _refreshRuntimeStateInternal({
+    required AccountRuntimeTrigger trigger,
+    required bool announceIdleNoop,
+  }) async {
     _isBusy = true;
     if (announceIdleNoop) {
       _submissionMessage = _messageForTrigger(trigger);
@@ -221,12 +267,21 @@ class AccountViewModel extends ChangeNotifier with WidgetsBindingObserver {
     }
 
     try {
-      _snapshot = await _repository.refreshRuntimeState(trigger: trigger);
+      final nextSnapshot = await _repository.refreshRuntimeState(
+        trigger: trigger,
+      );
+      if (_disposed) {
+        return;
+      }
+      _snapshot = nextSnapshot;
       _bumpRuntimeToken();
       if (announceIdleNoop || _snapshot.lastVisibleError != null) {
         _submissionMessage = _buildActionMessage('已刷新账号与同步状态');
       }
     } catch (error) {
+      if (_disposed) {
+        return;
+      }
       _submissionMessage = '刷新同步状态失败：$error';
     } finally {
       _isBusy = false;
@@ -299,6 +354,9 @@ class AccountViewModel extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   Future<void> handleHomeVisible() {
+    if (!_hasLoaded && !_isLoading) {
+      return initialize();
+    }
     return refreshRuntimeState(
       trigger: AccountRuntimeTrigger.homeVisible,
       announceIdleNoop: false,
@@ -351,7 +409,16 @@ class AccountViewModel extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   @override
+  void notifyListeners() {
+    if (_disposed) {
+      return;
+    }
+    super.notifyListeners();
+  }
+
+  @override
   void dispose() {
+    _disposed = true;
     if (_observerAttached) {
       WidgetsBinding.instance.removeObserver(this);
       _observerAttached = false;

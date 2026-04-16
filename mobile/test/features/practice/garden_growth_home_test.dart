@@ -16,6 +16,8 @@ import 'package:mobile/features/practice/data/repositories/practice_repository.d
 import 'package:mobile/features/practice/data/services/asset_phrase_service.dart';
 import 'package:mobile/features/practice/domain/models/interaction_event_payload.dart';
 import 'package:mobile/features/practice/presentation/garden_growth_view_model.dart';
+import 'package:mobile/features/practice/presentation/practice_continuity_view_model.dart';
+import 'package:mobile/features/practice/presentation/practice_route_args.dart';
 import 'package:mobile/features/practice/presentation/practice_session_view_model.dart';
 import 'package:mobile/features/practice/presentation/screens/home_screen.dart';
 import 'package:provider/provider.dart';
@@ -42,7 +44,25 @@ void main() {
     });
 
     await tester.pumpWidget(harness.buildApp());
-    await _pumpUntilFound(tester, find.byType(HomeScreen));
+    await _pumpUntilHomeLoaded(tester);
+    await _scrollHomeUntilVisible(
+      tester,
+      find.byKey(const Key('home-continuity-fallback-banner')),
+    );
+
+    expect(
+      find.byKey(const Key('home-continuity-fallback-banner')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('home-hero-activity-bath_time')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('home-cadence-summary-bath_time')),
+      findsOneWidget,
+    );
+
     await _scrollHomeUntilVisible(
       tester,
       find.byKey(const Key('home-garden-mini-entry')),
@@ -93,7 +113,7 @@ void main() {
     });
 
     await tester.pumpWidget(harness.buildApp());
-    await _pumpUntilFound(tester, find.byType(HomeScreen));
+    await _pumpUntilHomeLoaded(tester);
     await _scrollHomeUntilVisible(
       tester,
       find.byKey(const Key('home-garden-mini-entry')),
@@ -107,26 +127,179 @@ void main() {
     expect(find.textContaining('日常照护'), findsWidgets);
     expect(find.byKey(const Key('home-growth-summary')), findsOneWidget);
     expect(find.textContaining('Warm water.'), findsWidgets);
-    expect(find.byKey(const Key('home-growth-summary-warning')), findsOneWidget);
+    expect(
+      find.byKey(const Key('home-growth-summary-warning')),
+      findsOneWidget,
+    );
     expect(find.textContaining('未知内容事件'), findsWidgets);
+  });
+
+  testWidgets('首页优先显示最近 activity，而不是固定 starter provider', (tester) async {
+    final harness = (await tester.runAsync<_Harness>(_Harness.create))!;
+    addTearDown(harness.dispose);
+
+    await tester.runAsync(() async {
+      await harness.practiceRepository.recordReaction(
+        spaceId: 'family_rhythm',
+        activityId: 'feeding_time',
+        phraseId: 'feeding_time_open_wide',
+        reactionType: BabyReactionType.calm,
+        clientTimestamp: DateTime.utc(2026, 4, 9, 9, 2),
+        localEventId: 'evt_home_feed_1',
+      );
+      await harness.practiceRepository.recordReaction(
+        spaceId: 'family_rhythm',
+        activityId: 'feeding_time',
+        phraseId: 'feeding_time_yummy_bite',
+        reactionType: BabyReactionType.imitated,
+        clientTimestamp: DateTime.utc(2026, 4, 9, 9, 3),
+        localEventId: 'evt_home_feed_2',
+      );
+      await Future.wait([
+        harness.accountViewModel.initialize(),
+        harness.practiceSessionViewModel.initialize(),
+        harness.gardenGrowthViewModel.refresh(),
+      ]);
+    });
+
+    await tester.pumpWidget(
+      harness.buildApp(
+        practiceArgs: const PracticeRouteArgs(
+          spaceId: 'daily_care',
+          activityId: 'bath_time',
+        ),
+      ),
+    );
+    await _pumpUntilHomeLoaded(tester);
+    await _scrollHomeUntilVisible(
+      tester,
+      find.byKey(const ValueKey('home-start-practice-feeding_time')),
+    );
+
+    expect(
+      find.byKey(const ValueKey('home-start-practice-feeding_time')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('home-continuity-reason-feeding_time')),
+      findsOneWidget,
+    );
+
+    await _scrollHomeUntilVisible(
+      tester,
+      find.byKey(const ValueKey('recent-result-summary-feeding_time')),
+    );
+
+    expect(
+      find.byKey(const ValueKey('recent-result-summary-feeding_time')),
+      findsOneWidget,
+    );
+    expect(find.textContaining('吃饭时间'), findsWidgets);
+    expect(find.textContaining('Yummy bite.'), findsWidgets);
+  });
+
+  testWidgets('首页在坏 starter context 下显示 warning 并回退到安全 activity', (
+    tester,
+  ) async {
+    final harness = (await tester.runAsync<_Harness>(_Harness.create))!;
+    addTearDown(harness.dispose);
+
+    await tester.runAsync(() async {
+      await Future.wait([
+        harness.accountViewModel.initialize(),
+        harness.practiceSessionViewModel.initialize(),
+        harness.gardenGrowthViewModel.initialize(),
+      ]);
+    });
+
+    await tester.pumpWidget(
+      harness.buildApp(
+        practiceArgs: const PracticeRouteArgs(
+          spaceId: 'daily_care',
+          activityId: 'missing_activity',
+        ),
+      ),
+    );
+    await _pumpUntilHomeLoaded(tester);
+    await _scrollHomeUntilVisible(
+      tester,
+      find.byKey(const Key('home-continuity-warning-banner')),
+    );
+
+    expect(
+      find.byKey(const Key('home-continuity-warning-banner')),
+      findsOneWidget,
+    );
+    expect(find.textContaining('starter activity 不存在'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('home-hero-activity-bath_time')),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('首页在 continuity provider 缺失时显示安全空态，不回退默认 activity', (
+    tester,
+  ) async {
+    final harness = (await tester.runAsync<_Harness>(_Harness.create))!;
+    addTearDown(harness.dispose);
+
+    await tester.runAsync(() async {
+      await Future.wait([
+        harness.accountViewModel.initialize(),
+        harness.practiceSessionViewModel.initialize(),
+        harness.gardenGrowthViewModel.initialize(),
+      ]);
+    });
+
+    await tester.pumpWidget(
+      harness.buildApp(includeContinuityProvider: false),
+    );
+    await _pumpUntilHomeLoaded(tester);
+    await _scrollHomeUntilVisible(
+      tester,
+      find.byKey(const Key('home-continuity-provider-missing-banner')),
+    );
+
+    expect(
+      find.byKey(const Key('home-continuity-provider-missing-banner')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('home-hero-activity-safe-empty')),
+      findsOneWidget,
+    );
+    expect(find.textContaining('不会回退到默认 activity'), findsWidgets);
+    expect(
+      tester.widget<ElevatedButton>(
+        find.byKey(const ValueKey('home-start-practice-safe-empty')),
+      ).onPressed,
+      isNull,
+    );
   });
 }
 
-Future<void> _pumpUntilFound(
-  WidgetTester tester,
-  Finder finder, {
+Future<void> _pumpUntilHomeLoaded(
+  WidgetTester tester, {
   Duration step = const Duration(milliseconds: 50),
   Duration timeout = const Duration(seconds: 5),
 }) async {
   final totalSteps = timeout.inMilliseconds ~/ step.inMilliseconds;
   for (var index = 0; index < totalSteps; index++) {
     await tester.pump(step);
-    if (finder.evaluate().isNotEmpty) {
+    if (find.byKey(const Key('home-loading')).evaluate().isEmpty) {
+      return;
+    }
+    await tester.runAsync(() async {
+      await Future<void>.delayed(Duration.zero);
+    });
+    await tester.pump();
+    if (find.byKey(const Key('home-loading')).evaluate().isEmpty) {
       return;
     }
   }
 
-  fail('Timed out waiting for expected widget.');
+  debugDumpApp();
+  fail('Timed out waiting for home loading to finish.');
 }
 
 Future<void> _scrollHomeUntilVisible(WidgetTester tester, Finder target) async {
@@ -198,10 +371,28 @@ class _Harness {
     );
   }
 
-  Widget buildApp() {
+  Widget buildApp({
+    PracticeRouteArgs? practiceArgs,
+    bool includeContinuityProvider = true,
+  }) {
+    final resolvedPracticeArgs =
+        practiceArgs ??
+        const PracticeRouteArgs(
+          spaceId: 'daily_care',
+          activityId: 'bath_time',
+        );
+
     return MultiProvider(
       providers: [
         Provider<PracticeRepository>.value(value: practiceRepository),
+        Provider<PracticeRouteArgs?>.value(value: resolvedPracticeArgs),
+        if (includeContinuityProvider)
+          ChangeNotifierProvider<PracticeContinuityViewModel>(
+            create: (_) => PracticeContinuityViewModel(
+              repository: practiceRepository,
+              initialStarterArgs: resolvedPracticeArgs,
+            )..initialize(reason: 'test_boot'),
+          ),
         ChangeNotifierProvider<AccountViewModel>.value(value: accountViewModel),
         ChangeNotifierProvider<PracticeSessionViewModel>.value(
           value: practiceSessionViewModel,
@@ -267,12 +458,16 @@ class _StaticAccountRepository implements AccountRepository {
   }
 
   @override
-  Future<AccountLocalSnapshot> revokeConsent({String reason = 'user_requested'}) async {
+  Future<AccountLocalSnapshot> revokeConsent({
+    String reason = 'user_requested',
+  }) async {
     return AccountLocalSnapshot.signedOut;
   }
 
   @override
-  Future<AccountLocalSnapshot> deleteAccount({String reason = 'forget_me'}) async {
+  Future<AccountLocalSnapshot> deleteAccount({
+    String reason = 'forget_me',
+  }) async {
     return AccountLocalSnapshot.signedOut;
   }
 

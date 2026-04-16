@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:mobile/app/router/app_router.dart';
 import 'package:mobile/app/theme/app_theme.dart';
+import 'package:mobile/features/practice/data/repositories/practice_repository.dart';
 import 'package:mobile/features/practice/domain/models/garden_growth_snapshot.dart';
+import 'package:mobile/features/practice/domain/models/practice_continuity_snapshot.dart';
 import 'package:mobile/features/practice/presentation/garden_growth_view_model.dart';
-import 'package:mobile/features/practice/presentation/practice_session_view_model.dart';
+import 'package:mobile/features/practice/presentation/practice_continuity_view_model.dart';
+import 'package:mobile/features/practice/presentation/practice_route_args.dart';
 import 'package:provider/provider.dart';
 
 class GardenScreen extends StatelessWidget {
@@ -12,8 +14,11 @@ class GardenScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final viewModel = context.watch<GardenGrowthViewModel?>();
+    final continuityViewModel = context.watch<PracticeContinuityViewModel?>();
     final snapshot = viewModel?.snapshot ?? GardenGrowthSnapshot.empty();
-    final practiceViewModel = context.read<PracticeSessionViewModel?>();
+    final continuitySnapshot = continuityViewModel?.snapshot;
+    final continuityActivity = continuityViewModel?.activitySnapshot;
+    final practiceArgs = continuityViewModel?.recommendedArgs;
 
     return SafeArea(
       top: false,
@@ -23,16 +28,24 @@ class GardenScreen extends StatelessWidget {
           constraints: const BoxConstraints(maxWidth: 430),
           child: RefreshIndicator(
             onRefresh: () async {
-              if (viewModel != null) {
-                await viewModel.refresh();
-              }
+              await Future.wait([
+                if (viewModel != null) viewModel.refresh(),
+                if (continuityViewModel != null)
+                  continuityViewModel.refresh(reason: 'garden_pull_to_refresh'),
+              ]);
             },
             child: ListView(
               key: const Key('shell-tab-garden'),
               physics: const AlwaysScrollableScrollPhysics(),
               padding: const EdgeInsets.fromLTRB(20, 12, 20, 120),
               children: [
-                _GardenHeroCard(snapshot: snapshot, viewModel: viewModel),
+                _GardenHeroCard(
+                  snapshot: snapshot,
+                  viewModel: viewModel,
+                  continuityViewModel: continuityViewModel,
+                  continuitySnapshot: continuitySnapshot,
+                  continuityActivity: continuityActivity,
+                ),
                 if (viewModel?.hasError ?? false) ...[
                   const SizedBox(height: 16),
                   _GardenBanner(
@@ -50,8 +63,14 @@ class GardenScreen extends StatelessWidget {
                     _GardenPatchCard(patch: patch),
                     const SizedBox(height: 16),
                   ],
-                  _GardenContinueCard(practiceViewModel: practiceViewModel),
                 ],
+                const SizedBox(height: 16),
+                _GardenContinueCard(
+                  practiceArgs: practiceArgs,
+                  continuityViewModel: continuityViewModel,
+                  continuitySnapshot: continuitySnapshot,
+                  continuityActivity: continuityActivity,
+                ),
               ],
             ),
           ),
@@ -62,15 +81,26 @@ class GardenScreen extends StatelessWidget {
 }
 
 class _GardenHeroCard extends StatelessWidget {
-  const _GardenHeroCard({required this.snapshot, required this.viewModel});
+  const _GardenHeroCard({
+    required this.snapshot,
+    required this.viewModel,
+    required this.continuityViewModel,
+    required this.continuitySnapshot,
+    required this.continuityActivity,
+  });
 
   final GardenGrowthSnapshot snapshot;
   final GardenGrowthViewModel? viewModel;
+  final PracticeContinuityViewModel? continuityViewModel;
+  final PracticeContinuitySnapshot? continuitySnapshot;
+  final PracticeActivitySnapshot? continuityActivity;
 
   @override
   Widget build(BuildContext context) {
     final impact = snapshot.latestImpact;
     final theme = Theme.of(context);
+    final continuityReasonLabel = continuitySnapshot?.recommendation.reasonLabel;
+    final continuityActivityTitle = continuityActivity?.title;
 
     String eyebrow = '花园今日变化';
     String title = '每一次开口，花园都会记得。';
@@ -81,10 +111,28 @@ class _GardenHeroCard extends StatelessWidget {
             viewModel!.status == GardenGrowthLoadStatus.idle)) {
       title = '花园正在整理今天的变化';
       body = '事件会先被投影成花圃、花朵和阶段，再温柔地出现在这里。';
+    } else if (continuityViewModel == null) {
+      eyebrow = 'continuity 未接通';
+      title = '继续入口暂不可用';
+      body = 'shared continuity provider 缺失时，花园不会回退到默认 activity。';
+    } else if (continuityViewModel!.disabledReason != null) {
+      eyebrow = '回来继续';
+      title = continuityActivityTitle == null ? '继续入口暂不可用' : '继续 $continuityActivityTitle';
+      body = continuityViewModel!.disabledReason!;
     } else if (impact != null) {
       eyebrow = impact.spaceTitle;
-      title = impact.headline;
-      body = impact.detail;
+      title = continuityActivityTitle == null
+          ? impact.headline
+          : impact.headline;
+      body = continuityActivityTitle == null
+          ? impact.detail
+          : impact.activityId == continuitySnapshot?.recommendedActivity.activityId
+              ? '${impact.detail} 现在继续会回到 $continuityActivityTitle。'
+              : '最新影响来自 ${impact.activityTitle}；回来继续会去 $continuityActivityTitle（${continuityReasonLabel ?? '共享 continuity'}）。';
+    } else if (continuityActivityTitle != null) {
+      eyebrow = '回来继续';
+      title = '继续 $continuityActivityTitle';
+      body = '花园会和首页一起，把你带回同一条 continuity recommendation。';
     }
 
     return Container(
@@ -123,6 +171,25 @@ class _GardenHeroCard extends StatelessWidget {
           Text(title, style: theme.textTheme.titleLarge),
           const SizedBox(height: 10),
           Text(body, style: theme.textTheme.bodyMedium),
+          if (continuityActivityTitle != null) ...[
+            const SizedBox(height: 12),
+            Text(
+              '$continuityActivityTitle · ${continuityReasonLabel ?? '共享 continuity'}',
+              key: Key(
+                'garden-continuity-target-${continuitySnapshot?.recommendedActivity.activityId ?? 'safe-empty'}',
+              ),
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: AppTheme.textSecondary,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
+          const SizedBox(height: 12),
+          Text(
+            'continuity: ${continuityViewModel?.status.label ?? 'missing_provider'}${continuityViewModel?.lastRefreshReason == null ? '' : ' · refresh: ${continuityViewModel!.lastRefreshReason}'}',
+            key: const Key('garden-continuity-status'),
+            style: theme.textTheme.bodySmall,
+          ),
           if (snapshot.hasIssues && snapshot.projectionWarning != null) ...[
             const SizedBox(height: 12),
             Text(
@@ -312,13 +379,31 @@ class _GardenFlowerCard extends StatelessWidget {
 }
 
 class _GardenContinueCard extends StatelessWidget {
-  const _GardenContinueCard({required this.practiceViewModel});
+  const _GardenContinueCard({
+    required this.practiceArgs,
+    required this.continuityViewModel,
+    required this.continuitySnapshot,
+    required this.continuityActivity,
+  });
 
-  final PracticeSessionViewModel? practiceViewModel;
+  final PracticeRouteArgs? practiceArgs;
+  final PracticeContinuityViewModel? continuityViewModel;
+  final PracticeContinuitySnapshot? continuitySnapshot;
+  final PracticeActivitySnapshot? continuityActivity;
 
   @override
   Widget build(BuildContext context) {
-    final canContinue = practiceViewModel?.canStartPractice ?? false;
+    final canContinue =
+        practiceArgs != null && !(continuityViewModel?.isActionDisabled ?? true);
+    final activityId = continuitySnapshot?.recommendedActivity.activityId ?? 'safe-empty';
+    final activityTitle = continuityActivity?.title ?? '继续入口暂不可用';
+    final reasonLabel =
+        continuitySnapshot?.recommendation.reasonLabel ?? '共享 continuity 暂不可用';
+    final warningMessage = continuityViewModel?.warningMessage;
+    final disabledReason = continuityViewModel == null
+        ? 'shared continuity provider 缺失，继续练习已禁用。'
+        : continuityViewModel?.disabledReason;
+
     return Container(
       key: const Key('garden-continue-card'),
       padding: const EdgeInsets.all(20),
@@ -332,22 +417,68 @@ class _GardenContinueCard extends StatelessWidget {
           Text('继续浇灌', style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: 8),
           Text(
-            '如果你现在继续练习，花朵阶段和成长日记会沿着同一份投影一起更新。',
+            activityTitle,
+            key: Key('garden-continue-target-$activityId'),
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+              color: AppTheme.textPrimary,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            reasonLabel,
+            key: Key('garden-continue-reason-$activityId'),
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: AppTheme.textSecondary,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            '如果你现在继续练习，Home 与 Garden 会沿着同一份 recommendation 一起更新。',
             style: Theme.of(
               context,
             ).textTheme.bodyMedium?.copyWith(color: AppTheme.textPrimary),
           ),
+          if (continuitySnapshot?.fallbackReason != null) ...[
+            const SizedBox(height: 12),
+            Text(
+              continuitySnapshot!.fallbackReason!,
+              key: const Key('garden-continuity-fallback'),
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: AppTheme.info,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
+          if (warningMessage != null && warningMessage.trim().isNotEmpty) ...[
+            const SizedBox(height: 12),
+            Text(
+              warningMessage,
+              key: const Key('garden-continuity-warning'),
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: AppTheme.warning,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
+          if (!canContinue && disabledReason != null) ...[
+            const SizedBox(height: 12),
+            Text(
+              disabledReason,
+              key: const Key('garden-launcher-bad-args'),
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: AppTheme.warning,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
           const SizedBox(height: 16),
           ElevatedButton(
             key: const Key('garden-continue-practice'),
             onPressed: !canContinue
                 ? null
                 : () async {
-                    final ready = await practiceViewModel!.ensureSessionReady();
-                    if (!context.mounted || !ready) {
-                      return;
-                    }
-                    Navigator.of(context).pushNamed(AppRouteNames.practice);
+                    await practiceArgs!.push(context);
                   },
             child: const Text('继续今天的练习'),
           ),

@@ -8,6 +8,7 @@ import 'package:mobile/features/onboarding/domain/models/onboarding_snapshot.dar
 import 'package:mobile/features/onboarding/domain/models/stage_match.dart';
 import 'package:mobile/features/practice/presentation/garden_growth_view_model.dart';
 import 'package:mobile/features/practice/presentation/screens/home_screen.dart';
+import 'package:mobile/features/shell/presentation/screens/discover_screen.dart';
 import 'package:mobile/features/shell/presentation/screens/garden_screen.dart';
 import 'package:mobile/features/shell/presentation/screens/growth_screen.dart';
 import 'package:provider/provider.dart';
@@ -69,13 +70,7 @@ class _AppShellScreenState extends State<AppShellScreen> {
             onboardingSnapshot: widget.onboardingSnapshot,
             embeddedInShell: true,
           ),
-          const _ShellPlaceholderTab(
-            pageKey: Key('shell-tab-discover'),
-            eyebrow: '发现',
-            title: '按活动和空间继续找下一句。',
-            body: '这一页会在后续切片接入阶段筛选、活动卡片和搜索。当前先保留稳定入口。',
-            icon: Icons.explore_outlined,
-          ),
+          const DiscoverScreen(),
           const GardenScreen(),
           const GrowthScreen(),
         ],
@@ -330,64 +325,6 @@ class _DrawerMetaRow extends StatelessWidget {
           ),
         ),
       ],
-    );
-  }
-}
-
-class _ShellPlaceholderTab extends StatelessWidget {
-  const _ShellPlaceholderTab({
-    required this.pageKey,
-    required this.eyebrow,
-    required this.title,
-    required this.body,
-    required this.icon,
-  });
-
-  final Key pageKey;
-  final String eyebrow;
-  final String title;
-  final String body;
-  final IconData icon;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return SafeArea(
-      top: false,
-      child: Align(
-        alignment: Alignment.topCenter,
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 430),
-          child: ListView(
-            key: pageKey,
-            padding: const EdgeInsets.fromLTRB(20, 12, 20, 120),
-            children: [
-              Container(
-                padding: const EdgeInsets.all(24),
-                decoration: BoxDecoration(
-                  color: AppTheme.bgSurface,
-                  borderRadius: BorderRadius.circular(24),
-                  border: Border.all(color: AppTheme.outlineSoft),
-                  boxShadow: AppTheme.warmShadowSm,
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Icon(icon, color: AppTheme.english),
-                    const SizedBox(height: 16),
-                    Text(eyebrow, style: theme.textTheme.labelMedium),
-                    const SizedBox(height: 10),
-                    Text(title, style: theme.textTheme.titleLarge),
-                    const SizedBox(height: 12),
-                    Text(body, style: theme.textTheme.bodyMedium),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
     );
   }
 }

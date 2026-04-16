@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:ffi' show Abi;
 import 'dart:io';
 
@@ -16,6 +17,8 @@ import 'package:mobile/features/practice/data/local/practice_local_data_source.d
 import 'package:mobile/features/practice/data/repositories/practice_repository.dart';
 import 'package:mobile/features/practice/data/services/asset_phrase_service.dart';
 import 'package:mobile/features/practice/domain/models/interaction_event_payload.dart';
+import 'package:mobile/features/practice/domain/models/practice_activity_catalog.dart';
+import 'package:mobile/features/practice/domain/models/practice_continuity_snapshot.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -50,18 +53,14 @@ void main() {
         directory: tempDir.path,
         name: practiceDbName,
       );
-      practiceRepository = PracticeRepository(
-        assetPhraseService: AssetPhraseService(bundle: rootBundle),
+      practiceRepository = _buildPracticeRepository(
         localDataSource: practiceLocalDataSource,
-        installationIdService: InstallationIdService(
-          directoryResolver: () async => tempDir,
-          idGenerator: () => 'install_mentor_test',
-        ),
+        directory: tempDir,
       );
       onboardingSnapshotStore = OnboardingSnapshotStore(
         directoryResolver: () async => tempDir,
       );
-      mentorRepository = MentorRepository(
+      mentorRepository = _buildMentorRepository(
         localDataSource: mentorLocalDataSource,
         practiceRepository: practiceRepository,
         onboardingSnapshotStore: onboardingSnapshotStore,
@@ -169,46 +168,61 @@ void main() {
       );
     });
 
-    test('有最近练习结果时优先派生 recent-practice 建议', () async {
-      await onboardingSnapshotStore.write(
-        OnboardingSnapshot(
-          childDisplayName: '小满',
-          ageBucket: OnboardingAgeBucket.sixToTwelve,
-          approxMonths: 9,
-          currentStage: 'sound_turn_taking',
-          starterSpaceId: 'daily_care',
-          starterActivityId: 'bath_time',
-          starterPhraseId: 'bath_time_warm_water',
-          consentState: OnboardingConsentState.localOnly,
-          completedAt: DateTime.utc(2026, 4, 9, 8, 0),
-        ),
-      );
-      await practiceRepository.recordReaction(
-        spaceId: 'daily_care',
-        activityId: 'bath_time',
-        phraseId: 'bath_time_splash_splash',
-        reactionType: BabyReactionType.imitated,
-        clientTimestamp: DateTime.utc(2026, 4, 9, 8, 3),
-        localEventId: 'practice_evt_1',
-      );
+    test(
+      'recent continuity 来自非 starter activity 时复用同一 activity 与 phrase',
+      () async {
+        await onboardingSnapshotStore.write(
+          OnboardingSnapshot(
+            childDisplayName: '小满',
+            ageBucket: OnboardingAgeBucket.sixToTwelve,
+            approxMonths: 9,
+            currentStage: 'sound_turn_taking',
+            starterSpaceId: 'daily_care',
+            starterActivityId: 'bath_time',
+            starterPhraseId: 'bath_time_warm_water',
+            consentState: OnboardingConsentState.localOnly,
+            completedAt: DateTime.utc(2026, 4, 9, 8, 0),
+          ),
+        );
+        await practiceRepository.recordReaction(
+          spaceId: 'family_rhythm',
+          activityId: 'feeding_time',
+          phraseId: 'feeding_time_open_wide',
+          reactionType: BabyReactionType.calm,
+          clientTimestamp: DateTime.utc(2026, 4, 9, 8, 3),
+          localEventId: 'practice_evt_feed_1',
+        );
+        await practiceRepository.recordReaction(
+          spaceId: 'family_rhythm',
+          activityId: 'feeding_time',
+          phraseId: 'feeding_time_yummy_bite',
+          reactionType: BabyReactionType.imitated,
+          clientTimestamp: DateTime.utc(2026, 4, 9, 8, 4),
+          localEventId: 'practice_evt_feed_2',
+        );
 
-      final result = await mentorRepository.deriveLocalSuggestions();
+        final result = await mentorRepository.deriveLocalSuggestions();
 
-      expect(result.contextFallbackUsed, isFalse);
-      expect(result.primaryOrigin, LocalMentorSuggestionOrigin.recentPractice);
-      expect(result.fallbackReasonCode, isNull);
-      expect(result.suggestions, isNotEmpty);
-      expect(
-        result.suggestions.first.origin,
-        LocalMentorSuggestionOrigin.recentPractice,
-      );
-      expect(result.suggestions.first.phraseId, 'bath_time_splash_splash');
-      expect(result.suggestions.first.phraseEnglish, 'Splash, splash!');
-      expect(
-        result.redactedContextSummary,
-        contains('recent_result:bath_time/bath_time_splash_splash'),
-      );
-    });
+        expect(result.contextFallbackUsed, isFalse);
+        expect(
+          result.primaryOrigin,
+          LocalMentorSuggestionOrigin.recentPractice,
+        );
+        expect(result.fallbackReasonCode, isNull);
+        expect(result.suggestions, isNotEmpty);
+        expect(
+          result.suggestions.first.origin,
+          LocalMentorSuggestionOrigin.recentPractice,
+        );
+        expect(result.suggestions.first.activityId, 'feeding_time');
+        expect(result.suggestions.first.phraseId, 'feeding_time_yummy_bite');
+        expect(result.suggestions.first.phraseEnglish, 'Yummy bite.');
+        expect(
+          result.redactedContextSummary,
+          'recent_result:feeding_time/feeding_time_yummy_bite:imitated',
+        );
+      },
+    );
 
     test('缺失 onboarding snapshot 时返回安全本地建议', () async {
       final result = await mentorRepository.deriveLocalSuggestions();
@@ -221,9 +235,160 @@ void main() {
         result.suggestions.every((suggestion) => suggestion.isSafeFallback),
         isTrue,
       );
+      expect(result.redactedContextSummary, 'fallback:onboarding_missing');
     });
 
-    test('starter seed 缺失或 restore 不兼容时留在 mentor seam 内并安全降级', () async {
+    test(
+      '零事件 continuity 时退回 starter phrase 并显式暴露 starter fallback code',
+      () async {
+        await onboardingSnapshotStore.write(
+          OnboardingSnapshot(
+            childDisplayName: '米米',
+            ageBucket: OnboardingAgeBucket.zeroToSix,
+            approxMonths: 4,
+            currentStage: 'warm_routines',
+            starterSpaceId: 'daily_care',
+            starterActivityId: 'bath_time',
+            starterPhraseId: 'bath_time_warm_water',
+            consentState: OnboardingConsentState.localOnly,
+            completedAt: DateTime.utc(2026, 4, 9, 8, 0),
+          ),
+        );
+
+        final result = await mentorRepository.deriveLocalSuggestions();
+
+        expect(result.contextFallbackUsed, isFalse);
+        expect(result.primaryOrigin, LocalMentorSuggestionOrigin.starterPhrase);
+        expect(result.fallbackReasonCode, 'starter_fallback');
+        expect(result.suggestions.first.activityId, 'bath_time');
+        expect(result.suggestions.first.phraseId, 'bath_time_warm_water');
+        expect(
+          result.redactedContextSummary,
+          'starter_fallback:bath_time/bath_time_warm_water',
+        );
+      },
+    );
+
+    test('continuity 读取超时时返回安全本地建议并标记 reason', () async {
+      await onboardingSnapshotStore.write(
+        OnboardingSnapshot(
+          childDisplayName: '可可',
+          ageBucket: OnboardingAgeBucket.zeroToSix,
+          approxMonths: 5,
+          currentStage: 'warm_routines',
+          starterSpaceId: 'daily_care',
+          starterActivityId: 'bath_time',
+          starterPhraseId: 'bath_time_warm_water',
+          consentState: OnboardingConsentState.localOnly,
+          completedAt: DateTime.utc(2026, 4, 9, 8, 0),
+        ),
+      );
+      practiceRepository = _ContinuityOverridePracticeRepository(
+        assetPhraseService: AssetPhraseService(bundle: rootBundle),
+        localDataSource: practiceLocalDataSource,
+        installationIdService: InstallationIdService(
+          directoryResolver: () async => tempDir,
+          idGenerator: () => 'install_mentor_test',
+        ),
+        continuityLoader: ({starterSpaceId, starterActivityId}) {
+          throw TimeoutException('continuity timeout');
+        },
+      );
+      mentorRepository = _buildMentorRepository(
+        localDataSource: mentorLocalDataSource,
+        practiceRepository: practiceRepository,
+        onboardingSnapshotStore: onboardingSnapshotStore,
+      );
+
+      final result = await mentorRepository.deriveLocalSuggestions();
+
+      expect(result.contextFallbackUsed, isTrue);
+      expect(result.primaryOrigin, LocalMentorSuggestionOrigin.safeFallback);
+      expect(result.fallbackReasonCode, 'continuity_timeout');
+      expect(result.redactedContextSummary, 'fallback:continuity_timeout');
+    });
+
+    test(
+      'recent continuity 映射异常时退回 starter phrase 并保留 fallback reason',
+      () async {
+        await onboardingSnapshotStore.write(
+          OnboardingSnapshot(
+            childDisplayName: '小满',
+            ageBucket: OnboardingAgeBucket.sixToTwelve,
+            approxMonths: 9,
+            currentStage: 'sound_turn_taking',
+            starterSpaceId: 'daily_care',
+            starterActivityId: 'bath_time',
+            starterPhraseId: 'bath_time_warm_water',
+            consentState: OnboardingConsentState.localOnly,
+            completedAt: DateTime.utc(2026, 4, 9, 8, 0),
+          ),
+        );
+        await practiceRepository.recordReaction(
+          spaceId: 'family_rhythm',
+          activityId: 'feeding_time',
+          phraseId: 'feeding_time_yummy_bite',
+          reactionType: BabyReactionType.imitated,
+          clientTimestamp: DateTime.utc(2026, 4, 9, 8, 4),
+          localEventId: 'practice_evt_recent_1',
+        );
+        final realContinuity = await practiceRepository.getContinuitySnapshot(
+          starterSpaceId: 'daily_care',
+          starterActivityId: 'bath_time',
+        );
+        final malformedRecentActivity = _copyActivitySummary(
+          realContinuity.recommendedActivity,
+          recentResult: PracticeCatalogRecentResultSummary(
+            phraseId: realContinuity.recommendedActivity.recentResult!.phraseId,
+            phraseEnglish: ' ',
+            reactionType:
+                realContinuity.recommendedActivity.recentResult!.reactionType,
+            eventTime:
+                realContinuity.recommendedActivity.recentResult!.eventTime,
+            totalEvents:
+                realContinuity.recommendedActivity.recentResult!.totalEvents,
+          ),
+        );
+        practiceRepository = _ContinuityOverridePracticeRepository(
+          assetPhraseService: AssetPhraseService(bundle: rootBundle),
+          localDataSource: practiceLocalDataSource,
+          installationIdService: InstallationIdService(
+            directoryResolver: () async => tempDir,
+            idGenerator: () => 'install_mentor_test',
+          ),
+          continuityLoader: ({starterSpaceId, starterActivityId}) async {
+            return PracticeContinuitySnapshot(
+              catalog: realContinuity.catalog,
+              recommendedActivity: malformedRecentActivity,
+              recentActivity: malformedRecentActivity,
+              nextIncompleteActivity: realContinuity.nextIncompleteActivity,
+              starterActivity: realContinuity.starterActivity,
+              recommendation: realContinuity.recommendation,
+              cadence: realContinuity.cadence,
+              warningMessage: realContinuity.warningMessage,
+            );
+          },
+        );
+        mentorRepository = _buildMentorRepository(
+          localDataSource: mentorLocalDataSource,
+          practiceRepository: practiceRepository,
+          onboardingSnapshotStore: onboardingSnapshotStore,
+        );
+
+        final result = await mentorRepository.deriveLocalSuggestions();
+
+        expect(result.contextFallbackUsed, isFalse);
+        expect(result.primaryOrigin, LocalMentorSuggestionOrigin.starterPhrase);
+        expect(result.fallbackReasonCode, 'recent_context_unmapped');
+        expect(result.suggestions.first.phraseId, 'bath_time_warm_water');
+        expect(
+          result.redactedContextSummary,
+          'starter_fallback:recent_context_unmapped:bath_time/bath_time_warm_water',
+        );
+      },
+    );
+
+    test('starter activity 无效且没有 recent context 时安全降级并区分 reason', () async {
       await onboardingSnapshotStore.write(
         OnboardingSnapshot(
           childDisplayName: '米米',
@@ -232,21 +397,133 @@ void main() {
           currentStage: 'warm_routines',
           starterSpaceId: 'daily_care',
           starterActivityId: 'missing_activity',
-          starterPhraseId: ' ',
+          starterPhraseId: 'bath_time_warm_water',
           consentState: OnboardingConsentState.localOnly,
           completedAt: DateTime.utc(2026, 4, 9, 8, 0),
         ),
       );
 
       final result = await mentorRepository.deriveLocalSuggestions();
-      final practiceInspection = await practiceRepository.inspectEventLog();
 
       expect(result.contextFallbackUsed, isTrue);
       expect(result.primaryOrigin, LocalMentorSuggestionOrigin.safeFallback);
-      expect(result.fallbackReasonCode, 'starter_seed_missing');
-      expect(practiceInspection.storedEventCount, 0);
+      expect(result.fallbackReasonCode, 'starter_activity_invalid');
+      expect(
+        result.redactedContextSummary,
+        'fallback:starter_activity_invalid',
+      );
+    });
+
+    test('onboarding store 不可读时返回安全本地建议并暴露 persistence reason', () async {
+      onboardingSnapshotStore = _ThrowingOnboardingSnapshotStore(
+        error: const OnboardingSnapshotPersistenceException(
+          '读取 onboarding snapshot 失败：disk offline',
+        ),
+      );
+      mentorRepository = _buildMentorRepository(
+        localDataSource: mentorLocalDataSource,
+        practiceRepository: practiceRepository,
+        onboardingSnapshotStore: onboardingSnapshotStore,
+      );
+
+      final result = await mentorRepository.deriveLocalSuggestions();
+
+      expect(result.contextFallbackUsed, isTrue);
+      expect(result.primaryOrigin, LocalMentorSuggestionOrigin.safeFallback);
+      expect(result.fallbackReasonCode, 'onboarding_unavailable');
+      expect(result.redactedContextSummary, 'fallback:onboarding_unavailable');
     });
   });
+}
+
+MentorRepository _buildMentorRepository({
+  required MentorLocalDataSource localDataSource,
+  required PracticeRepository practiceRepository,
+  required OnboardingSnapshotStore onboardingSnapshotStore,
+}) {
+  return MentorRepository(
+    localDataSource: localDataSource,
+    practiceRepository: practiceRepository,
+    onboardingSnapshotStore: onboardingSnapshotStore,
+  );
+}
+
+PracticeRepository _buildPracticeRepository({
+  required PracticeLocalDataSource localDataSource,
+  required Directory directory,
+}) {
+  return PracticeRepository(
+    assetPhraseService: AssetPhraseService(bundle: rootBundle),
+    localDataSource: localDataSource,
+    installationIdService: InstallationIdService(
+      directoryResolver: () async => directory,
+      idGenerator: () => 'install_mentor_test',
+    ),
+  );
+}
+
+class _ContinuityOverridePracticeRepository extends PracticeRepository {
+  _ContinuityOverridePracticeRepository({
+    required super.assetPhraseService,
+    required super.localDataSource,
+    required super.installationIdService,
+    required this.continuityLoader,
+  });
+
+  final Future<PracticeContinuitySnapshot> Function({
+    String? starterSpaceId,
+    String? starterActivityId,
+  })
+  continuityLoader;
+
+  @override
+  Future<PracticeContinuitySnapshot> getContinuitySnapshot({
+    String? starterSpaceId,
+    String? starterActivityId,
+  }) {
+    return continuityLoader(
+      starterSpaceId: starterSpaceId,
+      starterActivityId: starterActivityId,
+    );
+  }
+}
+
+class _ThrowingOnboardingSnapshotStore extends OnboardingSnapshotStore {
+  _ThrowingOnboardingSnapshotStore({required this.error})
+    : super(directoryResolver: () async => Directory.systemTemp);
+
+  final Object error;
+
+  @override
+  Future<OnboardingSnapshot?> read() async {
+    throw error;
+  }
+}
+
+PracticeCatalogActivitySummary _copyActivitySummary(
+  PracticeCatalogActivitySummary source, {
+  PracticeCatalogRecentResultSummary? recentResult,
+}) {
+  return PracticeCatalogActivitySummary(
+    spaceId: source.spaceId,
+    spaceTitle: source.spaceTitle,
+    activityId: source.activityId,
+    title: source.title,
+    summary: source.summary,
+    sceneTag: source.sceneTag,
+    coachTip: source.coachTip,
+    totalPhraseCount: source.totalPhraseCount,
+    completedPhraseCount: source.completedPhraseCount,
+    completedPhraseIds: source.completedPhraseIds,
+    nextPhraseId: source.nextPhraseId,
+    nextPhraseEnglish: source.nextPhraseEnglish,
+    totalEvents: source.totalEvents,
+    skippedUnknownPhraseCount: source.skippedUnknownPhraseCount,
+    skippedMalformedEventCount: source.skippedMalformedEventCount,
+    lastEventTime: source.lastEventTime,
+    recentResult: recentResult,
+    warningMessage: source.warningMessage,
+  );
 }
 
 String _resolveBundledIsarLibraryPath() {

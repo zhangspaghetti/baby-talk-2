@@ -11,13 +11,15 @@ class AppRouteNames {
 }
 
 typedef AppScreenBuilder = Widget Function(BuildContext context);
+typedef AppPracticeScreenBuilder =
+    Widget Function(BuildContext context, RouteSettings settings);
 
 class AppRouter {
   static RouteFactory onGenerateRoute({
     AppScreenBuilder? onboardingBuilder,
     AppScreenBuilder? shellBuilder,
     AppScreenBuilder? homeBuilder,
-    required AppScreenBuilder practiceBuilder,
+    required AppPracticeScreenBuilder practiceBuilder,
   }) {
     final resolvedShellBuilder = shellBuilder ?? homeBuilder;
     if (resolvedShellBuilder == null) {
@@ -34,7 +36,7 @@ class AppRouter {
           );
         case AppRouteNames.practice:
           return MaterialPageRoute<void>(
-            builder: practiceBuilder,
+            builder: (context) => practiceBuilder(context, settings),
             settings: settings,
           );
         case AppRouteNames.shell:

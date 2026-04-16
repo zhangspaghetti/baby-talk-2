@@ -24,6 +24,8 @@ import 'package:mobile/features/onboarding/domain/models/stage_match.dart';
 import 'package:mobile/features/practice/data/local/practice_local_data_source.dart';
 import 'package:mobile/features/practice/data/repositories/practice_repository.dart';
 import 'package:mobile/features/practice/data/services/asset_phrase_service.dart';
+import 'package:mobile/features/practice/presentation/practice_continuity_view_model.dart';
+import 'package:mobile/features/practice/presentation/practice_route_args.dart';
 import 'package:mobile/features/practice/presentation/practice_session_view_model.dart';
 import 'package:mobile/features/practice/presentation/screens/home_screen.dart';
 import 'package:mobile/features/shell/presentation/app_shell_screen.dart';
@@ -346,6 +348,21 @@ class _Harness {
       providers: [
         Provider<PracticeRepository>.value(value: practiceRepository),
         Provider<MentorRepository>.value(value: mentorRepository),
+        Provider<PracticeRouteArgs>.value(
+          value: const PracticeRouteArgs(
+            spaceId: 'daily_care',
+            activityId: 'bath_time',
+          ),
+        ),
+        ChangeNotifierProvider<PracticeContinuityViewModel>(
+          create: (_) => PracticeContinuityViewModel(
+            repository: practiceRepository,
+            initialStarterArgs: const PracticeRouteArgs(
+              spaceId: 'daily_care',
+              activityId: 'bath_time',
+            ),
+          )..initialize(reason: 'test_boot'),
+        ),
         ChangeNotifierProvider<AccountViewModel>.value(value: accountViewModel),
         ChangeNotifierProvider<MentorViewModel>.value(value: mentorViewModel),
         ChangeNotifierProvider<PracticeSessionViewModel>.value(
@@ -376,6 +393,21 @@ class _Harness {
       providers: [
         Provider<PracticeRepository>.value(value: practiceRepository),
         Provider<MentorRepository>.value(value: mentorRepository),
+        Provider<PracticeRouteArgs>.value(
+          value: const PracticeRouteArgs(
+            spaceId: 'daily_care',
+            activityId: 'bath_time',
+          ),
+        ),
+        ChangeNotifierProvider<PracticeContinuityViewModel>(
+          create: (_) => PracticeContinuityViewModel(
+            repository: practiceRepository,
+            initialStarterArgs: const PracticeRouteArgs(
+              spaceId: 'daily_care',
+              activityId: 'bath_time',
+            ),
+          )..initialize(reason: 'test_boot'),
+        ),
         ChangeNotifierProvider<AccountViewModel>.value(value: accountViewModel),
         ChangeNotifierProvider<MentorViewModel>.value(value: mentorViewModel),
         ChangeNotifierProvider<PracticeSessionViewModel>.value(
@@ -538,7 +570,7 @@ class _SilentPracticeAudioController implements PracticeAudioController {
 
 class _FakeMentorApiService extends MentorApiService {
   _FakeMentorApiService({this.response, this.error})
-      : super(baseUri: Uri.parse('http://localhost:8080'));
+    : super(baseUri: Uri.parse('http://localhost:8080'));
 
   final MentorChatResponse? response;
   final MentorApiException? error;

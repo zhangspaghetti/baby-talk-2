@@ -1,18 +1,54 @@
 import 'package:flutter/material.dart';
 import 'package:mobile/app/theme/app_theme.dart';
+import 'package:mobile/features/practice/data/repositories/practice_repository.dart';
+import 'package:mobile/features/practice/presentation/practice_route_args.dart';
 import 'package:mobile/features/practice/presentation/practice_session_view_model.dart';
 import 'package:mobile/features/practice/presentation/widgets/activation_frame.dart';
 import 'package:mobile/features/practice/presentation/widgets/phrase_card.dart';
 import 'package:provider/provider.dart';
 
-class PracticeSessionScreen extends StatefulWidget {
-  const PracticeSessionScreen({super.key});
+class PracticeSessionScreen extends StatelessWidget {
+  const PracticeSessionScreen({
+    super.key,
+    required this.routeEntry,
+    this.audioControllerFactory,
+  });
+
+  final PracticeRouteEntry routeEntry;
+  final PracticeAudioController Function()? audioControllerFactory;
 
   @override
-  State<PracticeSessionScreen> createState() => _PracticeSessionScreenState();
+  Widget build(BuildContext context) {
+    if (!routeEntry.hasValidArgs) {
+      return PracticeFallbackScaffold(
+        message: routeEntry.errorMessage ?? '当前练习入口缺少有效参数，请返回上一个页面重试。',
+      );
+    }
+
+    final args = routeEntry.args!;
+    final repository = context.read<PracticeRepository>();
+    return ChangeNotifierProvider<PracticeSessionViewModel>(
+      create: (_) => PracticeSessionViewModel(
+        repository: repository,
+        spaceId: args.spaceId,
+        activityId: args.activityId,
+        audioController: audioControllerFactory?.call(),
+      )..initialize(),
+      child: _PracticeSessionBody(routeArgs: args),
+    );
+  }
 }
 
-class _PracticeSessionScreenState extends State<PracticeSessionScreen> {
+class _PracticeSessionBody extends StatefulWidget {
+  const _PracticeSessionBody({required this.routeArgs});
+
+  final PracticeRouteArgs routeArgs;
+
+  @override
+  State<_PracticeSessionBody> createState() => _PracticeSessionBodyState();
+}
+
+class _PracticeSessionBodyState extends State<_PracticeSessionBody> {
   @override
   void initState() {
     super.initState();
@@ -44,20 +80,11 @@ class _PracticeSessionScreenState extends State<PracticeSessionScreen> {
     }
 
     if (activity == null) {
-      return Scaffold(
-        appBar: AppBar(
-          backgroundColor: Colors.transparent,
-          surfaceTintColor: Colors.transparent,
-          title: const Text('练习暂不可用'),
-        ),
-        body: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.all(20),
-            child: _PracticeFallback(
-              message: viewModel.sessionErrorMessage ?? '当前活动上下文缺失，请返回首页重试。',
-            ),
-          ),
-        ),
+      return PracticeFallbackScaffold(
+        message:
+            viewModel.sessionErrorMessage ??
+            viewModel.homeErrorMessage ??
+            '当前活动上下文缺失，请返回首页重试。',
       );
     }
 
@@ -80,6 +107,28 @@ class _PracticeSessionScreenState extends State<PracticeSessionScreen> {
             child: ListView(
               padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
               children: [
+                Container(
+                  key: Key(
+                    'practice-route-scope-${widget.routeArgs.spaceId}-${widget.routeArgs.activityId}',
+                  ),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
+                  decoration: BoxDecoration(
+                    color: AppTheme.bgSunken,
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: Text(
+                    'route scope · ${widget.routeArgs.scopeLabel}',
+                    key: const Key('practice-route-scope'),
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: AppTheme.textSecondary,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
                 LinearProgressIndicator(
                   key: const Key('session-progress'),
                   value: progressValue,
@@ -109,6 +158,19 @@ class _PracticeSessionScreenState extends State<PracticeSessionScreen> {
                     style: Theme.of(context).textTheme.bodyMedium,
                   ),
                 ),
+                if (viewModel.restoreStatusMessage != null) ...[
+                  const SizedBox(height: 16),
+                  _PracticeBanner(
+                    key: const Key('practice-restore-banner'),
+                    message: viewModel.restoreStatusMessage!,
+                    backgroundColor: viewModel.hasRecoverableRestoreIssue
+                        ? AppTheme.warningSoft
+                        : AppTheme.infoSoft,
+                    foregroundColor: viewModel.hasRecoverableRestoreIssue
+                        ? AppTheme.warning
+                        : AppTheme.info,
+                  ),
+                ],
                 if (viewModel.sessionErrorMessage != null) ...[
                   const SizedBox(height: 16),
                   _PracticeBanner(
@@ -185,6 +247,29 @@ class _PracticeSessionScreenState extends State<PracticeSessionScreen> {
               ],
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class PracticeFallbackScaffold extends StatelessWidget {
+  const PracticeFallbackScaffold({super.key, required this.message});
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        surfaceTintColor: Colors.transparent,
+        title: const Text('练习暂不可用'),
+      ),
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: _PracticeFallback(message: message),
         ),
       ),
     );

@@ -10,12 +10,29 @@ Future<void> main(List<String> args) async {
 
   final mobileDirectory = Directory('mobile');
   if (!mobileDirectory.existsSync()) {
-    stderr.writeln('未找到 mobile/ 子工程，无法执行 S06 verify wrapper。');
-    exit(64);
+    _fail('未找到 mobile/ 子工程，无法执行 S03 proof pack。', 64);
   }
 
   final runIntegration = options.runIntegration || !options.hasExplicitMode;
   final runInspect = options.runInspect || !options.hasExplicitMode;
+
+  final requiredFiles = <String>{};
+  if (runIntegration) {
+    requiredFiles.addAll(const [
+      'mobile/test/smoke/app_boot_test.dart',
+      'mobile/test/features/mentor/mentor_shell_panel_test.dart',
+      'mobile/integration_test/s06_full_chain_release_flow_test.dart',
+    ]);
+  }
+  if (runInspect) {
+    requiredFiles.addAll(const [
+      'tool/inspect_interaction_events.dart',
+      'tool/inspect_mentor_facts.dart',
+      'mobile/tool/inspect_interaction_events.dart',
+      'mobile/tool/inspect_mentor_facts.dart',
+    ]);
+  }
+  _assertFilesExist(requiredFiles);
 
   final steps = <_VerifyStep>[];
   if (runIntegration) {
@@ -23,19 +40,24 @@ Future<void> main(List<String> args) async {
     final flutterExecutable = _resolveFlutterExecutable();
     steps.addAll([
       _VerifyStep(
-        label: 'S03 account sync restore integration',
+        label: 'S03 smoke app_boot_test',
+        executable: flutterExecutable,
+        arguments: const ['test', 'test/smoke/app_boot_test.dart'],
+        workingDirectory: mobileDirectory.path,
+        timeout: const Duration(minutes: 6),
+      ),
+      _VerifyStep(
+        label: 'S03 mentor widget mentor_shell_panel_test',
         executable: flutterExecutable,
         arguments: const [
           'test',
-          'integration_test/s03_account_sync_restore_flow_test.dart',
-          '--dart-define=BABY_TALK_API_BASE_URL=$baseUrl',
-          '--dart-define=BABY_TALK_API_VERSION=1.2.0',
+          'test/features/mentor/mentor_shell_panel_test.dart',
         ],
         workingDirectory: mobileDirectory.path,
-        timeout: const Duration(minutes: 12),
+        timeout: const Duration(minutes: 6),
       ),
       _VerifyStep(
-        label: 'S06 full-chain release integration',
+        label: 'S03 full-chain integration s06_full_chain_release_flow_test',
         executable: flutterExecutable,
         arguments: const [
           'test',
@@ -52,13 +74,17 @@ Future<void> main(List<String> args) async {
   if (runInspect) {
     steps.addAll([
       _VerifyStep(
-        label: 'inspect interaction events help',
+        label: 'S03 inspect interaction events help',
         executable: Platform.resolvedExecutable,
-        arguments: const ['run', 'tool/inspect_interaction_events.dart', '--help'],
+        arguments: const [
+          'run',
+          'tool/inspect_interaction_events.dart',
+          '--help',
+        ],
         timeout: const Duration(minutes: 2),
       ),
       _VerifyStep(
-        label: 'inspect mentor facts help',
+        label: 'S03 inspect mentor facts help',
         executable: Platform.resolvedExecutable,
         arguments: const ['run', 'tool/inspect_mentor_facts.dart', '--help'],
         timeout: const Duration(minutes: 2),
@@ -67,8 +93,7 @@ Future<void> main(List<String> args) async {
   }
 
   if (steps.isEmpty) {
-    stderr.writeln('没有可执行的 verify 步骤。');
-    exit(64);
+    _fail('没有可执行的 verify 步骤。请传入 --inspect 或 --integration。', 64);
   }
 
   for (final step in steps) {
@@ -79,7 +104,7 @@ Future<void> main(List<String> args) async {
     }
   }
 
-  stdout.writeln('✅ S06 verify wrapper 完成。');
+  stdout.writeln('✅ S03 continuity / mentor / retention proof pack 完成。');
 }
 
 Future<int> _runStep(_VerifyStep step) async {
@@ -99,9 +124,7 @@ Future<int> _runStep(_VerifyStep step) async {
   final exitCode = await process.exitCode.timeout(
     step.timeout,
     onTimeout: () {
-      stderr.writeln(
-        '步骤 `${step.label}` 超时（${step.timeout.inSeconds}s），已中止。',
-      );
+      stderr.writeln('步骤 `${step.label}` 超时（${step.timeout.inSeconds}s），已中止。');
       process.kill();
       return 124;
     },
@@ -109,6 +132,30 @@ Future<int> _runStep(_VerifyStep step) async {
 
   await Future.wait<void>([stdoutDone, stderrDone]);
   return exitCode;
+}
+
+void _assertFilesExist(Iterable<String> paths) {
+  final missing = <String>[];
+  for (final path in paths) {
+    if (!File(path).existsSync()) {
+      missing.add(path);
+    }
+  }
+
+  if (missing.isEmpty) {
+    return;
+  }
+
+  stderr.writeln('S03 proof pack 缺少必要文件：');
+  for (final path in missing) {
+    stderr.writeln('  - $path');
+  }
+  exit(64);
+}
+
+Never _fail(String message, int exitCode) {
+  stderr.writeln(message);
+  exit(exitCode);
 }
 
 String _formatCommand(_VerifyStep step) {
@@ -209,13 +256,22 @@ const String _usage = '''用法：
   dart run tool/verify_s06.dart [--integration] [--inspect]
 
 说明：
-  --integration  从仓库根顺序代理 S03 restore + S06 full-chain integration tests
+  --integration  从仓库根顺序代理 S03 smoke/widget/integration proof
+                 - mobile/test/smoke/app_boot_test.dart
+                 - mobile/test/features/mentor/mentor_shell_panel_test.dart
+                 - mobile/integration_test/s06_full_chain_release_flow_test.dart
   --inspect      从仓库根顺序代理 inspect_interaction_events / inspect_mentor_facts --help
   --help, -h     显示帮助
 
 默认：
   不带参数时同时执行 integration 与 inspect 两组步骤。
 
+当前 continuity / mentor proof 约束：
+  - Home 下一步 key: home-start-practice-<activityId>
+  - Garden 下一步 key: garden-continue-target-<activityId>
+  - Mentor failure surface: blocked_fallback / timeout / correlationId
+
 超时策略：
-  integration 单步 12 分钟，inspect 单步 2 分钟；超时后 wrapper 会返回非 0 exit code。
+  smoke 6 分钟，widget 6 分钟，integration 12 分钟，inspect 单步 2 分钟；
+  任一步失败或超时都会返回非 0 exit code，并保留失败 step label。
 ''';

@@ -310,7 +310,7 @@ class PracticeSessionViewModel extends ChangeNotifier {
       await _reloadDerivedState();
       _resetPlaybackState(clearMessage: true, notify: false);
       _saveStatus = PracticeSaveStatus.saved;
-      _saveMessage = isLastPhrase ? '已保存本地结果，当前洗澡练习完成。' : '已保存本地结果，继续下一句。';
+      _saveMessage = isLastPhrase ? '已保存本地结果，当前活动已完成。' : '已保存本地结果，继续下一句。';
       _sessionCompleted = isLastPhrase;
       if (!isLastPhrase) {
         _currentPhraseIndex = (_currentPhraseIndex + 1).clamp(
