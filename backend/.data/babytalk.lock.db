@@ -1,0 +1,6 @@
+#FileLock
+#Thu Apr 16 15:16:14 CST 2026
+hostName=192.168.0.111
+id=19d9525c8ae3b885075eb7716024d14004c577eee03
+method=file
+server=192.168.0.111\:8010

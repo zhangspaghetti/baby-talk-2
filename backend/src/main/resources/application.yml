@@ -25,9 +25,28 @@ management:
 app:
   contract:
     min-supported-version: ${BABY_TALK_MIN_SUPPORTED_VERSION:1.2.0}
-    upgrade-url: ${BABY_TALK_UPGRADE_URL:https://example.com/baby-talk/download}
+    upgrade-url: ${BABY_TALK_UPGRADE_URL:https://example.com/baby-talk/upgrade?channel=stable&source=version_gate}
     sync-max-batch-size: ${BABY_TALK_SYNC_MAX_BATCH_SIZE:100}
     bootstrap-max-events: ${BABY_TALK_BOOTSTRAP_MAX_EVENTS:200}
+  distribution:
+    default-channel: stable
+    download-default-source: public_link
+    upgrade-default-source: version_gate
+    allowed-sources:
+      - public_link
+      - version_gate
+      - share_card
+      - manual_retry
+    channels:
+      stable:
+        label: 正式版
+        platforms:
+          android: ${BABY_TALK_ANDROID_STABLE_URL:https://download.example.com/android/stable/babytalk.apk}
+          ios: ${BABY_TALK_IOS_STABLE_URL:https://apps.apple.com/app/id0000000000}
+      beta:
+        label: 测试版
+        platforms:
+          android: ${BABY_TALK_ANDROID_BETA_URL:https://download.example.com/android/beta/babytalk.apk}
   sms:
     provider-mode: ${BABY_TALK_SMS_PROVIDER_MODE:dev}
     dev-code: ${BABY_TALK_SMS_DEV_CODE:246810}

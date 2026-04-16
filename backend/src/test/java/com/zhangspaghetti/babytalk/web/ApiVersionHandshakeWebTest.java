@@ -20,7 +20,7 @@ import org.springframework.test.web.servlet.MockMvc;
         "spring.datasource.username=sa",
         "spring.datasource.password=",
         "app.contract.min-supported-version=1.2.0",
-        "app.contract.upgrade-url=https://download.example.com/babytalk.apk",
+        "app.contract.upgrade-url=https://download.example.com/upgrade?channel=stable&source=version_gate",
         "app.sms.provider-mode=dev",
         "app.sms.dev-code=246810"
 })
@@ -51,7 +51,7 @@ class ApiVersionHandshakeWebTest {
                                 """))
                 .andExpect(status().isUpgradeRequired())
                 .andExpect(header().string(ApiVersionInterceptor.MIN_VERSION_HEADER, "1.2.0"))
-                .andExpect(header().string(ApiVersionInterceptor.UPGRADE_URL_HEADER, "https://download.example.com/babytalk.apk"))
+                .andExpect(header().string(ApiVersionInterceptor.UPGRADE_URL_HEADER, "https://download.example.com/upgrade?channel=stable&source=version_gate"))
                 .andExpect(jsonPath("$.code").value("app_version_required"));
     }
 
