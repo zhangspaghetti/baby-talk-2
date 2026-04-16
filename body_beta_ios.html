@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="release-distribution-route" content="download" />
+  <meta name="release-distribution-result" content="unavailable" />
+  <meta name="release-distribution-failure-reason" content="platform_target_missing" />
+  <title>下载 Baby Talk</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg-base: #FFF8F0;
+      --bg-surface: #FFFFFF;
+      --accent: #FF8C42;
+      --accent-dark: #E67A30;
+      --text-primary: #2D2926;
+      --text-secondary: #6B5E57;
+      --error: #D94B3C;
+      --info: #3B8577;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "PingFang SC", "Noto Sans SC", "Microsoft YaHei", sans-serif;
+      background: var(--bg-base);
+      color: var(--text-primary);
+    }
+    main {
+      max-width: 720px;
+      margin: 0 auto;
+      padding: 32px 20px 56px;
+    }
+    .surface {
+      background: var(--bg-surface);
+      border-radius: 24px;
+      padding: 28px 24px;
+      box-shadow: 0 8px 24px rgba(45,41,38,0.12);
+    }
+    h1 { margin: 0 0 12px; font-size: 30px; line-height: 1.2; }
+    p { margin: 0; line-height: 1.7; color: var(--text-secondary); }
+    .meta {
+      margin-top: 20px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .meta span {
+      padding: 6px 10px;
+      border-radius: 9999px;
+      background: #FFF0E5;
+      color: var(--accent-dark);
+      font-size: 13px;
+    }
+    .alert {
+      margin-top: 20px;
+      border-radius: 16px;
+      padding: 14px 16px;
+      font-size: 14px;
+    }
+    .alert.info { background: rgba(59,133,119,0.12); color: var(--info); }
+    .alert.warning { background: rgba(230,168,23,0.14); color: #8A5A00; }
+    .alert.error { background: rgba(217,75,60,0.12); color: var(--error); }
+    .cta-list {
+      list-style: none;
+      margin: 24px 0 0;
+      padding: 0;
+      display: grid;
+      gap: 12px;
+    }
+    .cta-link {
+      display: block;
+      text-decoration: none;
+      background: var(--accent);
+      color: white;
+      padding: 15px 18px;
+      border-radius: 16px;
+      font-weight: 700;
+    }
+    .cta-link:hover { background: var(--accent-dark); }
+    .footnote { margin-top: 18px; font-size: 13px; }
+    .audit-warning {
+      margin-top: 16px;
+      padding: 12px 14px;
+      border-radius: 14px;
+      background: rgba(217,75,60,0.10);
+      color: var(--error);
+      font-size: 13px;
+    }
+  </style>
+</head>
+<body>
+  <main data-route="download" data-result="unavailable" data-failure-reason="platform_target_missing">
+    <section class="surface">
+      <h1>下载 Baby Talk</h1>
+      <p>当前渠道暂未提供该平台入口，请改用下方其它可用平台。</p>
+      <div class="meta">
+        <span>channel · beta</span>
+        <span>source · public_link</span>
+        <span>入口 · download</span>
+      </div>
+      <div class="alert warning">当前渠道暂未提供该平台入口，请改用下方其它可用平台。</div>
+      <ul class="cta-list"><li class="cta-item">
+  <a class="cta-link" href="/download/redirect?channel=beta&amp;source=public_link&amp;platform=android">Android 下载</a>
+</li>
+</ul>
+      
+      <p class="footnote">如果当前平台没有可用入口，请联系发布同学确认 channel/source 配置是否已补齐。</p>
+    </section>
+  </main>
+</body>
+</html>

@@ -47,6 +47,19 @@ app:
         label: 测试版
         platforms:
           android: ${BABY_TALK_ANDROID_BETA_URL:https://download.example.com/android/beta/babytalk.apk}
+  share:
+    landing:
+      public-base-url: ${BABY_TALK_SHARE_PUBLIC_BASE_URL:https://share.example.com}
+      default-link-ttl: ${BABY_TALK_SHARE_LINK_TTL:PT168H}
+      download-fallback-path: /download
+      download-fallback-source: share_card
+      allowed-sources:
+        - latest_impact
+        - continuity_recommendation
+        - paired_progress
+      open-app-targets:
+        android: ${BABY_TALK_ANDROID_OPEN_SHARE_URL:babytalk://share/open}
+        ios: ${BABY_TALK_IOS_OPEN_SHARE_URL:babytalk://share/open}
   sms:
     provider-mode: ${BABY_TALK_SMS_PROVIDER_MODE:dev}
     dev-code: ${BABY_TALK_SMS_DEV_CODE:246810}

@@ -1,0 +1,1 @@
+{"details":{},"message":"缺少 X-App-Version，请升级客户端。","minimumSupportedVersion":"1.2.0","code":"app_version_required","upgradeUrl":"http://localhost:8080/upgrade?channel=stable"}

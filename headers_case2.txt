@@ -1,0 +1,7 @@
+HTTP/1.1 426 
+X-Min-Supported-Version: 1.2.0
+X-Upgrade-Url: http://localhost:8080/upgrade?channel=stable
+Content-Type: application/json;charset=UTF-8
+Content-Length: 195
+Date: Thu, 16 Apr 2026 09:29:36 GMT
+
