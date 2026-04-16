@@ -3,10 +3,12 @@
 #
 
 list(APPEND FLUTTER_PLUGIN_LIST
+  app_links
   audioplayers_windows
   connectivity_plus
   flutter_tts
   isar_flutter_libs
+  share_plus
   url_launcher_windows
 )
 
