@@ -16,6 +16,7 @@ import 'package:mobile/features/practice/data/repositories/practice_repository.d
 import 'package:mobile/features/practice/data/services/asset_phrase_service.dart';
 import 'package:mobile/features/practice/domain/models/interaction_event_payload.dart';
 import 'package:mobile/features/practice/presentation/garden_growth_view_model.dart';
+import 'package:mobile/features/practice/presentation/practice_continuity_view_model.dart';
 import 'package:mobile/features/practice/presentation/practice_route_args.dart';
 import 'package:mobile/features/practice/presentation/practice_session_view_model.dart';
 import 'package:mobile/features/practice/presentation/screens/home_screen.dart';
@@ -235,6 +236,46 @@ void main() {
       findsOneWidget,
     );
   });
+
+  testWidgets('首页在 continuity provider 缺失时显示安全空态，不回退默认 activity', (
+    tester,
+  ) async {
+    final harness = (await tester.runAsync<_Harness>(_Harness.create))!;
+    addTearDown(harness.dispose);
+
+    await tester.runAsync(() async {
+      await Future.wait([
+        harness.accountViewModel.initialize(),
+        harness.practiceSessionViewModel.initialize(),
+        harness.gardenGrowthViewModel.initialize(),
+      ]);
+    });
+
+    await tester.pumpWidget(
+      harness.buildApp(includeContinuityProvider: false),
+    );
+    await _pumpUntilHomeLoaded(tester);
+    await _scrollHomeUntilVisible(
+      tester,
+      find.byKey(const Key('home-continuity-provider-missing-banner')),
+    );
+
+    expect(
+      find.byKey(const Key('home-continuity-provider-missing-banner')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('home-hero-activity-safe-empty')),
+      findsOneWidget,
+    );
+    expect(find.textContaining('不会回退到默认 activity'), findsWidgets);
+    expect(
+      tester.widget<ElevatedButton>(
+        find.byKey(const ValueKey('home-start-practice-safe-empty')),
+      ).onPressed,
+      isNull,
+    );
+  });
 }
 
 Future<void> _pumpUntilHomeLoaded(
@@ -330,18 +371,28 @@ class _Harness {
     );
   }
 
-  Widget buildApp({PracticeRouteArgs? practiceArgs}) {
+  Widget buildApp({
+    PracticeRouteArgs? practiceArgs,
+    bool includeContinuityProvider = true,
+  }) {
+    final resolvedPracticeArgs =
+        practiceArgs ??
+        const PracticeRouteArgs(
+          spaceId: 'daily_care',
+          activityId: 'bath_time',
+        );
+
     return MultiProvider(
       providers: [
         Provider<PracticeRepository>.value(value: practiceRepository),
-        Provider<PracticeRouteArgs?>.value(
-          value:
-              practiceArgs ??
-              const PracticeRouteArgs(
-                spaceId: 'daily_care',
-                activityId: 'bath_time',
-              ),
-        ),
+        Provider<PracticeRouteArgs?>.value(value: resolvedPracticeArgs),
+        if (includeContinuityProvider)
+          ChangeNotifierProvider<PracticeContinuityViewModel>(
+            create: (_) => PracticeContinuityViewModel(
+              repository: practiceRepository,
+              initialStarterArgs: resolvedPracticeArgs,
+            )..initialize(reason: 'test_boot'),
+          ),
         ChangeNotifierProvider<AccountViewModel>.value(value: accountViewModel),
         ChangeNotifierProvider<PracticeSessionViewModel>.value(
           value: practiceSessionViewModel,

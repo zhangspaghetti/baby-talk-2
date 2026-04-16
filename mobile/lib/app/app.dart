@@ -25,6 +25,7 @@ import 'package:mobile/features/practice/data/repositories/garden_growth_reposit
 import 'package:mobile/features/practice/data/repositories/practice_repository.dart';
 import 'package:mobile/features/practice/data/services/asset_phrase_service.dart';
 import 'package:mobile/features/practice/presentation/garden_growth_view_model.dart';
+import 'package:mobile/features/practice/presentation/practice_continuity_view_model.dart';
 import 'package:mobile/features/practice/presentation/practice_route_args.dart';
 import 'package:mobile/features/practice/presentation/practice_session_view_model.dart';
 import 'package:mobile/features/practice/presentation/screens/practice_session_screen.dart';
@@ -94,7 +95,21 @@ typedef PracticeAudioControllerFactory = PracticeAudioController Function();
 typedef OnboardingCompletedSnapshotLoader =
     Future<OnboardingSnapshot?> Function();
 
+const _bootContinuitySeedTimeout = Duration(seconds: 4);
+
 enum AppLaunchDestination { onboarding, shell }
+
+class _AppBootContinuitySeed {
+  const _AppBootContinuitySeed({
+    required this.starterArgs,
+    required this.defaultPracticeArgs,
+    this.viewModelSeed,
+  });
+
+  final PracticeRouteArgs starterArgs;
+  final PracticeRouteArgs defaultPracticeArgs;
+  final PracticeContinuitySeedState? viewModelSeed;
+}
 
 class _AppLaunchState {
   const _AppLaunchState({
@@ -103,6 +118,9 @@ class _AppLaunchState {
     required this.accountRepository,
     required this.mentorRepository,
     required this.destination,
+    required this.starterArgs,
+    required this.defaultPracticeArgs,
+    this.continuitySeed,
     this.completedSnapshot,
   });
 
@@ -111,6 +129,9 @@ class _AppLaunchState {
   final AccountRepository accountRepository;
   final MentorRepository mentorRepository;
   final AppLaunchDestination destination;
+  final PracticeRouteArgs starterArgs;
+  final PracticeRouteArgs defaultPracticeArgs;
+  final PracticeContinuitySeedState? continuitySeed;
   final OnboardingSnapshot? completedSnapshot;
 
   String get initialRoute {
@@ -218,16 +239,20 @@ class _BabyTalkAppState extends State<BabyTalkApp> {
             Provider<AccountRepository>.value(value: accountRepository),
             Provider<MentorRepository>.value(value: mentorRepository),
             Provider<PracticeRouteArgs>.value(
-              value: PracticeRouteArgs(
-                spaceId: widget.bootState.primarySpaceId!,
-                activityId: widget.bootState.primaryActivityId!,
-              ),
+              value: launchState.defaultPracticeArgs,
             ),
             Provider<GardenGrowthRepository>(
               create: (_) => GardenGrowthRepository(
                 practiceRepository: practiceRepository,
                 assetPhraseService: widget.bootState.assetPhraseService!,
               ),
+            ),
+            ChangeNotifierProvider<PracticeContinuityViewModel>(
+              create: (_) => PracticeContinuityViewModel(
+                repository: practiceRepository,
+                initialStarterArgs: launchState.starterArgs,
+                seedState: launchState.continuitySeed,
+              )..initialize(reason: 'app_boot'),
             ),
             ChangeNotifierProvider<AccountViewModel>(
               create: (_) =>
@@ -340,6 +365,10 @@ class _BabyTalkAppState extends State<BabyTalkApp> {
       final completedSnapshot = completedSnapshotLoader == null
           ? await onboardingRepository.readCompletedSnapshot()
           : await completedSnapshotLoader();
+      final continuitySeed = await _resolveBootContinuitySeed(
+        repository: repository,
+        completedSnapshot: completedSnapshot,
+      );
       _repository = repository;
       _mentorRepository = mentorRepository;
       return _AppLaunchState(
@@ -350,6 +379,9 @@ class _BabyTalkAppState extends State<BabyTalkApp> {
         destination: completedSnapshot == null
             ? AppLaunchDestination.onboarding
             : AppLaunchDestination.shell,
+        starterArgs: continuitySeed.starterArgs,
+        defaultPracticeArgs: continuitySeed.defaultPracticeArgs,
+        continuitySeed: continuitySeed.viewModelSeed,
         completedSnapshot: completedSnapshot,
       );
     } catch (error) {
@@ -361,6 +393,84 @@ class _BabyTalkAppState extends State<BabyTalkApp> {
         await repository.close();
       }
       rethrow;
+    }
+  }
+
+  Future<_AppBootContinuitySeed> _resolveBootContinuitySeed({
+    required PracticeRepository repository,
+    required OnboardingSnapshot? completedSnapshot,
+  }) async {
+    final primaryArgs = PracticeRouteArgs(
+      spaceId: widget.bootState.primarySpaceId!,
+      activityId: widget.bootState.primaryActivityId!,
+    );
+    final starterArgs =
+        PracticeRouteArgs.maybeCreate(
+          spaceId: completedSnapshot?.starterSpaceId,
+          activityId: completedSnapshot?.starterActivityId,
+        ) ??
+        primaryArgs;
+
+    if (completedSnapshot == null) {
+      return _AppBootContinuitySeed(
+        starterArgs: starterArgs,
+        defaultPracticeArgs: starterArgs,
+      );
+    }
+
+    try {
+      final continuitySnapshot = await repository
+          .getContinuitySnapshot(
+            starterSpaceId: starterArgs.spaceId,
+            starterActivityId: starterArgs.activityId,
+          )
+          .timeout(_bootContinuitySeedTimeout);
+      final recommendedArgs = PracticeRouteArgs.maybeCreate(
+        spaceId: continuitySnapshot.recommendedActivity.spaceId,
+        activityId: continuitySnapshot.recommendedActivity.activityId,
+      );
+      if (recommendedArgs == null) {
+        return _AppBootContinuitySeed(
+          starterArgs: starterArgs,
+          defaultPracticeArgs: starterArgs,
+        );
+      }
+
+      final activitySnapshot = await repository
+          .getActivitySnapshot(
+            spaceId: recommendedArgs.spaceId,
+            activityId: recommendedArgs.activityId,
+          )
+          .timeout(_bootContinuitySeedTimeout);
+      return _AppBootContinuitySeed(
+        starterArgs: starterArgs,
+        defaultPracticeArgs: recommendedArgs,
+        viewModelSeed: PracticeContinuitySeedState(
+          starterArgs: starterArgs,
+          snapshot: continuitySnapshot,
+          activitySnapshot: activitySnapshot,
+          recommendedArgs: recommendedArgs,
+          status: PracticeContinuityLoadStatus.ready,
+          warningMessage: continuitySnapshot.warningMessage,
+          lastRefreshReason:
+              'boot_seed_${continuitySnapshot.recommendation.reason.wireValue}',
+        ),
+      );
+    } on TimeoutException {
+      return _AppBootContinuitySeed(
+        starterArgs: starterArgs,
+        defaultPracticeArgs: starterArgs,
+      );
+    } on FormatException {
+      return _AppBootContinuitySeed(
+        starterArgs: starterArgs,
+        defaultPracticeArgs: starterArgs,
+      );
+    } catch (_) {
+      return _AppBootContinuitySeed(
+        starterArgs: starterArgs,
+        defaultPracticeArgs: starterArgs,
+      );
     }
   }
 

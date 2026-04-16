@@ -84,9 +84,10 @@ class LocalMentorSuggestionService {
   const LocalMentorSuggestionService();
 
   LocalMentorSuggestionResult derive(LocalMentorSuggestionContext context) {
+    final fallbackReasonCode = _normalize(context.fallbackReasonCode);
     if (context.contextFallbackUsed) {
       return _buildSafeFallback(
-        reasonCode: context.fallbackReasonCode ?? 'context_fallback_used',
+        reasonCode: fallbackReasonCode ?? 'context_fallback_used',
       );
     }
 
@@ -97,6 +98,7 @@ class LocalMentorSuggestionService {
     final recentPractice = context.recentPractice;
 
     if (recentPractice != null) {
+      final recentSummary = _buildRecentContextSummary(recentPractice);
       final suggestions = <LocalMentorSuggestion>[
         LocalMentorSuggestion(
           suggestionId: 'recent_${recentPractice.phraseId}',
@@ -109,8 +111,7 @@ class LocalMentorSuggestionService {
           activityId: recentPractice.activityId,
           phraseId: recentPractice.phraseId,
           reasonCode: 'recent_result',
-          redactedContextSummary:
-              'recent_result:${recentPractice.activityId}/${recentPractice.phraseId}:${recentPractice.reactionType.wireValue}',
+          redactedContextSummary: recentSummary,
         ),
         if (stageMatch != null)
           LocalMentorSuggestion(
@@ -127,13 +128,17 @@ class LocalMentorSuggestionService {
         suggestions: List.unmodifiable(suggestions),
         primaryOrigin: LocalMentorSuggestionOrigin.recentPractice,
         contextFallbackUsed: false,
-        redactedContextSummary:
-            'recent_result:${recentPractice.activityId}/${recentPractice.phraseId}',
+        redactedContextSummary: recentSummary,
       );
     }
 
     if (starterPhrase != null) {
       final title = _normalize(context.activityTitle) ?? '熟悉场景';
+      final starterSummary = _buildStarterContextSummary(
+        activityId: context.starterActivityId,
+        phraseId: starterPhrase.phraseId,
+        fallbackReasonCode: fallbackReasonCode,
+      );
       final bodySegments = <String>[
         '先回到$title里最熟悉的一句“${starterPhrase.english}”，边做动作边说一次就够。',
         if (_normalize(context.coachTip) != null) _normalize(context.coachTip)!,
@@ -151,8 +156,7 @@ class LocalMentorSuggestionService {
           activityId: _normalize(context.starterActivityId),
           phraseId: starterPhrase.phraseId,
           reasonCode: 'starter_phrase',
-          redactedContextSummary:
-              'starter_phrase:${context.starterActivityId}/${starterPhrase.phraseId}',
+          redactedContextSummary: starterSummary,
         ),
         if (stageMatch != null)
           LocalMentorSuggestion(
@@ -169,12 +173,16 @@ class LocalMentorSuggestionService {
         suggestions: List.unmodifiable(suggestions),
         primaryOrigin: LocalMentorSuggestionOrigin.starterPhrase,
         contextFallbackUsed: false,
-        redactedContextSummary:
-            'starter_phrase:${context.starterActivityId}/${starterPhrase.phraseId}',
+        fallbackReasonCode: fallbackReasonCode,
+        redactedContextSummary: starterSummary,
       );
     }
 
     if (stageMatch != null) {
+      final stageSummary = _buildStageContextSummary(
+        stageId: stageMatch.stageId,
+        fallbackReasonCode: fallbackReasonCode,
+      );
       final suggestions = <LocalMentorSuggestion>[
         LocalMentorSuggestion(
           suggestionId: 'stage_${stageMatch.stageId}',
@@ -183,18 +191,52 @@ class LocalMentorSuggestionService {
           body: stageMatch.summary,
           stageId: stageMatch.stageId,
           reasonCode: 'stage_only',
-          redactedContextSummary: 'stage:${stageMatch.stageId}',
+          redactedContextSummary: stageSummary,
         ),
       ];
       return LocalMentorSuggestionResult(
         suggestions: List.unmodifiable(suggestions),
         primaryOrigin: LocalMentorSuggestionOrigin.stageGuide,
         contextFallbackUsed: false,
-        redactedContextSummary: 'stage:${stageMatch.stageId}',
+        fallbackReasonCode: fallbackReasonCode,
+        redactedContextSummary: stageSummary,
       );
     }
 
-    return _buildSafeFallback(reasonCode: 'no_local_context');
+    return _buildSafeFallback(
+      reasonCode: fallbackReasonCode ?? 'no_local_context',
+    );
+  }
+
+  String _buildRecentContextSummary(LocalMentorRecentPracticeContext recent) {
+    return 'recent_result:${recent.activityId}/${recent.phraseId}:${recent.reactionType.wireValue}';
+  }
+
+  String _buildStarterContextSummary({
+    required String? activityId,
+    required String phraseId,
+    String? fallbackReasonCode,
+  }) {
+    final normalizedActivityId = _normalize(activityId) ?? 'unknown_activity';
+    final normalizedReasonCode = _normalize(fallbackReasonCode);
+    if (normalizedReasonCode == null) {
+      return 'starter_phrase:$normalizedActivityId/$phraseId';
+    }
+    if (normalizedReasonCode == 'starter_fallback') {
+      return 'starter_fallback:$normalizedActivityId/$phraseId';
+    }
+    return 'starter_fallback:$normalizedReasonCode:$normalizedActivityId/$phraseId';
+  }
+
+  String _buildStageContextSummary({
+    required String stageId,
+    String? fallbackReasonCode,
+  }) {
+    final normalizedReasonCode = _normalize(fallbackReasonCode);
+    if (normalizedReasonCode == null) {
+      return 'stage:$stageId';
+    }
+    return 'stage:$stageId:$normalizedReasonCode';
   }
 
   LocalMentorSuggestionResult _buildSafeFallback({required String reasonCode}) {

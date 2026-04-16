@@ -7,6 +7,7 @@ import 'package:mobile/features/mentor/domain/services/local_mentor_suggestion_s
 import 'package:mobile/features/onboarding/data/local/onboarding_snapshot_store.dart';
 import 'package:mobile/features/onboarding/domain/models/onboarding_snapshot.dart';
 import 'package:mobile/features/practice/data/repositories/practice_repository.dart';
+import 'package:mobile/features/practice/domain/models/practice_continuity_snapshot.dart';
 
 class MentorFactInspectionIssue {
   const MentorFactInspectionIssue({
@@ -173,48 +174,73 @@ class MentorRepository {
       fallbackReasonCode = 'onboarding_missing';
     }
 
+    final stageId = _normalize(onboardingSnapshot?.currentStage);
     final starterSpaceId = _normalize(onboardingSnapshot?.starterSpaceId);
     final starterActivityId = _normalize(onboardingSnapshot?.starterActivityId);
     final starterPhraseId = _normalize(onboardingSnapshot?.starterPhraseId);
 
-    if (!contextFallbackUsed &&
-        (starterSpaceId == null ||
-            starterActivityId == null ||
-            starterPhraseId == null)) {
-      contextFallbackUsed = true;
-      fallbackReasonCode = 'starter_seed_missing';
-    }
-
-    PracticeRestoreSnapshot? restoredPractice;
+    PracticeContinuitySnapshot? continuitySnapshot;
     if (!contextFallbackUsed) {
       try {
-        restoredPractice = await _practiceRepository.restorePracticeState(
-          spaceId: starterSpaceId!,
-          activityId: starterActivityId!,
+        continuitySnapshot = await _practiceRepository.getContinuitySnapshot(
+          starterSpaceId: starterSpaceId,
+          starterActivityId: starterActivityId,
         );
       } on TimeoutException {
         contextFallbackUsed = true;
-        fallbackReasonCode = 'practice_restore_timeout';
+        fallbackReasonCode = 'continuity_timeout';
       } on FormatException {
         contextFallbackUsed = true;
-        fallbackReasonCode = 'practice_restore_malformed';
+        fallbackReasonCode = 'continuity_malformed';
       } catch (_) {
         contextFallbackUsed = true;
-        fallbackReasonCode = 'practice_restore_failed';
+        fallbackReasonCode = 'continuity_failed';
+      }
+    }
+
+    var continuityContext = const _MentorContinuityContext();
+    if (!contextFallbackUsed && continuitySnapshot != null) {
+      continuityContext = _mapContinuityContext(continuitySnapshot);
+    }
+
+    PracticeActivitySnapshot? starterActivitySnapshot;
+    if (!contextFallbackUsed && continuityContext.recentPractice == null) {
+      if (starterSpaceId == null ||
+          starterActivityId == null ||
+          starterPhraseId == null) {
+        contextFallbackUsed = true;
+        fallbackReasonCode = 'starter_seed_missing';
+      } else {
+        try {
+          starterActivitySnapshot = await _practiceRepository
+              .getActivitySnapshot(
+                spaceId: starterSpaceId,
+                activityId: starterActivityId,
+              );
+        } on TimeoutException {
+          contextFallbackUsed = true;
+          fallbackReasonCode = 'starter_activity_timeout';
+        } on FormatException {
+          contextFallbackUsed = true;
+          fallbackReasonCode = 'starter_activity_invalid';
+        } catch (_) {
+          contextFallbackUsed = true;
+          fallbackReasonCode = 'starter_activity_unavailable';
+        }
       }
     }
 
     final suggestionContext = LocalMentorSuggestionContext(
-      stageId: _normalize(onboardingSnapshot?.currentStage),
+      stageId: stageId,
       starterSpaceId: starterSpaceId,
       starterActivityId: starterActivityId,
       starterPhraseId: starterPhraseId,
-      activityTitle: restoredPractice?.activitySnapshot.title,
-      activitySummary: restoredPractice?.activitySnapshot.summary,
-      coachTip: restoredPractice?.activitySnapshot.coachTip,
-      sceneTag: restoredPractice?.activitySnapshot.sceneTag,
+      activityTitle: starterActivitySnapshot?.title,
+      activitySummary: starterActivitySnapshot?.summary,
+      coachTip: starterActivitySnapshot?.coachTip,
+      sceneTag: starterActivitySnapshot?.sceneTag,
       phrases:
-          restoredPractice?.activitySnapshot.phrases
+          starterActivitySnapshot?.phrases
               .map(
                 (phrase) => LocalMentorPracticePhraseContext(
                   phraseId: phrase.phraseId,
@@ -225,9 +251,13 @@ class MentorRepository {
               )
               .toList(growable: false) ??
           const <LocalMentorPracticePhraseContext>[],
-      recentPractice: _mapRecentPractice(restoredPractice),
+      recentPractice: contextFallbackUsed
+          ? null
+          : continuityContext.recentPractice,
       contextFallbackUsed: contextFallbackUsed,
-      fallbackReasonCode: fallbackReasonCode,
+      fallbackReasonCode: contextFallbackUsed
+          ? fallbackReasonCode
+          : continuityContext.fallbackReasonCode,
     );
 
     return _suggestionService.derive(suggestionContext);
@@ -241,20 +271,47 @@ class MentorRepository {
     await _localDataSource.close(deleteFromDisk: deleteFromDisk);
   }
 
-  LocalMentorRecentPracticeContext? _mapRecentPractice(
-    PracticeRestoreSnapshot? restoredPractice,
+  _MentorContinuityContext _mapContinuityContext(
+    PracticeContinuitySnapshot snapshot,
   ) {
-    final recent = restoredPractice?.homeSummary.recentResult;
-    if (recent == null) {
-      return null;
+    final recommendationReason = snapshot.recommendation.reason;
+    if (recommendationReason != PracticeContinuityReason.recentActivity) {
+      return _MentorContinuityContext(
+        fallbackReasonCode: recommendationReason.wireValue,
+      );
     }
-    return LocalMentorRecentPracticeContext(
-      activityId: recent.activityId,
-      activityTitle: recent.activityTitle,
-      phraseId: recent.phraseId,
-      phraseEnglish: recent.phraseEnglish,
-      reactionType: recent.reactionType,
-      totalEvents: recent.totalEvents,
+
+    final recentActivity =
+        snapshot.recentActivity ?? snapshot.recommendedActivity;
+    final recentResult = recentActivity.recentResult;
+    if (recentResult == null) {
+      return const _MentorContinuityContext(
+        fallbackReasonCode: 'recent_context_missing',
+      );
+    }
+
+    final activityId = _normalize(recentActivity.activityId);
+    final activityTitle = _normalize(recentActivity.title);
+    final phraseId = _normalize(recentResult.phraseId);
+    final phraseEnglish = _normalize(recentResult.phraseEnglish);
+    if (activityId == null ||
+        activityTitle == null ||
+        phraseId == null ||
+        phraseEnglish == null) {
+      return const _MentorContinuityContext(
+        fallbackReasonCode: 'recent_context_unmapped',
+      );
+    }
+
+    return _MentorContinuityContext(
+      recentPractice: LocalMentorRecentPracticeContext(
+        activityId: activityId,
+        activityTitle: activityTitle,
+        phraseId: phraseId,
+        phraseEnglish: phraseEnglish,
+        reactionType: recentResult.reactionType,
+        totalEvents: recentResult.totalEvents,
+      ),
     );
   }
 
@@ -274,4 +331,14 @@ class MentorRepository {
     }
     return normalized;
   }
+}
+
+class _MentorContinuityContext {
+  const _MentorContinuityContext({
+    this.recentPractice,
+    this.fallbackReasonCode,
+  });
+
+  final LocalMentorRecentPracticeContext? recentPractice;
+  final String? fallbackReasonCode;
 }

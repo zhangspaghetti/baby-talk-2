@@ -17,6 +17,7 @@ import 'package:mobile/features/onboarding/domain/models/onboarding_snapshot.dar
 import 'package:mobile/features/onboarding/domain/models/stage_match.dart';
 import 'package:mobile/features/practice/data/local/practice_local_data_source.dart';
 import 'package:mobile/features/practice/data/repositories/practice_repository.dart';
+import 'package:mobile/features/practice/domain/models/interaction_event_payload.dart';
 import 'package:mobile/features/practice/presentation/practice_session_view_model.dart';
 
 void main() {
@@ -107,11 +108,16 @@ void main() {
       for (final activity in allActivities) ...activity.phrases,
     ];
 
-    expect(content.spaces.map((space) => space.id), ['daily_care', 'family_rhythm']);
-    expect(
-      allActivities.map((activity) => activity.id),
-      ['bath_time', 'diaper_change', 'feeding_time', 'bedtime'],
-    );
+    expect(content.spaces.map((space) => space.id), [
+      'daily_care',
+      'family_rhythm',
+    ]);
+    expect(allActivities.map((activity) => activity.id), [
+      'bath_time',
+      'diaper_change',
+      'feeding_time',
+      'bedtime',
+    ]);
     expect(allPhrases, hasLength(9));
 
     for (final phrase in allPhrases) {
@@ -158,6 +164,85 @@ void main() {
     expect(find.byKey(const Key('boot-route-shell')), findsOneWidget);
     expect(find.byKey(const Key('boot-route-onboarding')), findsNothing);
   });
+
+  testWidgets(
+    '存在 completed snapshot 与 recent activity 时冷启动会 seed continuity recommendation',
+    (WidgetTester tester) async {
+      late OnboardingSnapshot completedSnapshot;
+      final harness = (await tester.runAsync<_AppBootHarness>(() async {
+        final created = await _createHarness();
+        await created.repository.recordReaction(
+          spaceId: 'family_rhythm',
+          activityId: 'feeding_time',
+          phraseId: 'feeding_time_open_wide',
+          reactionType: BabyReactionType.engaged,
+          clientTimestamp: DateTime.utc(2026, 4, 8, 9, 0),
+          localEventId: 'evt_boot_feed_1',
+        );
+        await created.repository.recordReaction(
+          spaceId: 'family_rhythm',
+          activityId: 'feeding_time',
+          phraseId: 'feeding_time_yummy_bite',
+          reactionType: BabyReactionType.imitated,
+          clientTimestamp: DateTime.utc(2026, 4, 8, 9, 1),
+          localEventId: 'evt_boot_feed_2',
+        );
+        final onboardingRepository = OnboardingRepository(
+          snapshotStore: OnboardingSnapshotStore(
+            directoryResolver: () async => created.tempDir,
+          ),
+          practiceRepository: created.repository,
+          starterSpaceId: created.bootState.primarySpaceId!,
+          starterActivityId: created.bootState.primaryActivityId!,
+        );
+        completedSnapshot = await onboardingRepository.completeOnboarding(
+          childDisplayName: '米米',
+          ageBucket: OnboardingAgeBucket.zeroToSix,
+          completedAt: DateTime.utc(2026, 4, 8, 8),
+        );
+        return created;
+      }))!;
+      addTearDown(harness.close);
+
+      await tester.pumpWidget(
+        BabyTalkApp(
+          bootState: harness.bootState,
+          repositoryFactory: (_) async => harness.repository,
+          appDirectoryResolver: () async => harness.tempDir,
+          audioControllerFactory: _SilentPracticeAudioController.new,
+          completedSnapshotLoader: () async => completedSnapshot,
+        ),
+      );
+      await _pumpUntilFound(tester, find.byKey(const Key('boot-route-shell')));
+      await _pumpUntilFound(
+        tester,
+        find.byKey(const ValueKey('home-start-practice-feeding_time')),
+      );
+
+      expect(
+        find.byKey(const ValueKey('home-start-practice-feeding_time')),
+        findsOneWidget,
+      );
+      expect(find.textContaining('吃饭时间'), findsWidgets);
+      expect(find.textContaining('boot_seed_recent_activity'), findsOneWidget);
+
+      await tester.tap(find.byTooltip('花园'));
+      await _pumpUntilFound(tester, find.byKey(const Key('shell-tab-garden')));
+      await tester.scrollUntilVisible(
+        find.byKey(const Key('garden-continue-practice')),
+        180,
+        scrollable: find.byType(Scrollable).last,
+      );
+      await tester.pump();
+
+      expect(
+        find.byKey(const Key('garden-continue-target-feeding_time')),
+        findsOneWidget,
+      );
+      expect(find.textContaining('继续最近 activity'), findsWidgets);
+      expect(find.textContaining('boot_seed_recent_activity'), findsOneWidget);
+    },
+  );
 
   testWidgets('malformed account snapshot 只会退回未登录，不会破坏 shell route gate', (
     WidgetTester tester,
@@ -258,7 +343,7 @@ class _AppBootHarness {
   final PracticeRepository repository;
 
   Future<void> close() async {
-    await repository.close();
+    await repository.close(deleteFromDisk: true);
     if (await tempDir.exists()) {
       await tempDir.delete(recursive: true);
     }
@@ -318,6 +403,13 @@ Future<void> _pumpUntilFound(
   final totalSteps = timeout.inMilliseconds ~/ step.inMilliseconds;
   for (var index = 0; index < totalSteps; index++) {
     await tester.pump(step);
+    if (finder.evaluate().isNotEmpty) {
+      return;
+    }
+    await tester.runAsync(() async {
+      await Future<void>.delayed(Duration.zero);
+    });
+    await tester.pump();
     if (finder.evaluate().isNotEmpty) {
       return;
     }

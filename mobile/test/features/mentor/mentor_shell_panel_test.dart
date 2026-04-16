@@ -24,6 +24,7 @@ import 'package:mobile/features/onboarding/domain/models/stage_match.dart';
 import 'package:mobile/features/practice/data/local/practice_local_data_source.dart';
 import 'package:mobile/features/practice/data/repositories/practice_repository.dart';
 import 'package:mobile/features/practice/data/services/asset_phrase_service.dart';
+import 'package:mobile/features/practice/presentation/practice_continuity_view_model.dart';
 import 'package:mobile/features/practice/presentation/practice_route_args.dart';
 import 'package:mobile/features/practice/presentation/practice_session_view_model.dart';
 import 'package:mobile/features/practice/presentation/screens/home_screen.dart';
@@ -353,6 +354,15 @@ class _Harness {
             activityId: 'bath_time',
           ),
         ),
+        ChangeNotifierProvider<PracticeContinuityViewModel>(
+          create: (_) => PracticeContinuityViewModel(
+            repository: practiceRepository,
+            initialStarterArgs: const PracticeRouteArgs(
+              spaceId: 'daily_care',
+              activityId: 'bath_time',
+            ),
+          )..initialize(reason: 'test_boot'),
+        ),
         ChangeNotifierProvider<AccountViewModel>.value(value: accountViewModel),
         ChangeNotifierProvider<MentorViewModel>.value(value: mentorViewModel),
         ChangeNotifierProvider<PracticeSessionViewModel>.value(
@@ -388,6 +398,15 @@ class _Harness {
             spaceId: 'daily_care',
             activityId: 'bath_time',
           ),
+        ),
+        ChangeNotifierProvider<PracticeContinuityViewModel>(
+          create: (_) => PracticeContinuityViewModel(
+            repository: practiceRepository,
+            initialStarterArgs: const PracticeRouteArgs(
+              spaceId: 'daily_care',
+              activityId: 'bath_time',
+            ),
+          )..initialize(reason: 'test_boot'),
         ),
         ChangeNotifierProvider<AccountViewModel>.value(value: accountViewModel),
         ChangeNotifierProvider<MentorViewModel>.value(value: mentorViewModel),
