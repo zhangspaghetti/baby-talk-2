@@ -702,6 +702,7 @@ class _BabyTalkAppState extends State<BabyTalkApp> {
         ),
         practiceRepository: repository,
         onboardingSnapshotStore: onboardingStore,
+        householdSnapshotLoader: householdRepository.loadSnapshot,
       );
       final completedSnapshotLoader = widget.completedSnapshotLoader;
       final completedSnapshot = completedSnapshotLoader == null

@@ -2,6 +2,7 @@ enum LocalMentorSuggestionOrigin {
   recentPractice,
   starterPhrase,
   stageGuide,
+  sharedCaregiverContext,
   safeFallback,
 }
 
@@ -14,6 +15,8 @@ extension LocalMentorSuggestionOriginWire on LocalMentorSuggestionOrigin {
         return 'starter_phrase';
       case LocalMentorSuggestionOrigin.stageGuide:
         return 'stage_guide';
+      case LocalMentorSuggestionOrigin.sharedCaregiverContext:
+        return 'shared_caregiver_context';
       case LocalMentorSuggestionOrigin.safeFallback:
         return 'safe_fallback';
     }

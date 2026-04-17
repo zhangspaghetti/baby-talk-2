@@ -6,6 +6,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:isar/isar.dart';
 import 'package:mobile/core/device/installation_id_service.dart';
+import 'package:mobile/features/household/data/local/household_local_store.dart';
+import 'package:mobile/features/household/domain/models/household_shared_context.dart';
 import 'package:mobile/features/mentor/data/local/mentor_local_data_source.dart';
 import 'package:mobile/features/mentor/data/repositories/mentor_repository.dart';
 import 'package:mobile/features/mentor/domain/models/local_mentor_suggestion.dart';
@@ -19,6 +21,7 @@ import 'package:mobile/features/practice/data/services/asset_phrase_service.dart
 import 'package:mobile/features/practice/domain/models/interaction_event_payload.dart';
 import 'package:mobile/features/practice/domain/models/practice_activity_catalog.dart';
 import 'package:mobile/features/practice/domain/models/practice_continuity_snapshot.dart';
+import 'package:mobile/features/practice/presentation/practice_route_args.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -433,6 +436,309 @@ void main() {
       expect(result.fallbackReasonCode, 'onboarding_unavailable');
       expect(result.redactedContextSummary, 'fallback:onboarding_unavailable');
     });
+
+    test('本地 continuity 缺口时会采用共享 caregiver context，并保持 redaction 边界', () async {
+      await onboardingSnapshotStore.write(
+        OnboardingSnapshot(
+          childDisplayName: '米米',
+          ageBucket: OnboardingAgeBucket.zeroToSix,
+          approxMonths: 5,
+          currentStage: 'warm_routines',
+          starterSpaceId: 'daily_care',
+          starterActivityId: 'bath_time',
+          starterPhraseId: 'bath_time_warm_water',
+          consentState: OnboardingConsentState.localOnly,
+          completedAt: DateTime.utc(2026, 4, 9, 8, 0),
+        ),
+      );
+      mentorRepository = _buildMentorRepository(
+        localDataSource: mentorLocalDataSource,
+        practiceRepository: practiceRepository,
+        onboardingSnapshotStore: onboardingSnapshotStore,
+        householdSnapshotLoader: () async => _sharedSnapshot(
+          practiceArgs: const PracticeRouteArgs(
+            spaceId: 'sleep_support',
+            activityId: 'bedtime_story',
+          ),
+          nextStepArgs: const PracticeRouteArgs(
+            spaceId: 'family_rhythm',
+            activityId: 'feeding_time',
+          ),
+          babyProfileSummary: 'RAW_CHILD_NAME',
+          continuitySummary: 'RAW_SHARED_SUMMARY',
+          gardenSummary: 'RAW_GARDEN_SUMMARY',
+        ),
+      );
+
+      final result = await mentorRepository.deriveLocalSuggestions();
+
+      expect(
+        result.primaryOrigin,
+        LocalMentorSuggestionOrigin.sharedCaregiverContext,
+      );
+      expect(result.contextFallbackUsed, isFalse);
+      expect(result.sharedContextStatus?.adopted, isTrue);
+      expect(
+        result.sharedContextStatus?.code,
+        'shared_context_adopted_local_gap',
+      );
+      expect(result.suggestions.first.activityId, 'feeding_time');
+      expect(
+        result.suggestions.first.reasonCode,
+        'shared_context_adopted_local_gap',
+      );
+      expect(result.suggestions.first.body, contains('次照护者刚完成一次共享练习'));
+      expect(result.suggestions.first.body, isNot(contains('RAW_CHILD_NAME')));
+      expect(
+        result.suggestions.first.body,
+        isNot(contains('RAW_SHARED_SUMMARY')),
+      );
+      expect(
+        result.redactedContextSummary,
+        isNot(contains('RAW_GARDEN_SUMMARY')),
+      );
+    });
+
+    test('共享 projection 更新更近时会覆盖本地 recent continuity', () async {
+      await onboardingSnapshotStore.write(
+        OnboardingSnapshot(
+          childDisplayName: '小满',
+          ageBucket: OnboardingAgeBucket.sixToTwelve,
+          approxMonths: 9,
+          currentStage: 'sound_turn_taking',
+          starterSpaceId: 'daily_care',
+          starterActivityId: 'bath_time',
+          starterPhraseId: 'bath_time_warm_water',
+          consentState: OnboardingConsentState.localOnly,
+          completedAt: DateTime.utc(2026, 4, 9, 8, 0),
+        ),
+      );
+      await practiceRepository.recordReaction(
+        spaceId: 'daily_care',
+        activityId: 'bath_time',
+        phraseId: 'bath_time_warm_water',
+        reactionType: BabyReactionType.calm,
+        clientTimestamp: DateTime.utc(2026, 4, 9, 8, 1),
+        localEventId: 'practice_evt_local_recent_1',
+      );
+      mentorRepository = _buildMentorRepository(
+        localDataSource: mentorLocalDataSource,
+        practiceRepository: practiceRepository,
+        onboardingSnapshotStore: onboardingSnapshotStore,
+        householdSnapshotLoader: () async => _sharedSnapshot(
+          practiceArgs: const PracticeRouteArgs(
+            spaceId: 'sleep_support',
+            activityId: 'bedtime_story',
+          ),
+          nextStepArgs: const PracticeRouteArgs(
+            spaceId: 'family_rhythm',
+            activityId: 'feeding_time',
+          ),
+          latestInteractionAt: DateTime.utc(2026, 4, 9, 8, 5),
+          updatedAt: DateTime.utc(2026, 4, 9, 8, 6),
+        ),
+      );
+
+      final result = await mentorRepository.deriveLocalSuggestions();
+
+      expect(
+        result.primaryOrigin,
+        LocalMentorSuggestionOrigin.sharedCaregiverContext,
+      );
+      expect(result.sharedContextStatus?.adopted, isTrue);
+      expect(result.sharedContextStatus?.code, 'shared_context_adopted_newer');
+      expect(result.suggestions.first.activityId, 'feeding_time');
+    });
+
+    test('本机 continuity 更新更近时会安全放弃共享 context', () async {
+      await onboardingSnapshotStore.write(
+        OnboardingSnapshot(
+          childDisplayName: '小满',
+          ageBucket: OnboardingAgeBucket.sixToTwelve,
+          approxMonths: 9,
+          currentStage: 'sound_turn_taking',
+          starterSpaceId: 'daily_care',
+          starterActivityId: 'bath_time',
+          starterPhraseId: 'bath_time_warm_water',
+          consentState: OnboardingConsentState.localOnly,
+          completedAt: DateTime.utc(2026, 4, 9, 8, 0),
+        ),
+      );
+      await practiceRepository.recordReaction(
+        spaceId: 'family_rhythm',
+        activityId: 'feeding_time',
+        phraseId: 'feeding_time_yummy_bite',
+        reactionType: BabyReactionType.imitated,
+        clientTimestamp: DateTime.utc(2026, 4, 9, 8, 10),
+        localEventId: 'practice_evt_local_recent_2',
+      );
+      mentorRepository = _buildMentorRepository(
+        localDataSource: mentorLocalDataSource,
+        practiceRepository: practiceRepository,
+        onboardingSnapshotStore: onboardingSnapshotStore,
+        householdSnapshotLoader: () async => _sharedSnapshot(
+          practiceArgs: const PracticeRouteArgs(
+            spaceId: 'sleep_support',
+            activityId: 'bedtime_story',
+          ),
+          nextStepArgs: const PracticeRouteArgs(
+            spaceId: 'daily_care',
+            activityId: 'bath_time',
+          ),
+          latestInteractionAt: DateTime.utc(2026, 4, 9, 8, 5),
+          updatedAt: DateTime.utc(2026, 4, 9, 8, 6),
+        ),
+      );
+
+      final result = await mentorRepository.deriveLocalSuggestions();
+
+      expect(result.primaryOrigin, LocalMentorSuggestionOrigin.recentPractice);
+      expect(result.sharedContextStatus?.adopted, isFalse);
+      expect(
+        result.sharedContextStatus?.code,
+        'shared_context_skipped_local_newer',
+      );
+      expect(
+        result.redactedContextSummary,
+        contains('shared:shared_context_skipped_local_newer'),
+      );
+    });
+
+    test('共享 actor role 未知时会安全放弃共享 context', () async {
+      await onboardingSnapshotStore.write(
+        OnboardingSnapshot(
+          childDisplayName: '小满',
+          ageBucket: OnboardingAgeBucket.sixToTwelve,
+          approxMonths: 9,
+          currentStage: 'sound_turn_taking',
+          starterSpaceId: 'daily_care',
+          starterActivityId: 'bath_time',
+          starterPhraseId: 'bath_time_warm_water',
+          consentState: OnboardingConsentState.localOnly,
+          completedAt: DateTime.utc(2026, 4, 9, 8, 0),
+        ),
+      );
+      await practiceRepository.recordReaction(
+        spaceId: 'family_rhythm',
+        activityId: 'feeding_time',
+        phraseId: 'feeding_time_yummy_bite',
+        reactionType: BabyReactionType.imitated,
+        clientTimestamp: DateTime.utc(2026, 4, 9, 8, 10),
+        localEventId: 'practice_evt_local_recent_3',
+      );
+      mentorRepository = _buildMentorRepository(
+        localDataSource: mentorLocalDataSource,
+        practiceRepository: practiceRepository,
+        onboardingSnapshotStore: onboardingSnapshotStore,
+        householdSnapshotLoader: () async => _sharedSnapshot(
+          actorRole: 'guest',
+          nextStepArgs: const PracticeRouteArgs(
+            spaceId: 'daily_care',
+            activityId: 'bath_time',
+          ),
+        ),
+      );
+
+      final result = await mentorRepository.deriveLocalSuggestions();
+
+      expect(result.primaryOrigin, LocalMentorSuggestionOrigin.recentPractice);
+      expect(result.sharedContextStatus?.adopted, isFalse);
+      expect(result.sharedContextStatus?.code, 'shared_actor_unknown');
+    });
+
+    test('共享 next-step 缺字段时会安全放弃共享 context', () async {
+      await onboardingSnapshotStore.write(
+        OnboardingSnapshot(
+          childDisplayName: '小满',
+          ageBucket: OnboardingAgeBucket.sixToTwelve,
+          approxMonths: 9,
+          currentStage: 'sound_turn_taking',
+          starterSpaceId: 'daily_care',
+          starterActivityId: 'bath_time',
+          starterPhraseId: 'bath_time_warm_water',
+          consentState: OnboardingConsentState.localOnly,
+          completedAt: DateTime.utc(2026, 4, 9, 8, 0),
+        ),
+      );
+      await practiceRepository.recordReaction(
+        spaceId: 'family_rhythm',
+        activityId: 'feeding_time',
+        phraseId: 'feeding_time_yummy_bite',
+        reactionType: BabyReactionType.imitated,
+        clientTimestamp: DateTime.utc(2026, 4, 9, 8, 10),
+        localEventId: 'practice_evt_local_recent_4',
+      );
+      mentorRepository = _buildMentorRepository(
+        localDataSource: mentorLocalDataSource,
+        practiceRepository: practiceRepository,
+        onboardingSnapshotStore: onboardingSnapshotStore,
+        householdSnapshotLoader: () async => HouseholdLocalSnapshot(
+          householdId: 'household_shared',
+          sharedContext: HouseholdSharedContext(
+            babyProfileSummary: '共享宝宝档案：家庭已同步 2 条互动。',
+            continuitySummary: '最近 continuity：先继续这条共享 activity。',
+            gardenSummary: '花园上下文：共享花圃正在缓慢生长。',
+            practiceArgs: const PracticeRouteArgs(
+              spaceId: 'sleep_support',
+              activityId: 'bedtime_story',
+            ),
+            actor: const HouseholdSharedActor(
+              role: 'caregiver',
+              source: 'sync_event',
+              result: 'needs_break',
+            ),
+            nextStep: null,
+            latestInteractionAt: DateTime.utc(2026, 4, 9, 8, 5),
+            updatedAt: DateTime.utc(2026, 4, 9, 8, 6),
+          ),
+          lastPhase: 'shared_context_ready',
+        ),
+      );
+
+      final result = await mentorRepository.deriveLocalSuggestions();
+
+      expect(result.primaryOrigin, LocalMentorSuggestionOrigin.recentPractice);
+      expect(result.sharedContextStatus?.adopted, isFalse);
+      expect(result.sharedContextStatus?.code, 'shared_next_step_missing');
+    });
+
+    test('household snapshot loader 失败时会继续本地建议并暴露 reason code', () async {
+      await onboardingSnapshotStore.write(
+        OnboardingSnapshot(
+          childDisplayName: '小满',
+          ageBucket: OnboardingAgeBucket.sixToTwelve,
+          approxMonths: 9,
+          currentStage: 'sound_turn_taking',
+          starterSpaceId: 'daily_care',
+          starterActivityId: 'bath_time',
+          starterPhraseId: 'bath_time_warm_water',
+          consentState: OnboardingConsentState.localOnly,
+          completedAt: DateTime.utc(2026, 4, 9, 8, 0),
+        ),
+      );
+      await practiceRepository.recordReaction(
+        spaceId: 'family_rhythm',
+        activityId: 'feeding_time',
+        phraseId: 'feeding_time_yummy_bite',
+        reactionType: BabyReactionType.imitated,
+        clientTimestamp: DateTime.utc(2026, 4, 9, 8, 10),
+        localEventId: 'practice_evt_local_recent_5',
+      );
+      mentorRepository = _buildMentorRepository(
+        localDataSource: mentorLocalDataSource,
+        practiceRepository: practiceRepository,
+        onboardingSnapshotStore: onboardingSnapshotStore,
+        householdSnapshotLoader: () async {
+          throw const HouseholdLocalStoreException('disk offline');
+        },
+      );
+
+      final result = await mentorRepository.deriveLocalSuggestions();
+
+      expect(result.primaryOrigin, LocalMentorSuggestionOrigin.recentPractice);
+      expect(result.sharedContextStatus?.adopted, isFalse);
+      expect(result.sharedContextStatus?.code, 'shared_snapshot_unavailable');
+    });
   });
 }
 
@@ -440,11 +746,13 @@ MentorRepository _buildMentorRepository({
   required MentorLocalDataSource localDataSource,
   required PracticeRepository practiceRepository,
   required OnboardingSnapshotStore onboardingSnapshotStore,
+  MentorHouseholdSnapshotLoader? householdSnapshotLoader,
 }) {
   return MentorRepository(
     localDataSource: localDataSource,
     practiceRepository: practiceRepository,
     onboardingSnapshotStore: onboardingSnapshotStore,
+    householdSnapshotLoader: householdSnapshotLoader,
   );
 }
 
@@ -523,6 +831,53 @@ PracticeCatalogActivitySummary _copyActivitySummary(
     lastEventTime: source.lastEventTime,
     recentResult: recentResult,
     warningMessage: source.warningMessage,
+  );
+}
+
+HouseholdLocalSnapshot _sharedSnapshot({
+  PracticeRouteArgs practiceArgs = const PracticeRouteArgs(
+    spaceId: 'sleep_support',
+    activityId: 'bedtime_story',
+  ),
+  PracticeRouteArgs nextStepArgs = const PracticeRouteArgs(
+    spaceId: 'family_rhythm',
+    activityId: 'feeding_time',
+  ),
+  String actorRole = 'caregiver',
+  String actorSource = 'sync_event',
+  String actorResult = 'needs_break',
+  String babyProfileSummary = '共享宝宝档案：家庭已同步 2 条互动。',
+  String continuitySummary = '最近 continuity：先继续这条共享 activity。',
+  String gardenSummary = '花园上下文：共享花圃正在缓慢生长。',
+  String nextStepReason = 'top_activity',
+  DateTime? latestInteractionAt,
+  DateTime? updatedAt,
+  HouseholdSharedNextStep? nextStep,
+}) {
+  return HouseholdLocalSnapshot(
+    householdId: 'household_shared',
+    sharedContext: HouseholdSharedContext(
+      babyProfileSummary: babyProfileSummary,
+      continuitySummary: continuitySummary,
+      gardenSummary: gardenSummary,
+      practiceArgs: practiceArgs,
+      actor: HouseholdSharedActor(
+        role: actorRole,
+        source: actorSource,
+        result: actorResult,
+      ),
+      nextStep:
+          nextStep ??
+          HouseholdSharedNextStep(
+            spaceId: nextStepArgs.spaceId,
+            activityId: nextStepArgs.activityId,
+            reason: nextStepReason,
+          ),
+      latestInteractionAt:
+          latestInteractionAt ?? DateTime.utc(2026, 4, 9, 8, 5),
+      updatedAt: updatedAt ?? DateTime.utc(2026, 4, 9, 8, 6),
+    ),
+    lastPhase: 'shared_context_ready',
   );
 }
 

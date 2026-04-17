@@ -82,6 +82,56 @@ void main() {
       );
     });
 
+    test('共享 continuity adopted/skipped 状态会暴露给面板层', () async {
+      final accountViewModel = AccountViewModel(
+        repository: _StaticAccountRepository(
+          seedSnapshot: AccountLocalSnapshot.signedOut,
+        ),
+      );
+      await accountViewModel.initialize();
+      final repository = _RecordingMentorRepository(
+        deriveResult: LocalMentorSuggestionResult(
+          suggestions: [
+            LocalMentorSuggestion(
+              suggestionId: 'shared_feeding_time',
+              origin: LocalMentorSuggestionOrigin.sharedCaregiverContext,
+              title: '接住家庭刚完成的练习',
+              body: '次照护者刚完成一次共享练习。现在先接着喂饭时间。',
+              reasonCode: 'shared_context_adopted_newer',
+            ),
+          ],
+          primaryOrigin: LocalMentorSuggestionOrigin.sharedCaregiverContext,
+          contextFallbackUsed: false,
+          redactedContextSummary:
+              'shared:shared_context_adopted_newer:caregiver:feeding_time',
+          sharedContextStatus: const MentorSharedContextStatus(
+            code: 'shared_context_adopted_newer',
+            headline: '已采用家庭共享连续性',
+            detail: '次照护者刚完成一次共享练习，Mentor 现在按“喂饭时间”继续。',
+            adopted: true,
+          ),
+        ),
+      );
+      final viewModel = MentorViewModel(
+        repository: repository,
+        accountViewModel: accountViewModel,
+        apiService: _FakeMentorApiService(),
+        audioController: _SilentMentorAudioController(),
+      );
+      addTearDown(viewModel.dispose);
+      addTearDown(accountViewModel.dispose);
+
+      await viewModel.beginPanelSession(launcher: 'home_fab');
+      await Future<void>.delayed(const Duration(milliseconds: 1));
+
+      expect(viewModel.sharedContextStatus, isNotNull);
+      expect(viewModel.sharedContextStatus?.adopted, isTrue);
+      expect(
+        viewModel.sharedContextStatus?.code,
+        'shared_context_adopted_newer',
+      );
+    });
+
     test('仓储抛错时回退到安全建议并暴露 suggestion_render_fallback', () async {
       final accountViewModel = AccountViewModel(
         repository: _StaticAccountRepository(

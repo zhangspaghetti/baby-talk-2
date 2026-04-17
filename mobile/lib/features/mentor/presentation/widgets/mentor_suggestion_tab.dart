@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:mobile/app/theme/app_theme.dart';
 import 'package:mobile/features/mentor/domain/models/local_mentor_suggestion.dart';
+import 'package:mobile/features/mentor/domain/services/local_mentor_suggestion_service.dart';
 import 'package:mobile/features/mentor/presentation/mentor_view_model.dart';
 import 'package:mobile/features/onboarding/presentation/widgets/mentor_bubble.dart';
 import 'package:provider/provider.dart';
@@ -29,8 +30,17 @@ class MentorSuggestionTab extends StatelessWidget {
             foregroundColor: _foregroundColorForStatus(viewModel.panelStatus),
             backgroundColor: _backgroundColorForStatus(viewModel.panelStatus),
           ),
-        if (viewModel.audioStatusMessage != null) ...[
+        if (viewModel.sharedContextStatus != null) ...[
           if (viewModel.bannerMessage != null) const SizedBox(height: 12),
+          _MentorSharedContextBanner(
+            key: const Key('mentor-shared-context-banner'),
+            status: viewModel.sharedContextStatus!,
+          ),
+        ],
+        if (viewModel.audioStatusMessage != null) ...[
+          if (viewModel.bannerMessage != null ||
+              viewModel.sharedContextStatus != null)
+            const SizedBox(height: 12),
           _MentorAlertBanner(
             key: const Key('mentor-audio-banner'),
             message: viewModel.audioStatusMessage!,
@@ -38,7 +48,9 @@ class MentorSuggestionTab extends StatelessWidget {
             backgroundColor: AppTheme.warningSoft,
           ),
         ],
-        if (viewModel.bannerMessage != null || viewModel.audioStatusMessage != null)
+        if (viewModel.bannerMessage != null ||
+            viewModel.audioStatusMessage != null ||
+            viewModel.sharedContextStatus != null)
           const SizedBox(height: 16),
         Wrap(
           spacing: 8,
@@ -171,6 +183,55 @@ class MentorSuggestionTab extends StatelessWidget {
   }
 }
 
+class _MentorSharedContextBanner extends StatelessWidget {
+  const _MentorSharedContextBanner({super.key, required this.status});
+
+  final MentorSharedContextStatus status;
+
+  @override
+  Widget build(BuildContext context) {
+    final foregroundColor = status.adopted ? AppTheme.info : AppTheme.warning;
+    final backgroundColor = status.adopted
+        ? AppTheme.infoSoft
+        : AppTheme.warningSoft;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: backgroundColor,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            status.headline,
+            key: const Key('mentor-shared-context-headline'),
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              color: foregroundColor,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            status.detail,
+            key: const Key('mentor-shared-context-detail'),
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: foregroundColor,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 10),
+          Chip(
+            key: const Key('mentor-shared-context-chip'),
+            label: Text('shared · ${status.code}'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _SuggestionCard extends StatelessWidget {
   const _SuggestionCard({
     required this.suggestion,
@@ -228,7 +289,9 @@ class _SuggestionCard extends StatelessWidget {
                   child: Wrap(
                     spacing: 8,
                     runSpacing: 8,
-                    children: [Chip(label: Text('reason · ${suggestion.reasonCode}'))],
+                    children: [
+                      Chip(label: Text('reason · ${suggestion.reasonCode}')),
+                    ],
                   ),
                 ),
               ],

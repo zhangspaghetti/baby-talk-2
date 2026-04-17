@@ -69,7 +69,8 @@ void main() {
           ],
           primaryOrigin: LocalMentorSuggestionOrigin.starterPhrase,
           contextFallbackUsed: false,
-          redactedContextSummary: 'starter_phrase:bath_time/bath_time_warm_water',
+          redactedContextSummary:
+              'starter_phrase:bath_time/bath_time_warm_water',
         ),
       ),
     ))!;
@@ -118,6 +119,112 @@ void main() {
         .where((fact) => fact.eventType == MentorFactType.panelOpened)
         .toList();
     expect(panelOpenedFacts, hasLength(1));
+  });
+
+  testWidgets('Mentor 建议页会显示共享 continuity adopted 的状态卡', (tester) async {
+    await _setTallSurface(tester);
+    final harness = (await tester.runAsync<_Harness>(
+      () => _Harness.create(
+        accountSeedSnapshot: AccountLocalSnapshot.signedOut,
+        mentorSuggestionResult: LocalMentorSuggestionResult(
+          suggestions: [
+            LocalMentorSuggestion(
+              suggestionId: 'shared_feeding_time',
+              origin: LocalMentorSuggestionOrigin.sharedCaregiverContext,
+              title: '接住家庭刚完成的练习',
+              body: '次照护者刚完成一次共享练习。现在先接着喂饭时间。',
+              reasonCode: 'shared_context_adopted_newer',
+            ),
+          ],
+          primaryOrigin: LocalMentorSuggestionOrigin.sharedCaregiverContext,
+          contextFallbackUsed: false,
+          redactedContextSummary:
+              'shared:shared_context_adopted_newer:caregiver:feeding_time',
+          sharedContextStatus: const MentorSharedContextStatus(
+            code: 'shared_context_adopted_newer',
+            headline: '已采用家庭共享连续性',
+            detail: '次照护者刚完成一次共享练习，Mentor 现在按“喂饭时间”继续。',
+            adopted: true,
+          ),
+        ),
+      ),
+    ))!;
+    addTearDown(harness.dispose);
+
+    await tester.runAsync(() async {
+      await Future.wait([
+        harness.accountViewModel.initialize(),
+        harness.practiceSessionViewModel.initialize(),
+      ]);
+    });
+
+    await tester.pumpWidget(harness.buildStandaloneHome());
+    await _pumpUntilFound(tester, find.byKey(const Key('home-mentor-fab')));
+
+    await tester.tap(find.byKey(const Key('home-mentor-fab')));
+    await tester.pump();
+    await _pumpUntilFound(tester, find.byKey(const Key('mentor-panel-sheet')));
+
+    expect(
+      find.byKey(const Key('mentor-shared-context-banner')),
+      findsOneWidget,
+    );
+    expect(find.byKey(const Key('mentor-shared-context-chip')), findsOneWidget);
+    expect(find.text('已采用家庭共享连续性'), findsOneWidget);
+    expect(find.textContaining('喂饭时间'), findsWidgets);
+  });
+
+  testWidgets('Mentor 建议页会显示共享 continuity skipped 的安全原因', (tester) async {
+    await _setTallSurface(tester);
+    final harness = (await tester.runAsync<_Harness>(
+      () => _Harness.create(
+        accountSeedSnapshot: AccountLocalSnapshot.signedOut,
+        mentorSuggestionResult: LocalMentorSuggestionResult(
+          suggestions: [
+            LocalMentorSuggestion(
+              suggestionId: 'starter_1',
+              origin: LocalMentorSuggestionOrigin.starterPhrase,
+              title: '先回到熟悉短句',
+              body: '先把 Warm water. 贴在动作上，说一句就好。',
+              phraseEnglish: 'Warm water.',
+              reasonCode: 'starter_phrase',
+            ),
+          ],
+          primaryOrigin: LocalMentorSuggestionOrigin.starterPhrase,
+          contextFallbackUsed: false,
+          redactedContextSummary:
+              'starter_phrase:bath_time/bath_time_warm_water;shared:shared_next_step_missing',
+          sharedContextStatus: const MentorSharedContextStatus(
+            code: 'shared_next_step_missing',
+            headline: '共享连续性已安全放弃',
+            detail: '共享下一步缺少安全 route args，Mentor 继续使用本地建议。',
+            adopted: false,
+          ),
+        ),
+      ),
+    ))!;
+    addTearDown(harness.dispose);
+
+    await tester.runAsync(() async {
+      await Future.wait([
+        harness.accountViewModel.initialize(),
+        harness.practiceSessionViewModel.initialize(),
+      ]);
+    });
+
+    await tester.pumpWidget(harness.buildStandaloneHome());
+    await _pumpUntilFound(tester, find.byKey(const Key('home-mentor-fab')));
+
+    await tester.tap(find.byKey(const Key('home-mentor-fab')));
+    await tester.pump();
+    await _pumpUntilFound(tester, find.byKey(const Key('mentor-panel-sheet')));
+
+    expect(
+      find.byKey(const Key('mentor-shared-context-banner')),
+      findsOneWidget,
+    );
+    expect(find.text('共享连续性已安全放弃'), findsOneWidget);
+    expect(find.textContaining('安全 route args'), findsOneWidget);
   });
 
   testWidgets('standalone home 小 FAB 在缺失 onboarding 时仍打开同一 Mentor 面板并回退通用建议', (

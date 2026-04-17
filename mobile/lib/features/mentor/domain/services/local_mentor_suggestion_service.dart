@@ -64,6 +64,20 @@ class LocalMentorSuggestionContext {
   final String? fallbackReasonCode;
 }
 
+class MentorSharedContextStatus {
+  const MentorSharedContextStatus({
+    required this.code,
+    required this.headline,
+    required this.detail,
+    required this.adopted,
+  });
+
+  final String code;
+  final String headline;
+  final String detail;
+  final bool adopted;
+}
+
 class LocalMentorSuggestionResult {
   const LocalMentorSuggestionResult({
     required this.suggestions,
@@ -71,6 +85,7 @@ class LocalMentorSuggestionResult {
     required this.contextFallbackUsed,
     this.fallbackReasonCode,
     this.redactedContextSummary,
+    this.sharedContextStatus,
   });
 
   final List<LocalMentorSuggestion> suggestions;
@@ -78,6 +93,7 @@ class LocalMentorSuggestionResult {
   final bool contextFallbackUsed;
   final String? fallbackReasonCode;
   final String? redactedContextSummary;
+  final MentorSharedContextStatus? sharedContextStatus;
 }
 
 class LocalMentorSuggestionService {

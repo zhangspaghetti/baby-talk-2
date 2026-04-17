@@ -120,6 +120,7 @@ class MentorViewModel extends ChangeNotifier {
   MentorPanelStatus _panelStatus = MentorPanelStatus.idle;
   MentorChatAvailability _chatAvailability;
   List<LocalMentorSuggestion> _suggestions = const <LocalMentorSuggestion>[];
+  MentorSharedContextStatus? _sharedContextStatus;
   String? _bannerMessage;
   String? _bannerCode;
   String? _lastVisibleBanner;
@@ -150,6 +151,7 @@ class MentorViewModel extends ChangeNotifier {
   MentorPanelStatus get panelStatus => _panelStatus;
   MentorChatAvailability get chatAvailability => _chatAvailability;
   List<LocalMentorSuggestion> get suggestions => _suggestions;
+  MentorSharedContextStatus? get sharedContextStatus => _sharedContextStatus;
   String? get bannerMessage => _bannerMessage;
   String? get bannerCode => _bannerCode;
   String? get lastVisibleBanner => _lastVisibleBanner;
@@ -193,6 +195,7 @@ class MentorViewModel extends ChangeNotifier {
     _selectedTab = MentorPanelTab.suggestions;
     _panelStatus = MentorPanelStatus.loading;
     _suggestions = const <LocalMentorSuggestion>[];
+    _sharedContextStatus = null;
     _chatDraft = '';
     _chatResponseText = null;
     _chatResponseCode = null;
@@ -587,6 +590,7 @@ class MentorViewModel extends ChangeNotifier {
     }
 
     _suggestions = List<LocalMentorSuggestion>.unmodifiable(result.suggestions);
+    _sharedContextStatus = result.sharedContextStatus;
     _panelStatus = effectiveStatus;
     _applyBanner(
       effectiveBanner,
@@ -702,6 +706,9 @@ class MentorViewModel extends ChangeNotifier {
   }
 
   String _visibleDetailForSuggestions(LocalMentorSuggestionResult result) {
+    if (result.sharedContextStatus?.adopted ?? false) {
+      return '当前展示共享 continuity 建议';
+    }
     if (result.contextFallbackUsed) {
       return '当前展示通用本地建议';
     }
@@ -726,10 +733,15 @@ class MentorViewModel extends ChangeNotifier {
 
   String? _buildContextSummary() {
     if (_suggestions.isEmpty) {
-      return null;
+      return _sharedContextStatus == null
+          ? null
+          : 'shared:${_sharedContextStatus!.code}';
     }
     final primary = _suggestions.first;
-    return 'suggestion:${primary.suggestionId};reason:${primary.reasonCode ?? 'none'}';
+    final sharedSegment = _sharedContextStatus == null
+        ? ''
+        : ';shared:${_sharedContextStatus!.code}';
+    return 'suggestion:${primary.suggestionId};reason:${primary.reasonCode ?? 'none'}$sharedSegment';
   }
 
   MentorChatFailureSurface _mapChatFailure(MentorApiException error) {
