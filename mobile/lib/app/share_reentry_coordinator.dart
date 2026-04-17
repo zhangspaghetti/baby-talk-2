@@ -142,7 +142,7 @@ class ShareReentryParser {
   static final RegExp _tokenPattern = RegExp(_shareReentryTokenPattern);
 
   static ShareReentryDecision parse(Uri uri) {
-    final normalizedUri = uri.replace(fragment: '');
+    final normalizedUri = _stripFragment(uri);
     final scheme = normalizedUri.scheme.toLowerCase();
     if (scheme != 'babytalk') {
       return _error(
@@ -204,6 +204,15 @@ class ShareReentryParser {
       dispatchTarget: ShareReentryDispatchTarget.shellFallback,
       message: message,
     );
+  }
+
+  static Uri _stripFragment(Uri uri) {
+    final raw = uri.toString();
+    final hashIndex = raw.indexOf('#');
+    if (hashIndex == -1) {
+      return uri;
+    }
+    return Uri.parse(raw.substring(0, hashIndex));
   }
 
   static String? _trimToNull(String? rawValue) {

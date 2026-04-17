@@ -138,7 +138,13 @@ void main() {
 
     await tester.enterText(find.byKey(const Key('account-phone-field')), '13800');
     await tester.enterText(find.byKey(const Key('account-code-field')), '12');
-    await tester.tap(find.byKey(const Key('account-submit-button')));
+    final submitButton = find.byKey(const Key('account-submit-button'));
+    await tester.dragUntilVisible(
+      submitButton,
+      find.byType(ListView),
+      const Offset(0, -200),
+    );
+    await tester.tap(submitButton);
     await tester.pumpAndSettle();
 
     expect(repository.saveCalls, 0);
@@ -161,7 +167,13 @@ void main() {
 
     await tester.enterText(find.byKey(const Key('account-phone-field')), '138 0013 8000');
     await tester.enterText(find.byKey(const Key('account-code-field')), '123456');
-    await tester.tap(find.byKey(const Key('account-submit-button')));
+    final submitButton = find.byKey(const Key('account-submit-button'));
+    await tester.dragUntilVisible(
+      submitButton,
+      find.byType(ListView),
+      const Offset(0, -200),
+    );
+    await tester.tap(submitButton);
     await tester.pump();
     await tester.pumpAndSettle();
 
@@ -205,6 +217,8 @@ Future<void> _pumpEntryScreen(
   required FakeAccountRepository repository,
   AccountExternalLinkOpener? opener,
 }) async {
+  await _setTallViewport(tester);
+
   final viewModel = AccountViewModel(
     repository: repository,
     linkOpener: opener ?? FakeAccountExternalLinkOpener(),
@@ -229,6 +243,8 @@ Future<void> _pumpStatusCard(
   required OnboardingSnapshot onboardingSnapshot,
   AccountExternalLinkOpener? opener,
 }) async {
+  await _setWideViewport(tester);
+
   final viewModel = AccountViewModel(
     repository: repository,
     linkOpener: opener ?? FakeAccountExternalLinkOpener(),
@@ -252,6 +268,26 @@ Future<void> _pumpStatusCard(
   viewModel.initialize();
   await tester.pump();
   await tester.pumpAndSettle();
+}
+
+Future<void> _setTallViewport(WidgetTester tester) async {
+  tester.view.devicePixelRatio = 1.0;
+  tester.view.physicalSize = const Size(1200, 2200);
+  addTearDown(() {
+    tester.view.resetPhysicalSize();
+    tester.view.resetDevicePixelRatio();
+  });
+  await tester.pump();
+}
+
+Future<void> _setWideViewport(WidgetTester tester) async {
+  tester.view.devicePixelRatio = 1.0;
+  tester.view.physicalSize = const Size(1200, 1400);
+  addTearDown(() {
+    tester.view.resetPhysicalSize();
+    tester.view.resetDevicePixelRatio();
+  });
+  await tester.pump();
 }
 
 OnboardingSnapshot _buildSnapshot() {
