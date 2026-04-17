@@ -281,6 +281,8 @@ void main() {
       findsOneWidget,
     );
     expect(find.textContaining('共享宝宝档案'), findsWidgets);
+    expect(find.byKey(const Key('home-shared-overlay-card')), findsOneWidget);
+    expect(find.byKey(const Key('home-shared-overlay-button')), findsOneWidget);
 
     await _scrollHomeUntilVisible(
       tester,
@@ -720,6 +722,16 @@ HouseholdSharedContext _sharedContext(PracticeRouteArgs practiceArgs) {
     continuitySummary: '最近 continuity：先继续这条共享 activity。',
     gardenSummary: '花园上下文：共享花圃正在缓慢生长。',
     practiceArgs: practiceArgs,
+    actor: const HouseholdSharedActor(
+      role: 'caregiver',
+      source: 'sync_event',
+      result: 'needs_break',
+    ),
+    nextStep: HouseholdSharedNextStep(
+      spaceId: practiceArgs.spaceId,
+      activityId: practiceArgs.activityId,
+      reason: 'top_activity',
+    ),
     latestInteractionAt: DateTime.utc(2026, 4, 16, 11, 50),
     updatedAt: DateTime.utc(2026, 4, 16, 12),
   );

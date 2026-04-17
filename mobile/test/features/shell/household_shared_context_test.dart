@@ -252,6 +252,54 @@ void main() {
     );
     expect(find.textContaining('安全空态'), findsWidgets);
   });
+
+  testWidgets('共享 nextStep 缺失时 surface 保持安全禁用态', (tester) async {
+    final householdViewModel = HouseholdViewModel(
+      repository: _FakeHouseholdRepository(
+        loadSnapshotResult: HouseholdLocalSnapshot(
+          householdId: 'household_1',
+          role: HouseholdRole.caregiver,
+          sharedContext: HouseholdSharedContext(
+            babyProfileSummary: '共享宝宝档案：家庭已同步 2 条互动。',
+            continuitySummary: '最近 continuity：先继续共享 activity。',
+            gardenSummary: '花园上下文：共享花圃正在缓慢生长。',
+            practiceArgs: const PracticeRouteArgs(
+              spaceId: 'daily_care',
+              activityId: 'bath_time',
+            ),
+            actor: const HouseholdSharedActor(
+              role: 'caregiver',
+              source: 'sync_event',
+              result: 'needs_break',
+            ),
+            latestInteractionAt: DateTime.utc(2026, 4, 16, 11, 50),
+            updatedAt: DateTime.utc(2026, 4, 16, 12),
+          ),
+          lastPhase: 'shared_context_ready',
+          lastAcceptedAt: DateTime.utc(2026, 4, 16, 12),
+        ),
+      ),
+    );
+    addTearDown(householdViewModel.dispose);
+    await householdViewModel.initialize();
+
+    await tester.pumpWidget(_buildSurfaceHarness(householdViewModel));
+    await tester.pumpAndSettle();
+
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('shell-household-next-step-disabled')),
+      120,
+      scrollable: find.byType(Scrollable).first,
+    );
+    expect(
+      find.byKey(const Key('shell-household-next-step-disabled')),
+      findsOneWidget,
+    );
+    final button = tester.widget<OutlinedButton>(
+      find.byKey(const Key('shell-household-next-step-button')),
+    );
+    expect(button.onPressed, isNull);
+  });
 }
 
 Widget _buildSurfaceHarness(HouseholdViewModel householdViewModel) {
@@ -294,6 +342,16 @@ HouseholdSharedContext _sharedContext({
     continuitySummary: '最近 continuity：先继续洗澡时间的句子。',
     gardenSummary: '花园上下文：日常照护花圃正在生长。',
     practiceArgs: practiceArgs,
+    actor: const HouseholdSharedActor(
+      role: 'caregiver',
+      source: 'sync_event',
+      result: 'needs_break',
+    ),
+    nextStep: HouseholdSharedNextStep(
+      spaceId: practiceArgs.spaceId,
+      activityId: practiceArgs.activityId,
+      reason: 'top_activity',
+    ),
     latestInteractionAt: DateTime.utc(2026, 4, 16, 11, 50),
     updatedAt: DateTime.utc(2026, 4, 16, 12),
   );

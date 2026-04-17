@@ -4,6 +4,234 @@ import 'package:mobile/features/household/data/local/household_local_store.dart'
 import 'package:mobile/features/household/domain/models/household_role.dart';
 import 'package:mobile/features/household/domain/models/household_shared_context.dart';
 import 'package:mobile/features/household/presentation/household_view_model.dart';
+import 'package:mobile/features/practice/presentation/practice_route_args.dart';
+
+PracticeRouteArgs? resolveHouseholdSharedNextStepArgs(
+  HouseholdSharedContext? sharedContext,
+) {
+  final nextStep = sharedContext?.nextStep;
+  if (nextStep == null) {
+    return null;
+  }
+  return PracticeRouteArgs.maybeCreate(
+    spaceId: nextStep.spaceId,
+    activityId: nextStep.activityId,
+  )?.normalized();
+}
+
+bool isHouseholdSharedProjectionNewer(
+  HouseholdSharedContext sharedContext,
+  DateTime? localLatestAt,
+) {
+  if (localLatestAt == null) {
+    return true;
+  }
+  return sharedContext.latestInteractionAt.isAfter(localLatestAt);
+}
+
+String householdActorRoleLabel(String? role) {
+  switch (role?.trim()) {
+    case 'primary_caregiver':
+      return '主照护者';
+    case 'caregiver':
+      return '次照护者';
+    default:
+      return '家庭成员';
+  }
+}
+
+String householdActorSourceLabel(String? source) {
+  switch (source?.trim()) {
+    case 'sync_event':
+      return '同步回流';
+    default:
+      return '共享同步';
+  }
+}
+
+String householdActorResultLabel(String? result) {
+  switch (result?.trim()) {
+    case 'calm':
+      return '平静回应';
+    case 'engaged':
+      return '愿意看着你';
+    case 'imitated':
+      return '开始模仿';
+    case 'needs_break':
+      return '需要先休息';
+    default:
+      return '已记录反馈';
+  }
+}
+
+String householdNextStepReasonLabel(String? reason) {
+  switch (reason?.trim()) {
+    case 'latest_activity':
+      return '继续刚完成的 activity';
+    case 'top_activity':
+      return '先接上当前最该继续的 activity';
+    default:
+      return '共享下一步已整理好';
+  }
+}
+
+String householdSharedAttributionHeadline(
+  HouseholdSharedContext sharedContext,
+) {
+  final actor = sharedContext.actor;
+  if (actor == null) {
+    return '家庭刚完成一次共享练习';
+  }
+  return '${householdActorRoleLabel(actor.role)}刚完成一次共享练习';
+}
+
+String householdSharedAttributionDetail(HouseholdSharedContext sharedContext) {
+  final actor = sharedContext.actor;
+  final time = formatHouseholdSharedDateTime(sharedContext.latestInteractionAt);
+  if (actor == null) {
+    return '最近互动 $time · 归因字段缺失时仅保留脱敏共享摘要。';
+  }
+  return '${householdActorSourceLabel(actor.source)} · ${householdActorResultLabel(actor.result)} · 最近互动 $time';
+}
+
+String householdSharedNextStepDetail(HouseholdSharedContext sharedContext) {
+  final safeArgs = resolveHouseholdSharedNextStepArgs(sharedContext);
+  if (safeArgs == null) {
+    return '共享下一步缺少安全 route args，入口已停留在安全禁用态。';
+  }
+  return '${householdNextStepReasonLabel(sharedContext.nextStep?.reason)} · ${safeArgs.scopeLabel}';
+}
+
+String householdSharedProjectionMeta(HouseholdSharedContext sharedContext) {
+  return '最近互动 ${formatHouseholdSharedDateTime(sharedContext.latestInteractionAt)} · 投影刷新 ${formatHouseholdSharedDateTime(sharedContext.updatedAt)}';
+}
+
+String householdSharedUnavailableNextStepMessage(
+  HouseholdSharedContext sharedContext,
+) {
+  return '共享上下文已刷新，但下一步缺少安全入口；当前不会回退到错误默认 activity。';
+}
+
+class HouseholdSharedPracticeOverlayCard extends StatelessWidget {
+  const HouseholdSharedPracticeOverlayCard({
+    super.key,
+    required this.surfaceKeyPrefix,
+    required this.sharedContext,
+    this.buttonLabel = '进入共享下一步',
+    this.onPressed,
+  });
+
+  final String surfaceKeyPrefix;
+  final HouseholdSharedContext sharedContext;
+  final String buttonLabel;
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final safeArgs = resolveHouseholdSharedNextStepArgs(sharedContext);
+    final effectiveOnPressed = safeArgs == null
+        ? null
+        : onPressed ??
+              () async {
+                await safeArgs.push(context);
+              };
+
+    return Container(
+      key: Key('${surfaceKeyPrefix}-card'),
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: AppTheme.bgAccentSoft,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: AppTheme.accent.withValues(alpha: 0.18)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _buildRoleChip(
+                context,
+                key: Key('${surfaceKeyPrefix}-actor-chip'),
+                label: sharedContext.actor == null
+                    ? '共享归因'
+                    : householdActorRoleLabel(sharedContext.actor!.role),
+                backgroundColor: AppTheme.englishSoft,
+                foregroundColor: AppTheme.english,
+              ),
+              _buildRoleChip(
+                context,
+                key: Key('${surfaceKeyPrefix}-next-step-chip'),
+                label: safeArgs == null ? '入口待整理' : '下一步已就绪',
+                backgroundColor: safeArgs == null
+                    ? AppTheme.warningSoft
+                    : AppTheme.bgSurface,
+                foregroundColor: safeArgs == null
+                    ? AppTheme.warning
+                    : AppTheme.accentDark,
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Text(
+            householdSharedAttributionHeadline(sharedContext),
+            key: Key('${surfaceKeyPrefix}-headline'),
+            style: theme.textTheme.titleMedium,
+          ),
+          const SizedBox(height: 8),
+          Text(
+            householdSharedNextStepDetail(sharedContext),
+            key: Key('${surfaceKeyPrefix}-detail'),
+            style: theme.textTheme.bodyMedium,
+          ),
+          const SizedBox(height: 10),
+          Text(
+            householdSharedAttributionDetail(sharedContext),
+            key: Key('${surfaceKeyPrefix}-attribution'),
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: AppTheme.textSecondary,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            householdSharedProjectionMeta(sharedContext),
+            key: Key('${surfaceKeyPrefix}-meta'),
+            style: theme.textTheme.bodySmall,
+          ),
+          if (safeArgs == null) ...[
+            const SizedBox(height: 14),
+            Container(
+              key: Key('${surfaceKeyPrefix}-disabled-banner'),
+              width: double.infinity,
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: AppTheme.warningSoft,
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Text(
+                householdSharedUnavailableNextStepMessage(sharedContext),
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: AppTheme.warning,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ],
+          const SizedBox(height: 16),
+          ElevatedButton(
+            key: Key('${surfaceKeyPrefix}-button'),
+            onPressed: effectiveOnPressed,
+            child: Text(buttonLabel),
+          ),
+        ],
+      ),
+    );
+  }
+}
 
 class HouseholdSharedContextCard extends StatelessWidget {
   const HouseholdSharedContextCard({
@@ -105,8 +333,16 @@ class HouseholdSharedContextCard extends StatelessWidget {
           if (snapshot.lastAcceptedAt != null) ...[
             const SizedBox(height: 10),
             Text(
-              '最近接受：${_formatDateTime(snapshot.lastAcceptedAt!)}',
+              '最近接受：${formatHouseholdSharedDateTime(snapshot.lastAcceptedAt!)}',
               key: Key('$surfaceKeyPrefix-household-accepted-at'),
+              style: theme.textTheme.bodySmall,
+            ),
+          ],
+          if (sharedContext != null) ...[
+            const SizedBox(height: 10),
+            Text(
+              householdSharedProjectionMeta(sharedContext),
+              key: Key('$surfaceKeyPrefix-household-updated-at'),
               style: theme.textTheme.bodySmall,
             ),
           ],
@@ -121,6 +357,16 @@ class HouseholdSharedContextCard extends StatelessWidget {
           ],
           if (sharedContext != null) ...[
             const SizedBox(height: 14),
+            _SharedAttributionPanel(
+              surfaceKeyPrefix: surfaceKeyPrefix,
+              sharedContext: sharedContext,
+            ),
+            const SizedBox(height: 12),
+            _SharedNextStepPanel(
+              surfaceKeyPrefix: surfaceKeyPrefix,
+              sharedContext: sharedContext,
+            ),
+            const SizedBox(height: 12),
             _HouseholdSummaryBlock(
               surfaceKeyPrefix: surfaceKeyPrefix,
               sharedContext: sharedContext,
@@ -240,11 +486,11 @@ class HouseholdSharedContextCard extends StatelessWidget {
   String _roleNoteFor(HouseholdLocalSnapshot snapshot) {
     switch (snapshot.role) {
       case HouseholdRole.primaryCaregiver:
-        return '你当前是主照护者，可以管理邀请，并查看共享宝宝档案与回流状态。';
+        return '你当前是主照护者，可以管理邀请，并查看共享宝宝档案、最近归因与下一步入口。';
       case HouseholdRole.caregiver:
         return snapshot.sharedContext == null
-            ? '你当前是次照护者；邀请接受成功后，这里会显示共享宝宝档案、最近 continuity 与花园摘要。'
-            : '你当前是次照护者；这里展示的是共享宝宝档案与最近 continuity / 花园上下文。';
+            ? '你当前是次照护者；邀请接受成功后，这里会显示共享宝宝档案、最近归因与下一步入口。'
+            : '你当前是次照护者；这里展示的是共享宝宝档案、最近归因与下一步入口。';
       case null:
         return '角色尚未同步；共享档案会继续停留在安全 fallback，不会把错误参数写进练习入口。';
     }
@@ -259,7 +505,7 @@ class HouseholdSharedContextCard extends StatelessWidget {
       return snapshot.lastVisibleError!;
     }
     if (snapshot.role == HouseholdRole.primaryCaregiver) {
-      return '生成邀请并等待次照护者接受后，这里会出现共享宝宝档案摘要。';
+      return '生成邀请并等待次照护者接受后，这里会出现共享宝宝档案与下一步入口。';
     }
     if (snapshot.role == HouseholdRole.caregiver) {
       return '接受邀请后，如果共享上下文尚未刷新完成，这里会保留只读等待态。';
@@ -322,6 +568,128 @@ class HouseholdSharedContextCard extends StatelessWidget {
   }
 }
 
+class _SharedAttributionPanel extends StatelessWidget {
+  const _SharedAttributionPanel({
+    required this.surfaceKeyPrefix,
+    required this.sharedContext,
+  });
+
+  final String surfaceKeyPrefix;
+  final HouseholdSharedContext sharedContext;
+
+  @override
+  Widget build(BuildContext context) {
+    final actor = sharedContext.actor;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppTheme.englishSoft,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('最近归因', style: Theme.of(context).textTheme.labelMedium),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _buildRoleChip(
+                context,
+                key: Key('$surfaceKeyPrefix-household-actor-role-chip'),
+                label: actor == null
+                    ? '归因待补全'
+                    : householdActorRoleLabel(actor.role),
+                backgroundColor: AppTheme.bgSurface,
+                foregroundColor: AppTheme.english,
+              ),
+              _buildRoleChip(
+                context,
+                key: Key('$surfaceKeyPrefix-household-actor-result-chip'),
+                label: actor == null
+                    ? '安全摘要'
+                    : householdActorResultLabel(actor.result),
+                backgroundColor: AppTheme.bgSurface,
+                foregroundColor: AppTheme.textSecondary,
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Text(
+            householdSharedAttributionHeadline(sharedContext),
+            key: Key('$surfaceKeyPrefix-household-attribution-headline'),
+            style: Theme.of(context).textTheme.titleSmall,
+          ),
+          const SizedBox(height: 8),
+          Text(
+            householdSharedAttributionDetail(sharedContext),
+            key: Key('$surfaceKeyPrefix-household-attribution-detail'),
+            style: Theme.of(context).textTheme.bodyMedium,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SharedNextStepPanel extends StatelessWidget {
+  const _SharedNextStepPanel({
+    required this.surfaceKeyPrefix,
+    required this.sharedContext,
+  });
+
+  final String surfaceKeyPrefix;
+  final HouseholdSharedContext sharedContext;
+
+  @override
+  Widget build(BuildContext context) {
+    final safeArgs = resolveHouseholdSharedNextStepArgs(sharedContext);
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppTheme.bgSunken,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('共享下一步', style: Theme.of(context).textTheme.labelMedium),
+          const SizedBox(height: 10),
+          Text(
+            householdSharedNextStepDetail(sharedContext),
+            key: Key('$surfaceKeyPrefix-household-next-step-detail'),
+            style: Theme.of(context).textTheme.bodyMedium,
+          ),
+          const SizedBox(height: 12),
+          OutlinedButton(
+            key: Key('$surfaceKeyPrefix-household-next-step-button'),
+            onPressed: safeArgs == null
+                ? null
+                : () async {
+                    await safeArgs.push(context);
+                  },
+            child: Text(safeArgs == null ? '共享下一步待整理' : '进入共享下一步'),
+          ),
+          if (safeArgs == null) ...[
+            const SizedBox(height: 10),
+            Text(
+              householdSharedUnavailableNextStepMessage(sharedContext),
+              key: Key('$surfaceKeyPrefix-household-next-step-disabled'),
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: AppTheme.warning,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
 class _HouseholdSummaryBlock extends StatelessWidget {
   const _HouseholdSummaryBlock({
     required this.surfaceKeyPrefix,
@@ -376,8 +744,9 @@ class _SummaryRow extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: AppTheme.bgSunken,
+        color: AppTheme.bgSurface,
         borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppTheme.outlineSoft),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -524,7 +893,7 @@ Widget _buildRoleChip(
   );
 }
 
-String _formatDateTime(DateTime value) {
+String formatHouseholdSharedDateTime(DateTime value) {
   final local = value.toLocal();
   final month = local.month.toString().padLeft(2, '0');
   final day = local.day.toString().padLeft(2, '0');

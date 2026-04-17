@@ -495,7 +495,7 @@ class _AccountEntryScreenState extends State<AccountEntryScreen> {
                       HouseholdSharedContextCard(
                         surfaceKeyPrefix: 'account',
                         viewModel: householdViewModel,
-                        title: '共享照护状态',
+                        title: '共享归因与下一步',
                         retryReason: 'account_entry_manual_refresh',
                       ),
                       const SizedBox(height: 16),

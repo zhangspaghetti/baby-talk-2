@@ -187,6 +187,17 @@ void main() {
       findsOneWidget,
     );
     expect(find.textContaining('共享宝宝档案'), findsWidgets);
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('garden-shared-overlay-card')),
+      160,
+      scrollable: find.byType(Scrollable).last,
+    );
+    await tester.pump();
+    expect(find.byKey(const Key('garden-shared-overlay-card')), findsOneWidget);
+    expect(
+      find.byKey(const Key('garden-shared-overlay-button')),
+      findsOneWidget,
+    );
   });
 
   testWidgets('shell 花园与首页消费同一份 continuity recommendation', (tester) async {
@@ -723,6 +734,16 @@ HouseholdSharedContext _sharedContext(PracticeRouteArgs practiceArgs) {
     continuitySummary: '最近 continuity：先继续这条共享 activity。',
     gardenSummary: '花园上下文：共享花圃正在缓慢生长。',
     practiceArgs: practiceArgs,
+    actor: const HouseholdSharedActor(
+      role: 'caregiver',
+      source: 'sync_event',
+      result: 'needs_break',
+    ),
+    nextStep: HouseholdSharedNextStep(
+      spaceId: practiceArgs.spaceId,
+      activityId: practiceArgs.activityId,
+      reason: 'top_activity',
+    ),
     latestInteractionAt: DateTime.utc(2026, 4, 16, 11, 50),
     updatedAt: DateTime.utc(2026, 4, 16, 12),
   );

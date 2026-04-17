@@ -327,7 +327,7 @@ class _HouseholdDrawer extends StatelessWidget {
               ),
               const SizedBox(height: 20),
               Text(
-                'Drawer 现在会直接显示 invite CTA、角色 badge、共享宝宝档案摘要和最近 continuity / 花园状态。',
+                'Drawer 现在会直接显示 invite CTA、角色 badge、最近是谁完成了什么，以及共享下一步是否安全可进。',
                 style: theme.textTheme.bodySmall,
               ),
             ],

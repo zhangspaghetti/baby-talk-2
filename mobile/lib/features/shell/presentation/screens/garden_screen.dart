@@ -25,6 +25,24 @@ class GardenScreen extends StatelessWidget {
     final continuitySnapshot = continuityViewModel?.snapshot;
     final continuityActivity = continuityViewModel?.activitySnapshot;
     final practiceArgs = continuityViewModel?.recommendedArgs;
+    final sharedContext = householdViewModel?.snapshot.sharedContext;
+    final sharedNextStepArgs = resolveHouseholdSharedNextStepArgs(
+      sharedContext,
+    );
+    final localGardenAt =
+        snapshot.latestImpact?.occurredAt ??
+        snapshot.primarySpace?.lastPracticedAt ??
+        continuitySnapshot?.cadence.lastEventTime;
+    final isSharedOverlayNewer =
+        continuityViewModel != null &&
+        sharedContext != null &&
+        isHouseholdSharedProjectionNewer(sharedContext, localGardenAt);
+    final shouldShowSharedOverlay =
+        isSharedOverlayNewer && sharedNextStepArgs != null;
+    final shouldShowSharedOverlayDisabled =
+        isSharedOverlayNewer &&
+        sharedContext != null &&
+        sharedNextStepArgs == null;
 
     return SafeArea(
       top: false,
@@ -56,7 +74,7 @@ class GardenScreen extends StatelessWidget {
                 HouseholdSharedContextCard(
                   surfaceKeyPrefix: 'garden',
                   viewModel: householdViewModel,
-                  title: '共享花园上下文',
+                  title: '共享归因与花园下一步',
                   retryReason: 'garden_household_manual_refresh',
                 ),
                 if (shareViewModel != null) ...[
@@ -88,6 +106,25 @@ class GardenScreen extends StatelessWidget {
                   ],
                 ],
                 const SizedBox(height: 16),
+                if (shouldShowSharedOverlay) ...[
+                  HouseholdSharedPracticeOverlayCard(
+                    surfaceKeyPrefix: 'garden-shared-overlay',
+                    sharedContext: sharedContext!,
+                    buttonLabel: '从共享下一步继续',
+                  ),
+                  const SizedBox(height: 16),
+                ],
+                if (shouldShowSharedOverlayDisabled) ...[
+                  _GardenBanner(
+                    key: const Key('garden-shared-overlay-disabled-banner'),
+                    message: householdSharedUnavailableNextStepMessage(
+                      sharedContext!,
+                    ),
+                    backgroundColor: AppTheme.warningSoft,
+                    foregroundColor: AppTheme.warning,
+                  ),
+                  const SizedBox(height: 16),
+                ],
                 _GardenContinueCard(
                   practiceArgs: practiceArgs,
                   continuityViewModel: continuityViewModel,

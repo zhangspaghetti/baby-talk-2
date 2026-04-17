@@ -187,6 +187,21 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
     );
     final homeWarningMessage = _resolveHomeWarningMessage(continuityViewModel);
     final homeDisabledReason = continuityViewModel?.disabledReason;
+    final sharedContext = householdViewModel?.snapshot.sharedContext;
+    final localContinuityAt = continuitySnapshot?.cadence.lastEventTime;
+    final sharedNextStepArgs = resolveHouseholdSharedNextStepArgs(
+      sharedContext,
+    );
+    final isSharedOverlayNewer =
+        continuityViewModel != null &&
+        sharedContext != null &&
+        isHouseholdSharedProjectionNewer(sharedContext, localContinuityAt);
+    final shouldShowSharedOverlay =
+        isSharedOverlayNewer && sharedNextStepArgs != null;
+    final shouldShowSharedOverlayDisabled =
+        isSharedOverlayNewer &&
+        sharedContext != null &&
+        sharedNextStepArgs == null;
     final body = SafeArea(
       top: !widget.embeddedInShell,
       child: Align(
@@ -252,7 +267,7 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
                     HouseholdSharedContextCard(
                       surfaceKeyPrefix: 'home',
                       viewModel: householdViewModel,
-                      title: '共享照护摘要',
+                      title: '共享归因与下一步',
                       retryReason: 'home_household_manual_refresh',
                     ),
                     if (continuityViewModel == null) ...[
@@ -301,6 +316,25 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
                         onAction: continuityViewModel == null
                             ? null
                             : () => _refreshContinuity(reason: 'home_retry'),
+                      ),
+                    ],
+                    if (shouldShowSharedOverlay) ...[
+                      const SizedBox(height: 20),
+                      HouseholdSharedPracticeOverlayCard(
+                        surfaceKeyPrefix: 'home-shared-overlay',
+                        sharedContext: sharedContext!,
+                        buttonLabel: '进入共享下一步',
+                      ),
+                    ],
+                    if (shouldShowSharedOverlayDisabled) ...[
+                      const SizedBox(height: 20),
+                      _HomeBanner(
+                        key: const Key('home-shared-overlay-disabled-banner'),
+                        message: householdSharedUnavailableNextStepMessage(
+                          sharedContext!,
+                        ),
+                        backgroundColor: AppTheme.warningSoft,
+                        foregroundColor: AppTheme.warning,
                       ),
                     ],
                     const SizedBox(height: 20),
@@ -443,14 +477,6 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
   }
 
   PracticeRouteArgs? _resolveStarterArgs() {
-    final householdArgs = Provider.of<HouseholdViewModel?>(
-      context,
-      listen: false,
-    )?.snapshot.sharedContext?.practiceArgs;
-    if (householdArgs != null && householdArgs.isValid) {
-      return householdArgs.normalized();
-    }
-
     final snapshotArgs = PracticeRouteArgs.maybeCreate(
       spaceId: widget.onboardingSnapshot?.starterSpaceId,
       activityId: widget.onboardingSnapshot?.starterActivityId,
