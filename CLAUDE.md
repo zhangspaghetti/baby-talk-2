@@ -15,7 +15,7 @@
 - 配置文件内容根据实际需要决定语言
 
 ## 回答
-所有AskUserQuestion都需要我手动确认
+所有交互都用AskUserQuestions工具处理，都需要我手动确认
 
 # gstack
 
