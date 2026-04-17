@@ -11,6 +11,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.zhangspaghetti.babytalk.config.ApiVersionInterceptor;
 import java.sql.Timestamp;
 import java.time.Instant;
+import java.time.OffsetDateTime;
 import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -157,8 +158,8 @@ class CaregiverPracticeAttributionWebTest {
                 """,
                 invite.householdId()
         );
-        assertThat(((Timestamp) projectionRow.get("updated_at")).toInstant()).isAfter(beforeRefresh);
-        assertThat(((Timestamp) projectionRow.get("latest_interaction_at")).toInstant())
+        assertThat(toInstant(projectionRow.get("updated_at"))).isAfter(beforeRefresh);
+        assertThat(toInstant(projectionRow.get("latest_interaction_at")))
                 .isEqualTo(Instant.parse("2026-04-09T02:05:00Z"));
         assertThat(projectionRow)
                 .containsEntry("latest_actor_role", "caregiver")
@@ -299,6 +300,19 @@ class CaregiverPracticeAttributionWebTest {
 
     private JsonNode readJson(String rawJson) throws Exception {
         return objectMapper.readTree(rawJson);
+    }
+
+    private Instant toInstant(Object value) {
+        if (value instanceof Timestamp timestamp) {
+            return timestamp.toInstant();
+        }
+        if (value instanceof OffsetDateTime offsetDateTime) {
+            return offsetDateTime.toInstant();
+        }
+        if (value instanceof Instant instant) {
+            return instant;
+        }
+        throw new IllegalArgumentException("Unsupported time value: " + value);
     }
 
     private record SessionView(String accountId, String sessionId) {

@@ -39,7 +39,7 @@ class HouseholdSharedContextProjector {
                 ? "latest_activity"
                 : "top_activity";
 
-        return new CaregiverInviteRepository.SharedContextRow(
+        var sharedContext = new CaregiverInviteRepository.SharedContextRow(
                 householdId,
                 truncate("共享宝宝档案：家庭已同步 %d 条互动，当前由 %d 位照护者共看护。".formatted(
                         projection.totalEvents(),
@@ -68,6 +68,8 @@ class HouseholdSharedContextProjector {
                 nextStepActivityId,
                 nextStepReason
         );
+        repository.upsertSharedContext(sharedContext);
+        return sharedContext;
     }
 
     java.util.Optional<CaregiverInviteRepository.SharedContextRow> refreshForAccount(String accountId, Instant now) {
