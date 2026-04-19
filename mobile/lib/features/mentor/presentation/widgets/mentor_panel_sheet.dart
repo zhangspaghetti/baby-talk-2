@@ -7,6 +7,7 @@ import 'package:mobile/features/mentor/presentation/mentor_view_model.dart';
 import 'package:mobile/features/mentor/presentation/widgets/mentor_suggestion_tab.dart';
 import 'package:mobile/features/onboarding/presentation/widgets/mentor_bubble.dart';
 import 'package:provider/provider.dart';
+import 'package:mobile/l10n/app_localizations.dart';
 
 Future<void> openMentorPanelSheet(
   BuildContext context, {
@@ -17,7 +18,7 @@ Future<void> openMentorPanelSheet(
   if (viewModel == null) {
     ScaffoldMessenger.of(
       context,
-    ).showSnackBar(const SnackBar(content: Text('Mentor 面板尚未装配完成。')));
+    ).showSnackBar(SnackBar(content: Text('Mentor 面板尚未装配完成。')));
     return;
   }
 
@@ -53,6 +54,8 @@ class MentorPanelSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    final colors = context.appColors;
     final viewModel = context.watch<MentorViewModel>();
     final mediaQuery = MediaQuery.of(context);
     final maxHeight = mediaQuery.size.height * 0.78;
@@ -63,10 +66,10 @@ class MentorPanelSheet extends StatelessWidget {
         child: Container(
           key: const Key('mentor-panel-sheet'),
           constraints: BoxConstraints(maxHeight: maxHeight, maxWidth: 430),
-          decoration: const BoxDecoration(
-            color: AppTheme.bgSurface,
+          decoration: BoxDecoration(
+            color: colors.bgSurface,
             borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-            boxShadow: AppTheme.warmShadowMd,
+            boxShadow: colors.warmShadowMd,
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -76,7 +79,7 @@ class MentorPanelSheet extends StatelessWidget {
                 width: 40,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: AppTheme.outlineSoft,
+                  color: colors.outlineSoft,
                   borderRadius: BorderRadius.circular(999),
                 ),
               ),
@@ -89,12 +92,12 @@ class MentorPanelSheet extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            '小禾老师',
+                            l.mentorName,
                             style: Theme.of(context).textTheme.titleLarge,
                           ),
                           const SizedBox(height: 6),
                           Text(
-                            '先给建议，再决定是否需要聊天。离线时也不会让你白点。',
+                            l.mentorOfflineNote,
                             style: Theme.of(context).textTheme.bodyMedium,
                           ),
                         ],
@@ -102,7 +105,7 @@ class MentorPanelSheet extends StatelessWidget {
                     ),
                     IconButton(
                       key: const Key('mentor-panel-close'),
-                      tooltip: '关闭 Mentor 面板',
+                      tooltip: l.mentorClosePanel,
                       onPressed: () => Navigator.of(context).maybePop(),
                       icon: const Icon(Icons.close),
                     ),
@@ -139,30 +142,40 @@ class _SegmentedTabBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    final colors = context.appColors;
     final viewModel = context.read<MentorViewModel>();
     return Container(
       padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
-        color: AppTheme.bgSunken,
+        color: colors.bgSunken,
         borderRadius: BorderRadius.circular(16),
       ),
       child: Row(
         children: [
           Expanded(
-            child: _SegmentedButton(
+            child: Semantics(
+              label: '建议标签页',
+              button: true,
+              child: _SegmentedButton(
               buttonKey: const Key('mentor-tab-suggestions-button'),
-              label: '建议',
+              label: l.mentorSuggestionTab,
               selected: selectedTab == MentorPanelTab.suggestions,
               onPressed: () => viewModel.selectTab(MentorPanelTab.suggestions),
+            ),
             ),
           ),
           const SizedBox(width: 6),
           Expanded(
-            child: _SegmentedButton(
+            child: Semantics(
+              label: '聊天标签页',
+              button: true,
+              child: _SegmentedButton(
               buttonKey: const Key('mentor-tab-chat-button'),
-              label: '聊天',
+              label: l.mentorChatTab,
               selected: selectedTab == MentorPanelTab.chat,
               onPressed: () => viewModel.selectTab(MentorPanelTab.chat),
+            ),
             ),
           ),
         ],
@@ -186,8 +199,9 @@ class _SegmentedButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.appColors;
     return Material(
-      color: selected ? AppTheme.bgSurface : Colors.transparent,
+      color: selected ? colors.bgSurface : Colors.transparent,
       borderRadius: BorderRadius.circular(12),
       child: InkWell(
         key: buttonKey,
@@ -199,7 +213,7 @@ class _SegmentedButton extends StatelessWidget {
             child: Text(
               label,
               style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                color: selected ? AppTheme.textPrimary : AppTheme.textSecondary,
+                color: selected ? colors.textPrimary : colors.textSecondary,
               ),
             ),
           ),
@@ -214,6 +228,8 @@ class _MentorChatTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    final colors = context.appColors;
     final theme = Theme.of(context);
     final accountViewModel = context.watch<AccountViewModel>();
     final viewModel = context.watch<MentorViewModel>();
@@ -227,7 +243,7 @@ class _MentorChatTab extends StatelessWidget {
           caption: availability.title,
           message: availability.detail,
           trailing: Text(
-            'Mentor 只返回一条 text-first 受控回应；不会在面板里展示 raw provider 输出。',
+            l.mentorChatNote,
             key: const Key('mentor-chat-text-first-note'),
             style: theme.textTheme.bodySmall,
           ),
@@ -243,7 +259,7 @@ class _MentorChatTab extends StatelessWidget {
           const SizedBox(height: 12),
           _ChatBanner(
             key: const Key('mentor-chat-audio-banner'),
-            title: '朗读状态',
+            title: l.mentorReadStatus,
             detail: viewModel.audioStatusMessage!,
             code: viewModel.audioStatusCode ?? 'tts',
           ),
@@ -283,13 +299,13 @@ class _MentorChatTab extends StatelessWidget {
         Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: AppTheme.bgSunken,
+            color: colors.bgSunken,
             borderRadius: BorderRadius.circular(16),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('说出你现在卡住的地方', style: theme.textTheme.titleMedium),
+              Text(l.mentorChatPlaceholder, style: theme.textTheme.titleMedium),
               const SizedBox(height: 10),
               TextField(
                 key: const Key('mentor-chat-input'),
@@ -298,7 +314,7 @@ class _MentorChatTab extends StatelessWidget {
                 maxLength: mentorPromptMaxLength,
                 enabled: !viewModel.isSubmittingChat,
                 onChanged: viewModel.updateChatDraft,
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
                   hintText: '例如：宝宝一直哭，我现在该怎么开口安抚？',
                 ),
               ),
@@ -310,7 +326,7 @@ class _MentorChatTab extends StatelessWidget {
                     onPressed: viewModel.canSubmitChat
                         ? viewModel.submitChat
                         : null,
-                    child: Text(viewModel.isSubmittingChat ? '发送中…' : '发起一次求助'),
+                    child: Text(viewModel.isSubmittingChat ? l.mentorSending : l.mentorSendRequest),
                   ),
                   const SizedBox(width: 12),
                   OutlinedButton(
@@ -318,7 +334,7 @@ class _MentorChatTab extends StatelessWidget {
                     onPressed: availability.retryable
                         ? viewModel.retryChatAvailability
                         : null,
-                    child: const Text('重新检查'),
+                    child: Text(l.mentorRecheck),
                   ),
                 ],
               ),
@@ -337,7 +353,7 @@ class _MentorChatTab extends StatelessWidget {
         FilledButton.tonal(
           key: const Key('mentor-chat-back-to-suggestions'),
           onPressed: () => viewModel.selectTab(MentorPanelTab.suggestions),
-          child: const Text('回到建议'),
+          child: Text(l.mentorBackToSuggestion),
         ),
       ],
     );
@@ -351,21 +367,23 @@ class _ChatResponseCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    final colors = context.appColors;
     final theme = Theme.of(context);
     return Container(
       key: const Key('mentor-chat-response-card'),
       width: double.infinity,
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: AppTheme.bgSurface,
+        color: colors.bgSurface,
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: AppTheme.outlineSoft),
-        boxShadow: AppTheme.warmShadowSm,
+        border: Border.all(color: colors.outlineSoft),
+        boxShadow: colors.warmShadowSm,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('受控回应', style: theme.textTheme.titleMedium),
+          Text(l.mentorControlledResponse, style: theme.textTheme.titleMedium),
           const SizedBox(height: 10),
           Text(
             viewModel.chatResponseText!,
@@ -382,9 +400,9 @@ class _ChatResponseCard extends StatelessWidget {
               if (viewModel.chatAuthenticated)
                 const Chip(label: Text('auth · session'))
               else
-                const Chip(label: Text('auth · anon')),
+                Chip(label: Text(l.mentorNotLoggedIn)),
               if (viewModel.chatFallbackUsed)
-                const Chip(label: Text('fallback · yes')),
+                Chip(label: Text(l.mentorLocalResponse)),
             ],
           ),
           const SizedBox(height: 12),
@@ -394,7 +412,7 @@ class _ChatResponseCard extends StatelessWidget {
                 ? null
                 : viewModel.replayChatResponse,
             icon: const Icon(Icons.volume_up_outlined),
-            label: Text(viewModel.isSpeaking ? '朗读中…' : '朗读回应'),
+            label: Text(viewModel.isSpeaking ? l.mentorReading : l.mentorReadResponse),
           ),
         ],
       ),
@@ -416,11 +434,12 @@ class _ChatBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.appColors;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppTheme.warningSoft,
+        color: colors.warningSoft,
         borderRadius: BorderRadius.circular(12),
       ),
       child: Column(
@@ -429,7 +448,7 @@ class _ChatBanner extends StatelessWidget {
           Text(
             title,
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: AppTheme.warning,
+              color: colors.warning,
               fontWeight: FontWeight.w700,
             ),
           ),
@@ -437,7 +456,7 @@ class _ChatBanner extends StatelessWidget {
           Text(
             detail,
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: AppTheme.warning,
+              color: colors.warning,
               fontWeight: FontWeight.w700,
             ),
           ),

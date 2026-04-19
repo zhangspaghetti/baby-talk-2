@@ -17,6 +17,7 @@ class ReactionChipRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.appColors;
     return Wrap(
       spacing: 8,
       runSpacing: 8,
@@ -37,7 +38,7 @@ class ReactionChipRow extends StatelessWidget {
                   vertical: 12,
                 ),
                 side: BorderSide(
-                  color: enabled ? AppTheme.english : AppTheme.textMuted,
+                  color: enabled ? colors.english : colors.textMuted,
                 ),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(9999),
@@ -51,8 +52,8 @@ class ReactionChipRow extends StatelessWidget {
                     option.label,
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                       color: enabled
-                          ? AppTheme.textPrimary
-                          : AppTheme.textMuted,
+                          ? colors.textPrimary
+                          : colors.textMuted,
                       fontWeight: FontWeight.w700,
                     ),
                   ),

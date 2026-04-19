@@ -148,6 +148,19 @@ class GardenGrowthViewModel extends ChangeNotifier {
     super.notifyListeners();
   }
 
+  /// 会话重置时调用，清除所有内存状态回到安全空态。
+  void resetToSafeEmpty() {
+    _refreshTimeoutTimer?.cancel();
+    _refreshTimeoutTimer = null;
+    _refreshFuture = null;
+    _refreshQueued = false;
+    _isRefreshing = false;
+    _snapshot = GardenGrowthSnapshot.empty();
+    _status = GardenGrowthLoadStatus.idle;
+    _message = null;
+    notifyListeners();
+  }
+
   @override
   void dispose() {
     _disposed = true;

@@ -17,6 +17,7 @@ class QuickSelectCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.appColors;
     final theme = Theme.of(context);
     return Semantics(
       button: true,
@@ -31,13 +32,13 @@ class QuickSelectCard extends StatelessWidget {
             curve: Curves.easeOut,
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
             decoration: BoxDecoration(
-              color: isSelected ? AppTheme.bgAccentSoft : AppTheme.bgSurface,
+              color: isSelected ? colors.bgAccentSoft : colors.bgSurface,
               borderRadius: BorderRadius.circular(16),
               border: Border.all(
-                color: isSelected ? AppTheme.accent : AppTheme.outlineSoft,
+                color: isSelected ? colors.accent : colors.outlineSoft,
                 width: isSelected ? 1.6 : 1,
               ),
-              boxShadow: isSelected ? AppTheme.warmShadowSm : null,
+              boxShadow: isSelected ? colors.warmShadowSm : null,
             ),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
@@ -48,7 +49,7 @@ class QuickSelectCard extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                   textAlign: TextAlign.center,
                   style: theme.textTheme.titleMedium?.copyWith(
-                    color: AppTheme.textPrimary,
+                    color: colors.textPrimary,
                     fontSize: 14,
                   ),
                 ),
@@ -59,7 +60,7 @@ class QuickSelectCard extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                   textAlign: TextAlign.center,
                   style: theme.textTheme.bodySmall?.copyWith(
-                    color: AppTheme.textSecondary,
+                    color: colors.textSecondary,
                     fontSize: 11,
                     height: 1.3,
                   ),

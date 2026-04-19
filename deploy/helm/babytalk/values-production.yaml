@@ -1,0 +1,191 @@
+# BabyTalk 生产环境覆盖值
+# 面向阿里云 ACK 参考配置，但不绑定特定云厂商
+# 使用方式：helm install babytalk deploy/helm/babytalk/ -f deploy/helm/babytalk/values-production.yaml --set secret.BABY_TALK_DB_PASSWORD=xxx
+
+replicaCount: 2
+
+image:
+  repository: registry.cn-hangzhou.aliyuncs.com/babytalk/backend
+  # tag 默认使用 Chart.appVersion，生产部署时通过 --set image.tag=v1.2.3 指定
+  tag: ""
+  pullPolicy: IfNotPresent
+
+# 阿里云 ACR 私有仓库凭证
+# 替代方案（AWS ECR）：使用 aws-ecr-credential-helper 而非 imagePullSecrets
+# 替代方案（GCR）：使用 workload identity
+imagePullSecrets:
+  - name: acr-credential
+  # 创建方式：
+  # kubectl create secret docker-registry acr-credential \
+  #   --docker-server=registry.cn-hangzhou.aliyuncs.com \
+  #   --docker-username=<your-username> \
+  #   --docker-password=<your-password>
+
+service:
+  type: ClusterIP
+  port: 8080
+
+ingress:
+  enabled: true
+  # 阿里云 ALB IngressClass — 切换到 nginx 只需改为 "nginx"
+  # AWS ALB: 使用 "alb" + annotations aws-load-balancer-controller
+  # GCP: 使用 "gce" 或 "gce-internal"
+  className: alb
+  annotations:
+    # 阿里云 ALB 注释
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTPS":443}]'
+    alb.ingress.kubernetes.io/ssl-redirect: "443"
+    # nginx 替代注释（取消注释以下行，注释上方 alb.* 行）：
+    # nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    # nginx.ingress.kubernetes.io/proxy-body-size: "10m"
+    # cert-manager.io/cluster-issuer: letsencrypt-prod
+  hosts:
+    - host: api.babytalk.example.com
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: babytalk-tls
+      hosts:
+        - api.babytalk.example.com
+
+# 生产资源配额 — 根据实际负载调整
+resources:
+  requests:
+    cpu: 500m
+    memory: 512Mi
+  limits:
+    cpu: 2000m
+    memory: 1024Mi
+
+# 安全上下文保持与默认值一致
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  fsGroup: 1000
+
+containerSecurityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: false
+
+# 生产探针 — startup 容忍更长的首次启动
+livenessProbe:
+  httpGet:
+    path: /actuator/health
+    port: http
+  initialDelaySeconds: 45
+  periodSeconds: 15
+  timeoutSeconds: 5
+  failureThreshold: 3
+
+readinessProbe:
+  httpGet:
+    path: /actuator/health
+    port: http
+  initialDelaySeconds: 20
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 3
+
+startupProbe:
+  httpGet:
+    path: /actuator/health
+    port: http
+  initialDelaySeconds: 15
+  periodSeconds: 5
+  failureThreshold: 24
+
+# 节点亲和性示例 — 根据集群拓扑调整
+nodeSelector: {}
+  # kubernetes.io/arch: amd64
+
+# 反亲和性 — 将两个副本分散到不同节点
+affinity:
+  podAntiAffinity:
+    preferredDuringSchedulingIgnoredDuringExecution:
+      - weight: 100
+        podAffinityTerm:
+          labelSelector:
+            matchExpressions:
+              - key: app.kubernetes.io/name
+                operator: In
+                values:
+                  - babytalk
+          topologyKey: kubernetes.io/hostname
+
+tolerations: []
+
+# ────────────────────────────────────────────────────────────────
+# 生产 ConfigMap 覆盖
+# 仅覆盖与默认值不同的项目，其余继承 values.yaml
+# ────────────────────────────────────────────────────────────────
+config:
+  # 版本与升级 — 生产渠道
+  BABY_TALK_MIN_SUPPORTED_VERSION: "1.2.0"
+  BABY_TALK_UPGRADE_URL: "https://babytalk.example.com/upgrade?channel=stable&source=version_gate"
+  BABY_TALK_SYNC_MAX_BATCH_SIZE: "100"
+  BABY_TALK_BOOTSTRAP_MAX_EVENTS: "200"
+
+  # 分发渠道 — 替换为真实下载地址
+  BABY_TALK_ANDROID_STABLE_URL: "https://download.babytalk.example.com/android/stable/babytalk.apk"
+  BABY_TALK_IOS_STABLE_URL: "https://apps.apple.com/app/id0000000000"
+  BABY_TALK_ANDROID_BETA_URL: "https://download.babytalk.example.com/android/beta/babytalk.apk"
+
+  # 分享链接 — 生产域名
+  BABY_TALK_SHARE_PUBLIC_BASE_URL: "https://share.babytalk.example.com"
+  BABY_TALK_SHARE_LINK_TTL: "PT168H"
+  BABY_TALK_ANDROID_OPEN_SHARE_URL: "babytalk://share/open"
+  BABY_TALK_IOS_OPEN_SHARE_URL: "babytalk://share/open"
+
+  # 看护人邀请 — 生产域名
+  BABY_TALK_CAREGIVER_INVITE_PUBLIC_BASE_URL: "https://invite.babytalk.example.com"
+  BABY_TALK_CAREGIVER_INVITE_TTL: "PT72H"
+  BABY_TALK_ANDROID_OPEN_INVITE_URL: "babytalk://invite/open"
+  BABY_TALK_IOS_OPEN_INVITE_URL: "babytalk://invite/open"
+
+  # 短信服务 — 生产模式
+  BABY_TALK_SMS_PROVIDER_MODE: "production"
+  BABY_TALK_SMS_DEV_CODE: ""
+  BABY_TALK_SMS_CHALLENGE_TTL: "PT5M"
+  BABY_TALK_SMS_SIMULATE_TIMEOUT: "false"
+
+  # Mentor AI 配置 — 生产模式
+  BABY_TALK_MENTOR_PROVIDER_MODE: "production"
+  BABY_TALK_MENTOR_PROVIDER_TIMEOUT: "PT8S"
+  BABY_TALK_AI_BASE_URL: "https://models.inference.ai.azure.com"
+  BABY_TALK_AI_MODEL: "gpt-4o-mini"
+  BABY_TALK_AI_TEMPERATURE: "0.7"
+  BABY_TALK_AI_MAX_TOKENS: "300"
+
+  # 速率限制 — 生产值
+  BABY_TALK_MENTOR_RATE_LIMIT_MAX_REQUESTS: "10"
+  BABY_TALK_MENTOR_RATE_LIMIT_WINDOW: "PT10M"
+
+  # 提示词/响应限制
+  BABY_TALK_MENTOR_PROMPT_MAX_LENGTH: "280"
+  BABY_TALK_MENTOR_RESPONSE_MAX_LENGTH: "280"
+
+  # 模拟令牌 — 生产环境禁用
+  BABY_TALK_MENTOR_SIMULATE_TIMEOUT_TOKEN: ""
+  BABY_TALK_MENTOR_SIMULATE_MALFORMED_TOKEN: ""
+  BABY_TALK_MENTOR_SIMULATE_UNAVAILABLE_TOKEN: ""
+
+# ────────────────────────────────────────────────────────────────
+# Secret：生产环境通过 --set 或外部 Secret 管理注入
+# 以下占位符提示需要配置的值，切勿在此文件中存储真实密码
+# ────────────────────────────────────────────────────────────────
+secret:
+  # 外部 PostgreSQL 连接
+  # 阿里云 RDS: jdbc:postgresql://<rds-endpoint>:5432/babytalk?sslmode=require
+  # AWS RDS:    jdbc:postgresql://<rds-endpoint>:5432/babytalk?sslmode=require
+  BABY_TALK_DB_URL: ""
+  BABY_TALK_DB_USERNAME: ""
+  BABY_TALK_DB_PASSWORD: ""
+  # AI API 密钥
+  BABY_TALK_AI_API_KEY: ""
+  # 注入方式推荐：
+  # 1. helm install --set secret.BABY_TALK_DB_PASSWORD=xxx
+  # 2. 阿里云 KMS + External Secrets Operator
+  # 3. HashiCorp Vault + Vault Secrets Operator

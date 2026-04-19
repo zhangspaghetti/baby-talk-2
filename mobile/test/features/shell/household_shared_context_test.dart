@@ -362,6 +362,7 @@ class _FakeHouseholdRepository implements HouseholdRepository {
     this.loadSnapshotResult = HouseholdLocalSnapshot.empty,
     this.createInviteResult,
     List<HouseholdInviteAcceptResult>? acceptQueue,
+  // ignore: unused_element_parameter
     this.refreshResult = HouseholdLocalSnapshot.empty,
   }) : acceptQueue = acceptQueue ?? <HouseholdInviteAcceptResult>[];
 

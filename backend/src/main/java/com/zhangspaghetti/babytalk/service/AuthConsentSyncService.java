@@ -86,9 +86,6 @@ public class AuthConsentSyncService {
 
         var challenge = repository.findChallenge(challengeId)
                 .orElseThrow(() -> new ContractException(HttpStatus.BAD_REQUEST, "challenge_not_found", "challenge 不存在。"));
-        if (!"pending".equals(challenge.status())) {
-            throw new ContractException(HttpStatus.BAD_REQUEST, "challenge_not_pending", "challenge 已使用或已失效。");
-        }
         var now = Instant.now(clock);
         if (challenge.expiresAt().isBefore(now)) {
             repository.markChallengeExpired(challengeId, "expired_before_verify");
@@ -98,7 +95,10 @@ public class AuthConsentSyncService {
             throw new ContractException(HttpStatus.BAD_REQUEST, "verification_code_invalid", "验证码错误。", Map.of("retryable", true));
         }
 
-        repository.markChallengeVerified(challengeId, now);
+        int affectedRows = repository.markChallengeVerified(challengeId, now);
+        if (affectedRows == 0) {
+            throw new ContractException(HttpStatus.CONFLICT, "challenge_already_verified", "challenge 已被其他请求验证。");
+        }
         var account = repository.findActiveAccountByPhone(challenge.phoneNumber())
                 .orElseGet(() -> repository.insertAccount(
                         new AuthConsentSyncRepository.AccountRow(

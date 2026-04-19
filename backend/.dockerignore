@@ -1,0 +1,20 @@
+# 数据目录（H2 数据库文件）
+.data/
+
+# Maven 构建产物（在 Docker 内重新构建）
+target/
+
+# 版本控制
+.git/
+.gitignore
+
+# 项目管理
+.gsd/
+
+# 文档
+*.md
+
+# IDE 配置
+.idea/
+*.iml
+.vscode/

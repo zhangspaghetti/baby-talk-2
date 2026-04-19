@@ -6,7 +6,6 @@ import 'package:mobile/features/household/data/local/household_local_store.dart'
 import 'package:mobile/features/household/data/repositories/household_repository.dart';
 import 'package:mobile/features/household/domain/models/household_invite_link.dart';
 import 'package:mobile/features/household/domain/models/household_role.dart';
-import 'package:mobile/features/practice/presentation/practice_route_args.dart';
 
 enum HouseholdActionKind {
   none,
@@ -230,6 +229,23 @@ class HouseholdViewModel extends ChangeNotifier {
       return;
     }
     super.notifyListeners();
+  }
+
+  /// 会话重置时调用，清除所有内存状态回到安全空态。
+  void resetToSafeEmpty() {
+    _isLoading = false;
+    _hasLoaded = false;
+    _isBusy = false;
+    _snapshot = HouseholdLocalSnapshot.empty;
+    _lastCreatedInvite = null;
+    _message = null;
+    _lastActionKind = HouseholdActionKind.none;
+    _lastAcceptCommand = null;
+    _initializeFuture = null;
+    _createFuture = null;
+    _acceptFuture = null;
+    _refreshFuture = null;
+    notifyListeners();
   }
 
   @override

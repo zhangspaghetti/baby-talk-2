@@ -5,6 +5,7 @@ import 'package:mobile/features/practice/domain/models/interaction_event_payload
 import 'package:mobile/features/practice/domain/models/practice_activity_catalog.dart';
 import 'package:mobile/features/practice/presentation/practice_route_args.dart';
 import 'package:provider/provider.dart';
+import 'package:mobile/l10n/app_localizations.dart';
 
 enum DiscoverBrowseView { activity, space }
 
@@ -39,6 +40,7 @@ class _DiscoverScreenState extends State<DiscoverScreen>
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.appColors;
     super.build(context);
     final theme = Theme.of(context);
 
@@ -74,8 +76,8 @@ class _DiscoverScreenState extends State<DiscoverScreen>
                     _DiscoverBanner(
                       key: const Key('discover-navigation-error'),
                       message: _navigationError!,
-                      backgroundColor: AppTheme.errorSoft,
-                      foregroundColor: AppTheme.error,
+                      backgroundColor: colors.errorSoft,
+                      foregroundColor: colors.error,
                     ),
                   ],
                   if (catalog?.catalogWarning != null &&
@@ -84,8 +86,8 @@ class _DiscoverScreenState extends State<DiscoverScreen>
                     _DiscoverBanner(
                       key: const Key('discover-catalog-warning'),
                       message: catalog.catalogWarning!,
-                      backgroundColor: AppTheme.warningSoft,
-                      foregroundColor: AppTheme.warning,
+                      backgroundColor: colors.warningSoft,
+                      foregroundColor: colors.warning,
                     ),
                   ],
                   const SizedBox(height: 16),
@@ -173,25 +175,27 @@ class _DiscoverHero extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    final colors = context.appColors;
     return Container(
       key: const Key('discover-hero-card'),
       width: double.infinity,
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: AppTheme.bgSurface,
+        color: colors.bgSurface,
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: AppTheme.outlineSoft),
-        boxShadow: AppTheme.warmShadowSm,
+        border: Border.all(color: colors.outlineSoft),
+        boxShadow: colors.warmShadowSm,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('发现', style: theme.textTheme.labelMedium),
+          Text(l.discoverTitle, style: theme.textTheme.labelMedium),
           const SizedBox(height: 10),
-          Text('按活动和空间继续找下一句。', style: theme.textTheme.titleLarge),
+          Text(l.discoverSubtitle, style: theme.textTheme.titleLarge),
           const SizedBox(height: 12),
           Text(
-            '这里展示真实离线目录：你可以按 activity 挑一句，也可以按 space 找到现在最顺手的照护时刻。',
+            l.discoverNote,
             style: theme.textTheme.bodyMedium,
           ),
         ],
@@ -211,11 +215,13 @@ class _DiscoverViewToggle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    final colors = context.appColors;
     return Container(
       key: const Key('discover-view-toggle'),
       padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
-        color: AppTheme.bgSunken,
+        color: colors.bgSunken,
         borderRadius: BorderRadius.circular(999),
       ),
       child: Row(
@@ -223,7 +229,7 @@ class _DiscoverViewToggle extends StatelessWidget {
           Expanded(
             child: _DiscoverTogglePill(
               key: const Key('discover-tab-activity'),
-              label: '按活动',
+              label: l.discoverByActivity,
               icon: Icons.explore_outlined,
               selected: selectedView == DiscoverBrowseView.activity,
               onTap: () => onChanged(DiscoverBrowseView.activity),
@@ -233,7 +239,7 @@ class _DiscoverViewToggle extends StatelessWidget {
           Expanded(
             child: _DiscoverTogglePill(
               key: const Key('discover-tab-space'),
-              label: '按空间',
+              label: l.discoverBySpace,
               icon: Icons.grid_view_rounded,
               selected: selectedView == DiscoverBrowseView.space,
               onTap: () => onChanged(DiscoverBrowseView.space),
@@ -261,8 +267,9 @@ class _DiscoverTogglePill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.appColors;
     return Material(
-      color: selected ? AppTheme.bgSurface : Colors.transparent,
+      color: selected ? colors.bgSurface : Colors.transparent,
       borderRadius: BorderRadius.circular(999),
       child: InkWell(
         borderRadius: BorderRadius.circular(999),
@@ -276,15 +283,15 @@ class _DiscoverTogglePill extends StatelessWidget {
               Icon(
                 icon,
                 size: 18,
-                color: selected ? AppTheme.accentDark : AppTheme.textSecondary,
+                color: selected ? colors.accentDark : colors.textSecondary,
               ),
               const SizedBox(width: 8),
               Text(
                 label,
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                   color: selected
-                      ? AppTheme.textPrimary
-                      : AppTheme.textSecondary,
+                      ? colors.textPrimary
+                      : colors.textSecondary,
                   fontWeight: FontWeight.w700,
                 ),
               ),
@@ -301,13 +308,15 @@ class _DiscoverLoadingState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    final colors = context.appColors;
     return Container(
       key: const Key('discover-loading-state'),
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: AppTheme.bgSurface,
+        color: colors.bgSurface,
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: AppTheme.outlineSoft),
+        border: Border.all(color: colors.outlineSoft),
       ),
       child: Column(
         children: [
@@ -316,12 +325,12 @@ class _DiscoverLoadingState extends StatelessWidget {
           ),
           const SizedBox(height: 16),
           Text(
-            '正在整理离线 activity 目录…',
+            l.discoverLoadingCatalog,
             style: Theme.of(context).textTheme.titleMedium,
           ),
           const SizedBox(height: 8),
           Text(
-            '加载只影响 Discover，不会阻塞首页、花园和成长 tab。',
+            l.discoverLoadingNote,
             style: Theme.of(context).textTheme.bodyMedium,
             textAlign: TextAlign.center,
           ),
@@ -339,35 +348,37 @@ class _DiscoverErrorState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    final colors = context.appColors;
     return Container(
       key: const Key('discover-error-state'),
       width: double.infinity,
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: AppTheme.errorSoft,
+        color: colors.errorSoft,
         borderRadius: BorderRadius.circular(24),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            '目录暂时没有整理好',
+            l.discoverLoadError,
             style: Theme.of(
               context,
-            ).textTheme.titleMedium?.copyWith(color: AppTheme.error),
+            ).textTheme.titleMedium?.copyWith(color: colors.error),
           ),
           const SizedBox(height: 8),
           Text(
             message,
             style: Theme.of(
               context,
-            ).textTheme.bodyMedium?.copyWith(color: AppTheme.error),
+            ).textTheme.bodyMedium?.copyWith(color: colors.error),
           ),
           const SizedBox(height: 16),
           OutlinedButton(
             key: const Key('discover-retry-button'),
             onPressed: onRetry,
-            child: const Text('重试加载'),
+            child: Text(l.discoverRetryLoad),
           ),
         ],
       ),
@@ -382,29 +393,31 @@ class _DiscoverEmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    final colors = context.appColors;
     return Container(
       key: const Key('discover-empty-state'),
       width: double.infinity,
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: AppTheme.bgSurface,
+        color: colors.bgSurface,
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: AppTheme.outlineSoft),
+        border: Border.all(color: colors.outlineSoft),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('目录还是空的', style: Theme.of(context).textTheme.titleMedium),
+          Text(l.discoverEmpty, style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: 8),
           Text(
-            '目前没有可展示的 activity。稍后重试即可重新读取本地目录。',
+            l.discoverEmptyNote,
             style: Theme.of(context).textTheme.bodyMedium,
           ),
           const SizedBox(height: 16),
           OutlinedButton(
             key: const Key('discover-empty-retry-button'),
             onPressed: onRetry,
-            child: const Text('重新读取目录'),
+            child: Text(l.discoverRetryRead),
           ),
         ],
       ),
@@ -423,14 +436,15 @@ class _DiscoverActivityList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
     return Column(
       key: const Key('discover-view-activity'),
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('按活动浏览', style: Theme.of(context).textTheme.titleMedium),
+        Text(l.discoverBrowseByActivity, style: Theme.of(context).textTheme.titleMedium),
         const SizedBox(height: 8),
         Text(
-          '每张 ActivityCard 都带着自己的 spaceId/activityId 进入练习页。',
+          l.discoverActivityRouteNote,
           style: Theme.of(context).textTheme.bodySmall,
         ),
         const SizedBox(height: 16),
@@ -454,30 +468,34 @@ class _DiscoverActivityCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    final colors = context.appColors;
     final progress = activity.totalPhraseCount == 0
         ? 0.0
         : activity.completedPhraseCount / activity.totalPhraseCount;
     final hasRecentResult = activity.recentResult != null;
     final summary = activity.summary.trim().isEmpty
-        ? '摘要暂时缺失，但这张卡仍然可以安全进入练习。'
+        ? l.discoverSummaryMissing
         : activity.summary;
     final footerText = hasRecentResult
         ? '${_reactionLabel(activity.recentResult!.reactionType)} · ${activity.recentResult!.phraseEnglish}'
         : (activity.nextPhraseEnglish?.trim().isNotEmpty ?? false)
         ? '下一句：${activity.nextPhraseEnglish}'
-        : '目录暂时没有下一句预览。';
+        : l.discoverNoNextPhrase;
     final footerHint = hasRecentResult
         ? '最近一次 ${_formatTime(activity.recentResult!.eventTime)} · ${activity.recentResult!.totalEvents} 条记录'
         : '${activity.completedPhraseCount}/${activity.totalPhraseCount} 句已练 · ${activity.totalEvents} 条记录';
 
-    return Container(
+    return Semantics(
+      label: '活动: ${activity.title}',
+      child: Container(
       key: Key('discover-activity-card-${activity.activityId}'),
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: AppTheme.bgSurface,
+        color: colors.bgSurface,
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: AppTheme.outlineSoft),
-        boxShadow: AppTheme.warmShadowSm,
+        border: Border.all(color: colors.outlineSoft),
+        boxShadow: colors.warmShadowSm,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -489,7 +507,7 @@ class _DiscoverActivityCard extends StatelessWidget {
                 width: 6,
                 height: 64,
                 decoration: BoxDecoration(
-                  color: AppTheme.accent,
+                  color: colors.accent,
                   borderRadius: BorderRadius.circular(999),
                 ),
               ),
@@ -505,7 +523,7 @@ class _DiscoverActivityCard extends StatelessWidget {
                         Chip(label: Text(activity.sceneTag)),
                         Chip(label: Text(activity.spaceTitle)),
                         if (activity.hasRecoverableIssue)
-                          Chip(label: Text('需留意')),
+                          Chip(label: Text(l.discoverNeedsAttention)),
                       ],
                     ),
                     const SizedBox(height: 12),
@@ -529,14 +547,14 @@ class _DiscoverActivityCard extends StatelessWidget {
             value: progress.clamp(0.0, 1.0),
             minHeight: 6,
             borderRadius: BorderRadius.circular(999),
-            color: AppTheme.accent,
-            backgroundColor: AppTheme.bgSunken,
+            color: colors.accent,
+            backgroundColor: colors.bgSunken,
           ),
           const SizedBox(height: 10),
           Text(
             '${activity.completedPhraseCount}/${activity.totalPhraseCount} 句已练 · ${activity.totalEvents} 条记录',
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: AppTheme.textSecondary,
+              color: colors.textSecondary,
               fontWeight: FontWeight.w700,
             ),
           ),
@@ -545,21 +563,21 @@ class _DiscoverActivityCard extends StatelessWidget {
             width: double.infinity,
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: hasRecentResult ? AppTheme.englishSoft : AppTheme.bgSunken,
+              color: hasRecentResult ? colors.englishSoft : colors.bgSunken,
               borderRadius: BorderRadius.circular(16),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  '最近进度 / 结果',
+                  l.discoverLatestProgress,
                   style: Theme.of(context).textTheme.labelMedium,
                 ),
                 const SizedBox(height: 8),
                 Text(
                   footerText,
                   style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                    color: AppTheme.textPrimary,
+                    color: colors.textPrimary,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
@@ -574,7 +592,7 @@ class _DiscoverActivityCard extends StatelessWidget {
                       'discover-activity-warning-${activity.activityId}',
                     ),
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: AppTheme.warning,
+                      color: colors.warning,
                       fontWeight: FontWeight.w700,
                     ),
                   ),
@@ -589,10 +607,11 @@ class _DiscoverActivityCard extends StatelessWidget {
             ),
             onPressed: onOpen,
             icon: const Icon(Icons.play_arrow_rounded),
-            label: Text(activity.isEmpty ? '开始这个活动' : '继续这个活动'),
+            label: Text(activity.isEmpty ? l.discoverStartActivity : l.discoverContinueActivity),
           ),
         ],
       ),
+    ),
     );
   }
 }
@@ -608,14 +627,15 @@ class _DiscoverSpaceList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
     return Column(
       key: const Key('discover-view-space'),
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('按空间浏览', style: Theme.of(context).textTheme.titleMedium),
+        Text(l.discoverBrowseBySpace, style: Theme.of(context).textTheme.titleMedium),
         const SizedBox(height: 8),
         Text(
-          '每个 SpaceGridItem 会保留被点击 activity 的 route 作用域。',
+          l.discoverSpaceRouteNote,
           style: Theme.of(context).textTheme.bodySmall,
         ),
         const SizedBox(height: 16),
@@ -639,15 +659,16 @@ class _DiscoverSpaceSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.appColors;
     return Container(
       key: Key('discover-space-section-${space.spaceId}'),
       width: double.infinity,
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: AppTheme.bgSurface,
+        color: colors.bgSurface,
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: AppTheme.outlineSoft),
-        boxShadow: AppTheme.warmShadowSm,
+        border: Border.all(color: colors.outlineSoft),
+        boxShadow: colors.warmShadowSm,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -662,7 +683,7 @@ class _DiscoverSpaceSection extends StatelessWidget {
           Text(
             '${space.startedActivityCount}/${space.totalActivityCount} 个 activity 已开始 · ${space.totalEvents} 条记录',
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: AppTheme.textSecondary,
+              color: colors.textSecondary,
               fontWeight: FontWeight.w700,
             ),
           ),
@@ -697,25 +718,29 @@ class _DiscoverSpaceGridItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    final colors = context.appColors;
     final progress = activity.totalPhraseCount == 0
         ? 0.0
         : activity.completedPhraseCount / activity.totalPhraseCount;
     final highlight =
         activity.recentResult?.phraseEnglish ??
         activity.nextPhraseEnglish ??
-        '打开后查看这张活动卡里的短语';
+        l.discoverOpenActivity;
 
-    return Material(
+    return Semantics(
+      label: '空间活动: ${activity.title}',
+      child: Material(
       color: Colors.transparent,
       child: Ink(
         decoration: BoxDecoration(
-          gradient: const LinearGradient(
+          gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [AppTheme.bgAccentSoft, AppTheme.bgSurface],
+            colors: [colors.bgAccentSoft, colors.bgSurface],
           ),
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: AppTheme.outlineSoft),
+          border: Border.all(color: colors.outlineSoft),
         ),
         child: InkWell(
           key: Key(
@@ -739,7 +764,7 @@ class _DiscoverSpaceGridItem extends StatelessWidget {
                 Text(
                   activity.title,
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    color: AppTheme.textPrimary,
+                    color: colors.textPrimary,
                   ),
                 ),
                 const SizedBox(height: 6),
@@ -748,7 +773,7 @@ class _DiscoverSpaceGridItem extends StatelessWidget {
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: AppTheme.textPrimary,
+                    color: colors.textPrimary,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
@@ -758,14 +783,14 @@ class _DiscoverSpaceGridItem extends StatelessWidget {
                   value: progress.clamp(0.0, 1.0),
                   minHeight: 6,
                   borderRadius: BorderRadius.circular(999),
-                  color: AppTheme.english,
-                  backgroundColor: AppTheme.bgSurface,
+                  color: colors.english,
+                  backgroundColor: colors.bgSurface,
                 ),
                 const SizedBox(height: 8),
                 Text(
                   '${activity.completedPhraseCount}/${activity.totalPhraseCount} 句',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: AppTheme.textSecondary,
+                    color: colors.textSecondary,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
@@ -774,6 +799,7 @@ class _DiscoverSpaceGridItem extends StatelessWidget {
           ),
         ),
       ),
+    ),
     );
   }
 }

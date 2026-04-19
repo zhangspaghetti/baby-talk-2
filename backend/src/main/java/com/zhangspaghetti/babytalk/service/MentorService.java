@@ -8,9 +8,12 @@ import java.util.LinkedHashMap;
 import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicReference;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 @Service
 public class MentorService {
@@ -22,22 +25,215 @@ public class MentorService {
     private final AuthConsentSyncRepository authConsentSyncRepository;
     private final MentorProvider mentorProvider;
     private final MentorProperties properties;
+    private final TransactionTemplate transactionTemplate;
     private final Clock clock = Clock.systemUTC();
 
     public MentorService(
             MentorRepository repository,
             AuthConsentSyncRepository authConsentSyncRepository,
             MentorProvider mentorProvider,
-            MentorProperties properties
+            MentorProperties properties,
+            PlatformTransactionManager txManager
     ) {
         this.repository = repository;
         this.authConsentSyncRepository = authConsentSyncRepository;
         this.mentorProvider = mentorProvider;
         this.properties = properties;
+        this.transactionTemplate = new TransactionTemplate(txManager);
     }
 
-    @Transactional(noRollbackFor = ContractException.class)
+    /**
+     * 三阶段 chat 编排——provider 调用不再占用数据库连接：
+     * <ol>
+     *   <li>阶段 1（事务内）：输入校验 + session 解析 + rate limit + chat_requested audit + blocked fallback</li>
+     *   <li>阶段 2（无事务）：调用 mentorProvider.respond()，数据库连接已归还连接池</li>
+     *   <li>阶段 3（新事务）：写 turn + response_delivered / error audit</li>
+     * </ol>
+     */
     public ChatResponse chat(ChatCommand command, String sessionIdHeader) {
+        // === 阶段 1：事务内 — 验证 + session + rate limit + audit ===
+        var contractExceptionHolder = new AtomicReference<ContractException>();
+        var phase1Result = transactionTemplate.execute(status -> {
+            try {
+                return executePhase1(command, sessionIdHeader);
+            } catch (ContractException e) {
+                // 保留 noRollbackFor = ContractException.class 语义：
+                // 捕获后不设置 rollbackOnly，让事务正常提交（已写入的 audit 行得以保留）
+                contractExceptionHolder.set(e);
+                return null;
+            }
+        });
+
+        // 阶段 1 抛出了 ContractException（校验失败、session 失败、rate limit），事务已提交
+        if (contractExceptionHolder.get() != null) {
+            throw contractExceptionHolder.get();
+        }
+
+        // Blocked fallback 完全在阶段 1 内处理
+        if (phase1Result.earlyResponse() != null) {
+            return phase1Result.earlyResponse();
+        }
+
+        // === 阶段 2：无事务 — provider 调用 ===
+        // 数据库连接已归还连接池，provider 耗时不再占用连接
+        try {
+            var providerResponse = mentorProvider.respond(new MentorProvider.ProviderRequest(
+                    phase1Result.effectiveCorrelationId(),
+                    phase1Result.installationId(),
+                    phase1Result.surface(),
+                    phase1Result.mode(),
+                    phase1Result.prompt(),
+                    phase1Result.requestSummary(),
+                    phase1Result.association().authenticated(),
+                    phase1Result.now()
+            ));
+            var responseText = normalizeProviderResponse(providerResponse.responseText());
+            var responseSummary = providerResponse.responseSummary() == null || providerResponse.responseSummary().isBlank()
+                    ? summarizeResponse(responseText)
+                    : trimSummary(providerResponse.responseSummary());
+
+            // === 阶段 3：新事务 — 写 turn + response audit ===
+            transactionTemplate.execute(status -> {
+                repository.insertTurn(turnRow(
+                        phase1Result.effectiveCorrelationId(),
+                        phase1Result.installationId(),
+                        phase1Result.association(),
+                        phase1Result.surface(),
+                        phase1Result.mode(),
+                        "success",
+                        "response_delivered",
+                        phase1Result.requestSummary(),
+                        responseSummary,
+                        responseText,
+                        false,
+                        false,
+                        phase1Result.now()
+                ));
+                repository.insertAudit(auditRow(
+                        phase1Result.effectiveCorrelationId(),
+                        phase1Result.installationId(),
+                        phase1Result.association(),
+                        "chat_response_delivered",
+                        "response_delivered",
+                        "success",
+                        phase1Result.requestSummary(),
+                        responseSummary,
+                        phase1Result.association().authenticated() ? "session_attached" : "anonymous_installation",
+                        null,
+                        false,
+                        false,
+                        phase1Result.now()
+                ));
+                return null;
+            });
+
+            return new ChatResponse(
+                    phase1Result.effectiveCorrelationId(),
+                    responseText,
+                    "ok",
+                    "response_delivered",
+                    false,
+                    false,
+                    phase1Result.association().authenticated(),
+                    new RateLimitStatus(false, properties.rateLimitMaxRequests(), phase1Result.remaining(), properties.rateLimitWindow().toSeconds()),
+                    phase1Result.now()
+            );
+        } catch (MentorProvider.ProviderTimeoutException exception) {
+            // provider 异常的 error audit 在阶段 3 新事务中写入
+            transactionTemplate.execute(status -> {
+                repository.insertAudit(auditRow(
+                        phase1Result.effectiveCorrelationId(),
+                        phase1Result.installationId(),
+                        phase1Result.association(),
+                        "provider_timeout",
+                        "provider_timeout",
+                        "error",
+                        phase1Result.requestSummary(),
+                        null,
+                        trimSummary(exception.getMessage()),
+                        "provider_timeout",
+                        true,
+                        false,
+                        phase1Result.now()
+                ));
+                return null;
+            });
+            throw contractError(
+                    HttpStatus.GATEWAY_TIMEOUT,
+                    "provider_timeout",
+                    "小禾老师暂时没有来得及回应，请稍后再试。",
+                    phase1Result.effectiveCorrelationId(),
+                    "provider_timeout",
+                    true,
+                    false,
+                    Map.of("remaining", phase1Result.remaining())
+            );
+        } catch (MentorProvider.ProviderMalformedResponseException exception) {
+            transactionTemplate.execute(status -> {
+                repository.insertAudit(auditRow(
+                        phase1Result.effectiveCorrelationId(),
+                        phase1Result.installationId(),
+                        phase1Result.association(),
+                        "provider_malformed_response",
+                        "provider_malformed_response",
+                        "error",
+                        phase1Result.requestSummary(),
+                        null,
+                        trimSummary(exception.getMessage()),
+                        "provider_malformed_response",
+                        true,
+                        false,
+                        phase1Result.now()
+                ));
+                return null;
+            });
+            throw contractError(
+                    HttpStatus.BAD_GATEWAY,
+                    "provider_malformed_response",
+                    "上游回应格式异常，已安全拦截。",
+                    phase1Result.effectiveCorrelationId(),
+                    "provider_malformed_response",
+                    true,
+                    false,
+                    Map.of("remaining", phase1Result.remaining())
+            );
+        } catch (MentorProvider.ProviderUnavailableException exception) {
+            transactionTemplate.execute(status -> {
+                repository.insertAudit(auditRow(
+                        phase1Result.effectiveCorrelationId(),
+                        phase1Result.installationId(),
+                        phase1Result.association(),
+                        "provider_unavailable",
+                        "provider_unavailable",
+                        "error",
+                        phase1Result.requestSummary(),
+                        null,
+                        trimSummary(exception.getMessage()),
+                        "provider_unavailable",
+                        true,
+                        false,
+                        phase1Result.now()
+                ));
+                return null;
+            });
+            throw contractError(
+                    HttpStatus.SERVICE_UNAVAILABLE,
+                    "provider_unavailable",
+                    "小禾老师暂时不可用，请稍后再试。",
+                    phase1Result.effectiveCorrelationId(),
+                    "provider_unavailable",
+                    true,
+                    false,
+                    Map.of("remaining", phase1Result.remaining())
+            );
+        }
+    }
+
+    /**
+     * 阶段 1 内部逻辑：输入校验 → session 解析 → rate limit → audit → blocked fallback。
+     * 在 TransactionTemplate 内调用，ContractException 由外层捕获并保留 noRollbackFor 语义。
+     */
+    private Phase1Result executePhase1(ChatCommand command, String sessionIdHeader) {
         var now = Instant.now(clock);
         var installationId = normalizeInstallationId(command.installationId());
         var prompt = normalizePrompt(command.prompt());
@@ -48,8 +244,26 @@ public class MentorService {
         var requestSummary = buildRequestSummary(surface, mode, prompt, command.contextSummary());
         var association = resolveSession(sessionIdHeader, installationId, effectiveCorrelationId, requestSummary, now);
 
-        var currentAttempts = repository.countRequestsSince(installationId, now.minus(properties.rateLimitWindow()));
-        if (currentAttempts >= properties.rateLimitMaxRequests()) {
+        // 先 INSERT chat_requested audit 占位，再 COUNT 窗口内请求数（修复并发 TOCTOU 竞态）
+        var currentCount = repository.insertAuditAndCountWindow(
+                auditRow(
+                        effectiveCorrelationId,
+                        installationId,
+                        association,
+                        "chat_requested",
+                        "request_received",
+                        "accepted",
+                        requestSummary,
+                        null,
+                        association.authenticated() ? "session_attached" : "anonymous_installation",
+                        null,
+                        false,
+                        false,
+                        now
+                ),
+                now.minus(properties.rateLimitWindow())
+        );
+        if (currentCount > properties.rateLimitMaxRequests()) {
             repository.insertAudit(auditRow(
                     effectiveCorrelationId,
                     installationId,
@@ -81,23 +295,7 @@ public class MentorService {
             );
         }
 
-        repository.insertAudit(auditRow(
-                effectiveCorrelationId,
-                installationId,
-                association,
-                "chat_requested",
-                "request_received",
-                "accepted",
-                requestSummary,
-                null,
-                association.authenticated() ? "session_attached" : "anonymous_installation",
-                null,
-                false,
-                false,
-                now
-        ));
-
-        var remaining = Math.max(0, properties.rateLimitMaxRequests() - currentAttempts - 1);
+        var remaining = Math.max(0, properties.rateLimitMaxRequests() - currentCount);
         if (isBlockedPrompt(prompt)) {
             var fallbackText = buildBlockedFallbackText();
             var responseSummary = summarizeResponse(fallbackText);
@@ -131,156 +329,42 @@ public class MentorService {
                     false,
                     now
             ));
-            return new ChatResponse(
-                    effectiveCorrelationId,
-                    fallbackText,
-                    "blocked_fallback",
-                    "blocked_fallback",
-                    false,
-                    true,
-                    association.authenticated(),
-                    new RateLimitStatus(false, properties.rateLimitMaxRequests(), remaining, properties.rateLimitWindow().toSeconds()),
-                    now
-            );
-        }
-
-        try {
-            var providerResponse = mentorProvider.respond(new MentorProvider.ProviderRequest(
+            return new Phase1Result(
                     effectiveCorrelationId,
                     installationId,
+                    association,
                     surface,
                     mode,
                     prompt,
                     requestSummary,
-                    association.authenticated(),
-                    now
-            ));
-            var responseText = normalizeProviderResponse(providerResponse.responseText());
-            var responseSummary = providerResponse.responseSummary() == null || providerResponse.responseSummary().isBlank()
-                    ? summarizeResponse(responseText)
-                    : trimSummary(providerResponse.responseSummary());
-
-            repository.insertTurn(turnRow(
-                    effectiveCorrelationId,
-                    installationId,
-                    association,
-                    surface,
-                    mode,
-                    "success",
-                    "response_delivered",
-                    requestSummary,
-                    responseSummary,
-                    responseText,
-                    false,
-                    false,
-                    now
-            ));
-            repository.insertAudit(auditRow(
-                    effectiveCorrelationId,
-                    installationId,
-                    association,
-                    "chat_response_delivered",
-                    "response_delivered",
-                    "success",
-                    requestSummary,
-                    responseSummary,
-                    association.authenticated() ? "session_attached" : "anonymous_installation",
-                    null,
-                    false,
-                    false,
-                    now
-            ));
-
-            return new ChatResponse(
-                    effectiveCorrelationId,
-                    responseText,
-                    "ok",
-                    "response_delivered",
-                    false,
-                    false,
-                    association.authenticated(),
-                    new RateLimitStatus(false, properties.rateLimitMaxRequests(), remaining, properties.rateLimitWindow().toSeconds()),
-                    now
-            );
-        } catch (MentorProvider.ProviderTimeoutException exception) {
-            repository.insertAudit(auditRow(
-                    effectiveCorrelationId,
-                    installationId,
-                    association,
-                    "provider_timeout",
-                    "provider_timeout",
-                    "error",
-                    requestSummary,
-                    null,
-                    trimSummary(exception.getMessage()),
-                    "provider_timeout",
-                    true,
-                    false,
-                    now
-            ));
-            throw contractError(
-                    HttpStatus.GATEWAY_TIMEOUT,
-                    "provider_timeout",
-                    "小禾老师暂时没有来得及回应，请稍后再试。",
-                    effectiveCorrelationId,
-                    "provider_timeout",
-                    true,
-                    false,
-                    Map.of("remaining", remaining)
-            );
-        } catch (MentorProvider.ProviderMalformedResponseException exception) {
-            repository.insertAudit(auditRow(
-                    effectiveCorrelationId,
-                    installationId,
-                    association,
-                    "provider_malformed_response",
-                    "provider_malformed_response",
-                    "error",
-                    requestSummary,
-                    null,
-                    trimSummary(exception.getMessage()),
-                    "provider_malformed_response",
-                    true,
-                    false,
-                    now
-            ));
-            throw contractError(
-                    HttpStatus.BAD_GATEWAY,
-                    "provider_malformed_response",
-                    "上游回应格式异常，已安全拦截。",
-                    effectiveCorrelationId,
-                    "provider_malformed_response",
-                    true,
-                    false,
-                    Map.of("remaining", remaining)
-            );
-        } catch (MentorProvider.ProviderUnavailableException exception) {
-            repository.insertAudit(auditRow(
-                    effectiveCorrelationId,
-                    installationId,
-                    association,
-                    "provider_unavailable",
-                    "provider_unavailable",
-                    "error",
-                    requestSummary,
-                    null,
-                    trimSummary(exception.getMessage()),
-                    "provider_unavailable",
-                    true,
-                    false,
-                    now
-            ));
-            throw contractError(
-                    HttpStatus.SERVICE_UNAVAILABLE,
-                    "provider_unavailable",
-                    "小禾老师暂时不可用，请稍后再试。",
-                    effectiveCorrelationId,
-                    "provider_unavailable",
-                    true,
-                    false,
-                    Map.of("remaining", remaining)
+                    remaining,
+                    now,
+                    new ChatResponse(
+                            effectiveCorrelationId,
+                            fallbackText,
+                            "blocked_fallback",
+                            "blocked_fallback",
+                            false,
+                            true,
+                            association.authenticated(),
+                            new RateLimitStatus(false, properties.rateLimitMaxRequests(), remaining, properties.rateLimitWindow().toSeconds()),
+                            now
+                    )
             );
         }
+
+        return new Phase1Result(
+                effectiveCorrelationId,
+                installationId,
+                association,
+                surface,
+                mode,
+                prompt,
+                requestSummary,
+                remaining,
+                now,
+                null
+        );
     }
 
     @Transactional(readOnly = true)
@@ -717,5 +801,23 @@ public class MentorService {
         static SessionAssociation anonymous() {
             return new SessionAssociation(null, null, false);
         }
+    }
+
+    /**
+     * 阶段 1 执行结果：携带后续阶段所需的所有上下文。
+     * earlyResponse 非 null 时表示 blocked fallback，直接返回不进入阶段 2/3。
+     */
+    private record Phase1Result(
+            String effectiveCorrelationId,
+            String installationId,
+            SessionAssociation association,
+            String surface,
+            String mode,
+            String prompt,
+            String requestSummary,
+            int remaining,
+            Instant now,
+            ChatResponse earlyResponse
+    ) {
     }
 }

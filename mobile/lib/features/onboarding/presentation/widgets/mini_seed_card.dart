@@ -9,15 +9,18 @@ class MiniSeedCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.appColors;
     final theme = Theme.of(context);
-    return Container(
+    return Semantics(
+      label: '种子短语卡: $english',
+      child: Container(
       key: const Key('onboarding-mini-seed-card'),
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(18, 18, 18, 18),
       decoration: BoxDecoration(
-        color: AppTheme.englishSoft,
+        color: colors.englishSoft,
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: AppTheme.info),
+        border: Border.all(color: colors.info),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -25,12 +28,12 @@ class MiniSeedCard extends StatelessWidget {
           Container(
             width: 44,
             height: 44,
-            decoration: const BoxDecoration(
-              color: AppTheme.bgSurface,
+            decoration: BoxDecoration(
+              color: colors.bgSurface,
               shape: BoxShape.circle,
             ),
             alignment: Alignment.center,
-            child: const Icon(Icons.play_arrow_rounded, color: AppTheme.info),
+            child: Icon(Icons.play_arrow_rounded, color: colors.info),
           ),
           const SizedBox(width: 14),
           Expanded(
@@ -40,7 +43,7 @@ class MiniSeedCard extends StatelessWidget {
                 Text(
                   '第一颗种子',
                   style: theme.textTheme.labelMedium?.copyWith(
-                    color: AppTheme.info,
+                    color: colors.info,
                   ),
                 ),
                 const SizedBox(height: 8),
@@ -49,7 +52,7 @@ class MiniSeedCard extends StatelessWidget {
                   style: theme.textTheme.displayMedium?.copyWith(
                     fontSize: 24,
                     height: 1.3,
-                    color: AppTheme.english,
+                    color: colors.english,
                   ),
                 ),
                 if (chinese.trim().isNotEmpty) ...[
@@ -57,7 +60,7 @@ class MiniSeedCard extends StatelessWidget {
                   Text(
                     chinese,
                     style: theme.textTheme.bodyMedium?.copyWith(
-                      color: AppTheme.textPrimary,
+                      color: colors.textPrimary,
                     ),
                   ),
                 ],
@@ -66,6 +69,7 @@ class MiniSeedCard extends StatelessWidget {
           ),
         ],
       ),
+    ),
     );
   }
 }

@@ -6,18 +6,26 @@ import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.stereotype.Repository;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
+import org.springframework.transaction.support.TransactionTemplate;
 
 @Repository
 class MentorRepository {
 
     private final JdbcTemplate jdbcTemplate;
+    private final TransactionTemplate requiresNewTx;
+    private final ConcurrentHashMap<String, Object> rateLimitLocks = new ConcurrentHashMap<>();
 
-    MentorRepository(JdbcTemplate jdbcTemplate) {
+    MentorRepository(JdbcTemplate jdbcTemplate, PlatformTransactionManager txManager) {
         this.jdbcTemplate = jdbcTemplate;
+        this.requiresNewTx = new TransactionTemplate(txManager);
+        this.requiresNewTx.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
     }
 
     int countRequestsSince(String installationId, Instant since) {
@@ -33,6 +41,21 @@ class MentorRepository {
                 installationId,
                 Timestamp.from(since)
         );
+    }
+
+    /**
+     * 原子操作：在 per-installation 锁保护下，用独立事务 INSERT chat_requested audit 并 COUNT 窗口内行数。
+     * Java 级别 synchronized(per-installationId) 串行化并发请求的 INSERT+COUNT 序列；
+     * REQUIRES_NEW 保证每次 INSERT 立即提交，后续请求的 COUNT 能看到前序已提交的行。
+     */
+    int insertAuditAndCountWindow(AuditRow row, Instant windowStart) {
+        Object lock = rateLimitLocks.computeIfAbsent(row.installationId(), k -> new Object());
+        synchronized (lock) {
+            return requiresNewTx.execute(status -> {
+                insertAudit(row);
+                return countRequestsSince(row.installationId(), windowStart);
+            });
+        }
     }
 
     void insertTurn(TurnRow row) {

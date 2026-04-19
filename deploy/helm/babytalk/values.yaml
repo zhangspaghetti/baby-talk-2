@@ -1,0 +1,159 @@
+# BabyTalk 后端 Helm chart 默认值
+# 生产环境需通过 --set 或 -f 覆盖敏感值
+
+replicaCount: 1
+
+image:
+  repository: babytalk/backend
+  # 使用 Chart.appVersion 作为默认 tag，不写死 latest
+  tag: ""
+  pullPolicy: IfNotPresent
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  # 是否创建 ServiceAccount
+  create: true
+  # ServiceAccount 上的注释
+  annotations: {}
+  # 自定义名称（为空则使用 fullname 模板）
+  name: ""
+
+service:
+  type: ClusterIP
+  port: 8080
+
+ingress:
+  enabled: false
+  # 默认 nginx IngressClass
+  # 阿里云环境替换为 alb（annotations 需改为 alb.ingress.kubernetes.io/*）
+  className: nginx
+  annotations: {}
+    # nginx.ingress.kubernetes.io/rewrite-target: /
+    # 阿里云 ALB 替代注释示例：
+    # alb.ingress.kubernetes.io/scheme: internet-facing
+    # alb.ingress.kubernetes.io/target-type: ip
+  hosts:
+    - host: babytalk.local
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
+  #  - secretName: babytalk-tls
+  #    hosts:
+  #      - babytalk.local
+
+resources:
+  requests:
+    cpu: 250m
+    memory: 384Mi
+  limits:
+    cpu: 1000m
+    memory: 512Mi
+
+# 安全上下文 — 与 Dockerfile 中 appuser(uid=1000) 对齐
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  fsGroup: 1000
+
+containerSecurityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: false
+
+# 健康探针配置（httpGet /actuator/health port 8080）
+livenessProbe:
+  httpGet:
+    path: /actuator/health
+    port: http
+  initialDelaySeconds: 30
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 3
+
+readinessProbe:
+  httpGet:
+    path: /actuator/health
+    port: http
+  initialDelaySeconds: 15
+  periodSeconds: 5
+  timeoutSeconds: 3
+  failureThreshold: 2
+
+startupProbe:
+  httpGet:
+    path: /actuator/health
+    port: http
+  initialDelaySeconds: 10
+  periodSeconds: 5
+  failureThreshold: 12
+
+nodeSelector: {}
+tolerations: []
+affinity: {}
+
+# ────────────────────────────────────────────────────────────────
+# ConfigMap：32 个非敏感 BABY_TALK_* 环境变量
+# ────────────────────────────────────────────────────────────────
+config:
+  # 版本与升级
+  BABY_TALK_MIN_SUPPORTED_VERSION: "1.2.0"
+  BABY_TALK_UPGRADE_URL: "https://example.com/baby-talk/upgrade?channel=stable&source=version_gate"
+  BABY_TALK_SYNC_MAX_BATCH_SIZE: "100"
+  BABY_TALK_BOOTSTRAP_MAX_EVENTS: "200"
+
+  # 分发渠道
+  BABY_TALK_ANDROID_STABLE_URL: "https://download.example.com/android/stable/babytalk.apk"
+  BABY_TALK_IOS_STABLE_URL: "https://apps.apple.com/app/id0000000000"
+  BABY_TALK_ANDROID_BETA_URL: "https://download.example.com/android/beta/babytalk.apk"
+
+  # 分享链接
+  BABY_TALK_SHARE_PUBLIC_BASE_URL: "https://share.example.com"
+  BABY_TALK_SHARE_LINK_TTL: "PT168H"
+  BABY_TALK_ANDROID_OPEN_SHARE_URL: "babytalk://share/open"
+  BABY_TALK_IOS_OPEN_SHARE_URL: "babytalk://share/open"
+
+  # 看护人邀请
+  BABY_TALK_CAREGIVER_INVITE_PUBLIC_BASE_URL: "https://invite.example.com"
+  BABY_TALK_CAREGIVER_INVITE_TTL: "PT72H"
+  BABY_TALK_ANDROID_OPEN_INVITE_URL: "babytalk://invite/open"
+  BABY_TALK_IOS_OPEN_INVITE_URL: "babytalk://invite/open"
+
+  # 短信服务
+  BABY_TALK_SMS_PROVIDER_MODE: "dev"
+  BABY_TALK_SMS_DEV_CODE: "246810"
+  BABY_TALK_SMS_CHALLENGE_TTL: "PT5M"
+  BABY_TALK_SMS_SIMULATE_TIMEOUT: "false"
+
+  # Mentor AI 配置
+  BABY_TALK_MENTOR_PROVIDER_MODE: "dev"
+  BABY_TALK_MENTOR_PROVIDER_TIMEOUT: "PT4S"
+  BABY_TALK_AI_BASE_URL: "https://models.inference.ai.azure.com"
+  BABY_TALK_AI_MODEL: "gpt-4o-mini"
+  BABY_TALK_AI_TEMPERATURE: "0.7"
+  BABY_TALK_AI_MAX_TOKENS: "300"
+
+  # 速率限制
+  BABY_TALK_MENTOR_RATE_LIMIT_MAX_REQUESTS: "3"
+  BABY_TALK_MENTOR_RATE_LIMIT_WINDOW: "PT10M"
+
+  # 提示词/响应限制
+  BABY_TALK_MENTOR_PROMPT_MAX_LENGTH: "280"
+  BABY_TALK_MENTOR_RESPONSE_MAX_LENGTH: "280"
+
+  # 模拟令牌（测试/调试用）
+  BABY_TALK_MENTOR_SIMULATE_TIMEOUT_TOKEN: "[timeout]"
+  BABY_TALK_MENTOR_SIMULATE_MALFORMED_TOKEN: "[malformed]"
+  BABY_TALK_MENTOR_SIMULATE_UNAVAILABLE_TOKEN: "[unavailable]"
+
+# ────────────────────────────────────────────────────────────────
+# Secret：4 个敏感环境变量
+# 生产环境必须通过 --set 或外部 secret 管理注入真实值
+# ────────────────────────────────────────────────────────────────
+secret:
+  BABY_TALK_DB_URL: ""
+  BABY_TALK_DB_USERNAME: ""
+  BABY_TALK_DB_PASSWORD: ""
+  BABY_TALK_AI_API_KEY: ""

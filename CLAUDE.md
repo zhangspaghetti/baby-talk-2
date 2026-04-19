@@ -48,6 +48,8 @@ Use the `/browse` skill from gstack for all web browsing. Never use `mcp__claude
 - `/codex` - Codex
 - `/cso` - CSO
 - `/autoplan` - Automated planning
+- `/plan-devex-review` - Plan DevEx review
+- `/devex-review` - DevEx review
 - `/careful` - Careful mode
 - `/freeze` - Freeze
 - `/guard` - Guard mode

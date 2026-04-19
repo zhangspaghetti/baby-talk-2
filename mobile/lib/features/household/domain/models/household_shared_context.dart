@@ -191,7 +191,8 @@ Map<String, dynamic>? _readOptionalObjectMap(
     return null;
   }
   try {
-    return Map<String, dynamic>.from(value as Map);
+    // Dart promotes value to Map after is! guard
+    return value.cast<String, dynamic>();
   } on Object {
     return null;
   }

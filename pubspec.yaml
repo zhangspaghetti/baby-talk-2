@@ -1,0 +1,10 @@
+name: baby_talk_worktree_root
+description: "Worktree root — flutter test test/smoke/ from root delegates to mobile/"
+publish_to: 'none'
+version: 0.0.1
+
+environment:
+  sdk: ^3.11.4
+
+dev_dependencies:
+  test: any

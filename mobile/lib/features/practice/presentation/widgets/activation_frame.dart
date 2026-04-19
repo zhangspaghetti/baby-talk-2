@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:mobile/app/theme/app_theme.dart';
+import 'package:mobile/l10n/app_localizations.dart';
 
 class ActivationFrame extends StatelessWidget {
   const ActivationFrame({
@@ -15,23 +16,21 @@ class ActivationFrame extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    final colors = context.appColors;
+    final l = AppLocalizations.of(context)!;
+    return Semantics(
+      label: l.activationFrameLabel,
+      child: Container(
       key: const Key('activation-frame'),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppTheme.bgSunken,
+        color: colors.bgSunken,
         borderRadius: BorderRadius.circular(24),
         border: Border.all(
-          color: AppTheme.english.withValues(alpha: 0.32),
+          color: colors.english.withValues(alpha: 0.32),
           width: 2,
         ),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x142D2926),
-            blurRadius: 18,
-            offset: Offset(0, 8),
-          ),
-        ],
+        boxShadow: colors.warmShadowMd,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -46,13 +45,13 @@ class ActivationFrame extends StatelessWidget {
                   vertical: 6,
                 ),
                 decoration: BoxDecoration(
-                  color: AppTheme.bgSurface,
+                  color: colors.bgSurface,
                   borderRadius: BorderRadius.circular(9999),
                 ),
                 child: Text(
                   stepLabel,
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: AppTheme.textPrimary,
+                    color: colors.textPrimary,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
@@ -70,6 +69,7 @@ class ActivationFrame extends StatelessWidget {
           child,
         ],
       ),
+    ),
     );
   }
 }

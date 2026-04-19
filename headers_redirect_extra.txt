@@ -1,8 +1,0 @@
-HTTP/1.1 302 
-X-Release-Distribution-Result: redirect
-X-Release-Distribution-Audit: recorded
-Location: https://download.example.com/android/stable/babytalk.apk
-Content-Type: text/html;charset=UTF-8
-Content-Length: 0
-Date: Thu, 16 Apr 2026 09:40:17 GMT
-

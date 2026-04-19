@@ -7,6 +7,7 @@ import 'package:mobile/features/household/presentation/widgets/household_invite_
 import 'package:mobile/features/household/presentation/widgets/household_shared_context_card.dart';
 import 'package:mobile/features/onboarding/domain/models/onboarding_snapshot.dart';
 import 'package:provider/provider.dart';
+import 'package:mobile/l10n/app_localizations.dart';
 
 Future<void> openAccountEntryScreen(BuildContext context) {
   return Navigator.of(
@@ -41,6 +42,8 @@ class AccountStatusCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    final colors = context.appColors;
     final theme = Theme.of(context);
     final viewModel = context.watch<AccountViewModel>();
     final phase = _resolvePhase(viewModel);
@@ -53,15 +56,15 @@ class AccountStatusCard extends StatelessWidget {
       width: double.infinity,
       padding: EdgeInsets.all(compact ? 16 : 18),
       decoration: BoxDecoration(
-        color: AppTheme.bgSurface,
+        color: colors.bgSurface,
         borderRadius: BorderRadius.circular(compact ? 20 : 24),
-        border: Border.all(color: AppTheme.outlineSoft),
-        boxShadow: AppTheme.warmShadowSm,
+        border: Border.all(color: colors.outlineSoft),
+        boxShadow: colors.warmShadowSm,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('账号与同步', style: theme.textTheme.labelMedium),
+          Text(l.accountTitle, style: theme.textTheme.labelMedium),
           const SizedBox(height: 10),
           Text(title, style: theme.textTheme.titleMedium),
           const SizedBox(height: 8),
@@ -74,13 +77,13 @@ class AccountStatusCard extends StatelessWidget {
               width: double.infinity,
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: _bannerBackgroundForPhase(phase),
+                color: _bannerBackgroundForPhase(phase, colors),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Text(
                 viewModel.snapshot.lastVisibleError!,
                 style: theme.textTheme.bodySmall?.copyWith(
-                  color: _bannerForegroundForPhase(phase),
+                  color: _bannerForegroundForPhase(phase, colors),
                   fontWeight: FontWeight.w700,
                 ),
               ),
@@ -105,7 +108,7 @@ class AccountStatusCard extends StatelessWidget {
               viewModel.upgradeActionHint!,
               key: Key('$scopeKeyPrefix-account-upgrade-hint'),
               style: theme.textTheme.bodySmall?.copyWith(
-                color: AppTheme.textSecondary,
+                color: colors.textSecondary,
               ),
             ),
           ],
@@ -120,7 +123,7 @@ class AccountStatusCard extends StatelessWidget {
                     phase == AccountSurfacePhase.loading || viewModel.isBusy
                     ? null
                     : () => openAccountEntryScreen(context),
-                child: Text(viewModel.isSignedIn ? '查看账号状态' : '注册 / 登录'),
+                child: Text(viewModel.isSignedIn ? l.accountViewStatus : l.accountRegisterLogin),
               ),
               if (phase == AccountSurfacePhase.versionBlocked)
                 FilledButton(
@@ -134,7 +137,7 @@ class AccountStatusCard extends StatelessWidget {
                 OutlinedButton(
                   key: Key('$scopeKeyPrefix-account-retry-load'),
                   onPressed: viewModel.reload,
-                  child: const Text('重试读取'),
+                  child: Text(l.accountRetryRead),
                 ),
               if (viewModel.isSignedIn ||
                   phase == AccountSurfacePhase.versionBlocked ||
@@ -147,7 +150,7 @@ class AccountStatusCard extends StatelessWidget {
                       : () => viewModel.refreshRuntimeState(
                           trigger: AccountRuntimeTrigger.manualRetry,
                         ),
-                  child: const Text('重试同步'),
+                  child: Text(l.accountRetrySync),
                 ),
             ],
           ),
@@ -289,32 +292,32 @@ class AccountStatusCard extends StatelessWidget {
     return chips;
   }
 
-  Color _bannerBackgroundForPhase(AccountSurfacePhase phase) {
+  Color _bannerBackgroundForPhase(AccountSurfacePhase phase, BabyTalkColors colors) {
     switch (phase) {
       case AccountSurfacePhase.versionBlocked:
-        return AppTheme.warningSoft;
+        return colors.warningSoft;
       case AccountSurfacePhase.deleted:
       case AccountSurfacePhase.error:
-        return AppTheme.errorSoft;
+        return colors.errorSoft;
       case AccountSurfacePhase.revoked:
       case AccountSurfacePhase.signedInFailed:
-        return AppTheme.warningSoft;
+        return colors.warningSoft;
       default:
-        return AppTheme.infoSoft;
+        return colors.infoSoft;
     }
   }
 
-  Color _bannerForegroundForPhase(AccountSurfacePhase phase) {
+  Color _bannerForegroundForPhase(AccountSurfacePhase phase, BabyTalkColors colors) {
     switch (phase) {
       case AccountSurfacePhase.versionBlocked:
       case AccountSurfacePhase.revoked:
       case AccountSurfacePhase.signedInFailed:
-        return AppTheme.warning;
+        return colors.warning;
       case AccountSurfacePhase.deleted:
       case AccountSurfacePhase.error:
-        return AppTheme.error;
+        return colors.error;
       default:
-        return AppTheme.info;
+        return colors.info;
     }
   }
 }
@@ -346,6 +349,8 @@ class _AccountEntryScreenState extends State<AccountEntryScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    final colors = context.appColors;
     final theme = Theme.of(context);
     final viewModel = context.watch<AccountViewModel>();
     final householdViewModel = context.watch<HouseholdViewModel?>();
@@ -382,10 +387,10 @@ class _AccountEntryScreenState extends State<AccountEntryScreen> {
                   key: const Key('account-entry-surface'),
                   padding: const EdgeInsets.all(24),
                   decoration: BoxDecoration(
-                    color: AppTheme.bgSurface,
+                    color: colors.bgSurface,
                     borderRadius: BorderRadius.circular(24),
-                    border: Border.all(color: AppTheme.outlineSoft),
-                    boxShadow: AppTheme.warmShadowSm,
+                    border: Border.all(color: colors.outlineSoft),
+                    boxShadow: colors.warmShadowSm,
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -426,7 +431,7 @@ class _AccountEntryScreenState extends State<AccountEntryScreen> {
                         OutlinedButton(
                           key: const Key('account-load-retry'),
                           onPressed: viewModel.reload,
-                          child: const Text('重试读取账号状态'),
+                          child: Text(l.accountRetryReadStatus),
                         ),
                       ],
                       const SizedBox(height: 20),
@@ -487,7 +492,7 @@ class _AccountEntryScreenState extends State<AccountEntryScreen> {
                           viewModel.upgradeActionHint!,
                           key: const Key('account-upgrade-hint'),
                           style: theme.textTheme.bodySmall?.copyWith(
-                            color: AppTheme.textSecondary,
+                            color: colors.textSecondary,
                           ),
                         ),
                       ],
@@ -526,7 +531,7 @@ class _AccountEntryScreenState extends State<AccountEntryScreen> {
                                       ),
                                     );
                                   },
-                            child: Text(viewModel.isBusy ? '处理中…' : '登录并同意'),
+                            child: Text(viewModel.isBusy ? '处理中…' : l.accountLoginConsent),
                           ),
                           if (phase == AccountSurfacePhase.versionBlocked)
                             FilledButton(
@@ -548,7 +553,7 @@ class _AccountEntryScreenState extends State<AccountEntryScreen> {
                                         trigger:
                                             AccountRuntimeTrigger.manualRetry,
                                       ),
-                            child: const Text('重试同步'),
+                            child: Text(l.accountRetrySync),
                           ),
                           OutlinedButton(
                             key: const Key('account-revoke-button'),
@@ -557,7 +562,7 @@ class _AccountEntryScreenState extends State<AccountEntryScreen> {
                                 : () => context
                                       .read<AccountViewModel>()
                                       .revokeConsent(),
-                            child: const Text('撤回同意'),
+                            child: Text(l.accountRevokeConsent),
                           ),
                           OutlinedButton(
                             key: const Key('account-delete-button'),
@@ -566,7 +571,7 @@ class _AccountEntryScreenState extends State<AccountEntryScreen> {
                                 : () => context
                                       .read<AccountViewModel>()
                                       .deleteAccount(),
-                            child: const Text('删除账号'),
+                            child: Text(l.accountDeleteAccount),
                           ),
                           OutlinedButton(
                             key: const Key('account-clear-button'),
@@ -714,44 +719,46 @@ class _AccountEntryScreenState extends State<AccountEntryScreen> {
   }
 
   Color _phaseBackground(AccountSurfacePhase phase) {
+    final colors = context.appColors;
     switch (phase) {
       case AccountSurfacePhase.loading:
-        return AppTheme.bgSunken;
+        return colors.bgSunken;
       case AccountSurfacePhase.localOnly:
-        return AppTheme.infoSoft;
+        return colors.infoSoft;
       case AccountSurfacePhase.signedOut:
-        return AppTheme.warningSoft;
+        return colors.warningSoft;
       case AccountSurfacePhase.signedInPendingSync:
       case AccountSurfacePhase.signedInSynced:
-        return AppTheme.englishSoft;
+        return colors.englishSoft;
       case AccountSurfacePhase.signedInFailed:
       case AccountSurfacePhase.revoked:
       case AccountSurfacePhase.versionBlocked:
-        return AppTheme.warningSoft;
+        return colors.warningSoft;
       case AccountSurfacePhase.deleted:
       case AccountSurfacePhase.error:
-        return AppTheme.errorSoft;
+        return colors.errorSoft;
     }
   }
 
   Color _phaseForeground(AccountSurfacePhase phase) {
+    final colors = context.appColors;
     switch (phase) {
       case AccountSurfacePhase.loading:
-        return AppTheme.textSecondary;
+        return colors.textSecondary;
       case AccountSurfacePhase.localOnly:
-        return AppTheme.info;
+        return colors.info;
       case AccountSurfacePhase.signedOut:
-        return AppTheme.warning;
+        return colors.warning;
       case AccountSurfacePhase.signedInPendingSync:
       case AccountSurfacePhase.signedInSynced:
-        return AppTheme.english;
+        return colors.english;
       case AccountSurfacePhase.signedInFailed:
       case AccountSurfacePhase.revoked:
       case AccountSurfacePhase.versionBlocked:
-        return AppTheme.warning;
+        return colors.warning;
       case AccountSurfacePhase.deleted:
       case AccountSurfacePhase.error:
-        return AppTheme.error;
+        return colors.error;
     }
   }
 }

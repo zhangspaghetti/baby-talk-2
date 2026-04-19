@@ -104,7 +104,7 @@ class ShareLinkDraft {
       return null;
     }
 
-    final headline = hasImpact ? impactHeadline! : recommendationTitle!;
+    final headline = hasImpact ? impactHeadline : recommendationTitle;
     final storyText = _buildStoryText(
       impactDetail: hasImpact ? impactDetail : null,
       recommendationTitle: recommendationTitle,
@@ -123,7 +123,7 @@ class ShareLinkDraft {
 
     return ShareLinkDraft(
       source: source,
-      headline: headline,
+      headline: headline!,
       storyText: storyText,
       phraseText: phraseText,
       recommendationTitle: recommendationTitle,

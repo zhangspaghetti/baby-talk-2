@@ -1,0 +1,22 @@
+services:
+  backend:
+    build:
+      context: ./backend
+    ports:
+      - "8080:8080"
+    environment:
+      BABY_TALK_DB_URL: "jdbc:h2:file:./.data/babytalk;MODE=PostgreSQL;AUTO_SERVER=TRUE;DATABASE_TO_UPPER=false"
+      BABY_TALK_SMS_PROVIDER_MODE: "dev"
+      BABY_TALK_MENTOR_PROVIDER_MODE: "dev"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/actuator/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    volumes:
+      - babytalk-data:/app/.data
+    restart: unless-stopped
+
+volumes:
+  babytalk-data:

@@ -1,6 +1,16 @@
 spring:
   application:
     name: babytalk-backend
+  autoconfigure:
+    exclude:
+      - org.springframework.ai.model.openai.autoconfigure.OpenAiChatAutoConfiguration
+      - org.springframework.ai.model.openai.autoconfigure.OpenAiEmbeddingAutoConfiguration
+      - org.springframework.ai.model.openai.autoconfigure.OpenAiImageAutoConfiguration
+      - org.springframework.ai.model.openai.autoconfigure.OpenAiAudioSpeechAutoConfiguration
+      - org.springframework.ai.model.openai.autoconfigure.OpenAiAudioTranscriptionAutoConfiguration
+      - org.springframework.ai.model.openai.autoconfigure.OpenAiModerationAutoConfiguration
+      - org.springframework.ai.model.chat.client.autoconfigure.ChatClientAutoConfiguration
+      - org.springframework.ai.model.chat.memory.autoconfigure.ChatMemoryAutoConfiguration
   datasource:
     url: ${BABY_TALK_DB_URL:jdbc:h2:file:./.data/babytalk;MODE=PostgreSQL;AUTO_SERVER=TRUE;DATABASE_TO_UPPER=false}
     username: ${BABY_TALK_DB_USERNAME:sa}
@@ -83,6 +93,11 @@ app:
   mentor:
     provider-mode: ${BABY_TALK_MENTOR_PROVIDER_MODE:dev}
     provider-timeout: ${BABY_TALK_MENTOR_PROVIDER_TIMEOUT:PT4S}
+    ai-base-url: ${BABY_TALK_AI_BASE_URL:https://models.inference.ai.azure.com}
+    ai-api-key: ${BABY_TALK_AI_API_KEY:}
+    ai-model: ${BABY_TALK_AI_MODEL:gpt-4o-mini}
+    ai-temperature: ${BABY_TALK_AI_TEMPERATURE:0.7}
+    ai-max-tokens: ${BABY_TALK_AI_MAX_TOKENS:300}
     rate-limit-max-requests: ${BABY_TALK_MENTOR_RATE_LIMIT_MAX_REQUESTS:3}
     rate-limit-window: ${BABY_TALK_MENTOR_RATE_LIMIT_WINDOW:PT10M}
     prompt-max-length: ${BABY_TALK_MENTOR_PROMPT_MAX_LENGTH:280}

@@ -3,6 +3,7 @@ import 'package:mobile/app/theme/app_theme.dart';
 import 'package:mobile/features/household/data/local/household_local_store.dart';
 import 'package:mobile/features/household/domain/models/household_role.dart';
 import 'package:mobile/features/household/presentation/household_view_model.dart';
+import 'package:mobile/l10n/app_localizations.dart';
 
 class HouseholdInviteCard extends StatelessWidget {
   const HouseholdInviteCard({
@@ -20,6 +21,8 @@ class HouseholdInviteCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    final colors = context.appColors;
     final theme = Theme.of(context);
     if (viewModel == null) {
       return _InviteCardShell(
@@ -29,12 +32,12 @@ class HouseholdInviteCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'household provider 缺失',
+              l.inviteNotConnected,
               key: Key('$surfaceKeyPrefix-household-invite-missing'),
               style: theme.textTheme.titleMedium,
             ),
             const SizedBox(height: 8),
-            Text('邀请入口已显式禁用，不会假装创建成功。', style: theme.textTheme.bodyMedium),
+            Text(l.inviteDisabledNote, style: theme.textTheme.bodyMedium),
           ],
         ),
       );
@@ -70,13 +73,13 @@ class HouseholdInviteCard extends StatelessWidget {
               width: double.infinity,
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
-                color: _messageBackground(snapshot),
+                color: _messageBackground(snapshot, colors),
                 borderRadius: BorderRadius.circular(14),
               ),
               child: Text(
                 visibleMessage,
                 style: theme.textTheme.bodyMedium?.copyWith(
-                  color: _messageForeground(snapshot),
+                  color: _messageForeground(snapshot, colors),
                   fontWeight: FontWeight.w700,
                 ),
               ),
@@ -88,19 +91,19 @@ class HouseholdInviteCard extends StatelessWidget {
               width: double.infinity,
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
-                color: AppTheme.bgSunken,
+                color: colors.bgSunken,
                 borderRadius: BorderRadius.circular(16),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('最新邀请链接', style: theme.textTheme.labelMedium),
+                  Text(l.inviteLatestLink, style: theme.textTheme.labelMedium),
                   const SizedBox(height: 8),
                   SelectableText(
                     invite.inviteUrl,
                     key: Key('$surfaceKeyPrefix-household-invite-url'),
                     style: theme.textTheme.bodyMedium?.copyWith(
-                      color: AppTheme.textPrimary,
+                      color: colors.textPrimary,
                       fontWeight: FontWeight.w700,
                     ),
                   ),
@@ -128,8 +131,8 @@ class HouseholdInviteCard extends StatelessWidget {
                   viewModel!.isBusy &&
                           viewModel!.lastActionKind ==
                               HouseholdActionKind.createInvite
-                      ? '创建中…'
-                      : (invite == null ? '生成照护邀请' : '重新生成邀请'),
+                      ? l.inviteCreating
+                      : (invite == null ? l.inviteGenerate : l.inviteRegenerate),
                 ),
               ),
               if (showRetry)
@@ -138,17 +141,17 @@ class HouseholdInviteCard extends StatelessWidget {
                   onPressed: viewModel!.isBusy
                       ? null
                       : () => viewModel!.retryLastAction(),
-                  child: const Text('重试邀请'),
+                  child: Text(l.inviteRetry),
                 ),
             ],
           ),
           if (!isPrimary) ...[
             const SizedBox(height: 12),
             Text(
-              '当前角色只读：由主照护者发起邀请，你可以继续查看共享档案。',
+              l.inviteReadOnly,
               key: Key('$surfaceKeyPrefix-household-invite-readonly'),
               style: theme.textTheme.bodySmall?.copyWith(
-                color: AppTheme.textSecondary,
+                color: colors.textSecondary,
               ),
             ),
           ],
@@ -212,24 +215,24 @@ class HouseholdInviteCard extends StatelessWidget {
     return null;
   }
 
-  Color _messageBackground(HouseholdLocalSnapshot snapshot) {
+  Color _messageBackground(HouseholdLocalSnapshot snapshot, BabyTalkColors colors) {
     if (snapshot.lastVisibleError != null &&
         snapshot.lastVisibleError!.trim().isNotEmpty) {
       return snapshot.lastPhase.contains('created')
-          ? AppTheme.infoSoft
-          : AppTheme.warningSoft;
+          ? colors.infoSoft
+          : colors.warningSoft;
     }
-    return AppTheme.infoSoft;
+    return colors.infoSoft;
   }
 
-  Color _messageForeground(HouseholdLocalSnapshot snapshot) {
+  Color _messageForeground(HouseholdLocalSnapshot snapshot, BabyTalkColors colors) {
     if (snapshot.lastVisibleError != null &&
         snapshot.lastVisibleError!.trim().isNotEmpty) {
       return snapshot.lastPhase.contains('created')
-          ? AppTheme.info
-          : AppTheme.warning;
+          ? colors.info
+          : colors.warning;
     }
-    return AppTheme.info;
+    return colors.info;
   }
 }
 
@@ -246,20 +249,22 @@ class _InviteCardShell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    final colors = context.appColors;
     return Container(
       key: Key('$surfaceKeyPrefix-household-invite-card'),
       width: double.infinity,
       padding: EdgeInsets.all(compact ? 16 : 18),
       decoration: BoxDecoration(
-        color: AppTheme.bgSurface,
+        color: colors.bgSurface,
         borderRadius: BorderRadius.circular(compact ? 20 : 24),
-        border: Border.all(color: AppTheme.outlineSoft),
-        boxShadow: AppTheme.warmShadowSm,
+        border: Border.all(color: colors.outlineSoft),
+        boxShadow: colors.warmShadowSm,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('照护邀请', style: Theme.of(context).textTheme.labelMedium),
+          Text(l.inviteLabel, style: Theme.of(context).textTheme.labelMedium),
           const SizedBox(height: 12),
           child,
         ],

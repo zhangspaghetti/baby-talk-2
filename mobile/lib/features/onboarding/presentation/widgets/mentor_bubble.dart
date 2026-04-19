@@ -15,22 +15,25 @@ class MentorBubble extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.appColors;
     final theme = Theme.of(context);
-    return Row(
+    return Semantics(
+      label: '小禾老师问候',
+      child: Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Container(
           width: 36,
           height: 36,
-          decoration: const BoxDecoration(
-            color: AppTheme.bgAccentSoft,
+          decoration: BoxDecoration(
+            color: colors.bgAccentSoft,
             shape: BoxShape.circle,
           ),
           alignment: Alignment.center,
           child: Text(
             '禾',
             style: theme.textTheme.labelMedium?.copyWith(
-              color: AppTheme.accentDark,
+              color: colors.accentDark,
               fontWeight: FontWeight.w700,
             ),
           ),
@@ -40,15 +43,15 @@ class MentorBubble extends StatelessWidget {
           child: Container(
             padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
             decoration: BoxDecoration(
-              color: AppTheme.bgSurface,
+              color: colors.bgSurface,
               borderRadius: const BorderRadius.only(
                 topLeft: Radius.circular(12),
                 topRight: Radius.circular(24),
                 bottomRight: Radius.circular(24),
                 bottomLeft: Radius.circular(24),
               ),
-              border: Border.all(color: AppTheme.outlineSoft),
-              boxShadow: AppTheme.warmShadowSm,
+              border: Border.all(color: colors.outlineSoft),
+              boxShadow: colors.warmShadowSm,
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -57,7 +60,7 @@ class MentorBubble extends StatelessWidget {
                   Text(
                     caption!,
                     style: theme.textTheme.labelMedium?.copyWith(
-                      color: AppTheme.accentDark,
+                      color: colors.accentDark,
                     ),
                   ),
                   const SizedBox(height: 6),
@@ -65,7 +68,7 @@ class MentorBubble extends StatelessWidget {
                 Text(
                   message,
                   style: theme.textTheme.bodyLarge?.copyWith(
-                    color: AppTheme.textPrimary,
+                    color: colors.textPrimary,
                   ),
                 ),
                 if (trailing != null) ...[
@@ -77,6 +80,7 @@ class MentorBubble extends StatelessWidget {
           ),
         ),
       ],
+    ),
     );
   }
 }

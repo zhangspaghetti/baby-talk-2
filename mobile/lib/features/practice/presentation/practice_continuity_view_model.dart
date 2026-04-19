@@ -291,6 +291,24 @@ class PracticeContinuityViewModel extends ChangeNotifier {
     super.notifyListeners();
   }
 
+  /// 会话重置时调用，清除所有内存状态回到安全空态。
+  /// logout/delete/revoke 场景下由 home_screen 触发。
+  void resetToSafeEmpty() {
+    _refreshTimeoutTimer?.cancel();
+    _refreshTimeoutTimer = null;
+    _refreshFuture = null;
+    _queuedRefreshReason = null;
+    _isRefreshing = false;
+    _snapshot = null;
+    _activitySnapshot = null;
+    _recommendedArgs = null;
+    _status = PracticeContinuityLoadStatus.idle;
+    _warningMessage = null;
+    _disabledReason = null;
+    _lastRefreshReason = null;
+    notifyListeners();
+  }
+
   @override
   void dispose() {
     _disposed = true;

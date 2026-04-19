@@ -6,6 +6,7 @@ import 'package:mobile/features/practice/presentation/practice_session_view_mode
 import 'package:mobile/features/practice/presentation/widgets/activation_frame.dart';
 import 'package:mobile/features/practice/presentation/widgets/phrase_card.dart';
 import 'package:provider/provider.dart';
+import 'package:mobile/l10n/app_localizations.dart';
 
 class PracticeSessionScreen extends StatelessWidget {
   const PracticeSessionScreen({
@@ -19,9 +20,10 @@ class PracticeSessionScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
     if (!routeEntry.hasValidArgs) {
       return PracticeFallbackScaffold(
-        message: routeEntry.errorMessage ?? '当前练习入口缺少有效参数，请返回上一个页面重试。',
+        message: routeEntry.errorMessage ?? l.practiceInvalidParams,
       );
     }
 
@@ -66,6 +68,8 @@ class _PracticeSessionBodyState extends State<_PracticeSessionBody> {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    final colors = context.appColors;
     final viewModel = context.watch<PracticeSessionViewModel>();
     final activity = viewModel.activitySnapshot;
 
@@ -84,7 +88,7 @@ class _PracticeSessionBodyState extends State<_PracticeSessionBody> {
         message:
             viewModel.sessionErrorMessage ??
             viewModel.homeErrorMessage ??
-            '当前活动上下文缺失，请返回首页重试。',
+            l.practiceContextMissing,
       );
     }
 
@@ -116,14 +120,14 @@ class _PracticeSessionBodyState extends State<_PracticeSessionBody> {
                     vertical: 8,
                   ),
                   decoration: BoxDecoration(
-                    color: AppTheme.bgSunken,
+                    color: colors.bgSunken,
                     borderRadius: BorderRadius.circular(999),
                   ),
                   child: Text(
                     'route scope · ${widget.routeArgs.scopeLabel}',
                     key: const Key('practice-route-scope'),
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: AppTheme.textSecondary,
+                      color: colors.textSecondary,
                       fontWeight: FontWeight.w700,
                     ),
                   ),
@@ -134,15 +138,15 @@ class _PracticeSessionBodyState extends State<_PracticeSessionBody> {
                   value: progressValue,
                   minHeight: 4,
                   borderRadius: BorderRadius.circular(999),
-                  color: AppTheme.accent,
-                  backgroundColor: const Color(0xFFD8CFC8),
+                  color: colors.accent,
+                  backgroundColor: colors.outlineSoft,
                 ),
                 const SizedBox(height: 12),
                 Text(
                   '第 ${viewModel.currentPhraseIndex + 1} / ${phrases.length} 句',
                   key: const Key('practice-progress-text'),
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: AppTheme.textPrimary,
+                    color: colors.textPrimary,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
@@ -150,7 +154,7 @@ class _PracticeSessionBodyState extends State<_PracticeSessionBody> {
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: AppTheme.bgAccentSoft,
+                    color: colors.bgAccentSoft,
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Text(
@@ -164,11 +168,11 @@ class _PracticeSessionBodyState extends State<_PracticeSessionBody> {
                     key: const Key('practice-restore-banner'),
                     message: viewModel.restoreStatusMessage!,
                     backgroundColor: viewModel.hasRecoverableRestoreIssue
-                        ? AppTheme.warningSoft
-                        : AppTheme.infoSoft,
+                        ? colors.warningSoft
+                        : colors.infoSoft,
                     foregroundColor: viewModel.hasRecoverableRestoreIssue
-                        ? AppTheme.warning
-                        : AppTheme.info,
+                        ? colors.warning
+                        : colors.info,
                   ),
                 ],
                 if (viewModel.sessionErrorMessage != null) ...[
@@ -176,17 +180,17 @@ class _PracticeSessionBodyState extends State<_PracticeSessionBody> {
                   _PracticeBanner(
                     key: const Key('session-error-banner'),
                     message: viewModel.sessionErrorMessage!,
-                    backgroundColor: AppTheme.errorSoft,
-                    foregroundColor: AppTheme.error,
+                    backgroundColor: colors.errorSoft,
+                    foregroundColor: colors.error,
                   ),
                 ],
                 if (viewModel.sessionCompleted) ...[
                   const SizedBox(height: 16),
                   _PracticeBanner(
                     key: const Key('practice-complete-banner'),
-                    message: '最后一句也已保存，本轮练习已完成。返回首页后会看到最近一次本地结果。',
-                    backgroundColor: AppTheme.successSoft,
-                    foregroundColor: AppTheme.success,
+                    message: l.practiceLastSaved,
+                    backgroundColor: colors.successSoft,
+                    foregroundColor: colors.success,
                   ),
                 ],
                 const SizedBox(height: 20),
@@ -194,7 +198,7 @@ class _PracticeSessionBodyState extends State<_PracticeSessionBody> {
                   if (index == viewModel.currentPhraseIndex)
                     ActivationFrame(
                       stepLabel: 'STEP ${phrases[index].step}',
-                      title: '当前练习中的短语',
+                      title: l.practiceCurrentPhrases,
                       child: PhraseCard(
                         phrase: phrases[index],
                         isActive: true,
@@ -260,11 +264,12 @@ class PracticeFallbackScaffold extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
     return Scaffold(
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         surfaceTintColor: Colors.transparent,
-        title: const Text('练习暂不可用'),
+        title: Text(l.practiceUnavailable),
       ),
       body: SafeArea(
         child: Padding(
@@ -283,12 +288,14 @@ class _PracticeFallback extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    final colors = context.appColors;
     return Container(
       key: const Key('practice-safe-fallback'),
       width: double.infinity,
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: AppTheme.errorSoft,
+        color: colors.errorSoft,
         borderRadius: BorderRadius.circular(16),
       ),
       child: Column(
@@ -297,14 +304,14 @@ class _PracticeFallback extends StatelessWidget {
           Text(
             message,
             style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-              color: AppTheme.error,
+              color: colors.error,
               fontWeight: FontWeight.w700,
             ),
           ),
           const SizedBox(height: 12),
           OutlinedButton(
             onPressed: () => Navigator.of(context).maybePop(),
-            child: const Text('返回首页'),
+            child: Text(l.practiceBackHome),
           ),
         ],
       ),

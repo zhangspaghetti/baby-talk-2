@@ -57,9 +57,9 @@ class AuthConsentSyncRepository {
         );
     }
 
-    void markChallengeVerified(String challengeId, Instant verifiedAt) {
-        jdbcTemplate.update(
-                "update sms_challenges set status = 'verified', verified_at = ?, failure_reason = null where challenge_id = ?",
+    int markChallengeVerified(String challengeId, Instant verifiedAt) {
+        return jdbcTemplate.update(
+                "update sms_challenges set status = 'verified', verified_at = ?, failure_reason = null where challenge_id = ? and status = 'pending'",
                 Timestamp.from(verifiedAt),
                 challengeId
         );

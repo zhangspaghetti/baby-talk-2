@@ -6,6 +6,7 @@ import 'package:mobile/features/onboarding/presentation/onboarding_view_model.da
 import 'package:mobile/features/onboarding/presentation/widgets/mentor_bubble.dart';
 import 'package:mobile/features/onboarding/presentation/widgets/mini_seed_card.dart';
 import 'package:mobile/features/onboarding/presentation/widgets/quick_select_card.dart';
+import 'package:mobile/l10n/app_localizations.dart';
 import 'package:provider/provider.dart';
 
 class OnboardingScreen extends StatefulWidget {
@@ -56,6 +57,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    final colors = context.appColors;
     final theme = Theme.of(context);
     final viewModel = context.watch<OnboardingViewModel>();
     _syncFocusForStep(viewModel.currentStep);
@@ -69,10 +72,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             child: ListView(
               padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
               children: [
-                Text('给你家宝宝准备第一次英文见面', style: theme.textTheme.titleLarge),
+                Text(l.onboardingTitle, style: theme.textTheme.titleLarge),
                 const SizedBox(height: 8),
                 Text(
-                  '只要昵称和月龄档，小禾老师就会先给你一颗适合现在阶段的 starter seed。',
+                  l.onboardingSubtitle,
                   style: theme.textTheme.bodyMedium,
                 ),
                 const SizedBox(height: 20),
@@ -80,13 +83,13 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   key: const Key('onboarding-local-only-banner'),
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: AppTheme.infoSoft,
+                    color: colors.infoSoft,
                     borderRadius: BorderRadius.circular(16),
                   ),
                   child: Text(
-                    '同意前仅保存在这台设备，不需要精确生日。',
+                    l.onboardingLocalOnly,
                     style: theme.textTheme.bodyMedium?.copyWith(
-                      color: AppTheme.info,
+                      color: colors.info,
                       fontWeight: FontWeight.w700,
                     ),
                   ),
@@ -97,10 +100,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 Container(
                   padding: const EdgeInsets.fromLTRB(18, 18, 18, 20),
                   decoration: BoxDecoration(
-                    color: AppTheme.bgSurface,
+                    color: colors.bgSurface,
                     borderRadius: BorderRadius.circular(24),
-                    border: Border.all(color: AppTheme.outlineSoft),
-                    boxShadow: AppTheme.warmShadowSm,
+                    border: Border.all(color: colors.outlineSoft),
+                    boxShadow: colors.warmShadowSm,
                   ),
                   child: _StepComposer(
                     nameController: _nameController,
@@ -120,10 +123,11 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     ThemeData theme,
     OnboardingViewModel viewModel,
   ) {
+    final l = AppLocalizations.of(context)!;
     final widgets = <Widget>[
-      const MentorBubble(
-        caption: '小禾老师',
-        message: '你好，我会先帮你把英语放进今天就能开口的照护节奏里。',
+      MentorBubble(
+        caption: l.mentorName,
+        message: l.onboardingMentorGreeting,
       ),
     ];
 
@@ -131,7 +135,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         viewModel.draftName.trim().isNotEmpty) {
       widgets
         ..add(const SizedBox(height: 16))
-        ..add(const MentorBubble(message: '我先怎么称呼宝宝？先用一个你最顺口的小昵称就好。'));
+        ..add(MentorBubble(message: l.onboardingAskName));
     }
 
     if (viewModel.draftName.trim().isNotEmpty) {
@@ -144,7 +148,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         viewModel.selectedAgeBucket != null) {
       widgets
         ..add(const SizedBox(height: 16))
-        ..add(const MentorBubble(message: '现在大概几个月？我会用月龄档给你匹配阶段，不会要求精确生日。'));
+        ..add(MentorBubble(message: l.onboardingAskAge));
     }
 
     final selectedAgeBucket = viewModel.selectedAgeBucket;
@@ -167,7 +171,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         ..add(
           MentorBubble(
             message:
-                '${viewModel.draftName.trim()} 现在更适合从这个阶段开始，先用一句真实 starter phrase 试试看。',
+                l.onboardingStagePreview(viewModel.draftName.trim()),
           ),
         )
         ..add(const SizedBox(height: 16))
@@ -287,27 +291,29 @@ class _WelcomeStep extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    final colors = context.appColors;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
         Text(
-          '先准备两条信息：宝宝昵称 + 月龄档。',
+          l.onboardingWelcomeInfo,
           style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-            color: AppTheme.textPrimary,
+            color: colors.textPrimary,
             fontWeight: FontWeight.w700,
           ),
         ),
         const SizedBox(height: 8),
         Text(
-          '完成后我会把阶段匹配和第一句 starter seed 一起交给你。',
+          l.onboardingWelcomeDetail,
           style: Theme.of(context).textTheme.bodyMedium,
         ),
         const SizedBox(height: 16),
         ElevatedButton(
           key: const Key('onboarding-start-button'),
           onPressed: viewModel.startFlow,
-          child: const Text('开始建档'),
+          child: Text(l.onboardingStartButton),
         ),
       ],
     );
@@ -327,6 +333,7 @@ class _NameStep extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
@@ -337,14 +344,14 @@ class _NameStep extends StatelessWidget {
           focusNode: nameFocusNode,
           textInputAction: TextInputAction.done,
           onSubmitted: (_) => viewModel.continueFromName(),
-          decoration: const InputDecoration(
-            labelText: '宝宝昵称',
-            hintText: '例如：米米、果果',
+          decoration: InputDecoration(
+            labelText: l.onboardingNameLabel,
+            hintText: l.onboardingNameHint,
           ),
         ),
         const SizedBox(height: 8),
         Text(
-          '先用一个顺口的小名就够了，之后还可以再改。',
+          l.onboardingNameHelp,
           style: Theme.of(context).textTheme.bodySmall,
         ),
         if (viewModel.nameErrorMessage != null) ...[
@@ -361,7 +368,7 @@ class _NameStep extends StatelessWidget {
               child: OutlinedButton(
                 key: const Key('onboarding-back-button'),
                 onPressed: viewModel.goBack,
-                child: const Text('上一步'),
+                child: Text(l.onboardingBack),
               ),
             ),
             const SizedBox(width: 12),
@@ -370,7 +377,7 @@ class _NameStep extends StatelessWidget {
               child: ElevatedButton(
                 key: const Key('onboarding-name-continue'),
                 onPressed: viewModel.continueFromName,
-                child: const Text('继续'),
+                child: Text(l.onboardingContinue),
               ),
             ),
           ],
@@ -387,14 +394,16 @@ class _AgeStep extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    final colors = context.appColors;
     final theme = Theme.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text('月龄快选', style: theme.textTheme.titleMedium),
+        Text(l.onboardingAgeTitle, style: theme.textTheme.titleMedium),
         const SizedBox(height: 6),
-        Text('不需要精确到哪一天，先选最接近的一档就可以。', style: theme.textTheme.bodySmall),
+        Text(l.onboardingAgeHelp, style: theme.textTheme.bodySmall),
         const SizedBox(height: 16),
         GridView.builder(
           key: const Key('onboarding-age-grid'),
@@ -446,7 +455,7 @@ class _AgeStep extends StatelessWidget {
             width: double.infinity,
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
-              color: AppTheme.warningSoft,
+              color: colors.warningSoft,
               borderRadius: BorderRadius.circular(12),
             ),
             child: Column(
@@ -455,7 +464,7 @@ class _AgeStep extends StatelessWidget {
                 Text(
                   viewModel.contentErrorMessage!,
                   style: theme.textTheme.bodyMedium?.copyWith(
-                    color: AppTheme.warning,
+                    color: colors.warning,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
@@ -463,7 +472,7 @@ class _AgeStep extends StatelessWidget {
                 OutlinedButton(
                   key: const Key('onboarding-content-retry'),
                   onPressed: viewModel.retryContentLoad,
-                  child: const Text('重新准备'),
+                  child: Text(l.onboardingContentRetry),
                 ),
               ],
             ),
@@ -483,7 +492,7 @@ class _AgeStep extends StatelessWidget {
               child: OutlinedButton(
                 key: const Key('onboarding-back-button'),
                 onPressed: viewModel.goBack,
-                child: const Text('上一步'),
+                child: Text(l.onboardingBack),
               ),
             ),
             const SizedBox(width: 12),
@@ -492,7 +501,7 @@ class _AgeStep extends StatelessWidget {
               child: ElevatedButton(
                 key: const Key('onboarding-age-continue'),
                 onPressed: viewModel.continueFromAge,
-                child: const Text('看看现在更适合什么'),
+                child: Text(l.onboardingAgeContinue),
               ),
             ),
           ],
@@ -509,6 +518,8 @@ class _PreviewStep extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    final colors = context.appColors;
     final theme = Theme.of(context);
     final starterSeed = viewModel.starterSeed;
     return Column(
@@ -518,7 +529,7 @@ class _PreviewStep extends StatelessWidget {
         Text(
           '确认后会先写入本地档案，再带你进入首页。',
           style: theme.textTheme.bodyLarge?.copyWith(
-            color: AppTheme.textPrimary,
+            color: colors.textPrimary,
             fontWeight: FontWeight.w700,
           ),
         ),
@@ -531,7 +542,7 @@ class _PreviewStep extends StatelessWidget {
             width: double.infinity,
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
-              color: AppTheme.bgSunken,
+              color: colors.bgSunken,
               borderRadius: BorderRadius.circular(16),
             ),
             child: Column(
@@ -540,14 +551,14 @@ class _PreviewStep extends StatelessWidget {
                 Text(
                   '准备先这样开口',
                   style: theme.textTheme.labelMedium?.copyWith(
-                    color: AppTheme.english,
+                    color: colors.english,
                   ),
                 ),
                 const SizedBox(height: 6),
                 Text(
                   starterSeed.phraseEnglish,
                   style: theme.textTheme.titleMedium?.copyWith(
-                    color: AppTheme.textPrimary,
+                    color: colors.textPrimary,
                   ),
                 ),
                 if (starterSeed.phraseChinese.trim().isNotEmpty) ...[
@@ -555,7 +566,7 @@ class _PreviewStep extends StatelessWidget {
                   Text(
                     starterSeed.phraseChinese,
                     style: theme.textTheme.bodySmall?.copyWith(
-                      color: AppTheme.textSecondary,
+                      color: colors.textSecondary,
                     ),
                   ),
                 ],
@@ -570,13 +581,13 @@ class _PreviewStep extends StatelessWidget {
             width: double.infinity,
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
-              color: AppTheme.errorSoft,
+              color: colors.errorSoft,
               borderRadius: BorderRadius.circular(12),
             ),
             child: Text(
               viewModel.submitErrorMessage!,
               style: theme.textTheme.bodyMedium?.copyWith(
-                color: AppTheme.error,
+                color: colors.error,
                 fontWeight: FontWeight.w700,
               ),
             ),
@@ -589,7 +600,7 @@ class _PreviewStep extends StatelessWidget {
               child: OutlinedButton(
                 key: const Key('onboarding-back-button'),
                 onPressed: viewModel.isSaving ? null : viewModel.goBack,
-                child: const Text('返回调整'),
+                child: Text(l.onboardingPreviewBack),
               ),
             ),
             const SizedBox(width: 12),
@@ -620,7 +631,7 @@ class _PreviewStep extends StatelessWidget {
                           ),
                         ],
                       )
-                    : const Text('进入首页'),
+                    : Text(l.onboardingEnterHome),
               ),
             ),
           ],
@@ -637,14 +648,15 @@ class _StageMatchCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.appColors;
     final theme = Theme.of(context);
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(18, 18, 18, 18),
       decoration: BoxDecoration(
-        color: AppTheme.bgAccentSoft,
+        color: colors.bgAccentSoft,
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: AppTheme.outlineSoft),
+        border: Border.all(color: colors.outlineSoft),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -652,21 +664,21 @@ class _StageMatchCard extends StatelessWidget {
           Text(
             '阶段匹配',
             style: theme.textTheme.labelMedium?.copyWith(
-              color: AppTheme.accentDark,
+              color: colors.accentDark,
             ),
           ),
           const SizedBox(height: 8),
           Text(
             stageMatch.title,
             style: theme.textTheme.titleMedium?.copyWith(
-              color: AppTheme.textPrimary,
+              color: colors.textPrimary,
             ),
           ),
           const SizedBox(height: 8),
           Text(
             stageMatch.summary,
             style: theme.textTheme.bodyMedium?.copyWith(
-              color: AppTheme.textPrimary,
+              color: colors.textPrimary,
             ),
           ),
         ],
@@ -682,17 +694,18 @@ class _InlineErrorBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.appColors;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: AppTheme.errorSoft,
+        color: colors.errorSoft,
         borderRadius: BorderRadius.circular(12),
       ),
       child: Text(
         message,
         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-          color: AppTheme.error,
+          color: colors.error,
           fontWeight: FontWeight.w700,
         ),
       ),
@@ -707,6 +720,7 @@ class _UserBubble extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.appColors;
     return Align(
       alignment: Alignment.centerRight,
       child: ConstrainedBox(
@@ -714,14 +728,14 @@ class _UserBubble extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
           decoration: BoxDecoration(
-            color: AppTheme.accent,
+            color: colors.accent,
             borderRadius: const BorderRadius.only(
               topLeft: Radius.circular(24),
               topRight: Radius.circular(12),
               bottomRight: Radius.circular(24),
               bottomLeft: Radius.circular(24),
             ),
-            boxShadow: AppTheme.warmShadowSm,
+            boxShadow: colors.warmShadowSm,
           ),
           child: Text(
             message,

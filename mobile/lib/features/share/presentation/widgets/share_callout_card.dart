@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:mobile/app/theme/app_theme.dart';
 import 'package:mobile/features/share/presentation/share_view_model.dart';
+import 'package:mobile/l10n/app_localizations.dart';
 
 class ShareCalloutCard extends StatelessWidget {
   const ShareCalloutCard({
@@ -20,21 +21,23 @@ class ShareCalloutCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    final colors = context.appColors;
     final theme = Theme.of(context);
     final draft = viewModel.currentDraft;
     final hasDraft = draft != null;
     final buttonEnabled = hasDraft && !viewModel.isSharing && onShare != null;
-    final state = _ShareStateSpec.resolve(viewModel: viewModel, hasDraft: hasDraft);
+    final state = _ShareStateSpec.resolve(viewModel: viewModel, hasDraft: hasDraft, colors: colors);
 
     return Container(
       key: Key('$surfaceKeyPrefix-share-card'),
       width: double.infinity,
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: AppTheme.bgSurface,
+        color: colors.bgSurface,
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: AppTheme.outlineSoft),
-        boxShadow: AppTheme.warmShadowSm,
+        border: Border.all(color: colors.outlineSoft),
+        boxShadow: colors.warmShadowSm,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -42,7 +45,7 @@ class ShareCalloutCard extends StatelessWidget {
           Text(sectionLabel, style: theme.textTheme.labelMedium),
           const SizedBox(height: 10),
           Text(
-            draft?.headline ?? '当前还没有可分享的成长瞬间',
+            draft?.headline ?? l.shareNoContent,
             key: Key('$surfaceKeyPrefix-share-headline'),
             style: theme.textTheme.titleMedium,
           ),
@@ -58,13 +61,13 @@ class ShareCalloutCard extends StatelessWidget {
               key: Key('$surfaceKeyPrefix-share-phrase-pill'),
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
-                color: AppTheme.englishSoft,
+                color: colors.englishSoft,
                 borderRadius: BorderRadius.circular(999),
               ),
               child: Text(
                 '今天说的一句：${draft.phraseText!.trim()}',
                 style: theme.textTheme.bodySmall?.copyWith(
-                  color: AppTheme.english,
+                  color: colors.english,
                   fontWeight: FontWeight.w700,
                 ),
               ),
@@ -79,7 +82,7 @@ class ShareCalloutCard extends StatelessWidget {
                   : draft.recommendationTitle!.trim(),
               key: Key('$surfaceKeyPrefix-share-recommendation'),
               style: theme.textTheme.bodySmall?.copyWith(
-                color: AppTheme.textSecondary,
+                color: colors.textSecondary,
                 fontWeight: FontWeight.w700,
               ),
             ),
@@ -109,10 +112,10 @@ class ShareCalloutCard extends StatelessWidget {
                   },
             child: Text(
               viewModel.isSharing
-                  ? '正在生成分享链接…'
+                  ? l.shareGenerating
                   : hasDraft
-                  ? '分享给家人'
-                  : '等待可分享内容',
+                  ? l.shareButton
+                  : l.shareWaiting,
             ),
           ),
         ],
@@ -139,22 +142,23 @@ class _ShareStateSpec {
   static _ShareStateSpec resolve({
     required ShareViewModel viewModel,
     required bool hasDraft,
+    required BabyTalkColors colors,
   }) {
     if (viewModel.isSharing) {
-      return const _ShareStateSpec(
+      return _ShareStateSpec(
         name: 'loading',
         message: '正在生成脱敏分享链接，请稍候。',
-        backgroundColor: AppTheme.bgAccentSoft,
-        foregroundColor: AppTheme.accentDark,
+        backgroundColor: colors.bgAccentSoft,
+        foregroundColor: colors.accentDark,
         showProgress: true,
       );
     }
     if (!hasDraft) {
-      return const _ShareStateSpec(
+      return _ShareStateSpec(
         name: 'disabled',
         message: '等最近成长或继续建议整理好后，再生成脱敏分享链接。',
-        backgroundColor: AppTheme.bgSunken,
-        foregroundColor: AppTheme.textSecondary,
+        backgroundColor: colors.bgSunken,
+        foregroundColor: colors.textSecondary,
       );
     }
 
@@ -163,29 +167,29 @@ class _ShareStateSpec {
         return _ShareStateSpec(
           name: 'success',
           message: viewModel.message ?? '分享面板已打开。',
-          backgroundColor: AppTheme.successSoft,
-          foregroundColor: AppTheme.success,
+          backgroundColor: colors.successSoft,
+          foregroundColor: colors.success,
         );
       case ShareViewStatus.cancelled:
         return _ShareStateSpec(
           name: 'cancelled',
           message: viewModel.message ?? '已取消分享。',
-          backgroundColor: AppTheme.bgSunken,
-          foregroundColor: AppTheme.textSecondary,
+          backgroundColor: colors.bgSunken,
+          foregroundColor: colors.textSecondary,
         );
       case ShareViewStatus.error:
         return _ShareStateSpec(
           name: 'error',
           message: viewModel.message ?? '分享暂时不可用，请稍后重试。',
-          backgroundColor: AppTheme.errorSoft,
-          foregroundColor: AppTheme.error,
+          backgroundColor: colors.errorSoft,
+          foregroundColor: colors.error,
         );
       case ShareViewStatus.idle:
-        return const _ShareStateSpec(
+        return _ShareStateSpec(
           name: 'ready',
           message: '分享内容会自动脱敏，不包含昵称、安装号或调试信息。',
-          backgroundColor: AppTheme.englishSoft,
-          foregroundColor: AppTheme.english,
+          backgroundColor: colors.englishSoft,
+          foregroundColor: colors.english,
         );
     }
   }

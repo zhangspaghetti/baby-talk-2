@@ -10,7 +10,7 @@ Future<void> main(List<String> args) async {
 
   final mobileDirectory = Directory('mobile');
   if (!mobileDirectory.existsSync()) {
-    _fail('未找到 mobile/ 子工程，无法执行 S03 proof pack。', 64);
+    _fail('未找到 mobile/ 子工程，无法执行 S06 proof pack。', 64);
   }
 
   final runIntegration = options.runIntegration || !options.hasExplicitMode;
@@ -40,14 +40,14 @@ Future<void> main(List<String> args) async {
     final flutterExecutable = _resolveFlutterExecutable();
     steps.addAll([
       _VerifyStep(
-        label: 'S03 smoke app_boot_test',
+        label: 'S06 smoke app_boot_test',
         executable: flutterExecutable,
         arguments: const ['test', 'test/smoke/app_boot_test.dart'],
         workingDirectory: mobileDirectory.path,
         timeout: const Duration(minutes: 6),
       ),
       _VerifyStep(
-        label: 'S03 mentor widget mentor_shell_panel_test',
+        label: 'S06 mentor widget mentor_shell_panel_test',
         executable: flutterExecutable,
         arguments: const [
           'test',
@@ -57,7 +57,7 @@ Future<void> main(List<String> args) async {
         timeout: const Duration(minutes: 6),
       ),
       _VerifyStep(
-        label: 'S03 full-chain integration s06_full_chain_release_flow_test',
+        label: 'S06 full-chain integration s06_full_chain_release_flow_test',
         executable: flutterExecutable,
         arguments: const [
           'test',
@@ -74,7 +74,7 @@ Future<void> main(List<String> args) async {
   if (runInspect) {
     steps.addAll([
       _VerifyStep(
-        label: 'S03 inspect interaction events help',
+        label: 'S06 inspect interaction events help',
         executable: Platform.resolvedExecutable,
         arguments: const [
           'run',
@@ -84,7 +84,7 @@ Future<void> main(List<String> args) async {
         timeout: const Duration(minutes: 2),
       ),
       _VerifyStep(
-        label: 'S03 inspect mentor facts help',
+        label: 'S06 inspect mentor facts help',
         executable: Platform.resolvedExecutable,
         arguments: const ['run', 'tool/inspect_mentor_facts.dart', '--help'],
         timeout: const Duration(minutes: 2),
@@ -104,7 +104,7 @@ Future<void> main(List<String> args) async {
     }
   }
 
-  stdout.writeln('✅ S03 continuity / mentor / retention proof pack 完成。');
+  stdout.writeln('✅ S06 continuity / mentor / retention proof pack 完成。');
 }
 
 Future<int> _runStep(_VerifyStep step) async {
@@ -146,7 +146,7 @@ void _assertFilesExist(Iterable<String> paths) {
     return;
   }
 
-  stderr.writeln('S03 proof pack 缺少必要文件：');
+  stderr.writeln('S06 proof pack 缺少必要文件：');
   for (final path in missing) {
     stderr.writeln('  - $path');
   }
@@ -256,7 +256,7 @@ const String _usage = '''用法：
   dart run tool/verify_s06.dart [--integration] [--inspect]
 
 说明：
-  --integration  从仓库根顺序代理 S03 smoke/widget/integration proof
+  --integration  从仓库根顺序代理 S06 smoke/widget/integration proof
                  - mobile/test/smoke/app_boot_test.dart
                  - mobile/test/features/mentor/mentor_shell_panel_test.dart
                  - mobile/integration_test/s06_full_chain_release_flow_test.dart

@@ -198,7 +198,11 @@ class MentorServiceTest {
                 });
 
         assertThat(mentorService.countTurns()).isEqualTo(1);
-        assertThat(mentorService.countAuditRows()).isEqualTo(3);
+        // 新逻辑：rate-limited 请求先 INSERT chat_requested 再 COUNT，所以会有
+        // 第一个请求：chat_requested + chat_response_delivered = 2
+        // 第二个请求：chat_requested + rate_limited = 2
+        // 总计 4 条 audit
+        assertThat(mentorService.countAuditRows()).isEqualTo(4);
     }
 
     private AuthConsentSyncService.SessionResponse createSignedInSession(String phoneNumber, String installationId) {

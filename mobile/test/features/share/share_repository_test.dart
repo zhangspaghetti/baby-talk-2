@@ -211,6 +211,7 @@ class _FakeShareApiService extends ShareApiService {
 }
 
 class _FakeShareSheetLauncher implements ShareSheetLauncher {
+  // ignore: unused_element_parameter
   _FakeShareSheetLauncher({this.result, this.error});
 
   final ShareSheetLaunchResult? result;

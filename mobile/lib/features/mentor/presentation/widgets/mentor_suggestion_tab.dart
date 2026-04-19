@@ -5,12 +5,15 @@ import 'package:mobile/features/mentor/domain/services/local_mentor_suggestion_s
 import 'package:mobile/features/mentor/presentation/mentor_view_model.dart';
 import 'package:mobile/features/onboarding/presentation/widgets/mentor_bubble.dart';
 import 'package:provider/provider.dart';
+import 'package:mobile/l10n/app_localizations.dart';
 
 class MentorSuggestionTab extends StatelessWidget {
   const MentorSuggestionTab({super.key});
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    final colors = context.appColors;
     final theme = Theme.of(context);
     final viewModel = context.watch<MentorViewModel>();
 
@@ -18,7 +21,7 @@ class MentorSuggestionTab extends StatelessWidget {
       key: const Key('mentor-suggestion-tab'),
       padding: const EdgeInsets.fromLTRB(20, 4, 20, 20),
       children: [
-        const MentorBubble(
+        MentorBubble(
           message: '先给你几条现在就能说出口的建议。离线时也可以直接用，不需要等聊天连通。',
           caption: '小禾老师',
         ),
@@ -27,8 +30,8 @@ class MentorSuggestionTab extends StatelessWidget {
           _MentorAlertBanner(
             key: const Key('mentor-panel-banner'),
             message: viewModel.bannerMessage!,
-            foregroundColor: _foregroundColorForStatus(viewModel.panelStatus),
-            backgroundColor: _backgroundColorForStatus(viewModel.panelStatus),
+            foregroundColor: _foregroundColorForStatus(viewModel.panelStatus, colors),
+            backgroundColor: _backgroundColorForStatus(viewModel.panelStatus, colors),
           ),
         if (viewModel.sharedContextStatus != null) ...[
           if (viewModel.bannerMessage != null) const SizedBox(height: 12),
@@ -44,8 +47,8 @@ class MentorSuggestionTab extends StatelessWidget {
           _MentorAlertBanner(
             key: const Key('mentor-audio-banner'),
             message: viewModel.audioStatusMessage!,
-            foregroundColor: AppTheme.warning,
-            backgroundColor: AppTheme.warningSoft,
+            foregroundColor: colors.warning,
+            backgroundColor: colors.warningSoft,
           ),
         ],
         if (viewModel.bannerMessage != null ||
@@ -76,13 +79,13 @@ class MentorSuggestionTab extends StatelessWidget {
             key: const Key('mentor-suggestion-loading'),
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
-              color: AppTheme.bgSurface,
+              color: colors.bgSurface,
               borderRadius: BorderRadius.circular(24),
-              border: Border.all(color: AppTheme.outlineSoft),
+              border: Border.all(color: colors.outlineSoft),
             ),
             child: Row(
               children: [
-                const SizedBox(
+                SizedBox(
                   width: 20,
                   height: 20,
                   child: CircularProgressIndicator(strokeWidth: 2.2),
@@ -90,9 +93,9 @@ class MentorSuggestionTab extends StatelessWidget {
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(
-                    '正在整理本地建议…',
+                    l.mentorSuggestionLoading,
                     style: theme.textTheme.bodyMedium?.copyWith(
-                      color: AppTheme.textPrimary,
+                      color: colors.textPrimary,
                     ),
                   ),
                 ),
@@ -104,24 +107,24 @@ class MentorSuggestionTab extends StatelessWidget {
             key: const Key('mentor-suggestion-empty-state'),
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
-              color: AppTheme.bgSurface,
+              color: colors.bgSurface,
               borderRadius: BorderRadius.circular(24),
-              border: Border.all(color: AppTheme.outlineSoft),
+              border: Border.all(color: colors.outlineSoft),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('还没整理出建议', style: theme.textTheme.titleMedium),
+                Text(l.mentorSuggestionEmpty, style: theme.textTheme.titleMedium),
                 const SizedBox(height: 8),
                 Text(
-                  '别担心，你重新打开或点一次刷新就好；面板本身不会失效。',
+                  l.mentorSuggestionEmptyNote,
                   style: theme.textTheme.bodyMedium,
                 ),
                 const SizedBox(height: 16),
                 OutlinedButton(
                   key: const Key('mentor-suggestion-retry'),
                   onPressed: viewModel.reloadSuggestions,
-                  child: const Text('刷新建议'),
+                  child: Text(l.mentorSuggestionRefresh),
                 ),
               ],
             ),
@@ -144,7 +147,7 @@ class MentorSuggestionTab extends StatelessWidget {
             child: OutlinedButton(
               key: const Key('mentor-suggestion-retry'),
               onPressed: viewModel.reloadSuggestions,
-              child: const Text('刷新建议'),
+              child: Text(l.mentorSuggestionRefresh),
             ),
           ),
         ],
@@ -152,33 +155,33 @@ class MentorSuggestionTab extends StatelessWidget {
     );
   }
 
-  static Color _backgroundColorForStatus(MentorPanelStatus status) {
+  static Color _backgroundColorForStatus(MentorPanelStatus status, BabyTalkColors colors) {
     switch (status) {
       case MentorPanelStatus.loading:
-        return AppTheme.infoSoft;
+        return colors.infoSoft;
       case MentorPanelStatus.ready:
-        return AppTheme.infoSoft;
+        return colors.infoSoft;
       case MentorPanelStatus.fallback:
-        return AppTheme.warningSoft;
+        return colors.warningSoft;
       case MentorPanelStatus.error:
-        return AppTheme.errorSoft;
+        return colors.errorSoft;
       case MentorPanelStatus.idle:
-        return AppTheme.bgSunken;
+        return colors.bgSunken;
     }
   }
 
-  static Color _foregroundColorForStatus(MentorPanelStatus status) {
+  static Color _foregroundColorForStatus(MentorPanelStatus status, BabyTalkColors colors) {
     switch (status) {
       case MentorPanelStatus.loading:
-        return AppTheme.info;
+        return colors.info;
       case MentorPanelStatus.ready:
-        return AppTheme.info;
+        return colors.info;
       case MentorPanelStatus.fallback:
-        return AppTheme.warning;
+        return colors.warning;
       case MentorPanelStatus.error:
-        return AppTheme.error;
+        return colors.error;
       case MentorPanelStatus.idle:
-        return AppTheme.textSecondary;
+        return colors.textSecondary;
     }
   }
 }
@@ -190,10 +193,11 @@ class _MentorSharedContextBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final foregroundColor = status.adopted ? AppTheme.info : AppTheme.warning;
+    final colors = context.appColors;
+    final foregroundColor = status.adopted ? colors.info : colors.warning;
     final backgroundColor = status.adopted
-        ? AppTheme.infoSoft
-        : AppTheme.warningSoft;
+        ? colors.infoSoft
+        : colors.warningSoft;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(14),
@@ -245,16 +249,18 @@ class _SuggestionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    final colors = context.appColors;
     final theme = Theme.of(context);
     return Container(
       key: Key('mentor-suggestion-card-${suggestion.suggestionId}'),
       width: double.infinity,
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: AppTheme.bgSurface,
+        color: colors.bgSurface,
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: AppTheme.outlineSoft),
-        boxShadow: AppTheme.warmShadowSm,
+        border: Border.all(color: colors.outlineSoft),
+        boxShadow: colors.warmShadowSm,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -267,7 +273,7 @@ class _SuggestionCard extends StatelessWidget {
               suggestion.phraseEnglish!,
               style: theme.textTheme.displayMedium?.copyWith(
                 fontSize: 24,
-                color: AppTheme.english,
+                color: colors.english,
               ),
             ),
             const SizedBox(height: 10),
@@ -280,7 +286,7 @@ class _SuggestionCard extends StatelessWidget {
                 key: Key('mentor-suggestion-audio-${suggestion.suggestionId}'),
                 onPressed: isSpeaking ? null : onReadAloud,
                 icon: const Icon(Icons.volume_up_outlined),
-                label: Text(isSpeaking ? '朗读中…' : '朗读'),
+                label: Text(isSpeaking ? '朗读中…' : l.mentorSuggestionRead),
               ),
               if (suggestion.reasonCode != null &&
                   suggestion.reasonCode!.trim().isNotEmpty) ...[

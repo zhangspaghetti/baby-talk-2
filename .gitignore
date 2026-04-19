@@ -30,3 +30,10 @@ tmp/
 
 # ── GSD baseline (auto-generated) ──
 .bg-shell/
+
+# ── Runtime artifacts (never track) ──
+.data/
+*.lock.db
+body_*.html
+body_*.json
+headers_*.txt

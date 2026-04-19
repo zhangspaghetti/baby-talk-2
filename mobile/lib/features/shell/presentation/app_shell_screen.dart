@@ -16,6 +16,7 @@ import 'package:mobile/features/shell/presentation/screens/discover_screen.dart'
 import 'package:mobile/features/shell/presentation/screens/garden_screen.dart';
 import 'package:mobile/features/shell/presentation/screens/growth_screen.dart';
 import 'package:provider/provider.dart';
+import 'package:mobile/l10n/app_localizations.dart';
 
 class AppShellScreen extends StatefulWidget {
   const AppShellScreen({super.key, this.onboardingSnapshot});
@@ -31,6 +32,7 @@ class _AppShellScreenState extends State<AppShellScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
     final stageMatch = _resolveStageMatch(widget.onboardingSnapshot);
 
     return Scaffold(
@@ -42,7 +44,7 @@ class _AppShellScreenState extends State<AppShellScreen> {
           builder: (context) {
             return IconButton(
               key: const Key('shell-drawer-trigger'),
-              tooltip: '打开家庭抽屉',
+              tooltip: l.shellDrawerTooltip,
               onPressed: () => Scaffold.of(context).openEndDrawer(),
               icon: _DrawerAvatar(snapshot: widget.onboardingSnapshot),
             );
@@ -59,7 +61,7 @@ class _AppShellScreenState extends State<AppShellScreen> {
       ),
       floatingActionButton: FloatingActionButton(
         key: const Key('shell-mentor-fab'),
-        tooltip: '小禾老师',
+        tooltip: l.mentorName,
         onPressed: () => openMentorPanelSheet(
           context,
           launcher: 'shell_fab',
@@ -94,7 +96,7 @@ class _AppShellScreenState extends State<AppShellScreen> {
             _selectedIndex = index;
           });
         },
-        destinations: const [
+        destinations: [
           NavigationDestination(
             icon: Icon(Icons.home_outlined),
             selectedIcon: Icon(Icons.home_rounded),
@@ -168,6 +170,7 @@ class _DrawerAvatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.appColors;
     final theme = Theme.of(context);
     final name = snapshot?.childDisplayName.trim();
     final avatarLabel = name == null || name.isEmpty
@@ -178,15 +181,15 @@ class _DrawerAvatar extends StatelessWidget {
       width: 44,
       height: 44,
       decoration: BoxDecoration(
-        color: AppTheme.bgAccentSoft,
+        color: colors.bgAccentSoft,
         shape: BoxShape.circle,
-        border: Border.all(color: AppTheme.outlineSoft),
+        border: Border.all(color: colors.outlineSoft),
       ),
       alignment: Alignment.center,
       child: Text(
         avatarLabel,
         style: theme.textTheme.titleMedium?.copyWith(
-          color: AppTheme.accentDark,
+          color: colors.accentDark,
         ),
       ),
     );
@@ -201,6 +204,7 @@ class _HouseholdDrawer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.appColors;
     final theme = Theme.of(context);
     final householdViewModel = context.watch<HouseholdViewModel?>();
     final householdSnapshot = householdViewModel?.snapshot;
@@ -231,7 +235,7 @@ class _HouseholdDrawer extends StatelessWidget {
                 key: const Key('shell-drawer-child-name'),
                 style: theme.textTheme.displayMedium?.copyWith(
                   fontSize: 28,
-                  color: AppTheme.textPrimary,
+                  color: colors.textPrimary,
                 ),
               ),
               const SizedBox(height: 8),
@@ -248,13 +252,13 @@ class _HouseholdDrawer extends StatelessWidget {
                   _DrawerRoleChip(
                     key: const Key('shell-drawer-role-badge'),
                     label: role?.label ?? '共享未接通',
-                    backgroundColor: _drawerRoleBackground(role),
-                    foregroundColor: _drawerRoleForeground(role),
+                    backgroundColor: _drawerRoleBackground(role, colors),
+                    foregroundColor: _drawerRoleForeground(role, colors),
                   ),
                   _DrawerRoleChip(
                     label: householdSnapshot?.lastPhase ?? 'idle',
-                    backgroundColor: AppTheme.bgSunken,
-                    foregroundColor: AppTheme.textSecondary,
+                    backgroundColor: colors.bgSunken,
+                    foregroundColor: colors.textSecondary,
                   ),
                 ],
               ),
@@ -269,7 +273,7 @@ class _HouseholdDrawer extends StatelessWidget {
                 width: double.infinity,
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: AppTheme.bgSunken,
+                  color: colors.bgSunken,
                   borderRadius: BorderRadius.circular(16),
                 ),
                 child: Text(
@@ -303,7 +307,7 @@ class _HouseholdDrawer extends StatelessWidget {
                 width: double.infinity,
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: AppTheme.englishSoft,
+                  color: colors.englishSoft,
                   borderRadius: BorderRadius.circular(24),
                 ),
                 child: Column(
@@ -368,25 +372,25 @@ class _DrawerRoleChip extends StatelessWidget {
   }
 }
 
-Color _drawerRoleBackground(HouseholdRole? role) {
+Color _drawerRoleBackground(HouseholdRole? role, BabyTalkColors colors) {
   switch (role) {
     case HouseholdRole.primaryCaregiver:
-      return AppTheme.bgAccentSoft;
+      return colors.bgAccentSoft;
     case HouseholdRole.caregiver:
-      return AppTheme.englishSoft;
+      return colors.englishSoft;
     case null:
-      return AppTheme.bgSunken;
+      return colors.bgSunken;
   }
 }
 
-Color _drawerRoleForeground(HouseholdRole? role) {
+Color _drawerRoleForeground(HouseholdRole? role, BabyTalkColors colors) {
   switch (role) {
     case HouseholdRole.primaryCaregiver:
-      return AppTheme.accentDark;
+      return colors.accentDark;
     case HouseholdRole.caregiver:
-      return AppTheme.english;
+      return colors.english;
     case null:
-      return AppTheme.textSecondary;
+      return colors.textSecondary;
   }
 }
 
@@ -398,6 +402,7 @@ class _DrawerMetaRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.appColors;
     final theme = Theme.of(context);
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -411,7 +416,7 @@ class _DrawerMetaRow extends StatelessWidget {
           child: Text(
             value,
             style: theme.textTheme.bodyMedium?.copyWith(
-              color: AppTheme.textPrimary,
+              color: colors.textPrimary,
               fontWeight: FontWeight.w700,
             ),
           ),

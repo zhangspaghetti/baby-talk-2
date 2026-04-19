@@ -5,6 +5,7 @@ import 'package:mobile/features/household/domain/models/household_role.dart';
 import 'package:mobile/features/household/domain/models/household_shared_context.dart';
 import 'package:mobile/features/household/presentation/household_view_model.dart';
 import 'package:mobile/features/practice/presentation/practice_route_args.dart';
+import 'package:mobile/l10n/app_localizations.dart';
 
 PracticeRouteArgs? resolveHouseholdSharedNextStepArgs(
   HouseholdSharedContext? sharedContext,
@@ -128,6 +129,8 @@ class HouseholdSharedPracticeOverlayCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    final colors = context.appColors;
     final theme = Theme.of(context);
     final safeArgs = resolveHouseholdSharedNextStepArgs(sharedContext);
     final effectiveOnPressed = safeArgs == null
@@ -142,9 +145,9 @@ class HouseholdSharedPracticeOverlayCard extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: AppTheme.bgAccentSoft,
+        color: colors.bgAccentSoft,
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: AppTheme.accent.withValues(alpha: 0.18)),
+        border: Border.all(color: colors.accent.withValues(alpha: 0.18)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -157,21 +160,21 @@ class HouseholdSharedPracticeOverlayCard extends StatelessWidget {
                 context,
                 key: Key('${surfaceKeyPrefix}-actor-chip'),
                 label: sharedContext.actor == null
-                    ? '共享归因'
+                    ? l.householdSharedAttribution
                     : householdActorRoleLabel(sharedContext.actor!.role),
-                backgroundColor: AppTheme.englishSoft,
-                foregroundColor: AppTheme.english,
+                backgroundColor: colors.englishSoft,
+                foregroundColor: colors.english,
               ),
               _buildRoleChip(
                 context,
                 key: Key('${surfaceKeyPrefix}-next-step-chip'),
-                label: safeArgs == null ? '入口待整理' : '下一步已就绪',
+                label: safeArgs == null ? l.householdEntryPending : l.householdNextStepReady,
                 backgroundColor: safeArgs == null
-                    ? AppTheme.warningSoft
-                    : AppTheme.bgSurface,
+                    ? colors.warningSoft
+                    : colors.bgSurface,
                 foregroundColor: safeArgs == null
-                    ? AppTheme.warning
-                    : AppTheme.accentDark,
+                    ? colors.warning
+                    : colors.accentDark,
               ),
             ],
           ),
@@ -192,7 +195,7 @@ class HouseholdSharedPracticeOverlayCard extends StatelessWidget {
             householdSharedAttributionDetail(sharedContext),
             key: Key('${surfaceKeyPrefix}-attribution'),
             style: theme.textTheme.bodySmall?.copyWith(
-              color: AppTheme.textSecondary,
+              color: colors.textSecondary,
               fontWeight: FontWeight.w700,
             ),
           ),
@@ -209,13 +212,13 @@ class HouseholdSharedPracticeOverlayCard extends StatelessWidget {
               width: double.infinity,
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
-                color: AppTheme.warningSoft,
+                color: colors.warningSoft,
                 borderRadius: BorderRadius.circular(16),
               ),
               child: Text(
                 householdSharedUnavailableNextStepMessage(sharedContext),
                 style: theme.textTheme.bodyMedium?.copyWith(
-                  color: AppTheme.warning,
+                  color: colors.warning,
                   fontWeight: FontWeight.w700,
                 ),
               ),
@@ -251,6 +254,8 @@ class HouseholdSharedContextCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    final colors = context.appColors;
     if (viewModel == null) {
       return _HouseholdCardShell(
         surfaceKeyPrefix: surfaceKeyPrefix,
@@ -262,13 +267,13 @@ class HouseholdSharedContextCard extends StatelessWidget {
             _buildRoleChip(
               context,
               key: Key('$surfaceKeyPrefix-household-role-chip'),
-              label: '共享未接通',
-              backgroundColor: AppTheme.warningSoft,
-              foregroundColor: AppTheme.warning,
+              label: l.householdSharedNotConnected,
+              backgroundColor: colors.warningSoft,
+              foregroundColor: colors.warning,
             ),
             const SizedBox(height: 12),
             Text(
-              'household provider 缺失',
+              '共享功能暂未接通',
               key: Key('$surfaceKeyPrefix-household-provider-missing'),
               style: Theme.of(context).textTheme.titleMedium,
             ),
@@ -285,7 +290,7 @@ class HouseholdSharedContextCard extends StatelessWidget {
     final snapshot = viewModel!.snapshot;
     final sharedContext = snapshot.sharedContext;
     final role = snapshot.role;
-    final roleStyle = _roleStyle(role);
+    final roleStyle = _roleStyle(role, colors);
     final theme = Theme.of(context);
     final visibleMessage = _visibleMessage(viewModel!, snapshot);
     final hasVisibleMessage =
@@ -313,8 +318,8 @@ class HouseholdSharedContextCard extends StatelessWidget {
                 context,
                 key: Key('$surfaceKeyPrefix-household-phase-chip'),
                 label: 'phase · ${snapshot.lastPhase}',
-                backgroundColor: AppTheme.bgSunken,
-                foregroundColor: AppTheme.textSecondary,
+                backgroundColor: colors.bgSunken,
+                foregroundColor: colors.textSecondary,
               ),
             ],
           ),
@@ -351,8 +356,8 @@ class HouseholdSharedContextCard extends StatelessWidget {
             _HouseholdBanner(
               key: Key('$surfaceKeyPrefix-household-error-banner'),
               message: visibleMessage,
-              backgroundColor: _bannerBackgroundFor(snapshot),
-              foregroundColor: _bannerForegroundFor(snapshot),
+              backgroundColor: _bannerBackgroundFor(snapshot, colors),
+              foregroundColor: _bannerForegroundFor(snapshot, colors),
             ),
           ],
           if (sharedContext != null) ...[
@@ -378,7 +383,7 @@ class HouseholdSharedContextCard extends StatelessWidget {
               width: double.infinity,
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
-                color: AppTheme.bgSunken,
+                color: colors.bgSunken,
                 borderRadius: BorderRadius.circular(16),
               ),
               child: Text(
@@ -549,22 +554,22 @@ class HouseholdSharedContextCard extends StatelessWidget {
         lastPhase.contains('revoked');
   }
 
-  Color _bannerBackgroundFor(HouseholdLocalSnapshot snapshot) {
+  Color _bannerBackgroundFor(HouseholdLocalSnapshot snapshot, BabyTalkColors colors) {
     if (_isUnavailablePhase(snapshot.lastPhase)) {
       return snapshot.lastPhase.contains('malformed')
-          ? AppTheme.errorSoft
-          : AppTheme.warningSoft;
+          ? colors.errorSoft
+          : colors.warningSoft;
     }
-    return AppTheme.infoSoft;
+    return colors.infoSoft;
   }
 
-  Color _bannerForegroundFor(HouseholdLocalSnapshot snapshot) {
+  Color _bannerForegroundFor(HouseholdLocalSnapshot snapshot, BabyTalkColors colors) {
     if (_isUnavailablePhase(snapshot.lastPhase)) {
       return snapshot.lastPhase.contains('malformed')
-          ? AppTheme.error
-          : AppTheme.warning;
+          ? colors.error
+          : colors.warning;
     }
-    return AppTheme.info;
+    return colors.info;
   }
 }
 
@@ -579,18 +584,20 @@ class _SharedAttributionPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    final colors = context.appColors;
     final actor = sharedContext.actor;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: AppTheme.englishSoft,
+        color: colors.englishSoft,
         borderRadius: BorderRadius.circular(16),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('最近归因', style: Theme.of(context).textTheme.labelMedium),
+          Text(l.householdRecentAttribution, style: Theme.of(context).textTheme.labelMedium),
           const SizedBox(height: 10),
           Wrap(
             spacing: 8,
@@ -600,19 +607,19 @@ class _SharedAttributionPanel extends StatelessWidget {
                 context,
                 key: Key('$surfaceKeyPrefix-household-actor-role-chip'),
                 label: actor == null
-                    ? '归因待补全'
+                    ? l.householdAttributionPending
                     : householdActorRoleLabel(actor.role),
-                backgroundColor: AppTheme.bgSurface,
-                foregroundColor: AppTheme.english,
+                backgroundColor: colors.bgSurface,
+                foregroundColor: colors.english,
               ),
               _buildRoleChip(
                 context,
                 key: Key('$surfaceKeyPrefix-household-actor-result-chip'),
                 label: actor == null
-                    ? '安全摘要'
+                    ? l.householdSafeSummary
                     : householdActorResultLabel(actor.result),
-                backgroundColor: AppTheme.bgSurface,
-                foregroundColor: AppTheme.textSecondary,
+                backgroundColor: colors.bgSurface,
+                foregroundColor: colors.textSecondary,
               ),
             ],
           ),
@@ -645,18 +652,20 @@ class _SharedNextStepPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    final colors = context.appColors;
     final safeArgs = resolveHouseholdSharedNextStepArgs(sharedContext);
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: AppTheme.bgSunken,
+        color: colors.bgSunken,
         borderRadius: BorderRadius.circular(16),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('共享下一步', style: Theme.of(context).textTheme.labelMedium),
+          Text(l.householdSharedNextStep, style: Theme.of(context).textTheme.labelMedium),
           const SizedBox(height: 10),
           Text(
             householdSharedNextStepDetail(sharedContext),
@@ -671,7 +680,7 @@ class _SharedNextStepPanel extends StatelessWidget {
                 : () async {
                     await safeArgs.push(context);
                   },
-            child: Text(safeArgs == null ? '共享下一步待整理' : '进入共享下一步'),
+            child: Text(safeArgs == null ? l.householdNextStepPending : l.enterSharedNextStep),
           ),
           if (safeArgs == null) ...[
             const SizedBox(height: 10),
@@ -679,7 +688,7 @@ class _SharedNextStepPanel extends StatelessWidget {
               householdSharedUnavailableNextStepMessage(sharedContext),
               key: Key('$surfaceKeyPrefix-household-next-step-disabled'),
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: AppTheme.warning,
+                color: colors.warning,
                 fontWeight: FontWeight.w700,
               ),
             ),
@@ -701,23 +710,24 @@ class _HouseholdSummaryBlock extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _SummaryRow(
-          label: '共享宝宝档案',
+          label: l.householdSharedBabyProfile,
           text: sharedContext.babyProfileSummary,
           valueKey: Key('$surfaceKeyPrefix-household-profile-summary'),
         ),
         const SizedBox(height: 12),
         _SummaryRow(
-          label: '最近 continuity',
+          label: l.householdRecentContinuity,
           text: sharedContext.continuitySummary,
           valueKey: Key('$surfaceKeyPrefix-household-continuity-summary'),
         ),
         const SizedBox(height: 12),
         _SummaryRow(
-          label: '花园上下文',
+          label: l.householdGardenContext,
           text: sharedContext.gardenSummary,
           valueKey: Key('$surfaceKeyPrefix-household-garden-summary'),
         ),
@@ -739,14 +749,15 @@ class _SummaryRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.appColors;
     final theme = Theme.of(context);
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: AppTheme.bgSurface,
+        color: colors.bgSurface,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppTheme.outlineSoft),
+        border: Border.all(color: colors.outlineSoft),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -757,7 +768,7 @@ class _SummaryRow extends StatelessWidget {
             text,
             key: valueKey,
             style: theme.textTheme.bodyMedium?.copyWith(
-              color: AppTheme.textPrimary,
+              color: colors.textPrimary,
             ),
           ),
         ],
@@ -781,15 +792,16 @@ class _HouseholdCardShell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.appColors;
     return Container(
       key: Key('$surfaceKeyPrefix-household-shared-context-card'),
       width: double.infinity,
       padding: EdgeInsets.all(compact ? 16 : 18),
       decoration: BoxDecoration(
-        color: AppTheme.bgSurface,
+        color: colors.bgSurface,
         borderRadius: BorderRadius.circular(compact ? 20 : 24),
-        border: Border.all(color: AppTheme.outlineSoft),
-        boxShadow: AppTheme.warmShadowSm,
+        border: Border.all(color: colors.outlineSoft),
+        boxShadow: colors.warmShadowSm,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -847,25 +859,25 @@ class _RoleStyle {
   final Color foregroundColor;
 }
 
-_RoleStyle _roleStyle(HouseholdRole? role) {
+_RoleStyle _roleStyle(HouseholdRole? role, BabyTalkColors colors) {
   switch (role) {
     case HouseholdRole.primaryCaregiver:
-      return const _RoleStyle(
+      return _RoleStyle(
         label: '主照护者',
-        backgroundColor: AppTheme.bgAccentSoft,
-        foregroundColor: AppTheme.accentDark,
+        backgroundColor: colors.bgAccentSoft,
+        foregroundColor: colors.accentDark,
       );
     case HouseholdRole.caregiver:
-      return const _RoleStyle(
+      return _RoleStyle(
         label: '次照护者',
-        backgroundColor: AppTheme.englishSoft,
-        foregroundColor: AppTheme.english,
+        backgroundColor: colors.englishSoft,
+        foregroundColor: colors.english,
       );
     case null:
-      return const _RoleStyle(
+      return _RoleStyle(
         label: '角色待同步',
-        backgroundColor: AppTheme.bgSunken,
-        foregroundColor: AppTheme.textSecondary,
+        backgroundColor: colors.bgSunken,
+        foregroundColor: colors.textSecondary,
       );
   }
 }

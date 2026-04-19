@@ -4,6 +4,7 @@ import 'package:mobile/features/practice/domain/models/interaction_event_payload
 import 'package:mobile/features/practice/domain/models/practice_phrase.dart';
 import 'package:mobile/features/practice/presentation/practice_session_view_model.dart';
 import 'package:mobile/features/practice/presentation/widgets/reaction_chip_row.dart';
+import 'package:mobile/l10n/app_localizations.dart';
 
 class PhraseCard extends StatelessWidget {
   const PhraseCard({
@@ -35,32 +36,33 @@ class PhraseCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.appColors;
     final borderColor = isActive
-        ? AppTheme.english
+        ? colors.english
         : isCompleted
-        ? AppTheme.success
-        : const Color(0xFFE7DDD6);
+        ? colors.success
+        : colors.outlineSoft;
 
-    return Container(
+    return Semantics(
+      label: 'English phrase: ${phrase.english}',
+      excludeSemantics: false,
+      child: Container(
       key: Key('phrase-card-${phrase.phraseId}'),
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: AppTheme.bgSurface,
+        color: colors.bgSurface,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: borderColor, width: isActive ? 2 : 1),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x0F2D2926),
-            blurRadius: 14,
-            offset: Offset(0, 6),
-          ),
-        ],
+        boxShadow: colors.warmShadowSm,
       ),
       child: isActive ? _buildExpanded(context) : _buildCollapsed(context),
+    ),
     );
   }
 
   Widget _buildCollapsed(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    final colors = context.appColors;
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -69,13 +71,13 @@ class PhraseCard extends StatelessWidget {
           height: 34,
           alignment: Alignment.center,
           decoration: BoxDecoration(
-            color: isCompleted ? AppTheme.successSoft : AppTheme.bgSunken,
+            color: isCompleted ? colors.successSoft : colors.bgSunken,
             borderRadius: BorderRadius.circular(9999),
           ),
           child: Text(
             '${phrase.step}',
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: AppTheme.textPrimary,
+              color: colors.textPrimary,
               fontWeight: FontWeight.w700,
             ),
           ),
@@ -89,7 +91,7 @@ class PhraseCard extends StatelessWidget {
                 phrase.english,
                 style: Theme.of(
                   context,
-                ).textTheme.titleMedium?.copyWith(color: AppTheme.textPrimary),
+                ).textTheme.titleMedium?.copyWith(color: colors.textPrimary),
               ),
               const SizedBox(height: 4),
               Text(
@@ -103,13 +105,13 @@ class PhraseCard extends StatelessWidget {
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
           decoration: BoxDecoration(
-            color: isCompleted ? AppTheme.successSoft : AppTheme.bgAccentSoft,
+            color: isCompleted ? colors.successSoft : colors.bgAccentSoft,
             borderRadius: BorderRadius.circular(9999),
           ),
           child: Text(
-            isCompleted ? '已记录' : '待练习',
+            isCompleted ? l.phraseRecorded : l.phrasePending,
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: isCompleted ? AppTheme.success : AppTheme.accentDark,
+              color: isCompleted ? colors.success : colors.accentDark,
               fontWeight: FontWeight.w700,
             ),
           ),
@@ -119,6 +121,8 @@ class PhraseCard extends StatelessWidget {
   }
 
   Widget _buildExpanded(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    final colors = context.appColors;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -149,7 +153,7 @@ class PhraseCard extends StatelessWidget {
           phrase.english,
           style: Theme.of(context).textTheme.displayMedium?.copyWith(
             fontSize: 28,
-            color: AppTheme.english,
+            color: colors.english,
           ),
         ),
         const SizedBox(height: 10),
@@ -157,7 +161,7 @@ class PhraseCard extends StatelessWidget {
           phrase.pronunciation,
           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
             fontFamily: 'JetBrains Mono',
-            color: AppTheme.textPrimary,
+            color: colors.textPrimary,
           ),
         ),
         const SizedBox(height: 8),
@@ -169,7 +173,10 @@ class PhraseCard extends StatelessWidget {
             SizedBox(
               width: 72,
               height: 72,
-              child: ElevatedButton(
+              child: Semantics(
+                label: '播放发音',
+                button: true,
+                child: ElevatedButton(
                 key: Key('play-${phrase.phraseId}'),
                 style: ElevatedButton.styleFrom(
                   shape: const CircleBorder(),
@@ -184,10 +191,11 @@ class PhraseCard extends StatelessWidget {
                 ),
               ),
             ),
+            ),
             const SizedBox(width: 16),
             Expanded(
               child: Text(
-                '点按播放真实本地音频，再选择宝宝反应。状态会直接暴露为 idle / playing / completed / error。',
+                l.phraseNote,
                 style: Theme.of(context).textTheme.bodySmall,
               ),
             ),
@@ -199,15 +207,15 @@ class PhraseCard extends StatelessWidget {
             key: const Key('playback-banner'),
             message: playbackMessage!,
             backgroundColor: playbackStatus == PracticePlaybackStatus.error
-                ? AppTheme.errorSoft
-                : AppTheme.infoSoft,
+                ? colors.errorSoft
+                : colors.infoSoft,
             foregroundColor: playbackStatus == PracticePlaybackStatus.error
-                ? AppTheme.error
-                : AppTheme.info,
+                ? colors.error
+                : colors.info,
           ),
         ],
         const SizedBox(height: 16),
-        Text('宝宝现在的反应', style: Theme.of(context).textTheme.titleMedium),
+        Text(l.phraseReactionLabel, style: Theme.of(context).textTheme.titleMedium),
         const SizedBox(height: 10),
         ReactionChipRow(
           phraseId: phrase.phraseId,
@@ -220,11 +228,11 @@ class PhraseCard extends StatelessWidget {
             key: const Key('save-banner'),
             message: saveMessage!,
             backgroundColor: saveStatus == PracticeSaveStatus.error
-                ? AppTheme.errorSoft
-                : AppTheme.successSoft,
+                ? colors.errorSoft
+                : colors.successSoft,
             foregroundColor: saveStatus == PracticeSaveStatus.error
-                ? AppTheme.error
-                : AppTheme.success,
+                ? colors.error
+                : colors.success,
           ),
         ],
       ],
@@ -265,16 +273,17 @@ class _StatusPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.appColors;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: AppTheme.bgSunken,
+        color: colors.bgSunken,
         borderRadius: BorderRadius.circular(9999),
       ),
       child: Text(
         label,
         style: Theme.of(context).textTheme.bodySmall?.copyWith(
-          color: AppTheme.textPrimary,
+          color: colors.textPrimary,
           fontWeight: FontWeight.w700,
         ),
       ),

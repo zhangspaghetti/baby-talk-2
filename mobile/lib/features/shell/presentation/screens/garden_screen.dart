@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:mobile/app/theme/app_theme.dart';
 import 'package:mobile/features/household/presentation/household_view_model.dart';
@@ -11,12 +12,15 @@ import 'package:mobile/features/practice/presentation/practice_route_args.dart';
 import 'package:mobile/features/share/presentation/share_view_model.dart';
 import 'package:mobile/features/share/presentation/widgets/share_callout_card.dart';
 import 'package:provider/provider.dart';
+import 'package:mobile/l10n/app_localizations.dart';
 
 class GardenScreen extends StatelessWidget {
   const GardenScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    final colors = context.appColors;
     final viewModel = context.watch<GardenGrowthViewModel?>();
     final continuityViewModel = context.watch<PracticeContinuityViewModel?>();
     final householdViewModel = context.watch<HouseholdViewModel?>();
@@ -41,7 +45,6 @@ class GardenScreen extends StatelessWidget {
         isSharedOverlayNewer && sharedNextStepArgs != null;
     final shouldShowSharedOverlayDisabled =
         isSharedOverlayNewer &&
-        sharedContext != null &&
         sharedNextStepArgs == null;
 
     return SafeArea(
@@ -74,7 +77,7 @@ class GardenScreen extends StatelessWidget {
                 HouseholdSharedContextCard(
                   surfaceKeyPrefix: 'garden',
                   viewModel: householdViewModel,
-                  title: '共享归因与花园下一步',
+                  title: l.gardenSharedAttributionTitle,
                   retryReason: 'garden_household_manual_refresh',
                 ),
                 if (shareViewModel != null) ...[
@@ -82,7 +85,7 @@ class GardenScreen extends StatelessWidget {
                   ShareCalloutCard(
                     surfaceKeyPrefix: 'garden',
                     viewModel: shareViewModel,
-                    sectionLabel: '把花园里的这次变化分享给家人',
+                    sectionLabel: l.gardenShareFamily,
                     emptyMessage: '等最近成长和继续建议整理稳定后，再生成一条脱敏分享链接。',
                     onShare: () => shareViewModel.shareCurrent(),
                   ),
@@ -91,9 +94,9 @@ class GardenScreen extends StatelessWidget {
                   const SizedBox(height: 16),
                   _GardenBanner(
                     key: const Key('garden-warning-banner'),
-                    message: viewModel!.message ?? '花园刷新失败，先保留上一次稳定结果。',
-                    backgroundColor: AppTheme.warningSoft,
-                    foregroundColor: AppTheme.warning,
+                    message: viewModel!.message ?? l.gardenRefreshFailed,
+                    backgroundColor: colors.warningSoft,
+                    foregroundColor: colors.warning,
                   ),
                 ],
                 const SizedBox(height: 16),
@@ -109,8 +112,7 @@ class GardenScreen extends StatelessWidget {
                 if (shouldShowSharedOverlay) ...[
                   HouseholdSharedPracticeOverlayCard(
                     surfaceKeyPrefix: 'garden-shared-overlay',
-                    sharedContext: sharedContext!,
-                    buttonLabel: '从共享下一步继续',
+                    sharedContext: sharedContext,
                   ),
                   const SizedBox(height: 16),
                 ],
@@ -118,10 +120,10 @@ class GardenScreen extends StatelessWidget {
                   _GardenBanner(
                     key: const Key('garden-shared-overlay-disabled-banner'),
                     message: householdSharedUnavailableNextStepMessage(
-                      sharedContext!,
+                      sharedContext,
                     ),
-                    backgroundColor: AppTheme.warningSoft,
-                    foregroundColor: AppTheme.warning,
+                    backgroundColor: colors.warningSoft,
+                    foregroundColor: colors.warning,
                   ),
                   const SizedBox(height: 16),
                 ],
@@ -157,27 +159,29 @@ class _GardenHeroCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    final colors = context.appColors;
     final impact = snapshot.latestImpact;
     final theme = Theme.of(context);
     final continuityReasonLabel =
         continuitySnapshot?.recommendation.reasonLabel;
     final continuityActivityTitle = continuityActivity?.title;
 
-    String eyebrow = '花园今日变化';
-    String title = '每一次开口，花园都会记得。';
-    String body = '这里不会给分数，只会把真实发生过的照护练习慢慢长成花圃与花朵。';
+    String eyebrow = l.gardenTodayChanges;
+    String title = l.gardenEveryVoice;
+    String body = l.gardenNoScores;
 
     if (viewModel != null &&
         (viewModel!.status == GardenGrowthLoadStatus.loading ||
             viewModel!.status == GardenGrowthLoadStatus.idle)) {
-      title = '花园正在整理今天的变化';
-      body = '事件会先被投影成花圃、花朵和阶段，再温柔地出现在这里。';
+      title = l.gardenOrganizing;
+      body = l.gardenProjectingNote;
     } else if (continuityViewModel == null) {
-      eyebrow = 'continuity 未接通';
+      eyebrow = l.gardenContinuityNotConnected;
       title = '继续入口暂不可用';
-      body = 'shared continuity provider 缺失时，花园不会回退到默认 activity。';
+      body = l.gardenUnavailable;
     } else if (continuityViewModel!.disabledReason != null) {
-      eyebrow = '回来继续';
+      eyebrow = l.gardenComeBack;
       title = continuityActivityTitle == null
           ? '继续入口暂不可用'
           : '继续 $continuityActivityTitle';
@@ -192,21 +196,21 @@ class _GardenHeroCard extends StatelessWidget {
           : impact.activityId ==
                 continuitySnapshot?.recommendedActivity.activityId
           ? '${impact.detail} 现在继续会回到 $continuityActivityTitle。'
-          : '最新影响来自 ${impact.activityTitle}；回来继续会去 $continuityActivityTitle（${continuityReasonLabel ?? '共享 continuity'}）。';
+          : '最新影响来自 ${impact.activityTitle}；回来继续会去 $continuityActivityTitle（${continuityReasonLabel ?? l.gardenSharedContinuity}）。';
     } else if (continuityActivityTitle != null) {
-      eyebrow = '回来继续';
+      eyebrow = l.gardenComeBack;
       title = '继续 $continuityActivityTitle';
-      body = '花园会和首页一起，把你带回同一条 continuity recommendation。';
+      body = l.gardenContinuitySharedNote;
     }
 
     return Container(
       key: const Key('garden-hero-card'),
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: AppTheme.bgSurface,
+        color: colors.bgSurface,
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: AppTheme.outlineSoft),
-        boxShadow: AppTheme.warmShadowSm,
+        border: Border.all(color: colors.outlineSoft),
+        boxShadow: colors.warmShadowSm,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -219,14 +223,14 @@ class _GardenHeroCard extends StatelessWidget {
               width: double.infinity,
               padding: const EdgeInsets.all(18),
               decoration: BoxDecoration(
-                color: AppTheme.englishSoft,
+                color: colors.englishSoft,
                 borderRadius: BorderRadius.circular(20),
               ),
               child: Text(
                 impact.phraseTitle,
                 style: theme.textTheme.displayMedium?.copyWith(
                   fontSize: 28,
-                  color: AppTheme.english,
+                  color: colors.english,
                 ),
               ),
             ),
@@ -238,22 +242,24 @@ class _GardenHeroCard extends StatelessWidget {
           if (continuityActivityTitle != null) ...[
             const SizedBox(height: 12),
             Text(
-              '$continuityActivityTitle · ${continuityReasonLabel ?? '共享 continuity'}',
+              '$continuityActivityTitle · ${continuityReasonLabel ?? l.gardenSharedContinuity}',
               key: Key(
                 'garden-continuity-target-${continuitySnapshot?.recommendedActivity.activityId ?? 'safe-empty'}',
               ),
               style: theme.textTheme.bodySmall?.copyWith(
-                color: AppTheme.textSecondary,
+                color: colors.textSecondary,
                 fontWeight: FontWeight.w700,
               ),
             ),
           ],
+          if (kDebugMode) ...[
           const SizedBox(height: 12),
           Text(
             'continuity: ${continuityViewModel?.status.label ?? 'missing_provider'}${continuityViewModel?.lastRefreshReason == null ? '' : ' · refresh: ${continuityViewModel!.lastRefreshReason}'}',
             key: const Key('garden-continuity-status'),
             style: theme.textTheme.bodySmall,
           ),
+          ],
           if (snapshot.hasIssues && snapshot.projectionWarning != null) ...[
             const SizedBox(height: 12),
             Text(
@@ -273,23 +279,25 @@ class _GardenEmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    final colors = context.appColors;
     final theme = Theme.of(context);
     return Container(
       key: const Key('garden-empty-state'),
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: AppTheme.bgAccentSoft,
+        color: colors.bgAccentSoft,
         borderRadius: BorderRadius.circular(24),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('第一颗种子还没落下', style: theme.textTheme.titleMedium),
+          Text(l.gardenFirstSeedNotPlanted, style: theme.textTheme.titleMedium),
           const SizedBox(height: 10),
           Text(
-            '先从一句 Warm water. 开始。花圃会先醒来，接着才慢慢长出花朵和节奏。',
+            l.gardenFirstSeedNote,
             style: theme.textTheme.bodyMedium?.copyWith(
-              color: AppTheme.accentDark,
+              color: colors.accentDark,
             ),
           ),
         ],
@@ -305,15 +313,16 @@ class _GardenPatchCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.appColors;
     final theme = Theme.of(context);
     return Container(
       key: Key('garden-patch-${patch.spaceId}'),
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: AppTheme.bgSurface,
+        color: colors.bgSurface,
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: AppTheme.outlineSoft),
-        boxShadow: AppTheme.warmShadowSm,
+        border: Border.all(color: colors.outlineSoft),
+        boxShadow: colors.warmShadowSm,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -338,13 +347,13 @@ class _GardenPatchCard extends StatelessWidget {
                   vertical: 8,
                 ),
                 decoration: BoxDecoration(
-                  color: AppTheme.successSoft,
+                  color: colors.successSoft,
                   borderRadius: BorderRadius.circular(999),
                 ),
                 child: Text(
                   patch.stage.label,
                   style: theme.textTheme.labelMedium?.copyWith(
-                    color: AppTheme.success,
+                    color: colors.success,
                   ),
                 ),
               ),
@@ -386,13 +395,14 @@ class _GardenFlowerCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.appColors;
     final theme = Theme.of(context);
     return Container(
       key: Key('garden-flower-${activity.activityId}'),
       width: double.infinity,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppTheme.bgSunken,
+        color: colors.bgSunken,
         borderRadius: BorderRadius.circular(20),
       ),
       child: Column(
@@ -417,13 +427,13 @@ class _GardenFlowerCard extends StatelessWidget {
                   vertical: 8,
                 ),
                 decoration: BoxDecoration(
-                  color: AppTheme.englishSoft,
+                  color: colors.englishSoft,
                   borderRadius: BorderRadius.circular(999),
                 ),
                 child: Text(
                   activity.stage.label,
                   style: theme.textTheme.labelMedium?.copyWith(
-                    color: AppTheme.english,
+                    color: colors.english,
                   ),
                 ),
               ),
@@ -457,6 +467,8 @@ class _GardenContinueCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    final colors = context.appColors;
     final canContinue =
         practiceArgs != null &&
         !(continuityViewModel?.isActionDisabled ?? true);
@@ -464,46 +476,46 @@ class _GardenContinueCard extends StatelessWidget {
         continuitySnapshot?.recommendedActivity.activityId ?? 'safe-empty';
     final activityTitle = continuityActivity?.title ?? '继续入口暂不可用';
     final reasonLabel =
-        continuitySnapshot?.recommendation.reasonLabel ?? '共享 continuity 暂不可用';
+        continuitySnapshot?.recommendation.reasonLabel ?? l.gardenSharedContinuityUnavailable;
     final warningMessage = continuityViewModel?.warningMessage;
     final disabledReason = continuityViewModel == null
-        ? 'shared continuity provider 缺失，继续练习已禁用。'
+        ? '练习入口暂时不可用。'
         : continuityViewModel?.disabledReason;
 
     return Container(
       key: const Key('garden-continue-card'),
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: AppTheme.englishSoft,
+        color: colors.englishSoft,
         borderRadius: BorderRadius.circular(24),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('继续浇灌', style: Theme.of(context).textTheme.titleMedium),
+          Text(l.gardenContinueWatering, style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: 8),
           Text(
             activityTitle,
             key: Key('garden-continue-target-$activityId'),
             style: Theme.of(
               context,
-            ).textTheme.titleLarge?.copyWith(color: AppTheme.textPrimary),
+            ).textTheme.titleLarge?.copyWith(color: colors.textPrimary),
           ),
           const SizedBox(height: 8),
           Text(
             reasonLabel,
             key: Key('garden-continue-reason-$activityId'),
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: AppTheme.textSecondary,
+              color: colors.textSecondary,
               fontWeight: FontWeight.w700,
             ),
           ),
           const SizedBox(height: 8),
           Text(
-            '如果你现在继续练习，Home 与 Garden 会沿着同一份 recommendation 一起更新。',
+            l.gardenContinueNote,
             style: Theme.of(
               context,
-            ).textTheme.bodyMedium?.copyWith(color: AppTheme.textPrimary),
+            ).textTheme.bodyMedium?.copyWith(color: colors.textPrimary),
           ),
           if (continuitySnapshot?.fallbackReason != null) ...[
             const SizedBox(height: 12),
@@ -511,7 +523,7 @@ class _GardenContinueCard extends StatelessWidget {
               continuitySnapshot!.fallbackReason!,
               key: const Key('garden-continuity-fallback'),
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: AppTheme.info,
+                color: colors.info,
                 fontWeight: FontWeight.w700,
               ),
             ),
@@ -522,7 +534,7 @@ class _GardenContinueCard extends StatelessWidget {
               warningMessage,
               key: const Key('garden-continuity-warning'),
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: AppTheme.warning,
+                color: colors.warning,
                 fontWeight: FontWeight.w700,
               ),
             ),
@@ -533,7 +545,7 @@ class _GardenContinueCard extends StatelessWidget {
               disabledReason,
               key: const Key('garden-launcher-bad-args'),
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: AppTheme.warning,
+                color: colors.warning,
                 fontWeight: FontWeight.w700,
               ),
             ),
@@ -546,7 +558,7 @@ class _GardenContinueCard extends StatelessWidget {
                 : () async {
                     await practiceArgs!.push(context);
                   },
-            child: const Text('继续今天的练习'),
+            child: Text(l.gardenContinueToday),
           ),
         ],
       ),
@@ -561,10 +573,11 @@ class _GardenMetaChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.appColors;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: AppTheme.bgAccentSoft,
+        color: colors.bgAccentSoft,
         borderRadius: BorderRadius.circular(999),
       ),
       child: Text(label, style: Theme.of(context).textTheme.bodySmall),

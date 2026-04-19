@@ -1,11 +1,12 @@
 import 'dart:async';
 import 'dart:io';
 
-import 'package:app_links/app_links.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
+import 'package:mobile/app/app_reentry_orchestrator.dart';
+import 'package:mobile/l10n/app_localizations.dart';
 import 'package:mobile/app/invite_reentry_coordinator.dart';
 import 'package:mobile/app/router/app_router.dart';
 import 'package:mobile/app/share_reentry_coordinator.dart';
@@ -44,7 +45,6 @@ import 'package:mobile/features/share/presentation/share_view_model.dart';
 import 'package:mobile/features/shell/presentation/app_shell_screen.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
-
 export 'package:mobile/features/practice/data/services/asset_phrase_service.dart'
     show SeedActivity, SeedContentBundle, SeedPhrase, SeedSpace;
 
@@ -63,13 +63,12 @@ class AppBootState {
   final String? primaryActivityId;
   final String? errorMessage;
 
-  bool get isReady {
-    return content != null &&
-        assetPhraseService != null &&
-        primarySpaceId != null &&
-        primaryActivityId != null &&
-        errorMessage == null;
-  }
+  bool get isReady =>
+      content != null &&
+      assetPhraseService != null &&
+      primarySpaceId != null &&
+      primaryActivityId != null &&
+      errorMessage == null;
 
   static Future<AppBootState> load(AssetBundle bundle) async {
     final assetPhraseService = AssetPhraseService(bundle: bundle);
@@ -89,7 +88,7 @@ class AppBootState {
         assetPhraseService: null,
         primarySpaceId: null,
         primaryActivityId: null,
-        errorMessage: 'Boot failed: $error',
+        errorMessage: '应用启动失败，请重启后重试。',
       );
     }
   }
@@ -111,10 +110,7 @@ typedef AppDirectoryResolver = Future<Directory> Function();
 typedef PracticeAudioControllerFactory = PracticeAudioController Function();
 typedef OnboardingCompletedSnapshotLoader =
     Future<OnboardingSnapshot?> Function();
-
 const _bootContinuitySeedTimeout = Duration(seconds: 4);
-
-enum AppLaunchDestination { onboarding, shell }
 
 class _AppBootContinuitySeed {
   const _AppBootContinuitySeed({
@@ -153,14 +149,10 @@ class _AppLaunchState {
   final PracticeContinuitySeedState? continuitySeed;
   final OnboardingSnapshot? completedSnapshot;
 
-  String get initialRoute {
-    switch (destination) {
-      case AppLaunchDestination.onboarding:
-        return AppRouteNames.onboarding;
-      case AppLaunchDestination.shell:
-        return AppRouteNames.shell;
-    }
-  }
+  String get initialRoute => switch (destination) {
+        AppLaunchDestination.onboarding => AppRouteNames.onboarding,
+        AppLaunchDestination.shell => AppRouteNames.shell,
+      };
 }
 
 class BabyTalkApp extends StatefulWidget {
@@ -203,10 +195,8 @@ class _BabyTalkAppState extends State<BabyTalkApp> {
   late final InviteReentryCoordinator _inviteReentryCoordinator;
   late final bool _ownsShareReentryCoordinator;
   late final bool _ownsInviteReentryCoordinator;
+  late final AppReentryOrchestrator _reentryOrchestrator;
   final GlobalKey<NavigatorState> _navigatorKey = GlobalKey<NavigatorState>();
-  StreamSubscription<Uri>? _shareUriSubscription;
-  Future<void>? _inviteDrainFuture;
-  bool _inviteDrainQueued = false;
   PracticeRepository? _repository;
   MentorRepository? _mentorRepository;
   _AppLaunchState? _resolvedLaunchState;
@@ -220,7 +210,20 @@ class _BabyTalkAppState extends State<BabyTalkApp> {
         widget.shareReentryCoordinator ?? ShareReentryCoordinator();
     _inviteReentryCoordinator =
         widget.inviteReentryCoordinator ?? InviteReentryCoordinator();
-    _configureShareUriSubscription();
+    _reentryOrchestrator = AppReentryOrchestrator(
+      shareReentryCoordinator: _shareReentryCoordinator,
+      inviteReentryCoordinator: _inviteReentryCoordinator,
+      navigatorStateProvider: () => _navigatorKey.currentState,
+      mountedCheck: () => mounted,
+      launchDestinationProvider: () => _resolvedLaunchState?.destination,
+      seedContentProvider: () => widget.bootState.content,
+      householdViewModelLookup: _lookupViewModel<HouseholdViewModel>,
+      continuityViewModelLookup:
+          _lookupViewModel<PracticeContinuityViewModel>,
+      gardenGrowthViewModelLookup:
+          _lookupViewModel<GardenGrowthViewModel>,
+    );
+    _reentryOrchestrator.configureShareUriSubscription(widget.shareUriStream);
     _launchStateFuture = _loadLaunchState();
   }
 
@@ -228,7 +231,7 @@ class _BabyTalkAppState extends State<BabyTalkApp> {
   void didUpdateWidget(covariant BabyTalkApp oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.shareUriStream != widget.shareUriStream) {
-      _configureShareUriSubscription();
+      _reentryOrchestrator.configureShareUriSubscription(widget.shareUriStream);
     }
     if (oldWidget.bootState != widget.bootState ||
         oldWidget.repositoryFactory != widget.repositoryFactory ||
@@ -251,7 +254,11 @@ class _BabyTalkAppState extends State<BabyTalkApp> {
     if (!widget.bootState.isReady) {
       return MaterialApp(
         debugShowCheckedModeBanner: false,
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
         theme: AppTheme.build(),
+        darkTheme: AppTheme.buildDark(),
+        themeMode: ThemeMode.system,
         home: BootFailureScreen(
           message: widget.bootState.errorMessage ?? '未知启动错误',
           statusKey: const Key('boot-status-failed'),
@@ -265,7 +272,11 @@ class _BabyTalkAppState extends State<BabyTalkApp> {
         if (snapshot.connectionState != ConnectionState.done) {
           return MaterialApp(
             debugShowCheckedModeBanner: false,
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
             theme: AppTheme.build(),
+            darkTheme: AppTheme.buildDark(),
+            themeMode: ThemeMode.system,
             home: const BootLoadingScreen(),
           );
         }
@@ -273,7 +284,11 @@ class _BabyTalkAppState extends State<BabyTalkApp> {
         if (snapshot.hasError) {
           return MaterialApp(
             debugShowCheckedModeBanner: false,
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
             theme: AppTheme.build(),
+            darkTheme: AppTheme.buildDark(),
+            themeMode: ThemeMode.system,
             home: BootFailureScreen(
               message: 'onboarding 本地档案读取失败：${snapshot.error}',
               statusKey: const Key('boot-route-gate-failed'),
@@ -286,8 +301,8 @@ class _BabyTalkAppState extends State<BabyTalkApp> {
         final launchState = snapshot.requireData;
         _resolvedLaunchState = launchState;
         WidgetsBinding.instance.addPostFrameCallback((_) {
-          _drainPendingShareReentry();
-          unawaited(_drainPendingInviteReentry());
+          _reentryOrchestrator.drainPendingShareReentry();
+          unawaited(_reentryOrchestrator.drainPendingInviteReentry());
         });
         final practiceRepository = launchState.practiceRepository;
         final onboardingRepository = launchState.onboardingRepository;
@@ -390,7 +405,11 @@ class _BabyTalkAppState extends State<BabyTalkApp> {
             builder: (context, child) => _ReentryOverlay(child: child),
             debugShowCheckedModeBanner: false,
             title: 'Baby Talk 2',
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
             theme: AppTheme.build(),
+            darkTheme: AppTheme.buildDark(),
+            themeMode: ThemeMode.system,
             navigatorObservers: [appRouteObserver],
             initialRoute: launchState.initialRoute,
             onGenerateRoute: AppRouter.onGenerateRoute(
@@ -434,7 +453,7 @@ class _BabyTalkAppState extends State<BabyTalkApp> {
   void dispose() {
     final repository = _repository;
     final mentorRepository = _mentorRepository;
-    unawaited(_shareUriSubscription?.cancel() ?? Future<void>.value());
+    _reentryOrchestrator.dispose();
     if (_ownsShareReentryCoordinator) {
       _shareReentryCoordinator.dispose();
     }
@@ -450,211 +469,13 @@ class _BabyTalkAppState extends State<BabyTalkApp> {
     super.dispose();
   }
 
-  Future<void> _configureShareUriSubscription() async {
-    await _shareUriSubscription?.cancel();
-    final stream = widget.shareUriStream ?? AppLinks().uriLinkStream;
-    _shareUriSubscription = stream.listen(
-      _handleIncomingUri,
-      onError: (Object error, StackTrace stackTrace) {
-        _shareReentryCoordinator.markFallback(message: '分享回流监听异常，已停留在首页安全入口。');
-        _inviteReentryCoordinator.markFallback(message: '邀请回流监听异常，已停留在首页安全入口。');
-      },
-    );
-  }
-
-  void _handleIncomingUri(Uri uri) {
-    final host = uri.host.toLowerCase();
-    if (host == 'share') {
-      final decision = _shareReentryCoordinator.acceptUri(uri);
-      if (decision.dispatchTarget == ShareReentryDispatchTarget.none) {
-        return;
-      }
-      _drainPendingShareReentry();
-      return;
-    }
-
-    if (host == 'invite') {
-      final decision = _inviteReentryCoordinator.acceptUri(uri);
-      if (decision.dispatchTarget == InviteReentryDispatchTarget.none) {
-        return;
-      }
-      unawaited(_drainPendingInviteReentry());
-    }
-  }
-
-  void _drainPendingShareReentry() {
-    final launchState = _resolvedLaunchState;
-    final navigator = _navigatorKey.currentState;
-    if (!mounted || launchState == null || navigator == null) {
-      return;
-    }
-
-    if (launchState.destination != AppLaunchDestination.shell) {
-      final hadPendingPractice =
-          _shareReentryCoordinator.takePendingPracticeArgs() != null;
-      final hadPendingFallback = _shareReentryCoordinator
-          .takePendingShellFallback();
-      if (hadPendingPractice || hadPendingFallback) {
-        _shareReentryCoordinator.markFallback(
-          message: '分享回流已收到，但当前 app 还不能安全进入练习；已停留在安全入口。',
-        );
-      }
-      return;
-    }
-
-    if (_shareReentryCoordinator.takePendingShellFallback()) {
-      AppRouter.navigateToShellFallback(navigator: navigator);
-      _shareReentryCoordinator.markFallback(
-        message:
-            _shareReentryCoordinator.lastErrorSurface ?? '分享链接不可用，已停留在首页安全入口。',
-      );
-      return;
-    }
-
-    final practiceArgs = _shareReentryCoordinator.takePendingPracticeArgs();
-    if (practiceArgs == null) {
-      return;
-    }
-    if (!practiceArgs.isSupportedBy(widget.bootState.content!)) {
-      AppRouter.navigateToShellFallback(navigator: navigator);
-      _shareReentryCoordinator.markFallback(
-        message: '分享链接里的 activity 不受支持，已停留在首页安全入口。',
-      );
-      return;
-    }
-
-    AppRouter.navigateToPracticeSeam(navigator: navigator, args: practiceArgs);
-    _shareReentryCoordinator.markHandled(args: practiceArgs);
-  }
-
-  Future<void> _drainPendingInviteReentry() {
-    final inFlight = _inviteDrainFuture;
-    if (inFlight != null) {
-      _inviteDrainQueued = true;
-      return inFlight;
-    }
-    final future = _drainPendingInviteReentryInternal();
-    _inviteDrainFuture = future;
-    return future.whenComplete(() {
-      if (identical(_inviteDrainFuture, future)) {
-        _inviteDrainFuture = null;
-      }
-      final shouldDrainAgain = _inviteDrainQueued;
-      _inviteDrainQueued = false;
-      if (shouldDrainAgain && mounted) {
-        unawaited(_drainPendingInviteReentry());
-      }
-    });
-  }
-
-  Future<void> _drainPendingInviteReentryInternal() async {
-    final launchState = _resolvedLaunchState;
-    final navigator = _navigatorKey.currentState;
-    if (!mounted || launchState == null || navigator == null) {
-      return;
-    }
-
-    if (launchState.destination != AppLaunchDestination.shell) {
-      final hadPendingAccept =
-          _inviteReentryCoordinator.takePendingAcceptCommand() != null;
-      final hadPendingFallback = _inviteReentryCoordinator
-          .takePendingShellFallback();
-      if (hadPendingAccept || hadPendingFallback) {
-        _inviteReentryCoordinator.markFallback(
-          message: '邀请回流已收到，但当前 app 还不能安全进入共享练习；已停留在安全入口。',
-        );
-      }
-      return;
-    }
-
-    if (_inviteReentryCoordinator.takePendingShellFallback()) {
-      AppRouter.navigateToShellFallback(navigator: navigator);
-      _inviteReentryCoordinator.markFallback(
-        message:
-            _inviteReentryCoordinator.lastErrorSurface ?? '邀请链接不可用，已停留在首页安全入口。',
-      );
-      return;
-    }
-
-    final command = _inviteReentryCoordinator.takePendingAcceptCommand();
-    if (command == null) {
-      return;
-    }
-
-    final householdViewModel = _lookupHouseholdViewModel();
-    if (householdViewModel == null) {
-      AppRouter.navigateToShellFallback(navigator: navigator);
-      _inviteReentryCoordinator.markFallback(
-        message: 'household provider 缺失，邀请回流已停留在首页安全入口。',
-      );
-      return;
-    }
-
-    final result = await householdViewModel.acceptInviteFromReentry(command);
-    final practiceArgs = result.practiceArgs;
-    if (!mounted) {
-      return;
-    }
-    if (practiceArgs == null) {
-      AppRouter.navigateToShellFallback(navigator: navigator);
-      _inviteReentryCoordinator.markFallback(message: result.message);
-      return;
-    }
-    if (!practiceArgs.isSupportedBy(widget.bootState.content!)) {
-      AppRouter.navigateToShellFallback(navigator: navigator);
-      _inviteReentryCoordinator.markFallback(
-        message: '邀请返回的 activity 不受支持，已停留在首页安全入口。',
-      );
-      return;
-    }
-
-    final continuityViewModel = _lookupPracticeContinuityViewModel();
-    if (continuityViewModel != null) {
-      await continuityViewModel.configureStarterArgs(
-        practiceArgs,
-        reason: 'invite_accept',
-      );
-    }
-    final gardenGrowthViewModel = _lookupGardenGrowthViewModel();
-    if (gardenGrowthViewModel != null) {
-      await gardenGrowthViewModel.refresh();
-    }
-
-    AppRouter.navigateToPracticeSeam(navigator: navigator, args: practiceArgs);
-    _inviteReentryCoordinator.markHandled(args: practiceArgs);
-  }
-
-  HouseholdViewModel? _lookupHouseholdViewModel() {
+  T? _lookupViewModel<T>() {
     final context = _navigatorKey.currentContext;
     if (context == null) {
       return null;
     }
     try {
-      return Provider.of<HouseholdViewModel>(context, listen: false);
-    } on ProviderNotFoundException {
-      return null;
-    }
-  }
-
-  PracticeContinuityViewModel? _lookupPracticeContinuityViewModel() {
-    final context = _navigatorKey.currentContext;
-    if (context == null) {
-      return null;
-    }
-    try {
-      return Provider.of<PracticeContinuityViewModel>(context, listen: false);
-    } on ProviderNotFoundException {
-      return null;
-    }
-  }
-
-  GardenGrowthViewModel? _lookupGardenGrowthViewModel() {
-    final context = _navigatorKey.currentContext;
-    if (context == null) {
-      return null;
-    }
-    try {
-      return Provider.of<GardenGrowthViewModel>(context, listen: false);
+      return Provider.of<T>(context, listen: false);
     } on ProviderNotFoundException {
       return null;
     }
@@ -759,10 +580,7 @@ class _BabyTalkAppState extends State<BabyTalkApp> {
         primaryArgs;
 
     if (completedSnapshot == null) {
-      return _AppBootContinuitySeed(
-        starterArgs: starterArgs,
-        defaultPracticeArgs: starterArgs,
-      );
+      return _AppBootContinuitySeed(starterArgs: starterArgs, defaultPracticeArgs: starterArgs);
     }
 
     try {
@@ -777,10 +595,7 @@ class _BabyTalkAppState extends State<BabyTalkApp> {
         activityId: continuitySnapshot.recommendedActivity.activityId,
       );
       if (recommendedArgs == null) {
-        return _AppBootContinuitySeed(
-          starterArgs: starterArgs,
-          defaultPracticeArgs: starterArgs,
-        );
+        return _AppBootContinuitySeed(starterArgs: starterArgs, defaultPracticeArgs: starterArgs);
       }
 
       final activitySnapshot = await repository
@@ -804,20 +619,11 @@ class _BabyTalkAppState extends State<BabyTalkApp> {
         ),
       );
     } on TimeoutException {
-      return _AppBootContinuitySeed(
-        starterArgs: starterArgs,
-        defaultPracticeArgs: starterArgs,
-      );
+      return _AppBootContinuitySeed(starterArgs: starterArgs, defaultPracticeArgs: starterArgs);
     } on FormatException {
-      return _AppBootContinuitySeed(
-        starterArgs: starterArgs,
-        defaultPracticeArgs: starterArgs,
-      );
+      return _AppBootContinuitySeed(starterArgs: starterArgs, defaultPracticeArgs: starterArgs);
     } catch (_) {
-      return _AppBootContinuitySeed(
-        starterArgs: starterArgs,
-        defaultPracticeArgs: starterArgs,
-      );
+      return _AppBootContinuitySeed(starterArgs: starterArgs, defaultPracticeArgs: starterArgs);
     }
   }
 
@@ -878,22 +684,16 @@ class _BabyTalkAppState extends State<BabyTalkApp> {
 
   Future<Directory> _resolveAppDirectory() async {
     final resolver = widget.appDirectoryResolver;
-    if (resolver != null) {
-      return resolver();
-    }
-
+    if (resolver != null) return resolver();
     try {
       return await getApplicationSupportDirectory();
     } on MissingPluginException {
-      final directory = Directory(
-        '${Directory.systemTemp.path}${Platform.pathSeparator}baby_talk_2_support',
-      );
+      final directory = Directory('${Directory.systemTemp.path}${Platform.pathSeparator}baby_talk_2_support');
       await directory.create(recursive: true);
       return directory;
     }
   }
 }
-
 class BootLoadingScreen extends StatelessWidget {
   const BootLoadingScreen({super.key});
 
@@ -925,6 +725,7 @@ class BootFailureScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.appColors;
     return Scaffold(
       body: SafeArea(
         child: Padding(
@@ -934,7 +735,7 @@ class BootFailureScreen extends StatelessWidget {
               key: statusKey,
               padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
-                color: AppTheme.errorSoft,
+                color: colors.errorSoft,
                 borderRadius: BorderRadius.circular(24),
               ),
               child: Column(
@@ -982,10 +783,11 @@ class _ReentryOverlay extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.appColors;
     final inviteCoordinator = context.watch<InviteReentryCoordinator>();
     final shareCoordinator = context.watch<ShareReentryCoordinator>();
-    final inviteMessage = inviteCoordinator?.displayMessage?.trim();
-    final shareMessage = shareCoordinator?.displayMessage?.trim();
+    final inviteMessage = inviteCoordinator.displayMessage?.trim();
+    final shareMessage = shareCoordinator.displayMessage?.trim();
     final hasInviteMessage = inviteMessage != null && inviteMessage.isNotEmpty;
     final hasShareMessage = shareMessage != null && shareMessage.isNotEmpty;
     final visibleMessage = hasInviteMessage
@@ -1012,18 +814,18 @@ class _ReentryOverlay extends StatelessWidget {
                     constraints: const BoxConstraints(maxWidth: 430),
                     padding: const EdgeInsets.fromLTRB(16, 14, 12, 14),
                     decoration: BoxDecoration(
-                      color: AppTheme.warningSoft,
+                      color: colors.warningSoft,
                       borderRadius: BorderRadius.circular(16),
-                      boxShadow: AppTheme.warmShadowMd,
+                      boxShadow: colors.warmShadowMd,
                     ),
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Padding(
+                        Padding(
                           padding: EdgeInsets.only(top: 2),
                           child: Icon(
                             Icons.info_outline,
-                            color: AppTheme.warning,
+                            color: colors.warning,
                             size: 18,
                           ),
                         ),
@@ -1033,23 +835,23 @@ class _ReentryOverlay extends StatelessWidget {
                             visibleMessage,
                             style: Theme.of(context).textTheme.bodyMedium
                                 ?.copyWith(
-                                  color: AppTheme.warning,
+                                  color: colors.warning,
                                   fontWeight: FontWeight.w700,
                                 ),
                           ),
                         ),
                         IconButton(
                           tooltip: '关闭提示',
-                          icon: const Icon(
+                          icon: Icon(
                             Icons.close,
                             size: 18,
-                            color: AppTheme.warning,
+                            color: colors.warning,
                           ),
                           onPressed: () {
                             if (hasInviteMessage) {
-                              inviteCoordinator?.clearMessage();
+                              inviteCoordinator.clearMessage();
                             } else {
-                              shareCoordinator?.clearMessage();
+                              shareCoordinator.clearMessage();
                             }
                           },
                         ),
