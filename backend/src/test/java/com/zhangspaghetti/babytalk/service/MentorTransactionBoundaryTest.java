@@ -57,6 +57,7 @@ class MentorTransactionBoundaryTest extends AbstractIntegrationTest {
                         "discover",
                         "single_turn",
                         "corr_tx_timeout",
+                        null,
                         null
                 ),
                 null
@@ -88,6 +89,7 @@ class MentorTransactionBoundaryTest extends AbstractIntegrationTest {
                         "growth",
                         "single_turn",
                         "corr_tx_malformed",
+                        null,
                         null
                 ),
                 null
@@ -116,7 +118,8 @@ class MentorTransactionBoundaryTest extends AbstractIntegrationTest {
                         "home",
                         "single_turn",
                         "corr_tx_success",
-                        "baby 14 months"
+                        "baby 14 months",
+                        null
                 ),
                 null
         );
@@ -149,6 +152,7 @@ class MentorTransactionBoundaryTest extends AbstractIntegrationTest {
                             "home",
                             "single_turn",
                             "corr_rate_fill_" + i,
+                            null,
                             null
                     ),
                     null
@@ -163,6 +167,7 @@ class MentorTransactionBoundaryTest extends AbstractIntegrationTest {
                         "home",
                         "single_turn",
                         "corr_rate_limited",
+                        null,
                         null
                 ),
                 null

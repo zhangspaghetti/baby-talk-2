@@ -80,6 +80,7 @@ class MentorRateLimitConcurrencyTest extends AbstractIntegrationTest {
                                     "home",
                                     "single_turn",
                                     "corr_concurrent_" + index,
+                                    null,
                                     null
                             ),
                             session.sessionId()
@@ -170,6 +171,7 @@ class MentorRateLimitConcurrencyTest extends AbstractIntegrationTest {
                                 "home",
                                 "single_turn",
                                 "corr_seq_" + i,
+                                null,
                                 null
                         ),
                         null

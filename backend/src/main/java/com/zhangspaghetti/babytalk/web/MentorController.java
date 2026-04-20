@@ -31,7 +31,8 @@ public class MentorController {
                         request.surface(),
                         request.mode(),
                         request.correlationId(),
-                        request.contextSummary()
+                        request.contextSummary(),
+                        request.conversationId()
                 ),
                 sessionId
         );
@@ -43,7 +44,8 @@ public class MentorController {
             String surface,
             String mode,
             String correlationId,
-            String contextSummary
+            String contextSummary,
+            String conversationId
     ) {
     }
 }

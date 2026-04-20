@@ -122,6 +122,7 @@ app:
       - standalone_home
     allowed-modes:
       - single_turn
+      - multi_turn
     blocked-keywords:
       - slap
       - hit
@@ -132,6 +133,7 @@ app:
     simulate-malformed-token: ${BABY_TALK_MENTOR_SIMULATE_MALFORMED_TOKEN:[malformed]}
     simulate-unavailable-token: ${BABY_TALK_MENTOR_SIMULATE_UNAVAILABLE_TOKEN:[unavailable]}
     search-mode: ${BABY_TALK_MENTOR_SEARCH_MODE:none}
+    session-timeout: ${BABY_TALK_MENTOR_SESSION_TIMEOUT:PT30M}
   embedding:
     base-url: ${BABY_TALK_EMBEDDING_BASE_URL:https://models.inference.ai.azure.com}
     api-key: ${BABY_TALK_EMBEDDING_API_KEY:}

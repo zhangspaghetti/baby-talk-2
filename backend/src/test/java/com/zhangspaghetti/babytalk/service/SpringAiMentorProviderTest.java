@@ -68,7 +68,8 @@ class SpringAiMentorProviderTest {
                 "[timeout]",
                 "[malformed]",
                 "[unavailable]",
-                searchMode
+                searchMode,
+                Duration.ofMinutes(30)
         );
     }
 

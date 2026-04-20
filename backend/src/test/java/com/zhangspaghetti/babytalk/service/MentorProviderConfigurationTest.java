@@ -51,7 +51,8 @@ class MentorProviderConfigurationTest {
                 "[timeout]",
                 "[malformed]",
                 "[unavailable]",
-                searchMode
+                searchMode,
+                Duration.ofMinutes(30)
         );
     }
 

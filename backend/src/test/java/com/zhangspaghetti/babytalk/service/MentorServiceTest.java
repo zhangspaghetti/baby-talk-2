@@ -51,6 +51,7 @@ class MentorServiceTest extends AbstractIntegrationTest {
                         "home",
                         "single_turn",
                         "corr_blocked",
+                        null,
                         null
                 ),
                 null
@@ -85,7 +86,8 @@ class MentorServiceTest extends AbstractIntegrationTest {
                         "garden",
                         "single_turn",
                         "corr_success",
-                        "baby stage context"
+                        "baby stage context",
+                        null
                 ),
                 session.sessionId()
         );
@@ -112,6 +114,7 @@ class MentorServiceTest extends AbstractIntegrationTest {
                         "discover",
                         "single_turn",
                         "corr_timeout",
+                        null,
                         null
                 ),
                 null
@@ -141,6 +144,7 @@ class MentorServiceTest extends AbstractIntegrationTest {
                         "growth",
                         "single_turn",
                         "corr_malformed",
+                        null,
                         null
                 ),
                 null
@@ -169,6 +173,7 @@ class MentorServiceTest extends AbstractIntegrationTest {
                         "home",
                         "single_turn",
                         "corr_first",
+                        null,
                         null
                 ),
                 null
@@ -182,6 +187,7 @@ class MentorServiceTest extends AbstractIntegrationTest {
                         "home",
                         "single_turn",
                         "corr_second",
+                        null,
                         null
                 ),
                 null

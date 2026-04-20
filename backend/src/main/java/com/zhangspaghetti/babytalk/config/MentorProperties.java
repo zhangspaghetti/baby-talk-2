@@ -29,7 +29,8 @@ public record MentorProperties(
         @NotBlank String simulateTimeoutToken,
         @NotBlank String simulateMalformedToken,
         @NotBlank String simulateUnavailableToken,
-        String searchMode
+        String searchMode,
+        Duration sessionTimeout
 ) {
     /**
      * 返回 searchMode，默认为 "none"。
@@ -37,5 +38,12 @@ public record MentorProperties(
      */
     public String effectiveSearchMode() {
         return (searchMode == null || searchMode.isBlank()) ? "none" : searchMode.trim().toLowerCase();
+    }
+
+    /**
+     * 返回 sessionTimeout，默认 30 分钟。
+     */
+    public Duration effectiveSessionTimeout() {
+        return sessionTimeout == null ? Duration.ofMinutes(30) : sessionTimeout;
     }
 }

@@ -25,6 +25,7 @@ public class MentorService {
     private final AuthConsentSyncRepository authConsentSyncRepository;
     private final MentorProvider mentorProvider;
     private final MentorProperties properties;
+    private final ConversationSessionService conversationSessionService;
     private final TransactionTemplate transactionTemplate;
     private final Clock clock = Clock.systemUTC();
 
@@ -33,12 +34,14 @@ public class MentorService {
             AuthConsentSyncRepository authConsentSyncRepository,
             MentorProvider mentorProvider,
             MentorProperties properties,
+            ConversationSessionService conversationSessionService,
             PlatformTransactionManager txManager
     ) {
         this.repository = repository;
         this.authConsentSyncRepository = authConsentSyncRepository;
         this.mentorProvider = mentorProvider;
         this.properties = properties;
+        this.conversationSessionService = conversationSessionService;
         this.transactionTemplate = new TransactionTemplate(txManager);
     }
 
@@ -86,7 +89,7 @@ public class MentorService {
                     phase1Result.requestSummary(),
                     phase1Result.association().authenticated(),
                     phase1Result.now(),
-                    null // conversationId — T03 补充
+                    phase1Result.conversationId()
             ));
             var responseText = normalizeProviderResponse(providerResponse.responseText());
             var responseSummary = providerResponse.responseSummary() == null || providerResponse.responseSummary().isBlank()
@@ -130,6 +133,7 @@ public class MentorService {
 
             return new ChatResponse(
                     phase1Result.effectiveCorrelationId(),
+                    phase1Result.conversationId(),
                     responseText,
                     "ok",
                     "response_delivered",
@@ -245,6 +249,9 @@ public class MentorService {
         var requestSummary = buildRequestSummary(surface, mode, prompt, command.contextSummary());
         var association = resolveSession(sessionIdHeader, installationId, effectiveCorrelationId, requestSummary, now);
 
+        // 解析 conversationId：null/blank → 新 UUID, 超时 → 新 UUID + WARN, 未超时 → 原 ID
+        var resolvedConversationId = conversationSessionService.resolveConversationId(command.conversationId());
+
         // 先 INSERT chat_requested audit 占位，再 COUNT 窗口内请求数（修复并发 TOCTOU 竞态）
         var currentCount = repository.insertAuditAndCountWindow(
                 auditRow(
@@ -340,8 +347,10 @@ public class MentorService {
                     requestSummary,
                     remaining,
                     now,
+                    resolvedConversationId,
                     new ChatResponse(
                             effectiveCorrelationId,
+                            resolvedConversationId,
                             fallbackText,
                             "blocked_fallback",
                             "blocked_fallback",
@@ -364,6 +373,7 @@ public class MentorService {
                 requestSummary,
                 remaining,
                 now,
+                resolvedConversationId,
                 null
         );
     }
@@ -769,12 +779,14 @@ public class MentorService {
             String surface,
             String mode,
             String correlationId,
-            String contextSummary
+            String contextSummary,
+            String conversationId
     ) {
     }
 
     public record ChatResponse(
             String correlationId,
+            String conversationId,
             String responseText,
             String code,
             String phase,
@@ -818,6 +830,7 @@ public class MentorService {
             String requestSummary,
             int remaining,
             Instant now,
+            String conversationId,
             ChatResponse earlyResponse
     ) {
     }
