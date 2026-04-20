@@ -4,15 +4,14 @@ FROM maven:3-eclipse-temurin-17 AS builder
 WORKDIR /app
 
 # 先复制依赖描述文件，利用 Docker 层缓存
-COPY pom.xml mvnw mvnw.cmd ./
-COPY .mvn/ .mvn/
+COPY pom.xml ./
 
-# 缓存依赖层（离线模式下载所有依赖）
-RUN chmod +x mvnw && ./mvnw dependency:go-offline -B
+# 缓存依赖层（使用镜像内置 mvn，避免 mvnw CRLF 行尾问题）
+RUN mvn dependency:go-offline -B
 
 # 复制源码并打包
 COPY src/ src/
-RUN ./mvnw package -DskipTests -B
+RUN mvn package -DskipTests -B
 
 # ── Stage 2: 运行 ──────────────────────────────────────────────
 FROM eclipse-temurin:17-jre-alpine AS runtime

@@ -5,3 +5,11 @@ spring:
     driver-class-name: org.postgresql.Driver
   flyway:
     clean-disabled: false
+
+# 测试环境 embedding 配置（集成测试中使用 mock EmbeddingModel 覆盖此 bean）
+app:
+  embedding:
+    base-url: https://test.example.com
+    api-key: test-api-key-placeholder
+    model: text-embedding-3-small
+    dimensions: 1536
