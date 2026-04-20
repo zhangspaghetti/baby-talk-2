@@ -1,42 +1,70 @@
 package com.zhangspaghetti.babytalk.service;
 
 import com.zhangspaghetti.babytalk.config.MentorProperties;
+import com.zhangspaghetti.babytalk.palace.MemPalacePromptBuilder;
+import com.zhangspaghetti.babytalk.palace.PalaceSearchService;
+import com.zhangspaghetti.babytalk.palace.PalaceToolProvider;
 import java.net.SocketTimeoutException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.ai.chat.client.ChatClient;
 
 /**
  * 基于 Spring AI ChatClient 的 MentorProvider 实现。
  * 支持 OpenAI 兼容的 API（包括 GitHub Models、标准 OpenAI 等）。
+ *
+ * <p>通过 {@code app.mentor.search-mode} 配置切换三种模式：
+ * <ul>
+ *   <li>none — 原有行为，不调用知识宫殿</li>
+ *   <li>rag — L0 + L1 预注入知识，无 tool calling</li>
+ *   <li>agentic — L0 + L1 + L2 工具指引，启用 tool calling</li>
+ * </ul>
  */
 public class SpringAiMentorProvider implements MentorProvider {
 
-    // 包级可见，方便测试断言
-    static final String SYSTEM_PROMPT = """
-            你是小禾老师，一位温暖、专业的早期语言发展导师。
-            规则：
-            - 回复不超过 200 字，使用简洁中文，可适当加入英文示范短句
-            - 不给医疗诊断建议
-            - 不讨论任何可能伤害儿童的行为
-            - 输出纯文本，不含 markdown 格式符号
-            - 每次只给一个具体可操作的建议""";
+    private static final Logger log = LoggerFactory.getLogger(SpringAiMentorProvider.class);
+
+    // 保留原始 SYSTEM_PROMPT 常量供向后兼容和测试引用
+    static final String SYSTEM_PROMPT = MemPalacePromptBuilder.L0_SYSTEM_PROMPT;
 
     private final ChatClient chatClient;
     private final MentorProperties properties;
+    private final PalaceToolProvider palaceToolProvider;
+    private final PalaceSearchService palaceSearchService;
 
-    public SpringAiMentorProvider(ChatClient chatClient, MentorProperties properties) {
+    /**
+     * 完整构造函数：支持 agentic/rag/none 三模式。
+     *
+     * @param chatClient          Spring AI ChatClient
+     * @param properties          mentor 配置
+     * @param palaceToolProvider  工具提供者（agentic 模式用，可为 null）
+     * @param palaceSearchService 知识宫殿搜索服务（L1 预检索用，可为 null）
+     */
+    public SpringAiMentorProvider(ChatClient chatClient, MentorProperties properties,
+                                   PalaceToolProvider palaceToolProvider,
+                                   PalaceSearchService palaceSearchService) {
         this.chatClient = chatClient;
         this.properties = properties;
+        this.palaceToolProvider = palaceToolProvider;
+        this.palaceSearchService = palaceSearchService;
+    }
+
+    /**
+     * 向后兼容构造函数：等效于 searchMode=none。
+     */
+    public SpringAiMentorProvider(ChatClient chatClient, MentorProperties properties) {
+        this(chatClient, properties, null, null);
     }
 
     @Override
     public ProviderResponse respond(ProviderRequest request) {
+        String searchMode = properties.effectiveSearchMode();
+        String systemPrompt = MemPalacePromptBuilder.buildSystemPrompt(
+                searchMode, request.prompt(), palaceSearchService);
+
         String content;
         try {
-            content = chatClient.prompt()
-                    .system(SYSTEM_PROMPT)
-                    .user(request.prompt())
-                    .call()
-                    .content();
+            content = callChatClient(searchMode, systemPrompt, request.prompt());
         } catch (Exception e) {
             throw mapException(e);
         }
@@ -52,17 +80,31 @@ public class SpringAiMentorProvider implements MentorProvider {
     }
 
     /**
+     * 根据 searchMode 决定是否注册 tools 并调用 ChatClient。
+     */
+    private String callChatClient(String searchMode, String systemPrompt, String userPrompt) {
+        var spec = chatClient.prompt()
+                .system(systemPrompt)
+                .user(userPrompt);
+
+        if ("agentic".equals(searchMode) && palaceToolProvider != null) {
+            log.info("search-mode=agentic, 注册 PalaceToolProvider tools");
+            return spec.tools(palaceToolProvider).call().content();
+        }
+
+        // rag 或 none 模式下不注册 tools（L1 已在 systemPrompt 中注入）
+        return spec.call().content();
+    }
+
+    /**
      * 将底层异常映射为 MentorProvider 的三种标准异常。
      * 异常消息中包含 provider mode 和诊断信息，但不包含 API key。
      */
     private RuntimeException mapException(Exception e) {
-        // 递归搜索 cause chain 中是否包含超时异常
         if (hasTimeoutCause(e)) {
             return new ProviderTimeoutException(
                     "provider [%s] 调用超时: %s".formatted(properties.providerMode(), sanitize(e.getMessage())));
         }
-
-        // 其他所有 SDK/网络异常 → ProviderUnavailableException
         return new ProviderUnavailableException(
                 "provider [%s] 不可用: %s".formatted(properties.providerMode(), sanitize(e.getMessage())));
     }

@@ -124,6 +124,7 @@ app:
     simulate-timeout-token: ${BABY_TALK_MENTOR_SIMULATE_TIMEOUT_TOKEN:[timeout]}
     simulate-malformed-token: ${BABY_TALK_MENTOR_SIMULATE_MALFORMED_TOKEN:[malformed]}
     simulate-unavailable-token: ${BABY_TALK_MENTOR_SIMULATE_UNAVAILABLE_TOKEN:[unavailable]}
+    search-mode: ${BABY_TALK_MENTOR_SEARCH_MODE:none}
   embedding:
     base-url: ${BABY_TALK_EMBEDDING_BASE_URL:https://models.inference.ai.azure.com}
     api-key: ${BABY_TALK_EMBEDDING_API_KEY:}

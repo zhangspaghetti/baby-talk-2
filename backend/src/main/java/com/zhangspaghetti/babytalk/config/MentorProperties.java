@@ -28,6 +28,14 @@ public record MentorProperties(
         List<@NotBlank String> blockedKeywords,
         @NotBlank String simulateTimeoutToken,
         @NotBlank String simulateMalformedToken,
-        @NotBlank String simulateUnavailableToken
+        @NotBlank String simulateUnavailableToken,
+        String searchMode
 ) {
+    /**
+     * 返回 searchMode，默认为 "none"。
+     * 有效值: "agentic", "rag", "none"
+     */
+    public String effectiveSearchMode() {
+        return (searchMode == null || searchMode.isBlank()) ? "none" : searchMode.trim().toLowerCase();
+    }
 }

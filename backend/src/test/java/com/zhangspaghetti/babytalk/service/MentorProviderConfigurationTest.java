@@ -2,13 +2,18 @@ package com.zhangspaghetti.babytalk.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import com.zhangspaghetti.babytalk.AbstractIntegrationTest;
 import com.zhangspaghetti.babytalk.config.MentorProperties;
 import com.zhangspaghetti.babytalk.config.MentorProviderConfiguration;
+import com.zhangspaghetti.babytalk.palace.PalaceSearchService;
+import com.zhangspaghetti.babytalk.palace.PalaceToolProvider;
 import java.time.Duration;
 import java.util.List;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
@@ -85,11 +90,18 @@ class MentorProviderConfigurationTest extends AbstractIntegrationTest {
                 List.of("体罚"),
                 "[timeout]",
                 "[malformed]",
-                "[unavailable]"
+                "[unavailable]",
+                "none"
         );
 
         var configuration = new MentorProviderConfiguration();
-        assertThatThrownBy(() -> configuration.mentorProvider(properties))
+        @SuppressWarnings("unchecked")
+        ObjectProvider<PalaceToolProvider> toolOp = mock(ObjectProvider.class);
+        @SuppressWarnings("unchecked")
+        ObjectProvider<PalaceSearchService> searchOp = mock(ObjectProvider.class);
+        when(toolOp.getIfAvailable()).thenReturn(null);
+        when(searchOp.getIfAvailable()).thenReturn(null);
+        assertThatThrownBy(() -> configuration.mentorProvider(properties, toolOp, searchOp))
                 .isInstanceOf(MentorProvider.ProviderUnavailableException.class)
                 .hasMessageContaining("unknown-mode")
                 .hasMessageContaining("不支持");
