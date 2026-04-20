@@ -2,6 +2,7 @@ package com.zhangspaghetti.babytalk.palace;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.zhangspaghetti.babytalk.kg.KgQueryTool;
 import com.zhangspaghetti.babytalk.palace.MemPalaceTaxonomy.BookMapping;
 import com.zhangspaghetti.babytalk.palace.PalaceKeywordRepository.ChunkResult;
 import java.util.ArrayList;
@@ -16,6 +17,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.ai.document.Document;
 import org.springframework.ai.tool.annotation.Tool;
 import org.springframework.ai.tool.annotation.ToolParam;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Component;
 
 /**
@@ -27,7 +29,7 @@ import org.springframework.stereotype.Component;
  *   <li>{@code palace_keyword_search} — 按关键词全文检索</li>
  *   <li>{@code palace_read_chunk} — 按 chunk ID 读取完整内容</li>
  *   <li>{@code palace_list_rooms} — 列出知识宫殿结构</li>
- *   <li>{@code kg_query_entity} — 知识图谱实体查询（Phase 1 占位）</li>
+ *   <li>{@code kg_query_entity} — 知识图谱实体查询（委托 KgQueryTool）</li>
  * </ul>
  *
  * <p>所有方法返回 JSON 字符串，包含 source_book 等来源信息以支持知识来源引用。
@@ -41,13 +43,16 @@ public class PalaceToolProvider {
     private final PalaceSearchService searchService;
     private final PalaceKeywordRepository keywordRepository;
     private final ObjectMapper objectMapper;
+    private final KgQueryTool kgQueryTool;
 
     public PalaceToolProvider(PalaceSearchService searchService,
                               PalaceKeywordRepository keywordRepository,
-                              ObjectMapper objectMapper) {
+                              ObjectMapper objectMapper,
+                              ObjectProvider<KgQueryTool> kgQueryToolProvider) {
         this.searchService = searchService;
         this.keywordRepository = keywordRepository;
         this.objectMapper = objectMapper;
+        this.kgQueryTool = kgQueryToolProvider.getIfAvailable();
     }
 
     /**
@@ -180,20 +185,27 @@ public class PalaceToolProvider {
     }
 
     /**
-     * 查询知识图谱中的实体关系（Phase 1 占位实现）。
+     * 查询知识图谱中的实体关系。
      */
     @Tool(name = "kg_query_entity",
-          description = "查询知识图谱中的实体关系。Phase 1 占位实现。")
+          description = "查询知识图谱中的实体关系。搜索实体名称并返回关联关系、来源书籍等信息。")
     public String kgQueryEntity(
             @ToolParam(description = "要查询的实体名称") String entity) {
 
-        log.info("kg_query_entity: entity='{}' (Phase 1 占位)", entity);
+        // 如果 KgQueryTool 可用，委托给真实 KG 查询
+        if (kgQueryTool != null) {
+            log.info("kg_query_entity: entity='{}' — 委托 KgQueryTool", entity);
+            return kgQueryTool.queryEntity(entity);
+        }
+
+        // 回退：Phase 1 占位实现（KgQueryTool 不可用时）
+        log.info("kg_query_entity: entity='{}' (Phase 1 占位，KgQueryTool 不可用)", entity);
 
         if (entity == null || entity.isBlank()) {
             return toJson(Map.of(
                     "entity", "",
                     "relationships", List.of(),
-                    "note", "Phase 1: 知识图谱功能暂未实现，请使用 palace_vector_search 或 palace_keyword_search"
+                    "note", "KgQueryTool 不可用，请使用 palace_vector_search 或 palace_keyword_search"
             ));
         }
 
@@ -213,7 +225,7 @@ public class PalaceToolProvider {
         return toJson(Map.of(
                 "entity", entity.trim(),
                 "relationships", relatedConcepts,
-                "note", "Phase 1: 基于 taxonomy 书名匹配的占位实现，完整知识图谱将在后续版本实现"
+                "note", "Phase 1: 基于 taxonomy 书名匹配的占位实现"
         ));
     }
 

@@ -79,6 +79,14 @@ public class KgContradictionRepository {
         return results.stream().findFirst();
     }
 
+    /** 查询所有矛盾记录 */
+    public List<KgContradiction> findAll() {
+        return jdbc.query(
+                "SELECT * FROM kg_contradictions ORDER BY detected_at DESC",
+                ROW_MAPPER
+        );
+    }
+
     /** 按状态查询 */
     public List<KgContradiction> findByStatus(String status) {
         return jdbc.query(

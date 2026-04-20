@@ -68,6 +68,23 @@ public class KgAdminNotificationRepository {
         );
     }
 
+    /** 查询所有通知 */
+    public List<KgAdminNotification> findAll() {
+        return jdbc.query(
+                "SELECT * FROM kg_admin_notifications ORDER BY created_at DESC",
+                ROW_MAPPER
+        );
+    }
+
+    /** 按 ID 查询 */
+    public Optional<KgAdminNotification> findById(UUID id) {
+        List<KgAdminNotification> results = jdbc.query(
+                "SELECT * FROM kg_admin_notifications WHERE id = ?",
+                ROW_MAPPER, id
+        );
+        return results.stream().findFirst();
+    }
+
     /** 按矛盾 ID 查询通知 */
     public List<KgAdminNotification> findByContradictionId(UUID contradictionId) {
         return jdbc.query(

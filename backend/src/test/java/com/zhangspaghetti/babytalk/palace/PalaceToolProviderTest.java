@@ -11,6 +11,7 @@ import static org.mockito.Mockito.when;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.zhangspaghetti.babytalk.kg.KgQueryTool;
 import com.zhangspaghetti.babytalk.palace.PalaceKeywordRepository.ChunkResult;
 import java.lang.reflect.Method;
 import java.util.Collections;
@@ -27,6 +28,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.ai.document.Document;
 import org.springframework.ai.tool.annotation.Tool;
+import org.springframework.beans.factory.ObjectProvider;
 
 /**
  * PalaceToolProvider 单元测试 — 使用 Mockito mock 底层服务。
@@ -49,13 +51,16 @@ class PalaceToolProviderTest {
     @Mock
     private PalaceKeywordRepository keywordRepository;
 
+    @Mock
+    private ObjectProvider<KgQueryTool> kgQueryToolProvider;
+
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     private PalaceToolProvider provider;
 
     @BeforeEach
     void setUp() {
-        provider = new PalaceToolProvider(searchService, keywordRepository, objectMapper);
+        provider = new PalaceToolProvider(searchService, keywordRepository, objectMapper, kgQueryToolProvider);
     }
 
     // ─── 辅助方法 ─────────────────────────────────────────────
