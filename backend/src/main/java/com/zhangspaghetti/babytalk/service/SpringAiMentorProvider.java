@@ -5,9 +5,11 @@ import com.zhangspaghetti.babytalk.palace.MemPalacePromptBuilder;
 import com.zhangspaghetti.babytalk.palace.PalaceSearchService;
 import com.zhangspaghetti.babytalk.palace.PalaceToolProvider;
 import java.net.SocketTimeoutException;
+import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.ai.chat.memory.ChatMemory;
 
 /**
  * 基于 Spring AI ChatClient 的 MentorProvider 实现。
@@ -64,7 +66,7 @@ public class SpringAiMentorProvider implements MentorProvider {
 
         String content;
         try {
-            content = callChatClient(searchMode, systemPrompt, request.prompt());
+            content = callChatClient(searchMode, systemPrompt, request.prompt(), request.conversationId());
         } catch (Exception e) {
             throw mapException(e);
         }
@@ -81,11 +83,18 @@ public class SpringAiMentorProvider implements MentorProvider {
 
     /**
      * 根据 searchMode 决定是否注册 tools 并调用 ChatClient。
+     * 通过 advisors(param) 传入 conversationId，当 conversationId 为 null 时自动生成临时 UUID。
      */
-    private String callChatClient(String searchMode, String systemPrompt, String userPrompt) {
+    private String callChatClient(String searchMode, String systemPrompt, String userPrompt, String conversationId) {
+        String effectiveConversationId = (conversationId != null && !conversationId.isBlank())
+                ? conversationId
+                : UUID.randomUUID().toString();
+        log.info("conversation.id={}", effectiveConversationId);
+
         var spec = chatClient.prompt()
                 .system(systemPrompt)
-                .user(userPrompt);
+                .user(userPrompt)
+                .advisors(a -> a.param(ChatMemory.CONVERSATION_ID, effectiveConversationId));
 
         if ("agentic".equals(searchMode) && palaceToolProvider != null) {
             log.info("search-mode=agentic, 注册 PalaceToolProvider tools");

@@ -50,11 +50,12 @@ class AgenticMentorIntegrationTest {
         toolProvider = mock(PalaceToolProvider.class);
         searchService = mock(PalaceSearchService.class);
 
-        // 构造 fluent chain: chatClient.prompt() → requestSpec.system/user/tools → callResponseSpec
+        // 构造 fluent chain: chatClient.prompt() → requestSpec.system/user/tools/advisors → callResponseSpec
         when(chatClient.prompt()).thenReturn(requestSpec);
         when(requestSpec.system(anyString())).thenReturn(requestSpec);
         when(requestSpec.user(anyString())).thenReturn(requestSpec);
         when(requestSpec.tools(any())).thenReturn(requestSpec);
+        when(requestSpec.advisors(any(java.util.function.Consumer.class))).thenReturn(requestSpec);
         when(requestSpec.call()).thenReturn(callResponseSpec);
     }
 
@@ -84,7 +85,7 @@ class AgenticMentorIntegrationTest {
     private MentorProvider.ProviderRequest sampleRequest() {
         return new MentorProvider.ProviderRequest(
                 "corr-agentic-001", "install-001", "home", "single_turn",
-                "宝宝18个月还不会说话正常吗？", "宝宝18个月不说话", true, Instant.now()
+                "宝宝18个月还不会说话正常吗？", "宝宝18个月不说话", true, Instant.now(), null
         );
     }
 

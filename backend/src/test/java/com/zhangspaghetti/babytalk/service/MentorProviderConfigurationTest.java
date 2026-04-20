@@ -14,6 +14,7 @@ import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.springframework.ai.chat.client.advisor.MessageChatMemoryAdvisor;
 import org.springframework.beans.factory.ObjectProvider;
 
 /**
@@ -26,6 +27,8 @@ class MentorProviderConfigurationTest {
     private final ObjectProvider<PalaceToolProvider> toolOp = mock(ObjectProvider.class);
     @SuppressWarnings("unchecked")
     private final ObjectProvider<PalaceSearchService> searchOp = mock(ObjectProvider.class);
+    @SuppressWarnings("unchecked")
+    private final ObjectProvider<MessageChatMemoryAdvisor> memoryAdvisorOp = mock(ObjectProvider.class);
 
     private final MentorProviderConfiguration configuration = new MentorProviderConfiguration();
 
@@ -63,7 +66,7 @@ class MentorProviderConfigurationTest {
             when(toolOp.getIfAvailable()).thenReturn(null);
             when(searchOp.getIfAvailable()).thenReturn(null);
 
-            var provider = configuration.mentorProvider(props, toolOp, searchOp);
+            var provider = configuration.mentorProvider(props, toolOp, searchOp, memoryAdvisorOp);
             assertThat(provider).isInstanceOf(DevMentorProvider.class);
         }
     }
@@ -79,7 +82,7 @@ class MentorProviderConfigurationTest {
             when(toolOp.getIfAvailable()).thenReturn(null);
             when(searchOp.getIfAvailable()).thenReturn(null);
 
-            var provider = configuration.mentorProvider(props, toolOp, searchOp);
+            var provider = configuration.mentorProvider(props, toolOp, searchOp, memoryAdvisorOp);
             assertThat(provider).isInstanceOf(SpringAiMentorProvider.class);
         }
 
@@ -92,7 +95,7 @@ class MentorProviderConfigurationTest {
             when(toolOp.getIfAvailable()).thenReturn(mockTool);
             when(searchOp.getIfAvailable()).thenReturn(mockSearch);
 
-            var provider = configuration.mentorProvider(props, toolOp, searchOp);
+            var provider = configuration.mentorProvider(props, toolOp, searchOp, memoryAdvisorOp);
             assertThat(provider).isInstanceOf(SpringAiMentorProvider.class);
         }
 
@@ -104,7 +107,7 @@ class MentorProviderConfigurationTest {
             when(searchOp.getIfAvailable()).thenReturn(null);
 
             // 不应抛异常
-            var provider = configuration.mentorProvider(props, toolOp, searchOp);
+            var provider = configuration.mentorProvider(props, toolOp, searchOp, memoryAdvisorOp);
             assertThat(provider).isInstanceOf(SpringAiMentorProvider.class);
         }
     }
@@ -120,7 +123,7 @@ class MentorProviderConfigurationTest {
             when(toolOp.getIfAvailable()).thenReturn(null);
             when(searchOp.getIfAvailable()).thenReturn(null);
 
-            assertThatThrownBy(() -> configuration.mentorProvider(props, toolOp, searchOp))
+            assertThatThrownBy(() -> configuration.mentorProvider(props, toolOp, searchOp, memoryAdvisorOp))
                     .isInstanceOf(MentorProvider.ProviderUnavailableException.class)
                     .hasMessageContaining("unknown-mode")
                     .hasMessageContaining("不支持");

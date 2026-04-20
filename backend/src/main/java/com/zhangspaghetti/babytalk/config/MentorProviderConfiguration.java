@@ -6,6 +6,7 @@ import com.zhangspaghetti.babytalk.service.DevMentorProvider;
 import com.zhangspaghetti.babytalk.service.MentorProvider;
 import com.zhangspaghetti.babytalk.service.SpringAiMentorProvider;
 import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.ai.chat.client.advisor.MessageChatMemoryAdvisor;
 import org.springframework.ai.openai.OpenAiChatModel;
 import org.springframework.ai.openai.OpenAiChatOptions;
 import org.springframework.ai.openai.api.OpenAiApi;
@@ -19,13 +20,15 @@ public class MentorProviderConfiguration {
     @Bean
     public MentorProvider mentorProvider(MentorProperties properties,
                                          ObjectProvider<PalaceToolProvider> palaceToolProviderProvider,
-                                         ObjectProvider<PalaceSearchService> palaceSearchServiceProvider) {
+                                         ObjectProvider<PalaceSearchService> palaceSearchServiceProvider,
+                                         ObjectProvider<MessageChatMemoryAdvisor> chatMemoryAdvisorProvider) {
         return switch (properties.providerMode().toLowerCase()) {
             case "dev" -> new DevMentorProvider(properties);
             case "github-models", "openai" -> buildSpringAiProvider(
                     properties,
                     palaceToolProviderProvider.getIfAvailable(),
-                    palaceSearchServiceProvider.getIfAvailable());
+                    palaceSearchServiceProvider.getIfAvailable(),
+                    chatMemoryAdvisorProvider.getIfAvailable());
             default -> throw new MentorProvider.ProviderUnavailableException(
                     "不支持的 mentor provider mode: `%s`，可选值: dev, github-models, openai"
                             .formatted(properties.providerMode()));
@@ -34,7 +37,8 @@ public class MentorProviderConfiguration {
 
     private SpringAiMentorProvider buildSpringAiProvider(MentorProperties properties,
                                                           PalaceToolProvider palaceToolProvider,
-                                                          PalaceSearchService palaceSearchService) {
+                                                          PalaceSearchService palaceSearchService,
+                                                          MessageChatMemoryAdvisor chatMemoryAdvisor) {
         var apiKey = properties.aiApiKey();
         if (apiKey == null || apiKey.isBlank()) {
             throw new MentorProvider.ProviderUnavailableException(
@@ -64,7 +68,11 @@ public class MentorProviderConfiguration {
                 .build();
 
         // 使用 builder 模式而非 ChatClient.create()，便于后续扩展
-        var chatClient = ChatClient.builder(chatModel).build();
+        var clientBuilder = ChatClient.builder(chatModel);
+        if (chatMemoryAdvisor != null) {
+            clientBuilder.defaultAdvisors(chatMemoryAdvisor);
+        }
+        var chatClient = clientBuilder.build();
 
         return new SpringAiMentorProvider(chatClient, properties,
                 palaceToolProvider, palaceSearchService);

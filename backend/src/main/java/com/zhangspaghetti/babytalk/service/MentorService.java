@@ -85,7 +85,8 @@ public class MentorService {
                     phase1Result.prompt(),
                     phase1Result.requestSummary(),
                     phase1Result.association().authenticated(),
-                    phase1Result.now()
+                    phase1Result.now(),
+                    null // conversationId — T03 补充
             ));
             var responseText = normalizeProviderResponse(providerResponse.responseText());
             var responseSummary = providerResponse.responseSummary() == null || providerResponse.responseSummary().isBlank()

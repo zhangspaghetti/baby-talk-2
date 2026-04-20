@@ -37,11 +37,12 @@ class SpringAiMentorProviderTest {
         requestSpec = mock(ChatClientRequestSpec.class);
         callResponseSpec = mock(CallResponseSpec.class);
 
-        // 构造 fluent 链：chatClient.prompt() → requestSpec.system() → requestSpec.user() → requestSpec.call()
+        // 构造 fluent 链：chatClient.prompt() → requestSpec.system() → requestSpec.user() → requestSpec.advisors() → requestSpec.call()
         when(chatClient.prompt()).thenReturn(requestSpec);
         when(requestSpec.system(anyString())).thenReturn(requestSpec);
         when(requestSpec.user(anyString())).thenReturn(requestSpec);
         when(requestSpec.tools(any())).thenReturn(requestSpec);
+        when(requestSpec.advisors(any(java.util.function.Consumer.class))).thenReturn(requestSpec);
         when(requestSpec.call()).thenReturn(callResponseSpec);
     }
 
@@ -74,7 +75,7 @@ class SpringAiMentorProviderTest {
     private MentorProvider.ProviderRequest sampleRequest() {
         return new MentorProvider.ProviderRequest(
                 "corr-001", "install-001", "home", "single_turn",
-                "宝宝不肯说话怎么办？", "宝宝不肯说话", true, Instant.now()
+                "宝宝不肯说话怎么办？", "宝宝不肯说话", true, Instant.now(), null
         );
     }
 
