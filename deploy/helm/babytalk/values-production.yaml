@@ -172,6 +172,17 @@ config:
   BABY_TALK_MENTOR_SIMULATE_MALFORMED_TOKEN: ""
   BABY_TALK_MENTOR_SIMULATE_UNAVAILABLE_TOKEN: ""
 
+  # M005 MemPalace — 生产配置
+  BABY_TALK_MENTOR_SEARCH_MODE: "agentic"
+  BABY_TALK_MENTOR_SESSION_TIMEOUT: "PT30M"
+  BABY_TALK_MENTOR_PRACTICE_RESPONSE_MAX_LENGTH: "2000"
+  BABY_TALK_EMBEDDING_BASE_URL: "https://models.inference.ai.azure.com"
+  BABY_TALK_EMBEDDING_MODEL: "text-embedding-3-small"
+  BABY_TALK_EMBEDDING_DIMENSIONS: "1536"
+  BABY_TALK_KG_REVIEW_INTERVAL: "PT30M"
+  BABY_TALK_KG_REVIEW_ENABLED: "true"
+  BABY_TALK_KG_REVIEW_BATCH_SIZE: "10"
+
 # ────────────────────────────────────────────────────────────────
 # Secret：生产环境通过 --set 或外部 Secret 管理注入
 # 以下占位符提示需要配置的值，切勿在此文件中存储真实密码
@@ -192,6 +203,8 @@ secret:
   BABY_TALK_MINIO_ACCESS_KEY: ""
   BABY_TALK_MINIO_SECRET_KEY: ""
   BABY_TALK_MINIO_BUCKET: ""
+  # M005 新增 — Embedding API 密钥
+  BABY_TALK_EMBEDDING_API_KEY: ""
   # 注入方式推荐：
   # 1. helm install --set secret.BABY_TALK_DB_PASSWORD=xxx
   # 2. 阿里云 KMS + External Secrets Operator
