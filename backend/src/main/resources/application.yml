@@ -139,6 +139,10 @@ app:
     api-key: ${BABY_TALK_EMBEDDING_API_KEY:}
     model: ${BABY_TALK_EMBEDDING_MODEL:text-embedding-3-small}
     dimensions: ${BABY_TALK_EMBEDDING_DIMENSIONS:1536}
+  kg:
+    review-interval: ${BABY_TALK_KG_REVIEW_INTERVAL:PT5M}
+    review-enabled: ${BABY_TALK_KG_REVIEW_ENABLED:true}
+    review-batch-size: ${BABY_TALK_KG_REVIEW_BATCH_SIZE:10}
   minio:
     endpoint: ${BABY_TALK_MINIO_ENDPOINT:http://localhost:9000}
     access-key: ${BABY_TALK_MINIO_ACCESS_KEY:babytalk}

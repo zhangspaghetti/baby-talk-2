@@ -22,3 +22,7 @@ app:
     access-key: test-access-key
     secret-key: test-secret-key
     bucket-name: test-bucket
+  kg:
+    review-interval: PT1M
+    review-enabled: false
+    review-batch-size: 5
