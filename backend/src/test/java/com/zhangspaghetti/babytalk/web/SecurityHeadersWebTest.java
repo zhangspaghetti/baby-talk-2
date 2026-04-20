@@ -8,6 +8,7 @@ import com.zhangspaghetti.babytalk.config.ApiVersionInterceptor;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import com.zhangspaghetti.babytalk.AbstractIntegrationTest;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
@@ -16,9 +17,6 @@ import org.springframework.test.web.servlet.MockMvc;
  * 验证所有 /api/** 响应包含标准安全响应头。
  */
 @SpringBootTest(properties = {
-        "spring.datasource.url=jdbc:h2:mem:security-headers-test;MODE=PostgreSQL;DB_CLOSE_DELAY=-1;DATABASE_TO_UPPER=false",
-        "spring.datasource.username=sa",
-        "spring.datasource.password=",
         "app.contract.min-supported-version=1.2.0",
         "app.contract.upgrade-url=https://download.example.com/babytalk.apk",
         "app.sms.provider-mode=dev",
@@ -26,7 +24,7 @@ import org.springframework.test.web.servlet.MockMvc;
         "app.mentor.provider-mode=dev"
 })
 @AutoConfigureMockMvc
-class SecurityHeadersWebTest {
+class SecurityHeadersWebTest extends AbstractIntegrationTest {
 
     @Autowired
     private MockMvc mockMvc;

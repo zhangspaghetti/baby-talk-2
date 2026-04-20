@@ -1,0 +1,7 @@
+# 测试 profile：Testcontainers 通过 @DynamicPropertySource 动态注入 datasource 配置
+# 此文件仅放非敏感的测试共享配置
+spring:
+  datasource:
+    driver-class-name: org.postgresql.Driver
+  flyway:
+    clean-disabled: false

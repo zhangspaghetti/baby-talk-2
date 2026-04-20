@@ -22,15 +22,13 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import com.zhangspaghetti.babytalk.AbstractIntegrationTest;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.MockMvc;
 
 @SpringBootTest(properties = {
-        "spring.datasource.url=jdbc:h2:mem:share-landing-web-test;MODE=PostgreSQL;DB_CLOSE_DELAY=-1;DATABASE_TO_UPPER=false",
-        "spring.datasource.username=sa",
-        "spring.datasource.password=",
         "app.contract.min-supported-version=1.2.0",
         "app.contract.upgrade-url=https://download.example.com/upgrade?channel=stable&source=version_gate",
         "app.sms.provider-mode=dev",
@@ -44,7 +42,7 @@ import org.springframework.test.web.servlet.MockMvc;
         "app.share.landing.open-app-targets.ios=babytalk://share/open"
 })
 @AutoConfigureMockMvc
-class ShareLandingWebTest {
+class ShareLandingWebTest extends AbstractIntegrationTest {
 
     @Autowired
     private MockMvc mockMvc;

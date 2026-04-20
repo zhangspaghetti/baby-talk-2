@@ -3,6 +3,7 @@ package com.zhangspaghetti.babytalk.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.zhangspaghetti.babytalk.AbstractIntegrationTest;
 import com.zhangspaghetti.babytalk.config.MentorProperties;
 import com.zhangspaghetti.babytalk.config.MentorProviderConfiguration;
 import java.time.Duration;
@@ -15,15 +16,12 @@ import org.springframework.test.context.ActiveProfiles;
 /**
  * 多 provider 配置集成测试 — 验证不同 provider-mode 下注入的 MentorProvider 类型。
  */
-class MentorProviderConfigurationTest {
+class MentorProviderConfigurationTest extends AbstractIntegrationTest {
 
     /**
      * dev mode 创建 DevMentorProvider 实例
      */
     @SpringBootTest(properties = {
-            "spring.datasource.url=jdbc:h2:mem:config-test-dev;MODE=PostgreSQL;DB_CLOSE_DELAY=-1;DATABASE_TO_UPPER=false",
-            "spring.datasource.username=sa",
-            "spring.datasource.password=",
             "app.contract.min-supported-version=1.2.0",
             "app.contract.upgrade-url=https://download.example.com/babytalk.apk",
             "app.sms.provider-mode=dev",
@@ -45,9 +43,6 @@ class MentorProviderConfigurationTest {
      * github-models mode 创建 SpringAiMentorProvider 实例
      */
     @SpringBootTest(properties = {
-            "spring.datasource.url=jdbc:h2:mem:config-test-github;MODE=PostgreSQL;DB_CLOSE_DELAY=-1;DATABASE_TO_UPPER=false",
-            "spring.datasource.username=sa",
-            "spring.datasource.password=",
             "app.contract.min-supported-version=1.2.0",
             "app.contract.upgrade-url=https://download.example.com/babytalk.apk",
             "app.sms.provider-mode=dev",

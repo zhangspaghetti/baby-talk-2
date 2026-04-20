@@ -9,20 +9,18 @@ import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import com.zhangspaghetti.babytalk.AbstractIntegrationTest;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.JdbcTemplate;
 
 @SpringBootTest(properties = {
-        "spring.datasource.url=jdbc:h2:mem:auth-consent-sync-service-test;MODE=PostgreSQL;DB_CLOSE_DELAY=-1;DATABASE_TO_UPPER=false",
-        "spring.datasource.username=sa",
-        "spring.datasource.password=",
         "app.contract.min-supported-version=1.2.0",
         "app.contract.upgrade-url=https://download.example.com/babytalk.apk",
         "app.sms.provider-mode=dev",
         "app.sms.dev-code=246810"
 })
-class AuthConsentSyncServiceTest {
+class AuthConsentSyncServiceTest extends AbstractIntegrationTest {
 
     @Autowired
     private AuthConsentSyncService service;
