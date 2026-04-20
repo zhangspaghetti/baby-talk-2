@@ -31,9 +31,25 @@ public class MentorController {
                         request.surface(),
                         request.mode(),
                         request.correlationId(),
-                        request.contextSummary()
+                        request.contextSummary(),
+                        request.conversationId()
                 ),
                 sessionId
+        );
+    }
+
+    @PostMapping("/practice/generate")
+    public MentorService.PracticeGenerateResponse practiceGenerate(
+            @RequestBody PracticeGenerateRequest request
+    ) {
+        return mentorService.generatePractice(
+                new MentorService.PracticeGenerateCommand(
+                        request.installationId(),
+                        request.surface(),
+                        request.babyAgeMonths(),
+                        request.sceneTag(),
+                        request.conversationId()
+                )
         );
     }
 
@@ -43,7 +59,17 @@ public class MentorController {
             String surface,
             String mode,
             String correlationId,
-            String contextSummary
+            String contextSummary,
+            String conversationId
+    ) {
+    }
+
+    public record PracticeGenerateRequest(
+            String installationId,
+            String surface,
+            int babyAgeMonths,
+            String sceneTag,
+            String conversationId
     ) {
     }
 }

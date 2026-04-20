@@ -148,12 +148,32 @@ config:
   BABY_TALK_MENTOR_SIMULATE_MALFORMED_TOKEN: "[malformed]"
   BABY_TALK_MENTOR_SIMULATE_UNAVAILABLE_TOKEN: "[unavailable]"
 
+  # M005 新增 — MemPalace 知识宫殿
+  BABY_TALK_MENTOR_SEARCH_MODE: "agentic"
+  BABY_TALK_MENTOR_SESSION_TIMEOUT: "PT30M"
+  BABY_TALK_MENTOR_PRACTICE_RESPONSE_MAX_LENGTH: "2000"
+  BABY_TALK_EMBEDDING_BASE_URL: "https://models.inference.ai.azure.com"
+  BABY_TALK_EMBEDDING_MODEL: "text-embedding-3-small"
+  BABY_TALK_EMBEDDING_DIMENSIONS: "1536"
+  BABY_TALK_KG_REVIEW_INTERVAL: "PT5M"
+  BABY_TALK_KG_REVIEW_ENABLED: "true"
+  BABY_TALK_KG_REVIEW_BATCH_SIZE: "10"
+
 # ────────────────────────────────────────────────────────────────
 # Secret：4 个敏感环境变量
 # 生产环境必须通过 --set 或外部 secret 管理注入真实值
 # ────────────────────────────────────────────────────────────────
 secret:
+  # PostgreSQL 连接（jdbc:postgresql://<host>:<port>/babytalk）
   BABY_TALK_DB_URL: ""
   BABY_TALK_DB_USERNAME: ""
   BABY_TALK_DB_PASSWORD: ""
+  # AI API 密钥
   BABY_TALK_AI_API_KEY: ""
+  # MinIO 对象存储
+  BABY_TALK_MINIO_ENDPOINT: ""
+  BABY_TALK_MINIO_ACCESS_KEY: ""
+  BABY_TALK_MINIO_SECRET_KEY: ""
+  BABY_TALK_MINIO_BUCKET: ""
+  # M005 新增 — Embedding API 密钥
+  BABY_TALK_EMBEDDING_API_KEY: ""

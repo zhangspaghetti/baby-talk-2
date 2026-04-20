@@ -1,22 +1,81 @@
 services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: babytalk-postgres
+    environment:
+      POSTGRES_USER: babytalk
+      POSTGRES_PASSWORD: babytalk
+      POSTGRES_DB: babytalk
+    ports:
+      - "15432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U babytalk -d babytalk"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    restart: unless-stopped
+
+  minio:
+    image: minio/minio:latest
+    container_name: babytalk-minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: babytalk
+      MINIO_ROOT_PASSWORD: babytalk123
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    healthcheck:
+      test: ["CMD-SHELL", "mc ready local || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - minio-data:/data
+    restart: unless-stopped
+
   backend:
     build:
       context: ./backend
     ports:
       - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
     environment:
-      BABY_TALK_DB_URL: "jdbc:h2:file:./.data/babytalk;MODE=PostgreSQL;AUTO_SERVER=TRUE;DATABASE_TO_UPPER=false"
+      BABY_TALK_DB_URL: "jdbc:postgresql://postgres:5432/babytalk"
+      BABY_TALK_DB_USERNAME: "babytalk"
+      BABY_TALK_DB_PASSWORD: "babytalk"
       BABY_TALK_SMS_PROVIDER_MODE: "dev"
       BABY_TALK_MENTOR_PROVIDER_MODE: "dev"
+      BABY_TALK_MENTOR_SEARCH_MODE: "${BABY_TALK_MENTOR_SEARCH_MODE:-none}"
+      BABY_TALK_MINIO_ENDPOINT: "http://minio:9000"
+      BABY_TALK_MINIO_ACCESS_KEY: "babytalk"
+      BABY_TALK_MINIO_SECRET_KEY: "babytalk123"
+      BABY_TALK_EMBEDDING_BASE_URL: "${BABY_TALK_EMBEDDING_BASE_URL:-https://models.inference.ai.azure.com}"
+      BABY_TALK_EMBEDDING_API_KEY: "${BABY_TALK_EMBEDDING_API_KEY:-}"
+      BABY_TALK_EMBEDDING_MODEL: "${BABY_TALK_EMBEDDING_MODEL:-text-embedding-3-small}"
+      BABY_TALK_EMBEDDING_DIMENSIONS: "${BABY_TALK_EMBEDDING_DIMENSIONS:-1536}"
+      BABY_TALK_AI_BASE_URL: "${BABY_TALK_AI_BASE_URL:-https://models.inference.ai.azure.com}"
+      BABY_TALK_AI_API_KEY: "${BABY_TALK_AI_API_KEY:-}"
+      BABY_TALK_AI_MODEL: "${BABY_TALK_AI_MODEL:-gpt-4o-mini}"
+      BABY_TALK_MENTOR_SESSION_TIMEOUT: "${BABY_TALK_MENTOR_SESSION_TIMEOUT:-PT30M}"
+      BABY_TALK_MENTOR_PRACTICE_RESPONSE_MAX_LENGTH: "${BABY_TALK_MENTOR_PRACTICE_RESPONSE_MAX_LENGTH:-2000}"
+      BABY_TALK_KG_REVIEW_ENABLED: "${BABY_TALK_KG_REVIEW_ENABLED:-false}"
+      BABY_TALK_KG_REVIEW_INTERVAL: "${BABY_TALK_KG_REVIEW_INTERVAL:-PT5M}"
+      BABY_TALK_KG_REVIEW_BATCH_SIZE: "${BABY_TALK_KG_REVIEW_BATCH_SIZE:-10}"
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:8080/actuator/health || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 30s
-    volumes:
-      - babytalk-data:/app/.data
     restart: unless-stopped
 
 volumes:
-  babytalk-data:
+  postgres-data:
+  minio-data:

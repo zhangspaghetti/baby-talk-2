@@ -80,8 +80,11 @@ helm install babytalk deploy/helm/babytalk/ \
   --set secret.BABY_TALK_DB_URL="jdbc:postgresql://rds-endpoint:5432/babytalk?sslmode=require" \
   --set secret.BABY_TALK_DB_USERNAME="babytalk_app" \
   --set secret.BABY_TALK_DB_PASSWORD="<your-db-password>" \
-  --set secret.BABY_TALK_AI_API_KEY="<your-api-key>"
+  --set secret.BABY_TALK_AI_API_KEY="<your-api-key>" \
+  --set secret.BABY_TALK_EMBEDDING_API_KEY="<your-embedding-key>"
 ```
+
+> **M005 新增：** `BABY_TALK_EMBEDDING_API_KEY` 是 MemPalace 语义搜索所需的 Embedding API 密钥。若使用 `agentic` 或 `rag` 搜索模式，此密钥**必须配置**。
 
 ### 方式二：外部 Secret 管理（推荐生产环境）
 
@@ -114,6 +117,9 @@ spec:
     - secretKey: BABY_TALK_AI_API_KEY
       remoteRef:
         key: babytalk/ai-api-key
+    - secretKey: BABY_TALK_EMBEDDING_API_KEY
+      remoteRef:
+        key: babytalk/embedding-api-key
 ```
 
 > **注意：** 使用外部 Secret 管理时，Helm chart 中的 `secret` 值保持为空字符串，Secret 由 ExternalSecret Controller 创建和更新。
@@ -144,7 +150,8 @@ helm install babytalk deploy/helm/babytalk/ \
   --set secret.BABY_TALK_DB_URL="<db-url>" \
   --set secret.BABY_TALK_DB_USERNAME="<db-user>" \
   --set secret.BABY_TALK_DB_PASSWORD="<db-password>" \
-  --set secret.BABY_TALK_AI_API_KEY="<api-key>"
+  --set secret.BABY_TALK_AI_API_KEY="<api-key>" \
+  --set secret.BABY_TALK_EMBEDDING_API_KEY="<embedding-key>"
 ```
 
 ### 升级/更新
@@ -158,7 +165,8 @@ helm upgrade babytalk deploy/helm/babytalk/ \
   --set secret.BABY_TALK_DB_URL="<db-url>" \
   --set secret.BABY_TALK_DB_USERNAME="<db-user>" \
   --set secret.BABY_TALK_DB_PASSWORD="<db-password>" \
-  --set secret.BABY_TALK_AI_API_KEY="<api-key>"
+  --set secret.BABY_TALK_AI_API_KEY="<api-key>" \
+  --set secret.BABY_TALK_EMBEDDING_API_KEY="<embedding-key>"
 ```
 
 ### Dry-Run 预检
@@ -388,6 +396,50 @@ kubectl exec -n babytalk <pod-name> -- env | grep BABY_TALK
 
 ---
 
+## M005 MemPalace 新增变量
+
+M005 在 Helm chart 中新增了以下 ConfigMap 和 Secret 变量，用于 MemPalace 知识宫殿功能：
+
+### 新增 Secret（1 个）
+
+| 变量 | 说明 |
+|------|------|
+| `BABY_TALK_EMBEDDING_API_KEY` | Embedding API 密钥，语义搜索必须 |
+
+注入方式同其他 Secret：
+
+```bash
+--set secret.BABY_TALK_EMBEDDING_API_KEY="<your-embedding-key>"
+```
+
+### 新增 ConfigMap（9 个）
+
+| 变量 | 生产默认值 | 说明 |
+|------|-----------|------|
+| `BABY_TALK_MENTOR_SEARCH_MODE` | `agentic` | 搜索模式：agentic / rag / none |
+| `BABY_TALK_MENTOR_SESSION_TIMEOUT` | `PT30M` | 多轮会话超时 |
+| `BABY_TALK_MENTOR_PRACTICE_RESPONSE_MAX_LENGTH` | `2000` | 练习回复最大长度 |
+| `BABY_TALK_EMBEDDING_BASE_URL` | Azure 端点 | Embedding API 端点 |
+| `BABY_TALK_EMBEDDING_MODEL` | `text-embedding-3-small` | Embedding 模型 |
+| `BABY_TALK_EMBEDDING_DIMENSIONS` | `1536` | 向量维度 |
+| `BABY_TALK_KG_REVIEW_ENABLED` | `true` | KG 矛盾审查开关 |
+| `BABY_TALK_KG_REVIEW_INTERVAL` | `PT30M` | 审查轮询间隔 |
+| `BABY_TALK_KG_REVIEW_BATCH_SIZE` | `10` | 每次审查批量数 |
+
+ConfigMap 变量通过 `values-production.yaml` 覆盖，也可在 helm install/upgrade 时通过 `--set config.` 前缀覆盖：
+
+```bash
+helm upgrade babytalk deploy/helm/babytalk/ \
+  --namespace babytalk \
+  -f deploy/helm/babytalk/values-production.yaml \
+  --set config.BABY_TALK_MENTOR_SEARCH_MODE="rag" \
+  --set config.BABY_TALK_KG_REVIEW_INTERVAL="PT1H"
+```
+
+> 📖 详细运维操作参见 [M005 MemPalace 运维手册](m005-mempalace-ops.md)
+
+---
+
 ## 清理
 
 ### 卸载 Release
@@ -417,8 +469,8 @@ deploy/helm/babytalk/
     ├── NOTES.txt                 # 部署后提示
     ├── deployment.yaml           # Deployment（含 Probes、envFrom）
     ├── service.yaml              # Service（ClusterIP:8080）
-    ├── configmap.yaml            # ConfigMap（32 个非敏感变量）
-    ├── secret.yaml               # Secret（4 个敏感变量）
+    ├── configmap.yaml            # ConfigMap（非敏感变量，含 M005 MemPalace 配置）
+    ├── secret.yaml               # Secret（敏感变量，含 Embedding API Key）
     ├── ingress.yaml              # Ingress（条件渲染）
     ├── serviceaccount.yaml       # ServiceAccount（条件创建）
     └── tests/

@@ -14,7 +14,8 @@ public interface MentorProvider {
             String prompt,
             String promptSummary,
             boolean authenticated,
-            Instant requestedAt
+            Instant requestedAt,
+            String conversationId
     ) {
     }
 

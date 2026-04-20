@@ -1,12 +1,16 @@
 package com.zhangspaghetti.babytalk.config;
 
+import com.zhangspaghetti.babytalk.palace.PalaceSearchService;
+import com.zhangspaghetti.babytalk.palace.PalaceToolProvider;
 import com.zhangspaghetti.babytalk.service.DevMentorProvider;
 import com.zhangspaghetti.babytalk.service.MentorProvider;
 import com.zhangspaghetti.babytalk.service.SpringAiMentorProvider;
 import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.ai.chat.client.advisor.MessageChatMemoryAdvisor;
 import org.springframework.ai.openai.OpenAiChatModel;
 import org.springframework.ai.openai.OpenAiChatOptions;
 import org.springframework.ai.openai.api.OpenAiApi;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -14,17 +18,27 @@ import org.springframework.context.annotation.Configuration;
 public class MentorProviderConfiguration {
 
     @Bean
-    public MentorProvider mentorProvider(MentorProperties properties) {
+    public MentorProvider mentorProvider(MentorProperties properties,
+                                         ObjectProvider<PalaceToolProvider> palaceToolProviderProvider,
+                                         ObjectProvider<PalaceSearchService> palaceSearchServiceProvider,
+                                         ObjectProvider<MessageChatMemoryAdvisor> chatMemoryAdvisorProvider) {
         return switch (properties.providerMode().toLowerCase()) {
             case "dev" -> new DevMentorProvider(properties);
-            case "github-models", "openai" -> buildSpringAiProvider(properties);
+            case "github-models", "openai" -> buildSpringAiProvider(
+                    properties,
+                    palaceToolProviderProvider.getIfAvailable(),
+                    palaceSearchServiceProvider.getIfAvailable(),
+                    chatMemoryAdvisorProvider.getIfAvailable());
             default -> throw new MentorProvider.ProviderUnavailableException(
                     "不支持的 mentor provider mode: `%s`，可选值: dev, github-models, openai"
                             .formatted(properties.providerMode()));
         };
     }
 
-    private SpringAiMentorProvider buildSpringAiProvider(MentorProperties properties) {
+    private SpringAiMentorProvider buildSpringAiProvider(MentorProperties properties,
+                                                          PalaceToolProvider palaceToolProvider,
+                                                          PalaceSearchService palaceSearchService,
+                                                          MessageChatMemoryAdvisor chatMemoryAdvisor) {
         var apiKey = properties.aiApiKey();
         if (apiKey == null || apiKey.isBlank()) {
             throw new MentorProvider.ProviderUnavailableException(
@@ -53,21 +67,24 @@ public class MentorProviderConfiguration {
                 .defaultOptions(optionsBuilder.build())
                 .build();
 
-        var chatClient = ChatClient.create(chatModel);
+        // 使用 builder 模式而非 ChatClient.create()，便于后续扩展
+        var clientBuilder = ChatClient.builder(chatModel);
+        if (chatMemoryAdvisor != null) {
+            clientBuilder.defaultAdvisors(chatMemoryAdvisor);
+        }
+        var chatClient = clientBuilder.build();
 
-        return new SpringAiMentorProvider(chatClient, properties);
+        return new SpringAiMentorProvider(chatClient, properties,
+                palaceToolProvider, palaceSearchService);
     }
 
     private String resolveBaseUrl(MentorProperties properties) {
-        // 如果显式配置了 base URL，则使用配置值
         if (properties.aiBaseUrl() != null && !properties.aiBaseUrl().isBlank()) {
             return properties.aiBaseUrl();
         }
-        // github-models 默认使用 Azure Inference 端点
         if ("github-models".equalsIgnoreCase(properties.providerMode())) {
             return "https://models.inference.ai.azure.com";
         }
-        // openai 默认使用标准端点
         return "https://api.openai.com";
     }
 }

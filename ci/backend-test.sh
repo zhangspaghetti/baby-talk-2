@@ -2,5 +2,5 @@
 set -euo pipefail
 cd "$(dirname "$0")/../backend"
 echo '=== Backend Test ==='
-./mvnw verify -B
+mvn verify -B
 echo '=== Backend Test PASSED ==='

@@ -20,6 +20,8 @@ class PhraseCard extends StatelessWidget {
     required this.canSubmitReaction,
     required this.onPlay,
     required this.onReactionSelected,
+    this.onTtsSpeak,
+    this.isTtsMode = false,
   });
 
   final PracticePhrase phrase;
@@ -33,6 +35,8 @@ class PhraseCard extends StatelessWidget {
   final bool canSubmitReaction;
   final VoidCallback? onPlay;
   final ValueChanged<BabyReactionType>? onReactionSelected;
+  final VoidCallback? onTtsSpeak;
+  final bool isTtsMode;
 
   @override
   Widget build(BuildContext context) {
@@ -174,19 +178,23 @@ class PhraseCard extends StatelessWidget {
               width: 72,
               height: 72,
               child: Semantics(
-                label: '播放发音',
+                label: isTtsMode ? '朗读发音' : '播放发音',
                 button: true,
                 child: ElevatedButton(
-                key: Key('play-${phrase.phraseId}'),
+                key: Key(isTtsMode ? 'tts-${phrase.phraseId}' : 'play-${phrase.phraseId}'),
                 style: ElevatedButton.styleFrom(
                   shape: const CircleBorder(),
                   padding: EdgeInsets.zero,
                 ),
-                onPressed: canPlay ? onPlay : null,
+                onPressed: isTtsMode
+                    ? onTtsSpeak
+                    : (canPlay ? onPlay : null),
                 child: Icon(
-                  playbackStatus == PracticePlaybackStatus.playing
-                      ? Icons.graphic_eq_rounded
-                      : Icons.play_arrow_rounded,
+                  isTtsMode
+                      ? Icons.record_voice_over_rounded
+                      : (playbackStatus == PracticePlaybackStatus.playing
+                          ? Icons.graphic_eq_rounded
+                          : Icons.play_arrow_rounded),
                   size: 30,
                 ),
               ),

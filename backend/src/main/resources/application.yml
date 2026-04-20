@@ -11,14 +11,22 @@ spring:
       - org.springframework.ai.model.openai.autoconfigure.OpenAiModerationAutoConfiguration
       - org.springframework.ai.model.chat.client.autoconfigure.ChatClientAutoConfiguration
       - org.springframework.ai.model.chat.memory.autoconfigure.ChatMemoryAutoConfiguration
+      - org.springframework.ai.model.chat.memory.repository.jdbc.autoconfigure.JdbcChatMemoryRepositoryAutoConfiguration
+      - org.springframework.ai.vectorstore.pgvector.autoconfigure.PgVectorStoreAutoConfiguration
   datasource:
-    url: ${BABY_TALK_DB_URL:jdbc:h2:file:./.data/babytalk;MODE=PostgreSQL;AUTO_SERVER=TRUE;DATABASE_TO_UPPER=false}
-    username: ${BABY_TALK_DB_USERNAME:sa}
-    password: ${BABY_TALK_DB_PASSWORD:}
-    driver-class-name: org.h2.Driver
+    url: ${BABY_TALK_DB_URL:jdbc:postgresql://localhost:15432/babytalk}
+    username: ${BABY_TALK_DB_USERNAME:babytalk}
+    password: ${BABY_TALK_DB_PASSWORD:babytalk}
+    driver-class-name: org.postgresql.Driver
   flyway:
     enabled: true
     baseline-on-migrate: false
+  ai:
+    chat:
+      memory:
+        repository:
+          jdbc:
+            initialize-schema: never
   jackson:
     serialization:
       write-dates-as-timestamps: false
@@ -31,6 +39,10 @@ management:
     web:
       exposure:
         include: health,info
+  endpoint:
+    health:
+      show-details: always
+      show-components: always
 
 app:
   contract:
@@ -108,8 +120,10 @@ app:
       - garden
       - growth
       - standalone_home
+      - practice
     allowed-modes:
       - single_turn
+      - multi_turn
     blocked-keywords:
       - slap
       - hit
@@ -119,3 +133,20 @@ app:
     simulate-timeout-token: ${BABY_TALK_MENTOR_SIMULATE_TIMEOUT_TOKEN:[timeout]}
     simulate-malformed-token: ${BABY_TALK_MENTOR_SIMULATE_MALFORMED_TOKEN:[malformed]}
     simulate-unavailable-token: ${BABY_TALK_MENTOR_SIMULATE_UNAVAILABLE_TOKEN:[unavailable]}
+    search-mode: ${BABY_TALK_MENTOR_SEARCH_MODE:none}
+    session-timeout: ${BABY_TALK_MENTOR_SESSION_TIMEOUT:PT30M}
+    practice-response-max-length: ${BABY_TALK_MENTOR_PRACTICE_RESPONSE_MAX_LENGTH:2000}
+  embedding:
+    base-url: ${BABY_TALK_EMBEDDING_BASE_URL:https://models.inference.ai.azure.com}
+    api-key: ${BABY_TALK_EMBEDDING_API_KEY:}
+    model: ${BABY_TALK_EMBEDDING_MODEL:text-embedding-3-small}
+    dimensions: ${BABY_TALK_EMBEDDING_DIMENSIONS:1536}
+  kg:
+    review-interval: ${BABY_TALK_KG_REVIEW_INTERVAL:PT5M}
+    review-enabled: ${BABY_TALK_KG_REVIEW_ENABLED:true}
+    review-batch-size: ${BABY_TALK_KG_REVIEW_BATCH_SIZE:10}
+  minio:
+    endpoint: ${BABY_TALK_MINIO_ENDPOINT:http://localhost:9000}
+    access-key: ${BABY_TALK_MINIO_ACCESS_KEY:babytalk}
+    secret-key: ${BABY_TALK_MINIO_SECRET_KEY:babytalk123}
+    bucket-name: ${BABY_TALK_MINIO_BUCKET:babytalk}

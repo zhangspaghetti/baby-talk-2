@@ -1,9 +1,11 @@
 import 'dart:math';
 
+import 'package:flutter/foundation.dart';
 import 'package:mobile/core/device/installation_id_service.dart';
 import 'package:mobile/features/practice/data/local/interaction_event_entity.dart';
 import 'package:mobile/features/practice/data/local/practice_local_data_source.dart';
 import 'package:mobile/features/practice/data/services/asset_phrase_service.dart';
+import 'package:mobile/features/practice/data/services/dynamic_practice_api_service.dart';
 import 'package:mobile/features/practice/domain/models/interaction_event_payload.dart';
 import 'package:mobile/features/practice/domain/models/practice_activity_catalog.dart';
 import 'package:mobile/features/practice/domain/models/practice_continuity_snapshot.dart';
@@ -239,15 +241,18 @@ class PracticeRepository {
     required AssetPhraseService assetPhraseService,
     required PracticeLocalDataSource localDataSource,
     required InstallationIdService installationIdService,
+    DynamicPracticeApiService? dynamicPracticeApiService,
     Random? random,
   }) : _assetPhraseService = assetPhraseService,
        _localDataSource = localDataSource,
        _installationIdService = installationIdService,
+       _dynamicPracticeApiService = dynamicPracticeApiService,
        _random = random ?? Random();
 
   final AssetPhraseService _assetPhraseService;
   final PracticeLocalDataSource _localDataSource;
   final InstallationIdService _installationIdService;
+  final DynamicPracticeApiService? _dynamicPracticeApiService;
   final Random _random;
   bool _isClosed = false;
 
@@ -488,6 +493,80 @@ class PracticeRepository {
       coachTip: activity.coachTip,
       phrases: phrases,
     );
+  }
+
+  /// 从后端 API 动态生成练习内容，失败时 fallback 到首个 seed_content.json activity
+  ///
+  /// [babyAgeMonths] 宝宝月龄
+  /// [sceneTag] 可选场景标签
+  /// [fallbackSpaceId] fallback 时使用的 spaceId
+  /// [fallbackActivityId] fallback 时使用的 activityId
+  Future<PracticeActivitySnapshot> getActivitySnapshotDynamic({
+    required int babyAgeMonths,
+    String? sceneTag,
+    String? fallbackSpaceId,
+    String? fallbackActivityId,
+  }) async {
+    final apiService = _dynamicPracticeApiService;
+    if (apiService != null) {
+      try {
+        final installationId = await _safeEnsureInstallationId() ?? '';
+        final response = await apiService.generatePractice(
+          installationId: installationId,
+          babyAgeMonths: babyAgeMonths,
+          sceneTag: sceneTag,
+        );
+        if (response.activities.isNotEmpty) {
+          final activity = response.activities.first;
+          final phrases = <PracticePhrase>[];
+          for (var i = 0; i < activity.phrases.length; i++) {
+            final dp = activity.phrases[i];
+            phrases.add(PracticePhrase(
+              spaceId: 'dynamic',
+              activityId: 'dynamic_${DateTime.now().millisecondsSinceEpoch}',
+              phraseId: 'dyn_${i}_${DateTime.now().microsecondsSinceEpoch}',
+              step: i + 1,
+              english: dp.english,
+              chinese: dp.chinese,
+              pronunciation: dp.pronunciation,
+              difficulty: dp.difficulty,
+              audioAsset: '', // 空字符串标记为 TTS 模式
+            ));
+          }
+          debugPrint(
+            '[PracticeRepository] dynamic generate OK: '
+            '${activity.title}, ${phrases.length} phrases',
+          );
+          return PracticeActivitySnapshot(
+            spaceId: 'dynamic',
+            activityId: 'dynamic',
+            title: activity.title,
+            summary: activity.summary,
+            sceneTag: activity.sceneTag,
+            coachTip: activity.coachTip,
+            phrases: List.unmodifiable(phrases),
+          );
+        }
+      } catch (error) {
+        debugPrint(
+          '[PracticeRepository] dynamic generate failed, '
+          'falling back to seed: $error',
+        );
+      }
+    }
+
+    // fallback: 使用 seed_content.json 首个 activity
+    final content = await _assetPhraseService.loadSeedContent();
+    final firstSpace = content.spaces.isNotEmpty ? content.spaces.first : null;
+    final firstActivity =
+        firstSpace != null && firstSpace.activities.isNotEmpty
+            ? firstSpace.activities.first
+            : null;
+
+    final spaceId = fallbackSpaceId ?? firstSpace?.id ?? 'default';
+    final activityId = fallbackActivityId ?? firstActivity?.id ?? 'default';
+
+    return getActivitySnapshot(spaceId: spaceId, activityId: activityId);
   }
 
   Future<String> ensureInstallationId() {

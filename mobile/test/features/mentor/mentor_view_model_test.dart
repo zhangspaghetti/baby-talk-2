@@ -351,6 +351,86 @@ void main() {
         contains(MentorFactType.ttsUnavailable),
       );
     });
+
+    test('多轮聊天：发送两次后 messages 累积 4 条，conversationId 从响应穿透保持', () async {
+      final accountViewModel = AccountViewModel(
+        repository: _StaticAccountRepository(
+          seedSnapshot: AccountLocalSnapshot.signedOut,
+        ),
+      );
+      await accountViewModel.initialize();
+      final repository = _RecordingMentorRepository();
+      final apiService = _MultiTurnFakeMentorApiService();
+      final viewModel = MentorViewModel(
+        repository: repository,
+        accountViewModel: accountViewModel,
+        apiService: apiService,
+        audioController: _SilentMentorAudioController(),
+      );
+      addTearDown(viewModel.dispose);
+      addTearDown(accountViewModel.dispose);
+
+      await viewModel.beginPanelSession(launcher: 'home_fab');
+      await Future<void>.delayed(const Duration(milliseconds: 1));
+      viewModel.selectTab(MentorPanelTab.chat);
+
+      // 第一轮
+      viewModel.updateChatDraft('宝宝一直哭，我该怎么安抚？');
+      await viewModel.submitChat();
+
+      expect(viewModel.messages.length, 2);
+      expect(viewModel.messages[0].role, ChatBubbleRole.user);
+      expect(viewModel.messages[0].text, '宝宝一直哭，我该怎么安抚？');
+      expect(viewModel.messages[1].role, ChatBubbleRole.assistant);
+      expect(viewModel.conversationId, 'conv_server_123');
+
+      // 第二轮
+      viewModel.updateChatDraft('如果宝宝还是哭呢？');
+      await viewModel.submitChat();
+
+      expect(viewModel.messages.length, 4);
+      expect(viewModel.messages[2].role, ChatBubbleRole.user);
+      expect(viewModel.messages[2].text, '如果宝宝还是哭呢？');
+      expect(viewModel.messages[3].role, ChatBubbleRole.assistant);
+      // conversationId 应该保持不变
+      expect(viewModel.conversationId, 'conv_server_123');
+      // chatDraft 每轮提交后应被清空
+      expect(viewModel.chatDraft, '');
+    });
+
+    test('多轮聊天：beginPanelSession 重置 messages 和 conversationId', () async {
+      final accountViewModel = AccountViewModel(
+        repository: _StaticAccountRepository(
+          seedSnapshot: AccountLocalSnapshot.signedOut,
+        ),
+      );
+      await accountViewModel.initialize();
+      final repository = _RecordingMentorRepository();
+      final viewModel = MentorViewModel(
+        repository: repository,
+        accountViewModel: accountViewModel,
+        apiService: _MultiTurnFakeMentorApiService(),
+        audioController: _SilentMentorAudioController(),
+      );
+      addTearDown(viewModel.dispose);
+      addTearDown(accountViewModel.dispose);
+
+      await viewModel.beginPanelSession(launcher: 'home_fab');
+      await Future<void>.delayed(const Duration(milliseconds: 1));
+      viewModel.selectTab(MentorPanelTab.chat);
+      viewModel.updateChatDraft('测试');
+      await viewModel.submitChat();
+      expect(viewModel.messages, isNotEmpty);
+      expect(viewModel.conversationId, isNotNull);
+
+      // 结束并重新开始
+      viewModel.endPanelSession();
+      await viewModel.beginPanelSession(launcher: 'home_fab');
+      await Future<void>.delayed(const Duration(milliseconds: 1));
+
+      expect(viewModel.messages, isEmpty);
+      expect(viewModel.conversationId, isNull);
+    });
   });
 }
 
@@ -529,6 +609,7 @@ class _FakeMentorApiService extends MentorApiService {
     required String correlationId,
     String? sessionId,
     String? contextSummary,
+    String? conversationId,
   }) async {
     if (error != null) {
       throw error!;
@@ -549,6 +630,7 @@ class _FakeMentorApiService extends MentorApiService {
             windowSeconds: 600,
           ),
           respondedAt: DateTime.utc(2026, 4, 10, 0),
+          conversationId: conversationId ?? 'conv_test_001',
         );
   }
 
@@ -587,4 +669,48 @@ class _UnavailableMentorAudioController implements MentorAudioController {
 
   @override
   Future<void> stop() async {}
+}
+
+/// 多轮聊天测试用的 Fake API Service，记录收到的 conversationId 并始终返回固定 conversationId。
+class _MultiTurnFakeMentorApiService extends MentorApiService {
+  _MultiTurnFakeMentorApiService()
+    : super(baseUri: Uri.parse('http://localhost:8080'));
+
+  final List<String?> receivedConversationIds = <String?>[];
+  int _callCount = 0;
+
+  @override
+  Future<MentorChatResponse> sendChat({
+    required String installationId,
+    required String prompt,
+    required String surface,
+    required String mode,
+    required String correlationId,
+    String? sessionId,
+    String? contextSummary,
+    String? conversationId,
+  }) async {
+    receivedConversationIds.add(conversationId);
+    _callCount++;
+    return MentorChatResponse(
+      correlationId: 'corr_multi_$_callCount',
+      responseText: '回复第$_callCount轮：先抱近一点，说 I\'m here.',
+      code: 'ok',
+      phase: 'response_delivered',
+      retryable: false,
+      fallbackUsed: false,
+      authenticated: false,
+      rateLimit: const MentorRateLimitStatus(
+        limited: false,
+        limit: 3,
+        remaining: 2,
+        windowSeconds: 600,
+      ),
+      respondedAt: DateTime.utc(2026, 4, 10, 0),
+      conversationId: 'conv_server_123',
+    );
+  }
+
+  @override
+  Future<void> close() async {}
 }

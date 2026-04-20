@@ -28,6 +28,30 @@ public record MentorProperties(
         List<@NotBlank String> blockedKeywords,
         @NotBlank String simulateTimeoutToken,
         @NotBlank String simulateMalformedToken,
-        @NotBlank String simulateUnavailableToken
+        @NotBlank String simulateUnavailableToken,
+        String searchMode,
+        Duration sessionTimeout,
+        Integer practiceResponseMaxLength
 ) {
+    /**
+     * 返回 searchMode，默认为 "none"。
+     * 有效值: "agentic", "rag", "none"
+     */
+    public String effectiveSearchMode() {
+        return (searchMode == null || searchMode.isBlank()) ? "none" : searchMode.trim().toLowerCase();
+    }
+
+    /**
+     * 返回 sessionTimeout，默认 30 分钟。
+     */
+    public Duration effectiveSessionTimeout() {
+        return sessionTimeout == null ? Duration.ofMinutes(30) : sessionTimeout;
+    }
+
+    /**
+     * 返回 practiceResponseMaxLength，默认 2000。
+     */
+    public int effectivePracticeResponseMaxLength() {
+        return practiceResponseMaxLength == null ? 2000 : practiceResponseMaxLength;
+    }
 }

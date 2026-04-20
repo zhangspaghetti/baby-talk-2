@@ -1,14 +1,23 @@
 package com.zhangspaghetti.babytalk.service;
 
 import com.zhangspaghetti.babytalk.config.MentorProperties;
+import com.zhangspaghetti.babytalk.palace.MemPalacePromptBuilder;
+import com.zhangspaghetti.babytalk.palace.PalaceSearchService;
 import com.zhangspaghetti.babytalk.web.ContractException;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -18,14 +27,19 @@ import org.springframework.transaction.support.TransactionTemplate;
 @Service
 public class MentorService {
 
+    private static final Logger log = LoggerFactory.getLogger(MentorService.class);
     private static final int SUMMARY_MAX_LENGTH = 240;
     private static final int PREVIEW_MAX_LENGTH = 72;
+    private static final Pattern JSON_BLOCK_PATTERN = Pattern.compile("\\{\\s*\"activities\"\\s*:", Pattern.DOTALL);
 
     private final MentorRepository repository;
     private final AuthConsentSyncRepository authConsentSyncRepository;
     private final MentorProvider mentorProvider;
     private final MentorProperties properties;
+    private final ConversationSessionService conversationSessionService;
     private final TransactionTemplate transactionTemplate;
+    private final PalaceSearchService palaceSearchService;
+    private final ObjectMapper objectMapper;
     private final Clock clock = Clock.systemUTC();
 
     public MentorService(
@@ -33,13 +47,19 @@ public class MentorService {
             AuthConsentSyncRepository authConsentSyncRepository,
             MentorProvider mentorProvider,
             MentorProperties properties,
-            PlatformTransactionManager txManager
+            ConversationSessionService conversationSessionService,
+            PlatformTransactionManager txManager,
+            PalaceSearchService palaceSearchService,
+            ObjectMapper objectMapper
     ) {
         this.repository = repository;
         this.authConsentSyncRepository = authConsentSyncRepository;
         this.mentorProvider = mentorProvider;
         this.properties = properties;
+        this.conversationSessionService = conversationSessionService;
         this.transactionTemplate = new TransactionTemplate(txManager);
+        this.palaceSearchService = palaceSearchService;
+        this.objectMapper = objectMapper;
     }
 
     /**
@@ -85,7 +105,8 @@ public class MentorService {
                     phase1Result.prompt(),
                     phase1Result.requestSummary(),
                     phase1Result.association().authenticated(),
-                    phase1Result.now()
+                    phase1Result.now(),
+                    phase1Result.conversationId()
             ));
             var responseText = normalizeProviderResponse(providerResponse.responseText());
             var responseSummary = providerResponse.responseSummary() == null || providerResponse.responseSummary().isBlank()
@@ -129,6 +150,7 @@ public class MentorService {
 
             return new ChatResponse(
                     phase1Result.effectiveCorrelationId(),
+                    phase1Result.conversationId(),
                     responseText,
                     "ok",
                     "response_delivered",
@@ -244,6 +266,9 @@ public class MentorService {
         var requestSummary = buildRequestSummary(surface, mode, prompt, command.contextSummary());
         var association = resolveSession(sessionIdHeader, installationId, effectiveCorrelationId, requestSummary, now);
 
+        // 解析 conversationId：null/blank → 新 UUID, 超时 → 新 UUID + WARN, 未超时 → 原 ID
+        var resolvedConversationId = conversationSessionService.resolveConversationId(command.conversationId());
+
         // 先 INSERT chat_requested audit 占位，再 COUNT 窗口内请求数（修复并发 TOCTOU 竞态）
         var currentCount = repository.insertAuditAndCountWindow(
                 auditRow(
@@ -339,8 +364,10 @@ public class MentorService {
                     requestSummary,
                     remaining,
                     now,
+                    resolvedConversationId,
                     new ChatResponse(
                             effectiveCorrelationId,
+                            resolvedConversationId,
                             fallbackText,
                             "blocked_fallback",
                             "blocked_fallback",
@@ -363,8 +390,145 @@ public class MentorService {
                 requestSummary,
                 remaining,
                 now,
+                resolvedConversationId,
                 null
         );
+    }
+
+    /**
+     * 练习生成 — 独立管线，不经过 chat 三阶段（无 rate limit、无 turn 记录）。
+     * <ol>
+     *   <li>验证 installationId 和 surface=practice</li>
+     *   <li>构建 practice system prompt（复用 L1 知识宫殿预检索）</li>
+     *   <li>调用 mentorProvider.respond() 获取 LLM 原始响应</li>
+     *   <li>尝试 JSON 解析为 PracticeGenerateResponse</li>
+     *   <li>JSON 解析失败时尝试正则提取或返回 fallback 空 response</li>
+     * </ol>
+     */
+    public PracticeGenerateResponse generatePractice(PracticeGenerateCommand command) {
+        // 验证 installationId
+        var installationId = requireTrimmed(command.installationId(), "installationId");
+        if (installationId.length() > 128) {
+            throw new ContractException(HttpStatus.BAD_REQUEST, "invalid_installation_id",
+                    "installationId 过长。", Map.of("phase", "invalid_installation_id"));
+        }
+
+        // 验证 surface 必须是 practice
+        var surface = requireTrimmed(command.surface(), "surface").toLowerCase(Locale.ROOT);
+        if (!"practice".equals(surface)) {
+            throw new ContractException(HttpStatus.BAD_REQUEST, "invalid_surface",
+                    "practice generate 端点仅接受 surface=practice。",
+                    Map.of("phase", "invalid_surface", "allowed", List.of("practice")));
+        }
+
+        var babyAgeMonths = command.babyAgeMonths();
+        var sceneTag = command.sceneTag();
+        log.info("practice.generate: surface=practice, babyAgeMonths={}, sceneTag={}", babyAgeMonths, sceneTag);
+
+        // 构建 practice system prompt（含 L1 知识宫殿预检索）
+        String systemPrompt = MemPalacePromptBuilder.buildPracticeSystemPrompt(
+                babyAgeMonths, sceneTag, palaceSearchService);
+
+        // 组装用户 prompt
+        String userPrompt = "请为 %d 个月大的宝宝生成英语启蒙练习。".formatted(babyAgeMonths);
+        if (sceneTag != null && !sceneTag.isBlank()) {
+            userPrompt += " 场景：%s。".formatted(sceneTag.trim());
+        }
+
+        // 调用 provider（不经过 chat 3-phase 管线）
+        String rawResponse;
+        try {
+            var providerResponse = mentorProvider.respond(new MentorProvider.ProviderRequest(
+                    "practice_" + UUID.randomUUID(),
+                    installationId,
+                    surface,
+                    "single_turn",
+                    userPrompt,
+                    "practice_generate:age=%d,scene=%s".formatted(babyAgeMonths, sceneTag),
+                    false,
+                    Instant.now(clock),
+                    command.conversationId()
+            ));
+            rawResponse = providerResponse.responseText();
+        } catch (MentorProvider.ProviderTimeoutException e) {
+            log.warn("practice.generate: provider timeout", e);
+            throw new ContractException(HttpStatus.GATEWAY_TIMEOUT, "provider_timeout",
+                    "练习生成超时，请稍后再试。", Map.of("phase", "provider_timeout", "retryable", true));
+        } catch (MentorProvider.ProviderUnavailableException e) {
+            log.warn("practice.generate: provider unavailable", e);
+            throw new ContractException(HttpStatus.SERVICE_UNAVAILABLE, "provider_unavailable",
+                    "服务暂时不可用，请稍后再试。", Map.of("phase", "provider_unavailable", "retryable", true));
+        } catch (MentorProvider.ProviderMalformedResponseException e) {
+            log.warn("practice.generate: provider malformed response", e);
+            // malformed 也走 fallback
+            return PracticeGenerateResponse.empty();
+        }
+
+        if (rawResponse == null || rawResponse.isBlank()) {
+            log.warn("practice.generate: provider returned empty response");
+            return PracticeGenerateResponse.empty();
+        }
+
+        // 尝试解析 JSON
+        return parsePracticeResponse(rawResponse);
+    }
+
+    /**
+     * 尝试将 LLM 原始响应解析为 PracticeGenerateResponse。
+     * 先尝试直接 JSON 解析；失败后尝试从响应中提取 JSON 块；最终 fallback 为空 response。
+     */
+    PracticeGenerateResponse parsePracticeResponse(String rawResponse) {
+        // 先尝试直接解析
+        try {
+            return objectMapper.readValue(rawResponse.trim(), PracticeGenerateResponse.class);
+        } catch (JsonProcessingException e) {
+            log.debug("practice.generate: direct JSON parse failed, trying regex extraction");
+        }
+
+        // 尝试从文本中提取 JSON 块（LLM 可能包裹在 markdown code fence 中）
+        String extracted = extractJsonBlock(rawResponse);
+        if (extracted != null) {
+            try {
+                return objectMapper.readValue(extracted, PracticeGenerateResponse.class);
+            } catch (JsonProcessingException e) {
+                log.warn("practice.generate: JSON parse fallback failed, rawResponse.length={}", rawResponse.length());
+                log.debug("practice.generate: full LLM response for diagnosis: {}", rawResponse);
+            }
+        } else {
+            log.warn("practice.generate: no JSON block found in response, rawResponse.length={}", rawResponse.length());
+            log.debug("practice.generate: full LLM response for diagnosis: {}", rawResponse);
+        }
+
+        return PracticeGenerateResponse.empty();
+    }
+
+    /**
+     * 从 LLM 响应中提取 JSON 块 — 处理 markdown code fence 或裸 JSON。
+     */
+    private String extractJsonBlock(String rawResponse) {
+        // 尝试匹配 ```json ... ``` 或 ``` ... ```
+        var codeFencePattern = Pattern.compile("```(?:json)?\\s*(\\{.*?})\\s*```", Pattern.DOTALL);
+        Matcher matcher = codeFencePattern.matcher(rawResponse);
+        if (matcher.find()) {
+            return matcher.group(1);
+        }
+
+        // 尝试匹配裸 JSON 对象（从 { 到最后的 }）
+        Matcher jsonMatcher = JSON_BLOCK_PATTERN.matcher(rawResponse);
+        if (jsonMatcher.find()) {
+            int start = jsonMatcher.start();
+            int braceCount = 0;
+            for (int i = start; i < rawResponse.length(); i++) {
+                char c = rawResponse.charAt(i);
+                if (c == '{') braceCount++;
+                else if (c == '}') braceCount--;
+                if (braceCount == 0) {
+                    return rawResponse.substring(start, i + 1);
+                }
+            }
+        }
+
+        return null;
     }
 
     @Transactional(readOnly = true)
@@ -768,12 +932,14 @@ public class MentorService {
             String surface,
             String mode,
             String correlationId,
-            String contextSummary
+            String contextSummary,
+            String conversationId
     ) {
     }
 
     public record ChatResponse(
             String correlationId,
+            String conversationId,
             String responseText,
             String code,
             String phase,
@@ -817,7 +983,44 @@ public class MentorService {
             String requestSummary,
             int remaining,
             Instant now,
+            String conversationId,
             ChatResponse earlyResponse
+    ) {
+    }
+
+    // ─── Practice 练习生成 records ───────────────────────
+
+    public record PracticeGenerateCommand(
+            String installationId,
+            String surface,
+            int babyAgeMonths,
+            String sceneTag,
+            String conversationId
+    ) {
+    }
+
+    public record PracticeGenerateResponse(
+            List<ActivityDto> activities
+    ) {
+        public static PracticeGenerateResponse empty() {
+            return new PracticeGenerateResponse(List.of());
+        }
+    }
+
+    public record ActivityDto(
+            String title,
+            String summary,
+            String sceneTag,
+            String coachTip,
+            List<PhraseDto> phrases
+    ) {
+    }
+
+    public record PhraseDto(
+            String english,
+            String chinese,
+            String pronunciation,
+            String difficulty
     ) {
     }
 }

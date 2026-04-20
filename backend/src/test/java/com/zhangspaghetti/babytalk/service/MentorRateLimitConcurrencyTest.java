@@ -12,6 +12,7 @@ import java.util.concurrent.Future;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import com.zhangspaghetti.babytalk.AbstractIntegrationTest;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.jdbc.core.JdbcTemplate;
 
@@ -21,9 +22,6 @@ import org.springframework.jdbc.core.JdbcTemplate;
  * insert-first-then-count 原子策略保证不超过 rateLimitMaxRequests 个成功。
  */
 @SpringBootTest(properties = {
-        "spring.datasource.url=jdbc:h2:mem:mentor-rate-limit-concurrency-test;MODE=PostgreSQL;DB_CLOSE_DELAY=-1;DATABASE_TO_UPPER=false",
-        "spring.datasource.username=sa",
-        "spring.datasource.password=",
         "app.contract.min-supported-version=1.2.0",
         "app.contract.upgrade-url=https://download.example.com/babytalk.apk",
         "app.sms.provider-mode=dev",
@@ -31,7 +29,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
         "app.mentor.provider-mode=dev",
         "app.mentor.rate-limit-max-requests=3"
 })
-class MentorRateLimitConcurrencyTest {
+class MentorRateLimitConcurrencyTest extends AbstractIntegrationTest {
 
     private static final int CONCURRENT_THREADS = 6;
     private static final int RATE_LIMIT = 3;
@@ -82,6 +80,7 @@ class MentorRateLimitConcurrencyTest {
                                     "home",
                                     "single_turn",
                                     "corr_concurrent_" + index,
+                                    null,
                                     null
                             ),
                             session.sessionId()
@@ -172,6 +171,7 @@ class MentorRateLimitConcurrencyTest {
                                 "home",
                                 "single_turn",
                                 "corr_seq_" + i,
+                                null,
                                 null
                         ),
                         null

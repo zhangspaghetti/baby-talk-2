@@ -18,6 +18,21 @@ enum MentorPanelStatus { idle, loading, ready, fallback, error }
 
 enum MentorChatAvailabilityCode { accountLoading, ready, offline }
 
+/// 聊天气泡展示数据，供 UI 层使用。
+enum ChatBubbleRole { user, assistant }
+
+class ChatBubbleData {
+  const ChatBubbleData({
+    required this.role,
+    required this.text,
+    required this.timestamp,
+  });
+
+  final ChatBubbleRole role;
+  final String text;
+  final DateTime timestamp;
+}
+
 extension MentorPanelTabLabel on MentorPanelTab {
   String get label {
     switch (this) {
@@ -143,6 +158,9 @@ class MentorViewModel extends ChangeNotifier {
   bool _chatAuthenticated = false;
   MentorRateLimitStatus? _chatRateLimit;
 
+  String? _conversationId;
+  List<ChatBubbleData> _messages = <ChatBubbleData>[];
+
   bool _isSpeaking = false;
   String? _audioStatusMessage;
   String? _audioStatusCode;
@@ -177,6 +195,9 @@ class MentorViewModel extends ChangeNotifier {
   bool get chatAuthenticated => _chatAuthenticated;
   MentorRateLimitStatus? get chatRateLimit => _chatRateLimit;
 
+  String? get conversationId => _conversationId;
+  List<ChatBubbleData> get messages => List<ChatBubbleData>.unmodifiable(_messages);
+
   bool get isSpeaking => _isSpeaking;
   String? get audioStatusMessage => _audioStatusMessage;
   String? get audioStatusCode => _audioStatusCode;
@@ -204,6 +225,8 @@ class MentorViewModel extends ChangeNotifier {
     _chatFallbackUsed = false;
     _chatAuthenticated = false;
     _chatRateLimit = null;
+    _conversationId = null;
+    _messages = <ChatBubbleData>[];
     _audioStatusMessage = null;
     _audioStatusCode = null;
     _syncChatAvailability(notify: false);
@@ -331,6 +354,13 @@ class MentorViewModel extends ChangeNotifier {
     _chatFallbackUsed = false;
     _chatAuthenticated = false;
     _chatRateLimit = null;
+    // 多轮聊天：追加用户消息到气泡列表
+    _messages = List<ChatBubbleData>.from(_messages)
+      ..add(ChatBubbleData(
+        role: ChatBubbleRole.user,
+        text: prompt,
+        timestamp: DateTime.now().toUtc(),
+      ));
     _applyBanner(
       '正在向小禾老师请求一次受控回应…',
       code: 'chat_requesting',
@@ -365,6 +395,7 @@ class MentorViewModel extends ChangeNotifier {
         correlationId: correlationId,
         sessionId: sessionId,
         contextSummary: _buildContextSummary(),
+        conversationId: _conversationId,
       );
 
       _chatResponseText = response.responseText;
@@ -374,6 +405,17 @@ class MentorViewModel extends ChangeNotifier {
       _chatFallbackUsed = response.fallbackUsed;
       _chatAuthenticated = response.authenticated;
       _chatRateLimit = response.rateLimit;
+      // 多轮聊天：更新 conversationId 并追加 AI 回复
+      if (response.conversationId != null) {
+        _conversationId = response.conversationId;
+      }
+      _messages = List<ChatBubbleData>.from(_messages)
+        ..add(ChatBubbleData(
+          role: ChatBubbleRole.assistant,
+          text: response.responseText,
+          timestamp: DateTime.now().toUtc(),
+        ));
+      _chatDraft = '';
       _panelStatus = response.fallbackUsed
           ? MentorPanelStatus.fallback
           : MentorPanelStatus.ready;
