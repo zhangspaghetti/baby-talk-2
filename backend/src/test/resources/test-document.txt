@@ -1,0 +1,19 @@
+This is a test document for the Baby Talk ingestion pipeline.
+
+Chapter 1: Early Communication
+
+Babies begin communicating from birth through crying, cooing, and babbling.
+By 6 months, most babies can recognize their name and respond to familiar voices.
+Early communication is the foundation for language development.
+
+Chapter 2: First Words
+
+Around 12 months, babies typically say their first words.
+Common first words include "mama", "dada", and "no".
+Encouraging language through reading and talking helps vocabulary growth.
+
+Chapter 3: Language Milestones
+
+By age 2, most children can combine two words together.
+Vocabulary expands rapidly between ages 2 and 3.
+Reading aloud daily is one of the most effective ways to support language development.

@@ -117,6 +117,19 @@ public class IngestionRepository {
         );
     }
 
+    /** 重置状态为 PENDING（用于重试） */
+    public void updateStatusPending(UUID jobId) {
+        jdbc.update("""
+                UPDATE ingestion_jobs
+                SET status = ?, error_message = NULL, total_chunks = 0, updated_at = ?
+                WHERE id = ?
+                """,
+                IngestionJob.STATUS_PENDING,
+                Timestamp.from(Instant.now()),
+                jobId
+        );
+    }
+
     /** 按状态查询 */
     public List<IngestionJob> findByStatus(String status) {
         return jdbc.query(
