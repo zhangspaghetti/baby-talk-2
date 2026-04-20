@@ -87,6 +87,9 @@ class PracticeSessionViewModel extends ChangeNotifier {
     required PracticeRepository repository,
     required this.spaceId,
     required this.activityId,
+    this.isDynamic = false,
+    this.babyAgeMonths = 12,
+    this.sceneTag,
     PracticeAudioController? audioController,
     this.playbackTimeout = const Duration(seconds: 8),
   }) : _repository = repository,
@@ -103,6 +106,9 @@ class PracticeSessionViewModel extends ChangeNotifier {
   final PracticeAudioController _audioController;
   final String spaceId;
   final String activityId;
+  final bool isDynamic;
+  final int babyAgeMonths;
+  final String? sceneTag;
   final Duration playbackTimeout;
 
   StreamSubscription<void>? _audioCompletionSubscription;
@@ -215,20 +221,38 @@ class PracticeSessionViewModel extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final restored = await _repository.restorePracticeState(
-        spaceId: spaceId,
-        activityId: activityId,
-      );
-      _applyRestoreSnapshot(restored);
+      PracticeActivitySnapshot snapshot;
+      PracticeResumeInfo resume;
 
-      final snapshot = restored.activitySnapshot;
+      if (isDynamic && _activitySnapshot != null) {
+        // 动态模式已在 _loadHomeState 中加载了 snapshot
+        snapshot = _activitySnapshot!;
+        resume = _resumeInfo ?? PracticeResumeInfo(
+          activityId: snapshot.activityId,
+          totalPhrases: snapshot.phrases.length,
+          completedPhraseIds: const [],
+          nextPhraseId: snapshot.phrases.isNotEmpty
+              ? snapshot.phrases.first.phraseId
+              : null,
+          lastEventTime: null,
+        );
+      } else {
+        final restored = await _repository.restorePracticeState(
+          spaceId: spaceId,
+          activityId: activityId,
+        );
+        _applyRestoreSnapshot(restored);
+        snapshot = restored.activitySnapshot;
+        resume = restored.resumeInfo;
+      }
+
       if (snapshot.phrases.isEmpty) {
         throw const FormatException('当前活动暂无可用短语，请返回首页重试。');
       }
 
       _currentPhraseIndex = _resolveCurrentPhraseIndex(
         phrases: snapshot.phrases,
-        resume: restored.resumeInfo,
+        resume: resume,
       );
       _sessionCompleted = false;
       _saveStatus = PracticeSaveStatus.idle;
@@ -300,14 +324,18 @@ class PracticeSessionViewModel extends ChangeNotifier {
 
     try {
       final isLastPhrase = _currentPhraseIndex >= snapshot.phrases.length - 1;
-      await _repository.recordReaction(
-        spaceId: spaceId,
-        activityId: activityId,
-        phraseId: phrase.phraseId,
-        reactionType: reactionType,
-      );
 
-      await _reloadDerivedState();
+      // 动态模式不写 Isar 事件（避免临时 ID 污染统计）
+      if (!isDynamic) {
+        await _repository.recordReaction(
+          spaceId: spaceId,
+          activityId: activityId,
+          phraseId: phrase.phraseId,
+          reactionType: reactionType,
+        );
+        await _reloadDerivedState();
+      }
+
       _resetPlaybackState(clearMessage: true, notify: false);
       _saveStatus = PracticeSaveStatus.saved;
       _saveMessage = isLastPhrase ? '已保存本地结果，当前活动已完成。' : '已保存本地结果，继续下一句。';
@@ -358,14 +386,46 @@ class PracticeSessionViewModel extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final restored = await _repository.restorePracticeState(
-        spaceId: spaceId,
-        activityId: activityId,
-      );
-      if (restored.activitySnapshot.phrases.isEmpty) {
-        throw const FormatException('首页内容加载到空短语列表。');
+      if (isDynamic) {
+        // 动态模式：从 API 生成练习内容
+        final snapshot = await _repository.getActivitySnapshotDynamic(
+          babyAgeMonths: babyAgeMonths,
+          sceneTag: sceneTag,
+          fallbackSpaceId: spaceId,
+          fallbackActivityId: activityId,
+        );
+        if (snapshot.phrases.isEmpty) {
+          throw const FormatException('首页内容加载到空短语列表。');
+        }
+        _activitySnapshot = snapshot;
+        _homeSummary = PracticeHomeSummary(
+          spaceId: snapshot.spaceId,
+          activityId: snapshot.activityId,
+          activityTitle: snapshot.title,
+          totalEvents: 0,
+          lastEventTime: null,
+          recentResult: null,
+        );
+        _resumeInfo = PracticeResumeInfo(
+          activityId: snapshot.activityId,
+          totalPhrases: snapshot.phrases.length,
+          completedPhraseIds: const [],
+          nextPhraseId:
+              snapshot.phrases.isNotEmpty ? snapshot.phrases.first.phraseId : null,
+          lastEventTime: null,
+        );
+        _restoreStatusMessage = '动态练习已就绪，内容由知识宫殿生成。';
+        _hasRecoverableRestoreIssue = false;
+      } else {
+        final restored = await _repository.restorePracticeState(
+          spaceId: spaceId,
+          activityId: activityId,
+        );
+        if (restored.activitySnapshot.phrases.isEmpty) {
+          throw const FormatException('首页内容加载到空短语列表。');
+        }
+        _applyRestoreSnapshot(restored);
       }
-      _applyRestoreSnapshot(restored);
     } catch (error) {
       _homeErrorMessage = '首页加载失败：$error';
     } finally {

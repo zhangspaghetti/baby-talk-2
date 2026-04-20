@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:mobile/app/theme/app_theme.dart';
+import 'package:mobile/features/mentor/presentation/mentor_audio_controller.dart';
 import 'package:mobile/features/practice/data/repositories/practice_repository.dart';
 import 'package:mobile/features/practice/presentation/practice_route_args.dart';
 import 'package:mobile/features/practice/presentation/practice_session_view_model.dart';
@@ -51,6 +52,8 @@ class _PracticeSessionBody extends StatefulWidget {
 }
 
 class _PracticeSessionBodyState extends State<_PracticeSessionBody> {
+  MentorAudioController? _ttsController;
+
   @override
   void initState() {
     super.initState();
@@ -59,11 +62,30 @@ class _PracticeSessionBodyState extends State<_PracticeSessionBody> {
         return;
       }
       final viewModel = context.read<PracticeSessionViewModel>();
+      if (viewModel.isDynamic) {
+        _ttsController = FlutterTtsMentorAudioController();
+      }
       if (viewModel.hasPreparedSession) {
         return;
       }
       viewModel.ensureSessionReady();
     });
+  }
+
+  @override
+  void dispose() {
+    _ttsController?.dispose();
+    super.dispose();
+  }
+
+  Future<void> _speakPhrase(String text) async {
+    final controller = _ttsController;
+    if (controller == null) return;
+    try {
+      await controller.speakText(text);
+    } catch (_) {
+      // TTS 失败静默处理
+    }
   }
 
   @override
@@ -212,6 +234,12 @@ class _PracticeSessionBodyState extends State<_PracticeSessionBody> {
                         canPlay: viewModel.canPlayCurrentPhrase,
                         canSubmitReaction: viewModel.canSubmitReaction,
                         onPlay: viewModel.playCurrentPhrase,
+                        isTtsMode: viewModel.isDynamic &&
+                            phrases[index].audioAsset.isEmpty,
+                        onTtsSpeak: (viewModel.isDynamic &&
+                                phrases[index].audioAsset.isEmpty)
+                            ? () => _speakPhrase(phrases[index].english)
+                            : null,
                         onReactionSelected: (reactionType) async {
                           final navigator = Navigator.of(context);
                           final outcome = await context
