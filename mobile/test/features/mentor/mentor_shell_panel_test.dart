@@ -691,6 +691,7 @@ class _FakeMentorApiService extends MentorApiService {
     required String correlationId,
     String? sessionId,
     String? contextSummary,
+    String? conversationId,
   }) async {
     if (error != null) {
       throw error!;

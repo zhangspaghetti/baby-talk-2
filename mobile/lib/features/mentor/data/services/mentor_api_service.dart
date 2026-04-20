@@ -36,6 +36,7 @@ class MentorChatResponse {
     required this.authenticated,
     required this.rateLimit,
     required this.respondedAt,
+    this.conversationId,
   });
 
   final String correlationId;
@@ -47,6 +48,7 @@ class MentorChatResponse {
   final bool authenticated;
   final MentorRateLimitStatus rateLimit;
   final DateTime respondedAt;
+  final String? conversationId;
 }
 
 enum MentorApiFailureKind { network, timeout, malformed, http }
@@ -121,6 +123,7 @@ class MentorApiService {
     required String correlationId,
     String? sessionId,
     String? contextSummary,
+    String? conversationId,
   }) async {
     final json = await _requestJson(
       'POST',
@@ -134,6 +137,7 @@ class MentorApiService {
         'correlationId': correlationId,
         if (contextSummary != null && contextSummary.trim().isNotEmpty)
           'contextSummary': contextSummary.trim(),
+        if (conversationId != null) 'conversationId': conversationId,
       },
     );
 
@@ -158,6 +162,7 @@ class MentorApiService {
         ),
       ),
       respondedAt: _readRequiredDateTime(json, 'respondedAt'),
+      conversationId: _readOptionalString(json, 'conversationId'),
     );
   }
 
