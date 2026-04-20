@@ -30,6 +30,12 @@ public abstract class AbstractIntegrationTest {
                     .withPassword("babytalk");
 
     static {
+        // Docker Desktop v29+ 要求 API version >= 1.44，而 docker-java 3.4.1 默认使用更低版本
+        // 通过系统属性告知 docker-java 使用兼容的 API 版本
+        if (System.getenv("DOCKER_API_VERSION") == null
+                && System.getProperty("api.version") == null) {
+            System.setProperty("api.version", "1.44");
+        }
         POSTGRES.start();
     }
 

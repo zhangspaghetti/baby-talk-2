@@ -13,3 +13,8 @@ app:
     api-key: test-api-key-placeholder
     model: text-embedding-3-small
     dimensions: 1536
+  minio:
+    endpoint: http://localhost:9000
+    access-key: test-access-key
+    secret-key: test-secret-key
+    bucket-name: test-bucket

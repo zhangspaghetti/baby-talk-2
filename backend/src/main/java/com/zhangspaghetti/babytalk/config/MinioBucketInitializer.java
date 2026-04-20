@@ -7,6 +7,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
+import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 
 /**
@@ -14,6 +15,7 @@ import org.springframework.stereotype.Component;
  * 如果 bucket 已存在则跳过，不存在则创建。
  */
 @Component
+@Profile("!test")
 public class MinioBucketInitializer implements ApplicationRunner {
 
     private static final Logger log = LoggerFactory.getLogger(MinioBucketInitializer.class);

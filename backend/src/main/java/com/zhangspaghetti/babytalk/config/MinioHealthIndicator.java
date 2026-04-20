@@ -4,6 +4,7 @@ import io.minio.BucketExistsArgs;
 import io.minio.MinioClient;
 import org.springframework.boot.actuate.health.Health;
 import org.springframework.boot.actuate.health.HealthIndicator;
+import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 
 /**
@@ -11,6 +12,7 @@ import org.springframework.stereotype.Component;
  * 只检测连通性，不创建 bucket（bucket 创建由 ingestion 管道负责）。
  */
 @Component
+@Profile("!test")
 public class MinioHealthIndicator implements HealthIndicator {
 
     private final MinioClient minioClient;
