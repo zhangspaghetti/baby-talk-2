@@ -11,11 +11,12 @@ spring:
       - org.springframework.ai.model.openai.autoconfigure.OpenAiModerationAutoConfiguration
       - org.springframework.ai.model.chat.client.autoconfigure.ChatClientAutoConfiguration
       - org.springframework.ai.model.chat.memory.autoconfigure.ChatMemoryAutoConfiguration
+      - org.springframework.ai.vectorstore.pgvector.autoconfigure.PgVectorStoreAutoConfiguration
   datasource:
-    url: ${BABY_TALK_DB_URL:jdbc:h2:file:./.data/babytalk;MODE=PostgreSQL;AUTO_SERVER=TRUE;DATABASE_TO_UPPER=false}
-    username: ${BABY_TALK_DB_USERNAME:sa}
-    password: ${BABY_TALK_DB_PASSWORD:}
-    driver-class-name: org.h2.Driver
+    url: ${BABY_TALK_DB_URL:jdbc:postgresql://localhost:15432/babytalk}
+    username: ${BABY_TALK_DB_USERNAME:babytalk}
+    password: ${BABY_TALK_DB_PASSWORD:babytalk}
+    driver-class-name: org.postgresql.Driver
   flyway:
     enabled: true
     baseline-on-migrate: false
@@ -119,3 +120,8 @@ app:
     simulate-timeout-token: ${BABY_TALK_MENTOR_SIMULATE_TIMEOUT_TOKEN:[timeout]}
     simulate-malformed-token: ${BABY_TALK_MENTOR_SIMULATE_MALFORMED_TOKEN:[malformed]}
     simulate-unavailable-token: ${BABY_TALK_MENTOR_SIMULATE_UNAVAILABLE_TOKEN:[unavailable]}
+  minio:
+    endpoint: ${BABY_TALK_MINIO_ENDPOINT:http://localhost:9000}
+    access-key: ${BABY_TALK_MINIO_ACCESS_KEY:babytalk}
+    secret-key: ${BABY_TALK_MINIO_SECRET_KEY:babytalk123}
+    bucket-name: ${BABY_TALK_MINIO_BUCKET:babytalk}
