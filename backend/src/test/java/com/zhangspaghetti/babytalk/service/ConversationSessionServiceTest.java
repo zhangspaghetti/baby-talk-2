@@ -49,7 +49,8 @@ class ConversationSessionServiceTest {
                 "[malformed]",
                 "[unavailable]",
                 "none",
-                sessionTimeout
+                sessionTimeout,
+                null
         );
     }
 

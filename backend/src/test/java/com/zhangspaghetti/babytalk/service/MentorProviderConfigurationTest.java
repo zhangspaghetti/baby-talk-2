@@ -52,7 +52,8 @@ class MentorProviderConfigurationTest {
                 "[malformed]",
                 "[unavailable]",
                 searchMode,
-                Duration.ofMinutes(30)
+                Duration.ofMinutes(30),
+                null
         );
     }
 

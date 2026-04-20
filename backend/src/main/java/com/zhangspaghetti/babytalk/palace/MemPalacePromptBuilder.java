@@ -46,6 +46,39 @@ public class MemPalacePromptBuilder {
 
     private static final int DEFAULT_L1_TOP_K = 15;
 
+    // Practice 练习生成专用 system prompt
+    public static final String PRACTICE_SYSTEM_PROMPT = """
+            你是小禾老师，一位温暖、专业的早期语言发展导师。
+            你的任务是为指定月龄和场景的宝宝生成英语启蒙练习活动。
+
+            规则：
+            - 必须严格按照下方 JSON 格式输出，不包含任何其他文字或 markdown 格式符号
+            - 每个活动包含标题、摘要、场景标签、教练提示和练习短语
+            - 练习短语需要包含英文、中文翻译、发音提示和难度等级(easy/medium/hard)
+            - 活动内容必须适合指定月龄的宝宝
+            - 短语应简短、实用、适合日常亲子互动
+            - 如果使用了知识宫殿中的知识，在 coachTip 中标注来源
+
+            输出 JSON 格式：
+            {
+              "activities": [
+                {
+                  "title": "活动标题",
+                  "summary": "活动简要描述",
+                  "sceneTag": "场景标签",
+                  "coachTip": "给家长的指导建议",
+                  "phrases": [
+                    {
+                      "english": "英文短句",
+                      "chinese": "中文翻译",
+                      "pronunciation": "发音提示",
+                      "difficulty": "easy"
+                    }
+                  ]
+                }
+              ]
+            }""";
+
     private MemPalacePromptBuilder() {
         // 工具类，禁止实例化
     }
@@ -93,6 +126,40 @@ public class MemPalacePromptBuilder {
     public static String buildSystemPrompt(String searchMode, String contextSummary,
                                             PalaceSearchService palaceSearch) {
         return buildSystemPrompt(searchMode, contextSummary, palaceSearch, DEFAULT_L1_TOP_K);
+    }
+
+    /**
+     * 构建 Practice 练习生成专用系统 prompt。
+     * 复用 L1 预检索逻辑注入知识宫殿内容，拼接到 PRACTICE_SYSTEM_PROMPT 后。
+     *
+     * @param babyAgeMonths 宝宝月龄
+     * @param sceneTag      场景标签
+     * @param palaceSearch  知识宫殿搜索服务（可为 null）
+     * @return 完整的练习生成系统 prompt
+     */
+    public static String buildPracticeSystemPrompt(int babyAgeMonths, String sceneTag,
+                                                    PalaceSearchService palaceSearch) {
+        log.info("practice.generate: building practice prompt, babyAgeMonths={}, sceneTag={}", babyAgeMonths, sceneTag);
+
+        StringBuilder sb = new StringBuilder(PRACTICE_SYSTEM_PROMPT);
+
+        // 构造用于 L1 预检索的查询上下文
+        String queryContext = "宝宝%d个月 %s 英语启蒙练习".formatted(babyAgeMonths, sceneTag != null ? sceneTag : "");
+        String l1Section = buildL1Section(queryContext, palaceSearch, DEFAULT_L1_TOP_K);
+        if (!l1Section.isEmpty()) {
+            sb.append(l1Section);
+        }
+
+        // 追加月龄和场景的用户指令
+        sb.append("\n\n请为 %d 个月大的宝宝".formatted(babyAgeMonths));
+        if (sceneTag != null && !sceneTag.isBlank()) {
+            sb.append("在「%s」场景下".formatted(sceneTag.trim()));
+        }
+        sb.append("生成 2-3 个练习活动，每个活动包含 3-5 个练习短语。");
+
+        String result = sb.toString();
+        log.info("practice.prompt.length={}", result.length());
+        return result;
     }
 
     /**

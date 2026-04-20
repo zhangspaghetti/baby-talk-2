@@ -30,7 +30,8 @@ public record MentorProperties(
         @NotBlank String simulateMalformedToken,
         @NotBlank String simulateUnavailableToken,
         String searchMode,
-        Duration sessionTimeout
+        Duration sessionTimeout,
+        Integer practiceResponseMaxLength
 ) {
     /**
      * 返回 searchMode，默认为 "none"。
@@ -45,5 +46,12 @@ public record MentorProperties(
      */
     public Duration effectiveSessionTimeout() {
         return sessionTimeout == null ? Duration.ofMinutes(30) : sessionTimeout;
+    }
+
+    /**
+     * 返回 practiceResponseMaxLength，默认 2000。
+     */
+    public int effectivePracticeResponseMaxLength() {
+        return practiceResponseMaxLength == null ? 2000 : practiceResponseMaxLength;
     }
 }

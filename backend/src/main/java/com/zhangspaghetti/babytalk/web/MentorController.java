@@ -38,6 +38,21 @@ public class MentorController {
         );
     }
 
+    @PostMapping("/practice/generate")
+    public MentorService.PracticeGenerateResponse practiceGenerate(
+            @RequestBody PracticeGenerateRequest request
+    ) {
+        return mentorService.generatePractice(
+                new MentorService.PracticeGenerateCommand(
+                        request.installationId(),
+                        request.surface(),
+                        request.babyAgeMonths(),
+                        request.sceneTag(),
+                        request.conversationId()
+                )
+        );
+    }
+
     public record ChatRequest(
             String installationId,
             String prompt,
@@ -45,6 +60,15 @@ public class MentorController {
             String mode,
             String correlationId,
             String contextSummary,
+            String conversationId
+    ) {
+    }
+
+    public record PracticeGenerateRequest(
+            String installationId,
+            String surface,
+            int babyAgeMonths,
+            String sceneTag,
             String conversationId
     ) {
     }

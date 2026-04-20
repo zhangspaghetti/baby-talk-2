@@ -120,6 +120,7 @@ app:
       - garden
       - growth
       - standalone_home
+      - practice
     allowed-modes:
       - single_turn
       - multi_turn
@@ -134,6 +135,7 @@ app:
     simulate-unavailable-token: ${BABY_TALK_MENTOR_SIMULATE_UNAVAILABLE_TOKEN:[unavailable]}
     search-mode: ${BABY_TALK_MENTOR_SEARCH_MODE:none}
     session-timeout: ${BABY_TALK_MENTOR_SESSION_TIMEOUT:PT30M}
+    practice-response-max-length: ${BABY_TALK_MENTOR_PRACTICE_RESPONSE_MAX_LENGTH:2000}
   embedding:
     base-url: ${BABY_TALK_EMBEDDING_BASE_URL:https://models.inference.ai.azure.com}
     api-key: ${BABY_TALK_EMBEDDING_API_KEY:}

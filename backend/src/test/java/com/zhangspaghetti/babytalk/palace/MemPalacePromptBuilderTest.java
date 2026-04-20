@@ -178,6 +178,84 @@ class MemPalacePromptBuilderTest {
         }
     }
 
+    // ─── Practice Prompt 构建测试 ────────────────────────
+
+    @Nested
+    class PracticePromptBuilding {
+
+        @Test
+        void buildPracticeSystemPromptContainsStructuredJsonInstruction() {
+            String result = MemPalacePromptBuilder.buildPracticeSystemPrompt(12, "morning_routine", null);
+
+            assertThat(result).contains("小禾老师");
+            assertThat(result).contains("JSON");
+            assertThat(result).contains("activities");
+            assertThat(result).contains("phrases");
+            assertThat(result).contains("english");
+            assertThat(result).contains("chinese");
+            assertThat(result).contains("pronunciation");
+            assertThat(result).contains("difficulty");
+            assertThat(result).contains("12 个月");
+            assertThat(result).contains("morning_routine");
+        }
+
+        @Test
+        void buildPracticeSystemPromptIncludesL1WhenDocsFound() {
+            var docs = List.of(
+                    createDoc("12个月宝宝可以理解简单指令", "《婴幼儿语言》", "6-18个月")
+            );
+            when(mockSearchService.search(any(), isNull(), isNull(), eq(15))).thenReturn(docs);
+
+            String result = MemPalacePromptBuilder.buildPracticeSystemPrompt(12, "morning", mockSearchService);
+
+            assertThat(result).contains("参考知识（来自知识宫殿）");
+            assertThat(result).contains("《婴幼儿语言》");
+            assertThat(result).contains("12 个月");
+        }
+
+        @Test
+        void buildPracticeSystemPromptHandlesNullSearchService() {
+            String result = MemPalacePromptBuilder.buildPracticeSystemPrompt(18, "bedtime", null);
+
+            assertThat(result).startsWith(MemPalacePromptBuilder.PRACTICE_SYSTEM_PROMPT);
+            assertThat(result).doesNotContain("参考知识");
+            assertThat(result).contains("18 个月");
+            assertThat(result).contains("bedtime");
+        }
+
+        @Test
+        void buildPracticeSystemPromptHandlesNullSceneTag() {
+            String result = MemPalacePromptBuilder.buildPracticeSystemPrompt(6, null, null);
+
+            assertThat(result).contains("6 个月");
+            assertThat(result).contains("2-3 个练习活动");
+            // 不应包含场景标签相关内容
+            assertThat(result).doesNotContain("在「null」场景下");
+        }
+
+        @Test
+        void buildPracticeSystemPromptHandlesBlankSceneTag() {
+            String result = MemPalacePromptBuilder.buildPracticeSystemPrompt(24, "  ", null);
+
+            assertThat(result).contains("24 个月");
+            // 空白 sceneTag 不应生成场景描述
+            assertThat(result).doesNotContain("在「  」场景下");
+        }
+
+        @Test
+        void practiceSystemPromptConstantContainsRequiredFields() {
+            assertThat(MemPalacePromptBuilder.PRACTICE_SYSTEM_PROMPT).contains("title");
+            assertThat(MemPalacePromptBuilder.PRACTICE_SYSTEM_PROMPT).contains("summary");
+            assertThat(MemPalacePromptBuilder.PRACTICE_SYSTEM_PROMPT).contains("sceneTag");
+            assertThat(MemPalacePromptBuilder.PRACTICE_SYSTEM_PROMPT).contains("coachTip");
+            assertThat(MemPalacePromptBuilder.PRACTICE_SYSTEM_PROMPT).contains("phrases");
+            assertThat(MemPalacePromptBuilder.PRACTICE_SYSTEM_PROMPT).contains("english");
+            assertThat(MemPalacePromptBuilder.PRACTICE_SYSTEM_PROMPT).contains("chinese");
+            assertThat(MemPalacePromptBuilder.PRACTICE_SYSTEM_PROMPT).contains("pronunciation");
+            assertThat(MemPalacePromptBuilder.PRACTICE_SYSTEM_PROMPT).contains("difficulty");
+        }
+    }
+
     // ─── 辅助方法测试 ───────────────────────────────────
 
     @Nested
