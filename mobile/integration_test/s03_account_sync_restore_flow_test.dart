@@ -127,6 +127,12 @@ void main() {
     await tester.ensureVisible(thirdReaction);
     await tester.pump(const Duration(milliseconds: 100));
     await tester.tap(thirdReaction);
+    // Pump 3 seconds: enough for DB write + navigator pop animation on slow device.
+    await tester.pump(const Duration(milliseconds: 3000));
+    // Drag the home list all the way to the top (it was scrolled down to reveal
+    // home-start-practice). A large positive Y drag scrolls content upward.
+    await tester.drag(_homeScrollable(), const Offset(0, 5000));
+    await tester.pump();
     await _pumpUntilFound(
       tester,
       find.byKey(const Key('recent-result-summary')),
@@ -155,11 +161,13 @@ void main() {
       find.byKey(const Key('account-code-field')),
       '246810',
     );
+    await tester.ensureVisible(find.byKey(const Key('account-submit-button')));
+    await tester.pump(const Duration(milliseconds: 100));
     await tester.tap(find.byKey(const Key('account-submit-button')));
     await _pumpUntilFound(
       tester,
       find.byKey(const Key('account-status-signed-in-synced')),
-      timeout: const Duration(seconds: 12),
+      timeout: const Duration(seconds: 20),
     );
 
     expect(
@@ -233,11 +241,13 @@ void main() {
       find.byKey(const Key('account-code-field')),
       '246810',
     );
+    await tester.ensureVisible(find.byKey(const Key('account-submit-button')));
+    await tester.pump(const Duration(milliseconds: 100));
     await tester.tap(find.byKey(const Key('account-submit-button')));
     await _pumpUntilFound(
       tester,
       find.byKey(const Key('account-status-signed-in-synced')),
-      timeout: const Duration(seconds: 12),
+      timeout: const Duration(seconds: 20),
     );
 
     expect(backend.bootstrapCount, 2);

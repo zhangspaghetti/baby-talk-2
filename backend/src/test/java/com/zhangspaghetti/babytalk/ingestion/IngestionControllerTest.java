@@ -10,6 +10,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.zhangspaghetti.babytalk.AbstractIntegrationTest;
+import com.zhangspaghetti.babytalk.config.ApiVersionInterceptor;
 import io.minio.MinioClient;
 import io.minio.ObjectWriteResponse;
 import java.sql.Timestamp;
@@ -71,7 +72,8 @@ class IngestionControllerTest extends AbstractIntegrationTest {
 
         mockMvc.perform(multipart("/api/v1/ingestion/upload")
                         .file(file)
-                        .param("bookTitle", "Baby Talk"))
+                        .param("bookTitle", "Baby Talk")
+                        .header(ApiVersionInterceptor.VERSION_HEADER, "1.0.0"))
                 .andExpect(status().isAccepted())
                 .andExpect(jsonPath("$.jobId").isNotEmpty());
     }
@@ -84,7 +86,8 @@ class IngestionControllerTest extends AbstractIntegrationTest {
 
         mockMvc.perform(multipart("/api/v1/ingestion/upload")
                         .file(emptyFile)
-                        .param("bookTitle", "Test Book"))
+                        .param("bookTitle", "Test Book")
+                        .header(ApiVersionInterceptor.VERSION_HEADER, "1.0.0"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.error").value("上传文件不能为空"));
     }
@@ -103,7 +106,8 @@ class IngestionControllerTest extends AbstractIntegrationTest {
                 IngestionJob.STATUS_COMPLETED, 42, null,
                 Timestamp.from(now), Timestamp.from(now));
 
-        mockMvc.perform(get("/api/v1/ingestion/jobs/{id}", jobId))
+        mockMvc.perform(get("/api/v1/ingestion/jobs/{id}", jobId)
+                        .header(ApiVersionInterceptor.VERSION_HEADER, "1.0.0"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(jobId.toString()))
                 .andExpect(jsonPath("$.originalFilename").value("test.pdf"))
@@ -113,7 +117,8 @@ class IngestionControllerTest extends AbstractIntegrationTest {
 
     @Test
     void getJobStatusReturns404ForNonExistentJob() throws Exception {
-        mockMvc.perform(get("/api/v1/ingestion/jobs/{id}", UUID.randomUUID()))
+        mockMvc.perform(get("/api/v1/ingestion/jobs/{id}", UUID.randomUUID())
+                        .header(ApiVersionInterceptor.VERSION_HEADER, "1.0.0"))
                 .andExpect(status().isNotFound());
     }
 
@@ -130,7 +135,8 @@ class IngestionControllerTest extends AbstractIntegrationTest {
                 IngestionJob.STATUS_FAILED, 0, "Connection timeout",
                 Timestamp.from(now), Timestamp.from(now));
 
-        mockMvc.perform(post("/api/v1/ingestion/jobs/{id}/retry", jobId))
+        mockMvc.perform(post("/api/v1/ingestion/jobs/{id}/retry", jobId)
+                        .header(ApiVersionInterceptor.VERSION_HEADER, "1.0.0"))
                 .andExpect(status().isAccepted())
                 .andExpect(jsonPath("$.jobId").value(jobId.toString()))
                 .andExpect(jsonPath("$.message").value("重试已触发"));
@@ -149,14 +155,16 @@ class IngestionControllerTest extends AbstractIntegrationTest {
                 IngestionJob.STATUS_PROCESSING, 0, null,
                 Timestamp.from(now), Timestamp.from(now));
 
-        mockMvc.perform(post("/api/v1/ingestion/jobs/{id}/retry", jobId))
+        mockMvc.perform(post("/api/v1/ingestion/jobs/{id}/retry", jobId)
+                        .header(ApiVersionInterceptor.VERSION_HEADER, "1.0.0"))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.error").isNotEmpty());
     }
 
     @Test
     void retryJobReturns404ForNonExistentJob() throws Exception {
-        mockMvc.perform(post("/api/v1/ingestion/jobs/{id}/retry", UUID.randomUUID()))
+        mockMvc.perform(post("/api/v1/ingestion/jobs/{id}/retry", UUID.randomUUID())
+                        .header(ApiVersionInterceptor.VERSION_HEADER, "1.0.0"))
                 .andExpect(status().isNotFound());
     }
 }

@@ -8,6 +8,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:isar/isar.dart';
 import 'package:mobile/app/router/app_router.dart';
 import 'package:mobile/app/theme/app_theme.dart';
+import 'package:mobile/l10n/app_localizations.dart';
 import 'package:mobile/core/device/installation_id_service.dart';
 import 'package:mobile/features/onboarding/data/local/onboarding_snapshot_store.dart';
 import 'package:mobile/features/onboarding/data/repositories/onboarding_repository.dart';
@@ -392,6 +393,8 @@ Future<void> _pumpOnboardingScreen(
       child: MaterialApp(
         debugShowCheckedModeBanner: false,
         theme: AppTheme.build(),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
         initialRoute: AppRouteNames.onboarding,
         onGenerateRoute: AppRouter.onGenerateRoute(
           onboardingBuilder: (_) => const OnboardingScreen(),

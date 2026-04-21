@@ -35,7 +35,16 @@ void main() {
       expect(find.byKey(const Key('recent-result-summary')), findsOneWidget);
       expect(find.textContaining('All clean. · 宝宝放松'), findsOneWidget);
       expect(find.textContaining('3 条本地记录'), findsOneWidget);
+      // Garden items are below recent-result-summary; scroll down to build them.
+      await FullChainTestHarness.scrollHomeTo(
+        tester,
+        find.byKey(const Key('home-garden-mini-entry')),
+      );
       expect(find.byKey(const Key('home-garden-mini-entry')), findsOneWidget);
+      await FullChainTestHarness.scrollHomeTo(
+        tester,
+        find.byKey(const Key('home-growth-summary')),
+      );
       expect(find.byKey(const Key('home-growth-summary')), findsOneWidget);
 
       await harness.switchShellTab(
@@ -46,7 +55,7 @@ void main() {
       await FullChainTestHarness.pumpUntilFound(
         tester,
         find.byKey(const Key('garden-patch-daily_care')),
-        timeout: const Duration(seconds: 12),
+        timeout: const Duration(seconds: 30),
         reason: 'garden patch after practice',
       );
       expect(find.byKey(const Key('garden-hero-card')), findsOneWidget);

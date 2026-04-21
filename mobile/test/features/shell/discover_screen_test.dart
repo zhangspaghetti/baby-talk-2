@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mobile/app/theme/app_theme.dart';
+import 'package:mobile/l10n/app_localizations.dart';
 import 'package:mobile/features/practice/domain/models/interaction_event_payload.dart';
 import 'package:mobile/features/practice/domain/models/practice_activity_catalog.dart';
 import 'package:mobile/features/practice/presentation/practice_route_args.dart';
@@ -182,6 +183,8 @@ Widget _buildApp({
 }) {
   return MaterialApp(
     theme: AppTheme.build(),
+    localizationsDelegates: AppLocalizations.localizationsDelegates,
+    supportedLocales: AppLocalizations.supportedLocales,
     home: Scaffold(
       body: DiscoverScreen(
         catalogLoader: catalogLoader,

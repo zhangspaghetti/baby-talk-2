@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:isar/isar.dart';
 import 'package:mobile/app/theme/app_theme.dart';
+import 'package:mobile/l10n/app_localizations.dart';
 import 'package:mobile/core/device/installation_id_service.dart';
 import 'package:mobile/features/account/data/local/account_local_store.dart';
 import 'package:mobile/features/account/data/repositories/account_repository.dart';
@@ -644,6 +645,8 @@ class _Harness {
       providers: providers,
       child: MaterialApp(
         theme: AppTheme.build(),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
         home: AppShellScreen(
           onboardingSnapshot: OnboardingSnapshot(
             childDisplayName: '米米',

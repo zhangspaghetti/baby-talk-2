@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mobile/app/invite_reentry_coordinator.dart';
 import 'package:mobile/app/theme/app_theme.dart';
+import 'package:mobile/l10n/app_localizations.dart';
 import 'package:mobile/features/account/data/local/account_local_store.dart';
 import 'package:mobile/features/account/data/repositories/account_repository.dart';
 import 'package:mobile/features/account/domain/models/account_consent_state.dart';
@@ -305,6 +306,8 @@ void main() {
 Widget _buildSurfaceHarness(HouseholdViewModel householdViewModel) {
   return MaterialApp(
     theme: AppTheme.build(),
+    localizationsDelegates: AppLocalizations.localizationsDelegates,
+    supportedLocales: AppLocalizations.supportedLocales,
     home: Scaffold(
       body: AnimatedBuilder(
         animation: householdViewModel,

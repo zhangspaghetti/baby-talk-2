@@ -9,6 +9,7 @@ import 'package:mobile/core/device/installation_id_service.dart';
 import 'package:mobile/features/practice/data/local/practice_local_data_source.dart';
 import 'package:mobile/features/practice/data/repositories/practice_repository.dart';
 import 'package:mobile/features/practice/data/services/asset_phrase_service.dart';
+import 'package:mobile/features/practice/presentation/screens/home_screen.dart';
 
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
@@ -100,6 +101,12 @@ void main() {
     await tester.ensureVisible(thirdReaction);
     await tester.pump(const Duration(milliseconds: 100));
     await tester.tap(thirdReaction);
+    // Pump 3 seconds: enough for DB write + navigator pop animation on slow device.
+    await tester.pump(const Duration(milliseconds: 3000));
+    // Drag the home list all the way to the top (it was scrolled down to reveal
+    // home-start-practice). A large positive Y drag scrolls content upward.
+    await tester.drag(_homeScrollable(), const Offset(0, 5000));
+    await tester.pump();
     await _pumpUntilFound(
       tester,
       find.byKey(const Key('recent-result-summary')),
@@ -138,6 +145,13 @@ void main() {
     expect(find.textContaining('All clean. · 宝宝放松'), findsOneWidget);
     expect(find.textContaining('3 条本地记录'), findsOneWidget);
   });
+}
+
+Finder _homeScrollable() {
+  return find.descendant(
+    of: find.byType(HomeScreen),
+    matching: find.byType(Scrollable),
+  );
 }
 
 Future<void> _pumpUntilFound(

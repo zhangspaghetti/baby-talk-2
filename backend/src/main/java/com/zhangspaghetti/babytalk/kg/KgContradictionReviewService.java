@@ -49,7 +49,7 @@ public class KgContradictionReviewService {
      * 定时审查待处理矛盾 — 由 Spring {@code @Scheduled} 调度。
      * 当 {@code app.kg.review-enabled=false} 时跳过。
      */
-    @Scheduled(fixedDelayString = "#{@kgProperties.reviewInterval().toMillis()}")
+    @Scheduled(fixedDelayString = "${app.kg.review-interval}")
     public void reviewPendingContradictions() {
         if (!kgProperties.reviewEnabled()) {
             return;

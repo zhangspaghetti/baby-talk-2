@@ -25,6 +25,7 @@ import 'package:mobile/features/practice/presentation/screens/practice_session_s
 import 'package:mobile/features/shell/presentation/app_shell_screen.dart';
 import 'package:mobile/features/shell/presentation/screens/discover_screen.dart';
 import 'package:provider/provider.dart';
+import 'package:mobile/l10n/app_localizations.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -48,6 +49,8 @@ void main() {
         value: harness.repository,
         child: MaterialApp(
           theme: AppTheme.build(),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
           home: PracticeSessionScreen(
             routeEntry: PracticeRouteEntry.fromObject(null),
           ),
@@ -350,6 +353,8 @@ class _ShellHarness {
       ],
       child: MaterialApp(
         theme: AppTheme.build(),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
         navigatorObservers: [appRouteObserver],
         onGenerateRoute: AppRouter.onGenerateRoute(
           shellBuilder: (_) => AppShellScreen(

@@ -9,6 +9,7 @@ import 'package:mobile/features/account/presentation/account_view_model.dart';
 import 'package:mobile/features/account/presentation/screens/account_entry_screen.dart';
 import 'package:mobile/features/onboarding/domain/models/onboarding_snapshot.dart';
 import 'package:mobile/features/onboarding/domain/models/stage_match.dart';
+import 'package:mobile/l10n/app_localizations.dart';
 import 'package:provider/provider.dart';
 
 void main() {
@@ -228,7 +229,11 @@ Future<void> _pumpEntryScreen(
   await tester.pumpWidget(
     ChangeNotifierProvider<AccountViewModel>.value(
       value: viewModel,
-      child: MaterialApp(home: const AccountEntryScreen()),
+      child: MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: const AccountEntryScreen(),
+      ),
     ),
   );
 
@@ -255,6 +260,8 @@ Future<void> _pumpStatusCard(
     ChangeNotifierProvider<AccountViewModel>.value(
       value: viewModel,
       child: MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
         home: Scaffold(
           body: AccountStatusCard(
             scopeKeyPrefix: 'home',
