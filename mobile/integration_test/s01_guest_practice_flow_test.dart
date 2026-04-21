@@ -40,6 +40,7 @@ void main() {
       BabyTalkApp(
         bootState: bootState,
         repositoryFactory: (_) async => firstRepository,
+        practiceContinuityRefreshTimeout: Duration.zero,
       ),
     );
     await _pumpUntilFound(tester, find.byKey(const Key('home-restore-banner')));
@@ -58,9 +59,13 @@ void main() {
       find.byKey(const Key('phrase-card-bath_time_warm_water')),
       findsOneWidget,
     );
-    await tester.tap(
-      find.byKey(const Key('reaction-bath_time_warm_water-engaged')),
+    final firstReaction = find.byKey(
+      const Key('reaction-bath_time_warm_water-engaged'),
     );
+    await _pumpUntilFound(tester, firstReaction);
+    await tester.ensureVisible(firstReaction);
+    await tester.pump(const Duration(milliseconds: 100));
+    await tester.tap(firstReaction);
     await _pumpUntilFound(
       tester,
       find.byKey(const Key('phrase-card-bath_time_splash_splash')),
@@ -116,6 +121,7 @@ void main() {
       BabyTalkApp(
         bootState: bootState,
         repositoryFactory: (_) async => secondRepository,
+        practiceContinuityRefreshTimeout: Duration.zero,
       ),
     );
     await _pumpUntilFound(tester, find.byKey(const Key('home-restore-banner')));

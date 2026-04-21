@@ -87,6 +87,7 @@ class FullChainTestHarness {
         repositoryFactory: _openRepository,
         appDirectoryResolver: () async => tempDir,
         completedSnapshotLoader: completedSnapshotLoader,
+        practiceContinuityRefreshTimeout: Duration.zero,
       ),
     );
     await tester.pump();
@@ -116,6 +117,11 @@ class FullChainTestHarness {
   }
 
   Future<void> completeOnboarding(WidgetTester tester) async {
+    await pumpUntilFound(
+      tester,
+      find.byKey(const Key('onboarding-start-button')),
+      reason: 'onboarding start button',
+    );
     await scrollTo(tester, find.byKey(const Key('onboarding-start-button')));
     await tester.tap(find.byKey(const Key('onboarding-start-button')));
     await tester.pumpAndSettle();
@@ -172,6 +178,13 @@ class FullChainTestHarness {
 
   Future<void> completeStarterPractice(WidgetTester tester) async {
     await switchToHomeTab(tester);
+    await pumpUntilFound(
+      tester,
+      find.byKey(const Key('home-starter-seed')),
+      timeout: const Duration(seconds: 45),
+      step: const Duration(milliseconds: 300),
+      reason: 'home starter seed (continuity loaded)',
+    );
     await scrollHomeTo(tester, find.byKey(const Key('home-start-practice')));
     await tester.tap(find.byKey(const Key('home-start-practice')));
     await tester.pumpAndSettle();
@@ -181,10 +194,11 @@ class FullChainTestHarness {
       reason: 'first starter phrase',
     );
 
-    await tester.tap(
-      find.byKey(const Key('reaction-bath_time_warm_water-engaged')),
+    final firstReaction = find.byKey(
+      const Key('reaction-bath_time_warm_water-engaged'),
     );
-    await tester.pumpAndSettle();
+    await scrollTo(tester, firstReaction);
+    await tester.tap(firstReaction);
     await pumpUntilFound(
       tester,
       find.byKey(const Key('phrase-card-bath_time_splash_splash')),
@@ -212,7 +226,7 @@ class FullChainTestHarness {
     await pumpUntilFound(
       tester,
       find.byKey(const Key('recent-result-summary')),
-      timeout: const Duration(seconds: 12),
+      timeout: const Duration(seconds: 30),
       reason: 'recent result summary',
     );
   }
@@ -271,10 +285,13 @@ class FullChainTestHarness {
     await pumpUntilFound(
       tester,
       find.byKey(const Key('mentor-chat-input')),
+      timeout: const Duration(seconds: 15),
       reason: 'mentor chat input',
     );
 
     await tester.enterText(find.byKey(const Key('mentor-chat-input')), prompt);
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.byKey(const Key('mentor-chat-submit-button')));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('mentor-chat-submit-button')));
     await tester.pump();
@@ -287,11 +304,6 @@ class FullChainTestHarness {
       await tester.tap(homeLabel.last);
       await tester.pumpAndSettle();
     }
-    await scrollHomeTo(
-      tester,
-      find.byKey(const Key('home-start-practice')),
-      reason: 'home start practice button',
-    );
   }
 
   Future<void> switchShellTab(

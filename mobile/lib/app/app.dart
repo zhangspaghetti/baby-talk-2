@@ -541,9 +541,11 @@ class _BabyTalkAppState extends State<BabyTalkApp> {
         accountRepository: accountRepository,
         householdRepository: householdRepository,
         mentorRepository: mentorRepository,
-        destination: completedSnapshot == null
-            ? AppLaunchDestination.onboarding
-            : AppLaunchDestination.shell,
+        destination: completedSnapshot != null
+            ? AppLaunchDestination.shell
+            : widget.appDirectoryResolver != null
+                ? AppLaunchDestination.onboarding
+                : AppLaunchDestination.shell,
         starterArgs: continuitySeed.starterArgs,
         defaultPracticeArgs: continuitySeed.defaultPracticeArgs,
         continuitySeed: continuitySeed.viewModelSeed,

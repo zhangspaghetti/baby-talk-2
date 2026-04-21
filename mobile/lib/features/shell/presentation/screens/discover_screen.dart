@@ -320,8 +320,13 @@ class _DiscoverLoadingState extends StatelessWidget {
       ),
       child: Column(
         children: [
-          const CircularProgressIndicator(
-            key: Key('discover-loading-indicator'),
+          Container(
+            key: const Key('discover-loading-indicator'),
+            height: 4,
+            decoration: BoxDecoration(
+              color: colors.outlineSoft,
+              borderRadius: BorderRadius.circular(2),
+            ),
           ),
           const SizedBox(height: 16),
           Text(

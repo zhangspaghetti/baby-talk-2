@@ -149,11 +149,17 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
       return;
     }
     _lastRuntimeToken = accountViewModel.runtimeChangeToken;
-    if (!accountViewModel.isSignedIn) {
+    if (accountViewModel.isSignedOut ||
+        accountViewModel.isRevoked ||
+        accountViewModel.isDeleted) {
       // 会话已结束（logout/delete/revoke），重置下游 VM 清除陈旧数据
       context.read<PracticeContinuityViewModel?>()?.resetToSafeEmpty();
       context.read<GardenGrowthViewModel?>()?.resetToSafeEmpty();
       context.read<HouseholdViewModel?>()?.resetToSafeEmpty();
+      return;
+    }
+    if (accountViewModel.isLocalOnly) {
+      // localOnly 用户的账号状态稳定，boot seed 已是最新，无需额外操作
       return;
     }
     unawaited(_refreshContinuity(reason: 'account_runtime_change'));
@@ -234,6 +240,8 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
                         starterPhrase: starterPhrase,
                         activitySceneTag: activity?.sceneTag,
                       ),
+                      const SizedBox(height: 16),
+                      _RecentResultCard(continuitySnapshot: continuitySnapshot),
                     ] else ...[
                       Wrap(
                         spacing: 8,
@@ -243,6 +251,15 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
                           Chip(label: Text(l.guest)),
                         ],
                       ),
+                      if (hasResolvedContinuity) ...[
+                        const SizedBox(height: 12),
+                        _HomeBanner(
+                          key: const Key('home-restore-banner'),
+                          message: _buildGuestRestoreMessage(continuitySnapshot),
+                          backgroundColor: colors.infoSoft,
+                          foregroundColor: colors.info,
+                        ),
+                      ],
                       const SizedBox(height: 24),
                       Text(
                         continuityViewModel == null
@@ -264,7 +281,31 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
                             : l.homeContinuitySharedNote,
                         style: Theme.of(context).textTheme.bodyMedium,
                       ),
+                      const SizedBox(height: 16),
+                      _RecentResultCard(continuitySnapshot: continuitySnapshot),
                     ],
+                    const SizedBox(height: 20),
+                    _TodaySceneCard(
+                      activityId:
+                          recommendedActivity?.activityId ?? 'safe-empty',
+                      activityTitle: activity?.title ?? l.continueEntryUnavailable,
+                      activitySummary:
+                          activity?.summary ??
+                          _resolveSafeHomeSummary(continuityViewModel),
+                      sceneTag: activity?.sceneTag,
+                      recommendation: continuitySnapshot?.recommendation,
+                      nextIncompleteActivity:
+                          continuitySnapshot?.nextIncompleteActivity,
+                      buttonLabel: _resolveButtonLabel(continuitySnapshot),
+                      disabledReason: continuityViewModel == null
+                          ? l.practiceEntryUnavailable
+                          : homeDisabledReason,
+                      onPressed: canLaunchPractice
+                          ? () async {
+                              await practiceArgs.push(context);
+                            }
+                          : null,
+                    ),
                     const SizedBox(height: 20),
                     AccountStatusCard(
                       scopeKeyPrefix: 'home',
@@ -344,28 +385,6 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
                         foregroundColor: colors.warning,
                       ),
                     ],
-                    const SizedBox(height: 20),
-                    _TodaySceneCard(
-                      activityId:
-                          recommendedActivity?.activityId ?? 'safe-empty',
-                      activityTitle: activity?.title ?? l.continueEntryUnavailable,
-                      activitySummary:
-                          activity?.summary ??
-                          _resolveSafeHomeSummary(continuityViewModel),
-                      sceneTag: activity?.sceneTag,
-                      recommendation: continuitySnapshot?.recommendation,
-                      nextIncompleteActivity:
-                          continuitySnapshot?.nextIncompleteActivity,
-                      buttonLabel: _resolveButtonLabel(continuitySnapshot),
-                      disabledReason: continuityViewModel == null
-                          ? l.practiceEntryUnavailable
-                          : homeDisabledReason,
-                      onPressed: canLaunchPractice
-                          ? () async {
-                              await practiceArgs.push(context);
-                            }
-                          : null,
-                    ),
                     const SizedBox(height: 16),
                     _WeekStatsCard(continuitySnapshot: continuitySnapshot),
                     const SizedBox(height: 16),
@@ -382,8 +401,6 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
                         onShare: () => shareViewModel.shareCurrent(),
                       ),
                     ],
-                    const SizedBox(height: 16),
-                    _RecentResultCard(continuitySnapshot: continuitySnapshot),
                     if (kDebugMode) ...[
                     const SizedBox(height: 12),
                     Text(
@@ -531,6 +548,13 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
     }
     return '${installationId.substring(0, 12)}…';
   }
+
+  String _buildGuestRestoreMessage(PracticeContinuitySnapshot? snapshot) {
+    if (snapshot == null || snapshot.cadence.totalKnownEvents == 0) {
+      return '未找到本地记录，可以直接开始 guest 练习。';
+    }
+    return '已从本地恢复最近一次练习结果，共 ${snapshot.cadence.totalKnownEvents} 条记录。';
+  }
 }
 
 class _LocalOnlyBanner extends StatelessWidget {
@@ -630,7 +654,9 @@ class _PersonalizedHero extends StatelessWidget {
           ),
           const SizedBox(height: 20),
           Container(
-            key: const Key('home-starter-seed'),
+            key: starterPhrase != null
+                ? const Key('home-starter-seed')
+                : const Key('home-starter-seed-loading'),
             width: double.infinity,
             padding: const EdgeInsets.all(18),
             decoration: BoxDecoration(
@@ -746,7 +772,7 @@ class _TodaySceneCard extends StatelessWidget {
             ],
             const SizedBox(height: 20),
             ElevatedButton(
-              key: ValueKey('home-start-practice-$activityId'),
+              key: const Key('home-start-practice'),
               onPressed: onPressed,
               child: Text(buttonLabel),
             ),
@@ -1045,7 +1071,7 @@ class _RecentResultCard extends StatelessWidget {
             )
           else
             Column(
-              key: ValueKey('recent-result-summary-$activityId'),
+              key: const Key('recent-result-summary'),
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
@@ -1093,10 +1119,19 @@ class _HomeLoadingState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Center(
+    final colors = context.appColors;
+    return Center(
       child: Padding(
-        padding: EdgeInsets.all(24),
-        child: CircularProgressIndicator(key: Key('home-loading')),
+        padding: const EdgeInsets.all(24),
+        child: Container(
+          key: const Key('home-loading'),
+          height: 4,
+          width: 80,
+          decoration: BoxDecoration(
+            color: colors.outlineSoft,
+            borderRadius: BorderRadius.circular(2),
+          ),
+        ),
       ),
     );
   }

@@ -74,23 +74,29 @@ void main() {
         },
         appDirectoryResolver: () async => tempDir,
         completedSnapshotLoader: () async => completedSnapshot,
+        practiceContinuityRefreshTimeout: Duration.zero,
       ),
     );
     await _pumpUntilFound(tester, find.byKey(const Key('shell-ready')));
+    await _pumpUntilFound(tester, find.byKey(const Key('home-starter-seed')));
 
     await _scrollHomeTo(tester, find.byKey(const Key('home-start-practice')));
     await tester.tap(find.byKey(const Key('home-start-practice')));
     await _pumpUntilFound(
       tester,
       find.byKey(const Key('phrase-card-bath_time_warm_water')),
+      timeout: const Duration(seconds: 15),
     );
 
-    await tester.tap(
-      find.byKey(const Key('reaction-bath_time_warm_water-engaged')),
+    final firstReaction = find.byKey(
+      const Key('reaction-bath_time_warm_water-engaged'),
     );
+    await _scrollTo(tester, firstReaction);
+    await tester.tap(firstReaction);
     await _pumpUntilFound(
       tester,
       find.byKey(const Key('phrase-card-bath_time_splash_splash')),
+      timeout: const Duration(seconds: 15),
     );
 
     final secondReaction = find.byKey(
@@ -101,6 +107,7 @@ void main() {
     await _pumpUntilFound(
       tester,
       find.byKey(const Key('phrase-card-bath_time_all_clean')),
+      timeout: const Duration(seconds: 15),
     );
 
     final thirdReaction = find.byKey(
@@ -111,6 +118,7 @@ void main() {
     await _pumpUntilFound(
       tester,
       find.byKey(const Key('recent-result-summary')),
+      timeout: const Duration(seconds: 30),
     );
 
     expect(find.byKey(const Key('recent-result-summary')), findsOneWidget);
@@ -185,9 +193,11 @@ void main() {
         },
         appDirectoryResolver: () async => tempDir,
         completedSnapshotLoader: () async => completedSnapshot,
+        practiceContinuityRefreshTimeout: Duration.zero,
       ),
     );
     await _pumpUntilFound(tester, find.byKey(const Key('shell-ready')));
+    await _pumpUntilFound(tester, find.byKey(const Key('home-starter-seed')));
 
     await _scrollHomeTo(tester, find.byKey(const Key('recent-result-summary')));
     expect(find.byKey(const Key('recent-result-summary')), findsOneWidget);

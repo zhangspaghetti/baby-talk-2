@@ -41,6 +41,7 @@ void main() {
         bootState: bootState,
         repositoryFactory: (_) async => firstRepository,
         appDirectoryResolver: () async => tempDir,
+        practiceContinuityRefreshTimeout: Duration.zero,
       ),
     );
     await _pumpUntilFound(
@@ -53,6 +54,8 @@ void main() {
 
     await _completeOnboarding(tester, childDisplayName: '米米');
     await _pumpUntilFound(tester, find.byKey(const Key('shell-ready')));
+    // Wait for the personalized home content to finish loading (async Isar IO).
+    await _pumpUntilFound(tester, find.byKey(const Key('home-starter-seed')));
 
     expect(find.byKey(const Key('boot-route-shell')), findsOneWidget);
     expect(find.byKey(const Key('shell-ready')), findsOneWidget);
@@ -79,9 +82,12 @@ void main() {
       find.byKey(const Key('phrase-card-bath_time_warm_water')),
     );
 
-    await tester.tap(
-      find.byKey(const Key('reaction-bath_time_warm_water-engaged')),
+    final firstReaction = find.byKey(
+      const Key('reaction-bath_time_warm_water-engaged'),
     );
+    await tester.ensureVisible(firstReaction);
+    await tester.pump(const Duration(milliseconds: 100));
+    await tester.tap(firstReaction);
     await _pumpUntilFound(
       tester,
       find.byKey(const Key('phrase-card-bath_time_splash_splash')),
@@ -102,6 +108,16 @@ void main() {
     );
     await _scrollTo(tester, thirdReaction);
     await tester.tap(thirdReaction);
+    // Pump to let recordReaction complete, navigator.pop() fire, and route animation finish.
+    await tester.pump(const Duration(milliseconds: 700));
+    // Scroll home list back to top so _RecentResultCard is in the viewport
+    // (the list was scrolled down to reveal home-start-practice).
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('home-local-only-banner')),
+      -300,
+      scrollable: _homeScrollable(),
+    );
+    await tester.pumpAndSettle();
     await _pumpUntilFound(tester, find.byKey(const Key('recent-result-summary')));
 
     expect(find.byKey(const Key('recent-result-summary')), findsOneWidget);
@@ -126,6 +142,7 @@ void main() {
         bootState: bootState,
         repositoryFactory: (_) async => secondRepository,
         appDirectoryResolver: () async => tempDir,
+        practiceContinuityRefreshTimeout: Duration.zero,
       ),
     );
     await _pumpUntilFound(tester, find.byKey(const Key('boot-route-shell')));
@@ -135,7 +152,8 @@ void main() {
     expect(find.byKey(const Key('onboarding-local-only-banner')), findsNothing);
     expect(find.byKey(const Key('shell-ready')), findsOneWidget);
     expect(find.text('米米 的首页'), findsOneWidget);
-    await _pumpUntilFound(tester, find.byType(HomeScreen));
+    // Wait for the home content to load (async Isar IO + continuity refresh).
+    await _pumpUntilFound(tester, find.byKey(const Key('recent-result-summary')));
     await _scrollHomeTo(tester, find.byKey(const Key('recent-result-summary')));
     expect(find.byKey(const Key('recent-result-summary')), findsOneWidget);
     expect(find.textContaining('All clean. · 宝宝放松'), findsOneWidget);
