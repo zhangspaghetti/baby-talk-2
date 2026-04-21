@@ -208,9 +208,14 @@ class FullChainTestHarness {
     final secondReaction = find.byKey(
       const Key('reaction-bath_time_splash_splash-imitated'),
     );
-    await scrollTo(tester, secondReaction);
+    await pumpUntilFound(
+      tester,
+      secondReaction,
+      reason: 'second reaction button',
+    );
+    await tester.ensureVisible(secondReaction);
+    await tester.pump(const Duration(milliseconds: 100));
     await tester.tap(secondReaction);
-    await tester.pumpAndSettle();
     await pumpUntilFound(
       tester,
       find.byKey(const Key('phrase-card-bath_time_all_clean')),
@@ -220,9 +225,14 @@ class FullChainTestHarness {
     final thirdReaction = find.byKey(
       const Key('reaction-bath_time_all_clean-calm'),
     );
-    await scrollTo(tester, thirdReaction);
+    await pumpUntilFound(
+      tester,
+      thirdReaction,
+      reason: 'third reaction button',
+    );
+    await tester.ensureVisible(thirdReaction);
+    await tester.pump(const Duration(milliseconds: 100));
     await tester.tap(thirdReaction);
-    await tester.pumpAndSettle();
     await pumpUntilFound(
       tester,
       find.byKey(const Key('recent-result-summary')),

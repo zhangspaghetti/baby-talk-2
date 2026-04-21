@@ -85,6 +85,7 @@ void main() {
     final firstReaction = find.byKey(
       const Key('reaction-bath_time_warm_water-engaged'),
     );
+    await _pumpUntilFound(tester, firstReaction);
     await tester.ensureVisible(firstReaction);
     await tester.pump(const Duration(milliseconds: 100));
     await tester.tap(firstReaction);
@@ -96,7 +97,9 @@ void main() {
     final secondReaction = find.byKey(
       const Key('reaction-bath_time_splash_splash-imitated'),
     );
-    await _scrollTo(tester, secondReaction);
+    await _pumpUntilFound(tester, secondReaction);
+    await tester.ensureVisible(secondReaction);
+    await tester.pump(const Duration(milliseconds: 100));
     await tester.tap(secondReaction);
     await _pumpUntilFound(
       tester,
@@ -106,7 +109,9 @@ void main() {
     final thirdReaction = find.byKey(
       const Key('reaction-bath_time_all_clean-calm'),
     );
-    await _scrollTo(tester, thirdReaction);
+    await _pumpUntilFound(tester, thirdReaction);
+    await tester.ensureVisible(thirdReaction);
+    await tester.pump(const Duration(milliseconds: 100));
     await tester.tap(thirdReaction);
     // Pump to let recordReaction complete, navigator.pop() fire, and route animation finish.
     await tester.pump(const Duration(milliseconds: 700));
@@ -118,7 +123,11 @@ void main() {
       scrollable: _homeScrollable(),
     );
     await tester.pumpAndSettle();
-    await _pumpUntilFound(tester, find.byKey(const Key('recent-result-summary')));
+    await _pumpUntilFound(
+      tester,
+      find.byKey(const Key('recent-result-summary')),
+      timeout: const Duration(seconds: 30),
+    );
 
     expect(find.byKey(const Key('recent-result-summary')), findsOneWidget);
     expect(find.textContaining('All clean. · 宝宝放松'), findsOneWidget);

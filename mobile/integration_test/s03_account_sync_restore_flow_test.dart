@@ -102,7 +102,13 @@ void main() {
     final secondReaction = find.byKey(
       const Key('reaction-bath_time_splash_splash-imitated'),
     );
-    await _scrollTo(tester, secondReaction);
+    await _pumpUntilFound(
+      tester,
+      secondReaction,
+      timeout: const Duration(seconds: 15),
+    );
+    await tester.ensureVisible(secondReaction);
+    await tester.pump(const Duration(milliseconds: 100));
     await tester.tap(secondReaction);
     await _pumpUntilFound(
       tester,
@@ -113,7 +119,13 @@ void main() {
     final thirdReaction = find.byKey(
       const Key('reaction-bath_time_all_clean-calm'),
     );
-    await _scrollTo(tester, thirdReaction);
+    await _pumpUntilFound(
+      tester,
+      thirdReaction,
+      timeout: const Duration(seconds: 15),
+    );
+    await tester.ensureVisible(thirdReaction);
+    await tester.pump(const Duration(milliseconds: 100));
     await tester.tap(thirdReaction);
     await _pumpUntilFound(
       tester,

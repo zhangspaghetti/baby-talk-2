@@ -49,6 +49,8 @@ void main() {
     expect(find.textContaining('未找到本地记录'), findsOneWidget);
     expect(find.byKey(const Key('recent-result-empty')), findsOneWidget);
 
+    await tester.ensureVisible(find.byKey(const Key('home-start-practice')));
+    await tester.pump(const Duration(milliseconds: 100));
     await tester.tap(find.byKey(const Key('home-start-practice')));
     await _pumpUntilFound(
       tester,
@@ -98,7 +100,11 @@ void main() {
     await tester.ensureVisible(thirdReaction);
     await tester.pump(const Duration(milliseconds: 100));
     await tester.tap(thirdReaction);
-    await _pumpUntilFound(tester, find.byKey(const Key('recent-result-summary')));
+    await _pumpUntilFound(
+      tester,
+      find.byKey(const Key('recent-result-summary')),
+      timeout: const Duration(seconds: 30),
+    );
 
     expect(find.byKey(const Key('recent-result-summary')), findsOneWidget);
     expect(find.textContaining('All clean. · 宝宝放松'), findsOneWidget);
