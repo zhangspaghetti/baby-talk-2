@@ -106,28 +106,24 @@
 
 ### 🔥 数据埋点设计
 **What:** 设计并实现 analytics 系统：screen view、session duration、feature usage 事件跟踪。本地收集 + 有网时上传。需覆盖 CEO Review Expansion events: auto_flow_started/completed/paused, smart_push_sent/tapped, demo_shown/skipped, bedtime_push_sent/tapped, celebration_shared, quick_ask_tapped。
-**Why:** Phase 1 用 10-20 人验证假设。没有行为数据只能得到"挺好的"主观反馈。需要知道：哪个场景最常用、用户每次停留多久、AI Coach 使用频率、Auto-Flow vs 手动模式比例、推送打开率。
-**Context:** Outside Voice (2026-04-02) + CEO Review Expansion (2026-04-02)。InteractionEvent 只记录短语反应，不记录页面访问和会话数据。可以扩展 InteractionEvent 模型或创建独立的 AnalyticsEvent 模型。
-**Effort:** S (CC: ~15 分钟设计 + ~1 小时实现)
-**Depends on:** 后端架构设计完成
+**Status:** ⚠️ 部分实现。`InteractionEvent`（短语反应）+ `MentorFactEvent`（导师行为）+ `mentor_audit_logs` 已实现。**缺失：** screen view、session duration、feature usage 专项埋点（auto_flow_started 等 CEO Expansion events）。
+**Effort:** S (CC: ~1 小时，补充 AppSession 埋点)
+**Depends on:** 后端 interaction_events 表（已有）
 
-### 同步策略改为 Event Sourcing
-**What:** 明确 InteractionEvents 为单一真相来源。客户端上传 events，服务端根据 events 重新计算 progress（mastery counts、stage completion 等）。移除 last-write-wins 同步逻辑。
-**Why:** Progress 是聚合数据。Last-write-wins 对聚合数据是灾难性的——旧设备的 mastery=5 会覆盖新设备的 mastery=8。
-**Context:** Outside Voice (2026-04-02) 发现。计划已有 events 上传端点（POST /api/v1/sync/events），只需声明这是唯一真相源，progress 不再双向同步。
-**Effort:** S (CC: ~15 分钟文档 + ~30 分钟实现调整)
-**Depends on:** 后端架构设计完成
+### ~~同步策略改为 Event Sourcing~~ ✅ DONE
+**What:** 明确 InteractionEvents 为单一真相来源。客户端上传 events，服务端根据 events 重新计算 progress。移除 last-write-wins 同步逻辑。
+**Status:** 已完成 (v1.2.0.0)。`interaction_events` 表 append-only，`event_key` PRIMARY KEY 保证幂等性。`POST /api/v1/sync/events` 是唯一写入路径，progress 由服务端聚合计算。
 
 ### ~~API 版本协商 + 强制更新机制~~ ✅ DONE
 **What:** 客户端每次请求带 `X-App-Version` 头。后端维护 minimum_supported_version 配置。低于最低版本的请求返回 426 Upgrade Required + 下载链接。
 **Status:** 已完成 (v1.2.0.0)。`ApiVersionInterceptor` + `scripts/verify-e2e.sh` 全部添加 `X-App-Version` 头，Docker E2E smoke 10/10 通过。
 
-### LLM 后端输入/输出安全过滤
+### 🔥 LLM 后端输入/输出安全过滤
 **What:** 后端 Ask Coach 端点加入：(1) 输入过滤（亵渎/注入检测），不依赖客户端；(2) 输出过滤（确保 LLM 响应符合正面育儿方法论）；(3) Admin 审核页使用独立认证（不共用用户 JWT）。
-**Why:** 客户端过滤可被绕过（直接调 API）。用户可以让 LLM 生成不当内容。Admin 页共用用户 JWT 意味着任何用户都能访问。
-**Context:** Eng Review v2 (2026-04-02) 发现。OWASP Top 10: A01 Broken Access Control + A03 Injection。
+**Status:** ❌ 尚未实现。当前 `MentorController` 无用户输入内容过滤，无 LLM 输出安全检查（`sanitize()` 仅用于日志字段）。已有 `BABY_TALK_MENTOR_PROMPT_MAX_LENGTH=280` 长度限制，但无内容审核。OWASP A03 Injection 风险敞口。
+**Why:** 客户端过滤可被绕过（直接调 API）。用户可以让 LLM 生成不当内容。
 **Effort:** S (CC: ~30 分钟)
-**Depends on:** 后端架构设计完成
+**Depends on:** 后端架构设计完成（已有）
 
 ### OSS 直传 STS Scope 设计
 **What:** 定义 STS 临时凭证的 scope：只允许写入 `voice-memo/{user_id}/` 路径。后端 STS 端点按 user_id 生成限定 scope 的临时凭证。
@@ -140,12 +136,9 @@
 **What:** ~~实现笔记 tab 的语音备忘录功能。~~
 **Status:** Design Review v3 (2026-04-04) 决定: 笔记 tab 移除，语音功能分散到成长日记 (手动文字记录) + Mentor FAB 语音输入。不再需要独立录音功能。
 
-### 全局离线降级 UI (Design Review v2+v3 更新)
-**What:** 实现全局离线 banner + 各功能离线状态处理。banner 用 --warning-soft 背景固定顶部, **Mentor FAB 建议 tab 仍可用(本地预设)**, 聊天 tab 灰掉, Scene Coaching 正常可用, 花园显示本地数据, 成长日记显示本地数据+未同步标签。
-**Why:** Design Review v3 更新: Mentor FAB 离线时不灰掉，显示本地预设建议。
-**Context:** 需要 connectivity_plus 插件监听网络状态。全局 ConnectivityProvider 控制 banner 显示和功能可用性。
-**Effort:** S (CC: ~1 小时)
-**Depends on:** 底部导航 + 基础路由
+### ~~全局离线降级 UI (Design Review v2+v3 更新)~~ ✅ DONE
+**What:** 实现全局离线 banner + 各功能离线状态处理。
+**Status:** 已完成 (v1.2.0.0)。`MentorChatAvailabilityCode.offline` + `mentorOfflineNote` banner + `MentorFactType.offlineFallbackServed` 追踪。离线时 Mentor 建议 tab 提供本地预设，聊天 tab 禁用。
 
 ### Dark Mode 支持 (Design Review v2 新增)
 **What:** 实现跟随系统设置的 Dark Mode。使用 DESIGN.md 中已定义的 dark mode token: 背景 #1C1816, 卡片 #2A2420, 强调色微调 #FF9E5C, 英文青绿提亮 #5AAFA0。
@@ -168,38 +161,29 @@
 **Effort:** S (CC: ~30 分钟)
 **Depends on:** 数据埋点设计 + 后端 interaction_events 表
 
-### 🔥 花园系统实现 (Design Review v3 新增)
+### ~~🔥 花园系统实现 (Design Review v3 新增)~~ ✅ DONE
 **What:** 实现完整花园系统: GardenMap 可拖动画布, FlowerPatch 花圃组件, 花朵成长 4 阶段 (种子→发芽→含苞→盛开), 生长点系统 (练习赚点+浇水消耗), 播种仪式空状态动画。
-**Why:** Design Review v3 + Design Shotgun 确认花园为 Phase 1 完整版。花园是核心游戏化循环。
-**Context:** Flutter CustomPainter 或 Stack+Positioned 实现地图。garden_flowers 表 + growth_points 字段。约增加 3 天工时。
-**Effort:** M (CC: ~4 小时)
-**Depends on:** PostgreSQL schema (spaces/activities/garden_flowers 表) + Isar 本地模型
+**Status:** 已完成 (v1.2.0.0)。`GardenFlowerStage` (5级: seed/sprout/growing/blooming/fullBloom)、`garden_screen.dart`、`GardenPatchStage`、`GardenFlowerSnapshot` 全部实现。成长点通过 `totalEvents` 累积（练习事件驱动）。`garden_summary` 字段写入 DB。
 
-### 🔥 3 层内容模型迁移 (Design Review v3 新增)
+### ~~🔥 3 层内容模型迁移 (Design Review v3 新增)~~ ✅ DONE
 **What:** 6个扁平 scene → space→activity→phrase 三层模型。新增 spaces + activities 表, phrases 表加 space_id + activity_id。更新 Flyway 迁移。
-**Why:** "换尿布和穿衣服不是独立场景，而是晨间护理下的活动"。3 层模型更符合真实生活。
-**Effort:** S (CC: ~1 小时)
-**Depends on:** Nothing. Layer 0 完成。
+**Status:** 已完成 (v1.2.0.0)。`PracticePhrase` 含 `spaceId/activityId/phraseId`。V3 Flyway 迁移 `interaction_events` 表有 `space_id/activity_id/phrase_id` 列。`GardenFlowerSnapshot` 使用三层 ID。
 
 ### ~~🔥 小禾老师 Mentor FAB 实现 (Design Review v3 新增)~~ ✅ DONE
 **What:** 全局 FAB + BottomSheet 面板, 双 tab (建议+聊天)。离线时建议 tab 显示本地预设。
 **Status:** 已完成 (v1.2.0.0)。`app_shell_screen.dart` 全局 Mentor FAB + 双 tab BottomSheet，S06 端到端验证通过。
 
-### 🔥 C3 激活框场景练习 (Design Review v3 新增)
+### ~~🔥 C3 激活框场景练习 (Design Review v3 新增)~~ ✅ DONE
 **What:** Scene Coaching C3 激活框 scroll 模式。卡片滚入中部 ActivationFrame 时展开, 滚出时收缩。
-**Why:** Design Shotgun 确认。比左右滑动更适合单手操作。
-**Effort:** M (CC: ~2 小时)
-**Depends on:** PhraseCard 组件 + TTS 播放
+**Status:** 已完成 (v1.2.0.0)。`activation_frame.dart` + `practice_session_screen.dart` 实现 scroll-triggered 展开/收缩，UI label 明确标注 "C3 激活框"。
 
-### 🔥 成长 Tab (Design Review v3 新增)
+### ~~🔥 成长 Tab (Design Review v3 新增)~~ ✅ DONE
 **What:** 替代 Progress + Notes。3 sub-tab: 日记(默认)/场景进展/里程碑。日记自动生成+手动添加。
-**Effort:** M (CC: ~2 小时)
-**Depends on:** interaction_events 表 + diary_entries 表
+**Status:** 已完成 (v1.2.0.0)。`growth_screen.dart` 实现日记/场景进展/里程碑三区。`GrowthDiaryEntry` + `GrowthMilestoneSnapshot` 模型完整。
 
-### 🔥 对话式 Onboarding (Design Review v3 新增)
+### ~~🔥 对话式 Onboarding (Design Review v3 新增)~~ ✅ DONE
 **What:** 小禾老师对话式 Onboarding: 欢迎→名字→月龄快选→阶段匹配→30s迷你体验→注册→PIPL→首页。
-**Effort:** S-M (CC: ~1.5 小时)
-**Depends on:** PhraseCard 组件 + 小禾老师角色
+**Status:** 已完成 (v1.2.0.0)。`onboarding_screen.dart` 含 `MentorBubble` 对话气泡组件，小禾老师 (`mentorName`) 引导全流程。非表单式。
 
 ### Emoji→插画替换 (Design Review v3 新增)
 **What:** 所有 emoji 占位替换为插画/SVG/Lottie。花朵成长、空间图标、导航图标。
