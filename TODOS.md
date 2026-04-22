@@ -92,17 +92,15 @@
 **What:** 将 Fraunces (variable)、DM Sans、JetBrains Mono 字体文件打包为 Flutter asset，不使用 google_fonts package 的 CDN 动态加载。
 **Status:** 已完成 (v1.2.0.0)。`mobile/assets/fonts/` 包含 dm_sans/、fraunces/、jetbrains_mono/ 全量字体目录。
 
-### 🔥 Batch Event Insert 需要事务包裹
+### ~~🔥 Batch Event Insert 需要事务包裹~~ ✅ DONE
 **What:** `POST /sync/events` 的批量 event 入库必须包裹在数据库事务中。部分失败时全部回滚。Progress 重算只在整个 batch 成功入库后执行一次。
-**Why:** Eng Review v4 (2026-04-02) 发现的 critical gap。如果 1000 条 events 中第 500 条失败，前 499 条已入库，progress 重算基于不完整数据。用户的 mastery 数据会不准。
-**Context:** SyncService 实现时用 `@Transactional` 注解包裹 batch insert。Progress recalculate 在事务提交后调用。
-**Effort:** S (CC: ~5 分钟)
-**Depends on:** 后端 SyncService 实现
+**Status:** 已完成 (v1.2.0.0)。`ingestEvents` 已有 `@Transactional`，event 循环内任何 `DataAccessException` 均触发回滚。`HouseholdSharedContextProjector.refreshForAccount()` 改为 `REQUIRES_NEW` + 失败时 log-and-continue，确保 projection 失败不回滚已提交的 event 数据。
 
 ### 🔥 里程碑检测幂等性
 **What:** milestone 检测逻辑需要幂等性。同一个 phrase_id 的 first_babble 只触发一次 milestone 记录。防止并发上传或网络重试导致重复庆祝。
 **Why:** Eng Review v4 (2026-04-02) 发现的 critical gap。两个设备同时上传 babble event，或网络重试导致重复 event，会创建重复 milestone，用户看到两次庆祝屏幕。
 **Context:** ProgressService.checkMilestones() 实现时先查询已有 milestone（SELECT WHERE type='first_babble'），已存在则跳过。或用 UNIQUE 约束 (user_id, type, scene_id) 做数据库级幂等。
+**Status:** ⏳ 尚未实现。当前无 ProgressService 也无 milestones 表。interaction_events 本身已有 event_key PRIMARY KEY 保证幂等性。待里程碑功能开发时一并实现。
 **Effort:** S (CC: ~10 分钟)
 **Depends on:** 后端 ProgressService + milestones 表实现
 

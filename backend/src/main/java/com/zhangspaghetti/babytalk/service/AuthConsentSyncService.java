@@ -19,6 +19,8 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class AuthConsentSyncService {
 
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(AuthConsentSyncService.class);
+
     private static final Set<String> ALLOWED_REACTION_TYPES = Set.of("calm", "engaged", "imitated", "needs_break");
 
     private final AuthConsentSyncRepository repository;
@@ -224,7 +226,9 @@ public class AuthConsentSyncService {
             try {
                 householdSharedContextProjector.refreshForAccount(session.accountId(), now);
             } catch (ContractException | DataAccessException exception) {
-                throw syncBatchRejectedForProjection(exception);
+                // projection runs in REQUIRES_NEW — its failure does NOT roll back the committed event inserts.
+                // log and continue: events are committed, projection will refresh on the next sync.
+                log.warn("sync: household projection refresh failed; events committed, projection deferred. accountId={}", session.accountId(), exception);
             }
         }
 

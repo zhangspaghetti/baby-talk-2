@@ -7,6 +7,8 @@ import java.time.format.DateTimeFormatter;
 import java.util.Map;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 class HouseholdSharedContextProjector {
@@ -72,7 +74,8 @@ class HouseholdSharedContextProjector {
         return sharedContext;
     }
 
-    java.util.Optional<CaregiverInviteRepository.SharedContextRow> refreshForAccount(String accountId, Instant now) {
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public java.util.Optional<CaregiverInviteRepository.SharedContextRow> refreshForAccount(String accountId, Instant now) {
         return repository.findActiveMembershipByAccount(accountId)
                 .map(member -> refreshForHousehold(member.householdId(), now));
     }
