@@ -37,3 +37,8 @@ tmp/
 body_*.html
 body_*.json
 headers_*.txt
+
+# ── Spring AI / Maven extracted library artifacts (never track at repo root) ──
+org/
+META-INF/
+*.class
