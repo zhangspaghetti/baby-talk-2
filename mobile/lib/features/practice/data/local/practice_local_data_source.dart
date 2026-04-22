@@ -74,7 +74,9 @@ class PracticeLocalDataSource {
       if (existing != null) {
         throw const FormatException('eventKey 已存在，append-only 事件不可覆盖。');
       }
-      await collection.putByEventKey(InteractionEventEntity.fromPayload(payload));
+      await collection.putByEventKey(
+        InteractionEventEntity.fromPayload(payload),
+      );
     });
   }
 
@@ -82,7 +84,10 @@ class PracticeLocalDataSource {
     String? spaceId,
     String? activityId,
   }) async {
-    final entities = await listRawEntities(spaceId: spaceId, activityId: activityId);
+    final entities = await listRawEntities(
+      spaceId: spaceId,
+      activityId: activityId,
+    );
     return entities.length;
   }
 
@@ -215,7 +220,10 @@ class PracticeLocalDataSource {
     final timestamp = (syncedAt ?? DateTime.now()).toUtc();
     final collection = _isar.collection<InteractionEventEntity>();
     await _isar.writeTxn(() async {
-      final entities = await _loadEntitiesForMutation(collection, normalizedKeys);
+      final entities = await _loadEntitiesForMutation(
+        collection,
+        normalizedKeys,
+      );
       for (final entity in entities) {
         entity.syncState = InteractionSyncState.synced.wireValue;
         entity.lastSyncPhase = phase;
@@ -251,7 +259,10 @@ class PracticeLocalDataSource {
         : InteractionSyncState.failed.wireValue;
     final collection = _isar.collection<InteractionEventEntity>();
     await _isar.writeTxn(() async {
-      final entities = await _loadEntitiesForMutation(collection, normalizedKeys);
+      final entities = await _loadEntitiesForMutation(
+        collection,
+        normalizedKeys,
+      );
       for (final entity in entities) {
         entity.syncState = targetState;
         entity.lastSyncPhase = phase;
@@ -271,12 +282,16 @@ class PracticeLocalDataSource {
       final seenKeys = <String>{};
       for (final payload in incoming) {
         if (!seenKeys.add(payload.eventKey)) {
-          throw FormatException('bootstrap 导入收到重复 eventKey: ${payload.eventKey}');
+          throw FormatException(
+            'bootstrap 导入收到重复 eventKey: ${payload.eventKey}',
+          );
         }
 
         final existing = await collection.getByEventKey(payload.eventKey);
         if (existing == null) {
-          await collection.putByEventKey(InteractionEventEntity.fromPayload(payload));
+          await collection.putByEventKey(
+            InteractionEventEntity.fromPayload(payload),
+          );
           continue;
         }
 

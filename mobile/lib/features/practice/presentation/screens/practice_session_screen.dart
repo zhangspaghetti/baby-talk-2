@@ -234,9 +234,11 @@ class _PracticeSessionBodyState extends State<_PracticeSessionBody> {
                         canPlay: viewModel.canPlayCurrentPhrase,
                         canSubmitReaction: viewModel.canSubmitReaction,
                         onPlay: viewModel.playCurrentPhrase,
-                        isTtsMode: viewModel.isDynamic &&
+                        isTtsMode:
+                            viewModel.isDynamic &&
                             phrases[index].audioAsset.isEmpty,
-                        onTtsSpeak: (viewModel.isDynamic &&
+                        onTtsSpeak:
+                            (viewModel.isDynamic &&
                                 phrases[index].audioAsset.isEmpty)
                             ? () => _speakPhrase(phrases[index].english)
                             : null,

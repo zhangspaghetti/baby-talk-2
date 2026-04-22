@@ -194,10 +194,7 @@ class _DiscoverHero extends StatelessWidget {
           const SizedBox(height: 10),
           Text(l.discoverSubtitle, style: theme.textTheme.titleLarge),
           const SizedBox(height: 12),
-          Text(
-            l.discoverNote,
-            style: theme.textTheme.bodyMedium,
-          ),
+          Text(l.discoverNote, style: theme.textTheme.bodyMedium),
         ],
       ),
     );
@@ -289,9 +286,7 @@ class _DiscoverTogglePill extends StatelessWidget {
               Text(
                 label,
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: selected
-                      ? colors.textPrimary
-                      : colors.textSecondary,
+                  color: selected ? colors.textPrimary : colors.textSecondary,
                   fontWeight: FontWeight.w700,
                 ),
               ),
@@ -446,7 +441,10 @@ class _DiscoverActivityList extends StatelessWidget {
       key: const Key('discover-view-activity'),
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(l.discoverBrowseByActivity, style: Theme.of(context).textTheme.titleMedium),
+        Text(
+          l.discoverBrowseByActivity,
+          style: Theme.of(context).textTheme.titleMedium,
+        ),
         const SizedBox(height: 8),
         Text(
           l.discoverActivityRouteNote,
@@ -494,129 +492,136 @@ class _DiscoverActivityCard extends StatelessWidget {
     return Semantics(
       label: '活动: ${activity.title}',
       child: Container(
-      key: Key('discover-activity-card-${activity.activityId}'),
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: colors.bgSurface,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: colors.outlineSoft),
-        boxShadow: colors.warmShadowSm,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                width: 6,
-                height: 64,
-                decoration: BoxDecoration(
-                  color: colors.accent,
-                  borderRadius: BorderRadius.circular(999),
-                ),
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: [
-                        Chip(label: Text(activity.sceneTag)),
-                        Chip(label: Text(activity.spaceTitle)),
-                        if (activity.hasRecoverableIssue)
-                          Chip(label: Text(l.discoverNeedsAttention)),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    Text(
-                      activity.title,
-                      style: Theme.of(context).textTheme.titleLarge,
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      summary,
-                      style: Theme.of(context).textTheme.bodyMedium,
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          LinearProgressIndicator(
-            key: Key('discover-progress-${activity.activityId}'),
-            value: progress.clamp(0.0, 1.0),
-            minHeight: 6,
-            borderRadius: BorderRadius.circular(999),
-            color: colors.accent,
-            backgroundColor: colors.bgSunken,
-          ),
-          const SizedBox(height: 10),
-          Text(
-            '${activity.completedPhraseCount}/${activity.totalPhraseCount} 句已练 · ${activity.totalEvents} 条记录',
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: colors.textSecondary,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          const SizedBox(height: 14),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: hasRecentResult ? colors.englishSoft : colors.bgSunken,
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: Column(
+        key: Key('discover-activity-card-${activity.activityId}'),
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: colors.bgSurface,
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(color: colors.outlineSoft),
+          boxShadow: colors.warmShadowSm,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  l.discoverLatestProgress,
-                  style: Theme.of(context).textTheme.labelMedium,
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  footerText,
-                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                    color: colors.textPrimary,
-                    fontWeight: FontWeight.w700,
+                Container(
+                  width: 6,
+                  height: 64,
+                  decoration: BoxDecoration(
+                    color: colors.accent,
+                    borderRadius: BorderRadius.circular(999),
                   ),
                 ),
-                const SizedBox(height: 4),
-                Text(footerHint, style: Theme.of(context).textTheme.bodySmall),
-                if (activity.warningMessage != null &&
-                    activity.warningMessage!.trim().isNotEmpty) ...[
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          Chip(label: Text(activity.sceneTag)),
+                          Chip(label: Text(activity.spaceTitle)),
+                          if (activity.hasRecoverableIssue)
+                            Chip(label: Text(l.discoverNeedsAttention)),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      Text(
+                        activity.title,
+                        style: Theme.of(context).textTheme.titleLarge,
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        summary,
+                        style: Theme.of(context).textTheme.bodyMedium,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            LinearProgressIndicator(
+              key: Key('discover-progress-${activity.activityId}'),
+              value: progress.clamp(0.0, 1.0),
+              minHeight: 6,
+              borderRadius: BorderRadius.circular(999),
+              color: colors.accent,
+              backgroundColor: colors.bgSunken,
+            ),
+            const SizedBox(height: 10),
+            Text(
+              '${activity.completedPhraseCount}/${activity.totalPhraseCount} 句已练 · ${activity.totalEvents} 条记录',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: colors.textSecondary,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: 14),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: hasRecentResult ? colors.englishSoft : colors.bgSunken,
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    l.discoverLatestProgress,
+                    style: Theme.of(context).textTheme.labelMedium,
+                  ),
                   const SizedBox(height: 8),
                   Text(
-                    activity.warningMessage!,
-                    key: Key(
-                      'discover-activity-warning-${activity.activityId}',
-                    ),
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: colors.warning,
+                    footerText,
+                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                      color: colors.textPrimary,
                       fontWeight: FontWeight.w700,
                     ),
                   ),
+                  const SizedBox(height: 4),
+                  Text(
+                    footerHint,
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                  if (activity.warningMessage != null &&
+                      activity.warningMessage!.trim().isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      activity.warningMessage!,
+                      key: Key(
+                        'discover-activity-warning-${activity.activityId}',
+                      ),
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: colors.warning,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
                 ],
-              ],
+              ),
             ),
-          ),
-          const SizedBox(height: 16),
-          ElevatedButton.icon(
-            key: Key(
-              'discover-route-target-${activity.spaceId}-${activity.activityId}',
+            const SizedBox(height: 16),
+            ElevatedButton.icon(
+              key: Key(
+                'discover-route-target-${activity.spaceId}-${activity.activityId}',
+              ),
+              onPressed: onOpen,
+              icon: const Icon(Icons.play_arrow_rounded),
+              label: Text(
+                activity.isEmpty
+                    ? l.discoverStartActivity
+                    : l.discoverContinueActivity,
+              ),
             ),
-            onPressed: onOpen,
-            icon: const Icon(Icons.play_arrow_rounded),
-            label: Text(activity.isEmpty ? l.discoverStartActivity : l.discoverContinueActivity),
-          ),
-        ],
+          ],
+        ),
       ),
-    ),
     );
   }
 }
@@ -637,7 +642,10 @@ class _DiscoverSpaceList extends StatelessWidget {
       key: const Key('discover-view-space'),
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(l.discoverBrowseBySpace, style: Theme.of(context).textTheme.titleMedium),
+        Text(
+          l.discoverBrowseBySpace,
+          style: Theme.of(context).textTheme.titleMedium,
+        ),
         const SizedBox(height: 8),
         Text(
           l.discoverSpaceRouteNote,
@@ -736,75 +744,75 @@ class _DiscoverSpaceGridItem extends StatelessWidget {
     return Semantics(
       label: '空间活动: ${activity.title}',
       child: Material(
-      color: Colors.transparent,
-      child: Ink(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [colors.bgAccentSoft, colors.bgSurface],
+        color: Colors.transparent,
+        child: Ink(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [colors.bgAccentSoft, colors.bgSurface],
+            ),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: colors.outlineSoft),
           ),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: colors.outlineSoft),
-        ),
-        child: InkWell(
-          key: Key(
-            'discover-route-target-${activity.spaceId}-${activity.activityId}',
-          ),
-          borderRadius: BorderRadius.circular(20),
-          onTap: onTap,
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              key: Key(
-                'discover-space-item-${activity.spaceId}-${activity.activityId}',
+          child: InkWell(
+            key: Key(
+              'discover-route-target-${activity.spaceId}-${activity.activityId}',
+            ),
+            borderRadius: BorderRadius.circular(20),
+            onTap: onTap,
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                key: Key(
+                  'discover-space-item-${activity.spaceId}-${activity.activityId}',
+                ),
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    activity.sceneTag,
+                    style: Theme.of(context).textTheme.labelMedium,
+                  ),
+                  const SizedBox(height: 10),
+                  Text(
+                    activity.title,
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      color: colors.textPrimary,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    highlight,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: colors.textPrimary,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const Spacer(),
+                  LinearProgressIndicator(
+                    key: Key('discover-space-progress-${activity.activityId}'),
+                    value: progress.clamp(0.0, 1.0),
+                    minHeight: 6,
+                    borderRadius: BorderRadius.circular(999),
+                    color: colors.english,
+                    backgroundColor: colors.bgSurface,
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    '${activity.completedPhraseCount}/${activity.totalPhraseCount} 句',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: colors.textSecondary,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
               ),
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  activity.sceneTag,
-                  style: Theme.of(context).textTheme.labelMedium,
-                ),
-                const SizedBox(height: 10),
-                Text(
-                  activity.title,
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    color: colors.textPrimary,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  highlight,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: colors.textPrimary,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                const Spacer(),
-                LinearProgressIndicator(
-                  key: Key('discover-space-progress-${activity.activityId}'),
-                  value: progress.clamp(0.0, 1.0),
-                  minHeight: 6,
-                  borderRadius: BorderRadius.circular(999),
-                  color: colors.english,
-                  backgroundColor: colors.bgSurface,
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  '${activity.completedPhraseCount}/${activity.totalPhraseCount} 句',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: colors.textSecondary,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ],
             ),
           ),
         ),
       ),
-    ),
     );
   }
 }

@@ -123,7 +123,11 @@ class AccountStatusCard extends StatelessWidget {
                     phase == AccountSurfacePhase.loading || viewModel.isBusy
                     ? null
                     : () => openAccountEntryScreen(context),
-                child: Text(viewModel.isSignedIn ? l.accountViewStatus : l.accountRegisterLogin),
+                child: Text(
+                  viewModel.isSignedIn
+                      ? l.accountViewStatus
+                      : l.accountRegisterLogin,
+                ),
               ),
               if (phase == AccountSurfacePhase.versionBlocked)
                 FilledButton(
@@ -292,7 +296,10 @@ class AccountStatusCard extends StatelessWidget {
     return chips;
   }
 
-  Color _bannerBackgroundForPhase(AccountSurfacePhase phase, BabyTalkColors colors) {
+  Color _bannerBackgroundForPhase(
+    AccountSurfacePhase phase,
+    BabyTalkColors colors,
+  ) {
     switch (phase) {
       case AccountSurfacePhase.versionBlocked:
         return colors.warningSoft;
@@ -307,7 +314,10 @@ class AccountStatusCard extends StatelessWidget {
     }
   }
 
-  Color _bannerForegroundForPhase(AccountSurfacePhase phase, BabyTalkColors colors) {
+  Color _bannerForegroundForPhase(
+    AccountSurfacePhase phase,
+    BabyTalkColors colors,
+  ) {
     switch (phase) {
       case AccountSurfacePhase.versionBlocked:
       case AccountSurfacePhase.revoked:
@@ -531,7 +541,9 @@ class _AccountEntryScreenState extends State<AccountEntryScreen> {
                                       ),
                                     );
                                   },
-                            child: Text(viewModel.isBusy ? '处理中…' : l.accountLoginConsent),
+                            child: Text(
+                              viewModel.isBusy ? '处理中…' : l.accountLoginConsent,
+                            ),
                           ),
                           if (phase == AccountSurfacePhase.versionBlocked)
                             FilledButton(

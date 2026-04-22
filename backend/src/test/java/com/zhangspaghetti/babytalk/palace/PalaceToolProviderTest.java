@@ -424,7 +424,7 @@ class PalaceToolProviderTest {
             @SuppressWarnings("unchecked")
             List<Object> relationships = (List<Object>) json.get("relationships");
             assertThat(relationships).isEmpty();
-            assertThat((String) json.get("note")).contains("Phase 1");
+            assertThat((String) json.get("note")).contains("KgQueryTool 不可用");
         }
 
         @Test

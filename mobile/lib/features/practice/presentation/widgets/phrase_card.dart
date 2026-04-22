@@ -51,16 +51,16 @@ class PhraseCard extends StatelessWidget {
       label: 'English phrase: ${phrase.english}',
       excludeSemantics: false,
       child: Container(
-      key: Key('phrase-card-${phrase.phraseId}'),
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: colors.bgSurface,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: borderColor, width: isActive ? 2 : 1),
-        boxShadow: colors.warmShadowSm,
+        key: Key('phrase-card-${phrase.phraseId}'),
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: colors.bgSurface,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: borderColor, width: isActive ? 2 : 1),
+          boxShadow: colors.warmShadowSm,
+        ),
+        child: isActive ? _buildExpanded(context) : _buildCollapsed(context),
       ),
-      child: isActive ? _buildExpanded(context) : _buildCollapsed(context),
-    ),
     );
   }
 
@@ -181,24 +181,26 @@ class PhraseCard extends StatelessWidget {
                 label: isTtsMode ? '朗读发音' : '播放发音',
                 button: true,
                 child: ElevatedButton(
-                key: Key(isTtsMode ? 'tts-${phrase.phraseId}' : 'play-${phrase.phraseId}'),
-                style: ElevatedButton.styleFrom(
-                  shape: const CircleBorder(),
-                  padding: EdgeInsets.zero,
-                ),
-                onPressed: isTtsMode
-                    ? onTtsSpeak
-                    : (canPlay ? onPlay : null),
-                child: Icon(
-                  isTtsMode
-                      ? Icons.record_voice_over_rounded
-                      : (playbackStatus == PracticePlaybackStatus.playing
-                          ? Icons.graphic_eq_rounded
-                          : Icons.play_arrow_rounded),
-                  size: 30,
+                  key: Key(
+                    isTtsMode
+                        ? 'tts-${phrase.phraseId}'
+                        : 'play-${phrase.phraseId}',
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    shape: const CircleBorder(),
+                    padding: EdgeInsets.zero,
+                  ),
+                  onPressed: isTtsMode ? onTtsSpeak : (canPlay ? onPlay : null),
+                  child: Icon(
+                    isTtsMode
+                        ? Icons.record_voice_over_rounded
+                        : (playbackStatus == PracticePlaybackStatus.playing
+                              ? Icons.graphic_eq_rounded
+                              : Icons.play_arrow_rounded),
+                    size: 30,
+                  ),
                 ),
               ),
-            ),
             ),
             const SizedBox(width: 16),
             Expanded(
@@ -223,7 +225,10 @@ class PhraseCard extends StatelessWidget {
           ),
         ],
         const SizedBox(height: 16),
-        Text(l.phraseReactionLabel, style: Theme.of(context).textTheme.titleMedium),
+        Text(
+          l.phraseReactionLabel,
+          style: Theme.of(context).textTheme.titleMedium,
+        ),
         const SizedBox(height: 10),
         ReactionChipRow(
           phraseId: phrase.phraseId,

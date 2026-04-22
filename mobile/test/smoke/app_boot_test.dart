@@ -34,9 +34,9 @@ void main() {
     // app_links 插件在 shell 路由中订阅 EventChannel，单元测试环境需要 mock
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(
-      const MethodChannel('com.llfbandit.app_links/events'),
-      (MethodCall methodCall) async => null,
-    );
+          const MethodChannel('com.llfbandit.app_links/events'),
+          (MethodCall methodCall) async => null,
+        );
   });
 
   test('seed content parser rejects malformed payload', () {

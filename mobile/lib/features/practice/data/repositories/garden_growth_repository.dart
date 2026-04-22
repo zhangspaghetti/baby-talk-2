@@ -32,12 +32,15 @@ class GardenGrowthRepository {
           activity: activity,
         );
         for (final phrase in activity.phrases) {
-          phraseRefs[_PhraseKey(space.id, activity.id, phrase.id)] =
-              _PhraseReference(
-                space: space,
-                activity: activity,
-                phrase: phrase,
-              );
+          phraseRefs[_PhraseKey(
+            space.id,
+            activity.id,
+            phrase.id,
+          )] = _PhraseReference(
+            space: space,
+            activity: activity,
+            phrase: phrase,
+          );
         }
       }
     }
@@ -50,8 +53,12 @@ class GardenGrowthRepository {
     LatestPracticeImpact? latestImpact;
 
     for (final event in inspection.validEvents) {
-      final phraseRef = phraseRefs[
-          _PhraseKey(event.spaceId, event.activityId, event.phraseId)];
+      final phraseRef =
+          phraseRefs[_PhraseKey(
+            event.spaceId,
+            event.activityId,
+            event.phraseId,
+          )];
       if (phraseRef == null) {
         skippedUnknownContentEvents += 1;
         continue;
@@ -74,7 +81,8 @@ class GardenGrowthRepository {
         activityCompleted: activityState.isCompleted,
       );
       knownEvents += 1;
-      sawImitated = sawImitated || event.reactionType == BabyReactionType.imitated;
+      sawImitated =
+          sawImitated || event.reactionType == BabyReactionType.imitated;
 
       final currentFlowerStage = _deriveFlowerStage(activityState);
       final currentPatchStage = _derivePatchStage(spaceState);
@@ -127,7 +135,8 @@ class GardenGrowthRepository {
         milestoneTimes['first_opening'] = event.clientTimestamp;
       }
       if (!wasSpaceStarted && spaceState.totalKnownEvents == 1) {
-        milestoneTimes['space_${event.spaceId}_awakened'] = event.clientTimestamp;
+        milestoneTimes['space_${event.spaceId}_awakened'] =
+            event.clientTimestamp;
       }
       if (!wasStarted) {
         milestoneTimes['activity_${event.activityId}_started'] =
@@ -436,7 +445,8 @@ class _ActivityProjectionState {
   void record(InteractionEventPayload event) {
     totalEvents += 1;
     completedPhraseIds.add(event.phraseId);
-    hasImitated = hasImitated || event.reactionType == BabyReactionType.imitated;
+    hasImitated =
+        hasImitated || event.reactionType == BabyReactionType.imitated;
     lastEventTime = event.clientTimestamp;
   }
 }

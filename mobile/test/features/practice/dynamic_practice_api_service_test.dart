@@ -160,11 +160,9 @@ void main() {
           babyAgeMonths: 6,
         ),
         throwsA(
-          isA<DynamicPracticeApiException>().having(
-            (e) => e.kind,
-            'kind',
-            DynamicPracticeFailureKind.http,
-          ).having((e) => e.statusCode, 'statusCode', 500),
+          isA<DynamicPracticeApiException>()
+              .having((e) => e.kind, 'kind', DynamicPracticeFailureKind.http)
+              .having((e) => e.statusCode, 'statusCode', 500),
         ),
       );
     });

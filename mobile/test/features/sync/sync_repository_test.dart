@@ -87,7 +87,10 @@ void main() {
       expect(inspection.summary.lastSyncError, 'server 500');
       expect(inspection.summary.lastSyncAt, DateTime.utc(2026, 4, 8, 8, 4));
       expect(inspection.pendingUploads, hasLength(1));
-      expect(inspection.pendingUploads.single.eventKey, 'install_sync_test:evt_pending');
+      expect(
+        inspection.pendingUploads.single.eventKey,
+        'install_sync_test:evt_pending',
+      );
       expect(
         inspection.pendingUploads.single.toJsonMap().keys,
         isNot(contains('syncState')),

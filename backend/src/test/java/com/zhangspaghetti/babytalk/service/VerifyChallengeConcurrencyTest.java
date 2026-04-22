@@ -42,6 +42,7 @@ class VerifyChallengeConcurrencyTest extends AbstractIntegrationTest {
 
     @BeforeEach
     void resetTables() {
+        resetDatabase(jdbcTemplate);
         jdbcTemplate.execute("delete from interaction_events");
         jdbcTemplate.execute("delete from consent_audit_logs");
         jdbcTemplate.execute("delete from sms_challenges");

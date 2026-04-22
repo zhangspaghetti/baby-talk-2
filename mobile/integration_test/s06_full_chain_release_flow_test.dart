@@ -98,8 +98,14 @@ void main() {
       );
       expect(find.byKey(const Key('mentor-panel-sheet')), findsOneWidget);
       expect(find.byKey(const Key('mentor-chat-banner')), findsOneWidget);
-      expect(find.byKey(const Key('mentor-chat-response-card')), findsOneWidget);
-      expect(find.byKey(const Key('mentor-chat-response-text')), findsOneWidget);
+      expect(
+        find.byKey(const Key('mentor-chat-response-card')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('mentor-chat-response-text')),
+        findsOneWidget,
+      );
       expect(find.textContaining('安全降级'), findsWidgets);
       expect(find.textContaining('code · blocked_fallback'), findsWidgets);
       expect(find.textContaining('phase · blocked_fallback'), findsOneWidget);
@@ -108,7 +114,10 @@ void main() {
       expect(mentorViewModel.chatResponsePhase, 'blocked_fallback');
       expect(mentorViewModel.chatFallbackUsed, isTrue);
       expect(mentorViewModel.chatCorrelationId, isNotEmpty);
-      expect(harness.backend.mentorRequestsForInstallation(harness.installationId), 1);
+      expect(
+        harness.backend.mentorRequestsForInstallation(harness.installationId),
+        1,
+      );
 
       await harness.disposeMountedApp(tester);
       final syncInspection = await harness.inspectSyncQueue();
@@ -128,7 +137,9 @@ void main() {
         ]),
       );
       final deliveredFacts = mentorFacts
-          .where((fact) => fact.eventType == MentorFactType.chatResponseDelivered)
+          .where(
+            (fact) => fact.eventType == MentorFactType.chatResponseDelivered,
+          )
           .toList(growable: false);
       expect(deliveredFacts, isNotEmpty);
       expect(deliveredFacts.last.phase, 'blocked_fallback');
@@ -161,46 +172,48 @@ void main() {
 
       expect(find.byKey(const Key('boot-route-gate-failed')), findsOneWidget);
       expect(find.byKey(const Key('boot-route-shell')), findsNothing);
-      expect(find.byKey(const Key('onboarding-local-only-banner')), findsNothing);
+      expect(
+        find.byKey(const Key('onboarding-local-only-banner')),
+        findsNothing,
+      );
       expect(find.textContaining('本地档案读取失败'), findsOneWidget);
     },
   );
 
-  testWidgets(
-    'Mentor timeout 会显示可见 banner 与 phase，而不是让聊天流程 hang 住',
-    (WidgetTester tester) async {
-      final harness = await FullChainTestHarness.create();
-      addTearDown(() async {
-        await harness.disposeMountedApp(tester);
-        await harness.dispose();
-      });
-
-      await harness.pumpApp(tester);
-      await harness.completeOnboarding(tester);
-
-      final mentorViewModel = await harness.submitMentorPrompt(
-        tester,
-        prompt: '宝宝一直哭，我现在该怎么开口？ [timeout]',
-      );
-
-      expect(find.byKey(const Key('mentor-chat-banner')), findsOneWidget);
-      expect(find.byKey(const Key('mentor-chat-response-card')), findsNothing);
-      expect(find.textContaining('超时'), findsWidgets);
-      expect(find.textContaining('code · timeout'), findsOneWidget);
-      expect(find.textContaining('phase · provider_timeout'), findsOneWidget);
-      expect(mentorViewModel.chatResponseText, isNull);
-      expect(mentorViewModel.chatResponseCode, 'timeout');
-      expect(mentorViewModel.chatResponsePhase, 'provider_timeout');
-      expect(mentorViewModel.chatCorrelationId, isNotEmpty);
-
+  testWidgets('Mentor timeout 会显示可见 banner 与 phase，而不是让聊天流程 hang 住', (
+    WidgetTester tester,
+  ) async {
+    final harness = await FullChainTestHarness.create();
+    addTearDown(() async {
       await harness.disposeMountedApp(tester);
-      final failedFacts = await harness.readMentorFacts(
-        eventType: MentorFactType.chatFailed,
-      );
-      expect(failedFacts, isNotEmpty);
-      expect(failedFacts.last.phase, 'provider_timeout');
-      expect(failedFacts.last.visibleStatus, 'timeout');
-      expect(failedFacts.last.retryable, isTrue);
-    },
-  );
+      await harness.dispose();
+    });
+
+    await harness.pumpApp(tester);
+    await harness.completeOnboarding(tester);
+
+    final mentorViewModel = await harness.submitMentorPrompt(
+      tester,
+      prompt: '宝宝一直哭，我现在该怎么开口？ [timeout]',
+    );
+
+    expect(find.byKey(const Key('mentor-chat-banner')), findsOneWidget);
+    expect(find.byKey(const Key('mentor-chat-response-card')), findsNothing);
+    expect(find.textContaining('超时'), findsWidgets);
+    expect(find.textContaining('code · timeout'), findsOneWidget);
+    expect(find.textContaining('phase · provider_timeout'), findsOneWidget);
+    expect(mentorViewModel.chatResponseText, isNull);
+    expect(mentorViewModel.chatResponseCode, 'timeout');
+    expect(mentorViewModel.chatResponsePhase, 'provider_timeout');
+    expect(mentorViewModel.chatCorrelationId, isNotEmpty);
+
+    await harness.disposeMountedApp(tester);
+    final failedFacts = await harness.readMentorFacts(
+      eventType: MentorFactType.chatFailed,
+    );
+    expect(failedFacts, isNotEmpty);
+    expect(failedFacts.last.phase, 'provider_timeout');
+    expect(failedFacts.last.visibleStatus, 'timeout');
+    expect(failedFacts.last.retryable, isTrue);
+  });
 }

@@ -27,7 +27,11 @@ class ShareCalloutCard extends StatelessWidget {
     final draft = viewModel.currentDraft;
     final hasDraft = draft != null;
     final buttonEnabled = hasDraft && !viewModel.isSharing && onShare != null;
-    final state = _ShareStateSpec.resolve(viewModel: viewModel, hasDraft: hasDraft, colors: colors);
+    final state = _ShareStateSpec.resolve(
+      viewModel: viewModel,
+      hasDraft: hasDraft,
+      colors: colors,
+    );
 
     return Container(
       key: Key('$surfaceKeyPrefix-share-card'),
@@ -55,7 +59,8 @@ class ShareCalloutCard extends StatelessWidget {
             key: Key('$surfaceKeyPrefix-share-body'),
             style: theme.textTheme.bodyMedium,
           ),
-          if (draft?.phraseText != null && draft!.phraseText!.trim().isNotEmpty) ...[
+          if (draft?.phraseText != null &&
+              draft!.phraseText!.trim().isNotEmpty) ...[
             const SizedBox(height: 12),
             Container(
               key: Key('$surfaceKeyPrefix-share-phrase-pill'),

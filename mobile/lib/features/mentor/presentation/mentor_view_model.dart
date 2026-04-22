@@ -196,7 +196,8 @@ class MentorViewModel extends ChangeNotifier {
   MentorRateLimitStatus? get chatRateLimit => _chatRateLimit;
 
   String? get conversationId => _conversationId;
-  List<ChatBubbleData> get messages => List<ChatBubbleData>.unmodifiable(_messages);
+  List<ChatBubbleData> get messages =>
+      List<ChatBubbleData>.unmodifiable(_messages);
 
   bool get isSpeaking => _isSpeaking;
   String? get audioStatusMessage => _audioStatusMessage;
@@ -356,11 +357,13 @@ class MentorViewModel extends ChangeNotifier {
     _chatRateLimit = null;
     // 多轮聊天：追加用户消息到气泡列表
     _messages = List<ChatBubbleData>.from(_messages)
-      ..add(ChatBubbleData(
-        role: ChatBubbleRole.user,
-        text: prompt,
-        timestamp: DateTime.now().toUtc(),
-      ));
+      ..add(
+        ChatBubbleData(
+          role: ChatBubbleRole.user,
+          text: prompt,
+          timestamp: DateTime.now().toUtc(),
+        ),
+      );
     _applyBanner(
       '正在向小禾老师请求一次受控回应…',
       code: 'chat_requesting',
@@ -410,11 +413,13 @@ class MentorViewModel extends ChangeNotifier {
         _conversationId = response.conversationId;
       }
       _messages = List<ChatBubbleData>.from(_messages)
-        ..add(ChatBubbleData(
-          role: ChatBubbleRole.assistant,
-          text: response.responseText,
-          timestamp: DateTime.now().toUtc(),
-        ));
+        ..add(
+          ChatBubbleData(
+            role: ChatBubbleRole.assistant,
+            text: response.responseText,
+            timestamp: DateTime.now().toUtc(),
+          ),
+        );
       _chatDraft = '';
       _panelStatus = response.fallbackUsed
           ? MentorPanelStatus.fallback

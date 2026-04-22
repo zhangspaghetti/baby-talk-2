@@ -74,10 +74,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               children: [
                 Text(l.onboardingTitle, style: theme.textTheme.titleLarge),
                 const SizedBox(height: 8),
-                Text(
-                  l.onboardingSubtitle,
-                  style: theme.textTheme.bodyMedium,
-                ),
+                Text(l.onboardingSubtitle, style: theme.textTheme.bodyMedium),
                 const SizedBox(height: 20),
                 Container(
                   key: const Key('onboarding-local-only-banner'),
@@ -125,10 +122,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   ) {
     final l = AppLocalizations.of(context)!;
     final widgets = <Widget>[
-      MentorBubble(
-        caption: l.mentorName,
-        message: l.onboardingMentorGreeting,
-      ),
+      MentorBubble(caption: l.mentorName, message: l.onboardingMentorGreeting),
     ];
 
     if (viewModel.currentStep.index >= OnboardingFlowStep.name.index ||
@@ -170,8 +164,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         ..add(const SizedBox(height: 16))
         ..add(
           MentorBubble(
-            message:
-                l.onboardingStagePreview(viewModel.draftName.trim()),
+            message: l.onboardingStagePreview(viewModel.draftName.trim()),
           ),
         )
         ..add(const SizedBox(height: 16))

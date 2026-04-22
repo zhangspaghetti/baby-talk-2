@@ -213,8 +213,7 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
     final shouldShowSharedOverlay =
         isSharedOverlayNewer && sharedNextStepArgs != null;
     final shouldShowSharedOverlayDisabled =
-        isSharedOverlayNewer &&
-        sharedNextStepArgs == null;
+        isSharedOverlayNewer && sharedNextStepArgs == null;
     final body = SafeArea(
       top: !widget.embeddedInShell,
       child: Align(
@@ -255,7 +254,9 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
                         const SizedBox(height: 12),
                         _HomeBanner(
                           key: const Key('home-restore-banner'),
-                          message: _buildGuestRestoreMessage(continuitySnapshot),
+                          message: _buildGuestRestoreMessage(
+                            continuitySnapshot,
+                          ),
                           backgroundColor: colors.infoSoft,
                           foregroundColor: colors.info,
                         ),
@@ -288,7 +289,8 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
                     _TodaySceneCard(
                       activityId:
                           recommendedActivity?.activityId ?? 'safe-empty',
-                      activityTitle: activity?.title ?? l.continueEntryUnavailable,
+                      activityTitle:
+                          activity?.title ?? l.continueEntryUnavailable,
                       activitySummary:
                           activity?.summary ??
                           _resolveSafeHomeSummary(continuityViewModel),
@@ -360,7 +362,9 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
                         message: homeDisabledReason,
                         backgroundColor: colors.errorSoft,
                         foregroundColor: colors.error,
-                        actionLabel: continuityViewModel == null ? null : l.retry,
+                        actionLabel: continuityViewModel == null
+                            ? null
+                            : l.retry,
                         onAction: continuityViewModel == null
                             ? null
                             : () => _refreshContinuity(reason: 'home_retry'),
@@ -402,18 +406,18 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
                       ),
                     ],
                     if (kDebugMode) ...[
-                    const SizedBox(height: 12),
-                    Text(
-                      'continuity: ${continuityViewModel?.status.label ?? 'missing_provider'}${continuityViewModel?.lastRefreshReason == null ? '' : ' · refresh: ${continuityViewModel!.lastRefreshReason}'}',
-                      key: const Key('home-continuity-status'),
-                      style: Theme.of(context).textTheme.bodySmall,
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'boot: ready${continuitySnapshot?.catalog.installationId == null ? '' : ' · install: ${_shortInstallationId(continuitySnapshot!.catalog.installationId!)}'}',
-                      key: const Key('boot-status-ready'),
-                      style: Theme.of(context).textTheme.bodySmall,
-                    ),
+                      const SizedBox(height: 12),
+                      Text(
+                        'continuity: ${continuityViewModel?.status.label ?? 'missing_provider'}${continuityViewModel?.lastRefreshReason == null ? '' : ' · refresh: ${continuityViewModel!.lastRefreshReason}'}',
+                        key: const Key('home-continuity-status'),
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'boot: ready${continuitySnapshot?.catalog.installationId == null ? '' : ' · install: ${_shortInstallationId(continuitySnapshot!.catalog.installationId!)}'}',
+                        key: const Key('boot-status-ready'),
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
                     ],
                   ],
                 ),
@@ -721,65 +725,65 @@ class _TodaySceneCard extends StatelessWidget {
     return Semantics(
       label: '今日场景: $activityTitle',
       child: Card(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(20, 24, 20, 24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (sceneTag != null && sceneTag!.trim().isNotEmpty)
-              Chip(label: Text(sceneTag!)),
-            const SizedBox(height: 16),
-            Text(
-              activityTitle,
-              key: ValueKey('home-hero-activity-$activityId'),
-              style: Theme.of(context).textTheme.titleLarge,
-            ),
-            const SizedBox(height: 8),
-            Text(
-              recommendation?.reasonLabel ?? l.homeContinuityUnavailable,
-              key: ValueKey('home-continuity-reason-$activityId'),
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: colors.textSecondary,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              activitySummary,
-              style: Theme.of(context).textTheme.bodyMedium,
-            ),
-            if (nextIncompleteActivity != null &&
-                nextIncompleteActivity!.activityId != activityId) ...[
-              const SizedBox(height: 12),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 24, 20, 24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (sceneTag != null && sceneTag!.trim().isNotEmpty)
+                Chip(label: Text(sceneTag!)),
+              const SizedBox(height: 16),
               Text(
-                l.homeNextAlternative(nextIncompleteActivity!.title),
-                key: ValueKey(
-                  'home-next-incomplete-${nextIncompleteActivity!.activityId}',
-                ),
-                style: Theme.of(context).textTheme.bodySmall,
+                activityTitle,
+                key: ValueKey('home-hero-activity-$activityId'),
+                style: Theme.of(context).textTheme.titleLarge,
               ),
-            ],
-            if (disabledReason != null) ...[
-              const SizedBox(height: 12),
+              const SizedBox(height: 8),
               Text(
-                disabledReason!,
-                key: ValueKey('home-start-disabled-$activityId'),
+                recommendation?.reasonLabel ?? l.homeContinuityUnavailable,
+                key: ValueKey('home-continuity-reason-$activityId'),
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: colors.warning,
+                  color: colors.textSecondary,
                   fontWeight: FontWeight.w700,
                 ),
               ),
+              const SizedBox(height: 8),
+              Text(
+                activitySummary,
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
+              if (nextIncompleteActivity != null &&
+                  nextIncompleteActivity!.activityId != activityId) ...[
+                const SizedBox(height: 12),
+                Text(
+                  l.homeNextAlternative(nextIncompleteActivity!.title),
+                  key: ValueKey(
+                    'home-next-incomplete-${nextIncompleteActivity!.activityId}',
+                  ),
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ],
+              if (disabledReason != null) ...[
+                const SizedBox(height: 12),
+                Text(
+                  disabledReason!,
+                  key: ValueKey('home-start-disabled-$activityId'),
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: colors.warning,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+              const SizedBox(height: 20),
+              ElevatedButton(
+                key: const Key('home-start-practice'),
+                onPressed: onPressed,
+                child: Text(buttonLabel),
+              ),
             ],
-            const SizedBox(height: 20),
-            ElevatedButton(
-              key: const Key('home-start-practice'),
-              onPressed: onPressed,
-              child: Text(buttonLabel),
-            ),
-          ],
+          ),
         ),
       ),
-    ),
     );
   }
 }
@@ -798,39 +802,39 @@ class _WeekStatsCard extends StatelessWidget {
     return Semantics(
       label: '本周练习统计',
       child: Container(
-      key: ValueKey(
-        'home-week-stats-${recommendedActivity?.activityId ?? 'loading'}',
-      ),
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: colors.bgSunken,
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: _StatCell(
-              label: l.homeRecommendedActivity,
-              value: recommendedActivity?.title ?? l.homeOrganizing,
-              hint:
-                  continuitySnapshot?.recommendation.reasonLabel ??
-                  l.homeWaitingContinuity,
-            ),
-          ),
-          Container(width: 1, height: 40, color: colors.outlineSoft),
-          Expanded(
-            child: _StatCell(
-              key: ValueKey(
-                'home-cadence-summary-${recommendedActivity?.activityId ?? 'loading'}',
+        key: ValueKey(
+          'home-week-stats-${recommendedActivity?.activityId ?? 'loading'}',
+        ),
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: colors.bgSunken,
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: _StatCell(
+                label: l.homeRecommendedActivity,
+                value: recommendedActivity?.title ?? l.homeOrganizing,
+                hint:
+                    continuitySnapshot?.recommendation.reasonLabel ??
+                    l.homeWaitingContinuity,
               ),
-              label: l.homeCadence,
-              value: cadence?.headline ?? l.homeOrganizing,
-              hint: cadence?.detail ?? l.homeDerivingCadence,
             ),
-          ),
-        ],
+            Container(width: 1, height: 40, color: colors.outlineSoft),
+            Expanded(
+              child: _StatCell(
+                key: ValueKey(
+                  'home-cadence-summary-${recommendedActivity?.activityId ?? 'loading'}',
+                ),
+                label: l.homeCadence,
+                value: cadence?.headline ?? l.homeOrganizing,
+                hint: cadence?.detail ?? l.homeDerivingCadence,
+              ),
+            ),
+          ],
+        ),
       ),
-    ),
     );
   }
 }
@@ -916,58 +920,65 @@ class _GardenMiniEntry extends StatelessWidget {
       case GardenGrowthLoadStatus.ready:
         title = primarySpace == null
             ? l.homeGardenReady
-            : l.homeGardenSpaceStage(primarySpace.title, primarySpace.stage.label);
+            : l.homeGardenSpaceStage(
+                primarySpace.title,
+                primarySpace.stage.label,
+              );
         body = primaryActivity == null
             ? l.homeGardenChanges
-            : l.homeGardenActivityDetail(primaryActivity.title, primaryActivity.stage.label, primaryActivity.careNote);
+            : l.homeGardenActivityDetail(
+                primaryActivity.title,
+                primaryActivity.stage.label,
+                primaryActivity.careNote,
+              );
         break;
     }
 
     return Semantics(
       label: '成长花园: $title',
       child: Container(
-      key: const Key('home-garden-mini-entry'),
-      width: double.infinity,
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: backgroundColor,
-        borderRadius: BorderRadius.circular(24),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            l.homeGrowthGarden,
-            style: Theme.of(context).textTheme.labelMedium,
-          ),
-          const SizedBox(height: 10),
-          Text(
-            title,
-            key: const Key('home-garden-mini-entry-title'),
-            style: Theme.of(
-              context,
-            ).textTheme.titleMedium?.copyWith(color: foregroundColor),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            body,
-            style: Theme.of(
-              context,
-            ).textTheme.bodyMedium?.copyWith(color: foregroundColor),
-          ),
-          if (snapshot.hasIssues && snapshot.projectionWarning != null) ...[
+        key: const Key('home-garden-mini-entry'),
+        width: double.infinity,
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: backgroundColor,
+          borderRadius: BorderRadius.circular(24),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              l.homeGrowthGarden,
+              style: Theme.of(context).textTheme.labelMedium,
+            ),
             const SizedBox(height: 10),
             Text(
-              snapshot.projectionWarning!,
-              key: const Key('home-garden-mini-entry-warning'),
+              title,
+              key: const Key('home-garden-mini-entry-title'),
               style: Theme.of(
                 context,
-              ).textTheme.bodySmall?.copyWith(color: foregroundColor),
+              ).textTheme.titleMedium?.copyWith(color: foregroundColor),
             ),
+            const SizedBox(height: 8),
+            Text(
+              body,
+              style: Theme.of(
+                context,
+              ).textTheme.bodyMedium?.copyWith(color: foregroundColor),
+            ),
+            if (snapshot.hasIssues && snapshot.projectionWarning != null) ...[
+              const SizedBox(height: 10),
+              Text(
+                snapshot.projectionWarning!,
+                key: const Key('home-garden-mini-entry-warning'),
+                style: Theme.of(
+                  context,
+                ).textTheme.bodySmall?.copyWith(color: foregroundColor),
+              ),
+            ],
           ],
-        ],
+        ),
       ),
-    ),
     );
   }
 }
@@ -1015,7 +1026,10 @@ class _GrowthSummaryCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(l.homeGrowthSummaryLabel, style: Theme.of(context).textTheme.labelMedium),
+          Text(
+            l.homeGrowthSummaryLabel,
+            style: Theme.of(context).textTheme.labelMedium,
+          ),
           const SizedBox(height: 10),
           Text(
             title,
@@ -1061,7 +1075,10 @@ class _RecentResultCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(l.homeRecentLocalResult, style: Theme.of(context).textTheme.titleMedium),
+          Text(
+            l.homeRecentLocalResult,
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
           const SizedBox(height: 8),
           if (recentResult == null)
             Text(
@@ -1083,7 +1100,10 @@ class _RecentResultCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  l.homeRecentResultDetail(recommendedActivity.totalEvents.toString(), _formatTime(recentResult.eventTime)),
+                  l.homeRecentResultDetail(
+                    recommendedActivity.totalEvents.toString(),
+                    _formatTime(recentResult.eventTime),
+                  ),
                   style: Theme.of(context).textTheme.bodyMedium,
                 ),
               ],

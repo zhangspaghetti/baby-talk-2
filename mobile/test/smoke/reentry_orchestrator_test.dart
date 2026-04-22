@@ -56,8 +56,7 @@ void main() {
       expect(decision.practiceArgs!.activityId, equals('bath_time'));
     });
 
-    test('handleIncomingUri dispatches invite — acceptUri 改变 coordinator 状态',
-        () {
+    test('handleIncomingUri dispatches invite — acceptUri 改变 coordinator 状态', () {
       createOrchestrator();
 
       final inviteUri = Uri.parse(
@@ -90,9 +89,11 @@ void main() {
       final orchestrator = createOrchestrator(overrideMounted: false);
 
       // 让 coordinator 接受一个有效 URI 产生 pending args
-      shareCoordinator.acceptUri(Uri.parse(
-        'babytalk://share/open?token=abcdefgh12345678&spaceId=daily_care&activityId=bath_time',
-      ));
+      shareCoordinator.acceptUri(
+        Uri.parse(
+          'babytalk://share/open?token=abcdefgh12345678&spaceId=daily_care&activityId=bath_time',
+        ),
+      );
       expect(
         shareCoordinator.pendingTarget,
         ShareReentryDispatchTarget.practice,
@@ -111,9 +112,11 @@ void main() {
     test('drainPendingShareReentry — navigator=null 时不崩溃，pending 保持', () {
       final orchestrator = createOrchestrator();
 
-      shareCoordinator.acceptUri(Uri.parse(
-        'babytalk://share/open?token=abcdefgh12345678&spaceId=daily_care&activityId=bath_time',
-      ));
+      shareCoordinator.acceptUri(
+        Uri.parse(
+          'babytalk://share/open?token=abcdefgh12345678&spaceId=daily_care&activityId=bath_time',
+        ),
+      );
 
       // navigator 返回 null → 提前返回
       orchestrator.drainPendingShareReentry();
@@ -125,35 +128,40 @@ void main() {
       );
     });
 
-    test('drainPendingInviteReentry — navigator=null 时 serialized call 安全完成',
-        () async {
-      final orchestrator = createOrchestrator();
+    test(
+      'drainPendingInviteReentry — navigator=null 时 serialized call 安全完成',
+      () async {
+        final orchestrator = createOrchestrator();
 
-      inviteCoordinator.acceptUri(Uri.parse(
-        'babytalk://invite/open?token=invite_serial_12345678&source=invite_link&role=caregiver',
-      ));
+        inviteCoordinator.acceptUri(
+          Uri.parse(
+            'babytalk://invite/open?token=invite_serial_12345678&source=invite_link&role=caregiver',
+          ),
+        );
 
-      // 并发调用两次 drainPendingInviteReentry
-      final future1 = orchestrator.drainPendingInviteReentry();
-      final future2 = orchestrator.drainPendingInviteReentry();
+        // 并发调用两次 drainPendingInviteReentry
+        final future1 = orchestrator.drainPendingInviteReentry();
+        final future2 = orchestrator.drainPendingInviteReentry();
 
-      // 两个 future 都能正常完成（不抛出异常）
-      await future1;
-      await future2;
+        // 两个 future 都能正常完成（不抛出异常）
+        await future1;
+        await future2;
 
-      // navigator=null → 提前返回，没有 fallback count 变化
-      expect(inviteCoordinator.shellFallbackCount, equals(0));
-    });
+        // navigator=null → 提前返回，没有 fallback count 变化
+        expect(inviteCoordinator.shellFallbackCount, equals(0));
+      },
+    );
 
-    test('share drain 在 destination 非 shell 时不执行 (navigator=null 保护)',
-        () {
+    test('share drain 在 destination 非 shell 时不执行 (navigator=null 保护)', () {
       final orchestrator = createOrchestrator(
         overrideDestination: AppLaunchDestination.onboarding,
       );
 
-      shareCoordinator.acceptUri(Uri.parse(
-        'babytalk://share/open?token=abcdefgh12345678&spaceId=daily_care&activityId=bath_time',
-      ));
+      shareCoordinator.acceptUri(
+        Uri.parse(
+          'babytalk://share/open?token=abcdefgh12345678&spaceId=daily_care&activityId=bath_time',
+        ),
+      );
 
       orchestrator.drainPendingShareReentry();
 
@@ -180,9 +188,11 @@ void main() {
       await orchestrator.configureShareUriSubscription(controller.stream);
 
       // 发送一个 share URI 到 stream
-      controller.add(Uri.parse(
-        'babytalk://share/open?token=stream_test_12345678&spaceId=daily_care&activityId=bath_time',
-      ));
+      controller.add(
+        Uri.parse(
+          'babytalk://share/open?token=stream_test_12345678&spaceId=daily_care&activityId=bath_time',
+        ),
+      );
       await Future<void>.delayed(Duration.zero);
 
       // coordinator 应该收到了这个 URI（navigator=null 所以 pending 保持）

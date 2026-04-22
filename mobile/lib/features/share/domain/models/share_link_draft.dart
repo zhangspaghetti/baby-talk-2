@@ -96,7 +96,9 @@ class ShareLinkDraft {
     final impactDetail = _sanitizePublicText(impact?.detail, maxLength: 200);
     final phraseText = _sanitizePublicText(impact?.phraseTitle, maxLength: 120);
     final recommendationTitle = _buildRecommendationTitle(recommendedActivity);
-    final recommendationReason = _buildRecommendationReason(recommendedActivity);
+    final recommendationReason = _buildRecommendationReason(
+      recommendedActivity,
+    );
 
     final hasImpact = impactHeadline != null && impactDetail != null;
     final hasRecommendation = recommendationTitle != null;
@@ -145,7 +147,7 @@ class ShareLinkDraft {
     required String? recommendationReason,
   }) {
     final parts = <String>[
-      if (impactDetail != null) impactDetail,
+      if (impactDetail != null) ...[impactDetail],
       if (recommendationTitle != null)
         recommendationReason == null
             ? '接下来可以继续 ${recommendationTitle.replaceFirst('接下来继续 ', '')}。'
@@ -179,7 +181,10 @@ class ShareLinkDraft {
       maxLength: 48,
     );
     if (summary != null && nextPhrase != null) {
-      return _sanitizePublicText('$summary 先从 $nextPhrase 开始就好。', maxLength: 160);
+      return _sanitizePublicText(
+        '$summary 先从 $nextPhrase 开始就好。',
+        maxLength: 160,
+      );
     }
     if (summary != null) {
       return _sanitizePublicText(summary, maxLength: 160);

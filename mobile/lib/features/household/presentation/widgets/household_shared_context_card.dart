@@ -141,7 +141,7 @@ class HouseholdSharedPracticeOverlayCard extends StatelessWidget {
               };
 
     return Container(
-      key: Key('${surfaceKeyPrefix}-card'),
+      key: Key('$surfaceKeyPrefix-card'),
       width: double.infinity,
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -158,7 +158,7 @@ class HouseholdSharedPracticeOverlayCard extends StatelessWidget {
             children: [
               _buildRoleChip(
                 context,
-                key: Key('${surfaceKeyPrefix}-actor-chip'),
+                key: Key('$surfaceKeyPrefix-actor-chip'),
                 label: sharedContext.actor == null
                     ? l.householdSharedAttribution
                     : householdActorRoleLabel(sharedContext.actor!.role),
@@ -167,8 +167,10 @@ class HouseholdSharedPracticeOverlayCard extends StatelessWidget {
               ),
               _buildRoleChip(
                 context,
-                key: Key('${surfaceKeyPrefix}-next-step-chip'),
-                label: safeArgs == null ? l.householdEntryPending : l.householdNextStepReady,
+                key: Key('$surfaceKeyPrefix-next-step-chip'),
+                label: safeArgs == null
+                    ? l.householdEntryPending
+                    : l.householdNextStepReady,
                 backgroundColor: safeArgs == null
                     ? colors.warningSoft
                     : colors.bgSurface,
@@ -181,19 +183,19 @@ class HouseholdSharedPracticeOverlayCard extends StatelessWidget {
           const SizedBox(height: 14),
           Text(
             householdSharedAttributionHeadline(sharedContext),
-            key: Key('${surfaceKeyPrefix}-headline'),
+            key: Key('$surfaceKeyPrefix-headline'),
             style: theme.textTheme.titleMedium,
           ),
           const SizedBox(height: 8),
           Text(
             householdSharedNextStepDetail(sharedContext),
-            key: Key('${surfaceKeyPrefix}-detail'),
+            key: Key('$surfaceKeyPrefix-detail'),
             style: theme.textTheme.bodyMedium,
           ),
           const SizedBox(height: 10),
           Text(
             householdSharedAttributionDetail(sharedContext),
-            key: Key('${surfaceKeyPrefix}-attribution'),
+            key: Key('$surfaceKeyPrefix-attribution'),
             style: theme.textTheme.bodySmall?.copyWith(
               color: colors.textSecondary,
               fontWeight: FontWeight.w700,
@@ -202,13 +204,13 @@ class HouseholdSharedPracticeOverlayCard extends StatelessWidget {
           const SizedBox(height: 6),
           Text(
             householdSharedProjectionMeta(sharedContext),
-            key: Key('${surfaceKeyPrefix}-meta'),
+            key: Key('$surfaceKeyPrefix-meta'),
             style: theme.textTheme.bodySmall,
           ),
           if (safeArgs == null) ...[
             const SizedBox(height: 14),
             Container(
-              key: Key('${surfaceKeyPrefix}-disabled-banner'),
+              key: Key('$surfaceKeyPrefix-disabled-banner'),
               width: double.infinity,
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
@@ -226,7 +228,7 @@ class HouseholdSharedPracticeOverlayCard extends StatelessWidget {
           ],
           const SizedBox(height: 16),
           ElevatedButton(
-            key: Key('${surfaceKeyPrefix}-button'),
+            key: Key('$surfaceKeyPrefix-button'),
             onPressed: effectiveOnPressed,
             child: Text(buttonLabel),
           ),
@@ -554,7 +556,10 @@ class HouseholdSharedContextCard extends StatelessWidget {
         lastPhase.contains('revoked');
   }
 
-  Color _bannerBackgroundFor(HouseholdLocalSnapshot snapshot, BabyTalkColors colors) {
+  Color _bannerBackgroundFor(
+    HouseholdLocalSnapshot snapshot,
+    BabyTalkColors colors,
+  ) {
     if (_isUnavailablePhase(snapshot.lastPhase)) {
       return snapshot.lastPhase.contains('malformed')
           ? colors.errorSoft
@@ -563,7 +568,10 @@ class HouseholdSharedContextCard extends StatelessWidget {
     return colors.infoSoft;
   }
 
-  Color _bannerForegroundFor(HouseholdLocalSnapshot snapshot, BabyTalkColors colors) {
+  Color _bannerForegroundFor(
+    HouseholdLocalSnapshot snapshot,
+    BabyTalkColors colors,
+  ) {
     if (_isUnavailablePhase(snapshot.lastPhase)) {
       return snapshot.lastPhase.contains('malformed')
           ? colors.error
@@ -597,7 +605,10 @@ class _SharedAttributionPanel extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(l.householdRecentAttribution, style: Theme.of(context).textTheme.labelMedium),
+          Text(
+            l.householdRecentAttribution,
+            style: Theme.of(context).textTheme.labelMedium,
+          ),
           const SizedBox(height: 10),
           Wrap(
             spacing: 8,
@@ -665,7 +676,10 @@ class _SharedNextStepPanel extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(l.householdSharedNextStep, style: Theme.of(context).textTheme.labelMedium),
+          Text(
+            l.householdSharedNextStep,
+            style: Theme.of(context).textTheme.labelMedium,
+          ),
           const SizedBox(height: 10),
           Text(
             householdSharedNextStepDetail(sharedContext),
@@ -680,7 +694,11 @@ class _SharedNextStepPanel extends StatelessWidget {
                 : () async {
                     await safeArgs.push(context);
                   },
-            child: Text(safeArgs == null ? l.householdNextStepPending : l.enterSharedNextStep),
+            child: Text(
+              safeArgs == null
+                  ? l.householdNextStepPending
+                  : l.enterSharedNextStep,
+            ),
           ),
           if (safeArgs == null) ...[
             const SizedBox(height: 10),

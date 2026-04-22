@@ -20,33 +20,27 @@ void main() {
   }
 
   group('MentorBubble a11y', () {
-    testWidgets('MentorBubble 包含 Semantics widget with label', (
-      tester,
-    ) async {
+    testWidgets('MentorBubble 包含 Semantics widget with label', (tester) async {
       await tester.pumpWidget(
-        buildTestApp(
-          const MentorBubble(message: '你好，欢迎使用 Baby Talk！'),
-        ),
+        buildTestApp(const MentorBubble(message: '你好，欢迎使用 Baby Talk！')),
       );
 
       // 查找 Semantics widget with 小禾老师问候 label
       final semanticsWidget = find.byWidgetPredicate(
-        (widget) =>
-            widget is Semantics && widget.properties.label == '小禾老师问候',
+        (widget) => widget is Semantics && widget.properties.label == '小禾老师问候',
       );
-      expect(semanticsWidget, findsOneWidget,
-          reason: 'MentorBubble 需要 Semantics(label: "小禾老师问候") wrapper');
+      expect(
+        semanticsWidget,
+        findsOneWidget,
+        reason: 'MentorBubble 需要 Semantics(label: "小禾老师问候") wrapper',
+      );
     });
   });
 
   group('MiniSeedCard a11y', () {
-    testWidgets('MiniSeedCard 包含 Semantics widget with label', (
-      tester,
-    ) async {
+    testWidgets('MiniSeedCard 包含 Semantics widget with label', (tester) async {
       await tester.pumpWidget(
-        buildTestApp(
-          const MiniSeedCard(english: 'Hello', chinese: '你好'),
-        ),
+        buildTestApp(const MiniSeedCard(english: 'Hello', chinese: '你好')),
       );
 
       final semanticsWidget = find.byWidgetPredicate(
@@ -54,8 +48,11 @@ void main() {
             widget is Semantics &&
             (widget.properties.label?.contains('种子短语卡') ?? false),
       );
-      expect(semanticsWidget, findsOneWidget,
-          reason: 'MiniSeedCard 需要 Semantics label 包含 "种子短语卡"');
+      expect(
+        semanticsWidget,
+        findsOneWidget,
+        reason: 'MiniSeedCard 需要 Semantics label 包含 "种子短语卡"',
+      );
     });
   });
 
@@ -98,13 +95,14 @@ void main() {
             widget is Semantics &&
             (widget.properties.label?.contains('English phrase:') ?? false),
       );
-      expect(semanticsWidget, findsOneWidget,
-          reason: 'PhraseCard 需要包含 "English phrase:" 的 Semantics label');
+      expect(
+        semanticsWidget,
+        findsOneWidget,
+        reason: 'PhraseCard 需要包含 "English phrase:" 的 Semantics label',
+      );
     });
 
-    testWidgets('Active PhraseCard 播放按钮有 "播放发音" Semantics', (
-      tester,
-    ) async {
+    testWidgets('Active PhraseCard 播放按钮有 "播放发音" Semantics', (tester) async {
       const phrase = PracticePhrase(
         spaceId: 'test-space',
         activityId: 'test-activity',
@@ -136,11 +134,13 @@ void main() {
       );
 
       final playSemantics = find.byWidgetPredicate(
-        (widget) =>
-            widget is Semantics && widget.properties.label == '播放发音',
+        (widget) => widget is Semantics && widget.properties.label == '播放发音',
       );
-      expect(playSemantics, findsOneWidget,
-          reason: '播放按钮需要 "播放发音" Semantics label');
+      expect(
+        playSemantics,
+        findsOneWidget,
+        reason: '播放按钮需要 "播放发音" Semantics label',
+      );
     });
   });
 
@@ -180,10 +180,8 @@ void main() {
       final playButtonFinder = find.byKey(const Key('play-touch-1'));
       expect(playButtonFinder, findsOneWidget);
       final size = tester.getSize(playButtonFinder);
-      expect(size.width, greaterThanOrEqualTo(48),
-          reason: '播放按钮宽度必须 >= 48');
-      expect(size.height, greaterThanOrEqualTo(48),
-          reason: '播放按钮高度必须 >= 48');
+      expect(size.width, greaterThanOrEqualTo(48), reason: '播放按钮宽度必须 >= 48');
+      expect(size.height, greaterThanOrEqualTo(48), reason: '播放按钮高度必须 >= 48');
     });
   });
 }

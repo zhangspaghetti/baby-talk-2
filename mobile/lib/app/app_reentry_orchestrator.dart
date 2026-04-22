@@ -45,15 +45,15 @@ class AppReentryOrchestrator {
     required HouseholdViewModelLookup householdViewModelLookup,
     required ContinuityViewModelLookup continuityViewModelLookup,
     required GardenGrowthViewModelLookup gardenGrowthViewModelLookup,
-  })  : _shareReentryCoordinator = shareReentryCoordinator,
-        _inviteReentryCoordinator = inviteReentryCoordinator,
-        _navigatorStateProvider = navigatorStateProvider,
-        _mountedCheck = mountedCheck,
-        _launchDestinationProvider = launchDestinationProvider,
-        _seedContentProvider = seedContentProvider,
-        _householdViewModelLookup = householdViewModelLookup,
-        _continuityViewModelLookup = continuityViewModelLookup,
-        _gardenGrowthViewModelLookup = gardenGrowthViewModelLookup;
+  }) : _shareReentryCoordinator = shareReentryCoordinator,
+       _inviteReentryCoordinator = inviteReentryCoordinator,
+       _navigatorStateProvider = navigatorStateProvider,
+       _mountedCheck = mountedCheck,
+       _launchDestinationProvider = launchDestinationProvider,
+       _seedContentProvider = seedContentProvider,
+       _householdViewModelLookup = householdViewModelLookup,
+       _continuityViewModelLookup = continuityViewModelLookup,
+       _gardenGrowthViewModelLookup = gardenGrowthViewModelLookup;
 
   final ShareReentryCoordinator _shareReentryCoordinator;
   final InviteReentryCoordinator _inviteReentryCoordinator;
@@ -76,12 +76,8 @@ class AppReentryOrchestrator {
     _shareUriSubscription = effectiveStream.listen(
       handleIncomingUri,
       onError: (Object error, StackTrace stackTrace) {
-        _shareReentryCoordinator.markFallback(
-          message: '分享回流监听异常，已停留在首页安全入口。',
-        );
-        _inviteReentryCoordinator.markFallback(
-          message: '邀请回流监听异常，已停留在首页安全入口。',
-        );
+        _shareReentryCoordinator.markFallback(message: '分享回流监听异常，已停留在首页安全入口。');
+        _inviteReentryCoordinator.markFallback(message: '邀请回流监听异常，已停留在首页安全入口。');
       },
     );
   }
@@ -118,8 +114,8 @@ class AppReentryOrchestrator {
     if (destination != AppLaunchDestination.shell) {
       final hadPendingPractice =
           _shareReentryCoordinator.takePendingPracticeArgs() != null;
-      final hadPendingFallback =
-          _shareReentryCoordinator.takePendingShellFallback();
+      final hadPendingFallback = _shareReentryCoordinator
+          .takePendingShellFallback();
       if (hadPendingPractice || hadPendingFallback) {
         _shareReentryCoordinator.markFallback(
           message: '分享回流已收到，但当前 app 还不能安全进入练习；已停留在安全入口。',
@@ -131,8 +127,8 @@ class AppReentryOrchestrator {
     if (_shareReentryCoordinator.takePendingShellFallback()) {
       AppRouter.navigateToShellFallback(navigator: navigator);
       _shareReentryCoordinator.markFallback(
-        message: _shareReentryCoordinator.lastErrorSurface ??
-            '分享链接不可用，已停留在首页安全入口。',
+        message:
+            _shareReentryCoordinator.lastErrorSurface ?? '分享链接不可用，已停留在首页安全入口。',
       );
       return;
     }
@@ -186,8 +182,8 @@ class AppReentryOrchestrator {
     if (destination != AppLaunchDestination.shell) {
       final hadPendingAccept =
           _inviteReentryCoordinator.takePendingAcceptCommand() != null;
-      final hadPendingFallback =
-          _inviteReentryCoordinator.takePendingShellFallback();
+      final hadPendingFallback = _inviteReentryCoordinator
+          .takePendingShellFallback();
       if (hadPendingAccept || hadPendingFallback) {
         _inviteReentryCoordinator.markFallback(
           message: '邀请回流已收到，但当前 app 还不能安全进入共享练习；已停留在安全入口。',
@@ -199,8 +195,8 @@ class AppReentryOrchestrator {
     if (_inviteReentryCoordinator.takePendingShellFallback()) {
       AppRouter.navigateToShellFallback(navigator: navigator);
       _inviteReentryCoordinator.markFallback(
-        message: _inviteReentryCoordinator.lastErrorSurface ??
-            '邀请链接不可用，已停留在首页安全入口。',
+        message:
+            _inviteReentryCoordinator.lastErrorSurface ?? '邀请链接不可用，已停留在首页安全入口。',
       );
       return;
     }
@@ -213,9 +209,7 @@ class AppReentryOrchestrator {
     final householdViewModel = _householdViewModelLookup();
     if (householdViewModel == null) {
       AppRouter.navigateToShellFallback(navigator: navigator);
-      _inviteReentryCoordinator.markFallback(
-        message: '共享练习暂时不可用，已停留在首页。',
-      );
+      _inviteReentryCoordinator.markFallback(message: '共享练习暂时不可用，已停留在首页。');
       return;
     }
 

@@ -132,7 +132,9 @@ class HouseholdInviteCard extends StatelessWidget {
                           viewModel!.lastActionKind ==
                               HouseholdActionKind.createInvite
                       ? l.inviteCreating
-                      : (invite == null ? l.inviteGenerate : l.inviteRegenerate),
+                      : (invite == null
+                            ? l.inviteGenerate
+                            : l.inviteRegenerate),
                 ),
               ),
               if (showRetry)
@@ -215,7 +217,10 @@ class HouseholdInviteCard extends StatelessWidget {
     return null;
   }
 
-  Color _messageBackground(HouseholdLocalSnapshot snapshot, BabyTalkColors colors) {
+  Color _messageBackground(
+    HouseholdLocalSnapshot snapshot,
+    BabyTalkColors colors,
+  ) {
     if (snapshot.lastVisibleError != null &&
         snapshot.lastVisibleError!.trim().isNotEmpty) {
       return snapshot.lastPhase.contains('created')
@@ -225,7 +230,10 @@ class HouseholdInviteCard extends StatelessWidget {
     return colors.infoSoft;
   }
 
-  Color _messageForeground(HouseholdLocalSnapshot snapshot, BabyTalkColors colors) {
+  Color _messageForeground(
+    HouseholdLocalSnapshot snapshot,
+    BabyTalkColors colors,
+  ) {
     if (snapshot.lastVisibleError != null &&
         snapshot.lastVisibleError!.trim().isNotEmpty) {
       return snapshot.lastPhase.contains('created')

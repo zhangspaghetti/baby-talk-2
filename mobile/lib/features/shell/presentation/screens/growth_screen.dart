@@ -176,7 +176,10 @@ class _GrowthEmptyState extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(l.growthPlaceholder, style: Theme.of(context).textTheme.titleMedium),
+          Text(
+            l.growthPlaceholder,
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
           const SizedBox(height: 10),
           Text(
             l.growthAfterPractice,

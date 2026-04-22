@@ -56,7 +56,10 @@ void main() {
       opener: opener,
     );
 
-    expect(find.byKey(const Key('home-account-upgrade-button')), findsOneWidget);
+    expect(
+      find.byKey(const Key('home-account-upgrade-button')),
+      findsOneWidget,
+    );
     expect(find.byKey(const Key('home-account-upgrade-hint')), findsOneWidget);
     expect(find.text('立即升级'), findsOneWidget);
 
@@ -79,7 +82,10 @@ void main() {
 
     await _pumpEntryScreen(tester, repository: repository);
 
-    expect(find.byKey(const Key('account-status-upgrade-required-426')), findsOneWidget);
+    expect(
+      find.byKey(const Key('account-status-upgrade-required-426')),
+      findsOneWidget,
+    );
     expect(find.byKey(const Key('account-upgrade-button')), findsOneWidget);
     expect(find.text('升级入口暂不可用'), findsOneWidget);
     expect(find.text('升级入口暂未配置，请稍后重试或联系支持。'), findsWidgets);
@@ -90,9 +96,7 @@ void main() {
     expect(button.onPressed, isNull);
   });
 
-  testWidgets('launcher 打开失败时会保留升级按钮并显示明确失败消息', (
-    WidgetTester tester,
-  ) async {
+  testWidgets('launcher 打开失败时会保留升级按钮并显示明确失败消息', (WidgetTester tester) async {
     const upgradeUrl =
         'https://download.example.com/upgrade?channel=stable&source=version_gate';
     final repository = FakeAccountRepository(
@@ -105,11 +109,7 @@ void main() {
       ),
     );
 
-    await _pumpEntryScreen(
-      tester,
-      repository: repository,
-      opener: opener,
-    );
+    await _pumpEntryScreen(tester, repository: repository, opener: opener);
 
     final upgradeButton = find.byKey(const Key('account-upgrade-button'));
     await tester.dragUntilVisible(
@@ -128,16 +128,17 @@ void main() {
     expect(find.text('打开升级页面失败，请稍后重试。'), findsOneWidget);
   });
 
-  testWidgets('非法手机号和验证码会在 UI 层直接拦截，不写入本地账号状态', (
-    WidgetTester tester,
-  ) async {
+  testWidgets('非法手机号和验证码会在 UI 层直接拦截，不写入本地账号状态', (WidgetTester tester) async {
     final repository = FakeAccountRepository(
       currentSnapshot: AccountLocalSnapshot.localOnly,
     );
 
     await _pumpEntryScreen(tester, repository: repository);
 
-    await tester.enterText(find.byKey(const Key('account-phone-field')), '13800');
+    await tester.enterText(
+      find.byKey(const Key('account-phone-field')),
+      '13800',
+    );
     await tester.enterText(find.byKey(const Key('account-code-field')), '12');
     final submitButton = find.byKey(const Key('account-submit-button'));
     await tester.dragUntilVisible(
@@ -166,8 +167,14 @@ void main() {
 
     await _pumpEntryScreen(tester, repository: repository);
 
-    await tester.enterText(find.byKey(const Key('account-phone-field')), '138 0013 8000');
-    await tester.enterText(find.byKey(const Key('account-code-field')), '123456');
+    await tester.enterText(
+      find.byKey(const Key('account-phone-field')),
+      '138 0013 8000',
+    );
+    await tester.enterText(
+      find.byKey(const Key('account-code-field')),
+      '123456',
+    );
     final submitButton = find.byKey(const Key('account-submit-button'));
     await tester.dragUntilVisible(
       submitButton,
@@ -188,9 +195,7 @@ void main() {
     expect(find.textContaining('登录已完成：仍有 3 条待同步事件。'), findsOneWidget);
   });
 
-  testWidgets('账号状态读取失败时暴露 error 态，并允许重试恢复', (
-    WidgetTester tester,
-  ) async {
+  testWidgets('账号状态读取失败时暴露 error 态，并允许重试恢复', (WidgetTester tester) async {
     final repository = FakeAccountRepository(
       currentSnapshot: AccountLocalSnapshot.signedOut,
       loadError: 'disk denied',
@@ -433,7 +438,9 @@ class FakeAccountRepository implements AccountRepository {
   }
 
   @override
-  Future<AccountLocalSnapshot> revokeConsent({String reason = 'user_requested'}) async {
+  Future<AccountLocalSnapshot> revokeConsent({
+    String reason = 'user_requested',
+  }) async {
     currentSnapshot = currentSnapshot.copyWith(
       consentState: AccountConsentState.revoked,
       lastSyncPhase: 'consent_revoked',
@@ -445,7 +452,9 @@ class FakeAccountRepository implements AccountRepository {
   }
 
   @override
-  Future<AccountLocalSnapshot> deleteAccount({String reason = 'forget_me'}) async {
+  Future<AccountLocalSnapshot> deleteAccount({
+    String reason = 'forget_me',
+  }) async {
     currentSnapshot = currentSnapshot.copyWith(
       consentState: AccountConsentState.deleted,
       clearSession: true,

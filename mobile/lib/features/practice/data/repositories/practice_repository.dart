@@ -521,17 +521,19 @@ class PracticeRepository {
           final phrases = <PracticePhrase>[];
           for (var i = 0; i < activity.phrases.length; i++) {
             final dp = activity.phrases[i];
-            phrases.add(PracticePhrase(
-              spaceId: 'dynamic',
-              activityId: 'dynamic_${DateTime.now().millisecondsSinceEpoch}',
-              phraseId: 'dyn_${i}_${DateTime.now().microsecondsSinceEpoch}',
-              step: i + 1,
-              english: dp.english,
-              chinese: dp.chinese,
-              pronunciation: dp.pronunciation,
-              difficulty: dp.difficulty,
-              audioAsset: '', // 空字符串标记为 TTS 模式
-            ));
+            phrases.add(
+              PracticePhrase(
+                spaceId: 'dynamic',
+                activityId: 'dynamic_${DateTime.now().millisecondsSinceEpoch}',
+                phraseId: 'dyn_${i}_${DateTime.now().microsecondsSinceEpoch}',
+                step: i + 1,
+                english: dp.english,
+                chinese: dp.chinese,
+                pronunciation: dp.pronunciation,
+                difficulty: dp.difficulty,
+                audioAsset: '', // 空字符串标记为 TTS 模式
+              ),
+            );
           }
           debugPrint(
             '[PracticeRepository] dynamic generate OK: '
@@ -558,10 +560,9 @@ class PracticeRepository {
     // fallback: 使用 seed_content.json 首个 activity
     final content = await _assetPhraseService.loadSeedContent();
     final firstSpace = content.spaces.isNotEmpty ? content.spaces.first : null;
-    final firstActivity =
-        firstSpace != null && firstSpace.activities.isNotEmpty
-            ? firstSpace.activities.first
-            : null;
+    final firstActivity = firstSpace != null && firstSpace.activities.isNotEmpty
+        ? firstSpace.activities.first
+        : null;
 
     final spaceId = fallbackSpaceId ?? firstSpace?.id ?? 'default';
     final activityId = fallbackActivityId ?? firstActivity?.id ?? 'default';

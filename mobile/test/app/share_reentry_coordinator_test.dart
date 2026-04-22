@@ -94,7 +94,10 @@ void main() {
         invalidDecision.dispatchTarget,
         ShareReentryDispatchTarget.shellFallback,
       );
-      expect(coordinator.pendingTarget, ShareReentryDispatchTarget.shellFallback);
+      expect(
+        coordinator.pendingTarget,
+        ShareReentryDispatchTarget.shellFallback,
+      );
       expect(coordinator.lastErrorSurface, contains('练习范围'));
       expect(coordinator.displayMessage, contains('练习范围'));
       expect(coordinator.takePendingShellFallback(), isTrue);

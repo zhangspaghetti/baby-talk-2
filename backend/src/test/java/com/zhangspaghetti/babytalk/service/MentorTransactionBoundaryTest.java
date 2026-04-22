@@ -38,6 +38,7 @@ class MentorTransactionBoundaryTest extends AbstractIntegrationTest {
 
     @BeforeEach
     void resetTables() {
+                resetDatabase(jdbcTemplate);
         jdbcTemplate.execute("delete from mentor_turns");
         jdbcTemplate.execute("delete from mentor_audit_logs");
         jdbcTemplate.execute("delete from interaction_events");

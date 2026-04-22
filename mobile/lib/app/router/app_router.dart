@@ -61,7 +61,8 @@ class AppRouter {
     var shellRouteFound = false;
     navigator.popUntil((route) {
       final isShellRoute =
-          route.settings.name == AppRouteNames.shell || route.settings.name == null;
+          route.settings.name == AppRouteNames.shell ||
+          route.settings.name == null;
       shellRouteFound = shellRouteFound || isShellRoute;
       return isShellRoute;
     });
@@ -77,10 +78,7 @@ class AppRouter {
     final normalizedArgs = args.normalized();
     navigateToShellFallback(navigator: navigator);
     scheduleMicrotask(() {
-      navigator.pushNamed(
-        AppRouteNames.practice,
-        arguments: normalizedArgs,
-      );
+      navigator.pushNamed(AppRouteNames.practice, arguments: normalizedArgs);
     });
   }
 }

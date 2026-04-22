@@ -13,7 +13,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.slf4j.Logger;
@@ -65,29 +64,16 @@ public class MentorService {
     /**
      * 三阶段 chat 编排——provider 调用不再占用数据库连接：
      * <ol>
-     *   <li>阶段 1（事务内）：输入校验 + session 解析 + rate limit + chat_requested audit + blocked fallback</li>
+     *   <li>阶段 1（预提交检查）：输入校验 + session 解析 + rate limit + chat_requested audit + blocked fallback</li>
      *   <li>阶段 2（无事务）：调用 mentorProvider.respond()，数据库连接已归还连接池</li>
      *   <li>阶段 3（新事务）：写 turn + response_delivered / error audit</li>
      * </ol>
      */
     public ChatResponse chat(ChatCommand command, String sessionIdHeader) {
-        // === 阶段 1：事务内 — 验证 + session + rate limit + audit ===
-        var contractExceptionHolder = new AtomicReference<ContractException>();
-        var phase1Result = transactionTemplate.execute(status -> {
-            try {
-                return executePhase1(command, sessionIdHeader);
-            } catch (ContractException e) {
-                // 保留 noRollbackFor = ContractException.class 语义：
-                // 捕获后不设置 rollbackOnly，让事务正常提交（已写入的 audit 行得以保留）
-                contractExceptionHolder.set(e);
-                return null;
-            }
-        });
-
-        // 阶段 1 抛出了 ContractException（校验失败、session 失败、rate limit），事务已提交
-        if (contractExceptionHolder.get() != null) {
-            throw contractExceptionHolder.get();
-        }
+        // === 阶段 1：预提交检查 — 验证 + session + rate limit + audit ===
+        // 这里不再包一层大事务，避免并发时“外层事务 + REQUIRES_NEW rate-limit”同时占用两条连接。
+        // 各个需要持久化的 audit/turn 写入点自行提交，rate-limit 仍由独立事务保证 insert+count 的可见性。
+        var phase1Result = executePhase1(command, sessionIdHeader);
 
         // Blocked fallback 完全在阶段 1 内处理
         if (phase1Result.earlyResponse() != null) {
@@ -253,7 +239,7 @@ public class MentorService {
 
     /**
      * 阶段 1 内部逻辑：输入校验 → session 解析 → rate limit → audit → blocked fallback。
-     * 在 TransactionTemplate 内调用，ContractException 由外层捕获并保留 noRollbackFor 语义。
+        * 每个需要持久化的 audit/turn 写入点在各自调用处提交；rate-limit 仍使用独立事务保证并发可见性。
      */
     private Phase1Result executePhase1(ChatCommand command, String sessionIdHeader) {
         var now = Instant.now(clock);

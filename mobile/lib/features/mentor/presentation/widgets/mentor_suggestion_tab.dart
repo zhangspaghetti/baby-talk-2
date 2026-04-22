@@ -30,8 +30,14 @@ class MentorSuggestionTab extends StatelessWidget {
           _MentorAlertBanner(
             key: const Key('mentor-panel-banner'),
             message: viewModel.bannerMessage!,
-            foregroundColor: _foregroundColorForStatus(viewModel.panelStatus, colors),
-            backgroundColor: _backgroundColorForStatus(viewModel.panelStatus, colors),
+            foregroundColor: _foregroundColorForStatus(
+              viewModel.panelStatus,
+              colors,
+            ),
+            backgroundColor: _backgroundColorForStatus(
+              viewModel.panelStatus,
+              colors,
+            ),
           ),
         if (viewModel.sharedContextStatus != null) ...[
           if (viewModel.bannerMessage != null) const SizedBox(height: 12),
@@ -114,7 +120,10 @@ class MentorSuggestionTab extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(l.mentorSuggestionEmpty, style: theme.textTheme.titleMedium),
+                Text(
+                  l.mentorSuggestionEmpty,
+                  style: theme.textTheme.titleMedium,
+                ),
                 const SizedBox(height: 8),
                 Text(
                   l.mentorSuggestionEmptyNote,
@@ -155,7 +164,10 @@ class MentorSuggestionTab extends StatelessWidget {
     );
   }
 
-  static Color _backgroundColorForStatus(MentorPanelStatus status, BabyTalkColors colors) {
+  static Color _backgroundColorForStatus(
+    MentorPanelStatus status,
+    BabyTalkColors colors,
+  ) {
     switch (status) {
       case MentorPanelStatus.loading:
         return colors.infoSoft;
@@ -170,7 +182,10 @@ class MentorSuggestionTab extends StatelessWidget {
     }
   }
 
-  static Color _foregroundColorForStatus(MentorPanelStatus status, BabyTalkColors colors) {
+  static Color _foregroundColorForStatus(
+    MentorPanelStatus status,
+    BabyTalkColors colors,
+  ) {
     switch (status) {
       case MentorPanelStatus.loading:
         return colors.info;

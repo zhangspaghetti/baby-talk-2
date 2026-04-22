@@ -51,9 +51,7 @@ class ReactionChipRow extends StatelessWidget {
                   Text(
                     option.label,
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: enabled
-                          ? colors.textPrimary
-                          : colors.textMuted,
+                      color: enabled ? colors.textPrimary : colors.textMuted,
                       fontWeight: FontWeight.w700,
                     ),
                   ),

@@ -57,6 +57,12 @@ void main() {
 
     await tester.pumpWidget(harness.buildApp());
     await _pumpUntilHomeLoaded(tester);
+
+    expect(
+      find.byKey(const ValueKey('home-hero-activity-bath_time')),
+      findsOneWidget,
+    );
+
     await _scrollHomeUntilVisible(
       tester,
       find.byKey(const Key('home-continuity-fallback-banner')),
@@ -64,14 +70,6 @@ void main() {
 
     expect(
       find.byKey(const Key('home-continuity-fallback-banner')),
-      findsOneWidget,
-    );
-    expect(
-      find.byKey(const ValueKey('home-hero-activity-bath_time')),
-      findsOneWidget,
-    );
-    expect(
-      find.byKey(const ValueKey('home-cadence-summary-bath_time')),
       findsOneWidget,
     );
 
@@ -183,27 +181,24 @@ void main() {
       ),
     );
     await _pumpUntilHomeLoaded(tester);
-    await _scrollHomeUntilVisible(
-      tester,
-      find.byKey(const ValueKey('home-start-practice-feeding_time')),
-    );
 
     expect(
-      find.byKey(const ValueKey('home-start-practice-feeding_time')),
+      find.byKey(const ValueKey('home-hero-activity-feeding_time')),
       findsOneWidget,
     );
     expect(
       find.byKey(const ValueKey('home-continuity-reason-feeding_time')),
       findsOneWidget,
     );
+    expect(find.byKey(const Key('home-start-practice')), findsOneWidget);
 
     await _scrollHomeUntilVisible(
       tester,
-      find.byKey(const ValueKey('recent-result-summary-feeding_time')),
+      find.byKey(const ValueKey('recent-result-feeding_time')),
     );
 
     expect(
-      find.byKey(const ValueKey('recent-result-summary-feeding_time')),
+      find.byKey(const Key('recent-result-summary')),
       findsOneWidget,
     );
     expect(find.textContaining('吃饭时间'), findsWidgets);
@@ -268,6 +263,13 @@ void main() {
       ),
     );
     await _pumpUntilHomeLoaded(tester);
+
+    expect(
+      find.byKey(const ValueKey('home-hero-activity-feeding_time')),
+      findsOneWidget,
+    );
+    expect(find.byKey(const Key('home-start-practice')), findsOneWidget);
+
     await _scrollHomeUntilVisible(
       tester,
       find.byKey(const Key('home-household-profile-summary')),
@@ -284,17 +286,6 @@ void main() {
     expect(find.textContaining('共享宝宝档案'), findsWidgets);
     expect(find.byKey(const Key('home-shared-overlay-card')), findsOneWidget);
     expect(find.byKey(const Key('home-shared-overlay-button')), findsOneWidget);
-
-    await _scrollHomeUntilVisible(
-      tester,
-      find.byKey(const ValueKey('home-start-practice-feeding_time')),
-    );
-
-    expect(
-      find.byKey(const ValueKey('home-start-practice-feeding_time')),
-      findsOneWidget,
-    );
-    expect(find.textContaining('吃饭时间'), findsWidgets);
   });
 
   testWidgets('首页在坏 starter context 下显示 warning 并回退到安全 activity', (
@@ -320,6 +311,12 @@ void main() {
       ),
     );
     await _pumpUntilHomeLoaded(tester);
+
+    expect(
+      find.byKey(const ValueKey('home-hero-activity-bath_time')),
+      findsOneWidget,
+    );
+
     await _scrollHomeUntilVisible(
       tester,
       find.byKey(const Key('home-continuity-warning-banner')),
@@ -330,10 +327,6 @@ void main() {
       findsOneWidget,
     );
     expect(find.textContaining('starter activity 不存在'), findsOneWidget);
-    expect(
-      find.byKey(const ValueKey('home-hero-activity-bath_time')),
-      findsOneWidget,
-    );
   });
 
   testWidgets('首页在 continuity provider 缺失时显示安全空态，不回退默认 activity', (
@@ -352,6 +345,19 @@ void main() {
 
     await tester.pumpWidget(harness.buildApp(includeContinuityProvider: false));
     await _pumpUntilHomeLoaded(tester);
+
+    expect(
+      find.byKey(const ValueKey('home-hero-activity-safe-empty')),
+      findsOneWidget,
+    );
+    expect(find.byKey(const Key('home-start-practice')), findsOneWidget);
+    expect(
+      tester
+          .widget<ElevatedButton>(find.byKey(const Key('home-start-practice')))
+          .onPressed,
+      isNull,
+    );
+
     await _scrollHomeUntilVisible(
       tester,
       find.byKey(const Key('home-continuity-provider-missing-banner')),
@@ -361,19 +367,7 @@ void main() {
       find.byKey(const Key('home-continuity-provider-missing-banner')),
       findsOneWidget,
     );
-    expect(
-      find.byKey(const ValueKey('home-hero-activity-safe-empty')),
-      findsOneWidget,
-    );
-    expect(find.textContaining('不会回退到默认 activity'), findsWidgets);
-    expect(
-      tester
-          .widget<ElevatedButton>(
-            find.byKey(const ValueKey('home-start-practice-safe-empty')),
-          )
-          .onPressed,
-      isNull,
-    );
+    expect(find.textContaining('暂时无法获取练习建议'), findsWidgets);
     expect(find.byKey(const Key('home-share-card')), findsNothing);
   });
 
@@ -862,7 +856,7 @@ class _PendingShareSheetLauncher implements ShareSheetLauncher {
 
 class _StaticShareSheetLauncher implements ShareSheetLauncher {
   _StaticShareSheetLauncher({
-  // ignore: unused_element_parameter
+    // ignore: unused_element_parameter
     this.result = const ShareSheetLaunchResult(
       status: ShareSheetLaunchStatus.success,
     ),

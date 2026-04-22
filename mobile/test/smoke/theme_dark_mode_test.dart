@@ -22,8 +22,11 @@ void main() {
     test('card radius 为 16', () {
       final cardShape = theme.cardTheme.shape as RoundedRectangleBorder;
       final borderRadius = cardShape.borderRadius as BorderRadius;
-      expect(borderRadius.topLeft.x, 16.0,
-          reason: 'DESIGN.md 要求 card radius 16');
+      expect(
+        borderRadius.topLeft.x,
+        16.0,
+        reason: 'DESIGN.md 要求 card radius 16',
+      );
     });
 
     test('Title 1 (headlineMedium) 字号 28 / Fraunces', () {
@@ -77,8 +80,11 @@ void main() {
     });
 
     test('包含 BabyTalkColors extension', () {
-      expect(darkTheme.extension<BabyTalkColors>(), isNotNull,
-          reason: 'dark ThemeData 必须携带 BabyTalkColors');
+      expect(
+        darkTheme.extension<BabyTalkColors>(),
+        isNotNull,
+        reason: 'dark ThemeData 必须携带 BabyTalkColors',
+      );
     });
 
     test('bgBase = #1C1816', () {
@@ -108,8 +114,11 @@ void main() {
     test('dark card radius 为 16', () {
       final cardShape = darkTheme.cardTheme.shape as RoundedRectangleBorder;
       final borderRadius = cardShape.borderRadius as BorderRadius;
-      expect(borderRadius.topLeft.x, 16.0,
-          reason: 'DESIGN.md 要求 card radius 16，dark mode 同');
+      expect(
+        borderRadius.topLeft.x,
+        16.0,
+        reason: 'DESIGN.md 要求 card radius 16，dark mode 同',
+      );
     });
 
     test('dark warmShadowSm 使用纯黑透明度', () {
@@ -117,7 +126,7 @@ void main() {
       expect(shadow.offset, const Offset(0, 1));
       expect(shadow.blurRadius, 3);
       // dark 模式阴影颜色应为纯黑透明度而非暖色调
-      expect(shadow.color.alpha, lessThan(40));
+      expect((shadow.color.a * 255).round(), lessThan(40));
     });
   });
 

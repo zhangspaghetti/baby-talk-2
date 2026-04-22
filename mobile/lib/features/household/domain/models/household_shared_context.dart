@@ -72,11 +72,7 @@ class HouseholdSharedActor {
   final String result;
 
   Map<String, Object?> toJsonMap() {
-    return <String, Object?>{
-      'role': role,
-      'source': source,
-      'result': result,
-    };
+    return <String, Object?>{'role': role, 'source': source, 'result': result};
   }
 
   static HouseholdSharedActor? maybeFromJsonMap(Map<String, dynamic>? json) {

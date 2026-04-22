@@ -147,7 +147,9 @@ class FullChainTestHarness {
       reason: 'onboarding age grid',
     );
 
-    final ageCard = find.byKey(Key('onboarding-age-card-${ageBucket.wireValue}'));
+    final ageCard = find.byKey(
+      Key('onboarding-age-card-${ageBucket.wireValue}'),
+    );
     await scrollTo(tester, ageCard);
     await tester.tap(ageCard);
     await tester.pumpAndSettle();
@@ -162,10 +164,7 @@ class FullChainTestHarness {
       reason: 'onboarding stage match card',
     );
 
-    await scrollTo(
-      tester,
-      find.byKey(const Key('onboarding-submit-button')),
-    );
+    await scrollTo(tester, find.byKey(const Key('onboarding-submit-button')));
     await tester.tap(find.byKey(const Key('onboarding-submit-button')));
     await tester.pumpAndSettle();
     await pumpUntilFound(
@@ -315,7 +314,9 @@ class FullChainTestHarness {
 
     await tester.enterText(find.byKey(const Key('mentor-chat-input')), prompt);
     await tester.pumpAndSettle();
-    await tester.ensureVisible(find.byKey(const Key('mentor-chat-submit-button')));
+    await tester.ensureVisible(
+      find.byKey(const Key('mentor-chat-submit-button')),
+    );
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('mentor-chat-submit-button')));
     await tester.pump();
@@ -366,9 +367,14 @@ class FullChainTestHarness {
     MentorFactType? eventType,
     int? limit,
   }) async {
-    final dataSource = await MentorLocalDataSource.open(directory: tempDir.path);
+    final dataSource = await MentorLocalDataSource.open(
+      directory: tempDir.path,
+    );
     try {
-      return dataSource.listMentorFactEvents(eventType: eventType, limit: limit);
+      return dataSource.listMentorFactEvents(
+        eventType: eventType,
+        limit: limit,
+      );
     } finally {
       await dataSource.close();
     }

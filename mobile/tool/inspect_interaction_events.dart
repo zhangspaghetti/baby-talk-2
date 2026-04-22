@@ -68,7 +68,9 @@ Future<void> main(List<String> args) async {
         ? validEvents
         : validEvents.sublist(validEvents.length - parsed.limit);
 
-    stdout.writeln('installationId: ${queueInspection.installationId ?? '(missing)'}');
+    stdout.writeln(
+      'installationId: ${queueInspection.installationId ?? '(missing)'}',
+    );
     stdout.writeln('dbName: ${parsed.dbName}');
     stdout.writeln('activityId: ${parsed.activityId ?? '(all)'}');
     stdout.writeln('storedEvents: ${rawEntities.length}');
@@ -361,7 +363,10 @@ String? redactSensitiveTextForInspect(String? value) {
     (match) => match.group(0)!.length == 6 ? '******' : match.group(0)!,
   );
   redacted = redacted.replaceAllMapped(
-    RegExp(r'(token|authorization|bearer)[=: ]+([^\s,;]+)', caseSensitive: false),
+    RegExp(
+      r'(token|authorization|bearer)[=: ]+([^\s,;]+)',
+      caseSensitive: false,
+    ),
     (match) => '${match.group(1)}=[REDACTED]',
   );
   redacted = redacted.replaceAllMapped(

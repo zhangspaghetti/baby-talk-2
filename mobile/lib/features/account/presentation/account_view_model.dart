@@ -83,14 +83,15 @@ class AccountViewModel extends ChangeNotifier with WidgetsBindingObserver {
     return validateAccountUpgradeUrl(_snapshot.upgradeUrl).isValid;
   }
 
-  String get upgradeActionLabel =>
-      canOpenUpgradePage ? '立即升级' : '升级入口暂不可用';
+  String get upgradeActionLabel => canOpenUpgradePage ? '立即升级' : '升级入口暂不可用';
 
   String? get upgradeActionHint {
     if (!showUpgradeAction) {
       return null;
     }
-    final failureKind = validateAccountUpgradeUrl(_snapshot.upgradeUrl).failureKind;
+    final failureKind = validateAccountUpgradeUrl(
+      _snapshot.upgradeUrl,
+    ).failureKind;
     if (failureKind != null) {
       return messageForAccountUpgradeUrlFailure(failureKind);
     }

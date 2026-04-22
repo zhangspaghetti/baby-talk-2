@@ -221,7 +221,10 @@ class _FakeShareSheetLauncher implements ShareSheetLauncher {
   String? lastSubject;
 
   @override
-  Future<ShareSheetLaunchResult> shareText(String text, {String? subject}) async {
+  Future<ShareSheetLaunchResult> shareText(
+    String text, {
+    String? subject,
+  }) async {
     callCount += 1;
     lastText = text;
     lastSubject = subject;

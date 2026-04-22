@@ -55,6 +55,7 @@ class ShareLandingWebTest extends AbstractIntegrationTest {
 
     @BeforeEach
     void resetTables() {
+                resetDatabase(jdbcTemplate);
         jdbcTemplate.execute("delete from share_landing_events");
         jdbcTemplate.execute("delete from share_landing_cards");
         jdbcTemplate.execute("delete from mentor_turns");

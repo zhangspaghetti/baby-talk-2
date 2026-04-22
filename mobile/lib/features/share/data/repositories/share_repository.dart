@@ -41,7 +41,8 @@ class ShareRepository {
     SharePlatformHintResolver? platformHintResolver,
   }) : _apiService = apiService,
        _shareSheetLauncher = shareSheetLauncher,
-       _platformHintResolver = platformHintResolver ?? _defaultPlatformHintResolver;
+       _platformHintResolver =
+           platformHintResolver ?? _defaultPlatformHintResolver;
 
   final ShareApiService _apiService;
   final ShareSheetLauncher _shareSheetLauncher;

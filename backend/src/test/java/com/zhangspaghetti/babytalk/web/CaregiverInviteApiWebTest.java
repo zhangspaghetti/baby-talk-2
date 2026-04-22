@@ -52,6 +52,7 @@ class CaregiverInviteApiWebTest extends AbstractIntegrationTest {
 
     @BeforeEach
     void resetTables() {
+                resetDatabase(jdbcTemplate);
         jdbcTemplate.execute("delete from caregiver_invite_events");
         jdbcTemplate.execute("delete from household_shared_context");
         jdbcTemplate.execute("delete from caregiver_invites");

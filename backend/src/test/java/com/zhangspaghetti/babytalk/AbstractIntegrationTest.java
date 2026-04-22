@@ -1,6 +1,8 @@
 package com.zhangspaghetti.babytalk;
 
+import java.util.List;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
@@ -18,6 +20,31 @@ import org.testcontainers.utility.DockerImageName;
 @SpringBootTest
 @ActiveProfiles("test")
 public abstract class AbstractIntegrationTest {
+
+    private static final List<String> RESET_APP_TABLES = List.of(
+            "kg_admin_notifications",
+            "kg_contradictions",
+            "kg_relationships",
+            "kg_entities",
+            "ingestion_jobs",
+            "spring_ai_chat_memory",
+            "vector_store",
+            "caregiver_invite_events",
+            "household_shared_context",
+            "caregiver_invites",
+            "household_members",
+            "households",
+            "share_landing_events",
+            "share_landing_cards",
+            "release_distribution_events",
+            "mentor_audit_logs",
+            "mentor_turns",
+            "interaction_events",
+            "consent_audit_logs",
+            "sms_challenges",
+            "account_sessions",
+            "accounts"
+    );
 
     // Singleton container — JVM 级别只启动一次，所有测试类复用
     @SuppressWarnings("resource")
@@ -44,5 +71,25 @@ public abstract class AbstractIntegrationTest {
         registry.add("spring.datasource.url", POSTGRES::getJdbcUrl);
         registry.add("spring.datasource.username", POSTGRES::getUsername);
         registry.add("spring.datasource.password", POSTGRES::getPassword);
+    }
+
+    protected void resetDatabase(JdbcTemplate jdbcTemplate) {
+        var existingTables = jdbcTemplate.queryForList(
+            """
+            select table_name
+            from information_schema.tables
+            where table_schema = current_schema()
+            """,
+            String.class
+        );
+        var tablesToReset = RESET_APP_TABLES.stream()
+            .filter(existingTables::contains)
+            .toList();
+        if (tablesToReset.isEmpty()) {
+            return;
+        }
+        jdbcTemplate.execute(
+            "TRUNCATE TABLE " + String.join(", ", tablesToReset) + " RESTART IDENTITY CASCADE"
+        );
     }
 }

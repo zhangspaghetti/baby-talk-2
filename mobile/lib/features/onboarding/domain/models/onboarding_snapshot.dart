@@ -124,7 +124,10 @@ class OnboardingSnapshot {
     throw FormatException('字段 `$key` 缺失或不是整数。');
   }
 
-  static DateTime? _readOptionalDateTime(Map<String, dynamic> json, String key) {
+  static DateTime? _readOptionalDateTime(
+    Map<String, dynamic> json,
+    String key,
+  ) {
     final value = json[key];
     if (value == null) {
       return null;

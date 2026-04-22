@@ -15,10 +15,7 @@ class ShareSheetLaunchResult {
 }
 
 class ShareSheetException implements Exception {
-  const ShareSheetException({
-    required this.kind,
-    required this.message,
-  });
+  const ShareSheetException({required this.kind, required this.message});
 
   final ShareSheetFailureKind kind;
   final String message;
@@ -32,14 +29,15 @@ abstract interface class ShareSheetLauncher {
 }
 
 class SharePlusSheetLauncher implements ShareSheetLauncher {
-  const SharePlusSheetLauncher({
-    this.timeout = const Duration(seconds: 8),
-  });
+  const SharePlusSheetLauncher({this.timeout = const Duration(seconds: 8)});
 
   final Duration timeout;
 
   @override
-  Future<ShareSheetLaunchResult> shareText(String text, {String? subject}) async {
+  Future<ShareSheetLaunchResult> shareText(
+    String text, {
+    String? subject,
+  }) async {
     final normalizedText = _normalizeShareText(text);
     if (normalizedText == null) {
       throw const ShareSheetException(

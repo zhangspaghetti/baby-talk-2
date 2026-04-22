@@ -1,6 +1,6 @@
 package com.zhangspaghetti.babytalk.kg;
 
-import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -8,15 +8,20 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.zhangspaghetti.babytalk.config.ApiContractProperties;
+import com.zhangspaghetti.babytalk.config.ApiVersionInterceptor;
+import com.zhangspaghetti.babytalk.config.ApiVersionService;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 import org.springframework.test.web.servlet.MockMvc;
 
 /**
@@ -24,6 +29,8 @@ import org.springframework.test.web.servlet.MockMvc;
  */
 @WebMvcTest(KgController.class)
 class KgControllerTest {
+
+        private static final String SUPPORTED_APP_VERSION = "1.2.0";
 
     @Autowired
     private MockMvc mockMvc;
@@ -33,6 +40,18 @@ class KgControllerTest {
 
     @MockitoBean
     private KgContradictionRepository contradictionRepository;
+
+        @MockitoBean
+        private ApiContractProperties apiContractProperties;
+
+        @MockitoBean
+        private ApiVersionService apiVersionService;
+
+        @BeforeEach
+        void allowSupportedAppVersion() {
+                when(apiContractProperties.minSupportedVersion()).thenReturn(SUPPORTED_APP_VERSION);
+                when(apiVersionService.isSupported(anyString(), anyString())).thenReturn(true);
+        }
 
     // ─── GET /notifications ─────────────────────────────────
 
@@ -47,7 +66,7 @@ class KgControllerTest {
 
         when(notificationRepository.findAll()).thenReturn(List.of(n1, n2));
 
-        mockMvc.perform(get("/api/v1/kg/notifications"))
+        mockMvc.perform(apiGet("/api/v1/kg/notifications"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.length()").value(2))
                 .andExpect(jsonPath("$[0].message").value("测试通知1"))
@@ -62,7 +81,7 @@ class KgControllerTest {
 
         when(notificationRepository.findUnread()).thenReturn(List.of(unread));
 
-        mockMvc.perform(get("/api/v1/kg/notifications").param("unread", "true"))
+        mockMvc.perform(apiGet("/api/v1/kg/notifications").param("unread", "true"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.length()").value(1))
                 .andExpect(jsonPath("$[0].isRead").value(false));
@@ -72,7 +91,7 @@ class KgControllerTest {
     void getNotifications_returnsEmptyArrayWhenNone() throws Exception {
         when(notificationRepository.findAll()).thenReturn(List.of());
 
-        mockMvc.perform(get("/api/v1/kg/notifications"))
+        mockMvc.perform(apiGet("/api/v1/kg/notifications"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.length()").value(0));
     }
@@ -88,7 +107,7 @@ class KgControllerTest {
 
         when(notificationRepository.findById(notifId)).thenReturn(Optional.of(n));
 
-        mockMvc.perform(put("/api/v1/kg/notifications/{id}/read", notifId))
+        mockMvc.perform(apiPut("/api/v1/kg/notifications/{id}/read", notifId))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(notifId.toString()))
                 .andExpect(jsonPath("$.message").value("已标记为已读"));
@@ -101,13 +120,13 @@ class KgControllerTest {
         UUID notifId = UUID.randomUUID();
         when(notificationRepository.findById(notifId)).thenReturn(Optional.empty());
 
-        mockMvc.perform(put("/api/v1/kg/notifications/{id}/read", notifId))
+        mockMvc.perform(apiPut("/api/v1/kg/notifications/{id}/read", notifId))
                 .andExpect(status().isNotFound());
     }
 
     @Test
     void markNotificationRead_returns400ForInvalidUuid() throws Exception {
-        mockMvc.perform(put("/api/v1/kg/notifications/{id}/read", "not-a-uuid"))
+        mockMvc.perform(apiPut("/api/v1/kg/notifications/{id}/read", "not-a-uuid"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.error").isNotEmpty());
     }
@@ -125,7 +144,7 @@ class KgControllerTest {
 
         when(contradictionRepository.findAll()).thenReturn(List.of(c));
 
-        mockMvc.perform(get("/api/v1/kg/contradictions"))
+        mockMvc.perform(apiGet("/api/v1/kg/contradictions"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.length()").value(1))
                 .andExpect(jsonPath("$[0].entityTopic").value("睡眠训练"))
@@ -143,7 +162,7 @@ class KgControllerTest {
 
         when(contradictionRepository.findByStatus("escalated")).thenReturn(List.of(c));
 
-        mockMvc.perform(get("/api/v1/kg/contradictions").param("status", "escalated"))
+        mockMvc.perform(apiGet("/api/v1/kg/contradictions").param("status", "escalated"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.length()").value(1))
                 .andExpect(jsonPath("$[0].status").value("escalated"));
@@ -172,7 +191,7 @@ class KgControllerTest {
                 .thenReturn(Optional.of(c))
                 .thenReturn(Optional.of(resolved));
 
-        mockMvc.perform(put("/api/v1/kg/contradictions/{id}/resolve", cId)
+        mockMvc.perform(apiPut("/api/v1/kg/contradictions/{id}/resolve", cId)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"adminNotes\":\"管理员备注\"}"))
                 .andExpect(status().isOk())
@@ -186,7 +205,7 @@ class KgControllerTest {
         UUID cId = UUID.randomUUID();
         when(contradictionRepository.findById(cId)).thenReturn(Optional.empty());
 
-        mockMvc.perform(put("/api/v1/kg/contradictions/{id}/resolve", cId)
+        mockMvc.perform(apiPut("/api/v1/kg/contradictions/{id}/resolve", cId)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"adminNotes\":\"test\"}"))
                 .andExpect(status().isNotFound());
@@ -194,7 +213,7 @@ class KgControllerTest {
 
     @Test
     void resolveContradiction_returns400ForInvalidUuid() throws Exception {
-        mockMvc.perform(put("/api/v1/kg/contradictions/{id}/resolve", "bad-uuid")
+        mockMvc.perform(apiPut("/api/v1/kg/contradictions/{id}/resolve", "bad-uuid")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"adminNotes\":\"test\"}"))
                 .andExpect(status().isBadRequest())
@@ -213,11 +232,21 @@ class KgControllerTest {
 
         when(contradictionRepository.findById(cId)).thenReturn(Optional.of(resolved));
 
-        mockMvc.perform(put("/api/v1/kg/contradictions/{id}/resolve", cId)
+                mockMvc.perform(apiPut("/api/v1/kg/contradictions/{id}/resolve", cId)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"adminNotes\":\"新备注\"}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("resolved"));
         // 不应调用 updateResolved（幂等）
     }
+
+        private MockHttpServletRequestBuilder apiGet(String path, Object... uriVariables) {
+                return get(path, uriVariables)
+                                .header(ApiVersionInterceptor.VERSION_HEADER, SUPPORTED_APP_VERSION);
+        }
+
+        private MockHttpServletRequestBuilder apiPut(String path, Object... uriVariables) {
+                return put(path, uriVariables)
+                                .header(ApiVersionInterceptor.VERSION_HEADER, SUPPORTED_APP_VERSION);
+        }
 }

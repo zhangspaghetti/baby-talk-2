@@ -44,7 +44,9 @@ class OnboardingSnapshotStore {
     } on FormatException {
       rethrow;
     } catch (error) {
-      throw OnboardingSnapshotPersistenceException('读取 onboarding snapshot 失败：$error');
+      throw OnboardingSnapshotPersistenceException(
+        '读取 onboarding snapshot 失败：$error',
+      );
     }
   }
 
@@ -54,7 +56,9 @@ class OnboardingSnapshotStore {
       await file.parent.create(recursive: true);
       await file.writeAsString(jsonEncode(snapshot.toJsonMap()), flush: true);
     } catch (error) {
-      throw OnboardingSnapshotPersistenceException('写入 onboarding snapshot 失败：$error');
+      throw OnboardingSnapshotPersistenceException(
+        '写入 onboarding snapshot 失败：$error',
+      );
     }
   }
 
@@ -65,7 +69,9 @@ class OnboardingSnapshotStore {
         await file.delete();
       }
     } catch (error) {
-      throw OnboardingSnapshotPersistenceException('清理 onboarding snapshot 失败：$error');
+      throw OnboardingSnapshotPersistenceException(
+        '清理 onboarding snapshot 失败：$error',
+      );
     }
   }
 

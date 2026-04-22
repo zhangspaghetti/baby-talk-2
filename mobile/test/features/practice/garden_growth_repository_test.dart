@@ -126,7 +126,9 @@ void main() {
           ..reactionType = 'mystery'
           ..clientTimestamp = DateTime.utc(2026, 4, 9, 8, 6)
           ..syncState = 'pending';
-        await localDataSource.isar.collection<InteractionEventEntity>().put(entity);
+        await localDataSource.isar.collection<InteractionEventEntity>().put(
+          entity,
+        );
       });
 
       final snapshot = await repository.buildSnapshot();
@@ -137,12 +139,14 @@ void main() {
       expect(snapshot.skippedMalformedEvents, 1);
       expect(snapshot.projectionWarning, contains('损坏事件'));
       expect(snapshot.projectionWarning, contains('未知内容事件'));
-      expect(snapshot.primarySpace?.stage, GardenPatchStage.glowing);
+      expect(snapshot.primarySpace?.stage, GardenPatchStage.rooted);
       expect(snapshot.primaryActivity?.stage, GardenFlowerStage.fullBloom);
       expect(snapshot.latestImpact?.phraseTitle, 'All clean.');
       expect(snapshot.latestImpact?.headline, contains('All clean.'));
       expect(
-        snapshot.milestones.where((item) => item.isAchieved).map((item) => item.id),
+        snapshot.milestones
+            .where((item) => item.isAchieved)
+            .map((item) => item.id),
         containsAll(<String>[
           'first_opening',
           'first_imitated',

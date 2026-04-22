@@ -27,7 +27,9 @@ class SyncQueueSummary {
   final DateTime? lastSyncAt;
 }
 
-SyncQueueSummary summarizeSyncQueueEvents(List<InteractionEventPayload> events) {
+SyncQueueSummary summarizeSyncQueueEvents(
+  List<InteractionEventPayload> events,
+) {
   DateTime? lastPendingAt;
   DateTime? lastSyncedAt;
   DateTime? lastFailedAt;
@@ -57,7 +59,8 @@ SyncQueueSummary summarizeSyncQueueEvents(List<InteractionEventPayload> events) 
       continue;
     }
     final currentLastTimestamp = lastSyncedMetadataSource?.lastSyncAt;
-    if (currentLastTimestamp == null || syncTimestamp.isAfter(currentLastTimestamp)) {
+    if (currentLastTimestamp == null ||
+        syncTimestamp.isAfter(currentLastTimestamp)) {
       lastSyncedMetadataSource = event;
     }
   }

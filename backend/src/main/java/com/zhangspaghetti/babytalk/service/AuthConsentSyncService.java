@@ -12,7 +12,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import org.springframework.dao.DataAccessException;
-import org.springframework.dao.DuplicateKeyException;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -203,10 +202,11 @@ public class AuthConsentSyncService {
         for (var event : events) {
             var validated = validateSyncEvent(normalizedInstallationId, event, seenEventKeys);
             try {
-                repository.insertInteractionEvent(session.accountId(), session.sessionId(), validated, now);
-                acceptedEventKeys.add(validated.eventKey());
-            } catch (DuplicateKeyException exception) {
-                duplicateEventKeys.add(validated.eventKey());
+                if (repository.insertInteractionEvent(session.accountId(), session.sessionId(), validated, now)) {
+                    acceptedEventKeys.add(validated.eventKey());
+                } else {
+                    duplicateEventKeys.add(validated.eventKey());
+                }
             } catch (DataAccessException exception) {
                 throw new ContractException(
                         HttpStatus.BAD_REQUEST,

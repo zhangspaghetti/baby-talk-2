@@ -150,9 +150,9 @@ class _AppLaunchState {
   final OnboardingSnapshot? completedSnapshot;
 
   String get initialRoute => switch (destination) {
-        AppLaunchDestination.onboarding => AppRouteNames.onboarding,
-        AppLaunchDestination.shell => AppRouteNames.shell,
-      };
+    AppLaunchDestination.onboarding => AppRouteNames.onboarding,
+    AppLaunchDestination.shell => AppRouteNames.shell,
+  };
 }
 
 class BabyTalkApp extends StatefulWidget {
@@ -218,10 +218,8 @@ class _BabyTalkAppState extends State<BabyTalkApp> {
       launchDestinationProvider: () => _resolvedLaunchState?.destination,
       seedContentProvider: () => widget.bootState.content,
       householdViewModelLookup: _lookupViewModel<HouseholdViewModel>,
-      continuityViewModelLookup:
-          _lookupViewModel<PracticeContinuityViewModel>,
-      gardenGrowthViewModelLookup:
-          _lookupViewModel<GardenGrowthViewModel>,
+      continuityViewModelLookup: _lookupViewModel<PracticeContinuityViewModel>,
+      gardenGrowthViewModelLookup: _lookupViewModel<GardenGrowthViewModel>,
     );
     _reentryOrchestrator.configureShareUriSubscription(widget.shareUriStream);
     _launchStateFuture = _loadLaunchState();
@@ -544,8 +542,8 @@ class _BabyTalkAppState extends State<BabyTalkApp> {
         destination: completedSnapshot != null
             ? AppLaunchDestination.shell
             : widget.appDirectoryResolver != null
-                ? AppLaunchDestination.onboarding
-                : AppLaunchDestination.shell,
+            ? AppLaunchDestination.onboarding
+            : AppLaunchDestination.shell,
         starterArgs: continuitySeed.starterArgs,
         defaultPracticeArgs: continuitySeed.defaultPracticeArgs,
         continuitySeed: continuitySeed.viewModelSeed,
@@ -582,7 +580,10 @@ class _BabyTalkAppState extends State<BabyTalkApp> {
         primaryArgs;
 
     if (completedSnapshot == null) {
-      return _AppBootContinuitySeed(starterArgs: starterArgs, defaultPracticeArgs: starterArgs);
+      return _AppBootContinuitySeed(
+        starterArgs: starterArgs,
+        defaultPracticeArgs: starterArgs,
+      );
     }
 
     try {
@@ -597,7 +598,10 @@ class _BabyTalkAppState extends State<BabyTalkApp> {
         activityId: continuitySnapshot.recommendedActivity.activityId,
       );
       if (recommendedArgs == null) {
-        return _AppBootContinuitySeed(starterArgs: starterArgs, defaultPracticeArgs: starterArgs);
+        return _AppBootContinuitySeed(
+          starterArgs: starterArgs,
+          defaultPracticeArgs: starterArgs,
+        );
       }
 
       final activitySnapshot = await repository
@@ -621,11 +625,20 @@ class _BabyTalkAppState extends State<BabyTalkApp> {
         ),
       );
     } on TimeoutException {
-      return _AppBootContinuitySeed(starterArgs: starterArgs, defaultPracticeArgs: starterArgs);
+      return _AppBootContinuitySeed(
+        starterArgs: starterArgs,
+        defaultPracticeArgs: starterArgs,
+      );
     } on FormatException {
-      return _AppBootContinuitySeed(starterArgs: starterArgs, defaultPracticeArgs: starterArgs);
+      return _AppBootContinuitySeed(
+        starterArgs: starterArgs,
+        defaultPracticeArgs: starterArgs,
+      );
     } catch (_) {
-      return _AppBootContinuitySeed(starterArgs: starterArgs, defaultPracticeArgs: starterArgs);
+      return _AppBootContinuitySeed(
+        starterArgs: starterArgs,
+        defaultPracticeArgs: starterArgs,
+      );
     }
   }
 
@@ -690,12 +703,15 @@ class _BabyTalkAppState extends State<BabyTalkApp> {
     try {
       return await getApplicationSupportDirectory();
     } on MissingPluginException {
-      final directory = Directory('${Directory.systemTemp.path}${Platform.pathSeparator}baby_talk_2_support');
+      final directory = Directory(
+        '${Directory.systemTemp.path}${Platform.pathSeparator}baby_talk_2_support',
+      );
       await directory.create(recursive: true);
       return directory;
     }
   }
 }
+
 class BootLoadingScreen extends StatelessWidget {
   const BootLoadingScreen({super.key});
 
@@ -802,6 +818,7 @@ class _ReentryOverlay extends StatelessWidget {
     return Stack(
       fit: StackFit.expand,
       children: [
+        // ignore: use_null_aware_elements
         if (child != null) child!,
         if (visibleMessage != null)
           Align(

@@ -492,8 +492,8 @@ class MentorRepository {
     final coachTip = _normalize(activitySnapshot.coachTip);
     final primaryBodySegments = <String>[
       '$actorLabel刚完成一次共享练习（$resultLabel）。现在先接着${activitySnapshot.title}，$nextStepLabel。',
-      if (leadPhrase != null) '可以先从“${leadPhrase.english}”开口。',
-      if (coachTip != null) coachTip,
+      if (leadPhrase != null) ...['可以先从“${leadPhrase.english}”开口。'],
+      if (coachTip != null) ...[coachTip],
     ];
     final redactedSummary =
         'shared:$decisionCode:${_normalize(actor.role) ?? 'member'}:${nextStepArgs.activityId}';

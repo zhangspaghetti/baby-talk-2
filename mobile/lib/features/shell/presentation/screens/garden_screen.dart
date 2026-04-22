@@ -44,8 +44,7 @@ class GardenScreen extends StatelessWidget {
     final shouldShowSharedOverlay =
         isSharedOverlayNewer && sharedNextStepArgs != null;
     final shouldShowSharedOverlayDisabled =
-        isSharedOverlayNewer &&
-        sharedNextStepArgs == null;
+        isSharedOverlayNewer && sharedNextStepArgs == null;
 
     return SafeArea(
       top: false,
@@ -253,12 +252,12 @@ class _GardenHeroCard extends StatelessWidget {
             ),
           ],
           if (kDebugMode) ...[
-          const SizedBox(height: 12),
-          Text(
-            'continuity: ${continuityViewModel?.status.label ?? 'missing_provider'}${continuityViewModel?.lastRefreshReason == null ? '' : ' · refresh: ${continuityViewModel!.lastRefreshReason}'}',
-            key: const Key('garden-continuity-status'),
-            style: theme.textTheme.bodySmall,
-          ),
+            const SizedBox(height: 12),
+            Text(
+              'continuity: ${continuityViewModel?.status.label ?? 'missing_provider'}${continuityViewModel?.lastRefreshReason == null ? '' : ' · refresh: ${continuityViewModel!.lastRefreshReason}'}',
+              key: const Key('garden-continuity-status'),
+              style: theme.textTheme.bodySmall,
+            ),
           ],
           if (snapshot.hasIssues && snapshot.projectionWarning != null) ...[
             const SizedBox(height: 12),
@@ -476,7 +475,8 @@ class _GardenContinueCard extends StatelessWidget {
         continuitySnapshot?.recommendedActivity.activityId ?? 'safe-empty';
     final activityTitle = continuityActivity?.title ?? '继续入口暂不可用';
     final reasonLabel =
-        continuitySnapshot?.recommendation.reasonLabel ?? l.gardenSharedContinuityUnavailable;
+        continuitySnapshot?.recommendation.reasonLabel ??
+        l.gardenSharedContinuityUnavailable;
     final warningMessage = continuityViewModel?.warningMessage;
     final disabledReason = continuityViewModel == null
         ? '练习入口暂时不可用。'
@@ -492,7 +492,10 @@ class _GardenContinueCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(l.gardenContinueWatering, style: Theme.of(context).textTheme.titleMedium),
+          Text(
+            l.gardenContinueWatering,
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
           const SizedBox(height: 8),
           Text(
             activityTitle,

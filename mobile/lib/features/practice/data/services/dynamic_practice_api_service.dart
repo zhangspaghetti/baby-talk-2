@@ -80,9 +80,7 @@ class DynamicPracticeResponse {
         }
       }
     }
-    return DynamicPracticeResponse(
-      activities: List.unmodifiable(activities),
-    );
+    return DynamicPracticeResponse(activities: List.unmodifiable(activities));
   }
 
   final List<DynamicActivity> activities;
@@ -100,13 +98,13 @@ class DynamicPracticeApiException implements Exception {
   });
 
   const DynamicPracticeApiException.network({required String message})
-      : this(kind: DynamicPracticeFailureKind.network, message: message);
+    : this(kind: DynamicPracticeFailureKind.network, message: message);
 
   const DynamicPracticeApiException.timeout({required String message})
-      : this(kind: DynamicPracticeFailureKind.timeout, message: message);
+    : this(kind: DynamicPracticeFailureKind.timeout, message: message);
 
   const DynamicPracticeApiException.malformed({required String message})
-      : this(kind: DynamicPracticeFailureKind.malformed, message: message);
+    : this(kind: DynamicPracticeFailureKind.malformed, message: message);
 
   final DynamicPracticeFailureKind kind;
   final String message;
@@ -124,7 +122,7 @@ class DynamicPracticeApiService {
     Uri? baseUri,
     this.appVersion = defaultAccountApiVersion,
     this.timeout = const Duration(seconds: 15),
-  })  : _client = client ?? http.Client(),
+  }) : _client = client ?? http.Client(),
        _ownsClient = client == null,
        _baseUri = baseUri ?? Uri.parse(defaultAccountApiBaseUrl);
 
@@ -194,13 +192,9 @@ class DynamicPracticeApiService {
     } on DynamicPracticeApiException {
       rethrow;
     } on FormatException catch (e) {
-      throw DynamicPracticeApiException.malformed(
-        message: '响应 JSON 解析失败：$e',
-      );
+      throw DynamicPracticeApiException.malformed(message: '响应 JSON 解析失败：$e');
     } catch (e) {
-      throw DynamicPracticeApiException.malformed(
-        message: '响应解析失败：$e',
-      );
+      throw DynamicPracticeApiException.malformed(message: '响应解析失败：$e');
     }
   }
 

@@ -153,28 +153,19 @@ class ShareReentryParser {
 
     final host = normalizedUri.host.toLowerCase();
     if (host != 'share') {
-      return _error(
-        normalizedUri,
-        '分享链接入口不受支持，已停留在首页安全入口。',
-      );
+      return _error(normalizedUri, '分享链接入口不受支持，已停留在首页安全入口。');
     }
 
     final pathSegments = normalizedUri.pathSegments
         .where((segment) => segment.trim().isNotEmpty)
         .toList(growable: false);
     if (pathSegments.length != 1 || pathSegments.first != 'open') {
-      return _error(
-        normalizedUri,
-        '分享链接路径不受支持，已停留在首页安全入口。',
-      );
+      return _error(normalizedUri, '分享链接路径不受支持，已停留在首页安全入口。');
     }
 
     final token = _trimToNull(normalizedUri.queryParameters['token']);
     if (token == null || !_tokenPattern.hasMatch(token)) {
-      return _error(
-        normalizedUri,
-        '分享链接缺少有效 token，已停留在首页安全入口。',
-      );
+      return _error(normalizedUri, '分享链接缺少有效 token，已停留在首页安全入口。');
     }
 
     final args = PracticeRouteArgs.maybeCreate(
@@ -184,10 +175,7 @@ class ShareReentryParser {
       entrySource: PracticeRouteEntrySource.shareReentry,
     );
     if (args == null) {
-      return _error(
-        normalizedUri,
-        '分享链接缺少可识别的练习范围，已停留在首页安全入口。',
-      );
+      return _error(normalizedUri, '分享链接缺少可识别的练习范围，已停留在首页安全入口。');
     }
 
     return ShareReentryDecision(

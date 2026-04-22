@@ -45,7 +45,9 @@ class AccountApiException implements Exception {
   final Map<String, Object?> details;
 
   bool get isVersionBlocked =>
-      statusCode == 426 || code == 'app_version_required' || code == 'app_version_unsupported';
+      statusCode == 426 ||
+      code == 'app_version_required' ||
+      code == 'app_version_unsupported';
   bool get isUnauthorized => statusCode == 401 || code == 'invalid_session';
   bool get isConsentRevoked => code == 'consent_revoked';
   bool get isConsentRequired => code == 'consent_required';
@@ -269,7 +271,9 @@ class AccountApiService {
       sessionId: sessionId,
       body: <String, Object?>{
         'installationId': installationId,
-        'events': events.map((event) => event.toJsonMap()).toList(growable: false),
+        'events': events
+            .map((event) => event.toJsonMap())
+            .toList(growable: false),
       },
     );
     return SyncEventsResponse(
@@ -301,23 +305,25 @@ class AccountApiService {
     }
 
     final rawEvents = _readRequiredList(json, 'events');
-    final events = rawEvents.map((rawEvent) {
-      final event = _readRequiredMap(rawEvent, 'events[]');
-      final receivedAt = _readRequiredDateTime(event, 'receivedAt');
-      return InteractionEventPayload.fromWire(
-        eventKey: _readRequiredString(event, 'eventKey'),
-        localEventId: _readRequiredString(event, 'localEventId'),
-        installationId: _readRequiredString(event, 'installationId'),
-        spaceId: _readRequiredString(event, 'spaceId'),
-        activityId: _readRequiredString(event, 'activityId'),
-        phraseId: _readRequiredString(event, 'phraseId'),
-        reactionType: _readRequiredString(event, 'reactionType'),
-        clientTimestamp: _readRequiredDateTime(event, 'clientTimestamp'),
-        syncState: InteractionSyncState.synced.wireValue,
-        lastSyncPhase: 'bootstrap_import',
-        lastSyncAt: receivedAt,
-      );
-    }).toList(growable: false);
+    final events = rawEvents
+        .map((rawEvent) {
+          final event = _readRequiredMap(rawEvent, 'events[]');
+          final receivedAt = _readRequiredDateTime(event, 'receivedAt');
+          return InteractionEventPayload.fromWire(
+            eventKey: _readRequiredString(event, 'eventKey'),
+            localEventId: _readRequiredString(event, 'localEventId'),
+            installationId: _readRequiredString(event, 'installationId'),
+            spaceId: _readRequiredString(event, 'spaceId'),
+            activityId: _readRequiredString(event, 'activityId'),
+            phraseId: _readRequiredString(event, 'phraseId'),
+            reactionType: _readRequiredString(event, 'reactionType'),
+            clientTimestamp: _readRequiredDateTime(event, 'clientTimestamp'),
+            syncState: InteractionSyncState.synced.wireValue,
+            lastSyncPhase: 'bootstrap_import',
+            lastSyncAt: receivedAt,
+          );
+        })
+        .toList(growable: false);
 
     final eventCount = _readRequiredInt(json, 'eventCount');
     if (eventCount != events.length) {

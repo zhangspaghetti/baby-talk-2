@@ -158,11 +158,12 @@ class _SegmentedTabBar extends StatelessWidget {
               label: '建议标签页',
               button: true,
               child: _SegmentedButton(
-              buttonKey: const Key('mentor-tab-suggestions-button'),
-              label: l.mentorSuggestionTab,
-              selected: selectedTab == MentorPanelTab.suggestions,
-              onPressed: () => viewModel.selectTab(MentorPanelTab.suggestions),
-            ),
+                buttonKey: const Key('mentor-tab-suggestions-button'),
+                label: l.mentorSuggestionTab,
+                selected: selectedTab == MentorPanelTab.suggestions,
+                onPressed: () =>
+                    viewModel.selectTab(MentorPanelTab.suggestions),
+              ),
             ),
           ),
           const SizedBox(width: 6),
@@ -171,11 +172,11 @@ class _SegmentedTabBar extends StatelessWidget {
               label: '聊天标签页',
               button: true,
               child: _SegmentedButton(
-              buttonKey: const Key('mentor-tab-chat-button'),
-              label: l.mentorChatTab,
-              selected: selectedTab == MentorPanelTab.chat,
-              onPressed: () => viewModel.selectTab(MentorPanelTab.chat),
-            ),
+                buttonKey: const Key('mentor-tab-chat-button'),
+                label: l.mentorChatTab,
+                selected: selectedTab == MentorPanelTab.chat,
+                onPressed: () => viewModel.selectTab(MentorPanelTab.chat),
+              ),
             ),
           ),
         ],
@@ -240,130 +241,133 @@ class _MentorChatTab extends StatelessWidget {
       child: Column(
         key: const Key('mentor-chat-tab'),
         crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        MentorBubble(
-          caption: availability.title,
-          message: availability.detail,
-          trailing: Text(
-            l.mentorChatNote,
-            key: const Key('mentor-chat-text-first-note'),
-            style: theme.textTheme.bodySmall,
+        children: [
+          MentorBubble(
+            caption: availability.title,
+            message: availability.detail,
+            trailing: Text(
+              l.mentorChatNote,
+              key: const Key('mentor-chat-text-first-note'),
+              style: theme.textTheme.bodySmall,
+            ),
           ),
-        ),
-        const SizedBox(height: 16),
-        _ChatBanner(
-          key: const Key('mentor-chat-banner'),
-          title: availability.title,
-          detail: viewModel.bannerMessage ?? availability.detail,
-          code: viewModel.bannerCode ?? availability.code.wireValue,
-        ),
-        if (viewModel.audioStatusMessage != null) ...[
-          const SizedBox(height: 12),
+          const SizedBox(height: 16),
           _ChatBanner(
-            key: const Key('mentor-chat-audio-banner'),
-            title: l.mentorReadStatus,
-            detail: viewModel.audioStatusMessage!,
-            code: viewModel.audioStatusCode ?? 'tts',
+            key: const Key('mentor-chat-banner'),
+            title: availability.title,
+            detail: viewModel.bannerMessage ?? availability.detail,
+            code: viewModel.bannerCode ?? availability.code.wireValue,
           ),
-        ],
-        const SizedBox(height: 16),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: [
-            Chip(
-              key: const Key('mentor-chat-phase-chip'),
-              label: Text(
-                'phase · ${viewModel.chatResponsePhase ?? availability.phase}',
-              ),
+          if (viewModel.audioStatusMessage != null) ...[
+            const SizedBox(height: 12),
+            _ChatBanner(
+              key: const Key('mentor-chat-audio-banner'),
+              title: l.mentorReadStatus,
+              detail: viewModel.audioStatusMessage!,
+              code: viewModel.audioStatusCode ?? 'tts',
             ),
-            Chip(
-              key: const Key('mentor-chat-status-chip'),
-              label: Text(viewModel.statusChipLabel),
-            ),
-            if (accountViewModel.snapshot.lastSyncPhase.trim().isNotEmpty)
-              Chip(
-                key: const Key('mentor-chat-account-phase-chip'),
-                label: Text(
-                  'account · ${accountViewModel.snapshot.lastSyncPhase}',
-                ),
-              ),
-            if (viewModel.chatRateLimit != null)
-              Chip(
-                key: const Key('mentor-chat-rate-chip'),
-                label: Text(
-                  'limit · ${viewModel.chatRateLimit!.remaining}/${viewModel.chatRateLimit!.limit}',
-                ),
-              ),
           ],
-        ),
-        const SizedBox(height: 16),
-        Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: colors.bgSunken,
-            borderRadius: BorderRadius.circular(16),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          const SizedBox(height: 16),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
             children: [
-              Text(l.mentorChatPlaceholder, style: theme.textTheme.titleMedium),
-              const SizedBox(height: 10),
-              TextField(
-                key: const Key('mentor-chat-input'),
-                minLines: 3,
-                maxLines: 5,
-                maxLength: mentorPromptMaxLength,
-                enabled: !viewModel.isSubmittingChat,
-                onChanged: viewModel.updateChatDraft,
-                decoration: const InputDecoration(
-                  hintText: '例如：宝宝一直哭，我现在该怎么开口安抚？',
+              Chip(
+                key: const Key('mentor-chat-phase-chip'),
+                label: Text(
+                  'phase · ${viewModel.chatResponsePhase ?? availability.phase}',
                 ),
               ),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  FilledButton(
-                    key: const Key('mentor-chat-submit-button'),
-                    onPressed: viewModel.canSubmitChat
-                        ? viewModel.submitChat
-                        : null,
-                    child: Text(
-                      viewModel.isSubmittingChat
-                          ? l.mentorSending
-                          : l.mentorSendRequest,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  OutlinedButton(
-                    key: const Key('mentor-chat-retry-button'),
-                    onPressed: availability.retryable
-                        ? viewModel.retryChatAvailability
-                        : null,
-                    child: Text(l.mentorRecheck),
-                  ),
-                ],
+              Chip(
+                key: const Key('mentor-chat-status-chip'),
+                label: Text(viewModel.statusChipLabel),
               ),
+              if (accountViewModel.snapshot.lastSyncPhase.trim().isNotEmpty)
+                Chip(
+                  key: const Key('mentor-chat-account-phase-chip'),
+                  label: Text(
+                    'account · ${accountViewModel.snapshot.lastSyncPhase}',
+                  ),
+                ),
+              if (viewModel.chatRateLimit != null)
+                Chip(
+                  key: const Key('mentor-chat-rate-chip'),
+                  label: Text(
+                    'limit · ${viewModel.chatRateLimit!.remaining}/${viewModel.chatRateLimit!.limit}',
+                  ),
+                ),
             ],
           ),
-        ),
-        if (viewModel.isSubmittingChat) ...[
           const SizedBox(height: 16),
-          const LinearProgressIndicator(key: Key('mentor-chat-loading-bar')),
-        ],
-        if (viewModel.chatResponseText != null) ...[
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: colors.bgSunken,
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  l.mentorChatPlaceholder,
+                  style: theme.textTheme.titleMedium,
+                ),
+                const SizedBox(height: 10),
+                TextField(
+                  key: const Key('mentor-chat-input'),
+                  minLines: 3,
+                  maxLines: 5,
+                  maxLength: mentorPromptMaxLength,
+                  enabled: !viewModel.isSubmittingChat,
+                  onChanged: viewModel.updateChatDraft,
+                  decoration: const InputDecoration(
+                    hintText: '例如：宝宝一直哭，我现在该怎么开口安抚？',
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    FilledButton(
+                      key: const Key('mentor-chat-submit-button'),
+                      onPressed: viewModel.canSubmitChat
+                          ? viewModel.submitChat
+                          : null,
+                      child: Text(
+                        viewModel.isSubmittingChat
+                            ? l.mentorSending
+                            : l.mentorSendRequest,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    OutlinedButton(
+                      key: const Key('mentor-chat-retry-button'),
+                      onPressed: availability.retryable
+                          ? viewModel.retryChatAvailability
+                          : null,
+                      child: Text(l.mentorRecheck),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          if (viewModel.isSubmittingChat) ...[
+            const SizedBox(height: 16),
+            const LinearProgressIndicator(key: Key('mentor-chat-loading-bar')),
+          ],
+          if (viewModel.chatResponseText != null) ...[
+            const SizedBox(height: 16),
+            _ChatResponseCard(viewModel: viewModel),
+          ],
           const SizedBox(height: 16),
-          _ChatResponseCard(viewModel: viewModel),
+          FilledButton.tonal(
+            key: const Key('mentor-chat-back-to-suggestions'),
+            onPressed: () => viewModel.selectTab(MentorPanelTab.suggestions),
+            child: Text(l.mentorBackToSuggestion),
+          ),
         ],
-        const SizedBox(height: 16),
-        FilledButton.tonal(
-          key: const Key('mentor-chat-back-to-suggestions'),
-          onPressed: () => viewModel.selectTab(MentorPanelTab.suggestions),
-          child: Text(l.mentorBackToSuggestion),
-        ),
-      ],
-    ),
-  );
+      ),
+    );
   }
 }
 
@@ -415,16 +419,19 @@ class _ChatResponseCard extends StatelessWidget {
           const SizedBox(height: 12),
           OutlinedButton.icon(
             key: const Key('mentor-chat-read-aloud'),
-            onPressed: viewModel.isSpeaking ? null : viewModel.replayChatResponse,
+            onPressed: viewModel.isSpeaking
+                ? null
+                : viewModel.replayChatResponse,
             icon: const Icon(Icons.volume_up_outlined),
-            label: Text(viewModel.isSpeaking ? l.mentorReading : l.mentorReadResponse),
+            label: Text(
+              viewModel.isSpeaking ? l.mentorReading : l.mentorReadResponse,
+            ),
           ),
         ],
       ),
     );
   }
 }
-
 
 class _ChatBanner extends StatelessWidget {
   const _ChatBanner({

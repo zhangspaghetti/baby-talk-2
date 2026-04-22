@@ -188,9 +188,7 @@ class _DrawerAvatar extends StatelessWidget {
       alignment: Alignment.center,
       child: Text(
         avatarLabel,
-        style: theme.textTheme.titleMedium?.copyWith(
-          color: colors.accentDark,
-        ),
+        style: theme.textTheme.titleMedium?.copyWith(color: colors.accentDark),
       ),
     );
   }

@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mobile/features/household/data/local/household_local_store.dart';
 import 'package:mobile/features/household/data/repositories/household_repository.dart';
@@ -55,16 +53,13 @@ void main() {
       );
 
       return PracticeContinuityViewModel(
-        continuitySnapshotLoader: ({
-          String? starterSpaceId,
-          String? starterActivityId,
-        }) async => seedSnapshot,
-        activitySnapshotLoader: ({
-          required String spaceId,
-          required String activityId,
-        }) async {
-          throw StateError('不应在 reset 测试中被调用');
-        },
+        continuitySnapshotLoader:
+            ({String? starterSpaceId, String? starterActivityId}) async =>
+                seedSnapshot,
+        activitySnapshotLoader:
+            ({required String spaceId, required String activityId}) async {
+              throw StateError('不应在 reset 测试中被调用');
+            },
         seedState: PracticeContinuitySeedState(
           status: PracticeContinuityLoadStatus.ready,
           snapshot: seedSnapshot,
@@ -200,9 +195,7 @@ class _FakeGardenGrowthRepository implements GardenGrowthRepository {
   dynamic noSuchMethod(Invocation invocation) {
     final memberName = invocation.memberName.toString();
     if (memberName.contains('buildSnapshot')) {
-      return Future<GardenGrowthSnapshot>.value(
-        GardenGrowthSnapshot.empty(),
-      );
+      return Future<GardenGrowthSnapshot>.value(GardenGrowthSnapshot.empty());
     }
     return null;
   }
@@ -214,9 +207,7 @@ class _FakeHouseholdRepository implements HouseholdRepository {
   dynamic noSuchMethod(Invocation invocation) {
     final memberName = invocation.memberName.toString();
     if (memberName.contains('loadSnapshot')) {
-      return Future<HouseholdLocalSnapshot>.value(
-        HouseholdLocalSnapshot.empty,
-      );
+      return Future<HouseholdLocalSnapshot>.value(HouseholdLocalSnapshot.empty);
     }
     if (memberName.contains('close')) {
       return Future<void>.value();

@@ -192,6 +192,8 @@ void main() {
         ],
         child: MaterialApp(
           theme: AppTheme.build(),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
           home: const AccountEntryScreen(),
         ),
       ),
@@ -241,6 +243,8 @@ void main() {
         value: accountViewModel,
         child: MaterialApp(
           theme: AppTheme.build(),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
           home: const AccountEntryScreen(),
         ),
       ),
@@ -365,7 +369,7 @@ class _FakeHouseholdRepository implements HouseholdRepository {
     this.loadSnapshotResult = HouseholdLocalSnapshot.empty,
     this.createInviteResult,
     List<HouseholdInviteAcceptResult>? acceptQueue,
-  // ignore: unused_element_parameter
+    // ignore: unused_element_parameter
     this.refreshResult = HouseholdLocalSnapshot.empty,
   }) : acceptQueue = acceptQueue ?? <HouseholdInviteAcceptResult>[];
 

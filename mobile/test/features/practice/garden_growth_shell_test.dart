@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:ffi' show Abi;
 import 'dart:io';
 
@@ -43,10 +44,7 @@ void main() {
 
   testWidgets('shell 在空投影时显示真实花园与成长空态，标题和 drawer 仍可用', (tester) async {
     final harness = (await tester.runAsync<_Harness>(_Harness.create))!;
-    addTearDown(harness.dispose);
-    addTearDown(() async {
-      await _disposeWidgetTree(tester);
-    });
+    _registerHarnessTeardown(tester, harness);
 
     await tester.runAsync(() async {
       await Future.wait([
@@ -104,10 +102,7 @@ void main() {
     tester,
   ) async {
     final harness = (await tester.runAsync<_Harness>(_Harness.create))!;
-    addTearDown(harness.dispose);
-    addTearDown(() async {
-      await _disposeWidgetTree(tester);
-    });
+    _registerHarnessTeardown(tester, harness);
     final householdViewModel = HouseholdViewModel(
       repository: _FakeHouseholdRepository(
         loadSnapshotResult: HouseholdLocalSnapshot(
@@ -198,10 +193,7 @@ void main() {
 
   testWidgets('shell 花园与首页消费同一份 continuity recommendation', (tester) async {
     final harness = (await tester.runAsync<_Harness>(_Harness.create))!;
-    addTearDown(harness.dispose);
-    addTearDown(() async {
-      await _disposeWidgetTree(tester);
-    });
+    _registerHarnessTeardown(tester, harness);
     await tester.runAsync(() async {
       await harness.practiceRepository.recordReaction(
         spaceId: 'family_rhythm',
@@ -335,10 +327,7 @@ void main() {
     tester,
   ) async {
     final harness = (await tester.runAsync<_Harness>(_Harness.create))!;
-    addTearDown(harness.dispose);
-    addTearDown(() async {
-      await _disposeWidgetTree(tester);
-    });
+    _registerHarnessTeardown(tester, harness);
 
     await tester.runAsync(() async {
       await Future.wait([
@@ -372,10 +361,7 @@ void main() {
     'continuity snapshot 缺少推荐 args 时，Garden continue 禁用且不显示空 warning',
     (tester) async {
       final harness = (await tester.runAsync<_Harness>(_Harness.create))!;
-      addTearDown(harness.dispose);
-      addTearDown(() async {
-        await _disposeWidgetTree(tester);
-      });
+      _registerHarnessTeardown(tester, harness);
       addTearDown(() {
         tester.view.resetPhysicalSize();
         tester.view.resetDevicePixelRatio();
@@ -441,10 +427,15 @@ void main() {
         isNull,
       );
       expect(find.textContaining('缺少有效推荐 activity 参数'), findsWidgets);
-      await tester.pumpWidget(const SizedBox.shrink());
-      await tester.pump();
     },
   );
+}
+
+void _registerHarnessTeardown(WidgetTester tester, _Harness harness) {
+  addTearDown(() async {
+    await _disposeWidgetTree(tester);
+    await harness.dispose();
+  });
 }
 
 Future<void> _disposeWidgetTree(WidgetTester tester) async {
@@ -668,14 +659,14 @@ class _Harness {
     accountViewModel.dispose();
     practiceSessionViewModel.dispose();
     gardenGrowthViewModel.dispose();
-    await practiceRepository.close(deleteFromDisk: true);
-    if (await tempDir.exists()) {
-      try {
-        await tempDir.delete(recursive: true);
-      } on PathAccessException {
-        // Windows test runs occasionally keep an isar handle briefly alive.
-      }
+    try {
+      await practiceRepository
+          .close(deleteFromDisk: true)
+          .timeout(const Duration(seconds: 8));
+    } on TimeoutException {
+      // Windows + Isar teardown can briefly outlive the widget tree.
     }
+    await _deleteDirectoryWithRetry(tempDir);
   }
 }
 
@@ -920,4 +911,22 @@ String _resolveBundledIsarLibraryPath() {
   }
 
   throw StateError('未在 pub cache 中找到 isar_flutter_libs/windows/isar.dll');
+}
+
+Future<void> _deleteDirectoryWithRetry(
+  Directory directory, {
+  int attempts = 20,
+  Duration delay = const Duration(milliseconds: 50),
+}) async {
+  for (var attempt = 0; attempt < attempts; attempt++) {
+    try {
+      if (!await directory.exists()) {
+        return;
+      }
+      await directory.delete(recursive: true);
+      return;
+    } on PathAccessException {
+      await Future<void>.delayed(delay);
+    }
+  }
 }

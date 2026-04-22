@@ -227,15 +227,17 @@ class PracticeSessionViewModel extends ChangeNotifier {
       if (isDynamic && _activitySnapshot != null) {
         // 动态模式已在 _loadHomeState 中加载了 snapshot
         snapshot = _activitySnapshot!;
-        resume = _resumeInfo ?? PracticeResumeInfo(
-          activityId: snapshot.activityId,
-          totalPhrases: snapshot.phrases.length,
-          completedPhraseIds: const [],
-          nextPhraseId: snapshot.phrases.isNotEmpty
-              ? snapshot.phrases.first.phraseId
-              : null,
-          lastEventTime: null,
-        );
+        resume =
+            _resumeInfo ??
+            PracticeResumeInfo(
+              activityId: snapshot.activityId,
+              totalPhrases: snapshot.phrases.length,
+              completedPhraseIds: const [],
+              nextPhraseId: snapshot.phrases.isNotEmpty
+                  ? snapshot.phrases.first.phraseId
+                  : null,
+              lastEventTime: null,
+            );
       } else {
         final restored = await _repository.restorePracticeState(
           spaceId: spaceId,
@@ -410,8 +412,9 @@ class PracticeSessionViewModel extends ChangeNotifier {
           activityId: snapshot.activityId,
           totalPhrases: snapshot.phrases.length,
           completedPhraseIds: const [],
-          nextPhraseId:
-              snapshot.phrases.isNotEmpty ? snapshot.phrases.first.phraseId : null,
+          nextPhraseId: snapshot.phrases.isNotEmpty
+              ? snapshot.phrases.first.phraseId
+              : null,
           lastEventTime: null,
         );
         _restoreStatusMessage = '动态练习已就绪，内容由知识宫殿生成。';

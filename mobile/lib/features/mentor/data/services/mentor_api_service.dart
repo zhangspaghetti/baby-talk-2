@@ -79,15 +79,20 @@ class MentorApiException implements Exception {
 
   bool get isOffline => kind == MentorApiFailureKind.network;
   bool get isTimeout =>
-      kind == MentorApiFailureKind.timeout || statusCode == 504 || code == 'provider_timeout';
+      kind == MentorApiFailureKind.timeout ||
+      statusCode == 504 ||
+      code == 'provider_timeout';
   bool get isUnauthorized => statusCode == 401 || code == 'invalid_session';
   bool get isConsentRevoked => statusCode == 403 && code == 'consent_revoked';
   bool get isAccountDeleted => code == 'account_deleted' || statusCode == 410;
   bool get isVersionBlocked =>
-      statusCode == 426 || code == 'app_version_required' || code == 'app_version_unsupported';
+      statusCode == 426 ||
+      code == 'app_version_required' ||
+      code == 'app_version_unsupported';
   bool get isRateLimited => statusCode == 429 || code == 'mentor_rate_limited';
   bool get isMalformed =>
-      kind == MentorApiFailureKind.malformed || code == 'provider_malformed_response';
+      kind == MentorApiFailureKind.malformed ||
+      code == 'provider_malformed_response';
   bool get isRetryable => details['retryable'] == true;
   bool get isServerFailure => (statusCode ?? 0) >= 500;
   String? get phase => details['phase'] as String?;
@@ -135,9 +140,10 @@ class MentorApiService {
         'surface': surface,
         'mode': mode,
         'correlationId': correlationId,
-        if (contextSummary != null && contextSummary.trim().isNotEmpty)
+        if (contextSummary != null && contextSummary.trim().isNotEmpty) ...{
           'contextSummary': contextSummary.trim(),
-        if (conversationId != null) 'conversationId': conversationId,
+        },
+        if (conversationId != null) ...{'conversationId': conversationId},
       },
     );
 
@@ -150,7 +156,10 @@ class MentorApiService {
       fallbackUsed: _readRequiredBool(json, 'fallbackUsed'),
       authenticated: _readRequiredBool(json, 'authenticated'),
       rateLimit: MentorRateLimitStatus(
-        limited: _readRequiredBool(_readRequiredMap(json, 'rateLimit'), 'limited'),
+        limited: _readRequiredBool(
+          _readRequiredMap(json, 'rateLimit'),
+          'limited',
+        ),
         limit: _readRequiredInt(_readRequiredMap(json, 'rateLimit'), 'limit'),
         remaining: _readRequiredInt(
           _readRequiredMap(json, 'rateLimit'),

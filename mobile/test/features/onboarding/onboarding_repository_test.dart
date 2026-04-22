@@ -135,7 +135,8 @@ void main() {
       );
 
       final rawSnapshot = await onboardingRepository.readSnapshot();
-      final completedSnapshot = await onboardingRepository.readCompletedSnapshot();
+      final completedSnapshot = await onboardingRepository
+          .readCompletedSnapshot();
 
       expect(rawSnapshot, isNotNull);
       expect(rawSnapshot!.isCompleted, isFalse);

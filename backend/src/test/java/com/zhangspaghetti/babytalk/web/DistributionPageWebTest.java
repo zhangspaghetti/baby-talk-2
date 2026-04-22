@@ -51,6 +51,7 @@ class DistributionPageWebTest extends AbstractIntegrationTest {
 
     @BeforeEach
     void resetTables() {
+                resetDatabase(jdbcTemplate);
         jdbcTemplate.execute("delete from release_distribution_events");
         jdbcTemplate.execute("delete from mentor_turns");
         jdbcTemplate.execute("delete from mentor_audit_logs");

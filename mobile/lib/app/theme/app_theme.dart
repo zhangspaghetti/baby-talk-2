@@ -56,76 +56,64 @@ class BabyTalkColors extends ThemeExtension<BabyTalkColors> {
 
   /// Light 色板 — 引用 AppTheme 静态常量
   factory BabyTalkColors.light() => const BabyTalkColors(
-        bgBase: AppTheme.bgBase,
-        bgSurface: AppTheme.bgSurface,
-        bgSunken: AppTheme.bgSunken,
-        bgAccentSoft: AppTheme.bgAccentSoft,
-        accent: AppTheme.accent,
-        accentDark: AppTheme.accentDark,
-        english: AppTheme.english,
-        englishSoft: AppTheme.englishSoft,
-        textPrimary: AppTheme.textPrimary,
-        textSecondary: AppTheme.textSecondary,
-        textMuted: AppTheme.textMuted,
-        success: AppTheme.success,
-        successSoft: AppTheme.successSoft,
-        warning: AppTheme.warning,
-        warningSoft: AppTheme.warningSoft,
-        error: AppTheme.error,
-        errorSoft: AppTheme.errorSoft,
-        info: AppTheme.info,
-        infoSoft: AppTheme.infoSoft,
-        outlineSoft: AppTheme.outlineSoft,
-        warmShadowSm: AppTheme.warmShadowSm,
-        warmShadowMd: AppTheme.warmShadowMd,
-        warmShadowLg: AppTheme.warmShadowLg,
-      );
+    bgBase: AppTheme.bgBase,
+    bgSurface: AppTheme.bgSurface,
+    bgSunken: AppTheme.bgSunken,
+    bgAccentSoft: AppTheme.bgAccentSoft,
+    accent: AppTheme.accent,
+    accentDark: AppTheme.accentDark,
+    english: AppTheme.english,
+    englishSoft: AppTheme.englishSoft,
+    textPrimary: AppTheme.textPrimary,
+    textSecondary: AppTheme.textSecondary,
+    textMuted: AppTheme.textMuted,
+    success: AppTheme.success,
+    successSoft: AppTheme.successSoft,
+    warning: AppTheme.warning,
+    warningSoft: AppTheme.warningSoft,
+    error: AppTheme.error,
+    errorSoft: AppTheme.errorSoft,
+    info: AppTheme.info,
+    infoSoft: AppTheme.infoSoft,
+    outlineSoft: AppTheme.outlineSoft,
+    warmShadowSm: AppTheme.warmShadowSm,
+    warmShadowMd: AppTheme.warmShadowMd,
+    warmShadowLg: AppTheme.warmShadowLg,
+  );
 
   /// Dark 色板 — DESIGN.md Dark Mode Strategy
   factory BabyTalkColors.dark() => const BabyTalkColors(
-        bgBase: Color(0xFF1C1816),
-        bgSurface: Color(0xFF2A2420),
-        bgSunken: Color(0xFF242018),
-        bgAccentSoft: Color(0xFF3D2E20),
-        accent: Color(0xFFFF9E5C),
-        accentDark: Color(0xFFFFB47A),
-        english: Color(0xFF5AAFA0),
-        englishSoft: Color(0xFF1E3530),
-        textPrimary: Color(0xFFF5F0EB),
-        textSecondary: Color(0xFFB0A69D),
-        textMuted: Color(0xFF807670),
-        success: Color(0xFF8AB87A),
-        successSoft: Color(0xFF1E2E1A),
-        warning: Color(0xFFEFBE3A),
-        warningSoft: Color(0xFF3A3018),
-        error: Color(0xFFEF6F62),
-        errorSoft: Color(0xFF3A1E1A),
-        info: Color(0xFF5AAFA0),
-        infoSoft: Color(0xFF1E3530),
-        outlineSoft: Color(0xFF3D3630),
-        // Dark 模式阴影用纯黑透明度（DESIGN.md：阴影改用纯黑透明度）
-        warmShadowSm: [
-          BoxShadow(
-            color: Color(0x0F000000),
-            blurRadius: 3,
-            offset: Offset(0, 1),
-          ),
-        ],
-        warmShadowMd: [
-          BoxShadow(
-            color: Color(0x14000000),
-            blurRadius: 12,
-            offset: Offset(0, 2),
-          ),
-        ],
-        warmShadowLg: [
-          BoxShadow(
-            color: Color(0x1F000000),
-            blurRadius: 24,
-            offset: Offset(0, 8),
-          ),
-        ],
-      );
+    bgBase: Color(0xFF1C1816),
+    bgSurface: Color(0xFF2A2420),
+    bgSunken: Color(0xFF242018),
+    bgAccentSoft: Color(0xFF3D2E20),
+    accent: Color(0xFFFF9E5C),
+    accentDark: Color(0xFFFFB47A),
+    english: Color(0xFF5AAFA0),
+    englishSoft: Color(0xFF1E3530),
+    textPrimary: Color(0xFFF5F0EB),
+    textSecondary: Color(0xFFB0A69D),
+    textMuted: Color(0xFF807670),
+    success: Color(0xFF8AB87A),
+    successSoft: Color(0xFF1E2E1A),
+    warning: Color(0xFFEFBE3A),
+    warningSoft: Color(0xFF3A3018),
+    error: Color(0xFFEF6F62),
+    errorSoft: Color(0xFF3A1E1A),
+    info: Color(0xFF5AAFA0),
+    infoSoft: Color(0xFF1E3530),
+    outlineSoft: Color(0xFF3D3630),
+    // Dark 模式阴影用纯黑透明度（DESIGN.md：阴影改用纯黑透明度）
+    warmShadowSm: [
+      BoxShadow(color: Color(0x0F000000), blurRadius: 3, offset: Offset(0, 1)),
+    ],
+    warmShadowMd: [
+      BoxShadow(color: Color(0x14000000), blurRadius: 12, offset: Offset(0, 2)),
+    ],
+    warmShadowLg: [
+      BoxShadow(color: Color(0x1F000000), blurRadius: 24, offset: Offset(0, 8)),
+    ],
+  );
 
   @override
   BabyTalkColors copyWith({
@@ -152,32 +140,31 @@ class BabyTalkColors extends ThemeExtension<BabyTalkColors> {
     List<BoxShadow>? warmShadowSm,
     List<BoxShadow>? warmShadowMd,
     List<BoxShadow>? warmShadowLg,
-  }) =>
-      BabyTalkColors(
-        bgBase: bgBase ?? this.bgBase,
-        bgSurface: bgSurface ?? this.bgSurface,
-        bgSunken: bgSunken ?? this.bgSunken,
-        bgAccentSoft: bgAccentSoft ?? this.bgAccentSoft,
-        accent: accent ?? this.accent,
-        accentDark: accentDark ?? this.accentDark,
-        english: english ?? this.english,
-        englishSoft: englishSoft ?? this.englishSoft,
-        textPrimary: textPrimary ?? this.textPrimary,
-        textSecondary: textSecondary ?? this.textSecondary,
-        textMuted: textMuted ?? this.textMuted,
-        success: success ?? this.success,
-        successSoft: successSoft ?? this.successSoft,
-        warning: warning ?? this.warning,
-        warningSoft: warningSoft ?? this.warningSoft,
-        error: error ?? this.error,
-        errorSoft: errorSoft ?? this.errorSoft,
-        info: info ?? this.info,
-        infoSoft: infoSoft ?? this.infoSoft,
-        outlineSoft: outlineSoft ?? this.outlineSoft,
-        warmShadowSm: warmShadowSm ?? this.warmShadowSm,
-        warmShadowMd: warmShadowMd ?? this.warmShadowMd,
-        warmShadowLg: warmShadowLg ?? this.warmShadowLg,
-      );
+  }) => BabyTalkColors(
+    bgBase: bgBase ?? this.bgBase,
+    bgSurface: bgSurface ?? this.bgSurface,
+    bgSunken: bgSunken ?? this.bgSunken,
+    bgAccentSoft: bgAccentSoft ?? this.bgAccentSoft,
+    accent: accent ?? this.accent,
+    accentDark: accentDark ?? this.accentDark,
+    english: english ?? this.english,
+    englishSoft: englishSoft ?? this.englishSoft,
+    textPrimary: textPrimary ?? this.textPrimary,
+    textSecondary: textSecondary ?? this.textSecondary,
+    textMuted: textMuted ?? this.textMuted,
+    success: success ?? this.success,
+    successSoft: successSoft ?? this.successSoft,
+    warning: warning ?? this.warning,
+    warningSoft: warningSoft ?? this.warningSoft,
+    error: error ?? this.error,
+    errorSoft: errorSoft ?? this.errorSoft,
+    info: info ?? this.info,
+    infoSoft: infoSoft ?? this.infoSoft,
+    outlineSoft: outlineSoft ?? this.outlineSoft,
+    warmShadowSm: warmShadowSm ?? this.warmShadowSm,
+    warmShadowMd: warmShadowMd ?? this.warmShadowMd,
+    warmShadowLg: warmShadowLg ?? this.warmShadowLg,
+  );
 
   @override
   BabyTalkColors lerp(covariant BabyTalkColors? other, double t) {
@@ -213,8 +200,13 @@ class BabyTalkColors extends ThemeExtension<BabyTalkColors> {
 
 /// BuildContext 便捷扩展：context.appColors
 extension BabyTalkColorsExtension on BuildContext {
-  BabyTalkColors get appColors =>
-      Theme.of(this).extension<BabyTalkColors>()!;
+  BabyTalkColors get appColors {
+    final theme = Theme.of(this);
+    return theme.extension<BabyTalkColors>() ??
+        (theme.brightness == Brightness.dark
+            ? BabyTalkColors.dark()
+            : BabyTalkColors.light());
+  }
 }
 
 class AppTheme {
@@ -377,9 +369,7 @@ class AppTheme {
           color: accentDark,
         ),
       ),
-      extensions: <ThemeExtension<dynamic>>[
-        BabyTalkColors.light(),
-      ],
+      extensions: <ThemeExtension<dynamic>>[BabyTalkColors.light()],
     );
 
     return base.copyWith(
@@ -595,9 +585,7 @@ class AppTheme {
           color: dk.accentDark,
         ),
       ),
-      extensions: <ThemeExtension<dynamic>>[
-        BabyTalkColors.dark(),
-      ],
+      extensions: <ThemeExtension<dynamic>>[BabyTalkColors.dark()],
     );
 
     return base.copyWith(

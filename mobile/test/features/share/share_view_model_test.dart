@@ -158,7 +158,10 @@ class _StaticShareSheetLauncher implements ShareSheetLauncher {
   final ShareSheetLaunchResult? result;
 
   @override
-  Future<ShareSheetLaunchResult> shareText(String text, {String? subject}) async {
+  Future<ShareSheetLaunchResult> shareText(
+    String text, {
+    String? subject,
+  }) async {
     return result ??
         const ShareSheetLaunchResult(status: ShareSheetLaunchStatus.success);
   }

@@ -77,7 +77,9 @@ class AccountRepository {
     final now = DateTime.now().toUtc();
 
     try {
-      final challenge = await _apiService.createChallenge(phoneNumber: phoneNumber);
+      final challenge = await _apiService.createChallenge(
+        phoneNumber: phoneNumber,
+      );
       final session = await _apiService.verifyChallenge(
         challengeId: challenge.challengeId,
         verificationCode: verificationCode,
@@ -308,7 +310,8 @@ class AccountRepository {
   }) async {
     final current = seedSnapshot ?? await _readSnapshotSafely();
     final session = current.session;
-    if (session == null || current.consentState == AccountConsentState.deleted) {
+    if (session == null ||
+        current.consentState == AccountConsentState.deleted) {
       return _mergeSyncSummary(current, await _readSyncSummarySafely());
     }
 
@@ -322,7 +325,8 @@ class AccountRepository {
       return _mergeSyncSummary(snapshot, await _readSyncSummarySafely());
     }
 
-    final isConnected = await (_connectivityChecker?.call() ?? Future.value(true));
+    final isConnected =
+        await (_connectivityChecker?.call() ?? Future.value(true));
     if (!isConnected) {
       final preserveUpgradeState = _shouldPreserveUpgradeState(current);
       final snapshot = current.copyWith(
@@ -332,7 +336,9 @@ class AccountRepository {
         lastVisibleError: preserveUpgradeState
             ? _visibleUpgradeMessage(
                 minimumSupportedVersion: null,
-                upgradeFailureKind: _validateUpgradeFailureKind(current.upgradeUrl),
+                upgradeFailureKind: _validateUpgradeFailureKind(
+                  current.upgradeUrl,
+                ),
               )
             : '当前离线，已保留本地待同步事件，可稍后重试。',
         lastSyncAt: DateTime.now().toUtc(),
@@ -560,9 +566,14 @@ class AccountRepository {
       failedCount: syncSummary.failedCount,
       lastSyncPhase: phase,
       clearLastVisibleError:
-          snapshot.lastVisibleError == null && syncSummary.lastSyncError == null,
-      lastVisibleError: _mergeVisibleError(snapshot.lastVisibleError, syncSummary),
-      clearLastSyncAt: snapshot.lastSyncAt == null && syncSummary.lastEventAt == null,
+          snapshot.lastVisibleError == null &&
+          syncSummary.lastSyncError == null,
+      lastVisibleError: _mergeVisibleError(
+        snapshot.lastVisibleError,
+        syncSummary,
+      ),
+      clearLastSyncAt:
+          snapshot.lastSyncAt == null && syncSummary.lastEventAt == null,
       lastSyncAt: syncSummary.lastEventAt ?? snapshot.lastSyncAt,
     );
   }
@@ -571,7 +582,8 @@ class AccountRepository {
     String? currentVisibleError,
     PracticeSyncSummary syncSummary,
   ) {
-    if (syncSummary.lastSyncError != null && syncSummary.lastSyncError!.trim().isNotEmpty) {
+    if (syncSummary.lastSyncError != null &&
+        syncSummary.lastSyncError!.trim().isNotEmpty) {
       return _sanitizeVisibleError(syncSummary.lastSyncError!);
     }
     return currentVisibleError;
@@ -625,7 +637,9 @@ class AccountRepository {
     return snapshot.isUpgradeRequired;
   }
 
-  AccountExternalLinkFailureKind? _validateUpgradeFailureKind(String? upgradeUrl) {
+  AccountExternalLinkFailureKind? _validateUpgradeFailureKind(
+    String? upgradeUrl,
+  ) {
     final validation = validateAccountUpgradeUrl(upgradeUrl);
     return validation.failureKind;
   }
@@ -635,7 +649,8 @@ class AccountRepository {
     required AccountExternalLinkFailureKind? upgradeFailureKind,
   }) {
     final versionHint =
-        minimumSupportedVersion == null || minimumSupportedVersion.trim().isEmpty
+        minimumSupportedVersion == null ||
+            minimumSupportedVersion.trim().isEmpty
         ? '当前版本过旧，请升级后再同步。'
         : '当前版本过旧，最低需要 $minimumSupportedVersion。';
     if (upgradeFailureKind == null) {
@@ -654,7 +669,9 @@ class AccountRepository {
     if (error.isVersionBlocked) {
       return _visibleUpgradeMessage(
         minimumSupportedVersion: error.minimumSupportedVersion,
-        upgradeFailureKind: validateAccountUpgradeUrl(error.upgradeUrl).failureKind,
+        upgradeFailureKind: validateAccountUpgradeUrl(
+          error.upgradeUrl,
+        ).failureKind,
       );
     }
     if (error.isUnauthorized) {

@@ -203,8 +203,8 @@ class AuthConsentSyncRepository {
         );
     }
 
-    void insertInteractionEvent(String accountId, String sessionId, SyncEventRecord event, Instant receivedAt) {
-        jdbcTemplate.update(
+    boolean insertInteractionEvent(String accountId, String sessionId, SyncEventRecord event, Instant receivedAt) {
+        return jdbcTemplate.update(
                 """
                 insert into interaction_events (
                     event_key,
@@ -219,6 +219,7 @@ class AuthConsentSyncRepository {
                     client_timestamp,
                     received_at
                 ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                on conflict (event_key) do nothing
                 """,
                 event.eventKey(),
                 accountId,
@@ -231,7 +232,7 @@ class AuthConsentSyncRepository {
                 event.reactionType(),
                 Timestamp.from(event.clientTimestamp()),
                 Timestamp.from(receivedAt)
-        );
+            ) > 0;
     }
 
     List<StoredInteractionEvent> listInteractionEvents(String accountId, String installationId, int limit) {

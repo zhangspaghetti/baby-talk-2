@@ -13,10 +13,7 @@ enum AccountExternalLinkFailureKind {
 }
 
 class AccountUpgradeUrlValidation {
-  const AccountUpgradeUrlValidation._({
-    this.uri,
-    this.failureKind,
-  });
+  const AccountUpgradeUrlValidation._({this.uri, this.failureKind});
 
   final Uri? uri;
   final AccountExternalLinkFailureKind? failureKind;
@@ -113,8 +110,7 @@ class UrlLauncherAccountExternalLinkOpener
             validation.failureKind ??
             AccountExternalLinkFailureKind.launchFailed,
         message: messageForAccountUpgradeUrlFailure(
-          validation.failureKind ??
-              AccountExternalLinkFailureKind.launchFailed,
+          validation.failureKind ?? AccountExternalLinkFailureKind.launchFailed,
         ),
       );
     }
