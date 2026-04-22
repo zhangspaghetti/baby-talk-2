@@ -1,0 +1,44 @@
+
+# ── GSD baseline (auto-generated) ──
+.gsd
+.gsd-id
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+.idea/
+.vscode/
+*.code-workspace
+.env
+.env.*
+!.env.example
+node_modules/
+.next/
+dist/
+build/
+__pycache__/
+*.pyc
+.venv/
+venv/
+target/
+vendor/
+*.log
+coverage/
+.cache/
+tmp/
+
+# ── GSD baseline (auto-generated) ──
+.bg-shell/
+
+# ── Runtime artifacts (never track) ──
+.data/
+*.lock.db
+body_*.html
+body_*.json
+headers_*.txt
+
+# ── Spring AI / Maven extracted library artifacts (never track at repo root) ──
+org/
+META-INF/
+*.class

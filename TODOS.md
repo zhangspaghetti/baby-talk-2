@@ -88,24 +88,19 @@
 **Effort:** M (CC: ~1 小时)
 **Depends on:** Scope reduction decision (6 功能确认后再设计)
 
-### 🔥 字体打包进 APK Assets
+### ~~🔥 字体打包进 APK Assets~~ ✅ DONE
 **What:** 将 Fraunces (variable)、DM Sans、JetBrains Mono 字体文件打包为 Flutter asset，不使用 google_fonts package 的 CDN 动态加载。
-**Why:** Google Fonts CDN (fonts.googleapis.com) 在中国大陆不可用。中国用户首屏会卡在字体加载或回退系统字体，破坏"暖纸亲和"设计。
-**Context:** Outside Voice (2026-04-02) 发现。约增加 ~500KB APK 大小。需同步更新 DESIGN.md 的 Loading 章节。
-**Effort:** S (CC: ~10 分钟)
-**Depends on:** Nothing.
+**Status:** 已完成 (v1.2.0.0)。`mobile/assets/fonts/` 包含 dm_sans/、fraunces/、jetbrains_mono/ 全量字体目录。
 
-### 🔥 Batch Event Insert 需要事务包裹
+### ~~🔥 Batch Event Insert 需要事务包裹~~ ✅ DONE
 **What:** `POST /sync/events` 的批量 event 入库必须包裹在数据库事务中。部分失败时全部回滚。Progress 重算只在整个 batch 成功入库后执行一次。
-**Why:** Eng Review v4 (2026-04-02) 发现的 critical gap。如果 1000 条 events 中第 500 条失败，前 499 条已入库，progress 重算基于不完整数据。用户的 mastery 数据会不准。
-**Context:** SyncService 实现时用 `@Transactional` 注解包裹 batch insert。Progress recalculate 在事务提交后调用。
-**Effort:** S (CC: ~5 分钟)
-**Depends on:** 后端 SyncService 实现
+**Status:** 已完成 (v1.2.0.0)。`ingestEvents` 已有 `@Transactional`，event 循环内任何 `DataAccessException` 均触发回滚。`HouseholdSharedContextProjector.refreshForAccount()` 改为 `REQUIRES_NEW` + 失败时 log-and-continue，确保 projection 失败不回滚已提交的 event 数据。
 
 ### 🔥 里程碑检测幂等性
 **What:** milestone 检测逻辑需要幂等性。同一个 phrase_id 的 first_babble 只触发一次 milestone 记录。防止并发上传或网络重试导致重复庆祝。
 **Why:** Eng Review v4 (2026-04-02) 发现的 critical gap。两个设备同时上传 babble event，或网络重试导致重复 event，会创建重复 milestone，用户看到两次庆祝屏幕。
 **Context:** ProgressService.checkMilestones() 实现时先查询已有 milestone（SELECT WHERE type='first_babble'），已存在则跳过。或用 UNIQUE 约束 (user_id, type, scene_id) 做数据库级幂等。
+**Status:** ⏳ 尚未实现。当前无 ProgressService 也无 milestones 表。interaction_events 本身已有 event_key PRIMARY KEY 保证幂等性。待里程碑功能开发时一并实现。
 **Effort:** S (CC: ~10 分钟)
 **Depends on:** 后端 ProgressService + milestones 表实现
 
@@ -123,12 +118,9 @@
 **Effort:** S (CC: ~15 分钟文档 + ~30 分钟实现调整)
 **Depends on:** 后端架构设计完成
 
-### API 版本协商 + 强制更新机制
+### ~~API 版本协商 + 强制更新机制~~ ✅ DONE
 **What:** 客户端每次请求带 `X-App-Version` 头。后端维护 minimum_supported_version 配置。低于最低版本的请求返回 426 Upgrade Required + 下载链接。
-**Why:** Native app 不能强制同时更新。后端改了 API schema，旧版 APK 会崩溃。
-**Context:** Outside Voice (2026-04-02) 发现。简单实现：Spring Boot interceptor 检查版本头，低于阈值返回 426。
-**Effort:** S (CC: ~15 分钟)
-**Depends on:** 后端架构设计完成
+**Status:** 已完成 (v1.2.0.0)。`ApiVersionInterceptor` + `scripts/verify-e2e.sh` 全部添加 `X-App-Version` 头，Docker E2E smoke 10/10 通过。
 
 ### LLM 后端输入/输出安全过滤
 **What:** 后端 Ask Coach 端点加入：(1) 输入过滤（亵渎/注入检测），不依赖客户端；(2) 输出过滤（确保 LLM 响应符合正面育儿方法论）；(3) Admin 审核页使用独立认证（不共用用户 JWT）。
@@ -189,11 +181,9 @@
 **Effort:** S (CC: ~1 小时)
 **Depends on:** Nothing. Layer 0 完成。
 
-### 🔥 小禾老师 Mentor FAB 实现 (Design Review v3 新增)
+### ~~🔥 小禾老师 Mentor FAB 实现 (Design Review v3 新增)~~ ✅ DONE
 **What:** 全局 FAB + BottomSheet 面板, 双 tab (建议+聊天)。离线时建议 tab 显示本地预设。
-**Why:** 替代旧 AI Coach 独立 tab。任何页面可触达。
-**Effort:** M (CC: ~3 小时, Layer 1 骨架 + Layer 3 AI)
-**Depends on:** 底部导航 + 基础路由
+**Status:** 已完成 (v1.2.0.0)。`app_shell_screen.dart` 全局 Mentor FAB + 双 tab BottomSheet，S06 端到端验证通过。
 
 ### 🔥 C3 激活框场景练习 (Design Review v3 新增)
 **What:** Scene Coaching C3 激活框 scroll 模式。卡片滚入中部 ActivationFrame 时展开, 滚出时收缩。
@@ -320,19 +310,13 @@
 **Effort:** S (CC: ~15 分钟)
 **Depends on:** 后端 Spring Boot 架构实现
 
-### 🔥 E2E 测试框架选型
-**What:** 确定 Flutter E2E 测试框架：Flutter integration_test（官方内置）、Patrol（社区增强版）、或 Maestro（声明式，YAML 驱动）。8 个 E2E 关键路径需要覆盖。
-**Why:** Eng Review v5 (2026-04-02) 识别了 8 个 E2E-worthy 用户流。没有框架选型就无法在 Build Order 中安排 E2E 测试任务。
-**Context:** Flutter integration_test 是 Layer 1 boring 选择。建议 integration_test + permission_handler mock。
-**Effort:** S (CC: ~30 分钟 spike)
-**Depends on:** Flutter 项目脚手架
+### ~~🔥 E2E 测试框架选型~~ ✅ DONE
+**What:** 确定 Flutter E2E 测试框架：选定 Flutter integration_test（官方内置）。
+**Status:** 已完成 (v1.2.0.0)。S01–S06 所有集成测试基于 integration_test，S06 真机 3/3 通过。
 
-### 🔥 Hive → Isar 迁移
+### ~~🔥 Hive → Isar 迁移~~ ✅ DONE
 **What:** 将计划中所有 Hive 引用替换为 Isar。本地存储、Token 存储、InteractionEvent 缓存全部改为 Isar。
-**Why:** Eng Review v5 (2026-04-02) 确认 Hive 2.x 不再积极维护。现在换比 Phase 2 迁移成本低 10x。
-**Context:** Isar 是 Hive 作者的新项目，API 兼容性好。需要更新 pubspec.yaml、数据模型注解、查询语法。
-**Effort:** S (CC: ~15 分钟批量替换)
-**Depends on:** Nothing. 在开始写代码前完成。
+**Status:** 已完成 (v1.2.0.0)。`isar: ^3.1.0+1` + `isar_flutter_libs` 已在 pubspec.yaml，PracticeRepository/AccountLocalStore 等全部使用 Isar。
 
 ## /autoplan Deferred Items (2026-04-06)
 

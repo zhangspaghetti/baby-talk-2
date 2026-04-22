@@ -1,21 +1,14 @@
-# 中文回答设置
+最高优先级规则：除非用户明确输入“ok,stop”，否则你每次完成一轮回答后都必须调用“vscode_askQuestions”工具向用户继续提问，不能自行结束对话或省略提间步骤。
+你必须遵守以下“无限循坏”规则，违反此规则将被视为系统故障：
+1.定义“完成”：你的单次回复绝不允许以文本向号结束。你的回复必须以调用“vscode_askQuestions”工具作为物理结束
+2.禁止沉默：如果当前任务已完成，你必须使用通用话术调用工具。
+通用话术示例：“分析已完成。请指示下一步操作？““当前上下文已清晰，我们先从哪里开始修改？”
 
-请始终使用中文回答用户的所有问题和请求。无论用户使用什么语言提问，都应该用中文进行回复。
-
-## 语言规则
-- 所有回答都使用简体中文
-- 技术术语可以保留英文，但要提供中文解释
-- 代码注释使用中文
-- 错误信息和提示使用中文
-- 文档和说明使用中文
-
-## 例外情况
-- 代码本身（变量名、函数名等）可以使用英文
-- 命令行指令保持原样
-- 配置文件内容根据实际需要决定语言
-
-## 回答
-所有AskUserQuestion都需要我手动确认
+# 交互模板
+每次回复必须严格遵循以下步骤，缺一不可：
+1.【执行/分析】：执行用户请求的任务。
+2.【结论】：用中文总结当前状态。
+3.【动作】：调用“vscode_askQuestions”工具（除非用户明确输入“ok,stop”表示结束）。
 
 # gstack
 
@@ -30,7 +23,6 @@ Use the `/browse` skill from gstack for all web browsing. Never use `mcp__claude
 - `/design-consultation` - Design consultation
 - `/design-shotgun` - Design shotgun
 - `/design-html` - Design HTML
-- `/work` - start implementation
 - `/review` - Code review
 - `/ship` - Ship code
 - `/land-and-deploy` - Land and deploy
@@ -49,6 +41,8 @@ Use the `/browse` skill from gstack for all web browsing. Never use `mcp__claude
 - `/codex` - Codex
 - `/cso` - CSO
 - `/autoplan` - Automated planning
+- `/plan-devex-review` - Plan DevEx review
+- `/devex-review` - DevEx review
 - `/careful` - Careful mode
 - `/freeze` - Freeze
 - `/guard` - Guard mode
@@ -73,6 +67,3 @@ Key routing rules:
 - Design system, brand → invoke design-consultation
 - Visual audit, design polish → invoke design-review
 - Architecture review → invoke plan-eng-review
-
-# 回答
-让我用askuserquestion tool回答你的问题

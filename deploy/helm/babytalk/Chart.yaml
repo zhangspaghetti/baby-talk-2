@@ -1,0 +1,12 @@
+apiVersion: v2
+name: babytalk
+description: BabyTalk 后端服务 Helm chart — Spring Boot 应用，提供育儿助手 API
+type: application
+version: 0.1.0
+appVersion: "1.0.0"
+maintainers:
+  - name: BabyTalk Team
+keywords:
+  - babytalk
+  - spring-boot
+  - api

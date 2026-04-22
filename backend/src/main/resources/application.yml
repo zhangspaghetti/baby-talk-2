@@ -1,0 +1,152 @@
+spring:
+  application:
+    name: babytalk-backend
+  autoconfigure:
+    exclude:
+      - org.springframework.ai.model.openai.autoconfigure.OpenAiChatAutoConfiguration
+      - org.springframework.ai.model.openai.autoconfigure.OpenAiEmbeddingAutoConfiguration
+      - org.springframework.ai.model.openai.autoconfigure.OpenAiImageAutoConfiguration
+      - org.springframework.ai.model.openai.autoconfigure.OpenAiAudioSpeechAutoConfiguration
+      - org.springframework.ai.model.openai.autoconfigure.OpenAiAudioTranscriptionAutoConfiguration
+      - org.springframework.ai.model.openai.autoconfigure.OpenAiModerationAutoConfiguration
+      - org.springframework.ai.model.chat.client.autoconfigure.ChatClientAutoConfiguration
+      - org.springframework.ai.model.chat.memory.autoconfigure.ChatMemoryAutoConfiguration
+      - org.springframework.ai.model.chat.memory.repository.jdbc.autoconfigure.JdbcChatMemoryRepositoryAutoConfiguration
+      - org.springframework.ai.vectorstore.pgvector.autoconfigure.PgVectorStoreAutoConfiguration
+  datasource:
+    url: ${BABY_TALK_DB_URL:jdbc:postgresql://localhost:15432/babytalk}
+    username: ${BABY_TALK_DB_USERNAME:babytalk}
+    password: ${BABY_TALK_DB_PASSWORD:babytalk}
+    driver-class-name: org.postgresql.Driver
+  flyway:
+    enabled: true
+    baseline-on-migrate: false
+  ai:
+    chat:
+      memory:
+        repository:
+          jdbc:
+            initialize-schema: never
+  jackson:
+    serialization:
+      write-dates-as-timestamps: false
+  mvc:
+    problemdetails:
+      enabled: false
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: always
+      show-components: always
+
+app:
+  contract:
+    min-supported-version: ${BABY_TALK_MIN_SUPPORTED_VERSION:1.2.0}
+    upgrade-url: ${BABY_TALK_UPGRADE_URL:https://example.com/baby-talk/upgrade?channel=stable&source=version_gate}
+    sync-max-batch-size: ${BABY_TALK_SYNC_MAX_BATCH_SIZE:100}
+    bootstrap-max-events: ${BABY_TALK_BOOTSTRAP_MAX_EVENTS:200}
+  distribution:
+    default-channel: stable
+    download-default-source: public_link
+    upgrade-default-source: version_gate
+    allowed-sources:
+      - public_link
+      - version_gate
+      - share_card
+      - caregiver_invite
+      - manual_retry
+    channels:
+      stable:
+        label: 正式版
+        platforms:
+          android: ${BABY_TALK_ANDROID_STABLE_URL:https://download.example.com/android/stable/babytalk.apk}
+          ios: ${BABY_TALK_IOS_STABLE_URL:https://apps.apple.com/app/id0000000000}
+      beta:
+        label: 测试版
+        platforms:
+          android: ${BABY_TALK_ANDROID_BETA_URL:https://download.example.com/android/beta/babytalk.apk}
+  share:
+    landing:
+      public-base-url: ${BABY_TALK_SHARE_PUBLIC_BASE_URL:https://share.example.com}
+      default-link-ttl: ${BABY_TALK_SHARE_LINK_TTL:PT168H}
+      download-fallback-path: /download
+      download-fallback-source: share_card
+      allowed-sources:
+        - latest_impact
+        - continuity_recommendation
+        - paired_progress
+      open-app-targets:
+        android: ${BABY_TALK_ANDROID_OPEN_SHARE_URL:babytalk://share/open}
+        ios: ${BABY_TALK_IOS_OPEN_SHARE_URL:babytalk://share/open}
+  caregiver-invite:
+    public-base-url: ${BABY_TALK_CAREGIVER_INVITE_PUBLIC_BASE_URL:https://invite.example.com}
+    default-link-ttl: ${BABY_TALK_CAREGIVER_INVITE_TTL:PT72H}
+    download-fallback-path: /download
+    download-fallback-source: caregiver_invite
+    allowed-roles:
+      - caregiver
+    allowed-sources:
+      - household_settings
+      - invite_banner
+      - invite_link
+    open-app-targets:
+      android: ${BABY_TALK_ANDROID_OPEN_INVITE_URL:babytalk://invite/open}
+      ios: ${BABY_TALK_IOS_OPEN_INVITE_URL:babytalk://invite/open}
+  sms:
+    provider-mode: ${BABY_TALK_SMS_PROVIDER_MODE:dev}
+    dev-code: ${BABY_TALK_SMS_DEV_CODE:246810}
+    challenge-ttl: ${BABY_TALK_SMS_CHALLENGE_TTL:PT5M}
+    simulate-timeout: ${BABY_TALK_SMS_SIMULATE_TIMEOUT:false}
+  mentor:
+    provider-mode: ${BABY_TALK_MENTOR_PROVIDER_MODE:dev}
+    provider-timeout: ${BABY_TALK_MENTOR_PROVIDER_TIMEOUT:PT4S}
+    ai-base-url: ${BABY_TALK_AI_BASE_URL:https://models.inference.ai.azure.com}
+    ai-api-key: ${BABY_TALK_AI_API_KEY:}
+    ai-model: ${BABY_TALK_AI_MODEL:gpt-4o-mini}
+    ai-temperature: ${BABY_TALK_AI_TEMPERATURE:0.7}
+    ai-max-tokens: ${BABY_TALK_AI_MAX_TOKENS:300}
+    rate-limit-max-requests: ${BABY_TALK_MENTOR_RATE_LIMIT_MAX_REQUESTS:3}
+    rate-limit-window: ${BABY_TALK_MENTOR_RATE_LIMIT_WINDOW:PT10M}
+    prompt-max-length: ${BABY_TALK_MENTOR_PROMPT_MAX_LENGTH:280}
+    response-max-length: ${BABY_TALK_MENTOR_RESPONSE_MAX_LENGTH:280}
+    allowed-surfaces:
+      - home
+      - discover
+      - garden
+      - growth
+      - standalone_home
+      - practice
+    allowed-modes:
+      - single_turn
+      - multi_turn
+    blocked-keywords:
+      - slap
+      - hit
+      - 体罚
+      - 羞辱
+      - 打宝宝
+    simulate-timeout-token: ${BABY_TALK_MENTOR_SIMULATE_TIMEOUT_TOKEN:[timeout]}
+    simulate-malformed-token: ${BABY_TALK_MENTOR_SIMULATE_MALFORMED_TOKEN:[malformed]}
+    simulate-unavailable-token: ${BABY_TALK_MENTOR_SIMULATE_UNAVAILABLE_TOKEN:[unavailable]}
+    search-mode: ${BABY_TALK_MENTOR_SEARCH_MODE:none}
+    session-timeout: ${BABY_TALK_MENTOR_SESSION_TIMEOUT:PT30M}
+    practice-response-max-length: ${BABY_TALK_MENTOR_PRACTICE_RESPONSE_MAX_LENGTH:2000}
+  embedding:
+    base-url: ${BABY_TALK_EMBEDDING_BASE_URL:https://models.inference.ai.azure.com}
+    api-key: ${BABY_TALK_EMBEDDING_API_KEY:}
+    model: ${BABY_TALK_EMBEDDING_MODEL:text-embedding-3-small}
+    dimensions: ${BABY_TALK_EMBEDDING_DIMENSIONS:1536}
+  kg:
+    review-interval: ${BABY_TALK_KG_REVIEW_INTERVAL:PT5M}
+    review-enabled: ${BABY_TALK_KG_REVIEW_ENABLED:true}
+    review-batch-size: ${BABY_TALK_KG_REVIEW_BATCH_SIZE:10}
+  minio:
+    endpoint: ${BABY_TALK_MINIO_ENDPOINT:http://localhost:9000}
+    access-key: ${BABY_TALK_MINIO_ACCESS_KEY:babytalk}
+    secret-key: ${BABY_TALK_MINIO_SECRET_KEY:babytalk123}
+    bucket-name: ${BABY_TALK_MINIO_BUCKET:babytalk}

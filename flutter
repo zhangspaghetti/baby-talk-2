@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+# Worktree root 委托脚本：将 flutter 命令委托到 mobile/ 子工程
+# gate 从 worktree 根运行 "flutter test test/smoke/" 时可找到正确的 pubspec.yaml
+# 使用绝对路径调用真实 flutter，避免递归调用
+REAL_FLUTTER=/c/software/flutter/bin/flutter
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$SCRIPT_DIR/mobile" && exec "$REAL_FLUTTER" "$@"

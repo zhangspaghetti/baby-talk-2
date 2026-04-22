@@ -1,0 +1,25 @@
+BabyTalk 后端已部署！
+
+获取应用 URL：
+{{- if .Values.ingress.enabled }}
+{{- range $host := .Values.ingress.hosts }}
+  http{{ if $.Values.ingress.tls }}s{{ end }}://{{ $host.host }}
+{{- end }}
+{{- else if contains "NodePort" .Values.service.type }}
+  export NODE_PORT=$(kubectl get --namespace {{ .Release.Namespace }} -o jsonpath="{.spec.ports[0].nodePort}" services {{ include "babytalk.fullname" . }})
+  export NODE_IP=$(kubectl get nodes --namespace {{ .Release.Namespace }} -o jsonpath="{.items[0].status.addresses[0].address}")
+  echo http://$NODE_IP:$NODE_PORT
+{{- else if contains "LoadBalancer" .Values.service.type }}
+  注意: LoadBalancer 分配外部 IP 可能需要几分钟
+  kubectl get --namespace {{ .Release.Namespace }} svc -w {{ include "babytalk.fullname" . }}
+{{- else if contains "ClusterIP" .Values.service.type }}
+  kubectl --namespace {{ .Release.Namespace }} port-forward svc/{{ include "babytalk.fullname" . }} 8080:{{ .Values.service.port }}
+  然后访问 http://127.0.0.1:8080
+{{- end }}
+
+⚠️  生产环境提示：
+  请确保已通过 --set 或外部 Secret 管理注入以下敏感值：
+  - BABY_TALK_DB_URL
+  - BABY_TALK_DB_USERNAME
+  - BABY_TALK_DB_PASSWORD
+  - BABY_TALK_AI_API_KEY
