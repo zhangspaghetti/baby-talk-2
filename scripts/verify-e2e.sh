@@ -27,6 +27,7 @@ PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 COMPOSE_FILE="${PROJECT_DIR}/docker-compose.yml"
 SKIP_DOCKER="${SKIP_DOCKER:-0}"
 INSTALLATION_ID="test-e2e-$(date +%s)"
+APP_VERSION="${APP_VERSION:-1.2.0}"
 
 # ── 颜色 ──
 RED='\033[0;31m'
@@ -179,6 +180,7 @@ fi
 CHAT_RESPONSE=$(curl -s -w "\n%{http_code}" \
     -X POST "${API_BASE}/api/v1/mentor/chat" \
     -H "Content-Type: application/json" \
+    -H "X-App-Version: ${APP_VERSION}" \
     -H "X-Session-Id: e2e-session-${INSTALLATION_ID}" \
     -d "{
         \"installationId\": \"${INSTALLATION_ID}\",
@@ -212,6 +214,7 @@ log_info "Step 5: API Smoke Test — M005 新增端点..."
 PRACTICE_RESPONSE=$(curl -s -w "\n%{http_code}" \
     -X POST "${API_BASE}/api/v1/mentor/practice/generate" \
     -H "Content-Type: application/json" \
+    -H "X-App-Version: ${APP_VERSION}" \
     -d "{
         \"installationId\": \"${INSTALLATION_ID}\",
         \"surface\": \"practice\",
@@ -232,6 +235,7 @@ fi
 
 # 5b. GET /api/v1/kg/notifications → 200
 KG_NOTIF_HTTP=$(curl -s -o /dev/null -w "%{http_code}" \
+    -H "X-App-Version: ${APP_VERSION}" \
     "${API_BASE}/api/v1/kg/notifications" 2>/dev/null) || KG_NOTIF_HTTP="000"
 if [ "$KG_NOTIF_HTTP" = "200" ]; then
     check_pass "GET /api/v1/kg/notifications → ${KG_NOTIF_HTTP}"
@@ -241,6 +245,7 @@ fi
 
 # 5c. GET /api/v1/kg/contradictions → 200
 KG_CONTRA_HTTP=$(curl -s -o /dev/null -w "%{http_code}" \
+    -H "X-App-Version: ${APP_VERSION}" \
     "${API_BASE}/api/v1/kg/contradictions" 2>/dev/null) || KG_CONTRA_HTTP="000"
 if [ "$KG_CONTRA_HTTP" = "200" ]; then
     check_pass "GET /api/v1/kg/contradictions → ${KG_CONTRA_HTTP}"
@@ -251,6 +256,7 @@ fi
 # 5d. POST /api/v1/ingestion/upload → 400（无文件时应返回 400）
 UPLOAD_HTTP=$(curl -s -o /dev/null -w "%{http_code}" \
     -X POST "${API_BASE}/api/v1/ingestion/upload" \
+    -H "X-App-Version: ${APP_VERSION}" \
     2>/dev/null) || UPLOAD_HTTP="000"
 
 if [ "$UPLOAD_HTTP" = "400" ]; then

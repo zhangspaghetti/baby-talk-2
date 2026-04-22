@@ -57,7 +57,7 @@ services:
       BABY_TALK_MINIO_ACCESS_KEY: "babytalk"
       BABY_TALK_MINIO_SECRET_KEY: "babytalk123"
       BABY_TALK_EMBEDDING_BASE_URL: "${BABY_TALK_EMBEDDING_BASE_URL:-https://models.inference.ai.azure.com}"
-      BABY_TALK_EMBEDDING_API_KEY: "${BABY_TALK_EMBEDDING_API_KEY:-}"
+      BABY_TALK_EMBEDDING_API_KEY: "${BABY_TALK_EMBEDDING_API_KEY:-dev-placeholder-key}"
       BABY_TALK_EMBEDDING_MODEL: "${BABY_TALK_EMBEDDING_MODEL:-text-embedding-3-small}"
       BABY_TALK_EMBEDDING_DIMENSIONS: "${BABY_TALK_EMBEDDING_DIMENSIONS:-1536}"
       BABY_TALK_AI_BASE_URL: "${BABY_TALK_AI_BASE_URL:-https://models.inference.ai.azure.com}"

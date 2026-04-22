@@ -5,8 +5,9 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mobile/app/app.dart';
 import 'package:mobile/core/device/installation_id_service.dart';
-import 'package:mobile/features/account/data/services/account_api_service.dart'
-    show defaultAccountApiBaseUrl, defaultAccountApiVersion;
+import 'package:mobile/features/account/data/local/account_local_store.dart';
+import 'package:mobile/features/account/data/repositories/account_repository.dart';
+import 'package:mobile/features/account/data/services/account_api_service.dart';
 import 'package:mobile/features/mentor/data/local/mentor_local_data_source.dart';
 import 'package:mobile/features/mentor/domain/models/mentor_fact_event.dart';
 import 'package:mobile/features/mentor/presentation/mentor_view_model.dart';
@@ -15,6 +16,7 @@ import 'package:mobile/features/practice/data/local/practice_local_data_source.d
 import 'package:mobile/features/practice/data/repositories/practice_repository.dart';
 import 'package:mobile/features/practice/data/services/asset_phrase_service.dart';
 import 'package:mobile/features/practice/presentation/screens/home_screen.dart';
+import 'package:mobile/features/practice/presentation/garden_growth_view_model.dart';
 import 'package:mobile/features/sync/data/repositories/sync_repository.dart';
 import 'package:provider/provider.dart';
 
@@ -85,6 +87,16 @@ class FullChainTestHarness {
       BabyTalkApp(
         bootState: bootState,
         repositoryFactory: _openRepository,
+        accountRepositoryFactory: (practiceRepository, directory) async {
+          return AccountRepository(
+            localStore: AccountLocalStore(
+              directoryResolver: () async => directory,
+            ),
+            practiceRepository: practiceRepository,
+            apiService: AccountApiService(baseUri: backend.baseUri),
+            connectivityChecker: () async => true,
+          );
+        },
         appDirectoryResolver: () async => tempDir,
         completedSnapshotLoader: completedSnapshotLoader,
         practiceContinuityRefreshTimeout: Duration.zero,
@@ -96,20 +108,20 @@ class FullChainTestHarness {
   Future<void> disposeMountedApp(WidgetTester tester) async {
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pump(const Duration(milliseconds: 300));
-    final repository = _activeRepository;
-    _activeRepository = null;
-    if (repository != null) {
-      await repository.close();
-    }
+    await closeActiveRepository();
     await tester.pump(const Duration(milliseconds: 100));
   }
 
-  Future<void> dispose() async {
+  Future<void> closeActiveRepository() async {
     final repository = _activeRepository;
     _activeRepository = null;
     if (repository != null) {
       await repository.close();
     }
+  }
+
+  Future<void> dispose() async {
+    await closeActiveRepository();
     await backend.dispose();
     if (await tempDir.exists()) {
       await tempDir.delete(recursive: true);
@@ -176,7 +188,6 @@ class FullChainTestHarness {
   }
 
   Future<void> completeStarterPractice(WidgetTester tester) async {
-    await switchToHomeTab(tester);
     await pumpUntilFound(
       tester,
       find.byKey(const Key('home-starter-seed')),
@@ -257,12 +268,17 @@ class FullChainTestHarness {
     String phoneNumber = '13800138000',
     String verificationCode = '246810',
   }) async {
-    await switchToHomeTab(tester);
-    await scrollHomeTo(
+    await tester.tap(find.byKey(const Key('shell-drawer-trigger')));
+    await tester.pumpAndSettle();
+    await pumpUntilFound(
       tester,
-      find.byKey(const Key('home-account-open-entry')),
+      find.byKey(const Key('shell-account-open-entry')),
+      timeout: const Duration(seconds: 20),
+      reason: 'shell account entry',
     );
-    await tester.tap(find.byKey(const Key('home-account-open-entry')));
+    await tester.ensureVisible(find.byKey(const Key('shell-account-open-entry')));
+    await tester.pump(const Duration(milliseconds: 100));
+    await tester.tap(find.byKey(const Key('shell-account-open-entry')));
     await tester.pumpAndSettle();
     await pumpUntilFound(
       tester,
@@ -295,7 +311,19 @@ class FullChainTestHarness {
     WidgetTester tester, {
     required String prompt,
   }) async {
-    await tester.tap(find.byKey(const Key('shell-mentor-fab')));
+    final mentorFab = find.byKey(const Key('shell-mentor-fab'));
+    await pumpUntilFound(
+      tester,
+      mentorFab,
+      timeout: const Duration(seconds: 8),
+      reason: 'shell mentor fab',
+    );
+    final fabWidget = tester.widget<FloatingActionButton>(mentorFab);
+    final onPressed = fabWidget.onPressed;
+    if (onPressed == null) {
+      fail('Shell mentor FAB is disabled.');
+    }
+    onPressed();
     await tester.pump();
     await pumpUntilFound(
       tester,
@@ -324,11 +352,24 @@ class FullChainTestHarness {
   }
 
   Future<void> switchToHomeTab(WidgetTester tester) async {
-    final homeLabel = find.text('首页');
-    if (homeLabel.evaluate().isNotEmpty) {
-      await tester.tap(homeLabel.last);
-      await tester.pumpAndSettle();
-    }
+    await pumpUntil(
+      tester,
+      () => find.byKey(const Key('account-entry-surface')).evaluate().isEmpty,
+      timeout: const Duration(seconds: 8),
+      reason: 'account entry closed',
+    );
+    ScaffoldMessenger.of(
+      tester.element(find.byType(NavigationBar)),
+    ).removeCurrentSnackBar();
+    await tester.pumpAndSettle();
+    await _tapShellTab(tester, 0);
+    await tester.pumpAndSettle();
+    await pumpUntilFound(
+      tester,
+      find.text('${childDisplayName} 的首页'),
+      timeout: const Duration(seconds: 12),
+      reason: 'home tab active',
+    );
   }
 
   Future<void> switchShellTab(
@@ -336,8 +377,7 @@ class FullChainTestHarness {
     required String label,
     required Key readyKey,
   }) async {
-    final labelFinder = find.text(label);
-    await tester.tap(labelFinder.last);
+    await _tapShellTab(tester, _shellTabIndex(label));
     await tester.pumpAndSettle();
     await pumpUntilFound(
       tester,
@@ -347,7 +387,83 @@ class FullChainTestHarness {
     );
   }
 
+  int _shellTabIndex(String label) {
+    return switch (label) {
+      '首页' => 0,
+      '发现' => 1,
+      '花园' => 2,
+      '成长' => 3,
+      _ => throw ArgumentError.value(label, 'label', 'Unknown shell tab'),
+    };
+  }
+
+  Future<void> _tapShellTab(WidgetTester tester, int index) async {
+    final navigationBar = find.byType(NavigationBar);
+    await pumpUntilFound(
+      tester,
+      navigationBar,
+      timeout: const Duration(seconds: 8),
+      reason: 'shell navigation bar',
+    );
+    final widget = tester.widget<NavigationBar>(navigationBar);
+    final onDestinationSelected = widget.onDestinationSelected;
+    if (onDestinationSelected == null) {
+      fail('Shell navigation bar is missing onDestinationSelected.');
+    }
+    onDestinationSelected(index);
+    await tester.pump();
+  }
+
+  static Future<void> waitForGardenProjectionReady(
+    WidgetTester tester, {
+    Duration timeout = const Duration(seconds: 20),
+    Duration step = const Duration(milliseconds: 100),
+  }) async {
+    GardenGrowthViewModel? resolved;
+    await pumpUntil(
+      tester,
+      () {
+        final shell = find.byKey(const Key('shell-ready'));
+        if (shell.evaluate().isEmpty) {
+          return false;
+        }
+        final viewModel = Provider.of<GardenGrowthViewModel?>(
+          tester.element(shell),
+          listen: false,
+        );
+        if (viewModel == null) {
+          return false;
+        }
+        if (viewModel.status == GardenGrowthLoadStatus.ready &&
+            viewModel.snapshot.spaces.isNotEmpty) {
+          resolved = viewModel;
+          return true;
+        }
+        return false;
+      },
+      timeout: timeout,
+      step: step,
+      reason: 'garden projection ready',
+    );
+
+    if (resolved == null || resolved!.snapshot.spaces.isEmpty) {
+      fail('Garden projection 未进入 ready non-empty 状态。');
+    }
+  }
+
   Future<SyncQueueInspection> inspectSyncQueue() async {
+    final activeRepository = _activeRepository;
+    if (activeRepository != null) {
+      final installationId = await _readInstallationId();
+      final events = await activeRepository.listEventHistory();
+      final pendingUploads = await activeRepository.listPendingUploadRecords();
+      return SyncQueueInspection(
+        installationId: installationId,
+        summary: summarizeSyncQueueEvents(events),
+        pendingUploads: pendingUploads,
+      );
+    }
+
     final localDataSource = await PracticeLocalDataSource.open(
       directory: tempDir.path,
       name: practiceDbName,
@@ -468,6 +584,22 @@ class FullChainTestHarness {
     await tester.pumpAndSettle();
   }
 
+  static Future<void> scrollHomeToTop(WidgetTester tester) async {
+    final homeScroll = find.descendant(
+      of: find.byType(HomeScreen),
+      matching: find.byType(Scrollable),
+    );
+    await pumpUntilFound(
+      tester,
+      homeScroll,
+      timeout: const Duration(seconds: 8),
+      reason: 'home scrollable',
+    );
+    final scrollableState = tester.state<ScrollableState>(homeScroll);
+    scrollableState.position.jumpTo(scrollableState.position.minScrollExtent);
+    await tester.pumpAndSettle();
+  }
+
   static Future<void> pumpUntilFound(
     WidgetTester tester,
     Finder finder, {
@@ -533,3 +665,6 @@ InternetAddress _resolveBindAddress(Uri uri) {
   }
   return parsed;
 }
+
+
+

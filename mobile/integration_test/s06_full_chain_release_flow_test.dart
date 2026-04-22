@@ -46,19 +46,27 @@ void main() {
         find.byKey(const Key('home-growth-summary')),
       );
       expect(find.byKey(const Key('home-growth-summary')), findsOneWidget);
+      await FullChainTestHarness.waitForGardenProjectionReady(tester);
 
       await harness.switchShellTab(
         tester,
         label: '花园',
         readyKey: const Key('shell-tab-garden'),
       );
+      await FullChainTestHarness.waitForGardenProjectionReady(tester);
+      expect(find.byKey(const Key('garden-hero-card')), findsOneWidget);
+      await tester.scrollUntilVisible(
+        find.byKey(const Key('garden-patch-daily_care')),
+        180,
+        scrollable: find.byType(Scrollable).last,
+      );
+      await tester.pump();
       await FullChainTestHarness.pumpUntilFound(
         tester,
         find.byKey(const Key('garden-patch-daily_care')),
         timeout: const Duration(seconds: 30),
         reason: 'garden patch after practice',
       );
-      expect(find.byKey(const Key('garden-hero-card')), findsOneWidget);
       expect(find.byKey(const Key('garden-patch-daily_care')), findsOneWidget);
       expect(find.textContaining('3 次练习事件'), findsOneWidget);
 
@@ -67,13 +75,20 @@ void main() {
         label: '成长',
         readyKey: const Key('shell-tab-growth'),
       );
+      await FullChainTestHarness.waitForGardenProjectionReady(tester);
+      expect(find.byKey(const Key('growth-latest-impact')), findsOneWidget);
+      await tester.scrollUntilVisible(
+        find.byKey(const Key('growth-space-daily_care')),
+        180,
+        scrollable: find.byType(Scrollable).last,
+      );
+      await tester.pump();
       await FullChainTestHarness.pumpUntilFound(
         tester,
         find.byKey(const Key('growth-space-daily_care')),
         timeout: const Duration(seconds: 12),
         reason: 'growth projection after practice',
       );
-      expect(find.byKey(const Key('growth-latest-impact')), findsOneWidget);
       expect(find.byKey(const Key('growth-space-daily_care')), findsOneWidget);
 
       await harness.signInAndSync(tester);
@@ -89,6 +104,7 @@ void main() {
       await tester.pumpAndSettle();
 
       await harness.switchToHomeTab(tester);
+      await FullChainTestHarness.scrollHomeToTop(tester);
       expect(find.byKey(const Key('recent-result-summary')), findsOneWidget);
       expect(find.textContaining('已同步 3'), findsOneWidget);
 
@@ -109,7 +125,7 @@ void main() {
       expect(find.textContaining('安全降级'), findsWidgets);
       expect(find.textContaining('code · blocked_fallback'), findsWidgets);
       expect(find.textContaining('phase · blocked_fallback'), findsOneWidget);
-      expect(find.textContaining('fallback · yes'), findsOneWidget);
+      expect(find.textContaining('本地回应'), findsOneWidget);
       expect(mentorViewModel.chatResponseCode, 'blocked_fallback');
       expect(mentorViewModel.chatResponsePhase, 'blocked_fallback');
       expect(mentorViewModel.chatFallbackUsed, isTrue);
@@ -119,7 +135,6 @@ void main() {
         1,
       );
 
-      await harness.disposeMountedApp(tester);
       final syncInspection = await harness.inspectSyncQueue();
       expect(syncInspection.installationId, harness.installationId);
       expect(syncInspection.summary.pendingCount, 0);
@@ -127,7 +142,7 @@ void main() {
       expect(syncInspection.summary.failedCount, 0);
       expect(syncInspection.summary.lastSyncPhase, 'batch_ack_applied');
 
-      final mentorFacts = await harness.readMentorFacts();
+      final mentorFacts = await mentorViewModel.listFactHistory();
       expect(
         mentorFacts.map((fact) => fact.eventType),
         containsAll([

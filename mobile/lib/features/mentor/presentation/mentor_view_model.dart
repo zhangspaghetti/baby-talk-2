@@ -203,6 +203,13 @@ class MentorViewModel extends ChangeNotifier {
   String? get audioStatusMessage => _audioStatusMessage;
   String? get audioStatusCode => _audioStatusCode;
 
+  Future<List<MentorFactEvent>> listFactHistory({
+    MentorFactType? eventType,
+    int? limit,
+  }) {
+    return _repository.listFactHistory(eventType: eventType, limit: limit);
+  }
+
   Future<bool> beginPanelSession({
     required String launcher,
     String surface = 'home',
