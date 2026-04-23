@@ -50,21 +50,23 @@ class DbMigrationSmokeTest {
                   and version is not null
                 """,
                 Integer.class);
-        assertThat(appliedCount).isEqualTo(12);
+        assertThat(appliedCount).isEqualTo(13);
 
         Integer trackedVersions = jdbcTemplate.queryForObject(
                 """
                 select count(*)
                 from flyway_schema_history
                 where success = true
-                  and version in ('3', '14')
+                  and version in ('3', '14', '15')
                 """,
                 Integer.class);
-        assertThat(trackedVersions).isEqualTo(2);
+        assertThat(trackedVersions).isEqualTo(3);
 
         assertThat(tableExists("accounts")).isTrue();
         assertThat(tableExists("spring_ai_chat_memory")).isTrue();
         assertThat(tableExists("kg_entities")).isTrue();
+        assertThat(tableExists("admin_principals")).isTrue();
+        assertThat(tableExists("admin_refresh_tokens")).isTrue();
     }
 
     private boolean tableExists(String tableName) {

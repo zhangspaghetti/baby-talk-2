@@ -11,6 +11,9 @@ spring:
     driver-class-name: org.postgresql.Driver
   flyway:
     enabled: false
+  mvc:
+    problemdetails:
+      enabled: false
 
 management:
   endpoints:
@@ -21,3 +24,16 @@ management:
     health:
       show-details: always
       show-components: always
+
+app:
+  admin:
+    auth:
+      issuer: ${BABY_TALK_ADMIN_JWT_ISSUER:babytalk-admin-api}
+      jwt-secret: ${BABY_TALK_ADMIN_JWT_SECRET:babytalk-admin-local-hs256-secret-20260424}
+      access-token-ttl: ${BABY_TALK_ADMIN_ACCESS_TOKEN_TTL:PT15M}
+      refresh-token-ttl: ${BABY_TALK_ADMIN_REFRESH_TOKEN_TTL:P7D}
+      bootstrap:
+        enabled: ${BABY_TALK_ADMIN_BOOTSTRAP_ENABLED:true}
+        username: ${BABY_TALK_ADMIN_BOOTSTRAP_USERNAME:super_admin}
+        password: ${BABY_TALK_ADMIN_BOOTSTRAP_PASSWORD:SuperAdmin123!}
+        display-name: ${BABY_TALK_ADMIN_BOOTSTRAP_DISPLAY_NAME:Super Admin}

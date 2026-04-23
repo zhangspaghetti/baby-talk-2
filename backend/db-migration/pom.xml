@@ -71,6 +71,7 @@
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
                 <configuration>
+                    <failIfNoSpecifiedTests>false</failIfNoSpecifiedTests>
                     <environmentVariables>
                         <DOCKER_HOST>tcp://localhost:2375</DOCKER_HOST>
                         <TESTCONTAINERS_HOST_OVERRIDE>localhost</TESTCONTAINERS_HOST_OVERRIDE>
