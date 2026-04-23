@@ -4,6 +4,7 @@ import com.zhangspaghetti.babytalk.service.AuthConsentSyncService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.Size;
 import java.time.Instant;
 import java.util.List;
 import org.springframework.http.HttpStatus;
@@ -42,6 +43,16 @@ public class AuthConsentSyncController {
                 request.verificationCode(),
                 request.installationId()
         );
+    }
+
+    @PostMapping("/auth/refresh")
+    public AuthConsentSyncService.SessionResponse refresh(@Valid @RequestBody RefreshTokenRequest request) {
+        return authConsentSyncService.refresh(request.refreshToken());
+    }
+
+    @PostMapping("/auth/logout")
+    public AuthConsentSyncService.LogoutResponse logout(@Valid @RequestBody RefreshTokenRequest request) {
+        return authConsentSyncService.logout(request.refreshToken());
     }
 
     @PostMapping("/consent/accept")
@@ -103,6 +114,13 @@ public class AuthConsentSyncController {
             @NotBlank String challengeId,
             @NotBlank String verificationCode,
             @NotBlank String installationId
+    ) {
+    }
+
+    public record RefreshTokenRequest(
+            @NotBlank(message = "refreshToken 不能为空。")
+            @Size(max = 4096, message = "refreshToken 过长。")
+            String refreshToken
     ) {
     }
 

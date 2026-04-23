@@ -44,6 +44,7 @@ class AuthConsentSyncWebTest extends AbstractIntegrationTest {
         jdbcTemplate.execute("delete from interaction_events");
         jdbcTemplate.execute("delete from consent_audit_logs");
         jdbcTemplate.execute("delete from sms_challenges");
+        jdbcTemplate.execute("delete from account_refresh_tokens");
         jdbcTemplate.execute("delete from account_sessions");
         jdbcTemplate.execute("delete from accounts");
     }
@@ -168,6 +169,26 @@ class AuthConsentSyncWebTest extends AbstractIntegrationTest {
                                 """.formatted(challengeId)))
                 .andExpect(status().isBadRequest());
 
+        mockMvc.perform(post("/api/v1/auth/verify")
+                        .header(ApiVersionInterceptor.VERSION_HEADER, "1.2.0")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "challengeId":"%s",
+                                  "verificationCode":"246810",
+                                  "installationId":""
+                                }
+                                """.formatted(challengeId)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("validation_failed"));
+
+        mockMvc.perform(post("/api/v1/auth/refresh")
+                        .header(ApiVersionInterceptor.VERSION_HEADER, "1.2.0")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("validation_failed"));
+
         var session = verifyChallenge(challengeId, "install-alpha");
         mockMvc.perform(post("/api/v1/sync/events")
                         .header(ApiVersionInterceptor.VERSION_HEADER, "1.2.0")
@@ -269,6 +290,11 @@ class AuthConsentSyncWebTest extends AbstractIntegrationTest {
                                 }
                                 """.formatted(challengeId, installationId)))
                 .andExpect(status().isOk())
+                .andExpect(jsonPath("$.tokenType").value("Bearer"))
+                .andExpect(jsonPath("$.accessToken").isNotEmpty())
+                .andExpect(jsonPath("$.refreshToken").isNotEmpty())
+                .andExpect(jsonPath("$.accessTokenExpiresAt").isNotEmpty())
+                .andExpect(jsonPath("$.refreshTokenExpiresAt").isNotEmpty())
                 .andReturn();
         var json = readJson(result.getResponse().getContentAsString());
         return new SessionView(json.get("accountId").asText(), json.get("sessionId").asText());

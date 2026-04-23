@@ -1,6 +1,8 @@
 package com.zhangspaghetti.babytalk.service;
 
 import com.zhangspaghetti.babytalk.config.ApiContractProperties;
+import com.zhangspaghetti.babytalk.config.ConsumerAuthProperties;
+import com.zhangspaghetti.babytalk.security.JwtTokenService;
 import com.zhangspaghetti.babytalk.web.ContractException;
 import java.time.Clock;
 import java.time.Instant;
@@ -13,6 +15,7 @@ import java.util.Set;
 import java.util.UUID;
 import org.springframework.dao.DataAccessException;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.oauth2.jwt.JwtException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -27,18 +30,24 @@ public class AuthConsentSyncService {
     private final SmsVerificationProvider smsVerificationProvider;
     private final HouseholdSharedContextProjector householdSharedContextProjector;
     private final ApiContractProperties contractProperties;
+    private final ConsumerAuthProperties consumerAuthProperties;
+    private final JwtTokenService jwtTokenService;
     private final Clock clock = Clock.systemUTC();
 
     public AuthConsentSyncService(
             AuthConsentSyncRepository repository,
             SmsVerificationProvider smsVerificationProvider,
             HouseholdSharedContextProjector householdSharedContextProjector,
-            ApiContractProperties contractProperties
+            ApiContractProperties contractProperties,
+            ConsumerAuthProperties consumerAuthProperties,
+            JwtTokenService jwtTokenService
     ) {
         this.repository = repository;
         this.smsVerificationProvider = smsVerificationProvider;
         this.householdSharedContextProjector = householdSharedContextProjector;
         this.contractProperties = contractProperties;
+        this.consumerAuthProperties = consumerAuthProperties;
+        this.jwtTokenService = jwtTokenService;
     }
 
     @Transactional
@@ -75,7 +84,7 @@ public class AuthConsentSyncService {
         return new ChallengeResponse(challengeId, issued.maskedPhoneNumber(), issued.codeLength(), issued.expiresAt());
     }
 
-    @Transactional
+    @Transactional(noRollbackFor = ContractException.class)
     public SessionResponse verifyChallenge(String challengeId, String verificationCode, String installationId) {
         if (challengeId == null || challengeId.isBlank()) {
             throw new ContractException(HttpStatus.BAD_REQUEST, "challenge_id_required", "challengeId 不能为空。");
@@ -113,22 +122,84 @@ public class AuthConsentSyncService {
                 ));
 
         var sessionId = "sess_" + UUID.randomUUID();
-        repository.insertSession(
-                new AuthConsentSyncRepository.SessionContextRow(
-                        sessionId,
-                        account.accountId(),
-                        normalizedInstallationId,
-                        "active",
-                        now,
-                        null,
-                        account.phoneNumber(),
-                        account.status(),
-                        account.latestConsentStatus(),
-                        account.createdAt(),
-                        account.deletedAt()
-                )
+        var session = new AuthConsentSyncRepository.SessionContextRow(
+                sessionId,
+                account.accountId(),
+                normalizedInstallationId,
+                "active",
+                now,
+                null,
+                account.phoneNumber(),
+                account.status(),
+                account.latestConsentStatus(),
+                account.createdAt(),
+                account.deletedAt()
         );
-        return new SessionResponse(account.accountId(), sessionId, maskPhone(account.phoneNumber()), now, account.latestConsentStatus());
+        repository.insertSession(session);
+        var refreshTokenId = newRefreshTokenId();
+        insertActiveRefreshToken(account.accountId(), session.sessionId(), refreshTokenId, now);
+        return buildSessionResponse(account, session, refreshTokenId);
+    }
+
+    @Transactional(noRollbackFor = ContractException.class)
+    public SessionResponse refresh(String rawRefreshToken) {
+        var decodedRefreshToken = decodeRefreshToken(rawRefreshToken);
+        var refreshToken = repository.lockRefreshToken(decodedRefreshToken.tokenId())
+                .orElseThrow(() -> invalidRefreshToken("not_found"));
+        if (!refreshClaimsMatchRow(decodedRefreshToken, refreshToken)) {
+            log.warn("consumer-auth refresh rejected. reason=claim_mismatch");
+            throw invalidRefreshToken("claim_mismatch");
+        }
+
+        var now = Instant.now(clock);
+        var status = resolveRefreshTokenStatus(refreshToken, now);
+        if (status != RefreshTokenStatus.ACTIVE) {
+            log.warn("consumer-auth refresh rejected. accountId={} reason={}", refreshToken.accountId(), status.name().toLowerCase(Locale.ROOT));
+            throw refreshTokenException(status);
+        }
+
+        var session = repository.findSessionAnyStatus(refreshToken.sessionId())
+                .orElseThrow(() -> invalidRefreshToken("session_not_found"));
+        if (!refreshToken.accountId().equals(session.accountId())) {
+            log.warn("consumer-auth refresh rejected. accountId={} reason=session_mismatch", refreshToken.accountId());
+            throw invalidRefreshToken("session_mismatch");
+        }
+        if (!"active".equals(session.sessionStatus())) {
+            log.warn("consumer-auth refresh rejected. accountId={} reason=session_invalid", refreshToken.accountId());
+            throw invalidRefreshToken("session_invalid");
+        }
+        var account = repository.findAccountById(refreshToken.accountId())
+                .filter(candidate -> "active".equals(candidate.status()))
+                .orElseThrow(() -> invalidRefreshToken("account_missing"));
+
+        var replacementTokenId = newRefreshTokenId();
+        repository.rotateRefreshToken(refreshToken.refreshTokenId(), replacementTokenId, now);
+        insertActiveRefreshToken(account.accountId(), session.sessionId(), replacementTokenId, now);
+        log.info("consumer-auth refresh success. accountId={}", account.accountId());
+        return buildSessionResponse(account, session, replacementTokenId);
+    }
+
+    @Transactional(noRollbackFor = ContractException.class)
+    public LogoutResponse logout(String rawRefreshToken) {
+        var decodedRefreshToken = decodeRefreshToken(rawRefreshToken);
+        var refreshToken = repository.lockRefreshToken(decodedRefreshToken.tokenId())
+                .orElseThrow(() -> invalidRefreshToken("not_found"));
+        if (!refreshClaimsMatchRow(decodedRefreshToken, refreshToken)) {
+            log.warn("consumer-auth logout rejected. reason=claim_mismatch");
+            throw invalidRefreshToken("claim_mismatch");
+        }
+
+        var loggedOutAt = Instant.now(clock);
+        var status = resolveRefreshTokenStatus(refreshToken, loggedOutAt);
+        if (status != RefreshTokenStatus.ACTIVE) {
+            log.warn("consumer-auth logout rejected. accountId={} reason={}", refreshToken.accountId(), status.name().toLowerCase(Locale.ROOT));
+            throw refreshTokenException(status);
+        }
+
+        repository.revokeRefreshToken(refreshToken.refreshTokenId(), loggedOutAt);
+        repository.revokeSession(refreshToken.sessionId(), loggedOutAt);
+        log.info("consumer-auth logout success. accountId={}", refreshToken.accountId());
+        return new LogoutResponse(true, loggedOutAt);
     }
 
     @Transactional
@@ -275,6 +346,45 @@ public class AuthConsentSyncService {
                 events,
                 Instant.now(clock)
         );
+    }
+
+    @Transactional
+    public AccessValidationResult validateAccessToken(String accountId, String sessionId, String refreshTokenId) {
+        if (accountId == null || accountId.isBlank() || accountId.length() > 64) {
+            return AccessValidationResult.INVALID;
+        }
+        if (sessionId == null || sessionId.isBlank() || sessionId.length() > 128) {
+            return AccessValidationResult.INVALID;
+        }
+        if (refreshTokenId == null || refreshTokenId.isBlank() || refreshTokenId.length() > 64) {
+            return AccessValidationResult.INVALID;
+        }
+        var refreshToken = repository.findRefreshToken(refreshTokenId).orElse(null);
+        if (refreshToken == null
+                || !accountId.equals(refreshToken.accountId())
+                || !sessionId.equals(refreshToken.sessionId())) {
+            return AccessValidationResult.INVALID;
+        }
+        var status = resolveRefreshTokenStatus(refreshToken, Instant.now(clock));
+        if (status != RefreshTokenStatus.ACTIVE) {
+            return switch (status) {
+                case ROTATED -> AccessValidationResult.ROTATED;
+                case REVOKED -> AccessValidationResult.REVOKED;
+                case EXPIRED -> AccessValidationResult.EXPIRED;
+                default -> AccessValidationResult.INVALID;
+            };
+        }
+        var session = repository.findSessionAnyStatus(sessionId).orElse(null);
+        if (session == null || !accountId.equals(session.accountId())) {
+            return AccessValidationResult.SESSION_INVALID;
+        }
+        if ("deleted".equals(session.accountStatus())) {
+            return AccessValidationResult.ACCOUNT_DELETED;
+        }
+        if (!"active".equals(session.sessionStatus())) {
+            return AccessValidationResult.SESSION_INVALID;
+        }
+        return AccessValidationResult.ACTIVE;
     }
 
     @Transactional(readOnly = true)
@@ -429,6 +539,112 @@ public class AuthConsentSyncService {
         return message.length() > 240 ? message.substring(0, 240) : message;
     }
 
+    private JwtTokenService.DecodedToken decodeRefreshToken(String rawRefreshToken) {
+        try {
+            var decoded = jwtTokenService.decode(requireToken(rawRefreshToken));
+            if (decoded.tokenType() != JwtTokenService.TokenType.REFRESH) {
+                throw invalidRefreshToken("wrong_type");
+            }
+            if (decoded.subject() == null || decoded.subject().isBlank()) {
+                throw invalidRefreshToken("missing_sub");
+            }
+            if (decoded.sessionId() == null || decoded.sessionId().isBlank()) {
+                throw invalidRefreshToken("missing_sid");
+            }
+            if (decoded.refreshTokenId() == null || decoded.refreshTokenId().isBlank()) {
+                throw invalidRefreshToken("missing_rtid");
+            }
+            if (decoded.tokenId() == null || decoded.tokenId().isBlank()) {
+                throw invalidRefreshToken("missing_jti");
+            }
+            if (!decoded.tokenId().equals(decoded.refreshTokenId())) {
+                throw invalidRefreshToken("rtid_mismatch");
+            }
+            if (decoded.sessionId().length() > 128) {
+                throw invalidRefreshToken("invalid_sid");
+            }
+            if (decoded.refreshTokenId().length() > 64) {
+                throw invalidRefreshToken("invalid_rtid");
+            }
+            return decoded;
+        } catch (ContractException exception) {
+            throw exception;
+        } catch (JwtException | IllegalArgumentException exception) {
+            throw invalidRefreshToken("decode_failed");
+        }
+    }
+
+    private boolean refreshClaimsMatchRow(
+            JwtTokenService.DecodedToken decodedRefreshToken,
+            AuthConsentSyncRepository.RefreshTokenRow refreshToken
+    ) {
+        return decodedRefreshToken.subject().equals(refreshToken.accountId())
+                && decodedRefreshToken.sessionId().equals(refreshToken.sessionId())
+                && decodedRefreshToken.refreshTokenId().equals(refreshToken.refreshTokenId());
+    }
+
+    private RefreshTokenStatus resolveRefreshTokenStatus(AuthConsentSyncRepository.RefreshTokenRow refreshToken, Instant now) {
+        if (refreshToken.expiresAt().isBefore(now) && "active".equals(refreshToken.status())) {
+            repository.expireRefreshToken(refreshToken.refreshTokenId(), now);
+            return RefreshTokenStatus.EXPIRED;
+        }
+        return switch (refreshToken.status()) {
+            case "active" -> RefreshTokenStatus.ACTIVE;
+            case "revoked" -> RefreshTokenStatus.REVOKED;
+            case "rotated" -> RefreshTokenStatus.ROTATED;
+            case "expired" -> RefreshTokenStatus.EXPIRED;
+            default -> RefreshTokenStatus.INVALID;
+        };
+    }
+
+    private void insertActiveRefreshToken(String accountId, String sessionId, String refreshTokenId, Instant issuedAt) {
+        repository.insertRefreshToken(new AuthConsentSyncRepository.RefreshTokenRow(
+                refreshTokenId,
+                accountId,
+                sessionId,
+                "active",
+                issuedAt,
+                issuedAt.plus(consumerAuthProperties.refreshTokenTtl()),
+                issuedAt,
+                null,
+                null,
+                null
+        ));
+    }
+
+    private SessionResponse buildSessionResponse(
+            AuthConsentSyncRepository.AccountRow account,
+            AuthConsentSyncRepository.SessionContextRow session,
+            String refreshTokenId
+    ) {
+        var accessToken = jwtTokenService.issueConsumerAccessToken(
+                consumerAuthProperties.issuer(),
+                account.accountId(),
+                session.sessionId(),
+                refreshTokenId,
+                consumerAuthProperties.accessTokenTtl()
+        );
+        var refreshToken = jwtTokenService.issueConsumerRefreshToken(
+                consumerAuthProperties.issuer(),
+                account.accountId(),
+                session.sessionId(),
+                refreshTokenId,
+                consumerAuthProperties.refreshTokenTtl()
+        );
+        return new SessionResponse(
+                account.accountId(),
+                session.sessionId(),
+                maskPhone(account.phoneNumber()),
+                session.createdAt(),
+                session.latestConsentStatus(),
+                accessToken.tokenValue(),
+                refreshToken.tokenValue(),
+                "Bearer",
+                accessToken.expiresAt(),
+                refreshToken.expiresAt()
+        );
+    }
+
     private String normalizePhone(String phoneNumber) {
         if (phoneNumber == null) {
             throw new ContractException(HttpStatus.BAD_REQUEST, "invalid_phone_number", "手机号不能为空。");
@@ -463,11 +679,35 @@ public class AuthConsentSyncService {
         return value.trim();
     }
 
+    private String requireToken(String rawToken) {
+        if (rawToken == null || rawToken.isBlank()) {
+            throw invalidRefreshToken("missing");
+        }
+        return rawToken.trim();
+    }
+
     private Instant requireClientTimestamp(Instant clientTimestamp) {
         if (clientTimestamp == null) {
             throw new ContractException(HttpStatus.BAD_REQUEST, "missing_client_timestamp", "clientTimestamp 不能为空。");
         }
         return clientTimestamp;
+    }
+
+    private ContractException invalidRefreshToken(String reason) {
+        return new ContractException(HttpStatus.UNAUTHORIZED, "invalid_refresh_token", "refresh token 无效。", Map.of("reason", reason));
+    }
+
+    private ContractException refreshTokenException(RefreshTokenStatus status) {
+        return switch (status) {
+            case REVOKED -> new ContractException(HttpStatus.UNAUTHORIZED, "refresh_token_revoked", "refresh token 已失效，请重新登录。", Map.of());
+            case ROTATED -> new ContractException(HttpStatus.UNAUTHORIZED, "refresh_token_rotated", "refresh token 已被轮换，请使用新的 token。", Map.of());
+            case EXPIRED -> new ContractException(HttpStatus.UNAUTHORIZED, "refresh_token_expired", "refresh token 已过期，请重新登录。", Map.of());
+            default -> invalidRefreshToken(status.name().toLowerCase(Locale.ROOT));
+        };
+    }
+
+    private String newRefreshTokenId() {
+        return "crt_" + UUID.randomUUID();
     }
 
     private String maskPhone(String phoneNumber) {
@@ -480,6 +720,24 @@ public class AuthConsentSyncService {
         }
         var trimmed = value.trim();
         return trimmed.length() > 240 ? trimmed.substring(0, 240) : trimmed;
+    }
+
+    public enum AccessValidationResult {
+        ACTIVE,
+        INVALID,
+        ROTATED,
+        REVOKED,
+        EXPIRED,
+        SESSION_INVALID,
+        ACCOUNT_DELETED
+    }
+
+    private enum RefreshTokenStatus {
+        ACTIVE,
+        REVOKED,
+        ROTATED,
+        EXPIRED,
+        INVALID
     }
 
     public record ChallengeResponse(
@@ -495,8 +753,16 @@ public class AuthConsentSyncService {
             String sessionId,
             String maskedPhoneNumber,
             Instant createdAt,
-            String consentStatus
+            String consentStatus,
+            String accessToken,
+            String refreshToken,
+            String tokenType,
+            Instant accessTokenExpiresAt,
+            Instant refreshTokenExpiresAt
     ) {
+    }
+
+    public record LogoutResponse(boolean loggedOut, Instant loggedOutAt) {
     }
 
     public record ConsentResponse(

@@ -45,6 +45,11 @@ management:
       show-components: always
 
 app:
+  auth:
+    issuer: ${BABY_TALK_CONSUMER_JWT_ISSUER:babytalk-app-api}
+    jwt-secret: ${BABY_TALK_CONSUMER_JWT_SECRET:babytalk-consumer-local-hs256-secret-20260424}
+    access-token-ttl: ${BABY_TALK_CONSUMER_ACCESS_TOKEN_TTL:PT15M}
+    refresh-token-ttl: ${BABY_TALK_CONSUMER_REFRESH_TOKEN_TTL:P30D}
   contract:
     min-supported-version: ${BABY_TALK_MIN_SUPPORTED_VERSION:1.2.0}
     upgrade-url: ${BABY_TALK_UPGRADE_URL:https://example.com/baby-talk/upgrade?channel=stable&source=version_gate}

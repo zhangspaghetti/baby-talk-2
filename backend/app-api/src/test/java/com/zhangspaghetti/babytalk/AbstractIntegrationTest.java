@@ -42,6 +42,7 @@ public abstract class AbstractIntegrationTest {
             "interaction_events",
             "consent_audit_logs",
             "sms_challenges",
+            "account_refresh_tokens",
             "account_sessions",
             "accounts"
     );

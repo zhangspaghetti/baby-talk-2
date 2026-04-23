@@ -141,6 +141,107 @@ class AuthConsentSyncRepository {
         return session;
     }
 
+    void insertRefreshToken(RefreshTokenRow refreshToken) {
+        jdbcTemplate.update(
+                """
+                insert into account_refresh_tokens (
+                    refresh_token_id,
+                    account_id,
+                    session_id,
+                    status,
+                    issued_at,
+                    expires_at,
+                    updated_at,
+                    rotated_at,
+                    revoked_at,
+                    replacement_token_id
+                ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                refreshToken.refreshTokenId(),
+                refreshToken.accountId(),
+                refreshToken.sessionId(),
+                refreshToken.status(),
+                Timestamp.from(refreshToken.issuedAt()),
+                Timestamp.from(refreshToken.expiresAt()),
+                Timestamp.from(refreshToken.updatedAt()),
+                toTimestamp(refreshToken.rotatedAt()),
+                toTimestamp(refreshToken.revokedAt()),
+                refreshToken.replacementTokenId()
+        );
+    }
+
+    Optional<RefreshTokenRow> findRefreshToken(String refreshTokenId) {
+        return findOne(
+                """
+                select refresh_token_id, account_id, session_id, status, issued_at, expires_at, updated_at, rotated_at, revoked_at, replacement_token_id
+                from account_refresh_tokens
+                where refresh_token_id = ?
+                """,
+                this::mapRefreshTokenRow,
+                refreshTokenId
+        );
+    }
+
+    Optional<RefreshTokenRow> lockRefreshToken(String refreshTokenId) {
+        return findOne(
+                """
+                select refresh_token_id, account_id, session_id, status, issued_at, expires_at, updated_at, rotated_at, revoked_at, replacement_token_id
+                from account_refresh_tokens
+                where refresh_token_id = ?
+                for update
+                """,
+                this::mapRefreshTokenRow,
+                refreshTokenId
+        );
+    }
+
+    int rotateRefreshToken(String refreshTokenId, String replacementTokenId, Instant rotatedAt) {
+        return jdbcTemplate.update(
+                """
+                update account_refresh_tokens
+                set status = 'rotated', rotated_at = ?, updated_at = ?, replacement_token_id = ?
+                where refresh_token_id = ? and status = 'active'
+                """,
+                Timestamp.from(rotatedAt),
+                Timestamp.from(rotatedAt),
+                replacementTokenId,
+                refreshTokenId
+        );
+    }
+
+    int revokeRefreshToken(String refreshTokenId, Instant revokedAt) {
+        return jdbcTemplate.update(
+                """
+                update account_refresh_tokens
+                set status = 'revoked', revoked_at = ?, updated_at = ?
+                where refresh_token_id = ? and status = 'active'
+                """,
+                Timestamp.from(revokedAt),
+                Timestamp.from(revokedAt),
+                refreshTokenId
+        );
+    }
+
+    int expireRefreshToken(String refreshTokenId, Instant expiredAt) {
+        return jdbcTemplate.update(
+                """
+                update account_refresh_tokens
+                set status = 'expired', updated_at = ?
+                where refresh_token_id = ? and status = 'active'
+                """,
+                Timestamp.from(expiredAt),
+                refreshTokenId
+        );
+    }
+
+    int revokeSession(String sessionId, Instant revokedAt) {
+        return jdbcTemplate.update(
+                "update account_sessions set status = 'revoked', revoked_at = ? where session_id = ? and status = 'active'",
+                Timestamp.from(revokedAt),
+                sessionId
+        );
+    }
+
     Optional<SessionContextRow> findActiveSession(String sessionId) {
         return findSession(sessionId, true);
     }
@@ -369,6 +470,21 @@ class AuthConsentSyncRepository {
         );
     }
 
+    private RefreshTokenRow mapRefreshTokenRow(ResultSet rs, int rowNum) throws SQLException {
+        return new RefreshTokenRow(
+                rs.getString("refresh_token_id"),
+                rs.getString("account_id"),
+                rs.getString("session_id"),
+                rs.getString("status"),
+                rs.getTimestamp("issued_at").toInstant(),
+                rs.getTimestamp("expires_at").toInstant(),
+                rs.getTimestamp("updated_at").toInstant(),
+                toInstant(rs.getTimestamp("rotated_at")),
+                toInstant(rs.getTimestamp("revoked_at")),
+                rs.getString("replacement_token_id")
+        );
+    }
+
     private StoredInteractionEvent mapStoredInteractionEvent(ResultSet rs) throws SQLException {
         return new StoredInteractionEvent(
                 rs.getString("event_key"),
@@ -425,6 +541,20 @@ class AuthConsentSyncRepository {
             String latestConsentStatus,
             Instant accountCreatedAt,
             Instant accountDeletedAt
+    ) {
+    }
+
+    record RefreshTokenRow(
+            String refreshTokenId,
+            String accountId,
+            String sessionId,
+            String status,
+            Instant issuedAt,
+            Instant expiresAt,
+            Instant updatedAt,
+            Instant rotatedAt,
+            Instant revokedAt,
+            String replacementTokenId
     ) {
     }
 

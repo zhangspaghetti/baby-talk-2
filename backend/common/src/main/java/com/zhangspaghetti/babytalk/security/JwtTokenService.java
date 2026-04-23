@@ -34,11 +34,12 @@ public class JwtTokenService {
             Collection<String> roleCodes,
             Duration ttl
     ) {
+        var now = Instant.now(clock);
         var claims = JwtClaimsSet.builder()
                 .issuer(issuer)
                 .subject(principalId)
-                .issuedAt(Instant.now(clock))
-                .expiresAt(Instant.now(clock).plus(ttl))
+                .issuedAt(now)
+                .expiresAt(now.plus(ttl))
                 .id("aat_" + UUID.randomUUID())
                 .claim("type", TokenType.ACCESS.claimValue())
                 .claim("username", username)
@@ -55,14 +56,57 @@ public class JwtTokenService {
             String refreshTokenId,
             Duration ttl
     ) {
+        var now = Instant.now(clock);
         var claims = JwtClaimsSet.builder()
                 .issuer(issuer)
                 .subject(principalId)
-                .issuedAt(Instant.now(clock))
-                .expiresAt(Instant.now(clock).plus(ttl))
+                .issuedAt(now)
+                .expiresAt(now.plus(ttl))
                 .id(refreshTokenId)
                 .claim("type", TokenType.REFRESH.claimValue())
                 .claim("username", username)
+                .build();
+        return encode(claims);
+    }
+
+    public IssuedToken issueConsumerAccessToken(
+            String issuer,
+            String accountId,
+            String sessionId,
+            String refreshTokenId,
+            Duration ttl
+    ) {
+        var now = Instant.now(clock);
+        var claims = JwtClaimsSet.builder()
+                .issuer(issuer)
+                .subject(accountId)
+                .issuedAt(now)
+                .expiresAt(now.plus(ttl))
+                .id("cat_" + UUID.randomUUID())
+                .claim("type", TokenType.ACCESS.claimValue())
+                .claim("sid", sessionId)
+                .claim("rtid", refreshTokenId)
+                .build();
+        return encode(claims);
+    }
+
+    public IssuedToken issueConsumerRefreshToken(
+            String issuer,
+            String accountId,
+            String sessionId,
+            String refreshTokenId,
+            Duration ttl
+    ) {
+        var now = Instant.now(clock);
+        var claims = JwtClaimsSet.builder()
+                .issuer(issuer)
+                .subject(accountId)
+                .issuedAt(now)
+                .expiresAt(now.plus(ttl))
+                .id(refreshTokenId)
+                .claim("type", TokenType.REFRESH.claimValue())
+                .claim("sid", sessionId)
+                .claim("rtid", refreshTokenId)
                 .build();
         return encode(claims);
     }
@@ -125,6 +169,10 @@ public class JwtTokenService {
 
         public String username() {
             return jwt.getClaimAsString("username");
+        }
+
+        public String sessionId() {
+            return jwt.getClaimAsString("sid");
         }
 
         public String refreshTokenId() {
