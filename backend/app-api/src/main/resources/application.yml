@@ -1,6 +1,6 @@
 spring:
   application:
-    name: babytalk-backend
+    name: babytalk-app-api
   autoconfigure:
     exclude:
       - org.springframework.ai.model.openai.autoconfigure.OpenAiChatAutoConfiguration
@@ -19,7 +19,7 @@ spring:
     password: ${BABY_TALK_DB_PASSWORD:babytalk}
     driver-class-name: org.postgresql.Driver
   flyway:
-    enabled: true
+    enabled: false
     baseline-on-migrate: false
   ai:
     chat:

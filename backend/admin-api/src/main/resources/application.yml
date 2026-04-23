@@ -1,0 +1,23 @@
+server:
+  port: ${SERVER_PORT:8081}
+
+spring:
+  application:
+    name: babytalk-admin-api
+  datasource:
+    url: ${BABY_TALK_DB_URL:jdbc:postgresql://localhost:15432/babytalk}
+    username: ${BABY_TALK_DB_USERNAME:babytalk}
+    password: ${BABY_TALK_DB_PASSWORD:babytalk}
+    driver-class-name: org.postgresql.Driver
+  flyway:
+    enabled: false
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: always
+      show-components: always

@@ -1,3 +1,31 @@
+x-app-runtime-env: &app-runtime-env
+  BABY_TALK_DB_URL: "jdbc:postgresql://postgres:5432/babytalk"
+  BABY_TALK_DB_USERNAME: "babytalk"
+  BABY_TALK_DB_PASSWORD: "babytalk"
+  BABY_TALK_SMS_PROVIDER_MODE: "dev"
+  BABY_TALK_MENTOR_PROVIDER_MODE: "dev"
+  BABY_TALK_MENTOR_SEARCH_MODE: "${BABY_TALK_MENTOR_SEARCH_MODE:-none}"
+  BABY_TALK_MINIO_ENDPOINT: "http://minio:9000"
+  BABY_TALK_MINIO_ACCESS_KEY: "babytalk"
+  BABY_TALK_MINIO_SECRET_KEY: "babytalk123"
+  BABY_TALK_EMBEDDING_BASE_URL: "${BABY_TALK_EMBEDDING_BASE_URL:-https://models.inference.ai.azure.com}"
+  BABY_TALK_EMBEDDING_API_KEY: "${BABY_TALK_EMBEDDING_API_KEY:-dev-placeholder-key}"
+  BABY_TALK_EMBEDDING_MODEL: "${BABY_TALK_EMBEDDING_MODEL:-text-embedding-3-small}"
+  BABY_TALK_EMBEDDING_DIMENSIONS: "${BABY_TALK_EMBEDDING_DIMENSIONS:-1536}"
+  BABY_TALK_AI_BASE_URL: "${BABY_TALK_AI_BASE_URL:-https://models.inference.ai.azure.com}"
+  BABY_TALK_AI_API_KEY: "${BABY_TALK_AI_API_KEY:-}"
+  BABY_TALK_AI_MODEL: "${BABY_TALK_AI_MODEL:-gpt-4o-mini}"
+  BABY_TALK_MENTOR_SESSION_TIMEOUT: "${BABY_TALK_MENTOR_SESSION_TIMEOUT:-PT30M}"
+  BABY_TALK_MENTOR_PRACTICE_RESPONSE_MAX_LENGTH: "${BABY_TALK_MENTOR_PRACTICE_RESPONSE_MAX_LENGTH:-2000}"
+  BABY_TALK_KG_REVIEW_ENABLED: "${BABY_TALK_KG_REVIEW_ENABLED:-false}"
+  BABY_TALK_KG_REVIEW_INTERVAL: "${BABY_TALK_KG_REVIEW_INTERVAL:-PT5M}"
+  BABY_TALK_KG_REVIEW_BATCH_SIZE: "${BABY_TALK_KG_REVIEW_BATCH_SIZE:-10}"
+
+x-db-env: &db-env
+  BABY_TALK_DB_URL: "jdbc:postgresql://postgres:5432/babytalk"
+  BABY_TALK_DB_USERNAME: "babytalk"
+  BABY_TALK_DB_PASSWORD: "babytalk"
+
 services:
   postgres:
     image: pgvector/pgvector:pg16
@@ -36,9 +64,23 @@ services:
       - minio-data:/data
     restart: unless-stopped
 
-  backend:
+  db-migration:
     build:
       context: ./backend
+      args:
+        MODULE: db-migration
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      <<: *db-env
+    restart: "no"
+
+  app-api:
+    build:
+      context: ./backend
+      args:
+        MODULE: app-api
     ports:
       - "8080:8080"
     depends_on:
@@ -46,33 +88,39 @@ services:
         condition: service_healthy
       minio:
         condition: service_healthy
+      db-migration:
+        condition: service_completed_successfully
     environment:
-      BABY_TALK_DB_URL: "jdbc:postgresql://postgres:5432/babytalk"
-      BABY_TALK_DB_USERNAME: "babytalk"
-      BABY_TALK_DB_PASSWORD: "babytalk"
-      BABY_TALK_SMS_PROVIDER_MODE: "dev"
-      BABY_TALK_MENTOR_PROVIDER_MODE: "dev"
-      BABY_TALK_MENTOR_SEARCH_MODE: "${BABY_TALK_MENTOR_SEARCH_MODE:-none}"
-      BABY_TALK_MINIO_ENDPOINT: "http://minio:9000"
-      BABY_TALK_MINIO_ACCESS_KEY: "babytalk"
-      BABY_TALK_MINIO_SECRET_KEY: "babytalk123"
-      BABY_TALK_EMBEDDING_BASE_URL: "${BABY_TALK_EMBEDDING_BASE_URL:-https://models.inference.ai.azure.com}"
-      BABY_TALK_EMBEDDING_API_KEY: "${BABY_TALK_EMBEDDING_API_KEY:-dev-placeholder-key}"
-      BABY_TALK_EMBEDDING_MODEL: "${BABY_TALK_EMBEDDING_MODEL:-text-embedding-3-small}"
-      BABY_TALK_EMBEDDING_DIMENSIONS: "${BABY_TALK_EMBEDDING_DIMENSIONS:-1536}"
-      BABY_TALK_AI_BASE_URL: "${BABY_TALK_AI_BASE_URL:-https://models.inference.ai.azure.com}"
-      BABY_TALK_AI_API_KEY: "${BABY_TALK_AI_API_KEY:-}"
-      BABY_TALK_AI_MODEL: "${BABY_TALK_AI_MODEL:-gpt-4o-mini}"
-      BABY_TALK_MENTOR_SESSION_TIMEOUT: "${BABY_TALK_MENTOR_SESSION_TIMEOUT:-PT30M}"
-      BABY_TALK_MENTOR_PRACTICE_RESPONSE_MAX_LENGTH: "${BABY_TALK_MENTOR_PRACTICE_RESPONSE_MAX_LENGTH:-2000}"
-      BABY_TALK_KG_REVIEW_ENABLED: "${BABY_TALK_KG_REVIEW_ENABLED:-false}"
-      BABY_TALK_KG_REVIEW_INTERVAL: "${BABY_TALK_KG_REVIEW_INTERVAL:-PT5M}"
-      BABY_TALK_KG_REVIEW_BATCH_SIZE: "${BABY_TALK_KG_REVIEW_BATCH_SIZE:-10}"
+      <<: *app-runtime-env
+      SERVER_PORT: "8080"
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:8080/actuator/health || exit 1"]
       interval: 30s
       timeout: 10s
-      retries: 3
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+
+  admin-api:
+    build:
+      context: ./backend
+      args:
+        MODULE: admin-api
+    ports:
+      - "8081:8081"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      db-migration:
+        condition: service_completed_successfully
+    environment:
+      <<: *db-env
+      SERVER_PORT: "8081"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8081/actuator/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
       start_period: 30s
     restart: unless-stopped
 
