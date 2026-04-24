@@ -164,7 +164,13 @@ async function expectJson<T>(response: APIResponse, expectedStatus: number, labe
     throw new Error(`[admin-api seed] ${label} returned an empty body.`);
   }
 
-  return JSON.parse(bodyText) as T;
+  try {
+    return JSON.parse(bodyText) as T;
+  } catch (error) {
+    throw new Error(
+      `[admin-api seed] ${label} returned invalid fixture payload: ${error instanceof Error ? error.message : String(error)}. Body: ${bodyText}`,
+    );
+  }
 }
 
 function uniqueSuffix(): string {
