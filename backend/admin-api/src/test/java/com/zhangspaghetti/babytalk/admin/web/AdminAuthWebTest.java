@@ -2,6 +2,8 @@ package com.zhangspaghetti.babytalk.admin.web;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.hasItem;
+import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.not;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -12,6 +14,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.zhangspaghetti.babytalk.admin.auth.AdminAuthService;
+import com.zhangspaghetti.babytalk.admin.auth.AdminJwtAuthenticationConverter;
 import com.zhangspaghetti.babytalk.admin.rbac.AdminPermissionCatalog;
 import com.zhangspaghetti.babytalk.security.JwtTokenService;
 import java.sql.Timestamp;
@@ -19,11 +22,14 @@ import java.time.Instant;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
@@ -86,6 +92,13 @@ class AdminAuthWebTest {
     @Autowired
     private JwtTokenService jwtTokenService;
 
+    @Autowired
+    @Qualifier("adminAccessTokenJwtDecoder")
+    private JwtDecoder adminAccessTokenJwtDecoder;
+
+    @Autowired
+    private AdminJwtAuthenticationConverter adminJwtAuthenticationConverter;
+
     @BeforeEach
     void resetTables() {
         jdbcTemplate.execute("TRUNCATE TABLE admin_refresh_tokens, admin_principal_roles, admin_roles, admin_principals RESTART IDENTITY CASCADE");
@@ -108,7 +121,7 @@ class AdminAuthWebTest {
     }
 
     @Test
-    void firstSuperAdminSeedCanLoginAndProtectedEndpointRequiresBearerToken() throws Exception {
+    void firstSuperAdminSeedCanLoginAndMeReturnsCurrentPermissions() throws Exception {
         assertThat(queryForInt("select count(*) from admin_principals")).isEqualTo(1);
         assertThat(queryForInt("select count(*) from accounts")).isZero();
         assertThat(queryForInt("select count(*) from account_sessions")).isZero();
@@ -129,10 +142,39 @@ class AdminAuthWebTest {
         mockMvc.perform(get("/api/admin/me")
                         .header(HttpHeaders.AUTHORIZATION, bearer(login.accessToken())))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.principalId").isNotEmpty())
+                .andExpect(jsonPath("$.principalId").value(login.principalId()))
                 .andExpect(jsonPath("$.username").value("super_admin"))
                 .andExpect(jsonPath("$.displayName").value("Super Admin"))
-                .andExpect(jsonPath("$.roles[0]").value("super_admin"));
+                .andExpect(jsonPath("$.roles[0]").value("super_admin"))
+                .andExpect(jsonPath("$.permissions", hasSize(adminPermissionCatalog.codes().size())))
+                .andExpect(jsonPath("$.permissions", hasItem(AdminPermissionCatalog.USERS_READ)));
+    }
+
+    @Test
+    void currentPermissionsReflectDatabaseAfterRoleRemovalOnSameAccessToken() throws Exception {
+        var login = login("super_admin", "SuperAdmin123!");
+        jdbcTemplate.update("delete from admin_principal_roles where principal_id = ?", login.principalId());
+
+        mockMvc.perform(get("/api/admin/me")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(login.accessToken())))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.roles").isEmpty())
+                .andExpect(jsonPath("$.permissions").isEmpty());
+    }
+
+    @Test
+    void authenticationConverterUsesCurrentDatabaseAuthoritiesInsteadOfJwtRolesClaim() throws Exception {
+        var login = login("super_admin", "SuperAdmin123!");
+        var decodedAccessToken = adminAccessTokenJwtDecoder.decode(login.accessToken());
+        assertThat(decodedAccessToken.getClaimAsStringList("roles")).containsExactly("super_admin");
+
+        jdbcTemplate.update("delete from admin_principal_roles where principal_id = ?", login.principalId());
+
+        var authentication = adminJwtAuthenticationConverter.convert(decodedAccessToken);
+        assertThat(authentication).isNotNull();
+        assertThat(authentication.getAuthorities())
+                .extracting(GrantedAuthority::getAuthority)
+                .doesNotContain("ROLE_SUPER_ADMIN", AdminPermissionCatalog.USERS_READ);
     }
 
     @Test
@@ -156,7 +198,9 @@ class AdminAuthWebTest {
         mockMvc.perform(get("/api/admin/me")
                         .header(HttpHeaders.AUTHORIZATION, bearer(refreshed.accessToken())))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.username").value("super_admin"));
+                .andExpect(jsonPath("$.username").value("super_admin"))
+                .andExpect(jsonPath("$.permissions", hasSize(adminPermissionCatalog.codes().size())))
+                .andExpect(jsonPath("$.permissions", hasItem(AdminPermissionCatalog.USERS_READ)));
 
         mockMvc.perform(get("/api/admin/me")
                         .header(HttpHeaders.AUTHORIZATION, bearer(login.accessToken())))
@@ -170,6 +214,24 @@ class AdminAuthWebTest {
                                 """.formatted(login.refreshToken())))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.code").value("refresh_token_rotated"));
+    }
+
+    @Test
+    void disabledPrincipalImmediatelyReturns401WithoutEchoingTokens() throws Exception {
+        var login = login("super_admin", "SuperAdmin123!");
+        var now = Timestamp.from(Instant.now());
+        jdbcTemplate.update(
+                "update admin_principals set status = 'disabled', updated_at = ? where principal_id = ?",
+                now,
+                login.principalId()
+        );
+
+        mockMvc.perform(get("/api/admin/me")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(login.accessToken())))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("admin_account_disabled"))
+                .andExpect(content().string(not(containsString(login.accessToken()))))
+                .andExpect(content().string(not(containsString(login.refreshToken()))));
     }
 
     @Test
@@ -224,6 +286,8 @@ class AdminAuthWebTest {
                 .andExpect(jsonPath("$.accessToken").isNotEmpty())
                 .andExpect(jsonPath("$.refreshToken").isNotEmpty())
                 .andExpect(jsonPath("$.admin.roles[0]").value("super_admin"))
+                .andExpect(jsonPath("$.admin.permissions", hasSize(adminPermissionCatalog.codes().size())))
+                .andExpect(jsonPath("$.admin.permissions", hasItem(AdminPermissionCatalog.USERS_READ)))
                 .andReturn();
         return readTokens(response.getResponse().getContentAsString());
     }
@@ -237,13 +301,18 @@ class AdminAuthWebTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.accessToken").isNotEmpty())
                 .andExpect(jsonPath("$.refreshToken").isNotEmpty())
+                .andExpect(jsonPath("$.admin.permissions", hasSize(adminPermissionCatalog.codes().size())))
+                .andExpect(jsonPath("$.admin.permissions", hasItem(AdminPermissionCatalog.USERS_READ)))
                 .andReturn();
         return readTokens(response.getResponse().getContentAsString());
     }
 
     private TokenView readTokens(String rawJson) throws Exception {
         JsonNode json = objectMapper.readTree(rawJson);
-        return new TokenView(json.get("accessToken").asText(), json.get("refreshToken").asText());
+        return new TokenView(
+                json.get("accessToken").asText(),
+                json.get("refreshToken").asText(),
+                json.get("admin").get("principalId").asText());
     }
 
     private String refreshTokenId(String refreshToken) {
@@ -259,6 +328,6 @@ class AdminAuthWebTest {
         return value == null ? 0 : value;
     }
 
-    private record TokenView(String accessToken, String refreshToken) {
+    private record TokenView(String accessToken, String refreshToken, String principalId) {
     }
 }

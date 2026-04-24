@@ -35,6 +35,7 @@ public class AdminAuthService {
     private final AdminAuthRepository repository;
     private final AdminRbacRepository adminRbacRepository;
     private final AdminPermissionCatalog adminPermissionCatalog;
+    private final AdminAuthorityService adminAuthorityService;
     private final JwtTokenService jwtTokenService;
     private final PasswordEncoder passwordEncoder;
     private final Clock clock;
@@ -44,6 +45,7 @@ public class AdminAuthService {
             AdminAuthRepository repository,
             AdminRbacRepository adminRbacRepository,
             AdminPermissionCatalog adminPermissionCatalog,
+            AdminAuthorityService adminAuthorityService,
             JwtTokenService jwtTokenService,
             PasswordEncoder passwordEncoder,
             Clock clock,
@@ -52,6 +54,7 @@ public class AdminAuthService {
         this.repository = repository;
         this.adminRbacRepository = adminRbacRepository;
         this.adminPermissionCatalog = adminPermissionCatalog;
+        this.adminAuthorityService = adminAuthorityService;
         this.jwtTokenService = jwtTokenService;
         this.passwordEncoder = passwordEncoder;
         this.clock = clock;
@@ -66,7 +69,6 @@ public class AdminAuthService {
                 .filter(candidate -> passwordEncoder.matches(password, candidate.passwordHash()))
                 .orElseThrow(() -> invalidCredentials(normalizedUsername));
 
-        var roleCodes = repository.findRoleCodes(principal.principalId());
         var refreshTokenId = newRefreshTokenId();
         var now = Instant.now(clock);
         var refreshExpiresAt = now.plus(properties.refreshTokenTtl());
@@ -82,8 +84,9 @@ public class AdminAuthService {
                 null
         ));
 
-        log.info("admin-auth login success. username={} roles={}", principal.username(), roleCodes);
-        return buildTokenResponse(principal, roleCodes, refreshTokenId);
+        var authoritySnapshot = currentAuthoritySnapshot(principal.principalId());
+        log.info("admin-auth login success. username={} roles={}", principal.username(), authoritySnapshot.roleCodes());
+        return buildTokenResponse(principal, authoritySnapshot, refreshTokenId);
     }
 
     @Transactional
@@ -117,9 +120,9 @@ public class AdminAuthService {
                 null
         ));
         repository.rotateRefreshToken(refreshToken.refreshTokenId(), replacementTokenId, now);
-        var roleCodes = repository.findRoleCodes(principal.principalId());
-        log.info("admin-auth refresh success. username={} roles={}", principal.username(), roleCodes);
-        return buildTokenResponse(principal, roleCodes, replacementTokenId);
+        var authoritySnapshot = currentAuthoritySnapshot(principal.principalId());
+        log.info("admin-auth refresh success. username={} roles={}", principal.username(), authoritySnapshot.roleCodes());
+        return buildTokenResponse(principal, authoritySnapshot, replacementTokenId);
     }
 
     @Transactional
@@ -151,11 +154,13 @@ public class AdminAuthService {
         if (!"active".equals(principal.status())) {
             throw new AdminAuthContractException(HttpStatus.UNAUTHORIZED, "admin_account_disabled", "管理员账号已停用。", Map.of());
         }
+        var authoritySnapshot = currentAuthoritySnapshot(principal.principalId());
         return new MeResponse(
                 principal.principalId(),
                 principal.username(),
                 principal.displayName(),
-                repository.findRoleCodes(principal.principalId())
+                authoritySnapshot.roleCodes(),
+                authoritySnapshot.permissionCodes()
         );
     }
 
@@ -212,7 +217,7 @@ public class AdminAuthService {
 
     private TokenResponse buildTokenResponse(
             AdminAuthRepository.AdminPrincipalRow principal,
-            List<String> roleCodes,
+            AdminAuthorityService.AuthoritySnapshot authoritySnapshot,
             String refreshTokenId
     ) {
         var accessToken = jwtTokenService.issueAccessToken(
@@ -220,7 +225,7 @@ public class AdminAuthService {
                 principal.principalId(),
                 principal.username(),
                 refreshTokenId,
-                roleCodes,
+                authoritySnapshot.roleCodes(),
                 properties.accessTokenTtl()
         );
         var refreshToken = jwtTokenService.issueRefreshToken(
@@ -236,8 +241,17 @@ public class AdminAuthService {
                 "Bearer",
                 accessToken.expiresAt(),
                 refreshToken.expiresAt(),
-                new MeResponse(principal.principalId(), principal.username(), principal.displayName(), roleCodes)
+                new MeResponse(
+                        principal.principalId(),
+                        principal.username(),
+                        principal.displayName(),
+                        authoritySnapshot.roleCodes(),
+                        authoritySnapshot.permissionCodes())
         );
+    }
+
+    private AdminAuthorityService.AuthoritySnapshot currentAuthoritySnapshot(String principalId) {
+        return adminAuthorityService.loadCurrentAuthorities(principalId);
     }
 
     private JwtTokenService.DecodedToken decodeRefreshToken(String rawRefreshToken) {
@@ -353,7 +367,13 @@ public class AdminAuthService {
     public record LogoutResponse(boolean loggedOut, Instant loggedOutAt) {
     }
 
-    public record MeResponse(String principalId, String username, String displayName, List<String> roles) {
+    public record MeResponse(
+            String principalId,
+            String username,
+            String displayName,
+            List<String> roles,
+            List<String> permissions
+    ) {
     }
 }
 

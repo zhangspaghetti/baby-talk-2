@@ -13,31 +13,24 @@ import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.Collection;
-import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.core.convert.converter.Converter;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
-import org.springframework.security.authentication.AbstractAuthenticationToken;
 import org.springframework.security.authentication.BadCredentialsException;
-import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
-import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.oauth2.core.DelegatingOAuth2TokenValidator;
 import org.springframework.security.oauth2.core.OAuth2Error;
 import org.springframework.security.oauth2.core.OAuth2TokenValidator;
@@ -54,8 +47,6 @@ import org.springframework.security.oauth2.server.resource.web.authentication.Be
 import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.access.AccessDeniedHandler;
-import org.springframework.security.web.authentication.HttpStatusEntryPoint;
-import org.springframework.security.web.util.matcher.RequestMatcher;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.filter.OncePerRequestFilter;
@@ -120,14 +111,6 @@ public class AdminSecurityConfig {
         return new BCryptPasswordEncoder();
     }
 
-    private Converter<Jwt, ? extends AbstractAuthenticationToken> adminJwtAuthenticationConverter() {
-        return jwt -> new JwtAuthenticationToken(
-                jwt,
-                toAuthorities(jwt.getClaimAsStringList("roles")),
-                jwt.getClaimAsString("username")
-        );
-    }
-
     @Bean
     AuthenticationEntryPoint adminAuthenticationEntryPoint(ObjectMapper objectMapper) {
         return (request, response, authException) -> writeError(
@@ -159,6 +142,7 @@ public class AdminSecurityConfig {
     SecurityFilterChain adminSecurityFilterChain(
             HttpSecurity http,
             @Qualifier("adminAccessTokenJwtDecoder") JwtDecoder adminAccessTokenJwtDecoder,
+            AdminJwtAuthenticationConverter adminJwtAuthenticationConverter,
             AdminSessionGuardFilter adminSessionGuardFilter,
             AuthenticationEntryPoint adminAuthenticationEntryPoint,
             AccessDeniedHandler adminAccessDeniedHandler
@@ -183,7 +167,7 @@ public class AdminSecurityConfig {
                         .anyRequest().authenticated())
                 .oauth2ResourceServer(oauth2 -> oauth2.jwt(jwt -> jwt
                         .decoder(adminAccessTokenJwtDecoder)
-                        .jwtAuthenticationConverter(adminJwtAuthenticationConverter())));
+                        .jwtAuthenticationConverter(adminJwtAuthenticationConverter::convert)));
         http.addFilterAfter(adminSessionGuardFilter, BearerTokenAuthenticationFilter.class);
         return http.build();
     }
@@ -202,16 +186,6 @@ public class AdminSecurityConfig {
             }
             return OAuth2TokenValidatorResult.success();
         };
-    }
-
-    private Collection<SimpleGrantedAuthority> toAuthorities(List<String> roleCodes) {
-        if (roleCodes == null) {
-            return List.of();
-        }
-        return roleCodes.stream()
-                .map(roleCode -> "ROLE_" + roleCode.replace('-', '_').toUpperCase())
-                .map(SimpleGrantedAuthority::new)
-                .collect(Collectors.toList());
     }
 
     private String resolveAuthenticationFailureCode(HttpServletRequest request) {

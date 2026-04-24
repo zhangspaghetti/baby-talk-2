@@ -17,6 +17,33 @@ public class AdminRbacRepository {
         this.jdbcTemplate = jdbcTemplate;
     }
 
+    public AuthoritySnapshot findAuthoritySnapshot(String principalId) {
+        if (principalId == null || principalId.isBlank()) {
+            return AuthoritySnapshot.empty();
+        }
+
+        var roleCodes = new LinkedHashSet<String>();
+        var permissionCodes = new LinkedHashSet<String>();
+        jdbcTemplate.query(
+                """
+                select apr.role_code, arp.permission_code
+                from admin_principal_roles apr
+                left join admin_role_permissions arp on arp.role_code = apr.role_code
+                where apr.principal_id = ?
+                order by apr.role_code asc, arp.permission_code asc
+                """,
+                resultSet -> {
+                    roleCodes.add(resultSet.getString("role_code"));
+                    var permissionCode = resultSet.getString("permission_code");
+                    if (permissionCode != null && !permissionCode.isBlank()) {
+                        permissionCodes.add(permissionCode);
+                    }
+                },
+                principalId
+        );
+        return new AuthoritySnapshot(List.copyOf(roleCodes), List.copyOf(permissionCodes));
+    }
+
     public List<String> findRoleCodes(String principalId) {
         return jdbcTemplate.queryForList(
                 """
@@ -136,5 +163,12 @@ public class AdminRbacRepository {
             String description,
             Instant grantedAt
     ) {
+    }
+
+    public record AuthoritySnapshot(List<String> roleCodes, List<String> permissionCodes) {
+
+        public static AuthoritySnapshot empty() {
+            return new AuthoritySnapshot(List.of(), List.of());
+        }
     }
 }
