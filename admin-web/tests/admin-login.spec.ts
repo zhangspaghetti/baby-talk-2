@@ -29,7 +29,7 @@ test.describe('admin login shell', () => {
     await expect(page.getByTestId('login-error')).toContainText('invalid_admin_credentials');
   });
 
-  test('signs in and reaches the protected stub', async ({ page }) => {
+  test('signs in, resolves /protected to mentor audit, and shows the workspace switcher', async ({ page }) => {
     await page.goto('/login');
 
     const loginResponse = page.waitForResponse((response) =>
@@ -38,6 +38,9 @@ test.describe('admin login shell', () => {
     const meResponse = page.waitForResponse((response) =>
       response.url().includes('/api/admin/me') && response.request().method() === 'GET',
     );
+    const mentorQueueResponse = page.waitForResponse((response) =>
+      response.url().includes('/api/admin/mentor/audits') && response.request().method() === 'GET',
+    );
 
     await page.getByLabel('用户名').fill('super_admin');
     await page.getByLabel('密码').fill('SuperAdmin123!');
@@ -45,10 +48,16 @@ test.describe('admin login shell', () => {
 
     expect((await loginResponse).status()).toBe(200);
     expect((await meResponse).status()).toBe(200);
+    expect((await mentorQueueResponse).status()).toBe(200);
 
-    await expect(page).toHaveURL(/\/protected$/);
+    await expect(page).toHaveURL(/\/mentor\/audits$/);
     await expect(page.getByTestId('protected-shell')).toBeVisible();
+    await expect(page.getByTestId('mentor-audit-page')).toBeVisible();
     await expect(page.getByTestId('session-user')).toContainText('super_admin');
     await expect(page.getByTestId('session-role')).toContainText('super_admin');
+    await expect(page.getByTestId('workspace-switcher')).toBeVisible();
+    await expect(page.getByTestId('workspace-link-mentor-audit')).toBeVisible();
+    await expect(page.getByTestId('workspace-link-distribution-stats')).toBeVisible();
+    await expect(page.getByTestId('workspace-current')).toContainText('Mentor Audit');
   });
 });

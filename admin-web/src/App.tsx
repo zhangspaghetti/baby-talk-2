@@ -13,6 +13,7 @@ import {
   Typography,
 } from 'antd';
 import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
+import DistributionStatsPage from './pages/DistributionStatsPage';
 import MentorAuditPage from './pages/MentorAuditPage';
 import {
   ApiError,
@@ -53,6 +54,40 @@ type RouteState = {
 
 type SessionChangeHandler = (nextSession: AuthSession | null) => void;
 
+type WorkspaceKey = 'mentor-audit' | 'distribution-stats';
+type WorkspacePermission = 'mentor:audit' | 'distribution:read';
+
+type WorkspaceDefinition = {
+  key: WorkspaceKey;
+  path: string;
+  label: string;
+  title: string;
+  description: string;
+  permission: WorkspacePermission;
+  testId: string;
+};
+
+const WORKSPACES: readonly WorkspaceDefinition[] = [
+  {
+    key: 'mentor-audit',
+    path: '/mentor/audits',
+    label: 'Mentor Audit',
+    title: 'Mentor Audit Workspace',
+    description: 'incident-first 审计队列与 detail。',
+    permission: 'mentor:audit',
+    testId: 'workspace-link-mentor-audit',
+  },
+  {
+    key: 'distribution-stats',
+    path: '/distribution/stats',
+    label: 'Distribution Stats',
+    title: 'Distribution Stats Workspace',
+    description: 'release/share truthful read-only stats。',
+    permission: 'distribution:read',
+    testId: 'workspace-link-distribution-stats',
+  },
+] as const;
+
 function App() {
   const [session, setSession] = useState<AuthSession | null>(() => loadStoredSession());
 
@@ -79,6 +114,14 @@ function App() {
       />
       <Route
         path="/mentor/audits"
+        element={
+          <ProtectedRoute session={session}>
+            <ProtectedWorkspace session={session} onSessionChange={onSessionChange} />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/distribution/stats"
         element={
           <ProtectedRoute session={session}>
             <ProtectedWorkspace session={session} onSessionChange={onSessionChange} />
@@ -228,11 +271,11 @@ function ProtectedWorkspace({
   const location = useLocation();
   const [loading, setLoading] = useState(true);
   const [loggingOut, setLoggingOut] = useState(false);
-  const [me, setMe] = useState<AdminIdentity | null>(session.admin);
+  const [me, setMe] = useState<AdminIdentity | null>(null);
   const [error, setError] = useState<ApiError | null>(null);
   const [reloadNonce, setReloadNonce] = useState(0);
 
-  const handleUnauthorized = useCallback(
+  const handleSessionReset = useCallback(
     (apiError: ApiError) => {
       onSessionChange(null);
       navigate('/login', {
@@ -240,7 +283,7 @@ function ProtectedWorkspace({
         state: {
           returnTo: location.pathname + location.search,
           banner: {
-            type: 'warning',
+            type: apiError.code === 'invalid_response_payload' ? 'error' : 'warning',
             message: apiError.message,
             code: apiError.code,
           } satisfies BannerState,
@@ -276,8 +319,8 @@ function ProtectedWorkspace({
           return;
         }
 
-        if (apiError.status === 401) {
-          handleUnauthorized(normalizeMeUnauthorizedError(apiError));
+        if (shouldResetSessionFromMeError(apiError)) {
+          handleSessionReset(normalizeMeResetError(apiError));
           return;
         }
 
@@ -295,7 +338,7 @@ function ProtectedWorkspace({
     return () => {
       cancelled = true;
     };
-  }, [handleUnauthorized, onSessionChange, reloadNonce, session]);
+  }, [handleSessionReset, onSessionChange, reloadNonce, session]);
 
   const handleLogout = async () => {
     setLoggingOut(true);
@@ -318,6 +361,36 @@ function ProtectedWorkspace({
     }
   };
 
+  const requestedWorkspace = useMemo(() => findWorkspaceByPath(location.pathname), [location.pathname]);
+  const availableWorkspaces = useMemo(
+    () => (me ? WORKSPACES.filter((workspace) => hasPermission(me, workspace.permission)) : []),
+    [me],
+  );
+  const activeWorkspace = useMemo(() => {
+    if (!requestedWorkspace || !me) {
+      return null;
+    }
+    return hasPermission(me, requestedWorkspace.permission) ? requestedWorkspace : null;
+  }, [me, requestedWorkspace]);
+  const displayAdmin = me ?? session.admin;
+
+  useEffect(() => {
+    if (loading || error || !me) {
+      return;
+    }
+    if (location.pathname === '/protected' && availableWorkspaces.length > 0) {
+      navigate(availableWorkspaces[0].path, { replace: true });
+    }
+  }, [availableWorkspaces, error, loading, location.pathname, me, navigate]);
+
+  const showLandingResolver = !loading && !error && me && location.pathname === '/protected' && availableWorkspaces.length > 0;
+  const showPermissionDenied =
+    !loading &&
+    !error &&
+    me &&
+    ((location.pathname === '/protected' && availableWorkspaces.length === 0) ||
+      (location.pathname !== '/protected' && requestedWorkspace != null && activeWorkspace == null));
+
   return (
     <Layout style={pageStyle}>
       <Layout.Content style={{ padding: 24 }}>
@@ -335,10 +408,10 @@ function ProtectedWorkspace({
               >
                 <Space direction="vertical" size={4}>
                   <Typography.Title level={2} style={{ marginBottom: 0 }}>
-                    Admin Mentor Audit Workspace
+                    BabyTalk Admin Workspaces
                   </Typography.Title>
                   <Typography.Paragraph type="secondary" style={{ marginBottom: 0 }}>
-                    这个 minimal shell 会先刷新 `/api/admin/me`，再决定是否放行 `mentor:audit` 页面；绝不只凭本地 role 猜测。
+                    这个 shell 会先刷新 `/api/admin/me` 再解析可访问 workspace；本地 session 只作 cache，不能直接决定 landing。
                   </Typography.Paragraph>
                 </Space>
                 <Button type="primary" danger onClick={handleLogout} loading={loggingOut}>
@@ -350,9 +423,9 @@ function ProtectedWorkspace({
                 <Space direction="vertical" size={10} style={{ width: '100%' }}>
                   <Space direction="vertical" size={6}>
                     <Typography.Text strong data-testid="session-user">
-                      {me?.username ?? session.admin.username}
+                      {displayAdmin.username}
                     </Typography.Text>
-                    <Typography.Text>{me?.displayName ?? session.admin.displayName}</Typography.Text>
+                    <Typography.Text>{displayAdmin.displayName}</Typography.Text>
                     <Typography.Text type="secondary">
                       access token expires at: {session.accessTokenExpiresAt}
                     </Typography.Text>
@@ -361,16 +434,16 @@ function ProtectedWorkspace({
                     </Typography.Text>
                   </Space>
                   <Space wrap>
-                    {(me?.roles ?? session.admin.roles).map((role) => (
+                    {displayAdmin.roles.map((role) => (
                       <Tag color="purple" key={role} data-testid={role === 'super_admin' ? 'session-role' : undefined}>
                         {role}
                       </Tag>
                     ))}
                   </Space>
                   <Space wrap>
-                    {(me?.permissions ?? session.admin.permissions).map((permission) => (
+                    {displayAdmin.permissions.map((permission) => (
                       <Tag
-                        color={permission === 'mentor:audit' ? 'success' : 'blue'}
+                        color={permission === 'mentor:audit' ? 'success' : permission === 'distribution:read' ? 'blue' : 'default'}
                         key={permission}
                         data-testid={permission === 'mentor:audit' ? 'session-permission' : undefined}
                       >
@@ -379,6 +452,36 @@ function ProtectedWorkspace({
                     ))}
                   </Space>
                 </Space>
+              </Card>
+
+              <Card size="small" title="Workspace switcher">
+                {loading ? (
+                  <Spin tip="正在解析管理员 workspace…" />
+                ) : (
+                  <Space direction="vertical" size={12} style={{ width: '100%' }}>
+                    <Space wrap data-testid="workspace-switcher">
+                      {availableWorkspaces.map((workspace) => (
+                        <Button
+                          key={workspace.key}
+                          data-testid={workspace.testId}
+                          type={activeWorkspace?.key === workspace.key ? 'primary' : 'default'}
+                          onClick={() => navigate(workspace.path)}
+                        >
+                          {workspace.label}
+                        </Button>
+                      ))}
+                      {availableWorkspaces.length === 0 ? <Tag color="default">no accessible workspace</Tag> : null}
+                    </Space>
+                    <Typography.Text type="secondary" data-testid="workspace-current">
+                      current: {activeWorkspace?.label ?? requestedWorkspace?.label ?? 'resolver'}
+                    </Typography.Text>
+                    {availableWorkspaces.length > 0 ? (
+                      <Typography.Text type="secondary">
+                        available: {availableWorkspaces.map((workspace) => workspace.description).join(' · ')}
+                      </Typography.Text>
+                    ) : null}
+                  </Space>
+                )}
               </Card>
 
               {loading ? (
@@ -406,15 +509,34 @@ function ProtectedWorkspace({
                 />
               ) : null}
 
-              {!loading && !error && me && !hasPermission(me, 'mentor:audit') ? (
+              {showLandingResolver ? (
+                <Alert
+                  showIcon
+                  type="info"
+                  message="正在进入默认 workspace"
+                  description={`按优先级解析到 ${availableWorkspaces[0].label}…`}
+                />
+              ) : null}
+
+              {showPermissionDenied ? (
                 <div data-testid="permission-denied-state">
                   <Alert
                     showIcon
                     type="warning"
-                    message="当前账号缺少 mentor:audit 权限"
+                    message={
+                      location.pathname === '/protected'
+                        ? '当前账号没有任何可访问 workspace'
+                        : `当前账号缺少 ${requestedWorkspace?.permission ?? 'required'} 权限`
+                    }
                     description={
                       <Space direction="vertical" size={8}>
-                        <span>浏览器权限守卫已按 backend `permissions` 拒绝访问；请使用带 `mentor:audit` 的管理员账号。</span>
+                        <span>
+                          {availableWorkspaces.length > 0
+                            ? `已保留可访问 workspace switcher，请改走 ${availableWorkspaces
+                                .map((workspace) => workspace.label)
+                                .join(' / ')}。`
+                            : '浏览器不会回落到 mentor-only stub；请使用带目标 workspace 权限的管理员账号。'}
+                        </span>
                         <Typography.Text type="secondary">错误码：forbidden</Typography.Text>
                       </Space>
                     }
@@ -422,8 +544,12 @@ function ProtectedWorkspace({
                 </div>
               ) : null}
 
-              {!loading && !error && me && hasPermission(me, 'mentor:audit') ? (
-                <MentorAuditPage accessToken={session.accessToken} admin={me} onUnauthorized={handleUnauthorized} />
+              {!loading && !error && activeWorkspace?.key === 'mentor-audit' ? (
+                <MentorAuditPage accessToken={session.accessToken} admin={me!} onUnauthorized={handleSessionReset} />
+              ) : null}
+
+              {!loading && !error && activeWorkspace?.key === 'distribution-stats' ? (
+                <DistributionStatsPage accessToken={session.accessToken} admin={me!} onUnauthorized={handleSessionReset} />
               ) : null}
             </Space>
           </Card>
@@ -465,6 +591,10 @@ function normalizeBannerTone(value: AlertProps['type']): BannerTone {
     : 'info';
 }
 
+function findWorkspaceByPath(pathname: string): WorkspaceDefinition | undefined {
+  return WORKSPACES.find((workspace) => workspace.path === pathname);
+}
+
 function sameIdentity(left: AdminIdentity, right: AdminIdentity): boolean {
   return (
     left.principalId === right.principalId &&
@@ -479,6 +609,10 @@ function sameStringList(left: string[], right: string[]): boolean {
   return left.length === right.length && left.every((value, index) => value === right[index]);
 }
 
+function shouldResetSessionFromMeError(error: ApiError): boolean {
+  return error.status === 401 || error.code === 'invalid_response_payload';
+}
+
 function toApiError(error: unknown): ApiError {
   if (error instanceof ApiError) {
     return error;
@@ -489,7 +623,10 @@ function toApiError(error: unknown): ApiError {
   return new ApiError(0, 'unexpected_error', '发生未预期错误。');
 }
 
-function normalizeMeUnauthorizedError(error: ApiError): ApiError {
+function normalizeMeResetError(error: ApiError): ApiError {
+  if (error.code === 'invalid_response_payload') {
+    return new ApiError(401, 'invalid_response_payload', '管理员身份响应异常，已清理本地会话，请重新登录。');
+  }
   if (
     error.code === 'request_failed' ||
     error.code === 'invalid_admin_access_token' ||
