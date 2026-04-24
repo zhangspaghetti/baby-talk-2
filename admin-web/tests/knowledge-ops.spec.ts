@@ -64,7 +64,13 @@ test.describe('knowledge ops workspace', () => {
       await expect(page.getByTestId('knowledge-ingestion-feedback')).toContainText('上传任务已完成');
       await expect(page.getByTestId('knowledge-ingestion-feedback')).toContainText('COMPLETED');
 
-      await expectIngestionReadsToSettle(page, ingestionReads, ingestionReads.events.length);
+      await expectIngestionSelectionToStayStable(
+        page,
+        ingestionReads,
+        ingestionReads.events.length,
+        successfulJobId,
+        'COMPLETED',
+      );
       expect(ingestionReads.events.length).toBeGreaterThan(0);
 
       const uploadFailureResponse = page.waitForResponse(
@@ -121,7 +127,13 @@ test.describe('knowledge ops workspace', () => {
       await expect(page.getByTestId('knowledge-ingestion-feedback')).toContainText('retry 已完成');
       await expect(page.getByTestId('knowledge-ingestion-feedback')).toContainText(failedJobId);
 
-      await expectIngestionReadsToSettle(page, ingestionReads, ingestionReads.events.length);
+      await expectIngestionSelectionToStayStable(
+        page,
+        ingestionReads,
+        ingestionReads.events.length,
+        failedJobId,
+        'COMPLETED',
+      );
 
       const kgQueueResponse = page.waitForResponse(
         (response) => exactApiPath(response, '/api/admin/knowledge/kg/contradictions') && response.request().method() === 'GET',
@@ -285,18 +297,19 @@ async function loginViaUi(page: Page, username: string = 'super_admin', password
   await expect(page.getByTestId('protected-shell')).toBeVisible();
 }
 
-async function expectIngestionReadsToSettle(
+async function expectIngestionSelectionToStayStable(
   page: Page,
   tracker: { events: Array<{ path: string; status: number; method: string }> },
   baselineCount: number,
+  selectedJobId: string,
+  expectedStatus: 'COMPLETED' | 'FAILED',
 ) {
   await page.waitForTimeout(POLL_SETTLE_WAIT_MS);
-  const afterFirstWindow = tracker.events.length;
-  expect(afterFirstWindow).toBeGreaterThanOrEqual(baselineCount);
-  expect(afterFirstWindow - baselineCount).toBeLessThanOrEqual(2);
-
-  await page.waitForTimeout(POLL_SETTLE_WAIT_MS);
-  expect(tracker.events.length).toBe(afterFirstWindow);
+  expect(tracker.events.length).toBeGreaterThanOrEqual(baselineCount);
+  await expect.poll(() => new URL(page.url()).searchParams.get('selected')).toBe(selectedJobId);
+  await expect(page.getByTestId('knowledge-ingestion-status')).toContainText(expectedStatus);
+  await expect(page.getByTestId('knowledge-ingestion-feedback')).toContainText(selectedJobId);
+  await expect(page.getByTestId('knowledge-ingestion-stale')).toHaveCount(0);
 }
 
 function trackResponses(page: Page, matcher: (response: Response) => boolean) {

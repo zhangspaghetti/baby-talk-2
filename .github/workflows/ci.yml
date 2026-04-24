@@ -60,13 +60,13 @@ jobs:
           docker logs ci-docker-relay || true
           exit 1
 
-      - name: Run M006 S08 runtime release verifier
+      - name: Run M006 S08 full release verifier
         id: release_gate
         continue-on-error: true
         timeout-minutes: 45
         env:
           DOCKER_HOST: tcp://localhost:2375
-        run: dart run tool/verify_m006_s08_release.dart --runtime
+        run: dart run tool/verify_m006_s08_release.dart
 
       - name: Upload playwright-report artifact
         if: ${{ always() }}
@@ -90,10 +90,10 @@ jobs:
         if: ${{ always() }}
         run: docker rm -f ci-docker-relay >/dev/null 2>&1 || true
 
-      - name: Fail when runtime release verifier fails
+      - name: Fail when full release verifier fails
         if: ${{ steps.release_gate.outcome != 'success' }}
         run: |
-          echo '::error::dart run tool/verify_m006_s08_release.dart --runtime failed.'
+          echo '::error::dart run tool/verify_m006_s08_release.dart failed.'
           exit 1
 
   mobile-analyze:

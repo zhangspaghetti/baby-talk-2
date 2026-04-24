@@ -37,6 +37,7 @@ const _playwrightConfigPath = 'admin-web/playwright.config.ts';
 const _playwrightGlobalSetupPath = 'admin-web/playwright.global-setup.ts';
 const _playwrightReportDirectoryPath = 'admin-web/playwright-report';
 const _playwrightReportIndexPath = 'admin-web/playwright-report/index.html';
+const _helmSmokeScriptPath = 'ci/k8s-smoke.sh';
 const _appApiHealthUrl = 'http://127.0.0.1:8080/actuator/health';
 const _adminApiHealthUrl = 'http://127.0.0.1:8081/actuator/health';
 const _adminWebUrl = 'http://127.0.0.1:3000/';
@@ -55,15 +56,11 @@ Future<void> main(List<String> args) async {
     exit(64);
   }
 
-  if (options.runHelm) {
-    stderr.writeln(
-      'Helm verification is reserved for later S08 tasks and is not wired yet. '
-      'Use --runtime for the current release-closure proof spine.',
-    );
-    exit(78);
-  }
-
-  stdout.writeln('Selected verification targets: runtime');
+  final selectedTargets = <String>[
+    if (options.runRuntime) 'runtime',
+    if (options.runHelm) 'helm',
+  ];
+  stdout.writeln('Selected verification targets: ${selectedTargets.join(', ')}');
 
   try {
     if (options.runRuntime) {
@@ -80,6 +77,10 @@ Future<void> main(List<String> args) async {
       );
       await _runCanonicalBrowserProof();
     }
+
+    if (options.runHelm) {
+      await _runHelmSmokeProof();
+    }
   } on StepFailure catch (error) {
     stderr.writeln('Verification failed at step: ${error.stepLabel}');
     stderr.writeln(error.message);
@@ -87,7 +88,7 @@ Future<void> main(List<String> args) async {
   }
 
   stdout.writeln('');
-  stdout.writeln('All M006/S08 runtime release verification steps passed.');
+  stdout.writeln('All M006/S08 release verification steps passed.');
 }
 
 Future<void> _verifyRuntimeComposeTruth() async {
@@ -422,6 +423,24 @@ Future<void> _runCanonicalBrowserProof() async {
   stdout.writeln('Playwright HTML report: ${reportIndex.path}');
 }
 
+Future<void> _runHelmSmokeProof() async {
+  const stepLabel = 'Helm | split-stack smoke proof';
+  final smokeScript = File(_helmSmokeScriptPath);
+  if (!smokeScript.existsSync()) {
+    throw StepFailure(
+      stepLabel,
+      'Helm smoke script is missing at ${smokeScript.path}.',
+      1,
+    );
+  }
+
+  await _runCommandStep(
+    stepLabel: stepLabel,
+    spec: _bashCommand([_helmSmokeScriptPath]),
+    timeout: const Duration(minutes: 5),
+  );
+}
+
 Future<void> _runCommandStep({
   required String stepLabel,
   required CommandSpec spec,
@@ -600,6 +619,16 @@ String _redactSensitiveText(String text) {
   return redacted;
 }
 
+CommandSpec _bashCommand(List<String> args, {Map<String, String>? environment}) {
+  return _platformCommand(
+    displayCommand: 'bash ${args.join(' ')}',
+    unixCommand: 'bash',
+    unixArgs: args,
+    windowsArgs: ['bash', ...args],
+    environment: environment,
+  );
+}
+
 CommandSpec _dockerComposeCommand(List<String> args, {Map<String, String>? environment}) {
   return _platformCommand(
     displayCommand: 'docker compose ${args.join(' ')}',
@@ -661,7 +690,14 @@ CommandSpec _platformCommand({
   );
 }
 
-const _usage = '''Usage: dart run tool/verify_m006_s08_release.dart [--runtime] [--helm]\n\nCurrent task wiring:\n  --runtime   Run the migration-first compose + backend + canonical admin browser proof pack.\n  --helm      Reserved for later S08 tasks; currently exits non-zero to avoid false greens.\n\nWith no flags, the verifier currently defaults to --runtime.\n''';
+const _usage = '''Usage: dart run tool/verify_m006_s08_release.dart [--runtime] [--helm]
+
+Verification targets:
+  --runtime   Run the migration-first compose + backend + canonical admin browser proof pack.
+  --helm      Run the named Helm smoke proof (lint/template/test-hook/NOTES truth).
+
+With no flags, the verifier runs the full release gate: runtime + helm.
+''';
 
 class ReleaseVerifierOptions {
   ReleaseVerifierOptions({
@@ -701,6 +737,7 @@ class ReleaseVerifierOptions {
 
     if (!runRuntime && !runHelm && !showHelp && usageError == null) {
       runRuntime = true;
+      runHelm = true;
     }
 
     return ReleaseVerifierOptions(
