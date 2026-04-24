@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(dirname "$SCRIPT_DIR")"
+
+cd "$REPO_ROOT"
+export BABY_TALK_FRONT_DOOR_SHELL=posix
+
+if ! command -v dart >/dev/null 2>&1; then
+  echo "smoke_status=failed"
+  echo "tthw_seconds=0"
+  echo "first_failure_stage=preflight"
+  echo "likely_cause=dart_missing"
+  echo "next_action=Install Dart or Flutter, then rerun ./scripts/dev-verify-admin-demo.sh"
+  exit 127
+fi
+
+exec dart run tool/verify_m006_s13_demo_path.dart smoke "$@"

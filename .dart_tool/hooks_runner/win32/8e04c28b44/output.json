@@ -532,7 +532,7 @@
     },
     {
       "encoding": {
-        "file": "C:\\code\\AI\\baby-talk-2\\.gsd\\worktrees\\M006\\.dart_tool\\hooks_runner\\shared\\win32\\build\\8e04c28b44\\win32_windows_x64.dll",
+        "file": "C:\\Users\\zhang\\.gsd\\projects\\67565506c51a\\worktrees\\M006\\.dart_tool\\hooks_runner\\shared\\win32\\build\\8e04c28b44\\win32_windows_x64.dll",
         "id": "package:win32/win32.dart",
         "link_mode": {
           "type": "dynamic_loading_bundle"
@@ -543,5 +543,5 @@
   ],
   "assets_for_linking": {},
   "status": "success",
-  "timestamp": "2026-04-24 11:21:35.000"
+  "timestamp": "2026-04-25 05:55:54.000"
 }

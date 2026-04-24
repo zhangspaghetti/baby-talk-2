@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url';
 
 const currentDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(currentDir, '..');
+const reuseComposeBoot = process.env.BABY_TALK_PLAYWRIGHT_SKIP_COMPOSE_BOOT === '1';
 
 function run(command: string, args: string[]) {
   spawnSync(command, args, {
@@ -14,6 +15,11 @@ function run(command: string, args: string[]) {
 }
 
 export default async function globalTeardown() {
+  if (reuseComposeBoot) {
+    console.log('[compose-runtime] preserving live stack because BABY_TALK_PLAYWRIGHT_SKIP_COMPOSE_BOOT=1');
+    return;
+  }
+
   run('docker', ['compose', 'stop', 'admin-web', 'admin-api', 'app-api', 'postgres', 'minio']);
   run('docker', ['compose', 'rm', '-sf', 'admin-web', 'admin-api', 'app-api', 'db-migration', 'postgres', 'minio']);
 }
