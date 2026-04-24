@@ -68,7 +68,7 @@ test.describe('admin access and default landing', () => {
       requiredPermissions: ['admins:read'],
     });
     expect(access.permissionCodes).toEqual(['admins:read', 'admins:write', 'users:read']);
-    expect(access.accessibleRoutes.map((route) => route.key)).toEqual(['overview', 'users', 'admin-accounts']);
+    expect(access.accessibleRoutes.map((route) => route.key)).toEqual(['users', 'admin-accounts']);
     expect(access.visibleRoutes.map((route) => route.key)).toEqual(['users']);
     expect(access.domainRoutes.map((route) => route.key)).toEqual(['users']);
     expect(landing).toMatchObject({

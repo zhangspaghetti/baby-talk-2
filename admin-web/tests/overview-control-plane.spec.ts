@@ -1,4 +1,5 @@
 import { expect, test, type Page, type Route } from '@playwright/test';
+import { createAdminWithPermissions } from './helpers/admin-api';
 
 test.describe('overview control plane proof', () => {
   test('renders the truthful overview control plane for super admins', async ({ page }) => {
@@ -7,6 +8,33 @@ test.describe('overview control plane proof', () => {
 
     await expect(page.getByTestId('overview-transport-mode')).toContainText(/live|polling|recovered/);
     await expect(page.getByText('truthful placeholder')).toHaveCount(0);
+  });
+
+  test('lets single-domain overview readers deep-link into /overview while keeping hidden domains fail-closed', async ({
+    page,
+    request,
+  }) => {
+    const distributionReader = await createAdminWithPermissions(request, ['distribution:read'], 'Distribution Reader');
+
+    await loginViaUi(page, {
+      username: distributionReader.username,
+      password: distributionReader.password,
+      expectedUrl: /\/distribution\/stats(?:\?.*)?$/,
+    });
+
+    await page.goto('/overview');
+
+    await expect(page).toHaveURL(/\/overview$/);
+    await expect(page.getByTestId('overview-control-strip')).toBeVisible();
+    await expect(page.getByTestId('overview-inline-diagnostics')).toBeVisible();
+    await expect(page.getByTestId('overview-last-good-snapshot')).not.toContainText('—');
+    await expect(page.getByTestId('overview-visible-domain-count')).toContainText('1');
+    await expect(page.getByTestId('overview-hidden-domain-note')).toContainText('其余 3 个 domain 保持 fail-closed');
+    await expect(page.getByTestId('overview-domain-card-distribution')).toBeVisible();
+    await expect(page.getByTestId('overview-domain-card-knowledge_ingestion')).toHaveCount(0);
+    await expect(page.getByTestId('overview-domain-card-knowledge_kg')).toHaveCount(0);
+    await expect(page.getByTestId('overview-domain-card-mentor_audit')).toHaveCount(0);
+    await expect(page.getByTestId('workspace-link-overview')).toHaveCount(0);
   });
 
   test('renders one stale domain among fresh domains from the overview summary contract', async ({ page }) => {

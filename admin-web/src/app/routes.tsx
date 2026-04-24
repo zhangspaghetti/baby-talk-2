@@ -66,7 +66,7 @@ export const adminWorkspaceRoutes = defineAdminWorkspaceRoutes([
     title: 'Overview',
     description: '多域 freshness、transport fallback 与 next-action 的统一 control plane。',
     icon: <HomeOutlined />,
-    requiredPermissions: ['users:read', 'rag:read', 'kg:read', 'mentor:audit', 'distribution:read'],
+    requiredPermissions: ['rag:read', 'kg:read', 'mentor:audit', 'distribution:read'],
     navVisibility: 'primary',
     defaultLandingWeight: 100,
     testId: 'workspace-link-overview',

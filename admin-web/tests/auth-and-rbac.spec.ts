@@ -72,6 +72,15 @@ test.describe('auth and rbac browser proof', () => {
     await expect(page.getByTestId('workspace-link-mentor-audit')).toHaveCount(0);
     await expect(page.getByTestId('workspace-link-distribution-stats')).toHaveCount(0);
 
+    await page.goto('/overview');
+
+    await expect(page).toHaveURL(/\/403\?from=%2Foverview/);
+    await expect(page.getByTestId('forbidden-page')).toBeVisible();
+    await expect(page.getByTestId('forbidden-query')).toContainText('routeKey=overview');
+    await expect(page.getByTestId('forbidden-query')).toContainText('required=rag%3Aread%2Ckg%3Aread%2Cmentor%3Aaudit%2Cdistribution%3Aread');
+    await expect(page.getByTestId('workspace-link-users')).toBeVisible();
+    await expect(page.getByTestId('workspace-link-overview')).toHaveCount(0);
+
     await page.goto('/mentor/audits?flag=blocked_fallback');
 
     await expect(page).toHaveURL(/\/403\?from=%2Fmentor%2Faudits%3Fflag%3Dblocked_fallback/);
