@@ -11,6 +11,8 @@ import org.springframework.jdbc.core.JdbcTemplate;
 
 public class AdminMentorAuditReadRepository {
 
+    private static final String STATEMENT_TIMEOUT_SQL = "set local statement_timeout = '2000ms'";
+
     private static final String FLAG_CODE_SQL = """
             case
                 when latest.phase = 'blocked_fallback' or latest.failure_code = 'blocked_fallback' then 'blocked_fallback'
@@ -148,6 +150,21 @@ public class AdminMentorAuditReadRepository {
         );
     }
 
+    public OverviewSummaryRow fetchOverviewSummary() {
+        applyStatementTimeout();
+        return jdbcTemplate.queryForObject(
+                baseIncidentCtes() + """
+                        select count(*) as flagged_incident_count,
+                               coalesce(sum(case when flag_code = 'blocked_fallback' then 1 else 0 end), 0) as blocked_fallback_count,
+                               coalesce(sum(case when flag_code = 'rate_limited' then 1 else 0 end), 0) as rate_limited_count,
+                               coalesce(sum(case when retryable = true then 1 else 0 end), 0) as retryable_count,
+                               max(occurred_at) as last_occurred_at
+                        from incidents
+                        """,
+                this::mapOverviewSummary
+        );
+    }
+
     private String baseIncidentCtes() {
         return """
                 with history as (
@@ -248,8 +265,22 @@ public class AdminMentorAuditReadRepository {
         );
     }
 
+    private OverviewSummaryRow mapOverviewSummary(ResultSet resultSet, int rowNum) throws SQLException {
+        return new OverviewSummaryRow(
+                resultSet.getLong("flagged_incident_count"),
+                resultSet.getLong("blocked_fallback_count"),
+                resultSet.getLong("rate_limited_count"),
+                resultSet.getLong("retryable_count"),
+                mapInstant(resultSet.getTimestamp("last_occurred_at"))
+        );
+    }
+
     private Instant mapInstant(Timestamp timestamp) {
         return timestamp == null ? null : timestamp.toInstant();
+    }
+
+    private void applyStatementTimeout() {
+        jdbcTemplate.execute(STATEMENT_TIMEOUT_SQL);
     }
 
     public record QueueIncidentRow(
@@ -305,6 +336,15 @@ public class AdminMentorAuditReadRepository {
             boolean blockedFallback,
             boolean retryable,
             Instant createdAt
+    ) {
+    }
+
+    public record OverviewSummaryRow(
+            long flaggedIncidentCount,
+            long blockedFallbackCount,
+            long rateLimitedCount,
+            long retryableCount,
+            Instant lastOccurredAt
     ) {
     }
 }

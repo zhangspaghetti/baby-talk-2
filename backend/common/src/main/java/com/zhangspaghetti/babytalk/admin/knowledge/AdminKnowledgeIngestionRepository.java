@@ -80,6 +80,21 @@ public class AdminKnowledgeIngestionRepository {
         return rows.isEmpty() ? Optional.empty() : Optional.of(rows.get(0));
     }
 
+    public QueueSummaryRow fetchQueueSummary() {
+        applyStatementTimeout();
+        return jdbcTemplate.queryForObject(
+                """
+                select coalesce(sum(case when status = 'PENDING' then 1 else 0 end), 0) as pending_count,
+                       coalesce(sum(case when status = 'PROCESSING' then 1 else 0 end), 0) as processing_count,
+                       coalesce(sum(case when status = 'FAILED' then 1 else 0 end), 0) as failed_count,
+                       coalesce(sum(case when status = 'COMPLETED' then 1 else 0 end), 0) as completed_count,
+                       max(updated_at) as last_updated_at
+                from ingestion_jobs
+                """,
+                this::mapQueueSummary
+        );
+    }
+
     private IngestionJobRow mapJob(ResultSet resultSet, int rowNum) throws SQLException {
         return new IngestionJobRow(
                 UUID.fromString(resultSet.getString("id")),
@@ -89,6 +104,16 @@ public class AdminKnowledgeIngestionRepository {
                 resultSet.getString("error_message"),
                 mapInstant(resultSet.getTimestamp("created_at")),
                 mapInstant(resultSet.getTimestamp("updated_at"))
+        );
+    }
+
+    private QueueSummaryRow mapQueueSummary(ResultSet resultSet, int rowNum) throws SQLException {
+        return new QueueSummaryRow(
+                resultSet.getLong("pending_count"),
+                resultSet.getLong("processing_count"),
+                resultSet.getLong("failed_count"),
+                resultSet.getLong("completed_count"),
+                mapInstant(resultSet.getTimestamp("last_updated_at"))
         );
     }
 
@@ -108,6 +133,15 @@ public class AdminKnowledgeIngestionRepository {
             String errorMessage,
             Instant createdAt,
             Instant updatedAt
+    ) {
+    }
+
+    public record QueueSummaryRow(
+            long pendingCount,
+            long processingCount,
+            long failedCount,
+            long completedCount,
+            Instant lastUpdatedAt
     ) {
     }
 }

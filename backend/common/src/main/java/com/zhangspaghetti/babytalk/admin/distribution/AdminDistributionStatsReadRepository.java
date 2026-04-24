@@ -13,6 +13,8 @@ import org.springframework.jdbc.core.JdbcTemplate;
 
 public class AdminDistributionStatsReadRepository {
 
+    private static final String STATEMENT_TIMEOUT_SQL = "set local statement_timeout = '2000ms'";
+
     private final JdbcTemplate jdbcTemplate;
 
     public AdminDistributionStatsReadRepository(JdbcTemplate jdbcTemplate) {
@@ -62,6 +64,43 @@ public class AdminDistributionStatsReadRepository {
                 where created_at >= ?
                 """,
                 this::mapSectionSummary,
+                toTimestamp(windowStart)
+        );
+    }
+
+    public OverviewSummaryRow fetchOverviewSummary(Instant windowStart) {
+        applyStatementTimeout();
+        return jdbcTemplate.queryForObject(
+                """
+                with release as (
+                    select count(*) as release_total_events,
+                           coalesce(sum(case when result not in ('page_view', 'redirect') then 1 else 0 end), 0) as release_failure_events,
+                           max(created_at) as release_last_seen_at
+                    from release_distribution_events
+                    where created_at >= ?
+                ),
+                share as (
+                    select count(*) as share_total_events,
+                           coalesce(sum(case when result not in ('create', 'page_view', 'open_app_redirect', 'download_fallback') then 1 else 0 end), 0) as share_failure_events,
+                           max(created_at) as share_last_seen_at
+                    from share_landing_events
+                    where created_at >= ?
+                )
+                select release.release_total_events,
+                       release.release_failure_events,
+                       share.share_total_events,
+                       share.share_failure_events,
+                       case
+                           when release.release_last_seen_at is null then share.share_last_seen_at
+                           when share.share_last_seen_at is null then release.release_last_seen_at
+                           when release.release_last_seen_at > share.share_last_seen_at then release.release_last_seen_at
+                           else share.share_last_seen_at
+                       end as last_seen_at
+                from release
+                cross join share
+                """,
+                this::mapOverviewSummary,
+                toTimestamp(windowStart),
                 toTimestamp(windowStart)
         );
     }
@@ -255,6 +294,16 @@ public class AdminDistributionStatsReadRepository {
         );
     }
 
+    private OverviewSummaryRow mapOverviewSummary(ResultSet resultSet, int rowNum) throws SQLException {
+        return new OverviewSummaryRow(
+                resultSet.getLong("release_total_events"),
+                resultSet.getLong("release_failure_events"),
+                resultSet.getLong("share_total_events"),
+                resultSet.getLong("share_failure_events"),
+                mapInstant(resultSet.getTimestamp("last_seen_at"))
+        );
+    }
+
     private TrendRow mapTrend(ResultSet resultSet, int rowNum) throws SQLException {
         return new TrendRow(
                 mapDate(resultSet.getDate("event_day")),
@@ -311,6 +360,10 @@ public class AdminDistributionStatsReadRepository {
         return Timestamp.from(instant);
     }
 
+    private void applyStatementTimeout() {
+        jdbcTemplate.execute(STATEMENT_TIMEOUT_SQL);
+    }
+
     private Instant mapInstant(Timestamp timestamp) {
         return timestamp == null ? null : timestamp.toInstant();
     }
@@ -323,6 +376,15 @@ public class AdminDistributionStatsReadRepository {
             long totalEvents,
             long successfulEvents,
             long failureEvents,
+            Instant lastSeenAt
+    ) {
+    }
+
+    public record OverviewSummaryRow(
+            long releaseTotalEvents,
+            long releaseFailureEvents,
+            long shareTotalEvents,
+            long shareFailureEvents,
             Instant lastSeenAt
     ) {
     }

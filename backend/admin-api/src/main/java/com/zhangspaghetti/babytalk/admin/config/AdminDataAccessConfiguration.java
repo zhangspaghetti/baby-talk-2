@@ -4,6 +4,7 @@ import com.zhangspaghetti.babytalk.admin.distribution.AdminDistributionStatsRead
 import com.zhangspaghetti.babytalk.admin.knowledge.AdminKnowledgeIngestionRepository;
 import com.zhangspaghetti.babytalk.admin.knowledge.AdminKnowledgeKgRepository;
 import com.zhangspaghetti.babytalk.admin.mentor.AdminMentorAuditReadRepository;
+import com.zhangspaghetti.babytalk.admin.overview.AdminOverviewReadRepository;
 import com.zhangspaghetti.babytalk.admin.rbac.AdminPermissionCatalog;
 import com.zhangspaghetti.babytalk.admin.rbac.AdminRbacRepository;
 import com.zhangspaghetti.babytalk.admin.users.AdminUserReadRepository;
@@ -57,6 +58,21 @@ public class AdminDataAccessConfiguration {
     @Bean
     AdminKnowledgeKgRepository adminKnowledgeKgRepository(JdbcTemplate jdbcTemplate) {
         return new AdminKnowledgeKgRepository(jdbcTemplate);
+    }
+
+    @Bean
+    AdminOverviewReadRepository adminOverviewReadRepository(
+            AdminKnowledgeIngestionRepository adminKnowledgeIngestionRepository,
+            AdminKnowledgeKgRepository adminKnowledgeKgRepository,
+            AdminMentorAuditReadRepository adminMentorAuditReadRepository,
+            AdminDistributionStatsReadRepository adminDistributionStatsReadRepository
+    ) {
+        return new AdminOverviewReadRepository(
+                adminKnowledgeIngestionRepository,
+                adminKnowledgeKgRepository,
+                adminMentorAuditReadRepository,
+                adminDistributionStatsReadRepository
+        );
     }
 
     @Bean

@@ -162,6 +162,44 @@ public class AdminKnowledgeKgRepository {
         );
     }
 
+    public QueueSummaryRow fetchQueueSummary() {
+        applyStatementTimeout();
+        return jdbcTemplate.queryForObject(
+                """
+                with contradiction_summary as (
+                    select coalesce(sum(case when status in ('detected', 'reviewing', 'escalated') then 1 else 0 end), 0) as open_count,
+                           coalesce(sum(case when status = 'escalated' then 1 else 0 end), 0) as escalated_count,
+                           coalesce(sum(case when status = 'resolved' then 1 else 0 end), 0) as resolved_count
+                    from kg_contradictions
+                ),
+                notification_summary as (
+                    select coalesce(sum(case when is_read = false then 1 else 0 end), 0) as unread_notification_count
+                    from kg_admin_notifications
+                ),
+                domain_updates as (
+                    select coalesce(resolved_at, reviewed_at, detected_at) as updated_at
+                    from kg_contradictions
+                    union all
+                    select created_at as updated_at
+                    from kg_admin_notifications
+                )
+                select contradiction_summary.open_count,
+                       contradiction_summary.escalated_count,
+                       contradiction_summary.resolved_count,
+                       notification_summary.unread_notification_count,
+                       max(domain_updates.updated_at) as last_updated_at
+                from contradiction_summary
+                cross join notification_summary
+                left join domain_updates on true
+                group by contradiction_summary.open_count,
+                         contradiction_summary.escalated_count,
+                         contradiction_summary.resolved_count,
+                         notification_summary.unread_notification_count
+                """,
+                this::mapQueueSummary
+        );
+    }
+
     private String contradictionSelect() {
         return """
                 select c.id,
@@ -210,6 +248,16 @@ public class AdminKnowledgeKgRepository {
         );
     }
 
+    private QueueSummaryRow mapQueueSummary(ResultSet resultSet, int rowNum) throws SQLException {
+        return new QueueSummaryRow(
+                resultSet.getLong("open_count"),
+                resultSet.getLong("escalated_count"),
+                resultSet.getLong("unread_notification_count"),
+                resultSet.getLong("resolved_count"),
+                mapInstant(resultSet.getTimestamp("last_updated_at"))
+        );
+    }
+
     private Instant mapInstant(Timestamp timestamp) {
         return timestamp == null ? null : timestamp.toInstant();
     }
@@ -242,6 +290,15 @@ public class AdminKnowledgeKgRepository {
             String message,
             boolean isRead,
             Instant createdAt
+    ) {
+    }
+
+    public record QueueSummaryRow(
+            long openCount,
+            long escalatedCount,
+            long unreadNotificationCount,
+            long resolvedCount,
+            Instant lastUpdatedAt
     ) {
     }
 }
