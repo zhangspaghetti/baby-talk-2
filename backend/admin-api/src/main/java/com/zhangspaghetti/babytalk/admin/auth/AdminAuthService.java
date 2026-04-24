@@ -1,5 +1,7 @@
 package com.zhangspaghetti.babytalk.admin.auth;
 
+import com.zhangspaghetti.babytalk.admin.rbac.AdminPermissionCatalog;
+import com.zhangspaghetti.babytalk.admin.rbac.AdminRbacRepository;
 import com.zhangspaghetti.babytalk.security.JwtTokenService;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -31,6 +33,8 @@ public class AdminAuthService {
     private static final String SUPER_ADMIN_ROLE = "super_admin";
 
     private final AdminAuthRepository repository;
+    private final AdminRbacRepository adminRbacRepository;
+    private final AdminPermissionCatalog adminPermissionCatalog;
     private final JwtTokenService jwtTokenService;
     private final PasswordEncoder passwordEncoder;
     private final Clock clock;
@@ -38,12 +42,16 @@ public class AdminAuthService {
 
     public AdminAuthService(
             AdminAuthRepository repository,
+            AdminRbacRepository adminRbacRepository,
+            AdminPermissionCatalog adminPermissionCatalog,
             JwtTokenService jwtTokenService,
             PasswordEncoder passwordEncoder,
             Clock clock,
             AdminSecurityConfig.AdminAuthProperties properties
     ) {
         this.repository = repository;
+        this.adminRbacRepository = adminRbacRepository;
+        this.adminPermissionCatalog = adminPermissionCatalog;
         this.jwtTokenService = jwtTokenService;
         this.passwordEncoder = passwordEncoder;
         this.clock = clock;
@@ -178,15 +186,16 @@ public class AdminAuthService {
             return;
         }
         var normalizedUsername = normalizeUsername(bootstrap.username());
-        repository.insertRoleIfMissing(SUPER_ADMIN_ROLE, "Built-in super admin role", Instant.now(clock));
+        var now = Instant.now(clock);
+        repository.insertRoleIfMissing(SUPER_ADMIN_ROLE, "Built-in super admin role", now);
+        adminRbacRepository.grantPermissions(SUPER_ADMIN_ROLE, adminPermissionCatalog.codes(), now);
         var existing = repository.findPrincipalByUsername(normalizedUsername);
         if (existing.isPresent()) {
-            repository.grantRole(existing.get().principalId(), SUPER_ADMIN_ROLE, Instant.now(clock));
+            repository.grantRole(existing.get().principalId(), SUPER_ADMIN_ROLE, now);
             log.info("admin-auth bootstrap principal already present. username={}", normalizedUsername);
             return;
         }
 
-        var now = Instant.now(clock);
         var principal = new AdminAuthRepository.AdminPrincipalRow(
                 "admin_" + UUID.randomUUID(),
                 normalizedUsername,

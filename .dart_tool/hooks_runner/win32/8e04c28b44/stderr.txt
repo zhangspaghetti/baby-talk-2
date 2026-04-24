@@ -1,0 +1,5 @@
+(1/5) Failed to download prebuilt asset "win32_windows_x64.dll".
+HttpException: 信号灯超时时间已到, uri = https://github.com/halildurmus/win32/releases/download/win32-prebuilt-assets-v6.1.0/win32_windows_x64.dll
+
+(2/5) Retrying downloading prebuilt asset "win32_windows_x64.dll"...
+

@@ -2,6 +2,7 @@ package com.zhangspaghetti.babytalk.migration;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -69,10 +70,10 @@ class DbMigrationSmokeTest {
                 select count(*)
                 from flyway_schema_history
                 where success = true
-                  and version in ('3', '14', '15', '16')
+                  and version in ('3', '14', '15', '16', '17')
                 """,
                 Integer.class);
-        assertThat(trackedVersions).isEqualTo(4);
+        assertThat(trackedVersions).isEqualTo(5);
 
         assertThat(tableExists("accounts")).isTrue();
         assertThat(tableExists("spring_ai_chat_memory")).isTrue();
@@ -80,6 +81,40 @@ class DbMigrationSmokeTest {
         assertThat(tableExists("admin_principals")).isTrue();
         assertThat(tableExists("admin_refresh_tokens")).isTrue();
         assertThat(tableExists("account_refresh_tokens")).isTrue();
+        assertThat(tableExists("admin_permissions")).isTrue();
+        assertThat(tableExists("admin_role_permissions")).isTrue();
+
+        List<String> expectedPermissionCodes = List.of(
+                "users:read",
+                "users:write",
+                "admins:read",
+                "admins:write",
+                "rbac:read",
+                "rbac:write",
+                "rag:read",
+                "rag:write",
+                "kg:read",
+                "kg:review",
+                "mentor:audit",
+                "distribution:read");
+        List<String> seededPermissionCodes = jdbcTemplate.queryForList(
+                """
+                select permission_code
+                from admin_permissions
+                order by permission_code asc
+                """,
+                String.class);
+        assertThat(seededPermissionCodes)
+                .containsExactlyInAnyOrderElementsOf(expectedPermissionCodes);
+
+        Integer seededSuperAdminGrants = jdbcTemplate.queryForObject(
+                """
+                select count(*)
+                from admin_role_permissions
+                where role_code = 'super_admin'
+                """,
+                Integer.class);
+        assertThat(seededSuperAdminGrants).isEqualTo(expectedPermissionCodes.size());
     }
 
     private boolean tableExists(String tableName) {

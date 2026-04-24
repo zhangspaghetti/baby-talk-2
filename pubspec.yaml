@@ -19,3 +19,6 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+  assets:
+    - assets/content/seed_content.json
+    - assets/audio/phrases/

@@ -12,6 +12,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.zhangspaghetti.babytalk.admin.auth.AdminAuthService;
+import com.zhangspaghetti.babytalk.admin.rbac.AdminPermissionCatalog;
 import com.zhangspaghetti.babytalk.security.JwtTokenService;
 import java.sql.Timestamp;
 import java.time.Instant;
@@ -77,6 +78,9 @@ class AdminAuthWebTest {
     private JdbcTemplate jdbcTemplate;
 
     @Autowired
+    private AdminPermissionCatalog adminPermissionCatalog;
+
+    @Autowired
     private AdminAuthService adminAuthService;
 
     @Autowired
@@ -86,6 +90,21 @@ class AdminAuthWebTest {
     void resetTables() {
         jdbcTemplate.execute("TRUNCATE TABLE admin_refresh_tokens, admin_principal_roles, admin_roles, admin_principals RESTART IDENTITY CASCADE");
         adminAuthService.seedBootstrapPrincipalIfMissing();
+    }
+
+    @Test
+    void sharedPermissionCatalogMatchesMigratedSeedAndBootstrapRegrantsSuperAdminPermissions() {
+        var seededPermissionCodes = jdbcTemplate.queryForList(
+                """
+                select permission_code
+                from admin_permissions
+                order by permission_code asc
+                """,
+                String.class);
+        assertThat(seededPermissionCodes)
+                .containsExactlyInAnyOrderElementsOf(adminPermissionCatalog.codes());
+        assertThat(queryForInt("select count(*) from admin_role_permissions where role_code = 'super_admin'"))
+                .isEqualTo(adminPermissionCatalog.codes().size());
     }
 
     @Test
