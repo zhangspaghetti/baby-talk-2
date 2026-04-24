@@ -255,22 +255,14 @@ function buildQueryString(query: MentorAuditQuery): string {
 }
 
 export const mentorAuditClient = {
-  async listAudits(accessToken: string, query: MentorAuditQuery = {}) {
-    const payload = await requestJson(`/api/admin/mentor/audits${buildQueryString(query)}`, {
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-      },
-    });
+  async listAudits(_accessToken: string, query: MentorAuditQuery = {}) {
+    const payload = await requestJson(`/api/admin/mentor/audits${buildQueryString(query)}`);
     return parseQueue(payload);
   },
 
-  async getAudit(accessToken: string, correlationId: string) {
+  async getAudit(_accessToken: string, correlationId: string) {
     const encodedCorrelationId = encodeURIComponent(correlationId);
-    const payload = await requestJson(`/api/admin/mentor/audits/${encodedCorrelationId}`, {
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-      },
-    });
+    const payload = await requestJson(`/api/admin/mentor/audits/${encodedCorrelationId}`);
     return parseDetail(payload);
   },
 };

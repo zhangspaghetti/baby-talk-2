@@ -5,6 +5,14 @@ import {
   type AdminWorkspaceRouteDefinition,
 } from './routes';
 
+export type AdminRouteAuthorization = {
+  allowed: boolean;
+  matchedPermissions: readonly AdminRoutePermissionCode[];
+  missingPermissions: readonly AdminRoutePermissionCode[];
+  permissionCodes: readonly AdminRoutePermissionCode[];
+  isSuperAdmin: boolean;
+};
+
 export type AdminRouteAccessSnapshot = {
   accessibleRoutes: readonly AdminWorkspaceRouteDefinition[];
   visibleRoutes: readonly AdminWorkspaceRouteDefinition[];
@@ -17,20 +25,26 @@ export function canAccessAdminRoute(
   identity: Pick<AdminIdentity, 'roles' | 'permissions'> | null | undefined,
   route: AdminWorkspaceRouteDefinition,
 ): boolean {
-  if (!identity) {
-    return false;
-  }
+  return resolveAdminRouteAuthorization(identity, route).allowed;
+}
 
-  if (isSuperAdmin(identity)) {
-    return true;
-  }
-
-  if (route.requiredPermissions.length === 0) {
-    return true;
-  }
-
+export function resolveAdminRouteAuthorization(
+  identity: Pick<AdminIdentity, 'roles' | 'permissions'> | null | undefined,
+  route: AdminWorkspaceRouteDefinition,
+): AdminRouteAuthorization {
+  const isSuper = isSuperAdmin(identity);
   const permissionSet = readPermissionSet(identity);
-  return route.requiredPermissions.some((permissionCode) => permissionSet.has(permissionCode));
+  const matchedPermissions = route.requiredPermissions.filter((permissionCode) => permissionSet.has(permissionCode));
+  const missingPermissions = route.requiredPermissions.filter((permissionCode) => !permissionSet.has(permissionCode));
+  const allowed = isSuper || route.requiredPermissions.length === 0 || matchedPermissions.length > 0;
+
+  return {
+    allowed,
+    matchedPermissions,
+    missingPermissions,
+    permissionCodes: Array.from(permissionSet).sort(),
+    isSuperAdmin: isSuper,
+  };
 }
 
 export function resolveAdminRouteAccess(

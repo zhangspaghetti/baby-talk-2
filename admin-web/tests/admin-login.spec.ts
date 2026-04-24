@@ -4,10 +4,11 @@ test.describe('admin login shell', () => {
   test('redirects unauthenticated visitors to login', async ({ page }) => {
     await page.goto('/protected');
 
-    await expect(page).toHaveURL(/\/login$/);
+    await expect(page).toHaveURL(/\/login\?returnTo=%2Fprotected$/);
     await expect(page.getByRole('heading', { name: 'BabyTalk Admin 登录' })).toBeVisible();
     await expect(page.getByTestId('login-banner')).toContainText('请先登录管理员账号');
     await expect(page.getByTestId('login-banner')).toContainText('admin_authentication_required');
+    await expect(page.getByTestId('login-return-to')).toContainText('/protected');
   });
 
   test('shows a visible error for bad credentials', async ({ page }) => {

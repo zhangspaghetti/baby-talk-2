@@ -8,6 +8,10 @@ import {
 } from '@ant-design/icons';
 import type { ApiError, AdminIdentity } from '../lib/authClient';
 
+export const ADMIN_LOGIN_PATH = '/login';
+export const ADMIN_FORBIDDEN_PATH = '/403';
+export const ADMIN_PROTECTED_ALIAS_PATH = '/protected';
+
 export const ADMIN_ROUTE_PERMISSION_CODES = [
   'users:read',
   'rag:read',
@@ -24,6 +28,7 @@ export type AdminWorkspaceRouteKey =
   | 'mentor-safety'
   | 'distribution-stats';
 export type AdminWorkspaceNavVisibility = 'primary' | 'hidden';
+export type AdminForbiddenReason = 'missing-permission' | 'no-accessible-route';
 
 export type AdminRouteComponentProps = {
   accessToken: string;
@@ -125,6 +130,49 @@ export function findAdminWorkspaceRouteByPath(pathname: string): AdminWorkspaceR
 
 export function findAdminWorkspaceRouteByKey(key: string): AdminWorkspaceRouteDefinition | undefined {
   return routesByKey.get(key as AdminWorkspaceRouteKey);
+}
+
+export function normalizeAdminReturnTo(value: string | null | undefined): string | undefined {
+  if (!value || !value.startsWith('/') || value.startsWith('//')) {
+    return undefined;
+  }
+  return value;
+}
+
+export function buildAdminLoginPath(returnTo?: string): string {
+  const safeReturnTo = normalizeAdminReturnTo(returnTo);
+  if (!safeReturnTo) {
+    return ADMIN_LOGIN_PATH;
+  }
+
+  const params = new URLSearchParams();
+  params.set('returnTo', safeReturnTo);
+  return `${ADMIN_LOGIN_PATH}?${params.toString()}`;
+}
+
+export function buildAdminForbiddenPath(input: {
+  from?: string;
+  reason: AdminForbiddenReason;
+  route?: AdminWorkspaceRouteDefinition | null;
+  requiredPermissions?: readonly AdminRoutePermissionCode[];
+}): string {
+  const params = new URLSearchParams();
+  const from = normalizeAdminReturnTo(input.from);
+  const requiredPermissions = input.requiredPermissions ?? input.route?.requiredPermissions ?? [];
+
+  if (from) {
+    params.set('from', from);
+  }
+  params.set('reason', input.reason);
+  if (input.route) {
+    params.set('routeKey', input.route.key);
+  }
+  if (requiredPermissions.length > 0) {
+    params.set('required', requiredPermissions.join(','));
+  }
+
+  const rendered = params.toString();
+  return rendered ? `${ADMIN_FORBIDDEN_PATH}?${rendered}` : ADMIN_FORBIDDEN_PATH;
 }
 
 export function defineAdminWorkspaceRoutes(
