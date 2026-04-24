@@ -106,27 +106,29 @@ bash ci/k8s-smoke.sh
 - NOTES 是否把 `app-api` / `admin-web` 作为 public surface，把 `admin-api` 标成 internal service。
 - 旧的单 workload 资源是否已经被拒绝。
 
-## 5. Repo-root release gate（CI 同款）
+## 5. Repo-root release closure（CI 同款）
 
-在真正发布前，先在仓库根跑一遍完整 gate，确认 compose / Maven / Playwright / Helm 这条链没有回归：
+在真正发布前，先在仓库根跑一遍最终 closure gate，确认 mentor/distribution、Helm、Overview freshness、front-door docs 这条链没有回归：
 
 ```bash
-dart run tool/verify_m006_s08_release.dart
+dart run tool/verify_m006_s14_release_closure.dart
 ```
 
-这个命令默认执行两部分：
+这条命令会顺序执行四个 child gates：
 
-1. **runtime gate**：`docker compose up -d --build` → compose truth → backend test → Playwright canonical admin proof。
-2. **helm gate**：调用 `bash ci/k8s-smoke.sh` 校验 chart、test pod 和 NOTES truth。
+1. `S07` mentor + distribution closure proof
+2. `S08` Helm split-stack smoke（`admin-api` internal-only / hook / NOTES truth）
+3. `S12` Overview freshness + fallback proof
+4. `S13` repo-root front-door truth
 
-排障时优先看 verifier 打印的 failing step label，例如：
+排障时优先看 verifier 打印的 failing child gate label，例如：
 
-- `Runtime | compose boot`
-- `Runtime | migration-first compose truth`
-- `Runtime | canonical admin browser proof pack`
-- `Helm | split-stack smoke proof`
+- `Release closure | S07 mentor + distribution gate`
+- `Release closure | S08 Helm release gate`
+- `Release closure | S12 control-plane freshness gate`
+- `Release closure | S13 repo front-door gate`
 
-这比看旧脚本的模糊报错更快，因为它能直接告诉你失败落在 compose、Playwright 还是 Helm smoke。
+然后直接下钻对应 child verifier / runbook，而不是在 CI YAML 或 ad-hoc shell 里重建一条新的 release command chain。S08 仍然是 Helm deploy truth 的 authoritative child；S14 只负责 composition。
 
 ## 6. 正式发布 / 升级
 
@@ -253,13 +255,14 @@ kubectl logs job/babytalk-db-migration -n babytalk --tail=200 || true
 - `admin-api` service 是否存在且端口仍为 `8081`。
 - `admin-web` 代理 ConfigMap 是否仍指向 `admin-api` service，而不是旧 host。
 
-### D. Repo-root verifier 失败
+### D. Repo-root release closure 失败
 
-优先根据 step label 归类：
+优先根据 child gate label 归类：
 
-- `Runtime | migration-first compose truth`：看 compose 服务健康、`db-migration` 是否 exited=0、两个 actuator 是否 `UP`。
-- `Runtime | canonical admin browser proof pack`：看 `admin-web/playwright-report`。
-- `Helm | split-stack smoke proof`：回到 `bash ci/k8s-smoke.sh` 的具体 FAIL 行。
+- `Release closure | S07 mentor + distribution gate`：回到 `dart run tool/verify_m006_s07_mentor_distribution.dart` 与 `admin-web/playwright-report`。
+- `Release closure | S08 Helm release gate`：回到 `bash ci/k8s-smoke.sh` 与当前 Helm 渲染/NOTES truth。
+- `Release closure | S12 control-plane freshness gate`：回到 `dart run tool/verify_m006_s12_control_plane_freshness.dart` 与对应 Playwright report。
+- `Release closure | S13 repo front-door gate`：回到 `dart run tool/verify_m006_s13_demo_path.dart`，检查 README / CONTRIBUTING / wrappers / links。
 
 ## 9. 回滚原则
 
@@ -285,13 +288,13 @@ kubectl rollout status deployment/babytalk-admin-web -n babytalk
 
 ## 10. 发布完成前的最小证据
 
-把下面这些命令的结果视为 M006/S08 的 deploy truth 证据，而不是旧 runbook 里的单体检查：
+把下面这些命令的结果视为 M006/S14 的 release closure 证据，而不是旧 runbook 里的单体检查：
 
 ```bash
-dart run tool/verify_m006_s08_release.dart
+dart run tool/verify_m006_s14_release_closure.dart
 bash ci/k8s-smoke.sh
 helm template babytalk deploy/helm/babytalk -f deploy/helm/babytalk/values-production.yaml
 kubectl get jobs,deployments,services,ingress -n babytalk
 ```
 
-只要其中任何一步还在引用旧的单 workload `babytalk/backend` 叙事，就说明发布文档或发布流程已经 drift，必须先修正再继续。
+只要其中任何一步还在引用旧的单 workload `babytalk/backend` 叙事，或把 `admin-api` 当成 public surface，就说明发布文档或发布流程已经 drift，必须先修正再继续。

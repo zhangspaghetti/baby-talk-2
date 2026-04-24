@@ -55,6 +55,21 @@ scripts\dev-verify-admin-demo.cmd
 - 继续输出 `tthw_seconds` / `first_failure_stage`
 - 失败时给出下一条可执行的排查命令
 
+## Final release closure（CI 同款）
+
+```bash
+dart run tool/verify_m006_s14_release_closure.dart
+```
+
+这条顶层 gate 会顺序组合：
+
+- `S07` mentor/distribution closure proof
+- `S08` Helm split-stack deploy truth
+- `S12` Overview freshness / fallback proof
+- `S13` repo-root front-door truth
+
+如果只想 debug 某个局部面，再下钻对应 child verifier；不要在 repo root 重新发明第二条 release command chain。
+
 ## Split-stack 地图
 
 | Surface | 角色 | 默认本地入口 | 说明 |
@@ -78,7 +93,14 @@ scripts\dev-verify-admin-demo.cmd
 
 ```bash
 dart run tool/verify_m006_s12_control_plane_freshness.dart
+dart run tool/verify_m006_s14_release_closure.dart
+```
+
+如果只是 scoped debug，再按面下钻：
+
+```bash
 dart run tool/verify_m006_s08_release.dart --runtime
+dart run tool/verify_m006_s08_release.dart --helm
 ```
 
 ### Backend only（split-stack 本地开发）
@@ -176,6 +198,7 @@ curl -s http://127.0.0.1:3000/api/admin/overview/summary \
 ## 继续往下读什么
 
 - [CONTRIBUTING](CONTRIBUTING.md) — 日常开发路径、verification ladder、目录职责
+- [M006 / S14 release-closure runbook](docs/runbooks/m006-s14-release-closure.md) — milestone promise → child verifier → CI artifact 的总入口
 - [M006 / S13 demo-path runbook](docs/runbooks/m006-s13-demo-path.md) — wrapper stage、失败语义、Windows/POSIX parity
 - [M006 / S12 Overview Control-Plane Freshness Runbook](docs/runbooks/m006-s12-control-plane-freshness.md) — fast smoke 复用的 freshness/auth proof pack
 - [Kubernetes split-stack deploy runbook](docs/runbooks/k8s-deploy.md) — 发布、Helm、回滚与 NOTES truth

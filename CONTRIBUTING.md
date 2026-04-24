@@ -7,7 +7,8 @@
 - 想把整套 admin demo 拉起来：`dev-up-admin-demo`
 - 想复用 live stack 跑最小 smoke：`dev-verify-admin-demo`
 - 想继续下钻 control-plane/auth proof：`dart run tool/verify_m006_s12_control_plane_freshness.dart`
-- 想跑更重的 runtime release gate：`dart run tool/verify_m006_s08_release.dart --runtime`
+- 想跑最终 release closure（CI 同款）：`dart run tool/verify_m006_s14_release_closure.dart`
+- 想只 debug 某个 deploy/runtime 子面：`dart run tool/verify_m006_s08_release.dart --runtime` / `--helm`
 
 ## Everyday workflows
 
@@ -68,14 +69,17 @@ flutter run
    - `scripts\dev-verify-admin-demo.cmd`
 3. **Overview / auth proof pack**
    - `dart run tool/verify_m006_s12_control_plane_freshness.dart`
-4. **runtime release gate**
+4. **final release closure (CI 同款)**
+   - `dart run tool/verify_m006_s14_release_closure.dart`
+5. **scoped deploy/runtime debug**
    - `dart run tool/verify_m006_s08_release.dart --runtime`
-5. **module-local checks**
+   - `dart run tool/verify_m006_s08_release.dart --helm`
+6. **module-local checks**
    - `./backend/mvnw -f backend/pom.xml test -DexcludedGroups=llm-it`
    - `npm --prefix admin-web run build`
    - `flutter test`
 
-如果你的改动影响 README、runbook、wrapper 或 front door 语义，**必须**把 `dart run tool/verify_m006_s13_demo_path.dart` 也加入 verification。
+如果你的改动影响 README、runbook、wrapper、repo-root verification 入口或 CI handoff，**必须**把 `dart run tool/verify_m006_s13_demo_path.dart` 与 `dart run tool/verify_m006_s14_release_closure.dart` 都加入 verification。
 
 ## Module boundaries
 

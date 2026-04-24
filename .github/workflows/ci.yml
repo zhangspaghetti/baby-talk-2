@@ -7,7 +7,7 @@ on:
     branches: [main]
 
 jobs:
-  release-runtime-gate:
+  release-closure-gate:
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
@@ -60,13 +60,13 @@ jobs:
           docker logs ci-docker-relay || true
           exit 1
 
-      - name: Run M006 S08 full release verifier
-        id: release_gate
+      - name: Run M006 S14 release-closure verifier
+        id: release_closure_gate
         continue-on-error: true
         timeout-minutes: 45
         env:
           DOCKER_HOST: tcp://localhost:2375
-        run: dart run tool/verify_m006_s08_release.dart
+        run: dart run tool/verify_m006_s14_release_closure.dart
 
       - name: Upload playwright-report artifact
         if: ${{ always() }}
@@ -74,13 +74,13 @@ jobs:
         with:
           name: playwright-report
           retention-days: 7
-          if-no-files-found: error
+          if-no-files-found: warn
           path: |
             admin-web/playwright-report
             admin-web/test-results
 
       - name: Dump Docker relay diagnostics
-        if: ${{ always() && steps.release_gate.outcome != 'success' }}
+        if: ${{ always() && steps.release_closure_gate.outcome != 'success' }}
         shell: bash
         run: |
           docker ps -a || true
@@ -90,10 +90,10 @@ jobs:
         if: ${{ always() }}
         run: docker rm -f ci-docker-relay >/dev/null 2>&1 || true
 
-      - name: Fail when full release verifier fails
-        if: ${{ steps.release_gate.outcome != 'success' }}
+      - name: Fail when release-closure verifier fails
+        if: ${{ steps.release_closure_gate.outcome != 'success' }}
         run: |
-          echo '::error::dart run tool/verify_m006_s08_release.dart failed.'
+          echo '::error::dart run tool/verify_m006_s14_release_closure.dart failed.'
           exit 1
 
   mobile-analyze:
