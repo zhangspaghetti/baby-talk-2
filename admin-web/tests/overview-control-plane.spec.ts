@@ -3,19 +3,15 @@ import { expect, test, type Page, type Route } from '@playwright/test';
 test.describe('overview control plane proof', () => {
   test('renders the truthful overview control plane for super admins', async ({ page }) => {
     await loginViaUi(page, { expectedUrl: /\/overview$/ });
+    await waitForOverviewReady(page);
 
-    await expect(page.getByTestId('overview-control-strip')).toBeVisible();
-    await expect(page.getByTestId('overview-inline-diagnostics')).toBeVisible();
     await expect(page.getByTestId('overview-transport-mode')).toContainText(/live|polling|recovered/);
-    await expect(page.getByTestId('overview-domain-card-knowledge_ingestion')).toBeVisible();
-    await expect(page.getByTestId('overview-domain-card-knowledge_kg')).toBeVisible();
-    await expect(page.getByTestId('overview-domain-card-mentor_audit')).toBeVisible();
-    await expect(page.getByTestId('overview-domain-card-distribution')).toBeVisible();
     await expect(page.getByText('truthful placeholder')).toHaveCount(0);
   });
 
   test('renders one stale domain among fresh domains from the overview summary contract', async ({ page }) => {
     await loginViaUi(page, { expectedUrl: /\/overview$/ });
+    await waitForOverviewReady(page);
 
     const pattern = '**/api/admin/overview/summary';
     let intercepted = false;
@@ -59,6 +55,8 @@ test.describe('overview control plane proof', () => {
     page,
   }) => {
     await loginViaUi(page, { expectedUrl: /\/overview$/ });
+    await waitForOverviewReady(page);
+    await expect(page.getByTestId('overview-transport-source')).toContainText('streaming');
 
     await page.context().setOffline(true);
     await expect(page.getByTestId('overview-polling-alert')).toBeVisible();
@@ -78,7 +76,7 @@ test.describe('overview control plane proof', () => {
     page,
   }) => {
     await loginViaUi(page, { expectedUrl: /\/overview$/ });
-    await expect(page.getByTestId('overview-domain-card-knowledge_ingestion')).toBeVisible();
+    await waitForOverviewReady(page);
 
     const pattern = '**/api/admin/overview/summary';
     let intercepted = false;
@@ -109,6 +107,16 @@ test.describe('overview control plane proof', () => {
     await expect(page.getByTestId('overview-control-strip')).toBeVisible();
   });
 });
+
+async function waitForOverviewReady(page: Page) {
+  await expect(page.getByTestId('overview-control-strip')).toBeVisible();
+  await expect(page.getByTestId('overview-inline-diagnostics')).toBeVisible();
+  await expect(page.getByTestId('overview-domain-card-knowledge_ingestion')).toBeVisible();
+  await expect(page.getByTestId('overview-domain-card-knowledge_kg')).toBeVisible();
+  await expect(page.getByTestId('overview-domain-card-mentor_audit')).toBeVisible();
+  await expect(page.getByTestId('overview-domain-card-distribution')).toBeVisible();
+  await expect(page.getByTestId('overview-last-good-snapshot')).not.toContainText('—');
+}
 
 async function loginViaUi(
   page: Page,

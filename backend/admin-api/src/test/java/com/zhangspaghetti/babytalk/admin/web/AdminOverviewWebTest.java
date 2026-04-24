@@ -8,6 +8,7 @@ import static org.mockito.Mockito.reset;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.request;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.fasterxml.jackson.databind.JsonNode;
@@ -227,6 +228,7 @@ class AdminOverviewWebTest {
                 .andExpect(status().isOk())
                 .andReturn());
 
+        assertThat(summary.path("domains").size()).isEqualTo(4);
         assertThat(requireDomain(summary, "distribution").path("visible").asBoolean()).isTrue();
         assertThat(requireDomain(summary, "knowledge_ingestion").path("visible").asBoolean()).isFalse();
         assertThat(requireDomain(summary, "knowledge_ingestion").path("freshness").path("state").asText()).isEqualTo("forbidden");
@@ -238,6 +240,11 @@ class AdminOverviewWebTest {
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.code").value("forbidden"));
 
+        mockMvc.perform(get("/api/admin/overview/stream")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(usersReader.accessToken())))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("forbidden"));
+
         mockMvc.perform(get("/api/admin/overview/summary")
                         .param("scope", "all")
                         .header(HttpHeaders.AUTHORIZATION, bearer(superAdmin.accessToken())))
@@ -245,7 +252,19 @@ class AdminOverviewWebTest {
                 .andExpect(jsonPath("$.code").value("invalid_overview_query_param"));
 
         mockMvc.perform(get("/api/admin/overview/stream")
+                        .param("cursor", "unexpected")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(superAdmin.accessToken())))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("invalid_overview_query_param"));
+
+        mockMvc.perform(get("/api/admin/overview/stream")
                         .param("sinceEventId", "")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(superAdmin.accessToken())))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("invalid_overview_since_event_id"));
+
+        mockMvc.perform(get("/api/admin/overview/stream")
+                        .header("Last-Event-ID", "9".repeat(65))
                         .header(HttpHeaders.AUTHORIZATION, bearer(superAdmin.accessToken())))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("invalid_overview_since_event_id"));
@@ -271,6 +290,7 @@ class AdminOverviewWebTest {
                 .andExpect(status().isOk())
                 .andReturn());
 
+        assertThat(degraded.path("degradedDomainCount").asInt()).isEqualTo(1);
         assertThat(degraded.path("lastSuccessfulSnapshotAt").asText()).isEqualTo(firstSnapshotAt);
         assertThat(degraded.path("transport").path("mode").asText()).isEqualTo("polling_required");
         assertThat(degraded.path("transport").path("degradedReason").asText()).isEqualTo("repository_timeout");
@@ -279,15 +299,49 @@ class AdminOverviewWebTest {
     }
 
     @Test
-    void summaryRejectsMalformedVisibleDomainPayloadAndReconnectCountIsVisible() throws Exception {
+    void summaryReturnsSnapshotUnavailableWhenNoCachedSelectionExists() throws Exception {
+        var superAdmin = login("super_admin", "SuperAdmin123!");
+
+        doThrow(timeoutException()).when(adminOverviewReadRepository).fetchMentorAuditSummary();
+
+        mockMvc.perform(get("/api/admin/overview/summary")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(superAdmin.accessToken())))
+                .andExpect(status().isServiceUnavailable())
+                .andExpect(jsonPath("$.code").value("overview_snapshot_unavailable"))
+                .andExpect(jsonPath("$.details.retryable").value(true))
+                .andExpect(jsonPath("$.details.timedOutDomains[0]").value("mentor_audit"));
+    }
+
+    @Test
+    void streamReplayExposesMetadataOnlyTransportAndSummaryRejectsMalformedVisibleDomainPayload() throws Exception {
         var superAdmin = login("super_admin", "SuperAdmin123!");
         var baseReconnectCount = adminOverviewStreamService.currentView().reconnectCount();
-        var firstEmitter = adminOverviewStreamService.subscribe(null);
-        firstEmitter.complete();
-        Thread.sleep(25L);
-        var replayEmitter = adminOverviewStreamService.subscribe("1");
-        replayEmitter.complete();
-        Thread.sleep(25L);
+
+        var streamResult = mockMvc.perform(get("/api/admin/overview/stream")
+                        .param("sinceEventId", "1")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(superAdmin.accessToken())))
+                .andExpect(request().asyncStarted())
+                .andExpect(status().isOk())
+                .andReturn();
+
+        var streamPayload = "";
+        try {
+            streamPayload = awaitSsePayload(streamResult, "event:transport");
+        } finally {
+            completeAsyncRequest(streamResult);
+        }
+
+        assertThat(streamPayload).contains("event:transport");
+        assertThat(streamPayload).contains("\"replayed\":true");
+        assertThat(streamPayload).contains("\"connectionCount\":");
+        assertThat(streamPayload).contains("\"reconnectCount\":");
+        assertThat(streamPayload).doesNotContain("knowledge_ingestion");
+        assertThat(streamPayload).doesNotContain("knowledge_kg");
+        assertThat(streamPayload).doesNotContain("mentor_audit");
+        assertThat(streamPayload).doesNotContain("distribution");
+        assertThat(streamPayload).doesNotContain("share_token");
+        assertThat(streamPayload).doesNotContain("accessToken");
+        assertThat(streamPayload).doesNotContain("public-admin-api-url");
 
         doReturn(new AdminOverviewReadRepository.DistributionSummaryRow(1, 1, 0, 0, null))
                 .when(adminOverviewReadRepository)
@@ -325,6 +379,26 @@ class AdminOverviewWebTest {
             }
         }
         throw new AssertionError("Missing domain: " + key + " in " + summary);
+    }
+
+    private String awaitSsePayload(MvcResult result, String expectedFragment) throws Exception {
+        for (var attempt = 0; attempt < 20; attempt++) {
+            var payload = result.getResponse().getContentAsString();
+            if (payload.contains(expectedFragment)) {
+                return payload;
+            }
+            Thread.sleep(25L);
+        }
+        throw new AssertionError("Expected SSE payload to contain '" + expectedFragment + "' but got: "
+                + result.getResponse().getContentAsString());
+    }
+
+    private void completeAsyncRequest(MvcResult result) throws InterruptedException {
+        var asyncContext = result.getRequest().getAsyncContext();
+        if (asyncContext != null) {
+            asyncContext.complete();
+            Thread.sleep(25L);
+        }
     }
 
     private void createRole(String accessToken, String roleCode, String permissionCode) throws Exception {

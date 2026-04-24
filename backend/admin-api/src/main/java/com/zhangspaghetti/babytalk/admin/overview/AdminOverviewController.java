@@ -2,7 +2,7 @@ package com.zhangspaghetti.babytalk.admin.overview;
 
 import com.zhangspaghetti.babytalk.admin.auth.AdminApiContractException;
 import jakarta.servlet.http.HttpServletRequest;
-import jakarta.validation.constraints.Size;
+import java.util.Map;
 import java.util.Set;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -22,6 +22,7 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 @PreAuthorize("hasAnyAuthority('rag:read', 'kg:read', 'mentor:audit', 'distribution:read')")
 public class AdminOverviewController {
 
+    private static final int MAX_SINCE_EVENT_ID_LENGTH = 64;
     private static final Set<String> SUMMARY_QUERY_PARAMS = Set.of();
     private static final Set<String> STREAM_QUERY_PARAMS = Set.of("sinceEventId");
 
@@ -49,7 +50,7 @@ public class AdminOverviewController {
     public SseEmitter stream(
             Authentication authentication,
             HttpServletRequest request,
-            @RequestParam(required = false) @Size(max = 64, message = "sinceEventId 过长。") String sinceEventId,
+            @RequestParam(required = false) String sinceEventId,
             @RequestHeader(value = "Last-Event-ID", required = false) String lastEventIdHeader
     ) {
         rejectUnknownQueryParams(request, STREAM_QUERY_PARAMS);
@@ -90,8 +91,16 @@ public class AdminOverviewController {
                     HttpStatus.BAD_REQUEST,
                     "invalid_overview_since_event_id",
                     "sinceEventId 不能为空。",
-                    java.util.Map.of());
+                    Map.of());
         }
-        return candidate.trim();
+        var normalized = candidate.trim();
+        if (normalized.length() > MAX_SINCE_EVENT_ID_LENGTH) {
+            throw new AdminApiContractException(
+                    HttpStatus.BAD_REQUEST,
+                    "invalid_overview_since_event_id",
+                    "sinceEventId 过长。",
+                    Map.of("maxLength", MAX_SINCE_EVENT_ID_LENGTH));
+        }
+        return normalized;
     }
 }

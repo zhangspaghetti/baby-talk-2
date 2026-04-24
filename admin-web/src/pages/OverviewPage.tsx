@@ -173,6 +173,24 @@ export default function OverviewPage() {
   }, [enterClientPollingFallback, loadSummary]);
 
   useEffect(() => {
+    const handleOffline = () => {
+      if (summaryRef.current == null || clientTransportStateRef.current === 'polling') {
+        return;
+      }
+
+      enterClientPollingFallback(
+        'network_error',
+        new ApiError(0, 'network_error', '浏览器网络已离线，Overview 当前改用 polling。'),
+      );
+    };
+
+    window.addEventListener('offline', handleOffline);
+    return () => {
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, [enterClientPollingFallback]);
+
+  useEffect(() => {
     let cancelled = false;
 
     setSummary(null);
