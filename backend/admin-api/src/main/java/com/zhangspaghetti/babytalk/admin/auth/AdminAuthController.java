@@ -10,6 +10,7 @@ import java.util.Map;
 import java.util.stream.Collectors;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.Authentication;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -66,8 +67,8 @@ public class AdminAuthController {
 @RestControllerAdvice
 class AdminApiExceptionHandler {
 
-    @ExceptionHandler(AdminAuthContractException.class)
-    ResponseEntity<Map<String, Object>> handleContract(AdminAuthContractException exception) {
+    @ExceptionHandler(AdminApiContractException.class)
+    ResponseEntity<Map<String, Object>> handleContract(AdminApiContractException exception) {
         return ResponseEntity.status(exception.status())
                 .body(errorBody(exception.status(), exception.code(), exception.getMessage(), exception.details()));
     }
@@ -91,6 +92,12 @@ class AdminApiExceptionHandler {
     ResponseEntity<Map<String, Object>> handleConstraintViolation(ConstraintViolationException exception) {
         return ResponseEntity.badRequest()
                 .body(errorBody(HttpStatus.BAD_REQUEST, "validation_failed", exception.getMessage(), Map.of()));
+    }
+
+    @ExceptionHandler(AccessDeniedException.class)
+    ResponseEntity<Map<String, Object>> handleAccessDenied(AccessDeniedException exception) {
+        return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                .body(errorBody(HttpStatus.FORBIDDEN, "forbidden", "权限不足。", Map.of()));
     }
 
     @ExceptionHandler(Exception.class)

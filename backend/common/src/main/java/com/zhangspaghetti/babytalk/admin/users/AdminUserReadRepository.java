@@ -18,7 +18,7 @@ public class AdminUserReadRepository {
     public List<AdminUserRow> listUsers() {
         return jdbcTemplate.query(
                 """
-                select account_id, phone_number, status, latest_consent_status, created_at, deleted_at
+                select account_id, phone_number, status, latest_consent_status, created_at
                 from accounts
                 order by account_id asc
                 """,
@@ -32,8 +32,7 @@ public class AdminUserReadRepository {
                 resultSet.getString("phone_number"),
                 resultSet.getString("status"),
                 resultSet.getString("latest_consent_status"),
-                mapInstant(resultSet.getTimestamp("created_at")),
-                mapInstant(resultSet.getTimestamp("deleted_at"))
+                mapInstant(resultSet.getTimestamp("created_at"))
         );
     }
 
@@ -46,8 +45,7 @@ public class AdminUserReadRepository {
             String phoneNumber,
             String status,
             String latestConsentStatus,
-            Instant createdAt,
-            Instant deletedAt
+            Instant createdAt
     ) {
     }
 }

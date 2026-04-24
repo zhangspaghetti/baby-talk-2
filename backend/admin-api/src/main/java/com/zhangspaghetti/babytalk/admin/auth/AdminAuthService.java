@@ -103,7 +103,7 @@ public class AdminAuthService {
                 .orElseThrow(() -> invalidRefreshToken("principal_missing"));
         if (!"active".equals(principal.status())) {
             log.warn("admin-auth refresh rejected. username={} reason=principal_disabled", principal.username());
-            throw new AdminAuthContractException(HttpStatus.UNAUTHORIZED, "admin_account_disabled", "管理员账号已停用。", Map.of());
+            throw new AdminApiContractException(HttpStatus.UNAUTHORIZED, "admin_account_disabled", "管理员账号已停用。", Map.of());
         }
 
         var replacementTokenId = newRefreshTokenId();
@@ -146,13 +146,13 @@ public class AdminAuthService {
     public MeResponse me(Authentication authentication) {
         var principalId = currentPrincipalId(authentication);
         var principal = repository.findPrincipalById(principalId)
-                .orElseThrow(() -> new AdminAuthContractException(
+                .orElseThrow(() -> new AdminApiContractException(
                         HttpStatus.UNAUTHORIZED,
                         "admin_authentication_required",
                         "请先登录管理员账号。",
                         Map.of()));
         if (!"active".equals(principal.status())) {
-            throw new AdminAuthContractException(HttpStatus.UNAUTHORIZED, "admin_account_disabled", "管理员账号已停用。", Map.of());
+            throw new AdminApiContractException(HttpStatus.UNAUTHORIZED, "admin_account_disabled", "管理员账号已停用。", Map.of());
         }
         var authoritySnapshot = currentAuthoritySnapshot(principal.principalId());
         return new MeResponse(
@@ -261,7 +261,7 @@ public class AdminAuthService {
                 throw invalidRefreshToken("wrong_type");
             }
             return decoded;
-        } catch (AdminAuthContractException exception) {
+        } catch (AdminApiContractException exception) {
             throw exception;
         } catch (JwtException | IllegalArgumentException exception) {
             throw invalidRefreshToken("decode_failed");
@@ -286,16 +286,16 @@ public class AdminAuthService {
         if (authentication instanceof JwtAuthenticationToken jwtAuthenticationToken) {
             return jwtAuthenticationToken.getToken().getSubject();
         }
-        throw new AdminAuthContractException(HttpStatus.UNAUTHORIZED, "admin_authentication_required", "请先登录管理员账号。", Map.of());
+        throw new AdminApiContractException(HttpStatus.UNAUTHORIZED, "admin_authentication_required", "请先登录管理员账号。", Map.of());
     }
 
     private String normalizeUsername(String username) {
         if (username == null || username.isBlank()) {
-            throw new AdminAuthContractException(HttpStatus.BAD_REQUEST, "invalid_admin_username", "username 不能为空。", Map.of());
+            throw new AdminApiContractException(HttpStatus.BAD_REQUEST, "invalid_admin_username", "username 不能为空。", Map.of());
         }
         var normalized = username.trim().toLowerCase(Locale.ROOT);
         if (!normalized.matches("[a-z0-9._-]{3,64}")) {
-            throw new AdminAuthContractException(HttpStatus.BAD_REQUEST, "invalid_admin_username", "username 只支持 3-64 位小写字母、数字、点、下划线和中划线。", Map.of());
+            throw new AdminApiContractException(HttpStatus.BAD_REQUEST, "invalid_admin_username", "username 只支持 3-64 位小写字母、数字、点、下划线和中划线。", Map.of());
         }
         return normalized;
     }
@@ -306,7 +306,7 @@ public class AdminAuthService {
         }
         var normalized = displayName.trim();
         if (normalized.length() > 120) {
-            throw new AdminAuthContractException(HttpStatus.BAD_REQUEST, "invalid_admin_display_name", "displayName 过长。", Map.of());
+            throw new AdminApiContractException(HttpStatus.BAD_REQUEST, "invalid_admin_display_name", "displayName 过长。", Map.of());
         }
         return normalized;
     }
@@ -318,20 +318,20 @@ public class AdminAuthService {
         return rawRefreshToken.trim();
     }
 
-    private AdminAuthContractException invalidCredentials(String username) {
+    private AdminApiContractException invalidCredentials(String username) {
         log.warn("admin-auth login rejected. username={} reason=invalid_credentials", username);
-        return new AdminAuthContractException(HttpStatus.UNAUTHORIZED, "invalid_admin_credentials", "用户名或密码错误。", Map.of());
+        return new AdminApiContractException(HttpStatus.UNAUTHORIZED, "invalid_admin_credentials", "用户名或密码错误。", Map.of());
     }
 
-    private AdminAuthContractException invalidRefreshToken(String reason) {
-        return new AdminAuthContractException(HttpStatus.UNAUTHORIZED, "invalid_admin_refresh_token", "refresh token 无效。", Map.of("reason", reason));
+    private AdminApiContractException invalidRefreshToken(String reason) {
+        return new AdminApiContractException(HttpStatus.UNAUTHORIZED, "invalid_admin_refresh_token", "refresh token 无效。", Map.of("reason", reason));
     }
 
-    private AdminAuthContractException refreshTokenException(RefreshTokenStatus status) {
+    private AdminApiContractException refreshTokenException(RefreshTokenStatus status) {
         return switch (status) {
-            case REVOKED -> new AdminAuthContractException(HttpStatus.UNAUTHORIZED, "refresh_token_revoked", "refresh token 已失效，请重新登录。", Map.of());
-            case ROTATED -> new AdminAuthContractException(HttpStatus.UNAUTHORIZED, "refresh_token_rotated", "refresh token 已被轮换，请使用新的 token。", Map.of());
-            case EXPIRED -> new AdminAuthContractException(HttpStatus.UNAUTHORIZED, "refresh_token_expired", "refresh token 已过期，请重新登录。", Map.of());
+            case REVOKED -> new AdminApiContractException(HttpStatus.UNAUTHORIZED, "refresh_token_revoked", "refresh token 已失效，请重新登录。", Map.of());
+            case ROTATED -> new AdminApiContractException(HttpStatus.UNAUTHORIZED, "refresh_token_rotated", "refresh token 已被轮换，请使用新的 token。", Map.of());
+            case EXPIRED -> new AdminApiContractException(HttpStatus.UNAUTHORIZED, "refresh_token_expired", "refresh token 已过期，请重新登录。", Map.of());
             default -> invalidRefreshToken(status.name().toLowerCase(Locale.ROOT));
         };
     }
@@ -374,32 +374,6 @@ public class AdminAuthService {
             List<String> roles,
             List<String> permissions
     ) {
-    }
-}
-
-class AdminAuthContractException extends RuntimeException {
-
-    private final HttpStatus status;
-    private final String code;
-    private final Map<String, Object> details;
-
-    AdminAuthContractException(HttpStatus status, String code, String message, Map<String, Object> details) {
-        super(message);
-        this.status = status;
-        this.code = code;
-        this.details = details == null ? Map.of() : Map.copyOf(details);
-    }
-
-    HttpStatus status() {
-        return status;
-    }
-
-    String code() {
-        return code;
-    }
-
-    Map<String, Object> details() {
-        return details;
     }
 }
 
