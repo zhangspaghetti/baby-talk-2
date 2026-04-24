@@ -1,6 +1,8 @@
 package com.zhangspaghetti.babytalk.admin.knowledge;
 
 import com.zhangspaghetti.babytalk.admin.auth.AdminApiContractException;
+import com.zhangspaghetti.babytalk.ingestion.IngestionService;
+import java.io.InputStream;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.List;
@@ -40,15 +42,18 @@ public class AdminKnowledgeOpsService {
 
     private final AdminKnowledgeIngestionRepository ingestionRepository;
     private final AdminKnowledgeKgRepository kgRepository;
+    private final IngestionService ingestionService;
     private final Clock clock;
 
     public AdminKnowledgeOpsService(
             AdminKnowledgeIngestionRepository ingestionRepository,
             AdminKnowledgeKgRepository kgRepository,
+            IngestionService ingestionService,
             Clock clock
     ) {
         this.ingestionRepository = ingestionRepository;
         this.kgRepository = kgRepository;
+        this.ingestionService = ingestionService;
         this.clock = clock;
     }
 
@@ -82,6 +87,52 @@ public class AdminKnowledgeOpsService {
             throw storageFailure("get_ingestion_job", exception);
         } catch (IllegalStateException exception) {
             throw contractFailure("get_ingestion_job", Map.of(
+                    "jobId", jobId.toString(),
+                    "reason", exception.getMessage()
+            ));
+        }
+    }
+
+    public IngestionJobMutationView uploadIngestion(
+            String originalFilename,
+            InputStream inputStream,
+            String contentType,
+            String bookTitle
+    ) {
+        try {
+            var job = ingestionService.uploadAndIngest(originalFilename, inputStream, contentType, normalizeBookTitle(bookTitle));
+            return toIngestionJobMutationView(requireIngestionJob(job.id()));
+        } catch (IngestionService.IngestionDispatchException exception) {
+            throw ingestionDispatchFailure(exception);
+        } catch (DataAccessException exception) {
+            throw storageFailure("upload_ingestion", exception);
+        } catch (IllegalStateException exception) {
+            throw contractFailure("upload_ingestion", Map.of("reason", exception.getMessage()));
+        }
+    }
+
+    public IngestionJobMutationView retryIngestionJob(String rawJobId) {
+        var jobId = parseUuid(rawJobId, "invalid_knowledge_ingestion_job_id", "jobId");
+        try {
+            ingestionService.retryFailedJob(jobId, "");
+        } catch (IllegalArgumentException exception) {
+            throw new AdminApiContractException(
+                    HttpStatus.NOT_FOUND,
+                    "knowledge_ingestion_job_not_found",
+                    "未找到对应的 ingestion job。",
+                    Map.of("jobId", jobId.toString()));
+        } catch (IllegalStateException exception) {
+            throw retryStateConflict(jobId, exception);
+        } catch (DataAccessException exception) {
+            throw storageFailure("retry_ingestion_job", exception);
+        }
+
+        try {
+            return toIngestionJobMutationView(requireIngestionJob(jobId));
+        } catch (DataAccessException exception) {
+            throw storageFailure("retry_ingestion_job", exception);
+        } catch (IllegalStateException exception) {
+            throw contractFailure("retry_ingestion_job", Map.of(
                     "jobId", jobId.toString(),
                     "reason", exception.getMessage()
             ));
@@ -194,6 +245,15 @@ public class AdminKnowledgeOpsService {
         }
     }
 
+    private AdminKnowledgeIngestionRepository.IngestionJobRow requireIngestionJob(UUID jobId) {
+        return ingestionRepository.findJob(jobId)
+                .orElseThrow(() -> new AdminApiContractException(
+                        HttpStatus.NOT_FOUND,
+                        "knowledge_ingestion_job_not_found",
+                        "未找到对应的 ingestion job。",
+                        Map.of("jobId", jobId.toString())));
+    }
+
     private ContradictionDetailView requireContradictionDetail(UUID contradictionId) {
         return kgRepository.findContradiction(contradictionId)
                 .map(this::toContradictionDetailView)
@@ -210,6 +270,18 @@ public class AdminKnowledgeOpsService {
                 row.errorMessage(),
                 row.createdAt(),
                 row.updatedAt(),
+                "FAILED".equals(status)
+        );
+    }
+
+    private IngestionJobMutationView toIngestionJobMutationView(AdminKnowledgeIngestionRepository.IngestionJobRow row) {
+        var status = requireAllowed(row.status(), ALLOWED_INGESTION_STATUSES, "ingestion_jobs.status");
+        return new IngestionJobMutationView(
+                row.id(),
+                row.originalFilename(),
+                status,
+                row.updatedAt(),
+                row.errorMessage(),
                 "FAILED".equals(status)
         );
     }
@@ -309,6 +381,64 @@ public class AdminKnowledgeOpsService {
         return adminNotes.trim();
     }
 
+    private String normalizeBookTitle(String bookTitle) {
+        if (bookTitle == null || bookTitle.isBlank()) {
+            return "";
+        }
+        return bookTitle.trim();
+    }
+
+    private AdminApiContractException ingestionDispatchFailure(IngestionService.IngestionDispatchException exception) {
+        Map<String, Object> details;
+        try {
+            var failedJob = ingestionRepository.findJob(exception.jobId()).orElse(null);
+            details = failedJob == null
+                    ? Map.of(
+                            "jobId", exception.jobId().toString(),
+                            "status", "FAILED",
+                            "updatedAt", "",
+                            "errorMessage", exception.errorMessage() == null ? "" : exception.errorMessage(),
+                            "canRetry", true
+                    )
+                    : buildIngestionMutationDetails(failedJob);
+        } catch (DataAccessException ignored) {
+            details = Map.of(
+                    "jobId", exception.jobId().toString(),
+                    "status", "FAILED",
+                    "updatedAt", "",
+                    "errorMessage", exception.errorMessage() == null ? "" : exception.errorMessage(),
+                    "canRetry", true
+            );
+        }
+        return new AdminApiContractException(
+                HttpStatus.SERVICE_UNAVAILABLE,
+                "knowledge_ingestion_dispatch_failed",
+                "Knowledge ingestion 任务创建失败。",
+                details
+        );
+    }
+
+    private AdminApiContractException retryStateConflict(UUID jobId, IllegalStateException exception) {
+        var job = requireIngestionJob(jobId);
+        return new AdminApiContractException(
+                HttpStatus.CONFLICT,
+                "knowledge_ingestion_retry_invalid_state",
+                exception.getMessage(),
+                buildIngestionMutationDetails(job)
+        );
+    }
+
+    private Map<String, Object> buildIngestionMutationDetails(AdminKnowledgeIngestionRepository.IngestionJobRow row) {
+        var mutationView = toIngestionJobMutationView(row);
+        return Map.of(
+                "jobId", mutationView.jobId().toString(),
+                "status", mutationView.status(),
+                "updatedAt", mutationView.updatedAt() == null ? "" : mutationView.updatedAt().toString(),
+                "errorMessage", mutationView.errorMessage() == null ? "" : mutationView.errorMessage(),
+                "canRetry", mutationView.canRetry()
+        );
+    }
+
     private String requireAllowed(String value, Set<String> allowed, String fieldName) {
         if (!allowed.contains(value)) {
             throw new IllegalStateException(fieldName + " unexpected: " + value);
@@ -383,6 +513,16 @@ public class AdminKnowledgeOpsService {
             Instant createdAt,
             Instant updatedAt,
             boolean retryable
+    ) {
+    }
+
+    public record IngestionJobMutationView(
+            UUID jobId,
+            String originalFilename,
+            String status,
+            Instant updatedAt,
+            String errorMessage,
+            boolean canRetry
     ) {
     }
 

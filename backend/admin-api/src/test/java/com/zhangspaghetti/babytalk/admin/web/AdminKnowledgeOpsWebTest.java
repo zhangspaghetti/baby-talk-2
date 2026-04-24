@@ -1,8 +1,13 @@
 package com.zhangspaghetti.babytalk.admin.web;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.hasSize;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.reset;
+import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -12,21 +17,30 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.zhangspaghetti.babytalk.admin.auth.AdminAuthService;
 import com.zhangspaghetti.babytalk.admin.rbac.AdminPermissionCatalog;
+import io.minio.GetObjectResponse;
+import io.minio.MinioClient;
+import io.minio.ObjectWriteResponse;
+import java.io.ByteArrayInputStream;
 import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
+import okhttp3.Headers;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.ai.vectorstore.VectorStore;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.testcontainers.containers.PostgreSQLContainer;
@@ -42,7 +56,12 @@ import org.testcontainers.utility.DockerImageName;
         "app.admin.auth.bootstrap.enabled=true",
         "app.admin.auth.bootstrap.username=super_admin",
         "app.admin.auth.bootstrap.password=SuperAdmin123!",
-        "app.admin.auth.bootstrap.display-name=Super Admin"
+        "app.admin.auth.bootstrap.display-name=Super Admin",
+        "app.embedding.mode=dev-hash",
+        "app.minio.endpoint=http://localhost:9000",
+        "app.minio.access-key=test-access-key",
+        "app.minio.secret-key=test-secret-key",
+        "app.minio.bucket-name=test-bucket"
 })
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
@@ -83,8 +102,16 @@ class AdminKnowledgeOpsWebTest {
     @Autowired
     private AdminAuthService adminAuthService;
 
+    @MockitoBean
+    private MinioClient minioClient;
+
+    @MockitoBean
+    private VectorStore vectorStore;
+
     @BeforeEach
     void resetTables() {
+        reset(minioClient, vectorStore);
+        jdbcTemplate.execute("DELETE FROM vector_store");
         jdbcTemplate.execute(
                 "TRUNCATE TABLE kg_admin_notifications, kg_contradictions, kg_relationships, kg_entities, ingestion_jobs, admin_refresh_tokens, admin_principal_roles, admin_role_permissions, admin_roles, admin_principals, account_sessions, accounts RESTART IDENTITY CASCADE"
         );
@@ -227,7 +254,7 @@ class AdminKnowledgeOpsWebTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
-                                  "adminNotes": "manual_resolution"
+                                  \"adminNotes\": \"manual_resolution\"
                                 }
                                 """))
                 .andExpect(status().isOk())
@@ -241,7 +268,7 @@ class AdminKnowledgeOpsWebTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
-                                  "adminNotes": "should_not_overwrite"
+                                  \"adminNotes\": \"should_not_overwrite\"
                                 }
                                 """))
                 .andExpect(status().isOk())
@@ -359,7 +386,7 @@ class AdminKnowledgeOpsWebTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
-                                  "adminNotes": "cannot_write"
+                                  \"adminNotes\": \"cannot_write\"
                                 }
                                 """))
                 .andExpect(status().isForbidden())
@@ -386,6 +413,153 @@ class AdminKnowledgeOpsWebTest {
                 .andExpect(jsonPath("$.code").value("admin_account_disabled"));
     }
 
+    @Test
+    void uploadAcceptedResponseIncludesJobStateAndCompletesThroughSharedSeam() throws Exception {
+        var superAdmin = login("super_admin", "SuperAdmin123!");
+        byte[] trackedPdf = trackedPdfBytes();
+        stubPutObjectSuccess();
+        when(minioClient.getObject(any())).thenReturn(getObjectResponse(trackedPdf));
+
+        var uploadResponse = readJson(mockMvc.perform(multipart("/api/admin/knowledge/ingestion/upload")
+                        .file(new MockMultipartFile("file", "knowledge-upload.pdf", "application/pdf", trackedPdf))
+                        .param("bookTitle", "Baby Talk")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(superAdmin.accessToken())))
+                .andExpect(status().isAccepted())
+                .andExpect(jsonPath("$.jobId").isNotEmpty())
+                .andExpect(jsonPath("$.originalFilename").value("knowledge-upload.pdf"))
+                .andExpect(jsonPath("$.status").isNotEmpty())
+                .andExpect(jsonPath("$.updatedAt").isNotEmpty())
+                .andExpect(jsonPath("$.canRetry").value(false))
+                .andReturn());
+
+        var jobId = UUID.fromString(uploadResponse.path("jobId").asText());
+        var completedJob = awaitIngestionJobStatus(superAdmin.accessToken(), jobId, "COMPLETED");
+
+        assertThat(completedJob.path("id").asText()).isEqualTo(jobId.toString());
+        assertThat(completedJob.path("status").asText()).isEqualTo("COMPLETED");
+        assertThat(completedJob.path("retryable").asBoolean()).isFalse();
+        assertThat(completedJob.path("minioObjectKey").isMissingNode()).isTrue();
+    }
+
+    @Test
+    void failedJobCanBeRetriedThroughSharedSeam() throws Exception {
+        var superAdmin = login("super_admin", "SuperAdmin123!");
+        byte[] trackedPdf = trackedPdfBytes();
+        stubPutObjectSuccess();
+        when(minioClient.getObject(any()))
+                .thenReturn(getObjectResponse(new byte[0]))
+                .thenReturn(getObjectResponse(trackedPdf));
+
+        var uploadResponse = readJson(mockMvc.perform(multipart("/api/admin/knowledge/ingestion/upload")
+                        .file(new MockMultipartFile("file", "retryable.pdf", "application/pdf", trackedPdf))
+                        .param("bookTitle", "Retry Book")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(superAdmin.accessToken())))
+                .andExpect(status().isAccepted())
+                .andExpect(jsonPath("$.jobId").isNotEmpty())
+                .andReturn());
+
+        var jobId = UUID.fromString(uploadResponse.path("jobId").asText());
+        var failedJob = awaitIngestionJobStatus(superAdmin.accessToken(), jobId, "FAILED");
+        assertThat(failedJob.path("retryable").asBoolean()).isTrue();
+        assertThat(failedJob.path("errorMessage").asText()).contains("PARSE").contains("0 字符");
+
+        mockMvc.perform(post("/api/admin/knowledge/ingestion/jobs/{jobId}/retry", jobId)
+                        .header(HttpHeaders.AUTHORIZATION, bearer(superAdmin.accessToken())))
+                .andExpect(status().isAccepted())
+                .andExpect(jsonPath("$.jobId").value(jobId.toString()))
+                .andExpect(jsonPath("$.status").isNotEmpty())
+                .andExpect(jsonPath("$.updatedAt").isNotEmpty());
+
+        var completedJob = awaitIngestionJobStatus(superAdmin.accessToken(), jobId, "COMPLETED");
+        assertThat(completedJob.path("status").asText()).isEqualTo("COMPLETED");
+        assertThat(completedJob.path("retryable").asBoolean()).isFalse();
+    }
+
+    @Test
+    void uploadFailureReturnsFailedJobEnvelope() throws Exception {
+        var superAdmin = login("super_admin", "SuperAdmin123!");
+        when(minioClient.putObject(any())).thenThrow(new RuntimeException("minio down"));
+
+        var failure = readJson(mockMvc.perform(multipart("/api/admin/knowledge/ingestion/upload")
+                        .file(new MockMultipartFile("file", "broken.pdf", "application/pdf", trackedPdfBytes()))
+                        .header(HttpHeaders.AUTHORIZATION, bearer(superAdmin.accessToken())))
+                .andExpect(status().isServiceUnavailable())
+                .andExpect(jsonPath("$.code").value("knowledge_ingestion_dispatch_failed"))
+                .andExpect(jsonPath("$.details.jobId").isNotEmpty())
+                .andExpect(jsonPath("$.details.status").value("FAILED"))
+                .andExpect(jsonPath("$.details.errorMessage", containsString("UPLOAD")))
+                .andExpect(jsonPath("$.details.errorMessage", containsString("minio down")))
+                .andExpect(jsonPath("$.details.canRetry").value(true))
+                .andReturn());
+
+        var jobId = UUID.fromString(failure.path("details").path("jobId").asText());
+        assertThat(jdbcTemplate.queryForObject(
+                "select status from ingestion_jobs where id = ?",
+                String.class,
+                jobId
+        )).isEqualTo("FAILED");
+    }
+
+    @Test
+    void uploadValidationAndAuthorizationFailuresStayExplicit() throws Exception {
+        var superAdmin = login("super_admin", "SuperAdmin123!");
+        byte[] trackedPdf = trackedPdfBytes();
+
+        mockMvc.perform(multipart("/api/admin/knowledge/ingestion/upload")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(superAdmin.accessToken())))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("invalid_knowledge_ingestion_file"));
+
+        mockMvc.perform(multipart("/api/admin/knowledge/ingestion/upload")
+                        .file(new MockMultipartFile("file", "empty.pdf", "application/pdf", new byte[0]))
+                        .header(HttpHeaders.AUTHORIZATION, bearer(superAdmin.accessToken())))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("invalid_knowledge_ingestion_file"));
+
+        mockMvc.perform(multipart("/api/admin/knowledge/ingestion/upload")
+                        .file(new MockMultipartFile("file", "knowledge-upload.pdf", "application/pdf", trackedPdf)))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("admin_authentication_required"));
+
+        createRole(superAdmin.accessToken(), "rag_reader_only", List.of(AdminPermissionCatalog.RAG_READ));
+        createAdmin(superAdmin.accessToken(), "rag_reader", "RAG Reader", "Reader123!", "rag_reader_only");
+        var readOnlyAdmin = login("rag_reader", "Reader123!");
+
+        mockMvc.perform(post("/api/admin/knowledge/ingestion/jobs/{jobId}/retry", UUID.randomUUID())
+                        .header(HttpHeaders.AUTHORIZATION, bearer(readOnlyAdmin.accessToken())))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("forbidden"));
+
+        mockMvc.perform(post("/api/admin/knowledge/ingestion/jobs/{jobId}/retry", "not-a-uuid")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(superAdmin.accessToken())))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("invalid_knowledge_ingestion_job_id"));
+    }
+
+    @Test
+    void retryRejectsNonFailedJobsWith409AndTruthfulState() throws Exception {
+        var superAdmin = login("super_admin", "SuperAdmin123!");
+        var completedJobId = UUID.fromString("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb");
+        seedIngestionJob(
+                completedJobId,
+                "done.pdf",
+                "ingestion/private/done.pdf",
+                "COMPLETED",
+                3,
+                null,
+                Instant.parse("2026-04-24T00:00:00Z"),
+                Instant.parse("2026-04-24T00:01:00Z")
+        );
+
+        mockMvc.perform(post("/api/admin/knowledge/ingestion/jobs/{jobId}/retry", completedJobId)
+                        .header(HttpHeaders.AUTHORIZATION, bearer(superAdmin.accessToken())))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("knowledge_ingestion_retry_invalid_state"))
+                .andExpect(jsonPath("$.details.jobId").value(completedJobId.toString()))
+                .andExpect(jsonPath("$.details.status").value("COMPLETED"))
+                .andExpect(jsonPath("$.details.canRetry").value(false));
+    }
+
     private void createRole(String accessToken, String roleCode, List<String> permissionCodes) throws Exception {
         var payload = objectMapper.writeValueAsString(new RolePayload(roleCode, "Role " + roleCode, permissionCodes));
         mockMvc.perform(post("/api/admin/roles")
@@ -408,10 +582,10 @@ class AdminKnowledgeOpsWebTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
-                                  "username": "%s",
-                                  "displayName": "%s",
-                                  "password": "%s",
-                                  "roleCodes": ["%s"]
+                                  \"username\": \"%s\",
+                                  \"displayName\": \"%s\",
+                                  \"password\": \"%s\",
+                                  \"roleCodes\": [\"%s\"]
                                 }
                                 """.formatted(username, displayName, password, roleCode)))
                 .andExpect(status().isCreated())
@@ -424,7 +598,7 @@ class AdminKnowledgeOpsWebTest {
         var response = mockMvc.perform(post("/api/admin/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"username":"%s","password":"%s"}
+                                {\"username\":\"%s\",\"password\":\"%s\"}
                                 """.formatted(username, password)))
                 .andExpect(status().isOk())
                 .andReturn();
@@ -442,6 +616,44 @@ class AdminKnowledgeOpsWebTest {
 
     private JsonNode readJson(MvcResult response) throws Exception {
         return objectMapper.readTree(response.getResponse().getContentAsString());
+    }
+
+    private JsonNode awaitIngestionJobStatus(String accessToken, UUID jobId, String expectedStatus) throws Exception {
+        long deadline = System.currentTimeMillis() + 10_000L;
+        JsonNode lastSeen = null;
+        while (System.currentTimeMillis() < deadline) {
+            lastSeen = readJson(mockMvc.perform(get("/api/admin/knowledge/ingestion/jobs/{jobId}", jobId)
+                            .header(HttpHeaders.AUTHORIZATION, bearer(accessToken)))
+                    .andExpect(status().isOk())
+                    .andReturn());
+            if (expectedStatus.equals(lastSeen.path("status").asText())) {
+                return lastSeen;
+            }
+            Thread.sleep(100L);
+        }
+        throw new AssertionError("Timed out waiting for job %s to reach %s; last=%s"
+                .formatted(jobId, expectedStatus, lastSeen == null ? "<none>" : lastSeen.toPrettyString()));
+    }
+
+    private void stubPutObjectSuccess() throws Exception {
+        when(minioClient.putObject(any())).thenReturn(
+                new ObjectWriteResponse(null, "babytalk", null, "ingestion/test", null, null));
+    }
+
+    private GetObjectResponse getObjectResponse(byte[] payload) {
+        return new GetObjectResponse(
+                Headers.of(),
+                "test-bucket",
+                null,
+                "ingestion/test",
+                new ByteArrayInputStream(payload)
+        );
+    }
+
+    private byte[] trackedPdfBytes() throws Exception {
+        try (var inputStream = new ClassPathResource("knowledge-upload.pdf").getInputStream()) {
+            return inputStream.readAllBytes();
+        }
     }
 
     private void seedIngestionJob(

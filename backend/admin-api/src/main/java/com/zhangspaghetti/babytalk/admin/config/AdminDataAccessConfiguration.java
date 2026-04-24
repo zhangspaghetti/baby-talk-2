@@ -7,11 +7,21 @@ import com.zhangspaghetti.babytalk.admin.mentor.AdminMentorAuditReadRepository;
 import com.zhangspaghetti.babytalk.admin.rbac.AdminPermissionCatalog;
 import com.zhangspaghetti.babytalk.admin.rbac.AdminRbacRepository;
 import com.zhangspaghetti.babytalk.admin.users.AdminUserReadRepository;
+import com.zhangspaghetti.babytalk.config.AsyncConfiguration;
+import com.zhangspaghetti.babytalk.config.EmbeddingConfiguration;
+import com.zhangspaghetti.babytalk.config.MinioProperties;
+import com.zhangspaghetti.babytalk.ingestion.IngestionRepository;
+import com.zhangspaghetti.babytalk.ingestion.IngestionService;
+import io.minio.MinioClient;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.JdbcTemplate;
 
 @Configuration
+@EnableConfigurationProperties(MinioProperties.class)
+@Import({AsyncConfiguration.class, EmbeddingConfiguration.class, IngestionService.class})
 public class AdminDataAccessConfiguration {
 
     @Bean
@@ -47,5 +57,18 @@ public class AdminDataAccessConfiguration {
     @Bean
     AdminKnowledgeKgRepository adminKnowledgeKgRepository(JdbcTemplate jdbcTemplate) {
         return new AdminKnowledgeKgRepository(jdbcTemplate);
+    }
+
+    @Bean
+    IngestionRepository ingestionRepository(JdbcTemplate jdbcTemplate) {
+        return new IngestionRepository(jdbcTemplate);
+    }
+
+    @Bean
+    MinioClient minioClient(MinioProperties properties) {
+        return MinioClient.builder()
+                .endpoint(properties.endpoint())
+                .credentials(properties.accessKey(), properties.secretKey())
+                .build();
     }
 }

@@ -94,7 +94,7 @@ public class IngestionService {
             repository.updateFailed(job.id(), errorMessage);
             log.warn("Ingestion 上传失败: jobId={}, phase={}, errorMessage={}",
                     job.id(), PHASE_UPLOAD, errorMessage, exception);
-            throw new RuntimeException("MinIO 上传失败，jobId=" + job.id(), exception);
+            throw new IngestionDispatchException(job.id(), errorMessage, exception);
         }
 
         dispatchProcessing(job.id(), objectKey, bookTitle);
@@ -263,6 +263,26 @@ public class IngestionService {
         String message = throwable == null ? "未知错误" : throwable.getMessage();
         String normalizedMessage = (message == null || message.isBlank()) ? throwable.getClass().getSimpleName() : message;
         return phase + ": " + normalizedMessage;
+    }
+
+    public static final class IngestionDispatchException extends RuntimeException {
+
+        private final UUID jobId;
+        private final String errorMessage;
+
+        public IngestionDispatchException(UUID jobId, String errorMessage, Throwable cause) {
+            super("MinIO 上传失败，jobId=" + jobId, cause);
+            this.jobId = jobId;
+            this.errorMessage = errorMessage;
+        }
+
+        public UUID jobId() {
+            return jobId;
+        }
+
+        public String errorMessage() {
+            return errorMessage;
+        }
     }
 
     private record ProcessingOutcome(int totalChunks) {

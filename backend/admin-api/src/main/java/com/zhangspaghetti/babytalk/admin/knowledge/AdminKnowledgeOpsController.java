@@ -1,19 +1,27 @@
 package com.zhangspaghetti.babytalk.admin.knowledge;
 
+import com.zhangspaghetti.babytalk.admin.auth.AdminApiContractException;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
+import java.io.IOException;
 import java.util.List;
+import java.util.Map;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
 @RestController
 @Validated
@@ -41,6 +49,42 @@ public class AdminKnowledgeOpsController {
             @PathVariable @NotBlank(message = "jobId 不能为空。") @Size(max = 36, message = "jobId 过长。") String jobId
     ) {
         return adminKnowledgeOpsService.getIngestionJob(jobId);
+    }
+
+    @PostMapping(value = "/ingestion/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize("hasAuthority('rag:write')")
+    public ResponseEntity<AdminKnowledgeOpsService.IngestionJobMutationView> uploadIngestion(
+            @RequestParam(value = "file", required = false) MultipartFile file,
+            @RequestParam(value = "bookTitle", required = false) @Size(max = 255, message = "bookTitle 过长。") String bookTitle
+    ) {
+        if (file == null || file.isEmpty()) {
+            throw new AdminApiContractException(
+                    HttpStatus.BAD_REQUEST,
+                    "invalid_knowledge_ingestion_file",
+                    "上传文件不能为空。",
+                    Map.of("field", "file"));
+        }
+        try (var inputStream = file.getInputStream()) {
+            return ResponseEntity.accepted().body(adminKnowledgeOpsService.uploadIngestion(
+                    file.getOriginalFilename(),
+                    inputStream,
+                    file.getContentType(),
+                    bookTitle));
+        } catch (IOException exception) {
+            throw new AdminApiContractException(
+                    HttpStatus.BAD_REQUEST,
+                    "invalid_knowledge_ingestion_file",
+                    "上传文件读取失败。",
+                    Map.of("field", "file"));
+        }
+    }
+
+    @PostMapping("/ingestion/jobs/{jobId}/retry")
+    @PreAuthorize("hasAuthority('rag:write')")
+    public ResponseEntity<AdminKnowledgeOpsService.IngestionJobMutationView> retryIngestionJob(
+            @PathVariable @NotBlank(message = "jobId 不能为空。") @Size(max = 36, message = "jobId 过长。") String jobId
+    ) {
+        return ResponseEntity.accepted().body(adminKnowledgeOpsService.retryIngestionJob(jobId));
     }
 
     @GetMapping("/kg/contradictions")
