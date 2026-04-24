@@ -40,14 +40,17 @@ class AccountRepository {
     required AccountLocalStore localStore,
     required PracticeRepository practiceRepository,
     AccountApiService? apiService,
+    AuthenticatedApiClient? authenticatedApiClient,
     AccountConnectivityChecker? connectivityChecker,
     this.consentVersion = 'pipl-v1',
   }) : _localStore = localStore,
        _practiceRepository = practiceRepository,
        _apiService = apiService,
-       _authenticatedApiClient = apiService == null
-           ? null
-           : AuthenticatedApiClient(apiService: apiService),
+       _authenticatedApiClient =
+           authenticatedApiClient ??
+           (apiService == null
+               ? null
+               : AuthenticatedApiClient(apiService: apiService)),
        _connectivityChecker = connectivityChecker;
 
   final AccountLocalStore _localStore;
@@ -340,6 +343,10 @@ class AccountRepository {
   Future<void> close() async {
     await _apiService?.close();
   }
+
+  Future<AccountSession> persistRefreshedSession(
+    AccountSession refreshedSession,
+  ) => _persistRefreshedSession(refreshedSession);
 
   Future<AccountLocalSnapshot> _refreshRuntimeStateInternal({
     required AccountRuntimeTrigger trigger,

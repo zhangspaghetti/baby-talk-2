@@ -6,6 +6,7 @@ import 'package:mobile/l10n/app_localizations.dart';
 import 'package:mobile/features/account/data/local/account_local_store.dart';
 import 'package:mobile/features/account/data/repositories/account_repository.dart';
 import 'package:mobile/features/account/domain/models/account_consent_state.dart';
+import 'package:mobile/features/account/domain/models/account_session.dart';
 import 'package:mobile/features/account/presentation/account_view_model.dart';
 import 'package:mobile/features/account/presentation/screens/account_entry_screen.dart';
 import 'package:mobile/features/household/data/local/household_local_store.dart';
@@ -482,6 +483,13 @@ class _FakeAccountRepository implements AccountRepository {
     String reason = 'forget_me',
   }) async {
     return AccountLocalSnapshot.signedOut;
+  }
+
+  @override
+  Future<AccountSession> persistRefreshedSession(
+    AccountSession refreshedSession,
+  ) async {
+    return refreshedSession;
   }
 
   @override

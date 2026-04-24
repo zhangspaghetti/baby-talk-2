@@ -468,6 +468,14 @@ class FakeAccountRepository implements AccountRepository {
   }
 
   @override
+  Future<AccountSession> persistRefreshedSession(
+    AccountSession refreshedSession,
+  ) async {
+    currentSnapshot = currentSnapshot.copyWith(session: refreshedSession);
+    return refreshedSession;
+  }
+
+  @override
   Future<void> close() async {}
 }
 

@@ -663,6 +663,11 @@ class _StaticAccountRepository implements AccountRepository {
   }) async => seedSnapshot;
 
   @override
+  Future<AccountSession> persistRefreshedSession(
+    AccountSession refreshedSession,
+  ) async => refreshedSession;
+
+  @override
   Future<void> close() async {}
 }
 
@@ -694,7 +699,9 @@ class _FakeMentorApiService extends MentorApiService {
     required String surface,
     required String mode,
     required String correlationId,
-    String? sessionId,
+    AccountSession? session,
+    Future<AccountSession> Function(AccountSession refreshedSession)?
+    persistRefreshedSession,
     String? contextSummary,
     String? conversationId,
   }) async {
@@ -709,7 +716,7 @@ class _FakeMentorApiService extends MentorApiService {
           phase: 'response_delivered',
           retryable: false,
           fallbackUsed: false,
-          authenticated: sessionId != null,
+          authenticated: session != null,
           rateLimit: const MentorRateLimitStatus(
             limited: false,
             limit: 3,
