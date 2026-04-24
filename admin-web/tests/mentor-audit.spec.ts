@@ -157,7 +157,9 @@ test.describe('mentor audit workspace', () => {
     await loginViaUi(page);
 
     const detailOnlyQueueResponse = page.waitForResponse(
-      (response) => response.url().includes('/api/admin/mentor/audits') && response.request().method() === 'GET',
+      (response) =>
+        new URL(response.url()).pathname === '/api/admin/mentor/audits' &&
+        response.request().method() === 'GET',
     );
     const missingDetailResponse = page.waitForResponse(
       (response) => response.url().includes('/api/admin/mentor/audits/corr_missing_e2e'),

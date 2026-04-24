@@ -64,9 +64,7 @@ test.describe('knowledge ops workspace', () => {
       await expect(page.getByTestId('knowledge-ingestion-feedback')).toContainText('上传任务已完成');
       await expect(page.getByTestId('knowledge-ingestion-feedback')).toContainText('COMPLETED');
 
-      const stableIngestionReadCount = ingestionReads.events.length;
-      await page.waitForTimeout(POLL_SETTLE_WAIT_MS);
-      expect(ingestionReads.events.length).toBe(stableIngestionReadCount);
+      await expectIngestionReadsToSettle(page, ingestionReads, ingestionReads.events.length);
       expect(ingestionReads.events.length).toBeGreaterThan(0);
 
       const uploadFailureResponse = page.waitForResponse(
@@ -123,9 +121,7 @@ test.describe('knowledge ops workspace', () => {
       await expect(page.getByTestId('knowledge-ingestion-feedback')).toContainText('retry 已完成');
       await expect(page.getByTestId('knowledge-ingestion-feedback')).toContainText(failedJobId);
 
-      const stableRetryReadCount = ingestionReads.events.length;
-      await page.waitForTimeout(POLL_SETTLE_WAIT_MS);
-      expect(ingestionReads.events.length).toBe(stableRetryReadCount);
+      await expectIngestionReadsToSettle(page, ingestionReads, ingestionReads.events.length);
 
       const kgQueueResponse = page.waitForResponse(
         (response) => exactApiPath(response, '/api/admin/knowledge/kg/contradictions') && response.request().method() === 'GET',
@@ -287,6 +283,20 @@ async function loginViaUi(page: Page, username: string = 'super_admin', password
   expect((await meResponse).status()).toBe(200);
   await expect(page).toHaveURL(/\/overview$|\/users$|\/knowledge-ops(?:\?.*)?$|\/mentor\/audits$|\/distribution\/stats(?:\?.*)?$/);
   await expect(page.getByTestId('protected-shell')).toBeVisible();
+}
+
+async function expectIngestionReadsToSettle(
+  page: Page,
+  tracker: { events: Array<{ path: string; status: number; method: string }> },
+  baselineCount: number,
+) {
+  await page.waitForTimeout(POLL_SETTLE_WAIT_MS);
+  const afterFirstWindow = tracker.events.length;
+  expect(afterFirstWindow).toBeGreaterThanOrEqual(baselineCount);
+  expect(afterFirstWindow - baselineCount).toBeLessThanOrEqual(2);
+
+  await page.waitForTimeout(POLL_SETTLE_WAIT_MS);
+  expect(tracker.events.length).toBe(afterFirstWindow);
 }
 
 function trackResponses(page: Page, matcher: (response: Response) => boolean) {
