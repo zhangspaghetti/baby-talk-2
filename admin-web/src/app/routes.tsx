@@ -64,7 +64,7 @@ export const adminWorkspaceRoutes = defineAdminWorkspaceRoutes([
     key: 'overview',
     path: '/overview',
     title: 'Overview',
-    description: 'prioritized inbox / 健康信号 / recent activity 的统一入口。',
+    description: '多域 freshness、transport fallback 与 next-action 的统一 control plane。',
     icon: <HomeOutlined />,
     requiredPermissions: ['users:read', 'rag:read', 'kg:read', 'mentor:audit', 'distribution:read'],
     navVisibility: 'primary',

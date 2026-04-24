@@ -39,6 +39,8 @@ test.describe('auth and rbac browser proof', () => {
 
     await expect(page.getByTestId('protected-shell')).toBeVisible();
     await expect(page.getByTestId('overview-page')).toBeVisible();
+    await expect(page.getByTestId('overview-control-strip')).toBeVisible();
+    await expect(page.getByTestId('overview-domain-card-knowledge_ingestion')).toBeVisible();
     await expect(page.getByTestId('session-user')).toContainText('super_admin');
     await expect(page.getByTestId('session-role')).toContainText('super_admin');
     await expect(page.getByTestId('workspace-current')).toContainText('Overview');
