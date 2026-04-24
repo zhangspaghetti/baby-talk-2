@@ -16,6 +16,7 @@ import {
 import { useSearchParams } from 'react-router-dom';
 import type { AdminIdentity } from '../lib/authClient';
 import { ApiError } from '../lib/authClient';
+import { warmPaperAdmin } from '../app/theme';
 import {
   DISTRIBUTION_STATS_CHANNELS,
   DISTRIBUTION_STATS_RANGES,
@@ -181,7 +182,9 @@ export function DistributionStatsPage({ accessToken, admin, onUnauthorized }: Di
       dataIndex: 'surface',
       key: 'surface',
       render: (value: string) => (
-        <Tag color={value === 'release_distribution' ? 'blue' : 'purple'}>{value}</Tag>
+        <Tag color={value === 'release_distribution' ? warmPaperAdmin.palette.info : warmPaperAdmin.palette.accentDark}>
+          {value}
+        </Tag>
       ),
     },
     {
@@ -269,7 +272,7 @@ export function DistributionStatsPage({ accessToken, admin, onUnauthorized }: Di
       <Card size="small" title="Current admin / filter context">
         <Space direction="vertical" size={10} style={{ width: '100%' }}>
           <Space wrap>
-            <Tag color="purple">user: {admin.username}</Tag>
+            <Tag color={warmPaperAdmin.palette.info}>user: {admin.username}</Tag>
             <Tag color={admin.permissions.includes('distribution:read') ? 'success' : 'default'}>
               distribution:read {admin.permissions.includes('distribution:read') ? 'enabled' : 'missing'}
             </Tag>
@@ -394,8 +397,8 @@ export function DistributionStatsPage({ accessToken, admin, onUnauthorized }: Di
       {stats ? (
         <>
           <div style={overviewGridStyle}>
-            <OverviewCard title="Release overview" overview={stats.releaseOverview} accent="blue" />
-            <OverviewCard title="Share overview" overview={stats.shareOverview} accent="purple" />
+            <OverviewCard title="Release overview" overview={stats.releaseOverview} accent="info" />
+            <OverviewCard title="Share overview" overview={stats.shareOverview} accent="accent" />
           </div>
 
           <div style={sectionGridStyle}>
@@ -486,7 +489,7 @@ function OverviewCard({
 }: {
   title: string;
   overview: DistributionStatsView['releaseOverview'];
-  accent: 'blue' | 'purple';
+  accent: 'info' | 'accent';
 }) {
   return (
     <Card title={title}>
@@ -494,7 +497,13 @@ function OverviewCard({
         <Statistic title="total" value={overview.totalEvents} />
         <Statistic title="success" value={overview.successfulEvents} valueStyle={{ color: '#16a34a' }} />
         <Statistic title="failure" value={overview.failureEvents} valueStyle={{ color: '#dc2626' }} />
-        <Card size="small" style={{ borderColor: accent === 'blue' ? '#93c5fd' : '#d8b4fe' }}>
+        <Card
+          size="small"
+          style={{
+            borderColor:
+              accent === 'info' ? warmPaperAdmin.palette.infoSoft : warmPaperAdmin.palette.accentLight,
+          }}
+        >
           <Typography.Text type="secondary">last seen</Typography.Text>
           <Typography.Paragraph style={{ marginBottom: 0 }}>{formatTimestamp(overview.lastSeenAt)}</Typography.Paragraph>
         </Card>
@@ -514,7 +523,10 @@ function FunnelRow({ item }: { item: FunnelPointView }) {
           <Tag color={item.failureEvents > 0 ? 'error' : 'default'}>failure: {item.failureEvents}</Tag>
           <Tag>last seen: {formatTimestamp(item.lastSeenAt)}</Tag>
         </Space>
-        <Progress percent={Math.min(Math.max(item.successRatePct, 0), 100)} strokeColor="#5b21b6" />
+        <Progress
+          percent={Math.min(Math.max(item.successRatePct, 0), 100)}
+          strokeColor={warmPaperAdmin.palette.accent}
+        />
       </Space>
     </Card>
   );
@@ -544,11 +556,19 @@ function MiniBarChart({
           return (
             <g key={`${point.label}-${point.value}`}>
               <title>{`${point.label}: ${point.value}`}</title>
-              <rect x={x} y={y} width={32} height={barHeight} rx={8} fill="#5b21b6" opacity="0.88" />
-              <text x={x + 16} y={98} textAnchor="middle" fontSize="11" fill="#475569">
+              <rect
+                x={x}
+                y={y}
+                width={32}
+                height={barHeight}
+                rx={8}
+                fill={warmPaperAdmin.palette.accentDark}
+                opacity="0.88"
+              />
+              <text x={x + 16} y={98} textAnchor="middle" fontSize="11" fill={warmPaperAdmin.palette.textSecondary}>
                 {point.label.slice(5)}
               </text>
-              <text x={x + 16} y={y - 6} textAnchor="middle" fontSize="11" fill="#0f172a">
+              <text x={x + 16} y={y - 6} textAnchor="middle" fontSize="11" fill={warmPaperAdmin.palette.textPrimary}>
                 {point.value}
               </text>
             </g>

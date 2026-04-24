@@ -17,6 +17,7 @@ import {
 import { useSearchParams } from 'react-router-dom';
 import type { AdminIdentity } from '../lib/authClient';
 import { ApiError } from '../lib/authClient';
+import { warmPaperAdmin } from '../app/theme';
 import {
   MENTOR_AUDIT_FLAGS,
   mentorAuditClient,
@@ -196,7 +197,7 @@ export function MentorAuditPage({ accessToken, admin, onUnauthorized }: MentorAu
       <Card size="small" title="Current admin / URL context">
         <Space direction="vertical" size={10} style={{ width: '100%' }}>
           <Space wrap>
-            <Tag color="purple">user: {admin.username}</Tag>
+            <Tag color={warmPaperAdmin.palette.info}>user: {admin.username}</Tag>
             <Tag color={admin.permissions.includes('mentor:audit') ? 'success' : 'default'}>
               mentor:audit {admin.permissions.includes('mentor:audit') ? 'enabled' : 'missing'}
             </Tag>
@@ -294,7 +295,7 @@ export function MentorAuditPage({ accessToken, admin, onUnauthorized }: MentorAu
                   <List.Item key={item.correlationId} data-testid={`queue-item-${item.correlationId}`}>
                     <Card
                       size="small"
-                      style={{ width: '100%', borderColor: selected ? '#7c3aed' : undefined }}
+                      style={{ width: '100%', borderColor: selected ? warmPaperAdmin.palette.accentDark : undefined }}
                       title={
                         <Space wrap>
                           <Typography.Text code>{item.correlationId}</Typography.Text>

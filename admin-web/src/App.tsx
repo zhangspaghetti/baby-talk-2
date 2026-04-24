@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type CSSProperties } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { AlertProps } from 'antd';
 import {
   Alert,
@@ -13,8 +13,12 @@ import {
   Typography,
 } from 'antd';
 import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
-import DistributionStatsPage from './pages/DistributionStatsPage';
-import MentorAuditPage from './pages/MentorAuditPage';
+import {
+  adminWorkspaceRoutes,
+  findAdminWorkspaceRouteByPath,
+  type AdminWorkspaceRouteDefinition,
+} from './app/routes';
+import { adminSurfaceStyles, warmPaperAdmin } from './app/theme';
 import {
   ApiError,
   authClient,
@@ -25,19 +29,6 @@ import {
   type AdminIdentity,
   type AuthSession,
 } from './lib/authClient';
-
-const pageStyle: CSSProperties = {
-  minHeight: '100vh',
-  background: 'linear-gradient(180deg, #f5f3ff 0%, #f8fafc 100%)',
-};
-
-const centerStyle: CSSProperties = {
-  minHeight: '100vh',
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  padding: 24,
-};
 
 type BannerTone = NonNullable<AlertProps['type']>;
 
@@ -54,39 +45,7 @@ type RouteState = {
 
 type SessionChangeHandler = (nextSession: AuthSession | null) => void;
 
-type WorkspaceKey = 'mentor-audit' | 'distribution-stats';
-type WorkspacePermission = 'mentor:audit' | 'distribution:read';
-
-type WorkspaceDefinition = {
-  key: WorkspaceKey;
-  path: string;
-  label: string;
-  title: string;
-  description: string;
-  permission: WorkspacePermission;
-  testId: string;
-};
-
-const WORKSPACES: readonly WorkspaceDefinition[] = [
-  {
-    key: 'mentor-audit',
-    path: '/mentor/audits',
-    label: 'Mentor Audit',
-    title: 'Mentor Audit Workspace',
-    description: 'incident-first 审计队列与 detail。',
-    permission: 'mentor:audit',
-    testId: 'workspace-link-mentor-audit',
-  },
-  {
-    key: 'distribution-stats',
-    path: '/distribution/stats',
-    label: 'Distribution Stats',
-    title: 'Distribution Stats Workspace',
-    description: 'release/share truthful read-only stats。',
-    permission: 'distribution:read',
-    testId: 'workspace-link-distribution-stats',
-  },
-] as const;
+const shellRoutePaths = ['/protected', ...adminWorkspaceRoutes.map((route) => route.path)];
 
 function App() {
   const [session, setSession] = useState<AuthSession | null>(() => loadStoredSession());
@@ -104,30 +63,17 @@ function App() {
     <Routes>
       <Route path="/" element={<Navigate to="/protected" replace />} />
       <Route path="/login" element={<LoginPage session={session} onSessionChange={onSessionChange} />} />
-      <Route
-        path="/protected"
-        element={
-          <ProtectedRoute session={session}>
-            <ProtectedWorkspace session={session} onSessionChange={onSessionChange} />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/mentor/audits"
-        element={
-          <ProtectedRoute session={session}>
-            <ProtectedWorkspace session={session} onSessionChange={onSessionChange} />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/distribution/stats"
-        element={
-          <ProtectedRoute session={session}>
-            <ProtectedWorkspace session={session} onSessionChange={onSessionChange} />
-          </ProtectedRoute>
-        }
-      />
+      {shellRoutePaths.map((path) => (
+        <Route
+          key={path}
+          path={path}
+          element={
+            <ProtectedRoute session={session}>
+              <ProtectedWorkspace session={session!} onSessionChange={onSessionChange} />
+            </ProtectedRoute>
+          }
+        />
+      ))}
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
@@ -196,18 +142,16 @@ function LoginPage({
   };
 
   return (
-    <Layout style={pageStyle}>
-      <Layout.Content style={centerStyle}>
-        <Card
-          style={{ width: '100%', maxWidth: 460, boxShadow: '0 24px 64px rgba(91, 33, 182, 0.08)' }}
-        >
+    <Layout style={adminSurfaceStyles.page}>
+      <Layout.Content style={adminSurfaceStyles.centeredPage}>
+        <Card style={{ ...adminSurfaceStyles.frameCard, width: '100%', maxWidth: 460 }}>
           <Space direction="vertical" size="large" style={{ width: '100%' }}>
             <div>
               <Typography.Title level={2} style={{ marginBottom: 8 }}>
                 BabyTalk Admin 登录
               </Typography.Title>
               <Typography.Paragraph type="secondary" style={{ marginBottom: 0 }}>
-                使用真实 admin-api 登录，并在进入受保护页面后刷新 `/api/admin/me` 当前权限。
+                当前 proof 仍直接登录真实 admin-api；本任务先把 Warm Paper 主题、typed routes 与 module placeholders 稳定下来。
               </Typography.Paragraph>
             </div>
 
@@ -361,41 +305,52 @@ function ProtectedWorkspace({
     }
   };
 
-  const requestedWorkspace = useMemo(() => findWorkspaceByPath(location.pathname), [location.pathname]);
-  const availableWorkspaces = useMemo(
-    () => (me ? WORKSPACES.filter((workspace) => hasPermission(me, workspace.permission)) : []),
-    [me],
+  const displayAdmin = me ?? session.admin;
+  const accessibleRoutes = useMemo(
+    () => sortRoutesByLanding(adminWorkspaceRoutes.filter((route) => canAccessRoute(displayAdmin, route))),
+    [displayAdmin],
   );
-  const activeWorkspace = useMemo(() => {
-    if (!requestedWorkspace || !me) {
+  const defaultRoute = useMemo(
+    () => resolveDefaultRoute(displayAdmin, accessibleRoutes),
+    [accessibleRoutes, displayAdmin],
+  );
+  const visibleRoutes = useMemo(() => {
+    const showOverview = shouldShowOverview(displayAdmin, accessibleRoutes);
+    return accessibleRoutes.filter(
+      (route) => route.navVisibility === 'primary' && (route.key !== 'overview' || showOverview),
+    );
+  }, [accessibleRoutes, displayAdmin]);
+  const requestedRoute = useMemo(() => findAdminWorkspaceRouteByPath(location.pathname), [location.pathname]);
+  const activeRoute = useMemo(() => {
+    if (!requestedRoute || !displayAdmin) {
       return null;
     }
-    return hasPermission(me, requestedWorkspace.permission) ? requestedWorkspace : null;
-  }, [me, requestedWorkspace]);
-  const displayAdmin = me ?? session.admin;
+    return canAccessRoute(displayAdmin, requestedRoute) ? requestedRoute : null;
+  }, [displayAdmin, requestedRoute]);
+  const ActivePage = activeRoute?.component;
 
   useEffect(() => {
     if (loading || error || !me) {
       return;
     }
-    if (location.pathname === '/protected' && availableWorkspaces.length > 0) {
-      navigate(availableWorkspaces[0].path, { replace: true });
+    if (location.pathname === '/protected' && defaultRoute) {
+      navigate(defaultRoute.path, { replace: true });
     }
-  }, [availableWorkspaces, error, loading, location.pathname, me, navigate]);
+  }, [defaultRoute, error, loading, location.pathname, me, navigate]);
 
-  const showLandingResolver = !loading && !error && me && location.pathname === '/protected' && availableWorkspaces.length > 0;
+  const showLandingResolver = !loading && !error && me && location.pathname === '/protected' && defaultRoute != null;
   const showPermissionDenied =
     !loading &&
     !error &&
     me &&
-    ((location.pathname === '/protected' && availableWorkspaces.length === 0) ||
-      (location.pathname !== '/protected' && requestedWorkspace != null && activeWorkspace == null));
+    ((location.pathname === '/protected' && defaultRoute == null) ||
+      (location.pathname !== '/protected' && requestedRoute != null && activeRoute == null));
 
   return (
-    <Layout style={pageStyle}>
+    <Layout style={adminSurfaceStyles.page}>
       <Layout.Content style={{ padding: 24 }}>
         <div style={{ maxWidth: 1280, margin: '0 auto' }}>
-          <Card data-testid="protected-shell" style={{ boxShadow: '0 24px 64px rgba(15, 23, 42, 0.08)' }}>
+          <Card data-testid="protected-shell" style={adminSurfaceStyles.frameCard}>
             <Space direction="vertical" size="large" style={{ width: '100%' }}>
               <div
                 style={{
@@ -408,10 +363,10 @@ function ProtectedWorkspace({
               >
                 <Space direction="vertical" size={4}>
                   <Typography.Title level={2} style={{ marginBottom: 0 }}>
-                    BabyTalk Admin Workspaces
+                    BabyTalk Admin Shell Seed
                   </Typography.Title>
                   <Typography.Paragraph type="secondary" style={{ marginBottom: 0 }}>
-                    这个 shell 会先刷新 `/api/admin/me` 再解析可访问 workspace；本地 session 只作 cache，不能直接决定 landing。
+                    路由、标题、权限与 landing weight 现在都由 typed route catalog 提供；下个任务会把这个 proof 收口成真正的 ProLayout shell。
                   </Typography.Paragraph>
                 </Space>
                 <Button type="primary" danger onClick={handleLogout} loading={loggingOut}>
@@ -435,7 +390,7 @@ function ProtectedWorkspace({
                   </Space>
                   <Space wrap>
                     {displayAdmin.roles.map((role) => (
-                      <Tag color="purple" key={role} data-testid={role === 'super_admin' ? 'session-role' : undefined}>
+                      <Tag color={warmPaperAdmin.palette.info} key={role} data-testid={role === 'super_admin' ? 'session-role' : undefined}>
                         {role}
                       </Tag>
                     ))}
@@ -443,7 +398,15 @@ function ProtectedWorkspace({
                   <Space wrap>
                     {displayAdmin.permissions.map((permission) => (
                       <Tag
-                        color={permission === 'mentor:audit' ? 'success' : permission === 'distribution:read' ? 'blue' : 'default'}
+                        color={
+                          permission === 'mentor:audit'
+                            ? warmPaperAdmin.palette.info
+                            : permission === 'distribution:read'
+                              ? warmPaperAdmin.palette.accentDark
+                              : permission === 'users:read'
+                                ? warmPaperAdmin.palette.success
+                                : undefined
+                        }
                         key={permission}
                         data-testid={permission === 'mentor:audit' ? 'session-permission' : undefined}
                       >
@@ -454,30 +417,30 @@ function ProtectedWorkspace({
                 </Space>
               </Card>
 
-              <Card size="small" title="Workspace switcher">
+              <Card size="small" title="Module switcher">
                 {loading ? (
-                  <Spin tip="正在解析管理员 workspace…" />
+                  <Spin tip="正在解析管理员模块入口…" />
                 ) : (
                   <Space direction="vertical" size={12} style={{ width: '100%' }}>
                     <Space wrap data-testid="workspace-switcher">
-                      {availableWorkspaces.map((workspace) => (
+                      {visibleRoutes.map((route) => (
                         <Button
-                          key={workspace.key}
-                          data-testid={workspace.testId}
-                          type={activeWorkspace?.key === workspace.key ? 'primary' : 'default'}
-                          onClick={() => navigate(workspace.path)}
+                          key={route.key}
+                          data-testid={route.testId}
+                          type={activeRoute?.key === route.key ? 'primary' : 'default'}
+                          onClick={() => navigate(route.path)}
                         >
-                          {workspace.label}
+                          {route.title}
                         </Button>
                       ))}
-                      {availableWorkspaces.length === 0 ? <Tag color="default">no accessible workspace</Tag> : null}
+                      {visibleRoutes.length === 0 ? <Tag color="default">no accessible module</Tag> : null}
                     </Space>
                     <Typography.Text type="secondary" data-testid="workspace-current">
-                      current: {activeWorkspace?.label ?? requestedWorkspace?.label ?? 'resolver'}
+                      current: {activeRoute?.title ?? requestedRoute?.title ?? 'resolver'}
                     </Typography.Text>
-                    {availableWorkspaces.length > 0 ? (
+                    {visibleRoutes.length > 0 ? (
                       <Typography.Text type="secondary">
-                        available: {availableWorkspaces.map((workspace) => workspace.description).join(' · ')}
+                        available: {visibleRoutes.map((route) => route.description).join(' · ')}
                       </Typography.Text>
                     ) : null}
                   </Space>
@@ -509,12 +472,12 @@ function ProtectedWorkspace({
                 />
               ) : null}
 
-              {showLandingResolver ? (
+              {showLandingResolver && defaultRoute ? (
                 <Alert
                   showIcon
                   type="info"
-                  message="正在进入默认 workspace"
-                  description={`按优先级解析到 ${availableWorkspaces[0].label}…`}
+                  message="正在进入默认模块"
+                  description={`route catalog 按权重解析到 ${defaultRoute.title}…`}
                 />
               ) : null}
 
@@ -525,17 +488,15 @@ function ProtectedWorkspace({
                     type="warning"
                     message={
                       location.pathname === '/protected'
-                        ? '当前账号没有任何可访问 workspace'
-                        : `当前账号缺少 ${requestedWorkspace?.permission ?? 'required'} 权限`
+                        ? '当前账号没有任何可访问模块'
+                        : `当前账号缺少访问 ${requestedRoute?.title ?? '目标模块'} 所需权限`
                     }
                     description={
                       <Space direction="vertical" size={8}>
                         <span>
-                          {availableWorkspaces.length > 0
-                            ? `已保留可访问 workspace switcher，请改走 ${availableWorkspaces
-                                .map((workspace) => workspace.label)
-                                .join(' / ')}。`
-                            : '浏览器不会回落到 mentor-only stub；请使用带目标 workspace 权限的管理员账号。'}
+                          {visibleRoutes.length > 0
+                            ? `已保留可访问模块，请改走 ${visibleRoutes.map((route) => route.title).join(' / ')}。`
+                            : '当前账号没有任何可访问模块；后续任务会把 no-access fallback 收口到显式的 403 页面。'}
                         </span>
                         <Typography.Text type="secondary">错误码：forbidden</Typography.Text>
                       </Space>
@@ -544,12 +505,8 @@ function ProtectedWorkspace({
                 </div>
               ) : null}
 
-              {!loading && !error && activeWorkspace?.key === 'mentor-audit' ? (
-                <MentorAuditPage accessToken={session.accessToken} admin={me!} onUnauthorized={handleSessionReset} />
-              ) : null}
-
-              {!loading && !error && activeWorkspace?.key === 'distribution-stats' ? (
-                <DistributionStatsPage accessToken={session.accessToken} admin={me!} onUnauthorized={handleSessionReset} />
+              {!loading && !error && ActivePage ? (
+                <ActivePage accessToken={session.accessToken} admin={me!} onUnauthorized={handleSessionReset} />
               ) : null}
             </Space>
           </Card>
@@ -589,10 +546,6 @@ function normalizeBannerTone(value: AlertProps['type']): BannerTone {
   return value === 'success' || value === 'info' || value === 'warning' || value === 'error'
     ? value
     : 'info';
-}
-
-function findWorkspaceByPath(pathname: string): WorkspaceDefinition | undefined {
-  return WORKSPACES.find((workspace) => workspace.path === pathname);
 }
 
 function sameIdentity(left: AdminIdentity, right: AdminIdentity): boolean {
@@ -635,6 +588,57 @@ function normalizeMeResetError(error: ApiError): ApiError {
     return new ApiError(401, 'admin_session_invalid', '管理员会话已失效，请重新登录。');
   }
   return error;
+}
+
+function canAccessRoute(
+  identity: AdminIdentity | null | undefined,
+  route: AdminWorkspaceRouteDefinition,
+): boolean {
+  if (!identity) {
+    return false;
+  }
+  if (identity.roles.includes('super_admin')) {
+    return true;
+  }
+  if (route.requiredPermissions.length === 0) {
+    return true;
+  }
+  return route.requiredPermissions.some((permissionCode) => hasPermission(identity, permissionCode));
+}
+
+function sortRoutesByLanding(
+  routes: readonly AdminWorkspaceRouteDefinition[],
+): AdminWorkspaceRouteDefinition[] {
+  return [...routes].sort((left, right) => right.defaultLandingWeight - left.defaultLandingWeight);
+}
+
+function resolveDefaultRoute(
+  identity: AdminIdentity | null | undefined,
+  accessibleRoutes: readonly AdminWorkspaceRouteDefinition[],
+): AdminWorkspaceRouteDefinition | null {
+  if (!identity || accessibleRoutes.length === 0) {
+    return null;
+  }
+
+  const overviewRoute = accessibleRoutes.find((route) => route.key === 'overview') ?? null;
+  const domainRoutes = accessibleRoutes.filter((route) => route.key !== 'overview');
+
+  if ((identity.roles.includes('super_admin') || domainRoutes.length > 1) && overviewRoute) {
+    return overviewRoute;
+  }
+
+  return domainRoutes[0] ?? overviewRoute;
+}
+
+function shouldShowOverview(
+  identity: AdminIdentity | null | undefined,
+  accessibleRoutes: readonly AdminWorkspaceRouteDefinition[],
+): boolean {
+  if (!identity) {
+    return false;
+  }
+  const domainRoutes = accessibleRoutes.filter((route) => route.key !== 'overview');
+  return identity.roles.includes('super_admin') || domainRoutes.length > 1;
 }
 
 export default App;
