@@ -102,7 +102,7 @@ test.describe('mentor + distribution closure proof', () => {
     expect((await blockedDetailResponse).status()).toBe(200);
 
     await expect.poll(() => new URL(page.url()).searchParams.get('selected')).toBe(blockedCorrelationId);
-    await expect(page.getByTestId('workspace-current')).toContainText('Mentor & Safety');
+    await expect(page.getByTestId('workspace-current')).toContainText('Mentor Audit');
     await expect(page.getByTestId('incident-evidence-note')).toContainText('incident-first');
     await expect(page.getByTestId('delivered-response-text')).toContainText("I'm here with you.");
     await expect(page.getByTestId('live-rate-limit-card')).toContainText('Current count');
@@ -168,7 +168,7 @@ test.describe('mentor + distribution closure proof', () => {
     expect((await backToMentorDetail).status()).toBe(200);
 
     await expect(page).toHaveURL(new RegExp(`installationId=${installationId}.*flag=blocked_fallback.*selected=${blockedCorrelationId}`));
-    await expect(page.getByTestId('workspace-current')).toContainText('Mentor & Safety');
+    await expect(page.getByTestId('workspace-current')).toContainText('Mentor Audit');
     await expect(page.getByTestId('queue-context-query')).toContainText(`installationId=${installationId}`);
     await expect(page.getByTestId('incident-evidence-note')).toContainText('incident-first');
     await expect(page.getByTestId('live-rate-limit-card')).toContainText('Current count');

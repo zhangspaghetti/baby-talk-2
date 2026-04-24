@@ -264,7 +264,8 @@ export function DistributionStatsPage() {
           Distribution Stats Workspace
         </Typography.Title>
         <Typography.Paragraph type="secondary" style={{ marginBottom: 0 }}>
-          URL query 是当前过滤真相源；浏览器权限继续只信任 live `/api/admin/me`，报表请求保持 page-local single fetch。
+          URL query 是当前过滤真相源；channel 只作用于 release / share_card handoff，share 原始漏斗不带
+          channel；浏览器权限继续只信任 live `/api/admin/me`。
         </Typography.Paragraph>
       </Space>
 

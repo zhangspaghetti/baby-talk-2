@@ -184,8 +184,8 @@ export function MentorAuditPage() {
           Mentor Audit Queue
         </Typography.Title>
         <Typography.Paragraph type="secondary" style={{ marginBottom: 0 }}>
-          只展示 `correlationId` 级别的 incident evidence。URL query params 会保留 queue context，当前管理员以
-          ` /api/admin/me ` 为 truth source。
+          只展示 `correlationId` 级别的 incident evidence，不是完整 transcript。URL query params 会保留 queue
+          context，当前管理员继续以 ` /api/admin/me ` 为 truth source。
         </Typography.Paragraph>
       </Space>
 
