@@ -78,6 +78,40 @@ test.describe('admin access and default landing', () => {
     });
   });
 
+  test('knowledge-only admins land on /knowledge-ops while keeping write/review capability codes typed', () => {
+    const ragIdentity = makeIdentity({
+      roles: ['rag_ops'],
+      permissions: ['rag:read', 'rag:write'],
+    });
+    const ragAccess = resolveAdminRouteAccess(ragIdentity);
+    const ragLanding = resolveDefaultAdminLanding(ragIdentity);
+
+    expect(ragAccess.permissionCodes).toEqual(['rag:read', 'rag:write']);
+    expect(ragAccess.accessibleRoutes.map((route) => route.key)).toEqual(['overview', 'knowledge-ops']);
+    expect(ragAccess.visibleRoutes.map((route) => route.key)).toEqual(['knowledge-ops']);
+    expect(ragLanding).toMatchObject({
+      kind: 'route',
+      reason: 'single-domain-route',
+      route: { key: 'knowledge-ops', path: '/knowledge-ops' },
+    });
+
+    const kgIdentity = makeIdentity({
+      roles: ['kg_reader'],
+      permissions: ['kg:read', 'kg:review'],
+    });
+    const kgAccess = resolveAdminRouteAccess(kgIdentity);
+    const kgLanding = resolveDefaultAdminLanding(kgIdentity);
+
+    expect(kgAccess.permissionCodes).toEqual(['kg:read', 'kg:review']);
+    expect(kgAccess.accessibleRoutes.map((route) => route.key)).toEqual(['overview', 'knowledge-ops']);
+    expect(kgAccess.visibleRoutes.map((route) => route.key)).toEqual(['knowledge-ops']);
+    expect(kgLanding).toMatchObject({
+      kind: 'route',
+      reason: 'single-domain-route',
+      route: { key: 'knowledge-ops', path: '/knowledge-ops' },
+    });
+  });
+
   test('empty or unknown permissions fail closed instead of exposing every module', () => {
     const identity = makeIdentity({
       roles: ['limited_admin'],

@@ -29,6 +29,13 @@ export function canAccessAdminRoute(
   return resolveAdminRouteAuthorization(identity, route).allowed;
 }
 
+export function hasKnownAdminPermission(
+  identity: Pick<AdminIdentity, 'permissions'> | null | undefined,
+  permissionCode: AdminRoutePermissionCode,
+): boolean {
+  return readPermissionSet(identity).has(permissionCode);
+}
+
 export function resolveAdminRouteAuthorization(
   identity: Pick<AdminIdentity, 'roles' | 'permissions'> | null | undefined,
   route: AdminWorkspaceRouteDefinition,
