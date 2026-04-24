@@ -142,6 +142,7 @@ app:
     session-timeout: ${BABY_TALK_MENTOR_SESSION_TIMEOUT:PT30M}
     practice-response-max-length: ${BABY_TALK_MENTOR_PRACTICE_RESPONSE_MAX_LENGTH:2000}
   embedding:
+    mode: ${BABY_TALK_EMBEDDING_MODE:openai}
     base-url: ${BABY_TALK_EMBEDDING_BASE_URL:https://models.inference.ai.azure.com}
     api-key: ${BABY_TALK_EMBEDDING_API_KEY:}
     model: ${BABY_TALK_EMBEDDING_MODEL:text-embedding-3-small}

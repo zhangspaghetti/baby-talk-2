@@ -9,15 +9,7 @@ import org.springframework.scheduling.annotation.EnableAsync;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 
 /**
- * 异步执行配置 — 为文献 ingestion 管道提供线程池。
- *
- * <p>线程池参数：
- * <ul>
- *   <li>corePoolSize=2 — 日常保持 2 线程处理 ingestion 任务</li>
- *   <li>maxPoolSize=4 — 批量导入时最多扩展到 4 线程</li>
- *   <li>queueCapacity=50 — 队列容量 50，超过时拒绝（CallerRunsPolicy 可选）</li>
- *   <li>threadNamePrefix="ingestion-" — 便于日志追踪异步任务</li>
- * </ul>
+ * 异步执行配置 — 为文献 ingestion 管道提供有界线程池。
  */
 @Configuration
 @EnableAsync

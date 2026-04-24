@@ -100,15 +100,12 @@ public class IngestionController {
     public ResponseEntity<Map<String, String>> retryJob(@PathVariable UUID id) {
         return ingestionRepository.findById(id)
                 .map(job -> {
-                    if (!IngestionJob.STATUS_FAILED.equals(job.status())) {
+                    try {
+                        ingestionService.retryFailedJob(id, "");
+                    } catch (IllegalStateException exception) {
                         return ResponseEntity.status(HttpStatus.CONFLICT)
-                                .body(Map.of("error",
-                                        "只能重试 FAILED 状态的 job，当前状态: " + job.status()));
+                                .body(Map.of("error", exception.getMessage()));
                     }
-
-                    // 重置为 PENDING 并重新触发异步处理
-                    ingestionRepository.updateStatusPending(id);
-                    ingestionService.processFile(id, job.minioObjectKey(), "");
 
                     log.info("Ingestion job 重试已触发: jobId={}", id);
                     return ResponseEntity.status(HttpStatus.ACCEPTED)

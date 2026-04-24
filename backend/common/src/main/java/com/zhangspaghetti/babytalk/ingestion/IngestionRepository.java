@@ -13,8 +13,6 @@ import org.springframework.stereotype.Repository;
 
 /**
  * ingestion_jobs 表 CRUD — 使用 JdbcTemplate 直接操作。
- *
- * <p>提供 insert / updateStatus / updateCompleted / updateFailed / findById / findAll 方法。
  */
 @Repository
 public class IngestionRepository {
@@ -40,7 +38,6 @@ public class IngestionRepository {
         );
     }
 
-    /** 插入新 job（PENDING 状态） */
     public void insert(IngestionJob job) {
         jdbc.update("""
                 INSERT INTO ingestion_jobs (id, original_filename, minio_object_key, status,
@@ -58,11 +55,10 @@ public class IngestionRepository {
         );
     }
 
-    /** 更新状态为 PROCESSING */
     public void updateStatusProcessing(UUID jobId) {
         jdbc.update("""
                 UPDATE ingestion_jobs
-                SET status = ?, updated_at = ?
+                SET status = ?, error_message = NULL, updated_at = ?
                 WHERE id = ?
                 """,
                 IngestionJob.STATUS_PROCESSING,
@@ -71,11 +67,10 @@ public class IngestionRepository {
         );
     }
 
-    /** 标记完成 — 设置 COMPLETED + chunk 数量 */
     public void updateCompleted(UUID jobId, int totalChunks) {
         jdbc.update("""
                 UPDATE ingestion_jobs
-                SET status = ?, total_chunks = ?, updated_at = ?
+                SET status = ?, total_chunks = ?, error_message = NULL, updated_at = ?
                 WHERE id = ?
                 """,
                 IngestionJob.STATUS_COMPLETED,
@@ -85,7 +80,6 @@ public class IngestionRepository {
         );
     }
 
-    /** 标记失败 — 设置 FAILED + 错误信息 */
     public void updateFailed(UUID jobId, String errorMessage) {
         jdbc.update("""
                 UPDATE ingestion_jobs
@@ -93,13 +87,12 @@ public class IngestionRepository {
                 WHERE id = ?
                 """,
                 IngestionJob.STATUS_FAILED,
-                errorMessage != null ? errorMessage.substring(0, Math.min(errorMessage.length(), 2000)) : null,
+                truncate(errorMessage),
                 Timestamp.from(Instant.now()),
                 jobId
         );
     }
 
-    /** 按 ID 查询 */
     public Optional<IngestionJob> findById(UUID jobId) {
         List<IngestionJob> results = jdbc.query(
                 "SELECT * FROM ingestion_jobs WHERE id = ?",
@@ -109,7 +102,6 @@ public class IngestionRepository {
         return results.stream().findFirst();
     }
 
-    /** 查询所有 job，按创建时间倒序 */
     public List<IngestionJob> findAll() {
         return jdbc.query(
                 "SELECT * FROM ingestion_jobs ORDER BY created_at DESC",
@@ -117,11 +109,10 @@ public class IngestionRepository {
         );
     }
 
-    /** 重置状态为 PENDING（用于重试） */
     public void updateStatusPending(UUID jobId) {
         jdbc.update("""
                 UPDATE ingestion_jobs
-                SET status = ?, error_message = NULL, total_chunks = 0, updated_at = ?
+                SET status = ?, total_chunks = 0, updated_at = ?
                 WHERE id = ?
                 """,
                 IngestionJob.STATUS_PENDING,
@@ -130,12 +121,18 @@ public class IngestionRepository {
         );
     }
 
-    /** 按状态查询 */
     public List<IngestionJob> findByStatus(String status) {
         return jdbc.query(
                 "SELECT * FROM ingestion_jobs WHERE status = ? ORDER BY created_at DESC",
                 ROW_MAPPER,
                 status
         );
+    }
+
+    private static String truncate(String errorMessage) {
+        if (errorMessage == null) {
+            return null;
+        }
+        return errorMessage.substring(0, Math.min(errorMessage.length(), 2000));
     }
 }

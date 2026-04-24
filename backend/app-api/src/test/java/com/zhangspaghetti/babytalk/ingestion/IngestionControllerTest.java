@@ -40,7 +40,7 @@ import org.springframework.test.web.servlet.MockMvc;
         "app.sms.dev-code=246810",
         "app.mentor.provider-mode=dev"
 })
-@AutoConfigureMockMvc
+@AutoConfigureMockMvc(addFilters = false)
 class IngestionControllerTest extends AbstractIntegrationTest {
 
     @Autowired
