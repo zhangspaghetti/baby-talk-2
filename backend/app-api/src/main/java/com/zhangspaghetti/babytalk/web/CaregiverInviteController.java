@@ -9,12 +9,12 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
@@ -34,39 +34,39 @@ public class CaregiverInviteController {
     @PostMapping("/api/v1/caregiver-invites")
     @ResponseStatus(HttpStatus.CREATED)
     public CaregiverInviteService.CreateInviteResponse createInvite(
-            @RequestHeader("X-Session-Id") String sessionId,
+            JwtAuthenticationToken authentication,
             @Valid @RequestBody CreateInviteRequest request
     ) {
         return caregiverInviteService.createInvite(
-                sessionId,
+                authentication.getToken().getClaimAsString("sid"),
                 new CaregiverInviteService.CreateInviteCommand(request.role(), request.source())
         );
     }
 
     @PostMapping("/api/v1/caregiver-invites/accept")
     public CaregiverInviteService.AcceptInviteResponse acceptInvite(
-            @RequestHeader("X-Session-Id") String sessionId,
+            JwtAuthenticationToken authentication,
             @Valid @RequestBody AcceptInviteRequest request
     ) {
         return caregiverInviteService.acceptInvite(
-                sessionId,
+                authentication.getToken().getClaimAsString("sid"),
                 new CaregiverInviteService.AcceptInviteCommand(request.token(), request.source())
         );
     }
 
     @PostMapping("/api/v1/caregiver-invites/{token}/revoke")
     public CaregiverInviteService.RevokeInviteResponse revokeInvite(
-            @RequestHeader("X-Session-Id") String sessionId,
+            JwtAuthenticationToken authentication,
             @PathVariable("token") String token
     ) {
-        return caregiverInviteService.revokeInvite(sessionId, token);
+        return caregiverInviteService.revokeInvite(authentication.getToken().getClaimAsString("sid"), token);
     }
 
     @GetMapping("/api/v1/household/shared-context")
     public CaregiverInviteService.SharedContextResponse fetchSharedContext(
-            @RequestHeader("X-Session-Id") String sessionId
+            JwtAuthenticationToken authentication
     ) {
-        return caregiverInviteService.fetchSharedContext(sessionId);
+        return caregiverInviteService.fetchSharedContext(authentication.getToken().getClaimAsString("sid"));
     }
 
     @GetMapping(value = "/invite/{token}", produces = MediaType.TEXT_HTML_VALUE)

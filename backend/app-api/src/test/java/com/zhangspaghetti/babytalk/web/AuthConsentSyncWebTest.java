@@ -9,13 +9,14 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.zhangspaghetti.babytalk.AbstractIntegrationTest;
 import com.zhangspaghetti.babytalk.config.ApiVersionInterceptor;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
-import com.zhangspaghetti.babytalk.AbstractIntegrationTest;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.MockMvc;
@@ -40,7 +41,7 @@ class AuthConsentSyncWebTest extends AbstractIntegrationTest {
 
     @BeforeEach
     void resetTables() {
-                resetDatabase(jdbcTemplate);
+        resetDatabase(jdbcTemplate);
         jdbcTemplate.execute("delete from interaction_events");
         jdbcTemplate.execute("delete from consent_audit_logs");
         jdbcTemplate.execute("delete from sms_challenges");
@@ -56,7 +57,7 @@ class AuthConsentSyncWebTest extends AbstractIntegrationTest {
 
         mockMvc.perform(post("/api/v1/consent/accept")
                         .header(ApiVersionInterceptor.VERSION_HEADER, "1.2.0")
-                        .header("X-Session-Id", session.sessionId())
+                        .header(HttpHeaders.AUTHORIZATION, bearer(session.accessToken()))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"consentVersion":"pipl-v1"}
@@ -67,7 +68,7 @@ class AuthConsentSyncWebTest extends AbstractIntegrationTest {
 
         mockMvc.perform(post("/api/v1/sync/events")
                         .header(ApiVersionInterceptor.VERSION_HEADER, "1.2.0")
-                        .header("X-Session-Id", session.sessionId())
+                        .header(HttpHeaders.AUTHORIZATION, bearer(session.accessToken()))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -102,7 +103,7 @@ class AuthConsentSyncWebTest extends AbstractIntegrationTest {
 
         mockMvc.perform(post("/api/v1/sync/events")
                         .header(ApiVersionInterceptor.VERSION_HEADER, "1.2.0")
-                        .header("X-Session-Id", session.sessionId())
+                        .header(HttpHeaders.AUTHORIZATION, bearer(session.accessToken()))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -137,7 +138,7 @@ class AuthConsentSyncWebTest extends AbstractIntegrationTest {
 
         mockMvc.perform(get("/api/v1/bootstrap")
                         .header(ApiVersionInterceptor.VERSION_HEADER, "1.2.0")
-                        .header("X-Session-Id", session.sessionId())
+                        .header(HttpHeaders.AUTHORIZATION, bearer(session.accessToken()))
                         .param("installationId", "install-alpha"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.eventCount").value(2))
@@ -190,9 +191,31 @@ class AuthConsentSyncWebTest extends AbstractIntegrationTest {
                 .andExpect(jsonPath("$.code").value("validation_failed"));
 
         var session = verifyChallenge(challengeId, "install-alpha");
-        mockMvc.perform(post("/api/v1/sync/events")
+        mockMvc.perform(post("/api/v1/consent/accept")
                         .header(ApiVersionInterceptor.VERSION_HEADER, "1.2.0")
                         .header("X-Session-Id", session.sessionId())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"consentVersion":"pipl-v1"}
+                                """))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("consumer_authentication_required"))
+                .andExpect(jsonPath("$.details.reason").value("missing"));
+
+        mockMvc.perform(post("/api/v1/consent/accept")
+                        .header(ApiVersionInterceptor.VERSION_HEADER, "1.2.0")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(session.refreshToken()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"consentVersion":"pipl-v1"}
+                                """))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("invalid_access_token"))
+                .andExpect(jsonPath("$.details.reason").value("invalid"));
+
+        mockMvc.perform(post("/api/v1/sync/events")
+                        .header(ApiVersionInterceptor.VERSION_HEADER, "1.2.0")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(session.accessToken()))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"installationId":"install-alpha","events":[]}
@@ -208,11 +231,11 @@ class AuthConsentSyncWebTest extends AbstractIntegrationTest {
     void revokeAndDeleteLeaveAuditTrailAndDeleteIsIdempotent() throws Exception {
         var challengeId = createChallenge("13800138000");
         var session = verifyChallenge(challengeId, "install-alpha");
-        acceptConsent(session.sessionId());
+        acceptConsent(session.accessToken());
 
         mockMvc.perform(post("/api/v1/consent/revoke")
                         .header(ApiVersionInterceptor.VERSION_HEADER, "1.2.0")
-                        .header("X-Session-Id", session.sessionId())
+                        .header(HttpHeaders.AUTHORIZATION, bearer(session.accessToken()))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"reason":"user_requested"}
@@ -223,11 +246,11 @@ class AuthConsentSyncWebTest extends AbstractIntegrationTest {
 
         var reloginChallengeId = createChallenge("13800138000");
         var reloginSession = verifyChallenge(reloginChallengeId, "install-alpha");
-        acceptConsent(reloginSession.sessionId());
+        acceptConsent(reloginSession.accessToken());
 
         mockMvc.perform(delete("/api/v1/account")
                         .header(ApiVersionInterceptor.VERSION_HEADER, "1.2.0")
-                        .header("X-Session-Id", reloginSession.sessionId())
+                        .header(HttpHeaders.AUTHORIZATION, bearer(reloginSession.accessToken()))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"reason":"forget_me"}
@@ -237,20 +260,22 @@ class AuthConsentSyncWebTest extends AbstractIntegrationTest {
 
         mockMvc.perform(delete("/api/v1/account")
                         .header(ApiVersionInterceptor.VERSION_HEADER, "1.2.0")
-                        .header("X-Session-Id", reloginSession.sessionId())
+                        .header(HttpHeaders.AUTHORIZATION, bearer(reloginSession.accessToken()))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"reason":"forget_me_again"}
                                 """))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.result").value("duplicate"));
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("account_deleted"))
+                .andExpect(jsonPath("$.details.reason").value("account_deleted"));
 
         mockMvc.perform(get("/api/v1/bootstrap")
                         .header(ApiVersionInterceptor.VERSION_HEADER, "1.2.0")
-                        .header("X-Session-Id", reloginSession.sessionId())
+                        .header(HttpHeaders.AUTHORIZATION, bearer(reloginSession.accessToken()))
                         .param("installationId", "install-alpha"))
-                .andExpect(status().isGone())
-                .andExpect(jsonPath("$.code").value("account_deleted"));
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("account_deleted"))
+                .andExpect(jsonPath("$.details.reason").value("account_deleted"));
 
         var auditRows = jdbcTemplate.queryForList(
                 "select action, result from consent_audit_logs order by audit_id asc"
@@ -261,8 +286,7 @@ class AuthConsentSyncWebTest extends AbstractIntegrationTest {
                         "accept:applied",
                         "revoke:applied",
                         "accept:applied",
-                        "delete:applied",
-                        "delete:duplicate"
+                        "delete:applied"
                 );
     }
 
@@ -278,7 +302,7 @@ class AuthConsentSyncWebTest extends AbstractIntegrationTest {
         return readJson(result.getResponse().getContentAsString()).get("challengeId").asText();
     }
 
-    private SessionView verifyChallenge(String challengeId, String installationId) throws Exception {
+    private TokenView verifyChallenge(String challengeId, String installationId) throws Exception {
         var result = mockMvc.perform(post("/api/v1/auth/verify")
                         .header(ApiVersionInterceptor.VERSION_HEADER, "1.2.0")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -297,13 +321,18 @@ class AuthConsentSyncWebTest extends AbstractIntegrationTest {
                 .andExpect(jsonPath("$.refreshTokenExpiresAt").isNotEmpty())
                 .andReturn();
         var json = readJson(result.getResponse().getContentAsString());
-        return new SessionView(json.get("accountId").asText(), json.get("sessionId").asText());
+        return new TokenView(
+                json.get("accountId").asText(),
+                json.get("sessionId").asText(),
+                json.get("accessToken").asText(),
+                json.get("refreshToken").asText()
+        );
     }
 
-    private void acceptConsent(String sessionId) throws Exception {
+    private void acceptConsent(String accessToken) throws Exception {
         mockMvc.perform(post("/api/v1/consent/accept")
                         .header(ApiVersionInterceptor.VERSION_HEADER, "1.2.0")
-                        .header("X-Session-Id", sessionId)
+                        .header(HttpHeaders.AUTHORIZATION, bearer(accessToken))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"consentVersion":"pipl-v1"}
@@ -315,6 +344,10 @@ class AuthConsentSyncWebTest extends AbstractIntegrationTest {
         return objectMapper.readTree(rawJson);
     }
 
-    private record SessionView(String accountId, String sessionId) {
+    private String bearer(String accessToken) {
+        return "Bearer " + accessToken;
+    }
+
+    private record TokenView(String accountId, String sessionId, String accessToken, String refreshToken) {
     }
 }

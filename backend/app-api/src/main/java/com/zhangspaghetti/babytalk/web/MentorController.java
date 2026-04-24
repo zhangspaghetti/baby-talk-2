@@ -1,10 +1,11 @@
 package com.zhangspaghetti.babytalk.web;
 
 import com.zhangspaghetti.babytalk.service.MentorService;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -21,7 +22,7 @@ public class MentorController {
 
     @PostMapping("/chat")
     public MentorService.ChatResponse chat(
-            @RequestHeader(value = "X-Session-Id", required = false) String sessionId,
+            @AuthenticationPrincipal Jwt authenticatedJwt,
             @RequestBody ChatRequest request
     ) {
         return mentorService.chat(
@@ -34,7 +35,7 @@ public class MentorController {
                         request.contextSummary(),
                         request.conversationId()
                 ),
-                sessionId
+                authenticatedJwt == null ? null : authenticatedJwt.getClaimAsString("sid")
         );
     }
 

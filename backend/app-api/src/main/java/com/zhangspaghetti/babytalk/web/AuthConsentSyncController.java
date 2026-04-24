@@ -8,12 +8,12 @@ import jakarta.validation.constraints.Size;
 import java.time.Instant;
 import java.util.List;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
@@ -57,31 +57,31 @@ public class AuthConsentSyncController {
 
     @PostMapping("/consent/accept")
     public AuthConsentSyncService.ConsentResponse acceptConsent(
-            @RequestHeader("X-Session-Id") String sessionId,
+            JwtAuthenticationToken authentication,
             @Valid @RequestBody AcceptConsentRequest request
     ) {
-        return authConsentSyncService.acceptConsent(sessionId, request.consentVersion());
+        return authConsentSyncService.acceptConsent(authentication.getToken().getClaimAsString("sid"), request.consentVersion());
     }
 
     @PostMapping("/consent/revoke")
     public AuthConsentSyncService.ConsentResponse revokeConsent(
-            @RequestHeader("X-Session-Id") String sessionId,
+            JwtAuthenticationToken authentication,
             @Valid @RequestBody RevokeConsentRequest request
     ) {
-        return authConsentSyncService.revokeConsent(sessionId, request.reason());
+        return authConsentSyncService.revokeConsent(authentication.getToken().getClaimAsString("sid"), request.reason());
     }
 
     @DeleteMapping("/account")
     public AuthConsentSyncService.DeleteResponse deleteAccount(
-            @RequestHeader("X-Session-Id") String sessionId,
+            JwtAuthenticationToken authentication,
             @Valid @RequestBody DeleteAccountRequest request
     ) {
-        return authConsentSyncService.deleteAccount(sessionId, request.reason());
+        return authConsentSyncService.deleteAccount(authentication.getToken().getClaimAsString("sid"), request.reason());
     }
 
     @PostMapping("/sync/events")
     public AuthConsentSyncService.SyncBatchResponse ingestEvents(
-            @RequestHeader("X-Session-Id") String sessionId,
+            JwtAuthenticationToken authentication,
             @Valid @RequestBody SyncBatchRequest request
     ) {
         var events = request.events().stream()
@@ -96,15 +96,15 @@ public class AuthConsentSyncController {
                         event.clientTimestamp()
                 ))
                 .toList();
-        return authConsentSyncService.ingestEvents(sessionId, request.installationId(), events);
+        return authConsentSyncService.ingestEvents(authentication.getToken().getClaimAsString("sid"), request.installationId(), events);
     }
 
     @GetMapping("/bootstrap")
     public AuthConsentSyncService.BootstrapResponse bootstrap(
-            @RequestHeader("X-Session-Id") String sessionId,
+            JwtAuthenticationToken authentication,
             @RequestParam("installationId") String installationId
     ) {
-        return authConsentSyncService.bootstrap(sessionId, installationId);
+        return authConsentSyncService.bootstrap(authentication.getToken().getClaimAsString("sid"), installationId);
     }
 
     public record CreateChallengeRequest(@NotBlank String phoneNumber) {

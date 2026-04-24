@@ -8,17 +8,17 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.zhangspaghetti.babytalk.AbstractIntegrationTest;
 import com.zhangspaghetti.babytalk.config.ApiVersionInterceptor;
 import java.sql.Timestamp;
 import java.time.Instant;
 import java.time.OffsetDateTime;
-import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
-import com.zhangspaghetti.babytalk.AbstractIntegrationTest;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.MockMvc;
@@ -51,7 +51,7 @@ class CaregiverPracticeAttributionWebTest extends AbstractIntegrationTest {
 
     @BeforeEach
     void resetTables() {
-                resetDatabase(jdbcTemplate);
+        resetDatabase(jdbcTemplate);
         jdbcTemplate.execute("delete from caregiver_invite_events");
         jdbcTemplate.execute("delete from household_shared_context");
         jdbcTemplate.execute("delete from caregiver_invites");
@@ -72,16 +72,16 @@ class CaregiverPracticeAttributionWebTest extends AbstractIntegrationTest {
     @Test
     void secondaryCaregiverPracticeRefreshesProjectionAndKeepsInteractionEventsAppendOnly() throws Exception {
         var primary = createAcceptedSession("13800138000", "install-primary");
-        syncEvent(primary.sessionId(), "install-primary", "evt_1", "daily_care", "bath_time", "bath_time_warm_water", "calm",
+        syncEvent(primary.accessToken(), "install-primary", "evt_1", "daily_care", "bath_time", "bath_time_warm_water", "calm",
                 "2026-04-09T02:00:00Z");
-        syncEvent(primary.sessionId(), "install-primary", "evt_2", "daily_care", "bath_time", "bath_time_splash_splash", "engaged",
+        syncEvent(primary.accessToken(), "install-primary", "evt_2", "daily_care", "bath_time", "bath_time_splash_splash", "engaged",
                 "2026-04-09T02:01:00Z");
 
-        var invite = createInvite(primary.sessionId(), "caregiver", "household_settings");
+        var invite = createInvite(primary.accessToken(), "caregiver", "household_settings");
         var caregiver = createAcceptedSession("13900139000", "install-secondary");
         mockMvc.perform(post("/api/v1/caregiver-invites/accept")
                         .header(ApiVersionInterceptor.VERSION_HEADER, "1.2.0")
-                        .header("X-Session-Id", caregiver.sessionId())
+                        .header(HttpHeaders.AUTHORIZATION, bearer(caregiver.accessToken()))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -99,7 +99,7 @@ class CaregiverPracticeAttributionWebTest extends AbstractIntegrationTest {
 
         mockMvc.perform(post("/api/v1/sync/events")
                         .header(ApiVersionInterceptor.VERSION_HEADER, "1.2.0")
-                        .header("X-Session-Id", caregiver.sessionId())
+                        .header(HttpHeaders.AUTHORIZATION, bearer(caregiver.accessToken()))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -123,7 +123,7 @@ class CaregiverPracticeAttributionWebTest extends AbstractIntegrationTest {
 
         var response = mockMvc.perform(get("/api/v1/household/shared-context")
                         .header(ApiVersionInterceptor.VERSION_HEADER, "1.2.0")
-                        .header("X-Session-Id", primary.sessionId()))
+                        .header(HttpHeaders.AUTHORIZATION, bearer(primary.accessToken())))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.snapshot.practice.spaceId").value("sleep_support"))
                 .andExpect(jsonPath("$.snapshot.practice.activityId").value("bedtime_story"))
@@ -184,10 +184,10 @@ class CaregiverPracticeAttributionWebTest extends AbstractIntegrationTest {
                 .doesNotContain("child_name", "installation_id", "session_id", "raw_payload");
     }
 
-    private SessionView createAcceptedSession(String phoneNumber, String installationId) throws Exception {
+    private TokenView createAcceptedSession(String phoneNumber, String installationId) throws Exception {
         var challengeId = createChallenge(phoneNumber);
         var session = verifyChallenge(challengeId, installationId);
-        acceptConsent(session.sessionId());
+        acceptConsent(session.accessToken());
         return session;
     }
 
@@ -203,7 +203,7 @@ class CaregiverPracticeAttributionWebTest extends AbstractIntegrationTest {
         return readJson(result.getResponse().getContentAsString()).get("challengeId").asText();
     }
 
-    private SessionView verifyChallenge(String challengeId, String installationId) throws Exception {
+    private TokenView verifyChallenge(String challengeId, String installationId) throws Exception {
         var result = mockMvc.perform(post("/api/v1/auth/verify")
                         .header(ApiVersionInterceptor.VERSION_HEADER, "1.2.0")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -217,13 +217,17 @@ class CaregiverPracticeAttributionWebTest extends AbstractIntegrationTest {
                 .andExpect(status().isOk())
                 .andReturn();
         var json = readJson(result.getResponse().getContentAsString());
-        return new SessionView(json.get("accountId").asText(), json.get("sessionId").asText());
+        return new TokenView(
+                json.get("accountId").asText(),
+                json.get("sessionId").asText(),
+                json.get("accessToken").asText()
+        );
     }
 
-    private void acceptConsent(String sessionId) throws Exception {
+    private void acceptConsent(String accessToken) throws Exception {
         mockMvc.perform(post("/api/v1/consent/accept")
                         .header(ApiVersionInterceptor.VERSION_HEADER, "1.2.0")
-                        .header("X-Session-Id", sessionId)
+                        .header(HttpHeaders.AUTHORIZATION, bearer(accessToken))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"consentVersion":"pipl-v1"}
@@ -231,10 +235,10 @@ class CaregiverPracticeAttributionWebTest extends AbstractIntegrationTest {
                 .andExpect(status().isOk());
     }
 
-    private InviteView createInvite(String sessionId, String role, String source) throws Exception {
+    private InviteView createInvite(String accessToken, String role, String source) throws Exception {
         var result = mockMvc.perform(post("/api/v1/caregiver-invites")
                         .header(ApiVersionInterceptor.VERSION_HEADER, "1.2.0")
-                        .header("X-Session-Id", sessionId)
+                        .header(HttpHeaders.AUTHORIZATION, bearer(accessToken))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -253,7 +257,7 @@ class CaregiverPracticeAttributionWebTest extends AbstractIntegrationTest {
     }
 
     private void syncEvent(
-            String sessionId,
+            String accessToken,
             String installationId,
             String localEventId,
             String spaceId,
@@ -264,7 +268,7 @@ class CaregiverPracticeAttributionWebTest extends AbstractIntegrationTest {
     ) throws Exception {
         mockMvc.perform(post("/api/v1/sync/events")
                         .header(ApiVersionInterceptor.VERSION_HEADER, "1.2.0")
-                        .header("X-Session-Id", sessionId)
+                        .header(HttpHeaders.AUTHORIZATION, bearer(accessToken))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -314,7 +318,11 @@ class CaregiverPracticeAttributionWebTest extends AbstractIntegrationTest {
         throw new IllegalArgumentException("Unsupported time value: " + value);
     }
 
-    private record SessionView(String accountId, String sessionId) {
+    private String bearer(String accessToken) {
+        return "Bearer " + accessToken;
+    }
+
+    private record TokenView(String accountId, String sessionId, String accessToken) {
     }
 
     private record InviteView(String householdId, String token, String inviteUrl) {

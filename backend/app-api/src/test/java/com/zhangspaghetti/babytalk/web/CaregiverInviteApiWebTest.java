@@ -8,18 +8,17 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.zhangspaghetti.babytalk.AbstractIntegrationTest;
 import com.zhangspaghetti.babytalk.config.ApiVersionInterceptor;
 import java.sql.Timestamp;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
-import java.util.List;
-import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
-import com.zhangspaghetti.babytalk.AbstractIntegrationTest;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.MockMvc;
@@ -52,7 +51,7 @@ class CaregiverInviteApiWebTest extends AbstractIntegrationTest {
 
     @BeforeEach
     void resetTables() {
-                resetDatabase(jdbcTemplate);
+        resetDatabase(jdbcTemplate);
         jdbcTemplate.execute("delete from caregiver_invite_events");
         jdbcTemplate.execute("delete from household_shared_context");
         jdbcTemplate.execute("delete from caregiver_invites");
@@ -73,18 +72,18 @@ class CaregiverInviteApiWebTest extends AbstractIntegrationTest {
     @Test
     void createInviteAcceptInviteAndFetchSharedContextUseAccountLevelMemberships() throws Exception {
         var primary = createAcceptedSession("13800138000", "install-primary");
-        syncEvent(primary.sessionId(), "install-primary", "evt_1", "daily_care", "bath_time", "bath_time_warm_water", "calm",
+        syncEvent(primary.accessToken(), "install-primary", "evt_1", "daily_care", "bath_time", "bath_time_warm_water", "calm",
                 "2026-04-09T02:00:00Z");
-        syncEvent(primary.sessionId(), "install-primary", "evt_2", "daily_care", "bath_time", "bath_time_splash_splash", "engaged",
+        syncEvent(primary.accessToken(), "install-primary", "evt_2", "daily_care", "bath_time", "bath_time_splash_splash", "engaged",
                 "2026-04-09T02:01:00Z");
 
-        var invite = createInvite(primary.sessionId(), "caregiver", "household_settings");
+        var invite = createInvite(primary.accessToken(), "caregiver", "household_settings");
         assertThat(invite.inviteUrl()).isEqualTo("https://invite.example.com/invite/" + invite.token());
 
         var secondary = createAcceptedSession("13900139000", "install-secondary");
         var acceptResult = mockMvc.perform(post("/api/v1/caregiver-invites/accept")
                         .header(ApiVersionInterceptor.VERSION_HEADER, "1.2.0")
-                        .header("X-Session-Id", secondary.sessionId())
+                        .header(HttpHeaders.AUTHORIZATION, bearer(secondary.accessToken()))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -113,7 +112,7 @@ class CaregiverInviteApiWebTest extends AbstractIntegrationTest {
 
         mockMvc.perform(get("/api/v1/household/shared-context")
                         .header(ApiVersionInterceptor.VERSION_HEADER, "1.2.0")
-                        .header("X-Session-Id", secondary.sessionId()))
+                        .header(HttpHeaders.AUTHORIZATION, bearer(secondary.accessToken())))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.householdId").value(invite.householdId()))
                 .andExpect(jsonPath("$.role").value("caregiver"))
@@ -146,14 +145,14 @@ class CaregiverInviteApiWebTest extends AbstractIntegrationTest {
     @Test
     void caregiverCannotCreateInviteAndRoleDeniedIsAudited() throws Exception {
         var primary = createAcceptedSession("13800138000", "install-primary");
-        syncEvent(primary.sessionId(), "install-primary", "evt_1", "daily_care", "bath_time", "bath_time_warm_water", "calm",
+        syncEvent(primary.accessToken(), "install-primary", "evt_1", "daily_care", "bath_time", "bath_time_warm_water", "calm",
                 "2026-04-09T02:00:00Z");
-        var invite = createInvite(primary.sessionId(), "caregiver", "household_settings");
+        var invite = createInvite(primary.accessToken(), "caregiver", "household_settings");
 
         var secondary = createAcceptedSession("13900139000", "install-secondary");
         mockMvc.perform(post("/api/v1/caregiver-invites/accept")
                         .header(ApiVersionInterceptor.VERSION_HEADER, "1.2.0")
-                        .header("X-Session-Id", secondary.sessionId())
+                        .header(HttpHeaders.AUTHORIZATION, bearer(secondary.accessToken()))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -165,7 +164,7 @@ class CaregiverInviteApiWebTest extends AbstractIntegrationTest {
 
         mockMvc.perform(post("/api/v1/caregiver-invites")
                         .header(ApiVersionInterceptor.VERSION_HEADER, "1.2.0")
-                        .header("X-Session-Id", secondary.sessionId())
+                        .header(HttpHeaders.AUTHORIZATION, bearer(secondary.accessToken()))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -188,9 +187,9 @@ class CaregiverInviteApiWebTest extends AbstractIntegrationTest {
     @Test
     void acceptInviteReturnsStableInvalidAndExpiredContracts() throws Exception {
         var primary = createAcceptedSession("13800138000", "install-primary");
-        syncEvent(primary.sessionId(), "install-primary", "evt_1", "daily_care", "bath_time", "bath_time_warm_water", "calm",
+        syncEvent(primary.accessToken(), "install-primary", "evt_1", "daily_care", "bath_time", "bath_time_warm_water", "calm",
                 "2026-04-09T02:00:00Z");
-        var invite = createInvite(primary.sessionId(), "caregiver", "household_settings");
+        var invite = createInvite(primary.accessToken(), "caregiver", "household_settings");
         jdbcTemplate.update(
                 "update caregiver_invites set expires_at = ? where token = ?",
                 Timestamp.from(Instant.now().minus(1, ChronoUnit.HOURS)),
@@ -201,7 +200,7 @@ class CaregiverInviteApiWebTest extends AbstractIntegrationTest {
 
         mockMvc.perform(post("/api/v1/caregiver-invites/accept")
                         .header(ApiVersionInterceptor.VERSION_HEADER, "1.2.0")
-                        .header("X-Session-Id", secondary.sessionId())
+                        .header(HttpHeaders.AUTHORIZATION, bearer(secondary.accessToken()))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -214,7 +213,7 @@ class CaregiverInviteApiWebTest extends AbstractIntegrationTest {
 
         mockMvc.perform(post("/api/v1/caregiver-invites/accept")
                         .header(ApiVersionInterceptor.VERSION_HEADER, "1.2.0")
-                        .header("X-Session-Id", secondary.sessionId())
+                        .header(HttpHeaders.AUTHORIZATION, bearer(secondary.accessToken()))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -227,7 +226,7 @@ class CaregiverInviteApiWebTest extends AbstractIntegrationTest {
 
         mockMvc.perform(post("/api/v1/caregiver-invites/accept")
                         .header(ApiVersionInterceptor.VERSION_HEADER, "1.2.0")
-                        .header("X-Session-Id", secondary.sessionId())
+                        .header(HttpHeaders.AUTHORIZATION, bearer(secondary.accessToken()))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -249,13 +248,13 @@ class CaregiverInviteApiWebTest extends AbstractIntegrationTest {
     @Test
     void acceptInviteReportsAlreadyUsedAndKeepsPendingInviteWhenSharedContextUnavailable() throws Exception {
         var primary = createAcceptedSession("13800138000", "install-primary");
-        syncEvent(primary.sessionId(), "install-primary", "evt_1", "daily_care", "bath_time", "bath_time_warm_water", "calm",
+        syncEvent(primary.accessToken(), "install-primary", "evt_1", "daily_care", "bath_time", "bath_time_warm_water", "calm",
                 "2026-04-09T02:00:00Z");
-        var usedInvite = createInvite(primary.sessionId(), "caregiver", "household_settings");
+        var usedInvite = createInvite(primary.accessToken(), "caregiver", "household_settings");
         var acceptedCaregiver = createAcceptedSession("13900139000", "install-secondary");
         mockMvc.perform(post("/api/v1/caregiver-invites/accept")
                         .header(ApiVersionInterceptor.VERSION_HEADER, "1.2.0")
-                        .header("X-Session-Id", acceptedCaregiver.sessionId())
+                        .header(HttpHeaders.AUTHORIZATION, bearer(acceptedCaregiver.accessToken()))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -268,7 +267,7 @@ class CaregiverInviteApiWebTest extends AbstractIntegrationTest {
         var anotherCaregiver = createAcceptedSession("13700137000", "install-third");
         mockMvc.perform(post("/api/v1/caregiver-invites/accept")
                         .header(ApiVersionInterceptor.VERSION_HEADER, "1.2.0")
-                        .header("X-Session-Id", anotherCaregiver.sessionId())
+                        .header(HttpHeaders.AUTHORIZATION, bearer(anotherCaregiver.accessToken()))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -280,12 +279,12 @@ class CaregiverInviteApiWebTest extends AbstractIntegrationTest {
                 .andExpect(jsonPath("$.code").value("invite_already_used"));
 
         var noContextPrimary = createAcceptedSession("13600136000", "install-fourth");
-        var pendingInvite = createInvite(noContextPrimary.sessionId(), "caregiver", "household_settings");
+        var pendingInvite = createInvite(noContextPrimary.accessToken(), "caregiver", "household_settings");
         var noContextCaregiver = createAcceptedSession("13500135000", "install-fifth");
 
         mockMvc.perform(post("/api/v1/caregiver-invites/accept")
                         .header(ApiVersionInterceptor.VERSION_HEADER, "1.2.0")
-                        .header("X-Session-Id", noContextCaregiver.sessionId())
+                        .header(HttpHeaders.AUTHORIZATION, bearer(noContextCaregiver.accessToken()))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -318,13 +317,13 @@ class CaregiverInviteApiWebTest extends AbstractIntegrationTest {
     @Test
     void primaryCaregiverCanRevokeInviteAndPreventFutureAccept() throws Exception {
         var primary = createAcceptedSession("13800138000", "install-primary");
-        syncEvent(primary.sessionId(), "install-primary", "evt_1", "daily_care", "bath_time", "bath_time_warm_water", "calm",
+        syncEvent(primary.accessToken(), "install-primary", "evt_1", "daily_care", "bath_time", "bath_time_warm_water", "calm",
                 "2026-04-09T02:00:00Z");
-        var invite = createInvite(primary.sessionId(), "caregiver", "household_settings");
+        var invite = createInvite(primary.accessToken(), "caregiver", "household_settings");
 
         mockMvc.perform(post("/api/v1/caregiver-invites/{token}/revoke", invite.token())
                         .header(ApiVersionInterceptor.VERSION_HEADER, "1.2.0")
-                        .header("X-Session-Id", primary.sessionId()))
+                        .header(HttpHeaders.AUTHORIZATION, bearer(primary.accessToken())))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.applied").value(true))
                 .andExpect(jsonPath("$.result").value("revoked"));
@@ -332,7 +331,7 @@ class CaregiverInviteApiWebTest extends AbstractIntegrationTest {
         var secondary = createAcceptedSession("13900139000", "install-secondary");
         mockMvc.perform(post("/api/v1/caregiver-invites/accept")
                         .header(ApiVersionInterceptor.VERSION_HEADER, "1.2.0")
-                        .header("X-Session-Id", secondary.sessionId())
+                        .header(HttpHeaders.AUTHORIZATION, bearer(secondary.accessToken()))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -351,10 +350,10 @@ class CaregiverInviteApiWebTest extends AbstractIntegrationTest {
                 .contains("revoke:revoked:invite_revoked", "accept:revoked:invite_revoked");
     }
 
-    private SessionView createAcceptedSession(String phoneNumber, String installationId) throws Exception {
+    private TokenView createAcceptedSession(String phoneNumber, String installationId) throws Exception {
         var challengeId = createChallenge(phoneNumber);
         var session = verifyChallenge(challengeId, installationId);
-        acceptConsent(session.sessionId());
+        acceptConsent(session.accessToken());
         return session;
     }
 
@@ -370,7 +369,7 @@ class CaregiverInviteApiWebTest extends AbstractIntegrationTest {
         return readJson(result.getResponse().getContentAsString()).get("challengeId").asText();
     }
 
-    private SessionView verifyChallenge(String challengeId, String installationId) throws Exception {
+    private TokenView verifyChallenge(String challengeId, String installationId) throws Exception {
         var result = mockMvc.perform(post("/api/v1/auth/verify")
                         .header(ApiVersionInterceptor.VERSION_HEADER, "1.2.0")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -384,13 +383,17 @@ class CaregiverInviteApiWebTest extends AbstractIntegrationTest {
                 .andExpect(status().isOk())
                 .andReturn();
         var json = readJson(result.getResponse().getContentAsString());
-        return new SessionView(json.get("accountId").asText(), json.get("sessionId").asText());
+        return new TokenView(
+                json.get("accountId").asText(),
+                json.get("sessionId").asText(),
+                json.get("accessToken").asText()
+        );
     }
 
-    private void acceptConsent(String sessionId) throws Exception {
+    private void acceptConsent(String accessToken) throws Exception {
         mockMvc.perform(post("/api/v1/consent/accept")
                         .header(ApiVersionInterceptor.VERSION_HEADER, "1.2.0")
-                        .header("X-Session-Id", sessionId)
+                        .header(HttpHeaders.AUTHORIZATION, bearer(accessToken))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"consentVersion":"pipl-v1"}
@@ -398,10 +401,10 @@ class CaregiverInviteApiWebTest extends AbstractIntegrationTest {
                 .andExpect(status().isOk());
     }
 
-    private InviteView createInvite(String sessionId, String role, String source) throws Exception {
+    private InviteView createInvite(String accessToken, String role, String source) throws Exception {
         var result = mockMvc.perform(post("/api/v1/caregiver-invites")
                         .header(ApiVersionInterceptor.VERSION_HEADER, "1.2.0")
-                        .header("X-Session-Id", sessionId)
+                        .header(HttpHeaders.AUTHORIZATION, bearer(accessToken))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -420,7 +423,7 @@ class CaregiverInviteApiWebTest extends AbstractIntegrationTest {
     }
 
     private void syncEvent(
-            String sessionId,
+            String accessToken,
             String installationId,
             String localEventId,
             String spaceId,
@@ -431,7 +434,7 @@ class CaregiverInviteApiWebTest extends AbstractIntegrationTest {
     ) throws Exception {
         mockMvc.perform(post("/api/v1/sync/events")
                         .header(ApiVersionInterceptor.VERSION_HEADER, "1.2.0")
-                        .header("X-Session-Id", sessionId)
+                        .header(HttpHeaders.AUTHORIZATION, bearer(accessToken))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -468,7 +471,11 @@ class CaregiverInviteApiWebTest extends AbstractIntegrationTest {
         return objectMapper.readTree(rawJson);
     }
 
-    private record SessionView(String accountId, String sessionId) {
+    private String bearer(String accessToken) {
+        return "Bearer " + accessToken;
+    }
+
+    private record TokenView(String accountId, String sessionId, String accessToken) {
     }
 
     private record InviteView(String householdId, String token, String inviteUrl) {

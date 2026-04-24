@@ -8,13 +8,14 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.zhangspaghetti.babytalk.AbstractIntegrationTest;
 import com.zhangspaghetti.babytalk.config.ApiVersionInterceptor;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
-import com.zhangspaghetti.babytalk.AbstractIntegrationTest;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.MockMvc;
@@ -41,7 +42,7 @@ class MentorWebTest extends AbstractIntegrationTest {
 
     @BeforeEach
     void resetTables() {
-                resetDatabase(jdbcTemplate);
+        resetDatabase(jdbcTemplate);
         jdbcTemplate.execute("delete from mentor_turns");
         jdbcTemplate.execute("delete from mentor_audit_logs");
         jdbcTemplate.execute("delete from interaction_events");
@@ -79,6 +80,30 @@ class MentorWebTest extends AbstractIntegrationTest {
     }
 
     @Test
+    void authenticatedHappyPathUsesBearerAndPreservesAuthenticatedSignal() throws Exception {
+        var session = createAcceptedSession("13800138000", "install-authenticated");
+
+        mockMvc.perform(post("/api/v1/mentor/chat")
+                        .header(ApiVersionInterceptor.VERSION_HEADER, "1.2.0")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(session.accessToken()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "installationId":"install-authenticated",
+                                  "prompt":"请给我一个适合洗澡时间的鼓励句。",
+                                  "surface":"home",
+                                  "mode":"single_turn",
+                                  "correlationId":"corr_authenticated_success"
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value("ok"))
+                .andExpect(jsonPath("$.phase").value("response_delivered"))
+                .andExpect(jsonPath("$.authenticated").value(true))
+                .andExpect(jsonPath("$.fallbackUsed").value(false));
+    }
+
+    @Test
     void blockedPromptReturnsFallbackAndRedactsStoredSummary() throws Exception {
         mockMvc.perform(post("/api/v1/mentor/chat")
                         .header(ApiVersionInterceptor.VERSION_HEADER, "1.2.0")
@@ -107,10 +132,12 @@ class MentorWebTest extends AbstractIntegrationTest {
     }
 
     @Test
-    void invalidSessionReturns401AndWritesAudit() throws Exception {
+    void wrongTokenTypeReturns401WithoutMentorWrites() throws Exception {
+        var session = verifyChallenge(createChallenge("13800138000"), "install-alpha");
+
         mockMvc.perform(post("/api/v1/mentor/chat")
                         .header(ApiVersionInterceptor.VERSION_HEADER, "1.2.0")
-                        .header("X-Session-Id", "sess_missing")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(session.refreshToken()))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -118,30 +145,25 @@ class MentorWebTest extends AbstractIntegrationTest {
                                   "prompt":"请给我一个建议",
                                   "surface":"discover",
                                   "mode":"single_turn",
-                                  "correlationId":"corr_invalid_session"
+                                  "correlationId":"corr_invalid_token_type"
                                 }
                                 """))
                 .andExpect(status().isUnauthorized())
-                .andExpect(jsonPath("$.code").value("invalid_session"))
-                .andExpect(jsonPath("$.details.phase").value("invalid_session"));
+                .andExpect(jsonPath("$.code").value("invalid_access_token"))
+                .andExpect(jsonPath("$.details.reason").value("invalid"));
 
-        var failureCode = jdbcTemplate.queryForObject(
-                "select failure_code from mentor_audit_logs where correlation_id = 'corr_invalid_session'",
-                String.class
-        );
-        assertThat(failureCode).isEqualTo("invalid_session");
+        assertThat(jdbcTemplate.queryForObject("select count(*) from mentor_turns", Integer.class)).isZero();
+        assertThat(jdbcTemplate.queryForObject("select count(*) from mentor_audit_logs", Integer.class)).isZero();
     }
 
     @Test
-    void revokedSessionReturns403() throws Exception {
-        var challengeId = createChallenge("13800138000");
-        var session = verifyChallenge(challengeId, "install-alpha");
-        acceptConsent(session.sessionId());
-        revokeConsent(session.sessionId());
+    void revokedSessionReturns401WhenGuardRejectsRevokedSession() throws Exception {
+        var session = createAcceptedSession("13800138000", "install-alpha");
+        revokeConsent(session.accessToken());
 
         mockMvc.perform(post("/api/v1/mentor/chat")
                         .header(ApiVersionInterceptor.VERSION_HEADER, "1.2.0")
-                        .header("X-Session-Id", session.sessionId())
+                        .header(HttpHeaders.AUTHORIZATION, bearer(session.accessToken()))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -152,9 +174,9 @@ class MentorWebTest extends AbstractIntegrationTest {
                                   "correlationId":"corr_revoked"
                                 }
                                 """))
-                .andExpect(status().isForbidden())
-                .andExpect(jsonPath("$.code").value("consent_revoked"))
-                .andExpect(jsonPath("$.details.phase").value("consent_revoked"));
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("consumer_session_invalid"))
+                .andExpect(jsonPath("$.details.reason").value("session_invalid"));
     }
 
     @Test
@@ -270,6 +292,12 @@ class MentorWebTest extends AbstractIntegrationTest {
         assertThat(auditCount).isZero();
     }
 
+    private TokenView createAcceptedSession(String phoneNumber, String installationId) throws Exception {
+        var session = verifyChallenge(createChallenge(phoneNumber), installationId);
+        acceptConsent(session.accessToken());
+        return session;
+    }
+
     private String createChallenge(String phoneNumber) throws Exception {
         var result = mockMvc.perform(post("/api/v1/auth/challenges")
                         .header(ApiVersionInterceptor.VERSION_HEADER, "1.2.0")
@@ -282,7 +310,7 @@ class MentorWebTest extends AbstractIntegrationTest {
         return readJson(result.getResponse().getContentAsString()).get("challengeId").asText();
     }
 
-    private SessionView verifyChallenge(String challengeId, String installationId) throws Exception {
+    private TokenView verifyChallenge(String challengeId, String installationId) throws Exception {
         var result = mockMvc.perform(post("/api/v1/auth/verify")
                         .header(ApiVersionInterceptor.VERSION_HEADER, "1.2.0")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -296,13 +324,18 @@ class MentorWebTest extends AbstractIntegrationTest {
                 .andExpect(status().isOk())
                 .andReturn();
         var json = readJson(result.getResponse().getContentAsString());
-        return new SessionView(json.get("accountId").asText(), json.get("sessionId").asText());
+        return new TokenView(
+                json.get("accountId").asText(),
+                json.get("sessionId").asText(),
+                json.get("accessToken").asText(),
+                json.get("refreshToken").asText()
+        );
     }
 
-    private void acceptConsent(String sessionId) throws Exception {
+    private void acceptConsent(String accessToken) throws Exception {
         mockMvc.perform(post("/api/v1/consent/accept")
                         .header(ApiVersionInterceptor.VERSION_HEADER, "1.2.0")
-                        .header("X-Session-Id", sessionId)
+                        .header(HttpHeaders.AUTHORIZATION, bearer(accessToken))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"consentVersion":"pipl-v1"}
@@ -310,10 +343,10 @@ class MentorWebTest extends AbstractIntegrationTest {
                 .andExpect(status().isOk());
     }
 
-    private void revokeConsent(String sessionId) throws Exception {
+    private void revokeConsent(String accessToken) throws Exception {
         mockMvc.perform(post("/api/v1/consent/revoke")
                         .header(ApiVersionInterceptor.VERSION_HEADER, "1.2.0")
-                        .header("X-Session-Id", sessionId)
+                        .header(HttpHeaders.AUTHORIZATION, bearer(accessToken))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"reason":"user_requested"}
@@ -325,6 +358,10 @@ class MentorWebTest extends AbstractIntegrationTest {
         return objectMapper.readTree(rawJson);
     }
 
-    private record SessionView(String accountId, String sessionId) {
+    private String bearer(String accessToken) {
+        return "Bearer " + accessToken;
+    }
+
+    private record TokenView(String accountId, String sessionId, String accessToken, String refreshToken) {
     }
 }

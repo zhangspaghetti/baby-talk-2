@@ -1,6 +1,7 @@
 package com.zhangspaghetti.babytalk.web;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -19,6 +20,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.MockMvc;
@@ -59,6 +61,7 @@ class JwtTokenLifecycleWebTest extends AbstractIntegrationTest {
     @Test
     void verifyRefreshRotateAndLogoutRevokeOldBearerImmediately() throws Exception {
         var verified = verifyChallenge(createChallenge("13800138000"), "install-alpha");
+        acceptConsent(verified.accessToken());
         assertThat(activeRefreshCount(verified.sessionId())).isEqualTo(1);
         assertThat(refreshStatus(verified.refreshToken())).isEqualTo("active");
 
@@ -70,6 +73,33 @@ class JwtTokenLifecycleWebTest extends AbstractIntegrationTest {
         assertThat(refreshStatus(refreshed.refreshToken())).isEqualTo("active");
         assertThat(validateAccessToken(verified.accessToken())).isEqualTo(AuthConsentSyncService.AccessValidationResult.ROTATED);
         assertThat(validateAccessToken(refreshed.accessToken())).isEqualTo(AuthConsentSyncService.AccessValidationResult.ACTIVE);
+
+        mockMvc.perform(post("/api/v1/sync/events")
+                        .header(ApiVersionInterceptor.VERSION_HEADER, "1.2.0")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(verified.accessToken()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "installationId":"install-alpha",
+                                  "events":[
+                                    {
+                                      "eventKey":"install-alpha:evt_rotated",
+                                      "localEventId":"evt_rotated",
+                                      "installationId":"install-alpha",
+                                      "spaceId":"daily_care",
+                                      "activityId":"bath_time",
+                                      "phraseId":"bath_time_warm_water",
+                                      "reactionType":"calm",
+                                      "clientTimestamp":"2026-04-09T02:00:00Z"
+                                    }
+                                  ]
+                                }
+                                """))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("access_token_rotated"))
+                .andExpect(jsonPath("$.details.reason").value("rotated"));
+
+        acceptConsent(refreshed.accessToken());
 
         mockMvc.perform(post("/api/v1/auth/refresh")
                         .header(ApiVersionInterceptor.VERSION_HEADER, "1.2.0")
@@ -91,6 +121,14 @@ class JwtTokenLifecycleWebTest extends AbstractIntegrationTest {
 
         assertThat(refreshStatus(refreshed.refreshToken())).isEqualTo("revoked");
         assertThat(validateAccessToken(refreshed.accessToken())).isEqualTo(AuthConsentSyncService.AccessValidationResult.REVOKED);
+
+        mockMvc.perform(get("/api/v1/bootstrap")
+                        .header(ApiVersionInterceptor.VERSION_HEADER, "1.2.0")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(refreshed.accessToken()))
+                        .param("installationId", "install-alpha"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("access_token_revoked"))
+                .andExpect(jsonPath("$.details.reason").value("revoked"));
 
         mockMvc.perform(post("/api/v1/auth/refresh")
                         .header(ApiVersionInterceptor.VERSION_HEADER, "1.2.0")
@@ -201,6 +239,17 @@ class JwtTokenLifecycleWebTest extends AbstractIntegrationTest {
         return readTokenView(result.getResponse().getContentAsString());
     }
 
+    private void acceptConsent(String accessToken) throws Exception {
+        mockMvc.perform(post("/api/v1/consent/accept")
+                        .header(ApiVersionInterceptor.VERSION_HEADER, "1.2.0")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(accessToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"consentVersion":"pipl-v1"}
+                                """))
+                .andExpect(status().isOk());
+    }
+
     private TokenView readTokenView(String rawJson) throws Exception {
         JsonNode json = objectMapper.readTree(rawJson);
         return new TokenView(
@@ -244,6 +293,10 @@ class JwtTokenLifecycleWebTest extends AbstractIntegrationTest {
 
     private String refreshTokenId(String refreshToken) {
         return jwtTokenService.decode(refreshToken).tokenId();
+    }
+
+    private String bearer(String accessToken) {
+        return "Bearer " + accessToken;
     }
 
     private record TokenView(
