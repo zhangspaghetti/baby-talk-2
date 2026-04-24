@@ -6,7 +6,6 @@ import {
   SafetyCertificateOutlined,
   TeamOutlined,
 } from '@ant-design/icons';
-import type { ApiError, AdminIdentity } from '../lib/authClient';
 
 export const ADMIN_LOGIN_PATH = '/login';
 export const ADMIN_FORBIDDEN_PATH = '/403';
@@ -30,13 +29,7 @@ export type AdminWorkspaceRouteKey =
 export type AdminWorkspaceNavVisibility = 'primary' | 'hidden';
 export type AdminForbiddenReason = 'missing-permission' | 'no-accessible-route';
 
-export type AdminRouteComponentProps = {
-  accessToken: string;
-  admin: AdminIdentity;
-  onUnauthorized: (error: ApiError) => void;
-};
-
-type AdminRouteComponent = ComponentType<AdminRouteComponentProps>;
+type AdminRouteComponent = ComponentType<Record<string, never>>;
 type AdminRouteRenderableComponent = AdminRouteComponent | LazyExoticComponent<AdminRouteComponent>;
 
 export type AdminWorkspaceRouteDefinition = {

@@ -133,7 +133,7 @@ export async function requestJson(path: string, init: JsonRequestOptions = {}): 
   }
 }
 
-export async function requestCurrentAdmin(_accessToken?: string) {
+export async function requestCurrentAdmin() {
   const payload = await requestJson('/api/admin/me');
   return parseAdminIdentity(payload, { requirePermissions: true });
 }

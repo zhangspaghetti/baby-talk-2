@@ -303,7 +303,7 @@ function buildQueryString(query: DistributionStatsQuery): string {
 }
 
 export const distributionStatsClient = {
-  async getStats(_accessToken: string, query: DistributionStatsQuery = {}) {
+  async getStats(query: DistributionStatsQuery = {}) {
     const payload = await requestJson(`/api/admin/distribution/stats${buildQueryString(query)}`);
     return parseDistributionStats(payload);
   },

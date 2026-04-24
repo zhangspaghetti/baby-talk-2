@@ -14,9 +14,9 @@ import {
   type TableProps,
 } from 'antd';
 import { useSearchParams } from 'react-router-dom';
-import type { AdminIdentity } from '../lib/authClient';
-import { ApiError } from '../lib/authClient';
 import { warmPaperAdmin } from '../app/theme';
+import { useAuth } from '../auth/auth-provider';
+import { ApiError } from '../lib/authClient';
 import {
   DISTRIBUTION_STATS_CHANNELS,
   DISTRIBUTION_STATS_RANGES,
@@ -46,17 +46,13 @@ const sectionGridStyle: CSSProperties = {
   alignItems: 'start',
 };
 
-type DistributionStatsPageProps = {
-  accessToken: string;
-  admin: AdminIdentity;
-  onUnauthorized: (error: ApiError) => void;
-};
-
 type QueryState = {
   rawRange?: string;
   rawChannel?: string;
-  range?: DistributionStatsRange;
-  channel?: DistributionStatsChannel;
+  range: DistributionStatsRange;
+  channel: DistributionStatsChannel;
+  rangeWasNormalized: boolean;
+  channelWasNormalized: boolean;
 };
 
 type DailyCountPoint = {
@@ -76,11 +72,17 @@ const CHANNEL_OPTIONS: Array<{ value: DistributionStatsChannel; label: string }>
   { value: 'beta', label: 'beta' },
 ];
 
-export function DistributionStatsPage({ accessToken, admin, onUnauthorized }: DistributionStatsPageProps) {
+export function DistributionStatsPage() {
+  const { session } = useAuth();
+  if (!session) {
+    throw new Error('DistributionStatsPage requires an active admin session.');
+  }
+
+  const admin = session.admin;
   const [searchParams, setSearchParams] = useSearchParams();
   const query = useMemo(() => readQueryState(searchParams), [searchParams]);
-  const [rangeDraft, setRangeDraft] = useState<DistributionStatsRange>(query.range ?? DEFAULT_RANGE);
-  const [channelDraft, setChannelDraft] = useState<DistributionStatsChannel>(query.channel ?? DEFAULT_CHANNEL);
+  const [rangeDraft, setRangeDraft] = useState<DistributionStatsRange>(query.range);
+  const [channelDraft, setChannelDraft] = useState<DistributionStatsChannel>(query.channel);
   const [stats, setStats] = useState<DistributionStatsView | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<ApiError | null>(null);
@@ -105,8 +107,8 @@ export function DistributionStatsPage({ accessToken, admin, onUnauthorized }: Di
   }, [needsCanonicalQuery, searchParams, searchParamsKey, setSearchParams]);
 
   useEffect(() => {
-    setRangeDraft(query.range ?? DEFAULT_RANGE);
-    setChannelDraft(query.channel ?? DEFAULT_CHANNEL);
+    setRangeDraft(query.range);
+    setChannelDraft(query.channel);
   }, [query.channel, query.range]);
 
   useEffect(() => {
@@ -119,9 +121,9 @@ export function DistributionStatsPage({ accessToken, admin, onUnauthorized }: Di
     setError(null);
 
     void distributionStatsClient
-      .getStats(accessToken, {
-        range: query.rawRange,
-        channel: query.rawChannel,
+      .getStats({
+        range: query.range,
+        channel: query.channel,
       })
       .then((nextStats) => {
         if (cancelled) {
@@ -132,10 +134,6 @@ export function DistributionStatsPage({ accessToken, admin, onUnauthorized }: Di
       .catch((requestError) => {
         const apiError = toApiError(requestError);
         if (cancelled) {
-          return;
-        }
-        if (apiError.status === 401 && apiError.code !== 'admin_account_disabled') {
-          onUnauthorized(normalizeStatsUnauthorizedError(apiError));
           return;
         }
         setError(apiError);
@@ -149,9 +147,10 @@ export function DistributionStatsPage({ accessToken, admin, onUnauthorized }: Di
     return () => {
       cancelled = true;
     };
-  }, [accessToken, needsCanonicalQuery, onUnauthorized, query.rawChannel, query.rawRange, reloadNonce]);
+  }, [needsCanonicalQuery, query.channel, query.range, reloadNonce]);
 
   const contextSummary = searchParams.toString() || `range=${DEFAULT_RANGE}&channel=${DEFAULT_CHANNEL}`;
+  const hasNormalizedQuery = query.rangeWasNormalized || query.channelWasNormalized;
   const releaseTrendPoints = useMemo(() => aggregateDailyCounts(stats?.releaseTrend ?? []), [stats?.releaseTrend]);
   const shareTrendPoints = useMemo(() => aggregateDailyCounts(stats?.shareTrend ?? []), [stats?.shareTrend]);
   const isEmptyState =
@@ -277,16 +276,14 @@ export function DistributionStatsPage({ accessToken, admin, onUnauthorized }: Di
               distribution:read {admin.permissions.includes('distribution:read') ? 'enabled' : 'missing'}
             </Tag>
             <Tag>roles: {admin.roles.join(', ') || 'none'}</Tag>
+            <Tag>access expires: {formatTimestamp(session.accessTokenExpiresAt)}</Tag>
           </Space>
           <Space wrap>
-            <Tag data-testid="range-badge" color={query.range ? 'processing' : query.rawRange ? 'error' : 'default'}>
-              range: {query.rawRange ?? '(missing)'}
+            <Tag data-testid="range-badge" color={query.rangeWasNormalized ? 'warning' : 'processing'}>
+              range: {query.rangeWasNormalized ? `${query.rawRange ?? DEFAULT_RANGE} → ${query.range}` : query.rawRange ?? query.range}
             </Tag>
-            <Tag
-              data-testid="channel-badge"
-              color={query.channel ? 'processing' : query.rawChannel ? 'error' : 'default'}
-            >
-              channel: {query.rawChannel ?? '(missing)'}
+            <Tag data-testid="channel-badge" color={query.channelWasNormalized ? 'warning' : 'processing'}>
+              channel: {query.channelWasNormalized ? `${query.rawChannel ?? DEFAULT_CHANNEL} → ${query.channel}` : query.rawChannel ?? query.channel}
             </Tag>
             <Tag>window started: {stats ? formatTimestamp(stats.applied.windowStartedAt) : 'pending'}</Tag>
           </Space>
@@ -295,6 +292,16 @@ export function DistributionStatsPage({ accessToken, admin, onUnauthorized }: Di
           </Typography.Text>
         </Space>
       </Card>
+
+      {hasNormalizedQuery ? (
+        <Alert
+          showIcon
+          type="warning"
+          data-testid="stats-query-normalized-state"
+          message="非法过滤条件已归一化为安全默认值"
+          description={`原始 query 会保留在 URL 里供排查；实际请求使用 range=${query.range}, channel=${query.channel}。`}
+        />
+      ) : null}
 
       <Card size="small" title="Stats filters">
         <Space direction="vertical" size="middle" style={{ width: '100%' }}>
@@ -592,12 +599,16 @@ function aggregateDailyCounts(points: TrendPointView[]): DailyCountPoint[] {
 function readQueryState(searchParams: URLSearchParams): QueryState {
   const rawRange = readRawQueryValue(searchParams.get('range'));
   const rawChannel = readRawQueryValue(searchParams.get('channel'));
+  const normalizedRange = normalizeRange(rawRange);
+  const normalizedChannel = normalizeChannel(rawChannel);
 
   return {
     rawRange,
     rawChannel,
-    range: normalizeRange(rawRange),
-    channel: normalizeChannel(rawChannel),
+    range: normalizedRange ?? DEFAULT_RANGE,
+    channel: normalizedChannel ?? DEFAULT_CHANNEL,
+    rangeWasNormalized: Boolean(rawRange && !normalizedRange),
+    channelWasNormalized: Boolean(rawChannel && !normalizedChannel),
   };
 }
 
@@ -652,17 +663,6 @@ function toApiError(error: unknown): ApiError {
     return new ApiError(0, 'unexpected_error', error.message);
   }
   return new ApiError(0, 'unexpected_error', '发生未预期错误。');
-}
-
-function normalizeStatsUnauthorizedError(error: ApiError): ApiError {
-  if (
-    error.code === 'request_failed' ||
-    error.code === 'invalid_admin_access_token' ||
-    error.code === 'unexpected_error'
-  ) {
-    return new ApiError(401, 'admin_session_invalid', '管理员会话已失效，请重新登录。');
-  }
-  return error;
 }
 
 export default DistributionStatsPage;

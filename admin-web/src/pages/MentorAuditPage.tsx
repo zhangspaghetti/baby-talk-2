@@ -15,13 +15,14 @@ import {
   Typography,
 } from 'antd';
 import { useSearchParams } from 'react-router-dom';
-import type { AdminIdentity } from '../lib/authClient';
-import { ApiError } from '../lib/authClient';
 import { warmPaperAdmin } from '../app/theme';
+import { useAuth } from '../auth/auth-provider';
+import { ApiError } from '../lib/authClient';
 import {
   MENTOR_AUDIT_FLAGS,
   mentorAuditClient,
   type MentorAuditDetail,
+  type MentorAuditFlag,
   type MentorAuditQueueItem,
 } from '../lib/mentorAuditClient';
 
@@ -36,21 +37,22 @@ const workspaceGridStyle: CSSProperties = {
 
 type QueryState = {
   installationId?: string;
-  flag?: string;
+  rawFlag?: string;
+  flag?: MentorAuditFlag;
   selected?: string;
 };
 
-type MentorAuditPageProps = {
-  accessToken: string;
-  admin: AdminIdentity;
-  onUnauthorized: (error: ApiError) => void;
-};
+export function MentorAuditPage() {
+  const { session } = useAuth();
+  if (!session) {
+    throw new Error('MentorAuditPage requires an active admin session.');
+  }
 
-export function MentorAuditPage({ accessToken, admin, onUnauthorized }: MentorAuditPageProps) {
+  const admin = session.admin;
   const [searchParams, setSearchParams] = useSearchParams();
   const query = useMemo(() => readQueryState(searchParams), [searchParams]);
   const [installationDraft, setInstallationDraft] = useState(query.installationId ?? '');
-  const [flagDraft, setFlagDraft] = useState(query.flag ?? '');
+  const [flagDraft, setFlagDraft] = useState(query.rawFlag ?? '');
   const [queueItems, setQueueItems] = useState<MentorAuditQueueItem[]>([]);
   const [queueLoading, setQueueLoading] = useState(false);
   const [queueError, setQueueError] = useState<ApiError | null>(null);
@@ -62,8 +64,8 @@ export function MentorAuditPage({ accessToken, admin, onUnauthorized }: MentorAu
 
   useEffect(() => {
     setInstallationDraft(query.installationId ?? '');
-    setFlagDraft(query.flag ?? '');
-  }, [query.flag, query.installationId]);
+    setFlagDraft(query.rawFlag ?? '');
+  }, [query.installationId, query.rawFlag]);
 
   useEffect(() => {
     let cancelled = false;
@@ -71,7 +73,7 @@ export function MentorAuditPage({ accessToken, admin, onUnauthorized }: MentorAu
     setQueueError(null);
 
     void mentorAuditClient
-      .listAudits(accessToken, {
+      .listAudits({
         installationId: query.installationId,
         flag: query.flag,
         limit: queueLimit,
@@ -87,10 +89,6 @@ export function MentorAuditPage({ accessToken, admin, onUnauthorized }: MentorAu
         if (cancelled) {
           return;
         }
-        if (apiError.status === 401) {
-          onUnauthorized(apiError);
-          return;
-        }
         setQueueItems([]);
         setQueueError(apiError);
       })
@@ -103,7 +101,7 @@ export function MentorAuditPage({ accessToken, admin, onUnauthorized }: MentorAu
     return () => {
       cancelled = true;
     };
-  }, [accessToken, onUnauthorized, query.flag, query.installationId, queueReloadNonce]);
+  }, [query.flag, query.installationId, queueReloadNonce]);
 
   useEffect(() => {
     if (!query.selected) {
@@ -118,7 +116,7 @@ export function MentorAuditPage({ accessToken, admin, onUnauthorized }: MentorAu
     setDetailError(null);
 
     void mentorAuditClient
-      .getAudit(accessToken, query.selected)
+      .getAudit(query.selected)
       .then((nextDetail) => {
         if (cancelled) {
           return;
@@ -128,10 +126,6 @@ export function MentorAuditPage({ accessToken, admin, onUnauthorized }: MentorAu
       .catch((error) => {
         const apiError = toApiError(error);
         if (cancelled) {
-          return;
-        }
-        if (apiError.status === 401) {
-          onUnauthorized(apiError);
           return;
         }
         setDetail(null);
@@ -146,14 +140,15 @@ export function MentorAuditPage({ accessToken, admin, onUnauthorized }: MentorAu
     return () => {
       cancelled = true;
     };
-  }, [accessToken, detailReloadNonce, onUnauthorized, query.selected]);
+  }, [detailReloadNonce, query.selected]);
 
   const contextSummary = searchParams.toString() || '(empty)';
+  const hasNormalizedFlag = Boolean(query.rawFlag && !query.flag);
 
   const applyFilters = () => {
     updateQuery(setSearchParams, {
       installationId: normalizeQueryValue(installationDraft),
-      flag: normalizeQueryValue(flagDraft),
+      rawFlag: normalizeQueryValue(flagDraft),
       selected: undefined,
     });
   };
@@ -163,7 +158,7 @@ export function MentorAuditPage({ accessToken, admin, onUnauthorized }: MentorAu
     setFlagDraft('');
     updateQuery(setSearchParams, {
       installationId: undefined,
-      flag: undefined,
+      rawFlag: undefined,
       selected: undefined,
     });
   };
@@ -202,12 +197,15 @@ export function MentorAuditPage({ accessToken, admin, onUnauthorized }: MentorAu
               mentor:audit {admin.permissions.includes('mentor:audit') ? 'enabled' : 'missing'}
             </Tag>
             <Tag>roles: {admin.roles.join(', ') || 'none'}</Tag>
+            <Tag>access expires: {formatTimestamp(session.accessTokenExpiresAt)}</Tag>
           </Space>
           <Space wrap>
             <Tag color={query.installationId ? 'processing' : 'default'}>
               installationId: {query.installationId ?? 'all'}
             </Tag>
-            <Tag color={query.flag ? 'processing' : 'default'}>flag: {query.flag ?? 'all flagged'}</Tag>
+            <Tag color={query.flag ? 'processing' : query.rawFlag ? 'warning' : 'default'}>
+              flag: {query.rawFlag ? (query.flag ? query.rawFlag : `${query.rawFlag} → all flagged`) : 'all flagged'}
+            </Tag>
             <Tag color={query.selected ? 'warning' : 'default'}>selected: {query.selected ?? 'none'}</Tag>
           </Space>
           <Typography.Text code data-testid="queue-context-query">
@@ -215,6 +213,16 @@ export function MentorAuditPage({ accessToken, admin, onUnauthorized }: MentorAu
           </Typography.Text>
         </Space>
       </Card>
+
+      {hasNormalizedFlag ? (
+        <Alert
+          showIcon
+          type="warning"
+          data-testid="queue-query-normalized-state"
+          message="未知 flag 已归一化为安全默认值"
+          description={`原始 query flag=${query.rawFlag} 仍保留在 URL 里供排查，但请求会按 all flagged 读取 queue。`}
+        />
+      ) : null}
 
       <Card size="small" title="Queue filters">
         <Space wrap align="end" size="middle">
@@ -519,11 +527,21 @@ function flagColor(flagCode: string): string {
 }
 
 function readQueryState(searchParams: URLSearchParams): QueryState {
+  const rawFlag = normalizeQueryValue(searchParams.get('flag'));
+
   return {
     installationId: normalizeQueryValue(searchParams.get('installationId')),
-    flag: normalizeQueryValue(searchParams.get('flag')),
+    rawFlag,
+    flag: normalizeFlag(rawFlag),
     selected: normalizeQueryValue(searchParams.get('selected')),
   };
+}
+
+function normalizeFlag(value: string | undefined): MentorAuditFlag | undefined {
+  if (!value) {
+    return undefined;
+  }
+  return (MENTOR_AUDIT_FLAGS as readonly string[]).includes(value) ? (value as MentorAuditFlag) : undefined;
 }
 
 function normalizeQueryValue(value: string | null | undefined): string | undefined {
@@ -542,8 +560,8 @@ function updateQuery(
   if (query.installationId) {
     params.set('installationId', query.installationId);
   }
-  if (query.flag) {
-    params.set('flag', query.flag);
+  if (query.rawFlag) {
+    params.set('flag', query.rawFlag);
   }
   if (query.selected) {
     params.set('selected', query.selected);

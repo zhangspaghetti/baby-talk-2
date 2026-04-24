@@ -1,15 +1,16 @@
 import { ProCard } from '@ant-design/pro-components';
 import { Alert, Card, Space, Tag, Typography } from 'antd';
-import type { ApiError, AdminIdentity } from '../lib/authClient';
 import { warmPaperAdmin } from '../app/theme';
+import { useAuth } from '../auth/auth-provider';
 
-type UsersPageProps = {
-  accessToken: string;
-  admin: AdminIdentity;
-  onUnauthorized: (error: ApiError) => void;
-};
+export default function UsersPage() {
+  const { session } = useAuth();
+  if (!session) {
+    throw new Error('UsersPage requires an active admin session.');
+  }
 
-export default function UsersPage({ admin }: UsersPageProps) {
+  const admin = session.admin;
+
   return (
     <Space direction="vertical" size="large" style={{ width: '100%' }} data-testid="users-page">
       <Alert

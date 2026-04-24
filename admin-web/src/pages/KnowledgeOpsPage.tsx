@@ -1,15 +1,15 @@
 import { ProCard } from '@ant-design/pro-components';
 import { Alert, Card, Space, Tag, Typography } from 'antd';
-import type { ApiError, AdminIdentity } from '../lib/authClient';
 import { warmPaperAdmin } from '../app/theme';
+import { useAuth } from '../auth/auth-provider';
 
-type KnowledgeOpsPageProps = {
-  accessToken: string;
-  admin: AdminIdentity;
-  onUnauthorized: (error: ApiError) => void;
-};
+export default function KnowledgeOpsPage() {
+  const { session } = useAuth();
+  if (!session) {
+    throw new Error('KnowledgeOpsPage requires an active admin session.');
+  }
 
-export default function KnowledgeOpsPage({ admin }: KnowledgeOpsPageProps) {
+  const admin = session.admin;
   const hasKnowledgeAccess = admin.permissions.includes('rag:read') || admin.permissions.includes('kg:read');
 
   return (

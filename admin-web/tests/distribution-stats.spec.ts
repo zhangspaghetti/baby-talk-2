@@ -111,34 +111,30 @@ test.describe('distribution stats workspace', () => {
     await expect(page.getByTestId('workspace-current')).toContainText('Distribution Stats');
   });
 
-  test('shows a local error state for invalid URL filters and keeps query context recoverable', async ({ page }) => {
+  test('normalizes invalid URL filters to safe defaults while keeping query context recoverable', async ({ page }) => {
     await loginViaUi(page);
 
     const invalidResponse = page.waitForResponse(
       (response) =>
         response.url().includes('/api/admin/distribution/stats') &&
-        response.url().includes('range=14d') &&
-        response.url().includes('channel=all'),
-    );
-    await page.goto('/distribution/stats?range=14d&channel=all');
-    expect((await invalidResponse).status()).toBe(400);
-
-    await expect(page.getByTestId('distribution-error-state')).toBeVisible();
-    await expect(page.getByTestId('distribution-error-state')).toContainText('invalid_distribution_stats_range');
-    await expect(page).toHaveURL(/\/distribution\/stats\?range=14d&channel=all$/);
-    await expect(page.getByTestId('stats-context-query')).toContainText('range=14d&channel=all');
-
-    const recoverResponse = page.waitForResponse(
-      (response) =>
-        response.url().includes('/api/admin/distribution/stats') &&
         response.url().includes('range=30d') &&
         response.url().includes('channel=all'),
     );
+    await page.goto('/distribution/stats?range=14d&channel=all');
+    expect((await invalidResponse).status()).toBe(200);
+
+    await expect(page.getByTestId('stats-query-normalized-state')).toBeVisible();
+    await expect(page.getByTestId('stats-query-normalized-state')).toContainText('range=30d, channel=all');
+    await expect(page.getByTestId('distribution-error-state')).toHaveCount(0);
+    await expect(page).toHaveURL(/\/distribution\/stats\?range=14d&channel=all$/);
+    await expect(page.getByTestId('stats-context-query')).toContainText('range=14d&channel=all');
+    await expect(page.getByTestId('range-badge')).toContainText('14d → 30d');
+
     await page.getByTestId('reset-filters').click();
-    expect((await recoverResponse).status()).toBe(200);
 
     await expect(page).toHaveURL(/\/distribution\/stats\?range=30d&channel=all$/);
-    await expect(page.getByTestId('distribution-error-state')).toHaveCount(0);
+    await expect(page.getByTestId('stats-query-normalized-state')).toHaveCount(0);
+    await expect(page.getByTestId('distribution-stats-page')).toBeVisible();
   });
 });
 

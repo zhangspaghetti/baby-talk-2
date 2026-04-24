@@ -110,9 +110,11 @@ test.describe('mentor audit workspace', () => {
     await loginViaUi(page, limitedAdmin.username, limitedAdmin.password);
     await page.goto('/mentor/audits');
 
-    await expect(page.getByTestId('permission-denied-state')).toBeVisible();
-    await expect(page.getByTestId('permission-denied-state')).toContainText('mentor:audit');
-    await expect(page.getByTestId('permission-denied-state')).toContainText('forbidden');
+    await expect(page).toHaveURL(/\/403\?from=%2Fmentor%2Faudits/);
+    await expect(page.getByTestId('forbidden-page')).toBeVisible();
+    await expect(page.getByTestId('forbidden-query')).toContainText('routeKey=mentor-safety');
+    await expect(page.getByTestId('forbidden-page')).toContainText('mentor:audit');
+    await expect(page.getByTestId('workspace-link-mentor-audit')).toHaveCount(0);
   });
 
   test('clears stale local session and returns to login when /api/admin/me is 401', async ({ page }) => {
@@ -143,9 +145,9 @@ test.describe('mentor audit workspace', () => {
     await page.goto('/mentor/audits?flag=blocked_fallback');
     expect((await meResponse).status()).toBe(401);
 
-    await expect(page).toHaveURL(/\/login$/);
-    await expect(page.getByTestId('login-banner')).toContainText('管理员会话已失效，请重新登录。');
-    await expect(page.getByTestId('login-banner')).toContainText('admin_session_invalid');
+    await expect(page).toHaveURL(/\/login\?returnTo=%2Fmentor%2Faudits%3Fflag%3Dblocked_fallback$/);
+    await expect(page.getByTestId('login-banner')).toContainText('refresh token 无效。');
+    await expect(page.getByTestId('login-banner')).toContainText('invalid_admin_refresh_token');
   });
 
   test('shows explicit empty, missing-detail, and malformed-filter states', async ({ page }) => {
@@ -177,12 +179,17 @@ test.describe('mentor audit workspace', () => {
     await expect(page.getByTestId('audit-empty-state')).toBeVisible();
 
     const malformedQueueResponse = page.waitForResponse(
-      (response) => response.url().includes('/api/admin/mentor/audits') && response.url().includes('flag=nope'),
+      (response) =>
+        response.url().includes('/api/admin/mentor/audits') &&
+        response.request().method() === 'GET' &&
+        !response.url().includes('flag='),
     );
     await page.goto('/mentor/audits?flag=nope');
-    expect((await malformedQueueResponse).status()).toBe(400);
+    expect((await malformedQueueResponse).status()).toBe(200);
 
-    await expect(page.getByTestId('queue-error-state')).toContainText('unknown_mentor_audit_flag');
+    await expect(page).toHaveURL(/\/mentor\/audits\?flag=nope$/);
+    await expect(page.getByTestId('queue-query-normalized-state')).toContainText('all flagged');
+    await expect(page.getByTestId('queue-error-state')).toHaveCount(0);
   });
 });
 

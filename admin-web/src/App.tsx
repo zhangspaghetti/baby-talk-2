@@ -31,15 +31,12 @@ import {
   sameIdentity,
   toApiError,
   type AdminIdentity,
-  type AuthSession,
 } from './lib/authClient';
 import ForbiddenPage from './pages/ForbiddenPage';
 import LoginPage from './pages/LoginPage';
 
 type ProtectedShellOutletContext = {
-  session: AuthSession;
   admin: AdminIdentity;
-  onUnauthorized: (error: ApiError) => void;
   routeAccess: AdminRouteAccessSnapshot;
   landing: DefaultLandingResolution;
 };
@@ -172,7 +169,7 @@ function ProtectedShellRoute() {
     setLoading(true);
     setError(null);
 
-    void requestCurrentAdmin(session.accessToken)
+    void requestCurrentAdmin()
       .then((currentAdmin) => {
         if (cancelled) {
           return;
@@ -249,17 +246,15 @@ function ProtectedShellRoute() {
     (location.pathname === ADMIN_PROTECTED_ALIAS_PATH && landing.kind === 'route' ? landing.route : null);
 
   const shellContext = useMemo<ProtectedShellOutletContext | null>(() => {
-    if (!me || !session) {
+    if (!me) {
       return null;
     }
     return {
-      session,
       admin: me,
-      onUnauthorized: handleSessionReset,
       routeAccess,
       landing,
     };
-  }, [handleSessionReset, landing, me, routeAccess, session]);
+  }, [landing, me, routeAccess]);
 
   if (!session) {
     return null;
@@ -318,7 +313,6 @@ function ForbiddenRoute() {
 }
 
 function WorkspaceRoute({ routeKey }: { routeKey: AdminWorkspaceRouteKey }) {
-  const { admin, onUnauthorized, session } = useOutletContext<ProtectedShellOutletContext>();
   const route = findAdminWorkspaceRouteByKey(routeKey);
 
   if (!route) {
@@ -329,7 +323,7 @@ function WorkspaceRoute({ routeKey }: { routeKey: AdminWorkspaceRouteKey }) {
 
   return (
     <Suspense fallback={<ShellLoadingState message={`正在加载 ${route.title}…`} />}>
-      <ActivePage accessToken={session.accessToken} admin={admin} onUnauthorized={onUnauthorized} />
+      <ActivePage />
     </Suspense>
   );
 }

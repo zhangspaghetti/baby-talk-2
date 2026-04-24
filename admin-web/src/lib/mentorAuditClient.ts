@@ -255,12 +255,12 @@ function buildQueryString(query: MentorAuditQuery): string {
 }
 
 export const mentorAuditClient = {
-  async listAudits(_accessToken: string, query: MentorAuditQuery = {}) {
+  async listAudits(query: MentorAuditQuery = {}) {
     const payload = await requestJson(`/api/admin/mentor/audits${buildQueryString(query)}`);
     return parseQueue(payload);
   },
 
-  async getAudit(_accessToken: string, correlationId: string) {
+  async getAudit(correlationId: string) {
     const encodedCorrelationId = encodeURIComponent(correlationId);
     const payload = await requestJson(`/api/admin/mentor/audits/${encodedCorrelationId}`);
     return parseDetail(payload);
