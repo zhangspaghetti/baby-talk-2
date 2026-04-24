@@ -9,11 +9,11 @@ function run(command: string, args: string[]) {
   spawnSync(command, args, {
     cwd: repoRoot,
     stdio: 'inherit',
-    shell: process.platform === 'win32',
+    shell: false,
   });
 }
 
 export default async function globalTeardown() {
-  run('docker', ['compose', 'stop', 'admin-web', 'admin-api', 'postgres']);
-  run('docker', ['compose', 'rm', '-sf', 'admin-web', 'admin-api', 'db-migration', 'postgres']);
+  run('docker', ['compose', 'stop', 'admin-web', 'admin-api', 'app-api', 'postgres', 'minio']);
+  run('docker', ['compose', 'rm', '-sf', 'admin-web', 'admin-api', 'app-api', 'db-migration', 'postgres', 'minio']);
 }
