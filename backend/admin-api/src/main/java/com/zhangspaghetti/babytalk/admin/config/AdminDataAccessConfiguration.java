@@ -1,5 +1,6 @@
 package com.zhangspaghetti.babytalk.admin.config;
 
+import com.zhangspaghetti.babytalk.admin.distribution.AdminDistributionStatsReadRepository;
 import com.zhangspaghetti.babytalk.admin.mentor.AdminMentorAuditReadRepository;
 import com.zhangspaghetti.babytalk.admin.rbac.AdminPermissionCatalog;
 import com.zhangspaghetti.babytalk.admin.rbac.AdminRbacRepository;
@@ -29,5 +30,10 @@ public class AdminDataAccessConfiguration {
     @Bean
     AdminMentorAuditReadRepository adminMentorAuditReadRepository(JdbcTemplate jdbcTemplate) {
         return new AdminMentorAuditReadRepository(jdbcTemplate);
+    }
+
+    @Bean
+    AdminDistributionStatsReadRepository adminDistributionStatsReadRepository(JdbcTemplate jdbcTemplate) {
+        return new AdminDistributionStatsReadRepository(jdbcTemplate);
     }
 }
