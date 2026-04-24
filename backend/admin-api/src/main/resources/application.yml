@@ -37,3 +37,8 @@ app:
         username: ${BABY_TALK_ADMIN_BOOTSTRAP_USERNAME:super_admin}
         password: ${BABY_TALK_ADMIN_BOOTSTRAP_PASSWORD:SuperAdmin123!}
         display-name: ${BABY_TALK_ADMIN_BOOTSTRAP_DISPLAY_NAME:Super Admin}
+    mentor-audit:
+      default-limit: ${BABY_TALK_ADMIN_MENTOR_AUDIT_DEFAULT_LIMIT:50}
+      max-limit: ${BABY_TALK_ADMIN_MENTOR_AUDIT_MAX_LIMIT:100}
+      rate-limit-max-requests: ${BABY_TALK_MENTOR_RATE_LIMIT_MAX_REQUESTS:3}
+      rate-limit-window: ${BABY_TALK_MENTOR_RATE_LIMIT_WINDOW:PT10M}
