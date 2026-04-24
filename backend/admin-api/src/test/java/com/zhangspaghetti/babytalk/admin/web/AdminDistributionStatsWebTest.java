@@ -43,6 +43,7 @@ import org.testcontainers.utility.DockerImageName;
         "app.admin.auth.bootstrap.username=super_admin",
         "app.admin.auth.bootstrap.password=SuperAdmin123!",
         "app.admin.auth.bootstrap.display-name=Super Admin",
+        "app.embedding.mode=dev-hash",
         "app.admin.distribution-stats.default-range=30d",
         "app.admin.distribution-stats.detail-limit=200"
 })

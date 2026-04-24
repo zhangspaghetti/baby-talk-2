@@ -42,6 +42,7 @@ import org.testcontainers.utility.DockerImageName;
         "app.admin.auth.bootstrap.username=super_admin",
         "app.admin.auth.bootstrap.password=SuperAdmin123!",
         "app.admin.auth.bootstrap.display-name=Super Admin",
+        "app.embedding.mode=dev-hash",
         "app.admin.mentor-audit.default-limit=50",
         "app.admin.mentor-audit.max-limit=100",
         "app.admin.mentor-audit.rate-limit-max-requests=2",

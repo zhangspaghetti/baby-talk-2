@@ -39,7 +39,8 @@ import org.testcontainers.utility.DockerImageName;
         "app.admin.auth.bootstrap.enabled=true",
         "app.admin.auth.bootstrap.username=super_admin",
         "app.admin.auth.bootstrap.password=SuperAdmin123!",
-        "app.admin.auth.bootstrap.display-name=Super Admin"
+        "app.admin.auth.bootstrap.display-name=Super Admin",
+        "app.embedding.mode=dev-hash"
 })
 @AutoConfigureMockMvc
 class AdminRbacWebTest {
