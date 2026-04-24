@@ -24,6 +24,12 @@ export type AdminSessionFixture = {
   admin: AdminIdentityFixture;
 };
 
+export type CreatedRoleFixture = {
+  roleCode: string;
+  description: string;
+  permissionCodes: string[];
+};
+
 export type CreatedAdminFixture = {
   roleCode: string;
   username: string;
@@ -51,15 +57,13 @@ export async function loginViaAdminApi(
   return await expectJson<AdminSessionFixture>(response, 200, `login ${username}`);
 }
 
-export async function createAdminWithPermissions(
+export async function createRoleWithPermissions(
   request: APIRequestContext,
   permissionCodes: string[],
-  displayName = 'Limited Admin',
-): Promise<CreatedAdminFixture> {
+  description = 'Managed Role',
+): Promise<CreatedRoleFixture> {
   const suffix = uniqueSuffix();
   const roleCode = `role_${suffix}`;
-  const username = `admin_${suffix}`;
-  const password = 'Reader123!';
   const superAdmin = await loginViaAdminApi(request);
 
   await expectJson(
@@ -67,13 +71,31 @@ export async function createAdminWithPermissions(
       headers: jsonHeaders(superAdmin.accessToken),
       data: {
         roleCode,
-        description: `${displayName} (${roleCode})`,
+        description: `${description} (${roleCode})`,
         permissionCodes,
       },
     }),
     201,
     `create role ${roleCode}`,
   );
+
+  return {
+    roleCode,
+    description: `${description} (${roleCode})`,
+    permissionCodes: [...permissionCodes],
+  };
+}
+
+export async function createAdminWithPermissions(
+  request: APIRequestContext,
+  permissionCodes: string[],
+  displayName = 'Limited Admin',
+): Promise<CreatedAdminFixture> {
+  const role = await createRoleWithPermissions(request, permissionCodes, displayName);
+  const suffix = uniqueSuffix();
+  const username = `admin_${suffix}`;
+  const password = 'Reader123!';
+  const superAdmin = await loginViaAdminApi(request);
 
   const createdAdmin = await expectJson<{
     principalId: string;
@@ -87,7 +109,7 @@ export async function createAdminWithPermissions(
         username,
         displayName,
         password,
-        roleCodes: [roleCode],
+        roleCodes: [role.roleCode],
       },
     }),
     201,
@@ -95,7 +117,7 @@ export async function createAdminWithPermissions(
   );
 
   return {
-    roleCode,
+    roleCode: role.roleCode,
     username,
     password,
     principalId: createdAdmin.principalId,

@@ -52,6 +52,32 @@ test.describe('admin access and default landing', () => {
     });
   });
 
+  test('hidden admin route preserves typed write permissions without changing the primary landing', () => {
+    const identity = makeIdentity({
+      roles: ['ops_admin'],
+      permissions: ['users:read', 'admins:read', 'admins:write'],
+    });
+
+    const access = resolveAdminRouteAccess(identity);
+    const landing = resolveDefaultAdminLanding(identity);
+    const hiddenRoute = findAdminWorkspaceRouteByPath('/users/admins');
+
+    expect(hiddenRoute).toMatchObject({
+      key: 'admin-accounts',
+      navVisibility: 'hidden',
+      requiredPermissions: ['admins:read'],
+    });
+    expect(access.permissionCodes).toEqual(['admins:read', 'admins:write', 'users:read']);
+    expect(access.accessibleRoutes.map((route) => route.key)).toEqual(['overview', 'users', 'admin-accounts']);
+    expect(access.visibleRoutes.map((route) => route.key)).toEqual(['users']);
+    expect(access.domainRoutes.map((route) => route.key)).toEqual(['users']);
+    expect(landing).toMatchObject({
+      kind: 'route',
+      reason: 'single-domain-route',
+      route: { key: 'users', path: '/users' },
+    });
+  });
+
   test('empty or unknown permissions fail closed instead of exposing every module', () => {
     const identity = makeIdentity({
       roles: ['limited_admin'],

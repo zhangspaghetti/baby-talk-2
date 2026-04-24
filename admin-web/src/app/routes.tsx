@@ -13,6 +13,9 @@ export const ADMIN_PROTECTED_ALIAS_PATH = '/protected';
 
 export const ADMIN_ROUTE_PERMISSION_CODES = [
   'users:read',
+  'users:write',
+  'admins:read',
+  'admins:write',
   'rag:read',
   'kg:read',
   'mentor:audit',
@@ -23,6 +26,7 @@ export type AdminRoutePermissionCode = (typeof ADMIN_ROUTE_PERMISSION_CODES)[num
 export type AdminWorkspaceRouteKey =
   | 'overview'
   | 'users'
+  | 'admin-accounts'
   | 'knowledge-ops'
   | 'mentor-safety'
   | 'distribution-stats';
@@ -47,6 +51,7 @@ export type AdminWorkspaceRouteDefinition = {
 
 const OverviewPage = lazy(() => import('../pages/OverviewPage'));
 const UsersPage = lazy(() => import('../pages/UsersPage'));
+const AdminAccountsPage = lazy(() => import('../pages/AdminAccountsPage'));
 const KnowledgeOpsPage = lazy(() => import('../pages/KnowledgeOpsPage'));
 const MentorAuditPage = lazy(() => import('../pages/MentorAuditPage'));
 const DistributionStatsPage = lazy(() => import('../pages/DistributionStatsPage'));
@@ -75,6 +80,18 @@ export const adminWorkspaceRoutes = defineAdminWorkspaceRoutes([
     defaultLandingWeight: 90,
     testId: 'workspace-link-users',
     component: UsersPage,
+  },
+  {
+    key: 'admin-accounts',
+    path: '/users/admins',
+    title: 'Admin Accounts',
+    description: '隐藏的管理员账号工作面，复用现有 /api/admin/admins + /api/admin/roles contract。',
+    icon: <TeamOutlined />,
+    requiredPermissions: ['admins:read'],
+    navVisibility: 'hidden',
+    defaultLandingWeight: 85,
+    testId: 'workspace-link-admin-accounts',
+    component: AdminAccountsPage,
   },
   {
     key: 'knowledge-ops',

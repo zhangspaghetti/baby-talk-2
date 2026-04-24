@@ -13,7 +13,7 @@ import {
   type TableColumnsType,
 } from 'antd';
 import { useEffect, useMemo, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { warmPaperAdmin } from '../app/theme';
 import { useAuth } from '../auth/auth-provider';
 import { DetailContainer } from '../components/workbench/DetailContainer';
@@ -71,6 +71,9 @@ export default function UsersPage() {
 
   const admin = session.admin;
   const canWrite = hasPermission(admin, 'users:write');
+  const canManageAdmins = hasPermission(admin, 'admins:read');
+  const canWriteAdmins = hasPermission(admin, 'admins:write');
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const query = useMemo(() => readQueryState(searchParams), [searchParams]);
   const [searchDraft, setSearchDraft] = useState(query.rawQuery ?? '');
@@ -406,6 +409,12 @@ export default function UsersPage() {
               users:read {hasPermission(admin, 'users:read') ? 'enabled' : 'missing'}
             </Tag>
             <Tag color={canWrite ? 'success' : 'default'}>users:write {canWrite ? 'enabled' : 'missing'}</Tag>
+            <Tag color={canManageAdmins ? 'success' : 'default'}>
+              admins:read {canManageAdmins ? 'enabled' : 'missing'}
+            </Tag>
+            <Tag color={canWriteAdmins ? 'success' : 'default'}>
+              admins:write {canWriteAdmins ? 'enabled' : 'missing'}
+            </Tag>
             <Tag>roles: {admin.roles.join(', ') || 'none'}</Tag>
             <Tag>access expires: {formatTimestamp(session.accessTokenExpiresAt)}</Tag>
           </Space>
@@ -417,6 +426,13 @@ export default function UsersPage() {
             </Tag>
             <Tag color={query.rawQuery ? 'processing' : 'default'}>query: {query.rawQuery || 'none'}</Tag>
             <Tag color={query.selected !== undefined ? 'warning' : 'default'}>selected: {query.selected ?? 'none'}</Tag>
+          </Space>
+          <Space wrap>
+            {canManageAdmins ? (
+              <Button data-testid="users-open-admin-accounts" onClick={() => navigate('/users/admins')}>
+                打开管理员管理
+              </Button>
+            ) : null}
           </Space>
           <Typography.Text code data-testid="users-context-query">
             {contextSummary}

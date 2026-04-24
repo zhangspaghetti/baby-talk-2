@@ -1,5 +1,6 @@
 import type { AdminIdentity } from '../lib/authClient';
 import {
+  ADMIN_ROUTE_PERMISSION_CODES,
   adminWorkspaceRoutes,
   type AdminRoutePermissionCode,
   type AdminWorkspaceRouteDefinition,
@@ -52,7 +53,9 @@ export function resolveAdminRouteAccess(
   routes: readonly AdminWorkspaceRouteDefinition[] = adminWorkspaceRoutes,
 ): AdminRouteAccessSnapshot {
   const accessibleRoutes = sortRoutesByLanding(routes.filter((route) => canAccessAdminRoute(identity, route)));
-  const domainRoutes = accessibleRoutes.filter((route) => route.key !== 'overview');
+  const domainRoutes = accessibleRoutes.filter(
+    (route) => route.key !== 'overview' && route.navVisibility === 'primary',
+  );
   const showOverview = shouldShowOverview(identity, domainRoutes);
   const visibleRoutes = accessibleRoutes.filter(
     (route) => route.navVisibility === 'primary' && (route.key !== 'overview' || showOverview),
@@ -119,5 +122,5 @@ function readStringList(value: unknown): string[] {
 }
 
 function isKnownPermissionCode(value: string): value is AdminRoutePermissionCode {
-  return adminWorkspaceRoutes.some((route) => route.requiredPermissions.includes(value as AdminRoutePermissionCode));
+  return ADMIN_ROUTE_PERMISSION_CODES.includes(value as AdminRoutePermissionCode);
 }
