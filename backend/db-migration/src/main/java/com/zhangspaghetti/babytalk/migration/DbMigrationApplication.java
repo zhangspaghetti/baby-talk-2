@@ -15,6 +15,9 @@ import org.springframework.context.annotation.Bean;
 @SpringBootApplication
 public class DbMigrationApplication {
 
+    static final String EXPECTED_CURRENT_VERSION = "16";
+    static final int EXPECTED_APPLIED_MIGRATION_COUNT = 14;
+
     private static final Logger log = LoggerFactory.getLogger(DbMigrationApplication.class);
 
     public static void main(String[] args) {
@@ -34,9 +37,19 @@ public class DbMigrationApplication {
     @Bean
     ApplicationRunner migrationSummaryRunner(Flyway flyway) {
         return args -> {
-            MigrationInfo current = flyway.info().current();
+            var info = flyway.info();
+            MigrationInfo current = info.current();
             String currentVersion = current == null ? "<none>" : current.getVersion().getVersion();
-            int appliedCount = flyway.info().applied().length;
+            int appliedCount = info.applied().length;
+            if (!EXPECTED_CURRENT_VERSION.equals(currentVersion)
+                    || EXPECTED_APPLIED_MIGRATION_COUNT != appliedCount) {
+                throw new IllegalStateException(String.format(
+                        "db-migration finished with unexpected schema state. expected currentVersion=%s appliedCount=%d but got currentVersion=%s appliedCount=%d",
+                        EXPECTED_CURRENT_VERSION,
+                        EXPECTED_APPLIED_MIGRATION_COUNT,
+                        currentVersion,
+                        appliedCount));
+            }
             log.info("db-migration completed successfully. currentVersion={}, appliedCount={}", currentVersion, appliedCount);
         };
     }

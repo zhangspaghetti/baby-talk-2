@@ -1,0 +1,21 @@
+{
+  "assets": {},
+  "config": {
+    "build_asset_types": [
+      "code_assets/code"
+    ],
+    "extensions": {
+      "code_assets": {
+        "link_mode_preference": "dynamic",
+        "target_architecture": "x64",
+        "target_os": "windows"
+      }
+    },
+    "linking_enabled": false
+  },
+  "out_dir_shared": "C:\\code\\AI\\baby-talk-2\\.gsd\\worktrees\\M006\\.dart_tool\\hooks_runner\\shared\\win32\\build\\",
+  "out_file": "C:\\code\\AI\\baby-talk-2\\.gsd\\worktrees\\M006\\.dart_tool\\hooks_runner\\win32\\8e04c28b44\\output.json",
+  "package_name": "win32",
+  "package_root": "C:\\Users\\zhang\\AppData\\Local\\Pub\\Cache\\hosted\\pub.flutter-io.cn\\win32-6.1.0\\",
+  "user_defines": {}
+}
