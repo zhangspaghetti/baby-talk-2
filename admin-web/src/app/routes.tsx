@@ -68,7 +68,7 @@ export const adminWorkspaceRoutes = defineAdminWorkspaceRoutes([
     key: 'users',
     path: '/users',
     title: 'Users',
-    description: 'consumer account list、detail 与 actions 的占位入口。',
+    description: 'consumer account list、detail evidence 与 disable action 的真实工作面。',
     icon: <TeamOutlined />,
     requiredPermissions: ['users:read'],
     navVisibility: 'primary',

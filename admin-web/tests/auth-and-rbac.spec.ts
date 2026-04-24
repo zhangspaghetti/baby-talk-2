@@ -58,7 +58,7 @@ test.describe('auth and rbac browser proof', () => {
     await loginViaUi(page, {
       username: limitedAdmin.username,
       password: limitedAdmin.password,
-      expectedUrl: /\/users$/,
+      expectedUrl: /\/users(?:\?.*)?$/,
     });
 
     await expect(page.getByTestId('users-page')).toBeVisible();
@@ -97,7 +97,7 @@ test.describe('auth and rbac browser proof', () => {
     try {
       await page.goto('/users');
 
-      await expect(page).toHaveURL(/\/users$/);
+      await expect(page).toHaveURL(/\/users(?:\?.*)?$/);
       await expect(page.getByTestId('users-page')).toBeVisible();
       await expect(page.getByTestId('session-user')).toContainText('super_admin');
       await expect.poll(() => meTracker.statuses.slice(0, 2).join(',')).toBe('401,200');
