@@ -202,6 +202,7 @@ async function loginViaUi(page: Page, username = 'super_admin', password = 'Supe
 
   expect((await loginResponse).status()).toBe(200);
   expect((await meResponse).status()).toBe(200);
+  await expect(page).toHaveURL(/\/overview$|\/users$|\/knowledge-ops$|\/mentor\/audits$|\/distribution\/stats(?:\?.*)?$/);
   await expect(page.getByTestId('protected-shell')).toBeVisible();
 }
 

@@ -151,9 +151,6 @@ async function loginViaUi(page: Page, username = 'super_admin', password = 'Supe
   const meResponse = page.waitForResponse(
     (response) => response.url().includes('/api/admin/me') && response.request().method() === 'GET',
   );
-  const mentorQueueResponse = page.waitForResponse(
-    (response) => response.url().includes('/api/admin/mentor/audits') && response.request().method() === 'GET',
-  );
 
   await page.getByLabel('用户名').fill(username);
   await page.getByLabel('密码').fill(password);
@@ -161,7 +158,7 @@ async function loginViaUi(page: Page, username = 'super_admin', password = 'Supe
 
   expect((await loginResponse).status()).toBe(200);
   expect((await meResponse).status()).toBe(200);
-  expect((await mentorQueueResponse).status()).toBe(200);
+  await expect(page).toHaveURL(/\/overview$|\/users$|\/knowledge-ops$|\/mentor\/audits$|\/distribution\/stats(?:\?.*)?$/);
   await expect(page.getByTestId('protected-shell')).toBeVisible();
 }
 

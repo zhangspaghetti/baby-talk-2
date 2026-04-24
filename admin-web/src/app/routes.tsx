@@ -1,4 +1,4 @@
-import type { ComponentType, ReactNode } from 'react';
+import { lazy, type ComponentType, type LazyExoticComponent, type ReactNode } from 'react';
 import {
   BarChartOutlined,
   HomeOutlined,
@@ -7,11 +7,6 @@ import {
   TeamOutlined,
 } from '@ant-design/icons';
 import type { ApiError, AdminIdentity } from '../lib/authClient';
-import DistributionStatsPage from '../pages/DistributionStatsPage';
-import KnowledgeOpsPage from '../pages/KnowledgeOpsPage';
-import MentorAuditPage from '../pages/MentorAuditPage';
-import OverviewPage from '../pages/OverviewPage';
-import UsersPage from '../pages/UsersPage';
 
 export const ADMIN_ROUTE_PERMISSION_CODES = [
   'users:read',
@@ -36,6 +31,9 @@ export type AdminRouteComponentProps = {
   onUnauthorized: (error: ApiError) => void;
 };
 
+type AdminRouteComponent = ComponentType<AdminRouteComponentProps>;
+type AdminRouteRenderableComponent = AdminRouteComponent | LazyExoticComponent<AdminRouteComponent>;
+
 export type AdminWorkspaceRouteDefinition = {
   key: AdminWorkspaceRouteKey;
   path: `/${string}`;
@@ -46,8 +44,14 @@ export type AdminWorkspaceRouteDefinition = {
   navVisibility: AdminWorkspaceNavVisibility;
   defaultLandingWeight: number;
   testId: string;
-  component: ComponentType<AdminRouteComponentProps>;
+  component: AdminRouteRenderableComponent;
 };
+
+const OverviewPage = lazy(() => import('../pages/OverviewPage'));
+const UsersPage = lazy(() => import('../pages/UsersPage'));
+const KnowledgeOpsPage = lazy(() => import('../pages/KnowledgeOpsPage'));
+const MentorAuditPage = lazy(() => import('../pages/MentorAuditPage'));
+const DistributionStatsPage = lazy(() => import('../pages/DistributionStatsPage'));
 
 export const adminWorkspaceRoutes = defineAdminWorkspaceRoutes([
   {
@@ -112,15 +116,23 @@ export const adminWorkspaceRoutes = defineAdminWorkspaceRoutes([
   },
 ] as const);
 
+const routesByPath = new Map(adminWorkspaceRoutes.map((route) => [route.path, route] as const));
+const routesByKey = new Map(adminWorkspaceRoutes.map((route) => [route.key, route] as const));
+
 export function findAdminWorkspaceRouteByPath(pathname: string): AdminWorkspaceRouteDefinition | undefined {
-  return adminWorkspaceRoutes.find((route) => route.path === pathname);
+  return routesByPath.get(pathname as `/${string}`);
 }
 
-function defineAdminWorkspaceRoutes(
+export function findAdminWorkspaceRouteByKey(key: string): AdminWorkspaceRouteDefinition | undefined {
+  return routesByKey.get(key as AdminWorkspaceRouteKey);
+}
+
+export function defineAdminWorkspaceRoutes(
   routes: readonly AdminWorkspaceRouteDefinition[],
 ): readonly AdminWorkspaceRouteDefinition[] {
   const seenKeys = new Set<string>();
   const seenPaths = new Set<string>();
+  const seenLandingWeights = new Map<number, string>();
 
   for (const route of routes) {
     if (!route.key.trim()) {
@@ -147,14 +159,25 @@ function defineAdminWorkspaceRoutes(
     if (!Number.isFinite(route.defaultLandingWeight)) {
       throw new Error(`admin route ${route.key} 的 defaultLandingWeight 不合法。`);
     }
+    if (typeof route.testId !== 'string' || !route.testId.trim()) {
+      throw new Error(`admin route ${route.key} 缺少 testId。`);
+    }
     if (seenKeys.has(route.key)) {
       throw new Error(`发现重复的 admin route key：${route.key}`);
     }
     if (seenPaths.has(route.path)) {
       throw new Error(`发现重复的 admin route path：${route.path}`);
     }
+    const duplicateLandingRoute = seenLandingWeights.get(route.defaultLandingWeight);
+    if (duplicateLandingRoute) {
+      throw new Error(
+        `admin route ${route.key} 与 ${duplicateLandingRoute} 使用了重复的 defaultLandingWeight：${route.defaultLandingWeight}`,
+      );
+    }
+
     seenKeys.add(route.key);
     seenPaths.add(route.path);
+    seenLandingWeights.set(route.defaultLandingWeight, route.key);
   }
 
   return routes;
