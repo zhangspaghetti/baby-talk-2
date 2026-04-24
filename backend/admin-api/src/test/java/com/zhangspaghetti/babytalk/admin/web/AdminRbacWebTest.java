@@ -131,13 +131,18 @@ class AdminRbacWebTest {
         mockMvc.perform(get("/api/admin/users")
                         .header(HttpHeaders.AUTHORIZATION, bearer(limitedAdmin.accessToken())))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$", hasSize(2)))
-                .andExpect(jsonPath("$[0].accountId").value("acct_001"))
-                .andExpect(jsonPath("$[0].phoneNumber").value("13900000001"))
-                .andExpect(jsonPath("$[0].status").value("active"))
-                .andExpect(jsonPath("$[0].latestConsentStatus").value("accepted"))
-                .andExpect(jsonPath("$[0].createdAt").value("2026-04-01T00:00:00Z"))
-                .andExpect(jsonPath("$[0].deletedAt").doesNotExist());
+                .andExpect(jsonPath("$.page").value(1))
+                .andExpect(jsonPath("$.pageSize").value(20))
+                .andExpect(jsonPath("$.total").value(2))
+                .andExpect(jsonPath("$.filters.status").value("all"))
+                .andExpect(jsonPath("$.filters.query").isEmpty())
+                .andExpect(jsonPath("$.items", hasSize(2)))
+                .andExpect(jsonPath("$.items[0].accountId").value("acct_001"))
+                .andExpect(jsonPath("$.items[0].phoneNumber").value("13900000001"))
+                .andExpect(jsonPath("$.items[0].status").value("active"))
+                .andExpect(jsonPath("$.items[0].latestConsentStatus").value("accepted"))
+                .andExpect(jsonPath("$.items[0].createdAt").value("2026-04-01T00:00:00Z"))
+                .andExpect(jsonPath("$.items[0].deletedAt").isEmpty());
 
         mockMvc.perform(post("/api/admin/roles")
                         .header(HttpHeaders.AUTHORIZATION, bearer(limitedAdmin.accessToken()))
@@ -179,7 +184,7 @@ class AdminRbacWebTest {
         mockMvc.perform(get("/api/admin/users")
                         .header(HttpHeaders.AUTHORIZATION, bearer(limitedAdmin.accessToken())))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$", hasSize(1)));
+                .andExpect(jsonPath("$.items", hasSize(1)));
 
         jdbcTemplate.update("delete from admin_principal_roles where principal_id = ?", createdAdmin.principalId());
 
@@ -223,7 +228,8 @@ class AdminRbacWebTest {
         mockMvc.perform(get("/api/admin/users")
                         .header(HttpHeaders.AUTHORIZATION, bearer(superAdmin.accessToken())))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$", hasSize(0)));
+                .andExpect(jsonPath("$.items", hasSize(0)))
+                .andExpect(jsonPath("$.total").value(0));
 
         mockMvc.perform(post("/api/admin/roles")
                         .header(HttpHeaders.AUTHORIZATION, bearer(superAdmin.accessToken()))
