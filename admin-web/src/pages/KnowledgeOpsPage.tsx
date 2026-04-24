@@ -421,6 +421,12 @@ export default function KnowledgeOpsPage() {
     ].filter((value): value is string => Boolean(value));
     return timestamps.sort((left, right) => Date.parse(right) - Date.parse(left))[0];
   }, [ingestionDetail?.updatedAt, ingestionJobs, ingestionPollLastSuccessAt]);
+  const activeIngestionActionJob =
+    ingestionActionState.phase === 'success'
+      ? (ingestionDetail?.id === ingestionActionState.response.jobId
+          ? ingestionDetail
+          : ingestionJobs.find((job) => job.id === ingestionActionState.response.jobId) ?? null)
+      : null;
 
   const resetIngestionPolling = () => {
     setIngestionPollAttempt(0);
@@ -734,7 +740,7 @@ export default function KnowledgeOpsPage() {
                 </Space>
               ) : null}
 
-              <IngestionActionFeedback state={ingestionActionState} />
+              <IngestionActionFeedback state={ingestionActionState} activeJob={activeIngestionActionJob} />
 
               {ingestionPollStale ? (
                 <Alert
@@ -1248,7 +1254,13 @@ export default function KnowledgeOpsPage() {
   );
 }
 
-function IngestionActionFeedback({ state }: { state: IngestionActionState }) {
+function IngestionActionFeedback({
+  state,
+  activeJob,
+}: {
+  state: IngestionActionState;
+  activeJob: KnowledgeIngestionJobView | null;
+}) {
   if (state.phase === 'idle') {
     return null;
   }
@@ -1286,13 +1298,37 @@ function IngestionActionFeedback({ state }: { state: IngestionActionState }) {
     );
   }
 
+  if (activeJob?.id === state.response.jobId && activeJob.status === 'FAILED') {
+    return (
+      <Alert
+        showIcon
+        type="error"
+        data-testid="knowledge-ingestion-feedback"
+        message={state.kind === 'upload' ? '上传任务已失败' : 'retry 后任务再次失败'}
+        description={`jobId=${activeJob.id}; status=${activeJob.status}; updatedAt=${formatTimestamp(activeJob.updatedAt)}; errorMessage=${activeJob.errorMessage ?? '—'}`}
+      />
+    );
+  }
+
+  if (activeJob?.id === state.response.jobId && activeJob.status === 'COMPLETED') {
+    return (
+      <Alert
+        showIcon
+        type="success"
+        data-testid="knowledge-ingestion-feedback"
+        message={state.kind === 'upload' ? '上传任务已完成' : 'retry 已完成'}
+        description={`jobId=${activeJob.id}; status=${activeJob.status}; totalChunks=${activeJob.totalChunks}; updatedAt=${formatTimestamp(activeJob.updatedAt)}`}
+      />
+    );
+  }
+
   return (
     <Alert
       showIcon
-      type={state.response.canRetry ? 'warning' : 'success'}
+      type="info"
       data-testid="knowledge-ingestion-feedback"
       message={state.kind === 'upload' ? '上传已入队' : 'retry 已提交'}
-      description={`jobId=${state.response.jobId}; status=${state.response.status}; updatedAt=${formatTimestamp(state.response.updatedAt)}; errorMessage=${state.response.errorMessage ?? '—'}`}
+      description={`jobId=${state.response.jobId}; status=${activeJob?.status ?? state.response.status}; updatedAt=${formatTimestamp(activeJob?.updatedAt ?? state.response.updatedAt)}; errorMessage=${activeJob?.errorMessage ?? state.response.errorMessage ?? '—'}`}
     />
   );
 }

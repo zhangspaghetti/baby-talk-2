@@ -26,6 +26,17 @@ management:
       show-components: always
 
 app:
+  embedding:
+    mode: ${BABY_TALK_EMBEDDING_MODE:openai}
+    base-url: ${BABY_TALK_EMBEDDING_BASE_URL:https://models.inference.ai.azure.com}
+    api-key: ${BABY_TALK_EMBEDDING_API_KEY:}
+    model: ${BABY_TALK_EMBEDDING_MODEL:text-embedding-3-small}
+    dimensions: ${BABY_TALK_EMBEDDING_DIMENSIONS:1536}
+  minio:
+    endpoint: ${BABY_TALK_MINIO_ENDPOINT:http://localhost:9000}
+    access-key: ${BABY_TALK_MINIO_ACCESS_KEY:babytalk}
+    secret-key: ${BABY_TALK_MINIO_SECRET_KEY:babytalk123}
+    bucket-name: ${BABY_TALK_MINIO_BUCKET:babytalk}
   admin:
     auth:
       issuer: ${BABY_TALK_ADMIN_JWT_ISSUER:babytalk-admin-api}
