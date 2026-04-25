@@ -3,6 +3,7 @@ FROM maven:3-eclipse-temurin-17 AS builder
 ARG MODULE=app-api
 WORKDIR /app
 
+COPY .mvn/ .mvn/
 COPY pom.xml ./pom.xml
 COPY common/pom.xml common/pom.xml
 COPY app-api/pom.xml app-api/pom.xml

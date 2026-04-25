@@ -34,6 +34,7 @@ import 'package:mobile/features/practice/data/local/practice_local_data_source.d
 import 'package:mobile/features/practice/data/repositories/garden_growth_repository.dart';
 import 'package:mobile/features/practice/data/repositories/practice_repository.dart';
 import 'package:mobile/features/practice/data/services/asset_phrase_service.dart';
+import 'package:mobile/features/practice/data/services/dynamic_practice_api_service.dart';
 import 'package:mobile/features/practice/domain/models/practice_continuity_snapshot.dart';
 import 'package:mobile/features/practice/presentation/garden_growth_view_model.dart';
 import 'package:mobile/features/practice/presentation/practice_continuity_view_model.dart';
@@ -131,6 +132,7 @@ class _SharedConsumerAuthDependencies {
     required this.client,
     required this.accountApiService,
     required this.authenticatedApiClient,
+    required this.dynamicPracticeApiService,
     required this.householdApiService,
     required this.mentorApiService,
   });
@@ -145,6 +147,7 @@ class _SharedConsumerAuthDependencies {
       client: client,
       accountApiService: accountApiService,
       authenticatedApiClient: authenticatedApiClient,
+      dynamicPracticeApiService: DynamicPracticeApiService(client: client),
       householdApiService: HouseholdApiService(
         client: client,
         authenticatedApiClient: authenticatedApiClient,
@@ -159,6 +162,7 @@ class _SharedConsumerAuthDependencies {
   final http.Client client;
   final AccountApiService accountApiService;
   final AuthenticatedApiClient authenticatedApiClient;
+  final DynamicPracticeApiService dynamicPracticeApiService;
   final HouseholdApiService householdApiService;
   final MentorApiService mentorApiService;
 
@@ -709,12 +713,14 @@ class _BabyTalkAppState extends State<BabyTalkApp> {
     AssetPhraseService assetPhraseService,
   ) async {
     final directory = await _resolveAppDirectory();
+    final authDependencies = _resolveSharedConsumerAuthDependencies();
     final localDataSource = await PracticeLocalDataSource.open(
       directory: directory.path,
     );
     return PracticeRepository(
       assetPhraseService: assetPhraseService,
       localDataSource: localDataSource,
+      dynamicPracticeApiService: authDependencies.dynamicPracticeApiService,
       installationIdService: InstallationIdService(
         directoryResolver: () async => directory,
       ),

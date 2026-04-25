@@ -391,15 +391,9 @@ public class MentorService {
      *   <li>JSON 解析失败时尝试正则提取或返回 fallback 空 response</li>
      * </ol>
      */
-    public PracticeGenerateResponse generatePractice(PracticeGenerateCommand command) {
-        // 验证 installationId
-        var installationId = requireTrimmed(command.installationId(), "installationId");
-        if (installationId.length() > 128) {
-            throw new ContractException(HttpStatus.BAD_REQUEST, "invalid_installation_id",
-                    "installationId 过长。", Map.of("phase", "invalid_installation_id"));
-        }
-
-        // 验证 surface 必须是 practice
+    public PracticeGenerateResponse generatePractice(PracticeGenerateCommand command, String sessionIdHeader) {
+        var now = Instant.now(clock);
+        var installationId = normalizeInstallationId(command.installationId());
         var surface = requireTrimmed(command.surface(), "surface").toLowerCase(Locale.ROOT);
         if (!"practice".equals(surface)) {
             throw new ContractException(HttpStatus.BAD_REQUEST, "invalid_surface",
@@ -407,33 +401,82 @@ public class MentorService {
                     Map.of("phase", "invalid_surface", "allowed", List.of("practice")));
         }
 
-        var babyAgeMonths = command.babyAgeMonths();
-        var sceneTag = command.sceneTag();
-        log.info("practice.generate: surface=practice, babyAgeMonths={}, sceneTag={}", babyAgeMonths, sceneTag);
+        var babyAgeMonths = normalizePracticeBabyAgeMonths(command.babyAgeMonths());
+        var sceneTag = normalizePracticeSceneTag(command.sceneTag());
+        var correlationId = "practice_" + UUID.randomUUID();
+        var userPrompt = buildPracticeUserPrompt(babyAgeMonths, sceneTag);
+        var requestSummary = buildRequestSummary(surface, "practice_generate", userPrompt, null);
+        var association = resolveSession(sessionIdHeader, installationId, correlationId, requestSummary, now);
 
-        // 构建 practice system prompt（含 L1 知识宫殿预检索）
+        var currentCount = repository.insertAuditAndCountWindow(
+                auditRow(
+                        correlationId,
+                        installationId,
+                        association,
+                        "practice_requested",
+                        "request_received",
+                        "accepted",
+                        requestSummary,
+                        null,
+                        association.authenticated() ? "session_attached" : "anonymous_installation",
+                        null,
+                        false,
+                        false,
+                        now
+                ),
+                now.minus(properties.rateLimitWindow())
+        );
+        if (currentCount > properties.rateLimitMaxRequests()) {
+            repository.insertAudit(auditRow(
+                    correlationId,
+                    installationId,
+                    association,
+                    "rate_limited",
+                    "rate_limited",
+                    "rejected",
+                    requestSummary,
+                    null,
+                    "installation_window_limit_exceeded",
+                    "mentor_rate_limited",
+                    true,
+                    true,
+                    now
+            ));
+            throw contractError(
+                    HttpStatus.TOO_MANY_REQUESTS,
+                    "mentor_rate_limited",
+                    "当前求助太频繁了，请稍后再试。",
+                    correlationId,
+                    "rate_limited",
+                    true,
+                    true,
+                    Map.of(
+                            "limit", properties.rateLimitMaxRequests(),
+                            "windowSeconds", properties.rateLimitWindow().toSeconds(),
+                            "remaining", 0
+                    )
+            );
+        }
+
+        var resolvedConversationId = conversationSessionService.resolveConversationId(command.conversationId());
+        log.info("practice.generate: surface=practice, babyAgeMonths={}, sceneTag={}, authenticated={}",
+                babyAgeMonths, sceneTag, association.authenticated());
+
         String systemPrompt = MemPalacePromptBuilder.buildPracticeSystemPrompt(
                 babyAgeMonths, sceneTag, palaceSearchService);
 
-        // 组装用户 prompt
-        String userPrompt = "请为 %d 个月大的宝宝生成英语启蒙练习。".formatted(babyAgeMonths);
-        if (sceneTag != null && !sceneTag.isBlank()) {
-            userPrompt += " 场景：%s。".formatted(sceneTag.trim());
-        }
-
-        // 调用 provider（不经过 chat 3-phase 管线）
         String rawResponse;
         try {
             var providerResponse = mentorProvider.respond(new MentorProvider.ProviderRequest(
-                    "practice_" + UUID.randomUUID(),
+                    correlationId,
                     installationId,
                     surface,
                     "single_turn",
                     userPrompt,
                     "practice_generate:age=%d,scene=%s".formatted(babyAgeMonths, sceneTag),
                     false,
-                    Instant.now(clock),
-                    command.conversationId()
+                    now,
+                    resolvedConversationId
             ));
             rawResponse = providerResponse.responseText();
         } catch (MentorProvider.ProviderTimeoutException e) {
@@ -446,7 +489,6 @@ public class MentorService {
                     "服务暂时不可用，请稍后再试。", Map.of("phase", "provider_unavailable", "retryable", true));
         } catch (MentorProvider.ProviderMalformedResponseException e) {
             log.warn("practice.generate: provider malformed response", e);
-            // malformed 也走 fallback
             return PracticeGenerateResponse.empty();
         }
 
@@ -455,7 +497,6 @@ public class MentorService {
             return PracticeGenerateResponse.empty();
         }
 
-        // 尝试解析 JSON
         return parsePracticeResponse(rawResponse);
     }
 
@@ -799,6 +840,34 @@ public class MentorService {
         return normalized;
     }
 
+    private int normalizePracticeBabyAgeMonths(int babyAgeMonths) {
+        if (babyAgeMonths < 0 || babyAgeMonths > 36) {
+            throw new ContractException(
+                    HttpStatus.BAD_REQUEST,
+                    "invalid_baby_age_months",
+                    "babyAgeMonths 超出允许范围。",
+                    Map.of("phase", "invalid_baby_age_months", "min", 0, "max", 36)
+            );
+        }
+        return babyAgeMonths;
+    }
+
+    private String normalizePracticeSceneTag(String sceneTag) {
+        if (sceneTag == null || sceneTag.isBlank()) {
+            return null;
+        }
+        var normalized = sceneTag.trim();
+        if (normalized.length() > 64) {
+            throw new ContractException(
+                    HttpStatus.BAD_REQUEST,
+                    "invalid_sceneTag",
+                    "sceneTag 过长。",
+                    Map.of("phase", "invalid_sceneTag", "maxLength", 64)
+            );
+        }
+        return normalized;
+    }
+
     private String normalizeAllowed(String value, String fieldName, java.util.List<String> allowedValues) {
         var normalized = requireTrimmed(value, fieldName).toLowerCase(Locale.ROOT);
         var allowed = allowedValues.stream().map(item -> item.toLowerCase(Locale.ROOT)).toList();
@@ -884,6 +953,14 @@ public class MentorService {
                 "surface=%s;mode=%s;prompt.len=%d;prompt.preview=%s;context.present=%s;context.len=%d"
                         .formatted(surface, mode, prompt.length(), preview, contextLength > 0, contextLength)
         );
+    }
+
+    private String buildPracticeUserPrompt(int babyAgeMonths, String sceneTag) {
+        String userPrompt = "请为 %d 个月大的宝宝生成英语启蒙练习。".formatted(babyAgeMonths);
+        if (sceneTag != null) {
+            userPrompt += " 场景：%s。".formatted(sceneTag);
+        }
+        return userPrompt;
     }
 
     private String summarizeResponse(String responseText) {

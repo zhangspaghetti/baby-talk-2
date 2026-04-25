@@ -17,15 +17,21 @@
 #   BABY_TALK_EMBEDDING_API_KEY — embedding API key（必需）
 #   BABY_TALK_EMBEDDING_BASE_URL — 默认 https://models.inference.ai.azure.com
 #   BABY_TALK_EMBEDDING_MODEL — 默认 text-embedding-3-small
+#   ADMIN_ACCESS_TOKEN — 可选，直接复用现成管理员 access token
+#   ADMIN_USERNAME / ADMIN_PASSWORD — 未提供 token 时用于本地 bootstrap 登录
 #   SKIP_DOCKER — 设为 1 跳过 docker 启停（用于手动验证）
 # ──────────────────────────────────────────────────────────────
 set -euo pipefail
 
 # ── 配置 ──
-API_BASE="http://localhost:8080"
-UPLOAD_URL="${API_BASE}/api/v1/ingestion/upload"
-JOBS_URL="${API_BASE}/api/v1/ingestion/jobs"
-HEALTH_URL="${API_BASE}/actuator/health"
+ADMIN_API_BASE="${ADMIN_API_BASE:-http://localhost:8081}"
+UPLOAD_URL="${ADMIN_API_BASE}/api/admin/knowledge/ingestion/upload"
+JOBS_URL="${ADMIN_API_BASE}/api/admin/knowledge/ingestion/jobs"
+LOGIN_URL="${ADMIN_API_BASE}/api/admin/auth/login"
+HEALTH_URL="${ADMIN_API_BASE}/actuator/health"
+ADMIN_ACCESS_TOKEN="${ADMIN_ACCESS_TOKEN:-}"
+ADMIN_USERNAME="${ADMIN_USERNAME:-super_admin}"
+ADMIN_PASSWORD="${ADMIN_PASSWORD:-SuperAdmin123!}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 COMPOSE_FILE="${PROJECT_DIR}/docker-compose.yml"
@@ -57,6 +63,34 @@ trap cleanup EXIT
 
 log_info()  { echo -e "${CYAN}[INFO]${NC}  $*"; }
 log_warn()  { echo -e "${YELLOW}[WARN]${NC}  $*"; }
+
+resolve_admin_token() {
+    if [ -n "$ADMIN_ACCESS_TOKEN" ]; then
+        return 0
+    fi
+
+    local response http_code body
+    response=$(curl -s -w "\n%{http_code}" \
+        -X POST "$LOGIN_URL" \
+        -H "Content-Type: application/json" \
+        -d "{\"username\":\"${ADMIN_USERNAME}\",\"password\":\"${ADMIN_PASSWORD}\"}" \
+        2>/dev/null) || true
+    http_code=$(echo "$response" | tail -1)
+    body=$(echo "$response" | sed '$d')
+
+    if [ "$http_code" != "200" ]; then
+        check_fail "管理员登录失败 (HTTP ${http_code}): ${body}"
+        exit 1
+    fi
+
+    ADMIN_ACCESS_TOKEN=$(echo "$body" | grep -o '"accessToken":"[^"]*"' | head -1 | cut -d'"' -f4)
+    if [ -z "$ADMIN_ACCESS_TOKEN" ]; then
+        check_fail "管理员登录成功但未返回 accessToken"
+        exit 1
+    fi
+
+    check_pass "管理员登录成功"
+}
 
 # ──────────────────────────────────────────
 # Step 0: 前置检查
@@ -92,23 +126,26 @@ fi
 # ──────────────────────────────────────────
 # Step 2: 等待 backend healthy
 # ──────────────────────────────────────────
-log_info "Step 2: 等待 backend 健康检查..."
+log_info "Step 2: 等待 admin-api 健康检查..."
 MAX_WAIT=120
 WAITED=0
 while [ "$WAITED" -lt "$MAX_WAIT" ]; do
     HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" "$HEALTH_URL" 2>/dev/null) || HTTP_CODE="000"
     if [ "$HTTP_CODE" = "200" ]; then
-        check_pass "Backend 健康检查通过 (${WAITED}s)"
+        check_pass "admin-api 健康检查通过 (${WAITED}s)"
         break
     fi
     sleep 3
     WAITED=$((WAITED + 3))
 done
 if [ "$WAITED" -ge "$MAX_WAIT" ]; then
-    check_fail "Backend 未在 ${MAX_WAIT}s 内启动"
+    check_fail "admin-api 未在 ${MAX_WAIT}s 内启动"
     echo "跳过后续检查。"
     exit 1
 fi
+
+log_info "Step 2b: 获取管理员访问令牌..."
+resolve_admin_token
 
 # ──────────────────────────────────────────
 # Step 3: 创建测试文件并上传
@@ -142,6 +179,7 @@ BOOK_TITLE="Baby Talk"
 
 UPLOAD_RESPONSE=$(curl -s -w "\n%{http_code}" \
     -X POST "$UPLOAD_URL" \
+    -H "Authorization: Bearer ${ADMIN_ACCESS_TOKEN}" \
     -F "file=@${TEST_FILE}" \
     -F "bookTitle=${BOOK_TITLE}" \
     2>/dev/null)
@@ -174,7 +212,9 @@ POLL_MAX=60
 POLL_WAITED=0
 FINAL_STATUS=""
 while [ "$POLL_WAITED" -lt "$POLL_MAX" ]; do
-    STATUS_RESPONSE=$(curl -s "${JOBS_URL}/${JOB_ID}" 2>/dev/null)
+    STATUS_RESPONSE=$(curl -s \
+        -H "Authorization: Bearer ${ADMIN_ACCESS_TOKEN}" \
+        "${JOBS_URL}/${JOB_ID}" 2>/dev/null)
     FINAL_STATUS=$(echo "$STATUS_RESPONSE" | grep -o '"status":"[^"]*"' | head -1 | cut -d'"' -f4)
 
     case "$FINAL_STATUS" in

@@ -92,9 +92,10 @@ public class AdminAuthService {
     @Transactional
     public TokenResponse refresh(String rawRefreshToken) {
         var decodedRefreshToken = decodeRefreshToken(rawRefreshToken);
-        var refreshToken = repository.findRefreshToken(decodedRefreshToken.tokenId())
+        var refreshToken = repository.findRefreshTokenForUpdate(decodedRefreshToken.tokenId())
                 .orElseThrow(() -> invalidRefreshToken("not_found"));
-        var status = resolveRefreshTokenStatus(refreshToken, Instant.now(clock));
+        var now = Instant.now(clock);
+        var status = resolveRefreshTokenStatus(refreshToken, now);
         if (status != RefreshTokenStatus.ACTIVE) {
             log.warn("admin-auth refresh rejected. username={} reason={}", decodedRefreshToken.username(), status.name().toLowerCase(Locale.ROOT));
             throw refreshTokenException(status);
@@ -107,7 +108,6 @@ public class AdminAuthService {
         }
 
         var replacementTokenId = newRefreshTokenId();
-        var now = Instant.now(clock);
         repository.insertRefreshToken(new AdminAuthRepository.RefreshTokenRow(
                 replacementTokenId,
                 principal.principalId(),
@@ -119,7 +119,11 @@ public class AdminAuthService {
                 null,
                 null
         ));
-        repository.rotateRefreshToken(refreshToken.refreshTokenId(), replacementTokenId, now);
+        var rotatedCount = repository.rotateRefreshToken(refreshToken.refreshTokenId(), replacementTokenId, now);
+        if (rotatedCount != 1) {
+            log.warn("admin-auth refresh rejected. username={} reason=refresh_token_rotated", decodedRefreshToken.username());
+            throw refreshTokenException(RefreshTokenStatus.ROTATED);
+        }
         var authoritySnapshot = currentAuthoritySnapshot(principal.principalId());
         log.info("admin-auth refresh success. username={} roles={}", principal.username(), authoritySnapshot.roleCodes());
         return buildTokenResponse(principal, authoritySnapshot, replacementTokenId);
@@ -128,7 +132,7 @@ public class AdminAuthService {
     @Transactional
     public LogoutResponse logout(String rawRefreshToken) {
         var decodedRefreshToken = decodeRefreshToken(rawRefreshToken);
-        var refreshToken = repository.findRefreshToken(decodedRefreshToken.tokenId())
+        var refreshToken = repository.findRefreshTokenForUpdate(decodedRefreshToken.tokenId())
                 .orElseThrow(() -> invalidRefreshToken("not_found"));
         var status = resolveRefreshTokenStatus(refreshToken, Instant.now(clock));
         if (status != RefreshTokenStatus.ACTIVE) {
@@ -505,6 +509,19 @@ class AdminAuthRepository {
                 select refresh_token_id, principal_id, status, issued_at, expires_at, updated_at, rotated_at, revoked_at, replacement_token_id
                 from admin_refresh_tokens
                 where refresh_token_id = ?
+                """,
+                this::mapRefreshToken,
+                refreshTokenId
+        );
+    }
+
+    Optional<RefreshTokenRow> findRefreshTokenForUpdate(String refreshTokenId) {
+        return findOne(
+                """
+                select refresh_token_id, principal_id, status, issued_at, expires_at, updated_at, rotated_at, revoked_at, replacement_token_id
+                from admin_refresh_tokens
+                where refresh_token_id = ?
+                for update
                 """,
                 this::mapRefreshToken,
                 refreshTokenId

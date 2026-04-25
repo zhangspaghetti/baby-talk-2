@@ -64,8 +64,7 @@ public class AppSecurityConfig {
             new AntPathRequestMatcher("/actuator/health"),
             new AntPathRequestMatcher("/actuator/info"),
             new AntPathRequestMatcher("/error"),
-            new AntPathRequestMatcher("/api/v1/share-links"),
-            new AntPathRequestMatcher("/api/v1/mentor/practice/generate")
+                new AntPathRequestMatcher("/api/v1/share-links")
     );
 
     @Bean("consumerAccessTokenJwtDecoder")
@@ -148,8 +147,7 @@ public class AppSecurityConfig {
                                 "/actuator/info",
                                 "/error",
                                 "/api/v1/share-links",
-                                "/api/v1/mentor/chat",
-                                "/api/v1/mentor/practice/generate")
+                                "/api/v1/mentor/chat")
                         .permitAll()
                         .anyRequest().authenticated())
                 .oauth2ResourceServer(oauth2 -> oauth2

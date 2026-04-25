@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:mobile/app/theme/app_theme.dart';
+import 'package:mobile/features/account/presentation/account_view_model.dart';
 import 'package:mobile/features/mentor/presentation/mentor_audio_controller.dart';
 import 'package:mobile/features/practice/data/repositories/practice_repository.dart';
 import 'package:mobile/features/practice/presentation/practice_route_args.dart';
@@ -30,11 +31,13 @@ class PracticeSessionScreen extends StatelessWidget {
 
     final args = routeEntry.args!;
     final repository = context.read<PracticeRepository>();
+    final accountViewModel = context.read<AccountViewModel>();
     return ChangeNotifierProvider<PracticeSessionViewModel>(
       create: (_) => PracticeSessionViewModel(
         repository: repository,
         spaceId: args.spaceId,
         activityId: args.activityId,
+        accessTokenLoader: () => accountViewModel.snapshot.session?.accessToken,
         audioController: audioControllerFactory?.call(),
       )..initialize(),
       child: _PracticeSessionBody(routeArgs: args),

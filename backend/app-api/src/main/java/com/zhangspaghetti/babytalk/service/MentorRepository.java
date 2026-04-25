@@ -34,7 +34,7 @@ class MentorRepository {
                 select count(*)
                 from mentor_audit_logs
                 where installation_id = ?
-                  and event_type = 'chat_requested'
+                                    and event_type in ('chat_requested', 'practice_requested')
                   and created_at >= ?
                 """,
                 Integer.class,
@@ -44,7 +44,7 @@ class MentorRepository {
     }
 
     /**
-     * 原子操作：在 per-installation 锁保护下，用独立事务 INSERT chat_requested audit 并 COUNT 窗口内行数。
+        * 原子操作：在 per-installation 锁保护下，用独立事务 INSERT requested audit 并 COUNT 窗口内行数。
      * Java 级别 synchronized(per-installationId) 串行化并发请求的 INSERT+COUNT 序列；
      * REQUIRES_NEW 保证每次 INSERT 立即提交，后续请求的 COUNT 能看到前序已提交的行。
      */

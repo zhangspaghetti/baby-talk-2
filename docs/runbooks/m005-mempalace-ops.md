@@ -18,24 +18,33 @@
 
 ### 批量导入（batch-ingest.sh）
 
-`scripts/batch-ingest.sh` 脚本可一次性导入整个目录的文献文件：
+`scripts/batch-ingest.sh` 脚本可一次性导入整个目录的文献文件。脚本现在调用受保护的 admin-api ingestion 路由，因此需要先准备管理员 access token：
 
 ```bash
-# 基本用法（默认连接 localhost:8080）
+export ADMIN_ACCESS_TOKEN=$(curl -s http://localhost:8081/api/admin/auth/login \
+  -H 'Content-Type: application/json' \
+  -d '{"username":"super_admin","password":"SuperAdmin123!"}' \
+  | jq -r '.accessToken')
+```
+
+```bash
+# 基本用法（默认连接 localhost:8081）
 ./scripts/batch-ingest.sh /path/to/docs/
 
-# 指定 API 地址（生产环境）
-./scripts/batch-ingest.sh /path/to/docs/ https://api.babytalk.example.com
+# 指定 admin-api 地址（生产环境）
+./scripts/batch-ingest.sh /path/to/docs/ https://admin-api.babytalk.example.com
 ```
 
 **脚本流程：**
 
 1. 遍历目录中的所有文件
 2. 从文件名推断 `bookTitle`（去掉扩展名，替换 `_`/`-` 为空格）
-3. 调用 `POST /api/v1/ingestion/upload`（multipart: `file` + `bookTitle`）
+3. 调用 `POST /api/admin/knowledge/ingestion/upload`（multipart: `file` + `bookTitle`）
 4. 记录 `jobId` 并轮询状态（每 3 秒，最多 120 次 ≈ 6 分钟）
 5. 每个文件之间 sleep 1s（内置限流）
 6. 最终输出汇总：成功 / 失败 / 总数
+
+脚本依赖 `ADMIN_ACCESS_TOKEN` 环境变量；如果 token 过期，请重新执行上面的登录命令。
 
 **轮询超时配置（脚本内变量）：**
 
@@ -47,7 +56,8 @@
 ### 单本书手动上传
 
 ```bash
-curl -X POST http://localhost:8080/api/v1/ingestion/upload \
+curl -X POST http://localhost:8081/api/admin/knowledge/ingestion/upload \
+  -H "Authorization: Bearer ${ADMIN_ACCESS_TOKEN}" \
   -F "file=@/path/to/book.pdf" \
   -F "bookTitle=我的育儿书"
 ```
@@ -56,7 +66,8 @@ curl -X POST http://localhost:8080/api/v1/ingestion/upload \
 
 ```bash
 # 查询 job 状态
-curl http://localhost:8080/api/v1/ingestion/jobs/{jobId}
+curl http://localhost:8081/api/admin/knowledge/ingestion/jobs/{jobId} \
+  -H "Authorization: Bearer ${ADMIN_ACCESS_TOKEN}"
 ```
 
 Job 状态码：`PENDING` → `PROCESSING` → `COMPLETED` / `FAILED`
@@ -65,23 +76,34 @@ Job 状态码：`PENDING` → `PROCESSING` → `COMPLETED` / `FAILED`
 
 若单个文件导入失败：
 
-1. 检查 job 错误信息：`curl /api/v1/ingestion/jobs/{jobId}` → `errorMessage` 字段
+1. 检查 job 错误信息：`curl /api/admin/knowledge/ingestion/jobs/{jobId}` → `errorMessage` 字段
 2. 常见失败原因：
    - 文件过大 → 检查 Spring 文件上传大小限制
    - Embedding API 限流 → 等待一段时间后重试
    - MinIO 连接失败 → 检查 MinIO 健康状态
-3. 重新上传同一文件即可（同名 bookTitle 会覆盖旧数据）
+3. 对 FAILED job 可直接调用 retry 接口：
+
+```bash
+curl -X POST http://localhost:8081/api/admin/knowledge/ingestion/jobs/{jobId}/retry \
+  -H "Authorization: Bearer ${ADMIN_ACCESS_TOKEN}"
+```
 
 ### K8s 环境导入
 
 在 K8s 集群中执行批量导入：
 
 ```bash
-# Port-forward 到后端 Service
-kubectl port-forward -n babytalk svc/babytalk 8080:8080 &
+# Port-forward 到 admin-api Service
+kubectl port-forward -n babytalk svc/babytalk-admin-api 8081:8081 &
+
+# 获取管理员 token
+export ADMIN_ACCESS_TOKEN=$(curl -s http://localhost:8081/api/admin/auth/login \
+  -H 'Content-Type: application/json' \
+  -d '{"username":"super_admin","password":"<bootstrap-password>"}' \
+  | jq -r '.accessToken')
 
 # 在本地运行导入脚本
-./scripts/batch-ingest.sh /path/to/docs/ http://localhost:8080
+./scripts/batch-ingest.sh /path/to/docs/ http://localhost:8081
 ```
 
 ---

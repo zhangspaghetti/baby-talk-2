@@ -119,6 +119,24 @@ void main() {
       );
     });
 
+    test('accessToken 存在时带上 Authorization 头', () async {
+      final mockClient = http_testing.MockClient((request) async {
+        expect(request.headers[HttpHeaders.authorizationHeader], 'Bearer token-123');
+        return http.Response(
+          jsonEncode({'activities': []}),
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      });
+
+      service = createService(mockClient);
+      await service.generatePractice(
+        installationId: 'test-install',
+        babyAgeMonths: 8,
+        accessToken: ' token-123 ',
+      );
+    });
+
     test('非 JSON 响应抛出 malformed 异常', () async {
       final mockClient = http_testing.MockClient((request) async {
         return http.Response(

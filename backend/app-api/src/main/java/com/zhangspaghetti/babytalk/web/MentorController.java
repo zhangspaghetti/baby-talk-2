@@ -41,6 +41,7 @@ public class MentorController {
 
     @PostMapping("/practice/generate")
     public MentorService.PracticeGenerateResponse practiceGenerate(
+            @AuthenticationPrincipal Jwt authenticatedJwt,
             @RequestBody PracticeGenerateRequest request
     ) {
         return mentorService.generatePractice(
@@ -50,7 +51,8 @@ public class MentorController {
                         request.babyAgeMonths(),
                         request.sceneTag(),
                         request.conversationId()
-                )
+                ),
+                authenticatedJwt == null ? null : authenticatedJwt.getClaimAsString("sid")
         );
     }
 

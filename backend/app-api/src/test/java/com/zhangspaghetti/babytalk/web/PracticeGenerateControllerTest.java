@@ -31,7 +31,7 @@ import org.springframework.test.web.servlet.MockMvc;
         "app.mentor.provider-mode=dev",
         "app.mentor.practice-response-max-length=2000"
 })
-@AutoConfigureMockMvc
+@AutoConfigureMockMvc(addFilters = false)
 class PracticeGenerateControllerTest extends AbstractIntegrationTest {
 
     @Autowired
@@ -218,6 +218,42 @@ class PracticeGenerateControllerTest extends AbstractIntegrationTest {
                                 """))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("missing_installationId"));
+    }
+
+    @Test
+    void outOfRangeBabyAgeReturnsBadRequest() throws Exception {
+        mockMvc.perform(post("/api/v1/mentor/practice/generate")
+                        .header(ApiVersionInterceptor.VERSION_HEADER, "1.2.0")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "installationId": "install-practice-age",
+                                  "surface": "practice",
+                                  "babyAgeMonths": 48,
+                                  "sceneTag": "morning"
+                                }
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("invalid_baby_age_months"));
+    }
+
+    @Test
+    void tooLongSceneTagReturnsBadRequest() throws Exception {
+        var sceneTag = "a".repeat(65);
+
+        mockMvc.perform(post("/api/v1/mentor/practice/generate")
+                        .header(ApiVersionInterceptor.VERSION_HEADER, "1.2.0")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "installationId": "install-practice-scene",
+                                  "surface": "practice",
+                                  "babyAgeMonths": 12,
+                                  "sceneTag": "%s"
+                                }
+                                """.formatted(sceneTag)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("invalid_sceneTag"));
     }
 
     @Test

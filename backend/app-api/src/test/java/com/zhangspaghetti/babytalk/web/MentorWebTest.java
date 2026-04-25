@@ -104,6 +104,80 @@ class MentorWebTest extends AbstractIntegrationTest {
     }
 
     @Test
+    void practiceGenerateRequiresAuthenticatedSession() throws Exception {
+        mockMvc.perform(post("/api/v1/mentor/practice/generate")
+                        .header(ApiVersionInterceptor.VERSION_HEADER, "1.2.0")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "installationId":"install-practice-auth",
+                                  "surface":"practice",
+                                  "babyAgeMonths":12,
+                                  "sceneTag":"morning_routine"
+                                }
+                                """))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("consumer_authentication_required"));
+    }
+
+    @Test
+    void practiceGenerateRejectsInstallationMismatch() throws Exception {
+        var session = createAcceptedSession("13800138000", "install-owner");
+
+        mockMvc.perform(post("/api/v1/mentor/practice/generate")
+                        .header(ApiVersionInterceptor.VERSION_HEADER, "1.2.0")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(session.accessToken()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "installationId":"install-other",
+                                  "surface":"practice",
+                                  "babyAgeMonths":12,
+                                  "sceneTag":"morning_routine"
+                                }
+                                """))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("session_installation_mismatch"));
+    }
+
+    @Test
+    void practiceGenerateSharesRateLimitWindowWithChat() throws Exception {
+        var session = createAcceptedSession("13800138000", "install-practice-rate");
+
+        mockMvc.perform(post("/api/v1/mentor/chat")
+                        .header(ApiVersionInterceptor.VERSION_HEADER, "1.2.0")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(session.accessToken()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "installationId":"install-practice-rate",
+                                  "prompt":"先给我一个开场白。",
+                                  "surface":"home",
+                                  "mode":"single_turn",
+                                  "correlationId":"corr_practice_rl_chat"
+                                }
+                                """))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(post("/api/v1/mentor/practice/generate")
+                        .header(ApiVersionInterceptor.VERSION_HEADER, "1.2.0")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(session.accessToken()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "installationId":"install-practice-rate",
+                                  "surface":"practice",
+                                  "babyAgeMonths":12,
+                                  "sceneTag":"morning_routine"
+                                }
+                                """))
+                .andExpect(status().isTooManyRequests())
+                .andExpect(jsonPath("$.code").value("mentor_rate_limited"))
+                .andExpect(jsonPath("$.details.phase").value("rate_limited"))
+                .andExpect(jsonPath("$.details.rateLimited").value(true));
+    }
+
+    @Test
     void blockedPromptReturnsFallbackAndRedactsStoredSummary() throws Exception {
         mockMvc.perform(post("/api/v1/mentor/chat")
                         .header(ApiVersionInterceptor.VERSION_HEADER, "1.2.0")

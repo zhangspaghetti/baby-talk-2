@@ -13,12 +13,18 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.zhangspaghetti.babytalk.admin.auth.AdminApiContractException;
 import com.zhangspaghetti.babytalk.admin.auth.AdminAuthService;
 import com.zhangspaghetti.babytalk.admin.auth.AdminJwtAuthenticationConverter;
 import com.zhangspaghetti.babytalk.admin.rbac.AdminPermissionCatalog;
 import com.zhangspaghetti.babytalk.security.JwtTokenService;
 import java.sql.Timestamp;
 import java.time.Instant;
+import java.util.List;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -217,6 +223,46 @@ class AdminAuthWebTest {
                 .andExpect(jsonPath("$.code").value("refresh_token_rotated"));
     }
 
+        @Test
+        void concurrentRefreshOnlyAllowsOneSuccessfulRotation() throws Exception {
+                var login = login("super_admin", "SuperAdmin123!");
+                ExecutorService executor = Executors.newFixedThreadPool(2);
+                CountDownLatch start = new CountDownLatch(1);
+
+                try {
+                        var futures = List.of(
+                                        executor.submit(() -> refreshConcurrently(login.refreshToken(), start)),
+                                        executor.submit(() -> refreshConcurrently(login.refreshToken(), start))
+                        );
+
+                        start.countDown();
+
+                        var outcomes = futures.stream()
+                                        .map(future -> {
+                                                try {
+                                                        return future.get(10, TimeUnit.SECONDS);
+                                                } catch (Exception exception) {
+                                                        throw new RuntimeException(exception);
+                                                }
+                                        })
+                                        .toList();
+
+                        assertThat(outcomes).extracting(RefreshAttempt::success)
+                                        .containsExactlyInAnyOrder(true, false);
+                        assertThat(outcomes.stream()
+                                        .filter(outcome -> !outcome.success())
+                                        .findFirst()
+                                        .orElseThrow()
+                                        .errorCode()).isEqualTo("refresh_token_rotated");
+                        assertThat(queryForInt("select count(*) from admin_refresh_tokens where status = 'active'"))
+                                        .isEqualTo(1);
+                        assertThat(queryForInt("select count(*) from admin_refresh_tokens where status = 'rotated'"))
+                                        .isEqualTo(1);
+                } finally {
+                        executor.shutdownNow();
+                }
+        }
+
     @Test
     void disabledPrincipalImmediatelyReturns401WithoutEchoingTokens() throws Exception {
         var login = login("super_admin", "SuperAdmin123!");
@@ -308,6 +354,19 @@ class AdminAuthWebTest {
         return readTokens(response.getResponse().getContentAsString());
     }
 
+        private RefreshAttempt refreshConcurrently(String refreshToken, CountDownLatch start) {
+                try {
+                        start.await(10, TimeUnit.SECONDS);
+                        adminAuthService.refresh(refreshToken);
+                        return new RefreshAttempt(true, null);
+                } catch (AdminApiContractException exception) {
+                        return new RefreshAttempt(false, exception.code());
+                } catch (InterruptedException exception) {
+                        Thread.currentThread().interrupt();
+                        throw new RuntimeException(exception);
+                }
+        }
+
     private TokenView readTokens(String rawJson) throws Exception {
         JsonNode json = objectMapper.readTree(rawJson);
         return new TokenView(
@@ -331,4 +390,7 @@ class AdminAuthWebTest {
 
     private record TokenView(String accessToken, String refreshToken, String principalId) {
     }
+
+        private record RefreshAttempt(boolean success, String errorCode) {
+        }
 }
