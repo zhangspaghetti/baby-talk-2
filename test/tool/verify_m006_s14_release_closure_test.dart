@@ -45,6 +45,15 @@ void main() {
         'dart run tool/verify_m006_s08_release.dart --helm',
       );
       expect(
+        gates.map((gate) => gate.stepCommandLine).toList(),
+        <String>[
+          r'$ dart run tool/verify_m006_s07_mentor_distribution.dart',
+          r'$ dart run tool/verify_m006_s08_release.dart --helm',
+          r'$ dart run tool/verify_m006_s12_control_plane_freshness.dart',
+          r'$ dart run tool/verify_m006_s13_demo_path.dart',
+        ],
+      );
+      expect(
         gates
             .where((gate) => gate.artifactHint != null)
             .map((gate) => gate.gateId)

@@ -95,7 +95,7 @@ Future<void> _runChildGate(ChildGate gate) async {
 
   stdout.writeln('');
   stdout.writeln('==> ${gate.stepLabel}');
-  stdout.writeln(r'$ ${gate.rerunCommand}');
+  stdout.writeln(gate.stepCommandLine);
   stdout.writeln('drill_down_verifier=${gate.rerunCommand}');
   stdout.writeln('drill_down_runbook=${gate.runbookPath}');
   if (gate.artifactHint != null) {
@@ -325,6 +325,8 @@ class ChildGate {
 
   String get rerunCommand =>
       'dart run $verifierPath${verifierArgs.isEmpty ? '' : ' ${verifierArgs.join(' ')}'}';
+
+  String get stepCommandLine => r'$ ' + rerunCommand;
 
   String get runbookLabel => ' | Runbook: $runbookPath';
 
