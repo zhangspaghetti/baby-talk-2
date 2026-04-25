@@ -3,6 +3,8 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:http/http.dart' as http;
+import 'package:mobile/features/account/data/services/authenticated_api_client.dart';
+import 'package:mobile/features/account/domain/models/account_session.dart';
 import 'package:mobile/features/household/domain/models/household_invite_link.dart';
 import 'package:mobile/features/household/domain/models/household_role.dart';
 import 'package:mobile/features/household/domain/models/household_shared_context.dart';
@@ -94,28 +96,33 @@ class HouseholdAcceptInviteResponse {
 class HouseholdApiService {
   HouseholdApiService({
     http.Client? client,
+    AuthenticatedApiClient? authenticatedApiClient,
     Uri? baseUri,
     this.appVersion = defaultHouseholdApiVersion,
     this.timeout = const Duration(seconds: 8),
   }) : _client = client ?? http.Client(),
+       _authenticatedApiClient = authenticatedApiClient,
        _ownsClient = client == null,
        _baseUri = baseUri ?? Uri.parse(defaultHouseholdApiBaseUrl);
 
   final http.Client _client;
+  final AuthenticatedApiClient? _authenticatedApiClient;
   final bool _ownsClient;
   final Uri _baseUri;
   final String appVersion;
   final Duration timeout;
 
   Future<HouseholdInviteLink> createInvite({
-    required String sessionId,
+    required AccountSession session,
+    required PersistRefreshedSession persistRefreshedSession,
     required HouseholdRole role,
     required String source,
   }) async {
-    final json = await _requestJson(
-      'POST',
-      '/api/v1/caregiver-invites',
-      sessionId: sessionId,
+    final json = await _requestAuthenticatedJson(
+      method: 'POST',
+      path: '/api/v1/caregiver-invites',
+      session: session,
+      persistRefreshedSession: persistRefreshedSession,
       body: <String, Object?>{'role': role.wireValue, 'source': source},
     );
     return HouseholdInviteLink(
@@ -129,14 +136,16 @@ class HouseholdApiService {
   }
 
   Future<HouseholdAcceptInviteResponse> acceptInvite({
-    required String sessionId,
+    required AccountSession session,
+    required PersistRefreshedSession persistRefreshedSession,
     required String token,
     required String source,
   }) async {
-    final json = await _requestJson(
-      'POST',
-      '/api/v1/caregiver-invites/accept',
-      sessionId: sessionId,
+    final json = await _requestAuthenticatedJson(
+      method: 'POST',
+      path: '/api/v1/caregiver-invites/accept',
+      session: session,
+      persistRefreshedSession: persistRefreshedSession,
       body: <String, Object?>{'token': token, 'source': source},
     );
     return HouseholdAcceptInviteResponse(
@@ -150,12 +159,14 @@ class HouseholdApiService {
   }
 
   Future<HouseholdSharedContextResponse> fetchSharedContext({
-    required String sessionId,
+    required AccountSession session,
+    required PersistRefreshedSession persistRefreshedSession,
   }) async {
-    final json = await _requestJson(
-      'GET',
-      '/api/v1/household/shared-context',
-      sessionId: sessionId,
+    final json = await _requestAuthenticatedJson(
+      method: 'GET',
+      path: '/api/v1/household/shared-context',
+      session: session,
+      persistRefreshedSession: persistRefreshedSession,
     );
     return _readSharedContextResponse(json);
   }
@@ -179,10 +190,64 @@ class HouseholdApiService {
     );
   }
 
+  Future<Map<String, dynamic>> _requestAuthenticatedJson({
+    required String method,
+    required String path,
+    required AccountSession session,
+    required PersistRefreshedSession persistRefreshedSession,
+    Map<String, String>? queryParameters,
+    Map<String, Object?>? body,
+  }) async {
+    final authenticatedApiClient = _authenticatedApiClient;
+    if (authenticatedApiClient == null) {
+      throw StateError('HouseholdApiService 缺少 authenticatedApiClient 注入。');
+    }
+
+    try {
+      final result = await authenticatedApiClient.execute<Map<String, dynamic>>(
+        session: session,
+        send: (accessToken) => _requestJson(
+          method,
+          path,
+          queryParameters: queryParameters,
+          body: body,
+          accessToken: accessToken,
+        ),
+        persistRefreshedSession: persistRefreshedSession,
+      );
+      return result.value;
+    } on AuthenticatedApiClientException catch (error) {
+      throw _mapAuthException(error);
+    }
+  }
+
+  HouseholdApiException _mapAuthException(
+    AuthenticatedApiClientException error,
+  ) {
+    switch (error.kind) {
+      case AuthenticatedApiClientFailureKind.refreshTimeout:
+        return HouseholdApiException.timeout(message: error.visibleMessage);
+      case AuthenticatedApiClientFailureKind.refreshNetwork:
+        return HouseholdApiException.network(message: error.visibleMessage);
+      case AuthenticatedApiClientFailureKind.missingCredentials:
+      case AuthenticatedApiClientFailureKind.refreshMalformed:
+      case AuthenticatedApiClientFailureKind.refreshFailed:
+      case AuthenticatedApiClientFailureKind.sessionExpired:
+      case AuthenticatedApiClientFailureKind.persistenceFailure:
+        return HouseholdApiException(
+          kind: HouseholdApiFailureKind.http,
+          message: error.visibleMessage,
+          statusCode: 401,
+          code: 'invalid_session',
+          details: <String, Object?>{'phase': error.phaseSuffix},
+        );
+    }
+  }
+
   Future<Map<String, dynamic>> _requestJson(
     String method,
     String path, {
-    required String sessionId,
+    String? accessToken,
     Map<String, String>? queryParameters,
     Map<String, Object?>? body,
   }) async {
@@ -190,7 +255,9 @@ class HouseholdApiService {
     request.headers['Accept'] = 'application/json';
     request.headers['Content-Type'] = 'application/json';
     request.headers['X-App-Version'] = appVersion;
-    request.headers['X-Session-Id'] = sessionId.trim();
+    if (accessToken != null && accessToken.trim().isNotEmpty) {
+      request.headers['Authorization'] = 'Bearer ${accessToken.trim()}';
+    }
     if (body != null) {
       request.body = jsonEncode(body);
     }

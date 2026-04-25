@@ -1,7 +1,9 @@
 import 'dart:async';
 
 import 'package:mobile/features/account/data/local/account_local_store.dart';
+import 'package:mobile/features/account/data/services/authenticated_api_client.dart';
 import 'package:mobile/features/account/domain/models/account_consent_state.dart';
+import 'package:mobile/features/account/domain/models/account_session.dart';
 import 'package:mobile/features/household/data/local/household_local_store.dart';
 import 'package:mobile/features/household/data/services/household_api_service.dart';
 import 'package:mobile/features/household/domain/models/household_invite_link.dart';
@@ -44,13 +46,16 @@ class HouseholdRepository {
     required HouseholdLocalStore localStore,
     required HouseholdApiService apiService,
     required HouseholdAccountSnapshotLoader accountSnapshotLoader,
+    required PersistRefreshedSession persistRefreshedSession,
   }) : _localStore = localStore,
        _apiService = apiService,
-       _accountSnapshotLoader = accountSnapshotLoader;
+       _accountSnapshotLoader = accountSnapshotLoader,
+       _persistRefreshedSession = persistRefreshedSession;
 
   final HouseholdLocalStore _localStore;
   final HouseholdApiService _apiService;
   final HouseholdAccountSnapshotLoader _accountSnapshotLoader;
+  final PersistRefreshedSession _persistRefreshedSession;
 
   Future<HouseholdLocalSnapshot>? _refreshFuture;
   Future<HouseholdInviteAcceptResult>? _acceptFuture;
@@ -142,7 +147,8 @@ class HouseholdRepository {
 
     try {
       final inviteLink = await _apiService.createInvite(
-        sessionId: sessionGate.sessionId!,
+        session: sessionGate.session!,
+        persistRefreshedSession: _persistRefreshedSession,
         role: role,
         source: source.trim(),
       );
@@ -193,7 +199,8 @@ class HouseholdRepository {
 
     try {
       final response = await _apiService.acceptInvite(
-        sessionId: sessionGate.sessionId!,
+        session: sessionGate.session!,
+        persistRefreshedSession: _persistRefreshedSession,
         token: token.trim(),
         source: source.trim(),
       );
@@ -246,7 +253,8 @@ class HouseholdRepository {
 
     try {
       final response = await _apiService.fetchSharedContext(
-        sessionId: sessionGate.sessionId!,
+        session: sessionGate.session!,
+        persistRefreshedSession: _persistRefreshedSession,
       );
       return _persistSnapshot(
         HouseholdLocalSnapshot(
@@ -294,6 +302,14 @@ class HouseholdRepository {
         ),
       );
     }
+    if (!session.hasJwtTokens) {
+      return _SessionGateResult.blocked(
+        HouseholdLocalSnapshot(
+          lastPhase: '${action}_invalid_session',
+          lastVisibleError: '登录已过期，请重新登录后再试。',
+        ),
+      );
+    }
     if (accountSnapshot.consentState == AccountConsentState.revoked) {
       return _SessionGateResult.blocked(
         HouseholdLocalSnapshot(
@@ -310,7 +326,7 @@ class HouseholdRepository {
         ),
       );
     }
-    return _SessionGateResult.ready(session.sessionId);
+    return _SessionGateResult.ready(session);
   }
 
   Future<AccountLocalSnapshot> _readAccountSnapshotSafely() async {
@@ -453,16 +469,16 @@ class HouseholdRepository {
 }
 
 class _SessionGateResult {
-  const _SessionGateResult._({this.sessionId, this.snapshot});
+  const _SessionGateResult._({this.session, this.snapshot});
 
-  const _SessionGateResult.ready(String sessionId)
-    : this._(sessionId: sessionId);
+  const _SessionGateResult.ready(AccountSession session)
+    : this._(session: session);
 
   const _SessionGateResult.blocked(HouseholdLocalSnapshot snapshot)
     : this._(snapshot: snapshot);
 
-  final String? sessionId;
+  final AccountSession? session;
   final HouseholdLocalSnapshot? snapshot;
 
-  bool get canProceed => sessionId != null;
+  bool get canProceed => session != null;
 }

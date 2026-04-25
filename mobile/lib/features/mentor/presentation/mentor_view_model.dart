@@ -1,7 +1,9 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
-import 'package:mobile/features/account/data/repositories/account_repository.dart';
+import 'package:mobile/features/account/data/repositories/account_repository.dart'
+    show AccountRuntimeTrigger;
+import 'package:mobile/features/account/data/services/authenticated_api_client.dart';
 import 'package:mobile/features/account/presentation/account_view_model.dart';
 import 'package:mobile/features/mentor/data/repositories/mentor_repository.dart';
 import 'package:mobile/features/mentor/data/services/mentor_api_service.dart';
@@ -114,10 +116,12 @@ class MentorViewModel extends ChangeNotifier {
     required AccountViewModel accountViewModel,
     MentorApiService? apiService,
     MentorAudioController? audioController,
+    PersistRefreshedSession? persistRefreshedSession,
   }) : _repository = repository,
        _accountViewModel = accountViewModel,
        _apiService = apiService ?? MentorApiService(),
        _audioController = audioController ?? FlutterTtsMentorAudioController(),
+       _persistRefreshedSession = persistRefreshedSession,
        _ownsApiService = apiService == null,
        _ownsAudioController = audioController == null,
        _chatAvailability = _deriveChatAvailability(accountViewModel) {
@@ -128,6 +132,7 @@ class MentorViewModel extends ChangeNotifier {
   final AccountViewModel _accountViewModel;
   final MentorApiService _apiService;
   final MentorAudioController _audioController;
+  final PersistRefreshedSession? _persistRefreshedSession;
   final bool _ownsApiService;
   final bool _ownsAudioController;
 
@@ -382,8 +387,8 @@ class MentorViewModel extends ChangeNotifier {
     final correlationId =
         'mentor_chat_${DateTime.now().toUtc().microsecondsSinceEpoch}';
     final installationId = await _repository.ensureInstallationId();
-    final sessionId = _accountViewModel.isSignedIn
-        ? _accountViewModel.snapshot.session?.sessionId
+    final session = _accountViewModel.isSignedIn
+        ? _accountViewModel.snapshot.session
         : null;
 
     await _appendFactSafely(
@@ -391,7 +396,7 @@ class MentorViewModel extends ChangeNotifier {
       phase: 'chat_requested',
       correlationId: correlationId,
       redactedSummary:
-          'surface:$_lastSurface;len:${prompt.length};auth:${sessionId == null ? 'anon' : 'session'}',
+          'surface:$_lastSurface;len:${prompt.length};auth:${session == null ? 'anon' : 'bearer'}',
       visibleStatus: 'chat-requested',
       visibleDetail: '正在请求一次受控回应',
     );
@@ -403,7 +408,8 @@ class MentorViewModel extends ChangeNotifier {
         surface: _lastSurface,
         mode: 'single_turn',
         correlationId: correlationId,
-        sessionId: sessionId,
+        session: session,
+        persistRefreshedSession: _persistRefreshedSession,
         contextSummary: _buildContextSummary(),
         conversationId: _conversationId,
       );
@@ -456,7 +462,7 @@ class MentorViewModel extends ChangeNotifier {
       _chatResponsePhase = surface.phase;
       _chatCorrelationId = error.correlationId ?? correlationId;
       _chatFallbackUsed = false;
-      _chatAuthenticated = sessionId != null;
+      _chatAuthenticated = session != null;
       _chatRateLimit = null;
       _applyBanner(
         surface.message,

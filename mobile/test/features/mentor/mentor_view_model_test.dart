@@ -215,27 +215,28 @@ void main() {
           redactedContextSummary: 'fallback:fallback',
         ),
       );
+      final apiService = _FakeMentorApiService(
+        response: MentorChatResponse(
+          correlationId: 'corr_success',
+          responseText: '先抱近一点，只说一句：I\'m here with you.',
+          code: 'ok',
+          phase: 'response_delivered',
+          retryable: false,
+          fallbackUsed: false,
+          authenticated: false,
+          rateLimit: const MentorRateLimitStatus(
+            limited: false,
+            limit: 3,
+            remaining: 2,
+            windowSeconds: 600,
+          ),
+          respondedAt: DateTime.utc(2026, 4, 10, 0),
+        ),
+      );
       final viewModel = MentorViewModel(
         repository: repository,
         accountViewModel: accountViewModel,
-        apiService: _FakeMentorApiService(
-          response: MentorChatResponse(
-            correlationId: 'corr_success',
-            responseText: '先抱近一点，只说一句：I\'m here with you.',
-            code: 'ok',
-            phase: 'response_delivered',
-            retryable: false,
-            fallbackUsed: false,
-            authenticated: false,
-            rateLimit: const MentorRateLimitStatus(
-              limited: false,
-              limit: 3,
-              remaining: 2,
-              windowSeconds: 600,
-            ),
-            respondedAt: DateTime.utc(2026, 4, 10, 0),
-          ),
-        ),
+        apiService: apiService,
         audioController: _SilentMentorAudioController(),
       );
       addTearDown(viewModel.dispose);
@@ -252,12 +253,115 @@ void main() {
       expect(viewModel.chatResponseCode, 'ok');
       expect(viewModel.chatResponsePhase, 'response_delivered');
       expect(viewModel.chatAuthenticated, isFalse);
+      expect(apiService.receivedSessions.single, isNull);
       expect(
         repository.appendedFacts.map((fact) => fact.eventType),
         containsAll([
           MentorFactType.chatRequested,
           MentorFactType.chatResponseDelivered,
         ]),
+      );
+    });
+
+    test('已登录聊天会复用 bearer seam，并把 authenticated=true 反馈给 UI', () async {
+      final accountViewModel = AccountViewModel(
+        repository: _StaticAccountRepository(
+          seedSnapshot: AccountLocalSnapshot(
+            consentState: AccountConsentState.acceptedPendingSync,
+            session: AccountSession(
+              accountId: 'account_signed_in',
+              sessionId: 'session_signed_in',
+              maskedPhoneNumber: '138****1234',
+              createdAt: DateTime.utc(2026, 4, 10, 8),
+              accessToken: 'access-live',
+              refreshToken: 'refresh-live',
+              tokenType: 'Bearer',
+              accessTokenExpiresAt: DateTime.utc(2026, 4, 10, 8, 15),
+              refreshTokenExpiresAt: DateTime.utc(2026, 4, 17, 8),
+            ),
+            lastSyncPhase: 'batch_ack_applied',
+          ),
+        ),
+      );
+      await accountViewModel.initialize();
+      final repository = _RecordingMentorRepository();
+      final apiService = _FakeMentorApiService();
+      final viewModel = MentorViewModel(
+        repository: repository,
+        accountViewModel: accountViewModel,
+        apiService: apiService,
+        persistRefreshedSession: (refreshedSession) async => refreshedSession,
+        audioController: _SilentMentorAudioController(),
+      );
+      addTearDown(viewModel.dispose);
+      addTearDown(accountViewModel.dispose);
+
+      await viewModel.beginPanelSession(launcher: 'home_fab');
+      await Future<void>.delayed(const Duration(milliseconds: 1));
+      viewModel.selectTab(MentorPanelTab.chat);
+      viewModel.updateChatDraft('宝宝一直哭，我现在该怎么说？');
+
+      await viewModel.submitChat();
+
+      expect(viewModel.chatAuthenticated, isTrue);
+      expect(viewModel.chatResponseCode, 'ok');
+      expect(apiService.receivedSessions.single?.accessToken, 'access-live');
+    });
+
+    test('已登录聊天遇到 401 时会保留旧 banner 语义并标记 authenticated path', () async {
+      final accountViewModel = AccountViewModel(
+        repository: _StaticAccountRepository(
+          seedSnapshot: AccountLocalSnapshot(
+            consentState: AccountConsentState.acceptedPendingSync,
+            session: AccountSession(
+              accountId: 'account_signed_in',
+              sessionId: 'session_signed_in',
+              maskedPhoneNumber: '138****1234',
+              createdAt: DateTime.utc(2026, 4, 10, 8),
+              accessToken: 'access-live',
+              refreshToken: 'refresh-live',
+              tokenType: 'Bearer',
+              accessTokenExpiresAt: DateTime.utc(2026, 4, 10, 8, 15),
+              refreshTokenExpiresAt: DateTime.utc(2026, 4, 17, 8),
+            ),
+            lastSyncPhase: 'batch_ack_applied',
+          ),
+        ),
+      );
+      await accountViewModel.initialize();
+      final repository = _RecordingMentorRepository();
+      final apiService = _FakeMentorApiService(
+        error: const MentorApiException(
+          kind: MentorApiFailureKind.http,
+          message: 'unauthorized',
+          statusCode: 401,
+          code: 'invalid_session',
+          details: <String, Object?>{'phase': 'invalid_session'},
+        ),
+      );
+      final viewModel = MentorViewModel(
+        repository: repository,
+        accountViewModel: accountViewModel,
+        apiService: apiService,
+        persistRefreshedSession: (refreshedSession) async => refreshedSession,
+        audioController: _SilentMentorAudioController(),
+      );
+      addTearDown(viewModel.dispose);
+      addTearDown(accountViewModel.dispose);
+
+      await viewModel.beginPanelSession(launcher: 'home_fab');
+      await Future<void>.delayed(const Duration(milliseconds: 1));
+      viewModel.selectTab(MentorPanelTab.chat);
+      viewModel.updateChatDraft('宝宝一直哭，我现在该怎么说？');
+
+      await viewModel.submitChat();
+
+      expect(viewModel.chatAuthenticated, isTrue);
+      expect(viewModel.chatResponseCode, '401');
+      expect(viewModel.bannerMessage, contains('重新登录'));
+      expect(
+        apiService.receivedSessions.single?.sessionId,
+        'session_signed_in',
       );
     });
 
@@ -590,6 +694,13 @@ class _StaticAccountRepository implements AccountRepository {
   }
 
   @override
+  Future<AccountSession> persistRefreshedSession(
+    AccountSession refreshedSession,
+  ) async {
+    return refreshedSession;
+  }
+
+  @override
   Future<void> close() async {}
 }
 
@@ -599,6 +710,7 @@ class _FakeMentorApiService extends MentorApiService {
 
   final MentorChatResponse? response;
   final MentorApiException? error;
+  final List<AccountSession?> receivedSessions = <AccountSession?>[];
 
   @override
   Future<MentorChatResponse> sendChat({
@@ -607,10 +719,13 @@ class _FakeMentorApiService extends MentorApiService {
     required String surface,
     required String mode,
     required String correlationId,
-    String? sessionId,
+    AccountSession? session,
+    Future<AccountSession> Function(AccountSession refreshedSession)?
+    persistRefreshedSession,
     String? contextSummary,
     String? conversationId,
   }) async {
+    receivedSessions.add(session);
     if (error != null) {
       throw error!;
     }
@@ -622,7 +737,7 @@ class _FakeMentorApiService extends MentorApiService {
           phase: 'response_delivered',
           retryable: false,
           fallbackUsed: false,
-          authenticated: sessionId != null,
+          authenticated: session != null,
           rateLimit: const MentorRateLimitStatus(
             limited: false,
             limit: 3,
@@ -677,6 +792,7 @@ class _MultiTurnFakeMentorApiService extends MentorApiService {
     : super(baseUri: Uri.parse('http://localhost:8080'));
 
   final List<String?> receivedConversationIds = <String?>[];
+  final List<AccountSession?> receivedSessions = <AccountSession?>[];
   int _callCount = 0;
 
   @override
@@ -686,11 +802,14 @@ class _MultiTurnFakeMentorApiService extends MentorApiService {
     required String surface,
     required String mode,
     required String correlationId,
-    String? sessionId,
+    AccountSession? session,
+    Future<AccountSession> Function(AccountSession refreshedSession)?
+    persistRefreshedSession,
     String? contextSummary,
     String? conversationId,
   }) async {
     receivedConversationIds.add(conversationId);
+    receivedSessions.add(session);
     _callCount++;
     return MentorChatResponse(
       correlationId: 'corr_multi_$_callCount',
@@ -699,7 +818,7 @@ class _MultiTurnFakeMentorApiService extends MentorApiService {
       phase: 'response_delivered',
       retryable: false,
       fallbackUsed: false,
-      authenticated: false,
+      authenticated: session != null,
       rateLimit: const MentorRateLimitStatus(
         limited: false,
         limit: 3,
