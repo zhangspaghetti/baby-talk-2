@@ -121,6 +121,159 @@ void main() {
     });
   });
 
+  group('M006 S14 repo-root handoff surfaces', () {
+    test(
+      'workflow keeps relay, canonical gate, and artifact-preserving fail path',
+      () {
+        final workflow = _readRootText('.github/workflows/ci.yml');
+
+        expect(
+          workflow,
+          contains(
+            '- name: Start localhost:2375 Docker relay for Testcontainers',
+          ),
+        );
+        expect(
+          workflow,
+          contains(
+            'if docker --host tcp://localhost:2375 info >/dev/null 2>&1; then',
+          ),
+        );
+        expect(
+          workflow,
+          contains(
+            'continue-on-error: true\n        timeout-minutes: 45\n        env:\n          DOCKER_HOST: tcp://localhost:2375\n        run: dart run tool/verify_m006_s14_release_closure.dart',
+          ),
+        );
+        expect(
+          workflow,
+          contains(
+            '- name: Upload playwright-report artifact\n        if: \${{ always() }}',
+          ),
+        );
+        expect(
+          workflow,
+          contains(
+            'path: |\n            admin-web/playwright-report\n            admin-web/test-results',
+          ),
+        );
+
+        final verifierIndex = workflow.indexOf(
+          'Run M006 S14 release-closure verifier',
+        );
+        final uploadIndex = workflow.indexOf(
+          'Upload playwright-report artifact',
+        );
+        final failIndex = workflow.indexOf(
+          'Fail when release-closure verifier fails',
+        );
+
+        expect(verifierIndex, greaterThanOrEqualTo(0));
+        expect(uploadIndex, greaterThan(verifierIndex));
+        expect(failIndex, greaterThan(uploadIndex));
+      },
+    );
+
+    test('repo-root docs keep canonical command and drill-down references', () {
+      const canonicalCommand =
+          'dart run tool/verify_m006_s14_release_closure.dart';
+
+      final readme = _readRootText('README.md');
+      expect(readme, contains('## Final release closure（CI 同款）'));
+      expect(readme, contains(canonicalCommand));
+      expect(readme, contains('仓库根唯一 final release command 仍是这条'));
+      expect(
+        readme,
+        contains(
+          '[M006 / S14 release-closure runbook](docs/runbooks/m006-s14-release-closure.md)',
+        ),
+      );
+      expect(
+        readme,
+        contains(
+          '[Kubernetes split-stack deploy runbook](docs/runbooks/k8s-deploy.md)',
+        ),
+      );
+      expect(readme, contains('internal-only'));
+      expect(readme, contains('不要在 repo root 重新发明第二条 release command chain'));
+
+      final contributing = _readRootText('CONTRIBUTING.md');
+      expect(
+        contributing,
+        contains(
+          '想跑最终 release closure（CI 同款，唯一 final release command）：`dart run tool/verify_m006_s14_release_closure.dart`',
+        ),
+      );
+      expect(
+        contributing,
+        contains(
+          '除这条 S14 release closure 之外，其余 repo-root verifier 都只用于 scoped drill-down；不要再拼 ad-hoc shell chain。',
+        ),
+      );
+      expect(
+        contributing,
+        contains(
+          '| `backend/admin-api` | admin auth + admin data contracts | public ingress / repo-root front door |',
+        ),
+      );
+
+      final releaseRunbook = _readRootText(
+        'docs/runbooks/m006-s14-release-closure.md',
+      );
+      expect(releaseRunbook, contains('## Canonical command'));
+      expect(releaseRunbook, contains(canonicalCommand));
+      expect(
+        releaseRunbook,
+        contains('仓库根唯一 final release command 始终是这条 S14 gate。'),
+      );
+      expect(
+        releaseRunbook,
+        contains('[S07 runbook](m006-s07-mentor-distribution-closure.md)'),
+      );
+      expect(
+        releaseRunbook,
+        contains('[Kubernetes split-stack deploy runbook](k8s-deploy.md)'),
+      );
+
+      final k8sRunbook = _readRootText('docs/runbooks/k8s-deploy.md');
+      expect(k8sRunbook, contains(canonicalCommand));
+      expect(
+        k8sRunbook,
+        contains(
+          '仓库根唯一 final release command 仍是这条 S14 gate；S08 `--helm` 只是其中的 deploy-truth child。',
+        ),
+      );
+      expect(
+        k8sRunbook,
+        contains(
+          '`admin-api` 只有 ClusterIP Service，没有 Ingress；它是 **internal-only**。',
+        ),
+      );
+      expect(
+        k8sRunbook,
+        contains(
+          'S08 仍然是 Helm deploy truth 的 authoritative child；S14 只负责 composition。',
+        ),
+      );
+    });
+
+    test('documented drill-down files still resolve from repo root', () {
+      for (final relativePath in const <String>[
+        'docs/runbooks/m006-s14-release-closure.md',
+        'docs/runbooks/k8s-deploy.md',
+        'docs/runbooks/m006-s07-mentor-distribution-closure.md',
+        'docs/runbooks/m006-s12-control-plane-freshness.md',
+        'docs/runbooks/m006-s13-demo-path.md',
+      ]) {
+        expect(
+          _rootRelativeExists(relativePath),
+          isTrue,
+          reason: 'Expected documented drill-down file to exist: $relativePath',
+        );
+      }
+    });
+  });
+
   group('M006 S14 fail-closed contract helpers', () {
     test(
       'missing verifier, runbook, marker, and artifact hint fail closed',
@@ -320,4 +473,9 @@ Directory _repoRootDirectory() {
 bool _rootRelativeExists(String relativePath) {
   final root = _repoRootDirectory().path;
   return File('$root${Platform.pathSeparator}$relativePath').existsSync();
+}
+
+String _readRootText(String relativePath) {
+  final root = _repoRootDirectory().path;
+  return File('$root${Platform.pathSeparator}$relativePath').readAsStringSync();
 }

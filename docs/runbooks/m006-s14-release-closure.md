@@ -33,6 +33,8 @@ S14 **不**负责：
 dart run tool/verify_m006_s14_release_closure.dart
 ```
 
+仓库根唯一 final release command 始终是这条 S14 gate。
+
 这条命令会 **fail fast**：
 
 - 一旦某个 child gate 失败，S14 立刻停止

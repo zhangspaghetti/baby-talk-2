@@ -67,6 +67,8 @@ scripts\dev-verify-admin-demo.cmd
 dart run tool/verify_m006_s14_release_closure.dart
 ```
 
+仓库根唯一 final release command 仍是这条 `dart run tool/verify_m006_s14_release_closure.dart`。
+
 这条顶层 gate 会顺序组合：
 
 - `S07` mentor/distribution closure proof
@@ -82,7 +84,7 @@ dart run tool/verify_m006_s14_release_closure.dart
 | --- | --- | --- | --- |
 | `app-api` | 面向 mobile / consumer 的 HTTP API | `http://127.0.0.1:8080` | public app surface |
 | `admin-web` | 管理后台浏览器入口 | `http://127.0.0.1:3000` | 对管理员暴露的唯一前门 |
-| `admin-api` | 管理后台后端 API | `http://127.0.0.1:8081` | 给 `admin-web` 代理和本地开发用；不要把它当 README front door |
+| `admin-api` | 管理后台后端 API | `http://127.0.0.1:8081` | internal-only；给 `admin-web` 代理和本地开发用；不要把它当 README front door |
 | `db-migration` | schema owner / preflight job | `docker compose` one-shot | 先于 app/admin runtime 执行 |
 | `mobile` | Flutter 客户端 | `mobile/` | 只连 `app-api`，不连 `admin-api` |
 

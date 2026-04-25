@@ -114,6 +114,8 @@ bash ci/k8s-smoke.sh
 dart run tool/verify_m006_s14_release_closure.dart
 ```
 
+仓库根唯一 final release command 仍是这条 S14 gate；S08 `--helm` 只是其中的 deploy-truth child。
+
 这条命令会顺序执行四个 child gates：
 
 1. `S07` mentor + distribution closure proof

@@ -7,8 +7,10 @@
 - 想把整套 admin demo 拉起来：`dev-up-admin-demo`
 - 想复用 live stack 跑最小 smoke：`dev-verify-admin-demo`
 - 想继续下钻 control-plane/auth proof：`dart run tool/verify_m006_s12_control_plane_freshness.dart`
-- 想跑最终 release closure（CI 同款）：`dart run tool/verify_m006_s14_release_closure.dart`
+- 想跑最终 release closure（CI 同款，唯一 final release command）：`dart run tool/verify_m006_s14_release_closure.dart`
 - 想只 debug 某个 deploy/runtime 子面：`dart run tool/verify_m006_s08_release.dart --runtime` / `--helm`
+
+除这条 S14 release closure 之外，其余 repo-root verifier 都只用于 scoped drill-down；不要再拼 ad-hoc shell chain。
 
 这两条 repo-root wrapper 会共享 `tmp/m006-s13-front-door-metrics.jsonl` 这份 bounded local history；先看 stdout 里的 `telemetry_path` / `smoke_recent_pass_rate` / `first_failure_hotspot`，再决定要不要继续下钻更重的 verifier。
 
@@ -90,7 +92,7 @@ front-door 改动收尾时，不只要看命令 exit code；还要确认 shared 
 | Module | 负责什么 | 不负责什么 |
 | --- | --- | --- |
 | `backend/app-api` | mobile / consumer HTTP API | admin browser surface |
-| `backend/admin-api` | admin auth + admin data contracts | 对外 public ingress |
+| `backend/admin-api` | admin auth + admin data contracts | public ingress / repo-root front door |
 | `backend/db-migration` | schema migration | 持续 serving traffic |
 | `admin-web` | 管理后台 UI 与 `/api/admin/**` 代理前门 | 存储 bootstrap secrets、直连数据库 |
 | `mobile` | 面向家长/照护者的 Flutter 客户端 | 管理后台能力 |
