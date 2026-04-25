@@ -97,11 +97,47 @@ Overview 页面现在有两层 transport 真相：
 
 ## Canonical verification
 
+S12 的 **single replay path** 仍然固定为：
+
 ```bash
-npm --prefix admin-web run build
-npm --prefix admin-web run test:e2e -- auth-and-rbac.spec.ts overview-control-plane.spec.ts
 dart run tool/verify_m006_s12_control_plane_freshness.dart
 ```
+
+这个不改名的 verifier 会按固定顺序重放：
+
+1. `required_artifacts`：确认 S12 proof-pack / runbook / Playwright wiring 都在。
+2. `backend_contract`：执行 `./backend/mvnw.cmd -f backend/pom.xml -q -pl admin-api -am test -Dtest=AdminOverviewWebTest`。
+3. `admin_web_build`：执行 `npm --prefix admin-web run build`。
+4. `compose_boot`：由 verifier 自己执行 `docker compose up -d --build postgres minio db-migration app-api admin-api admin-web`。
+5. `runtime_truth`：读取 `docker compose ps --all --format json`，并核验 `app-api` / `admin-api` actuator 与 `admin-web` shell。
+6. `browser_proof_pack`：带 `BABY_TALK_PLAYWRIGHT_SKIP_COMPOSE_BOOT=1` 运行 `auth-and-rbac.spec.ts` + `overview-control-plane.spec.ts`。
+
+### First drill-down signal
+
+当 verifier 失败时，**先看首个 failing step label**，再下钻：
+
+- `compose_boot` / `runtime_truth`
+  - 先看 verifier 打出的 compose diagnostics。
+  - `runtime_truth` 会指出首个 missing / unhealthy service。
+- `browser_proof_pack`
+  - 先看 `admin-web/playwright-report/index.html`。
+  - 再看失败 spec 的 stdout/stderr。
+- `backend_contract`
+  - 直接看 `AdminOverviewWebTest` 输出；这一步失败时不要先怀疑前端。
+
+### Direct browser drill-down
+
+直接运行 Playwright 仍然是合法的二级下钻：
+
+```bash
+npm --prefix admin-web run test:e2e -- auth-and-rbac.spec.ts overview-control-plane.spec.ts
+```
+
+此路径下 `admin-web/playwright.global-setup.ts` 会自己 boot compose。只有从 repo-root verifier 进入时，才通过 `BABY_TALK_PLAYWRIGHT_SKIP_COMPOSE_BOOT=1` 改为 **只校验 runtime truth，不重复 boot/build**。
+
+### Why S13 / S14 must keep reusing this path
+
+S13 demo wrapper、S14 release closure、README、CONTRIBUTING 都已经把 `tool/verify_m006_s12_control_plane_freshness.dart` 当作稳定下钻入口。这里如果改名或改成多入口，就会让上游 “先看哪个 proof” 重新漂移；因此后续 slice 只能复用它、扩充它的诊断，而不能换路径。
 
 ## What the Playwright proof pack covers
 

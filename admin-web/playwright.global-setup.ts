@@ -5,10 +5,13 @@ import { fileURLToPath } from 'node:url';
 const currentDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(currentDir, '..');
 const reuseComposeBoot = process.env.BABY_TALK_PLAYWRIGHT_SKIP_COMPOSE_BOOT === '1';
+const dockerApiVersion = process.env.DOCKER_API_VERSION?.trim() || '1.44';
 const appApiHealthUrl = 'http://127.0.0.1:8080/actuator/health';
 const adminApiHealthUrl = 'http://127.0.0.1:8081/actuator/health';
 const adminWebUrl = 'http://127.0.0.1:3000/';
 const composePollIntervalMs = 2_000;
+const composeServiceOrder = ['postgres', 'minio', 'db-migration', 'app-api', 'admin-api', 'admin-web'];
+const composeDiagnosticServices = ['db-migration', 'app-api', 'admin-api', 'admin-web', 'minio'];
 
 type ComposePsEntry = {
   Service?: string;
@@ -19,35 +22,92 @@ type ComposePsEntry = {
   Status?: string;
 };
 
-function run(command: string, args: string[], allowFailure = false) {
+type RunOptions = {
+  allowFailure?: boolean;
+  dumpDiagnosticsOnFailure?: boolean;
+};
+
+type CapturedResult = {
+  status: number;
+  stdout: string;
+  stderr: string;
+};
+
+function commandEnvironment(extraEnv: NodeJS.ProcessEnv = {}): NodeJS.ProcessEnv {
+  return {
+    ...process.env,
+    DOCKER_API_VERSION: dockerApiVersion,
+    ...extraEnv,
+  };
+}
+
+function renderedCommand(command: string, args: ReadonlyArray<string>): string {
+  return [command, ...args].join(' ');
+}
+
+function run(command: string, args: ReadonlyArray<string>, label: string, options: RunOptions = {}) {
   const result = spawnSync(command, args, {
     cwd: repoRoot,
     stdio: 'inherit',
     shell: false,
+    env: commandEnvironment(),
   });
 
-  if (result.status !== 0 && !allowFailure) {
-    throw new Error(`Command failed (${result.status ?? 'unknown'}): ${command} ${args.join(' ')}`);
+  if (result.error) {
+    if (options.dumpDiagnosticsOnFailure) {
+      dumpComposeDiagnostics();
+    }
+    throw new Error(`[${label}] Unable to start ${renderedCommand(command, args)}: ${result.error.message}`);
+  }
+
+  if (result.status !== 0 && !options.allowFailure) {
+    if (options.dumpDiagnosticsOnFailure) {
+      dumpComposeDiagnostics();
+    }
+    throw new Error(`[${label}] Command failed (${result.status ?? 'unknown'}): ${renderedCommand(command, args)}`);
   }
 
   return result;
 }
 
-function runCapture(command: string, args: string[], label: string): string {
+function runCapture(command: string, args: ReadonlyArray<string>, label: string, options: RunOptions = {}): CapturedResult {
   const result = spawnSync(command, args, {
     cwd: repoRoot,
     encoding: 'utf-8',
     stdio: 'pipe',
     shell: false,
+    env: commandEnvironment(),
   });
 
-  if (result.status !== 0) {
+  if (result.error) {
+    if (options.allowFailure) {
+      return {
+        status: result.status ?? 1,
+        stdout: '',
+        stderr: result.error.message,
+      };
+    }
+
+    throw new Error(`[${label}] Unable to start ${renderedCommand(command, args)}: ${result.error.message}`);
+  }
+
+  const captured = {
+    status: result.status ?? 1,
+    stdout: result.stdout ?? '',
+    stderr: result.stderr ?? '',
+  };
+
+  if (captured.status !== 0 && !options.allowFailure) {
     throw new Error(
-      `[compose-runtime] ${label} failed with status ${result.status ?? 'unknown'}\n${result.stderr?.trim() ?? ''}`,
+      `[${label}] ${renderedCommand(command, args)} failed with status ${captured.status}\n${combinedOutput(captured)}`,
     );
   }
 
-  return result.stdout ?? '';
+  return captured;
+}
+
+function combinedOutput(result: CapturedResult): string {
+  return [result.stdout.trim(), result.stderr.trim()].filter(Boolean).join('\n');
 }
 
 function parseComposePs(rawJson: string): ComposePsEntry[] {
@@ -64,14 +124,15 @@ function parseComposePs(rawJson: string): ComposePsEntry[] {
         .map((line) => JSON.parse(line));
 
   if (!Array.isArray(decoded)) {
-    throw new Error('[compose-runtime] docker compose ps did not return a JSON array.');
+    throw new Error('[runtime_truth] docker compose ps did not return a JSON array.');
   }
 
   return decoded as ComposePsEntry[];
 }
 
 function readComposePs(): ComposePsEntry[] {
-  return parseComposePs(runCapture('docker', ['compose', 'ps', '--all', '--format', 'json'], 'docker compose ps'));
+  const result = runCapture('docker', ['compose', 'ps', '--all', '--format', 'json'], 'runtime_truth');
+  return parseComposePs(result.stdout);
 }
 
 function formatComposeState(serviceName: string, entry: ComposePsEntry | undefined): string {
@@ -176,7 +237,13 @@ async function waitForComposeRuntimeTruth(timeoutMs: number) {
   let lastVerdict: ReturnType<typeof evaluateComposeRuntime> | null = null;
 
   while (Date.now() - startedAt < timeoutMs) {
-    lastVerdict = evaluateComposeRuntime(readComposePs());
+    try {
+      lastVerdict = evaluateComposeRuntime(readComposePs());
+    } catch (error) {
+      dumpComposeDiagnostics();
+      throw error;
+    }
+
     if (lastVerdict.ready) {
       return lastVerdict.byService;
     }
@@ -203,7 +270,7 @@ async function waitForHealth(name: string, url: string, timeoutMs: number) {
       const response = await fetch(url);
       if (!response.ok) {
         dumpComposeDiagnostics();
-        throw new Error(`${name} health probe returned HTTP ${response.status}.`);
+        throw new Error(`[runtime_truth] ${name} health probe returned HTTP ${response.status}.`);
       }
 
       let body: { status?: string };
@@ -212,21 +279,22 @@ async function waitForHealth(name: string, url: string, timeoutMs: number) {
       } catch (error) {
         dumpComposeDiagnostics();
         throw new Error(
-          `${name} health probe returned malformed JSON. ${error instanceof Error ? error.message : String(error)}`,
+          `[runtime_truth] ${name} health probe returned malformed JSON. ${error instanceof Error ? error.message : String(error)}`,
         );
       }
 
       if (body.status !== 'UP') {
         dumpComposeDiagnostics();
-        throw new Error(`${name} health probe returned status=${body.status ?? 'missing'}.`);
+        throw new Error(`[runtime_truth] ${name} health probe returned status=${body.status ?? 'missing'}.`);
       }
 
+      console.log(`[runtime_truth] ${name} actuator status=UP`);
       return;
     } catch (error) {
       if (error instanceof TypeError) {
         if (Date.now() - startedAt >= timeoutMs) {
           dumpComposeDiagnostics();
-          throw new Error(`${name} health did not become ready within ${timeoutMs}ms: ${url}. ${error.message}`);
+          throw new Error(`[runtime_truth] ${name} health did not become ready within ${timeoutMs}ms: ${url}. ${error.message}`);
         }
         await new Promise((resolve) => setTimeout(resolve, composePollIntervalMs));
         continue;
@@ -237,7 +305,7 @@ async function waitForHealth(name: string, url: string, timeoutMs: number) {
   }
 
   dumpComposeDiagnostics();
-  throw new Error(`${name} health did not become ready within ${timeoutMs}ms: ${url}`);
+  throw new Error(`[runtime_truth] ${name} health did not become ready within ${timeoutMs}ms: ${url}`);
 }
 
 async function waitForAdminWeb(timeoutMs: number) {
@@ -248,21 +316,22 @@ async function waitForAdminWeb(timeoutMs: number) {
       const response = await fetch(adminWebUrl);
       if (!response.ok) {
         dumpComposeDiagnostics();
-        throw new Error(`admin-web landing page returned HTTP ${response.status}.`);
+        throw new Error(`[runtime_truth] admin-web landing page returned HTTP ${response.status}.`);
       }
 
       const body = await response.text();
       if (!body.includes('BabyTalk Admin')) {
         dumpComposeDiagnostics();
-        throw new Error('admin-web landing page did not contain the BabyTalk Admin marker.');
+        throw new Error('[runtime_truth] admin-web landing page did not contain the BabyTalk Admin marker.');
       }
 
+      console.log('[runtime_truth] admin-web landing page responded with the BabyTalk Admin shell');
       return;
     } catch (error) {
       if (error instanceof TypeError) {
         if (Date.now() - startedAt >= timeoutMs) {
           dumpComposeDiagnostics();
-          throw new Error(`admin-web did not become ready within ${timeoutMs}ms: ${adminWebUrl}. ${error.message}`);
+          throw new Error(`[runtime_truth] admin-web did not become ready within ${timeoutMs}ms: ${adminWebUrl}. ${error.message}`);
         }
         await new Promise((resolve) => setTimeout(resolve, composePollIntervalMs));
         continue;
@@ -273,24 +342,64 @@ async function waitForAdminWeb(timeoutMs: number) {
   }
 
   dumpComposeDiagnostics();
-  throw new Error(`admin-web did not become ready within ${timeoutMs}ms: ${adminWebUrl}`);
+  throw new Error(`[runtime_truth] admin-web did not become ready within ${timeoutMs}ms: ${adminWebUrl}`);
 }
 
 function dumpComposeDiagnostics() {
-  run('docker', ['compose', 'ps', '--all'], true);
-  run('docker', ['compose', 'logs', '--no-color', '--tail', '120', 'db-migration', 'app-api', 'admin-api', 'admin-web', 'minio'], true);
+  console.error('');
+  console.error('[compose-runtime] diagnostics (sanitized):');
+
+  for (const [label, command, args] of [
+    ['docker version', 'docker', ['version']],
+    ['docker compose ps --all', 'docker', ['compose', 'ps', '--all']],
+    ['docker compose logs --tail 120', 'docker', ['compose', 'logs', '--no-color', '--tail', '120', ...composeDiagnosticServices]],
+  ] as const) {
+    const result = runCapture(command, args, label, { allowFailure: true });
+    const output = combinedOutput(result);
+    if (output) {
+      console.error(`[compose-runtime] ${label}`);
+      console.error(redactSensitiveText(output));
+    }
+  }
+}
+
+function redactSensitiveText(text: string): string {
+  let redacted = text;
+  redacted = redacted.replace(/Bearer\s+[A-Za-z0-9\-._~+/]+=*/gi, 'Bearer [REDACTED]');
+  redacted = redacted.replace(/\beyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\b/g, '[REDACTED_JWT]');
+  redacted = redacted.replace(
+    /((?:password|secret|token|jwt|authorization)[^:=\n\r]{0,40}[:=]\s*)([^\s,;]+)/gi,
+    '$1[REDACTED]',
+  );
+  redacted = redacted.replaceAll('SuperAdmin123!', '[REDACTED]');
+  redacted = redacted.replaceAll('babytalk123', '[REDACTED]');
+  return redacted;
 }
 
 export default async function globalSetup() {
+  console.log(`[compose-runtime] mode=${reuseComposeBoot ? 'reuse' : 'playwright-owned-boot'} docker_api_version=${dockerApiVersion}`);
+
   if (!reuseComposeBoot) {
-    run('docker', ['compose', 'up', '-d', '--build']);
+    run('docker', ['compose', 'up', '-d', '--build', ...composeServiceOrder], 'compose_boot', {
+      dumpDiagnosticsOnFailure: true,
+    });
   }
 
-  const composeState = await waitForComposeRuntimeTruth(240_000);
-  for (const serviceName of ['postgres', 'minio', 'db-migration', 'app-api', 'admin-api', 'admin-web']) {
-    console.log(`[compose-runtime] ${formatComposeState(serviceName, composeState.get(serviceName))}`);
+  try {
+    const composeState = await waitForComposeRuntimeTruth(240_000);
+    for (const serviceName of composeServiceOrder) {
+      console.log(`[compose-runtime] ${formatComposeState(serviceName, composeState.get(serviceName))}`);
+    }
+    await waitForHealth('app-api', appApiHealthUrl, 180_000);
+    await waitForHealth('admin-api', adminApiHealthUrl, 180_000);
+    await waitForAdminWeb(180_000);
+  } catch (error) {
+    if (reuseComposeBoot) {
+      throw new Error(
+        `[runtime_truth] BABY_TALK_PLAYWRIGHT_SKIP_COMPOSE_BOOT=1 was set, but the verifier-owned runtime is not reusable. ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+
+    throw error;
   }
-  await waitForHealth('app-api', appApiHealthUrl, 180_000);
-  await waitForHealth('admin-api', adminApiHealthUrl, 180_000);
-  await waitForAdminWeb(180_000);
 }
