@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
-const _usage =
+const releaseClosureUsage =
     '''Usage: dart run tool/verify_m006_s14_release_closure.dart [--help]
 
 Runs the final M006 release-closure chain and fails fast at the first child gate:
@@ -12,8 +12,12 @@ Runs the final M006 release-closure chain and fails fast at the first child gate
   4. S13 repo front-door truth
 ''';
 
-final _childGates = <ChildGate>[
-  const ChildGate(
+const releaseClosureRunbookPath = 'docs/runbooks/m006-s14-release-closure.md';
+const releaseClosureSuccessMarker =
+    'All M006/S14 release-closure verification steps passed.';
+
+const releaseClosureChildGates = <ChildGate>[
+  ChildGate(
     gateId: 'S07',
     stepLabel: 'Release closure | S07 mentor + distribution gate',
     verifierPath: 'tool/verify_m006_s07_mentor_distribution.dart',
@@ -24,7 +28,7 @@ final _childGates = <ChildGate>[
     runbookPath: 'docs/runbooks/m006-s07-mentor-distribution-closure.md',
     artifactHint: 'admin-web/playwright-report/index.html',
   ),
-  const ChildGate(
+  ChildGate(
     gateId: 'S08',
     stepLabel: 'Release closure | S08 Helm release gate',
     verifierPath: 'tool/verify_m006_s08_release.dart',
@@ -33,7 +37,7 @@ final _childGates = <ChildGate>[
     timeout: Duration(minutes: 10),
     runbookPath: 'docs/runbooks/k8s-deploy.md',
   ),
-  const ChildGate(
+  ChildGate(
     gateId: 'S12',
     stepLabel: 'Release closure | S12 control-plane freshness gate',
     verifierPath: 'tool/verify_m006_s12_control_plane_freshness.dart',
@@ -44,7 +48,7 @@ final _childGates = <ChildGate>[
     runbookPath: 'docs/runbooks/m006-s12-control-plane-freshness.md',
     artifactHint: 'admin-web/playwright-report/index.html',
   ),
-  const ChildGate(
+  ChildGate(
     gateId: 'S13',
     stepLabel: 'Release closure | S13 repo front-door gate',
     verifierPath: 'tool/verify_m006_s13_demo_path.dart',
@@ -56,19 +60,20 @@ final _childGates = <ChildGate>[
 ];
 
 Future<void> main(List<String> args) async {
-  if (args.contains('--help') || args.contains('-h')) {
-    stdout.writeln(_usage);
+  final options = ReleaseClosureCliOptions.parse(args);
+  if (options.showHelp) {
+    stdout.writeln(releaseClosureUsage);
     return;
   }
 
-  if (args.isNotEmpty) {
-    stderr.writeln('Unknown arguments: ${args.join(' ')}');
-    stderr.writeln(_usage);
+  if (options.usageError != null) {
+    stderr.writeln(options.usageError);
+    stderr.writeln(releaseClosureUsage);
     exit(64);
   }
 
   try {
-    for (final gate in _childGates) {
+    for (final gate in releaseClosureChildGates) {
       await _runChildGate(gate);
     }
   } on StepFailure catch (error) {
@@ -78,33 +83,14 @@ Future<void> main(List<String> args) async {
   }
 
   stdout.writeln('');
-  stdout.writeln(
-    'release_closure_runbook=docs/runbooks/m006-s14-release-closure.md',
-  );
-  stdout.writeln('All M006/S14 release-closure verification steps passed.');
+  stdout.writeln('release_closure_runbook=$releaseClosureRunbookPath');
+  stdout.writeln(releaseClosureSuccessMarker);
 }
 
 Future<void> _runChildGate(ChildGate gate) async {
-  final verifierFile = File(gate.verifierPath);
-  if (!verifierFile.existsSync()) {
-    throw StepFailure(
-      gate.stepLabel,
-      'Required child verifier is missing at `${gate.verifierPath}`. '
-      'S14 treats missing child gates as hard failures. '
-      'Drill-down: ${gate.rerunCommand}${gate.runbookLabel}',
-      1,
-    );
-  }
-
-  final runbookFile = File(gate.runbookPath);
-  if (!runbookFile.existsSync()) {
-    throw StepFailure(
-      gate.stepLabel,
-      'Expected drill-down runbook is missing at `${gate.runbookPath}`. '
-      'Release-closure docs must stay discoverable. '
-      'Drill-down verifier: ${gate.rerunCommand}',
-      1,
-    );
+  final contractFailure = validateChildGateContract(gate);
+  if (contractFailure != null) {
+    throw contractFailure;
   }
 
   stdout.writeln('');
@@ -117,34 +103,9 @@ Future<void> _runChildGate(ChildGate gate) async {
   }
 
   final result = await _runChildProcess(gate);
-  if (result.exitCode == 124) {
-    throw StepFailure(
-      gate.stepLabel,
-      'Timed out after ${gate.timeout.inMinutes}m while waiting for child gate `${gate.gateId}`. '
-      'Drill-down: ${gate.rerunCommand}${gate.runbookLabel}',
-      124,
-    );
-  }
-
-  if (result.exitCode != 0) {
-    throw StepFailure(
-      gate.stepLabel,
-      'Child gate `${gate.gateId}` exited with code ${result.exitCode}. '
-      'Fail-fast stopped the release closure at the first red dependency. '
-      'Drill-down: ${gate.rerunCommand}${gate.runbookLabel}${gate.artifactLabel}',
-      result.exitCode,
-    );
-  }
-
-  if (!result.combinedOutput.contains(gate.successMarker)) {
-    throw StepFailure(
-      gate.stepLabel,
-      'Child gate `${gate.gateId}` exited 0 but did not emit the expected success marker. '
-      'Treating this as malformed child output. '
-      'Expected marker: `${gate.successMarker}`. '
-      'Drill-down: ${gate.rerunCommand}${gate.runbookLabel}',
-      1,
-    );
+  final resultFailure = validateChildGateResult(gate, result);
+  if (resultFailure != null) {
+    throw resultFailure;
   }
 
   stdout.writeln('child_gate=${gate.gateId} status=passed');
@@ -197,6 +158,147 @@ Future<ProcessResultSnapshot> _runChildProcess(ChildGate gate) async {
       stdout: stdoutBuffer.toString(),
       stderr: stderrBuffer.toString(),
     );
+  }
+}
+
+typedef PathExists = bool Function(String path);
+
+StepFailure? validateChildGateContract(
+  ChildGate gate, {
+  PathExists? pathExists,
+}) {
+  final exists = pathExists ?? (path) => File(path).existsSync();
+
+  if (gate.verifierPath.trim().isEmpty) {
+    return StepFailure(
+      gate.stepLabel,
+      'Child gate `${gate.gateId}` does not declare a verifier path. '
+      'S14 must stay composition-only and point at an explicit child verifier.',
+      1,
+    );
+  }
+
+  if (gate.runbookPath.trim().isEmpty) {
+    return StepFailure(
+      gate.stepLabel,
+      'Child gate `${gate.gateId}` does not declare a drill-down runbook path. '
+      'Release-closure docs must stay discoverable.',
+      1,
+    );
+  }
+
+  if (gate.successMarker.trim().isEmpty) {
+    return StepFailure(
+      gate.stepLabel,
+      'Child gate `${gate.gateId}` declares an empty success marker. '
+      'S14 requires explicit success markers so malformed child output fails closed. '
+      'Drill-down: ${gate.rerunCommand}${gate.runbookLabel}',
+      1,
+    );
+  }
+
+  if (gate.artifactHint != null && gate.artifactHint!.trim().isEmpty) {
+    return StepFailure(
+      gate.stepLabel,
+      'Child gate `${gate.gateId}` declares a blank artifact hint. '
+      'Drill-down artifacts must stay explicit when present. '
+      'Drill-down: ${gate.rerunCommand}${gate.runbookLabel}',
+      1,
+    );
+  }
+
+  if (!exists(gate.verifierPath)) {
+    return StepFailure(
+      gate.stepLabel,
+      'Required child verifier is missing at `${gate.verifierPath}`. '
+      'S14 treats missing child gates as hard failures. '
+      'Drill-down: ${gate.rerunCommand}${gate.runbookLabel}',
+      1,
+    );
+  }
+
+  if (!exists(gate.runbookPath)) {
+    return StepFailure(
+      gate.stepLabel,
+      'Expected drill-down runbook is missing at `${gate.runbookPath}`. '
+      'Release-closure docs must stay discoverable. '
+      'Drill-down verifier: ${gate.rerunCommand}',
+      1,
+    );
+  }
+
+  return null;
+}
+
+StepFailure? validateChildGateResult(
+  ChildGate gate,
+  ProcessResultSnapshot result,
+) {
+  if (result.exitCode == 124) {
+    return StepFailure(
+      gate.stepLabel,
+      'Timed out after ${gate.timeout.inMinutes}m while waiting for child gate `${gate.gateId}`. '
+      'Drill-down: ${gate.rerunCommand}${gate.runbookLabel}',
+      124,
+    );
+  }
+
+  if (result.exitCode != 0) {
+    return StepFailure(
+      gate.stepLabel,
+      'Child gate `${gate.gateId}` exited with code ${result.exitCode}. '
+      'Fail-fast stopped the release closure at the first red dependency. '
+      'Drill-down: ${gate.rerunCommand}${gate.runbookLabel}${gate.artifactLabel}',
+      result.exitCode,
+    );
+  }
+
+  if (!result.combinedOutput.contains(gate.successMarker)) {
+    return StepFailure(
+      gate.stepLabel,
+      'Child gate `${gate.gateId}` exited 0 but did not emit the expected success marker. '
+      'Treating this as malformed child output. '
+      'Expected marker: `${gate.successMarker}`. '
+      'Drill-down: ${gate.rerunCommand}${gate.runbookLabel}',
+      1,
+    );
+  }
+
+  return null;
+}
+
+class ReleaseClosureCliOptions {
+  const ReleaseClosureCliOptions({
+    required this.showHelp,
+    required this.usageError,
+  });
+
+  final bool showHelp;
+  final String? usageError;
+
+  factory ReleaseClosureCliOptions.parse(List<String> args) {
+    var showHelp = false;
+    final unknownArgs = <String>[];
+
+    for (final arg in args) {
+      switch (arg) {
+        case '--help':
+        case '-h':
+          showHelp = true;
+          break;
+        default:
+          unknownArgs.add(arg);
+      }
+    }
+
+    if (unknownArgs.isNotEmpty) {
+      return ReleaseClosureCliOptions(
+        showHelp: false,
+        usageError: 'Unknown arguments: ${unknownArgs.join(' ')}',
+      );
+    }
+
+    return ReleaseClosureCliOptions(showHelp: showHelp, usageError: null);
   }
 }
 
