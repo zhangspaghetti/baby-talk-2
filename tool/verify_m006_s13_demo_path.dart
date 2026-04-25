@@ -130,6 +130,8 @@ Future<void> _runStaticVerification() async {
       '/api/admin/auth/login',
       '/api/admin/auth/refresh',
       '/api/admin/overview/summary',
+      'm006-s13-front-door-metrics.jsonl',
+      'first_failure_hotspot',
       '旧单体 → 新 split-stack',
     ]);
     _requireAbsent(readme, 'README.md', [
@@ -144,6 +146,8 @@ Future<void> _runStaticVerification() async {
       'backend/mvnw',
       'admin-web',
       'verification',
+      'm006-s13-front-door-metrics.jsonl',
+      'first_failure_hotspot',
     ]);
 
     _requireContains(mobileReadme, 'mobile/README.md', [
@@ -151,6 +155,7 @@ Future<void> _runStaticVerification() async {
       'flutter pub get',
       'flutter run',
       'app-api',
+      'm006-s13-front-door-metrics.jsonl',
     ]);
     _requireAbsent(mobileReadme, 'mobile/README.md', [
       'A new Flutter project',
@@ -161,6 +166,9 @@ Future<void> _runStaticVerification() async {
       'dev-up-admin-demo',
       'dev-verify-admin-demo',
       'first_failure_stage',
+      'm006-s13-front-door-metrics.jsonl',
+      'smoke_recent_pass_rate',
+      'first_failure_hotspot',
       'Windows / POSIX parity',
       'M006 / S12 Overview Control-Plane Freshness Runbook',
     ]);

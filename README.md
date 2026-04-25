@@ -22,15 +22,16 @@ scripts\dev-up-admin-demo.cmd
 
 - 以同一套 stage label 启动 `postgres → minio → db-migration → app-api → admin-api → admin-web`
 - 等待 split stack 到达真实健康状态，而不是只看单个容器启动
-- 输出 `tthw_seconds` / `first_failure_stage`
+- 输出 `tthw_seconds` / `first_failure_stage` / `likely_cause` / `next_action`
 - 打印 `admin-web` 登录入口和 demo 账号名（**不会打印 bootstrap password**）
-- 给出下一条 drill-down 命令
+- 把 redaction-safe recent history 追加到 `tmp/m006-s13-front-door-metrics.jsonl`
 
 成功后你会得到：
 
 - `admin_web_url=http://127.0.0.1:3000/login`
 - `demo_account=super_admin`
 - `next_action=./scripts/dev-verify-admin-demo.sh`（Windows 会显示 `.cmd`）
+- `telemetry_path=tmp/m006-s13-front-door-metrics.jsonl`
 
 ## Fast smoke（复用 live stack）
 
@@ -52,8 +53,13 @@ scripts\dev-verify-admin-demo.cmd
 - 复用已经启动的 live stack
 - 跑完后保留 live stack，方便继续手动操作 admin demo
 - 复用 S12 的最小 admin proof surface（auth + Overview freshness control plane）
-- 继续输出 `tthw_seconds` / `first_failure_stage`
+- 继续输出 `tthw_seconds` / `first_failure_stage` / `likely_cause` / `next_action`
+- 继续写入同一份 `tmp/m006-s13-front-door-metrics.jsonl` history，并回显 `smoke_recent_pass_rate` / `first_failure_hotspot`
 - 失败时给出下一条可执行的排查命令
+
+## Front-door telemetry handoff
+
+`dev-up-admin-demo` 和 `dev-verify-admin-demo` 共用 `tmp/m006-s13-front-door-metrics.jsonl` 这份 bounded local history。每次 run 都会追加 redaction-safe recent entry（`mode` / `shell` / `success` / `tthw_seconds` / `first_failure_stage` / `likely_cause` / `next_action`），并在 stdout 回显 `telemetry_path` / `smoke_recent_pass_rate` / `first_failure_hotspot`。这样 fresh reader 不用重放 full release closure，也能先判断最近一次 demo + smoke 是否同时成立。
 
 ## Final release closure（CI 同款）
 

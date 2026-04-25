@@ -33,6 +33,7 @@ export default function OverviewPage() {
   const [transport, setTransport] = useState<OverviewTransportView | null>(null);
   const [loadPhase, setLoadPhase] = useState<SummaryLoadPhase>('loading');
   const [summaryError, setSummaryError] = useState<ApiError | null>(null);
+  const [manualSummaryErrorPinned, setManualSummaryErrorPinned] = useState(false);
   const [pollingError, setPollingError] = useState<ApiError | null>(null);
   const [streamError, setStreamError] = useState<ApiError | null>(null);
   const [clientTransportState, setClientTransportState] = useState<ClientTransportState>('streaming');
@@ -49,6 +50,8 @@ export default function OverviewPage() {
   const streamSubscriptionRef = useRef<OverviewTransportSubscription | null>(null);
   const lastEventIdRef = useRef<string | undefined>();
   const clientTransportStateRef = useRef<ClientTransportState>('streaming');
+  const manualSummaryErrorPinnedRef = useRef(false);
+  const activeStreamIdRef = useRef(0);
   const previousOverallModeRef = useRef<'live' | 'polling'>('live');
 
   useEffect(() => {
@@ -67,18 +70,28 @@ export default function OverviewPage() {
     clientTransportStateRef.current = clientTransportState;
   }, [clientTransportState]);
 
-  const applySummary = useCallback((nextSummary: OverviewSummaryView) => {
-    summaryRef.current = nextSummary;
-    transportRef.current = nextSummary.transport;
-    lastEventIdRef.current = nextSummary.transport.eventId;
+  useEffect(() => {
+    manualSummaryErrorPinnedRef.current = manualSummaryErrorPinned;
+  }, [manualSummaryErrorPinned]);
 
-    setSummary(nextSummary);
-    setTransport(nextSummary.transport);
-    setLastEventId(nextSummary.transport.eventId);
-    setSummaryError(null);
-    setPollingError(null);
-    setPollFailureCount(0);
-  }, []);
+  const applySummary = useCallback(
+    (nextSummary: OverviewSummaryView, options?: { preserveSummaryError?: boolean }) => {
+      summaryRef.current = nextSummary;
+      transportRef.current = nextSummary.transport;
+      lastEventIdRef.current = nextSummary.transport.eventId;
+
+      setSummary(nextSummary);
+      setTransport(nextSummary.transport);
+      setLastEventId(nextSummary.transport.eventId);
+      if (!options?.preserveSummaryError) {
+        setSummaryError(null);
+        setManualSummaryErrorPinned(false);
+      }
+      setPollingError(null);
+      setPollFailureCount(0);
+    },
+    [],
+  );
 
   const loadSummary = useCallback(
     async (mode: 'initial' | 'manual' | 'poll') => {
@@ -90,7 +103,9 @@ export default function OverviewPage() {
 
       try {
         const nextSummary = await overviewClient.getSummary();
-        applySummary(nextSummary);
+        applySummary(nextSummary, {
+          preserveSummaryError: mode === 'poll' && manualSummaryErrorPinnedRef.current,
+        });
         return {
           ok: true as const,
           summary: nextSummary,
@@ -101,6 +116,7 @@ export default function OverviewPage() {
           setPollingError(apiError);
         } else {
           setSummaryError(apiError);
+          setManualSummaryErrorPinned(mode === 'manual');
         }
         return {
           ok: false as const,
@@ -117,6 +133,9 @@ export default function OverviewPage() {
 
   const enterClientPollingFallback = useCallback(
     (reason: string, error: ApiError) => {
+      activeStreamIdRef.current += 1;
+      streamSubscriptionRef.current?.close();
+      streamSubscriptionRef.current = null;
       setClientTransportState('polling');
       setClientTransportReason(reason);
       setLastFallbackReason(reason);
@@ -131,6 +150,9 @@ export default function OverviewPage() {
   const startTransportStream = useCallback(() => {
     streamSubscriptionRef.current?.close();
 
+    const streamId = activeStreamIdRef.current + 1;
+    activeStreamIdRef.current = streamId;
+
     setClientTransportState('streaming');
     setClientTransportReason(undefined);
     setStreamError(null);
@@ -138,6 +160,9 @@ export default function OverviewPage() {
     streamSubscriptionRef.current = overviewClient.subscribeTransport({
       lastEventId: lastEventIdRef.current,
       onTransport: (nextTransport) => {
+        if (activeStreamIdRef.current != streamId) {
+          return;
+        }
         const previousTransport = transportRef.current;
         const wasClientPolling = clientTransportStateRef.current === 'polling';
 
@@ -157,16 +182,25 @@ export default function OverviewPage() {
         }
       },
       onHeartbeat: (heartbeat) => {
+        if (activeStreamIdRef.current != streamId) {
+          return;
+        }
         setLastHeartbeatAt(heartbeat.emittedAt);
         setTransport((current) => mergeTransportWithHeartbeat(current, heartbeat));
       },
       onClose: () => {
+        if (activeStreamIdRef.current != streamId) {
+          return;
+        }
         enterClientPollingFallback(
           'stream_disconnected',
           new ApiError(0, 'stream_disconnected', 'Overview realtime 已断开，当前改用 polling。'),
         );
       },
       onError: (error) => {
+        if (activeStreamIdRef.current != streamId) {
+          return;
+        }
         enterClientPollingFallback(error.code, error);
       },
     });
@@ -197,6 +231,7 @@ export default function OverviewPage() {
     setTransport(null);
     setLoadPhase('loading');
     setSummaryError(null);
+    setManualSummaryErrorPinned(false);
     setPollingError(null);
     setStreamError(null);
     setClientTransportState('streaming');
@@ -215,6 +250,8 @@ export default function OverviewPage() {
     transportRef.current = null;
     lastEventIdRef.current = undefined;
     clientTransportStateRef.current = 'streaming';
+    manualSummaryErrorPinnedRef.current = false;
+    activeStreamIdRef.current = 0;
 
     void loadSummary('initial').then((result) => {
       if (cancelled || !result.ok) {

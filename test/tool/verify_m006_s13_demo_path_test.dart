@@ -43,6 +43,10 @@ void main() {
       );
       expect(spec.displayCommand, contains(s12.s12LiveStackOnlyFlag));
       expect(spec.environment?['BABY_TALK_PLAYWRIGHT_SKIP_COMPOSE_BOOT'], '1');
+      expect(
+        s13.frontDoorTelemetryHistoryPath,
+        'tmp/m006-s13-front-door-metrics.jsonl',
+      );
     });
   });
 

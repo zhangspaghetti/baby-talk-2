@@ -57,6 +57,22 @@ scripts\dev-verify-admin-demo.cmd
 
 成功时固定输出 `first_failure_stage=none`。
 
+## Telemetry / inspection surfaces
+
+`dev-up-admin-demo` 与 `dev-verify-admin-demo` 共用 `tmp/m006-s13-front-door-metrics.jsonl` 这份 bounded local history。每次 run 都会追加一条 redaction-safe JSONL recent entry：
+
+- `mode` / `shell` / `success`
+- `tthw_seconds` / `first_failure_stage` / `likely_cause` / `next_action`
+
+wrapper stdout 还会回显：
+
+- `telemetry_path`
+- `telemetry_recent_entries`
+- `smoke_recent_pass_rate`
+- `first_failure_hotspot`
+
+这就是 fresh-reader parity rerun 的机械化 proof surface：最近一次 demo + smoke 是否成功、先坏在哪个 stage、下一步该下钻哪里，都应该先从这里看，而不是直接重跑 full release closure。
+
 ## Failure semantics
 
 ### Missing prerequisite
@@ -94,6 +110,7 @@ Windows / POSIX parity 的要求不是“功能大致差不多”，而是：
 - `.sh` / `.cmd` 都暴露 **同名** demo / smoke 入口
 - 两边都委托给同一个 `tool/verify_m006_s13_demo_path.dart` mode
 - 两边都输出相同的 stage vocabulary：`preflight` / `compose_boot` / `runtime_truth` / `live_stack_precondition` / `fast_smoke`
+- 两边都写入同一个 `tmp/m006-s13-front-door-metrics.jsonl` history，因此 `smoke_recent_pass_rate` / `first_failure_hotspot` 也必须讲同一个故事
 - Windows 不能悄悄跳过 smoke、health、或 next-action guidance
 
 ## Docs contract
@@ -108,20 +125,33 @@ repo-root docs 现在应该让 fresh reader 一眼知道：
 
 ## Canonical verification
 
+静态 contract：
+
 ```bash
 dart run tool/verify_m006_s13_demo_path.dart
-rg -n "dev-up-admin-demo|dev-verify-admin-demo|admin-web|admin-api|CONTRIBUTING" README.md
-! rg -n "A new Flutter project" mobile/README.md
 ```
 
-运行时 proof：
+运行时 parity rerun：
 
 ```bash
 ./scripts/dev-up-admin-demo.sh
 ./scripts/dev-verify-admin-demo.sh
+powershell.exe -NoProfile -Command "& '.\\scripts\\dev-up-admin-demo.cmd'"
+powershell.exe -NoProfile -Command "& '.\\scripts\\dev-verify-admin-demo.cmd'"
 ```
 
-Windows 对应 `.cmd` 应得到同一套 stage / failure semantics。
+机械化 telemetry closure：
+
+```bash
+node -e "const fs=require('fs'); const lines=fs.readFileSync('tmp/m006-s13-front-door-metrics.jsonl','utf8').trim().split(/\\r?\\n/).filter(Boolean).map(JSON.parse); const pick=(mode)=>[...lines].reverse().find((line)=>line.mode===mode); const demo=pick('demo'); const smoke=pick('smoke'); if(!demo||!smoke||!demo.success||demo.tthw_seconds>120||!smoke.success){ throw new Error(JSON.stringify({demo,smoke})); } console.log(JSON.stringify({demo_tthw_seconds:demo.tthw_seconds, smoke_tthw_seconds:smoke.tthw_seconds, first_failure_hotspot:smoke.first_failure_stage ?? 'none'}));"
+```
+
+如果这里只是 spot-check docs drift，也可以额外看：
+
+```bash
+rg -n "dev-up-admin-demo|dev-verify-admin-demo|admin-web|admin-api|CONTRIBUTING|m006-s13-front-door-metrics" README.md
+! rg -n "A new Flutter project" mobile/README.md
+```
 
 ## Sensitive output rules
 

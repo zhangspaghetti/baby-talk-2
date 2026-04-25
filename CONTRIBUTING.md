@@ -10,6 +10,8 @@
 - 想跑最终 release closure（CI 同款）：`dart run tool/verify_m006_s14_release_closure.dart`
 - 想只 debug 某个 deploy/runtime 子面：`dart run tool/verify_m006_s08_release.dart --runtime` / `--helm`
 
+这两条 repo-root wrapper 会共享 `tmp/m006-s13-front-door-metrics.jsonl` 这份 bounded local history；先看 stdout 里的 `telemetry_path` / `smoke_recent_pass_rate` / `first_failure_hotspot`，再决定要不要继续下钻更重的 verifier。
+
 ## Everyday workflows
 
 ### Full-stack admin change
@@ -78,6 +80,8 @@ flutter run
    - `./backend/mvnw -f backend/pom.xml test -DexcludedGroups=llm-it`
    - `npm --prefix admin-web run build`
    - `flutter test`
+
+front-door 改动收尾时，不只要看命令 exit code；还要确认 shared telemetry history `tmp/m006-s13-front-door-metrics.jsonl` 里出现 recent `demo` + `smoke` entries。机械化检查命令保留在 S13 runbook。
 
 如果你的改动影响 README、runbook、wrapper、repo-root verification 入口或 CI handoff，**必须**把 `dart run tool/verify_m006_s13_demo_path.dart` 与 `dart run tool/verify_m006_s14_release_closure.dart` 都加入 verification。
 
