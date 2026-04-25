@@ -51,45 +51,45 @@ const _playwrightReportIndexPath = 'admin-web/playwright-report/index.html';
 const _appApiHealthUrl = 'http://127.0.0.1:8080/actuator/health';
 const _adminApiHealthUrl = 'http://127.0.0.1:8081/actuator/health';
 const _adminWebUrl = 'http://127.0.0.1:3000/';
+const s12LiveStackOnlyFlag = '--live-stack-only';
+const _usage =
+    '''Usage: dart run tool/verify_m006_s12_control_plane_freshness.dart [$s12LiveStackOnlyFlag] [--help]
 
-Future<void> main() async {
-  stdout.writeln('M006/S12 single-entry replay starting.');
+Modes:
+  default             Canonical full replay (backend contract + build + compose boot + runtime truth + browser proof).
+  $s12LiveStackOnlyFlag   Reuse an already-healthy live stack and rerun only runtime truth + browser proof.
+''';
+
+Future<void> main(List<String> args) async {
+  final options = S12CliOptions.parse(args);
+  if (options.showHelp) {
+    stdout.writeln(_usage);
+    return;
+  }
+
+  if (options.usageError != null) {
+    stderr.writeln(options.usageError);
+    stderr.writeln(_usage);
+    exit(64);
+  }
+
+  final intro = switch (options.mode) {
+    S12ReplayMode.fullReplay => 'M006/S12 single-entry replay starting.',
+    S12ReplayMode.liveStackOnly => 'M006/S12 live-stack-only replay starting.',
+  };
+  stdout.writeln(intro);
   stdout.writeln('docker_api_version=${_resolvedDockerApiVersion()}');
 
   try {
     await _verifyRequiredArtifacts();
-    await _runCommandStep(
-      stepLabel: 'backend_contract',
-      spec: _mavenWrapperCommand([
-        '-f',
-        'backend/pom.xml',
-        '-q',
-        '-pl',
-        'admin-api',
-        '-am',
-        'test',
-        '-Dtest=AdminOverviewWebTest',
-      ]),
-      timeout: const Duration(minutes: 20),
-    );
-    await _runCommandStep(
-      stepLabel: 'admin_web_build',
-      spec: _npmCommand(['--prefix', 'admin-web', 'run', 'build']),
-      timeout: const Duration(minutes: 10),
-    );
-    await _runCommandStep(
-      stepLabel: 'compose_boot',
-      spec: _dockerComposeCommand([
-        'up',
-        '-d',
-        '--build',
-        ..._composeServiceOrder,
-      ]),
-      timeout: const Duration(minutes: 15),
-      dumpComposeDiagnosticsOnFailure: true,
-    );
-    await _verifyRuntimeComposeTruth();
-    await _runCanonicalBrowserProof();
+    switch (options.mode) {
+      case S12ReplayMode.fullReplay:
+        await _runFullReplay();
+        break;
+      case S12ReplayMode.liveStackOnly:
+        await _runLiveStackOnlyReplay();
+        break;
+    }
   } on StepFailure catch (error) {
     stderr.writeln('Verification failed at step: ${error.stepLabel}');
     stderr.writeln(error.message);
@@ -97,9 +97,52 @@ Future<void> main() async {
   }
 
   stdout.writeln('');
-  stdout.writeln(
-    'All M006/S12 overview control-plane verification steps passed.',
+  stdout.writeln(switch (options.mode) {
+    S12ReplayMode.fullReplay =>
+      'All M006/S12 overview control-plane verification steps passed.',
+    S12ReplayMode.liveStackOnly =>
+      'All M006/S12 live-stack-only verification steps passed.',
+  });
+}
+
+Future<void> _runFullReplay() async {
+  await _runCommandStep(
+    stepLabel: 'backend_contract',
+    spec: _mavenWrapperCommand([
+      '-f',
+      'backend/pom.xml',
+      '-q',
+      '-pl',
+      'admin-api',
+      '-am',
+      'test',
+      '-Dtest=AdminOverviewWebTest',
+    ]),
+    timeout: const Duration(minutes: 20),
   );
+  await _runCommandStep(
+    stepLabel: 'admin_web_build',
+    spec: _npmCommand(['--prefix', 'admin-web', 'run', 'build']),
+    timeout: const Duration(minutes: 10),
+  );
+  await _runCommandStep(
+    stepLabel: 'compose_boot',
+    spec: _dockerComposeCommand([
+      'up',
+      '-d',
+      '--build',
+      ..._composeServiceOrder,
+    ]),
+    timeout: const Duration(minutes: 15),
+    dumpComposeDiagnosticsOnFailure: true,
+  );
+  await _verifyRuntimeComposeTruth();
+  await _runCanonicalBrowserProof();
+}
+
+Future<void> _runLiveStackOnlyReplay() async {
+  await _verifyRuntimeComposeTruth();
+  await _runCanonicalBrowserProof();
 }
 
 Future<void> _verifyRequiredArtifacts() async {
@@ -812,6 +855,46 @@ CommandSpec _platformCommand({
     environment: _commandEnvironment(environment),
   );
 }
+
+class S12CliOptions {
+  S12CliOptions({
+    required this.mode,
+    required this.showHelp,
+    required this.usageError,
+  });
+
+  final S12ReplayMode mode;
+  final bool showHelp;
+  final String? usageError;
+
+  factory S12CliOptions.parse(List<String> args) {
+    var mode = S12ReplayMode.fullReplay;
+    var showHelp = false;
+    String? usageError;
+
+    for (final arg in args) {
+      switch (arg) {
+        case s12LiveStackOnlyFlag:
+          mode = S12ReplayMode.liveStackOnly;
+          break;
+        case '--help':
+        case '-h':
+          showHelp = true;
+          break;
+        default:
+          usageError = 'Unknown argument: $arg';
+      }
+    }
+
+    return S12CliOptions(
+      mode: mode,
+      showHelp: showHelp,
+      usageError: usageError,
+    );
+  }
+}
+
+enum S12ReplayMode { fullReplay, liveStackOnly }
 
 class CommandSpec {
   const CommandSpec({
