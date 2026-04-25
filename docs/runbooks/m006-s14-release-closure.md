@@ -80,6 +80,23 @@ CI wiring 的关键点：
    - `admin-web/test-results`
 4. 即使顶层 gate 失败，也要保留 child gate 已生成的 drill-down artifacts。
 
+## Local Windows Docker preflight
+
+如果你在 **Windows + Git Bash + Docker Desktop** 下本地重放 S14，而 child gate 在 Testcontainers 初始化前就报 “Could not find a valid Docker environment” 或 `tcp://localhost:2375 is not listening`，先补上与 CI 同款的 relay，再重跑同一条 canonical command：
+
+```bash
+MSYS_NO_PATHCONV=1 DOCKER_API_VERSION=1.47 docker rm -f ci-docker-relay >/dev/null 2>&1 || true
+MSYS_NO_PATHCONV=1 DOCKER_API_VERSION=1.47 docker run -d --name ci-docker-relay -p 2375:2375 -v /var/run/docker.sock:/var/run/docker.sock alpine/socat TCP-LISTEN:2375,fork,reuseaddr UNIX-CONNECT:/var/run/docker.sock
+export DOCKER_HOST=tcp://localhost:2375
+dart run tool/verify_m006_s14_release_closure.dart
+```
+
+说明：
+
+- `MSYS_NO_PATHCONV=1` 是 Git Bash 必需项，否则 `/var/run/docker.sock` 会被错误改写到 `C:\Program Files\Git\var\run\docker.sock`。
+- 这只是 **Docker transport recovery**，不是第二条 release command；真正的 final gate 仍然只有 `dart run tool/verify_m006_s14_release_closure.dart`。
+- 排障后可以用 `MSYS_NO_PATHCONV=1 DOCKER_API_VERSION=1.47 docker rm -f ci-docker-relay` 清理 relay。
+
 ## Failure semantics
 
 ### Child verifier missing
