@@ -395,6 +395,7 @@ if [[ -n "$RESOURCE_KEYS_DEFAULT" ]]; then
   assert_resource_present "$RESOURCE_KEYS_DEFAULT" "Deployment/${APP_RELEASE_NAME}-gateway" "default render includes Deployment/${APP_RELEASE_NAME}-gateway"
   assert_resource_present "$RESOURCE_KEYS_DEFAULT" "Service/${APP_RELEASE_NAME}-gateway" "default render includes Service/${APP_RELEASE_NAME}-gateway"
   assert_contains "$TEMPLATE_DEFAULT" "name: ${APP_RELEASE_NAME}-gateway" "default render exposes gateway resource names"
+  assert_not_contains "$TEMPLATE_DEFAULT" "nginx:alpine" "gateway deployment no longer references nginx:alpine image"
 else
   log_fail "gateway resource assertions skipped — app default render failed"
 fi
@@ -498,7 +499,7 @@ if TEST_CONNECTION_RENDER=$("$HELM_CMD" template "$APP_RELEASE_NAME" "$APP_CHART
   TEST_RESOURCE_KEYS="$(render_resource_keys "$TEST_CONNECTION_RENDER")"
   assert_resource_present "$TEST_RESOURCE_KEYS" "Pod/${APP_RELEASE_NAME}-split-stack-smoke" "helm test render includes Pod/${APP_RELEASE_NAME}-split-stack-smoke"
   assert_contains "$TEST_CONNECTION_RENDER" '"helm.sh/hook": test' "helm test pod keeps helm.sh/hook=test"
-  assert_contains "$TEST_CONNECTION_RENDER" "http://${APP_RELEASE_NAME}-gateway:8090/" "helm test pod probes gateway stub truth"
+  assert_contains "$TEST_CONNECTION_RENDER" "http://${APP_RELEASE_NAME}-gateway:8090/actuator/health" "helm test pod probes gateway actuator health truth"
   assert_contains "$TEST_CONNECTION_RENDER" "http://${APP_RELEASE_NAME}-app-api:8080/actuator/health" "helm test pod probes app-api service truth"
   assert_contains "$TEST_CONNECTION_RENDER" "http://${APP_RELEASE_NAME}-admin-api:8081/actuator/health" "helm test pod probes admin-api service truth"
   assert_contains "$TEST_CONNECTION_RENDER" "http://${APP_RELEASE_NAME}-admin-web:80/" "helm test pod probes admin-web service truth"
@@ -518,8 +519,8 @@ if [[ -f "$APP_PROD_VALUES" ]]; then
   if RELEASE_NOTES_OUTPUT=$("$HELM_CMD" install "$APP_RELEASE_NAME" "$APP_CHART_DIR" -f "$APP_PROD_VALUES" --dry-run --debug 2>&1); then
     assert_contains "$RELEASE_NOTES_OUTPUT" "https://api.babytalk.example.com" "release notes expose app-api public surface"
     assert_contains "$RELEASE_NOTES_OUTPUT" "https://admin.babytalk.example.com" "release notes expose admin-web public surface"
-    assert_contains "$RELEASE_NOTES_OUTPUT" "svc/${APP_RELEASE_NAME}-gateway:8090" "release notes expose gateway stub service truth"
-    assert_contains "$RELEASE_NOTES_OUTPUT" "stub — nginx:alpine, to be replaced by Spring Cloud Gateway in S03" "release notes explain the temporary gateway stub"
+    assert_contains "$RELEASE_NOTES_OUTPUT" "svc/${APP_RELEASE_NAME}-gateway:8090" "release notes expose gateway Spring Cloud Gateway service truth"
+    assert_contains "$RELEASE_NOTES_OUTPUT" "Spring Cloud Gateway" "release notes reference Spring Cloud Gateway (not nginx stub)"
     assert_contains "$RELEASE_NOTES_OUTPUT" "svc/${APP_RELEASE_NAME}-admin-api:8081" "release notes mark admin-api as internal service truth"
     assert_contains "$RELEASE_NOTES_OUTPUT" "pre-install / pre-upgrade hook job ${APP_RELEASE_NAME}-db-migration" "release notes point to db-migration hook job"
   else

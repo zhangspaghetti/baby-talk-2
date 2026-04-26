@@ -13,7 +13,7 @@ spec:
       command: ['sh', '-c']
       args:
         - >-
-          wget -qO- http://{{ include "babytalk-app.componentFullname" (dict "root" . "component" "gateway") }}:{{ .Values.gateway.service.port }}/ >/dev/null &&
+          wget -qO- http://{{ include "babytalk-app.componentFullname" (dict "root" . "component" "gateway") }}:{{ .Values.gateway.service.port }}/actuator/health >/dev/null &&
           wget -qO- http://{{ include "babytalk-app.componentFullname" (dict "root" . "component" "app-api") }}:{{ .Values.appApi.service.port }}/actuator/health >/dev/null &&
           wget -qO- http://{{ include "babytalk-app.componentFullname" (dict "root" . "component" "admin-api") }}:{{ .Values.adminApi.service.port }}/actuator/health >/dev/null &&
           wget -qO- http://{{ include "babytalk-app.componentFullname" (dict "root" . "component" "admin-web") }}:{{ .Values.adminWeb.service.port }}/ >/dev/null

@@ -1,9 +1,9 @@
 BabyTalk application release 已部署！
 
 {{- if .Values.gateway.enabled }}
-Gateway（stub）：
+Gateway（Spring Cloud Gateway）：
   kubectl --namespace {{ .Release.Namespace }} port-forward svc/{{ include "babytalk-app.componentFullname" (dict "root" . "component" "gateway") }} 8090:{{ .Values.gateway.service.port }}
-  gateway（stub — nginx:alpine, to be replaced by Spring Cloud Gateway in S03）
+  gateway（Spring Cloud Gateway — edge filter: JWT auth + rate limiting）
 
 {{- end }}
 {{- if .Values.appApi.ingress.enabled }}
@@ -24,7 +24,7 @@ Gateway（stub）：
 
 内部服务：
 {{- if .Values.gateway.enabled }}
-  - gateway: svc/{{ include "babytalk-app.componentFullname" (dict "root" . "component" "gateway") }}:{{ .Values.gateway.service.port }}（stub — nginx:alpine, to be replaced by Spring Cloud Gateway in S03）
+  - gateway: svc/{{ include "babytalk-app.componentFullname" (dict "root" . "component" "gateway") }}:{{ .Values.gateway.service.port }}（Spring Cloud Gateway — JWT auth + rate limiting）
 {{- end }}
   - admin-api: svc/{{ include "babytalk-app.componentFullname" (dict "root" . "component" "admin-api") }}:{{ .Values.adminApi.service.port }}（仅集群内可达）
   - db-migration: pre-install / pre-upgrade hook job {{ include "babytalk-app.componentFullname" (dict "root" . "component" "db-migration") }}

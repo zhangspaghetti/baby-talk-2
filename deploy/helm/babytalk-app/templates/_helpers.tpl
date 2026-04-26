@@ -119,16 +119,7 @@ server {
     index index.html;
 
     location /api/ {
-        proxy_pass http://{{ include "babytalk-app.componentFullname" (dict "root" . "component" "admin-api") }}:{{ .Values.adminApi.service.port }};
-        proxy_http_version 1.1;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-    }
-
-    location /actuator/ {
-        proxy_pass http://{{ include "babytalk-app.componentFullname" (dict "root" . "component" "admin-api") }}:{{ .Values.adminApi.service.port }};
+        proxy_pass http://{{ include "babytalk-app.componentFullname" (dict "root" . "component" "gateway") }}:{{ .Values.gateway.service.port }};
         proxy_http_version 1.1;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;

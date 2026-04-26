@@ -170,8 +170,8 @@ gateway:
   enabled: true
   replicaCount: 1
   image:
-    repository: nginx
-    tag: alpine
+    repository: babytalk/gateway
+    tag: "1.0.0"
     pullPolicy: IfNotPresent
   service:
     type: ClusterIP
@@ -182,7 +182,7 @@ gateway:
     readOnlyRootFilesystem: false
   livenessProbe:
     httpGet:
-      path: /
+      path: /actuator/health
       port: http
     initialDelaySeconds: 5
     periodSeconds: 10
@@ -190,7 +190,7 @@ gateway:
     failureThreshold: 3
   readinessProbe:
     httpGet:
-      path: /
+      path: /actuator/health
       port: http
     initialDelaySeconds: 2
     periodSeconds: 5
@@ -200,6 +200,9 @@ gateway:
     requests:
       cpu: 50m
       memory: 64Mi
+    limits:
+      cpu: 1000m
+      memory: 512Mi
 
 dbMigration:
   image:
