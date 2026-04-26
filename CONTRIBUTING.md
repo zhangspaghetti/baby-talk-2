@@ -4,41 +4,47 @@
 
 ## Start with the right front door
 
-- 想把整套 admin demo 拉起来：`dev-up-admin-demo`
-- 想复用 live stack 跑最小 smoke：`dev-verify-admin-demo`
-- 想继续下钻 control-plane/auth proof：`dart run tool/verify_m006_s12_control_plane_freshness.dart`
-- 想跑最终 release closure（CI 同款，唯一 final release command）：`dart run tool/verify_m006_s14_release_closure.dart`
-- 想只 debug 某个 deploy/runtime 子面：`dart run tool/verify_m006_s08_release.dart --runtime` / `--helm`
+- 想把整套 Helm baseline 拉起来：`dev-up-helm-demo`
+- 想复用 live stack 跑最小 smoke：`dev-verify-helm-demo`
+- 想跑当前 S01 的 CI-equivalent gate：`bash ci/k8s-smoke.sh`
+- 想直接执行本地 Helm front-door verifier：`dart run tool/verify_m007_s01_helm_baseline.dart demo`
 
-除这条 S14 release closure 之外，其余 repo-root verifier 都只用于 scoped drill-down；不要再拼 ad-hoc shell chain。
+除 `bash ci/k8s-smoke.sh` 这条 CI-equivalent gate 之外，其余 repo-root verifier 都是 scoped drill-down；不要再拼 ad-hoc shell chain。
 
-这两条 repo-root wrapper 会共享 `tmp/m006-s13-front-door-metrics.jsonl` 这份 bounded local history；先看 stdout 里的 `telemetry_path` / `smoke_recent_pass_rate` / `first_failure_hotspot`，再决定要不要继续下钻更重的 verifier。
+这些入口会围绕 `tmp/m007-s01-helm-metrics.jsonl` 提供 bounded local history。wrapper 或 smoke 失败时，先看 stdout 里的 `first_failure_stage` / `likely_cause` / `next_action`，再决定要不要继续下钻更重的 gate。
 
 ## Everyday workflows
 
 ### Full-stack admin change
 
-1. 先拉起 demo：
-   - POSIX：`./scripts/dev-up-admin-demo.sh`
-   - Windows：`scripts\dev-up-admin-demo.cmd`
+1. 先拉起 Helm baseline：
+   - POSIX：`./scripts/dev-up-helm-demo.sh`
+   - Windows：`scripts\dev-up-helm-demo.cmd`
 2. 修改 `admin-web` / `admin-api` / `common` / `db-migration` 中与你的变更直接相关的模块。
 3. 跑最小 smoke：
-   - POSIX：`./scripts/dev-verify-admin-demo.sh`
-   - Windows：`scripts\dev-verify-admin-demo.cmd`
-4. 如果 smoke 暗示 control-plane/auth drift，再跑 `dart run tool/verify_m006_s12_control_plane_freshness.dart`。
+   - POSIX：`./scripts/dev-verify-helm-demo.sh`
+   - Windows：`scripts\dev-verify-helm-demo.cmd`
+4. 如果 smoke 还不足以解释问题，再跑 `bash ci/k8s-smoke.sh` 或 `dart run tool/verify_m007_s01_helm_baseline.dart demo`。
 
 ### Backend-only change
 
+优先方案仍然是直接跑前门：
+
 ```bash
-docker compose up -d postgres minio db-migration
-./backend/mvnw -f backend/pom.xml -pl app-api -am spring-boot:run
-./backend/mvnw -f backend/pom.xml -pl admin-api -am spring-boot:run -Dspring-boot.run.arguments=--server.port=8081
+./scripts/dev-up-helm-demo.sh
+```
+
+如果你已经有 kind 集群，只想重放 release 级别安装，则使用：
+
+```bash
+helm upgrade --install babytalk-infra deploy/helm/babytalk-infra -f deploy/helm/babytalk-infra/values-kind.yaml --namespace babytalk --create-namespace --wait --timeout 120s
+helm upgrade --install babytalk-app deploy/helm/babytalk-app -f deploy/helm/babytalk-app/values-kind.yaml --namespace babytalk --create-namespace --wait --timeout 180s
 ```
 
 在 backend-only 路径下，优先证明：
 
 - `db-migration` 仍然是 schema owner
-- `app-api` 与 `admin-api` 都能在 split runtime 下健康启动
+- `app-api` 与 `admin-api` 的 contract 没有被你的改动破坏
 - 新 contract 没有把管理员能力错误地下沉到 mobile/client surface
 
 ### admin-web-only change
@@ -67,32 +73,32 @@ flutter run
 按成本从低到高选择 verification，而不是一上来就跑最重的链路。
 
 1. **front door truth**
-   - `dart run tool/verify_m006_s13_demo_path.dart`
+   - `./scripts/dev-up-helm-demo.sh`
+   - `scripts\dev-up-helm-demo.cmd`
 2. **repo-root fast smoke**
-   - `./scripts/dev-verify-admin-demo.sh`
-   - `scripts\dev-verify-admin-demo.cmd`
-3. **Overview / auth proof pack**
-   - `dart run tool/verify_m006_s12_control_plane_freshness.dart`
-4. **final release closure (CI 同款)**
-   - `dart run tool/verify_m006_s14_release_closure.dart`
-5. **scoped deploy/runtime debug**
-   - `dart run tool/verify_m006_s08_release.dart --runtime`
-   - `dart run tool/verify_m006_s08_release.dart --helm`
-6. **module-local checks**
+   - `./scripts/dev-verify-helm-demo.sh`
+   - `scripts\dev-verify-helm-demo.cmd`
+3. **CI-equivalent Helm smoke**
+   - `bash ci/k8s-smoke.sh`
+4. **direct verifier invocation**
+   - `dart run tool/verify_m007_s01_helm_baseline.dart demo`
+   - `dart run tool/verify_m007_s01_helm_baseline.dart smoke`
+5. **module-local checks**
    - `./backend/mvnw -f backend/pom.xml test -DexcludedGroups=llm-it`
+   - `bash ci/backend-test.sh`
    - `npm --prefix admin-web run build`
    - `flutter test`
 
-front-door 改动收尾时，不只要看命令 exit code；还要确认 shared telemetry history `tmp/m006-s13-front-door-metrics.jsonl` 里出现 recent `demo` + `smoke` entries。机械化检查命令保留在 S13 runbook。
+front-door 改动收尾时，不只要看命令 exit code；还要确认 shared telemetry history `tmp/m007-s01-helm-metrics.jsonl` 里出现 recent `demo` + `smoke` entries。
 
-如果你的改动影响 README、runbook、wrapper、repo-root verification 入口或 CI handoff，**必须**把 `dart run tool/verify_m006_s13_demo_path.dart` 与 `dart run tool/verify_m006_s14_release_closure.dart` 都加入 verification。
+如果你的改动影响 README、runbook、wrapper、repo-root verification 入口或 CI handoff，**至少**把 `./scripts/dev-up-helm-demo.sh`、`./scripts/dev-verify-helm-demo.sh` 与 `bash ci/k8s-smoke.sh` 纳入 verification。
 
 ## Module boundaries
 
 | Module | 负责什么 | 不负责什么 |
 | --- | --- | --- |
 | `backend/app-api` | mobile / consumer HTTP API | admin browser surface |
-| `backend/admin-api` | admin auth + admin data contracts | public ingress / repo-root front door |
+| `backend/admin-api` | admin auth + admin data contracts | repo-root gateway front door |
 | `backend/db-migration` | schema migration | 持续 serving traffic |
 | `admin-web` | 管理后台 UI 与 `/api/admin/**` 代理前门 | 存储 bootstrap secrets、直连数据库 |
 | `mobile` | 面向家长/照护者的 Flutter 客户端 | 管理后台能力 |
