@@ -1,0 +1,20 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: "{{ include "babytalk-app.fullname" . }}-split-stack-smoke"
+  labels:
+    {{- include "babytalk-app.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": test
+spec:
+  containers:
+    - name: smoke
+      image: busybox:1.36
+      command: ['sh', '-c']
+      args:
+        - >-
+          wget -qO- http://{{ include "babytalk-app.componentFullname" (dict "root" . "component" "gateway") }}:{{ .Values.gateway.service.port }}/ >/dev/null &&
+          wget -qO- http://{{ include "babytalk-app.componentFullname" (dict "root" . "component" "app-api") }}:{{ .Values.appApi.service.port }}/actuator/health >/dev/null &&
+          wget -qO- http://{{ include "babytalk-app.componentFullname" (dict "root" . "component" "admin-api") }}:{{ .Values.adminApi.service.port }}/actuator/health >/dev/null &&
+          wget -qO- http://{{ include "babytalk-app.componentFullname" (dict "root" . "component" "admin-web") }}:{{ .Values.adminWeb.service.port }}/ >/dev/null
+  restartPolicy: Never

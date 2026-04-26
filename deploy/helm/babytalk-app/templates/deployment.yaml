@@ -1,27 +1,27 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "babytalk.componentFullname" (dict "root" . "component" "app-api") }}
+  name: {{ include "babytalk-app.componentFullname" (dict "root" . "component" "app-api") }}
   labels:
-    {{- include "babytalk.componentLabels" (dict "root" . "component" "app-api") | nindent 4 }}
+    {{- include "babytalk-app.componentLabels" (dict "root" . "component" "app-api") | nindent 4 }}
 spec:
   replicas: {{ .Values.appApi.replicaCount }}
   selector:
     matchLabels:
-      {{- include "babytalk.componentSelectorLabels" (dict "root" . "component" "app-api") | nindent 6 }}
+      {{- include "babytalk-app.componentSelectorLabels" (dict "root" . "component" "app-api") | nindent 6 }}
   template:
     metadata:
       annotations:
         checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
         checksum/secret: {{ include (print $.Template.BasePath "/secret.yaml") . | sha256sum }}
       labels:
-        {{- include "babytalk.componentLabels" (dict "root" . "component" "app-api") | nindent 8 }}
+        {{- include "babytalk-app.componentLabels" (dict "root" . "component" "app-api") | nindent 8 }}
     spec:
       {{- with .Values.imagePullSecrets }}
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      serviceAccountName: {{ include "babytalk.serviceAccountName" . }}
+      serviceAccountName: {{ include "babytalk-app.serviceAccountName" . }}
       {{- with .Values.appApi.podSecurityContext }}
       securityContext:
         {{- toYaml . | nindent 8 }}
@@ -39,9 +39,9 @@ spec:
               value: {{ .Values.appApi.service.port | quote }}
           envFrom:
             - configMapRef:
-                name: {{ include "babytalk.configMapName" . }}
+                name: {{ include "babytalk-app.configMapName" . }}
             - secretRef:
-                name: {{ include "babytalk.secretName" . }}
+                name: {{ include "babytalk-app.secretName" . }}
           {{- with .Values.appApi.containerSecurityContext }}
           securityContext:
             {{- toYaml . | nindent 12 }}
@@ -70,27 +70,27 @@ spec:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "babytalk.componentFullname" (dict "root" . "component" "admin-api") }}
+  name: {{ include "babytalk-app.componentFullname" (dict "root" . "component" "admin-api") }}
   labels:
-    {{- include "babytalk.componentLabels" (dict "root" . "component" "admin-api") | nindent 4 }}
+    {{- include "babytalk-app.componentLabels" (dict "root" . "component" "admin-api") | nindent 4 }}
 spec:
   replicas: {{ .Values.adminApi.replicaCount }}
   selector:
     matchLabels:
-      {{- include "babytalk.componentSelectorLabels" (dict "root" . "component" "admin-api") | nindent 6 }}
+      {{- include "babytalk-app.componentSelectorLabels" (dict "root" . "component" "admin-api") | nindent 6 }}
   template:
     metadata:
       annotations:
         checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
         checksum/secret: {{ include (print $.Template.BasePath "/secret.yaml") . | sha256sum }}
       labels:
-        {{- include "babytalk.componentLabels" (dict "root" . "component" "admin-api") | nindent 8 }}
+        {{- include "babytalk-app.componentLabels" (dict "root" . "component" "admin-api") | nindent 8 }}
     spec:
       {{- with .Values.imagePullSecrets }}
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      serviceAccountName: {{ include "babytalk.serviceAccountName" . }}
+      serviceAccountName: {{ include "babytalk-app.serviceAccountName" . }}
       {{- with .Values.adminApi.podSecurityContext }}
       securityContext:
         {{- toYaml . | nindent 8 }}
@@ -108,9 +108,9 @@ spec:
               value: {{ .Values.adminApi.service.port | quote }}
           envFrom:
             - configMapRef:
-                name: {{ include "babytalk.configMapName" . }}
+                name: {{ include "babytalk-app.configMapName" . }}
             - secretRef:
-                name: {{ include "babytalk.secretName" . }}
+                name: {{ include "babytalk-app.secretName" . }}
           {{- with .Values.adminApi.containerSecurityContext }}
           securityContext:
             {{- toYaml . | nindent 12 }}
@@ -139,26 +139,26 @@ spec:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "babytalk.componentFullname" (dict "root" . "component" "admin-web") }}
+  name: {{ include "babytalk-app.componentFullname" (dict "root" . "component" "admin-web") }}
   labels:
-    {{- include "babytalk.componentLabels" (dict "root" . "component" "admin-web") | nindent 4 }}
+    {{- include "babytalk-app.componentLabels" (dict "root" . "component" "admin-web") | nindent 4 }}
 spec:
   replicas: {{ .Values.adminWeb.replicaCount }}
   selector:
     matchLabels:
-      {{- include "babytalk.componentSelectorLabels" (dict "root" . "component" "admin-web") | nindent 6 }}
+      {{- include "babytalk-app.componentSelectorLabels" (dict "root" . "component" "admin-web") | nindent 6 }}
   template:
     metadata:
       annotations:
         checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
       labels:
-        {{- include "babytalk.componentLabels" (dict "root" . "component" "admin-web") | nindent 8 }}
+        {{- include "babytalk-app.componentLabels" (dict "root" . "component" "admin-web") | nindent 8 }}
     spec:
       {{- with .Values.imagePullSecrets }}
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      serviceAccountName: {{ include "babytalk.serviceAccountName" . }}
+      serviceAccountName: {{ include "babytalk-app.serviceAccountName" . }}
       {{- with .Values.adminWeb.podSecurityContext }}
       securityContext:
         {{- toYaml . | nindent 8 }}
@@ -190,7 +190,7 @@ spec:
       volumes:
         - name: proxy-config
           configMap:
-            name: {{ include "babytalk.adminWebProxyConfigMapName" . }}
+            name: {{ include "babytalk-app.adminWebProxyConfigMapName" . }}
       {{- with .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}
@@ -203,13 +203,71 @@ spec:
       tolerations:
         {{- toYaml . | nindent 8 }}
       {{- end }}
+{{- if .Values.gateway.enabled }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "babytalk-app.componentFullname" (dict "root" . "component" "gateway") }}
+  labels:
+    {{- include "babytalk-app.componentLabels" (dict "root" . "component" "gateway") | nindent 4 }}
+spec:
+  replicas: {{ .Values.gateway.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "babytalk-app.componentSelectorLabels" (dict "root" . "component" "gateway") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "babytalk-app.componentLabels" (dict "root" . "component" "gateway") | nindent 8 }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "babytalk-app.serviceAccountName" . }}
+      {{- with .Values.gateway.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: gateway
+          image: "{{ required "gateway.image.repository is required" .Values.gateway.image.repository }}:{{ required "gateway.image.tag is required" .Values.gateway.image.tag }}"
+          imagePullPolicy: {{ .Values.gateway.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.gateway.service.port }}
+              protocol: TCP
+          {{- with .Values.gateway.containerSecurityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          livenessProbe:
+            {{- toYaml .Values.gateway.livenessProbe | nindent 12 }}
+          readinessProbe:
+            {{- toYaml .Values.gateway.readinessProbe | nindent 12 }}
+          resources:
+            {{- toYaml .Values.gateway.resources | nindent 12 }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+{{- end }}
 ---
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: {{ include "babytalk.componentFullname" (dict "root" . "component" "db-migration") }}
+  name: {{ include "babytalk-app.componentFullname" (dict "root" . "component" "db-migration") }}
   labels:
-    {{- include "babytalk.componentLabels" (dict "root" . "component" "db-migration") | nindent 4 }}
+    {{- include "babytalk-app.componentLabels" (dict "root" . "component" "db-migration") | nindent 4 }}
   annotations:
     "helm.sh/hook": pre-install,pre-upgrade
     "helm.sh/hook-weight": "-10"
@@ -222,14 +280,14 @@ spec:
       annotations:
         checksum/secret: {{ include (print $.Template.BasePath "/secret.yaml") . | sha256sum }}
       labels:
-        {{- include "babytalk.componentLabels" (dict "root" . "component" "db-migration") | nindent 8 }}
+        {{- include "babytalk-app.componentLabels" (dict "root" . "component" "db-migration") | nindent 8 }}
     spec:
       restartPolicy: Never
       {{- with .Values.imagePullSecrets }}
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      serviceAccountName: {{ include "babytalk.serviceAccountName" . }}
+      serviceAccountName: {{ include "babytalk-app.serviceAccountName" . }}
       {{- with .Values.dbMigration.podSecurityContext }}
       securityContext:
         {{- toYaml . | nindent 8 }}
@@ -240,7 +298,7 @@ spec:
           imagePullPolicy: {{ .Values.dbMigration.image.pullPolicy }}
           envFrom:
             - secretRef:
-                name: {{ include "babytalk.secretName" . }}
+                name: {{ include "babytalk-app.secretName" . }}
           {{- with .Values.dbMigration.containerSecurityContext }}
           securityContext:
             {{- toYaml . | nindent 12 }}

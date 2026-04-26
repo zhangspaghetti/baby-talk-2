@@ -1,0 +1,37 @@
+BabyTalk application release 已部署！
+
+{{- if .Values.gateway.enabled }}
+Gateway（stub）：
+  kubectl --namespace {{ .Release.Namespace }} port-forward svc/{{ include "babytalk-app.componentFullname" (dict "root" . "component" "gateway") }} 8090:{{ .Values.gateway.service.port }}
+  gateway（stub — nginx:alpine, to be replaced by Spring Cloud Gateway in S03）
+
+{{- end }}
+{{- if .Values.appApi.ingress.enabled }}
+应用 API：
+  https://{{ required "appApi.ingress.host is required when appApi ingress is enabled" .Values.appApi.ingress.host }}
+{{- else }}
+应用 API（port-forward）：
+  kubectl --namespace {{ .Release.Namespace }} port-forward svc/{{ include "babytalk-app.componentFullname" (dict "root" . "component" "app-api") }} 8080:{{ .Values.appApi.service.port }}
+{{- end }}
+
+{{- if .Values.adminWeb.ingress.enabled }}
+管理台：
+  https://{{ required "adminWeb.ingress.host is required when adminWeb ingress is enabled" .Values.adminWeb.ingress.host }}
+{{- else }}
+管理台（port-forward）：
+  kubectl --namespace {{ .Release.Namespace }} port-forward svc/{{ include "babytalk-app.componentFullname" (dict "root" . "component" "admin-web") }} 3000:{{ .Values.adminWeb.service.port }}
+{{- end }}
+
+内部服务：
+{{- if .Values.gateway.enabled }}
+  - gateway: svc/{{ include "babytalk-app.componentFullname" (dict "root" . "component" "gateway") }}:{{ .Values.gateway.service.port }}（stub — nginx:alpine, to be replaced by Spring Cloud Gateway in S03）
+{{- end }}
+  - admin-api: svc/{{ include "babytalk-app.componentFullname" (dict "root" . "component" "admin-api") }}:{{ .Values.adminApi.service.port }}（仅集群内可达）
+  - db-migration: pre-install / pre-upgrade hook job {{ include "babytalk-app.componentFullname" (dict "root" . "component" "db-migration") }}
+
+⚠️  生产部署前请覆盖以下敏感值：
+  - BABY_TALK_DB_URL / BABY_TALK_DB_USERNAME / BABY_TALK_DB_PASSWORD
+  - BABY_TALK_CONSUMER_JWT_SECRET / BABY_TALK_ADMIN_JWT_SECRET
+  - BABY_TALK_ADMIN_BOOTSTRAP_PASSWORD
+  - BABY_TALK_AI_API_KEY / BABY_TALK_EMBEDDING_API_KEY
+  - BABY_TALK_MINIO_ENDPOINT / BABY_TALK_MINIO_ACCESS_KEY / BABY_TALK_MINIO_SECRET_KEY

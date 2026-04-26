@@ -1,9 +1,9 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: {{ include "babytalk.configMapName" . }}
+  name: {{ include "babytalk-app.configMapName" . }}
   labels:
-    {{- include "babytalk.labels" . | nindent 4 }}
+    {{- include "babytalk-app.labels" . | nindent 4 }}
 data:
   BABY_TALK_MIN_SUPPORTED_VERSION: {{ required "config.BABY_TALK_MIN_SUPPORTED_VERSION is required" .Values.config.BABY_TALK_MIN_SUPPORTED_VERSION | quote }}
   BABY_TALK_UPGRADE_URL: {{ required "config.BABY_TALK_UPGRADE_URL is required" .Values.config.BABY_TALK_UPGRADE_URL | quote }}
@@ -55,6 +55,9 @@ data:
   BABY_TALK_EMBEDDING_BASE_URL: {{ required "config.BABY_TALK_EMBEDDING_BASE_URL is required" .Values.config.BABY_TALK_EMBEDDING_BASE_URL | quote }}
   BABY_TALK_EMBEDDING_MODEL: {{ required "config.BABY_TALK_EMBEDDING_MODEL is required" .Values.config.BABY_TALK_EMBEDDING_MODEL | quote }}
   BABY_TALK_EMBEDDING_DIMENSIONS: {{ required "config.BABY_TALK_EMBEDDING_DIMENSIONS is required" .Values.config.BABY_TALK_EMBEDDING_DIMENSIONS | quote }}
+  {{- if hasKey .Values.config "BABY_TALK_REDIS_HOST" }}
+  BABY_TALK_REDIS_HOST: {{ .Values.config.BABY_TALK_REDIS_HOST | quote }}
+  {{- end }}
 
   BABY_TALK_KG_REVIEW_INTERVAL: {{ required "config.BABY_TALK_KG_REVIEW_INTERVAL is required" .Values.config.BABY_TALK_KG_REVIEW_INTERVAL | quote }}
   BABY_TALK_KG_REVIEW_ENABLED: {{ required "config.BABY_TALK_KG_REVIEW_ENABLED is required" .Values.config.BABY_TALK_KG_REVIEW_ENABLED | quote }}
@@ -78,9 +81,9 @@ data:
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: {{ include "babytalk.adminWebProxyConfigMapName" . }}
+  name: {{ include "babytalk-app.adminWebProxyConfigMapName" . }}
   labels:
-    {{- include "babytalk.componentLabels" (dict "root" . "component" "admin-web") | nindent 4 }}
+    {{- include "babytalk-app.componentLabels" (dict "root" . "component" "admin-web") | nindent 4 }}
 data:
   default.conf: |
-    {{- include "babytalk.adminWebNginxConfig" . | nindent 4 }}
+    {{- include "babytalk-app.adminWebNginxConfig" . | nindent 4 }}

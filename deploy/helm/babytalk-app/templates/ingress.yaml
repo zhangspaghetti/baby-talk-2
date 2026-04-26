@@ -2,9 +2,9 @@
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: {{ include "babytalk.componentFullname" (dict "root" . "component" "app-api") }}
+  name: {{ include "babytalk-app.componentFullname" (dict "root" . "component" "app-api") }}
   labels:
-    {{- include "babytalk.componentLabels" (dict "root" . "component" "app-api") | nindent 4 }}
+    {{- include "babytalk-app.componentLabels" (dict "root" . "component" "app-api") | nindent 4 }}
   {{- with .Values.appApi.ingress.annotations }}
   annotations:
     {{- toYaml . | nindent 4 }}
@@ -31,7 +31,7 @@ spec:
             pathType: {{ .Values.appApi.ingress.pathType }}
             backend:
               service:
-                name: {{ include "babytalk.componentFullname" (dict "root" . "component" "app-api") }}
+                name: {{ include "babytalk-app.componentFullname" (dict "root" . "component" "app-api") }}
                 port:
                   number: {{ .Values.appApi.service.port }}
 {{- end }}
@@ -42,9 +42,9 @@ spec:
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: {{ include "babytalk.componentFullname" (dict "root" . "component" "admin-web") }}
+  name: {{ include "babytalk-app.componentFullname" (dict "root" . "component" "admin-web") }}
   labels:
-    {{- include "babytalk.componentLabels" (dict "root" . "component" "admin-web") | nindent 4 }}
+    {{- include "babytalk-app.componentLabels" (dict "root" . "component" "admin-web") | nindent 4 }}
   {{- with .Values.adminWeb.ingress.annotations }}
   annotations:
     {{- toYaml . | nindent 4 }}
@@ -71,7 +71,7 @@ spec:
             pathType: {{ .Values.adminWeb.ingress.pathType }}
             backend:
               service:
-                name: {{ include "babytalk.componentFullname" (dict "root" . "component" "admin-web") }}
+                name: {{ include "babytalk-app.componentFullname" (dict "root" . "component" "admin-web") }}
                 port:
                   number: {{ .Values.adminWeb.service.port }}
 {{- end }}

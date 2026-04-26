@@ -1,5 +1,5 @@
-# BabyTalk split-stack 生产环境覆盖值
-# 用法示例：helm install babytalk deploy/helm/babytalk -f deploy/helm/babytalk/values-production.yaml
+# BabyTalk application release 生产环境覆盖值
+# 用法示例：helm install babytalk-app deploy/helm/babytalk-app -f deploy/helm/babytalk-app/values-production.yaml
 
 imagePullSecrets:
   - name: acr-credential
