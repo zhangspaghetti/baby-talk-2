@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.zhangspaghetti.babytalk.admin.knowledge.AdminKnowledgeIngestionMapper">
+
+    <resultMap id="ingestionJobRowMap" type="com.zhangspaghetti.babytalk.admin.knowledge.AdminKnowledgeIngestionRepository$IngestionJobRow">
+        <constructor>
+            <arg column="id"
+                 javaType="java.util.UUID"
+                 jdbcType="OTHER"
+                 typeHandler="com.zhangspaghetti.babytalk.mybatis.UuidTypeHandler"/>
+            <arg column="original_filename" javaType="java.lang.String"/>
+            <arg column="status" javaType="java.lang.String"/>
+            <arg column="total_chunks" javaType="_int"/>
+            <arg column="error_message" javaType="java.lang.String"/>
+            <arg column="created_at" javaType="java.time.Instant"/>
+            <arg column="updated_at" javaType="java.time.Instant"/>
+        </constructor>
+    </resultMap>
+
+    <resultMap id="queueSummaryRowMap" type="com.zhangspaghetti.babytalk.admin.knowledge.AdminKnowledgeIngestionRepository$QueueSummaryRow">
+        <constructor>
+            <arg column="pending_count" javaType="_long"/>
+            <arg column="processing_count" javaType="_long"/>
+            <arg column="failed_count" javaType="_long"/>
+            <arg column="completed_count" javaType="_long"/>
+            <arg column="last_updated_at" javaType="java.time.Instant"/>
+        </constructor>
+    </resultMap>
+
+    <select id="listJobs" resultMap="ingestionJobRowMap">
+        select id,
+               original_filename,
+               status,
+               total_chunks,
+               error_message,
+               created_at,
+               updated_at
+        from ingestion_jobs
+        <if test="status != null">
+            where status = #{status}
+        </if>
+        order by updated_at desc, created_at desc, id desc
+        limit #{limit}
+    </select>
+
+    <select id="findJob" resultMap="ingestionJobRowMap">
+        select id,
+               original_filename,
+               status,
+               total_chunks,
+               error_message,
+               created_at,
+               updated_at
+        from ingestion_jobs
+        where id = #{jobId}
+        limit 1
+    </select>
+
+    <select id="fetchQueueSummary" resultMap="queueSummaryRowMap">
+        select coalesce(sum(case when status = 'PENDING' then 1 else 0 end), 0) as pending_count,
+               coalesce(sum(case when status = 'PROCESSING' then 1 else 0 end), 0) as processing_count,
+               coalesce(sum(case when status = 'FAILED' then 1 else 0 end), 0) as failed_count,
+               coalesce(sum(case when status = 'COMPLETED' then 1 else 0 end), 0) as completed_count,
+               max(updated_at) as last_updated_at
+        from ingestion_jobs
+    </select>
+</mapper>

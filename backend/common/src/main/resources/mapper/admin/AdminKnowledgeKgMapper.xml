@@ -1,0 +1,178 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.zhangspaghetti.babytalk.admin.knowledge.AdminKnowledgeKgMapper">
+
+    <resultMap id="contradictionRowMap" type="com.zhangspaghetti.babytalk.admin.knowledge.AdminKnowledgeKgRepository$ContradictionRow">
+        <constructor>
+            <arg column="id"
+                 javaType="java.util.UUID"
+                 jdbcType="OTHER"
+                 typeHandler="com.zhangspaghetti.babytalk.mybatis.UuidTypeHandler"/>
+            <arg column="entity_topic" javaType="java.lang.String"/>
+            <arg column="source_a_book" javaType="java.lang.String"/>
+            <arg column="source_b_book" javaType="java.lang.String"/>
+            <arg column="description" javaType="java.lang.String"/>
+            <arg column="status" javaType="java.lang.String"/>
+            <arg column="agent_review_result" javaType="java.lang.String"/>
+            <arg column="admin_notes" javaType="java.lang.String"/>
+            <arg column="detected_at" javaType="java.time.Instant"/>
+            <arg column="reviewed_at" javaType="java.time.Instant"/>
+            <arg column="resolved_at" javaType="java.time.Instant"/>
+            <arg column="notification_count" javaType="_long"/>
+            <arg column="unread_notification_count" javaType="_long"/>
+        </constructor>
+    </resultMap>
+
+    <resultMap id="notificationRowMap" type="com.zhangspaghetti.babytalk.admin.knowledge.AdminKnowledgeKgRepository$NotificationRow">
+        <constructor>
+            <arg column="id"
+                 javaType="java.util.UUID"
+                 jdbcType="OTHER"
+                 typeHandler="com.zhangspaghetti.babytalk.mybatis.UuidTypeHandler"/>
+            <arg column="contradiction_id"
+                 javaType="java.util.UUID"
+                 jdbcType="OTHER"
+                 typeHandler="com.zhangspaghetti.babytalk.mybatis.UuidTypeHandler"/>
+            <arg column="notification_type" javaType="java.lang.String"/>
+            <arg column="message" javaType="java.lang.String"/>
+            <arg column="is_read" javaType="_boolean"/>
+            <arg column="created_at" javaType="java.time.Instant"/>
+        </constructor>
+    </resultMap>
+
+    <resultMap id="queueSummaryRowMap" type="com.zhangspaghetti.babytalk.admin.knowledge.AdminKnowledgeKgRepository$QueueSummaryRow">
+        <constructor>
+            <arg column="open_count" javaType="_long"/>
+            <arg column="escalated_count" javaType="_long"/>
+            <arg column="unread_notification_count" javaType="_long"/>
+            <arg column="resolved_count" javaType="_long"/>
+            <arg column="last_updated_at" javaType="java.time.Instant"/>
+        </constructor>
+    </resultMap>
+
+    <sql id="contradictionSelect">
+        select c.id,
+               c.entity_topic,
+               c.source_a_book,
+               c.source_b_book,
+               c.description,
+               c.status,
+               c.agent_review_result,
+               c.admin_notes,
+               c.detected_at,
+               c.reviewed_at,
+               c.resolved_at,
+               (select count(*) from kg_admin_notifications n where n.contradiction_id = c.id) as notification_count,
+               (select count(*) from kg_admin_notifications n where n.contradiction_id = c.id and n.is_read = false) as unread_notification_count
+        from kg_contradictions c
+    </sql>
+
+    <select id="listContradictions" resultMap="contradictionRowMap">
+        <include refid="contradictionSelect"/>
+        <if test="status != null">
+            where c.status = #{status}
+        </if>
+        order by c.detected_at desc, c.id desc
+        limit #{limit}
+    </select>
+
+    <select id="findContradiction" resultMap="contradictionRowMap">
+        <include refid="contradictionSelect"/>
+        where c.id = #{contradictionId}
+        limit 1
+    </select>
+
+    <select id="findContradictionForUpdate" resultMap="contradictionRowMap">
+        <include refid="contradictionSelect"/>
+        where c.id = #{contradictionId}
+        limit 1
+        for update
+    </select>
+
+    <update id="resolveContradiction">
+        update kg_contradictions
+        set status = 'resolved',
+            admin_notes = #{adminNotes},
+            reviewed_at = coalesce(reviewed_at, #{resolvedAt}),
+            resolved_at = #{resolvedAt}
+        where id = #{contradictionId}
+    </update>
+
+    <select id="listNotifications" resultMap="notificationRowMap">
+        select id,
+               contradiction_id,
+               notification_type,
+               message,
+               is_read,
+               created_at
+        from kg_admin_notifications
+        where contradiction_id = #{contradictionId}
+        order by created_at desc, id desc
+        limit #{limit}
+    </select>
+
+    <select id="findNotification" resultMap="notificationRowMap">
+        select id,
+               contradiction_id,
+               notification_type,
+               message,
+               is_read,
+               created_at
+        from kg_admin_notifications
+        where id = #{notificationId}
+        limit 1
+    </select>
+
+    <select id="findNotificationForUpdate" resultMap="notificationRowMap">
+        select id,
+               contradiction_id,
+               notification_type,
+               message,
+               is_read,
+               created_at
+        from kg_admin_notifications
+        where id = #{notificationId}
+        limit 1
+        for update
+    </select>
+
+    <update id="markNotificationRead">
+        update kg_admin_notifications
+        set is_read = true
+        where id = #{notificationId}
+    </update>
+
+    <select id="fetchQueueSummary" resultMap="queueSummaryRowMap">
+        with contradiction_summary as (
+            select coalesce(sum(case when status in ('detected', 'reviewing', 'escalated') then 1 else 0 end), 0) as open_count,
+                   coalesce(sum(case when status = 'escalated' then 1 else 0 end), 0) as escalated_count,
+                   coalesce(sum(case when status = 'resolved' then 1 else 0 end), 0) as resolved_count
+            from kg_contradictions
+        ),
+        notification_summary as (
+            select coalesce(sum(case when is_read = false then 1 else 0 end), 0) as unread_notification_count
+            from kg_admin_notifications
+        ),
+        domain_updates as (
+            select coalesce(resolved_at, reviewed_at, detected_at) as updated_at
+            from kg_contradictions
+            union all
+            select created_at as updated_at
+            from kg_admin_notifications
+        )
+        select contradiction_summary.open_count,
+               contradiction_summary.escalated_count,
+               notification_summary.unread_notification_count,
+               contradiction_summary.resolved_count,
+               max(domain_updates.updated_at) as last_updated_at
+        from contradiction_summary
+        cross join notification_summary
+        left join domain_updates on true
+        group by contradiction_summary.open_count,
+                 contradiction_summary.escalated_count,
+                 contradiction_summary.resolved_count,
+                 notification_summary.unread_notification_count
+    </select>
+</mapper>

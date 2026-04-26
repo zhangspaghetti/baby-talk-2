@@ -1,12 +1,17 @@
 package com.zhangspaghetti.babytalk.admin.config;
 
+import com.zhangspaghetti.babytalk.admin.distribution.AdminDistributionStatsReadMapper;
 import com.zhangspaghetti.babytalk.admin.distribution.AdminDistributionStatsReadRepository;
+import com.zhangspaghetti.babytalk.admin.knowledge.AdminKnowledgeIngestionMapper;
 import com.zhangspaghetti.babytalk.admin.knowledge.AdminKnowledgeIngestionRepository;
+import com.zhangspaghetti.babytalk.admin.knowledge.AdminKnowledgeKgMapper;
 import com.zhangspaghetti.babytalk.admin.knowledge.AdminKnowledgeKgRepository;
+import com.zhangspaghetti.babytalk.admin.mentor.AdminMentorAuditReadMapper;
 import com.zhangspaghetti.babytalk.admin.mentor.AdminMentorAuditReadRepository;
 import com.zhangspaghetti.babytalk.admin.overview.AdminOverviewReadRepository;
 import com.zhangspaghetti.babytalk.admin.rbac.AdminPermissionCatalog;
 import com.zhangspaghetti.babytalk.admin.rbac.AdminRbacRepository;
+import com.zhangspaghetti.babytalk.admin.users.AdminUserReadMapper;
 import com.zhangspaghetti.babytalk.admin.users.AdminUserReadRepository;
 import com.zhangspaghetti.babytalk.config.AsyncConfiguration;
 import com.zhangspaghetti.babytalk.config.EmbeddingConfiguration;
@@ -36,28 +41,32 @@ public class AdminDataAccessConfiguration {
     }
 
     @Bean
-    AdminUserReadRepository adminUserReadRepository(JdbcTemplate jdbcTemplate) {
-        return new AdminUserReadRepository(jdbcTemplate);
+    AdminUserReadRepository adminUserReadRepository(AdminUserReadMapper adminUserReadMapper) {
+        return new AdminUserReadRepository(adminUserReadMapper);
     }
 
     @Bean
-    AdminMentorAuditReadRepository adminMentorAuditReadRepository(JdbcTemplate jdbcTemplate) {
-        return new AdminMentorAuditReadRepository(jdbcTemplate);
+    AdminMentorAuditReadRepository adminMentorAuditReadRepository(AdminMentorAuditReadMapper adminMentorAuditReadMapper) {
+        return new AdminMentorAuditReadRepository(adminMentorAuditReadMapper);
     }
 
     @Bean
-    AdminDistributionStatsReadRepository adminDistributionStatsReadRepository(JdbcTemplate jdbcTemplate) {
-        return new AdminDistributionStatsReadRepository(jdbcTemplate);
+    AdminDistributionStatsReadRepository adminDistributionStatsReadRepository(
+            AdminDistributionStatsReadMapper adminDistributionStatsReadMapper
+    ) {
+        return new AdminDistributionStatsReadRepository(adminDistributionStatsReadMapper);
     }
 
     @Bean
-    AdminKnowledgeIngestionRepository adminKnowledgeIngestionRepository(JdbcTemplate jdbcTemplate) {
-        return new AdminKnowledgeIngestionRepository(jdbcTemplate);
+    AdminKnowledgeIngestionRepository adminKnowledgeIngestionRepository(
+            AdminKnowledgeIngestionMapper adminKnowledgeIngestionMapper
+    ) {
+        return new AdminKnowledgeIngestionRepository(adminKnowledgeIngestionMapper);
     }
 
     @Bean
-    AdminKnowledgeKgRepository adminKnowledgeKgRepository(JdbcTemplate jdbcTemplate) {
-        return new AdminKnowledgeKgRepository(jdbcTemplate);
+    AdminKnowledgeKgRepository adminKnowledgeKgRepository(AdminKnowledgeKgMapper adminKnowledgeKgMapper) {
+        return new AdminKnowledgeKgRepository(adminKnowledgeKgMapper);
     }
 
     @Bean
