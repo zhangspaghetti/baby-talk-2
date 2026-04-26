@@ -48,3 +48,6 @@ headers_*.txt
 org/
 META-INF/
 *.class
+
+# ── GSD baseline (auto-generated) ──
+.mcp.json
