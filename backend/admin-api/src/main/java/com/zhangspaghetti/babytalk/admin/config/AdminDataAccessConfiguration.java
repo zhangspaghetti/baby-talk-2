@@ -10,12 +10,14 @@ import com.zhangspaghetti.babytalk.admin.mentor.AdminMentorAuditReadMapper;
 import com.zhangspaghetti.babytalk.admin.mentor.AdminMentorAuditReadRepository;
 import com.zhangspaghetti.babytalk.admin.overview.AdminOverviewReadRepository;
 import com.zhangspaghetti.babytalk.admin.rbac.AdminPermissionCatalog;
+import com.zhangspaghetti.babytalk.admin.rbac.AdminRbacMapper;
 import com.zhangspaghetti.babytalk.admin.rbac.AdminRbacRepository;
 import com.zhangspaghetti.babytalk.admin.users.AdminUserReadMapper;
 import com.zhangspaghetti.babytalk.admin.users.AdminUserReadRepository;
 import com.zhangspaghetti.babytalk.config.AsyncConfiguration;
 import com.zhangspaghetti.babytalk.config.EmbeddingConfiguration;
 import com.zhangspaghetti.babytalk.config.MinioProperties;
+import com.zhangspaghetti.babytalk.ingestion.IngestionMapper;
 import com.zhangspaghetti.babytalk.ingestion.IngestionRepository;
 import com.zhangspaghetti.babytalk.ingestion.IngestionService;
 import io.minio.MinioClient;
@@ -23,7 +25,6 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
-import org.springframework.jdbc.core.JdbcTemplate;
 
 @Configuration
 @EnableConfigurationProperties(MinioProperties.class)
@@ -36,8 +37,8 @@ public class AdminDataAccessConfiguration {
     }
 
     @Bean
-    AdminRbacRepository adminRbacRepository(JdbcTemplate jdbcTemplate) {
-        return new AdminRbacRepository(jdbcTemplate);
+    AdminRbacRepository adminRbacRepository(AdminRbacMapper adminRbacMapper) {
+        return new AdminRbacRepository(adminRbacMapper);
     }
 
     @Bean
@@ -85,8 +86,8 @@ public class AdminDataAccessConfiguration {
     }
 
     @Bean
-    IngestionRepository ingestionRepository(JdbcTemplate jdbcTemplate) {
-        return new IngestionRepository(jdbcTemplate);
+    IngestionRepository ingestionRepository(IngestionMapper ingestionMapper) {
+        return new IngestionRepository(ingestionMapper);
     }
 
     @Bean

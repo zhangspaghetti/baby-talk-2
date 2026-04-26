@@ -1,0 +1,180 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.zhangspaghetti.babytalk.admin.rbac.AdminRbacMapper">
+
+    <resultMap id="authorityAssignmentRowMap" type="com.zhangspaghetti.babytalk.admin.rbac.AdminRbacRepository$AuthorityAssignmentRow">
+        <constructor>
+            <arg column="role_code" javaType="java.lang.String"/>
+            <arg column="permission_code" javaType="java.lang.String"/>
+        </constructor>
+    </resultMap>
+
+    <resultMap id="permissionAssignmentRowMap" type="com.zhangspaghetti.babytalk.admin.rbac.AdminRbacRepository$PermissionAssignmentRow">
+        <constructor>
+            <arg column="role_code" javaType="java.lang.String"/>
+            <arg column="permission_code" javaType="java.lang.String"/>
+            <arg column="description" javaType="java.lang.String"/>
+            <arg column="granted_at" javaType="java.time.Instant"/>
+        </constructor>
+    </resultMap>
+
+    <resultMap id="permissionDefinitionMap" type="com.zhangspaghetti.babytalk.admin.rbac.AdminPermissionCatalog$PermissionDefinition">
+        <constructor>
+            <arg column="permission_code" javaType="java.lang.String"/>
+            <arg column="description" javaType="java.lang.String"/>
+        </constructor>
+    </resultMap>
+
+    <resultMap id="rolePermissionAggregateRowMap" type="com.zhangspaghetti.babytalk.admin.rbac.AdminRbacRepository$RolePermissionAggregateRow">
+        <constructor>
+            <arg column="role_code" javaType="java.lang.String"/>
+            <arg column="description" javaType="java.lang.String"/>
+            <arg column="created_at" javaType="java.time.Instant"/>
+            <arg column="permission_code" javaType="java.lang.String"/>
+        </constructor>
+    </resultMap>
+
+    <resultMap id="adminPrincipalRowMap" type="com.zhangspaghetti.babytalk.admin.rbac.AdminRbacRepository$AdminPrincipalRow">
+        <constructor>
+            <arg column="principal_id" javaType="java.lang.String"/>
+            <arg column="username" javaType="java.lang.String"/>
+            <arg column="password_hash" javaType="java.lang.String"/>
+            <arg column="display_name" javaType="java.lang.String"/>
+            <arg column="status" javaType="java.lang.String"/>
+            <arg column="created_at" javaType="java.time.Instant"/>
+            <arg column="updated_at" javaType="java.time.Instant"/>
+        </constructor>
+    </resultMap>
+
+    <resultMap id="principalRoleAggregateRowMap" type="com.zhangspaghetti.babytalk.admin.rbac.AdminRbacRepository$PrincipalRoleAggregateRow">
+        <constructor>
+            <arg column="principal_id" javaType="java.lang.String"/>
+            <arg column="username" javaType="java.lang.String"/>
+            <arg column="display_name" javaType="java.lang.String"/>
+            <arg column="status" javaType="java.lang.String"/>
+            <arg column="created_at" javaType="java.time.Instant"/>
+            <arg column="updated_at" javaType="java.time.Instant"/>
+            <arg column="role_code" javaType="java.lang.String"/>
+        </constructor>
+    </resultMap>
+
+    <select id="findAuthorityAssignments" resultMap="authorityAssignmentRowMap">
+        select apr.role_code, arp.permission_code
+        from admin_principal_roles apr
+        left join admin_role_permissions arp on arp.role_code = apr.role_code
+        where apr.principal_id = #{principalId}
+        order by apr.role_code asc, arp.permission_code asc
+    </select>
+
+    <select id="findRoleCodes" resultType="java.lang.String">
+        select role_code
+        from admin_principal_roles
+        where principal_id = #{principalId}
+        order by role_code asc
+    </select>
+
+    <select id="findPermissionCodes" resultType="java.lang.String">
+        select distinct arp.permission_code
+        from admin_principal_roles apr
+        join admin_role_permissions arp on arp.role_code = apr.role_code
+        where apr.principal_id = #{principalId}
+        order by arp.permission_code asc
+    </select>
+
+    <select id="findPermissionsByRole" resultMap="permissionAssignmentRowMap">
+        select arp.role_code, arp.permission_code, ap.description, arp.granted_at
+        from admin_role_permissions arp
+        join admin_permissions ap on ap.permission_code = arp.permission_code
+        where arp.role_code = #{roleCode}
+        order by arp.permission_code asc
+    </select>
+
+    <select id="findPermissionCatalog" resultMap="permissionDefinitionMap">
+        select permission_code, description
+        from admin_permissions
+        order by permission_code asc
+    </select>
+
+    <select id="findRolePermissionRows" resultMap="rolePermissionAggregateRowMap">
+        select r.role_code, r.description, r.created_at, arp.permission_code
+        from admin_roles r
+        left join admin_role_permissions arp on arp.role_code = r.role_code
+        order by r.role_code asc, arp.permission_code asc
+    </select>
+
+    <select id="findExistingRoleCodes" resultType="java.lang.String">
+        select role_code
+        from admin_roles
+        where role_code in
+        <foreach collection="roleCodes" item="roleCode" open="(" separator=", " close=")">
+            #{roleCode}
+        </foreach>
+        order by role_code asc
+    </select>
+
+    <select id="findPrincipalById" resultMap="adminPrincipalRowMap">
+        select principal_id, username, password_hash, display_name, status, created_at, updated_at
+        from admin_principals
+        where principal_id = #{principalId}
+    </select>
+
+    <select id="findPrincipalByUsername" resultMap="adminPrincipalRowMap">
+        select principal_id, username, password_hash, display_name, status, created_at, updated_at
+        from admin_principals
+        where username = #{username}
+    </select>
+
+    <select id="findPrincipalRoleRows" resultMap="principalRoleAggregateRowMap">
+        select p.principal_id, p.username, p.display_name, p.status, p.created_at, p.updated_at, apr.role_code
+        from admin_principals p
+        left join admin_principal_roles apr on apr.principal_id = p.principal_id
+        order by p.created_at asc, p.principal_id asc, apr.role_code asc
+    </select>
+
+    <insert id="insertPrincipal">
+        insert into admin_principals (
+            principal_id,
+            username,
+            password_hash,
+            display_name,
+            status,
+            created_at,
+            updated_at
+        ) values (
+            #{principal.principalId},
+            #{principal.username},
+            #{principal.passwordHash},
+            #{principal.displayName},
+            #{principal.status},
+            #{principal.createdAt},
+            #{principal.updatedAt}
+        )
+    </insert>
+
+    <insert id="insertRole">
+        insert into admin_roles (role_code, description, created_at)
+        values (#{roleCode}, #{description}, #{createdAt})
+        on conflict (role_code) do nothing
+    </insert>
+
+    <insert id="grantRole">
+        insert into admin_principal_roles (principal_id, role_code, granted_at)
+        values (#{principalId}, #{roleCode}, #{grantedAt})
+        on conflict (principal_id, role_code) do nothing
+    </insert>
+
+    <insert id="grantPermission">
+        insert into admin_role_permissions (role_code, permission_code, granted_at)
+        values (#{roleCode}, #{permissionCode}, #{grantedAt})
+        on conflict (role_code, permission_code) do nothing
+    </insert>
+
+    <update id="disablePrincipal">
+        update admin_principals
+        set status = 'disabled', updated_at = #{updatedAt}
+        where principal_id = #{principalId}
+          and status &lt;&gt; 'disabled'
+    </update>
+</mapper>

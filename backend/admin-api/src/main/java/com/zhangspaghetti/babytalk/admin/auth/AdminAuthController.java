@@ -8,6 +8,8 @@ import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.stream.Collectors;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
@@ -67,6 +69,8 @@ public class AdminAuthController {
 @RestControllerAdvice
 class AdminApiExceptionHandler {
 
+    private static final Logger log = LoggerFactory.getLogger(AdminApiExceptionHandler.class);
+
     @ExceptionHandler(AdminApiContractException.class)
     ResponseEntity<Map<String, Object>> handleContract(AdminApiContractException exception) {
         return ResponseEntity.status(exception.status())
@@ -102,6 +106,7 @@ class AdminApiExceptionHandler {
 
     @ExceptionHandler(Exception.class)
     ResponseEntity<Map<String, Object>> handleUnexpected(Exception exception) {
+        log.error("admin-api unexpected exception", exception);
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body(errorBody(HttpStatus.INTERNAL_SERVER_ERROR, "internal_error", "服务端处理失败。", Map.of()));
     }
