@@ -12,6 +12,7 @@ INFRA_CHART_DIR="$PROJECT_ROOT/deploy/helm/babytalk-infra"
 INFRA_KIND_VALUES="$INFRA_CHART_DIR/values-kind.yaml"
 INFRA_RELEASE_NAME="babytalk-infra"
 RUNBOOK="$PROJECT_ROOT/docs/runbooks/k8s-deploy.md"
+SCHEMA_MATRIX="$PROJECT_ROOT/docs/schema-compatibility-matrix.md"
 TELEMETRY_PATH="$PROJECT_ROOT/tmp/m007-s01-helm-metrics.jsonl"
 START_TS="$(date +%s)"
 
@@ -553,6 +554,57 @@ if step_failed; then
     "smoke" \
     "k8s runbook is missing or too short to support the Helm smoke handoff" \
     "Restore docs/runbooks/k8s-deploy.md and rerun bash ci/k8s-smoke.sh"
+fi
+echo ""
+
+# ── Step 10: Dual-release doc + chart boundary check ────────
+echo "--- Step 10: Dual-release doc + chart boundary check ---"
+TEMPLATE_INFRA_DEFAULT=""
+TEMPLATE_APP_DEFAULT=""
+step_begin
+if [[ -f "$SCHEMA_MATRIX" ]]; then
+  log_pass "schema compatibility matrix exists"
+else
+  log_fail "schema compatibility matrix not found at docs/schema-compatibility-matrix.md"
+fi
+
+if grep -q 'babytalk-infra' "$RUNBOOK"; then
+  log_pass "runbook references babytalk-infra"
+else
+  log_fail "runbook missing babytalk-infra reference"
+fi
+
+if grep -q 'babytalk-app' "$RUNBOOK"; then
+  log_pass "runbook references babytalk-app"
+else
+  log_fail "runbook missing babytalk-app reference"
+fi
+
+if TEMPLATE_INFRA_DEFAULT=$("$HELM_CMD" template "$INFRA_RELEASE_NAME" "$INFRA_CHART_DIR" 2>&1); then
+  INFRA_JOB_COUNT="$(grep -c 'kind: Job' <<<"$TEMPLATE_INFRA_DEFAULT" || true)"
+  if [[ "$INFRA_JOB_COUNT" -eq 0 ]]; then
+    log_pass "infra chart renders no Job resources"
+  else
+    log_fail "infra chart must not contain a db-migration Job; found $INFRA_JOB_COUNT Job resources"
+  fi
+else
+  log_fail "infra chart default render failed while checking Job boundary"
+fi
+
+if TEMPLATE_APP_DEFAULT=$("$HELM_CMD" template "$APP_RELEASE_NAME" "$APP_CHART_DIR" 2>&1); then
+  if grep 'hook-delete-policy' <<<"$TEMPLATE_APP_DEFAULT" | grep -q 'before-hook-creation,hook-succeeded'; then
+    log_pass "app chart keeps db-migration hook-delete-policy"
+  else
+    log_fail "app chart lost db-migration hook-delete-policy boundary"
+  fi
+else
+  log_fail "app chart default render failed while checking db-migration hook-delete-policy"
+fi
+if step_failed; then
+  record_first_failure \
+    "smoke" \
+    "dual-release docs or Helm boundary checks drifted from the M007 contract" \
+    "Fix docs/schema-compatibility-matrix.md, docs/runbooks/k8s-deploy.md, or the babytalk-infra/babytalk-app chart boundary, then rerun bash ci/k8s-smoke.sh"
 fi
 echo ""
 
