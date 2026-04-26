@@ -84,6 +84,18 @@ assert_not_contains() {
   fi
 }
 
+assert_eq() {
+  local expected="$1"
+  local actual="$2"
+  local label="$3"
+
+  if [[ "$expected" == "$actual" ]]; then
+    log_pass "$label"
+  else
+    log_fail "$label — expected [$expected], got [$actual]"
+  fi
+}
+
 render_resource_keys() {
   local manifest="$1"
   awk '
@@ -610,6 +622,21 @@ if step_failed; then
     "smoke" \
     "dual-release docs or Helm boundary checks drifted from the M007 contract" \
     "Fix docs/schema-compatibility-matrix.md, docs/runbooks/k8s-deploy.md, or the babytalk-infra/babytalk-app chart boundary, then rerun bash ci/k8s-smoke.sh"
+fi
+echo ""
+
+# ── Step 11: Runtime JdbcTemplate audit (our own code) ──────
+echo "--- Step 11: Runtime JdbcTemplate audit ---"
+OWN_JDBC=""
+step_begin
+OWN_JDBC="$( (grep -rn 'JdbcTemplate' backend/*/src/main --include='*.java' 2>/dev/null | \
+  grep -v 'EmbeddingConfiguration\|ChatMemoryConfiguration' || true) | wc -l | tr -d ' ' )"
+assert_eq '0' "$OWN_JDBC" 'own-jdbctemplate-count'
+if step_failed; then
+  record_first_failure \
+    "runtime-audit" \
+    "owned runtime code still depends on JdbcTemplate outside the Spring AI carve-outs" \
+    "Migrate remaining JdbcTemplate usage or narrow the carve-out list only if ownership truly belongs to Spring AI, then rerun bash ci/k8s-smoke.sh"
 fi
 echo ""
 
