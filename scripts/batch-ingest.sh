@@ -2,11 +2,11 @@
 # ──────────────────────────────────────────────────────────────
 # batch-ingest.sh — 批量导入文献到 MemPalace ingestion 管道
 #
-# 用法: ./scripts/batch-ingest.sh <文献目录> [API_BASE_URL]
+# 用法: ADMIN_ACCESS_TOKEN=... ./scripts/batch-ingest.sh <文献目录> [ADMIN_API_BASE_URL]
 #
 # 遍历目录中的所有文件，对每个文件：
 #   1. 从文件名推断 bookTitle（去掉扩展名，替换下划线/连字符为空格）
-#   2. curl POST /api/v1/ingestion/upload（multipart: file + bookTitle）
+#   2. curl POST /api/admin/knowledge/ingestion/upload（multipart: file + bookTitle）
 #   3. 记录 jobId
 #   4. 轮询 job 状态直到 COMPLETED / FAILED
 #   5. sleep 1s（rate limiting）
@@ -15,10 +15,16 @@
 set -euo pipefail
 
 # ── 参数 ──
-DOCS_DIR="${1:?用法: $0 <文献目录> [API_BASE_URL]}"
-API_BASE="${2:-http://localhost:8080}"
-UPLOAD_URL="${API_BASE}/api/v1/ingestion/upload"
-JOBS_URL="${API_BASE}/api/v1/ingestion/jobs"
+DOCS_DIR="${1:?用法: ADMIN_ACCESS_TOKEN=... $0 <文献目录> [ADMIN_API_BASE_URL]}"
+API_BASE="${2:-http://localhost:8081}"
+UPLOAD_URL="${API_BASE}/api/admin/knowledge/ingestion/upload"
+JOBS_URL="${API_BASE}/api/admin/knowledge/ingestion/jobs"
+ADMIN_ACCESS_TOKEN="${ADMIN_ACCESS_TOKEN:-}"
+
+if [ -z "$ADMIN_ACCESS_TOKEN" ]; then
+    echo "错误: 需要 ADMIN_ACCESS_TOKEN 环境变量。请先调用 /api/admin/auth/login 获取管理员 access token。" >&2
+    exit 1
+fi
 
 # ── 计数器 ──
 TOTAL=0
@@ -62,7 +68,9 @@ poll_job_status() {
 
     while [ "$attempt" -lt "$POLL_MAX_ATTEMPTS" ]; do
         local response
-        response=$(curl -s -w "\n%{http_code}" "${JOBS_URL}/${job_id}" 2>/dev/null) || true
+        response=$(curl -s -w "\n%{http_code}" \
+            -H "Authorization: Bearer ${ADMIN_ACCESS_TOKEN}" \
+            "${JOBS_URL}/${job_id}" 2>/dev/null) || true
         local http_code
         http_code=$(echo "$response" | tail -1)
         local body
@@ -115,7 +123,7 @@ fi
 
 log_info "批量导入开始"
 log_info "文献目录: $DOCS_DIR"
-log_info "API 地址:  $UPLOAD_URL"
+log_info "Admin API: $UPLOAD_URL"
 echo "────────────────────────────────────────"
 
 for filepath in "$DOCS_DIR"/*; do
@@ -131,6 +139,7 @@ for filepath in "$DOCS_DIR"/*; do
     # 上传文件
     upload_response=$(curl -s -w "\n%{http_code}" \
         -X POST "$UPLOAD_URL" \
+        -H "Authorization: Bearer ${ADMIN_ACCESS_TOKEN}" \
         -F "file=@${filepath}" \
         -F "bookTitle=${book_title}" \
         2>/dev/null) || true

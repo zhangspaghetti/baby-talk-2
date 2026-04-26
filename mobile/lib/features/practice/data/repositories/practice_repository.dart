@@ -506,6 +506,7 @@ class PracticeRepository {
     String? sceneTag,
     String? fallbackSpaceId,
     String? fallbackActivityId,
+    String? accessToken,
   }) async {
     final apiService = _dynamicPracticeApiService;
     if (apiService != null) {
@@ -515,6 +516,7 @@ class PracticeRepository {
           installationId: installationId,
           babyAgeMonths: babyAgeMonths,
           sceneTag: sceneTag,
+          accessToken: accessToken,
         );
         if (response.activities.isNotEmpty) {
           final activity = response.activities.first;

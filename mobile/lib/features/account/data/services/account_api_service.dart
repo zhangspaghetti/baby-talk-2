@@ -82,6 +82,11 @@ class AccountSessionResponse {
     required this.maskedPhoneNumber,
     required this.createdAt,
     required this.consentStatus,
+    required this.accessToken,
+    required this.refreshToken,
+    required this.tokenType,
+    required this.accessTokenExpiresAt,
+    required this.refreshTokenExpiresAt,
   });
 
   final String accountId;
@@ -89,6 +94,11 @@ class AccountSessionResponse {
   final String maskedPhoneNumber;
   final DateTime createdAt;
   final String consentStatus;
+  final String accessToken;
+  final String refreshToken;
+  final String tokenType;
+  final DateTime accessTokenExpiresAt;
+  final DateTime refreshTokenExpiresAt;
 }
 
 class AccountConsentResponse {
@@ -197,23 +207,28 @@ class AccountApiService {
         'installationId': installationId,
       },
     );
-    return AccountSessionResponse(
-      accountId: _readRequiredString(json, 'accountId'),
-      sessionId: _readRequiredString(json, 'sessionId'),
-      maskedPhoneNumber: _readRequiredString(json, 'maskedPhoneNumber'),
-      createdAt: _readRequiredDateTime(json, 'createdAt'),
-      consentStatus: _readRequiredString(json, 'consentStatus'),
+    return _readSessionResponse(json);
+  }
+
+  Future<AccountSessionResponse> refreshSession({
+    required String refreshToken,
+  }) async {
+    final json = await _requestJson(
+      'POST',
+      '/api/v1/auth/refresh',
+      body: <String, Object?>{'refreshToken': refreshToken},
     );
+    return _readSessionResponse(json);
   }
 
   Future<AccountConsentResponse> acceptConsent({
-    required String sessionId,
+    required String accessToken,
     required String consentVersion,
   }) async {
     final json = await _requestJson(
       'POST',
       '/api/v1/consent/accept',
-      sessionId: sessionId,
+      accessToken: accessToken,
       body: <String, Object?>{'consentVersion': consentVersion},
     );
     return AccountConsentResponse(
@@ -225,13 +240,13 @@ class AccountApiService {
   }
 
   Future<AccountConsentResponse> revokeConsent({
-    required String sessionId,
+    required String accessToken,
     required String reason,
   }) async {
     final json = await _requestJson(
       'POST',
       '/api/v1/consent/revoke',
-      sessionId: sessionId,
+      accessToken: accessToken,
       body: <String, Object?>{'reason': reason},
     );
     return AccountConsentResponse(
@@ -243,13 +258,13 @@ class AccountApiService {
   }
 
   Future<AccountDeleteResponse> deleteAccount({
-    required String sessionId,
+    required String accessToken,
     required String reason,
   }) async {
     final json = await _requestJson(
       'DELETE',
       '/api/v1/account',
-      sessionId: sessionId,
+      accessToken: accessToken,
       body: <String, Object?>{'reason': reason},
     );
     return AccountDeleteResponse(
@@ -261,14 +276,14 @@ class AccountApiService {
   }
 
   Future<SyncEventsResponse> syncEvents({
-    required String sessionId,
+    required String accessToken,
     required String installationId,
     required List<InteractionEventUploadRecord> events,
   }) async {
     final json = await _requestJson(
       'POST',
       '/api/v1/sync/events',
-      sessionId: sessionId,
+      accessToken: accessToken,
       body: <String, Object?>{
         'installationId': installationId,
         'events': events
@@ -287,13 +302,13 @@ class AccountApiService {
   }
 
   Future<BootstrapResponse> bootstrap({
-    required String sessionId,
+    required String accessToken,
     required String installationId,
   }) async {
     final json = await _requestJson(
       'GET',
       '/api/v1/bootstrap',
-      sessionId: sessionId,
+      accessToken: accessToken,
       queryParameters: <String, String>{'installationId': installationId},
     );
 
@@ -349,7 +364,7 @@ class AccountApiService {
   Future<Map<String, dynamic>> _requestJson(
     String method,
     String path, {
-    String? sessionId,
+    String? accessToken,
     Map<String, String>? queryParameters,
     Map<String, Object?>? body,
   }) async {
@@ -357,8 +372,9 @@ class AccountApiService {
     request.headers['Accept'] = 'application/json';
     request.headers['Content-Type'] = 'application/json';
     request.headers['X-App-Version'] = appVersion;
-    if (sessionId != null && sessionId.trim().isNotEmpty) {
-      request.headers['X-Session-Id'] = sessionId.trim();
+    if (accessToken != null && accessToken.trim().isNotEmpty) {
+      request.headers[HttpHeaders.authorizationHeader] =
+          'Bearer ${accessToken.trim()}';
     }
     if (body != null) {
       request.body = jsonEncode(body);
@@ -393,6 +409,24 @@ class AccountApiService {
       );
     }
     return decoded;
+  }
+
+  AccountSessionResponse _readSessionResponse(Map<String, dynamic> json) {
+    return AccountSessionResponse(
+      accountId: _readRequiredString(json, 'accountId'),
+      sessionId: _readRequiredString(json, 'sessionId'),
+      maskedPhoneNumber: _readRequiredString(json, 'maskedPhoneNumber'),
+      createdAt: _readRequiredDateTime(json, 'createdAt'),
+      consentStatus: _readRequiredString(json, 'consentStatus'),
+      accessToken: _readRequiredString(json, 'accessToken'),
+      refreshToken: _readRequiredString(json, 'refreshToken'),
+      tokenType: _readRequiredString(json, 'tokenType'),
+      accessTokenExpiresAt: _readRequiredDateTime(json, 'accessTokenExpiresAt'),
+      refreshTokenExpiresAt: _readRequiredDateTime(
+        json,
+        'refreshTokenExpiresAt',
+      ),
+    );
   }
 
   Uri _resolveUri(String path, Map<String, String>? queryParameters) {

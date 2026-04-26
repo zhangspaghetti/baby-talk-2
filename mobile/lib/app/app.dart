@@ -15,6 +15,7 @@ import 'package:mobile/core/device/installation_id_service.dart';
 import 'package:mobile/features/account/data/local/account_local_store.dart';
 import 'package:mobile/features/account/data/repositories/account_repository.dart';
 import 'package:mobile/features/account/data/services/account_api_service.dart';
+import 'package:mobile/features/account/data/services/authenticated_api_client.dart';
 import 'package:mobile/features/account/presentation/account_view_model.dart';
 import 'package:mobile/features/household/data/local/household_local_store.dart';
 import 'package:mobile/features/household/data/repositories/household_repository.dart';
@@ -22,6 +23,7 @@ import 'package:mobile/features/household/data/services/household_api_service.da
 import 'package:mobile/features/household/presentation/household_view_model.dart';
 import 'package:mobile/features/mentor/data/local/mentor_local_data_source.dart';
 import 'package:mobile/features/mentor/data/repositories/mentor_repository.dart';
+import 'package:mobile/features/mentor/data/services/mentor_api_service.dart';
 import 'package:mobile/features/mentor/presentation/mentor_view_model.dart';
 import 'package:mobile/features/onboarding/data/local/onboarding_snapshot_store.dart';
 import 'package:mobile/features/onboarding/data/repositories/onboarding_repository.dart';
@@ -32,6 +34,7 @@ import 'package:mobile/features/practice/data/local/practice_local_data_source.d
 import 'package:mobile/features/practice/data/repositories/garden_growth_repository.dart';
 import 'package:mobile/features/practice/data/repositories/practice_repository.dart';
 import 'package:mobile/features/practice/data/services/asset_phrase_service.dart';
+import 'package:mobile/features/practice/data/services/dynamic_practice_api_service.dart';
 import 'package:mobile/features/practice/domain/models/practice_continuity_snapshot.dart';
 import 'package:mobile/features/practice/presentation/garden_growth_view_model.dart';
 import 'package:mobile/features/practice/presentation/practice_continuity_view_model.dart';
@@ -124,6 +127,50 @@ class _AppBootContinuitySeed {
   final PracticeContinuitySeedState? viewModelSeed;
 }
 
+class _SharedConsumerAuthDependencies {
+  _SharedConsumerAuthDependencies._({
+    required this.client,
+    required this.accountApiService,
+    required this.authenticatedApiClient,
+    required this.dynamicPracticeApiService,
+    required this.householdApiService,
+    required this.mentorApiService,
+  });
+
+  factory _SharedConsumerAuthDependencies.create() {
+    final client = http.Client();
+    final accountApiService = AccountApiService(client: client);
+    final authenticatedApiClient = AuthenticatedApiClient(
+      apiService: accountApiService,
+    );
+    return _SharedConsumerAuthDependencies._(
+      client: client,
+      accountApiService: accountApiService,
+      authenticatedApiClient: authenticatedApiClient,
+      dynamicPracticeApiService: DynamicPracticeApiService(client: client),
+      householdApiService: HouseholdApiService(
+        client: client,
+        authenticatedApiClient: authenticatedApiClient,
+      ),
+      mentorApiService: MentorApiService(
+        client: client,
+        authenticatedApiClient: authenticatedApiClient,
+      ),
+    );
+  }
+
+  final http.Client client;
+  final AccountApiService accountApiService;
+  final AuthenticatedApiClient authenticatedApiClient;
+  final DynamicPracticeApiService dynamicPracticeApiService;
+  final HouseholdApiService householdApiService;
+  final MentorApiService mentorApiService;
+
+  void close() {
+    client.close();
+  }
+}
+
 class _AppLaunchState {
   const _AppLaunchState({
     required this.practiceRepository,
@@ -136,6 +183,7 @@ class _AppLaunchState {
     required this.defaultPracticeArgs,
     this.continuitySeed,
     this.completedSnapshot,
+    this.mentorApiService,
   });
 
   final PracticeRepository practiceRepository;
@@ -148,6 +196,7 @@ class _AppLaunchState {
   final PracticeRouteArgs defaultPracticeArgs;
   final PracticeContinuitySeedState? continuitySeed;
   final OnboardingSnapshot? completedSnapshot;
+  final MentorApiService? mentorApiService;
 
   String get initialRoute => switch (destination) {
     AppLaunchDestination.onboarding => AppRouteNames.onboarding,
@@ -199,6 +248,7 @@ class _BabyTalkAppState extends State<BabyTalkApp> {
   final GlobalKey<NavigatorState> _navigatorKey = GlobalKey<NavigatorState>();
   PracticeRepository? _repository;
   MentorRepository? _mentorRepository;
+  _SharedConsumerAuthDependencies? _sharedConsumerAuthDependencies;
   _AppLaunchState? _resolvedLaunchState;
 
   @override
@@ -223,6 +273,11 @@ class _BabyTalkAppState extends State<BabyTalkApp> {
     );
     _reentryOrchestrator.configureShareUriSubscription(widget.shareUriStream);
     _launchStateFuture = _loadLaunchState();
+  }
+
+  _SharedConsumerAuthDependencies _resolveSharedConsumerAuthDependencies() {
+    return _sharedConsumerAuthDependencies ??=
+        _SharedConsumerAuthDependencies.create();
   }
 
   @override
@@ -349,6 +404,9 @@ class _BabyTalkAppState extends State<BabyTalkApp> {
               create: (context) => MentorViewModel(
                 repository: context.read<MentorRepository>(),
                 accountViewModel: context.read<AccountViewModel>(),
+                apiService: launchState.mentorApiService,
+                persistRefreshedSession:
+                    accountRepository.persistRefreshedSession,
               ),
             ),
             ChangeNotifierProvider<GardenGrowthViewModel>(
@@ -451,6 +509,7 @@ class _BabyTalkAppState extends State<BabyTalkApp> {
   void dispose() {
     final repository = _repository;
     final mentorRepository = _mentorRepository;
+    final sharedConsumerAuthDependencies = _sharedConsumerAuthDependencies;
     _reentryOrchestrator.dispose();
     if (_ownsShareReentryCoordinator) {
       _shareReentryCoordinator.dispose();
@@ -464,6 +523,7 @@ class _BabyTalkAppState extends State<BabyTalkApp> {
     if (mentorRepository != null) {
       unawaited(mentorRepository.close());
     }
+    sharedConsumerAuthDependencies?.close();
     super.dispose();
   }
 
@@ -489,6 +549,10 @@ class _BabyTalkAppState extends State<BabyTalkApp> {
     PracticeRepository? repository;
     HouseholdRepository? householdRepository;
     MentorRepository? mentorRepository;
+    if (widget.accountRepositoryFactory != null) {
+      _sharedConsumerAuthDependencies?.close();
+      _sharedConsumerAuthDependencies = null;
+    }
     try {
       final factory = widget.repositoryFactory ?? _defaultRepositoryFactory;
       final directory = await _resolveAppDirectory();
@@ -548,6 +612,9 @@ class _BabyTalkAppState extends State<BabyTalkApp> {
         defaultPracticeArgs: continuitySeed.defaultPracticeArgs,
         continuitySeed: continuitySeed.viewModelSeed,
         completedSnapshot: completedSnapshot,
+        mentorApiService: widget.accountRepositoryFactory == null
+            ? _sharedConsumerAuthDependencies?.mentorApiService
+            : null,
       );
     } catch (error) {
       if (householdRepository != null) {
@@ -646,12 +713,14 @@ class _BabyTalkAppState extends State<BabyTalkApp> {
     AssetPhraseService assetPhraseService,
   ) async {
     final directory = await _resolveAppDirectory();
+    final authDependencies = _resolveSharedConsumerAuthDependencies();
     final localDataSource = await PracticeLocalDataSource.open(
       directory: directory.path,
     );
     return PracticeRepository(
       assetPhraseService: assetPhraseService,
       localDataSource: localDataSource,
+      dynamicPracticeApiService: authDependencies.dynamicPracticeApiService,
       installationIdService: InstallationIdService(
         directoryResolver: () async => directory,
       ),
@@ -663,10 +732,12 @@ class _BabyTalkAppState extends State<BabyTalkApp> {
     Directory directory,
   ) async {
     final connectivity = Connectivity();
+    final authDependencies = _resolveSharedConsumerAuthDependencies();
     return AccountRepository(
       localStore: AccountLocalStore(directoryResolver: () async => directory),
       practiceRepository: practiceRepository,
-      apiService: AccountApiService(client: http.Client()),
+      apiService: authDependencies.accountApiService,
+      authenticatedApiClient: authDependencies.authenticatedApiClient,
       connectivityChecker: () async {
         try {
           final dynamic status = await connectivity.checkConnectivity();
@@ -690,10 +761,12 @@ class _BabyTalkAppState extends State<BabyTalkApp> {
     AccountRepository accountRepository,
     Directory directory,
   ) async {
+    final authDependencies = _resolveSharedConsumerAuthDependencies();
     return HouseholdRepository(
       localStore: HouseholdLocalStore(directoryResolver: () async => directory),
-      apiService: HouseholdApiService(client: http.Client()),
+      apiService: authDependencies.householdApiService,
       accountSnapshotLoader: accountRepository.loadSnapshot,
+      persistRefreshedSession: accountRepository.persistRefreshedSession,
     );
   }
 

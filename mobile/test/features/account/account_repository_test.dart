@@ -36,7 +36,7 @@ void main() {
       await harness.dispose();
     });
 
-    test('signIn 会 bootstrap + ack 本地 pending，并保持 append-only 恢复结果', () async {
+    test('signIn 会 bootstrap + ack 本地 pending，并把 token schema 落盘', () async {
       await harness.practiceRepository.recordReaction(
         spaceId: 'daily_care',
         activityId: 'bath_time',
@@ -68,6 +68,11 @@ void main() {
 
       expect(snapshot.consentState, AccountConsentState.acceptedPendingSync);
       expect(snapshot.session?.maskedPhoneNumber, '138****8000');
+      expect(snapshot.session?.accessToken, 'access_live');
+      expect(snapshot.session?.refreshToken, 'refresh_live');
+      expect(snapshot.session?.tokenType, 'Bearer');
+      expect(snapshot.session?.accessTokenExpiresAt, isNotNull);
+      expect(snapshot.session?.refreshTokenExpiresAt, isNotNull);
       expect(snapshot.pendingSyncCount, 0);
       expect(snapshot.syncedCount, 2);
       expect(snapshot.failedCount, 0);
@@ -84,6 +89,13 @@ void main() {
         harness.api.syncedBatches.single.single.toJsonMap().keys,
         isNot(contains('syncState')),
       );
+
+      final persisted = await harness.accountLocalStore.read();
+      expect(persisted.session?.accessToken, 'access_live');
+      expect(persisted.session?.refreshToken, 'refresh_live');
+      expect(persisted.session?.tokenType, 'Bearer');
+      expect(persisted.session?.accessTokenExpiresAt, isNotNull);
+      expect(persisted.session?.refreshTokenExpiresAt, isNotNull);
 
       final history = await harness.practiceRepository.listEventHistory(
         activityId: 'bath_time',
@@ -215,7 +227,7 @@ void main() {
       expect(snapshot.lastVisibleError, contains('升级链接配置错误'));
     });
 
-    test('旧版 snapshot 缺失 upgradeUrl 字段时仍可兼容读取', () async {
+    test('旧版 snapshot 缺失 token 与 upgradeUrl 时仍可兼容读取', () async {
       final repository = harness.buildRepository();
       await harness.writeRawSnapshot(<String, Object?>{
         'consentState': 'accepted_pending_sync',
@@ -242,10 +254,47 @@ void main() {
 
       expect(snapshot.consentState, AccountConsentState.acceptedPendingSync);
       expect(snapshot.session?.sessionId, 'sess_legacy');
+      expect(snapshot.session?.accessToken, isNull);
+      expect(snapshot.session?.refreshToken, isNull);
       expect(snapshot.lastSyncPhase, 'bootstrap_imported');
       expect(snapshot.upgradeUrl, isNull);
       expect(snapshot.isUpgradeRequired, isFalse);
     });
+
+    test(
+      'refresh terminal failure 会清 session 并暴露 auth-expired phase',
+      () async {
+        await harness.seedSignedInSnapshot(
+          accessToken: 'access_expired',
+          refreshToken: 'refresh_expired',
+        );
+        harness.api.unauthorizedBootstrapTokens.add('access_expired');
+        harness.api.refreshException = AccountApiException(
+          kind: AccountApiFailureKind.http,
+          message: 'refreshToken=refresh_expired 已被轮换。',
+          statusCode: 401,
+          code: 'refresh_token_rotated',
+        );
+        final repository = harness.buildRepository();
+
+        final snapshot = await repository.refreshRuntimeState(
+          trigger: AccountRuntimeTrigger.manualRetry,
+        );
+
+        expect(snapshot.consentState, AccountConsentState.signedOut);
+        expect(snapshot.session, isNull);
+        expect(snapshot.lastSyncPhase, 'bootstrap_failed_session_expired');
+        expect(snapshot.lastVisibleError, contains('重新登录'));
+        expect(snapshot.lastVisibleError, isNot(contains('refresh_expired')));
+        expect(harness.api.refreshCallCount, 1);
+        expect(harness.api.bootstrapAccessTokens, <String>['access_expired']);
+
+        final persisted = await harness.accountLocalStore.read();
+        expect(persisted.consentState, AccountConsentState.signedOut);
+        expect(persisted.session, isNull);
+        expect(persisted.lastSyncPhase, 'bootstrap_failed_session_expired');
+      },
+    );
   });
 }
 
@@ -311,7 +360,10 @@ class _AccountRepositoryHarness {
     );
   }
 
-  Future<AccountLocalSnapshot> seedSignedInSnapshot() async {
+  Future<AccountLocalSnapshot> seedSignedInSnapshot({
+    String accessToken = 'access_seed',
+    String refreshToken = 'refresh_seed',
+  }) async {
     final syncSummary = await practiceRepository.getSyncSummary();
     final snapshot = AccountLocalSnapshot(
       consentState: AccountConsentState.acceptedPendingSync,
@@ -320,6 +372,11 @@ class _AccountRepositoryHarness {
         sessionId: 'sess_seed',
         maskedPhoneNumber: '138****8000',
         createdAt: DateTime.utc(2026, 4, 9, 2),
+        accessToken: accessToken,
+        refreshToken: refreshToken,
+        tokenType: 'Bearer',
+        accessTokenExpiresAt: DateTime.utc(2026, 4, 9, 2, 15),
+        refreshTokenExpiresAt: DateTime.utc(2026, 4, 16, 2),
       ),
       challenge: AccountChallengePlaceholder(
         maskedPhoneNumber: '138****8000',
@@ -356,10 +413,16 @@ class _FakeAccountApiService extends AccountApiService {
 
   final String installationId;
   final List<List<InteractionEventUploadRecord>> syncedBatches = [];
+  final List<String> bootstrapAccessTokens = [];
+  final Set<String> unauthorizedBootstrapTokens = <String>{};
+  final List<String> acceptedConsentAccessTokens = [];
   List<InteractionEventPayload> bootstrapEvents = [];
   bool throwVersionBlockedOnBootstrap = false;
   String? versionBlockedUpgradeUrl;
   String versionBlockedMinimumSupportedVersion = '9.9.9';
+  AccountApiException? refreshException;
+  AccountSessionResponse? refreshResponse;
+  int refreshCallCount = 0;
 
   @override
   Future<AccountChallengeResponse> createChallenge({
@@ -382,21 +445,36 @@ class _FakeAccountApiService extends AccountApiService {
     expect(challengeId, 'challenge_1');
     expect(verificationCode, '246810');
     expect(installationId, this.installationId);
-    return AccountSessionResponse(
-      accountId: 'acct_test',
+    return _sessionResponse(
       sessionId: 'sess_live',
-      maskedPhoneNumber: '138****8000',
-      createdAt: DateTime.utc(2026, 4, 9, 2, 1),
-      consentStatus: 'signed_out',
+      accessToken: 'access_live',
+      refreshToken: 'refresh_live',
     );
   }
 
   @override
+  Future<AccountSessionResponse> refreshSession({
+    required String refreshToken,
+  }) async {
+    refreshCallCount += 1;
+    if (refreshException != null) {
+      throw refreshException!;
+    }
+    return refreshResponse ??
+        _sessionResponse(
+          sessionId: 'sess_seed',
+          accessToken: 'access_rotated',
+          refreshToken: 'refresh_rotated',
+        );
+  }
+
+  @override
   Future<AccountConsentResponse> acceptConsent({
-    required String sessionId,
+    required String accessToken,
     required String consentVersion,
   }) async {
-    expect(sessionId, isNotEmpty);
+    acceptedConsentAccessTokens.add(accessToken);
+    expect(accessToken, isNotEmpty);
     expect(consentVersion, 'pipl-v1');
     return AccountConsentResponse(
       applied: true,
@@ -408,10 +486,11 @@ class _FakeAccountApiService extends AccountApiService {
 
   @override
   Future<BootstrapResponse> bootstrap({
-    required String sessionId,
+    required String accessToken,
     required String installationId,
   }) async {
-    expect(sessionId, isNotEmpty);
+    bootstrapAccessTokens.add(accessToken);
+    expect(accessToken, isNotEmpty);
     expect(installationId, this.installationId);
     if (throwVersionBlockedOnBootstrap) {
       throw AccountApiException(
@@ -421,6 +500,14 @@ class _FakeAccountApiService extends AccountApiService {
         code: 'app_version_required',
         minimumSupportedVersion: versionBlockedMinimumSupportedVersion,
         upgradeUrl: versionBlockedUpgradeUrl,
+      );
+    }
+    if (unauthorizedBootstrapTokens.contains(accessToken)) {
+      throw const AccountApiException(
+        kind: AccountApiFailureKind.http,
+        message: 'expired access token',
+        statusCode: 401,
+        code: 'access_token_rotated',
       );
     }
     return BootstrapResponse(
@@ -433,11 +520,11 @@ class _FakeAccountApiService extends AccountApiService {
 
   @override
   Future<SyncEventsResponse> syncEvents({
-    required String sessionId,
+    required String accessToken,
     required String installationId,
     required List<InteractionEventUploadRecord> events,
   }) async {
-    expect(sessionId, isNotEmpty);
+    expect(accessToken, isNotEmpty);
     expect(installationId, this.installationId);
     syncedBatches.add(List<InteractionEventUploadRecord>.unmodifiable(events));
     return SyncEventsResponse(
@@ -452,7 +539,7 @@ class _FakeAccountApiService extends AccountApiService {
 
   @override
   Future<AccountConsentResponse> revokeConsent({
-    required String sessionId,
+    required String accessToken,
     required String reason,
   }) async {
     return AccountConsentResponse(
@@ -465,7 +552,7 @@ class _FakeAccountApiService extends AccountApiService {
 
   @override
   Future<AccountDeleteResponse> deleteAccount({
-    required String sessionId,
+    required String accessToken,
     required String reason,
   }) async {
     return AccountDeleteResponse(
@@ -478,6 +565,25 @@ class _FakeAccountApiService extends AccountApiService {
 
   @override
   Future<void> close() async {}
+
+  AccountSessionResponse _sessionResponse({
+    required String sessionId,
+    required String accessToken,
+    required String refreshToken,
+  }) {
+    return AccountSessionResponse(
+      accountId: 'acct_test',
+      sessionId: sessionId,
+      maskedPhoneNumber: '138****8000',
+      createdAt: DateTime.utc(2026, 4, 9, 2, 1),
+      consentStatus: 'signed_out',
+      accessToken: accessToken,
+      refreshToken: refreshToken,
+      tokenType: 'Bearer',
+      accessTokenExpiresAt: DateTime.utc(2026, 4, 9, 2, 16),
+      refreshTokenExpiresAt: DateTime.utc(2026, 4, 16, 2, 1),
+    );
+  }
 }
 
 String _resolveBundledIsarLibraryPath() {

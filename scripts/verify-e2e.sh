@@ -16,18 +16,27 @@
 # 环境变量:
 #   SKIP_DOCKER — 设为 1 跳过 docker 启停（适用于已运行的环境）
 #   API_BASE    — 后端地址（默认 http://localhost:8080）
+#   ADMIN_API_BASE — 管理端地址（默认 http://localhost:8081）
+#   ADMIN_ACCESS_TOKEN — 可选，直接复用现成管理员 access token
+#   ADMIN_USERNAME / ADMIN_PASSWORD — 未提供 token 时用于本地 bootstrap 登录
 # ──────────────────────────────────────────────────────────────
 set -euo pipefail
 
 # ── 配置 ──
 API_BASE="${API_BASE:-http://localhost:8080}"
+ADMIN_API_BASE="${ADMIN_API_BASE:-http://localhost:8081}"
 HEALTH_URL="${API_BASE}/actuator/health"
+ADMIN_LOGIN_URL="${ADMIN_API_BASE}/api/admin/auth/login"
+ADMIN_UPLOAD_URL="${ADMIN_API_BASE}/api/admin/knowledge/ingestion/upload"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 COMPOSE_FILE="${PROJECT_DIR}/docker-compose.yml"
 SKIP_DOCKER="${SKIP_DOCKER:-0}"
 INSTALLATION_ID="test-e2e-$(date +%s)"
 APP_VERSION="${APP_VERSION:-1.2.0}"
+ADMIN_ACCESS_TOKEN="${ADMIN_ACCESS_TOKEN:-}"
+ADMIN_USERNAME="${ADMIN_USERNAME:-super_admin}"
+ADMIN_PASSWORD="${ADMIN_PASSWORD:-SuperAdmin123!}"
 
 # ── 颜色 ──
 RED='\033[0;31m'
@@ -45,6 +54,34 @@ check_fail() { echo -e "  ${RED}✗ FAIL${NC}: $1"; FAIL=$((FAIL + 1)); }
 
 log_info()  { echo -e "${CYAN}[INFO]${NC}  $*"; }
 log_warn()  { echo -e "${YELLOW}[WARN]${NC}  $*"; }
+
+resolve_admin_token() {
+    if [ -n "$ADMIN_ACCESS_TOKEN" ]; then
+        return 0
+    fi
+
+    local response http_code body
+    response=$(curl -s -w "\n%{http_code}" \
+        -X POST "$ADMIN_LOGIN_URL" \
+        -H "Content-Type: application/json" \
+        -d "{\"username\":\"${ADMIN_USERNAME}\",\"password\":\"${ADMIN_PASSWORD}\"}" \
+        2>/dev/null) || true
+    http_code=$(echo "$response" | tail -1)
+    body=$(echo "$response" | sed '$d')
+
+    if [ "$http_code" != "200" ]; then
+        check_fail "管理员登录失败 (HTTP ${http_code}): ${body}"
+        return 1
+    fi
+
+    ADMIN_ACCESS_TOKEN=$(echo "$body" | grep -o '"accessToken":"[^"]*"' | head -1 | cut -d'"' -f4)
+    if [ -z "$ADMIN_ACCESS_TOKEN" ]; then
+        check_fail "管理员登录成功但未返回 accessToken"
+        return 1
+    fi
+
+    check_pass "管理员登录成功"
+}
 
 # ── 清理函数 ──
 cleanup() {
@@ -253,20 +290,18 @@ else
     check_fail "GET /api/v1/kg/contradictions → ${KG_CONTRA_HTTP} (期望 200)"
 fi
 
-# 5d. POST /api/v1/ingestion/upload → 400（无文件时应返回 400）
-UPLOAD_HTTP=$(curl -s -o /dev/null -w "%{http_code}" \
-    -X POST "${API_BASE}/api/v1/ingestion/upload" \
-    -H "X-App-Version: ${APP_VERSION}" \
-    2>/dev/null) || UPLOAD_HTTP="000"
+# 5d. POST /api/admin/knowledge/ingestion/upload → 400（已认证、无文件时应返回 400）
+if resolve_admin_token; then
+    UPLOAD_HTTP=$(curl -s -o /dev/null -w "%{http_code}" \
+        -X POST "${ADMIN_UPLOAD_URL}" \
+        -H "Authorization: Bearer ${ADMIN_ACCESS_TOKEN}" \
+        2>/dev/null) || UPLOAD_HTTP="000"
 
-if [ "$UPLOAD_HTTP" = "400" ]; then
-    check_pass "POST /api/v1/ingestion/upload (无文件) → ${UPLOAD_HTTP} (符合预期)"
-elif [ "$UPLOAD_HTTP" -ge 400 ] && [ "$UPLOAD_HTTP" -lt 500 ] 2>/dev/null; then
-    check_pass "POST /api/v1/ingestion/upload (无文件) → ${UPLOAD_HTTP} (客户端错误，端点可达)"
-elif [ "$UPLOAD_HTTP" = "500" ]; then
-    check_pass "POST /api/v1/ingestion/upload (无文件) → ${UPLOAD_HTTP} (端点可达，缺少 multipart)"
-else
-    check_fail "POST /api/v1/ingestion/upload (无文件) → ${UPLOAD_HTTP} (不可达)"
+    if [ "$UPLOAD_HTTP" = "400" ]; then
+        check_pass "POST /api/admin/knowledge/ingestion/upload (无文件) → ${UPLOAD_HTTP}"
+    else
+        check_fail "POST /api/admin/knowledge/ingestion/upload (无文件) → ${UPLOAD_HTTP} (期望 400)"
+    fi
 fi
 
 # ──────────────────────────────────────────

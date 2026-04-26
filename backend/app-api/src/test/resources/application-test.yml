@@ -1,0 +1,31 @@
+# 测试 profile：Testcontainers 通过 @DynamicPropertySource 动态注入 datasource 配置
+# 此文件仅放非敏感的测试共享配置
+spring:
+  datasource:
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 3
+      minimum-idle: 1
+      connection-timeout: 30000
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    clean-disabled: false
+
+# 测试环境 embedding 配置（集成测试中使用 mock EmbeddingModel 覆盖此 bean）
+app:
+  embedding:
+    mode: openai
+    base-url: https://test.example.com
+    api-key: test-api-key-placeholder
+    model: text-embedding-3-small
+    dimensions: 1536
+  minio:
+    endpoint: http://localhost:9000
+    access-key: test-access-key
+    secret-key: test-secret-key
+    bucket-name: test-bucket
+  kg:
+    review-interval: PT1M
+    review-enabled: false
+    review-batch-size: 5

@@ -11,6 +11,7 @@ import 'package:mobile/l10n/app_localizations.dart';
 import 'package:mobile/core/device/installation_id_service.dart';
 import 'package:mobile/features/account/data/local/account_local_store.dart';
 import 'package:mobile/features/account/data/repositories/account_repository.dart';
+import 'package:mobile/features/account/domain/models/account_session.dart';
 import 'package:mobile/features/account/presentation/account_view_model.dart';
 import 'package:mobile/features/household/data/local/household_local_store.dart';
 import 'package:mobile/features/household/data/repositories/household_repository.dart';
@@ -197,10 +198,7 @@ void main() {
       find.byKey(const ValueKey('recent-result-feeding_time')),
     );
 
-    expect(
-      find.byKey(const Key('recent-result-summary')),
-      findsOneWidget,
-    );
+    expect(find.byKey(const Key('recent-result-summary')), findsOneWidget);
     expect(find.textContaining('吃饭时间'), findsWidgets);
     expect(find.textContaining('Yummy bite.'), findsWidgets);
   });
@@ -793,9 +791,14 @@ class _StaticAccountRepository implements AccountRepository {
   }
 
   @override
-  Future<AccountLocalSnapshot> close() async {
-    return AccountLocalSnapshot.signedOut;
+  Future<AccountSession> persistRefreshedSession(
+    AccountSession refreshedSession,
+  ) async {
+    return refreshedSession;
   }
+
+  @override
+  Future<void> close() async {}
 }
 
 class _SilentPracticeAudioController implements PracticeAudioController {

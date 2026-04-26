@@ -7,6 +7,8 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 CHART_DIR="$PROJECT_ROOT/deploy/helm/babytalk"
 PROD_VALUES="$CHART_DIR/values-production.yaml"
+RUNBOOK="$PROJECT_ROOT/docs/runbooks/k8s-deploy.md"
+RELEASE_NAME="babytalk"
 
 # ── 颜色输出 ──────────────────────────────────────────────────
 RED='\033[0;31m'
@@ -37,19 +39,84 @@ log_skip() {
   SKIP=$((SKIP + 1))
 }
 
+assert_contains() {
+  local haystack="$1"
+  local needle="$2"
+  local label="$3"
+
+  if grep -Fq -- "$needle" <<<"$haystack"; then
+    log_pass "$label"
+  else
+    log_fail "$label — missing [$needle]"
+  fi
+}
+
+assert_not_contains() {
+  local haystack="$1"
+  local needle="$2"
+  local label="$3"
+
+  if grep -Fq -- "$needle" <<<"$haystack"; then
+    log_fail "$label — unexpected [$needle]"
+  else
+    log_pass "$label"
+  fi
+}
+
+render_resource_keys() {
+  local manifest="$1"
+  awk '
+    BEGIN { kind = ""; in_metadata = 0 }
+    /^kind:[[:space:]]*/ { kind = $2; in_metadata = 0; next }
+    /^metadata:[[:space:]]*$/ { in_metadata = 1; next }
+    in_metadata && /^  name:[[:space:]]*/ {
+      name = $2
+      gsub(/"/, "", name)
+      print kind "/" name
+      in_metadata = 0
+      next
+    }
+    /^---/ { kind = ""; in_metadata = 0 }
+  ' <<<"$manifest"
+}
+
+assert_resource_present() {
+  local resource_keys="$1"
+  local expected_key="$2"
+  local label="$3"
+
+  if grep -Fxq -- "$expected_key" <<<"$resource_keys"; then
+    log_pass "$label"
+  else
+    log_fail "$label — missing resource [$expected_key]"
+  fi
+}
+
+assert_resource_absent() {
+  local resource_keys="$1"
+  local unexpected_key="$2"
+  local label="$3"
+
+  if grep -Fxq -- "$unexpected_key" <<<"$resource_keys"; then
+    log_fail "$label — unexpected resource [$unexpected_key]"
+  else
+    log_pass "$label"
+  fi
+}
+
 # ── 检测 helm ─────────────────────────────────────────────────
 detect_helm() {
-  # 优先检查 PATH
   if command -v helm &>/dev/null; then
     HELM_CMD="helm"
     return 0
   fi
-  # Windows WinGet 安装路径
+
   local WINGET_HELM="C:/Users/zhang/AppData/Local/Microsoft/WinGet/Packages/Helm.Helm_Microsoft.Winget.Source_8wekyb3d8bbwe/windows-amd64/helm.exe"
   if [[ -f "$WINGET_HELM" ]]; then
     HELM_CMD="$WINGET_HELM"
     return 0
   fi
+
   echo -e "${RED}ERROR: helm not found in PATH or WinGet location${NC}"
   echo "Install helm: https://helm.sh/docs/intro/install/"
   exit 1
@@ -102,56 +169,80 @@ else
 fi
 echo ""
 
-# ── Step 3: helm template (default) ──────────────────────────
-echo "--- Step 3: helm template (default values) ---"
-TEMPLATE_DEFAULT=$("$HELM_CMD" template babytalk "$CHART_DIR" 2>&1) || true
-KIND_COUNT_DEFAULT=$(echo "$TEMPLATE_DEFAULT" | grep -c "^kind:" || true)
-if [[ "$KIND_COUNT_DEFAULT" -ge 5 ]]; then
-  log_pass "helm template default — rendered $KIND_COUNT_DEFAULT resource kinds"
+# ── Step 3: helm template named split-stack truth (default) ──
+echo "--- Step 3: helm template named split-stack truth (default values) ---"
+TEMPLATE_DEFAULT=""
+RESOURCE_KEYS_DEFAULT=""
+if TEMPLATE_DEFAULT=$("$HELM_CMD" template "$RELEASE_NAME" "$CHART_DIR" 2>&1); then
+  RESOURCE_KEYS_DEFAULT="$(render_resource_keys "$TEMPLATE_DEFAULT")"
+
+  assert_resource_present "$RESOURCE_KEYS_DEFAULT" "Service/${RELEASE_NAME}-app-api" "default render includes Service/${RELEASE_NAME}-app-api"
+  assert_resource_present "$RESOURCE_KEYS_DEFAULT" "Service/${RELEASE_NAME}-admin-api" "default render includes Service/${RELEASE_NAME}-admin-api"
+  assert_resource_present "$RESOURCE_KEYS_DEFAULT" "Service/${RELEASE_NAME}-admin-web" "default render includes Service/${RELEASE_NAME}-admin-web"
+  assert_resource_present "$RESOURCE_KEYS_DEFAULT" "Deployment/${RELEASE_NAME}-app-api" "default render includes Deployment/${RELEASE_NAME}-app-api"
+  assert_resource_present "$RESOURCE_KEYS_DEFAULT" "Deployment/${RELEASE_NAME}-admin-api" "default render includes Deployment/${RELEASE_NAME}-admin-api"
+  assert_resource_present "$RESOURCE_KEYS_DEFAULT" "Deployment/${RELEASE_NAME}-admin-web" "default render includes Deployment/${RELEASE_NAME}-admin-web"
+  assert_resource_present "$RESOURCE_KEYS_DEFAULT" "Job/${RELEASE_NAME}-db-migration" "default render includes Job/${RELEASE_NAME}-db-migration"
+  assert_resource_present "$RESOURCE_KEYS_DEFAULT" "Pod/${RELEASE_NAME}-split-stack-smoke" "default render includes Pod/${RELEASE_NAME}-split-stack-smoke"
+  assert_resource_absent "$RESOURCE_KEYS_DEFAULT" "Deployment/${RELEASE_NAME}" "default render rejects legacy single Deployment/${RELEASE_NAME}"
+  assert_resource_absent "$RESOURCE_KEYS_DEFAULT" "Service/${RELEASE_NAME}" "default render rejects legacy single Service/${RELEASE_NAME}"
+  assert_resource_absent "$RESOURCE_KEYS_DEFAULT" "Ingress/${RELEASE_NAME}-app-api" "default render keeps app-api ingress disabled"
+  assert_resource_absent "$RESOURCE_KEYS_DEFAULT" "Ingress/${RELEASE_NAME}-admin-web" "default render keeps admin-web ingress disabled"
+  assert_contains "$TEMPLATE_DEFAULT" '"helm.sh/hook": pre-install,pre-upgrade' "default render keeps db-migration pre-install/pre-upgrade hook"
 else
-  log_fail "helm template default — rendered $KIND_COUNT_DEFAULT resource kinds (expected >= 5)"
+  log_fail "helm template default — render failed"
 fi
 echo ""
 
-# ── Step 4: helm template (production) ───────────────────────
-echo "--- Step 4: helm template (production values) ---"
+# ── Step 4: helm template named split-stack truth (production) ─
+echo "--- Step 4: helm template named split-stack truth (production values) ---"
+TEMPLATE_PROD=""
+RESOURCE_KEYS_PROD=""
 if [[ -f "$PROD_VALUES" ]]; then
-  TEMPLATE_PROD=$("$HELM_CMD" template babytalk "$CHART_DIR" -f "$PROD_VALUES" 2>&1) || true
-  KIND_COUNT_PROD=$(echo "$TEMPLATE_PROD" | grep -c "^kind:" || true)
-  if [[ "$KIND_COUNT_PROD" -ge 6 ]]; then
-    log_pass "helm template production — rendered $KIND_COUNT_PROD resource kinds (includes Ingress)"
+  if TEMPLATE_PROD=$("$HELM_CMD" template "$RELEASE_NAME" "$CHART_DIR" -f "$PROD_VALUES" 2>&1); then
+    RESOURCE_KEYS_PROD="$(render_resource_keys "$TEMPLATE_PROD")"
+
+    assert_resource_present "$RESOURCE_KEYS_PROD" "Service/${RELEASE_NAME}-app-api" "production render includes Service/${RELEASE_NAME}-app-api"
+    assert_resource_present "$RESOURCE_KEYS_PROD" "Service/${RELEASE_NAME}-admin-api" "production render includes Service/${RELEASE_NAME}-admin-api"
+    assert_resource_present "$RESOURCE_KEYS_PROD" "Service/${RELEASE_NAME}-admin-web" "production render includes Service/${RELEASE_NAME}-admin-web"
+    assert_resource_present "$RESOURCE_KEYS_PROD" "Deployment/${RELEASE_NAME}-app-api" "production render includes Deployment/${RELEASE_NAME}-app-api"
+    assert_resource_present "$RESOURCE_KEYS_PROD" "Deployment/${RELEASE_NAME}-admin-api" "production render includes Deployment/${RELEASE_NAME}-admin-api"
+    assert_resource_present "$RESOURCE_KEYS_PROD" "Deployment/${RELEASE_NAME}-admin-web" "production render includes Deployment/${RELEASE_NAME}-admin-web"
+    assert_resource_present "$RESOURCE_KEYS_PROD" "Job/${RELEASE_NAME}-db-migration" "production render includes Job/${RELEASE_NAME}-db-migration"
+    assert_resource_present "$RESOURCE_KEYS_PROD" "Ingress/${RELEASE_NAME}-app-api" "production render includes Ingress/${RELEASE_NAME}-app-api"
+    assert_resource_present "$RESOURCE_KEYS_PROD" "Ingress/${RELEASE_NAME}-admin-web" "production render includes Ingress/${RELEASE_NAME}-admin-web"
+    assert_resource_absent "$RESOURCE_KEYS_PROD" "Ingress/${RELEASE_NAME}-admin-api" "production render keeps admin-api internal (no ingress)"
+    assert_resource_absent "$RESOURCE_KEYS_PROD" "Deployment/${RELEASE_NAME}" "production render rejects legacy single Deployment/${RELEASE_NAME}"
+    assert_resource_absent "$RESOURCE_KEYS_PROD" "Service/${RELEASE_NAME}" "production render rejects legacy single Service/${RELEASE_NAME}"
+    assert_contains "$TEMPLATE_PROD" '"helm.sh/hook": pre-install,pre-upgrade' "production render keeps db-migration pre-install/pre-upgrade hook"
   else
-    log_fail "helm template production — rendered $KIND_COUNT_PROD resource kinds (expected >= 6)"
+    log_fail "helm template production — render failed"
   fi
 else
   log_skip "helm template production — values-production.yaml not found"
 fi
 echo ""
 
-# ── Step 5: kubectl dry-run (default) ────────────────────────
+# ── Step 5: kubectl dry-run ──────────────────────────────────
 echo "--- Step 5: kubectl dry-run validation ---"
 KUBECTL_REACHABLE=false
 if [[ -n "${KUBECTL_CMD:-}" ]]; then
-  # 检测 kubectl 能否连接集群（快速超时），无可用集群则跳过
   if "$KUBECTL_CMD" cluster-info --request-timeout=5s &>/dev/null; then
     KUBECTL_REACHABLE=true
   fi
 fi
 
-if [[ "$KUBECTL_REACHABLE" == "true" ]]; then
+if [[ "$KUBECTL_REACHABLE" == "true" ]] && [[ -n "$TEMPLATE_DEFAULT" ]]; then
   if echo "$TEMPLATE_DEFAULT" | "$KUBECTL_CMD" apply --dry-run=client -f - &>/dev/null; then
     log_pass "kubectl dry-run (default values)"
   else
     log_fail "kubectl dry-run (default values)"
   fi
 else
-  log_skip "kubectl dry-run (default) — no reachable cluster"
+  log_skip "kubectl dry-run (default) — no reachable cluster or default render failed"
 fi
-echo ""
 
-# ── Step 6: kubectl dry-run (production) ─────────────────────
-echo "--- Step 6: kubectl dry-run validation (production) ---"
-if [[ "$KUBECTL_REACHABLE" == "true" ]] && [[ -f "$PROD_VALUES" ]]; then
+if [[ "$KUBECTL_REACHABLE" == "true" ]] && [[ -n "$TEMPLATE_PROD" ]]; then
   if echo "$TEMPLATE_PROD" | "$KUBECTL_CMD" apply --dry-run=client -f - &>/dev/null; then
     log_pass "kubectl dry-run (production values)"
   else
@@ -160,22 +251,41 @@ if [[ "$KUBECTL_REACHABLE" == "true" ]] && [[ -f "$PROD_VALUES" ]]; then
 elif [[ "$KUBECTL_REACHABLE" != "true" ]]; then
   log_skip "kubectl dry-run (production) — no reachable cluster"
 else
-  log_skip "kubectl dry-run (production) — values-production.yaml not found"
+  log_skip "kubectl dry-run (production) — production render failed or values-production.yaml not found"
 fi
 echo ""
 
-# ── Step 7: Helm test template exists ────────────────────────
-echo "--- Step 7: Helm test template check ---"
-if [[ -f "$CHART_DIR/templates/tests/test-connection.yaml" ]]; then
-  log_pass "Helm test template exists"
+# ── Step 6: Helm test pod + release notes truth ──────────────
+echo "--- Step 6: Helm test pod + release notes truth ---"
+TEST_CONNECTION_RENDER=""
+if TEST_CONNECTION_RENDER=$("$HELM_CMD" template "$RELEASE_NAME" "$CHART_DIR" --show-only templates/tests/test-connection.yaml 2>&1); then
+  TEST_RESOURCE_KEYS="$(render_resource_keys "$TEST_CONNECTION_RENDER")"
+  assert_resource_present "$TEST_RESOURCE_KEYS" "Pod/${RELEASE_NAME}-split-stack-smoke" "helm test render includes Pod/${RELEASE_NAME}-split-stack-smoke"
+  assert_contains "$TEST_CONNECTION_RENDER" '"helm.sh/hook": test' "helm test pod keeps helm.sh/hook=test"
+  assert_contains "$TEST_CONNECTION_RENDER" "http://${RELEASE_NAME}-app-api:8080/actuator/health" "helm test pod probes app-api service truth"
+  assert_contains "$TEST_CONNECTION_RENDER" "http://${RELEASE_NAME}-admin-api:8081/actuator/health" "helm test pod probes admin-api service truth"
+  assert_contains "$TEST_CONNECTION_RENDER" "http://${RELEASE_NAME}-admin-web:80/" "helm test pod probes admin-web service truth"
 else
-  log_fail "Helm test template missing"
+  log_fail "helm test pod render — templates/tests/test-connection.yaml failed to render"
+fi
+
+RELEASE_NOTES_OUTPUT=""
+if [[ -f "$PROD_VALUES" ]]; then
+  if RELEASE_NOTES_OUTPUT=$("$HELM_CMD" install "$RELEASE_NAME" "$CHART_DIR" -f "$PROD_VALUES" --dry-run --debug 2>&1); then
+    assert_contains "$RELEASE_NOTES_OUTPUT" "https://api.babytalk.example.com" "release notes expose app-api public surface"
+    assert_contains "$RELEASE_NOTES_OUTPUT" "https://admin.babytalk.example.com" "release notes expose admin-web public surface"
+    assert_contains "$RELEASE_NOTES_OUTPUT" "svc/${RELEASE_NAME}-admin-api:8081" "release notes mark admin-api as internal service truth"
+    assert_contains "$RELEASE_NOTES_OUTPUT" "pre-install / pre-upgrade hook job ${RELEASE_NAME}-db-migration" "release notes point to db-migration hook job"
+  else
+    log_fail "helm install --dry-run --debug (production values) failed to render NOTES"
+  fi
+else
+  log_skip "release notes truth — values-production.yaml not found"
 fi
 echo ""
 
-# ── Step 8: Runbook exists ───────────────────────────────────
-echo "--- Step 8: Runbook check ---"
-RUNBOOK="$PROJECT_ROOT/docs/runbooks/k8s-deploy.md"
+# ── Step 7: Runbook exists ───────────────────────────────────
+echo "--- Step 7: Runbook check ---"
 if [[ -f "$RUNBOOK" ]]; then
   RUNBOOK_LINES=$(wc -l < "$RUNBOOK")
   if [[ "$RUNBOOK_LINES" -ge 50 ]]; then

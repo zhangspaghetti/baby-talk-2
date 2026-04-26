@@ -138,11 +138,13 @@ class DynamicPracticeApiService {
   /// [babyAgeMonths] 宝宝月龄
   /// [sceneTag] 可选场景标签
   /// [conversationId] 可选会话 ID（暂不使用）
+  /// [accessToken] 可选 bearer token，用于命中需要登录态的动态练习接口
   Future<DynamicPracticeResponse> generatePractice({
     required String installationId,
     required int babyAgeMonths,
     String? sceneTag,
     String? conversationId,
+    String? accessToken,
   }) async {
     final body = <String, Object?>{
       'installationId': installationId,
@@ -159,6 +161,11 @@ class DynamicPracticeApiService {
     request.headers['Accept'] = 'application/json';
     request.headers['Content-Type'] = 'application/json';
     request.headers['X-App-Version'] = appVersion;
+    final normalizedAccessToken = accessToken?.trim();
+    if (normalizedAccessToken != null && normalizedAccessToken.isNotEmpty) {
+      request.headers[HttpHeaders.authorizationHeader] =
+          'Bearer $normalizedAccessToken';
+    }
     request.body = jsonEncode(body);
 
     http.StreamedResponse response;

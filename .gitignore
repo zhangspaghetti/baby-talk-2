@@ -14,6 +14,12 @@ Thumbs.db
 .env.*
 !.env.example
 node_modules/
+/.dart_tool/
+/.flutter-plugins
+/.flutter-plugins-dependencies
+/admin-web/playwright-report/
+/admin-web/test-results/
+/Python/
 .next/
 dist/
 build/

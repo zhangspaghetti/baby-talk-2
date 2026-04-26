@@ -1,39 +1,28 @@
-# ── Stage 1: 构建 ──────────────────────────────────────────────
 FROM maven:3-eclipse-temurin-17 AS builder
 
+ARG MODULE=app-api
 WORKDIR /app
 
-# 先复制依赖描述文件，利用 Docker 层缓存
-COPY pom.xml ./
+COPY .mvn/ .mvn/
+COPY pom.xml ./pom.xml
+COPY common/pom.xml common/pom.xml
+COPY app-api/pom.xml app-api/pom.xml
+COPY admin-api/pom.xml admin-api/pom.xml
+COPY db-migration/pom.xml db-migration/pom.xml
+RUN mvn -pl ${MODULE} -am dependency:go-offline -B
 
-# 缓存依赖层（使用镜像内置 mvn，避免 mvnw CRLF 行尾问题）
-RUN mvn dependency:go-offline -B
+COPY . .
+RUN mvn -pl ${MODULE} -am package -DskipTests -B \
+ && find ${MODULE}/target -maxdepth 1 -type f -name '*.jar' ! -name '*.original' -exec cp {} /tmp/app.jar \;
 
-# 复制源码并打包
-COPY src/ src/
-RUN mvn package -DskipTests -B
-
-# ── Stage 2: 运行 ──────────────────────────────────────────────
 FROM eclipse-temurin:17-jre-alpine AS runtime
 
-# 创建非 root 用户
 RUN addgroup -S appgroup && adduser -S appuser -G appgroup
-
 WORKDIR /app
 
-# 创建数据目录并赋权
-RUN mkdir -p .data && chown appuser:appgroup .data
-
-# 从构建阶段复制 JAR
-COPY --from=builder /app/target/*.jar app.jar
-RUN chown appuser:appgroup app.jar
+COPY --from=builder /tmp/app.jar /app/app.jar
+RUN chown appuser:appgroup /app/app.jar
 
 USER appuser
 
-EXPOSE 8080
-
-# 健康检查（alpine 没有 curl，使用 wget）
-HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
-  CMD wget -qO- http://localhost:8080/actuator/health || exit 1
-
-ENTRYPOINT ["java", "-jar", "app.jar"]
+ENTRYPOINT ["java", "-jar", "/app/app.jar"]

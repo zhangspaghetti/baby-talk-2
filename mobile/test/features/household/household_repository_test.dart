@@ -56,6 +56,7 @@ void main() {
         expect(result.snapshot.role, HouseholdRole.caregiver);
         expect(result.snapshot.lastPhase, 'accept_ready');
         expect(result.snapshot.lastAcceptedAt, DateTime.utc(2026, 4, 16, 12));
+        expect(harness.api.lastAcceptedSession?.accessToken, 'access_live');
 
         final persisted = await harness.localStore.read();
         expect(persisted.householdId, 'household_1');
@@ -229,8 +230,30 @@ void main() {
       expect(first.householdId, 'household_1');
       expect(second.householdId, 'household_1');
       expect(harness.api.fetchCallCount, 1);
+      expect(harness.api.lastFetchedSession?.accessToken, 'access_live');
       expect(first.lastPhase, 'shared_context_ready');
       expect(second.lastPhase, 'shared_context_ready');
+    });
+
+    test('缺少 JWT token 时不会发送 protected household 请求', () async {
+      harness.accountSnapshot = AccountLocalSnapshot(
+        consentState: AccountConsentState.acceptedPendingSync,
+        session: AccountSession(
+          accountId: 'acct_live',
+          sessionId: 'sess_legacy',
+          maskedPhoneNumber: '138****8000',
+          createdAt: DateTime.utc(2026, 4, 16, 10),
+        ),
+        lastSyncPhase: 'batch_ack_applied',
+      );
+
+      final snapshot = await harness.repository.refreshSharedContext(
+        reason: 'foreground_resume',
+      );
+
+      expect(snapshot.lastPhase, 'shared_context_invalid_session');
+      expect(snapshot.lastVisibleError, contains('重新登录'));
+      expect(harness.api.fetchCallCount, 0);
     });
   });
 }
@@ -258,28 +281,30 @@ class _HouseholdRepositoryHarness {
       directoryResolver: () async => tempDir,
     );
     final api = _FakeHouseholdApiService();
-    var accountSnapshot = AccountLocalSnapshot(
-      consentState: AccountConsentState.acceptedPendingSync,
-      session: AccountSession(
-        accountId: 'acct_live',
-        sessionId: 'sess_live',
-        maskedPhoneNumber: '138****8000',
-        createdAt: DateTime.utc(2026, 4, 16, 10),
-      ),
-      lastSyncPhase: 'batch_ack_applied',
-    );
+    late _HouseholdRepositoryHarness harness;
     final repository = HouseholdRepository(
       localStore: localStore,
       apiService: api,
-      accountSnapshotLoader: () async => accountSnapshot,
+      accountSnapshotLoader: () async => harness.accountSnapshot,
+      persistRefreshedSession: (refreshedSession) async {
+        harness.accountSnapshot = harness.accountSnapshot.copyWith(
+          session: refreshedSession,
+        );
+        return refreshedSession;
+      },
     );
-    return _HouseholdRepositoryHarness(
+    harness = _HouseholdRepositoryHarness(
       tempDir: tempDir,
       localStore: localStore,
       api: api,
-      accountSnapshot: accountSnapshot,
+      accountSnapshot: AccountLocalSnapshot(
+        consentState: AccountConsentState.acceptedPendingSync,
+        session: _jwtSession(),
+        lastSyncPhase: 'batch_ack_applied',
+      ),
       repository: repository,
     );
+    return harness;
   }
 
   Future<void> dispose() async {
@@ -299,14 +324,20 @@ class _FakeHouseholdApiService extends HouseholdApiService {
   HouseholdApiException? acceptError;
   HouseholdApiException? fetchError;
   Completer<HouseholdSharedContextResponse>? fetchCompleter;
+  AccountSession? lastCreatedSession;
+  AccountSession? lastAcceptedSession;
+  AccountSession? lastFetchedSession;
   int fetchCallCount = 0;
 
   @override
   Future<HouseholdInviteLink> createInvite({
-    required String sessionId,
+    required AccountSession session,
+    required Future<AccountSession> Function(AccountSession refreshedSession)
+    persistRefreshedSession,
     required HouseholdRole role,
     required String source,
   }) async {
+    lastCreatedSession = session;
     return HouseholdInviteLink(
       householdId: 'household_1',
       token: 'invite_token_1234',
@@ -319,10 +350,13 @@ class _FakeHouseholdApiService extends HouseholdApiService {
 
   @override
   Future<HouseholdAcceptInviteResponse> acceptInvite({
-    required String sessionId,
+    required AccountSession session,
+    required Future<AccountSession> Function(AccountSession refreshedSession)
+    persistRefreshedSession,
     required String token,
     required String source,
   }) async {
+    lastAcceptedSession = session;
     if (acceptError != null) {
       throw acceptError!;
     }
@@ -337,8 +371,11 @@ class _FakeHouseholdApiService extends HouseholdApiService {
 
   @override
   Future<HouseholdSharedContextResponse> fetchSharedContext({
-    required String sessionId,
+    required AccountSession session,
+    required Future<AccountSession> Function(AccountSession refreshedSession)
+    persistRefreshedSession,
   }) async {
+    lastFetchedSession = session;
     fetchCallCount += 1;
     if (fetchError != null) {
       throw fetchError!;
@@ -352,6 +389,20 @@ class _FakeHouseholdApiService extends HouseholdApiService {
 
   @override
   Future<void> close() async {}
+}
+
+AccountSession _jwtSession() {
+  return AccountSession(
+    accountId: 'acct_live',
+    sessionId: 'sess_live',
+    maskedPhoneNumber: '138****8000',
+    createdAt: DateTime.utc(2026, 4, 16, 10),
+    accessToken: 'access_live',
+    refreshToken: 'refresh_live',
+    tokenType: 'Bearer',
+    accessTokenExpiresAt: DateTime.utc(2026, 4, 16, 10, 15),
+    refreshTokenExpiresAt: DateTime.utc(2026, 4, 23, 10),
+  );
 }
 
 HouseholdSharedContextResponse _sharedContextResponse() {

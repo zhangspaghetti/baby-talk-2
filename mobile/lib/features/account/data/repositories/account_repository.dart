@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:mobile/features/account/data/local/account_local_store.dart';
 import 'package:mobile/features/account/data/services/account_api_service.dart';
 import 'package:mobile/features/account/data/services/account_external_link_opener.dart';
+import 'package:mobile/features/account/data/services/authenticated_api_client.dart';
 import 'package:mobile/features/account/domain/models/account_consent_state.dart';
 import 'package:mobile/features/account/domain/models/account_session.dart';
 import 'package:mobile/features/practice/data/repositories/practice_repository.dart';
@@ -39,16 +40,23 @@ class AccountRepository {
     required AccountLocalStore localStore,
     required PracticeRepository practiceRepository,
     AccountApiService? apiService,
+    AuthenticatedApiClient? authenticatedApiClient,
     AccountConnectivityChecker? connectivityChecker,
     this.consentVersion = 'pipl-v1',
   }) : _localStore = localStore,
        _practiceRepository = practiceRepository,
        _apiService = apiService,
+       _authenticatedApiClient =
+           authenticatedApiClient ??
+           (apiService == null
+               ? null
+               : AuthenticatedApiClient(apiService: apiService)),
        _connectivityChecker = connectivityChecker;
 
   final AccountLocalStore _localStore;
   final PracticeRepository _practiceRepository;
   final AccountApiService? _apiService;
+  final AuthenticatedApiClient? _authenticatedApiClient;
   final AccountConnectivityChecker? _connectivityChecker;
   final String consentVersion;
 
@@ -64,7 +72,8 @@ class AccountRepository {
     required String phoneNumber,
     required String verificationCode,
   }) async {
-    if (_apiService == null) {
+    final api = _apiService;
+    if (api == null) {
       return savePlaceholderSession(
         phoneNumber: phoneNumber,
         verificationCode: verificationCode,
@@ -77,28 +86,17 @@ class AccountRepository {
     final now = DateTime.now().toUtc();
 
     try {
-      final challenge = await _apiService.createChallenge(
-        phoneNumber: phoneNumber,
-      );
-      final session = await _apiService.verifyChallenge(
+      final challenge = await api.createChallenge(phoneNumber: phoneNumber);
+      final verified = await api.verifyChallenge(
         challengeId: challenge.challengeId,
         verificationCode: verificationCode,
         installationId: installationId,
       );
-      await _apiService.acceptConsent(
-        sessionId: session.sessionId,
-        consentVersion: consentVersion,
-      );
 
       final syncSummary = await _readSyncSummarySafely();
-      final snapshot = AccountLocalSnapshot(
+      var snapshot = AccountLocalSnapshot(
         consentState: AccountConsentState.acceptedPendingSync,
-        session: AccountSession(
-          accountId: session.accountId,
-          sessionId: session.sessionId,
-          maskedPhoneNumber: session.maskedPhoneNumber,
-          createdAt: session.createdAt,
-        ),
+        session: _buildSessionFromResponse(verified),
         challenge: AccountChallengePlaceholder(
           maskedPhoneNumber: challenge.maskedPhoneNumber,
           codeLength: challenge.codeLength,
@@ -111,11 +109,35 @@ class AccountRepository {
         lastSyncAt: now,
       );
       await _localStore.write(snapshot);
+
+      final accepted = await _runAuthenticated(
+        session: snapshot.session!,
+        send: (accessToken) => api.acceptConsent(
+          accessToken: accessToken,
+          consentVersion: consentVersion,
+        ),
+      );
+      snapshot = snapshot.copyWith(
+        session: accepted.session,
+        clearLastVisibleError: true,
+        clearUpgradeUrl: true,
+        lastSyncAt: accepted.value.updatedAt,
+      );
+      await _localStore.write(snapshot);
+
       return refreshRuntimeState(
         trigger: AccountRuntimeTrigger.loginSuccess,
         seedSnapshot: snapshot,
         forceBootstrap: true,
       );
+    } on AuthenticatedApiClientException catch (error) {
+      final snapshot = await _handleAuthenticatedFailure(
+        currentSnapshot: await _readSnapshotSafely(),
+        error: error,
+        phasePrefix: 'login_failed',
+      );
+      await _localStore.write(snapshot);
+      return snapshot;
     } on AccountApiException catch (error) {
       final snapshot = await _handleApiFailure(
         currentSnapshot: await _readSnapshotSafely(),
@@ -172,19 +194,29 @@ class AccountRepository {
     }
 
     try {
-      final response = await api.revokeConsent(
-        sessionId: session.sessionId,
-        reason: reason,
+      final response = await _runAuthenticated(
+        session: session,
+        send: (accessToken) =>
+            api.revokeConsent(accessToken: accessToken, reason: reason),
       );
       final snapshot = current.copyWith(
+        session: response.session,
         consentState: AccountConsentState.revoked,
         lastSyncPhase: 'consent_revoked',
         lastVisibleError: '同意已撤回；重新登录并再次同意后才能继续同步。',
         clearUpgradeUrl: true,
-        lastSyncAt: response.updatedAt,
+        lastSyncAt: response.value.updatedAt,
       );
       await _localStore.write(snapshot);
       return _mergeSyncSummary(snapshot, await _readSyncSummarySafely());
+    } on AuthenticatedApiClientException catch (error) {
+      final snapshot = await _handleAuthenticatedFailure(
+        currentSnapshot: current,
+        error: error,
+        phasePrefix: 'revoke_failed',
+      );
+      await _localStore.write(snapshot);
+      return snapshot;
     } on AccountApiException catch (error) {
       final snapshot = await _handleApiFailure(
         currentSnapshot: current,
@@ -217,9 +249,10 @@ class AccountRepository {
     }
 
     try {
-      final response = await api.deleteAccount(
-        sessionId: session.sessionId,
-        reason: reason,
+      final response = await _runAuthenticated(
+        session: session,
+        send: (accessToken) =>
+            api.deleteAccount(accessToken: accessToken, reason: reason),
       );
       final snapshot = current.copyWith(
         consentState: AccountConsentState.deleted,
@@ -228,10 +261,18 @@ class AccountRepository {
         lastSyncPhase: 'account_deleted',
         lastVisibleError: '账号已删除；如需重新同步，请重新注册。',
         clearUpgradeUrl: true,
-        lastSyncAt: response.updatedAt,
+        lastSyncAt: response.value.updatedAt,
       );
       await _localStore.write(snapshot);
       return _mergeSyncSummary(snapshot, await _readSyncSummarySafely());
+    } on AuthenticatedApiClientException catch (error) {
+      final snapshot = await _handleAuthenticatedFailure(
+        currentSnapshot: current,
+        error: error,
+        phasePrefix: 'delete_failed',
+      );
+      await _localStore.write(snapshot);
+      return snapshot;
     } on AccountApiException catch (error) {
       final snapshot = await _handleApiFailure(
         currentSnapshot: current,
@@ -303,14 +344,17 @@ class AccountRepository {
     await _apiService?.close();
   }
 
+  Future<AccountSession> persistRefreshedSession(
+    AccountSession refreshedSession,
+  ) => _persistRefreshedSession(refreshedSession);
+
   Future<AccountLocalSnapshot> _refreshRuntimeStateInternal({
     required AccountRuntimeTrigger trigger,
     AccountLocalSnapshot? seedSnapshot,
     required bool forceBootstrap,
   }) async {
     final current = seedSnapshot ?? await _readSnapshotSafely();
-    final session = current.session;
-    if (session == null ||
+    if (current.session == null ||
         current.consentState == AccountConsentState.deleted) {
       return _mergeSyncSummary(current, await _readSyncSummarySafely());
     }
@@ -353,22 +397,34 @@ class AccountRepository {
     var workingSnapshot = current;
 
     try {
-      if (forceBootstrap || session.sessionId.isNotEmpty) {
-        final bootstrap = await _apiService!.bootstrap(
-          sessionId: session.sessionId,
-          installationId: installationId,
+      if (forceBootstrap || workingSnapshot.session != null) {
+        final bootstrap = await _runAuthenticated(
+          session: workingSnapshot.session!,
+          send: (accessToken) => _apiService!.bootstrap(
+            accessToken: accessToken,
+            installationId: installationId,
+          ),
         );
-        await _practiceRepository.importServerEvents(bootstrap.events);
+        await _practiceRepository.importServerEvents(bootstrap.value.events);
         workingSnapshot = workingSnapshot.copyWith(
-          lastSyncPhase: bootstrap.eventCount == 0
+          session: bootstrap.session,
+          lastSyncPhase: bootstrap.value.eventCount == 0
               ? 'bootstrap_empty'
               : 'bootstrap_imported',
           clearLastVisibleError: true,
           clearUpgradeUrl: true,
-          lastSyncAt: bootstrap.bootstrapAt,
+          lastSyncAt: bootstrap.value.bootstrapAt,
         );
         await _localStore.write(workingSnapshot);
       }
+    } on AuthenticatedApiClientException catch (error) {
+      final snapshot = await _handleAuthenticatedFailure(
+        currentSnapshot: workingSnapshot,
+        error: error,
+        phasePrefix: 'bootstrap_failed',
+      );
+      await _localStore.write(snapshot);
+      return snapshot;
     } on AccountApiException catch (error) {
       final snapshot = await _handleApiFailure(
         currentSnapshot: workingSnapshot,
@@ -403,33 +459,53 @@ class AccountRepository {
     }
 
     try {
-      final response = await _apiService!.syncEvents(
-        sessionId: session.sessionId,
-        installationId: installationId,
-        events: pendingUploads,
+      final response = await _runAuthenticated(
+        session: workingSnapshot.session!,
+        send: (accessToken) => _apiService!.syncEvents(
+          accessToken: accessToken,
+          installationId: installationId,
+          events: pendingUploads,
+        ),
       );
       final ackedKeys = <String>{
-        ...response.acceptedEventKeys,
-        ...response.duplicateEventKeys,
+        ...response.value.acceptedEventKeys,
+        ...response.value.duplicateEventKeys,
       };
       await _practiceRepository.markEventsSynced(
         ackedKeys,
         phase: 'batch_ack_applied',
-        syncedAt: response.syncedAt,
+        syncedAt: response.value.syncedAt,
       );
       final merged = _mergeSyncSummary(
         workingSnapshot.copyWith(
-          lastSyncPhase: response.duplicateCount > 0
+          session: response.session,
+          lastSyncPhase: response.value.duplicateCount > 0
               ? 'batch_ack_duplicate_applied'
               : 'batch_ack_applied',
           clearLastVisibleError: true,
           clearUpgradeUrl: true,
-          lastSyncAt: response.syncedAt,
+          lastSyncAt: response.value.syncedAt,
         ),
         await _readSyncSummarySafely(),
       );
       await _localStore.write(merged);
       return merged;
+    } on AuthenticatedApiClientException catch (error) {
+      final eventKeys = pendingUploads.map((event) => event.eventKey);
+      await _practiceRepository.markEventsFailed(
+        eventKeys,
+        phase: _phaseForAuthenticatedFailure(error),
+        errorMessage: error.visibleMessage,
+        failedAt: DateTime.now().toUtc(),
+        keepPending: true,
+      );
+      final snapshot = await _handleAuthenticatedFailure(
+        currentSnapshot: workingSnapshot,
+        error: error,
+        phasePrefix: 'sync_failed',
+      );
+      await _localStore.write(snapshot);
+      return snapshot;
     } on AccountApiException catch (error) {
       final eventKeys = pendingUploads.map((event) => event.eventKey);
       await _practiceRepository.markEventsFailed(
@@ -447,6 +523,65 @@ class AccountRepository {
       await _localStore.write(snapshot);
       return snapshot;
     }
+  }
+
+  Future<_AuthenticatedRepositoryResult<T>> _runAuthenticated<T>({
+    required AccountSession session,
+    required Future<T> Function(String accessToken) send,
+  }) async {
+    final client = _authenticatedApiClient;
+    if (client == null) {
+      throw StateError('AuthenticatedApiClient 未初始化。');
+    }
+    final result = await client.execute(
+      session: session,
+      send: send,
+      persistRefreshedSession: _persistRefreshedSession,
+    );
+    return _AuthenticatedRepositoryResult<T>(
+      value: result.value,
+      session: result.session,
+    );
+  }
+
+  Future<AccountSession> _persistRefreshedSession(
+    AccountSession refreshedSession,
+  ) async {
+    final current = await _readSnapshotSafely();
+    final currentSession = current.session;
+    if (currentSession == null ||
+        currentSession.accountId != refreshedSession.accountId ||
+        currentSession.sessionId != refreshedSession.sessionId) {
+      throw const AuthenticatedApiClientException.persistenceFailure();
+    }
+
+    final snapshot = current.copyWith(
+      session: refreshedSession,
+      lastSyncPhase: 'auth_token_refreshed',
+      clearLastVisibleError: true,
+      clearUpgradeUrl: true,
+      lastSyncAt: DateTime.now().toUtc(),
+    );
+    try {
+      await _localStore.write(snapshot);
+    } on AccountLocalStoreException {
+      throw const AuthenticatedApiClientException.persistenceFailure();
+    }
+    return refreshedSession;
+  }
+
+  AccountSession _buildSessionFromResponse(AccountSessionResponse response) {
+    return AccountSession(
+      accountId: response.accountId,
+      sessionId: response.sessionId,
+      maskedPhoneNumber: response.maskedPhoneNumber,
+      createdAt: response.createdAt,
+      accessToken: response.accessToken,
+      refreshToken: response.refreshToken,
+      tokenType: response.tokenType,
+      accessTokenExpiresAt: response.accessTokenExpiresAt,
+      refreshTokenExpiresAt: response.refreshTokenExpiresAt,
+    );
   }
 
   Future<AccountLocalSnapshot> _handleApiFailure({
@@ -523,6 +658,25 @@ class AccountRepository {
     );
   }
 
+  Future<AccountLocalSnapshot> _handleAuthenticatedFailure({
+    required AccountLocalSnapshot currentSnapshot,
+    required AuthenticatedApiClientException error,
+    required String phasePrefix,
+  }) async {
+    final syncSummary = await _readSyncSummarySafely();
+    return _mergeSyncSummary(
+      currentSnapshot.copyWith(
+        consentState: AccountConsentState.signedOut,
+        clearSession: true,
+        lastSyncPhase: '${phasePrefix}_${error.phaseSuffix}',
+        lastVisibleError: error.visibleMessage,
+        clearUpgradeUrl: true,
+        lastSyncAt: DateTime.now().toUtc(),
+      ),
+      syncSummary,
+    );
+  }
+
   Future<AccountLocalSnapshot> _readSnapshotSafely() async {
     try {
       return await _localStore.read();
@@ -547,7 +701,11 @@ class AccountRepository {
     if (snapshot.consentState == AccountConsentState.localOnly) {
       phase = 'local_only';
     } else if (snapshot.consentState == AccountConsentState.signedOut) {
-      phase = 'signed_out';
+      phase =
+          snapshot.lastSyncPhase == 'idle' ||
+              snapshot.lastSyncPhase.trim().isEmpty
+          ? 'signed_out'
+          : snapshot.lastSyncPhase;
     } else if (snapshot.consentState == AccountConsentState.revoked) {
       phase = snapshot.lastSyncPhase;
     } else if (snapshot.consentState == AccountConsentState.deleted) {
@@ -587,6 +745,24 @@ class AccountRepository {
       return _sanitizeVisibleError(syncSummary.lastSyncError!);
     }
     return currentVisibleError;
+  }
+
+  String _phaseForAuthenticatedFailure(AuthenticatedApiClientException error) {
+    switch (error.kind) {
+      case AuthenticatedApiClientFailureKind.refreshTimeout:
+        return 'upload_refresh_timeout';
+      case AuthenticatedApiClientFailureKind.refreshNetwork:
+        return 'upload_refresh_network';
+      case AuthenticatedApiClientFailureKind.refreshMalformed:
+        return 'upload_refresh_malformed';
+      case AuthenticatedApiClientFailureKind.refreshFailed:
+        return 'upload_refresh_failed';
+      case AuthenticatedApiClientFailureKind.persistenceFailure:
+        return 'upload_session_persist_failed';
+      case AuthenticatedApiClientFailureKind.missingCredentials:
+      case AuthenticatedApiClientFailureKind.sessionExpired:
+        return 'upload_session_expired';
+    }
   }
 
   String _phaseForSyncFailure(AccountApiException error) {
@@ -716,4 +892,14 @@ class AccountRepository {
     final suffix = digits.substring(digits.length - 4);
     return '$prefix****$suffix';
   }
+}
+
+class _AuthenticatedRepositoryResult<T> {
+  const _AuthenticatedRepositoryResult({
+    required this.value,
+    required this.session,
+  });
+
+  final T value;
+  final AccountSession session;
 }

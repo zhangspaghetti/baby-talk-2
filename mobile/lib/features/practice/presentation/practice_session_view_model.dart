@@ -90,6 +90,7 @@ class PracticeSessionViewModel extends ChangeNotifier {
     this.isDynamic = false,
     this.babyAgeMonths = 12,
     this.sceneTag,
+    this.accessTokenLoader,
     PracticeAudioController? audioController,
     this.playbackTimeout = const Duration(seconds: 8),
   }) : _repository = repository,
@@ -109,6 +110,7 @@ class PracticeSessionViewModel extends ChangeNotifier {
   final bool isDynamic;
   final int babyAgeMonths;
   final String? sceneTag;
+  final String? Function()? accessTokenLoader;
   final Duration playbackTimeout;
 
   StreamSubscription<void>? _audioCompletionSubscription;
@@ -395,6 +397,7 @@ class PracticeSessionViewModel extends ChangeNotifier {
           sceneTag: sceneTag,
           fallbackSpaceId: spaceId,
           fallbackActivityId: activityId,
+          accessToken: accessTokenLoader?.call(),
         );
         if (snapshot.phrases.isEmpty) {
           throw const FormatException('首页内容加载到空短语列表。');

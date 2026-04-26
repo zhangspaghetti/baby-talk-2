@@ -5,6 +5,8 @@ import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:mobile/features/account/data/services/account_api_service.dart'
     show defaultAccountApiBaseUrl, defaultAccountApiVersion;
+import 'package:mobile/features/account/data/services/authenticated_api_client.dart';
+import 'package:mobile/features/account/domain/models/account_session.dart';
 
 const String defaultMentorApiVersion = defaultAccountApiVersion;
 const String defaultMentorApiBaseUrl = defaultAccountApiBaseUrl;
@@ -107,14 +109,17 @@ class MentorApiException implements Exception {
 class MentorApiService {
   MentorApiService({
     http.Client? client,
+    AuthenticatedApiClient? authenticatedApiClient,
     Uri? baseUri,
     this.appVersion = defaultMentorApiVersion,
     this.timeout = const Duration(seconds: 8),
   }) : _client = client ?? http.Client(),
+       _authenticatedApiClient = authenticatedApiClient,
        _ownsClient = client == null,
        _baseUri = baseUri ?? Uri.parse(defaultMentorApiBaseUrl);
 
   final http.Client _client;
+  final AuthenticatedApiClient? _authenticatedApiClient;
   final bool _ownsClient;
   final Uri _baseUri;
   final String appVersion;
@@ -126,26 +131,32 @@ class MentorApiService {
     required String surface,
     required String mode,
     required String correlationId,
-    String? sessionId,
+    AccountSession? session,
+    PersistRefreshedSession? persistRefreshedSession,
     String? contextSummary,
     String? conversationId,
   }) async {
-    final json = await _requestJson(
-      'POST',
-      '/api/v1/mentor/chat',
-      sessionId: sessionId,
-      body: <String, Object?>{
-        'installationId': installationId,
-        'prompt': prompt,
-        'surface': surface,
-        'mode': mode,
-        'correlationId': correlationId,
-        if (contextSummary != null && contextSummary.trim().isNotEmpty) ...{
-          'contextSummary': contextSummary.trim(),
-        },
-        if (conversationId != null) ...{'conversationId': conversationId},
+    final body = <String, Object?>{
+      'installationId': installationId,
+      'prompt': prompt,
+      'surface': surface,
+      'mode': mode,
+      'correlationId': correlationId,
+      if (contextSummary != null && contextSummary.trim().isNotEmpty) ...{
+        'contextSummary': contextSummary.trim(),
       },
-    );
+      if (conversationId != null) ...{'conversationId': conversationId},
+    };
+
+    final json = session == null
+        ? await _requestJson('POST', '/api/v1/mentor/chat', body: body)
+        : await _requestAuthenticatedJson(
+            method: 'POST',
+            path: '/api/v1/mentor/chat',
+            session: session,
+            persistRefreshedSession: persistRefreshedSession,
+            body: body,
+          );
 
     return MentorChatResponse(
       correlationId: _readRequiredString(json, 'correlationId'),
@@ -181,10 +192,85 @@ class MentorApiService {
     }
   }
 
+  Future<Map<String, dynamic>> _requestAuthenticatedJson({
+    required String method,
+    required String path,
+    required AccountSession session,
+    required PersistRefreshedSession? persistRefreshedSession,
+    Map<String, String>? queryParameters,
+    Map<String, Object?>? body,
+  }) async {
+    final authenticatedApiClient = _authenticatedApiClient;
+    if (authenticatedApiClient == null) {
+      throw StateError('MentorApiService 缺少 authenticatedApiClient 注入。');
+    }
+    final persist = persistRefreshedSession;
+    if (persist == null) {
+      throw StateError('MentorApiService 缺少 persistRefreshedSession 回调。');
+    }
+
+    try {
+      final result = await authenticatedApiClient.execute<Map<String, dynamic>>(
+        session: session,
+        send: (accessToken) => _requestJson(
+          method,
+          path,
+          accessToken: accessToken,
+          queryParameters: queryParameters,
+          body: body,
+        ),
+        persistRefreshedSession: persist,
+      );
+      return result.value;
+    } on AuthenticatedApiClientException catch (error) {
+      throw _mapAuthException(error);
+    }
+  }
+
+  MentorApiException _mapAuthException(AuthenticatedApiClientException error) {
+    switch (error.kind) {
+      case AuthenticatedApiClientFailureKind.refreshTimeout:
+        return MentorApiException(
+          kind: MentorApiFailureKind.timeout,
+          message: error.visibleMessage,
+          code: 'refresh_timeout',
+          details: <String, Object?>{
+            'phase': error.phaseSuffix,
+            'retryable': true,
+          },
+        );
+      case AuthenticatedApiClientFailureKind.refreshNetwork:
+        return MentorApiException(
+          kind: MentorApiFailureKind.network,
+          message: error.visibleMessage,
+          code: 'refresh_network',
+          details: <String, Object?>{
+            'phase': error.phaseSuffix,
+            'retryable': true,
+          },
+        );
+      case AuthenticatedApiClientFailureKind.missingCredentials:
+      case AuthenticatedApiClientFailureKind.refreshMalformed:
+      case AuthenticatedApiClientFailureKind.refreshFailed:
+      case AuthenticatedApiClientFailureKind.sessionExpired:
+      case AuthenticatedApiClientFailureKind.persistenceFailure:
+        return MentorApiException(
+          kind: MentorApiFailureKind.http,
+          message: error.visibleMessage,
+          statusCode: 401,
+          code: 'invalid_session',
+          details: <String, Object?>{
+            'phase': error.phaseSuffix,
+            'retryable': true,
+          },
+        );
+    }
+  }
+
   Future<Map<String, dynamic>> _requestJson(
     String method,
     String path, {
-    String? sessionId,
+    String? accessToken,
     Map<String, String>? queryParameters,
     Map<String, Object?>? body,
   }) async {
@@ -192,8 +278,8 @@ class MentorApiService {
     request.headers['Accept'] = 'application/json';
     request.headers['Content-Type'] = 'application/json';
     request.headers['X-App-Version'] = appVersion;
-    if (sessionId != null && sessionId.trim().isNotEmpty) {
-      request.headers['X-Session-Id'] = sessionId.trim();
+    if (accessToken != null && accessToken.trim().isNotEmpty) {
+      request.headers['Authorization'] = 'Bearer ${accessToken.trim()}';
     }
     if (body != null) {
       request.body = jsonEncode(body);

@@ -2,11 +2,11 @@
 REM ──────────────────────────────────────────────────────────────
 REM batch-ingest.cmd — 批量导入文献到 MemPalace ingestion 管道 (Windows)
 REM
-REM 用法: scripts\batch-ingest.cmd <文献目录> [API_BASE_URL]
+REM 用法: set ADMIN_ACCESS_TOKEN=... && scripts\batch-ingest.cmd <文献目录> [ADMIN_API_BASE_URL]
 REM
 REM 遍历目录中的所有文件，对每个文件：
 REM   1. 从文件名推断 bookTitle
-REM   2. curl POST /api/v1/ingestion/upload
+REM   2. curl POST /api/admin/knowledge/ingestion/upload
 REM   3. 轮询 job 状态直到 COMPLETED / FAILED
 REM   4. sleep 1s（rate limiting）
 REM 最后输出汇总：成功 / 失败 / 总数
@@ -15,15 +15,20 @@ setlocal enabledelayedexpansion
 
 REM ── 参数 ──
 if "%~1"=="" (
-    echo 用法: %~nx0 ^<文献目录^> [API_BASE_URL]
+    echo 用法: set ADMIN_ACCESS_TOKEN=... ^&^& %~nx0 ^<文献目录^> [ADMIN_API_BASE_URL]
+    exit /b 1
+)
+
+if "%ADMIN_ACCESS_TOKEN%"=="" (
+    echo 错误: 需要 ADMIN_ACCESS_TOKEN 环境变量。请先调用 /api/admin/auth/login 获取管理员 access token。
     exit /b 1
 )
 
 set "DOCS_DIR=%~1"
 set "API_BASE=%~2"
-if "%API_BASE%"=="" set "API_BASE=http://localhost:8080"
-set "UPLOAD_URL=%API_BASE%/api/v1/ingestion/upload"
-set "JOBS_URL=%API_BASE%/api/v1/ingestion/jobs"
+if "%API_BASE%"=="" set "API_BASE=http://localhost:8081"
+set "UPLOAD_URL=%API_BASE%/api/admin/knowledge/ingestion/upload"
+set "JOBS_URL=%API_BASE%/api/admin/knowledge/ingestion/jobs"
 
 REM ── 计数器 ──
 set /a TOTAL=0
@@ -49,7 +54,7 @@ if errorlevel 1 (
 
 echo [INFO] 批量导入开始
 echo [INFO] 文献目录: %DOCS_DIR%
-echo [INFO] API 地址:  %UPLOAD_URL%
+echo [INFO] Admin API: %UPLOAD_URL%
 echo ────────────────────────────────────────
 
 REM ── 遍历文件 ──
@@ -70,6 +75,7 @@ for %%F in ("%DOCS_DIR%\*.*") do (
     set "RESPONSE_FILE=%TEMP%\babytalk_upload_!TOTAL!.json"
     curl -s -o "!RESPONSE_FILE!" -w "%%{http_code}" ^
         -X POST "%UPLOAD_URL%" ^
+        -H "Authorization: Bearer %ADMIN_ACCESS_TOKEN%" ^
         -F "file=@!FILEPATH!" ^
         -F "bookTitle=!BOOK_TITLE!" > "%TEMP%\babytalk_http_code.txt" 2>nul
 
@@ -107,7 +113,7 @@ for %%F in ("%DOCS_DIR%\*.*") do (
 
             if "!JOB_DONE!"=="0" (
                 set "STATUS_FILE=%TEMP%\babytalk_status_!TOTAL!.json"
-                curl -s -o "!STATUS_FILE!" "%JOBS_URL%/!JOB_ID!" 2>nul
+                curl -s -o "!STATUS_FILE!" -H "Authorization: Bearer %ADMIN_ACCESS_TOKEN%" "%JOBS_URL%/!JOB_ID!" 2>nul
 
                 findstr /i "COMPLETED" "!STATUS_FILE!" >nul 2>&1
                 if not errorlevel 1 (
