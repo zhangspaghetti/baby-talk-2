@@ -11,6 +11,14 @@ spring:
           uri: ${BABY_TALK_ADMIN_API_URI:http://localhost:8081}
           predicates:
             - Path=/api/admin/**
+        - id: app-api-consumer
+          uri: ${BABY_TALK_APP_API_URI:http://localhost:8080}
+          predicates:
+            - Path=/api/v1/**
+        - id: app-api-public
+          uri: ${BABY_TALK_APP_API_URI:http://localhost:8080}
+          predicates:
+            - Path=/download/**,/upgrade/**,/share/**,/invite/**
   data:
     redis:
       host: ${BABY_TALK_REDIS_HOST:localhost}

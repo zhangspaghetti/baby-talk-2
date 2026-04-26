@@ -396,6 +396,8 @@ if [[ -n "$RESOURCE_KEYS_DEFAULT" ]]; then
   assert_resource_present "$RESOURCE_KEYS_DEFAULT" "Service/${APP_RELEASE_NAME}-gateway" "default render includes Service/${APP_RELEASE_NAME}-gateway"
   assert_contains "$TEMPLATE_DEFAULT" "name: ${APP_RELEASE_NAME}-gateway" "default render exposes gateway resource names"
   assert_not_contains "$TEMPLATE_DEFAULT" "nginx:alpine" "gateway deployment no longer references nginx:alpine image"
+  assert_contains "$TEMPLATE_DEFAULT" "BABY_TALK_APP_API_URI" "default render injects BABY_TALK_APP_API_URI into gateway"
+  assert_not_contains "$TEMPLATE_DEFAULT" "Ingress/${APP_RELEASE_NAME}-gateway" "default render keeps gateway ingress disabled"
 else
   log_fail "gateway resource assertions skipped — app default render failed"
 fi
@@ -425,8 +427,9 @@ if [[ -f "$APP_PROD_VALUES" ]]; then
     assert_resource_present "$RESOURCE_KEYS_PROD" "Deployment/${APP_RELEASE_NAME}-admin-web" "production render includes Deployment/${APP_RELEASE_NAME}-admin-web"
     assert_resource_present "$RESOURCE_KEYS_PROD" "Deployment/${APP_RELEASE_NAME}-gateway" "production render includes Deployment/${APP_RELEASE_NAME}-gateway"
     assert_resource_present "$RESOURCE_KEYS_PROD" "Job/${APP_RELEASE_NAME}-db-migration" "production render includes Job/${APP_RELEASE_NAME}-db-migration"
-    assert_resource_present "$RESOURCE_KEYS_PROD" "Ingress/${APP_RELEASE_NAME}-app-api" "production render includes Ingress/${APP_RELEASE_NAME}-app-api"
+    assert_resource_present "$RESOURCE_KEYS_PROD" "Ingress/${APP_RELEASE_NAME}-gateway" "production render includes Ingress/${APP_RELEASE_NAME}-gateway (consumer entry point)"
     assert_resource_present "$RESOURCE_KEYS_PROD" "Ingress/${APP_RELEASE_NAME}-admin-web" "production render includes Ingress/${APP_RELEASE_NAME}-admin-web"
+    assert_resource_absent "$RESOURCE_KEYS_PROD" "Ingress/${APP_RELEASE_NAME}-app-api" "production render keeps app-api internal (consumer routes via gateway)"
     assert_resource_absent "$RESOURCE_KEYS_PROD" "Ingress/${APP_RELEASE_NAME}-admin-api" "production render keeps admin-api internal (no ingress)"
     assert_resource_absent "$RESOURCE_KEYS_PROD" "Deployment/${APP_RELEASE_NAME}" "production render rejects legacy single Deployment/${APP_RELEASE_NAME}"
     assert_resource_absent "$RESOURCE_KEYS_PROD" "Service/${APP_RELEASE_NAME}" "production render rejects legacy single Service/${APP_RELEASE_NAME}"
@@ -517,11 +520,12 @@ RELEASE_NOTES_OUTPUT=""
 step_begin
 if [[ -f "$APP_PROD_VALUES" ]]; then
   if RELEASE_NOTES_OUTPUT=$("$HELM_CMD" install "$APP_RELEASE_NAME" "$APP_CHART_DIR" -f "$APP_PROD_VALUES" --dry-run --debug 2>&1); then
-    assert_contains "$RELEASE_NOTES_OUTPUT" "https://api.babytalk.example.com" "release notes expose app-api public surface"
+    assert_contains "$RELEASE_NOTES_OUTPUT" "https://api.babytalk.example.com" "release notes expose consumer API via gateway"
     assert_contains "$RELEASE_NOTES_OUTPUT" "https://admin.babytalk.example.com" "release notes expose admin-web public surface"
     assert_contains "$RELEASE_NOTES_OUTPUT" "svc/${APP_RELEASE_NAME}-gateway:8090" "release notes expose gateway Spring Cloud Gateway service truth"
     assert_contains "$RELEASE_NOTES_OUTPUT" "Spring Cloud Gateway" "release notes reference Spring Cloud Gateway (not nginx stub)"
     assert_contains "$RELEASE_NOTES_OUTPUT" "svc/${APP_RELEASE_NAME}-admin-api:8081" "release notes mark admin-api as internal service truth"
+    assert_contains "$RELEASE_NOTES_OUTPUT" "svc/${APP_RELEASE_NAME}-app-api:8080" "release notes mark app-api as internal service (consumer routes via gateway)"
     assert_contains "$RELEASE_NOTES_OUTPUT" "pre-install / pre-upgrade hook job ${APP_RELEASE_NAME}-db-migration" "release notes point to db-migration hook job"
   else
     log_fail "helm install --dry-run --debug (production values) failed to render NOTES"

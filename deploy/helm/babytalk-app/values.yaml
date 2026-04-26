@@ -203,6 +203,14 @@ gateway:
     limits:
       cpu: 1000m
       memory: 512Mi
+  ingress:
+    enabled: false
+    className: nginx
+    annotations: {}
+    host: gateway.babytalk.local
+    path: /
+    pathType: Prefix
+    tls: []
 
 dbMigration:
   image:

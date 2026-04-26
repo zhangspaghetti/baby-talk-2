@@ -11,20 +11,7 @@ appApi:
     tag: "release-placeholder"
     pullPolicy: IfNotPresent
   ingress:
-    enabled: true
-    className: alb
-    annotations:
-      alb.ingress.kubernetes.io/scheme: internet-facing
-      alb.ingress.kubernetes.io/target-type: ip
-      alb.ingress.kubernetes.io/listen-ports: '[{"HTTPS":443}]'
-      alb.ingress.kubernetes.io/ssl-redirect: "443"
-    host: api.babytalk.example.com
-    path: /
-    pathType: Prefix
-    tls:
-      - secretName: babytalk-api-tls
-        hosts:
-          - api.babytalk.example.com
+    enabled: false
   resources:
     requests:
       cpu: 500m
@@ -82,6 +69,35 @@ dbMigration:
     tag: "release-placeholder"
     pullPolicy: IfNotPresent
   activeDeadlineSeconds: 600
+
+gateway:
+  replicaCount: 2
+  image:
+    repository: registry.cn-hangzhou.aliyuncs.com/babytalk/gateway
+    tag: "release-placeholder"
+    pullPolicy: IfNotPresent
+  ingress:
+    enabled: true
+    className: alb
+    annotations:
+      alb.ingress.kubernetes.io/scheme: internet-facing
+      alb.ingress.kubernetes.io/target-type: ip
+      alb.ingress.kubernetes.io/listen-ports: '[{"HTTPS":443}]'
+      alb.ingress.kubernetes.io/ssl-redirect: "443"
+    host: api.babytalk.example.com
+    path: /
+    pathType: Prefix
+    tls:
+      - secretName: babytalk-api-tls
+        hosts:
+          - api.babytalk.example.com
+  resources:
+    requests:
+      cpu: 250m
+      memory: 256Mi
+    limits:
+      cpu: 1000m
+      memory: 512Mi
 
 config:
   BABY_TALK_UPGRADE_URL: "https://babytalk.example.com/upgrade?channel=stable&source=version_gate"

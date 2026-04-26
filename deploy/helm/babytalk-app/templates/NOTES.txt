@@ -6,12 +6,12 @@ Gateway（Spring Cloud Gateway）：
   gateway（Spring Cloud Gateway — edge filter: JWT auth + rate limiting）
 
 {{- end }}
-{{- if .Values.appApi.ingress.enabled }}
-应用 API：
-  https://{{ required "appApi.ingress.host is required when appApi ingress is enabled" .Values.appApi.ingress.host }}
+{{- if .Values.gateway.ingress.enabled }}
+消费者 API（经由 Spring Cloud Gateway）：
+  https://{{ required "gateway.ingress.host is required when gateway ingress is enabled" .Values.gateway.ingress.host }}
 {{- else }}
-应用 API（port-forward）：
-  kubectl --namespace {{ .Release.Namespace }} port-forward svc/{{ include "babytalk-app.componentFullname" (dict "root" . "component" "app-api") }} 8080:{{ .Values.appApi.service.port }}
+消费者 API（port-forward via gateway）：
+  kubectl --namespace {{ .Release.Namespace }} port-forward svc/{{ include "babytalk-app.componentFullname" (dict "root" . "component" "gateway") }} 8090:{{ .Values.gateway.service.port }}
 {{- end }}
 
 {{- if .Values.adminWeb.ingress.enabled }}
@@ -26,6 +26,7 @@ Gateway（Spring Cloud Gateway）：
 {{- if .Values.gateway.enabled }}
   - gateway: svc/{{ include "babytalk-app.componentFullname" (dict "root" . "component" "gateway") }}:{{ .Values.gateway.service.port }}（Spring Cloud Gateway — JWT auth + rate limiting）
 {{- end }}
+  - app-api: svc/{{ include "babytalk-app.componentFullname" (dict "root" . "component" "app-api") }}:{{ .Values.appApi.service.port }}（仅集群内可达，consumer 路由经 gateway 转发）
   - admin-api: svc/{{ include "babytalk-app.componentFullname" (dict "root" . "component" "admin-api") }}:{{ .Values.adminApi.service.port }}（仅集群内可达）
   - db-migration: pre-install / pre-upgrade hook job {{ include "babytalk-app.componentFullname" (dict "root" . "component" "db-migration") }}
 

@@ -241,6 +241,8 @@ spec:
           env:
             - name: BABY_TALK_ADMIN_API_URI
               value: "http://{{ include "babytalk-app.componentFullname" (dict "root" . "component" "admin-api") }}:{{ .Values.adminApi.service.port }}"
+            - name: BABY_TALK_APP_API_URI
+              value: "http://{{ include "babytalk-app.componentFullname" (dict "root" . "component" "app-api") }}:{{ .Values.appApi.service.port }}"
           envFrom:
             - configMapRef:
                 name: {{ include "babytalk-app.configMapName" . }}
