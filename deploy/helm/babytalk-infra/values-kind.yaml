@@ -1,0 +1,35 @@
+# Expected in-cluster endpoints when installed as release 'babytalk-infra':
+# - Postgres: babytalk-infra-postgres:5432
+# - Redis: babytalk-infra-redis-master:6379
+# - MinIO: babytalk-infra-minio:9000
+postgres:
+  primary:
+    resources:
+      requests:
+        cpu: 50m
+        memory: 64Mi
+
+redis:
+  master:
+    resources:
+      requests:
+        cpu: 50m
+        memory: 64Mi
+  replica:
+    resources:
+      requests:
+        cpu: 50m
+        memory: 64Mi
+
+minio:
+  resourcesPreset: none
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+  console:
+    resourcesPreset: none
+    resources:
+      requests:
+        cpu: 50m
+        memory: 64Mi
