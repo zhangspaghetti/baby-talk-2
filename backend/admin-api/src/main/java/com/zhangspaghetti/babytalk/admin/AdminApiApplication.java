@@ -8,7 +8,7 @@ import org.springframework.boot.context.properties.ConfigurationPropertiesScan;
 
 @SpringBootApplication
 @ConfigurationPropertiesScan
-@MapperScan(value = "com.zhangspaghetti.babytalk", annotationClass = Mapper.class)
+@MapperScan(value = "com.zhangspaghetti.babytalk", annotationClass = Mapper.class, lazyInitialization = "true")
 public class AdminApiApplication {
 
     public static void main(String[] args) {

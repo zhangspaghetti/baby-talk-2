@@ -1,0 +1,436 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.zhangspaghetti.babytalk.service.AuthConsentSyncMapper">
+
+    <resultMap id="challengeRowMap" type="com.zhangspaghetti.babytalk.service.AuthConsentSyncRepository$ChallengeRow">
+        <constructor>
+            <arg column="challenge_id" javaType="java.lang.String"/>
+            <arg column="phone_number" javaType="java.lang.String"/>
+            <arg column="verification_code" javaType="java.lang.String"/>
+            <arg column="status" javaType="java.lang.String"/>
+            <arg column="issued_at" javaType="java.time.Instant"/>
+            <arg column="expires_at" javaType="java.time.Instant"/>
+            <arg column="verified_at" javaType="java.time.Instant"/>
+            <arg column="failure_reason" javaType="java.lang.String"/>
+        </constructor>
+    </resultMap>
+
+    <resultMap id="accountRowMap" type="com.zhangspaghetti.babytalk.service.AuthConsentSyncRepository$AccountRow">
+        <constructor>
+            <arg column="account_id" javaType="java.lang.String"/>
+            <arg column="phone_number" javaType="java.lang.String"/>
+            <arg column="status" javaType="java.lang.String"/>
+            <arg column="latest_consent_status" javaType="java.lang.String"/>
+            <arg column="created_at" javaType="java.time.Instant"/>
+            <arg column="deleted_at" javaType="java.time.Instant"/>
+        </constructor>
+    </resultMap>
+
+    <resultMap id="sessionContextRowMap" type="com.zhangspaghetti.babytalk.service.AuthConsentSyncRepository$SessionContextRow">
+        <constructor>
+            <arg column="session_id" javaType="java.lang.String"/>
+            <arg column="account_id" javaType="java.lang.String"/>
+            <arg column="installation_id" javaType="java.lang.String"/>
+            <arg column="session_status" javaType="java.lang.String"/>
+            <arg column="created_at" javaType="java.time.Instant"/>
+            <arg column="revoked_at" javaType="java.time.Instant"/>
+            <arg column="phone_number" javaType="java.lang.String"/>
+            <arg column="account_status" javaType="java.lang.String"/>
+            <arg column="latest_consent_status" javaType="java.lang.String"/>
+            <arg column="account_created_at" javaType="java.time.Instant"/>
+            <arg column="deleted_at" javaType="java.time.Instant"/>
+        </constructor>
+    </resultMap>
+
+    <resultMap id="refreshTokenRowMap" type="com.zhangspaghetti.babytalk.service.AuthConsentSyncRepository$RefreshTokenRow">
+        <constructor>
+            <arg column="refresh_token_id" javaType="java.lang.String"/>
+            <arg column="account_id" javaType="java.lang.String"/>
+            <arg column="session_id" javaType="java.lang.String"/>
+            <arg column="status" javaType="java.lang.String"/>
+            <arg column="issued_at" javaType="java.time.Instant"/>
+            <arg column="expires_at" javaType="java.time.Instant"/>
+            <arg column="updated_at" javaType="java.time.Instant"/>
+            <arg column="rotated_at" javaType="java.time.Instant"/>
+            <arg column="revoked_at" javaType="java.time.Instant"/>
+            <arg column="replacement_token_id" javaType="java.lang.String"/>
+        </constructor>
+    </resultMap>
+
+    <resultMap id="auditRowMap" type="com.zhangspaghetti.babytalk.service.AuthConsentSyncRepository$AuditRow">
+        <constructor>
+            <arg column="account_id" javaType="java.lang.String"/>
+            <arg column="session_id" javaType="java.lang.String"/>
+            <arg column="installation_id" javaType="java.lang.String"/>
+            <arg column="action" javaType="java.lang.String"/>
+            <arg column="result" javaType="java.lang.String"/>
+            <arg column="reason" javaType="java.lang.String"/>
+            <arg column="created_at" javaType="java.time.Instant"/>
+        </constructor>
+    </resultMap>
+
+    <resultMap id="storedInteractionEventMap" type="com.zhangspaghetti.babytalk.service.AuthConsentSyncRepository$StoredInteractionEvent">
+        <constructor>
+            <arg column="event_key" javaType="java.lang.String"/>
+            <arg column="local_event_id" javaType="java.lang.String"/>
+            <arg column="installation_id" javaType="java.lang.String"/>
+            <arg column="space_id" javaType="java.lang.String"/>
+            <arg column="activity_id" javaType="java.lang.String"/>
+            <arg column="phrase_id" javaType="java.lang.String"/>
+            <arg column="reaction_type" javaType="java.lang.String"/>
+            <arg column="client_timestamp" javaType="java.time.Instant"/>
+            <arg column="received_at" javaType="java.time.Instant"/>
+        </constructor>
+    </resultMap>
+
+    <sql id="sessionContextSelect">
+        select s.session_id,
+               s.account_id,
+               s.installation_id,
+               s.status as session_status,
+               s.created_at,
+               s.revoked_at,
+               a.phone_number,
+               a.status as account_status,
+               a.latest_consent_status,
+               a.created_at as account_created_at,
+               a.deleted_at
+        from account_sessions s
+        join accounts a on a.account_id = s.account_id
+    </sql>
+
+    <insert id="insertChallenge">
+        insert into sms_challenges (
+            challenge_id,
+            phone_number,
+            verification_code,
+            status,
+            issued_at,
+            expires_at,
+            verified_at,
+            failure_reason
+        ) values (
+            #{row.challengeId},
+            #{row.phoneNumber},
+            #{row.verificationCode},
+            #{row.status},
+            #{row.issuedAt},
+            #{row.expiresAt},
+            #{row.verifiedAt},
+            #{row.failureReason}
+        )
+    </insert>
+
+    <select id="findChallenge" resultMap="challengeRowMap">
+        select challenge_id,
+               phone_number,
+               verification_code,
+               status,
+               issued_at,
+               expires_at,
+               verified_at,
+               failure_reason
+        from sms_challenges
+        where challenge_id = #{challengeId}
+    </select>
+
+    <update id="markChallengeVerified">
+        update sms_challenges
+        set status = 'verified',
+            verified_at = #{verifiedAt},
+            failure_reason = null
+        where challenge_id = #{challengeId}
+          and status = 'pending'
+    </update>
+
+    <update id="markChallengeExpired">
+        update sms_challenges
+        set status = 'expired',
+            failure_reason = #{reason}
+        where challenge_id = #{challengeId}
+          and status = 'pending'
+    </update>
+
+    <select id="findActiveAccountByPhone" resultMap="accountRowMap">
+        select account_id,
+               phone_number,
+               status,
+               latest_consent_status,
+               created_at,
+               deleted_at
+        from accounts
+        where phone_number = #{phoneNumber}
+          and status = 'active'
+    </select>
+
+    <select id="findAccountById" resultMap="accountRowMap">
+        select account_id,
+               phone_number,
+               status,
+               latest_consent_status,
+               created_at,
+               deleted_at
+        from accounts
+        where account_id = #{accountId}
+    </select>
+
+    <insert id="insertAccount">
+        insert into accounts (
+            account_id,
+            phone_number,
+            status,
+            latest_consent_status,
+            created_at,
+            deleted_at
+        ) values (
+            #{row.accountId},
+            #{row.phoneNumber},
+            #{row.status},
+            #{row.latestConsentStatus},
+            #{row.createdAt},
+            #{row.deletedAt}
+        )
+    </insert>
+
+    <insert id="insertSession">
+        insert into account_sessions (
+            session_id,
+            account_id,
+            installation_id,
+            status,
+            created_at,
+            revoked_at
+        ) values (
+            #{row.sessionId},
+            #{row.accountId},
+            #{row.installationId},
+            #{row.sessionStatus},
+            #{row.createdAt},
+            #{row.revokedAt}
+        )
+    </insert>
+
+    <insert id="insertRefreshToken">
+        insert into account_refresh_tokens (
+            refresh_token_id,
+            account_id,
+            session_id,
+            status,
+            issued_at,
+            expires_at,
+            updated_at,
+            rotated_at,
+            revoked_at,
+            replacement_token_id
+        ) values (
+            #{row.refreshTokenId},
+            #{row.accountId},
+            #{row.sessionId},
+            #{row.status},
+            #{row.issuedAt},
+            #{row.expiresAt},
+            #{row.updatedAt},
+            #{row.rotatedAt},
+            #{row.revokedAt},
+            #{row.replacementTokenId}
+        )
+    </insert>
+
+    <select id="findRefreshToken" resultMap="refreshTokenRowMap">
+        select refresh_token_id,
+               account_id,
+               session_id,
+               status,
+               issued_at,
+               expires_at,
+               updated_at,
+               rotated_at,
+               revoked_at,
+               replacement_token_id
+        from account_refresh_tokens
+        where refresh_token_id = #{refreshTokenId}
+    </select>
+
+    <select id="lockRefreshToken" resultMap="refreshTokenRowMap">
+        select refresh_token_id,
+               account_id,
+               session_id,
+               status,
+               issued_at,
+               expires_at,
+               updated_at,
+               rotated_at,
+               revoked_at,
+               replacement_token_id
+        from account_refresh_tokens
+        where refresh_token_id = #{refreshTokenId}
+        for update
+    </select>
+
+    <update id="rotateRefreshToken">
+        update account_refresh_tokens
+        set status = 'rotated',
+            rotated_at = #{rotatedAt},
+            updated_at = #{rotatedAt},
+            replacement_token_id = #{replacementTokenId}
+        where refresh_token_id = #{refreshTokenId}
+          and status = 'active'
+    </update>
+
+    <update id="revokeRefreshToken">
+        update account_refresh_tokens
+        set status = 'revoked',
+            revoked_at = #{revokedAt},
+            updated_at = #{revokedAt}
+        where refresh_token_id = #{refreshTokenId}
+          and status = 'active'
+    </update>
+
+    <update id="expireRefreshToken">
+        update account_refresh_tokens
+        set status = 'expired',
+            updated_at = #{expiredAt}
+        where refresh_token_id = #{refreshTokenId}
+          and status = 'active'
+    </update>
+
+    <update id="revokeSession">
+        update account_sessions
+        set status = 'revoked',
+            revoked_at = #{revokedAt}
+        where session_id = #{sessionId}
+          and status = 'active'
+    </update>
+
+    <select id="findActiveSession" resultMap="sessionContextRowMap">
+        <include refid="sessionContextSelect"/>
+        where s.session_id = #{sessionId}
+          and s.status = 'active'
+    </select>
+
+    <select id="findSessionAnyStatus" resultMap="sessionContextRowMap">
+        <include refid="sessionContextSelect"/>
+        where s.session_id = #{sessionId}
+    </select>
+
+    <update id="updateAccountConsent">
+        update accounts
+        set latest_consent_status = #{consentStatus}
+        where account_id = #{accountId}
+    </update>
+
+    <update id="updateSessionsStatus">
+        update account_sessions
+        set status = #{newStatus},
+            revoked_at = #{changedAt}
+        where account_id = #{accountId}
+          and status &lt;&gt; #{newStatus}
+    </update>
+
+    <insert id="insertConsentAudit">
+        insert into consent_audit_logs (
+            account_id,
+            session_id,
+            installation_id,
+            action,
+            result,
+            reason,
+            created_at
+        ) values (
+            #{row.accountId},
+            #{row.sessionId},
+            #{row.installationId},
+            #{row.action},
+            #{row.result},
+            #{row.reason},
+            #{row.createdAt}
+        )
+    </insert>
+
+    <select id="listAuditEntries" resultMap="auditRowMap">
+        select account_id,
+               session_id,
+               installation_id,
+               action,
+               result,
+               reason,
+               created_at
+        from consent_audit_logs
+        where account_id = #{accountId}
+        order by created_at asc, audit_id asc
+    </select>
+
+    <insert id="insertInteractionEvent">
+        insert into interaction_events (
+            event_key,
+            account_id,
+            session_id,
+            installation_id,
+            local_event_id,
+            space_id,
+            activity_id,
+            phrase_id,
+            reaction_type,
+            client_timestamp,
+            received_at
+        ) values (
+            #{event.eventKey},
+            #{accountId},
+            #{sessionId},
+            #{event.installationId},
+            #{event.localEventId},
+            #{event.spaceId},
+            #{event.activityId},
+            #{event.phraseId},
+            #{event.reactionType},
+            #{event.clientTimestamp},
+            #{receivedAt}
+        )
+        on conflict (event_key) do nothing
+    </insert>
+
+    <select id="listInteractionEvents" resultMap="storedInteractionEventMap">
+        select event_key,
+               local_event_id,
+               installation_id,
+               space_id,
+               activity_id,
+               phrase_id,
+               reaction_type,
+               client_timestamp,
+               received_at
+        from interaction_events
+        where account_id = #{accountId}
+          and installation_id = #{installationId}
+        order by client_timestamp asc, event_key asc
+        limit #{limit}
+    </select>
+
+    <select id="countInteractionEvents" resultType="int">
+        select count(*)
+        from interaction_events
+        where account_id = #{accountId}
+          and installation_id = #{installationId}
+    </select>
+
+    <select id="countAllInteractionEvents" resultType="int">
+        select count(*)
+        from interaction_events
+    </select>
+
+    <delete id="deleteInteractionEvents">
+        delete from interaction_events
+        where account_id = #{accountId}
+    </delete>
+
+    <update id="tombstoneAccount">
+        update accounts
+        set status = 'deleted',
+            phone_number = #{tombstonePhone},
+            latest_consent_status = 'deleted',
+            deleted_at = #{deletedAt}
+        where account_id = #{accountId}
+    </update>
+</mapper>
