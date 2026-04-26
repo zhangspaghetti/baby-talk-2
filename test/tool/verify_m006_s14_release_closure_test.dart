@@ -132,7 +132,7 @@ void main() {
 
   group('M006 S14 repo-root handoff surfaces', () {
     test(
-      'workflow keeps relay, canonical gate, and artifact-preserving fail path',
+      'workflow scopes relay to backend tests, installs Helm smoke, and preserves artifacts',
       () {
         final workflow = _readRootText('.github/workflows/ci.yml');
 
@@ -145,20 +145,28 @@ void main() {
         expect(
           workflow,
           contains(
-            'if docker --host tcp://localhost:2375 info >/dev/null 2>&1; then',
+            'continue-on-error: true\n        timeout-minutes: 45\n        env:\n          DOCKER_HOST: tcp://localhost:2375\n        run: bash ci/backend-test.sh',
           ),
         );
         expect(
           workflow,
-          contains(
-            'continue-on-error: true\n        timeout-minutes: 45\n        env:\n          DOCKER_HOST: tcp://localhost:2375\n        run: dart run tool/verify_m006_s14_release_closure.dart',
-          ),
+          contains("BABY_TALK_PLAYWRIGHT_SKIP_COMPOSE_BOOT: '1'"),
+        );
+        expect(
+          workflow,
+          contains('- name: Install Helm\n        uses: azure/setup-helm@v4'),
         );
         expect(
           workflow,
           contains(
-            '- name: Upload playwright-report artifact\n        if: \${{ always() }}',
+            'continue-on-error: true\n        timeout-minutes: 20\n        run: bash ci/k8s-smoke.sh',
           ),
+        );
+        expect(workflow, isNot(contains('verify_m006_s14_release_closure')));
+        expect(
+          workflow,
+          contains(r'''- name: Upload playwright-report artifact
+        if: ${{ always() }}'''),
         );
         expect(
           workflow,
@@ -167,18 +175,22 @@ void main() {
           ),
         );
 
-        final verifierIndex = workflow.indexOf(
-          'Run M006 S14 release-closure verifier',
+        final backendIndex = workflow.indexOf('Run backend tests');
+        final stopRelayIndex = workflow.indexOf('Stop Docker relay');
+        final helmIndex = workflow.indexOf(
+          'Run Helm dual-chart smoke (babytalk-infra + babytalk-app)',
         );
         final uploadIndex = workflow.indexOf(
           'Upload playwright-report artifact',
         );
         final failIndex = workflow.indexOf(
-          'Fail when release-closure verifier fails',
+          'Fail when backend tests or Helm smoke fail',
         );
 
-        expect(verifierIndex, greaterThanOrEqualTo(0));
-        expect(uploadIndex, greaterThan(verifierIndex));
+        expect(backendIndex, greaterThanOrEqualTo(0));
+        expect(stopRelayIndex, greaterThan(backendIndex));
+        expect(helmIndex, greaterThan(stopRelayIndex));
+        expect(uploadIndex, greaterThan(helmIndex));
         expect(failIndex, greaterThan(uploadIndex));
       },
     );
