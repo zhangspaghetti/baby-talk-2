@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.zhangspaghetti.babytalk.service.ShareLandingMapper">
+
+    <resultMap id="shareCardRowMap" type="com.zhangspaghetti.babytalk.service.ShareLandingRepository$ShareCardRow">
+        <constructor>
+            <arg column="token" javaType="java.lang.String"/>
+            <arg column="source" javaType="java.lang.String"/>
+            <arg column="headline" javaType="java.lang.String"/>
+            <arg column="story_text" javaType="java.lang.String"/>
+            <arg column="phrase_text" javaType="java.lang.String"/>
+            <arg column="phrase_translation" javaType="java.lang.String"/>
+            <arg column="recommendation_title" javaType="java.lang.String"/>
+            <arg column="recommendation_reason" javaType="java.lang.String"/>
+            <arg column="space_id" javaType="java.lang.String"/>
+            <arg column="activity_id" javaType="java.lang.String"/>
+            <arg column="platform_hint" javaType="java.lang.String"/>
+            <arg column="created_at" javaType="java.time.Instant"/>
+            <arg column="expires_at" javaType="java.time.Instant"/>
+        </constructor>
+    </resultMap>
+
+    <insert id="insertShareCard">
+        insert into share_landing_cards (
+            token,
+            source,
+            headline,
+            story_text,
+            phrase_text,
+            phrase_translation,
+            recommendation_title,
+            recommendation_reason,
+            space_id,
+            activity_id,
+            platform_hint,
+            created_at,
+            expires_at
+        ) values (
+            #{row.token},
+            #{row.source},
+            #{row.headline},
+            #{row.storyText},
+            #{row.phraseText},
+            #{row.phraseTranslation},
+            #{row.recommendationTitle},
+            #{row.recommendationReason},
+            #{row.spaceId},
+            #{row.activityId},
+            #{row.platformHint},
+            #{row.createdAt},
+            #{row.expiresAt}
+        )
+    </insert>
+
+    <select id="findByToken" resultMap="shareCardRowMap">
+        select token,
+               source,
+               headline,
+               story_text,
+               phrase_text,
+               phrase_translation,
+               recommendation_title,
+               recommendation_reason,
+               space_id,
+               activity_id,
+               platform_hint,
+               created_at,
+               expires_at
+        from share_landing_cards
+        where token = #{token}
+    </select>
+
+    <insert id="insertEvent">
+        insert into share_landing_events (
+            token,
+            source,
+            entrypoint,
+            platform,
+            result,
+            failure_reason,
+            created_at
+        ) values (
+            #{row.token},
+            #{row.source},
+            #{row.entrypoint},
+            #{row.platform},
+            #{row.result},
+            #{row.failureReason},
+            #{row.createdAt}
+        )
+    </insert>
+</mapper>

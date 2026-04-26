@@ -1,5 +1,6 @@
 package com.zhangspaghetti.babytalk.admin;
 
+import org.apache.ibatis.annotations.Mapper;
 import org.mybatis.spring.annotation.MapperScan;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
@@ -7,7 +8,7 @@ import org.springframework.boot.context.properties.ConfigurationPropertiesScan;
 
 @SpringBootApplication
 @ConfigurationPropertiesScan
-@MapperScan("com.zhangspaghetti.babytalk")
+@MapperScan(value = "com.zhangspaghetti.babytalk", annotationClass = Mapper.class)
 public class AdminApiApplication {
 
     public static void main(String[] args) {

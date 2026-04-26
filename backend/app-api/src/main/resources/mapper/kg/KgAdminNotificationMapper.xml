@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.zhangspaghetti.babytalk.kg.KgAdminNotificationMapper">
+
+    <resultMap id="kgAdminNotificationMap" type="com.zhangspaghetti.babytalk.kg.KgAdminNotification">
+        <constructor>
+            <arg column="id"
+                 javaType="java.util.UUID"
+                 jdbcType="OTHER"
+                 typeHandler="com.zhangspaghetti.babytalk.mybatis.UuidTypeHandler"/>
+            <arg column="contradiction_id"
+                 javaType="java.util.UUID"
+                 jdbcType="OTHER"
+                 typeHandler="com.zhangspaghetti.babytalk.mybatis.UuidTypeHandler"/>
+            <arg column="notification_type" javaType="java.lang.String"/>
+            <arg column="message" javaType="java.lang.String"/>
+            <arg column="is_read" javaType="_boolean"/>
+            <arg column="created_at" javaType="java.time.Instant"/>
+        </constructor>
+    </resultMap>
+
+    <insert id="insert">
+        insert into kg_admin_notifications (
+            id,
+            contradiction_id,
+            notification_type,
+            message,
+            is_read,
+            created_at
+        ) values (
+            #{notification.id, jdbcType=OTHER, typeHandler=com.zhangspaghetti.babytalk.mybatis.UuidTypeHandler},
+            #{notification.contradictionId, jdbcType=OTHER, typeHandler=com.zhangspaghetti.babytalk.mybatis.UuidTypeHandler},
+            #{notification.notificationType},
+            #{notification.message},
+            #{notification.read},
+            #{notification.createdAt}
+        )
+    </insert>
+
+    <select id="findUnread" resultMap="kgAdminNotificationMap">
+        select id,
+               contradiction_id,
+               notification_type,
+               message,
+               is_read,
+               created_at
+        from kg_admin_notifications
+        where is_read = false
+        order by created_at desc
+    </select>
+
+    <update id="markRead">
+        update kg_admin_notifications
+        set is_read = true
+        where id = #{id, jdbcType=OTHER, typeHandler=com.zhangspaghetti.babytalk.mybatis.UuidTypeHandler}
+    </update>
+
+    <select id="findAll" resultMap="kgAdminNotificationMap">
+        select id,
+               contradiction_id,
+               notification_type,
+               message,
+               is_read,
+               created_at
+        from kg_admin_notifications
+        order by created_at desc
+    </select>
+
+    <select id="findById" resultMap="kgAdminNotificationMap">
+        select id,
+               contradiction_id,
+               notification_type,
+               message,
+               is_read,
+               created_at
+        from kg_admin_notifications
+        where id = #{id, jdbcType=OTHER, typeHandler=com.zhangspaghetti.babytalk.mybatis.UuidTypeHandler}
+    </select>
+
+    <select id="findByContradictionId" resultMap="kgAdminNotificationMap">
+        select id,
+               contradiction_id,
+               notification_type,
+               message,
+               is_read,
+               created_at
+        from kg_admin_notifications
+        where contradiction_id = #{contradictionId, jdbcType=OTHER, typeHandler=com.zhangspaghetti.babytalk.mybatis.UuidTypeHandler}
+        order by created_at desc
+    </select>
+</mapper>
