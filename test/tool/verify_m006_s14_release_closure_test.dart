@@ -486,5 +486,7 @@ bool _rootRelativeExists(String relativePath) {
 
 String _readRootText(String relativePath) {
   final root = _repoRootDirectory().path;
-  return File('$root${Platform.pathSeparator}$relativePath').readAsStringSync();
+  return File('$root${Platform.pathSeparator}$relativePath')
+      .readAsStringSync()
+      .replaceAll('\r\n', '\n');
 }

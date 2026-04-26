@@ -366,7 +366,7 @@ class FullChainTestHarness {
     await tester.pumpAndSettle();
     await pumpUntilFound(
       tester,
-      find.text('${childDisplayName} 的首页'),
+      find.text('$childDisplayName 的首页'),
       timeout: const Duration(seconds: 12),
       reason: 'home tab active',
     );

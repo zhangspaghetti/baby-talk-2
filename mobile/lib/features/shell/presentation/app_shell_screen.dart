@@ -98,25 +98,25 @@ class _AppShellScreenState extends State<AppShellScreen> {
         },
         destinations: [
           NavigationDestination(
-            key: const Key('shell-tab-home'),
+            key: const Key('shell-nav-home'),
             icon: Icon(Icons.home_outlined),
             selectedIcon: Icon(Icons.home_rounded),
             label: '首页',
           ),
           NavigationDestination(
-            key: const Key('shell-tab-discover'),
+            key: const Key('shell-nav-discover'),
             icon: Icon(Icons.search_outlined),
             selectedIcon: Icon(Icons.search_rounded),
             label: '发现',
           ),
           NavigationDestination(
-            key: const Key('shell-tab-garden'),
+            key: const Key('shell-nav-garden'),
             icon: Icon(Icons.local_florist_outlined),
             selectedIcon: Icon(Icons.local_florist_rounded),
             label: '花园',
           ),
           NavigationDestination(
-            key: const Key('shell-tab-growth'),
+            key: const Key('shell-nav-growth'),
             icon: Icon(Icons.insights_outlined),
             selectedIcon: Icon(Icons.insights_rounded),
             label: '成长',

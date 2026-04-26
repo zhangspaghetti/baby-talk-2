@@ -31,13 +31,13 @@ class PracticeSessionScreen extends StatelessWidget {
 
     final args = routeEntry.args!;
     final repository = context.read<PracticeRepository>();
-    final accountViewModel = context.read<AccountViewModel>();
+    final accountViewModel = context.read<AccountViewModel?>();
     return ChangeNotifierProvider<PracticeSessionViewModel>(
       create: (_) => PracticeSessionViewModel(
         repository: repository,
         spaceId: args.spaceId,
         activityId: args.activityId,
-        accessTokenLoader: () => accountViewModel.snapshot.session?.accessToken,
+        accessTokenLoader: () => accountViewModel?.snapshot.session?.accessToken,
         audioController: audioControllerFactory?.call(),
       )..initialize(),
       child: _PracticeSessionBody(routeArgs: args),
