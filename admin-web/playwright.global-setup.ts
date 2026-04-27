@@ -1,10 +1,14 @@
 import { spawnSync } from 'node:child_process';
+import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const currentDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(currentDir, '..');
 const reuseComposeBoot = process.env.BABY_TALK_PLAYWRIGHT_SKIP_COMPOSE_BOOT === '1';
+const composeFilePath = path.join(repoRoot, 'docker-compose.yml');
+const composeFileExists = fs.existsSync(composeFilePath);
+const composeFreeMode = reuseComposeBoot || !composeFileExists;
 const dockerApiVersion = process.env.DOCKER_API_VERSION?.trim() || '1.44';
 const appApiHealthUrl = 'http://127.0.0.1:8080/actuator/health';
 const adminApiHealthUrl = 'http://127.0.0.1:8081/actuator/health';
@@ -346,6 +350,10 @@ async function waitForAdminWeb(timeoutMs: number) {
 }
 
 function dumpComposeDiagnostics() {
+  if (!composeFileExists) {
+    return;
+  }
+
   console.error('');
   console.error('[compose-runtime] diagnostics (sanitized):');
 
@@ -377,26 +385,30 @@ function redactSensitiveText(text: string): string {
 }
 
 export default async function globalSetup() {
-  console.log(`[compose-runtime] mode=${reuseComposeBoot ? 'reuse' : 'playwright-owned-boot'} docker_api_version=${dockerApiVersion}`);
+  console.log(`[compose-runtime] mode=${composeFreeMode ? 'compose-free' : 'playwright-owned-boot'} docker_api_version=${dockerApiVersion}`);
 
-  if (!reuseComposeBoot) {
+  if (composeFreeMode) {
+    console.log('Playwright E2E setup: compose-free mode. Ensure stack is running via dev-up-helm-demo.sh before running E2E tests.');
+  } else {
     run('docker', ['compose', 'up', '-d', '--build', ...composeServiceOrder], 'compose_boot', {
       dumpDiagnosticsOnFailure: true,
     });
   }
 
   try {
-    const composeState = await waitForComposeRuntimeTruth(240_000);
-    for (const serviceName of composeServiceOrder) {
-      console.log(`[compose-runtime] ${formatComposeState(serviceName, composeState.get(serviceName))}`);
+    if (!composeFreeMode) {
+      const composeState = await waitForComposeRuntimeTruth(240_000);
+      for (const serviceName of composeServiceOrder) {
+        console.log(`[compose-runtime] ${formatComposeState(serviceName, composeState.get(serviceName))}`);
+      }
     }
     await waitForHealth('app-api', appApiHealthUrl, 180_000);
     await waitForHealth('admin-api', adminApiHealthUrl, 180_000);
     await waitForAdminWeb(180_000);
   } catch (error) {
-    if (reuseComposeBoot) {
+    if (composeFreeMode) {
       throw new Error(
-        `[runtime_truth] BABY_TALK_PLAYWRIGHT_SKIP_COMPOSE_BOOT=1 was set, but the verifier-owned runtime is not reusable. ${error instanceof Error ? error.message : String(error)}`,
+        `[runtime_truth] Playwright compose-free mode expected a reusable stack. ${error instanceof Error ? error.message : String(error)}`,
       );
     }
 

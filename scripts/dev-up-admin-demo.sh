@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# Helm-first alias since M007 — was compose-based M006 front door.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -12,8 +13,10 @@ if ! command -v dart >/dev/null 2>&1; then
   echo "tthw_seconds=0"
   echo "first_failure_stage=preflight"
   echo "likely_cause=dart_missing"
-  echo "next_action=Install Dart or Flutter, then rerun ./scripts/dev-up-admin-demo.sh"
+  echo "next_action=Install Dart or Flutter, then rerun ./scripts/dev-up-helm-demo.sh"
+  echo "gateway_url=http://127.0.0.1:8090/"
+  echo "telemetry_path=tmp/m007-s01-helm-metrics.jsonl"
   exit 127
 fi
 
-exec dart run tool/verify_m006_s13_demo_path.dart demo "$@"
+exec ./scripts/dev-up-helm-demo.sh "$@"

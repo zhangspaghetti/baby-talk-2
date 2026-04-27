@@ -1,0 +1,118 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.zhangspaghetti.babytalk.kg.KgEntityMapper">
+
+    <resultMap id="kgEntityMap" type="com.zhangspaghetti.babytalk.kg.KgEntity">
+        <constructor>
+            <arg column="id"
+                 javaType="java.util.UUID"
+                 jdbcType="OTHER"
+                 typeHandler="com.zhangspaghetti.babytalk.mybatis.UuidTypeHandler"/>
+            <arg column="name" javaType="java.lang.String"/>
+            <arg column="entity_type" javaType="java.lang.String"/>
+            <arg column="source_book" javaType="java.lang.String"/>
+            <arg column="wing" javaType="java.lang.String"/>
+            <arg column="room" javaType="java.lang.String"/>
+            <arg column="description" javaType="java.lang.String"/>
+            <arg column="valid_from_months" javaType="java.lang.Integer"/>
+            <arg column="valid_to_months" javaType="java.lang.Integer"/>
+            <arg column="created_at" javaType="java.time.Instant"/>
+            <arg column="updated_at" javaType="java.time.Instant"/>
+        </constructor>
+    </resultMap>
+
+    <insert id="insert">
+        insert into kg_entities (
+            id,
+            name,
+            entity_type,
+            source_book,
+            wing,
+            room,
+            description,
+            valid_from_months,
+            valid_to_months,
+            created_at,
+            updated_at
+        ) values (
+            #{entity.id, jdbcType=OTHER, typeHandler=com.zhangspaghetti.babytalk.mybatis.UuidTypeHandler},
+            #{entity.name},
+            #{entity.entityType},
+            #{entity.sourceBook},
+            #{entity.wing},
+            #{entity.room},
+            #{entity.description},
+            #{entity.validFromMonths},
+            #{entity.validToMonths},
+            #{entity.createdAt},
+            #{entity.updatedAt}
+        )
+    </insert>
+
+    <select id="findById" resultMap="kgEntityMap">
+        select id,
+               name,
+               entity_type,
+               source_book,
+               wing,
+               room,
+               description,
+               valid_from_months,
+               valid_to_months,
+               created_at,
+               updated_at
+        from kg_entities
+        where id = #{id, jdbcType=OTHER, typeHandler=com.zhangspaghetti.babytalk.mybatis.UuidTypeHandler}
+    </select>
+
+    <select id="findByNameLike" resultMap="kgEntityMap">
+        select id,
+               name,
+               entity_type,
+               source_book,
+               wing,
+               room,
+               description,
+               valid_from_months,
+               valid_to_months,
+               created_at,
+               updated_at
+        from kg_entities
+        where name ilike #{searchPattern}
+        order by similarity(name, #{query}) desc, name
+    </select>
+
+    <select id="findByWingAndRoom" resultMap="kgEntityMap">
+        select id,
+               name,
+               entity_type,
+               source_book,
+               wing,
+               room,
+               description,
+               valid_from_months,
+               valid_to_months,
+               created_at,
+               updated_at
+        from kg_entities
+        where wing = #{wing}
+          and room = #{room}
+        order by name
+    </select>
+
+    <update id="update">
+        update kg_entities
+        set name = #{entity.name},
+            entity_type = #{entity.entityType},
+            source_book = #{entity.sourceBook},
+            wing = #{entity.wing},
+            room = #{entity.room},
+            description = #{entity.description},
+            valid_from_months = #{entity.validFromMonths},
+            valid_to_months = #{entity.validToMonths},
+            updated_at = #{updatedAt}
+        where id = #{entity.id, jdbcType=OTHER, typeHandler=com.zhangspaghetti.babytalk.mybatis.UuidTypeHandler}
+    </update>
+</mapper>

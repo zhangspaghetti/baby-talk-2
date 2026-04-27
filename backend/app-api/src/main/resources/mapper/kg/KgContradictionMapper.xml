@@ -1,0 +1,156 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.zhangspaghetti.babytalk.kg.KgContradictionMapper">
+
+    <resultMap id="kgContradictionMap" type="com.zhangspaghetti.babytalk.kg.KgContradiction">
+        <constructor>
+            <arg column="id"
+                 javaType="java.util.UUID"
+                 jdbcType="OTHER"
+                 typeHandler="com.zhangspaghetti.babytalk.mybatis.UuidTypeHandler"/>
+            <arg column="entity_topic" javaType="java.lang.String"/>
+            <arg column="relationship_a_id"
+                 javaType="java.util.UUID"
+                 jdbcType="OTHER"
+                 typeHandler="com.zhangspaghetti.babytalk.mybatis.UuidTypeHandler"/>
+            <arg column="relationship_b_id"
+                 javaType="java.util.UUID"
+                 jdbcType="OTHER"
+                 typeHandler="com.zhangspaghetti.babytalk.mybatis.UuidTypeHandler"/>
+            <arg column="source_a_book" javaType="java.lang.String"/>
+            <arg column="source_b_book" javaType="java.lang.String"/>
+            <arg column="description" javaType="java.lang.String"/>
+            <arg column="status" javaType="java.lang.String"/>
+            <arg column="agent_review_result" javaType="java.lang.String"/>
+            <arg column="admin_notes" javaType="java.lang.String"/>
+            <arg column="detected_at" javaType="java.time.Instant"/>
+            <arg column="reviewed_at" javaType="java.time.Instant"/>
+            <arg column="resolved_at" javaType="java.time.Instant"/>
+        </constructor>
+    </resultMap>
+
+    <insert id="insert">
+        insert into kg_contradictions (
+            id,
+            entity_topic,
+            relationship_a_id,
+            relationship_b_id,
+            source_a_book,
+            source_b_book,
+            description,
+            status,
+            agent_review_result,
+            admin_notes,
+            detected_at,
+            reviewed_at,
+            resolved_at
+        ) values (
+            #{contradiction.id, jdbcType=OTHER, typeHandler=com.zhangspaghetti.babytalk.mybatis.UuidTypeHandler},
+            #{contradiction.entityTopic},
+            #{contradiction.relationshipAId, jdbcType=OTHER, typeHandler=com.zhangspaghetti.babytalk.mybatis.UuidTypeHandler},
+            #{contradiction.relationshipBId, jdbcType=OTHER, typeHandler=com.zhangspaghetti.babytalk.mybatis.UuidTypeHandler},
+            #{contradiction.sourceABook},
+            #{contradiction.sourceBBook},
+            #{contradiction.description},
+            #{contradiction.status},
+            #{contradiction.agentReviewResult},
+            #{contradiction.adminNotes},
+            #{contradiction.detectedAt},
+            #{contradiction.reviewedAt},
+            #{contradiction.resolvedAt}
+        )
+    </insert>
+
+    <select id="findById" resultMap="kgContradictionMap">
+        select id,
+               entity_topic,
+               relationship_a_id,
+               relationship_b_id,
+               source_a_book,
+               source_b_book,
+               description,
+               status,
+               agent_review_result,
+               admin_notes,
+               detected_at,
+               reviewed_at,
+               resolved_at
+        from kg_contradictions
+        where id = #{id, jdbcType=OTHER, typeHandler=com.zhangspaghetti.babytalk.mybatis.UuidTypeHandler}
+    </select>
+
+    <select id="findAll" resultMap="kgContradictionMap">
+        select id,
+               entity_topic,
+               relationship_a_id,
+               relationship_b_id,
+               source_a_book,
+               source_b_book,
+               description,
+               status,
+               agent_review_result,
+               admin_notes,
+               detected_at,
+               reviewed_at,
+               resolved_at
+        from kg_contradictions
+        order by detected_at desc
+    </select>
+
+    <select id="findByStatus" resultMap="kgContradictionMap">
+        select id,
+               entity_topic,
+               relationship_a_id,
+               relationship_b_id,
+               source_a_book,
+               source_b_book,
+               description,
+               status,
+               agent_review_result,
+               admin_notes,
+               detected_at,
+               reviewed_at,
+               resolved_at
+        from kg_contradictions
+        where status = #{status}
+        order by detected_at desc
+    </select>
+
+    <update id="updateStatus">
+        update kg_contradictions
+        set status = #{status},
+            agent_review_result = #{agentReviewResult},
+            reviewed_at = #{reviewedAt}
+        where id = #{id, jdbcType=OTHER, typeHandler=com.zhangspaghetti.babytalk.mybatis.UuidTypeHandler}
+    </update>
+
+    <update id="updateResolved">
+        update kg_contradictions
+        set status = #{status},
+            admin_notes = #{adminNotes},
+            resolved_at = #{resolvedAt}
+        where id = #{id, jdbcType=OTHER, typeHandler=com.zhangspaghetti.babytalk.mybatis.UuidTypeHandler}
+    </update>
+
+    <select id="findPendingReview" resultMap="kgContradictionMap">
+        select id,
+               entity_topic,
+               relationship_a_id,
+               relationship_b_id,
+               source_a_book,
+               source_b_book,
+               description,
+               status,
+               agent_review_result,
+               admin_notes,
+               detected_at,
+               reviewed_at,
+               resolved_at
+        from kg_contradictions
+        where status = #{status}
+        order by detected_at
+        limit #{batchSize}
+    </select>
+</mapper>

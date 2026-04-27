@@ -1,0 +1,315 @@
+# BabyTalk application release Helm 默认值
+# 生产环境请用 -f values-production.yaml 或 --set 覆盖镜像 tag / secrets
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+nodeSelector: {}
+tolerations: []
+affinity: {}
+
+appApi:
+  replicaCount: 1
+  image:
+    repository: babytalk/app-api
+    tag: "1.0.0"
+    pullPolicy: IfNotPresent
+  service:
+    type: ClusterIP
+    port: 8080
+  ingress:
+    enabled: false
+    className: nginx
+    annotations: {}
+    host: api.babytalk.local
+    path: /
+    pathType: Prefix
+    tls: []
+  podSecurityContext:
+    runAsNonRoot: true
+    fsGroup: 1000
+  containerSecurityContext:
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: false
+  livenessProbe:
+    httpGet:
+      path: /actuator/health
+      port: http
+    initialDelaySeconds: 30
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 3
+  readinessProbe:
+    httpGet:
+      path: /actuator/health
+      port: http
+    initialDelaySeconds: 15
+    periodSeconds: 5
+    timeoutSeconds: 3
+    failureThreshold: 2
+  startupProbe:
+    httpGet:
+      path: /actuator/health
+      port: http
+    initialDelaySeconds: 10
+    periodSeconds: 5
+    failureThreshold: 12
+  resources:
+    requests:
+      cpu: 250m
+      memory: 384Mi
+    limits:
+      cpu: 1000m
+      memory: 512Mi
+
+adminApi:
+  replicaCount: 1
+  image:
+    repository: babytalk/admin-api
+    tag: "1.0.0"
+    pullPolicy: IfNotPresent
+  service:
+    type: ClusterIP
+    port: 8081
+  podSecurityContext:
+    runAsNonRoot: true
+    fsGroup: 1000
+  containerSecurityContext:
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: false
+  livenessProbe:
+    httpGet:
+      path: /actuator/health
+      port: http
+    initialDelaySeconds: 30
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 3
+  readinessProbe:
+    httpGet:
+      path: /actuator/health
+      port: http
+    initialDelaySeconds: 15
+    periodSeconds: 5
+    timeoutSeconds: 3
+    failureThreshold: 2
+  startupProbe:
+    httpGet:
+      path: /actuator/health
+      port: http
+    initialDelaySeconds: 10
+    periodSeconds: 5
+    failureThreshold: 12
+  resources:
+    requests:
+      cpu: 250m
+      memory: 384Mi
+    limits:
+      cpu: 1000m
+      memory: 512Mi
+
+adminWeb:
+  replicaCount: 1
+  image:
+    repository: babytalk/admin-web
+    tag: "1.0.0"
+    pullPolicy: IfNotPresent
+  service:
+    type: ClusterIP
+    port: 80
+  ingress:
+    enabled: false
+    className: nginx
+    annotations: {}
+    host: admin.babytalk.local
+    path: /
+    pathType: Prefix
+    tls: []
+  podSecurityContext: {}
+  containerSecurityContext:
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: false
+  livenessProbe:
+    httpGet:
+      path: /
+      port: http
+    initialDelaySeconds: 15
+    periodSeconds: 15
+    timeoutSeconds: 5
+    failureThreshold: 3
+  readinessProbe:
+    httpGet:
+      path: /
+      port: http
+    initialDelaySeconds: 5
+    periodSeconds: 10
+    timeoutSeconds: 3
+    failureThreshold: 3
+  startupProbe:
+    httpGet:
+      path: /
+      port: http
+    initialDelaySeconds: 5
+    periodSeconds: 5
+    failureThreshold: 12
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 256Mi
+
+gateway:
+  enabled: true
+  replicaCount: 1
+  image:
+    repository: babytalk/gateway
+    tag: "1.0.0"
+    pullPolicy: IfNotPresent
+  service:
+    type: ClusterIP
+    port: 8090
+  podSecurityContext: {}
+  containerSecurityContext:
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: false
+  livenessProbe:
+    httpGet:
+      path: /actuator/health
+      port: http
+    initialDelaySeconds: 5
+    periodSeconds: 10
+    timeoutSeconds: 3
+    failureThreshold: 3
+  readinessProbe:
+    httpGet:
+      path: /actuator/health
+      port: http
+    initialDelaySeconds: 2
+    periodSeconds: 5
+    timeoutSeconds: 3
+    failureThreshold: 2
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 1000m
+      memory: 512Mi
+  ingress:
+    enabled: false
+    className: nginx
+    annotations: {}
+    host: gateway.babytalk.local
+    path: /
+    pathType: Prefix
+    tls: []
+
+dbMigration:
+  image:
+    repository: babytalk/db-migration
+    tag: "1.0.0"
+    pullPolicy: IfNotPresent
+  backoffLimit: 1
+  activeDeadlineSeconds: 300
+  podSecurityContext:
+    runAsNonRoot: true
+    fsGroup: 1000
+  containerSecurityContext:
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: false
+  resources:
+    requests:
+      cpu: 250m
+      memory: 256Mi
+    limits:
+      cpu: 1000m
+      memory: 512Mi
+
+config:
+  BABY_TALK_MIN_SUPPORTED_VERSION: "1.2.0"
+  BABY_TALK_UPGRADE_URL: "https://example.com/baby-talk/upgrade?channel=stable&source=version_gate"
+  BABY_TALK_SYNC_MAX_BATCH_SIZE: "100"
+  BABY_TALK_BOOTSTRAP_MAX_EVENTS: "200"
+
+  BABY_TALK_ANDROID_STABLE_URL: "https://download.example.com/android/stable/babytalk.apk"
+  BABY_TALK_IOS_STABLE_URL: "https://apps.apple.com/app/id0000000000"
+  BABY_TALK_ANDROID_BETA_URL: "https://download.example.com/android/beta/babytalk.apk"
+
+  BABY_TALK_SHARE_PUBLIC_BASE_URL: "https://share.example.com"
+  BABY_TALK_SHARE_LINK_TTL: "PT168H"
+  BABY_TALK_ANDROID_OPEN_SHARE_URL: "babytalk://share/open"
+  BABY_TALK_IOS_OPEN_SHARE_URL: "babytalk://share/open"
+
+  BABY_TALK_CAREGIVER_INVITE_PUBLIC_BASE_URL: "https://invite.example.com"
+  BABY_TALK_CAREGIVER_INVITE_TTL: "PT72H"
+  BABY_TALK_ANDROID_OPEN_INVITE_URL: "babytalk://invite/open"
+  BABY_TALK_IOS_OPEN_INVITE_URL: "babytalk://invite/open"
+
+  BABY_TALK_SMS_PROVIDER_MODE: "dev"
+  BABY_TALK_SMS_DEV_CODE: "246810"
+  BABY_TALK_SMS_CHALLENGE_TTL: "PT5M"
+  BABY_TALK_SMS_SIMULATE_TIMEOUT: "false"
+
+  BABY_TALK_MENTOR_PROVIDER_MODE: "dev"
+  BABY_TALK_MENTOR_PROVIDER_TIMEOUT: "PT4S"
+  BABY_TALK_AI_BASE_URL: "https://models.inference.ai.azure.com"
+  BABY_TALK_AI_MODEL: "gpt-4o-mini"
+  BABY_TALK_AI_TEMPERATURE: "0.7"
+  BABY_TALK_AI_MAX_TOKENS: "300"
+
+  BABY_TALK_MENTOR_RATE_LIMIT_MAX_REQUESTS: "3"
+  BABY_TALK_MENTOR_RATE_LIMIT_WINDOW: "PT10M"
+  BABY_TALK_MENTOR_PROMPT_MAX_LENGTH: "280"
+  BABY_TALK_MENTOR_RESPONSE_MAX_LENGTH: "280"
+  BABY_TALK_MENTOR_SIMULATE_TIMEOUT_TOKEN: "[timeout]"
+  BABY_TALK_MENTOR_SIMULATE_MALFORMED_TOKEN: "[malformed]"
+  BABY_TALK_MENTOR_SIMULATE_UNAVAILABLE_TOKEN: "[unavailable]"
+  BABY_TALK_MENTOR_SEARCH_MODE: "agentic"
+  BABY_TALK_MENTOR_SESSION_TIMEOUT: "PT30M"
+  BABY_TALK_MENTOR_PRACTICE_RESPONSE_MAX_LENGTH: "2000"
+
+  BABY_TALK_EMBEDDING_MODE: "dev-hash"
+  BABY_TALK_EMBEDDING_BASE_URL: "https://models.inference.ai.azure.com"
+  BABY_TALK_EMBEDDING_MODEL: "text-embedding-3-small"
+  BABY_TALK_EMBEDDING_DIMENSIONS: "1536"
+
+  BABY_TALK_KG_REVIEW_INTERVAL: "PT5M"
+  BABY_TALK_KG_REVIEW_ENABLED: "true"
+  BABY_TALK_KG_REVIEW_BATCH_SIZE: "10"
+
+  BABY_TALK_CONSUMER_JWT_ISSUER: "babytalk-app-api"
+  BABY_TALK_CONSUMER_ACCESS_TOKEN_TTL: "PT15M"
+  BABY_TALK_CONSUMER_REFRESH_TOKEN_TTL: "P30D"
+
+  BABY_TALK_ADMIN_JWT_ISSUER: "babytalk-admin-api"
+  BABY_TALK_ADMIN_ACCESS_TOKEN_TTL: "PT15M"
+  BABY_TALK_ADMIN_REFRESH_TOKEN_TTL: "P7D"
+  BABY_TALK_ADMIN_BOOTSTRAP_ENABLED: "true"
+  BABY_TALK_ADMIN_BOOTSTRAP_USERNAME: "super_admin"
+  BABY_TALK_ADMIN_BOOTSTRAP_DISPLAY_NAME: "Super Admin"
+  BABY_TALK_ADMIN_MENTOR_AUDIT_DEFAULT_LIMIT: "50"
+  BABY_TALK_ADMIN_MENTOR_AUDIT_MAX_LIMIT: "100"
+  BABY_TALK_ADMIN_DISTRIBUTION_STATS_DEFAULT_RANGE: "30d"
+  BABY_TALK_ADMIN_DISTRIBUTION_STATS_DETAIL_LIMIT: "200"
+
+secret:
+  BABY_TALK_DB_URL: "jdbc:postgresql://postgres.example.internal:5432/babytalk"
+  BABY_TALK_DB_USERNAME: "babytalk"
+  BABY_TALK_DB_PASSWORD: "change-me-db-password"
+  BABY_TALK_CONSUMER_JWT_SECRET: "change-me-consumer-jwt-secret"
+  BABY_TALK_AI_API_KEY: "change-me-ai-api-key"
+  BABY_TALK_MINIO_ENDPOINT: "https://minio.example.internal"
+  BABY_TALK_MINIO_ACCESS_KEY: "change-me-minio-access-key"
+  BABY_TALK_MINIO_SECRET_KEY: "change-me-minio-secret-key"
+  BABY_TALK_MINIO_BUCKET: "babytalk"
+  BABY_TALK_EMBEDDING_API_KEY: "change-me-embedding-api-key"
+  BABY_TALK_ADMIN_JWT_SECRET: "change-me-admin-jwt-secret"
+  BABY_TALK_ADMIN_BOOTSTRAP_PASSWORD: "change-me-admin-bootstrap-password"

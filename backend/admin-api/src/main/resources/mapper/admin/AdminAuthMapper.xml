@@ -1,0 +1,147 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.zhangspaghetti.babytalk.admin.auth.AdminAuthMapper">
+
+    <resultMap id="adminPrincipalRowMap" type="com.zhangspaghetti.babytalk.admin.auth.AdminAuthRepository$AdminPrincipalRow">
+        <constructor>
+            <arg column="principal_id" javaType="java.lang.String"/>
+            <arg column="username" javaType="java.lang.String"/>
+            <arg column="password_hash" javaType="java.lang.String"/>
+            <arg column="display_name" javaType="java.lang.String"/>
+            <arg column="status" javaType="java.lang.String"/>
+            <arg column="created_at" javaType="java.time.Instant"/>
+            <arg column="updated_at" javaType="java.time.Instant"/>
+        </constructor>
+    </resultMap>
+
+    <resultMap id="refreshTokenRowMap" type="com.zhangspaghetti.babytalk.admin.auth.AdminAuthRepository$RefreshTokenRow">
+        <constructor>
+            <arg column="refresh_token_id" javaType="java.lang.String"/>
+            <arg column="principal_id" javaType="java.lang.String"/>
+            <arg column="status" javaType="java.lang.String"/>
+            <arg column="issued_at" javaType="java.time.Instant"/>
+            <arg column="expires_at" javaType="java.time.Instant"/>
+            <arg column="updated_at" javaType="java.time.Instant"/>
+            <arg column="rotated_at" javaType="java.time.Instant"/>
+            <arg column="revoked_at" javaType="java.time.Instant"/>
+            <arg column="replacement_token_id" javaType="java.lang.String"/>
+        </constructor>
+    </resultMap>
+
+    <select id="findPrincipalByUsername" resultMap="adminPrincipalRowMap">
+        select principal_id, username, password_hash, display_name, status, created_at, updated_at
+        from admin_principals
+        where username = #{username}
+    </select>
+
+    <select id="findPrincipalById" resultMap="adminPrincipalRowMap">
+        select principal_id, username, password_hash, display_name, status, created_at, updated_at
+        from admin_principals
+        where principal_id = #{principalId}
+    </select>
+
+    <insert id="insertPrincipal">
+        insert into admin_principals (
+            principal_id,
+            username,
+            password_hash,
+            display_name,
+            status,
+            created_at,
+            updated_at
+        ) values (
+            #{principal.principalId},
+            #{principal.username},
+            #{principal.passwordHash},
+            #{principal.displayName},
+            #{principal.status},
+            #{principal.createdAt},
+            #{principal.updatedAt}
+        )
+    </insert>
+
+    <insert id="insertRoleIfMissing">
+        insert into admin_roles (role_code, description, created_at)
+        values (#{roleCode}, #{description}, #{createdAt})
+        on conflict (role_code) do nothing
+    </insert>
+
+    <insert id="grantRole">
+        insert into admin_principal_roles (principal_id, role_code, granted_at)
+        values (#{principalId}, #{roleCode}, #{grantedAt})
+        on conflict (principal_id, role_code) do nothing
+    </insert>
+
+    <select id="findRoleCodes" resultType="java.lang.String">
+        select role_code
+        from admin_principal_roles
+        where principal_id = #{principalId}
+        order by role_code asc
+    </select>
+
+    <insert id="insertRefreshToken">
+        insert into admin_refresh_tokens (
+            refresh_token_id,
+            principal_id,
+            status,
+            issued_at,
+            expires_at,
+            updated_at,
+            rotated_at,
+            revoked_at,
+            replacement_token_id
+        ) values (
+            #{refreshToken.refreshTokenId},
+            #{refreshToken.principalId},
+            #{refreshToken.status},
+            #{refreshToken.issuedAt},
+            #{refreshToken.expiresAt},
+            #{refreshToken.updatedAt},
+            #{refreshToken.rotatedAt},
+            #{refreshToken.revokedAt},
+            #{refreshToken.replacementTokenId}
+        )
+    </insert>
+
+    <select id="findRefreshToken" resultMap="refreshTokenRowMap">
+        select refresh_token_id, principal_id, status, issued_at, expires_at, updated_at, rotated_at, revoked_at, replacement_token_id
+        from admin_refresh_tokens
+        where refresh_token_id = #{refreshTokenId}
+    </select>
+
+    <select id="lockRefreshToken" resultMap="refreshTokenRowMap">
+        select refresh_token_id, principal_id, status, issued_at, expires_at, updated_at, rotated_at, revoked_at, replacement_token_id
+        from admin_refresh_tokens
+        where refresh_token_id = #{refreshTokenId}
+        for update
+    </select>
+
+    <update id="rotateRefreshToken">
+        update admin_refresh_tokens
+        set status = 'rotated',
+            rotated_at = #{rotatedAt},
+            updated_at = #{rotatedAt},
+            replacement_token_id = #{replacementTokenId}
+        where refresh_token_id = #{refreshTokenId}
+          and status = 'active'
+    </update>
+
+    <update id="revokeRefreshToken">
+        update admin_refresh_tokens
+        set status = 'revoked',
+            revoked_at = #{revokedAt},
+            updated_at = #{revokedAt}
+        where refresh_token_id = #{refreshTokenId}
+          and status = 'active'
+    </update>
+
+    <update id="expireRefreshToken">
+        update admin_refresh_tokens
+        set status = 'expired',
+            updated_at = #{expiredAt}
+        where refresh_token_id = #{refreshTokenId}
+          and status = 'active'
+    </update>
+</mapper>
