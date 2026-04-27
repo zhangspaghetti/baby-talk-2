@@ -15,8 +15,23 @@ public interface MentorProvider {
             String promptSummary,
             boolean authenticated,
             Instant requestedAt,
-            String conversationId
+            String conversationId,
+            Integer childAgeMonths
     ) {
+        public ProviderRequest(
+                String correlationId,
+                String installationId,
+                String surface,
+                String mode,
+                String prompt,
+                String promptSummary,
+                boolean authenticated,
+                Instant requestedAt,
+                String conversationId
+        ) {
+            this(correlationId, installationId, surface, mode, prompt, promptSummary,
+                    authenticated, requestedAt, conversationId, null);
+        }
     }
 
     record ProviderResponse(

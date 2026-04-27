@@ -92,7 +92,8 @@ public class MentorService {
                     phase1Result.requestSummary(),
                     phase1Result.association().authenticated(),
                     phase1Result.now(),
-                    phase1Result.conversationId()
+                    phase1Result.conversationId(),
+                    command.childAgeMonths()
             ));
             var responseText = normalizeProviderResponse(providerResponse.responseText());
             var responseSummary = providerResponse.responseSummary() == null || providerResponse.responseSummary().isBlank()
@@ -996,8 +997,20 @@ public class MentorService {
             String mode,
             String correlationId,
             String contextSummary,
-            String conversationId
+            String conversationId,
+            Integer childAgeMonths
     ) {
+        public ChatCommand(
+                String installationId,
+                String prompt,
+                String surface,
+                String mode,
+                String correlationId,
+                String contextSummary,
+                String conversationId
+        ) {
+            this(installationId, prompt, surface, mode, correlationId, contextSummary, conversationId, null);
+        }
     }
 
     public record ChatResponse(

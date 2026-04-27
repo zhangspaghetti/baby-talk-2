@@ -105,6 +105,26 @@ class SpringAiMentorProviderTest {
         }
 
         @Test
+        void requestWithChildAgeMonthsRemainsBackwardCompatible() {
+            when(callResponseSpec.content()).thenReturn("先回应宝宝的声音，再重复一个短词。");
+
+            var response = provider.respond(new MentorProvider.ProviderRequest(
+                    "corr-age-aware",
+                    "install-001",
+                    "home",
+                    "single_turn",
+                    "宝宝6个月时我该怎么回应他的咿呀声？",
+                    "宝宝6个月咿呀声回应",
+                    true,
+                    Instant.now(),
+                    null,
+                    6
+            ));
+
+            assertThat(response.responseText()).contains("回应宝宝的声音");
+        }
+
+        @Test
         void timeoutExceptionMapsToProviderTimeout() {
             var cause = new SocketTimeoutException("Read timed out");
             var wrapper = new RuntimeException("API call failed", cause);
