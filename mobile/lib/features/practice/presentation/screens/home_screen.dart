@@ -230,6 +230,29 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
                     widget.embeddedInShell ? 120 : 32,
                   ),
                   children: [
+                    const SizedBox(height: 20),
+                    _TodaySceneCard(
+                      activityId:
+                          recommendedActivity?.activityId ?? 'safe-empty',
+                      activityTitle:
+                          activity?.title ?? l.continueEntryUnavailable,
+                      activitySummary:
+                          activity?.summary ??
+                          _resolveSafeHomeSummary(continuityViewModel),
+                      sceneTag: activity?.sceneTag,
+                      recommendation: continuitySnapshot?.recommendation,
+                      nextIncompleteActivity:
+                          continuitySnapshot?.nextIncompleteActivity,
+                      buttonLabel: _resolveButtonLabel(continuitySnapshot),
+                      disabledReason: continuityViewModel == null
+                          ? l.practiceEntryUnavailable
+                          : homeDisabledReason,
+                      onPressed: canLaunchPractice
+                          ? () async {
+                              await practiceArgs.push(context);
+                            }
+                          : null,
+                    ),
                     if (widget.onboardingSnapshot != null) ...[
                       _LocalOnlyBanner(snapshot: widget.onboardingSnapshot!),
                       const SizedBox(height: 20),
@@ -285,29 +308,6 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
                       const SizedBox(height: 16),
                       _RecentResultCard(continuitySnapshot: continuitySnapshot),
                     ],
-                    const SizedBox(height: 20),
-                    _TodaySceneCard(
-                      activityId:
-                          recommendedActivity?.activityId ?? 'safe-empty',
-                      activityTitle:
-                          activity?.title ?? l.continueEntryUnavailable,
-                      activitySummary:
-                          activity?.summary ??
-                          _resolveSafeHomeSummary(continuityViewModel),
-                      sceneTag: activity?.sceneTag,
-                      recommendation: continuitySnapshot?.recommendation,
-                      nextIncompleteActivity:
-                          continuitySnapshot?.nextIncompleteActivity,
-                      buttonLabel: _resolveButtonLabel(continuitySnapshot),
-                      disabledReason: continuityViewModel == null
-                          ? l.practiceEntryUnavailable
-                          : homeDisabledReason,
-                      onPressed: canLaunchPractice
-                          ? () async {
-                              await practiceArgs.push(context);
-                            }
-                          : null,
-                    ),
                     const SizedBox(height: 20),
                     AccountStatusCard(
                       scopeKeyPrefix: 'home',
@@ -724,7 +724,13 @@ class _TodaySceneCard extends StatelessWidget {
     final colors = context.appColors;
     return Semantics(
       label: '今日场景: $activityTitle',
-      child: Card(
+      child: Container(
+        decoration: BoxDecoration(
+          color: colors.bgSurface,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: colors.outlineSoft),
+          boxShadow: colors.warmShadowMd,
+        ),
         child: Padding(
           padding: const EdgeInsets.fromLTRB(20, 24, 20, 24),
           child: Column(
