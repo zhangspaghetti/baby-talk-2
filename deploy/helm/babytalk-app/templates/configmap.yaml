@@ -58,6 +58,9 @@ data:
   {{- if hasKey .Values.config "BABY_TALK_REDIS_HOST" }}
   BABY_TALK_REDIS_HOST: {{ .Values.config.BABY_TALK_REDIS_HOST | quote }}
   {{- end }}
+  {{- if hasKey .Values.config "BABY_TALK_ADMIN_WEB_ORIGIN" }}
+  BABY_TALK_ADMIN_WEB_ORIGIN: {{ .Values.config.BABY_TALK_ADMIN_WEB_ORIGIN | quote }}
+  {{- end }}
 
   BABY_TALK_KG_REVIEW_INTERVAL: {{ required "config.BABY_TALK_KG_REVIEW_INTERVAL is required" .Values.config.BABY_TALK_KG_REVIEW_INTERVAL | quote }}
   BABY_TALK_KG_REVIEW_ENABLED: {{ required "config.BABY_TALK_KG_REVIEW_ENABLED is required" .Values.config.BABY_TALK_KG_REVIEW_ENABLED | quote }}

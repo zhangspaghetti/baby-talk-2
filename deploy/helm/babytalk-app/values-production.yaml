@@ -129,6 +129,7 @@ config:
   BABY_TALK_KG_REVIEW_INTERVAL: "PT30M"
   BABY_TALK_KG_REVIEW_ENABLED: "true"
   BABY_TALK_KG_REVIEW_BATCH_SIZE: "10"
+  BABY_TALK_ADMIN_WEB_ORIGIN: "https://admin.babytalk.example.com"
 
 secret:
   BABY_TALK_DB_URL: "jdbc:postgresql://postgres-prod.example.com:5432/babytalk?sslmode=require"
