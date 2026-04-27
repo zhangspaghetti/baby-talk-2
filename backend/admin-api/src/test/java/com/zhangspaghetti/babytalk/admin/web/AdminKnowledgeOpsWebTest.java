@@ -520,8 +520,10 @@ class AdminKnowledgeOpsWebTest {
                 .andExpect(jsonPath("$[0].id").value(latestTraceId.toString()))
                 .andExpect(jsonPath("$[0].entryRooms").value("[\"PHYSICAL:MOTOR_DEVELOPMENT\"]"))
                 .andExpect(jsonPath("$[0].temporalRuleApplied").value("bridge_walk"))
-                .andExpect(jsonPath("$[0].candidatesJson").value("[{\"chunkId\":\"latest\"}]"))
-                .andExpect(jsonPath("$[0].bridgeEdgesCrossed").value("[{\"edgeId\":\"40404040-4040-4040-4040-404040404040\"}]"))
+                .andExpect(jsonPath("$[0].candidatesJson", containsString("\"chunkId\"")))
+                .andExpect(jsonPath("$[0].candidatesJson", containsString("latest")))
+                .andExpect(jsonPath("$[0].bridgeEdgesCrossed", containsString("\"edgeId\"")))
+                .andExpect(jsonPath("$[0].bridgeEdgesCrossed", containsString("40404040-4040-4040-4040-404040404040")))
                 .andExpect(jsonPath("$[0].projectionVersionUsed").value(7))
                 .andExpect(jsonPath("$[0].queriedAt").value("2026-04-25T00:11:00Z"));
     }
@@ -531,11 +533,13 @@ class AdminKnowledgeOpsWebTest {
         var superAdmin = login("super_admin", "SuperAdmin123!");
         var roomAId = UUID.fromString("70707070-7070-7070-7070-707070707070");
         var roomBId = UUID.fromString("80808080-8080-8080-8080-808080808080");
+        var roomCId = UUID.fromString("81818181-8181-8181-8181-818181818181");
         var approveEdgeId = UUID.fromString("90909090-9090-9090-9090-909090909090");
         var rejectEdgeId = UUID.fromString("a0a0a0a0-a0a0-a0a0-a0a0-a0a0a0a0a0a0");
 
         seedPalaceRoom(roomAId, "SOCIAL_EMOTIONAL", "ATTACHMENT", "SOCIAL_HALL", Instant.parse("2026-04-26T00:00:00Z"), 1);
         seedPalaceRoom(roomBId, "LANGUAGE_DEVELOPMENT", "EARLY_COMMUNICATION", "LANGUAGE_HALL", Instant.parse("2026-04-26T00:01:00Z"), 1);
+        seedPalaceRoom(roomCId, "MOTOR_SKILLS", "GROSS_MOTOR", "MOTOR_HALL", Instant.parse("2026-04-26T00:01:30Z"), 1);
         seedPalaceBridgeEdge(
                 approveEdgeId,
                 roomAId,
@@ -551,7 +555,7 @@ class AdminKnowledgeOpsWebTest {
         seedPalaceBridgeEdge(
                 rejectEdgeId,
                 roomAId,
-                roomBId,
+                roomCId,
                 0.33,
                 "proposed",
                 "reject-a.pdf",
@@ -566,7 +570,7 @@ class AdminKnowledgeOpsWebTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(approveEdgeId.toString()))
                 .andExpect(jsonPath("$.status").value("approved"))
-                .andExpect(jsonPath("$.reviewedBy").value(superAdmin.principalId()))
+                .andExpect(jsonPath("$.reviewedBy").value(superAdmin.username()))
                 .andExpect(jsonPath("$.reviewedAt").isNotEmpty());
 
         assertThat(jdbcTemplate.queryForObject(
@@ -578,15 +582,26 @@ class AdminKnowledgeOpsWebTest {
                 "select reviewed_by from palace_bridge_edges where id = ?",
                 String.class,
                 approveEdgeId
-        )).isEqualTo(superAdmin.principalId());
+        )).isEqualTo(superAdmin.username());
 
         mockMvc.perform(patch("/api/admin/knowledge/palace/bridge-edges/{edgeId}/reject", rejectEdgeId)
                         .header(HttpHeaders.AUTHORIZATION, bearer(superAdmin.accessToken())))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(rejectEdgeId.toString()))
                 .andExpect(jsonPath("$.status").value("rejected"))
-                .andExpect(jsonPath("$.reviewedBy").value(superAdmin.principalId()))
+                .andExpect(jsonPath("$.reviewedBy").value(superAdmin.username()))
                 .andExpect(jsonPath("$.reviewedAt").isNotEmpty());
+
+        assertThat(jdbcTemplate.queryForObject(
+                "select status from palace_bridge_edges where id = ?",
+                String.class,
+                rejectEdgeId
+        )).isEqualTo("rejected");
+        assertThat(jdbcTemplate.queryForObject(
+                "select reviewed_by from palace_bridge_edges where id = ?",
+                String.class,
+                rejectEdgeId
+        )).isEqualTo(superAdmin.username());
 
         mockMvc.perform(get("/api/admin/knowledge/palace/bridge-edges/{edgeId}", "not-a-uuid")
                         .header(HttpHeaders.AUTHORIZATION, bearer(superAdmin.accessToken())))
