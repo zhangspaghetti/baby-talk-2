@@ -70,10 +70,10 @@ class DbMigrationSmokeTest {
                 select count(*)
                 from flyway_schema_history
                 where success = true
-                  and version in ('3', '14', '15', '16', '17', '18')
+                  and version in ('3', '14', '15', '16', '17', '18', '19')
                 """,
                 Integer.class);
-        assertThat(trackedVersions).isEqualTo(6);
+        assertThat(trackedVersions).isEqualTo(7);
 
         assertThat(tableExists("accounts")).isTrue();
         assertThat(tableExists("spring_ai_chat_memory")).isTrue();
@@ -157,9 +157,11 @@ class DbMigrationSmokeTest {
                         "installation_id");
 
         assertThat(indexExists("idx_palace_rooms_wing_room")).isTrue();
+        assertThat(indexExists("uq_palace_rooms_wing_room")).isTrue();
         assertThat(indexExists("idx_palace_bridge_edges_status")).isTrue();
         assertThat(indexExists("idx_palace_bridge_edges_room_a_id")).isTrue();
         assertThat(indexExists("idx_palace_bridge_edges_room_b_id")).isTrue();
+        assertThat(indexExists("uq_palace_bridge_edges_room_pair")).isTrue();
         assertThat(indexExists("idx_palace_query_traces_queried_at_desc")).isTrue();
         assertThat(indexExists("idx_palace_query_traces_installation_id")).isTrue();
     }
