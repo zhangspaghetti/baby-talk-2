@@ -159,10 +159,13 @@ test.describe('knowledge ops workspace', () => {
       expect((await kgDetailResponse).status()).toBe(200);
       expect((await notificationListResponse).status()).toBe(200);
 
+      await expect(page.getByTestId('knowledge-kg-diagnostics')).toBeVisible();
       await expect(page.getByTestId('knowledge-contradiction-list')).toBeVisible();
       await expect(page.getByTestId('knowledge-notification-list')).toBeVisible();
       await expect(page.getByTestId('knowledge-kg-status')).toContainText('escalated');
       await expect(page.getByTestId(`knowledge-kg-row-${seededContradiction.contradictionId}`)).toContainText('unread 1');
+      await expect(page.getByTestId(`knowledge-kg-row-${seededContradiction.contradictionId}`)).not.toContainText('detectedAt');
+      await expect(page.getByTestId(`knowledge-kg-row-${seededContradiction.contradictionId}`)).not.toContainText('adminNotes');
       await expect(page.getByTestId(`knowledge-notification-row-${seededContradiction.notificationId}`)).toBeVisible();
 
       const markReadResponse = page.waitForResponse(
