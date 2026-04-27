@@ -12,14 +12,17 @@ import 'package:mobile/features/mentor/presentation/widgets/mentor_panel_sheet.d
 import 'package:mobile/features/onboarding/domain/models/onboarding_snapshot.dart';
 import 'package:mobile/features/onboarding/domain/models/stage_match.dart';
 import 'package:mobile/features/practice/data/repositories/practice_repository.dart';
-import 'package:mobile/features/practice/domain/models/garden_growth_snapshot.dart';
-import 'package:mobile/features/practice/domain/models/interaction_event_payload.dart';
-import 'package:mobile/features/practice/domain/models/practice_activity_catalog.dart';
 import 'package:mobile/features/practice/domain/models/practice_continuity_snapshot.dart';
 import 'package:mobile/features/practice/domain/models/practice_phrase.dart';
 import 'package:mobile/features/practice/presentation/garden_growth_view_model.dart';
 import 'package:mobile/features/practice/presentation/practice_continuity_view_model.dart';
 import 'package:mobile/features/practice/presentation/practice_route_args.dart';
+import 'package:mobile/features/practice/presentation/widgets/home_garden_mini_entry.dart';
+import 'package:mobile/features/practice/presentation/widgets/home_growth_summary_card.dart';
+import 'package:mobile/features/practice/presentation/widgets/home_personalized_hero.dart';
+import 'package:mobile/features/practice/presentation/widgets/home_recent_result_card.dart';
+import 'package:mobile/features/practice/presentation/widgets/home_today_scene_card.dart';
+import 'package:mobile/features/practice/presentation/widgets/home_week_stats_card.dart';
 import 'package:mobile/features/share/presentation/share_view_model.dart';
 import 'package:mobile/features/share/presentation/widgets/share_callout_card.dart';
 import 'package:mobile/l10n/app_localizations.dart';
@@ -231,7 +234,7 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
                   ),
                   children: [
                     const SizedBox(height: 20),
-                    _TodaySceneCard(
+                    HomeTodaySceneCard(
                       activityId:
                           recommendedActivity?.activityId ?? 'safe-empty',
                       activityTitle:
@@ -256,14 +259,16 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
                     if (widget.onboardingSnapshot != null) ...[
                       _LocalOnlyBanner(snapshot: widget.onboardingSnapshot!),
                       const SizedBox(height: 20),
-                      _PersonalizedHero(
+                      HomePersonalizedHero(
                         snapshot: widget.onboardingSnapshot!,
                         stageMatch: stageMatch,
                         starterPhrase: starterPhrase,
                         activitySceneTag: activity?.sceneTag,
                       ),
                       const SizedBox(height: 16),
-                      _RecentResultCard(continuitySnapshot: continuitySnapshot),
+                      HomeRecentResultCard(
+                        continuitySnapshot: continuitySnapshot,
+                      ),
                     ] else ...[
                       Wrap(
                         spacing: 8,
@@ -306,7 +311,9 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
                         style: Theme.of(context).textTheme.bodyMedium,
                       ),
                       const SizedBox(height: 16),
-                      _RecentResultCard(continuitySnapshot: continuitySnapshot),
+                      HomeRecentResultCard(
+                        continuitySnapshot: continuitySnapshot,
+                      ),
                     ],
                     const SizedBox(height: 20),
                     AccountStatusCard(
@@ -390,11 +397,11 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
                       ),
                     ],
                     const SizedBox(height: 16),
-                    _WeekStatsCard(continuitySnapshot: continuitySnapshot),
+                    HomeWeekStatsCard(continuitySnapshot: continuitySnapshot),
                     const SizedBox(height: 16),
-                    _GardenMiniEntry(viewModel: gardenGrowthViewModel),
+                    HomeGardenMiniEntry(viewModel: gardenGrowthViewModel),
                     const SizedBox(height: 16),
-                    _GrowthSummaryCard(viewModel: gardenGrowthViewModel),
+                    HomeGrowthSummaryCard(viewModel: gardenGrowthViewModel),
                     if (shareViewModel != null) ...[
                       const SizedBox(height: 16),
                       ShareCalloutCard(
@@ -599,544 +606,6 @@ class _LocalOnlyBanner extends StatelessWidget {
         ],
       ),
     );
-  }
-}
-
-class _PersonalizedHero extends StatelessWidget {
-  const _PersonalizedHero({
-    required this.snapshot,
-    required this.stageMatch,
-    required this.starterPhrase,
-    required this.activitySceneTag,
-  });
-
-  final OnboardingSnapshot snapshot;
-  final StageMatch? stageMatch;
-  final PracticePhrase? starterPhrase;
-  final String? activitySceneTag;
-
-  @override
-  Widget build(BuildContext context) {
-    final l = AppLocalizations.of(context)!;
-    final colors = context.appColors;
-    final theme = Theme.of(context);
-    return Container(
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: colors.bgSurface,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: colors.outlineSoft),
-        boxShadow: colors.warmShadowSm,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              Chip(
-                key: const Key('home-stage-pill'),
-                label: Text(stageMatch?.title ?? snapshot.ageBucket.label),
-              ),
-              if (activitySceneTag != null &&
-                  activitySceneTag!.trim().isNotEmpty)
-                Chip(label: Text(activitySceneTag!)),
-            ],
-          ),
-          const SizedBox(height: 16),
-          Text(
-            l.homePersonalizedHeading(snapshot.childDisplayName),
-            key: const Key('personalized-home-heading'),
-            style: theme.textTheme.titleLarge,
-          ),
-          const SizedBox(height: 12),
-          Text(
-            stageMatch?.summary ?? l.homeDefaultStageSummary,
-            key: const Key('personalized-home-stage-summary'),
-            style: theme.textTheme.bodyMedium,
-          ),
-          const SizedBox(height: 20),
-          Container(
-            key: starterPhrase != null
-                ? const Key('home-starter-seed')
-                : const Key('home-starter-seed-loading'),
-            width: double.infinity,
-            padding: const EdgeInsets.all(18),
-            decoration: BoxDecoration(
-              color: colors.englishSoft,
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(l.homeFirstSeed, style: theme.textTheme.labelMedium),
-                const SizedBox(height: 10),
-                Text(
-                  starterPhrase?.english ?? 'Bath time, baby.',
-                  style: theme.textTheme.displayMedium?.copyWith(
-                    fontSize: 28,
-                    color: colors.english,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  starterPhrase?.chinese ?? l.homeStartBathTime,
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: colors.textPrimary,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _TodaySceneCard extends StatelessWidget {
-  const _TodaySceneCard({
-    required this.activityId,
-    required this.activityTitle,
-    required this.activitySummary,
-    required this.sceneTag,
-    required this.recommendation,
-    required this.nextIncompleteActivity,
-    required this.buttonLabel,
-    required this.disabledReason,
-    required this.onPressed,
-  });
-
-  final String activityId;
-  final String activityTitle;
-  final String activitySummary;
-  final String? sceneTag;
-  final PracticeContinuityRecommendation? recommendation;
-  final PracticeCatalogActivitySummary? nextIncompleteActivity;
-  final String buttonLabel;
-  final String? disabledReason;
-  final Future<void> Function()? onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    final l = AppLocalizations.of(context)!;
-    final colors = context.appColors;
-    return Semantics(
-      label: '今日场景: $activityTitle',
-      child: Container(
-        decoration: BoxDecoration(
-          color: colors.bgSurface,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: colors.outlineSoft),
-          boxShadow: colors.warmShadowMd,
-        ),
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 24, 20, 24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              if (sceneTag != null && sceneTag!.trim().isNotEmpty)
-                Chip(label: Text(sceneTag!)),
-              const SizedBox(height: 16),
-              Text(
-                activityTitle,
-                key: ValueKey('home-hero-activity-$activityId'),
-                style: Theme.of(context).textTheme.titleLarge,
-              ),
-              const SizedBox(height: 8),
-              Text(
-                recommendation?.reasonLabel ?? l.homeContinuityUnavailable,
-                key: ValueKey('home-continuity-reason-$activityId'),
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: colors.textSecondary,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                activitySummary,
-                style: Theme.of(context).textTheme.bodyMedium,
-              ),
-              if (nextIncompleteActivity != null &&
-                  nextIncompleteActivity!.activityId != activityId) ...[
-                const SizedBox(height: 12),
-                Text(
-                  l.homeNextAlternative(nextIncompleteActivity!.title),
-                  key: ValueKey(
-                    'home-next-incomplete-${nextIncompleteActivity!.activityId}',
-                  ),
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
-              ],
-              if (disabledReason != null) ...[
-                const SizedBox(height: 12),
-                Text(
-                  disabledReason!,
-                  key: ValueKey('home-start-disabled-$activityId'),
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: colors.warning,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ],
-              const SizedBox(height: 20),
-              ElevatedButton(
-                key: const Key('home-start-practice'),
-                onPressed: onPressed,
-                child: Text(buttonLabel),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _WeekStatsCard extends StatelessWidget {
-  const _WeekStatsCard({required this.continuitySnapshot});
-
-  final PracticeContinuitySnapshot? continuitySnapshot;
-
-  @override
-  Widget build(BuildContext context) {
-    final l = AppLocalizations.of(context)!;
-    final colors = context.appColors;
-    final recommendedActivity = continuitySnapshot?.recommendedActivity;
-    final cadence = continuitySnapshot?.cadence;
-    return Semantics(
-      label: '本周练习统计',
-      child: Container(
-        key: ValueKey(
-          'home-week-stats-${recommendedActivity?.activityId ?? 'loading'}',
-        ),
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: colors.bgSunken,
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: Row(
-          children: [
-            Expanded(
-              child: _StatCell(
-                label: l.homeRecommendedActivity,
-                value: recommendedActivity?.title ?? l.homeOrganizing,
-                hint:
-                    continuitySnapshot?.recommendation.reasonLabel ??
-                    l.homeWaitingContinuity,
-              ),
-            ),
-            Container(width: 1, height: 40, color: colors.outlineSoft),
-            Expanded(
-              child: _StatCell(
-                key: ValueKey(
-                  'home-cadence-summary-${recommendedActivity?.activityId ?? 'loading'}',
-                ),
-                label: l.homeCadence,
-                value: cadence?.headline ?? l.homeOrganizing,
-                hint: cadence?.detail ?? l.homeDerivingCadence,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _StatCell extends StatelessWidget {
-  const _StatCell({
-    super.key,
-    required this.label,
-    required this.value,
-    required this.hint,
-  });
-
-  final String label;
-  final String value;
-  final String hint;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = context.appColors;
-    final theme = Theme.of(context);
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(label, style: theme.textTheme.bodySmall),
-          const SizedBox(height: 6),
-          Text(
-            value,
-            style: theme.textTheme.titleMedium?.copyWith(
-              color: colors.textPrimary,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(hint, style: theme.textTheme.bodySmall),
-        ],
-      ),
-    );
-  }
-}
-
-class _GardenMiniEntry extends StatelessWidget {
-  const _GardenMiniEntry({required this.viewModel});
-
-  final GardenGrowthViewModel? viewModel;
-
-  @override
-  Widget build(BuildContext context) {
-    final l = AppLocalizations.of(context)!;
-    final colors = context.appColors;
-    final effectiveViewModel = viewModel;
-    final snapshot =
-        effectiveViewModel?.snapshot ?? GardenGrowthSnapshot.empty();
-    final primarySpace = snapshot.primarySpace;
-    final primaryActivity = snapshot.primaryActivity;
-    final status = effectiveViewModel?.status ?? GardenGrowthLoadStatus.empty;
-
-    String title;
-    String body;
-    Color backgroundColor = colors.successSoft;
-    Color foregroundColor = colors.success;
-
-    switch (status) {
-      case GardenGrowthLoadStatus.loading:
-      case GardenGrowthLoadStatus.idle:
-        title = l.homeGardenOrganizing;
-        body = l.homeGardenProjecting;
-        backgroundColor = colors.bgSunken;
-        foregroundColor = colors.textSecondary;
-        break;
-      case GardenGrowthLoadStatus.error:
-        title = l.homeGardenNotReady;
-        body = effectiveViewModel?.message ?? l.homeGardenKeepStable;
-        backgroundColor = colors.warningSoft;
-        foregroundColor = colors.warning;
-        break;
-      case GardenGrowthLoadStatus.empty:
-        title = l.homeGardenStartFirst;
-        body = l.homeGardenNoPractice;
-        backgroundColor = colors.bgAccentSoft;
-        foregroundColor = colors.accentDark;
-        break;
-      case GardenGrowthLoadStatus.ready:
-        title = primarySpace == null
-            ? l.homeGardenReady
-            : l.homeGardenSpaceStage(
-                primarySpace.title,
-                primarySpace.stage.label,
-              );
-        body = primaryActivity == null
-            ? l.homeGardenChanges
-            : l.homeGardenActivityDetail(
-                primaryActivity.title,
-                primaryActivity.stage.label,
-                primaryActivity.careNote,
-              );
-        break;
-    }
-
-    return Semantics(
-      label: '成长花园: $title',
-      child: Container(
-        key: const Key('home-garden-mini-entry'),
-        width: double.infinity,
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: backgroundColor,
-          borderRadius: BorderRadius.circular(24),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              l.homeGrowthGarden,
-              style: Theme.of(context).textTheme.labelMedium,
-            ),
-            const SizedBox(height: 10),
-            Text(
-              title,
-              key: const Key('home-garden-mini-entry-title'),
-              style: Theme.of(
-                context,
-              ).textTheme.titleMedium?.copyWith(color: foregroundColor),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              body,
-              style: Theme.of(
-                context,
-              ).textTheme.bodyMedium?.copyWith(color: foregroundColor),
-            ),
-            if (snapshot.hasIssues && snapshot.projectionWarning != null) ...[
-              const SizedBox(height: 10),
-              Text(
-                snapshot.projectionWarning!,
-                key: const Key('home-garden-mini-entry-warning'),
-                style: Theme.of(
-                  context,
-                ).textTheme.bodySmall?.copyWith(color: foregroundColor),
-              ),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _GrowthSummaryCard extends StatelessWidget {
-  const _GrowthSummaryCard({required this.viewModel});
-
-  final GardenGrowthViewModel? viewModel;
-
-  @override
-  Widget build(BuildContext context) {
-    final l = AppLocalizations.of(context)!;
-    final colors = context.appColors;
-    final effectiveViewModel = viewModel;
-    final snapshot =
-        effectiveViewModel?.snapshot ?? GardenGrowthSnapshot.empty();
-    final impact = snapshot.latestImpact;
-
-    String title;
-    String body;
-
-    if (effectiveViewModel?.hasError ?? false) {
-      title = l.homeGrowthUnavailable;
-      body = effectiveViewModel?.message ?? l.homeGrowthFallback;
-    } else if (impact == null ||
-        effectiveViewModel == null ||
-        effectiveViewModel.isEmpty) {
-      title = l.homeGrowthPlaceholder;
-      body = l.homeGrowthAfterPractice;
-    } else {
-      title = impact.headline;
-      body = impact.detail;
-    }
-
-    return Container(
-      key: const Key('home-growth-summary'),
-      width: double.infinity,
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: colors.bgSurface,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: colors.outlineSoft),
-        boxShadow: colors.warmShadowSm,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            l.homeGrowthSummaryLabel,
-            style: Theme.of(context).textTheme.labelMedium,
-          ),
-          const SizedBox(height: 10),
-          Text(
-            title,
-            key: const Key('home-growth-summary-title'),
-            style: Theme.of(context).textTheme.titleMedium,
-          ),
-          const SizedBox(height: 8),
-          Text(body, style: Theme.of(context).textTheme.bodyMedium),
-          if (snapshot.hasIssues && snapshot.projectionWarning != null) ...[
-            const SizedBox(height: 10),
-            Text(
-              snapshot.projectionWarning!,
-              key: const Key('home-growth-summary-warning'),
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-}
-
-class _RecentResultCard extends StatelessWidget {
-  const _RecentResultCard({required this.continuitySnapshot});
-
-  final PracticeContinuitySnapshot? continuitySnapshot;
-
-  @override
-  Widget build(BuildContext context) {
-    final l = AppLocalizations.of(context)!;
-    final colors = context.appColors;
-    final recommendedActivity = continuitySnapshot?.recommendedActivity;
-    final recentResult = recommendedActivity?.recentResult;
-    final activityId = recommendedActivity?.activityId ?? 'empty';
-
-    return Container(
-      key: ValueKey('recent-result-$activityId'),
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: colors.bgSunken,
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            l.homeRecentLocalResult,
-            style: Theme.of(context).textTheme.titleMedium,
-          ),
-          const SizedBox(height: 8),
-          if (recentResult == null)
-            Text(
-              continuitySnapshot?.fallbackReason ?? l.homeNoLocalRecords,
-              key: const Key('recent-result-empty'),
-              style: Theme.of(context).textTheme.bodyMedium,
-            )
-          else
-            Column(
-              key: const Key('recent-result-summary'),
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  '${recommendedActivity!.title} · ${recentResult.phraseEnglish} · ${_labelForReaction(l, recentResult.reactionType)}',
-                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                    color: colors.textPrimary,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  l.homeRecentResultDetail(
-                    recommendedActivity.totalEvents.toString(),
-                    _formatTime(recentResult.eventTime),
-                  ),
-                  style: Theme.of(context).textTheme.bodyMedium,
-                ),
-              ],
-            ),
-        ],
-      ),
-    );
-  }
-
-  String _labelForReaction(AppLocalizations l, BabyReactionType reactionType) {
-    switch (reactionType) {
-      case BabyReactionType.calm:
-        return l.reactionCalm;
-      case BabyReactionType.engaged:
-        return l.reactionEngaged;
-      case BabyReactionType.imitated:
-        return l.reactionImitated;
-      case BabyReactionType.needsBreak:
-        return l.reactionNeedsBreak;
-    }
-  }
-
-  String _formatTime(DateTime dateTime) {
-    final local = dateTime.toLocal();
-    final hour = local.hour.toString().padLeft(2, '0');
-    final minute = local.minute.toString().padLeft(2, '0');
-    return '$hour:$minute';
   }
 }
 

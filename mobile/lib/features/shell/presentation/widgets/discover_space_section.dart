@@ -67,7 +67,11 @@ class DiscoverSpaceSection extends StatelessWidget {
 }
 
 class DiscoverSpaceGridItem extends StatelessWidget {
-  const DiscoverSpaceGridItem({required this.activity, required this.onTap});
+  const DiscoverSpaceGridItem({
+    super.key,
+    required this.activity,
+    required this.onTap,
+  });
 
   final PracticeCatalogActivitySummary activity;
   final VoidCallback onTap;

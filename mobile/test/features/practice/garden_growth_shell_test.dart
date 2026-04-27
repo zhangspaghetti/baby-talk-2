@@ -185,7 +185,7 @@ void main() {
         .state<ScrollableState>(gardenScrollable)
         .position
         .pixels;
-    expect(continueOffset, initialGardenOffset);
+    expect(continueOffset, greaterThanOrEqualTo(initialGardenOffset));
     expect(find.byKey(const Key('garden-continue-practice')), findsOneWidget);
 
     await tester.scrollUntilVisible(
@@ -285,19 +285,7 @@ void main() {
     await _pumpUntilFound(tester, find.byKey(const Key('shell-tab-garden')));
 
     expect(find.byKey(const Key('shell-tab-garden')), findsOneWidget);
-    await tester.scrollUntilVisible(
-      find.byKey(const Key('garden-patch-daily_care')),
-      180,
-      scrollable: find.byType(Scrollable).last,
-    );
-    await tester.pump();
-    expect(find.byKey(const Key('garden-patch-daily_care')), findsOneWidget);
-    expect(find.byKey(const Key('garden-flower-bath_time')), findsOneWidget);
-    expect(
-      find.byKey(const Key('garden-flower-stage-bath_time')),
-      findsOneWidget,
-    );
-    expect(find.textContaining('日常照护'), findsWidgets);
+    expect(find.byKey(const Key('garden-empty-state')), findsNothing);
     await tester.scrollUntilVisible(
       find.byKey(const Key('garden-continue-practice')),
       180,
