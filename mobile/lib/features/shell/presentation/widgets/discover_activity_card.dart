@@ -1,0 +1,144 @@
+import 'package:flutter/material.dart';
+import 'package:mobile/app/theme/app_theme.dart';
+import 'package:mobile/features/practice/domain/models/interaction_event_payload.dart';
+import 'package:mobile/features/practice/domain/models/practice_activity_catalog.dart';
+import 'package:mobile/l10n/app_localizations.dart';
+
+class DiscoverActivityCard extends StatelessWidget {
+  const DiscoverActivityCard({
+    super.key,
+    required this.activity,
+    required this.onOpen,
+  });
+
+  final PracticeCatalogActivitySummary activity;
+  final VoidCallback onOpen;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    final colors = context.appColors;
+    final progress = activity.totalPhraseCount == 0
+        ? 0.0
+        : activity.completedPhraseCount / activity.totalPhraseCount;
+    final hasRecentResult = activity.recentResult != null;
+    final summary = activity.summary.trim().isEmpty
+        ? l.discoverSummaryMissing
+        : activity.summary;
+    final footerText = hasRecentResult
+        ? '${_reactionLabel(activity.recentResult!.reactionType)} · ${activity.recentResult!.phraseEnglish}'
+        : (activity.nextPhraseEnglish?.trim().isNotEmpty ?? false)
+        ? '下一句：${activity.nextPhraseEnglish}'
+        : l.discoverNoNextPhrase;
+
+    return Semantics(
+      label: '活动: ${activity.title}',
+      child: Container(
+        key: Key('discover-activity-card-${activity.activityId}'),
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: colors.bgSurface,
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(color: colors.outlineSoft),
+          boxShadow: colors.warmShadowSm,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  width: 6,
+                  height: 64,
+                  decoration: BoxDecoration(
+                    color: colors.accent,
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (activity.hasRecoverableIssue) ...[
+                        Chip(label: Text(l.discoverNeedsAttention)),
+                        const SizedBox(height: 12),
+                      ],
+                      Text(
+                        activity.title,
+                        style: Theme.of(context).textTheme.titleLarge,
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        summary,
+                        style: Theme.of(context).textTheme.bodyMedium,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            LinearProgressIndicator(
+              key: Key('discover-progress-${activity.activityId}'),
+              value: progress.clamp(0.0, 1.0),
+              minHeight: 6,
+              borderRadius: BorderRadius.circular(999),
+              color: colors.accent,
+              backgroundColor: colors.bgSunken,
+            ),
+            const SizedBox(height: 10),
+            Text(
+              '${activity.completedPhraseCount}/${activity.totalPhraseCount} 句已练 · ${activity.totalEvents} 条记录',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: colors.textSecondary,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: 14),
+            Text(footerText, style: Theme.of(context).textTheme.bodyMedium),
+            if (activity.warningMessage != null &&
+                activity.warningMessage!.trim().isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Text(
+                activity.warningMessage!,
+                key: Key('discover-activity-warning-${activity.activityId}'),
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: colors.warning,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+            const SizedBox(height: 16),
+            ElevatedButton.icon(
+              key: Key(
+                'discover-route-target-${activity.spaceId}-${activity.activityId}',
+              ),
+              onPressed: onOpen,
+              icon: const Icon(Icons.play_arrow_rounded),
+              label: Text(
+                activity.isEmpty
+                    ? l.discoverStartActivity
+                    : l.discoverContinueActivity,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+String _reactionLabel(BabyReactionType reactionType) {
+  switch (reactionType) {
+    case BabyReactionType.calm:
+      return '宝宝放松';
+    case BabyReactionType.engaged:
+      return '宝宝在看';
+    case BabyReactionType.imitated:
+      return '宝宝模仿';
+    case BabyReactionType.needsBreak:
+      return '先休息';
+  }
+}
