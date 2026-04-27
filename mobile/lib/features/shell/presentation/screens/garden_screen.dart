@@ -73,22 +73,12 @@ class GardenScreen extends StatelessWidget {
                   continuityActivity: continuityActivity,
                 ),
                 const SizedBox(height: 16),
-                HouseholdSharedContextCard(
-                  surfaceKeyPrefix: 'garden',
-                  viewModel: householdViewModel,
-                  title: l.gardenSharedAttributionTitle,
-                  retryReason: 'garden_household_manual_refresh',
+                _GardenContinueCard(
+                  practiceArgs: practiceArgs,
+                  continuityViewModel: continuityViewModel,
+                  continuitySnapshot: continuitySnapshot,
+                  continuityActivity: continuityActivity,
                 ),
-                if (shareViewModel != null) ...[
-                  const SizedBox(height: 16),
-                  ShareCalloutCard(
-                    surfaceKeyPrefix: 'garden',
-                    viewModel: shareViewModel,
-                    sectionLabel: l.gardenShareFamily,
-                    emptyMessage: '等最近成长和继续建议整理稳定后，再生成一条脱敏分享链接。',
-                    onShare: () => shareViewModel.shareCurrent(),
-                  ),
-                ],
                 if (viewModel?.hasError ?? false) ...[
                   const SizedBox(height: 16),
                   _GardenBanner(
@@ -106,6 +96,23 @@ class GardenScreen extends StatelessWidget {
                     _GardenPatchCard(patch: patch),
                     const SizedBox(height: 16),
                   ],
+                ],
+                const SizedBox(height: 16),
+                HouseholdSharedContextCard(
+                  surfaceKeyPrefix: 'garden',
+                  viewModel: householdViewModel,
+                  title: l.gardenSharedAttributionTitle,
+                  retryReason: 'garden_household_manual_refresh',
+                ),
+                if (shareViewModel != null) ...[
+                  const SizedBox(height: 16),
+                  ShareCalloutCard(
+                    surfaceKeyPrefix: 'garden',
+                    viewModel: shareViewModel,
+                    sectionLabel: l.gardenShareFamily,
+                    emptyMessage: '等最近成长和继续建议整理稳定后，再生成一条脱敏分享链接。',
+                    onShare: () => shareViewModel.shareCurrent(),
+                  ),
                 ],
                 const SizedBox(height: 16),
                 if (shouldShowSharedOverlay) ...[
@@ -126,12 +133,6 @@ class GardenScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 16),
                 ],
-                _GardenContinueCard(
-                  practiceArgs: practiceArgs,
-                  continuityViewModel: continuityViewModel,
-                  continuitySnapshot: continuitySnapshot,
-                  continuityActivity: continuityActivity,
-                ),
               ],
             ),
           ),
