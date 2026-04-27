@@ -243,6 +243,13 @@ test.describe('knowledge ops workspace', () => {
     await expect(page.getByTestId('knowledge-retry-job')).toHaveCount(0);
     await expect(page.getByTestId('knowledge-ingestion-status')).toContainText('FAILED');
 
+    await page.goto('/knowledge-ops?view=palace-rag&status=projection');
+    await expect(page.getByTestId('knowledge-palace-rag-readonly-note')).toBeVisible();
+    await expect(page.getByTestId('knowledge-palace-subview-projection')).toBeVisible();
+    await expect(page.getByTestId('knowledge-palace-projection-status')).toBeVisible();
+    await expect.poll(() => new URL(page.url()).searchParams.get('view')).toBe('palace-rag');
+    await expect.poll(() => new URL(page.url()).searchParams.get('status')).toBe('projection');
+
     const kgReaderSession = await loginViaAdminApi(request, kgReader.username, kgReader.password);
     const kgResolveResponse = await request.patch(
       `${adminApiBaseUrl}/api/admin/knowledge/kg/contradictions/${seededContradiction.contradictionId}/resolve`,
