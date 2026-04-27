@@ -86,13 +86,13 @@ scripts\dev-verify-helm-demo.cmd
 
 先读 wrapper stdout；如果还想看最近几次 run 的走势，再直接打开这份 telemetry 文件。
 
-## Final release closure（当前 S01 的 CI-equivalent）
+## Final release closure (CI smoke gate)
 
 ```bash
 bash ci/k8s-smoke.sh
 ```
 
-当前 S01 的 CI-equivalent gate 是 `bash ci/k8s-smoke.sh`。如果你想在本机直接跑同一套 Helm-first front-door verifier，可执行：
+CI-equivalent gate 是 `bash ci/k8s-smoke.sh`。如果你想在本机直接跑同一套 Helm-first front-door verifier，可执行：
 
 ```bash
 dart run tool/verify_m007_s01_helm_baseline.dart demo
@@ -104,10 +104,10 @@ dart run tool/verify_m007_s01_helm_baseline.dart demo
 
 | Surface | 角色 | 默认本地入口 | 说明 |
 | --- | --- | --- | --- |
-| `gateway` | repo-root gateway / 健康检查前门 | `http://127.0.0.1:8090/` | 当前是 `nginx:alpine` stub；S03 会替换成 Spring Cloud Gateway |
-| `app-api` | 面向 mobile / consumer 的 HTTP API | cluster-internal service | public app surface |
+| `gateway` | repo-root gateway / 健康检查前门 | `http://127.0.0.1:8090/` | Spring Cloud Gateway (babytalk/gateway:1.0.0)；admin 和 consumer 流量的唯一外部后端入口 |
+| `app-api` | 面向 mobile / consumer 的 HTTP API | cluster-internal service | cluster-internal service；consumer 流量经 gateway 代理 |
 | `admin-web` | 管理后台浏览器入口 | `http://127.0.0.1:3000` | UI 开发时仍可直接打开 |
-| `admin-api` | 管理后台后端 API | `http://127.0.0.1:8081` | internal-only；给 `admin-web` 代理和本地开发用 |
+| `admin-api` | 管理后台后端 API | 仅 cluster-internal；无公网 Ingress | internal-only；admin-web 经 gateway 代理到 admin-api |
 | `db-migration` | schema owner / preflight job | Helm hook job | 先于 app/admin runtime 执行 |
 | `mobile` | Flutter 客户端 | `mobile/` | 只连 `app-api`，不连 `admin-api` |
 
@@ -158,10 +158,10 @@ npm --prefix admin-web install
 npm --prefix admin-web run dev
 ```
 
-如果 `admin-api` 不在 `127.0.0.1:8081`，先覆盖代理目标：
+如果 `gateway` 不在 `127.0.0.1:8090`，先覆盖代理目标：
 
 ```bash
-VITE_ADMIN_API_PROXY_TARGET=http://127.0.0.1:8081 npm --prefix admin-web run dev
+VITE_ADMIN_API_PROXY_TARGET=http://127.0.0.1:8090 npm --prefix admin-web run dev
 ```
 
 ### mobile

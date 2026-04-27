@@ -4,7 +4,7 @@
 
 当前部署被拆成两个独立 Helm release：
 - `babytalk-infra`：Postgres、Redis、MinIO，属于 stateful 基础设施。
-- `babytalk-app`：`db-migration` Job、`gateway` stub、`app-api`、`admin-api`、`admin-web`，属于应用层。
+- `babytalk-app`：`db-migration` Job、`gateway` (Spring Cloud Gateway)、`app-api`、`admin-api`、`admin-web`，属于应用层。
 
 本 runbook 关注四件事：
 1. 当前部署真相是什么。
@@ -21,7 +21,7 @@
 | Release | Chart 路径 | 资源性质 | 主要内容 | 生命周期特点 |
 | --- | --- | --- | --- | --- |
 | `babytalk-infra` | `deploy/helm/babytalk-infra` | stateful | Postgres、Redis、MinIO | 低频升级；回滚必须保守处理数据面 |
-| `babytalk-app` | `deploy/helm/babytalk-app` | stateless + hook Job | `db-migration`、`gateway` stub、`app-api`、`admin-api`、`admin-web` | 高频升级；升级前先跑 migration hook |
+| `babytalk-app` | `deploy/helm/babytalk-app` | stateless + hook Job | `db-migration`、`gateway` (Spring Cloud Gateway)、`app-api`、`admin-api`、`admin-web` | 高频升级；升级前先跑 migration hook |
 
 ### 1.2 `babytalk-infra` 的职责
 
@@ -39,9 +39,9 @@
 | 组件 | 类型 | 暴露面 | 说明 |
 | --- | --- | --- | --- |
 | `db-migration` | Helm hook Job | 不对外 | schema owner；install / upgrade 前执行 |
-| `gateway` | Deployment + Service | 集群内 / smoke 面 | 目前是 stub，S03 才会替换为正式 gateway |
-| `app-api` | Deployment + Service + Ingress | 对外 | 面向应用客户端 |
-| `admin-api` | Deployment + Service | 仅集群内 | 给 `admin-web` 代理调用，不应暴露公网 Ingress |
+| `gateway` | Deployment + Service | 集群内 / Ingress（生产） | Spring Cloud Gateway (babytalk/gateway:1.0.0)；admin + consumer 流量的唯一外部入口 |
+| `app-api` | Deployment + Service | 仅集群内 | cluster-internal service；consumer 流量经 gateway 代理 |
+| `admin-api` | Deployment + Service | 仅集群内 | 给 `admin-web` 经 gateway 代理调用，不应暴露公网 Ingress |
 | `admin-web` | Deployment + Service + Ingress | 对外 | 管理台前端 |
 
 ### 1.4 当前必须记住的边界
@@ -50,7 +50,7 @@
 2. `db-migration` 属于 `babytalk-app`，不属于 `babytalk-infra`。
 3. `db-migration` 必须先于 app workloads 执行。
 4. `admin-api` 是 internal-only service；如果它有公网入口，那就是 drift。
-5. `gateway` 当前是 stub，可作为 smoke / 边界验证对象，但不能把它当最终拓扑。
+5. `gateway` 是 Spring Cloud Gateway；admin + consumer 流量的唯一外部入口。
 
 ### 1.5 这次拆分解决什么问题
 
@@ -500,7 +500,7 @@ kubectl logs <resource> -n babytalk
 
 ### 8.5 gateway
 
-`gateway` 当前仍是 stub，因此既是组件，也是 release boundary 信号：
+`gateway` 是 Spring Cloud Gateway，既是组件，也是 release boundary 信号：
 - 如果 smoke 中 gateway 检查失败，优先把它当 app 边界回归。
 - 不要先把 gateway 问题归类成 infra 故障。
 
@@ -519,7 +519,7 @@ kubectl logs <resource> -n babytalk
 - `cluster 失败：babytalk-app-db-migration Job Failed。`
 - `infra 风险：babytalk-infra 回滚可能影响数据兼容。`
 - `app 风险：旧版 admin-api 可能不兼容当前 schema。`
-- `gateway 回归：smoke 不再能证明 gateway stub 仍在 app release 中。`
+- `gateway 回归：smoke 不再能证明 Spring Cloud Gateway 仍在 app release 中。`
 - `smoke 失败：先修 release boundary contract，再讨论发布。`
 
 ---

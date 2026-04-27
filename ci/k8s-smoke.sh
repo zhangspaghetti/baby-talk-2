@@ -640,6 +640,51 @@ if step_failed; then
 fi
 echo ""
 
+
+# ── Step 12: Docs coherence gate ─────────────────────────────
+echo "--- Step 12: Docs coherence gate ---"
+step_begin
+README_STALE_COUNT="$(grep -c 'nginx:alpine\|S03 会替换\|S01 的 CI' README.md 2>/dev/null || true)"
+if [[ "$README_STALE_COUNT" -eq 0 ]]; then
+  log_pass "README.md contains no stale stub/milestone qualifier references"
+else
+  log_fail "README.md still has $README_STALE_COUNT stale reference(s): nginx:alpine, S03 会替换, or S01 的 CI"
+fi
+
+RUNBOOK_STUB_COUNT="$(grep -c 'gateway stub' docs/runbooks/k8s-deploy.md 2>/dev/null || true)"
+if [[ "$RUNBOOK_STUB_COUNT" -eq 0 ]]; then
+  log_pass "docs/runbooks/k8s-deploy.md contains no 'gateway stub' references"
+else
+  log_fail "docs/runbooks/k8s-deploy.md still has $RUNBOOK_STUB_COUNT 'gateway stub' reference(s)"
+fi
+
+CONTRIBUTING_STALE_COUNT="$(grep -c '127\.0\.0\.1:8081\|admin-api:8081\|S01 的 CI' CONTRIBUTING.md 2>/dev/null || true)"
+if [[ "$CONTRIBUTING_STALE_COUNT" -eq 0 ]]; then
+  log_pass "CONTRIBUTING.md contains no stale admin-api:8081 or S01 qualifier references"
+else
+  log_fail "CONTRIBUTING.md still has $CONTRIBUTING_STALE_COUNT stale reference(s): admin-api:8081 or S01 の CI"
+fi
+
+if grep -q 'MyBatisPlus' CONTRIBUTING.md 2>/dev/null; then
+  log_pass "CONTRIBUTING.md documents MyBatisPlus persistence pattern"
+else
+  log_fail "CONTRIBUTING.md missing MyBatisPlus persistence pattern section"
+fi
+
+if grep -q 'Spring Cloud Gateway' docs/runbooks/k8s-deploy.md 2>/dev/null; then
+  log_pass "docs/runbooks/k8s-deploy.md references Spring Cloud Gateway"
+else
+  log_fail "docs/runbooks/k8s-deploy.md missing Spring Cloud Gateway reference"
+fi
+
+if step_failed; then
+  record_first_failure \
+    "docs-coherence" \
+    "one or more docs contain stale gateway-stub or admin-api:8081 references, or are missing required content" \
+    "Fix README.md, CONTRIBUTING.md, or docs/runbooks/k8s-deploy.md, then rerun bash ci/k8s-smoke.sh"
+fi
+echo ""
+
 if [[ "$FAIL" -gt 0 ]]; then
   finalize_and_exit 1
 else

@@ -6,7 +6,7 @@
 
 - 想把整套 Helm baseline 拉起来：`dev-up-helm-demo`
 - 想复用 live stack 跑最小 smoke：`dev-verify-helm-demo`
-- 想跑当前 S01 的 CI-equivalent gate：`bash ci/k8s-smoke.sh`
+- 想跑 CI-equivalent gate：`bash ci/k8s-smoke.sh`
 - 想直接执行本地 Helm front-door verifier：`dart run tool/verify_m007_s01_helm_baseline.dart demo`
 
 除 `bash ci/k8s-smoke.sh` 这条 CI-equivalent gate 之外，其余 repo-root verifier 都是 scoped drill-down；不要再拼 ad-hoc shell chain。
@@ -47,6 +47,17 @@ helm upgrade --install babytalk-app deploy/helm/babytalk-app -f deploy/helm/baby
 - `app-api` 与 `admin-api` 的 contract 没有被你的改动破坏
 - 新 contract 没有把管理员能力错误地下沉到 mobile/client surface
 
+### Backend persistence pattern
+
+`common` / `app-api` / `admin-api` 统一使用 **MyBatisPlus adapter 风格**，不再使用直接 JdbcTemplate：
+
+- 保留 repository 外观类（调用方 API 不变），通过注入 `@Mapper` 接口委托 SQL 执行
+- SQL 放在 `src/main/resources/mapper/**/*.xml`；UUID 列使用 `common` 模块的 `UuidTypeHandler`
+- Datasource 统一使用 Druid，slow-sql-millis: 2000（超时查询会写入应用日志）
+- **禁止新增** 直接注入 `JdbcTemplate` 的 repository；CI smoke Step 11 (`own-jdbctemplate-count`) 会检测
+
+如需了解迁移模式，参考 `backend/common/src/main/java/.../mybatis/UuidTypeHandler.java` 和任意 `*Mapper.xml`。
+
 ### admin-web-only change
 
 ```bash
@@ -55,7 +66,7 @@ npm --prefix admin-web run dev
 npm --prefix admin-web run build
 ```
 
-默认代理目标是本地 `admin-api`。如果你换了端口，先设置 `VITE_ADMIN_API_PROXY_TARGET`。
+默认代理目标是本地 `gateway`（8090）。如果你换了端口，先设置 `VITE_ADMIN_API_PROXY_TARGET`。
 
 ### mobile change
 
