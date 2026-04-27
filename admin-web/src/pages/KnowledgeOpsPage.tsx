@@ -1,5 +1,5 @@
-import { Alert, Button, Card, Descriptions, Empty, Input, List, Space, Spin, Tag, Typography } from 'antd';
-import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type CSSProperties } from 'react';
+import { Alert, Button, Card, Collapse, Descriptions, Empty, Input, List, Space, Spin, Tag, Typography } from 'antd';
+import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { hasKnownAdminPermission } from '../app/access';
 import { warmPaperAdmin } from '../app/theme';
@@ -32,16 +32,41 @@ import {
   type PalaceQueryTraceSampleView,
   type PalaceRagSubview,
 } from '../lib/knowledgeOpsClient';
+import {
+  DEFAULT_BRIDGE_REVIEW_STATUS,
+  DEFAULT_NOTIFICATION_LIMIT,
+  DEFAULT_PALACE_RAG_SUBVIEW,
+  DEFAULT_QUEUE_LIMIT,
+  DEFAULT_STATUS,
+  DEFAULT_VIEW,
+  MAX_INGESTION_POLL_ATTEMPTS,
+  QUERY_PARAM_KEYS,
+  type IngestionActionState,
+  type KgActionState,
+  type KnowledgeQueryPatch,
+  type PalaceRagActionState,
+  type QueryState,
+  countTraceCandidates,
+  contradictionStatusColor,
+  defaultStatusForView,
+  fileInputStyle,
+  formatConfidence,
+  formatTimestamp,
+  includesTupleValue,
+  ingestionStatusColor,
+  isNonTerminalIngestionStatus,
+  isTimeoutLike,
+  notificationTypeColor,
+  palaceBridgeStatusColor,
+  patchKnowledgeQuery,
+  readCanonicalStatus,
+  readIngestionFreshnessTag,
+  readQueryState as readKnowledgeQueryState,
+  readStatusBadge,
+  readStringDetail,
+} from '../lib/knowledgeOpsUtils';
 
-const DEFAULT_QUEUE_LIMIT = 20;
-const DEFAULT_NOTIFICATION_LIMIT = 20;
 const PALACE_TRACE_LIMIT = 20;
-const DEFAULT_VIEW: KnowledgeOpsView = 'ingestion';
-const DEFAULT_STATUS = 'all';
-const DEFAULT_PALACE_RAG_SUBVIEW: PalaceRagSubview = 'bridge-review';
-const DEFAULT_BRIDGE_REVIEW_STATUS: PalaceBridgeEdgeStatus = PALACE_BRIDGE_EDGE_STATUSES[0];
-const QUERY_PARAM_KEYS = ['view', 'status', 'selected'] as const;
-const MAX_INGESTION_POLL_ATTEMPTS = 8;
 const INGESTION_POLL_INTERVAL_MS = 3_000;
 
 const INGESTION_VIEW_OPTIONS: Array<{ value: KnowledgeIngestionFilter; label: string }> = [
@@ -67,39 +92,6 @@ const PALACE_RAG_VIEW_OPTIONS: Array<{ value: PalaceRagSubview; label: string }>
   { value: 'projection', label: 'Projection' },
 ];
 
-type QueryState = {
-  rawView?: string;
-  rawStatus?: string;
-  selected?: string;
-  view: KnowledgeOpsView;
-  viewWasNormalized: boolean;
-  statusWasNormalized: boolean;
-  ingestionStatus: KnowledgeIngestionFilter;
-  kgStatus: KnowledgeContradictionFilter;
-  palaceRagSubview: PalaceRagSubview;
-};
-
-type KnowledgeQueryPatch = Partial<Record<(typeof QUERY_PARAM_KEYS)[number], string | undefined>>;
-
-type IngestionActionState =
-  | { phase: 'idle' }
-  | { phase: 'pending'; kind: 'upload' | 'retry'; target: string }
-  | { phase: 'success'; kind: 'upload' | 'retry'; response: KnowledgeIngestionJobMutationView }
-  | { phase: 'error'; kind: 'upload' | 'retry'; error: ApiError };
-
-type KgActionState =
-  | { phase: 'idle' }
-  | { phase: 'pending'; kind: 'resolve' | 'mark-read'; target: string }
-  | { phase: 'success'; kind: 'resolve'; detail: KnowledgeContradictionDetailView }
-  | { phase: 'success'; kind: 'mark-read'; notification: KnowledgeNotificationView }
-  | { phase: 'error'; kind: 'resolve' | 'mark-read'; error: ApiError; target: string };
-
-type PalaceRagActionState =
-  | { phase: 'idle' }
-  | { phase: 'pending'; edgeId: string }
-  | { phase: 'success'; edge: PalaceBridgeEdgeView }
-  | { phase: 'error'; error: ApiError; edgeId: string };
-
 export default function KnowledgeOpsPage() {
   const { session } = useAuth();
   if (!session) {
@@ -124,7 +116,7 @@ export default function KnowledgeOpsPage() {
   }, [canReadIngestion, canReadKg]);
 
   const [searchParams, setSearchParams] = useSearchParams();
-  const query = useMemo(() => readQueryState(searchParams, accessibleViews), [accessibleViews, searchParams]);
+  const query = useMemo(() => readKnowledgeQueryState(searchParams, accessibleViews), [accessibleViews, searchParams]);
   const needsCanonicalQuery =
     !searchParams.has('view') || !searchParams.has('status') || query.viewWasNormalized || query.statusWasNormalized;
   const contextSummary = searchParams.toString() || `view=${query.view}&status=${readCanonicalStatus(query)}`;
@@ -689,35 +681,6 @@ export default function KnowledgeOpsPage() {
         </Typography.Paragraph>
       </Space>
 
-      <Card size="small" title="Current admin / capabilities">
-        <Space direction="vertical" size={10} style={{ width: '100%' }}>
-          <Space wrap>
-            <Tag color={warmPaperAdmin.palette.info}>user: {admin.username}</Tag>
-            <Tag color={canReadIngestion ? 'success' : 'default'}>rag:read {canReadIngestion ? 'enabled' : 'missing'}</Tag>
-            <Tag color={canWriteIngestion ? 'success' : 'default'}>rag:write {canWriteIngestion ? 'enabled' : 'missing'}</Tag>
-            <Tag color={canReadKg ? 'success' : 'default'}>kg:read {canReadKg ? 'enabled' : 'missing'}</Tag>
-            <Tag color={canReviewKg ? 'success' : 'default'}>kg:review {canReviewKg ? 'enabled' : 'missing'}</Tag>
-            <Tag>roles: {admin.roles.join(', ') || 'none'}</Tag>
-            <Tag>access expires: {formatTimestamp(session.accessTokenExpiresAt)}</Tag>
-          </Space>
-          <Space wrap>
-            <Tag color={query.viewWasNormalized ? 'warning' : 'processing'}>
-              view: {query.rawView ? (query.viewWasNormalized ? `${query.rawView} → ${query.view}` : query.rawView) : query.view}
-            </Tag>
-            <Tag color={query.statusWasNormalized ? 'warning' : 'processing'}>
-              status: {readStatusBadge(query)}
-            </Tag>
-            <Tag color={query.selected ? 'warning' : 'default'}>selected: {query.selected ?? 'none'}</Tag>
-            {canShowIngestionSurface ? <Tag color={ingestionFreshness.color}>queue freshness: {ingestionFreshness.label}</Tag> : null}
-            {canShowIngestionSurface ? <Tag>updatedAt: {formatTimestamp(latestIngestionUpdate)}</Tag> : null}
-            {canShowKgSurface ? <Tag>notifications: {notifications.length}</Tag> : null}
-            {canShowPalaceRagSurface ? <Tag>bridge queue: {bridgeEdges.length}</Tag> : null}
-            {canShowPalaceRagSurface ? <Tag>trace samples: {traceItems.length}</Tag> : null}
-          </Space>
-          <Typography.Text code>{contextSummary}</Typography.Text>
-        </Space>
-      </Card>
-
       <Card size="small" title="Workbench surfaces">
         <Space wrap>
           {canReadIngestion ? (
@@ -767,6 +730,42 @@ export default function KnowledgeOpsPage() {
           ) : null}
         </Space>
       </Card>
+
+      <Collapse
+        defaultActiveKey={[]}
+        destroyInactivePanel={false}
+        items={[
+          {
+            key: '1',
+            label: '管理员权限与状态',
+            children: (
+              <Card size="small" title="Current admin / capabilities" bordered={false} styles={{ body: { padding: 0 } }}>
+                <Space direction="vertical" size={10} style={{ width: '100%' }}>
+                  <Space wrap>
+                    <Tag color={warmPaperAdmin.palette.info}>user: {admin.username}</Tag>
+                    <Tag color={canReadIngestion ? 'success' : 'default'}>rag:read {canReadIngestion ? 'enabled' : 'missing'}</Tag>
+                    <Tag color={canWriteIngestion ? 'success' : 'default'}>rag:write {canWriteIngestion ? 'enabled' : 'missing'}</Tag>
+                    <Tag color={canReadKg ? 'success' : 'default'}>kg:read {canReadKg ? 'enabled' : 'missing'}</Tag>
+                    <Tag color={canReviewKg ? 'success' : 'default'}>kg:review {canReviewKg ? 'enabled' : 'missing'}</Tag>
+                    <Tag>roles: {admin.roles.join(', ') || 'none'}</Tag>
+                    <Tag>access expires: {formatTimestamp(session.accessTokenExpiresAt)}</Tag>
+                  </Space>
+                  <Space wrap>
+                    <Tag color={query.viewWasNormalized ? 'warning' : 'processing'}>
+                      view: {query.rawView ? (query.viewWasNormalized ? `${query.rawView} → ${query.view}` : query.rawView) : query.view}
+                    </Tag>
+                    <Tag color={query.statusWasNormalized ? 'warning' : 'processing'}>
+                      status: {readStatusBadge(query)}
+                    </Tag>
+                    <Tag color={query.selected ? 'warning' : 'default'}>selected: {query.selected ?? 'none'}</Tag>
+                  </Space>
+                  <Typography.Text code>{contextSummary}</Typography.Text>
+                </Space>
+              </Card>
+            ),
+          },
+        ]}
+      />
 
       {query.viewWasNormalized ? (
         <Alert
@@ -1959,213 +1958,3 @@ function KgActionFeedback({ state }: { state: KgActionState }) {
   );
 }
 
-function readQueryState(searchParams: URLSearchParams, accessibleViews: KnowledgeOpsView[]): QueryState {
-  const rawView = normalizeQueryValue(searchParams.get('view'));
-  const rawStatus = normalizeQueryValue(searchParams.get('status'));
-  const selected = normalizeQueryValue(searchParams.get('selected'));
-  const accessibleFallback = accessibleViews[0] ?? DEFAULT_VIEW;
-  const normalizedView = normalizeView(rawView, accessibleViews) ?? accessibleFallback;
-  const normalizedIngestionStatus = normalizeIngestionFilter(rawStatus) ?? 'all';
-  const normalizedKgStatus = normalizeKgFilter(rawStatus) ?? 'all';
-  const normalizedPalaceSubview = normalizePalaceRagSubview(rawStatus) ?? DEFAULT_PALACE_RAG_SUBVIEW;
-
-  return {
-    rawView,
-    rawStatus,
-    selected,
-    view: normalizedView,
-    viewWasNormalized: Boolean(rawView && rawView !== normalizedView),
-    statusWasNormalized: Boolean(
-      rawStatus &&
-        ((normalizedView === 'ingestion' && normalizeIngestionFilter(rawStatus) == null) ||
-          (normalizedView === 'kg-review' && normalizeKgFilter(rawStatus) == null) ||
-          (normalizedView === 'palace-rag' && normalizePalaceRagSubview(rawStatus) == null)),
-    ),
-    ingestionStatus: normalizedIngestionStatus,
-    kgStatus: normalizedKgStatus,
-    palaceRagSubview: normalizedPalaceSubview,
-  };
-}
-
-function patchKnowledgeQuery(
-  currentSearchParams: URLSearchParams,
-  setSearchParams: ReturnType<typeof useSearchParams>[1],
-  patch: KnowledgeQueryPatch,
-) {
-  const nextParams = new URLSearchParams(currentSearchParams);
-  for (const key of QUERY_PARAM_KEYS) {
-    if (!(key in patch)) {
-      continue;
-    }
-    const nextValue = patch[key];
-    if (nextValue === undefined) {
-      nextParams.delete(key);
-    } else {
-      nextParams.set(key, nextValue);
-    }
-  }
-  setSearchParams(nextParams, { replace: false });
-}
-
-function normalizeView(value: string | undefined, accessibleViews: KnowledgeOpsView[]): KnowledgeOpsView | undefined {
-  if (!value || !includesTupleValue(KNOWLEDGE_OPS_VIEWS, value)) {
-    return undefined;
-  }
-  return accessibleViews.includes(value) ? value : undefined;
-}
-
-function normalizeIngestionFilter(value: string | undefined): KnowledgeIngestionFilter | undefined {
-  if (!value || !includesTupleValue(KNOWLEDGE_INGESTION_FILTERS, value)) {
-    return undefined;
-  }
-  return value;
-}
-
-function normalizeKgFilter(value: string | undefined): KnowledgeContradictionFilter | undefined {
-  if (!value || !includesTupleValue(KNOWLEDGE_CONTRADICTION_FILTERS, value)) {
-    return undefined;
-  }
-  return value;
-}
-
-function normalizePalaceRagSubview(value: string | undefined): PalaceRagSubview | undefined {
-  if (!value || !includesTupleValue(PALACE_RAG_SUBVIEWS, value)) {
-    return undefined;
-  }
-  return value;
-}
-
-function normalizeQueryValue(value: string | null | undefined): string | undefined {
-  if (!value) {
-    return undefined;
-  }
-  const trimmed = value.trim();
-  return trimmed ? trimmed : undefined;
-}
-
-function isTimeoutLike(error: ApiError): boolean {
-  return error.code === 'request_timeout' || error.code === 'network_error';
-}
-
-function isNonTerminalIngestionStatus(status: string | undefined): boolean {
-  return status === 'PENDING' || status === 'PROCESSING';
-}
-
-function readIngestionFreshnessTag(input: { stale: boolean; active: boolean; attempt: number }) {
-  if (input.stale) {
-    return { color: 'warning' as const, label: 'stale' };
-  }
-  if (input.active) {
-    return { color: 'processing' as const, label: `polling ${input.attempt}` };
-  }
-  return { color: 'success' as const, label: 'stable' };
-}
-
-function readStatusBadge(query: QueryState): string {
-  const normalizedStatus = readCanonicalStatus(query);
-  if (!query.rawStatus) {
-    return normalizedStatus;
-  }
-  return query.statusWasNormalized ? `${query.rawStatus} → ${normalizedStatus}` : query.rawStatus;
-}
-
-function defaultStatusForView(view: KnowledgeOpsView): string {
-  if (view === 'palace-rag') {
-    return DEFAULT_PALACE_RAG_SUBVIEW;
-  }
-  return DEFAULT_STATUS;
-}
-
-function readCanonicalStatus(query: QueryState): string {
-  if (query.view === 'ingestion') {
-    return query.ingestionStatus;
-  }
-  if (query.view === 'kg-review') {
-    return query.kgStatus;
-  }
-  return query.palaceRagSubview;
-}
-
-function includesTupleValue<const T extends readonly string[]>(allowed: T, value: string): value is T[number] {
-  return (allowed as readonly string[]).includes(value);
-}
-
-function formatTimestamp(value: string | undefined): string {
-  if (!value) {
-    return '—';
-  }
-  const timestamp = Date.parse(value);
-  if (Number.isNaN(timestamp)) {
-    return value;
-  }
-  return new Date(timestamp).toLocaleString();
-}
-
-function ingestionStatusColor(status: KnowledgeIngestionStatus): string {
-  switch (status) {
-    case 'COMPLETED':
-      return 'success';
-    case 'FAILED':
-      return 'error';
-    case 'PROCESSING':
-      return 'processing';
-    default:
-      return 'default';
-  }
-}
-
-function palaceBridgeStatusColor(status: PalaceBridgeEdgeStatus): string {
-  switch (status) {
-    case 'approved':
-      return 'success';
-    case 'rejected':
-      return 'error';
-    default:
-      return 'processing';
-  }
-}
-
-function formatConfidence(value: number): string {
-  return `${Math.round(value * 100)}%`;
-}
-
-function countTraceCandidates(value: string): number | null {
-  try {
-    const payload = JSON.parse(value);
-    return Array.isArray(payload) ? payload.length : null;
-  } catch {
-    return null;
-  }
-}
-
-function contradictionStatusColor(status: KnowledgeContradictionStatus): string {
-  switch (status) {
-    case 'resolved':
-      return 'success';
-    case 'escalated':
-      return 'error';
-    case 'reviewing':
-      return 'processing';
-    case 'dismissed':
-      return 'default';
-    default:
-      return 'warning';
-  }
-}
-
-function notificationTypeColor(value: string): string {
-  if (value === 'contradiction_escalated') {
-    return 'red';
-  }
-  return 'blue';
-}
-
-function readStringDetail(error: ApiError, key: string): string | undefined {
-  const value = error.details[key];
-  return typeof value === 'string' && value.trim() ? value : undefined;
-}
-
-const fileInputStyle: CSSProperties = {
-  width: '100%',
-  maxWidth: 360,
-};
