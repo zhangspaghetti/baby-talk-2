@@ -1,6 +1,6 @@
 import { LogoutOutlined, UserOutlined } from '@ant-design/icons';
 import { PageContainer, ProLayout } from '@ant-design/pro-components';
-import { Button, Space, Tag, Typography } from 'antd';
+import { Button, Collapse, Space, Tag, Typography } from 'antd';
 import { Link } from 'react-router-dom';
 import type { DefaultLandingResolution } from '../app/default-landing';
 import type { AdminWorkspaceRouteDefinition } from '../app/routes';
@@ -112,71 +112,71 @@ export default function AdminLayout({
               { title: currentModuleTitle },
             ],
           }}
-          content={
-            <Typography.Paragraph type="secondary" style={{ marginBottom: 0 }}>
-              {renderLandingNote(landing)}
-            </Typography.Paragraph>
-          }
-          extraContent={
-            <Space direction="vertical" size={10} style={{ minWidth: 320, maxWidth: 560 }}>
-              <Space wrap align="center">
-                <Tag color={warmPaperAdmin.palette.info} data-testid="session-user">
-                  user: {currentAdmin?.username ?? 'unknown-admin'}
-                </Tag>
-                <Tag data-testid="workspace-current">current: {currentModuleTitle}</Tag>
-                <Tag color={visibleRoutes.length > 0 ? 'success' : 'default'}>
-                  visible modules: {visibleRoutes.length}
-                </Tag>
-              </Space>
-
-              <Space wrap data-testid="workspace-switcher">
-                {visibleModuleLabels.length > 0 ? (
-                  visibleModuleLabels.map((label) => (
-                    <Tag color={label === currentModuleTitle ? warmPaperAdmin.palette.accentLight : 'default'} key={label}>
-                      {label}
-                    </Tag>
-                  ))
-                ) : (
-                  <Tag color="default">no accessible module</Tag>
-                )}
-              </Space>
-
-              <Space wrap>
-                {(currentAdmin?.roles ?? []).map((role) => (
-                  <Tag
-                    color={role === 'super_admin' ? warmPaperAdmin.palette.info : 'default'}
-                    data-testid={role === 'super_admin' ? 'session-role' : undefined}
-                    key={role}
-                  >
-                    {role}
-                  </Tag>
-                ))}
-              </Space>
-
-              <Space wrap>
-                {(currentAdmin?.permissions ?? []).map((permission) => (
-                  <Tag
-                    color={permission === 'mentor:audit' ? warmPaperAdmin.palette.info : undefined}
-                    data-testid={permission === 'mentor:audit' ? 'session-permission' : undefined}
-                    key={permission}
-                  >
-                    {permission}
-                  </Tag>
-                ))}
-              </Space>
-
-              <Space direction="vertical" size={2}>
-                <Typography.Text type="secondary">
-                  access token expires at: {session.accessTokenExpiresAt}
-                </Typography.Text>
-                <Typography.Text type="secondary">
-                  refresh token expires at: {session.refreshTokenExpiresAt}
-                </Typography.Text>
-              </Space>
-            </Space>
-          }
         >
           {children}
+          <Collapse
+            defaultActiveKey={[]}
+            destroyInactivePanel={false}
+            style={{ marginTop: 16 }}
+            items={[{
+              key: 'meta',
+              label: '管理员会话详情',
+              children: (
+                <Space direction="vertical" size={10}>
+                  <Space wrap align="center">
+                    <Tag color={warmPaperAdmin.palette.info} data-testid="session-user">
+                      user: {currentAdmin?.username ?? 'unknown-admin'}
+                    </Tag>
+                    <Tag data-testid="workspace-current">current: {currentModuleTitle}</Tag>
+                    <Tag color={visibleRoutes.length > 0 ? 'success' : 'default'}>
+                      visible modules: {visibleRoutes.length}
+                    </Tag>
+                  </Space>
+                  <Space wrap data-testid="workspace-switcher">
+                    {visibleModuleLabels.length > 0 ? (
+                      visibleModuleLabels.map((label) => (
+                        <Tag color={label === currentModuleTitle ? warmPaperAdmin.palette.accentLight : 'default'} key={label}>
+                          {label}
+                        </Tag>
+                      ))
+                    ) : (
+                      <Tag color="default">no accessible module</Tag>
+                    )}
+                  </Space>
+                  <Space wrap>
+                    {(currentAdmin?.roles ?? []).map((role) => (
+                      <Tag
+                        color={role === 'super_admin' ? warmPaperAdmin.palette.info : 'default'}
+                        data-testid={role === 'super_admin' ? 'session-role' : undefined}
+                        key={role}
+                      >
+                        {role}
+                      </Tag>
+                    ))}
+                  </Space>
+                  <Space wrap>
+                    {(currentAdmin?.permissions ?? []).map((permission) => (
+                      <Tag
+                        color={permission === 'mentor:audit' ? warmPaperAdmin.palette.info : undefined}
+                        data-testid={permission === 'mentor:audit' ? 'session-permission' : undefined}
+                        key={permission}
+                      >
+                        {permission}
+                      </Tag>
+                    ))}
+                  </Space>
+                  <Space direction="vertical" size={2}>
+                    <Typography.Text type="secondary">
+                      access token expires at: {session.accessTokenExpiresAt}
+                    </Typography.Text>
+                    <Typography.Text type="secondary">
+                      refresh token expires at: {session.refreshTokenExpiresAt}
+                    </Typography.Text>
+                  </Space>
+                </Space>
+              ),
+            }]}
+          />
         </PageContainer>
       </ProLayout>
     </div>

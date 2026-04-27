@@ -159,10 +159,13 @@ test.describe('knowledge ops workspace', () => {
       expect((await kgDetailResponse).status()).toBe(200);
       expect((await notificationListResponse).status()).toBe(200);
 
+      await expect(page.getByTestId('knowledge-kg-diagnostics')).toBeVisible();
       await expect(page.getByTestId('knowledge-contradiction-list')).toBeVisible();
       await expect(page.getByTestId('knowledge-notification-list')).toBeVisible();
       await expect(page.getByTestId('knowledge-kg-status')).toContainText('escalated');
       await expect(page.getByTestId(`knowledge-kg-row-${seededContradiction.contradictionId}`)).toContainText('unread 1');
+      await expect(page.getByTestId(`knowledge-kg-row-${seededContradiction.contradictionId}`)).not.toContainText('detectedAt');
+      await expect(page.getByTestId(`knowledge-kg-row-${seededContradiction.contradictionId}`)).not.toContainText('adminNotes');
       await expect(page.getByTestId(`knowledge-notification-row-${seededContradiction.notificationId}`)).toBeVisible();
 
       const markReadResponse = page.waitForResponse(
@@ -242,6 +245,13 @@ test.describe('knowledge ops workspace', () => {
     await expect(page.getByTestId('knowledge-upload-submit')).toHaveCount(0);
     await expect(page.getByTestId('knowledge-retry-job')).toHaveCount(0);
     await expect(page.getByTestId('knowledge-ingestion-status')).toContainText('FAILED');
+
+    await page.goto('/knowledge-ops?view=palace-rag&status=projection');
+    await expect(page.getByTestId('knowledge-palace-rag-readonly-note')).toBeVisible();
+    await expect(page.getByTestId('knowledge-palace-subview-projection')).toBeVisible();
+    await expect(page.getByTestId('knowledge-palace-projection-status')).toBeVisible();
+    await expect.poll(() => new URL(page.url()).searchParams.get('view')).toBe('palace-rag');
+    await expect.poll(() => new URL(page.url()).searchParams.get('status')).toBe('projection');
 
     const kgReaderSession = await loginViaAdminApi(request, kgReader.username, kgReader.password);
     const kgResolveResponse = await request.patch(
