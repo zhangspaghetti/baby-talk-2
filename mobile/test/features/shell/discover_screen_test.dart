@@ -52,6 +52,34 @@ void main() {
     );
   });
 
+  testWidgets('Discover 收敛 hero 与 activity 卡片冗余 chrome，但保留 R008 告警可见性', (
+    tester,
+  ) async {
+    _setTallViewport(tester);
+
+    await tester.pumpWidget(
+      _buildApp(
+        catalogLoader: () async =>
+            _buildCatalog(includeRecoverableIssueCard: true),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final context = tester.element(find.byKey(const Key('shell-tab-discover')));
+    final l = AppLocalizations.of(context)!;
+
+    expect(find.text(l.discoverNote), findsNothing);
+    expect(find.text(l.discoverLatestProgress), findsNothing);
+    expect(find.text('Bath time'), findsNothing);
+    expect(find.text('日常照护'), findsNothing);
+    expect(find.byType(Chip), findsOneWidget);
+    expect(find.text(l.discoverNeedsAttention), findsOneWidget);
+    expect(find.text('宝宝在看 · Warm water.'), findsOneWidget);
+    expect(find.byKey(const Key('discover-progress-bath_time')), findsOneWidget);
+    expect(find.byKey(const Key('discover-activity-warning-bath_time')), findsOneWidget);
+    expect(find.text('恢复了 1 条异常记录'), findsOneWidget);
+  });
+
   testWidgets('Discover activity / space 视图切换不重读目录，并把 route args 传给 opener', (
     tester,
   ) async {
@@ -194,7 +222,10 @@ Widget _buildApp({
   );
 }
 
-PracticeActivityCatalog _buildCatalog({bool includeMalformedCard = false}) {
+PracticeActivityCatalog _buildCatalog({
+  bool includeMalformedCard = false,
+  bool includeRecoverableIssueCard = false,
+}) {
   final activities = [
     _activity(
       spaceId: 'daily_care',
@@ -207,6 +238,8 @@ PracticeActivityCatalog _buildCatalog({bool includeMalformedCard = false}) {
       completedPhrases: 1,
       totalEvents: 1,
       nextPhraseEnglish: 'Splash, splash!',
+      skippedMalformedEventCount: includeRecoverableIssueCard ? 1 : 0,
+      warningMessage: includeRecoverableIssueCard ? '恢复了 1 条异常记录' : null,
       recentResult: PracticeCatalogRecentResultSummary(
         phraseId: 'bath_time_warm_water',
         phraseEnglish: 'Warm water.',
@@ -314,6 +347,9 @@ PracticeCatalogActivitySummary _activity({
   required int completedPhrases,
   required int totalEvents,
   required String? nextPhraseEnglish,
+  int skippedUnknownPhraseCount = 0,
+  int skippedMalformedEventCount = 0,
+  String? warningMessage,
   PracticeCatalogRecentResultSummary? recentResult,
 }) {
   return PracticeCatalogActivitySummary(
@@ -332,9 +368,10 @@ PracticeCatalogActivitySummary _activity({
     nextPhraseId: nextPhraseEnglish == null ? null : 'next_phrase',
     nextPhraseEnglish: nextPhraseEnglish,
     totalEvents: totalEvents,
-    skippedUnknownPhraseCount: 0,
-    skippedMalformedEventCount: 0,
+    skippedUnknownPhraseCount: skippedUnknownPhraseCount,
+    skippedMalformedEventCount: skippedMalformedEventCount,
     lastEventTime: recentResult?.eventTime,
     recentResult: recentResult,
+    warningMessage: warningMessage,
   );
 }

@@ -193,8 +193,6 @@ class _DiscoverHero extends StatelessWidget {
           Text(l.discoverTitle, style: theme.textTheme.labelMedium),
           const SizedBox(height: 10),
           Text(l.discoverSubtitle, style: theme.textTheme.titleLarge),
-          const SizedBox(height: 12),
-          Text(l.discoverNote, style: theme.textTheme.bodyMedium),
         ],
       ),
     );
@@ -485,9 +483,6 @@ class _DiscoverActivityCard extends StatelessWidget {
         : (activity.nextPhraseEnglish?.trim().isNotEmpty ?? false)
         ? '下一句：${activity.nextPhraseEnglish}'
         : l.discoverNoNextPhrase;
-    final footerHint = hasRecentResult
-        ? '最近一次 ${_formatTime(activity.recentResult!.eventTime)} · ${activity.recentResult!.totalEvents} 条记录'
-        : '${activity.completedPhraseCount}/${activity.totalPhraseCount} 句已练 · ${activity.totalEvents} 条记录';
 
     return Semantics(
       label: '活动: ${activity.title}',
@@ -519,17 +514,10 @@ class _DiscoverActivityCard extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: [
-                          Chip(label: Text(activity.sceneTag)),
-                          Chip(label: Text(activity.spaceTitle)),
-                          if (activity.hasRecoverableIssue)
-                            Chip(label: Text(l.discoverNeedsAttention)),
-                        ],
-                      ),
-                      const SizedBox(height: 12),
+                      if (activity.hasRecoverableIssue) ...[
+                        Chip(label: Text(l.discoverNeedsAttention)),
+                        const SizedBox(height: 12),
+                      ],
                       Text(
                         activity.title,
                         style: Theme.of(context).textTheme.titleLarge,
@@ -562,50 +550,22 @@ class _DiscoverActivityCard extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 14),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: hasRecentResult ? colors.englishSoft : colors.bgSunken,
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    l.discoverLatestProgress,
-                    style: Theme.of(context).textTheme.labelMedium,
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    footerText,
-                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                      color: colors.textPrimary,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    footerHint,
-                    style: Theme.of(context).textTheme.bodySmall,
-                  ),
-                  if (activity.warningMessage != null &&
-                      activity.warningMessage!.trim().isNotEmpty) ...[
-                    const SizedBox(height: 8),
-                    Text(
-                      activity.warningMessage!,
-                      key: Key(
-                        'discover-activity-warning-${activity.activityId}',
-                      ),
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: colors.warning,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ],
-                ],
-              ),
+            Text(
+              footerText,
+              style: Theme.of(context).textTheme.bodyMedium,
             ),
+            if (activity.warningMessage != null &&
+                activity.warningMessage!.trim().isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Text(
+                activity.warningMessage!,
+                key: Key('discover-activity-warning-${activity.activityId}'),
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: colors.warning,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
             const SizedBox(height: 16),
             ElevatedButton.icon(
               key: Key(
@@ -860,11 +820,4 @@ String _reactionLabel(BabyReactionType reactionType) {
     case BabyReactionType.needsBreak:
       return '先休息';
   }
-}
-
-String _formatTime(DateTime dateTime) {
-  final local = dateTime.toLocal();
-  final hour = local.hour.toString().padLeft(2, '0');
-  final minute = local.minute.toString().padLeft(2, '0');
-  return '$hour:$minute';
 }
