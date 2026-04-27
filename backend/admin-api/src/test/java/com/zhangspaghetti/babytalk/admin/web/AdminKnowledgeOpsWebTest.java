@@ -112,6 +112,7 @@ class AdminKnowledgeOpsWebTest {
     void resetTables() {
         reset(minioClient, vectorStore);
         jdbcTemplate.execute("DELETE FROM vector_store");
+        jdbcTemplate.execute("TRUNCATE TABLE palace_rooms, palace_bridge_edges, palace_projection_version CASCADE");
         jdbcTemplate.execute(
                 "TRUNCATE TABLE kg_admin_notifications, kg_contradictions, kg_relationships, kg_entities, ingestion_jobs, admin_refresh_tokens, admin_principal_roles, admin_role_permissions, admin_roles, admin_principals, account_sessions, accounts RESTART IDENTITY CASCADE"
         );
@@ -439,6 +440,48 @@ class AdminKnowledgeOpsWebTest {
         assertThat(completedJob.path("status").asText()).isEqualTo("COMPLETED");
         assertThat(completedJob.path("retryable").asBoolean()).isFalse();
         assertThat(completedJob.path("minioObjectKey").isMissingNode()).isTrue();
+    }
+
+    @Test
+    void ingestionCompletedPopulatesProjectionAndBridgeProposal() throws Exception {
+        jdbcTemplate.update("""
+                INSERT INTO palace_rooms (id, wing, room, hall, last_updated, source_book_count)
+                VALUES (uuid_generate_v4(), 'PHYSICAL', 'MOTOR_DEVELOPMENT', 'GROSS_MOTOR_HALL', now(), 1)
+                """);
+
+        var superAdmin = login("super_admin", "SuperAdmin123!");
+        byte[] trackedPdf = trackedPdfBytes();
+        stubPutObjectSuccess();
+        when(minioClient.getObject(any())).thenReturn(getObjectResponse(trackedPdf));
+
+        var uploadResponse = readJson(mockMvc.perform(multipart("/api/admin/knowledge/ingestion/upload")
+                        .file(new MockMultipartFile("file", "baby-talk.pdf", "application/pdf", trackedPdf))
+                        .param("bookTitle", "Baby Talk")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(superAdmin.accessToken())))
+                .andExpect(status().isAccepted())
+                .andReturn());
+
+        var jobId = UUID.fromString(uploadResponse.path("jobId").asText());
+        awaitIngestionJobStatus(superAdmin.accessToken(), jobId, "COMPLETED");
+        Thread.sleep(500L);
+
+        Integer roomCount = jdbcTemplate.queryForObject(
+                "SELECT count(*) FROM palace_rooms WHERE wing = 'LANGUAGE_DEVELOPMENT' AND room = 'EARLY_COMMUNICATION'",
+                Integer.class
+        );
+        assertThat(roomCount).isEqualTo(1);
+
+        Integer versionCount = jdbcTemplate.queryForObject(
+                "SELECT count(*) FROM palace_projection_version WHERE status = 'current'",
+                Integer.class
+        );
+        assertThat(versionCount).isEqualTo(1);
+
+        Integer bridgeCount = jdbcTemplate.queryForObject(
+                "SELECT count(*) FROM palace_bridge_edges WHERE status = 'proposed'",
+                Integer.class
+        );
+        assertThat(bridgeCount).isGreaterThanOrEqualTo(1);
     }
 
     @Test
