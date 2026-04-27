@@ -159,6 +159,3 @@ class DiscoverSpaceGridItem extends StatelessWidget {
     );
   }
 }
-    );
-  }
-}
