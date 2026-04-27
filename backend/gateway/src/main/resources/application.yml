@@ -6,6 +6,19 @@ spring:
     name: babytalk-gateway
   cloud:
     gateway:
+      globalcors:
+        cors-configurations:
+          '[/**]':
+            allowedOriginPatterns:
+              - "${BABY_TALK_ADMIN_WEB_ORIGIN:http://localhost:5173}"
+            allowedMethods:
+              - GET
+              - POST
+              - PUT
+              - DELETE
+              - OPTIONS
+            allowedHeaders: ["*"]
+            allowCredentials: true
       routes:
         - id: admin-api
           uri: ${BABY_TALK_ADMIN_API_URI:http://localhost:8081}
@@ -39,5 +52,5 @@ management:
 
 app:
   gateway:
-    admin-jwt-secret: ${BABY_TALK_ADMIN_JWT_SECRET:babytalk-admin-local-hs256-secret-20260424}
+    admin-jwt-secret: ${BABY_TALK_ADMIN_JWT_SECRET}
     admin-jwt-issuer: ${BABY_TALK_ADMIN_JWT_ISSUER:babytalk-admin-api}

@@ -55,7 +55,7 @@ app:
   admin:
     auth:
       issuer: ${BABY_TALK_ADMIN_JWT_ISSUER:babytalk-admin-api}
-      jwt-secret: ${BABY_TALK_ADMIN_JWT_SECRET:babytalk-admin-local-hs256-secret-20260424}
+      jwt-secret: ${BABY_TALK_ADMIN_JWT_SECRET}
       access-token-ttl: ${BABY_TALK_ADMIN_ACCESS_TOKEN_TTL:PT15M}
       refresh-token-ttl: ${BABY_TALK_ADMIN_REFRESH_TOKEN_TTL:P7D}
       bootstrap:
