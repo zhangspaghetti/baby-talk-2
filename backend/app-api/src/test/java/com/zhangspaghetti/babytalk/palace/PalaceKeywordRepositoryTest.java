@@ -38,7 +38,7 @@ class PalaceKeywordRepositoryTest {
     void searchByKeywords_keywordsOnlyDelegatesToMapperAndParsesMetadata() {
         UUID id = UUID.randomUUID();
         when(palaceKeywordMapper.searchByKeywords("宝宝说话", null, null, 5))
-                .thenReturn(List.of(new ChunkRow(id, "测试内容", "{\"wing\":\"language_development\"}")));
+                .thenReturn(List.of(new ChunkRow(id, "测试内容", "{\"wing\":\"language_development\"}", 0.82d)));
 
         List<ChunkResult> results = repository.searchByKeywords("宝宝说话", null, null, 5);
 
@@ -47,6 +47,7 @@ class PalaceKeywordRepositoryTest {
         assertThat(results.get(0).id()).isEqualTo(id);
         assertThat(results.get(0).content()).isEqualTo("测试内容");
         assertThat(results.get(0).metadata()).containsEntry("wing", "language_development");
+        assertThat(results.get(0).keywordScore()).isEqualTo(0.82d);
     }
 
     @Test
@@ -116,7 +117,7 @@ class PalaceKeywordRepositoryTest {
     void readChunkById_returnsParsedChunk() {
         UUID testId = UUID.randomUUID();
         when(palaceKeywordMapper.readChunkById(testId))
-                .thenReturn(new ChunkRow(testId, "测试内容", "{\"room\":\"early_communication\"}"));
+                .thenReturn(new ChunkRow(testId, "测试内容", "{\"room\":\"early_communication\"}", null));
 
         Optional<ChunkResult> result = repository.readChunkById(testId);
 
@@ -129,7 +130,7 @@ class PalaceKeywordRepositoryTest {
     void malformedMetadataJsonFallsBackToEmptyMap() {
         UUID id = UUID.randomUUID();
         when(palaceKeywordMapper.searchByKeywords("宝宝", null, null, 5))
-                .thenReturn(List.of(new ChunkRow(id, "测试内容", "{not-json}")));
+                .thenReturn(List.of(new ChunkRow(id, "测试内容", "{not-json}", 0.25d)));
 
         List<ChunkResult> results = repository.searchByKeywords("宝宝", null, null, 5);
 

@@ -12,13 +12,15 @@
                  typeHandler="com.zhangspaghetti.babytalk.mybatis.UuidTypeHandler"/>
             <arg column="content" javaType="java.lang.String"/>
             <arg column="metadata_json" javaType="java.lang.String"/>
+            <arg column="keyword_score" javaType="java.lang.Double"/>
         </constructor>
     </resultMap>
 
     <select id="searchByKeywords" resultMap="chunkRowMap">
         select id,
                content,
-               metadata::text as metadata_json
+               metadata::text as metadata_json,
+               ts_rank(content_tsv, plainto_tsquery('simple', #{keywords})) as keyword_score
         from vector_store
         where content_tsv @@ plainto_tsquery('simple', #{keywords})
         <if test="wing != null and wing != ''">
@@ -27,14 +29,15 @@
         <if test="room != null and room != ''">
           and metadata-&gt;&gt;'room' = #{room}
         </if>
-        order by ts_rank(content_tsv, plainto_tsquery('simple', #{keywords})) desc
+        order by keyword_score desc
         limit #{limit}
     </select>
 
     <select id="readChunkById" resultMap="chunkRowMap">
         select id,
                content,
-               metadata::text as metadata_json
+               metadata::text as metadata_json,
+               null::double precision as keyword_score
         from vector_store
         where id = #{id, jdbcType=OTHER, typeHandler=com.zhangspaghetti.babytalk.mybatis.UuidTypeHandler}
     </select>

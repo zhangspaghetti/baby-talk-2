@@ -8,10 +8,12 @@ import jakarta.validation.constraints.Size;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -28,10 +30,17 @@ import org.springframework.web.multipart.MultipartFile;
 @RequestMapping("/api/admin/knowledge")
 public class AdminKnowledgeOpsController {
 
-    private final AdminKnowledgeOpsService adminKnowledgeOpsService;
+    private static final int DEFAULT_PALACE_LIST_LIMIT = 20;
 
-    public AdminKnowledgeOpsController(AdminKnowledgeOpsService adminKnowledgeOpsService) {
+    private final AdminKnowledgeOpsService adminKnowledgeOpsService;
+    private final AdminPalaceRagService adminPalaceRagService;
+
+    public AdminKnowledgeOpsController(
+            AdminKnowledgeOpsService adminKnowledgeOpsService,
+            AdminPalaceRagService adminPalaceRagService
+    ) {
         this.adminKnowledgeOpsService = adminKnowledgeOpsService;
+        this.adminPalaceRagService = adminPalaceRagService;
     }
 
     @GetMapping("/ingestion/jobs")
@@ -115,6 +124,55 @@ public class AdminKnowledgeOpsController {
         return adminKnowledgeOpsService.listNotifications(contradictionId, limit);
     }
 
+    @GetMapping("/palace/projection")
+    @PreAuthorize("hasAuthority('rag:read')")
+    public AdminPalaceRagService.PalaceProjectionStatusView getPalaceProjectionStatus() {
+        return adminPalaceRagService.getProjectionStatus();
+    }
+
+    @GetMapping("/palace/bridge-edges")
+    @PreAuthorize("hasAuthority('rag:read')")
+    public List<AdminPalaceRagService.PalaceBridgeEdgeView> listPalaceBridgeEdges(
+            @RequestParam(required = false) @Size(max = 32, message = "status 过长。") String status,
+            @RequestParam(required = false) @Min(value = 1, message = "limit 至少为 1。") Integer limit
+    ) {
+        return adminPalaceRagService.listBridgeEdges(status, palaceListLimit(limit));
+    }
+
+    @GetMapping("/palace/bridge-edges/{edgeId}")
+    @PreAuthorize("hasAuthority('rag:read')")
+    public AdminPalaceRagService.PalaceBridgeEdgeView getPalaceBridgeEdge(
+            @PathVariable @NotBlank(message = "edgeId 不能为空。") @Size(max = 36, message = "edgeId 过长。") String edgeId
+    ) {
+        return adminPalaceRagService.getBridgeEdge(parsePalaceEdgeId(edgeId));
+    }
+
+    @PatchMapping("/palace/bridge-edges/{edgeId}/approve")
+    @PreAuthorize("hasAuthority('rag:write')")
+    public AdminPalaceRagService.PalaceBridgeEdgeView approvePalaceBridgeEdge(
+            @PathVariable @NotBlank(message = "edgeId 不能为空。") @Size(max = 36, message = "edgeId 过长。") String edgeId,
+            Authentication authentication
+    ) {
+        return adminPalaceRagService.approveBridgeEdge(parsePalaceEdgeId(edgeId), authenticationName(authentication));
+    }
+
+    @PatchMapping("/palace/bridge-edges/{edgeId}/reject")
+    @PreAuthorize("hasAuthority('rag:write')")
+    public AdminPalaceRagService.PalaceBridgeEdgeView rejectPalaceBridgeEdge(
+            @PathVariable @NotBlank(message = "edgeId 不能为空。") @Size(max = 36, message = "edgeId 过长。") String edgeId,
+            Authentication authentication
+    ) {
+        return adminPalaceRagService.rejectBridgeEdge(parsePalaceEdgeId(edgeId), authenticationName(authentication));
+    }
+
+    @GetMapping("/palace/traces")
+    @PreAuthorize("hasAuthority('rag:read')")
+    public List<AdminPalaceRagService.PalaceQueryTraceSampleView> listPalaceTraceSamples(
+            @RequestParam(required = false) @Min(value = 1, message = "limit 至少为 1。") Integer limit
+    ) {
+        return adminPalaceRagService.listTraceSamples(palaceListLimit(limit));
+    }
+
     @PatchMapping("/kg/contradictions/{contradictionId}/resolve")
     @PreAuthorize("hasAuthority('kg:review')")
     public AdminKnowledgeOpsService.ContradictionDetailView resolveContradiction(
@@ -135,6 +193,33 @@ public class AdminKnowledgeOpsController {
             @Size(max = 36, message = "notificationId 过长。") String notificationId
     ) {
         return adminKnowledgeOpsService.markNotificationRead(notificationId);
+    }
+
+    private int palaceListLimit(Integer limit) {
+        return limit == null ? DEFAULT_PALACE_LIST_LIMIT : limit;
+    }
+
+    private UUID parsePalaceEdgeId(String rawEdgeId) {
+        try {
+            return UUID.fromString(rawEdgeId.trim());
+        } catch (IllegalArgumentException exception) {
+            throw new AdminApiContractException(
+                    HttpStatus.BAD_REQUEST,
+                    "invalid_palace_bridge_edge_id",
+                    "edgeId 必须是合法 UUID。",
+                    Map.of("edgeId", rawEdgeId));
+        }
+    }
+
+    private String authenticationName(Authentication authentication) {
+        if (authentication == null || authentication.getName() == null || authentication.getName().isBlank()) {
+            throw new AdminApiContractException(
+                    HttpStatus.UNAUTHORIZED,
+                    "admin_authentication_required",
+                    "请先登录管理员账号。",
+                    Map.of());
+        }
+        return authentication.getName();
     }
 
     record ResolveContradictionRequest(

@@ -112,6 +112,7 @@ class AdminKnowledgeOpsWebTest {
     void resetTables() {
         reset(minioClient, vectorStore);
         jdbcTemplate.execute("DELETE FROM vector_store");
+        jdbcTemplate.execute("TRUNCATE TABLE palace_rooms, palace_bridge_edges, palace_projection_version, palace_query_traces CASCADE");
         jdbcTemplate.execute(
                 "TRUNCATE TABLE kg_admin_notifications, kg_contradictions, kg_relationships, kg_entities, ingestion_jobs, admin_refresh_tokens, admin_principal_roles, admin_role_permissions, admin_roles, admin_principals, account_sessions, accounts RESTART IDENTITY CASCADE"
         );
@@ -414,6 +415,217 @@ class AdminKnowledgeOpsWebTest {
     }
 
     @Test
+    void palaceReadEndpointsExposeProjectionBridgeAndTraceSurfaces() throws Exception {
+        var superAdmin = login("super_admin", "SuperAdmin123!");
+
+        var emptyProjection = readJson(mockMvc.perform(get("/api/admin/knowledge/palace/projection")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(superAdmin.accessToken())))
+                .andExpect(status().isOk())
+                .andReturn());
+        assertThat(emptyProjection.path("notReady").asBoolean()).isTrue();
+        assertThat(emptyProjection.path("versionNum").isNull()).isTrue();
+        assertThat(emptyProjection.path("roomCount").isNull()).isTrue();
+
+        var batchId = UUID.fromString("10101010-1010-1010-1010-101010101010");
+        seedIngestionJob(
+                batchId,
+                "projection-source.pdf",
+                "ingestion/private/projection-source.pdf",
+                "COMPLETED",
+                12,
+                null,
+                Instant.parse("2026-04-25T00:00:00Z"),
+                Instant.parse("2026-04-25T00:05:00Z")
+        );
+
+        var roomAId = UUID.fromString("20202020-2020-2020-2020-202020202020");
+        var roomBId = UUID.fromString("30303030-3030-3030-3030-303030303030");
+        var edgeId = UUID.fromString("40404040-4040-4040-4040-404040404040");
+        var olderTraceId = UUID.fromString("50505050-5050-5050-5050-505050505050");
+        var latestTraceId = UUID.fromString("60606060-6060-6060-6060-606060606060");
+
+        seedPalaceRoom(roomAId, "LANGUAGE_DEVELOPMENT", "EARLY_COMMUNICATION", "LANGUAGE_HALL", Instant.parse("2026-04-25T00:06:00Z"), 2);
+        seedPalaceRoom(roomBId, "PHYSICAL", "MOTOR_DEVELOPMENT", "GROSS_MOTOR_HALL", Instant.parse("2026-04-25T00:07:00Z"), 1);
+        seedPalaceProjectionVersion(7L, batchId, "current", 2, Instant.parse("2026-04-25T00:08:00Z"));
+        seedPalaceBridgeEdge(
+                edgeId,
+                roomAId,
+                roomBId,
+                0.82,
+                "proposed",
+                "book-a.pdf",
+                "book-b.pdf",
+                Instant.parse("2026-04-25T00:09:00Z"),
+                null,
+                null
+        );
+        seedPalaceQueryTrace(
+                olderTraceId,
+                "[\"LANGUAGE_DEVELOPMENT:EARLY_COMMUNICATION\"]",
+                "age_overlap",
+                "[{\"chunkId\":\"old\"}]",
+                "[]",
+                6L,
+                Instant.parse("2026-04-25T00:10:00Z")
+        );
+        seedPalaceQueryTrace(
+                latestTraceId,
+                "[\"PHYSICAL:MOTOR_DEVELOPMENT\"]",
+                "bridge_walk",
+                "[{\"chunkId\":\"latest\"}]",
+                "[{\"edgeId\":\"40404040-4040-4040-4040-404040404040\"}]",
+                7L,
+                Instant.parse("2026-04-25T00:11:00Z")
+        );
+
+        mockMvc.perform(get("/api/admin/knowledge/palace/projection")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(superAdmin.accessToken())))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.notReady").value(false))
+                .andExpect(jsonPath("$.versionNum").value(7))
+                .andExpect(jsonPath("$.roomCount").value(2))
+                .andExpect(jsonPath("$.lastIngestionBatchId").value(batchId.toString()))
+                .andExpect(jsonPath("$.status").value("current"))
+                .andExpect(jsonPath("$.createdAt").value("2026-04-25T00:08:00Z"));
+
+        mockMvc.perform(get("/api/admin/knowledge/palace/bridge-edges")
+                        .param("status", "proposed")
+                        .param("limit", "10")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(superAdmin.accessToken())))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$", hasSize(1)))
+                .andExpect(jsonPath("$[0].id").value(edgeId.toString()))
+                .andExpect(jsonPath("$[0].confidence").value(0.82))
+                .andExpect(jsonPath("$[0].status").value("proposed"))
+                .andExpect(jsonPath("$[0].sourceBookA").value("book-a.pdf"))
+                .andExpect(jsonPath("$[0].sourceBookB").value("book-b.pdf"))
+                .andExpect(jsonPath("$[0].roomAWing").value("LANGUAGE_DEVELOPMENT"))
+                .andExpect(jsonPath("$[0].roomAName").value("EARLY_COMMUNICATION"))
+                .andExpect(jsonPath("$[0].roomBWing").value("PHYSICAL"))
+                .andExpect(jsonPath("$[0].roomBName").value("MOTOR_DEVELOPMENT"));
+
+        mockMvc.perform(get("/api/admin/knowledge/palace/bridge-edges/{edgeId}", edgeId)
+                        .header(HttpHeaders.AUTHORIZATION, bearer(superAdmin.accessToken())))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(edgeId.toString()))
+                .andExpect(jsonPath("$.status").value("proposed"))
+                .andExpect(jsonPath("$.reviewedBy").isEmpty())
+                .andExpect(jsonPath("$.createdAt").value("2026-04-25T00:09:00Z"));
+
+        mockMvc.perform(get("/api/admin/knowledge/palace/traces")
+                        .param("limit", "1")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(superAdmin.accessToken())))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$", hasSize(1)))
+                .andExpect(jsonPath("$[0].id").value(latestTraceId.toString()))
+                .andExpect(jsonPath("$[0].entryRooms").value("[\"PHYSICAL:MOTOR_DEVELOPMENT\"]"))
+                .andExpect(jsonPath("$[0].temporalRuleApplied").value("bridge_walk"))
+                .andExpect(jsonPath("$[0].candidatesJson", containsString("\"chunkId\"")))
+                .andExpect(jsonPath("$[0].candidatesJson", containsString("latest")))
+                .andExpect(jsonPath("$[0].bridgeEdgesCrossed", containsString("\"edgeId\"")))
+                .andExpect(jsonPath("$[0].bridgeEdgesCrossed", containsString("40404040-4040-4040-4040-404040404040")))
+                .andExpect(jsonPath("$[0].projectionVersionUsed").value(7))
+                .andExpect(jsonPath("$[0].queriedAt").value("2026-04-25T00:11:00Z"));
+    }
+
+    @Test
+    void palaceBridgeMutationsPersistReviewerAndGuardErrors() throws Exception {
+        var superAdmin = login("super_admin", "SuperAdmin123!");
+        var roomAId = UUID.fromString("70707070-7070-7070-7070-707070707070");
+        var roomBId = UUID.fromString("80808080-8080-8080-8080-808080808080");
+        var roomCId = UUID.fromString("81818181-8181-8181-8181-818181818181");
+        var approveEdgeId = UUID.fromString("90909090-9090-9090-9090-909090909090");
+        var rejectEdgeId = UUID.fromString("a0a0a0a0-a0a0-a0a0-a0a0-a0a0a0a0a0a0");
+
+        seedPalaceRoom(roomAId, "SOCIAL_EMOTIONAL", "ATTACHMENT", "SOCIAL_HALL", Instant.parse("2026-04-26T00:00:00Z"), 1);
+        seedPalaceRoom(roomBId, "LANGUAGE_DEVELOPMENT", "EARLY_COMMUNICATION", "LANGUAGE_HALL", Instant.parse("2026-04-26T00:01:00Z"), 1);
+        seedPalaceRoom(roomCId, "MOTOR_SKILLS", "GROSS_MOTOR", "MOTOR_HALL", Instant.parse("2026-04-26T00:01:30Z"), 1);
+        seedPalaceBridgeEdge(
+                approveEdgeId,
+                roomAId,
+                roomBId,
+                0.61,
+                "proposed",
+                "approve-a.pdf",
+                "approve-b.pdf",
+                Instant.parse("2026-04-26T00:02:00Z"),
+                null,
+                null
+        );
+        seedPalaceBridgeEdge(
+                rejectEdgeId,
+                roomAId,
+                roomCId,
+                0.33,
+                "proposed",
+                "reject-a.pdf",
+                "reject-b.pdf",
+                Instant.parse("2026-04-26T00:03:00Z"),
+                null,
+                null
+        );
+
+        mockMvc.perform(patch("/api/admin/knowledge/palace/bridge-edges/{edgeId}/approve", approveEdgeId)
+                        .header(HttpHeaders.AUTHORIZATION, bearer(superAdmin.accessToken())))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(approveEdgeId.toString()))
+                .andExpect(jsonPath("$.status").value("approved"))
+                .andExpect(jsonPath("$.reviewedBy").value(superAdmin.username()))
+                .andExpect(jsonPath("$.reviewedAt").isNotEmpty());
+
+        assertThat(jdbcTemplate.queryForObject(
+                "select status from palace_bridge_edges where id = ?",
+                String.class,
+                approveEdgeId
+        )).isEqualTo("approved");
+        assertThat(jdbcTemplate.queryForObject(
+                "select reviewed_by from palace_bridge_edges where id = ?",
+                String.class,
+                approveEdgeId
+        )).isEqualTo(superAdmin.username());
+
+        mockMvc.perform(patch("/api/admin/knowledge/palace/bridge-edges/{edgeId}/reject", rejectEdgeId)
+                        .header(HttpHeaders.AUTHORIZATION, bearer(superAdmin.accessToken())))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(rejectEdgeId.toString()))
+                .andExpect(jsonPath("$.status").value("rejected"))
+                .andExpect(jsonPath("$.reviewedBy").value(superAdmin.username()))
+                .andExpect(jsonPath("$.reviewedAt").isNotEmpty());
+
+        assertThat(jdbcTemplate.queryForObject(
+                "select status from palace_bridge_edges where id = ?",
+                String.class,
+                rejectEdgeId
+        )).isEqualTo("rejected");
+        assertThat(jdbcTemplate.queryForObject(
+                "select reviewed_by from palace_bridge_edges where id = ?",
+                String.class,
+                rejectEdgeId
+        )).isEqualTo(superAdmin.username());
+
+        mockMvc.perform(get("/api/admin/knowledge/palace/bridge-edges/{edgeId}", "not-a-uuid")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(superAdmin.accessToken())))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("invalid_palace_bridge_edge_id"));
+
+        mockMvc.perform(patch(
+                        "/api/admin/knowledge/palace/bridge-edges/{edgeId}/approve",
+                        UUID.fromString("ffffffff-ffff-ffff-ffff-ffffffffffff"))
+                        .header(HttpHeaders.AUTHORIZATION, bearer(superAdmin.accessToken())))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("palace_bridge_edge_not_found"));
+
+        createRole(superAdmin.accessToken(), "palace_read_only", List.of(AdminPermissionCatalog.RAG_READ));
+        createAdmin(superAdmin.accessToken(), "palace_reader", "Palace Reader", "Reader123!", "palace_read_only");
+        var readOnlyAdmin = login("palace_reader", "Reader123!");
+
+        mockMvc.perform(patch("/api/admin/knowledge/palace/bridge-edges/{edgeId}/reject", approveEdgeId)
+                        .header(HttpHeaders.AUTHORIZATION, bearer(readOnlyAdmin.accessToken())))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("forbidden"));
+    }
+
+    @Test
     void uploadAcceptedResponseIncludesJobStateAndCompletesThroughSharedSeam() throws Exception {
         var superAdmin = login("super_admin", "SuperAdmin123!");
         byte[] trackedPdf = trackedPdfBytes();
@@ -439,6 +651,48 @@ class AdminKnowledgeOpsWebTest {
         assertThat(completedJob.path("status").asText()).isEqualTo("COMPLETED");
         assertThat(completedJob.path("retryable").asBoolean()).isFalse();
         assertThat(completedJob.path("minioObjectKey").isMissingNode()).isTrue();
+    }
+
+    @Test
+    void ingestionCompletedPopulatesProjectionAndBridgeProposal() throws Exception {
+        jdbcTemplate.update("""
+                INSERT INTO palace_rooms (id, wing, room, hall, last_updated, source_book_count)
+                VALUES (uuid_generate_v4(), 'PHYSICAL', 'MOTOR_DEVELOPMENT', 'GROSS_MOTOR_HALL', now(), 1)
+                """);
+
+        var superAdmin = login("super_admin", "SuperAdmin123!");
+        byte[] trackedPdf = trackedPdfBytes();
+        stubPutObjectSuccess();
+        when(minioClient.getObject(any())).thenReturn(getObjectResponse(trackedPdf));
+
+        var uploadResponse = readJson(mockMvc.perform(multipart("/api/admin/knowledge/ingestion/upload")
+                        .file(new MockMultipartFile("file", "baby-talk.pdf", "application/pdf", trackedPdf))
+                        .param("bookTitle", "Baby Talk")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(superAdmin.accessToken())))
+                .andExpect(status().isAccepted())
+                .andReturn());
+
+        var jobId = UUID.fromString(uploadResponse.path("jobId").asText());
+        awaitIngestionJobStatus(superAdmin.accessToken(), jobId, "COMPLETED");
+        Thread.sleep(500L);
+
+        Integer roomCount = jdbcTemplate.queryForObject(
+                "SELECT count(*) FROM palace_rooms WHERE wing = 'LANGUAGE_DEVELOPMENT' AND room = 'EARLY_COMMUNICATION'",
+                Integer.class
+        );
+        assertThat(roomCount).isEqualTo(1);
+
+        Integer versionCount = jdbcTemplate.queryForObject(
+                "SELECT count(*) FROM palace_projection_version WHERE status = 'current'",
+                Integer.class
+        );
+        assertThat(versionCount).isEqualTo(1);
+
+        Integer bridgeCount = jdbcTemplate.queryForObject(
+                "SELECT count(*) FROM palace_bridge_edges WHERE status = 'proposed'",
+                Integer.class
+        );
+        assertThat(bridgeCount).isGreaterThanOrEqualTo(1);
     }
 
     @Test
@@ -687,6 +941,132 @@ class AdminKnowledgeOpsWebTest {
                 errorMessage,
                 Timestamp.from(createdAt),
                 Timestamp.from(updatedAt)
+        );
+    }
+
+    private void seedPalaceProjectionVersion(
+            long versionNum,
+            UUID lastIngestionBatchId,
+            String status,
+            int roomCount,
+            Instant createdAt
+    ) {
+        jdbcTemplate.update(
+                """
+                insert into palace_projection_version (
+                    id,
+                    version_num,
+                    last_ingestion_batch_id,
+                    created_at,
+                    status,
+                    room_count
+                ) values (?, ?, ?, ?, ?, ?)
+                """,
+                UUID.randomUUID(),
+                versionNum,
+                lastIngestionBatchId,
+                Timestamp.from(createdAt),
+                status,
+                roomCount
+        );
+    }
+
+    private void seedPalaceRoom(
+            UUID roomId,
+            String wing,
+            String room,
+            String hall,
+            Instant lastUpdated,
+            int sourceBookCount
+    ) {
+        jdbcTemplate.update(
+                """
+                insert into palace_rooms (
+                    id,
+                    wing,
+                    room,
+                    hall,
+                    last_updated,
+                    source_book_count
+                ) values (?, ?, ?, ?, ?, ?)
+                """,
+                roomId,
+                wing,
+                room,
+                hall,
+                Timestamp.from(lastUpdated),
+                sourceBookCount
+        );
+    }
+
+    private void seedPalaceBridgeEdge(
+            UUID edgeId,
+            UUID roomAId,
+            UUID roomBId,
+            double confidence,
+            String status,
+            String sourceBookA,
+            String sourceBookB,
+            Instant createdAt,
+            String reviewedBy,
+            Instant reviewedAt
+    ) {
+        jdbcTemplate.update(
+                """
+                insert into palace_bridge_edges (
+                    id,
+                    room_a_id,
+                    room_b_id,
+                    confidence,
+                    status,
+                    source_book_a,
+                    source_book_b,
+                    created_at,
+                    reviewed_by,
+                    reviewed_at
+                ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                edgeId,
+                roomAId,
+                roomBId,
+                confidence,
+                status,
+                sourceBookA,
+                sourceBookB,
+                Timestamp.from(createdAt),
+                reviewedBy,
+                reviewedAt == null ? null : Timestamp.from(reviewedAt)
+        );
+    }
+
+    private void seedPalaceQueryTrace(
+            UUID traceId,
+            String entryRooms,
+            String temporalRuleApplied,
+            String candidatesJson,
+            String bridgeEdgesCrossed,
+            Long projectionVersionUsed,
+            Instant queriedAt
+    ) {
+        jdbcTemplate.update(
+                """
+                insert into palace_query_traces (
+                    id,
+                    entry_rooms,
+                    temporal_rule_applied,
+                    candidates_json,
+                    bridge_edges_crossed,
+                    projection_version_used,
+                    queried_at
+                ) values (?::uuid, ?::jsonb, ?, ?::jsonb, ?::jsonb, ?, ?)
+                """,
+                traceId.toString(),
+                entryRooms,
+                temporalRuleApplied,
+                candidatesJson,
+                bridgeEdgesCrossed,
+                projectionVersionUsed,
+                Timestamp.from(queriedAt)
         );
     }
 

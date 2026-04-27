@@ -71,7 +71,7 @@ class PalaceToolProviderTest {
     }
 
     private ChunkResult makeChunk(UUID id, String content, Map<String, Object> metadata) {
-        return new ChunkResult(id, content, metadata);
+        return new ChunkResult(id, content, metadata, 0.75d);
     }
 
     private Map<String, Object> sampleMetadata() {

@@ -1,0 +1,13 @@
+{
+  "name": "baby-talk-2",
+  "private": true,
+  "workspaces": [
+    "admin-web"
+  ],
+  "bin": {
+    "tsc": "./scripts/tsc-proxy.cjs"
+  },
+  "scripts": {
+    "typecheck": "npm --prefix admin-web run typecheck"
+  }
+}

@@ -136,6 +136,18 @@ class MemPalacePromptBuilderTest {
             assertThat(result).contains("参考知识");
             verify(mockSearchService).search(any(), isNull(), isNull(), eq(5));
         }
+
+        @Test
+        void preRetrievedEvidenceBuildsL1SectionWithoutSearchService() {
+            String result = MemPalacePromptBuilder.buildSystemPrompt(
+                    "rag",
+                    List.of("证据一：多回应宝宝的声音。", "证据二：轮流等宝宝发声。"));
+
+            assertThat(result).contains("参考知识（来自知识宫殿）");
+            assertThat(result).contains("证据一：多回应宝宝的声音。");
+            assertThat(result).contains("证据二：轮流等宝宝发声。");
+            verify(mockSearchService, never()).search(any(), any(), any(), anyInt());
+        }
     }
 
     // ─── L0 + L1 + L2: searchMode=agentic ──────────────

@@ -80,6 +80,31 @@ class MentorWebTest extends AbstractIntegrationTest {
     }
 
     @Test
+    void chatAcceptsOptionalChildAgeMonthsWithoutBreakingExistingFlow() throws Exception {
+        mockMvc.perform(post("/api/v1/mentor/chat")
+                        .header(ApiVersionInterceptor.VERSION_HEADER, "1.2.0")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "installationId":"install-age-aware",
+                                  "prompt":"宝宝6个月时我该怎么回应他的咿呀声？",
+                                  "surface":"home",
+                                  "mode":"single_turn",
+                                  "correlationId":"corr_child_age_months",
+                                  "childAgeMonths":6
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value("ok"))
+                .andExpect(jsonPath("$.phase").value("response_delivered"))
+                .andExpect(jsonPath("$.authenticated").value(false))
+                .andExpect(jsonPath("$.fallbackUsed").value(false));
+
+        var turnCount = jdbcTemplate.queryForObject("select count(*) from mentor_turns", Integer.class);
+        assertThat(turnCount).isEqualTo(1);
+    }
+
+    @Test
     void authenticatedHappyPathUsesBearerAndPreservesAuthenticatedSignal() throws Exception {
         var session = createAcceptedSession("13800138000", "install-authenticated");
 
