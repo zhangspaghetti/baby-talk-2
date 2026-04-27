@@ -70,10 +70,10 @@ class DbMigrationSmokeTest {
                 select count(*)
                 from flyway_schema_history
                 where success = true
-                  and version in ('3', '14', '15', '16', '17')
+                  and version in ('3', '14', '15', '16', '17', '18')
                 """,
                 Integer.class);
-        assertThat(trackedVersions).isEqualTo(5);
+        assertThat(trackedVersions).isEqualTo(6);
 
         assertThat(tableExists("accounts")).isTrue();
         assertThat(tableExists("spring_ai_chat_memory")).isTrue();
@@ -83,6 +83,10 @@ class DbMigrationSmokeTest {
         assertThat(tableExists("account_refresh_tokens")).isTrue();
         assertThat(tableExists("admin_permissions")).isTrue();
         assertThat(tableExists("admin_role_permissions")).isTrue();
+        assertThat(tableExists("palace_rooms")).isTrue();
+        assertThat(tableExists("palace_bridge_edges")).isTrue();
+        assertThat(tableExists("palace_projection_version")).isTrue();
+        assertThat(tableExists("palace_query_traces")).isTrue();
 
         List<String> expectedPermissionCodes = List.of(
                 "users:read",
@@ -117,6 +121,49 @@ class DbMigrationSmokeTest {
         assertThat(seededSuperAdminGrants).isEqualTo(expectedPermissionCodes.size());
     }
 
+    @Test
+    void createsPalaceProjectionTablesAndIndexes() {
+        assertThat(columnNamesFor("palace_rooms"))
+                .containsExactlyInAnyOrder("id", "wing", "room", "hall", "last_updated", "source_book_count");
+        assertThat(columnNamesFor("palace_bridge_edges"))
+                .containsExactlyInAnyOrder(
+                        "id",
+                        "room_a_id",
+                        "room_b_id",
+                        "confidence",
+                        "status",
+                        "source_book_a",
+                        "source_book_b",
+                        "created_at",
+                        "reviewed_by",
+                        "reviewed_at");
+        assertThat(columnNamesFor("palace_projection_version"))
+                .containsExactlyInAnyOrder(
+                        "id",
+                        "version_num",
+                        "last_ingestion_batch_id",
+                        "created_at",
+                        "status",
+                        "room_count");
+        assertThat(columnNamesFor("palace_query_traces"))
+                .containsExactlyInAnyOrder(
+                        "id",
+                        "entry_rooms",
+                        "temporal_rule_applied",
+                        "candidates_json",
+                        "bridge_edges_crossed",
+                        "projection_version_used",
+                        "queried_at",
+                        "installation_id");
+
+        assertThat(indexExists("idx_palace_rooms_wing_room")).isTrue();
+        assertThat(indexExists("idx_palace_bridge_edges_status")).isTrue();
+        assertThat(indexExists("idx_palace_bridge_edges_room_a_id")).isTrue();
+        assertThat(indexExists("idx_palace_bridge_edges_room_b_id")).isTrue();
+        assertThat(indexExists("idx_palace_query_traces_queried_at_desc")).isTrue();
+        assertThat(indexExists("idx_palace_query_traces_installation_id")).isTrue();
+    }
+
     private boolean tableExists(String tableName) {
         Boolean exists = jdbcTemplate.queryForObject(
                 """
@@ -129,6 +176,34 @@ class DbMigrationSmokeTest {
                 """,
                 Boolean.class,
                 tableName);
+        return Boolean.TRUE.equals(exists);
+    }
+
+    private List<String> columnNamesFor(String tableName) {
+        return jdbcTemplate.queryForList(
+                """
+                select column_name
+                from information_schema.columns
+                where table_schema = current_schema()
+                  and table_name = ?
+                order by ordinal_position
+                """,
+                String.class,
+                tableName);
+    }
+
+    private boolean indexExists(String indexName) {
+        Boolean exists = jdbcTemplate.queryForObject(
+                """
+                select exists(
+                    select 1
+                    from pg_indexes
+                    where schemaname = current_schema()
+                      and indexname = ?
+                )
+                """,
+                Boolean.class,
+                indexName);
         return Boolean.TRUE.equals(exists);
     }
 }
