@@ -20,7 +20,8 @@ public interface PalaceKeywordMapper {
     record ChunkRow(
             UUID id,
             String content,
-            String metadataJson
+            String metadataJson,
+            Double keywordScore
     ) {
     }
 }

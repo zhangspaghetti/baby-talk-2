@@ -98,7 +98,7 @@ public class PalaceKeywordRepository {
 
     private ChunkResult mapChunkResult(ChunkRow row) {
         Map<String, Object> metadata = parseMetadata(row.metadataJson());
-        return new ChunkResult(row.id(), row.content(), metadata);
+        return new ChunkResult(row.id(), row.content(), metadata, row.keywordScore());
     }
 
     private Map<String, Object> parseMetadata(String json) {
@@ -116,9 +116,10 @@ public class PalaceKeywordRepository {
     /**
      * Chunk 检索结果。
      *
-     * @param id       chunk UUID
-     * @param content  原始文本内容
-     * @param metadata 结构化元数据（wing, room, source_book 等）
+     * @param id           chunk UUID
+     * @param content      原始文本内容
+     * @param metadata     结构化元数据（wing, room, source_book 等）
+     * @param keywordScore PostgreSQL ts_rank 得分（readChunkById 时可为 null）
      */
-    public record ChunkResult(UUID id, String content, Map<String, Object> metadata) {}
+    public record ChunkResult(UUID id, String content, Map<String, Object> metadata, Double keywordScore) {}
 }
