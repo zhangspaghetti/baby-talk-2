@@ -22,6 +22,7 @@ import org.springframework.ai.transformer.splitter.TokenTextSplitter;
 import org.springframework.ai.vectorstore.VectorStore;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.core.io.InputStreamResource;
 import org.springframework.stereotype.Service;
 
@@ -48,13 +49,15 @@ public class IngestionService {
     private final TokenTextSplitter tokenTextSplitter;
     private final Executor ingestionExecutor;
     private final Duration processingTimeout;
+    private final ApplicationEventPublisher publisher;
 
     public IngestionService(MinioClient minioClient,
                             MinioProperties minioProperties,
                             IngestionRepository repository,
                             VectorStore vectorStore,
                             @Qualifier("ingestionExecutor") Executor ingestionExecutor,
-                            @Value("${app.ingestion.processing-timeout:PT90S}") Duration processingTimeout) {
+                            @Value("${app.ingestion.processing-timeout:PT90S}") Duration processingTimeout,
+                            ApplicationEventPublisher publisher) {
         this.minioClient = minioClient;
         this.minioProperties = minioProperties;
         this.repository = repository;
@@ -68,6 +71,7 @@ public class IngestionService {
                 .build();
         this.ingestionExecutor = ingestionExecutor;
         this.processingTimeout = processingTimeout;
+        this.publisher = publisher;
     }
 
     public IngestionJob uploadAndIngest(String filename, InputStream inputStream,
@@ -119,7 +123,7 @@ public class IngestionService {
         try {
             CompletableFuture.supplyAsync(() -> processFile(jobId, objectKey, bookTitle), ingestionExecutor)
                     .orTimeout(processingTimeout.toMillis(), TimeUnit.MILLISECONDS)
-                    .whenComplete((outcome, throwable) -> completeProcessing(jobId, throwable, outcome));
+                    .whenComplete((outcome, throwable) -> completeProcessing(jobId, bookTitle, throwable, outcome));
             log.info("Ingestion 任务已入队: jobId={}, phase={}, timeoutMs={}",
                     jobId, PHASE_DISPATCH, processingTimeout.toMillis());
         } catch (RejectedExecutionException exception) {
@@ -130,9 +134,10 @@ public class IngestionService {
         }
     }
 
-    private void completeProcessing(UUID jobId, Throwable throwable, ProcessingOutcome outcome) {
+    private void completeProcessing(UUID jobId, String bookTitle, Throwable throwable, ProcessingOutcome outcome) {
         if (throwable == null) {
             repository.updateCompleted(jobId, outcome.totalChunks());
+            publisher.publishEvent(new IngestionCompletedEvent(jobId, bookTitle, outcome.totalChunks()));
             log.info("Ingestion job 完成: jobId={}, phase=COMPLETED, totalChunks={}",
                     jobId, outcome.totalChunks());
             return;
