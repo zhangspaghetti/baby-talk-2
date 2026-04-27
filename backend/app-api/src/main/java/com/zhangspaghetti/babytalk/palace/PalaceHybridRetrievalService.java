@@ -30,6 +30,7 @@ import java.util.regex.Pattern;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.ai.document.Document;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -63,6 +64,7 @@ public class PalaceHybridRetrievalService {
     private final ObjectMapper objectMapper;
     private final Clock clock;
 
+    @Autowired
     public PalaceHybridRetrievalService(
             PalaceSearchService palaceSearchService,
             PalaceKeywordRepository palaceKeywordRepository,
@@ -293,7 +295,8 @@ public class PalaceHybridRetrievalService {
                     mergedScore,
                     candidateAgeRangeRaw,
                     ageBoost.factor(),
-                    String.join(", ", reasons)));
+                    String.join(", ", reasons),
+                    extractString(accumulator.metadata(), "source_book")));
         }
         return ranked;
     }

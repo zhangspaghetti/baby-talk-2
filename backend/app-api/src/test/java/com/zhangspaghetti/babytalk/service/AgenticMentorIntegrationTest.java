@@ -104,7 +104,8 @@ class AgenticMentorIntegrationTest {
                         1.0d - (index * 0.1d),
                         "0-24个月",
                         1.0d,
-                        "hybrid"))
+                        "hybrid",
+                        "《测试育儿书》"))
                 .toList();
         return new RetrievalResult(
                 candidates,

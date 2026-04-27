@@ -120,7 +120,7 @@ public class SpringAiMentorProvider implements MentorProvider {
                     trace == null ? "missing" : trace.projectionVersionUsed());
 
             return retrievalResult.rankedCandidates().stream()
-                    .map(HybridCandidate::content)
+                    .map(this::formatEvidence)
                     .filter(content -> content != null && !content.isBlank())
                     .limit(PRE_RETRIEVAL_MAX_RESULTS)
                     .toList();
@@ -137,6 +137,26 @@ public class SpringAiMentorProvider implements MentorProvider {
 
     private boolean requiresPreRetrieval(String searchMode) {
         return "rag".equals(searchMode) || "agentic".equals(searchMode);
+    }
+
+    private String formatEvidence(HybridCandidate candidate) {
+        if (candidate == null || candidate.content() == null || candidate.content().isBlank()) {
+            return "";
+        }
+        String sourceBook = candidate.sourceBook();
+        String ageRange = candidate.ageRangeRaw();
+        StringBuilder sb = new StringBuilder();
+        if (sourceBook != null && !sourceBook.isBlank()) {
+            sb.append("【").append(sourceBook).append("】");
+        }
+        if (ageRange != null && !ageRange.isBlank()) {
+            sb.append("（适用年龄：").append(ageRange).append("）");
+        }
+        if (!sb.isEmpty()) {
+            sb.append("：");
+        }
+        sb.append(candidate.content().trim());
+        return sb.toString();
     }
 
     /**

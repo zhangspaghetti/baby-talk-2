@@ -13,7 +13,8 @@ public record HybridCandidate(
         Double mergedScore,
         String ageRangeRaw,
         Double ageBoostApplied,
-        String rankingReason
+        String rankingReason,
+        String sourceBook
 ) {
 
     public HybridCandidate {
@@ -22,6 +23,7 @@ public record HybridCandidate(
         mergedScore = mergedScore == null ? 0.0d : mergedScore;
         ageBoostApplied = ageBoostApplied == null ? 1.0d : ageBoostApplied;
         rankingReason = rankingReason == null ? "" : rankingReason;
+        sourceBook = sourceBook == null || sourceBook.isBlank() ? null : sourceBook;
     }
 
     @JsonProperty("effectiveScore")
