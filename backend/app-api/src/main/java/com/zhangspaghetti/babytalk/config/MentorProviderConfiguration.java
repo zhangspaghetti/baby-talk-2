@@ -1,6 +1,6 @@
 package com.zhangspaghetti.babytalk.config;
 
-import com.zhangspaghetti.babytalk.palace.PalaceSearchService;
+import com.zhangspaghetti.babytalk.palace.PalaceHybridRetrievalService;
 import com.zhangspaghetti.babytalk.palace.PalaceToolProvider;
 import com.zhangspaghetti.babytalk.service.DevMentorProvider;
 import com.zhangspaghetti.babytalk.service.MentorProvider;
@@ -20,14 +20,14 @@ public class MentorProviderConfiguration {
     @Bean
     public MentorProvider mentorProvider(MentorProperties properties,
                                          ObjectProvider<PalaceToolProvider> palaceToolProviderProvider,
-                                         ObjectProvider<PalaceSearchService> palaceSearchServiceProvider,
+                                         ObjectProvider<PalaceHybridRetrievalService> palaceHybridRetrievalServiceProvider,
                                          ObjectProvider<MessageChatMemoryAdvisor> chatMemoryAdvisorProvider) {
         return switch (properties.providerMode().toLowerCase()) {
             case "dev" -> new DevMentorProvider(properties);
             case "github-models", "openai" -> buildSpringAiProvider(
                     properties,
                     palaceToolProviderProvider.getIfAvailable(),
-                    palaceSearchServiceProvider.getIfAvailable(),
+                    palaceHybridRetrievalServiceProvider.getIfAvailable(),
                     chatMemoryAdvisorProvider.getIfAvailable());
             default -> throw new MentorProvider.ProviderUnavailableException(
                     "不支持的 mentor provider mode: `%s`，可选值: dev, github-models, openai"
@@ -37,7 +37,7 @@ public class MentorProviderConfiguration {
 
     private SpringAiMentorProvider buildSpringAiProvider(MentorProperties properties,
                                                           PalaceToolProvider palaceToolProvider,
-                                                          PalaceSearchService palaceSearchService,
+                                                          PalaceHybridRetrievalService palaceHybridRetrievalService,
                                                           MessageChatMemoryAdvisor chatMemoryAdvisor) {
         var apiKey = properties.aiApiKey();
         if (apiKey == null || apiKey.isBlank()) {
@@ -75,7 +75,7 @@ public class MentorProviderConfiguration {
         var chatClient = clientBuilder.build();
 
         return new SpringAiMentorProvider(chatClient, properties,
-                palaceToolProvider, palaceSearchService);
+                palaceToolProvider, palaceHybridRetrievalService);
     }
 
     private String resolveBaseUrl(MentorProperties properties) {

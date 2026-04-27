@@ -5,10 +5,17 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.zhangspaghetti.babytalk.config.MentorProperties;
+import com.zhangspaghetti.babytalk.palace.HybridCandidate;
+import com.zhangspaghetti.babytalk.palace.PalaceHybridRetrievalService;
+import com.zhangspaghetti.babytalk.palace.PalaceToolProvider;
+import com.zhangspaghetti.babytalk.palace.QueryTrace;
+import com.zhangspaghetti.babytalk.palace.RetrievalRequest;
+import com.zhangspaghetti.babytalk.palace.RetrievalResult;
 import java.net.SocketTimeoutException;
 import java.time.Duration;
 import java.time.Instant;
@@ -30,14 +37,17 @@ class SpringAiMentorProviderTest {
     private ChatClient chatClient;
     private ChatClientRequestSpec requestSpec;
     private CallResponseSpec callResponseSpec;
+    private PalaceToolProvider palaceToolProvider;
+    private PalaceHybridRetrievalService palaceHybridRetrievalService;
 
     @BeforeEach
     void setUpChatClient() {
         chatClient = mock(ChatClient.class);
         requestSpec = mock(ChatClientRequestSpec.class);
         callResponseSpec = mock(CallResponseSpec.class);
+        palaceToolProvider = mock(PalaceToolProvider.class);
+        palaceHybridRetrievalService = mock(PalaceHybridRetrievalService.class);
 
-        // 构造 fluent 链：chatClient.prompt() → requestSpec.system() → requestSpec.user() → requestSpec.advisors() → requestSpec.call()
         when(chatClient.prompt()).thenReturn(requestSpec);
         when(requestSpec.system(anyString())).thenReturn(requestSpec);
         when(requestSpec.user(anyString())).thenReturn(requestSpec);
@@ -46,9 +56,6 @@ class SpringAiMentorProviderTest {
         when(requestSpec.call()).thenReturn(callResponseSpec);
     }
 
-    /**
-     * 创建 MentorProperties，searchMode 可指定。
-     */
     private MentorProperties makeProperties(String searchMode) {
         return new MentorProperties(
                 "github-models",
@@ -81,7 +88,43 @@ class SpringAiMentorProviderTest {
         );
     }
 
-    // ─── searchMode=none（向后兼容） ─────────────────────
+    private MentorProvider.ProviderRequest sampleRequest(Integer childAgeMonths) {
+        return new MentorProvider.ProviderRequest(
+                "corr-age-aware",
+                "install-001",
+                "home",
+                "single_turn",
+                "宝宝%d个月时我该怎么回应他的咿呀声？".formatted(childAgeMonths),
+                "宝宝%d个月咿呀声回应".formatted(childAgeMonths),
+                true,
+                Instant.now(),
+                null,
+                childAgeMonths
+        );
+    }
+
+    private RetrievalResult sampleRetrievalResult(String... contents) {
+        var candidates = java.util.stream.IntStream.range(0, contents.length)
+                .mapToObj(index -> new HybridCandidate(
+                        "chunk-" + index,
+                        contents[index],
+                        0.9d - (index * 0.1d),
+                        0.4d,
+                        1.0d - (index * 0.1d),
+                        "0-24个月",
+                        1.0d,
+                        "hybrid"))
+                .toList();
+        return new RetrievalResult(
+                candidates,
+                new QueryTrace(
+                        List.of("language_development/early_communication"),
+                        List.of("language_development/early_communication"),
+                        List.of("bridge-a"),
+                        "soft-boost: child=6mo",
+                        candidates,
+                        "42"));
+    }
 
     @Nested
     class SearchModeNone {
@@ -91,7 +134,7 @@ class SpringAiMentorProviderTest {
         @BeforeEach
         void setUp() {
             var props = makeProperties("none");
-            provider = new SpringAiMentorProvider(chatClient, props);
+            provider = new SpringAiMentorProvider(chatClient, props, palaceToolProvider, palaceHybridRetrievalService);
         }
 
         @Test
@@ -108,20 +151,10 @@ class SpringAiMentorProviderTest {
         void requestWithChildAgeMonthsRemainsBackwardCompatible() {
             when(callResponseSpec.content()).thenReturn("先回应宝宝的声音，再重复一个短词。");
 
-            var response = provider.respond(new MentorProvider.ProviderRequest(
-                    "corr-age-aware",
-                    "install-001",
-                    "home",
-                    "single_turn",
-                    "宝宝6个月时我该怎么回应他的咿呀声？",
-                    "宝宝6个月咿呀声回应",
-                    true,
-                    Instant.now(),
-                    null,
-                    6
-            ));
+            var response = provider.respond(sampleRequest(6));
 
             assertThat(response.responseText()).contains("回应宝宝的声音");
+            verify(palaceHybridRetrievalService, never()).retrieve(any());
         }
 
         @Test
@@ -209,60 +242,112 @@ class SpringAiMentorProviderTest {
         }
     }
 
-    // ─── searchMode=rag ─────────────────────────────────
-
     @Nested
     class SearchModeRag {
 
         @Test
-        void ragModeDoesNotRegisterTools() {
+        void ragModeInjectsHybridEvidenceIntoPrompt() {
             var props = makeProperties("rag");
-            // searchMode=rag 使用向后兼容构造函数（无 tools）
-            var provider = new SpringAiMentorProvider(chatClient, props);
-
+            var provider = new SpringAiMentorProvider(chatClient, props, palaceToolProvider, palaceHybridRetrievalService);
+            var retrievalResult = sampleRetrievalResult("证据一：多回应宝宝的声音。", "证据二：使用短句轮流对话。");
+            assertThat(retrievalResult.trace()).isNotNull();
+            when(palaceHybridRetrievalService.retrieve(any())).thenReturn(retrievalResult);
             when(callResponseSpec.content()).thenReturn("根据知识宫殿，宝宝需要多互动。");
 
-            var response = provider.respond(sampleRequest());
+            var response = provider.respond(sampleRequest(6));
+
             assertThat(response.responseText()).contains("宝宝需要多互动");
-            // 无 tools 注册，但 prompt 可能包含 L1 内容（取决于 palaceSearchService）
+            verify(requestSpec, never()).tools(any());
+
+            var requestCaptor = ArgumentCaptor.forClass(RetrievalRequest.class);
+            verify(palaceHybridRetrievalService).retrieve(requestCaptor.capture());
+            assertThat(requestCaptor.getValue().query()).isEqualTo("宝宝6个月时我该怎么回应他的咿呀声？");
+            assertThat(requestCaptor.getValue().childAgeMonths()).isEqualTo(6);
+            assertThat(requestCaptor.getValue().maxResults()).isEqualTo(10);
+            assertThat(requestCaptor.getValue().maxHops()).isEqualTo(2);
+
+            var systemPromptCaptor = ArgumentCaptor.forClass(String.class);
+            verify(requestSpec).system(systemPromptCaptor.capture());
+            assertThat(systemPromptCaptor.getValue()).contains("参考知识（来自知识宫殿）");
+            assertThat(systemPromptCaptor.getValue()).contains("证据一：多回应宝宝的声音。");
+            assertThat(systemPromptCaptor.getValue()).contains("证据二：使用短句轮流对话。");
+            assertThat(systemPromptCaptor.getValue()).doesNotContain("工具使用指引");
+        }
+
+        @Test
+        void ragModeFallsBackToL0WhenHybridRetrievalThrows() {
+            var props = makeProperties("rag");
+            var provider = new SpringAiMentorProvider(chatClient, props, palaceToolProvider, palaceHybridRetrievalService);
+            when(palaceHybridRetrievalService.retrieve(any())).thenThrow(new RuntimeException("db timeout"));
+            when(callResponseSpec.content()).thenReturn("建议多和宝宝互动说话。");
+
+            var response = provider.respond(sampleRequest(6));
+
+            assertThat(response.responseText()).contains("多和宝宝互动");
+            verify(requestSpec, never()).tools(any());
+
+            var captor = ArgumentCaptor.forClass(String.class);
+            verify(requestSpec).system(captor.capture());
+            assertThat(captor.getValue()).isEqualTo(SpringAiMentorProvider.SYSTEM_PROMPT);
         }
     }
-
-    // ─── searchMode=agentic ─────────────────────────────
 
     @Nested
     class SearchModeAgentic {
 
         @Test
-        void agenticModeCallsToolsOnProvider() {
+        void agenticModeCallsToolsAndInjectsHybridEvidence() {
             var props = makeProperties("agentic");
-            var mockToolProvider = mock(com.zhangspaghetti.babytalk.palace.PalaceToolProvider.class);
-            var provider = new SpringAiMentorProvider(chatClient, props,
-                    mockToolProvider, null);
-
+            var provider = new SpringAiMentorProvider(chatClient, props, palaceToolProvider, palaceHybridRetrievalService);
+            var retrievalResult = sampleRetrievalResult("证据三：夸张语调更容易吸引注意。", "证据四：停顿后等待宝宝回应。");
+            assertThat(retrievalResult.trace()).isNotNull();
+            when(palaceHybridRetrievalService.retrieve(any())).thenReturn(retrievalResult);
             when(callResponseSpec.content()).thenReturn("根据宫殿知识，建议多说短句。（来源：《语言发展指南》）");
 
-            var response = provider.respond(sampleRequest());
+            var response = provider.respond(sampleRequest(24));
 
             assertThat(response.responseText()).contains("语言发展指南");
-            // 验证 tools() 被调用了
-            verify(requestSpec).tools(mockToolProvider);
+            verify(requestSpec).tools(palaceToolProvider);
+
+            var requestCaptor = ArgumentCaptor.forClass(RetrievalRequest.class);
+            verify(palaceHybridRetrievalService).retrieve(requestCaptor.capture());
+            assertThat(requestCaptor.getValue().childAgeMonths()).isEqualTo(24);
+
+            var systemPromptCaptor = ArgumentCaptor.forClass(String.class);
+            verify(requestSpec).system(systemPromptCaptor.capture());
+            assertThat(systemPromptCaptor.getValue()).contains("参考知识（来自知识宫殿）");
+            assertThat(systemPromptCaptor.getValue()).contains("证据三：夸张语调更容易吸引注意。");
+            assertThat(systemPromptCaptor.getValue()).contains("工具使用指引");
         }
 
         @Test
         void agenticModeWithoutToolProviderDoesNotCallTools() {
             var props = makeProperties("agentic");
-            // PalaceToolProvider 为 null 时不注册 tools
-            var provider = new SpringAiMentorProvider(chatClient, props, null, null);
-
+            var provider = new SpringAiMentorProvider(chatClient, props, null, palaceHybridRetrievalService);
+            when(palaceHybridRetrievalService.retrieve(any())).thenReturn(sampleRetrievalResult("证据五：面对面交流。"));
             when(callResponseSpec.content()).thenReturn("回复内容");
 
             var response = provider.respond(sampleRequest());
             assertThat(response.responseText()).isEqualTo("回复内容");
+            verify(requestSpec, never()).tools(any());
+        }
+
+        @Test
+        void agenticModeStillRegistersToolsWhenHybridRetrievalFails() {
+            var props = makeProperties("agentic");
+            var provider = new SpringAiMentorProvider(chatClient, props, palaceToolProvider, palaceHybridRetrievalService);
+            when(palaceHybridRetrievalService.retrieve(any())).thenThrow(new RuntimeException("Search engine unavailable"));
+            when(callResponseSpec.content()).thenReturn("回复内容");
+
+            provider.respond(sampleRequest());
+
+            verify(requestSpec).tools(palaceToolProvider);
+            var captor = ArgumentCaptor.forClass(String.class);
+            verify(requestSpec).system(captor.capture());
+            assertThat(captor.getValue()).contains("工具使用指引");
+            assertThat(captor.getValue()).doesNotContain("参考知识");
         }
     }
-
-    // ─── 向后兼容构造函数 ────────────────────────────────
 
     @Nested
     class BackwardCompatibility {
