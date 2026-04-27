@@ -1,6 +1,6 @@
 import { Alert, Button, Card, Collapse, Space, Tag, Typography } from 'antd';
 import { useCallback, useEffect, useMemo } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams as useRouterSearchParams } from 'react-router-dom';
 import { hasKnownAdminPermission } from '../app/access';
 import { warmPaperAdmin } from '../app/theme';
 import { useAuth } from '../auth/auth-provider';
@@ -41,7 +41,7 @@ export default function KnowledgeOpsPage() {
     return nextViews;
   }, [canReadIngestion, canReadKg]);
 
-  const [searchParams, setSearchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useRouterSearchParams();
   const query = useMemo(() => readKnowledgeQueryState(searchParams, accessibleViews), [accessibleViews, searchParams]);
   const needsCanonicalQuery =
     !searchParams.has('view') || !searchParams.has('status') || query.viewWasNormalized || query.statusWasNormalized;
