@@ -69,16 +69,6 @@ export default function KnowledgeOpsPage() {
 
   return (
     <Space direction="vertical" size="large" style={{ width: '100%' }} data-testid="knowledge-ops-page">
-      <Space direction="vertical" size={4}>
-        <Typography.Title level={3} style={{ marginBottom: 0 }}>
-          Knowledge Ops Workbench
-        </Typography.Title>
-        <Typography.Paragraph type="secondary" style={{ marginBottom: 0 }}>
-          单一路由 `/knowledge-ops` 挂三个真实工作面：ingestion queue、KG contradiction review 与 Palace RAG ops。view /
-          status / selected 全部以 URL query 为真相源，失败态会留在当前页面而不是把 operator 弹走。
-        </Typography.Paragraph>
-      </Space>
-
       <Card size="small" title="Workbench surfaces">
         <Space wrap>
           {canReadIngestion ? (

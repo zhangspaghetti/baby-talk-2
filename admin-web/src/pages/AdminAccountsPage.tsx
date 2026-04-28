@@ -185,8 +185,11 @@ export default function AdminAccountsPage() {
             return <Typography.Text type="secondary">read only</Typography.Text>;
           }
 
+          if (record.status === 'disabled') {
+            return <Typography.Text type="secondary">已禁用</Typography.Text>;
+          }
+
           const isPending = disableState.phase === 'pending' && disableState.principalId === record.principalId;
-          const disableLabel = record.status === 'disabled' ? '再次禁用' : '禁用';
 
           return (
             <Button
@@ -196,7 +199,7 @@ export default function AdminAccountsPage() {
               data-testid={`disable-admin-${record.principalId}`}
               onClick={() => void handleDisable(record)}
             >
-              {disableLabel}
+              禁用
             </Button>
           );
         },
@@ -298,15 +301,6 @@ export default function AdminAccountsPage() {
 
   return (
     <Space direction="vertical" size="large" style={{ width: '100%' }} data-testid="admin-accounts-page">
-      <Space direction="vertical" size={4}>
-        <Typography.Title level={3} style={{ marginBottom: 0 }}>
-          Admin Accounts
-        </Typography.Title>
-        <Typography.Paragraph type="secondary" style={{ marginBottom: 0 }}>
-          这是挂在 `/users/admins` 的 hidden route：左侧 primary nav 不新增入口，管理员管理通过 Users workspace 的显式跳转进入。
-        </Typography.Paragraph>
-      </Space>
-
       <Card size="small" title="Current admin / permission context" data-testid="admin-accounts-context">
         <Space direction="vertical" size={10} style={{ width: '100%' }}>
           <Space wrap>

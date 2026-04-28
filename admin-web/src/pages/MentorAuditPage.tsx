@@ -179,16 +179,6 @@ export function MentorAuditPage() {
 
   return (
     <Space direction="vertical" size="large" style={{ width: '100%' }} data-testid="mentor-audit-page">
-      <Space direction="vertical" size={4}>
-        <Typography.Title level={3} style={{ marginBottom: 0 }}>
-          Mentor Audit Queue
-        </Typography.Title>
-        <Typography.Paragraph type="secondary" style={{ marginBottom: 0 }}>
-          只展示 `correlationId` 级别的 incident evidence，不是完整 transcript。URL query params 会保留 queue
-          context，当前管理员继续以 ` /api/admin/me ` 为 truth source。
-        </Typography.Paragraph>
-      </Space>
-
       <Card size="small" title="Current admin / URL context">
         <Space direction="vertical" size={10} style={{ width: '100%' }}>
           <Space wrap>

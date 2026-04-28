@@ -1,4 +1,4 @@
-import { Alert, Button, Card, Empty, Space, Spin, Tag, Typography } from 'antd';
+import { Alert, Button, Card, Collapse, Empty, Space, Spin, Tag, Typography } from 'antd';
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { Link } from 'react-router-dom';
 import { warmPaperAdmin } from '../app/theme';
@@ -445,30 +445,41 @@ export default function OverviewPage() {
         />
       ) : null}
 
-      <Card size="small" title="Inline diagnostics" data-testid="overview-inline-diagnostics">
-        <Space direction="vertical" size={10} style={{ width: '100%' }}>
-          <Typography.Text type="secondary">
-            Overview 只显示多域 freshness / queue / next action；不会回显 transcript、share token、raw mentor payload 或 public admin-api URL。
-          </Typography.Text>
-          <Space wrap>
-            <Tag color={summaryError ? warmPaperAdmin.palette.warning : warmPaperAdmin.palette.success} data-testid="overview-diagnostic-summary">
-              summary: {summaryError ? summaryError.code : summaryStatusLabel}
-            </Tag>
-            <Tag color={streamError ? warmPaperAdmin.palette.warning : warmPaperAdmin.palette.success} data-testid="overview-diagnostic-stream">
-              stream: {streamError ? streamError.code : clientTransportState}
-            </Tag>
-            <Tag color={pollingPaused ? warmPaperAdmin.palette.warning : warmPaperAdmin.palette.info} data-testid="overview-diagnostic-polling">
-              polling: {shouldPoll ? (pollingPaused ? 'paused' : `${pollFailureCount}/${MAX_POLL_FAILURES}`) : 'idle'}
-            </Tag>
-            <Tag data-testid="overview-diagnostic-event-id">lastEventId: {lastEventId ?? 'none'}</Tag>
-            <Tag data-testid="overview-diagnostic-heartbeat">lastHeartbeat: {formatTimestamp(lastHeartbeatAt)}</Tag>
-            <Tag data-testid="overview-diagnostic-connections">
-              connections: {effectiveTransport?.connectionCount ?? 0} / reconnects: {effectiveTransport?.reconnectCount ?? 0}
-            </Tag>
-            <Tag data-testid="overview-diagnostic-generated-at">generatedAt: {formatTimestamp(summary?.generatedAt)}</Tag>
-          </Space>
-        </Space>
-      </Card>
+      <Collapse
+        defaultActiveKey={[]}
+        destroyInactivePanel={false}
+        data-testid="overview-inline-diagnostics"
+        items={[
+          {
+            key: 'inline-diagnostics',
+            label: 'Inline diagnostics',
+            children: (
+              <Space direction="vertical" size={10} style={{ width: '100%' }}>
+                <Typography.Text type="secondary">
+                  Overview 只显示多域 freshness / queue / next action；不会回显 transcript、share token、raw mentor payload 或 public admin-api URL。
+                </Typography.Text>
+                <Space wrap>
+                  <Tag color={summaryError ? warmPaperAdmin.palette.warning : warmPaperAdmin.palette.success} data-testid="overview-diagnostic-summary">
+                    summary: {summaryError ? summaryError.code : summaryStatusLabel}
+                  </Tag>
+                  <Tag color={streamError ? warmPaperAdmin.palette.warning : warmPaperAdmin.palette.success} data-testid="overview-diagnostic-stream">
+                    stream: {streamError ? streamError.code : clientTransportState}
+                  </Tag>
+                  <Tag color={pollingPaused ? warmPaperAdmin.palette.warning : warmPaperAdmin.palette.info} data-testid="overview-diagnostic-polling">
+                    polling: {shouldPoll ? (pollingPaused ? 'paused' : `${pollFailureCount}/${MAX_POLL_FAILURES}`) : 'idle'}
+                  </Tag>
+                  <Tag data-testid="overview-diagnostic-event-id">lastEventId: {lastEventId ?? 'none'}</Tag>
+                  <Tag data-testid="overview-diagnostic-heartbeat">lastHeartbeat: {formatTimestamp(lastHeartbeatAt)}</Tag>
+                  <Tag data-testid="overview-diagnostic-connections">
+                    connections: {effectiveTransport?.connectionCount ?? 0} / reconnects: {effectiveTransport?.reconnectCount ?? 0}
+                  </Tag>
+                  <Tag data-testid="overview-diagnostic-generated-at">generatedAt: {formatTimestamp(summary?.generatedAt)}</Tag>
+                </Space>
+              </Space>
+            ),
+          },
+        ]}
+      />
 
       {loadPhase === 'loading' && summary == null ? (
         <Card>
