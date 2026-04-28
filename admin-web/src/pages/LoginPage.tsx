@@ -58,17 +58,11 @@ export default function LoginPage() {
               <Typography.Title level={2} style={{ marginBottom: 8 }}>
                 BabyTalk Admin 登录
               </Typography.Title>
-              <Typography.Paragraph type="secondary" style={{ marginBottom: 0 }}>
-                登录、shell bootstrap 与业务 API 现在共用同一个会话真相源：
-                <Typography.Text code>babytalk.admin.session</Typography.Text> 与
-                <Typography.Text code> /api/admin/auth/refresh </Typography.Text>
-                。
-              </Typography.Paragraph>
             </div>
 
-            {returnTo ? (
+            {returnTo && returnTo !== '/protected' ? (
               <Typography.Text type="secondary" data-testid="login-return-to">
-                登录成功后将继续返回：{returnTo}
+                登录后将返回：{returnTo}
               </Typography.Text>
             ) : null}
 
@@ -99,18 +93,19 @@ export default function LoginPage() {
               </div>
             ) : null}
 
-            <Form layout="vertical" onFinish={onFinish} initialValues={{ username: 'super_admin' }}>
+            <Form layout="vertical" onFinish={onFinish} initialValues={{ username: import.meta.env.DEV ? 'super_admin' : '' }}>
               <Form.Item label="用户名" name="username" rules={[{ required: true, message: '请输入用户名。' }]}>
-                <Input aria-label="用户名" autoComplete="username" placeholder="super_admin" />
+                <Input size="large" aria-label="用户名" autoComplete="username" placeholder="super_admin" />
               </Form.Item>
               <Form.Item label="密码" name="password" rules={[{ required: true, message: '请输入密码。' }]}>
                 <Input.Password
+                  size="large"
                   aria-label="密码"
                   autoComplete="current-password"
                   placeholder="请输入管理员密码"
                 />
               </Form.Item>
-              <Button data-testid="login-submit" type="primary" htmlType="submit" loading={submitting} block>
+              <Button size="large" data-testid="login-submit" type="primary" htmlType="submit" loading={submitting} block>
                 登录
               </Button>
             </Form>

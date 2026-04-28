@@ -52,3 +52,4 @@ META-INF/
 
 # ── GSD baseline (auto-generated) ──
 .mcp.json
+.gstack/
