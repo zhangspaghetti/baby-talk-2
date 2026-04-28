@@ -53,3 +53,8 @@ META-INF/
 # ── GSD baseline (auto-generated) ──
 .mcp.json
 .gstack/
+
+# ── Local dev / tool artifacts ──
+.playwright-mcp/
+/package-lock.json
+/design-*.png
