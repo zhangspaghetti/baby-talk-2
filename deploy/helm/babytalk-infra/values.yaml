@@ -1,12 +1,13 @@
 postgres:
+  image:
+    repository: pgvector/pgvector
+    tag: pg17
   auth:
     database: babytalk
     username: babytalk
     password: babytalk
-    postgresPassword: babytalk
   primary:
-    persistence:
-      enabled: false
+    resources: {}
 
 redis:
   auth:
