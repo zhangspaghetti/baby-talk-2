@@ -1,0 +1,146 @@
+# BabyTalk application release 生产环境覆盖值
+# 用法示例：helm install babytalk-app deploy/helm/babytalk-app -f deploy/helm/babytalk-app/values-production.yaml
+
+imagePullSecrets:
+  - name: acr-credential
+
+appApi:
+  replicaCount: 2
+  image:
+    repository: registry.cn-hangzhou.aliyuncs.com/babytalk/app-api
+    tag: "release-placeholder"
+    pullPolicy: IfNotPresent
+  ingress:
+    enabled: false
+  resources:
+    requests:
+      cpu: 500m
+      memory: 512Mi
+    limits:
+      cpu: 2000m
+      memory: 1024Mi
+
+adminApi:
+  replicaCount: 2
+  image:
+    repository: registry.cn-hangzhou.aliyuncs.com/babytalk/admin-api
+    tag: "release-placeholder"
+    pullPolicy: IfNotPresent
+  resources:
+    requests:
+      cpu: 500m
+      memory: 512Mi
+    limits:
+      cpu: 2000m
+      memory: 1024Mi
+
+adminWeb:
+  replicaCount: 2
+  image:
+    repository: registry.cn-hangzhou.aliyuncs.com/babytalk/admin-web
+    tag: "release-placeholder"
+    pullPolicy: IfNotPresent
+  ingress:
+    enabled: true
+    className: alb
+    annotations:
+      alb.ingress.kubernetes.io/scheme: internet-facing
+      alb.ingress.kubernetes.io/target-type: ip
+      alb.ingress.kubernetes.io/listen-ports: '[{"HTTPS":443}]'
+      alb.ingress.kubernetes.io/ssl-redirect: "443"
+    host: admin.babytalk.example.com
+    path: /
+    pathType: Prefix
+    tls:
+      - secretName: babytalk-admin-tls
+        hosts:
+          - admin.babytalk.example.com
+  resources:
+    requests:
+      cpu: 150m
+      memory: 192Mi
+    limits:
+      cpu: 500m
+      memory: 384Mi
+
+dbMigration:
+  image:
+    repository: registry.cn-hangzhou.aliyuncs.com/babytalk/db-migration
+    tag: "release-placeholder"
+    pullPolicy: IfNotPresent
+  activeDeadlineSeconds: 600
+
+gateway:
+  replicaCount: 2
+  image:
+    repository: registry.cn-hangzhou.aliyuncs.com/babytalk/gateway
+    tag: "release-placeholder"
+    pullPolicy: IfNotPresent
+  ingress:
+    enabled: true
+    className: alb
+    annotations:
+      alb.ingress.kubernetes.io/scheme: internet-facing
+      alb.ingress.kubernetes.io/target-type: ip
+      alb.ingress.kubernetes.io/listen-ports: '[{"HTTPS":443}]'
+      alb.ingress.kubernetes.io/ssl-redirect: "443"
+    host: api.babytalk.example.com
+    path: /
+    pathType: Prefix
+    tls:
+      - secretName: babytalk-api-tls
+        hosts:
+          - api.babytalk.example.com
+  resources:
+    requests:
+      cpu: 250m
+      memory: 256Mi
+    limits:
+      cpu: 1000m
+      memory: 512Mi
+
+config:
+  BABY_TALK_UPGRADE_URL: "https://babytalk.example.com/upgrade?channel=stable&source=version_gate"
+  BABY_TALK_ANDROID_STABLE_URL: "https://download.babytalk.example.com/android/stable/babytalk.apk"
+  BABY_TALK_IOS_STABLE_URL: "https://apps.apple.com/app/id0000000000"
+  BABY_TALK_ANDROID_BETA_URL: "https://download.babytalk.example.com/android/beta/babytalk.apk"
+
+  BABY_TALK_SHARE_PUBLIC_BASE_URL: "https://share.babytalk.example.com"
+  BABY_TALK_CAREGIVER_INVITE_PUBLIC_BASE_URL: "https://invite.babytalk.example.com"
+
+  BABY_TALK_SMS_PROVIDER_MODE: "production"
+  BABY_TALK_SMS_DEV_CODE: ""
+
+  BABY_TALK_MENTOR_PROVIDER_MODE: "production"
+  BABY_TALK_MENTOR_PROVIDER_TIMEOUT: "PT8S"
+  BABY_TALK_MENTOR_RATE_LIMIT_MAX_REQUESTS: "10"
+  BABY_TALK_MENTOR_SEARCH_MODE: "agentic"
+  BABY_TALK_MENTOR_SIMULATE_TIMEOUT_TOKEN: ""
+  BABY_TALK_MENTOR_SIMULATE_MALFORMED_TOKEN: ""
+  BABY_TALK_MENTOR_SIMULATE_UNAVAILABLE_TOKEN: ""
+  BABY_TALK_MENTOR_SESSION_TIMEOUT: "PT30M"
+  BABY_TALK_MENTOR_PRACTICE_RESPONSE_MAX_LENGTH: "2000"
+
+  BABY_TALK_EMBEDDING_MODE: "openai"
+  BABY_TALK_EMBEDDING_BASE_URL: "https://models.inference.ai.azure.com"
+  BABY_TALK_EMBEDDING_MODEL: "text-embedding-3-small"
+  BABY_TALK_EMBEDDING_DIMENSIONS: "1536"
+
+  BABY_TALK_KG_REVIEW_INTERVAL: "PT30M"
+  BABY_TALK_KG_REVIEW_ENABLED: "true"
+  BABY_TALK_KG_REVIEW_BATCH_SIZE: "10"
+  BABY_TALK_ADMIN_WEB_ORIGIN: "https://admin.babytalk.example.com"
+
+secret:
+  BABY_TALK_DB_URL: "jdbc:postgresql://postgres-prod.example.com:5432/babytalk?sslmode=require"
+  BABY_TALK_DB_USERNAME: "change-me-prod-db-user"
+  BABY_TALK_DB_PASSWORD: "change-me-prod-db-password"
+  BABY_TALK_CONSUMER_JWT_SECRET: "change-me-prod-consumer-jwt-secret"
+  BABY_TALK_AI_API_KEY: "change-me-prod-ai-api-key"
+  BABY_TALK_MINIO_ENDPOINT: "https://storage.babytalk.example.com"
+  BABY_TALK_MINIO_ACCESS_KEY: "change-me-prod-storage-access-key"
+  BABY_TALK_MINIO_SECRET_KEY: "change-me-prod-storage-secret-key"
+  BABY_TALK_MINIO_BUCKET: "babytalk-prod"
+  BABY_TALK_EMBEDDING_API_KEY: "change-me-prod-embedding-api-key"
+  BABY_TALK_ADMIN_JWT_SECRET: "change-me-prod-admin-jwt-secret"
+  BABY_TALK_ADMIN_BOOTSTRAP_PASSWORD: "change-me-prod-admin-bootstrap-password"

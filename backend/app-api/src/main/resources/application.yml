@@ -18,6 +18,16 @@ spring:
     username: ${BABY_TALK_DB_USERNAME:babytalk}
     password: ${BABY_TALK_DB_PASSWORD:babytalk}
     driver-class-name: org.postgresql.Driver
+    type: com.alibaba.druid.pool.DruidDataSource
+    druid:
+      initial-size: 5
+      min-idle: 5
+      max-active: 20
+      filter:
+        stat:
+          enabled: true
+          slow-sql-millis: 2000
+          log-slow-sql: true
   flyway:
     enabled: false
     baseline-on-migrate: false
@@ -34,6 +44,11 @@ spring:
     problemdetails:
       enabled: false
 
+mybatis-plus:
+  mapper-locations: classpath*:/mapper/**/*.xml
+  configuration:
+    map-underscore-to-camel-case: true
+
 management:
   endpoints:
     web:
@@ -47,7 +62,7 @@ management:
 app:
   auth:
     issuer: ${BABY_TALK_CONSUMER_JWT_ISSUER:babytalk-app-api}
-    jwt-secret: ${BABY_TALK_CONSUMER_JWT_SECRET:babytalk-consumer-local-hs256-secret-20260424}
+    jwt-secret: ${BABY_TALK_CONSUMER_JWT_SECRET}
     access-token-ttl: ${BABY_TALK_CONSUMER_ACCESS_TOKEN_TTL:PT15M}
     refresh-token-ttl: ${BABY_TALK_CONSUMER_REFRESH_TOKEN_TTL:P30D}
   contract:

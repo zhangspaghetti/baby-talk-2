@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 Version format: MAJOR.MINOR.PATCH.MICRO
 
+## [1.2.0.1] - 2026-04-28
+
+### Security
+- **移除硬编码 JWT 密钥 fallback (P1):** `gateway/application.yml`、`admin-api/application.yml`、`app-api/application.yml` 三处 `${...:<hardcoded>}` fallback 已删除。三个环境变量（`BABY_TALK_ADMIN_JWT_SECRET`、`BABY_TALK_CONSUMER_JWT_SECRET`）现为必填，缺失时 Spring Boot fail-fast，不再允许使用默认密钥伪造令牌。
+- **移动端 JWT Token 加密存储 (P1):** `AccountLocalStore` 从明文 JSON 文件（`account_state.json`）迁移至 `flutter_secure_storage`（iOS Keychain / Android Keystore）。Root 设备或未加密备份不再能直接读取 access/refresh token。
+- **网关 CORS 配置 (P2):** Spring Cloud Gateway 新增 `globalcors` 配置块。Admin Web origin 通过 `BABY_TALK_ADMIN_WEB_ORIGIN` 控制（默认 `http://localhost:5173`），使用 `allowedOriginPatterns`（不允许 `*` + `allowCredentials` 组合）。
+
 ## [1.2.0.0] - 2026-04-22
 
 ### Added

@@ -1,0 +1,92 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "babytalk-app.configMapName" . }}
+  labels:
+    {{- include "babytalk-app.labels" . | nindent 4 }}
+data:
+  BABY_TALK_MIN_SUPPORTED_VERSION: {{ required "config.BABY_TALK_MIN_SUPPORTED_VERSION is required" .Values.config.BABY_TALK_MIN_SUPPORTED_VERSION | quote }}
+  BABY_TALK_UPGRADE_URL: {{ required "config.BABY_TALK_UPGRADE_URL is required" .Values.config.BABY_TALK_UPGRADE_URL | quote }}
+  BABY_TALK_SYNC_MAX_BATCH_SIZE: {{ required "config.BABY_TALK_SYNC_MAX_BATCH_SIZE is required" .Values.config.BABY_TALK_SYNC_MAX_BATCH_SIZE | quote }}
+  BABY_TALK_BOOTSTRAP_MAX_EVENTS: {{ required "config.BABY_TALK_BOOTSTRAP_MAX_EVENTS is required" .Values.config.BABY_TALK_BOOTSTRAP_MAX_EVENTS | quote }}
+
+  BABY_TALK_ANDROID_STABLE_URL: {{ required "config.BABY_TALK_ANDROID_STABLE_URL is required" .Values.config.BABY_TALK_ANDROID_STABLE_URL | quote }}
+  BABY_TALK_IOS_STABLE_URL: {{ required "config.BABY_TALK_IOS_STABLE_URL is required" .Values.config.BABY_TALK_IOS_STABLE_URL | quote }}
+  BABY_TALK_ANDROID_BETA_URL: {{ required "config.BABY_TALK_ANDROID_BETA_URL is required" .Values.config.BABY_TALK_ANDROID_BETA_URL | quote }}
+
+  BABY_TALK_SHARE_PUBLIC_BASE_URL: {{ required "config.BABY_TALK_SHARE_PUBLIC_BASE_URL is required" .Values.config.BABY_TALK_SHARE_PUBLIC_BASE_URL | quote }}
+  BABY_TALK_SHARE_LINK_TTL: {{ required "config.BABY_TALK_SHARE_LINK_TTL is required" .Values.config.BABY_TALK_SHARE_LINK_TTL | quote }}
+  BABY_TALK_ANDROID_OPEN_SHARE_URL: {{ required "config.BABY_TALK_ANDROID_OPEN_SHARE_URL is required" .Values.config.BABY_TALK_ANDROID_OPEN_SHARE_URL | quote }}
+  BABY_TALK_IOS_OPEN_SHARE_URL: {{ required "config.BABY_TALK_IOS_OPEN_SHARE_URL is required" .Values.config.BABY_TALK_IOS_OPEN_SHARE_URL | quote }}
+
+  BABY_TALK_CAREGIVER_INVITE_PUBLIC_BASE_URL: {{ required "config.BABY_TALK_CAREGIVER_INVITE_PUBLIC_BASE_URL is required" .Values.config.BABY_TALK_CAREGIVER_INVITE_PUBLIC_BASE_URL | quote }}
+  BABY_TALK_CAREGIVER_INVITE_TTL: {{ required "config.BABY_TALK_CAREGIVER_INVITE_TTL is required" .Values.config.BABY_TALK_CAREGIVER_INVITE_TTL | quote }}
+  BABY_TALK_ANDROID_OPEN_INVITE_URL: {{ required "config.BABY_TALK_ANDROID_OPEN_INVITE_URL is required" .Values.config.BABY_TALK_ANDROID_OPEN_INVITE_URL | quote }}
+  BABY_TALK_IOS_OPEN_INVITE_URL: {{ required "config.BABY_TALK_IOS_OPEN_INVITE_URL is required" .Values.config.BABY_TALK_IOS_OPEN_INVITE_URL | quote }}
+
+  {{- if not (hasKey .Values.config "BABY_TALK_SMS_DEV_CODE") }}{{ fail "config.BABY_TALK_SMS_DEV_CODE is required" }}{{- end }}
+  {{- if not (hasKey .Values.config "BABY_TALK_MENTOR_SIMULATE_TIMEOUT_TOKEN") }}{{ fail "config.BABY_TALK_MENTOR_SIMULATE_TIMEOUT_TOKEN is required" }}{{- end }}
+  {{- if not (hasKey .Values.config "BABY_TALK_MENTOR_SIMULATE_MALFORMED_TOKEN") }}{{ fail "config.BABY_TALK_MENTOR_SIMULATE_MALFORMED_TOKEN is required" }}{{- end }}
+  {{- if not (hasKey .Values.config "BABY_TALK_MENTOR_SIMULATE_UNAVAILABLE_TOKEN") }}{{ fail "config.BABY_TALK_MENTOR_SIMULATE_UNAVAILABLE_TOKEN is required" }}{{- end }}
+  BABY_TALK_SMS_PROVIDER_MODE: {{ required "config.BABY_TALK_SMS_PROVIDER_MODE is required" .Values.config.BABY_TALK_SMS_PROVIDER_MODE | quote }}
+  BABY_TALK_SMS_DEV_CODE: {{ .Values.config.BABY_TALK_SMS_DEV_CODE | quote }}
+  BABY_TALK_SMS_CHALLENGE_TTL: {{ required "config.BABY_TALK_SMS_CHALLENGE_TTL is required" .Values.config.BABY_TALK_SMS_CHALLENGE_TTL | quote }}
+  BABY_TALK_SMS_SIMULATE_TIMEOUT: {{ required "config.BABY_TALK_SMS_SIMULATE_TIMEOUT is required" .Values.config.BABY_TALK_SMS_SIMULATE_TIMEOUT | quote }}
+
+  BABY_TALK_MENTOR_PROVIDER_MODE: {{ required "config.BABY_TALK_MENTOR_PROVIDER_MODE is required" .Values.config.BABY_TALK_MENTOR_PROVIDER_MODE | quote }}
+  BABY_TALK_MENTOR_PROVIDER_TIMEOUT: {{ required "config.BABY_TALK_MENTOR_PROVIDER_TIMEOUT is required" .Values.config.BABY_TALK_MENTOR_PROVIDER_TIMEOUT | quote }}
+  BABY_TALK_AI_BASE_URL: {{ required "config.BABY_TALK_AI_BASE_URL is required" .Values.config.BABY_TALK_AI_BASE_URL | quote }}
+  BABY_TALK_AI_MODEL: {{ required "config.BABY_TALK_AI_MODEL is required" .Values.config.BABY_TALK_AI_MODEL | quote }}
+  BABY_TALK_AI_TEMPERATURE: {{ required "config.BABY_TALK_AI_TEMPERATURE is required" .Values.config.BABY_TALK_AI_TEMPERATURE | quote }}
+  BABY_TALK_AI_MAX_TOKENS: {{ required "config.BABY_TALK_AI_MAX_TOKENS is required" .Values.config.BABY_TALK_AI_MAX_TOKENS | quote }}
+
+  BABY_TALK_MENTOR_RATE_LIMIT_MAX_REQUESTS: {{ required "config.BABY_TALK_MENTOR_RATE_LIMIT_MAX_REQUESTS is required" .Values.config.BABY_TALK_MENTOR_RATE_LIMIT_MAX_REQUESTS | quote }}
+  BABY_TALK_MENTOR_RATE_LIMIT_WINDOW: {{ required "config.BABY_TALK_MENTOR_RATE_LIMIT_WINDOW is required" .Values.config.BABY_TALK_MENTOR_RATE_LIMIT_WINDOW | quote }}
+  BABY_TALK_MENTOR_PROMPT_MAX_LENGTH: {{ required "config.BABY_TALK_MENTOR_PROMPT_MAX_LENGTH is required" .Values.config.BABY_TALK_MENTOR_PROMPT_MAX_LENGTH | quote }}
+  BABY_TALK_MENTOR_RESPONSE_MAX_LENGTH: {{ required "config.BABY_TALK_MENTOR_RESPONSE_MAX_LENGTH is required" .Values.config.BABY_TALK_MENTOR_RESPONSE_MAX_LENGTH | quote }}
+  BABY_TALK_MENTOR_SIMULATE_TIMEOUT_TOKEN: {{ .Values.config.BABY_TALK_MENTOR_SIMULATE_TIMEOUT_TOKEN | quote }}
+  BABY_TALK_MENTOR_SIMULATE_MALFORMED_TOKEN: {{ .Values.config.BABY_TALK_MENTOR_SIMULATE_MALFORMED_TOKEN | quote }}
+  BABY_TALK_MENTOR_SIMULATE_UNAVAILABLE_TOKEN: {{ .Values.config.BABY_TALK_MENTOR_SIMULATE_UNAVAILABLE_TOKEN | quote }}
+  BABY_TALK_MENTOR_SEARCH_MODE: {{ required "config.BABY_TALK_MENTOR_SEARCH_MODE is required" .Values.config.BABY_TALK_MENTOR_SEARCH_MODE | quote }}
+  BABY_TALK_MENTOR_SESSION_TIMEOUT: {{ required "config.BABY_TALK_MENTOR_SESSION_TIMEOUT is required" .Values.config.BABY_TALK_MENTOR_SESSION_TIMEOUT | quote }}
+  BABY_TALK_MENTOR_PRACTICE_RESPONSE_MAX_LENGTH: {{ required "config.BABY_TALK_MENTOR_PRACTICE_RESPONSE_MAX_LENGTH is required" .Values.config.BABY_TALK_MENTOR_PRACTICE_RESPONSE_MAX_LENGTH | quote }}
+
+  BABY_TALK_EMBEDDING_MODE: {{ required "config.BABY_TALK_EMBEDDING_MODE is required" .Values.config.BABY_TALK_EMBEDDING_MODE | quote }}
+  BABY_TALK_EMBEDDING_BASE_URL: {{ required "config.BABY_TALK_EMBEDDING_BASE_URL is required" .Values.config.BABY_TALK_EMBEDDING_BASE_URL | quote }}
+  BABY_TALK_EMBEDDING_MODEL: {{ required "config.BABY_TALK_EMBEDDING_MODEL is required" .Values.config.BABY_TALK_EMBEDDING_MODEL | quote }}
+  BABY_TALK_EMBEDDING_DIMENSIONS: {{ required "config.BABY_TALK_EMBEDDING_DIMENSIONS is required" .Values.config.BABY_TALK_EMBEDDING_DIMENSIONS | quote }}
+  {{- if hasKey .Values.config "BABY_TALK_REDIS_HOST" }}
+  BABY_TALK_REDIS_HOST: {{ .Values.config.BABY_TALK_REDIS_HOST | quote }}
+  {{- end }}
+  {{- if hasKey .Values.config "BABY_TALK_ADMIN_WEB_ORIGIN" }}
+  BABY_TALK_ADMIN_WEB_ORIGIN: {{ .Values.config.BABY_TALK_ADMIN_WEB_ORIGIN | quote }}
+  {{- end }}
+
+  BABY_TALK_KG_REVIEW_INTERVAL: {{ required "config.BABY_TALK_KG_REVIEW_INTERVAL is required" .Values.config.BABY_TALK_KG_REVIEW_INTERVAL | quote }}
+  BABY_TALK_KG_REVIEW_ENABLED: {{ required "config.BABY_TALK_KG_REVIEW_ENABLED is required" .Values.config.BABY_TALK_KG_REVIEW_ENABLED | quote }}
+  BABY_TALK_KG_REVIEW_BATCH_SIZE: {{ required "config.BABY_TALK_KG_REVIEW_BATCH_SIZE is required" .Values.config.BABY_TALK_KG_REVIEW_BATCH_SIZE | quote }}
+
+  BABY_TALK_CONSUMER_JWT_ISSUER: {{ required "config.BABY_TALK_CONSUMER_JWT_ISSUER is required" .Values.config.BABY_TALK_CONSUMER_JWT_ISSUER | quote }}
+  BABY_TALK_CONSUMER_ACCESS_TOKEN_TTL: {{ required "config.BABY_TALK_CONSUMER_ACCESS_TOKEN_TTL is required" .Values.config.BABY_TALK_CONSUMER_ACCESS_TOKEN_TTL | quote }}
+  BABY_TALK_CONSUMER_REFRESH_TOKEN_TTL: {{ required "config.BABY_TALK_CONSUMER_REFRESH_TOKEN_TTL is required" .Values.config.BABY_TALK_CONSUMER_REFRESH_TOKEN_TTL | quote }}
+
+  BABY_TALK_ADMIN_JWT_ISSUER: {{ required "config.BABY_TALK_ADMIN_JWT_ISSUER is required" .Values.config.BABY_TALK_ADMIN_JWT_ISSUER | quote }}
+  BABY_TALK_ADMIN_ACCESS_TOKEN_TTL: {{ required "config.BABY_TALK_ADMIN_ACCESS_TOKEN_TTL is required" .Values.config.BABY_TALK_ADMIN_ACCESS_TOKEN_TTL | quote }}
+  BABY_TALK_ADMIN_REFRESH_TOKEN_TTL: {{ required "config.BABY_TALK_ADMIN_REFRESH_TOKEN_TTL is required" .Values.config.BABY_TALK_ADMIN_REFRESH_TOKEN_TTL | quote }}
+  BABY_TALK_ADMIN_BOOTSTRAP_ENABLED: {{ required "config.BABY_TALK_ADMIN_BOOTSTRAP_ENABLED is required" .Values.config.BABY_TALK_ADMIN_BOOTSTRAP_ENABLED | quote }}
+  BABY_TALK_ADMIN_BOOTSTRAP_USERNAME: {{ required "config.BABY_TALK_ADMIN_BOOTSTRAP_USERNAME is required" .Values.config.BABY_TALK_ADMIN_BOOTSTRAP_USERNAME | quote }}
+  BABY_TALK_ADMIN_BOOTSTRAP_DISPLAY_NAME: {{ required "config.BABY_TALK_ADMIN_BOOTSTRAP_DISPLAY_NAME is required" .Values.config.BABY_TALK_ADMIN_BOOTSTRAP_DISPLAY_NAME | quote }}
+  BABY_TALK_ADMIN_MENTOR_AUDIT_DEFAULT_LIMIT: {{ required "config.BABY_TALK_ADMIN_MENTOR_AUDIT_DEFAULT_LIMIT is required" .Values.config.BABY_TALK_ADMIN_MENTOR_AUDIT_DEFAULT_LIMIT | quote }}
+  BABY_TALK_ADMIN_MENTOR_AUDIT_MAX_LIMIT: {{ required "config.BABY_TALK_ADMIN_MENTOR_AUDIT_MAX_LIMIT is required" .Values.config.BABY_TALK_ADMIN_MENTOR_AUDIT_MAX_LIMIT | quote }}
+  BABY_TALK_ADMIN_DISTRIBUTION_STATS_DEFAULT_RANGE: {{ required "config.BABY_TALK_ADMIN_DISTRIBUTION_STATS_DEFAULT_RANGE is required" .Values.config.BABY_TALK_ADMIN_DISTRIBUTION_STATS_DEFAULT_RANGE | quote }}
+  BABY_TALK_ADMIN_DISTRIBUTION_STATS_DETAIL_LIMIT: {{ required "config.BABY_TALK_ADMIN_DISTRIBUTION_STATS_DETAIL_LIMIT is required" .Values.config.BABY_TALK_ADMIN_DISTRIBUTION_STATS_DETAIL_LIMIT | quote }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "babytalk-app.adminWebProxyConfigMapName" . }}
+  labels:
+    {{- include "babytalk-app.componentLabels" (dict "root" . "component" "admin-web") | nindent 4 }}
+data:
+  default.conf: |
+    {{- include "babytalk-app.adminWebNginxConfig" . | nindent 4 }}

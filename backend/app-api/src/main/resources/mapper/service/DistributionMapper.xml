@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.zhangspaghetti.babytalk.service.DistributionMapper">
+
+    <resultMap id="eventRowMap" type="com.zhangspaghetti.babytalk.service.DistributionRepository$EventRow">
+        <constructor>
+            <arg column="entrypoint" javaType="java.lang.String"/>
+            <arg column="release_channel" javaType="java.lang.String"/>
+            <arg column="source" javaType="java.lang.String"/>
+            <arg column="platform" javaType="java.lang.String"/>
+            <arg column="result" javaType="java.lang.String"/>
+            <arg column="failure_reason" javaType="java.lang.String"/>
+            <arg column="created_at" javaType="java.time.Instant"/>
+        </constructor>
+    </resultMap>
+
+    <insert id="insertEvent">
+        insert into release_distribution_events (
+            entrypoint,
+            release_channel,
+            source,
+            platform,
+            result,
+            failure_reason,
+            created_at
+        ) values (
+            #{row.entrypoint},
+            #{row.releaseChannel},
+            #{row.source},
+            #{row.platform},
+            #{row.result},
+            #{row.failureReason},
+            #{row.createdAt}
+        )
+    </insert>
+
+    <select id="listRecentEvents" resultMap="eventRowMap">
+        select entrypoint,
+               release_channel,
+               source,
+               platform,
+               result,
+               failure_reason,
+               created_at
+        from release_distribution_events
+        order by event_id asc
+    </select>
+</mapper>

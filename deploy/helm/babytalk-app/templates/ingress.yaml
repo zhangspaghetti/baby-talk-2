@@ -1,0 +1,117 @@
+{{- if .Values.appApi.ingress.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "babytalk-app.componentFullname" (dict "root" . "component" "app-api") }}
+  labels:
+    {{- include "babytalk-app.componentLabels" (dict "root" . "component" "app-api") | nindent 4 }}
+  {{- with .Values.appApi.ingress.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  {{- if .Values.appApi.ingress.className }}
+  ingressClassName: {{ .Values.appApi.ingress.className }}
+  {{- end }}
+  {{- if .Values.appApi.ingress.tls }}
+  tls:
+    {{- range .Values.appApi.ingress.tls }}
+    - hosts:
+        {{- range .hosts }}
+        - {{ . | quote }}
+        {{- end }}
+      secretName: {{ .secretName }}
+    {{- end }}
+  {{- end }}
+  rules:
+    - host: {{ required "appApi.ingress.host is required when appApi ingress is enabled" .Values.appApi.ingress.host | quote }}
+      http:
+        paths:
+          - path: {{ .Values.appApi.ingress.path }}
+            pathType: {{ .Values.appApi.ingress.pathType }}
+            backend:
+              service:
+                name: {{ include "babytalk-app.componentFullname" (dict "root" . "component" "app-api") }}
+                port:
+                  number: {{ .Values.appApi.service.port }}
+{{- end }}
+{{- if and .Values.appApi.ingress.enabled .Values.adminWeb.ingress.enabled }}
+---
+{{- end }}
+{{- if .Values.adminWeb.ingress.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "babytalk-app.componentFullname" (dict "root" . "component" "admin-web") }}
+  labels:
+    {{- include "babytalk-app.componentLabels" (dict "root" . "component" "admin-web") | nindent 4 }}
+  {{- with .Values.adminWeb.ingress.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  {{- if .Values.adminWeb.ingress.className }}
+  ingressClassName: {{ .Values.adminWeb.ingress.className }}
+  {{- end }}
+  {{- if .Values.adminWeb.ingress.tls }}
+  tls:
+    {{- range .Values.adminWeb.ingress.tls }}
+    - hosts:
+        {{- range .hosts }}
+        - {{ . | quote }}
+        {{- end }}
+      secretName: {{ .secretName }}
+    {{- end }}
+  {{- end }}
+  rules:
+    - host: {{ required "adminWeb.ingress.host is required when adminWeb ingress is enabled" .Values.adminWeb.ingress.host | quote }}
+      http:
+        paths:
+          - path: {{ .Values.adminWeb.ingress.path }}
+            pathType: {{ .Values.adminWeb.ingress.pathType }}
+            backend:
+              service:
+                name: {{ include "babytalk-app.componentFullname" (dict "root" . "component" "admin-web") }}
+                port:
+                  number: {{ .Values.adminWeb.service.port }}
+{{- end }}
+{{- if and (or .Values.appApi.ingress.enabled .Values.adminWeb.ingress.enabled) .Values.gateway.ingress.enabled }}
+---
+{{- end }}
+{{- if .Values.gateway.ingress.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "babytalk-app.componentFullname" (dict "root" . "component" "gateway") }}
+  labels:
+    {{- include "babytalk-app.componentLabels" (dict "root" . "component" "gateway") | nindent 4 }}
+  {{- with .Values.gateway.ingress.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  {{- if .Values.gateway.ingress.className }}
+  ingressClassName: {{ .Values.gateway.ingress.className }}
+  {{- end }}
+  {{- if .Values.gateway.ingress.tls }}
+  tls:
+    {{- range .Values.gateway.ingress.tls }}
+    - hosts:
+        {{- range .hosts }}
+        - {{ . | quote }}
+        {{- end }}
+      secretName: {{ .secretName }}
+    {{- end }}
+  {{- end }}
+  rules:
+    - host: {{ required "gateway.ingress.host is required when gateway ingress is enabled" .Values.gateway.ingress.host | quote }}
+      http:
+        paths:
+          - path: {{ .Values.gateway.ingress.path }}
+            pathType: {{ .Values.gateway.ingress.pathType }}
+            backend:
+              service:
+                name: {{ include "babytalk-app.componentFullname" (dict "root" . "component" "gateway") }}
+                port:
+                  number: {{ .Values.gateway.service.port }}
+{{- end }}

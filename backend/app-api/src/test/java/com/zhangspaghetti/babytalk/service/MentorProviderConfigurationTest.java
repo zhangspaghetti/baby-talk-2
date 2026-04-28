@@ -7,7 +7,7 @@ import static org.mockito.Mockito.when;
 
 import com.zhangspaghetti.babytalk.config.MentorProperties;
 import com.zhangspaghetti.babytalk.config.MentorProviderConfiguration;
-import com.zhangspaghetti.babytalk.palace.PalaceSearchService;
+import com.zhangspaghetti.babytalk.palace.PalaceHybridRetrievalService;
 import com.zhangspaghetti.babytalk.palace.PalaceToolProvider;
 import java.time.Duration;
 import java.util.List;
@@ -26,7 +26,7 @@ class MentorProviderConfigurationTest {
     @SuppressWarnings("unchecked")
     private final ObjectProvider<PalaceToolProvider> toolOp = mock(ObjectProvider.class);
     @SuppressWarnings("unchecked")
-    private final ObjectProvider<PalaceSearchService> searchOp = mock(ObjectProvider.class);
+    private final ObjectProvider<PalaceHybridRetrievalService> hybridRetrievalOp = mock(ObjectProvider.class);
     @SuppressWarnings("unchecked")
     private final ObjectProvider<MessageChatMemoryAdvisor> memoryAdvisorOp = mock(ObjectProvider.class);
 
@@ -66,9 +66,9 @@ class MentorProviderConfigurationTest {
         void devModeCreatesDevMentorProvider() {
             var props = makeProperties("dev", "none");
             when(toolOp.getIfAvailable()).thenReturn(null);
-            when(searchOp.getIfAvailable()).thenReturn(null);
+            when(hybridRetrievalOp.getIfAvailable()).thenReturn(null);
 
-            var provider = configuration.mentorProvider(props, toolOp, searchOp, memoryAdvisorOp);
+            var provider = configuration.mentorProvider(props, toolOp, hybridRetrievalOp, memoryAdvisorOp);
             assertThat(provider).isInstanceOf(DevMentorProvider.class);
         }
     }
@@ -82,9 +82,9 @@ class MentorProviderConfigurationTest {
         void githubModelsModeCreatesSpringAiProvider() {
             var props = makeProperties("github-models", "none");
             when(toolOp.getIfAvailable()).thenReturn(null);
-            when(searchOp.getIfAvailable()).thenReturn(null);
+            when(hybridRetrievalOp.getIfAvailable()).thenReturn(null);
 
-            var provider = configuration.mentorProvider(props, toolOp, searchOp, memoryAdvisorOp);
+            var provider = configuration.mentorProvider(props, toolOp, hybridRetrievalOp, memoryAdvisorOp);
             assertThat(provider).isInstanceOf(SpringAiMentorProvider.class);
         }
 
@@ -92,12 +92,12 @@ class MentorProviderConfigurationTest {
         @DisplayName("github-models + agentic 模式注入 PalaceToolProvider")
         void githubModelsAgenticInjectsToolProvider() {
             var mockTool = mock(PalaceToolProvider.class);
-            var mockSearch = mock(PalaceSearchService.class);
+            var mockHybridRetrieval = mock(PalaceHybridRetrievalService.class);
             var props = makeProperties("github-models", "agentic");
             when(toolOp.getIfAvailable()).thenReturn(mockTool);
-            when(searchOp.getIfAvailable()).thenReturn(mockSearch);
+            when(hybridRetrievalOp.getIfAvailable()).thenReturn(mockHybridRetrieval);
 
-            var provider = configuration.mentorProvider(props, toolOp, searchOp, memoryAdvisorOp);
+            var provider = configuration.mentorProvider(props, toolOp, hybridRetrievalOp, memoryAdvisorOp);
             assertThat(provider).isInstanceOf(SpringAiMentorProvider.class);
         }
 
@@ -106,10 +106,10 @@ class MentorProviderConfigurationTest {
         void toolProviderIsOptional() {
             var props = makeProperties("github-models", "agentic");
             when(toolOp.getIfAvailable()).thenReturn(null);
-            when(searchOp.getIfAvailable()).thenReturn(null);
+            when(hybridRetrievalOp.getIfAvailable()).thenReturn(null);
 
             // 不应抛异常
-            var provider = configuration.mentorProvider(props, toolOp, searchOp, memoryAdvisorOp);
+            var provider = configuration.mentorProvider(props, toolOp, hybridRetrievalOp, memoryAdvisorOp);
             assertThat(provider).isInstanceOf(SpringAiMentorProvider.class);
         }
     }
@@ -123,9 +123,9 @@ class MentorProviderConfigurationTest {
         void unknownModeThrowsProviderUnavailableException() {
             var props = makeProperties("unknown-mode", "none");
             when(toolOp.getIfAvailable()).thenReturn(null);
-            when(searchOp.getIfAvailable()).thenReturn(null);
+            when(hybridRetrievalOp.getIfAvailable()).thenReturn(null);
 
-            assertThatThrownBy(() -> configuration.mentorProvider(props, toolOp, searchOp, memoryAdvisorOp))
+            assertThatThrownBy(() -> configuration.mentorProvider(props, toolOp, hybridRetrievalOp, memoryAdvisorOp))
                     .isInstanceOf(MentorProvider.ProviderUnavailableException.class)
                     .hasMessageContaining("unknown-mode")
                     .hasMessageContaining("不支持");

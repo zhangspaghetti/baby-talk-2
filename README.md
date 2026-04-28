@@ -4,88 +4,111 @@ Baby Talk 2 是一个面向中国父母的亲子英语启蒙项目：`mobile` �
 
 如果你今天第一次进入仓库，**先只记住两条 repo-root 命令**。
 
+## Install once
+
+首次进入仓库前，请先安装这些本地依赖：
+
+- `kind`：<https://kind.sigs.k8s.io/>
+- `helm`：<https://helm.sh/>
+- `kubectl`
+- `dart` / `flutter`
+
 ## 2 分钟内拉起 admin demo
 
 ### POSIX
 
 ```bash
-./scripts/dev-up-admin-demo.sh
+./scripts/dev-up-helm-demo.sh
 ```
 
 ### Windows (cmd / PowerShell)
 
 ```bat
-scripts\dev-up-admin-demo.cmd
+scripts\dev-up-helm-demo.cmd
 ```
 
-这个 golden path 会负责：
+这个 Helm-first golden path 会负责：
 
-- 以同一套 stage label 启动 `postgres → minio → db-migration → app-api → admin-api → admin-web`
-- 等待 split stack 到达真实健康状态，而不是只看单个容器启动
-- 输出 `tthw_seconds` / `first_failure_stage` / `likely_cause` / `next_action`
-- 打印 `admin-web` 登录入口和 demo 账号名（**不会打印 bootstrap password**）
-- 把 redaction-safe recent history 追加到 `tmp/m006-s13-front-door-metrics.jsonl`
+- 创建或复用本地 kind 集群 `babytalk-local`
+- 安装/升级 `babytalk-infra` 与 `babytalk-app`
+- 验证 gateway 健康检查 `http://127.0.0.1:8090/`
+- 输出 `demo_status` / `tthw_seconds` / `gateway_url` / `next_action`
+- 把 redaction-safe recent history 追加到 `tmp/m007-s01-helm-metrics.jsonl`
 
-成功后你会得到：
+成功后你会得到类似输出：
 
-- `admin_web_url=http://127.0.0.1:3000/login`
-- `demo_account=super_admin`
-- `next_action=./scripts/dev-verify-admin-demo.sh`（Windows 会显示 `.cmd`）
-- `telemetry_path=tmp/m006-s13-front-door-metrics.jsonl`
+- `demo_status=passed`
+- `tthw_seconds=<seconds>`
+- `gateway_url=http://127.0.0.1:8090/`
+- `next_action=./scripts/dev-verify-helm-demo.sh`（Windows 会显示 `.cmd`）
+- `telemetry_path=tmp/m007-s01-helm-metrics.jsonl`
 
-## Fast smoke（复用 live stack）
+失败时还会额外给出：
+
+- `first_failure_stage=preflight|cluster|infra|app|gateway|smoke`
+- `likely_cause=<machine-readable-cause>`
+- `next_action=<next command or inspection step>`
+
+## Fast smoke（复用 live Helm baseline）
 
 ### POSIX
 
 ```bash
-./scripts/dev-verify-admin-demo.sh
+./scripts/dev-verify-helm-demo.sh
 ```
 
 ### Windows (cmd / PowerShell)
 
 ```bat
-scripts\dev-verify-admin-demo.cmd
+scripts\dev-verify-helm-demo.cmd
 ```
 
 这个 fast smoke：
 
-- **不会**重新走 full release closure path
-- 复用已经启动的 live stack
-- 跑完后保留 live stack，方便继续手动操作 admin demo
-- 复用 S12 的最小 admin proof surface（auth + Overview freshness control plane）
-- 继续输出 `tthw_seconds` / `first_failure_stage` / `likely_cause` / `next_action`
-- 继续写入同一份 `tmp/m006-s13-front-door-metrics.jsonl` history，并回显 `smoke_recent_pass_rate` / `first_failure_hotspot`
-- 失败时给出下一条可执行的排查命令
+- 复用已经存在的 kind 集群与 Helm release
+- 只重跑 `preflight -> gateway -> smoke` 这条轻量路径
+- 跑完后保留 live stack，方便继续手动调试
+- 继续输出 `demo_status` / `tthw_seconds` / `gateway_url` / `next_action`
+- 继续写入同一份 `tmp/m007-s01-helm-metrics.jsonl` history
 
-## Front-door telemetry handoff
+## Helm telemetry handoff
 
-`dev-up-admin-demo` 和 `dev-verify-admin-demo` 共用 `tmp/m006-s13-front-door-metrics.jsonl` 这份 bounded local history。每次 run 都会追加 redaction-safe recent entry（`mode` / `shell` / `success` / `tthw_seconds` / `first_failure_stage` / `likely_cause` / `next_action`），并在 stdout 回显 `telemetry_path` / `smoke_recent_pass_rate` / `first_failure_hotspot`。这样 fresh reader 不用重放 full release closure，也能先判断最近一次 demo + smoke 是否同时成立。
+`dev-up-helm-demo` 和 `dev-verify-helm-demo` 共用 `tmp/m007-s01-helm-metrics.jsonl` 这份 bounded local history。每次 run 都会追加 redaction-safe recent entry：
 
-## Final release closure（CI 同款）
+- `mode`
+- `shell`
+- `success`
+- `tthw_seconds`
+- `first_failure_stage`
+- `likely_cause`
+- `next_action`
+- `timestamp`
+
+先读 wrapper stdout；如果还想看最近几次 run 的走势，再直接打开这份 telemetry 文件。
+
+## Final release closure (CI smoke gate)
 
 ```bash
-dart run tool/verify_m006_s14_release_closure.dart
+bash ci/k8s-smoke.sh
 ```
 
-仓库根唯一 final release command 仍是这条 `dart run tool/verify_m006_s14_release_closure.dart`。
+CI-equivalent gate 是 `bash ci/k8s-smoke.sh`。如果你想在本机直接跑同一套 Helm-first front-door verifier，可执行：
 
-这条顶层 gate 会顺序组合：
+```bash
+dart run tool/verify_m007_s01_helm_baseline.dart demo
+```
 
-- `S07` mentor/distribution closure proof
-- `S08` Helm split-stack deploy truth
-- `S12` Overview freshness / fallback proof
-- `S13` repo-root front-door truth
-
-如果只想 debug 某个局部面，再下钻对应 child verifier；不要在 repo root 重新发明第二条 release command chain。
+后续里程碑会把更完整的 M007 closure 继续向这条 Helm-first 路径收敛；在 S01 这里，不再把旧的 M006 release-closure verifier 当作仓库前门。
 
 ## Split-stack 地图
 
 | Surface | 角色 | 默认本地入口 | 说明 |
 | --- | --- | --- | --- |
-| `app-api` | 面向 mobile / consumer 的 HTTP API | `http://127.0.0.1:8080` | public app surface |
-| `admin-web` | 管理后台浏览器入口 | `http://127.0.0.1:3000` | 对管理员暴露的唯一前门 |
-| `admin-api` | 管理后台后端 API | `http://127.0.0.1:8081` | internal-only；给 `admin-web` 代理和本地开发用；不要把它当 README front door |
-| `db-migration` | schema owner / preflight job | `docker compose` one-shot | 先于 app/admin runtime 执行 |
+| `gateway` | repo-root gateway / 健康检查前门 | `http://127.0.0.1:8090/` | Spring Cloud Gateway (babytalk/gateway:1.0.0)；admin 和 consumer 流量的唯一外部后端入口 |
+| `app-api` | 面向 mobile / consumer 的 HTTP API | cluster-internal service | cluster-internal service；consumer 流量经 gateway 代理 |
+| `admin-web` | 管理后台浏览器入口 | `http://127.0.0.1:3000` | UI 开发时仍可直接打开 |
+| `admin-api` | 管理后台后端 API | 仅 cluster-internal；无公网 Ingress | internal-only；admin-web 经 gateway 代理到 admin-api |
+| `db-migration` | schema owner / preflight job | Helm hook job | 先于 app/admin runtime 执行 |
 | `mobile` | Flutter 客户端 | `mobile/` | 只连 `app-api`，不连 `admin-api` |
 
 ## Role-based quickstarts
@@ -93,44 +116,37 @@ dart run tool/verify_m006_s14_release_closure.dart
 ### Full stack（推荐）
 
 ```bash
-./scripts/dev-up-admin-demo.sh
-./scripts/dev-verify-admin-demo.sh
+./scripts/dev-up-helm-demo.sh
+./scripts/dev-verify-helm-demo.sh
 ```
 
 需要更重的 proof 时再下钻：
 
 ```bash
-dart run tool/verify_m006_s12_control_plane_freshness.dart
-dart run tool/verify_m006_s14_release_closure.dart
-```
-
-如果只是 scoped debug，再按面下钻：
-
-```bash
-dart run tool/verify_m006_s08_release.dart --runtime
-dart run tool/verify_m006_s08_release.dart --helm
+bash ci/k8s-smoke.sh
+dart run tool/verify_m007_s01_helm_baseline.dart demo
 ```
 
 ### Backend only（split-stack 本地开发）
 
-先起依赖与 migration：
+优先还是直接跑 Helm front door：
 
 ```bash
-docker compose up -d postgres minio db-migration
+./scripts/dev-up-helm-demo.sh
 ```
 
-再分别本地运行两个后端模块：
+如果你已经有 kind 集群，只想手动重放 release 级别安装：
 
 ```bash
-./backend/mvnw -f backend/pom.xml -pl app-api -am spring-boot:run
-./backend/mvnw -f backend/pom.xml -pl admin-api -am spring-boot:run -Dspring-boot.run.arguments=--server.port=8081
+helm upgrade --install babytalk-infra deploy/helm/babytalk-infra -f deploy/helm/babytalk-infra/values-kind.yaml --namespace babytalk --create-namespace --wait --timeout 120s
+helm upgrade --install babytalk-app deploy/helm/babytalk-app -f deploy/helm/babytalk-app/values-kind.yaml --namespace babytalk --create-namespace --wait --timeout 180s
 ```
 
-快速检查：
+模块级验证继续使用：
 
 ```bash
-curl -sf http://127.0.0.1:8080/actuator/health
-curl -sf http://127.0.0.1:8081/actuator/health
+./backend/mvnw -f backend/pom.xml test -DexcludedGroups=llm-it
+bash ci/backend-test.sh
 ```
 
 ### admin-web only
@@ -142,10 +158,10 @@ npm --prefix admin-web install
 npm --prefix admin-web run dev
 ```
 
-如果 `admin-api` 不在 `127.0.0.1:8081`，先覆盖代理目标：
+如果 `gateway` 不在 `127.0.0.1:8090`，先覆盖代理目标：
 
 ```bash
-VITE_ADMIN_API_PROXY_TARGET=http://127.0.0.1:8081 npm --prefix admin-web run dev
+VITE_ADMIN_API_PROXY_TARGET=http://127.0.0.1:8090 npm --prefix admin-web run dev
 ```
 
 ### mobile
@@ -196,20 +212,18 @@ curl -s http://127.0.0.1:3000/api/admin/overview/summary \
 
 | 旧入口 / 旧假设 | 现在应该怎么做 |
 | --- | --- |
-| `docker compose up -d --build` 然后自己猜入口 | 直接跑 `dev-up-admin-demo` wrapper |
-| `scripts/verify-e2e.sh` 作为 repo-root smoke | 改用 `dev-verify-admin-demo` wrapper |
+| 旧容器栈一把启动然后自己猜入口 | 直接跑 `dev-up-helm-demo` wrapper |
+| `scripts/verify-e2e.sh` 作为 repo-root smoke | 改用 `dev-verify-helm-demo` wrapper |
 | `scripts/run-mobile-e2e.*` 代表仓库前门 | 保留为 mobile 集成历史参考，不再放在 README 顶部 |
-| `cd backend && mvn spring-boot:run` | 用 `backend/mvnw` 跑 split modules，或直接走 compose wrapper |
+| `cd backend && mvn spring-boot:run` | 用 `backend/mvnw` 跑 split modules，或直接走 Helm wrapper |
 | 仓库“没有 Maven wrapper” | 仓库根真实入口是 `backend/mvnw` / `backend/mvnw.cmd` |
-| root README 直接复述部署细节 | 发布 / Helm 真相统一下钻到 runbook |
+| root README 直接复述所有部署细节 | 发布 / Helm 真相统一下钻到 runbook |
 
 ## 继续往下读什么
 
 - [CONTRIBUTING](CONTRIBUTING.md) — 日常开发路径、verification ladder、目录职责
-- [M006 / S14 release-closure runbook](docs/runbooks/m006-s14-release-closure.md) — milestone promise → child verifier → CI artifact 的总入口
-- [M006 / S13 demo-path runbook](docs/runbooks/m006-s13-demo-path.md) — wrapper stage、失败语义、Windows/POSIX parity
-- [M006 / S12 Overview Control-Plane Freshness Runbook](docs/runbooks/m006-s12-control-plane-freshness.md) — fast smoke 复用的 freshness/auth proof pack
-- [Kubernetes split-stack deploy runbook](docs/runbooks/k8s-deploy.md) — 发布、Helm、回滚与 NOTES truth
+- [Kubernetes split-stack deploy runbook](docs/runbooks/k8s-deploy.md) — Helm 安装、发布、回滚与 `bash ci/k8s-smoke.sh` truth
+- [mobile/README.md](mobile/README.md) — Flutter 客户端约定
 
 ## Historical references
 

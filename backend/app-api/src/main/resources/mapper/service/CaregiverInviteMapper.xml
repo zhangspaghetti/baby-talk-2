@@ -1,0 +1,434 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.zhangspaghetti.babytalk.service.CaregiverInviteMapper">
+
+    <resultMap id="householdMemberRowMap" type="com.zhangspaghetti.babytalk.service.CaregiverInviteRepository$HouseholdMemberRow">
+        <constructor>
+            <arg column="membership_id" javaType="_long"/>
+            <arg column="household_id" javaType="java.lang.String"/>
+            <arg column="account_id" javaType="java.lang.String"/>
+            <arg column="role" javaType="java.lang.String"/>
+            <arg column="status" javaType="java.lang.String"/>
+            <arg column="invited_by_account_id" javaType="java.lang.String"/>
+            <arg column="joined_at" javaType="java.time.Instant"/>
+            <arg column="last_accepted_at" javaType="java.time.Instant"/>
+        </constructor>
+    </resultMap>
+
+    <resultMap id="inviteRowMap" type="com.zhangspaghetti.babytalk.service.CaregiverInviteRepository$InviteRow">
+        <constructor>
+            <arg column="invite_id" javaType="_long"/>
+            <arg column="token" javaType="java.lang.String"/>
+            <arg column="household_id" javaType="java.lang.String"/>
+            <arg column="inviter_account_id" javaType="java.lang.String"/>
+            <arg column="target_role" javaType="java.lang.String"/>
+            <arg column="source" javaType="java.lang.String"/>
+            <arg column="status" javaType="java.lang.String"/>
+            <arg column="created_at" javaType="java.time.Instant"/>
+            <arg column="expires_at" javaType="java.time.Instant"/>
+            <arg column="accepted_at" javaType="java.time.Instant"/>
+            <arg column="revoked_at" javaType="java.time.Instant"/>
+            <arg column="accepted_by_account_id" javaType="java.lang.String"/>
+            <arg column="failure_reason" javaType="java.lang.String"/>
+        </constructor>
+    </resultMap>
+
+    <resultMap id="sharedContextViewRowMap" type="com.zhangspaghetti.babytalk.service.CaregiverInviteRepository$SharedContextViewRow">
+        <constructor>
+            <arg column="household_id" javaType="java.lang.String"/>
+            <arg column="role" javaType="java.lang.String"/>
+            <arg column="last_accepted_at" javaType="java.time.Instant"/>
+            <arg column="baby_profile_summary" javaType="java.lang.String"/>
+            <arg column="continuity_summary" javaType="java.lang.String"/>
+            <arg column="garden_summary" javaType="java.lang.String"/>
+            <arg column="space_id" javaType="java.lang.String"/>
+            <arg column="activity_id" javaType="java.lang.String"/>
+            <arg column="latest_interaction_at" javaType="java.time.Instant"/>
+            <arg column="updated_at" javaType="java.time.Instant"/>
+            <arg column="latest_actor_role" javaType="java.lang.String"/>
+            <arg column="latest_actor_source" javaType="java.lang.String"/>
+            <arg column="latest_actor_result" javaType="java.lang.String"/>
+            <arg column="next_step_space_id" javaType="java.lang.String"/>
+            <arg column="next_step_activity_id" javaType="java.lang.String"/>
+            <arg column="next_step_reason" javaType="java.lang.String"/>
+        </constructor>
+    </resultMap>
+
+    <resultMap id="householdProjectionRowMap" type="com.zhangspaghetti.babytalk.service.CaregiverInviteRepository$HouseholdProjectionRow">
+        <constructor>
+            <arg column="latest_space_id" javaType="java.lang.String"/>
+            <arg column="latest_activity_id" javaType="java.lang.String"/>
+            <arg column="latest_reaction_type" javaType="java.lang.String"/>
+            <arg column="latest_interaction_at" javaType="java.time.Instant"/>
+            <arg column="latest_actor_role" javaType="java.lang.String"/>
+            <arg column="total_events" javaType="_int"/>
+            <arg column="member_count" javaType="_int"/>
+            <arg column="next_step_space_id" javaType="java.lang.String"/>
+            <arg column="next_step_activity_id" javaType="java.lang.String"/>
+            <arg column="next_step_event_count" javaType="_int"/>
+        </constructor>
+    </resultMap>
+
+    <resultMap id="latestInteractionRowMap" type="com.zhangspaghetti.babytalk.service.CaregiverInviteRepository$LatestInteractionRow">
+        <constructor>
+            <arg column="space_id" javaType="java.lang.String"/>
+            <arg column="activity_id" javaType="java.lang.String"/>
+            <arg column="reaction_type" javaType="java.lang.String"/>
+            <arg column="client_timestamp" javaType="java.time.Instant"/>
+            <arg column="account_id" javaType="java.lang.String"/>
+        </constructor>
+    </resultMap>
+
+    <resultMap id="activitySummaryRowMap" type="com.zhangspaghetti.babytalk.service.CaregiverInviteRepository$ActivitySummaryRow">
+        <constructor>
+            <arg column="space_id" javaType="java.lang.String"/>
+            <arg column="activity_id" javaType="java.lang.String"/>
+            <arg column="event_count" javaType="_int"/>
+            <arg column="latest_interaction_at" javaType="java.time.Instant"/>
+        </constructor>
+    </resultMap>
+
+    <select id="findActiveMembershipByAccount" resultMap="householdMemberRowMap">
+        select membership_id,
+               household_id,
+               account_id,
+               role,
+               status,
+               invited_by_account_id,
+               joined_at,
+               last_accepted_at
+        from household_members
+        where account_id = #{accountId}
+          and status = 'active'
+    </select>
+
+    <select id="findMembershipByHouseholdAndAccount" resultMap="householdMemberRowMap">
+        select membership_id,
+               household_id,
+               account_id,
+               role,
+               status,
+               invited_by_account_id,
+               joined_at,
+               last_accepted_at
+        from household_members
+        where household_id = #{householdId}
+          and account_id = #{accountId}
+    </select>
+
+    <insert id="insertHousehold">
+        insert into households (
+            household_id,
+            owner_account_id,
+            status,
+            created_at,
+            revoked_at
+        ) values (
+            #{row.householdId},
+            #{row.ownerAccountId},
+            #{row.status},
+            #{row.createdAt},
+            #{row.revokedAt}
+        )
+    </insert>
+
+    <insert id="insertMember">
+        insert into household_members (
+            household_id,
+            account_id,
+            role,
+            status,
+            invited_by_account_id,
+            joined_at,
+            last_accepted_at
+        ) values (
+            #{row.householdId},
+            #{row.accountId},
+            #{row.role},
+            #{row.status},
+            #{row.invitedByAccountId},
+            #{row.joinedAt},
+            #{row.lastAcceptedAt}
+        )
+    </insert>
+
+    <insert id="insertInvite">
+        insert into caregiver_invites (
+            token,
+            household_id,
+            inviter_account_id,
+            target_role,
+            source,
+            status,
+            created_at,
+            expires_at,
+            accepted_at,
+            revoked_at,
+            accepted_by_account_id,
+            failure_reason
+        ) values (
+            #{row.token},
+            #{row.householdId},
+            #{row.inviterAccountId},
+            #{row.targetRole},
+            #{row.source},
+            #{row.status},
+            #{row.createdAt},
+            #{row.expiresAt},
+            #{row.acceptedAt},
+            #{row.revokedAt},
+            #{row.acceptedByAccountId},
+            #{row.failureReason}
+        )
+    </insert>
+
+    <select id="findInviteByToken" resultMap="inviteRowMap">
+        select invite_id,
+               token,
+               household_id,
+               inviter_account_id,
+               target_role,
+               source,
+               status,
+               created_at,
+               expires_at,
+               accepted_at,
+               revoked_at,
+               accepted_by_account_id,
+               failure_reason
+        from caregiver_invites
+        where token = #{token}
+    </select>
+
+    <update id="markInviteAccepted">
+        update caregiver_invites
+        set status = 'accepted',
+            accepted_at = #{acceptedAt},
+            accepted_by_account_id = #{acceptedByAccountId},
+            failure_reason = null
+        where token = #{token}
+          and status = 'pending'
+    </update>
+
+    <update id="markInviteExpired">
+        update caregiver_invites
+        set status = 'expired',
+            failure_reason = #{failureReason}
+        where token = #{token}
+          and status = 'pending'
+    </update>
+
+    <update id="markInviteRevoked">
+        update caregiver_invites
+        set status = 'revoked',
+            revoked_at = #{revokedAt},
+            failure_reason = #{failureReason}
+        where token = #{token}
+          and status = 'pending'
+    </update>
+
+    <update id="updateSharedContext">
+        update household_shared_context
+        set baby_profile_summary = #{row.babyProfileSummary},
+            continuity_summary = #{row.continuitySummary},
+            garden_summary = #{row.gardenSummary},
+            space_id = #{row.spaceId},
+            activity_id = #{row.activityId},
+            latest_interaction_at = #{row.latestInteractionAt},
+            updated_at = #{row.updatedAt},
+            latest_actor_role = #{row.latestActorRole},
+            latest_actor_source = #{row.latestActorSource},
+            latest_actor_result = #{row.latestActorResult},
+            next_step_space_id = #{row.nextStepSpaceId},
+            next_step_activity_id = #{row.nextStepActivityId},
+            next_step_reason = #{row.nextStepReason}
+        where household_id = #{row.householdId}
+    </update>
+
+    <insert id="insertSharedContext">
+        insert into household_shared_context (
+            household_id,
+            baby_profile_summary,
+            continuity_summary,
+            garden_summary,
+            space_id,
+            activity_id,
+            latest_interaction_at,
+            updated_at,
+            latest_actor_role,
+            latest_actor_source,
+            latest_actor_result,
+            next_step_space_id,
+            next_step_activity_id,
+            next_step_reason
+        ) values (
+            #{row.householdId},
+            #{row.babyProfileSummary},
+            #{row.continuitySummary},
+            #{row.gardenSummary},
+            #{row.spaceId},
+            #{row.activityId},
+            #{row.latestInteractionAt},
+            #{row.updatedAt},
+            #{row.latestActorRole},
+            #{row.latestActorSource},
+            #{row.latestActorResult},
+            #{row.nextStepSpaceId},
+            #{row.nextStepActivityId},
+            #{row.nextStepReason}
+        )
+    </insert>
+
+    <select id="findSharedContextByAccount" resultMap="sharedContextViewRowMap">
+        select hm.household_id,
+               hm.role,
+               hm.last_accepted_at,
+               sc.baby_profile_summary,
+               sc.continuity_summary,
+               sc.garden_summary,
+               sc.space_id,
+               sc.activity_id,
+               sc.latest_interaction_at,
+               sc.updated_at,
+               sc.latest_actor_role,
+               sc.latest_actor_source,
+               sc.latest_actor_result,
+               sc.next_step_space_id,
+               sc.next_step_activity_id,
+               sc.next_step_reason
+        from household_members hm
+        join household_shared_context sc on sc.household_id = hm.household_id
+        where hm.account_id = #{accountId}
+          and hm.status = 'active'
+    </select>
+
+    <select id="findHouseholdProjection" resultMap="householdProjectionRowMap">
+        with household_events as (
+            select ie.event_key,
+                   ie.space_id,
+                   ie.activity_id,
+                   ie.reaction_type,
+                   ie.client_timestamp,
+                   hm.role as actor_role
+            from interaction_events ie
+            join household_members hm on hm.account_id = ie.account_id
+            where hm.household_id = #{householdId}
+              and hm.status = 'active'
+        ),
+        latest as (
+            select space_id,
+                   activity_id,
+                   reaction_type,
+                   client_timestamp,
+                   actor_role
+            from household_events
+            order by client_timestamp desc, event_key desc
+            limit 1
+        ),
+        totals as (
+            select count(*) as total_events
+            from household_events
+        ),
+        members as (
+            select count(*) as member_count
+            from household_members
+            where household_id = #{householdId}
+              and status = 'active'
+        ),
+        top_activity as (
+            select space_id,
+                   activity_id,
+                   count(*) as event_count,
+                   max(client_timestamp) as latest_interaction_at
+            from household_events
+            group by space_id, activity_id
+            order by count(*) desc, max(client_timestamp) desc, space_id asc, activity_id asc
+            limit 1
+        )
+        select latest.space_id as latest_space_id,
+               latest.activity_id as latest_activity_id,
+               latest.reaction_type as latest_reaction_type,
+               latest.client_timestamp as latest_interaction_at,
+               latest.actor_role as latest_actor_role,
+               totals.total_events,
+               members.member_count,
+               coalesce(top_activity.space_id, latest.space_id) as next_step_space_id,
+               coalesce(top_activity.activity_id, latest.activity_id) as next_step_activity_id,
+               coalesce(top_activity.event_count, totals.total_events) as next_step_event_count
+        from latest
+        cross join totals
+        cross join members
+        left join top_activity on true
+    </select>
+
+    <select id="findLatestHouseholdInteraction" resultMap="latestInteractionRowMap">
+        select ie.space_id,
+               ie.activity_id,
+               ie.reaction_type,
+               ie.client_timestamp,
+               ie.account_id
+        from interaction_events ie
+        join household_members hm on hm.account_id = ie.account_id
+        where hm.household_id = #{householdId}
+          and hm.status = 'active'
+        order by ie.client_timestamp desc, ie.event_key desc
+        limit 1
+    </select>
+
+    <select id="countHouseholdInteractions" resultType="int">
+        select count(*)
+        from interaction_events ie
+        join household_members hm on hm.account_id = ie.account_id
+        where hm.household_id = #{householdId}
+          and hm.status = 'active'
+    </select>
+
+    <select id="countActiveMembers" resultType="int">
+        select count(*)
+        from household_members
+        where household_id = #{householdId}
+          and status = 'active'
+    </select>
+
+    <select id="findTopActivity" resultMap="activitySummaryRowMap">
+        select ie.space_id,
+               ie.activity_id,
+               count(*) as event_count,
+               max(ie.client_timestamp) as latest_interaction_at
+        from interaction_events ie
+        join household_members hm on hm.account_id = ie.account_id
+        where hm.household_id = #{householdId}
+          and hm.status = 'active'
+        group by ie.space_id, ie.activity_id
+        order by count(*) desc, max(ie.client_timestamp) desc
+        limit 1
+    </select>
+
+    <insert id="insertEvent">
+        insert into caregiver_invite_events (
+            token,
+            household_id,
+            actor_account_id,
+            entrypoint,
+            source,
+            requested_role,
+            platform,
+            result,
+            failure_reason,
+            created_at
+        ) values (
+            #{row.token},
+            #{row.householdId},
+            #{row.actorAccountId},
+            #{row.entrypoint},
+            #{row.source},
+            #{row.requestedRole},
+            #{row.platform},
+            #{row.result},
+            #{row.failureReason},
+            #{row.createdAt}
+        )
+    </insert>
+</mapper>

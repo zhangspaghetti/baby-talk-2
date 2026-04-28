@@ -1,0 +1,63 @@
+# Kind/local overrides for deploy/helm/babytalk-app
+# Expected infra release names from deploy/helm/babytalk-infra:
+# - Postgres: babytalk-infra-postgres:5432
+# - Redis: babytalk-infra-redis-master:6379
+# - MinIO: babytalk-infra-minio:9000
+
+appApi:
+  image:
+    pullPolicy: IfNotPresent
+  resources:
+    requests:
+      cpu: 100m
+      memory: 192Mi
+
+adminApi:
+  image:
+    pullPolicy: IfNotPresent
+  resources:
+    requests:
+      cpu: 100m
+      memory: 192Mi
+
+adminWeb:
+  image:
+    pullPolicy: IfNotPresent
+  ingress:
+    enabled: false
+  resources:
+    requests:
+      cpu: 50m
+      memory: 96Mi
+
+gateway:
+  enabled: true
+  image:
+    pullPolicy: IfNotPresent
+  service:
+    type: ClusterIP
+    port: 8090
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+
+dbMigration:
+  image:
+    pullPolicy: IfNotPresent
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+
+config:
+  BABY_TALK_REDIS_HOST: babytalk-infra-redis-master
+
+secret:
+  BABY_TALK_DB_URL: jdbc:postgresql://babytalk-infra-postgres:5432/babytalk
+  BABY_TALK_DB_USERNAME: babytalk
+  BABY_TALK_DB_PASSWORD: babytalk
+  BABY_TALK_MINIO_ENDPOINT: http://babytalk-infra-minio:9000
+  BABY_TALK_MINIO_ACCESS_KEY: babytalk
+  BABY_TALK_MINIO_SECRET_KEY: babytalk123
+  BABY_TALK_MINIO_BUCKET: babytalk

@@ -1,10 +1,15 @@
 package com.zhangspaghetti.babytalk.service;
 
 import com.zhangspaghetti.babytalk.config.MentorProperties;
+import com.zhangspaghetti.babytalk.palace.HybridCandidate;
 import com.zhangspaghetti.babytalk.palace.MemPalacePromptBuilder;
-import com.zhangspaghetti.babytalk.palace.PalaceSearchService;
+import com.zhangspaghetti.babytalk.palace.PalaceHybridRetrievalService;
 import com.zhangspaghetti.babytalk.palace.PalaceToolProvider;
+import com.zhangspaghetti.babytalk.palace.QueryTrace;
+import com.zhangspaghetti.babytalk.palace.RetrievalRequest;
+import com.zhangspaghetti.babytalk.palace.RetrievalResult;
 import java.net.SocketTimeoutException;
+import java.util.List;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -25,6 +30,8 @@ import org.springframework.ai.chat.memory.ChatMemory;
 public class SpringAiMentorProvider implements MentorProvider {
 
     private static final Logger log = LoggerFactory.getLogger(SpringAiMentorProvider.class);
+    private static final int PRE_RETRIEVAL_MAX_RESULTS = 10;
+    private static final int PRE_RETRIEVAL_MAX_HOPS = 2;
 
     // 保留原始 SYSTEM_PROMPT 常量供向后兼容和测试引用
     static final String SYSTEM_PROMPT = MemPalacePromptBuilder.L0_SYSTEM_PROMPT;
@@ -32,23 +39,23 @@ public class SpringAiMentorProvider implements MentorProvider {
     private final ChatClient chatClient;
     private final MentorProperties properties;
     private final PalaceToolProvider palaceToolProvider;
-    private final PalaceSearchService palaceSearchService;
+    private final PalaceHybridRetrievalService palaceHybridRetrievalService;
 
     /**
      * 完整构造函数：支持 agentic/rag/none 三模式。
      *
-     * @param chatClient          Spring AI ChatClient
-     * @param properties          mentor 配置
-     * @param palaceToolProvider  工具提供者（agentic 模式用，可为 null）
-     * @param palaceSearchService 知识宫殿搜索服务（L1 预检索用，可为 null）
+     * @param chatClient                    Spring AI ChatClient
+     * @param properties                    mentor 配置
+     * @param palaceToolProvider            工具提供者（agentic 模式用，可为 null）
+     * @param palaceHybridRetrievalService  混合检索服务（rag / agentic 模式 L1 预检索用，可为 null）
      */
     public SpringAiMentorProvider(ChatClient chatClient, MentorProperties properties,
                                    PalaceToolProvider palaceToolProvider,
-                                   PalaceSearchService palaceSearchService) {
+                                   PalaceHybridRetrievalService palaceHybridRetrievalService) {
         this.chatClient = chatClient;
         this.properties = properties;
         this.palaceToolProvider = palaceToolProvider;
-        this.palaceSearchService = palaceSearchService;
+        this.palaceHybridRetrievalService = palaceHybridRetrievalService;
     }
 
     /**
@@ -61,8 +68,8 @@ public class SpringAiMentorProvider implements MentorProvider {
     @Override
     public ProviderResponse respond(ProviderRequest request) {
         String searchMode = properties.effectiveSearchMode();
-        String systemPrompt = MemPalacePromptBuilder.buildSystemPrompt(
-                searchMode, request.prompt(), palaceSearchService);
+        List<String> preRetrievedEvidence = preRetrieveEvidence(searchMode, request);
+        String systemPrompt = MemPalacePromptBuilder.buildSystemPrompt(searchMode, preRetrievedEvidence);
 
         String content;
         try {
@@ -79,6 +86,77 @@ public class SpringAiMentorProvider implements MentorProvider {
 
         var trimmed = trimToMax(content, properties.responseMaxLength());
         return new ProviderResponse(trimmed, summarize(trimmed));
+    }
+
+    /**
+     * 根据 searchMode 决定是否执行 L1 预检索。
+     */
+    private List<String> preRetrieveEvidence(String searchMode, ProviderRequest request) {
+        if (!requiresPreRetrieval(searchMode)) {
+            return List.of();
+        }
+        if (palaceHybridRetrievalService == null) {
+            log.warn("search-mode={} requires pre-retrieval but PalaceHybridRetrievalService is unavailable", searchMode);
+            return List.of();
+        }
+
+        RetrievalRequest retrievalRequest = new RetrievalRequest(
+                request.prompt(),
+                null,
+                null,
+                request.childAgeMonths(),
+                PRE_RETRIEVAL_MAX_RESULTS,
+                PRE_RETRIEVAL_MAX_HOPS);
+
+        try {
+            RetrievalResult retrievalResult = palaceHybridRetrievalService.retrieve(retrievalRequest);
+            QueryTrace trace = retrievalResult.trace();
+            log.info(
+                    "hybrid pre-retrieval complete: mode={}, candidates={}, trace.present={}, temporalRule='{}', projectionVersion='{}'",
+                    searchMode,
+                    retrievalResult.rankedCandidates().size(),
+                    trace != null,
+                    trace == null ? "missing" : trace.temporalRuleApplied(),
+                    trace == null ? "missing" : trace.projectionVersionUsed());
+
+            return retrievalResult.rankedCandidates().stream()
+                    .map(this::formatEvidence)
+                    .filter(content -> content != null && !content.isBlank())
+                    .limit(PRE_RETRIEVAL_MAX_RESULTS)
+                    .toList();
+        } catch (Exception e) {
+            log.warn(
+                    "hybrid pre-retrieval failed: mode={}, childAgeMonths={}, prompt.length={}, reason={}",
+                    searchMode,
+                    request.childAgeMonths(),
+                    request.prompt() == null ? 0 : request.prompt().length(),
+                    sanitize(e.getMessage()));
+            return List.of();
+        }
+    }
+
+    private boolean requiresPreRetrieval(String searchMode) {
+        return "rag".equals(searchMode) || "agentic".equals(searchMode);
+    }
+
+    private String formatEvidence(HybridCandidate candidate) {
+        if (candidate == null || candidate.content() == null || candidate.content().isBlank()) {
+            return "";
+        }
+        String sourceBook = candidate.sourceBook();
+        String ageRange = candidate.ageRangeRaw();
+        StringBuilder sb = new StringBuilder();
+        if (sourceBook != null && !sourceBook.isBlank()) {
+            sb.append("【").append(sourceBook).append("】");
+        }
+        if (ageRange != null && !ageRange.isBlank()) {
+            sb.append("（适用年龄：").append(ageRange).append("）");
+        }
+        if (!sb.isEmpty()) {
+            sb.append("：");
+        }
+        sb.append(candidate.content().trim());
+        return sb.toString();
     }
 
     /**

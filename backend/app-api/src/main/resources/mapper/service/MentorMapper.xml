@@ -1,0 +1,177 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.zhangspaghetti.babytalk.service.MentorMapper">
+
+    <resultMap id="turnRowMap" type="com.zhangspaghetti.babytalk.service.MentorRepository$TurnRow">
+        <constructor>
+            <arg column="turn_id" javaType="java.lang.String"/>
+            <arg column="correlation_id" javaType="java.lang.String"/>
+            <arg column="installation_id" javaType="java.lang.String"/>
+            <arg column="session_id_hint" javaType="java.lang.String"/>
+            <arg column="account_id_hint" javaType="java.lang.String"/>
+            <arg column="surface" javaType="java.lang.String"/>
+            <arg column="mode" javaType="java.lang.String"/>
+            <arg column="result" javaType="java.lang.String"/>
+            <arg column="phase" javaType="java.lang.String"/>
+            <arg column="request_summary" javaType="java.lang.String"/>
+            <arg column="response_summary" javaType="java.lang.String"/>
+            <arg column="response_text" javaType="java.lang.String"/>
+            <arg column="provider_mode" javaType="java.lang.String"/>
+            <arg column="blocked_fallback" javaType="_boolean"/>
+            <arg column="retryable" javaType="_boolean"/>
+            <arg column="created_at" javaType="java.time.Instant"/>
+        </constructor>
+    </resultMap>
+
+    <resultMap id="auditRowMap" type="com.zhangspaghetti.babytalk.service.MentorRepository$AuditRow">
+        <constructor>
+            <arg column="correlation_id" javaType="java.lang.String"/>
+            <arg column="installation_id" javaType="java.lang.String"/>
+            <arg column="session_id_hint" javaType="java.lang.String"/>
+            <arg column="account_id_hint" javaType="java.lang.String"/>
+            <arg column="event_type" javaType="java.lang.String"/>
+            <arg column="phase" javaType="java.lang.String"/>
+            <arg column="result" javaType="java.lang.String"/>
+            <arg column="request_summary" javaType="java.lang.String"/>
+            <arg column="response_summary" javaType="java.lang.String"/>
+            <arg column="reason" javaType="java.lang.String"/>
+            <arg column="failure_code" javaType="java.lang.String"/>
+            <arg column="retryable" javaType="_boolean"/>
+            <arg column="rate_limited" javaType="_boolean"/>
+            <arg column="created_at" javaType="java.time.Instant"/>
+        </constructor>
+    </resultMap>
+
+    <select id="countRequestsSince" resultType="int">
+        select count(*)
+        from mentor_audit_logs
+        where installation_id = #{installationId}
+          and event_type in ('chat_requested', 'practice_requested')
+          and created_at &gt;= #{since}
+    </select>
+
+    <insert id="insertTurn">
+        insert into mentor_turns (
+            turn_id,
+            correlation_id,
+            installation_id,
+            session_id_hint,
+            account_id_hint,
+            surface,
+            mode,
+            result,
+            phase,
+            request_summary,
+            response_summary,
+            response_text,
+            provider_mode,
+            blocked_fallback,
+            retryable,
+            created_at
+        ) values (
+            #{row.turnId},
+            #{row.correlationId},
+            #{row.installationId},
+            #{row.sessionIdHint},
+            #{row.accountIdHint},
+            #{row.surface},
+            #{row.mode},
+            #{row.result},
+            #{row.phase},
+            #{row.requestSummary},
+            #{row.responseSummary},
+            #{row.responseText},
+            #{row.providerMode},
+            #{row.blockedFallback},
+            #{row.retryable},
+            #{row.createdAt}
+        )
+    </insert>
+
+    <insert id="insertAudit">
+        insert into mentor_audit_logs (
+            correlation_id,
+            installation_id,
+            session_id_hint,
+            account_id_hint,
+            event_type,
+            phase,
+            result,
+            request_summary,
+            response_summary,
+            reason,
+            failure_code,
+            retryable,
+            rate_limited,
+            created_at
+        ) values (
+            #{row.correlationId},
+            #{row.installationId},
+            #{row.sessionIdHint},
+            #{row.accountIdHint},
+            #{row.eventType},
+            #{row.phase},
+            #{row.result},
+            #{row.requestSummary},
+            #{row.responseSummary},
+            #{row.reason},
+            #{row.failureCode},
+            #{row.retryable},
+            #{row.rateLimited},
+            #{row.createdAt}
+        )
+    </insert>
+
+    <select id="findTurnByCorrelationId" resultMap="turnRowMap">
+        select turn_id,
+               correlation_id,
+               installation_id,
+               session_id_hint,
+               account_id_hint,
+               surface,
+               mode,
+               result,
+               phase,
+               request_summary,
+               response_summary,
+               response_text,
+               provider_mode,
+               blocked_fallback,
+               retryable,
+               created_at
+        from mentor_turns
+        where correlation_id = #{correlationId}
+    </select>
+
+    <select id="listAuditRowsByCorrelationId" resultMap="auditRowMap">
+        select correlation_id,
+               installation_id,
+               session_id_hint,
+               account_id_hint,
+               event_type,
+               phase,
+               result,
+               request_summary,
+               response_summary,
+               reason,
+               failure_code,
+               retryable,
+               rate_limited,
+               created_at
+        from mentor_audit_logs
+        where correlation_id = #{correlationId}
+        order by audit_id asc
+    </select>
+
+    <select id="countTurns" resultType="int">
+        select count(*)
+        from mentor_turns
+    </select>
+
+    <select id="countAuditRows" resultType="int">
+        select count(*)
+        from mentor_audit_logs
+    </select>
+</mapper>

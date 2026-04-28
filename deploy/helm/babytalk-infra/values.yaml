@@ -1,0 +1,29 @@
+postgres:
+  auth:
+    database: babytalk
+    username: babytalk
+    password: babytalk
+    postgresPassword: babytalk
+  primary:
+    persistence:
+      enabled: false
+
+redis:
+  auth:
+    enabled: false
+  master:
+    persistence:
+      enabled: false
+  replica:
+    replicaCount: 0
+    persistence:
+      enabled: false
+
+minio:
+  auth:
+    rootUser: babytalk
+    rootPassword: babytalk123
+  defaultBuckets: babytalk
+  persistence:
+    enabled: false
+  mode: standalone

@@ -1,11 +1,8 @@
 import 'dart:convert';
-import 'dart:io';
 
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:mobile/features/account/domain/models/account_consent_state.dart';
 import 'package:mobile/features/account/domain/models/account_session.dart';
-import 'package:path_provider/path_provider.dart';
-
-typedef AccountDirectoryResolver = Future<Directory> Function();
 
 class AccountLocalStoreException implements Exception {
   const AccountLocalStoreException(this.message);
@@ -187,23 +184,20 @@ class AccountLocalSnapshot {
 
 class AccountLocalStore {
   AccountLocalStore({
-    AccountDirectoryResolver? directoryResolver,
-    this.fileName = 'account_state.json',
-  }) : _directoryResolver = directoryResolver ?? getApplicationSupportDirectory;
+    FlutterSecureStorage? secureStorage,
+    this.storageKey = _defaultKey,
+  }) : _secureStorage = secureStorage ?? const FlutterSecureStorage();
 
-  final AccountDirectoryResolver _directoryResolver;
-  final String fileName;
+  static const String _defaultKey = 'account_state';
+
+  final FlutterSecureStorage _secureStorage;
+  final String storageKey;
 
   Future<AccountLocalSnapshot> read() async {
     try {
-      final file = await _resolveFile();
-      if (!await file.exists()) {
+      final raw = await _secureStorage.read(key: storageKey);
+      if (raw == null || raw.trim().isEmpty) {
         return AccountLocalSnapshot.localOnly;
-      }
-
-      final raw = await file.readAsString();
-      if (raw.trim().isEmpty) {
-        throw const FormatException('account snapshot 为空。');
       }
 
       final decoded = jsonDecode(raw);
@@ -220,9 +214,10 @@ class AccountLocalStore {
 
   Future<void> write(AccountLocalSnapshot snapshot) async {
     try {
-      final file = await _resolveFile();
-      await file.parent.create(recursive: true);
-      await file.writeAsString(jsonEncode(snapshot.toJsonMap()), flush: true);
+      await _secureStorage.write(
+        key: storageKey,
+        value: jsonEncode(snapshot.toJsonMap()),
+      );
     } catch (error) {
       throw AccountLocalStoreException('写入 account snapshot 失败：$error');
     }
@@ -230,18 +225,10 @@ class AccountLocalStore {
 
   Future<void> deleteIfExists() async {
     try {
-      final file = await _resolveFile();
-      if (await file.exists()) {
-        await file.delete();
-      }
+      await _secureStorage.delete(key: storageKey);
     } catch (error) {
       throw AccountLocalStoreException('清理 account snapshot 失败：$error');
     }
-  }
-
-  Future<File> _resolveFile() async {
-    final directory = await _directoryResolver();
-    return File('${directory.path}${Platform.pathSeparator}$fileName');
   }
 }
 

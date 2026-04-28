@@ -1,0 +1,14 @@
+apiVersion: v2
+name: babytalk-app
+description: BabyTalk application release — gateway stub, app-api, admin-api, admin-web, db-migration
+type: application
+version: 0.1.0
+appVersion: "1.0.0"
+maintainers:
+  - name: BabyTalk Team
+keywords:
+  - babytalk
+  - gateway
+  - spring-boot
+  - nginx
+  - admin-web

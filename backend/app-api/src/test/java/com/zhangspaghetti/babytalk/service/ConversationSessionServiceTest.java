@@ -1,17 +1,12 @@
 package com.zhangspaghetti.babytalk.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 
 import com.zhangspaghetti.babytalk.config.MentorProperties;
-import java.sql.Timestamp;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.Collections;
 import java.util.List;
-import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -19,13 +14,12 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.jdbc.core.JdbcTemplate;
 
 @ExtendWith(MockitoExtension.class)
 class ConversationSessionServiceTest {
 
     @Mock
-    private JdbcTemplate jdbcTemplate;
+    private ConversationSessionMapper conversationSessionMapper;
 
     private ConversationSessionService service;
 
@@ -56,7 +50,7 @@ class ConversationSessionServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new ConversationSessionService(jdbcTemplate, makeProperties(Duration.ofMinutes(30)));
+        service = new ConversationSessionService(conversationSessionMapper, makeProperties(Duration.ofMinutes(30)));
     }
 
     @Nested
@@ -68,7 +62,6 @@ class ConversationSessionServiceTest {
         void nullConversationIdGeneratesUuid() {
             var result = service.resolveConversationId(null);
             assertThat(result).isNotNull().isNotBlank();
-            // UUID 格式验证
             assertThat(result).matches("[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}");
         }
 
@@ -96,8 +89,7 @@ class ConversationSessionServiceTest {
         @Test
         @DisplayName("无历史记录 → 返回原 ID（首次使用）")
         void noHistoryReturnsOriginalId() {
-            when(jdbcTemplate.queryForList(anyString(), eq("conv-123")))
-                    .thenReturn(Collections.emptyList());
+            when(conversationSessionMapper.findLastMessageTimestamp("conv-123")).thenReturn(null);
 
             var result = service.resolveConversationId("conv-123");
             assertThat(result).isEqualTo("conv-123");
@@ -106,9 +98,8 @@ class ConversationSessionServiceTest {
         @Test
         @DisplayName("未超时 → 返回原 ID")
         void notExpiredReturnsOriginalId() {
-            var recentTimestamp = Timestamp.from(Instant.now().minus(Duration.ofMinutes(10)));
-            when(jdbcTemplate.queryForList(anyString(), eq("conv-active")))
-                    .thenReturn(List.of(Map.of("timestamp", recentTimestamp)));
+            when(conversationSessionMapper.findLastMessageTimestamp("conv-active"))
+                    .thenReturn(Instant.now().minus(Duration.ofMinutes(10)));
 
             var result = service.resolveConversationId("conv-active");
             assertThat(result).isEqualTo("conv-active");
@@ -117,9 +108,8 @@ class ConversationSessionServiceTest {
         @Test
         @DisplayName("超时 → 生成新 UUID")
         void expiredGeneratesNewUuid() {
-            var oldTimestamp = Timestamp.from(Instant.now().minus(Duration.ofMinutes(45)));
-            when(jdbcTemplate.queryForList(anyString(), eq("conv-expired")))
-                    .thenReturn(List.of(Map.of("timestamp", oldTimestamp)));
+            when(conversationSessionMapper.findLastMessageTimestamp("conv-expired"))
+                    .thenReturn(Instant.now().minus(Duration.ofMinutes(45)));
 
             var result = service.resolveConversationId("conv-expired");
             assertThat(result).isNotEqualTo("conv-expired");
@@ -136,21 +126,17 @@ class ConversationSessionServiceTest {
         void overlyLongConversationIdIsTruncated() {
             var longId = "a".repeat(200);
             var truncated = "a".repeat(128);
-            when(jdbcTemplate.queryForList(anyString(), eq(truncated)))
-                    .thenReturn(Collections.emptyList());
+            when(conversationSessionMapper.findLastMessageTimestamp(truncated)).thenReturn(null);
 
             var result = service.resolveConversationId(longId);
-            // 截断后作为首次使用返回
             assertThat(result).isEqualTo(truncated);
         }
 
         @Test
         @DisplayName("正好在 30 分钟边界（29分59秒前）→ 不超时")
         void exactlyAtBoundaryNotExpired() {
-            // 29 分 59 秒前 → 未超时
-            var borderTimestamp = Timestamp.from(Instant.now().minus(Duration.ofMinutes(29).plusSeconds(59)));
-            when(jdbcTemplate.queryForList(anyString(), eq("conv-border")))
-                    .thenReturn(List.of(Map.of("timestamp", borderTimestamp)));
+            when(conversationSessionMapper.findLastMessageTimestamp("conv-border"))
+                    .thenReturn(Instant.now().minus(Duration.ofMinutes(29).plusSeconds(59)));
 
             var result = service.resolveConversationId("conv-border");
             assertThat(result).isEqualTo("conv-border");
@@ -159,9 +145,8 @@ class ConversationSessionServiceTest {
         @Test
         @DisplayName("正好在 30 分钟边界（31分钟前）→ 超时")
         void justPastBoundaryExpired() {
-            var pastTimestamp = Timestamp.from(Instant.now().minus(Duration.ofMinutes(31)));
-            when(jdbcTemplate.queryForList(anyString(), eq("conv-past")))
-                    .thenReturn(List.of(Map.of("timestamp", pastTimestamp)));
+            when(conversationSessionMapper.findLastMessageTimestamp("conv-past"))
+                    .thenReturn(Instant.now().minus(Duration.ofMinutes(31)));
 
             var result = service.resolveConversationId("conv-past");
             assertThat(result).isNotEqualTo("conv-past");

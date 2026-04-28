@@ -392,15 +392,6 @@ export default function UsersPage() {
 
   return (
     <Space direction="vertical" size="large" style={{ width: '100%' }} data-testid="users-page">
-      <Space direction="vertical" size={4}>
-        <Typography.Title level={3} style={{ marginBottom: 0 }}>
-          Users Workbench
-        </Typography.Title>
-        <Typography.Paragraph type="secondary" style={{ marginBottom: 0 }}>
-          列表、分页、过滤与 selected account 都以 URL query 为真相源；list/detail/disable 的失败态会直接留在当前工作面。
-        </Typography.Paragraph>
-      </Space>
-
       <Card size="small" title="Current admin / URL context">
         <Space direction="vertical" size={10} style={{ width: '100%' }}>
           <Space wrap>

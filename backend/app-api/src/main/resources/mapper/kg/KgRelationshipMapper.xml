@@ -1,0 +1,128 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.zhangspaghetti.babytalk.kg.KgRelationshipMapper">
+
+    <resultMap id="kgRelationshipMap" type="com.zhangspaghetti.babytalk.kg.KgRelationship">
+        <constructor>
+            <arg column="id"
+                 javaType="java.util.UUID"
+                 jdbcType="OTHER"
+                 typeHandler="com.zhangspaghetti.babytalk.mybatis.UuidTypeHandler"/>
+            <arg column="source_entity_id"
+                 javaType="java.util.UUID"
+                 jdbcType="OTHER"
+                 typeHandler="com.zhangspaghetti.babytalk.mybatis.UuidTypeHandler"/>
+            <arg column="target_entity_id"
+                 javaType="java.util.UUID"
+                 jdbcType="OTHER"
+                 typeHandler="com.zhangspaghetti.babytalk.mybatis.UuidTypeHandler"/>
+            <arg column="relation_type" javaType="java.lang.String"/>
+            <arg column="source_book" javaType="java.lang.String"/>
+            <arg column="confidence" javaType="java.math.BigDecimal"/>
+            <arg column="context_note" javaType="java.lang.String"/>
+            <arg column="created_at" javaType="java.time.Instant"/>
+            <arg column="updated_at" javaType="java.time.Instant"/>
+        </constructor>
+    </resultMap>
+
+    <insert id="insert">
+        insert into kg_relationships (
+            id,
+            source_entity_id,
+            target_entity_id,
+            relation_type,
+            source_book,
+            confidence,
+            context_note,
+            created_at,
+            updated_at
+        ) values (
+            #{relationship.id, jdbcType=OTHER, typeHandler=com.zhangspaghetti.babytalk.mybatis.UuidTypeHandler},
+            #{relationship.sourceEntityId, jdbcType=OTHER, typeHandler=com.zhangspaghetti.babytalk.mybatis.UuidTypeHandler},
+            #{relationship.targetEntityId, jdbcType=OTHER, typeHandler=com.zhangspaghetti.babytalk.mybatis.UuidTypeHandler},
+            #{relationship.relationType},
+            #{relationship.sourceBook},
+            #{relationship.confidence},
+            #{relationship.contextNote},
+            #{relationship.createdAt},
+            #{relationship.updatedAt}
+        )
+    </insert>
+
+    <select id="findById" resultMap="kgRelationshipMap">
+        select id,
+               source_entity_id,
+               target_entity_id,
+               relation_type,
+               source_book,
+               confidence,
+               context_note,
+               created_at,
+               updated_at
+        from kg_relationships
+        where id = #{id, jdbcType=OTHER, typeHandler=com.zhangspaghetti.babytalk.mybatis.UuidTypeHandler}
+    </select>
+
+    <select id="findBySourceEntityId" resultMap="kgRelationshipMap">
+        select id,
+               source_entity_id,
+               target_entity_id,
+               relation_type,
+               source_book,
+               confidence,
+               context_note,
+               created_at,
+               updated_at
+        from kg_relationships
+        where source_entity_id = #{sourceEntityId, jdbcType=OTHER, typeHandler=com.zhangspaghetti.babytalk.mybatis.UuidTypeHandler}
+        order by created_at
+    </select>
+
+    <select id="findByTargetEntityId" resultMap="kgRelationshipMap">
+        select id,
+               source_entity_id,
+               target_entity_id,
+               relation_type,
+               source_book,
+               confidence,
+               context_note,
+               created_at,
+               updated_at
+        from kg_relationships
+        where target_entity_id = #{targetEntityId, jdbcType=OTHER, typeHandler=com.zhangspaghetti.babytalk.mybatis.UuidTypeHandler}
+        order by created_at
+    </select>
+
+    <select id="findByRelationType" resultMap="kgRelationshipMap">
+        select id,
+               source_entity_id,
+               target_entity_id,
+               relation_type,
+               source_book,
+               confidence,
+               context_note,
+               created_at,
+               updated_at
+        from kg_relationships
+        where relation_type = #{relationType}
+        order by created_at
+    </select>
+
+    <select id="findContradictionCandidatesForEntity" resultMap="kgRelationshipMap">
+        select id,
+               source_entity_id,
+               target_entity_id,
+               relation_type,
+               source_book,
+               confidence,
+               context_note,
+               created_at,
+               updated_at
+        from kg_relationships
+        where target_entity_id = #{targetEntityId, jdbcType=OTHER, typeHandler=com.zhangspaghetti.babytalk.mybatis.UuidTypeHandler}
+          and relation_type = 'supports'
+        order by source_book, created_at
+    </select>
+</mapper>

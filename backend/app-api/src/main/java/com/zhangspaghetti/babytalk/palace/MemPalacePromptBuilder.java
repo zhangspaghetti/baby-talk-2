@@ -129,6 +129,42 @@ public class MemPalacePromptBuilder {
     }
 
     /**
+     * 使用调用方已经准备好的 L1 证据构建系统 prompt。
+     */
+    public static String buildSystemPrompt(String searchMode, List<String> preRetrievedEvidence, int l1TopK) {
+        String mode = normalizeMode(searchMode);
+        log.info("search-mode={}, pre-retrieved evidence count={}, L1 topK={}",
+                mode,
+                preRetrievedEvidence == null ? 0 : preRetrievedEvidence.size(),
+                l1TopK);
+
+        if ("none".equals(mode)) {
+            log.info("prompt.length={}", L0_SYSTEM_PROMPT.length());
+            return L0_SYSTEM_PROMPT;
+        }
+
+        StringBuilder sb = new StringBuilder(L0_SYSTEM_PROMPT);
+        String l1Section = buildL1SectionFromEvidence(preRetrievedEvidence, l1TopK);
+        if (!l1Section.isEmpty()) {
+            sb.append(l1Section);
+        }
+        if ("agentic".equals(mode)) {
+            sb.append(L2_TOOL_GUIDANCE);
+        }
+
+        String result = sb.toString();
+        log.info("prompt.length={}", result.length());
+        return result;
+    }
+
+    /**
+     * 便捷方法：使用默认 L1 topK。
+     */
+    public static String buildSystemPrompt(String searchMode, List<String> preRetrievedEvidence) {
+        return buildSystemPrompt(searchMode, preRetrievedEvidence, DEFAULT_L1_TOP_K);
+    }
+
+    /**
      * 构建 Practice 练习生成专用系统 prompt。
      * 复用 L1 预检索逻辑注入知识宫殿内容，拼接到 PRACTICE_SYSTEM_PROMPT 后。
      *
@@ -198,6 +234,27 @@ public class MemPalacePromptBuilder {
     }
 
     /**
+     * 构建 L1 预注入段落 — 使用调用方已经检索好的证据片段。
+     */
+    static String buildL1SectionFromEvidence(List<String> preRetrievedEvidence, int l1TopK) {
+        if (preRetrievedEvidence == null || preRetrievedEvidence.isEmpty()) {
+            return "";
+        }
+
+        String knowledgeBlock = preRetrievedEvidence.stream()
+                .filter(item -> item != null && !item.isBlank())
+                .limit(l1TopK)
+                .map(MemPalacePromptBuilder::formatEvidenceForPrompt)
+                .collect(Collectors.joining("\n"));
+
+        if (knowledgeBlock.isBlank()) {
+            return "";
+        }
+
+        return "\n\n【参考知识（来自知识宫殿）】\n" + knowledgeBlock;
+    }
+
+    /**
      * 从 contextSummary 中提取用于预检索的查询文本。
      * 如果 contextSummary 为空，返回空字符串。
      */
@@ -218,12 +275,7 @@ public class MemPalacePromptBuilder {
         Map<String, Object> meta = doc.getMetadata();
         String sourceBook = String.valueOf(meta.getOrDefault("source_book", "未知来源"));
         String ageRange = String.valueOf(meta.getOrDefault("age_range", ""));
-        String content = doc.getText();
-
-        // 截取内容前 300 字符避免 prompt 过长
-        if (content != null && content.length() > 300) {
-            content = content.substring(0, 300) + "…";
-        }
+        String content = truncateForPrompt(doc.getText());
 
         StringBuilder sb = new StringBuilder();
         sb.append("- 【").append(sourceBook).append("】");
@@ -232,6 +284,23 @@ public class MemPalacePromptBuilder {
         }
         sb.append("：").append(content);
         return sb.toString();
+    }
+
+    /**
+     * 将预检索证据文本格式化为 prompt 中的引用条目。
+     */
+    static String formatEvidenceForPrompt(String evidence) {
+        return "- " + truncateForPrompt(evidence == null ? "" : evidence.trim());
+    }
+
+    private static String truncateForPrompt(String content) {
+        if (content == null) {
+            return "";
+        }
+        if (content.length() > 300) {
+            return content.substring(0, 300) + "…";
+        }
+        return content;
     }
 
     /**

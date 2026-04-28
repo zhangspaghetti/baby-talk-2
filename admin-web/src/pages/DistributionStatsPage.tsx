@@ -259,16 +259,6 @@ export function DistributionStatsPage() {
 
   return (
     <Space direction="vertical" size="large" style={{ width: '100%' }} data-testid="distribution-stats-page">
-      <Space direction="vertical" size={4}>
-        <Typography.Title level={3} style={{ marginBottom: 0 }}>
-          Distribution Stats Workspace
-        </Typography.Title>
-        <Typography.Paragraph type="secondary" style={{ marginBottom: 0 }}>
-          URL query 是当前过滤真相源；channel 只作用于 release / share_card handoff，share 原始漏斗不带
-          channel；浏览器权限继续只信任 live `/api/admin/me`。
-        </Typography.Paragraph>
-      </Space>
-
       <Card size="small" title="Current admin / filter context">
         <Space direction="vertical" size={10} style={{ width: '100%' }}>
           <Space wrap>

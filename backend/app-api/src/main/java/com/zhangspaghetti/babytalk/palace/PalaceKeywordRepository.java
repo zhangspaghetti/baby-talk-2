@@ -2,9 +2,7 @@ package com.zhangspaghetti.babytalk.palace;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.util.ArrayList;
+import com.zhangspaghetti.babytalk.palace.PalaceKeywordMapper.ChunkRow;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -12,8 +10,6 @@ import java.util.Optional;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.jdbc.core.RowMapper;
 import org.springframework.stereotype.Repository;
 
 /**
@@ -35,11 +31,11 @@ public class PalaceKeywordRepository {
     private static final int DEFAULT_LIMIT = 5;
     private static final int MAX_LIMIT = 50;
 
-    private final JdbcTemplate jdbc;
+    private final PalaceKeywordMapper palaceKeywordMapper;
     private final ObjectMapper objectMapper;
 
-    public PalaceKeywordRepository(JdbcTemplate jdbc, ObjectMapper objectMapper) {
-        this.jdbc = jdbc;
+    public PalaceKeywordRepository(PalaceKeywordMapper palaceKeywordMapper, ObjectMapper objectMapper) {
+        this.palaceKeywordMapper = palaceKeywordMapper;
         this.objectMapper = objectMapper;
     }
 
@@ -59,39 +55,22 @@ public class PalaceKeywordRepository {
         }
 
         int safeLimit = (limit <= 0 || limit > MAX_LIMIT) ? DEFAULT_LIMIT : limit;
-
-        // 动态构建 SQL WHERE 子句
-        StringBuilder sql = new StringBuilder("""
-                SELECT id, content, metadata,
-                       ts_rank(content_tsv, plainto_tsquery('simple', ?)) AS rank
-                FROM vector_store
-                WHERE content_tsv @@ plainto_tsquery('simple', ?)
-                """);
-        List<Object> params = new ArrayList<>();
-        params.add(keywords.trim());
-        params.add(keywords.trim());
-
-        if (wing != null && !wing.isBlank()) {
-            sql.append("  AND metadata->>'wing' = ?\n");
-            params.add(wing.trim().toLowerCase());
-        }
-
-        if (room != null && !room.isBlank()) {
-            sql.append("  AND metadata->>'room' = ?\n");
-            params.add(room.trim().toLowerCase());
-        }
-
-        sql.append("ORDER BY rank DESC\nLIMIT ?");
-        params.add(safeLimit);
+        String normalizedWing = wing == null || wing.isBlank() ? null : wing.trim().toLowerCase();
+        String normalizedRoom = room == null || room.isBlank() ? null : room.trim().toLowerCase();
+        String trimmedKeywords = keywords.trim();
 
         log.info("关键词检索: keywords='{}', wing='{}', room='{}', limit={}",
                 keywords, wing, room, safeLimit);
 
-        List<ChunkResult> results = jdbc.query(
-                sql.toString(),
-                chunkResultRowMapper(),
-                params.toArray()
-        );
+        List<ChunkResult> results = palaceKeywordMapper.searchByKeywords(
+                        trimmedKeywords,
+                        normalizedWing,
+                        normalizedRoom,
+                        safeLimit
+                )
+                .stream()
+                .map(this::mapChunkResult)
+                .toList();
 
         log.info("关键词检索完成: 返回 {} 条结果", results.size());
         return results;
@@ -109,29 +88,17 @@ public class PalaceKeywordRepository {
             return Optional.empty();
         }
 
-        List<ChunkResult> results = jdbc.query(
-                "SELECT id, content, metadata FROM vector_store WHERE id = ?",
-                chunkResultRowMapper(),
-                id
-        );
-
-        if (results.isEmpty()) {
+        ChunkRow row = palaceKeywordMapper.readChunkById(id);
+        if (row == null) {
             log.debug("readChunkById: 未找到 id={}", id);
+            return Optional.empty();
         }
-        return results.stream().findFirst();
+        return Optional.of(mapChunkResult(row));
     }
 
-    private RowMapper<ChunkResult> chunkResultRowMapper() {
-        return (rs, rowNum) -> mapChunkResult(rs);
-    }
-
-    private ChunkResult mapChunkResult(ResultSet rs) throws SQLException {
-        UUID id = UUID.fromString(rs.getString("id"));
-        String content = rs.getString("content");
-        String metadataJson = rs.getString("metadata");
-
-        Map<String, Object> metadata = parseMetadata(metadataJson);
-        return new ChunkResult(id, content, metadata);
+    private ChunkResult mapChunkResult(ChunkRow row) {
+        Map<String, Object> metadata = parseMetadata(row.metadataJson());
+        return new ChunkResult(row.id(), row.content(), metadata, row.keywordScore());
     }
 
     private Map<String, Object> parseMetadata(String json) {
@@ -149,9 +116,10 @@ public class PalaceKeywordRepository {
     /**
      * Chunk 检索结果。
      *
-     * @param id       chunk UUID
-     * @param content  原始文本内容
-     * @param metadata 结构化元数据（wing, room, source_book 等）
+     * @param id           chunk UUID
+     * @param content      原始文本内容
+     * @param metadata     结构化元数据（wing, room, source_book 等）
+     * @param keywordScore PostgreSQL ts_rank 得分（readChunkById 时可为 null）
      */
-    public record ChunkResult(UUID id, String content, Map<String, Object> metadata) {}
+    public record ChunkResult(UUID id, String content, Map<String, Object> metadata, Double keywordScore) {}
 }

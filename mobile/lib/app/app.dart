@@ -734,7 +734,7 @@ class _BabyTalkAppState extends State<BabyTalkApp> {
     final connectivity = Connectivity();
     final authDependencies = _resolveSharedConsumerAuthDependencies();
     return AccountRepository(
-      localStore: AccountLocalStore(directoryResolver: () async => directory),
+      localStore: AccountLocalStore(),
       practiceRepository: practiceRepository,
       apiService: authDependencies.accountApiService,
       authenticatedApiClient: authDependencies.authenticatedApiClient,

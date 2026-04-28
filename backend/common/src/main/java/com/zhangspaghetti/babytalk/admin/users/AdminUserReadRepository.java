@@ -1,49 +1,20 @@
 package com.zhangspaghetti.babytalk.admin.users;
 
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.sql.Timestamp;
 import java.time.Instant;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
-import org.springframework.dao.EmptyResultDataAccessException;
-import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.jdbc.core.RowMapper;
 
 public class AdminUserReadRepository {
 
-    private final JdbcTemplate jdbcTemplate;
+    private final AdminUserReadMapper adminUserReadMapper;
 
-    public AdminUserReadRepository(JdbcTemplate jdbcTemplate) {
-        this.jdbcTemplate = jdbcTemplate;
+    public AdminUserReadRepository(AdminUserReadMapper adminUserReadMapper) {
+        this.adminUserReadMapper = adminUserReadMapper;
     }
 
     public UserPage listUsers(UserListQuery query) {
-        var whereClause = new StringBuilder();
-        var whereArgs = new ArrayList<Object>();
-        appendListFilters(query, whereClause, whereArgs);
-
-        var total = jdbcTemplate.queryForObject(
-                "select count(*) from accounts" + whereClause,
-                Integer.class,
-                whereArgs.toArray()
-        );
-
-        var listArgs = new ArrayList<>(whereArgs);
-        listArgs.add(query.limit());
-        listArgs.add(query.offset());
-        var items = jdbcTemplate.query(
-                """
-                select account_id, phone_number, status, latest_consent_status, created_at, deleted_at
-                from accounts
-                """ + whereClause + """
-                order by account_id asc
-                limit ? offset ?
-                """,
-                this::mapUser,
-                listArgs.toArray()
-        );
+        var total = adminUserReadMapper.countUsers(query.status(), query.query());
+        var items = adminUserReadMapper.listUsers(query.status(), query.query(), query.limit(), query.offset());
         return new UserPage(items, total == null ? 0 : total);
     }
 
@@ -57,194 +28,39 @@ public class AdminUserReadRepository {
     }
 
     public Optional<AdminUserRow> findAccount(String accountId) {
-        return findOne(
-                """
-                select account_id, phone_number, status, latest_consent_status, created_at, deleted_at
-                from accounts
-                where account_id = ?
-                """,
-                this::mapUser,
-                accountId
-        );
+        return Optional.ofNullable(adminUserReadMapper.findAccount(accountId));
     }
 
     public Optional<AdminUserRow> lockAccount(String accountId) {
-        return findOne(
-                """
-                select account_id, phone_number, status, latest_consent_status, created_at, deleted_at
-                from accounts
-                where account_id = ?
-                for update
-                """,
-                this::mapUser,
-                accountId
-        );
+        return Optional.ofNullable(adminUserReadMapper.lockAccount(accountId));
     }
 
     public Optional<AuditContextRow> findLatestAuditContext(String accountId) {
-        return findOne(
-                """
-                select session_id, installation_id
-                from account_sessions
-                where account_id = ?
-                order by created_at desc, session_id desc
-                limit 1
-                """,
-                this::mapAuditContext,
-                accountId
-        );
+        return Optional.ofNullable(adminUserReadMapper.findLatestAuditContext(accountId));
     }
 
     public List<UserSessionRow> listRecentSessions(String accountId, int limit) {
-        return jdbcTemplate.query(
-                """
-                select session_id, installation_id, status, created_at, revoked_at
-                from account_sessions
-                where account_id = ?
-                order by created_at desc, session_id desc
-                limit ?
-                """,
-                this::mapSession,
-                accountId,
-                limit
-        );
+        return adminUserReadMapper.listRecentSessions(accountId, limit);
     }
 
     public List<UserConsentAuditRow> listRecentConsentAudit(String accountId, int limit) {
-        return jdbcTemplate.query(
-                """
-                select audit_id, session_id, installation_id, action, result, reason, created_at
-                from consent_audit_logs
-                where account_id = ?
-                order by created_at desc, audit_id desc
-                limit ?
-                """,
-                this::mapConsentAudit,
-                accountId,
-                limit
-        );
+        return adminUserReadMapper.listRecentConsentAudit(accountId, limit);
     }
 
     public int deleteInteractionEvents(String accountId) {
-        return jdbcTemplate.update("delete from interaction_events where account_id = ?", accountId);
+        return adminUserReadMapper.deleteInteractionEvents(accountId);
     }
 
     public int updateSessionsStatus(String accountId, String newStatus, Instant changedAt) {
-        return jdbcTemplate.update(
-                "update account_sessions set status = ?, revoked_at = ? where account_id = ? and status <> ?",
-                newStatus,
-                Timestamp.from(changedAt),
-                accountId,
-                newStatus
-        );
+        return adminUserReadMapper.updateSessionsStatus(accountId, newStatus, changedAt);
     }
 
     public int tombstoneAccount(String accountId, String tombstonePhone, Instant deletedAt) {
-        return jdbcTemplate.update(
-                """
-                update accounts
-                set status = 'deleted',
-                    phone_number = ?,
-                    latest_consent_status = 'deleted',
-                    deleted_at = ?
-                where account_id = ?
-                """,
-                tombstonePhone,
-                Timestamp.from(deletedAt),
-                accountId
-        );
+        return adminUserReadMapper.tombstoneAccount(accountId, tombstonePhone, deletedAt);
     }
 
     public void insertConsentAudit(AuditWriteRow auditRow) {
-        jdbcTemplate.update(
-                """
-                insert into consent_audit_logs (
-                    account_id,
-                    session_id,
-                    installation_id,
-                    action,
-                    result,
-                    reason,
-                    created_at
-                ) values (?, ?, ?, ?, ?, ?, ?)
-                """,
-                auditRow.accountId(),
-                auditRow.sessionId(),
-                auditRow.installationId(),
-                auditRow.action(),
-                auditRow.result(),
-                auditRow.reason(),
-                Timestamp.from(auditRow.createdAt())
-        );
-    }
-
-    private void appendListFilters(UserListQuery query, StringBuilder whereClause, List<Object> whereArgs) {
-        var predicates = new ArrayList<String>();
-        if (query.status() != null) {
-            predicates.add("status = ?");
-            whereArgs.add(query.status());
-        }
-        if (query.query() != null) {
-            predicates.add("(account_id like ? or phone_number like ?)");
-            var prefixQuery = query.query() + "%";
-            whereArgs.add(prefixQuery);
-            whereArgs.add(prefixQuery);
-        }
-        if (!predicates.isEmpty()) {
-            whereClause.append(" where ").append(String.join(" and ", predicates));
-        }
-    }
-
-    private <T> Optional<T> findOne(String sql, RowMapper<T> mapper, Object... args) {
-        try {
-            return Optional.ofNullable(jdbcTemplate.queryForObject(sql, mapper, args));
-        } catch (EmptyResultDataAccessException exception) {
-            return Optional.empty();
-        }
-    }
-
-    private AdminUserRow mapUser(ResultSet resultSet, int rowNum) throws SQLException {
-        return new AdminUserRow(
-                resultSet.getString("account_id"),
-                resultSet.getString("phone_number"),
-                resultSet.getString("status"),
-                resultSet.getString("latest_consent_status"),
-                mapInstant(resultSet.getTimestamp("created_at")),
-                mapInstant(resultSet.getTimestamp("deleted_at"))
-        );
-    }
-
-    private AuditContextRow mapAuditContext(ResultSet resultSet, int rowNum) throws SQLException {
-        return new AuditContextRow(
-                resultSet.getString("session_id"),
-                resultSet.getString("installation_id")
-        );
-    }
-
-    private UserSessionRow mapSession(ResultSet resultSet, int rowNum) throws SQLException {
-        return new UserSessionRow(
-                resultSet.getString("session_id"),
-                resultSet.getString("installation_id"),
-                resultSet.getString("status"),
-                mapInstant(resultSet.getTimestamp("created_at")),
-                mapInstant(resultSet.getTimestamp("revoked_at"))
-        );
-    }
-
-    private UserConsentAuditRow mapConsentAudit(ResultSet resultSet, int rowNum) throws SQLException {
-        return new UserConsentAuditRow(
-                resultSet.getLong("audit_id"),
-                resultSet.getString("session_id"),
-                resultSet.getString("installation_id"),
-                resultSet.getString("action"),
-                resultSet.getString("result"),
-                resultSet.getString("reason"),
-                mapInstant(resultSet.getTimestamp("created_at"))
-        );
-    }
-
-    private Instant mapInstant(Timestamp timestamp) {
-        return timestamp == null ? null : timestamp.toInstant();
+        adminUserReadMapper.insertConsentAudit(auditRow);
     }
 
     public record UserListQuery(

@@ -1,46 +1,29 @@
 package com.zhangspaghetti.babytalk.service;
 
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
-import org.springframework.dao.EmptyResultDataAccessException;
-import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.jdbc.core.RowMapper;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.support.TransactionTemplate;
 
 @Repository
-class MentorRepository {
+public class MentorRepository {
 
-    private final JdbcTemplate jdbcTemplate;
+    private final MentorMapper mapper;
     private final TransactionTemplate requiresNewTx;
     private final ConcurrentHashMap<String, Object> rateLimitLocks = new ConcurrentHashMap<>();
 
-    MentorRepository(JdbcTemplate jdbcTemplate, PlatformTransactionManager txManager) {
-        this.jdbcTemplate = jdbcTemplate;
+    public MentorRepository(MentorMapper mapper, PlatformTransactionManager txManager) {
+        this.mapper = mapper;
         this.requiresNewTx = new TransactionTemplate(txManager);
         this.requiresNewTx.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
     }
 
     int countRequestsSince(String installationId, Instant since) {
-        return jdbcTemplate.queryForObject(
-                """
-                select count(*)
-                from mentor_audit_logs
-                where installation_id = ?
-                                    and event_type in ('chat_requested', 'practice_requested')
-                  and created_at >= ?
-                """,
-                Integer.class,
-                installationId,
-                Timestamp.from(since)
-        );
+        return mapper.countRequestsSince(installationId, since);
     }
 
     /**
@@ -59,168 +42,30 @@ class MentorRepository {
     }
 
     void insertTurn(TurnRow row) {
-        jdbcTemplate.update(
-                """
-                insert into mentor_turns (
-                    turn_id,
-                    correlation_id,
-                    installation_id,
-                    session_id_hint,
-                    account_id_hint,
-                    surface,
-                    mode,
-                    result,
-                    phase,
-                    request_summary,
-                    response_summary,
-                    response_text,
-                    provider_mode,
-                    blocked_fallback,
-                    retryable,
-                    created_at
-                ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """,
-                row.turnId(),
-                row.correlationId(),
-                row.installationId(),
-                row.sessionIdHint(),
-                row.accountIdHint(),
-                row.surface(),
-                row.mode(),
-                row.result(),
-                row.phase(),
-                row.requestSummary(),
-                row.responseSummary(),
-                row.responseText(),
-                row.providerMode(),
-                row.blockedFallback(),
-                row.retryable(),
-                Timestamp.from(row.createdAt())
-        );
+        mapper.insertTurn(row);
     }
 
     void insertAudit(AuditRow row) {
-        jdbcTemplate.update(
-                """
-                insert into mentor_audit_logs (
-                    correlation_id,
-                    installation_id,
-                    session_id_hint,
-                    account_id_hint,
-                    event_type,
-                    phase,
-                    result,
-                    request_summary,
-                    response_summary,
-                    reason,
-                    failure_code,
-                    retryable,
-                    rate_limited,
-                    created_at
-                ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """,
-                row.correlationId(),
-                row.installationId(),
-                row.sessionIdHint(),
-                row.accountIdHint(),
-                row.eventType(),
-                row.phase(),
-                row.result(),
-                row.requestSummary(),
-                row.responseSummary(),
-                row.reason(),
-                row.failureCode(),
-                row.retryable(),
-                row.rateLimited(),
-                Timestamp.from(row.createdAt())
-        );
+        mapper.insertAudit(row);
     }
 
     Optional<TurnRow> findTurnByCorrelationId(String correlationId) {
-        return findOne(
-                """
-                select turn_id, correlation_id, installation_id, session_id_hint, account_id_hint, surface, mode,
-                       result, phase, request_summary, response_summary, response_text, provider_mode,
-                       blocked_fallback, retryable, created_at
-                from mentor_turns
-                where correlation_id = ?
-                """,
-                this::mapTurnRow,
-                correlationId
-        );
+        return Optional.ofNullable(mapper.findTurnByCorrelationId(correlationId));
     }
 
     List<AuditRow> listAuditRowsByCorrelationId(String correlationId) {
-        return jdbcTemplate.query(
-                """
-                select correlation_id, installation_id, session_id_hint, account_id_hint, event_type, phase, result,
-                       request_summary, response_summary, reason, failure_code, retryable, rate_limited, created_at
-                from mentor_audit_logs
-                where correlation_id = ?
-                order by audit_id asc
-                """,
-                (rs, rowNum) -> mapAuditRow(rs),
-                correlationId
-        );
+        return mapper.listAuditRowsByCorrelationId(correlationId);
     }
 
     int countTurns() {
-        return jdbcTemplate.queryForObject("select count(*) from mentor_turns", Integer.class);
+        return mapper.countTurns();
     }
 
     int countAuditRows() {
-        return jdbcTemplate.queryForObject("select count(*) from mentor_audit_logs", Integer.class);
+        return mapper.countAuditRows();
     }
 
-    private <T> Optional<T> findOne(String sql, RowMapper<T> mapper, Object... args) {
-        try {
-            return Optional.ofNullable(jdbcTemplate.queryForObject(sql, mapper, args));
-        } catch (EmptyResultDataAccessException exception) {
-            return Optional.empty();
-        }
-    }
-
-    private TurnRow mapTurnRow(ResultSet rs, int rowNum) throws SQLException {
-        return new TurnRow(
-                rs.getString("turn_id"),
-                rs.getString("correlation_id"),
-                rs.getString("installation_id"),
-                rs.getString("session_id_hint"),
-                rs.getString("account_id_hint"),
-                rs.getString("surface"),
-                rs.getString("mode"),
-                rs.getString("result"),
-                rs.getString("phase"),
-                rs.getString("request_summary"),
-                rs.getString("response_summary"),
-                rs.getString("response_text"),
-                rs.getString("provider_mode"),
-                rs.getBoolean("blocked_fallback"),
-                rs.getBoolean("retryable"),
-                rs.getTimestamp("created_at").toInstant()
-        );
-    }
-
-    private AuditRow mapAuditRow(ResultSet rs) throws SQLException {
-        return new AuditRow(
-                rs.getString("correlation_id"),
-                rs.getString("installation_id"),
-                rs.getString("session_id_hint"),
-                rs.getString("account_id_hint"),
-                rs.getString("event_type"),
-                rs.getString("phase"),
-                rs.getString("result"),
-                rs.getString("request_summary"),
-                rs.getString("response_summary"),
-                rs.getString("reason"),
-                rs.getString("failure_code"),
-                rs.getBoolean("retryable"),
-                rs.getBoolean("rate_limited"),
-                rs.getTimestamp("created_at").toInstant()
-        );
-    }
-
-    record TurnRow(
+    public record TurnRow(
             String turnId,
             String correlationId,
             String installationId,
@@ -240,7 +85,7 @@ class MentorRepository {
     ) {
     }
 
-    record AuditRow(
+    public record AuditRow(
             String correlationId,
             String installationId,
             String sessionIdHint,

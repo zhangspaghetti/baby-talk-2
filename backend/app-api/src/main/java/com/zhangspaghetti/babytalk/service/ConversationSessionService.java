@@ -5,7 +5,6 @@ import java.time.Instant;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
 /**
@@ -22,11 +21,11 @@ public class ConversationSessionService {
 
     private static final Logger log = LoggerFactory.getLogger(ConversationSessionService.class);
 
-    private final JdbcTemplate jdbcTemplate;
+    private final ConversationSessionMapper conversationSessionMapper;
     private final MentorProperties properties;
 
-    public ConversationSessionService(JdbcTemplate jdbcTemplate, MentorProperties properties) {
-        this.jdbcTemplate = jdbcTemplate;
+    public ConversationSessionService(ConversationSessionMapper conversationSessionMapper, MentorProperties properties) {
+        this.conversationSessionMapper = conversationSessionMapper;
         this.properties = properties;
     }
 
@@ -72,21 +71,6 @@ public class ConversationSessionService {
      * 查询 SPRING_AI_CHAT_MEMORY 表中指定 conversation_id 的最后一条消息时间。
      */
     private Instant findLastMessageTimestamp(String conversationId) {
-        var results = jdbcTemplate.queryForList(
-                "SELECT \"timestamp\" FROM spring_ai_chat_memory WHERE conversation_id = ? ORDER BY \"timestamp\" DESC LIMIT 1",
-                conversationId
-        );
-        if (results.isEmpty()) {
-            return null;
-        }
-        var raw = results.get(0).get("timestamp");
-        if (raw instanceof java.sql.Timestamp ts) {
-            return ts.toInstant();
-        }
-        if (raw instanceof java.time.OffsetDateTime odt) {
-            return odt.toInstant();
-        }
-        // fallback：尝试转为字符串解析
-        return Instant.parse(raw.toString());
+        return conversationSessionMapper.findLastMessageTimestamp(conversationId);
     }
 }

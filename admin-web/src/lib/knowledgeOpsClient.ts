@@ -1,16 +1,20 @@
 import { ApiError, requestJson } from './authClient';
 
-export const KNOWLEDGE_OPS_VIEWS = ['ingestion', 'kg-review'] as const;
+export const KNOWLEDGE_OPS_VIEWS = ['ingestion', 'kg-review', 'palace-rag'] as const;
 export const KNOWLEDGE_INGESTION_STATUSES = ['PENDING', 'PROCESSING', 'COMPLETED', 'FAILED'] as const;
 export const KNOWLEDGE_INGESTION_FILTERS = ['all', ...KNOWLEDGE_INGESTION_STATUSES] as const;
 export const KNOWLEDGE_CONTRADICTION_STATUSES = ['detected', 'reviewing', 'escalated', 'resolved', 'dismissed'] as const;
 export const KNOWLEDGE_CONTRADICTION_FILTERS = ['all', ...KNOWLEDGE_CONTRADICTION_STATUSES] as const;
+export const PALACE_RAG_SUBVIEWS = ['bridge-review', 'trace-samples', 'projection'] as const;
+export const PALACE_BRIDGE_EDGE_STATUSES = ['proposed', 'approved', 'rejected'] as const;
 
 export type KnowledgeOpsView = (typeof KNOWLEDGE_OPS_VIEWS)[number];
 export type KnowledgeIngestionStatus = (typeof KNOWLEDGE_INGESTION_STATUSES)[number];
 export type KnowledgeIngestionFilter = (typeof KNOWLEDGE_INGESTION_FILTERS)[number];
 export type KnowledgeContradictionStatus = (typeof KNOWLEDGE_CONTRADICTION_STATUSES)[number];
 export type KnowledgeContradictionFilter = (typeof KNOWLEDGE_CONTRADICTION_FILTERS)[number];
+export type PalaceRagSubview = (typeof PALACE_RAG_SUBVIEWS)[number];
+export type PalaceBridgeEdgeStatus = (typeof PALACE_BRIDGE_EDGE_STATUSES)[number];
 
 export interface KnowledgeOpsListQuery {
   status?: string;
@@ -77,6 +81,40 @@ export interface KnowledgeNotificationView {
   createdAt: string;
 }
 
+export interface PalaceProjectionStatusView {
+  notReady: boolean;
+  versionNum?: number;
+  roomCount?: number;
+  lastIngestionBatchId?: string;
+  status?: string;
+  createdAt?: string;
+}
+
+export interface PalaceBridgeEdgeView {
+  id: string;
+  confidence: number;
+  status: PalaceBridgeEdgeStatus;
+  sourceBookA: string;
+  sourceBookB: string;
+  createdAt: string;
+  reviewedBy?: string;
+  reviewedAt?: string;
+  roomAWing: string;
+  roomAName: string;
+  roomBWing: string;
+  roomBName: string;
+}
+
+export interface PalaceQueryTraceSampleView {
+  id: string;
+  entryRooms: string;
+  temporalRuleApplied?: string;
+  candidatesJson: string;
+  bridgeEdgesCrossed?: string;
+  projectionVersionUsed?: number;
+  queriedAt: string;
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
 }
@@ -104,6 +142,17 @@ function readRequiredNumber(record: Record<string, unknown>, key: string, messag
   const value = record[key];
   if (typeof value !== 'number' || Number.isNaN(value)) {
     throw new ApiError(502, 'invalid_response_payload', message, { field: key });
+  }
+  return value;
+}
+
+function readOptionalNumber(record: Record<string, unknown>, key: string): number | undefined {
+  const value = record[key];
+  if (value == null) {
+    return undefined;
+  }
+  if (typeof value !== 'number' || Number.isNaN(value)) {
+    throw new ApiError(502, 'invalid_response_payload', `字段 ${key} 的类型不正确。`, { field: key });
   }
   return value;
 }
@@ -232,6 +281,58 @@ function parseNotification(payload: unknown, scope: string): KnowledgeNotificati
   };
 }
 
+function parseProjectionStatus(payload: unknown): PalaceProjectionStatusView {
+  if (!isRecord(payload)) {
+    throw new ApiError(502, 'invalid_response_payload', 'palace projection status 响应不是对象。');
+  }
+
+  return {
+    notReady: readRequiredBoolean(payload, 'notReady', 'palace projection status 缺少 notReady。'),
+    versionNum: readOptionalNumber(payload, 'versionNum'),
+    roomCount: readOptionalNumber(payload, 'roomCount'),
+    lastIngestionBatchId: readOptionalString(payload, 'lastIngestionBatchId'),
+    status: readOptionalString(payload, 'status'),
+    createdAt: readOptionalString(payload, 'createdAt'),
+  };
+}
+
+function parseBridgeEdge(payload: unknown, scope: string): PalaceBridgeEdgeView {
+  if (!isRecord(payload)) {
+    throw new ApiError(502, 'invalid_response_payload', `${scope} 不是对象。`);
+  }
+
+  return {
+    id: readRequiredString(payload, 'id', `${scope} 缺少 id。`),
+    confidence: readRequiredNumber(payload, 'confidence', `${scope} 缺少 confidence。`),
+    status: readEnumValue(payload, 'status', PALACE_BRIDGE_EDGE_STATUSES, `${scope} 缺少合法 status。`),
+    sourceBookA: readRequiredString(payload, 'sourceBookA', `${scope} 缺少 sourceBookA。`),
+    sourceBookB: readRequiredString(payload, 'sourceBookB', `${scope} 缺少 sourceBookB。`),
+    createdAt: readRequiredString(payload, 'createdAt', `${scope} 缺少 createdAt。`),
+    reviewedBy: readOptionalString(payload, 'reviewedBy'),
+    reviewedAt: readOptionalString(payload, 'reviewedAt'),
+    roomAWing: readRequiredString(payload, 'roomAWing', `${scope} 缺少 roomAWing。`),
+    roomAName: readRequiredString(payload, 'roomAName', `${scope} 缺少 roomAName。`),
+    roomBWing: readRequiredString(payload, 'roomBWing', `${scope} 缺少 roomBWing。`),
+    roomBName: readRequiredString(payload, 'roomBName', `${scope} 缺少 roomBName。`),
+  };
+}
+
+function parseTraceSample(payload: unknown, scope: string): PalaceQueryTraceSampleView {
+  if (!isRecord(payload)) {
+    throw new ApiError(502, 'invalid_response_payload', `${scope} 不是对象。`);
+  }
+
+  return {
+    id: readRequiredString(payload, 'id', `${scope} 缺少 id。`),
+    entryRooms: readRequiredString(payload, 'entryRooms', `${scope} 缺少 entryRooms。`),
+    temporalRuleApplied: readOptionalString(payload, 'temporalRuleApplied'),
+    candidatesJson: readRequiredString(payload, 'candidatesJson', `${scope} 缺少 candidatesJson。`),
+    bridgeEdgesCrossed: readOptionalString(payload, 'bridgeEdgesCrossed'),
+    projectionVersionUsed: readOptionalNumber(payload, 'projectionVersionUsed'),
+    queriedAt: readRequiredString(payload, 'queriedAt', `${scope} 缺少 queriedAt。`),
+  };
+}
+
 function parseList<T>(payload: unknown, parseItem: (item: unknown, index: number) => T, scope: string): T[] {
   if (!Array.isArray(payload)) {
     throw new ApiError(502, 'invalid_response_payload', `${scope} 响应不是数组。`);
@@ -306,6 +407,40 @@ export const knowledgeOpsClient = {
       (item, index) => parseNotification(item, `notifications[${index}]`),
       'knowledge notifications',
     );
+  },
+
+  async getProjectionStatus() {
+    const payload = await requestJson('/api/admin/knowledge/palace/projection');
+    return parseProjectionStatus(payload);
+  },
+
+  async listBridgeEdges(query: { status?: PalaceBridgeEdgeStatus; limit?: number } = {}) {
+    const payload = await requestJson(`/api/admin/knowledge/palace/bridge-edges${buildListQueryString(query)}`);
+    return parseList(payload, (item, index) => parseBridgeEdge(item, `bridgeEdges[${index}]`), 'palace bridge edges');
+  },
+
+  async getBridgeEdge(edgeId: string) {
+    const payload = await requestJson(`/api/admin/knowledge/palace/bridge-edges/${encodeURIComponent(edgeId)}`);
+    return parseBridgeEdge(payload, 'bridgeEdge');
+  },
+
+  async approveBridgeEdge(edgeId: string) {
+    const payload = await requestJson(`/api/admin/knowledge/palace/bridge-edges/${encodeURIComponent(edgeId)}/approve`, {
+      method: 'PATCH',
+    });
+    return parseBridgeEdge(payload, 'bridgeEdge');
+  },
+
+  async rejectBridgeEdge(edgeId: string) {
+    const payload = await requestJson(`/api/admin/knowledge/palace/bridge-edges/${encodeURIComponent(edgeId)}/reject`, {
+      method: 'PATCH',
+    });
+    return parseBridgeEdge(payload, 'bridgeEdge');
+  },
+
+  async listTraceSamples(query: { limit?: number } = {}) {
+    const payload = await requestJson(`/api/admin/knowledge/palace/traces${buildListQueryString(query)}`);
+    return parseList(payload, (item, index) => parseTraceSample(item, `traceSamples[${index}]`), 'palace trace samples');
   },
 
   async resolveContradiction(contradictionId: string, adminNotes?: string) {

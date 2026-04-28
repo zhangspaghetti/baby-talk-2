@@ -65,6 +65,7 @@
                 <artifactId>spring-boot-maven-plugin</artifactId>
                 <configuration>
                     <mainClass>com.zhangspaghetti.babytalk.migration.DbMigrationApplication</mainClass>
+                    <classifier>exec</classifier>
                 </configuration>
             </plugin>
             <plugin>

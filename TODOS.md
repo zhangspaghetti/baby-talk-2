@@ -13,7 +13,7 @@
 **Context:** Eng Review v3 (2026-04-01) 确认。原设计说"阿里云 FC"但 Java 冷启动 5-15s 不可接受。
 
 ### Authentication: JWT + Refresh Token
-**What:** 用户认证使用 JWT (access token 15min) + Refresh Token (30天)。Hive 本地存储 token。
+**What:** 用户认证使用 JWT (access token 15min) + Refresh Token (30天)。flutter_secure_storage 加密存储 token（iOS Keychain / Android Keystore）。
 **Why:** 移动 app 标准做法，无状态服务器更简单，离线时仍可验证 access token。Spring Security 内置支持。
 **Context:** Eng Review v3 (2026-04-01) 确认。API 端点已定义在 test-plan-v2.md。
 
@@ -259,7 +259,7 @@
 
 ### Refresh Token 吐销机制
 **What:** 实现 refresh token 吐销能力。Redis 维护一个 token 黑名单（或 family ID 方案），支持强制下线。
-**Why:** 当前 30 天 refresh token 存在 Hive 里无法吐销。手机丢失或账号被盗时无法使任何设备下线。
+**Why:** 当前 30 天 refresh token 存在 flutter_secure_storage 里无法服务端吐销。手机丢失或账号被盗时无法使任何设备下线。
 **Context:** Eng Review v2 (2026-04-02) + Outside Voice 发现。Phase 1 用户少风险低，但应在用户量增长前解决。实现可以用 Redis 存 token family ID，refresh 时检查黑名单。
 **Effort:** S (CC: ~15 分钟)
 **Depends on:** Phase 1 发布后
@@ -300,7 +300,7 @@
 
 ### ~~🔥 Hive → Isar 迁移~~ ✅ DONE
 **What:** 将计划中所有 Hive 引用替换为 Isar。本地存储、Token 存储、InteractionEvent 缓存全部改为 Isar。
-**Status:** 已完成 (v1.2.0.0)。`isar: ^3.1.0+1` + `isar_flutter_libs` 已在 pubspec.yaml，PracticeRepository/AccountLocalStore 等全部使用 Isar。
+**Status:** 已完成 (v1.2.0.0)。`isar: ^3.1.0+1` + `isar_flutter_libs` 已在 pubspec.yaml，PracticeRepository 等全部使用 Isar。AccountLocalStore 已迁移至 `flutter_secure_storage`（iOS Keychain / Android Keystore）加密存储账户 token。
 
 ## /autoplan Deferred Items (2026-04-06)
 

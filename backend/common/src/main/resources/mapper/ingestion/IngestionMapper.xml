@@ -1,0 +1,117 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.zhangspaghetti.babytalk.ingestion.IngestionMapper">
+
+    <resultMap id="ingestionJobMap" type="com.zhangspaghetti.babytalk.ingestion.IngestionJob">
+        <constructor>
+            <arg column="id"
+                 javaType="java.util.UUID"
+                 jdbcType="OTHER"
+                 typeHandler="com.zhangspaghetti.babytalk.mybatis.UuidTypeHandler"/>
+            <arg column="original_filename" javaType="java.lang.String"/>
+            <arg column="minio_object_key" javaType="java.lang.String"/>
+            <arg column="status" javaType="java.lang.String"/>
+            <arg column="total_chunks" javaType="_int"/>
+            <arg column="error_message" javaType="java.lang.String"/>
+            <arg column="created_at" javaType="java.time.Instant"/>
+            <arg column="updated_at" javaType="java.time.Instant"/>
+        </constructor>
+    </resultMap>
+
+    <insert id="insert">
+        insert into ingestion_jobs (
+            id,
+            original_filename,
+            minio_object_key,
+            status,
+            total_chunks,
+            error_message,
+            created_at,
+            updated_at
+        ) values (
+            #{job.id, jdbcType=OTHER, typeHandler=com.zhangspaghetti.babytalk.mybatis.UuidTypeHandler},
+            #{job.originalFilename},
+            #{job.minioObjectKey},
+            #{job.status},
+            #{job.totalChunks},
+            #{job.errorMessage},
+            #{job.createdAt},
+            #{job.updatedAt}
+        )
+    </insert>
+
+    <update id="updateStatusProcessing">
+        update ingestion_jobs
+        set status = 'PROCESSING',
+            error_message = null,
+            updated_at = #{updatedAt}
+        where id = #{jobId, jdbcType=OTHER, typeHandler=com.zhangspaghetti.babytalk.mybatis.UuidTypeHandler}
+    </update>
+
+    <update id="updateCompleted">
+        update ingestion_jobs
+        set status = 'COMPLETED',
+            total_chunks = #{totalChunks},
+            error_message = null,
+            updated_at = #{updatedAt}
+        where id = #{jobId, jdbcType=OTHER, typeHandler=com.zhangspaghetti.babytalk.mybatis.UuidTypeHandler}
+    </update>
+
+    <update id="updateFailed">
+        update ingestion_jobs
+        set status = 'FAILED',
+            error_message = #{errorMessage},
+            updated_at = #{updatedAt}
+        where id = #{jobId, jdbcType=OTHER, typeHandler=com.zhangspaghetti.babytalk.mybatis.UuidTypeHandler}
+    </update>
+
+    <select id="findById" resultMap="ingestionJobMap">
+        select id,
+               original_filename,
+               minio_object_key,
+               status,
+               total_chunks,
+               error_message,
+               created_at,
+               updated_at
+        from ingestion_jobs
+        where id = #{jobId, jdbcType=OTHER, typeHandler=com.zhangspaghetti.babytalk.mybatis.UuidTypeHandler}
+    </select>
+
+    <select id="findAll" resultMap="ingestionJobMap">
+        select id,
+               original_filename,
+               minio_object_key,
+               status,
+               total_chunks,
+               error_message,
+               created_at,
+               updated_at
+        from ingestion_jobs
+        order by created_at desc
+    </select>
+
+    <update id="updateStatusPending">
+        update ingestion_jobs
+        set status = 'PENDING',
+            total_chunks = 0,
+            updated_at = #{updatedAt}
+        where id = #{jobId, jdbcType=OTHER, typeHandler=com.zhangspaghetti.babytalk.mybatis.UuidTypeHandler}
+    </update>
+
+    <select id="findByStatus" resultMap="ingestionJobMap">
+        select id,
+               original_filename,
+               minio_object_key,
+               status,
+               total_chunks,
+               error_message,
+               created_at,
+               updated_at
+        from ingestion_jobs
+        where status = #{status}
+        order by created_at desc
+    </select>
+</mapper>

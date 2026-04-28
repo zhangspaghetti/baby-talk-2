@@ -1,5 +1,6 @@
 package com.zhangspaghetti.babytalk.web;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.zhangspaghetti.babytalk.service.MentorService;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
@@ -33,7 +34,8 @@ public class MentorController {
                         request.mode(),
                         request.correlationId(),
                         request.contextSummary(),
-                        request.conversationId()
+                        request.conversationId(),
+                        request.childAgeMonths()
                 ),
                 authenticatedJwt == null ? null : authenticatedJwt.getClaimAsString("sid")
         );
@@ -63,7 +65,8 @@ public class MentorController {
             String mode,
             String correlationId,
             String contextSummary,
-            String conversationId
+            String conversationId,
+            @JsonProperty("childAgeMonths") Integer childAgeMonths
     ) {
     }
 

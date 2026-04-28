@@ -44,6 +44,48 @@ void main() {
     );
   });
 
+  testWidgets('首页将今日练习卡片置顶并使用 warmShadowMd 阴影', (tester) async {
+    final harness = (await tester.runAsync<_Harness>(_Harness.create))!;
+    addTearDown(harness.dispose);
+
+    await tester.runAsync(() async {
+      await Future.wait([
+        harness.accountViewModel.initialize(),
+        harness.practiceSessionViewModel.initialize(),
+        harness.gardenGrowthViewModel.initialize(),
+      ]);
+    });
+
+    await tester.pumpWidget(harness.buildApp());
+    await _pumpUntilHomeLoaded(tester);
+
+    final todayTitle = find.byKey(
+      const ValueKey('home-hero-activity-bath_time'),
+    );
+    final guestModeChip = find.text('本地模式');
+
+    expect(todayTitle, findsOneWidget);
+    expect(guestModeChip, findsOneWidget);
+    expect(
+      tester.getTopLeft(todayTitle).dy,
+      lessThan(tester.getTopLeft(guestModeChip).dy),
+    );
+
+    final cardShell = tester
+        .element(find.byKey(const Key('home-start-practice')))
+        .findAncestorWidgetOfExactType<Container>();
+    final decoration = cardShell?.decoration as BoxDecoration?;
+    final border = decoration?.border as Border?;
+
+    expect(cardShell, isNotNull);
+    expect(decoration, isNotNull);
+    expect(decoration?.color, AppTheme.bgSurface);
+    expect(decoration?.borderRadius, BorderRadius.circular(16));
+    expect(decoration?.boxShadow, equals(AppTheme.warmShadowMd));
+    expect(border, isNotNull);
+    expect(border?.top.color, AppTheme.outlineSoft);
+  });
+
   testWidgets('首页在零事件时显示花园入口空态与成长摘要空态', (tester) async {
     final harness = (await tester.runAsync<_Harness>(_Harness.create))!;
     addTearDown(harness.dispose);
