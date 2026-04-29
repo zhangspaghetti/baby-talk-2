@@ -1,0 +1,41 @@
+{
+  "date": "2026-04-29",
+  "window": "7d",
+  "metrics": {
+    "commits": 31,
+    "contributors": 1,
+    "prs_merged": 4,
+    "insertions": 29400,
+    "deletions": 11900,
+    "net_loc": 17500,
+    "test_loc": 3300,
+    "test_ratio": 0.11,
+    "active_days": 5,
+    "sessions": 10,
+    "deep_sessions": 1,
+    "avg_session_minutes": 36,
+    "loc_per_session_hour": 650,
+    "feat_pct": 0.19,
+    "fix_pct": 0.32,
+    "peak_hour": 13,
+    "ai_assisted_commits": 31
+  },
+  "authors": {
+    "Zhang Shaocong": {
+      "commits": 31,
+      "insertions": 29400,
+      "deletions": 11900,
+      "test_ratio": 0.11,
+      "top_area": "mobile/"
+    }
+  },
+  "version_range": ["1.2.0.0", "1.2.0.3"],
+  "streak_days": 2,
+  "tweetable": "Week of Apr 22: 31 commits (solo), 29k LOC, 11% tests, 4 PRs, peak: 13:00 | Streak: 2d",
+  "test_health": {
+    "total_test_files": 58,
+    "tests_added_this_period": 3300,
+    "regression_test_commits": 2,
+    "test_files_changed": 47
+  }
+}
