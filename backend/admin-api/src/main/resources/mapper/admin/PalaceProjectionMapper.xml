@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.zhangspaghetti.babytalk.admin.knowledge.PalaceProjectionMapper">
+
+    <resultMap id="roomRowMap"
+               type="com.zhangspaghetti.babytalk.admin.knowledge.PalaceProjectionMapper$RoomRow">
+        <constructor>
+            <arg column="id"
+                 javaType="java.util.UUID"
+                 jdbcType="OTHER"
+                 typeHandler="com.zhangspaghetti.babytalk.mybatis.UuidTypeHandler"/>
+            <arg column="wing" javaType="java.lang.String"/>
+            <arg column="room" javaType="java.lang.String"/>
+        </constructor>
+    </resultMap>
+
+    <insert id="upsertRoom">
+        INSERT INTO palace_rooms (id, wing, room, hall, last_updated, source_book_count)
+        VALUES (uuid_generate_v4(), #{wing}, #{room}, #{hall}, now(), 1)
+        ON CONFLICT (wing, room) DO UPDATE SET
+            source_book_count = palace_rooms.source_book_count + 1,
+            last_updated = now()
+    </insert>
+
+    <select id="countCurrentProjectionVersion" resultType="java.lang.Integer">
+        SELECT count(*) FROM palace_projection_version WHERE status = 'current'
+    </select>
+
+    <select id="countAllRooms" resultType="java.lang.Integer">
+        SELECT count(*) FROM palace_rooms
+    </select>
+
+    <insert id="insertProjectionVersion">
+        INSERT INTO palace_projection_version
+            (id, version_num, last_ingestion_batch_id, created_at, status, room_count)
+        VALUES (uuid_generate_v4(), 1,
+                #{jobId, jdbcType=OTHER, typeHandler=com.zhangspaghetti.babytalk.mybatis.UuidTypeHandler},
+                now(), 'current', #{roomCount})
+    </insert>
+
+    <update id="updateCurrentProjectionVersion">
+        UPDATE palace_projection_version
+        SET version_num = version_num + 1,
+            last_ingestion_batch_id = #{jobId, jdbcType=OTHER, typeHandler=com.zhangspaghetti.babytalk.mybatis.UuidTypeHandler},
+            room_count = #{roomCount}
+        WHERE status = 'current'
+    </update>
+
+    <select id="findRoomIdByWingAndRoom" resultType="java.lang.String">
+        SELECT id::text FROM palace_rooms WHERE wing = #{wing} AND room = #{room}
+    </select>
+
+    <select id="listRoomsExcludingWing" resultMap="roomRowMap">
+        SELECT id, wing, room FROM palace_rooms WHERE wing != #{wing}
+    </select>
+
+    <insert id="insertBridgeEdgeIfAbsent">
+        INSERT INTO palace_bridge_edges
+            (id, room_a_id, room_b_id, confidence, status, source_book_a, source_book_b, created_at)
+        VALUES (uuid_generate_v4(),
+                #{roomAId, jdbcType=OTHER, typeHandler=com.zhangspaghetti.babytalk.mybatis.UuidTypeHandler},
+                #{roomBId, jdbcType=OTHER, typeHandler=com.zhangspaghetti.babytalk.mybatis.UuidTypeHandler},
+                #{confidence}, 'proposed', #{sourceBookA}, #{sourceBookB}, now())
+        ON CONFLICT (room_a_id, room_b_id) DO NOTHING
+    </insert>
+
+</mapper>

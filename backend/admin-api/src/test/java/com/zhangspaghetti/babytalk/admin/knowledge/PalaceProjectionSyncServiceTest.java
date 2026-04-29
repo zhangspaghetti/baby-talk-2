@@ -2,7 +2,8 @@ package com.zhangspaghetti.babytalk.admin.knowledge;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.contains;
+import static org.mockito.ArgumentMatchers.anyDouble;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.never;
@@ -11,26 +12,24 @@ import static org.mockito.Mockito.when;
 
 import com.zhangspaghetti.babytalk.ingestion.IngestionCompletedEvent;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.jdbc.core.JdbcTemplate;
 
 @ExtendWith(MockitoExtension.class)
 class PalaceProjectionSyncServiceTest {
 
     @Mock
-    JdbcTemplate jdbcTemplate;
+    PalaceProjectionMapper palaceProjectionMapper;
 
     PalaceProjectionSyncService service;
 
     @BeforeEach
     void setUp() {
-        service = new PalaceProjectionSyncService(jdbcTemplate);
+        service = new PalaceProjectionSyncService(palaceProjectionMapper);
     }
 
     @Test
@@ -61,38 +60,21 @@ class PalaceProjectionSyncServiceTest {
                 10
         );
 
-        when(jdbcTemplate.queryForObject(
-                contains("palace_projection_version"),
-                eq(Integer.class)
-        )).thenReturn(0);
-        when(jdbcTemplate.queryForObject(
-                eq("SELECT count(*) FROM palace_rooms"),
-                eq(Integer.class)
-        )).thenReturn(2);
-        when(jdbcTemplate.queryForObject(
-                contains("FROM palace_rooms WHERE wing = ? AND room = ?"),
-                eq(UUID.class),
-                eq("LANGUAGE_DEVELOPMENT"),
-                eq("EARLY_COMMUNICATION")
-        )).thenReturn(newRoomId);
-        when(jdbcTemplate.queryForList(
-                contains("FROM palace_rooms WHERE wing != ?"),
-                eq("LANGUAGE_DEVELOPMENT")
-        )).thenReturn(List.of(Map.of(
-                "id", existingRoomId,
-                "wing", "PHYSICAL",
-                "room", "MOTOR_DEVELOPMENT"
-        )));
+        when(palaceProjectionMapper.countCurrentProjectionVersion()).thenReturn(0);
+        when(palaceProjectionMapper.countAllRooms()).thenReturn(2);
+        when(palaceProjectionMapper.findRoomIdByWingAndRoom("LANGUAGE_DEVELOPMENT", "EARLY_COMMUNICATION"))
+                .thenReturn(newRoomId.toString());
+        when(palaceProjectionMapper.listRoomsExcludingWing("LANGUAGE_DEVELOPMENT"))
+                .thenReturn(List.of(new PalaceProjectionMapper.RoomRow(existingRoomId, "PHYSICAL", "MOTOR_DEVELOPMENT")));
 
         service.onIngestionCompleted(event);
 
-        verify(jdbcTemplate, atLeastOnce()).update(
-                contains("palace_bridge_edges"),
-                any(),
-                any(),
-                any(Double.class),
-                any(),
-                any()
+        verify(palaceProjectionMapper, atLeastOnce()).insertBridgeEdgeIfAbsent(
+                any(UUID.class),
+                any(UUID.class),
+                anyDouble(),
+                anyString(),
+                anyString()
         );
     }
 
@@ -104,34 +86,16 @@ class PalaceProjectionSyncServiceTest {
                 5
         );
 
-        when(jdbcTemplate.queryForObject(
-                contains("palace_projection_version"),
-                eq(Integer.class)
-        )).thenReturn(0);
-        when(jdbcTemplate.queryForObject(
-                eq("SELECT count(*) FROM palace_rooms"),
-                eq(Integer.class)
-        )).thenReturn(1);
-        when(jdbcTemplate.queryForObject(
-                contains("FROM palace_rooms WHERE wing = ? AND room = ?"),
-                eq(UUID.class),
-                eq("COGNITIVE"),
-                eq("BRAIN_SCIENCE")
-        )).thenReturn(UUID.randomUUID());
-        when(jdbcTemplate.queryForList(
-                contains("FROM palace_rooms WHERE wing != ?"),
-                eq("COGNITIVE")
-        )).thenReturn(List.of());
+        when(palaceProjectionMapper.countCurrentProjectionVersion()).thenReturn(0);
+        when(palaceProjectionMapper.countAllRooms()).thenReturn(1);
+        when(palaceProjectionMapper.findRoomIdByWingAndRoom(eq("COGNITIVE"), eq("BRAIN_SCIENCE")))
+                .thenReturn(UUID.randomUUID().toString());
+        when(palaceProjectionMapper.listRoomsExcludingWing("COGNITIVE")).thenReturn(List.of());
 
         service.onIngestionCompleted(event);
 
-        verify(jdbcTemplate, never()).update(
-                contains("palace_bridge_edges"),
-                any(),
-                any(),
-                any(),
-                any(),
-                any()
+        verify(palaceProjectionMapper, never()).insertBridgeEdgeIfAbsent(
+                any(), any(), anyDouble(), any(), any()
         );
     }
 }
