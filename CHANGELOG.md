@@ -12,7 +12,7 @@ Version format: MAJOR.MINOR.PATCH.MICRO
 
 ### Changed
 - **admin-api palace services: JdbcTemplate → MyBatis-Plus:** `AdminPalaceRagService` 和 `PalaceProjectionSyncService` 从手写 `JdbcTemplate` SQL 迁移至 MyBatis-Plus mapper（`PalaceRagMapper`、`PalaceProjectionMapper`），统一项目 ORM 技术栈。同步修复 k8s smoke test 中错误的 JdbcTemplate 审计豁免项。
-- **test coverage:** 新增 `PalaceProjectionSyncService` 单元测试 7 个，覆盖 `resolveAgeRange`、`resolveSourceBook`、projection version insert/update 分支及 bridge proposal 异常非致命处理。
+- **test coverage:** 新增 `PalaceProjectionSyncService` 单元测试 7 个，覆盖 `resolveAgeRange`、`resolveSourceBook`、projection version insert/update 分支及 bridge proposal 异常非致命处理。新增 `AdminPalaceRagService` 单元测试 14 个，覆盖 projection status 查询、bridge edge CRUD 及状态规范化、trace sample 映射全链路（含 null 安全性）。
 
 ### Chore
 - **mobile/.gitignore:** 新增 `test_results.json` 排除测试产物文件被纳入版本控制。
