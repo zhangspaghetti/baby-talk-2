@@ -185,21 +185,18 @@ export default function AdminAccountsPage() {
             return <Typography.Text type="secondary">read only</Typography.Text>;
           }
 
-          if (record.status === 'disabled') {
-            return <Typography.Text type="secondary">已禁用</Typography.Text>;
-          }
-
           const isPending = disableState.phase === 'pending' && disableState.principalId === record.principalId;
 
           return (
             <Button
               danger
+              type={record.status === 'disabled' ? 'text' : 'default'}
               loading={isPending}
               disabled={disableState.phase === 'pending' && disableState.principalId !== record.principalId}
               data-testid={`disable-admin-${record.principalId}`}
               onClick={() => void handleDisable(record)}
             >
-              禁用
+              {record.status === 'disabled' ? '已禁用' : '禁用'}
             </Button>
           );
         },

@@ -84,6 +84,11 @@ test.describe('mentor + distribution closure proof', () => {
         response.url().includes(`installationId=${encodeURIComponent(installationId)}`) &&
         response.url().includes('flag=blocked_fallback'),
     );
+    // Register the detail listener BEFORE the filter click so we never miss an
+    // auto-triggered detail fetch that could fire before line 98 is reached.
+    const blockedDetailResponse = page.waitForResponse(
+      (response) => response.url().includes(`/api/admin/mentor/audits/${blockedCorrelationId}`),
+    );
     await page.getByTestId('installation-filter').fill(installationId);
     await page.getByTestId('flag-filter').fill('blocked_fallback');
     await page.getByTestId('apply-filters').click();
@@ -95,9 +100,6 @@ test.describe('mentor + distribution closure proof', () => {
     await expect(page.getByTestId(`queue-item-${blockedCorrelationId}`)).toBeVisible();
     await expect(page.getByTestId('mentor-audit-queue')).not.toContainText(rateLimitedCorrelationId);
 
-    const blockedDetailResponse = page.waitForResponse(
-      (response) => response.url().includes(`/api/admin/mentor/audits/${blockedCorrelationId}`),
-    );
     await page.getByTestId(`open-audit-${blockedCorrelationId}`).click();
     expect((await blockedDetailResponse).status()).toBe(200);
 

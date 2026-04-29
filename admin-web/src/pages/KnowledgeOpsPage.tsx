@@ -44,7 +44,7 @@ export default function KnowledgeOpsPage() {
   const [searchParams, setSearchParams] = useRouterSearchParams();
   const query = useMemo(() => readKnowledgeQueryState(searchParams, accessibleViews), [accessibleViews, searchParams]);
   const needsCanonicalQuery =
-    !searchParams.has('view') || !searchParams.has('status') || query.viewWasNormalized || query.statusWasNormalized;
+    !searchParams.has('view') || !searchParams.has('status') || query.statusWasNormalized;
   const contextSummary = searchParams.toString() || `view=${query.view}&status=${readCanonicalStatus(query)}`;
 
   const handlePatchQuery = useCallback(
