@@ -8,6 +8,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class PalaceProjectionSyncService {
@@ -22,6 +23,7 @@ public class PalaceProjectionSyncService {
     }
 
     @EventListener
+    @Transactional
     public void onIngestionCompleted(IngestionCompletedEvent event) {
         String bookTitle = event.bookTitle() == null ? "" : event.bookTitle();
         MemPalaceTaxonomy.BookMapping mapping = MemPalaceTaxonomy.resolve(bookTitle);

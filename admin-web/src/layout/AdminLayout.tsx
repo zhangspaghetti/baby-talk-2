@@ -1,6 +1,6 @@
 import { LogoutOutlined, UserOutlined } from '@ant-design/icons';
-import { PageContainer, ProLayout } from '@ant-design/pro-components';
-import { Button, Collapse, Space, Tag, Typography } from 'antd';
+import { ProLayout } from '@ant-design/pro-components';
+import { Breadcrumb, Button, Collapse, Space, Tag, Typography } from 'antd';
 import { Link } from 'react-router-dom';
 import type { DefaultLandingResolution } from '../app/default-landing';
 import type { AdminWorkspaceRouteDefinition } from '../app/routes';
@@ -115,16 +115,17 @@ export default function AdminLayout({
         contentStyle={{ padding: 24 }}
         pageTitleRender={false}
       >
-        <PageContainer
-          title={pageTitle}
-          subTitle={pageSubtitle}
-          breadcrumb={{
-            items: [
-              { title: 'Admin Shell' },
-              { title: currentModuleTitle },
-            ],
-          }}
-        >
+        <div>
+          <Breadcrumb
+            style={{ marginBottom: 8 }}
+            items={[{ title: 'Admin Shell' }, { title: currentModuleTitle }]}
+          />
+          <Typography.Title level={4} style={{ margin: '0 0 4px' }}>{pageTitle}</Typography.Title>
+          {pageSubtitle && (
+            <Typography.Text type="secondary" style={{ display: 'block', marginBottom: 16 }}>
+              {pageSubtitle}
+            </Typography.Text>
+          )}
           {children}
           <Collapse
             defaultActiveKey={['meta']}
@@ -189,7 +190,7 @@ export default function AdminLayout({
               ),
             }]}
           />
-        </PageContainer>
+        </div>
       </ProLayout>
     </div>
   );
