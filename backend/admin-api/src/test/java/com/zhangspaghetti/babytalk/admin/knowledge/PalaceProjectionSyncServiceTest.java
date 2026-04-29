@@ -1,8 +1,10 @@
 package com.zhangspaghetti.babytalk.admin.knowledge;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyDouble;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.atLeastOnce;
@@ -97,5 +99,72 @@ class PalaceProjectionSyncServiceTest {
         verify(palaceProjectionMapper, never()).insertBridgeEdgeIfAbsent(
                 any(), any(), anyDouble(), any(), any()
         );
+    }
+
+    @Test
+    void resolveAgeRange_returnsAgeRangeForKnownWingAndRoom() {
+        // PHYSICAL / MOTOR_DEVELOPMENT maps to age "0-1" via "What to Expect the First Year"
+        String ageRange = service.resolveAgeRange("PHYSICAL", "MOTOR_DEVELOPMENT");
+        assertThat(ageRange).isNotNull().matches("\\d+-\\d+");
+    }
+
+    @Test
+    void resolveAgeRange_returnsFallbackForUnknownWingAndRoom() {
+        assertThat(service.resolveAgeRange("UNKNOWN_WING", "UNKNOWN_ROOM")).isEqualTo("0-6");
+    }
+
+    @Test
+    void resolveSourceBook_returnsBookTitleForKnownWingAndRoom() {
+        String book = service.resolveSourceBook("COGNITIVE", "BRAIN_SCIENCE");
+        assertThat(book).isIn("Brain Rules for Baby", "NurtureShock", "The Scientist in the Crib");
+    }
+
+    @Test
+    void resolveSourceBook_returnsUnknownForUnknownWingAndRoom() {
+        assertThat(service.resolveSourceBook("NONEXISTENT", "NONEXISTENT")).isEqualTo("unknown");
+    }
+
+    @Test
+    void onIngestionCompleted_insertsProjectionVersionWhenNoCurrent() {
+        IngestionCompletedEvent event = new IngestionCompletedEvent(UUID.randomUUID(), "Baby Talk", 3);
+
+        when(palaceProjectionMapper.countCurrentProjectionVersion()).thenReturn(null);
+        when(palaceProjectionMapper.countAllRooms()).thenReturn(1);
+        when(palaceProjectionMapper.findRoomIdByWingAndRoom("LANGUAGE_DEVELOPMENT", "EARLY_COMMUNICATION"))
+                .thenReturn(UUID.randomUUID().toString());
+        when(palaceProjectionMapper.listRoomsExcludingWing("LANGUAGE_DEVELOPMENT")).thenReturn(List.of());
+
+        service.onIngestionCompleted(event);
+
+        verify(palaceProjectionMapper).insertProjectionVersion(any(UUID.class), eq(1));
+        verify(palaceProjectionMapper, never()).updateCurrentProjectionVersion(any(), anyInt());
+    }
+
+    @Test
+    void onIngestionCompleted_updatesProjectionVersionWhenCurrentExists() {
+        IngestionCompletedEvent event = new IngestionCompletedEvent(UUID.randomUUID(), "Baby Talk", 3);
+
+        when(palaceProjectionMapper.countCurrentProjectionVersion()).thenReturn(2);
+        when(palaceProjectionMapper.countAllRooms()).thenReturn(3);
+        when(palaceProjectionMapper.findRoomIdByWingAndRoom("LANGUAGE_DEVELOPMENT", "EARLY_COMMUNICATION"))
+                .thenReturn(UUID.randomUUID().toString());
+        when(palaceProjectionMapper.listRoomsExcludingWing("LANGUAGE_DEVELOPMENT")).thenReturn(List.of());
+
+        service.onIngestionCompleted(event);
+
+        verify(palaceProjectionMapper, never()).insertProjectionVersion(any(), anyInt());
+        verify(palaceProjectionMapper).updateCurrentProjectionVersion(any(UUID.class), eq(3));
+    }
+
+    @Test
+    void onIngestionCompleted_bridgeProposalExceptionIsNonFatal() {
+        IngestionCompletedEvent event = new IngestionCompletedEvent(UUID.randomUUID(), "Baby Talk", 3);
+
+        when(palaceProjectionMapper.countCurrentProjectionVersion()).thenReturn(0);
+        when(palaceProjectionMapper.countAllRooms()).thenReturn(1);
+        when(palaceProjectionMapper.findRoomIdByWingAndRoom(anyString(), anyString()))
+                .thenThrow(new RuntimeException("DB connection lost"));
+
+        assertThatCode(() -> service.onIngestionCompleted(event)).doesNotThrowAnyException();
     }
 }
