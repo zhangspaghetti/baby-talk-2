@@ -17,5 +17,8 @@ if errorlevel 1 (
   exit /b 127
 )
 
+rem "Running build hooks..." may appear before demo_status= output.
+rem This is dart build-system noise on stdout; the structured output follows on the next line.
+rem Exit code is correctly propagated from dart run.
 dart run tool\verify_m007_s01_helm_baseline.dart smoke %*
 exit /b %errorlevel%
