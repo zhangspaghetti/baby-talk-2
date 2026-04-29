@@ -10,6 +10,10 @@ Version format: MAJOR.MINOR.PATCH.MICRO
 ### Performance
 - **admin-web bundle split (ProTable → antd Table):** `UsersPage` 从 782 KB 降至 19 KB (-98%)；主入口 bundle 从 1,130 KB 降至 91 KB (-92%)。将 `@ant-design/pro-components` 拆分为独立 `vendor-pro-components` 缓存块 (88 KB)，base antd 独立 `vendor-antd` (1,282 KB，首次加载后常驻浏览器缓存)。ProTable 替换为标准 antd Table，所有功能与 UI 保持不变，QA 全页面验证通过。
 
+### Changed
+- **admin-api palace services: JdbcTemplate → MyBatis-Plus:** `AdminPalaceRagService` 和 `PalaceProjectionSyncService` 从手写 `JdbcTemplate` SQL 迁移至 MyBatis-Plus mapper（`PalaceRagMapper`、`PalaceProjectionMapper`），统一项目 ORM 技术栈。同步修复 k8s smoke test 中错误的 JdbcTemplate 审计豁免项。
+- **test coverage:** 新增 `PalaceProjectionSyncService` 单元测试 7 个，覆盖 `resolveAgeRange`、`resolveSourceBook`、projection version insert/update 分支及 bridge proposal 异常非致命处理。
+
 ### Chore
 - **mobile/.gitignore:** 新增 `test_results.json` 排除测试产物文件被纳入版本控制。
 
