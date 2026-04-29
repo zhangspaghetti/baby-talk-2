@@ -20,6 +20,12 @@ Modes:
 ''';
 
 Future<void> main(List<String> args) async {
+  // `dart run` may print "Running build hooks..." to stdout without a trailing
+  // newline (a transitive native-assets side effect from the Flutter SDK).
+  // Writing a blank line here ensures our structured output always starts on a
+  // fresh line, so downstream filters (grep, sed) can reliably strip the noise.
+  stdout.writeln();
+
   final options = CliOptions.parse(args);
   if (options.showHelp) {
     stdout.writeln(_usage);

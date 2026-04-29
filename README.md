@@ -8,10 +8,18 @@ Baby Talk 2 是一个面向中国父母的亲子英语启蒙项目：`mobile` �
 
 首次进入仓库前，请先安装这些本地依赖：
 
-- `kind`：<https://kind.sigs.k8s.io/>
-- `helm`：<https://helm.sh/>
-- `kubectl`
-- `dart` / `flutter`
+- `kind` ≥ 0.23：<https://kind.sigs.k8s.io/>
+- `helm` ≥ 3.14：<https://helm.sh/>
+- `kubectl` ≥ 1.28：<https://kubernetes.io/docs/tasks/tools/>
+- `dart` / `flutter` ≥ 3.11.4：<https://flutter.dev/docs/get-started/install>
+
+> **Helm 本地 secret 配置**：首次运行前，先复制 secret 模板并填入本地值：
+> ```bash
+> cp deploy/helm/babytalk-app/values-kind-secrets.example.yaml \
+>    deploy/helm/babytalk-app/values-kind-secrets.yaml
+> # 编辑 values-kind-secrets.yaml，填入 BABY_TALK_ADMIN_JWT_SECRET 等必填项
+> ```
+> `values-kind-secrets.yaml` 已加入 `.gitignore`，不会被提交。
 
 ## 2 分钟内拉起 admin demo
 
