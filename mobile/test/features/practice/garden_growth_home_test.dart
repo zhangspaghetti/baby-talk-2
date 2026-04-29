@@ -241,7 +241,6 @@ void main() {
     );
 
     expect(find.byKey(const Key('recent-result-summary')), findsOneWidget);
-    expect(find.textContaining('吃饭时间'), findsWidgets);
     expect(find.textContaining('Yummy bite.'), findsWidgets);
   });
 

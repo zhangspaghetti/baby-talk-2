@@ -88,8 +88,16 @@ helm upgrade --install babytalk-infra deploy/helm/babytalk-infra \
 ```bash
 helm upgrade --install babytalk-app deploy/helm/babytalk-app \
   -f deploy/helm/babytalk-app/values-kind.yaml \
+  -f deploy/helm/babytalk-app/values-kind-secrets.yaml \
+  --force-conflicts \
   -n babytalk
 ```
+
+> **前提**：`values-kind-secrets.yaml` 不在版本控制中（`.gitignore` 已排除）。首次安装前请先复制 example 文件并填写：
+> ```bash
+> cp deploy/helm/babytalk-app/values-kind-secrets.example.yaml deploy/helm/babytalk-app/values-kind-secrets.yaml
+> ```
+> 然后编辑 `values-kind-secrets.yaml`，确保 `BABY_TALK_CONSUMER_JWT_SECRET` 和 `BABY_TALK_ADMIN_JWT_SECRET` 均不少于 32 字节（HS256 要求）。
 
 ### 2.3 为什么推荐把 namespace 创建放在 infra 命令里
 
@@ -157,6 +165,8 @@ app-only upgrade 的意思是：
 ```bash
 helm upgrade --install babytalk-app deploy/helm/babytalk-app \
   -f deploy/helm/babytalk-app/values-kind.yaml \
+  -f deploy/helm/babytalk-app/values-kind-secrets.yaml \
+  --force-conflicts \
   -n babytalk
 ```
 

@@ -1,0 +1,128 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.zhangspaghetti.babytalk.admin.knowledge.PalaceRagMapper">
+
+    <resultMap id="projectionVersionRowMap"
+               type="com.zhangspaghetti.babytalk.admin.knowledge.PalaceRagMapper$ProjectionVersionRow">
+        <constructor>
+            <arg column="version_num" javaType="java.lang.Long"/>
+            <arg column="room_count" javaType="java.lang.Long"/>
+            <arg column="last_ingestion_batch_id"
+                 javaType="java.util.UUID"
+                 jdbcType="OTHER"
+                 typeHandler="com.zhangspaghetti.babytalk.mybatis.UuidTypeHandler"/>
+            <arg column="status" javaType="java.lang.String"/>
+            <arg column="created_at" javaType="java.time.Instant"/>
+        </constructor>
+    </resultMap>
+
+    <sql id="bridgeEdgeColumns">
+        e.id,
+        e.confidence,
+        e.status,
+        e.source_book_a,
+        e.source_book_b,
+        e.created_at,
+        e.reviewed_by,
+        e.reviewed_at,
+        ra.wing AS room_a_wing,
+        ra.room AS room_a_name,
+        rb.wing AS room_b_wing,
+        rb.room AS room_b_name
+    </sql>
+
+    <sql id="bridgeEdgeJoins">
+        FROM palace_bridge_edges e
+        JOIN palace_rooms ra ON ra.id = e.room_a_id
+        JOIN palace_rooms rb ON rb.id = e.room_b_id
+    </sql>
+
+    <resultMap id="bridgeEdgeRowMap"
+               type="com.zhangspaghetti.babytalk.admin.knowledge.PalaceRagMapper$BridgeEdgeRow">
+        <constructor>
+            <arg column="id"
+                 javaType="java.util.UUID"
+                 jdbcType="OTHER"
+                 typeHandler="com.zhangspaghetti.babytalk.mybatis.UuidTypeHandler"/>
+            <arg column="confidence" javaType="java.lang.Double"/>
+            <arg column="status" javaType="java.lang.String"/>
+            <arg column="source_book_a" javaType="java.lang.String"/>
+            <arg column="source_book_b" javaType="java.lang.String"/>
+            <arg column="created_at" javaType="java.time.Instant"/>
+            <arg column="reviewed_by" javaType="java.lang.String"/>
+            <arg column="reviewed_at" javaType="java.time.Instant"/>
+            <arg column="room_a_wing" javaType="java.lang.String"/>
+            <arg column="room_a_name" javaType="java.lang.String"/>
+            <arg column="room_b_wing" javaType="java.lang.String"/>
+            <arg column="room_b_name" javaType="java.lang.String"/>
+        </constructor>
+    </resultMap>
+
+    <resultMap id="traceSampleRowMap"
+               type="com.zhangspaghetti.babytalk.admin.knowledge.PalaceRagMapper$TraceSampleRow">
+        <constructor>
+            <arg column="id"
+                 javaType="java.util.UUID"
+                 jdbcType="OTHER"
+                 typeHandler="com.zhangspaghetti.babytalk.mybatis.UuidTypeHandler"/>
+            <arg column="entry_rooms" javaType="java.lang.String"/>
+            <arg column="temporal_rule_applied" javaType="java.lang.String"/>
+            <arg column="candidates_json" javaType="java.lang.String"/>
+            <arg column="bridge_edges_crossed" javaType="java.lang.String"/>
+            <arg column="projection_version_used" javaType="java.lang.Long"/>
+            <arg column="queried_at" javaType="java.time.Instant"/>
+        </constructor>
+    </resultMap>
+
+    <select id="findCurrentProjectionStatus" resultMap="projectionVersionRowMap">
+        SELECT version_num, room_count, last_ingestion_batch_id, status, created_at
+        FROM palace_projection_version
+        WHERE status = 'current'
+        ORDER BY version_num DESC
+        LIMIT 1
+    </select>
+
+    <select id="listBridgeEdges" resultMap="bridgeEdgeRowMap">
+        SELECT <include refid="bridgeEdgeColumns"/>
+        <include refid="bridgeEdgeJoins"/>
+        ORDER BY e.created_at DESC
+        LIMIT #{limit}
+    </select>
+
+    <select id="listBridgeEdgesByStatus" resultMap="bridgeEdgeRowMap">
+        SELECT <include refid="bridgeEdgeColumns"/>
+        <include refid="bridgeEdgeJoins"/>
+        WHERE e.status = #{status}
+        ORDER BY e.created_at DESC
+        LIMIT #{limit}
+    </select>
+
+    <select id="findBridgeEdgeById" resultMap="bridgeEdgeRowMap">
+        SELECT <include refid="bridgeEdgeColumns"/>
+        <include refid="bridgeEdgeJoins"/>
+        WHERE e.id = #{id, jdbcType=OTHER, typeHandler=com.zhangspaghetti.babytalk.mybatis.UuidTypeHandler}
+        LIMIT 1
+    </select>
+
+    <update id="updateBridgeEdgeStatus">
+        UPDATE palace_bridge_edges
+        SET status = #{status}, reviewed_by = #{reviewedBy}, reviewed_at = now()
+        WHERE id = #{id, jdbcType=OTHER, typeHandler=com.zhangspaghetti.babytalk.mybatis.UuidTypeHandler}
+    </update>
+
+    <select id="listTraceSamples" resultMap="traceSampleRowMap">
+        SELECT id,
+               entry_rooms,
+               temporal_rule_applied,
+               candidates_json,
+               bridge_edges_crossed,
+               projection_version_used,
+               queried_at
+        FROM palace_query_traces
+        ORDER BY queried_at DESC
+        LIMIT #{limit}
+    </select>
+
+</mapper>

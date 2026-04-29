@@ -1,4 +1,3 @@
-import { ProTable, type ProColumns } from '@ant-design/pro-components';
 import {
   Alert,
   Button,
@@ -200,7 +199,7 @@ export default function UsersPage() {
     };
   }, [detailReloadNonce, selectedFromQuery]);
 
-  const userColumns = useMemo<ProColumns<UserSummaryView>[]>(
+  const userColumns = useMemo<TableColumnsType<UserSummaryView>>(
     () => [
       {
         title: '手机号',
@@ -235,7 +234,6 @@ export default function UsersPage() {
       {
         title: '操作',
         key: 'actions',
-        valueType: 'option',
         width: 120,
         render: (_, record) => [
           <Button
@@ -512,16 +510,11 @@ export default function UsersPage() {
             ) : null}
 
             <div data-testid="users-list-table">
-              <ProTable<UserSummaryView>
+              <Table<UserSummaryView>
                 columns={userColumns}
                 dataSource={listView?.items ?? []}
                 loading={listLoading}
-                options={false}
-                search={false}
                 rowKey="accountId"
-                toolBarRender={false}
-                tableAlertRender={false}
-                cardBordered={false}
                 pagination={{
                   current: listView?.page ?? query.pageForControls,
                   pageSize: listView?.pageSize ?? query.pageSizeForControls,

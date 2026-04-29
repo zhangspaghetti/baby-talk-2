@@ -152,6 +152,23 @@ Future<void> _runInfraStage() async {
 }
 
 Future<void> _runAppStage() async {
+  const secretsFile = 'deploy/helm/babytalk-app/values-kind-secrets.yaml';
+  if (!File(secretsFile).existsSync()) {
+    throw StepFailure(
+      stageKey: 'app',
+      exitCode: 1,
+      likelyCause: 'missing_kind_secrets_file',
+      nextAction:
+          'Copy the example file and fill in secrets:\n'
+          '  cp deploy/helm/babytalk-app/values-kind-secrets.example.yaml $secretsFile\n'
+          'Then rerun this script.',
+      detail:
+          'Required file $secretsFile not found. '
+          'JWT secrets (BABY_TALK_CONSUMER_JWT_SECRET, BABY_TALK_ADMIN_JWT_SECRET) '
+          'must be at least 32 bytes for HS256.',
+    );
+  }
+
   final result = await _runCommand(
     const CommandSpec(
       command: 'helm',
@@ -162,6 +179,9 @@ Future<void> _runAppStage() async {
         'deploy/helm/babytalk-app',
         '-f',
         'deploy/helm/babytalk-app/values-kind.yaml',
+        '-f',
+        secretsFile,
+        '--force-conflicts',
         '--namespace',
         namespace,
         '--create-namespace',

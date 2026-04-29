@@ -2,6 +2,7 @@ package com.zhangspaghetti.babytalk.admin.knowledge;
 
 import com.zhangspaghetti.babytalk.admin.auth.AdminApiContractException;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
@@ -134,7 +135,7 @@ public class AdminKnowledgeOpsController {
     @PreAuthorize("hasAuthority('rag:read')")
     public List<AdminPalaceRagService.PalaceBridgeEdgeView> listPalaceBridgeEdges(
             @RequestParam(required = false) @Size(max = 32, message = "status 过长。") String status,
-            @RequestParam(required = false) @Min(value = 1, message = "limit 至少为 1。") Integer limit
+            @RequestParam(required = false) @Min(value = 1, message = "limit 至少为 1。") @Max(value = 500, message = "limit 最大为 500。") Integer limit
     ) {
         return adminPalaceRagService.listBridgeEdges(status, palaceListLimit(limit));
     }
@@ -168,7 +169,7 @@ public class AdminKnowledgeOpsController {
     @GetMapping("/palace/traces")
     @PreAuthorize("hasAuthority('rag:read')")
     public List<AdminPalaceRagService.PalaceQueryTraceSampleView> listPalaceTraceSamples(
-            @RequestParam(required = false) @Min(value = 1, message = "limit 至少为 1。") Integer limit
+            @RequestParam(required = false) @Min(value = 1, message = "limit 至少为 1。") @Max(value = 500, message = "limit 最大为 500。") Integer limit
     ) {
         return adminPalaceRagService.listTraceSamples(palaceListLimit(limit));
     }
