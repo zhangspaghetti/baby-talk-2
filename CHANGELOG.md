@@ -9,9 +9,17 @@ Version format: MAJOR.MINOR.PATCH.MICRO
 
 ### Performance
 - **admin-web bundle split (ProTable → antd Table):** `UsersPage` 从 782 KB 降至 19 KB (-98%)；主入口 bundle 从 1,130 KB 降至 91 KB (-92%)。将 `@ant-design/pro-components` 拆分为独立 `vendor-pro-components` 缓存块 (88 KB)，base antd 独立 `vendor-antd` (1,282 KB，首次加载后常驻浏览器缓存)。ProTable 替换为标准 antd Table，所有功能与 UI 保持不变，QA 全页面验证通过。
+- **AdminLayout PageContainer 移除:** `AdminLayout.tsx` 移除 `PageContainer`（原来每次 admin 页面加载时同步拉取 pro-components），改用 antd 原生 `Breadcrumb` + `Typography.Title/Text`；`@ant-design/pro-components` 降为仅 `ProLayout` sidebar 所需，vendor-pro-components chunk 不再随每次路由渲染加载。
+
+### Fixed
+- **MyBatis `double` primitive NPE regression (MyBatis 迁移引入):** `PalaceRagMapper.BridgeEdgeRow.confidence` 从 `double` 改为 `Double`（boxed），`PalaceRagMapper.xml` 对应 `javaType` 改为 `java.lang.Double`；修复 confidence 列值为 NULL 时 MyBatis 原始类型抛 `ResultMapException` 的问题（JdbcTemplate 旧行为：NULL → 0.0，MyBatis primitive → 异常）。
+- **proposeBridges null guard:** `PalaceProjectionSyncService.proposeBridges` 在调用 `UUID.fromString()` 前增加 null 判断，防止 `findRoomIdByWingAndRoom` 返回 null 时以 "error=null" 日志吞掉异常；现在抛出 `IllegalStateException`（仍被 non-fatal try-catch 捕获，但日志信息有意义）。
 
 ### Changed
 - **admin-api palace services: JdbcTemplate → MyBatis-Plus:** `AdminPalaceRagService` 和 `PalaceProjectionSyncService` 从手写 `JdbcTemplate` SQL 迁移至 MyBatis-Plus mapper（`PalaceRagMapper`、`PalaceProjectionMapper`），统一项目 ORM 技术栈。同步修复 k8s smoke test 中错误的 JdbcTemplate 审计豁免项。
+- **`@Transactional` on `onIngestionCompleted`:** 关闭 `countCurrentProjectionVersion` + `insert/updateProjectionVersion` 之间的 TOCTOU 竞态；并发 ingestion 事件不再可能导致 unique constraint 冲突。
+- **`@Max(500)` on palace list endpoints:** `GET /palace/bridge-edges` 和 `GET /palace/traces` 的 `limit` 参数新增 `@Max(500)` 上限，防止经过认证的管理员通过超大 limit 值耗尽内存。
+- **helm scripts: 移除 `--force-conflicts`:** `scripts/restore-k8s-proxy.cmd` 两处 helm upgrade 命令移除 `--force-conflicts` 标志，防止静默赢得 field-manager 竞争、掩盖真实冲突。
 - **test coverage:** 新增 `PalaceProjectionSyncService` 单元测试 7 个，覆盖 `resolveAgeRange`、`resolveSourceBook`、projection version insert/update 分支及 bridge proposal 异常非致命处理。新增 `AdminPalaceRagService` 单元测试 14 个，覆盖 projection status 查询、bridge edge CRUD 及状态规范化、trace sample 映射全链路（含 null 安全性）。
 
 ### Chore
