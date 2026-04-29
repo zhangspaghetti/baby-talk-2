@@ -56,7 +56,11 @@ public class PalaceProjectionSyncService {
 
     private void proposeBridges(IngestionCompletedEvent event, String sourceBookTitle, String newWing, String newRoom,
                                 String newAgeRange) {
-        UUID newRoomId = UUID.fromString(palaceProjectionMapper.findRoomIdByWingAndRoom(newWing, newRoom));
+        String newRoomIdStr = palaceProjectionMapper.findRoomIdByWingAndRoom(newWing, newRoom);
+        if (newRoomIdStr == null) {
+            throw new IllegalStateException("Room not found after upsert: wing=" + newWing + ", room=" + newRoom);
+        }
+        UUID newRoomId = UUID.fromString(newRoomIdStr);
 
         List<PalaceProjectionMapper.RoomRow> otherRooms = palaceProjectionMapper.listRoomsExcludingWing(newWing);
 

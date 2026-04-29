@@ -46,7 +46,7 @@
                  javaType="java.util.UUID"
                  jdbcType="OTHER"
                  typeHandler="com.zhangspaghetti.babytalk.mybatis.UuidTypeHandler"/>
-            <arg column="confidence" javaType="_double"/>
+            <arg column="confidence" javaType="java.lang.Double"/>
             <arg column="status" javaType="java.lang.String"/>
             <arg column="source_book_a" javaType="java.lang.String"/>
             <arg column="source_book_b" javaType="java.lang.String"/>

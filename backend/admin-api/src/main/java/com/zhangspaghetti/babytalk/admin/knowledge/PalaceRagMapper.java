@@ -36,7 +36,7 @@ public interface PalaceRagMapper {
 
     record BridgeEdgeRow(
             UUID id,
-            double confidence,
+            Double confidence,
             String status,
             String sourceBookA,
             String sourceBookB,
