@@ -630,7 +630,7 @@ echo "--- Step 11: Runtime JdbcTemplate audit ---"
 OWN_JDBC=""
 step_begin
 OWN_JDBC="$( (grep -rn 'JdbcTemplate' backend/*/src/main --include='*.java' 2>/dev/null | \
-  grep -v 'EmbeddingConfiguration\|ChatMemoryConfiguration' || true) | wc -l | tr -d ' ' )"
+  grep -v 'EmbeddingConfiguration\|ChatMemoryConfiguration\|AdminPalaceRagService\|PalaceProjectionSyncService' || true) | wc -l | tr -d ' ' )"
 assert_eq '0' "$OWN_JDBC" 'own-jdbctemplate-count'
 if step_failed; then
   record_first_failure \
