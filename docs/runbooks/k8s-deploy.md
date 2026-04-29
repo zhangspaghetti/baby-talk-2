@@ -89,7 +89,6 @@ helm upgrade --install babytalk-infra deploy/helm/babytalk-infra \
 helm upgrade --install babytalk-app deploy/helm/babytalk-app \
   -f deploy/helm/babytalk-app/values-kind.yaml \
   -f deploy/helm/babytalk-app/values-kind-secrets.yaml \
-  --force-conflicts \
   -n babytalk
 ```
 
@@ -166,7 +165,6 @@ app-only upgrade 的意思是：
 helm upgrade --install babytalk-app deploy/helm/babytalk-app \
   -f deploy/helm/babytalk-app/values-kind.yaml \
   -f deploy/helm/babytalk-app/values-kind-secrets.yaml \
-  --force-conflicts \
   -n babytalk
 ```
 
