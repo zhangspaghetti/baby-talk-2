@@ -7,6 +7,3 @@ dependencies:
   - name: redis
     version: 25.4.1
     repository: https://charts.bitnami.com/bitnami
-  - name: minio
-    version: 17.0.21
-    repository: https://charts.bitnami.com/bitnami

@@ -25,14 +25,10 @@ redis:
         memory: 64Mi
 
 minio:
-  resourcesPreset: none
   resources:
     requests:
       cpu: 50m
-      memory: 64Mi
-  console:
-    resourcesPreset: none
-    resources:
-      requests:
-        cpu: 50m
-        memory: 64Mi
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi

@@ -8,6 +8,12 @@ postgres:
     password: babytalk
   primary:
     resources: {}
+    persistence:
+      # false = emptyDir (local dev default; data cleared on pod restart)
+      # true  = PVC (staging / prod; set storageClassName + size appropriately)
+      enabled: false
+      storageClassName: ""  # e.g. "hostpath" for Docker Desktop, "" uses cluster default
+      size: 1Gi
 
 redis:
   auth:
@@ -21,10 +27,16 @@ redis:
       enabled: false
 
 minio:
+  image:
+    repository: minio/minio
+    tag: latest
   auth:
     rootUser: babytalk
     rootPassword: babytalk123
   defaultBuckets: babytalk
   persistence:
+    # false = emptyDir (local dev default; data cleared on pod restart)
+    # true  = PVC (staging / prod; set storageClassName + size appropriately)
     enabled: false
-  mode: standalone
+    storageClassName: ""  # e.g. "hostpath" for Docker Desktop, "" uses cluster default
+    size: 5Gi

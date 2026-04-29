@@ -2,7 +2,31 @@
   Standalone PostgreSQL with pgvector.
   Service name: {{ .Release.Name }}-postgres (in-cluster: babytalk-infra-postgres:5432)
   Image: pgvector/pgvector:pg17 — standard postgres:17 base with pgvector pre-installed.
+
+  Persistence: controlled by .Values.postgres.primary.persistence.enabled
+    false (default, local dev) → emptyDir; data cleared on pod restart
+    true  (prod / staging)     → PVC; storageClassName + size from values
 */ -}}
+{{- if .Values.postgres.primary.persistence.enabled }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ .Release.Name }}-postgres-data
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: postgres
+    app.kubernetes.io/instance: {{ .Release.Name }}
+spec:
+  accessModes:
+    - ReadWriteOnce
+  {{- if .Values.postgres.primary.persistence.storageClassName }}
+  storageClassName: {{ .Values.postgres.primary.persistence.storageClassName | quote }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.postgres.primary.persistence.size | quote }}
+---
+{{- end }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -53,6 +77,8 @@ spec:
           volumeMounts:
             - name: initdb
               mountPath: /docker-entrypoint-initdb.d
+            - name: data
+              mountPath: /var/lib/postgresql/data
           {{- with .Values.postgres.primary.resources }}
           resources:
             {{- toYaml . | nindent 12 }}
@@ -72,6 +98,14 @@ spec:
         - name: initdb
           configMap:
             name: {{ .Release.Name }}-postgres-initdb
+        - name: data
+          {{- if .Values.postgres.primary.persistence.enabled }}
+          persistentVolumeClaim:
+            claimName: {{ .Release.Name }}-postgres-data
+          {{- else }}
+          # persistence.enabled: false — ephemeral; data cleared on pod restart (local dev default)
+          emptyDir: {}
+          {{- end }}
 ---
 apiVersion: v1
 kind: Service
