@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 Version format: MAJOR.MINOR.PATCH.MICRO
 
+## [1.2.0.3] - 2026-04-29
+
+### Performance
+- **admin-web bundle split (ProTable → antd Table):** `UsersPage` 从 782 KB 降至 19 KB (-98%)；主入口 bundle 从 1,130 KB 降至 91 KB (-92%)。将 `@ant-design/pro-components` 拆分为独立 `vendor-pro-components` 缓存块 (88 KB)，base antd 独立 `vendor-antd` (1,282 KB，首次加载后常驻浏览器缓存)。ProTable 替换为标准 antd Table，所有功能与 UI 保持不变，QA 全页面验证通过。
+
+### Chore
+- **mobile/.gitignore:** 新增 `test_results.json` 排除测试产物文件被纳入版本控制。
+
 ## [1.2.0.2] - 2026-04-29
 
 ### Added
