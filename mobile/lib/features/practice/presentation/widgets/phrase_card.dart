@@ -76,7 +76,7 @@ class PhraseCard extends StatelessWidget {
           alignment: Alignment.center,
           decoration: BoxDecoration(
             color: isCompleted ? colors.successSoft : colors.bgSunken,
-            borderRadius: BorderRadius.circular(9999),
+            shape: BoxShape.circle,
           ),
           child: Text(
             '${phrase.step}',

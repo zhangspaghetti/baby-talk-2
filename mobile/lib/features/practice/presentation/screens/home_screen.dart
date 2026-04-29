@@ -45,6 +45,7 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> with RouteAware {
   AccountViewModel? _accountViewModel;
   int _lastRuntimeToken = -1;
+  bool _accountHasHadActiveSession = false;
   ModalRoute<dynamic>? _subscribedRoute;
   String? _lastResolvedScopeLabel;
 
@@ -152,13 +153,22 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
       return;
     }
     _lastRuntimeToken = accountViewModel.runtimeChangeToken;
+    // 追踪账号是否曾处于活跃（已注册/同步中）状态
+    if (!accountViewModel.isSignedOut &&
+        !accountViewModel.isRevoked &&
+        !accountViewModel.isDeleted &&
+        !accountViewModel.isLocalOnly) {
+      _accountHasHadActiveSession = true;
+    }
     if (accountViewModel.isSignedOut ||
         accountViewModel.isRevoked ||
         accountViewModel.isDeleted) {
-      // 会话已结束（logout/delete/revoke），重置下游 VM 清除陈旧数据
-      context.read<PracticeContinuityViewModel?>()?.resetToSafeEmpty();
-      context.read<GardenGrowthViewModel?>()?.resetToSafeEmpty();
-      context.read<HouseholdViewModel?>()?.resetToSafeEmpty();
+      // 仅在账号曾经活跃过时才重置下游 VM（防止首次启动未登录时误清除本地练习数据）
+      if (_accountHasHadActiveSession) {
+        context.read<PracticeContinuityViewModel?>()?.resetToSafeEmpty();
+        context.read<GardenGrowthViewModel?>()?.resetToSafeEmpty();
+        context.read<HouseholdViewModel?>()?.resetToSafeEmpty();
+      }
       return;
     }
     if (accountViewModel.isLocalOnly) {

@@ -108,6 +108,11 @@ class AppLocalizationsZh extends AppLocalizations {
   String get homeContinuePractice => '继续练习';
 
   @override
+  String homeTodaySceneSemantics(Object activityTitle) {
+    return '今日场景：$activityTitle';
+  }
+
+  @override
   String homeLocalOnlyBanner(Object childName) {
     return '$childName 的昵称、月龄档和阶段在同意前仅保存在这台设备上。';
   }

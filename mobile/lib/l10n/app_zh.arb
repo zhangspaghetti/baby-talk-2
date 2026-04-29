@@ -36,6 +36,8 @@
   "homeContinuityNoActivity": "共享 continuity 尚未给出可继续的 activity。",
   "homeStartPractice": "开始练习",
   "homeContinuePractice": "继续练习",
+  "homeTodaySceneSemantics": "今日场景：{activityTitle}",
+  "@homeTodaySceneSemantics": {"placeholders": {"activityTitle": {}}},
   "homeLocalOnlyBanner": "{childName} 的昵称、月龄档和阶段在同意前仅保存在这台设备上。",
   "@homeLocalOnlyBanner": {"placeholders": {"childName": {}}},
   "homePersonalizedHeading": "{childName}，今天先从一句自然的英文开始。",

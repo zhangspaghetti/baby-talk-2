@@ -286,6 +286,12 @@ abstract class AppLocalizations {
   /// **'继续练习'**
   String get homeContinuePractice;
 
+  /// No description provided for @homeTodaySceneSemantics.
+  ///
+  /// In zh, this message translates to:
+  /// **'今日场景：{activityTitle}'**
+  String homeTodaySceneSemantics(Object activityTitle);
+
   /// No description provided for @homeLocalOnlyBanner.
   ///
   /// In zh, this message translates to:
