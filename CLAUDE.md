@@ -67,3 +67,22 @@ Key routing rules:
 - Design system, brand → invoke design-consultation
 - Visual audit, design polish → invoke design-review
 - Architecture review → invoke plan-eng-review
+
+## Deploy Configuration (configured by /setup-deploy)
+- Platform: Kubernetes + Helm (Docker Desktop local cluster, namespace: babytalk)
+- Production URL: N/A — local cluster only (port-forward: gateway=127.0.0.1:8090, admin-web=127.0.0.1:3000)
+- Deploy workflow: manual helm upgrade (no auto-deploy on push)
+- Project type: web app + API (Spring Boot backend + React admin-web)
+- Merge method: squash
+
+### Custom deploy hooks
+- Pre-merge: none
+- Deploy trigger: |
+    helm upgrade --install babytalk-infra deploy/helm/babytalk-infra -n babytalk --create-namespace -f deploy/helm/babytalk-infra/values-kind.yaml
+    helm upgrade --install babytalk-app deploy/helm/babytalk-app -n babytalk -f deploy/helm/babytalk-app/values-kind.yaml -f deploy/helm/babytalk-app/values-kind-secrets.yaml
+- Deploy status: |
+    kubectl -n babytalk rollout status deployment/babytalk-app-gateway --timeout=120s
+    kubectl -n babytalk rollout status deployment/babytalk-app-admin-api --timeout=120s
+    kubectl -n babytalk rollout status deployment/babytalk-app-admin-web --timeout=120s
+    kubectl -n babytalk rollout status deployment/babytalk-app-app-api --timeout=120s
+- Health check: kubectl -n babytalk get pods
