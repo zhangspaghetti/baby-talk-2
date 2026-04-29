@@ -330,17 +330,31 @@ function readComposeScalar(sql: string, label: string): string {
 }
 
 function runComposePsql(sql: string, tuplesOnly: boolean, label: string): string {
-  const args = ['compose', 'exec', '-T', 'postgres', 'psql', '-U', 'babytalk', '-d', 'babytalk', '-v', 'ON_ERROR_STOP=1'];
-  if (tuplesOnly) {
-    args.push('-At');
-  }
-  args.push('-c', sql);
+  const isK8sMode = !!process.env['BABY_TALK_PLAYWRIGHT_SKIP_COMPOSE_BOOT'];
 
-  const result = spawnSync('docker', args, {
-    cwd: repoRoot,
-    encoding: 'utf-8',
-    stdio: 'pipe',
-  });
+  let result;
+  if (isK8sMode) {
+    const args = ['exec', '-n', 'babytalk', 'deploy/babytalk-infra-postgres', '--', 'psql', '-U', 'babytalk', '-d', 'babytalk', '-v', 'ON_ERROR_STOP=1'];
+    if (tuplesOnly) {
+      args.push('-At');
+    }
+    args.push('-c', sql);
+    result = spawnSync('kubectl', args, {
+      encoding: 'utf-8',
+      stdio: 'pipe',
+    });
+  } else {
+    const args = ['compose', 'exec', '-T', 'postgres', 'psql', '-U', 'babytalk', '-d', 'babytalk', '-v', 'ON_ERROR_STOP=1'];
+    if (tuplesOnly) {
+      args.push('-At');
+    }
+    args.push('-c', sql);
+    result = spawnSync('docker', args, {
+      cwd: repoRoot,
+      encoding: 'utf-8',
+      stdio: 'pipe',
+    });
+  }
 
   if (result.status !== 0) {
     throw new Error(

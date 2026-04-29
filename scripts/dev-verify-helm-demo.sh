@@ -18,4 +18,6 @@ if ! command -v dart >/dev/null 2>&1; then
   exit 127
 fi
 
-exec dart run tool/verify_m007_s01_helm_baseline.dart smoke "$@"
+# Strip "Running build hooks..." noise that dart run writes to stdout before
+# our program starts (transitive native-assets side effect from Flutter SDK).
+dart run tool/verify_m007_s01_helm_baseline.dart smoke "$@" | grep -v '^Running build hooks' | grep -v '^$'

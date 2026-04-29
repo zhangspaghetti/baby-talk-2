@@ -8,7 +8,6 @@ import 'package:mobile/features/mentor/data/services/mentor_api_service.dart'
     show mentorPromptMaxLength;
 
 const _appVersionHeader = 'X-App-Version';
-const _sessionHeader = 'X-Session-Id';
 const _minVersionHeader = 'X-Min-Supported-Version';
 const _upgradeUrlHeader = 'X-Upgrade-Url';
 
@@ -110,6 +109,11 @@ class InMemoryDemoBackend {
 
       if (request.method == 'POST' && path == '/api/v1/auth/verify') {
         await _handleVerifyChallenge(request);
+        return;
+      }
+
+      if (request.method == 'POST' && path == '/api/v1/auth/refresh') {
+        await _handleRefreshSession(request);
         return;
       }
 
@@ -238,6 +242,7 @@ class InMemoryDemoBackend {
     final sessionId = 'sess_${++_sessionCount}';
     _sessionAccountById[sessionId] = accountState.accountId;
     _sessionInstallationById[sessionId] = installationId;
+    const tokenExpiry = '2030-12-31T23:59:59.000Z';
     await _writeJson(request.response, HttpStatus.ok, {
       'accountId': accountState.accountId,
       'sessionId': sessionId,
@@ -250,11 +255,49 @@ class InMemoryDemoBackend {
         _sessionCount,
       ).toIso8601String(),
       'consentStatus': accountState.consentStatus,
+      'accessToken': sessionId,
+      'refreshToken': sessionId,
+      'tokenType': 'Bearer',
+      'accessTokenExpiresAt': tokenExpiry,
+      'refreshTokenExpiresAt': tokenExpiry,
+    });
+  }
+
+  Future<void> _handleRefreshSession(HttpRequest request) async {
+    final body = await _readJsonBody(request);
+    final refreshToken = body['refreshToken'] as String?;
+    if (refreshToken == null || refreshToken.trim().isEmpty) {
+      await _writeJson(request.response, HttpStatus.unauthorized, {
+        'code': 'invalid_session',
+        'message': 'refreshToken 缺失。',
+      });
+      return;
+    }
+    final account = _resolveAccount(refreshToken);
+    if (account == null) {
+      await _writeJson(request.response, HttpStatus.unauthorized, {
+        'code': 'invalid_session',
+        'message': 'refresh token 无效。',
+      });
+      return;
+    }
+    const tokenExpiry = '2030-12-31T23:59:59.000Z';
+    await _writeJson(request.response, HttpStatus.ok, {
+      'accountId': account.accountId,
+      'sessionId': refreshToken,
+      'maskedPhoneNumber': _maskPhoneNumber(account.phoneNumber),
+      'createdAt': DateTime.utc(2026, 4, 10, 10).toIso8601String(),
+      'consentStatus': account.consentStatus,
+      'accessToken': refreshToken,
+      'refreshToken': refreshToken,
+      'tokenType': 'Bearer',
+      'accessTokenExpiresAt': tokenExpiry,
+      'refreshTokenExpiresAt': tokenExpiry,
     });
   }
 
   Future<void> _handleAcceptConsent(HttpRequest request) async {
-    final sessionId = request.headers.value(_sessionHeader);
+    final sessionId = _extractSessionFromBearer(request);
     final account = _resolveAccount(sessionId);
     if (account == null) {
       await _writeJson(request.response, HttpStatus.unauthorized, {
@@ -276,7 +319,7 @@ class InMemoryDemoBackend {
   }
 
   Future<void> _handleRevokeConsent(HttpRequest request) async {
-    final sessionId = request.headers.value(_sessionHeader);
+    final sessionId = _extractSessionFromBearer(request);
     final account = _resolveAccount(sessionId);
     if (account == null) {
       await _writeJson(request.response, HttpStatus.unauthorized, {
@@ -296,7 +339,7 @@ class InMemoryDemoBackend {
   }
 
   Future<void> _handleDeleteAccount(HttpRequest request) async {
-    final sessionId = request.headers.value(_sessionHeader);
+    final sessionId = _extractSessionFromBearer(request);
     final account = _resolveAccount(sessionId);
     if (account == null) {
       await _writeJson(request.response, HttpStatus.unauthorized, {
@@ -322,7 +365,7 @@ class InMemoryDemoBackend {
 
   Future<void> _handleBootstrap(HttpRequest request) async {
     bootstrapCount += 1;
-    final sessionId = request.headers.value(_sessionHeader);
+    final sessionId = _extractSessionFromBearer(request);
     final account = _resolveAccount(sessionId);
     final installationId = request.uri.queryParameters['installationId'];
 
@@ -387,7 +430,7 @@ class InMemoryDemoBackend {
   }
 
   Future<void> _handleSyncEvents(HttpRequest request) async {
-    final sessionId = request.headers.value(_sessionHeader);
+    final sessionId = _extractSessionFromBearer(request);
     final account = _resolveAccount(sessionId);
     final installationFromSession = sessionId == null
         ? null
@@ -487,7 +530,7 @@ class InMemoryDemoBackend {
   Future<void> _handleMentorChat(HttpRequest request) async {
     mentorRequestCount += 1;
     final body = await _readJsonBody(request);
-    final sessionId = request.headers.value(_sessionHeader);
+    final sessionId = _extractSessionFromBearer(request);
     final installationId = body['installationId'] as String?;
     final prompt = (body['prompt'] as String?)?.trim() ?? '';
     final surface = (body['surface'] as String?)?.trim() ?? '';
@@ -775,6 +818,15 @@ class InMemoryDemoBackend {
       'growth',
       'standalone_home',
     }.contains(surface);
+  }
+
+  String? _extractSessionFromBearer(HttpRequest request) {
+    final auth = request.headers.value(HttpHeaders.authorizationHeader);
+    if (auth == null) return null;
+    const prefix = 'Bearer ';
+    if (!auth.startsWith(prefix)) return null;
+    final token = auth.substring(prefix.length).trim();
+    return token.isNotEmpty ? token : null;
   }
 
   _DemoAccountState? _resolveAccount(String? sessionId) {

@@ -4,6 +4,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:isar/isar.dart';
 import 'package:mobile/app/app.dart';
@@ -294,16 +295,9 @@ void main() {
         ageBucket: OnboardingAgeBucket.zeroToSix,
         completedAt: DateTime.utc(2026, 4, 8, 8),
       );
-      final malformedAccountFile = File(
-        '${created.tempDir.path}${Platform.pathSeparator}account_state.json',
-      );
-      await malformedAccountFile.writeAsString(
-        '{"consentState":"accepted_pending_sync","session":null}',
-        flush: true,
-      );
       final accountRepository = AccountRepository(
         localStore: AccountLocalStore(
-          directoryResolver: () async => created.tempDir,
+          secureStorage: const _MalformedSecureStorage(),
         ),
         practiceRepository: created.repository,
       );
@@ -491,6 +485,24 @@ Future<void> _pumpUntilFound(
   }
 
   fail('Timed out waiting for expected widget.');
+}
+
+/// 用于测试：模拟返回 malformed account JSON（accepted_pending_sync 但无 session）
+class _MalformedSecureStorage extends FlutterSecureStorage {
+  const _MalformedSecureStorage();
+
+  @override
+  Future<String?> read({
+    required String key,
+    IOSOptions? iOptions,
+    AndroidOptions? aOptions,
+    LinuxOptions? lOptions,
+    WebOptions? webOptions,
+    MacOsOptions? mOptions,
+    WindowsOptions? wOptions,
+  }) async {
+    return '{"consentState":"accepted_pending_sync","session":null}';
+  }
 }
 
 String _resolveBundledIsarLibraryPath() {

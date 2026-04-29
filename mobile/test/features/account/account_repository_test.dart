@@ -3,6 +3,7 @@ import 'dart:ffi' show Abi;
 import 'dart:io';
 
 import 'package:flutter/services.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:isar/isar.dart';
 import 'package:mobile/core/device/installation_id_service.dart';
@@ -307,7 +308,8 @@ class _AccountRepositoryHarness {
     required this.assetPhraseService,
     required this.installationId,
     required this.api,
-  });
+    required _InMemorySecureStorage inMemoryStorage,
+  }) : _inMemoryStorage = inMemoryStorage;
 
   final Directory tempDir;
   final PracticeLocalDataSource localDataSource;
@@ -316,6 +318,7 @@ class _AccountRepositoryHarness {
   final AssetPhraseService assetPhraseService;
   final String installationId;
   final _FakeAccountApiService api;
+  final _InMemorySecureStorage _inMemoryStorage;
 
   static Future<_AccountRepositoryHarness> create() async {
     final tempDir = await Directory.systemTemp.createTemp(
@@ -337,8 +340,9 @@ class _AccountRepositoryHarness {
       localDataSource: localDataSource,
       installationIdService: installationIdService,
     );
+    final inMemoryStorage = _InMemorySecureStorage();
     final accountLocalStore = AccountLocalStore(
-      directoryResolver: () async => tempDir,
+      secureStorage: inMemoryStorage,
     );
     return _AccountRepositoryHarness(
       tempDir: tempDir,
@@ -348,6 +352,7 @@ class _AccountRepositoryHarness {
       assetPhraseService: assetPhraseService,
       installationId: installationId,
       api: _FakeAccountApiService(installationId: installationId),
+      inMemoryStorage: inMemoryStorage,
     );
   }
 
@@ -394,10 +399,10 @@ class _AccountRepositoryHarness {
   }
 
   Future<void> writeRawSnapshot(Map<String, Object?> json) async {
-    final file = File(
-      '${tempDir.path}${Platform.pathSeparator}${accountLocalStore.fileName}',
+    await _inMemoryStorage.write(
+      key: accountLocalStore.storageKey,
+      value: jsonEncode(json),
     );
-    await file.writeAsString(jsonEncode(json), flush: true);
   }
 
   Future<void> dispose() async {
@@ -620,4 +625,52 @@ String _resolveBundledIsarLibraryPath() {
   }
 
   throw StateError('未在 pub cache 中找到 isar_flutter_libs/windows/isar.dll');
+}
+
+class _InMemorySecureStorage extends FlutterSecureStorage {
+  _InMemorySecureStorage();
+
+  final Map<String, String> _store = {};
+
+  @override
+  Future<String?> read({
+    required String key,
+    IOSOptions? iOptions,
+    AndroidOptions? aOptions,
+    LinuxOptions? lOptions,
+    WebOptions? webOptions,
+    MacOsOptions? mOptions,
+    WindowsOptions? wOptions,
+  }) async =>
+      _store[key];
+
+  @override
+  Future<void> write({
+    required String key,
+    required String? value,
+    IOSOptions? iOptions,
+    AndroidOptions? aOptions,
+    LinuxOptions? lOptions,
+    WebOptions? webOptions,
+    MacOsOptions? mOptions,
+    WindowsOptions? wOptions,
+  }) async {
+    if (value == null) {
+      _store.remove(key);
+    } else {
+      _store[key] = value;
+    }
+  }
+
+  @override
+  Future<void> delete({
+    required String key,
+    IOSOptions? iOptions,
+    AndroidOptions? aOptions,
+    LinuxOptions? lOptions,
+    WebOptions? webOptions,
+    MacOsOptions? mOptions,
+    WindowsOptions? wOptions,
+  }) async =>
+      _store.remove(key);
 }

@@ -59,6 +59,28 @@ class HomeGrowthSummaryCard extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Text(body, style: Theme.of(context).textTheme.bodyMedium),
+          if (effectiveViewModel?.hasError ?? false) ...[
+            const SizedBox(height: 12),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: OutlinedButton(
+                key: const Key('home-growth-summary-retry'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: colors.warning,
+                  side: BorderSide(color: colors.warning),
+                  minimumSize: const Size(0, 40),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
+                  ),
+                ),
+                onPressed: effectiveViewModel != null
+                    ? () => effectiveViewModel.refresh()
+                    : null,
+                child: Text(l.homeReorganize),
+              ),
+            ),
+          ],
           if (snapshot.hasIssues && snapshot.projectionWarning != null) ...[
             const SizedBox(height: 10),
             Text(

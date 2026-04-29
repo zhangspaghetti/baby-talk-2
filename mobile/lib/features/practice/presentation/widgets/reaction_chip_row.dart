@@ -32,7 +32,7 @@ class ReactionChipRow extends StatelessWidget {
                   ? () => onSelected!(option.type)
                   : null,
               style: OutlinedButton.styleFrom(
-                minimumSize: const Size(112, 48),
+                  minimumSize: const Size(0, 48),
                 padding: const EdgeInsets.symmetric(
                   horizontal: 14,
                   vertical: 12,

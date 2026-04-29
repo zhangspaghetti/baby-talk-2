@@ -44,16 +44,13 @@ class HomeRecentResultCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  '${recommendedActivity!.title} · ${recentResult.phraseEnglish} · ${_labelForReaction(l, recentResult.reactionType)}',
-                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                    color: colors.textPrimary,
-                    fontWeight: FontWeight.w700,
-                  ),
+                  '${recentResult.phraseEnglish} · ${_labelForReaction(l, recentResult.reactionType)}',
+                  style: Theme.of(context).textTheme.titleSmall,
                 ),
                 const SizedBox(height: 6),
                 Text(
                   l.homeRecentResultDetail(
-                    recommendedActivity.totalEvents.toString(),
+                    recommendedActivity?.totalEvents.toString() ?? '0',
                     _formatTime(recentResult.eventTime),
                   ),
                   style: Theme.of(context).textTheme.bodyMedium,

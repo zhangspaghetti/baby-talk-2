@@ -36,12 +36,9 @@
 **What:** 完整 Onboarding 流程 HTML mockup 已创建: 欢迎页 → 输入名字 → 输入生日 → 阶段匹配动画 → 过渡页 → 登录 → PIPL 隐私同意。
 **Status:** 已完成 (2026-04-02)。见 docs/mockups/onboarding.html。
 
-### Update Design Doc for Native Pivot
-**What:** 将 `docs/designs/baby-talk-extended-mvp.md` 中所有 "Flutter Web first" 的引用更新为 "Flutter Native first"。移除所有 "hidden on Flutter Web" / "native-only" 的条件逻辑。更新 Build Order、Key Implementation Decisions、Known Risks 等章节。
-**Why:** 现有设计文档和新的 CEO Plan (`ceo-plans/2026-04-01-native-app-pivot.md`) 矛盾。开发者会困惑。
-**Context:** CEO Review (2026-04-01) 确认 Phase 1 改为 Flutter Native (Android APK + iOS i4Tools 自签名)。设计文档需要同步更新。
-**Effort:** S (CC: ~15 分钟，批量替换)
-**Depends on:** CEO Plan 已完成 ✅
+### ~~Update Design Doc for Native Pivot~~ ✅ N/A — 文件不存在
+**What:** ~~将 `docs/designs/baby-talk-extended-mvp.md` 中所有 "Flutter Web first" 的引用更新为 "Flutter Native first"~~
+**Status:** `docs/designs/` 目录不存在，`docs/designs/baby-talk-extended-mvp.md` 从未创建。此任务已过期，标记为 N/A。设计真相参见 DESIGN.md（已更新为 Flutter Native first）。
 
 ### Alibaba Cloud ASR Flutter Integration Spike
 **What:** 验证阿里云 ASR 的 Flutter 集成方式。是否有现成 Flutter plugin？还是需要 Platform Channel 桥接原生 SDK？

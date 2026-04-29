@@ -216,7 +216,6 @@ class PracticeLocalDataSource {
     if (normalizedKeys.isEmpty) {
       return;
     }
-
     final timestamp = (syncedAt ?? DateTime.now()).toUtc();
     final collection = _isar.collection<InteractionEventEntity>();
     await _isar.writeTxn(() async {
@@ -232,6 +231,7 @@ class PracticeLocalDataSource {
         await collection.putByEventKey(entity);
       }
     });
+
   }
 
   Future<void> markEventsFailed(

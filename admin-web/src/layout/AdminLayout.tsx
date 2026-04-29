@@ -79,27 +79,39 @@ export default function AdminLayout({
           icon: <UserOutlined />,
           title: currentAdmin?.displayName ?? '管理员会话',
           render: (_, defaultDom) => (
-            <Space size={8} align="center">
-              {defaultDom}
-              <Typography.Text type="secondary">{currentAdmin?.username ?? 'unknown-admin'}</Typography.Text>
-            </Space>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, overflow: 'hidden', minWidth: 0, maxWidth: '100%' }}>
+              <div style={{ flexShrink: 0 }}>{defaultDom}</div>
+              <Typography.Text
+                type="secondary"
+                style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 12 }}
+              >
+                {currentAdmin?.username ?? 'unknown-admin'}
+              </Typography.Text>
+            </div>
           ),
         }}
-        actionsRender={() => [
-          <Tag color={warmPaperAdmin.palette.infoSoft} key="current-route" data-testid="header-current-route">
-            {currentModuleTitle}
-          </Tag>,
-          <Button
-            key="logout"
-            danger
-            icon={<LogoutOutlined />}
-            loading={loggingOut}
-            onClick={onLogout}
-            type="primary"
-          >
-            退出登录
-          </Button>,
-        ]}
+        menuFooterRender={() => (
+          <div style={{ padding: '8px 12px 16px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <Tag
+              color={warmPaperAdmin.palette.infoSoft}
+              data-testid="header-current-route"
+              style={{ display: 'block', textAlign: 'center', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+            >
+              {currentModuleTitle}
+            </Tag>
+            <Button
+              block
+              danger
+              icon={<LogoutOutlined />}
+              loading={loggingOut}
+              onClick={onLogout}
+              type="primary"
+              size="small"
+            >
+              退出登录
+            </Button>
+          </div>
+        )}
         contentStyle={{ padding: 24 }}
         pageTitleRender={false}
       >
@@ -115,7 +127,7 @@ export default function AdminLayout({
         >
           {children}
           <Collapse
-            defaultActiveKey={[]}
+            defaultActiveKey={['meta']}
             destroyInactivePanel={false}
             style={{ marginTop: 16 }}
             items={[{

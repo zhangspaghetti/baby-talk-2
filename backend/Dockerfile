@@ -8,6 +8,7 @@ COPY pom.xml ./pom.xml
 COPY common/pom.xml common/pom.xml
 COPY app-api/pom.xml app-api/pom.xml
 COPY admin-api/pom.xml admin-api/pom.xml
+COPY gateway/pom.xml gateway/pom.xml
 COPY db-migration/pom.xml db-migration/pom.xml
 RUN mvn -pl ${MODULE} -am dependency:go-offline -B
 

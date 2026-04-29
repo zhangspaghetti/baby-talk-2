@@ -10,7 +10,7 @@ flutter pub get
 flutter run
 ```
 
-如果你只是想验证 split-stack 能否带起管理员面，先回到 repo root 跑 `dev-up-admin-demo` / `dev-verify-admin-demo`；那两条命令属于 admin front door，不属于 mobile front door。对应的 bounded telemetry history 会写到 `../tmp/m006-s13-front-door-metrics.jsonl`；如果你是在排查管理员面，不要在 `mobile/` 里再找第二套 smoke。
+如果你只是想验证 split-stack 能否带起管理员面，先回到 repo root 跑 `dev-up-helm-demo` / `dev-verify-helm-demo`；那两条命令属于 repo-root front door，不属于 mobile front door。对应的 bounded telemetry history 会写到 `../tmp/m007-s01-helm-metrics.jsonl`；如果你是在排查管理员面，不要在 `mobile/` 里再找第二套 smoke。
 
 ## Useful commands
 

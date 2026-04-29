@@ -33,7 +33,7 @@ class HomeTodaySceneCard extends StatelessWidget {
     final l = AppLocalizations.of(context)!;
     final colors = context.appColors;
     return Semantics(
-      label: '今日场景: $activityTitle',
+      label: l.homeTodaySceneSemantics(activityTitle),
       child: Container(
         decoration: BoxDecoration(
           color: colors.bgSurface,

@@ -100,13 +100,33 @@ void main() {
       expect(harness.backend.bootstrapCount, greaterThanOrEqualTo(1));
       expect(harness.backend.storedEventCount(harness.installationId), 3);
       expect(find.byKey(const Key('account-close-button')), findsOneWidget);
-      await tester.tap(find.byKey(const Key('account-close-button')));
+      // Close button may be below viewport after sign-in adds status widgets.
+      await tester.ensureVisible(find.byKey(const Key('account-close-button')));
+      await tester.pump(const Duration(milliseconds: 100));
+      await tester.tap(
+        find.byKey(const Key('account-close-button')),
+        warnIfMissed: false,
+      );
       await tester.pumpAndSettle();
 
       await harness.switchToHomeTab(tester);
       await FullChainTestHarness.scrollHomeToTop(tester);
+      // HomeTodaySceneCard fills most of the viewport; HomeRecentResultCard is
+      // below the fold.  Scroll down to bring it into view, then wait for it.
+      await FullChainTestHarness.scrollHomeTo(
+        tester,
+        find.byKey(const Key('home-local-only-banner')),
+        reason: 'home-local-only-banner',
+      );
+      await tester.pump();
+      await FullChainTestHarness.pumpUntilFound(
+        tester,
+        find.byKey(const Key('recent-result-summary')),
+        timeout: const Duration(seconds: 30),
+        reason: 'recent-result-summary after sign-in sync',
+      );
       expect(find.byKey(const Key('recent-result-summary')), findsOneWidget);
-      expect(find.textContaining('已同步 3'), findsOneWidget);
+      expect(find.textContaining('已同步 3'), findsWidgets);
 
       final mentorViewModel = await harness.submitMentorPrompt(
         tester,

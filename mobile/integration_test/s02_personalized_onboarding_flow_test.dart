@@ -173,10 +173,25 @@ void main() {
       );
       expect(find.byKey(const Key('shell-ready')), findsOneWidget);
       expect(find.text('米米 的首页'), findsOneWidget);
-      // Wait for the home content to load (async Isar IO + continuity refresh).
+      // Wait for ListView to render (boot seed loaded or initialize() completed).
+      await _pumpUntilFound(
+        tester,
+        find.byKey(const Key('home-start-practice')),
+        timeout: const Duration(seconds: 10),
+      );
+      // Scroll down to bring HomeRecentResultCard into viewport.
+      // HomeTodaySceneCard + HomePersonalizedHero push it below the fold.
+      await tester.scrollUntilVisible(
+        find.byKey(const Key('home-local-only-banner')),
+        -300,
+        scrollable: _homeScrollable(),
+      );
+      await tester.pump();
+      // Wait for recent-result-summary (ViewModel loads data from Isar).
       await _pumpUntilFound(
         tester,
         find.byKey(const Key('recent-result-summary')),
+        timeout: const Duration(seconds: 30),
       );
       await _scrollHomeTo(
         tester,

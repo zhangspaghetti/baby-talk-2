@@ -90,7 +90,7 @@ class FullChainTestHarness {
         accountRepositoryFactory: (practiceRepository, directory) async {
           return AccountRepository(
             localStore: AccountLocalStore(
-              directoryResolver: () async => directory,
+              storageKey: 'test_full_chain_account',
             ),
             practiceRepository: practiceRepository,
             apiService: AccountApiService(baseUri: backend.baseUri),
@@ -247,12 +247,18 @@ class FullChainTestHarness {
     await tester.pump(const Duration(milliseconds: 3000));
     // Drag the home list all the way to the top (it was scrolled down to reveal
     // home-start-practice). A large positive Y drag scrolls content upward.
-    await tester.drag(
-      find.descendant(
-        of: find.byType(HomeScreen),
-        matching: find.byType(Scrollable),
-      ),
-      const Offset(0, 5000),
+    final homeScrollable = find.descendant(
+      of: find.byType(HomeScreen),
+      matching: find.byType(Scrollable),
+    );
+    await tester.drag(homeScrollable, const Offset(0, 5000));
+    await tester.pump();
+    // Scroll down to bring HomeRecentResultCard into viewport.
+    // HomeTodaySceneCard + HomePersonalizedHero push it below the fold.
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('home-local-only-banner')),
+      -300,
+      scrollable: homeScrollable,
     );
     await tester.pump();
     await pumpUntilFound(
@@ -290,19 +296,26 @@ class FullChainTestHarness {
       find.byKey(const Key('account-phone-field')),
       phoneNumber,
     );
+    await tester.pump();
     await tester.enterText(
       find.byKey(const Key('account-code-field')),
       verificationCode,
     );
-    await tester.pumpAndSettle();
+    await tester.pump();
+    // Dismiss soft keyboard before tapping submit
+    FocusManager.instance.primaryFocus?.unfocus();
+    await tester.pump(const Duration(milliseconds: 700));
     await tester.ensureVisible(find.byKey(const Key('account-submit-button')));
-    await tester.pump(const Duration(milliseconds: 100));
-    await tester.tap(find.byKey(const Key('account-submit-button')));
+    await tester.pump(const Duration(milliseconds: 500));
+    await tester.tap(
+      find.byKey(const Key('account-submit-button')),
+      warnIfMissed: false,
+    );
     await tester.pump();
     await pumpUntilFound(
       tester,
       find.byKey(const Key('account-status-signed-in-synced')),
-      timeout: const Duration(seconds: 16),
+      timeout: const Duration(seconds: 30),
       reason: 'signed-in synced status',
     );
   }

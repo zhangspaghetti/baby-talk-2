@@ -4,13 +4,6 @@ description: BabyTalk infra release — Postgres, Redis, MinIO
 type: application
 version: 0.1.0
 dependencies:
-  - name: postgresql
-    version: 18.6.2
-    repository: https://charts.bitnami.com/bitnami
-    alias: postgres
   - name: redis
     version: 25.4.1
-    repository: https://charts.bitnami.com/bitnami
-  - name: minio
-    version: 17.0.21
     repository: https://charts.bitnami.com/bitnami

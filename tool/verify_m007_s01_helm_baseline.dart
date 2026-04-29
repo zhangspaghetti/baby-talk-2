@@ -4,7 +4,6 @@ import 'dart:io';
 
 const helmTelemetryHistoryPath = 'tmp/m007-s01-helm-metrics.jsonl';
 const helmTelemetryMaxEntries = 50;
-const clusterName = 'babytalk-local';
 const namespace = 'babytalk';
 const infraReleaseName = 'babytalk-infra';
 const appReleaseName = 'babytalk-app';
@@ -15,11 +14,18 @@ const gatewayUrl = 'http://127.0.0.1:$gatewayLocalPort/';
 const _usage = '''Usage: dart run tool/verify_m007_s01_helm_baseline.dart <demo|smoke> [--help]
 
 Modes:
-  demo    Create kind cluster if needed, install infra + app charts, then verify gateway.
+  demo    Install infra + app charts into the active kubectl context, then verify gateway.
+          Requires Docker Desktop Kubernetes (or any reachable cluster via kubectl).
   smoke   Assume the cluster is already up and only re-check the gateway smoke path.
 ''';
 
 Future<void> main(List<String> args) async {
+  // `dart run` may print "Running build hooks..." to stdout without a trailing
+  // newline (a transitive native-assets side effect from the Flutter SDK).
+  // Writing a blank line here ensures our structured output always starts on a
+  // fresh line, so downstream filters (grep, sed) can reliably strip the noise.
+  stdout.writeln();
+
   final options = CliOptions.parse(args);
   if (options.showHelp) {
     stdout.writeln(_usage);
@@ -76,10 +82,6 @@ Future<void> main(List<String> args) async {
 
 Future<void> _runPreflight() async {
   await _requireCommandAvailable(
-    'kind',
-    const CommandSpec(command: 'kind', args: ['--version']),
-  );
-  await _requireCommandAvailable(
     'helm',
     const CommandSpec(command: 'helm', args: ['version', '--short']),
   );
@@ -97,53 +99,20 @@ Future<void> _runPreflight() async {
 }
 
 Future<void> _runClusterStage() async {
+  // Docker Desktop Kubernetes (or any reachable cluster) — just verify connectivity.
   final result = await _runCommand(
-    const CommandSpec(command: 'kind', args: ['get', 'clusters']),
+    const CommandSpec(command: 'kubectl', args: ['cluster-info']),
     timeout: const Duration(seconds: 20),
   );
   if (result.exitCode != 0) {
     throw StepFailure(
       stageKey: 'cluster',
       exitCode: result.exitCode,
-      likelyCause: 'kind_clusters_failed',
+      likelyCause: 'cluster_unreachable',
       nextAction:
-          'Fix kind connectivity, then rerun ./scripts/dev-up-helm-demo.sh.',
+          'Ensure Docker Desktop Kubernetes is enabled and your kubectl context points to it, then rerun ./scripts/dev-up-helm-demo.sh.',
       detail:
-          '`kind get clusters` failed.\n${_trimmedOutput(result.combinedOutput)}',
-    );
-  }
-
-  final clusters = LineSplitter.split(result.stdout)
-      .map((line) => line.trim())
-      .where((line) => line.isNotEmpty)
-      .toSet();
-  if (clusters.contains(clusterName)) {
-    return;
-  }
-
-  final createResult = await _runCommand(
-    const CommandSpec(
-      command: 'kind',
-      args: [
-        'create',
-        'cluster',
-        '--name',
-        clusterName,
-        '--config',
-        'deploy/kind/kind-config.yaml',
-      ],
-    ),
-    timeout: const Duration(minutes: 5),
-  );
-  if (createResult.exitCode != 0) {
-    throw StepFailure(
-      stageKey: 'cluster',
-      exitCode: createResult.exitCode,
-      likelyCause: 'kind_create_failed',
-      nextAction:
-          'Run `kind delete cluster --name $clusterName` if a partial cluster exists, then rerun ./scripts/dev-up-helm-demo.sh.',
-      detail:
-          '`kind create cluster --name $clusterName --config deploy/kind/kind-config.yaml` failed.\n${_trimmedOutput(createResult.combinedOutput)}',
+          '`kubectl cluster-info` failed.\n${_trimmedOutput(result.combinedOutput)}',
     );
   }
 }

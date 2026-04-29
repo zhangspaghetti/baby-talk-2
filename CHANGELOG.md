@@ -5,6 +5,31 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 Version format: MAJOR.MINOR.PATCH.MICRO
 
+## [1.2.0.2] - 2026-04-29
+
+### Added
+- **pgvector 独立 Postgres 模板:** 替换 bitnami/postgresql 子 chart，改用 `pgvector/pgvector:pg17` 镜像独立部署；init 脚本自动创建 vector extension；readinessProbe 通过 `pg_isready` 保证 helm --wait 正确等待。
+- **MinIO 独立模板 + 数据卷修复:** 新增 `deploy/helm/babytalk-infra/templates/minio.yaml`，MinIO 之前缺少 `/data` volumeMount（上传文件写入临时容器 FS 无持久化）；现已正确挂载 emptyDir/PVC。
+- **可配置 PVC/emptyDir 持久化:** postgres 和 minio 均新增 `persistence.enabled`（默认 false = emptyDir）；置 true 创建命名 PVC，支持 storageClassName 和 size 配置，可无缝切换生产环境。
+- **移动端 e2e 全链路测试:** 新增 `e2e_full_flow_test.dart` 入口与 `test_driver/integration_test.dart`；`run-full-e2e.sh/.cmd` 脚本一键执行。
+- **e2e 测试报告 + 截图:** `docs/e2e-test-report-2026-04-29.md`、`docs/e2e-full-test-report-2026-04-29.md`，admin + mobile 截图 50 张。
+
+### Fixed
+- **MinIO 数据卷缺失 (P1):** MinIO 之前在无任何 volume 定义的情况下执行 `server /data`，所有上传仅存于临时容器 FS，Pod 重启即丢失；现已修复。
+- **网关 CORS 缺失 PATCH 方法:** `gateway/application.yml` 补充 PATCH 到 allowedMethods，修复 admin-web PATCH 请求 403 问题。
+- **backend/Dockerfile 缺失 gateway pom.xml:** COPY 步骤补全 `backend/gateway/pom.xml`，修复 Maven 层缓存 miss。
+- **admin-web KnowledgeOpsPage:** 移除 `needsCanonicalQuery/viewWasNormalized` 标志，修复已规范化请求被意外二次重定向。
+- **admin-web AdminAccountsPage:** 禁用状态按钮 UX 反馈改进，防止用户误操作无响应。
+- **helm-app secret/serviceaccount:** 清理 hook 注解结构，保留 pre-install,pre-upgrade 语义不变。
+
+### Changed
+- **移动端集成测试稳定性:** s02/s03/s06 滚动修复、键盘关闭、超时延长；harness 更新。
+- **移动端首页 UI:** home_screen + 各 widget 视觉和布局优化；中文 l10n 补全。
+- **Helm infra:** 移除 bitnami/minio 子 chart，改用独立模板（同 postgres 模式）；values-kind.yaml 统一 emptyDir。
+- **scripts:** dev-up/verify-helm-demo.sh/.cmd 添加 grep 噪音过滤。
+- **admin-web playwright:** retries + screenshot-on-failure；URL regex 修复；kubectl exec K8s 模式支持；waitForResponse race 修复。
+- **verify_m007_s01_helm_baseline.dart:** 替换 kind 检测为 Docker Desktop kubectl connectivity check；stdout.writeln build hook 修复。
+
 ## [1.2.0.1] - 2026-04-28
 
 ### Security

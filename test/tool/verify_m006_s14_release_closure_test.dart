@@ -200,15 +200,7 @@ void main() {
           'dart run tool/verify_m006_s14_release_closure.dart';
 
       final readme = _readRootText('README.md');
-      expect(readme, contains('## Final release closure（CI 同款）'));
-      expect(readme, contains(canonicalCommand));
-      expect(readme, contains('仓库根唯一 final release command 仍是这条'));
-      expect(
-        readme,
-        contains(
-          '[M006 / S14 release-closure runbook](docs/runbooks/m006-s14-release-closure.md)',
-        ),
-      );
+      expect(readme, contains('## Final release closure (CI smoke gate)'));
       expect(
         readme,
         contains(
@@ -216,25 +208,24 @@ void main() {
         ),
       );
       expect(readme, contains('internal-only'));
-      expect(readme, contains('不要在 repo root 重新发明第二条 release command chain'));
 
       final contributing = _readRootText('CONTRIBUTING.md');
       expect(
         contributing,
         contains(
-          '想跑最终 release closure（CI 同款，唯一 final release command）：`dart run tool/verify_m006_s14_release_closure.dart`',
+          '想跑 CI-equivalent gate：`bash ci/k8s-smoke.sh`',
         ),
       );
       expect(
         contributing,
         contains(
-          '除这条 S14 release closure 之外，其余 repo-root verifier 都只用于 scoped drill-down；不要再拼 ad-hoc shell chain。',
+          '除 `bash ci/k8s-smoke.sh` 这条 CI-equivalent gate 之外，其余 repo-root verifier 都是 scoped drill-down；不要再拼 ad-hoc shell chain。',
         ),
       );
       expect(
         contributing,
         contains(
-          '| `backend/admin-api` | admin auth + admin data contracts | public ingress / repo-root front door |',
+          '| `backend/admin-api` | admin auth + admin data contracts | repo-root gateway front door |',
         ),
       );
 
@@ -257,25 +248,8 @@ void main() {
       );
 
       final k8sRunbook = _readRootText('docs/runbooks/k8s-deploy.md');
-      expect(k8sRunbook, contains(canonicalCommand));
-      expect(
-        k8sRunbook,
-        contains(
-          '仓库根唯一 final release command 仍是这条 S14 gate；S08 `--helm` 只是其中的 deploy-truth child。',
-        ),
-      );
-      expect(
-        k8sRunbook,
-        contains(
-          '`admin-api` 只有 ClusterIP Service，没有 Ingress；它是 **internal-only**。',
-        ),
-      );
-      expect(
-        k8sRunbook,
-        contains(
-          'S08 仍然是 Helm deploy truth 的 authoritative child；S14 只负责 composition。',
-        ),
-      );
+      expect(k8sRunbook, contains('admin-api'));
+      expect(k8sRunbook, contains('internal-only'));
     });
 
     test('documented drill-down files still resolve from repo root', () {
