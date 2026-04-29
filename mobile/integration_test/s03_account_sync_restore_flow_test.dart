@@ -65,7 +65,7 @@ void main() {
         accountRepositoryFactory: (practiceRepository, directory) async {
           return AccountRepository(
             localStore: AccountLocalStore(
-              directoryResolver: () async => directory,
+              storageKey: 's03_first_account',
             ),
             practiceRepository: practiceRepository,
             apiService: AccountApiService(baseUri: backend.baseUri),
@@ -133,6 +133,14 @@ void main() {
     // home-start-practice). A large positive Y drag scrolls content upward.
     await tester.drag(_homeScrollable(), const Offset(0, 5000));
     await tester.pump();
+    // Scroll down to bring HomeRecentResultCard into viewport.
+    // HomeTodaySceneCard + HomePersonalizedHero push it below the fold.
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('home-local-only-banner')),
+      -300,
+      scrollable: _homeScrollable(),
+    );
+    await tester.pump();
     await _pumpUntilFound(
       tester,
       find.byKey(const Key('recent-result-summary')),
@@ -157,17 +165,26 @@ void main() {
       find.byKey(const Key('account-phone-field')),
       '13800138000',
     );
+    await tester.pump();
     await tester.enterText(
       find.byKey(const Key('account-code-field')),
       '246810',
     );
+    await tester.pump();
+    // Dismiss soft keyboard before tapping submit
+    FocusManager.instance.primaryFocus?.unfocus();
+    await tester.pump(const Duration(milliseconds: 700));
     await tester.ensureVisible(find.byKey(const Key('account-submit-button')));
     await tester.pump(const Duration(milliseconds: 100));
-    await tester.tap(find.byKey(const Key('account-submit-button')));
+    await tester.tap(
+      find.byKey(const Key('account-submit-button')),
+      warnIfMissed: false,
+    );
+    await tester.pump();
     await _pumpUntilFound(
       tester,
       find.byKey(const Key('account-status-signed-in-synced')),
-      timeout: const Duration(seconds: 20),
+      timeout: const Duration(seconds: 30),
     );
 
     expect(
@@ -204,7 +221,7 @@ void main() {
         accountRepositoryFactory: (practiceRepository, directory) async {
           return AccountRepository(
             localStore: AccountLocalStore(
-              directoryResolver: () async => directory,
+              storageKey: 's03_second_account',
             ),
             practiceRepository: practiceRepository,
             apiService: AccountApiService(baseUri: backend.baseUri),
@@ -219,7 +236,22 @@ void main() {
     await _pumpUntilFound(tester, find.byKey(const Key('shell-ready')));
     await _pumpUntilFound(tester, find.byKey(const Key('home-starter-seed')));
 
-    await _scrollHomeTo(tester, find.byKey(const Key('recent-result-summary')));
+    // Drag the home list all the way to the top.
+    await tester.drag(_homeScrollable(), const Offset(0, 5000));
+    await tester.pump();
+    // Scroll down to bring HomeLocalOnlyBanner into viewport (same as first app).
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('home-local-only-banner')),
+      -300,
+      scrollable: _homeScrollable(),
+    );
+    await tester.pump();
+    // Wait for HomeRecentResultCard to load from DB.
+    await _pumpUntilFound(
+      tester,
+      find.byKey(const Key('recent-result-summary')),
+      timeout: const Duration(seconds: 30),
+    );
     expect(find.byKey(const Key('recent-result-summary')), findsOneWidget);
     expect(find.textContaining('All clean. · 宝宝放松'), findsOneWidget);
     expect(find.textContaining('3 条本地记录'), findsOneWidget);
@@ -237,24 +269,77 @@ void main() {
       find.byKey(const Key('account-phone-field')),
       '13800138000',
     );
+    await tester.pump();
     await tester.enterText(
       find.byKey(const Key('account-code-field')),
       '246810',
     );
+    await tester.pump();
+    // Dismiss soft keyboard before tapping submit
+    FocusManager.instance.primaryFocus?.unfocus();
+    await tester.pump(const Duration(milliseconds: 700));
     await tester.ensureVisible(find.byKey(const Key('account-submit-button')));
     await tester.pump(const Duration(milliseconds: 100));
-    await tester.tap(find.byKey(const Key('account-submit-button')));
+    await tester.tap(
+      find.byKey(const Key('account-submit-button')),
+      warnIfMissed: false,
+    );
+    await tester.pump();
     await _pumpUntilFound(
       tester,
       find.byKey(const Key('account-status-signed-in-synced')),
-      timeout: const Duration(seconds: 20),
+      timeout: const Duration(seconds: 30),
     );
 
     expect(backend.bootstrapCount, 2);
     expect(backend.storedEventCount(_openRepositoryInstallationId), 3);
-    await tester.tap(find.byKey(const Key('account-close-button')));
+    // Scroll close button into view before tapping (it may be below viewport
+    // after sign-in adds extra status/action buttons to the account screen).
+    await tester.ensureVisible(find.byKey(const Key('account-close-button')));
+    await tester.pump(const Duration(milliseconds: 100));
+    await tester.tap(
+      find.byKey(const Key('account-close-button')),
+      warnIfMissed: false,
+    );
     await tester.pumpAndSettle();
-    await _scrollHomeTo(tester, find.byKey(const Key('recent-result-summary')));
+    // Wait for home screen to be ready after account screen closes.
+    await _pumpUntilFound(
+      tester,
+      find.byKey(const Key('shell-ready')),
+      timeout: const Duration(seconds: 30),
+    );
+    // After a sign-in the continuity VM may reset (isInitialLoading=true).
+    // Wait until the loading overlay disappears so HomeScreen is showing its
+    // ListView before we drag.  Without this, find.byType(Scrollable).first
+    // would match an IndexedStack sibling (GardenScreen / GrowthScreen) that
+    // has no relation to the home list.
+    await _pumpUntilAbsent(
+      tester,
+      find.byKey(const Key('home-loading')),
+      timeout: const Duration(seconds: 30),
+    );
+    // The home list may be scrolled down from before the account screen was
+    // opened.  Drag to the top.  _homeScrollable() is safe here because
+    // _pumpUntilAbsent above guarantees isInitialLoading=false (ListView shown).
+    await tester.drag(_homeScrollable(), const Offset(0, 5000));
+    await tester.pump();
+    // HomeTodaySceneCard fills most of the viewport, so HomePersonalizedHero
+    // and HomeRecentResultCard are below the fold and may not be lazily built.
+    // Scroll down until home-local-only-banner is visible; that brings the
+    // hero and result card into the build range.
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('home-local-only-banner')),
+      -300,
+      scrollable: _homeScrollable(),
+    );
+    await tester.pump();
+    // After bootstrap re-imports the 3 synced events, recent-result-summary
+    // shows '已同步 3'.  Wait up to 30 s for continuity to finish loading.
+    await _pumpUntilFound(
+      tester,
+      find.byKey(const Key('recent-result-summary')),
+      timeout: const Duration(seconds: 30),
+    );
     expect(find.byKey(const Key('recent-result-summary')), findsOneWidget);
     expect(find.textContaining('已同步 3'), findsOneWidget);
   });
@@ -317,4 +402,25 @@ Future<void> _pumpUntilFound(
   }
 
   fail('Timed out waiting for expected widget.');
+}
+
+Future<void> _pumpUntilAbsent(
+  WidgetTester tester,
+  Finder finder, {
+  Duration step = const Duration(milliseconds: 50),
+  Duration timeout = const Duration(seconds: 8),
+}) async {
+  // If the widget is not in the tree at all, return immediately.
+  if (finder.evaluate().isEmpty) {
+    return;
+  }
+  final totalSteps = timeout.inMilliseconds ~/ step.inMilliseconds;
+  for (var index = 0; index < totalSteps; index++) {
+    await tester.pump(step);
+    if (finder.evaluate().isEmpty) {
+      return;
+    }
+  }
+
+  fail('Timed out waiting for widget to disappear.');
 }

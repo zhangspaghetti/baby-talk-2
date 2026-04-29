@@ -83,7 +83,7 @@ class E2eTestHarness {
         accountRepositoryFactory: (practiceRepository, directory) async {
           return AccountRepository(
             localStore: AccountLocalStore(
-              directoryResolver: () async => directory,
+              storageKey: 'e2e_smoke_account',
             ),
             practiceRepository: practiceRepository,
             apiService: AccountApiService(baseUri: backendUri),
@@ -215,20 +215,27 @@ class E2eTestHarness {
     await tester.ensureVisible(thirdReaction);
     await tester.pump(const Duration(milliseconds: 100));
     await tester.tap(thirdReaction);
-    await tester.pump(const Duration(milliseconds: 3000));
 
-    await tester.drag(
-      find.descendant(
-        of: find.byType(HomeScreen),
-        matching: find.byType(Scrollable),
-      ),
-      const Offset(0, 5000),
+    // Give real time for recordReaction()'s Isar write + _reloadDerivedState
+    // to complete, then for navigator.pop() to fire and the home screen to
+    // settle. Isar on the Android emulator can be slow (multi-second writes),
+    // so we use pumpAndSettle with a generous timeout here.
+    // After this call, navigator.pop() has been called and didPopNext has fired,
+    // which also starts the continuity refresh.
+    await tester.pumpAndSettle(
+      const Duration(milliseconds: 100),
+      EnginePhase.sendSemanticsUpdate,
+      const Duration(seconds: 60),
     );
-    await tester.pump();
+
+    // HomeRecentResultCard is item ~3 in the ListView — no scroll needed.
+    // Use a 2 s step to reduce Dart-isolate contention while waiting for the
+    // continuity refresh to complete and the widget to be rebuilt.
     await pumpUntilFound(
       tester,
       find.byKey(const Key('recent-result-summary')),
-      timeout: const Duration(seconds: 30),
+      timeout: const Duration(seconds: 180),
+      step: const Duration(seconds: 2),
       reason: 'recent result summary',
     );
   }
