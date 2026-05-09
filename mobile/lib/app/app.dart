@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:go_router/go_router.dart';
 import 'package:mobile/app/app_reentry_orchestrator.dart';
 import 'package:mobile/l10n/app_localizations.dart';
 import 'package:mobile/app/invite_reentry_coordinator.dart';
@@ -17,6 +18,7 @@ import 'package:mobile/features/account/data/repositories/account_repository.dar
 import 'package:mobile/features/account/data/services/account_api_service.dart';
 import 'package:mobile/features/account/data/services/authenticated_api_client.dart';
 import 'package:mobile/features/account/presentation/account_view_model.dart';
+import 'package:mobile/features/account/presentation/screens/account_entry_screen.dart';
 import 'package:mobile/features/household/data/local/household_local_store.dart';
 import 'package:mobile/features/household/data/repositories/household_repository.dart';
 import 'package:mobile/features/household/data/services/household_api_service.dart';
@@ -253,6 +255,7 @@ class _BabyTalkAppState extends State<BabyTalkApp> {
   late final bool _ownsInviteReentryCoordinator;
   late final AppReentryOrchestrator _reentryOrchestrator;
   final GlobalKey<NavigatorState> _navigatorKey = GlobalKey<NavigatorState>();
+  GoRouter? _currentRouter;
   PracticeRepository? _repository;
   MentorRepository? _mentorRepository;
   _SharedConsumerAuthDependencies? _sharedConsumerAuthDependencies;
@@ -270,7 +273,7 @@ class _BabyTalkAppState extends State<BabyTalkApp> {
     _reentryOrchestrator = AppReentryOrchestrator(
       shareReentryCoordinator: _shareReentryCoordinator,
       inviteReentryCoordinator: _inviteReentryCoordinator,
-      navigatorStateProvider: () => _navigatorKey.currentState,
+      goRouterProvider: () => _currentRouter,
       mountedCheck: () => mounted,
       launchDestinationProvider: () => _resolvedLaunchState?.destination,
       seedContentProvider: () => widget.bootState.content,
@@ -472,50 +475,20 @@ class _BabyTalkAppState extends State<BabyTalkApp> {
               mentorRepository: mentorRepository,
               defaultPracticeArgs: launchState.defaultPracticeArgs,
             ),
-            child: MaterialApp(
-              navigatorKey: _navigatorKey,
-            builder: (context, child) => _ReentryOverlay(child: child),
-            debugShowCheckedModeBanner: false,
-            title: 'Baby Talk 2',
-            localizationsDelegates: AppLocalizations.localizationsDelegates,
-            supportedLocales: AppLocalizations.supportedLocales,
-            theme: AppTheme.build(),
-            darkTheme: AppTheme.buildDark(),
-            themeMode: ThemeMode.system,
-            navigatorObservers: [appRouteObserver],
-            initialRoute: launchState.initialRoute,
-            onGenerateRoute: AppRouter.onGenerateRoute(
-              onboardingBuilder: (_) =>
-                  ChangeNotifierProvider<OnboardingViewModel>(
-                    create: (_) =>
-                        OnboardingViewModel(repository: onboardingRepository)
-                          ..initialize(),
-                    child: const _BootRouteMarker(
-                      routeKey: Key('boot-route-onboarding'),
-                      child: OnboardingScreen(),
-                    ),
-                  ),
-              shellBuilder: (context) {
-                final routeArgs = ModalRoute.of(context)?.settings.arguments;
-                final routedSnapshot = routeArgs is OnboardingSnapshot
-                    ? routeArgs
-                    : launchState.completedSnapshot;
-                return _BootRouteMarker(
-                  routeKey: const Key('boot-route-shell'),
-                  child: AppShellScreen(onboardingSnapshot: routedSnapshot),
-                );
-              },
-              practiceBuilder: (context, settings) {
-                final routeEntry = PracticeRouteEntry.fromObject(
-                  settings.arguments,
-                );
-                return PracticeSessionScreen(
-                  routeEntry: routeEntry,
-                  audioControllerFactory: widget.audioControllerFactory,
-                );
-              },
+            child: MaterialApp.router(
+              routerConfig: _resolveRouter(
+                launchState: launchState,
+                onboardingRepository: onboardingRepository,
+              ),
+              builder: (context, child) => _ReentryOverlay(child: child),
+              debugShowCheckedModeBanner: false,
+              title: 'Baby Talk 2',
+              localizationsDelegates: AppLocalizations.localizationsDelegates,
+              supportedLocales: AppLocalizations.supportedLocales,
+              theme: AppTheme.build(),
+              darkTheme: AppTheme.buildDark(),
+              themeMode: ThemeMode.system,
             ),
-          ),
           ),
         );
       },
@@ -609,6 +582,58 @@ class _BabyTalkAppState extends State<BabyTalkApp> {
     } on ProviderNotFoundException {
       return null;
     }
+  }
+
+  GoRouter _resolveRouter({
+    required _AppLaunchState launchState,
+    required OnboardingRepository onboardingRepository,
+  }) {
+    _currentRouter = GoRouter(
+      navigatorKey: _navigatorKey,
+      initialLocation: launchState.initialRoute,
+      routes: [
+        GoRoute(
+          path: '/',
+          builder: (context, state) {
+            final routedSnapshot = state.extra is OnboardingSnapshot
+                ? state.extra as OnboardingSnapshot
+                : launchState.completedSnapshot;
+            return _BootRouteMarker(
+              routeKey: const Key('boot-route-shell'),
+              child: AppShellScreen(onboardingSnapshot: routedSnapshot),
+            );
+          },
+        ),
+        GoRoute(
+          path: '/onboarding',
+          builder: (context, state) =>
+              ChangeNotifierProvider<OnboardingViewModel>(
+                create: (_) =>
+                    OnboardingViewModel(repository: onboardingRepository)
+                      ..initialize(),
+                child: const _BootRouteMarker(
+                  routeKey: Key('boot-route-onboarding'),
+                  child: OnboardingScreen(),
+                ),
+              ),
+        ),
+        GoRoute(
+          path: '/practice',
+          builder: (context, state) {
+            final routeEntry = PracticeRouteEntry.fromObject(state.extra);
+            return PracticeSessionScreen(
+              routeEntry: routeEntry,
+              audioControllerFactory: widget.audioControllerFactory,
+            );
+          },
+        ),
+        GoRoute(
+          path: '/account',
+          builder: (context, state) => const AccountEntryScreen(),
+        ),
+      ],
+    );
+    return _currentRouter!;
   }
 
   Future<void> _retryLaunchState() async {

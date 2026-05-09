@@ -1,6 +1,8 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_hooks/flutter_hooks.dart';
+import 'package:go_router/go_router.dart';
+import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:mobile/app/providers/repository_providers.dart';
 import 'package:mobile/app/theme/app_layout_constants.dart';
 import 'package:mobile/app/theme/app_theme.dart';
@@ -14,9 +16,7 @@ import 'package:mobile/features/onboarding/domain/models/onboarding_snapshot.dar
 import 'package:mobile/l10n/app_localizations.dart';
 
 Future<void> openAccountEntryScreen(BuildContext context) {
-  return Navigator.of(
-    context,
-  ).push(MaterialPageRoute<void>(builder: (_) => const AccountEntryScreen()));
+  return GoRouter.of(context).push('/account');
 }
 
 class AccountStatusCard extends ConsumerWidget {
@@ -303,33 +303,14 @@ class AccountStatusCard extends ConsumerWidget {
   }
 }
 
-class AccountEntryScreen extends ConsumerStatefulWidget {
+class AccountEntryScreen extends HookConsumerWidget {
   const AccountEntryScreen({super.key});
 
   @override
-  ConsumerState<AccountEntryScreen> createState() => _AccountEntryScreenState();
-}
+  Widget build(BuildContext context, WidgetRef ref) {
+    final phoneController = useTextEditingController();
+    final codeController = useTextEditingController();
 
-class _AccountEntryScreenState extends ConsumerState<AccountEntryScreen> {
-  late final TextEditingController _phoneController;
-  late final TextEditingController _codeController;
-
-  @override
-  void initState() {
-    super.initState();
-    _phoneController = TextEditingController();
-    _codeController = TextEditingController();
-  }
-
-  @override
-  void dispose() {
-    _phoneController.dispose();
-    _codeController.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
     final colors = context.appColors;
     final theme = Theme.of(context);
@@ -337,16 +318,16 @@ class _AccountEntryScreenState extends ConsumerState<AccountEntryScreen> {
     final householdViewModel = ref.watch(householdNotifierProvider);
     final phase = resolveAccountPhase(viewModel);
 
-    if (_phoneController.text != viewModel.phoneNumber) {
-      _phoneController.value = TextEditingValue(
+    if (phoneController.text != viewModel.phoneNumber) {
+      phoneController.value = TextEditingValue(
         text: viewModel.phoneNumber,
         selection: TextSelection.collapsed(
           offset: viewModel.phoneNumber.length,
         ),
       );
     }
-    if (_codeController.text != viewModel.verificationCode) {
-      _codeController.value = TextEditingValue(
+    if (codeController.text != viewModel.verificationCode) {
+      codeController.value = TextEditingValue(
         text: viewModel.verificationCode,
         selection: TextSelection.collapsed(
           offset: viewModel.verificationCode.length,
@@ -398,13 +379,13 @@ class _AccountEntryScreenState extends ConsumerState<AccountEntryScreen> {
                         width: double.infinity,
                         padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
-                          color: _phaseBackground(phase),
+                          color: _phaseBackground(phase, colors),
                           borderRadius: BorderRadius.circular(16),
                         ),
                         child: Text(
                           _statusText(l, phase, viewModel),
                           style: theme.textTheme.bodyMedium?.copyWith(
-                            color: _phaseForeground(phase),
+                            color: _phaseForeground(phase, colors),
                             fontWeight: FontWeight.w700,
                           ),
                         ),
@@ -420,7 +401,7 @@ class _AccountEntryScreenState extends ConsumerState<AccountEntryScreen> {
                       const SizedBox(height: 20),
                       TextField(
                         key: const Key('account-phone-field'),
-                        controller: _phoneController,
+                        controller: phoneController,
                         keyboardType: TextInputType.phone,
                         decoration: InputDecoration(
                           labelText: l.accountPhoneLabel,
@@ -432,7 +413,7 @@ class _AccountEntryScreenState extends ConsumerState<AccountEntryScreen> {
                       const SizedBox(height: 16),
                       TextField(
                         key: const Key('account-code-field'),
-                        controller: _codeController,
+                        controller: codeController,
                         keyboardType: TextInputType.number,
                         decoration: InputDecoration(
                           labelText: l.accountCodeLabel,
@@ -457,7 +438,7 @@ class _AccountEntryScreenState extends ConsumerState<AccountEntryScreen> {
                           ),
                           key: const Key('account-last-error'),
                           style: theme.textTheme.bodySmall?.copyWith(
-                            color: _phaseForeground(phase),
+                            color: _phaseForeground(phase, colors),
                             fontWeight: FontWeight.w700,
                           ),
                         ),
@@ -706,8 +687,7 @@ class _AccountEntryScreenState extends ConsumerState<AccountEntryScreen> {
     }
   }
 
-  Color _phaseBackground(AccountSurfacePhase phase) {
-    final colors = context.appColors;
+  Color _phaseBackground(AccountSurfacePhase phase, BabyTalkColors colors) {
     switch (phase) {
       case AccountSurfacePhase.loading:
         return colors.bgSunken;
@@ -728,8 +708,7 @@ class _AccountEntryScreenState extends ConsumerState<AccountEntryScreen> {
     }
   }
 
-  Color _phaseForeground(AccountSurfacePhase phase) {
-    final colors = context.appColors;
+  Color _phaseForeground(AccountSurfacePhase phase, BabyTalkColors colors) {
     switch (phase) {
       case AccountSurfacePhase.loading:
         return colors.textSecondary;

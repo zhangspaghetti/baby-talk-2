@@ -6,9 +6,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 import 'package:isar/isar.dart';
 import 'package:mobile/app/providers/repository_providers.dart';
-import 'package:mobile/app/router/app_router.dart';
 import 'package:mobile/app/theme/app_theme.dart';
 import 'package:mobile/l10n/app_localizations.dart';
 import 'package:mobile/core/device/installation_id_service.dart';
@@ -393,18 +393,29 @@ Future<void> _pumpOnboardingScreen(
       overrides: [
         onboardingNotifierProvider.overrideWith((ref) => viewModel),
       ],
-      child: MaterialApp(
+      child: MaterialApp.router(
         debugShowCheckedModeBanner: false,
         theme: AppTheme.build(),
         localizationsDelegates: AppLocalizations.localizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
-        initialRoute: AppRouteNames.onboarding,
-        onGenerateRoute: AppRouter.onGenerateRoute(
-          onboardingBuilder: (_) => const OnboardingScreen(),
-          shellBuilder: (_) => const Scaffold(
-            body: Center(child: Text('shell ready', key: Key('shell-ready'))),
-          ),
-          practiceBuilder: (_, settings) => const SizedBox.shrink(),
+        routerConfig: GoRouter(
+          initialLocation: '/onboarding',
+          routes: [
+            GoRoute(
+              path: '/',
+              builder: (_, __) => const Scaffold(
+                body: Center(child: Text('shell ready', key: Key('shell-ready'))),
+              ),
+            ),
+            GoRoute(
+              path: '/onboarding',
+              builder: (_, __) => const OnboardingScreen(),
+            ),
+            GoRoute(
+              path: '/practice',
+              builder: (_, __) => const SizedBox.shrink(),
+            ),
+          ],
         ),
       ),
     ),

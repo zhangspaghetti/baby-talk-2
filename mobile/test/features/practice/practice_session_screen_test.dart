@@ -5,8 +5,8 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 import 'package:isar/isar.dart';
-import 'package:mobile/app/router/app_router.dart';
 import 'package:mobile/app/theme/app_theme.dart';
 import 'package:mobile/core/device/installation_id_service.dart';
 import 'package:mobile/features/practice/data/local/practice_local_data_source.dart';
@@ -288,22 +288,31 @@ void main() {
           container: container2,
           child: Provider<PracticeRepository>.value(
             value: harness.repository,
-            child: MaterialApp(
+            child: MaterialApp.router(
               theme: AppTheme.build(),
               localizationsDelegates: AppLocalizations.localizationsDelegates,
               supportedLocales: AppLocalizations.supportedLocales,
-              onGenerateRoute: AppRouter.onGenerateRoute(
-                shellBuilder: (_) => Scaffold(
-                  body: DiscoverScreen(
-                    catalogLoader: () async => _unknownActivityCatalog(),
+              routerConfig: GoRouter(
+                initialLocation: '/',
+                routes: [
+                  GoRoute(
+                    path: '/',
+                    builder: (_, __) => Scaffold(
+                      body: DiscoverScreen(
+                        catalogLoader: () async => _unknownActivityCatalog(),
+                      ),
+                    ),
                   ),
-                ),
-                practiceBuilder: (context, settings) {
-                  final routeEntry = PracticeRouteEntry.fromObject(
-                    settings.arguments,
-                  );
-                  return PracticeSessionScreen(routeEntry: routeEntry);
-                },
+                  GoRoute(
+                    path: '/practice',
+                    builder: (context, state) {
+                      final routeEntry = PracticeRouteEntry.fromObject(
+                        state.extra,
+                      );
+                      return PracticeSessionScreen(routeEntry: routeEntry);
+                    },
+                  ),
+                ],
               ),
             ),
           ),
@@ -432,28 +441,39 @@ Widget _buildDiscoverPracticeApp(
       ),
     ],
   );
+  // Trigger the provider so it resolves before widgets read it.
+  container.read(practiceRepositoryProvider.future);
   return UncontrolledProviderScope(
     container: container,
     child: Provider<PracticeRepository>.value(
       value: repository,
-      child: MaterialApp(
+      child: MaterialApp.router(
         theme: AppTheme.build(),
         localizationsDelegates: AppLocalizations.localizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
-        onGenerateRoute: AppRouter.onGenerateRoute(
-          shellBuilder: (_) => Scaffold(
-            body: DiscoverScreen(
-              catalogLoader: catalogLoader,
-              practiceOpener: practiceOpener,
+        routerConfig: GoRouter(
+          initialLocation: '/',
+          routes: [
+            GoRoute(
+              path: '/',
+              builder: (_, __) => Scaffold(
+                body: DiscoverScreen(
+                  catalogLoader: catalogLoader,
+                  practiceOpener: practiceOpener,
+                ),
+              ),
             ),
-          ),
-          practiceBuilder: (context, settings) {
-            final routeEntry = PracticeRouteEntry.fromObject(settings.arguments);
-            return PracticeSessionScreen(
-              routeEntry: routeEntry,
-              audioControllerFactory: _SilentPracticeAudioController.new,
-            );
-          },
+            GoRoute(
+              path: '/practice',
+              builder: (context, state) {
+                final routeEntry = PracticeRouteEntry.fromObject(state.extra);
+                return PracticeSessionScreen(
+                  routeEntry: routeEntry,
+                  audioControllerFactory: _SilentPracticeAudioController.new,
+                );
+              },
+            ),
+          ],
         ),
       ),
     ),
@@ -464,13 +484,9 @@ Future<void> _pushPracticeScreen(
   BuildContext context,
   PracticeRouteArgs args,
 ) {
-  return Navigator.of(context).push<void>(
-    MaterialPageRoute<void>(
-      builder: (_) => PracticeSessionScreen(
-        routeEntry: PracticeRouteEntry.fromObject(args),
-        audioControllerFactory: _SilentPracticeAudioController.new,
-      ),
-    ),
+  return GoRouter.of(context).push<void>(
+    '/practice',
+    extra: args,
   );
 }
 

@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_hooks/flutter_hooks.dart';
+import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:mobile/app/providers/repository_providers.dart';
-import 'package:mobile/app/router/app_router.dart';
+import 'package:go_router/go_router.dart';
 import 'package:mobile/app/widgets/app_banner.dart';
 import 'package:mobile/app/widgets/app_haptics.dart';
 import 'package:mobile/app/widgets/app_step_progress.dart';
@@ -16,74 +17,65 @@ import 'package:mobile/features/onboarding/presentation/widgets/mini_seed_card.d
 import 'package:mobile/features/onboarding/presentation/widgets/quick_select_card.dart';
 import 'package:mobile/l10n/app_localizations.dart';
 
-class OnboardingScreen extends ConsumerStatefulWidget {
+class OnboardingScreen extends HookConsumerWidget {
   const OnboardingScreen({super.key});
 
   @override
-  ConsumerState<OnboardingScreen> createState() => _OnboardingScreenState();
-}
+  Widget build(BuildContext context, WidgetRef ref) {
+    final nameController = useTextEditingController();
+    final nameFocusNode = useFocusNode();
+    final updatingNameFromNotifier = useState<bool>(false);
+    final lastHandledStep = useState<OnboardingFlowStep?>(null);
+    final navigationScheduled = useState<bool>(false);
 
-class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
-  late final TextEditingController _nameController;
-  late final FocusNode _nameFocusNode;
-  bool _updatingNameFromNotifier = false;
-  OnboardingFlowStep? _lastHandledStep;
-  bool _navigationScheduled = false;
+    // Register listener on mount, clean up on dispose.
+    useEffect(() {
+      void listener() {
+        if (updatingNameFromNotifier.value) return;
+        ref
+            .read(onboardingNotifierProvider.notifier)
+            .updateDraftName(nameController.text);
+      }
 
-  @override
-  void initState() {
-    super.initState();
-    _nameController = TextEditingController();
-    _nameFocusNode = FocusNode();
-    _nameController.addListener(_handleNameChanged);
-  }
+      nameController.addListener(listener);
+      return () => nameController.removeListener(listener);
+    }, const []);
 
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    final notifier = ref.read(onboardingNotifierProvider);
-    if (_nameController.text != notifier.draftName) {
-      _updatingNameFromNotifier = true;
-      _nameController.value = TextEditingValue(
+    // Sync controller text with notifier on every rebuild (replaces didChangeDependencies).
+    final notifier = ref.watch(onboardingNotifierProvider);
+    if (nameController.text != notifier.draftName) {
+      updatingNameFromNotifier.value = true;
+      nameController.value = TextEditingValue(
         text: notifier.draftName,
         selection: TextSelection.collapsed(offset: notifier.draftName.length),
       );
-      _updatingNameFromNotifier = false;
+      updatingNameFromNotifier.value = false;
     }
-  }
 
-  @override
-  void dispose() {
-    _nameController
-      ..removeListener(_handleNameChanged)
-      ..dispose();
-    _nameFocusNode.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
     final colors = context.appColors;
     final theme = Theme.of(context);
-    final notifier = ref.watch(onboardingNotifierProvider);
-    _syncFocusForStep(notifier.currentStep);
+
+    // Sync focus for current step.
+    if (lastHandledStep.value != notifier.currentStep) {
+      lastHandledStep.value = notifier.currentStep;
+      if (notifier.currentStep == OnboardingFlowStep.name) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          nameFocusNode.requestFocus();
+        });
+      } else if (nameFocusNode.hasFocus) {
+        nameFocusNode.unfocus();
+      }
+    }
 
     // Navigate to shell when onboarding completes.
-    if (!_navigationScheduled &&
+    if (!navigationScheduled.value &&
         notifier.navigationRequestToken > 0 &&
         notifier.completedSnapshot != null) {
-      _navigationScheduled = true;
+      navigationScheduled.value = true;
       final snapshot = notifier.completedSnapshot!;
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted) {
-          return;
-        }
-        Navigator.of(context).pushNamedAndRemoveUntil(
-          AppRouteNames.shell,
-          (route) => false,
-          arguments: snapshot,
-        );
+        context.go('/', extra: snapshot);
       });
     }
 
@@ -124,7 +116,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                   ),
                 ),
                 const SizedBox(height: 24),
-                ..._buildConversation(theme, notifier),
+                ..._buildConversation(theme, notifier, l),
                 const SizedBox(height: 24),
                 Container(
                   padding: const EdgeInsets.fromLTRB(18, 18, 18, 20),
@@ -135,8 +127,8 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                     boxShadow: colors.warmShadowSm,
                   ),
                   child: _StepComposer(
-                    nameController: _nameController,
-                    nameFocusNode: _nameFocusNode,
+                    nameController: nameController,
+                    nameFocusNode: nameFocusNode,
                     notifier: notifier,
                   ),
                 ),
@@ -151,8 +143,8 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   List<Widget> _buildConversation(
     ThemeData theme,
     OnboardingNotifier notifier,
+    AppLocalizations l,
   ) {
-    final l = AppLocalizations.of(context)!;
     final widgets = <Widget>[
       MentorBubble(caption: l.mentorName, message: l.onboardingMentorGreeting),
     ];
@@ -221,33 +213,6 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     }
 
     return widgets;
-  }
-
-  void _handleNameChanged() {
-    if (_updatingNameFromNotifier) {
-      return;
-    }
-    ref
-        .read(onboardingNotifierProvider.notifier)
-        .updateDraftName(_nameController.text);
-  }
-
-  void _syncFocusForStep(OnboardingFlowStep step) {
-    if (_lastHandledStep == step) {
-      return;
-    }
-    _lastHandledStep = step;
-    if (step == OnboardingFlowStep.name) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) {
-          _nameFocusNode.requestFocus();
-        }
-      });
-      return;
-    }
-    if (_nameFocusNode.hasFocus) {
-      _nameFocusNode.unfocus();
-    }
   }
 }
 

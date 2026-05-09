@@ -1,17 +1,16 @@
 import 'dart:async';
 
 import 'package:app_links/app_links.dart';
-import 'package:flutter/widgets.dart';
+import 'package:go_router/go_router.dart';
 import 'package:mobile/app/invite_reentry_coordinator.dart';
-import 'package:mobile/app/router/app_router.dart';
 import 'package:mobile/app/share_reentry_coordinator.dart';
 import 'package:mobile/features/household/presentation/household_view_model.dart';
 import 'package:mobile/features/practice/data/services/asset_phrase_service.dart';
 import 'package:mobile/features/practice/presentation/garden_growth_view_model.dart';
 import 'package:mobile/features/practice/presentation/practice_continuity_view_model.dart';
 
-/// 回调类型：获取 Navigator 状态
-typedef NavigatorStateProvider = NavigatorState? Function();
+/// 回调类型：获取 GoRouter 实例
+typedef GoRouterProvider = GoRouter? Function();
 
 /// 回调类型：检查宿主 widget 是否仍然 mounted
 typedef MountedCheck = bool Function();
@@ -38,7 +37,7 @@ class AppReentryOrchestrator {
   AppReentryOrchestrator({
     required ShareReentryCoordinator shareReentryCoordinator,
     required InviteReentryCoordinator inviteReentryCoordinator,
-    required NavigatorStateProvider navigatorStateProvider,
+    required GoRouterProvider goRouterProvider,
     required MountedCheck mountedCheck,
     required LaunchDestinationProvider launchDestinationProvider,
     required SeedContentProvider seedContentProvider,
@@ -47,7 +46,7 @@ class AppReentryOrchestrator {
     required GardenGrowthViewModelLookup gardenGrowthViewModelLookup,
   }) : _shareReentryCoordinator = shareReentryCoordinator,
        _inviteReentryCoordinator = inviteReentryCoordinator,
-       _navigatorStateProvider = navigatorStateProvider,
+       _goRouterProvider = goRouterProvider,
        _mountedCheck = mountedCheck,
        _launchDestinationProvider = launchDestinationProvider,
        _seedContentProvider = seedContentProvider,
@@ -57,7 +56,7 @@ class AppReentryOrchestrator {
 
   final ShareReentryCoordinator _shareReentryCoordinator;
   final InviteReentryCoordinator _inviteReentryCoordinator;
-  final NavigatorStateProvider _navigatorStateProvider;
+  final GoRouterProvider _goRouterProvider;
   final MountedCheck _mountedCheck;
   final LaunchDestinationProvider _launchDestinationProvider;
   final SeedContentProvider _seedContentProvider;
@@ -106,8 +105,8 @@ class AppReentryOrchestrator {
   /// 消费 share coordinator 中挂起的 reentry 请求，执行导航。
   void drainPendingShareReentry() {
     final destination = _launchDestinationProvider();
-    final navigator = _navigatorStateProvider();
-    if (!_mountedCheck() || destination == null || navigator == null) {
+    final router = _goRouterProvider();
+    if (!_mountedCheck() || destination == null || router == null) {
       return;
     }
 
@@ -125,7 +124,7 @@ class AppReentryOrchestrator {
     }
 
     if (_shareReentryCoordinator.takePendingShellFallback()) {
-      AppRouter.navigateToShellFallback(navigator: navigator);
+      router.go('/');
       _shareReentryCoordinator.markFallback(
         message:
             _shareReentryCoordinator.lastErrorSurface ?? '分享链接不可用，已停留在首页安全入口。',
@@ -140,14 +139,14 @@ class AppReentryOrchestrator {
 
     final content = _seedContentProvider();
     if (content == null || !practiceArgs.isSupportedBy(content)) {
-      AppRouter.navigateToShellFallback(navigator: navigator);
+      router.go('/');
       _shareReentryCoordinator.markFallback(
         message: '分享链接里的 activity 不受支持，已停留在首页安全入口。',
       );
       return;
     }
 
-    AppRouter.navigateToPracticeSeam(navigator: navigator, args: practiceArgs);
+    router.push('/practice', extra: practiceArgs.normalized());
     _shareReentryCoordinator.markHandled(args: practiceArgs);
   }
 
@@ -174,8 +173,8 @@ class AppReentryOrchestrator {
 
   Future<void> _drainPendingInviteReentryInternal() async {
     final destination = _launchDestinationProvider();
-    final navigator = _navigatorStateProvider();
-    if (!_mountedCheck() || destination == null || navigator == null) {
+    final router = _goRouterProvider();
+    if (!_mountedCheck() || destination == null || router == null) {
       return;
     }
 
@@ -193,7 +192,7 @@ class AppReentryOrchestrator {
     }
 
     if (_inviteReentryCoordinator.takePendingShellFallback()) {
-      AppRouter.navigateToShellFallback(navigator: navigator);
+      router.go('/');
       _inviteReentryCoordinator.markFallback(
         message:
             _inviteReentryCoordinator.lastErrorSurface ?? '邀请链接不可用，已停留在首页安全入口。',
@@ -208,7 +207,7 @@ class AppReentryOrchestrator {
 
     final householdViewModel = _householdViewModelLookup();
     if (householdViewModel == null) {
-      AppRouter.navigateToShellFallback(navigator: navigator);
+      router.go('/');
       _inviteReentryCoordinator.markFallback(message: '共享练习暂时不可用，已停留在首页。');
       return;
     }
@@ -219,14 +218,14 @@ class AppReentryOrchestrator {
       return;
     }
     if (practiceArgs == null) {
-      AppRouter.navigateToShellFallback(navigator: navigator);
+      router.go('/');
       _inviteReentryCoordinator.markFallback(message: result.message);
       return;
     }
 
     final content = _seedContentProvider();
     if (content == null || !practiceArgs.isSupportedBy(content)) {
-      AppRouter.navigateToShellFallback(navigator: navigator);
+      router.go('/');
       _inviteReentryCoordinator.markFallback(
         message: '邀请返回的 activity 不受支持，已停留在首页安全入口。',
       );
@@ -245,7 +244,7 @@ class AppReentryOrchestrator {
       await gardenGrowthViewModel.refresh();
     }
 
-    AppRouter.navigateToPracticeSeam(navigator: navigator, args: practiceArgs);
+    router.push('/practice', extra: practiceArgs.normalized());
     _inviteReentryCoordinator.markHandled(args: practiceArgs);
   }
 

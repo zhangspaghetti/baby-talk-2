@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 import 'package:mobile/app/providers/repository_providers.dart';
 import 'package:mobile/features/account/data/local/account_local_store.dart';
 import 'package:mobile/features/account/data/repositories/account_repository.dart';
@@ -245,10 +246,18 @@ Future<void> _pumpEntryScreen(
           ),
         ),
       ],
-      child: MaterialApp(
+      child: MaterialApp.router(
         localizationsDelegates: AppLocalizations.localizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
-        home: const AccountEntryScreen(),
+        routerConfig: GoRouter(
+          initialLocation: '/account',
+          routes: [
+            GoRoute(
+              path: '/account',
+              builder: (_, __) => const AccountEntryScreen(),
+            ),
+          ],
+        ),
       ),
     ),
   );
@@ -281,14 +290,26 @@ Future<void> _pumpStatusCard(
           ),
         ),
       ],
-      child: MaterialApp(
+      child: MaterialApp.router(
         localizationsDelegates: AppLocalizations.localizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
-        home: Scaffold(
-          body: AccountStatusCard(
-            scopeKeyPrefix: 'home',
-            onboardingSnapshot: onboardingSnapshot,
-          ),
+        routerConfig: GoRouter(
+          initialLocation: '/',
+          routes: [
+            GoRoute(
+              path: '/',
+              builder: (_, __) => Scaffold(
+                body: AccountStatusCard(
+                  scopeKeyPrefix: 'home',
+                  onboardingSnapshot: onboardingSnapshot,
+                ),
+              ),
+            ),
+            GoRoute(
+              path: '/account',
+              builder: (_, __) => const AccountEntryScreen(),
+            ),
+          ],
         ),
       ),
     ),

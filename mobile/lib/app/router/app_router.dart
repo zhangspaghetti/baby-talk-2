@@ -17,6 +17,7 @@ typedef AppScreenBuilder = Widget Function(BuildContext context);
 typedef AppPracticeScreenBuilder =
     Widget Function(BuildContext context, RouteSettings settings);
 
+@Deprecated('Use go_router configuration in app_go_router.dart instead')
 class AppRouter {
   static RouteFactory onGenerateRoute({
     AppScreenBuilder? onboardingBuilder,

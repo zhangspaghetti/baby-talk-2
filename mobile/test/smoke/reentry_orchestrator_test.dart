@@ -26,8 +26,8 @@ void main() {
       return AppReentryOrchestrator(
         shareReentryCoordinator: shareCoordinator,
         inviteReentryCoordinator: inviteCoordinator,
-        // navigator = null，阻止实际导航但仍允许测试分流逻辑
-        navigatorStateProvider: () => null,
+        // router = null，阻止实际导航但仍允许测试分流逻辑
+        goRouterProvider: () => null,
         mountedCheck: () => overrideMounted ?? mounted,
         launchDestinationProvider: () =>
             overrideDestination ?? launchDestination,

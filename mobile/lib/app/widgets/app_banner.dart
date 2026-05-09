@@ -59,14 +59,18 @@ class AppBanner extends StatelessWidget {
                 ),
               ),
               if (onDismiss != null)
-                GestureDetector(
-                  onTap: onDismiss,
-                  child: Padding(
-                    padding: const EdgeInsets.only(left: 8),
-                    child: Icon(
-                      Icons.close,
-                      color: foregroundColor.withValues(alpha: 0.6),
-                      size: 16,
+                Semantics(
+                  button: true,
+                  label: 'Dismiss',
+                  child: GestureDetector(
+                    onTap: onDismiss,
+                    child: Padding(
+                      padding: const EdgeInsets.only(left: 8),
+                      child: Icon(
+                        Icons.close,
+                        color: foregroundColor.withValues(alpha: 0.6),
+                        size: 16,
+                      ),
                     ),
                   ),
                 ),
