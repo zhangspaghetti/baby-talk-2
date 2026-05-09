@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart'
+    hide ChangeNotifierProvider;
+import 'package:mobile/app/providers/repository_providers.dart';
 import 'package:mobile/app/widgets/app_banner.dart';
+import 'package:mobile/app/widgets/app_celebration_overlay.dart';
+import 'package:mobile/app/widgets/app_haptics.dart';
 import 'package:mobile/app/theme/app_layout_constants.dart';
 import 'package:mobile/app/theme/app_theme.dart';
-import 'package:mobile/features/account/presentation/account_view_model.dart';
 import 'package:mobile/features/mentor/presentation/mentor_audio_controller.dart';
-import 'package:mobile/features/practice/data/repositories/practice_repository.dart';
 import 'package:mobile/features/practice/presentation/practice_route_args.dart';
 import 'package:mobile/features/practice/presentation/practice_session_view_model.dart';
 import 'package:mobile/features/practice/presentation/widgets/activation_frame.dart';
@@ -12,7 +15,7 @@ import 'package:mobile/features/practice/presentation/widgets/phrase_card.dart';
 import 'package:provider/provider.dart';
 import 'package:mobile/l10n/app_localizations.dart';
 
-class PracticeSessionScreen extends StatelessWidget {
+class PracticeSessionScreen extends ConsumerWidget {
   const PracticeSessionScreen({
     super.key,
     required this.routeEntry,
@@ -23,7 +26,7 @@ class PracticeSessionScreen extends StatelessWidget {
   final PracticeAudioController Function()? audioControllerFactory;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final l = AppLocalizations.of(context)!;
     if (!routeEntry.hasValidArgs) {
       return PracticeFallbackScaffold(
@@ -32,15 +35,14 @@ class PracticeSessionScreen extends StatelessWidget {
     }
 
     final args = routeEntry.args!;
-    final repository = context.read<PracticeRepository>();
-    final accountViewModel = context.read<AccountViewModel?>();
+    final repository = ref.read(practiceRepositoryProvider).requireValue;
+    final accountNotifier = ref.read(accountNotifierProvider);
     return ChangeNotifierProvider<PracticeSessionViewModel>(
       create: (_) => PracticeSessionViewModel(
         repository: repository,
         spaceId: args.spaceId,
         activityId: args.activityId,
-        accessTokenLoader: () =>
-            accountViewModel?.snapshot.session?.accessToken,
+        accessTokenLoader: () => accountNotifier.snapshot.session?.accessToken,
         audioController: audioControllerFactory?.call(),
       )..initialize(),
       child: _PracticeSessionBody(routeArgs: args),
@@ -141,28 +143,7 @@ class _PracticeSessionBodyState extends State<_PracticeSessionBody> {
             child: ListView(
               padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
               children: [
-                Container(
-                  key: Key(
-                    'practice-route-scope-${widget.routeArgs.spaceId}-${widget.routeArgs.activityId}',
-                  ),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 8,
-                  ),
-                  decoration: BoxDecoration(
-                    color: colors.bgSunken,
-                    borderRadius: BorderRadius.circular(999),
-                  ),
-                  child: Text(
-                    'route scope · ${widget.routeArgs.scopeLabel}',
-                    key: const Key('practice-route-scope'),
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: colors.textSecondary,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 4),
                 LinearProgressIndicator(
                   key: const Key('session-progress'),
                   value: progressValue,
@@ -216,11 +197,14 @@ class _PracticeSessionBodyState extends State<_PracticeSessionBody> {
                 ],
                 if (viewModel.sessionCompleted) ...[
                   const SizedBox(height: 16),
-                  AppBanner(
-                    key: const Key('practice-complete-banner'),
-                    message: l.practiceLastSaved,
-                    backgroundColor: colors.successSoft,
-                    foregroundColor: colors.success,
+                  AppCelebrationOverlay(
+                    key: const Key('practice-celebration-overlay'),
+                    child: AppBanner(
+                      key: const Key('practice-complete-banner'),
+                      message: l.practiceLastSaved,
+                      backgroundColor: colors.successSoft,
+                      foregroundColor: colors.success,
+                    ),
                   ),
                 ],
                 const SizedBox(height: 20),
@@ -251,6 +235,7 @@ class _PracticeSessionBodyState extends State<_PracticeSessionBody> {
                             ? () => _speakPhrase(phrases[index].english)
                             : null,
                         onReactionSelected: (reactionType) async {
+                          AppHaptics.lightTap();
                           final navigator = Navigator.of(context);
                           final outcome = await context
                               .read<PracticeSessionViewModel>()
@@ -260,6 +245,13 @@ class _PracticeSessionBodyState extends State<_PracticeSessionBody> {
                           }
                           if (outcome == PracticeRecordOutcome.completed &&
                               navigator.canPop()) {
+                            // Show celebration overlay before navigating back.
+                            await Future<void>.delayed(
+                              const Duration(milliseconds: 800),
+                            );
+                            if (!mounted || !navigator.canPop()) {
+                              return;
+                            }
                             navigator.pop();
                           }
                         },

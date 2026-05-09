@@ -6,6 +6,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart'
+    hide ChangeNotifierProvider, Provider;
 import 'package:isar/isar.dart';
 import 'package:mobile/app/app.dart';
 import 'package:mobile/core/device/installation_id_service.dart';
@@ -93,14 +95,16 @@ void main() {
     });
 
     await tester.pumpWidget(
-      BabyTalkApp(
-        bootState: harness.bootState,
-        repositoryFactory: (_) async => harness.repository,
-        appDirectoryResolver: () async => harness.tempDir,
-        audioControllerFactory: _SilentPracticeAudioController.new,
-        completedSnapshotLoader: () async => null,
-        practiceContinuityRefreshTimeout: const Duration(milliseconds: 1),
-        gardenGrowthRefreshTimeout: const Duration(milliseconds: 1),
+      ProviderScope(
+        child: BabyTalkApp(
+          bootState: harness.bootState,
+          repositoryFactory: (_) async => harness.repository,
+          appDirectoryResolver: () async => harness.tempDir,
+          audioControllerFactory: _SilentPracticeAudioController.new,
+          completedSnapshotLoader: () async => null,
+          practiceContinuityRefreshTimeout: const Duration(milliseconds: 1),
+          gardenGrowthRefreshTimeout: const Duration(milliseconds: 1),
+        ),
       ),
     );
     await _pumpUntilFound(
@@ -169,14 +173,16 @@ void main() {
     });
 
     await tester.pumpWidget(
-      BabyTalkApp(
-        bootState: harness.bootState,
-        repositoryFactory: (_) async => harness.repository,
-        appDirectoryResolver: () async => harness.tempDir,
-        audioControllerFactory: _SilentPracticeAudioController.new,
-        completedSnapshotLoader: () async => completedSnapshot,
-        practiceContinuityRefreshTimeout: const Duration(milliseconds: 1),
-        gardenGrowthRefreshTimeout: const Duration(milliseconds: 1),
+      ProviderScope(
+        child: BabyTalkApp(
+          bootState: harness.bootState,
+          repositoryFactory: (_) async => harness.repository,
+          appDirectoryResolver: () async => harness.tempDir,
+          audioControllerFactory: _SilentPracticeAudioController.new,
+          completedSnapshotLoader: () async => completedSnapshot,
+          practiceContinuityRefreshTimeout: const Duration(milliseconds: 1),
+          gardenGrowthRefreshTimeout: const Duration(milliseconds: 1),
+        ),
       ),
     );
     await _pumpUntilFound(tester, find.byKey(const Key('boot-route-shell')));
@@ -229,14 +235,16 @@ void main() {
       });
 
       await tester.pumpWidget(
-        BabyTalkApp(
-          bootState: harness.bootState,
-          repositoryFactory: (_) async => harness.repository,
-          appDirectoryResolver: () async => harness.tempDir,
-          audioControllerFactory: _SilentPracticeAudioController.new,
-          completedSnapshotLoader: () async => completedSnapshot,
-          practiceContinuityRefreshTimeout: const Duration(milliseconds: 1),
-          gardenGrowthRefreshTimeout: const Duration(milliseconds: 1),
+        ProviderScope(
+          child: BabyTalkApp(
+            bootState: harness.bootState,
+            repositoryFactory: (_) async => harness.repository,
+            appDirectoryResolver: () async => harness.tempDir,
+            audioControllerFactory: _SilentPracticeAudioController.new,
+            completedSnapshotLoader: () async => completedSnapshot,
+            practiceContinuityRefreshTimeout: const Duration(milliseconds: 1),
+            gardenGrowthRefreshTimeout: const Duration(milliseconds: 1),
+          ),
         ),
       );
       await _pumpUntilFound(tester, find.byKey(const Key('boot-route-shell')));
@@ -314,14 +322,16 @@ void main() {
     expect(loadedAccountSnapshot.session, isNull);
 
     await tester.pumpWidget(
-      BabyTalkApp(
-        bootState: harness.bootState,
-        repositoryFactory: (_) async => harness.repository,
-        appDirectoryResolver: () async => harness.tempDir,
-        audioControllerFactory: _SilentPracticeAudioController.new,
-        completedSnapshotLoader: () async => completedSnapshot,
-        practiceContinuityRefreshTimeout: const Duration(milliseconds: 1),
-        gardenGrowthRefreshTimeout: const Duration(milliseconds: 1),
+      ProviderScope(
+        child: BabyTalkApp(
+          bootState: harness.bootState,
+          repositoryFactory: (_) async => harness.repository,
+          appDirectoryResolver: () async => harness.tempDir,
+          audioControllerFactory: _SilentPracticeAudioController.new,
+          completedSnapshotLoader: () async => completedSnapshot,
+          practiceContinuityRefreshTimeout: const Duration(milliseconds: 1),
+          gardenGrowthRefreshTimeout: const Duration(milliseconds: 1),
+        ),
       ),
     );
     await _pumpUntilFound(tester, find.byKey(const Key('boot-route-shell')));
@@ -342,13 +352,15 @@ void main() {
     }))!;
 
     await tester.pumpWidget(
-      BabyTalkApp(
-        bootState: bootState,
-        repositoryFactory: (_) async {
-          throw StateError('repository factory should not be called');
-        },
-        appDirectoryResolver: () async => throw StateError('disk denied'),
-        audioControllerFactory: _SilentPracticeAudioController.new,
+      ProviderScope(
+        child: BabyTalkApp(
+          bootState: bootState,
+          repositoryFactory: (_) async {
+            throw StateError('repository factory should not be called');
+          },
+          appDirectoryResolver: () async => throw StateError('disk denied'),
+          audioControllerFactory: _SilentPracticeAudioController.new,
+        ),
       ),
     );
     await _pumpUntilFound(

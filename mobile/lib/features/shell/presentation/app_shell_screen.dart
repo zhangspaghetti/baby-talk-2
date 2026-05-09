@@ -1,32 +1,34 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:mobile/app/providers/repository_providers.dart';
 import 'package:mobile/app/theme/app_theme.dart';
 import 'package:mobile/features/account/presentation/screens/account_entry_screen.dart';
 import 'package:mobile/features/household/domain/models/household_role.dart';
-import 'package:mobile/features/household/presentation/household_view_model.dart';
 import 'package:mobile/features/household/presentation/widgets/household_invite_card.dart';
 import 'package:mobile/features/household/presentation/widgets/household_shared_context_card.dart';
 import 'package:mobile/features/mentor/presentation/widgets/mentor_panel_sheet.dart';
 import 'package:mobile/features/onboarding/domain/models/onboarding_snapshot.dart';
 import 'package:mobile/features/onboarding/domain/models/stage_match.dart';
-import 'package:mobile/features/practice/presentation/garden_growth_view_model.dart';
+import 'package:mobile/features/practice/presentation/garden_growth_view_model.dart'
+    show GardenGrowthLoadStatus;
 import 'package:mobile/features/practice/presentation/screens/home_screen.dart';
 import 'package:mobile/features/shell/presentation/screens/discover_screen.dart';
 import 'package:mobile/features/shell/presentation/screens/garden_growth_combined_screen.dart';
-import 'package:provider/provider.dart';
 import 'package:mobile/l10n/app_localizations.dart';
 
-class AppShellScreen extends StatefulWidget {
+class AppShellScreen extends ConsumerStatefulWidget {
   const AppShellScreen({super.key, this.onboardingSnapshot});
 
   final OnboardingSnapshot? onboardingSnapshot;
 
   @override
-  State<AppShellScreen> createState() => _AppShellScreenState();
+  ConsumerState<AppShellScreen> createState() => _AppShellScreenState();
 }
 
-class _AppShellScreenState extends State<AppShellScreen> {
+class _AppShellScreenState extends ConsumerState<AppShellScreen> {
   int _selectedIndex = 0;
 
   @override
@@ -77,7 +79,7 @@ class _AppShellScreenState extends State<AppShellScreen> {
         ],
       ),
       endDrawer: _HouseholdDrawer(
-        snapshot: widget.onboardingSnapshot,
+        onboardingSnapshot: widget.onboardingSnapshot,
         stageMatch: stageMatch,
       ),
       floatingActionButton: FloatingActionButton(
@@ -90,25 +92,27 @@ class _AppShellScreenState extends State<AppShellScreen> {
         ),
         child: const Icon(Icons.auto_awesome),
       ),
-      body: IndexedStack(
-        index: _selectedIndex,
-        children: [
-          HomeScreen(
-            onboardingSnapshot: widget.onboardingSnapshot,
-            embeddedInShell: true,
-          ),
-          const GardenGrowthCombinedScreen(),
-        ],
+      body: AnimatedSwitcher(
+        duration: const Duration(milliseconds: 200),
+        child: IndexedStack(
+          key: ValueKey(_selectedIndex),
+          index: _selectedIndex,
+          children: [
+            HomeScreen(
+              onboardingSnapshot: widget.onboardingSnapshot,
+              embeddedInShell: true,
+            ),
+            const GardenGrowthCombinedScreen(),
+          ],
+        ),
       ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _selectedIndex,
         onDestinationSelected: (index) {
           if (index == 1) {
-            final gardenGrowthViewModel = context
-                .read<GardenGrowthViewModel?>();
-            if (gardenGrowthViewModel != null &&
-                gardenGrowthViewModel.status == GardenGrowthLoadStatus.idle) {
-              unawaited(gardenGrowthViewModel.initialize());
+            final gardenGrowthNotifier = ref.read(gardenGrowthNotifierProvider);
+            if (gardenGrowthNotifier.status == GardenGrowthLoadStatus.idle) {
+              unawaited(gardenGrowthNotifier.initialize());
             }
           }
           setState(() {
@@ -202,24 +206,27 @@ class _DrawerAvatar extends StatelessWidget {
   }
 }
 
-class _HouseholdDrawer extends StatelessWidget {
-  const _HouseholdDrawer({required this.snapshot, required this.stageMatch});
+class _HouseholdDrawer extends ConsumerWidget {
+  const _HouseholdDrawer({
+    required this.onboardingSnapshot,
+    required this.stageMatch,
+  });
 
-  final OnboardingSnapshot? snapshot;
+  final OnboardingSnapshot? onboardingSnapshot;
   final StageMatch? stageMatch;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final l = AppLocalizations.of(context)!;
     final colors = context.appColors;
     final theme = Theme.of(context);
-    final householdViewModel = context.watch<HouseholdViewModel?>();
-    final householdSnapshot = householdViewModel?.snapshot;
-    final childName = snapshot?.childDisplayName.trim();
+    final householdNotifier = ref.watch(householdNotifierProvider);
+    final householdSnapshot = householdNotifier.snapshot;
+    final childName = onboardingSnapshot?.childDisplayName.trim();
     final displayName = childName == null || childName.isEmpty
         ? l.shellBabyName
         : childName;
-    final role = householdSnapshot?.role;
+    final role = householdSnapshot.role;
 
     return Drawer(
       key: const Key('shell-end-drawer'),
@@ -262,7 +269,7 @@ class _HouseholdDrawer extends StatelessWidget {
                     foregroundColor: _drawerRoleForeground(role, colors),
                   ),
                   _DrawerRoleChip(
-                    label: householdSnapshot?.lastPhase ?? 'idle',
+                    label: householdSnapshot.lastPhase,
                     backgroundColor: colors.bgSunken,
                     foregroundColor: colors.textSecondary,
                   ),
@@ -290,13 +297,13 @@ class _HouseholdDrawer extends StatelessWidget {
               const SizedBox(height: 20),
               AccountStatusCard(
                 scopeKeyPrefix: 'shell',
-                onboardingSnapshot: snapshot,
+                onboardingSnapshot: onboardingSnapshot,
                 compact: true,
               ),
               const SizedBox(height: 20),
               HouseholdSharedContextCard(
                 surfaceKeyPrefix: 'shell',
-                viewModel: householdViewModel,
+                viewModel: householdNotifier,
                 title: l.shellSharedProfile,
                 compact: true,
                 retryReason: 'shell_drawer_manual_refresh',
@@ -304,7 +311,7 @@ class _HouseholdDrawer extends StatelessWidget {
               const SizedBox(height: 20),
               HouseholdInviteCard(
                 surfaceKeyPrefix: 'shell',
-                viewModel: householdViewModel,
+                viewModel: householdNotifier,
                 inviteSource: 'shell_drawer',
                 compact: true,
               ),
@@ -326,7 +333,9 @@ class _HouseholdDrawer extends StatelessWidget {
                     const SizedBox(height: 10),
                     _DrawerMetaRow(
                       label: l.shellAgeBucket,
-                      value: snapshot?.ageBucket.label ?? l.shellNotFilled,
+                      value:
+                          onboardingSnapshot?.ageBucket.label ??
+                          l.shellNotFilled,
                     ),
                     const SizedBox(height: 8),
                     _DrawerMetaRow(
@@ -342,7 +351,8 @@ class _HouseholdDrawer extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 20),
-              Text(l.shellDrawerNoteText, style: theme.textTheme.bodySmall),
+              if (kDebugMode)
+                Text(l.shellDrawerNoteText, style: theme.textTheme.bodySmall),
             ],
           ),
         ),

@@ -2,9 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:mobile/app/theme/app_theme.dart';
 import 'package:mobile/features/household/data/local/household_local_store.dart';
 import 'package:mobile/features/household/domain/models/household_role.dart';
-import 'package:mobile/features/household/presentation/household_view_model.dart';
+import 'package:mobile/features/household/presentation/household_view_model.dart'
+    show HouseholdActionKind;
 import 'package:mobile/l10n/app_localizations.dart';
 
+/// Accepts either a [HouseholdViewModel] or [HouseholdNotifier].
+///
+/// Both expose the same API surface (snapshot, isBusy, message, etc.),
+/// so we accept `dynamic` and access properties dynamically.
 class HouseholdInviteCard extends StatelessWidget {
   const HouseholdInviteCard({
     super.key,
@@ -15,7 +20,7 @@ class HouseholdInviteCard extends StatelessWidget {
   });
 
   final String surfaceKeyPrefix;
-  final HouseholdViewModel? viewModel;
+  final dynamic viewModel;
   final String inviteSource;
   final bool compact;
 
@@ -109,7 +114,7 @@ class HouseholdInviteCard extends StatelessWidget {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    '角色：${invite.role.label} · 到期：${_formatDateTime(invite.expiresAt)}',
+                    '角色：${(invite.role as HouseholdRole).label} · 到期：${_formatDateTime(invite.expiresAt)}',
                     key: Key('$surfaceKeyPrefix-household-invite-meta'),
                     style: theme.textTheme.bodySmall,
                   ),
@@ -162,10 +167,7 @@ class HouseholdInviteCard extends StatelessWidget {
     );
   }
 
-  bool _shouldShowRetry(
-    HouseholdViewModel viewModel,
-    HouseholdLocalSnapshot snapshot,
-  ) {
+  bool _shouldShowRetry(dynamic viewModel, HouseholdLocalSnapshot snapshot) {
     final error = snapshot.lastVisibleError?.trim();
     if (error == null || error.isEmpty) {
       return false;
@@ -198,10 +200,7 @@ class HouseholdInviteCard extends StatelessWidget {
     }
   }
 
-  String? _visibleMessage(
-    HouseholdViewModel viewModel,
-    HouseholdLocalSnapshot snapshot,
-  ) {
+  String? _visibleMessage(dynamic viewModel, HouseholdLocalSnapshot snapshot) {
     final snapshotMessage = snapshot.lastVisibleError?.trim();
     if (snapshot.lastPhase.startsWith('create_invite_') &&
         snapshotMessage != null &&

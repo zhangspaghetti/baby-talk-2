@@ -1,16 +1,21 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:mobile/app/providers/repository_providers.dart';
 import 'package:mobile/features/account/data/local/account_local_store.dart';
 import 'package:mobile/features/account/data/repositories/account_repository.dart';
 import 'package:mobile/features/account/data/services/account_external_link_opener.dart';
 import 'package:mobile/features/account/domain/models/account_consent_state.dart';
 import 'package:mobile/features/account/domain/models/account_session.dart';
-import 'package:mobile/features/account/presentation/account_view_model.dart';
+import 'package:mobile/features/account/presentation/account_notifier.dart';
 import 'package:mobile/features/account/presentation/screens/account_entry_screen.dart';
+import 'package:mobile/features/household/data/local/household_local_store.dart';
+import 'package:mobile/features/household/data/repositories/household_repository.dart';
+import 'package:mobile/features/household/domain/models/household_role.dart';
+import 'package:mobile/features/household/presentation/household_notifier.dart';
 import 'package:mobile/features/onboarding/domain/models/onboarding_snapshot.dart';
 import 'package:mobile/features/onboarding/domain/models/stage_match.dart';
 import 'package:mobile/l10n/app_localizations.dart';
-import 'package:provider/provider.dart';
 
 void main() {
   testWidgets('home 账号卡片在 local-only 时不显示升级 CTA，并能打开账号页面', (
@@ -225,15 +230,21 @@ Future<void> _pumpEntryScreen(
 }) async {
   await _setTallViewport(tester);
 
-  final viewModel = AccountViewModel(
+  final viewModel = AccountNotifier(
     repository: repository,
     linkOpener: opener ?? FakeAccountExternalLinkOpener(),
   );
-  addTearDown(viewModel.dispose);
 
   await tester.pumpWidget(
-    ChangeNotifierProvider<AccountViewModel>.value(
-      value: viewModel,
+    ProviderScope(
+      overrides: [
+        accountNotifierProvider.overrideWith((ref) => viewModel),
+        householdNotifierProvider.overrideWith(
+          (ref) => HouseholdNotifier(
+            repository: _FakeHouseholdRepository(),
+          ),
+        ),
+      ],
       child: MaterialApp(
         localizationsDelegates: AppLocalizations.localizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
@@ -255,15 +266,21 @@ Future<void> _pumpStatusCard(
 }) async {
   await _setWideViewport(tester);
 
-  final viewModel = AccountViewModel(
+  final viewModel = AccountNotifier(
     repository: repository,
     linkOpener: opener ?? FakeAccountExternalLinkOpener(),
   );
-  addTearDown(viewModel.dispose);
 
   await tester.pumpWidget(
-    ChangeNotifierProvider<AccountViewModel>.value(
-      value: viewModel,
+    ProviderScope(
+      overrides: [
+        accountNotifierProvider.overrideWith((ref) => viewModel),
+        householdNotifierProvider.overrideWith(
+          (ref) => HouseholdNotifier(
+            repository: _FakeHouseholdRepository(),
+          ),
+        ),
+      ],
       child: MaterialApp(
         localizationsDelegates: AppLocalizations.localizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
@@ -492,4 +509,36 @@ class FakeAccountExternalLinkOpener implements AccountExternalLinkOpener {
       throw error!;
     }
   }
+}
+
+class _FakeHouseholdRepository implements HouseholdRepository {
+  @override
+  Future<HouseholdLocalSnapshot> loadSnapshot() async =>
+      const HouseholdLocalSnapshot(lastPhase: 'idle');
+
+  @override
+  Future<HouseholdCreateInviteResult> createInvite({
+    HouseholdRole role = HouseholdRole.caregiver,
+    String source = 'account_entry',
+  }) async => const HouseholdCreateInviteResult(
+    snapshot: HouseholdLocalSnapshot(lastPhase: 'create_invite_unavailable'),
+    message: 'unavailable',
+  );
+
+  @override
+  Future<HouseholdInviteAcceptResult> acceptInvite({
+    required String token,
+    required String source,
+  }) async => const HouseholdInviteAcceptResult(
+    snapshot: HouseholdLocalSnapshot(lastPhase: 'accept_invite_unavailable'),
+    message: 'unavailable',
+  );
+
+  @override
+  Future<HouseholdLocalSnapshot> refreshSharedContext({
+    String reason = 'manual_refresh',
+  }) async => const HouseholdLocalSnapshot(lastPhase: 'idle');
+
+  @override
+  Future<void> close() async {}
 }

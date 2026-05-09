@@ -1,8 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:mobile/app/theme/app_theme.dart';
-import 'package:mobile/features/share/presentation/share_view_model.dart';
+import 'package:mobile/features/share/presentation/share_view_model.dart'
+    show ShareViewStatus;
 import 'package:mobile/l10n/app_localizations.dart';
 
+/// Accepts either a [ShareViewModel] or [ShareNotifier].
+///
+/// Both expose the same API surface (currentDraft, isSharing, etc.),
+/// so we accept `dynamic` and access properties dynamically.
 class ShareCalloutCard extends StatelessWidget {
   const ShareCalloutCard({
     super.key,
@@ -14,7 +19,7 @@ class ShareCalloutCard extends StatelessWidget {
   });
 
   final String surfaceKeyPrefix;
-  final ShareViewModel viewModel;
+  final dynamic viewModel;
   final String sectionLabel;
   final String emptyMessage;
   final Future<void> Function()? onShare;
@@ -145,7 +150,7 @@ class _ShareStateSpec {
   final bool showProgress;
 
   static _ShareStateSpec resolve({
-    required ShareViewModel viewModel,
+    required dynamic viewModel,
     required bool hasDraft,
     required BabyTalkColors colors,
   }) {
@@ -190,6 +195,13 @@ class _ShareStateSpec {
           foregroundColor: colors.error,
         );
       case ShareViewStatus.idle:
+        return _ShareStateSpec(
+          name: 'ready',
+          message: '分享内容会自动脱敏，不包含昵称、安装号或调试信息。',
+          backgroundColor: colors.englishSoft,
+          foregroundColor: colors.english,
+        );
+      default:
         return _ShareStateSpec(
           name: 'ready',
           message: '分享内容会自动脱敏，不包含昵称、安装号或调试信息。',

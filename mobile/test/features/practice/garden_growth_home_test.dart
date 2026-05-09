@@ -4,26 +4,33 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart'
+    hide ChangeNotifierProvider, Provider;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:isar/isar.dart';
+import 'package:mobile/app/providers/repository_providers.dart';
 import 'package:mobile/app/theme/app_theme.dart';
 import 'package:mobile/l10n/app_localizations.dart';
 import 'package:mobile/core/device/installation_id_service.dart';
 import 'package:mobile/features/account/data/local/account_local_store.dart';
 import 'package:mobile/features/account/data/repositories/account_repository.dart';
 import 'package:mobile/features/account/domain/models/account_session.dart';
+import 'package:mobile/features/account/presentation/account_notifier.dart';
 import 'package:mobile/features/account/presentation/account_view_model.dart';
 import 'package:mobile/features/household/data/local/household_local_store.dart';
 import 'package:mobile/features/household/data/repositories/household_repository.dart';
 import 'package:mobile/features/household/domain/models/household_role.dart';
 import 'package:mobile/features/household/domain/models/household_shared_context.dart';
+import 'package:mobile/features/household/presentation/household_notifier.dart';
 import 'package:mobile/features/household/presentation/household_view_model.dart';
 import 'package:mobile/features/practice/data/local/practice_local_data_source.dart';
 import 'package:mobile/features/practice/data/repositories/garden_growth_repository.dart';
 import 'package:mobile/features/practice/data/repositories/practice_repository.dart';
 import 'package:mobile/features/practice/data/services/asset_phrase_service.dart';
 import 'package:mobile/features/practice/domain/models/interaction_event_payload.dart';
+import 'package:mobile/features/practice/presentation/garden_growth_notifier.dart';
 import 'package:mobile/features/practice/presentation/garden_growth_view_model.dart';
+import 'package:mobile/features/practice/presentation/practice_continuity_notifier.dart';
 import 'package:mobile/features/practice/presentation/practice_continuity_view_model.dart';
 import 'package:mobile/features/practice/presentation/practice_route_args.dart';
 import 'package:mobile/features/practice/presentation/practice_session_view_model.dart';
@@ -32,6 +39,7 @@ import 'package:mobile/features/share/data/repositories/share_repository.dart';
 import 'package:mobile/features/share/data/services/share_api_service.dart';
 import 'package:mobile/features/share/data/services/share_sheet_launcher.dart';
 import 'package:mobile/features/share/domain/models/share_link_draft.dart';
+import 'package:mobile/features/share/presentation/share_notifier.dart';
 import 'package:mobile/features/share/presentation/share_view_model.dart';
 import 'package:provider/provider.dart';
 
@@ -162,6 +170,10 @@ void main() {
         harness.accountViewModel.initialize(),
         harness.practiceSessionViewModel.initialize(),
         harness.gardenGrowthViewModel.refresh(),
+        harness.gardenGrowthNotifier.refresh(),
+        harness.practiceContinuityNotifier.refresh(
+          reason: 'test_data_recorded',
+        ),
       ]);
     });
 
@@ -212,6 +224,10 @@ void main() {
         harness.accountViewModel.initialize(),
         harness.practiceSessionViewModel.initialize(),
         harness.gardenGrowthViewModel.refresh(),
+        harness.gardenGrowthNotifier.refresh(),
+        harness.practiceContinuityNotifier.refresh(
+          reason: 'test_data_recorded',
+        ),
       ]);
     });
 
@@ -289,6 +305,10 @@ void main() {
         harness.accountViewModel.initialize(),
         harness.practiceSessionViewModel.initialize(),
         harness.gardenGrowthViewModel.refresh(),
+        harness.gardenGrowthNotifier.refresh(),
+        harness.practiceContinuityNotifier.refresh(
+          reason: 'test_data_recorded',
+        ),
       ]);
     });
 
@@ -481,6 +501,10 @@ void main() {
         failingHarness.accountViewModel.initialize(),
         failingHarness.practiceSessionViewModel.initialize(),
         failingHarness.gardenGrowthViewModel.refresh(),
+        failingHarness.gardenGrowthNotifier.refresh(),
+        failingHarness.practiceContinuityNotifier.refresh(
+          reason: 'test_data_recorded',
+        ),
       ]);
     });
 
@@ -572,6 +596,9 @@ class _Harness {
     required this.accountViewModel,
     required this.practiceSessionViewModel,
     required this.gardenGrowthViewModel,
+    required this.accountNotifier,
+    required this.gardenGrowthNotifier,
+    required this.practiceContinuityNotifier,
   });
 
   final Directory tempDir;
@@ -580,6 +607,9 @@ class _Harness {
   final AccountViewModel accountViewModel;
   final PracticeSessionViewModel practiceSessionViewModel;
   final GardenGrowthViewModel gardenGrowthViewModel;
+  final AccountNotifier accountNotifier;
+  final GardenGrowthNotifier gardenGrowthNotifier;
+  final PracticeContinuityNotifier practiceContinuityNotifier;
 
   static Future<_Harness> create() async {
     final tempDir = await Directory.systemTemp.createTemp('garden_home_test_');
@@ -610,6 +640,29 @@ class _Harness {
         assetPhraseService: AssetPhraseService(bundle: rootBundle),
       ),
     );
+    final gardenGrowthRepo = GardenGrowthRepository(
+      practiceRepository: practiceRepository,
+      assetPhraseService: AssetPhraseService(bundle: rootBundle),
+    );
+    final accountNotifier = AccountNotifier(
+      repository: _StaticAccountRepository(),
+    );
+    await accountNotifier.initialize();
+    final gardenGrowthNotifier = GardenGrowthNotifier(
+      repository: gardenGrowthRepo,
+    );
+    final practiceContinuityNotifier = PracticeContinuityNotifier(
+      repository: practiceRepository,
+      initialStarterArgs: const PracticeRouteArgs(
+        spaceId: 'daily_care',
+        activityId: 'bath_time',
+      ),
+    );
+
+    // Pre-initialize notifiers so they are ready when the widget tree reads
+    // from the Riverpod providers (HomeScreen uses ref.watch on these).
+    await gardenGrowthNotifier.refresh();
+    await practiceContinuityNotifier.initialize(reason: 'test_harness_boot');
 
     return _Harness(
       tempDir: tempDir,
@@ -618,6 +671,9 @@ class _Harness {
       accountViewModel: accountViewModel,
       practiceSessionViewModel: practiceSessionViewModel,
       gardenGrowthViewModel: gardenGrowthViewModel,
+      accountNotifier: accountNotifier,
+      gardenGrowthNotifier: gardenGrowthNotifier,
+      practiceContinuityNotifier: practiceContinuityNotifier,
     );
   }
 
@@ -632,67 +688,116 @@ class _Harness {
         practiceArgs ??
         const PracticeRouteArgs(spaceId: 'daily_care', activityId: 'bath_time');
 
-    return MultiProvider(
-      providers: [
-        Provider<PracticeRepository>.value(value: practiceRepository),
-        Provider<PracticeRouteArgs?>.value(value: resolvedPracticeArgs),
-        if (includeContinuityProvider)
-          ChangeNotifierProvider<PracticeContinuityViewModel>(
-            create: (_) => PracticeContinuityViewModel(
-              repository: practiceRepository,
-              initialStarterArgs: resolvedPracticeArgs,
-            )..initialize(reason: 'test_boot'),
+    final riverpodOverrides = <Override>[
+      accountNotifierProvider.overrideWith((ref) => accountNotifier),
+      gardenGrowthNotifierProvider.overrideWith((ref) => gardenGrowthNotifier),
+      practiceContinuityNotifierProvider.overrideWith(
+        (ref) => includeContinuityProvider
+            ? practiceContinuityNotifier
+            : PracticeContinuityNotifier(
+                repository: practiceRepository,
+                initialStarterArgs: resolvedPracticeArgs,
+              ),
+      ),
+      householdNotifierProvider.overrideWith(
+        (ref) => HouseholdNotifier(
+          repository: _FakeHouseholdRepository(
+            loadSnapshotResult: const HouseholdLocalSnapshot(
+              lastPhase: 'idle',
+            ),
           ),
-        ChangeNotifierProvider<AccountViewModel>.value(value: accountViewModel),
-        if (householdViewModel != null)
-          ChangeNotifierProvider<HouseholdViewModel>.value(
-            value: householdViewModel,
-          ),
-        ChangeNotifierProvider<PracticeSessionViewModel>.value(
-          value: practiceSessionViewModel,
-        ),
-        ChangeNotifierProvider<GardenGrowthViewModel>.value(
-          value: gardenGrowthViewModel,
-        ),
-        if (includeShareProvider && shareRepository != null)
-          Provider<ShareRepository>.value(value: shareRepository),
-        if (includeShareProvider && shareRepository != null)
-          ChangeNotifierProxyProvider2<
-            GardenGrowthViewModel,
-            PracticeContinuityViewModel?,
-            ShareViewModel
-          >(
-            create: (context) =>
-                ShareViewModel(repository: context.read<ShareRepository>()),
-            update:
-                (
-                  context,
-                  growthViewModel,
-                  continuityViewModel,
-                  shareViewModel,
-                ) {
-                  final nextViewModel =
-                      shareViewModel ??
-                      ShareViewModel(
-                        repository: context.read<ShareRepository>(),
+        )..initialize(),
+      ),
+      shareNotifierProvider.overrideWith(
+        (ref) {
+          final gardenNotifier = ref.watch(gardenGrowthNotifierProvider);
+          final continuityNotifier =
+              ref.watch(practiceContinuityNotifierProvider);
+          final repo = shareRepository ??
+              ShareRepository(
+                apiService: _FakeShareApiService(),
+                shareSheetLauncher: _StaticShareSheetLauncher(),
+                platformHintResolver: () => 'android',
+              );
+          return ShareNotifier(
+            repository: repo,
+            initialGrowthSnapshot: gardenNotifier.snapshot,
+            initialContinuitySnapshot:
+                continuityNotifier.hasResolvedRecommendation
+                    ? continuityNotifier.snapshot
+                    : null,
+          );
+        },
+      ),
+    ];
+
+    return MaterialApp(
+      theme: AppTheme.build(),
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+      home: ProviderScope(
+        overrides: riverpodOverrides,
+        child: MultiProvider(
+          providers: [
+            Provider<PracticeRepository>.value(value: practiceRepository),
+            Provider<PracticeRouteArgs?>.value(value: resolvedPracticeArgs),
+            if (includeContinuityProvider)
+              ChangeNotifierProvider<PracticeContinuityViewModel>(
+                create: (_) => PracticeContinuityViewModel(
+                  repository: practiceRepository,
+                  initialStarterArgs: resolvedPracticeArgs,
+                )..initialize(reason: 'test_boot'),
+              ),
+            ChangeNotifierProvider<AccountViewModel>.value(
+              value: accountViewModel,
+            ),
+            if (householdViewModel != null)
+              ChangeNotifierProvider<HouseholdViewModel>.value(
+                value: householdViewModel,
+              ),
+            ChangeNotifierProvider<PracticeSessionViewModel>.value(
+              value: practiceSessionViewModel,
+            ),
+            ChangeNotifierProvider<GardenGrowthViewModel>.value(
+              value: gardenGrowthViewModel,
+            ),
+            if (includeShareProvider && shareRepository != null)
+              Provider<ShareRepository>.value(value: shareRepository),
+            if (includeShareProvider && shareRepository != null)
+              ChangeNotifierProxyProvider2<
+                GardenGrowthViewModel,
+                PracticeContinuityViewModel?,
+                ShareViewModel
+              >(
+                create: (context) =>
+                    ShareViewModel(repository: context.read<ShareRepository>()),
+                update:
+                    (
+                      context,
+                      growthViewModel,
+                      continuityViewModel,
+                      shareViewModel,
+                    ) {
+                      final nextViewModel =
+                          shareViewModel ??
+                          ShareViewModel(
+                            repository: context.read<ShareRepository>(),
+                          );
+                      nextViewModel.updateSnapshots(
+                        growthSnapshot: growthViewModel.snapshot,
+                        continuitySnapshot:
+                            continuityViewModel?.hasResolvedRecommendation ==
+                                    true
+                                ? continuityViewModel?.snapshot
+                                : null,
+                        notify: false,
                       );
-                  nextViewModel.updateSnapshots(
-                    growthSnapshot: growthViewModel.snapshot,
-                    continuitySnapshot:
-                        continuityViewModel?.hasResolvedRecommendation == true
-                        ? continuityViewModel?.snapshot
-                        : null,
-                    notify: false,
-                  );
-                  return nextViewModel;
-                },
-          ),
-      ],
-      child: MaterialApp(
-        theme: AppTheme.build(),
-        localizationsDelegates: AppLocalizations.localizationsDelegates,
-        supportedLocales: AppLocalizations.supportedLocales,
-        home: const HomeScreen(),
+                      return nextViewModel;
+                    },
+              ),
+          ],
+          child: const HomeScreen(),
+        ),
       ),
     );
   }

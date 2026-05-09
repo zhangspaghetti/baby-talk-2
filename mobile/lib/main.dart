@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobile/app/app.dart';
 
 Future<void> main() async {
@@ -8,5 +9,5 @@ Future<void> main() async {
     DeviceOrientation.portraitUp,
   ]);
   final bootState = await AppBootState.load(rootBundle);
-  runApp(BabyTalkApp(bootState: bootState));
+  runApp(ProviderScope(child: BabyTalkApp(bootState: bootState)));
 }

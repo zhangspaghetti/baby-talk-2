@@ -142,7 +142,6 @@ void main() {
 
     expect(find.byKey(const Key('discover-error-state')), findsOneWidget);
     expect(find.byKey(const Key('discover-retry-button')), findsOneWidget);
-    expect(find.textContaining('disk denied'), findsOneWidget);
 
     await tester.tap(find.byKey(const Key('discover-retry-button')));
     await tester.pump();

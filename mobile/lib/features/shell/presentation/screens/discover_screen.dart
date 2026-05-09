@@ -1,31 +1,33 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:mobile/app/providers/repository_providers.dart';
 import 'package:mobile/app/widgets/app_banner.dart';
+import 'package:mobile/app/widgets/app_empty_state.dart';
+import 'package:mobile/app/widgets/app_shimmer.dart';
 import 'package:mobile/app/theme/app_layout_constants.dart';
 import 'package:mobile/app/theme/app_theme.dart';
-import 'package:mobile/features/practice/data/repositories/practice_repository.dart';
 import 'package:mobile/features/practice/domain/models/practice_activity_catalog.dart';
 import 'package:mobile/features/practice/presentation/practice_route_args.dart';
 import 'package:mobile/features/shell/presentation/widgets/discover_activity_card.dart';
 import 'package:mobile/features/shell/presentation/widgets/discover_space_section.dart';
 import 'package:mobile/features/shell/presentation/widgets/discover_view_toggle.dart';
-import 'package:provider/provider.dart';
 import 'package:mobile/l10n/app_localizations.dart';
 
 typedef DiscoverCatalogLoader = Future<PracticeActivityCatalog> Function();
 typedef DiscoverPracticeOpener =
     Future<void> Function(BuildContext context, PracticeRouteArgs args);
 
-class DiscoverScreen extends StatefulWidget {
+class DiscoverScreen extends ConsumerStatefulWidget {
   const DiscoverScreen({super.key, this.catalogLoader, this.practiceOpener});
 
   final DiscoverCatalogLoader? catalogLoader;
   final DiscoverPracticeOpener? practiceOpener;
 
   @override
-  State<DiscoverScreen> createState() => _DiscoverScreenState();
+  ConsumerState<DiscoverScreen> createState() => _DiscoverScreenState();
 }
 
-class _DiscoverScreenState extends State<DiscoverScreen>
+class _DiscoverScreenState extends ConsumerState<DiscoverScreen>
     with AutomaticKeepAliveClientMixin<DiscoverScreen> {
   late Future<PracticeActivityCatalog> _catalogFuture;
   DiscoverBrowseView _selectedView = DiscoverBrowseView.activity;
@@ -100,7 +102,7 @@ class _DiscoverScreenState extends State<DiscoverScreen>
                     const _DiscoverLoadingState()
                   else if (snapshot.hasError)
                     _DiscoverErrorState(
-                      message: l.discoverLoadErrorMsg('${snapshot.error}'),
+                      message: l.discoverLoadError,
                       onRetry: _retryCatalog,
                     )
                   else if (catalog == null || catalog.isEmpty)
@@ -129,7 +131,10 @@ class _DiscoverScreenState extends State<DiscoverScreen>
     if (loader != null) {
       return loader();
     }
-    return context.read<PracticeRepository>().getActivityCatalog();
+    return ref
+        .read(practiceRepositoryProvider)
+        .requireValue
+        .getActivityCatalog();
   }
 
   Future<void> _retryCatalog() async {
@@ -168,10 +173,7 @@ class _DiscoverScreenState extends State<DiscoverScreen>
         return;
       }
       setState(() {
-        _navigationError = l.discoverOpenActivityError(
-          activity.title,
-          '$error',
-        );
+        _navigationError = l.discoverOpenActivityError(activity.title, '请稍后重试');
       });
     }
   }
@@ -225,13 +227,10 @@ class _DiscoverLoadingState extends StatelessWidget {
       ),
       child: Column(
         children: [
-          Container(
-            key: const Key('discover-loading-indicator'),
+          const AppShimmer(
+            key: Key('discover-loading-indicator'),
             height: 4,
-            decoration: BoxDecoration(
-              color: colors.outlineSoft,
-              borderRadius: BorderRadius.circular(2),
-            ),
+            borderRadius: 2,
           ),
           const SizedBox(height: 16),
           Text(
@@ -304,33 +303,13 @@ class _DiscoverEmptyState extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
-    final colors = context.appColors;
-    return Container(
+    return AppEmptyState(
       key: const Key('discover-empty-state'),
-      width: double.infinity,
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: colors.bgSurface,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: colors.outlineSoft),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(l.discoverEmpty, style: Theme.of(context).textTheme.titleMedium),
-          const SizedBox(height: 8),
-          Text(
-            l.discoverEmptyNote,
-            style: Theme.of(context).textTheme.bodyMedium,
-          ),
-          const SizedBox(height: 16),
-          OutlinedButton(
-            key: const Key('discover-empty-retry-button'),
-            onPressed: onRetry,
-            child: Text(l.discoverRetryRead),
-          ),
-        ],
-      ),
+      icon: Icons.explore_off_outlined,
+      title: l.discoverEmpty,
+      description: l.discoverEmptyNote,
+      actionLabel: l.discoverRetryRead,
+      onAction: () => onRetry(),
     );
   }
 }

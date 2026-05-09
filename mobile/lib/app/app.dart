@@ -41,9 +41,19 @@ import 'package:mobile/features/practice/presentation/practice_continuity_view_m
 import 'package:mobile/features/practice/presentation/practice_route_args.dart';
 import 'package:mobile/features/practice/presentation/practice_session_view_model.dart';
 import 'package:mobile/features/practice/presentation/screens/practice_session_screen.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart'
+    show Override, ProviderScope;
+import 'package:mobile/app/providers/repository_providers.dart';
+import 'package:mobile/features/account/presentation/account_notifier.dart';
+import 'package:mobile/features/household/presentation/household_notifier.dart';
+import 'package:mobile/features/practice/presentation/garden_growth_notifier.dart';
+import 'package:mobile/features/practice/presentation/practice_continuity_notifier.dart';
+import 'package:mobile/features/onboarding/presentation/onboarding_notifier.dart'
+    show OnboardingNotifier;
 import 'package:mobile/features/share/data/repositories/share_repository.dart';
 import 'package:mobile/features/share/data/services/share_api_service.dart';
 import 'package:mobile/features/share/data/services/share_sheet_launcher.dart';
+import 'package:mobile/features/share/presentation/share_notifier.dart';
 import 'package:mobile/features/share/presentation/share_view_model.dart';
 import 'package:mobile/features/shell/presentation/app_shell_screen.dart';
 import 'package:path_provider/path_provider.dart';
@@ -453,8 +463,17 @@ class _BabyTalkAppState extends State<BabyTalkApp> {
                   },
             ),
           ],
-          child: MaterialApp(
-            navigatorKey: _navigatorKey,
+          child: ProviderScope(
+            overrides: _buildRiverpodOverrides(
+              practiceRepository: practiceRepository,
+              householdRepository: householdRepository,
+              accountRepository: accountRepository,
+              onboardingRepository: onboardingRepository,
+              mentorRepository: mentorRepository,
+              defaultPracticeArgs: launchState.defaultPracticeArgs,
+            ),
+            child: MaterialApp(
+              navigatorKey: _navigatorKey,
             builder: (context, child) => _ReentryOverlay(child: child),
             debugShowCheckedModeBanner: false,
             title: 'Baby Talk 2',
@@ -497,9 +516,65 @@ class _BabyTalkAppState extends State<BabyTalkApp> {
               },
             ),
           ),
+          ),
         );
       },
     );
+  }
+
+  List<Override> _buildRiverpodOverrides({
+    required PracticeRepository practiceRepository,
+    required HouseholdRepository householdRepository,
+    required AccountRepository accountRepository,
+    required OnboardingRepository onboardingRepository,
+    required MentorRepository mentorRepository,
+    required PracticeRouteArgs defaultPracticeArgs,
+  }) {
+    final gardenGrowthRepo = GardenGrowthRepository(
+      practiceRepository: practiceRepository,
+      assetPhraseService: widget.bootState.assetPhraseService!,
+    );
+    return [
+      practiceRepositoryProvider.overrideWith(
+        (ref) async => practiceRepository,
+      ),
+      onboardingRepositoryProvider.overrideWith(
+        (ref) async => onboardingRepository,
+      ),
+      onboardingNotifierProvider.overrideWith(
+        (ref) => OnboardingNotifier(repository: onboardingRepository)
+          ..initialize(),
+      ),
+      gardenGrowthNotifierProvider.overrideWith(
+        (ref) => GardenGrowthNotifier(repository: gardenGrowthRepo),
+      ),
+      practiceContinuityNotifierProvider.overrideWith(
+        (ref) => PracticeContinuityNotifier(
+          repository: practiceRepository,
+          initialStarterArgs: defaultPracticeArgs,
+          refreshTimeout: widget.practiceContinuityRefreshTimeout,
+        ),
+      ),
+      householdNotifierProvider.overrideWith(
+        (ref) => HouseholdNotifier(repository: householdRepository)
+          ..initialize(),
+      ),
+      accountNotifierProvider.overrideWith(
+        (ref) => AccountNotifier(repository: accountRepository),
+      ),
+      shareNotifierProvider.overrideWith(
+        (ref) => ShareNotifier(
+          repository: ShareRepository(
+            apiService: ShareApiService(),
+            shareSheetLauncher: const SharePlusSheetLauncher(),
+          ),
+          initialGrowthSnapshot: ref
+              .watch(gardenGrowthNotifierProvider)
+              .snapshot,
+          initialContinuitySnapshot: null,
+        ),
+      ),
+    ];
   }
 
   @override

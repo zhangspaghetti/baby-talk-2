@@ -3,9 +3,28 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart'
+    hide ChangeNotifierProvider, Provider;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:isar/isar.dart';
+import 'package:mobile/app/providers/repository_providers.dart';
 import 'package:mobile/app/theme/app_theme.dart';
+import 'package:mobile/features/practice/data/repositories/garden_growth_repository.dart';
+import 'package:mobile/features/practice/data/services/asset_phrase_service.dart';
+import 'package:mobile/features/account/presentation/account_notifier.dart';
+import 'package:mobile/features/household/presentation/household_notifier.dart';
+import 'package:mobile/features/practice/presentation/garden_growth_notifier.dart';
+import 'package:mobile/features/practice/presentation/practice_continuity_notifier.dart';
+import 'package:mobile/features/share/data/repositories/share_repository.dart';
+import 'package:mobile/features/share/data/services/share_api_service.dart';
+import 'package:mobile/features/share/data/services/share_sheet_launcher.dart';
+import 'package:mobile/features/share/presentation/share_notifier.dart';
+import 'package:mobile/features/share/domain/models/share_link_draft.dart';
+import 'package:mobile/features/household/domain/models/household_shared_context.dart';
+import 'package:mobile/features/household/data/local/household_local_store.dart';
+import 'package:mobile/features/household/data/repositories/household_repository.dart';
+import 'package:mobile/features/household/domain/models/household_role.dart';
+import 'package:mobile/features/household/domain/models/household_invite_link.dart';
 import 'package:mobile/l10n/app_localizations.dart';
 import 'package:mobile/core/device/installation_id_service.dart';
 import 'package:mobile/features/account/data/local/account_local_store.dart';
@@ -24,7 +43,6 @@ import 'package:mobile/features/onboarding/domain/models/onboarding_snapshot.dar
 import 'package:mobile/features/onboarding/domain/models/stage_match.dart';
 import 'package:mobile/features/practice/data/local/practice_local_data_source.dart';
 import 'package:mobile/features/practice/data/repositories/practice_repository.dart';
-import 'package:mobile/features/practice/data/services/asset_phrase_service.dart';
 import 'package:mobile/features/practice/presentation/practice_continuity_view_model.dart';
 import 'package:mobile/features/practice/presentation/practice_route_args.dart';
 import 'package:mobile/features/practice/presentation/practice_session_view_model.dart';
@@ -389,6 +407,9 @@ class _Harness {
     required this.mentorRepository,
     required this.mentorViewModel,
     required this.practiceSessionViewModel,
+    required this.accountNotifier,
+    required this.gardenGrowthNotifier,
+    required this.practiceContinuityNotifier,
   });
 
   final Directory tempDir;
@@ -397,6 +418,9 @@ class _Harness {
   final _RecordingMentorRepository mentorRepository;
   final MentorViewModel mentorViewModel;
   final PracticeSessionViewModel practiceSessionViewModel;
+  final AccountNotifier accountNotifier;
+  final GardenGrowthNotifier gardenGrowthNotifier;
+  final PracticeContinuityNotifier practiceContinuityNotifier;
 
   static Future<_Harness> create({
     required AccountLocalSnapshot accountSeedSnapshot,
@@ -438,6 +462,23 @@ class _Harness {
       activityId: 'bath_time',
       audioController: _SilentPracticeAudioController(),
     );
+    final gardenGrowthRepo = GardenGrowthRepository(
+      practiceRepository: practiceRepository,
+      assetPhraseService: AssetPhraseService(bundle: rootBundle),
+    );
+    final accountNotifier = AccountNotifier(
+      repository: _StaticAccountRepository(seedSnapshot: accountSeedSnapshot),
+    );
+    final gardenGrowthNotifier = GardenGrowthNotifier(
+      repository: gardenGrowthRepo,
+    );
+    final practiceContinuityNotifier = PracticeContinuityNotifier(
+      repository: practiceRepository,
+      initialStarterArgs: const PracticeRouteArgs(
+        spaceId: 'daily_care',
+        activityId: 'bath_time',
+      ),
+    );
 
     return _Harness(
       tempDir: tempDir,
@@ -446,50 +487,85 @@ class _Harness {
       mentorRepository: mentorRepository,
       mentorViewModel: mentorViewModel,
       practiceSessionViewModel: practiceSessionViewModel,
+      accountNotifier: accountNotifier,
+      gardenGrowthNotifier: gardenGrowthNotifier,
+      practiceContinuityNotifier: practiceContinuityNotifier,
     );
   }
 
   Widget buildShell() {
-    return MultiProvider(
-      providers: [
-        Provider<PracticeRepository>.value(value: practiceRepository),
-        Provider<MentorRepository>.value(value: mentorRepository),
-        Provider<PracticeRouteArgs>.value(
-          value: const PracticeRouteArgs(
-            spaceId: 'daily_care',
-            activityId: 'bath_time',
+    final riverpodOverrides = <Override>[
+      accountNotifierProvider.overrideWith((ref) => accountNotifier),
+      gardenGrowthNotifierProvider.overrideWith((ref) => gardenGrowthNotifier),
+      practiceContinuityNotifierProvider.overrideWith(
+        (ref) => practiceContinuityNotifier,
+      ),
+      householdNotifierProvider.overrideWith(
+        (ref) => HouseholdNotifier(
+          repository: _FakeHouseholdRepository(
+            loadSnapshotResult: const HouseholdLocalSnapshot(lastPhase: 'idle'),
           ),
         ),
-        ChangeNotifierProvider<PracticeContinuityViewModel>(
-          create: (_) => PracticeContinuityViewModel(
-            repository: practiceRepository,
-            initialStarterArgs: const PracticeRouteArgs(
+      ),
+      shareNotifierProvider.overrideWith(
+        (ref) => ShareNotifier(
+          repository: ShareRepository(
+            apiService: _FakeShareApiService(),
+            shareSheetLauncher: _StaticShareSheetLauncher(),
+            platformHintResolver: () => 'android',
+          ),
+          initialGrowthSnapshot: ref.watch(gardenGrowthNotifierProvider).snapshot,
+          initialContinuitySnapshot: null,
+        ),
+      ),
+    ];
+    return ProviderScope(
+      overrides: riverpodOverrides,
+      child: MultiProvider(
+        providers: [
+          Provider<PracticeRepository>.value(value: practiceRepository),
+          Provider<MentorRepository>.value(value: mentorRepository),
+          Provider<PracticeRouteArgs>.value(
+            value: const PracticeRouteArgs(
               spaceId: 'daily_care',
               activityId: 'bath_time',
             ),
-          )..initialize(reason: 'test_boot'),
-        ),
-        ChangeNotifierProvider<AccountViewModel>.value(value: accountViewModel),
-        ChangeNotifierProvider<MentorViewModel>.value(value: mentorViewModel),
-        ChangeNotifierProvider<PracticeSessionViewModel>.value(
-          value: practiceSessionViewModel,
-        ),
-      ],
-      child: MaterialApp(
-        theme: AppTheme.build(),
-        localizationsDelegates: AppLocalizations.localizationsDelegates,
-        supportedLocales: AppLocalizations.supportedLocales,
-        home: AppShellScreen(
-          onboardingSnapshot: OnboardingSnapshot(
-            childDisplayName: '米米',
-            ageBucket: OnboardingAgeBucket.twelveToEighteen,
-            approxMonths: 15,
-            currentStage: 'gesture_plus_words',
-            starterSpaceId: 'daily_care',
-            starterActivityId: 'bath_time',
-            starterPhraseId: 'bath_time_warm_water',
-            consentState: OnboardingConsentState.localOnly,
-            completedAt: DateTime.utc(2026, 4, 8, 8),
+          ),
+          ChangeNotifierProvider<PracticeContinuityViewModel>(
+            create: (_) => PracticeContinuityViewModel(
+              repository: practiceRepository,
+              initialStarterArgs: const PracticeRouteArgs(
+                spaceId: 'daily_care',
+                activityId: 'bath_time',
+              ),
+            )..initialize(reason: 'test_boot'),
+          ),
+          ChangeNotifierProvider<AccountViewModel>.value(
+            value: accountViewModel,
+          ),
+          ChangeNotifierProvider<MentorViewModel>.value(
+            value: mentorViewModel,
+          ),
+          ChangeNotifierProvider<PracticeSessionViewModel>.value(
+            value: practiceSessionViewModel,
+          ),
+        ],
+        child: MaterialApp(
+          theme: AppTheme.build(),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: AppShellScreen(
+            onboardingSnapshot: OnboardingSnapshot(
+              childDisplayName: '米米',
+              ageBucket: OnboardingAgeBucket.twelveToEighteen,
+              approxMonths: 15,
+              currentStage: 'gesture_plus_words',
+              starterSpaceId: 'daily_care',
+              starterActivityId: 'bath_time',
+              starterPhraseId: 'bath_time_warm_water',
+              consentState: OnboardingConsentState.localOnly,
+              completedAt: DateTime.utc(2026, 4, 8, 8),
+            ),
           ),
         ),
       ),
@@ -497,36 +573,64 @@ class _Harness {
   }
 
   Widget buildStandaloneHome() {
-    return MultiProvider(
-      providers: [
-        Provider<PracticeRepository>.value(value: practiceRepository),
-        Provider<MentorRepository>.value(value: mentorRepository),
-        Provider<PracticeRouteArgs>.value(
-          value: const PracticeRouteArgs(
-            spaceId: 'daily_care',
-            activityId: 'bath_time',
+    final riverpodOverrides = <Override>[
+      accountNotifierProvider.overrideWith((ref) => accountNotifier),
+      gardenGrowthNotifierProvider.overrideWith((ref) => gardenGrowthNotifier),
+      practiceContinuityNotifierProvider.overrideWith(
+        (ref) => practiceContinuityNotifier,
+      ),
+      householdNotifierProvider.overrideWith(
+        (ref) => HouseholdNotifier(
+          repository: _FakeHouseholdRepository(
+            loadSnapshotResult: const HouseholdLocalSnapshot(lastPhase: 'idle'),
           ),
         ),
-        ChangeNotifierProvider<PracticeContinuityViewModel>(
-          create: (_) => PracticeContinuityViewModel(
-            repository: practiceRepository,
-            initialStarterArgs: const PracticeRouteArgs(
+      ),
+      shareNotifierProvider.overrideWith(
+        (ref) => ShareNotifier(
+          repository: ShareRepository(
+            apiService: _FakeShareApiService(),
+            shareSheetLauncher: _StaticShareSheetLauncher(),
+            platformHintResolver: () => 'android',
+          ),
+          initialGrowthSnapshot: ref.watch(gardenGrowthNotifierProvider).snapshot,
+          initialContinuitySnapshot: null,
+        ),
+      ),
+    ];
+    return ProviderScope(
+      overrides: riverpodOverrides,
+      child: MultiProvider(
+        providers: [
+          Provider<PracticeRepository>.value(value: practiceRepository),
+          Provider<MentorRepository>.value(value: mentorRepository),
+          Provider<PracticeRouteArgs>.value(
+            value: const PracticeRouteArgs(
               spaceId: 'daily_care',
               activityId: 'bath_time',
             ),
-          )..initialize(reason: 'test_boot'),
+          ),
+          ChangeNotifierProvider<PracticeContinuityViewModel>(
+            create: (_) => PracticeContinuityViewModel(
+              repository: practiceRepository,
+              initialStarterArgs: const PracticeRouteArgs(
+                spaceId: 'daily_care',
+                activityId: 'bath_time',
+              ),
+            )..initialize(reason: 'test_boot'),
+          ),
+          ChangeNotifierProvider<AccountViewModel>.value(value: accountViewModel),
+          ChangeNotifierProvider<MentorViewModel>.value(value: mentorViewModel),
+          ChangeNotifierProvider<PracticeSessionViewModel>.value(
+            value: practiceSessionViewModel,
+          ),
+        ],
+        child: MaterialApp(
+          theme: AppTheme.build(),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: const HomeScreen(embeddedInShell: false),
         ),
-        ChangeNotifierProvider<AccountViewModel>.value(value: accountViewModel),
-        ChangeNotifierProvider<MentorViewModel>.value(value: mentorViewModel),
-        ChangeNotifierProvider<PracticeSessionViewModel>.value(
-          value: practiceSessionViewModel,
-        ),
-      ],
-      child: MaterialApp(
-        theme: AppTheme.build(),
-        localizationsDelegates: AppLocalizations.localizationsDelegates,
-        supportedLocales: AppLocalizations.supportedLocales,
-        home: const HomeScreen(embeddedInShell: false),
       ),
     );
   }
@@ -741,6 +845,81 @@ class _SilentMentorAudioController implements MentorAudioController {
 
   @override
   Future<void> stop() async {}
+}
+
+class _FakeHouseholdRepository implements HouseholdRepository {
+  _FakeHouseholdRepository({required this.loadSnapshotResult});
+
+  HouseholdLocalSnapshot loadSnapshotResult;
+
+  @override
+  Future<HouseholdCreateInviteResult> createInvite({
+    HouseholdRole role = HouseholdRole.caregiver,
+    String source = 'household_settings',
+  }) async {
+    return const HouseholdCreateInviteResult(
+      snapshot: HouseholdLocalSnapshot(
+        lastPhase: 'create_invite_unavailable',
+        lastVisibleError: '邀请服务暂时不可用，请稍后重试。',
+      ),
+      message: '邀请服务暂时不可用，请稍后重试。',
+    );
+  }
+
+  @override
+  Future<HouseholdInviteAcceptResult> acceptInvite({
+    required String token,
+    required String source,
+  }) async {
+    return const HouseholdInviteAcceptResult(
+      snapshot: HouseholdLocalSnapshot(
+        lastPhase: 'accept_invite_unavailable',
+        lastVisibleError: '邀请服务暂时不可用，请稍后重试。',
+      ),
+      message: '邀请服务暂时不可用，请稍后重试。',
+    );
+  }
+
+  @override
+  Future<void> close() async {}
+
+  @override
+  Future<HouseholdLocalSnapshot> loadSnapshot() async => loadSnapshotResult;
+
+  @override
+  Future<HouseholdLocalSnapshot> refreshSharedContext({
+    String reason = 'manual_refresh',
+  }) async {
+    return loadSnapshotResult;
+  }
+}
+
+class _FakeShareApiService extends ShareApiService {
+  _FakeShareApiService() : super(baseUrl: 'http://localhost:8080');
+
+  @override
+  Future<ShareCreateLinkResponse> createShareLink({
+    required ShareLinkDraft draft,
+    String? platformHint,
+  }) async {
+    return ShareCreateLinkResponse(
+      token: 'share_token',
+      shareUrl: 'https://share.example.com/share/share_token',
+      expiresAt: DateTime.utc(2026, 4, 16, 12),
+    );
+  }
+
+  @override
+  Future<void> close() async {}
+}
+
+class _StaticShareSheetLauncher implements ShareSheetLauncher {
+  @override
+  Future<ShareSheetLaunchResult> shareText(String text, {String? subject}) async {
+    return const ShareSheetLaunchResult(
+      status: ShareSheetLaunchStatus.success,
+    );
+  }
 }
 
 String _resolveBundledIsarLibraryPath() {

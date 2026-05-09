@@ -5,6 +5,8 @@ import 'dart:io';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter/widgets.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart'
+    hide ChangeNotifierProvider, Provider;
 import 'package:isar/isar.dart';
 import 'package:mobile/app/app.dart';
 import 'package:mobile/core/device/installation_id_service.dart';
@@ -36,14 +38,16 @@ void main() {
     addTearDown(harness.close);
 
     await tester.pumpWidget(
-      BabyTalkApp(
-        bootState: harness.bootState,
-        repositoryFactory: (_) async => harness.repository,
-        appDirectoryResolver: () async => harness.tempDir,
-        audioControllerFactory: _SilentPracticeAudioController.new,
-        completedSnapshotLoader: () async => null,
-        practiceContinuityRefreshTimeout: const Duration(milliseconds: 1),
-        gardenGrowthRefreshTimeout: const Duration(milliseconds: 1),
+      ProviderScope(
+        child: BabyTalkApp(
+          bootState: harness.bootState,
+          repositoryFactory: (_) async => harness.repository,
+          appDirectoryResolver: () async => harness.tempDir,
+          audioControllerFactory: _SilentPracticeAudioController.new,
+          completedSnapshotLoader: () async => null,
+          practiceContinuityRefreshTimeout: const Duration(milliseconds: 1),
+          gardenGrowthRefreshTimeout: const Duration(milliseconds: 1),
+        ),
       ),
     );
 

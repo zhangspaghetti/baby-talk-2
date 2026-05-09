@@ -1,14 +1,16 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:mobile/app/providers/repository_providers.dart';
 import 'package:mobile/app/theme/app_layout_constants.dart';
 import 'package:mobile/app/theme/app_theme.dart';
+import 'package:mobile/app/widgets/app_haptics.dart';
 import 'package:mobile/features/account/data/repositories/account_repository.dart';
+import 'package:mobile/features/account/presentation/account_notifier.dart';
 import 'package:mobile/features/account/presentation/account_surface_phase.dart';
-import 'package:mobile/features/account/presentation/account_view_model.dart';
-import 'package:mobile/features/household/presentation/household_view_model.dart';
 import 'package:mobile/features/household/presentation/widgets/household_invite_card.dart';
 import 'package:mobile/features/household/presentation/widgets/household_shared_context_card.dart';
 import 'package:mobile/features/onboarding/domain/models/onboarding_snapshot.dart';
-import 'package:provider/provider.dart';
 import 'package:mobile/l10n/app_localizations.dart';
 
 Future<void> openAccountEntryScreen(BuildContext context) {
@@ -17,7 +19,7 @@ Future<void> openAccountEntryScreen(BuildContext context) {
   ).push(MaterialPageRoute<void>(builder: (_) => const AccountEntryScreen()));
 }
 
-class AccountStatusCard extends StatelessWidget {
+class AccountStatusCard extends ConsumerWidget {
   const AccountStatusCard({
     super.key,
     required this.scopeKeyPrefix,
@@ -30,11 +32,11 @@ class AccountStatusCard extends StatelessWidget {
   final bool compact;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final l = AppLocalizations.of(context)!;
     final colors = context.appColors;
     final theme = Theme.of(context);
-    final viewModel = context.watch<AccountViewModel>();
+    final viewModel = ref.watch(accountNotifierProvider);
     final phase = resolveAccountPhase(
       viewModel,
       onboardingSnapshot: onboardingSnapshot,
@@ -158,7 +160,7 @@ class AccountStatusCard extends StatelessWidget {
   String _titleForPhase(
     AppLocalizations l,
     AccountSurfacePhase phase,
-    AccountViewModel viewModel,
+    AccountNotifier viewModel,
   ) {
     switch (phase) {
       case AccountSurfacePhase.loading:
@@ -188,7 +190,7 @@ class AccountStatusCard extends StatelessWidget {
     AppLocalizations l,
     AccountSurfacePhase phase,
     OnboardingSnapshot? snapshot,
-    AccountViewModel viewModel,
+    AccountNotifier viewModel,
   ) {
     switch (phase) {
       case AccountSurfacePhase.loading:
@@ -220,7 +222,7 @@ class AccountStatusCard extends StatelessWidget {
     }
   }
 
-  List<Widget> _buildChips(AppLocalizations l, AccountViewModel viewModel) {
+  List<Widget> _buildChips(AppLocalizations l, AccountNotifier viewModel) {
     final chips = <Widget>[];
     chips.add(
       Chip(
@@ -301,14 +303,14 @@ class AccountStatusCard extends StatelessWidget {
   }
 }
 
-class AccountEntryScreen extends StatefulWidget {
+class AccountEntryScreen extends ConsumerStatefulWidget {
   const AccountEntryScreen({super.key});
 
   @override
-  State<AccountEntryScreen> createState() => _AccountEntryScreenState();
+  ConsumerState<AccountEntryScreen> createState() => _AccountEntryScreenState();
 }
 
-class _AccountEntryScreenState extends State<AccountEntryScreen> {
+class _AccountEntryScreenState extends ConsumerState<AccountEntryScreen> {
   late final TextEditingController _phoneController;
   late final TextEditingController _codeController;
 
@@ -331,8 +333,8 @@ class _AccountEntryScreenState extends State<AccountEntryScreen> {
     final l = AppLocalizations.of(context)!;
     final colors = context.appColors;
     final theme = Theme.of(context);
-    final viewModel = context.watch<AccountViewModel>();
-    final householdViewModel = context.watch<HouseholdViewModel?>();
+    final viewModel = ref.watch(accountNotifierProvider);
+    final householdViewModel = ref.watch(householdNotifierProvider);
     final phase = resolveAccountPhase(viewModel);
 
     if (_phoneController.text != viewModel.phoneNumber) {
@@ -422,7 +424,7 @@ class _AccountEntryScreenState extends State<AccountEntryScreen> {
                         keyboardType: TextInputType.phone,
                         decoration: InputDecoration(
                           labelText: l.accountPhoneLabel,
-                          hintText: '13800138000',
+                          hintText: kDebugMode ? '13800138000' : null,
                           errorText: viewModel.phoneError,
                         ),
                         onChanged: viewModel.updatePhoneNumber,
@@ -502,8 +504,9 @@ class _AccountEntryScreenState extends State<AccountEntryScreen> {
                             onPressed: viewModel.isBusy
                                 ? null
                                 : () async {
-                                    final succeeded = await context
-                                        .read<AccountViewModel>()
+                                    AppHaptics.lightTap();
+                                    final succeeded = await ref
+                                        .read(accountNotifierProvider.notifier)
                                         .submitSignIn();
                                     if (!context.mounted || !succeeded) {
                                       return;
@@ -526,9 +529,14 @@ class _AccountEntryScreenState extends State<AccountEntryScreen> {
                             FilledButton(
                               key: const Key('account-upgrade-button'),
                               onPressed: viewModel.canOpenUpgradePage
-                                  ? () => context
-                                        .read<AccountViewModel>()
-                                        .openUpgradePage()
+                                  ? () {
+                                      AppHaptics.lightTap();
+                                      ref
+                                          .read(
+                                            accountNotifierProvider.notifier,
+                                          )
+                                          .openUpgradePage();
+                                    }
                                   : null,
                               child: Text(viewModel.upgradeActionLabel),
                             ),
@@ -536,48 +544,63 @@ class _AccountEntryScreenState extends State<AccountEntryScreen> {
                             key: const Key('account-sync-retry-button'),
                             onPressed: viewModel.isBusy
                                 ? null
-                                : () => context
-                                      .read<AccountViewModel>()
-                                      .refreshRuntimeState(
-                                        trigger:
-                                            AccountRuntimeTrigger.manualRetry,
-                                      ),
+                                : () {
+                                    AppHaptics.lightTap();
+                                    ref
+                                        .read(accountNotifierProvider.notifier)
+                                        .refreshRuntimeState(
+                                          trigger:
+                                              AccountRuntimeTrigger.manualRetry,
+                                        );
+                                  },
                             child: Text(l.accountRetrySync),
                           ),
                           OutlinedButton(
                             key: const Key('account-revoke-button'),
                             onPressed: viewModel.isBusy || !viewModel.isSignedIn
                                 ? null
-                                : () => context
-                                      .read<AccountViewModel>()
-                                      .revokeConsent(),
+                                : () {
+                                    AppHaptics.lightTap();
+                                    ref
+                                        .read(accountNotifierProvider.notifier)
+                                        .revokeConsent();
+                                  },
                             child: Text(l.accountRevokeConsent),
                           ),
                           OutlinedButton(
                             key: const Key('account-delete-button'),
                             onPressed: viewModel.isBusy || !viewModel.isSignedIn
                                 ? null
-                                : () => context
-                                      .read<AccountViewModel>()
-                                      .deleteAccount(),
+                                : () {
+                                    AppHaptics.lightTap();
+                                    ref
+                                        .read(accountNotifierProvider.notifier)
+                                        .deleteAccount();
+                                  },
                             child: Text(l.accountDeleteAccount),
                           ),
                           OutlinedButton(
                             key: const Key('account-clear-button'),
                             onPressed: viewModel.isBusy
                                 ? null
-                                : () => context
-                                      .read<AccountViewModel>()
-                                      .clearSession(),
+                                : () {
+                                    AppHaptics.lightTap();
+                                    ref
+                                        .read(accountNotifierProvider.notifier)
+                                        .clearSession();
+                                  },
                             child: Text(l.accountLogout),
                           ),
                           OutlinedButton(
                             key: const Key('account-local-only-button'),
                             onPressed: viewModel.isBusy
                                 ? null
-                                : () => context
-                                      .read<AccountViewModel>()
-                                      .clearSession(revertToLocalOnly: true),
+                                : () {
+                                    AppHaptics.lightTap();
+                                    ref
+                                        .read(accountNotifierProvider.notifier)
+                                        .clearSession(revertToLocalOnly: true);
+                                  },
                             child: Text(l.accountBackToLocal),
                           ),
                           OutlinedButton(
@@ -601,7 +624,7 @@ class _AccountEntryScreenState extends State<AccountEntryScreen> {
   String _headlineForPhase(
     AppLocalizations l,
     AccountSurfacePhase phase,
-    AccountViewModel viewModel,
+    AccountNotifier viewModel,
   ) {
     switch (phase) {
       case AccountSurfacePhase.loading:
@@ -630,7 +653,7 @@ class _AccountEntryScreenState extends State<AccountEntryScreen> {
   String _statusText(
     AppLocalizations l,
     AccountSurfacePhase phase,
-    AccountViewModel viewModel,
+    AccountNotifier viewModel,
   ) {
     switch (phase) {
       case AccountSurfacePhase.loading:

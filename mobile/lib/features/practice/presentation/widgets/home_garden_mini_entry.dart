@@ -1,13 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:mobile/app/theme/app_theme.dart';
 import 'package:mobile/features/practice/domain/models/garden_growth_snapshot.dart';
-import 'package:mobile/features/practice/presentation/garden_growth_view_model.dart';
+import 'package:mobile/features/practice/presentation/garden_growth_view_model.dart'
+    show GardenGrowthLoadStatus;
 import 'package:mobile/l10n/app_localizations.dart';
 
+/// Accepts either a [GardenGrowthViewModel] or [GardenGrowthNotifier].
+///
+/// Both expose the same API surface (snapshot, status, message, etc.),
+/// so we accept `ChangeNotifier?` and access properties dynamically.
 class HomeGardenMiniEntry extends StatelessWidget {
   const HomeGardenMiniEntry({super.key, required this.viewModel});
 
-  final GardenGrowthViewModel? viewModel;
+  final dynamic viewModel;
 
   @override
   Widget build(BuildContext context) {
@@ -18,7 +23,8 @@ class HomeGardenMiniEntry extends StatelessWidget {
         effectiveViewModel?.snapshot ?? GardenGrowthSnapshot.empty();
     final primarySpace = snapshot.primarySpace;
     final primaryActivity = snapshot.primaryActivity;
-    final status = effectiveViewModel?.status ?? GardenGrowthLoadStatus.empty;
+    final GardenGrowthLoadStatus status =
+        effectiveViewModel?.status ?? GardenGrowthLoadStatus.empty;
 
     String title;
     String body;
@@ -50,13 +56,13 @@ class HomeGardenMiniEntry extends StatelessWidget {
             ? l.homeGardenReady
             : l.homeGardenSpaceStage(
                 primarySpace.title,
-                primarySpace.stage.label,
+                (primarySpace.stage as GardenPatchStage).label,
               );
         body = primaryActivity == null
             ? l.homeGardenChanges
             : l.homeGardenActivityDetail(
                 primaryActivity.title,
-                primaryActivity.stage.label,
+                (primaryActivity.stage as GardenFlowerStage).label,
                 primaryActivity.careNote,
               );
         break;

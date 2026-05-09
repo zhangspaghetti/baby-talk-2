@@ -12,14 +12,14 @@ class GardenHeroCard extends StatelessWidget {
   const GardenHeroCard({
     super.key,
     required this.snapshot,
-    required this.viewModel,
+    required this.status,
     required this.continuityViewModel,
     required this.continuitySnapshot,
     required this.continuityActivity,
   });
 
   final GardenGrowthSnapshot snapshot;
-  final GardenGrowthViewModel? viewModel;
+  final GardenGrowthLoadStatus status;
   final PracticeContinuityViewModel? continuityViewModel;
   final PracticeContinuitySnapshot? continuitySnapshot;
   final PracticeActivitySnapshot? continuityActivity;
@@ -38,9 +38,8 @@ class GardenHeroCard extends StatelessWidget {
     String title = l.gardenEveryVoice;
     String body = l.gardenNoScores;
 
-    if (viewModel != null &&
-        (viewModel!.status == GardenGrowthLoadStatus.loading ||
-            viewModel!.status == GardenGrowthLoadStatus.idle)) {
+    if (status == GardenGrowthLoadStatus.loading ||
+        status == GardenGrowthLoadStatus.idle) {
       title = l.gardenOrganizing;
       body = l.gardenProjectingNote;
     } else if (continuityViewModel == null) {

@@ -3,7 +3,8 @@ import 'package:mobile/app/theme/app_theme.dart';
 import 'package:mobile/features/household/data/local/household_local_store.dart';
 import 'package:mobile/features/household/domain/models/household_role.dart';
 import 'package:mobile/features/household/domain/models/household_shared_context.dart';
-import 'package:mobile/features/household/presentation/household_view_model.dart';
+import 'package:mobile/features/household/presentation/household_view_model.dart'
+    show HouseholdActionKind;
 import 'package:mobile/features/practice/presentation/practice_route_args.dart';
 import 'package:mobile/l10n/app_localizations.dart';
 
@@ -249,7 +250,9 @@ class HouseholdSharedContextCard extends StatelessWidget {
   });
 
   final String surfaceKeyPrefix;
-  final HouseholdViewModel? viewModel;
+
+  /// Accepts either a [HouseholdViewModel] or [HouseholdNotifier].
+  final dynamic viewModel;
   final String title;
   final bool compact;
   final String? retryReason;
@@ -419,10 +422,7 @@ class HouseholdSharedContextCard extends StatelessWidget {
     );
   }
 
-  Future<void> _handleRetry(
-    HouseholdViewModel viewModel,
-    String surfaceKeyPrefix,
-  ) async {
+  Future<void> _handleRetry(dynamic viewModel, String surfaceKeyPrefix) async {
     final shouldRetryLastAction =
         viewModel.lastActionKind == HouseholdActionKind.acceptInvite ||
         viewModel.lastActionKind == HouseholdActionKind.refreshSharedContext;
@@ -435,10 +435,7 @@ class HouseholdSharedContextCard extends StatelessWidget {
     );
   }
 
-  bool _shouldShowRetry(
-    HouseholdViewModel viewModel,
-    HouseholdLocalSnapshot snapshot,
-  ) {
+  bool _shouldShowRetry(dynamic viewModel, HouseholdLocalSnapshot snapshot) {
     if (viewModel.isBusy) {
       return true;
     }
@@ -453,10 +450,7 @@ class HouseholdSharedContextCard extends StatelessWidget {
     return false;
   }
 
-  String _retryLabelFor(
-    HouseholdViewModel viewModel,
-    HouseholdLocalSnapshot snapshot,
-  ) {
+  String _retryLabelFor(dynamic viewModel, HouseholdLocalSnapshot snapshot) {
     if (viewModel.isBusy) {
       return '处理中…';
     }
@@ -470,6 +464,8 @@ class HouseholdSharedContextCard extends StatelessWidget {
         if (snapshot.lastVisibleError != null) {
           return '重试共享同步';
         }
+        return '刷新共享上下文';
+      default:
         return '刷新共享上下文';
     }
   }
@@ -520,10 +516,7 @@ class HouseholdSharedContextCard extends StatelessWidget {
     return 'household 尚未初始化；当前保持显式 disabled 状态。';
   }
 
-  String? _visibleMessage(
-    HouseholdViewModel viewModel,
-    HouseholdLocalSnapshot snapshot,
-  ) {
+  String? _visibleMessage(dynamic viewModel, HouseholdLocalSnapshot snapshot) {
     final snapshotMessage = snapshot.lastVisibleError?.trim();
     final viewModelMessage = viewModel.message?.trim();
     if (snapshotMessage != null && snapshotMessage.isNotEmpty) {

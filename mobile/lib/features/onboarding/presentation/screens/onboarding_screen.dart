@@ -1,30 +1,34 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:mobile/app/providers/repository_providers.dart';
 import 'package:mobile/app/router/app_router.dart';
 import 'package:mobile/app/widgets/app_banner.dart';
+import 'package:mobile/app/widgets/app_haptics.dart';
+import 'package:mobile/app/widgets/app_step_progress.dart';
 import 'package:mobile/app/theme/app_layout_constants.dart';
 import 'package:mobile/app/theme/app_theme.dart';
 import 'package:mobile/features/onboarding/domain/models/stage_match.dart';
-import 'package:mobile/features/onboarding/presentation/onboarding_view_model.dart';
+import 'package:mobile/features/onboarding/presentation/onboarding_notifier.dart';
+import 'package:mobile/features/onboarding/presentation/onboarding_view_model.dart'
+    show OnboardingFlowStep;
 import 'package:mobile/features/onboarding/presentation/widgets/mentor_bubble.dart';
 import 'package:mobile/features/onboarding/presentation/widgets/mini_seed_card.dart';
 import 'package:mobile/features/onboarding/presentation/widgets/quick_select_card.dart';
 import 'package:mobile/l10n/app_localizations.dart';
-import 'package:provider/provider.dart';
 
-class OnboardingScreen extends StatefulWidget {
+class OnboardingScreen extends ConsumerStatefulWidget {
   const OnboardingScreen({super.key});
 
   @override
-  State<OnboardingScreen> createState() => _OnboardingScreenState();
+  ConsumerState<OnboardingScreen> createState() => _OnboardingScreenState();
 }
 
-class _OnboardingScreenState extends State<OnboardingScreen> {
+class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   late final TextEditingController _nameController;
   late final FocusNode _nameFocusNode;
-
-  OnboardingViewModel? _viewModel;
-  int _lastNavigationRequestToken = 0;
+  bool _updatingNameFromNotifier = false;
   OnboardingFlowStep? _lastHandledStep;
+  bool _navigationScheduled = false;
 
   @override
   void initState() {
@@ -37,19 +41,19 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    final viewModel = context.read<OnboardingViewModel>();
-    _attachViewModel(viewModel);
-    if (_nameController.text != viewModel.draftName) {
+    final notifier = ref.read(onboardingNotifierProvider);
+    if (_nameController.text != notifier.draftName) {
+      _updatingNameFromNotifier = true;
       _nameController.value = TextEditingValue(
-        text: viewModel.draftName,
-        selection: TextSelection.collapsed(offset: viewModel.draftName.length),
+        text: notifier.draftName,
+        selection: TextSelection.collapsed(offset: notifier.draftName.length),
       );
+      _updatingNameFromNotifier = false;
     }
   }
 
   @override
   void dispose() {
-    _viewModel?.removeListener(_handleViewModelChanged);
     _nameController
       ..removeListener(_handleNameChanged)
       ..dispose();
@@ -62,8 +66,26 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     final l = AppLocalizations.of(context)!;
     final colors = context.appColors;
     final theme = Theme.of(context);
-    final viewModel = context.watch<OnboardingViewModel>();
-    _syncFocusForStep(viewModel.currentStep);
+    final notifier = ref.watch(onboardingNotifierProvider);
+    _syncFocusForStep(notifier.currentStep);
+
+    // Navigate to shell when onboarding completes.
+    if (!_navigationScheduled &&
+        notifier.navigationRequestToken > 0 &&
+        notifier.completedSnapshot != null) {
+      _navigationScheduled = true;
+      final snapshot = notifier.completedSnapshot!;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) {
+          return;
+        }
+        Navigator.of(context).pushNamedAndRemoveUntil(
+          AppRouteNames.shell,
+          (route) => false,
+          arguments: snapshot,
+        );
+      });
+    }
 
     return Scaffold(
       body: SafeArea(
@@ -76,6 +98,12 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             child: ListView(
               padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
               children: [
+                AppStepProgress(
+                  key: const Key('onboarding-step-progress'),
+                  currentStep: notifier.currentStep.index,
+                  totalSteps: OnboardingFlowStep.values.length,
+                ),
+                const SizedBox(height: 20),
                 Text(l.onboardingTitle, style: theme.textTheme.titleLarge),
                 const SizedBox(height: 8),
                 Text(l.onboardingSubtitle, style: theme.textTheme.bodyMedium),
@@ -96,7 +124,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   ),
                 ),
                 const SizedBox(height: 24),
-                ..._buildConversation(theme, viewModel),
+                ..._buildConversation(theme, notifier),
                 const SizedBox(height: 24),
                 Container(
                   padding: const EdgeInsets.fromLTRB(18, 18, 18, 20),
@@ -109,7 +137,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   child: _StepComposer(
                     nameController: _nameController,
                     nameFocusNode: _nameFocusNode,
-                    viewModel: viewModel,
+                    notifier: notifier,
                   ),
                 ),
               ],
@@ -122,35 +150,35 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
   List<Widget> _buildConversation(
     ThemeData theme,
-    OnboardingViewModel viewModel,
+    OnboardingNotifier notifier,
   ) {
     final l = AppLocalizations.of(context)!;
     final widgets = <Widget>[
       MentorBubble(caption: l.mentorName, message: l.onboardingMentorGreeting),
     ];
 
-    if (viewModel.currentStep.index >= OnboardingFlowStep.name.index ||
-        viewModel.draftName.trim().isNotEmpty) {
+    if (notifier.currentStep.index >= OnboardingFlowStep.name.index ||
+        notifier.draftName.trim().isNotEmpty) {
       widgets
         ..add(const SizedBox(height: 16))
         ..add(MentorBubble(message: l.onboardingAskName));
     }
 
-    if (viewModel.draftName.trim().isNotEmpty) {
+    if (notifier.draftName.trim().isNotEmpty) {
       widgets
         ..add(const SizedBox(height: 12))
-        ..add(_UserBubble(message: viewModel.draftName.trim()));
+        ..add(_UserBubble(message: notifier.draftName.trim()));
     }
 
-    if (viewModel.currentStep.index >= OnboardingFlowStep.age.index ||
-        viewModel.selectedAgeBucket != null) {
+    if (notifier.currentStep.index >= OnboardingFlowStep.age.index ||
+        notifier.selectedAgeBucket != null) {
       widgets
         ..add(const SizedBox(height: 16))
         ..add(MentorBubble(message: l.onboardingAskAge));
     }
 
-    final selectedAgeBucket = viewModel.selectedAgeBucket;
-    final stageMatch = viewModel.stageMatch;
+    final selectedAgeBucket = notifier.selectedAgeBucket;
+    final stageMatch = notifier.stageMatch;
     if (selectedAgeBucket != null && stageMatch != null) {
       widgets
         ..add(const SizedBox(height: 12))
@@ -161,14 +189,14 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         );
     }
 
-    if (viewModel.currentStep == OnboardingFlowStep.preview &&
+    if (notifier.currentStep == OnboardingFlowStep.preview &&
         selectedAgeBucket != null &&
         stageMatch != null) {
       widgets
         ..add(const SizedBox(height: 16))
         ..add(
           MentorBubble(
-            message: l.onboardingStagePreview(viewModel.draftName.trim()),
+            message: l.onboardingStagePreview(notifier.draftName.trim()),
           ),
         )
         ..add(const SizedBox(height: 16))
@@ -179,7 +207,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           ),
         );
 
-      final starterSeed = viewModel.starterSeed;
+      final starterSeed = notifier.starterSeed;
       if (starterSeed != null) {
         widgets
           ..add(const SizedBox(height: 16))
@@ -195,41 +223,13 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     return widgets;
   }
 
-  void _attachViewModel(OnboardingViewModel viewModel) {
-    if (identical(_viewModel, viewModel)) {
-      return;
-    }
-    _viewModel?.removeListener(_handleViewModelChanged);
-    _viewModel = viewModel;
-    _lastNavigationRequestToken = viewModel.navigationRequestToken;
-    _lastHandledStep = viewModel.currentStep;
-    viewModel.addListener(_handleViewModelChanged);
-  }
-
   void _handleNameChanged() {
-    _viewModel?.updateDraftName(_nameController.text);
-  }
-
-  void _handleViewModelChanged() {
-    final viewModel = _viewModel;
-    if (!mounted || viewModel == null) {
+    if (_updatingNameFromNotifier) {
       return;
     }
-
-    if (viewModel.navigationRequestToken != _lastNavigationRequestToken) {
-      _lastNavigationRequestToken = viewModel.navigationRequestToken;
-      final completedSnapshot = viewModel.completedSnapshot;
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted || completedSnapshot == null) {
-          return;
-        }
-        Navigator.of(context).pushNamedAndRemoveUntil(
-          AppRouteNames.shell,
-          (route) => false,
-          arguments: completedSnapshot,
-        );
-      });
-    }
+    ref
+        .read(onboardingNotifierProvider.notifier)
+        .updateDraftName(_nameController.text);
   }
 
   void _syncFocusForStep(OnboardingFlowStep step) {
@@ -255,36 +255,36 @@ class _StepComposer extends StatelessWidget {
   const _StepComposer({
     required this.nameController,
     required this.nameFocusNode,
-    required this.viewModel,
+    required this.notifier,
   });
 
   final TextEditingController nameController;
   final FocusNode nameFocusNode;
-  final OnboardingViewModel viewModel;
+  final OnboardingNotifier notifier;
 
   @override
   Widget build(BuildContext context) {
-    switch (viewModel.currentStep) {
+    switch (notifier.currentStep) {
       case OnboardingFlowStep.welcome:
-        return _WelcomeStep(viewModel: viewModel);
+        return _WelcomeStep(notifier: notifier);
       case OnboardingFlowStep.name:
         return _NameStep(
-          viewModel: viewModel,
+          notifier: notifier,
           nameController: nameController,
           nameFocusNode: nameFocusNode,
         );
       case OnboardingFlowStep.age:
-        return _AgeStep(viewModel: viewModel);
+        return _AgeStep(notifier: notifier);
       case OnboardingFlowStep.preview:
-        return _PreviewStep(viewModel: viewModel);
+        return _PreviewStep(notifier: notifier);
     }
   }
 }
 
 class _WelcomeStep extends StatelessWidget {
-  const _WelcomeStep({required this.viewModel});
+  const _WelcomeStep({required this.notifier});
 
-  final OnboardingViewModel viewModel;
+  final OnboardingNotifier notifier;
 
   @override
   Widget build(BuildContext context) {
@@ -309,7 +309,7 @@ class _WelcomeStep extends StatelessWidget {
         const SizedBox(height: 16),
         ElevatedButton(
           key: const Key('onboarding-start-button'),
-          onPressed: viewModel.startFlow,
+          onPressed: notifier.startFlow,
           child: Text(l.onboardingStartButton),
         ),
       ],
@@ -319,12 +319,12 @@ class _WelcomeStep extends StatelessWidget {
 
 class _NameStep extends StatelessWidget {
   const _NameStep({
-    required this.viewModel,
+    required this.notifier,
     required this.nameController,
     required this.nameFocusNode,
   });
 
-  final OnboardingViewModel viewModel;
+  final OnboardingNotifier notifier;
   final TextEditingController nameController;
   final FocusNode nameFocusNode;
 
@@ -341,7 +341,7 @@ class _NameStep extends StatelessWidget {
           controller: nameController,
           focusNode: nameFocusNode,
           textInputAction: TextInputAction.done,
-          onSubmitted: (_) => viewModel.continueFromName(),
+          onSubmitted: (_) => notifier.continueFromName(),
           decoration: InputDecoration(
             labelText: l.onboardingNameLabel,
             hintText: l.onboardingNameHint,
@@ -352,11 +352,11 @@ class _NameStep extends StatelessWidget {
           l.onboardingNameHelp,
           style: Theme.of(context).textTheme.bodySmall,
         ),
-        if (viewModel.nameErrorMessage != null) ...[
+        if (notifier.nameErrorMessage != null) ...[
           const SizedBox(height: 12),
           AppBanner(
             key: const Key('onboarding-name-error'),
-            message: viewModel.nameErrorMessage!,
+            message: notifier.nameErrorMessage!,
             backgroundColor: colors.errorSoft,
             foregroundColor: colors.error,
           ),
@@ -367,7 +367,7 @@ class _NameStep extends StatelessWidget {
             Expanded(
               child: OutlinedButton(
                 key: const Key('onboarding-back-button'),
-                onPressed: viewModel.goBack,
+                onPressed: notifier.goBack,
                 child: Text(l.onboardingBack),
               ),
             ),
@@ -376,7 +376,7 @@ class _NameStep extends StatelessWidget {
               flex: 2,
               child: ElevatedButton(
                 key: const Key('onboarding-name-continue'),
-                onPressed: viewModel.continueFromName,
+                onPressed: notifier.continueFromName,
                 child: Text(l.onboardingContinue),
               ),
             ),
@@ -388,9 +388,9 @@ class _NameStep extends StatelessWidget {
 }
 
 class _AgeStep extends StatelessWidget {
-  const _AgeStep({required this.viewModel});
+  const _AgeStep({required this.notifier});
 
-  final OnboardingViewModel viewModel;
+  final OnboardingNotifier notifier;
 
   @override
   Widget build(BuildContext context) {
@@ -423,12 +423,15 @@ class _AgeStep extends StatelessWidget {
               key: Key('onboarding-age-card-${bucket.wireValue}'),
               label: bucket.label,
               caption: '${stageMatch.approxMonths}月左右',
-              isSelected: viewModel.selectedAgeBucket == bucket,
-              onTap: () => viewModel.selectAgeBucket(bucket),
+              isSelected: notifier.selectedAgeBucket == bucket,
+              onTap: () {
+                AppHaptics.lightTap();
+                notifier.selectAgeBucket(bucket);
+              },
             );
           },
         ),
-        if (viewModel.isContentLoading) ...[
+        if (notifier.isContentLoading) ...[
           const SizedBox(height: 12),
           Row(
             key: const Key('onboarding-content-loading'),
@@ -448,7 +451,7 @@ class _AgeStep extends StatelessWidget {
             ],
           ),
         ],
-        if (viewModel.contentErrorMessage != null) ...[
+        if (notifier.contentErrorMessage != null) ...[
           const SizedBox(height: 12),
           Container(
             key: const Key('onboarding-content-error-banner'),
@@ -462,7 +465,7 @@ class _AgeStep extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  viewModel.contentErrorMessage!,
+                  notifier.contentErrorMessage!,
                   style: theme.textTheme.bodyMedium?.copyWith(
                     color: colors.warning,
                     fontWeight: FontWeight.w700,
@@ -471,18 +474,18 @@ class _AgeStep extends StatelessWidget {
                 const SizedBox(height: 10),
                 OutlinedButton(
                   key: const Key('onboarding-content-retry'),
-                  onPressed: viewModel.retryContentLoad,
+                  onPressed: notifier.retryContentLoad,
                   child: Text(l.onboardingContentRetry),
                 ),
               ],
             ),
           ),
         ],
-        if (viewModel.ageErrorMessage != null) ...[
+        if (notifier.ageErrorMessage != null) ...[
           const SizedBox(height: 12),
           AppBanner(
             key: const Key('onboarding-age-error'),
-            message: viewModel.ageErrorMessage!,
+            message: notifier.ageErrorMessage!,
             backgroundColor: colors.errorSoft,
             foregroundColor: colors.error,
           ),
@@ -493,7 +496,7 @@ class _AgeStep extends StatelessWidget {
             Expanded(
               child: OutlinedButton(
                 key: const Key('onboarding-back-button'),
-                onPressed: viewModel.goBack,
+                onPressed: notifier.goBack,
                 child: Text(l.onboardingBack),
               ),
             ),
@@ -502,7 +505,7 @@ class _AgeStep extends StatelessWidget {
               flex: 2,
               child: ElevatedButton(
                 key: const Key('onboarding-age-continue'),
-                onPressed: viewModel.continueFromAge,
+                onPressed: notifier.continueFromAge,
                 child: Text(l.onboardingAgeContinue),
               ),
             ),
@@ -514,16 +517,16 @@ class _AgeStep extends StatelessWidget {
 }
 
 class _PreviewStep extends StatelessWidget {
-  const _PreviewStep({required this.viewModel});
+  const _PreviewStep({required this.notifier});
 
-  final OnboardingViewModel viewModel;
+  final OnboardingNotifier notifier;
 
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
     final colors = context.appColors;
     final theme = Theme.of(context);
-    final starterSeed = viewModel.starterSeed;
+    final starterSeed = notifier.starterSeed;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
@@ -576,7 +579,7 @@ class _PreviewStep extends StatelessWidget {
             ),
           ),
         ],
-        if (viewModel.submitErrorMessage != null) ...[
+        if (notifier.submitErrorMessage != null) ...[
           const SizedBox(height: 12),
           Container(
             key: const Key('onboarding-save-error-banner'),
@@ -587,7 +590,7 @@ class _PreviewStep extends StatelessWidget {
               borderRadius: BorderRadius.circular(12),
             ),
             child: Text(
-              viewModel.submitErrorMessage!,
+              notifier.submitErrorMessage!,
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: colors.error,
                 fontWeight: FontWeight.w700,
@@ -601,7 +604,7 @@ class _PreviewStep extends StatelessWidget {
             Expanded(
               child: OutlinedButton(
                 key: const Key('onboarding-back-button'),
-                onPressed: viewModel.isSaving ? null : viewModel.goBack,
+                onPressed: notifier.isSaving ? null : notifier.goBack,
                 child: Text(l.onboardingPreviewBack),
               ),
             ),
@@ -610,8 +613,8 @@ class _PreviewStep extends StatelessWidget {
               flex: 2,
               child: ElevatedButton(
                 key: const Key('onboarding-submit-button'),
-                onPressed: viewModel.isSaving ? null : viewModel.submit,
-                child: viewModel.isSaving
+                onPressed: notifier.isSaving ? null : notifier.submit,
+                child: notifier.isSaving
                     ? Row(
                         key: const Key('onboarding-submit-saving'),
                         mainAxisAlignment: MainAxisAlignment.center,

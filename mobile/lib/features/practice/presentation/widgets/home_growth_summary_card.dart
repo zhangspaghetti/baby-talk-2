@@ -1,13 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:mobile/app/theme/app_theme.dart';
 import 'package:mobile/features/practice/domain/models/garden_growth_snapshot.dart';
-import 'package:mobile/features/practice/presentation/garden_growth_view_model.dart';
 import 'package:mobile/l10n/app_localizations.dart';
 
+/// Accepts either a [GardenGrowthViewModel] or [GardenGrowthNotifier].
+///
+/// Both expose the same API surface (snapshot, status, message, etc.),
+/// so we accept `dynamic` and access properties dynamically.
 class HomeGrowthSummaryCard extends StatelessWidget {
   const HomeGrowthSummaryCard({super.key, required this.viewModel});
 
-  final GardenGrowthViewModel? viewModel;
+  final dynamic viewModel;
 
   @override
   Widget build(BuildContext context) {

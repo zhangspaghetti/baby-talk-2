@@ -1,4 +1,4 @@
-import 'package:mobile/features/account/presentation/account_view_model.dart';
+import 'package:mobile/features/account/presentation/account_notifier.dart';
 import 'package:mobile/features/onboarding/domain/models/onboarding_snapshot.dart';
 
 enum AccountSurfacePhase {
@@ -14,44 +14,46 @@ enum AccountSurfacePhase {
   error,
 }
 
-/// Resolves the current account surface phase from the view model state.
+/// Resolves the current account surface phase from the notifier state.
+///
+/// Accepts [AccountNotifier] which mirrors the [AccountViewModel] API.
 ///
 /// [onboardingSnapshot] is optional. When provided (e.g. from
 /// `AccountStatusCard`), the `localOnly` phase can be reached when
-/// `viewModel.isLocalOnly` is true. When omitted (e.g. from
+/// `notifier.isLocalOnly` is true. When omitted (e.g. from
 /// `AccountEntryScreen`), the function falls through to `signedOut`.
 AccountSurfacePhase resolveAccountPhase(
-  AccountViewModel viewModel, {
+  AccountNotifier notifier, {
   OnboardingSnapshot? onboardingSnapshot,
 }) {
-  if (viewModel.isLoading && !viewModel.hasLoaded) {
+  if (notifier.isLoading && !notifier.hasLoaded) {
     return AccountSurfacePhase.loading;
   }
-  if (viewModel.loadErrorMessage != null) {
+  if (notifier.loadErrorMessage != null) {
     return AccountSurfacePhase.error;
   }
-  if (viewModel.isDeleted) {
+  if (notifier.isDeleted) {
     return AccountSurfacePhase.deleted;
   }
-  if (viewModel.isRevoked) {
+  if (notifier.isRevoked) {
     return AccountSurfacePhase.revoked;
   }
-  if (viewModel.isVersionBlocked) {
+  if (notifier.isVersionBlocked) {
     return AccountSurfacePhase.versionBlocked;
   }
-  if (viewModel.isSignedIn && viewModel.hasSyncFailure) {
+  if (notifier.isSignedIn && notifier.hasSyncFailure) {
     return AccountSurfacePhase.signedInFailed;
   }
-  if (viewModel.isSignedIn && viewModel.hasPendingSync) {
+  if (notifier.isSignedIn && notifier.hasPendingSync) {
     return AccountSurfacePhase.signedInPendingSync;
   }
-  if (viewModel.isSignedIn) {
+  if (notifier.isSignedIn) {
     return AccountSurfacePhase.signedInSynced;
   }
-  if (viewModel.isSignedOut) {
+  if (notifier.isSignedOut) {
     return AccountSurfacePhase.signedOut;
   }
-  if (viewModel.isLocalOnly && onboardingSnapshot != null) {
+  if (notifier.isLocalOnly && onboardingSnapshot != null) {
     return AccountSurfacePhase.localOnly;
   }
   return AccountSurfacePhase.signedOut;

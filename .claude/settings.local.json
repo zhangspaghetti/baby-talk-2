@@ -11,7 +11,9 @@
       "Bash(flutter gen-l10n *)",
       "Bash(flutter analyze *)",
       "Bash(flutter test *)",
-      "Bash(ECC_GATEGUARD=off echo \"Gate guard disabled\")"
+      "Bash(ECC_GATEGUARD=off echo \"Gate guard disabled\")",
+      "Bash(flutter pub *)",
+      "Bash(dart run *)"
     ]
   }
 }

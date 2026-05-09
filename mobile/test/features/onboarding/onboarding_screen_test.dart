@@ -4,8 +4,10 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:isar/isar.dart';
+import 'package:mobile/app/providers/repository_providers.dart';
 import 'package:mobile/app/router/app_router.dart';
 import 'package:mobile/app/theme/app_theme.dart';
 import 'package:mobile/l10n/app_localizations.dart';
@@ -14,12 +16,11 @@ import 'package:mobile/features/onboarding/data/local/onboarding_snapshot_store.
 import 'package:mobile/features/onboarding/data/repositories/onboarding_repository.dart';
 import 'package:mobile/features/onboarding/domain/models/onboarding_snapshot.dart';
 import 'package:mobile/features/onboarding/domain/models/stage_match.dart';
-import 'package:mobile/features/onboarding/presentation/onboarding_view_model.dart';
+import 'package:mobile/features/onboarding/presentation/onboarding_notifier.dart';
 import 'package:mobile/features/onboarding/presentation/screens/onboarding_screen.dart';
 import 'package:mobile/features/practice/data/local/practice_local_data_source.dart';
 import 'package:mobile/features/practice/data/repositories/practice_repository.dart';
 import 'package:mobile/features/practice/data/services/asset_phrase_service.dart';
-import 'package:provider/provider.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -39,7 +40,7 @@ void main() {
       }))!;
       addTearDown(harness.close);
 
-      final viewModel = OnboardingViewModel(
+      final viewModel = OnboardingNotifier(
         repository: harness.onboardingRepository,
         completeOnboardingAction: (childDisplayName, ageBucket) async =>
             _completedSnapshot(
@@ -211,7 +212,7 @@ void main() {
     testWidgets('starter seed 加载失败时会展示明确错误并阻断进入预览', (
       WidgetTester tester,
     ) async {
-      final viewModel = OnboardingViewModel(
+      final viewModel = OnboardingNotifier(
         starterSeedLoader: () async {
           throw const FormatException('starter phrase 缺失。');
         },
@@ -262,7 +263,7 @@ void main() {
 
     testWidgets('保存失败时展示可重试 banner，保留输入并允许再次提交', (WidgetTester tester) async {
       var submitCount = 0;
-      final viewModel = OnboardingViewModel(
+      final viewModel = OnboardingNotifier(
         starterSeedLoader: () async => _starterSeed(),
         completeOnboardingAction: (childDisplayName, ageBucket) async {
           submitCount += 1;
@@ -338,7 +339,7 @@ void main() {
     testWidgets('重复提交时只有一次本地写入，并暴露 saving 状态', (WidgetTester tester) async {
       final completer = Completer<OnboardingSnapshot>();
       var submitCount = 0;
-      final viewModel = OnboardingViewModel(
+      final viewModel = OnboardingNotifier(
         starterSeedLoader: () async => _starterSeed(),
         completeOnboardingAction: (childDisplayName, ageBucket) {
           submitCount += 1;
@@ -381,15 +382,17 @@ void main() {
 
 Future<void> _pumpOnboardingScreen(
   WidgetTester tester,
-  OnboardingViewModel viewModel,
+  OnboardingNotifier viewModel,
 ) async {
   await tester.runAsync(() async {
     await viewModel.initialize();
   });
 
   await tester.pumpWidget(
-    ChangeNotifierProvider<OnboardingViewModel>.value(
-      value: viewModel,
+    ProviderScope(
+      overrides: [
+        onboardingNotifierProvider.overrideWith((ref) => viewModel),
+      ],
       child: MaterialApp(
         debugShowCheckedModeBanner: false,
         theme: AppTheme.build(),
@@ -448,8 +451,8 @@ Future<void> _scrollTo(WidgetTester tester, Finder finder) async {
   await tester.pumpAndSettle();
 }
 
-OnboardingViewModel _readyViewModel() {
-  return OnboardingViewModel(
+OnboardingNotifier _readyViewModel() {
+  return OnboardingNotifier(
     starterSeedLoader: () async => _starterSeed(),
     completeOnboardingAction: (childDisplayName, ageBucket) async =>
         _completedSnapshot(

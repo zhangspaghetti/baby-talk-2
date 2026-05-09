@@ -18,6 +18,11 @@ import 'package:mobile/features/household/presentation/household_view_model.dart
 import 'package:mobile/features/household/presentation/widgets/household_invite_card.dart';
 import 'package:mobile/features/household/presentation/widgets/household_shared_context_card.dart';
 import 'package:mobile/features/practice/presentation/practice_route_args.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart'
+    hide ChangeNotifierProvider, Provider;
+import 'package:mobile/app/providers/repository_providers.dart';
+import 'package:mobile/features/account/presentation/account_notifier.dart';
+import 'package:mobile/features/household/presentation/household_notifier.dart';
 import 'package:provider/provider.dart';
 
 void main() {
@@ -181,21 +186,35 @@ void main() {
     );
     await accountViewModel.initialize();
 
+    final householdNotifier = HouseholdNotifier(repository: repository);
+    await householdNotifier.initialize();
+    addTearDown(householdNotifier.dispose);
+
     await tester.pumpWidget(
-      MultiProvider(
-        providers: [
-          ChangeNotifierProvider<AccountViewModel>.value(
-            value: accountViewModel,
+      ProviderScope(
+        overrides: [
+          accountNotifierProvider.overrideWith(
+            (ref) => AccountNotifier(repository: _FakeAccountRepository()),
           ),
-          ChangeNotifierProvider<HouseholdViewModel>.value(
-            value: householdViewModel,
+          householdNotifierProvider.overrideWith(
+            (ref) => householdNotifier,
           ),
         ],
-        child: MaterialApp(
-          theme: AppTheme.build(),
-          localizationsDelegates: AppLocalizations.localizationsDelegates,
-          supportedLocales: AppLocalizations.supportedLocales,
-          home: const AccountEntryScreen(),
+        child: MultiProvider(
+          providers: [
+            ChangeNotifierProvider<AccountViewModel>.value(
+              value: accountViewModel,
+            ),
+            ChangeNotifierProvider<HouseholdViewModel>.value(
+              value: householdViewModel,
+            ),
+          ],
+          child: MaterialApp(
+            theme: AppTheme.build(),
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            home: const AccountEntryScreen(),
+          ),
         ),
       ),
     );
@@ -239,14 +258,32 @@ void main() {
     addTearDown(accountViewModel.dispose);
     await accountViewModel.initialize();
 
+    final householdNotifier = HouseholdNotifier(
+      repository: _FakeHouseholdRepository(
+        loadSnapshotResult: const HouseholdLocalSnapshot(),
+      ),
+    );
+    await householdNotifier.initialize();
+    addTearDown(householdNotifier.dispose);
+
     await tester.pumpWidget(
-      ChangeNotifierProvider<AccountViewModel>.value(
-        value: accountViewModel,
-        child: MaterialApp(
-          theme: AppTheme.build(),
-          localizationsDelegates: AppLocalizations.localizationsDelegates,
-          supportedLocales: AppLocalizations.supportedLocales,
-          home: const AccountEntryScreen(),
+      ProviderScope(
+        overrides: [
+          accountNotifierProvider.overrideWith(
+            (ref) => AccountNotifier(repository: _FakeAccountRepository()),
+          ),
+          householdNotifierProvider.overrideWith(
+            (ref) => householdNotifier,
+          ),
+        ],
+        child: ChangeNotifierProvider<AccountViewModel>.value(
+          value: accountViewModel,
+          child: MaterialApp(
+            theme: AppTheme.build(),
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            home: const AccountEntryScreen(),
+          ),
         ),
       ),
     );

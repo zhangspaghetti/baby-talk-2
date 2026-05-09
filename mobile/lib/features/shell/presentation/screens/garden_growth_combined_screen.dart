@@ -1,11 +1,22 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:mobile/app/providers/repository_providers.dart';
 import 'package:mobile/app/widgets/app_banner.dart';
+import 'package:mobile/app/widgets/app_empty_state.dart';
+import 'package:mobile/app/widgets/app_haptics.dart';
+import 'package:mobile/app/widgets/app_shimmer.dart';
 import 'package:mobile/app/theme/app_layout_constants.dart';
 import 'package:mobile/app/theme/app_theme.dart';
 import 'package:mobile/features/household/presentation/household_view_model.dart';
 import 'package:mobile/features/household/presentation/widgets/household_shared_context_card.dart';
+import 'package:mobile/features/practice/data/repositories/practice_repository.dart'
+    show PracticeActivitySnapshot;
 import 'package:mobile/features/practice/domain/models/garden_growth_snapshot.dart';
-import 'package:mobile/features/practice/presentation/garden_growth_view_model.dart';
+import 'package:mobile/features/practice/domain/models/practice_continuity_snapshot.dart'
+    show PracticeContinuitySnapshot;
+import 'package:mobile/features/practice/presentation/garden_growth_notifier.dart';
+import 'package:mobile/features/practice/presentation/garden_growth_view_model.dart'
+    show GardenGrowthLoadStatus;
 import 'package:mobile/features/practice/presentation/practice_continuity_view_model.dart';
 import 'package:mobile/features/share/presentation/share_view_model.dart';
 import 'package:mobile/features/share/presentation/widgets/share_callout_card.dart';
@@ -15,28 +26,47 @@ import 'package:mobile/features/shell/presentation/widgets/garden_patch_card.dar
 import 'package:provider/provider.dart';
 import 'package:mobile/l10n/app_localizations.dart';
 
-class GardenGrowthCombinedScreen extends StatelessWidget {
+/// Internal tab index for the segmented control.
+enum _GrowthTab { garden, growth }
+
+class GardenGrowthCombinedScreen extends ConsumerStatefulWidget {
   const GardenGrowthCombinedScreen({super.key});
+
+  @override
+  ConsumerState<GardenGrowthCombinedScreen> createState() =>
+      _GardenGrowthCombinedScreenState();
+}
+
+class _GardenGrowthCombinedScreenState
+    extends ConsumerState<GardenGrowthCombinedScreen> {
+  _GrowthTab _selectedTab = _GrowthTab.garden;
 
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
     final colors = context.appColors;
-    final viewModel = context.watch<GardenGrowthViewModel?>();
+
+    // Riverpod: garden growth notifier
+    final gardenNotifier = ref.watch(gardenGrowthNotifierProvider);
+    final gardenSnapshot = gardenNotifier.snapshot;
+    final gardenStatus = gardenNotifier.status;
+
+    // Provider: other ViewModels (still Provider-based)
     final continuityViewModel = context.watch<PracticeContinuityViewModel?>();
     final householdViewModel = context.watch<HouseholdViewModel?>();
     final shareViewModel = context.watch<ShareViewModel?>();
-    final snapshot = viewModel?.snapshot ?? GardenGrowthSnapshot.empty();
     final continuitySnapshot = continuityViewModel?.snapshot;
     final continuityActivity = continuityViewModel?.activitySnapshot;
     final practiceArgs = continuityViewModel?.recommendedArgs;
+
+    // Shared context
     final sharedContext = householdViewModel?.snapshot.sharedContext;
     final sharedNextStepArgs = resolveHouseholdSharedNextStepArgs(
       sharedContext,
     );
     final localGardenAt =
-        snapshot.latestImpact?.occurredAt ??
-        snapshot.primarySpace?.lastPracticedAt ??
+        gardenSnapshot.latestImpact?.occurredAt ??
+        gardenSnapshot.primarySpace?.lastPracticedAt ??
         continuitySnapshot?.cadence.lastEventTime;
     final isSharedOverlayNewer =
         continuityViewModel != null &&
@@ -46,6 +76,11 @@ class GardenGrowthCombinedScreen extends StatelessWidget {
         isSharedOverlayNewer && sharedNextStepArgs != null;
     final shouldShowSharedOverlayDisabled =
         isSharedOverlayNewer && sharedNextStepArgs == null;
+
+    // Loading state for shimmer
+    final isLoading =
+        gardenStatus == GardenGrowthLoadStatus.loading ||
+        gardenStatus == GardenGrowthLoadStatus.idle;
 
     return SafeArea(
       top: false,
@@ -57,8 +92,9 @@ class GardenGrowthCombinedScreen extends StatelessWidget {
           ),
           child: RefreshIndicator(
             onRefresh: () async {
+              AppHaptics.lightTap();
               await Future.wait([
-                if (viewModel != null) viewModel.refresh(),
+                gardenNotifier.refresh(),
                 if (continuityViewModel != null)
                   continuityViewModel.refresh(
                     reason: 'growth_combined_pull_to_refresh',
@@ -70,81 +106,51 @@ class GardenGrowthCombinedScreen extends StatelessWidget {
               physics: const AlwaysScrollableScrollPhysics(),
               padding: AppLayoutConstants.shellTabPadding,
               children: [
-                // ── 花园区：今日练习状态 ──
-                GardenHeroCard(
-                  snapshot: snapshot,
-                  viewModel: viewModel,
-                  continuityViewModel: continuityViewModel,
-                  continuitySnapshot: continuitySnapshot,
-                  continuityActivity: continuityActivity,
+                // ── Segmented control: 花园 / 成长 ──
+                _GardenSegmentedControl(
+                  selectedTab: _selectedTab,
+                  onTabChanged: (tab) {
+                    AppHaptics.selectionClick();
+                    setState(() => _selectedTab = tab);
+                  },
                 ),
-                const SizedBox(height: 16),
-                GardenContinueCard(
-                  practiceArgs: practiceArgs,
-                  continuityViewModel: continuityViewModel,
-                  continuitySnapshot: continuitySnapshot,
-                  continuityActivity: continuityActivity,
-                ),
-                if (viewModel?.hasError ?? false) ...[
-                  const SizedBox(height: 16),
+                const SizedBox(height: 20),
+
+                // ── Shared error banner ──
+                if (gardenNotifier.hasError) ...[
                   AppBanner(
                     key: const Key('growth-combined-garden-warning-banner'),
-                    message: viewModel!.message ?? l.gardenRefreshFailed,
+                    message: gardenNotifier.message ?? l.gardenRefreshFailed,
                     backgroundColor: colors.warningSoft,
                     foregroundColor: colors.warning,
                   ),
-                ],
-                const SizedBox(height: 16),
-                if (snapshot.isEmpty)
-                  const _GardenEmptyState()
-                else ...[
-                  for (final patch in snapshot.spaces) ...[
-                    GardenPatchCard(patch: patch),
-                    const SizedBox(height: 16),
-                  ],
-                ],
-
-                // ── 成长区：成长日记 & 里程碑 ──
-                const SizedBox(height: 8),
-                _GrowthHeroCard(snapshot: snapshot, viewModel: viewModel),
-                if (!snapshot.isEmpty) ...[
                   const SizedBox(height: 16),
-                  _SectionTitle(title: l.growthAutoDiary),
-                  const SizedBox(height: 12),
-                  if (snapshot.diaryEntries.isEmpty)
-                    _SectionEmptyCard(
-                      stateKey: const Key('growth-combined-diary-empty'),
-                      message: l.growthDiaryEmpty,
-                    )
-                  else
-                    ...snapshot.diaryEntries
-                        .take(3)
-                        .map(
-                          (entry) => Padding(
-                            padding: const EdgeInsets.only(bottom: 12),
-                            child: _DiaryCard(entry: entry),
-                          ),
-                        ),
-                  const SizedBox(height: 12),
-                  _SectionTitle(title: l.growthMilestone),
-                  const SizedBox(height: 12),
-                  if (snapshot.milestones.isEmpty)
-                    _SectionEmptyCard(
-                      stateKey: const Key('growth-combined-milestones-empty'),
-                      message: l.growthMilestoneEmpty,
-                    )
-                  else
-                    ...snapshot.milestones
-                        .take(6)
-                        .map(
-                          (milestone) => Padding(
-                            padding: const EdgeInsets.only(bottom: 12),
-                            child: _MilestoneCard(milestone: milestone),
-                          ),
-                        ),
                 ],
 
-                // ── 共享家庭 & 分享 ──
+                // ── Tab content ──
+                if (_selectedTab == _GrowthTab.garden)
+                  _buildGardenTab(
+                    context: context,
+                    l: l,
+                    colors: colors,
+                    snapshot: gardenSnapshot,
+                    isLoading: isLoading,
+                    gardenNotifier: gardenNotifier,
+                    continuityViewModel: continuityViewModel,
+                    continuitySnapshot: continuitySnapshot,
+                    continuityActivity: continuityActivity,
+                    practiceArgs: practiceArgs,
+                  )
+                else
+                  _buildGrowthTab(
+                    context: context,
+                    l: l,
+                    colors: colors,
+                    snapshot: gardenSnapshot,
+                    gardenNotifier: gardenNotifier,
+                  ),
+
+                // ── Shared household & share section (always visible) ──
                 const SizedBox(height: 16),
                 HouseholdSharedContextCard(
                   surfaceKeyPrefix: 'growth-combined',
@@ -189,26 +195,82 @@ class GardenGrowthCombinedScreen extends StatelessWidget {
       ),
     );
   }
-}
 
-class _GrowthHeroCard extends StatelessWidget {
-  const _GrowthHeroCard({required this.snapshot, required this.viewModel});
+  // ---------------------------------------------------------------------------
+  // Garden tab
+  // ---------------------------------------------------------------------------
 
-  final GardenGrowthSnapshot snapshot;
-  final GardenGrowthViewModel? viewModel;
+  Widget _buildGardenTab({
+    required BuildContext context,
+    required AppLocalizations l,
+    required BabyTalkColors colors,
+    required GardenGrowthSnapshot snapshot,
+    required bool isLoading,
+    required GardenGrowthNotifier gardenNotifier,
+    required PracticeContinuityViewModel? continuityViewModel,
+    required PracticeContinuitySnapshot? continuitySnapshot,
+    required PracticeActivitySnapshot? continuityActivity,
+    required dynamic practiceArgs,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // ── Hero card ──
+        GardenHeroCard(
+          snapshot: snapshot,
+          status: gardenNotifier.status,
+          continuityViewModel: continuityViewModel,
+          continuitySnapshot: continuitySnapshot,
+          continuityActivity: continuityActivity,
+        ),
+        const SizedBox(height: 16),
 
-  @override
-  Widget build(BuildContext context) {
-    final l = AppLocalizations.of(context)!;
-    final colors = context.appColors;
+        // ── Continue card ──
+        GardenContinueCard(
+          practiceArgs: practiceArgs,
+          continuityViewModel: continuityViewModel,
+          continuitySnapshot: continuitySnapshot,
+          continuityActivity: continuityActivity,
+        ),
+        const SizedBox(height: 16),
+
+        // ── Loading shimmer or content ──
+        if (isLoading)
+          const _GardenLoadingShimmer()
+        else if (snapshot.isEmpty)
+          AppEmptyState(
+            key: const Key('growth-combined-empty-state'),
+            icon: Icons.local_florist_rounded,
+            title: l.gardenFirstSeedNotPlanted,
+            description: l.gardenFirstSeedNote,
+          )
+        else
+          for (final patch in snapshot.spaces) ...[
+            GardenPatchCard(patch: patch),
+            const SizedBox(height: 16),
+          ],
+      ],
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // Growth tab
+  // ---------------------------------------------------------------------------
+
+  Widget _buildGrowthTab({
+    required BuildContext context,
+    required AppLocalizations l,
+    required BabyTalkColors colors,
+    required GardenGrowthSnapshot snapshot,
+    required GardenGrowthNotifier gardenNotifier,
+  }) {
     final theme = Theme.of(context);
     final impact = snapshot.latestImpact;
     String title = l.growthNotScore;
     String body = l.growthNote;
 
-    if (viewModel != null &&
-        (viewModel!.status == GardenGrowthLoadStatus.loading ||
-            viewModel!.status == GardenGrowthLoadStatus.idle)) {
+    if (gardenNotifier.status == GardenGrowthLoadStatus.loading ||
+        gardenNotifier.status == GardenGrowthLoadStatus.idle) {
       title = l.growthOrganizing;
       body = l.growthOrganizingNote;
     } else if (impact != null) {
@@ -216,61 +278,149 @@ class _GrowthHeroCard extends StatelessWidget {
       body = impact.detail;
     }
 
-    return Container(
-      key: const Key('growth-combined-latest-impact'),
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: colors.bgSurface,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: colors.outlineSoft),
-        boxShadow: colors.warmShadowSm,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text('Growth diary', style: theme.textTheme.labelMedium),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // ── Growth hero card ──
+        Container(
+          key: const Key('growth-combined-latest-impact'),
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: colors.bgSurface,
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(color: colors.outlineSoft),
+            boxShadow: colors.warmShadowSm,
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Growth diary', style: theme.textTheme.labelMedium),
+              const SizedBox(height: 12),
+              Text(title, style: theme.textTheme.titleLarge),
+              const SizedBox(height: 10),
+              Text(body, style: theme.textTheme.bodyMedium),
+              if (snapshot.hasIssues && snapshot.projectionWarning != null) ...[
+                const SizedBox(height: 12),
+                Text(
+                  snapshot.projectionWarning!,
+                  key: const Key('growth-combined-projection-warning'),
+                  style: theme.textTheme.bodySmall,
+                ),
+              ],
+            ],
+          ),
+        ),
+
+        if (!snapshot.isEmpty) ...[
+          // ── Diary section ──
+          const SizedBox(height: 24),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(l.growthAutoDiary, style: theme.textTheme.titleMedium),
+              if (snapshot.diaryEntries.length > 3)
+                TextButton(
+                  key: const Key('growth-combined-diary-view-all'),
+                  onPressed: () {
+                    AppHaptics.lightTap();
+                    // TODO: navigate to full diary list
+                  },
+                  child: const Text('查看全部'),
+                ),
+            ],
+          ),
           const SizedBox(height: 12),
-          Text(title, style: theme.textTheme.titleLarge),
-          const SizedBox(height: 10),
-          Text(body, style: theme.textTheme.bodyMedium),
-          if (snapshot.hasIssues && snapshot.projectionWarning != null) ...[
-            const SizedBox(height: 12),
-            Text(
-              snapshot.projectionWarning!,
-              key: const Key('growth-combined-projection-warning'),
-              style: theme.textTheme.bodySmall,
-            ),
-          ],
+          if (snapshot.diaryEntries.isEmpty)
+            _SectionEmptyCard(
+              stateKey: const Key('growth-combined-diary-empty'),
+              message: l.growthDiaryEmpty,
+            )
+          else
+            ...snapshot.diaryEntries
+                .take(3)
+                .map(
+                  (entry) => Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: _DiaryCard(entry: entry),
+                  ),
+                ),
+
+          // ── Milestones section ──
+          const SizedBox(height: 24),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(l.growthMilestone, style: theme.textTheme.titleMedium),
+              if (snapshot.milestones.length > 6)
+                TextButton(
+                  key: const Key('growth-combined-milestones-view-all'),
+                  onPressed: () {
+                    AppHaptics.lightTap();
+                    // TODO: navigate to full milestones list
+                  },
+                  child: const Text('查看全部'),
+                ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          if (snapshot.milestones.isEmpty)
+            _SectionEmptyCard(
+              stateKey: const Key('growth-combined-milestones-empty'),
+              message: l.growthMilestoneEmpty,
+            )
+          else
+            ...snapshot.milestones
+                .take(6)
+                .map(
+                  (milestone) => Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: _MilestoneCard(milestone: milestone),
+                  ),
+                ),
         ],
-      ),
+      ],
     );
   }
 }
 
-class _GardenEmptyState extends StatelessWidget {
-  const _GardenEmptyState();
+// ---------------------------------------------------------------------------
+// Segmented control
+// ---------------------------------------------------------------------------
+
+class _GardenSegmentedControl extends StatelessWidget {
+  const _GardenSegmentedControl({
+    required this.selectedTab,
+    required this.onTabChanged,
+  });
+
+  final _GrowthTab selectedTab;
+  final ValueChanged<_GrowthTab> onTabChanged;
 
   @override
   Widget build(BuildContext context) {
-    final l = AppLocalizations.of(context)!;
     final colors = context.appColors;
-    final theme = Theme.of(context);
+    final l = AppLocalizations.of(context)!;
     return Container(
-      key: const Key('growth-combined-empty-state'),
-      padding: const EdgeInsets.all(24),
+      key: const Key('growth-combined-segmented-control'),
       decoration: BoxDecoration(
-        color: colors.bgAccentSoft,
-        borderRadius: BorderRadius.circular(24),
+        color: colors.bgSunken,
+        borderRadius: BorderRadius.circular(16),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      padding: const EdgeInsets.all(4),
+      child: Row(
         children: [
-          Text(l.gardenFirstSeedNotPlanted, style: theme.textTheme.titleMedium),
-          const SizedBox(height: 10),
-          Text(
-            l.gardenFirstSeedNote,
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: colors.accentDark,
+          Expanded(
+            child: _SegmentTab(
+              label: l.shellGarden,
+              isSelected: selectedTab == _GrowthTab.garden,
+              onTap: () => onTabChanged(_GrowthTab.garden),
+            ),
+          ),
+          Expanded(
+            child: _SegmentTab(
+              label: l.shellGrowth,
+              isSelected: selectedTab == _GrowthTab.growth,
+              onTap: () => onTabChanged(_GrowthTab.growth),
             ),
           ),
         ],
@@ -279,15 +429,83 @@ class _GardenEmptyState extends StatelessWidget {
   }
 }
 
-class _SectionTitle extends StatelessWidget {
-  const _SectionTitle({required this.title});
+class _SegmentTab extends StatelessWidget {
+  const _SegmentTab({
+    required this.label,
+    required this.isSelected,
+    required this.onTap,
+  });
 
-  final String title;
+  final String label;
+  final bool isSelected;
+  final VoidCallback onTap;
 
   @override
-  Widget build(BuildContext context) =>
-      Text(title, style: Theme.of(context).textTheme.titleMedium);
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    final theme = Theme.of(context);
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        decoration: BoxDecoration(
+          color: isSelected ? colors.bgSurface : Colors.transparent,
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: isSelected ? colors.warmShadowSm : null,
+        ),
+        alignment: Alignment.center,
+        child: Text(
+          label,
+          style: theme.textTheme.titleMedium?.copyWith(
+            color: isSelected ? colors.textPrimary : colors.textMuted,
+            fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+          ),
+        ),
+      ),
+    );
+  }
 }
+
+// ---------------------------------------------------------------------------
+// Loading shimmer
+// ---------------------------------------------------------------------------
+
+class _GardenLoadingShimmer extends StatelessWidget {
+  const _GardenLoadingShimmer();
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    return Container(
+      key: const Key('growth-combined-loading-shimmer'),
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: colors.bgSurface,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: colors.outlineSoft),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          AppShimmer(width: 120, height: 14, borderRadius: 7),
+          const SizedBox(height: 16),
+          AppShimmer(width: double.infinity, height: 20, borderRadius: 10),
+          const SizedBox(height: 12),
+          AppShimmer(width: 200, height: 14, borderRadius: 7),
+          const SizedBox(height: 20),
+          AppShimmer(width: double.infinity, height: 14, borderRadius: 7),
+          const SizedBox(height: 8),
+          AppShimmer(width: 160, height: 14, borderRadius: 7),
+        ],
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Private sub-widgets (preserved from original)
+// ---------------------------------------------------------------------------
 
 class _DiaryCard extends StatelessWidget {
   const _DiaryCard({required this.entry});

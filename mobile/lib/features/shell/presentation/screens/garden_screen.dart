@@ -71,7 +71,7 @@ class GardenScreen extends StatelessWidget {
               children: [
                 GardenHeroCard(
                   snapshot: snapshot,
-                  viewModel: viewModel,
+                  status: viewModel?.status ?? GardenGrowthLoadStatus.idle,
                   continuityViewModel: continuityViewModel,
                   continuitySnapshot: continuitySnapshot,
                   continuityActivity: continuityActivity,

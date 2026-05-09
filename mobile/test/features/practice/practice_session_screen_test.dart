@@ -18,6 +18,12 @@ import 'package:mobile/features/practice/presentation/practice_route_args.dart';
 import 'package:mobile/features/practice/presentation/practice_session_view_model.dart';
 import 'package:mobile/features/practice/presentation/screens/practice_session_screen.dart';
 import 'package:mobile/features/shell/presentation/screens/discover_screen.dart';
+import 'package:mobile/app/providers/repository_providers.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart'
+    hide ChangeNotifierProvider, Provider;
+import 'package:mobile/features/account/presentation/account_notifier.dart';
+import 'package:mobile/features/account/data/local/account_local_store.dart';
+import 'package:mobile/features/account/data/repositories/account_repository.dart';
 import 'package:provider/provider.dart';
 import 'package:mobile/l10n/app_localizations.dart';
 
@@ -38,15 +44,31 @@ void main() {
     );
     addTearDown(harness!.dispose);
 
+    final container = ProviderContainer(
+      overrides: [
+        practiceRepositoryProvider.overrideWith(
+          (ref) async => harness.repository,
+        ),
+        accountNotifierProvider.overrideWith(
+          (ref) => AccountNotifier(
+            repository: _createStaticAccountRepository(harness.repository),
+          ),
+        ),
+      ],
+    );
+    container.read(practiceRepositoryProvider.future);
     await tester.pumpWidget(
-      Provider<PracticeRepository>.value(
-        value: harness.repository,
-        child: MaterialApp(
-          theme: AppTheme.build(),
-          localizationsDelegates: AppLocalizations.localizationsDelegates,
-          supportedLocales: AppLocalizations.supportedLocales,
-          home: PracticeSessionScreen(
-            routeEntry: PracticeRouteEntry.fromObject(null),
+      UncontrolledProviderScope(
+        container: container,
+        child: Provider<PracticeRepository>.value(
+          value: harness.repository,
+          child: MaterialApp(
+            theme: AppTheme.build(),
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            home: PracticeSessionScreen(
+              routeEntry: PracticeRouteEntry.fromObject(null),
+            ),
           ),
         ),
       ),
@@ -85,6 +107,7 @@ void main() {
           practiceOpener: _pushPracticeScreen,
         ),
       );
+      await tester.pump();
       await _pumpUntilFound(
         tester,
         find.byKey(
@@ -166,6 +189,7 @@ void main() {
           practiceOpener: _pushPracticeScreen,
         ),
       );
+      await tester.pump();
       await _pumpUntilFound(
         tester,
         find.byKey(const Key('discover-route-target-family_rhythm-bedtime')),
@@ -246,29 +270,46 @@ void main() {
       );
       addTearDown(harness!.dispose);
 
+      final container2 = ProviderContainer(
+        overrides: [
+          practiceRepositoryProvider.overrideWith(
+            (ref) async => harness.repository,
+          ),
+          accountNotifierProvider.overrideWith(
+            (ref) => AccountNotifier(
+              repository: _createStaticAccountRepository(harness.repository),
+            ),
+          ),
+        ],
+      );
+      container2.read(practiceRepositoryProvider.future);
       await tester.pumpWidget(
-        Provider<PracticeRepository>.value(
-          value: harness.repository,
-          child: MaterialApp(
-            theme: AppTheme.build(),
-            localizationsDelegates: AppLocalizations.localizationsDelegates,
-            supportedLocales: AppLocalizations.supportedLocales,
-            onGenerateRoute: AppRouter.onGenerateRoute(
-              shellBuilder: (_) => Scaffold(
-                body: DiscoverScreen(
-                  catalogLoader: () async => _unknownActivityCatalog(),
+        UncontrolledProviderScope(
+          container: container2,
+          child: Provider<PracticeRepository>.value(
+            value: harness.repository,
+            child: MaterialApp(
+              theme: AppTheme.build(),
+              localizationsDelegates: AppLocalizations.localizationsDelegates,
+              supportedLocales: AppLocalizations.supportedLocales,
+              onGenerateRoute: AppRouter.onGenerateRoute(
+                shellBuilder: (_) => Scaffold(
+                  body: DiscoverScreen(
+                    catalogLoader: () async => _unknownActivityCatalog(),
+                  ),
                 ),
+                practiceBuilder: (context, settings) {
+                  final routeEntry = PracticeRouteEntry.fromObject(
+                    settings.arguments,
+                  );
+                  return PracticeSessionScreen(routeEntry: routeEntry);
+                },
               ),
-              practiceBuilder: (context, settings) {
-                final routeEntry = PracticeRouteEntry.fromObject(
-                  settings.arguments,
-                );
-                return PracticeSessionScreen(routeEntry: routeEntry);
-              },
             ),
           ),
         ),
       );
+      await tester.pump();
 
       await _pumpUntilFound(
         tester,
@@ -379,26 +420,41 @@ Widget _buildDiscoverPracticeApp(
   DiscoverCatalogLoader? catalogLoader,
   DiscoverPracticeOpener? practiceOpener,
 }) {
-  return Provider<PracticeRepository>.value(
-    value: repository,
-    child: MaterialApp(
-      theme: AppTheme.build(),
-      localizationsDelegates: AppLocalizations.localizationsDelegates,
-      supportedLocales: AppLocalizations.supportedLocales,
-      onGenerateRoute: AppRouter.onGenerateRoute(
-        shellBuilder: (_) => Scaffold(
-          body: DiscoverScreen(
-            catalogLoader: catalogLoader,
-            practiceOpener: practiceOpener,
-          ),
+  final completer = Completer<PracticeRepository>();
+  completer.complete(repository);
+  final container = ProviderContainer(
+    overrides: [
+      practiceRepositoryProvider.overrideWith((ref) => completer.future),
+      accountNotifierProvider.overrideWith(
+        (ref) => AccountNotifier(
+          repository: _createStaticAccountRepository(repository),
         ),
-        practiceBuilder: (context, settings) {
-          final routeEntry = PracticeRouteEntry.fromObject(settings.arguments);
-          return PracticeSessionScreen(
-            routeEntry: routeEntry,
-            audioControllerFactory: _SilentPracticeAudioController.new,
-          );
-        },
+      ),
+    ],
+  );
+  return UncontrolledProviderScope(
+    container: container,
+    child: Provider<PracticeRepository>.value(
+      value: repository,
+      child: MaterialApp(
+        theme: AppTheme.build(),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        onGenerateRoute: AppRouter.onGenerateRoute(
+          shellBuilder: (_) => Scaffold(
+            body: DiscoverScreen(
+              catalogLoader: catalogLoader,
+              practiceOpener: practiceOpener,
+            ),
+          ),
+          practiceBuilder: (context, settings) {
+            final routeEntry = PracticeRouteEntry.fromObject(settings.arguments);
+            return PracticeSessionScreen(
+              routeEntry: routeEntry,
+              audioControllerFactory: _SilentPracticeAudioController.new,
+            );
+          },
+        ),
       ),
     ),
   );
@@ -616,4 +672,11 @@ String _resolveBundledIsarLibraryPath() {
   }
 
   throw StateError('未在 pub cache 中找到 isar_flutter_libs/windows/isar.dll');
+}
+
+AccountRepository _createStaticAccountRepository(PracticeRepository repo) {
+  return AccountRepository(
+    localStore: AccountLocalStore(),
+    practiceRepository: repo,
+  );
 }
