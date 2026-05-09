@@ -93,7 +93,7 @@ class FullChainTestHarness {
               storageKey: 'test_full_chain_account',
             ),
             practiceRepository: practiceRepository,
-            apiService: AccountApiService(baseUri: backend.baseUri),
+            apiService: AccountApiService(baseUrl: backend.baseUri.toString()),
             connectivityChecker: () async => true,
           );
         },

@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:http/http.dart' as http;
+import 'package:dio/dio.dart';
 import 'package:mobile/features/share/domain/models/share_link_draft.dart';
 
 const String defaultShareApiVersion = String.fromEnvironment(
@@ -63,17 +63,24 @@ class ShareCreateLinkResponse {
 
 class ShareApiService {
   ShareApiService({
-    http.Client? client,
-    Uri? baseUri,
+    Dio? dio,
+    String? baseUrl,
     this.appVersion = defaultShareApiVersion,
     this.timeout = const Duration(seconds: 8),
-  }) : _client = client ?? http.Client(),
-       _ownsClient = client == null,
-       _baseUri = baseUri ?? Uri.parse(defaultShareApiBaseUrl);
+  }) : _dio = dio ??
+           Dio(
+             BaseOptions(
+               baseUrl: baseUrl ?? defaultShareApiBaseUrl,
+               connectTimeout: timeout,
+               receiveTimeout: timeout,
+               headers: {'Content-Type': 'application/json'},
+               validateStatus: (status) => true,
+             ),
+           ),
+       _ownsDio = dio == null;
 
-  final http.Client _client;
-  final bool _ownsClient;
-  final Uri _baseUri;
+  final Dio _dio;
+  final bool _ownsDio;
   final String appVersion;
   final Duration timeout;
 
@@ -95,9 +102,9 @@ class ShareApiService {
     );
   }
 
-  Future<void> close() async {
-    if (_ownsClient) {
-      _client.close();
+  void close() {
+    if (_ownsDio) {
+      _dio.close();
     }
   }
 
@@ -106,32 +113,38 @@ class ShareApiService {
     String path, {
     Map<String, Object?>? body,
   }) async {
-    final request = http.Request(method, _resolveUri(path));
-    request.headers['Accept'] = 'application/json';
-    request.headers['Content-Type'] = 'application/json';
-    request.headers['X-App-Version'] = appVersion;
-    if (body != null) {
-      request.body = jsonEncode(body);
-    }
+    final headers = <String, String>{
+      'Accept': 'application/json',
+      'X-App-Version': appVersion,
+    };
 
-    http.StreamedResponse response;
+    Response<dynamic> response;
     try {
-      response = await _client.send(request).timeout(timeout);
-    } on TimeoutException {
-      throw const ShareApiException.timeout(message: '分享链接请求超时。');
-    } on SocketException {
-      throw const ShareApiException.network(message: '网络不可用。');
-    } on http.ClientException {
+      response = await _dio.request<dynamic>(
+        path,
+        options: Options(method: method, headers: headers),
+        data: body,
+      );
+    } on DioException catch (error) {
+      if (error.type == DioExceptionType.connectionTimeout ||
+          error.type == DioExceptionType.sendTimeout ||
+          error.type == DioExceptionType.receiveTimeout) {
+        throw const ShareApiException.timeout(message: '分享链接请求超时。');
+      }
+      if (error.error is SocketException) {
+        throw const ShareApiException.network(message: '网络不可用。');
+      }
       throw const ShareApiException.network(message: '分享链接请求失败。');
     }
 
-    final materialized = await http.Response.fromStream(response);
-    final decoded = _decodeJson(materialized.body);
-    if (materialized.statusCode < 200 || materialized.statusCode >= 300) {
+    final statusCode = response.statusCode ?? 0;
+    final decoded = _normalizeResponseData(response.data);
+
+    if (statusCode < 200 || statusCode >= 300) {
       throw ShareApiException(
         kind: ShareApiFailureKind.http,
         message: _readOptionalString(decoded, 'message') ?? '分享链接创建失败。',
-        statusCode: materialized.statusCode,
+        statusCode: statusCode,
         code: _readOptionalString(decoded, 'code'),
         details: _readOptionalMap(decoded, 'details'),
       );
@@ -139,12 +152,12 @@ class ShareApiService {
     return decoded;
   }
 
-  Uri _resolveUri(String path) {
-    final normalizedPath = path.startsWith('/') ? path : '/$path';
-    final basePath = _baseUri.path.endsWith('/')
-        ? _baseUri.path.substring(0, _baseUri.path.length - 1)
-        : _baseUri.path;
-    return _baseUri.replace(path: '$basePath$normalizedPath');
+  Map<String, dynamic> _normalizeResponseData(dynamic data) {
+    if (data is Map<String, dynamic>) return data;
+    if (data is String && data.trim().isNotEmpty) {
+      return _decodeJson(data);
+    }
+    return <String, dynamic>{};
   }
 
   Map<String, dynamic> _decodeJson(String rawBody) {
@@ -168,7 +181,9 @@ class ShareApiService {
 String _readRequiredString(Map<String, dynamic> json, String key) {
   final value = json[key];
   if (value is! String || value.trim().isEmpty) {
-    throw ShareApiException.malformed(message: '字段 `$key` 缺失或不是非空字符串。');
+    throw ShareApiException.malformed(
+      message: '字段 `$key` 缺失或不是非空字符串。',
+    );
   }
   return value.trim();
 }
@@ -200,7 +215,9 @@ String _readRequiredAbsoluteUrl(Map<String, dynamic> json, String key) {
 DateTime _readRequiredDateTime(Map<String, dynamic> json, String key) {
   final value = json[key];
   if (value is! String || value.trim().isEmpty) {
-    throw ShareApiException.malformed(message: '字段 `$key` 缺失或不是合法时间。');
+    throw ShareApiException.malformed(
+      message: '字段 `$key` 缺失或不是合法时间。',
+    );
   }
   try {
     return DateTime.parse(value).toUtc();

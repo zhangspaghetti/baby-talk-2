@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:http/http.dart' as http;
+import 'package:dio/dio.dart';
 import 'package:mobile/features/account/data/services/account_api_service.dart'
     show defaultAccountApiBaseUrl, defaultAccountApiVersion;
 import 'package:mobile/features/account/data/services/authenticated_api_client.dart';
@@ -108,20 +108,27 @@ class MentorApiException implements Exception {
 
 class MentorApiService {
   MentorApiService({
-    http.Client? client,
+    Dio? dio,
     AuthenticatedApiClient? authenticatedApiClient,
-    Uri? baseUri,
+    String? baseUrl,
     this.appVersion = defaultMentorApiVersion,
     this.timeout = const Duration(seconds: 30),
-  }) : _client = client ?? http.Client(),
+  }) : _dio = dio ??
+           Dio(
+             BaseOptions(
+               baseUrl: baseUrl ?? defaultMentorApiBaseUrl,
+               connectTimeout: timeout,
+               receiveTimeout: timeout,
+               headers: {'Content-Type': 'application/json'},
+               validateStatus: (status) => true,
+             ),
+           ),
        _authenticatedApiClient = authenticatedApiClient,
-       _ownsClient = client == null,
-       _baseUri = baseUri ?? Uri.parse(defaultMentorApiBaseUrl);
+       _ownsDio = dio == null;
 
-  final http.Client _client;
+  final Dio _dio;
   final AuthenticatedApiClient? _authenticatedApiClient;
-  final bool _ownsClient;
-  final Uri _baseUri;
+  final bool _ownsDio;
   final String appVersion;
   final Duration timeout;
 
@@ -186,9 +193,9 @@ class MentorApiService {
     );
   }
 
-  Future<void> close() async {
-    if (_ownsClient) {
-      _client.close();
+  void close() {
+    if (_ownsDio) {
+      _dio.close();
     }
   }
 
@@ -274,35 +281,42 @@ class MentorApiService {
     Map<String, String>? queryParameters,
     Map<String, Object?>? body,
   }) async {
-    final request = http.Request(method, _resolveUri(path, queryParameters));
-    request.headers['Accept'] = 'application/json';
-    request.headers['Content-Type'] = 'application/json';
-    request.headers['X-App-Version'] = appVersion;
+    final headers = <String, String>{
+      'Accept': 'application/json',
+      'X-App-Version': appVersion,
+    };
     if (accessToken != null && accessToken.trim().isNotEmpty) {
-      request.headers['Authorization'] = 'Bearer ${accessToken.trim()}';
-    }
-    if (body != null) {
-      request.body = jsonEncode(body);
+      headers['Authorization'] = 'Bearer ${accessToken.trim()}';
     }
 
-    http.StreamedResponse response;
+    Response<dynamic> response;
     try {
-      response = await _client.send(request).timeout(timeout);
-    } on TimeoutException {
-      throw const MentorApiException.timeout(message: '请求超时。');
-    } on SocketException {
-      throw const MentorApiException.network(message: '网络不可用。');
-    } on http.ClientException {
+      response = await _dio.request<dynamic>(
+        path,
+        options: Options(method: method, headers: headers),
+        data: body,
+        queryParameters: queryParameters,
+      );
+    } on DioException catch (error) {
+      if (error.type == DioExceptionType.connectionTimeout ||
+          error.type == DioExceptionType.sendTimeout ||
+          error.type == DioExceptionType.receiveTimeout) {
+        throw const MentorApiException.timeout(message: '请求超时。');
+      }
+      if (error.error is SocketException) {
+        throw const MentorApiException.network(message: '网络不可用。');
+      }
       throw const MentorApiException.network(message: '网络请求失败。');
     }
 
-    final materialized = await http.Response.fromStream(response);
-    final decoded = _decodeJson(materialized.body);
-    if (materialized.statusCode < 200 || materialized.statusCode >= 300) {
+    final statusCode = response.statusCode ?? 0;
+    final decoded = _normalizeResponseData(response.data);
+
+    if (statusCode < 200 || statusCode >= 300) {
       throw MentorApiException(
         kind: MentorApiFailureKind.http,
         message: _readOptionalString(decoded, 'message') ?? 'Mentor 请求失败。',
-        statusCode: materialized.statusCode,
+        statusCode: statusCode,
         code: _readOptionalString(decoded, 'code'),
         details: _readOptionalMap(decoded, 'details'),
       );
@@ -310,15 +324,12 @@ class MentorApiService {
     return decoded;
   }
 
-  Uri _resolveUri(String path, Map<String, String>? queryParameters) {
-    final normalizedPath = path.startsWith('/') ? path : '/$path';
-    final basePath = _baseUri.path.endsWith('/')
-        ? _baseUri.path.substring(0, _baseUri.path.length - 1)
-        : _baseUri.path;
-    return _baseUri.replace(
-      path: '$basePath$normalizedPath',
-      queryParameters: queryParameters,
-    );
+  Map<String, dynamic> _normalizeResponseData(dynamic data) {
+    if (data is Map<String, dynamic>) return data;
+    if (data is String && data.trim().isNotEmpty) {
+      return _decodeJson(data);
+    }
+    return <String, dynamic>{};
   }
 
   Map<String, dynamic> _decodeJson(String rawBody) {
@@ -342,7 +353,9 @@ class MentorApiService {
 String _readRequiredString(Map<String, dynamic> json, String key) {
   final value = json[key];
   if (value is! String || value.trim().isEmpty) {
-    throw MentorApiException.malformed(message: '字段 `$key` 缺失或不是非空字符串。');
+    throw MentorApiException.malformed(
+      message: '字段 `$key` 缺失或不是非空字符串。',
+    );
   }
   return value;
 }
@@ -372,7 +385,9 @@ int _readRequiredInt(Map<String, dynamic> json, String key) {
 bool _readRequiredBool(Map<String, dynamic> json, String key) {
   final value = json[key];
   if (value is! bool) {
-    throw MentorApiException.malformed(message: '字段 `$key` 缺失或不是布尔值。');
+    throw MentorApiException.malformed(
+      message: '字段 `$key` 缺失或不是布尔值。',
+    );
   }
   return value;
 }
@@ -380,7 +395,9 @@ bool _readRequiredBool(Map<String, dynamic> json, String key) {
 DateTime _readRequiredDateTime(Map<String, dynamic> json, String key) {
   final value = json[key];
   if (value is! String || value.trim().isEmpty) {
-    throw MentorApiException.malformed(message: '字段 `$key` 缺失或不是合法时间。');
+    throw MentorApiException.malformed(
+      message: '字段 `$key` 缺失或不是合法时间。',
+    );
   }
   return DateTime.parse(value).toUtc();
 }
@@ -388,7 +405,7 @@ DateTime _readRequiredDateTime(Map<String, dynamic> json, String key) {
 Map<String, dynamic> _readRequiredMap(Map<String, dynamic> json, String key) {
   final value = json[key];
   if (value is! Map<String, dynamic>) {
-    throw MentorApiException.malformed(message: '字段 `$key` 缺失或不是对象。');
+    throw MentorApiException.malformed(message: '字段 `$key` 不是对象。');
   }
   return value;
 }

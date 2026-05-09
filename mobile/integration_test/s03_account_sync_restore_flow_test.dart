@@ -68,7 +68,7 @@ void main() {
               storageKey: 's03_first_account',
             ),
             practiceRepository: practiceRepository,
-            apiService: AccountApiService(baseUri: backend.baseUri),
+            apiService: AccountApiService(baseUrl: backend.baseUri.toString()),
             connectivityChecker: () async => true,
           );
         },
@@ -224,7 +224,7 @@ void main() {
               storageKey: 's03_second_account',
             ),
             practiceRepository: practiceRepository,
-            apiService: AccountApiService(baseUri: backend.baseUri),
+            apiService: AccountApiService(baseUrl: backend.baseUri.toString()),
             connectivityChecker: () async => true,
           );
         },

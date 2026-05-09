@@ -706,7 +706,7 @@ class _StaticAccountRepository implements AccountRepository {
 
 class _FakeMentorApiService extends MentorApiService {
   _FakeMentorApiService({this.response, this.error})
-    : super(baseUri: Uri.parse('http://localhost:8080'));
+    : super(baseUrl: 'http://localhost:8080');
 
   final MentorChatResponse? response;
   final MentorApiException? error;
@@ -789,7 +789,7 @@ class _UnavailableMentorAudioController implements MentorAudioController {
 /// 多轮聊天测试用的 Fake API Service，记录收到的 conversationId 并始终返回固定 conversationId。
 class _MultiTurnFakeMentorApiService extends MentorApiService {
   _MultiTurnFakeMentorApiService()
-    : super(baseUri: Uri.parse('http://localhost:8080'));
+    : super(baseUrl: 'http://localhost:8080');
 
   final List<String?> receivedConversationIds = <String?>[];
   final List<AccountSession?> receivedSessions = <AccountSession?>[];

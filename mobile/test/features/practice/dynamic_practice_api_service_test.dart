@@ -1,33 +1,72 @@
-import 'dart:convert';
 import 'dart:io';
 
+import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:http/http.dart' as http;
-import 'package:http/testing.dart' as http_testing;
 import 'package:mobile/features/practice/data/services/dynamic_practice_api_service.dart';
+
+/// Mock interceptor that simulates HTTP responses for testing.
+class _MockInterceptor extends Interceptor {
+  _MockInterceptor(this._handler);
+  final Future<Response<dynamic>> Function(RequestOptions options) _handler;
+
+  @override
+  void onRequest(
+    RequestOptions options,
+    RequestInterceptorHandler handler,
+  ) async {
+    try {
+      final response = await _handler(options);
+      handler.resolve(response);
+    } catch (error) {
+      if (error is DioException) {
+        handler.reject(error);
+      } else {
+        handler.reject(
+          DioException(
+            requestOptions: options,
+            error: error,
+            type: DioExceptionType.unknown,
+          ),
+        );
+      }
+    }
+  }
+}
+
+Dio _createMockDio(
+  Future<Response<dynamic>> Function(RequestOptions options) handler,
+) {
+  return Dio(
+    BaseOptions(
+      baseUrl: 'http://localhost:8080',
+      connectTimeout: const Duration(seconds: 10),
+      receiveTimeout: const Duration(seconds: 15),
+      headers: {'Content-Type': 'application/json'},
+      validateStatus: (status) => true,
+    ),
+  )..interceptors.add(_MockInterceptor(handler));
+}
 
 void main() {
   group('DynamicPracticeApiService', () {
     late DynamicPracticeApiService service;
 
-    DynamicPracticeApiService createService(http.Client client) {
-      return DynamicPracticeApiService(
-        client: client,
-        baseUri: Uri.parse('http://localhost:8080'),
-      );
+    DynamicPracticeApiService createService(Dio dio) {
+      return DynamicPracticeApiService(dio: dio);
     }
 
     test('解析合法 JSON 响应 — activities 和 phrases 正确映射', () async {
-      final mockClient = http_testing.MockClient((request) async {
-        expect(request.method, 'POST');
-        expect(request.url.path, '/api/v1/mentor/practice/generate');
-        final body = jsonDecode(request.body) as Map<String, dynamic>;
+      final dio = _createMockDio((options) async {
+        expect(options.method, 'POST');
+        expect(options.path, '/api/v1/mentor/practice/generate');
+        final body = options.data as Map<String, dynamic>;
         expect(body['installationId'], 'test-install');
         expect(body['babyAgeMonths'], 6);
         expect(body['surface'], 'practice');
 
-        return http.Response(
-          jsonEncode({
+        return Response(
+          requestOptions: options,
+          data: {
             'activities': [
               {
                 'title': 'Morning Greeting',
@@ -50,13 +89,15 @@ void main() {
                 ],
               },
             ],
+          },
+          statusCode: 200,
+          headers: Headers.fromMap({
+            'content-type': ['application/json'],
           }),
-          200,
-          headers: {'content-type': 'application/json'},
         );
       });
 
-      service = createService(mockClient);
+      service = createService(dio);
       final response = await service.generatePractice(
         installationId: 'test-install',
         babyAgeMonths: 6,
@@ -82,15 +123,18 @@ void main() {
     });
 
     test('空 activities 列表正常处理', () async {
-      final mockClient = http_testing.MockClient((request) async {
-        return http.Response(
-          jsonEncode({'activities': []}),
-          200,
-          headers: {'content-type': 'application/json'},
+      final dio = _createMockDio((options) async {
+        return Response(
+          requestOptions: options,
+          data: {'activities': []},
+          statusCode: 200,
+          headers: Headers.fromMap({
+            'content-type': ['application/json'],
+          }),
         );
       });
 
-      service = createService(mockClient);
+      service = createService(dio);
       final response = await service.generatePractice(
         installationId: 'test-install',
         babyAgeMonths: 3,
@@ -99,18 +143,21 @@ void main() {
     });
 
     test('可选参数 sceneTag 和 conversationId 正确传递', () async {
-      final mockClient = http_testing.MockClient((request) async {
-        final body = jsonDecode(request.body) as Map<String, dynamic>;
+      final dio = _createMockDio((options) async {
+        final body = options.data as Map<String, dynamic>;
         expect(body['sceneTag'], 'bedtime');
         expect(body['conversationId'], 'conv-123');
-        return http.Response(
-          jsonEncode({'activities': []}),
-          200,
-          headers: {'content-type': 'application/json'},
+        return Response(
+          requestOptions: options,
+          data: {'activities': []},
+          statusCode: 200,
+          headers: Headers.fromMap({
+            'content-type': ['application/json'],
+          }),
         );
       });
 
-      service = createService(mockClient);
+      service = createService(dio);
       await service.generatePractice(
         installationId: 'test-install',
         babyAgeMonths: 8,
@@ -120,16 +167,22 @@ void main() {
     });
 
     test('accessToken 存在时带上 Authorization 头', () async {
-      final mockClient = http_testing.MockClient((request) async {
-        expect(request.headers[HttpHeaders.authorizationHeader], 'Bearer token-123');
-        return http.Response(
-          jsonEncode({'activities': []}),
-          200,
-          headers: {'content-type': 'application/json'},
+      final dio = _createMockDio((options) async {
+        expect(
+          options.headers[HttpHeaders.authorizationHeader],
+          'Bearer token-123',
+        );
+        return Response(
+          requestOptions: options,
+          data: {'activities': []},
+          statusCode: 200,
+          headers: Headers.fromMap({
+            'content-type': ['application/json'],
+          }),
         );
       });
 
-      service = createService(mockClient);
+      service = createService(dio);
       await service.generatePractice(
         installationId: 'test-install',
         babyAgeMonths: 8,
@@ -138,15 +191,18 @@ void main() {
     });
 
     test('非 JSON 响应抛出 malformed 异常', () async {
-      final mockClient = http_testing.MockClient((request) async {
-        return http.Response(
-          'This is not JSON at all',
-          200,
-          headers: {'content-type': 'text/plain'},
+      final dio = _createMockDio((options) async {
+        return Response(
+          requestOptions: options,
+          data: 'This is not JSON at all',
+          statusCode: 200,
+          headers: Headers.fromMap({
+            'content-type': ['text/plain'],
+          }),
         );
       });
 
-      service = createService(mockClient);
+      service = createService(dio);
       expect(
         () => service.generatePractice(
           installationId: 'test-install',
@@ -163,15 +219,18 @@ void main() {
     });
 
     test('HTTP 500 响应抛出 http 异常', () async {
-      final mockClient = http_testing.MockClient((request) async {
-        return http.Response(
-          '{"error":"internal"}',
-          500,
-          headers: {'content-type': 'application/json'},
+      final dio = _createMockDio((options) async {
+        return Response(
+          requestOptions: options,
+          data: {'error': 'internal'},
+          statusCode: 500,
+          headers: Headers.fromMap({
+            'content-type': ['application/json'],
+          }),
         );
       });
 
-      service = createService(mockClient);
+      service = createService(dio);
       expect(
         () => service.generatePractice(
           installationId: 'test-install',
@@ -186,11 +245,15 @@ void main() {
     });
 
     test('网络异常抛出 network 异常', () async {
-      final mockClient = http_testing.MockClient((request) async {
-        throw const SocketException('Connection refused');
+      final dio = _createMockDio((options) async {
+        throw DioException(
+          requestOptions: options,
+          type: DioExceptionType.connectionError,
+          error: const SocketException('Connection refused'),
+        );
       });
 
-      service = createService(mockClient);
+      service = createService(dio);
       expect(
         () => service.generatePractice(
           installationId: 'test-install',

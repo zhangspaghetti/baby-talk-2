@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:http/http.dart' as http;
+import 'package:dio/dio.dart';
 import 'package:mobile/features/practice/domain/models/interaction_event_payload.dart';
 
 const String defaultAccountApiVersion = String.fromEnvironment(
@@ -163,17 +163,24 @@ class BootstrapResponse {
 
 class AccountApiService {
   AccountApiService({
-    http.Client? client,
-    Uri? baseUri,
+    Dio? dio,
+    String? baseUrl,
     this.appVersion = defaultAccountApiVersion,
     this.timeout = const Duration(seconds: 8),
-  }) : _client = client ?? http.Client(),
-       _ownsClient = client == null,
-       _baseUri = baseUri ?? Uri.parse(defaultAccountApiBaseUrl);
+  }) : _dio = dio ??
+           Dio(
+             BaseOptions(
+               baseUrl: baseUrl ?? defaultAccountApiBaseUrl,
+               connectTimeout: timeout,
+               receiveTimeout: timeout,
+               headers: {'Content-Type': 'application/json'},
+               validateStatus: (status) => true,
+             ),
+           ),
+       _ownsDio = dio == null;
 
-  final http.Client _client;
-  final bool _ownsClient;
-  final Uri _baseUri;
+  final Dio _dio;
+  final bool _ownsDio;
   final String appVersion;
   final Duration timeout;
 
@@ -355,9 +362,9 @@ class AccountApiService {
     );
   }
 
-  Future<void> close() async {
-    if (_ownsClient) {
-      _client.close();
+  void close() {
+    if (_ownsDio) {
+      _dio.close();
     }
   }
 
@@ -368,42 +375,48 @@ class AccountApiService {
     Map<String, String>? queryParameters,
     Map<String, Object?>? body,
   }) async {
-    final request = http.Request(method, _resolveUri(path, queryParameters));
-    request.headers['Accept'] = 'application/json';
-    request.headers['Content-Type'] = 'application/json';
-    request.headers['X-App-Version'] = appVersion;
+    final headers = <String, String>{
+      'Accept': 'application/json',
+      'X-App-Version': appVersion,
+    };
     if (accessToken != null && accessToken.trim().isNotEmpty) {
-      request.headers[HttpHeaders.authorizationHeader] =
-          'Bearer ${accessToken.trim()}';
-    }
-    if (body != null) {
-      request.body = jsonEncode(body);
+      headers[HttpHeaders.authorizationHeader] = 'Bearer ${accessToken.trim()}';
     }
 
-    http.StreamedResponse response;
+    Response<dynamic> response;
     try {
-      response = await _client.send(request).timeout(timeout);
-    } on TimeoutException {
-      throw const AccountApiException.timeout(message: '请求超时。');
-    } on SocketException {
-      throw const AccountApiException.network(message: '网络不可用。');
-    } on http.ClientException {
+      response = await _dio.request<dynamic>(
+        path,
+        options: Options(method: method, headers: headers),
+        data: body,
+        queryParameters: queryParameters,
+      );
+    } on DioException catch (error) {
+      if (error.type == DioExceptionType.connectionTimeout ||
+          error.type == DioExceptionType.sendTimeout ||
+          error.type == DioExceptionType.receiveTimeout) {
+        throw const AccountApiException.timeout(message: '请求超时。');
+      }
+      if (error.error is SocketException) {
+        throw const AccountApiException.network(message: '网络不可用。');
+      }
       throw const AccountApiException.network(message: '网络请求失败。');
     }
 
-    final materialized = await http.Response.fromStream(response);
-    final decoded = _decodeJson(materialized.body);
-    if (materialized.statusCode < 200 || materialized.statusCode >= 300) {
+    final statusCode = response.statusCode ?? 0;
+    final decoded = _normalizeResponseData(response.data);
+
+    if (statusCode < 200 || statusCode >= 300) {
       throw AccountApiException(
         kind: AccountApiFailureKind.http,
         message: _readOptionalString(decoded, 'message') ?? '请求失败。',
-        statusCode: materialized.statusCode,
+        statusCode: statusCode,
         code: _readOptionalString(decoded, 'code'),
         minimumSupportedVersion:
-            materialized.headers['x-min-supported-version'] ??
+            response.headers.value('x-min-supported-version') ??
             _readOptionalString(decoded, 'minimumSupportedVersion'),
         upgradeUrl:
-            materialized.headers['x-upgrade-url'] ??
+            response.headers.value('x-upgrade-url') ??
             _readOptionalString(decoded, 'upgradeUrl'),
         details: _readOptionalMap(decoded, 'details'),
       );
@@ -429,15 +442,12 @@ class AccountApiService {
     );
   }
 
-  Uri _resolveUri(String path, Map<String, String>? queryParameters) {
-    final normalizedPath = path.startsWith('/') ? path : '/$path';
-    final basePath = _baseUri.path.endsWith('/')
-        ? _baseUri.path.substring(0, _baseUri.path.length - 1)
-        : _baseUri.path;
-    return _baseUri.replace(
-      path: '$basePath$normalizedPath',
-      queryParameters: queryParameters,
-    );
+  Map<String, dynamic> _normalizeResponseData(dynamic data) {
+    if (data is Map<String, dynamic>) return data;
+    if (data is String && data.trim().isNotEmpty) {
+      return _decodeJson(data);
+    }
+    return <String, dynamic>{};
   }
 
   Map<String, dynamic> _decodeJson(String rawBody) {

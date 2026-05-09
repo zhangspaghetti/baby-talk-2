@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:http/http.dart' as http;
+import 'package:dio/dio.dart';
 import 'package:mobile/features/account/data/services/authenticated_api_client.dart';
 import 'package:mobile/features/account/domain/models/account_session.dart';
 import 'package:mobile/features/household/domain/models/household_invite_link.dart';
@@ -95,20 +95,27 @@ class HouseholdAcceptInviteResponse {
 
 class HouseholdApiService {
   HouseholdApiService({
-    http.Client? client,
+    Dio? dio,
     AuthenticatedApiClient? authenticatedApiClient,
-    Uri? baseUri,
+    String? baseUrl,
     this.appVersion = defaultHouseholdApiVersion,
     this.timeout = const Duration(seconds: 8),
-  }) : _client = client ?? http.Client(),
+  }) : _dio = dio ??
+           Dio(
+             BaseOptions(
+               baseUrl: baseUrl ?? defaultHouseholdApiBaseUrl,
+               connectTimeout: timeout,
+               receiveTimeout: timeout,
+               headers: {'Content-Type': 'application/json'},
+               validateStatus: (status) => true,
+             ),
+           ),
        _authenticatedApiClient = authenticatedApiClient,
-       _ownsClient = client == null,
-       _baseUri = baseUri ?? Uri.parse(defaultHouseholdApiBaseUrl);
+       _ownsDio = dio == null;
 
-  final http.Client _client;
+  final Dio _dio;
   final AuthenticatedApiClient? _authenticatedApiClient;
-  final bool _ownsClient;
-  final Uri _baseUri;
+  final bool _ownsDio;
   final String appVersion;
   final Duration timeout;
 
@@ -171,9 +178,9 @@ class HouseholdApiService {
     return _readSharedContextResponse(json);
   }
 
-  Future<void> close() async {
-    if (_ownsClient) {
-      _client.close();
+  void close() {
+    if (_ownsDio) {
+      _dio.close();
     }
   }
 
@@ -251,35 +258,42 @@ class HouseholdApiService {
     Map<String, String>? queryParameters,
     Map<String, Object?>? body,
   }) async {
-    final request = http.Request(method, _resolveUri(path, queryParameters));
-    request.headers['Accept'] = 'application/json';
-    request.headers['Content-Type'] = 'application/json';
-    request.headers['X-App-Version'] = appVersion;
+    final headers = <String, String>{
+      'Accept': 'application/json',
+      'X-App-Version': appVersion,
+    };
     if (accessToken != null && accessToken.trim().isNotEmpty) {
-      request.headers['Authorization'] = 'Bearer ${accessToken.trim()}';
-    }
-    if (body != null) {
-      request.body = jsonEncode(body);
+      headers['Authorization'] = 'Bearer ${accessToken.trim()}';
     }
 
-    http.StreamedResponse response;
+    Response<dynamic> response;
     try {
-      response = await _client.send(request).timeout(timeout);
-    } on TimeoutException {
-      throw const HouseholdApiException.timeout(message: '请求超时。');
-    } on SocketException {
-      throw const HouseholdApiException.network(message: '网络不可用。');
-    } on http.ClientException {
+      response = await _dio.request<dynamic>(
+        path,
+        options: Options(method: method, headers: headers),
+        data: body,
+        queryParameters: queryParameters,
+      );
+    } on DioException catch (error) {
+      if (error.type == DioExceptionType.connectionTimeout ||
+          error.type == DioExceptionType.sendTimeout ||
+          error.type == DioExceptionType.receiveTimeout) {
+        throw const HouseholdApiException.timeout(message: '请求超时。');
+      }
+      if (error.error is SocketException) {
+        throw const HouseholdApiException.network(message: '网络不可用。');
+      }
       throw const HouseholdApiException.network(message: '网络请求失败。');
     }
 
-    final materialized = await http.Response.fromStream(response);
-    final decoded = _decodeJson(materialized.body);
-    if (materialized.statusCode < 200 || materialized.statusCode >= 300) {
+    final statusCode = response.statusCode ?? 0;
+    final decoded = _normalizeResponseData(response.data);
+
+    if (statusCode < 200 || statusCode >= 300) {
       throw HouseholdApiException(
         kind: HouseholdApiFailureKind.http,
         message: _readOptionalString(decoded, 'message') ?? '请求失败。',
-        statusCode: materialized.statusCode,
+        statusCode: statusCode,
         code: _readOptionalString(decoded, 'code'),
         details: _readOptionalMap(decoded, 'details'),
       );
@@ -287,15 +301,12 @@ class HouseholdApiService {
     return decoded;
   }
 
-  Uri _resolveUri(String path, Map<String, String>? queryParameters) {
-    final normalizedPath = path.startsWith('/') ? path : '/$path';
-    final basePath = _baseUri.path.endsWith('/')
-        ? _baseUri.path.substring(0, _baseUri.path.length - 1)
-        : _baseUri.path;
-    return _baseUri.replace(
-      path: '$basePath$normalizedPath',
-      queryParameters: queryParameters,
-    );
+  Map<String, dynamic> _normalizeResponseData(dynamic data) {
+    if (data is Map<String, dynamic>) return data;
+    if (data is String && data.trim().isNotEmpty) {
+      return _decodeJson(data);
+    }
+    return <String, dynamic>{};
   }
 
   Map<String, dynamic> _decodeJson(String rawBody) {
@@ -319,7 +330,9 @@ class HouseholdApiService {
 String _readRequiredString(Map<String, dynamic> json, String key) {
   final value = json[key];
   if (value is! String || value.trim().isEmpty) {
-    throw HouseholdApiException.malformed(message: '字段 `$key` 缺失或不是非空字符串。');
+    throw HouseholdApiException.malformed(
+      message: '字段 `$key` 缺失或不是非空字符串。',
+    );
   }
   return value;
 }
@@ -338,7 +351,9 @@ String? _readOptionalString(Map<String, dynamic> json, String key) {
 DateTime _readRequiredDateTime(Map<String, dynamic> json, String key) {
   final value = json[key];
   if (value is! String || value.trim().isEmpty) {
-    throw HouseholdApiException.malformed(message: '字段 `$key` 缺失或不是合法时间。');
+    throw HouseholdApiException.malformed(
+      message: '字段 `$key` 缺失或不是合法时间。',
+    );
   }
   return DateTime.parse(value).toUtc();
 }

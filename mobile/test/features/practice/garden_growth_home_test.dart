@@ -859,7 +859,7 @@ class _SilentPracticeAudioController implements PracticeAudioController {
 class _FakeShareApiService extends ShareApiService {
   // ignore: unused_element_parameter
   _FakeShareApiService({this.error})
-    : super(baseUri: Uri.parse('http://localhost:8080'));
+    : super(baseUrl: 'http://localhost:8080');
 
   final ShareApiException? error;
 

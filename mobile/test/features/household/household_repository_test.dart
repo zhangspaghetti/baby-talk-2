@@ -317,7 +317,7 @@ class _HouseholdRepositoryHarness {
 
 class _FakeHouseholdApiService extends HouseholdApiService {
   _FakeHouseholdApiService()
-    : super(baseUri: Uri.parse('http://localhost:8080'));
+    : super(baseUrl: 'http://localhost:8080');
 
   HouseholdAcceptInviteResponse? acceptResponse;
   HouseholdSharedContextResponse? fetchResponse;

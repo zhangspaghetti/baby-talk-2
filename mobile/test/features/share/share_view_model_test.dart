@@ -107,7 +107,7 @@ void main() {
 
 class _FakeShareApiService extends ShareApiService {
   _FakeShareApiService({this.error})
-    : super(baseUri: Uri.parse('http://localhost:8080'));
+    : super(baseUrl: 'http://localhost:8080');
 
   final ShareApiException? error;
   int callCount = 0;

@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:http/http.dart' as http;
+import 'package:dio/dio.dart';
 import 'package:mobile/features/account/data/services/account_api_service.dart'
     show defaultAccountApiBaseUrl, defaultAccountApiVersion;
 
@@ -118,17 +118,24 @@ class DynamicPracticeApiException implements Exception {
 /// 调用后端 POST /api/v1/mentor/practice/generate 生成动态练习内容
 class DynamicPracticeApiService {
   DynamicPracticeApiService({
-    http.Client? client,
-    Uri? baseUri,
+    Dio? dio,
+    String? baseUrl,
     this.appVersion = defaultAccountApiVersion,
     this.timeout = const Duration(seconds: 15),
-  }) : _client = client ?? http.Client(),
-       _ownsClient = client == null,
-       _baseUri = baseUri ?? Uri.parse(defaultAccountApiBaseUrl);
+  }) : _dio = dio ??
+           Dio(
+             BaseOptions(
+               baseUrl: baseUrl ?? defaultAccountApiBaseUrl,
+               connectTimeout: timeout,
+               receiveTimeout: timeout,
+               headers: {'Content-Type': 'application/json'},
+               validateStatus: (status) => true,
+             ),
+           ),
+       _ownsDio = dio == null;
 
-  final http.Client _client;
-  final bool _ownsClient;
-  final Uri _baseUri;
+  final Dio _dio;
+  final bool _ownsDio;
   final String appVersion;
   final Duration timeout;
 
@@ -156,41 +163,64 @@ class DynamicPracticeApiService {
         'conversationId': conversationId.trim(),
     };
 
-    final uri = _resolveUri('/api/v1/mentor/practice/generate');
-    final request = http.Request('POST', uri);
-    request.headers['Accept'] = 'application/json';
-    request.headers['Content-Type'] = 'application/json';
-    request.headers['X-App-Version'] = appVersion;
+    final headers = <String, String>{
+      'Accept': 'application/json',
+      'X-App-Version': appVersion,
+    };
     final normalizedAccessToken = accessToken?.trim();
     if (normalizedAccessToken != null && normalizedAccessToken.isNotEmpty) {
-      request.headers[HttpHeaders.authorizationHeader] =
+      headers[HttpHeaders.authorizationHeader] =
           'Bearer $normalizedAccessToken';
     }
-    request.body = jsonEncode(body);
 
-    http.StreamedResponse response;
+    Response<dynamic> response;
     try {
-      response = await _client.send(request).timeout(timeout);
-    } on TimeoutException {
-      throw const DynamicPracticeApiException.timeout(message: '练习生成请求超时。');
-    } on SocketException {
-      throw const DynamicPracticeApiException.network(message: '网络不可用。');
-    } on http.ClientException {
-      throw const DynamicPracticeApiException.network(message: '网络请求失败。');
+      response = await _dio.request<dynamic>(
+        '/api/v1/mentor/practice/generate',
+        options: Options(method: 'POST', headers: headers),
+        data: body,
+      );
+    } on DioException catch (error) {
+      if (error.type == DioExceptionType.connectionTimeout ||
+          error.type == DioExceptionType.sendTimeout ||
+          error.type == DioExceptionType.receiveTimeout) {
+        throw const DynamicPracticeApiException.timeout(
+          message: '练习生成请求超时。',
+        );
+      }
+      if (error.error is SocketException) {
+        throw const DynamicPracticeApiException.network(
+          message: '网络不可用。',
+        );
+      }
+      throw const DynamicPracticeApiException.network(
+        message: '网络请求失败。',
+      );
     }
 
-    final materialized = await http.Response.fromStream(response);
-    if (materialized.statusCode < 200 || materialized.statusCode >= 300) {
+    final statusCode = response.statusCode ?? 0;
+    if (statusCode < 200 || statusCode >= 300) {
       throw DynamicPracticeApiException(
         kind: DynamicPracticeFailureKind.http,
-        message: '练习生成请求失败 (${materialized.statusCode})。',
-        statusCode: materialized.statusCode,
+        message: '练习生成请求失败 ($statusCode)。',
+        statusCode: statusCode,
       );
     }
 
     try {
-      final decoded = jsonDecode(materialized.body);
-      if (decoded is! Map<String, dynamic>) {
+      final data = response.data;
+      Map<String, dynamic> decoded;
+      if (data is Map<String, dynamic>) {
+        decoded = data;
+      } else if (data is String && data.trim().isNotEmpty) {
+        final parsed = jsonDecode(data);
+        if (parsed is! Map<String, dynamic>) {
+          throw const DynamicPracticeApiException.malformed(
+            message: '响应顶层不是 JSON 对象。',
+          );
+        }
+        decoded = parsed;
+      } else {
         throw const DynamicPracticeApiException.malformed(
           message: '响应顶层不是 JSON 对象。',
         );
@@ -199,24 +229,18 @@ class DynamicPracticeApiService {
     } on DynamicPracticeApiException {
       rethrow;
     } on FormatException catch (e) {
-      throw DynamicPracticeApiException.malformed(message: '响应 JSON 解析失败：$e');
+      throw DynamicPracticeApiException.malformed(
+        message: '响应 JSON 解析失败：$e',
+      );
     } catch (e) {
       throw DynamicPracticeApiException.malformed(message: '响应解析失败：$e');
     }
   }
 
-  Future<void> close() async {
-    if (_ownsClient) {
-      _client.close();
+  void close() {
+    if (_ownsDio) {
+      _dio.close();
     }
-  }
-
-  Uri _resolveUri(String path) {
-    final normalizedPath = path.startsWith('/') ? path : '/$path';
-    final basePath = _baseUri.path.endsWith('/')
-        ? _baseUri.path.substring(0, _baseUri.path.length - 1)
-        : _baseUri.path;
-    return _baseUri.replace(path: '$basePath$normalizedPath');
   }
 }
 

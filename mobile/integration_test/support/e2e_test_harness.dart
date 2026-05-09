@@ -86,7 +86,7 @@ class E2eTestHarness {
               storageKey: 'e2e_smoke_account',
             ),
             practiceRepository: practiceRepository,
-            apiService: AccountApiService(baseUri: backendUri),
+            apiService: AccountApiService(baseUrl: backendUri.toString()),
             connectivityChecker: () async => true,
           );
         },

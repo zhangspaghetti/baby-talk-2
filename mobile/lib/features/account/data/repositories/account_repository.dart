@@ -341,7 +341,7 @@ class AccountRepository {
   }
 
   Future<void> close() async {
-    await _apiService?.close();
+    _apiService?.close();
   }
 
   Future<AccountSession> persistRefreshedSession(

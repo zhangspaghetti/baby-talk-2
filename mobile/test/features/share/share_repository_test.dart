@@ -179,7 +179,7 @@ void main() {
 
 class _FakeShareApiService extends ShareApiService {
   _FakeShareApiService({this.response, this.error})
-    : super(baseUri: Uri.parse('http://localhost:8080'));
+    : super(baseUrl: 'http://localhost:8080');
 
   final ShareCreateLinkResponse? response;
   final ShareApiException? error;

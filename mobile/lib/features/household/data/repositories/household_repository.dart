@@ -128,7 +128,7 @@ class HouseholdRepository {
   }
 
   Future<void> close() async {
-    await _apiService.close();
+    _apiService.close();
   }
 
   Future<HouseholdCreateInviteResult> _createInviteInternal({
