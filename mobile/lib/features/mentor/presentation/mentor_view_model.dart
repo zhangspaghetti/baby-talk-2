@@ -921,7 +921,7 @@ class MentorViewModel extends ChangeNotifier {
     _disposed = true;
     _accountViewModel.removeListener(_handleAccountChanged);
     if (_ownsApiService) {
-      unawaited(_apiService.close());
+      _apiService.close();
     }
     if (_ownsAudioController) {
       unawaited(_audioController.dispose());
