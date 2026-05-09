@@ -1,3 +1,7 @@
+import 'package:freezed_annotation/freezed_annotation.dart';
+
+part 'interaction_event_payload.freezed.dart';
+
 enum BabyReactionType { calm, engaged, imitated, needsBreak }
 
 extension BabyReactionTypeWire on BabyReactionType {
@@ -58,26 +62,20 @@ InteractionSyncState parseInteractionSyncState(String value) {
   }
 }
 
-class InteractionEventUploadRecord {
-  const InteractionEventUploadRecord({
-    required this.eventKey,
-    required this.localEventId,
-    required this.installationId,
-    required this.spaceId,
-    required this.activityId,
-    required this.phraseId,
-    required this.reactionType,
-    required this.clientTimestamp,
-  });
+@freezed
+class InteractionEventUploadRecord with _$InteractionEventUploadRecord {
+  const InteractionEventUploadRecord._();
 
-  final String eventKey;
-  final String localEventId;
-  final String installationId;
-  final String spaceId;
-  final String activityId;
-  final String phraseId;
-  final BabyReactionType reactionType;
-  final DateTime clientTimestamp;
+  const factory InteractionEventUploadRecord({
+    required String eventKey,
+    required String localEventId,
+    required String installationId,
+    required String spaceId,
+    required String activityId,
+    required String phraseId,
+    required BabyReactionType reactionType,
+    required DateTime clientTimestamp,
+  }) = _InteractionEventUploadRecord;
 
   factory InteractionEventUploadRecord.fromPayload(
     InteractionEventPayload payload,
@@ -108,21 +106,37 @@ class InteractionEventUploadRecord {
   }
 }
 
-class InteractionEventPayload {
-  InteractionEventPayload({
-    required this.localEventId,
-    required this.installationId,
-    required this.spaceId,
-    required this.activityId,
-    required this.phraseId,
-    required this.reactionType,
+@freezed
+class InteractionEventPayload with _$InteractionEventPayload {
+  InteractionEventPayload._();
+
+  factory InteractionEventPayload({
+    required String localEventId,
+    required String installationId,
+    required String spaceId,
+    required String activityId,
+    required String phraseId,
+    required BabyReactionType reactionType,
     required DateTime clientTimestamp,
-    this.syncState = InteractionSyncState.pending,
-    this.lastSyncPhase,
-    this.lastSyncError,
+    @Default(InteractionSyncState.pending) InteractionSyncState syncState,
+    String? lastSyncPhase,
+    String? lastSyncError,
     DateTime? lastSyncAt,
-  }) : clientTimestamp = clientTimestamp.toUtc(),
-       lastSyncAt = lastSyncAt?.toUtc() {
+  }) = _InteractionEventPayload;
+
+  factory InteractionEventPayload.validated({
+    required String localEventId,
+    required String installationId,
+    required String spaceId,
+    required String activityId,
+    required String phraseId,
+    required BabyReactionType reactionType,
+    required DateTime clientTimestamp,
+    InteractionSyncState syncState = InteractionSyncState.pending,
+    String? lastSyncPhase,
+    String? lastSyncError,
+    DateTime? lastSyncAt,
+  }) {
     if (localEventId.trim().isEmpty) {
       throw const FormatException('localEventId 不能为空。');
     }
@@ -138,12 +152,25 @@ class InteractionEventPayload {
     if (phraseId.trim().isEmpty) {
       throw const FormatException('phraseId 不能为空。');
     }
-    if (lastSyncPhase != null && lastSyncPhase!.trim().isEmpty) {
+    if (lastSyncPhase != null && lastSyncPhase.trim().isEmpty) {
       throw const FormatException('lastSyncPhase 不能为空字符串。');
     }
-    if (lastSyncError != null && lastSyncError!.trim().isEmpty) {
+    if (lastSyncError != null && lastSyncError.trim().isEmpty) {
       throw const FormatException('lastSyncError 不能为空字符串。');
     }
+    return InteractionEventPayload(
+      localEventId: localEventId,
+      installationId: installationId,
+      spaceId: spaceId,
+      activityId: activityId,
+      phraseId: phraseId,
+      reactionType: reactionType,
+      clientTimestamp: clientTimestamp.toUtc(),
+      syncState: syncState,
+      lastSyncPhase: lastSyncPhase,
+      lastSyncError: lastSyncError,
+      lastSyncAt: lastSyncAt?.toUtc(),
+    );
   }
 
   factory InteractionEventPayload.fromWire({
@@ -160,7 +187,7 @@ class InteractionEventPayload {
     String? lastSyncError,
     DateTime? lastSyncAt,
   }) {
-    final payload = InteractionEventPayload(
+    final payload = InteractionEventPayload.validated(
       localEventId: localEventId,
       installationId: installationId,
       spaceId: spaceId,
@@ -180,18 +207,6 @@ class InteractionEventPayload {
     }
     return payload;
   }
-
-  final String localEventId;
-  final String installationId;
-  final String spaceId;
-  final String activityId;
-  final String phraseId;
-  final BabyReactionType reactionType;
-  final DateTime clientTimestamp;
-  final InteractionSyncState syncState;
-  final String? lastSyncPhase;
-  final String? lastSyncError;
-  final DateTime? lastSyncAt;
 
   String get eventKey => '$installationId:$localEventId';
 

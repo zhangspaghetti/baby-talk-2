@@ -1,25 +1,22 @@
-class PracticePhrase {
-  const PracticePhrase({
-    required this.spaceId,
-    required this.activityId,
-    required this.phraseId,
-    required this.step,
-    required this.english,
-    required this.chinese,
-    required this.pronunciation,
-    required this.difficulty,
-    required this.audioAsset,
-  });
+import 'package:freezed_annotation/freezed_annotation.dart';
 
-  final String spaceId;
-  final String activityId;
-  final String phraseId;
-  final int step;
-  final String english;
-  final String chinese;
-  final String pronunciation;
-  final String difficulty;
-  final String audioAsset;
+part 'practice_phrase.freezed.dart';
+
+@freezed
+class PracticePhrase with _$PracticePhrase {
+  const PracticePhrase._();
+
+  const factory PracticePhrase({
+    required String spaceId,
+    required String activityId,
+    required String phraseId,
+    required int step,
+    required String english,
+    required String chinese,
+    required String pronunciation,
+    required String difficulty,
+    required String audioAsset,
+  }) = _PracticePhrase;
 
   String get audioPlayerAsset =>
       audioAsset.startsWith('assets/') ? audioAsset.substring(7) : audioAsset;

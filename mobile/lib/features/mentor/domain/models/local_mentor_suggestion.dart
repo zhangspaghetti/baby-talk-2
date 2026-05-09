@@ -1,3 +1,7 @@
+import 'package:freezed_annotation/freezed_annotation.dart';
+
+part 'local_mentor_suggestion.freezed.dart';
+
 enum LocalMentorSuggestionOrigin {
   recentPractice,
   starterPhrase,
@@ -23,12 +27,15 @@ extension LocalMentorSuggestionOriginWire on LocalMentorSuggestionOrigin {
   }
 }
 
-class LocalMentorSuggestion {
-  LocalMentorSuggestion({
-    required this.suggestionId,
-    required this.origin,
-    required this.title,
-    required this.body,
+@freezed
+class LocalMentorSuggestion with _$LocalMentorSuggestion {
+  const LocalMentorSuggestion._();
+
+  const factory LocalMentorSuggestion({
+    required String suggestionId,
+    required LocalMentorSuggestionOrigin origin,
+    required String title,
+    required String body,
     String? phraseEnglish,
     String? phraseChinese,
     String? stageId,
@@ -37,17 +44,22 @@ class LocalMentorSuggestion {
     String? phraseId,
     String? reasonCode,
     String? redactedContextSummary,
-  }) : phraseEnglish = _normalizeOptional(phraseEnglish),
-       phraseChinese = _normalizeOptional(phraseChinese),
-       stageId = _normalizeOptional(stageId),
-       spaceId = _normalizeOptional(spaceId),
-       activityId = _normalizeOptional(activityId),
-       phraseId = _normalizeOptional(phraseId),
-       reasonCode = _normalizeOptional(reasonCode),
-       redactedContextSummary = _normalizeOptional(
-         redactedContextSummary,
-         maxLength: 200,
-       ) {
+  }) = _LocalMentorSuggestion;
+
+  factory LocalMentorSuggestion.validated({
+    required String suggestionId,
+    required LocalMentorSuggestionOrigin origin,
+    required String title,
+    required String body,
+    String? phraseEnglish,
+    String? phraseChinese,
+    String? stageId,
+    String? spaceId,
+    String? activityId,
+    String? phraseId,
+    String? reasonCode,
+    String? redactedContextSummary,
+  }) {
     if (suggestionId.trim().isEmpty) {
       throw const FormatException('suggestionId 不能为空。');
     }
@@ -57,20 +69,24 @@ class LocalMentorSuggestion {
     if (body.trim().isEmpty) {
       throw const FormatException('body 不能为空。');
     }
+    return LocalMentorSuggestion(
+      suggestionId: suggestionId,
+      origin: origin,
+      title: title,
+      body: body,
+      phraseEnglish: normalizeOptional(phraseEnglish),
+      phraseChinese: normalizeOptional(phraseChinese),
+      stageId: normalizeOptional(stageId),
+      spaceId: normalizeOptional(spaceId),
+      activityId: normalizeOptional(activityId),
+      phraseId: normalizeOptional(phraseId),
+      reasonCode: normalizeOptional(reasonCode),
+      redactedContextSummary: normalizeOptional(
+        redactedContextSummary,
+        maxLength: 200,
+      ),
+    );
   }
-
-  final String suggestionId;
-  final LocalMentorSuggestionOrigin origin;
-  final String title;
-  final String body;
-  final String? phraseEnglish;
-  final String? phraseChinese;
-  final String? stageId;
-  final String? spaceId;
-  final String? activityId;
-  final String? phraseId;
-  final String? reasonCode;
-  final String? redactedContextSummary;
 
   bool get isSafeFallback => origin == LocalMentorSuggestionOrigin.safeFallback;
 
@@ -97,7 +113,7 @@ class LocalMentorSuggestion {
     };
   }
 
-  static String? _normalizeOptional(String? value, {int? maxLength}) {
+  static String? normalizeOptional(String? value, {int? maxLength}) {
     if (value == null) {
       return null;
     }

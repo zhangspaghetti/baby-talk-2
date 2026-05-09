@@ -1,4 +1,7 @@
+import 'package:freezed_annotation/freezed_annotation.dart';
 import 'package:mobile/features/onboarding/domain/models/stage_match.dart';
+
+part 'onboarding_snapshot.freezed.dart';
 
 enum OnboardingConsentState { localOnly }
 
@@ -20,56 +23,45 @@ OnboardingConsentState parseOnboardingConsentState(String value) {
   }
 }
 
-class OnboardingSnapshot {
-  const OnboardingSnapshot({
-    required this.childDisplayName,
-    required this.ageBucket,
-    required this.approxMonths,
-    required this.currentStage,
-    required this.starterSpaceId,
-    required this.starterActivityId,
-    required this.starterPhraseId,
-    required this.consentState,
-    this.birthDate,
-    this.completedAt,
-  });
+@freezed
+class OnboardingSnapshot with _$OnboardingSnapshot {
+  const OnboardingSnapshot._();
 
-  final String childDisplayName;
-  final OnboardingAgeBucket ageBucket;
-  final int approxMonths;
-  final String currentStage;
-  final String starterSpaceId;
-  final String starterActivityId;
-  final String starterPhraseId;
-  final OnboardingConsentState consentState;
-  final DateTime? birthDate;
-  final DateTime? completedAt;
+  const factory OnboardingSnapshot({
+    required String childDisplayName,
+    required OnboardingAgeBucket ageBucket,
+    required int approxMonths,
+    required String currentStage,
+    required String starterSpaceId,
+    required String starterActivityId,
+    required String starterPhraseId,
+    required OnboardingConsentState consentState,
+    DateTime? birthDate,
+    DateTime? completedAt,
+  }) = _OnboardingSnapshot;
 
-  bool get isCompleted {
-    return childDisplayName.trim().isNotEmpty &&
-        currentStage.trim().isNotEmpty &&
-        starterSpaceId.trim().isNotEmpty &&
-        starterActivityId.trim().isNotEmpty &&
-        starterPhraseId.trim().isNotEmpty &&
-        completedAt != null;
+  /// Raw deserialization without validation. Use [fromJsonValidated] for
+  /// deserialization with full validation (checks StageMatch, approxMonths > 0).
+  factory OnboardingSnapshot.fromJson(Map<String, dynamic> json) {
+    return OnboardingSnapshot(
+      childDisplayName: json['childDisplayName'] as String,
+      ageBucket: parseOnboardingAgeBucket(json['ageBucket'] as String),
+      approxMonths: json['approxMonths'] as int,
+      currentStage: json['currentStage'] as String,
+      starterSpaceId: json['starterSpaceId'] as String,
+      starterActivityId: json['starterActivityId'] as String,
+      starterPhraseId: json['starterPhraseId'] as String,
+      consentState: parseOnboardingConsentState(
+        json['consentState'] as String,
+      ),
+      birthDate: _readOptionalDateTime(json, 'birthDate'),
+      completedAt: _readOptionalDateTime(json, 'completedAt'),
+    );
   }
 
-  Map<String, Object?> toJsonMap() {
-    return {
-      'childDisplayName': childDisplayName,
-      'ageBucket': ageBucket.wireValue,
-      'approxMonths': approxMonths,
-      'currentStage': currentStage,
-      'starterSpaceId': starterSpaceId,
-      'starterActivityId': starterActivityId,
-      'starterPhraseId': starterPhraseId,
-      'completedAt': completedAt?.toUtc().toIso8601String(),
-      'consentState': consentState.wireValue,
-      'birthDate': birthDate?.toUtc().toIso8601String(),
-    };
-  }
-
-  factory OnboardingSnapshot.fromJsonMap(Map<String, dynamic> json) {
+  /// Deserialization with full validation: checks StageMatchCatalog and
+  /// approxMonths > 0. Throws [FormatException] on invalid data.
+  factory OnboardingSnapshot.fromJsonValidated(Map<String, dynamic> json) {
     final ageBucket = parseOnboardingAgeBucket(
       _readRequiredString(json, 'ageBucket'),
     );
@@ -98,6 +90,37 @@ class OnboardingSnapshot {
       completedAt: _readOptionalDateTime(json, 'completedAt'),
     );
   }
+
+  /// Backwards-compatible alias for [fromJsonValidated].
+  factory OnboardingSnapshot.fromJsonMap(Map<String, dynamic> json) {
+    return OnboardingSnapshot.fromJsonValidated(json);
+  }
+
+  bool get isCompleted {
+    return childDisplayName.trim().isNotEmpty &&
+        currentStage.trim().isNotEmpty &&
+        starterSpaceId.trim().isNotEmpty &&
+        starterActivityId.trim().isNotEmpty &&
+        starterPhraseId.trim().isNotEmpty &&
+        completedAt != null;
+  }
+
+  Map<String, Object?> toJsonMap() {
+    return {
+      'childDisplayName': childDisplayName,
+      'ageBucket': ageBucket.wireValue,
+      'approxMonths': approxMonths,
+      'currentStage': currentStage,
+      'starterSpaceId': starterSpaceId,
+      'starterActivityId': starterActivityId,
+      'starterPhraseId': starterPhraseId,
+      'completedAt': completedAt?.toUtc().toIso8601String(),
+      'consentState': consentState.wireValue,
+      'birthDate': birthDate?.toUtc().toIso8601String(),
+    };
+  }
+
+  // --- Validation helpers ---
 
   static String _readRequiredString(Map<String, dynamic> json, String key) {
     final value = json[key];

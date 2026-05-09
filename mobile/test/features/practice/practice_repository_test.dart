@@ -533,7 +533,7 @@ void main() {
         );
 
         expect(
-          () => InteractionEventPayload(
+          () => InteractionEventPayload.validated(
             localEventId: 'evt_empty_phrase',
             installationId: 'install_test',
             spaceId: 'daily_care',

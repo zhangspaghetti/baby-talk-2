@@ -1,4 +1,7 @@
+import 'package:freezed_annotation/freezed_annotation.dart';
 import 'package:mobile/features/practice/domain/models/interaction_event_payload.dart';
+
+part 'garden_growth_snapshot.freezed.dart';
 
 enum GardenPatchStage { quiet, tended, rooted, glowing }
 
@@ -66,34 +69,24 @@ extension GardenFlowerStageCopy on GardenFlowerStage {
 
 enum GrowthDiaryEntryKind { practice, milestone }
 
-class GardenFlowerSnapshot {
-  const GardenFlowerSnapshot({
-    required this.spaceId,
-    required this.activityId,
-    required this.title,
-    required this.sceneTag,
-    required this.summary,
-    required this.stage,
-    required this.totalEvents,
-    required this.completedPhraseCount,
-    required this.totalPhraseCount,
-    required this.completedPhraseIds,
-    required this.careNote,
-    this.lastPracticedAt,
-  });
+@freezed
+class GardenFlowerSnapshot with _$GardenFlowerSnapshot {
+  const GardenFlowerSnapshot._();
 
-  final String spaceId;
-  final String activityId;
-  final String title;
-  final String sceneTag;
-  final String summary;
-  final GardenFlowerStage stage;
-  final int totalEvents;
-  final int completedPhraseCount;
-  final int totalPhraseCount;
-  final List<String> completedPhraseIds;
-  final String careNote;
-  final DateTime? lastPracticedAt;
+  const factory GardenFlowerSnapshot({
+    required String spaceId,
+    required String activityId,
+    required String title,
+    required String sceneTag,
+    required String summary,
+    required GardenFlowerStage stage,
+    required int totalEvents,
+    required int completedPhraseCount,
+    required int totalPhraseCount,
+    required List<String> completedPhraseIds,
+    required String careNote,
+    DateTime? lastPracticedAt,
+  }) = _GardenFlowerSnapshot;
 
   bool get isStarted => totalEvents > 0;
 
@@ -101,108 +94,76 @@ class GardenFlowerSnapshot {
       totalPhraseCount > 0 && completedPhraseCount >= totalPhraseCount;
 }
 
-class GardenPatchSnapshot {
-  const GardenPatchSnapshot({
-    required this.spaceId,
-    required this.title,
-    required this.description,
-    required this.stage,
-    required this.totalKnownEvents,
-    required this.startedActivityCount,
-    required this.completedActivityCount,
-    required this.totalActivityCount,
-    required this.activities,
-    required this.careNote,
-    this.lastPracticedAt,
-  });
+@freezed
+class GardenPatchSnapshot with _$GardenPatchSnapshot {
+  const GardenPatchSnapshot._();
 
-  final String spaceId;
-  final String title;
-  final String description;
-  final GardenPatchStage stage;
-  final int totalKnownEvents;
-  final int startedActivityCount;
-  final int completedActivityCount;
-  final int totalActivityCount;
-  final List<GardenFlowerSnapshot> activities;
-  final String careNote;
-  final DateTime? lastPracticedAt;
+  const factory GardenPatchSnapshot({
+    required String spaceId,
+    required String title,
+    required String description,
+    required GardenPatchStage stage,
+    required int totalKnownEvents,
+    required int startedActivityCount,
+    required int completedActivityCount,
+    required int totalActivityCount,
+    required List<GardenFlowerSnapshot> activities,
+    required String careNote,
+    DateTime? lastPracticedAt,
+  }) = _GardenPatchSnapshot;
 
   bool get isStarted => totalKnownEvents > 0;
 }
 
-class GrowthDiaryEntry {
-  const GrowthDiaryEntry({
-    required this.entryId,
-    required this.kind,
-    required this.occurredAt,
-    required this.title,
-    required this.body,
-    required this.spaceId,
-    required this.activityId,
-  });
-
-  final String entryId;
-  final GrowthDiaryEntryKind kind;
-  final DateTime occurredAt;
-  final String title;
-  final String body;
-  final String spaceId;
-  final String activityId;
+@freezed
+class GrowthDiaryEntry with _$GrowthDiaryEntry {
+  const factory GrowthDiaryEntry({
+    required String entryId,
+    required GrowthDiaryEntryKind kind,
+    required DateTime occurredAt,
+    required String title,
+    required String body,
+    required String spaceId,
+    required String activityId,
+  }) = _GrowthDiaryEntry;
 }
 
-class GrowthMilestoneSnapshot {
-  const GrowthMilestoneSnapshot({
-    required this.id,
-    required this.title,
-    required this.body,
-    required this.sortOrder,
-    this.achievedAt,
-  });
+@freezed
+class GrowthMilestoneSnapshot with _$GrowthMilestoneSnapshot {
+  const GrowthMilestoneSnapshot._();
 
-  final String id;
-  final String title;
-  final String body;
-  final int sortOrder;
-  final DateTime? achievedAt;
+  const factory GrowthMilestoneSnapshot({
+    required String id,
+    required String title,
+    required String body,
+    required int sortOrder,
+    DateTime? achievedAt,
+  }) = _GrowthMilestoneSnapshot;
 
   bool get isAchieved => achievedAt != null;
 }
 
-class LatestPracticeImpact {
-  const LatestPracticeImpact({
-    required this.eventKey,
-    required this.occurredAt,
-    required this.spaceId,
-    required this.spaceTitle,
-    required this.activityId,
-    required this.activityTitle,
-    required this.phraseId,
-    required this.phraseTitle,
-    required this.reactionType,
-    required this.previousPatchStage,
-    required this.currentPatchStage,
-    required this.previousFlowerStage,
-    required this.currentFlowerStage,
-    required this.headline,
-    required this.detail,
-  });
+@freezed
+class LatestPracticeImpact with _$LatestPracticeImpact {
+  const LatestPracticeImpact._();
 
-  final String eventKey;
-  final DateTime occurredAt;
-  final String spaceId;
-  final String spaceTitle;
-  final String activityId;
-  final String activityTitle;
-  final String phraseId;
-  final String phraseTitle;
-  final BabyReactionType reactionType;
-  final GardenPatchStage previousPatchStage;
-  final GardenPatchStage currentPatchStage;
-  final GardenFlowerStage previousFlowerStage;
-  final GardenFlowerStage currentFlowerStage;
-  final String headline;
-  final String detail;
+  const factory LatestPracticeImpact({
+    required String eventKey,
+    required DateTime occurredAt,
+    required String spaceId,
+    required String spaceTitle,
+    required String activityId,
+    required String activityTitle,
+    required String phraseId,
+    required String phraseTitle,
+    required BabyReactionType reactionType,
+    required GardenPatchStage previousPatchStage,
+    required GardenPatchStage currentPatchStage,
+    required GardenFlowerStage previousFlowerStage,
+    required GardenFlowerStage currentFlowerStage,
+    required String headline,
+    required String detail,
+  }) = _LatestPracticeImpact;
 
   bool get patchStageChanged => previousPatchStage != currentPatchStage;
 
@@ -211,21 +172,24 @@ class LatestPracticeImpact {
   bool get changedAnyStage => patchStageChanged || flowerStageChanged;
 }
 
-class GardenGrowthSnapshot {
-  const GardenGrowthSnapshot({
-    required this.installationId,
-    required this.spaces,
-    required this.diaryEntries,
-    required this.milestones,
-    required this.latestImpact,
-    required this.totalStoredEvents,
-    required this.validEvents,
-    required this.knownEvents,
-    required this.skippedMalformedEvents,
-    required this.skippedUnknownContentEvents,
-    this.lastIssueMessage,
-    this.projectionWarning,
-  });
+@freezed
+class GardenGrowthSnapshot with _$GardenGrowthSnapshot {
+  const GardenGrowthSnapshot._();
+
+  const factory GardenGrowthSnapshot({
+    required String? installationId,
+    required List<GardenPatchSnapshot> spaces,
+    required List<GrowthDiaryEntry> diaryEntries,
+    required List<GrowthMilestoneSnapshot> milestones,
+    required LatestPracticeImpact? latestImpact,
+    required int totalStoredEvents,
+    required int validEvents,
+    required int knownEvents,
+    required int skippedMalformedEvents,
+    required int skippedUnknownContentEvents,
+    String? lastIssueMessage,
+    String? projectionWarning,
+  }) = _GardenGrowthSnapshot;
 
   factory GardenGrowthSnapshot.empty({String? installationId}) {
     return GardenGrowthSnapshot(
@@ -241,19 +205,6 @@ class GardenGrowthSnapshot {
       skippedUnknownContentEvents: 0,
     );
   }
-
-  final String? installationId;
-  final List<GardenPatchSnapshot> spaces;
-  final List<GrowthDiaryEntry> diaryEntries;
-  final List<GrowthMilestoneSnapshot> milestones;
-  final LatestPracticeImpact? latestImpact;
-  final int totalStoredEvents;
-  final int validEvents;
-  final int knownEvents;
-  final int skippedMalformedEvents;
-  final int skippedUnknownContentEvents;
-  final String? lastIssueMessage;
-  final String? projectionWarning;
 
   bool get isEmpty => knownEvents == 0;
 

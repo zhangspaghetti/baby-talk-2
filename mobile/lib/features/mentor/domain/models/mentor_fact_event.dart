@@ -1,3 +1,7 @@
+import 'package:freezed_annotation/freezed_annotation.dart';
+
+part 'mentor_fact_event.freezed.dart';
+
 enum MentorFactType {
   panelOpened,
   suggestionServed,
@@ -60,24 +64,37 @@ MentorFactType parseMentorFactType(String value) {
   }
 }
 
-class MentorFactEvent {
-  MentorFactEvent({
-    required this.localEventId,
-    required this.installationId,
-    required this.eventType,
-    required this.phase,
+@freezed
+class MentorFactEvent with _$MentorFactEvent {
+  MentorFactEvent._();
+
+  factory MentorFactEvent({
+    required String localEventId,
+    required String installationId,
+    required MentorFactType eventType,
+    required String phase,
     required DateTime createdAt,
     String? correlationId,
     String? redactedSummary,
     String? visibleStatus,
     String? visibleDetail,
-    this.retryable = false,
-    this.contextFallbackUsed = false,
-  }) : createdAt = createdAt.toUtc(),
-       correlationId = _normalizeOptional(correlationId),
-       redactedSummary = _normalizeOptional(redactedSummary, maxLength: 240),
-       visibleStatus = _normalizeOptional(visibleStatus, maxLength: 80),
-       visibleDetail = _normalizeOptional(visibleDetail, maxLength: 160) {
+    @Default(false) bool retryable,
+    @Default(false) bool contextFallbackUsed,
+  }) = _MentorFactEvent;
+
+  factory MentorFactEvent.validated({
+    required String localEventId,
+    required String installationId,
+    required MentorFactType eventType,
+    required String phase,
+    required DateTime createdAt,
+    String? correlationId,
+    String? redactedSummary,
+    String? visibleStatus,
+    String? visibleDetail,
+    bool retryable = false,
+    bool contextFallbackUsed = false,
+  }) {
     if (localEventId.trim().isEmpty) {
       throw const FormatException('localEventId 不能为空。');
     }
@@ -87,6 +104,19 @@ class MentorFactEvent {
     if (phase.trim().isEmpty) {
       throw const FormatException('phase 不能为空。');
     }
+    return MentorFactEvent(
+      localEventId: localEventId,
+      installationId: installationId,
+      eventType: eventType,
+      phase: phase,
+      createdAt: createdAt.toUtc(),
+      correlationId: normalizeOptional(correlationId),
+      redactedSummary: normalizeOptional(redactedSummary, maxLength: 240),
+      visibleStatus: normalizeOptional(visibleStatus, maxLength: 80),
+      visibleDetail: normalizeOptional(visibleDetail, maxLength: 160),
+      retryable: retryable,
+      contextFallbackUsed: contextFallbackUsed,
+    );
   }
 
   factory MentorFactEvent.fromWire({
@@ -103,7 +133,7 @@ class MentorFactEvent {
     bool retryable = false,
     bool contextFallbackUsed = false,
   }) {
-    final payload = MentorFactEvent(
+    final payload = MentorFactEvent.validated(
       localEventId: localEventId,
       installationId: installationId,
       eventType: parseMentorFactType(eventType),
@@ -123,18 +153,6 @@ class MentorFactEvent {
     }
     return payload;
   }
-
-  final String localEventId;
-  final String installationId;
-  final MentorFactType eventType;
-  final String phase;
-  final DateTime createdAt;
-  final String? correlationId;
-  final String? redactedSummary;
-  final String? visibleStatus;
-  final String? visibleDetail;
-  final bool retryable;
-  final bool contextFallbackUsed;
 
   String get eventKey => '$installationId:$localEventId';
 
@@ -162,7 +180,7 @@ class MentorFactEvent {
     return {'visibleStatus': visibleStatus, 'visibleDetail': visibleDetail};
   }
 
-  static String? _normalizeOptional(String? value, {int? maxLength}) {
+  static String? normalizeOptional(String? value, {int? maxLength}) {
     if (value == null) {
       return null;
     }

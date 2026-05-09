@@ -1,6 +1,9 @@
+import 'package:freezed_annotation/freezed_annotation.dart';
 import 'package:mobile/features/practice/domain/models/garden_growth_snapshot.dart';
 import 'package:mobile/features/practice/domain/models/practice_activity_catalog.dart';
 import 'package:mobile/features/practice/domain/models/practice_continuity_snapshot.dart';
+
+part 'share_link_draft.freezed.dart';
 
 const List<String> shareDraftBlockedFragments = <String>[
   'installationid',
@@ -20,26 +23,20 @@ enum ShareLinkSource {
   final String wireValue;
 }
 
-class ShareLinkDraft {
-  const ShareLinkDraft({
-    required this.source,
-    required this.headline,
-    required this.storyText,
-    this.phraseText,
-    this.recommendationTitle,
-    this.recommendationReason,
-    this.spaceId,
-    this.activityId,
-  });
+@freezed
+class ShareLinkDraft with _$ShareLinkDraft {
+  const ShareLinkDraft._();
 
-  final ShareLinkSource source;
-  final String headline;
-  final String storyText;
-  final String? phraseText;
-  final String? recommendationTitle;
-  final String? recommendationReason;
-  final String? spaceId;
-  final String? activityId;
+  const factory ShareLinkDraft({
+    required ShareLinkSource source,
+    required String headline,
+    required String storyText,
+    String? phraseText,
+    String? recommendationTitle,
+    String? recommendationReason,
+    String? spaceId,
+    String? activityId,
+  }) = _ShareLinkDraft;
 
   bool get hasPublicPayload {
     return headline.trim().isNotEmpty &&

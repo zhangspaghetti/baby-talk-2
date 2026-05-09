@@ -1,4 +1,7 @@
+import 'package:freezed_annotation/freezed_annotation.dart';
 import 'package:mobile/features/practice/domain/models/practice_activity_catalog.dart';
+
+part 'practice_continuity_snapshot.freezed.dart';
 
 enum PracticeContinuityReason {
   recentActivity,
@@ -35,62 +38,47 @@ extension PracticeContinuityReasonLabels on PracticeContinuityReason {
   }
 }
 
-class PracticeContinuityRecommendation {
-  const PracticeContinuityRecommendation({
-    required this.spaceId,
-    required this.activityId,
-    required this.activityTitle,
-    required this.reason,
-    required this.reasonLabel,
-    this.fallbackReason,
-  });
-
-  final String spaceId;
-  final String activityId;
-  final String activityTitle;
-  final PracticeContinuityReason reason;
-  final String reasonLabel;
-  final String? fallbackReason;
+@freezed
+class PracticeContinuityRecommendation with _$PracticeContinuityRecommendation {
+  const factory PracticeContinuityRecommendation({
+    required String spaceId,
+    required String activityId,
+    required String activityTitle,
+    required PracticeContinuityReason reason,
+    required String reasonLabel,
+    String? fallbackReason,
+  }) = _PracticeContinuityRecommendation;
 }
 
-class PracticeContinuityCadenceSummary {
-  const PracticeContinuityCadenceSummary({
-    required this.totalKnownEvents,
-    required this.startedActivityCount,
-    required this.lastEventTime,
-    required this.headline,
-    required this.detail,
-  });
+@freezed
+class PracticeContinuityCadenceSummary with _$PracticeContinuityCadenceSummary {
+  const PracticeContinuityCadenceSummary._();
 
-  final int totalKnownEvents;
-  final int startedActivityCount;
-  final DateTime? lastEventTime;
-  final String headline;
-  final String detail;
+  const factory PracticeContinuityCadenceSummary({
+    required int totalKnownEvents,
+    required int startedActivityCount,
+    required DateTime? lastEventTime,
+    required String headline,
+    required String detail,
+  }) = _PracticeContinuityCadenceSummary;
 
   bool get isEmpty => totalKnownEvents == 0;
 }
 
-class PracticeContinuitySnapshot {
-  const PracticeContinuitySnapshot({
-    required this.catalog,
-    required this.recommendedActivity,
-    required this.recentActivity,
-    required this.nextIncompleteActivity,
-    required this.starterActivity,
-    required this.recommendation,
-    required this.cadence,
-    this.warningMessage,
-  });
+@freezed
+class PracticeContinuitySnapshot with _$PracticeContinuitySnapshot {
+  const PracticeContinuitySnapshot._();
 
-  final PracticeActivityCatalog catalog;
-  final PracticeCatalogActivitySummary recommendedActivity;
-  final PracticeCatalogActivitySummary? recentActivity;
-  final PracticeCatalogActivitySummary? nextIncompleteActivity;
-  final PracticeCatalogActivitySummary? starterActivity;
-  final PracticeContinuityRecommendation recommendation;
-  final PracticeContinuityCadenceSummary cadence;
-  final String? warningMessage;
+  const factory PracticeContinuitySnapshot({
+    required PracticeActivityCatalog catalog,
+    required PracticeCatalogActivitySummary recommendedActivity,
+    required PracticeCatalogActivitySummary? recentActivity,
+    required PracticeCatalogActivitySummary? nextIncompleteActivity,
+    required PracticeCatalogActivitySummary? starterActivity,
+    required PracticeContinuityRecommendation recommendation,
+    required PracticeContinuityCadenceSummary cadence,
+    String? warningMessage,
+  }) = _PracticeContinuitySnapshot;
 
   String? get fallbackReason => recommendation.fallbackReason;
 

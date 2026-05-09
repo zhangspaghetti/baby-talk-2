@@ -1,61 +1,44 @@
+import 'package:freezed_annotation/freezed_annotation.dart';
 import 'package:mobile/features/practice/domain/models/interaction_event_payload.dart';
 
-class PracticeCatalogRecentResultSummary {
-  const PracticeCatalogRecentResultSummary({
-    required this.phraseId,
-    required this.phraseEnglish,
-    required this.reactionType,
-    required this.eventTime,
-    required this.totalEvents,
-  });
+part 'practice_activity_catalog.freezed.dart';
 
-  final String phraseId;
-  final String phraseEnglish;
-  final BabyReactionType reactionType;
-  final DateTime eventTime;
-  final int totalEvents;
+@freezed
+class PracticeCatalogRecentResultSummary
+    with _$PracticeCatalogRecentResultSummary {
+  const factory PracticeCatalogRecentResultSummary({
+    required String phraseId,
+    required String phraseEnglish,
+    required BabyReactionType reactionType,
+    required DateTime eventTime,
+    required int totalEvents,
+  }) = _PracticeCatalogRecentResultSummary;
 }
 
-class PracticeCatalogActivitySummary {
-  const PracticeCatalogActivitySummary({
-    required this.spaceId,
-    required this.spaceTitle,
-    required this.activityId,
-    required this.title,
-    required this.summary,
-    required this.sceneTag,
-    required this.coachTip,
-    required this.totalPhraseCount,
-    required this.completedPhraseCount,
-    required this.completedPhraseIds,
-    required this.nextPhraseId,
-    required this.nextPhraseEnglish,
-    required this.totalEvents,
-    required this.skippedUnknownPhraseCount,
-    required this.skippedMalformedEventCount,
-    this.lastEventTime,
-    this.recentResult,
-    this.warningMessage,
-  });
+@freezed
+class PracticeCatalogActivitySummary with _$PracticeCatalogActivitySummary {
+  const PracticeCatalogActivitySummary._();
 
-  final String spaceId;
-  final String spaceTitle;
-  final String activityId;
-  final String title;
-  final String summary;
-  final String sceneTag;
-  final String coachTip;
-  final int totalPhraseCount;
-  final int completedPhraseCount;
-  final List<String> completedPhraseIds;
-  final String? nextPhraseId;
-  final String? nextPhraseEnglish;
-  final int totalEvents;
-  final int skippedUnknownPhraseCount;
-  final int skippedMalformedEventCount;
-  final DateTime? lastEventTime;
-  final PracticeCatalogRecentResultSummary? recentResult;
-  final String? warningMessage;
+  const factory PracticeCatalogActivitySummary({
+    required String spaceId,
+    required String spaceTitle,
+    required String activityId,
+    required String title,
+    required String summary,
+    required String sceneTag,
+    required String coachTip,
+    required int totalPhraseCount,
+    required int completedPhraseCount,
+    required List<String> completedPhraseIds,
+    required String? nextPhraseId,
+    required String? nextPhraseEnglish,
+    required int totalEvents,
+    required int skippedUnknownPhraseCount,
+    required int skippedMalformedEventCount,
+    DateTime? lastEventTime,
+    PracticeCatalogRecentResultSummary? recentResult,
+    String? warningMessage,
+  }) = _PracticeCatalogActivitySummary;
 
   bool get isEmpty => totalEvents == 0;
 
@@ -68,45 +51,42 @@ class PracticeCatalogActivitySummary {
       (warningMessage?.trim().isNotEmpty ?? false);
 }
 
-class PracticeCatalogSpaceSummary {
-  const PracticeCatalogSpaceSummary({
-    required this.spaceId,
-    required this.title,
-    required this.description,
-    required this.activities,
-    required this.totalEvents,
-    required this.startedActivityCount,
-    required this.completedActivityCount,
-    this.lastEventTime,
-  });
+@freezed
+class PracticeCatalogSpaceSummary with _$PracticeCatalogSpaceSummary {
+  const PracticeCatalogSpaceSummary._();
 
-  final String spaceId;
-  final String title;
-  final String description;
-  final List<PracticeCatalogActivitySummary> activities;
-  final int totalEvents;
-  final int startedActivityCount;
-  final int completedActivityCount;
-  final DateTime? lastEventTime;
+  const factory PracticeCatalogSpaceSummary({
+    required String spaceId,
+    required String title,
+    required String description,
+    required List<PracticeCatalogActivitySummary> activities,
+    required int totalEvents,
+    required int startedActivityCount,
+    required int completedActivityCount,
+    DateTime? lastEventTime,
+  }) = _PracticeCatalogSpaceSummary;
 
   int get totalActivityCount => activities.length;
 
   bool get isEmpty => totalEvents == 0;
 }
 
-class PracticeActivityCatalog {
-  const PracticeActivityCatalog({
-    required this.installationId,
-    required this.spaces,
-    required this.activities,
-    required this.totalStoredEvents,
-    required this.validEvents,
-    required this.knownEvents,
-    required this.skippedMalformedEvents,
-    required this.skippedUnknownContentEvents,
-    this.lastIssueMessage,
-    this.catalogWarning,
-  });
+@freezed
+class PracticeActivityCatalog with _$PracticeActivityCatalog {
+  const PracticeActivityCatalog._();
+
+  const factory PracticeActivityCatalog({
+    required String? installationId,
+    required List<PracticeCatalogSpaceSummary> spaces,
+    required List<PracticeCatalogActivitySummary> activities,
+    required int totalStoredEvents,
+    required int validEvents,
+    required int knownEvents,
+    required int skippedMalformedEvents,
+    required int skippedUnknownContentEvents,
+    String? lastIssueMessage,
+    String? catalogWarning,
+  }) = _PracticeActivityCatalog;
 
   factory PracticeActivityCatalog.empty({String? installationId}) {
     return PracticeActivityCatalog(
@@ -120,17 +100,6 @@ class PracticeActivityCatalog {
       skippedUnknownContentEvents: 0,
     );
   }
-
-  final String? installationId;
-  final List<PracticeCatalogSpaceSummary> spaces;
-  final List<PracticeCatalogActivitySummary> activities;
-  final int totalStoredEvents;
-  final int validEvents;
-  final int knownEvents;
-  final int skippedMalformedEvents;
-  final int skippedUnknownContentEvents;
-  final String? lastIssueMessage;
-  final String? catalogWarning;
 
   bool get isEmpty => activities.isEmpty;
 

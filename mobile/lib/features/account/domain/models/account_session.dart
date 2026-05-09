@@ -1,20 +1,41 @@
-class AccountSession {
-  AccountSession({
-    required this.accountId,
-    required this.sessionId,
-    required this.maskedPhoneNumber,
+import 'package:freezed_annotation/freezed_annotation.dart';
+
+part 'account_session.freezed.dart';
+
+@freezed
+class AccountSession with _$AccountSession {
+  AccountSession._();
+
+  factory AccountSession({
+    required String accountId,
+    required String sessionId,
+    required String maskedPhoneNumber,
     required DateTime createdAt,
     String? accessToken,
     String? refreshToken,
     String? tokenType,
     DateTime? accessTokenExpiresAt,
     DateTime? refreshTokenExpiresAt,
-  }) : createdAt = createdAt.toUtc(),
-       accessToken = _normalizeOptionalString(accessToken),
-       refreshToken = _normalizeOptionalString(refreshToken),
-       tokenType = _normalizeOptionalString(tokenType),
-       accessTokenExpiresAt = accessTokenExpiresAt?.toUtc(),
-       refreshTokenExpiresAt = refreshTokenExpiresAt?.toUtc() {
+  }) = _AccountSession;
+
+  factory AccountSession.validated({
+    required String accountId,
+    required String sessionId,
+    required String maskedPhoneNumber,
+    required DateTime createdAt,
+    String? accessToken,
+    String? refreshToken,
+    String? tokenType,
+    DateTime? accessTokenExpiresAt,
+    DateTime? refreshTokenExpiresAt,
+  }) {
+    final normalizedAccessToken = normalizeOptionalString(accessToken);
+    final normalizedRefreshToken = normalizeOptionalString(refreshToken);
+    final normalizedTokenType = normalizeOptionalString(tokenType);
+    final utcCreatedAt = createdAt.toUtc();
+    final utcAccessTokenExpiresAt = accessTokenExpiresAt?.toUtc();
+    final utcRefreshTokenExpiresAt = refreshTokenExpiresAt?.toUtc();
+
     if (accountId.trim().isEmpty) {
       throw const FormatException('accountId 不能为空。');
     }
@@ -26,37 +47,54 @@ class AccountSession {
     }
 
     final hasAnyJwtField =
-        this.accessToken != null ||
-        this.refreshToken != null ||
-        this.tokenType != null ||
-        this.accessTokenExpiresAt != null ||
-        this.refreshTokenExpiresAt != null;
-    if (!hasAnyJwtField) {
-      return;
+        normalizedAccessToken != null ||
+        normalizedRefreshToken != null ||
+        normalizedTokenType != null ||
+        utcAccessTokenExpiresAt != null ||
+        utcRefreshTokenExpiresAt != null;
+    if (hasAnyJwtField) {
+      if (normalizedAccessToken == null || normalizedRefreshToken == null) {
+        throw const FormatException(
+          'JWT session 必须同时包含 accessToken 与 refreshToken。',
+        );
+      }
+      if (utcAccessTokenExpiresAt == null ||
+          utcRefreshTokenExpiresAt == null) {
+        throw const FormatException(
+          'JWT session 必须同时包含 accessTokenExpiresAt 与 refreshTokenExpiresAt。',
+        );
+      }
     }
 
-    if (this.accessToken == null || this.refreshToken == null) {
-      throw const FormatException(
-        'JWT session 必须同时包含 accessToken 与 refreshToken。',
-      );
-    }
-    if (this.accessTokenExpiresAt == null ||
-        this.refreshTokenExpiresAt == null) {
-      throw const FormatException(
-        'JWT session 必须同时包含 accessTokenExpiresAt 与 refreshTokenExpiresAt。',
-      );
-    }
+    return AccountSession(
+      accountId: accountId,
+      sessionId: sessionId,
+      maskedPhoneNumber: maskedPhoneNumber,
+      createdAt: utcCreatedAt,
+      accessToken: normalizedAccessToken,
+      refreshToken: normalizedRefreshToken,
+      tokenType: normalizedTokenType,
+      accessTokenExpiresAt: utcAccessTokenExpiresAt,
+      refreshTokenExpiresAt: utcRefreshTokenExpiresAt,
+    );
   }
 
-  final String accountId;
-  final String sessionId;
-  final String maskedPhoneNumber;
-  final DateTime createdAt;
-  final String? accessToken;
-  final String? refreshToken;
-  final String? tokenType;
-  final DateTime? accessTokenExpiresAt;
-  final DateTime? refreshTokenExpiresAt;
+  factory AccountSession.fromJsonMap(Map<String, dynamic> json) {
+    return AccountSession.validated(
+      accountId: readRequiredString(json, 'accountId'),
+      sessionId: readRequiredString(json, 'sessionId'),
+      maskedPhoneNumber: readRequiredString(json, 'maskedPhoneNumber'),
+      createdAt: readRequiredDateTime(json, 'createdAt'),
+      accessToken: readOptionalString(json, 'accessToken'),
+      refreshToken: readOptionalString(json, 'refreshToken'),
+      tokenType: readOptionalString(json, 'tokenType'),
+      accessTokenExpiresAt: readOptionalDateTime(json, 'accessTokenExpiresAt'),
+      refreshTokenExpiresAt: readOptionalDateTime(
+        json,
+        'refreshTokenExpiresAt',
+      ),
+    );
+  }
 
   bool get hasJwtTokens => accessToken != null && refreshToken != null;
 
@@ -114,24 +152,9 @@ class AccountSession {
     };
   }
 
-  factory AccountSession.fromJsonMap(Map<String, dynamic> json) {
-    return AccountSession(
-      accountId: _readRequiredString(json, 'accountId'),
-      sessionId: _readRequiredString(json, 'sessionId'),
-      maskedPhoneNumber: _readRequiredString(json, 'maskedPhoneNumber'),
-      createdAt: _readRequiredDateTime(json, 'createdAt'),
-      accessToken: _readOptionalString(json, 'accessToken'),
-      refreshToken: _readOptionalString(json, 'refreshToken'),
-      tokenType: _readOptionalString(json, 'tokenType'),
-      accessTokenExpiresAt: _readOptionalDateTime(json, 'accessTokenExpiresAt'),
-      refreshTokenExpiresAt: _readOptionalDateTime(
-        json,
-        'refreshTokenExpiresAt',
-      ),
-    );
-  }
+  // --- Shared validation helpers ---
 
-  static String _readRequiredString(Map<String, dynamic> json, String key) {
+  static String readRequiredString(Map<String, dynamic> json, String key) {
     final value = json[key];
     if (value is! String || value.trim().isEmpty) {
       throw FormatException('字段 `$key` 缺失或不是非空字符串。');
@@ -139,7 +162,7 @@ class AccountSession {
     return value;
   }
 
-  static String? _readOptionalString(Map<String, dynamic> json, String key) {
+  static String? readOptionalString(Map<String, dynamic> json, String key) {
     final value = json[key];
     if (value == null) {
       return null;
@@ -150,7 +173,7 @@ class AccountSession {
     return value;
   }
 
-  static String? _normalizeOptionalString(String? value) {
+  static String? normalizeOptionalString(String? value) {
     if (value == null) {
       return null;
     }
@@ -161,7 +184,10 @@ class AccountSession {
     return normalized;
   }
 
-  static DateTime _readRequiredDateTime(Map<String, dynamic> json, String key) {
+  static DateTime readRequiredDateTime(
+    Map<String, dynamic> json,
+    String key,
+  ) {
     final value = json[key];
     if (value is! String || value.trim().isEmpty) {
       throw FormatException('字段 `$key` 缺失或不是合法时间字符串。');
@@ -169,7 +195,7 @@ class AccountSession {
     return DateTime.parse(value).toUtc();
   }
 
-  static DateTime? _readOptionalDateTime(
+  static DateTime? readOptionalDateTime(
     Map<String, dynamic> json,
     String key,
   ) {
