@@ -45,13 +45,13 @@ class GardenHeroCard extends StatelessWidget {
       body = l.gardenProjectingNote;
     } else if (continuityViewModel == null) {
       eyebrow = l.gardenContinuityNotConnected;
-      title = '继续入口暂不可用';
+      title = l.gardenContinueUnavailable;
       body = l.gardenUnavailable;
     } else if (continuityViewModel!.disabledReason != null) {
       eyebrow = l.gardenComeBack;
       title = continuityActivityTitle == null
-          ? '继续入口暂不可用'
-          : '继续 $continuityActivityTitle';
+          ? l.gardenContinueUnavailable
+          : l.gardenContinueActivityTitle(continuityActivityTitle);
       body = continuityViewModel!.disabledReason!;
     } else if (impact != null) {
       eyebrow = impact.spaceTitle;
@@ -62,11 +62,15 @@ class GardenHeroCard extends StatelessWidget {
           ? impact.detail
           : impact.activityId ==
                 continuitySnapshot?.recommendedActivity.activityId
-          ? '${impact.detail} 现在继续会回到 $continuityActivityTitle。'
-          : '最新影响来自 ${impact.activityTitle}；回来继续会去 $continuityActivityTitle（${continuityReasonLabel ?? l.gardenSharedContinuity}）。';
+          ? l.gardenImpactContinue(impact.detail, continuityActivityTitle)
+          : l.gardenImpactWithReasonDetail(
+              impact.activityTitle,
+              continuityActivityTitle,
+              continuityReasonLabel ?? l.gardenSharedContinuity,
+            );
     } else if (continuityActivityTitle != null) {
       eyebrow = l.gardenComeBack;
-      title = '继续 $continuityActivityTitle';
+      title = l.gardenContinueActivityTitle(continuityActivityTitle);
       body = l.gardenContinuitySharedNote;
     }
 
@@ -95,8 +99,7 @@ class GardenHeroCard extends StatelessWidget {
               ),
               child: Text(
                 impact.phraseTitle,
-                style: theme.textTheme.displayMedium?.copyWith(
-                  fontSize: 28,
+                style: theme.textTheme.headlineMedium?.copyWith(
                   color: colors.english,
                 ),
               ),

@@ -70,7 +70,7 @@ class ShareCalloutCard extends StatelessWidget {
                 borderRadius: BorderRadius.circular(999),
               ),
               child: Text(
-                '今天说的一句：${draft.phraseText!.trim()}',
+                l.sharePhraseTodayLabel(draft.phraseText!.trim()),
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: colors.english,
                   fontWeight: FontWeight.w700,

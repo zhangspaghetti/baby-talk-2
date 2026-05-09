@@ -1213,4 +1213,107 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get activationFrameLabel => 'C3 激活框';
+
+  @override
+  String get accountEntryLoading => '正在准备账号状态';
+
+  @override
+  String get accountEntryPreparingProfile => '先保留同意前本地档案';
+
+  @override
+  String get accountEntryVisibleNotLoggedIn => '账号入口已可见，但你还没有登录';
+
+  @override
+  String accountEntrySignedInSynced(Object phone) {
+    return '已用 $phone 登录并完成最近一次对齐';
+  }
+
+  @override
+  String get accountEntryReadFailedShell => '账号状态读取失败，但当前 shell 仍可继续使用';
+
+  @override
+  String get accountEntryTitle => '账号入口';
+
+  @override
+  String get accountEntryS03Label => 'S03 账号 / 同意 / 同步闭环';
+
+  @override
+  String get accountEntrySubmitMessage => '登录已完成，可返回首页查看最近恢复结果。';
+
+  @override
+  String get accountEntrySubmitButton => '提交';
+
+  @override
+  String get shellDiscoverTooltip => '发现活动';
+
+  @override
+  String get shellPractice => '练习';
+
+  @override
+  String shellPracticeName(Object name) {
+    return '$name 的练习';
+  }
+
+  @override
+  String get shellGrowthTab => '成长';
+
+  @override
+  String get shellFirstTimeDrawerStage => '第一次进入家庭档案';
+
+  @override
+  String get shellDrawerNoteText =>
+      'Drawer 现在会直接显示 invite CTA、角色 badge、最近是谁完成了什么，以及共享下一步是否安全可进。';
+
+  @override
+  String get growthDiaryEmpty => '还没有自动日记，第一次练习完成后会在这里记下变化。';
+
+  @override
+  String get growthMilestoneEmpty => '里程碑会在真实练习后逐步点亮。';
+
+  @override
+  String get growthShareWaitStable => '等最近成长和继续建议整理稳定后，再生成一条脱敏分享链接。';
+
+  @override
+  String get growthSceneEmpty => '花圃还没醒来，所以暂时没有场景进展。';
+
+  @override
+  String get gardenContinueUnavailable => '继续入口暂不可用';
+
+  @override
+  String gardenContinueActivityTitle(Object activityTitle) {
+    return '继续 $activityTitle';
+  }
+
+  @override
+  String gardenImpactContinue(Object detail, Object activityTitle) {
+    return '$detail 现在继续会回到 $activityTitle。';
+  }
+
+  @override
+  String gardenImpactWithReasonDetail(
+    Object impactTitle,
+    Object activityTitle,
+    Object reason,
+  ) {
+    return '最新影响来自 $impactTitle；回来继续会去 $activityTitle（$reason）。';
+  }
+
+  @override
+  String get discoverInvalidCardError => '这张活动卡缺少有效的 spaceId/activityId，已禁止导航。';
+
+  @override
+  String discoverOpenActivityError(Object title, Object error) {
+    return '打开 $title 失败：$error';
+  }
+
+  @override
+  String sharePhraseTodayLabel(Object phrase) {
+    return '今天说的一句：$phrase';
+  }
+
+  @override
+  String get mentorSuggestionTabSemantics => '建议标签页';
+
+  @override
+  String get mentorChatTabSemantics => '聊天标签页';
 }

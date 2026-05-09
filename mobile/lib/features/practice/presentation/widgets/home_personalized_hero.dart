@@ -78,8 +78,7 @@ class HomePersonalizedHero extends StatelessWidget {
                 const SizedBox(height: 10),
                 Text(
                   starterPhrase?.english ?? 'Bath time, baby.',
-                  style: theme.textTheme.displayMedium?.copyWith(
-                    fontSize: 28,
+                  style: theme.textTheme.headlineMedium?.copyWith(
                     color: colors.english,
                   ),
                 ),

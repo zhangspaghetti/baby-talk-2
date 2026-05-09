@@ -4,7 +4,14 @@
       "mcp__tavily__tavily_search",
       "Bash(~/.claude/skills/gstack/bin/gstack-review-read)",
       "Skill(design-consultation)",
-      "Skill(design-consultation:*)"
+      "Skill(design-consultation:*)",
+      "Bash(python3 \"C:\\\\Users\\\\zhang\\\\.claude\\\\skills\\\\ui-ux-pro-max\\\\scripts\\\\search.py\" *)",
+      "Bash(dart analyze *)",
+      "Bash(dart format *)",
+      "Bash(flutter gen-l10n *)",
+      "Bash(flutter analyze *)",
+      "Bash(flutter test *)",
+      "Bash(ECC_GATEGUARD=off echo \"Gate guard disabled\")"
     ]
   }
 }

@@ -13,8 +13,7 @@ import 'package:mobile/features/onboarding/domain/models/stage_match.dart';
 import 'package:mobile/features/practice/presentation/garden_growth_view_model.dart';
 import 'package:mobile/features/practice/presentation/screens/home_screen.dart';
 import 'package:mobile/features/shell/presentation/screens/discover_screen.dart';
-import 'package:mobile/features/shell/presentation/screens/garden_screen.dart';
-import 'package:mobile/features/shell/presentation/screens/growth_screen.dart';
+import 'package:mobile/features/shell/presentation/screens/garden_growth_combined_screen.dart';
 import 'package:provider/provider.dart';
 import 'package:mobile/l10n/app_localizations.dart';
 
@@ -51,9 +50,31 @@ class _AppShellScreenState extends State<AppShellScreen> {
           },
         ),
         title: Text(
-          _titleForIndex(_selectedIndex, widget.onboardingSnapshot),
+          _titleForIndex(l, _selectedIndex, widget.onboardingSnapshot),
           style: Theme.of(context).textTheme.titleLarge,
         ),
+        actions: [
+          IconButton(
+            key: const Key('shell-discover-action'),
+            tooltip: l.shellDiscoverTooltip,
+            icon: const Icon(Icons.explore_outlined),
+            onPressed: () => showModalBottomSheet<void>(
+              context: context,
+              isScrollControlled: true,
+              useSafeArea: true,
+              shape: const RoundedRectangleBorder(
+                borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+              ),
+              builder: (_) => DraggableScrollableSheet(
+                initialChildSize: 0.92,
+                minChildSize: 0.5,
+                maxChildSize: 0.95,
+                expand: false,
+                builder: (_, scrollController) => const DiscoverScreen(),
+              ),
+            ),
+          ),
+        ],
       ),
       endDrawer: _HouseholdDrawer(
         snapshot: widget.onboardingSnapshot,
@@ -76,15 +97,13 @@ class _AppShellScreenState extends State<AppShellScreen> {
             onboardingSnapshot: widget.onboardingSnapshot,
             embeddedInShell: true,
           ),
-          const DiscoverScreen(),
-          const GardenScreen(),
-          const GrowthScreen(),
+          const GardenGrowthCombinedScreen(),
         ],
       ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _selectedIndex,
         onDestinationSelected: (index) {
-          if (index == 2 || index == 3) {
+          if (index == 1) {
             final gardenGrowthViewModel = context
                 .read<GardenGrowthViewModel?>();
             if (gardenGrowthViewModel != null &&
@@ -98,48 +117,36 @@ class _AppShellScreenState extends State<AppShellScreen> {
         },
         destinations: [
           NavigationDestination(
-            key: const Key('shell-nav-home'),
-            icon: Icon(Icons.home_outlined),
-            selectedIcon: Icon(Icons.home_rounded),
-            label: '首页',
-          ),
-          NavigationDestination(
-            key: const Key('shell-nav-discover'),
-            icon: Icon(Icons.search_outlined),
-            selectedIcon: Icon(Icons.search_rounded),
-            label: '发现',
-          ),
-          NavigationDestination(
-            key: const Key('shell-nav-garden'),
-            icon: Icon(Icons.local_florist_outlined),
-            selectedIcon: Icon(Icons.local_florist_rounded),
-            label: '花园',
+            key: const Key('shell-nav-practice'),
+            icon: const Icon(Icons.record_voice_over_outlined),
+            selectedIcon: const Icon(Icons.record_voice_over_rounded),
+            label: l.shellPractice,
           ),
           NavigationDestination(
             key: const Key('shell-nav-growth'),
-            icon: Icon(Icons.insights_outlined),
-            selectedIcon: Icon(Icons.insights_rounded),
-            label: '成长',
+            icon: const Icon(Icons.auto_graph_outlined),
+            selectedIcon: const Icon(Icons.auto_graph_rounded),
+            label: l.shellGrowthTab,
           ),
         ],
       ),
     );
   }
 
-  String _titleForIndex(int index, OnboardingSnapshot? snapshot) {
+  String _titleForIndex(
+    AppLocalizations l,
+    int index,
+    OnboardingSnapshot? snapshot,
+  ) {
     switch (index) {
       case 0:
         final name = snapshot?.childDisplayName.trim();
         if (name != null && name.isNotEmpty) {
-          return '$name 的首页';
+          return l.shellPracticeName(name);
         }
-        return '首页';
+        return l.shellPractice;
       case 1:
-        return '发现';
-      case 2:
-        return '花园';
-      case 3:
-        return '成长';
+        return l.shellGrowthTab;
     }
     return 'Baby Talk 2';
   }
@@ -147,15 +154,11 @@ class _AppShellScreenState extends State<AppShellScreen> {
   String _surfaceForIndex(int index) {
     switch (index) {
       case 0:
-        return 'home';
+        return 'practice';
       case 1:
-        return 'discover';
-      case 2:
-        return 'garden';
-      case 3:
         return 'growth';
     }
-    return 'home';
+    return 'practice';
   }
 
   StageMatch? _resolveStageMatch(OnboardingSnapshot? snapshot) {
@@ -174,11 +177,12 @@ class _DrawerAvatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
     final colors = context.appColors;
     final theme = Theme.of(context);
     final name = snapshot?.childDisplayName.trim();
     final avatarLabel = name == null || name.isEmpty
-        ? '家'
+        ? l.shellAvatarHome
         : name.substring(0, 1);
 
     return Container(
@@ -206,13 +210,14 @@ class _HouseholdDrawer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
     final colors = context.appColors;
     final theme = Theme.of(context);
     final householdViewModel = context.watch<HouseholdViewModel?>();
     final householdSnapshot = householdViewModel?.snapshot;
     final childName = snapshot?.childDisplayName.trim();
     final displayName = childName == null || childName.isEmpty
-        ? '这位宝宝'
+        ? l.shellBabyName
         : childName;
     final role = householdSnapshot?.role;
 
@@ -227,7 +232,7 @@ class _HouseholdDrawer extends StatelessWidget {
               Align(
                 alignment: Alignment.topRight,
                 child: IconButton(
-                  tooltip: '关闭',
+                  tooltip: l.close,
                   onPressed: () => Navigator.of(context).maybePop(),
                   icon: const Icon(Icons.close),
                 ),
@@ -235,14 +240,13 @@ class _HouseholdDrawer extends StatelessWidget {
               Text(
                 displayName,
                 key: const Key('shell-drawer-child-name'),
-                style: theme.textTheme.displayMedium?.copyWith(
-                  fontSize: 28,
+                style: theme.textTheme.headlineMedium?.copyWith(
                   color: colors.textPrimary,
                 ),
               ),
               const SizedBox(height: 8),
               Text(
-                stageMatch?.title ?? '第一次进入家庭档案',
+                stageMatch?.title ?? l.shellFirstTimeDrawerStage,
                 key: const Key('shell-drawer-stage-title'),
                 style: theme.textTheme.titleMedium,
               ),
@@ -253,7 +257,7 @@ class _HouseholdDrawer extends StatelessWidget {
                 children: [
                   _DrawerRoleChip(
                     key: const Key('shell-drawer-role-badge'),
-                    label: role?.label ?? '共享未接通',
+                    label: role?.label ?? l.shellSharedNotConnected,
                     backgroundColor: _drawerRoleBackground(role, colors),
                     foregroundColor: _drawerRoleForeground(role, colors),
                   ),
@@ -266,7 +270,7 @@ class _HouseholdDrawer extends StatelessWidget {
               ),
               const SizedBox(height: 8),
               Text(
-                stageMatch?.summary ?? '当前还没有完整阶段说明，后续完成 onboarding 后会显示这里。',
+                stageMatch?.summary ?? l.shellNoStageDescription,
                 style: theme.textTheme.bodyMedium,
               ),
               const SizedBox(height: 20),
@@ -279,7 +283,7 @@ class _HouseholdDrawer extends StatelessWidget {
                   borderRadius: BorderRadius.circular(16),
                 ),
                 child: Text(
-                  '同意前，这里的昵称、月龄档和阶段仅保存在这台设备上；共享照护只会显示脱敏后的角色、phase 和上下文摘要。',
+                  l.shellLocalOnlyNote,
                   style: theme.textTheme.bodyMedium,
                 ),
               ),
@@ -293,7 +297,7 @@ class _HouseholdDrawer extends StatelessWidget {
               HouseholdSharedContextCard(
                 surfaceKeyPrefix: 'shell',
                 viewModel: householdViewModel,
-                title: '共享家庭档案',
+                title: l.shellSharedProfile,
                 compact: true,
                 retryReason: 'shell_drawer_manual_refresh',
               ),
@@ -315,27 +319,30 @@ class _HouseholdDrawer extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('家庭档案', style: theme.textTheme.labelMedium),
+                    Text(
+                      l.shellFamilyProfile,
+                      style: theme.textTheme.labelMedium,
+                    ),
                     const SizedBox(height: 10),
                     _DrawerMetaRow(
-                      label: '月龄档',
-                      value: snapshot?.ageBucket.label ?? '未填写',
+                      label: l.shellAgeBucket,
+                      value: snapshot?.ageBucket.label ?? l.shellNotFilled,
                     ),
                     const SizedBox(height: 8),
                     _DrawerMetaRow(
-                      label: '当前阶段',
-                      value: stageMatch?.title ?? '待匹配',
+                      label: l.shellCurrentStage,
+                      value: stageMatch?.title ?? l.shellPendingMatch,
                     ),
                     const SizedBox(height: 8),
-                    _DrawerMetaRow(label: '共享角色', value: role?.label ?? '待同步'),
+                    _DrawerMetaRow(
+                      label: l.shellSharedRole,
+                      value: role?.label ?? l.shellPendingSync,
+                    ),
                   ],
                 ),
               ),
               const SizedBox(height: 20),
-              Text(
-                'Drawer 现在会直接显示 invite CTA、角色 badge、最近是谁完成了什么，以及共享下一步是否安全可进。',
-                style: theme.textTheme.bodySmall,
-              ),
+              Text(l.shellDrawerNoteText, style: theme.textTheme.bodySmall),
             ],
           ),
         ),

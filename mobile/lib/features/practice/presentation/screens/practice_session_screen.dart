@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:mobile/app/widgets/app_banner.dart';
+import 'package:mobile/app/theme/app_layout_constants.dart';
 import 'package:mobile/app/theme/app_theme.dart';
 import 'package:mobile/features/account/presentation/account_view_model.dart';
 import 'package:mobile/features/mentor/presentation/mentor_audio_controller.dart';
@@ -37,7 +39,8 @@ class PracticeSessionScreen extends StatelessWidget {
         repository: repository,
         spaceId: args.spaceId,
         activityId: args.activityId,
-        accessTokenLoader: () => accountViewModel?.snapshot.session?.accessToken,
+        accessTokenLoader: () =>
+            accountViewModel?.snapshot.session?.accessToken,
         audioController: audioControllerFactory?.call(),
       )..initialize(),
       child: _PracticeSessionBody(routeArgs: args),
@@ -132,7 +135,9 @@ class _PracticeSessionBodyState extends State<_PracticeSessionBody> {
         child: Align(
           alignment: Alignment.topCenter,
           child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 430),
+            constraints: const BoxConstraints(
+              maxWidth: AppLayoutConstants.maxContentWidth,
+            ),
             child: ListView(
               padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
               children: [
@@ -189,7 +194,7 @@ class _PracticeSessionBodyState extends State<_PracticeSessionBody> {
                 ),
                 if (viewModel.restoreStatusMessage != null) ...[
                   const SizedBox(height: 16),
-                  _PracticeBanner(
+                  AppBanner(
                     key: const Key('practice-restore-banner'),
                     message: viewModel.restoreStatusMessage!,
                     backgroundColor: viewModel.hasRecoverableRestoreIssue
@@ -202,7 +207,7 @@ class _PracticeSessionBodyState extends State<_PracticeSessionBody> {
                 ],
                 if (viewModel.sessionErrorMessage != null) ...[
                   const SizedBox(height: 16),
-                  _PracticeBanner(
+                  AppBanner(
                     key: const Key('session-error-banner'),
                     message: viewModel.sessionErrorMessage!,
                     backgroundColor: colors.errorSoft,
@@ -211,7 +216,7 @@ class _PracticeSessionBodyState extends State<_PracticeSessionBody> {
                 ],
                 if (viewModel.sessionCompleted) ...[
                   const SizedBox(height: 16),
-                  _PracticeBanner(
+                  AppBanner(
                     key: const Key('practice-complete-banner'),
                     message: l.practiceLastSaved,
                     backgroundColor: colors.successSoft,
@@ -347,38 +352,6 @@ class _PracticeFallback extends StatelessWidget {
             child: Text(l.practiceBackHome),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _PracticeBanner extends StatelessWidget {
-  const _PracticeBanner({
-    super.key,
-    required this.message,
-    required this.backgroundColor,
-    required this.foregroundColor,
-  });
-
-  final String message;
-  final Color backgroundColor;
-  final Color foregroundColor;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: backgroundColor,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Text(
-        message,
-        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-          color: foregroundColor,
-          fontWeight: FontWeight.w700,
-        ),
       ),
     );
   }

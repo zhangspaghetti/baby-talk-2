@@ -35,8 +35,8 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byKey(const Key('account-entry-surface')), findsOneWidget);
-    expect(find.byKey(const Key('account-status-local-only')), findsOneWidget);
-    expect(find.text('先保留同意前本地档案'), findsOneWidget);
+    expect(find.byKey(const Key('account-status-signed-out')), findsOneWidget);
+    expect(find.text('账号入口已可见，但你还没有登录'), findsOneWidget);
   });
 
   testWidgets('home 账号卡片在 version-blocked 时展示立即升级 CTA 并传递真实链接', (
@@ -153,7 +153,7 @@ void main() {
     expect(find.text('请输入 11 位手机号。'), findsOneWidget);
     expect(find.text('请输入 6 位验证码。'), findsOneWidget);
     expect(find.text('手机号或验证码格式不正确，未发起真实登录。'), findsOneWidget);
-    expect(find.byKey(const Key('account-status-local-only')), findsOneWidget);
+    expect(find.byKey(const Key('account-status-signed-out')), findsOneWidget);
   });
 
   testWidgets('占位登录成功后会进入 signed-in-pending-sync 状态并显示脱敏手机号', (

@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:mobile/app/widgets/app_banner.dart';
+import 'package:mobile/app/theme/app_layout_constants.dart';
 import 'package:mobile/app/theme/app_theme.dart';
 import 'package:mobile/features/household/presentation/household_view_model.dart';
 import 'package:mobile/features/household/presentation/widgets/household_shared_context_card.dart';
@@ -13,6 +15,7 @@ import 'package:mobile/features/shell/presentation/widgets/garden_patch_card.dar
 import 'package:provider/provider.dart';
 import 'package:mobile/l10n/app_localizations.dart';
 
+@Deprecated('Use GardenGrowthCombinedScreen instead')
 class GardenScreen extends StatelessWidget {
   const GardenScreen({super.key});
 
@@ -50,7 +53,9 @@ class GardenScreen extends StatelessWidget {
       child: Align(
         alignment: Alignment.topCenter,
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 430),
+          constraints: const BoxConstraints(
+            maxWidth: AppLayoutConstants.maxContentWidth,
+          ),
           child: RefreshIndicator(
             onRefresh: () async {
               await Future.wait([
@@ -62,7 +67,7 @@ class GardenScreen extends StatelessWidget {
             child: ListView(
               key: const Key('shell-tab-garden'),
               physics: const AlwaysScrollableScrollPhysics(),
-              padding: const EdgeInsets.fromLTRB(20, 12, 20, 120),
+              padding: AppLayoutConstants.shellTabPadding,
               children: [
                 GardenHeroCard(
                   snapshot: snapshot,
@@ -80,7 +85,7 @@ class GardenScreen extends StatelessWidget {
                 ),
                 if (viewModel?.hasError ?? false) ...[
                   const SizedBox(height: 16),
-                  _GardenBanner(
+                  AppBanner(
                     key: const Key('garden-warning-banner'),
                     message: viewModel!.message ?? l.gardenRefreshFailed,
                     backgroundColor: colors.warningSoft,
@@ -122,7 +127,7 @@ class GardenScreen extends StatelessWidget {
                   const SizedBox(height: 16),
                 ],
                 if (shouldShowSharedOverlayDisabled) ...[
-                  _GardenBanner(
+                  AppBanner(
                     key: const Key('garden-shared-overlay-disabled-banner'),
                     message: householdSharedUnavailableNextStepMessage(
                       sharedContext,
@@ -168,38 +173,6 @@ class _GardenEmptyState extends StatelessWidget {
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _GardenBanner extends StatelessWidget {
-  const _GardenBanner({
-    super.key,
-    required this.message,
-    required this.backgroundColor,
-    required this.foregroundColor,
-  });
-
-  final String message;
-  final Color backgroundColor;
-  final Color foregroundColor;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: backgroundColor,
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Text(
-        message,
-        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-          color: foregroundColor,
-          fontWeight: FontWeight.w700,
-        ),
       ),
     );
   }

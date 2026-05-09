@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:mobile/app/router/app_router.dart';
+import 'package:mobile/app/widgets/app_banner.dart';
+import 'package:mobile/app/theme/app_layout_constants.dart';
 import 'package:mobile/app/theme/app_theme.dart';
 import 'package:mobile/features/account/presentation/account_view_model.dart';
 import 'package:mobile/features/account/presentation/screens/account_entry_screen.dart';
@@ -232,7 +234,9 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
       child: Align(
         alignment: Alignment.topCenter,
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 430),
+          constraints: const BoxConstraints(
+            maxWidth: AppLayoutConstants.maxContentWidth,
+          ),
           child: continuityViewModel?.isInitialLoading ?? false
               ? const _HomeLoadingState()
               : ListView(
@@ -267,7 +271,15 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
                           : null,
                     ),
                     if (widget.onboardingSnapshot != null) ...[
-                      _LocalOnlyBanner(snapshot: widget.onboardingSnapshot!),
+                      AppBanner(
+                        key: const Key('home-local-only-banner'),
+                        message: l.homeLocalOnlyBanner(
+                          widget.onboardingSnapshot!.childDisplayName,
+                        ),
+                        backgroundColor: colors.bgSunken,
+                        foregroundColor: colors.textSecondary,
+                        icon: Icons.lock_outline,
+                      ),
                       const SizedBox(height: 20),
                       HomePersonalizedHero(
                         snapshot: widget.onboardingSnapshot!,
@@ -290,7 +302,7 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
                       ),
                       if (hasResolvedContinuity) ...[
                         const SizedBox(height: 12),
-                        _HomeBanner(
+                        AppBanner(
                           key: const Key('home-restore-banner'),
                           message: _buildGuestRestoreMessage(
                             continuitySnapshot,
@@ -339,7 +351,7 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
                     ),
                     if (continuityViewModel == null) ...[
                       const SizedBox(height: 20),
-                      _HomeBanner(
+                      AppBanner(
                         key: Key('home-continuity-provider-missing-banner'),
                         message: l.homePracticeUnavailable,
                         backgroundColor: colors.warningSoft,
@@ -348,7 +360,7 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
                     ],
                     if (continuitySnapshot?.fallbackReason != null) ...[
                       const SizedBox(height: 20),
-                      _HomeBanner(
+                      AppBanner(
                         key: const Key('home-continuity-fallback-banner'),
                         message: continuitySnapshot!.fallbackReason!,
                         backgroundColor: colors.infoSoft,
@@ -357,7 +369,7 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
                     ],
                     if (homeWarningMessage != null) ...[
                       const SizedBox(height: 20),
-                      _HomeBanner(
+                      AppBanner(
                         key: const Key('home-continuity-warning-banner'),
                         message: homeWarningMessage,
                         backgroundColor: colors.warningSoft,
@@ -374,7 +386,7 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
                     ],
                     if (homeDisabledReason != null) ...[
                       const SizedBox(height: 20),
-                      _HomeBanner(
+                      AppBanner(
                         key: const Key('home-continuity-disabled-banner'),
                         message: homeDisabledReason,
                         backgroundColor: colors.errorSoft,
@@ -397,7 +409,7 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
                     ],
                     if (shouldShowSharedOverlayDisabled) ...[
                       const SizedBox(height: 20),
-                      _HomeBanner(
+                      AppBanner(
                         key: const Key('home-shared-overlay-disabled-banner'),
                         message: householdSharedUnavailableNextStepMessage(
                           sharedContext,
@@ -578,47 +590,6 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
   }
 }
 
-class _LocalOnlyBanner extends StatelessWidget {
-  const _LocalOnlyBanner({required this.snapshot});
-
-  final OnboardingSnapshot snapshot;
-
-  @override
-  Widget build(BuildContext context) {
-    final l = AppLocalizations.of(context)!;
-    final colors = context.appColors;
-    return Container(
-      key: const Key('home-local-only-banner'),
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: colors.bgSunken,
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: EdgeInsets.only(top: 2),
-            child: Icon(
-              Icons.lock_outline,
-              color: colors.textSecondary,
-              size: 18,
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              l.homeLocalOnlyBanner(snapshot.childDisplayName),
-              style: Theme.of(context).textTheme.bodyMedium,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 class _HomeLoadingState extends StatelessWidget {
   const _HomeLoadingState();
 
@@ -637,51 +608,6 @@ class _HomeLoadingState extends StatelessWidget {
             borderRadius: BorderRadius.circular(2),
           ),
         ),
-      ),
-    );
-  }
-}
-
-class _HomeBanner extends StatelessWidget {
-  const _HomeBanner({
-    super.key,
-    required this.message,
-    required this.backgroundColor,
-    required this.foregroundColor,
-    this.actionLabel,
-    this.onAction,
-  });
-
-  final String message;
-  final Color backgroundColor;
-  final Color foregroundColor;
-  final String? actionLabel;
-  final Future<void> Function()? onAction;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: backgroundColor,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            message,
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: foregroundColor,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          if (actionLabel != null && onAction != null) ...[
-            const SizedBox(height: 12),
-            OutlinedButton(onPressed: onAction, child: Text(actionLabel!)),
-          ],
-        ],
       ),
     );
   }

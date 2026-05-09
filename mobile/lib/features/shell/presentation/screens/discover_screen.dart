@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:mobile/app/widgets/app_banner.dart';
+import 'package:mobile/app/theme/app_layout_constants.dart';
 import 'package:mobile/app/theme/app_theme.dart';
 import 'package:mobile/features/practice/data/repositories/practice_repository.dart';
 import 'package:mobile/features/practice/domain/models/practice_activity_catalog.dart';
@@ -40,6 +42,7 @@ class _DiscoverScreenState extends State<DiscoverScreen>
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
     final colors = context.appColors;
     super.build(context);
     final theme = Theme.of(context);
@@ -49,7 +52,9 @@ class _DiscoverScreenState extends State<DiscoverScreen>
       child: Align(
         alignment: Alignment.topCenter,
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 430),
+          constraints: const BoxConstraints(
+            maxWidth: AppLayoutConstants.maxContentWidth,
+          ),
           child: FutureBuilder<PracticeActivityCatalog>(
             future: _catalogFuture,
             builder: (context, snapshot) {
@@ -59,7 +64,7 @@ class _DiscoverScreenState extends State<DiscoverScreen>
 
               return ListView(
                 key: const Key('shell-tab-discover'),
-                padding: const EdgeInsets.fromLTRB(20, 12, 20, 120),
+                padding: AppLayoutConstants.shellTabPadding,
                 children: [
                   _DiscoverHero(theme: theme),
                   const SizedBox(height: 16),
@@ -73,7 +78,7 @@ class _DiscoverScreenState extends State<DiscoverScreen>
                   ),
                   if (_navigationError != null) ...[
                     const SizedBox(height: 16),
-                    _DiscoverBanner(
+                    AppBanner(
                       key: const Key('discover-navigation-error'),
                       message: _navigationError!,
                       backgroundColor: colors.errorSoft,
@@ -83,7 +88,7 @@ class _DiscoverScreenState extends State<DiscoverScreen>
                   if (catalog?.catalogWarning != null &&
                       catalog!.catalogWarning!.trim().isNotEmpty) ...[
                     const SizedBox(height: 16),
-                    _DiscoverBanner(
+                    AppBanner(
                       key: const Key('discover-catalog-warning'),
                       message: catalog.catalogWarning!,
                       backgroundColor: colors.warningSoft,
@@ -95,7 +100,7 @@ class _DiscoverScreenState extends State<DiscoverScreen>
                     const _DiscoverLoadingState()
                   else if (snapshot.hasError)
                     _DiscoverErrorState(
-                      message: '目录读取失败：${snapshot.error}',
+                      message: l.discoverLoadErrorMsg('${snapshot.error}'),
                       onRetry: _retryCatalog,
                     )
                   else if (catalog == null || catalog.isEmpty)
@@ -135,13 +140,14 @@ class _DiscoverScreenState extends State<DiscoverScreen>
   }
 
   Future<void> _openActivity(PracticeCatalogActivitySummary activity) async {
+    final l = AppLocalizations.of(context)!;
     final routeArgs = PracticeRouteArgs.maybeCreate(
       spaceId: activity.spaceId,
       activityId: activity.activityId,
     );
     if (routeArgs == null) {
       setState(() {
-        _navigationError = '这张活动卡缺少有效的 spaceId/activityId，已禁止导航。';
+        _navigationError = l.discoverInvalidCardError;
       });
       return;
     }
@@ -162,7 +168,10 @@ class _DiscoverScreenState extends State<DiscoverScreen>
         return;
       }
       setState(() {
-        _navigationError = '打开 ${activity.title} 失败：$error';
+        _navigationError = l.discoverOpenActivityError(
+          activity.title,
+          '$error',
+        );
       });
     }
   }
@@ -395,38 +404,6 @@ class _DiscoverSpaceList extends StatelessWidget {
           const SizedBox(height: 16),
         ],
       ],
-    );
-  }
-}
-
-class _DiscoverBanner extends StatelessWidget {
-  const _DiscoverBanner({
-    super.key,
-    required this.message,
-    required this.backgroundColor,
-    required this.foregroundColor,
-  });
-
-  final String message;
-  final Color backgroundColor;
-  final Color foregroundColor;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: backgroundColor,
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Text(
-        message,
-        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-          color: foregroundColor,
-          fontWeight: FontWeight.w700,
-        ),
-      ),
     );
   }
 }

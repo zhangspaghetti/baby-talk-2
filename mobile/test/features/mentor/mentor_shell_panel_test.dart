@@ -86,8 +86,6 @@ void main() {
 
     await tester.pumpWidget(harness.buildShell());
     await _pumpUntilFound(tester, find.byKey(const Key('shell-ready')));
-    await tester.tap(find.byTooltip('发现'));
-    await _pumpBriefly(tester);
 
     await tester.tap(find.byKey(const Key('shell-mentor-fab')));
     await tester.pump();
@@ -687,7 +685,7 @@ class _SilentPracticeAudioController implements PracticeAudioController {
 
 class _FakeMentorApiService extends MentorApiService {
   _FakeMentorApiService({this.response, this.error})
-    : super(baseUri: Uri.parse('http://localhost:8080'));
+    : super(baseUrl: 'http://localhost:8080');
 
   final MentorChatResponse? response;
   final MentorApiException? error;

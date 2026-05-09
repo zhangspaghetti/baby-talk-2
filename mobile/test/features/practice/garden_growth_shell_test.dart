@@ -60,36 +60,23 @@ void main() {
     await _pumpShellAsync(tester);
 
     expect(find.byKey(const Key('shell-ready')), findsOneWidget);
-    expect(find.text('米米 的首页'), findsOneWidget);
-
-    await tester.tap(find.byTooltip('花园'));
-    await _pumpUntilFound(tester, find.byKey(const Key('shell-tab-garden')));
-
-    expect(find.text('花园'), findsWidgets);
-    expect(find.byKey(const Key('shell-tab-garden')), findsOneWidget);
-    await tester.scrollUntilVisible(
-      find.byKey(const Key('garden-empty-state')),
-      160,
-      scrollable: find.byType(Scrollable).last,
-    );
-    await tester.pump();
-    expect(find.byKey(const Key('garden-empty-state')), findsOneWidget);
-    expect(find.textContaining('第一颗种子还没落下'), findsOneWidget);
-    expect(find.textContaining('S04 会把空间花圃'), findsNothing);
+    expect(find.text('米米 的练习'), findsOneWidget);
 
     await tester.tap(find.byTooltip('成长'));
-    await _pumpUntilFound(tester, find.byKey(const Key('shell-tab-growth')));
+    await _pumpUntilFound(tester, find.byKey(const Key('shell-tab-growth-combined')));
 
     expect(find.text('成长'), findsWidgets);
-    expect(find.byKey(const Key('shell-tab-growth')), findsOneWidget);
+    expect(find.byKey(const Key('shell-tab-growth-combined')), findsOneWidget);
     await tester.scrollUntilVisible(
-      find.byKey(const Key('growth-empty-state')),
+      find.byKey(const Key('growth-combined-empty-state')),
       160,
       scrollable: find.byType(Scrollable).last,
     );
     await tester.pump();
-    expect(find.byKey(const Key('growth-empty-state')), findsOneWidget);
-    expect(find.textContaining('最近成长会写在这里'), findsWidgets);
+    expect(find.byKey(const Key('growth-combined-empty-state')), findsOneWidget);
+    expect(find.textContaining('第一颗种子还没落下'), findsOneWidget);
+    expect(find.textContaining('S04 会把空间花圃'), findsNothing);
+    expect(find.byKey(const Key('growth-combined-latest-impact')), findsOneWidget);
 
     await tester.tap(find.byKey(const Key('shell-drawer-trigger')));
     await _pumpUntilFound(tester, find.byKey(const Key('shell-end-drawer')));
@@ -167,8 +154,8 @@ void main() {
 
     await tester.tapAt(const Offset(16, 120));
     await tester.pumpAndSettle();
-    await tester.tap(find.byTooltip('花园'));
-    await _pumpUntilFound(tester, find.byKey(const Key('shell-tab-garden')));
+    await tester.tap(find.byTooltip('成长'));
+    await _pumpUntilFound(tester, find.byKey(const Key('shell-tab-growth-combined')));
 
     final gardenScrollable = find.byType(Scrollable).last;
     final initialGardenOffset = tester
@@ -189,7 +176,7 @@ void main() {
     expect(find.byKey(const Key('garden-continue-practice')), findsOneWidget);
 
     await tester.scrollUntilVisible(
-      find.byKey(const Key('garden-household-shared-context-card')),
+      find.byKey(const Key('growth-combined-household-shared-context-card')),
       160,
       scrollable: gardenScrollable,
     );
@@ -201,23 +188,23 @@ void main() {
     expect(householdOffset, greaterThan(continueOffset));
 
     expect(
-      find.byKey(const Key('garden-household-shared-context-card')),
+      find.byKey(const Key('growth-combined-household-shared-context-card')),
       findsOneWidget,
     );
     expect(
-      find.byKey(const Key('garden-household-continuity-summary')),
+      find.byKey(const Key('growth-combined-household-continuity-summary')),
       findsOneWidget,
     );
     expect(find.textContaining('共享宝宝档案'), findsWidgets);
     await tester.scrollUntilVisible(
-      find.byKey(const Key('garden-shared-overlay-card')),
+      find.byKey(const Key('growth-combined-shared-overlay-card')),
       160,
       scrollable: find.byType(Scrollable).last,
     );
     await tester.pump();
-    expect(find.byKey(const Key('garden-shared-overlay-card')), findsOneWidget);
+    expect(find.byKey(const Key('growth-combined-shared-overlay-card')), findsOneWidget);
     expect(
-      find.byKey(const Key('garden-shared-overlay-button')),
+      find.byKey(const Key('growth-combined-shared-overlay-button')),
       findsOneWidget,
     );
   });
@@ -281,11 +268,11 @@ void main() {
       PracticeContinuityReason.recentActivity,
     );
 
-    await tester.tap(find.byTooltip('花园'));
-    await _pumpUntilFound(tester, find.byKey(const Key('shell-tab-garden')));
+    await tester.tap(find.byTooltip('成长'));
+    await _pumpUntilFound(tester, find.byKey(const Key('shell-tab-growth-combined')));
 
-    expect(find.byKey(const Key('shell-tab-garden')), findsOneWidget);
-    expect(find.byKey(const Key('garden-empty-state')), findsNothing);
+    expect(find.byKey(const Key('shell-tab-growth-combined')), findsOneWidget);
+    expect(find.byKey(const Key('growth-combined-empty-state')), findsNothing);
     await tester.scrollUntilVisible(
       find.byKey(const Key('garden-continue-practice')),
       180,
@@ -303,15 +290,17 @@ void main() {
     );
     expect(find.textContaining('吃饭时间'), findsWidgets);
 
-    await tester.tap(find.byTooltip('成长'));
-    await _pumpUntilFound(tester, find.byKey(const Key('shell-tab-growth')));
-
-    expect(find.byKey(const Key('shell-tab-growth')), findsOneWidget);
-    expect(find.byKey(const Key('growth-latest-impact')), findsOneWidget);
-    expect(find.byKey(const Key('growth-projection-warning')), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('growth-combined-latest-impact')),
+      180,
+      scrollable: find.byType(Scrollable).last,
+    );
+    await tester.pump();
+    expect(find.byKey(const Key('growth-combined-latest-impact')), findsOneWidget);
+    expect(find.byKey(const Key('growth-combined-projection-warning')), findsOneWidget);
     await tester.scrollUntilVisible(
       find.byKey(
-        const Key('growth-diary-install_garden_shell_test:evt_shell_feed_2'),
+        const Key('growth-combined-diary-install_garden_shell_test:evt_shell_feed_2'),
       ),
       180,
       scrollable: find.byType(Scrollable).last,
@@ -320,24 +309,17 @@ void main() {
 
     expect(
       find.byKey(
-        const Key('growth-diary-install_garden_shell_test:evt_shell_feed_2'),
+        const Key('growth-combined-diary-install_garden_shell_test:evt_shell_feed_2'),
       ),
       findsOneWidget,
     );
     expect(find.textContaining('Yummy bite.'), findsWidgets);
-    await tester.scrollUntilVisible(
-      find.byKey(const Key('growth-space-family_rhythm')),
-      120,
-      scrollable: find.byType(Scrollable).last,
-    );
-    await tester.pump();
-    expect(find.byKey(const Key('growth-space-family_rhythm')), findsOneWidget);
     await tester.ensureVisible(
-      find.byKey(const Key('growth-milestone-first_opening')),
+      find.byKey(const Key('growth-combined-milestone-first_opening')),
     );
     await tester.pump(const Duration(milliseconds: 100));
     expect(
-      find.byKey(const Key('growth-milestone-first_opening')),
+      find.byKey(const Key('growth-combined-milestone-first_opening')),
       findsOneWidget,
     );
   });
@@ -359,20 +341,17 @@ void main() {
     await _pumpUntilFound(tester, find.byKey(const Key('shell-ready')));
     await _pumpShellAsync(tester);
 
-    await tester.tap(find.byTooltip('花园'));
-    await _pumpUntilFound(tester, find.byKey(const Key('shell-tab-garden')));
+    await tester.tap(find.byTooltip('成长'));
+    await _pumpUntilFound(tester, find.byKey(const Key('shell-tab-growth-combined')));
     await tester.scrollUntilVisible(
-      find.byKey(const Key('garden-empty-state')),
+      find.byKey(const Key('growth-combined-empty-state')),
       160,
       scrollable: find.byType(Scrollable).last,
     );
     await tester.pump();
-    expect(find.byKey(const Key('garden-empty-state')), findsOneWidget);
+    expect(find.byKey(const Key('growth-combined-empty-state')), findsOneWidget);
     expect(find.textContaining('S04 会把空间花圃'), findsNothing);
-
-    await tester.tap(find.byTooltip('成长'));
-    await _pumpUntilFound(tester, find.byKey(const Key('shell-tab-growth')));
-    expect(find.byKey(const Key('growth-empty-state')), findsOneWidget);
+    expect(find.byKey(const Key('growth-combined-latest-impact')), findsOneWidget);
     expect(find.textContaining('S04 也会把日记'), findsNothing);
   });
 
@@ -425,8 +404,8 @@ void main() {
       await _pumpUntilFound(tester, find.byKey(const Key('shell-ready')));
       await _pumpShellAsync(tester);
 
-      await tester.tap(find.byTooltip('花园'));
-      await _pumpUntilFound(tester, find.byKey(const Key('shell-tab-garden')));
+      await tester.tap(find.byTooltip('成长'));
+      await _pumpUntilFound(tester, find.byKey(const Key('shell-tab-growth-combined')));
       await tester.pump();
 
       expect(find.byKey(const Key('garden-continue-practice')), findsOneWidget);

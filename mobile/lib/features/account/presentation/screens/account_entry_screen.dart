@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:mobile/app/theme/app_layout_constants.dart';
 import 'package:mobile/app/theme/app_theme.dart';
 import 'package:mobile/features/account/data/repositories/account_repository.dart';
+import 'package:mobile/features/account/presentation/account_surface_phase.dart';
 import 'package:mobile/features/account/presentation/account_view_model.dart';
 import 'package:mobile/features/household/presentation/household_view_model.dart';
 import 'package:mobile/features/household/presentation/widgets/household_invite_card.dart';
@@ -13,19 +15,6 @@ Future<void> openAccountEntryScreen(BuildContext context) {
   return Navigator.of(
     context,
   ).push(MaterialPageRoute<void>(builder: (_) => const AccountEntryScreen()));
-}
-
-enum AccountSurfacePhase {
-  loading,
-  localOnly,
-  signedOut,
-  signedInPendingSync,
-  signedInSynced,
-  signedInFailed,
-  revoked,
-  deleted,
-  versionBlocked,
-  error,
 }
 
 class AccountStatusCard extends StatelessWidget {
@@ -46,10 +35,13 @@ class AccountStatusCard extends StatelessWidget {
     final colors = context.appColors;
     final theme = Theme.of(context);
     final viewModel = context.watch<AccountViewModel>();
-    final phase = _resolvePhase(viewModel);
-    final title = _titleForPhase(phase, viewModel);
-    final body = _bodyForPhase(phase, onboardingSnapshot, viewModel);
-    final chips = _buildChips(viewModel);
+    final phase = resolveAccountPhase(
+      viewModel,
+      onboardingSnapshot: onboardingSnapshot,
+    );
+    final title = _titleForPhase(l, phase, viewModel);
+    final body = _bodyForPhase(l, phase, onboardingSnapshot, viewModel);
+    final chips = _buildChips(l, viewModel);
 
     return Container(
       key: Key('$scopeKeyPrefix-account-card'),
@@ -163,114 +155,91 @@ class AccountStatusCard extends StatelessWidget {
     );
   }
 
-  AccountSurfacePhase _resolvePhase(AccountViewModel viewModel) {
-    if (viewModel.isLoading && !viewModel.hasLoaded) {
-      return AccountSurfacePhase.loading;
-    }
-    if (viewModel.loadErrorMessage != null) {
-      return AccountSurfacePhase.error;
-    }
-    if (viewModel.isDeleted) {
-      return AccountSurfacePhase.deleted;
-    }
-    if (viewModel.isRevoked) {
-      return AccountSurfacePhase.revoked;
-    }
-    if (viewModel.isVersionBlocked) {
-      return AccountSurfacePhase.versionBlocked;
-    }
-    if (viewModel.isSignedIn && viewModel.hasSyncFailure) {
-      return AccountSurfacePhase.signedInFailed;
-    }
-    if (viewModel.isSignedIn && viewModel.hasPendingSync) {
-      return AccountSurfacePhase.signedInPendingSync;
-    }
-    if (viewModel.isSignedIn) {
-      return AccountSurfacePhase.signedInSynced;
-    }
-    if (viewModel.isLocalOnly && onboardingSnapshot != null) {
-      return AccountSurfacePhase.localOnly;
-    }
-    return AccountSurfacePhase.signedOut;
-  }
-
-  String _titleForPhase(AccountSurfacePhase phase, AccountViewModel viewModel) {
+  String _titleForPhase(
+    AppLocalizations l,
+    AccountSurfacePhase phase,
+    AccountViewModel viewModel,
+  ) {
     switch (phase) {
       case AccountSurfacePhase.loading:
-        return '正在读取账号状态';
+        return l.accountReading;
       case AccountSurfacePhase.localOnly:
-        return '仍是 local-only 档案模式';
+        return l.accountLocalOnly;
       case AccountSurfacePhase.signedOut:
-        return '当前未登录账号';
+        return l.accountNotLoggedIn;
       case AccountSurfacePhase.signedInPendingSync:
-        return '已登录 ${viewModel.maskedPhoneNumber}';
+        return l.accountSignedIn(viewModel.maskedPhoneNumber);
       case AccountSurfacePhase.signedInSynced:
-        return '已登录 ${viewModel.maskedPhoneNumber}';
+        return l.accountSignedIn(viewModel.maskedPhoneNumber);
       case AccountSurfacePhase.signedInFailed:
-        return '同步仍需重试';
+        return l.accountSyncRetryNeeded;
       case AccountSurfacePhase.revoked:
-        return '同意已撤回';
+        return l.accountConsentRevoked;
       case AccountSurfacePhase.deleted:
-        return '账号已删除';
+        return l.accountDeleted;
       case AccountSurfacePhase.versionBlocked:
-        return '当前版本需要升级';
+        return l.accountUpgradeNeeded;
       case AccountSurfacePhase.error:
-        return '账号状态暂时不可读';
+        return l.accountStatusUnreadable;
     }
   }
 
   String _bodyForPhase(
+    AppLocalizations l,
     AccountSurfacePhase phase,
     OnboardingSnapshot? snapshot,
     AccountViewModel viewModel,
   ) {
     switch (phase) {
       case AccountSurfacePhase.loading:
-        return 'Shell 可继续进入，稍后会在这里显示 consent、待同步数量和最近状态。';
+        return l.accountShellNote;
       case AccountSurfacePhase.localOnly:
         final name = snapshot?.childDisplayName.trim();
-        final prefix = name == null || name.isEmpty ? '当前档案' : '$name 的档案';
-        return '$prefix 仍只保存在本机；现在可以先继续练习，稍后再补账号与同意。';
+        final prefix = name == null || name.isEmpty
+            ? l.accountCurrentProfile
+            : l.accountProfileName(name);
+        return l.accountLocalOnlyNote(prefix);
       case AccountSurfacePhase.signedOut:
-        return '账号入口已挂到真实 shell/home；登录前不会把手机号、验证码或 session 混进 onboarding / practice 状态。';
+        return l.accountEntryNote;
       case AccountSurfacePhase.signedInPendingSync:
-        return '仍有 ${viewModel.snapshot.pendingSyncCount} 条 append-only 练习事件待同步，前台会在启动、回首页、回前台和手动重试时继续尝试。';
+        return l.accountPendingSync(viewModel.snapshot.pendingSyncCount);
       case AccountSurfacePhase.signedInSynced:
-        return '最近状态已对齐；重登时会先 bootstrap，再恢复 recent result 与继续练习位置。';
+        return l.accountAlignedNote;
       case AccountSurfacePhase.signedInFailed:
-        return '最近一次同步没有完成，但本地 pending 事件仍保留，可继续练习并稍后重试。';
+        return l.accountSyncIncomplete;
       case AccountSurfacePhase.revoked:
-        return '撤回后不会再上传或恢复远端数据；重新登录并再次同意后才会继续同步。';
+        return l.accountRevokedNote;
       case AccountSurfacePhase.deleted:
-        return '删除后远端账号不可恢复；本机仍可继续 guest/local-only 使用。';
+        return l.accountDeletedNote;
       case AccountSurfacePhase.versionBlocked:
         return viewModel.canOpenUpgradePage
-            ? '服务端已拒绝当前版本；请先打开升级页面安装新版本，再返回重试同步。'
-            : '服务端已拒绝当前版本；当前会保留升级受阻提示，但升级入口暂不可用。';
+            ? l.accountUpgradeNote
+            : l.accountUpgradeUnavailable;
       case AccountSurfacePhase.error:
-        return viewModel.loadErrorMessage ??
-            '账号状态读取失败，但 onboarding / practice 路由不会因此崩溃。';
+        return viewModel.loadErrorMessage ?? l.accountReadFailed;
     }
   }
 
-  List<Widget> _buildChips(AccountViewModel viewModel) {
+  List<Widget> _buildChips(AppLocalizations l, AccountViewModel viewModel) {
     final chips = <Widget>[];
     chips.add(
       Chip(
         key: Key('$scopeKeyPrefix-account-pending-chip'),
-        label: Text('待同步 ${viewModel.snapshot.pendingSyncCount}'),
+        label: Text(
+          l.accountPendingSyncCount(viewModel.snapshot.pendingSyncCount),
+        ),
       ),
     );
     chips.add(
       Chip(
         key: Key('$scopeKeyPrefix-account-synced-chip'),
-        label: Text('已同步 ${viewModel.snapshot.syncedCount}'),
+        label: Text(l.accountSyncedCount(viewModel.snapshot.syncedCount)),
       ),
     );
     chips.add(
       Chip(
         key: Key('$scopeKeyPrefix-account-failed-chip'),
-        label: Text('失败 ${viewModel.snapshot.failedCount}'),
+        label: Text(l.accountFailedCount(viewModel.snapshot.failedCount)),
       ),
     );
     if (viewModel.snapshot.lastSyncPhase.trim().isNotEmpty) {
@@ -289,7 +258,7 @@ class AccountStatusCard extends StatelessWidget {
       chips.add(
         Chip(
           key: Key('$scopeKeyPrefix-account-time-chip'),
-          label: Text('最近 $hour:$minute'),
+          label: Text(l.accountRecentTime('$hour:$minute')),
         ),
       );
     }
@@ -364,7 +333,7 @@ class _AccountEntryScreenState extends State<AccountEntryScreen> {
     final theme = Theme.of(context);
     final viewModel = context.watch<AccountViewModel>();
     final householdViewModel = context.watch<HouseholdViewModel?>();
-    final phase = _resolvePhase(viewModel);
+    final phase = resolveAccountPhase(viewModel);
 
     if (_phoneController.text != viewModel.phoneNumber) {
       _phoneController.value = TextEditingValue(
@@ -384,12 +353,14 @@ class _AccountEntryScreenState extends State<AccountEntryScreen> {
     }
 
     return Scaffold(
-      appBar: AppBar(title: const Text('账号入口')),
+      appBar: AppBar(title: Text(l.accountEntryTitle)),
       body: SafeArea(
         child: Align(
           alignment: Alignment.topCenter,
           child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 430),
+            constraints: const BoxConstraints(
+              maxWidth: AppLayoutConstants.maxContentWidth,
+            ),
             child: ListView(
               padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
               children: [
@@ -406,12 +377,12 @@ class _AccountEntryScreenState extends State<AccountEntryScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'S03 账号 / 同意 / 同步闭环',
+                        l.accountEntryS03Label,
                         style: theme.textTheme.labelMedium,
                       ),
                       const SizedBox(height: 12),
                       Text(
-                        _headlineForPhase(phase, viewModel),
+                        _headlineForPhase(l, phase, viewModel),
                         style: theme.textTheme.titleLarge,
                       ),
                       const SizedBox(height: 12),
@@ -429,7 +400,7 @@ class _AccountEntryScreenState extends State<AccountEntryScreen> {
                           borderRadius: BorderRadius.circular(16),
                         ),
                         child: Text(
-                          _statusText(phase, viewModel),
+                          _statusText(l, phase, viewModel),
                           style: theme.textTheme.bodyMedium?.copyWith(
                             color: _phaseForeground(phase),
                             fontWeight: FontWeight.w700,
@@ -450,7 +421,7 @@ class _AccountEntryScreenState extends State<AccountEntryScreen> {
                         controller: _phoneController,
                         keyboardType: TextInputType.phone,
                         decoration: InputDecoration(
-                          labelText: '手机号',
+                          labelText: l.accountPhoneLabel,
                           hintText: '13800138000',
                           errorText: viewModel.phoneError,
                         ),
@@ -462,15 +433,15 @@ class _AccountEntryScreenState extends State<AccountEntryScreen> {
                         controller: _codeController,
                         keyboardType: TextInputType.number,
                         decoration: InputDecoration(
-                          labelText: '验证码',
-                          hintText: '开发 stub 默认 246810',
+                          labelText: l.accountCodeLabel,
+                          hintText: l.accountDevStub,
                           errorText: viewModel.verificationCodeError,
                         ),
                         onChanged: viewModel.updateVerificationCode,
                       ),
                       const SizedBox(height: 16),
                       Text(
-                        '真实登录会调用 challenge → verify → consent accept → bootstrap → batch sync；错误会留在独立 account/sync seam 中，不回写 onboarding snapshot，也不让 PracticeSessionViewModel 直接发请求。',
+                        l.accountRealLoginNote,
                         style: theme.textTheme.bodySmall,
                       ),
                       if (viewModel.snapshot.lastVisibleError != null &&
@@ -479,7 +450,9 @@ class _AccountEntryScreenState extends State<AccountEntryScreen> {
                               .isNotEmpty) ...[
                         const SizedBox(height: 12),
                         Text(
-                          '最近错误：${viewModel.snapshot.lastVisibleError!}',
+                          l.accountLastError(
+                            viewModel.snapshot.lastVisibleError!,
+                          ),
                           key: const Key('account-last-error'),
                           style: theme.textTheme.bodySmall?.copyWith(
                             color: _phaseForeground(phase),
@@ -510,7 +483,7 @@ class _AccountEntryScreenState extends State<AccountEntryScreen> {
                       HouseholdSharedContextCard(
                         surfaceKeyPrefix: 'account',
                         viewModel: householdViewModel,
-                        title: '共享归因与下一步',
+                        title: l.sharedAttributionNextStep,
                         retryReason: 'account_entry_manual_refresh',
                       ),
                       const SizedBox(height: 16),
@@ -536,13 +509,17 @@ class _AccountEntryScreenState extends State<AccountEntryScreen> {
                                       return;
                                     }
                                     ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(
-                                        content: Text('登录已完成，可返回首页查看最近恢复结果。'),
+                                      SnackBar(
+                                        content: Text(
+                                          l.accountEntrySubmitMessage,
+                                        ),
                                       ),
                                     );
                                   },
                             child: Text(
-                              viewModel.isBusy ? '处理中…' : l.accountLoginConsent,
+                              viewModel.isBusy
+                                  ? l.processing
+                                  : l.accountLoginConsent,
                             ),
                           ),
                           if (phase == AccountSurfacePhase.versionBlocked)
@@ -592,7 +569,7 @@ class _AccountEntryScreenState extends State<AccountEntryScreen> {
                                 : () => context
                                       .read<AccountViewModel>()
                                       .clearSession(),
-                            child: const Text('退出为未登录'),
+                            child: Text(l.accountLogout),
                           ),
                           OutlinedButton(
                             key: const Key('account-local-only-button'),
@@ -601,12 +578,12 @@ class _AccountEntryScreenState extends State<AccountEntryScreen> {
                                 : () => context
                                       .read<AccountViewModel>()
                                       .clearSession(revertToLocalOnly: true),
-                            child: const Text('回到 local-only'),
+                            child: Text(l.accountBackToLocal),
                           ),
                           OutlinedButton(
                             key: const Key('account-close-button'),
                             onPressed: () => Navigator.of(context).maybePop(),
-                            child: const Text('关闭'),
+                            child: Text(l.close),
                           ),
                         ],
                       ),
@@ -621,66 +598,40 @@ class _AccountEntryScreenState extends State<AccountEntryScreen> {
     );
   }
 
-  AccountSurfacePhase _resolvePhase(AccountViewModel viewModel) {
-    if (viewModel.isLoading && !viewModel.hasLoaded) {
-      return AccountSurfacePhase.loading;
-    }
-    if (viewModel.loadErrorMessage != null) {
-      return AccountSurfacePhase.error;
-    }
-    if (viewModel.isDeleted) {
-      return AccountSurfacePhase.deleted;
-    }
-    if (viewModel.isRevoked) {
-      return AccountSurfacePhase.revoked;
-    }
-    if (viewModel.isVersionBlocked) {
-      return AccountSurfacePhase.versionBlocked;
-    }
-    if (viewModel.isSignedIn && viewModel.hasSyncFailure) {
-      return AccountSurfacePhase.signedInFailed;
-    }
-    if (viewModel.isSignedIn && viewModel.hasPendingSync) {
-      return AccountSurfacePhase.signedInPendingSync;
-    }
-    if (viewModel.isSignedIn) {
-      return AccountSurfacePhase.signedInSynced;
-    }
-    if (viewModel.isSignedOut) {
-      return AccountSurfacePhase.signedOut;
-    }
-    return AccountSurfacePhase.localOnly;
-  }
-
   String _headlineForPhase(
+    AppLocalizations l,
     AccountSurfacePhase phase,
     AccountViewModel viewModel,
   ) {
     switch (phase) {
       case AccountSurfacePhase.loading:
-        return '正在准备账号状态';
+        return l.accountEntryLoading;
       case AccountSurfacePhase.localOnly:
-        return '先保留同意前本地档案';
+        return l.accountEntryPreparingProfile;
       case AccountSurfacePhase.signedOut:
-        return '账号入口已可见，但你还没有登录';
+        return l.accountEntryVisibleNotLoggedIn;
       case AccountSurfacePhase.signedInPendingSync:
-        return '已用 ${viewModel.maskedPhoneNumber} 登录，仍有待同步事件';
+        return l.accountSignedInPending(viewModel.maskedPhoneNumber);
       case AccountSurfacePhase.signedInSynced:
-        return '已用 ${viewModel.maskedPhoneNumber} 登录并完成最近一次对齐';
+        return l.accountEntrySignedInSynced(viewModel.maskedPhoneNumber);
       case AccountSurfacePhase.signedInFailed:
-        return '登录已完成，但最近同步仍需重试';
+        return l.accountSignedInSyncRetry;
       case AccountSurfacePhase.revoked:
-        return '同意已撤回';
+        return l.accountConsentRevoked;
       case AccountSurfacePhase.deleted:
-        return '账号已删除';
+        return l.accountDeleted;
       case AccountSurfacePhase.versionBlocked:
-        return '当前版本需要升级';
+        return l.accountUpgradeNeeded;
       case AccountSurfacePhase.error:
-        return '账号状态读取失败，但当前 shell 仍可继续使用';
+        return l.accountEntryReadFailedShell;
     }
   }
 
-  String _statusText(AccountSurfacePhase phase, AccountViewModel viewModel) {
+  String _statusText(
+    AppLocalizations l,
+    AccountSurfacePhase phase,
+    AccountViewModel viewModel,
+  ) {
     switch (phase) {
       case AccountSurfacePhase.loading:
         return 'loading';
@@ -689,7 +640,9 @@ class _AccountEntryScreenState extends State<AccountEntryScreen> {
       case AccountSurfacePhase.signedOut:
         return 'signed-out';
       case AccountSurfacePhase.signedInPendingSync:
-        return 'signed-in-pending-sync · 待同步 ${viewModel.snapshot.pendingSyncCount}';
+        return l.accountSignedInPendingSyncStatus(
+          viewModel.snapshot.pendingSyncCount,
+        );
       case AccountSurfacePhase.signedInSynced:
         return 'signed-in-synced';
       case AccountSurfacePhase.signedInFailed:

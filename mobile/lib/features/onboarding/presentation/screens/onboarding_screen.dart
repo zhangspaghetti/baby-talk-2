@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:mobile/app/router/app_router.dart';
+import 'package:mobile/app/widgets/app_banner.dart';
+import 'package:mobile/app/theme/app_layout_constants.dart';
 import 'package:mobile/app/theme/app_theme.dart';
 import 'package:mobile/features/onboarding/domain/models/stage_match.dart';
 import 'package:mobile/features/onboarding/presentation/onboarding_view_model.dart';
@@ -68,7 +70,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         child: Align(
           alignment: Alignment.topCenter,
           child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 430),
+            constraints: const BoxConstraints(
+              maxWidth: AppLayoutConstants.maxContentWidth,
+            ),
             child: ListView(
               padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
               children: [
@@ -327,6 +331,7 @@ class _NameStep extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
+    final colors = context.appColors;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
@@ -349,9 +354,11 @@ class _NameStep extends StatelessWidget {
         ),
         if (viewModel.nameErrorMessage != null) ...[
           const SizedBox(height: 12),
-          _InlineErrorBanner(
+          AppBanner(
             key: const Key('onboarding-name-error'),
             message: viewModel.nameErrorMessage!,
+            backgroundColor: colors.errorSoft,
+            foregroundColor: colors.error,
           ),
         ],
         const SizedBox(height: 16),
@@ -473,9 +480,11 @@ class _AgeStep extends StatelessWidget {
         ],
         if (viewModel.ageErrorMessage != null) ...[
           const SizedBox(height: 12),
-          _InlineErrorBanner(
+          AppBanner(
             key: const Key('onboarding-age-error'),
             message: viewModel.ageErrorMessage!,
+            backgroundColor: colors.errorSoft,
+            foregroundColor: colors.error,
           ),
         ],
         const SizedBox(height: 16),
@@ -675,32 +684,6 @@ class _StageMatchCard extends StatelessWidget {
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _InlineErrorBanner extends StatelessWidget {
-  const _InlineErrorBanner({super.key, required this.message});
-
-  final String message;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = context.appColors;
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: colors.errorSoft,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Text(
-        message,
-        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-          color: colors.error,
-          fontWeight: FontWeight.w700,
-        ),
       ),
     );
   }

@@ -155,8 +155,7 @@ class PhraseCard extends StatelessWidget {
         const SizedBox(height: 16),
         Text(
           phrase.english,
-          style: Theme.of(context).textTheme.displayMedium?.copyWith(
-            fontSize: 28,
+          style: Theme.of(context).textTheme.headlineMedium?.copyWith(
             color: colors.english,
           ),
         ),

@@ -29,13 +29,14 @@ class GardenContinueCard extends StatelessWidget {
         !(continuityViewModel?.isActionDisabled ?? true);
     final activityId =
         continuitySnapshot?.recommendedActivity.activityId ?? 'safe-empty';
-    final activityTitle = continuityActivity?.title ?? '继续入口暂不可用';
+    final activityTitle =
+        continuityActivity?.title ?? l.gardenContinueUnavailable;
     final reasonLabel =
         continuitySnapshot?.recommendation.reasonLabel ??
         l.gardenSharedContinuityUnavailable;
     final warningMessage = continuityViewModel?.warningMessage;
     final disabledReason = continuityViewModel == null
-        ? '练习入口暂时不可用。'
+        ? l.practiceEntryUnavailable
         : continuityViewModel?.disabledReason;
 
     return Container(

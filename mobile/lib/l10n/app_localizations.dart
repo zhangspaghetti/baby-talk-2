@@ -2259,6 +2259,178 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'C3 激活框'**
   String get activationFrameLabel;
+
+  /// No description provided for @accountEntryLoading.
+  ///
+  /// In zh, this message translates to:
+  /// **'正在准备账号状态'**
+  String get accountEntryLoading;
+
+  /// No description provided for @accountEntryPreparingProfile.
+  ///
+  /// In zh, this message translates to:
+  /// **'先保留同意前本地档案'**
+  String get accountEntryPreparingProfile;
+
+  /// No description provided for @accountEntryVisibleNotLoggedIn.
+  ///
+  /// In zh, this message translates to:
+  /// **'账号入口已可见，但你还没有登录'**
+  String get accountEntryVisibleNotLoggedIn;
+
+  /// No description provided for @accountEntrySignedInSynced.
+  ///
+  /// In zh, this message translates to:
+  /// **'已用 {phone} 登录并完成最近一次对齐'**
+  String accountEntrySignedInSynced(Object phone);
+
+  /// No description provided for @accountEntryReadFailedShell.
+  ///
+  /// In zh, this message translates to:
+  /// **'账号状态读取失败，但当前 shell 仍可继续使用'**
+  String get accountEntryReadFailedShell;
+
+  /// No description provided for @accountEntryTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'账号入口'**
+  String get accountEntryTitle;
+
+  /// No description provided for @accountEntryS03Label.
+  ///
+  /// In zh, this message translates to:
+  /// **'S03 账号 / 同意 / 同步闭环'**
+  String get accountEntryS03Label;
+
+  /// No description provided for @accountEntrySubmitMessage.
+  ///
+  /// In zh, this message translates to:
+  /// **'登录已完成，可返回首页查看最近恢复结果。'**
+  String get accountEntrySubmitMessage;
+
+  /// No description provided for @accountEntrySubmitButton.
+  ///
+  /// In zh, this message translates to:
+  /// **'提交'**
+  String get accountEntrySubmitButton;
+
+  /// No description provided for @shellDiscoverTooltip.
+  ///
+  /// In zh, this message translates to:
+  /// **'发现活动'**
+  String get shellDiscoverTooltip;
+
+  /// No description provided for @shellPractice.
+  ///
+  /// In zh, this message translates to:
+  /// **'练习'**
+  String get shellPractice;
+
+  /// No description provided for @shellPracticeName.
+  ///
+  /// In zh, this message translates to:
+  /// **'{name} 的练习'**
+  String shellPracticeName(Object name);
+
+  /// No description provided for @shellGrowthTab.
+  ///
+  /// In zh, this message translates to:
+  /// **'成长'**
+  String get shellGrowthTab;
+
+  /// No description provided for @shellFirstTimeDrawerStage.
+  ///
+  /// In zh, this message translates to:
+  /// **'第一次进入家庭档案'**
+  String get shellFirstTimeDrawerStage;
+
+  /// No description provided for @shellDrawerNoteText.
+  ///
+  /// In zh, this message translates to:
+  /// **'Drawer 现在会直接显示 invite CTA、角色 badge、最近是谁完成了什么，以及共享下一步是否安全可进。'**
+  String get shellDrawerNoteText;
+
+  /// No description provided for @growthDiaryEmpty.
+  ///
+  /// In zh, this message translates to:
+  /// **'还没有自动日记，第一次练习完成后会在这里记下变化。'**
+  String get growthDiaryEmpty;
+
+  /// No description provided for @growthMilestoneEmpty.
+  ///
+  /// In zh, this message translates to:
+  /// **'里程碑会在真实练习后逐步点亮。'**
+  String get growthMilestoneEmpty;
+
+  /// No description provided for @growthShareWaitStable.
+  ///
+  /// In zh, this message translates to:
+  /// **'等最近成长和继续建议整理稳定后，再生成一条脱敏分享链接。'**
+  String get growthShareWaitStable;
+
+  /// No description provided for @growthSceneEmpty.
+  ///
+  /// In zh, this message translates to:
+  /// **'花圃还没醒来，所以暂时没有场景进展。'**
+  String get growthSceneEmpty;
+
+  /// No description provided for @gardenContinueUnavailable.
+  ///
+  /// In zh, this message translates to:
+  /// **'继续入口暂不可用'**
+  String get gardenContinueUnavailable;
+
+  /// No description provided for @gardenContinueActivityTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'继续 {activityTitle}'**
+  String gardenContinueActivityTitle(Object activityTitle);
+
+  /// No description provided for @gardenImpactContinue.
+  ///
+  /// In zh, this message translates to:
+  /// **'{detail} 现在继续会回到 {activityTitle}。'**
+  String gardenImpactContinue(Object detail, Object activityTitle);
+
+  /// No description provided for @gardenImpactWithReasonDetail.
+  ///
+  /// In zh, this message translates to:
+  /// **'最新影响来自 {impactTitle}；回来继续会去 {activityTitle}（{reason}）。'**
+  String gardenImpactWithReasonDetail(
+    Object impactTitle,
+    Object activityTitle,
+    Object reason,
+  );
+
+  /// No description provided for @discoverInvalidCardError.
+  ///
+  /// In zh, this message translates to:
+  /// **'这张活动卡缺少有效的 spaceId/activityId，已禁止导航。'**
+  String get discoverInvalidCardError;
+
+  /// No description provided for @discoverOpenActivityError.
+  ///
+  /// In zh, this message translates to:
+  /// **'打开 {title} 失败：{error}'**
+  String discoverOpenActivityError(Object title, Object error);
+
+  /// No description provided for @sharePhraseTodayLabel.
+  ///
+  /// In zh, this message translates to:
+  /// **'今天说的一句：{phrase}'**
+  String sharePhraseTodayLabel(Object phrase);
+
+  /// No description provided for @mentorSuggestionTabSemantics.
+  ///
+  /// In zh, this message translates to:
+  /// **'建议标签页'**
+  String get mentorSuggestionTabSemantics;
+
+  /// No description provided for @mentorChatTabSemantics.
+  ///
+  /// In zh, this message translates to:
+  /// **'聊天标签页'**
+  String get mentorChatTabSemantics;
 }
 
 class _AppLocalizationsDelegate

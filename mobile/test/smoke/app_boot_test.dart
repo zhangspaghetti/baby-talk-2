@@ -258,8 +258,9 @@ void main() {
         'boot_seed_recent_activity',
       );
 
-      await tester.tap(find.byTooltip('花园'));
-      await _pumpUntilFound(tester, find.byKey(const Key('shell-tab-garden')));
+      await tester.tap(find.byTooltip('成长'));
+      await _pumpUntilFound(tester, find.byKey(const Key('shell-tab-growth-combined')));
+      await tester.pumpAndSettle();
       await tester.scrollUntilVisible(
         find.byKey(const Key('garden-continue-practice')),
         180,

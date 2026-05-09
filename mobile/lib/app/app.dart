@@ -4,12 +4,12 @@ import 'dart:io';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:http/http.dart' as http;
 import 'package:mobile/app/app_reentry_orchestrator.dart';
 import 'package:mobile/l10n/app_localizations.dart';
 import 'package:mobile/app/invite_reentry_coordinator.dart';
 import 'package:mobile/app/router/app_router.dart';
 import 'package:mobile/app/share_reentry_coordinator.dart';
+import 'package:mobile/app/theme/app_layout_constants.dart';
 import 'package:mobile/app/theme/app_theme.dart';
 import 'package:mobile/core/device/installation_id_service.dart';
 import 'package:mobile/features/account/data/local/account_local_store.dart';
@@ -129,7 +129,6 @@ class _AppBootContinuitySeed {
 
 class _SharedConsumerAuthDependencies {
   _SharedConsumerAuthDependencies._({
-    required this.client,
     required this.accountApiService,
     required this.authenticatedApiClient,
     required this.dynamicPracticeApiService,
@@ -138,28 +137,23 @@ class _SharedConsumerAuthDependencies {
   });
 
   factory _SharedConsumerAuthDependencies.create() {
-    final client = http.Client();
-    final accountApiService = AccountApiService(client: client);
+    final accountApiService = AccountApiService();
     final authenticatedApiClient = AuthenticatedApiClient(
       apiService: accountApiService,
     );
     return _SharedConsumerAuthDependencies._(
-      client: client,
       accountApiService: accountApiService,
       authenticatedApiClient: authenticatedApiClient,
-      dynamicPracticeApiService: DynamicPracticeApiService(client: client),
+      dynamicPracticeApiService: DynamicPracticeApiService(),
       householdApiService: HouseholdApiService(
-        client: client,
         authenticatedApiClient: authenticatedApiClient,
       ),
       mentorApiService: MentorApiService(
-        client: client,
         authenticatedApiClient: authenticatedApiClient,
       ),
     );
   }
 
-  final http.Client client;
   final AccountApiService accountApiService;
   final AuthenticatedApiClient authenticatedApiClient;
   final DynamicPracticeApiService dynamicPracticeApiService;
@@ -167,7 +161,10 @@ class _SharedConsumerAuthDependencies {
   final MentorApiService mentorApiService;
 
   void close() {
-    client.close();
+    accountApiService.close();
+    dynamicPracticeApiService.close();
+    householdApiService.close();
+    mentorApiService.close();
   }
 }
 
@@ -903,7 +900,9 @@ class _ReentryOverlay extends StatelessWidget {
                   key: overlayKey,
                   color: Colors.transparent,
                   child: Container(
-                    constraints: const BoxConstraints(maxWidth: 430),
+                    constraints: const BoxConstraints(
+                      maxWidth: AppLayoutConstants.maxContentWidth,
+                    ),
                     padding: const EdgeInsets.fromLTRB(16, 14, 12, 14),
                     decoration: BoxDecoration(
                       color: colors.warningSoft,

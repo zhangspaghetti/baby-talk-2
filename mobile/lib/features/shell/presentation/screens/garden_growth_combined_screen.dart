@@ -2,21 +2,50 @@ import 'package:flutter/material.dart';
 import 'package:mobile/app/widgets/app_banner.dart';
 import 'package:mobile/app/theme/app_layout_constants.dart';
 import 'package:mobile/app/theme/app_theme.dart';
+import 'package:mobile/features/household/presentation/household_view_model.dart';
+import 'package:mobile/features/household/presentation/widgets/household_shared_context_card.dart';
 import 'package:mobile/features/practice/domain/models/garden_growth_snapshot.dart';
 import 'package:mobile/features/practice/presentation/garden_growth_view_model.dart';
+import 'package:mobile/features/practice/presentation/practice_continuity_view_model.dart';
+import 'package:mobile/features/share/presentation/share_view_model.dart';
+import 'package:mobile/features/share/presentation/widgets/share_callout_card.dart';
+import 'package:mobile/features/shell/presentation/widgets/garden_continue_card.dart';
+import 'package:mobile/features/shell/presentation/widgets/garden_hero_card.dart';
+import 'package:mobile/features/shell/presentation/widgets/garden_patch_card.dart';
 import 'package:provider/provider.dart';
 import 'package:mobile/l10n/app_localizations.dart';
 
-@Deprecated('Use GardenGrowthCombinedScreen instead')
-class GrowthScreen extends StatelessWidget {
-  const GrowthScreen({super.key});
+class GardenGrowthCombinedScreen extends StatelessWidget {
+  const GardenGrowthCombinedScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
     final colors = context.appColors;
     final viewModel = context.watch<GardenGrowthViewModel?>();
+    final continuityViewModel = context.watch<PracticeContinuityViewModel?>();
+    final householdViewModel = context.watch<HouseholdViewModel?>();
+    final shareViewModel = context.watch<ShareViewModel?>();
     final snapshot = viewModel?.snapshot ?? GardenGrowthSnapshot.empty();
+    final continuitySnapshot = continuityViewModel?.snapshot;
+    final continuityActivity = continuityViewModel?.activitySnapshot;
+    final practiceArgs = continuityViewModel?.recommendedArgs;
+    final sharedContext = householdViewModel?.snapshot.sharedContext;
+    final sharedNextStepArgs = resolveHouseholdSharedNextStepArgs(
+      sharedContext,
+    );
+    final localGardenAt =
+        snapshot.latestImpact?.occurredAt ??
+        snapshot.primarySpace?.lastPracticedAt ??
+        continuitySnapshot?.cadence.lastEventTime;
+    final isSharedOverlayNewer =
+        continuityViewModel != null &&
+        sharedContext != null &&
+        isHouseholdSharedProjectionNewer(sharedContext, localGardenAt);
+    final shouldShowSharedOverlay =
+        isSharedOverlayNewer && sharedNextStepArgs != null;
+    final shouldShowSharedOverlayDisabled =
+        isSharedOverlayNewer && sharedNextStepArgs == null;
 
     return SafeArea(
       top: false,
@@ -28,33 +57,63 @@ class GrowthScreen extends StatelessWidget {
           ),
           child: RefreshIndicator(
             onRefresh: () async {
-              if (viewModel != null) {
-                await viewModel.refresh();
-              }
+              await Future.wait([
+                if (viewModel != null) viewModel.refresh(),
+                if (continuityViewModel != null)
+                  continuityViewModel.refresh(
+                    reason: 'growth_combined_pull_to_refresh',
+                  ),
+              ]);
             },
             child: ListView(
-              key: const Key('shell-tab-growth'),
+              key: const Key('shell-tab-growth-combined'),
               physics: const AlwaysScrollableScrollPhysics(),
               padding: AppLayoutConstants.shellTabPadding,
               children: [
-                _GrowthHeroCard(snapshot: snapshot, viewModel: viewModel),
+                // ── 花园区：今日练习状态 ──
+                GardenHeroCard(
+                  snapshot: snapshot,
+                  viewModel: viewModel,
+                  continuityViewModel: continuityViewModel,
+                  continuitySnapshot: continuitySnapshot,
+                  continuityActivity: continuityActivity,
+                ),
+                const SizedBox(height: 16),
+                GardenContinueCard(
+                  practiceArgs: practiceArgs,
+                  continuityViewModel: continuityViewModel,
+                  continuitySnapshot: continuitySnapshot,
+                  continuityActivity: continuityActivity,
+                ),
                 if (viewModel?.hasError ?? false) ...[
                   const SizedBox(height: 16),
                   AppBanner(
-                    key: const Key('growth-warning-banner'),
-                    message: viewModel!.message ?? l.growthRefreshFailed,
+                    key: const Key('growth-combined-garden-warning-banner'),
+                    message: viewModel!.message ?? l.gardenRefreshFailed,
                     backgroundColor: colors.warningSoft,
                     foregroundColor: colors.warning,
                   ),
                 ],
                 const SizedBox(height: 16),
-                if (snapshot.isEmpty) const _GrowthEmptyState(),
+                if (snapshot.isEmpty)
+                  const _GardenEmptyState()
+                else ...[
+                  for (final patch in snapshot.spaces) ...[
+                    GardenPatchCard(patch: patch),
+                    const SizedBox(height: 16),
+                  ],
+                ],
+
+                // ── 成长区：成长日记 & 里程碑 ──
+                const SizedBox(height: 8),
+                _GrowthHeroCard(snapshot: snapshot, viewModel: viewModel),
                 if (!snapshot.isEmpty) ...[
+                  const SizedBox(height: 16),
                   _SectionTitle(title: l.growthAutoDiary),
                   const SizedBox(height: 12),
                   if (snapshot.diaryEntries.isEmpty)
                     _SectionEmptyCard(
-                      stateKey: Key('growth-diary-empty'),
+                      stateKey: const Key('growth-combined-diary-empty'),
                       message: l.growthDiaryEmpty,
                     )
                   else
@@ -67,26 +126,11 @@ class GrowthScreen extends StatelessWidget {
                           ),
                         ),
                   const SizedBox(height: 12),
-                  _SectionTitle(title: l.growthSceneProgress),
-                  const SizedBox(height: 12),
-                  if (snapshot.spaces.isEmpty)
-                    _SectionEmptyCard(
-                      stateKey: Key('growth-space-empty'),
-                      message: l.growthSceneEmpty,
-                    )
-                  else
-                    ...snapshot.spaces.map(
-                      (space) => Padding(
-                        padding: const EdgeInsets.only(bottom: 12),
-                        child: _SpaceProgressCard(space: space),
-                      ),
-                    ),
-                  const SizedBox(height: 12),
                   _SectionTitle(title: l.growthMilestone),
                   const SizedBox(height: 12),
                   if (snapshot.milestones.isEmpty)
                     _SectionEmptyCard(
-                      stateKey: Key('growth-milestones-empty'),
+                      stateKey: const Key('growth-combined-milestones-empty'),
                       message: l.growthMilestoneEmpty,
                     )
                   else
@@ -98,6 +142,45 @@ class GrowthScreen extends StatelessWidget {
                             child: _MilestoneCard(milestone: milestone),
                           ),
                         ),
+                ],
+
+                // ── 共享家庭 & 分享 ──
+                const SizedBox(height: 16),
+                HouseholdSharedContextCard(
+                  surfaceKeyPrefix: 'growth-combined',
+                  viewModel: householdViewModel,
+                  title: l.gardenSharedAttributionTitle,
+                  retryReason: 'growth_combined_household_manual_refresh',
+                ),
+                if (shareViewModel != null) ...[
+                  const SizedBox(height: 16),
+                  ShareCalloutCard(
+                    surfaceKeyPrefix: 'growth-combined',
+                    viewModel: shareViewModel,
+                    sectionLabel: l.gardenShareFamily,
+                    emptyMessage: l.growthShareWaitStable,
+                    onShare: () => shareViewModel.shareCurrent(),
+                  ),
+                ],
+                if (shouldShowSharedOverlay) ...[
+                  const SizedBox(height: 16),
+                  HouseholdSharedPracticeOverlayCard(
+                    surfaceKeyPrefix: 'growth-combined-shared-overlay',
+                    sharedContext: sharedContext,
+                  ),
+                ],
+                if (shouldShowSharedOverlayDisabled) ...[
+                  const SizedBox(height: 16),
+                  AppBanner(
+                    key: const Key(
+                      'growth-combined-shared-overlay-disabled-banner',
+                    ),
+                    message: householdSharedUnavailableNextStepMessage(
+                      sharedContext,
+                    ),
+                    backgroundColor: colors.warningSoft,
+                    foregroundColor: colors.warning,
+                  ),
                 ],
               ],
             ),
@@ -134,7 +217,7 @@ class _GrowthHeroCard extends StatelessWidget {
     }
 
     return Container(
-      key: const Key('growth-latest-impact'),
+      key: const Key('growth-combined-latest-impact'),
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
         color: colors.bgSurface,
@@ -154,7 +237,7 @@ class _GrowthHeroCard extends StatelessWidget {
             const SizedBox(height: 12),
             Text(
               snapshot.projectionWarning!,
-              key: const Key('growth-projection-warning'),
+              key: const Key('growth-combined-projection-warning'),
               style: theme.textTheme.bodySmall,
             ),
           ],
@@ -164,15 +247,16 @@ class _GrowthHeroCard extends StatelessWidget {
   }
 }
 
-class _GrowthEmptyState extends StatelessWidget {
-  const _GrowthEmptyState();
+class _GardenEmptyState extends StatelessWidget {
+  const _GardenEmptyState();
 
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
     final colors = context.appColors;
+    final theme = Theme.of(context);
     return Container(
-      key: const Key('growth-empty-state'),
+      key: const Key('growth-combined-empty-state'),
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
         color: colors.bgAccentSoft,
@@ -181,16 +265,13 @@ class _GrowthEmptyState extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            l.growthPlaceholder,
-            style: Theme.of(context).textTheme.titleMedium,
-          ),
+          Text(l.gardenFirstSeedNotPlanted, style: theme.textTheme.titleMedium),
           const SizedBox(height: 10),
           Text(
-            l.growthAfterPractice,
-            style: Theme.of(
-              context,
-            ).textTheme.bodyMedium?.copyWith(color: colors.accentDark),
+            l.gardenFirstSeedNote,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: colors.accentDark,
+            ),
           ),
         ],
       ),
@@ -204,9 +285,8 @@ class _SectionTitle extends StatelessWidget {
   final String title;
 
   @override
-  Widget build(BuildContext context) {
-    return Text(title, style: Theme.of(context).textTheme.titleMedium);
-  }
+  Widget build(BuildContext context) =>
+      Text(title, style: Theme.of(context).textTheme.titleMedium);
 }
 
 class _DiaryCard extends StatelessWidget {
@@ -222,7 +302,7 @@ class _DiaryCard extends StatelessWidget {
         ? colors.english
         : colors.accentDark;
     return Container(
-      key: Key('growth-diary-${entry.entryId}'),
+      key: Key('growth-combined-diary-${entry.entryId}'),
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         color: colors.bgSurface,
@@ -257,65 +337,6 @@ class _DiaryCard extends StatelessWidget {
   }
 }
 
-class _SpaceProgressCard extends StatelessWidget {
-  const _SpaceProgressCard({required this.space});
-
-  final GardenPatchSnapshot space;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = context.appColors;
-    return Container(
-      key: Key('growth-space-${space.spaceId}'),
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: colors.bgSurface,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: colors.outlineSoft),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  space.title,
-                  style: Theme.of(context).textTheme.titleMedium,
-                ),
-              ),
-              Container(
-                key: Key('growth-space-stage-${space.spaceId}'),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 8,
-                ),
-                decoration: BoxDecoration(
-                  color: colors.successSoft,
-                  borderRadius: BorderRadius.circular(999),
-                ),
-                child: Text(
-                  space.stage.label,
-                  style: Theme.of(
-                    context,
-                  ).textTheme.labelMedium?.copyWith(color: colors.success),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Text(space.careNote, style: Theme.of(context).textTheme.bodyMedium),
-          const SizedBox(height: 10),
-          Text(
-            '已开始 ${space.startedActivityCount}/${space.totalActivityCount} 个活动 · 已完成 ${space.completedActivityCount}/${space.totalActivityCount} 个活动',
-            style: Theme.of(context).textTheme.bodySmall,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 class _MilestoneCard extends StatelessWidget {
   const _MilestoneCard({required this.milestone});
 
@@ -326,7 +347,7 @@ class _MilestoneCard extends StatelessWidget {
     final colors = context.appColors;
     final achieved = milestone.isAchieved;
     return Container(
-      key: Key('growth-milestone-${milestone.id}'),
+      key: Key('growth-combined-milestone-${milestone.id}'),
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         color: achieved ? colors.successSoft : colors.bgSunken,

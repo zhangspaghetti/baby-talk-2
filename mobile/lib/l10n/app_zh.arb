@@ -423,5 +423,47 @@
   "shareUnavailable": "分享暂时不可用，请稍后重试。",
   "sharePrivacyNote": "分享内容会自动脱敏，不包含昵称、安装号或调试信息。",
 
-  "activationFrameLabel": "C3 激活框"
+  "activationFrameLabel": "C3 激活框",
+
+  "accountEntryLoading": "正在准备账号状态",
+  "accountEntryPreparingProfile": "先保留同意前本地档案",
+  "accountEntryVisibleNotLoggedIn": "账号入口已可见，但你还没有登录",
+  "accountEntrySignedInSynced": "已用 {phone} 登录并完成最近一次对齐",
+  "@accountEntrySignedInSynced": {"placeholders": {"phone": {}}},
+  "accountEntryReadFailedShell": "账号状态读取失败，但当前 shell 仍可继续使用",
+  "accountEntryTitle": "账号入口",
+  "accountEntryS03Label": "S03 账号 / 同意 / 同步闭环",
+  "accountEntrySubmitMessage": "登录已完成，可返回首页查看最近恢复结果。",
+  "accountEntrySubmitButton": "提交",
+
+  "shellDiscoverTooltip": "发现活动",
+  "shellPractice": "练习",
+  "shellPracticeName": "{name} 的练习",
+  "@shellPracticeName": {"placeholders": {"name": {}}},
+  "shellGrowthTab": "成长",
+  "shellFirstTimeDrawerStage": "第一次进入家庭档案",
+  "shellDrawerNoteText": "Drawer 现在会直接显示 invite CTA、角色 badge、最近是谁完成了什么，以及共享下一步是否安全可进。",
+
+  "growthDiaryEmpty": "还没有自动日记，第一次练习完成后会在这里记下变化。",
+  "growthMilestoneEmpty": "里程碑会在真实练习后逐步点亮。",
+  "growthShareWaitStable": "等最近成长和继续建议整理稳定后，再生成一条脱敏分享链接。",
+  "growthSceneEmpty": "花圃还没醒来，所以暂时没有场景进展。",
+
+  "gardenContinueUnavailable": "继续入口暂不可用",
+  "gardenContinueActivityTitle": "继续 {activityTitle}",
+  "@gardenContinueActivityTitle": {"placeholders": {"activityTitle": {}}},
+  "gardenImpactContinue": "{detail} 现在继续会回到 {activityTitle}。",
+  "@gardenImpactContinue": {"placeholders": {"detail": {}, "activityTitle": {}}},
+  "gardenImpactWithReasonDetail": "最新影响来自 {impactTitle}；回来继续会去 {activityTitle}（{reason}）。",
+  "@gardenImpactWithReasonDetail": {"placeholders": {"impactTitle": {}, "activityTitle": {}, "reason": {}}},
+
+  "discoverInvalidCardError": "这张活动卡缺少有效的 spaceId/activityId，已禁止导航。",
+  "discoverOpenActivityError": "打开 {title} 失败：{error}",
+  "@discoverOpenActivityError": {"placeholders": {"title": {}, "error": {}}},
+
+  "sharePhraseTodayLabel": "今天说的一句：{phrase}",
+  "@sharePhraseTodayLabel": {"placeholders": {"phrase": {}}},
+
+  "mentorSuggestionTabSemantics": "建议标签页",
+  "mentorChatTabSemantics": "聊天标签页"
 }

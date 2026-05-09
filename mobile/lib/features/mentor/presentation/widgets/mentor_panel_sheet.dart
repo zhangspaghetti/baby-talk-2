@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:mobile/app/widgets/app_banner.dart';
+import 'package:mobile/app/theme/app_layout_constants.dart';
 import 'package:mobile/app/theme/app_theme.dart';
 import 'package:mobile/features/account/presentation/account_view_model.dart';
 import 'package:mobile/features/mentor/data/services/mentor_api_service.dart'
@@ -16,9 +18,10 @@ Future<void> openMentorPanelSheet(
 }) async {
   final viewModel = Provider.of<MentorViewModel?>(context, listen: false);
   if (viewModel == null) {
+    final l = AppLocalizations.of(context)!;
     ScaffoldMessenger.of(
       context,
-    ).showSnackBar(SnackBar(content: Text('Mentor 面板尚未装配完成。')));
+    ).showSnackBar(SnackBar(content: Text(l.mentorNotReady)));
     return;
   }
 
@@ -65,7 +68,10 @@ class MentorPanelSheet extends StatelessWidget {
         alignment: Alignment.bottomCenter,
         child: Container(
           key: const Key('mentor-panel-sheet'),
-          constraints: BoxConstraints(maxHeight: maxHeight, maxWidth: 430),
+          constraints: BoxConstraints(
+            maxHeight: maxHeight,
+            maxWidth: AppLayoutConstants.maxContentWidth,
+          ),
           decoration: BoxDecoration(
             color: colors.bgSurface,
             borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
@@ -155,7 +161,7 @@ class _SegmentedTabBar extends StatelessWidget {
         children: [
           Expanded(
             child: Semantics(
-              label: '建议标签页',
+              label: l.mentorSuggestionTabSemantics,
               button: true,
               child: _SegmentedButton(
                 buttonKey: const Key('mentor-tab-suggestions-button'),
@@ -169,7 +175,7 @@ class _SegmentedTabBar extends StatelessWidget {
           const SizedBox(width: 6),
           Expanded(
             child: Semantics(
-              label: '聊天标签页',
+              label: l.mentorChatTabSemantics,
               button: true,
               child: _SegmentedButton(
                 buttonKey: const Key('mentor-tab-chat-button'),
@@ -252,19 +258,19 @@ class _MentorChatTab extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 16),
-          _ChatBanner(
+          AppBanner(
             key: const Key('mentor-chat-banner'),
-            title: availability.title,
-            detail: viewModel.bannerMessage ?? availability.detail,
-            code: viewModel.bannerCode ?? availability.code.wireValue,
+            message: viewModel.bannerMessage ?? availability.detail,
+            backgroundColor: colors.warningSoft,
+            foregroundColor: colors.warning,
           ),
           if (viewModel.audioStatusMessage != null) ...[
             const SizedBox(height: 12),
-            _ChatBanner(
+            AppBanner(
               key: const Key('mentor-chat-audio-banner'),
-              title: l.mentorReadStatus,
-              detail: viewModel.audioStatusMessage!,
-              code: viewModel.audioStatusCode ?? 'tts',
+              message: viewModel.audioStatusMessage!,
+              backgroundColor: colors.warningSoft,
+              foregroundColor: colors.warning,
             ),
           ],
           const SizedBox(height: 16),
@@ -427,54 +433,6 @@ class _ChatResponseCard extends StatelessWidget {
               viewModel.isSpeaking ? l.mentorReading : l.mentorReadResponse,
             ),
           ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ChatBanner extends StatelessWidget {
-  const _ChatBanner({
-    super.key,
-    required this.title,
-    required this.detail,
-    required this.code,
-  });
-
-  final String title;
-  final String detail;
-  final String code;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = context.appColors;
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: colors.warningSoft,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            title,
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: colors.warning,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            detail,
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: colors.warning,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          const SizedBox(height: 10),
-          Chip(label: Text('code · $code')),
         ],
       ),
     );
