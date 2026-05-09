@@ -34,6 +34,7 @@ coverage/
 .cache/
 tmp/
 deploy/helm/babytalk-app/values-kind-secrets.yaml
+deploy/helm/babytalk-app/values-kind-qa-secrets.yaml
 
 # ── GSD baseline (auto-generated) ──
 .bg-shell/

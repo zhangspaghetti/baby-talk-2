@@ -86,3 +86,24 @@ Key routing rules:
     kubectl -n babytalk rollout status deployment/babytalk-app-admin-web --timeout=120s
     kubectl -n babytalk rollout status deployment/babytalk-app-app-api --timeout=120s
 - Health check: kubectl -n babytalk get pods
+
+## QA Environment Configuration (configured by /setup-deploy)
+- Platform: Kubernetes + Helm (Docker Desktop local cluster, namespace: babytalk-qa)
+- Production URL: N/A — local cluster only (port-forward: gateway=127.0.0.1:8091, admin-web=127.0.0.1:3001)
+- Deploy workflow: manual helm upgrade (no auto-deploy on push)
+- Project type: web app + API (Spring Boot backend + React admin-web)
+- Merge method: squash
+- Persistence: Enabled (PVC with hostpath StorageClass)
+- Storage: PostgreSQL 1Gi, Redis 256Mi, MinIO 5Gi
+
+### QA Custom deploy hooks
+- Pre-merge: none
+- Deploy trigger: |
+    helm upgrade --install babytalk-qa-infra deploy/helm/babytalk-infra -n babytalk-qa --create-namespace -f deploy/helm/babytalk-infra/values-kind-qa.yaml
+    helm upgrade --install babytalk-qa-app deploy/helm/babytalk-app -n babytalk-qa -f deploy/helm/babytalk-app/values-kind-qa.yaml -f deploy/helm/babytalk-app/values-kind-qa-secrets.yaml
+- Deploy status: |
+    kubectl -n babytalk-qa rollout status deployment/babytalk-qa-app-gateway --timeout=120s
+    kubectl -n babytalk-qa rollout status deployment/babytalk-qa-app-admin-api --timeout=120s
+    kubectl -n babytalk-qa rollout status deployment/babytalk-qa-app-admin-web --timeout=120s
+    kubectl -n babytalk-qa rollout status deployment/babytalk-qa-app-app-api --timeout=120s
+- Health check: kubectl -n babytalk-qa get pods

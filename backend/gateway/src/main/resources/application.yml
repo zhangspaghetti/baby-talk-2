@@ -4,8 +4,15 @@ server:
 spring:
   application:
     name: babytalk-gateway
+  servlet:
+    multipart:
+      max-file-size: ${SPRING_SERVLET_MULTIPART_MAX_FILE_SIZE:100MB}
+      max-request-size: ${SPRING_SERVLET_MULTIPART_MAX_REQUEST_SIZE:100MB}
   cloud:
     gateway:
+      httpclient:
+        codec:
+          max-in-memory-size: ${SPRING_CLOUD_GATEWAY_HTTPCLIENT_CODEC_MAX_IN_MEMORY_SIZE:100MB}
       globalcors:
         cors-configurations:
           '[/**]':

@@ -5,6 +5,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.EnableAsync;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 
@@ -18,8 +19,9 @@ public class AsyncConfiguration {
     private static final Logger log = LoggerFactory.getLogger(AsyncConfiguration.class);
 
     @Bean(name = "ingestionExecutor")
-    public Executor ingestionExecutor() {
-        log.info("初始化 ingestion 线程池: core=2, max=4, queue=50");
+    public Executor ingestionExecutor(
+            @Value("${app.ingestion.thread-stack-size-kb:2048}") int stackSizeKb) {
+        log.info("初始化 ingestion 线程池: core=2, max=4, queue=50, stack={}KB", stackSizeKb);
 
         var executor = new ThreadPoolTaskExecutor();
         executor.setCorePoolSize(2);
@@ -28,6 +30,11 @@ public class AsyncConfiguration {
         executor.setThreadNamePrefix("ingestion-");
         executor.setWaitForTasksToCompleteOnShutdown(true);
         executor.setAwaitTerminationSeconds(30);
+        executor.setThreadFactory(r -> {
+            Thread t = new Thread(null, r, "ingestion-", stackSizeKb * 1024L);
+            t.setDaemon(false);
+            return t;
+        });
         executor.initialize();
         return executor;
     }

@@ -1,0 +1,53 @@
+# QA environment infra overrides — namespace: babytalk-qa, release: babytalk-qa-infra
+# Expected in-cluster endpoints:
+# - Postgres: babytalk-qa-infra-postgres:5432
+# - Redis: babytalk-qa-infra-redis-master:6379
+# - MinIO: babytalk-qa-infra-minio:9000
+#
+# Persistence is ENABLED here (unlike dev/kind which uses emptyDir).
+# StorageClass: hostpath — available in kind and Docker Desktop clusters.
+
+postgres:
+  primary:
+    persistence:
+      enabled: true
+      storageClassName: "hostpath"
+      size: 1Gi
+    resources:
+      requests:
+        cpu: 50m
+        memory: 128Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi
+
+redis:
+  image:
+    pullPolicy: IfNotPresent
+  master:
+    persistence:
+      enabled: true
+      storageClass: "hostpath"
+      size: 256Mi
+    resources:
+      requests:
+        cpu: 50m
+        memory: 64Mi
+  replica:
+    resources:
+      requests:
+        cpu: 50m
+        memory: 64Mi
+
+minio:
+  persistence:
+    enabled: true
+    storageClassName: "hostpath"
+    size: 5Gi
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi

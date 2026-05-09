@@ -11,6 +11,8 @@
 
 除 `bash ci/k8s-smoke.sh` 这条 CI-equivalent gate 之外，其余 repo-root verifier 都是 scoped drill-down；不要再拼 ad-hoc shell chain。
 
+QA 环境与 dev 环境隔离（namespace `babytalk-qa`，端口 8091/3001，PVC 持久化），详见 [README — QA 环境部署](README.md#qa-环境部署本地-kind-集群)。
+
 这些入口会围绕 `tmp/m007-s01-helm-metrics.jsonl` 提供 bounded local history。wrapper 或 smoke 失败时，先看 stdout 里的 `first_failure_stage` / `likely_cause` / `next_action`，再决定要不要继续下钻更重的 gate。
 
 ## Everyday workflows
@@ -99,6 +101,9 @@ flutter run
    - `bash ci/backend-test.sh`
    - `npm --prefix admin-web run build`
    - `flutter test`
+6. **QA environment (isolated)**
+   - `./scripts/qa-up-helm.sh` — full QA stack + APK build
+   - `./scripts/qa-logs.sh` — tail QA pod logs
 
 front-door 改动收尾时，不只要看命令 exit code；还要确认 shared telemetry history `tmp/m007-s01-helm-metrics.jsonl` 里出现 recent `demo` + `smoke` entries。
 

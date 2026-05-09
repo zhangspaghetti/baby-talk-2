@@ -68,6 +68,8 @@ class IngestionServiceTest {
                 vectorStore,
                 executor,
                 Duration.ofSeconds(5),
+                50,
+                5_000_000L,
                 publisher
         );
     }

@@ -112,7 +112,7 @@ class MentorApiService {
     AuthenticatedApiClient? authenticatedApiClient,
     Uri? baseUri,
     this.appVersion = defaultMentorApiVersion,
-    this.timeout = const Duration(seconds: 8),
+    this.timeout = const Duration(seconds: 30),
   }) : _client = client ?? http.Client(),
        _authenticatedApiClient = authenticatedApiClient,
        _ownsClient = client == null,

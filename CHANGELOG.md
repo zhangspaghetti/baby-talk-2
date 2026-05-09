@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 Version format: MAJOR.MINOR.PATCH.MICRO
 
+## [1.2.0.4] - 2026-05-09
+
+### Added
+- **QA 环境隔离部署:** 新增 `babytalk-qa` namespace，与 dev 环境完全隔离（端口 8091/3001）。PostgreSQL 1Gi、Redis 256Mi、MinIO 5Gi 全部启用 PVC hostpath 持久化，Pod 重启不丢数据。一键脚本 `scripts/qa-up-helm.sh` 自动完成 infra 部署 → app 部署 → rollout 验证 → port-forward → APK 构建 → 模拟器安装。
+- **SafeTextSplitter 替换 TokenTextSplitter:** `IngestionService` 从 Spring AI 的 `TokenTextSplitter`（存在 regex 灾难性回溯风险）迁移至自定义 `SafeTextSplitter`（按字符数切分 + overlap），新增 `vector-store-batch-size` 和 `max-text-length-chars` 可配置参数。
+
+### Changed
+- **IngestionService 配置化:** 向量存储批量大小 (`app.ingestion.vector-store-batch-size`, 默认 50) 和最大文本长度 (`app.ingestion.max-text-length-chars`, 默认 5000000) 改为外部配置，不再硬编码。
+- **QA 部署脚本:** `scripts/qa-up-helm.sh` 一键拉起 QA 环境 + 构建 APK；`scripts/qa-logs.sh` 快速查看 QA pod 日志。
+
 ## [1.2.0.3] - 2026-04-29
 
 ### Performance

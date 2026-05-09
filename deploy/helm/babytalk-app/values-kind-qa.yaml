@@ -1,0 +1,98 @@
+# QA environment app overrides — namespace: babytalk-qa, release: babytalk-qa-app
+# fullnameOverride keeps resource names short (babytalk-qa-app-gateway etc.)
+# Infra release: babytalk-qa-infra
+# Expected infra endpoints (QA-specific, different from dev's babytalk-infra-*):
+# - Postgres: babytalk-qa-infra-postgres:5432
+# - Redis: babytalk-qa-infra-redis-master:6379
+# - MinIO: babytalk-qa-infra-minio:9000
+
+fullnameOverride: babytalk-qa-app
+
+appApi:
+  image:
+    pullPolicy: IfNotPresent
+  resources:
+    requests:
+      cpu: 100m
+      memory: 192Mi
+
+adminApi:
+  image:
+    pullPolicy: IfNotPresent
+  resources:
+    requests:
+      cpu: 100m
+      memory: 512Mi
+    limits:
+      memory: 1Gi
+
+adminWeb:
+  image:
+    pullPolicy: IfNotPresent
+  ingress:
+    enabled: false
+  resources:
+    requests:
+      cpu: 50m
+      memory: 96Mi
+
+gateway:
+  enabled: true
+  image:
+    pullPolicy: IfNotPresent
+  service:
+    type: ClusterIP
+    port: 8090
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+
+dbMigration:
+  image:
+    pullPolicy: IfNotPresent
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+
+config:
+  BABY_TALK_REDIS_HOST: babytalk-qa-infra-redis-master
+  BABY_TALK_ADMIN_WEB_ORIGIN: "http://127.0.0.1:3001"
+
+  BABY_TALK_MENTOR_PROVIDER_MODE: "openai"
+  BABY_TALK_MENTOR_PROVIDER_TIMEOUT: "PT20S"
+  BABY_TALK_AI_BASE_URL: "https://dashscope.aliyuncs.com/compatible-mode"
+  BABY_TALK_AI_MODEL: "qwen3.6-flash"
+  BABY_TALK_AI_TEMPERATURE: "0.5"
+  BABY_TALK_AI_MAX_TOKENS: "65536"
+
+  BABY_TALK_MENTOR_RATE_LIMIT_MAX_REQUESTS: "100"
+  BABY_TALK_MENTOR_RATE_LIMIT_WINDOW: "PT10M"
+  BABY_TALK_MENTOR_PROMPT_MAX_LENGTH: "65536"
+  BABY_TALK_MENTOR_RESPONSE_MAX_LENGTH: "65536"
+  BABY_TALK_MENTOR_SEARCH_MODE: "agentic"
+
+  BABY_TALK_EMBEDDING_MODE: "openai"
+  BABY_TALK_EMBEDDING_BASE_URL: "https://dashscope.aliyuncs.com/compatible-mode"
+  BABY_TALK_EMBEDDING_MODEL: "text-embedding-v4"
+  BABY_TALK_EMBEDDING_DIMENSIONS: "1536"
+
+  # Multipart upload limits
+  BABY_TALK_MULTIPART_MAX_FILE_SIZE: "100MB"
+  BABY_TALK_MULTIPART_MAX_REQUEST_SIZE: "100MB"
+  BABY_TALK_GATEWAY_CODEC_MAX_MEMORY: "100MB"
+
+  # Ingestion processing
+  BABY_TALK_INGESTION_THREAD_STACK_SIZE_KB: "2048"
+  BABY_TALK_INGESTION_MAX_TEXT_LENGTH_CHARS: "5000000"
+  BABY_TALK_INGESTION_VECTOR_STORE_BATCH_SIZE: "50"
+
+secret:
+  BABY_TALK_DB_URL: jdbc:postgresql://babytalk-qa-infra-postgres:5432/babytalk
+  BABY_TALK_DB_USERNAME: babytalk
+  BABY_TALK_DB_PASSWORD: babytalk
+  BABY_TALK_MINIO_ENDPOINT: http://babytalk-qa-infra-minio:9000
+  BABY_TALK_MINIO_ACCESS_KEY: babytalk
+  BABY_TALK_MINIO_SECRET_KEY: babytalk123
+  BABY_TALK_MINIO_BUCKET: babytalk

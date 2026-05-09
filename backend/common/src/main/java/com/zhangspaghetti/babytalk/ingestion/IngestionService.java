@@ -18,7 +18,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.ai.document.Document;
 import org.springframework.ai.reader.tika.TikaDocumentReader;
-import org.springframework.ai.transformer.splitter.TokenTextSplitter;
+import com.zhangspaghetti.babytalk.ingestion.SafeTextSplitter;
 import org.springframework.ai.vectorstore.VectorStore;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
@@ -40,16 +40,19 @@ public class IngestionService {
     private static final String PHASE_SPLIT = "SPLIT";
     private static final String PHASE_VECTOR_STORE = "VECTOR_STORE";
     private static final String PHASE_TIMEOUT = "TIMEOUT";
-
+    
+    
     private final MinioClient minioClient;
     private final MinioProperties minioProperties;
     private final IngestionRepository repository;
     private final VectorStore vectorStore;
     private final MemPalaceMetadataEnricher metadataEnricher;
-    private final TokenTextSplitter tokenTextSplitter;
+    private final SafeTextSplitter safeTextSplitter;
     private final Executor ingestionExecutor;
     private final Duration processingTimeout;
     private final ApplicationEventPublisher publisher;
+    private final int vectorStoreBatchSize;
+    private final long maxTextLengthChars;
 
     public IngestionService(MinioClient minioClient,
                             MinioProperties minioProperties,
@@ -57,21 +60,20 @@ public class IngestionService {
                             VectorStore vectorStore,
                             @Qualifier("ingestionExecutor") Executor ingestionExecutor,
                             @Value("${app.ingestion.processing-timeout:PT90S}") Duration processingTimeout,
+                            @Value("${app.ingestion.vector-store-batch-size:50}") int vectorStoreBatchSize,
+                            @Value("${app.ingestion.max-text-length-chars:5000000}") long maxTextLengthChars,
                             ApplicationEventPublisher publisher) {
         this.minioClient = minioClient;
         this.minioProperties = minioProperties;
         this.repository = repository;
         this.vectorStore = vectorStore;
         this.metadataEnricher = new MemPalaceMetadataEnricher();
-        this.tokenTextSplitter = TokenTextSplitter.builder()
-                .withChunkSize(800)
-                .withMinChunkSizeChars(350)
-                .withMinChunkLengthToEmbed(5)
-                .withMaxNumChunks(10000)
-                .build();
+        this.safeTextSplitter = new SafeTextSplitter(800, 100);
         this.ingestionExecutor = ingestionExecutor;
         this.processingTimeout = processingTimeout;
         this.publisher = publisher;
+        this.vectorStoreBatchSize = vectorStoreBatchSize;
+        this.maxTextLengthChars = maxTextLengthChars;
     }
 
     public IngestionJob uploadAndIngest(String filename, InputStream inputStream,
@@ -165,22 +167,27 @@ public class IngestionService {
                         "文档解析结果为 0 字符（可能是空文件或不支持的格式）"
                 );
             }
-
-            for (Document document : documents) {
-                document.getMetadata().put("source_book", bookTitle != null ? bookTitle : "");
+            if (totalChars > maxTextLengthChars) {
+                throw new IngestionProcessingException(
+                        PHASE_PARSE,
+                        "文档文本过长（" + (totalChars / 1000) + "K 字符），超过 " + (maxTextLengthChars / 1000) + "K 字符限制，请分批上传较小的文件"
+                );
             }
 
-            List<Document> chunks = tokenTextSplitter.apply(documents);
+            List<Document> chunks = safeTextSplitter.apply(documents);
             if (chunks.isEmpty()) {
                 throw new IngestionProcessingException(PHASE_SPLIT, "文档分块结果为空");
             }
             log.info("Ingestion 分块完成: jobId={}, phase={}, totalChunks={}", jobId, PHASE_SPLIT, chunks.size());
 
             List<Document> enrichedChunks = metadataEnricher.apply(chunks);
-            try {
-                vectorStore.add(enrichedChunks);
-            } catch (Exception exception) {
-                throw new IngestionProcessingException(PHASE_VECTOR_STORE, exception.getMessage(), exception);
+            for (int i = 0; i < enrichedChunks.size(); i += vectorStoreBatchSize) {
+                List<Document> batch = enrichedChunks.subList(i, Math.min(i + vectorStoreBatchSize, enrichedChunks.size()));
+                try {
+                    vectorStore.add(batch);
+                } catch (Exception exception) {
+                    throw new IngestionProcessingException(PHASE_VECTOR_STORE, exception.getMessage(), exception);
+                }
             }
             log.info("Ingestion 向量写入完成: jobId={}, phase={}, totalChunks={}",
                     jobId, PHASE_VECTOR_STORE, enrichedChunks.size());

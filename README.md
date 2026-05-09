@@ -21,6 +21,105 @@ Baby Talk 2 是一个面向中国父母的亲子英语启蒙项目：`mobile` �
 > ```
 > `values-kind-secrets.yaml` 已加入 `.gitignore`，不会被提交。
 
+## QA 环境部署（本地 kind 集群）
+
+QA 环境与 dev 环境**隔离**运行，互不影响：
+
+| 项目 | Dev 环境 | QA 环境 |
+|------|----------|---------|
+| Kubernetes namespace | `babytalk` | `babytalk-qa` |
+| Infra release | `babytalk-infra` | `babytalk-qa-infra` |
+| App release | `babytalk-app` | `babytalk-qa-app` |
+| Gateway 本地端口 | 8090 | **8091** |
+| Admin-web 本地端口 | 3000 | **3001** |
+| Infra 持久化存储 | emptyDir（重启丢失） | **PVC（hostpath，持久化）** |
+
+### 首次准备
+
+```bash
+# 复制 QA secrets 模板并填入本地值
+cp deploy/helm/babytalk-app/values-kind-qa-secrets.example.yaml \
+   deploy/helm/babytalk-app/values-kind-qa-secrets.yaml
+# 编辑 values-kind-qa-secrets.yaml，设置 JWT secret 和 admin 密码
+```
+
+### 一键拉起 QA 环境 + 打包 APK
+
+```bash
+./scripts/qa-up-helm.sh
+```
+
+这个脚本会依次：
+
+1. **Preflight** — 检查 `helm`, `kubectl`, `flutter` 是否已安装，以及 QA secrets 文件是否存在
+2. **Infra** — 部署 `babytalk-qa-infra`（Postgres + Redis + MinIO，全部启用 PVC 持久化）到 `babytalk-qa` namespace
+3. **App** — 部署 `babytalk-qa-app`（gateway + app-api + admin-api + admin-web + db-migration）到 `babytalk-qa` namespace
+4. **Rollout 验证** — 等待所有 Deployment 就绪
+5. **Port-forward（后台）** — gateway → `127.0.0.1:8091`，admin-web → `127.0.0.1:3001`
+6. **Gateway smoke** — curl 健康检查
+7. **APK 构建** — `flutter build apk --debug`
+8. **APK 安装** — 检测 `adb devices`；有模拟器/真机则自动 `adb install`，否则输出 APK 路径
+
+成功后输出：
+
+```
+qa_status=ok
+namespace=babytalk-qa
+gateway_url=http://127.0.0.1:8091/
+admin_web_url=http://127.0.0.1:3001
+apk_path=mobile/build/app/outputs/flutter-apk/app-debug.apk
+```
+
+### 手动分步部署
+
+如果你只想重新部署其中一层：
+
+```bash
+# 仅更新 QA infra（含持久化存储）
+helm upgrade --install babytalk-qa-infra deploy/helm/babytalk-infra \
+  -n babytalk-qa --create-namespace \
+  -f deploy/helm/babytalk-infra/values-kind-qa.yaml \
+  --wait --timeout 120s
+
+# 仅更新 QA app
+helm upgrade --install babytalk-qa-app deploy/helm/babytalk-app \
+  -n babytalk-qa \
+  -f deploy/helm/babytalk-app/values-kind-qa.yaml \
+  -f deploy/helm/babytalk-app/values-kind-qa-secrets.yaml \
+  --wait --timeout 180s
+```
+
+### 启动 Android 模拟器并安装 APK
+
+```bash
+# 列出已创建的 AVD
+emulator -list-avds
+
+# 启动模拟器（替换 <avd_name> 为你的 AVD 名称）
+emulator -avd <avd_name> &
+
+# 等待模拟器启动后安装 APK
+adb wait-for-device
+adb install -r mobile/build/app/outputs/flutter-apk/app-debug.apk
+```
+
+### 查看 QA 环境状态
+
+```bash
+kubectl -n babytalk-qa get pods
+kubectl -n babytalk-qa get pvc       # 查看持久化存储状态
+```
+
+### 清理 QA 环境
+
+```bash
+# 卸载 Helm release（PVC 默认保留，数据不丢）
+helm uninstall babytalk-qa-app babytalk-qa-infra -n babytalk-qa
+
+# 如需彻底清除包括 PVC
+kubectl delete namespace babytalk-qa
+```
+
 ## 2 分钟内拉起 admin demo
 
 ### POSIX

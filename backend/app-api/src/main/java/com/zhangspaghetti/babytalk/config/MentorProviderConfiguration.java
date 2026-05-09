@@ -10,6 +10,8 @@ import org.springframework.ai.chat.client.advisor.MessageChatMemoryAdvisor;
 import org.springframework.ai.openai.OpenAiChatModel;
 import org.springframework.ai.openai.OpenAiChatOptions;
 import org.springframework.ai.openai.api.OpenAiApi;
+import org.springframework.web.client.RestClient;
+import java.time.Duration;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -46,9 +48,18 @@ public class MentorProviderConfiguration {
                             .formatted(properties.providerMode()));
         }
 
+        var restClient = RestClient.builder()
+                .defaultHeader("Authorization", "Bearer " + apiKey)
+                .build();
         var openAiApi = OpenAiApi.builder()
                 .baseUrl(resolveBaseUrl(properties))
                 .apiKey(apiKey)
+                .restClientBuilder(RestClient.builder()
+                        .defaultHeader("Authorization", "Bearer " + apiKey)
+                        .requestFactory(new org.springframework.http.client.SimpleClientHttpRequestFactory() {{
+                            setConnectTimeout(Duration.ofSeconds(10).toMillisPart());
+                            setReadTimeout(Duration.ofSeconds(60).toMillisPart());
+                        }}))
                 .build();
 
         var optionsBuilder = OpenAiChatOptions.builder();
