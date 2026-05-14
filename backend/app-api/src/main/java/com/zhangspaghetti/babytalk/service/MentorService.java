@@ -548,8 +548,11 @@ public class MentorService {
             int braceCount = 0;
             for (int i = start; i < rawResponse.length(); i++) {
                 char c = rawResponse.charAt(i);
-                if (c == '{') braceCount++;
-                else if (c == '}') braceCount--;
+                if (c == '{') {
+                    braceCount++;
+                } else if (c == '}') {
+                    braceCount--;
+                }
                 if (braceCount == 0) {
                     return rawResponse.substring(start, i + 1);
                 }

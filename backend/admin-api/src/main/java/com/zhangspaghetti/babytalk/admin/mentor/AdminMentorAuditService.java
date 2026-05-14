@@ -124,8 +124,7 @@ public class AdminMentorAuditService {
                         currentCount,
                         properties.rateLimitMaxRequests(),
                         remaining,
-                        properties.rateLimitWindow().toSeconds()))
-        ;
+                        properties.rateLimitWindow().toSeconds()));
     }
 
     private String normalizeOptionalInstallationId(String installationId) {
