@@ -34,12 +34,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const logout = useCallback(async () => {
-    const currentSession = getSessionSnapshot().session;
-
     try {
-      if (currentSession?.refreshToken) {
-        await authApi.logout(currentSession.refreshToken);
-      }
+      await authApi.logout();
     } finally {
       clearStoredSession({
         type: 'success',

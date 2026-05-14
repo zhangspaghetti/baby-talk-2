@@ -2,20 +2,17 @@ import { LogoutOutlined, UserOutlined } from '@ant-design/icons';
 import { ProLayout } from '@ant-design/pro-components';
 import { Breadcrumb, Button, Collapse, Space, Tag, Typography } from 'antd';
 import { Link } from 'react-router-dom';
-import type { DefaultLandingResolution } from '../app/default-landing';
 import type { AdminWorkspaceRouteDefinition } from '../app/routes';
 import { adminSurfaceStyles, warmPaperAdmin } from '../app/theme';
-import type { AdminIdentity, AuthSession } from '../lib/authClient';
+import type { AdminIdentity } from '../lib/authClient';
 
 type AdminLayoutProps = {
   currentAdmin: AdminIdentity | null;
-  session: AuthSession;
   activeRoute: AdminWorkspaceRouteDefinition | null;
   currentPath: string;
   visibleRoutes: readonly AdminWorkspaceRouteDefinition[];
   pageTitle: string;
   pageSubtitle: string;
-  landing: DefaultLandingResolution;
   loggingOut: boolean;
   onLogout: () => void | Promise<void>;
   children: React.ReactNode;
@@ -31,13 +28,11 @@ type AdminMenuItem = {
 
 export default function AdminLayout({
   currentAdmin,
-  session,
   activeRoute,
   currentPath,
   visibleRoutes,
   pageTitle,
   pageSubtitle,
-  landing,
   loggingOut,
   onLogout,
   children,
@@ -178,14 +173,7 @@ export default function AdminLayout({
                       </Tag>
                     ))}
                   </Space>
-                  <Space direction="vertical" size={2}>
-                    <Typography.Text type="secondary">
-                      access token expires at: {session.accessTokenExpiresAt}
-                    </Typography.Text>
-                    <Typography.Text type="secondary">
-                      refresh token expires at: {session.refreshTokenExpiresAt}
-                    </Typography.Text>
-                  </Space>
+                  <Typography.Text type="secondary">session: HttpOnly cookie</Typography.Text>
                 </Space>
               ),
             }]}
@@ -194,25 +182,6 @@ export default function AdminLayout({
       </ProLayout>
     </div>
   );
-}
-
-function renderLandingNote(landing: DefaultLandingResolution): string {
-  if (landing.kind === 'none') {
-    return '当前账号没有可访问模块；shell 会保持 logout/identity 可见，并显式暴露 no-access 状态。';
-  }
-
-  switch (landing.reason) {
-    case 'super-admin-overview':
-      return 'super_admin 默认落到 Overview，避免多模块账号直接跳进某个单工作面。';
-    case 'multi-domain-overview':
-      return '多域管理员默认落到 Overview；导航与 landing 都复用同一套路由元数据。';
-    case 'single-domain-route':
-      return `当前账号只暴露单一主工作面，默认直达 ${landing.route.title}。`;
-    case 'overview-only-route':
-      return `当前账号只有 ${landing.route.title} 可访问，shell 会直接把它作为默认入口。`;
-    default:
-      return 'shell 继续根据 route catalog 解析默认入口。';
-  }
 }
 
 const logoStyle: React.CSSProperties = {

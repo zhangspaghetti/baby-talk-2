@@ -16,7 +16,7 @@ import {
 import { useSearchParams } from 'react-router-dom';
 import { warmPaperAdmin } from '../app/theme';
 import { useAuth } from '../auth/auth-provider';
-import { ApiError } from '../lib/authClient';
+import { ApiError, toApiError } from '../lib/authClient';
 import {
   DISTRIBUTION_STATS_CHANNELS,
   DISTRIBUTION_STATS_RANGES,
@@ -267,7 +267,7 @@ export function DistributionStatsPage() {
               distribution:read {admin.permissions.includes('distribution:read') ? 'enabled' : 'missing'}
             </Tag>
             <Tag>roles: {admin.roles.join(', ') || 'none'}</Tag>
-            <Tag>access expires: {formatTimestamp(session.accessTokenExpiresAt)}</Tag>
+            <Tag>session: HttpOnly cookie</Tag>
           </Space>
           <Space wrap>
             <Tag data-testid="range-badge" color={query.rangeWasNormalized ? 'warning' : 'processing'}>
@@ -644,16 +644,6 @@ function formatTimestamp(value: string | undefined): string {
     return value;
   }
   return new Date(timestamp).toLocaleString();
-}
-
-function toApiError(error: unknown): ApiError {
-  if (error instanceof ApiError) {
-    return error;
-  }
-  if (error instanceof Error) {
-    return new ApiError(0, 'unexpected_error', error.message);
-  }
-  return new ApiError(0, 'unexpected_error', '发生未预期错误。');
 }
 
 export default DistributionStatsPage;

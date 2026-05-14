@@ -17,7 +17,7 @@ import {
 import { useSearchParams } from 'react-router-dom';
 import { warmPaperAdmin } from '../app/theme';
 import { useAuth } from '../auth/auth-provider';
-import { ApiError } from '../lib/authClient';
+import { ApiError, toApiError } from '../lib/authClient';
 import {
   MENTOR_AUDIT_FLAGS,
   mentorAuditClient,
@@ -187,7 +187,7 @@ export function MentorAuditPage() {
               mentor:audit {admin.permissions.includes('mentor:audit') ? 'enabled' : 'missing'}
             </Tag>
             <Tag>roles: {admin.roles.join(', ') || 'none'}</Tag>
-            <Tag>access expires: {formatTimestamp(session.accessTokenExpiresAt)}</Tag>
+            <Tag>session: HttpOnly cookie</Tag>
           </Space>
           <Space wrap>
             <Tag color={query.installationId ? 'processing' : 'default'}>
@@ -565,16 +565,6 @@ function formatTimestamp(value: string): string {
     return value;
   }
   return new Date(timestamp).toLocaleString();
-}
-
-function toApiError(error: unknown): ApiError {
-  if (error instanceof ApiError) {
-    return error;
-  }
-  if (error instanceof Error) {
-    return new ApiError(0, 'unexpected_error', error.message);
-  }
-  return new ApiError(0, 'unexpected_error', '发生未预期错误。');
 }
 
 export default MentorAuditPage;

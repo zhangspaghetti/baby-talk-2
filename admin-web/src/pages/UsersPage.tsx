@@ -405,7 +405,7 @@ export default function UsersPage() {
               admins:write {canWriteAdmins ? 'enabled' : 'missing'}
             </Tag>
             <Tag>roles: {admin.roles.join(', ') || 'none'}</Tag>
-            <Tag>access expires: {formatTimestamp(session.accessTokenExpiresAt)}</Tag>
+            <Tag>session: HttpOnly cookie</Tag>
           </Space>
           <Space wrap>
             <Tag>page: {query.rawPage ?? DEFAULT_PAGE}</Tag>

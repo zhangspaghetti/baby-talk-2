@@ -1,12 +1,11 @@
 import {
   ApiError,
   clearStoredSession,
-  loadStoredSession,
   persistStoredSession,
   requestJson,
   toApiError,
 } from './authClient';
-import { authApi, type AuthSession } from '../auth/auth-api';
+import { authApi } from '../auth/auth-api';
 
 export const OVERVIEW_DOMAIN_KEYS = [
   'knowledge_ingestion',
@@ -392,16 +391,9 @@ async function refreshStreamSession(): Promise<void> {
     return inFlightStreamRefresh;
   }
 
-  const currentSession = loadStoredSession();
-  if (!currentSession?.refreshToken) {
-    const error = new ApiError(401, 'admin_session_invalid', '管理员会话已失效，请重新登录。');
-    clearStoredSession(toSessionResetBanner(error));
-    throw error;
-  }
-
   inFlightStreamRefresh = authApi
-    .refresh(currentSession.refreshToken)
-    .then((nextSession: AuthSession) => {
+    .refresh()
+    .then((nextSession) => {
       persistStoredSession(nextSession);
     })
     .catch((error: unknown) => {
@@ -421,11 +413,6 @@ async function requestOverviewStreamResponse(input: {
   signal: AbortSignal;
   retried?: boolean;
 }): Promise<Response> {
-  const session = loadStoredSession();
-  if (!session?.accessToken) {
-    throw new ApiError(401, 'admin_session_invalid', '管理员会话已失效，请重新登录。');
-  }
-
   const url = new URL('/api/admin/overview/stream', window.location.origin);
   if (input.lastEventId) {
     url.searchParams.set('sinceEventId', input.lastEventId);
@@ -437,8 +424,8 @@ async function requestOverviewStreamResponse(input: {
       method: 'GET',
       headers: {
         Accept: 'text/event-stream',
-        Authorization: `Bearer ${session.accessToken}`,
       },
+      credentials: 'include',
       cache: 'no-store',
       signal: input.signal,
     });

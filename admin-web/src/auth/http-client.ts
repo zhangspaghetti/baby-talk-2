@@ -1,6 +1,6 @@
 import axios, { type InternalAxiosRequestConfig } from 'axios';
-import { authApi, parseAdminIdentity, toApiError, ApiError, type AuthSession } from './auth-api';
-import { clearStoredSession, loadStoredSession, persistStoredSession, type AuthBannerState } from './session-store';
+import { authApi, parseAdminIdentity, toApiError, ApiError } from './auth-api';
+import { clearStoredSession, persistStoredSession, type AuthBannerState } from './session-store';
 
 export type JsonRequestOptions = {
   method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
@@ -16,23 +16,20 @@ const REQUEST_TIMEOUT_MS = 10_000;
 
 const protectedTransport = axios.create({
   timeout: REQUEST_TIMEOUT_MS,
+  withCredentials: true,
   headers: {
     Accept: 'application/json',
   },
 });
 
-let inFlightRefresh: Promise<AuthSession> | null = null;
+let inFlightRefresh: Promise<void> | null = null;
 
 protectedTransport.interceptors.request.use((config) => {
-  const session = loadStoredSession();
   const headers = axios.AxiosHeaders.from(config.headers ?? {});
 
   headers.set('Accept', 'application/json');
   if (config.data != null && !headers.has('Content-Type') && !(config.data instanceof FormData)) {
     headers.set('Content-Type', 'application/json');
-  }
-  if (session?.accessToken) {
-    headers.set('Authorization', `Bearer ${session.accessToken}`);
   }
 
   config.headers = headers;
@@ -43,21 +40,15 @@ protectedTransport.interceptors.response.use(
   (response) => response,
   async (error) => {
     const apiError = toApiError(error);
-    const config = axios.isAxiosError(error) ? ((error.config as RetriableRequestConfig | undefined) ?? undefined) : undefined;
+    const config = axios.isAxiosError(error)
+      ? ((error.config as RetriableRequestConfig | undefined) ?? undefined)
+      : undefined;
 
     if (!config || config._adminRetried || apiError.status !== 401) {
       throw apiError;
     }
 
-    const session = loadStoredSession();
-    if (!session) {
-      throw apiError;
-    }
-
-    const nextSession = await refreshSession();
-    const retryHeaders = axios.AxiosHeaders.from(config.headers ?? {});
-    retryHeaders.set('Authorization', `Bearer ${nextSession.accessToken}`);
-    config.headers = retryHeaders;
+    await refreshSession();
     config._adminRetried = true;
 
     try {
@@ -68,23 +59,15 @@ protectedTransport.interceptors.response.use(
   },
 );
 
-async function refreshSession(): Promise<AuthSession> {
+async function refreshSession(): Promise<void> {
   if (inFlightRefresh) {
     return inFlightRefresh;
   }
 
-  const currentSession = loadStoredSession();
-  if (!currentSession?.refreshToken) {
-    const error = new ApiError(401, 'admin_session_invalid', '管理员会话已失效，请重新登录。');
-    clearStoredSession(toSessionResetBanner(error));
-    throw error;
-  }
-
   inFlightRefresh = authApi
-    .refresh(currentSession.refreshToken)
+    .refresh()
     .then((nextSession) => {
       persistStoredSession(nextSession);
-      return nextSession;
     })
     .catch((error) => {
       const apiError = toApiError(error);

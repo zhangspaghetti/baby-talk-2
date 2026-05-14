@@ -13,7 +13,6 @@ import {
   clearStoredSession,
   loadStoredSession,
   persistStoredSession,
-  SESSION_STORAGE_KEY,
   type AuthBannerState,
   type SessionSnapshot,
 } from '../auth/session-store';
@@ -34,7 +33,6 @@ export {
   loadStoredSession,
   persistStoredSession,
   requestJson,
-  SESSION_STORAGE_KEY,
   sameIdentity,
   toApiError,
 };

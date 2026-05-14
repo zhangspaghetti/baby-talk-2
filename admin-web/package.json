@@ -6,11 +6,16 @@
   "scripts": {
     "dev": "vite --host 0.0.0.0 --port 3000",
     "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.node.json",
+    "lint": "eslint src unit tests/admin-cookie-contract.spec.ts --max-warnings=0",
+    "format": "prettier --check src/auth src/shared unit tests/admin-cookie-contract.spec.ts package.json eslint.config.js vitest.config.ts playwright.p0.config.ts .prettierrc.json",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
     "build": "npm run typecheck && vite build",
     "preview": "vite preview --host 0.0.0.0 --port 3000",
     "install:browsers": "playwright install chromium",
     "pretest:e2e": "npm run install:browsers",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "test:e2e:p0": "playwright test -c playwright.p0.config.ts tests/admin-cookie-contract.spec.ts"
   },
   "dependencies": {
     "@ant-design/icons": "^6.1.1",
@@ -22,12 +27,21 @@
     "react-router-dom": "^6.30.1"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "@playwright/test": "^1.52.0",
+    "@testing-library/react": "^16.3.2",
     "@types/node": "^25.6.0",
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
     "@vitejs/plugin-react": "^4.4.1",
+    "@vitest/coverage-v8": "^4.1.6",
+    "eslint": "^10.3.0",
+    "globals": "^17.6.0",
+    "jsdom": "^29.1.1",
+    "prettier": "^3.8.3",
     "typescript": "^5.8.3",
-    "vite": "^5.4.10"
+    "typescript-eslint": "^8.59.3",
+    "vite": "^5.4.10",
+    "vitest": "^4.1.6"
   }
 }

@@ -274,13 +274,11 @@ function ProtectedShellRoute() {
   return (
     <AdminLayout
       currentAdmin={chromeIdentity}
-      session={session}
       activeRoute={activeRoute}
       currentPath={location.pathname}
       visibleRoutes={routeAccess.visibleRoutes}
       pageTitle={pageTitle}
       pageSubtitle={pageSubtitle}
-      landing={landing}
       loggingOut={loggingOut}
       onLogout={handleLogout}
     >

@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { ApiError, toApiError } from '../shared/errors/to-api-error';
 
 export interface AdminIdentity {
   principalId: string;
@@ -9,24 +10,12 @@ export interface AdminIdentity {
 }
 
 export interface AuthSession {
-  accessToken: string;
-  refreshToken: string;
-  tokenType: string;
-  accessTokenExpiresAt: string;
-  refreshTokenExpiresAt: string;
   admin: AdminIdentity;
 }
 
 export interface LogoutResponse {
   loggedOut: boolean;
   loggedOutAt: string;
-}
-
-interface ErrorPayload {
-  status?: number;
-  code?: string;
-  message?: string;
-  details?: Record<string, unknown>;
 }
 
 interface ParseIdentityOptions {
@@ -37,25 +26,12 @@ const REQUEST_TIMEOUT_MS = 10_000;
 
 const authTransport = axios.create({
   timeout: REQUEST_TIMEOUT_MS,
+  withCredentials: true,
   headers: {
     Accept: 'application/json',
     'Content-Type': 'application/json',
   },
 });
-
-export class ApiError extends Error {
-  status: number;
-  code: string;
-  details: Record<string, unknown>;
-
-  constructor(status: number, code: string, message: string, details: Record<string, unknown> = {}) {
-    super(message);
-    this.name = 'ApiError';
-    this.status = status;
-    this.code = code;
-    this.details = details;
-  }
-}
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
@@ -118,12 +94,7 @@ export function parseAuthSession(payload: unknown): AuthSession {
   }
 
   return {
-    accessToken: readRequiredString(payload, 'accessToken', '登录结果缺少 accessToken。'),
-    refreshToken: readRequiredString(payload, 'refreshToken', '登录结果缺少 refreshToken。'),
-    tokenType: readRequiredString(payload, 'tokenType', '登录结果缺少 tokenType。'),
-    accessTokenExpiresAt: readRequiredString(payload, 'accessTokenExpiresAt', '登录结果缺少 accessTokenExpiresAt。'),
-    refreshTokenExpiresAt: readRequiredString(payload, 'refreshTokenExpiresAt', '登录结果缺少 refreshTokenExpiresAt。'),
-    admin: parseAdminIdentity(payload.admin, { requirePermissions: true }),
+    admin: parseAdminIdentity('admin' in payload ? payload.admin : payload, { requirePermissions: true }),
   };
 }
 
@@ -133,19 +104,6 @@ export function parseStoredSessionPayload(payload: unknown): AuthSession {
   }
 
   return {
-    accessToken: readRequiredString(payload, 'accessToken', 'stored session 缺少 accessToken。'),
-    refreshToken: readRequiredString(payload, 'refreshToken', 'stored session 缺少 refreshToken。'),
-    tokenType: readRequiredString(payload, 'tokenType', 'stored session 缺少 tokenType。'),
-    accessTokenExpiresAt: readRequiredString(
-      payload,
-      'accessTokenExpiresAt',
-      'stored session 缺少 accessTokenExpiresAt。',
-    ),
-    refreshTokenExpiresAt: readRequiredString(
-      payload,
-      'refreshTokenExpiresAt',
-      'stored session 缺少 refreshTokenExpiresAt。',
-    ),
     admin: parseAdminIdentity(payload.admin, { requirePermissions: false }),
   };
 }
@@ -159,36 +117,6 @@ export function parseLogoutResponse(payload: unknown): LogoutResponse {
     loggedOut: readRequiredBoolean(payload, 'loggedOut', '退出结果缺少 loggedOut。'),
     loggedOutAt: readRequiredString(payload, 'loggedOutAt', '退出结果缺少 loggedOutAt。'),
   };
-}
-
-export function toApiError(error: unknown): ApiError {
-  if (error instanceof ApiError) {
-    return error;
-  }
-
-  if (axios.isAxiosError(error)) {
-    if (error.code === 'ECONNABORTED') {
-      return new ApiError(0, 'request_timeout', '请求超时，请重试。');
-    }
-
-    if (!error.response) {
-      return new ApiError(0, 'network_error', '无法连接 admin-api。请确认 admin-api 已启动。');
-    }
-
-    const payload = isRecord(error.response.data) ? (error.response.data as ErrorPayload) : {};
-    return new ApiError(
-      payload.status ?? error.response.status,
-      payload.code ?? 'request_failed',
-      payload.message ?? `请求失败（HTTP ${error.response.status}）。`,
-      payload.details ?? {},
-    );
-  }
-
-  if (error instanceof Error) {
-    return new ApiError(0, 'unexpected_error', error.message);
-  }
-
-  return new ApiError(0, 'unexpected_error', '发生未预期错误。');
 }
 
 async function requestAuthPayload(path: string, body?: Record<string, unknown>): Promise<unknown> {
@@ -215,16 +143,18 @@ export const authApi = {
     return parseAuthSession(payload);
   },
 
-  async refresh(refreshToken: string) {
-    const payload = await requestAuthPayload('/api/admin/auth/refresh', { refreshToken });
+  async refresh() {
+    const payload = await requestAuthPayload('/api/admin/auth/refresh');
     return parseAuthSession(payload);
   },
 
-  async logout(refreshToken: string) {
-    const payload = await requestAuthPayload('/api/admin/auth/logout', { refreshToken });
+  async logout() {
+    const payload = await requestAuthPayload('/api/admin/auth/logout');
     return parseLogoutResponse(payload);
   },
 };
+
+export { ApiError, toApiError };
 
 export function hasPermission(identity: AdminIdentity | null | undefined, permissionCode: string): boolean {
   return identity?.permissions.includes(permissionCode) ?? false;

@@ -11,7 +11,6 @@ import { type KnowledgeOpsView } from '../lib/knowledgeOpsClient';
 import {
   type KnowledgeQueryPatch,
   defaultStatusForView,
-  formatTimestamp,
   patchKnowledgeQuery,
   readCanonicalStatus,
   readQueryState as readKnowledgeQueryState,
@@ -136,7 +135,7 @@ export default function KnowledgeOpsPage() {
                     <Tag color={canReadKg ? 'success' : 'default'}>kg:read {canReadKg ? 'enabled' : 'missing'}</Tag>
                     <Tag color={canReviewKg ? 'success' : 'default'}>kg:review {canReviewKg ? 'enabled' : 'missing'}</Tag>
                     <Tag>roles: {admin.roles.join(', ') || 'none'}</Tag>
-                    <Tag>access expires: {formatTimestamp(session.accessTokenExpiresAt)}</Tag>
+                    <Tag>session: HttpOnly cookie</Tag>
                   </Space>
                   <Space wrap>
                     <Tag color={query.viewWasNormalized ? 'warning' : 'processing'}>

@@ -265,7 +265,7 @@ export default function OverviewPage() {
       streamSubscriptionRef.current?.close();
       streamSubscriptionRef.current = null;
     };
-  }, [loadSummary, session.accessToken, startTransportStream]);
+  }, [loadSummary, session, startTransportStream]);
 
   const effectiveTransport = transport ?? summary?.transport ?? null;
   const overallMode: 'live' | 'polling' =
