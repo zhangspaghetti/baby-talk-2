@@ -70,6 +70,20 @@ jobs:
           DOCKER_HOST: tcp://localhost:2375
         run: bash ci/backend-test.sh
 
+      - name: Run checkstyle
+        id: checkstyle
+        continue-on-error: true
+        timeout-minutes: 10
+        run: ./backend/mvnw -f backend/pom.xml -B checkstyle:check
+
+      - name: Upload JaCoCo coverage
+        if: ${{ always() }}
+        uses: codecov/codecov-action@v4
+        with:
+          files: '**/target/site/jacoco/jacoco.xml'
+          fail_ci_if_error: false
+          thresholds: '70'
+
       - name: Dump Docker relay diagnostics
         if: ${{ always() && steps.backend_tests.outcome != 'success' }}
         shell: bash
@@ -101,12 +115,15 @@ jobs:
             admin-web/playwright-report
             admin-web/test-results
 
-      - name: Fail when backend tests or Helm smoke fail
-        if: ${{ steps.backend_tests.outcome != 'success' || steps.helm_smoke.outcome != 'success' }}
+      - name: Fail when backend tests, checkstyle, or Helm smoke fail
+        if: ${{ steps.backend_tests.outcome != 'success' || steps.checkstyle.outcome != 'success' || steps.helm_smoke.outcome != 'success' }}
         shell: bash
         run: |
           if [[ "${{ steps.backend_tests.outcome }}" != 'success' ]]; then
             echo '::error::bash ci/backend-test.sh failed.'
+          fi
+          if [[ "${{ steps.checkstyle.outcome }}" != 'success' ]]; then
+            echo '::error::mvn checkstyle:check failed.'
           fi
           if [[ "${{ steps.helm_smoke.outcome }}" != 'success' ]]; then
             echo '::error::bash ci/k8s-smoke.sh failed.'

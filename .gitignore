@@ -1,6 +1,8 @@
 .github/superpowers
 .claude/
 workflows/
+!.github/workflows/
+!.github/workflows/admin-web.yml
 
 # ── GSD baseline (auto-generated) ──
 .bg-shell/
@@ -58,3 +60,7 @@ META-INF/
 .playwright-mcp/
 /package-lock.json
 /design-*.png
+
+# MemPalace per-project files (issue #185)
+mempalace.yaml
+entities.json
