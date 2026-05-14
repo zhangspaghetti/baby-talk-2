@@ -1,0 +1,27 @@
+{
+  "name": "技术债务审计",
+  "date": "2026-05-11",
+  "success": true,
+  "steps": [
+    {
+      "id": "arch_review",
+      "role": "engineering/engineering-software-architect",
+      "status": "completed"
+    },
+    {
+      "id": "code_scan",
+      "role": "engineering/engineering-code-reviewer",
+      "status": "completed"
+    },
+    {
+      "id": "test_analysis",
+      "role": "testing/testing-test-results-analyzer",
+      "status": "completed"
+    },
+    {
+      "id": "prioritize",
+      "role": "product/product-sprint-prioritizer",
+      "status": "completed"
+    }
+  ]
+}
