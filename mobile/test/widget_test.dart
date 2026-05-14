@@ -10,6 +10,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart'
 import 'package:isar/isar.dart';
 import 'package:mobile/app/app.dart';
 import 'package:mobile/core/device/installation_id_service.dart';
+import 'package:mobile/features/account/data/local/account_local_store.dart';
+import 'package:mobile/features/account/data/repositories/account_repository.dart';
+import 'package:mobile/features/household/data/local/household_local_store.dart';
+import 'package:mobile/features/household/data/repositories/household_repository.dart';
+import 'package:mobile/features/household/data/services/household_api_service.dart';
 import 'package:mobile/features/practice/data/local/practice_local_data_source.dart';
 import 'package:mobile/features/practice/data/repositories/practice_repository.dart';
 import 'package:mobile/features/practice/presentation/practice_session_notifier.dart';
@@ -42,6 +47,20 @@ void main() {
         child: BabyTalkApp(
           bootState: harness.bootState,
           repositoryFactory: (_) async => harness.repository,
+          accountRepositoryFactory: (practiceRepo, dir) async =>
+              AccountRepository(
+                localStore: AccountLocalStore(),
+                practiceRepository: practiceRepo,
+              ),
+          householdRepositoryFactory: (accountRepo, dir) async =>
+              HouseholdRepository(
+                localStore: HouseholdLocalStore(
+                  directoryResolver: () async => dir,
+                ),
+                apiService: HouseholdApiService(),
+                accountSnapshotLoader: accountRepo.loadSnapshot,
+                persistRefreshedSession: accountRepo.persistRefreshedSession,
+              ),
           appDirectoryResolver: () async => harness.tempDir,
           audioControllerFactory: _SilentPracticeAudioController.new,
           completedSnapshotLoader: () async => null,

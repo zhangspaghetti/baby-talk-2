@@ -1,43 +1,33 @@
 import 'dart:async';
 import 'dart:io';
 
-import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:mobile/app/app_reentry_orchestrator.dart';
+import 'package:mobile/app/auth_state.dart';
+import 'package:mobile/app/feature_gates.dart';
+import 'package:mobile/app/session_bootstrap.dart';
 import 'package:mobile/l10n/app_localizations.dart';
 import 'package:mobile/app/invite_reentry_coordinator.dart';
 import 'package:mobile/app/router/app_router.dart';
 import 'package:mobile/app/share_reentry_coordinator.dart';
 import 'package:mobile/app/theme/app_layout_constants.dart';
 import 'package:mobile/app/theme/app_theme.dart';
-import 'package:mobile/core/device/installation_id_service.dart';
-import 'package:mobile/features/account/data/local/account_local_store.dart';
 import 'package:mobile/features/account/data/repositories/account_repository.dart';
-import 'package:mobile/features/account/data/services/account_api_service.dart';
-import 'package:mobile/features/account/data/services/authenticated_api_client.dart';
 import 'package:mobile/features/account/presentation/account_notifier.dart';
 import 'package:mobile/features/account/presentation/screens/account_entry_screen.dart';
-import 'package:mobile/features/household/data/local/household_local_store.dart';
 import 'package:mobile/features/household/data/repositories/household_repository.dart';
-import 'package:mobile/features/household/data/services/household_api_service.dart';
 import 'package:mobile/features/household/presentation/household_notifier.dart';
-import 'package:mobile/features/mentor/data/local/mentor_local_data_source.dart';
 import 'package:mobile/features/mentor/data/repositories/mentor_repository.dart';
 import 'package:mobile/features/mentor/data/services/mentor_api_service.dart';
 import 'package:mobile/features/mentor/presentation/mentor_notifier.dart';
-import 'package:mobile/features/onboarding/data/local/onboarding_snapshot_store.dart';
 import 'package:mobile/features/onboarding/data/repositories/onboarding_repository.dart';
 import 'package:mobile/features/onboarding/domain/models/onboarding_snapshot.dart';
 import 'package:mobile/features/onboarding/presentation/onboarding_notifier.dart';
 import 'package:mobile/features/onboarding/presentation/screens/onboarding_screen.dart';
-import 'package:mobile/features/practice/data/local/practice_local_data_source.dart';
 import 'package:mobile/features/practice/data/repositories/garden_growth_repository.dart';
 import 'package:mobile/features/practice/data/repositories/practice_repository.dart';
 import 'package:mobile/features/practice/data/services/asset_phrase_service.dart';
-import 'package:mobile/features/practice/data/services/dynamic_practice_api_service.dart';
-import 'package:mobile/features/practice/domain/models/practice_continuity_snapshot.dart';
 import 'package:mobile/features/practice/presentation/garden_growth_notifier.dart';
 import 'package:mobile/features/practice/presentation/practice_continuity_notifier.dart';
 import 'package:mobile/features/practice/presentation/practice_route_args.dart';
@@ -53,7 +43,6 @@ import 'package:mobile/features/share/data/services/share_api_service.dart';
 import 'package:mobile/features/share/data/services/share_sheet_launcher.dart';
 import 'package:mobile/features/share/presentation/share_notifier.dart';
 import 'package:mobile/features/shell/presentation/app_shell_screen.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
 export 'package:mobile/features/practice/data/services/asset_phrase_service.dart'
     show SeedActivity, SeedContentBundle, SeedPhrase, SeedSpace;
@@ -121,59 +110,6 @@ typedef PracticeAudioControllerFactory = PracticeAudioController Function();
 typedef OnboardingCompletedSnapshotLoader =
     Future<OnboardingSnapshot?> Function();
 const _bootContinuitySeedTimeout = Duration(seconds: 4);
-
-class _AppBootContinuitySeed {
-  const _AppBootContinuitySeed({
-    required this.starterArgs,
-    required this.defaultPracticeArgs,
-    this.notifierSeed,
-  });
-
-  final PracticeRouteArgs starterArgs;
-  final PracticeRouteArgs defaultPracticeArgs;
-  final PracticeContinuitySeedState? notifierSeed;
-}
-
-class _SharedConsumerAuthDependencies {
-  _SharedConsumerAuthDependencies._({
-    required this.accountApiService,
-    required this.authenticatedApiClient,
-    required this.dynamicPracticeApiService,
-    required this.householdApiService,
-    required this.mentorApiService,
-  });
-
-  factory _SharedConsumerAuthDependencies.create() {
-    final accountApiService = AccountApiService();
-    final authenticatedApiClient = AuthenticatedApiClient(
-      apiService: accountApiService,
-    );
-    return _SharedConsumerAuthDependencies._(
-      accountApiService: accountApiService,
-      authenticatedApiClient: authenticatedApiClient,
-      dynamicPracticeApiService: DynamicPracticeApiService(),
-      householdApiService: HouseholdApiService(
-        authenticatedApiClient: authenticatedApiClient,
-      ),
-      mentorApiService: MentorApiService(
-        authenticatedApiClient: authenticatedApiClient,
-      ),
-    );
-  }
-
-  final AccountApiService accountApiService;
-  final AuthenticatedApiClient authenticatedApiClient;
-  final DynamicPracticeApiService dynamicPracticeApiService;
-  final HouseholdApiService householdApiService;
-  final MentorApiService mentorApiService;
-
-  void close() {
-    accountApiService.close();
-    dynamicPracticeApiService.close();
-    householdApiService.close();
-    mentorApiService.close();
-  }
-}
 
 class _AppLaunchState {
   const _AppLaunchState({
@@ -253,7 +189,6 @@ class _BabyTalkAppState extends State<BabyTalkApp> {
   GoRouter? _currentRouter;
   PracticeRepository? _repository;
   MentorRepository? _mentorRepository;
-  _SharedConsumerAuthDependencies? _sharedConsumerAuthDependencies;
   _AppLaunchState? _resolvedLaunchState;
 
   @override
@@ -278,11 +213,6 @@ class _BabyTalkAppState extends State<BabyTalkApp> {
     );
     _reentryOrchestrator.configureShareUriSubscription(widget.shareUriStream);
     _launchStateFuture = _loadLaunchState();
-  }
-
-  _SharedConsumerAuthDependencies _resolveSharedConsumerAuthDependencies() {
-    return _sharedConsumerAuthDependencies ??=
-        _SharedConsumerAuthDependencies.create();
   }
 
   @override
@@ -549,7 +479,6 @@ class _BabyTalkAppState extends State<BabyTalkApp> {
   void dispose() {
     final repository = _repository;
     final mentorRepository = _mentorRepository;
-    final sharedConsumerAuthDependencies = _sharedConsumerAuthDependencies;
     _reentryOrchestrator.dispose();
     if (_ownsShareReentryCoordinator) {
       _shareReentryCoordinator.dispose();
@@ -563,7 +492,6 @@ class _BabyTalkAppState extends State<BabyTalkApp> {
     if (mentorRepository != null) {
       unawaited(mentorRepository.close());
     }
-    sharedConsumerAuthDependencies?.close();
     super.dispose();
   }
 
@@ -638,241 +566,50 @@ class _BabyTalkAppState extends State<BabyTalkApp> {
   }
 
   Future<_AppLaunchState> _loadLaunchState() async {
-    PracticeRepository? repository;
-    HouseholdRepository? householdRepository;
-    MentorRepository? mentorRepository;
-    if (widget.accountRepositoryFactory != null) {
-      _sharedConsumerAuthDependencies?.close();
-      _sharedConsumerAuthDependencies = null;
-    }
     try {
-      final factory = widget.repositoryFactory ?? _defaultRepositoryFactory;
-      final directory = await _resolveAppDirectory();
-      repository = await factory(widget.bootState.assetPhraseService!);
-      final onboardingStore = OnboardingSnapshotStore(
-        directoryResolver: () async => directory,
+      // 1. SessionBootstrap: 创建所有 repositories
+      final bootstrap = await SessionBootstrap.create(
+        assetPhraseService: widget.bootState.assetPhraseService!,
+        primarySpaceId: widget.bootState.primarySpaceId!,
+        primaryActivityId: widget.bootState.primaryActivityId!,
+        repositoryFactory: widget.repositoryFactory,
+        accountRepositoryFactory: widget.accountRepositoryFactory,
+        householdRepositoryFactory: widget.householdRepositoryFactory,
+        appDirectoryResolver: widget.appDirectoryResolver,
       );
-      final onboardingRepository = OnboardingRepository(
-        snapshotStore: onboardingStore,
-        practiceRepository: repository,
-        starterSpaceId: widget.bootState.primarySpaceId!,
-        starterActivityId: widget.bootState.primaryActivityId!,
+
+      // 2. AuthState: 读取认证状态
+      final authState = await AuthState.load(
+        onboardingRepository: bootstrap.onboardingRepository,
+        completedSnapshotLoader: widget.completedSnapshotLoader,
       );
-      final accountRepositoryFactory =
-          widget.accountRepositoryFactory ?? _defaultAccountRepositoryFactory;
-      final accountRepository = await accountRepositoryFactory(
-        repository,
-        directory,
+
+      // 3. FeatureGates: 解析启动目标和 feature gates
+      final featureGates = await FeatureGates.resolve(
+        practiceRepository: bootstrap.practiceRepository,
+        completedSnapshot: authState.completedSnapshot,
+        primarySpaceId: widget.bootState.primarySpaceId!,
+        primaryActivityId: widget.bootState.primaryActivityId!,
+        continuitySeedTimeout: _bootContinuitySeedTimeout,
       );
-      final householdRepositoryFactory =
-          widget.householdRepositoryFactory ??
-          _defaultHouseholdRepositoryFactory;
-      householdRepository = await householdRepositoryFactory(
-        accountRepository,
-        directory,
-      );
-      mentorRepository = MentorRepository(
-        localDataSource: await MentorLocalDataSource.open(
-          directory: directory.path,
-        ),
-        practiceRepository: repository,
-        onboardingSnapshotStore: onboardingStore,
-        householdSnapshotLoader: householdRepository.loadSnapshot,
-      );
-      final completedSnapshotLoader = widget.completedSnapshotLoader;
-      final completedSnapshot = completedSnapshotLoader == null
-          ? await onboardingRepository.readCompletedSnapshot()
-          : await completedSnapshotLoader();
-      final continuitySeed = await _resolveBootContinuitySeed(
-        repository: repository,
-        completedSnapshot: completedSnapshot,
-      );
-      _repository = repository;
-      _mentorRepository = mentorRepository;
+
+      _repository = bootstrap.practiceRepository;
+      _mentorRepository = bootstrap.mentorRepository;
       return _AppLaunchState(
-        practiceRepository: repository,
-        onboardingRepository: onboardingRepository,
-        accountRepository: accountRepository,
-        householdRepository: householdRepository,
-        mentorRepository: mentorRepository,
-        destination: completedSnapshot != null
-            ? AppLaunchDestination.shell
-            : widget.appDirectoryResolver != null
-            ? AppLaunchDestination.onboarding
-            : AppLaunchDestination.shell,
-        starterArgs: continuitySeed.starterArgs,
-        defaultPracticeArgs: continuitySeed.defaultPracticeArgs,
-        continuitySeed: continuitySeed.notifierSeed,
-        completedSnapshot: completedSnapshot,
-        mentorApiService: widget.accountRepositoryFactory == null
-            ? _sharedConsumerAuthDependencies?.mentorApiService
-            : null,
+        practiceRepository: bootstrap.practiceRepository,
+        onboardingRepository: bootstrap.onboardingRepository,
+        accountRepository: bootstrap.accountRepository,
+        householdRepository: bootstrap.householdRepository,
+        mentorRepository: bootstrap.mentorRepository,
+        destination: featureGates.destination,
+        starterArgs: featureGates.starterArgs,
+        defaultPracticeArgs: featureGates.defaultPracticeArgs,
+        continuitySeed: featureGates.continuitySeed,
+        completedSnapshot: authState.completedSnapshot,
+        mentorApiService: null,
       );
     } catch (error) {
-      if (householdRepository != null) {
-        await householdRepository.close();
-      }
-      if (mentorRepository != null &&
-          !identical(mentorRepository, _mentorRepository)) {
-        await mentorRepository.close();
-      }
-      if (repository != null && !identical(repository, _repository)) {
-        await repository.close();
-      }
       rethrow;
-    }
-  }
-
-  Future<_AppBootContinuitySeed> _resolveBootContinuitySeed({
-    required PracticeRepository repository,
-    required OnboardingSnapshot? completedSnapshot,
-  }) async {
-    final primaryArgs = PracticeRouteArgs(
-      spaceId: widget.bootState.primarySpaceId!,
-      activityId: widget.bootState.primaryActivityId!,
-    );
-    final starterArgs =
-        PracticeRouteArgs.maybeCreate(
-          spaceId: completedSnapshot?.starterSpaceId,
-          activityId: completedSnapshot?.starterActivityId,
-        ) ??
-        primaryArgs;
-
-    if (completedSnapshot == null) {
-      return _AppBootContinuitySeed(
-        starterArgs: starterArgs,
-        defaultPracticeArgs: starterArgs,
-      );
-    }
-
-    try {
-      final continuitySnapshot = await repository
-          .getContinuitySnapshot(
-            starterSpaceId: starterArgs.spaceId,
-            starterActivityId: starterArgs.activityId,
-          )
-          .timeout(_bootContinuitySeedTimeout);
-      final recommendedArgs = PracticeRouteArgs.maybeCreate(
-        spaceId: continuitySnapshot.recommendedActivity.spaceId,
-        activityId: continuitySnapshot.recommendedActivity.activityId,
-      );
-      if (recommendedArgs == null) {
-        return _AppBootContinuitySeed(
-          starterArgs: starterArgs,
-          defaultPracticeArgs: starterArgs,
-        );
-      }
-
-      final activitySnapshot = await repository
-          .getActivitySnapshot(
-            spaceId: recommendedArgs.spaceId,
-            activityId: recommendedArgs.activityId,
-          )
-          .timeout(_bootContinuitySeedTimeout);
-      return _AppBootContinuitySeed(
-        starterArgs: starterArgs,
-        defaultPracticeArgs: recommendedArgs,
-        notifierSeed: PracticeContinuitySeedState(
-          starterArgs: starterArgs,
-          snapshot: continuitySnapshot,
-          activitySnapshot: activitySnapshot,
-          recommendedArgs: recommendedArgs,
-          status: PracticeContinuityLoadStatus.ready,
-          warningMessage: continuitySnapshot.warningMessage,
-          lastRefreshReason:
-              'boot_seed_${continuitySnapshot.recommendation.reason.wireValue}',
-        ),
-      );
-    } on TimeoutException {
-      return _AppBootContinuitySeed(
-        starterArgs: starterArgs,
-        defaultPracticeArgs: starterArgs,
-      );
-    } on FormatException {
-      return _AppBootContinuitySeed(
-        starterArgs: starterArgs,
-        defaultPracticeArgs: starterArgs,
-      );
-    } catch (_) {
-      return _AppBootContinuitySeed(
-        starterArgs: starterArgs,
-        defaultPracticeArgs: starterArgs,
-      );
-    }
-  }
-
-  Future<PracticeRepository> _defaultRepositoryFactory(
-    AssetPhraseService assetPhraseService,
-  ) async {
-    final directory = await _resolveAppDirectory();
-    final authDependencies = _resolveSharedConsumerAuthDependencies();
-    final localDataSource = await PracticeLocalDataSource.open(
-      directory: directory.path,
-    );
-    return PracticeRepository(
-      assetPhraseService: assetPhraseService,
-      localDataSource: localDataSource,
-      dynamicPracticeApiService: authDependencies.dynamicPracticeApiService,
-      installationIdService: InstallationIdService(
-        directoryResolver: () async => directory,
-      ),
-    );
-  }
-
-  Future<AccountRepository> _defaultAccountRepositoryFactory(
-    PracticeRepository practiceRepository,
-    Directory directory,
-  ) async {
-    final connectivity = Connectivity();
-    final authDependencies = _resolveSharedConsumerAuthDependencies();
-    return AccountRepository(
-      localStore: AccountLocalStore(),
-      practiceRepository: practiceRepository,
-      apiService: authDependencies.accountApiService,
-      authenticatedApiClient: authDependencies.authenticatedApiClient,
-      connectivityChecker: () async {
-        try {
-          final dynamic status = await connectivity.checkConnectivity();
-          if (status is List<ConnectivityResult>) {
-            return status.any((entry) => entry != ConnectivityResult.none);
-          }
-          if (status is ConnectivityResult) {
-            return status != ConnectivityResult.none;
-          }
-          return true;
-        } on MissingPluginException {
-          return true;
-        } catch (_) {
-          return true;
-        }
-      },
-    );
-  }
-
-  Future<HouseholdRepository> _defaultHouseholdRepositoryFactory(
-    AccountRepository accountRepository,
-    Directory directory,
-  ) async {
-    final authDependencies = _resolveSharedConsumerAuthDependencies();
-    return HouseholdRepository(
-      localStore: HouseholdLocalStore(directoryResolver: () async => directory),
-      apiService: authDependencies.householdApiService,
-      accountSnapshotLoader: accountRepository.loadSnapshot,
-      persistRefreshedSession: accountRepository.persistRefreshedSession,
-    );
-  }
-
-  Future<Directory> _resolveAppDirectory() async {
-    final resolver = widget.appDirectoryResolver;
-    if (resolver != null) return resolver();
-    try {
-      return await getApplicationSupportDirectory();
-    } on MissingPluginException {
-      final directory = Directory(
-        '${Directory.systemTemp.path}${Platform.pathSeparator}baby_talk_2_support',
-      );
-      await directory.create(recursive: true);
-      return directory;
     }
   }
 }

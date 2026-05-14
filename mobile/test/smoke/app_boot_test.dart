@@ -14,6 +14,9 @@ import 'package:mobile/core/device/installation_id_service.dart';
 import 'package:mobile/features/account/data/local/account_local_store.dart';
 import 'package:mobile/features/account/data/repositories/account_repository.dart';
 import 'package:mobile/features/account/domain/models/account_consent_state.dart';
+import 'package:mobile/features/household/data/local/household_local_store.dart';
+import 'package:mobile/features/household/data/repositories/household_repository.dart';
+import 'package:mobile/features/household/data/services/household_api_service.dart';
 import 'package:mobile/features/onboarding/data/local/onboarding_snapshot_store.dart';
 import 'package:mobile/features/onboarding/data/repositories/onboarding_repository.dart';
 import 'package:mobile/features/onboarding/domain/models/onboarding_snapshot.dart';
@@ -99,6 +102,20 @@ void main() {
         child: BabyTalkApp(
           bootState: harness.bootState,
           repositoryFactory: (_) async => harness.repository,
+          accountRepositoryFactory: (practiceRepo, dir) async =>
+              AccountRepository(
+                localStore: AccountLocalStore(),
+                practiceRepository: practiceRepo,
+              ),
+          householdRepositoryFactory: (accountRepo, dir) async =>
+              HouseholdRepository(
+                localStore: HouseholdLocalStore(
+                  directoryResolver: () async => dir,
+                ),
+                apiService: HouseholdApiService(),
+                accountSnapshotLoader: accountRepo.loadSnapshot,
+                persistRefreshedSession: accountRepo.persistRefreshedSession,
+              ),
           appDirectoryResolver: () async => harness.tempDir,
           audioControllerFactory: _SilentPracticeAudioController.new,
           completedSnapshotLoader: () async => null,
@@ -177,6 +194,20 @@ void main() {
         child: BabyTalkApp(
           bootState: harness.bootState,
           repositoryFactory: (_) async => harness.repository,
+          accountRepositoryFactory: (practiceRepo, dir) async =>
+              AccountRepository(
+                localStore: AccountLocalStore(),
+                practiceRepository: practiceRepo,
+              ),
+          householdRepositoryFactory: (accountRepo, dir) async =>
+              HouseholdRepository(
+                localStore: HouseholdLocalStore(
+                  directoryResolver: () async => dir,
+                ),
+                apiService: HouseholdApiService(),
+                accountSnapshotLoader: accountRepo.loadSnapshot,
+                persistRefreshedSession: accountRepo.persistRefreshedSession,
+              ),
           appDirectoryResolver: () async => harness.tempDir,
           audioControllerFactory: _SilentPracticeAudioController.new,
           completedSnapshotLoader: () async => completedSnapshot,
@@ -239,6 +270,20 @@ void main() {
           child: BabyTalkApp(
             bootState: harness.bootState,
             repositoryFactory: (_) async => harness.repository,
+            accountRepositoryFactory: (practiceRepo, dir) async =>
+                AccountRepository(
+                  localStore: AccountLocalStore(),
+                  practiceRepository: practiceRepo,
+                ),
+            householdRepositoryFactory: (accountRepo, dir) async =>
+                HouseholdRepository(
+                  localStore: HouseholdLocalStore(
+                    directoryResolver: () async => dir,
+                  ),
+                  apiService: HouseholdApiService(),
+                  accountSnapshotLoader: accountRepo.loadSnapshot,
+                  persistRefreshedSession: accountRepo.persistRefreshedSession,
+                ),
             appDirectoryResolver: () async => harness.tempDir,
             audioControllerFactory: _SilentPracticeAudioController.new,
             completedSnapshotLoader: () async => completedSnapshot,
@@ -326,6 +371,20 @@ void main() {
         child: BabyTalkApp(
           bootState: harness.bootState,
           repositoryFactory: (_) async => harness.repository,
+          accountRepositoryFactory: (practiceRepo, dir) async =>
+              AccountRepository(
+                localStore: AccountLocalStore(),
+                practiceRepository: practiceRepo,
+              ),
+          householdRepositoryFactory: (accountRepo, dir) async =>
+              HouseholdRepository(
+                localStore: HouseholdLocalStore(
+                  directoryResolver: () async => dir,
+                ),
+                apiService: HouseholdApiService(),
+                accountSnapshotLoader: accountRepo.loadSnapshot,
+                persistRefreshedSession: accountRepo.persistRefreshedSession,
+              ),
           appDirectoryResolver: () async => harness.tempDir,
           audioControllerFactory: _SilentPracticeAudioController.new,
           completedSnapshotLoader: () async => completedSnapshot,
