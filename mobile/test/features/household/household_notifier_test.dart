@@ -7,13 +7,13 @@ import 'package:mobile/features/household/data/repositories/household_repository
 import 'package:mobile/features/household/domain/models/household_invite_link.dart';
 import 'package:mobile/features/household/domain/models/household_role.dart';
 import 'package:mobile/features/household/domain/models/household_shared_context.dart';
-import 'package:mobile/features/household/presentation/household_view_model.dart';
+import 'package:mobile/features/household/presentation/household_notifier.dart';
 import 'package:mobile/features/practice/presentation/practice_route_args.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  group('HouseholdViewModel', () {
+  group('HouseholdNotifier', () {
     test('createInvite 成功后会暴露 invite link 与可见 message', () async {
       final repository = _FakeHouseholdRepository()
         ..createInviteResult = HouseholdCreateInviteResult(
@@ -32,18 +32,18 @@ void main() {
           ),
           message: '邀请链接已创建。',
         );
-      final viewModel = HouseholdViewModel(repository: repository);
-      addTearDown(viewModel.dispose);
+      final notifier = HouseholdNotifier(repository: repository);
+      addTearDown(notifier.dispose);
 
-      final result = await viewModel.createInvite();
+      final result = await notifier.createInvite();
 
       expect(result.isSuccess, isTrue);
-      expect(viewModel.snapshot.householdId, 'household_1');
-      expect(viewModel.snapshot.role, HouseholdRole.primaryCaregiver);
-      expect(viewModel.lastCreatedInvite?.token, 'invite_token_1234');
-      expect(viewModel.message, '邀请链接已创建。');
-      expect(viewModel.isBusy, isFalse);
-      expect(viewModel.lastActionKind, HouseholdActionKind.createInvite);
+      expect(notifier.snapshot.householdId, 'household_1');
+      expect(notifier.snapshot.role, HouseholdRole.primaryCaregiver);
+      expect(notifier.lastCreatedInvite?.token, 'invite_token_1234');
+      expect(notifier.message, '邀请链接已创建。');
+      expect(notifier.isBusy, isFalse);
+      expect(notifier.lastActionKind, HouseholdActionKind.createInvite);
     });
 
     test(
@@ -77,24 +77,24 @@ void main() {
             message: '邀请已接受，正在进入共享练习。',
           ),
         );
-        final viewModel = HouseholdViewModel(repository: repository);
-        addTearDown(viewModel.dispose);
+        final notifier = HouseholdNotifier(repository: repository);
+        addTearDown(notifier.dispose);
         const command = InviteReentryAcceptCommand(
           token: 'invite_token_1234',
           source: 'invite_link',
           roleHint: HouseholdRole.caregiver,
         );
 
-        final first = await viewModel.acceptInviteFromReentry(command);
+        final first = await notifier.acceptInviteFromReentry(command);
         expect(first.shouldRouteToPractice, isFalse);
-        expect(viewModel.snapshot.lastPhase, 'accept_invite_timeout');
-        expect(viewModel.message, contains('安全 fallback'));
+        expect(notifier.snapshot.lastPhase, 'accept_invite_timeout');
+        expect(notifier.message, contains('安全 fallback'));
 
-        final retried = await viewModel.retryLastAction();
+        final retried = await notifier.retryLastAction();
         expect(retried, isTrue);
-        expect(viewModel.snapshot.lastPhase, 'accept_ready');
-        expect(viewModel.snapshot.householdId, 'household_1');
-        expect(viewModel.message, contains('共享练习'));
+        expect(notifier.snapshot.lastPhase, 'accept_ready');
+        expect(notifier.snapshot.householdId, 'household_1');
+        expect(notifier.message, contains('共享练习'));
         expect(repository.lastAcceptedToken, 'invite_token_1234');
         expect(repository.acceptCallCount, 2);
       },
@@ -103,19 +103,19 @@ void main() {
     test('refreshSharedContext 会暴露 isBusy 并保护重复触发', () async {
       final repository = _FakeHouseholdRepository();
       repository.refreshCompleter = Completer<HouseholdLocalSnapshot>();
-      final viewModel = HouseholdViewModel(repository: repository);
-      addTearDown(viewModel.dispose);
+      final notifier = HouseholdNotifier(repository: repository);
+      addTearDown(notifier.dispose);
 
-      final firstFuture = viewModel.refreshSharedContext(
+      final firstFuture = notifier.refreshSharedContext(
         reason: 'manual_refresh',
       );
-      final secondFuture = viewModel.refreshSharedContext(
+      final secondFuture = notifier.refreshSharedContext(
         reason: 'manual_refresh',
       );
       await Future<void>.delayed(Duration.zero);
 
-      expect(viewModel.isBusy, isTrue);
-      expect(viewModel.message, contains('刷新共享上下文'));
+      expect(notifier.isBusy, isTrue);
+      expect(notifier.message, contains('刷新共享上下文'));
       expect(repository.refreshCallCount, 1);
 
       repository.refreshCompleter!.complete(
@@ -132,13 +132,10 @@ void main() {
 
       expect(first.householdId, 'household_1');
       expect(second.householdId, 'household_1');
-      expect(viewModel.isBusy, isFalse);
-      expect(viewModel.snapshot.lastPhase, 'shared_context_ready');
+      expect(notifier.isBusy, isFalse);
+      expect(notifier.snapshot.lastPhase, 'shared_context_ready');
       expect(repository.refreshCallCount, 1);
-      expect(
-        viewModel.lastActionKind,
-        HouseholdActionKind.refreshSharedContext,
-      );
+      expect(notifier.lastActionKind, HouseholdActionKind.refreshSharedContext);
     });
   });
 }

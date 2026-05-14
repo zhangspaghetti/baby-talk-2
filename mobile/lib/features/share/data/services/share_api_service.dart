@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:dio/dio.dart';
+import 'package:mobile/core/network/app_dio.dart';
 import 'package:mobile/features/share/domain/models/share_link_draft.dart';
 
 const String defaultShareApiVersion = String.fromEnvironment(
@@ -67,16 +68,7 @@ class ShareApiService {
     String? baseUrl,
     this.appVersion = defaultShareApiVersion,
     this.timeout = const Duration(seconds: 8),
-  }) : _dio = dio ??
-           Dio(
-             BaseOptions(
-               baseUrl: baseUrl ?? defaultShareApiBaseUrl,
-               connectTimeout: timeout,
-               receiveTimeout: timeout,
-               headers: {'Content-Type': 'application/json'},
-               validateStatus: (status) => true,
-             ),
-           ),
+  }) : _dio = dio ?? AppDio.create(baseUrl: baseUrl ?? defaultShareApiBaseUrl),
        _ownsDio = dio == null;
 
   final Dio _dio;
@@ -181,9 +173,7 @@ class ShareApiService {
 String _readRequiredString(Map<String, dynamic> json, String key) {
   final value = json[key];
   if (value is! String || value.trim().isEmpty) {
-    throw ShareApiException.malformed(
-      message: '字段 `$key` 缺失或不是非空字符串。',
-    );
+    throw ShareApiException.malformed(message: '字段 `$key` 缺失或不是非空字符串。');
   }
   return value.trim();
 }
@@ -215,9 +205,7 @@ String _readRequiredAbsoluteUrl(Map<String, dynamic> json, String key) {
 DateTime _readRequiredDateTime(Map<String, dynamic> json, String key) {
   final value = json[key];
   if (value is! String || value.trim().isEmpty) {
-    throw ShareApiException.malformed(
-      message: '字段 `$key` 缺失或不是合法时间。',
-    );
+    throw ShareApiException.malformed(message: '字段 `$key` 缺失或不是合法时间。');
   }
   try {
     return DateTime.parse(value).toUtc();

@@ -76,10 +76,7 @@ class PracticeRouteArgs {
   }
 
   Future<T?> push<T>(BuildContext context) {
-    return GoRouter.of(context).push<T>(
-      '/practice',
-      extra: normalized(),
-    );
+    return GoRouter.of(context).push<T>('/practice', extra: normalized());
   }
 
   static String? _trimToNull(String? rawValue) {

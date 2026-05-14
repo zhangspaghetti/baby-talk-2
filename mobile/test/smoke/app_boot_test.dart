@@ -22,8 +22,8 @@ import 'package:mobile/features/practice/data/local/practice_local_data_source.d
 import 'package:mobile/features/practice/data/repositories/practice_repository.dart';
 import 'package:mobile/features/practice/domain/models/interaction_event_payload.dart';
 import 'package:mobile/features/practice/domain/models/practice_continuity_snapshot.dart';
-import 'package:mobile/features/practice/presentation/practice_continuity_view_model.dart';
-import 'package:mobile/features/practice/presentation/practice_session_view_model.dart';
+import 'package:mobile/features/practice/presentation/practice_continuity_notifier.dart';
+import 'package:mobile/features/practice/presentation/practice_session_notifier.dart';
 import 'package:provider/provider.dart';
 
 void main() {
@@ -251,23 +251,23 @@ void main() {
       await tester.pump();
 
       final shellElement = tester.element(find.byKey(const Key('shell-ready')));
-      final continuityViewModel = Provider.of<PracticeContinuityViewModel>(
+      final continuityNotifier = Provider.of<PracticeContinuityNotifier>(
         shellElement,
         listen: false,
       );
-      expect(continuityViewModel.hasResolvedRecommendation, isTrue);
-      expect(continuityViewModel.recommendedArgs?.activityId, 'feeding_time');
+      expect(continuityNotifier.hasResolvedRecommendation, isTrue);
+      expect(continuityNotifier.recommendedArgs?.activityId, 'feeding_time');
       expect(
-        continuityViewModel.snapshot?.recommendation.reason,
+        continuityNotifier.snapshot?.recommendation.reason,
         PracticeContinuityReason.recentActivity,
       );
-      expect(
-        continuityViewModel.lastRefreshReason,
-        'boot_seed_recent_activity',
-      );
+      expect(continuityNotifier.lastRefreshReason, 'boot_seed_recent_activity');
 
       await tester.tap(find.byTooltip('成长'));
-      await _pumpUntilFound(tester, find.byKey(const Key('shell-tab-growth-combined')));
+      await _pumpUntilFound(
+        tester,
+        find.byKey(const Key('shell-tab-growth-combined')),
+      );
       await tester.pumpAndSettle();
       await tester.scrollUntilVisible(
         find.byKey(const Key('garden-continue-practice')),

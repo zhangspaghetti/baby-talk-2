@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:mobile/app/theme/app_theme.dart';
 import 'package:mobile/features/practice/data/repositories/practice_repository.dart';
 import 'package:mobile/features/practice/domain/models/practice_continuity_snapshot.dart';
-import 'package:mobile/features/practice/presentation/practice_continuity_view_model.dart';
+import 'package:mobile/features/practice/presentation/practice_continuity_notifier.dart';
 import 'package:mobile/features/practice/presentation/practice_route_args.dart';
 import 'package:mobile/l10n/app_localizations.dart';
 
@@ -10,13 +10,13 @@ class GardenContinueCard extends StatelessWidget {
   const GardenContinueCard({
     super.key,
     required this.practiceArgs,
-    required this.continuityViewModel,
+    required this.continuityNotifier,
     required this.continuitySnapshot,
     required this.continuityActivity,
   });
 
   final PracticeRouteArgs? practiceArgs;
-  final PracticeContinuityViewModel? continuityViewModel;
+  final PracticeContinuityNotifier? continuityNotifier;
   final PracticeContinuitySnapshot? continuitySnapshot;
   final PracticeActivitySnapshot? continuityActivity;
 
@@ -25,8 +25,7 @@ class GardenContinueCard extends StatelessWidget {
     final l = AppLocalizations.of(context)!;
     final colors = context.appColors;
     final canContinue =
-        practiceArgs != null &&
-        !(continuityViewModel?.isActionDisabled ?? true);
+        practiceArgs != null && !(continuityNotifier?.isActionDisabled ?? true);
     final activityId =
         continuitySnapshot?.recommendedActivity.activityId ?? 'safe-empty';
     final activityTitle =
@@ -34,10 +33,10 @@ class GardenContinueCard extends StatelessWidget {
     final reasonLabel =
         continuitySnapshot?.recommendation.reasonLabel ??
         l.gardenSharedContinuityUnavailable;
-    final warningMessage = continuityViewModel?.warningMessage;
-    final disabledReason = continuityViewModel == null
+    final warningMessage = continuityNotifier?.warningMessage;
+    final disabledReason = continuityNotifier == null
         ? l.practiceEntryUnavailable
-        : continuityViewModel?.disabledReason;
+        : continuityNotifier?.disabledReason;
 
     return Container(
       key: const Key('garden-continue-card'),

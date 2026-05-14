@@ -9,16 +9,6 @@ import 'package:mobile/features/account/domain/models/account_consent_state.dart
 const _localOnlyPhoneHint = '先离线练习也没关系，登录后会把 append-only 事件补传到后端。';
 const _signedOutPhoneHint = '请输入手机号与验证码，完成登录并同意后再同步。';
 
-/// Riverpod-ready notifier that replaces [AccountViewModel].
-///
-/// Uses [ChangeNotifier] as the base so existing widget code can adapt
-/// incrementally without a full rewrite of the UI layer.
-///
-/// The API surface intentionally mirrors the old ViewModel so that callers
-/// only need to swap the type they resolve.
-///
-/// [WidgetsBindingObserver] is kept as a mixin so the notifier reacts to
-/// app lifecycle changes (foreground resume) exactly as the old ViewModel did.
 class AccountNotifier extends ChangeNotifier with WidgetsBindingObserver {
   AccountNotifier({
     required AccountRepository repository,
@@ -44,8 +34,6 @@ class AccountNotifier extends ChangeNotifier with WidgetsBindingObserver {
   String _verificationCode = '';
   String? _phoneError;
   String? _verificationCodeError;
-
-  // -- Getters ---------------------------------------------------------------
 
   bool get isLoading => _isLoading;
   bool get hasLoaded => _hasLoaded;
@@ -107,7 +95,7 @@ class AccountNotifier extends ChangeNotifier with WidgetsBindingObserver {
     if (failureKind != null) {
       return messageForAccountUpgradeUrlFailure(failureKind);
     }
-    return '升级完成后返回这里，再点一次"重试同步"即可恢复。';
+    return '升级完成后返回这里，再点一次“重试同步”即可恢复。';
   }
 
   String get maskedPhoneNumber =>
@@ -140,8 +128,6 @@ class AccountNotifier extends ChangeNotifier with WidgetsBindingObserver {
     }
     return _localOnlyPhoneHint;
   }
-
-  // -- Public API ------------------------------------------------------------
 
   Future<void> initialize() {
     if (_observerAttached == false) {
@@ -451,8 +437,6 @@ class AccountNotifier extends ChangeNotifier with WidgetsBindingObserver {
       announceIdleNoop: false,
     );
   }
-
-  // -- Private helpers -------------------------------------------------------
 
   String _normalizePhone(String value) {
     return value.replaceAll(RegExp(r'\D'), '');

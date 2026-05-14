@@ -3,21 +3,21 @@ import 'package:mobile/features/account/data/local/account_local_store.dart';
 import 'package:mobile/features/account/data/repositories/account_repository.dart';
 import 'package:mobile/features/account/domain/models/account_consent_state.dart';
 import 'package:mobile/features/account/domain/models/account_session.dart';
-import 'package:mobile/features/account/presentation/account_view_model.dart';
+import 'package:mobile/features/account/presentation/account_notifier.dart';
 import 'package:mobile/features/mentor/data/repositories/mentor_repository.dart';
 import 'package:mobile/features/mentor/data/services/mentor_api_service.dart';
 import 'package:mobile/features/mentor/domain/models/local_mentor_suggestion.dart';
 import 'package:mobile/features/mentor/domain/models/mentor_fact_event.dart';
 import 'package:mobile/features/mentor/domain/services/local_mentor_suggestion_service.dart';
 import 'package:mobile/features/mentor/presentation/mentor_audio_controller.dart';
-import 'package:mobile/features/mentor/presentation/mentor_view_model.dart';
+import 'package:mobile/features/mentor/presentation/mentor_notifier.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  group('MentorViewModel', () {
+  group('MentorNotifier', () {
     test('默认落到建议 tab，并在离线时保留本地建议与 fallback facts', () async {
-      final accountViewModel = AccountViewModel(
+      final accountNotifier = AccountNotifier(
         repository: _StaticAccountRepository(
           seedSnapshot: AccountLocalSnapshot(
             consentState: AccountConsentState.acceptedPendingSync,
@@ -33,7 +33,7 @@ void main() {
           ),
         ),
       );
-      await accountViewModel.initialize();
+      await accountNotifier.initialize();
       final repository = _RecordingMentorRepository(
         deriveResult: LocalMentorSuggestionResult(
           suggestions: [
@@ -52,26 +52,26 @@ void main() {
               'starter_phrase:bath_time/bath_time_warm_water',
         ),
       );
-      final viewModel = MentorViewModel(
+      final notifier = MentorNotifier(
         repository: repository,
-        accountViewModel: accountViewModel,
+        accountNotifier: accountNotifier,
         apiService: _FakeMentorApiService(),
         audioController: _SilentMentorAudioController(),
       );
-      addTearDown(viewModel.dispose);
-      addTearDown(accountViewModel.dispose);
+      addTearDown(notifier.dispose);
+      addTearDown(accountNotifier.dispose);
 
-      final opened = await viewModel.beginPanelSession(launcher: 'shell_fab');
+      final opened = await notifier.beginPanelSession(launcher: 'shell_fab');
       await Future<void>.delayed(const Duration(milliseconds: 1));
 
       expect(opened, isTrue);
-      expect(viewModel.selectedTab, MentorPanelTab.suggestions);
+      expect(notifier.selectedTab, MentorPanelTab.suggestions);
       expect(
-        viewModel.chatAvailability.code,
+        notifier.chatAvailability.code,
         MentorChatAvailabilityCode.offline,
       );
-      expect(viewModel.suggestions, isNotEmpty);
-      expect(viewModel.bannerMessage, contains('离线'));
+      expect(notifier.suggestions, isNotEmpty);
+      expect(notifier.bannerMessage, contains('离线'));
       expect(
         repository.appendedFacts.map((fact) => fact.eventType),
         containsAll([
@@ -83,12 +83,12 @@ void main() {
     });
 
     test('共享 continuity adopted/skipped 状态会暴露给面板层', () async {
-      final accountViewModel = AccountViewModel(
+      final accountNotifier = AccountNotifier(
         repository: _StaticAccountRepository(
           seedSnapshot: AccountLocalSnapshot.signedOut,
         ),
       );
-      await accountViewModel.initialize();
+      await accountNotifier.initialize();
       final repository = _RecordingMentorRepository(
         deriveResult: LocalMentorSuggestionResult(
           suggestions: [
@@ -112,56 +112,56 @@ void main() {
           ),
         ),
       );
-      final viewModel = MentorViewModel(
+      final notifier = MentorNotifier(
         repository: repository,
-        accountViewModel: accountViewModel,
+        accountNotifier: accountNotifier,
         apiService: _FakeMentorApiService(),
         audioController: _SilentMentorAudioController(),
       );
-      addTearDown(viewModel.dispose);
-      addTearDown(accountViewModel.dispose);
+      addTearDown(notifier.dispose);
+      addTearDown(accountNotifier.dispose);
 
-      await viewModel.beginPanelSession(launcher: 'home_fab');
+      await notifier.beginPanelSession(launcher: 'home_fab');
       await Future<void>.delayed(const Duration(milliseconds: 1));
 
-      expect(viewModel.sharedContextStatus, isNotNull);
-      expect(viewModel.sharedContextStatus?.adopted, isTrue);
+      expect(notifier.sharedContextStatus, isNotNull);
+      expect(notifier.sharedContextStatus?.adopted, isTrue);
       expect(
-        viewModel.sharedContextStatus?.code,
+        notifier.sharedContextStatus?.code,
         'shared_context_adopted_newer',
       );
     });
 
     test('仓储抛错时回退到安全建议并暴露 suggestion_render_fallback', () async {
-      final accountViewModel = AccountViewModel(
+      final accountNotifier = AccountNotifier(
         repository: _StaticAccountRepository(
           seedSnapshot: AccountLocalSnapshot.signedOut,
         ),
       );
-      await accountViewModel.initialize();
+      await accountNotifier.initialize();
       final repository = _RecordingMentorRepository(
         deriveError: StateError('boom'),
       );
-      final viewModel = MentorViewModel(
+      final notifier = MentorNotifier(
         repository: repository,
-        accountViewModel: accountViewModel,
+        accountNotifier: accountNotifier,
         apiService: _FakeMentorApiService(),
         audioController: _SilentMentorAudioController(),
       );
-      addTearDown(viewModel.dispose);
-      addTearDown(accountViewModel.dispose);
+      addTearDown(notifier.dispose);
+      addTearDown(accountNotifier.dispose);
 
-      await viewModel.beginPanelSession(launcher: 'home_fab');
+      await notifier.beginPanelSession(launcher: 'home_fab');
       await Future<void>.delayed(const Duration(milliseconds: 1));
 
-      expect(viewModel.panelStatus, MentorPanelStatus.error);
-      expect(viewModel.lastErrorPhase, 'suggestion_render_fallback');
-      expect(viewModel.suggestions, isNotEmpty);
+      expect(notifier.panelStatus, MentorPanelStatus.error);
+      expect(notifier.lastErrorPhase, 'suggestion_render_fallback');
+      expect(notifier.suggestions, isNotEmpty);
       expect(
-        viewModel.suggestions.every((suggestion) => suggestion.isSafeFallback),
+        notifier.suggestions.every((suggestion) => suggestion.isSafeFallback),
         isTrue,
       );
-      expect(viewModel.bannerMessage, contains('通用建议'));
+      expect(notifier.bannerMessage, contains('通用建议'));
       expect(
         repository.appendedFacts.map((fact) => fact.eventType),
         contains(MentorFactType.suggestionServed),
@@ -169,35 +169,35 @@ void main() {
     });
 
     test('账号尚未加载时，聊天状态按 loading 暴露而不是空白', () {
-      final accountViewModel = AccountViewModel(
+      final accountNotifier = AccountNotifier(
         repository: _StaticAccountRepository(
           seedSnapshot: AccountLocalSnapshot.signedOut,
         ),
       );
       final repository = _RecordingMentorRepository();
-      final viewModel = MentorViewModel(
+      final notifier = MentorNotifier(
         repository: repository,
-        accountViewModel: accountViewModel,
+        accountNotifier: accountNotifier,
         apiService: _FakeMentorApiService(),
         audioController: _SilentMentorAudioController(),
       );
-      addTearDown(viewModel.dispose);
-      addTearDown(accountViewModel.dispose);
+      addTearDown(notifier.dispose);
+      addTearDown(accountNotifier.dispose);
 
       expect(
-        viewModel.chatAvailability.code,
+        notifier.chatAvailability.code,
         MentorChatAvailabilityCode.accountLoading,
       );
-      expect(viewModel.chatAvailability.detail, contains('账号状态还在加载中'));
+      expect(notifier.chatAvailability.detail, contains('账号状态还在加载中'));
     });
 
     test('在线聊天成功时会保留受控回应并记录请求/响应 facts', () async {
-      final accountViewModel = AccountViewModel(
+      final accountNotifier = AccountNotifier(
         repository: _StaticAccountRepository(
           seedSnapshot: AccountLocalSnapshot.signedOut,
         ),
       );
-      await accountViewModel.initialize();
+      await accountNotifier.initialize();
       final repository = _RecordingMentorRepository(
         deriveResult: LocalMentorSuggestionResult(
           suggestions: [
@@ -233,26 +233,26 @@ void main() {
           respondedAt: DateTime.utc(2026, 4, 10, 0),
         ),
       );
-      final viewModel = MentorViewModel(
+      final notifier = MentorNotifier(
         repository: repository,
-        accountViewModel: accountViewModel,
+        accountNotifier: accountNotifier,
         apiService: apiService,
         audioController: _SilentMentorAudioController(),
       );
-      addTearDown(viewModel.dispose);
-      addTearDown(accountViewModel.dispose);
+      addTearDown(notifier.dispose);
+      addTearDown(accountNotifier.dispose);
 
-      await viewModel.beginPanelSession(launcher: 'home_fab');
+      await notifier.beginPanelSession(launcher: 'home_fab');
       await Future<void>.delayed(const Duration(milliseconds: 1));
-      viewModel.selectTab(MentorPanelTab.chat);
-      viewModel.updateChatDraft('宝宝一直哭，我现在该怎么说？');
+      notifier.selectTab(MentorPanelTab.chat);
+      notifier.updateChatDraft('宝宝一直哭，我现在该怎么说？');
 
-      await viewModel.submitChat();
+      await notifier.submitChat();
 
-      expect(viewModel.chatResponseText, contains('I\'m here with you.'));
-      expect(viewModel.chatResponseCode, 'ok');
-      expect(viewModel.chatResponsePhase, 'response_delivered');
-      expect(viewModel.chatAuthenticated, isFalse);
+      expect(notifier.chatResponseText, contains('I\'m here with you.'));
+      expect(notifier.chatResponseCode, 'ok');
+      expect(notifier.chatResponsePhase, 'response_delivered');
+      expect(notifier.chatAuthenticated, isFalse);
       expect(apiService.receivedSessions.single, isNull);
       expect(
         repository.appendedFacts.map((fact) => fact.eventType),
@@ -263,8 +263,8 @@ void main() {
       );
     });
 
-    test('已登录聊天会复用 bearer seam，并把 authenticated=true 反馈给 UI', () async {
-      final accountViewModel = AccountViewModel(
+    test('已登录聊天会复用 Cookie seam，并把 authenticated=true 反馈给 UI', () async {
+      final accountNotifier = AccountNotifier(
         repository: _StaticAccountRepository(
           seedSnapshot: AccountLocalSnapshot(
             consentState: AccountConsentState.acceptedPendingSync,
@@ -275,7 +275,7 @@ void main() {
               createdAt: DateTime.utc(2026, 4, 10, 8),
               accessToken: 'access-live',
               refreshToken: 'refresh-live',
-              tokenType: 'Bearer',
+              tokenType: 'Cookie',
               accessTokenExpiresAt: DateTime.utc(2026, 4, 10, 8, 15),
               refreshTokenExpiresAt: DateTime.utc(2026, 4, 17, 8),
             ),
@@ -283,33 +283,33 @@ void main() {
           ),
         ),
       );
-      await accountViewModel.initialize();
+      await accountNotifier.initialize();
       final repository = _RecordingMentorRepository();
       final apiService = _FakeMentorApiService();
-      final viewModel = MentorViewModel(
+      final notifier = MentorNotifier(
         repository: repository,
-        accountViewModel: accountViewModel,
+        accountNotifier: accountNotifier,
         apiService: apiService,
         persistRefreshedSession: (refreshedSession) async => refreshedSession,
         audioController: _SilentMentorAudioController(),
       );
-      addTearDown(viewModel.dispose);
-      addTearDown(accountViewModel.dispose);
+      addTearDown(notifier.dispose);
+      addTearDown(accountNotifier.dispose);
 
-      await viewModel.beginPanelSession(launcher: 'home_fab');
+      await notifier.beginPanelSession(launcher: 'home_fab');
       await Future<void>.delayed(const Duration(milliseconds: 1));
-      viewModel.selectTab(MentorPanelTab.chat);
-      viewModel.updateChatDraft('宝宝一直哭，我现在该怎么说？');
+      notifier.selectTab(MentorPanelTab.chat);
+      notifier.updateChatDraft('宝宝一直哭，我现在该怎么说？');
 
-      await viewModel.submitChat();
+      await notifier.submitChat();
 
-      expect(viewModel.chatAuthenticated, isTrue);
-      expect(viewModel.chatResponseCode, 'ok');
+      expect(notifier.chatAuthenticated, isTrue);
+      expect(notifier.chatResponseCode, 'ok');
       expect(apiService.receivedSessions.single?.accessToken, 'access-live');
     });
 
     test('已登录聊天遇到 401 时会保留旧 banner 语义并标记 authenticated path', () async {
-      final accountViewModel = AccountViewModel(
+      final accountNotifier = AccountNotifier(
         repository: _StaticAccountRepository(
           seedSnapshot: AccountLocalSnapshot(
             consentState: AccountConsentState.acceptedPendingSync,
@@ -320,7 +320,7 @@ void main() {
               createdAt: DateTime.utc(2026, 4, 10, 8),
               accessToken: 'access-live',
               refreshToken: 'refresh-live',
-              tokenType: 'Bearer',
+              tokenType: 'Cookie',
               accessTokenExpiresAt: DateTime.utc(2026, 4, 10, 8, 15),
               refreshTokenExpiresAt: DateTime.utc(2026, 4, 17, 8),
             ),
@@ -328,7 +328,7 @@ void main() {
           ),
         ),
       );
-      await accountViewModel.initialize();
+      await accountNotifier.initialize();
       final repository = _RecordingMentorRepository();
       final apiService = _FakeMentorApiService(
         error: const MentorApiException(
@@ -339,26 +339,26 @@ void main() {
           details: <String, Object?>{'phase': 'invalid_session'},
         ),
       );
-      final viewModel = MentorViewModel(
+      final notifier = MentorNotifier(
         repository: repository,
-        accountViewModel: accountViewModel,
+        accountNotifier: accountNotifier,
         apiService: apiService,
         persistRefreshedSession: (refreshedSession) async => refreshedSession,
         audioController: _SilentMentorAudioController(),
       );
-      addTearDown(viewModel.dispose);
-      addTearDown(accountViewModel.dispose);
+      addTearDown(notifier.dispose);
+      addTearDown(accountNotifier.dispose);
 
-      await viewModel.beginPanelSession(launcher: 'home_fab');
+      await notifier.beginPanelSession(launcher: 'home_fab');
       await Future<void>.delayed(const Duration(milliseconds: 1));
-      viewModel.selectTab(MentorPanelTab.chat);
-      viewModel.updateChatDraft('宝宝一直哭，我现在该怎么说？');
+      notifier.selectTab(MentorPanelTab.chat);
+      notifier.updateChatDraft('宝宝一直哭，我现在该怎么说？');
 
-      await viewModel.submitChat();
+      await notifier.submitChat();
 
-      expect(viewModel.chatAuthenticated, isTrue);
-      expect(viewModel.chatResponseCode, '401');
-      expect(viewModel.bannerMessage, contains('重新登录'));
+      expect(notifier.chatAuthenticated, isTrue);
+      expect(notifier.chatResponseCode, '401');
+      expect(notifier.bannerMessage, contains('重新登录'));
       expect(
         apiService.receivedSessions.single?.sessionId,
         'session_signed_in',
@@ -366,16 +366,16 @@ void main() {
     });
 
     test('在线聊天超时时会暴露 banner/code 并记录 chatFailed fact', () async {
-      final accountViewModel = AccountViewModel(
+      final accountNotifier = AccountNotifier(
         repository: _StaticAccountRepository(
           seedSnapshot: AccountLocalSnapshot.signedOut,
         ),
       );
-      await accountViewModel.initialize();
+      await accountNotifier.initialize();
       final repository = _RecordingMentorRepository();
-      final viewModel = MentorViewModel(
+      final notifier = MentorNotifier(
         repository: repository,
-        accountViewModel: accountViewModel,
+        accountNotifier: accountNotifier,
         apiService: _FakeMentorApiService(
           error: const MentorApiException(
             kind: MentorApiFailureKind.http,
@@ -390,20 +390,20 @@ void main() {
         ),
         audioController: _SilentMentorAudioController(),
       );
-      addTearDown(viewModel.dispose);
-      addTearDown(accountViewModel.dispose);
+      addTearDown(notifier.dispose);
+      addTearDown(accountNotifier.dispose);
 
-      await viewModel.beginPanelSession(launcher: 'home_fab');
+      await notifier.beginPanelSession(launcher: 'home_fab');
       await Future<void>.delayed(const Duration(milliseconds: 1));
-      viewModel.selectTab(MentorPanelTab.chat);
-      viewModel.updateChatDraft('宝宝一直哭，我现在该怎么说？');
+      notifier.selectTab(MentorPanelTab.chat);
+      notifier.updateChatDraft('宝宝一直哭，我现在该怎么说？');
 
-      await viewModel.submitChat();
+      await notifier.submitChat();
 
-      expect(viewModel.chatResponseText, isNull);
-      expect(viewModel.chatResponseCode, 'timeout');
-      expect(viewModel.chatResponsePhase, 'provider_timeout');
-      expect(viewModel.bannerMessage, contains('超时'));
+      expect(notifier.chatResponseText, isNull);
+      expect(notifier.chatResponseCode, 'timeout');
+      expect(notifier.chatResponsePhase, 'provider_timeout');
+      expect(notifier.bannerMessage, contains('超时'));
       expect(
         repository.appendedFacts.map((fact) => fact.eventType),
         containsAll([MentorFactType.chatRequested, MentorFactType.chatFailed]),
@@ -411,12 +411,12 @@ void main() {
     });
 
     test('TTS 不可用时会暴露诊断并记录 tts_unavailable fact', () async {
-      final accountViewModel = AccountViewModel(
+      final accountNotifier = AccountNotifier(
         repository: _StaticAccountRepository(
           seedSnapshot: AccountLocalSnapshot.signedOut,
         ),
       );
-      await accountViewModel.initialize();
+      await accountNotifier.initialize();
       final repository = _RecordingMentorRepository(
         deriveResult: LocalMentorSuggestionResult(
           suggestions: [
@@ -435,21 +435,21 @@ void main() {
           redactedContextSummary: 'fallback:fallback',
         ),
       );
-      final viewModel = MentorViewModel(
+      final notifier = MentorNotifier(
         repository: repository,
-        accountViewModel: accountViewModel,
+        accountNotifier: accountNotifier,
         apiService: _FakeMentorApiService(),
         audioController: _UnavailableMentorAudioController(),
       );
-      addTearDown(viewModel.dispose);
-      addTearDown(accountViewModel.dispose);
+      addTearDown(notifier.dispose);
+      addTearDown(accountNotifier.dispose);
 
-      await viewModel.beginPanelSession(launcher: 'home_fab');
+      await notifier.beginPanelSession(launcher: 'home_fab');
       await Future<void>.delayed(const Duration(milliseconds: 1));
-      await viewModel.replaySuggestion(viewModel.suggestions.first);
+      await notifier.replaySuggestion(notifier.suggestions.first);
 
-      expect(viewModel.audioStatusCode, 'tts_unavailable');
-      expect(viewModel.audioStatusMessage, contains('当前设备不支持朗读'));
+      expect(notifier.audioStatusCode, 'tts_unavailable');
+      expect(notifier.audioStatusMessage, contains('当前设备不支持朗读'));
       expect(
         repository.appendedFacts.map((fact) => fact.eventType),
         contains(MentorFactType.ttsUnavailable),
@@ -457,83 +457,83 @@ void main() {
     });
 
     test('多轮聊天：发送两次后 messages 累积 4 条，conversationId 从响应穿透保持', () async {
-      final accountViewModel = AccountViewModel(
+      final accountNotifier = AccountNotifier(
         repository: _StaticAccountRepository(
           seedSnapshot: AccountLocalSnapshot.signedOut,
         ),
       );
-      await accountViewModel.initialize();
+      await accountNotifier.initialize();
       final repository = _RecordingMentorRepository();
       final apiService = _MultiTurnFakeMentorApiService();
-      final viewModel = MentorViewModel(
+      final notifier = MentorNotifier(
         repository: repository,
-        accountViewModel: accountViewModel,
+        accountNotifier: accountNotifier,
         apiService: apiService,
         audioController: _SilentMentorAudioController(),
       );
-      addTearDown(viewModel.dispose);
-      addTearDown(accountViewModel.dispose);
+      addTearDown(notifier.dispose);
+      addTearDown(accountNotifier.dispose);
 
-      await viewModel.beginPanelSession(launcher: 'home_fab');
+      await notifier.beginPanelSession(launcher: 'home_fab');
       await Future<void>.delayed(const Duration(milliseconds: 1));
-      viewModel.selectTab(MentorPanelTab.chat);
+      notifier.selectTab(MentorPanelTab.chat);
 
       // 第一轮
-      viewModel.updateChatDraft('宝宝一直哭，我该怎么安抚？');
-      await viewModel.submitChat();
+      notifier.updateChatDraft('宝宝一直哭，我该怎么安抚？');
+      await notifier.submitChat();
 
-      expect(viewModel.messages.length, 2);
-      expect(viewModel.messages[0].role, ChatBubbleRole.user);
-      expect(viewModel.messages[0].text, '宝宝一直哭，我该怎么安抚？');
-      expect(viewModel.messages[1].role, ChatBubbleRole.assistant);
-      expect(viewModel.conversationId, 'conv_server_123');
+      expect(notifier.messages.length, 2);
+      expect(notifier.messages[0].role, ChatBubbleRole.user);
+      expect(notifier.messages[0].text, '宝宝一直哭，我该怎么安抚？');
+      expect(notifier.messages[1].role, ChatBubbleRole.assistant);
+      expect(notifier.conversationId, 'conv_server_123');
 
       // 第二轮
-      viewModel.updateChatDraft('如果宝宝还是哭呢？');
-      await viewModel.submitChat();
+      notifier.updateChatDraft('如果宝宝还是哭呢？');
+      await notifier.submitChat();
 
-      expect(viewModel.messages.length, 4);
-      expect(viewModel.messages[2].role, ChatBubbleRole.user);
-      expect(viewModel.messages[2].text, '如果宝宝还是哭呢？');
-      expect(viewModel.messages[3].role, ChatBubbleRole.assistant);
+      expect(notifier.messages.length, 4);
+      expect(notifier.messages[2].role, ChatBubbleRole.user);
+      expect(notifier.messages[2].text, '如果宝宝还是哭呢？');
+      expect(notifier.messages[3].role, ChatBubbleRole.assistant);
       // conversationId 应该保持不变
-      expect(viewModel.conversationId, 'conv_server_123');
+      expect(notifier.conversationId, 'conv_server_123');
       // chatDraft 每轮提交后应被清空
-      expect(viewModel.chatDraft, '');
+      expect(notifier.chatDraft, '');
     });
 
     test('多轮聊天：beginPanelSession 重置 messages 和 conversationId', () async {
-      final accountViewModel = AccountViewModel(
+      final accountNotifier = AccountNotifier(
         repository: _StaticAccountRepository(
           seedSnapshot: AccountLocalSnapshot.signedOut,
         ),
       );
-      await accountViewModel.initialize();
+      await accountNotifier.initialize();
       final repository = _RecordingMentorRepository();
-      final viewModel = MentorViewModel(
+      final notifier = MentorNotifier(
         repository: repository,
-        accountViewModel: accountViewModel,
+        accountNotifier: accountNotifier,
         apiService: _MultiTurnFakeMentorApiService(),
         audioController: _SilentMentorAudioController(),
       );
-      addTearDown(viewModel.dispose);
-      addTearDown(accountViewModel.dispose);
+      addTearDown(notifier.dispose);
+      addTearDown(accountNotifier.dispose);
 
-      await viewModel.beginPanelSession(launcher: 'home_fab');
+      await notifier.beginPanelSession(launcher: 'home_fab');
       await Future<void>.delayed(const Duration(milliseconds: 1));
-      viewModel.selectTab(MentorPanelTab.chat);
-      viewModel.updateChatDraft('测试');
-      await viewModel.submitChat();
-      expect(viewModel.messages, isNotEmpty);
-      expect(viewModel.conversationId, isNotNull);
+      notifier.selectTab(MentorPanelTab.chat);
+      notifier.updateChatDraft('测试');
+      await notifier.submitChat();
+      expect(notifier.messages, isNotEmpty);
+      expect(notifier.conversationId, isNotNull);
 
       // 结束并重新开始
-      viewModel.endPanelSession();
-      await viewModel.beginPanelSession(launcher: 'home_fab');
+      notifier.endPanelSession();
+      await notifier.beginPanelSession(launcher: 'home_fab');
       await Future<void>.delayed(const Duration(milliseconds: 1));
 
-      expect(viewModel.messages, isEmpty);
-      expect(viewModel.conversationId, isNull);
+      expect(notifier.messages, isEmpty);
+      expect(notifier.conversationId, isNull);
     });
   });
 }
@@ -788,8 +788,7 @@ class _UnavailableMentorAudioController implements MentorAudioController {
 
 /// 多轮聊天测试用的 Fake API Service，记录收到的 conversationId 并始终返回固定 conversationId。
 class _MultiTurnFakeMentorApiService extends MentorApiService {
-  _MultiTurnFakeMentorApiService()
-    : super(baseUrl: 'http://localhost:8080');
+  _MultiTurnFakeMentorApiService() : super(baseUrl: 'http://localhost:8080');
 
   final List<String?> receivedConversationIds = <String?>[];
   final List<AccountSession?> receivedSessions = <AccountSession?>[];

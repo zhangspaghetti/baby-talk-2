@@ -20,32 +20,28 @@ import 'package:mobile/features/share/data/services/share_api_service.dart';
 import 'package:mobile/features/share/data/services/share_sheet_launcher.dart';
 import 'package:mobile/features/share/presentation/share_notifier.dart';
 import 'package:mobile/features/share/domain/models/share_link_draft.dart';
-import 'package:mobile/features/household/domain/models/household_shared_context.dart';
 import 'package:mobile/features/household/data/local/household_local_store.dart';
 import 'package:mobile/features/household/data/repositories/household_repository.dart';
 import 'package:mobile/features/household/domain/models/household_role.dart';
-import 'package:mobile/features/household/domain/models/household_invite_link.dart';
 import 'package:mobile/l10n/app_localizations.dart';
 import 'package:mobile/core/device/installation_id_service.dart';
 import 'package:mobile/features/account/data/local/account_local_store.dart';
 import 'package:mobile/features/account/data/repositories/account_repository.dart';
 import 'package:mobile/features/account/domain/models/account_consent_state.dart';
 import 'package:mobile/features/account/domain/models/account_session.dart';
-import 'package:mobile/features/account/presentation/account_view_model.dart';
 import 'package:mobile/features/mentor/data/repositories/mentor_repository.dart';
 import 'package:mobile/features/mentor/data/services/mentor_api_service.dart';
 import 'package:mobile/features/mentor/domain/models/local_mentor_suggestion.dart';
 import 'package:mobile/features/mentor/domain/models/mentor_fact_event.dart';
 import 'package:mobile/features/mentor/domain/services/local_mentor_suggestion_service.dart';
 import 'package:mobile/features/mentor/presentation/mentor_audio_controller.dart';
-import 'package:mobile/features/mentor/presentation/mentor_view_model.dart';
+import 'package:mobile/features/mentor/presentation/mentor_notifier.dart';
 import 'package:mobile/features/onboarding/domain/models/onboarding_snapshot.dart';
 import 'package:mobile/features/onboarding/domain/models/stage_match.dart';
 import 'package:mobile/features/practice/data/local/practice_local_data_source.dart';
 import 'package:mobile/features/practice/data/repositories/practice_repository.dart';
-import 'package:mobile/features/practice/presentation/practice_continuity_view_model.dart';
 import 'package:mobile/features/practice/presentation/practice_route_args.dart';
-import 'package:mobile/features/practice/presentation/practice_session_view_model.dart';
+import 'package:mobile/features/practice/presentation/practice_session_notifier.dart';
 import 'package:mobile/features/practice/presentation/screens/home_screen.dart';
 import 'package:mobile/features/shell/presentation/app_shell_screen.dart';
 import 'package:provider/provider.dart';
@@ -97,8 +93,8 @@ void main() {
 
     await tester.runAsync(() async {
       await Future.wait([
-        harness.accountViewModel.initialize(),
-        harness.practiceSessionViewModel.initialize(),
+        harness.accountNotifier.initialize(),
+        harness.practiceSessionNotifier.initialize(),
       ]);
     });
 
@@ -170,8 +166,8 @@ void main() {
 
     await tester.runAsync(() async {
       await Future.wait([
-        harness.accountViewModel.initialize(),
-        harness.practiceSessionViewModel.initialize(),
+        harness.accountNotifier.initialize(),
+        harness.practiceSessionNotifier.initialize(),
       ]);
     });
 
@@ -224,8 +220,8 @@ void main() {
 
     await tester.runAsync(() async {
       await Future.wait([
-        harness.accountViewModel.initialize(),
-        harness.practiceSessionViewModel.initialize(),
+        harness.accountNotifier.initialize(),
+        harness.practiceSessionNotifier.initialize(),
       ]);
     });
 
@@ -263,8 +259,8 @@ void main() {
 
     await tester.runAsync(() async {
       await Future.wait([
-        harness.accountViewModel.initialize(),
-        harness.practiceSessionViewModel.initialize(),
+        harness.accountNotifier.initialize(),
+        harness.practiceSessionNotifier.initialize(),
       ]);
     });
 
@@ -323,8 +319,8 @@ void main() {
 
     await tester.runAsync(() async {
       await Future.wait([
-        harness.accountViewModel.initialize(),
-        harness.practiceSessionViewModel.initialize(),
+        harness.accountNotifier.initialize(),
+        harness.practiceSessionNotifier.initialize(),
       ]);
     });
 
@@ -403,22 +399,20 @@ class _Harness {
   _Harness({
     required this.tempDir,
     required this.practiceRepository,
-    required this.accountViewModel,
-    required this.mentorRepository,
-    required this.mentorViewModel,
-    required this.practiceSessionViewModel,
     required this.accountNotifier,
+    required this.mentorRepository,
+    required this.mentorNotifier,
+    required this.practiceSessionNotifier,
     required this.gardenGrowthNotifier,
     required this.practiceContinuityNotifier,
   });
 
   final Directory tempDir;
   final PracticeRepository practiceRepository;
-  final AccountViewModel accountViewModel;
-  final _RecordingMentorRepository mentorRepository;
-  final MentorViewModel mentorViewModel;
-  final PracticeSessionViewModel practiceSessionViewModel;
   final AccountNotifier accountNotifier;
+  final _RecordingMentorRepository mentorRepository;
+  final MentorNotifier mentorNotifier;
+  final PracticeSessionNotifier practiceSessionNotifier;
   final GardenGrowthNotifier gardenGrowthNotifier;
   final PracticeContinuityNotifier practiceContinuityNotifier;
 
@@ -441,22 +435,22 @@ class _Harness {
         idGenerator: () => 'install_mentor_shell_test',
       ),
     );
-    final accountViewModel = AccountViewModel(
+    final accountNotifier = AccountNotifier(
       repository: _StaticAccountRepository(seedSnapshot: accountSeedSnapshot),
     );
     final mentorRepository = _RecordingMentorRepository(
       deriveResult: mentorSuggestionResult,
     );
-    final mentorViewModel = MentorViewModel(
+    final mentorNotifier = MentorNotifier(
       repository: mentorRepository,
-      accountViewModel: accountViewModel,
+      accountNotifier: accountNotifier,
       apiService: _FakeMentorApiService(
         response: chatResponse,
         error: chatError,
       ),
       audioController: _SilentMentorAudioController(),
     );
-    final practiceSessionViewModel = PracticeSessionViewModel(
+    final practiceSessionNotifier = PracticeSessionNotifier(
       repository: practiceRepository,
       spaceId: 'daily_care',
       activityId: 'bath_time',
@@ -465,9 +459,6 @@ class _Harness {
     final gardenGrowthRepo = GardenGrowthRepository(
       practiceRepository: practiceRepository,
       assetPhraseService: AssetPhraseService(bundle: rootBundle),
-    );
-    final accountNotifier = AccountNotifier(
-      repository: _StaticAccountRepository(seedSnapshot: accountSeedSnapshot),
     );
     final gardenGrowthNotifier = GardenGrowthNotifier(
       repository: gardenGrowthRepo,
@@ -483,11 +474,10 @@ class _Harness {
     return _Harness(
       tempDir: tempDir,
       practiceRepository: practiceRepository,
-      accountViewModel: accountViewModel,
-      mentorRepository: mentorRepository,
-      mentorViewModel: mentorViewModel,
-      practiceSessionViewModel: practiceSessionViewModel,
       accountNotifier: accountNotifier,
+      mentorRepository: mentorRepository,
+      mentorNotifier: mentorNotifier,
+      practiceSessionNotifier: practiceSessionNotifier,
       gardenGrowthNotifier: gardenGrowthNotifier,
       practiceContinuityNotifier: practiceContinuityNotifier,
     );
@@ -514,7 +504,9 @@ class _Harness {
             shareSheetLauncher: _StaticShareSheetLauncher(),
             platformHintResolver: () => 'android',
           ),
-          initialGrowthSnapshot: ref.watch(gardenGrowthNotifierProvider).snapshot,
+          initialGrowthSnapshot: ref
+              .watch(gardenGrowthNotifierProvider)
+              .snapshot,
           initialContinuitySnapshot: null,
         ),
       ),
@@ -531,8 +523,8 @@ class _Harness {
               activityId: 'bath_time',
             ),
           ),
-          ChangeNotifierProvider<PracticeContinuityViewModel>(
-            create: (_) => PracticeContinuityViewModel(
+          ChangeNotifierProvider<PracticeContinuityNotifier>(
+            create: (_) => PracticeContinuityNotifier(
               repository: practiceRepository,
               initialStarterArgs: const PracticeRouteArgs(
                 spaceId: 'daily_care',
@@ -540,14 +532,10 @@ class _Harness {
               ),
             )..initialize(reason: 'test_boot'),
           ),
-          ChangeNotifierProvider<AccountViewModel>.value(
-            value: accountViewModel,
-          ),
-          ChangeNotifierProvider<MentorViewModel>.value(
-            value: mentorViewModel,
-          ),
-          ChangeNotifierProvider<PracticeSessionViewModel>.value(
-            value: practiceSessionViewModel,
+          ChangeNotifierProvider<AccountNotifier>.value(value: accountNotifier),
+          ChangeNotifierProvider<MentorNotifier>.value(value: mentorNotifier),
+          ChangeNotifierProvider<PracticeSessionNotifier>.value(
+            value: practiceSessionNotifier,
           ),
         ],
         child: MaterialApp(
@@ -593,7 +581,9 @@ class _Harness {
             shareSheetLauncher: _StaticShareSheetLauncher(),
             platformHintResolver: () => 'android',
           ),
-          initialGrowthSnapshot: ref.watch(gardenGrowthNotifierProvider).snapshot,
+          initialGrowthSnapshot: ref
+              .watch(gardenGrowthNotifierProvider)
+              .snapshot,
           initialContinuitySnapshot: null,
         ),
       ),
@@ -610,8 +600,8 @@ class _Harness {
               activityId: 'bath_time',
             ),
           ),
-          ChangeNotifierProvider<PracticeContinuityViewModel>(
-            create: (_) => PracticeContinuityViewModel(
+          ChangeNotifierProvider<PracticeContinuityNotifier>(
+            create: (_) => PracticeContinuityNotifier(
               repository: practiceRepository,
               initialStarterArgs: const PracticeRouteArgs(
                 spaceId: 'daily_care',
@@ -619,10 +609,10 @@ class _Harness {
               ),
             )..initialize(reason: 'test_boot'),
           ),
-          ChangeNotifierProvider<AccountViewModel>.value(value: accountViewModel),
-          ChangeNotifierProvider<MentorViewModel>.value(value: mentorViewModel),
-          ChangeNotifierProvider<PracticeSessionViewModel>.value(
-            value: practiceSessionViewModel,
+          ChangeNotifierProvider<AccountNotifier>.value(value: accountNotifier),
+          ChangeNotifierProvider<MentorNotifier>.value(value: mentorNotifier),
+          ChangeNotifierProvider<PracticeSessionNotifier>.value(
+            value: practiceSessionNotifier,
           ),
         ],
         child: MaterialApp(
@@ -636,9 +626,8 @@ class _Harness {
   }
 
   Future<void> dispose() async {
-    mentorViewModel.dispose();
-    accountViewModel.dispose();
-    practiceSessionViewModel.dispose();
+    // Riverpod / Provider automatically disposes the notifiers when the widget tree is torn down.
+    // Calling dispose again will trigger debugAssertNotDisposed.
     await practiceRepository.close(deleteFromDisk: true);
     if (await tempDir.exists()) {
       await tempDir.delete(recursive: true);
@@ -915,10 +904,11 @@ class _FakeShareApiService extends ShareApiService {
 
 class _StaticShareSheetLauncher implements ShareSheetLauncher {
   @override
-  Future<ShareSheetLaunchResult> shareText(String text, {String? subject}) async {
-    return const ShareSheetLaunchResult(
-      status: ShareSheetLaunchStatus.success,
-    );
+  Future<ShareSheetLaunchResult> shareText(
+    String text, {
+    String? subject,
+  }) async {
+    return const ShareSheetLaunchResult(status: ShareSheetLaunchStatus.success);
   }
 }
 

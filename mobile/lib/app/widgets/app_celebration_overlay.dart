@@ -59,7 +59,12 @@ class _AppCelebrationOverlayState extends State<AppCelebrationOverlay>
             size: const Size(double.infinity, double.infinity),
             painter: _ConfettiPainter(
               animation: _particleController,
-              colors: [colors.accent, colors.success, colors.info, colors.warning],
+              colors: [
+                colors.accent,
+                colors.success,
+                colors.info,
+                colors.warning,
+              ],
             ),
           ),
         ),
@@ -70,7 +75,7 @@ class _AppCelebrationOverlayState extends State<AppCelebrationOverlay>
 
 class _ConfettiPainter extends CustomPainter {
   _ConfettiPainter({required this.animation, required this.colors})
-      : super(repaint: animation);
+    : super(repaint: animation);
 
   final Animation<double> animation;
   final List<Color> colors;

@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:dio/dio.dart';
+import 'package:mobile/core/network/app_dio.dart';
 import 'package:mobile/features/account/data/services/account_api_service.dart'
     show defaultAccountApiBaseUrl, defaultAccountApiVersion;
 
@@ -122,16 +123,8 @@ class DynamicPracticeApiService {
     String? baseUrl,
     this.appVersion = defaultAccountApiVersion,
     this.timeout = const Duration(seconds: 15),
-  }) : _dio = dio ??
-           Dio(
-             BaseOptions(
-               baseUrl: baseUrl ?? defaultAccountApiBaseUrl,
-               connectTimeout: timeout,
-               receiveTimeout: timeout,
-               headers: {'Content-Type': 'application/json'},
-               validateStatus: (status) => true,
-             ),
-           ),
+  }) : _dio =
+           dio ?? AppDio.create(baseUrl: baseUrl ?? defaultAccountApiBaseUrl),
        _ownsDio = dio == null;
 
   final Dio _dio;
@@ -145,7 +138,7 @@ class DynamicPracticeApiService {
   /// [babyAgeMonths] 宝宝月龄
   /// [sceneTag] 可选场景标签
   /// [conversationId] 可选会话 ID（暂不使用）
-  /// [accessToken] 可选 bearer token，用于命中需要登录态的动态练习接口
+  /// [accessToken] 可选 token，用于命中需要登录态的动态练习接口
   Future<DynamicPracticeResponse> generatePractice({
     required String installationId,
     required int babyAgeMonths,
@@ -167,11 +160,6 @@ class DynamicPracticeApiService {
       'Accept': 'application/json',
       'X-App-Version': appVersion,
     };
-    final normalizedAccessToken = accessToken?.trim();
-    if (normalizedAccessToken != null && normalizedAccessToken.isNotEmpty) {
-      headers[HttpHeaders.authorizationHeader] =
-          'Bearer $normalizedAccessToken';
-    }
 
     Response<dynamic> response;
     try {
@@ -184,18 +172,12 @@ class DynamicPracticeApiService {
       if (error.type == DioExceptionType.connectionTimeout ||
           error.type == DioExceptionType.sendTimeout ||
           error.type == DioExceptionType.receiveTimeout) {
-        throw const DynamicPracticeApiException.timeout(
-          message: '练习生成请求超时。',
-        );
+        throw const DynamicPracticeApiException.timeout(message: '练习生成请求超时。');
       }
       if (error.error is SocketException) {
-        throw const DynamicPracticeApiException.network(
-          message: '网络不可用。',
-        );
+        throw const DynamicPracticeApiException.network(message: '网络不可用。');
       }
-      throw const DynamicPracticeApiException.network(
-        message: '网络请求失败。',
-      );
+      throw const DynamicPracticeApiException.network(message: '网络请求失败。');
     }
 
     final statusCode = response.statusCode ?? 0;
@@ -229,9 +211,7 @@ class DynamicPracticeApiService {
     } on DynamicPracticeApiException {
       rethrow;
     } on FormatException catch (e) {
-      throw DynamicPracticeApiException.malformed(
-        message: '响应 JSON 解析失败：$e',
-      );
+      throw DynamicPracticeApiException.malformed(message: '响应 JSON 解析失败：$e');
     } catch (e) {
       throw DynamicPracticeApiException.malformed(message: '响应解析失败：$e');
     }

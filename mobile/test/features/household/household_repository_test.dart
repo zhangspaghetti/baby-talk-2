@@ -316,8 +316,7 @@ class _HouseholdRepositoryHarness {
 }
 
 class _FakeHouseholdApiService extends HouseholdApiService {
-  _FakeHouseholdApiService()
-    : super(baseUrl: 'http://localhost:8080');
+  _FakeHouseholdApiService() : super(baseUrl: 'http://localhost:8080');
 
   HouseholdAcceptInviteResponse? acceptResponse;
   HouseholdSharedContextResponse? fetchResponse;
@@ -399,7 +398,7 @@ AccountSession _jwtSession() {
     createdAt: DateTime.utc(2026, 4, 16, 10),
     accessToken: 'access_live',
     refreshToken: 'refresh_live',
-    tokenType: 'Bearer',
+    tokenType: 'Cookie',
     accessTokenExpiresAt: DateTime.utc(2026, 4, 16, 10, 15),
     refreshTokenExpiresAt: DateTime.utc(2026, 4, 23, 10),
   );

@@ -166,30 +166,6 @@ void main() {
       );
     });
 
-    test('accessToken 存在时带上 Authorization 头', () async {
-      final dio = _createMockDio((options) async {
-        expect(
-          options.headers[HttpHeaders.authorizationHeader],
-          'Bearer token-123',
-        );
-        return Response(
-          requestOptions: options,
-          data: {'activities': []},
-          statusCode: 200,
-          headers: Headers.fromMap({
-            'content-type': ['application/json'],
-          }),
-        );
-      });
-
-      service = createService(dio);
-      await service.generatePractice(
-        installationId: 'test-install',
-        babyAgeMonths: 8,
-        accessToken: ' token-123 ',
-      );
-    });
-
     test('非 JSON 响应抛出 malformed 异常', () async {
       final dio = _createMockDio((options) async {
         return Response(

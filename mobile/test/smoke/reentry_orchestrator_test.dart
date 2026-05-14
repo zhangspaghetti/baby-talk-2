@@ -32,9 +32,9 @@ void main() {
         launchDestinationProvider: () =>
             overrideDestination ?? launchDestination,
         seedContentProvider: () => null,
-        householdViewModelLookup: () => null,
-        continuityViewModelLookup: () => null,
-        gardenGrowthViewModelLookup: () => null,
+        householdNotifierLookup: () => null,
+        continuityNotifierLookup: () => null,
+        gardenGrowthNotifierLookup: () => null,
       );
     }
 

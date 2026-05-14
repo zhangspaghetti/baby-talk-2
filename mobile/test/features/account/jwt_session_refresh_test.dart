@@ -197,7 +197,7 @@ AccountSession _jwtSession() {
     createdAt: DateTime.utc(2026, 4, 9, 2),
     accessToken: 'access-old',
     refreshToken: 'refresh-old',
-    tokenType: 'Bearer',
+    tokenType: 'Cookie',
     accessTokenExpiresAt: DateTime.utc(2026, 4, 9, 2, 15),
     refreshTokenExpiresAt: DateTime.utc(2026, 4, 16, 2),
   );
@@ -216,7 +216,7 @@ class _FakeRefreshAccountApiService extends AccountApiService {
     consentStatus: 'accepted',
     accessToken: 'access-new',
     refreshToken: 'refresh-new',
-    tokenType: 'Bearer',
+    tokenType: 'Cookie',
     accessTokenExpiresAt: DateTime.utc(2026, 4, 9, 2, 30),
     refreshTokenExpiresAt: DateTime.utc(2026, 4, 16, 2),
   );

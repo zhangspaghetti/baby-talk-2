@@ -1,20 +1,13 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:mobile/features/practice/domain/models/garden_growth_snapshot.dart';
 import 'package:mobile/features/practice/domain/models/practice_continuity_snapshot.dart';
 import 'package:mobile/features/share/data/repositories/share_repository.dart';
 import 'package:mobile/features/share/domain/models/share_link_draft.dart';
-import 'package:mobile/features/share/presentation/share_view_model.dart'
-    show ShareViewStatus;
 
-/// Riverpod-ready notifier that replaces [ShareViewModel].
-///
-/// Uses [ChangeNotifier] as the base so existing widget code can adapt
-/// incrementally without a full rewrite of the UI layer.
-///
-/// Unlike the old [ShareViewModel] which received snapshot updates via
-/// [ShareViewModel.updateSnapshots], this notifier holds its own snapshots
-/// and exposes an [updateSnapshots] method that the provider calls when
-/// upstream dependencies change.
+enum ShareViewStatus { idle, success, cancelled, error }
+
 class ShareNotifier extends ChangeNotifier {
   ShareNotifier({
     required ShareRepository repository,
@@ -35,8 +28,6 @@ class ShareNotifier extends ChangeNotifier {
   bool _disposed = false;
   Future<ShareExecutionResult>? _shareFuture;
 
-  // -- Getters ---------------------------------------------------------------
-
   ShareLinkDraft? get currentDraft => _repository.buildDraft(
     growthSnapshot: _growthSnapshot,
     continuitySnapshot: _continuitySnapshot,
@@ -50,8 +41,6 @@ class ShareNotifier extends ChangeNotifier {
   ShareViewStatus get lastShareStatus => _lastShareStatus;
   String? get message => _message;
   String? get lastSharePhase => _lastSharePhase;
-
-  // -- Public API ------------------------------------------------------------
 
   void updateSnapshots({
     GardenGrowthSnapshot? growthSnapshot,
@@ -88,22 +77,6 @@ class ShareNotifier extends ChangeNotifier {
     });
   }
 
-  @override
-  void notifyListeners() {
-    if (_disposed) {
-      return;
-    }
-    super.notifyListeners();
-  }
-
-  @override
-  void dispose() {
-    _disposed = true;
-    super.dispose();
-  }
-
-  // -- Internals -------------------------------------------------------------
-
   Future<ShareExecutionResult> _shareInternal() async {
     _isSharing = true;
     _message = null;
@@ -131,6 +104,20 @@ class ShareNotifier extends ChangeNotifier {
     }
     notifyListeners();
     return result;
+  }
+
+  @override
+  void notifyListeners() {
+    if (_disposed) {
+      return;
+    }
+    super.notifyListeners();
+  }
+
+  @override
+  void dispose() {
+    _disposed = true;
+    super.dispose();
   }
 
   String? _draftSignature(ShareLinkDraft? draft) {

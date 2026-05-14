@@ -514,7 +514,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get accountRealLoginNote =>
-      '真实登录会调用 challenge → verify → consent accept → bootstrap → batch sync；错误会留在独立 account/sync seam 中，不回写 onboarding snapshot，也不让 PracticeSessionViewModel 直接发请求。';
+      '真实登录会调用 challenge → verify → consent accept → bootstrap → batch sync；错误会留在独立 account/sync seam 中，不回写 onboarding snapshot，也不让 PracticeSessionNotifier 直接发请求。';
 
   @override
   String accountLastError(Object error) {

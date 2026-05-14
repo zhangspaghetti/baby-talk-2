@@ -64,9 +64,7 @@ void main() {
         repositoryFactory: (_) async => firstRepository,
         accountRepositoryFactory: (practiceRepository, directory) async {
           return AccountRepository(
-            localStore: AccountLocalStore(
-              storageKey: 's03_first_account',
-            ),
+            localStore: AccountLocalStore(storageKey: 's03_first_account'),
             practiceRepository: practiceRepository,
             apiService: AccountApiService(baseUrl: backend.baseUri.toString()),
             connectivityChecker: () async => true,
@@ -220,9 +218,7 @@ void main() {
         repositoryFactory: (_) async => secondRepository,
         accountRepositoryFactory: (practiceRepository, directory) async {
           return AccountRepository(
-            localStore: AccountLocalStore(
-              storageKey: 's03_second_account',
-            ),
+            localStore: AccountLocalStore(storageKey: 's03_second_account'),
             practiceRepository: practiceRepository,
             apiService: AccountApiService(baseUrl: backend.baseUri.toString()),
             connectivityChecker: () async => true,

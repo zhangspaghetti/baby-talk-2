@@ -10,13 +10,13 @@ import 'package:mobile/features/account/data/repositories/account_repository.dar
 import 'package:mobile/features/account/data/services/account_api_service.dart';
 import 'package:mobile/features/mentor/data/local/mentor_local_data_source.dart';
 import 'package:mobile/features/mentor/domain/models/mentor_fact_event.dart';
-import 'package:mobile/features/mentor/presentation/mentor_view_model.dart';
+import 'package:mobile/features/mentor/presentation/mentor_notifier.dart';
 import 'package:mobile/features/onboarding/domain/models/stage_match.dart';
 import 'package:mobile/features/practice/data/local/practice_local_data_source.dart';
 import 'package:mobile/features/practice/data/repositories/practice_repository.dart';
 import 'package:mobile/features/practice/data/services/asset_phrase_service.dart';
 import 'package:mobile/features/practice/presentation/screens/home_screen.dart';
-import 'package:mobile/features/practice/presentation/garden_growth_view_model.dart';
+import 'package:mobile/features/practice/presentation/garden_growth_notifier.dart';
 import 'package:mobile/features/sync/data/repositories/sync_repository.dart';
 import 'package:provider/provider.dart';
 
@@ -282,7 +282,9 @@ class FullChainTestHarness {
       timeout: const Duration(seconds: 20),
       reason: 'shell account entry',
     );
-    await tester.ensureVisible(find.byKey(const Key('shell-account-open-entry')));
+    await tester.ensureVisible(
+      find.byKey(const Key('shell-account-open-entry')),
+    );
     await tester.pump(const Duration(milliseconds: 100));
     await tester.tap(find.byKey(const Key('shell-account-open-entry')));
     await tester.pumpAndSettle();
@@ -320,7 +322,7 @@ class FullChainTestHarness {
     );
   }
 
-  Future<MentorViewModel> submitMentorPrompt(
+  Future<MentorNotifier> submitMentorPrompt(
     WidgetTester tester, {
     required String prompt,
   }) async {
@@ -432,7 +434,7 @@ class FullChainTestHarness {
     Duration timeout = const Duration(seconds: 20),
     Duration step = const Duration(milliseconds: 100),
   }) async {
-    GardenGrowthViewModel? resolved;
+    GardenGrowthNotifier? resolved;
     await pumpUntil(
       tester,
       () {
@@ -440,16 +442,16 @@ class FullChainTestHarness {
         if (shell.evaluate().isEmpty) {
           return false;
         }
-        final viewModel = Provider.of<GardenGrowthViewModel?>(
+        final notifier = Provider.of<GardenGrowthNotifier?>(
           tester.element(shell),
           listen: false,
         );
-        if (viewModel == null) {
+        if (notifier == null) {
           return false;
         }
-        if (viewModel.status == GardenGrowthLoadStatus.ready &&
-            viewModel.snapshot.spaces.isNotEmpty) {
-          resolved = viewModel;
+        if (notifier.status == GardenGrowthLoadStatus.ready &&
+            notifier.snapshot.spaces.isNotEmpty) {
+          resolved = notifier;
           return true;
         }
         return false;
@@ -539,12 +541,12 @@ class FullChainTestHarness {
     return value.isEmpty ? null : value;
   }
 
-  static Future<MentorViewModel> waitForMentorSubmissionToSettle(
+  static Future<MentorNotifier> waitForMentorSubmissionToSettle(
     WidgetTester tester, {
     Duration timeout = const Duration(seconds: 12),
     Duration step = const Duration(milliseconds: 50),
   }) async {
-    MentorViewModel? resolved;
+    MentorNotifier? resolved;
     await pumpUntil(
       tester,
       () {
@@ -552,14 +554,14 @@ class FullChainTestHarness {
         if (sheet.evaluate().isEmpty) {
           return false;
         }
-        final viewModel = Provider.of<MentorViewModel>(
+        final notifier = Provider.of<MentorNotifier>(
           tester.element(sheet),
           listen: false,
         );
-        if (viewModel.isSubmittingChat) {
+        if (notifier.isSubmittingChat) {
           return false;
         }
-        resolved = viewModel;
+        resolved = notifier;
         return true;
       },
       timeout: timeout,
@@ -678,6 +680,3 @@ InternetAddress _resolveBindAddress(Uri uri) {
   }
   return parsed;
 }
-
-
-

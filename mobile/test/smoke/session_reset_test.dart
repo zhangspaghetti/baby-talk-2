@@ -1,19 +1,19 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mobile/features/household/data/local/household_local_store.dart';
 import 'package:mobile/features/household/data/repositories/household_repository.dart';
-import 'package:mobile/features/household/presentation/household_view_model.dart';
+import 'package:mobile/features/household/presentation/household_notifier.dart';
 import 'package:mobile/features/practice/data/repositories/garden_growth_repository.dart';
 import 'package:mobile/features/practice/domain/models/garden_growth_snapshot.dart';
 import 'package:mobile/features/practice/domain/models/practice_activity_catalog.dart';
 import 'package:mobile/features/practice/domain/models/practice_continuity_snapshot.dart';
-import 'package:mobile/features/practice/presentation/garden_growth_view_model.dart';
-import 'package:mobile/features/practice/presentation/practice_continuity_view_model.dart';
+import 'package:mobile/features/practice/presentation/garden_growth_notifier.dart';
+import 'package:mobile/features/practice/presentation/practice_continuity_notifier.dart';
 import 'package:mobile/features/practice/presentation/practice_route_args.dart';
 
 void main() {
   group('session-reset cascade — clearSession/deleteAccount/revokeConsent', () {
-    // 构造一个预设为 ready 状态的 PracticeContinuityViewModel
-    PracticeContinuityViewModel createReadyContinuityVM() {
+    // 构造一个预设为 ready 状态的 PracticeContinuityNotifier
+    PracticeContinuityNotifier createReadyContinuityVM() {
       final seedSnapshot = PracticeContinuitySnapshot(
         catalog: PracticeActivityCatalog.empty(),
         recommendedActivity: PracticeCatalogActivitySummary(
@@ -52,7 +52,7 @@ void main() {
         ),
       );
 
-      return PracticeContinuityViewModel(
+      return PracticeContinuityNotifier(
         continuitySnapshotLoader:
             ({String? starterSpaceId, String? starterActivityId}) async =>
                 seedSnapshot,
@@ -89,7 +89,7 @@ void main() {
     });
 
     test('clearSession resets downstream VMs — garden 回到 idle', () {
-      final gardenVM = GardenGrowthViewModel(
+      final gardenVM = GardenGrowthNotifier(
         repository: _FakeGardenGrowthRepository(),
       );
 
@@ -100,7 +100,7 @@ void main() {
     });
 
     test('clearSession resets downstream VMs — household 回到 unloaded', () {
-      final householdVM = HouseholdViewModel(
+      final householdVM = HouseholdNotifier(
         repository: _FakeHouseholdRepository(),
       );
 
@@ -111,10 +111,10 @@ void main() {
 
     test('deleteAccount resets all three VMs to safe empty simultaneously', () {
       final continuityVM = createReadyContinuityVM();
-      final gardenVM = GardenGrowthViewModel(
+      final gardenVM = GardenGrowthNotifier(
         repository: _FakeGardenGrowthRepository(),
       );
-      final householdVM = HouseholdViewModel(
+      final householdVM = HouseholdNotifier(
         repository: _FakeHouseholdRepository(),
       );
 
@@ -134,10 +134,10 @@ void main() {
 
     test('revokeConsent resets all three VMs to safe empty', () {
       final continuityVM = createReadyContinuityVM();
-      final gardenVM = GardenGrowthViewModel(
+      final gardenVM = GardenGrowthNotifier(
         repository: _FakeGardenGrowthRepository(),
       );
-      final householdVM = HouseholdViewModel(
+      final householdVM = HouseholdNotifier(
         repository: _FakeHouseholdRepository(),
       );
 

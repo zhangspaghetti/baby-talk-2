@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:mobile/app/theme/app_theme.dart';
-import 'package:mobile/features/share/presentation/share_view_model.dart'
+import 'package:mobile/features/share/presentation/share_notifier.dart'
     show ShareViewStatus;
 import 'package:mobile/l10n/app_localizations.dart';
 
-/// Accepts either a [ShareViewModel] or [ShareNotifier].
+/// Accepts either a [ShareNotifier] or [ShareNotifier].
 ///
 /// Both expose the same API surface (currentDraft, isSharing, etc.),
 /// so we accept `dynamic` and access properties dynamically.
@@ -12,14 +12,14 @@ class ShareCalloutCard extends StatelessWidget {
   const ShareCalloutCard({
     super.key,
     required this.surfaceKeyPrefix,
-    required this.viewModel,
+    required this.notifier,
     required this.sectionLabel,
     required this.emptyMessage,
     this.onShare,
   });
 
   final String surfaceKeyPrefix;
-  final dynamic viewModel;
+  final dynamic notifier;
   final String sectionLabel;
   final String emptyMessage;
   final Future<void> Function()? onShare;
@@ -29,11 +29,11 @@ class ShareCalloutCard extends StatelessWidget {
     final l = AppLocalizations.of(context)!;
     final colors = context.appColors;
     final theme = Theme.of(context);
-    final draft = viewModel.currentDraft;
+    final draft = notifier.currentDraft;
     final hasDraft = draft != null;
-    final buttonEnabled = hasDraft && !viewModel.isSharing && onShare != null;
+    final buttonEnabled = hasDraft && !notifier.isSharing && onShare != null;
     final state = _ShareStateSpec.resolve(
-      viewModel: viewModel,
+      notifier: notifier,
       hasDraft: hasDraft,
       colors: colors,
     );
@@ -121,7 +121,7 @@ class ShareCalloutCard extends StatelessWidget {
                     await onShare!();
                   },
             child: Text(
-              viewModel.isSharing
+              notifier.isSharing
                   ? l.shareGenerating
                   : hasDraft
                   ? l.shareButton
@@ -150,11 +150,11 @@ class _ShareStateSpec {
   final bool showProgress;
 
   static _ShareStateSpec resolve({
-    required dynamic viewModel,
+    required dynamic notifier,
     required bool hasDraft,
     required BabyTalkColors colors,
   }) {
-    if (viewModel.isSharing) {
+    if (notifier.isSharing) {
       return _ShareStateSpec(
         name: 'loading',
         message: '正在生成脱敏分享链接，请稍候。',
@@ -172,25 +172,25 @@ class _ShareStateSpec {
       );
     }
 
-    switch (viewModel.lastShareStatus) {
+    switch (notifier.lastShareStatus) {
       case ShareViewStatus.success:
         return _ShareStateSpec(
           name: 'success',
-          message: viewModel.message ?? '分享面板已打开。',
+          message: notifier.message ?? '分享面板已打开。',
           backgroundColor: colors.successSoft,
           foregroundColor: colors.success,
         );
       case ShareViewStatus.cancelled:
         return _ShareStateSpec(
           name: 'cancelled',
-          message: viewModel.message ?? '已取消分享。',
+          message: notifier.message ?? '已取消分享。',
           backgroundColor: colors.bgSunken,
           foregroundColor: colors.textSecondary,
         );
       case ShareViewStatus.error:
         return _ShareStateSpec(
           name: 'error',
-          message: viewModel.message ?? '分享暂时不可用，请稍后重试。',
+          message: notifier.message ?? '分享暂时不可用，请稍后重试。',
           backgroundColor: colors.errorSoft,
           foregroundColor: colors.error,
         );

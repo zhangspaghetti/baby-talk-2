@@ -8,7 +8,12 @@ class AppLayoutConstants {
   static const double maxContentWidth = 430;
 
   /// Standard shell tab page padding (accommodates bottom navigation bar).
-  static const EdgeInsets shellTabPadding = EdgeInsets.fromLTRB(20, 12, 20, 120);
+  static const EdgeInsets shellTabPadding = EdgeInsets.fromLTRB(
+    20,
+    12,
+    20,
+    120,
+  );
 
   /// Standard standalone screen padding.
   static const EdgeInsets screenPadding = EdgeInsets.fromLTRB(20, 20, 20, 24);

@@ -4,8 +4,8 @@ import 'package:mobile/app/theme/app_theme.dart';
 import 'package:mobile/features/practice/data/repositories/practice_repository.dart';
 import 'package:mobile/features/practice/domain/models/garden_growth_snapshot.dart';
 import 'package:mobile/features/practice/domain/models/practice_continuity_snapshot.dart';
-import 'package:mobile/features/practice/presentation/garden_growth_view_model.dart';
-import 'package:mobile/features/practice/presentation/practice_continuity_view_model.dart';
+import 'package:mobile/features/practice/presentation/garden_growth_notifier.dart';
+import 'package:mobile/features/practice/presentation/practice_continuity_notifier.dart';
 import 'package:mobile/l10n/app_localizations.dart';
 
 class GardenHeroCard extends StatelessWidget {
@@ -13,14 +13,14 @@ class GardenHeroCard extends StatelessWidget {
     super.key,
     required this.snapshot,
     required this.status,
-    required this.continuityViewModel,
+    required this.continuityNotifier,
     required this.continuitySnapshot,
     required this.continuityActivity,
   });
 
   final GardenGrowthSnapshot snapshot;
   final GardenGrowthLoadStatus status;
-  final PracticeContinuityViewModel? continuityViewModel;
+  final PracticeContinuityNotifier? continuityNotifier;
   final PracticeContinuitySnapshot? continuitySnapshot;
   final PracticeActivitySnapshot? continuityActivity;
 
@@ -42,16 +42,16 @@ class GardenHeroCard extends StatelessWidget {
         status == GardenGrowthLoadStatus.idle) {
       title = l.gardenOrganizing;
       body = l.gardenProjectingNote;
-    } else if (continuityViewModel == null) {
+    } else if (continuityNotifier == null) {
       eyebrow = l.gardenContinuityNotConnected;
       title = l.gardenContinueUnavailable;
       body = l.gardenUnavailable;
-    } else if (continuityViewModel!.disabledReason != null) {
+    } else if (continuityNotifier!.disabledReason != null) {
       eyebrow = l.gardenComeBack;
       title = continuityActivityTitle == null
           ? l.gardenContinueUnavailable
           : l.gardenContinueActivityTitle(continuityActivityTitle);
-      body = continuityViewModel!.disabledReason!;
+      body = continuityNotifier!.disabledReason!;
     } else if (impact != null) {
       eyebrow = impact.spaceTitle;
       title = continuityActivityTitle == null
@@ -124,7 +124,7 @@ class GardenHeroCard extends StatelessWidget {
           if (kDebugMode) ...[
             const SizedBox(height: 12),
             Text(
-              'continuity: ${continuityViewModel?.status.label ?? 'missing_provider'}${continuityViewModel?.lastRefreshReason == null ? '' : ' · refresh: ${continuityViewModel!.lastRefreshReason}'}',
+              'continuity: ${continuityNotifier?.status.label ?? 'missing_provider'}${continuityNotifier?.lastRefreshReason == null ? '' : ' · refresh: ${continuityNotifier!.lastRefreshReason}'}',
               key: const Key('garden-continuity-status'),
               style: theme.textTheme.bodySmall,
             ),

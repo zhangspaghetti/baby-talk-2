@@ -4,10 +4,10 @@ import 'package:app_links/app_links.dart';
 import 'package:go_router/go_router.dart';
 import 'package:mobile/app/invite_reentry_coordinator.dart';
 import 'package:mobile/app/share_reentry_coordinator.dart';
-import 'package:mobile/features/household/presentation/household_view_model.dart';
+import 'package:mobile/features/household/presentation/household_notifier.dart';
 import 'package:mobile/features/practice/data/services/asset_phrase_service.dart';
-import 'package:mobile/features/practice/presentation/garden_growth_view_model.dart';
-import 'package:mobile/features/practice/presentation/practice_continuity_view_model.dart';
+import 'package:mobile/features/practice/presentation/garden_growth_notifier.dart';
+import 'package:mobile/features/practice/presentation/practice_continuity_notifier.dart';
 
 /// 回调类型：获取 GoRouter 实例
 typedef GoRouterProvider = GoRouter? Function();
@@ -21,10 +21,10 @@ typedef LaunchDestinationProvider = AppLaunchDestination? Function();
 /// 回调类型：获取种子内容包（用于练习支持性检查）
 typedef SeedContentProvider = SeedContentBundle? Function();
 
-/// 回调类型：按需查找 ViewModel
-typedef HouseholdViewModelLookup = HouseholdViewModel? Function();
-typedef ContinuityViewModelLookup = PracticeContinuityViewModel? Function();
-typedef GardenGrowthViewModelLookup = GardenGrowthViewModel? Function();
+/// 回调类型：按需查找 Notifier
+typedef HouseholdNotifierLookup = HouseholdNotifier? Function();
+typedef ContinuityNotifierLookup = PracticeContinuityNotifier? Function();
+typedef GardenGrowthNotifierLookup = GardenGrowthNotifier? Function();
 
 /// 重入状态机所用的启动目标枚举（与 app.dart 中 AppLaunchDestination 对齐）
 enum AppLaunchDestination { onboarding, shell }
@@ -41,18 +41,18 @@ class AppReentryOrchestrator {
     required MountedCheck mountedCheck,
     required LaunchDestinationProvider launchDestinationProvider,
     required SeedContentProvider seedContentProvider,
-    required HouseholdViewModelLookup householdViewModelLookup,
-    required ContinuityViewModelLookup continuityViewModelLookup,
-    required GardenGrowthViewModelLookup gardenGrowthViewModelLookup,
+    required HouseholdNotifierLookup householdNotifierLookup,
+    required ContinuityNotifierLookup continuityNotifierLookup,
+    required GardenGrowthNotifierLookup gardenGrowthNotifierLookup,
   }) : _shareReentryCoordinator = shareReentryCoordinator,
        _inviteReentryCoordinator = inviteReentryCoordinator,
        _goRouterProvider = goRouterProvider,
        _mountedCheck = mountedCheck,
        _launchDestinationProvider = launchDestinationProvider,
        _seedContentProvider = seedContentProvider,
-       _householdViewModelLookup = householdViewModelLookup,
-       _continuityViewModelLookup = continuityViewModelLookup,
-       _gardenGrowthViewModelLookup = gardenGrowthViewModelLookup;
+       _householdNotifierLookup = householdNotifierLookup,
+       _continuityNotifierLookup = continuityNotifierLookup,
+       _gardenGrowthNotifierLookup = gardenGrowthNotifierLookup;
 
   final ShareReentryCoordinator _shareReentryCoordinator;
   final InviteReentryCoordinator _inviteReentryCoordinator;
@@ -60,9 +60,9 @@ class AppReentryOrchestrator {
   final MountedCheck _mountedCheck;
   final LaunchDestinationProvider _launchDestinationProvider;
   final SeedContentProvider _seedContentProvider;
-  final HouseholdViewModelLookup _householdViewModelLookup;
-  final ContinuityViewModelLookup _continuityViewModelLookup;
-  final GardenGrowthViewModelLookup _gardenGrowthViewModelLookup;
+  final HouseholdNotifierLookup _householdNotifierLookup;
+  final ContinuityNotifierLookup _continuityNotifierLookup;
+  final GardenGrowthNotifierLookup _gardenGrowthNotifierLookup;
 
   StreamSubscription<Uri>? _shareUriSubscription;
   Future<void>? _inviteDrainFuture;
@@ -205,14 +205,14 @@ class AppReentryOrchestrator {
       return;
     }
 
-    final householdViewModel = _householdViewModelLookup();
-    if (householdViewModel == null) {
+    final householdNotifier = _householdNotifierLookup();
+    if (householdNotifier == null) {
       router.go('/');
       _inviteReentryCoordinator.markFallback(message: '共享练习暂时不可用，已停留在首页。');
       return;
     }
 
-    final result = await householdViewModel.acceptInviteFromReentry(command);
+    final result = await householdNotifier.acceptInviteFromReentry(command);
     final practiceArgs = result.practiceArgs;
     if (!_mountedCheck()) {
       return;
@@ -232,16 +232,16 @@ class AppReentryOrchestrator {
       return;
     }
 
-    final continuityViewModel = _continuityViewModelLookup();
-    if (continuityViewModel != null) {
-      await continuityViewModel.configureStarterArgs(
+    final continuityNotifier = _continuityNotifierLookup();
+    if (continuityNotifier != null) {
+      await continuityNotifier.configureStarterArgs(
         practiceArgs,
         reason: 'invite_accept',
       );
     }
-    final gardenGrowthViewModel = _gardenGrowthViewModelLookup();
-    if (gardenGrowthViewModel != null) {
-      await gardenGrowthViewModel.refresh();
+    final gardenGrowthNotifier = _gardenGrowthNotifierLookup();
+    if (gardenGrowthNotifier != null) {
+      await gardenGrowthNotifier.refresh();
     }
 
     router.push('/practice', extra: practiceArgs.normalized());

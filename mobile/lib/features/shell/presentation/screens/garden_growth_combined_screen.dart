@@ -7,7 +7,7 @@ import 'package:mobile/app/widgets/app_haptics.dart';
 import 'package:mobile/app/widgets/app_shimmer.dart';
 import 'package:mobile/app/theme/app_layout_constants.dart';
 import 'package:mobile/app/theme/app_theme.dart';
-import 'package:mobile/features/household/presentation/household_view_model.dart';
+import 'package:mobile/features/household/presentation/household_notifier.dart';
 import 'package:mobile/features/household/presentation/widgets/household_shared_context_card.dart';
 import 'package:mobile/features/practice/data/repositories/practice_repository.dart'
     show PracticeActivitySnapshot;
@@ -15,10 +15,8 @@ import 'package:mobile/features/practice/domain/models/garden_growth_snapshot.da
 import 'package:mobile/features/practice/domain/models/practice_continuity_snapshot.dart'
     show PracticeContinuitySnapshot;
 import 'package:mobile/features/practice/presentation/garden_growth_notifier.dart';
-import 'package:mobile/features/practice/presentation/garden_growth_view_model.dart'
-    show GardenGrowthLoadStatus;
-import 'package:mobile/features/practice/presentation/practice_continuity_view_model.dart';
-import 'package:mobile/features/share/presentation/share_view_model.dart';
+import 'package:mobile/features/practice/presentation/practice_continuity_notifier.dart';
+import 'package:mobile/features/share/presentation/share_notifier.dart';
 import 'package:mobile/features/share/presentation/widgets/share_callout_card.dart';
 import 'package:mobile/features/shell/presentation/widgets/garden_continue_card.dart';
 import 'package:mobile/features/shell/presentation/widgets/garden_hero_card.dart';
@@ -51,16 +49,16 @@ class _GardenGrowthCombinedScreenState
     final gardenSnapshot = gardenNotifier.snapshot;
     final gardenStatus = gardenNotifier.status;
 
-    // Provider: other ViewModels (still Provider-based)
-    final continuityViewModel = context.watch<PracticeContinuityViewModel?>();
-    final householdViewModel = context.watch<HouseholdViewModel?>();
-    final shareViewModel = context.watch<ShareViewModel?>();
-    final continuitySnapshot = continuityViewModel?.snapshot;
-    final continuityActivity = continuityViewModel?.activitySnapshot;
-    final practiceArgs = continuityViewModel?.recommendedArgs;
+    // Provider: other Notifiers (still Provider-based)
+    final continuityNotifier = context.watch<PracticeContinuityNotifier?>();
+    final householdNotifier = context.watch<HouseholdNotifier?>();
+    final shareNotifier = context.watch<ShareNotifier?>();
+    final continuitySnapshot = continuityNotifier?.snapshot;
+    final continuityActivity = continuityNotifier?.activitySnapshot;
+    final practiceArgs = continuityNotifier?.recommendedArgs;
 
     // Shared context
-    final sharedContext = householdViewModel?.snapshot.sharedContext;
+    final sharedContext = householdNotifier?.snapshot.sharedContext;
     final sharedNextStepArgs = resolveHouseholdSharedNextStepArgs(
       sharedContext,
     );
@@ -69,7 +67,7 @@ class _GardenGrowthCombinedScreenState
         gardenSnapshot.primarySpace?.lastPracticedAt ??
         continuitySnapshot?.cadence.lastEventTime;
     final isSharedOverlayNewer =
-        continuityViewModel != null &&
+        continuityNotifier != null &&
         sharedContext != null &&
         isHouseholdSharedProjectionNewer(sharedContext, localGardenAt);
     final shouldShowSharedOverlay =
@@ -95,8 +93,8 @@ class _GardenGrowthCombinedScreenState
               AppHaptics.lightTap();
               await Future.wait([
                 gardenNotifier.refresh(),
-                if (continuityViewModel != null)
-                  continuityViewModel.refresh(
+                if (continuityNotifier != null)
+                  continuityNotifier.refresh(
                     reason: 'growth_combined_pull_to_refresh',
                   ),
               ]);
@@ -136,7 +134,7 @@ class _GardenGrowthCombinedScreenState
                     snapshot: gardenSnapshot,
                     isLoading: isLoading,
                     gardenNotifier: gardenNotifier,
-                    continuityViewModel: continuityViewModel,
+                    continuityNotifier: continuityNotifier,
                     continuitySnapshot: continuitySnapshot,
                     continuityActivity: continuityActivity,
                     practiceArgs: practiceArgs,
@@ -154,18 +152,18 @@ class _GardenGrowthCombinedScreenState
                 const SizedBox(height: 16),
                 HouseholdSharedContextCard(
                   surfaceKeyPrefix: 'growth-combined',
-                  viewModel: householdViewModel,
+                  notifier: householdNotifier,
                   title: l.gardenSharedAttributionTitle,
                   retryReason: 'growth_combined_household_manual_refresh',
                 ),
-                if (shareViewModel != null) ...[
+                if (shareNotifier != null) ...[
                   const SizedBox(height: 16),
                   ShareCalloutCard(
                     surfaceKeyPrefix: 'growth-combined',
-                    viewModel: shareViewModel,
+                    notifier: shareNotifier,
                     sectionLabel: l.gardenShareFamily,
                     emptyMessage: l.growthShareWaitStable,
-                    onShare: () => shareViewModel.shareCurrent(),
+                    onShare: () => shareNotifier.shareCurrent(),
                   ),
                 ],
                 if (shouldShowSharedOverlay) ...[
@@ -207,7 +205,7 @@ class _GardenGrowthCombinedScreenState
     required GardenGrowthSnapshot snapshot,
     required bool isLoading,
     required GardenGrowthNotifier gardenNotifier,
-    required PracticeContinuityViewModel? continuityViewModel,
+    required PracticeContinuityNotifier? continuityNotifier,
     required PracticeContinuitySnapshot? continuitySnapshot,
     required PracticeActivitySnapshot? continuityActivity,
     required dynamic practiceArgs,
@@ -219,7 +217,7 @@ class _GardenGrowthCombinedScreenState
         GardenHeroCard(
           snapshot: snapshot,
           status: gardenNotifier.status,
-          continuityViewModel: continuityViewModel,
+          continuityNotifier: continuityNotifier,
           continuitySnapshot: continuitySnapshot,
           continuityActivity: continuityActivity,
         ),
@@ -228,7 +226,7 @@ class _GardenGrowthCombinedScreenState
         // ── Continue card ──
         GardenContinueCard(
           practiceArgs: practiceArgs,
-          continuityViewModel: continuityViewModel,
+          continuityNotifier: continuityNotifier,
           continuitySnapshot: continuitySnapshot,
           continuityActivity: continuityActivity,
         ),
@@ -451,23 +449,23 @@ class _SegmentTab extends StatelessWidget {
       child: GestureDetector(
         onTap: onTap,
         child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(vertical: 12),
-        decoration: BoxDecoration(
-          color: isSelected ? colors.bgSurface : Colors.transparent,
-          borderRadius: BorderRadius.circular(12),
-          boxShadow: isSelected ? colors.warmShadowSm : null,
-        ),
-        alignment: Alignment.center,
-        child: Text(
-          label,
-          style: theme.textTheme.titleMedium?.copyWith(
-            color: isSelected ? colors.textPrimary : colors.textMuted,
-            fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          decoration: BoxDecoration(
+            color: isSelected ? colors.bgSurface : Colors.transparent,
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: isSelected ? colors.warmShadowSm : null,
+          ),
+          alignment: Alignment.center,
+          child: Text(
+            label,
+            style: theme.textTheme.titleMedium?.copyWith(
+              color: isSelected ? colors.textPrimary : colors.textMuted,
+              fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+            ),
           ),
         ),
       ),
-    ),
     );
   }
 }

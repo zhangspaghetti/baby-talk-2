@@ -36,14 +36,14 @@ class AccountStatusCard extends ConsumerWidget {
     final l = AppLocalizations.of(context)!;
     final colors = context.appColors;
     final theme = Theme.of(context);
-    final viewModel = ref.watch(accountNotifierProvider);
+    final notifier = ref.watch(accountNotifierProvider);
     final phase = resolveAccountPhase(
-      viewModel,
+      notifier,
       onboardingSnapshot: onboardingSnapshot,
     );
-    final title = _titleForPhase(l, phase, viewModel);
-    final body = _bodyForPhase(l, phase, onboardingSnapshot, viewModel);
-    final chips = _buildChips(l, viewModel);
+    final title = _titleForPhase(l, phase, notifier);
+    final body = _bodyForPhase(l, phase, onboardingSnapshot, notifier);
+    final chips = _buildChips(l, notifier);
 
     return Container(
       key: Key('$scopeKeyPrefix-account-card'),
@@ -63,8 +63,8 @@ class AccountStatusCard extends ConsumerWidget {
           Text(title, style: theme.textTheme.titleMedium),
           const SizedBox(height: 8),
           Text(body, style: theme.textTheme.bodyMedium),
-          if (viewModel.snapshot.lastVisibleError != null &&
-              viewModel.snapshot.lastVisibleError!.trim().isNotEmpty) ...[
+          if (notifier.snapshot.lastVisibleError != null &&
+              notifier.snapshot.lastVisibleError!.trim().isNotEmpty) ...[
             const SizedBox(height: 12),
             Container(
               key: Key('$scopeKeyPrefix-account-banner'),
@@ -75,7 +75,7 @@ class AccountStatusCard extends ConsumerWidget {
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Text(
-                viewModel.snapshot.lastVisibleError!,
+                notifier.snapshot.lastVisibleError!,
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: _bannerForegroundForPhase(phase, colors),
                   fontWeight: FontWeight.w700,
@@ -87,19 +87,19 @@ class AccountStatusCard extends ConsumerWidget {
             const SizedBox(height: 12),
             Wrap(spacing: 8, runSpacing: 8, children: chips),
           ],
-          if (viewModel.submissionMessage != null) ...[
+          if (notifier.submissionMessage != null) ...[
             const SizedBox(height: 12),
             Text(
-              viewModel.submissionMessage!,
+              notifier.submissionMessage!,
               key: Key('$scopeKeyPrefix-account-message'),
               style: theme.textTheme.bodySmall,
             ),
           ],
           if (phase == AccountSurfacePhase.versionBlocked &&
-              viewModel.upgradeActionHint != null) ...[
+              notifier.upgradeActionHint != null) ...[
             const SizedBox(height: 12),
             Text(
-              viewModel.upgradeActionHint!,
+              notifier.upgradeActionHint!,
               key: Key('$scopeKeyPrefix-account-upgrade-hint'),
               style: theme.textTheme.bodySmall?.copyWith(
                 color: colors.textSecondary,
@@ -114,11 +114,11 @@ class AccountStatusCard extends ConsumerWidget {
               FilledButton(
                 key: Key('$scopeKeyPrefix-account-open-entry'),
                 onPressed:
-                    phase == AccountSurfacePhase.loading || viewModel.isBusy
+                    phase == AccountSurfacePhase.loading || notifier.isBusy
                     ? null
                     : () => openAccountEntryScreen(context),
                 child: Text(
-                  viewModel.isSignedIn
+                  notifier.isSignedIn
                       ? l.accountViewStatus
                       : l.accountRegisterLogin,
                 ),
@@ -126,26 +126,26 @@ class AccountStatusCard extends ConsumerWidget {
               if (phase == AccountSurfacePhase.versionBlocked)
                 FilledButton(
                   key: Key('$scopeKeyPrefix-account-upgrade-button'),
-                  onPressed: viewModel.canOpenUpgradePage
-                      ? viewModel.openUpgradePage
+                  onPressed: notifier.canOpenUpgradePage
+                      ? notifier.openUpgradePage
                       : null,
-                  child: Text(viewModel.upgradeActionLabel),
+                  child: Text(notifier.upgradeActionLabel),
                 ),
               if (phase == AccountSurfacePhase.error)
                 OutlinedButton(
                   key: Key('$scopeKeyPrefix-account-retry-load'),
-                  onPressed: viewModel.reload,
+                  onPressed: notifier.reload,
                   child: Text(l.accountRetryRead),
                 ),
-              if (viewModel.isSignedIn ||
+              if (notifier.isSignedIn ||
                   phase == AccountSurfacePhase.versionBlocked ||
                   phase == AccountSurfacePhase.signedInFailed ||
                   phase == AccountSurfacePhase.revoked)
                 OutlinedButton(
                   key: Key('$scopeKeyPrefix-account-retry-sync'),
-                  onPressed: viewModel.isBusy
+                  onPressed: notifier.isBusy
                       ? null
-                      : () => viewModel.refreshRuntimeState(
+                      : () => notifier.refreshRuntimeState(
                           trigger: AccountRuntimeTrigger.manualRetry,
                         ),
                   child: Text(l.accountRetrySync),
@@ -160,7 +160,7 @@ class AccountStatusCard extends ConsumerWidget {
   String _titleForPhase(
     AppLocalizations l,
     AccountSurfacePhase phase,
-    AccountNotifier viewModel,
+    AccountNotifier notifier,
   ) {
     switch (phase) {
       case AccountSurfacePhase.loading:
@@ -170,9 +170,9 @@ class AccountStatusCard extends ConsumerWidget {
       case AccountSurfacePhase.signedOut:
         return l.accountNotLoggedIn;
       case AccountSurfacePhase.signedInPendingSync:
-        return l.accountSignedIn(viewModel.maskedPhoneNumber);
+        return l.accountSignedIn(notifier.maskedPhoneNumber);
       case AccountSurfacePhase.signedInSynced:
-        return l.accountSignedIn(viewModel.maskedPhoneNumber);
+        return l.accountSignedIn(notifier.maskedPhoneNumber);
       case AccountSurfacePhase.signedInFailed:
         return l.accountSyncRetryNeeded;
       case AccountSurfacePhase.revoked:
@@ -190,7 +190,7 @@ class AccountStatusCard extends ConsumerWidget {
     AppLocalizations l,
     AccountSurfacePhase phase,
     OnboardingSnapshot? snapshot,
-    AccountNotifier viewModel,
+    AccountNotifier notifier,
   ) {
     switch (phase) {
       case AccountSurfacePhase.loading:
@@ -204,7 +204,7 @@ class AccountStatusCard extends ConsumerWidget {
       case AccountSurfacePhase.signedOut:
         return l.accountEntryNote;
       case AccountSurfacePhase.signedInPendingSync:
-        return l.accountPendingSync(viewModel.snapshot.pendingSyncCount);
+        return l.accountPendingSync(notifier.snapshot.pendingSyncCount);
       case AccountSurfacePhase.signedInSynced:
         return l.accountAlignedNote;
       case AccountSurfacePhase.signedInFailed:
@@ -214,45 +214,45 @@ class AccountStatusCard extends ConsumerWidget {
       case AccountSurfacePhase.deleted:
         return l.accountDeletedNote;
       case AccountSurfacePhase.versionBlocked:
-        return viewModel.canOpenUpgradePage
+        return notifier.canOpenUpgradePage
             ? l.accountUpgradeNote
             : l.accountUpgradeUnavailable;
       case AccountSurfacePhase.error:
-        return viewModel.loadErrorMessage ?? l.accountReadFailed;
+        return notifier.loadErrorMessage ?? l.accountReadFailed;
     }
   }
 
-  List<Widget> _buildChips(AppLocalizations l, AccountNotifier viewModel) {
+  List<Widget> _buildChips(AppLocalizations l, AccountNotifier notifier) {
     final chips = <Widget>[];
     chips.add(
       Chip(
         key: Key('$scopeKeyPrefix-account-pending-chip'),
         label: Text(
-          l.accountPendingSyncCount(viewModel.snapshot.pendingSyncCount),
+          l.accountPendingSyncCount(notifier.snapshot.pendingSyncCount),
         ),
       ),
     );
     chips.add(
       Chip(
         key: Key('$scopeKeyPrefix-account-synced-chip'),
-        label: Text(l.accountSyncedCount(viewModel.snapshot.syncedCount)),
+        label: Text(l.accountSyncedCount(notifier.snapshot.syncedCount)),
       ),
     );
     chips.add(
       Chip(
         key: Key('$scopeKeyPrefix-account-failed-chip'),
-        label: Text(l.accountFailedCount(viewModel.snapshot.failedCount)),
+        label: Text(l.accountFailedCount(notifier.snapshot.failedCount)),
       ),
     );
-    if (viewModel.snapshot.lastSyncPhase.trim().isNotEmpty) {
+    if (notifier.snapshot.lastSyncPhase.trim().isNotEmpty) {
       chips.add(
         Chip(
           key: Key('$scopeKeyPrefix-account-phase-chip'),
-          label: Text('phase · ${viewModel.snapshot.lastSyncPhase}'),
+          label: Text('phase · ${notifier.snapshot.lastSyncPhase}'),
         ),
       );
     }
-    final lastSyncAt = viewModel.snapshot.lastSyncAt;
+    final lastSyncAt = notifier.snapshot.lastSyncAt;
     if (lastSyncAt != null) {
       final local = lastSyncAt.toLocal();
       final hour = local.hour.toString().padLeft(2, '0');
@@ -314,23 +314,21 @@ class AccountEntryScreen extends HookConsumerWidget {
     final l = AppLocalizations.of(context)!;
     final colors = context.appColors;
     final theme = Theme.of(context);
-    final viewModel = ref.watch(accountNotifierProvider);
-    final householdViewModel = ref.watch(householdNotifierProvider);
-    final phase = resolveAccountPhase(viewModel);
+    final notifier = ref.watch(accountNotifierProvider);
+    final householdNotifier = ref.watch(householdNotifierProvider);
+    final phase = resolveAccountPhase(notifier);
 
-    if (phoneController.text != viewModel.phoneNumber) {
+    if (phoneController.text != notifier.phoneNumber) {
       phoneController.value = TextEditingValue(
-        text: viewModel.phoneNumber,
-        selection: TextSelection.collapsed(
-          offset: viewModel.phoneNumber.length,
-        ),
+        text: notifier.phoneNumber,
+        selection: TextSelection.collapsed(offset: notifier.phoneNumber.length),
       );
     }
-    if (codeController.text != viewModel.verificationCode) {
+    if (codeController.text != notifier.verificationCode) {
       codeController.value = TextEditingValue(
-        text: viewModel.verificationCode,
+        text: notifier.verificationCode,
         selection: TextSelection.collapsed(
-          offset: viewModel.verificationCode.length,
+          offset: notifier.verificationCode.length,
         ),
       );
     }
@@ -365,12 +363,12 @@ class AccountEntryScreen extends HookConsumerWidget {
                       ),
                       const SizedBox(height: 12),
                       Text(
-                        _headlineForPhase(l, phase, viewModel),
+                        _headlineForPhase(l, phase, notifier),
                         style: theme.textTheme.titleLarge,
                       ),
                       const SizedBox(height: 12),
                       Text(
-                        viewModel.primaryHint,
+                        notifier.primaryHint,
                         style: theme.textTheme.bodyMedium,
                       ),
                       const SizedBox(height: 16),
@@ -383,18 +381,18 @@ class AccountEntryScreen extends HookConsumerWidget {
                           borderRadius: BorderRadius.circular(16),
                         ),
                         child: Text(
-                          _statusText(l, phase, viewModel),
+                          _statusText(l, phase, notifier),
                           style: theme.textTheme.bodyMedium?.copyWith(
                             color: _phaseForeground(phase, colors),
                             fontWeight: FontWeight.w700,
                           ),
                         ),
                       ),
-                      if (viewModel.loadErrorMessage != null) ...[
+                      if (notifier.loadErrorMessage != null) ...[
                         const SizedBox(height: 12),
                         OutlinedButton(
                           key: const Key('account-load-retry'),
-                          onPressed: viewModel.reload,
+                          onPressed: notifier.reload,
                           child: Text(l.accountRetryReadStatus),
                         ),
                       ],
@@ -406,9 +404,9 @@ class AccountEntryScreen extends HookConsumerWidget {
                         decoration: InputDecoration(
                           labelText: l.accountPhoneLabel,
                           hintText: kDebugMode ? '13800138000' : null,
-                          errorText: viewModel.phoneError,
+                          errorText: notifier.phoneError,
                         ),
-                        onChanged: viewModel.updatePhoneNumber,
+                        onChanged: notifier.updatePhoneNumber,
                       ),
                       const SizedBox(height: 16),
                       TextField(
@@ -418,23 +416,23 @@ class AccountEntryScreen extends HookConsumerWidget {
                         decoration: InputDecoration(
                           labelText: l.accountCodeLabel,
                           hintText: l.accountDevStub,
-                          errorText: viewModel.verificationCodeError,
+                          errorText: notifier.verificationCodeError,
                         ),
-                        onChanged: viewModel.updateVerificationCode,
+                        onChanged: notifier.updateVerificationCode,
                       ),
                       const SizedBox(height: 16),
                       Text(
                         l.accountRealLoginNote,
                         style: theme.textTheme.bodySmall,
                       ),
-                      if (viewModel.snapshot.lastVisibleError != null &&
-                          viewModel.snapshot.lastVisibleError!
+                      if (notifier.snapshot.lastVisibleError != null &&
+                          notifier.snapshot.lastVisibleError!
                               .trim()
                               .isNotEmpty) ...[
                         const SizedBox(height: 12),
                         Text(
                           l.accountLastError(
-                            viewModel.snapshot.lastVisibleError!,
+                            notifier.snapshot.lastVisibleError!,
                           ),
                           key: const Key('account-last-error'),
                           style: theme.textTheme.bodySmall?.copyWith(
@@ -443,19 +441,19 @@ class AccountEntryScreen extends HookConsumerWidget {
                           ),
                         ),
                       ],
-                      if (viewModel.submissionMessage != null) ...[
+                      if (notifier.submissionMessage != null) ...[
                         const SizedBox(height: 12),
                         Text(
-                          viewModel.submissionMessage!,
+                          notifier.submissionMessage!,
                           key: const Key('account-submit-message'),
                           style: theme.textTheme.bodySmall,
                         ),
                       ],
                       if (phase == AccountSurfacePhase.versionBlocked &&
-                          viewModel.upgradeActionHint != null) ...[
+                          notifier.upgradeActionHint != null) ...[
                         const SizedBox(height: 12),
                         Text(
-                          viewModel.upgradeActionHint!,
+                          notifier.upgradeActionHint!,
                           key: const Key('account-upgrade-hint'),
                           style: theme.textTheme.bodySmall?.copyWith(
                             color: colors.textSecondary,
@@ -465,14 +463,14 @@ class AccountEntryScreen extends HookConsumerWidget {
                       const SizedBox(height: 20),
                       HouseholdSharedContextCard(
                         surfaceKeyPrefix: 'account',
-                        viewModel: householdViewModel,
+                        notifier: householdNotifier,
                         title: l.sharedAttributionNextStep,
                         retryReason: 'account_entry_manual_refresh',
                       ),
                       const SizedBox(height: 16),
                       HouseholdInviteCard(
                         surfaceKeyPrefix: 'account',
-                        viewModel: householdViewModel,
+                        notifier: householdNotifier,
                         inviteSource: 'account_entry',
                       ),
                       const SizedBox(height: 20),
@@ -482,7 +480,7 @@ class AccountEntryScreen extends HookConsumerWidget {
                         children: [
                           FilledButton(
                             key: const Key('account-submit-button'),
-                            onPressed: viewModel.isBusy
+                            onPressed: notifier.isBusy
                                 ? null
                                 : () async {
                                     AppHaptics.lightTap();
@@ -501,7 +499,7 @@ class AccountEntryScreen extends HookConsumerWidget {
                                     );
                                   },
                             child: Text(
-                              viewModel.isBusy
+                              notifier.isBusy
                                   ? l.processing
                                   : l.accountLoginConsent,
                             ),
@@ -509,7 +507,7 @@ class AccountEntryScreen extends HookConsumerWidget {
                           if (phase == AccountSurfacePhase.versionBlocked)
                             FilledButton(
                               key: const Key('account-upgrade-button'),
-                              onPressed: viewModel.canOpenUpgradePage
+                              onPressed: notifier.canOpenUpgradePage
                                   ? () {
                                       AppHaptics.lightTap();
                                       ref
@@ -519,11 +517,11 @@ class AccountEntryScreen extends HookConsumerWidget {
                                           .openUpgradePage();
                                     }
                                   : null,
-                              child: Text(viewModel.upgradeActionLabel),
+                              child: Text(notifier.upgradeActionLabel),
                             ),
                           OutlinedButton(
                             key: const Key('account-sync-retry-button'),
-                            onPressed: viewModel.isBusy
+                            onPressed: notifier.isBusy
                                 ? null
                                 : () {
                                     AppHaptics.lightTap();
@@ -538,7 +536,7 @@ class AccountEntryScreen extends HookConsumerWidget {
                           ),
                           OutlinedButton(
                             key: const Key('account-revoke-button'),
-                            onPressed: viewModel.isBusy || !viewModel.isSignedIn
+                            onPressed: notifier.isBusy || !notifier.isSignedIn
                                 ? null
                                 : () {
                                     AppHaptics.lightTap();
@@ -550,7 +548,7 @@ class AccountEntryScreen extends HookConsumerWidget {
                           ),
                           OutlinedButton(
                             key: const Key('account-delete-button'),
-                            onPressed: viewModel.isBusy || !viewModel.isSignedIn
+                            onPressed: notifier.isBusy || !notifier.isSignedIn
                                 ? null
                                 : () {
                                     AppHaptics.lightTap();
@@ -562,7 +560,7 @@ class AccountEntryScreen extends HookConsumerWidget {
                           ),
                           OutlinedButton(
                             key: const Key('account-clear-button'),
-                            onPressed: viewModel.isBusy
+                            onPressed: notifier.isBusy
                                 ? null
                                 : () {
                                     AppHaptics.lightTap();
@@ -574,7 +572,7 @@ class AccountEntryScreen extends HookConsumerWidget {
                           ),
                           OutlinedButton(
                             key: const Key('account-local-only-button'),
-                            onPressed: viewModel.isBusy
+                            onPressed: notifier.isBusy
                                 ? null
                                 : () {
                                     AppHaptics.lightTap();
@@ -605,7 +603,7 @@ class AccountEntryScreen extends HookConsumerWidget {
   String _headlineForPhase(
     AppLocalizations l,
     AccountSurfacePhase phase,
-    AccountNotifier viewModel,
+    AccountNotifier notifier,
   ) {
     switch (phase) {
       case AccountSurfacePhase.loading:
@@ -615,9 +613,9 @@ class AccountEntryScreen extends HookConsumerWidget {
       case AccountSurfacePhase.signedOut:
         return l.accountEntryVisibleNotLoggedIn;
       case AccountSurfacePhase.signedInPendingSync:
-        return l.accountSignedInPending(viewModel.maskedPhoneNumber);
+        return l.accountSignedInPending(notifier.maskedPhoneNumber);
       case AccountSurfacePhase.signedInSynced:
-        return l.accountEntrySignedInSynced(viewModel.maskedPhoneNumber);
+        return l.accountEntrySignedInSynced(notifier.maskedPhoneNumber);
       case AccountSurfacePhase.signedInFailed:
         return l.accountSignedInSyncRetry;
       case AccountSurfacePhase.revoked:
@@ -634,7 +632,7 @@ class AccountEntryScreen extends HookConsumerWidget {
   String _statusText(
     AppLocalizations l,
     AccountSurfacePhase phase,
-    AccountNotifier viewModel,
+    AccountNotifier notifier,
   ) {
     switch (phase) {
       case AccountSurfacePhase.loading:
@@ -645,7 +643,7 @@ class AccountEntryScreen extends HookConsumerWidget {
         return 'signed-out';
       case AccountSurfacePhase.signedInPendingSync:
         return l.accountSignedInPendingSyncStatus(
-          viewModel.snapshot.pendingSyncCount,
+          notifier.snapshot.pendingSyncCount,
         );
       case AccountSurfacePhase.signedInSynced:
         return 'signed-in-synced';

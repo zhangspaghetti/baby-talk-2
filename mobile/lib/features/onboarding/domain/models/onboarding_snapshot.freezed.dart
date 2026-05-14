@@ -12,7 +12,8 @@ part of 'onboarding_snapshot.dart';
 T _$identity<T>(T value) => value;
 
 final _privateConstructorUsedError = UnsupportedError(
-    'It seems like you constructed your class using `MyClass._()`. This constructor is only meant to be used by freezed and you are not supposed to need it nor use it.\nPlease check the documentation here for more information: https://github.com/rrousselGit/freezed#adding-getters-and-methods-to-our-models');
+  'It seems like you constructed your class using `MyClass._()`. This constructor is only meant to be used by freezed and you are not supposed to need it nor use it.\nPlease check the documentation here for more information: https://github.com/rrousselGit/freezed#adding-getters-and-methods-to-our-models',
+);
 
 /// @nodoc
 mixin _$OnboardingSnapshot {
@@ -35,20 +36,22 @@ mixin _$OnboardingSnapshot {
 /// @nodoc
 abstract class $OnboardingSnapshotCopyWith<$Res> {
   factory $OnboardingSnapshotCopyWith(
-          OnboardingSnapshot value, $Res Function(OnboardingSnapshot) then) =
-      _$OnboardingSnapshotCopyWithImpl<$Res, OnboardingSnapshot>;
+    OnboardingSnapshot value,
+    $Res Function(OnboardingSnapshot) then,
+  ) = _$OnboardingSnapshotCopyWithImpl<$Res, OnboardingSnapshot>;
   @useResult
-  $Res call(
-      {String childDisplayName,
-      OnboardingAgeBucket ageBucket,
-      int approxMonths,
-      String currentStage,
-      String starterSpaceId,
-      String starterActivityId,
-      String starterPhraseId,
-      OnboardingConsentState consentState,
-      DateTime? birthDate,
-      DateTime? completedAt});
+  $Res call({
+    String childDisplayName,
+    OnboardingAgeBucket ageBucket,
+    int approxMonths,
+    String currentStage,
+    String starterSpaceId,
+    String starterActivityId,
+    String starterPhraseId,
+    OnboardingConsentState consentState,
+    DateTime? birthDate,
+    DateTime? completedAt,
+  });
 }
 
 /// @nodoc
@@ -75,79 +78,85 @@ class _$OnboardingSnapshotCopyWithImpl<$Res, $Val extends OnboardingSnapshot>
     Object? birthDate = freezed,
     Object? completedAt = freezed,
   }) {
-    return _then(_value.copyWith(
-      childDisplayName: null == childDisplayName
-          ? _value.childDisplayName
-          : childDisplayName // ignore: cast_nullable_to_non_nullable
-              as String,
-      ageBucket: null == ageBucket
-          ? _value.ageBucket
-          : ageBucket // ignore: cast_nullable_to_non_nullable
-              as OnboardingAgeBucket,
-      approxMonths: null == approxMonths
-          ? _value.approxMonths
-          : approxMonths // ignore: cast_nullable_to_non_nullable
-              as int,
-      currentStage: null == currentStage
-          ? _value.currentStage
-          : currentStage // ignore: cast_nullable_to_non_nullable
-              as String,
-      starterSpaceId: null == starterSpaceId
-          ? _value.starterSpaceId
-          : starterSpaceId // ignore: cast_nullable_to_non_nullable
-              as String,
-      starterActivityId: null == starterActivityId
-          ? _value.starterActivityId
-          : starterActivityId // ignore: cast_nullable_to_non_nullable
-              as String,
-      starterPhraseId: null == starterPhraseId
-          ? _value.starterPhraseId
-          : starterPhraseId // ignore: cast_nullable_to_non_nullable
-              as String,
-      consentState: null == consentState
-          ? _value.consentState
-          : consentState // ignore: cast_nullable_to_non_nullable
-              as OnboardingConsentState,
-      birthDate: freezed == birthDate
-          ? _value.birthDate
-          : birthDate // ignore: cast_nullable_to_non_nullable
-              as DateTime?,
-      completedAt: freezed == completedAt
-          ? _value.completedAt
-          : completedAt // ignore: cast_nullable_to_non_nullable
-              as DateTime?,
-    ) as $Val);
+    return _then(
+      _value.copyWith(
+            childDisplayName: null == childDisplayName
+                ? _value.childDisplayName
+                : childDisplayName // ignore: cast_nullable_to_non_nullable
+                      as String,
+            ageBucket: null == ageBucket
+                ? _value.ageBucket
+                : ageBucket // ignore: cast_nullable_to_non_nullable
+                      as OnboardingAgeBucket,
+            approxMonths: null == approxMonths
+                ? _value.approxMonths
+                : approxMonths // ignore: cast_nullable_to_non_nullable
+                      as int,
+            currentStage: null == currentStage
+                ? _value.currentStage
+                : currentStage // ignore: cast_nullable_to_non_nullable
+                      as String,
+            starterSpaceId: null == starterSpaceId
+                ? _value.starterSpaceId
+                : starterSpaceId // ignore: cast_nullable_to_non_nullable
+                      as String,
+            starterActivityId: null == starterActivityId
+                ? _value.starterActivityId
+                : starterActivityId // ignore: cast_nullable_to_non_nullable
+                      as String,
+            starterPhraseId: null == starterPhraseId
+                ? _value.starterPhraseId
+                : starterPhraseId // ignore: cast_nullable_to_non_nullable
+                      as String,
+            consentState: null == consentState
+                ? _value.consentState
+                : consentState // ignore: cast_nullable_to_non_nullable
+                      as OnboardingConsentState,
+            birthDate: freezed == birthDate
+                ? _value.birthDate
+                : birthDate // ignore: cast_nullable_to_non_nullable
+                      as DateTime?,
+            completedAt: freezed == completedAt
+                ? _value.completedAt
+                : completedAt // ignore: cast_nullable_to_non_nullable
+                      as DateTime?,
+          )
+          as $Val,
+    );
   }
 }
 
 /// @nodoc
 abstract class _$$OnboardingSnapshotImplCopyWith<$Res>
     implements $OnboardingSnapshotCopyWith<$Res> {
-  factory _$$OnboardingSnapshotImplCopyWith(_$OnboardingSnapshotImpl value,
-          $Res Function(_$OnboardingSnapshotImpl) then) =
-      __$$OnboardingSnapshotImplCopyWithImpl<$Res>;
+  factory _$$OnboardingSnapshotImplCopyWith(
+    _$OnboardingSnapshotImpl value,
+    $Res Function(_$OnboardingSnapshotImpl) then,
+  ) = __$$OnboardingSnapshotImplCopyWithImpl<$Res>;
   @override
   @useResult
-  $Res call(
-      {String childDisplayName,
-      OnboardingAgeBucket ageBucket,
-      int approxMonths,
-      String currentStage,
-      String starterSpaceId,
-      String starterActivityId,
-      String starterPhraseId,
-      OnboardingConsentState consentState,
-      DateTime? birthDate,
-      DateTime? completedAt});
+  $Res call({
+    String childDisplayName,
+    OnboardingAgeBucket ageBucket,
+    int approxMonths,
+    String currentStage,
+    String starterSpaceId,
+    String starterActivityId,
+    String starterPhraseId,
+    OnboardingConsentState consentState,
+    DateTime? birthDate,
+    DateTime? completedAt,
+  });
 }
 
 /// @nodoc
 class __$$OnboardingSnapshotImplCopyWithImpl<$Res>
     extends _$OnboardingSnapshotCopyWithImpl<$Res, _$OnboardingSnapshotImpl>
     implements _$$OnboardingSnapshotImplCopyWith<$Res> {
-  __$$OnboardingSnapshotImplCopyWithImpl(_$OnboardingSnapshotImpl _value,
-      $Res Function(_$OnboardingSnapshotImpl) _then)
-      : super(_value, _then);
+  __$$OnboardingSnapshotImplCopyWithImpl(
+    _$OnboardingSnapshotImpl _value,
+    $Res Function(_$OnboardingSnapshotImpl) _then,
+  ) : super(_value, _then);
 
   @pragma('vm:prefer-inline')
   @override
@@ -163,66 +172,68 @@ class __$$OnboardingSnapshotImplCopyWithImpl<$Res>
     Object? birthDate = freezed,
     Object? completedAt = freezed,
   }) {
-    return _then(_$OnboardingSnapshotImpl(
-      childDisplayName: null == childDisplayName
-          ? _value.childDisplayName
-          : childDisplayName // ignore: cast_nullable_to_non_nullable
-              as String,
-      ageBucket: null == ageBucket
-          ? _value.ageBucket
-          : ageBucket // ignore: cast_nullable_to_non_nullable
-              as OnboardingAgeBucket,
-      approxMonths: null == approxMonths
-          ? _value.approxMonths
-          : approxMonths // ignore: cast_nullable_to_non_nullable
-              as int,
-      currentStage: null == currentStage
-          ? _value.currentStage
-          : currentStage // ignore: cast_nullable_to_non_nullable
-              as String,
-      starterSpaceId: null == starterSpaceId
-          ? _value.starterSpaceId
-          : starterSpaceId // ignore: cast_nullable_to_non_nullable
-              as String,
-      starterActivityId: null == starterActivityId
-          ? _value.starterActivityId
-          : starterActivityId // ignore: cast_nullable_to_non_nullable
-              as String,
-      starterPhraseId: null == starterPhraseId
-          ? _value.starterPhraseId
-          : starterPhraseId // ignore: cast_nullable_to_non_nullable
-              as String,
-      consentState: null == consentState
-          ? _value.consentState
-          : consentState // ignore: cast_nullable_to_non_nullable
-              as OnboardingConsentState,
-      birthDate: freezed == birthDate
-          ? _value.birthDate
-          : birthDate // ignore: cast_nullable_to_non_nullable
-              as DateTime?,
-      completedAt: freezed == completedAt
-          ? _value.completedAt
-          : completedAt // ignore: cast_nullable_to_non_nullable
-              as DateTime?,
-    ));
+    return _then(
+      _$OnboardingSnapshotImpl(
+        childDisplayName: null == childDisplayName
+            ? _value.childDisplayName
+            : childDisplayName // ignore: cast_nullable_to_non_nullable
+                  as String,
+        ageBucket: null == ageBucket
+            ? _value.ageBucket
+            : ageBucket // ignore: cast_nullable_to_non_nullable
+                  as OnboardingAgeBucket,
+        approxMonths: null == approxMonths
+            ? _value.approxMonths
+            : approxMonths // ignore: cast_nullable_to_non_nullable
+                  as int,
+        currentStage: null == currentStage
+            ? _value.currentStage
+            : currentStage // ignore: cast_nullable_to_non_nullable
+                  as String,
+        starterSpaceId: null == starterSpaceId
+            ? _value.starterSpaceId
+            : starterSpaceId // ignore: cast_nullable_to_non_nullable
+                  as String,
+        starterActivityId: null == starterActivityId
+            ? _value.starterActivityId
+            : starterActivityId // ignore: cast_nullable_to_non_nullable
+                  as String,
+        starterPhraseId: null == starterPhraseId
+            ? _value.starterPhraseId
+            : starterPhraseId // ignore: cast_nullable_to_non_nullable
+                  as String,
+        consentState: null == consentState
+            ? _value.consentState
+            : consentState // ignore: cast_nullable_to_non_nullable
+                  as OnboardingConsentState,
+        birthDate: freezed == birthDate
+            ? _value.birthDate
+            : birthDate // ignore: cast_nullable_to_non_nullable
+                  as DateTime?,
+        completedAt: freezed == completedAt
+            ? _value.completedAt
+            : completedAt // ignore: cast_nullable_to_non_nullable
+                  as DateTime?,
+      ),
+    );
   }
 }
 
 /// @nodoc
 
 class _$OnboardingSnapshotImpl extends _OnboardingSnapshot {
-  const _$OnboardingSnapshotImpl(
-      {required this.childDisplayName,
-      required this.ageBucket,
-      required this.approxMonths,
-      required this.currentStage,
-      required this.starterSpaceId,
-      required this.starterActivityId,
-      required this.starterPhraseId,
-      required this.consentState,
-      this.birthDate,
-      this.completedAt})
-      : super._();
+  const _$OnboardingSnapshotImpl({
+    required this.childDisplayName,
+    required this.ageBucket,
+    required this.approxMonths,
+    required this.currentStage,
+    required this.starterSpaceId,
+    required this.starterActivityId,
+    required this.starterPhraseId,
+    required this.consentState,
+    this.birthDate,
+    this.completedAt,
+  }) : super._();
 
   @override
   final String childDisplayName;
@@ -279,38 +290,42 @@ class _$OnboardingSnapshotImpl extends _OnboardingSnapshot {
 
   @override
   int get hashCode => Object.hash(
-      runtimeType,
-      childDisplayName,
-      ageBucket,
-      approxMonths,
-      currentStage,
-      starterSpaceId,
-      starterActivityId,
-      starterPhraseId,
-      consentState,
-      birthDate,
-      completedAt);
+    runtimeType,
+    childDisplayName,
+    ageBucket,
+    approxMonths,
+    currentStage,
+    starterSpaceId,
+    starterActivityId,
+    starterPhraseId,
+    consentState,
+    birthDate,
+    completedAt,
+  );
 
   @JsonKey(ignore: true)
   @override
   @pragma('vm:prefer-inline')
   _$$OnboardingSnapshotImplCopyWith<_$OnboardingSnapshotImpl> get copyWith =>
       __$$OnboardingSnapshotImplCopyWithImpl<_$OnboardingSnapshotImpl>(
-          this, _$identity);
+        this,
+        _$identity,
+      );
 }
 
 abstract class _OnboardingSnapshot extends OnboardingSnapshot {
-  const factory _OnboardingSnapshot(
-      {required final String childDisplayName,
-      required final OnboardingAgeBucket ageBucket,
-      required final int approxMonths,
-      required final String currentStage,
-      required final String starterSpaceId,
-      required final String starterActivityId,
-      required final String starterPhraseId,
-      required final OnboardingConsentState consentState,
-      final DateTime? birthDate,
-      final DateTime? completedAt}) = _$OnboardingSnapshotImpl;
+  const factory _OnboardingSnapshot({
+    required final String childDisplayName,
+    required final OnboardingAgeBucket ageBucket,
+    required final int approxMonths,
+    required final String currentStage,
+    required final String starterSpaceId,
+    required final String starterActivityId,
+    required final String starterPhraseId,
+    required final OnboardingConsentState consentState,
+    final DateTime? birthDate,
+    final DateTime? completedAt,
+  }) = _$OnboardingSnapshotImpl;
   const _OnboardingSnapshot._() : super._();
 
   @override

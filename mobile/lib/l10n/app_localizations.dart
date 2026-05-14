@@ -1013,7 +1013,7 @@ abstract class AppLocalizations {
   /// No description provided for @accountRealLoginNote.
   ///
   /// In zh, this message translates to:
-  /// **'真实登录会调用 challenge → verify → consent accept → bootstrap → batch sync；错误会留在独立 account/sync seam 中，不回写 onboarding snapshot，也不让 PracticeSessionViewModel 直接发请求。'**
+  /// **'真实登录会调用 challenge → verify → consent accept → bootstrap → batch sync；错误会留在独立 account/sync seam 中，不回写 onboarding snapshot，也不让 PracticeSessionNotifier 直接发请求。'**
   String get accountRealLoginNote;
 
   /// No description provided for @accountLastError.

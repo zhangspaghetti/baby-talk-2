@@ -71,7 +71,7 @@ void main() {
       expect(snapshot.session?.maskedPhoneNumber, '138****8000');
       expect(snapshot.session?.accessToken, 'access_live');
       expect(snapshot.session?.refreshToken, 'refresh_live');
-      expect(snapshot.session?.tokenType, 'Bearer');
+      expect(snapshot.session?.tokenType, 'Cookie');
       expect(snapshot.session?.accessTokenExpiresAt, isNotNull);
       expect(snapshot.session?.refreshTokenExpiresAt, isNotNull);
       expect(snapshot.pendingSyncCount, 0);
@@ -94,7 +94,7 @@ void main() {
       final persisted = await harness.accountLocalStore.read();
       expect(persisted.session?.accessToken, 'access_live');
       expect(persisted.session?.refreshToken, 'refresh_live');
-      expect(persisted.session?.tokenType, 'Bearer');
+      expect(persisted.session?.tokenType, 'Cookie');
       expect(persisted.session?.accessTokenExpiresAt, isNotNull);
       expect(persisted.session?.refreshTokenExpiresAt, isNotNull);
 
@@ -341,9 +341,7 @@ class _AccountRepositoryHarness {
       installationIdService: installationIdService,
     );
     final inMemoryStorage = _InMemorySecureStorage();
-    final accountLocalStore = AccountLocalStore(
-      secureStorage: inMemoryStorage,
-    );
+    final accountLocalStore = AccountLocalStore(secureStorage: inMemoryStorage);
     return _AccountRepositoryHarness(
       tempDir: tempDir,
       localDataSource: localDataSource,
@@ -379,7 +377,7 @@ class _AccountRepositoryHarness {
         createdAt: DateTime.utc(2026, 4, 9, 2),
         accessToken: accessToken,
         refreshToken: refreshToken,
-        tokenType: 'Bearer',
+        tokenType: 'Cookie',
         accessTokenExpiresAt: DateTime.utc(2026, 4, 9, 2, 15),
         refreshTokenExpiresAt: DateTime.utc(2026, 4, 16, 2),
       ),
@@ -584,7 +582,7 @@ class _FakeAccountApiService extends AccountApiService {
       consentStatus: 'signed_out',
       accessToken: accessToken,
       refreshToken: refreshToken,
-      tokenType: 'Bearer',
+      tokenType: 'Cookie',
       accessTokenExpiresAt: DateTime.utc(2026, 4, 9, 2, 16),
       refreshTokenExpiresAt: DateTime.utc(2026, 4, 16, 2, 1),
     );
@@ -641,8 +639,7 @@ class _InMemorySecureStorage extends FlutterSecureStorage {
     WebOptions? webOptions,
     MacOsOptions? mOptions,
     WindowsOptions? wOptions,
-  }) async =>
-      _store[key];
+  }) async => _store[key];
 
   @override
   Future<void> write({
@@ -671,6 +668,5 @@ class _InMemorySecureStorage extends FlutterSecureStorage {
     WebOptions? webOptions,
     MacOsOptions? mOptions,
     WindowsOptions? wOptions,
-  }) async =>
-      _store.remove(key);
+  }) async => _store.remove(key);
 }

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:mobile/app/theme/app_theme.dart';
 import 'package:mobile/features/practice/domain/models/interaction_event_payload.dart';
-import 'package:mobile/features/practice/presentation/practice_session_view_model.dart';
+import 'package:mobile/features/practice/presentation/practice_session_notifier.dart';
 
 class ReactionChipRow extends StatelessWidget {
   const ReactionChipRow({
@@ -32,7 +32,7 @@ class ReactionChipRow extends StatelessWidget {
                   ? () => onSelected!(option.type)
                   : null,
               style: OutlinedButton.styleFrom(
-                  minimumSize: const Size(0, 48),
+                minimumSize: const Size(0, 48),
                 padding: const EdgeInsets.symmetric(
                   horizontal: 14,
                   vertical: 12,

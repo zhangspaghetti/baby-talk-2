@@ -578,7 +578,7 @@ class AccountRepository {
       createdAt: response.createdAt,
       accessToken: response.accessToken,
       refreshToken: response.refreshToken,
-      tokenType: response.tokenType,
+      tokenType: response.tokenType ?? 'Cookie',
       accessTokenExpiresAt: response.accessTokenExpiresAt,
       refreshTokenExpiresAt: response.refreshTokenExpiresAt,
     );

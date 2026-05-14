@@ -3,8 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:mobile/features/account/data/repositories/account_repository.dart'
     show AccountRuntimeTrigger;
-import 'package:mobile/features/account/data/services/authenticated_api_client.dart'
-    show PersistRefreshedSession;
+import 'package:mobile/features/account/data/services/authenticated_api_client.dart';
 import 'package:mobile/features/account/presentation/account_notifier.dart';
 import 'package:mobile/features/mentor/data/repositories/mentor_repository.dart';
 import 'package:mobile/features/mentor/data/services/mentor_api_service.dart';
@@ -12,32 +11,105 @@ import 'package:mobile/features/mentor/domain/models/local_mentor_suggestion.dar
 import 'package:mobile/features/mentor/domain/models/mentor_fact_event.dart';
 import 'package:mobile/features/mentor/domain/services/local_mentor_suggestion_service.dart';
 import 'package:mobile/features/mentor/presentation/mentor_audio_controller.dart';
-import 'package:mobile/features/mentor/presentation/mentor_view_model.dart'
-    show
-        ChatBubbleData,
-        ChatBubbleRole,
-        MentorChatAvailability,
-        MentorChatAvailabilityCode,
-        MentorChatAvailabilityCodeWire,
-        MentorChatFailureSurface,
-        MentorPanelStatusLabel,
-        MentorPanelStatus,
-        MentorPanelTab,
-        MentorPanelTabLabel;
 
 const _safeFallbackService = LocalMentorSuggestionService();
 
-/// Riverpod-ready notifier that replaces [MentorViewModel].
-///
-/// Uses [ChangeNotifier] as the base so existing widget code can adapt
-/// incrementally without a full rewrite of the UI layer.
-///
-/// The API surface intentionally mirrors the old ViewModel so that callers
-/// only need to swap the type they resolve.
-///
-/// Depends on [AccountNotifier] instead of [AccountViewModel]. In the
-/// Riverpod provider graph this is expressed as
-/// `ref.watch(accountNotifierProvider)`.
+enum MentorPanelTab { suggestions, chat }
+
+enum MentorPanelStatus { idle, loading, ready, fallback, error }
+
+enum MentorChatAvailabilityCode { accountLoading, ready, offline }
+
+/// 聊天气泡展示数据，供 UI 层使用。
+enum ChatBubbleRole { user, assistant }
+
+class ChatBubbleData {
+  const ChatBubbleData({
+    required this.role,
+    required this.text,
+    required this.timestamp,
+  });
+
+  final ChatBubbleRole role;
+  final String text;
+  final DateTime timestamp;
+}
+
+extension MentorPanelTabLabel on MentorPanelTab {
+  String get label {
+    switch (this) {
+      case MentorPanelTab.suggestions:
+        return '建议';
+      case MentorPanelTab.chat:
+        return '聊天';
+    }
+  }
+}
+
+extension MentorPanelStatusLabel on MentorPanelStatus {
+  String get label {
+    switch (this) {
+      case MentorPanelStatus.idle:
+        return 'idle';
+      case MentorPanelStatus.loading:
+        return 'loading';
+      case MentorPanelStatus.ready:
+        return 'success';
+      case MentorPanelStatus.fallback:
+        return 'fallback';
+      case MentorPanelStatus.error:
+        return 'error';
+    }
+  }
+}
+
+extension MentorChatAvailabilityCodeWire on MentorChatAvailabilityCode {
+  String get wireValue {
+    switch (this) {
+      case MentorChatAvailabilityCode.accountLoading:
+        return 'account-loading';
+      case MentorChatAvailabilityCode.ready:
+        return 'ready';
+      case MentorChatAvailabilityCode.offline:
+        return 'offline';
+    }
+  }
+}
+
+class MentorChatAvailability {
+  const MentorChatAvailability({
+    required this.code,
+    required this.title,
+    required this.detail,
+    required this.phase,
+    required this.retryable,
+    required this.canSubmit,
+  });
+
+  final MentorChatAvailabilityCode code;
+  final String title;
+  final String detail;
+  final String phase;
+  final bool retryable;
+  final bool canSubmit;
+
+  String get chipLabel => 'chat · ${code.wireValue}';
+}
+
+class MentorChatFailureSurface {
+  const MentorChatFailureSurface({
+    required this.code,
+    required this.phase,
+    required this.message,
+    required this.retryable,
+  });
+
+  final String code;
+  final String phase;
+  final String message;
+  final bool retryable;
+}
+
 class MentorNotifier extends ChangeNotifier {
   MentorNotifier({
     required MentorRepository repository,
@@ -98,8 +170,6 @@ class MentorNotifier extends ChangeNotifier {
   String? _audioStatusMessage;
   String? _audioStatusCode;
 
-  // -- Getters ---------------------------------------------------------------
-
   MentorPanelTab get selectedTab => _selectedTab;
   MentorPanelStatus get panelStatus => _panelStatus;
   MentorChatAvailability get chatAvailability => _chatAvailability;
@@ -137,8 +207,6 @@ class MentorNotifier extends ChangeNotifier {
   bool get isSpeaking => _isSpeaking;
   String? get audioStatusMessage => _audioStatusMessage;
   String? get audioStatusCode => _audioStatusCode;
-
-  // -- Public API ------------------------------------------------------------
 
   Future<List<MentorFactEvent>> listFactHistory({
     MentorFactType? eventType,
@@ -328,7 +396,7 @@ class MentorNotifier extends ChangeNotifier {
       phase: 'chat_requested',
       correlationId: correlationId,
       redactedSummary:
-          'surface:$_lastSurface;len:${prompt.length};auth:${session == null ? 'anon' : 'bearer'}',
+          'surface:$_lastSurface;len:${prompt.length};auth:${session == null ? 'anon' : 'cookie'}',
       visibleStatus: 'chat-requested',
       visibleDetail: '正在请求一次受控回应',
     );
@@ -444,8 +512,6 @@ class MentorNotifier extends ChangeNotifier {
       visibleDetail: '正在朗读受控聊天回应',
     );
   }
-
-  // -- Internals -------------------------------------------------------------
 
   Future<void> _speakText({
     required String text,
@@ -848,14 +914,6 @@ class MentorNotifier extends ChangeNotifier {
       retryable: false,
       canSubmit: true,
     );
-  }
-
-  @override
-  void notifyListeners() {
-    if (_disposed) {
-      return;
-    }
-    super.notifyListeners();
   }
 
   @override

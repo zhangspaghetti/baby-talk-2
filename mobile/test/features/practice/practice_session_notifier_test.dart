@@ -12,7 +12,7 @@ import 'package:mobile/features/practice/data/repositories/practice_repository.d
 import 'package:mobile/features/practice/data/services/asset_phrase_service.dart';
 import 'package:mobile/features/practice/domain/models/interaction_event_payload.dart';
 import 'package:mobile/features/practice/domain/models/practice_phrase.dart';
-import 'package:mobile/features/practice/presentation/practice_session_view_model.dart';
+import 'package:mobile/features/practice/presentation/practice_session_notifier.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -23,57 +23,57 @@ void main() {
     );
   });
 
-  group('PracticeSessionViewModel', () {
+  group('PracticeSessionNotifier', () {
     test('initialize 会创建 installationId，并在零事件时暴露显式安全空态', () async {
       final harness = await _createHarness();
       addTearDown(harness.dispose);
-      final viewModel = PracticeSessionViewModel(
+      final notifier = PracticeSessionNotifier(
         repository: harness.repository,
         spaceId: 'daily_care',
         activityId: 'bath_time',
         audioController: _SilentPracticeAudioController(),
       );
-      addTearDown(viewModel.dispose);
+      addTearDown(notifier.dispose);
 
-      await viewModel.initialize();
+      await notifier.initialize();
 
-      expect(viewModel.installationId, 'install_view_model_test');
-      expect(viewModel.homeSummary, isNotNull);
-      expect(viewModel.homeSummary!.isEmpty, isTrue);
-      expect(viewModel.restoreStatusMessage, contains('未找到本地记录'));
-      expect(viewModel.hasRecoverableRestoreIssue, isFalse);
-      expect(viewModel.canStartPractice, isTrue);
+      expect(notifier.installationId, 'install_notifier_test');
+      expect(notifier.homeSummary, isNotNull);
+      expect(notifier.homeSummary!.isEmpty, isTrue);
+      expect(notifier.restoreStatusMessage, contains('未找到本地记录'));
+      expect(notifier.hasRecoverableRestoreIssue, isFalse);
+      expect(notifier.canStartPractice, isTrue);
     });
 
     test('重开 repository 后仍能恢复最近结果，并把下一句指向未完成短语', () async {
       final tempDir = await Directory.systemTemp.createTemp(
-        'practice_session_view_model_restore_',
+        'practice_session_notifier_restore_',
       );
-      const dbName = 'practice_view_model_restore';
+      const dbName = 'practice_notifier_restore';
 
       final firstHarness = await _createHarness(
         tempDir: tempDir,
         dbName: dbName,
       );
-      final firstViewModel = PracticeSessionViewModel(
+      final firstNotifier = PracticeSessionNotifier(
         repository: firstHarness.repository,
         spaceId: 'daily_care',
         activityId: 'bath_time',
         audioController: _SilentPracticeAudioController(),
       );
 
-      await firstViewModel.initialize();
-      final firstReady = await firstViewModel.ensureSessionReady();
+      await firstNotifier.initialize();
+      final firstReady = await firstNotifier.ensureSessionReady();
       expect(firstReady, isTrue);
-      expect(firstViewModel.currentPhrase?.phraseId, 'bath_time_warm_water');
+      expect(firstNotifier.currentPhrase?.phraseId, 'bath_time_warm_water');
 
-      final outcome = await firstViewModel.recordReaction(
+      final outcome = await firstNotifier.recordReaction(
         BabyReactionType.engaged,
       );
       expect(outcome, PracticeRecordOutcome.advanced);
-      expect(firstViewModel.homeSummary?.totalEvents, 1);
+      expect(firstNotifier.homeSummary?.totalEvents, 1);
 
-      firstViewModel.dispose();
+      firstNotifier.dispose();
       await firstHarness.repository.close();
 
       final secondHarness = await _createHarness(
@@ -86,31 +86,28 @@ void main() {
           await tempDir.delete(recursive: true);
         }
       });
-      final secondViewModel = PracticeSessionViewModel(
+      final secondNotifier = PracticeSessionNotifier(
         repository: secondHarness.repository,
         spaceId: 'daily_care',
         activityId: 'bath_time',
         audioController: _SilentPracticeAudioController(),
       );
-      addTearDown(secondViewModel.dispose);
+      addTearDown(secondNotifier.dispose);
 
-      await secondViewModel.initialize();
+      await secondNotifier.initialize();
 
-      expect(secondViewModel.installationId, 'install_view_model_test');
-      expect(secondViewModel.restoreStatusMessage, contains('已从本地恢复'));
+      expect(secondNotifier.installationId, 'install_notifier_test');
+      expect(secondNotifier.restoreStatusMessage, contains('已从本地恢复'));
       expect(
-        secondViewModel.homeSummary?.recentResult?.phraseEnglish,
+        secondNotifier.homeSummary?.recentResult?.phraseEnglish,
         'Warm water.',
       );
-      expect(secondViewModel.homeSummary?.totalEvents, 1);
+      expect(secondNotifier.homeSummary?.totalEvents, 1);
 
-      final secondReady = await secondViewModel.ensureSessionReady();
+      final secondReady = await secondNotifier.ensureSessionReady();
       expect(secondReady, isTrue);
-      expect(
-        secondViewModel.currentPhrase?.phraseId,
-        'bath_time_splash_splash',
-      );
-      expect(secondViewModel.resumeInfo?.completedPhraseIds, [
+      expect(secondNotifier.currentPhrase?.phraseId, 'bath_time_splash_splash');
+      expect(secondNotifier.resumeInfo?.completedPhraseIds, [
         'bath_time_warm_water',
       ]);
     });
@@ -120,9 +117,9 @@ void main() {
       addTearDown(harness.dispose);
       await harness.localDataSource.isar.writeTxn(() async {
         final entity = InteractionEventEntity()
-          ..eventKey = 'install_view_model_test:evt_bad_payload'
+          ..eventKey = 'install_notifier_test:evt_bad_payload'
           ..localEventId = 'evt_bad_payload'
-          ..installationId = 'install_view_model_test'
+          ..installationId = 'install_notifier_test'
           ..spaceId = 'daily_care'
           ..activityId = 'bath_time'
           ..phraseId = 'bath_time_warm_water'
@@ -134,21 +131,21 @@ void main() {
             .put(entity);
       });
 
-      final viewModel = PracticeSessionViewModel(
+      final notifier = PracticeSessionNotifier(
         repository: harness.repository,
         spaceId: 'daily_care',
         activityId: 'bath_time',
         audioController: _SilentPracticeAudioController(),
       );
-      addTearDown(viewModel.dispose);
+      addTearDown(notifier.dispose);
 
-      await viewModel.initialize();
+      await notifier.initialize();
 
-      expect(viewModel.homeSummary?.isEmpty, isTrue);
-      expect(viewModel.hasRecoverableRestoreIssue, isTrue);
-      expect(viewModel.restoreStatusMessage, contains('跳过 1 条损坏记录'));
-      expect(viewModel.restoreStatusMessage, contains('evt_bad_payload'));
-      expect(viewModel.canStartPractice, isTrue);
+      expect(notifier.homeSummary?.isEmpty, isTrue);
+      expect(notifier.hasRecoverableRestoreIssue, isTrue);
+      expect(notifier.restoreStatusMessage, contains('跳过 1 条损坏记录'));
+      expect(notifier.restoreStatusMessage, contains('evt_bad_payload'));
+      expect(notifier.canStartPractice, isTrue);
     });
 
     test('不同 activity 的恢复状态彼此隔离，切回原 activity 时不会串屏', () async {
@@ -160,66 +157,66 @@ void main() {
         installationIdService: harness.installationIdService,
       );
 
-      final bathViewModel = PracticeSessionViewModel(
+      final bathNotifier = PracticeSessionNotifier(
         repository: repository,
         spaceId: 'daily_care',
         activityId: 'bath_time',
         audioController: _SilentPracticeAudioController(),
       );
-      addTearDown(bathViewModel.dispose);
-      await bathViewModel.initialize();
-      expect(await bathViewModel.ensureSessionReady(), isTrue);
-      expect(bathViewModel.currentPhrase?.phraseId, 'bath_time_warm_water');
-      await bathViewModel.recordReaction(BabyReactionType.engaged);
-      expect(bathViewModel.currentPhrase?.phraseId, 'bath_time_splash_splash');
+      addTearDown(bathNotifier.dispose);
+      await bathNotifier.initialize();
+      expect(await bathNotifier.ensureSessionReady(), isTrue);
+      expect(bathNotifier.currentPhrase?.phraseId, 'bath_time_warm_water');
+      await bathNotifier.recordReaction(BabyReactionType.engaged);
+      expect(bathNotifier.currentPhrase?.phraseId, 'bath_time_splash_splash');
 
-      final diaperViewModel = PracticeSessionViewModel(
+      final diaperNotifier = PracticeSessionNotifier(
         repository: repository,
         spaceId: 'daily_care',
         activityId: 'diaper_change',
         audioController: _SilentPracticeAudioController(),
       );
-      addTearDown(diaperViewModel.dispose);
-      await diaperViewModel.initialize();
-      expect(await diaperViewModel.ensureSessionReady(), isTrue);
+      addTearDown(diaperNotifier.dispose);
+      await diaperNotifier.initialize();
+      expect(await diaperNotifier.ensureSessionReady(), isTrue);
       expect(
-        diaperViewModel.currentPhrase?.phraseId,
+        diaperNotifier.currentPhrase?.phraseId,
         'diaper_change_lift_your_legs',
       );
-      expect(diaperViewModel.homeSummary?.totalEvents, 0);
+      expect(diaperNotifier.homeSummary?.totalEvents, 0);
 
-      final reopenedBathViewModel = PracticeSessionViewModel(
+      final reopenedBathNotifier = PracticeSessionNotifier(
         repository: repository,
         spaceId: 'daily_care',
         activityId: 'bath_time',
         audioController: _SilentPracticeAudioController(),
       );
-      addTearDown(reopenedBathViewModel.dispose);
-      await reopenedBathViewModel.initialize();
-      expect(await reopenedBathViewModel.ensureSessionReady(), isTrue);
+      addTearDown(reopenedBathNotifier.dispose);
+      await reopenedBathNotifier.initialize();
+      expect(await reopenedBathNotifier.ensureSessionReady(), isTrue);
       expect(
-        reopenedBathViewModel.currentPhrase?.phraseId,
+        reopenedBathNotifier.currentPhrase?.phraseId,
         'bath_time_splash_splash',
       );
-      expect(reopenedBathViewModel.homeSummary?.totalEvents, 1);
+      expect(reopenedBathNotifier.homeSummary?.totalEvents, 1);
     });
 
     test('未知 activity 会在 initialize 与 ensureSessionReady 中暴露明确错误', () async {
       final harness = await _createHarness();
       addTearDown(harness.dispose);
-      final viewModel = PracticeSessionViewModel(
+      final notifier = PracticeSessionNotifier(
         repository: harness.repository,
         spaceId: 'daily_care',
         activityId: 'missing_activity',
         audioController: _SilentPracticeAudioController(),
       );
-      addTearDown(viewModel.dispose);
+      addTearDown(notifier.dispose);
 
-      await viewModel.initialize();
-      expect(viewModel.activitySnapshot, isNull);
-      expect(viewModel.homeErrorMessage, contains('missing_activity'));
-      expect(await viewModel.ensureSessionReady(), isFalse);
-      expect(viewModel.sessionErrorMessage, contains('missing_activity'));
+      await notifier.initialize();
+      expect(notifier.activitySnapshot, isNull);
+      expect(notifier.homeErrorMessage, contains('missing_activity'));
+      expect(await notifier.ensureSessionReady(), isFalse);
+      expect(notifier.sessionErrorMessage, contains('missing_activity'));
     });
   });
 }
@@ -234,7 +231,7 @@ Future<_Harness> _createHarness({Directory? tempDir, String? dbName}) async {
   final assetPhraseService = AssetPhraseService(bundle: rootBundle);
   final installationIdService = InstallationIdService(
     directoryResolver: () async => directory,
-    idGenerator: () => 'install_view_model_test',
+    idGenerator: () => 'install_notifier_test',
   );
   final repository = PracticeRepository(
     assetPhraseService: assetPhraseService,

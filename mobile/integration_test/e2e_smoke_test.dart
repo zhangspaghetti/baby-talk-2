@@ -43,7 +43,9 @@ void main() {
       'onboarding completes against real backend and shell is ready',
       (tester) async {
         if (!_isE2e) {
-          markTestSkipped('Skipped: compile with --dart-define=BABY_TALK_E2E=true to enable.');
+          markTestSkipped(
+            'Skipped: compile with --dart-define=BABY_TALK_E2E=true to enable.',
+          );
           return;
         }
 
@@ -64,39 +66,49 @@ void main() {
     // Test 2: mentor chat → dev-mode response returned and shown in UI
     // Verifies: event sync + mentor chat API round-trip end-to-end.
     // -------------------------------------------------------------------------
-    testWidgets(
-      'mentor chat returns dev-mode response from real backend',
-      (tester) async {
-        if (!_isE2e) {
-          markTestSkipped('Skipped: compile with --dart-define=BABY_TALK_E2E=true to enable.');
-          return;
-        }
-
-        await harness.pumpApp(tester);
-        await harness.completeOnboarding(tester);
-        await harness.completeStarterPractice(tester);
-
-        final viewModel = await harness.submitMentorPrompt(
-          tester,
-          prompt: '宝宝哭了怎么回应',
+    testWidgets('mentor chat returns dev-mode response from real backend', (
+      tester,
+    ) async {
+      if (!_isE2e) {
+        markTestSkipped(
+          'Skipped: compile with --dart-define=BABY_TALK_E2E=true to enable.',
         );
+        return;
+      }
 
-        // Dev-mode backend always returns a non-empty response.
-        expect(viewModel.chatResponsePhase, equals('response_delivered'),
-            reason: 'Backend should return phase=response_delivered');
-        expect(viewModel.chatResponseText, isNotNull,
-            reason: 'Dev-mode response text should be non-null');
-        expect(viewModel.chatResponseText, isNotEmpty,
-            reason: 'Dev-mode response text should be non-empty');
+      await harness.pumpApp(tester);
+      await harness.completeOnboarding(tester);
+      await harness.completeStarterPractice(tester);
 
-        // Verify the response card is visible in the UI.
-        await E2eTestHarness.pumpUntilFound(
-          tester,
-          find.byKey(const Key('mentor-chat-response-card')),
-          timeout: const Duration(seconds: 10),
-          reason: 'mentor chat response card shown in UI',
-        );
-      },
-    );
+      final notifier = await harness.submitMentorPrompt(
+        tester,
+        prompt: '宝宝哭了怎么回应',
+      );
+
+      // Dev-mode backend always returns a non-empty response.
+      expect(
+        notifier.chatResponsePhase,
+        equals('response_delivered'),
+        reason: 'Backend should return phase=response_delivered',
+      );
+      expect(
+        notifier.chatResponseText,
+        isNotNull,
+        reason: 'Dev-mode response text should be non-null',
+      );
+      expect(
+        notifier.chatResponseText,
+        isNotEmpty,
+        reason: 'Dev-mode response text should be non-empty',
+      );
+
+      // Verify the response card is visible in the UI.
+      await E2eTestHarness.pumpUntilFound(
+        tester,
+        find.byKey(const Key('mentor-chat-response-card')),
+        timeout: const Duration(seconds: 10),
+        reason: 'mentor chat response card shown in UI',
+      );
+    });
   });
 }

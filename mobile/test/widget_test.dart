@@ -12,7 +12,7 @@ import 'package:mobile/app/app.dart';
 import 'package:mobile/core/device/installation_id_service.dart';
 import 'package:mobile/features/practice/data/local/practice_local_data_source.dart';
 import 'package:mobile/features/practice/data/repositories/practice_repository.dart';
-import 'package:mobile/features/practice/presentation/practice_session_view_model.dart';
+import 'package:mobile/features/practice/presentation/practice_session_notifier.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();

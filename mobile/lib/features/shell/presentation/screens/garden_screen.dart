@@ -2,12 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:mobile/app/widgets/app_banner.dart';
 import 'package:mobile/app/theme/app_layout_constants.dart';
 import 'package:mobile/app/theme/app_theme.dart';
-import 'package:mobile/features/household/presentation/household_view_model.dart';
+import 'package:mobile/features/household/presentation/household_notifier.dart';
 import 'package:mobile/features/household/presentation/widgets/household_shared_context_card.dart';
 import 'package:mobile/features/practice/domain/models/garden_growth_snapshot.dart';
-import 'package:mobile/features/practice/presentation/garden_growth_view_model.dart';
-import 'package:mobile/features/practice/presentation/practice_continuity_view_model.dart';
-import 'package:mobile/features/share/presentation/share_view_model.dart';
+import 'package:mobile/features/practice/presentation/garden_growth_notifier.dart';
+import 'package:mobile/features/practice/presentation/practice_continuity_notifier.dart';
+import 'package:mobile/features/share/presentation/share_notifier.dart';
 import 'package:mobile/features/share/presentation/widgets/share_callout_card.dart';
 import 'package:mobile/features/shell/presentation/widgets/garden_continue_card.dart';
 import 'package:mobile/features/shell/presentation/widgets/garden_hero_card.dart';
@@ -23,15 +23,15 @@ class GardenScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
     final colors = context.appColors;
-    final viewModel = context.watch<GardenGrowthViewModel?>();
-    final continuityViewModel = context.watch<PracticeContinuityViewModel?>();
-    final householdViewModel = context.watch<HouseholdViewModel?>();
-    final shareViewModel = context.watch<ShareViewModel?>();
-    final snapshot = viewModel?.snapshot ?? GardenGrowthSnapshot.empty();
-    final continuitySnapshot = continuityViewModel?.snapshot;
-    final continuityActivity = continuityViewModel?.activitySnapshot;
-    final practiceArgs = continuityViewModel?.recommendedArgs;
-    final sharedContext = householdViewModel?.snapshot.sharedContext;
+    final notifier = context.watch<GardenGrowthNotifier?>();
+    final continuityNotifier = context.watch<PracticeContinuityNotifier?>();
+    final householdNotifier = context.watch<HouseholdNotifier?>();
+    final shareNotifier = context.watch<ShareNotifier?>();
+    final snapshot = notifier?.snapshot ?? GardenGrowthSnapshot.empty();
+    final continuitySnapshot = continuityNotifier?.snapshot;
+    final continuityActivity = continuityNotifier?.activitySnapshot;
+    final practiceArgs = continuityNotifier?.recommendedArgs;
+    final sharedContext = householdNotifier?.snapshot.sharedContext;
     final sharedNextStepArgs = resolveHouseholdSharedNextStepArgs(
       sharedContext,
     );
@@ -40,7 +40,7 @@ class GardenScreen extends StatelessWidget {
         snapshot.primarySpace?.lastPracticedAt ??
         continuitySnapshot?.cadence.lastEventTime;
     final isSharedOverlayNewer =
-        continuityViewModel != null &&
+        continuityNotifier != null &&
         sharedContext != null &&
         isHouseholdSharedProjectionNewer(sharedContext, localGardenAt);
     final shouldShowSharedOverlay =
@@ -59,9 +59,9 @@ class GardenScreen extends StatelessWidget {
           child: RefreshIndicator(
             onRefresh: () async {
               await Future.wait([
-                if (viewModel != null) viewModel.refresh(),
-                if (continuityViewModel != null)
-                  continuityViewModel.refresh(reason: 'garden_pull_to_refresh'),
+                if (notifier != null) notifier.refresh(),
+                if (continuityNotifier != null)
+                  continuityNotifier.refresh(reason: 'garden_pull_to_refresh'),
               ]);
             },
             child: ListView(
@@ -71,23 +71,23 @@ class GardenScreen extends StatelessWidget {
               children: [
                 GardenHeroCard(
                   snapshot: snapshot,
-                  status: viewModel?.status ?? GardenGrowthLoadStatus.idle,
-                  continuityViewModel: continuityViewModel,
+                  status: notifier?.status ?? GardenGrowthLoadStatus.idle,
+                  continuityNotifier: continuityNotifier,
                   continuitySnapshot: continuitySnapshot,
                   continuityActivity: continuityActivity,
                 ),
                 const SizedBox(height: 16),
                 GardenContinueCard(
                   practiceArgs: practiceArgs,
-                  continuityViewModel: continuityViewModel,
+                  continuityNotifier: continuityNotifier,
                   continuitySnapshot: continuitySnapshot,
                   continuityActivity: continuityActivity,
                 ),
-                if (viewModel?.hasError ?? false) ...[
+                if (notifier?.hasError ?? false) ...[
                   const SizedBox(height: 16),
                   AppBanner(
                     key: const Key('garden-warning-banner'),
-                    message: viewModel!.message ?? l.gardenRefreshFailed,
+                    message: notifier!.message ?? l.gardenRefreshFailed,
                     backgroundColor: colors.warningSoft,
                     foregroundColor: colors.warning,
                   ),
@@ -104,18 +104,18 @@ class GardenScreen extends StatelessWidget {
                 const SizedBox(height: 16),
                 HouseholdSharedContextCard(
                   surfaceKeyPrefix: 'garden',
-                  viewModel: householdViewModel,
+                  notifier: householdNotifier,
                   title: l.gardenSharedAttributionTitle,
                   retryReason: 'garden_household_manual_refresh',
                 ),
-                if (shareViewModel != null) ...[
+                if (shareNotifier != null) ...[
                   const SizedBox(height: 16),
                   ShareCalloutCard(
                     surfaceKeyPrefix: 'garden',
-                    viewModel: shareViewModel,
+                    notifier: shareNotifier,
                     sectionLabel: l.gardenShareFamily,
                     emptyMessage: '等最近成长和继续建议整理稳定后，再生成一条脱敏分享链接。',
-                    onShare: () => shareViewModel.shareCurrent(),
+                    onShare: () => shareNotifier.shareCurrent(),
                   ),
                 ],
                 const SizedBox(height: 16),

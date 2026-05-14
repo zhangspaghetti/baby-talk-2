@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:mobile/app/theme/app_theme.dart';
 import 'package:mobile/features/mentor/domain/models/local_mentor_suggestion.dart';
 import 'package:mobile/features/mentor/domain/services/local_mentor_suggestion_service.dart';
-import 'package:mobile/features/mentor/presentation/mentor_view_model.dart';
+import 'package:mobile/features/mentor/presentation/mentor_notifier.dart';
 import 'package:mobile/features/onboarding/presentation/widgets/mentor_bubble.dart';
 import 'package:provider/provider.dart';
 import 'package:mobile/l10n/app_localizations.dart';
@@ -15,7 +15,7 @@ class MentorSuggestionTab extends StatelessWidget {
     final l = AppLocalizations.of(context)!;
     final colors = context.appColors;
     final theme = Theme.of(context);
-    final viewModel = context.watch<MentorViewModel>();
+    final notifier = context.watch<MentorNotifier>();
 
     return ListView(
       key: const Key('mentor-suggestion-tab'),
@@ -26,40 +26,40 @@ class MentorSuggestionTab extends StatelessWidget {
           caption: '小禾老师',
         ),
         const SizedBox(height: 16),
-        if (viewModel.bannerMessage != null)
+        if (notifier.bannerMessage != null)
           _MentorAlertBanner(
             key: const Key('mentor-panel-banner'),
-            message: viewModel.bannerMessage!,
+            message: notifier.bannerMessage!,
             foregroundColor: _foregroundColorForStatus(
-              viewModel.panelStatus,
+              notifier.panelStatus,
               colors,
             ),
             backgroundColor: _backgroundColorForStatus(
-              viewModel.panelStatus,
+              notifier.panelStatus,
               colors,
             ),
           ),
-        if (viewModel.sharedContextStatus != null) ...[
-          if (viewModel.bannerMessage != null) const SizedBox(height: 12),
+        if (notifier.sharedContextStatus != null) ...[
+          if (notifier.bannerMessage != null) const SizedBox(height: 12),
           _MentorSharedContextBanner(
             key: const Key('mentor-shared-context-banner'),
-            status: viewModel.sharedContextStatus!,
+            status: notifier.sharedContextStatus!,
           ),
         ],
-        if (viewModel.audioStatusMessage != null) ...[
-          if (viewModel.bannerMessage != null ||
-              viewModel.sharedContextStatus != null)
+        if (notifier.audioStatusMessage != null) ...[
+          if (notifier.bannerMessage != null ||
+              notifier.sharedContextStatus != null)
             const SizedBox(height: 12),
           _MentorAlertBanner(
             key: const Key('mentor-audio-banner'),
-            message: viewModel.audioStatusMessage!,
+            message: notifier.audioStatusMessage!,
             foregroundColor: colors.warning,
             backgroundColor: colors.warningSoft,
           ),
         ],
-        if (viewModel.bannerMessage != null ||
-            viewModel.audioStatusMessage != null ||
-            viewModel.sharedContextStatus != null)
+        if (notifier.bannerMessage != null ||
+            notifier.audioStatusMessage != null ||
+            notifier.sharedContextStatus != null)
           const SizedBox(height: 16),
         Wrap(
           spacing: 8,
@@ -67,20 +67,20 @@ class MentorSuggestionTab extends StatelessWidget {
           children: [
             Chip(
               key: const Key('mentor-selected-tab-chip'),
-              label: Text(viewModel.selectedTabChipLabel),
+              label: Text(notifier.selectedTabChipLabel),
             ),
             Chip(
               key: const Key('mentor-status-chip'),
-              label: Text(viewModel.statusChipLabel),
+              label: Text(notifier.statusChipLabel),
             ),
             Chip(
               key: const Key('mentor-chat-chip'),
-              label: Text(viewModel.chatAvailability.chipLabel),
+              label: Text(notifier.chatAvailability.chipLabel),
             ),
           ],
         ),
         const SizedBox(height: 16),
-        if (viewModel.isLoading)
+        if (notifier.isLoading)
           Container(
             key: const Key('mentor-suggestion-loading'),
             padding: const EdgeInsets.all(20),
@@ -108,7 +108,7 @@ class MentorSuggestionTab extends StatelessWidget {
               ],
             ),
           )
-        else if (viewModel.suggestions.isEmpty)
+        else if (notifier.suggestions.isEmpty)
           Container(
             key: const Key('mentor-suggestion-empty-state'),
             padding: const EdgeInsets.all(20),
@@ -132,30 +132,30 @@ class MentorSuggestionTab extends StatelessWidget {
                 const SizedBox(height: 16),
                 OutlinedButton(
                   key: const Key('mentor-suggestion-retry'),
-                  onPressed: viewModel.reloadSuggestions,
+                  onPressed: notifier.reloadSuggestions,
                   child: Text(l.mentorSuggestionRefresh),
                 ),
               ],
             ),
           )
         else
-          ...viewModel.suggestions.map(
+          ...notifier.suggestions.map(
             (suggestion) => Padding(
               padding: const EdgeInsets.only(bottom: 12),
               child: _SuggestionCard(
                 suggestion: suggestion,
-                onReadAloud: () => viewModel.replaySuggestion(suggestion),
-                isSpeaking: viewModel.isSpeaking,
+                onReadAloud: () => notifier.replaySuggestion(suggestion),
+                isSpeaking: notifier.isSpeaking,
               ),
             ),
           ),
-        if (!viewModel.isLoading && viewModel.suggestions.isNotEmpty) ...[
+        if (!notifier.isLoading && notifier.suggestions.isNotEmpty) ...[
           const SizedBox(height: 8),
           Align(
             alignment: Alignment.centerLeft,
             child: OutlinedButton(
               key: const Key('mentor-suggestion-retry'),
-              onPressed: viewModel.reloadSuggestions,
+              onPressed: notifier.reloadSuggestions,
               child: Text(l.mentorSuggestionRefresh),
             ),
           ),

@@ -75,8 +75,14 @@ void main() {
     expect(find.byType(Chip), findsOneWidget);
     expect(find.text(l.discoverNeedsAttention), findsOneWidget);
     expect(find.text('宝宝在看 · Warm water.'), findsOneWidget);
-    expect(find.byKey(const Key('discover-progress-bath_time')), findsOneWidget);
-    expect(find.byKey(const Key('discover-activity-warning-bath_time')), findsOneWidget);
+    expect(
+      find.byKey(const Key('discover-progress-bath_time')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const Key('discover-activity-warning-bath_time')),
+      findsOneWidget,
+    );
     expect(find.text('恢复了 1 条异常记录'), findsOneWidget);
   });
 

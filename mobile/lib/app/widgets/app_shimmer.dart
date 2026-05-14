@@ -44,7 +44,8 @@ class _AppShimmerState extends State<AppShimmer>
       animation: _controller,
       builder: (context, child) {
         final value = _controller.value;
-        final opacity = 0.08 + (0.15 * (value < 0.5 ? value * 2 : 2 - value * 2));
+        final opacity =
+            0.08 + (0.15 * (value < 0.5 ? value * 2 : 2 - value * 2));
         return Container(
           width: widget.width,
           height: widget.height,

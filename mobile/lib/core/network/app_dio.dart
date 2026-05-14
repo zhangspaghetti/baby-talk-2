@@ -1,10 +1,14 @@
 import 'package:dio/dio.dart';
+import 'package:dio_cookie_manager/dio_cookie_manager.dart';
+import 'package:cookie_jar/cookie_jar.dart';
 
 class AppDio {
   AppDio._();
 
+  static final CookieJar cookieJar = CookieJar();
+
   static Dio create({String? baseUrl}) {
-    return Dio(
+    final dio = Dio(
       BaseOptions(
         baseUrl: baseUrl ?? '',
         connectTimeout: const Duration(seconds: 10),
@@ -14,5 +18,7 @@ class AppDio {
         validateStatus: (status) => true,
       ),
     );
+    dio.interceptors.add(CookieManager(cookieJar));
+    return dio;
   }
 }

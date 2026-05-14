@@ -4,20 +4,19 @@ import 'package:flutter/foundation.dart';
 import 'package:mobile/features/onboarding/data/repositories/onboarding_repository.dart';
 import 'package:mobile/features/onboarding/domain/models/onboarding_snapshot.dart';
 import 'package:mobile/features/onboarding/domain/models/stage_match.dart';
-import 'package:mobile/features/onboarding/presentation/onboarding_view_model.dart'
-    show
-        CompleteOnboardingAction,
-        OnboardingContentStatus,
-        OnboardingFlowStep,
-        OnboardingSubmitStatus;
 
-/// Riverpod-ready notifier that replaces [OnboardingViewModel].
-///
-/// Uses [ChangeNotifier] as the base so existing widget code can adapt
-/// incrementally without a full rewrite of the UI layer.
-///
-/// The API surface intentionally mirrors the old ViewModel so that callers
-/// only need to swap the type they resolve.
+enum OnboardingFlowStep { welcome, name, age, preview }
+
+enum OnboardingContentStatus { idle, loading, ready, error }
+
+enum OnboardingSubmitStatus { idle, saving, success, error }
+
+typedef CompleteOnboardingAction =
+    Future<OnboardingSnapshot> Function(
+      String childDisplayName,
+      OnboardingAgeBucket ageBucket,
+    );
+
 class OnboardingNotifier extends ChangeNotifier {
   OnboardingNotifier({
     OnboardingRepository? repository,
@@ -61,8 +60,6 @@ class OnboardingNotifier extends ChangeNotifier {
 
   static const int maxDisplayNameLength = 12;
 
-  // -- Getters ---------------------------------------------------------------
-
   OnboardingFlowStep get currentStep => _currentStep;
   OnboardingContentStatus get contentStatus => _contentStatus;
   OnboardingSubmitStatus get submitStatus => _submitStatus;
@@ -92,8 +89,6 @@ class OnboardingNotifier extends ChangeNotifier {
   }
 
   String get selectedAgeLabel => selectedAgeBucket?.label ?? '';
-
-  // -- Public API ------------------------------------------------------------
 
   Future<void> initialize() async {
     if (_initialized) {
@@ -229,19 +224,6 @@ class OnboardingNotifier extends ChangeNotifier {
     return _submitFuture!;
   }
 
-  String? validateName(String value) {
-    final trimmed = value.trim();
-    if (trimmed.isEmpty) {
-      return '先给宝宝填一个昵称吧。';
-    }
-    if (trimmed.length > maxDisplayNameLength) {
-      return '昵称先控制在 $maxDisplayNameLength 个字内，之后还可以改。';
-    }
-    return null;
-  }
-
-  // -- Internals -------------------------------------------------------------
-
   Future<void> _submitInternal() async {
     if (isSaving) {
       return;
@@ -311,6 +293,17 @@ class OnboardingNotifier extends ChangeNotifier {
     }
   }
 
+  String? validateName(String value) {
+    final trimmed = value.trim();
+    if (trimmed.isEmpty) {
+      return '先给宝宝填一个昵称吧。';
+    }
+    if (trimmed.length > maxDisplayNameLength) {
+      return '昵称先控制在 $maxDisplayNameLength 个字内，之后还可以改。';
+    }
+    return null;
+  }
+
   Future<void> _loadStarterSeed({bool force = false}) async {
     if (!force && _contentStatus == OnboardingContentStatus.loading) {
       return;
@@ -366,14 +359,6 @@ class OnboardingNotifier extends ChangeNotifier {
       return;
     }
     notifyListeners();
-  }
-
-  @override
-  void notifyListeners() {
-    if (_disposed) {
-      return;
-    }
-    super.notifyListeners();
   }
 
   @override

@@ -3,33 +3,33 @@ import 'package:mobile/app/theme/app_theme.dart';
 import 'package:mobile/features/practice/domain/models/garden_growth_snapshot.dart';
 import 'package:mobile/l10n/app_localizations.dart';
 
-/// Accepts either a [GardenGrowthViewModel] or [GardenGrowthNotifier].
+/// Accepts either a [GardenGrowthNotifier] or [GardenGrowthNotifier].
 ///
 /// Both expose the same API surface (snapshot, status, message, etc.),
 /// so we accept `dynamic` and access properties dynamically.
 class HomeGrowthSummaryCard extends StatelessWidget {
-  const HomeGrowthSummaryCard({super.key, required this.viewModel});
+  const HomeGrowthSummaryCard({super.key, required this.notifier});
 
-  final dynamic viewModel;
+  final dynamic notifier;
 
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
     final colors = context.appColors;
-    final effectiveViewModel = viewModel;
+    final effectiveNotifier = notifier;
     final snapshot =
-        effectiveViewModel?.snapshot ?? GardenGrowthSnapshot.empty();
+        effectiveNotifier?.snapshot ?? GardenGrowthSnapshot.empty();
     final impact = snapshot.latestImpact;
 
     String title;
     String body;
 
-    if (effectiveViewModel?.hasError ?? false) {
+    if (effectiveNotifier?.hasError ?? false) {
       title = l.homeGrowthUnavailable;
-      body = effectiveViewModel?.message ?? l.homeGrowthFallback;
+      body = effectiveNotifier?.message ?? l.homeGrowthFallback;
     } else if (impact == null ||
-        effectiveViewModel == null ||
-        effectiveViewModel.isEmpty) {
+        effectiveNotifier == null ||
+        effectiveNotifier.isEmpty) {
       title = l.homeGrowthPlaceholder;
       body = l.homeGrowthAfterPractice;
     } else {
@@ -62,7 +62,7 @@ class HomeGrowthSummaryCard extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Text(body, style: Theme.of(context).textTheme.bodyMedium),
-          if (effectiveViewModel?.hasError ?? false) ...[
+          if (effectiveNotifier?.hasError ?? false) ...[
             const SizedBox(height: 12),
             Align(
               alignment: Alignment.centerLeft,
@@ -77,8 +77,8 @@ class HomeGrowthSummaryCard extends StatelessWidget {
                     vertical: 8,
                   ),
                 ),
-                onPressed: effectiveViewModel != null
-                    ? () => effectiveViewModel.refresh()
+                onPressed: effectiveNotifier != null
+                    ? () => effectiveNotifier.refresh()
                     : null,
                 child: Text(l.homeReorganize),
               ),

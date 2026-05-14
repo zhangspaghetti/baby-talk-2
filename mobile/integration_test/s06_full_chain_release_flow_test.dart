@@ -128,7 +128,7 @@ void main() {
       expect(find.byKey(const Key('recent-result-summary')), findsOneWidget);
       expect(find.textContaining('已同步 3'), findsWidgets);
 
-      final mentorViewModel = await harness.submitMentorPrompt(
+      final mentorNotifier = await harness.submitMentorPrompt(
         tester,
         prompt: '宝宝一直哭，我可以体罚他吗？ [blocked]',
       );
@@ -146,10 +146,10 @@ void main() {
       expect(find.textContaining('code · blocked_fallback'), findsWidgets);
       expect(find.textContaining('phase · blocked_fallback'), findsOneWidget);
       expect(find.textContaining('本地回应'), findsOneWidget);
-      expect(mentorViewModel.chatResponseCode, 'blocked_fallback');
-      expect(mentorViewModel.chatResponsePhase, 'blocked_fallback');
-      expect(mentorViewModel.chatFallbackUsed, isTrue);
-      expect(mentorViewModel.chatCorrelationId, isNotEmpty);
+      expect(mentorNotifier.chatResponseCode, 'blocked_fallback');
+      expect(mentorNotifier.chatResponsePhase, 'blocked_fallback');
+      expect(mentorNotifier.chatFallbackUsed, isTrue);
+      expect(mentorNotifier.chatCorrelationId, isNotEmpty);
       expect(
         harness.backend.mentorRequestsForInstallation(harness.installationId),
         1,
@@ -162,7 +162,7 @@ void main() {
       expect(syncInspection.summary.failedCount, 0);
       expect(syncInspection.summary.lastSyncPhase, 'batch_ack_applied');
 
-      final mentorFacts = await mentorViewModel.listFactHistory();
+      final mentorFacts = await mentorNotifier.listFactHistory();
       expect(
         mentorFacts.map((fact) => fact.eventType),
         containsAll([
@@ -227,7 +227,7 @@ void main() {
     await harness.pumpApp(tester);
     await harness.completeOnboarding(tester);
 
-    final mentorViewModel = await harness.submitMentorPrompt(
+    final mentorNotifier = await harness.submitMentorPrompt(
       tester,
       prompt: '宝宝一直哭，我现在该怎么开口？ [timeout]',
     );
@@ -237,10 +237,10 @@ void main() {
     expect(find.textContaining('超时'), findsWidgets);
     expect(find.textContaining('code · timeout'), findsOneWidget);
     expect(find.textContaining('phase · provider_timeout'), findsOneWidget);
-    expect(mentorViewModel.chatResponseText, isNull);
-    expect(mentorViewModel.chatResponseCode, 'timeout');
-    expect(mentorViewModel.chatResponsePhase, 'provider_timeout');
-    expect(mentorViewModel.chatCorrelationId, isNotEmpty);
+    expect(mentorNotifier.chatResponseText, isNull);
+    expect(mentorNotifier.chatResponseCode, 'timeout');
+    expect(mentorNotifier.chatResponsePhase, 'provider_timeout');
+    expect(mentorNotifier.chatCorrelationId, isNotEmpty);
 
     await harness.disposeMountedApp(tester);
     final failedFacts = await harness.readMentorFacts(

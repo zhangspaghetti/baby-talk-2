@@ -19,7 +19,7 @@ import 'package:mobile/features/onboarding/domain/models/stage_match.dart';
 import 'package:mobile/features/practice/data/repositories/practice_repository.dart';
 import 'package:mobile/features/practice/domain/models/practice_continuity_snapshot.dart';
 import 'package:mobile/features/practice/domain/models/practice_phrase.dart';
-import 'package:mobile/features/practice/presentation/practice_continuity_view_model.dart'
+import 'package:mobile/features/practice/presentation/practice_continuity_notifier.dart'
     show PracticeContinuityLoadStatusLabel;
 import 'package:mobile/features/practice/presentation/practice_route_args.dart';
 import 'package:mobile/features/practice/presentation/widgets/home_garden_mini_entry.dart';
@@ -346,7 +346,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with RouteAware {
                       const SizedBox(height: 20),
                       HouseholdSharedContextCard(
                         surfaceKeyPrefix: 'home',
-                        viewModel: householdNotifier,
+                        notifier: householdNotifier,
                         title: l.sharedAttributionNextStep,
                         retryReason: 'home_household_manual_refresh',
                       ),
@@ -377,14 +377,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with RouteAware {
                       const SizedBox(height: 16),
                       HomeWeekStatsCard(continuitySnapshot: continuitySnapshot),
                       const SizedBox(height: 16),
-                      HomeGardenMiniEntry(viewModel: gardenGrowthNotifier),
+                      HomeGardenMiniEntry(notifier: gardenGrowthNotifier),
                       const SizedBox(height: 16),
-                      HomeGrowthSummaryCard(viewModel: gardenGrowthNotifier),
+                      HomeGrowthSummaryCard(notifier: gardenGrowthNotifier),
                       if (shareNotifier.hasShareDraft) ...[
                         const SizedBox(height: 16),
                         ShareCalloutCard(
                           surfaceKeyPrefix: 'home',
-                          viewModel: shareNotifier,
+                          notifier: shareNotifier,
                           sectionLabel: l.homeShareGrowthFamily,
                           emptyMessage: l.homeShareWaitStable,
                           onShare: () => shareNotifier.shareCurrent(),

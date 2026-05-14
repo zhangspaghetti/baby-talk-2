@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:mobile/app/theme/app_theme.dart';
 import 'package:mobile/features/practice/domain/models/interaction_event_payload.dart';
 import 'package:mobile/features/practice/domain/models/practice_phrase.dart';
-import 'package:mobile/features/practice/presentation/practice_session_view_model.dart';
+import 'package:mobile/features/practice/presentation/practice_session_notifier.dart';
 import 'package:mobile/features/practice/presentation/widgets/reaction_chip_row.dart';
 import 'package:mobile/l10n/app_localizations.dart';
 
@@ -155,9 +155,9 @@ class PhraseCard extends StatelessWidget {
         const SizedBox(height: 16),
         Text(
           phrase.english,
-          style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-            color: colors.english,
-          ),
+          style: Theme.of(
+            context,
+          ).textTheme.headlineMedium?.copyWith(color: colors.english),
         ),
         const SizedBox(height: 10),
         Text(

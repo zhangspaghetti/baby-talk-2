@@ -10,8 +10,6 @@ import 'package:mobile/app/theme/app_layout_constants.dart';
 import 'package:mobile/app/theme/app_theme.dart';
 import 'package:mobile/features/onboarding/domain/models/stage_match.dart';
 import 'package:mobile/features/onboarding/presentation/onboarding_notifier.dart';
-import 'package:mobile/features/onboarding/presentation/onboarding_view_model.dart'
-    show OnboardingFlowStep;
 import 'package:mobile/features/onboarding/presentation/widgets/mentor_bubble.dart';
 import 'package:mobile/features/onboarding/presentation/widgets/mini_seed_card.dart';
 import 'package:mobile/features/onboarding/presentation/widgets/quick_select_card.dart';

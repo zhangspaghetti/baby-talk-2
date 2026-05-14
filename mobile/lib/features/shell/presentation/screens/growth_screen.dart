@@ -3,7 +3,7 @@ import 'package:mobile/app/widgets/app_banner.dart';
 import 'package:mobile/app/theme/app_layout_constants.dart';
 import 'package:mobile/app/theme/app_theme.dart';
 import 'package:mobile/features/practice/domain/models/garden_growth_snapshot.dart';
-import 'package:mobile/features/practice/presentation/garden_growth_view_model.dart';
+import 'package:mobile/features/practice/presentation/garden_growth_notifier.dart';
 import 'package:provider/provider.dart';
 import 'package:mobile/l10n/app_localizations.dart';
 
@@ -15,8 +15,8 @@ class GrowthScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
     final colors = context.appColors;
-    final viewModel = context.watch<GardenGrowthViewModel?>();
-    final snapshot = viewModel?.snapshot ?? GardenGrowthSnapshot.empty();
+    final notifier = context.watch<GardenGrowthNotifier?>();
+    final snapshot = notifier?.snapshot ?? GardenGrowthSnapshot.empty();
 
     return SafeArea(
       top: false,
@@ -28,8 +28,8 @@ class GrowthScreen extends StatelessWidget {
           ),
           child: RefreshIndicator(
             onRefresh: () async {
-              if (viewModel != null) {
-                await viewModel.refresh();
+              if (notifier != null) {
+                await notifier.refresh();
               }
             },
             child: ListView(
@@ -37,12 +37,12 @@ class GrowthScreen extends StatelessWidget {
               physics: const AlwaysScrollableScrollPhysics(),
               padding: AppLayoutConstants.shellTabPadding,
               children: [
-                _GrowthHeroCard(snapshot: snapshot, viewModel: viewModel),
-                if (viewModel?.hasError ?? false) ...[
+                _GrowthHeroCard(snapshot: snapshot, notifier: notifier),
+                if (notifier?.hasError ?? false) ...[
                   const SizedBox(height: 16),
                   AppBanner(
                     key: const Key('growth-warning-banner'),
-                    message: viewModel!.message ?? l.growthRefreshFailed,
+                    message: notifier!.message ?? l.growthRefreshFailed,
                     backgroundColor: colors.warningSoft,
                     foregroundColor: colors.warning,
                   ),
@@ -109,10 +109,10 @@ class GrowthScreen extends StatelessWidget {
 }
 
 class _GrowthHeroCard extends StatelessWidget {
-  const _GrowthHeroCard({required this.snapshot, required this.viewModel});
+  const _GrowthHeroCard({required this.snapshot, required this.notifier});
 
   final GardenGrowthSnapshot snapshot;
-  final GardenGrowthViewModel? viewModel;
+  final GardenGrowthNotifier? notifier;
 
   @override
   Widget build(BuildContext context) {
@@ -123,9 +123,9 @@ class _GrowthHeroCard extends StatelessWidget {
     String title = l.growthNotScore;
     String body = l.growthNote;
 
-    if (viewModel != null &&
-        (viewModel!.status == GardenGrowthLoadStatus.loading ||
-            viewModel!.status == GardenGrowthLoadStatus.idle)) {
+    if (notifier != null &&
+        (notifier!.status == GardenGrowthLoadStatus.loading ||
+            notifier!.status == GardenGrowthLoadStatus.idle)) {
       title = l.growthOrganizing;
       body = l.growthOrganizingNote;
     } else if (impact != null) {

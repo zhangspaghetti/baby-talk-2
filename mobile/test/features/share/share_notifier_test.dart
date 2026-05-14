@@ -9,12 +9,12 @@ import 'package:mobile/features/share/data/repositories/share_repository.dart';
 import 'package:mobile/features/share/data/services/share_api_service.dart';
 import 'package:mobile/features/share/data/services/share_sheet_launcher.dart';
 import 'package:mobile/features/share/domain/models/share_link_draft.dart';
-import 'package:mobile/features/share/presentation/share_view_model.dart';
+import 'package:mobile/features/share/presentation/share_notifier.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  group('ShareViewModel', () {
+  group('ShareNotifier', () {
     test('分享进行中会暴露 isSharing 并保护重复点击', () async {
       final api = _FakeShareApiService();
       final launcher = _PendingShareSheetLauncher();
@@ -23,19 +23,19 @@ void main() {
         shareSheetLauncher: launcher,
         platformHintResolver: () => 'android',
       );
-      final viewModel = ShareViewModel(repository: repository)
+      final notifier = ShareNotifier(repository: repository)
         ..updateSnapshots(
           growthSnapshot: _buildGrowthSnapshot(),
           continuitySnapshot: _buildContinuitySnapshot(),
         );
-      addTearDown(viewModel.dispose);
+      addTearDown(notifier.dispose);
 
-      final firstFuture = viewModel.shareCurrent();
-      final secondFuture = viewModel.shareCurrent();
+      final firstFuture = notifier.shareCurrent();
+      final secondFuture = notifier.shareCurrent();
       await Future<void>.delayed(Duration.zero);
 
-      expect(viewModel.isSharing, isTrue);
-      expect(viewModel.canShare, isFalse);
+      expect(notifier.isSharing, isTrue);
+      expect(notifier.canShare, isFalse);
       expect(api.callCount, 1);
       expect(launcher.callCount, 1);
 
@@ -45,10 +45,10 @@ void main() {
 
       expect(firstResult.status, ShareExecutionStatus.shared);
       expect(secondResult.status, ShareExecutionStatus.shared);
-      expect(viewModel.isSharing, isFalse);
-      expect(viewModel.canShare, isTrue);
-      expect(viewModel.lastShareStatus, ShareViewStatus.success);
-      expect(viewModel.message, contains('分享面板'));
+      expect(notifier.isSharing, isFalse);
+      expect(notifier.canShare, isTrue);
+      expect(notifier.lastShareStatus, ShareViewStatus.success);
+      expect(notifier.message, contains('分享面板'));
     });
 
     test('用户取消分享后会恢复按钮状态并暴露 cancelled', () async {
@@ -61,21 +61,21 @@ void main() {
         ),
         platformHintResolver: () => 'android',
       );
-      final viewModel = ShareViewModel(repository: repository)
+      final notifier = ShareNotifier(repository: repository)
         ..updateSnapshots(
           growthSnapshot: _buildGrowthSnapshot(),
           continuitySnapshot: _buildContinuitySnapshot(),
         );
-      addTearDown(viewModel.dispose);
+      addTearDown(notifier.dispose);
 
-      final result = await viewModel.shareCurrent();
+      final result = await notifier.shareCurrent();
 
       expect(result.status, ShareExecutionStatus.cancelled);
-      expect(viewModel.isSharing, isFalse);
-      expect(viewModel.canShare, isTrue);
-      expect(viewModel.lastShareStatus, ShareViewStatus.cancelled);
-      expect(viewModel.lastSharePhase, 'share_sheet_dismissed');
-      expect(viewModel.message, contains('取消'));
+      expect(notifier.isSharing, isFalse);
+      expect(notifier.canShare, isTrue);
+      expect(notifier.lastShareStatus, ShareViewStatus.cancelled);
+      expect(notifier.lastSharePhase, 'share_sheet_dismissed');
+      expect(notifier.message, contains('取消'));
     });
 
     test('API timeout 会停在 error 状态并保留可重试 message', () async {
@@ -86,28 +86,27 @@ void main() {
         shareSheetLauncher: _StaticShareSheetLauncher(),
         platformHintResolver: () => 'android',
       );
-      final viewModel = ShareViewModel(repository: repository)
+      final notifier = ShareNotifier(repository: repository)
         ..updateSnapshots(
           growthSnapshot: _buildGrowthSnapshot(),
           continuitySnapshot: _buildContinuitySnapshot(),
         );
-      addTearDown(viewModel.dispose);
+      addTearDown(notifier.dispose);
 
-      final result = await viewModel.shareCurrent();
+      final result = await notifier.shareCurrent();
 
       expect(result.status, ShareExecutionStatus.failed);
-      expect(viewModel.isSharing, isFalse);
-      expect(viewModel.canShare, isTrue);
-      expect(viewModel.lastShareStatus, ShareViewStatus.error);
-      expect(viewModel.lastSharePhase, 'create_timeout');
-      expect(viewModel.message, contains('超时'));
+      expect(notifier.isSharing, isFalse);
+      expect(notifier.canShare, isTrue);
+      expect(notifier.lastShareStatus, ShareViewStatus.error);
+      expect(notifier.lastSharePhase, 'create_timeout');
+      expect(notifier.message, contains('超时'));
     });
   });
 }
 
 class _FakeShareApiService extends ShareApiService {
-  _FakeShareApiService({this.error})
-    : super(baseUrl: 'http://localhost:8080');
+  _FakeShareApiService({this.error}) : super(baseUrl: 'http://localhost:8080');
 
   final ShareApiException? error;
   int callCount = 0;

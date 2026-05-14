@@ -231,7 +231,6 @@ class PracticeLocalDataSource {
         await collection.putByEventKey(entity);
       }
     });
-
   }
 
   Future<void> markEventsFailed(

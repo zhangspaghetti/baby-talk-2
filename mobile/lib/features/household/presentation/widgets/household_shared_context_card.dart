@@ -3,7 +3,7 @@ import 'package:mobile/app/theme/app_theme.dart';
 import 'package:mobile/features/household/data/local/household_local_store.dart';
 import 'package:mobile/features/household/domain/models/household_role.dart';
 import 'package:mobile/features/household/domain/models/household_shared_context.dart';
-import 'package:mobile/features/household/presentation/household_view_model.dart'
+import 'package:mobile/features/household/presentation/household_notifier.dart'
     show HouseholdActionKind;
 import 'package:mobile/features/practice/presentation/practice_route_args.dart';
 import 'package:mobile/l10n/app_localizations.dart';
@@ -243,7 +243,7 @@ class HouseholdSharedContextCard extends StatelessWidget {
   const HouseholdSharedContextCard({
     super.key,
     required this.surfaceKeyPrefix,
-    this.viewModel,
+    this.notifier,
     this.title = '共享照护',
     this.compact = false,
     this.retryReason,
@@ -251,8 +251,8 @@ class HouseholdSharedContextCard extends StatelessWidget {
 
   final String surfaceKeyPrefix;
 
-  /// Accepts either a [HouseholdViewModel] or [HouseholdNotifier].
-  final dynamic viewModel;
+  /// Accepts either a [HouseholdNotifier] or [HouseholdNotifier].
+  final dynamic notifier;
   final String title;
   final bool compact;
   final String? retryReason;
@@ -261,7 +261,7 @@ class HouseholdSharedContextCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
     final colors = context.appColors;
-    if (viewModel == null) {
+    if (notifier == null) {
       return _HouseholdCardShell(
         surfaceKeyPrefix: surfaceKeyPrefix,
         title: title,
@@ -292,12 +292,12 @@ class HouseholdSharedContextCard extends StatelessWidget {
       );
     }
 
-    final snapshot = viewModel!.snapshot;
+    final snapshot = notifier!.snapshot;
     final sharedContext = snapshot.sharedContext;
     final role = snapshot.role;
     final roleStyle = _roleStyle(role, colors);
     final theme = Theme.of(context);
-    final visibleMessage = _visibleMessage(viewModel!, snapshot);
+    final visibleMessage = _visibleMessage(notifier!, snapshot);
     final hasVisibleMessage =
         visibleMessage != null && visibleMessage.isNotEmpty;
 
@@ -397,7 +397,7 @@ class HouseholdSharedContextCard extends StatelessWidget {
               ),
             ),
           ],
-          if (_shouldShowRetry(viewModel!, snapshot)) ...[
+          if (_shouldShowRetry(notifier!, snapshot)) ...[
             const SizedBox(height: 14),
             Wrap(
               spacing: 12,
@@ -405,13 +405,13 @@ class HouseholdSharedContextCard extends StatelessWidget {
               children: [
                 OutlinedButton(
                   key: Key('$surfaceKeyPrefix-household-retry-button'),
-                  onPressed: viewModel!.isBusy
+                  onPressed: notifier!.isBusy
                       ? null
-                      : () => _handleRetry(viewModel!, surfaceKeyPrefix),
+                      : () => _handleRetry(notifier!, surfaceKeyPrefix),
                   child: Text(
-                    viewModel!.isBusy
+                    notifier!.isBusy
                         ? '处理中…'
-                        : _retryLabelFor(viewModel!, snapshot),
+                        : _retryLabelFor(notifier!, snapshot),
                   ),
                 ),
               ],
@@ -422,21 +422,21 @@ class HouseholdSharedContextCard extends StatelessWidget {
     );
   }
 
-  Future<void> _handleRetry(dynamic viewModel, String surfaceKeyPrefix) async {
+  Future<void> _handleRetry(dynamic notifier, String surfaceKeyPrefix) async {
     final shouldRetryLastAction =
-        viewModel.lastActionKind == HouseholdActionKind.acceptInvite ||
-        viewModel.lastActionKind == HouseholdActionKind.refreshSharedContext;
+        notifier.lastActionKind == HouseholdActionKind.acceptInvite ||
+        notifier.lastActionKind == HouseholdActionKind.refreshSharedContext;
     if (shouldRetryLastAction) {
-      await viewModel.retryLastAction();
+      await notifier.retryLastAction();
       return;
     }
-    await viewModel.refreshSharedContext(
+    await notifier.refreshSharedContext(
       reason: retryReason ?? '${surfaceKeyPrefix}_manual_refresh',
     );
   }
 
-  bool _shouldShowRetry(dynamic viewModel, HouseholdLocalSnapshot snapshot) {
-    if (viewModel.isBusy) {
+  bool _shouldShowRetry(dynamic notifier, HouseholdLocalSnapshot snapshot) {
+    if (notifier.isBusy) {
       return true;
     }
     if (snapshot.lastVisibleError != null &&
@@ -450,11 +450,11 @@ class HouseholdSharedContextCard extends StatelessWidget {
     return false;
   }
 
-  String _retryLabelFor(dynamic viewModel, HouseholdLocalSnapshot snapshot) {
-    if (viewModel.isBusy) {
+  String _retryLabelFor(dynamic notifier, HouseholdLocalSnapshot snapshot) {
+    if (notifier.isBusy) {
       return '处理中…';
     }
-    switch (viewModel.lastActionKind) {
+    switch (notifier.lastActionKind) {
       case HouseholdActionKind.acceptInvite:
         return '重试接受邀请';
       case HouseholdActionKind.refreshSharedContext:
@@ -516,17 +516,17 @@ class HouseholdSharedContextCard extends StatelessWidget {
     return 'household 尚未初始化；当前保持显式 disabled 状态。';
   }
 
-  String? _visibleMessage(dynamic viewModel, HouseholdLocalSnapshot snapshot) {
+  String? _visibleMessage(dynamic notifier, HouseholdLocalSnapshot snapshot) {
     final snapshotMessage = snapshot.lastVisibleError?.trim();
-    final viewModelMessage = viewModel.message?.trim();
+    final notifierMessage = notifier.message?.trim();
     if (snapshotMessage != null && snapshotMessage.isNotEmpty) {
       return snapshotMessage;
     }
-    if (viewModelMessage != null && viewModelMessage.isNotEmpty) {
-      switch (viewModel.lastActionKind) {
+    if (notifierMessage != null && notifierMessage.isNotEmpty) {
+      switch (notifier.lastActionKind) {
         case HouseholdActionKind.acceptInvite:
         case HouseholdActionKind.refreshSharedContext:
-          return viewModelMessage;
+          return notifierMessage;
         case HouseholdActionKind.createInvite:
         case HouseholdActionKind.none:
           return null;

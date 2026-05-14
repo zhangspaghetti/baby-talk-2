@@ -4,7 +4,7 @@ import 'package:mobile/app/theme/app_theme.dart';
 import 'package:mobile/features/onboarding/presentation/widgets/mentor_bubble.dart';
 import 'package:mobile/features/onboarding/presentation/widgets/mini_seed_card.dart';
 import 'package:mobile/features/practice/domain/models/practice_phrase.dart';
-import 'package:mobile/features/practice/presentation/practice_session_view_model.dart';
+import 'package:mobile/features/practice/presentation/practice_session_notifier.dart';
 import 'package:mobile/features/practice/presentation/widgets/phrase_card.dart';
 import 'package:mobile/l10n/app_localizations.dart';
 

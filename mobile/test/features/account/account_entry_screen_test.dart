@@ -231,7 +231,7 @@ Future<void> _pumpEntryScreen(
 }) async {
   await _setTallViewport(tester);
 
-  final viewModel = AccountNotifier(
+  final notifier = AccountNotifier(
     repository: repository,
     linkOpener: opener ?? FakeAccountExternalLinkOpener(),
   );
@@ -239,11 +239,9 @@ Future<void> _pumpEntryScreen(
   await tester.pumpWidget(
     ProviderScope(
       overrides: [
-        accountNotifierProvider.overrideWith((ref) => viewModel),
+        accountNotifierProvider.overrideWith((ref) => notifier),
         householdNotifierProvider.overrideWith(
-          (ref) => HouseholdNotifier(
-            repository: _FakeHouseholdRepository(),
-          ),
+          (ref) => HouseholdNotifier(repository: _FakeHouseholdRepository()),
         ),
       ],
       child: MaterialApp.router(
@@ -254,7 +252,7 @@ Future<void> _pumpEntryScreen(
           routes: [
             GoRoute(
               path: '/account',
-              builder: (_, __) => const AccountEntryScreen(),
+              builder: (context, state) => const AccountEntryScreen(),
             ),
           ],
         ),
@@ -262,7 +260,7 @@ Future<void> _pumpEntryScreen(
     ),
   );
 
-  viewModel.initialize();
+  notifier.initialize();
   await tester.pump();
   await tester.pumpAndSettle();
 }
@@ -275,7 +273,7 @@ Future<void> _pumpStatusCard(
 }) async {
   await _setWideViewport(tester);
 
-  final viewModel = AccountNotifier(
+  final notifier = AccountNotifier(
     repository: repository,
     linkOpener: opener ?? FakeAccountExternalLinkOpener(),
   );
@@ -283,11 +281,9 @@ Future<void> _pumpStatusCard(
   await tester.pumpWidget(
     ProviderScope(
       overrides: [
-        accountNotifierProvider.overrideWith((ref) => viewModel),
+        accountNotifierProvider.overrideWith((ref) => notifier),
         householdNotifierProvider.overrideWith(
-          (ref) => HouseholdNotifier(
-            repository: _FakeHouseholdRepository(),
-          ),
+          (ref) => HouseholdNotifier(repository: _FakeHouseholdRepository()),
         ),
       ],
       child: MaterialApp.router(
@@ -298,7 +294,7 @@ Future<void> _pumpStatusCard(
           routes: [
             GoRoute(
               path: '/',
-              builder: (_, __) => Scaffold(
+              builder: (context, state) => Scaffold(
                 body: AccountStatusCard(
                   scopeKeyPrefix: 'home',
                   onboardingSnapshot: onboardingSnapshot,
@@ -307,7 +303,7 @@ Future<void> _pumpStatusCard(
             ),
             GoRoute(
               path: '/account',
-              builder: (_, __) => const AccountEntryScreen(),
+              builder: (context, state) => const AccountEntryScreen(),
             ),
           ],
         ),
@@ -315,7 +311,7 @@ Future<void> _pumpStatusCard(
     ),
   );
 
-  viewModel.initialize();
+  notifier.initialize();
   await tester.pump();
   await tester.pumpAndSettle();
 }

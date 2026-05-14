@@ -1,0 +1,326 @@
+00:00 +0: loading C:/code/AI/baby-talk-2/mobile/test/app/invite_reentry_coordinator_test.dart
+00:00 +0: C:/code/AI/baby-talk-2/mobile/test/app/invite_reentry_coordinator_test.dart: InviteReentryParser 合法 invite link 会映射到 household accept seam
+00:00 +1: C:/code/AI/baby-talk-2/mobile/test/app/invite_reentry_coordinator_test.dart: InviteReentryParser 非法 scheme / token / role / query 时只会落到 shell fallback
+00:00 +2: C:/code/AI/baby-talk-2/mobile/test/app/invite_reentry_coordinator_test.dart: InviteReentryCoordinator acceptUri + markHandled 会记录最后一次安全回流范围
+00:00 +3: C:/code/AI/baby-talk-2/mobile/test/app/invite_reentry_coordinator_test.dart: InviteReentryCoordinator 非法 link 会触发 shell fallback，重复 link 会被忽略
+00:00 +4: loading C:/code/AI/baby-talk-2/mobile/test/app/share_reentry_coordinator_test.dart
+00:00 +4: C:/code/AI/baby-talk-2/mobile/test/app/share_reentry_coordinator_test.dart: ShareReentryParser 合法 share link 会映射到既有 PracticeRouteArgs seam
+00:00 +5: C:/code/AI/baby-talk-2/mobile/test/app/share_reentry_coordinator_test.dart: ShareReentryParser 非法 scheme / token / 缺 scope 时只会落到 shell fallback
+00:00 +6: C:/code/AI/baby-talk-2/mobile/test/app/share_reentry_coordinator_test.dart: ShareReentryCoordinator acceptUri + markHandled 会记录最后一次安全回流范围
+00:00 +7: C:/code/AI/baby-talk-2/mobile/test/app/share_reentry_coordinator_test.dart: ShareReentryCoordinator 非法 link 会触发 shell fallback，重复 link 会被忽略
+00:00 +8: loading C:/code/AI/baby-talk-2/mobile/test/features/account/account_entry_screen_test.dart
+00:01 +8: C:/code/AI/baby-talk-2/mobile/test/features/account/account_entry_screen_test.dart: home 账号卡片在 local-only 时不显示升级 CTA，并能打开账号页面
+00:02 +9: C:/code/AI/baby-talk-2/mobile/test/features/account/account_entry_screen_test.dart: home 账号卡片在 version-blocked 时展示立即升级 CTA 并传递真实链接
+00:02 +10: C:/code/AI/baby-talk-2/mobile/test/features/account/account_entry_screen_test.dart: version-blocked 且缺失 upgradeUrl 时展示禁用 CTA 与可见说明
+00:03 +11: C:/code/AI/baby-talk-2/mobile/test/features/account/account_entry_screen_test.dart: launcher 打开失败时会保留升级按钮并显示明确失败消息
+00:03 +12: C:/code/AI/baby-talk-2/mobile/test/features/account/account_entry_screen_test.dart: 非法手机号和验证码会在 UI 层直接拦截，不写入本地账号状态
+00:03 +13: C:/code/AI/baby-talk-2/mobile/test/features/account/account_entry_screen_test.dart: 占位登录成功后会进入 signed-in-pending-sync 状态并显示脱敏手机号
+00:03 +14: C:/code/AI/baby-talk-2/mobile/test/features/account/account_entry_screen_test.dart: 账号状态读取失败时暴露 error 态，并允许重试恢复
+00:03 +15: loading C:/code/AI/baby-talk-2/mobile/test/features/account/account_repository_test.dart
+00:04 +15: C:/code/AI/baby-talk-2/mobile/test/features/account/account_repository_test.dart: (setUpAll)
+00:04 +15: C:/code/AI/baby-talk-2/mobile/test/features/account/account_repository_test.dart: AccountRepository signIn 会 bootstrap + ack 本地 pending，并把 token schema 落盘
+00:04 +16: C:/code/AI/baby-talk-2/mobile/test/features/account/account_repository_test.dart: AccountRepository 离线重试会保留 pending 并暴露可见错误
+00:04 +17: C:/code/AI/baby-talk-2/mobile/test/features/account/account_repository_test.dart: AccountRepository 426 会保留 upgradeUrl 并落盘到 snapshot
+00:04 +18: C:/code/AI/baby-talk-2/mobile/test/features/account/account_repository_test.dart: AccountRepository 426 缺失 upgradeUrl 时保持 version-blocked 并给出显式说明
+00:04 +19: C:/code/AI/baby-talk-2/mobile/test/features/account/account_repository_test.dart: AccountRepository 426 非法 scheme 不会保留 upgradeUrl，并提示配置错误
+00:04 +20: C:/code/AI/baby-talk-2/mobile/test/features/account/account_repository_test.dart: AccountRepository 旧版 snapshot 缺失 token 与 upgradeUrl 时仍可兼容读取
+00:04 +21: C:/code/AI/baby-talk-2/mobile/test/features/account/account_repository_test.dart: AccountRepository refresh terminal failure 会清 session 并暴露 auth-expired phase
+00:04 +22: C:/code/AI/baby-talk-2/mobile/test/features/account/account_repository_test.dart: (tearDownAll)
+00:04 +22: loading C:/code/AI/baby-talk-2/mobile/test/features/account/jwt_session_refresh_test.dart
+00:05 +22: C:/code/AI/baby-talk-2/mobile/test/features/account/jwt_session_refresh_test.dart: AuthenticatedApiClient 并发 401 只触发一次 refresh，并共享 replay 结果
+00:05 +23: C:/code/AI/baby-talk-2/mobile/test/features/account/jwt_session_refresh_test.dart: AuthenticatedApiClient refresh timeout fail closed，且不会 replay 原请求
+00:05 +24: C:/code/AI/baby-talk-2/mobile/test/features/account/jwt_session_refresh_test.dart: AuthenticatedApiClient replay 后再次 401 不会进入第二轮 refresh
+00:05 +25: C:/code/AI/baby-talk-2/mobile/test/features/account/jwt_session_refresh_test.dart: AuthenticatedApiClient legacy session 缺 token 时直接 fail closed，不发送受保护请求
+00:05 +26: loading C:/code/AI/baby-talk-2/mobile/test/features/household/household_repository_test.dart
+00:06 +26: C:/code/AI/baby-talk-2/mobile/test/features/household/household_repository_test.dart: HouseholdRepository acceptInvite 会持久化 household snapshot，并把 route args 收口到既有 PracticeRouteArgs seam
+00:06 +27: C:/code/AI/baby-talk-2/mobile/test/features/household/household_repository_test.dart: HouseholdRepository acceptInvite 的 expired / already_used / invalid_session / consent_required / 426 / unavailable 会映射到可见 phase
+00:06 +28: C:/code/AI/baby-talk-2/mobile/test/features/household/household_repository_test.dart: HouseholdRepository malformed accept response 会保留最近稳定 shared snapshot 并停在安全 fallback
+00:06 +29: C:/code/AI/baby-talk-2/mobile/test/features/household/household_repository_test.dart: HouseholdRepository 旧 snapshot 缺失 household 字段时会兼容回退到 empty household state
+00:06 +30: C:/code/AI/baby-talk-2/mobile/test/features/household/household_repository_test.dart: HouseholdRepository 损坏的 local snapshot 会退回安全空态，而不是污染 account snapshot
+00:06 +31: C:/code/AI/baby-talk-2/mobile/test/features/household/household_repository_test.dart: HouseholdRepository refreshSharedContext 会复用 in-flight guard，避免重复请求
+00:06 +32: C:/code/AI/baby-talk-2/mobile/test/features/household/household_repository_test.dart: HouseholdRepository 缺少 JWT token 时不会发送 protected household 请求
+00:06 +33: loading C:/code/AI/baby-talk-2/mobile/test/features/household/household_view_model_test.dart
+00:07 +33: C:/code/AI/baby-talk-2/mobile/test/features/household/household_view_model_test.dart: HouseholdNotifier createInvite 成功后会暴露 invite link 与可见 message
+00:07 +34: C:/code/AI/baby-talk-2/mobile/test/features/household/household_view_model_test.dart: HouseholdNotifier acceptInvite 失败后 retryLastAction 会复用最近 invite command 并恢复 practice seam
+00:07 +35: C:/code/AI/baby-talk-2/mobile/test/features/household/household_view_model_test.dart: HouseholdNotifier refreshSharedContext 会暴露 isBusy 并保护重复触发
+00:07 +36: loading C:/code/AI/baby-talk-2/mobile/test/features/mentor/local_mentor_suggestion_service_test.dart
+00:08 +36: C:/code/AI/baby-talk-2/mobile/test/features/mentor/local_mentor_suggestion_service_test.dart: LocalMentorSuggestionService 无上下文时返回稳定安全建议
+00:08 +37: C:/code/AI/baby-talk-2/mobile/test/features/mentor/local_mentor_suggestion_service_test.dart: LocalMentorSuggestionService recent result 存在时优先生成 recent-practice 建议
+00:08 +38: C:/code/AI/baby-talk-2/mobile/test/features/mentor/local_mentor_suggestion_service_test.dart: LocalMentorSuggestionService 空 starterPhraseId 会走安全降级，不拼接损坏上下文
+00:08 +39: C:/code/AI/baby-talk-2/mobile/test/features/mentor/local_mentor_suggestion_service_test.dart: LocalMentorSuggestionService practice summary 为空时仍可退回 starter phrase 建议
+00:08 +40: C:/code/AI/baby-talk-2/mobile/test/features/mentor/local_mentor_suggestion_service_test.dart: LocalMentorSuggestionService 相同上下文多次派生保持 deterministic 顺序与内容
+00:08 +41: loading C:/code/AI/baby-talk-2/mobile/test/features/mentor/mentor_repository_test.dart
+00:08 +41: C:/code/AI/baby-talk-2/mobile/test/features/mentor/mentor_repository_test.dart: (setUpAll)
+00:08 +41: C:/code/AI/baby-talk-2/mobile/test/features/mentor/mentor_repository_test.dart: MentorRepository 独立 mentor seam 保持 append-only，并把事实字段与诊断字段分层存储
+00:09 +42: C:/code/AI/baby-talk-2/mobile/test/features/mentor/mentor_repository_test.dart: MentorRepository 拒绝重复 eventKey，并在本地库不可写时暴露明确错误
+00:09 +43: C:/code/AI/baby-talk-2/mobile/test/features/mentor/mentor_repository_test.dart: MentorRepository recent continuity 来自非 starter activity 时复用同一 activity 与 phrase
+00:09 +44: C:/code/AI/baby-talk-2/mobile/test/features/mentor/mentor_repository_test.dart: MentorRepository 缺失 onboarding snapshot 时返回安全本地建议
+00:09 +45: C:/code/AI/baby-talk-2/mobile/test/features/mentor/mentor_repository_test.dart: MentorRepository 零事件 continuity 时退回 starter phrase 并显式暴露 starter fallback code
+00:09 +46: C:/code/AI/baby-talk-2/mobile/test/features/mentor/mentor_repository_test.dart: MentorRepository continuity 读取超时时返回安全本地建议并标记 reason
+00:09 +47: C:/code/AI/baby-talk-2/mobile/test/features/mentor/mentor_repository_test.dart: MentorRepository recent continuity 映射异常时退回 starter phrase 并保留 fallback reason
+00:09 +48: C:/code/AI/baby-talk-2/mobile/test/features/mentor/mentor_repository_test.dart: MentorRepository starter activity 无效且没有 recent context 时安全降级并区分 reason
+00:09 +49: C:/code/AI/baby-talk-2/mobile/test/features/mentor/mentor_repository_test.dart: MentorRepository onboarding store 不可读时返回安全本地建议并暴露 persistence reason
+00:09 +50: C:/code/AI/baby-talk-2/mobile/test/features/mentor/mentor_repository_test.dart: MentorRepository 本地 continuity 缺口时会采用共享 caregiver context，并保持 redaction 边界
+00:09 +51: C:/code/AI/baby-talk-2/mobile/test/features/mentor/mentor_repository_test.dart: MentorRepository 共享 projection 更新更近时会覆盖本地 recent continuity
+00:09 +52: C:/code/AI/baby-talk-2/mobile/test/features/mentor/mentor_repository_test.dart: MentorRepository 本机 continuity 更新更近时会安全放弃共享 context
+00:09 +53: C:/code/AI/baby-talk-2/mobile/test/features/mentor/mentor_repository_test.dart: MentorRepository 共享 actor role 未知时会安全放弃共享 context
+00:09 +54: C:/code/AI/baby-talk-2/mobile/test/features/mentor/mentor_repository_test.dart: MentorRepository 共享 next-step 缺字段时会安全放弃共享 context
+00:09 +55: C:/code/AI/baby-talk-2/mobile/test/features/mentor/mentor_repository_test.dart: MentorRepository household snapshot loader 失败时会继续本地建议并暴露 reason code
+00:09 +56: C:/code/AI/baby-talk-2/mobile/test/features/mentor/mentor_repository_test.dart: (tearDownAll)
+00:09 +56: loading C:/code/AI/baby-talk-2/mobile/test/features/mentor/mentor_shell_panel_test.dart
+00:10 +56: C:/code/AI/baby-talk-2/mobile/test/features/mentor/mentor_shell_panel_test.dart: (setUpAll)
+00:10 +56: C:/code/AI/baby-talk-2/mobile/test/features/mentor/mentor_shell_panel_test.dart: shell 任一 tab 的全局 FAB 会打开默认建议 tab，并明确展示离线降级
+00:12 +56 -1: C:/code/AI/baby-talk-2/mobile/test/features/mentor/mentor_shell_panel_test.dart: shell 任一 tab 的全局 FAB 会打开默认建议 tab，并明确展示离线降级 [E]
+  A AccountNotifier was used after being disposed.
+  Once you have called dispose() on a AccountNotifier, it can no longer be used.
+  package:flutter/src/foundation/change_notifier.dart 182:9                  ChangeNotifier.debugAssertNotDisposed.<fn>
+  package:flutter/src/foundation/change_notifier.dart 189:6                  ChangeNotifier.debugAssertNotDisposed
+  package:flutter/src/foundation/change_notifier.dart 374:27                 ChangeNotifier.dispose
+  package:mobile/features/account/presentation/account_notifier.dart 502:11  AccountNotifier.dispose
+  test\features\mentor\mentor_shell_panel_test.dart 634:21                   _Harness.dispose
+  
+00:12 +56 -1: C:/code/AI/baby-talk-2/mobile/test/features/mentor/mentor_shell_panel_test.dart: Mentor 建议页会显示共享 continuity adopted 的状态卡
+00:12 +56 -2: C:/code/AI/baby-talk-2/mobile/test/features/mentor/mentor_shell_panel_test.dart: Mentor 建议页会显示共享 continuity adopted 的状态卡 [E]
+  A AccountNotifier was used after being disposed.
+  Once you have called dispose() on a AccountNotifier, it can no longer be used.
+  package:flutter/src/foundation/change_notifier.dart 182:9                  ChangeNotifier.debugAssertNotDisposed.<fn>
+  package:flutter/src/foundation/change_notifier.dart 189:6                  ChangeNotifier.debugAssertNotDisposed
+  package:flutter/src/foundation/change_notifier.dart 374:27                 ChangeNotifier.dispose
+  package:mobile/features/account/presentation/account_notifier.dart 502:11  AccountNotifier.dispose
+  test\features\mentor\mentor_shell_panel_test.dart 634:21                   _Harness.dispose
+  
+00:12 +56 -2: C:/code/AI/baby-talk-2/mobile/test/features/mentor/mentor_shell_panel_test.dart: Mentor 建议页会显示共享 continuity skipped 的安全原因
+00:12 +56 -3: C:/code/AI/baby-talk-2/mobile/test/features/mentor/mentor_shell_panel_test.dart: Mentor 建议页会显示共享 continuity skipped 的安全原因 [E]
+  A AccountNotifier was used after being disposed.
+  Once you have called dispose() on a AccountNotifier, it can no longer be used.
+  package:flutter/src/foundation/change_notifier.dart 182:9                  ChangeNotifier.debugAssertNotDisposed.<fn>
+  package:flutter/src/foundation/change_notifier.dart 189:6                  ChangeNotifier.debugAssertNotDisposed
+  package:flutter/src/foundation/change_notifier.dart 374:27                 ChangeNotifier.dispose
+  package:mobile/features/account/presentation/account_notifier.dart 502:11  AccountNotifier.dispose
+  test\features\mentor\mentor_shell_panel_test.dart 634:21                   _Harness.dispose
+  
+00:12 +56 -3: C:/code/AI/baby-talk-2/mobile/test/features/mentor/mentor_shell_panel_test.dart: standalone home 小 FAB 在缺失 onboarding 时仍打开同一 Mentor 面板并回退通用建议
+00:12 +56 -4: C:/code/AI/baby-talk-2/mobile/test/features/mentor/mentor_shell_panel_test.dart: standalone home 小 FAB 在缺失 onboarding 时仍打开同一 Mentor 面板并回退通用建议 [E]
+  A AccountNotifier was used after being disposed.
+  Once you have called dispose() on a AccountNotifier, it can no longer be used.
+  package:flutter/src/foundation/change_notifier.dart 182:9                  ChangeNotifier.debugAssertNotDisposed.<fn>
+  package:flutter/src/foundation/change_notifier.dart 189:6                  ChangeNotifier.debugAssertNotDisposed
+  package:flutter/src/foundation/change_notifier.dart 374:27                 ChangeNotifier.dispose
+  package:mobile/features/account/presentation/account_notifier.dart 502:11  AccountNotifier.dispose
+  test\features\mentor\mentor_shell_panel_test.dart 634:21                   _Harness.dispose
+  
+00:12 +56 -4: C:/code/AI/baby-talk-2/mobile/test/features/mentor/mentor_shell_panel_test.dart: chat tab 可提交一次匿名求助并显示受控回应
+00:12 +56 -5: C:/code/AI/baby-talk-2/mobile/test/features/mentor/mentor_shell_panel_test.dart: chat tab 可提交一次匿名求助并显示受控回应 [E]
+  A AccountNotifier was used after being disposed.
+  Once you have called dispose() on a AccountNotifier, it can no longer be used.
+  package:flutter/src/foundation/change_notifier.dart 182:9                  ChangeNotifier.debugAssertNotDisposed.<fn>
+  package:flutter/src/foundation/change_notifier.dart 189:6                  ChangeNotifier.debugAssertNotDisposed
+  package:flutter/src/foundation/change_notifier.dart 374:27                 ChangeNotifier.dispose
+  package:mobile/features/account/presentation/account_notifier.dart 502:11  AccountNotifier.dispose
+  test\features\mentor\mentor_shell_panel_test.dart 634:21                   _Harness.dispose
+  
+00:12 +56 -5: C:/code/AI/baby-talk-2/mobile/test/features/mentor/mentor_shell_panel_test.dart: (tearDownAll)
+00:12 +56 -5: loading C:/code/AI/baby-talk-2/mobile/test/features/mentor/mentor_view_model_test.dart
+00:13 +56 -5: C:/code/AI/baby-talk-2/mobile/test/features/mentor/mentor_view_model_test.dart: MentorNotifier 默认落到建议 tab，并在离线时保留本地建议与 fallback facts
+00:13 +57 -5: C:/code/AI/baby-talk-2/mobile/test/features/mentor/mentor_view_model_test.dart: MentorNotifier 共享 continuity adopted/skipped 状态会暴露给面板层
+00:13 +58 -5: C:/code/AI/baby-talk-2/mobile/test/features/mentor/mentor_view_model_test.dart: MentorNotifier 仓储抛错时回退到安全建议并暴露 suggestion_render_fallback
+00:13 +59 -5: C:/code/AI/baby-talk-2/mobile/test/features/mentor/mentor_view_model_test.dart: MentorNotifier 账号尚未加载时，聊天状态按 loading 暴露而不是空白
+00:13 +60 -5: C:/code/AI/baby-talk-2/mobile/test/features/mentor/mentor_view_model_test.dart: MentorNotifier 在线聊天成功时会保留受控回应并记录请求/响应 facts
+00:13 +61 -5: C:/code/AI/baby-talk-2/mobile/test/features/mentor/mentor_view_model_test.dart: MentorNotifier 已登录聊天会复用 bearer seam，并把 authenticated=true 反馈给 UI
+00:13 +62 -5: C:/code/AI/baby-talk-2/mobile/test/features/mentor/mentor_view_model_test.dart: MentorNotifier 已登录聊天遇到 401 时会保留旧 banner 语义并标记 authenticated path
+00:13 +63 -5: C:/code/AI/baby-talk-2/mobile/test/features/mentor/mentor_view_model_test.dart: MentorNotifier 在线聊天超时时会暴露 banner/code 并记录 chatFailed fact
+00:13 +64 -5: C:/code/AI/baby-talk-2/mobile/test/features/mentor/mentor_view_model_test.dart: MentorNotifier TTS 不可用时会暴露诊断并记录 tts_unavailable fact
+00:13 +65 -5: C:/code/AI/baby-talk-2/mobile/test/features/mentor/mentor_view_model_test.dart: MentorNotifier 多轮聊天：发送两次后 messages 累积 4 条，conversationId 从响应穿透保持
+00:13 +66 -5: C:/code/AI/baby-talk-2/mobile/test/features/mentor/mentor_view_model_test.dart: MentorNotifier 多轮聊天：beginPanelSession 重置 messages 和 conversationId
+00:13 +67 -5: loading C:/code/AI/baby-talk-2/mobile/test/features/onboarding/onboarding_repository_test.dart
+00:14 +67 -5: C:/code/AI/baby-talk-2/mobile/test/features/onboarding/onboarding_repository_test.dart: (setUpAll)
+00:14 +67 -5: C:/code/AI/baby-talk-2/mobile/test/features/onboarding/onboarding_repository_test.dart: OnboardingRepository 完成 onboarding 时写入本地 snapshot，阶段映射与 starter seed 来自真实内容
+00:14 +68 -5: C:/code/AI/baby-talk-2/mobile/test/features/onboarding/onboarding_repository_test.dart: OnboardingRepository 损坏或未知月龄档 snapshot 会被清空并回到 onboarding
+00:14 +69 -5: C:/code/AI/baby-talk-2/mobile/test/features/onboarding/onboarding_repository_test.dart: OnboardingRepository incomplete snapshot 不会被视为 completed snapshot
+00:14 +70 -5: C:/code/AI/baby-talk-2/mobile/test/features/onboarding/onboarding_repository_test.dart: OnboardingRepository starter seed 缺字段时失败，不允许硬编码占位短语
+00:14 +71 -5: C:/code/AI/baby-talk-2/mobile/test/features/onboarding/onboarding_repository_test.dart: OnboardingRepository 目录不可用时暴露明确的 snapshot 持久化错误
+00:14 +72 -5: C:/code/AI/baby-talk-2/mobile/test/features/onboarding/onboarding_repository_test.dart: (tearDownAll)
+00:14 +72 -5: loading C:/code/AI/baby-talk-2/mobile/test/features/onboarding/onboarding_screen_test.dart
+00:15 +72 -5: C:/code/AI/baby-talk-2/mobile/test/features/onboarding/onboarding_screen_test.dart: (setUpAll)
+00:15 +72 -5: C:/code/AI/baby-talk-2/mobile/test/features/onboarding/onboarding_screen_test.dart: OnboardingScreen 显示本地优先说明，并用真实 starter seed 驱动阶段匹配与迷你体验卡
+00:17 +73 -5: C:/code/AI/baby-talk-2/mobile/test/features/onboarding/onboarding_screen_test.dart: OnboardingScreen 空昵称、空白昵称与超长昵称都会被拦下
+
+Warning: A call to tap() with finder "Found 1 widget with key [<'onboarding-name-continue'>]: [
+  ElevatedButton-[<'onboarding-name-continue'>](dependencies: [IconTheme, InheritedCupertinoTheme, MediaQuery, _InheritedTheme, _LocalizationsScope-[GlobalKey#e9e8c]], state: _ButtonStyleState#09ad9),
+]" derived an Offset (Offset(462.7, 615.0)) that would not hit test on the specified widget.
+Maybe the widget is actually off-screen, or another widget is obscuring it, or the widget cannot receive pointer events.
+Indeed, Offset(462.7, 615.0) is outside the bounds of the root of the render tree, Size(800.0, 600.0).
+The finder corresponds to this RenderBox: RenderSemanticsAnnotations#84de5 relayoutBoundary=up9
+The hit test result at that offset is: HitTestResult(HitTestEntry<HitTestTarget>#60989(_ReusableRenderView#0b39d), HitTestEntry<HitTestTarget>#77960(<AutomatedTestWidgetsFlutterBinding>))
+#0      WidgetController._getElementPoint (package:flutter_test/src/controller.dart:2158:25)
+#1      WidgetController.getCenter (package:flutter_test/src/controller.dart:1942:12)
+#2      WidgetController.tap (package:flutter_test/src/controller.dart:1075:7)
+#3      main.<anonymous closure>.<anonymous closure> (file:///C:/code/AI/baby-talk-2/mobile/test/features/onboarding/onboarding_screen_test.dart:133:20)
+<asynchronous suspension>
+#4      testWidgets.<anonymous closure>.<anonymous closure> (package:flutter_test/src/widget_tester.dart:192:15)
+<asynchronous suspension>
+#5      TestWidgetsFlutterBinding._runTestBody (package:flutter_test/src/binding.dart:1682:5)
+<asynchronous suspension>
+#6      StackZoneSpecification._registerCallback.<anonymous closure> (package:stack_trace/src/stack_zone_specification.dart:114:42)
+<asynchronous suspension>
+To silence this warning, pass "warnIfMissed: false" to "tap()".
+To make this warning fatal, set WidgetController.hitTestWarningShouldBeFatal to true.
+
+00:17 +74 -5: C:/code/AI/baby-talk-2/mobile/test/features/onboarding/onboarding_screen_test.dart: OnboardingScreen 边界月龄切换会映射到正确阶段，返回上一步也不会丢失输入
+00:18 +75 -5: C:/code/AI/baby-talk-2/mobile/test/features/onboarding/onboarding_screen_test.dart: OnboardingScreen starter seed 加载失败时会展示明确错误并阻断进入预览
+00:18 +76 -5: C:/code/AI/baby-talk-2/mobile/test/features/onboarding/onboarding_screen_test.dart: OnboardingScreen 保存失败时展示可重试 banner，保留输入并允许再次提交
+00:18 +77 -5: C:/code/AI/baby-talk-2/mobile/test/features/onboarding/onboarding_screen_test.dart: OnboardingScreen 重复提交时只有一次本地写入，并暴露 saving 状态
+00:19 +78 -5: C:/code/AI/baby-talk-2/mobile/test/features/onboarding/onboarding_screen_test.dart: (tearDownAll)
+00:19 +78 -5: loading C:/code/AI/baby-talk-2/mobile/test/features/practice/dynamic_practice_api_service_test.dart
+00:19 +78 -5: C:/code/AI/baby-talk-2/mobile/test/features/practice/dynamic_practice_api_service_test.dart: DynamicPracticeApiService 解析合法 JSON 响应 — activities 和 phrases 正确映射
+00:19 +79 -5: C:/code/AI/baby-talk-2/mobile/test/features/practice/dynamic_practice_api_service_test.dart: DynamicPracticeApiService 空 activities 列表正常处理
+00:19 +80 -5: C:/code/AI/baby-talk-2/mobile/test/features/practice/dynamic_practice_api_service_test.dart: DynamicPracticeApiService 可选参数 sceneTag 和 conversationId 正确传递
+00:19 +81 -5: C:/code/AI/baby-talk-2/mobile/test/features/practice/dynamic_practice_api_service_test.dart: DynamicPracticeApiService accessToken 存在时带上 Authorization 头
+00:19 +81 -6: C:/code/AI/baby-talk-2/mobile/test/features/practice/dynamic_practice_api_service_test.dart: DynamicPracticeApiService accessToken 存在时带上 Authorization 头 [E]
+  DynamicPracticeApiException(kind: DynamicPracticeFailureKind.network, statusCode: null, message: 网络请求失败。)
+  package:mobile/features/practice/data/services/dynamic_practice_api_service.dart 191:7  DynamicPracticeApiService.generatePractice
+  
+00:19 +81 -6: C:/code/AI/baby-talk-2/mobile/test/features/practice/dynamic_practice_api_service_test.dart: DynamicPracticeApiService 非 JSON 响应抛出 malformed 异常
+00:19 +82 -6: C:/code/AI/baby-talk-2/mobile/test/features/practice/dynamic_practice_api_service_test.dart: DynamicPracticeApiService HTTP 500 响应抛出 http 异常
+00:19 +83 -6: C:/code/AI/baby-talk-2/mobile/test/features/practice/dynamic_practice_api_service_test.dart: DynamicPracticeApiService 网络异常抛出 network 异常
+00:19 +84 -6: C:/code/AI/baby-talk-2/mobile/test/features/practice/dynamic_practice_api_service_test.dart: DynamicPracticeApiService DynamicPracticeResponse.fromJson 处理缺失字段
+00:19 +85 -6: C:/code/AI/baby-talk-2/mobile/test/features/practice/dynamic_practice_api_service_test.dart: DynamicPracticeApiService DynamicActivity.fromJson 字段缺失时返回空字符串
+00:19 +86 -6: loading C:/code/AI/baby-talk-2/mobile/test/features/practice/garden_growth_repository_test.dart
+00:20 +86 -6: C:/code/AI/baby-talk-2/mobile/test/features/practice/garden_growth_repository_test.dart: (setUpAll)
+00:20 +86 -6: C:/code/AI/baby-talk-2/mobile/test/features/practice/garden_growth_repository_test.dart: GardenGrowthRepository 零事件时返回可重建空态而不是错误
+00:20 +87 -6: C:/code/AI/baby-talk-2/mobile/test/features/practice/garden_growth_repository_test.dart: GardenGrowthRepository 本地事件 + bootstrap + unknown phrase + 损坏事件会被稳定投影并降级暴露
+00:20 +88 -6: C:/code/AI/baby-talk-2/mobile/test/features/practice/garden_growth_repository_test.dart: (tearDownAll)
+00:20 +88 -6: loading C:/code/AI/baby-talk-2/mobile/test/features/practice/practice_repository_test.dart
+00:21 +88 -6: C:/code/AI/baby-talk-2/mobile/test/features/practice/practice_repository_test.dart: (setUpAll)
+00:21 +88 -6: C:/code/AI/baby-talk-2/mobile/test/features/practice/practice_repository_test.dart: PracticeRepository 从打包内容加载活动，并在零事件时返回显式空态
+00:21 +89 -6: C:/code/AI/baby-talk-2/mobile/test/features/practice/practice_repository_test.dart: PracticeRepository continuity snapshot 在零事件时显式回退到 starter activity，并给出 cadence
+00:21 +90 -6: C:/code/AI/baby-talk-2/mobile/test/features/practice/practice_repository_test.dart: PracticeRepository 追加事件后保留原始历史，并派生最近结果与恢复信息
+00:21 +91 -6: C:/code/AI/baby-talk-2/mobile/test/features/practice/practice_repository_test.dart: PracticeRepository continuity snapshot 优先推荐最近 activity，而不是固定 starter
+00:21 +92 -6: C:/code/AI/baby-talk-2/mobile/test/features/practice/practice_repository_test.dart: PracticeRepository continuity snapshot 在坏 starter context 下暴露 warning 并退回未完成 activity
+00:21 +93 -6: C:/code/AI/baby-talk-2/mobile/test/features/practice/practice_repository_test.dart: PracticeRepository catalog 只统计各自 space/activity 的事件，并把未知内容留在局部 warning
+00:21 +94 -6: C:/code/AI/baby-talk-2/mobile/test/features/practice/practice_repository_test.dart: PracticeRepository 重开 Isar 后仍能从 append-only 事件重建最近结果
+00:21 +95 -6: C:/code/AI/baby-talk-2/mobile/test/features/practice/practice_repository_test.dart: PracticeRepository 同步 ack/failure 只改 metadata，不回写事实字段，并支持 bootstrap 导入
+00:21 +96 -6: C:/code/AI/baby-talk-2/mobile/test/features/practice/practice_repository_test.dart: PracticeRepository 拒绝未知 reaction、空 phraseId、错误 eventKey、重复 eventKey 与未知 ack id
+00:22 +97 -6: C:/code/AI/baby-talk-2/mobile/test/features/practice/practice_repository_test.dart: PracticeRepository 本地数据源打开失败时暴露明确错误
+00:22 +98 -6: C:/code/AI/baby-talk-2/mobile/test/features/practice/practice_repository_test.dart: AssetPhraseService 拒绝缺字段的种子 JSON
+00:22 +99 -6: C:/code/AI/baby-talk-2/mobile/test/features/practice/practice_repository_test.dart: (tearDownAll)
+00:22 +99 -6: loading C:/code/AI/baby-talk-2/mobile/test/features/practice/practice_session_view_model_test.dart
+00:22 +99 -6: C:/code/AI/baby-talk-2/mobile/test/features/practice/practice_session_view_model_test.dart: (setUpAll)
+00:22 +99 -6: C:/code/AI/baby-talk-2/mobile/test/features/practice/practice_session_view_model_test.dart: PracticeSessionNotifier initialize 会创建 installationId，并在零事件时暴露显式安全空态
+00:22 +100 -6: C:/code/AI/baby-talk-2/mobile/test/features/practice/practice_session_view_model_test.dart: PracticeSessionNotifier 重开 repository 后仍能恢复最近结果，并把下一句指向未完成短语
+00:22 +101 -6: C:/code/AI/baby-talk-2/mobile/test/features/practice/practice_session_view_model_test.dart: PracticeSessionNotifier 损坏事件会在恢复时被跳过并暴露最近失败信息，而不是让首页崩溃
+00:23 +102 -6: C:/code/AI/baby-talk-2/mobile/test/features/practice/practice_session_view_model_test.dart: PracticeSessionNotifier 不同 activity 的恢复状态彼此隔离，切回原 activity 时不会串屏
+00:23 +103 -6: C:/code/AI/baby-talk-2/mobile/test/features/practice/practice_session_view_model_test.dart: PracticeSessionNotifier 未知 activity 会在 initialize 与 ensureSessionReady 中暴露明确错误
+00:23 +104 -6: C:/code/AI/baby-talk-2/mobile/test/features/practice/practice_session_view_model_test.dart: (tearDownAll)
+00:23 +104 -6: loading C:/code/AI/baby-talk-2/mobile/test/features/share/share_repository_test.dart
+00:23 +104 -6: C:/code/AI/baby-talk-2/mobile/test/features/share/share_repository_test.dart: ShareRepository buildDraft 只使用 snapshot truth source 并剔除 internal 字段
+00:23 +105 -6: C:/code/AI/baby-talk-2/mobile/test/features/share/share_repository_test.dart: ShareRepository 只有 continuity recommendation 时仍可生成分享
+00:23 +106 -6: C:/code/AI/baby-talk-2/mobile/test/features/share/share_repository_test.dart: ShareRepository 空 headline 且无 continuity 时不可分享
+00:23 +107 -6: C:/code/AI/baby-talk-2/mobile/test/features/share/share_repository_test.dart: ShareRepository 非法 response URL 会阻止打开 share sheet
+00:23 +108 -6: C:/code/AI/baby-talk-2/mobile/test/features/share/share_repository_test.dart: ShareRepository API 5xx 与 timeout 会被映射为可重试失败
+00:23 +109 -6: C:/code/AI/baby-talk-2/mobile/test/features/share/share_repository_test.dart: ShareRepository share sheet unavailable 会停在可见失败态
+00:23 +110 -6: loading C:/code/AI/baby-talk-2/mobile/test/features/share/share_view_model_test.dart
+00:24 +110 -6: C:/code/AI/baby-talk-2/mobile/test/features/share/share_view_model_test.dart: ShareNotifier 分享进行中会暴露 isSharing 并保护重复点击
+00:24 +111 -6: C:/code/AI/baby-talk-2/mobile/test/features/share/share_view_model_test.dart: ShareNotifier 用户取消分享后会恢复按钮状态并暴露 cancelled
+00:24 +112 -6: C:/code/AI/baby-talk-2/mobile/test/features/share/share_view_model_test.dart: ShareNotifier API timeout 会停在 error 状态并保留可重试 message
+00:24 +113 -6: loading C:/code/AI/baby-talk-2/mobile/test/features/shell/discover_screen_test.dart
+00:25 +113 -6: C:/code/AI/baby-talk-2/mobile/test/features/shell/discover_screen_test.dart: Discover 按 activity 渲染至少 4 个真实 activity 与稳定 keys
+00:26 +114 -6: C:/code/AI/baby-talk-2/mobile/test/features/shell/discover_screen_test.dart: Discover 收敛 hero 与 activity 卡片冗余 chrome，但保留 R008 告警可见性
+00:26 +115 -6: C:/code/AI/baby-talk-2/mobile/test/features/shell/discover_screen_test.dart: Discover activity / space 视图切换不重读目录，并把 route args 传给 opener
+00:26 +116 -6: C:/code/AI/baby-talk-2/mobile/test/features/shell/discover_screen_test.dart: Discover 初次加载失败后显示明确 error state，并允许 retry 成功恢复
+00:26 +117 -6: C:/code/AI/baby-talk-2/mobile/test/features/shell/discover_screen_test.dart: Discover 空目录显示明确 empty state，而不是旧 placeholder 文案
+00:26 +118 -6: C:/code/AI/baby-talk-2/mobile/test/features/shell/discover_screen_test.dart: Discover 遇到缺失 route args 的坏卡片时禁止导航并暴露 UI 级错误
+00:27 +119 -6: loading C:/code/AI/baby-talk-2/mobile/test/features/sync/sync_repository_test.dart
+00:27 +119 -6: C:/code/AI/baby-talk-2/mobile/test/features/sync/sync_repository_test.dart: (setUpAll)
+00:27 +119 -6: C:/code/AI/baby-talk-2/mobile/test/features/sync/sync_repository_test.dart: SyncRepository inspectQueue 暴露 pending/synced/failed 与最近失败 phase/time
+00:27 +120 -6: C:/code/AI/baby-talk-2/mobile/test/features/sync/sync_repository_test.dart: SyncRepository 超时失败会保留 pending 状态，并记录最近失败 phase/error/time 供重试定位
+00:27 +121 -6: C:/code/AI/baby-talk-2/mobile/test/features/sync/sync_repository_test.dart: SyncRepository 拒绝未知 ack id、重复 ack id 与冲突 bootstrap event
+00:27 +122 -6: C:/code/AI/baby-talk-2/mobile/test/features/sync/sync_repository_test.dart: (tearDownAll)
+00:27 +122 -6: loading C:/code/AI/baby-talk-2/mobile/test/smoke/a11y_semantics_test.dart
+00:28 +122 -6: C:/code/AI/baby-talk-2/mobile/test/smoke/a11y_semantics_test.dart: MentorBubble a11y MentorBubble 包含 Semantics widget with label
+00:29 +123 -6: C:/code/AI/baby-talk-2/mobile/test/smoke/a11y_semantics_test.dart: MiniSeedCard a11y MiniSeedCard 包含 Semantics widget with label
+00:29 +124 -6: C:/code/AI/baby-talk-2/mobile/test/smoke/a11y_semantics_test.dart: PhraseCard a11y PhraseCard 包含 "English phrase:" Semantics label
+00:29 +125 -6: C:/code/AI/baby-talk-2/mobile/test/smoke/a11y_semantics_test.dart: PhraseCard a11y Active PhraseCard 播放按钮有 "播放发音" Semantics
+00:29 +126 -6: C:/code/AI/baby-talk-2/mobile/test/smoke/a11y_semantics_test.dart: Touch target 尺寸 播放按钮容器 >= 48x48
+00:29 +127 -6: loading C:/code/AI/baby-talk-2/mobile/test/smoke/app_boot_test.dart
+00:30 +127 -6: C:/code/AI/baby-talk-2/mobile/test/smoke/app_boot_test.dart: (setUpAll)
+00:30 +127 -6: C:/code/AI/baby-talk-2/mobile/test/smoke/app_boot_test.dart: seed content parser rejects malformed payload
+00:30 +128 -6: C:/code/AI/baby-talk-2/mobile/test/smoke/app_boot_test.dart: seed content validator rejects wrong audio asset key
+00:30 +129 -6: C:/code/AI/baby-talk-2/mobile/test/smoke/app_boot_test.dart: fresh install 先进入 onboarding gate，而不是默认 guest home
+00:31 +130 -6: C:/code/AI/baby-talk-2/mobile/test/smoke/app_boot_test.dart: 存在 completed snapshot 时冷启动直接进入 shell home
+00:33 +131 -6: C:/code/AI/baby-talk-2/mobile/test/smoke/app_boot_test.dart: 存在 completed snapshot 与 recent activity 时冷启动会 seed continuity recommendation
+00:34 +132 -6: C:/code/AI/baby-talk-2/mobile/test/smoke/app_boot_test.dart: malformed account snapshot 只会退回未登录，不会破坏 shell route gate
+00:36 +133 -6: C:/code/AI/baby-talk-2/mobile/test/smoke/app_boot_test.dart: snapshot 目录读取失败时暴露明确的 route gate 失败态
+00:36 +134 -6: C:/code/AI/baby-talk-2/mobile/test/smoke/app_boot_test.dart: (tearDownAll)
+00:36 +134 -6: loading C:/code/AI/baby-talk-2/mobile/test/smoke/i18n_test.dart
+00:36 +134 -6: C:/code/AI/baby-talk-2/mobile/test/smoke/i18n_test.dart: i18n 基础设施 AppLocalizations.delegate 存在且非空
+00:36 +135 -6: C:/code/AI/baby-talk-2/mobile/test/smoke/i18n_test.dart: i18n 基础设施 supportedLocales 包含 zh
+00:36 +136 -6: C:/code/AI/baby-talk-2/mobile/test/smoke/i18n_test.dart: i18n 基础设施 localizationsDelegates 列表非空且包含 delegate
+00:36 +137 -6: C:/code/AI/baby-talk-2/mobile/test/smoke/i18n_test.dart: i18n 运行时字符串 AppLocalizations.of(context) 在 zh locale 下返回非空
+00:37 +138 -6: C:/code/AI/baby-talk-2/mobile/test/smoke/i18n_test.dart: i18n 运行时字符串 关键字符串可通过 AppLocalizations 获取
+00:37 +139 -6: loading C:/code/AI/baby-talk-2/mobile/test/smoke/reentry_orchestrator_test.dart
+00:38 +139 -6: C:/code/AI/baby-talk-2/mobile/test/smoke/reentry_orchestrator_test.dart: AppReentryOrchestrator — share drain handleIncomingUri dispatches share — acceptUri 改变 coordinator 状态
+00:38 +140 -6: C:/code/AI/baby-talk-2/mobile/test/smoke/reentry_orchestrator_test.dart: AppReentryOrchestrator — share drain handleIncomingUri dispatches invite — acceptUri 改变 coordinator 状态
+00:38 +141 -6: C:/code/AI/baby-talk-2/mobile/test/smoke/reentry_orchestrator_test.dart: AppReentryOrchestrator — share drain handleIncomingUri 忽略非 share/invite host
+00:38 +142 -6: C:/code/AI/baby-talk-2/mobile/test/smoke/reentry_orchestrator_test.dart: AppReentryOrchestrator — share drain drainPendingShareReentry respects mounted check — 不 drain
+00:38 +143 -6: C:/code/AI/baby-talk-2/mobile/test/smoke/reentry_orchestrator_test.dart: AppReentryOrchestrator — share drain drainPendingShareReentry — navigator=null 时不崩溃，pending 保持
+00:38 +144 -6: C:/code/AI/baby-talk-2/mobile/test/smoke/reentry_orchestrator_test.dart: AppReentryOrchestrator — share drain drainPendingInviteReentry — navigator=null 时 serialized call 安全完成
+00:38 +145 -6: C:/code/AI/baby-talk-2/mobile/test/smoke/reentry_orchestrator_test.dart: AppReentryOrchestrator — share drain share drain 在 destination 非 shell 时不执行 (navigator=null 保护)
+00:38 +146 -6: C:/code/AI/baby-talk-2/mobile/test/smoke/reentry_orchestrator_test.dart: AppReentryOrchestrator — share drain dispose 释放资源不抛出异常
+00:38 +147 -6: C:/code/AI/baby-talk-2/mobile/test/smoke/reentry_orchestrator_test.dart: AppReentryOrchestrator — share drain configureShareUriSubscription 订阅自定义 stream
+00:38 +148 -6: loading C:/code/AI/baby-talk-2/mobile/test/smoke/session_reset_test.dart
+00:38 +148 -6: C:/code/AI/baby-talk-2/mobile/test/smoke/session_reset_test.dart: session-reset cascade — clearSession/deleteAccount/revokeConsent clearSession resets downstream VMs — continuity 回到 idle
+00:38 +149 -6: C:/code/AI/baby-talk-2/mobile/test/smoke/session_reset_test.dart: session-reset cascade — clearSession/deleteAccount/revokeConsent clearSession resets downstream VMs — garden 回到 idle
+00:38 +150 -6: C:/code/AI/baby-talk-2/mobile/test/smoke/session_reset_test.dart: session-reset cascade — clearSession/deleteAccount/revokeConsent clearSession resets downstream VMs — household 回到 unloaded
+00:38 +151 -6: C:/code/AI/baby-talk-2/mobile/test/smoke/session_reset_test.dart: session-reset cascade — clearSession/deleteAccount/revokeConsent deleteAccount resets all three VMs to safe empty simultaneously
+00:38 +152 -6: C:/code/AI/baby-talk-2/mobile/test/smoke/session_reset_test.dart: session-reset cascade — clearSession/deleteAccount/revokeConsent revokeConsent resets all three VMs to safe empty
+00:38 +153 -6: C:/code/AI/baby-talk-2/mobile/test/smoke/session_reset_test.dart: session-reset cascade — clearSession/deleteAccount/revokeConsent resetToSafeEmpty 后 VM 仍可被重新初始化（区别于 dispose）
+00:38 +154 -6: C:/code/AI/baby-talk-2/mobile/test/smoke/session_reset_test.dart: dev-text absence — 内部开发诊断文案不应出现 provider 缺失 不再作为用户可见文案出现
+00:38 +155 -6: C:/code/AI/baby-talk-2/mobile/test/smoke/session_reset_test.dart: dev-text absence — 内部开发诊断文案不应出现 auth · anon 类 dev-text 不再出现在 enum labels 中
+00:38 +156 -6: C:/code/AI/baby-talk-2/mobile/test/smoke/session_reset_test.dart: dev-text absence — 内部开发诊断文案不应出现 GardenGrowthLoadStatus 不包含 dev-internal 名称
+00:38 +157 -6: loading C:/code/AI/baby-talk-2/mobile/test/smoke/theme_dark_mode_test.dart
+00:39 +157 -6: C:/code/AI/baby-talk-2/mobile/test/smoke/theme_dark_mode_test.dart: AppTheme.build() — light theme 包含 BabyTalkColors extension
+00:39 +158 -6: C:/code/AI/baby-talk-2/mobile/test/smoke/theme_dark_mode_test.dart: AppTheme.build() — light theme 亮度为 Brightness.light
+00:39 +159 -6: C:/code/AI/baby-talk-2/mobile/test/smoke/theme_dark_mode_test.dart: AppTheme.build() — light theme card radius 为 16
+00:39 +160 -6: C:/code/AI/baby-talk-2/mobile/test/smoke/theme_dark_mode_test.dart: AppTheme.build() — light theme Title 1 (headlineMedium) 字号 28 / Fraunces
+00:39 +161 -6: C:/code/AI/baby-talk-2/mobile/test/smoke/theme_dark_mode_test.dart: AppTheme.build() — light theme Title 2 (headlineSmall) 字号 24 / Fraunces
+00:39 +162 -6: C:/code/AI/baby-talk-2/mobile/test/smoke/theme_dark_mode_test.dart: AppTheme.build() — light theme 额外 TextStyles: title1Style / title2Style / monoStyle 存在
+00:39 +163 -6: C:/code/AI/baby-talk-2/mobile/test/smoke/theme_dark_mode_test.dart: AppTheme.build() — light theme warmShadowSm 匹配 DESIGN.md: offset(0,1) blur 3
+00:39 +164 -6: C:/code/AI/baby-talk-2/mobile/test/smoke/theme_dark_mode_test.dart: AppTheme.build() — light theme warmShadowMd 匹配 DESIGN.md: offset(0,2) blur 12
+00:39 +165 -6: C:/code/AI/baby-talk-2/mobile/test/smoke/theme_dark_mode_test.dart: AppTheme.build() — light theme warmShadowLg 匹配 DESIGN.md: offset(0,8) blur 24
+00:39 +166 -6: C:/code/AI/baby-talk-2/mobile/test/smoke/theme_dark_mode_test.dart: AppTheme.buildDark() — dark theme 亮度为 Brightness.dark
+00:39 +167 -6: C:/code/AI/baby-talk-2/mobile/test/smoke/theme_dark_mode_test.dart: AppTheme.buildDark() — dark theme 包含 BabyTalkColors extension
+00:39 +168 -6: C:/code/AI/baby-talk-2/mobile/test/smoke/theme_dark_mode_test.dart: AppTheme.buildDark() — dark theme bgBase = #1C1816
+00:39 +169 -6: C:/code/AI/baby-talk-2/mobile/test/smoke/theme_dark_mode_test.dart: AppTheme.buildDark() — dark theme bgSurface = #2A2420
+00:39 +170 -6: C:/code/AI/baby-talk-2/mobile/test/smoke/theme_dark_mode_test.dart: AppTheme.buildDark() — dark theme accent = #FF9E5C (brightened for dark)
+00:39 +171 -6: C:/code/AI/baby-talk-2/mobile/test/smoke/theme_dark_mode_test.dart: AppTheme.buildDark() — dark theme english = #5AAFA0 (brightened for dark)
+00:39 +172 -6: C:/code/AI/baby-talk-2/mobile/test/smoke/theme_dark_mode_test.dart: AppTheme.buildDark() — dark theme textPrimary = #F5F0EB (light text on dark bg)
+00:39 +173 -6: C:/code/AI/baby-talk-2/mobile/test/smoke/theme_dark_mode_test.dart: AppTheme.buildDark() — dark theme outlineSoft = #3D3630
+00:39 +174 -6: C:/code/AI/baby-talk-2/mobile/test/smoke/theme_dark_mode_test.dart: AppTheme.buildDark() — dark theme dark card radius 为 16
+00:39 +175 -6: C:/code/AI/baby-talk-2/mobile/test/smoke/theme_dark_mode_test.dart: AppTheme.buildDark() — dark theme dark warmShadowSm 使用纯黑透明度
+00:39 +176 -6: C:/code/AI/baby-talk-2/mobile/test/smoke/theme_dark_mode_test.dart: BabyTalkColors factory light() 所有字段非空
+00:39 +177 -6: C:/code/AI/baby-talk-2/mobile/test/smoke/theme_dark_mode_test.dart: BabyTalkColors factory dark() 所有字段非空
+00:39 +178 -6: C:/code/AI/baby-talk-2/mobile/test/smoke/theme_dark_mode_test.dart: BabyTalkColors factory copyWith 可以覆盖单一属性
+00:39 +179 -6: C:/code/AI/baby-talk-2/mobile/test/smoke/theme_dark_mode_test.dart: BabyTalkColors factory lerp 在 t=0 和 t=1 之间正确插值
+00:39 +180 -6: loading C:/code/AI/baby-talk-2/mobile/test/tool/inspect_interaction_events_redaction_test.dart
+00:40 +180 -6: C:/code/AI/baby-talk-2/mobile/test/tool/inspect_interaction_events_redaction_test.dart: inspect redaction 会脱敏手机号、验证码、token 与 session secret
+00:40 +181 -6: loading C:/code/AI/baby-talk-2/mobile/test/tool/verify_m006_s13_demo_path_test.dart
+00:41 +181 -6: C:/code/AI/baby-talk-2/mobile/test/tool/verify_m006_s13_demo_path_test.dart: M006 S13 front door contract S12 keeps full replay as default and exposes explicit live-stack-only flag
+00:41 +182 -6: C:/code/AI/baby-talk-2/mobile/test/tool/verify_m006_s13_demo_path_test.dart: M006 S13 front door contract S13 smoke delegates to explicit live-stack-only S12 replay
+00:41 +183 -6: C:/code/AI/baby-talk-2/mobile/test/tool/verify_m006_s13_demo_path_test.dart: M006 S13 telemetry reducer summarizeFrontDoorTelemetryLines uses a bounded recent window
+00:41 +184 -6: C:/code/AI/baby-talk-2/mobile/test/tool/verify_m006_s13_demo_path_test.dart: M006 S13 telemetry reducer appendFrontDoorTelemetry persists redaction-safe records
+00:41 +185 -6: loading C:/code/AI/baby-talk-2/mobile/test/tool/verify_m006_s14_release_closure_test.dart
+00:41 +185 -6: C:/code/AI/baby-talk-2/mobile/test/tool/verify_m006_s14_release_closure_test.dart: M006 S14 release closure contract keeps child order, labels, runbooks, and scoped artifact hints
+00:41 +186 -6: C:/code/AI/baby-talk-2/mobile/test/tool/verify_m006_s14_release_closure_test.dart: M006 S14 release closure contract current child gates resolve to tracked verifier and runbook files
+00:41 +187 -6: C:/code/AI/baby-talk-2/mobile/test/tool/verify_m006_s14_release_closure_test.dart: M006 S14 release closure contract cli parser keeps help explicit and rejects unknown flags
+00:41 +188 -6: C:/code/AI/baby-talk-2/mobile/test/tool/verify_m006_s14_release_closure_test.dart: M006 S14 release closure contract help text stays usage-only contract
+00:41 +189 -6: C:/code/AI/baby-talk-2/mobile/test/tool/verify_m006_s14_release_closure_test.dart: M006 S14 repo-root handoff surfaces workflow scopes relay to backend tests, installs Helm smoke, and preserves artifacts
+00:41 +190 -6: C:/code/AI/baby-talk-2/mobile/test/tool/verify_m006_s14_release_closure_test.dart: M006 S14 repo-root handoff surfaces repo-root docs keep canonical command and drill-down references
+00:41 +191 -6: C:/code/AI/baby-talk-2/mobile/test/tool/verify_m006_s14_release_closure_test.dart: M006 S14 repo-root handoff surfaces documented drill-down files still resolve from repo root
+00:41 +192 -6: C:/code/AI/baby-talk-2/mobile/test/tool/verify_m006_s14_release_closure_test.dart: M006 S14 fail-closed contract helpers missing verifier, runbook, marker, and artifact hint fail closed
+00:41 +193 -6: C:/code/AI/baby-talk-2/mobile/test/tool/verify_m006_s14_release_closure_test.dart: M006 S14 fail-closed contract helpers child exit handling stays fail-fast and marker-based
+00:41 +194 -6: loading C:/code/AI/baby-talk-2/mobile/test/widget_test.dart
+00:42 +194 -6: C:/code/AI/baby-talk-2/mobile/test/widget_test.dart: (setUpAll)
+00:42 +194 -6: C:/code/AI/baby-talk-2/mobile/test/widget_test.dart: default widget entry routes through the boot gate
+00:43 +195 -6: C:/code/AI/baby-talk-2/mobile/test/widget_test.dart: (tearDownAll)
+00:43 +195 -6: Some tests failed.

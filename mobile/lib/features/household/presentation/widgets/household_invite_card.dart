@@ -2,11 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:mobile/app/theme/app_theme.dart';
 import 'package:mobile/features/household/data/local/household_local_store.dart';
 import 'package:mobile/features/household/domain/models/household_role.dart';
-import 'package:mobile/features/household/presentation/household_view_model.dart'
+import 'package:mobile/features/household/presentation/household_notifier.dart'
     show HouseholdActionKind;
 import 'package:mobile/l10n/app_localizations.dart';
 
-/// Accepts either a [HouseholdViewModel] or [HouseholdNotifier].
+/// Accepts either a [HouseholdNotifier] or [HouseholdNotifier].
 ///
 /// Both expose the same API surface (snapshot, isBusy, message, etc.),
 /// so we accept `dynamic` and access properties dynamically.
@@ -14,13 +14,13 @@ class HouseholdInviteCard extends StatelessWidget {
   const HouseholdInviteCard({
     super.key,
     required this.surfaceKeyPrefix,
-    this.viewModel,
+    this.notifier,
     this.inviteSource = 'household_surface',
     this.compact = false,
   });
 
   final String surfaceKeyPrefix;
-  final dynamic viewModel;
+  final dynamic notifier;
   final String inviteSource;
   final bool compact;
 
@@ -29,7 +29,7 @@ class HouseholdInviteCard extends StatelessWidget {
     final l = AppLocalizations.of(context)!;
     final colors = context.appColors;
     final theme = Theme.of(context);
-    if (viewModel == null) {
+    if (notifier == null) {
       return _InviteCardShell(
         surfaceKeyPrefix: surfaceKeyPrefix,
         compact: compact,
@@ -48,11 +48,11 @@ class HouseholdInviteCard extends StatelessWidget {
       );
     }
 
-    final snapshot = viewModel!.snapshot;
+    final snapshot = notifier!.snapshot;
     final isPrimary = snapshot.role == HouseholdRole.primaryCaregiver;
-    final visibleMessage = _visibleMessage(viewModel!, snapshot);
-    final invite = viewModel!.lastCreatedInvite;
-    final showRetry = _shouldShowRetry(viewModel!, snapshot);
+    final visibleMessage = _visibleMessage(notifier!, snapshot);
+    final invite = notifier!.lastCreatedInvite;
+    final showRetry = _shouldShowRetry(notifier!, snapshot);
 
     return _InviteCardShell(
       surfaceKeyPrefix: surfaceKeyPrefix,
@@ -129,12 +129,12 @@ class HouseholdInviteCard extends StatelessWidget {
             children: [
               FilledButton(
                 key: Key('$surfaceKeyPrefix-household-create-invite'),
-                onPressed: !isPrimary || viewModel!.isBusy
+                onPressed: !isPrimary || notifier!.isBusy
                     ? null
-                    : () => viewModel!.createInvite(source: inviteSource),
+                    : () => notifier!.createInvite(source: inviteSource),
                 child: Text(
-                  viewModel!.isBusy &&
-                          viewModel!.lastActionKind ==
+                  notifier!.isBusy &&
+                          notifier!.lastActionKind ==
                               HouseholdActionKind.createInvite
                       ? l.inviteCreating
                       : (invite == null
@@ -145,9 +145,9 @@ class HouseholdInviteCard extends StatelessWidget {
               if (showRetry)
                 OutlinedButton(
                   key: Key('$surfaceKeyPrefix-household-invite-retry'),
-                  onPressed: viewModel!.isBusy
+                  onPressed: notifier!.isBusy
                       ? null
-                      : () => viewModel!.retryLastAction(),
+                      : () => notifier!.retryLastAction(),
                   child: Text(l.inviteRetry),
                 ),
             ],
@@ -167,7 +167,7 @@ class HouseholdInviteCard extends StatelessWidget {
     );
   }
 
-  bool _shouldShowRetry(dynamic viewModel, HouseholdLocalSnapshot snapshot) {
+  bool _shouldShowRetry(dynamic notifier, HouseholdLocalSnapshot snapshot) {
     final error = snapshot.lastVisibleError?.trim();
     if (error == null || error.isEmpty) {
       return false;
@@ -175,7 +175,7 @@ class HouseholdInviteCard extends StatelessWidget {
     if (snapshot.lastPhase.startsWith('create_invite_')) {
       return true;
     }
-    return viewModel.lastActionKind == HouseholdActionKind.createInvite;
+    return notifier.lastActionKind == HouseholdActionKind.createInvite;
   }
 
   String _headlineFor(HouseholdLocalSnapshot snapshot) {
@@ -200,15 +200,15 @@ class HouseholdInviteCard extends StatelessWidget {
     }
   }
 
-  String? _visibleMessage(dynamic viewModel, HouseholdLocalSnapshot snapshot) {
+  String? _visibleMessage(dynamic notifier, HouseholdLocalSnapshot snapshot) {
     final snapshotMessage = snapshot.lastVisibleError?.trim();
     if (snapshot.lastPhase.startsWith('create_invite_') &&
         snapshotMessage != null &&
         snapshotMessage.isNotEmpty) {
       return snapshotMessage;
     }
-    final message = viewModel.message?.trim();
-    if (viewModel.lastActionKind == HouseholdActionKind.createInvite &&
+    final message = notifier.message?.trim();
+    if (notifier.lastActionKind == HouseholdActionKind.createInvite &&
         message != null &&
         message.isNotEmpty) {
       return message;

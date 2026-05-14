@@ -58,8 +58,7 @@ class AccountSession with _$AccountSession {
           'JWT session 必须同时包含 accessToken 与 refreshToken。',
         );
       }
-      if (utcAccessTokenExpiresAt == null ||
-          utcRefreshTokenExpiresAt == null) {
+      if (utcAccessTokenExpiresAt == null || utcRefreshTokenExpiresAt == null) {
         throw const FormatException(
           'JWT session 必须同时包含 accessTokenExpiresAt 与 refreshTokenExpiresAt。',
         );
@@ -98,7 +97,7 @@ class AccountSession with _$AccountSession {
 
   bool get hasJwtTokens => accessToken != null && refreshToken != null;
 
-  String get normalizedTokenType => tokenType ?? 'Bearer';
+  String get normalizedTokenType => tokenType ?? 'Cookie';
 
   String get requireAccessToken {
     final value = accessToken;
@@ -121,7 +120,7 @@ class AccountSession with _$AccountSession {
     required String refreshToken,
     required DateTime accessTokenExpiresAt,
     required DateTime refreshTokenExpiresAt,
-    String tokenType = 'Bearer',
+    String tokenType = 'Cookie',
   }) {
     return AccountSession(
       accountId: accountId,
@@ -184,10 +183,7 @@ class AccountSession with _$AccountSession {
     return normalized;
   }
 
-  static DateTime readRequiredDateTime(
-    Map<String, dynamic> json,
-    String key,
-  ) {
+  static DateTime readRequiredDateTime(Map<String, dynamic> json, String key) {
     final value = json[key];
     if (value is! String || value.trim().isEmpty) {
       throw FormatException('字段 `$key` 缺失或不是合法时间字符串。');
@@ -195,10 +191,7 @@ class AccountSession with _$AccountSession {
     return DateTime.parse(value).toUtc();
   }
 
-  static DateTime? readOptionalDateTime(
-    Map<String, dynamic> json,
-    String key,
-  ) {
+  static DateTime? readOptionalDateTime(Map<String, dynamic> json, String key) {
     final value = json[key];
     if (value == null) {
       return null;

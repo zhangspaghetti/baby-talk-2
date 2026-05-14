@@ -17,20 +17,20 @@ import 'package:mobile/features/account/data/local/account_local_store.dart';
 import 'package:mobile/features/account/data/repositories/account_repository.dart';
 import 'package:mobile/features/account/data/services/account_api_service.dart';
 import 'package:mobile/features/account/data/services/authenticated_api_client.dart';
-import 'package:mobile/features/account/presentation/account_view_model.dart';
+import 'package:mobile/features/account/presentation/account_notifier.dart';
 import 'package:mobile/features/account/presentation/screens/account_entry_screen.dart';
 import 'package:mobile/features/household/data/local/household_local_store.dart';
 import 'package:mobile/features/household/data/repositories/household_repository.dart';
 import 'package:mobile/features/household/data/services/household_api_service.dart';
-import 'package:mobile/features/household/presentation/household_view_model.dart';
+import 'package:mobile/features/household/presentation/household_notifier.dart';
 import 'package:mobile/features/mentor/data/local/mentor_local_data_source.dart';
 import 'package:mobile/features/mentor/data/repositories/mentor_repository.dart';
 import 'package:mobile/features/mentor/data/services/mentor_api_service.dart';
-import 'package:mobile/features/mentor/presentation/mentor_view_model.dart';
+import 'package:mobile/features/mentor/presentation/mentor_notifier.dart';
 import 'package:mobile/features/onboarding/data/local/onboarding_snapshot_store.dart';
 import 'package:mobile/features/onboarding/data/repositories/onboarding_repository.dart';
 import 'package:mobile/features/onboarding/domain/models/onboarding_snapshot.dart';
-import 'package:mobile/features/onboarding/presentation/onboarding_view_model.dart';
+import 'package:mobile/features/onboarding/presentation/onboarding_notifier.dart';
 import 'package:mobile/features/onboarding/presentation/screens/onboarding_screen.dart';
 import 'package:mobile/features/practice/data/local/practice_local_data_source.dart';
 import 'package:mobile/features/practice/data/repositories/garden_growth_repository.dart';
@@ -38,25 +38,20 @@ import 'package:mobile/features/practice/data/repositories/practice_repository.d
 import 'package:mobile/features/practice/data/services/asset_phrase_service.dart';
 import 'package:mobile/features/practice/data/services/dynamic_practice_api_service.dart';
 import 'package:mobile/features/practice/domain/models/practice_continuity_snapshot.dart';
-import 'package:mobile/features/practice/presentation/garden_growth_view_model.dart';
-import 'package:mobile/features/practice/presentation/practice_continuity_view_model.dart';
+import 'package:mobile/features/practice/presentation/garden_growth_notifier.dart';
+import 'package:mobile/features/practice/presentation/practice_continuity_notifier.dart';
 import 'package:mobile/features/practice/presentation/practice_route_args.dart';
-import 'package:mobile/features/practice/presentation/practice_session_view_model.dart';
+import 'package:mobile/features/practice/presentation/practice_session_notifier.dart';
 import 'package:mobile/features/practice/presentation/screens/practice_session_screen.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart'
     show Override, ProviderScope;
 import 'package:mobile/app/providers/repository_providers.dart';
-import 'package:mobile/features/account/presentation/account_notifier.dart';
-import 'package:mobile/features/household/presentation/household_notifier.dart';
-import 'package:mobile/features/practice/presentation/garden_growth_notifier.dart';
-import 'package:mobile/features/practice/presentation/practice_continuity_notifier.dart';
 import 'package:mobile/features/onboarding/presentation/onboarding_notifier.dart'
     show OnboardingNotifier;
 import 'package:mobile/features/share/data/repositories/share_repository.dart';
 import 'package:mobile/features/share/data/services/share_api_service.dart';
 import 'package:mobile/features/share/data/services/share_sheet_launcher.dart';
 import 'package:mobile/features/share/presentation/share_notifier.dart';
-import 'package:mobile/features/share/presentation/share_view_model.dart';
 import 'package:mobile/features/shell/presentation/app_shell_screen.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
@@ -131,12 +126,12 @@ class _AppBootContinuitySeed {
   const _AppBootContinuitySeed({
     required this.starterArgs,
     required this.defaultPracticeArgs,
-    this.viewModelSeed,
+    this.notifierSeed,
   });
 
   final PracticeRouteArgs starterArgs;
   final PracticeRouteArgs defaultPracticeArgs;
-  final PracticeContinuitySeedState? viewModelSeed;
+  final PracticeContinuitySeedState? notifierSeed;
 }
 
 class _SharedConsumerAuthDependencies {
@@ -277,9 +272,9 @@ class _BabyTalkAppState extends State<BabyTalkApp> {
       mountedCheck: () => mounted,
       launchDestinationProvider: () => _resolvedLaunchState?.destination,
       seedContentProvider: () => widget.bootState.content,
-      householdViewModelLookup: _lookupViewModel<HouseholdViewModel>,
-      continuityViewModelLookup: _lookupViewModel<PracticeContinuityViewModel>,
-      gardenGrowthViewModelLookup: _lookupViewModel<GardenGrowthViewModel>,
+      householdNotifierLookup: _lookupNotifier<HouseholdNotifier>,
+      continuityNotifierLookup: _lookupNotifier<PracticeContinuityNotifier>,
+      gardenGrowthNotifierLookup: _lookupNotifier<GardenGrowthNotifier>,
     );
     _reentryOrchestrator.configureShareUriSubscription(widget.shareUriStream);
     _launchStateFuture = _loadLaunchState();
@@ -394,33 +389,33 @@ class _BabyTalkAppState extends State<BabyTalkApp> {
                 assetPhraseService: widget.bootState.assetPhraseService!,
               ),
             ),
-            ChangeNotifierProvider<PracticeContinuityViewModel>(
-              create: (_) => PracticeContinuityViewModel(
+            ChangeNotifierProvider<PracticeContinuityNotifier>(
+              create: (_) => PracticeContinuityNotifier(
                 repository: practiceRepository,
                 initialStarterArgs: launchState.starterArgs,
                 seedState: launchState.continuitySeed,
                 refreshTimeout: widget.practiceContinuityRefreshTimeout,
               ),
             ),
-            ChangeNotifierProvider<AccountViewModel>(
-              create: (_) => AccountViewModel(repository: accountRepository),
+            ChangeNotifierProvider<AccountNotifier>(
+              create: (_) => AccountNotifier(repository: accountRepository),
             ),
-            ChangeNotifierProvider<HouseholdViewModel>(
+            ChangeNotifierProvider<HouseholdNotifier>(
               create: (_) =>
-                  HouseholdViewModel(repository: householdRepository)
+                  HouseholdNotifier(repository: householdRepository)
                     ..initialize(),
             ),
-            ChangeNotifierProvider<MentorViewModel>(
-              create: (context) => MentorViewModel(
+            ChangeNotifierProvider<MentorNotifier>(
+              create: (context) => MentorNotifier(
                 repository: context.read<MentorRepository>(),
-                accountViewModel: context.read<AccountViewModel>(),
+                accountNotifier: context.read<AccountNotifier>(),
                 apiService: launchState.mentorApiService,
                 persistRefreshedSession:
                     accountRepository.persistRefreshedSession,
               ),
             ),
-            ChangeNotifierProvider<GardenGrowthViewModel>(
-              create: (context) => GardenGrowthViewModel(
+            ChangeNotifierProvider<GardenGrowthNotifier>(
+              create: (context) => GardenGrowthNotifier(
                 repository: context.read<GardenGrowthRepository>(),
                 refreshTimeout: widget.gardenGrowthRefreshTimeout,
               ),
@@ -436,33 +431,33 @@ class _BabyTalkAppState extends State<BabyTalkApp> {
               ),
             ),
             ChangeNotifierProxyProvider2<
-              GardenGrowthViewModel,
-              PracticeContinuityViewModel,
-              ShareViewModel
+              GardenGrowthNotifier,
+              PracticeContinuityNotifier,
+              ShareNotifier
             >(
               create: (context) =>
-                  ShareViewModel(repository: context.read<ShareRepository>()),
+                  ShareNotifier(repository: context.read<ShareRepository>()),
               update:
                   (
                     context,
-                    gardenGrowthViewModel,
-                    continuityViewModel,
-                    shareViewModel,
+                    gardenGrowthNotifier,
+                    continuityNotifier,
+                    shareNotifier,
                   ) {
-                    final nextViewModel =
-                        shareViewModel ??
-                        ShareViewModel(
+                    final nextNotifier =
+                        shareNotifier ??
+                        ShareNotifier(
                           repository: context.read<ShareRepository>(),
                         );
-                    nextViewModel.updateSnapshots(
-                      growthSnapshot: gardenGrowthViewModel.snapshot,
+                    nextNotifier.updateSnapshots(
+                      growthSnapshot: gardenGrowthNotifier.snapshot,
                       continuitySnapshot:
-                          continuityViewModel.hasResolvedRecommendation
-                          ? continuityViewModel.snapshot
+                          continuityNotifier.hasResolvedRecommendation
+                          ? continuityNotifier.snapshot
                           : null,
                       notify: false,
                     );
-                    return nextViewModel;
+                    return nextNotifier;
                   },
             ),
           ],
@@ -515,8 +510,8 @@ class _BabyTalkAppState extends State<BabyTalkApp> {
         (ref) async => onboardingRepository,
       ),
       onboardingNotifierProvider.overrideWith(
-        (ref) => OnboardingNotifier(repository: onboardingRepository)
-          ..initialize(),
+        (ref) =>
+            OnboardingNotifier(repository: onboardingRepository)..initialize(),
       ),
       gardenGrowthNotifierProvider.overrideWith(
         (ref) => GardenGrowthNotifier(repository: gardenGrowthRepo),
@@ -529,8 +524,8 @@ class _BabyTalkAppState extends State<BabyTalkApp> {
         ),
       ),
       householdNotifierProvider.overrideWith(
-        (ref) => HouseholdNotifier(repository: householdRepository)
-          ..initialize(),
+        (ref) =>
+            HouseholdNotifier(repository: householdRepository)..initialize(),
       ),
       accountNotifierProvider.overrideWith(
         (ref) => AccountNotifier(repository: accountRepository),
@@ -572,7 +567,7 @@ class _BabyTalkAppState extends State<BabyTalkApp> {
     super.dispose();
   }
 
-  T? _lookupViewModel<T>() {
+  T? _lookupNotifier<T>() {
     final context = _navigatorKey.currentContext;
     if (context == null) {
       return null;
@@ -607,9 +602,9 @@ class _BabyTalkAppState extends State<BabyTalkApp> {
         GoRoute(
           path: '/onboarding',
           builder: (context, state) =>
-              ChangeNotifierProvider<OnboardingViewModel>(
+              ChangeNotifierProvider<OnboardingNotifier>(
                 create: (_) =>
-                    OnboardingViewModel(repository: onboardingRepository)
+                    OnboardingNotifier(repository: onboardingRepository)
                       ..initialize(),
                 child: const _BootRouteMarker(
                   routeKey: Key('boot-route-onboarding'),
@@ -707,7 +702,7 @@ class _BabyTalkAppState extends State<BabyTalkApp> {
             : AppLaunchDestination.shell,
         starterArgs: continuitySeed.starterArgs,
         defaultPracticeArgs: continuitySeed.defaultPracticeArgs,
-        continuitySeed: continuitySeed.viewModelSeed,
+        continuitySeed: continuitySeed.notifierSeed,
         completedSnapshot: completedSnapshot,
         mentorApiService: widget.accountRepositoryFactory == null
             ? _sharedConsumerAuthDependencies?.mentorApiService
@@ -777,7 +772,7 @@ class _BabyTalkAppState extends State<BabyTalkApp> {
       return _AppBootContinuitySeed(
         starterArgs: starterArgs,
         defaultPracticeArgs: recommendedArgs,
-        viewModelSeed: PracticeContinuitySeedState(
+        notifierSeed: PracticeContinuitySeedState(
           starterArgs: starterArgs,
           snapshot: continuitySnapshot,
           activitySnapshot: activitySnapshot,

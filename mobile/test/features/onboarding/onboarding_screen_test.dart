@@ -40,7 +40,7 @@ void main() {
       }))!;
       addTearDown(harness.close);
 
-      final viewModel = OnboardingNotifier(
+      final notifier = OnboardingNotifier(
         repository: harness.onboardingRepository,
         completeOnboardingAction: (childDisplayName, ageBucket) async =>
             _completedSnapshot(
@@ -49,7 +49,7 @@ void main() {
             ),
       );
 
-      await _pumpOnboardingScreen(tester, viewModel);
+      await _pumpOnboardingScreen(tester, notifier);
       expect(
         find.byKey(const Key('onboarding-local-only-banner')),
         findsOneWidget,
@@ -74,8 +74,8 @@ void main() {
           )
           .map((widget) => widget.data ?? widget.textSpan?.toPlainText() ?? '')
           .join(' ');
-      expect(previewSeedTexts, contains(viewModel.starterSeed!.phraseEnglish));
-      expect(previewSeedTexts, contains(viewModel.starterSeed!.phraseChinese));
+      expect(previewSeedTexts, contains(notifier.starterSeed!.phraseEnglish));
+      expect(previewSeedTexts, contains(notifier.starterSeed!.phraseChinese));
 
       await tester.drag(find.byType(ListView), const Offset(0, 260));
       await tester.pumpAndSettle();
@@ -92,8 +92,8 @@ void main() {
     });
 
     testWidgets('空昵称、空白昵称与超长昵称都会被拦下', (WidgetTester tester) async {
-      final viewModel = _readyViewModel();
-      await _pumpOnboardingScreen(tester, viewModel);
+      final notifier = _readyNotifier();
+      await _pumpOnboardingScreen(tester, notifier);
 
       await _scrollTo(tester, find.byKey(const Key('onboarding-start-button')));
       await tester.tap(find.byKey(const Key('onboarding-start-button')));
@@ -137,8 +137,8 @@ void main() {
     });
 
     testWidgets('边界月龄切换会映射到正确阶段，返回上一步也不会丢失输入', (WidgetTester tester) async {
-      final viewModel = _readyViewModel();
-      await _pumpOnboardingScreen(tester, viewModel);
+      final notifier = _readyNotifier();
+      await _pumpOnboardingScreen(tester, notifier);
 
       await _scrollTo(tester, find.byKey(const Key('onboarding-start-button')));
       await tester.tap(find.byKey(const Key('onboarding-start-button')));
@@ -212,7 +212,7 @@ void main() {
     testWidgets('starter seed 加载失败时会展示明确错误并阻断进入预览', (
       WidgetTester tester,
     ) async {
-      final viewModel = OnboardingNotifier(
+      final notifier = OnboardingNotifier(
         starterSeedLoader: () async {
           throw const FormatException('starter phrase 缺失。');
         },
@@ -223,7 +223,7 @@ void main() {
             ),
       );
 
-      await _pumpOnboardingScreen(tester, viewModel);
+      await _pumpOnboardingScreen(tester, notifier);
       await _scrollTo(tester, find.byKey(const Key('onboarding-start-button')));
       await tester.tap(find.byKey(const Key('onboarding-start-button')));
       await tester.pumpAndSettle();
@@ -263,7 +263,7 @@ void main() {
 
     testWidgets('保存失败时展示可重试 banner，保留输入并允许再次提交', (WidgetTester tester) async {
       var submitCount = 0;
-      final viewModel = OnboardingNotifier(
+      final notifier = OnboardingNotifier(
         starterSeedLoader: () async => _starterSeed(),
         completeOnboardingAction: (childDisplayName, ageBucket) async {
           submitCount += 1;
@@ -277,7 +277,7 @@ void main() {
         },
       );
 
-      await _pumpOnboardingScreen(tester, viewModel);
+      await _pumpOnboardingScreen(tester, notifier);
       await _advanceToPreview(
         tester,
         childDisplayName: '米米',
@@ -339,7 +339,7 @@ void main() {
     testWidgets('重复提交时只有一次本地写入，并暴露 saving 状态', (WidgetTester tester) async {
       final completer = Completer<OnboardingSnapshot>();
       var submitCount = 0;
-      final viewModel = OnboardingNotifier(
+      final notifier = OnboardingNotifier(
         starterSeedLoader: () async => _starterSeed(),
         completeOnboardingAction: (childDisplayName, ageBucket) {
           submitCount += 1;
@@ -347,7 +347,7 @@ void main() {
         },
       );
 
-      await _pumpOnboardingScreen(tester, viewModel);
+      await _pumpOnboardingScreen(tester, notifier);
       await _advanceToPreview(
         tester,
         childDisplayName: '果果',
@@ -363,7 +363,7 @@ void main() {
       expect(find.byKey(const Key('onboarding-submit-saving')), findsOneWidget);
       expect(submitCount, 1);
 
-      unawaited(viewModel.submit());
+      unawaited(notifier.submit());
       await tester.pump();
       expect(submitCount, 1);
 
@@ -382,17 +382,15 @@ void main() {
 
 Future<void> _pumpOnboardingScreen(
   WidgetTester tester,
-  OnboardingNotifier viewModel,
+  OnboardingNotifier notifier,
 ) async {
   await tester.runAsync(() async {
-    await viewModel.initialize();
+    await notifier.initialize();
   });
 
   await tester.pumpWidget(
     ProviderScope(
-      overrides: [
-        onboardingNotifierProvider.overrideWith((ref) => viewModel),
-      ],
+      overrides: [onboardingNotifierProvider.overrideWith((ref) => notifier)],
       child: MaterialApp.router(
         debugShowCheckedModeBanner: false,
         theme: AppTheme.build(),
@@ -403,17 +401,19 @@ Future<void> _pumpOnboardingScreen(
           routes: [
             GoRoute(
               path: '/',
-              builder: (_, __) => const Scaffold(
-                body: Center(child: Text('shell ready', key: Key('shell-ready'))),
+              builder: (context, state) => const Scaffold(
+                body: Center(
+                  child: Text('shell ready', key: Key('shell-ready')),
+                ),
               ),
             ),
             GoRoute(
               path: '/onboarding',
-              builder: (_, __) => const OnboardingScreen(),
+              builder: (context, state) => const OnboardingScreen(),
             ),
             GoRoute(
               path: '/practice',
-              builder: (_, __) => const SizedBox.shrink(),
+              builder: (context, state) => const SizedBox.shrink(),
             ),
           ],
         ),
@@ -462,7 +462,7 @@ Future<void> _scrollTo(WidgetTester tester, Finder finder) async {
   await tester.pumpAndSettle();
 }
 
-OnboardingNotifier _readyViewModel() {
+OnboardingNotifier _readyNotifier() {
   return OnboardingNotifier(
     starterSeedLoader: () async => _starterSeed(),
     completeOnboardingAction: (childDisplayName, ageBucket) async =>

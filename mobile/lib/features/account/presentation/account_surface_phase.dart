@@ -16,7 +16,7 @@ enum AccountSurfacePhase {
 
 /// Resolves the current account surface phase from the notifier state.
 ///
-/// Accepts [AccountNotifier] which mirrors the [AccountViewModel] API.
+/// Accepts [AccountNotifier] which mirrors the [AccountNotifier] API.
 ///
 /// [onboardingSnapshot] is optional. When provided (e.g. from
 /// `AccountStatusCard`), the `localOnly` phase can be reached when

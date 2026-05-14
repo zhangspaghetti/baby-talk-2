@@ -51,9 +51,7 @@ class OnboardingSnapshot with _$OnboardingSnapshot {
       starterSpaceId: json['starterSpaceId'] as String,
       starterActivityId: json['starterActivityId'] as String,
       starterPhraseId: json['starterPhraseId'] as String,
-      consentState: parseOnboardingConsentState(
-        json['consentState'] as String,
-      ),
+      consentState: parseOnboardingConsentState(json['consentState'] as String),
       birthDate: _readOptionalDateTime(json, 'birthDate'),
       completedAt: _readOptionalDateTime(json, 'completedAt'),
     );

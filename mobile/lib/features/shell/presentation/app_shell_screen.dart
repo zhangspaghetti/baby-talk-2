@@ -12,7 +12,7 @@ import 'package:mobile/features/household/presentation/widgets/household_shared_
 import 'package:mobile/features/mentor/presentation/widgets/mentor_panel_sheet.dart';
 import 'package:mobile/features/onboarding/domain/models/onboarding_snapshot.dart';
 import 'package:mobile/features/onboarding/domain/models/stage_match.dart';
-import 'package:mobile/features/practice/presentation/garden_growth_view_model.dart'
+import 'package:mobile/features/practice/presentation/garden_growth_notifier.dart'
     show GardenGrowthLoadStatus;
 import 'package:mobile/features/practice/presentation/screens/home_screen.dart';
 import 'package:mobile/features/shell/presentation/screens/discover_screen.dart';
@@ -303,7 +303,7 @@ class _HouseholdDrawer extends ConsumerWidget {
               const SizedBox(height: 20),
               HouseholdSharedContextCard(
                 surfaceKeyPrefix: 'shell',
-                viewModel: householdNotifier,
+                notifier: householdNotifier,
                 title: l.shellSharedProfile,
                 compact: true,
                 retryReason: 'shell_drawer_manual_refresh',
@@ -311,7 +311,7 @@ class _HouseholdDrawer extends ConsumerWidget {
               const SizedBox(height: 20),
               HouseholdInviteCard(
                 surfaceKeyPrefix: 'shell',
-                viewModel: householdNotifier,
+                notifier: householdNotifier,
                 inviteSource: 'shell_drawer',
                 compact: true,
               ),

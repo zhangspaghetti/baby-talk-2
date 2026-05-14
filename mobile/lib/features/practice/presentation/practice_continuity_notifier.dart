@@ -3,33 +3,76 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:mobile/features/practice/data/repositories/practice_repository.dart';
 import 'package:mobile/features/practice/domain/models/practice_continuity_snapshot.dart';
-import 'package:mobile/features/practice/presentation/practice_continuity_view_model.dart'
-    show
-        PracticeActivitySnapshotLoader,
-        PracticeContinuityLoadStatus,
-        PracticeContinuitySeedState,
-        PracticeContinuitySnapshotLoader;
 import 'package:mobile/features/practice/presentation/practice_route_args.dart';
 
-/// Riverpod-ready notifier that replaces [PracticeContinuityViewModel].
-///
-/// Uses [ChangeNotifier] as the base so existing widget code can adapt
-/// incrementally without a full rewrite of the UI layer.
-///
-/// The API surface intentionally mirrors the old ViewModel so that callers
-/// only need to swap the type they resolve.
+typedef PracticeContinuitySnapshotLoader =
+    Future<PracticeContinuitySnapshot> Function({
+      String? starterSpaceId,
+      String? starterActivityId,
+    });
+typedef PracticeActivitySnapshotLoader =
+    Future<PracticeActivitySnapshot> Function({
+      required String spaceId,
+      required String activityId,
+    });
+
+enum PracticeContinuityLoadStatus { idle, loading, ready, error }
+
+extension PracticeContinuityLoadStatusLabel on PracticeContinuityLoadStatus {
+  String get label {
+    switch (this) {
+      case PracticeContinuityLoadStatus.idle:
+        return 'idle';
+      case PracticeContinuityLoadStatus.loading:
+        return 'loading';
+      case PracticeContinuityLoadStatus.ready:
+        return 'ready';
+      case PracticeContinuityLoadStatus.error:
+        return 'error';
+    }
+  }
+}
+
+class PracticeContinuitySeedState {
+  const PracticeContinuitySeedState({
+    this.starterArgs,
+    this.snapshot,
+    this.activitySnapshot,
+    this.recommendedArgs,
+    this.status = PracticeContinuityLoadStatus.idle,
+    this.warningMessage,
+    this.disabledReason,
+    this.lastRefreshReason,
+  });
+
+  final PracticeRouteArgs? starterArgs;
+  final PracticeContinuitySnapshot? snapshot;
+  final PracticeActivitySnapshot? activitySnapshot;
+  final PracticeRouteArgs? recommendedArgs;
+  final PracticeContinuityLoadStatus status;
+  final String? warningMessage;
+  final String? disabledReason;
+  final String? lastRefreshReason;
+}
+
 class PracticeContinuityNotifier extends ChangeNotifier {
   PracticeContinuityNotifier({
-    required PracticeRepository repository,
-    this.refreshTimeout = const Duration(seconds: 4),
+    PracticeRepository? repository,
     PracticeContinuitySnapshotLoader? continuitySnapshotLoader,
     PracticeActivitySnapshotLoader? activitySnapshotLoader,
     PracticeRouteArgs? initialStarterArgs,
     PracticeContinuitySeedState? seedState,
-  }) : _continuitySnapshotLoader =
-           continuitySnapshotLoader ?? repository.getContinuitySnapshot,
+    this.refreshTimeout = const Duration(seconds: 4),
+  }) : assert(
+         repository != null ||
+             (continuitySnapshotLoader != null &&
+                 activitySnapshotLoader != null),
+         'PracticeContinuityNotifier 需要 repository 或完整 loader 注入。',
+       ),
+       _continuitySnapshotLoader =
+           continuitySnapshotLoader ?? repository!.getContinuitySnapshot,
        _activitySnapshotLoader =
-           activitySnapshotLoader ?? repository.getActivitySnapshot,
+           activitySnapshotLoader ?? repository!.getActivitySnapshot,
        _starterArgs = _normalizeArgs(
          seedState?.starterArgs ?? initialStarterArgs,
        ),
@@ -61,8 +104,6 @@ class PracticeContinuityNotifier extends ChangeNotifier {
   String? _queuedRefreshReason;
   Timer? _refreshTimeoutTimer;
 
-  // -- Getters ---------------------------------------------------------------
-
   PracticeRouteArgs? get starterArgs => _starterArgs;
   PracticeContinuitySnapshot? get snapshot => _snapshot;
   PracticeActivitySnapshot? get activitySnapshot => _activitySnapshot;
@@ -83,8 +124,6 @@ class PracticeContinuityNotifier extends ChangeNotifier {
 
   bool get isActionDisabled =>
       _recommendedArgs == null || (_disabledReason?.trim().isNotEmpty ?? false);
-
-  // -- Public API ------------------------------------------------------------
 
   Future<void> initialize({String reason = 'initial_load'}) {
     if (_status != PracticeContinuityLoadStatus.idle || _isRefreshing) {
@@ -126,27 +165,6 @@ class PracticeContinuityNotifier extends ChangeNotifier {
       }
     });
   }
-
-  /// Resets all in-memory state to a safe empty baseline.
-  ///
-  /// Called on session resets so the UI does not leak stale data.
-  void resetToSafeEmpty() {
-    _refreshTimeoutTimer?.cancel();
-    _refreshTimeoutTimer = null;
-    _refreshFuture = null;
-    _queuedRefreshReason = null;
-    _isRefreshing = false;
-    _snapshot = null;
-    _activitySnapshot = null;
-    _recommendedArgs = null;
-    _status = PracticeContinuityLoadStatus.idle;
-    _warningMessage = null;
-    _disabledReason = null;
-    _lastRefreshReason = null;
-    notifyListeners();
-  }
-
-  // -- Internals -------------------------------------------------------------
 
   Future<void> _refreshInternal({required String reason}) async {
     final starterArgs = _starterArgs;
@@ -271,6 +289,24 @@ class PracticeContinuityNotifier extends ChangeNotifier {
       return;
     }
     super.notifyListeners();
+  }
+
+  /// 会话重置时调用，清除所有内存状态回到安全空态。
+  /// logout/delete/revoke 场景下由 home_screen 触发。
+  void resetToSafeEmpty() {
+    _refreshTimeoutTimer?.cancel();
+    _refreshTimeoutTimer = null;
+    _refreshFuture = null;
+    _queuedRefreshReason = null;
+    _isRefreshing = false;
+    _snapshot = null;
+    _activitySnapshot = null;
+    _recommendedArgs = null;
+    _status = PracticeContinuityLoadStatus.idle;
+    _warningMessage = null;
+    _disabledReason = null;
+    _lastRefreshReason = null;
+    notifyListeners();
   }
 
   @override

@@ -6,16 +6,14 @@ import 'package:mobile/features/household/data/local/household_local_store.dart'
 import 'package:mobile/features/household/data/repositories/household_repository.dart';
 import 'package:mobile/features/household/domain/models/household_invite_link.dart';
 import 'package:mobile/features/household/domain/models/household_role.dart';
-import 'package:mobile/features/household/presentation/household_view_model.dart'
-    show HouseholdActionKind;
 
-/// Riverpod-ready notifier that replaces [HouseholdViewModel].
-///
-/// Uses [ChangeNotifier] as the base so existing widget code can adapt
-/// incrementally without a full rewrite of the UI layer.
-///
-/// The API surface intentionally mirrors the old ViewModel so that callers
-/// only need to swap the type they resolve.
+enum HouseholdActionKind {
+  none,
+  createInvite,
+  acceptInvite,
+  refreshSharedContext,
+}
+
 class HouseholdNotifier extends ChangeNotifier {
   HouseholdNotifier({required HouseholdRepository repository})
     : _repository = repository;
@@ -36,8 +34,6 @@ class HouseholdNotifier extends ChangeNotifier {
   Future<HouseholdInviteAcceptResult>? _acceptFuture;
   Future<HouseholdLocalSnapshot>? _refreshFuture;
 
-  // -- Getters ---------------------------------------------------------------
-
   bool get isLoading => _isLoading;
   bool get hasLoaded => _hasLoaded;
   bool get isBusy => _isBusy;
@@ -45,8 +41,6 @@ class HouseholdNotifier extends ChangeNotifier {
   HouseholdInviteLink? get lastCreatedInvite => _lastCreatedInvite;
   String? get message => _message;
   HouseholdActionKind get lastActionKind => _lastActionKind;
-
-  // -- Public API ------------------------------------------------------------
 
   Future<void> initialize() {
     if (_hasLoaded || _isLoading) {
@@ -229,6 +223,14 @@ class HouseholdNotifier extends ChangeNotifier {
     notifyListeners();
   }
 
+  @override
+  void notifyListeners() {
+    if (_disposed) {
+      return;
+    }
+    super.notifyListeners();
+  }
+
   /// 会话重置时调用，清除所有内存状态回到安全空态。
   void resetToSafeEmpty() {
     _isLoading = false;
@@ -244,14 +246,6 @@ class HouseholdNotifier extends ChangeNotifier {
     _acceptFuture = null;
     _refreshFuture = null;
     notifyListeners();
-  }
-
-  @override
-  void notifyListeners() {
-    if (_disposed) {
-      return;
-    }
-    super.notifyListeners();
   }
 
   @override

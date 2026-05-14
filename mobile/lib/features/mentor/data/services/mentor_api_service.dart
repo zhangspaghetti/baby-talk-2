@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:dio/dio.dart';
+import 'package:mobile/core/network/app_dio.dart';
 import 'package:mobile/features/account/data/services/account_api_service.dart'
     show defaultAccountApiBaseUrl, defaultAccountApiVersion;
 import 'package:mobile/features/account/data/services/authenticated_api_client.dart';
@@ -113,16 +114,7 @@ class MentorApiService {
     String? baseUrl,
     this.appVersion = defaultMentorApiVersion,
     this.timeout = const Duration(seconds: 30),
-  }) : _dio = dio ??
-           Dio(
-             BaseOptions(
-               baseUrl: baseUrl ?? defaultMentorApiBaseUrl,
-               connectTimeout: timeout,
-               receiveTimeout: timeout,
-               headers: {'Content-Type': 'application/json'},
-               validateStatus: (status) => true,
-             ),
-           ),
+  }) : _dio = dio ?? AppDio.create(baseUrl: baseUrl ?? defaultMentorApiBaseUrl),
        _authenticatedApiClient = authenticatedApiClient,
        _ownsDio = dio == null;
 
@@ -285,9 +277,6 @@ class MentorApiService {
       'Accept': 'application/json',
       'X-App-Version': appVersion,
     };
-    if (accessToken != null && accessToken.trim().isNotEmpty) {
-      headers['Authorization'] = 'Bearer ${accessToken.trim()}';
-    }
 
     Response<dynamic> response;
     try {
@@ -353,9 +342,7 @@ class MentorApiService {
 String _readRequiredString(Map<String, dynamic> json, String key) {
   final value = json[key];
   if (value is! String || value.trim().isEmpty) {
-    throw MentorApiException.malformed(
-      message: '字段 `$key` 缺失或不是非空字符串。',
-    );
+    throw MentorApiException.malformed(message: '字段 `$key` 缺失或不是非空字符串。');
   }
   return value;
 }
@@ -385,9 +372,7 @@ int _readRequiredInt(Map<String, dynamic> json, String key) {
 bool _readRequiredBool(Map<String, dynamic> json, String key) {
   final value = json[key];
   if (value is! bool) {
-    throw MentorApiException.malformed(
-      message: '字段 `$key` 缺失或不是布尔值。',
-    );
+    throw MentorApiException.malformed(message: '字段 `$key` 缺失或不是布尔值。');
   }
   return value;
 }
@@ -395,9 +380,7 @@ bool _readRequiredBool(Map<String, dynamic> json, String key) {
 DateTime _readRequiredDateTime(Map<String, dynamic> json, String key) {
   final value = json[key];
   if (value is! String || value.trim().isEmpty) {
-    throw MentorApiException.malformed(
-      message: '字段 `$key` 缺失或不是合法时间。',
-    );
+    throw MentorApiException.malformed(message: '字段 `$key` 缺失或不是合法时间。');
   }
   return DateTime.parse(value).toUtc();
 }

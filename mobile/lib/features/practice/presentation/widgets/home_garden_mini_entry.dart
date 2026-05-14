@@ -1,30 +1,30 @@
 import 'package:flutter/material.dart';
 import 'package:mobile/app/theme/app_theme.dart';
 import 'package:mobile/features/practice/domain/models/garden_growth_snapshot.dart';
-import 'package:mobile/features/practice/presentation/garden_growth_view_model.dart'
+import 'package:mobile/features/practice/presentation/garden_growth_notifier.dart'
     show GardenGrowthLoadStatus;
 import 'package:mobile/l10n/app_localizations.dart';
 
-/// Accepts either a [GardenGrowthViewModel] or [GardenGrowthNotifier].
+/// Accepts either a [GardenGrowthNotifier] or [GardenGrowthNotifier].
 ///
 /// Both expose the same API surface (snapshot, status, message, etc.),
 /// so we accept `ChangeNotifier?` and access properties dynamically.
 class HomeGardenMiniEntry extends StatelessWidget {
-  const HomeGardenMiniEntry({super.key, required this.viewModel});
+  const HomeGardenMiniEntry({super.key, required this.notifier});
 
-  final dynamic viewModel;
+  final dynamic notifier;
 
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
     final colors = context.appColors;
-    final effectiveViewModel = viewModel;
+    final effectiveNotifier = notifier;
     final snapshot =
-        effectiveViewModel?.snapshot ?? GardenGrowthSnapshot.empty();
+        effectiveNotifier?.snapshot ?? GardenGrowthSnapshot.empty();
     final primarySpace = snapshot.primarySpace;
     final primaryActivity = snapshot.primaryActivity;
     final GardenGrowthLoadStatus status =
-        effectiveViewModel?.status ?? GardenGrowthLoadStatus.empty;
+        effectiveNotifier?.status ?? GardenGrowthLoadStatus.empty;
 
     String title;
     String body;
@@ -41,7 +41,7 @@ class HomeGardenMiniEntry extends StatelessWidget {
         break;
       case GardenGrowthLoadStatus.error:
         title = l.homeGardenNotReady;
-        body = effectiveViewModel?.message ?? l.homeGardenKeepStable;
+        body = effectiveNotifier?.message ?? l.homeGardenKeepStable;
         backgroundColor = colors.warningSoft;
         foregroundColor = colors.warning;
         break;

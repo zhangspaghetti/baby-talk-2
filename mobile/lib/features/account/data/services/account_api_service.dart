@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:dio/dio.dart';
+import 'package:mobile/core/network/app_dio.dart';
 import 'package:mobile/features/practice/domain/models/interaction_event_payload.dart';
 
 const String defaultAccountApiVersion = String.fromEnvironment(
@@ -82,11 +83,11 @@ class AccountSessionResponse {
     required this.maskedPhoneNumber,
     required this.createdAt,
     required this.consentStatus,
-    required this.accessToken,
-    required this.refreshToken,
-    required this.tokenType,
-    required this.accessTokenExpiresAt,
-    required this.refreshTokenExpiresAt,
+    this.accessToken,
+    this.refreshToken,
+    this.tokenType,
+    this.accessTokenExpiresAt,
+    this.refreshTokenExpiresAt,
   });
 
   final String accountId;
@@ -94,11 +95,11 @@ class AccountSessionResponse {
   final String maskedPhoneNumber;
   final DateTime createdAt;
   final String consentStatus;
-  final String accessToken;
-  final String refreshToken;
-  final String tokenType;
-  final DateTime accessTokenExpiresAt;
-  final DateTime refreshTokenExpiresAt;
+  final String? accessToken;
+  final String? refreshToken;
+  final String? tokenType;
+  final DateTime? accessTokenExpiresAt;
+  final DateTime? refreshTokenExpiresAt;
 }
 
 class AccountConsentResponse {
@@ -167,16 +168,8 @@ class AccountApiService {
     String? baseUrl,
     this.appVersion = defaultAccountApiVersion,
     this.timeout = const Duration(seconds: 8),
-  }) : _dio = dio ??
-           Dio(
-             BaseOptions(
-               baseUrl: baseUrl ?? defaultAccountApiBaseUrl,
-               connectTimeout: timeout,
-               receiveTimeout: timeout,
-               headers: {'Content-Type': 'application/json'},
-               validateStatus: (status) => true,
-             ),
-           ),
+  }) : _dio =
+           dio ?? AppDio.create(baseUrl: baseUrl ?? defaultAccountApiBaseUrl),
        _ownsDio = dio == null;
 
   final Dio _dio;
@@ -379,9 +372,6 @@ class AccountApiService {
       'Accept': 'application/json',
       'X-App-Version': appVersion,
     };
-    if (accessToken != null && accessToken.trim().isNotEmpty) {
-      headers[HttpHeaders.authorizationHeader] = 'Bearer ${accessToken.trim()}';
-    }
 
     Response<dynamic> response;
     try {
@@ -431,11 +421,11 @@ class AccountApiService {
       maskedPhoneNumber: _readRequiredString(json, 'maskedPhoneNumber'),
       createdAt: _readRequiredDateTime(json, 'createdAt'),
       consentStatus: _readRequiredString(json, 'consentStatus'),
-      accessToken: _readRequiredString(json, 'accessToken'),
-      refreshToken: _readRequiredString(json, 'refreshToken'),
-      tokenType: _readRequiredString(json, 'tokenType'),
-      accessTokenExpiresAt: _readRequiredDateTime(json, 'accessTokenExpiresAt'),
-      refreshTokenExpiresAt: _readRequiredDateTime(
+      accessToken: json['accessToken'] as String?,
+      refreshToken: json['refreshToken'] as String?,
+      tokenType: json['tokenType'] as String?,
+      accessTokenExpiresAt: _readOptionalDateTime(json, 'accessTokenExpiresAt'),
+      refreshTokenExpiresAt: _readOptionalDateTime(
         json,
         'refreshTokenExpiresAt',
       ),
@@ -510,6 +500,14 @@ DateTime _readRequiredDateTime(Map<String, dynamic> json, String key) {
   final value = json[key];
   if (value is! String || value.trim().isEmpty) {
     throw AccountApiException.malformed(message: '字段 `$key` 缺失或不是合法时间。');
+  }
+  return DateTime.parse(value).toUtc();
+}
+
+DateTime? _readOptionalDateTime(Map<String, dynamic> json, String key) {
+  final value = json[key];
+  if (value is! String || value.trim().isEmpty) {
+    return null;
   }
   return DateTime.parse(value).toUtc();
 }

@@ -12,7 +12,8 @@ part of 'mentor_fact_event.dart';
 T _$identity<T>(T value) => value;
 
 final _privateConstructorUsedError = UnsupportedError(
-    'It seems like you constructed your class using `MyClass._()`. This constructor is only meant to be used by freezed and you are not supposed to need it nor use it.\nPlease check the documentation here for more information: https://github.com/rrousselGit/freezed#adding-getters-and-methods-to-our-models');
+  'It seems like you constructed your class using `MyClass._()`. This constructor is only meant to be used by freezed and you are not supposed to need it nor use it.\nPlease check the documentation here for more information: https://github.com/rrousselGit/freezed#adding-getters-and-methods-to-our-models',
+);
 
 /// @nodoc
 mixin _$MentorFactEvent {
@@ -36,21 +37,23 @@ mixin _$MentorFactEvent {
 /// @nodoc
 abstract class $MentorFactEventCopyWith<$Res> {
   factory $MentorFactEventCopyWith(
-          MentorFactEvent value, $Res Function(MentorFactEvent) then) =
-      _$MentorFactEventCopyWithImpl<$Res, MentorFactEvent>;
+    MentorFactEvent value,
+    $Res Function(MentorFactEvent) then,
+  ) = _$MentorFactEventCopyWithImpl<$Res, MentorFactEvent>;
   @useResult
-  $Res call(
-      {String localEventId,
-      String installationId,
-      MentorFactType eventType,
-      String phase,
-      DateTime createdAt,
-      String? correlationId,
-      String? redactedSummary,
-      String? visibleStatus,
-      String? visibleDetail,
-      bool retryable,
-      bool contextFallbackUsed});
+  $Res call({
+    String localEventId,
+    String installationId,
+    MentorFactType eventType,
+    String phase,
+    DateTime createdAt,
+    String? correlationId,
+    String? redactedSummary,
+    String? visibleStatus,
+    String? visibleDetail,
+    bool retryable,
+    bool contextFallbackUsed,
+  });
 }
 
 /// @nodoc
@@ -78,75 +81,80 @@ class _$MentorFactEventCopyWithImpl<$Res, $Val extends MentorFactEvent>
     Object? retryable = null,
     Object? contextFallbackUsed = null,
   }) {
-    return _then(_value.copyWith(
-      localEventId: null == localEventId
-          ? _value.localEventId
-          : localEventId // ignore: cast_nullable_to_non_nullable
-              as String,
-      installationId: null == installationId
-          ? _value.installationId
-          : installationId // ignore: cast_nullable_to_non_nullable
-              as String,
-      eventType: null == eventType
-          ? _value.eventType
-          : eventType // ignore: cast_nullable_to_non_nullable
-              as MentorFactType,
-      phase: null == phase
-          ? _value.phase
-          : phase // ignore: cast_nullable_to_non_nullable
-              as String,
-      createdAt: null == createdAt
-          ? _value.createdAt
-          : createdAt // ignore: cast_nullable_to_non_nullable
-              as DateTime,
-      correlationId: freezed == correlationId
-          ? _value.correlationId
-          : correlationId // ignore: cast_nullable_to_non_nullable
-              as String?,
-      redactedSummary: freezed == redactedSummary
-          ? _value.redactedSummary
-          : redactedSummary // ignore: cast_nullable_to_non_nullable
-              as String?,
-      visibleStatus: freezed == visibleStatus
-          ? _value.visibleStatus
-          : visibleStatus // ignore: cast_nullable_to_non_nullable
-              as String?,
-      visibleDetail: freezed == visibleDetail
-          ? _value.visibleDetail
-          : visibleDetail // ignore: cast_nullable_to_non_nullable
-              as String?,
-      retryable: null == retryable
-          ? _value.retryable
-          : retryable // ignore: cast_nullable_to_non_nullable
-              as bool,
-      contextFallbackUsed: null == contextFallbackUsed
-          ? _value.contextFallbackUsed
-          : contextFallbackUsed // ignore: cast_nullable_to_non_nullable
-              as bool,
-    ) as $Val);
+    return _then(
+      _value.copyWith(
+            localEventId: null == localEventId
+                ? _value.localEventId
+                : localEventId // ignore: cast_nullable_to_non_nullable
+                      as String,
+            installationId: null == installationId
+                ? _value.installationId
+                : installationId // ignore: cast_nullable_to_non_nullable
+                      as String,
+            eventType: null == eventType
+                ? _value.eventType
+                : eventType // ignore: cast_nullable_to_non_nullable
+                      as MentorFactType,
+            phase: null == phase
+                ? _value.phase
+                : phase // ignore: cast_nullable_to_non_nullable
+                      as String,
+            createdAt: null == createdAt
+                ? _value.createdAt
+                : createdAt // ignore: cast_nullable_to_non_nullable
+                      as DateTime,
+            correlationId: freezed == correlationId
+                ? _value.correlationId
+                : correlationId // ignore: cast_nullable_to_non_nullable
+                      as String?,
+            redactedSummary: freezed == redactedSummary
+                ? _value.redactedSummary
+                : redactedSummary // ignore: cast_nullable_to_non_nullable
+                      as String?,
+            visibleStatus: freezed == visibleStatus
+                ? _value.visibleStatus
+                : visibleStatus // ignore: cast_nullable_to_non_nullable
+                      as String?,
+            visibleDetail: freezed == visibleDetail
+                ? _value.visibleDetail
+                : visibleDetail // ignore: cast_nullable_to_non_nullable
+                      as String?,
+            retryable: null == retryable
+                ? _value.retryable
+                : retryable // ignore: cast_nullable_to_non_nullable
+                      as bool,
+            contextFallbackUsed: null == contextFallbackUsed
+                ? _value.contextFallbackUsed
+                : contextFallbackUsed // ignore: cast_nullable_to_non_nullable
+                      as bool,
+          )
+          as $Val,
+    );
   }
 }
 
 /// @nodoc
 abstract class _$$MentorFactEventImplCopyWith<$Res>
     implements $MentorFactEventCopyWith<$Res> {
-  factory _$$MentorFactEventImplCopyWith(_$MentorFactEventImpl value,
-          $Res Function(_$MentorFactEventImpl) then) =
-      __$$MentorFactEventImplCopyWithImpl<$Res>;
+  factory _$$MentorFactEventImplCopyWith(
+    _$MentorFactEventImpl value,
+    $Res Function(_$MentorFactEventImpl) then,
+  ) = __$$MentorFactEventImplCopyWithImpl<$Res>;
   @override
   @useResult
-  $Res call(
-      {String localEventId,
-      String installationId,
-      MentorFactType eventType,
-      String phase,
-      DateTime createdAt,
-      String? correlationId,
-      String? redactedSummary,
-      String? visibleStatus,
-      String? visibleDetail,
-      bool retryable,
-      bool contextFallbackUsed});
+  $Res call({
+    String localEventId,
+    String installationId,
+    MentorFactType eventType,
+    String phase,
+    DateTime createdAt,
+    String? correlationId,
+    String? redactedSummary,
+    String? visibleStatus,
+    String? visibleDetail,
+    bool retryable,
+    bool contextFallbackUsed,
+  });
 }
 
 /// @nodoc
@@ -154,8 +162,9 @@ class __$$MentorFactEventImplCopyWithImpl<$Res>
     extends _$MentorFactEventCopyWithImpl<$Res, _$MentorFactEventImpl>
     implements _$$MentorFactEventImplCopyWith<$Res> {
   __$$MentorFactEventImplCopyWithImpl(
-      _$MentorFactEventImpl _value, $Res Function(_$MentorFactEventImpl) _then)
-      : super(_value, _then);
+    _$MentorFactEventImpl _value,
+    $Res Function(_$MentorFactEventImpl) _then,
+  ) : super(_value, _then);
 
   @pragma('vm:prefer-inline')
   @override
@@ -172,71 +181,73 @@ class __$$MentorFactEventImplCopyWithImpl<$Res>
     Object? retryable = null,
     Object? contextFallbackUsed = null,
   }) {
-    return _then(_$MentorFactEventImpl(
-      localEventId: null == localEventId
-          ? _value.localEventId
-          : localEventId // ignore: cast_nullable_to_non_nullable
-              as String,
-      installationId: null == installationId
-          ? _value.installationId
-          : installationId // ignore: cast_nullable_to_non_nullable
-              as String,
-      eventType: null == eventType
-          ? _value.eventType
-          : eventType // ignore: cast_nullable_to_non_nullable
-              as MentorFactType,
-      phase: null == phase
-          ? _value.phase
-          : phase // ignore: cast_nullable_to_non_nullable
-              as String,
-      createdAt: null == createdAt
-          ? _value.createdAt
-          : createdAt // ignore: cast_nullable_to_non_nullable
-              as DateTime,
-      correlationId: freezed == correlationId
-          ? _value.correlationId
-          : correlationId // ignore: cast_nullable_to_non_nullable
-              as String?,
-      redactedSummary: freezed == redactedSummary
-          ? _value.redactedSummary
-          : redactedSummary // ignore: cast_nullable_to_non_nullable
-              as String?,
-      visibleStatus: freezed == visibleStatus
-          ? _value.visibleStatus
-          : visibleStatus // ignore: cast_nullable_to_non_nullable
-              as String?,
-      visibleDetail: freezed == visibleDetail
-          ? _value.visibleDetail
-          : visibleDetail // ignore: cast_nullable_to_non_nullable
-              as String?,
-      retryable: null == retryable
-          ? _value.retryable
-          : retryable // ignore: cast_nullable_to_non_nullable
-              as bool,
-      contextFallbackUsed: null == contextFallbackUsed
-          ? _value.contextFallbackUsed
-          : contextFallbackUsed // ignore: cast_nullable_to_non_nullable
-              as bool,
-    ));
+    return _then(
+      _$MentorFactEventImpl(
+        localEventId: null == localEventId
+            ? _value.localEventId
+            : localEventId // ignore: cast_nullable_to_non_nullable
+                  as String,
+        installationId: null == installationId
+            ? _value.installationId
+            : installationId // ignore: cast_nullable_to_non_nullable
+                  as String,
+        eventType: null == eventType
+            ? _value.eventType
+            : eventType // ignore: cast_nullable_to_non_nullable
+                  as MentorFactType,
+        phase: null == phase
+            ? _value.phase
+            : phase // ignore: cast_nullable_to_non_nullable
+                  as String,
+        createdAt: null == createdAt
+            ? _value.createdAt
+            : createdAt // ignore: cast_nullable_to_non_nullable
+                  as DateTime,
+        correlationId: freezed == correlationId
+            ? _value.correlationId
+            : correlationId // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        redactedSummary: freezed == redactedSummary
+            ? _value.redactedSummary
+            : redactedSummary // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        visibleStatus: freezed == visibleStatus
+            ? _value.visibleStatus
+            : visibleStatus // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        visibleDetail: freezed == visibleDetail
+            ? _value.visibleDetail
+            : visibleDetail // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        retryable: null == retryable
+            ? _value.retryable
+            : retryable // ignore: cast_nullable_to_non_nullable
+                  as bool,
+        contextFallbackUsed: null == contextFallbackUsed
+            ? _value.contextFallbackUsed
+            : contextFallbackUsed // ignore: cast_nullable_to_non_nullable
+                  as bool,
+      ),
+    );
   }
 }
 
 /// @nodoc
 
 class _$MentorFactEventImpl extends _MentorFactEvent {
-  _$MentorFactEventImpl(
-      {required this.localEventId,
-      required this.installationId,
-      required this.eventType,
-      required this.phase,
-      required this.createdAt,
-      this.correlationId,
-      this.redactedSummary,
-      this.visibleStatus,
-      this.visibleDetail,
-      this.retryable = false,
-      this.contextFallbackUsed = false})
-      : super._();
+  _$MentorFactEventImpl({
+    required this.localEventId,
+    required this.installationId,
+    required this.eventType,
+    required this.phase,
+    required this.createdAt,
+    this.correlationId,
+    this.redactedSummary,
+    this.visibleStatus,
+    this.visibleDetail,
+    this.retryable = false,
+    this.contextFallbackUsed = false,
+  }) : super._();
 
   @override
   final String localEventId;
@@ -298,40 +309,44 @@ class _$MentorFactEventImpl extends _MentorFactEvent {
 
   @override
   int get hashCode => Object.hash(
-      runtimeType,
-      localEventId,
-      installationId,
-      eventType,
-      phase,
-      createdAt,
-      correlationId,
-      redactedSummary,
-      visibleStatus,
-      visibleDetail,
-      retryable,
-      contextFallbackUsed);
+    runtimeType,
+    localEventId,
+    installationId,
+    eventType,
+    phase,
+    createdAt,
+    correlationId,
+    redactedSummary,
+    visibleStatus,
+    visibleDetail,
+    retryable,
+    contextFallbackUsed,
+  );
 
   @JsonKey(ignore: true)
   @override
   @pragma('vm:prefer-inline')
   _$$MentorFactEventImplCopyWith<_$MentorFactEventImpl> get copyWith =>
       __$$MentorFactEventImplCopyWithImpl<_$MentorFactEventImpl>(
-          this, _$identity);
+        this,
+        _$identity,
+      );
 }
 
 abstract class _MentorFactEvent extends MentorFactEvent {
-  factory _MentorFactEvent(
-      {required final String localEventId,
-      required final String installationId,
-      required final MentorFactType eventType,
-      required final String phase,
-      required final DateTime createdAt,
-      final String? correlationId,
-      final String? redactedSummary,
-      final String? visibleStatus,
-      final String? visibleDetail,
-      final bool retryable,
-      final bool contextFallbackUsed}) = _$MentorFactEventImpl;
+  factory _MentorFactEvent({
+    required final String localEventId,
+    required final String installationId,
+    required final MentorFactType eventType,
+    required final String phase,
+    required final DateTime createdAt,
+    final String? correlationId,
+    final String? redactedSummary,
+    final String? visibleStatus,
+    final String? visibleDetail,
+    final bool retryable,
+    final bool contextFallbackUsed,
+  }) = _$MentorFactEventImpl;
   _MentorFactEvent._() : super._();
 
   @override

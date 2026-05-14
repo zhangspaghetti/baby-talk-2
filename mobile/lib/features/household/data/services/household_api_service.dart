@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:dio/dio.dart';
+import 'package:mobile/core/network/app_dio.dart';
 import 'package:mobile/features/account/data/services/authenticated_api_client.dart';
 import 'package:mobile/features/account/domain/models/account_session.dart';
 import 'package:mobile/features/household/domain/models/household_invite_link.dart';
@@ -100,16 +101,8 @@ class HouseholdApiService {
     String? baseUrl,
     this.appVersion = defaultHouseholdApiVersion,
     this.timeout = const Duration(seconds: 8),
-  }) : _dio = dio ??
-           Dio(
-             BaseOptions(
-               baseUrl: baseUrl ?? defaultHouseholdApiBaseUrl,
-               connectTimeout: timeout,
-               receiveTimeout: timeout,
-               headers: {'Content-Type': 'application/json'},
-               validateStatus: (status) => true,
-             ),
-           ),
+  }) : _dio =
+           dio ?? AppDio.create(baseUrl: baseUrl ?? defaultHouseholdApiBaseUrl),
        _authenticatedApiClient = authenticatedApiClient,
        _ownsDio = dio == null;
 
@@ -262,9 +255,6 @@ class HouseholdApiService {
       'Accept': 'application/json',
       'X-App-Version': appVersion,
     };
-    if (accessToken != null && accessToken.trim().isNotEmpty) {
-      headers['Authorization'] = 'Bearer ${accessToken.trim()}';
-    }
 
     Response<dynamic> response;
     try {
@@ -330,9 +320,7 @@ class HouseholdApiService {
 String _readRequiredString(Map<String, dynamic> json, String key) {
   final value = json[key];
   if (value is! String || value.trim().isEmpty) {
-    throw HouseholdApiException.malformed(
-      message: '字段 `$key` 缺失或不是非空字符串。',
-    );
+    throw HouseholdApiException.malformed(message: '字段 `$key` 缺失或不是非空字符串。');
   }
   return value;
 }
@@ -351,9 +339,7 @@ String? _readOptionalString(Map<String, dynamic> json, String key) {
 DateTime _readRequiredDateTime(Map<String, dynamic> json, String key) {
   final value = json[key];
   if (value is! String || value.trim().isEmpty) {
-    throw HouseholdApiException.malformed(
-      message: '字段 `$key` 缺失或不是合法时间。',
-    );
+    throw HouseholdApiException.malformed(message: '字段 `$key` 缺失或不是合法时间。');
   }
   return DateTime.parse(value).toUtc();
 }

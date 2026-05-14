@@ -20,7 +20,7 @@ import 'package:mobile/core/device/installation_id_service.dart';
 import 'package:mobile/features/account/data/local/account_local_store.dart';
 import 'package:mobile/features/account/data/repositories/account_repository.dart';
 import 'package:mobile/features/account/data/services/account_api_service.dart';
-import 'package:mobile/features/mentor/presentation/mentor_view_model.dart';
+import 'package:mobile/features/mentor/presentation/mentor_notifier.dart';
 import 'package:mobile/features/onboarding/domain/models/stage_match.dart';
 import 'package:mobile/features/practice/data/local/practice_local_data_source.dart';
 import 'package:mobile/features/practice/data/repositories/practice_repository.dart';
@@ -82,9 +82,7 @@ class E2eTestHarness {
         repositoryFactory: _openRepository,
         accountRepositoryFactory: (practiceRepository, directory) async {
           return AccountRepository(
-            localStore: AccountLocalStore(
-              storageKey: 'e2e_smoke_account',
-            ),
+            localStore: AccountLocalStore(storageKey: 'e2e_smoke_account'),
             practiceRepository: practiceRepository,
             apiService: AccountApiService(baseUrl: backendUri.toString()),
             connectivityChecker: () async => true,
@@ -240,7 +238,7 @@ class E2eTestHarness {
     );
   }
 
-  Future<MentorViewModel> submitMentorPrompt(
+  Future<MentorNotifier> submitMentorPrompt(
     WidgetTester tester, {
     required String prompt,
   }) async {
@@ -254,7 +252,9 @@ class E2eTestHarness {
     final fabWidget = tester.widget<FloatingActionButton>(mentorFab);
     final onPressed = fabWidget.onPressed;
     if (onPressed == null) {
-      fail('Shell mentor FAB is disabled — make sure to completeStarterPractice first.');
+      fail(
+        'Shell mentor FAB is disabled — make sure to completeStarterPractice first.',
+      );
     }
     onPressed();
     await tester.pump();
@@ -275,7 +275,9 @@ class E2eTestHarness {
 
     await tester.enterText(find.byKey(const Key('mentor-chat-input')), prompt);
     await tester.pumpAndSettle();
-    await tester.ensureVisible(find.byKey(const Key('mentor-chat-submit-button')));
+    await tester.ensureVisible(
+      find.byKey(const Key('mentor-chat-submit-button')),
+    );
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('mentor-chat-submit-button')));
     await tester.pump();
@@ -298,7 +300,8 @@ class E2eTestHarness {
       localDataSource: localDataSource,
       installationIdService: InstallationIdService(
         directoryResolver: () async => tempDir,
-        idGenerator: () => 'e2e_smoke_install_${DateTime.now().millisecondsSinceEpoch}',
+        idGenerator: () =>
+            'e2e_smoke_install_${DateTime.now().millisecondsSinceEpoch}',
       ),
     );
     _activeRepository = repository;
@@ -332,24 +335,24 @@ class E2eTestHarness {
     await tester.pumpAndSettle();
   }
 
-  static Future<MentorViewModel> _waitForMentorSubmissionToSettle(
+  static Future<MentorNotifier> _waitForMentorSubmissionToSettle(
     WidgetTester tester, {
     // Dev-mode backend is fast, but allow time for network round-trip.
     Duration timeout = const Duration(seconds: 30),
     Duration step = const Duration(milliseconds: 100),
   }) async {
-    MentorViewModel? resolved;
+    MentorNotifier? resolved;
     await pumpUntil(
       tester,
       () {
         final sheet = find.byKey(const Key('mentor-panel-sheet'));
         if (sheet.evaluate().isEmpty) return false;
-        final viewModel = Provider.of<MentorViewModel>(
+        final notifier = Provider.of<MentorNotifier>(
           tester.element(sheet),
           listen: false,
         );
-        if (viewModel.isSubmittingChat) return false;
-        resolved = viewModel;
+        if (notifier.isSubmittingChat) return false;
+        resolved = notifier;
         return true;
       },
       timeout: timeout,

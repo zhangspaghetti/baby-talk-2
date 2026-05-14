@@ -12,7 +12,8 @@ part of 'account_session.dart';
 T _$identity<T>(T value) => value;
 
 final _privateConstructorUsedError = UnsupportedError(
-    'It seems like you constructed your class using `MyClass._()`. This constructor is only meant to be used by freezed and you are not supposed to need it nor use it.\nPlease check the documentation here for more information: https://github.com/rrousselGit/freezed#adding-getters-and-methods-to-our-models');
+  'It seems like you constructed your class using `MyClass._()`. This constructor is only meant to be used by freezed and you are not supposed to need it nor use it.\nPlease check the documentation here for more information: https://github.com/rrousselGit/freezed#adding-getters-and-methods-to-our-models',
+);
 
 /// @nodoc
 mixin _$AccountSession {
@@ -34,19 +35,21 @@ mixin _$AccountSession {
 /// @nodoc
 abstract class $AccountSessionCopyWith<$Res> {
   factory $AccountSessionCopyWith(
-          AccountSession value, $Res Function(AccountSession) then) =
-      _$AccountSessionCopyWithImpl<$Res, AccountSession>;
+    AccountSession value,
+    $Res Function(AccountSession) then,
+  ) = _$AccountSessionCopyWithImpl<$Res, AccountSession>;
   @useResult
-  $Res call(
-      {String accountId,
-      String sessionId,
-      String maskedPhoneNumber,
-      DateTime createdAt,
-      String? accessToken,
-      String? refreshToken,
-      String? tokenType,
-      DateTime? accessTokenExpiresAt,
-      DateTime? refreshTokenExpiresAt});
+  $Res call({
+    String accountId,
+    String sessionId,
+    String maskedPhoneNumber,
+    DateTime createdAt,
+    String? accessToken,
+    String? refreshToken,
+    String? tokenType,
+    DateTime? accessTokenExpiresAt,
+    DateTime? refreshTokenExpiresAt,
+  });
 }
 
 /// @nodoc
@@ -72,65 +75,70 @@ class _$AccountSessionCopyWithImpl<$Res, $Val extends AccountSession>
     Object? accessTokenExpiresAt = freezed,
     Object? refreshTokenExpiresAt = freezed,
   }) {
-    return _then(_value.copyWith(
-      accountId: null == accountId
-          ? _value.accountId
-          : accountId // ignore: cast_nullable_to_non_nullable
-              as String,
-      sessionId: null == sessionId
-          ? _value.sessionId
-          : sessionId // ignore: cast_nullable_to_non_nullable
-              as String,
-      maskedPhoneNumber: null == maskedPhoneNumber
-          ? _value.maskedPhoneNumber
-          : maskedPhoneNumber // ignore: cast_nullable_to_non_nullable
-              as String,
-      createdAt: null == createdAt
-          ? _value.createdAt
-          : createdAt // ignore: cast_nullable_to_non_nullable
-              as DateTime,
-      accessToken: freezed == accessToken
-          ? _value.accessToken
-          : accessToken // ignore: cast_nullable_to_non_nullable
-              as String?,
-      refreshToken: freezed == refreshToken
-          ? _value.refreshToken
-          : refreshToken // ignore: cast_nullable_to_non_nullable
-              as String?,
-      tokenType: freezed == tokenType
-          ? _value.tokenType
-          : tokenType // ignore: cast_nullable_to_non_nullable
-              as String?,
-      accessTokenExpiresAt: freezed == accessTokenExpiresAt
-          ? _value.accessTokenExpiresAt
-          : accessTokenExpiresAt // ignore: cast_nullable_to_non_nullable
-              as DateTime?,
-      refreshTokenExpiresAt: freezed == refreshTokenExpiresAt
-          ? _value.refreshTokenExpiresAt
-          : refreshTokenExpiresAt // ignore: cast_nullable_to_non_nullable
-              as DateTime?,
-    ) as $Val);
+    return _then(
+      _value.copyWith(
+            accountId: null == accountId
+                ? _value.accountId
+                : accountId // ignore: cast_nullable_to_non_nullable
+                      as String,
+            sessionId: null == sessionId
+                ? _value.sessionId
+                : sessionId // ignore: cast_nullable_to_non_nullable
+                      as String,
+            maskedPhoneNumber: null == maskedPhoneNumber
+                ? _value.maskedPhoneNumber
+                : maskedPhoneNumber // ignore: cast_nullable_to_non_nullable
+                      as String,
+            createdAt: null == createdAt
+                ? _value.createdAt
+                : createdAt // ignore: cast_nullable_to_non_nullable
+                      as DateTime,
+            accessToken: freezed == accessToken
+                ? _value.accessToken
+                : accessToken // ignore: cast_nullable_to_non_nullable
+                      as String?,
+            refreshToken: freezed == refreshToken
+                ? _value.refreshToken
+                : refreshToken // ignore: cast_nullable_to_non_nullable
+                      as String?,
+            tokenType: freezed == tokenType
+                ? _value.tokenType
+                : tokenType // ignore: cast_nullable_to_non_nullable
+                      as String?,
+            accessTokenExpiresAt: freezed == accessTokenExpiresAt
+                ? _value.accessTokenExpiresAt
+                : accessTokenExpiresAt // ignore: cast_nullable_to_non_nullable
+                      as DateTime?,
+            refreshTokenExpiresAt: freezed == refreshTokenExpiresAt
+                ? _value.refreshTokenExpiresAt
+                : refreshTokenExpiresAt // ignore: cast_nullable_to_non_nullable
+                      as DateTime?,
+          )
+          as $Val,
+    );
   }
 }
 
 /// @nodoc
 abstract class _$$AccountSessionImplCopyWith<$Res>
     implements $AccountSessionCopyWith<$Res> {
-  factory _$$AccountSessionImplCopyWith(_$AccountSessionImpl value,
-          $Res Function(_$AccountSessionImpl) then) =
-      __$$AccountSessionImplCopyWithImpl<$Res>;
+  factory _$$AccountSessionImplCopyWith(
+    _$AccountSessionImpl value,
+    $Res Function(_$AccountSessionImpl) then,
+  ) = __$$AccountSessionImplCopyWithImpl<$Res>;
   @override
   @useResult
-  $Res call(
-      {String accountId,
-      String sessionId,
-      String maskedPhoneNumber,
-      DateTime createdAt,
-      String? accessToken,
-      String? refreshToken,
-      String? tokenType,
-      DateTime? accessTokenExpiresAt,
-      DateTime? refreshTokenExpiresAt});
+  $Res call({
+    String accountId,
+    String sessionId,
+    String maskedPhoneNumber,
+    DateTime createdAt,
+    String? accessToken,
+    String? refreshToken,
+    String? tokenType,
+    DateTime? accessTokenExpiresAt,
+    DateTime? refreshTokenExpiresAt,
+  });
 }
 
 /// @nodoc
@@ -138,8 +146,9 @@ class __$$AccountSessionImplCopyWithImpl<$Res>
     extends _$AccountSessionCopyWithImpl<$Res, _$AccountSessionImpl>
     implements _$$AccountSessionImplCopyWith<$Res> {
   __$$AccountSessionImplCopyWithImpl(
-      _$AccountSessionImpl _value, $Res Function(_$AccountSessionImpl) _then)
-      : super(_value, _then);
+    _$AccountSessionImpl _value,
+    $Res Function(_$AccountSessionImpl) _then,
+  ) : super(_value, _then);
 
   @pragma('vm:prefer-inline')
   @override
@@ -154,61 +163,63 @@ class __$$AccountSessionImplCopyWithImpl<$Res>
     Object? accessTokenExpiresAt = freezed,
     Object? refreshTokenExpiresAt = freezed,
   }) {
-    return _then(_$AccountSessionImpl(
-      accountId: null == accountId
-          ? _value.accountId
-          : accountId // ignore: cast_nullable_to_non_nullable
-              as String,
-      sessionId: null == sessionId
-          ? _value.sessionId
-          : sessionId // ignore: cast_nullable_to_non_nullable
-              as String,
-      maskedPhoneNumber: null == maskedPhoneNumber
-          ? _value.maskedPhoneNumber
-          : maskedPhoneNumber // ignore: cast_nullable_to_non_nullable
-              as String,
-      createdAt: null == createdAt
-          ? _value.createdAt
-          : createdAt // ignore: cast_nullable_to_non_nullable
-              as DateTime,
-      accessToken: freezed == accessToken
-          ? _value.accessToken
-          : accessToken // ignore: cast_nullable_to_non_nullable
-              as String?,
-      refreshToken: freezed == refreshToken
-          ? _value.refreshToken
-          : refreshToken // ignore: cast_nullable_to_non_nullable
-              as String?,
-      tokenType: freezed == tokenType
-          ? _value.tokenType
-          : tokenType // ignore: cast_nullable_to_non_nullable
-              as String?,
-      accessTokenExpiresAt: freezed == accessTokenExpiresAt
-          ? _value.accessTokenExpiresAt
-          : accessTokenExpiresAt // ignore: cast_nullable_to_non_nullable
-              as DateTime?,
-      refreshTokenExpiresAt: freezed == refreshTokenExpiresAt
-          ? _value.refreshTokenExpiresAt
-          : refreshTokenExpiresAt // ignore: cast_nullable_to_non_nullable
-              as DateTime?,
-    ));
+    return _then(
+      _$AccountSessionImpl(
+        accountId: null == accountId
+            ? _value.accountId
+            : accountId // ignore: cast_nullable_to_non_nullable
+                  as String,
+        sessionId: null == sessionId
+            ? _value.sessionId
+            : sessionId // ignore: cast_nullable_to_non_nullable
+                  as String,
+        maskedPhoneNumber: null == maskedPhoneNumber
+            ? _value.maskedPhoneNumber
+            : maskedPhoneNumber // ignore: cast_nullable_to_non_nullable
+                  as String,
+        createdAt: null == createdAt
+            ? _value.createdAt
+            : createdAt // ignore: cast_nullable_to_non_nullable
+                  as DateTime,
+        accessToken: freezed == accessToken
+            ? _value.accessToken
+            : accessToken // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        refreshToken: freezed == refreshToken
+            ? _value.refreshToken
+            : refreshToken // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        tokenType: freezed == tokenType
+            ? _value.tokenType
+            : tokenType // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        accessTokenExpiresAt: freezed == accessTokenExpiresAt
+            ? _value.accessTokenExpiresAt
+            : accessTokenExpiresAt // ignore: cast_nullable_to_non_nullable
+                  as DateTime?,
+        refreshTokenExpiresAt: freezed == refreshTokenExpiresAt
+            ? _value.refreshTokenExpiresAt
+            : refreshTokenExpiresAt // ignore: cast_nullable_to_non_nullable
+                  as DateTime?,
+      ),
+    );
   }
 }
 
 /// @nodoc
 
 class _$AccountSessionImpl extends _AccountSession {
-  _$AccountSessionImpl(
-      {required this.accountId,
-      required this.sessionId,
-      required this.maskedPhoneNumber,
-      required this.createdAt,
-      this.accessToken,
-      this.refreshToken,
-      this.tokenType,
-      this.accessTokenExpiresAt,
-      this.refreshTokenExpiresAt})
-      : super._();
+  _$AccountSessionImpl({
+    required this.accountId,
+    required this.sessionId,
+    required this.maskedPhoneNumber,
+    required this.createdAt,
+    this.accessToken,
+    this.refreshToken,
+    this.tokenType,
+    this.accessTokenExpiresAt,
+    this.refreshTokenExpiresAt,
+  }) : super._();
 
   @override
   final String accountId;
@@ -261,36 +272,40 @@ class _$AccountSessionImpl extends _AccountSession {
 
   @override
   int get hashCode => Object.hash(
-      runtimeType,
-      accountId,
-      sessionId,
-      maskedPhoneNumber,
-      createdAt,
-      accessToken,
-      refreshToken,
-      tokenType,
-      accessTokenExpiresAt,
-      refreshTokenExpiresAt);
+    runtimeType,
+    accountId,
+    sessionId,
+    maskedPhoneNumber,
+    createdAt,
+    accessToken,
+    refreshToken,
+    tokenType,
+    accessTokenExpiresAt,
+    refreshTokenExpiresAt,
+  );
 
   @JsonKey(ignore: true)
   @override
   @pragma('vm:prefer-inline')
   _$$AccountSessionImplCopyWith<_$AccountSessionImpl> get copyWith =>
       __$$AccountSessionImplCopyWithImpl<_$AccountSessionImpl>(
-          this, _$identity);
+        this,
+        _$identity,
+      );
 }
 
 abstract class _AccountSession extends AccountSession {
-  factory _AccountSession(
-      {required final String accountId,
-      required final String sessionId,
-      required final String maskedPhoneNumber,
-      required final DateTime createdAt,
-      final String? accessToken,
-      final String? refreshToken,
-      final String? tokenType,
-      final DateTime? accessTokenExpiresAt,
-      final DateTime? refreshTokenExpiresAt}) = _$AccountSessionImpl;
+  factory _AccountSession({
+    required final String accountId,
+    required final String sessionId,
+    required final String maskedPhoneNumber,
+    required final DateTime createdAt,
+    final String? accessToken,
+    final String? refreshToken,
+    final String? tokenType,
+    final DateTime? accessTokenExpiresAt,
+    final DateTime? refreshTokenExpiresAt,
+  }) = _$AccountSessionImpl;
   _AccountSession._() : super._();
 
   @override

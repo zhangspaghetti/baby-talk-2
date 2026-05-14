@@ -9,7 +9,7 @@ import 'package:mobile/app/theme/app_layout_constants.dart';
 import 'package:mobile/app/theme/app_theme.dart';
 import 'package:mobile/features/mentor/presentation/mentor_audio_controller.dart';
 import 'package:mobile/features/practice/presentation/practice_route_args.dart';
-import 'package:mobile/features/practice/presentation/practice_session_view_model.dart';
+import 'package:mobile/features/practice/presentation/practice_session_notifier.dart';
 import 'package:mobile/features/practice/presentation/widgets/activation_frame.dart';
 import 'package:mobile/features/practice/presentation/widgets/phrase_card.dart';
 import 'package:provider/provider.dart';
@@ -37,8 +37,8 @@ class PracticeSessionScreen extends ConsumerWidget {
     final args = routeEntry.args!;
     final repository = ref.read(practiceRepositoryProvider).requireValue;
     final accountNotifier = ref.read(accountNotifierProvider);
-    return ChangeNotifierProvider<PracticeSessionViewModel>(
-      create: (_) => PracticeSessionViewModel(
+    return ChangeNotifierProvider<PracticeSessionNotifier>(
+      create: (_) => PracticeSessionNotifier(
         repository: repository,
         spaceId: args.spaceId,
         activityId: args.activityId,
@@ -69,14 +69,14 @@ class _PracticeSessionBodyState extends State<_PracticeSessionBody> {
       if (!mounted) {
         return;
       }
-      final viewModel = context.read<PracticeSessionViewModel>();
-      if (viewModel.isDynamic) {
+      final notifier = context.read<PracticeSessionNotifier>();
+      if (notifier.isDynamic) {
         _ttsController = FlutterTtsMentorAudioController();
       }
-      if (viewModel.hasPreparedSession) {
+      if (notifier.hasPreparedSession) {
         return;
       }
-      viewModel.ensureSessionReady();
+      notifier.ensureSessionReady();
     });
   }
 
@@ -100,10 +100,10 @@ class _PracticeSessionBodyState extends State<_PracticeSessionBody> {
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
     final colors = context.appColors;
-    final viewModel = context.watch<PracticeSessionViewModel>();
-    final activity = viewModel.activitySnapshot;
+    final notifier = context.watch<PracticeSessionNotifier>();
+    final activity = notifier.activitySnapshot;
 
-    if (viewModel.isSessionLoading && activity == null) {
+    if (notifier.isSessionLoading && activity == null) {
       return const Scaffold(
         body: SafeArea(
           child: Center(
@@ -116,8 +116,8 @@ class _PracticeSessionBodyState extends State<_PracticeSessionBody> {
     if (activity == null) {
       return PracticeFallbackScaffold(
         message:
-            viewModel.sessionErrorMessage ??
-            viewModel.homeErrorMessage ??
+            notifier.sessionErrorMessage ??
+            notifier.homeErrorMessage ??
             l.practiceContextMissing,
       );
     }
@@ -125,7 +125,7 @@ class _PracticeSessionBodyState extends State<_PracticeSessionBody> {
     final phrases = activity.phrases;
     final progressValue = phrases.isEmpty
         ? 0.0
-        : ((viewModel.currentPhraseIndex + 1) / phrases.length).clamp(0.0, 1.0);
+        : ((notifier.currentPhraseIndex + 1) / phrases.length).clamp(0.0, 1.0);
 
     return Scaffold(
       appBar: AppBar(
@@ -154,7 +154,7 @@ class _PracticeSessionBodyState extends State<_PracticeSessionBody> {
                 ),
                 const SizedBox(height: 12),
                 Text(
-                  '第 ${viewModel.currentPhraseIndex + 1} / ${phrases.length} 句',
+                  '第 ${notifier.currentPhraseIndex + 1} / ${phrases.length} 句',
                   key: const Key('practice-progress-text'),
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
                     color: colors.textPrimary,
@@ -173,29 +173,29 @@ class _PracticeSessionBodyState extends State<_PracticeSessionBody> {
                     style: Theme.of(context).textTheme.bodyMedium,
                   ),
                 ),
-                if (viewModel.restoreStatusMessage != null) ...[
+                if (notifier.restoreStatusMessage != null) ...[
                   const SizedBox(height: 16),
                   AppBanner(
                     key: const Key('practice-restore-banner'),
-                    message: viewModel.restoreStatusMessage!,
-                    backgroundColor: viewModel.hasRecoverableRestoreIssue
+                    message: notifier.restoreStatusMessage!,
+                    backgroundColor: notifier.hasRecoverableRestoreIssue
                         ? colors.warningSoft
                         : colors.infoSoft,
-                    foregroundColor: viewModel.hasRecoverableRestoreIssue
+                    foregroundColor: notifier.hasRecoverableRestoreIssue
                         ? colors.warning
                         : colors.info,
                   ),
                 ],
-                if (viewModel.sessionErrorMessage != null) ...[
+                if (notifier.sessionErrorMessage != null) ...[
                   const SizedBox(height: 16),
                   AppBanner(
                     key: const Key('session-error-banner'),
-                    message: viewModel.sessionErrorMessage!,
+                    message: notifier.sessionErrorMessage!,
                     backgroundColor: colors.errorSoft,
                     foregroundColor: colors.error,
                   ),
                 ],
-                if (viewModel.sessionCompleted) ...[
+                if (notifier.sessionCompleted) ...[
                   const SizedBox(height: 16),
                   AppCelebrationOverlay(
                     key: const Key('practice-celebration-overlay'),
@@ -209,28 +209,28 @@ class _PracticeSessionBodyState extends State<_PracticeSessionBody> {
                 ],
                 const SizedBox(height: 20),
                 for (var index = 0; index < phrases.length; index++) ...[
-                  if (index == viewModel.currentPhraseIndex)
+                  if (index == notifier.currentPhraseIndex)
                     ActivationFrame(
                       stepLabel: 'STEP ${phrases[index].step}',
                       title: l.practiceCurrentPhrases,
                       child: PhraseCard(
                         phrase: phrases[index],
                         isActive: true,
-                        isCompleted: viewModel.isPhraseCompleted(
+                        isCompleted: notifier.isPhraseCompleted(
                           phrases[index].phraseId,
                         ),
-                        playbackStatus: viewModel.playbackStatus,
-                        saveStatus: viewModel.saveStatus,
-                        playbackMessage: viewModel.playbackMessage,
-                        saveMessage: viewModel.saveMessage,
-                        canPlay: viewModel.canPlayCurrentPhrase,
-                        canSubmitReaction: viewModel.canSubmitReaction,
-                        onPlay: viewModel.playCurrentPhrase,
+                        playbackStatus: notifier.playbackStatus,
+                        saveStatus: notifier.saveStatus,
+                        playbackMessage: notifier.playbackMessage,
+                        saveMessage: notifier.saveMessage,
+                        canPlay: notifier.canPlayCurrentPhrase,
+                        canSubmitReaction: notifier.canSubmitReaction,
+                        onPlay: notifier.playCurrentPhrase,
                         isTtsMode:
-                            viewModel.isDynamic &&
+                            notifier.isDynamic &&
                             phrases[index].audioAsset.isEmpty,
                         onTtsSpeak:
-                            (viewModel.isDynamic &&
+                            (notifier.isDynamic &&
                                 phrases[index].audioAsset.isEmpty)
                             ? () => _speakPhrase(phrases[index].english)
                             : null,
@@ -238,7 +238,7 @@ class _PracticeSessionBodyState extends State<_PracticeSessionBody> {
                           AppHaptics.lightTap();
                           final navigator = Navigator.of(context);
                           final outcome = await context
-                              .read<PracticeSessionViewModel>()
+                              .read<PracticeSessionNotifier>()
                               .recordReaction(reactionType);
                           if (!mounted) {
                             return;
@@ -263,7 +263,7 @@ class _PracticeSessionBodyState extends State<_PracticeSessionBody> {
                       child: PhraseCard(
                         phrase: phrases[index],
                         isActive: false,
-                        isCompleted: viewModel.isPhraseCompleted(
+                        isCompleted: notifier.isPhraseCompleted(
                           phrases[index].phraseId,
                         ),
                         playbackStatus: PracticePlaybackStatus.idle,

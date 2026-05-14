@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:mobile/app/widgets/app_banner.dart';
 import 'package:mobile/app/theme/app_layout_constants.dart';
 import 'package:mobile/app/theme/app_theme.dart';
-import 'package:mobile/features/account/presentation/account_view_model.dart';
+import 'package:mobile/features/account/presentation/account_notifier.dart';
 import 'package:mobile/features/mentor/data/services/mentor_api_service.dart'
     show mentorPromptMaxLength;
-import 'package:mobile/features/mentor/presentation/mentor_view_model.dart';
+import 'package:mobile/features/mentor/presentation/mentor_notifier.dart';
 import 'package:mobile/features/mentor/presentation/widgets/mentor_suggestion_tab.dart';
 import 'package:mobile/features/onboarding/presentation/widgets/mentor_bubble.dart';
 import 'package:provider/provider.dart';
@@ -16,8 +16,8 @@ Future<void> openMentorPanelSheet(
   required String launcher,
   String surface = 'home',
 }) async {
-  final viewModel = Provider.of<MentorViewModel?>(context, listen: false);
-  if (viewModel == null) {
+  final notifier = Provider.of<MentorNotifier?>(context, listen: false);
+  if (notifier == null) {
     final l = AppLocalizations.of(context)!;
     ScaffoldMessenger.of(
       context,
@@ -25,7 +25,7 @@ Future<void> openMentorPanelSheet(
     return;
   }
 
-  final shouldOpen = await viewModel.beginPanelSession(
+  final shouldOpen = await notifier.beginPanelSession(
     launcher: launcher,
     surface: surface,
   );
@@ -33,7 +33,7 @@ Future<void> openMentorPanelSheet(
     return;
   }
   if (!context.mounted) {
-    viewModel.endPanelSession();
+    notifier.endPanelSession();
     return;
   }
 
@@ -42,13 +42,13 @@ Future<void> openMentorPanelSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (_) => ChangeNotifierProvider<MentorViewModel>.value(
-        value: viewModel,
+      builder: (_) => ChangeNotifierProvider<MentorNotifier>.value(
+        value: notifier,
         child: const MentorPanelSheet(),
       ),
     );
   } finally {
-    viewModel.endPanelSession();
+    notifier.endPanelSession();
   }
 }
 
@@ -59,7 +59,7 @@ class MentorPanelSheet extends StatelessWidget {
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
     final colors = context.appColors;
-    final viewModel = context.watch<MentorViewModel>();
+    final notifier = context.watch<MentorNotifier>();
     final mediaQuery = MediaQuery.of(context);
     final maxHeight = mediaQuery.size.height * 0.78;
 
@@ -120,13 +120,13 @@ class MentorPanelSheet extends StatelessWidget {
               ),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: _SegmentedTabBar(selectedTab: viewModel.selectedTab),
+                child: _SegmentedTabBar(selectedTab: notifier.selectedTab),
               ),
               const SizedBox(height: 12),
               Expanded(
                 child: AnimatedSwitcher(
                   duration: const Duration(milliseconds: 180),
-                  child: viewModel.selectedTab == MentorPanelTab.suggestions
+                  child: notifier.selectedTab == MentorPanelTab.suggestions
                       ? const MentorSuggestionTab(
                           key: ValueKey('mentor-suggestion-body'),
                         )
@@ -150,7 +150,7 @@ class _SegmentedTabBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
     final colors = context.appColors;
-    final viewModel = context.read<MentorViewModel>();
+    final notifier = context.read<MentorNotifier>();
     return Container(
       padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
@@ -167,8 +167,7 @@ class _SegmentedTabBar extends StatelessWidget {
                 buttonKey: const Key('mentor-tab-suggestions-button'),
                 label: l.mentorSuggestionTab,
                 selected: selectedTab == MentorPanelTab.suggestions,
-                onPressed: () =>
-                    viewModel.selectTab(MentorPanelTab.suggestions),
+                onPressed: () => notifier.selectTab(MentorPanelTab.suggestions),
               ),
             ),
           ),
@@ -181,7 +180,7 @@ class _SegmentedTabBar extends StatelessWidget {
                 buttonKey: const Key('mentor-tab-chat-button'),
                 label: l.mentorChatTab,
                 selected: selectedTab == MentorPanelTab.chat,
-                onPressed: () => viewModel.selectTab(MentorPanelTab.chat),
+                onPressed: () => notifier.selectTab(MentorPanelTab.chat),
               ),
             ),
           ),
@@ -238,9 +237,9 @@ class _MentorChatTab extends StatelessWidget {
     final l = AppLocalizations.of(context)!;
     final colors = context.appColors;
     final theme = Theme.of(context);
-    final accountViewModel = context.watch<AccountViewModel>();
-    final viewModel = context.watch<MentorViewModel>();
-    final availability = viewModel.chatAvailability;
+    final accountNotifier = context.watch<AccountNotifier>();
+    final notifier = context.watch<MentorNotifier>();
+    final availability = notifier.chatAvailability;
 
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(20, 4, 20, 20),
@@ -260,15 +259,15 @@ class _MentorChatTab extends StatelessWidget {
           const SizedBox(height: 16),
           AppBanner(
             key: const Key('mentor-chat-banner'),
-            message: viewModel.bannerMessage ?? availability.detail,
+            message: notifier.bannerMessage ?? availability.detail,
             backgroundColor: colors.warningSoft,
             foregroundColor: colors.warning,
           ),
-          if (viewModel.audioStatusMessage != null) ...[
+          if (notifier.audioStatusMessage != null) ...[
             const SizedBox(height: 12),
             AppBanner(
               key: const Key('mentor-chat-audio-banner'),
-              message: viewModel.audioStatusMessage!,
+              message: notifier.audioStatusMessage!,
               backgroundColor: colors.warningSoft,
               foregroundColor: colors.warning,
             ),
@@ -281,25 +280,25 @@ class _MentorChatTab extends StatelessWidget {
               Chip(
                 key: const Key('mentor-chat-phase-chip'),
                 label: Text(
-                  'phase · ${viewModel.chatResponsePhase ?? availability.phase}',
+                  'phase · ${notifier.chatResponsePhase ?? availability.phase}',
                 ),
               ),
               Chip(
                 key: const Key('mentor-chat-status-chip'),
-                label: Text(viewModel.statusChipLabel),
+                label: Text(notifier.statusChipLabel),
               ),
-              if (accountViewModel.snapshot.lastSyncPhase.trim().isNotEmpty)
+              if (accountNotifier.snapshot.lastSyncPhase.trim().isNotEmpty)
                 Chip(
                   key: const Key('mentor-chat-account-phase-chip'),
                   label: Text(
-                    'account · ${accountViewModel.snapshot.lastSyncPhase}',
+                    'account · ${accountNotifier.snapshot.lastSyncPhase}',
                   ),
                 ),
-              if (viewModel.chatRateLimit != null)
+              if (notifier.chatRateLimit != null)
                 Chip(
                   key: const Key('mentor-chat-rate-chip'),
                   label: Text(
-                    'limit · ${viewModel.chatRateLimit!.remaining}/${viewModel.chatRateLimit!.limit}',
+                    'limit · ${notifier.chatRateLimit!.remaining}/${notifier.chatRateLimit!.limit}',
                   ),
                 ),
             ],
@@ -324,8 +323,8 @@ class _MentorChatTab extends StatelessWidget {
                   minLines: 3,
                   maxLines: 5,
                   maxLength: mentorPromptMaxLength,
-                  enabled: !viewModel.isSubmittingChat,
-                  onChanged: viewModel.updateChatDraft,
+                  enabled: !notifier.isSubmittingChat,
+                  onChanged: notifier.updateChatDraft,
                   decoration: const InputDecoration(
                     hintText: '例如：宝宝一直哭，我现在该怎么开口安抚？',
                   ),
@@ -335,11 +334,11 @@ class _MentorChatTab extends StatelessWidget {
                   children: [
                     FilledButton(
                       key: const Key('mentor-chat-submit-button'),
-                      onPressed: viewModel.canSubmitChat
-                          ? viewModel.submitChat
+                      onPressed: notifier.canSubmitChat
+                          ? notifier.submitChat
                           : null,
                       child: Text(
-                        viewModel.isSubmittingChat
+                        notifier.isSubmittingChat
                             ? l.mentorSending
                             : l.mentorSendRequest,
                       ),
@@ -348,7 +347,7 @@ class _MentorChatTab extends StatelessWidget {
                     OutlinedButton(
                       key: const Key('mentor-chat-retry-button'),
                       onPressed: availability.retryable
-                          ? viewModel.retryChatAvailability
+                          ? notifier.retryChatAvailability
                           : null,
                       child: Text(l.mentorRecheck),
                     ),
@@ -357,18 +356,18 @@ class _MentorChatTab extends StatelessWidget {
               ],
             ),
           ),
-          if (viewModel.isSubmittingChat) ...[
+          if (notifier.isSubmittingChat) ...[
             const SizedBox(height: 16),
             const LinearProgressIndicator(key: Key('mentor-chat-loading-bar')),
           ],
-          if (viewModel.chatResponseText != null) ...[
+          if (notifier.chatResponseText != null) ...[
             const SizedBox(height: 16),
-            _ChatResponseCard(viewModel: viewModel),
+            _ChatResponseCard(notifier: notifier),
           ],
           const SizedBox(height: 16),
           FilledButton.tonal(
             key: const Key('mentor-chat-back-to-suggestions'),
-            onPressed: () => viewModel.selectTab(MentorPanelTab.suggestions),
+            onPressed: () => notifier.selectTab(MentorPanelTab.suggestions),
             child: Text(l.mentorBackToSuggestion),
           ),
         ],
@@ -378,9 +377,9 @@ class _MentorChatTab extends StatelessWidget {
 }
 
 class _ChatResponseCard extends StatelessWidget {
-  const _ChatResponseCard({required this.viewModel});
+  const _ChatResponseCard({required this.notifier});
 
-  final MentorViewModel viewModel;
+  final MentorNotifier notifier;
 
   @override
   Widget build(BuildContext context) {
@@ -403,7 +402,7 @@ class _ChatResponseCard extends StatelessWidget {
           Text(l.mentorControlledResponse, style: theme.textTheme.titleMedium),
           const SizedBox(height: 10),
           Text(
-            viewModel.chatResponseText!,
+            notifier.chatResponseText!,
             key: const Key('mentor-chat-response-text'),
             style: theme.textTheme.bodyMedium,
           ),
@@ -412,25 +411,23 @@ class _ChatResponseCard extends StatelessWidget {
             spacing: 8,
             runSpacing: 8,
             children: [
-              if (viewModel.chatResponseCode != null)
-                Chip(label: Text('code · ${viewModel.chatResponseCode}')),
-              if (viewModel.chatAuthenticated)
+              if (notifier.chatResponseCode != null)
+                Chip(label: Text('code · ${notifier.chatResponseCode}')),
+              if (notifier.chatAuthenticated)
                 const Chip(label: Text('auth · session'))
               else
                 Chip(label: Text(l.mentorNotLoggedIn)),
-              if (viewModel.chatFallbackUsed)
+              if (notifier.chatFallbackUsed)
                 Chip(label: Text(l.mentorLocalResponse)),
             ],
           ),
           const SizedBox(height: 12),
           OutlinedButton.icon(
             key: const Key('mentor-chat-read-aloud'),
-            onPressed: viewModel.isSpeaking
-                ? null
-                : viewModel.replayChatResponse,
+            onPressed: notifier.isSpeaking ? null : notifier.replayChatResponse,
             icon: const Icon(Icons.volume_up_outlined),
             label: Text(
-              viewModel.isSpeaking ? l.mentorReading : l.mentorReadResponse,
+              notifier.isSpeaking ? l.mentorReading : l.mentorReadResponse,
             ),
           ),
         ],

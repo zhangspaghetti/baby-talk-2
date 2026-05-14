@@ -3,16 +3,9 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:mobile/features/practice/data/repositories/garden_growth_repository.dart';
 import 'package:mobile/features/practice/domain/models/garden_growth_snapshot.dart';
-import 'package:mobile/features/practice/presentation/garden_growth_view_model.dart'
-    show GardenGrowthLoadStatus;
 
-/// Riverpod-ready notifier that replaces [GardenGrowthViewModel].
-///
-/// Uses [ChangeNotifier] as the base so existing widget code can adapt
-/// incrementally without a full rewrite of the UI layer.
-///
-/// The API surface intentionally mirrors the old ViewModel so that callers
-/// only need to swap the type they resolve.
+enum GardenGrowthLoadStatus { idle, loading, ready, empty, error }
+
 class GardenGrowthNotifier extends ChangeNotifier {
   GardenGrowthNotifier({
     required GardenGrowthRepository repository,
@@ -31,8 +24,6 @@ class GardenGrowthNotifier extends ChangeNotifier {
   bool _refreshQueued = false;
   Timer? _refreshTimeoutTimer;
 
-  // -- Getters ---------------------------------------------------------------
-
   GardenGrowthSnapshot get snapshot => _snapshot;
   GardenGrowthLoadStatus get status => _status;
   bool get isRefreshing => _isRefreshing;
@@ -41,8 +32,6 @@ class GardenGrowthNotifier extends ChangeNotifier {
   bool get isReady => _status == GardenGrowthLoadStatus.ready;
   bool get isEmpty => _status == GardenGrowthLoadStatus.empty;
   bool get hasError => _status == GardenGrowthLoadStatus.error;
-
-  // -- Public API ------------------------------------------------------------
 
   Future<void> initialize() {
     if (_status != GardenGrowthLoadStatus.idle || _isRefreshing) {
@@ -68,23 +57,6 @@ class GardenGrowthNotifier extends ChangeNotifier {
       }
     });
   }
-
-  /// Resets all in-memory state to a safe empty baseline.
-  ///
-  /// Called on session resets so the UI does not leak stale data.
-  void resetToSafeEmpty() {
-    _refreshTimeoutTimer?.cancel();
-    _refreshTimeoutTimer = null;
-    _refreshFuture = null;
-    _refreshQueued = false;
-    _isRefreshing = false;
-    _snapshot = GardenGrowthSnapshot.empty();
-    _status = GardenGrowthLoadStatus.idle;
-    _message = null;
-    notifyListeners();
-  }
-
-  // -- Internals -------------------------------------------------------------
 
   Future<void> _refreshInternal() async {
     _isRefreshing = true;
@@ -174,6 +146,19 @@ class GardenGrowthNotifier extends ChangeNotifier {
       return;
     }
     super.notifyListeners();
+  }
+
+  /// 会话重置时调用，清除所有内存状态回到安全空态。
+  void resetToSafeEmpty() {
+    _refreshTimeoutTimer?.cancel();
+    _refreshTimeoutTimer = null;
+    _refreshFuture = null;
+    _refreshQueued = false;
+    _isRefreshing = false;
+    _snapshot = GardenGrowthSnapshot.empty();
+    _status = GardenGrowthLoadStatus.idle;
+    _message = null;
+    notifyListeners();
   }
 
   @override
