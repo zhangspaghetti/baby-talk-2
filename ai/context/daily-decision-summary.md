@@ -3,7 +3,7 @@
 Date: 2026-05-19  
 Project: Baby Talk 2 mobile Flutter rescue  
 Stage: R3 Phase 3 in progress
-Status: red decisions confirmed; REFACTOR-006 Bearer JWT header task complete; REFACTOR-007 Mentor/AI fail-closed consent gate complete; REFACTOR-008 route contract pilot complete; REFACTOR-009 account repository contract seam complete; REFACTOR-010 practice repository characterization harness complete; REFACTOR-011 feature boundary report-only scan complete; REFACTOR-012 AsyncValue low-risk pilot complete; REFACTOR-013 local sensitive data lifecycle report-only scan complete; REFACTOR-014 token/i18n behavior-preserving cleanup pilot complete; REFACTOR-015 shared component extraction pilot complete
+Status: red decisions confirmed; REFACTOR-006 Bearer JWT header task complete; REFACTOR-007 Mentor/AI fail-closed consent gate complete; REFACTOR-008 route contract pilot complete; REFACTOR-009 account repository contract seam complete; REFACTOR-010 practice repository characterization harness complete; REFACTOR-011 feature boundary report-only scan complete; REFACTOR-012 AsyncValue low-risk pilot complete; REFACTOR-013 local sensitive data lifecycle report-only scan complete; REFACTOR-014 token/i18n behavior-preserving cleanup pilot complete; REFACTOR-015 shared component extraction pilot complete; REFACTOR-016 accessibility semantics and localization pilot complete
 
 ## Pending Decisions
 
@@ -43,4 +43,4 @@ Status: red decisions confirmed; REFACTOR-006 Bearer JWT header task complete; R
 
 ## Questions To User
 
-No new open REFACTOR-015 decision was added. REFACTOR-016 is the next blocked Phase 3 task and requires separate human approval before accessibility semantics and localization cleanup. Yellow design/lint decisions should be resolved before broader Phase 3 cleanup or before converting report-only gates into hard CI failures.
+No new open REFACTOR-016 decision was added. REFACTOR-017 is the next blocked Phase 4 verification task and requires Phase 1-3 completion evidence before execution. Yellow design/lint decisions should be resolved before broader cleanup or before converting report-only gates into hard CI failures.

@@ -15,6 +15,7 @@ class DiscoverSpaceSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
     final colors = context.appColors;
     return Container(
       key: Key('discover-space-section-${space.spaceId}'),
@@ -37,7 +38,11 @@ class DiscoverSpaceSection extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           Text(
-            '${space.startedActivityCount}/${space.totalActivityCount} 个 activity 已开始 · ${space.totalEvents} 条记录',
+            l.discoverSpaceProgress(
+              space.startedActivityCount,
+              space.totalActivityCount,
+              space.totalEvents,
+            ),
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
               color: colors.textSecondary,
               fontWeight: FontWeight.w700,
@@ -89,7 +94,7 @@ class DiscoverSpaceGridItem extends StatelessWidget {
         l.discoverOpenActivity;
 
     return Semantics(
-      label: '空间活动: ${activity.title}',
+      label: l.discoverSpaceActivitySemantics(activity.title),
       child: Material(
         color: Colors.transparent,
         child: Ink(
@@ -148,7 +153,10 @@ class DiscoverSpaceGridItem extends StatelessWidget {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    '${activity.completedPhraseCount}/${activity.totalPhraseCount} 句',
+                    l.discoverPhraseProgress(
+                      activity.completedPhraseCount,
+                      activity.totalPhraseCount,
+                    ),
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
                       color: colors.textSecondary,
                       fontWeight: FontWeight.w700,

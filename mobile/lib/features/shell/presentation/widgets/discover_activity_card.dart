@@ -27,13 +27,13 @@ class DiscoverActivityCard extends StatelessWidget {
         ? l.discoverSummaryMissing
         : activity.summary;
     final footerText = hasRecentResult
-        ? '${_reactionLabel(activity.recentResult!.reactionType)} · ${activity.recentResult!.phraseEnglish}'
+        ? '${_reactionLabel(l, activity.recentResult!.reactionType)} · ${activity.recentResult!.phraseEnglish}'
         : (activity.nextPhraseEnglish?.trim().isNotEmpty ?? false)
-        ? '下一句：${activity.nextPhraseEnglish}'
+        ? l.discoverNextPhrase(activity.nextPhraseEnglish!)
         : l.discoverNoNextPhrase;
 
     return Semantics(
-      label: '活动: ${activity.title}',
+      label: l.discoverActivityCardSemantics(activity.title),
       child: AppSurfaceCard(
         key: Key('discover-activity-card-${activity.activityId}'),
         child: Column(
@@ -84,7 +84,11 @@ class DiscoverActivityCard extends StatelessWidget {
             ),
             const SizedBox(height: 10),
             Text(
-              '${activity.completedPhraseCount}/${activity.totalPhraseCount} 句已练 · ${activity.totalEvents} 条记录',
+              l.discoverProgress(
+                activity.completedPhraseCount,
+                activity.totalPhraseCount,
+                activity.totalEvents,
+              ),
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
                 color: colors.textSecondary,
                 fontWeight: FontWeight.w700,
@@ -124,15 +128,15 @@ class DiscoverActivityCard extends StatelessWidget {
   }
 }
 
-String _reactionLabel(BabyReactionType reactionType) {
+String _reactionLabel(AppLocalizations l, BabyReactionType reactionType) {
   switch (reactionType) {
     case BabyReactionType.calm:
-      return '宝宝放松';
+      return l.reactionCalm;
     case BabyReactionType.engaged:
-      return '宝宝在看';
+      return l.reactionEngaged;
     case BabyReactionType.imitated:
-      return '宝宝模仿';
+      return l.reactionImitated;
     case BabyReactionType.needsBreak:
-      return '先休息';
+      return l.reactionNeedsBreak;
   }
 }

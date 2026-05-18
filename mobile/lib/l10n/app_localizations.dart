@@ -1508,6 +1508,18 @@ abstract class AppLocalizations {
   /// **'每张 ActivityCard 都带着自己的 spaceId/activityId 进入练习页。'**
   String get discoverActivityRouteNote;
 
+  /// No description provided for @discoverActivityCardSemantics.
+  ///
+  /// In zh, this message translates to:
+  /// **'活动: {title}'**
+  String discoverActivityCardSemantics(Object title);
+
+  /// No description provided for @discoverSpaceActivitySemantics.
+  ///
+  /// In zh, this message translates to:
+  /// **'空间活动: {title}'**
+  String discoverSpaceActivitySemantics(Object title);
+
   /// No description provided for @discoverSummaryMissing.
   ///
   /// In zh, this message translates to:

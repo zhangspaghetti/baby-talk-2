@@ -789,6 +789,16 @@ class AppLocalizationsZh extends AppLocalizations {
       '每张 ActivityCard 都带着自己的 spaceId/activityId 进入练习页。';
 
   @override
+  String discoverActivityCardSemantics(Object title) {
+    return '活动: $title';
+  }
+
+  @override
+  String discoverSpaceActivitySemantics(Object title) {
+    return '空间活动: $title';
+  }
+
+  @override
   String get discoverSummaryMissing => '摘要暂时缺失，但这张卡仍然可以安全进入练习。';
 
   @override

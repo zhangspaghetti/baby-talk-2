@@ -27,6 +27,9 @@ void main() {
 
     await tester.pumpAndSettle();
 
+    final context = tester.element(find.byKey(const Key('shell-tab-discover')));
+    final l = AppLocalizations.of(context)!;
+
     expect(loadCount, 1);
     expect(find.byKey(const Key('shell-tab-discover')), findsOneWidget);
     expect(find.byKey(const Key('discover-view-activity')), findsOneWidget);
@@ -50,6 +53,16 @@ void main() {
       find.byKey(const Key('discover-route-target-family_rhythm-bedtime')),
       findsOneWidget,
     );
+    expect(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is Semantics &&
+            widget.properties.label == l.discoverActivityCardSemantics('洗澡时间'),
+      ),
+      findsOneWidget,
+    );
+    expect(find.text(l.discoverProgress(1, 3, 1)), findsOneWidget);
+    expect(find.text(l.discoverNextPhrase('Clean bottom.')), findsOneWidget);
   });
 
   testWidgets('Discover 收敛 hero 与 activity 卡片冗余 chrome，但保留 R008 告警可见性', (
@@ -111,7 +124,19 @@ void main() {
     await tester.tap(find.byKey(const Key('discover-tab-space')));
     await tester.pumpAndSettle();
 
+    final context = tester.element(find.byKey(const Key('shell-tab-discover')));
+    final l = AppLocalizations.of(context)!;
+
     expect(find.byKey(const Key('discover-view-space')), findsOneWidget);
+    expect(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is Semantics &&
+            widget.properties.label == l.discoverSpaceActivitySemantics('睡前时间'),
+      ),
+      findsOneWidget,
+    );
+    expect(find.text(l.discoverPhraseProgress(0, 2)), findsWidgets);
     expect(loadCount, 1);
 
     await tester.tap(
