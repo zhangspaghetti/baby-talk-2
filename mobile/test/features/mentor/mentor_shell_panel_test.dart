@@ -286,11 +286,15 @@ void main() {
     expect(find.textContaining('还没读到 onboarding 档案'), findsOneWidget);
   });
 
-  testWidgets('chat tab 可提交一次匿名求助并显示受控回应', (tester) async {
+  testWidgets('chat tab 已登录且已同意时可提交一次求助并显示受控回应', (tester) async {
     await _setTallSurface(tester);
     final harness = (await tester.runAsync<_Harness>(
       () => _Harness.create(
-        accountSeedSnapshot: AccountLocalSnapshot.signedOut,
+        accountSeedSnapshot: AccountLocalSnapshot(
+          consentState: AccountConsentState.acceptedPendingSync,
+          session: _jwtSession(),
+          lastSyncPhase: 'batch_ack_applied',
+        ),
         mentorSuggestionResult: const LocalMentorSuggestionService().derive(
           const LocalMentorSuggestionContext(
             contextFallbackUsed: true,
@@ -304,7 +308,7 @@ void main() {
           phase: 'response_delivered',
           retryable: false,
           fallbackUsed: false,
-          authenticated: false,
+          authenticated: true,
           rateLimit: const MentorRateLimitStatus(
             limited: false,
             limit: 3,
@@ -393,6 +397,20 @@ Future<void> _pumpUntilFound(
   }
 
   fail('Timed out waiting for expected widget.');
+}
+
+AccountSession _jwtSession() {
+  return AccountSession(
+    accountId: 'account_widget',
+    sessionId: 'session_widget',
+    maskedPhoneNumber: '138****1234',
+    createdAt: DateTime.utc(2026, 4, 10, 8),
+    accessToken: 'access-widget',
+    refreshToken: 'refresh-widget',
+    tokenType: 'Cookie',
+    accessTokenExpiresAt: DateTime.utc(2026, 4, 10, 8, 15),
+    refreshTokenExpiresAt: DateTime.utc(2026, 4, 17, 8),
+  );
 }
 
 class _Harness {

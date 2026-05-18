@@ -191,10 +191,14 @@ void main() {
       expect(notifier.chatAvailability.detail, contains('账号状态还在加载中'));
     });
 
-    test('在线聊天成功时会保留受控回应并记录请求/响应 facts', () async {
+    test('已登录且已同意的在线聊天成功时会保留受控回应并记录请求/响应 facts', () async {
       final accountNotifier = AccountNotifier(
         repository: _StaticAccountRepository(
-          seedSnapshot: AccountLocalSnapshot.signedOut,
+          seedSnapshot: AccountLocalSnapshot(
+            consentState: AccountConsentState.acceptedPendingSync,
+            session: _jwtSession(sessionId: 'session_success'),
+            lastSyncPhase: 'batch_ack_applied',
+          ),
         ),
       );
       await accountNotifier.initialize();
@@ -223,7 +227,7 @@ void main() {
           phase: 'response_delivered',
           retryable: false,
           fallbackUsed: false,
-          authenticated: false,
+          authenticated: true,
           rateLimit: const MentorRateLimitStatus(
             limited: false,
             limit: 3,
@@ -252,8 +256,8 @@ void main() {
       expect(notifier.chatResponseText, contains('I\'m here with you.'));
       expect(notifier.chatResponseCode, 'ok');
       expect(notifier.chatResponsePhase, 'response_delivered');
-      expect(notifier.chatAuthenticated, isFalse);
-      expect(apiService.receivedSessions.single, isNull);
+      expect(notifier.chatAuthenticated, isTrue);
+      expect(apiService.receivedSessions.single?.sessionId, 'session_success');
       expect(
         repository.appendedFacts.map((fact) => fact.eventType),
         containsAll([
@@ -263,7 +267,154 @@ void main() {
       );
     });
 
-    test('已登录聊天会复用 Cookie seam，并把 authenticated=true 反馈给 UI', () async {
+    test('REFACTOR-007: 未登录或未同意状态会 fail closed 且不调用 Mentor API', () async {
+      final scenarios = <_ConsentChatScenario>[
+        _ConsentChatScenario(
+          label: 'local_only_without_session',
+          snapshot: AccountLocalSnapshot.localOnly,
+          expectedCode: MentorChatAvailabilityCode.loginRequired,
+          expectedPhase: 'mentor_login_required',
+        ),
+        _ConsentChatScenario(
+          label: 'signed_out_without_session',
+          snapshot: AccountLocalSnapshot.signedOut,
+          expectedCode: MentorChatAvailabilityCode.loginRequired,
+          expectedPhase: 'mentor_login_required',
+        ),
+        _ConsentChatScenario(
+          label: 'revoked_with_session',
+          snapshot: AccountLocalSnapshot(
+            consentState: AccountConsentState.revoked,
+            session: _jwtSession(sessionId: 'session_revoked'),
+            lastSyncPhase: 'consent_revoked',
+          ),
+          expectedCode: MentorChatAvailabilityCode.consentRequired,
+          expectedPhase: 'mentor_consent_required',
+        ),
+        _ConsentChatScenario(
+          label: 'deleted_with_session',
+          snapshot: AccountLocalSnapshot(
+            consentState: AccountConsentState.deleted,
+            session: _jwtSession(sessionId: 'session_deleted'),
+            lastSyncPhase: 'account_deleted',
+          ),
+          expectedCode: MentorChatAvailabilityCode.consentRequired,
+          expectedPhase: 'mentor_consent_required',
+        ),
+        _ConsentChatScenario(
+          label: 'accepted_without_jwt_tokens',
+          snapshot: AccountLocalSnapshot(
+            consentState: AccountConsentState.acceptedPendingSync,
+            session: AccountSession(
+              accountId: 'account_legacy',
+              sessionId: 'session_legacy',
+              maskedPhoneNumber: '138****1234',
+              createdAt: DateTime.utc(2026, 4, 10, 8),
+            ),
+            lastSyncPhase: 'batch_ack_applied',
+          ),
+          expectedCode: MentorChatAvailabilityCode.loginRequired,
+          expectedPhase: 'mentor_session_required',
+        ),
+      ];
+
+      for (final scenario in scenarios) {
+        final accountNotifier = AccountNotifier(
+          repository: _StaticAccountRepository(seedSnapshot: scenario.snapshot),
+        );
+        await accountNotifier.initialize();
+        final repository = _RecordingMentorRepository();
+        final apiService = _FakeMentorApiService();
+        final notifier = MentorNotifier(
+          repository: repository,
+          accountNotifier: accountNotifier,
+          apiService: apiService,
+          audioController: _SilentMentorAudioController(),
+        );
+        addTearDown(notifier.dispose);
+        addTearDown(accountNotifier.dispose);
+
+        await notifier.beginPanelSession(launcher: 'home_fab');
+        await Future<void>.delayed(const Duration(milliseconds: 1));
+        notifier.selectTab(MentorPanelTab.chat);
+        notifier.updateChatDraft('宝宝一直哭，我现在该怎么说？');
+
+        expect(
+          notifier.chatAvailability.code,
+          scenario.expectedCode,
+          reason: scenario.label,
+        );
+        expect(notifier.chatAvailability.phase, scenario.expectedPhase);
+        expect(notifier.canSubmitChat, isFalse, reason: scenario.label);
+
+        await notifier.submitChat();
+
+        expect(apiService.receivedSessions, isEmpty, reason: scenario.label);
+        expect(notifier.chatResponseText, isNull, reason: scenario.label);
+        expect(notifier.bannerCode, scenario.expectedCode.wireValue);
+        expect(
+          repository.appendedFacts.where(
+            (fact) =>
+                fact.eventType == MentorFactType.chatFailed &&
+                fact.phase == scenario.expectedPhase,
+          ),
+          isNotEmpty,
+          reason: scenario.label,
+        );
+      }
+    });
+
+    test('REFACTOR-005 baseline: offline preflight 不会调用 Mentor API', () async {
+      final accountNotifier = AccountNotifier(
+        repository: _StaticAccountRepository(
+          seedSnapshot: AccountLocalSnapshot(
+            consentState: AccountConsentState.acceptedPendingSync,
+            session: _jwtSession(sessionId: 'session_offline'),
+            lastSyncPhase: 'home_visible_offline',
+          ),
+        ),
+      );
+      await accountNotifier.initialize();
+      final repository = _RecordingMentorRepository();
+      final apiService = _FakeMentorApiService();
+      final notifier = MentorNotifier(
+        repository: repository,
+        accountNotifier: accountNotifier,
+        apiService: apiService,
+        audioController: _SilentMentorAudioController(),
+      );
+      addTearDown(notifier.dispose);
+      addTearDown(accountNotifier.dispose);
+
+      await notifier.beginPanelSession(launcher: 'home_fab');
+      await Future<void>.delayed(const Duration(milliseconds: 1));
+      notifier.selectTab(MentorPanelTab.chat);
+      notifier.updateChatDraft('宝宝一直哭，我现在该怎么说？');
+
+      expect(
+        notifier.chatAvailability.code,
+        MentorChatAvailabilityCode.offline,
+      );
+      expect(notifier.canSubmitChat, isFalse);
+
+      await notifier.submitChat();
+
+      expect(apiService.receivedSessions, isEmpty);
+      expect(notifier.chatResponseText, isNull);
+      expect(notifier.bannerCode, 'offline');
+      expect(
+        repository.appendedFacts.map((fact) => fact.eventType),
+        contains(MentorFactType.chatFailed),
+      );
+      expect(
+        repository.appendedFacts.where(
+          (fact) => fact.phase == 'offline' && fact.visibleStatus == 'offline',
+        ),
+        isNotEmpty,
+      );
+    });
+
+    test('已登录聊天会复用 JWT session seam，并把 authenticated=true 反馈给 UI', () async {
       final accountNotifier = AccountNotifier(
         repository: _StaticAccountRepository(
           seedSnapshot: AccountLocalSnapshot(
@@ -368,7 +519,11 @@ void main() {
     test('在线聊天超时时会暴露 banner/code 并记录 chatFailed fact', () async {
       final accountNotifier = AccountNotifier(
         repository: _StaticAccountRepository(
-          seedSnapshot: AccountLocalSnapshot.signedOut,
+          seedSnapshot: AccountLocalSnapshot(
+            consentState: AccountConsentState.acceptedPendingSync,
+            session: _jwtSession(sessionId: 'session_timeout'),
+            lastSyncPhase: 'batch_ack_applied',
+          ),
         ),
       );
       await accountNotifier.initialize();
@@ -459,7 +614,11 @@ void main() {
     test('多轮聊天：发送两次后 messages 累积 4 条，conversationId 从响应穿透保持', () async {
       final accountNotifier = AccountNotifier(
         repository: _StaticAccountRepository(
-          seedSnapshot: AccountLocalSnapshot.signedOut,
+          seedSnapshot: AccountLocalSnapshot(
+            consentState: AccountConsentState.acceptedPendingSync,
+            session: _jwtSession(sessionId: 'session_multi_turn'),
+            lastSyncPhase: 'batch_ack_applied',
+          ),
         ),
       );
       await accountNotifier.initialize();
@@ -505,7 +664,11 @@ void main() {
     test('多轮聊天：beginPanelSession 重置 messages 和 conversationId', () async {
       final accountNotifier = AccountNotifier(
         repository: _StaticAccountRepository(
-          seedSnapshot: AccountLocalSnapshot.signedOut,
+          seedSnapshot: AccountLocalSnapshot(
+            consentState: AccountConsentState.acceptedPendingSync,
+            session: _jwtSession(sessionId: 'session_reset_chat'),
+            lastSyncPhase: 'batch_ack_applied',
+          ),
         ),
       );
       await accountNotifier.initialize();
@@ -536,6 +699,34 @@ void main() {
       expect(notifier.conversationId, isNull);
     });
   });
+}
+
+class _ConsentChatScenario {
+  const _ConsentChatScenario({
+    required this.label,
+    required this.snapshot,
+    required this.expectedCode,
+    required this.expectedPhase,
+  });
+
+  final String label;
+  final AccountLocalSnapshot snapshot;
+  final MentorChatAvailabilityCode expectedCode;
+  final String expectedPhase;
+}
+
+AccountSession _jwtSession({required String sessionId}) {
+  return AccountSession(
+    accountId: 'account_$sessionId',
+    sessionId: sessionId,
+    maskedPhoneNumber: '138****1234',
+    createdAt: DateTime.utc(2026, 4, 10, 8),
+    accessToken: 'access_$sessionId',
+    refreshToken: 'refresh_$sessionId',
+    tokenType: 'Cookie',
+    accessTokenExpiresAt: DateTime.utc(2026, 4, 10, 8, 15),
+    refreshTokenExpiresAt: DateTime.utc(2026, 4, 17, 8),
+  );
 }
 
 class _RecordingMentorRepository implements MentorRepository {

@@ -4,6 +4,8 @@ import 'package:flutter/foundation.dart';
 import 'package:mobile/features/account/data/repositories/account_repository.dart'
     show AccountRuntimeTrigger;
 import 'package:mobile/features/account/data/services/authenticated_api_client.dart';
+import 'package:mobile/features/account/domain/models/account_consent_state.dart';
+import 'package:mobile/features/account/domain/models/account_session.dart';
 import 'package:mobile/features/account/presentation/account_notifier.dart';
 import 'package:mobile/features/mentor/data/repositories/mentor_repository.dart';
 import 'package:mobile/features/mentor/data/services/mentor_api_service.dart';
@@ -18,7 +20,13 @@ enum MentorPanelTab { suggestions, chat }
 
 enum MentorPanelStatus { idle, loading, ready, fallback, error }
 
-enum MentorChatAvailabilityCode { accountLoading, ready, offline }
+enum MentorChatAvailabilityCode {
+  accountLoading,
+  ready,
+  offline,
+  loginRequired,
+  consentRequired,
+}
 
 /// 聊天气泡展示数据，供 UI 层使用。
 enum ChatBubbleRole { user, assistant }
@@ -72,6 +80,10 @@ extension MentorChatAvailabilityCodeWire on MentorChatAvailabilityCode {
         return 'ready';
       case MentorChatAvailabilityCode.offline:
         return 'offline';
+      case MentorChatAvailabilityCode.loginRequired:
+        return 'login-required';
+      case MentorChatAvailabilityCode.consentRequired:
+        return 'consent-required';
     }
   }
 }
@@ -340,21 +352,13 @@ class MentorNotifier extends ChangeNotifier {
       return;
     }
     if (!_chatAvailability.canSubmit) {
-      _applyBanner(
-        _chatAvailability.detail,
-        code: _chatAvailability.code.wireValue,
-        retryable: _chatAvailability.retryable,
-        errorPhase: _chatAvailability.phase,
-      );
-      await _appendFactSafely(
-        eventType: MentorFactType.chatFailed,
-        phase: _chatAvailability.phase,
-        redactedSummary: 'preflight:${_chatAvailability.code.wireValue}',
-        visibleStatus: _chatAvailability.code.wireValue,
-        visibleDetail: _chatAvailability.detail,
-        retryable: _chatAvailability.retryable,
-      );
-      notifyListeners();
+      await _recordChatPreflightFailure();
+      return;
+    }
+    final session = _chatSessionForRequest(_accountNotifier);
+    if (session == null) {
+      _syncChatAvailability(notify: false);
+      await _recordChatPreflightFailure();
       return;
     }
 
@@ -387,16 +391,13 @@ class MentorNotifier extends ChangeNotifier {
     final correlationId =
         'mentor_chat_${DateTime.now().toUtc().microsecondsSinceEpoch}';
     final installationId = await _repository.ensureInstallationId();
-    final session = _accountNotifier.isSignedIn
-        ? _accountNotifier.snapshot.session
-        : null;
 
     await _appendFactSafely(
       eventType: MentorFactType.chatRequested,
       phase: 'chat_requested',
       correlationId: correlationId,
       redactedSummary:
-          'surface:$_lastSurface;len:${prompt.length};auth:${session == null ? 'anon' : 'cookie'}',
+          'surface:$_lastSurface;len:${prompt.length};auth:bearer',
       visibleStatus: 'chat-requested',
       visibleDetail: '正在请求一次受控回应',
     );
@@ -462,7 +463,7 @@ class MentorNotifier extends ChangeNotifier {
       _chatResponsePhase = surface.phase;
       _chatCorrelationId = error.correlationId ?? correlationId;
       _chatFallbackUsed = false;
-      _chatAuthenticated = session != null;
+      _chatAuthenticated = true;
       _chatRateLimit = null;
       _applyBanner(
         surface.message,
@@ -687,6 +688,24 @@ class MentorNotifier extends ChangeNotifier {
     }
   }
 
+  Future<void> _recordChatPreflightFailure() async {
+    _applyBanner(
+      _chatAvailability.detail,
+      code: _chatAvailability.code.wireValue,
+      retryable: _chatAvailability.retryable,
+      errorPhase: _chatAvailability.phase,
+    );
+    await _appendFactSafely(
+      eventType: MentorFactType.chatFailed,
+      phase: _chatAvailability.phase,
+      redactedSummary: 'preflight:${_chatAvailability.code.wireValue}',
+      visibleStatus: _chatAvailability.code.wireValue,
+      visibleDetail: _chatAvailability.detail,
+      retryable: _chatAvailability.retryable,
+    );
+    notifyListeners();
+  }
+
   void _handleAccountChanged() {
     _syncChatAvailability();
   }
@@ -743,6 +762,10 @@ class MentorNotifier extends ChangeNotifier {
         return '先给你离线也能用的本地建议；网络稳定时你也可以直接切到聊天。';
       case MentorChatAvailabilityCode.offline:
         return '你现在离线中，聊天不会发请求；先用下面的本地建议继续。';
+      case MentorChatAvailabilityCode.loginRequired:
+        return '先给你本地建议；在线聊天需要登录并同意后再发起。';
+      case MentorChatAvailabilityCode.consentRequired:
+        return '先给你本地建议；同意状态恢复前不会发起在线聊天。';
     }
   }
 
@@ -906,6 +929,43 @@ class MentorNotifier extends ChangeNotifier {
       );
     }
 
+    switch (snapshot.consentState) {
+      case AccountConsentState.localOnly:
+      case AccountConsentState.signedOut:
+        return const MentorChatAvailability(
+          code: MentorChatAvailabilityCode.loginRequired,
+          title: '需要登录',
+          detail: '登录并同意后才能使用在线 Mentor 聊天；本地建议仍可继续。',
+          phase: 'mentor_login_required',
+          retryable: false,
+          canSubmit: false,
+        );
+      case AccountConsentState.revoked:
+      case AccountConsentState.deleted:
+        return const MentorChatAvailability(
+          code: MentorChatAvailabilityCode.consentRequired,
+          title: '需要重新同意',
+          detail: '当前账号同意状态不可用；重新登录并再次同意后再试。',
+          phase: 'mentor_consent_required',
+          retryable: true,
+          canSubmit: false,
+        );
+      case AccountConsentState.acceptedPendingSync:
+        break;
+    }
+
+    final session = snapshot.session;
+    if (session == null || !session.hasJwtTokens) {
+      return const MentorChatAvailability(
+        code: MentorChatAvailabilityCode.loginRequired,
+        title: '需要重新登录',
+        detail: '登录状态已经失效；重新登录并同意后再试一次受控聊天。',
+        phase: 'mentor_session_required',
+        retryable: true,
+        canSubmit: false,
+      );
+    }
+
     return const MentorChatAvailability(
       code: MentorChatAvailabilityCode.ready,
       title: '可以发起一次受控聊天',
@@ -914,6 +974,20 @@ class MentorNotifier extends ChangeNotifier {
       retryable: false,
       canSubmit: true,
     );
+  }
+
+  static AccountSession? _chatSessionForRequest(
+    AccountNotifier accountNotifier,
+  ) {
+    final snapshot = accountNotifier.snapshot;
+    if (snapshot.consentState != AccountConsentState.acceptedPendingSync) {
+      return null;
+    }
+    final session = snapshot.session;
+    if (session == null || !session.hasJwtTokens) {
+      return null;
+    }
+    return session;
   }
 
   @override
