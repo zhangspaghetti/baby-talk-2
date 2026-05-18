@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mobile/features/practice/domain/models/garden_growth_snapshot.dart';
 import 'package:mobile/features/practice/domain/models/interaction_event_payload.dart';
@@ -49,6 +50,45 @@ void main() {
       expect(notifier.canShare, isTrue);
       expect(notifier.lastShareStatus, ShareViewStatus.success);
       expect(notifier.message, contains('分享面板'));
+    });
+
+    test('REFACTOR-012: 分享请求通过 AsyncValue 暴露 loading 和完成态', () async {
+      final launcher = _PendingShareSheetLauncher();
+      final repository = ShareRepository(
+        apiService: _FakeShareApiService(),
+        shareSheetLauncher: launcher,
+        platformHintResolver: () => 'android',
+      );
+      final notifier = ShareNotifier(repository: repository)
+        ..updateSnapshots(
+          growthSnapshot: _buildGrowthSnapshot(),
+          continuitySnapshot: _buildContinuitySnapshot(),
+        );
+      addTearDown(notifier.dispose);
+
+      expect(notifier.shareRequest.isLoading, isFalse);
+      expect(notifier.shareRequest.hasValue, isTrue);
+      expect(notifier.shareRequest.requireValue, isNull);
+
+      final future = notifier.shareCurrent();
+      await Future<void>.delayed(Duration.zero);
+
+      expect(notifier.shareRequest.isLoading, isTrue);
+      expect(notifier.isSharing, isTrue);
+      expect(notifier.canShare, isFalse);
+
+      launcher.completeSuccess();
+      final result = await future;
+
+      expect(notifier.shareRequest.isLoading, isFalse);
+      expect(notifier.shareRequest.requireValue, same(result));
+      expect(
+        notifier.shareRequest.requireValue?.status,
+        ShareExecutionStatus.shared,
+      );
+      expect(notifier.isSharing, isFalse);
+      expect(notifier.canShare, isTrue);
+      expect(notifier.lastShareStatus, ShareViewStatus.success);
     });
 
     test('用户取消分享后会恢复按钮状态并暴露 cancelled', () async {

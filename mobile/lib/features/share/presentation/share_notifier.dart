@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobile/features/practice/domain/models/garden_growth_snapshot.dart';
 import 'package:mobile/features/practice/domain/models/practice_continuity_snapshot.dart';
 import 'package:mobile/features/share/data/repositories/share_repository.dart';
@@ -21,7 +22,8 @@ class ShareNotifier extends ChangeNotifier {
 
   GardenGrowthSnapshot? _growthSnapshot;
   PracticeContinuitySnapshot? _continuitySnapshot;
-  bool _isSharing = false;
+  AsyncValue<ShareExecutionResult?> _shareRequest =
+      const AsyncValue<ShareExecutionResult?>.data(null);
   ShareViewStatus _lastShareStatus = ShareViewStatus.idle;
   String? _message;
   String? _lastSharePhase;
@@ -35,9 +37,11 @@ class ShareNotifier extends ChangeNotifier {
 
   bool get hasShareDraft => currentDraft != null;
 
-  bool get canShare => !_isSharing && hasShareDraft;
+  AsyncValue<ShareExecutionResult?> get shareRequest => _shareRequest;
 
-  bool get isSharing => _isSharing;
+  bool get canShare => !isSharing && hasShareDraft;
+
+  bool get isSharing => _shareRequest.isLoading;
   ShareViewStatus get lastShareStatus => _lastShareStatus;
   String? get message => _message;
   String? get lastSharePhase => _lastSharePhase;
@@ -57,7 +61,7 @@ class ShareNotifier extends ChangeNotifier {
   }
 
   Future<ShareExecutionResult> shareCurrent() {
-    if (_isSharing) {
+    if (isSharing) {
       return _shareFuture ??
           Future<ShareExecutionResult>.value(
             ShareExecutionResult(
@@ -78,7 +82,7 @@ class ShareNotifier extends ChangeNotifier {
   }
 
   Future<ShareExecutionResult> _shareInternal() async {
-    _isSharing = true;
+    _shareRequest = const AsyncValue<ShareExecutionResult?>.loading();
     _message = null;
     notifyListeners();
 
@@ -91,7 +95,7 @@ class ShareNotifier extends ChangeNotifier {
       return result;
     }
 
-    _isSharing = false;
+    _shareRequest = AsyncValue<ShareExecutionResult?>.data(result);
     _lastSharePhase = result.phase;
     _message = result.message;
     switch (result.status) {
