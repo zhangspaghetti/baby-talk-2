@@ -177,6 +177,7 @@ void main() {
 
         final backendIndex = workflow.indexOf('Run backend tests');
         final stopRelayIndex = workflow.indexOf('Stop Docker relay');
+        final checkstyleIndex = workflow.indexOf('Run checkstyle');
         final helmIndex = workflow.indexOf(
           'Run Helm dual-chart smoke (babytalk-infra + babytalk-app)',
         );
@@ -184,10 +185,11 @@ void main() {
           'Upload playwright-report artifact',
         );
         final failIndex = workflow.indexOf(
-          'Fail when backend tests or Helm smoke fail',
+          'Fail when backend tests, checkstyle, or Helm smoke fail',
         );
 
         expect(backendIndex, greaterThanOrEqualTo(0));
+        expect(checkstyleIndex, greaterThan(backendIndex));
         expect(stopRelayIndex, greaterThan(backendIndex));
         expect(helmIndex, greaterThan(stopRelayIndex));
         expect(uploadIndex, greaterThan(helmIndex));
