@@ -4,6 +4,7 @@ import 'dart:io';
 
 import 'package:dio/dio.dart';
 import 'package:mobile/core/network/app_dio.dart';
+import 'package:mobile/core/network/auth_headers.dart';
 import 'package:mobile/features/account/data/services/account_api_service.dart'
     show defaultAccountApiBaseUrl, defaultAccountApiVersion;
 import 'package:mobile/features/account/data/services/authenticated_api_client.dart';
@@ -273,9 +274,13 @@ class MentorApiService {
     Map<String, String>? queryParameters,
     Map<String, Object?>? body,
   }) async {
+    final authorizationHeader = buildBearerAuthorizationHeaderValue(
+      accessToken,
+    );
     final headers = <String, String>{
       'Accept': 'application/json',
       'X-App-Version': appVersion,
+      authorizationHeaderName: ?authorizationHeader,
     };
 
     Response<dynamic> response;

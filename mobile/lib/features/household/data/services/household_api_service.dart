@@ -4,6 +4,7 @@ import 'dart:io';
 
 import 'package:dio/dio.dart';
 import 'package:mobile/core/network/app_dio.dart';
+import 'package:mobile/core/network/auth_headers.dart';
 import 'package:mobile/features/account/data/services/authenticated_api_client.dart';
 import 'package:mobile/features/account/domain/models/account_session.dart';
 import 'package:mobile/features/household/domain/models/household_invite_link.dart';
@@ -251,9 +252,13 @@ class HouseholdApiService {
     Map<String, String>? queryParameters,
     Map<String, Object?>? body,
   }) async {
+    final authorizationHeader = buildBearerAuthorizationHeaderValue(
+      accessToken,
+    );
     final headers = <String, String>{
       'Accept': 'application/json',
       'X-App-Version': appVersion,
+      authorizationHeaderName: ?authorizationHeader,
     };
 
     Response<dynamic> response;

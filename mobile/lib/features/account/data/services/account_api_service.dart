@@ -4,6 +4,7 @@ import 'dart:io';
 
 import 'package:dio/dio.dart';
 import 'package:mobile/core/network/app_dio.dart';
+import 'package:mobile/core/network/auth_headers.dart';
 import 'package:mobile/features/practice/domain/models/interaction_event_payload.dart';
 
 const String defaultAccountApiVersion = String.fromEnvironment(
@@ -368,9 +369,13 @@ class AccountApiService {
     Map<String, String>? queryParameters,
     Map<String, Object?>? body,
   }) async {
+    final authorizationHeader = buildBearerAuthorizationHeaderValue(
+      accessToken,
+    );
     final headers = <String, String>{
       'Accept': 'application/json',
       'X-App-Version': appVersion,
+      authorizationHeaderName: ?authorizationHeader,
     };
 
     Response<dynamic> response;
