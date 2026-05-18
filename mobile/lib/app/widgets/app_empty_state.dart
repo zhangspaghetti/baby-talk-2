@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:mobile/app/theme/app_layout_constants.dart';
 import 'package:mobile/app/theme/app_theme.dart';
 
 /// Empty state widget with icon, title, description, and optional CTA.
@@ -23,26 +24,30 @@ class AppEmptyState extends StatelessWidget {
     final colors = context.appColors;
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(32),
+        padding: AppLayoutConstants.emptyStatePadding,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Container(
-              width: 80,
-              height: 80,
+              width: AppLayoutConstants.iconContainerLg,
+              height: AppLayoutConstants.iconContainerLg,
               decoration: BoxDecoration(
                 color: colors.bgAccentSoft,
                 shape: BoxShape.circle,
               ),
-              child: Icon(icon, size: 40, color: colors.accent),
+              child: Icon(
+                icon,
+                size: AppLayoutConstants.iconSizeLg,
+                color: colors.accent,
+              ),
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: AppLayoutConstants.spacingXl),
             Text(
               title,
               style: Theme.of(context).textTheme.titleLarge,
               textAlign: TextAlign.center,
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: AppLayoutConstants.spacingXs),
             Text(
               description,
               style: Theme.of(
@@ -51,7 +56,7 @@ class AppEmptyState extends StatelessWidget {
               textAlign: TextAlign.center,
             ),
             if (actionLabel != null && onAction != null) ...[
-              const SizedBox(height: 24),
+              const SizedBox(height: AppLayoutConstants.spacingXl),
               ElevatedButton(onPressed: onAction, child: Text(actionLabel!)),
             ],
           ],

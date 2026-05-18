@@ -31,7 +31,7 @@ class AppBanner extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(16),
+      padding: AppLayoutConstants.bannerPadding,
       decoration: BoxDecoration(
         color: backgroundColor,
         borderRadius: BorderRadius.circular(borderRadius),
@@ -44,10 +44,16 @@ class AppBanner extends StatelessWidget {
             children: [
               if (icon != null) ...[
                 Padding(
-                  padding: const EdgeInsets.only(top: 2),
-                  child: Icon(icon, color: foregroundColor, size: 18),
+                  padding: const EdgeInsets.only(
+                    top: AppLayoutConstants.spacingXxs,
+                  ),
+                  child: Icon(
+                    icon,
+                    color: foregroundColor,
+                    size: AppLayoutConstants.iconSizeMd,
+                  ),
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: AppLayoutConstants.spacingSm),
               ],
               Expanded(
                 child: Text(
@@ -65,11 +71,13 @@ class AppBanner extends StatelessWidget {
                   child: GestureDetector(
                     onTap: onDismiss,
                     child: Padding(
-                      padding: const EdgeInsets.only(left: 8),
+                      padding: const EdgeInsets.only(
+                        left: AppLayoutConstants.spacingXs,
+                      ),
                       child: Icon(
                         Icons.close,
                         color: foregroundColor.withValues(alpha: 0.6),
-                        size: 16,
+                        size: AppLayoutConstants.iconSizeSm,
                       ),
                     ),
                   ),
@@ -77,7 +85,7 @@ class AppBanner extends StatelessWidget {
             ],
           ),
           if (actionLabel != null && onAction != null) ...[
-            const SizedBox(height: 12),
+            const SizedBox(height: AppLayoutConstants.spacingSm),
             OutlinedButton(onPressed: onAction, child: Text(actionLabel!)),
           ],
         ],

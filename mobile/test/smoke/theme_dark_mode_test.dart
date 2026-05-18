@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:mobile/app/theme/app_layout_constants.dart';
 import 'package:mobile/app/theme/app_theme.dart';
 
 void main() {
@@ -163,6 +164,30 @@ void main() {
       // lerp(0.5) 产生的颜色应不等于两端
       expect(half.bgBase, isNot(equals(light.bgBase)));
       expect(half.bgBase, isNot(equals(dark.bgBase)));
+    });
+  });
+
+  group('REFACTOR-014 AppLayoutConstants token pilot', () {
+    test('preserves existing component metric values', () {
+      expect(AppLayoutConstants.cardRadius, 16);
+      expect(AppLayoutConstants.largeRadius, 24);
+      expect(AppLayoutConstants.pillRadius, 9999);
+      expect(AppLayoutConstants.minTouchTarget, 48);
+      expect(AppLayoutConstants.buttonMinHeight, 56);
+      expect(
+        AppLayoutConstants.inputContentPadding,
+        const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
+      );
+      expect(
+        AppLayoutConstants.primaryButtonPadding,
+        const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+      );
+      expect(
+        AppLayoutConstants.progressAnimationDuration,
+        const Duration(milliseconds: 300),
+      );
+      expect(AppLayoutConstants.progressSegmentHeight, 4);
+      expect(AppLayoutConstants.progressSegmentRadius, 2);
     });
   });
 }

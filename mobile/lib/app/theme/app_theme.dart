@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:mobile/app/theme/app_layout_constants.dart';
 
 /// 暖纸亲和 设计系统自定义颜色 ThemeExtension。
 /// 包含 light / dark 两套完整色板，通过 context.appColors 获取。
@@ -385,17 +386,14 @@ class AppTheme {
         elevation: 0,
         margin: EdgeInsets.zero,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16), // DESIGN.md --radius-md
+          borderRadius: BorderRadius.circular(AppLayoutConstants.cardRadius),
           side: const BorderSide(color: outlineSoft),
         ),
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: bgSurface,
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: 16,
-          vertical: 18,
-        ),
+        contentPadding: AppLayoutConstants.inputContentPadding,
         labelStyle: const TextStyle(
           fontSize: 13,
           fontWeight: FontWeight.w600,
@@ -407,23 +405,23 @@ class AppTheme {
           color: textMuted,
         ),
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(AppLayoutConstants.cardRadius),
           borderSide: const BorderSide(color: outlineSoft),
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(AppLayoutConstants.cardRadius),
           borderSide: const BorderSide(color: outlineSoft),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(AppLayoutConstants.cardRadius),
           borderSide: const BorderSide(color: accent, width: 1.4),
         ),
         errorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(AppLayoutConstants.cardRadius),
           borderSide: const BorderSide(color: error),
         ),
         focusedErrorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(AppLayoutConstants.cardRadius),
           borderSide: const BorderSide(color: error, width: 1.4),
         ),
       ),
@@ -431,10 +429,12 @@ class AppTheme {
         style: ElevatedButton.styleFrom(
           backgroundColor: accent,
           foregroundColor: Colors.white,
-          minimumSize: const Size.fromHeight(56),
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+          minimumSize: const Size.fromHeight(
+            AppLayoutConstants.buttonMinHeight,
+          ),
+          padding: AppLayoutConstants.primaryButtonPadding,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(AppLayoutConstants.cardRadius),
           ),
           textStyle: const TextStyle(
             fontFamily: 'DM Sans',
@@ -445,12 +445,12 @@ class AppTheme {
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
-          minimumSize: const Size(48, 48),
+          minimumSize: const Size.square(AppLayoutConstants.minTouchTarget),
           foregroundColor: textPrimary,
           side: const BorderSide(color: outlineSoft),
           backgroundColor: bgSurface,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(AppLayoutConstants.cardRadius),
           ),
         ),
       ),
@@ -481,7 +481,7 @@ class AppTheme {
         backgroundColor: bgAccentSoft,
         selectedColor: bgAccentSoft,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(9999),
+          borderRadius: BorderRadius.circular(AppLayoutConstants.pillRadius),
         ),
         side: BorderSide.none,
         labelStyle: const TextStyle(
@@ -495,7 +495,9 @@ class AppTheme {
         contentTextStyle: base.textTheme.bodyMedium?.copyWith(
           color: textPrimary,
         ),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppLayoutConstants.cardRadius),
+        ),
         behavior: SnackBarBehavior.floating,
       ),
       floatingActionButtonTheme: const FloatingActionButtonThemeData(
@@ -601,17 +603,14 @@ class AppTheme {
         elevation: 0,
         margin: EdgeInsets.zero,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(AppLayoutConstants.cardRadius),
           side: BorderSide(color: dk.outlineSoft),
         ),
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: dk.bgSurface,
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: 16,
-          vertical: 18,
-        ),
+        contentPadding: AppLayoutConstants.inputContentPadding,
         labelStyle: TextStyle(
           fontSize: 13,
           fontWeight: FontWeight.w600,
@@ -623,23 +622,23 @@ class AppTheme {
           color: dk.textMuted,
         ),
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(AppLayoutConstants.cardRadius),
           borderSide: BorderSide(color: dk.outlineSoft),
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(AppLayoutConstants.cardRadius),
           borderSide: BorderSide(color: dk.outlineSoft),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(AppLayoutConstants.cardRadius),
           borderSide: BorderSide(color: dk.accent, width: 1.4),
         ),
         errorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(AppLayoutConstants.cardRadius),
           borderSide: BorderSide(color: dk.error),
         ),
         focusedErrorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(AppLayoutConstants.cardRadius),
           borderSide: BorderSide(color: dk.error, width: 1.4),
         ),
       ),
@@ -647,10 +646,12 @@ class AppTheme {
         style: ElevatedButton.styleFrom(
           backgroundColor: dk.accent,
           foregroundColor: const Color(0xFF1C1816), // 深色按钮文字
-          minimumSize: const Size.fromHeight(56),
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+          minimumSize: const Size.fromHeight(
+            AppLayoutConstants.buttonMinHeight,
+          ),
+          padding: AppLayoutConstants.primaryButtonPadding,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(AppLayoutConstants.cardRadius),
           ),
           textStyle: const TextStyle(
             fontFamily: 'DM Sans',
@@ -661,12 +662,12 @@ class AppTheme {
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
-          minimumSize: const Size(48, 48),
+          minimumSize: const Size.square(AppLayoutConstants.minTouchTarget),
           foregroundColor: dk.textPrimary,
           side: BorderSide(color: dk.outlineSoft),
           backgroundColor: dk.bgSurface,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(AppLayoutConstants.cardRadius),
           ),
         ),
       ),
@@ -697,7 +698,7 @@ class AppTheme {
         backgroundColor: dk.bgAccentSoft,
         selectedColor: dk.bgAccentSoft,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(9999),
+          borderRadius: BorderRadius.circular(AppLayoutConstants.pillRadius),
         ),
         side: BorderSide.none,
         labelStyle: TextStyle(
@@ -711,7 +712,9 @@ class AppTheme {
         contentTextStyle: base.textTheme.bodyMedium?.copyWith(
           color: dk.textPrimary,
         ),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppLayoutConstants.cardRadius),
+        ),
         behavior: SnackBarBehavior.floating,
       ),
       floatingActionButtonTheme: FloatingActionButtonThemeData(
