@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:mobile/features/account/data/local/account_local_store.dart';
+import 'package:mobile/features/account/data/repositories/account_repository_contract.dart';
 import 'package:mobile/features/account/data/services/account_api_service.dart';
 import 'package:mobile/features/account/data/services/account_external_link_opener.dart';
 import 'package:mobile/features/account/data/services/authenticated_api_client.dart';
@@ -8,34 +9,15 @@ import 'package:mobile/features/account/domain/models/account_consent_state.dart
 import 'package:mobile/features/account/domain/models/account_session.dart';
 import 'package:mobile/features/practice/data/repositories/practice_repository.dart';
 
+export 'package:mobile/features/account/data/repositories/account_repository_contract.dart'
+    show
+        AccountRepositoryContract,
+        AccountRuntimeTrigger,
+        AccountRuntimeTriggerWire;
+
 typedef AccountConnectivityChecker = Future<bool> Function();
 
-enum AccountRuntimeTrigger {
-  appBoot,
-  loginSuccess,
-  homeVisible,
-  foregroundResume,
-  manualRetry,
-}
-
-extension AccountRuntimeTriggerWire on AccountRuntimeTrigger {
-  String get wireValue {
-    switch (this) {
-      case AccountRuntimeTrigger.appBoot:
-        return 'app_boot';
-      case AccountRuntimeTrigger.loginSuccess:
-        return 'login_success';
-      case AccountRuntimeTrigger.homeVisible:
-        return 'home_visible';
-      case AccountRuntimeTrigger.foregroundResume:
-        return 'foreground_resume';
-      case AccountRuntimeTrigger.manualRetry:
-        return 'manual_retry';
-    }
-  }
-}
-
-class AccountRepository {
+class AccountRepository implements AccountRepositoryContract {
   AccountRepository({
     required AccountLocalStore localStore,
     required PracticeRepository practiceRepository,
@@ -62,12 +44,14 @@ class AccountRepository {
 
   Future<AccountLocalSnapshot>? _runtimeSyncFuture;
 
+  @override
   Future<AccountLocalSnapshot> loadSnapshot() async {
     final snapshot = await _readSnapshotSafely();
     final syncSummary = await _readSyncSummarySafely();
     return _mergeSyncSummary(snapshot, syncSummary);
   }
 
+  @override
   Future<AccountLocalSnapshot> signIn({
     required String phoneNumber,
     required String verificationCode,
@@ -150,6 +134,7 @@ class AccountRepository {
     }
   }
 
+  @override
   Future<AccountLocalSnapshot> refreshRuntimeState({
     required AccountRuntimeTrigger trigger,
     AccountLocalSnapshot? seedSnapshot,
@@ -175,6 +160,7 @@ class AccountRepository {
     });
   }
 
+  @override
   Future<AccountLocalSnapshot> revokeConsent({
     String reason = 'user_requested',
   }) async {
@@ -228,6 +214,7 @@ class AccountRepository {
     }
   }
 
+  @override
   Future<AccountLocalSnapshot> deleteAccount({
     String reason = 'forget_me',
   }) async {
@@ -319,6 +306,7 @@ class AccountRepository {
     return snapshot;
   }
 
+  @override
   Future<AccountLocalSnapshot> clearPlaceholderSession({
     bool revertToLocalOnly = false,
   }) async {
@@ -340,6 +328,7 @@ class AccountRepository {
     return snapshot;
   }
 
+  @override
   Future<void> close() async {
     _apiService?.close();
   }

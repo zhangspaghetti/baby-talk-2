@@ -73,5 +73,5 @@ This is a pilot for route contract canonicalization, not a full router migration
 
 ## Follow-Up
 
-- REFACTOR-009 remains blocked until separately approved for repository/usecase contract mapping and account adapter seam work.
+- REFACTOR-009 was approved separately and completed as an account repository contract seam.
 - A later router migration can remove compatibility surfaces only after additional characterization and explicit approval.

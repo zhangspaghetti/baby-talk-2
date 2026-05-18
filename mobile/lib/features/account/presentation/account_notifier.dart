@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/widgets.dart';
 import 'package:mobile/features/account/data/local/account_local_store.dart';
-import 'package:mobile/features/account/data/repositories/account_repository.dart';
+import 'package:mobile/features/account/data/repositories/account_repository_contract.dart';
 import 'package:mobile/features/account/data/services/account_external_link_opener.dart';
 import 'package:mobile/features/account/domain/models/account_consent_state.dart';
 
@@ -11,12 +11,12 @@ const _signedOutPhoneHint = '请输入手机号与验证码，完成登录并同
 
 class AccountNotifier extends ChangeNotifier with WidgetsBindingObserver {
   AccountNotifier({
-    required AccountRepository repository,
+    required AccountRepositoryContract repository,
     AccountExternalLinkOpener? linkOpener,
   }) : _repository = repository,
        _linkOpener = linkOpener ?? const UrlLauncherAccountExternalLinkOpener();
 
-  final AccountRepository _repository;
+  final AccountRepositoryContract _repository;
   final AccountExternalLinkOpener _linkOpener;
 
   bool _isLoading = false;
