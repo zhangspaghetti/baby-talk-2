@@ -1,17 +1,13 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:mobile/app/router/app_route_contract.dart';
 import 'package:mobile/features/practice/presentation/practice_route_args.dart';
+
+export 'package:mobile/app/router/app_route_contract.dart' show AppRouteNames;
 
 final RouteObserver<PageRoute<dynamic>> appRouteObserver =
     RouteObserver<PageRoute<dynamic>>();
-
-class AppRouteNames {
-  static const shell = '/';
-  static const home = shell;
-  static const onboarding = '/onboarding';
-  static const practice = '/practice';
-}
 
 typedef AppScreenBuilder = Widget Function(BuildContext context);
 typedef AppPracticeScreenBuilder =

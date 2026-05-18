@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:mobile/app/router/app_route_contract.dart';
 
 // Import screens
 import 'package:mobile/features/onboarding/presentation/screens/onboarding_screen.dart';
@@ -14,22 +15,25 @@ final GlobalKey<NavigatorState> _rootNavigatorKey = GlobalKey<NavigatorState>();
 final appRouterProvider = Provider<GoRouter>((ref) {
   return GoRouter(
     navigatorKey: _rootNavigatorKey,
-    initialLocation: '/',
+    initialLocation: AppRouteNames.shell,
     routes: [
-      GoRoute(path: '/', builder: (context, state) => const AppShellScreen()),
       GoRoute(
-        path: '/onboarding',
+        path: AppRouteNames.shell,
+        builder: (context, state) => const AppShellScreen(),
+      ),
+      GoRoute(
+        path: AppRouteNames.onboarding,
         builder: (context, state) => const OnboardingScreen(),
       ),
       GoRoute(
-        path: '/practice',
+        path: AppRouteNames.practice,
         builder: (context, state) {
           final routeEntry = PracticeRouteEntry.fromObject(state.extra);
           return PracticeSessionScreen(routeEntry: routeEntry);
         },
       ),
       GoRoute(
-        path: '/account',
+        path: AppRouteNames.account,
         builder: (context, state) => const AccountEntryScreen(),
       ),
     ],

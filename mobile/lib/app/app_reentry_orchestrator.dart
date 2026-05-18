@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:app_links/app_links.dart';
 import 'package:go_router/go_router.dart';
 import 'package:mobile/app/invite_reentry_coordinator.dart';
+import 'package:mobile/app/router/app_route_contract.dart';
 import 'package:mobile/app/share_reentry_coordinator.dart';
 import 'package:mobile/features/household/presentation/household_notifier.dart';
 import 'package:mobile/features/practice/data/services/asset_phrase_service.dart';
@@ -124,7 +125,7 @@ class AppReentryOrchestrator {
     }
 
     if (_shareReentryCoordinator.takePendingShellFallback()) {
-      router.go('/');
+      router.go(AppRouteNames.shell);
       _shareReentryCoordinator.markFallback(
         message:
             _shareReentryCoordinator.lastErrorSurface ?? '分享链接不可用，已停留在首页安全入口。',
@@ -139,14 +140,14 @@ class AppReentryOrchestrator {
 
     final content = _seedContentProvider();
     if (content == null || !practiceArgs.isSupportedBy(content)) {
-      router.go('/');
+      router.go(AppRouteNames.shell);
       _shareReentryCoordinator.markFallback(
         message: '分享链接里的 activity 不受支持，已停留在首页安全入口。',
       );
       return;
     }
 
-    router.push('/practice', extra: practiceArgs.normalized());
+    router.push(AppRouteNames.practice, extra: practiceArgs.normalized());
     _shareReentryCoordinator.markHandled(args: practiceArgs);
   }
 
@@ -192,7 +193,7 @@ class AppReentryOrchestrator {
     }
 
     if (_inviteReentryCoordinator.takePendingShellFallback()) {
-      router.go('/');
+      router.go(AppRouteNames.shell);
       _inviteReentryCoordinator.markFallback(
         message:
             _inviteReentryCoordinator.lastErrorSurface ?? '邀请链接不可用，已停留在首页安全入口。',
@@ -207,7 +208,7 @@ class AppReentryOrchestrator {
 
     final householdNotifier = _householdNotifierLookup();
     if (householdNotifier == null) {
-      router.go('/');
+      router.go(AppRouteNames.shell);
       _inviteReentryCoordinator.markFallback(message: '共享练习暂时不可用，已停留在首页。');
       return;
     }
@@ -218,14 +219,14 @@ class AppReentryOrchestrator {
       return;
     }
     if (practiceArgs == null) {
-      router.go('/');
+      router.go(AppRouteNames.shell);
       _inviteReentryCoordinator.markFallback(message: result.message);
       return;
     }
 
     final content = _seedContentProvider();
     if (content == null || !practiceArgs.isSupportedBy(content)) {
-      router.go('/');
+      router.go(AppRouteNames.shell);
       _inviteReentryCoordinator.markFallback(
         message: '邀请返回的 activity 不受支持，已停留在首页安全入口。',
       );
@@ -244,7 +245,7 @@ class AppReentryOrchestrator {
       await gardenGrowthNotifier.refresh();
     }
 
-    router.push('/practice', extra: practiceArgs.normalized());
+    router.push(AppRouteNames.practice, extra: practiceArgs.normalized());
     _inviteReentryCoordinator.markHandled(args: practiceArgs);
   }
 

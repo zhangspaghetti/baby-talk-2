@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:mobile/app/router/app_route_contract.dart';
 import 'package:mobile/features/practice/data/services/asset_phrase_service.dart';
 
 enum PracticeRouteEntrySource { inApp, shareReentry, inviteReentry }
@@ -76,7 +77,9 @@ class PracticeRouteArgs {
   }
 
   Future<T?> push<T>(BuildContext context) {
-    return GoRouter.of(context).push<T>('/practice', extra: normalized());
+    return GoRouter.of(
+      context,
+    ).push<T>(AppRouteNames.practice, extra: normalized());
   }
 
   static String? _trimToNull(String? rawValue) {

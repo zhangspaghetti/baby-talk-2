@@ -9,7 +9,7 @@ import 'package:mobile/app/feature_gates.dart';
 import 'package:mobile/app/session_bootstrap.dart';
 import 'package:mobile/l10n/app_localizations.dart';
 import 'package:mobile/app/invite_reentry_coordinator.dart';
-import 'package:mobile/app/router/app_router.dart';
+import 'package:mobile/app/router/app_route_contract.dart';
 import 'package:mobile/app/share_reentry_coordinator.dart';
 import 'package:mobile/app/theme/app_layout_constants.dart';
 import 'package:mobile/app/theme/app_theme.dart';
@@ -516,7 +516,7 @@ class _BabyTalkAppState extends State<BabyTalkApp> {
       initialLocation: launchState.initialRoute,
       routes: [
         GoRoute(
-          path: '/',
+          path: AppRouteNames.shell,
           builder: (context, state) {
             final routedSnapshot = state.extra is OnboardingSnapshot
                 ? state.extra as OnboardingSnapshot
@@ -528,7 +528,7 @@ class _BabyTalkAppState extends State<BabyTalkApp> {
           },
         ),
         GoRoute(
-          path: '/onboarding',
+          path: AppRouteNames.onboarding,
           builder: (context, state) =>
               ChangeNotifierProvider<OnboardingNotifier>(
                 create: (_) =>
@@ -541,7 +541,7 @@ class _BabyTalkAppState extends State<BabyTalkApp> {
               ),
         ),
         GoRoute(
-          path: '/practice',
+          path: AppRouteNames.practice,
           builder: (context, state) {
             final routeEntry = PracticeRouteEntry.fromObject(state.extra);
             return PracticeSessionScreen(
@@ -551,7 +551,7 @@ class _BabyTalkAppState extends State<BabyTalkApp> {
           },
         ),
         GoRoute(
-          path: '/account',
+          path: AppRouteNames.account,
           builder: (context, state) => const AccountEntryScreen(),
         ),
       ],
