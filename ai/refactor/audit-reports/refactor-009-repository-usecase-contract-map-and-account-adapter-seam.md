@@ -74,5 +74,5 @@ This task is behavior-preserving. Account snapshots, sign-in, refresh, revoke, d
 
 ## Follow-Up
 
-- REFACTOR-010 remains blocked until separately approved for the practice repository characterization harness.
+- REFACTOR-010 was approved separately and completed as a practice repository characterization harness.
 - Future repository/usecase seams can repeat this pattern for household, mentor, practice, and share after characterization coverage is in place.
