@@ -3,7 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import '../../tool/inspect_interaction_events.dart';
 
 void main() {
-  test('inspect redaction 会脱敏手机号、验证码、token 与 session secret', () {
+  test('inspect redaction 会脱敏手机号、验证码与敏感凭据字段', () {
     const raw =
         'request timeout token=secret 13800138000 246810 session=abc sessionId=sess-123 secret=my-secret';
 

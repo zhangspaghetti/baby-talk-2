@@ -3,6 +3,7 @@
 workflows/
 !.github/workflows/
 !.github/workflows/admin-web.yml
+.sisyphus/
 
 # ── GSD baseline (auto-generated) ──
 .bg-shell/
