@@ -3,7 +3,7 @@
 Version: Flutter AI Software Factory v1.0.0  
 Stage: R2 Planning  
 Created: 2026-05-18  
-Status: approved through REFACTOR-012 execution
+Status: approved through REFACTOR-013 execution
 
 ## Ordering Rules
 
@@ -29,7 +29,7 @@ Status: approved through REFACTOR-012 execution
 | 10 | REFACTOR-010 | 2 | done | Practice repository characterization harness | REFACTOR-002 |
 | 11 | REFACTOR-011 | 2 | done | Feature boundary matrix and report-only import scan | REFACTOR-002 |
 | 12 | REFACTOR-012 | 2 | done | AsyncValue low-risk pilot | REFACTOR-004 |
-| 13 | REFACTOR-013 | 2 | blocked | Local sensitive data lifecycle plan and tests | REFACTOR-005 |
+| 13 | REFACTOR-013 | 2 | done | Local sensitive data lifecycle plan and tests | REFACTOR-005 |
 | 14 | REFACTOR-014 | 3 | blocked | Token/i18n behavior-preserving cleanup pilot | Phase 2 stability, yellow design decisions |
 | 15 | REFACTOR-015 | 3 | blocked | Shared component extraction pilot | REFACTOR-014 |
 | 16 | REFACTOR-016 | 3 | blocked | Accessibility semantics and localization pilot | REFACTOR-014 |
@@ -38,4 +38,4 @@ Status: approved through REFACTOR-012 execution
 
 ## First Implementation Candidate
 
-Human approval on 2026-05-18 allowed REFACTOR-001 and REFACTOR-002. Both are complete. Follow-up human approvals selected baseline failure handling, REFACTOR-004, REFACTOR-005, REFACTOR-006, REFACTOR-007, REFACTOR-008, REFACTOR-009, REFACTOR-010, REFACTOR-011, and REFACTOR-012; REFACTOR-002A, REFACTOR-004, REFACTOR-005, REFACTOR-006, REFACTOR-007, REFACTOR-008, REFACTOR-009, REFACTOR-010, REFACTOR-011, and REFACTOR-012 are complete. REFACTOR-013 remains the next blocked Phase 2 task and requires separate approval before local sensitive data lifecycle planning or tests.
+Human approval on 2026-05-18 allowed REFACTOR-001 and REFACTOR-002. Both are complete. Follow-up human approvals selected baseline failure handling, REFACTOR-004, REFACTOR-005, REFACTOR-006, REFACTOR-007, REFACTOR-008, REFACTOR-009, REFACTOR-010, REFACTOR-011, REFACTOR-012, and REFACTOR-013; REFACTOR-002A, REFACTOR-004, REFACTOR-005, REFACTOR-006, REFACTOR-007, REFACTOR-008, REFACTOR-009, REFACTOR-010, REFACTOR-011, REFACTOR-012, and REFACTOR-013 are complete. REFACTOR-014 remains the next blocked Phase 3 task and requires separate approval before token/i18n behavior-preserving cleanup.
