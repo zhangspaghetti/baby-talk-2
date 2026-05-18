@@ -3,7 +3,7 @@
 Date: 2026-05-18  
 Project: Baby Talk 2 mobile Flutter rescue  
 Stage: R3 Phase 2 in progress  
-Status: red decisions confirmed; REFACTOR-006 Bearer JWT header task complete; REFACTOR-007 Mentor/AI fail-closed consent gate complete; REFACTOR-008 route contract pilot complete; REFACTOR-009 account repository contract seam complete; REFACTOR-010 practice repository characterization harness complete
+Status: red decisions confirmed; REFACTOR-006 Bearer JWT header task complete; REFACTOR-007 Mentor/AI fail-closed consent gate complete; REFACTOR-008 route contract pilot complete; REFACTOR-009 account repository contract seam complete; REFACTOR-010 practice repository characterization harness complete; REFACTOR-011 feature boundary report-only scan complete
 
 ## Pending Decisions
 
@@ -43,4 +43,4 @@ Status: red decisions confirmed; REFACTOR-006 Bearer JWT header task complete; R
 
 ## Questions To User
 
-No new open REFACTOR-010 decision was added. REFACTOR-011 is the next blocked Phase 2 task and requires separate human approval before feature boundary matrix or report-only import scan work. Yellow design/lint decisions should be resolved before Phase 3 implementation or before converting report-only gates into hard CI failures.
+No new open REFACTOR-011 decision was added. REFACTOR-012 is the next blocked Phase 2 task and requires separate human approval before the AsyncValue low-risk pilot. Yellow design/lint decisions should be resolved before Phase 3 implementation or before converting report-only gates into hard CI failures.

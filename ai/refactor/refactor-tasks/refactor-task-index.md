@@ -3,7 +3,7 @@
 Version: Flutter AI Software Factory v1.0.0  
 Stage: R2 Planning  
 Created: 2026-05-18  
-Status: approved through REFACTOR-010 execution
+Status: approved through REFACTOR-011 execution
 
 ## Ordering Rules
 
@@ -27,7 +27,7 @@ Status: approved through REFACTOR-010 execution
 | 8 | REFACTOR-008 | 2 | done | Route contract inventory and GoRouter canonicalization pilot | REFACTOR-004 |
 | 9 | REFACTOR-009 | 2 | done | Repository/usecase contract map and account adapter seam | REFACTOR-004 |
 | 10 | REFACTOR-010 | 2 | done | Practice repository characterization harness | REFACTOR-002 |
-| 11 | REFACTOR-011 | 2 | blocked | Feature boundary matrix and report-only import scan | REFACTOR-002 |
+| 11 | REFACTOR-011 | 2 | done | Feature boundary matrix and report-only import scan | REFACTOR-002 |
 | 12 | REFACTOR-012 | 2 | blocked | AsyncValue low-risk pilot | REFACTOR-004 |
 | 13 | REFACTOR-013 | 2 | blocked | Local sensitive data lifecycle plan and tests | REFACTOR-005 |
 | 14 | REFACTOR-014 | 3 | blocked | Token/i18n behavior-preserving cleanup pilot | Phase 2 stability, yellow design decisions |
@@ -38,4 +38,4 @@ Status: approved through REFACTOR-010 execution
 
 ## First Implementation Candidate
 
-Human approval on 2026-05-18 allowed REFACTOR-001 and REFACTOR-002. Both are complete. Follow-up human approvals selected baseline failure handling, REFACTOR-004, REFACTOR-005, REFACTOR-006, REFACTOR-007, REFACTOR-008, REFACTOR-009, and REFACTOR-010; REFACTOR-002A, REFACTOR-004, REFACTOR-005, REFACTOR-006, REFACTOR-007, REFACTOR-008, REFACTOR-009, and REFACTOR-010 are complete. REFACTOR-011 remains the next blocked Phase 2 task and requires separate approval before feature boundary matrix or report-only import scan work.
+Human approval on 2026-05-18 allowed REFACTOR-001 and REFACTOR-002. Both are complete. Follow-up human approvals selected baseline failure handling, REFACTOR-004, REFACTOR-005, REFACTOR-006, REFACTOR-007, REFACTOR-008, REFACTOR-009, REFACTOR-010, and REFACTOR-011; REFACTOR-002A, REFACTOR-004, REFACTOR-005, REFACTOR-006, REFACTOR-007, REFACTOR-008, REFACTOR-009, REFACTOR-010, and REFACTOR-011 are complete. REFACTOR-012 remains the next blocked Phase 2 task and requires separate approval before the AsyncValue low-risk pilot.
