@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:mobile/app/theme/app_theme.dart';
+import 'package:mobile/app/widgets/app_surface_card.dart';
 import 'package:mobile/features/share/presentation/share_notifier.dart'
     show ShareViewStatus;
 import 'package:mobile/l10n/app_localizations.dart';
@@ -38,16 +39,8 @@ class ShareCalloutCard extends StatelessWidget {
       colors: colors,
     );
 
-    return Container(
+    return AppSurfaceCard(
       key: Key('$surfaceKeyPrefix-share-card'),
-      width: double.infinity,
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: colors.bgSurface,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: colors.outlineSoft),
-        boxShadow: colors.warmShadowSm,
-      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

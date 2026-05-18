@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:mobile/app/theme/app_theme.dart';
+import 'package:mobile/app/widgets/app_surface_card.dart';
 import 'package:mobile/features/practice/domain/models/garden_growth_snapshot.dart';
 import 'package:mobile/l10n/app_localizations.dart';
 
@@ -37,16 +38,8 @@ class HomeGrowthSummaryCard extends StatelessWidget {
       body = impact.detail;
     }
 
-    return Container(
+    return AppSurfaceCard(
       key: const Key('home-growth-summary'),
-      width: double.infinity,
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: colors.bgSurface,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: colors.outlineSoft),
-        boxShadow: colors.warmShadowSm,
-      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

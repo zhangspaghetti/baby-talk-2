@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:mobile/app/theme/app_theme.dart';
+import 'package:mobile/app/widgets/app_surface_card.dart';
 import 'package:mobile/features/practice/domain/models/interaction_event_payload.dart';
 import 'package:mobile/features/practice/domain/models/practice_activity_catalog.dart';
 import 'package:mobile/l10n/app_localizations.dart';
@@ -33,15 +34,8 @@ class DiscoverActivityCard extends StatelessWidget {
 
     return Semantics(
       label: '活动: ${activity.title}',
-      child: Container(
+      child: AppSurfaceCard(
         key: Key('discover-activity-card-${activity.activityId}'),
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: colors.bgSurface,
-          borderRadius: BorderRadius.circular(24),
-          border: Border.all(color: colors.outlineSoft),
-          boxShadow: colors.warmShadowSm,
-        ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
