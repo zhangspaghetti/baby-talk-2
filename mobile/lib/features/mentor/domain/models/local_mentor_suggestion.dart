@@ -1,6 +1,6 @@
 import 'package:freezed_annotation/freezed_annotation.dart';
 
-part 'local_mentor_suggestion.freezed.dart';
+part '../../../../generated/features/mentor/domain/models/local_mentor_suggestion.freezed.dart';
 
 enum LocalMentorSuggestionOrigin {
   recentPractice,

@@ -2,13 +2,13 @@
 
 Version: Flutter AI Software Factory v1.0.0
 Stage: R4 / Phase 4
-Task: REFACTOR-017, updated by REFACTOR-023
+Task: REFACTOR-017, updated by REFACTOR-024
 Created: 2026-05-19
 Status: completed, integration blockers remediated locally; engineering release gate blocked
 
 ## Summary
 
-The engineering baseline is stronger than the original R1 state: analyze is green, focused S01/S02/S03/S06 integration evidence is restored locally, auth/consent behavior has characterization coverage, route and repository contracts have guardrail artifacts, report-only architecture scanners exist, the generated-code strict migration canary has passed, all Isar/source_gen `.g.dart` outputs are now under `lib/generated/`, and one additional share Freezed owner has migrated. The repository is still not ready for hard Phase 4 release gates.
+The engineering baseline is stronger than the original R1 state: analyze is green, focused S01/S02/S03/S06 integration evidence is restored locally, auth/consent behavior has characterization coverage, route and repository contracts have guardrail artifacts, report-only architecture scanners exist, the generated-code strict migration canary has passed, all Isar/source_gen `.g.dart` outputs are now under `lib/generated/`, and additional share and mentor Freezed owners have migrated. The repository is still not ready for hard Phase 4 release gates.
 
 ## Green Engineering Signals
 
@@ -22,7 +22,7 @@ The engineering baseline is stronger than the original R1 state: analyze is gree
 | App composition and route contracts | REFACTOR-004 and REFACTOR-008 completed |
 | Repository/usecase guardrails | REFACTOR-009 and REFACTOR-010 completed |
 | AsyncValue and UI pilots | REFACTOR-012 through REFACTOR-016 completed |
-| Generated-code migration | REFACTOR-003 moved one Freezed output and one Isar output; REFACTOR-021 moved `AccountSession.freezed.dart`; REFACTOR-022 moved `InteractionEventEntity.g.dart`; REFACTOR-023 moved `ShareLinkDraft.freezed.dart` |
+| Generated-code migration | REFACTOR-003 moved one Freezed output and one Isar output; REFACTOR-021 moved `AccountSession.freezed.dart`; REFACTOR-022 moved `InteractionEventEntity.g.dart`; REFACTOR-023 moved `ShareLinkDraft.freezed.dart`; REFACTOR-024 moved `LocalMentorSuggestion.freezed.dart` |
 | Local integration stabilization | REFACTOR-017A passes S01, S02, S03, and S06 focused integration checks |
 | Installation ID lifecycle primitive | REFACTOR-019 adds `InstallationIdService.deleteIfExists()` and focused tests |
 | Core-only local data clearance contract | REFACTOR-020 adds the report-producing orchestrator without destructive flow wiring |
@@ -38,7 +38,7 @@ The engineering baseline is stronger than the original R1 state: analyze is gree
 
 | Gap | Status |
 |---|---|
-| Full generated-code migration and hard gate | R003/R021/R022/R023 migrated 3 Freezed outputs and 2 Isar/source_gen outputs; 8 Freezed outputs remain co-located; no hard gate is approved |
+| Full generated-code migration and hard gate | R003/R021/R022/R023/R024 migrated 4 Freezed outputs and 2 Isar/source_gen outputs; 7 Freezed outputs remain co-located; no hard gate is approved |
 | Feature boundary hard gate | Not approved; scanner remains report-only |
 | Sensitive lifecycle hard gate | Not approved; delete primitives and core-only orchestrator are covered, but real destructive lifecycle wiring is missing |
 | Coverage target | Not met; 66.54% vs 80% Phase 4 target |
@@ -49,4 +49,4 @@ The engineering baseline is stronger than the original R1 state: analyze is gree
 
 ## Engineering Exit Decision
 
-R017 completes the Phase 4 report suite, R017A restores local integration evidence, R003/R021/R022/R023 reduce generated-code placement risk, and R019/R020 reduce lifecycle-contract risk, but engineering production readiness is still blocked. The next engineering work should decide whether coverage, feature-boundary, real lifecycle wiring, remaining Freezed generated-code, performance, and target-platform replay gates are fixed or explicitly excepted.
+R017 completes the Phase 4 report suite, R017A restores local integration evidence, R003/R021/R022/R023/R024 reduce generated-code placement risk, and R019/R020 reduce lifecycle-contract risk, but engineering production readiness is still blocked. The next engineering work should decide whether coverage, feature-boundary, real lifecycle wiring, remaining Freezed generated-code, performance, and target-platform replay gates are fixed or explicitly excepted.

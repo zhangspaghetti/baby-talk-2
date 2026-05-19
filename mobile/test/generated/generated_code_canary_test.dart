@@ -3,6 +3,7 @@ import 'package:mobile/features/account/domain/models/account_session.dart';
 import 'package:mobile/features/household/domain/models/household_invite_link.dart';
 import 'package:mobile/features/household/domain/models/household_role.dart';
 import 'package:mobile/features/mentor/data/local/mentor_fact_event_entity.dart';
+import 'package:mobile/features/mentor/domain/models/local_mentor_suggestion.dart';
 import 'package:mobile/features/mentor/domain/models/mentor_fact_event.dart';
 import 'package:mobile/features/practice/data/local/interaction_event_entity.dart';
 import 'package:mobile/features/practice/domain/models/interaction_event_payload.dart';
@@ -51,6 +52,29 @@ void main() {
         contains('hello again'),
       );
       expect(draft.phraseText, 'hello');
+    });
+
+    test('LocalMentorSuggestion copyWith keeps visible maps stable', () {
+      final suggestion = LocalMentorSuggestion.validated(
+        suggestionId: 'suggestion_1',
+        origin: LocalMentorSuggestionOrigin.safeFallback,
+        title: '先从一个简单互动开始',
+        body: '宝宝今天可能需要更短的提示。',
+        phraseEnglish: 'hello',
+        reasonCode: 'offline',
+        redactedContextSummary: 'recent practice available',
+      );
+
+      final updated = suggestion.copyWith(title: '换一个轻量建议');
+
+      expect(updated.suggestionId, suggestion.suggestionId);
+      expect(updated.isSafeFallback, isTrue);
+      expect(updated.toVisibleMap()['origin'], 'safe_fallback');
+      expect(
+        updated.toRedactedContextMap()['redactedContextSummary'],
+        'recent practice available',
+      );
+      expect(suggestion.title, '先从一个简单互动开始');
     });
 
     test('Freezed output under lib/generated keeps copyWith behavior', () {

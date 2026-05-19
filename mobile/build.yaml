@@ -6,6 +6,7 @@ targets:
           include:
             - lib/features/account/domain/models/account_session.dart
             - lib/features/household/domain/models/household_invite_link.dart
+            - lib/features/mentor/domain/models/local_mentor_suggestion.dart
             - lib/features/share/domain/models/share_link_draft.dart
         options:
           build_extensions:
