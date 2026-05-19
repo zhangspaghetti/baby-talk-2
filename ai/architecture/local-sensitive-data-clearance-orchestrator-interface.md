@@ -3,7 +3,7 @@
 Version: Flutter AI Software Factory v1.0.0  
 Stage: R4 / Phase 4  
 Created: 2026-05-19  
-Status: proposed interface only; no runtime behavior change approved
+Status: option 1 approved and implemented core-only in REFACTOR-020; no destructive flow wiring approved
 
 ## Decision Boundary
 
@@ -17,6 +17,10 @@ This artifact proposes one security-oriented Flutter interface for coordinating 
 - `InstallationIdService.deleteIfExists()`
 
 It does not approve wiring the interface into logout, consent withdrawal, account deletion, onboarding reset, or any user-visible destructive flow. Any destructive production trigger remains a Staff+ red-level decision and requires explicit human confirmation before implementation.
+
+## REFACTOR-020 Implementation Note
+
+REFACTOR-020 implements the core-only registry shape in `mobile/lib/core/local_data_lifecycle/local_sensitive_data_clearance.dart`. It uses callback steps and focused tests only. It does not import feature code and is not referenced by existing production flows.
 
 ## Recommended Shape
 

@@ -12,7 +12,7 @@ Status: red decisions confirmed; REFACTOR-003 generated-code strict migration ca
 | HDR-R0-004 | Yellow | Analyzer/lint hardening | Add Phase 1 lint/custom scans only after current `flutter analyze` and coverage baselines are known | Confirm lint hardening should be planned as Phase 1, not R0 |
 | HDR-R0-005 | Yellow | Design token/i18n cleanup | Treat token and i18n cleanup as behavior-preserving only; no product copy rewrites without approval | Confirm copy/design changes require separate approval |
 | HDR-R1-006 | Yellow | Design token scale | Preserve existing visual values first, then decide 16 vs 24 radius and spacing scale | Confirm design-token normalization rules during R2 |
-| HDR-R4-001 | Red | Local sensitive data clearance orchestrator | Implement report-producing orchestrator test-first with no destructive flow wiring yet | Confirm implementation scope; require a separate confirmation before any logout, consent withdrawal, account deletion, onboarding reset, or device-erasure wiring |
+| HDR-R4-001 | Red | Local sensitive data clearance orchestrator | Confirmed option 1: implement report-producing orchestrator test-first with no destructive flow wiring | Separate confirmation still required before any logout, consent withdrawal, account deletion, onboarding reset, or device-erasure wiring |
 
 ## Confirmed Decisions
 
@@ -28,6 +28,7 @@ Status: red decisions confirmed; REFACTOR-003 generated-code strict migration ca
 | HDR-R1-003 | Mentor/AI network calls require parent login and accepted consent | Unauthenticated/unconsented users must remain local-only |
 | HDR-R1-004 | Local child, household, practice, mentor, and installation data is sensitive | R2/R3 must define encryption/secure storage, backup exclusion, and deletion lifecycle |
 | HDR-R1-005 | Generated code must be strictly migrated to `lib/generated/` | No project exception for co-located Dart `part` outputs is approved |
+| HDR-R4-001 | Local sensitive data clearance orchestrator option 1 approved | Core-only test-first implementation allowed; destructive flow wiring remains unapproved |
 
 ## R1 Report Artifacts
 
@@ -44,4 +45,4 @@ Status: red decisions confirmed; REFACTOR-003 generated-code strict migration ca
 
 ## Questions To User
 
-HDR-R4-001 is now open for the local sensitive data clearance orchestrator interface. REFACTOR-019 added `InstallationIdService.deleteIfExists()`, focused tests, and scanner evidence with `covered_delete_primitive=6` and `missing_delete_primitive=0`, but destructive flow wiring remains unapproved. Production readiness remains blocked by coverage below the 80% target, missing critical UI coverage slice, incomplete unified lifecycle enforcement, absent performance benchmarks, remaining generated-code migration/hard-gate work, target-platform/CI replay, and pending final human release confirmation. The next task should be explicitly selected: approve test-first orchestrator implementation without flow wiring, raise or except coverage, wire a unified lifecycle service behind explicit UX confirmation, create performance benchmarks, expand generated-code migration in small batches, replay integration evidence on target CI/platforms, or plan a narrowly scoped approved follow-up migration. Yellow design/lint decisions should be resolved before broader cleanup or before converting report-only gates into hard CI failures.
+HDR-R4-001 option 1 is confirmed and REFACTOR-020 implements the core-only local sensitive data clearance orchestrator without destructive flow wiring. REFACTOR-019 added `InstallationIdService.deleteIfExists()`, focused tests, and scanner evidence with `covered_delete_primitive=6` and `missing_delete_primitive=0`. Production readiness remains blocked by coverage below the 80% target, missing critical UI coverage slice, incomplete real-store lifecycle wiring, absent backup/encryption proof, absent performance benchmarks, remaining generated-code migration/hard-gate work, target-platform/CI replay, and pending final human release confirmation. The next task should be explicitly selected: raise or except coverage, design/approve real destructive lifecycle wiring with UX confirmation, create performance benchmarks, expand generated-code migration in small batches, replay integration evidence on target CI/platforms, or plan a narrowly scoped approved follow-up migration. Yellow design/lint decisions should be resolved before broader cleanup or before converting report-only gates into hard CI failures.

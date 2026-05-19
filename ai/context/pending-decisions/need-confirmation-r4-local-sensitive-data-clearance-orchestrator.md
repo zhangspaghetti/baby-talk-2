@@ -4,7 +4,7 @@ ID: HDR-R4-001
 Level: Red  
 Stage: R4  
 Created: 2026-05-19  
-Status: pending
+Status: confirmed for option 1 only
 
 ## Current Task
 
@@ -45,4 +45,8 @@ Choose option 1 only. Implement the orchestrator behind tests and report-only ve
 
 ## Required Confirmation
 
-Human must explicitly confirm the selected implementation scope before any Flutter production code is changed. A separate confirmation is required before any destructive user-visible flow calls the orchestrator.
+Human confirmed option 1 on 2026-05-19: implement the orchestrator as a test-first, behavior-preserving service with no production flow wiring. A separate confirmation is required before any destructive user-visible flow calls the orchestrator.
+
+## Confirmation Result
+
+Confirmed scope: add core-only orchestrator contracts, focused tests, and report evidence. Explicitly not confirmed: wiring logout, consent withdrawal, account deletion, onboarding reset, device erasure, or any automatic local data deletion behavior.
