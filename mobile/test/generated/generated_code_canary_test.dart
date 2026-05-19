@@ -7,6 +7,8 @@ import 'package:mobile/features/mentor/domain/models/local_mentor_suggestion.dar
 import 'package:mobile/features/mentor/domain/models/mentor_fact_event.dart';
 import 'package:mobile/features/practice/data/local/interaction_event_entity.dart';
 import 'package:mobile/features/practice/domain/models/interaction_event_payload.dart';
+import 'package:mobile/features/practice/domain/models/practice_activity_catalog.dart';
+import 'package:mobile/features/practice/domain/models/practice_continuity_snapshot.dart';
 import 'package:mobile/features/practice/domain/models/practice_phrase.dart';
 import 'package:mobile/features/share/domain/models/share_link_draft.dart';
 
@@ -101,6 +103,68 @@ void main() {
       expect(updated.audioPlayerAsset, 'audio/phrases/hello_wave.mp3');
       expect(phrase.step, 1);
       expect(phrase.audioPlayerAsset, 'audio/phrases/hello_wave.mp3');
+    });
+
+    test('PracticeContinuitySnapshot copyWith keeps derived state stable', () {
+      final activity = PracticeCatalogActivitySummary(
+        spaceId: 'home',
+        spaceTitle: '家里',
+        activityId: 'song_time',
+        title: '唱一首短歌',
+        summary: '用节奏带出一个词。',
+        sceneTag: 'song',
+        coachTip: '放慢一点。',
+        totalPhraseCount: 3,
+        completedPhraseCount: 1,
+        completedPhraseIds: const ['hello_wave'],
+        nextPhraseId: 'clap_hands',
+        nextPhraseEnglish: 'Clap hands',
+        totalEvents: 2,
+        skippedUnknownPhraseCount: 0,
+        skippedMalformedEventCount: 0,
+      );
+      final catalog = PracticeActivityCatalog(
+        installationId: 'install_canary',
+        spaces: const <PracticeCatalogSpaceSummary>[],
+        activities: [activity],
+        totalStoredEvents: 2,
+        validEvents: 2,
+        knownEvents: 2,
+        skippedMalformedEvents: 0,
+        skippedUnknownContentEvents: 0,
+      );
+      final recommendation = PracticeContinuityRecommendation(
+        spaceId: activity.spaceId,
+        activityId: activity.activityId,
+        activityTitle: activity.title,
+        reason: PracticeContinuityReason.nextIncomplete,
+        reasonLabel: PracticeContinuityReason.nextIncomplete.label,
+        fallbackReason: 'catalog gap',
+      );
+      final snapshot = PracticeContinuitySnapshot(
+        catalog: catalog,
+        recommendedActivity: activity,
+        recentActivity: null,
+        nextIncompleteActivity: activity,
+        starterActivity: activity,
+        recommendation: recommendation,
+        cadence: const PracticeContinuityCadenceSummary(
+          totalKnownEvents: 2,
+          startedActivityCount: 1,
+          lastEventTime: null,
+          headline: '今天已经开始',
+          detail: '继续刚才的节奏。',
+        ),
+        warningMessage: 'catalog recovered',
+      );
+
+      final updated = snapshot.copyWith(warningMessage: null);
+
+      expect(snapshot.hasWarning, isTrue);
+      expect(updated.hasWarning, isFalse);
+      expect(updated.fallbackReason, 'catalog gap');
+      expect(updated.cadence.isEmpty, isFalse);
+      expect(updated.recommendation.reasonLabel, '接上未完成 activity');
     });
 
     test('Freezed output under lib/generated keeps copyWith behavior', () {

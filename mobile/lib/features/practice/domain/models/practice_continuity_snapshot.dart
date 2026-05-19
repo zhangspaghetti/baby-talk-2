@@ -1,7 +1,7 @@
 import 'package:freezed_annotation/freezed_annotation.dart';
 import 'package:mobile/features/practice/domain/models/practice_activity_catalog.dart';
 
-part 'practice_continuity_snapshot.freezed.dart';
+part '../../../../generated/features/practice/domain/models/practice_continuity_snapshot.freezed.dart';
 
 enum PracticeContinuityReason {
   recentActivity,
