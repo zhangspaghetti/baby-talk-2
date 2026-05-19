@@ -1,6 +1,6 @@
 import 'package:freezed_annotation/freezed_annotation.dart';
 
-part 'account_session.freezed.dart';
+part '../../../../generated/features/account/domain/models/account_session.freezed.dart';
 
 @freezed
 class AccountSession with _$AccountSession {

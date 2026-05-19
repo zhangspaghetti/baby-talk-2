@@ -4,6 +4,7 @@ targets:
       freezed:
         generate_for:
           include:
+            - lib/features/account/domain/models/account_session.dart
             - lib/features/household/domain/models/household_invite_link.dart
         options:
           build_extensions:

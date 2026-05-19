@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:mobile/features/account/domain/models/account_session.dart';
 import 'package:mobile/features/household/domain/models/household_invite_link.dart';
 import 'package:mobile/features/household/domain/models/household_role.dart';
 import 'package:mobile/features/mentor/data/local/mentor_fact_event_entity.dart';
@@ -6,6 +7,27 @@ import 'package:mobile/features/mentor/domain/models/mentor_fact_event.dart';
 
 void main() {
   group('generated code canary', () {
+    test('AccountSession copyWith preserves validated session behavior', () {
+      final session = AccountSession.validated(
+        accountId: 'account_1',
+        sessionId: 'session_1',
+        maskedPhoneNumber: '138****0000',
+        createdAt: DateTime.utc(2026, 5, 19, 8),
+      );
+
+      final updated = session.copyWith(
+        accessToken: 'access_token',
+        refreshToken: 'refresh_token',
+        accessTokenExpiresAt: DateTime.utc(2026, 5, 19, 9),
+        refreshTokenExpiresAt: DateTime.utc(2026, 5, 20, 8),
+      );
+
+      expect(updated.accountId, session.accountId);
+      expect(updated.hasJwtTokens, isTrue);
+      expect(updated.requireAccessToken, 'access_token');
+      expect(session.hasJwtTokens, isFalse);
+    });
+
     test('Freezed output under lib/generated keeps copyWith behavior', () {
       final invite = HouseholdInviteLink(
         householdId: 'household_1',
