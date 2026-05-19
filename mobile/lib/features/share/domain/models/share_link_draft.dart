@@ -3,7 +3,7 @@ import 'package:mobile/features/practice/domain/models/garden_growth_snapshot.da
 import 'package:mobile/features/practice/domain/models/practice_activity_catalog.dart';
 import 'package:mobile/features/practice/domain/models/practice_continuity_snapshot.dart';
 
-part 'share_link_draft.freezed.dart';
+part '../../../../generated/features/share/domain/models/share_link_draft.freezed.dart';
 
 const List<String> shareDraftBlockedFragments = <String>[
   'installationid',

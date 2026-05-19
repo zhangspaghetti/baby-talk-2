@@ -3,7 +3,7 @@
 // ignore_for_file: type=lint
 // ignore_for_file: unused_element, deprecated_member_use, deprecated_member_use_from_same_package, use_function_type_syntax_for_parameters, unnecessary_const, avoid_init_to_null, invalid_override_different_default_values_named, prefer_expression_function_bodies, annotate_overrides, invalid_annotation_target, unnecessary_question_mark
 
-part of 'share_link_draft.dart';
+part of '../../../../../features/share/domain/models/share_link_draft.dart';
 
 // **************************************************************************
 // FreezedGenerator
@@ -12,8 +12,7 @@ part of 'share_link_draft.dart';
 T _$identity<T>(T value) => value;
 
 final _privateConstructorUsedError = UnsupportedError(
-  'It seems like you constructed your class using `MyClass._()`. This constructor is only meant to be used by freezed and you are not supposed to need it nor use it.\nPlease check the documentation here for more information: https://github.com/rrousselGit/freezed#adding-getters-and-methods-to-our-models',
-);
+    'It seems like you constructed your class using `MyClass._()`. This constructor is only meant to be used by freezed and you are not supposed to need it nor use it.\nPlease check the documentation here for more information: https://github.com/rrousselGit/freezed#adding-getters-and-methods-to-our-models');
 
 /// @nodoc
 mixin _$ShareLinkDraft {
@@ -34,20 +33,18 @@ mixin _$ShareLinkDraft {
 /// @nodoc
 abstract class $ShareLinkDraftCopyWith<$Res> {
   factory $ShareLinkDraftCopyWith(
-    ShareLinkDraft value,
-    $Res Function(ShareLinkDraft) then,
-  ) = _$ShareLinkDraftCopyWithImpl<$Res, ShareLinkDraft>;
+          ShareLinkDraft value, $Res Function(ShareLinkDraft) then) =
+      _$ShareLinkDraftCopyWithImpl<$Res, ShareLinkDraft>;
   @useResult
-  $Res call({
-    ShareLinkSource source,
-    String headline,
-    String storyText,
-    String? phraseText,
-    String? recommendationTitle,
-    String? recommendationReason,
-    String? spaceId,
-    String? activityId,
-  });
+  $Res call(
+      {ShareLinkSource source,
+      String headline,
+      String storyText,
+      String? phraseText,
+      String? recommendationTitle,
+      String? recommendationReason,
+      String? spaceId,
+      String? activityId});
 }
 
 /// @nodoc
@@ -72,65 +69,60 @@ class _$ShareLinkDraftCopyWithImpl<$Res, $Val extends ShareLinkDraft>
     Object? spaceId = freezed,
     Object? activityId = freezed,
   }) {
-    return _then(
-      _value.copyWith(
-            source: null == source
-                ? _value.source
-                : source // ignore: cast_nullable_to_non_nullable
-                      as ShareLinkSource,
-            headline: null == headline
-                ? _value.headline
-                : headline // ignore: cast_nullable_to_non_nullable
-                      as String,
-            storyText: null == storyText
-                ? _value.storyText
-                : storyText // ignore: cast_nullable_to_non_nullable
-                      as String,
-            phraseText: freezed == phraseText
-                ? _value.phraseText
-                : phraseText // ignore: cast_nullable_to_non_nullable
-                      as String?,
-            recommendationTitle: freezed == recommendationTitle
-                ? _value.recommendationTitle
-                : recommendationTitle // ignore: cast_nullable_to_non_nullable
-                      as String?,
-            recommendationReason: freezed == recommendationReason
-                ? _value.recommendationReason
-                : recommendationReason // ignore: cast_nullable_to_non_nullable
-                      as String?,
-            spaceId: freezed == spaceId
-                ? _value.spaceId
-                : spaceId // ignore: cast_nullable_to_non_nullable
-                      as String?,
-            activityId: freezed == activityId
-                ? _value.activityId
-                : activityId // ignore: cast_nullable_to_non_nullable
-                      as String?,
-          )
-          as $Val,
-    );
+    return _then(_value.copyWith(
+      source: null == source
+          ? _value.source
+          : source // ignore: cast_nullable_to_non_nullable
+              as ShareLinkSource,
+      headline: null == headline
+          ? _value.headline
+          : headline // ignore: cast_nullable_to_non_nullable
+              as String,
+      storyText: null == storyText
+          ? _value.storyText
+          : storyText // ignore: cast_nullable_to_non_nullable
+              as String,
+      phraseText: freezed == phraseText
+          ? _value.phraseText
+          : phraseText // ignore: cast_nullable_to_non_nullable
+              as String?,
+      recommendationTitle: freezed == recommendationTitle
+          ? _value.recommendationTitle
+          : recommendationTitle // ignore: cast_nullable_to_non_nullable
+              as String?,
+      recommendationReason: freezed == recommendationReason
+          ? _value.recommendationReason
+          : recommendationReason // ignore: cast_nullable_to_non_nullable
+              as String?,
+      spaceId: freezed == spaceId
+          ? _value.spaceId
+          : spaceId // ignore: cast_nullable_to_non_nullable
+              as String?,
+      activityId: freezed == activityId
+          ? _value.activityId
+          : activityId // ignore: cast_nullable_to_non_nullable
+              as String?,
+    ) as $Val);
   }
 }
 
 /// @nodoc
 abstract class _$$ShareLinkDraftImplCopyWith<$Res>
     implements $ShareLinkDraftCopyWith<$Res> {
-  factory _$$ShareLinkDraftImplCopyWith(
-    _$ShareLinkDraftImpl value,
-    $Res Function(_$ShareLinkDraftImpl) then,
-  ) = __$$ShareLinkDraftImplCopyWithImpl<$Res>;
+  factory _$$ShareLinkDraftImplCopyWith(_$ShareLinkDraftImpl value,
+          $Res Function(_$ShareLinkDraftImpl) then) =
+      __$$ShareLinkDraftImplCopyWithImpl<$Res>;
   @override
   @useResult
-  $Res call({
-    ShareLinkSource source,
-    String headline,
-    String storyText,
-    String? phraseText,
-    String? recommendationTitle,
-    String? recommendationReason,
-    String? spaceId,
-    String? activityId,
-  });
+  $Res call(
+      {ShareLinkSource source,
+      String headline,
+      String storyText,
+      String? phraseText,
+      String? recommendationTitle,
+      String? recommendationReason,
+      String? spaceId,
+      String? activityId});
 }
 
 /// @nodoc
@@ -138,9 +130,8 @@ class __$$ShareLinkDraftImplCopyWithImpl<$Res>
     extends _$ShareLinkDraftCopyWithImpl<$Res, _$ShareLinkDraftImpl>
     implements _$$ShareLinkDraftImplCopyWith<$Res> {
   __$$ShareLinkDraftImplCopyWithImpl(
-    _$ShareLinkDraftImpl _value,
-    $Res Function(_$ShareLinkDraftImpl) _then,
-  ) : super(_value, _then);
+      _$ShareLinkDraftImpl _value, $Res Function(_$ShareLinkDraftImpl) _then)
+      : super(_value, _then);
 
   @pragma('vm:prefer-inline')
   @override
@@ -154,58 +145,56 @@ class __$$ShareLinkDraftImplCopyWithImpl<$Res>
     Object? spaceId = freezed,
     Object? activityId = freezed,
   }) {
-    return _then(
-      _$ShareLinkDraftImpl(
-        source: null == source
-            ? _value.source
-            : source // ignore: cast_nullable_to_non_nullable
-                  as ShareLinkSource,
-        headline: null == headline
-            ? _value.headline
-            : headline // ignore: cast_nullable_to_non_nullable
-                  as String,
-        storyText: null == storyText
-            ? _value.storyText
-            : storyText // ignore: cast_nullable_to_non_nullable
-                  as String,
-        phraseText: freezed == phraseText
-            ? _value.phraseText
-            : phraseText // ignore: cast_nullable_to_non_nullable
-                  as String?,
-        recommendationTitle: freezed == recommendationTitle
-            ? _value.recommendationTitle
-            : recommendationTitle // ignore: cast_nullable_to_non_nullable
-                  as String?,
-        recommendationReason: freezed == recommendationReason
-            ? _value.recommendationReason
-            : recommendationReason // ignore: cast_nullable_to_non_nullable
-                  as String?,
-        spaceId: freezed == spaceId
-            ? _value.spaceId
-            : spaceId // ignore: cast_nullable_to_non_nullable
-                  as String?,
-        activityId: freezed == activityId
-            ? _value.activityId
-            : activityId // ignore: cast_nullable_to_non_nullable
-                  as String?,
-      ),
-    );
+    return _then(_$ShareLinkDraftImpl(
+      source: null == source
+          ? _value.source
+          : source // ignore: cast_nullable_to_non_nullable
+              as ShareLinkSource,
+      headline: null == headline
+          ? _value.headline
+          : headline // ignore: cast_nullable_to_non_nullable
+              as String,
+      storyText: null == storyText
+          ? _value.storyText
+          : storyText // ignore: cast_nullable_to_non_nullable
+              as String,
+      phraseText: freezed == phraseText
+          ? _value.phraseText
+          : phraseText // ignore: cast_nullable_to_non_nullable
+              as String?,
+      recommendationTitle: freezed == recommendationTitle
+          ? _value.recommendationTitle
+          : recommendationTitle // ignore: cast_nullable_to_non_nullable
+              as String?,
+      recommendationReason: freezed == recommendationReason
+          ? _value.recommendationReason
+          : recommendationReason // ignore: cast_nullable_to_non_nullable
+              as String?,
+      spaceId: freezed == spaceId
+          ? _value.spaceId
+          : spaceId // ignore: cast_nullable_to_non_nullable
+              as String?,
+      activityId: freezed == activityId
+          ? _value.activityId
+          : activityId // ignore: cast_nullable_to_non_nullable
+              as String?,
+    ));
   }
 }
 
 /// @nodoc
 
 class _$ShareLinkDraftImpl extends _ShareLinkDraft {
-  const _$ShareLinkDraftImpl({
-    required this.source,
-    required this.headline,
-    required this.storyText,
-    this.phraseText,
-    this.recommendationTitle,
-    this.recommendationReason,
-    this.spaceId,
-    this.activityId,
-  }) : super._();
+  const _$ShareLinkDraftImpl(
+      {required this.source,
+      required this.headline,
+      required this.storyText,
+      this.phraseText,
+      this.recommendationTitle,
+      this.recommendationReason,
+      this.spaceId,
+      this.activityId})
+      : super._();
 
   @override
   final ShareLinkSource source;
@@ -252,38 +241,34 @@ class _$ShareLinkDraftImpl extends _ShareLinkDraft {
 
   @override
   int get hashCode => Object.hash(
-    runtimeType,
-    source,
-    headline,
-    storyText,
-    phraseText,
-    recommendationTitle,
-    recommendationReason,
-    spaceId,
-    activityId,
-  );
+      runtimeType,
+      source,
+      headline,
+      storyText,
+      phraseText,
+      recommendationTitle,
+      recommendationReason,
+      spaceId,
+      activityId);
 
   @JsonKey(ignore: true)
   @override
   @pragma('vm:prefer-inline')
   _$$ShareLinkDraftImplCopyWith<_$ShareLinkDraftImpl> get copyWith =>
       __$$ShareLinkDraftImplCopyWithImpl<_$ShareLinkDraftImpl>(
-        this,
-        _$identity,
-      );
+          this, _$identity);
 }
 
 abstract class _ShareLinkDraft extends ShareLinkDraft {
-  const factory _ShareLinkDraft({
-    required final ShareLinkSource source,
-    required final String headline,
-    required final String storyText,
-    final String? phraseText,
-    final String? recommendationTitle,
-    final String? recommendationReason,
-    final String? spaceId,
-    final String? activityId,
-  }) = _$ShareLinkDraftImpl;
+  const factory _ShareLinkDraft(
+      {required final ShareLinkSource source,
+      required final String headline,
+      required final String storyText,
+      final String? phraseText,
+      final String? recommendationTitle,
+      final String? recommendationReason,
+      final String? spaceId,
+      final String? activityId}) = _$ShareLinkDraftImpl;
   const _ShareLinkDraft._() : super._();
 
   @override

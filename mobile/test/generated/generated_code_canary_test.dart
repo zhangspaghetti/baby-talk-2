@@ -6,6 +6,7 @@ import 'package:mobile/features/mentor/data/local/mentor_fact_event_entity.dart'
 import 'package:mobile/features/mentor/domain/models/mentor_fact_event.dart';
 import 'package:mobile/features/practice/data/local/interaction_event_entity.dart';
 import 'package:mobile/features/practice/domain/models/interaction_event_payload.dart';
+import 'package:mobile/features/share/domain/models/share_link_draft.dart';
 
 void main() {
   group('generated code canary', () {
@@ -28,6 +29,28 @@ void main() {
       expect(updated.hasJwtTokens, isTrue);
       expect(updated.requireAccessToken, 'access_token');
       expect(session.hasJwtTokens, isFalse);
+    });
+
+    test('ShareLinkDraft copyWith keeps public payload behavior', () {
+      const draft = ShareLinkDraft(
+        source: ShareLinkSource.latestImpact,
+        headline: '今天有一个新尝试',
+        storyText: '宝宝跟着节奏模仿了一次。',
+        phraseText: 'hello',
+        spaceId: 'home',
+        activityId: 'song_time',
+      );
+
+      final updated = draft.copyWith(phraseText: 'hello again');
+
+      expect(updated.source, draft.source);
+      expect(updated.hasPublicPayload, isTrue);
+      expect(updated.toCreatePayload()['source'], 'latest_impact');
+      expect(
+        updated.buildShareMessage('https://share.example.com/a'),
+        contains('hello again'),
+      );
+      expect(draft.phraseText, 'hello');
     });
 
     test('Freezed output under lib/generated keeps copyWith behavior', () {
