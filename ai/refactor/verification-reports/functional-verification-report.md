@@ -2,7 +2,7 @@
 
 Version: Flutter AI Software Factory v1.0.0
 Stage: R4 / Phase 4
-Task: REFACTOR-017
+Task: REFACTOR-017, updated by REFACTOR-033
 Created: 2026-05-19
 Status: completed, integration blockers remediated locally; production gate blocked by remaining Phase 4 criteria
 
@@ -10,7 +10,7 @@ Status: completed, integration blockers remediated locally; production gate bloc
 
 Current unit, widget, and smoke-level Flutter tests remain green. The original R017 verification pass exposed core-flow integration blockers; REFACTOR-017A has now remediated those local blockers with behavior-preserving app and harness fixes.
 
-Functional core-flow evidence is restored locally. Production readiness remains blocked by non-functional Phase 4 criteria: coverage target/exception, critical UI coverage measurement, sensitive lifecycle completion, performance benchmark evidence, target-platform/CI replay, and final human approval.
+Functional core-flow evidence is restored locally. REFACTOR-033 has measured the critical UI coverage slice above threshold, but production readiness remains blocked by non-functional Phase 4 criteria: global coverage target/exception, sensitive lifecycle completion, performance benchmark evidence, target-platform/CI replay, and final human approval.
 
 ## Command Evidence
 
@@ -47,7 +47,7 @@ Functional core-flow evidence is restored locally. Production readiness remains 
 
 ## Interpretation
 
-- The app's local unit and widget regression surface is stable at 220 passing tests.
+- The app's local unit and widget regression surface is stable; latest full `flutter test` passes 241 tests after REFACTOR-033.
 - The integration suite now proves the required local end-to-end rescue flows in focused runs.
 - The original timeout failures were a mix of stale harness assumptions and product integration defects: missing household bootstrap injection, async practice repository access, post-practice refresh timing, Mentor account/API split state, backend surface mismatch, and cross-test Mentor Isar store collision.
 - R017A did not approve stale-test behavior changes; product contracts remain fresh-install onboarding, combined growth/garden tab, and login-gated online Mentor chat.

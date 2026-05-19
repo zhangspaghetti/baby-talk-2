@@ -2,7 +2,7 @@
 
 Version: Flutter AI Software Factory v1.0.0
 Stage: R4 / Phase 4
-Task: REFACTOR-017, updated by REFACTOR-024
+Task: REFACTOR-017, updated by REFACTOR-033
 Created: 2026-05-19
 Status: not production-ready
 
@@ -10,18 +10,18 @@ Status: not production-ready
 
 Production readiness is not approved.
 
-R017 successfully generated the required verification report suite, R017A restored the local focused integration evidence that was blocking the core flows, R019 closed the installation ID delete-primitive gap, R020 added the core-only local clearance orchestrator, and R021/R022/R023/R024 moved three more Freezed outputs plus the remaining co-located `.g.dart` output into `lib/generated/`. The Phase 4 exit criteria are still not met. Release, hard gate escalation, and legacy deletion must remain blocked until the gaps below are resolved or explicitly excepted by a human decision artifact.
+R017 successfully generated the required verification report suite, R017A restored the local focused integration evidence that was blocking the core flows, R019 closed the installation ID delete-primitive gap, R020 added the core-only local clearance orchestrator, R021 through R032 completed known generated-code output isolation and added a hard gate, and R033 measured the selected critical UI coverage slice above the 60% threshold. The Phase 4 exit criteria are still not met. Release, additional hard gate escalation, and legacy deletion must remain blocked until the gaps below are resolved or explicitly excepted by a human decision artifact.
 
 ## Phase 4 Exit Criteria
 
 | Criterion | Status | Evidence |
 |---|---|---|
 | Unit coverage target reaches 80% or approved exception exists | Not met | LCOV is 66.54%; no approved exception exists |
-| Widget coverage reaches 60% for critical UI surfaces | Not proven | No critical-UI coverage slice exists |
+| Widget coverage reaches 60% for critical UI surfaces | Met | REFACTOR-033 focused slice is 70.77% across 8 selected files |
 | All core flows pass on target platforms or have documented blockers | Met locally, target replay pending | S01, S02, S03, and S06 focused integration checks passed after R017A |
 | Security report has no high severity open findings | Not met | Installation ID primitive is closed; unified lifecycle, backup/encryption, URL hard gates, and release approval remain open |
 | Performance benchmarks show no regression from baseline | Not proven | No benchmark harness or measured baseline exists |
-| CI is green with approved hard gates | Partially met | Analyze/test/coverage green; integration and hard-gate readiness blocked |
+| CI is green with approved hard gates | Partially met | Analyze/test green and generated-code location gate exists; global coverage, integration replay, and remaining hard-gate policy readiness blocked |
 
 ## Release Blockers
 
@@ -29,10 +29,10 @@ R017 successfully generated the required verification report suite, R017A restor
 |---|---|
 | Target-platform/CI integration replay | Replay passing `s01`, `s02`, `s03`, and `s06` evidence on the approved CI or target-platform environment |
 | Coverage below target | Raise LCOV to 80% or record explicit coverage exception with risk owner and compensating checks |
-| Critical UI widget coverage not measured | Add coverage slicing or a documented measurement alternative for critical UI surfaces |
+| Global coverage target unresolved | R033 measured critical UI coverage, but global LCOV still needs 80% or an approved exception; latest full coverage attempt failed on Windows temp compiler output |
 | Sensitive lifecycle incomplete | Prove all sensitive stores clear through approved real-store lifecycle wiring and settle backup/encryption posture; installation ID primitive and core-only orchestrator are now covered |
 | Performance benchmark gate missing | Add/run benchmark harness for required scenarios and compare against baseline |
-| Feature boundary and generated-code hard gates not ready | R003/R021/R022/R023/R024 migrated 4 Freezed outputs and 2 Isar/source_gen outputs; 7 Freezed outputs and report-only scanners still need migration or explicit exceptions before hard gates |
+| Feature boundary hard gate not ready | Generated-code hard gate is now present; feature-boundary scanner remains report-only until separately approved |
 | Final human gate missing | Human confirmation required before production readiness and before any legacy deletion |
 
 ## What Can Proceed
@@ -50,4 +50,4 @@ R017 successfully generated the required verification report suite, R017A restor
 
 ## Final Readiness Decision
 
-The project remains in Phase 4 verification with blockers. R017A reduced integration risk, R003/R021/R022/R023/R024 reduced generated-code migration risk, and R019/R020 reduced lifecycle-contract risk, but production readiness still requires target-platform/CI replay, coverage, real lifecycle wiring, performance, remaining Freezed generated-code/hard-gate, and final human approval work.
+The project remains in Phase 4 verification with blockers. R017A reduced integration risk, R003/R021 through R032 closed known generated-code placement risk, R019/R020 reduced lifecycle-contract risk, and R033 measured the critical UI slice above threshold. Production readiness still requires target-platform/CI replay, global coverage target or approved exception, real lifecycle wiring with backup/encryption posture, performance evidence, feature-boundary hard-gate policy, and final human approval.

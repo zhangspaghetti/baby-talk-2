@@ -4,11 +4,11 @@ Version: Flutter AI Software Factory v1.0.0
 Stage: R4 / Phase 4
 Task: REFACTOR-017
 Created: 2026-05-19
-Status: completed, coverage gate blocked; integration blockers remediated locally
+Status: completed, global coverage gate blocked; integration blockers remediated locally; critical UI slice measured
 
 ## Summary
 
-The standard mobile verification suite remains green for analyze, unit/widget tests, and coverage collection. LCOV line coverage is unchanged from REFACTOR-016 at 66.53%, which is below the Phase 4 target of 80%. The R1-documented integration checks originally failed during R017, then passed locally after REFACTOR-017A stabilization.
+The standard mobile verification suite remains green for analyze and unit/widget tests. The global LCOV line coverage target remains unresolved and below the Phase 4 target of 80%; the latest full coverage attempt in this Windows session failed with a temporary compiler `output.dill` `PathNotFoundException`, so no new full-suite LCOV success is claimed. REFACTOR-033 adds a focused critical UI coverage slice that reaches 70.77% across the selected surfaces. The R1-documented integration checks originally failed during R017, then passed locally after REFACTOR-017A stabilization.
 
 ## Regression Evidence
 
@@ -32,6 +32,15 @@ The standard mobile verification suite remains green for analyze, unit/widget te
 | `..\flutter.cmd test integration_test/s06_full_chain_release_flow_test.dart` | 0 | Pass; 3 full-chain tests passed |
 | `..\flutter.cmd analyze` | 0 | Pass; no issues found |
 
+## REFACTOR-033 Critical UI Coverage Evidence
+
+| Command | Exit | Result |
+|---|---:|---|
+| `..\flutter.cmd test --coverage test/features/practice/critical_ui_coverage_test.dart` | 0 | Pass; 4 tests; produced focused LCOV |
+| `dart run tool/critical_ui_coverage.dart coverage/lcov.info --min=60` | 0 | Pass; 8/8 selected files present; 397/561 lines hit; 70.77% vs 60.00% threshold |
+| `..\flutter.cmd analyze` | 0 | Pass; no issues found |
+| `..\flutter.cmd test` | 0 | Pass; 241 tests passed |
+
 ## Coverage Evidence
 
 | Metric | Value |
@@ -42,14 +51,24 @@ The standard mobile verification suite remains green for analyze, unit/widget te
 | Phase 4 target | 80.00% |
 | Gap to target | 13.47 percentage points |
 
+## Critical UI Slice Evidence
+
+| Metric | Value |
+|---|---:|
+| Selected critical UI files present | 8 / 8 |
+| Lines hit | 397 |
+| Lines found | 561 |
+| Line coverage | 70.77% |
+| Critical UI threshold | 60.00% |
+
 ## Target Assessment
 
 | Phase 4 Test Criterion | Status | Evidence |
 |---|---|---|
 | Analyze green full run | Met | `flutter analyze` exit 0 |
-| Full suite green | Met for unit/widget/smoke suite | `flutter test` exit 0, 220 passed |
-| Coverage reaches 80% or approved exception exists | Not met | LCOV is 66.53%; no approved exception recorded |
-| Widget coverage reaches 60% for critical UI surfaces | Not proven | No critical-UI-only coverage slice exists yet |
+| Full suite green | Met for unit/widget/smoke suite | Latest `flutter test` exit 0, 241 passed |
+| Coverage reaches 80% or approved exception exists | Not met | Historical LCOV is about 66.54%; latest full coverage attempt failed on Windows temp compiler output; no approved exception recorded |
+| Widget coverage reaches 60% for critical UI surfaces | Met | REFACTOR-033 selected slice is 70.77% |
 | All core flows pass or have documented blockers | Met locally, pending target replay | S01, S02, S03, and S06 focused integration checks exited 0 after REFACTOR-017A |
 
 ## Nonfatal Test Warning
@@ -58,4 +77,4 @@ The known onboarding tap warning around key `onboarding-name-continue` still app
 
 ## Test Exit Decision
 
-The R017 report suite is complete and R017A restored local integration evidence. The Phase 4 test gate is still not passed because coverage remains below target and no explicit approved coverage exception or critical-UI coverage measurement exists.
+The R017 report suite is complete, R017A restored local integration evidence, and R033 now measures the critical UI slice above the 60% threshold. The Phase 4 test gate is still not fully passed because global LCOV remains below target and no explicit approved coverage exception exists.
