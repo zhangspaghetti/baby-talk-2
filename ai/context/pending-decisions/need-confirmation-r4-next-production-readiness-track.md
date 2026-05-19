@@ -21,7 +21,7 @@ Red: this controls R4 scope, production-readiness criteria, and whether privacy-
 ## Existing Information
 
 - `ai/context/daily-decision-summary.md` records REFACTOR-001 through REFACTOR-034 as complete.
-- `ai/refactor/refactor-tasks/refactor-task-index.md` says the next task must be selected by a human.
+- `ai/refactor/refactor-tasks/refactor-task-index.md` says the next task must be selected by a human and now contains draft REFACTOR-035 as the recommended coverage slice.
 - `ai/refactor/migration-plans/r0-to-r5-timeline.md` records the remaining R4 blockers.
 - `ai/context/pending-decisions/need-confirmation-r4-local-sensitive-data-clearance-orchestrator.md` confirms only core-only orchestrator implementation; destructive flow wiring remains unapproved.
 
