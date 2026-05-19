@@ -2,7 +2,7 @@
 
 Version: Flutter AI Software Factory v1.0.0
 Stage: R4 / Phase 4
-Task: REFACTOR-017, updated by REFACTOR-033
+Task: REFACTOR-017, updated by REFACTOR-034
 Created: 2026-05-19
 Status: completed, core-flow compatibility restored locally; production compatibility pending remaining gates
 
@@ -21,7 +21,7 @@ Compatibility with the intended local production flows is now proven by focused 
 | API payloads/auth paths | Preserved | Mentor API path now uses the authenticated client already required by R006/R007 |
 | Persisted data shape | Preserved | No model, Isar schema, JSON, or generated code edits |
 | Generated localization/code outputs | Preserved | No generated files edited |
-| Unit/widget compatibility | Passing | Latest `flutter test` 241 passed |
+| Unit/widget compatibility | Passing | Latest full coverage suite 245 passed |
 | Core flow compatibility | Passing locally | S01, S02, S03, and S06 focused integration commands exited 0 |
 
 ## Integration Compatibility Results

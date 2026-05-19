@@ -54,7 +54,7 @@ The slice now reaches 70.77% line coverage across 8 selected files, exceeding th
 
 ## Residual Risks
 
-- The global Phase 4 LCOV target remains blocked. The most recent full coverage attempt in this Windows session failed with a temporary compiler `output.dill` `PathNotFoundException`; no new full-suite 80% LCOV success is claimed.
+- The global Phase 4 LCOV target remains blocked. At the time of REFACTOR-033, the full coverage attempt in this Windows session failed with a temporary compiler `output.dill` `PathNotFoundException`; no full-suite 80% LCOV success is claimed by this task. REFACTOR-034 later stabilizes full coverage collection with `--concurrency=1`.
 - `PracticeSessionScreen` now has fallback-route coverage but still has low line coverage for deeper session interactions.
 - The critical UI parser is report-only and is not wired as a separate CI workflow gate.
 

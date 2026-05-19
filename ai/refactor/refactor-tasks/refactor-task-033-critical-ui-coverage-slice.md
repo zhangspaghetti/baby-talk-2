@@ -60,7 +60,7 @@ The slice targets the current LCOV low points that are user-visible and high val
 
 ## Coverage Decision
 
-REFACTOR-033 reduces the critical UI coverage measurement blocker only. It does not satisfy the Phase 4 global LCOV target. A prior full `flutter test --coverage` attempt on this Windows run failed with a temporary compiler `output.dill` `PathNotFoundException`, and the older LCOV value remained about 66.54%; no 80% coverage success or exception is claimed by this task.
+REFACTOR-033 reduces the critical UI coverage measurement blocker only. It does not satisfy the Phase 4 global LCOV target. At the time of this task, a full `flutter test --coverage` attempt on this Windows run failed with a temporary compiler `output.dill` `PathNotFoundException`, and the older LCOV value remained about 66.54%; no 80% coverage success or exception is claimed by this task. REFACTOR-034 later stabilizes full coverage collection with `--concurrency=1`.
 
 ## Critical UI LCOV Detail
 

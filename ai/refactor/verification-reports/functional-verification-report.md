@@ -2,7 +2,7 @@
 
 Version: Flutter AI Software Factory v1.0.0
 Stage: R4 / Phase 4
-Task: REFACTOR-017, updated by REFACTOR-033
+Task: REFACTOR-017, updated by REFACTOR-034
 Created: 2026-05-19
 Status: completed, integration blockers remediated locally; production gate blocked by remaining Phase 4 criteria
 
@@ -47,7 +47,7 @@ Functional core-flow evidence is restored locally. REFACTOR-033 has measured the
 
 ## Interpretation
 
-- The app's local unit and widget regression surface is stable; latest full `flutter test` passes 241 tests after REFACTOR-033.
+- The app's local unit and widget regression surface is stable; latest full coverage suite passes 245 tests after REFACTOR-034.
 - The integration suite now proves the required local end-to-end rescue flows in focused runs.
 - The original timeout failures were a mix of stale harness assumptions and product integration defects: missing household bootstrap injection, async practice repository access, post-practice refresh timing, Mentor account/API split state, backend surface mismatch, and cross-test Mentor Isar store collision.
 - R017A did not approve stale-test behavior changes; product contracts remain fresh-install onboarding, combined growth/garden tab, and login-gated online Mentor chat.
