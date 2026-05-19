@@ -3,7 +3,7 @@
 Version: Flutter AI Software Factory v1.0.0  
 Stage: R2 Planning  
 Created: 2026-05-18  
-Status: approved through REFACTOR-018 execution, REFACTOR-003 backfill, and REFACTOR-017A integration stabilization
+Status: approved through REFACTOR-019 installation ID lifecycle primitive; production readiness remains blocked
 
 ## Ordering Rules
 
@@ -36,7 +36,8 @@ Status: approved through REFACTOR-018 execution, REFACTOR-003 backfill, and REFA
 | 17 | REFACTOR-017 | 4 | done | Verification report suite | Phase 1-3 completed tasks |
 | 17.1 | REFACTOR-017A | 4 | done | Integration blocker stabilization | REFACTOR-017 |
 | 18 | REFACTOR-018 | 4 | done | Legacy deletion candidate audit | REFACTOR-017 |
+| 19 | REFACTOR-019 | 4 | done | Installation ID delete primitive and lifecycle scanner closure | REFACTOR-013, REFACTOR-017 |
 
 ## First Implementation Candidate
 
-Human approval on 2026-05-18 allowed REFACTOR-001 and REFACTOR-002. Both are complete. Follow-up human approvals selected baseline failure handling, REFACTOR-004, REFACTOR-005, REFACTOR-006, REFACTOR-007, REFACTOR-008, REFACTOR-009, REFACTOR-010, REFACTOR-011, REFACTOR-012, REFACTOR-013, REFACTOR-014, REFACTOR-015, REFACTOR-016, REFACTOR-017, REFACTOR-018, the REFACTOR-003 generated-code canary backfill, and REFACTOR-017A integration blocker stabilization; REFACTOR-002A, REFACTOR-003, REFACTOR-004, REFACTOR-005, REFACTOR-006, REFACTOR-007, REFACTOR-008, REFACTOR-009, REFACTOR-010, REFACTOR-011, REFACTOR-012, REFACTOR-013, REFACTOR-014, REFACTOR-015, REFACTOR-016, REFACTOR-017, REFACTOR-017A, and REFACTOR-018 are complete. No immediate legacy deletion is approved. The next task should be explicitly selected by a human: coverage exception/coverage work, installation ID lifecycle primitive, performance benchmark gate, remaining generated-code migration batches, target-platform/CI replay of the integration evidence, or a narrowly scoped approved follow-up migration.
+Human approval on 2026-05-18 allowed REFACTOR-001 and REFACTOR-002. Both are complete. Follow-up human approvals selected baseline failure handling, REFACTOR-004, REFACTOR-005, REFACTOR-006, REFACTOR-007, REFACTOR-008, REFACTOR-009, REFACTOR-010, REFACTOR-011, REFACTOR-012, REFACTOR-013, REFACTOR-014, REFACTOR-015, REFACTOR-016, REFACTOR-017, REFACTOR-018, the REFACTOR-003 generated-code canary backfill, and REFACTOR-017A integration blocker stabilization; REFACTOR-002A through REFACTOR-019 are complete. No immediate legacy deletion is approved. The next task should be explicitly selected by a human: coverage exception/coverage work, unified lifecycle service wiring, performance benchmark gate, remaining generated-code migration batches, target-platform/CI replay of the integration evidence, or a narrowly scoped approved follow-up migration.

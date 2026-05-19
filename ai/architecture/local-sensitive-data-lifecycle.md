@@ -4,7 +4,7 @@ Version: Flutter AI Software Factory v1.0.0
 Stage: R3 / Phase 2  
 Task: REFACTOR-013  
 Created: 2026-05-18  
-Status: approved
+Status: approved; REFACTOR-019 installation ID primitive complete
 
 ## Decision
 
@@ -31,7 +31,11 @@ This document is a planning baseline. It does not approve a storage migration, d
 | household_snapshot | Household ID, caregiver role, shared baby/practice/garden context | sensitive_household_context | App support JSON file `household_state.json` | `HouseholdLocalStore.deleteIfExists()` | Delete on consent withdrawal/account delete; migrate to encrypted storage or backup exclusion | covered_delete_primitive |
 | practice_interaction_events | Installation-bound practice reactions, phrase/activity IDs, sync state/errors | sensitive_child_behavior_history | Isar database `practice_local` | `PracticeLocalDataSource.close(deleteFromDisk: true)` / `PracticeRepository.close(deleteFromDisk: true)` | Add lifecycle contract before account feature coordinates deletion; exclude from backup or encrypt | covered_delete_primitive |
 | mentor_fact_events | Redacted mentor facts, visible statuses, fallback diagnostics, installation ID | sensitive_mentor_context | Isar database `mentor_local` | `MentorLocalDataSource.close(deleteFromDisk: true)` | Delete on consent withdrawal/account delete; exclude from backup or encrypt | covered_delete_primitive |
-| installation_id | Stable installation identifier | sensitive_persistent_identifier | App support text file `installation_id.txt` | missing | Add reset/delete primitive before hard lifecycle enforcement; never send before accepted consent | missing_delete_primitive |
+| installation_id | Stable installation identifier | sensitive_persistent_identifier | App support text file `installation_id.txt` | `InstallationIdService.deleteIfExists()` | Wire through a separately approved lifecycle service before destructive device erasure; never send before accepted consent | covered_delete_primitive |
+
+## REFACTOR-019 Update
+
+REFACTOR-019 added the missing `InstallationIdService.deleteIfExists()` primitive and proved the scanner now reports all six sensitive surfaces as covered by delete primitives. This does not approve account deletion, consent withdrawal, or logout wiring; those flows still require a unified lifecycle service and explicit user-facing erasure confirmation.
 
 ## Enforcement Plan
 
@@ -43,6 +47,6 @@ This document is a planning baseline. It does not approve a storage migration, d
 
 ## Current Known Gaps
 
-- `InstallationIdService` can create and read the stable identifier, but it has no delete/reset primitive yet.
+- `InstallationIdService` now has a delete primitive, but account revoke/delete paths do not yet coordinate it through a single lifecycle service.
 - Account revoke and delete paths update account state, but there is not yet a single lifecycle service that clears onboarding, household, practice, mentor, and installation-id stores together.
 - File and Isar stores do not yet prove platform backup exclusion or encryption.

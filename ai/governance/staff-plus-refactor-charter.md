@@ -4,8 +4,8 @@ Version: Flutter AI Software Factory v1.0.0
 Mode: Strict Mode / Mode B Legacy Refactor  
 Project: Baby Talk 2 mobile Flutter app  
 Created: 2026-05-16  
-Updated: 2026-05-18  
-Status: active; R1 audit completed; R2 planning pending red decisions
+Updated: 2026-05-19
+Status: active; R4 verification in progress; production readiness blocked
 
 ## Startup Confirmation
 
@@ -80,6 +80,10 @@ For R0, existing code is classified as the legacy surface logically. Physical mi
 - [x] Daily decision summary updated.
 - [ ] Human confirmation received for red-level R1 decisions.
 
+## Current Position
+
+R0, R1, R2, and the approved R3/R4 refactor tasks through REFACTOR-019 are complete. The project remains in R4 verification and is not production-ready.
+
 ## Current Blocker
 
-R2 planning may be drafted after the red R1 decisions are confirmed. R3 implementation remains blocked until R2 migration plans and refactor task artifacts are approved.
+Production readiness remains blocked by coverage below target, missing critical UI coverage measurement, incomplete unified lifecycle enforcement, missing performance benchmarks, target-platform/CI replay, remaining generated-code and hard-gate work, and final human release confirmation. Legacy deletion remains blocked.

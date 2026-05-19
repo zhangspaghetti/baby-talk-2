@@ -43,6 +43,13 @@ class InstallationIdService {
     return value.isEmpty ? null : value;
   }
 
+  Future<void> deleteIfExists() async {
+    final file = await _resolveFile();
+    if (await file.exists()) {
+      await file.delete();
+    }
+  }
+
   Future<File> _resolveFile() async {
     final directory = await _directoryResolver();
     return File('${directory.path}${Platform.pathSeparator}$fileName');
