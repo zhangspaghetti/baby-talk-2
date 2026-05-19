@@ -1,7 +1,7 @@
 import 'package:freezed_annotation/freezed_annotation.dart';
 import 'package:mobile/features/onboarding/domain/models/stage_match.dart';
 
-part 'onboarding_snapshot.freezed.dart';
+part '../../../../generated/features/onboarding/domain/models/onboarding_snapshot.freezed.dart';
 
 enum OnboardingConsentState { localOnly }
 

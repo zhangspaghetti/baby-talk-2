@@ -5,6 +5,8 @@ import 'package:mobile/features/household/domain/models/household_role.dart';
 import 'package:mobile/features/mentor/data/local/mentor_fact_event_entity.dart';
 import 'package:mobile/features/mentor/domain/models/local_mentor_suggestion.dart';
 import 'package:mobile/features/mentor/domain/models/mentor_fact_event.dart';
+import 'package:mobile/features/onboarding/domain/models/onboarding_snapshot.dart';
+import 'package:mobile/features/onboarding/domain/models/stage_match.dart';
 import 'package:mobile/features/practice/data/local/interaction_event_entity.dart';
 import 'package:mobile/features/practice/domain/models/garden_growth_snapshot.dart';
 import 'package:mobile/features/practice/domain/models/interaction_event_payload.dart';
@@ -270,6 +272,36 @@ void main() {
       expect(patch.isStarted, isTrue);
       expect(achieved.isAchieved, isTrue);
       expect(impact.changedAnyStage, isTrue);
+    });
+
+    test('OnboardingSnapshot copyWith keeps wire mapping stable', () {
+      final completedAt = DateTime.utc(2026, 5, 19, 8);
+      final birthDate = DateTime.utc(2025, 8, 19);
+      final snapshot = OnboardingSnapshot(
+        childDisplayName: '小雨',
+        ageBucket: OnboardingAgeBucket.sixToTwelve,
+        approxMonths: 9,
+        currentStage: 'sound_turn_taking',
+        starterSpaceId: 'home',
+        starterActivityId: 'song_time',
+        starterPhraseId: 'clap_hands',
+        consentState: OnboardingConsentState.localOnly,
+        birthDate: birthDate,
+        completedAt: completedAt,
+      );
+
+      final updated = snapshot.copyWith(starterPhraseId: 'hello_wave');
+      final json = updated.toJsonMap();
+      final decoded = OnboardingSnapshot.fromJsonValidated(json);
+
+      expect(snapshot.isCompleted, isTrue);
+      expect(updated.isCompleted, isTrue);
+      expect(snapshot.starterPhraseId, 'clap_hands');
+      expect(updated.starterPhraseId, 'hello_wave');
+      expect(updated.ageBucket.wireValue, '6-12');
+      expect(json['ageBucket'], '6-12');
+      expect(json['consentState'], 'local_only');
+      expect(decoded, updated);
     });
 
     test('Freezed output under lib/generated keeps copyWith behavior', () {
