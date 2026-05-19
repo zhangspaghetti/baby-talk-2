@@ -1,7 +1,7 @@
 import 'package:freezed_annotation/freezed_annotation.dart';
 import 'package:mobile/features/practice/domain/models/interaction_event_payload.dart';
 
-part 'practice_activity_catalog.freezed.dart';
+part '../../../../generated/features/practice/domain/models/practice_activity_catalog.freezed.dart';
 
 @freezed
 class PracticeCatalogRecentResultSummary

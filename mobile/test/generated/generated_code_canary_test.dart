@@ -133,6 +133,13 @@ void main() {
         skippedMalformedEvents: 0,
         skippedUnknownContentEvents: 0,
       );
+      final warnedActivity = activity.copyWith(
+        warningMessage: 'partial projection',
+      );
+      final warnedCatalog = catalog.copyWith(
+        activities: [warnedActivity],
+        catalogWarning: 'catalog warning',
+      );
       final recommendation = PracticeContinuityRecommendation(
         spaceId: activity.spaceId,
         activityId: activity.activityId,
@@ -160,6 +167,13 @@ void main() {
 
       final updated = snapshot.copyWith(warningMessage: null);
 
+      expect(
+        catalog.findActivity(spaceId: 'home', activityId: 'song_time'),
+        activity,
+      );
+      expect(catalog.startedActivityCount, 1);
+      expect(warnedActivity.hasRecoverableIssue, isTrue);
+      expect(warnedCatalog.hasIssues, isTrue);
       expect(snapshot.hasWarning, isTrue);
       expect(updated.hasWarning, isFalse);
       expect(updated.fallbackReason, 'catalog gap');

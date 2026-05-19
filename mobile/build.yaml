@@ -9,6 +9,7 @@ targets:
             - lib/features/mentor/domain/models/local_mentor_suggestion.dart
             - lib/features/mentor/domain/models/mentor_fact_event.dart
             - lib/features/practice/domain/models/interaction_event_payload.dart
+            - lib/features/practice/domain/models/practice_activity_catalog.dart
             - lib/features/practice/domain/models/practice_continuity_snapshot.dart
             - lib/features/practice/domain/models/practice_phrase.dart
             - lib/features/share/domain/models/share_link_draft.dart
