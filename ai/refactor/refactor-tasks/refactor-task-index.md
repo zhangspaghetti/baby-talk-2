@@ -3,7 +3,7 @@
 Version: Flutter AI Software Factory v1.0.0  
 Stage: R2 Planning  
 Created: 2026-05-18  
-Status: approved through REFACTOR-016 execution
+Status: approved through REFACTOR-017 execution
 
 ## Ordering Rules
 
@@ -33,9 +33,9 @@ Status: approved through REFACTOR-016 execution
 | 14 | REFACTOR-014 | 3 | done | Token/i18n behavior-preserving cleanup pilot | Phase 2 stability, yellow design decisions |
 | 15 | REFACTOR-015 | 3 | done | Shared component extraction pilot | REFACTOR-014 |
 | 16 | REFACTOR-016 | 3 | done | Accessibility semantics and localization pilot | REFACTOR-014, REFACTOR-015 |
-| 17 | REFACTOR-017 | 4 | blocked | Verification report suite | Phase 1-3 completed tasks |
+| 17 | REFACTOR-017 | 4 | done | Verification report suite | Phase 1-3 completed tasks |
 | 18 | REFACTOR-018 | 4 | blocked | Legacy deletion candidate audit | REFACTOR-017 |
 
 ## First Implementation Candidate
 
-Human approval on 2026-05-18 allowed REFACTOR-001 and REFACTOR-002. Both are complete. Follow-up human approvals selected baseline failure handling, REFACTOR-004, REFACTOR-005, REFACTOR-006, REFACTOR-007, REFACTOR-008, REFACTOR-009, REFACTOR-010, REFACTOR-011, REFACTOR-012, REFACTOR-013, REFACTOR-014, REFACTOR-015, and REFACTOR-016; REFACTOR-002A, REFACTOR-004, REFACTOR-005, REFACTOR-006, REFACTOR-007, REFACTOR-008, REFACTOR-009, REFACTOR-010, REFACTOR-011, REFACTOR-012, REFACTOR-013, REFACTOR-014, REFACTOR-015, and REFACTOR-016 are complete. REFACTOR-017 remains the next blocked Phase 4 verification task and requires Phase 1-3 completed task evidence before execution.
+Human approval on 2026-05-18 allowed REFACTOR-001 and REFACTOR-002. Both are complete. Follow-up human approvals selected baseline failure handling, REFACTOR-004, REFACTOR-005, REFACTOR-006, REFACTOR-007, REFACTOR-008, REFACTOR-009, REFACTOR-010, REFACTOR-011, REFACTOR-012, REFACTOR-013, REFACTOR-014, REFACTOR-015, REFACTOR-016, and REFACTOR-017; REFACTOR-002A, REFACTOR-004, REFACTOR-005, REFACTOR-006, REFACTOR-007, REFACTOR-008, REFACTOR-009, REFACTOR-010, REFACTOR-011, REFACTOR-012, REFACTOR-013, REFACTOR-014, REFACTOR-015, REFACTOR-016, and REFACTOR-017 are complete. REFACTOR-018 remains the next blocked Phase 4 task and must remain audit-only until production readiness, legacy deletion scope, and human confirmation are explicit.
