@@ -1,6 +1,6 @@
 import 'package:freezed_annotation/freezed_annotation.dart';
 
-part 'mentor_fact_event.freezed.dart';
+part '../../../../generated/features/mentor/domain/models/mentor_fact_event.freezed.dart';
 
 enum MentorFactType {
   panelOpened,

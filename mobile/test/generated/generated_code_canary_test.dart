@@ -107,9 +107,13 @@ void main() {
           visibleStatus: 'offline',
           contextFallbackUsed: true,
         );
+        final updated = payload.copyWith(visibleDetail: '短提示已准备');
 
         final entity = MentorFactEventEntity.fromPayload(payload);
 
+        expect(updated.eventKey, payload.eventKey);
+        expect(updated.toVisibleMetadataMap()['visibleDetail'], '短提示已准备');
+        expect(payload.visibleDetail, isNull);
         expect(MentorFactEventEntitySchema.name, r'MentorFactEventEntity');
         expect(entity.eventKey, 'install_canary:mentor_evt_1');
         expect(entity.eventType, 'suggestion_served');
