@@ -3,7 +3,7 @@
 Version: Flutter AI Software Factory v1.0.0  
 Stage: R2 Planning  
 Created: 2026-05-18  
-Status: approved through REFACTOR-021 AccountSession generated output migration; production readiness remains blocked
+Status: approved through REFACTOR-022 practice interaction generated output migration; production readiness remains blocked
 
 ## Ordering Rules
 
@@ -39,7 +39,8 @@ Status: approved through REFACTOR-021 AccountSession generated output migration;
 | 19 | REFACTOR-019 | 4 | done | Installation ID delete primitive and lifecycle scanner closure | REFACTOR-013, REFACTOR-017 |
 | 20 | REFACTOR-020 | 4 | done | Core-only local sensitive data clearance orchestrator | REFACTOR-019, HDR-R4-001 option 1 |
 | 21 | REFACTOR-021 | 4 | done | AccountSession generated output migration | REFACTOR-003, HDR-R1-005 |
+| 22 | REFACTOR-022 | 4 | done | Practice interaction generated output migration | REFACTOR-003, REFACTOR-021, HDR-R1-005 |
 
 ## First Implementation Candidate
 
-Human approval on 2026-05-18 allowed REFACTOR-001 and REFACTOR-002. Both are complete. Follow-up human approvals selected baseline failure handling, REFACTOR-004, REFACTOR-005, REFACTOR-006, REFACTOR-007, REFACTOR-008, REFACTOR-009, REFACTOR-010, REFACTOR-011, REFACTOR-012, REFACTOR-013, REFACTOR-014, REFACTOR-015, REFACTOR-016, REFACTOR-017, REFACTOR-018, the REFACTOR-003 generated-code canary backfill, REFACTOR-017A integration blocker stabilization, REFACTOR-019 installation ID lifecycle primitive, REFACTOR-020 core-only clearance orchestrator, and REFACTOR-021 AccountSession generated output migration. REFACTOR-002A through REFACTOR-021 are complete. No immediate legacy deletion is approved. The next task should be explicitly selected by a human: coverage exception/coverage work, destructive lifecycle wiring with UX confirmation, performance benchmark gate, remaining generated-code migration batches, target-platform/CI replay of the integration evidence, or a narrowly scoped approved follow-up migration.
+Human approval on 2026-05-18 allowed REFACTOR-001 and REFACTOR-002. Both are complete. Follow-up human approvals selected baseline failure handling, REFACTOR-004, REFACTOR-005, REFACTOR-006, REFACTOR-007, REFACTOR-008, REFACTOR-009, REFACTOR-010, REFACTOR-011, REFACTOR-012, REFACTOR-013, REFACTOR-014, REFACTOR-015, REFACTOR-016, REFACTOR-017, REFACTOR-018, the REFACTOR-003 generated-code canary backfill, REFACTOR-017A integration blocker stabilization, REFACTOR-019 installation ID lifecycle primitive, REFACTOR-020 core-only clearance orchestrator, REFACTOR-021 AccountSession generated output migration, and REFACTOR-022 practice interaction generated output migration. REFACTOR-002A through REFACTOR-022 are complete. No immediate legacy deletion is approved. The next task should be explicitly selected by a human: coverage exception/coverage work, destructive lifecycle wiring with UX confirmation, performance benchmark gate, remaining generated-code migration batches, target-platform/CI replay of the integration evidence, or a narrowly scoped approved follow-up migration.

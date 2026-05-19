@@ -1,7 +1,7 @@
 import 'package:isar/isar.dart';
 import 'package:mobile/features/practice/domain/models/interaction_event_payload.dart';
 
-part 'interaction_event_entity.g.dart';
+part '../../../../generated/features/practice/data/local/interaction_event_entity.g.dart';
 
 @collection
 class InteractionEventEntity {

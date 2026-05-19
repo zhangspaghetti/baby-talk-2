@@ -4,6 +4,8 @@ import 'package:mobile/features/household/domain/models/household_invite_link.da
 import 'package:mobile/features/household/domain/models/household_role.dart';
 import 'package:mobile/features/mentor/data/local/mentor_fact_event_entity.dart';
 import 'package:mobile/features/mentor/domain/models/mentor_fact_event.dart';
+import 'package:mobile/features/practice/data/local/interaction_event_entity.dart';
+import 'package:mobile/features/practice/domain/models/interaction_event_payload.dart';
 
 void main() {
   group('generated code canary', () {
@@ -66,6 +68,36 @@ void main() {
         expect(entity.eventType, 'suggestion_served');
         expect(entity.contextFallbackUsed, isTrue);
         expect(entity.toPersistedDiagnosticsMap()['visibleStatus'], 'offline');
+      },
+    );
+
+    test(
+      'Practice Isar output keeps schema and interaction entity behavior',
+      () {
+        final payload = InteractionEventPayload.validated(
+          localEventId: 'practice_evt_1',
+          installationId: 'install_canary',
+          spaceId: 'space_home',
+          activityId: 'activity_song',
+          phraseId: 'phrase_hello',
+          reactionType: BabyReactionType.imitated,
+          clientTimestamp: DateTime.utc(2026, 5, 19, 8),
+          syncState: InteractionSyncState.failed,
+          lastSyncPhase: 'upload_attempt',
+          lastSyncError: 'timeout',
+          lastSyncAt: DateTime.utc(2026, 5, 19, 8, 1),
+        );
+
+        final entity = InteractionEventEntity.fromPayload(payload);
+
+        expect(InteractionEventEntitySchema.name, r'InteractionEventEntity');
+        expect(entity.eventKey, 'install_canary:practice_evt_1');
+        expect(entity.reactionType, 'imitated');
+        expect(entity.toPersistedFactMap()['phraseId'], 'phrase_hello');
+        expect(
+          entity.toPersistedSyncMetadataMap()['lastSyncPhase'],
+          'upload_attempt',
+        );
       },
     );
   });
