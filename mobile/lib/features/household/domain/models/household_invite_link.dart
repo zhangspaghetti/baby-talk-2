@@ -1,7 +1,7 @@
 import 'package:freezed_annotation/freezed_annotation.dart';
 import 'package:mobile/features/household/domain/models/household_role.dart';
 
-part 'household_invite_link.freezed.dart';
+part '../../../../generated/features/household/domain/models/household_invite_link.freezed.dart';
 
 @freezed
 class HouseholdInviteLink with _$HouseholdInviteLink {

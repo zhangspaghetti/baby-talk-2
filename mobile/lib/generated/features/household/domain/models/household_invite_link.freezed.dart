@@ -3,7 +3,7 @@
 // ignore_for_file: type=lint
 // ignore_for_file: unused_element, deprecated_member_use, deprecated_member_use_from_same_package, use_function_type_syntax_for_parameters, unnecessary_const, avoid_init_to_null, invalid_override_different_default_values_named, prefer_expression_function_bodies, annotate_overrides, invalid_annotation_target, unnecessary_question_mark
 
-part of 'household_invite_link.dart';
+part of '../../../../../features/household/domain/models/household_invite_link.dart';
 
 // **************************************************************************
 // FreezedGenerator
@@ -12,8 +12,7 @@ part of 'household_invite_link.dart';
 T _$identity<T>(T value) => value;
 
 final _privateConstructorUsedError = UnsupportedError(
-  'It seems like you constructed your class using `MyClass._()`. This constructor is only meant to be used by freezed and you are not supposed to need it nor use it.\nPlease check the documentation here for more information: https://github.com/rrousselGit/freezed#adding-getters-and-methods-to-our-models',
-);
+    'It seems like you constructed your class using `MyClass._()`. This constructor is only meant to be used by freezed and you are not supposed to need it nor use it.\nPlease check the documentation here for more information: https://github.com/rrousselGit/freezed#adding-getters-and-methods-to-our-models');
 
 /// @nodoc
 mixin _$HouseholdInviteLink {
@@ -32,18 +31,16 @@ mixin _$HouseholdInviteLink {
 /// @nodoc
 abstract class $HouseholdInviteLinkCopyWith<$Res> {
   factory $HouseholdInviteLinkCopyWith(
-    HouseholdInviteLink value,
-    $Res Function(HouseholdInviteLink) then,
-  ) = _$HouseholdInviteLinkCopyWithImpl<$Res, HouseholdInviteLink>;
+          HouseholdInviteLink value, $Res Function(HouseholdInviteLink) then) =
+      _$HouseholdInviteLinkCopyWithImpl<$Res, HouseholdInviteLink>;
   @useResult
-  $Res call({
-    String householdId,
-    String token,
-    String inviteUrl,
-    HouseholdRole role,
-    String source,
-    DateTime expiresAt,
-  });
+  $Res call(
+      {String householdId,
+      String token,
+      String inviteUrl,
+      HouseholdRole role,
+      String source,
+      DateTime expiresAt});
 }
 
 /// @nodoc
@@ -66,65 +63,59 @@ class _$HouseholdInviteLinkCopyWithImpl<$Res, $Val extends HouseholdInviteLink>
     Object? source = null,
     Object? expiresAt = null,
   }) {
-    return _then(
-      _value.copyWith(
-            householdId: null == householdId
-                ? _value.householdId
-                : householdId // ignore: cast_nullable_to_non_nullable
-                      as String,
-            token: null == token
-                ? _value.token
-                : token // ignore: cast_nullable_to_non_nullable
-                      as String,
-            inviteUrl: null == inviteUrl
-                ? _value.inviteUrl
-                : inviteUrl // ignore: cast_nullable_to_non_nullable
-                      as String,
-            role: null == role
-                ? _value.role
-                : role // ignore: cast_nullable_to_non_nullable
-                      as HouseholdRole,
-            source: null == source
-                ? _value.source
-                : source // ignore: cast_nullable_to_non_nullable
-                      as String,
-            expiresAt: null == expiresAt
-                ? _value.expiresAt
-                : expiresAt // ignore: cast_nullable_to_non_nullable
-                      as DateTime,
-          )
-          as $Val,
-    );
+    return _then(_value.copyWith(
+      householdId: null == householdId
+          ? _value.householdId
+          : householdId // ignore: cast_nullable_to_non_nullable
+              as String,
+      token: null == token
+          ? _value.token
+          : token // ignore: cast_nullable_to_non_nullable
+              as String,
+      inviteUrl: null == inviteUrl
+          ? _value.inviteUrl
+          : inviteUrl // ignore: cast_nullable_to_non_nullable
+              as String,
+      role: null == role
+          ? _value.role
+          : role // ignore: cast_nullable_to_non_nullable
+              as HouseholdRole,
+      source: null == source
+          ? _value.source
+          : source // ignore: cast_nullable_to_non_nullable
+              as String,
+      expiresAt: null == expiresAt
+          ? _value.expiresAt
+          : expiresAt // ignore: cast_nullable_to_non_nullable
+              as DateTime,
+    ) as $Val);
   }
 }
 
 /// @nodoc
 abstract class _$$HouseholdInviteLinkImplCopyWith<$Res>
     implements $HouseholdInviteLinkCopyWith<$Res> {
-  factory _$$HouseholdInviteLinkImplCopyWith(
-    _$HouseholdInviteLinkImpl value,
-    $Res Function(_$HouseholdInviteLinkImpl) then,
-  ) = __$$HouseholdInviteLinkImplCopyWithImpl<$Res>;
+  factory _$$HouseholdInviteLinkImplCopyWith(_$HouseholdInviteLinkImpl value,
+          $Res Function(_$HouseholdInviteLinkImpl) then) =
+      __$$HouseholdInviteLinkImplCopyWithImpl<$Res>;
   @override
   @useResult
-  $Res call({
-    String householdId,
-    String token,
-    String inviteUrl,
-    HouseholdRole role,
-    String source,
-    DateTime expiresAt,
-  });
+  $Res call(
+      {String householdId,
+      String token,
+      String inviteUrl,
+      HouseholdRole role,
+      String source,
+      DateTime expiresAt});
 }
 
 /// @nodoc
 class __$$HouseholdInviteLinkImplCopyWithImpl<$Res>
     extends _$HouseholdInviteLinkCopyWithImpl<$Res, _$HouseholdInviteLinkImpl>
     implements _$$HouseholdInviteLinkImplCopyWith<$Res> {
-  __$$HouseholdInviteLinkImplCopyWithImpl(
-    _$HouseholdInviteLinkImpl _value,
-    $Res Function(_$HouseholdInviteLinkImpl) _then,
-  ) : super(_value, _then);
+  __$$HouseholdInviteLinkImplCopyWithImpl(_$HouseholdInviteLinkImpl _value,
+      $Res Function(_$HouseholdInviteLinkImpl) _then)
+      : super(_value, _then);
 
   @pragma('vm:prefer-inline')
   @override
@@ -136,48 +127,46 @@ class __$$HouseholdInviteLinkImplCopyWithImpl<$Res>
     Object? source = null,
     Object? expiresAt = null,
   }) {
-    return _then(
-      _$HouseholdInviteLinkImpl(
-        householdId: null == householdId
-            ? _value.householdId
-            : householdId // ignore: cast_nullable_to_non_nullable
-                  as String,
-        token: null == token
-            ? _value.token
-            : token // ignore: cast_nullable_to_non_nullable
-                  as String,
-        inviteUrl: null == inviteUrl
-            ? _value.inviteUrl
-            : inviteUrl // ignore: cast_nullable_to_non_nullable
-                  as String,
-        role: null == role
-            ? _value.role
-            : role // ignore: cast_nullable_to_non_nullable
-                  as HouseholdRole,
-        source: null == source
-            ? _value.source
-            : source // ignore: cast_nullable_to_non_nullable
-                  as String,
-        expiresAt: null == expiresAt
-            ? _value.expiresAt
-            : expiresAt // ignore: cast_nullable_to_non_nullable
-                  as DateTime,
-      ),
-    );
+    return _then(_$HouseholdInviteLinkImpl(
+      householdId: null == householdId
+          ? _value.householdId
+          : householdId // ignore: cast_nullable_to_non_nullable
+              as String,
+      token: null == token
+          ? _value.token
+          : token // ignore: cast_nullable_to_non_nullable
+              as String,
+      inviteUrl: null == inviteUrl
+          ? _value.inviteUrl
+          : inviteUrl // ignore: cast_nullable_to_non_nullable
+              as String,
+      role: null == role
+          ? _value.role
+          : role // ignore: cast_nullable_to_non_nullable
+              as HouseholdRole,
+      source: null == source
+          ? _value.source
+          : source // ignore: cast_nullable_to_non_nullable
+              as String,
+      expiresAt: null == expiresAt
+          ? _value.expiresAt
+          : expiresAt // ignore: cast_nullable_to_non_nullable
+              as DateTime,
+    ));
   }
 }
 
 /// @nodoc
 
 class _$HouseholdInviteLinkImpl extends _HouseholdInviteLink {
-  const _$HouseholdInviteLinkImpl({
-    required this.householdId,
-    required this.token,
-    required this.inviteUrl,
-    required this.role,
-    required this.source,
-    required this.expiresAt,
-  }) : super._();
+  const _$HouseholdInviteLinkImpl(
+      {required this.householdId,
+      required this.token,
+      required this.inviteUrl,
+      required this.role,
+      required this.source,
+      required this.expiresAt})
+      : super._();
 
   @override
   final String householdId;
@@ -215,34 +204,24 @@ class _$HouseholdInviteLinkImpl extends _HouseholdInviteLink {
 
   @override
   int get hashCode => Object.hash(
-    runtimeType,
-    householdId,
-    token,
-    inviteUrl,
-    role,
-    source,
-    expiresAt,
-  );
+      runtimeType, householdId, token, inviteUrl, role, source, expiresAt);
 
   @JsonKey(ignore: true)
   @override
   @pragma('vm:prefer-inline')
   _$$HouseholdInviteLinkImplCopyWith<_$HouseholdInviteLinkImpl> get copyWith =>
       __$$HouseholdInviteLinkImplCopyWithImpl<_$HouseholdInviteLinkImpl>(
-        this,
-        _$identity,
-      );
+          this, _$identity);
 }
 
 abstract class _HouseholdInviteLink extends HouseholdInviteLink {
-  const factory _HouseholdInviteLink({
-    required final String householdId,
-    required final String token,
-    required final String inviteUrl,
-    required final HouseholdRole role,
-    required final String source,
-    required final DateTime expiresAt,
-  }) = _$HouseholdInviteLinkImpl;
+  const factory _HouseholdInviteLink(
+      {required final String householdId,
+      required final String token,
+      required final String inviteUrl,
+      required final HouseholdRole role,
+      required final String source,
+      required final DateTime expiresAt}) = _$HouseholdInviteLinkImpl;
   const _HouseholdInviteLink._() : super._();
 
   @override

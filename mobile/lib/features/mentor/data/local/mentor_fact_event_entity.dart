@@ -1,7 +1,7 @@
 import 'package:mobile/features/mentor/domain/models/mentor_fact_event.dart';
 import 'package:isar/isar.dart';
 
-part 'mentor_fact_event_entity.g.dart';
+part '../../../../generated/features/mentor/data/local/mentor_fact_event_entity.g.dart';
 
 @collection
 class MentorFactEventEntity {

@@ -8,20 +8,21 @@ Status: completed, engineering release gate blocked
 
 ## Summary
 
-The engineering baseline is stronger than the original R1 state: analyze is green, the standard Flutter suite has grown to 220 passing tests, auth/consent behavior has characterization coverage, route and repository contracts have guardrail artifacts, and report-only architecture scanners exist. The repository is still not ready for hard Phase 4 release gates.
+The engineering baseline is stronger than the original R1 state: analyze is green, the standard Flutter suite has grown to 222 passing tests, auth/consent behavior has characterization coverage, route and repository contracts have guardrail artifacts, report-only architecture scanners exist, and the generated-code strict migration canary has passed. The repository is still not ready for hard Phase 4 release gates.
 
 ## Green Engineering Signals
 
 | Signal | Evidence |
 |---|---|
 | Analyzer health | `flutter analyze` exit 0 |
-| Standard test health | `flutter test` exit 0, 220 passed |
-| Coverage collection health | `flutter test --coverage` exit 0, 220 passed |
-| LCOV trend from R1 | 63.99% baseline to 66.53% current |
+| Standard test health | `flutter test` exit 0, 222 passed |
+| Coverage collection health | `flutter test --coverage` exit 0, 222 passed |
+| LCOV trend from R1 | 63.99% baseline to 66.54% current |
 | Auth and consent characterization | REFACTOR-005, REFACTOR-006, REFACTOR-007 completed |
 | App composition and route contracts | REFACTOR-004 and REFACTOR-008 completed |
 | Repository/usecase guardrails | REFACTOR-009 and REFACTOR-010 completed |
 | AsyncValue and UI pilots | REFACTOR-012 through REFACTOR-016 completed |
+| Generated-code canary | REFACTOR-003 moved one Freezed output and one Isar output under `mobile/lib/generated/` |
 
 ## Report-Only Scanner Evidence
 
@@ -34,15 +35,15 @@ The engineering baseline is stronger than the original R1 state: analyze is gree
 
 | Gap | Status |
 |---|---|
-| Generated strict migration canary | REFACTOR-003 remains blocked |
+| Full generated-code migration and hard gate | Canary passed, but remaining generated outputs are still co-located and no hard gate is approved |
 | Feature boundary hard gate | Not approved; scanner remains report-only |
 | Sensitive lifecycle hard gate | Not approved; `installation_id` delete primitive missing |
-| Coverage target | Not met; 66.53% vs 80% Phase 4 target |
+| Coverage target | Not met; 66.54% vs 80% Phase 4 target |
 | Critical UI widget coverage slice | Not measured |
 | Core integration flows | Blocked by current timeout failures |
 | Performance benchmark gate | Missing |
-| Legacy deletion | Not approved; requires R018 audit and human confirmation |
+| Legacy deletion | Not approved; R018 audit found no immediate safe deletion candidate and human confirmation is still required |
 
 ## Engineering Exit Decision
 
-R017 completes the Phase 4 report suite, but engineering production readiness is blocked. The next engineering work should address the integration failures and decide whether coverage, feature-boundary, lifecycle, generated-code, and performance gates are fixed or explicitly excepted.
+R017 completes the Phase 4 report suite and R003 proves a generated-code canary, but engineering production readiness is still blocked. The next engineering work should address the integration failures and decide whether coverage, feature-boundary, lifecycle, remaining generated-code, and performance gates are fixed or explicitly excepted.

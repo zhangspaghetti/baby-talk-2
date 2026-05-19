@@ -1,0 +1,22 @@
+targets:
+  $default:
+    builders:
+      freezed:
+        generate_for:
+          include:
+            - lib/features/household/domain/models/household_invite_link.dart
+        options:
+          build_extensions:
+            "^lib/features/{{}}.dart": "lib/generated/features/{{}}.freezed.dart"
+      isar_generator:
+        generate_for:
+          include:
+            - lib/features/mentor/data/local/mentor_fact_event_entity.dart
+      source_gen|combining_builder:
+        options:
+          build_extensions:
+            "^lib/features/{{}}.dart": "lib/generated/features/{{}}.g.dart"
+      json_serializable:
+        enabled: false
+      riverpod_generator:
+        enabled: false
