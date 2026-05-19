@@ -268,6 +268,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with RouteAware {
                         onPressed: canLaunchPractice
                             ? () async {
                                 await practiceArgs.push(context);
+                                if (!mounted) {
+                                  return;
+                                }
+                                await _refreshContinuity(
+                                  reason: 'practice_return',
+                                );
+                                await gardenGrowthNotifier.refresh();
                               }
                             : null,
                       ),

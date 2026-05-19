@@ -16,6 +16,7 @@ import 'package:mobile/features/practice/data/repositories/practice_repository.d
 import 'package:mobile/features/practice/data/services/asset_phrase_service.dart';
 import 'package:mobile/features/practice/presentation/screens/home_screen.dart';
 
+import 'support/app_test_repositories.dart';
 import 'support/in_memory_demo_backend.dart';
 
 void main() {
@@ -68,6 +69,13 @@ void main() {
             practiceRepository: practiceRepository,
             apiService: AccountApiService(baseUrl: backend.baseUri.toString()),
             connectivityChecker: () async => true,
+          );
+        },
+        householdRepositoryFactory: (accountRepository, directory) async {
+          return createLocalHouseholdRepository(
+            accountRepository: accountRepository,
+            directory: directory,
+            apiBaseUrl: backend.baseUri.toString(),
           );
         },
         appDirectoryResolver: () async => tempDir,
@@ -222,6 +230,13 @@ void main() {
             practiceRepository: practiceRepository,
             apiService: AccountApiService(baseUrl: backend.baseUri.toString()),
             connectivityChecker: () async => true,
+          );
+        },
+        householdRepositoryFactory: (accountRepository, directory) async {
+          return createLocalHouseholdRepository(
+            accountRepository: accountRepository,
+            directory: directory,
+            apiBaseUrl: backend.baseUri.toString(),
           );
         },
         appDirectoryResolver: () async => tempDir,

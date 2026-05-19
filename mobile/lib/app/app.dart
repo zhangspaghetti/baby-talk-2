@@ -14,6 +14,8 @@ import 'package:mobile/app/share_reentry_coordinator.dart';
 import 'package:mobile/app/theme/app_layout_constants.dart';
 import 'package:mobile/app/theme/app_theme.dart';
 import 'package:mobile/features/account/data/repositories/account_repository.dart';
+import 'package:mobile/features/account/data/services/account_api_service.dart';
+import 'package:mobile/features/account/data/services/authenticated_api_client.dart';
 import 'package:mobile/features/account/presentation/account_notifier.dart';
 import 'package:mobile/features/account/presentation/screens/account_entry_screen.dart';
 import 'package:mobile/features/household/data/repositories/household_repository.dart';
@@ -154,6 +156,7 @@ class BabyTalkApp extends StatefulWidget {
     this.appDirectoryResolver,
     this.audioControllerFactory,
     this.completedSnapshotLoader,
+    this.mentorStoreName,
     this.shareUriStream,
     this.shareReentryCoordinator,
     this.inviteReentryCoordinator,
@@ -168,6 +171,7 @@ class BabyTalkApp extends StatefulWidget {
   final AppDirectoryResolver? appDirectoryResolver;
   final PracticeAudioControllerFactory? audioControllerFactory;
   final OnboardingCompletedSnapshotLoader? completedSnapshotLoader;
+  final String? mentorStoreName;
   final Stream<Uri>? shareUriStream;
   final ShareReentryCoordinator? shareReentryCoordinator;
   final InviteReentryCoordinator? inviteReentryCoordinator;
@@ -189,6 +193,8 @@ class _BabyTalkAppState extends State<BabyTalkApp> {
   GoRouter? _currentRouter;
   PracticeRepository? _repository;
   MentorRepository? _mentorRepository;
+  AccountRepository? _accountNotifierRepository;
+  AccountNotifier? _accountNotifier;
   _AppLaunchState? _resolvedLaunchState;
 
   @override
@@ -229,6 +235,7 @@ class _BabyTalkAppState extends State<BabyTalkApp> {
         oldWidget.appDirectoryResolver != widget.appDirectoryResolver ||
         oldWidget.audioControllerFactory != widget.audioControllerFactory ||
         oldWidget.completedSnapshotLoader != widget.completedSnapshotLoader ||
+        oldWidget.mentorStoreName != widget.mentorStoreName ||
         oldWidget.practiceContinuityRefreshTimeout !=
             widget.practiceContinuityRefreshTimeout ||
         oldWidget.gardenGrowthRefreshTimeout !=
@@ -297,6 +304,7 @@ class _BabyTalkAppState extends State<BabyTalkApp> {
         final accountRepository = launchState.accountRepository;
         final householdRepository = launchState.householdRepository;
         final mentorRepository = launchState.mentorRepository;
+        final accountNotifier = _resolveAccountNotifier(accountRepository);
         return MultiProvider(
           providers: [
             ChangeNotifierProvider<ShareReentryCoordinator>.value(
@@ -313,6 +321,32 @@ class _BabyTalkAppState extends State<BabyTalkApp> {
             Provider<PracticeRouteArgs>.value(
               value: launchState.defaultPracticeArgs,
             ),
+            Provider<AccountApiService>(
+              create: (_) => AccountApiService(),
+              dispose: (_, service) => service.close(),
+            ),
+            Provider<AuthenticatedApiClient>(
+              create: (context) => AuthenticatedApiClient(
+                apiService: context.read<AccountApiService>(),
+              ),
+            ),
+            Provider<MentorApiService>(
+              create: (context) {
+                final service = launchState.mentorApiService;
+                if (service != null) {
+                  return service;
+                }
+                return MentorApiService(
+                  authenticatedApiClient: context
+                      .read<AuthenticatedApiClient>(),
+                );
+              },
+              dispose: (_, service) {
+                if (!identical(service, launchState.mentorApiService)) {
+                  service.close();
+                }
+              },
+            ),
             Provider<GardenGrowthRepository>(
               create: (_) => GardenGrowthRepository(
                 practiceRepository: practiceRepository,
@@ -327,8 +361,8 @@ class _BabyTalkAppState extends State<BabyTalkApp> {
                 refreshTimeout: widget.practiceContinuityRefreshTimeout,
               ),
             ),
-            ChangeNotifierProvider<AccountNotifier>(
-              create: (_) => AccountNotifier(repository: accountRepository),
+            ChangeNotifierProvider<AccountNotifier>.value(
+              value: accountNotifier,
             ),
             ChangeNotifierProvider<HouseholdNotifier>(
               create: (_) =>
@@ -339,7 +373,7 @@ class _BabyTalkAppState extends State<BabyTalkApp> {
               create: (context) => MentorNotifier(
                 repository: context.read<MentorRepository>(),
                 accountNotifier: context.read<AccountNotifier>(),
-                apiService: launchState.mentorApiService,
+                apiService: context.read<MentorApiService>(),
                 persistRefreshedSession:
                     accountRepository.persistRefreshedSession,
               ),
@@ -395,7 +429,7 @@ class _BabyTalkAppState extends State<BabyTalkApp> {
             overrides: _buildRiverpodOverrides(
               practiceRepository: practiceRepository,
               householdRepository: householdRepository,
-              accountRepository: accountRepository,
+              accountNotifier: accountNotifier,
               onboardingRepository: onboardingRepository,
               mentorRepository: mentorRepository,
               defaultPracticeArgs: launchState.defaultPracticeArgs,
@@ -423,7 +457,7 @@ class _BabyTalkAppState extends State<BabyTalkApp> {
   List<Override> _buildRiverpodOverrides({
     required PracticeRepository practiceRepository,
     required HouseholdRepository householdRepository,
-    required AccountRepository accountRepository,
+    required AccountNotifier accountNotifier,
     required OnboardingRepository onboardingRepository,
     required MentorRepository mentorRepository,
     required PracticeRouteArgs defaultPracticeArgs,
@@ -433,12 +467,8 @@ class _BabyTalkAppState extends State<BabyTalkApp> {
       assetPhraseService: widget.bootState.assetPhraseService!,
     );
     return [
-      practiceRepositoryProvider.overrideWith(
-        (ref) async => practiceRepository,
-      ),
-      onboardingRepositoryProvider.overrideWith(
-        (ref) async => onboardingRepository,
-      ),
+      practiceRepositoryProvider.overrideWith((ref) => practiceRepository),
+      onboardingRepositoryProvider.overrideWith((ref) => onboardingRepository),
       onboardingNotifierProvider.overrideWith(
         (ref) =>
             OnboardingNotifier(repository: onboardingRepository)..initialize(),
@@ -457,9 +487,7 @@ class _BabyTalkAppState extends State<BabyTalkApp> {
         (ref) =>
             HouseholdNotifier(repository: householdRepository)..initialize(),
       ),
-      accountNotifierProvider.overrideWith(
-        (ref) => AccountNotifier(repository: accountRepository),
-      ),
+      accountNotifierProvider.overrideWith((ref) => accountNotifier),
       shareNotifierProvider.overrideWith(
         (ref) => ShareNotifier(
           repository: ShareRepository(
@@ -492,7 +520,22 @@ class _BabyTalkAppState extends State<BabyTalkApp> {
     if (mentorRepository != null) {
       unawaited(mentorRepository.close());
     }
+    _accountNotifier?.dispose();
     super.dispose();
+  }
+
+  AccountNotifier _resolveAccountNotifier(AccountRepository accountRepository) {
+    final currentNotifier = _accountNotifier;
+    if (currentNotifier != null &&
+        identical(_accountNotifierRepository, accountRepository)) {
+      return currentNotifier;
+    }
+
+    currentNotifier?.dispose();
+    final nextNotifier = AccountNotifier(repository: accountRepository);
+    _accountNotifierRepository = accountRepository;
+    _accountNotifier = nextNotifier;
+    return nextNotifier;
   }
 
   T? _lookupNotifier<T>() {
@@ -576,6 +619,7 @@ class _BabyTalkAppState extends State<BabyTalkApp> {
         accountRepositoryFactory: widget.accountRepositoryFactory,
         householdRepositoryFactory: widget.householdRepositoryFactory,
         appDirectoryResolver: widget.appDirectoryResolver,
+        mentorStoreName: widget.mentorStoreName,
       );
 
       // 2. AuthState: 读取认证状态

@@ -49,43 +49,36 @@ class _AppCelebrationOverlayState extends State<AppCelebrationOverlay>
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
-    return Stack(
-      alignment: Alignment.center,
-      children: [
-        widget.child,
-        FadeTransition(
-          opacity: _fadeController,
-          child: CustomPaint(
-            size: const Size(double.infinity, double.infinity),
-            painter: _ConfettiPainter(
-              animation: _particleController,
-              colors: [
-                colors.accent,
-                colors.success,
-                colors.info,
-                colors.warning,
-              ],
-            ),
-          ),
-        ),
-      ],
+    return CustomPaint(
+      foregroundPainter: _ConfettiPainter(
+        animation: _particleController,
+        opacity: _fadeController,
+        colors: [colors.accent, colors.success, colors.info, colors.warning],
+      ),
+      child: widget.child,
     );
   }
 }
 
 class _ConfettiPainter extends CustomPainter {
-  _ConfettiPainter({required this.animation, required this.colors})
-    : super(repaint: animation);
+  _ConfettiPainter({
+    required this.animation,
+    required this.opacity,
+    required this.colors,
+  }) : super(repaint: Listenable.merge([animation, opacity]));
 
   final Animation<double> animation;
+  final Animation<double> opacity;
   final List<Color> colors;
   final _random = Random();
 
   @override
   void paint(Canvas canvas, Size size) {
     final progress = animation.value;
+    final alpha = opacity.value.clamp(0.0, 1.0);
     for (var i = 0; i < 40; i++) {
-      final paint = Paint()..color = colors[i % colors.length];
+      final paint = Paint()
+        ..color = colors[i % colors.length].withValues(alpha: alpha);
       final x = _random.nextDouble() * size.width;
       final startY = -20.0;
       final endY = size.height + 20.0;

@@ -35,17 +35,42 @@ class PracticeSessionScreen extends ConsumerWidget {
     }
 
     final args = routeEntry.args!;
-    final repository = ref.read(practiceRepositoryProvider).requireValue;
-    final accountNotifier = ref.read(accountNotifierProvider);
-    return ChangeNotifierProvider<PracticeSessionNotifier>(
-      create: (_) => PracticeSessionNotifier(
-        repository: repository,
-        spaceId: args.spaceId,
-        activityId: args.activityId,
-        accessTokenLoader: () => accountNotifier.snapshot.session?.accessToken,
-        audioController: audioControllerFactory?.call(),
-      )..initialize(),
-      child: _PracticeSessionBody(routeArgs: args),
+    final repositoryValue = ref.watch(practiceRepositoryProvider);
+    return repositoryValue.when(
+      data: (repository) {
+        final accountNotifier = ref.read(accountNotifierProvider);
+        return ChangeNotifierProvider<PracticeSessionNotifier>(
+          create: (_) => PracticeSessionNotifier(
+            repository: repository,
+            spaceId: args.spaceId,
+            activityId: args.activityId,
+            accessTokenLoader: () =>
+                accountNotifier.snapshot.session?.accessToken,
+            audioController: audioControllerFactory?.call(),
+          )..initialize(),
+          child: _PracticeSessionBody(routeArgs: args),
+        );
+      },
+      loading: () => const _PracticeLoadingScaffold(),
+      error: (error, stackTrace) =>
+          PracticeFallbackScaffold(message: l.homePracticeUnavailable),
+    );
+  }
+}
+
+class _PracticeLoadingScaffold extends StatelessWidget {
+  const _PracticeLoadingScaffold();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Scaffold(
+      body: SafeArea(
+        child: Center(
+          child: CircularProgressIndicator(
+            key: Key('practice-repository-loading'),
+          ),
+        ),
+      ),
     );
   }
 }

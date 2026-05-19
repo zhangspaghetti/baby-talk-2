@@ -6,10 +6,14 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:mobile/app/app.dart';
 import 'package:mobile/core/device/installation_id_service.dart';
+import 'package:mobile/features/account/data/local/account_local_store.dart';
+import 'package:mobile/features/account/data/repositories/account_repository.dart';
 import 'package:mobile/features/practice/data/local/practice_local_data_source.dart';
 import 'package:mobile/features/practice/data/repositories/practice_repository.dart';
 import 'package:mobile/features/practice/data/services/asset_phrase_service.dart';
 import 'package:mobile/features/practice/presentation/screens/home_screen.dart';
+
+import 'support/app_test_repositories.dart';
 
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
@@ -40,6 +44,18 @@ void main() {
       BabyTalkApp(
         bootState: bootState,
         repositoryFactory: (_) async => firstRepository,
+        accountRepositoryFactory: (practiceRepository, directory) async {
+          return AccountRepository(
+            localStore: AccountLocalStore(storageKey: 's02_account'),
+            practiceRepository: practiceRepository,
+          );
+        },
+        householdRepositoryFactory: (accountRepository, directory) async {
+          return createLocalHouseholdRepository(
+            accountRepository: accountRepository,
+            directory: directory,
+          );
+        },
         appDirectoryResolver: () async => tempDir,
         practiceContinuityRefreshTimeout: Duration.zero,
       ),
@@ -62,7 +78,7 @@ void main() {
 
     expect(find.byKey(const Key('boot-route-shell')), findsOneWidget);
     expect(find.byKey(const Key('shell-ready')), findsOneWidget);
-    expect(find.text('米米 的首页'), findsOneWidget);
+    expect(find.text('米米 的练习'), findsOneWidget);
     expect(find.byKey(const Key('home-local-only-banner')), findsOneWidget);
     expect(find.byKey(const Key('personalized-home-heading')), findsOneWidget);
     expect(find.textContaining('米米'), findsWidgets);
@@ -123,12 +139,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 700));
     // Scroll home list back to top so _RecentResultCard is in the viewport
     // (the list was scrolled down to reveal home-start-practice).
-    await tester.scrollUntilVisible(
-      find.byKey(const Key('home-local-only-banner')),
-      -300,
-      scrollable: _homeScrollable(),
-    );
-    await tester.pumpAndSettle();
+    await _scrollHomeTo(tester, find.byKey(const Key('recent-result-summary')));
     await _pumpUntilFound(
       tester,
       find.byKey(const Key('recent-result-summary')),
@@ -156,6 +167,18 @@ void main() {
       BabyTalkApp(
         bootState: bootState,
         repositoryFactory: (_) async => secondRepository,
+        accountRepositoryFactory: (practiceRepository, directory) async {
+          return AccountRepository(
+            localStore: AccountLocalStore(storageKey: 's02_account'),
+            practiceRepository: practiceRepository,
+          );
+        },
+        householdRepositoryFactory: (accountRepository, directory) async {
+          return createLocalHouseholdRepository(
+            accountRepository: accountRepository,
+            directory: directory,
+          );
+        },
         appDirectoryResolver: () async => tempDir,
         practiceContinuityRefreshTimeout: Duration.zero,
       ),
@@ -166,7 +189,7 @@ void main() {
     expect(find.byKey(const Key('boot-route-shell')), findsOneWidget);
     expect(find.byKey(const Key('onboarding-local-only-banner')), findsNothing);
     expect(find.byKey(const Key('shell-ready')), findsOneWidget);
-    expect(find.text('米米 的首页'), findsOneWidget);
+    expect(find.text('米米 的练习'), findsOneWidget);
     // Wait for ListView to render (boot seed loaded or initialize() completed).
     await _pumpUntilFound(
       tester,
@@ -175,12 +198,7 @@ void main() {
     );
     // Scroll down to bring HomeRecentResultCard into viewport.
     // HomeTodaySceneCard + HomePersonalizedHero push it below the fold.
-    await tester.scrollUntilVisible(
-      find.byKey(const Key('home-local-only-banner')),
-      -300,
-      scrollable: _homeScrollable(),
-    );
-    await tester.pump();
+    await _scrollHomeTo(tester, find.byKey(const Key('recent-result-summary')));
     // Wait for recent-result-summary (Notifier loads data from Isar).
     await _pumpUntilFound(
       tester,
@@ -248,16 +266,46 @@ Future<void> _completeOnboarding(
   await tester.pumpAndSettle();
 }
 
-Finder _homeScrollable() {
+Finder _homeScrollables() {
   return find.descendant(
     of: find.byType(HomeScreen),
     matching: find.byType(Scrollable),
   );
 }
 
+Finder _homeScrollable() {
+  return _homeScrollables().first;
+}
+
 Future<void> _scrollHomeTo(WidgetTester tester, Finder finder) async {
-  await tester.scrollUntilVisible(finder, 180, scrollable: _homeScrollable());
-  await tester.pumpAndSettle();
+  await _pumpUntilFound(
+    tester,
+    _homeScrollables(),
+    timeout: const Duration(seconds: 30),
+  );
+  final scrollableState = tester.state<ScrollableState>(_homeScrollable());
+  scrollableState.position.jumpTo(scrollableState.position.minScrollExtent);
+  await tester.pump();
+
+  for (var attempt = 0; attempt < 120; attempt++) {
+    if (_finderExists(finder)) {
+      await tester.ensureVisible(finder);
+      await tester.pumpAndSettle();
+      expect(finder, findsOneWidget);
+      return;
+    }
+    if (_finderExists(_homeScrollables())) {
+      if (attempt > 0 && attempt % 30 == 0) {
+        final state = tester.state<ScrollableState>(_homeScrollable());
+        state.position.jumpTo(state.position.minScrollExtent);
+      } else {
+        await tester.drag(_homeScrollable(), const Offset(0, -300));
+      }
+    }
+    await tester.pump(const Duration(milliseconds: 100));
+  }
+
+  fail('Timed out waiting for home content.');
 }
 
 Future<void> _scrollTo(WidgetTester tester, Finder finder) async {
@@ -284,6 +332,14 @@ Future<void> _pumpUntilFound(
   }
 
   fail('Timed out waiting for expected widget.');
+}
+
+bool _finderExists(Finder finder) {
+  try {
+    return finder.evaluate().isNotEmpty;
+  } on StateError {
+    return false;
+  }
 }
 
 Future<PracticeRepository> _openRepository({

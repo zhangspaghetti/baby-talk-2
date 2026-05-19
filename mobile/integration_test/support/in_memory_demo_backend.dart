@@ -48,6 +48,9 @@ class InMemoryDemoBackend {
   int _sessionCount = 0;
   int bootstrapCount = 0;
   int mentorRequestCount = 0;
+  Object? lastUnhandledError;
+  Map<String, Object?>? lastMentorRequestSummary;
+  String? lastMentorFailureBranch;
 
   final Map<String, String> _challengePhoneById = <String, String>{};
   final Map<String, String> _accountIdByPhone = <String, String>{};
@@ -152,6 +155,7 @@ class InMemoryDemoBackend {
         'message': 'unsupported route',
       });
     } catch (error) {
+      lastUnhandledError = error;
       await _writeJson(request.response, HttpStatus.internalServerError, {
         'code': 'test_backend_error',
         'message': '$error',
@@ -539,6 +543,14 @@ class InMemoryDemoBackend {
         (body['correlationId'] as String?)?.trim().isNotEmpty == true
         ? (body['correlationId'] as String).trim()
         : 'corr_${mentorRequestCount.toString().padLeft(4, '0')}';
+    lastMentorRequestSummary = <String, Object?>{
+      'installationId': installationId,
+      'promptLength': prompt.length,
+      'surface': surface,
+      'mode': mode,
+      'correlationId': correlationId,
+      'hasSession': sessionId != null,
+    };
 
     await _delayForFailureToken(<String?>[
       installationId,
@@ -551,6 +563,7 @@ class InMemoryDemoBackend {
         prompt.isEmpty ||
         !_isAllowedSurface(surface) ||
         mode != 'single_turn') {
+      lastMentorFailureBranch = 'invalid_request';
       await _writeJson(request.response, HttpStatus.badRequest, {
         'code': 'missing_prompt',
         'message': 'prompt / surface / mode 非法。',
@@ -559,6 +572,7 @@ class InMemoryDemoBackend {
     }
 
     if (prompt.length > mentorPromptMaxLength) {
+      lastMentorFailureBranch = 'prompt_too_long';
       await _writeJson(request.response, HttpStatus.badRequest, {
         'code': 'prompt_too_long',
         'message': 'prompt 过长。',
@@ -572,6 +586,7 @@ class InMemoryDemoBackend {
 
     final account = _resolveAccount(sessionId);
     if (sessionId != null && account == null) {
+      lastMentorFailureBranch = 'invalid_session';
       await _writeMentorError(
         request.response,
         statusCode: HttpStatus.unauthorized,
@@ -584,6 +599,7 @@ class InMemoryDemoBackend {
     }
 
     if (account != null && account.deleted) {
+      lastMentorFailureBranch = 'account_deleted';
       await _writeMentorError(
         request.response,
         statusCode: HttpStatus.gone,
@@ -596,6 +612,7 @@ class InMemoryDemoBackend {
     }
 
     if (account != null && account.consentStatus != 'accepted') {
+      lastMentorFailureBranch = 'consent_revoked';
       await _writeMentorError(
         request.response,
         statusCode: HttpStatus.forbidden,
@@ -616,6 +633,7 @@ class InMemoryDemoBackend {
           correlationId,
           DemoBackendFailureTokens.malformed,
         )) {
+      lastMentorFailureBranch = 'malformed';
       await _writeMentorError(
         request.response,
         statusCode: HttpStatus.badGateway,
@@ -636,6 +654,7 @@ class InMemoryDemoBackend {
           correlationId,
           DemoBackendFailureTokens.timeout,
         )) {
+      lastMentorFailureBranch = 'timeout';
       await _writeMentorError(
         request.response,
         statusCode: HttpStatus.gatewayTimeout,
@@ -653,6 +672,7 @@ class InMemoryDemoBackend {
     final remaining = mentorRateLimit - mentorRequests;
 
     if (mentorRequests > mentorRateLimit) {
+      lastMentorFailureBranch = 'rate_limited';
       await _writeMentorError(
         request.response,
         statusCode: HttpStatus.tooManyRequests,
@@ -671,6 +691,7 @@ class InMemoryDemoBackend {
     }
 
     if (_shouldUseBlockedFallback(prompt)) {
+      lastMentorFailureBranch = null;
       await _writeJson(request.response, HttpStatus.ok, {
         'correlationId': correlationId,
         'responseText': 'I\'m here with you. 先放慢语速，只说一句最稳妥的短句，然后停下来观察宝宝。',
@@ -697,6 +718,7 @@ class InMemoryDemoBackend {
       return;
     }
 
+    lastMentorFailureBranch = null;
     await _writeJson(request.response, HttpStatus.ok, {
       'correlationId': correlationId,
       'responseText': '先抱近一点，只说一句：I\'m here with you. 然后停两秒等宝宝回应。',
@@ -812,6 +834,7 @@ class InMemoryDemoBackend {
 
   bool _isAllowedSurface(String surface) {
     return const <String>{
+      'practice',
       'home',
       'discover',
       'garden',

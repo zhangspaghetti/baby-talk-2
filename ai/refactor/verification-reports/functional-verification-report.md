@@ -4,13 +4,13 @@ Version: Flutter AI Software Factory v1.0.0
 Stage: R4 / Phase 4
 Task: REFACTOR-017
 Created: 2026-05-19
-Status: completed, production functional gate blocked
+Status: completed, integration blockers remediated locally; production gate blocked by remaining Phase 4 criteria
 
 ## Summary
 
-Current unit, widget, and smoke-level Flutter tests remain green, but the local integration checks documented for Phase 4 expose core-flow blockers. No mobile production code or tests were changed during this verification pass.
+Current unit, widget, and smoke-level Flutter tests remain green. The original R017 verification pass exposed core-flow integration blockers; REFACTOR-017A has now remediated those local blockers with behavior-preserving app and harness fixes.
 
-Functional release readiness is blocked until the integration-flow timeouts are fixed or formally excepted with replacement evidence.
+Functional core-flow evidence is restored locally. Production readiness remains blocked by non-functional Phase 4 criteria: coverage target/exception, critical UI coverage measurement, sensitive lifecycle completion, performance benchmark evidence, target-platform/CI replay, and final human approval.
 
 ## Command Evidence
 
@@ -24,24 +24,34 @@ Functional release readiness is blocked until the integration-flow timeouts are 
 | `flutter test integration_test/s03_account_sync_restore_flow_test.dart` | Fail | `R017_COMMAND_EXIT ... 1`; timed out waiting for expected widget |
 | `flutter test integration_test/s06_full_chain_release_flow_test.dart` | Fail | `R017_COMMAND_EXIT ... 1`; two timeout failures in full-chain flow |
 
+## REFACTOR-017A Integration Remediation Evidence
+
+| Check | Result | Evidence |
+|---|---:|---|
+| `..\flutter.cmd test integration_test/s01_guest_practice_flow_test.dart` | Pass | 1 test passed; local-only practice result restored after cold start |
+| `..\flutter.cmd test integration_test/s02_personalized_onboarding_flow_test.dart` | Pass | 1 test passed; fresh install onboarding and cold-start restore verified |
+| `..\flutter.cmd test integration_test/s03_account_sync_restore_flow_test.dart` | Pass | 1 test passed; offline practice sync and restore verified |
+| `..\flutter.cmd test integration_test/s06_full_chain_release_flow_test.dart` | Pass | 3 tests passed; full-chain flow, malformed snapshot, and Mentor timeout verified |
+| `..\flutter.cmd analyze` | Pass | No issues found |
+
 ## Core Flow Results
 
 | Flow | Status | Failure Detail |
 |---|---|---|
-| Guest offline practice cold-start restore | Blocked | `s01_guest_practice_flow_test.dart` failed in `_pumpUntilFound` at line 171: timed out waiting for expected widget |
-| Fresh install onboarding to personalized shell restore | Blocked | `s02_personalized_onboarding_flow_test.dart` failed in `_pumpUntilFound` at line 286: timed out waiting for expected widget |
-| Offline practice, sign-in sync, logout/login restore | Blocked | `s03_account_sync_restore_flow_test.dart` failed in `_pumpUntilFound` at line 400: timed out waiting for expected widget |
-| Full-chain fresh install to mentor blocked fallback | Blocked | `s06_full_chain_release_flow_test.dart` failed waiting for fresh install onboarding banner |
-| Full-chain malformed snapshot boot failure surface | Pass inside failing file | `s06_full_chain_release_flow_test.dart` reported one passing test before later failure |
-| Mentor timeout visible banner and phase | Blocked | `s06_full_chain_release_flow_test.dart` failed waiting for onboarding start button |
+| Guest offline practice cold-start restore | Pass locally | `s01_guest_practice_flow_test.dart` passed after household repository injection and Home refresh/scroll hardening |
+| Fresh install onboarding to personalized shell restore | Pass locally | `s02_personalized_onboarding_flow_test.dart` passed with current onboarding and shell expectations |
+| Offline practice, sign-in sync, logout/login restore | Pass locally | `s03_account_sync_restore_flow_test.dart` passed with household repository injection |
+| Full-chain fresh install to mentor blocked fallback | Pass locally | `s06_full_chain_release_flow_test.dart` passed with current combined tab, Mentor auth, and backend surface contract |
+| Full-chain malformed snapshot boot failure surface | Pass locally | Boot failure surface remains visible for malformed completed snapshot |
+| Mentor timeout visible banner and phase | Pass locally | Timeout banner, `provider_timeout` phase, and failed fact persistence verified |
 
 ## Interpretation
 
 - The app's local unit and widget regression surface is stable at 220 passing tests.
-- The integration suite currently cannot prove the required end-to-end rescue flows.
-- The repeated timeout shape suggests the integration harness or fresh-install app state is not reaching expected onboarding/practice surfaces in the current environment.
-- R017 does not approve a product behavior change to work around these failures.
+- The integration suite now proves the required local end-to-end rescue flows in focused runs.
+- The original timeout failures were a mix of stale harness assumptions and product integration defects: missing household bootstrap injection, async practice repository access, post-practice refresh timing, Mentor account/API split state, backend surface mismatch, and cross-test Mentor Isar store collision.
+- R017A did not approve stale-test behavior changes; product contracts remain fresh-install onboarding, combined growth/garden tab, and login-gated online Mentor chat.
 
 ## Functional Exit Decision
 
-Functional verification is not production-ready. The next Phase 4 work must either fix the integration blockers, produce equivalent passing core-flow evidence on approved target platforms, or obtain an explicit human exception before release readiness can be reconsidered.
+Functional core-flow verification is locally restored. Production readiness is still not approved until the remaining Phase 4 gates are satisfied or explicitly excepted, and the focused integration evidence is replayed on approved target platforms or CI.

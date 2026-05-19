@@ -1,9 +1,11 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart' as riverpod;
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mobile/app/app.dart';
+import 'package:mobile/app/providers/repository_providers.dart';
 import 'package:mobile/core/device/installation_id_service.dart';
 import 'package:mobile/features/account/data/local/account_local_store.dart';
 import 'package:mobile/features/account/data/repositories/account_repository.dart';
@@ -20,6 +22,7 @@ import 'package:mobile/features/practice/presentation/garden_growth_notifier.dar
 import 'package:mobile/features/sync/data/repositories/sync_repository.dart';
 import 'package:provider/provider.dart';
 
+import 'app_test_repositories.dart';
 import 'in_memory_demo_backend.dart';
 
 class FullChainTestHarness {
@@ -42,6 +45,8 @@ class FullChainTestHarness {
   final OnboardingAgeBucket ageBucket;
 
   PracticeRepository? _activeRepository;
+
+  String get _mentorStoreName => 'mentor_s06_${tempDir.path.hashCode}';
 
   static Future<FullChainTestHarness> create({
     String practiceDbName = 's06_full_chain_release',
@@ -90,15 +95,23 @@ class FullChainTestHarness {
         accountRepositoryFactory: (practiceRepository, directory) async {
           return AccountRepository(
             localStore: AccountLocalStore(
-              storageKey: 'test_full_chain_account',
+              storageKey: 'test_full_chain_account_${tempDir.path.hashCode}',
             ),
             practiceRepository: practiceRepository,
             apiService: AccountApiService(baseUrl: backend.baseUri.toString()),
             connectivityChecker: () async => true,
           );
         },
+        householdRepositoryFactory: (accountRepository, directory) async {
+          return createLocalHouseholdRepository(
+            accountRepository: accountRepository,
+            directory: directory,
+            apiBaseUrl: backend.baseUri.toString(),
+          );
+        },
         appDirectoryResolver: () async => tempDir,
         completedSnapshotLoader: completedSnapshotLoader,
+        mentorStoreName: _mentorStoreName,
         practiceContinuityRefreshTimeout: Duration.zero,
       ),
     );
@@ -129,11 +142,21 @@ class FullChainTestHarness {
   }
 
   Future<void> completeOnboarding(WidgetTester tester) async {
-    await pumpUntilFound(
-      tester,
-      find.byKey(const Key('onboarding-start-button')),
-      reason: 'onboarding start button',
-    );
+    try {
+      await pumpUntilFound(
+        tester,
+        find.byKey(const Key('onboarding-start-button')),
+        timeout: const Duration(seconds: 30),
+        step: const Duration(milliseconds: 100),
+        reason: 'onboarding start button',
+      );
+    } on TestFailure {
+      fail(
+        'Timed out waiting for onboarding start button. '
+        'visibleState=${_visibleBootStateSummary()}; '
+        'visibleText=${_visibleTextSummary()}',
+      );
+    }
     await scrollTo(tester, find.byKey(const Key('onboarding-start-button')));
     await tester.tap(find.byKey(const Key('onboarding-start-button')));
     await tester.pumpAndSettle();
@@ -245,26 +268,9 @@ class FullChainTestHarness {
     await tester.tap(thirdReaction);
     // Pump 3 seconds: enough for DB write + navigator pop animation on slow device.
     await tester.pump(const Duration(milliseconds: 3000));
-    // Drag the home list all the way to the top (it was scrolled down to reveal
-    // home-start-practice). A large positive Y drag scrolls content upward.
-    final homeScrollable = find.descendant(
-      of: find.byType(HomeScreen),
-      matching: find.byType(Scrollable),
-    );
-    await tester.drag(homeScrollable, const Offset(0, 5000));
-    await tester.pump();
-    // Scroll down to bring HomeRecentResultCard into viewport.
-    // HomeTodaySceneCard + HomePersonalizedHero push it below the fold.
-    await tester.scrollUntilVisible(
-      find.byKey(const Key('home-local-only-banner')),
-      -300,
-      scrollable: homeScrollable,
-    );
-    await tester.pump();
-    await pumpUntilFound(
+    await scrollHomeTo(
       tester,
       find.byKey(const Key('recent-result-summary')),
-      timeout: const Duration(seconds: 30),
       reason: 'recent result summary',
     );
   }
@@ -361,9 +367,27 @@ class FullChainTestHarness {
       find.byKey(const Key('mentor-chat-submit-button')),
     );
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const Key('mentor-chat-submit-button')));
+    final submitButton = tester.widget<FilledButton>(
+      find.byKey(const Key('mentor-chat-submit-button')),
+    );
+    final submitChat = submitButton.onPressed;
+    if (submitChat == null) {
+      final notifier = Provider.of<MentorNotifier>(
+        tester.element(find.byKey(const Key('mentor-panel-sheet'))),
+        listen: false,
+      );
+      fail(
+        'Mentor chat submit is disabled: '
+        'phase=${notifier.chatAvailability.phase}; '
+        'code=${notifier.chatAvailability.code}; '
+        'detail=${notifier.chatAvailability.detail}',
+      );
+    }
+    submitChat();
     await tester.pump();
-    return waitForMentorSubmissionToSettle(tester);
+    final notifier = await waitForMentorSubmissionToSettle(tester);
+    await tester.pumpAndSettle();
+    return notifier;
   }
 
   Future<void> switchToHomeTab(WidgetTester tester) async {
@@ -381,7 +405,7 @@ class FullChainTestHarness {
     await tester.pumpAndSettle();
     await pumpUntilFound(
       tester,
-      find.text('$childDisplayName 的首页'),
+      find.text('$childDisplayName 的练习'),
       timeout: const Duration(seconds: 12),
       reason: 'home tab active',
     );
@@ -404,10 +428,8 @@ class FullChainTestHarness {
 
   int _shellTabIndex(String label) {
     return switch (label) {
-      '首页' => 0,
-      '发现' => 1,
-      '花园' => 2,
-      '成长' => 3,
+      '首页' || '练习' => 0,
+      '花园' || '成长' => 1,
       _ => throw ArgumentError.value(label, 'label', 'Unknown shell tab'),
     };
   }
@@ -442,13 +464,11 @@ class FullChainTestHarness {
         if (shell.evaluate().isEmpty) {
           return false;
         }
-        final notifier = Provider.of<GardenGrowthNotifier?>(
+        final container = riverpod.ProviderScope.containerOf(
           tester.element(shell),
           listen: false,
         );
-        if (notifier == null) {
-          return false;
-        }
+        final notifier = container.read(gardenGrowthNotifierProvider);
         if (notifier.status == GardenGrowthLoadStatus.ready &&
             notifier.snapshot.spaces.isNotEmpty) {
           resolved = notifier;
@@ -500,6 +520,7 @@ class FullChainTestHarness {
   }) async {
     final dataSource = await MentorLocalDataSource.open(
       directory: tempDir.path,
+      name: _mentorStoreName,
     );
     try {
       return dataSource.listMentorFactEvents(
@@ -576,18 +597,36 @@ class FullChainTestHarness {
     Finder finder, {
     String reason = 'home content',
   }) async {
-    await tester.scrollUntilVisible(
-      finder,
-      180,
-      scrollable: find.descendant(
-        of: find.byType(HomeScreen),
-        matching: find.byType(Scrollable),
-      ),
+    await pumpUntilFound(
+      tester,
+      _homeScrollables(),
+      timeout: const Duration(seconds: 30),
+      reason: 'home scrollable',
     );
-    await tester.pumpAndSettle();
-    if (finder.evaluate().isEmpty) {
-      fail('滚动后仍未找到 $reason。');
+    final scrollableState = tester.state<ScrollableState>(_homeScrollable());
+    scrollableState.position.jumpTo(scrollableState.position.minScrollExtent);
+    await tester.pump();
+
+    for (var attempt = 0; attempt < 120; attempt++) {
+      if (_finderExists(finder)) {
+        await tester.ensureVisible(finder);
+        await tester.pumpAndSettle();
+        if (_finderExists(finder)) {
+          return;
+        }
+      }
+      if (_finderExists(_homeScrollables())) {
+        if (attempt > 0 && attempt % 30 == 0) {
+          final state = tester.state<ScrollableState>(_homeScrollable());
+          state.position.jumpTo(state.position.minScrollExtent);
+        } else {
+          await tester.drag(_homeScrollable(), const Offset(0, -300));
+        }
+      }
+      await tester.pump(const Duration(milliseconds: 100));
     }
+
+    fail('滚动后仍未找到 $reason。');
   }
 
   static Future<void> scrollTo(WidgetTester tester, Finder finder) async {
@@ -600,19 +639,71 @@ class FullChainTestHarness {
   }
 
   static Future<void> scrollHomeToTop(WidgetTester tester) async {
-    final homeScroll = find.descendant(
-      of: find.byType(HomeScreen),
-      matching: find.byType(Scrollable),
-    );
     await pumpUntilFound(
       tester,
-      homeScroll,
+      _homeScrollables(),
       timeout: const Duration(seconds: 8),
       reason: 'home scrollable',
     );
-    final scrollableState = tester.state<ScrollableState>(homeScroll);
+    final scrollableState = tester.state<ScrollableState>(_homeScrollable());
     scrollableState.position.jumpTo(scrollableState.position.minScrollExtent);
     await tester.pumpAndSettle();
+  }
+
+  static Finder _homeScrollables() {
+    return find.descendant(
+      of: find.byType(HomeScreen),
+      matching: find.byType(Scrollable),
+    );
+  }
+
+  static Finder _homeScrollable() => _homeScrollables().first;
+
+  static bool _finderExists(Finder finder) {
+    try {
+      return finder.evaluate().isNotEmpty;
+    } on StateError {
+      return false;
+    }
+  }
+
+  static Map<String, bool> _visibleBootStateSummary() {
+    return <String, bool>{
+      'bootLoading': find
+          .byKey(const Key('boot-loading'))
+          .evaluate()
+          .isNotEmpty,
+      'bootOnboarding': find
+          .byKey(const Key('boot-route-onboarding'))
+          .evaluate()
+          .isNotEmpty,
+      'bootShell': find
+          .byKey(const Key('boot-route-shell'))
+          .evaluate()
+          .isNotEmpty,
+      'shellReady': find.byKey(const Key('shell-ready')).evaluate().isNotEmpty,
+      'bootFailed': find
+          .byKey(const Key('boot-route-gate-failed'))
+          .evaluate()
+          .isNotEmpty,
+      'onboardingBanner': find
+          .byKey(const Key('onboarding-local-only-banner'))
+          .evaluate()
+          .isNotEmpty,
+    };
+  }
+
+  static List<String> _visibleTextSummary() {
+    return find
+        .byType(Text)
+        .evaluate()
+        .map((element) => element.widget)
+        .whereType<Text>()
+        .map((widget) => widget.data?.trim())
+        .whereType<String>()
+        .where((text) => text.isNotEmpty)
+        .take(12)
+        .toList(growable: false);
   }
 
   static Future<void> pumpUntilFound(

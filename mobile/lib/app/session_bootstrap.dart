@@ -38,9 +38,12 @@ class SessionBootstrap {
     required String primarySpaceId,
     required String primaryActivityId,
     Future<PracticeRepository> Function(AssetPhraseService)? repositoryFactory,
-    Future<AccountRepository> Function(PracticeRepository, Directory)? accountRepositoryFactory,
-    Future<HouseholdRepository> Function(AccountRepository, Directory)? householdRepositoryFactory,
+    Future<AccountRepository> Function(PracticeRepository, Directory)?
+    accountRepositoryFactory,
+    Future<HouseholdRepository> Function(AccountRepository, Directory)?
+    householdRepositoryFactory,
     Future<Directory> Function()? appDirectoryResolver,
+    String? mentorStoreName,
   }) async {
     final directory = appDirectoryResolver != null
         ? await appDirectoryResolver()
@@ -59,14 +62,25 @@ class SessionBootstrap {
       starterActivityId: primaryActivityId,
     );
 
-    final accountFactory = accountRepositoryFactory ?? _defaultAccountRepositoryFactory;
-    final accountRepository = await accountFactory(practiceRepository, directory);
+    final accountFactory =
+        accountRepositoryFactory ?? _defaultAccountRepositoryFactory;
+    final accountRepository = await accountFactory(
+      practiceRepository,
+      directory,
+    );
 
-    final householdFactory = householdRepositoryFactory ?? _defaultHouseholdRepositoryFactory;
-    final householdRepository = await householdFactory(accountRepository, directory);
+    final householdFactory =
+        householdRepositoryFactory ?? _defaultHouseholdRepositoryFactory;
+    final householdRepository = await householdFactory(
+      accountRepository,
+      directory,
+    );
 
     final mentorRepository = MentorRepository(
-      localDataSource: await MentorLocalDataSource.open(directory: directory.path),
+      localDataSource: await MentorLocalDataSource.open(
+        directory: directory.path,
+        name: mentorStoreName ?? 'mentor_local',
+      ),
       practiceRepository: practiceRepository,
       onboardingSnapshotStore: onboardingStore,
       householdSnapshotLoader: householdRepository.loadSnapshot,
@@ -90,7 +104,9 @@ Future<Directory> _defaultDirectory() async {
   return Directory.systemTemp;
 }
 
-Future<PracticeRepository> _defaultRepositoryFactory(AssetPhraseService service) async {
+Future<PracticeRepository> _defaultRepositoryFactory(
+  AssetPhraseService service,
+) async {
   throw UnimplementedError('Default repository factory not configured');
 }
 
@@ -105,5 +121,7 @@ Future<HouseholdRepository> _defaultHouseholdRepositoryFactory(
   AccountRepository accountRepo,
   Directory directory,
 ) async {
-  throw UnimplementedError('Default household repository factory not configured');
+  throw UnimplementedError(
+    'Default household repository factory not configured',
+  );
 }

@@ -19,7 +19,7 @@ Performance production readiness is blocked because the Phase 4 criterion requir
 | R1 performance audit | Completed; performance score 4/10 |
 | Required benchmark scenarios | Documented in `ai/refactor/audit-reports/performance-issues.md` |
 | Analyze/test/coverage execution | Completed, but these are correctness checks, not performance measurements |
-| Integration checks | Attempted, but failed with functional timeouts and cannot be used as performance proof |
+| Integration checks | Pass locally after R017A, but they are correctness checks and cannot replace benchmark proof |
 | Dedicated benchmark gate | Missing |
 
 ## Required Benchmark Scenarios Not Yet Proven
@@ -39,7 +39,7 @@ Performance production readiness is blocked because the Phase 4 criterion requir
 - Cold start can still be coupled to boot state, local stores, feature gates, and continuity projection.
 - Isar full-read and Dart-side projection paths still need benchmarked limits before optimization claims.
 - Provider/Riverpod mixed ownership can still produce broad rebuilds until migrated areas have narrower selectors and measurement.
-- Failed integration flows prevent using current end-to-end runs as a rough release confidence signal.
+- Passing focused integration flows provide correctness confidence after R017A, but they do not measure latency, frame timing, rebuild scope, or data-size limits.
 
 ## Performance Exit Decision
 

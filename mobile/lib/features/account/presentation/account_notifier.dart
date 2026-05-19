@@ -493,6 +493,9 @@ class AccountNotifier extends ChangeNotifier with WidgetsBindingObserver {
 
   @override
   void dispose() {
+    if (_disposed) {
+      return;
+    }
     _disposed = true;
     if (_observerAttached) {
       WidgetsBinding.instance.removeObserver(this);

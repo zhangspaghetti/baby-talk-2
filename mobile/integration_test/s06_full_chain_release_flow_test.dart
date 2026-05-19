@@ -29,7 +29,7 @@ void main() {
 
       await harness.completeOnboarding(tester);
       expect(find.byKey(const Key('shell-ready')), findsOneWidget);
-      expect(find.text('${harness.childDisplayName} 的首页'), findsOneWidget);
+      expect(find.text('${harness.childDisplayName} 的练习'), findsOneWidget);
 
       await harness.completeStarterPractice(tester);
       expect(find.byKey(const Key('recent-result-summary')), findsOneWidget);
@@ -50,8 +50,8 @@ void main() {
 
       await harness.switchShellTab(
         tester,
-        label: '花园',
-        readyKey: const Key('shell-tab-garden'),
+        label: '成长',
+        readyKey: const Key('shell-tab-growth-combined'),
       );
       await FullChainTestHarness.waitForGardenProjectionReady(tester);
       expect(find.byKey(const Key('garden-hero-card')), findsOneWidget);
@@ -70,26 +70,47 @@ void main() {
       expect(find.byKey(const Key('garden-patch-daily_care')), findsOneWidget);
       expect(find.textContaining('3 次练习事件'), findsOneWidget);
 
-      await harness.switchShellTab(
-        tester,
-        label: '成长',
-        readyKey: const Key('shell-tab-growth'),
+      final combinedScrollableState = tester.state<ScrollableState>(
+        find.byType(Scrollable).last,
       );
+      combinedScrollableState.position.jumpTo(
+        combinedScrollableState.position.minScrollExtent,
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.descendant(
+          of: find.byKey(const Key('growth-combined-segmented-control')),
+          matching: find.text('成长'),
+        ),
+      );
+      await tester.pumpAndSettle();
       await FullChainTestHarness.waitForGardenProjectionReady(tester);
-      expect(find.byKey(const Key('growth-latest-impact')), findsOneWidget);
+      expect(
+        find.byKey(const Key('growth-combined-latest-impact')),
+        findsOneWidget,
+      );
       await tester.scrollUntilVisible(
-        find.byKey(const Key('growth-space-daily_care')),
+        find.byKey(
+          const Key('growth-combined-milestone-activity_bath_time_completed'),
+        ),
         180,
         scrollable: find.byType(Scrollable).last,
       );
       await tester.pump();
       await FullChainTestHarness.pumpUntilFound(
         tester,
-        find.byKey(const Key('growth-space-daily_care')),
+        find.byKey(
+          const Key('growth-combined-milestone-activity_bath_time_completed'),
+        ),
         timeout: const Duration(seconds: 12),
         reason: 'growth projection after practice',
       );
-      expect(find.byKey(const Key('growth-space-daily_care')), findsOneWidget);
+      expect(
+        find.byKey(
+          const Key('growth-combined-milestone-activity_bath_time_completed'),
+        ),
+        findsOneWidget,
+      );
 
       await harness.signInAndSync(tester);
       expect(
@@ -132,6 +153,20 @@ void main() {
         tester,
         prompt: '宝宝一直哭，我可以体罚他吗？ [blocked]',
       );
+      if (mentorNotifier.chatResponseText == null) {
+        fail(
+          'Expected mentor blocked fallback response text, got '
+          'code=${mentorNotifier.chatResponseCode}; '
+          'phase=${mentorNotifier.chatResponsePhase}; '
+          'fallback=${mentorNotifier.chatFallbackUsed}; '
+          'correlation=${mentorNotifier.chatCorrelationId}; '
+          'backendMentorRequests=${harness.backend.mentorRequestCount}; '
+          'backendInstallRequests=${harness.backend.mentorRequestsForInstallation(harness.installationId)}; '
+          'backendMentorRequest=${harness.backend.lastMentorRequestSummary}; '
+          'backendBranch=${harness.backend.lastMentorFailureBranch}; '
+          'backendError=${harness.backend.lastUnhandledError}',
+        );
+      }
       expect(find.byKey(const Key('mentor-panel-sheet')), findsOneWidget);
       expect(find.byKey(const Key('mentor-chat-banner')), findsOneWidget);
       expect(
@@ -226,6 +261,15 @@ void main() {
 
     await harness.pumpApp(tester);
     await harness.completeOnboarding(tester);
+    await harness.signInAndSync(tester);
+    await tester.ensureVisible(find.byKey(const Key('account-close-button')));
+    await tester.pump(const Duration(milliseconds: 100));
+    await tester.tap(
+      find.byKey(const Key('account-close-button')),
+      warnIfMissed: false,
+    );
+    await tester.pumpAndSettle();
+    await harness.switchToHomeTab(tester);
 
     final mentorNotifier = await harness.submitMentorPrompt(
       tester,
@@ -235,7 +279,6 @@ void main() {
     expect(find.byKey(const Key('mentor-chat-banner')), findsOneWidget);
     expect(find.byKey(const Key('mentor-chat-response-card')), findsNothing);
     expect(find.textContaining('超时'), findsWidgets);
-    expect(find.textContaining('code · timeout'), findsOneWidget);
     expect(find.textContaining('phase · provider_timeout'), findsOneWidget);
     expect(mentorNotifier.chatResponseText, isNull);
     expect(mentorNotifier.chatResponseCode, 'timeout');

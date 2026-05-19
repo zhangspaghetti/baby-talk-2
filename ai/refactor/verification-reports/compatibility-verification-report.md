@@ -4,35 +4,35 @@ Version: Flutter AI Software Factory v1.0.0
 Stage: R4 / Phase 4
 Task: REFACTOR-017
 Created: 2026-05-19
-Status: completed, core-flow compatibility blocked
+Status: completed, core-flow compatibility restored locally; production compatibility pending remaining gates
 
 ## Summary
 
-R017 is documentation-only and made no runtime compatibility changes. Current analyze, unit, widget, smoke, and coverage tests pass, which preserves the existing local regression baseline. However, the integration checks that exercise cold-start, onboarding, practice restore, account sync/restore, and full-chain release flows fail with timeout blockers.
+R017 was documentation-only and made no runtime compatibility changes. REFACTOR-017A performed behavior-preserving runtime and harness stabilization to restore the integration checks that exercise cold-start, onboarding, practice restore, account sync/restore, and full-chain release flows.
 
-Compatibility with the intended production flows is therefore not proven.
+Compatibility with the intended local production flows is now proven by focused integration checks. Production compatibility still needs target-platform/CI replay and the remaining Phase 4 gates.
 
 ## Compatibility Surfaces
 
 | Surface | Status | Evidence |
 |---|---|---|
-| Product behavior | Preserved by R017 | No mobile source or test files changed |
-| Routes/navigation contracts | Not changed by R017 | Report-only task |
-| API payloads/auth paths | Not changed by R017 | Existing R006/R007 evidence retained |
-| Persisted data shape | Not changed by R017 | No model, Isar, JSON, or generated code edits |
-| Generated localization/code outputs | Not changed by R017 | No generated files edited |
+| Product behavior | Preserved by R017A | Fresh install still routes to onboarding; shell and Mentor auth behavior follow current contracts |
+| Routes/navigation contracts | Updated test expectations only | Harness now matches current two-tab shell and current route gate behavior |
+| API payloads/auth paths | Preserved | Mentor API path now uses the authenticated client already required by R006/R007 |
+| Persisted data shape | Preserved | No model, Isar schema, JSON, or generated code edits |
+| Generated localization/code outputs | Preserved | No generated files edited |
 | Unit/widget compatibility | Passing | `flutter test` 220 passed |
-| Core flow compatibility | Blocked | Four integration commands exited 1 |
+| Core flow compatibility | Passing locally | S01, S02, S03, and S06 focused integration commands exited 0 |
 
-## Integration Compatibility Failures
+## Integration Compatibility Results
 
 | Flow | Compatibility Risk |
 |---|---|
-| Guest offline practice restore | Recent-result continuity after cold start is not proven |
-| Personalized onboarding restore | Fresh install to personalized shell and post-restart recovery are not proven |
-| Account sync restore | Offline practice sync plus logout/login restore is not proven |
-| Full-chain release proof | Fresh install onboarding to mentor fallback is not proven |
+| Guest offline practice restore | Proven locally by S01 |
+| Personalized onboarding restore | Proven locally by S02 |
+| Account sync restore | Proven locally by S03 |
+| Full-chain release proof | Proven locally by S06 |
 
 ## Compatibility Exit Decision
 
-Compatibility is preserved for code touched by R017 because R017 touched artifacts only. Release compatibility is blocked because required core flows do not currently pass in local integration verification.
+Core-flow compatibility is locally restored after R017A. Release compatibility remains blocked until focused integration evidence is replayed on approved targets/CI and the coverage, lifecycle, performance, hard-gate, and final human approval gaps are resolved or excepted.

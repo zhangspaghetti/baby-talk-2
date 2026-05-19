@@ -47,7 +47,7 @@ No current legacy surface is safe to delete immediately. The project is not prod
 
 | Blocker | Impact On Deletion |
 |---|---|
-| Integration checks `s01`, `s02`, `s03`, and `s06` fail with timeouts | Cannot prove replacement behavior or route/app lifecycle parity |
+| Integration checks `s01`, `s02`, `s03`, and `s06` now pass locally after R017A; target-platform/CI replay pending | Deletion still needs replayed proof before removing compatibility layers |
 | LCOV is 66.53% versus 80% target | Deletion risk is not covered by target-level tests |
 | Critical UI widget coverage slice missing | Cannot prove high-risk UI surfaces after removing compatibility layers |
 | `installation_id` delete/reset primitive missing | Sensitive lifecycle hard gate cannot be enabled |
@@ -56,7 +56,7 @@ No current legacy surface is safe to delete immediately. The project is not prod
 
 ## Recommended Deletion Readiness Sequence
 
-1. Fix or formally except the integration blockers from R017.
+1. Replay the R017A passing integration evidence on the approved target-platform/CI environment.
 2. Resolve R003 generated-code canary before touching generated output locations.
 3. Add missing feature contracts for cross-feature edges, starting with the 30 forbidden candidates.
 4. Complete the sensitive lifecycle gap for installation ID deletion/reset.

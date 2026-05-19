@@ -3,13 +3,13 @@
 Version: Flutter AI Software Factory v1.0.0
 Stage: R4 / Phase 4
 Created: 2026-05-19
-Status: completed
+Status: completed; R017A integration remediation appended
 
 ## Summary
 
 REFACTOR-017 generated the required Phase 4 verification report suite using current evidence only. It did not change mobile production code, mobile tests, routes, API payloads, persisted data, product copy, visual values, generated files, or CI gate behavior.
 
-The report suite records that the standard Flutter regression baseline remains green, while production readiness is blocked by integration failures, coverage target gap, incomplete sensitive lifecycle enforcement, missing performance benchmarks, and pending human release confirmation.
+The report suite records that the standard Flutter regression baseline remains green. The original R017 evidence blocked production readiness on integration failures, coverage target gap, incomplete sensitive lifecycle enforcement, missing performance benchmarks, and pending human release confirmation. REFACTOR-017A has since restored local integration evidence, but production readiness remains blocked by the non-integration Phase 4 gaps and target-platform/CI replay.
 
 ## Reports Added
 
@@ -38,15 +38,25 @@ The report suite records that the standard Flutter regression baseline remains g
 | `flutter test integration_test/s03_account_sync_restore_flow_test.dart` | Failed; timed out waiting for expected widget |
 | `flutter test integration_test/s06_full_chain_release_flow_test.dart` | Failed; full-chain onboarding and mentor timeout flows timed out |
 
+## REFACTOR-017A Follow-Up Evidence
+
+| Command / Check | Result |
+|---|---|
+| `..\flutter.cmd test integration_test/s01_guest_practice_flow_test.dart` | Passed; 1 test |
+| `..\flutter.cmd test integration_test/s02_personalized_onboarding_flow_test.dart` | Passed; 1 test |
+| `..\flutter.cmd test integration_test/s03_account_sync_restore_flow_test.dart` | Passed; 1 test |
+| `..\flutter.cmd test integration_test/s06_full_chain_release_flow_test.dart` | Passed; 3 tests |
+| `..\flutter.cmd analyze` | Passed; no issues found |
+
 ## Production Readiness Result
 
-Production readiness is blocked. R017 explicitly does not approve release, legacy deletion, generated-code hard gating, feature-boundary hard gating, lifecycle hard gating, or performance claims.
+Production readiness is blocked. R017A removes the local integration blocker from the active blocker list, but it does not approve release, legacy deletion, generated-code hard gating, feature-boundary hard gating, lifecycle hard gating, target-platform/CI readiness, or performance claims.
 
 ## Residual Risks
 
 - Coverage remains below the 80% Phase 4 target with no approved exception.
 - Critical UI widget coverage is not separately measured.
-- Four integration checks failed in the current local environment.
+- Focused integration checks pass locally after R017A, but target-platform/CI replay remains pending.
 - `installation_id` still lacks a delete/reset primitive before hard sensitive lifecycle enforcement.
 - Feature boundary scan remains report-only with 99 cross-feature imports.
 - Performance benchmark evidence is absent.

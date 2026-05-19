@@ -28,6 +28,8 @@ import 'package:mobile/features/practice/data/services/asset_phrase_service.dart
 import 'package:mobile/features/practice/presentation/screens/home_screen.dart';
 import 'package:provider/provider.dart';
 
+import 'app_test_repositories.dart';
+
 class E2eTestHarness {
   E2eTestHarness._({
     required this.backendUri,
@@ -86,6 +88,13 @@ class E2eTestHarness {
             practiceRepository: practiceRepository,
             apiService: AccountApiService(baseUrl: backendUri.toString()),
             connectivityChecker: () async => true,
+          );
+        },
+        householdRepositoryFactory: (accountRepository, directory) async {
+          return createLocalHouseholdRepository(
+            accountRepository: accountRepository,
+            directory: directory,
+            apiBaseUrl: backendUri.toString(),
           );
         },
         appDirectoryResolver: () async => tempDir,

@@ -8,7 +8,7 @@ Status: completed, security release gate blocked
 
 ## Summary
 
-REFACTOR-017 did not change security-sensitive mobile code. It verified current security-related refactor evidence through existing reports and the REFACTOR-013 sensitive lifecycle report-only scanner. Earlier Phase 2 work improved Bearer JWT usage and Mentor consent fail-closed behavior, but local sensitive data lifecycle enforcement is not complete.
+REFACTOR-017 did not change security-sensitive mobile code. It verified current security-related refactor evidence through existing reports and the REFACTOR-013 sensitive lifecycle report-only scanner. REFACTOR-017A then stabilized the Mentor integration path by sharing the account notifier and injecting the authenticated Mentor API service through app composition. Earlier Phase 2 work improved Bearer JWT usage and Mentor consent fail-closed behavior, but local sensitive data lifecycle enforcement is not complete.
 
 Security production readiness cannot be approved yet.
 
@@ -21,6 +21,7 @@ Security production readiness cannot be approved yet.
 | REFACTOR-007 | Mentor/AI network calls fail closed without login and accepted consent |
 | REFACTOR-013 | Local sensitive data lifecycle matrix and report-only scanner added |
 | R017 lifecycle scanner | Ran successfully in report-only mode; one delete primitive remains missing |
+| REFACTOR-017A Mentor path | Online Mentor chat remains login/consent gated and now uses the authenticated API service in the legacy Provider path |
 
 ## Sensitive Lifecycle Scanner
 
@@ -46,6 +47,6 @@ Missing surface: `installation_id` still needs a reset/delete primitive such as 
 
 ## Security Exit Decision
 
-No new high-severity issue was introduced by R017 because it is report-only. However, the Phase 4 criterion "no high severity open findings" is not satisfied as a production gate because sensitive local data lifecycle and persistent identifier deletion remain incomplete.
+No new high-severity issue was introduced by R017 or R017A. However, the Phase 4 criterion "no high severity open findings" is not satisfied as a production gate because sensitive local data lifecycle and persistent identifier deletion remain incomplete.
 
 Security verification is blocked pending lifecycle completion, approved backup/encryption posture, and explicit human release confirmation.
