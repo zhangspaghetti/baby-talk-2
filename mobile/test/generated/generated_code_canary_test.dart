@@ -7,6 +7,7 @@ import 'package:mobile/features/mentor/domain/models/local_mentor_suggestion.dar
 import 'package:mobile/features/mentor/domain/models/mentor_fact_event.dart';
 import 'package:mobile/features/practice/data/local/interaction_event_entity.dart';
 import 'package:mobile/features/practice/domain/models/interaction_event_payload.dart';
+import 'package:mobile/features/practice/domain/models/practice_phrase.dart';
 import 'package:mobile/features/share/domain/models/share_link_draft.dart';
 
 void main() {
@@ -75,6 +76,31 @@ void main() {
         'recent practice available',
       );
       expect(suggestion.title, '先从一个简单互动开始');
+    });
+
+    test('PracticePhrase copyWith keeps audio asset normalization stable', () {
+      const phrase = PracticePhrase(
+        spaceId: 'home',
+        activityId: 'song_time',
+        phraseId: 'hello_wave',
+        step: 1,
+        english: 'Hello',
+        chinese: '你好',
+        pronunciation: 'nee how',
+        difficulty: 'easy',
+        audioAsset: 'assets/audio/phrases/hello_wave.mp3',
+      );
+
+      final updated = phrase.copyWith(
+        step: 2,
+        audioAsset: 'audio/phrases/hello_wave.mp3',
+      );
+
+      expect(updated.spaceId, phrase.spaceId);
+      expect(updated.step, 2);
+      expect(updated.audioPlayerAsset, 'audio/phrases/hello_wave.mp3');
+      expect(phrase.step, 1);
+      expect(phrase.audioPlayerAsset, 'audio/phrases/hello_wave.mp3');
     });
 
     test('Freezed output under lib/generated keeps copyWith behavior', () {

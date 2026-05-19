@@ -1,6 +1,6 @@
 import 'package:freezed_annotation/freezed_annotation.dart';
 
-part 'practice_phrase.freezed.dart';
+part '../../../../generated/features/practice/domain/models/practice_phrase.freezed.dart';
 
 @freezed
 class PracticePhrase with _$PracticePhrase {
