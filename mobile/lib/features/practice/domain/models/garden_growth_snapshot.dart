@@ -1,7 +1,7 @@
 import 'package:freezed_annotation/freezed_annotation.dart';
 import 'package:mobile/features/practice/domain/models/interaction_event_payload.dart';
 
-part 'garden_growth_snapshot.freezed.dart';
+part '../../../../generated/features/practice/domain/models/garden_growth_snapshot.freezed.dart';
 
 enum GardenPatchStage { quiet, tended, rooted, glowing }
 

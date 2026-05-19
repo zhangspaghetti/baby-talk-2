@@ -6,6 +6,7 @@ import 'package:mobile/features/mentor/data/local/mentor_fact_event_entity.dart'
 import 'package:mobile/features/mentor/domain/models/local_mentor_suggestion.dart';
 import 'package:mobile/features/mentor/domain/models/mentor_fact_event.dart';
 import 'package:mobile/features/practice/data/local/interaction_event_entity.dart';
+import 'package:mobile/features/practice/domain/models/garden_growth_snapshot.dart';
 import 'package:mobile/features/practice/domain/models/interaction_event_payload.dart';
 import 'package:mobile/features/practice/domain/models/practice_activity_catalog.dart';
 import 'package:mobile/features/practice/domain/models/practice_continuity_snapshot.dart';
@@ -179,6 +180,96 @@ void main() {
       expect(updated.fallbackReason, 'catalog gap');
       expect(updated.cadence.isEmpty, isFalse);
       expect(updated.recommendation.reasonLabel, '接上未完成 activity');
+    });
+
+    test('GardenGrowthSnapshot copyWith keeps projection getters stable', () {
+      final flower = GardenFlowerSnapshot(
+        spaceId: 'home',
+        activityId: 'song_time',
+        title: '唱一小段',
+        sceneTag: 'music',
+        summary: '短歌互动',
+        stage: GardenFlowerStage.sprout,
+        totalEvents: 1,
+        completedPhraseCount: 1,
+        totalPhraseCount: 3,
+        completedPhraseIds: const ['hello_wave'],
+        careNote: '继续轻声重复',
+        lastPracticedAt: DateTime.utc(2026, 5, 19, 8),
+      );
+      final patch = GardenPatchSnapshot(
+        spaceId: 'home',
+        title: '居家花圃',
+        description: '日常互动',
+        stage: GardenPatchStage.tended,
+        totalKnownEvents: 1,
+        startedActivityCount: 1,
+        completedActivityCount: 0,
+        totalActivityCount: 1,
+        activities: [flower],
+        careNote: '花圃刚被照料',
+        lastPracticedAt: DateTime.utc(2026, 5, 19, 8),
+      );
+      const milestone = GrowthMilestoneSnapshot(
+        id: 'first_phrase',
+        title: '第一次开口',
+        body: '宝宝跟读了一句。',
+        sortOrder: 1,
+      );
+      final impact = LatestPracticeImpact(
+        eventKey: 'install_canary:practice_evt_1',
+        occurredAt: DateTime.utc(2026, 5, 19, 8),
+        spaceId: 'home',
+        spaceTitle: '居家花圃',
+        activityId: 'song_time',
+        activityTitle: '唱一小段',
+        phraseId: 'hello_wave',
+        phraseTitle: 'Hello',
+        reactionType: BabyReactionType.imitated,
+        previousPatchStage: GardenPatchStage.quiet,
+        currentPatchStage: GardenPatchStage.tended,
+        previousFlowerStage: GardenFlowerStage.seed,
+        currentFlowerStage: GardenFlowerStage.sprout,
+        headline: '花圃醒来了',
+        detail: '第一句已经落下。',
+      );
+      final snapshot = GardenGrowthSnapshot(
+        installationId: 'install_canary',
+        spaces: [patch],
+        diaryEntries: [
+          GrowthDiaryEntry(
+            entryId: 'entry_1',
+            kind: GrowthDiaryEntryKind.practice,
+            occurredAt: DateTime.utc(2026, 5, 19, 8),
+            title: '完成一次互动',
+            body: '唱了一小段。',
+            spaceId: 'home',
+            activityId: 'song_time',
+          ),
+        ],
+        milestones: [milestone],
+        latestImpact: impact,
+        totalStoredEvents: 1,
+        validEvents: 1,
+        knownEvents: 1,
+        skippedMalformedEvents: 0,
+        skippedUnknownContentEvents: 0,
+      );
+
+      final updated = snapshot.copyWith(projectionWarning: 'partial garden');
+      final achieved = milestone.copyWith(
+        achievedAt: DateTime.utc(2026, 5, 19, 8),
+      );
+
+      expect(snapshot.primarySpace, patch);
+      expect(snapshot.primaryActivity, flower);
+      expect(snapshot.isEmpty, isFalse);
+      expect(updated.hasIssues, isTrue);
+      expect(flower.isStarted, isTrue);
+      expect(flower.isCompleted, isFalse);
+      expect(patch.isStarted, isTrue);
+      expect(achieved.isAchieved, isTrue);
+      expect(impact.changedAnyStage, isTrue);
     });
 
     test('Freezed output under lib/generated keeps copyWith behavior', () {
