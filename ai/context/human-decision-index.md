@@ -2,7 +2,7 @@
 
 Project: Baby Talk 2 mobile Flutter rescue  
 Created: 2026-05-16
-Updated: 2026-05-18
+Updated: 2026-05-19
 
 | ID | Level | Topic | Status | Artifact |
 |---|---|---|---|---|
@@ -14,3 +14,4 @@ Updated: 2026-05-18
 | HDR-R1-003 | Red | Mentor consent gate | confirmed | `ai/context/pending-decisions/need-confirmation-r1-mentor-consent-gate.md` |
 | HDR-R1-004 | Red | Local sensitive data policy | confirmed | `ai/context/pending-decisions/need-confirmation-r1-local-sensitive-data.md` |
 | HDR-R1-005 | Red | Generated code policy | confirmed | `ai/context/pending-decisions/need-confirmation-r1-generated-code-policy.md` |
+| HDR-R4-001 | Red | Local sensitive data clearance orchestrator | pending | `ai/context/pending-decisions/need-confirmation-r4-local-sensitive-data-clearance-orchestrator.md` |
