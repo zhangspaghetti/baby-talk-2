@@ -3,7 +3,7 @@
 Version: Flutter AI Software Factory v1.0.0  
 Stage: R2 Planning  
 Created: 2026-05-18  
-Status: approved through REFACTOR-017 execution
+Status: approved through REFACTOR-018 execution
 
 ## Ordering Rules
 
@@ -34,8 +34,8 @@ Status: approved through REFACTOR-017 execution
 | 15 | REFACTOR-015 | 3 | done | Shared component extraction pilot | REFACTOR-014 |
 | 16 | REFACTOR-016 | 3 | done | Accessibility semantics and localization pilot | REFACTOR-014, REFACTOR-015 |
 | 17 | REFACTOR-017 | 4 | done | Verification report suite | Phase 1-3 completed tasks |
-| 18 | REFACTOR-018 | 4 | blocked | Legacy deletion candidate audit | REFACTOR-017 |
+| 18 | REFACTOR-018 | 4 | done | Legacy deletion candidate audit | REFACTOR-017 |
 
 ## First Implementation Candidate
 
-Human approval on 2026-05-18 allowed REFACTOR-001 and REFACTOR-002. Both are complete. Follow-up human approvals selected baseline failure handling, REFACTOR-004, REFACTOR-005, REFACTOR-006, REFACTOR-007, REFACTOR-008, REFACTOR-009, REFACTOR-010, REFACTOR-011, REFACTOR-012, REFACTOR-013, REFACTOR-014, REFACTOR-015, REFACTOR-016, and REFACTOR-017; REFACTOR-002A, REFACTOR-004, REFACTOR-005, REFACTOR-006, REFACTOR-007, REFACTOR-008, REFACTOR-009, REFACTOR-010, REFACTOR-011, REFACTOR-012, REFACTOR-013, REFACTOR-014, REFACTOR-015, REFACTOR-016, and REFACTOR-017 are complete. REFACTOR-018 remains the next blocked Phase 4 task and must remain audit-only until production readiness, legacy deletion scope, and human confirmation are explicit.
+Human approval on 2026-05-18 allowed REFACTOR-001 and REFACTOR-002. Both are complete. Follow-up human approvals selected baseline failure handling, REFACTOR-004, REFACTOR-005, REFACTOR-006, REFACTOR-007, REFACTOR-008, REFACTOR-009, REFACTOR-010, REFACTOR-011, REFACTOR-012, REFACTOR-013, REFACTOR-014, REFACTOR-015, REFACTOR-016, REFACTOR-017, and REFACTOR-018; REFACTOR-002A, REFACTOR-004, REFACTOR-005, REFACTOR-006, REFACTOR-007, REFACTOR-008, REFACTOR-009, REFACTOR-010, REFACTOR-011, REFACTOR-012, REFACTOR-013, REFACTOR-014, REFACTOR-015, REFACTOR-016, REFACTOR-017, and REFACTOR-018 are complete. No immediate legacy deletion is approved. The next task should be explicitly selected by a human: integration blocker investigation, coverage exception/coverage work, R003 generated-code canary, lifecycle deletion primitive, performance benchmark gate, or a narrowly scoped approved follow-up audit.
