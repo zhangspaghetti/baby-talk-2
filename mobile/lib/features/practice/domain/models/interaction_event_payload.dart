@@ -1,6 +1,6 @@
 import 'package:freezed_annotation/freezed_annotation.dart';
 
-part 'interaction_event_payload.freezed.dart';
+part '../../../../generated/features/practice/domain/models/interaction_event_payload.freezed.dart';
 
 enum BabyReactionType { calm, engaged, imitated, needsBreak }
 

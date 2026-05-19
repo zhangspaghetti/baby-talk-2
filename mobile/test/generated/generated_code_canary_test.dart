@@ -164,9 +164,19 @@ void main() {
           lastSyncError: 'timeout',
           lastSyncAt: DateTime.utc(2026, 5, 19, 8, 1),
         );
+        final updated = payload.copyWith(
+          syncState: InteractionSyncState.synced,
+        );
+        final uploadRecord = payload.uploadRecord.copyWith(
+          reactionType: BabyReactionType.calm,
+        );
 
         final entity = InteractionEventEntity.fromPayload(payload);
 
+        expect(updated.eventKey, payload.eventKey);
+        expect(updated.toSyncMetadataMap()['syncState'], 'synced');
+        expect(payload.syncState, InteractionSyncState.failed);
+        expect(uploadRecord.toJsonMap()['reactionType'], 'calm');
         expect(InteractionEventEntitySchema.name, r'InteractionEventEntity');
         expect(entity.eventKey, 'install_canary:practice_evt_1');
         expect(entity.reactionType, 'imitated');
