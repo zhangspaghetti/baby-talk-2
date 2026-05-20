@@ -17,8 +17,11 @@ dev_dependencies:
     path: mobile
   test: any
 
+dependency_overrides:
+  win32: 5.15.0
+
 flutter:
   uses-material-design: true
   assets:
-    - assets/content/seed_content.json
-    - assets/audio/phrases/
+    - mobile/assets/content/seed_content.json
+    - mobile/assets/audio/phrases/
