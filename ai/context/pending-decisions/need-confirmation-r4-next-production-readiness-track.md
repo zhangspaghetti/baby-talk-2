@@ -4,7 +4,7 @@ ID: HDR-R4-002
 Level: Red  
 Stage: R4  
 Created: 2026-05-20  
-Status: pending
+Status: confirmed for coverage-first track
 
 ## Current Task
 
@@ -51,4 +51,4 @@ Choose option 1 first unless there is a business reason to accept a coverage exc
 
 ## Required Confirmation
 
-Confirm which R4 track should be authorized next. No implementation should start until this decision is answered and reflected in the task queue.
+Human selected the coverage-first track on 2026-05-20 by requesting: "continue coverage to 80%, starting from REFACTOR-035 widget regression tests." REFACTOR-035 is complete. A separate confirmation is still required before switching away from coverage-first work to destructive lifecycle wiring, release readiness, or coverage exception approval.

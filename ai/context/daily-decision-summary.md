@@ -3,7 +3,7 @@
 Date: 2026-05-20
 Project: Baby Talk 2 mobile Flutter rescue  
 Stage: R4 production-readiness closure in progress
-Status: 2026-05-20 Strict Mode continuation requested; R0/R1/R2/R3 and approved R4 task queue through REFACTOR-034 are already recorded. Production readiness remains blocked by global coverage below the 80% target or missing approved exception, incomplete real-store lifecycle wiring approval, absent backup/encryption proof, absent performance benchmarks, target-platform/CI replay, and pending final human release confirmation. No runtime Flutter code was modified by this restart confirmation.
+Status: 2026-05-20 Strict Mode continuation requested; R0/R1/R2/R3 and approved R4 task queue through REFACTOR-035 are now recorded. REFACTOR-035 completed the garden/growth combined screen coverage slice and raised global LCOV from 73.91% to 75.32%. Production readiness remains blocked by global coverage below the 80% target or missing approved exception, incomplete real-store lifecycle wiring approval, absent backup/encryption proof, absent performance benchmarks, target-platform/CI replay, and pending final human release confirmation.
 
 ## Pending Decisions
 
@@ -13,7 +13,7 @@ Status: 2026-05-20 Strict Mode continuation requested; R0/R1/R2/R3 and approved 
 | HDR-R0-005 | Yellow | Design token/i18n cleanup | Treat token and i18n cleanup as behavior-preserving only; no product copy rewrites without approval | Confirm copy/design changes require separate approval |
 | HDR-R1-006 | Yellow | Design token scale | Preserve existing visual values first, then decide 16 vs 24 radius and spacing scale | Confirm design-token normalization rules during R2 |
 | HDR-R4-001 | Red | Local sensitive data clearance orchestrator | Confirmed option 1: implement report-producing orchestrator test-first with no destructive flow wiring | Separate confirmation still required before any logout, consent withdrawal, account deletion, onboarding reset, or device-erasure wiring |
-| HDR-R4-002 | Red | Next production-readiness track | Continue coverage toward 80% first unless a formal coverage exception is approved | Confirm which R4 track is authorized next |
+| HDR-R4-002 | Red | Next production-readiness track | Confirmed coverage track; continue coverage toward 80% unless a formal coverage exception is approved | Further track change requires confirmation |
 
 ## Confirmed Decisions
 
@@ -30,6 +30,7 @@ Status: 2026-05-20 Strict Mode continuation requested; R0/R1/R2/R3 and approved 
 | HDR-R1-004 | Local child, household, practice, mentor, and installation data is sensitive | R2/R3 must define encryption/secure storage, backup exclusion, and deletion lifecycle |
 | HDR-R1-005 | Generated code must be strictly migrated to `lib/generated/` | No project exception for co-located Dart `part` outputs is approved |
 | HDR-R4-001 | Local sensitive data clearance orchestrator option 1 approved | Core-only test-first implementation allowed; destructive flow wiring remains unapproved |
+| HDR-R4-002 | Continue R4 production-readiness closure through coverage-first work | User requested "continue coverage to 80%" and REFACTOR-035 was executed as the first widget regression slice |
 
 ## R1 Report Artifacts
 
@@ -46,4 +47,4 @@ Status: 2026-05-20 Strict Mode continuation requested; R0/R1/R2/R3 and approved 
 
 ## Questions To User
 
-HDR-R4-002 is now the active blocking question. The next task must be explicitly selected before implementation continues: continue raising global coverage toward 80%, approve a bounded coverage exception, design/approve one destructive lifecycle wiring path with UX confirmation, create performance benchmark gates, replay integration evidence on target CI/platforms, or plan a narrowly scoped approved follow-up migration. Recommendation: continue coverage first because it is the least behavior-invasive R4 blocker. Draft REFACTOR-035 has been prepared as the recommended coverage slice for `GardenGrowthCombinedScreen`; implementation remains blocked until HDR-R4-002 is confirmed.
+HDR-R4-002 selected the coverage-first track. REFACTOR-035 is complete and global LCOV is now 75.32%, still below the 80% target. Recommended next coverage slice: `account_repository.dart` or `home_screen.dart`; avoid using generated l10n coverage as the primary next slice unless generated localization files are explicitly included in the gate policy.
