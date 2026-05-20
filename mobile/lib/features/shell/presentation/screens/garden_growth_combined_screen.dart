@@ -321,7 +321,7 @@ class _GardenGrowthCombinedScreenState
                   key: const Key('growth-combined-diary-view-all'),
                   onPressed: () {
                     AppHaptics.lightTap();
-                    // TODO: navigate to full diary list
+                    // Navigation is deferred until a dedicated diary route is approved.
                   },
                   child: const Text('查看全部'),
                 ),
@@ -354,7 +354,7 @@ class _GardenGrowthCombinedScreenState
                   key: const Key('growth-combined-milestones-view-all'),
                   onPressed: () {
                     AppHaptics.lightTap();
-                    // TODO: navigate to full milestones list
+                    // Navigation is deferred until a dedicated milestones route is approved.
                   },
                   child: const Text('查看全部'),
                 ),
