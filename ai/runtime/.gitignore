@@ -1,0 +1,8 @@
+# Runtime noise and short-lived execution artifacts.
+logs/
+debug/
+reviews/
+dashboard/
+*.log
+*.tmp
+*.pid

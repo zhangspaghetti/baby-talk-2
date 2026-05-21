@@ -222,6 +222,39 @@ Acceptance focus:
 - Move composition into focused app-level modules.
 - Do not combine this with visual UI changes.
 
+## 6.1 AI Directory Governance Migration Track
+
+Purpose: migrate project governance documents toward ASF 2.7.2 directory boundaries while preserving audit evidence.
+
+Primary files:
+
+- `ai/GOVERNANCE_VERSION`
+- `ai/core/*`
+- `ai/tech-stacks/flutter/*`
+- `ai/integrations/README.md`
+- `ai/operations/README.md`
+- `ai/runtime/.gitignore`
+- `ai/context/ai-directory-migration-plan.md`
+
+Non-destructive Stage 3.0 actions:
+
+- Add the target ASF layout scaffold.
+- Record the current legacy layout audit.
+- Define migration waves and explicit approval questions.
+
+Blocked until human approval:
+
+- Moving `ai/context/completed-decisions/` to `ai/context/resolved-decisions/`.
+- Moving `ai/refactor/**` to `ai/context/refactor/**` or declaring it a permanent legacy namespace.
+- Deleting empty legacy buckets such as `design-system/`, `enforcement/`, `engineering/`, `product/`, `reports/`, `reviews/`, and `tasks/`.
+
+Acceptance criteria:
+
+- The new target scaffold exists and is versioned.
+- No existing governance evidence is deleted or moved without approval.
+- The migration plan lists current layout, target layout, migration waves, approval questions, and verification steps.
+- Documentation migration commits remain separate from Flutter product code commits.
+
 ## 7. Verification Strategy
 
 Every Stage 3.1 slice must run the smallest relevant verification first, then widen if needed.

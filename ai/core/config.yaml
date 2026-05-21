@@ -1,0 +1,63 @@
+version: "2.7.2"
+project_type: fullstack
+strictness: standard
+use_agency_experts: true
+
+integrations:
+  superpowers:
+    enabled: true
+    enforcement_level: standard
+    gates:
+      stage_3_0_design: true
+      stage_3_0_plan: true
+      task_scope: true
+      debugging_4phase: true
+      verification_before_completion: true
+      code_review_flow: true
+    allow_parallel: true
+    verification:
+      default_level: 1
+      cross_verify_count: 2
+    design:
+      max_questions: 15
+      auto_converge_after_skip: 3
+    debugging:
+      max_cycles: 3
+      auto_escalate_at_cycle: 2
+    pre_review:
+      enabled: true
+      block_on_error: true
+
+scenario_rules:
+  new_feature:
+    load: [core-arch, core-code, performance, security, testing]
+  improve_ui:
+    load: [core-code, a11y, performance, design]
+  refactor:
+    load: [core-arch, core-code, security, testing]
+  hotfix:
+    load: [core-code, security, testing]
+
+rule_conflict_resolution:
+  priority_chain: [security, core-arch, custom_rules, core-code]
+  on_conflict: ask_question
+
+rule_modules:
+  react: [core-arch, core-code, performance, a11y, security, testing, deployment]
+  springboot: [core-arch, core-code, security, testing, deployment]
+  flutter: [core-arch, core-code, performance, security, testing, deployment]
+
+branch_rules:
+  dev:
+    inherit_env: dev
+  main:
+    inherit_env: production
+    require_ci: true
+    require_review: true
+  feature/*:
+    inherit_env: dev
+  hotfix/*:
+    inherit_env: staging
+    require_review: true
+
+region: cn
