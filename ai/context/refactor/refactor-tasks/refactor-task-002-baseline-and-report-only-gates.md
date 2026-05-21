@@ -30,11 +30,11 @@ The app currently boots, routes, stores local state, renders localized UI, and r
 
 ## Target Location
 
-`ai/refactor/audit-reports/` and future enforcement docs under `ai/enforcement/`
+`ai/context/refactor/audit-reports/` and future enforcement docs under `ai/enforcement/`
 
 ## Allowed Changes
 
-- New report artifacts under `ai/refactor/audit-reports/`
+- New report artifacts under `ai/context/refactor/audit-reports/`
 - New report-only scan documentation under `ai/enforcement/`
 
 ## Forbidden Changes
@@ -57,7 +57,7 @@ The app currently boots, routes, stores local state, renders localized UI, and r
 
 ## Completion Evidence
 
-- Baseline report: `ai/refactor/audit-reports/phase-1-baseline-and-report-only-gates.md`
+- Baseline report: `ai/context/refactor/audit-reports/phase-1-baseline-and-report-only-gates.md`
 - `flutter analyze`: exit 0.
 - `flutter test`: exit 1, one existing tool test failure recorded.
 - `flutter test --coverage`: exit 1, same existing tool test failure recorded.

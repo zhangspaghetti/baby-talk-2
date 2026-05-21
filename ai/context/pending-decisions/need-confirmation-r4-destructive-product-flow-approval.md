@@ -22,10 +22,10 @@ Red: this controls destructive handling of child profile data, household context
 ## Existing Evidence
 
 - `ai/architecture/local-sensitive-data-lifecycle.md` defines trigger-specific expectations and says hard enforcement needs account delete and consent withdrawal proof.
-- `ai/refactor/audit-reports/refactor-020-local-sensitive-data-clearance-orchestrator.md` approved only core-only report-producing orchestration.
-- `ai/refactor/audit-reports/refactor-038-real-store-lifecycle-clearance-registry.md` maps all six targets to real delete/close primitives.
-- `ai/refactor/audit-reports/refactor-039-local-sensitive-data-backup-posture.md` implements backup exclusion locally but leaves iOS target proof open.
-- `ai/refactor/audit-reports/refactor-040-r4-release-gate-policy-and-replay.md` adds a hard gate preventing unapproved feature-level destructive wiring.
+- `ai/context/refactor/audit-reports/refactor-020-local-sensitive-data-clearance-orchestrator.md` approved only core-only report-producing orchestration.
+- `ai/context/refactor/audit-reports/refactor-038-real-store-lifecycle-clearance-registry.md` maps all six targets to real delete/close primitives.
+- `ai/context/refactor/audit-reports/refactor-039-local-sensitive-data-backup-posture.md` implements backup exclusion locally but leaves iOS target proof open.
+- `ai/context/refactor/audit-reports/refactor-040-r4-release-gate-policy-and-replay.md` adds a hard gate preventing unapproved feature-level destructive wiring.
 
 ## Options
 

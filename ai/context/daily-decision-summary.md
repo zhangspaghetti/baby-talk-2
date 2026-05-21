@@ -39,14 +39,14 @@ Status: 2026-05-20 Strict Mode continuation requested; R0/R1/R2/R3 and approved 
 
 | Report | Path |
 |---|---|
-| Full code audit | `ai/refactor/audit-reports/full-code-audit-report.md` |
-| Architecture issues | `ai/refactor/audit-reports/architecture-issues.md` |
-| Design-system issues | `ai/refactor/audit-reports/design-system-issues.md` |
-| Security issues | `ai/refactor/audit-reports/security-issues.md` |
-| Performance issues | `ai/refactor/audit-reports/performance-issues.md` |
-| Technical-debt assessment | `ai/refactor/audit-reports/technical-debt-assessment.md` |
-| Risks and mitigations | `ai/refactor/audit-reports/risks-and-mitigations.md` |
-| Test/regression baseline | `ai/refactor/audit-reports/test-regression-baseline.md` |
+| Full code audit | `ai/context/refactor/audit-reports/full-code-audit-report.md` |
+| Architecture issues | `ai/context/refactor/audit-reports/architecture-issues.md` |
+| Design-system issues | `ai/context/refactor/audit-reports/design-system-issues.md` |
+| Security issues | `ai/context/refactor/audit-reports/security-issues.md` |
+| Performance issues | `ai/context/refactor/audit-reports/performance-issues.md` |
+| Technical-debt assessment | `ai/context/refactor/audit-reports/technical-debt-assessment.md` |
+| Risks and mitigations | `ai/context/refactor/audit-reports/risks-and-mitigations.md` |
+| Test/regression baseline | `ai/context/refactor/audit-reports/test-regression-baseline.md` |
 
 ## Questions To User
 

@@ -20,7 +20,7 @@ The production behavior of share payload construction, share sheet launching, ro
 | `mobile/lib/features/share/presentation/share_notifier.dart` | Adds `AsyncValue<ShareExecutionResult?> shareRequest` and derives `isSharing` from loading state |
 | `mobile/test/features/share/share_notifier_test.dart` | Adds R012 focused test for AsyncValue loading/data states while retaining legacy getter assertions |
 | `ai/architecture/async-value-pilot.md` | Documents pilot target rule, chosen surface, forbidden changes, and exit signal |
-| `ai/refactor/refactor-tasks/refactor-task-012-asyncvalue-low-risk-pilot.md` | Records R012 task scope, acceptance criteria, and completion evidence |
+| `ai/context/refactor/refactor-tasks/refactor-task-012-asyncvalue-low-risk-pilot.md` | Records R012 task scope, acceptance criteria, and completion evidence |
 
 ## Behavior Preservation
 

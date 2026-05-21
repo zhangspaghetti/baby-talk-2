@@ -13,7 +13,7 @@ Read-only audit of:
 - `mobile/lib`
 - `mobile/test`
 - `mobile/integration_test`
-- Existing R0 artifacts under `ai/refactor` and `ai/context`
+- Existing R0 artifacts under `ai/context/refactor` and `ai/context`
 
 No Flutter runtime source code was modified during this audit.
 

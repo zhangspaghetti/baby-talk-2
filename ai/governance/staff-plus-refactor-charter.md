@@ -50,11 +50,11 @@ For R0, existing code is classified as the legacy surface logically. Physical mi
 
 | Stage | Duration | Purpose | Exit Artifact |
 |---|---:|---|---|
-| R0 | 1-2 days | Project onboarding, governance setup, baseline inventory | `ai/refactor/audit-reports/refactor-project-assessment.md` |
-| R1 | 3-5 days | Full architecture, code, design, security, performance, and engineering audit | `ai/refactor/audit-reports/full-code-audit-report.md` |
-| R2 | 2-3 days | Prioritized migration plan and refactor task queue | `ai/refactor/migration-plans/overall-refactor-plan.md` |
+| R0 | 1-2 days | Project onboarding, governance setup, baseline inventory | `ai/context/refactor/audit-reports/refactor-project-assessment.md` |
+| R1 | 3-5 days | Full architecture, code, design, security, performance, and engineering audit | `ai/context/refactor/audit-reports/full-code-audit-report.md` |
+| R2 | 2-3 days | Prioritized migration plan and refactor task queue | `ai/context/refactor/migration-plans/overall-refactor-plan.md` |
 | R3 | 4-6 weeks | Incremental refactor execution, one task/module at a time | Completed refactor task artifacts |
-| R4 | 3-5 days | Full validation and production-readiness verification | `ai/refactor/verification-reports/overall-production-readiness-report.md` |
+| R4 | 3-5 days | Full validation and production-readiness verification | `ai/context/refactor/verification-reports/overall-production-readiness-report.md` |
 | R5 | Ongoing | Continuous governance to prevent debt regression | Weekly/monthly governance reports |
 
 ## Current R0 Acceptance Criteria

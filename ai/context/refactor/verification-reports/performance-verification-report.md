@@ -17,7 +17,7 @@ Performance production readiness is still blocked because the Phase 4 criterion 
 | Evidence | Status |
 |---|---|
 | R1 performance audit | Completed; performance score 4/10 |
-| Required benchmark scenarios | Documented in `ai/refactor/audit-reports/performance-issues.md` |
+| Required benchmark scenarios | Documented in `ai/context/refactor/audit-reports/performance-issues.md` |
 | Analyze/test/coverage execution | Completed, but these are correctness checks, not performance measurements |
 | Integration checks | Pass locally after R017A, but they are correctness checks and cannot replace benchmark proof |
 | Dedicated benchmark harness | Present after REFACTOR-037; full 0/100/1000/10000 event local profile passes after REFACTOR-040 |

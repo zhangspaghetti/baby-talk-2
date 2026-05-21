@@ -242,11 +242,15 @@ Non-destructive Stage 3.0 actions:
 - Record the current legacy layout audit.
 - Define migration waves and explicit approval questions.
 
-Blocked until human approval:
+Approved and executed:
 
 - Moving `ai/context/completed-decisions/` to `ai/context/resolved-decisions/`.
-- Moving `ai/refactor/**` to `ai/context/refactor/**` or declaring it a permanent legacy namespace.
+- Moving `ai/refactor/**` to `ai/context/refactor/**`.
+
+Still blocked until human approval:
+
 - Deleting empty legacy buckets such as `design-system/`, `enforcement/`, `engineering/`, `product/`, `reports/`, `reviews/`, and `tasks/`.
+- Moving architecture documents from `ai/architecture/` to `ai/context/architecture/`.
 
 Acceptance criteria:
 

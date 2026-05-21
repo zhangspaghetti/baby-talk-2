@@ -30,14 +30,14 @@ No app behavior is changed. Existing Flutter app behavior, routes, storage, API 
 
 ## Target Location
 
-`ai/context/` and `ai/refactor/migration-plans/`
+`ai/context/` and `ai/context/refactor/migration-plans/`
 
 ## Allowed Changes
 
 - `ai/context/daily-decision-summary.md`
 - `ai/context/human-decision-index.md`
 - `ai/context/authorization-records.md`
-- `ai/refactor/migration-plans/*.md`
+- `ai/context/refactor/migration-plans/*.md`
 
 ## Forbidden Changes
 

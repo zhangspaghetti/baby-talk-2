@@ -19,7 +19,7 @@ Reduce the R4 performance blocker by adding a repeatable local benchmark harness
 
 - `mobile/integration_test/r4_performance_benchmark_test.dart`
 - `mobile/integration_test/support/full_chain_test_harness.dart`
-- `ai/refactor/verification-reports/performance-verification-report.md`
+- `ai/context/refactor/verification-reports/performance-verification-report.md`
 - R4 task index, timeline, and readiness reports
 
 ## Approach

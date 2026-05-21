@@ -19,10 +19,10 @@ Audit legacy deletion candidates after REFACTOR-017 without deleting, moving, or
 
 ## Allowed Files
 
-- `ai/refactor/refactor-tasks/refactor-task-018-legacy-deletion-candidate-audit.md`
-- `ai/refactor/refactor-tasks/refactor-task-index.md`
+- `ai/context/refactor/refactor-tasks/refactor-task-018-legacy-deletion-candidate-audit.md`
+- `ai/context/refactor/refactor-tasks/refactor-task-index.md`
 - `ai/context/daily-decision-summary.md`
-- `ai/refactor/audit-reports/refactor-018-legacy-deletion-candidate-audit.md`
+- `ai/context/refactor/audit-reports/refactor-018-legacy-deletion-candidate-audit.md`
 
 ## Forbidden Changes
 

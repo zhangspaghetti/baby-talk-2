@@ -13,23 +13,23 @@ Generate the Phase 4 verification report suite required by the refactor plan, us
 
 - Confirm Phase 1-3 completed-task evidence from existing task artifacts.
 - Run current mobile verification gates and report-only scanners.
-- Add the required Phase 4 reports under `ai/refactor/verification-reports`.
+- Add the required Phase 4 reports under `ai/context/refactor/verification-reports`.
 - Record production readiness blockers, exceptions, and next gates without converting report-only checks into hard CI failures.
 - Update governance artifacts to show REFACTOR-017 completion state after validation.
 
 ## Allowed Files
 
-- `ai/refactor/refactor-tasks/refactor-task-017-verification-report-suite.md`
-- `ai/refactor/refactor-tasks/refactor-task-index.md`
+- `ai/context/refactor/refactor-tasks/refactor-task-017-verification-report-suite.md`
+- `ai/context/refactor/refactor-tasks/refactor-task-index.md`
 - `ai/context/daily-decision-summary.md`
-- `ai/refactor/verification-reports/functional-verification-report.md`
-- `ai/refactor/verification-reports/test-verification-report.md`
-- `ai/refactor/verification-reports/security-verification-report.md`
-- `ai/refactor/verification-reports/performance-verification-report.md`
-- `ai/refactor/verification-reports/compatibility-verification-report.md`
-- `ai/refactor/verification-reports/engineering-verification-report.md`
-- `ai/refactor/verification-reports/overall-production-readiness-report.md`
-- `ai/refactor/audit-reports/refactor-017-verification-report-suite.md`
+- `ai/context/refactor/verification-reports/functional-verification-report.md`
+- `ai/context/refactor/verification-reports/test-verification-report.md`
+- `ai/context/refactor/verification-reports/security-verification-report.md`
+- `ai/context/refactor/verification-reports/performance-verification-report.md`
+- `ai/context/refactor/verification-reports/compatibility-verification-report.md`
+- `ai/context/refactor/verification-reports/engineering-verification-report.md`
+- `ai/context/refactor/verification-reports/overall-production-readiness-report.md`
+- `ai/context/refactor/audit-reports/refactor-017-verification-report-suite.md`
 
 ## Forbidden Changes
 

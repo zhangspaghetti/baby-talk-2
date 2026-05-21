@@ -68,8 +68,8 @@ Excluded unless separately approved:
 - `phase-4-plan.md`
 - `risks-and-mitigations.md`
 - `success-metrics.md`
-- `ai/refactor/refactor-tasks/refactor-task-index.md`
-- First detailed task artifacts under `ai/refactor/refactor-tasks/`
+- `ai/context/refactor/refactor-tasks/refactor-task-index.md`
+- First detailed task artifacts under `ai/context/refactor/refactor-tasks/`
 
 ## Approval Gate
 

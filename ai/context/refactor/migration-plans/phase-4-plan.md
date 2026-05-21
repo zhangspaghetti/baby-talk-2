@@ -17,13 +17,13 @@ Estimated 1 week, plus buffer for risk absorption.
 
 | Report | Target Location |
 |---|---|
-| Functional verification | `ai/refactor/verification-reports/functional-verification-report.md` |
-| Test verification | `ai/refactor/verification-reports/test-verification-report.md` |
-| Security verification | `ai/refactor/verification-reports/security-verification-report.md` |
-| Performance verification | `ai/refactor/verification-reports/performance-verification-report.md` |
-| Compatibility verification | `ai/refactor/verification-reports/compatibility-verification-report.md` |
-| Engineering verification | `ai/refactor/verification-reports/engineering-verification-report.md` |
-| Production readiness | `ai/refactor/verification-reports/overall-production-readiness-report.md` |
+| Functional verification | `ai/context/refactor/verification-reports/functional-verification-report.md` |
+| Test verification | `ai/context/refactor/verification-reports/test-verification-report.md` |
+| Security verification | `ai/context/refactor/verification-reports/security-verification-report.md` |
+| Performance verification | `ai/context/refactor/verification-reports/performance-verification-report.md` |
+| Compatibility verification | `ai/context/refactor/verification-reports/compatibility-verification-report.md` |
+| Engineering verification | `ai/context/refactor/verification-reports/engineering-verification-report.md` |
+| Production readiness | `ai/context/refactor/verification-reports/overall-production-readiness-report.md` |
 
 ## Exit Criteria
 

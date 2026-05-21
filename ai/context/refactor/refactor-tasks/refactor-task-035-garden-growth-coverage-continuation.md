@@ -42,7 +42,7 @@ This task is test-first and report-oriented. It should not refactor production c
 ## Target Location
 
 - `mobile/test/features/shell/garden_growth_combined_screen_test.dart` or an existing shell/widget coverage test file, following current test conventions.
-- `ai/refactor/audit-reports/refactor-035-garden-growth-coverage-continuation.md` for the completion report if approved and executed.
+- `ai/context/refactor/audit-reports/refactor-035-garden-growth-coverage-continuation.md` for the completion report if approved and executed.
 
 ## Allowed Changes
 
@@ -68,7 +68,7 @@ This task is test-first and report-oriented. It should not refactor production c
 - [x] `flutter test --coverage --concurrency=1` passes.
 - [x] Global LCOV is recalculated and compared against the 80% target.
 - [x] Existing behavior is unchanged; production changes are limited to diagnostic comment wording and root asset-path configuration.
-- [x] Completion report is written under `ai/refactor/audit-reports/`.
+- [x] Completion report is written under `ai/context/refactor/audit-reports/`.
 - [x] A conventional commit records the task result if implementation is approved.
 
 ## Regression Test Requirements

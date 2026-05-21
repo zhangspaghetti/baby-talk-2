@@ -68,7 +68,7 @@ No blocking R0 decisions remain. R1 red decisions are tracked in `ai/context/dai
 
 ## R1 Completion Summary
 
-Stage R1 read-only audit was completed on 2026-05-18. Reports were generated under `ai/refactor/audit-reports/`:
+Stage R1 read-only audit was completed on 2026-05-18. Reports were generated under `ai/context/refactor/audit-reports/`:
 
 - `full-code-audit-report.md`
 - `architecture-issues.md`
