@@ -215,8 +215,172 @@ void main() {
       await notifier.initialize();
       expect(notifier.activitySnapshot, isNull);
       expect(notifier.homeErrorMessage, contains('missing_activity'));
+      await notifier.retryHomeLoad();
+      expect(notifier.homeErrorMessage, contains('missing_activity'));
       expect(await notifier.ensureSessionReady(), isFalse);
       expect(notifier.sessionErrorMessage, contains('missing_activity'));
+    });
+
+    test('recordReaction 保存失败时保留当前短语并暴露错误状态', () async {
+      final harness = await _createHarness();
+      addTearDown(harness.dispose);
+      final repository = _FailingRecordRepository(
+        assetPhraseService: harness.assetPhraseService,
+        localDataSource: harness.localDataSource,
+        installationIdService: harness.installationIdService,
+      );
+      final notifier = PracticeSessionNotifier(
+        repository: repository,
+        spaceId: 'daily_care',
+        activityId: 'bath_time',
+        audioController: _SilentPracticeAudioController(),
+      );
+      addTearDown(notifier.dispose);
+
+      await notifier.initialize();
+      expect(await notifier.ensureSessionReady(), isTrue);
+      expect(notifier.currentPhrase?.phraseId, 'bath_time_warm_water');
+
+      final outcome = await notifier.recordReaction(BabyReactionType.calm);
+
+      expect(outcome, PracticeRecordOutcome.failed);
+      expect(notifier.currentPhrase?.phraseId, 'bath_time_warm_water');
+      expect(notifier.saveStatus, PracticeSaveStatus.error);
+      expect(notifier.saveStatusLabel, 'error');
+      expect(notifier.saveMessage, contains('保存失败'));
+      expect(notifier.sessionCompleted, isFalse);
+    });
+
+    test('playCurrentPhrase 会进入 playing、完成后可记录并推进短语', () async {
+      final harness = await _createHarness();
+      addTearDown(harness.dispose);
+      final audioController = _ControllablePracticeAudioController();
+      final notifier = PracticeSessionNotifier(
+        repository: harness.repository,
+        spaceId: 'daily_care',
+        activityId: 'bath_time',
+        audioController: audioController,
+      );
+      addTearDown(notifier.dispose);
+
+      await notifier.initialize();
+      expect(await notifier.ensureSessionReady(), isTrue);
+      expect(notifier.playbackStatusLabel, 'idle');
+      expect(notifier.saveStatusLabel, 'idle');
+      expect(notifier.canPlayCurrentPhrase, isTrue);
+      expect(notifier.canSubmitReaction, isTrue);
+
+      await notifier.playCurrentPhrase();
+      expect(notifier.playbackStatus, PracticePlaybackStatus.playing);
+      expect(audioController.playedAssets.single, endsWith('warm_water.mp3'));
+
+      audioController.completePlayback();
+      await Future<void>.delayed(Duration.zero);
+      expect(notifier.playbackStatus, PracticePlaybackStatus.completed);
+      expect(notifier.playbackMessage, contains('播放完成'));
+
+      final outcome = await notifier.recordReaction(BabyReactionType.calm);
+
+      expect(outcome, PracticeRecordOutcome.advanced);
+      expect(notifier.currentPhrase?.phraseId, 'bath_time_splash_splash');
+      expect(notifier.playbackStatus, PracticePlaybackStatus.idle);
+      expect(notifier.saveStatus, PracticeSaveStatus.saved);
+      expect(notifier.saveStatusLabel, 'saved');
+      expect(notifier.isPhraseCompleted('bath_time_warm_water'), isTrue);
+      expect(notifier.labelForReaction(BabyReactionType.calm), '宝宝放松');
+      expect(notifier.labelForReaction(BabyReactionType.engaged), '宝宝在看');
+      expect(notifier.labelForReaction(BabyReactionType.imitated), '宝宝模仿');
+      expect(notifier.labelForReaction(BabyReactionType.needsBreak), '先休息');
+    });
+
+    test('播放失败与播放超时都会留下可重试状态', () async {
+      final failingHarness = await _createHarness();
+      addTearDown(failingHarness.dispose);
+      final failingAudio = _ControllablePracticeAudioController(
+        failOnPlay: true,
+      );
+      final failingNotifier = PracticeSessionNotifier(
+        repository: failingHarness.repository,
+        spaceId: 'daily_care',
+        activityId: 'bath_time',
+        audioController: failingAudio,
+      );
+      addTearDown(failingNotifier.dispose);
+
+      await failingNotifier.initialize();
+      expect(await failingNotifier.ensureSessionReady(), isTrue);
+      await failingNotifier.playCurrentPhrase();
+
+      expect(failingNotifier.playbackStatus, PracticePlaybackStatus.error);
+      expect(failingNotifier.playbackStatusLabel, 'error');
+      expect(failingNotifier.playbackMessage, contains('播放失败'));
+
+      final timeoutHarness = await _createHarness();
+      addTearDown(timeoutHarness.dispose);
+      final timeoutAudio = _ControllablePracticeAudioController();
+      final timeoutNotifier = PracticeSessionNotifier(
+        repository: timeoutHarness.repository,
+        spaceId: 'daily_care',
+        activityId: 'bath_time',
+        audioController: timeoutAudio,
+        playbackTimeout: const Duration(milliseconds: 1),
+      );
+      addTearDown(timeoutNotifier.dispose);
+
+      await timeoutNotifier.initialize();
+      expect(await timeoutNotifier.ensureSessionReady(), isTrue);
+      await timeoutNotifier.playCurrentPhrase();
+      expect(timeoutNotifier.playbackStatus, PracticePlaybackStatus.playing);
+
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+
+      expect(timeoutNotifier.playbackStatus, PracticePlaybackStatus.idle);
+      expect(timeoutNotifier.playbackMessage, contains('播放超时'));
+      expect(timeoutAudio.stopCount, greaterThanOrEqualTo(2));
+    });
+
+    test('动态模式使用生成内容且记录反应不写入本地事件', () async {
+      final harness = await _createHarness();
+      addTearDown(harness.dispose);
+      final repository = _DynamicPracticeRepository(
+        assetPhraseService: harness.assetPhraseService,
+        localDataSource: harness.localDataSource,
+        installationIdService: harness.installationIdService,
+      );
+      final audioController = _ControllablePracticeAudioController();
+      final notifier = PracticeSessionNotifier(
+        repository: repository,
+        spaceId: 'daily_care',
+        activityId: 'bath_time',
+        isDynamic: true,
+        babyAgeMonths: 18,
+        sceneTag: 'bedtime',
+        accessTokenLoader: () => 'access_dynamic',
+        audioController: audioController,
+      );
+      addTearDown(notifier.dispose);
+
+      await notifier.initialize();
+
+      expect(repository.dynamicCallCount, 1);
+      expect(repository.lastAccessToken, 'access_dynamic');
+      expect(repository.lastBabyAgeMonths, 18);
+      expect(repository.lastSceneTag, 'bedtime');
+      expect(notifier.homeSummary?.activityId, 'dynamic_activity');
+      expect(notifier.restoreStatusMessage, contains('动态练习已就绪'));
+      expect(await notifier.ensureSessionReady(), isTrue);
+      expect(notifier.currentPhrase?.phraseId, 'dynamic_phrase_1');
+
+      await notifier.playCurrentPhrase();
+      expect(notifier.playbackStatus, PracticePlaybackStatus.error);
+      expect(notifier.playbackMessage, contains('音频资源缺失'));
+
+      final outcome = await notifier.recordReaction(BabyReactionType.imitated);
+
+      expect(outcome, PracticeRecordOutcome.advanced);
+      expect(notifier.currentPhrase?.phraseId, 'dynamic_phrase_2');
+      expect(notifier.homeSummary?.totalEvents, 0);
+      expect((await repository.getSyncSummary()).pendingCount, 0);
     });
   });
 }
@@ -327,6 +491,85 @@ class _MultiActivityRepository extends PracticeRepository {
   }
 }
 
+class _FailingRecordRepository extends PracticeRepository {
+  _FailingRecordRepository({
+    required super.assetPhraseService,
+    required super.localDataSource,
+    required super.installationIdService,
+  });
+
+  @override
+  Future<InteractionEventPayload> recordReaction({
+    required String spaceId,
+    required String activityId,
+    required String phraseId,
+    required BabyReactionType reactionType,
+    DateTime? clientTimestamp,
+    String? localEventId,
+  }) async {
+    throw StateError('disk full');
+  }
+}
+
+class _DynamicPracticeRepository extends PracticeRepository {
+  _DynamicPracticeRepository({
+    required super.assetPhraseService,
+    required super.localDataSource,
+    required super.installationIdService,
+  });
+
+  int dynamicCallCount = 0;
+  int? lastBabyAgeMonths;
+  String? lastSceneTag;
+  String? lastAccessToken;
+
+  @override
+  Future<PracticeActivitySnapshot> getActivitySnapshotDynamic({
+    required int babyAgeMonths,
+    String? sceneTag,
+    String? fallbackSpaceId,
+    String? fallbackActivityId,
+    String? accessToken,
+  }) async {
+    dynamicCallCount += 1;
+    lastBabyAgeMonths = babyAgeMonths;
+    lastSceneTag = sceneTag;
+    lastAccessToken = accessToken;
+    return const PracticeActivitySnapshot(
+      spaceId: 'dynamic',
+      activityId: 'dynamic_activity',
+      title: '睡前动态练习',
+      summary: '根据宝宝状态生成两句练习。',
+      sceneTag: 'bedtime',
+      coachTip: '用轻一点的声音，给宝宝留出回应时间。',
+      phrases: [
+        PracticePhrase(
+          spaceId: 'dynamic',
+          activityId: 'dynamic_activity',
+          phraseId: 'dynamic_phrase_1',
+          step: 1,
+          english: 'Soft light.',
+          chinese: '灯光柔一点。',
+          pronunciation: 'sɔːft laɪt',
+          difficulty: 'starter',
+          audioAsset: '',
+        ),
+        PracticePhrase(
+          spaceId: 'dynamic',
+          activityId: 'dynamic_activity',
+          phraseId: 'dynamic_phrase_2',
+          step: 2,
+          english: 'Sleepy time.',
+          chinese: '准备睡觉啦。',
+          pronunciation: 'ˈsliːpi taɪm',
+          difficulty: 'starter',
+          audioAsset: '',
+        ),
+      ],
+    );
+  }
+}
+
 class _SilentPracticeAudioController implements PracticeAudioController {
   final StreamController<void> _controller = StreamController<void>.broadcast();
 
@@ -338,6 +581,40 @@ class _SilentPracticeAudioController implements PracticeAudioController {
 
   @override
   Future<void> stop() async {}
+
+  @override
+  Future<void> dispose() async {
+    await _controller.close();
+  }
+}
+
+class _ControllablePracticeAudioController implements PracticeAudioController {
+  _ControllablePracticeAudioController({this.failOnPlay = false});
+
+  final bool failOnPlay;
+  final StreamController<void> _controller = StreamController<void>.broadcast();
+  final List<String> playedAssets = [];
+  int stopCount = 0;
+
+  @override
+  Stream<void> get completionStream => _controller.stream;
+
+  @override
+  Future<void> playAsset(String assetPath) async {
+    if (failOnPlay) {
+      throw StateError('speaker unavailable');
+    }
+    playedAssets.add(assetPath);
+  }
+
+  @override
+  Future<void> stop() async {
+    stopCount += 1;
+  }
+
+  void completePlayback() {
+    _controller.add(null);
+  }
 
   @override
   Future<void> dispose() async {

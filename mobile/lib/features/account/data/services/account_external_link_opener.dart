@@ -7,10 +7,16 @@ enum AccountExternalLinkFailureKind {
   missingUrl,
   malformedUrl,
   unsafeScheme,
+  unapprovedHost,
   timeout,
   unavailable,
   launchFailed,
 }
+
+const _allowedUpgradeHostsFromEnvironment = String.fromEnvironment(
+  'BABY_TALK_ALLOWED_UPGRADE_HOSTS',
+  defaultValue: 'example.com,babytalk.example.com,download.example.com',
+);
 
 class AccountUpgradeUrlValidation {
   const AccountUpgradeUrlValidation._({this.uri, this.failureKind});
@@ -33,7 +39,10 @@ class AccountUpgradeUrlValidation {
   }
 }
 
-AccountUpgradeUrlValidation validateAccountUpgradeUrl(String? rawUrl) {
+AccountUpgradeUrlValidation validateAccountUpgradeUrl(
+  String? rawUrl, {
+  Set<String>? allowedHosts,
+}) {
   final normalized = rawUrl?.trim();
   if (normalized == null || normalized.isEmpty) {
     return AccountUpgradeUrlValidation.invalid(
@@ -49,13 +58,44 @@ AccountUpgradeUrlValidation validateAccountUpgradeUrl(String? rawUrl) {
   }
 
   final scheme = uri.scheme.toLowerCase();
-  if (scheme != 'https' && scheme != 'http') {
+  if (scheme != 'https') {
     return AccountUpgradeUrlValidation.invalid(
       AccountExternalLinkFailureKind.unsafeScheme,
     );
   }
 
+  final effectiveAllowedHosts =
+      allowedHosts ?? defaultAccountUpgradeAllowedHosts();
+  if (!_hostMatchesAllowedHost(uri.host, effectiveAllowedHosts)) {
+    return AccountUpgradeUrlValidation.invalid(
+      AccountExternalLinkFailureKind.unapprovedHost,
+    );
+  }
+
   return AccountUpgradeUrlValidation.valid(uri);
+}
+
+Set<String> defaultAccountUpgradeAllowedHosts() {
+  return _allowedUpgradeHostsFromEnvironment
+      .split(',')
+      .map((host) => host.trim().toLowerCase())
+      .where((host) => host.isNotEmpty)
+      .toSet();
+}
+
+bool _hostMatchesAllowedHost(String host, Set<String> allowedHosts) {
+  final normalizedHost = host.trim().toLowerCase();
+  for (final allowedHost in allowedHosts) {
+    final normalizedAllowedHost = allowedHost.trim().toLowerCase();
+    if (normalizedAllowedHost.isEmpty) {
+      continue;
+    }
+    if (normalizedHost == normalizedAllowedHost ||
+        normalizedHost.endsWith('.$normalizedAllowedHost')) {
+      return true;
+    }
+  }
+  return false;
 }
 
 String messageForAccountUpgradeUrlFailure(
@@ -66,6 +106,7 @@ String messageForAccountUpgradeUrlFailure(
       return '升级入口暂未配置，请稍后重试或联系支持。';
     case AccountExternalLinkFailureKind.malformedUrl:
     case AccountExternalLinkFailureKind.unsafeScheme:
+    case AccountExternalLinkFailureKind.unapprovedHost:
       return '升级链接配置错误，请稍后重试或联系支持。';
     case AccountExternalLinkFailureKind.timeout:
       return '打开升级页面超时，请稍后重试。';

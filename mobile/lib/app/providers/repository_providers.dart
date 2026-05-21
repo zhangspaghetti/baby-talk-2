@@ -5,7 +5,10 @@ import 'package:flutter/services.dart' show MissingPluginException;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
 
+import 'package:mobile/app/local_sensitive_data_clearance_registry.dart';
 import 'package:mobile/core/device/installation_id_service.dart';
+import 'package:mobile/core/local_data_lifecycle/local_sensitive_data_clearance.dart';
+import 'package:mobile/core/local_data_lifecycle/local_sensitive_data_backup_protection.dart';
 import 'package:mobile/features/account/data/local/account_local_store.dart';
 import 'package:mobile/features/account/data/repositories/account_repository.dart';
 import 'package:mobile/features/account/data/services/account_api_service.dart';
@@ -41,7 +44,9 @@ import 'package:mobile/features/share/presentation/share_notifier.dart';
 /// Resolves the application support directory.
 final appDirectoryProvider = FutureProvider<Directory>((ref) async {
   try {
-    return await getApplicationSupportDirectory();
+    final directory = await getApplicationSupportDirectory();
+    return const LocalSensitiveDataBackupProtection()
+        .ensureDirectoryExcludedFromBackupIfRequired(directory);
   } on MissingPluginException {
     final directory = Directory(
       '${Directory.systemTemp.path}${Platform.pathSeparator}baby_talk_2_support',
@@ -179,7 +184,29 @@ final accountRepositoryProvider = FutureProvider<AccountRepository>((
 /// resume) depends on it remaining alive.
 final accountNotifierProvider = ChangeNotifierProvider<AccountNotifier>((ref) {
   final repository = ref.watch(accountRepositoryProvider).requireValue;
-  return AccountNotifier(repository: repository)..initialize();
+  return AccountNotifier(
+    repository: repository,
+    localDataClearanceRunner:
+        ({
+          required trigger,
+          required correlationId,
+          required requestedAt,
+        }) async {
+          final orchestrator = await ref.read(
+            localSensitiveDataClearanceOrchestratorProvider.future,
+          );
+          return orchestrator.clear(
+            LocalSensitiveDataClearanceRequest(
+              trigger: trigger,
+              authorization: ref.read(
+                accountDestructiveClearanceAuthorizationProvider,
+              ),
+              correlationId: correlationId,
+              requestedAt: requestedAt,
+            ),
+          );
+        },
+  )..initialize();
 });
 
 // ---------------------------------------------------------------------------
@@ -264,6 +291,46 @@ final mentorRepositoryProvider = FutureProvider<MentorRepository>((ref) async {
     householdSnapshotLoader: householdRepository.loadSnapshot,
   );
 });
+
+// ---------------------------------------------------------------------------
+// Local sensitive data lifecycle clearance
+// ---------------------------------------------------------------------------
+
+final accountDestructiveClearanceAuthorizationProvider =
+    Provider<StaffPlusDestructiveAuthorization>((ref) {
+      return StaffPlusDestructiveAuthorization(
+        decisionId: 'HDR-R4-003',
+        approvedBy: 'human-red-decision',
+        approvedAt: DateTime.utc(2026, 5, 20),
+        confirmationText:
+            'Approved account deletion/device erasure local sensitive data clearance.',
+      );
+    });
+
+final localSensitiveDataClearanceOrchestratorProvider =
+    FutureProvider<LocalSensitiveDataClearanceOrchestrator>((ref) async {
+      final accountRepository = await ref.watch(
+        accountRepositoryProvider.future,
+      );
+      final onboardingRepository = await ref.watch(
+        onboardingRepositoryProvider.future,
+      );
+      final householdRepository = await ref.watch(
+        householdRepositoryProvider.future,
+      );
+      final practiceRepository = await ref.watch(
+        practiceRepositoryProvider.future,
+      );
+      final mentorRepository = await ref.watch(mentorRepositoryProvider.future);
+
+      return createLocalSensitiveDataClearanceOrchestrator(
+        accountRepository: accountRepository,
+        onboardingRepository: onboardingRepository,
+        householdRepository: householdRepository,
+        practiceRepository: practiceRepository,
+        mentorRepository: mentorRepository,
+      );
+    });
 
 // ---------------------------------------------------------------------------
 // Mentor notifier

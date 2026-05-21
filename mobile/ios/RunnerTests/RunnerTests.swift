@@ -1,12 +1,27 @@
 import Flutter
 import UIKit
 import XCTest
+@testable import Runner
 
 class RunnerTests: XCTestCase {
 
-  func testExample() {
-    // If you add code to the Runner application, consider adding tests here.
-    // See https://developer.apple.com/documentation/xctest for more information about using XCTest.
+  func testLocalSensitiveDataBackupExcluderMarksDirectoryAsExcluded() throws {
+    let directoryUrl = FileManager.default.temporaryDirectory
+      .appendingPathComponent(UUID().uuidString, isDirectory: true)
+    try FileManager.default.createDirectory(
+      at: directoryUrl,
+      withIntermediateDirectories: true
+    )
+    defer {
+      try? FileManager.default.removeItem(at: directoryUrl)
+    }
+
+    let excluded = try LocalSensitiveDataBackupExcluder()
+      .excludeDirectory(atPath: directoryUrl.path)
+    let values = try directoryUrl.resourceValues(forKeys: [.isExcludedFromBackupKey])
+
+    XCTAssertTrue(excluded)
+    XCTAssertEqual(values.isExcludedFromBackup, true)
   }
 
 }

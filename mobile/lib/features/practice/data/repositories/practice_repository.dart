@@ -807,6 +807,10 @@ class PracticeRepository {
     await _localDataSource.close(deleteFromDisk: deleteFromDisk);
   }
 
+  Future<void> deleteInstallationIdForLifecycle() {
+    return _installationIdService.deleteIfExists();
+  }
+
   Future<String?> _safeEnsureInstallationId() async {
     try {
       return await _installationIdService.getOrCreate();

@@ -333,6 +333,10 @@ class AccountRepository implements AccountRepositoryContract {
     _apiService?.close();
   }
 
+  Future<void> deleteLocalSnapshotForLifecycle() {
+    return _localStore.deleteIfExists();
+  }
+
   Future<AccountSession> persistRefreshedSession(
     AccountSession refreshedSession,
   ) => _persistRefreshedSession(refreshedSession);

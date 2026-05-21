@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:mobile/app/providers/repository_providers.dart';
+import 'package:mobile/core/local_data_lifecycle/local_sensitive_data_clearance.dart';
 import 'package:mobile/features/account/data/local/account_local_store.dart';
 import 'package:mobile/features/account/data/repositories/account_repository.dart';
 import 'package:mobile/features/account/data/services/account_external_link_opener.dart';
@@ -222,18 +223,77 @@ void main() {
     expect(find.byKey(const Key('account-status-signed-out')), findsOneWidget);
     expect(find.text('账号入口已可见，但你还没有登录'), findsOneWidget);
   });
+
+  testWidgets('删除账号需要二次确认，并在确认后触发本机敏感数据清理', (WidgetTester tester) async {
+    final repository = FakeAccountRepository(
+      currentSnapshot: _signedInSnapshot(),
+    );
+    final clearanceRequests = <LocalSensitiveDataClearanceTrigger>[];
+
+    await _pumpEntryScreen(
+      tester,
+      repository: repository,
+      localDataClearanceRunner:
+          ({
+            required trigger,
+            required correlationId,
+            required requestedAt,
+          }) async {
+            clearanceRequests.add(trigger);
+            return LocalSensitiveDataClearanceReport(
+              correlationId: correlationId,
+              trigger: trigger,
+              requestedAt: requestedAt,
+              startedAt: requestedAt,
+              finishedAt: requestedAt,
+              overallStatus: LocalSensitiveDataClearanceOverallStatus.completed,
+              authorizationEvidence:
+                  LocalSensitiveDataAuthorizationEvidence.from(
+                    const ReportOnlyAuthorization(reason: 'widget test'),
+                  ),
+              results: const <LocalSensitiveDataTargetResult>[],
+            );
+          },
+    );
+
+    final deleteButton = find.byKey(const Key('account-delete-button'));
+    await tester.dragUntilVisible(
+      deleteButton,
+      find.byType(ListView),
+      const Offset(0, -200),
+    );
+    await tester.tap(deleteButton);
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const Key('account-delete-confirm-dialog')),
+      findsOneWidget,
+    );
+    expect(clearanceRequests, isEmpty);
+
+    await tester.tap(find.byKey(const Key('account-delete-confirm-button')));
+    await tester.pump();
+    await tester.pumpAndSettle();
+
+    expect(clearanceRequests, [
+      LocalSensitiveDataClearanceTrigger.accountDeletionConfirmed,
+    ]);
+    expect(find.text('账号已删除；本机敏感数据已清理。'), findsOneWidget);
+  });
 }
 
 Future<void> _pumpEntryScreen(
   WidgetTester tester, {
   required FakeAccountRepository repository,
   AccountExternalLinkOpener? opener,
+  AccountLocalSensitiveDataClearanceRunner? localDataClearanceRunner,
 }) async {
   await _setTallViewport(tester);
 
   final notifier = AccountNotifier(
     repository: repository,
     linkOpener: opener ?? FakeAccountExternalLinkOpener(),
+    localDataClearanceRunner: localDataClearanceRunner,
   );
 
   await tester.pumpWidget(
@@ -377,6 +437,28 @@ AccountLocalSnapshot _versionBlockedSnapshot({
   );
 }
 
+AccountLocalSnapshot _signedInSnapshot() {
+  return AccountLocalSnapshot(
+    consentState: AccountConsentState.acceptedPendingSync,
+    session: AccountSession(
+      accountId: 'acct-signed-in',
+      sessionId: 'sess-signed-in',
+      maskedPhoneNumber: '138****8000',
+      createdAt: DateTime.utc(2026, 4, 9, 1),
+    ),
+    challenge: AccountChallengePlaceholder(
+      maskedPhoneNumber: '138****8000',
+      codeLength: 6,
+      issuedAt: DateTime.utc(2026, 4, 9, 1),
+    ),
+    pendingSyncCount: 0,
+    syncedCount: 4,
+    failedCount: 0,
+    lastSyncPhase: 'synced',
+    lastSyncAt: DateTime.utc(2026, 4, 9, 1, 5),
+  );
+}
+
 class FakeAccountRepository implements AccountRepository {
   FakeAccountRepository({
     required this.currentSnapshot,
@@ -510,6 +592,9 @@ class FakeAccountRepository implements AccountRepository {
   }
 
   @override
+  Future<void> deleteLocalSnapshotForLifecycle() async {}
+
+  @override
   Future<void> close() async {}
 }
 
@@ -555,6 +640,9 @@ class _FakeHouseholdRepository implements HouseholdRepository {
   Future<HouseholdLocalSnapshot> refreshSharedContext({
     String reason = 'manual_refresh',
   }) async => const HouseholdLocalSnapshot(lastPhase: 'idle');
+
+  @override
+  Future<void> deleteLocalSnapshotForLifecycle() async {}
 
   @override
   Future<void> close() async {}

@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:mobile/core/local_data_lifecycle/local_sensitive_data_backup_protection.dart';
 import 'package:mobile/features/account/data/repositories/account_repository.dart';
 import 'package:mobile/features/household/data/repositories/household_repository.dart';
 import 'package:mobile/features/mentor/data/local/mentor_local_data_source.dart';
@@ -48,6 +49,8 @@ class SessionBootstrap {
     final directory = appDirectoryResolver != null
         ? await appDirectoryResolver()
         : await _defaultDirectory();
+    await const LocalSensitiveDataBackupProtection()
+        .ensureDirectoryExcludedFromBackupIfRequired(directory);
 
     final factory = repositoryFactory ?? _defaultRepositoryFactory;
     final practiceRepository = await factory(assetPhraseService);

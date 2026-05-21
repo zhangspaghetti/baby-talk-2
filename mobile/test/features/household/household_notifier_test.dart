@@ -189,6 +189,9 @@ class _FakeHouseholdRepository implements HouseholdRepository {
   Future<void> close() async {}
 
   @override
+  Future<void> deleteLocalSnapshotForLifecycle() async {}
+
+  @override
   Future<HouseholdLocalSnapshot> loadSnapshot() async {
     return loadSnapshotResult;
   }

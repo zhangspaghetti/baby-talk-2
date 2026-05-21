@@ -6,7 +6,9 @@ import 'package:go_router/go_router.dart';
 import 'package:mobile/app/app_reentry_orchestrator.dart';
 import 'package:mobile/app/auth_state.dart';
 import 'package:mobile/app/feature_gates.dart';
+import 'package:mobile/app/local_sensitive_data_clearance_registry.dart';
 import 'package:mobile/app/session_bootstrap.dart';
+import 'package:mobile/core/local_data_lifecycle/local_sensitive_data_clearance.dart';
 import 'package:mobile/l10n/app_localizations.dart';
 import 'package:mobile/app/invite_reentry_coordinator.dart';
 import 'package:mobile/app/router/app_route_contract.dart';
@@ -304,7 +306,13 @@ class _BabyTalkAppState extends State<BabyTalkApp> {
         final accountRepository = launchState.accountRepository;
         final householdRepository = launchState.householdRepository;
         final mentorRepository = launchState.mentorRepository;
-        final accountNotifier = _resolveAccountNotifier(accountRepository);
+        final accountNotifier = _resolveAccountNotifier(
+          accountRepository: accountRepository,
+          onboardingRepository: onboardingRepository,
+          householdRepository: householdRepository,
+          practiceRepository: practiceRepository,
+          mentorRepository: mentorRepository,
+        );
         return MultiProvider(
           providers: [
             ChangeNotifierProvider<ShareReentryCoordinator>.value(
@@ -524,7 +532,13 @@ class _BabyTalkAppState extends State<BabyTalkApp> {
     super.dispose();
   }
 
-  AccountNotifier _resolveAccountNotifier(AccountRepository accountRepository) {
+  AccountNotifier _resolveAccountNotifier({
+    required AccountRepository accountRepository,
+    required OnboardingRepository onboardingRepository,
+    required HouseholdRepository householdRepository,
+    required PracticeRepository practiceRepository,
+    required MentorRepository mentorRepository,
+  }) {
     final currentNotifier = _accountNotifier;
     if (currentNotifier != null &&
         identical(_accountNotifierRepository, accountRepository)) {
@@ -532,7 +546,33 @@ class _BabyTalkAppState extends State<BabyTalkApp> {
     }
 
     currentNotifier?.dispose();
-    final nextNotifier = AccountNotifier(repository: accountRepository);
+    final orchestrator = createLocalSensitiveDataClearanceOrchestrator(
+      accountRepository: accountRepository,
+      onboardingRepository: onboardingRepository,
+      householdRepository: householdRepository,
+      practiceRepository: practiceRepository,
+      mentorRepository: mentorRepository,
+    );
+    final nextNotifier = AccountNotifier(
+      repository: accountRepository,
+      localDataClearanceRunner:
+          ({required trigger, required correlationId, required requestedAt}) {
+            return orchestrator.clear(
+              LocalSensitiveDataClearanceRequest(
+                trigger: trigger,
+                authorization: StaffPlusDestructiveAuthorization(
+                  decisionId: 'HDR-R4-003',
+                  approvedBy: 'human-red-decision',
+                  approvedAt: DateTime.utc(2026, 5, 20),
+                  confirmationText:
+                      'Approved account deletion/device erasure local sensitive data clearance.',
+                ),
+                correlationId: correlationId,
+                requestedAt: requestedAt,
+              ),
+            );
+          },
+    );
     _accountNotifierRepository = accountRepository;
     _accountNotifier = nextNotifier;
     return nextNotifier;

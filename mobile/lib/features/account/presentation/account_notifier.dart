@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/widgets.dart';
+import 'package:mobile/core/local_data_lifecycle/local_sensitive_data_clearance.dart';
 import 'package:mobile/features/account/data/local/account_local_store.dart';
 import 'package:mobile/features/account/data/repositories/account_repository_contract.dart';
 import 'package:mobile/features/account/data/services/account_external_link_opener.dart';
@@ -9,15 +10,28 @@ import 'package:mobile/features/account/domain/models/account_consent_state.dart
 const _localOnlyPhoneHint = '先离线练习也没关系，登录后会把 append-only 事件补传到后端。';
 const _signedOutPhoneHint = '请输入手机号与验证码，完成登录并同意后再同步。';
 
+typedef AccountLocalSensitiveDataClearanceRunner =
+    Future<LocalSensitiveDataClearanceReport> Function({
+      required LocalSensitiveDataClearanceTrigger trigger,
+      required String correlationId,
+      required DateTime requestedAt,
+    });
+
 class AccountNotifier extends ChangeNotifier with WidgetsBindingObserver {
   AccountNotifier({
     required AccountRepositoryContract repository,
     AccountExternalLinkOpener? linkOpener,
+    AccountLocalSensitiveDataClearanceRunner? localDataClearanceRunner,
+    LocalSensitiveDataClock? clearanceClock,
   }) : _repository = repository,
-       _linkOpener = linkOpener ?? const UrlLauncherAccountExternalLinkOpener();
+       _linkOpener = linkOpener ?? const UrlLauncherAccountExternalLinkOpener(),
+       _localDataClearanceRunner = localDataClearanceRunner,
+       _clearanceClock = clearanceClock ?? DateTime.now;
 
   final AccountRepositoryContract _repository;
   final AccountExternalLinkOpener _linkOpener;
+  final AccountLocalSensitiveDataClearanceRunner? _localDataClearanceRunner;
+  final LocalSensitiveDataClock _clearanceClock;
 
   bool _isLoading = false;
   bool _hasLoaded = false;
@@ -418,8 +432,16 @@ class AccountNotifier extends ChangeNotifier with WidgetsBindingObserver {
 
     try {
       _snapshot = await _repository.deleteAccount();
+      LocalSensitiveDataClearanceReport? clearanceReport;
+      try {
+        clearanceReport = await _clearLocalSensitiveDataForAccountDeletion();
+      } catch (error) {
+        _bumpRuntimeToken();
+        _submissionMessage = '账号已删除，但本机敏感数据清理失败：$error';
+        return;
+      }
       _bumpRuntimeToken();
-      _submissionMessage = '账号已删除；如需恢复同步，请重新注册。';
+      _submissionMessage = _messageForAccountDeletion(clearanceReport);
     } catch (error) {
       _submissionMessage = '删除账号失败：$error';
     } finally {
@@ -448,6 +470,35 @@ class AccountNotifier extends ChangeNotifier with WidgetsBindingObserver {
 
   bool _isValidCode(String value) {
     return RegExp(r'^\d{6}$').hasMatch(value);
+  }
+
+  Future<LocalSensitiveDataClearanceReport?>
+  _clearLocalSensitiveDataForAccountDeletion() {
+    final runner = _localDataClearanceRunner;
+    if (runner == null) {
+      return Future<LocalSensitiveDataClearanceReport?>.value();
+    }
+    final requestedAt = _clearanceClock().toUtc();
+    return runner(
+      trigger: LocalSensitiveDataClearanceTrigger.accountDeletionConfirmed,
+      correlationId: 'account-delete-${requestedAt.microsecondsSinceEpoch}',
+      requestedAt: requestedAt,
+    );
+  }
+
+  String _messageForAccountDeletion(
+    LocalSensitiveDataClearanceReport? clearanceReport,
+  ) {
+    if (clearanceReport == null) {
+      return '账号已删除；如需恢复同步，请重新注册。';
+    }
+    return switch (clearanceReport.overallStatus) {
+      LocalSensitiveDataClearanceOverallStatus.completed => '账号已删除；本机敏感数据已清理。',
+      LocalSensitiveDataClearanceOverallStatus.completedWithFailures =>
+        '账号已删除，但部分本机敏感数据清理失败，请联系支持。',
+      LocalSensitiveDataClearanceOverallStatus.rejectedByGovernance =>
+        '账号已删除，但本机敏感数据清理被治理门拒绝，请联系支持。',
+    };
   }
 
   String _messageForTrigger(AccountRuntimeTrigger trigger) {

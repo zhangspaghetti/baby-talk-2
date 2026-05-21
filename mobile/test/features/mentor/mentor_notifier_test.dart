@@ -892,6 +892,9 @@ class _StaticAccountRepository implements AccountRepository {
   }
 
   @override
+  Future<void> deleteLocalSnapshotForLifecycle() async {}
+
+  @override
   Future<void> close() async {}
 }
 

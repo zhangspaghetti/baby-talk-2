@@ -10,6 +10,7 @@ import 'package:mobile/core/device/installation_id_service.dart';
 import 'package:mobile/features/account/data/local/account_local_store.dart';
 import 'package:mobile/features/account/data/repositories/account_repository.dart';
 import 'package:mobile/features/account/data/services/account_api_service.dart';
+import 'package:mobile/features/account/data/services/authenticated_api_client.dart';
 import 'package:mobile/features/account/domain/models/account_consent_state.dart';
 import 'package:mobile/features/account/domain/models/account_session.dart';
 import 'package:mobile/features/practice/data/local/practice_local_data_source.dart';
@@ -296,6 +297,240 @@ void main() {
         expect(persisted.lastSyncPhase, 'bootstrap_failed_session_expired');
       },
     );
+
+    test('无远端 API 时 signIn 会写入本地 placeholder session', () async {
+      await harness.practiceRepository.recordReaction(
+        spaceId: 'daily_care',
+        activityId: 'bath_time',
+        phraseId: 'bath_time_warm_water',
+        reactionType: BabyReactionType.engaged,
+        clientTimestamp: DateTime.utc(2026, 4, 10, 1),
+        localEventId: 'evt_placeholder_pending',
+      );
+      final repository = harness.buildLocalOnlyRepository();
+
+      final snapshot = await repository.signIn(
+        phoneNumber: '138-0013-8000',
+        verificationCode: '12',
+      );
+
+      expect(snapshot.consentState, AccountConsentState.acceptedPendingSync);
+      expect(snapshot.session?.accountId, startsWith('placeholder-account-'));
+      expect(snapshot.session?.maskedPhoneNumber, '138****8000');
+      expect(snapshot.challenge?.maskedPhoneNumber, '138****8000');
+      expect(snapshot.challenge?.codeLength, 2);
+      expect(snapshot.pendingSyncCount, 1);
+      expect(snapshot.lastSyncPhase, 'pending_local_upload');
+      expect(snapshot.lastVisibleError, isNull);
+
+      final persisted = await harness.accountLocalStore.read();
+      expect(persisted.session?.sessionId, snapshot.session?.sessionId);
+      expect(persisted.pendingSyncCount, 1);
+    });
+
+    test('本地撤回、删除与清理 placeholder 会写入可恢复终态', () async {
+      final repository = harness.buildLocalOnlyRepository();
+
+      final placeholder = await repository.signIn(
+        phoneNumber: '955',
+        verificationCode: '0000',
+      );
+      expect(placeholder.session?.maskedPhoneNumber, '***');
+
+      final revoked = await repository.revokeConsent(reason: 'unit_test');
+      expect(revoked.consentState, AccountConsentState.revoked);
+      expect(revoked.lastSyncPhase, 'consent_revoked_local');
+      expect(revoked.lastVisibleError, contains('同意已撤回'));
+      expect(revoked.session, isNotNull);
+
+      final deleted = await repository.deleteAccount(reason: 'unit_test');
+      expect(deleted.consentState, AccountConsentState.deleted);
+      expect(deleted.session, isNull);
+      expect(deleted.challenge, isNull);
+      expect(deleted.lastSyncPhase, 'account_deleted_local');
+      expect(deleted.lastVisibleError, contains('账号已删除'));
+
+      await repository.signIn(
+        phoneNumber: '13800138000',
+        verificationCode: '246810',
+      );
+      final signedOut = await repository.clearPlaceholderSession();
+      expect(signedOut.consentState, AccountConsentState.signedOut);
+      expect(signedOut.lastSyncPhase, 'signed_out');
+
+      final localOnly = await repository.clearPlaceholderSession(
+        revertToLocalOnly: true,
+      );
+      expect(localOnly.consentState, AccountConsentState.localOnly);
+      expect(localOnly.lastSyncPhase, 'local_only');
+    });
+
+    test('远端撤回与删除成功时会同步本地终态', () async {
+      await harness.seedSignedInSnapshot();
+      final repository = harness.buildRepository();
+
+      final revoked = await repository.revokeConsent(reason: 'privacy_test');
+
+      expect(revoked.consentState, AccountConsentState.revoked);
+      expect(revoked.session?.sessionId, 'sess_seed');
+      expect(revoked.lastSyncPhase, 'consent_revoked');
+      expect(revoked.lastVisibleError, contains('同意已撤回'));
+
+      await harness.seedSignedInSnapshot();
+
+      final deleted = await repository.deleteAccount(reason: 'forget_test');
+
+      expect(deleted.consentState, AccountConsentState.deleted);
+      expect(deleted.session, isNull);
+      expect(deleted.challenge, isNull);
+      expect(deleted.lastSyncPhase, 'account_deleted');
+      expect(deleted.lastVisibleError, contains('账号已删除'));
+
+      final persisted = await harness.accountLocalStore.read();
+      expect(persisted.consentState, AccountConsentState.deleted);
+      expect(persisted.session, isNull);
+    });
+
+    test('401 后刷新 token 成功会持久化新 session 并重试 bootstrap', () async {
+      await harness.seedSignedInSnapshot(accessToken: 'access_old');
+      harness.api.unauthorizedBootstrapTokens.add('access_old');
+      final repository = harness.buildRepository();
+
+      final snapshot = await repository.refreshRuntimeState(
+        trigger: AccountRuntimeTrigger.foregroundResume,
+      );
+
+      expect(snapshot.session?.accessToken, 'access_rotated');
+      expect(snapshot.session?.refreshToken, 'refresh_rotated');
+      expect(snapshot.lastSyncPhase, 'sync_idle_no_pending');
+      expect(harness.api.refreshCallCount, 1);
+      expect(harness.api.bootstrapAccessTokens, [
+        'access_old',
+        'access_rotated',
+      ]);
+
+      final persisted = await harness.accountLocalStore.read();
+      expect(persisted.session?.accessToken, 'access_rotated');
+      expect(persisted.upgradeUrl, isNull);
+    });
+
+    test('persistRefreshedSession 拒绝不匹配的账号或 session', () async {
+      final repository = harness.buildRepository();
+      await harness.seedSignedInSnapshot();
+
+      await expectLater(
+        repository.persistRefreshedSession(
+          AccountSession(
+            accountId: 'acct_other',
+            sessionId: 'sess_seed',
+            maskedPhoneNumber: '138****8000',
+            createdAt: DateTime.utc(2026, 4, 9, 2),
+            accessToken: 'access_other',
+            refreshToken: 'refresh_other',
+          ),
+        ),
+        throwsA(isA<AuthenticatedApiClientException>()),
+      );
+
+      final persisted = await harness.accountLocalStore.read();
+      expect(persisted.session?.accessToken, 'access_seed');
+    });
+
+    test('signIn API 普通失败会落盘脱敏后的可见错误', () async {
+      const tokenKey = 'token';
+      const sessionKey = 'session';
+      final plainPhoneNumber = ['138', '0013', '8000'].join();
+      final sensitiveMessage =
+          '$plainPhoneNumber 246810 '
+          '$tokenKey=access_secret $sessionKey=sess_secret';
+      harness.api.createChallengeException = AccountApiException(
+        kind: AccountApiFailureKind.http,
+        message: sensitiveMessage,
+        statusCode: 400,
+        code: 'bad_request',
+      );
+      final repository = harness.buildRepository();
+
+      final snapshot = await repository.signIn(
+        phoneNumber: plainPhoneNumber,
+        verificationCode: '246810',
+      );
+
+      expect(snapshot.consentState, AccountConsentState.localOnly);
+      expect(snapshot.lastSyncPhase, 'local_only');
+      expect(snapshot.lastVisibleError, contains('***手机号***'));
+      expect(snapshot.lastVisibleError, contains('***验证码***'));
+      expect(snapshot.lastVisibleError, contains('$tokenKey=***'));
+      expect(snapshot.lastVisibleError, contains('$sessionKey=***'));
+      expect(snapshot.lastVisibleError, isNot(contains(plainPhoneNumber)));
+      expect(snapshot.lastVisibleError, isNot(contains('access_secret')));
+    });
+
+    test('revoke/delete 远端业务失败会映射 consent/account 终态', () async {
+      await harness.seedSignedInSnapshot();
+      harness.api.revokeException = const AccountApiException(
+        kind: AccountApiFailureKind.http,
+        message: 'consent missing',
+        statusCode: 403,
+        code: 'consent_required',
+      );
+      final repository = harness.buildRepository();
+
+      final revoked = await repository.revokeConsent();
+
+      expect(revoked.consentState, AccountConsentState.revoked);
+      expect(revoked.lastSyncPhase, 'revoke_failed_consent_revoked');
+      expect(revoked.lastVisibleError, contains('同意已撤回'));
+
+      await harness.seedSignedInSnapshot();
+      harness.api.revokeException = null;
+      harness.api.deleteException = const AccountApiException(
+        kind: AccountApiFailureKind.http,
+        message: 'gone',
+        statusCode: 410,
+        code: 'account_deleted',
+      );
+
+      final deleted = await repository.deleteAccount();
+
+      expect(deleted.consentState, AccountConsentState.deleted);
+      expect(deleted.session, isNull);
+      expect(deleted.lastSyncPhase, 'delete_failed_account_deleted');
+      expect(deleted.lastVisibleError, contains('账号已删除'));
+    });
+
+    test('syncEvents 服务端失败会保留本地失败记录并暴露 server_error phase', () async {
+      await harness.practiceRepository.recordReaction(
+        spaceId: 'daily_care',
+        activityId: 'bath_time',
+        phraseId: 'bath_time_warm_water',
+        reactionType: BabyReactionType.calm,
+        clientTimestamp: DateTime.utc(2026, 4, 10, 2),
+        localEventId: 'evt_sync_server_error',
+      );
+      await harness.seedSignedInSnapshot();
+      harness.api.syncException = const AccountApiException(
+        kind: AccountApiFailureKind.http,
+        message: 'server down',
+        statusCode: 503,
+        code: 'temporary_unavailable',
+      );
+      final repository = harness.buildRepository();
+
+      final snapshot = await repository.refreshRuntimeState(
+        trigger: AccountRuntimeTrigger.manualRetry,
+      );
+
+      expect(snapshot.pendingSyncCount, 1);
+      expect(snapshot.failedCount, 0);
+      expect(snapshot.lastSyncPhase, 'upload_server_error');
+      expect(snapshot.lastVisibleError, contains('服务暂时不可用'));
+      final history = await harness.practiceRepository.listEventHistory(
+        activityId: 'bath_time',
+      );
+      expect(history.single.syncState, InteractionSyncState.pending);
+      expect(history.single.lastSyncPhase, 'upload_server_error');
+    });
   });
 }
 
@@ -363,6 +598,13 @@ class _AccountRepositoryHarness {
     );
   }
 
+  AccountRepository buildLocalOnlyRepository() {
+    return AccountRepository(
+      localStore: accountLocalStore,
+      practiceRepository: practiceRepository,
+    );
+  }
+
   Future<AccountLocalSnapshot> seedSignedInSnapshot({
     String accessToken = 'access_seed',
     String refreshToken = 'refresh_seed',
@@ -420,6 +662,10 @@ class _FakeAccountApiService extends AccountApiService {
   final Set<String> unauthorizedBootstrapTokens = <String>{};
   final List<String> acceptedConsentAccessTokens = [];
   List<InteractionEventPayload> bootstrapEvents = [];
+  AccountApiException? createChallengeException;
+  AccountApiException? revokeException;
+  AccountApiException? deleteException;
+  AccountApiException? syncException;
   bool throwVersionBlockedOnBootstrap = false;
   String? versionBlockedUpgradeUrl;
   String versionBlockedMinimumSupportedVersion = '9.9.9';
@@ -431,6 +677,9 @@ class _FakeAccountApiService extends AccountApiService {
   Future<AccountChallengeResponse> createChallenge({
     required String phoneNumber,
   }) async {
+    if (createChallengeException != null) {
+      throw createChallengeException!;
+    }
     return AccountChallengeResponse(
       challengeId: 'challenge_1',
       maskedPhoneNumber: '138****8000',
@@ -529,6 +778,9 @@ class _FakeAccountApiService extends AccountApiService {
   }) async {
     expect(accessToken, isNotEmpty);
     expect(installationId, this.installationId);
+    if (syncException != null) {
+      throw syncException!;
+    }
     syncedBatches.add(List<InteractionEventUploadRecord>.unmodifiable(events));
     return SyncEventsResponse(
       receivedCount: events.length,
@@ -545,6 +797,9 @@ class _FakeAccountApiService extends AccountApiService {
     required String accessToken,
     required String reason,
   }) async {
+    if (revokeException != null) {
+      throw revokeException!;
+    }
     return AccountConsentResponse(
       applied: true,
       result: 'applied',
@@ -558,6 +813,9 @@ class _FakeAccountApiService extends AccountApiService {
     required String accessToken,
     required String reason,
   }) async {
+    if (deleteException != null) {
+      throw deleteException!;
+    }
     return AccountDeleteResponse(
       applied: true,
       result: 'applied',

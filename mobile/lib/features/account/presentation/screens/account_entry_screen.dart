@@ -19,6 +19,39 @@ Future<void> openAccountEntryScreen(BuildContext context) {
   return GoRouter.of(context).push('/account');
 }
 
+Future<void> _confirmAccountDeletion(
+  BuildContext context,
+  WidgetRef ref,
+) async {
+  final confirmed = await showDialog<bool>(
+    context: context,
+    builder: (context) {
+      return AlertDialog(
+        key: const Key('account-delete-confirm-dialog'),
+        title: const Text('确认删除账号？'),
+        content: const Text('删除后会清理本机账号、宝宝资料、家庭上下文、练习记录、导师事实和设备标识。此操作不可撤销。'),
+        actions: [
+          TextButton(
+            key: const Key('account-delete-cancel-button'),
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            key: const Key('account-delete-confirm-button'),
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('确认删除'),
+          ),
+        ],
+      );
+    },
+  );
+
+  if (confirmed != true || !context.mounted) {
+    return;
+  }
+  await ref.read(accountNotifierProvider.notifier).deleteAccount();
+}
+
 class AccountStatusCard extends ConsumerWidget {
   const AccountStatusCard({
     super.key,
@@ -550,11 +583,9 @@ class AccountEntryScreen extends HookConsumerWidget {
                             key: const Key('account-delete-button'),
                             onPressed: notifier.isBusy || !notifier.isSignedIn
                                 ? null
-                                : () {
+                                : () async {
                                     AppHaptics.lightTap();
-                                    ref
-                                        .read(accountNotifierProvider.notifier)
-                                        .deleteAccount();
+                                    await _confirmAccountDeletion(context, ref);
                                   },
                             child: Text(l.accountDeleteAccount),
                           ),

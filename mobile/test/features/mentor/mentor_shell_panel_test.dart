@@ -777,6 +777,9 @@ class _StaticAccountRepository implements AccountRepository {
   ) async => refreshedSession;
 
   @override
+  Future<void> deleteLocalSnapshotForLifecycle() async {}
+
+  @override
   Future<void> close() async {}
 }
 
@@ -889,6 +892,9 @@ class _FakeHouseholdRepository implements HouseholdRepository {
 
   @override
   Future<void> close() async {}
+
+  @override
+  Future<void> deleteLocalSnapshotForLifecycle() async {}
 
   @override
   Future<HouseholdLocalSnapshot> loadSnapshot() async => loadSnapshotResult;

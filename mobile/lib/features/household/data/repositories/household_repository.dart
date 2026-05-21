@@ -131,6 +131,10 @@ class HouseholdRepository {
     _apiService.close();
   }
 
+  Future<void> deleteLocalSnapshotForLifecycle() {
+    return _localStore.deleteIfExists();
+  }
+
   Future<HouseholdCreateInviteResult> _createInviteInternal({
     required HouseholdRole role,
     required String source,
