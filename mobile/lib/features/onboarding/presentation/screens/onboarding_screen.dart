@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
@@ -370,28 +372,35 @@ class _AgeStep extends StatelessWidget {
         const SizedBox(height: 6),
         Text(l.onboardingAgeHelp, style: theme.textTheme.bodySmall),
         const SizedBox(height: 16),
-        GridView.builder(
-          key: const Key('onboarding-age-grid'),
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          itemCount: OnboardingAgeBucket.values.length,
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 4,
-            crossAxisSpacing: 10,
-            mainAxisSpacing: 10,
-            childAspectRatio: 0.76,
-          ),
-          itemBuilder: (context, index) {
-            final bucket = OnboardingAgeBucket.values[index];
-            final stageMatch = StageMatchCatalog.forAgeBucket(bucket);
-            return QuickSelectCard(
-              key: Key('onboarding-age-card-${bucket.wireValue}'),
-              label: bucket.label,
-              caption: l.onboardingAgeMonths(stageMatch.approxMonths),
-              isSelected: notifier.selectedAgeBucket == bucket,
-              onTap: () {
-                AppHaptics.lightTap();
-                notifier.selectAgeBucket(bucket);
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final textScale = MediaQuery.textScalerOf(context).scale(1);
+            final useTwoColumns =
+                constraints.maxWidth < 360 || textScale >= 1.2;
+            return GridView.builder(
+              key: const Key('onboarding-age-grid'),
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: OnboardingAgeBucket.values.length,
+              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: useTwoColumns ? 2 : 4,
+                crossAxisSpacing: 10,
+                mainAxisSpacing: 10,
+                childAspectRatio: useTwoColumns ? 1.65 : 0.76,
+              ),
+              itemBuilder: (context, index) {
+                final bucket = OnboardingAgeBucket.values[index];
+                final stageMatch = StageMatchCatalog.forAgeBucket(bucket);
+                return QuickSelectCard(
+                  key: Key('onboarding-age-card-${bucket.wireValue}'),
+                  label: bucket.label,
+                  caption: l.onboardingAgeMonths(stageMatch.approxMonths),
+                  isSelected: notifier.selectedAgeBucket == bucket,
+                  onTap: () {
+                    AppHaptics.lightTap();
+                    notifier.selectAgeBucket(bucket);
+                  },
+                );
               },
             );
           },
@@ -547,6 +556,70 @@ class _PreviewStep extends StatelessWidget {
               ],
             ),
           ),
+          const SizedBox(height: AppLayoutConstants.spacingSm),
+          Text(
+            l.onboardingMiniSceneActionHint,
+            style: theme.textTheme.bodySmall,
+          ),
+          const SizedBox(height: AppLayoutConstants.spacingSm),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final textScale = MediaQuery.textScalerOf(context).scale(1);
+              final stackActions =
+                  constraints.maxWidth < 360 || textScale >= 1.25;
+              final playButton = _buildPlayButton(l, notifier);
+              final saidButton = _buildSaidButton(l, notifier);
+
+              if (stackActions) {
+                return Column(
+                  key: const Key('onboarding-first-phrase-actions-stacked'),
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    playButton,
+                    const SizedBox(height: AppLayoutConstants.spacingSm),
+                    saidButton,
+                  ],
+                );
+              }
+
+              return Row(
+                key: const Key('onboarding-first-phrase-actions-row'),
+                children: [
+                  Expanded(child: playButton),
+                  const SizedBox(width: AppLayoutConstants.spacingSm),
+                  Expanded(child: saidButton),
+                ],
+              );
+            },
+          ),
+          if (notifier.hasRecordedFirstPhraseAction) ...[
+            const SizedBox(height: AppLayoutConstants.spacingSm),
+            AppBanner(
+              key: const Key('onboarding-first-seed-recorded'),
+              message: l.onboardingMiniSceneRecorded,
+              backgroundColor: colors.successSoft,
+              foregroundColor: colors.success,
+              icon: Icons.eco_outlined,
+            ),
+          ],
+          if (notifier.firstPhraseActionErrorMessage != null) ...[
+            const SizedBox(height: AppLayoutConstants.spacingSm),
+            Semantics(
+              container: true,
+              liveRegion: true,
+              label: l.onboardingFirstPhraseActionErrorSemantics(
+                notifier.firstPhraseActionErrorMessage!,
+              ),
+              child: ExcludeSemantics(
+                child: AppBanner(
+                  key: const Key('onboarding-first-phrase-error-banner'),
+                  message: notifier.firstPhraseActionErrorMessage!,
+                  backgroundColor: colors.errorSoft,
+                  foregroundColor: colors.error,
+                ),
+              ),
+            ),
+          ],
         ],
         if (notifier.submitErrorMessage != null) ...[
           const SizedBox(height: AppLayoutConstants.spacingSm),
@@ -591,7 +664,7 @@ class _PreviewStep extends StatelessWidget {
               flex: 2,
               child: ElevatedButton(
                 key: const Key('onboarding-submit-button'),
-                onPressed: notifier.isSaving ? null : notifier.submit,
+                onPressed: notifier.canSubmit ? notifier.submit : null,
                 child: notifier.isSaving
                     ? Row(
                         key: const Key('onboarding-submit-saving'),
@@ -614,12 +687,72 @@ class _PreviewStep extends StatelessWidget {
                           ),
                         ],
                       )
-                    : Text(l.onboardingEnterHome),
+                    : Text(
+                        notifier.hasRecordedFirstPhraseAction
+                            ? l.onboardingEnterHome
+                            : l.onboardingSayFirstBeforeHome,
+                      ),
               ),
             ),
           ],
         ),
       ],
+    );
+  }
+
+  Widget _buildPlayButton(AppLocalizations l, OnboardingNotifier notifier) {
+    return OutlinedButton.icon(
+      key: const Key('onboarding-first-phrase-play'),
+      onPressed:
+          notifier.isRecordingFirstPhraseAction || notifier.isPlayingFirstPhrase
+          ? null
+          : () {
+              AppHaptics.lightTap();
+              unawaited(notifier.playFirstPhrase());
+            },
+      icon: notifier.isPlayingFirstPhrase
+          ? const SizedBox(
+              width: AppLayoutConstants.iconSizeSm,
+              height: AppLayoutConstants.iconSizeSm,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
+          : const Icon(Icons.volume_up_outlined),
+      label: Text(
+        notifier.isPlayingFirstPhrase
+            ? l.onboardingMiniScenePlaying
+            : l.onboardingMiniScenePlay,
+        overflow: TextOverflow.ellipsis,
+      ),
+    );
+  }
+
+  Widget _buildSaidButton(AppLocalizations l, OnboardingNotifier notifier) {
+    return ElevatedButton.icon(
+      key: const Key('onboarding-first-phrase-said'),
+      onPressed:
+          notifier.isRecordingFirstPhraseAction ||
+              notifier.hasRecordedFirstPhraseAction
+          ? null
+          : () {
+              AppHaptics.lightTap();
+              notifier.markFirstPhraseSaid();
+            },
+      icon: notifier.isRecordingFirstPhraseAction
+          ? const SizedBox(
+              width: AppLayoutConstants.iconSizeSm,
+              height: AppLayoutConstants.iconSizeSm,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: Colors.white,
+              ),
+            )
+          : const Icon(Icons.check_circle_outline_rounded),
+      label: Text(
+        notifier.isRecordingFirstPhraseAction
+            ? l.onboardingMiniSceneRecording
+            : l.onboardingMiniSceneSaid,
+        overflow: TextOverflow.ellipsis,
+      ),
     );
   }
 }

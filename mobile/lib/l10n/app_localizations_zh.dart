@@ -126,6 +126,12 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
+  String get homeDailyPhraseCueLabel => '今天继续这一句';
+
+  @override
+  String get homeDailyPhraseCueBody => '回到照护场景时，再说一次就好；花园会从这颗种子继续长。';
+
+  @override
   String get homeDefaultStageSummary => '先把英语放进照护动作里，保持真实、短句、可重复。';
 
   @override
@@ -225,10 +231,10 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
-  String get onboardingTitle => '给你家宝宝准备第一次英文见面';
+  String get onboardingTitle => '先拿一句今天能和宝宝说的英文';
 
   @override
-  String get onboardingSubtitle => '只要昵称和月龄档，小禾老师就会先给你一颗适合现在阶段的 starter seed。';
+  String get onboardingSubtitle => '只要昵称和大概月龄，小禾老师会先在本机准备第一句。';
 
   @override
   String get onboardingLocalOnly => '同意前仅保存在这台设备，不需要精确生日。';
@@ -244,17 +250,17 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String onboardingStagePreview(Object childName) {
-    return '$childName 现在更适合从这个阶段开始，先用一句真实 starter phrase 试试看。';
+    return '$childName 现在更适合从这一类短句开始，先用一句真实照护里的英文试试看。';
   }
 
   @override
   String get onboardingWelcomeInfo => '先准备两条信息：宝宝昵称 + 月龄档。';
 
   @override
-  String get onboardingWelcomeDetail => '完成后我会把阶段匹配和第一句 starter seed 一起交给你。';
+  String get onboardingWelcomeDetail => '完成后会看到第一句英文、什么时候说，以及怎么接住宝宝反应。';
 
   @override
-  String get onboardingStartButton => '开始建档';
+  String get onboardingStartButton => '先开始';
 
   @override
   String get onboardingNameLabel => '宝宝昵称';
@@ -283,22 +289,43 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
-  String get onboardingContentLoading => '正在准备第一颗 starter seed…';
+  String get onboardingContentLoading => '正在准备第一句…';
 
   @override
   String get onboardingContentRetry => '重新准备';
 
   @override
-  String get onboardingAgeContinue => '看看现在更适合什么';
+  String get onboardingAgeContinue => '准备第一句';
 
   @override
-  String get onboardingPreviewConfirm => '确认后会先写入本地档案，再带你进入首页。';
+  String get onboardingPreviewConfirm => '先播放一下，再说一次；我会把这次开始保存在本机。';
 
   @override
-  String get onboardingPreviewRetryHint => '如果保存失败，我会保留刚才的输入，方便你直接重试。';
+  String get onboardingPreviewRetryHint => '说完可以点“我说了”，不用等宝宝立刻回应。';
 
   @override
-  String get onboardingPreviewSeedLabel => '准备先这样开口';
+  String get onboardingPreviewSeedLabel => '第一句可以先这样说';
+
+  @override
+  String get onboardingMiniSceneActionHint => '洗澡、换衣或抱起宝宝时，都可以先轻轻说这一句。';
+
+  @override
+  String get onboardingMiniScenePlay => '播放一下';
+
+  @override
+  String get onboardingMiniScenePlaying => '播放中';
+
+  @override
+  String get onboardingMiniSceneSaid => '我说了';
+
+  @override
+  String get onboardingMiniSceneRecording => '记录中';
+
+  @override
+  String get onboardingMiniSceneRecorded => '已在本机种下第一颗种子，首页会接着这句继续。';
+
+  @override
+  String get onboardingSayFirstBeforeHome => '先说一次';
 
   @override
   String get onboardingPreviewBack => '返回调整';
@@ -307,10 +334,10 @@ class AppLocalizationsZh extends AppLocalizations {
   String get onboardingSaving => '正在保存到本地';
 
   @override
-  String get onboardingEnterHome => '进入首页';
+  String get onboardingEnterHome => '进入首页继续';
 
   @override
-  String get onboardingStageMatch => '阶段匹配';
+  String get onboardingStageMatch => '现在适合这样开始';
 
   @override
   String get onboardingMentorCaption => '禾';
@@ -330,7 +357,12 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String onboardingStageMatchSemantics(Object stageTitle, Object summary) {
-    return '阶段匹配：$stageTitle。$summary';
+    return '现在适合这样开始：$stageTitle。$summary';
+  }
+
+  @override
+  String onboardingFirstPhraseActionErrorSemantics(Object message) {
+    return '第一句记录失败：$message';
   }
 
   @override

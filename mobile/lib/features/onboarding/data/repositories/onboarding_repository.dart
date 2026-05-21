@@ -10,6 +10,7 @@ class OnboardingStarterSeed {
     required this.phraseId,
     required this.phraseEnglish,
     required this.phraseChinese,
+    required this.audioAsset,
   });
 
   final String spaceId;
@@ -17,6 +18,10 @@ class OnboardingStarterSeed {
   final String phraseId;
   final String phraseEnglish;
   final String phraseChinese;
+  final String audioAsset;
+
+  String get audioAssetSource =>
+      audioAsset.startsWith('assets/') ? audioAsset.substring(7) : audioAsset;
 }
 
 class OnboardingRepository {
@@ -56,13 +61,13 @@ class OnboardingRepository {
       activityId: starterActivityId,
     );
     if (activitySnapshot.phrases.isEmpty) {
-      throw const FormatException('starter 内容不可用：活动缺少可用短语。');
+      throw const FormatException('第一句内容不可用：活动缺少可用短语。');
     }
 
     final starterPhrase = activitySnapshot.phrases.first;
     if (starterPhrase.phraseId.trim().isEmpty ||
         starterPhrase.english.trim().isEmpty) {
-      throw const FormatException('starter 内容不可用：首句短语缺失关键字段。');
+      throw const FormatException('第一句内容不可用：短语缺失关键字段。');
     }
 
     return OnboardingStarterSeed(
@@ -71,6 +76,7 @@ class OnboardingRepository {
       phraseId: starterPhrase.phraseId,
       phraseEnglish: starterPhrase.english,
       phraseChinese: starterPhrase.chinese,
+      audioAsset: starterPhrase.audioAsset,
     );
   }
 

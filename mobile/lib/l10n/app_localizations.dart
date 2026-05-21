@@ -310,6 +310,18 @@ abstract class AppLocalizations {
   /// **'{childName}，今天先从一句自然的英文开始。'**
   String homePersonalizedHeading(Object childName);
 
+  /// No description provided for @homeDailyPhraseCueLabel.
+  ///
+  /// In zh, this message translates to:
+  /// **'今天继续这一句'**
+  String get homeDailyPhraseCueLabel;
+
+  /// No description provided for @homeDailyPhraseCueBody.
+  ///
+  /// In zh, this message translates to:
+  /// **'回到照护场景时，再说一次就好；花园会从这颗种子继续长。'**
+  String get homeDailyPhraseCueBody;
+
   /// No description provided for @homeDefaultStageSummary.
   ///
   /// In zh, this message translates to:
@@ -491,13 +503,13 @@ abstract class AppLocalizations {
   /// No description provided for @onboardingTitle.
   ///
   /// In zh, this message translates to:
-  /// **'给你家宝宝准备第一次英文见面'**
+  /// **'先拿一句今天能和宝宝说的英文'**
   String get onboardingTitle;
 
   /// No description provided for @onboardingSubtitle.
   ///
   /// In zh, this message translates to:
-  /// **'只要昵称和月龄档，小禾老师就会先给你一颗适合现在阶段的 starter seed。'**
+  /// **'只要昵称和大概月龄，小禾老师会先在本机准备第一句。'**
   String get onboardingSubtitle;
 
   /// No description provided for @onboardingLocalOnly.
@@ -527,7 +539,7 @@ abstract class AppLocalizations {
   /// No description provided for @onboardingStagePreview.
   ///
   /// In zh, this message translates to:
-  /// **'{childName} 现在更适合从这个阶段开始，先用一句真实 starter phrase 试试看。'**
+  /// **'{childName} 现在更适合从这一类短句开始，先用一句真实照护里的英文试试看。'**
   String onboardingStagePreview(Object childName);
 
   /// No description provided for @onboardingWelcomeInfo.
@@ -539,13 +551,13 @@ abstract class AppLocalizations {
   /// No description provided for @onboardingWelcomeDetail.
   ///
   /// In zh, this message translates to:
-  /// **'完成后我会把阶段匹配和第一句 starter seed 一起交给你。'**
+  /// **'完成后会看到第一句英文、什么时候说，以及怎么接住宝宝反应。'**
   String get onboardingWelcomeDetail;
 
   /// No description provided for @onboardingStartButton.
   ///
   /// In zh, this message translates to:
-  /// **'开始建档'**
+  /// **'先开始'**
   String get onboardingStartButton;
 
   /// No description provided for @onboardingNameLabel.
@@ -599,7 +611,7 @@ abstract class AppLocalizations {
   /// No description provided for @onboardingContentLoading.
   ///
   /// In zh, this message translates to:
-  /// **'正在准备第一颗 starter seed…'**
+  /// **'正在准备第一句…'**
   String get onboardingContentLoading;
 
   /// No description provided for @onboardingContentRetry.
@@ -611,26 +623,68 @@ abstract class AppLocalizations {
   /// No description provided for @onboardingAgeContinue.
   ///
   /// In zh, this message translates to:
-  /// **'看看现在更适合什么'**
+  /// **'准备第一句'**
   String get onboardingAgeContinue;
 
   /// No description provided for @onboardingPreviewConfirm.
   ///
   /// In zh, this message translates to:
-  /// **'确认后会先写入本地档案，再带你进入首页。'**
+  /// **'先播放一下，再说一次；我会把这次开始保存在本机。'**
   String get onboardingPreviewConfirm;
 
   /// No description provided for @onboardingPreviewRetryHint.
   ///
   /// In zh, this message translates to:
-  /// **'如果保存失败，我会保留刚才的输入，方便你直接重试。'**
+  /// **'说完可以点“我说了”，不用等宝宝立刻回应。'**
   String get onboardingPreviewRetryHint;
 
   /// No description provided for @onboardingPreviewSeedLabel.
   ///
   /// In zh, this message translates to:
-  /// **'准备先这样开口'**
+  /// **'第一句可以先这样说'**
   String get onboardingPreviewSeedLabel;
+
+  /// No description provided for @onboardingMiniSceneActionHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'洗澡、换衣或抱起宝宝时，都可以先轻轻说这一句。'**
+  String get onboardingMiniSceneActionHint;
+
+  /// No description provided for @onboardingMiniScenePlay.
+  ///
+  /// In zh, this message translates to:
+  /// **'播放一下'**
+  String get onboardingMiniScenePlay;
+
+  /// No description provided for @onboardingMiniScenePlaying.
+  ///
+  /// In zh, this message translates to:
+  /// **'播放中'**
+  String get onboardingMiniScenePlaying;
+
+  /// No description provided for @onboardingMiniSceneSaid.
+  ///
+  /// In zh, this message translates to:
+  /// **'我说了'**
+  String get onboardingMiniSceneSaid;
+
+  /// No description provided for @onboardingMiniSceneRecording.
+  ///
+  /// In zh, this message translates to:
+  /// **'记录中'**
+  String get onboardingMiniSceneRecording;
+
+  /// No description provided for @onboardingMiniSceneRecorded.
+  ///
+  /// In zh, this message translates to:
+  /// **'已在本机种下第一颗种子，首页会接着这句继续。'**
+  String get onboardingMiniSceneRecorded;
+
+  /// No description provided for @onboardingSayFirstBeforeHome.
+  ///
+  /// In zh, this message translates to:
+  /// **'先说一次'**
+  String get onboardingSayFirstBeforeHome;
 
   /// No description provided for @onboardingPreviewBack.
   ///
@@ -647,13 +701,13 @@ abstract class AppLocalizations {
   /// No description provided for @onboardingEnterHome.
   ///
   /// In zh, this message translates to:
-  /// **'进入首页'**
+  /// **'进入首页继续'**
   String get onboardingEnterHome;
 
   /// No description provided for @onboardingStageMatch.
   ///
   /// In zh, this message translates to:
-  /// **'阶段匹配'**
+  /// **'现在适合这样开始'**
   String get onboardingStageMatch;
 
   /// No description provided for @onboardingMentorCaption.
@@ -683,8 +737,14 @@ abstract class AppLocalizations {
   /// No description provided for @onboardingStageMatchSemantics.
   ///
   /// In zh, this message translates to:
-  /// **'阶段匹配：{stageTitle}。{summary}'**
+  /// **'现在适合这样开始：{stageTitle}。{summary}'**
   String onboardingStageMatchSemantics(Object stageTitle, Object summary);
+
+  /// No description provided for @onboardingFirstPhraseActionErrorSemantics.
+  ///
+  /// In zh, this message translates to:
+  /// **'第一句记录失败：{message}'**
+  String onboardingFirstPhraseActionErrorSemantics(Object message);
 
   /// No description provided for @onboardingSaveErrorSemantics.
   ///

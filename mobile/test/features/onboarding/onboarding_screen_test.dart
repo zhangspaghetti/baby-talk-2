@@ -78,11 +78,9 @@ void main() {
       expect(previewSeedTexts, contains(notifier.starterSeed!.phraseEnglish));
       expect(previewSeedTexts, contains(notifier.starterSeed!.phraseChinese));
 
-      await tester.drag(find.byType(ListView), const Offset(0, 260));
-      await tester.pumpAndSettle();
       await _scrollTo(
         tester,
-        find.byKey(const Key('onboarding-mini-seed-card')),
+        find.byKey(const Key('onboarding-stage-match-card')),
       );
 
       expect(
@@ -90,6 +88,159 @@ void main() {
         findsOneWidget,
       );
       expect(find.text('声音轮流回应期'), findsOneWidget);
+
+      await _scrollTo(
+        tester,
+        find.byKey(const Key('onboarding-mini-seed-card')),
+      );
+      expect(
+        find.byKey(const Key('onboarding-mini-seed-card')),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('首句迷你练习会记录一次本地开口动作，并阻止未开口就进入首页', (WidgetTester tester) async {
+      final recordedSeeds = <OnboardingStarterSeed>[];
+      final playedSeeds = <OnboardingStarterSeed>[];
+      var recordCount = 0;
+      var playCount = 0;
+      final notifier = OnboardingNotifier(
+        starterSeedLoader: () async => _starterSeed(),
+        completeOnboardingAction: (childDisplayName, ageBucket) async =>
+            _completedSnapshot(
+              childDisplayName: childDisplayName,
+              ageBucket: ageBucket,
+            ),
+        recordFirstPhraseAction: (starterSeed) async {
+          recordCount += 1;
+          recordedSeeds.add(starterSeed);
+        },
+        playFirstPhraseAudio: (starterSeed) async {
+          playCount += 1;
+          playedSeeds.add(starterSeed);
+        },
+      );
+
+      await _pumpOnboardingScreen(tester, notifier);
+      await _advanceToPreview(
+        tester,
+        childDisplayName: '米米',
+        bucket: OnboardingAgeBucket.sixToTwelve,
+      );
+
+      expect(find.text('播放一下'), findsOneWidget);
+      expect(find.text('我说了'), findsOneWidget);
+      final submitBeforeAction = tester.widget<ElevatedButton>(
+        find.byKey(const Key('onboarding-submit-button')),
+      );
+      expect(submitBeforeAction.onPressed, isNull);
+
+      await _recordFirstPhraseAction(tester, notifier: notifier);
+      expect(playCount, 1);
+      expect(
+        playedSeeds.single.audioAssetSource,
+        'audio/phrases/bath_time_warm_water.mp3',
+      );
+      expect(recordCount, 1);
+      expect(notifier.hasRecordedFirstPhraseAction, isTrue);
+      expect(recordedSeeds.single.phraseId, 'bath_time_warm_water');
+      await tester.drag(find.byType(ListView), const Offset(0, -260));
+      await tester.pump();
+      expect(
+        find.byKey(const Key('onboarding-first-seed-recorded')),
+        findsOneWidget,
+      );
+      expect(find.text('已在本机种下第一颗种子，首页会接着这句继续。'), findsOneWidget);
+
+      await tester.tap(find.byKey(const Key('onboarding-first-phrase-said')));
+      await tester.pumpAndSettle();
+      expect(recordCount, 1);
+
+      await _scrollTo(
+        tester,
+        find.byKey(const Key('onboarding-submit-button')),
+      );
+      await tester.tap(find.byKey(const Key('onboarding-submit-button')));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('shell-ready')), findsOneWidget);
+    });
+
+    testWidgets('窄屏月龄快选降为两列，避免文字缩放挤压选择卡', (WidgetTester tester) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(320, 780);
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      final notifier = _readyNotifier();
+      await _pumpOnboardingScreen(tester, notifier);
+      await _scrollTo(tester, find.byKey(const Key('onboarding-start-button')));
+      await tester.tap(find.byKey(const Key('onboarding-start-button')));
+      await tester.pumpAndSettle();
+      await _scrollTo(tester, find.byKey(const Key('onboarding-name-input')));
+      await tester.enterText(
+        find.byKey(const Key('onboarding-name-input')),
+        '米米',
+      );
+      await _scrollTo(
+        tester,
+        find.byKey(const Key('onboarding-name-continue')),
+      );
+      await tester.tap(find.byKey(const Key('onboarding-name-continue')));
+      await tester.pumpAndSettle();
+
+      final grid = tester.widget<GridView>(
+        find.byKey(const Key('onboarding-age-grid')),
+      );
+      final delegate =
+          grid.gridDelegate as SliverGridDelegateWithFixedCrossAxisCount;
+      expect(delegate.crossAxisCount, 2);
+    });
+    testWidgets('高文字缩放时首句动作按钮纵向排列，并保持触达尺寸', (WidgetTester tester) async {
+      tester.binding.platformDispatcher.textScaleFactorTestValue = 1.4;
+      addTearDown(
+        tester.binding.platformDispatcher.clearTextScaleFactorTestValue,
+      );
+
+      final notifier = _readyNotifier();
+      await _pumpOnboardingScreen(tester, notifier);
+      notifier
+        ..startFlow()
+        ..updateDraftName('米米')
+        ..continueFromName()
+        ..selectAgeBucket(OnboardingAgeBucket.sixToTwelve)
+        ..continueFromAge();
+      await tester.pumpAndSettle();
+
+      expect(notifier.currentStep, OnboardingFlowStep.preview);
+      await _scrollTo(
+        tester,
+        find.byKey(const Key('onboarding-first-phrase-play')),
+      );
+
+      expect(
+        find.byKey(const Key('onboarding-first-phrase-actions-stacked')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('onboarding-first-phrase-actions-row')),
+        findsNothing,
+      );
+
+      final playButtonSize = tester.getSize(
+        find.byKey(const Key('onboarding-first-phrase-play')),
+      );
+      final saidButtonSize = tester.getSize(
+        find.byKey(const Key('onboarding-first-phrase-said')),
+      );
+      expect(
+        playButtonSize.height,
+        greaterThanOrEqualTo(AppLayoutConstants.minTouchTarget),
+      );
+      expect(
+        saidButtonSize.height,
+        greaterThanOrEqualTo(AppLayoutConstants.minTouchTarget),
+      );
     });
 
     testWidgets('预览卡片暴露本地化语义，并保持预览 affordance 触达尺寸', (
@@ -106,13 +257,13 @@ void main() {
           bucket: OnboardingAgeBucket.sixToTwelve,
         );
 
-        expect(find.text('确认后会先写入本地档案，再带你进入首页。'), findsOneWidget);
-        expect(find.text('如果保存失败，我会保留刚才的输入，方便你直接重试。'), findsOneWidget);
-        expect(find.text('准备先这样开口'), findsOneWidget);
-        expect(find.text('阶段匹配'), findsOneWidget);
+        expect(find.text('先播放一下，再说一次；我会把这次开始保存在本机。'), findsOneWidget);
+        expect(find.text('说完可以点“我说了”，不用等宝宝立刻回应。'), findsOneWidget);
+        expect(find.text('第一句可以先这样说'), findsOneWidget);
+        expect(find.text('现在适合这样开始'), findsOneWidget);
 
         expect(
-          find.bySemanticsLabel('阶段匹配：声音轮流回应期。宝宝开始追声音和节奏，适合用短句做一来一回的小互动。'),
+          find.bySemanticsLabel('现在适合这样开始：声音轮流回应期。宝宝开始追声音和节奏，适合用短句做一来一回的小互动。'),
           findsOneWidget,
         );
         expect(find.bySemanticsLabel('第一颗种子：Warm water.'), findsOneWidget);
@@ -252,7 +403,7 @@ void main() {
     ) async {
       final notifier = OnboardingNotifier(
         starterSeedLoader: () async {
-          throw const FormatException('starter phrase 缺失。');
+          throw const FormatException('第一句缺失。');
         },
         completeOnboardingAction: (childDisplayName, ageBucket) async =>
             _completedSnapshot(
@@ -321,6 +472,8 @@ void main() {
         childDisplayName: '米米',
         bucket: OnboardingAgeBucket.eighteenToTwentyFour,
       );
+
+      await _recordFirstPhraseAction(tester);
 
       await _scrollTo(
         tester,
@@ -393,6 +546,8 @@ void main() {
           bucket: OnboardingAgeBucket.eighteenToTwentyFour,
         );
 
+        await _recordFirstPhraseAction(tester);
+
         await _scrollTo(
           tester,
           find.byKey(const Key('onboarding-submit-button')),
@@ -409,10 +564,15 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(submitCount, 1);
+        expect(notifier.currentStep, OnboardingFlowStep.preview);
+        await tester.drag(find.byType(ListView), const Offset(0, 520));
+        await tester.pumpAndSettle();
         expect(
           find.byKey(const Key('onboarding-stage-match-card')),
           findsOneWidget,
         );
+        await tester.drag(find.byType(ListView), const Offset(0, -520));
+        await tester.pumpAndSettle();
         expect(
           find.byKey(const Key('onboarding-save-error-banner')),
           findsOneWidget,
@@ -443,6 +603,8 @@ void main() {
         childDisplayName: '果果',
         bucket: OnboardingAgeBucket.zeroToSix,
       );
+
+      await _recordFirstPhraseAction(tester);
 
       await _scrollTo(
         tester,
@@ -541,9 +703,6 @@ Future<void> _advanceToPreview(
 }
 
 Future<void> _scrollTo(WidgetTester tester, Finder finder) async {
-  if (finder.evaluate().isEmpty) {
-    return;
-  }
   await tester.scrollUntilVisible(
     finder,
     180,
@@ -551,6 +710,28 @@ Future<void> _scrollTo(WidgetTester tester, Finder finder) async {
   );
   await tester.ensureVisible(finder);
   await tester.pumpAndSettle();
+}
+
+Future<void> _recordFirstPhraseAction(
+  WidgetTester tester, {
+  OnboardingNotifier? notifier,
+}) async {
+  await _scrollTo(
+    tester,
+    find.byKey(const Key('onboarding-first-phrase-play')),
+  );
+  await tester.tap(find.byKey(const Key('onboarding-first-phrase-play')));
+  await tester.pumpAndSettle();
+  await _scrollTo(
+    tester,
+    find.byKey(const Key('onboarding-first-phrase-said')),
+  );
+  if (notifier != null) {
+    await tester.runAsync(notifier.markFirstPhraseSaid);
+  } else {
+    await tester.tap(find.byKey(const Key('onboarding-first-phrase-said')));
+  }
+  await tester.pump();
 }
 
 OnboardingNotifier _readyNotifier() {
@@ -571,6 +752,7 @@ OnboardingStarterSeed _starterSeed() {
     phraseId: 'bath_time_warm_water',
     phraseEnglish: 'Warm water.',
     phraseChinese: '温温的水。',
+    audioAsset: 'assets/audio/phrases/bath_time_warm_water.mp3',
   );
 }
 

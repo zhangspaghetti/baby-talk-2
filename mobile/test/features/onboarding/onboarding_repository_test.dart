@@ -83,6 +83,10 @@ void main() {
       expect(starterSeed.activityId, 'bath_time');
       expect(starterSeed.phraseId, 'bath_time_warm_water');
       expect(starterSeed.phraseEnglish, 'Warm water.');
+      expect(
+        starterSeed.audioAssetSource,
+        'audio/phrases/bath_time_warm_water.mp3',
+      );
 
       expect(snapshot.childDisplayName, '小满');
       expect(snapshot.ageBucket, OnboardingAgeBucket.sixToTwelve);

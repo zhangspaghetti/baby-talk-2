@@ -13,6 +13,8 @@ import 'package:mobile/features/account/presentation/account_notifier.dart';
 import 'package:mobile/features/household/data/local/household_local_store.dart';
 import 'package:mobile/features/household/data/repositories/household_repository.dart';
 import 'package:mobile/features/household/presentation/household_notifier.dart';
+import 'package:mobile/features/onboarding/domain/models/onboarding_snapshot.dart';
+import 'package:mobile/features/onboarding/domain/models/stage_match.dart';
 import 'package:mobile/features/practice/data/repositories/garden_growth_repository.dart';
 import 'package:mobile/features/practice/data/repositories/practice_repository.dart';
 import 'package:mobile/app/widgets/app_celebration_overlay.dart';
@@ -236,6 +238,65 @@ void main() {
       expect(find.byKey(const Key('home-share-card')), findsOneWidget);
     },
   );
+
+  testWidgets('HomeScreen carries onboarding first seed and daily phrase cue', (
+    tester,
+  ) async {
+    final gardenSnapshot = _gardenSnapshot(spaces: [_gardenPatch()]);
+    final continuitySnapshot = _continuitySnapshot();
+    final stageMatch = StageMatchCatalog.forAgeBucket(
+      OnboardingAgeBucket.sixToTwelve,
+    );
+    final onboardingSnapshot = OnboardingSnapshot(
+      childDisplayName: '米米',
+      ageBucket: OnboardingAgeBucket.sixToTwelve,
+      approxMonths: stageMatch.approxMonths,
+      currentStage: stageMatch.stageId,
+      starterSpaceId: 'home',
+      starterActivityId: 'song_time',
+      starterPhraseId: 'hello_wave',
+      consentState: OnboardingConsentState.localOnly,
+      completedAt: DateTime.utc(2026, 4, 8, 8),
+    );
+
+    await _pumpApp(
+      tester,
+      HomeScreen(onboardingSnapshot: onboardingSnapshot),
+      scaffold: false,
+      overrides: [
+        accountNotifierProvider.overrideWith((ref) {
+          return AccountNotifier(repository: _ScreenAccountRepository());
+        }),
+        practiceContinuityNotifierProvider.overrideWith((ref) {
+          return _homeContinuityNotifier(continuitySnapshot);
+        }),
+        gardenGrowthNotifierProvider.overrideWith((ref) {
+          return GardenGrowthNotifier(
+            repository: _HomeGardenGrowthRepository(gardenSnapshot),
+            refreshTimeout: Duration.zero,
+          );
+        }),
+        householdNotifierProvider.overrideWith((ref) {
+          return HouseholdNotifier(repository: _HomeHouseholdRepository());
+        }),
+        shareNotifierProvider.overrideWith((ref) {
+          return ShareNotifier(
+            repository: _HomeShareRepository(),
+            initialGrowthSnapshot: gardenSnapshot,
+            initialContinuitySnapshot: continuitySnapshot,
+          );
+        }),
+      ],
+    );
+    await _pumpFrames(tester, count: 10);
+
+    expect(find.byKey(const Key('home-local-only-banner')), findsOneWidget);
+    expect(find.byKey(const Key('home-starter-seed')), findsOneWidget);
+    expect(find.byKey(const Key('home-daily-phrase-cue')), findsOneWidget);
+    expect(find.text('今天继续这一句'), findsOneWidget);
+    expect(find.text('Hello wave.'), findsWidgets);
+    expect(find.text('挥挥手说你好。'), findsOneWidget);
+  });
 
   testWidgets('Garden cards render ready and warning states', (tester) async {
     final patch = _gardenPatch();

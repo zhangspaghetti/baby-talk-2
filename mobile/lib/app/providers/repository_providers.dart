@@ -28,6 +28,7 @@ import 'package:mobile/features/practice/data/services/asset_phrase_service.dart
 import 'package:mobile/features/practice/data/services/dynamic_practice_api_service.dart';
 import 'package:mobile/features/practice/presentation/garden_growth_notifier.dart';
 import 'package:mobile/features/practice/presentation/practice_continuity_notifier.dart';
+import 'package:mobile/features/practice/presentation/practice_session_notifier.dart';
 import 'package:mobile/features/share/data/repositories/share_repository.dart';
 import 'package:mobile/features/share/data/services/share_api_service.dart';
 import 'package:mobile/features/share/data/services/share_sheet_launcher.dart';
@@ -264,7 +265,14 @@ final onboardingRepositoryProvider = FutureProvider<OnboardingRepository>((
 final onboardingNotifierProvider =
     ChangeNotifierProvider.autoDispose<OnboardingNotifier>((ref) {
       final repository = ref.watch(onboardingRepositoryProvider).requireValue;
-      return OnboardingNotifier(repository: repository)..initialize();
+      final audioController = AudioplayersPracticeAudioController();
+      ref.onDispose(audioController.dispose);
+      return OnboardingNotifier(
+        repository: repository,
+        playFirstPhraseAudio: (starterSeed) {
+          return audioController.playAsset(starterSeed.audioAssetSource);
+        },
+      )..initialize();
     });
 
 // ---------------------------------------------------------------------------

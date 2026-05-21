@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:mobile/app/theme/app_layout_constants.dart';
 import 'package:mobile/app/theme/app_theme.dart';
 import 'package:mobile/features/onboarding/domain/models/onboarding_snapshot.dart';
 import 'package:mobile/features/onboarding/domain/models/stage_match.dart';
@@ -25,7 +26,7 @@ class HomePersonalizedHero extends StatelessWidget {
     final colors = context.appColors;
     final theme = Theme.of(context);
     return Container(
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.all(AppLayoutConstants.spacingLg),
       decoration: BoxDecoration(
         color: colors.bgSurface,
         borderRadius: BorderRadius.circular(24),
@@ -48,45 +49,91 @@ class HomePersonalizedHero extends StatelessWidget {
                 Chip(label: Text(activitySceneTag!)),
             ],
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: AppLayoutConstants.spacingMd),
           Text(
             l.homePersonalizedHeading(snapshot.childDisplayName),
             key: const Key('personalized-home-heading'),
             style: theme.textTheme.titleLarge,
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: AppLayoutConstants.spacingSm),
           Text(
             stageMatch?.summary ?? l.homeDefaultStageSummary,
             key: const Key('personalized-home-stage-summary'),
             style: theme.textTheme.bodyMedium,
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: AppLayoutConstants.spacingMd),
           Container(
             key: starterPhrase != null
                 ? const Key('home-starter-seed')
                 : const Key('home-starter-seed-loading'),
             width: double.infinity,
-            padding: const EdgeInsets.all(18),
+            padding: const EdgeInsets.all(AppLayoutConstants.spacingMd),
             decoration: BoxDecoration(
               color: colors.englishSoft,
-              borderRadius: BorderRadius.circular(20),
+              borderRadius: BorderRadius.circular(
+                AppLayoutConstants.largeRadius,
+              ),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(l.homeFirstSeed, style: theme.textTheme.labelMedium),
-                const SizedBox(height: 10),
+                const SizedBox(height: AppLayoutConstants.spacingSm),
                 Text(
                   starterPhrase?.english ?? 'Bath time, baby.',
                   style: theme.textTheme.headlineMedium?.copyWith(
                     color: colors.english,
                   ),
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: AppLayoutConstants.spacingXs),
                 Text(
                   starterPhrase?.chinese ?? l.homeStartBathTime,
                   style: theme.textTheme.bodyMedium?.copyWith(
                     color: colors.textPrimary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: AppLayoutConstants.spacingMd),
+          Container(
+            key: const Key('home-daily-phrase-cue'),
+            width: double.infinity,
+            padding: AppLayoutConstants.bannerPadding,
+            decoration: BoxDecoration(
+              color: colors.bgAccentSoft,
+              borderRadius: BorderRadius.circular(
+                AppLayoutConstants.cardRadius,
+              ),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(
+                  Icons.repeat_rounded,
+                  color: colors.accentDark,
+                  size: AppLayoutConstants.iconSizeMd,
+                ),
+                const SizedBox(width: AppLayoutConstants.spacingSm),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        l.homeDailyPhraseCueLabel,
+                        style: theme.textTheme.labelMedium?.copyWith(
+                          color: colors.accentDark,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      const SizedBox(height: AppLayoutConstants.spacingXs),
+                      Text(
+                        l.homeDailyPhraseCueBody,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: colors.textPrimary,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],
