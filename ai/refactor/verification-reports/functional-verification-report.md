@@ -2,15 +2,15 @@
 
 Version: Flutter AI Software Factory v1.0.0
 Stage: R4 / Phase 4
-Task: REFACTOR-017, updated by REFACTOR-034
-Created: 2026-05-19
-Status: completed, integration blockers remediated locally; production gate blocked by remaining Phase 4 criteria
+Task: REFACTOR-017, updated through REFACTOR-041
+Created: 2026-05-20
+Status: completed, integration blockers remediated locally; approved account deletion clearance path verified locally; production gate blocked by remaining Phase 4 criteria
 
 ## Summary
 
 Current unit, widget, and smoke-level Flutter tests remain green. The original R017 verification pass exposed core-flow integration blockers; REFACTOR-017A has now remediated those local blockers with behavior-preserving app and harness fixes.
 
-Functional core-flow evidence is restored locally. REFACTOR-033 has measured the critical UI coverage slice above threshold, but production readiness remains blocked by non-functional Phase 4 criteria: global coverage target/exception, sensitive lifecycle completion, performance benchmark evidence, target-platform/CI replay, and final human approval.
+Functional core-flow evidence is restored locally. REFACTOR-033 has measured the critical UI coverage slice above threshold, REFACTOR-036 has met the global coverage target, REFACTOR-037 has captured a local performance baseline, REFACTOR-040 has added no-regression release gates plus local full-profile evidence, and REFACTOR-041 has verified the approved account deletion confirmation/clearance path locally. Production readiness remains blocked by non-functional Phase 4 criteria: live CI evidence, iOS backup runtime proof, approved target/profile replay, and final human approval.
 
 ## Command Evidence
 
@@ -45,13 +45,22 @@ Functional core-flow evidence is restored locally. REFACTOR-033 has measured the
 | Full-chain malformed snapshot boot failure surface | Pass locally | Boot failure surface remains visible for malformed completed snapshot |
 | Mentor timeout visible banner and phase | Pass locally | Timeout banner, `provider_timeout` phase, and failed fact persistence verified |
 
+## Destructive Account Deletion Result
+
+| Flow | Status | Detail |
+|---|---|---|
+| Account deletion second confirmation | Pass locally | `account_entry_screen_test.dart` verifies the delete action opens a second dialog before notifier execution |
+| Approved local sensitive data clearance trigger | Pass locally | Confirmed deletion uses `LocalSensitiveDataClearanceTrigger.accountDeletionConfirmed` and the injected clearance runner tied to HDR-R4-003 |
+| Device erasure product flow | Not wired | No concrete product entry was implemented; policy remains scoped to account deletion only |
+
 ## Interpretation
 
-- The app's local unit and widget regression surface is stable; latest full coverage suite passes 245 tests after REFACTOR-034.
+- The app's local unit and widget regression surface is stable; latest full coverage suite passes 264 tests after REFACTOR-036, and the R4 local full performance profile passes after REFACTOR-040.
+- The approved destructive account deletion path is locally covered after REFACTOR-041, including the second confirmation and clearance trigger.
 - The integration suite now proves the required local end-to-end rescue flows in focused runs.
 - The original timeout failures were a mix of stale harness assumptions and product integration defects: missing household bootstrap injection, async practice repository access, post-practice refresh timing, Mentor account/API split state, backend surface mismatch, and cross-test Mentor Isar store collision.
 - R017A did not approve stale-test behavior changes; product contracts remain fresh-install onboarding, combined growth/garden tab, and login-gated online Mentor chat.
 
 ## Functional Exit Decision
 
-Functional core-flow verification is locally restored. Production readiness is still not approved until the remaining Phase 4 gates are satisfied or explicitly excepted, and the focused integration evidence is replayed on approved target platforms or CI.
+Functional core-flow verification is locally restored, and approved account deletion clearance behavior is covered locally. Production readiness is still not approved until the remaining Phase 4 gates are satisfied or explicitly excepted, the focused integration evidence is replayed on approved target platforms or CI, and the new R4 gates have live CI evidence.

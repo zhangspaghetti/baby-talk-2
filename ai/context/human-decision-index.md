@@ -2,7 +2,7 @@
 
 Project: Baby Talk 2 mobile Flutter rescue  
 Created: 2026-05-16
-Updated: 2026-05-19
+Updated: 2026-05-20
 
 | ID | Level | Topic | Status | Artifact |
 |---|---|---|---|---|
@@ -15,3 +15,5 @@ Updated: 2026-05-19
 | HDR-R1-004 | Red | Local sensitive data policy | confirmed | `ai/context/pending-decisions/need-confirmation-r1-local-sensitive-data.md` |
 | HDR-R1-005 | Red | Generated code policy | confirmed | `ai/context/pending-decisions/need-confirmation-r1-generated-code-policy.md` |
 | HDR-R4-001 | Red | Local sensitive data clearance orchestrator | confirmed for option 1 only | `ai/context/pending-decisions/need-confirmation-r4-local-sensitive-data-clearance-orchestrator.md` |
+| HDR-R4-002 | Red | Next production-readiness track | confirmed through R40 non-destructive gates | `ai/context/pending-decisions/need-confirmation-r4-next-production-readiness-track.md` |
+| HDR-R4-003 | Red | Destructive product-flow approval | confirmed option 3 | `ai/context/pending-decisions/need-confirmation-r4-destructive-product-flow-approval.md` |

@@ -2,7 +2,7 @@
 
 Project: Baby Talk 2 mobile Flutter rescue  
 Created: 2026-05-16
-Updated: 2026-05-18
+Updated: 2026-05-20
 
 | ID | Level | Authorization | Status | Notes |
 |---|---|---|---|---|
@@ -26,3 +26,5 @@ Updated: 2026-05-18
 | AR-R3-012 | Green | Execute REFACTOR-013 local sensitive data lifecycle plan and tests after human approval | completed | Added a report-only lifecycle matrix and scanner; current baseline is 6 sensitive local surfaces, 5 covered delete primitives, and 1 missing installation ID delete/reset primitive |
 | AR-R3-013 | Green | Execute REFACTOR-014 token/i18n behavior-preserving cleanup pilot after human approval | completed | Added behavior-preserving design metric tokens and migrated selected app theme/shared widget literals without changing rendered values, copy, routes, or generated localization files |
 | AR-R4-002 | Green | Execute coverage-first R4 continuation beginning with REFACTOR-035 after user selected the coverage track | completed | Added behavior-preserving `GardenGrowthCombinedScreen` widget regression tests; global LCOV improved to 75.32%; production readiness remains blocked below 80% |
+| AR-R4-003 | Green | Execute non-destructive R4 release-gate policy and replay after user requested target CI/platform replay, full performance profile, destructive approval, and hard-gate policy | completed | REFACTOR-040 captured a local full 0/100/1000/10000 performance profile, added no-regression release gates, wired a CI script, and recorded HDR-R4-003; destructive product-flow wiring remains blocked |
+| AR-R4-004 | Red | Approve HDR-R4-003 option 3 account deletion/device erasure local sensitive data clearance wiring | completed | User selected option 3 on 2026-05-20; REFACTOR-041 wires the existing account deletion entry through a second confirmation dialog and the real-store clearance registry; final release remains blocked |
