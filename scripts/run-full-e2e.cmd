@@ -12,7 +12,7 @@ REM
 REM Prerequisites:
 REM   - kubectl port-forward already running (app-api -> :8080, admin-api -> :8081)
 REM   - Android emulator running (emulator-5554 by default)
-REM   - npm install done in admin-web/
+REM   - pnpm install done at repo root
 REM   - flutter pub get done in mobile/
 
 setlocal enabledelayedexpansion
@@ -101,7 +101,7 @@ if not exist "%SCREENSHOTS_ADMIN%" mkdir "%SCREENSHOTS_ADMIN%"
 
 cd /d "%REPO_ROOT%\admin-web"
 set BABY_TALK_PLAYWRIGHT_SKIP_COMPOSE_BOOT=1
-call npx playwright test --reporter=list,html > %TEMP%\playwright-out.txt 2>&1
+call pnpm exec playwright test --reporter=list,html > %TEMP%\playwright-out.txt 2>&1
 set PLAYWRIGHT_EXIT=%errorlevel%
 
 if exist "%REPO_ROOT%\admin-web\playwright-report" (

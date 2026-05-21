@@ -12,7 +12,7 @@
 # Prerequisites:
 #   - kubectl port-forward already running (app-api → :8080, admin-api → :8081)
 #   - Android emulator running (emulator-5554 by default)
-#   - npm install done in admin-web/
+#   - pnpm install done at repo root
 #   - flutter pub get done in mobile/
 
 set -euo pipefail
@@ -73,7 +73,7 @@ mkdir -p "$SCREENSHOTS_ADMIN"
 
 cd "$REPO_ROOT/admin-web"
 BABY_TALK_PLAYWRIGHT_SKIP_COMPOSE_BOOT=1 \
-  npx playwright test \
+  pnpm exec playwright test \
   --reporter=list,html 2>&1 | tee /tmp/playwright-out.txt || PLAYWRIGHT_EXIT=$?
 
 # The HTML report is written to admin-web/playwright-report/

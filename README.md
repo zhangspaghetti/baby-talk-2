@@ -261,14 +261,14 @@ bash ci/backend-test.sh
 `admin-web` 开发服务器默认把 `/api` 和 `/actuator` 代理到本地 `admin-api`：
 
 ```bash
-npm --prefix admin-web install
-npm --prefix admin-web run dev
+pnpm install
+pnpm --filter admin-web dev
 ```
 
 如果 `gateway` 不在 `127.0.0.1:8090`，先覆盖代理目标：
 
 ```bash
-VITE_ADMIN_API_PROXY_TARGET=http://127.0.0.1:8090 npm --prefix admin-web run dev
+VITE_ADMIN_API_PROXY_TARGET=http://127.0.0.1:8090 pnpm --filter admin-web dev
 ```
 
 ### mobile

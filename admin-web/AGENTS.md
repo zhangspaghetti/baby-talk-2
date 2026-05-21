@@ -51,8 +51,8 @@ admin-web/
 ## COMMANDS
 
 ```bash
-npm run dev          # 启动开发服务器 (localhost:3000)
-npm run typecheck    # TypeScript 类型检查
-npm run build        # 构建生产版本
-npm run test:e2e     # 运行 Playwright e2e 测试
+pnpm run dev          # 启动开发服务器 (localhost:3000)
+pnpm run typecheck    # TypeScript 类型检查
+pnpm run build        # 构建生产版本
+pnpm run test:e2e     # 运行 Playwright e2e 测试
 ```

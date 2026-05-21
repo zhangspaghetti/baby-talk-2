@@ -27,19 +27,19 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: npm
-          cache-dependency-path: admin-web/package-lock.json
+
+      - name: Enable pnpm
+        run: corepack enable
 
       - name: Set up Dart
         uses: dart-lang/setup-dart@v1
 
       - name: Install admin-web dependencies
-        run: npm --prefix admin-web ci
+        run: pnpm install --frozen-lockfile
 
       - name: Install Playwright Chromium
-        working-directory: admin-web
         timeout-minutes: 10
-        run: npx playwright install chromium --with-deps
+        run: pnpm --dir admin-web exec playwright install chromium --with-deps
 
       - name: Start localhost:2375 Docker relay for Testcontainers
         shell: bash

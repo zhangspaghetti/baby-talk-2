@@ -37,13 +37,13 @@ baby-talk-2/
 ## CONVENTIONS
 
 ### Monorepo 配置
-- **根 package.json**：workspaces 仅包含 admin-web（非标准：backend/mobile 未纳入）
+- **pnpm-workspace.yaml**：workspace 仅包含 admin-web（backend/mobile 未纳入 Node workspace）
 - **根 pubspec.yaml**：用于 test delegation（非标准：flutter test 从根目录委托到 mobile/）
 - **根 tsconfig.json**：TypeScript 配置（非标准：通常在各包内）
 - **scripts/tsc-proxy.cjs**：tsc 代理（非标准：tsc 通常在各包 devDependencies）
 
 ### 三端分离
-- **admin-web**：独立 npm 包，有自己的 package.json
+- **admin-web**：pnpm workspace 包，有自己的 package.json
 - **backend**：Maven 多模块，根 pom.xml 管理依赖
 - **mobile**：独立 Flutter 包，有自己的 pubspec.yaml
 
@@ -75,10 +75,10 @@ cd backend && mvn spring-boot:run -pl admin-api
 cd backend && mvn spring-boot:run -pl gateway
 
 # Admin-Web
-cd admin-web && npm run dev
-cd admin-web && npm run typecheck
-cd admin-web && npm run build
-cd admin-web && npm run test:e2e
+pnpm --filter admin-web dev
+pnpm --filter admin-web typecheck
+pnpm --filter admin-web build
+pnpm --filter admin-web test:e2e
 
 # Helm Deploy
 helm upgrade --install babytalk-infra deploy/helm/babytalk-infra -n babytalk --create-namespace -f deploy/helm/babytalk-infra/values-kind.yaml
