@@ -96,7 +96,8 @@ void main() {
       find.byKey(const Key('discover-activity-warning-bath_time')),
       findsOneWidget,
     );
-    expect(find.text('恢复了 1 条异常记录'), findsOneWidget);
+    expect(find.text(l.discoverActivityWarningNote), findsOneWidget);
+    expect(find.text('恢复了 1 条异常记录'), findsNothing);
   });
 
   testWidgets('Discover activity / space 视图切换不重读目录，并把 route args 传给 opener', (

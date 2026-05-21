@@ -1670,6 +1670,12 @@ abstract class AppLocalizations {
   /// **'摘要暂时缺失，但这张卡仍然可以安全进入练习。'**
   String get discoverSummaryMissing;
 
+  /// No description provided for @discoverActivityWarningNote.
+  ///
+  /// In zh, this message translates to:
+  /// **'有一小段练习记录暂时没整理好，当前活动仍可继续。'**
+  String get discoverActivityWarningNote;
+
   /// No description provided for @discoverNextPhrase.
   ///
   /// In zh, this message translates to:

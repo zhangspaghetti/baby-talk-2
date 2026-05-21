@@ -100,7 +100,7 @@ class DiscoverActivityCard extends StatelessWidget {
                 activity.warningMessage!.trim().isNotEmpty) ...[
               const SizedBox(height: 8),
               Text(
-                activity.warningMessage!,
+                l.discoverActivityWarningNote,
                 key: Key('discover-activity-warning-${activity.activityId}'),
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
                   color: colors.warning,

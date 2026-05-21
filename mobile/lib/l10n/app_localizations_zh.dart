@@ -883,6 +883,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get discoverSummaryMissing => '摘要暂时缺失，但这张卡仍然可以安全进入练习。';
 
   @override
+  String get discoverActivityWarningNote => '有一小段练习记录暂时没整理好，当前活动仍可继续。';
+
+  @override
   String discoverNextPhrase(Object phrase) {
     return '下一句：$phrase';
   }
