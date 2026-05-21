@@ -3,7 +3,7 @@
 Version: Flutter AI Software Factory v1.0.0  
 Stage: R2 Planning  
 Created: 2026-05-18  
-Status: approved queue complete through REFACTOR-041; global coverage gate met; local full performance profile captured; real-store lifecycle registry verified; backup-exclusion posture implemented; R4 release-gate policy active; approved account deletion lifecycle wiring added; production readiness remains blocked by remaining target and release gates
+Status: approved queue complete through REFACTOR-041; REFACTOR-042 proposed for product-grade onboarding redesign; global coverage gate met; local full performance profile captured; real-store lifecycle registry verified; backup-exclusion posture implemented; R4 release-gate policy active; approved account deletion lifecycle wiring added; production readiness remains blocked by remaining target and release gates
 
 ## Ordering Rules
 
@@ -59,6 +59,7 @@ Status: approved queue complete through REFACTOR-041; global coverage gate met; 
 | 39 | REFACTOR-039 | 4 | done | Local sensitive data backup posture | REFACTOR-038, backup/encryption blocker selection |
 | 40 | REFACTOR-040 | 4 | done | R4 release gate policy and replay | REFACTOR-039, next R4 gates selection |
 | 41 | REFACTOR-041 | 4 | done | Destructive lifecycle target proof and replay | REFACTOR-040, HDR-R4-003 option 3 |
+| 42 | REFACTOR-042 | 5 | proposed | Onboarding product-grade redesign plan | Stage 3.1 Slice 2, human product-design selection |
 
 ## First Implementation Candidate
 
