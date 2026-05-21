@@ -319,6 +319,26 @@ class AppLocalizationsZh extends AppLocalizations {
   String get onboardingFirstSeed => '第一颗种子';
 
   @override
+  String onboardingMentorMessageSemantics(Object message) {
+    return '小禾老师引导消息：$message';
+  }
+
+  @override
+  String onboardingMiniSeedCardSemantics(Object phrase) {
+    return '第一颗种子：$phrase';
+  }
+
+  @override
+  String onboardingStageMatchSemantics(Object stageTitle, Object summary) {
+    return '阶段匹配：$stageTitle。$summary';
+  }
+
+  @override
+  String onboardingSaveErrorSemantics(Object message) {
+    return '保存失败：$message';
+  }
+
+  @override
   String get shellDrawerTooltip => '打开家庭抽屉';
 
   @override

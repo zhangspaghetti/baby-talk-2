@@ -668,6 +668,30 @@ abstract class AppLocalizations {
   /// **'第一颗种子'**
   String get onboardingFirstSeed;
 
+  /// No description provided for @onboardingMentorMessageSemantics.
+  ///
+  /// In zh, this message translates to:
+  /// **'小禾老师引导消息：{message}'**
+  String onboardingMentorMessageSemantics(Object message);
+
+  /// No description provided for @onboardingMiniSeedCardSemantics.
+  ///
+  /// In zh, this message translates to:
+  /// **'第一颗种子：{phrase}'**
+  String onboardingMiniSeedCardSemantics(Object phrase);
+
+  /// No description provided for @onboardingStageMatchSemantics.
+  ///
+  /// In zh, this message translates to:
+  /// **'阶段匹配：{stageTitle}。{summary}'**
+  String onboardingStageMatchSemantics(Object stageTitle, Object summary);
+
+  /// No description provided for @onboardingSaveErrorSemantics.
+  ///
+  /// In zh, this message translates to:
+  /// **'保存失败：{message}'**
+  String onboardingSaveErrorSemantics(Object message);
+
   /// No description provided for @shellDrawerTooltip.
   ///
   /// In zh, this message translates to:

@@ -86,24 +86,26 @@ class OnboardingScreen extends HookConsumerWidget {
               maxWidth: AppLayoutConstants.maxContentWidth,
             ),
             child: ListView(
-              padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
+              padding: AppLayoutConstants.screenPadding,
               children: [
                 AppStepProgress(
                   key: const Key('onboarding-step-progress'),
                   currentStep: notifier.currentStep.index,
                   totalSteps: OnboardingFlowStep.values.length,
                 ),
-                const SizedBox(height: 20),
+                const SizedBox(height: AppLayoutConstants.spacingLg),
                 Text(l.onboardingTitle, style: theme.textTheme.titleLarge),
-                const SizedBox(height: 8),
+                const SizedBox(height: AppLayoutConstants.spacingXs),
                 Text(l.onboardingSubtitle, style: theme.textTheme.bodyMedium),
-                const SizedBox(height: 20),
+                const SizedBox(height: AppLayoutConstants.spacingLg),
                 Container(
                   key: const Key('onboarding-local-only-banner'),
-                  padding: const EdgeInsets.all(16),
+                  padding: AppLayoutConstants.bannerPadding,
                   decoration: BoxDecoration(
                     color: colors.infoSoft,
-                    borderRadius: BorderRadius.circular(16),
+                    borderRadius: BorderRadius.circular(
+                      AppLayoutConstants.cardRadius,
+                    ),
                   ),
                   child: Text(
                     l.onboardingLocalOnly,
@@ -113,9 +115,9 @@ class OnboardingScreen extends HookConsumerWidget {
                     ),
                   ),
                 ),
-                const SizedBox(height: 24),
+                const SizedBox(height: AppLayoutConstants.spacingXl),
                 ..._buildConversation(theme, notifier, l),
-                const SizedBox(height: 24),
+                const SizedBox(height: AppLayoutConstants.spacingXl),
                 Container(
                   padding: const EdgeInsets.fromLTRB(18, 18, 18, 20),
                   decoration: BoxDecoration(
@@ -385,7 +387,7 @@ class _AgeStep extends StatelessWidget {
             return QuickSelectCard(
               key: Key('onboarding-age-card-${bucket.wireValue}'),
               label: bucket.label,
-              caption: '${stageMatch.approxMonths}月左右',
+              caption: l.onboardingAgeMonths(stageMatch.approxMonths),
               isSelected: notifier.selectedAgeBucket == bucket,
               onTap: () {
                 AppHaptics.lightTap();
@@ -395,19 +397,19 @@ class _AgeStep extends StatelessWidget {
           },
         ),
         if (notifier.isContentLoading) ...[
-          const SizedBox(height: 12),
+          const SizedBox(height: AppLayoutConstants.spacingSm),
           Row(
             key: const Key('onboarding-content-loading'),
             children: [
               const SizedBox(
-                width: 16,
-                height: 16,
+                width: AppLayoutConstants.iconSizeSm,
+                height: AppLayoutConstants.iconSizeSm,
                 child: CircularProgressIndicator(strokeWidth: 2),
               ),
-              const SizedBox(width: 10),
+              const SizedBox(width: AppLayoutConstants.spacingXs),
               Expanded(
                 child: Text(
-                  '正在准备第一颗 starter seed…',
+                  l.onboardingContentLoading,
                   style: theme.textTheme.bodySmall,
                 ),
               ),
@@ -415,14 +417,16 @@ class _AgeStep extends StatelessWidget {
           ),
         ],
         if (notifier.contentErrorMessage != null) ...[
-          const SizedBox(height: 12),
+          const SizedBox(height: AppLayoutConstants.spacingSm),
           Container(
             key: const Key('onboarding-content-error-banner'),
             width: double.infinity,
-            padding: const EdgeInsets.all(14),
+            padding: AppLayoutConstants.bannerPadding,
             decoration: BoxDecoration(
               color: colors.warningSoft,
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(
+                AppLayoutConstants.cardRadius,
+              ),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -434,7 +438,7 @@ class _AgeStep extends StatelessWidget {
                     fontWeight: FontWeight.w700,
                   ),
                 ),
-                const SizedBox(height: 10),
+                const SizedBox(height: AppLayoutConstants.spacingXs),
                 OutlinedButton(
                   key: const Key('onboarding-content-retry'),
                   onPressed: notifier.retryContentLoad,
@@ -495,34 +499,36 @@ class _PreviewStep extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         Text(
-          '确认后会先写入本地档案，再带你进入首页。',
+          l.onboardingPreviewConfirm,
           style: theme.textTheme.bodyLarge?.copyWith(
             color: colors.textPrimary,
             fontWeight: FontWeight.w700,
           ),
         ),
-        const SizedBox(height: 8),
-        Text('如果保存失败，我会保留刚才的输入，方便你直接重试。', style: theme.textTheme.bodySmall),
+        const SizedBox(height: AppLayoutConstants.spacingXs),
+        Text(l.onboardingPreviewRetryHint, style: theme.textTheme.bodySmall),
         if (starterSeed != null) ...[
-          const SizedBox(height: 12),
+          const SizedBox(height: AppLayoutConstants.spacingSm),
           Container(
             key: const Key('onboarding-preview-seed-text'),
             width: double.infinity,
-            padding: const EdgeInsets.all(14),
+            padding: AppLayoutConstants.bannerPadding,
             decoration: BoxDecoration(
               color: colors.bgSunken,
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(
+                AppLayoutConstants.cardRadius,
+              ),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  '准备先这样开口',
+                  l.onboardingPreviewSeedLabel,
                   style: theme.textTheme.labelMedium?.copyWith(
                     color: colors.english,
                   ),
                 ),
-                const SizedBox(height: 6),
+                const SizedBox(height: AppLayoutConstants.spacingXs),
                 Text(
                   starterSeed.phraseEnglish,
                   style: theme.textTheme.titleMedium?.copyWith(
@@ -530,7 +536,7 @@ class _PreviewStep extends StatelessWidget {
                   ),
                 ),
                 if (starterSeed.phraseChinese.trim().isNotEmpty) ...[
-                  const SizedBox(height: 4),
+                  const SizedBox(height: AppLayoutConstants.spacingXs),
                   Text(
                     starterSeed.phraseChinese,
                     style: theme.textTheme.bodySmall?.copyWith(
@@ -543,25 +549,34 @@ class _PreviewStep extends StatelessWidget {
           ),
         ],
         if (notifier.submitErrorMessage != null) ...[
-          const SizedBox(height: 12),
-          Container(
-            key: const Key('onboarding-save-error-banner'),
-            width: double.infinity,
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: colors.errorSoft,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Text(
-              notifier.submitErrorMessage!,
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: colors.error,
-                fontWeight: FontWeight.w700,
+          const SizedBox(height: AppLayoutConstants.spacingSm),
+          Semantics(
+            container: true,
+            liveRegion: true,
+            label: l.onboardingSaveErrorSemantics(notifier.submitErrorMessage!),
+            child: ExcludeSemantics(
+              child: Container(
+                key: const Key('onboarding-save-error-banner'),
+                width: double.infinity,
+                padding: AppLayoutConstants.bannerPadding,
+                decoration: BoxDecoration(
+                  color: colors.errorSoft,
+                  borderRadius: BorderRadius.circular(
+                    AppLayoutConstants.cardRadius,
+                  ),
+                ),
+                child: Text(
+                  notifier.submitErrorMessage!,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: colors.error,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
               ),
             ),
           ),
         ],
-        const SizedBox(height: 16),
+        const SizedBox(height: AppLayoutConstants.spacingMd),
         Row(
           children: [
             Expanded(
@@ -583,17 +598,17 @@ class _PreviewStep extends StatelessWidget {
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           const SizedBox(
-                            width: 18,
-                            height: 18,
+                            width: AppLayoutConstants.iconSizeMd,
+                            height: AppLayoutConstants.iconSizeMd,
                             child: CircularProgressIndicator(
                               strokeWidth: 2,
                               color: Colors.white,
                             ),
                           ),
-                          const SizedBox(width: 10),
+                          const SizedBox(width: AppLayoutConstants.spacingXs),
                           Flexible(
                             child: Text(
-                              '正在保存到本地',
+                              l.onboardingSaving,
                               overflow: TextOverflow.ellipsis,
                             ),
                           ),
@@ -618,38 +633,48 @@ class _StageMatchCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = context.appColors;
     final theme = Theme.of(context);
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(18, 18, 18, 18),
-      decoration: BoxDecoration(
-        color: colors.bgAccentSoft,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: colors.outlineSoft),
+    final l = AppLocalizations.of(context)!;
+    return Semantics(
+      container: true,
+      label: l.onboardingStageMatchSemantics(
+        stageMatch.title,
+        stageMatch.summary,
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            '阶段匹配',
-            style: theme.textTheme.labelMedium?.copyWith(
-              color: colors.accentDark,
-            ),
+      child: ExcludeSemantics(
+        child: Container(
+          width: double.infinity,
+          padding: AppLayoutConstants.bannerPadding,
+          decoration: BoxDecoration(
+            color: colors.bgAccentSoft,
+            borderRadius: BorderRadius.circular(AppLayoutConstants.largeRadius),
+            border: Border.all(color: colors.outlineSoft),
           ),
-          const SizedBox(height: 8),
-          Text(
-            stageMatch.title,
-            style: theme.textTheme.titleMedium?.copyWith(
-              color: colors.textPrimary,
-            ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                l.onboardingStageMatch,
+                style: theme.textTheme.labelMedium?.copyWith(
+                  color: colors.accentDark,
+                ),
+              ),
+              const SizedBox(height: AppLayoutConstants.spacingXs),
+              Text(
+                stageMatch.title,
+                style: theme.textTheme.titleMedium?.copyWith(
+                  color: colors.textPrimary,
+                ),
+              ),
+              const SizedBox(height: AppLayoutConstants.spacingXs),
+              Text(
+                stageMatch.summary,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: colors.textPrimary,
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 8),
-          Text(
-            stageMatch.summary,
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: colors.textPrimary,
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }

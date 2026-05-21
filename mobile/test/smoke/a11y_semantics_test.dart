@@ -21,38 +21,60 @@ void main() {
 
   group('MentorBubble a11y', () {
     testWidgets('MentorBubble 包含 Semantics widget with label', (tester) async {
-      await tester.pumpWidget(
-        buildTestApp(const MentorBubble(message: '你好，欢迎使用 Baby Talk！')),
-      );
+      final semantics = tester.ensureSemantics();
+      try {
+        await tester.pumpWidget(
+          buildTestApp(const MentorBubble(message: '你好，欢迎使用 Baby Talk！')),
+        );
 
-      // 查找 Semantics widget with 小禾老师问候 label
-      final semanticsWidget = find.byWidgetPredicate(
-        (widget) => widget is Semantics && widget.properties.label == '小禾老师问候',
-      );
-      expect(
-        semanticsWidget,
-        findsOneWidget,
-        reason: 'MentorBubble 需要 Semantics(label: "小禾老师问候") wrapper',
-      );
+        expect(
+          find.bySemanticsLabel('小禾老师引导消息：你好，欢迎使用 Baby Talk！'),
+          findsOneWidget,
+          reason: 'MentorBubble 需要本地化最终语义标签',
+        );
+      } finally {
+        semantics.dispose();
+      }
+    });
+
+    testWidgets('MentorBubble trailing content remains accessible', (
+      tester,
+    ) async {
+      final semantics = tester.ensureSemantics();
+      try {
+        await tester.pumpWidget(
+          buildTestApp(
+            const MentorBubble(message: '先看一条提示。', trailing: Text('文字优先回复说明')),
+          ),
+        );
+
+        expect(
+          find.bySemanticsLabel(RegExp('文字优先回复说明')),
+          findsOneWidget,
+          reason: 'MentorBubble trailing 内容不能被共享语义 wrapper 静音',
+        );
+      } finally {
+        semantics.dispose();
+      }
     });
   });
 
   group('MiniSeedCard a11y', () {
     testWidgets('MiniSeedCard 包含 Semantics widget with label', (tester) async {
-      await tester.pumpWidget(
-        buildTestApp(const MiniSeedCard(english: 'Hello', chinese: '你好')),
-      );
+      final semantics = tester.ensureSemantics();
+      try {
+        await tester.pumpWidget(
+          buildTestApp(const MiniSeedCard(english: 'Hello', chinese: '你好')),
+        );
 
-      final semanticsWidget = find.byWidgetPredicate(
-        (widget) =>
-            widget is Semantics &&
-            (widget.properties.label?.contains('种子短语卡') ?? false),
-      );
-      expect(
-        semanticsWidget,
-        findsOneWidget,
-        reason: 'MiniSeedCard 需要 Semantics label 包含 "种子短语卡"',
-      );
+        expect(
+          find.bySemanticsLabel('第一颗种子：Hello'),
+          findsOneWidget,
+          reason: 'MiniSeedCard 需要本地化 Semantics label',
+        );
+      } finally {
+        semantics.dispose();
+      }
     });
   });
 

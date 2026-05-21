@@ -9,6 +9,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:isar/isar.dart';
 import 'package:mobile/app/providers/repository_providers.dart';
+import 'package:mobile/app/theme/app_layout_constants.dart';
 import 'package:mobile/app/theme/app_theme.dart';
 import 'package:mobile/l10n/app_localizations.dart';
 import 'package:mobile/core/device/installation_id_service.dart';
@@ -91,6 +92,51 @@ void main() {
       expect(find.text('声音轮流回应期'), findsOneWidget);
     });
 
+    testWidgets('预览卡片暴露本地化语义，并保持预览 affordance 触达尺寸', (
+      WidgetTester tester,
+    ) async {
+      final semantics = tester.ensureSemantics();
+      try {
+        final notifier = _readyNotifier();
+        await _pumpOnboardingScreen(tester, notifier);
+
+        await _advanceToPreview(
+          tester,
+          childDisplayName: '米米',
+          bucket: OnboardingAgeBucket.sixToTwelve,
+        );
+
+        expect(find.text('确认后会先写入本地档案，再带你进入首页。'), findsOneWidget);
+        expect(find.text('如果保存失败，我会保留刚才的输入，方便你直接重试。'), findsOneWidget);
+        expect(find.text('准备先这样开口'), findsOneWidget);
+        expect(find.text('阶段匹配'), findsOneWidget);
+
+        expect(
+          find.bySemanticsLabel('阶段匹配：声音轮流回应期。宝宝开始追声音和节奏，适合用短句做一来一回的小互动。'),
+          findsOneWidget,
+        );
+        expect(find.bySemanticsLabel('第一颗种子：Warm water.'), findsOneWidget);
+
+        await _scrollTo(
+          tester,
+          find.byKey(const Key('onboarding-mini-seed-card')),
+        );
+        final seedPlayMarkSize = tester.getSize(
+          find.byKey(const Key('onboarding-mini-seed-play-mark')),
+        );
+        expect(
+          seedPlayMarkSize.width,
+          greaterThanOrEqualTo(AppLayoutConstants.minTouchTarget),
+        );
+        expect(
+          seedPlayMarkSize.height,
+          greaterThanOrEqualTo(AppLayoutConstants.minTouchTarget),
+        );
+      } finally {
+        semantics.dispose();
+      }
+    });
+
     testWidgets('空昵称、空白昵称与超长昵称都会被拦下', (WidgetTester tester) async {
       final notifier = _readyNotifier();
       await _pumpOnboardingScreen(tester, notifier);
@@ -113,11 +159,7 @@ void main() {
         find.byKey(const Key('onboarding-name-input')),
         '   ',
       );
-      await _scrollTo(
-        tester,
-        find.byKey(const Key('onboarding-name-continue')),
-      );
-      await tester.tap(find.byKey(const Key('onboarding-name-continue')));
+      await tester.testTextInput.receiveAction(TextInputAction.done);
       await tester.pumpAndSettle();
       expect(find.text('先给宝宝填一个昵称吧。'), findsOneWidget);
 
@@ -126,11 +168,7 @@ void main() {
         find.byKey(const Key('onboarding-name-input')),
         '1234567890123',
       );
-      await _scrollTo(
-        tester,
-        find.byKey(const Key('onboarding-name-continue')),
-      );
-      await tester.tap(find.byKey(const Key('onboarding-name-continue')));
+      await tester.testTextInput.receiveAction(TextInputAction.done);
       await tester.pumpAndSettle();
       expect(find.text('昵称先控制在 12 个字内，之后还可以改。'), findsOneWidget);
       expect(find.byKey(const Key('onboarding-age-grid')), findsNothing);
@@ -336,6 +374,58 @@ void main() {
       expect(find.byKey(const Key('shell-ready')), findsOneWidget);
     });
 
+    testWidgets('保存失败会作为状态消息播报，并停留在预览重试态', (WidgetTester tester) async {
+      final semantics = tester.ensureSemantics();
+      try {
+        var submitCount = 0;
+        final notifier = OnboardingNotifier(
+          starterSeedLoader: () async => _starterSeed(),
+          completeOnboardingAction: (childDisplayName, ageBucket) async {
+            submitCount += 1;
+            throw StateError('disk denied');
+          },
+        );
+
+        await _pumpOnboardingScreen(tester, notifier);
+        await _advanceToPreview(
+          tester,
+          childDisplayName: '米米',
+          bucket: OnboardingAgeBucket.eighteenToTwentyFour,
+        );
+
+        await _scrollTo(
+          tester,
+          find.byKey(const Key('onboarding-submit-button')),
+        );
+        final submitButtonSize = tester.getSize(
+          find.byKey(const Key('onboarding-submit-button')),
+        );
+        expect(
+          submitButtonSize.height,
+          greaterThanOrEqualTo(AppLayoutConstants.minTouchTarget),
+        );
+
+        await tester.tap(find.byKey(const Key('onboarding-submit-button')));
+        await tester.pumpAndSettle();
+
+        expect(submitCount, 1);
+        expect(
+          find.byKey(const Key('onboarding-stage-match-card')),
+          findsOneWidget,
+        );
+        expect(
+          find.byKey(const Key('onboarding-save-error-banner')),
+          findsOneWidget,
+        );
+        expect(
+          find.bySemanticsLabel(RegExp(r'^保存失败：本地保存失败，请重试。')),
+          findsOneWidget,
+        );
+      } finally {
+        semantics.dispose();
+      }
+    });
+
     testWidgets('重复提交时只有一次本地写入，并暴露 saving 状态', (WidgetTester tester) async {
       final completer = Completer<OnboardingSnapshot>();
       var submitCount = 0;
@@ -459,6 +549,7 @@ Future<void> _scrollTo(WidgetTester tester, Finder finder) async {
     180,
     scrollable: find.byType(Scrollable).first,
   );
+  await tester.ensureVisible(finder);
   await tester.pumpAndSettle();
 }
 
