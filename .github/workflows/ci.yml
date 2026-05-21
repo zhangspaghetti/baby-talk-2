@@ -142,3 +142,6 @@ jobs:
 
       - name: Run mobile analysis
         run: bash ci/mobile-analyze.sh
+
+      - name: Run mobile R4 release gates
+        run: bash ci/mobile-r4-release-gates.sh
