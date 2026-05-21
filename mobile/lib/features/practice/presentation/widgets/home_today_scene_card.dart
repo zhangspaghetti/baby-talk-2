@@ -56,7 +56,7 @@ class HomeTodaySceneCard extends StatelessWidget {
               ),
               const SizedBox(height: 8),
               Text(
-                recommendation?.reasonLabel ?? l.homeContinuityUnavailable,
+                _homeContinuationReasonLabel(l, recommendation?.reason),
                 key: ValueKey('home-continuity-reason-$activityId'),
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
                   color: colors.textSecondary,
@@ -101,5 +101,23 @@ class HomeTodaySceneCard extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  String _homeContinuationReasonLabel(
+    AppLocalizations l,
+    PracticeContinuityReason? reason,
+  ) {
+    switch (reason) {
+      case PracticeContinuityReason.recentActivity:
+        return l.homeContinuationRecent;
+      case PracticeContinuityReason.nextIncomplete:
+        return l.homeContinuationNextIncomplete;
+      case PracticeContinuityReason.starterFallback:
+        return l.homeContinuationStarter;
+      case PracticeContinuityReason.safeCatalogFallback:
+        return l.homeContinuationSafeFallback;
+      case null:
+        return l.homeContinuityUnavailable;
+    }
   }
 }

@@ -71,17 +71,16 @@ class AppLocalizationsZh extends AppLocalizations {
   String get bootCloseTooltip => '关闭提示';
 
   @override
-  String get homeContinuityNotConnected => '共享 continuity 暂未接通。';
+  String get homeContinuityNotConnected => '继续练习暂时还没准备好。';
 
   @override
-  String get homeTonightTryActivity => '今晚试试把最近一次 activity 自然接起来。';
+  String get homeTonightTryActivity => '今晚试试把最近一次练习自然接起来。';
 
   @override
   String get homeWelcomeBack => '欢迎回来！稍后将为你推荐练习内容。';
 
   @override
-  String get homeContinuitySharedNote =>
-      '首页和花园共用同一条 continuity recommendation；返回练习后会一起刷新。';
+  String get homeContinuitySharedNote => '首页和花园会一起记住这次练习，回来后同步更新。';
 
   @override
   String get homePracticeUnavailable => '暂时无法获取练习建议，请稍后重试。';
@@ -99,10 +98,19 @@ class AppLocalizationsZh extends AppLocalizations {
   String get homePracticeAdviceUnavailable => '暂时无法获取练习建议。';
 
   @override
-  String get homeOrganizingContinuity => '正在整理共享 continuity recommendation…';
+  String get homeOrganizingContinuity => '正在整理适合继续的练习…';
 
   @override
-  String get homeContinuityNoActivity => '共享 continuity 尚未给出可继续的 activity。';
+  String get homeContinuityNoActivity => '暂时还没有下一条可继续的练习。';
+
+  @override
+  String get homeContinuityWarningNote => '有一小段练习记录暂时没整理好，当前建议仍可继续。';
+
+  @override
+  String get homeContinuityDisabledNote => '继续练习暂时没准备好，请稍后再试。';
+
+  @override
+  String get homeContinuityFallbackNote => '已经为你换到一条稳定可继续的练习。';
 
   @override
   String get homeStartPractice => '开始练习';
@@ -141,7 +149,19 @@ class AppLocalizationsZh extends AppLocalizations {
   String get homeStartBathTime => '先从洗澡时间这句开始。';
 
   @override
-  String get homeContinuityUnavailable => '共享 continuity 暂不可用';
+  String get homeContinuityUnavailable => '继续练习暂时不可用';
+
+  @override
+  String get homeContinuationRecent => '接着刚才练过的场景';
+
+  @override
+  String get homeContinuationNextIncomplete => '接上还没说完的活动';
+
+  @override
+  String get homeContinuationStarter => '回到第一颗种子';
+
+  @override
+  String get homeContinuationSafeFallback => '先从稳定活动开始';
 
   @override
   String homeNextAlternative(Object activityTitle) {
@@ -155,7 +175,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get homeOrganizing => '整理中';
 
   @override
-  String get homeWaitingContinuity => '等待 continuity';
+  String get homeWaitingContinuity => '等待下一次练习';
 
   @override
   String get homeCadence => '连续节奏';
@@ -167,7 +187,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get homeGardenOrganizing => '花园正在整理今天的变化';
 
   @override
-  String get homeGardenProjecting => '先把事件投影成花圃和花朵阶段，马上就能看到结果。';
+  String get homeGardenProjecting => '花圃正在整理最近练习，马上就能看到结果。';
 
   @override
   String get homeGardenNotReady => '花园入口暂时没整理好';
@@ -208,7 +228,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get homeGrowthUnavailable => '最近成长摘要暂时不可用';
 
   @override
-  String get homeGrowthFallback => '投影失败时会保留安全空态，不会让首页白屏。';
+  String get homeGrowthFallback => '花圃暂时没整理好，会先保留当前结果。';
 
   @override
   String get homeGrowthPlaceholder => '最近成长会写在这里';
@@ -224,6 +244,9 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get homeNoLocalRecords => '还没有本地练习记录，第一次打开也会看到安全空态。';
+
+  @override
+  String get homeRecentFallbackNote => '最近结果暂时没整理好，先为你保留一条可继续的练习。';
 
   @override
   String homeRecentResultDetail(Object totalEvents, Object time) {
@@ -947,10 +970,10 @@ class AppLocalizationsZh extends AppLocalizations {
   String get gardenOrganizing => '花园正在整理今天的变化';
 
   @override
-  String get gardenProjectingNote => '事件会先被投影成花圃、花朵和阶段，再温柔地出现在这里。';
+  String get gardenProjectingNote => '正在把最近练习整理成花圃变化，稍等一下就会出现在这里。';
 
   @override
-  String get gardenContinuityNotConnected => 'continuity 未接通';
+  String get gardenContinuityNotConnected => '继续练习暂时没准备好';
 
   @override
   String get gardenUnavailable => '花园暂时不可用，请稍后重试。';
@@ -974,15 +997,35 @@ class AppLocalizationsZh extends AppLocalizations {
     Object activityTitle,
     Object reason,
   ) {
-    return '最新影响来自 $impactTitle；回来继续会去 $activityTitle（$reason';
+    return '上一次变化来自 $impactTitle；现在可以接着去 $activityTitle（$reason）。';
   }
 
   @override
-  String get gardenContinuitySharedNote =>
-      '花园会和首页一起，把你带回同一条 continuity recommendation。';
+  String get gardenContinuitySharedNote => '花园会和首页一起，把你带回刚才适合继续说的练习。';
 
   @override
-  String get gardenSharedContinuity => '共享 continuity';
+  String get gardenSharedContinuity => '顺着刚才的练习';
+
+  @override
+  String get gardenContinuationRecent => '接着刚才练过的场景';
+
+  @override
+  String get gardenContinuationNextIncomplete => '接上还没说完的活动';
+
+  @override
+  String get gardenContinuationStarter => '回到第一颗种子';
+
+  @override
+  String get gardenContinuationSafeFallback => '先从稳定活动开始';
+
+  @override
+  String get gardenFallbackReassurance => '已经为你换到一条稳定可继续的练习。';
+
+  @override
+  String get gardenContinuationWarning => '有一小段练习记录暂时没整理好，当前建议仍可继续。';
+
+  @override
+  String get gardenContinueUnavailableNote => '这条继续练习暂时打不开，先回首页或稍后再试。';
 
   @override
   String get gardenFirstSeedNotPlanted => '第一颗种子还没落下';
@@ -1021,14 +1064,13 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
-  String get gardenSharedContinuityUnavailable => '共享 continuity 暂不可用';
+  String get gardenSharedContinuityUnavailable => '暂时还没有下一句';
 
   @override
   String get gardenContinueWatering => '继续浇灌';
 
   @override
-  String get gardenContinueNote =>
-      '如果你现在继续练习，Home 与 Garden 会沿着同一份 recommendation 一起更新。';
+  String get gardenContinueNote => '继续练习后，首页和花园会一起记住这次变化。';
 
   @override
   String get gardenContinueToday => '继续今天的练习';
@@ -1409,7 +1451,7 @@ class AppLocalizationsZh extends AppLocalizations {
     Object activityTitle,
     Object reason,
   ) {
-    return '最新影响来自 $impactTitle；回来继续会去 $activityTitle（$reason）。';
+    return '上一次变化来自 $impactTitle；现在可以接着去 $activityTitle（$reason）。';
   }
 
   @override

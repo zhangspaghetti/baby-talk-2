@@ -30,9 +30,10 @@ class GardenContinueCard extends StatelessWidget {
         continuitySnapshot?.recommendedActivity.activityId ?? 'safe-empty';
     final activityTitle =
         continuityActivity?.title ?? l.gardenContinueUnavailable;
-    final reasonLabel =
-        continuitySnapshot?.recommendation.reasonLabel ??
-        l.gardenSharedContinuityUnavailable;
+    final reasonLabel = _gardenContinuationReasonLabel(
+      l,
+      continuitySnapshot?.recommendation.reason,
+    );
     final warningMessage = continuityNotifier?.warningMessage;
     final disabledReason = continuityNotifier == null
         ? l.practiceEntryUnavailable
@@ -79,7 +80,7 @@ class GardenContinueCard extends StatelessWidget {
           if (continuitySnapshot?.fallbackReason != null) ...[
             const SizedBox(height: 12),
             Text(
-              continuitySnapshot!.fallbackReason!,
+              l.gardenFallbackReassurance,
               key: const Key('garden-continuity-fallback'),
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
                 color: colors.info,
@@ -90,7 +91,7 @@ class GardenContinueCard extends StatelessWidget {
           if (warningMessage != null && warningMessage.trim().isNotEmpty) ...[
             const SizedBox(height: 12),
             Text(
-              warningMessage,
+              l.gardenContinuationWarning,
               key: const Key('garden-continuity-warning'),
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
                 color: colors.warning,
@@ -101,7 +102,7 @@ class GardenContinueCard extends StatelessWidget {
           if (!canContinue && disabledReason != null) ...[
             const SizedBox(height: 12),
             Text(
-              disabledReason,
+              l.gardenContinueUnavailableNote,
               key: const Key('garden-launcher-bad-args'),
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
                 color: colors.warning,
@@ -122,5 +123,23 @@ class GardenContinueCard extends StatelessWidget {
         ],
       ),
     );
+  }
+}
+
+String _gardenContinuationReasonLabel(
+  AppLocalizations l,
+  PracticeContinuityReason? reason,
+) {
+  switch (reason) {
+    case PracticeContinuityReason.recentActivity:
+      return l.gardenContinuationRecent;
+    case PracticeContinuityReason.nextIncomplete:
+      return l.gardenContinuationNextIncomplete;
+    case PracticeContinuityReason.starterFallback:
+      return l.gardenContinuationStarter;
+    case PracticeContinuityReason.safeCatalogFallback:
+      return l.gardenContinuationSafeFallback;
+    case null:
+      return l.gardenSharedContinuityUnavailable;
   }
 }

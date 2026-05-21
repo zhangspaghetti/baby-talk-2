@@ -203,7 +203,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with RouteAware {
       widget.onboardingSnapshot,
     );
     final homeWarningMessage = _resolveHomeWarningMessage(continuityNotifier);
-    final homeDisabledReason = continuityNotifier.disabledReason;
+    final homeDisabledReason = continuityNotifier.disabledReason == null
+      ? null
+      : l.homeContinuityDisabledNote;
     final sharedContext = householdNotifier.snapshot.sharedContext;
     final localContinuityAt = continuitySnapshot?.cadence.lastEventTime;
     final sharedNextStepArgs = resolveHouseholdSharedNextStepArgs(
@@ -497,7 +499,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with RouteAware {
     if (fallbackReason != null) {
       return AppBanner(
         key: const Key('home-continuity-fallback-banner'),
-        message: fallbackReason,
+        message: l.homeContinuityFallbackNote,
         backgroundColor: colors.infoSoft,
         foregroundColor: colors.info,
       );
@@ -532,7 +534,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with RouteAware {
     if (warningMessage == null || warningMessage.isEmpty) {
       return null;
     }
-    return warningMessage;
+    final l = AppLocalizations.of(context)!;
+    return l.homeContinuityWarningNote;
   }
 
   String _resolveSafeHomeSummary(dynamic continuityNotifier) {
@@ -541,7 +544,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with RouteAware {
       return l.homeOrganizingContinuity;
     }
     if (continuityNotifier.disabledReason != null) {
-      return continuityNotifier.disabledReason!;
+      return l.homeContinuityDisabledNote;
     }
     return l.homeContinuityNoActivity;
   }

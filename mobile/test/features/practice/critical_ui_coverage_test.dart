@@ -39,6 +39,8 @@ import 'package:mobile/features/share/data/repositories/share_repository.dart';
 import 'package:mobile/features/share/domain/models/share_link_draft.dart';
 import 'package:mobile/features/share/presentation/share_notifier.dart';
 import 'package:mobile/features/share/presentation/widgets/share_callout_card.dart';
+import 'package:mobile/features/shell/presentation/widgets/garden_continue_card.dart';
+import 'package:mobile/features/shell/presentation/widgets/garden_hero_card.dart';
 import 'package:mobile/features/shell/presentation/widgets/garden_patch_card.dart';
 import 'package:mobile/l10n/app_localizations.dart';
 
@@ -429,6 +431,114 @@ void main() {
     );
   });
 
+  testWidgets('Garden continuation copy stays parent-facing', (tester) async {
+    final continuitySnapshot = _continuitySnapshot();
+    final continuityNotifier = _homeContinuityNotifier(continuitySnapshot);
+    final gardenSnapshot = _gardenSnapshot(spaces: [_gardenPatch()]);
+
+    await _pumpApp(
+      tester,
+      GardenHeroCard(
+        snapshot: gardenSnapshot,
+        status: GardenGrowthLoadStatus.ready,
+        continuityNotifier: continuityNotifier,
+        continuitySnapshot: continuitySnapshot,
+        continuityActivity: _homeActivitySnapshot,
+      ),
+    );
+
+    expect(find.textContaining('接着刚才练过的场景'), findsOneWidget);
+    expect(find.byKey(const Key('garden-continuity-status')), findsNothing);
+    expect(find.textContaining('continuity'), findsNothing);
+    expect(find.textContaining('recommendation'), findsNothing);
+    expect(find.textContaining('activity'), findsNothing);
+
+    await _pumpApp(
+      tester,
+      GardenContinueCard(
+        practiceArgs: const PracticeRouteArgs(
+          spaceId: 'home',
+          activityId: 'song_time',
+        ),
+        continuityNotifier: continuityNotifier,
+        continuitySnapshot: continuitySnapshot,
+        continuityActivity: _homeActivitySnapshot,
+      ),
+    );
+
+    expect(find.textContaining('接着刚才练过的场景'), findsOneWidget);
+    expect(find.text('继续练习后，首页和花园会一起记住这次变化。'), findsOneWidget);
+    expect(find.textContaining('continuity'), findsNothing);
+    expect(find.textContaining('recommendation'), findsNothing);
+    expect(find.textContaining('activity'), findsNothing);
+
+    final reasonCases = <PracticeContinuityReason, String>{
+      PracticeContinuityReason.recentActivity: '接着刚才练过的场景',
+      PracticeContinuityReason.nextIncomplete: '接上还没说完的活动',
+      PracticeContinuityReason.starterFallback: '回到第一颗种子',
+      PracticeContinuityReason.safeCatalogFallback: '先从稳定活动开始',
+    };
+
+    for (final entry in reasonCases.entries) {
+      final snapshot = _continuitySnapshot(
+        reason: entry.key,
+        fallbackReason: entry.key == PracticeContinuityReason.starterFallback
+            ? '回到 starter activity。'
+            : null,
+      );
+      await _pumpApp(
+        tester,
+        GardenContinueCard(
+          practiceArgs: const PracticeRouteArgs(
+            spaceId: 'home',
+            activityId: 'song_time',
+          ),
+          continuityNotifier: _homeContinuityNotifier(snapshot),
+          continuitySnapshot: snapshot,
+          continuityActivity: _homeActivitySnapshot,
+        ),
+      );
+
+      expect(find.text(entry.value), findsOneWidget);
+      expect(find.textContaining('starter activity'), findsNothing);
+      expect(find.textContaining('safe fallback'), findsNothing);
+      if (entry.key == PracticeContinuityReason.starterFallback) {
+        expect(find.text('已经为你换到一条稳定可继续的练习。'), findsOneWidget);
+      }
+    }
+
+    final guardedSnapshot = _continuitySnapshot();
+    final guardedNotifier = _homeContinuityNotifier(
+      guardedSnapshot,
+      warningMessage: 'continuity snapshot 有一条 activity 无法整理。',
+      disabledReason: 'activity route args 不可用。',
+    );
+
+    await _pumpApp(
+      tester,
+      GardenContinueCard(
+        practiceArgs: const PracticeRouteArgs(
+          spaceId: 'home',
+          activityId: 'song_time',
+        ),
+        continuityNotifier: guardedNotifier,
+        continuitySnapshot: guardedSnapshot,
+        continuityActivity: _homeActivitySnapshot,
+      ),
+    );
+
+    expect(
+      find.text('有一小段练习记录暂时没整理好，当前建议仍可继续。'),
+      findsOneWidget,
+    );
+    expect(
+      find.text('这条继续练习暂时打不开，先回首页或稍后再试。'),
+      findsOneWidget,
+    );
+    expect(find.textContaining('continuity snapshot'), findsNothing);
+    expect(find.textContaining('route args'), findsNothing);
+  });
+
   testWidgets('Home critical cards expose empty, recent, and retry states', (
     tester,
   ) async {
@@ -449,6 +559,20 @@ void main() {
 
     expect(find.byKey(const Key('recent-result-summary')), findsOneWidget);
     expect(find.textContaining('Hello wave'), findsOneWidget);
+
+    await _pumpApp(
+      tester,
+      HomeRecentResultCard(
+        continuitySnapshot: _continuitySnapshot(
+          fallbackReason: 'starter activity 作为 continuity fallback。',
+          hasRecentResult: false,
+        ),
+      ),
+    );
+
+    expect(find.text('最近结果暂时没整理好，先为你保留一条可继续的练习。'), findsOneWidget);
+    expect(find.textContaining('starter activity'), findsNothing);
+    expect(find.textContaining('continuity fallback'), findsNothing);
 
     final errorNotifier = _GardenGrowthNotifierStub(
       snapshot: GardenGrowthSnapshot.empty(),
@@ -651,7 +775,11 @@ GardenGrowthSnapshot _gardenSnapshot({
   );
 }
 
-PracticeContinuitySnapshot _continuitySnapshot() {
+PracticeContinuitySnapshot _continuitySnapshot({
+  PracticeContinuityReason reason = PracticeContinuityReason.recentActivity,
+  String? fallbackReason,
+  bool hasRecentResult = true,
+}) {
   final activity = PracticeCatalogActivitySummary(
     spaceId: 'home',
     spaceTitle: '家里',
@@ -668,13 +796,15 @@ PracticeContinuitySnapshot _continuitySnapshot() {
     totalEvents: 2,
     skippedUnknownPhraseCount: 0,
     skippedMalformedEventCount: 0,
-    recentResult: PracticeCatalogRecentResultSummary(
-      phraseId: 'hello_wave',
-      phraseEnglish: 'Hello wave',
-      reactionType: BabyReactionType.imitated,
-      eventTime: DateTime.utc(2026, 5, 19, 8),
-      totalEvents: 2,
-    ),
+    recentResult: hasRecentResult
+        ? PracticeCatalogRecentResultSummary(
+            phraseId: 'hello_wave',
+            phraseEnglish: 'Hello wave',
+            reactionType: BabyReactionType.imitated,
+            eventTime: DateTime.utc(2026, 5, 19, 8),
+            totalEvents: 2,
+          )
+        : null,
   );
   final catalog = PracticeActivityCatalog(
     installationId: 'install_critical_ui',
@@ -696,8 +826,9 @@ PracticeContinuitySnapshot _continuitySnapshot() {
       spaceId: activity.spaceId,
       activityId: activity.activityId,
       activityTitle: activity.title,
-      reason: PracticeContinuityReason.recentActivity,
-      reasonLabel: PracticeContinuityReason.recentActivity.label,
+      reason: reason,
+      reasonLabel: reason.label,
+      fallbackReason: fallbackReason,
     ),
     cadence: const PracticeContinuityCadenceSummary(
       totalKnownEvents: 2,
@@ -917,8 +1048,10 @@ const _screenActivitySnapshot = PracticeActivitySnapshot(
 );
 
 PracticeContinuityNotifier _homeContinuityNotifier(
-  PracticeContinuitySnapshot continuitySnapshot,
-) {
+  PracticeContinuitySnapshot continuitySnapshot, {
+  String? warningMessage,
+  String? disabledReason,
+}) {
   const recommendedArgs = PracticeRouteArgs(
     spaceId: 'home',
     activityId: 'song_time',
@@ -935,6 +1068,8 @@ PracticeContinuityNotifier _homeContinuityNotifier(
       activitySnapshot: _homeActivitySnapshot,
       recommendedArgs: recommendedArgs,
       status: PracticeContinuityLoadStatus.ready,
+      warningMessage: warningMessage,
+      disabledReason: disabledReason,
       lastRefreshReason: 'home_screen_test_seed',
     ),
     refreshTimeout: Duration.zero,

@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:mobile/app/theme/app_theme.dart';
 import 'package:mobile/features/practice/data/repositories/practice_repository.dart';
@@ -30,8 +29,10 @@ class GardenHeroCard extends StatelessWidget {
     final colors = context.appColors;
     final impact = snapshot.latestImpact;
     final theme = Theme.of(context);
-    final continuityReasonLabel =
-        continuitySnapshot?.recommendation.reasonLabel;
+    final continuityReasonLabel = _gardenContinuationReasonLabel(
+      l,
+      continuitySnapshot?.recommendation.reason,
+    );
     final continuityActivityTitle = continuityActivity?.title;
 
     String eyebrow = l.gardenTodayChanges;
@@ -51,7 +52,7 @@ class GardenHeroCard extends StatelessWidget {
       title = continuityActivityTitle == null
           ? l.gardenContinueUnavailable
           : l.gardenContinueActivityTitle(continuityActivityTitle);
-      body = continuityNotifier!.disabledReason!;
+      body = l.gardenContinueUnavailableNote;
     } else if (impact != null) {
       eyebrow = impact.spaceTitle;
       title = continuityActivityTitle == null
@@ -65,7 +66,7 @@ class GardenHeroCard extends StatelessWidget {
           : l.gardenImpactWithReasonDetail(
               impact.activityTitle,
               continuityActivityTitle,
-              continuityReasonLabel ?? l.gardenSharedContinuity,
+              continuityReasonLabel,
             );
     } else if (continuityActivityTitle != null) {
       eyebrow = l.gardenComeBack;
@@ -111,7 +112,7 @@ class GardenHeroCard extends StatelessWidget {
           if (continuityActivityTitle != null) ...[
             const SizedBox(height: 12),
             Text(
-              '$continuityActivityTitle · ${continuityReasonLabel ?? l.gardenSharedContinuity}',
+              '$continuityActivityTitle · $continuityReasonLabel',
               key: Key(
                 'garden-continuity-target-${continuitySnapshot?.recommendedActivity.activityId ?? 'safe-empty'}',
               ),
@@ -119,14 +120,6 @@ class GardenHeroCard extends StatelessWidget {
                 color: colors.textSecondary,
                 fontWeight: FontWeight.w700,
               ),
-            ),
-          ],
-          if (kDebugMode) ...[
-            const SizedBox(height: 12),
-            Text(
-              'continuity: ${continuityNotifier?.status.label ?? 'missing_provider'}${continuityNotifier?.lastRefreshReason == null ? '' : ' · refresh: ${continuityNotifier!.lastRefreshReason}'}',
-              key: const Key('garden-continuity-status'),
-              style: theme.textTheme.bodySmall,
             ),
           ],
           if (snapshot.hasIssues && snapshot.projectionWarning != null) ...[
@@ -140,5 +133,23 @@ class GardenHeroCard extends StatelessWidget {
         ],
       ),
     );
+  }
+}
+
+String _gardenContinuationReasonLabel(
+  AppLocalizations l,
+  PracticeContinuityReason? reason,
+) {
+  switch (reason) {
+    case PracticeContinuityReason.recentActivity:
+      return l.gardenContinuationRecent;
+    case PracticeContinuityReason.nextIncomplete:
+      return l.gardenContinuationNextIncomplete;
+    case PracticeContinuityReason.starterFallback:
+      return l.gardenContinuationStarter;
+    case PracticeContinuityReason.safeCatalogFallback:
+      return l.gardenContinuationSafeFallback;
+    case null:
+      return l.gardenSharedContinuityUnavailable;
   }
 }

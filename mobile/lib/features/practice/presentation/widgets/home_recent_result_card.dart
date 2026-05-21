@@ -34,7 +34,9 @@ class HomeRecentResultCard extends StatelessWidget {
           const SizedBox(height: 8),
           if (recentResult == null)
             Text(
-              continuitySnapshot?.fallbackReason ?? l.homeNoLocalRecords,
+              continuitySnapshot?.fallbackReason == null
+                  ? l.homeNoLocalRecords
+                  : l.homeRecentFallbackNote,
               key: const Key('recent-result-empty'),
               style: Theme.of(context).textTheme.bodyMedium,
             )

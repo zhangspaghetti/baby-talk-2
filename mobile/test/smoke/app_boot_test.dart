@@ -325,7 +325,7 @@ void main() {
         find.byKey(const Key('garden-continue-target-feeding_time')),
         findsOneWidget,
       );
-      expect(find.textContaining('继续最近 activity'), findsWidgets);
+      expect(find.textContaining('接着刚才练过的场景'), findsWidgets);
     },
   );
 

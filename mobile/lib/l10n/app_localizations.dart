@@ -217,13 +217,13 @@ abstract class AppLocalizations {
   /// No description provided for @homeContinuityNotConnected.
   ///
   /// In zh, this message translates to:
-  /// **'共享 continuity 暂未接通。'**
+  /// **'继续练习暂时还没准备好。'**
   String get homeContinuityNotConnected;
 
   /// No description provided for @homeTonightTryActivity.
   ///
   /// In zh, this message translates to:
-  /// **'今晚试试把最近一次 activity 自然接起来。'**
+  /// **'今晚试试把最近一次练习自然接起来。'**
   String get homeTonightTryActivity;
 
   /// No description provided for @homeWelcomeBack.
@@ -235,7 +235,7 @@ abstract class AppLocalizations {
   /// No description provided for @homeContinuitySharedNote.
   ///
   /// In zh, this message translates to:
-  /// **'首页和花园共用同一条 continuity recommendation；返回练习后会一起刷新。'**
+  /// **'首页和花园会一起记住这次练习，回来后同步更新。'**
   String get homeContinuitySharedNote;
 
   /// No description provided for @homePracticeUnavailable.
@@ -271,14 +271,32 @@ abstract class AppLocalizations {
   /// No description provided for @homeOrganizingContinuity.
   ///
   /// In zh, this message translates to:
-  /// **'正在整理共享 continuity recommendation…'**
+  /// **'正在整理适合继续的练习…'**
   String get homeOrganizingContinuity;
 
   /// No description provided for @homeContinuityNoActivity.
   ///
   /// In zh, this message translates to:
-  /// **'共享 continuity 尚未给出可继续的 activity。'**
+  /// **'暂时还没有下一条可继续的练习。'**
   String get homeContinuityNoActivity;
+
+  /// No description provided for @homeContinuityWarningNote.
+  ///
+  /// In zh, this message translates to:
+  /// **'有一小段练习记录暂时没整理好，当前建议仍可继续。'**
+  String get homeContinuityWarningNote;
+
+  /// No description provided for @homeContinuityDisabledNote.
+  ///
+  /// In zh, this message translates to:
+  /// **'继续练习暂时没准备好，请稍后再试。'**
+  String get homeContinuityDisabledNote;
+
+  /// No description provided for @homeContinuityFallbackNote.
+  ///
+  /// In zh, this message translates to:
+  /// **'已经为你换到一条稳定可继续的练习。'**
+  String get homeContinuityFallbackNote;
 
   /// No description provided for @homeStartPractice.
   ///
@@ -343,8 +361,32 @@ abstract class AppLocalizations {
   /// No description provided for @homeContinuityUnavailable.
   ///
   /// In zh, this message translates to:
-  /// **'共享 continuity 暂不可用'**
+  /// **'继续练习暂时不可用'**
   String get homeContinuityUnavailable;
+
+  /// No description provided for @homeContinuationRecent.
+  ///
+  /// In zh, this message translates to:
+  /// **'接着刚才练过的场景'**
+  String get homeContinuationRecent;
+
+  /// No description provided for @homeContinuationNextIncomplete.
+  ///
+  /// In zh, this message translates to:
+  /// **'接上还没说完的活动'**
+  String get homeContinuationNextIncomplete;
+
+  /// No description provided for @homeContinuationStarter.
+  ///
+  /// In zh, this message translates to:
+  /// **'回到第一颗种子'**
+  String get homeContinuationStarter;
+
+  /// No description provided for @homeContinuationSafeFallback.
+  ///
+  /// In zh, this message translates to:
+  /// **'先从稳定活动开始'**
+  String get homeContinuationSafeFallback;
 
   /// No description provided for @homeNextAlternative.
   ///
@@ -367,7 +409,7 @@ abstract class AppLocalizations {
   /// No description provided for @homeWaitingContinuity.
   ///
   /// In zh, this message translates to:
-  /// **'等待 continuity'**
+  /// **'等待下一次练习'**
   String get homeWaitingContinuity;
 
   /// No description provided for @homeCadence.
@@ -391,7 +433,7 @@ abstract class AppLocalizations {
   /// No description provided for @homeGardenProjecting.
   ///
   /// In zh, this message translates to:
-  /// **'先把事件投影成花圃和花朵阶段，马上就能看到结果。'**
+  /// **'花圃正在整理最近练习，马上就能看到结果。'**
   String get homeGardenProjecting;
 
   /// No description provided for @homeGardenNotReady.
@@ -461,7 +503,7 @@ abstract class AppLocalizations {
   /// No description provided for @homeGrowthFallback.
   ///
   /// In zh, this message translates to:
-  /// **'投影失败时会保留安全空态，不会让首页白屏。'**
+  /// **'花圃暂时没整理好，会先保留当前结果。'**
   String get homeGrowthFallback;
 
   /// No description provided for @homeGrowthPlaceholder.
@@ -493,6 +535,12 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'还没有本地练习记录，第一次打开也会看到安全空态。'**
   String get homeNoLocalRecords;
+
+  /// No description provided for @homeRecentFallbackNote.
+  ///
+  /// In zh, this message translates to:
+  /// **'最近结果暂时没整理好，先为你保留一条可继续的练习。'**
+  String get homeRecentFallbackNote;
 
   /// No description provided for @homeRecentResultDetail.
   ///
@@ -1769,13 +1817,13 @@ abstract class AppLocalizations {
   /// No description provided for @gardenProjectingNote.
   ///
   /// In zh, this message translates to:
-  /// **'事件会先被投影成花圃、花朵和阶段，再温柔地出现在这里。'**
+  /// **'正在把最近练习整理成花圃变化，稍等一下就会出现在这里。'**
   String get gardenProjectingNote;
 
   /// No description provided for @gardenContinuityNotConnected.
   ///
   /// In zh, this message translates to:
-  /// **'continuity 未接通'**
+  /// **'继续练习暂时没准备好'**
   String get gardenContinuityNotConnected;
 
   /// No description provided for @gardenUnavailable.
@@ -1805,7 +1853,7 @@ abstract class AppLocalizations {
   /// No description provided for @gardenImpactWithReason.
   ///
   /// In zh, this message translates to:
-  /// **'最新影响来自 {impactTitle}；回来继续会去 {activityTitle}（{reason}'**
+  /// **'上一次变化来自 {impactTitle}；现在可以接着去 {activityTitle}（{reason}）。'**
   String gardenImpactWithReason(
     Object impactTitle,
     Object activityTitle,
@@ -1815,14 +1863,56 @@ abstract class AppLocalizations {
   /// No description provided for @gardenContinuitySharedNote.
   ///
   /// In zh, this message translates to:
-  /// **'花园会和首页一起，把你带回同一条 continuity recommendation。'**
+  /// **'花园会和首页一起，把你带回刚才适合继续说的练习。'**
   String get gardenContinuitySharedNote;
 
   /// No description provided for @gardenSharedContinuity.
   ///
   /// In zh, this message translates to:
-  /// **'共享 continuity'**
+  /// **'顺着刚才的练习'**
   String get gardenSharedContinuity;
+
+  /// No description provided for @gardenContinuationRecent.
+  ///
+  /// In zh, this message translates to:
+  /// **'接着刚才练过的场景'**
+  String get gardenContinuationRecent;
+
+  /// No description provided for @gardenContinuationNextIncomplete.
+  ///
+  /// In zh, this message translates to:
+  /// **'接上还没说完的活动'**
+  String get gardenContinuationNextIncomplete;
+
+  /// No description provided for @gardenContinuationStarter.
+  ///
+  /// In zh, this message translates to:
+  /// **'回到第一颗种子'**
+  String get gardenContinuationStarter;
+
+  /// No description provided for @gardenContinuationSafeFallback.
+  ///
+  /// In zh, this message translates to:
+  /// **'先从稳定活动开始'**
+  String get gardenContinuationSafeFallback;
+
+  /// No description provided for @gardenFallbackReassurance.
+  ///
+  /// In zh, this message translates to:
+  /// **'已经为你换到一条稳定可继续的练习。'**
+  String get gardenFallbackReassurance;
+
+  /// No description provided for @gardenContinuationWarning.
+  ///
+  /// In zh, this message translates to:
+  /// **'有一小段练习记录暂时没整理好，当前建议仍可继续。'**
+  String get gardenContinuationWarning;
+
+  /// No description provided for @gardenContinueUnavailableNote.
+  ///
+  /// In zh, this message translates to:
+  /// **'这条继续练习暂时打不开，先回首页或稍后再试。'**
+  String get gardenContinueUnavailableNote;
 
   /// No description provided for @gardenFirstSeedNotPlanted.
   ///
@@ -1875,7 +1965,7 @@ abstract class AppLocalizations {
   /// No description provided for @gardenSharedContinuityUnavailable.
   ///
   /// In zh, this message translates to:
-  /// **'共享 continuity 暂不可用'**
+  /// **'暂时还没有下一句'**
   String get gardenSharedContinuityUnavailable;
 
   /// No description provided for @gardenContinueWatering.
@@ -1887,7 +1977,7 @@ abstract class AppLocalizations {
   /// No description provided for @gardenContinueNote.
   ///
   /// In zh, this message translates to:
-  /// **'如果你现在继续练习，Home 与 Garden 会沿着同一份 recommendation 一起更新。'**
+  /// **'继续练习后，首页和花园会一起记住这次变化。'**
   String get gardenContinueNote;
 
   /// No description provided for @gardenContinueToday.
@@ -2581,7 +2671,7 @@ abstract class AppLocalizations {
   /// No description provided for @gardenImpactWithReasonDetail.
   ///
   /// In zh, this message translates to:
-  /// **'最新影响来自 {impactTitle}；回来继续会去 {activityTitle}（{reason}）。'**
+  /// **'上一次变化来自 {impactTitle}；现在可以接着去 {activityTitle}（{reason}）。'**
   String gardenImpactWithReasonDetail(
     Object impactTitle,
     Object activityTitle,
