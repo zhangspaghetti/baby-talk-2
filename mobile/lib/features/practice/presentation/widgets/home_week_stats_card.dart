@@ -32,7 +32,10 @@ class HomeWeekStatsCard extends StatelessWidget {
                 label: l.homeRecommendedActivity,
                 value: recommendedActivity?.title ?? l.homeOrganizing,
                 hint:
-                    continuitySnapshot?.recommendation.reasonLabel ??
+                    _homeContinuationReasonLabel(
+                      l,
+                      continuitySnapshot?.recommendation.reason,
+                    ) ??
                     l.homeWaitingContinuity,
               ),
             ),
@@ -51,6 +54,24 @@ class HomeWeekStatsCard extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  String? _homeContinuationReasonLabel(
+    AppLocalizations l,
+    PracticeContinuityReason? reason,
+  ) {
+    switch (reason) {
+      case PracticeContinuityReason.recentActivity:
+        return l.homeContinuationRecent;
+      case PracticeContinuityReason.nextIncomplete:
+        return l.homeContinuationNextIncomplete;
+      case PracticeContinuityReason.starterFallback:
+        return l.homeContinuationStarter;
+      case PracticeContinuityReason.safeCatalogFallback:
+        return l.homeContinuationSafeFallback;
+      case null:
+        return null;
+    }
   }
 }
 

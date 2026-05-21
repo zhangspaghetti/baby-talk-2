@@ -41,7 +41,7 @@ class HomeGardenMiniEntry extends StatelessWidget {
         break;
       case GardenGrowthLoadStatus.error:
         title = l.homeGardenNotReady;
-        body = effectiveNotifier?.message ?? l.homeGardenKeepStable;
+        body = l.homeGardenKeepStable;
         backgroundColor = colors.warningSoft;
         foregroundColor = colors.warning;
         break;
@@ -103,7 +103,7 @@ class HomeGardenMiniEntry extends StatelessWidget {
             if (snapshot.hasIssues && snapshot.projectionWarning != null) ...[
               const SizedBox(height: 10),
               Text(
-                snapshot.projectionWarning!,
+                l.homeGardenWarningNote,
                 key: const Key('home-garden-mini-entry-warning'),
                 style: Theme.of(
                   context,

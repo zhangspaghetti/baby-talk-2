@@ -181,7 +181,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get homeCadence => '连续节奏';
 
   @override
-  String get homeDerivingCadence => '正在从本地事件派生 cadence';
+  String get homeDerivingCadence => '正在整理最近一周的练习节奏';
 
   @override
   String get homeGardenOrganizing => '花园正在整理今天的变化';
@@ -194,6 +194,9 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get homeGardenKeepStable => '先保留最近一次稳定结果，你也可以稍后刷新。';
+
+  @override
+  String get homeGardenWarningNote => '有一小段练习记录暂时没整理好，花圃先保留可用结果。';
 
   @override
   String get homeGardenStartFirst => '你的花园会从第一句开口开始';
@@ -971,6 +974,9 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get gardenProjectingNote => '正在把最近练习整理成花圃变化，稍等一下就会出现在这里。';
+
+  @override
+  String get gardenProjectionWarningNote => '有一小段练习记录暂时没整理好，花圃先保留可用结果。';
 
   @override
   String get gardenContinuityNotConnected => '继续练习暂时没准备好';

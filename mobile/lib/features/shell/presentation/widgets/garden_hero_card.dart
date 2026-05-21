@@ -125,7 +125,7 @@ class GardenHeroCard extends StatelessWidget {
           if (snapshot.hasIssues && snapshot.projectionWarning != null) ...[
             const SizedBox(height: 12),
             Text(
-              snapshot.projectionWarning!,
+              l.gardenProjectionWarningNote,
               key: const Key('garden-projection-warning'),
               style: theme.textTheme.bodySmall,
             ),

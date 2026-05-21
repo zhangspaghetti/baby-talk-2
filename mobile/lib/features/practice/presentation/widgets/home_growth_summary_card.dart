@@ -27,7 +27,7 @@ class HomeGrowthSummaryCard extends StatelessWidget {
 
     if (effectiveNotifier?.hasError ?? false) {
       title = l.homeGrowthUnavailable;
-      body = effectiveNotifier?.message ?? l.homeGrowthFallback;
+      body = l.homeGrowthFallback;
     } else if (impact == null ||
         effectiveNotifier == null ||
         effectiveNotifier.isEmpty) {
@@ -80,7 +80,7 @@ class HomeGrowthSummaryCard extends StatelessWidget {
           if (snapshot.hasIssues && snapshot.projectionWarning != null) ...[
             const SizedBox(height: 10),
             Text(
-              snapshot.projectionWarning!,
+              l.homeGardenWarningNote,
               key: const Key('home-growth-summary-warning'),
               style: Theme.of(context).textTheme.bodySmall,
             ),

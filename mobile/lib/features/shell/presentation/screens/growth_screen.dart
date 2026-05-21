@@ -162,7 +162,7 @@ class _GrowthHeroCard extends StatelessWidget {
             if (snapshot.hasIssues && snapshot.projectionWarning != null) ...[
               const SizedBox(height: AppLayoutConstants.spacingSm),
               Text(
-                snapshot.projectionWarning!,
+                l.gardenProjectionWarningNote,
                 key: const Key('growth-projection-warning'),
                 style: theme.textTheme.bodySmall,
               ),

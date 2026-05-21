@@ -103,6 +103,11 @@ void main() {
       find.byKey(const Key('growth-combined-projection-warning')),
       findsOneWidget,
     );
+    expect(
+      find.text('有一小段练习记录暂时没整理好，花圃先保留可用结果。'),
+      findsOneWidget,
+    );
+    expect(find.textContaining('有 1 条记录'), findsNothing);
     expect(find.text('花圃醒来了'), findsOneWidget);
     expect(find.text('宝宝模仿了 hello。'), findsOneWidget);
     expect(

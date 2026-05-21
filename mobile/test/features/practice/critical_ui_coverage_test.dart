@@ -418,7 +418,11 @@ void main() {
       find.byKey(const Key('home-garden-mini-entry-warning')),
       findsOneWidget,
     );
-    expect(find.textContaining('有 1 条记录'), findsOneWidget);
+    expect(
+      find.text('有一小段练习记录暂时没整理好，花圃先保留可用结果。'),
+      findsOneWidget,
+    );
+    expect(find.textContaining('有 1 条记录'), findsNothing);
 
     await _pumpApp(tester, HomeGrowthSummaryCard(notifier: notifier));
 
@@ -586,7 +590,8 @@ void main() {
     await tester.pump();
 
     expect(errorNotifier.refreshCount, 1);
-    expect(find.text('花园暂时不可用。'), findsOneWidget);
+    expect(find.text('花圃暂时没整理好，会先保留当前结果。'), findsOneWidget);
+    expect(find.text('花园暂时不可用。'), findsNothing);
   });
 
   testWidgets(

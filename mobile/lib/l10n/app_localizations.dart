@@ -421,7 +421,7 @@ abstract class AppLocalizations {
   /// No description provided for @homeDerivingCadence.
   ///
   /// In zh, this message translates to:
-  /// **'正在从本地事件派生 cadence'**
+  /// **'正在整理最近一周的练习节奏'**
   String get homeDerivingCadence;
 
   /// No description provided for @homeGardenOrganizing.
@@ -447,6 +447,12 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'先保留最近一次稳定结果，你也可以稍后刷新。'**
   String get homeGardenKeepStable;
+
+  /// No description provided for @homeGardenWarningNote.
+  ///
+  /// In zh, this message translates to:
+  /// **'有一小段练习记录暂时没整理好，花圃先保留可用结果。'**
+  String get homeGardenWarningNote;
 
   /// No description provided for @homeGardenStartFirst.
   ///
@@ -1819,6 +1825,12 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'正在把最近练习整理成花圃变化，稍等一下就会出现在这里。'**
   String get gardenProjectingNote;
+
+  /// No description provided for @gardenProjectionWarningNote.
+  ///
+  /// In zh, this message translates to:
+  /// **'有一小段练习记录暂时没整理好，花圃先保留可用结果。'**
+  String get gardenProjectionWarningNote;
 
   /// No description provided for @gardenContinuityNotConnected.
   ///

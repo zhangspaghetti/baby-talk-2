@@ -306,7 +306,7 @@ class _GardenGrowthCombinedScreenState
                     snapshot.projectionWarning != null) ...[
                   const SizedBox(height: AppLayoutConstants.spacingSm),
                   Text(
-                    snapshot.projectionWarning!,
+                    l.gardenProjectionWarningNote,
                     key: const Key('growth-combined-projection-warning'),
                     style: theme.textTheme.bodySmall,
                   ),
