@@ -17,6 +17,7 @@ import 'package:mobile/features/onboarding/domain/models/stage_match.dart';
 import 'package:mobile/features/practice/data/local/practice_local_data_source.dart';
 import 'package:mobile/features/practice/data/repositories/practice_repository.dart';
 import 'package:mobile/features/practice/data/services/asset_phrase_service.dart';
+import 'package:mobile/features/practice/domain/models/interaction_event_payload.dart';
 import 'package:mobile/features/practice/presentation/screens/home_screen.dart';
 import 'package:mobile/features/practice/presentation/garden_growth_notifier.dart';
 import 'package:mobile/features/sync/data/repositories/sync_repository.dart';
@@ -138,6 +139,72 @@ class FullChainTestHarness {
     await backend.dispose();
     if (await tempDir.exists()) {
       await tempDir.delete(recursive: true);
+    }
+  }
+
+  Future<void> seedPracticeEventsForBenchmark({required int count}) async {
+    if (count <= 0) {
+      return;
+    }
+    await closeActiveRepository();
+    final repository = await _openRepository(bootState.assetPhraseService!);
+    const phraseIds = <String>[
+      'bath_time_warm_water',
+      'bath_time_splash_splash',
+      'bath_time_all_clean',
+    ];
+    const reactionTypes = <BabyReactionType>[
+      BabyReactionType.engaged,
+      BabyReactionType.imitated,
+      BabyReactionType.calm,
+    ];
+    final baseTimestamp = DateTime.utc(2026, 5, 20, 8);
+    try {
+      for (var index = 0; index < count; index += 1) {
+        await repository.recordReaction(
+          spaceId: 'daily_care',
+          activityId: 'bath_time',
+          phraseId: phraseIds[index % phraseIds.length],
+          reactionType: reactionTypes[index % reactionTypes.length],
+          clientTimestamp: baseTimestamp.add(Duration(seconds: index)),
+          localEventId: 'r4_perf_${practiceDbName}_$index',
+        );
+      }
+    } finally {
+      await closeActiveRepository();
+    }
+  }
+
+  Future<Map<String, int>> measurePracticeProjectionForBenchmark() async {
+    await closeActiveRepository();
+    final repository = await _openRepository(bootState.assetPhraseService!);
+    try {
+      final measurements = <String, int>{};
+      final catalog = await _measureBenchmarkStep(
+        measurements,
+        'catalog_ms',
+        repository.getActivityCatalog,
+      );
+      measurements['catalog_total_events'] = catalog.totalStoredEvents;
+      await _measureBenchmarkStep(
+        measurements,
+        'continuity_ms',
+        () => repository.getContinuitySnapshot(
+          starterSpaceId: 'daily_care',
+          starterActivityId: 'bath_time',
+        ),
+      );
+      await _measureBenchmarkStep(
+        measurements,
+        'home_summary_ms',
+        () => repository.getHomeSummary(
+          spaceId: 'daily_care',
+          activityId: 'bath_time',
+        ),
+      );
+      return measurements;
+    } finally {
+      await closeActiveRepository();
     }
   }
 
@@ -738,6 +805,18 @@ class FullChainTestHarness {
     }
     fail('Timed out waiting for $reason.');
   }
+}
+
+Future<T> _measureBenchmarkStep<T>(
+  Map<String, int> measurements,
+  String key,
+  Future<T> Function() action,
+) async {
+  final stopwatch = Stopwatch()..start();
+  final result = await action();
+  stopwatch.stop();
+  measurements[key] = stopwatch.elapsedMilliseconds;
+  return result;
 }
 
 Uri _resolveConfiguredBackendUri() {
