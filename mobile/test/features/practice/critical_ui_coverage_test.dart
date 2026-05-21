@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mobile/app/providers/repository_providers.dart';
+import 'package:mobile/app/theme/app_layout_constants.dart';
 import 'package:mobile/app/theme/app_theme.dart';
 import 'package:mobile/features/account/data/local/account_local_store.dart';
 import 'package:mobile/features/account/data/repositories/account_repository_contract.dart';
@@ -30,6 +31,7 @@ import 'package:mobile/features/practice/presentation/practice_route_args.dart';
 import 'package:mobile/features/practice/presentation/screens/home_screen.dart';
 import 'package:mobile/features/practice/presentation/screens/practice_session_screen.dart';
 import 'package:mobile/features/practice/presentation/widgets/activation_frame.dart';
+import 'package:mobile/features/practice/presentation/widgets/phrase_card.dart';
 import 'package:mobile/features/practice/presentation/widgets/home_garden_mini_entry.dart';
 import 'package:mobile/features/practice/presentation/widgets/home_growth_summary_card.dart';
 import 'package:mobile/features/practice/presentation/widgets/home_recent_result_card.dart';
@@ -58,15 +60,16 @@ void main() {
     await _pumpApp(
       tester,
       ActivationFrame(
-        stepLabel: 'STEP 2',
-        title: '跟着宝宝节奏来',
+        stepLabel: '第 2 句',
+        title: '现在试试这一句',
         child: const Text('Hello wave'),
       ),
     );
 
     expect(find.byKey(const Key('activation-frame')), findsOneWidget);
-    expect(find.text('C3 激活框'), findsOneWidget);
-    expect(find.text('STEP 2'), findsOneWidget);
+    expect(find.text('跟着宝宝节奏来'), findsOneWidget);
+    expect(find.text('现在试试这一句'), findsOneWidget);
+    expect(find.text('第 2 句'), findsOneWidget);
     expect(find.text('Hello wave'), findsOneWidget);
 
     await _pumpApp(
@@ -152,6 +155,13 @@ void main() {
 
       expect(find.byKey(const Key('session-progress')), findsOneWidget);
       expect(find.byKey(const Key('practice-progress-text')), findsOneWidget);
+      expect(find.text('第 1 / 3 句'), findsOneWidget);
+      expect(find.text('现在试试这一句'), findsOneWidget);
+      expect(find.text('发音可播放'), findsOneWidget);
+      expect(find.text('等宝宝反应'), findsOneWidget);
+      expect(find.textContaining('idle'), findsNothing);
+      expect(find.textContaining('C3'), findsNothing);
+      expect(find.textContaining('STEP'), findsNothing);
       expect(
         find.byKey(const Key('phrase-card-bath_time_warm_water')),
         findsOneWidget,
@@ -181,6 +191,88 @@ void main() {
       expect(repository._events, hasLength(1));
     },
   );
+
+  testWidgets('Active PhraseCard stacks play affordance at high text scale', (
+    tester,
+  ) async {
+    tester.binding.platformDispatcher.textScaleFactorTestValue = 1.4;
+    addTearDown(
+      tester.binding.platformDispatcher.clearTextScaleFactorTestValue,
+    );
+
+    await _pumpApp(
+      tester,
+      PhraseCard(
+        phrase: _screenActivitySnapshot.phrases.first,
+        isActive: true,
+        isCompleted: false,
+        playbackStatus: PracticePlaybackStatus.idle,
+        saveStatus: PracticeSaveStatus.idle,
+        playbackMessage: null,
+        saveMessage: null,
+        canPlay: true,
+        canSubmitReaction: true,
+        onPlay: () {},
+        onReactionSelected: (_) {},
+      ),
+    );
+
+    expect(
+      find.byKey(const Key('phrase-action-stacked-bath_time_warm_water')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const Key('phrase-action-row-bath_time_warm_water')),
+      findsNothing,
+    );
+    expect(find.text('发音可播放'), findsOneWidget);
+    expect(find.text('等宝宝反应'), findsOneWidget);
+
+    final playButtonSize = tester.getSize(
+      find.byKey(const Key('play-bath_time_warm_water')),
+    );
+    expect(
+      playButtonSize.height,
+      greaterThanOrEqualTo(AppLayoutConstants.minTouchTarget),
+    );
+    expect(
+      playButtonSize.width,
+      greaterThanOrEqualTo(AppLayoutConstants.minTouchTarget),
+    );
+  });
+
+  testWidgets('Active PhraseCard stacks play affordance in narrow width', (
+    tester,
+  ) async {
+    await _pumpApp(
+      tester,
+      SizedBox(
+        width: 300,
+        child: PhraseCard(
+          phrase: _screenActivitySnapshot.phrases.first,
+          isActive: true,
+          isCompleted: false,
+          playbackStatus: PracticePlaybackStatus.idle,
+          saveStatus: PracticeSaveStatus.idle,
+          playbackMessage: null,
+          saveMessage: null,
+          canPlay: true,
+          canSubmitReaction: true,
+          onPlay: () {},
+          onReactionSelected: (_) {},
+        ),
+      ),
+    );
+
+    expect(
+      find.byKey(const Key('phrase-action-stacked-bath_time_warm_water')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const Key('phrase-action-row-bath_time_warm_water')),
+      findsNothing,
+    );
+  });
 
   testWidgets(
     'HomeScreen renders resolved continuity surface and lower cards',

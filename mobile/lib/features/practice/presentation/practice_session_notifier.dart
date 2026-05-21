@@ -490,7 +490,7 @@ class PracticeSessionNotifier extends ChangeNotifier {
     _playbackTimeoutTimer = null;
     _audioController.stop();
     _playbackStatus = PracticePlaybackStatus.idle;
-    _playbackMessage = '播放超时，已回到 idle，可再次点击播放。';
+    _playbackMessage = '播放超时了，短语还留在这里，可以再点一次播放。';
     notifyListeners();
   }
 

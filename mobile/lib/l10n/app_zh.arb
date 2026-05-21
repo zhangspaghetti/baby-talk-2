@@ -365,7 +365,10 @@
   "practiceProgress": "第 {current} / {total} 句",
   "@practiceProgress": {"placeholders": {"current": {}, "total": {}}},
   "practiceLastSaved": "最后一句也已保存，本轮练习已完成。返回首页后会看到最近一次本地结果。",
-  "practiceCurrentPhrases": "当前练习中的短语",
+  "practiceCurrentPhrases": "现在试试这一句",
+  "practiceActivationKicker": "跟着宝宝节奏来",
+  "practicePhraseStep": "第 {step} 句",
+  "@practicePhraseStep": {"placeholders": {"step": {}}},
   "practiceUnavailable": "练习暂不可用",
   "practiceBackHome": "返回首页",
 
@@ -397,11 +400,15 @@
 
   "phraseRecorded": "已记录",
   "phrasePending": "待练习",
-  "phraseAudioStatus": "音频 · {status}",
-  "@phraseAudioStatus": {"placeholders": {"status": {}}},
-  "phraseSaveStatus": "保存 · {status}",
-  "@phraseSaveStatus": {"placeholders": {"status": {}}},
-  "phraseNote": "点按播放真实本地音频，再选择宝宝反应。状态会直接暴露为 idle / playing / completed / error。",
+  "phrasePlaybackReady": "发音可播放",
+  "phrasePlaybackPlaying": "正在播放",
+  "phrasePlaybackCompleted": "已经听过",
+  "phrasePlaybackRetry": "播放需重试",
+  "phraseSaveAwaitingReaction": "等宝宝反应",
+  "phraseSaveSaving": "正在保存",
+  "phraseSaveSaved": "已记下反应",
+  "phraseSaveRetry": "保存需重试",
+  "phraseNote": "先听一遍，再跟着宝宝的节奏说。宝宝看你、安静听，或咿呀回应，都可以记录。",
   "phraseReactionLabel": "宝宝现在的反应",
 
   "growthRefreshFailed": "成长页刷新失败，先保留上次稳定结果。",
@@ -458,7 +465,7 @@
   "shareUnavailable": "分享暂时不可用，请稍后重试。",
   "sharePrivacyNote": "分享内容会自动脱敏，不包含昵称、安装号或调试信息。",
 
-  "activationFrameLabel": "C3 激活框",
+  "activationFrameLabel": "当前短语练习区",
 
   "accountEntryLoading": "正在准备账号状态",
   "accountEntryPreparingProfile": "先保留同意前本地档案",

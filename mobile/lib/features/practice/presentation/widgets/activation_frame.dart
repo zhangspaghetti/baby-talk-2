@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:mobile/app/theme/app_layout_constants.dart';
 import 'package:mobile/app/theme/app_theme.dart';
 import 'package:mobile/l10n/app_localizations.dart';
 
@@ -20,12 +21,13 @@ class ActivationFrame extends StatelessWidget {
     final l = AppLocalizations.of(context)!;
     return Semantics(
       label: l.activationFrameLabel,
+      container: true,
       child: Container(
         key: const Key('activation-frame'),
-        padding: const EdgeInsets.all(16),
+        padding: AppLayoutConstants.bannerPadding,
         decoration: BoxDecoration(
           color: colors.bgSunken,
-          borderRadius: BorderRadius.circular(24),
+          borderRadius: BorderRadius.circular(AppLayoutConstants.largeRadius),
           border: Border.all(
             color: colors.english.withValues(alpha: 0.32),
             width: 2,
@@ -35,18 +37,27 @@ class ActivationFrame extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('C3 激活框', style: Theme.of(context).textTheme.labelMedium),
-            const SizedBox(height: 6),
+            Text(
+              l.practiceActivationKicker,
+              key: const Key('practice-activation-kicker'),
+              style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                color: colors.accentDark,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: AppLayoutConstants.spacingXs),
             Row(
               children: [
                 Container(
                   padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 6,
+                    horizontal: AppLayoutConstants.spacingSm,
+                    vertical: AppLayoutConstants.spacingXs,
                   ),
                   decoration: BoxDecoration(
                     color: colors.bgSurface,
-                    borderRadius: BorderRadius.circular(9999),
+                    borderRadius: BorderRadius.circular(
+                      AppLayoutConstants.pillRadius,
+                    ),
                   ),
                   child: Text(
                     stepLabel,
@@ -56,7 +67,7 @@ class ActivationFrame extends StatelessWidget {
                     ),
                   ),
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: AppLayoutConstants.spacingSm),
                 Expanded(
                   child: Text(
                     title,
@@ -65,7 +76,7 @@ class ActivationFrame extends StatelessWidget {
                 ),
               ],
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: AppLayoutConstants.spacingMd),
             child,
           ],
         ),

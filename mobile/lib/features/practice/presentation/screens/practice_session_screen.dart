@@ -179,7 +179,10 @@ class _PracticeSessionBodyState extends State<_PracticeSessionBody> {
                 ),
                 const SizedBox(height: 12),
                 Text(
-                  '第 ${notifier.currentPhraseIndex + 1} / ${phrases.length} 句',
+                  l.practiceProgress(
+                    notifier.currentPhraseIndex + 1,
+                    phrases.length,
+                  ),
                   key: const Key('practice-progress-text'),
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
                     color: colors.textPrimary,
@@ -236,7 +239,7 @@ class _PracticeSessionBodyState extends State<_PracticeSessionBody> {
                 for (var index = 0; index < phrases.length; index++) ...[
                   if (index == notifier.currentPhraseIndex)
                     ActivationFrame(
-                      stepLabel: 'STEP ${phrases[index].step}',
+                      stepLabel: l.practicePhraseStep(phrases[index].step),
                       title: l.practiceCurrentPhrases,
                       child: PhraseCard(
                         phrase: phrases[index],

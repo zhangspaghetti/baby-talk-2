@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:mobile/app/theme/app_layout_constants.dart';
 import 'package:mobile/app/theme/app_theme.dart';
 import 'package:mobile/features/practice/domain/models/interaction_event_payload.dart';
 import 'package:mobile/features/practice/domain/models/practice_phrase.dart';
@@ -52,10 +53,10 @@ class PhraseCard extends StatelessWidget {
       excludeSemantics: false,
       child: Container(
         key: Key('phrase-card-${phrase.phraseId}'),
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.all(AppLayoutConstants.spacingLg),
         decoration: BoxDecoration(
           color: colors.bgSurface,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(AppLayoutConstants.cardRadius),
           border: Border.all(color: borderColor, width: isActive ? 2 : 1),
           boxShadow: colors.warmShadowSm,
         ),
@@ -134,7 +135,7 @@ class PhraseCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'STEP ${phrase.step}',
+              l.practicePhraseStep(phrase.step),
               style: Theme.of(context).textTheme.labelMedium,
             ),
             const SizedBox(width: 12),
@@ -145,21 +146,21 @@ class PhraseCard extends StatelessWidget {
                 spacing: 8,
                 runSpacing: 8,
                 children: [
-                  _StatusPill(label: '音频 · ${_playbackLabel(playbackStatus)}'),
-                  _StatusPill(label: '保存 · ${_saveLabel(saveStatus)}'),
+                  _StatusPill(label: _playbackLabel(l, playbackStatus)),
+                  _StatusPill(label: _saveLabel(l, saveStatus)),
                 ],
               ),
             ),
           ],
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: AppLayoutConstants.spacingMd),
         Text(
           phrase.english,
           style: Theme.of(
             context,
           ).textTheme.headlineMedium?.copyWith(color: colors.english),
         ),
-        const SizedBox(height: 10),
+        const SizedBox(height: AppLayoutConstants.spacingXs),
         Text(
           phrase.pronunciation,
           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
@@ -167,48 +168,41 @@ class PhraseCard extends StatelessWidget {
             color: colors.textPrimary,
           ),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: AppLayoutConstants.spacingXs),
         Text(phrase.chinese, style: Theme.of(context).textTheme.bodyMedium),
-        const SizedBox(height: 16),
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            SizedBox(
-              width: 72,
-              height: 72,
-              child: Semantics(
-                label: isTtsMode ? '朗读发音' : '播放发音',
-                button: true,
-                child: ElevatedButton(
-                  key: Key(
-                    isTtsMode
-                        ? 'tts-${phrase.phraseId}'
-                        : 'play-${phrase.phraseId}',
-                  ),
-                  style: ElevatedButton.styleFrom(
-                    shape: const CircleBorder(),
-                    padding: EdgeInsets.zero,
-                  ),
-                  onPressed: isTtsMode ? onTtsSpeak : (canPlay ? onPlay : null),
-                  child: Icon(
-                    isTtsMode
-                        ? Icons.record_voice_over_rounded
-                        : (playbackStatus == PracticePlaybackStatus.playing
-                              ? Icons.graphic_eq_rounded
-                              : Icons.play_arrow_rounded),
-                    size: 30,
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Text(
-                l.phraseNote,
-                style: Theme.of(context).textTheme.bodySmall,
-              ),
-            ),
-          ],
+        const SizedBox(height: AppLayoutConstants.spacingMd),
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final textScale = MediaQuery.textScalerOf(context).scale(1);
+            final stackAction = constraints.maxWidth < 320 || textScale >= 1.25;
+            final playButton = _buildPlayButton(context);
+            final note = Text(
+              l.phraseNote,
+              style: Theme.of(context).textTheme.bodySmall,
+            );
+
+            if (stackAction) {
+              return Column(
+                key: Key('phrase-action-stacked-${phrase.phraseId}'),
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  playButton,
+                  const SizedBox(height: AppLayoutConstants.spacingSm),
+                  note,
+                ],
+              );
+            }
+
+            return Row(
+              key: Key('phrase-action-row-${phrase.phraseId}'),
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                playButton,
+                const SizedBox(width: AppLayoutConstants.spacingMd),
+                Expanded(child: note),
+              ],
+            );
+          },
         ),
         if (playbackMessage != null) ...[
           const SizedBox(height: 14),
@@ -223,12 +217,12 @@ class PhraseCard extends StatelessWidget {
                 : colors.info,
           ),
         ],
-        const SizedBox(height: 16),
+        const SizedBox(height: AppLayoutConstants.spacingMd),
         Text(
           l.phraseReactionLabel,
           style: Theme.of(context).textTheme.titleMedium,
         ),
-        const SizedBox(height: 10),
+        const SizedBox(height: AppLayoutConstants.spacingXs),
         ReactionChipRow(
           phraseId: phrase.phraseId,
           enabled: canSubmitReaction,
@@ -251,29 +245,58 @@ class PhraseCard extends StatelessWidget {
     );
   }
 
-  String _playbackLabel(PracticePlaybackStatus status) {
+  Widget _buildPlayButton(BuildContext context) {
+    return SizedBox(
+      width: 72,
+      height: 72,
+      child: Semantics(
+        label: isTtsMode ? '朗读发音' : '播放发音',
+        button: true,
+        child: ElevatedButton(
+          key: Key(
+            isTtsMode ? 'tts-${phrase.phraseId}' : 'play-${phrase.phraseId}',
+          ),
+          style: ElevatedButton.styleFrom(
+            shape: const CircleBorder(),
+            padding: EdgeInsets.zero,
+          ),
+          onPressed: isTtsMode ? onTtsSpeak : (canPlay ? onPlay : null),
+          child: Icon(
+            isTtsMode
+                ? Icons.record_voice_over_rounded
+                : (playbackStatus == PracticePlaybackStatus.playing
+                      ? Icons.graphic_eq_rounded
+                      : Icons.play_arrow_rounded),
+            size: 30,
+          ),
+        ),
+      ),
+    );
+  }
+
+  String _playbackLabel(AppLocalizations l, PracticePlaybackStatus status) {
     switch (status) {
       case PracticePlaybackStatus.idle:
-        return 'idle';
+        return l.phrasePlaybackReady;
       case PracticePlaybackStatus.playing:
-        return 'playing';
+        return l.phrasePlaybackPlaying;
       case PracticePlaybackStatus.completed:
-        return 'completed';
+        return l.phrasePlaybackCompleted;
       case PracticePlaybackStatus.error:
-        return 'error';
+        return l.phrasePlaybackRetry;
     }
   }
 
-  String _saveLabel(PracticeSaveStatus status) {
+  String _saveLabel(AppLocalizations l, PracticeSaveStatus status) {
     switch (status) {
       case PracticeSaveStatus.idle:
-        return 'idle';
+        return l.phraseSaveAwaitingReaction;
       case PracticeSaveStatus.saving:
-        return 'saving';
+        return l.phraseSaveSaving;
       case PracticeSaveStatus.saved:
-        return 'saved';
+        return l.phraseSaveSaved;
       case PracticeSaveStatus.error:
-        return 'error';
+        return l.phraseSaveRetry;
     }
   }
 }

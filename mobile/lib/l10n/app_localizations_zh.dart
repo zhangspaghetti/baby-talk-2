@@ -1048,7 +1048,15 @@ class AppLocalizationsZh extends AppLocalizations {
   String get practiceLastSaved => '最后一句也已保存，本轮练习已完成。返回首页后会看到最近一次本地结果。';
 
   @override
-  String get practiceCurrentPhrases => '当前练习中的短语';
+  String get practiceCurrentPhrases => '现在试试这一句';
+
+  @override
+  String get practiceActivationKicker => '跟着宝宝节奏来';
+
+  @override
+  String practicePhraseStep(Object step) {
+    return '第 $step 句';
+  }
 
   @override
   String get practiceUnavailable => '练习暂不可用';
@@ -1136,18 +1144,31 @@ class AppLocalizationsZh extends AppLocalizations {
   String get phrasePending => '待练习';
 
   @override
-  String phraseAudioStatus(Object status) {
-    return '音频 · $status';
-  }
+  String get phrasePlaybackReady => '发音可播放';
 
   @override
-  String phraseSaveStatus(Object status) {
-    return '保存 · $status';
-  }
+  String get phrasePlaybackPlaying => '正在播放';
 
   @override
-  String get phraseNote =>
-      '点按播放真实本地音频，再选择宝宝反应。状态会直接暴露为 idle / playing / completed / error。';
+  String get phrasePlaybackCompleted => '已经听过';
+
+  @override
+  String get phrasePlaybackRetry => '播放需重试';
+
+  @override
+  String get phraseSaveAwaitingReaction => '等宝宝反应';
+
+  @override
+  String get phraseSaveSaving => '正在保存';
+
+  @override
+  String get phraseSaveSaved => '已记下反应';
+
+  @override
+  String get phraseSaveRetry => '保存需重试';
+
+  @override
+  String get phraseNote => '先听一遍，再跟着宝宝的节奏说。宝宝看你、安静听，或咿呀回应，都可以记录。';
 
   @override
   String get phraseReactionLabel => '宝宝现在的反应';
@@ -1305,7 +1326,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get sharePrivacyNote => '分享内容会自动脱敏，不包含昵称、安装号或调试信息。';
 
   @override
-  String get activationFrameLabel => 'C3 激活框';
+  String get activationFrameLabel => '当前短语练习区';
 
   @override
   String get accountEntryLoading => '正在准备账号状态';

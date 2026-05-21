@@ -1923,8 +1923,20 @@ abstract class AppLocalizations {
   /// No description provided for @practiceCurrentPhrases.
   ///
   /// In zh, this message translates to:
-  /// **'当前练习中的短语'**
+  /// **'现在试试这一句'**
   String get practiceCurrentPhrases;
+
+  /// No description provided for @practiceActivationKicker.
+  ///
+  /// In zh, this message translates to:
+  /// **'跟着宝宝节奏来'**
+  String get practiceActivationKicker;
+
+  /// No description provided for @practicePhraseStep.
+  ///
+  /// In zh, this message translates to:
+  /// **'第 {step} 句'**
+  String practicePhraseStep(Object step);
 
   /// No description provided for @practiceUnavailable.
   ///
@@ -2094,22 +2106,58 @@ abstract class AppLocalizations {
   /// **'待练习'**
   String get phrasePending;
 
-  /// No description provided for @phraseAudioStatus.
+  /// No description provided for @phrasePlaybackReady.
   ///
   /// In zh, this message translates to:
-  /// **'音频 · {status}'**
-  String phraseAudioStatus(Object status);
+  /// **'发音可播放'**
+  String get phrasePlaybackReady;
 
-  /// No description provided for @phraseSaveStatus.
+  /// No description provided for @phrasePlaybackPlaying.
   ///
   /// In zh, this message translates to:
-  /// **'保存 · {status}'**
-  String phraseSaveStatus(Object status);
+  /// **'正在播放'**
+  String get phrasePlaybackPlaying;
+
+  /// No description provided for @phrasePlaybackCompleted.
+  ///
+  /// In zh, this message translates to:
+  /// **'已经听过'**
+  String get phrasePlaybackCompleted;
+
+  /// No description provided for @phrasePlaybackRetry.
+  ///
+  /// In zh, this message translates to:
+  /// **'播放需重试'**
+  String get phrasePlaybackRetry;
+
+  /// No description provided for @phraseSaveAwaitingReaction.
+  ///
+  /// In zh, this message translates to:
+  /// **'等宝宝反应'**
+  String get phraseSaveAwaitingReaction;
+
+  /// No description provided for @phraseSaveSaving.
+  ///
+  /// In zh, this message translates to:
+  /// **'正在保存'**
+  String get phraseSaveSaving;
+
+  /// No description provided for @phraseSaveSaved.
+  ///
+  /// In zh, this message translates to:
+  /// **'已记下反应'**
+  String get phraseSaveSaved;
+
+  /// No description provided for @phraseSaveRetry.
+  ///
+  /// In zh, this message translates to:
+  /// **'保存需重试'**
+  String get phraseSaveRetry;
 
   /// No description provided for @phraseNote.
   ///
   /// In zh, this message translates to:
-  /// **'点按播放真实本地音频，再选择宝宝反应。状态会直接暴露为 idle / playing / completed / error。'**
+  /// **'先听一遍，再跟着宝宝的节奏说。宝宝看你、安静听，或咿呀回应，都可以记录。'**
   String get phraseNote;
 
   /// No description provided for @phraseReactionLabel.
@@ -2395,7 +2443,7 @@ abstract class AppLocalizations {
   /// No description provided for @activationFrameLabel.
   ///
   /// In zh, this message translates to:
-  /// **'C3 激活框'**
+  /// **'当前短语练习区'**
   String get activationFrameLabel;
 
   /// No description provided for @accountEntryLoading.
