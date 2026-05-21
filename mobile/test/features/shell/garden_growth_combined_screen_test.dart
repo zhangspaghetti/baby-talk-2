@@ -147,6 +147,43 @@ void main() {
     );
   });
 
+  testWidgets(
+    'growth tab localizes hero label and keeps preview actions tappable',
+    (tester) async {
+      _setTallViewport(tester);
+
+      await _pumpScreen(
+        tester,
+        status: GardenGrowthLoadStatus.ready,
+        snapshot: _gardenSnapshot(
+          spaces: [_gardenPatch()],
+          diaryEntries: _diaryEntries(4),
+          milestones: _milestones(7),
+        ),
+      );
+
+      await _openGrowthTab(tester);
+
+      final hero = find.byKey(const Key('growth-combined-latest-impact'));
+      expect(
+        find.descendant(of: hero, matching: find.text('Growth diary')),
+        findsNothing,
+      );
+      expect(
+        find.descendant(of: hero, matching: find.text('成长日记')),
+        findsOneWidget,
+      );
+
+      for (final actionKey in [
+        const Key('growth-combined-diary-view-all'),
+        const Key('growth-combined-milestones-view-all'),
+      ]) {
+        final size = tester.getSize(find.byKey(actionKey));
+        expect(size.height, greaterThanOrEqualTo(48));
+      }
+    },
+  );
+
   testWidgets('growth tab renders empty diary and milestone sections', (
     tester,
   ) async {

@@ -18,6 +18,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get retry => '重试';
 
   @override
+  String get viewAll => '查看全部';
+
+  @override
   String get processing => '处理中…';
 
   @override
@@ -956,6 +959,16 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
+  String gardenPatchSemantics(Object title, Object stage) {
+    return '花圃：$title，阶段 $stage';
+  }
+
+  @override
+  String gardenFlowerSemantics(Object title, Object stage) {
+    return '活动：$title，阶段 $stage';
+  }
+
+  @override
   String get gardenSharedContinuityUnavailable => '共享 continuity 暂不可用';
 
   @override
@@ -1109,6 +1122,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get growthMilestoneNote => '里程碑会在真实练习后逐步点亮。';
 
   @override
+  String get growthDiaryLabel => '成长日记';
+
+  @override
   String get growthNotScore => '成长不是分数，而是一串串被记住的变化。';
 
   @override
@@ -1133,6 +1149,21 @@ class AppLocalizationsZh extends AppLocalizations {
     Object completed,
   ) {
     return '已开始 $started/$totalActivities 个活动 · 已完成 $completed/$totalActivities 个活动';
+  }
+
+  @override
+  String growthLatestImpactSemantics(Object title) {
+    return '最近成长：$title';
+  }
+
+  @override
+  String growthDiaryEntrySemantics(Object title) {
+    return '成长日记：$title';
+  }
+
+  @override
+  String growthMilestoneSemantics(Object title) {
+    return '成长里程碑：$title';
   }
 
   @override

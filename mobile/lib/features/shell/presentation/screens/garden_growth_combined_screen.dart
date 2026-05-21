@@ -112,7 +112,7 @@ class _GardenGrowthCombinedScreenState
                     setState(() => _selectedTab = tab);
                   },
                 ),
-                const SizedBox(height: 20),
+                const SizedBox(height: AppLayoutConstants.spacingLg),
 
                 // ── Shared error banner ──
                 if (gardenNotifier.hasError) ...[
@@ -122,7 +122,7 @@ class _GardenGrowthCombinedScreenState
                     backgroundColor: colors.warningSoft,
                     foregroundColor: colors.warning,
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: AppLayoutConstants.spacingMd),
                 ],
 
                 // ── Tab content ──
@@ -149,7 +149,7 @@ class _GardenGrowthCombinedScreenState
                   ),
 
                 // ── Shared household & share section (always visible) ──
-                const SizedBox(height: 16),
+                const SizedBox(height: AppLayoutConstants.spacingMd),
                 HouseholdSharedContextCard(
                   surfaceKeyPrefix: 'growth-combined',
                   notifier: householdNotifier,
@@ -157,7 +157,7 @@ class _GardenGrowthCombinedScreenState
                   retryReason: 'growth_combined_household_manual_refresh',
                 ),
                 if (shareNotifier != null) ...[
-                  const SizedBox(height: 16),
+                  const SizedBox(height: AppLayoutConstants.spacingMd),
                   ShareCalloutCard(
                     surfaceKeyPrefix: 'growth-combined',
                     notifier: shareNotifier,
@@ -167,14 +167,14 @@ class _GardenGrowthCombinedScreenState
                   ),
                 ],
                 if (shouldShowSharedOverlay) ...[
-                  const SizedBox(height: 16),
+                  const SizedBox(height: AppLayoutConstants.spacingMd),
                   HouseholdSharedPracticeOverlayCard(
                     surfaceKeyPrefix: 'growth-combined-shared-overlay',
                     sharedContext: sharedContext,
                   ),
                 ],
                 if (shouldShowSharedOverlayDisabled) ...[
-                  const SizedBox(height: 16),
+                  const SizedBox(height: AppLayoutConstants.spacingMd),
                   AppBanner(
                     key: const Key(
                       'growth-combined-shared-overlay-disabled-banner',
@@ -221,7 +221,7 @@ class _GardenGrowthCombinedScreenState
           continuitySnapshot: continuitySnapshot,
           continuityActivity: continuityActivity,
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: AppLayoutConstants.spacingMd),
 
         // ── Continue card ──
         GardenContinueCard(
@@ -230,7 +230,7 @@ class _GardenGrowthCombinedScreenState
           continuitySnapshot: continuitySnapshot,
           continuityActivity: continuityActivity,
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: AppLayoutConstants.spacingMd),
 
         // ── Loading shimmer or content ──
         if (isLoading)
@@ -245,7 +245,7 @@ class _GardenGrowthCombinedScreenState
         else
           for (final patch in snapshot.spaces) ...[
             GardenPatchCard(patch: patch),
-            const SizedBox(height: 16),
+            const SizedBox(height: AppLayoutConstants.spacingMd),
           ],
       ],
     );
@@ -280,54 +280,61 @@ class _GardenGrowthCombinedScreenState
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         // ── Growth hero card ──
-        Container(
-          key: const Key('growth-combined-latest-impact'),
-          padding: const EdgeInsets.all(24),
-          decoration: BoxDecoration(
-            color: colors.bgSurface,
-            borderRadius: BorderRadius.circular(24),
-            border: Border.all(color: colors.outlineSoft),
-            boxShadow: colors.warmShadowSm,
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('Growth diary', style: theme.textTheme.labelMedium),
-              const SizedBox(height: 12),
-              Text(title, style: theme.textTheme.titleLarge),
-              const SizedBox(height: 10),
-              Text(body, style: theme.textTheme.bodyMedium),
-              if (snapshot.hasIssues && snapshot.projectionWarning != null) ...[
-                const SizedBox(height: 12),
-                Text(
-                  snapshot.projectionWarning!,
-                  key: const Key('growth-combined-projection-warning'),
-                  style: theme.textTheme.bodySmall,
-                ),
+        Semantics(
+          container: true,
+          label: l.growthLatestImpactSemantics(title),
+          child: Container(
+            key: const Key('growth-combined-latest-impact'),
+            padding: const EdgeInsets.all(AppLayoutConstants.spacingXl),
+            decoration: BoxDecoration(
+              color: colors.bgSurface,
+              borderRadius: BorderRadius.circular(
+                AppLayoutConstants.largeRadius,
+              ),
+              border: Border.all(color: colors.outlineSoft),
+              boxShadow: colors.warmShadowSm,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(l.growthDiaryLabel, style: theme.textTheme.labelMedium),
+                const SizedBox(height: AppLayoutConstants.spacingSm),
+                Text(title, style: theme.textTheme.titleLarge),
+                const SizedBox(height: AppLayoutConstants.spacingXs),
+                Text(body, style: theme.textTheme.bodyMedium),
+                if (snapshot.hasIssues &&
+                    snapshot.projectionWarning != null) ...[
+                  const SizedBox(height: AppLayoutConstants.spacingSm),
+                  Text(
+                    snapshot.projectionWarning!,
+                    key: const Key('growth-combined-projection-warning'),
+                    style: theme.textTheme.bodySmall,
+                  ),
+                ],
               ],
-            ],
+            ),
           ),
         ),
 
         if (!snapshot.isEmpty) ...[
           // ── Diary section ──
-          const SizedBox(height: 24),
+          const SizedBox(height: AppLayoutConstants.spacingXl),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(l.growthAutoDiary, style: theme.textTheme.titleMedium),
               if (snapshot.diaryEntries.length > 3)
-                TextButton(
+                _GrowthPreviewActionButton(
                   key: const Key('growth-combined-diary-view-all'),
                   onPressed: () {
                     AppHaptics.lightTap();
                     // Navigation is deferred until a dedicated diary route is approved.
                   },
-                  child: const Text('查看全部'),
+                  label: l.viewAll,
                 ),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: AppLayoutConstants.spacingSm),
           if (snapshot.diaryEntries.isEmpty)
             _SectionEmptyCard(
               stateKey: const Key('growth-combined-diary-empty'),
@@ -338,29 +345,31 @@ class _GardenGrowthCombinedScreenState
                 .take(3)
                 .map(
                   (entry) => Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
+                    padding: const EdgeInsets.only(
+                      bottom: AppLayoutConstants.spacingSm,
+                    ),
                     child: _DiaryCard(entry: entry),
                   ),
                 ),
 
           // ── Milestones section ──
-          const SizedBox(height: 24),
+          const SizedBox(height: AppLayoutConstants.spacingXl),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(l.growthMilestone, style: theme.textTheme.titleMedium),
               if (snapshot.milestones.length > 6)
-                TextButton(
+                _GrowthPreviewActionButton(
                   key: const Key('growth-combined-milestones-view-all'),
                   onPressed: () {
                     AppHaptics.lightTap();
                     // Navigation is deferred until a dedicated milestones route is approved.
                   },
-                  child: const Text('查看全部'),
+                  label: l.viewAll,
                 ),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: AppLayoutConstants.spacingSm),
           if (snapshot.milestones.isEmpty)
             _SectionEmptyCard(
               stateKey: const Key('growth-combined-milestones-empty'),
@@ -371,7 +380,9 @@ class _GardenGrowthCombinedScreenState
                 .take(6)
                 .map(
                   (milestone) => Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
+                    padding: const EdgeInsets.only(
+                      bottom: AppLayoutConstants.spacingSm,
+                    ),
                     child: _MilestoneCard(milestone: milestone),
                   ),
                 ),
@@ -402,9 +413,9 @@ class _GardenSegmentedControl extends StatelessWidget {
       key: const Key('growth-combined-segmented-control'),
       decoration: BoxDecoration(
         color: colors.bgSunken,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(AppLayoutConstants.cardRadius),
       ),
-      padding: const EdgeInsets.all(4),
+      padding: const EdgeInsets.all(AppLayoutConstants.spacingXxs * 2),
       child: Row(
         children: [
           Expanded(
@@ -450,10 +461,15 @@ class _SegmentTab extends StatelessWidget {
         onTap: onTap,
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 200),
-          padding: const EdgeInsets.symmetric(vertical: 12),
+          constraints: const BoxConstraints(
+            minHeight: AppLayoutConstants.minTouchTarget,
+          ),
+          padding: const EdgeInsets.symmetric(
+            vertical: AppLayoutConstants.spacingSm,
+          ),
           decoration: BoxDecoration(
             color: isSelected ? colors.bgSurface : Colors.transparent,
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(AppLayoutConstants.spacingSm),
             boxShadow: isSelected ? colors.warmShadowSm : null,
           ),
           alignment: Alignment.center,
@@ -482,23 +498,23 @@ class _GardenLoadingShimmer extends StatelessWidget {
     final colors = context.appColors;
     return Container(
       key: const Key('growth-combined-loading-shimmer'),
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(AppLayoutConstants.spacingLg),
       decoration: BoxDecoration(
         color: colors.bgSurface,
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(AppLayoutConstants.largeRadius),
         border: Border.all(color: colors.outlineSoft),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           AppShimmer(width: 120, height: 14, borderRadius: 7),
-          const SizedBox(height: 16),
+          const SizedBox(height: AppLayoutConstants.spacingMd),
           AppShimmer(width: double.infinity, height: 20, borderRadius: 10),
-          const SizedBox(height: 12),
+          const SizedBox(height: AppLayoutConstants.spacingSm),
           AppShimmer(width: 200, height: 14, borderRadius: 7),
-          const SizedBox(height: 20),
+          const SizedBox(height: AppLayoutConstants.spacingLg),
           AppShimmer(width: double.infinity, height: 14, borderRadius: 7),
-          const SizedBox(height: 8),
+          const SizedBox(height: AppLayoutConstants.spacingXs),
           AppShimmer(width: 160, height: 14, borderRadius: 7),
         ],
       ),
@@ -517,42 +533,49 @@ class _DiaryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
     final colors = context.appColors;
     final theme = Theme.of(context);
     final accentColor = entry.kind == GrowthDiaryEntryKind.practice
         ? colors.english
         : colors.accentDark;
-    return Container(
-      key: Key('growth-combined-diary-${entry.entryId}'),
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: colors.bgSurface,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: colors.outlineSoft),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: 4,
-            height: 64,
-            decoration: BoxDecoration(
-              color: accentColor,
-              borderRadius: BorderRadius.circular(999),
+    return Semantics(
+      container: true,
+      label: l.growthDiaryEntrySemantics(entry.title),
+      child: Container(
+        key: Key('growth-combined-diary-${entry.entryId}'),
+        padding: const EdgeInsets.all(AppLayoutConstants.spacingLg),
+        decoration: BoxDecoration(
+          color: colors.bgSurface,
+          borderRadius: BorderRadius.circular(AppLayoutConstants.mediumRadius),
+          border: Border.all(color: colors.outlineSoft),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: 4,
+              height: 64,
+              decoration: BoxDecoration(
+                color: accentColor,
+                borderRadius: BorderRadius.circular(
+                  AppLayoutConstants.pillRadius,
+                ),
+              ),
             ),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(entry.title, style: theme.textTheme.titleMedium),
-                const SizedBox(height: 6),
-                Text(entry.body, style: theme.textTheme.bodyMedium),
-              ],
+            const SizedBox(width: AppLayoutConstants.spacingSm),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(entry.title, style: theme.textTheme.titleMedium),
+                  const SizedBox(height: AppLayoutConstants.spacingXs),
+                  Text(entry.body, style: theme.textTheme.bodyMedium),
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -565,42 +588,47 @@ class _MilestoneCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
     final colors = context.appColors;
     final achieved = milestone.isAchieved;
-    return Container(
-      key: Key('growth-combined-milestone-${milestone.id}'),
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: achieved ? colors.successSoft : colors.bgSunken,
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(
-            achieved
-                ? Icons.check_circle_rounded
-                : Icons.radio_button_unchecked,
-            color: achieved ? colors.success : colors.textMuted,
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  milestone.title,
-                  style: Theme.of(context).textTheme.titleMedium,
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  milestone.body,
-                  style: Theme.of(context).textTheme.bodyMedium,
-                ),
-              ],
+    return Semantics(
+      container: true,
+      label: l.growthMilestoneSemantics(milestone.title),
+      child: Container(
+        key: Key('growth-combined-milestone-${milestone.id}'),
+        padding: const EdgeInsets.all(AppLayoutConstants.spacingLg),
+        decoration: BoxDecoration(
+          color: achieved ? colors.successSoft : colors.bgSunken,
+          borderRadius: BorderRadius.circular(AppLayoutConstants.mediumRadius),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(
+              achieved
+                  ? Icons.check_circle_rounded
+                  : Icons.radio_button_unchecked,
+              color: achieved ? colors.success : colors.textMuted,
             ),
-          ),
-        ],
+            const SizedBox(width: AppLayoutConstants.spacingSm),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    milestone.title,
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    milestone.body,
+                    style: Theme.of(context).textTheme.bodyMedium,
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -617,12 +645,40 @@ class _SectionEmptyCard extends StatelessWidget {
     final colors = context.appColors;
     return Container(
       key: stateKey,
-      padding: const EdgeInsets.all(18),
+      padding: const EdgeInsets.all(AppLayoutConstants.spacingLg),
       decoration: BoxDecoration(
         color: colors.bgSunken,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(AppLayoutConstants.mediumRadius),
       ),
       child: Text(message, style: Theme.of(context).textTheme.bodyMedium),
+    );
+  }
+}
+
+class _GrowthPreviewActionButton extends StatelessWidget {
+  const _GrowthPreviewActionButton({
+    required super.key,
+    required this.onPressed,
+    required this.label,
+  });
+
+  final VoidCallback onPressed;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return TextButton(
+      onPressed: onPressed,
+      style: TextButton.styleFrom(
+        minimumSize: const Size(
+          AppLayoutConstants.minTouchTarget,
+          AppLayoutConstants.minTouchTarget,
+        ),
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppLayoutConstants.spacingSm,
+        ),
+      ),
+      child: Text(label),
     );
   }
 }

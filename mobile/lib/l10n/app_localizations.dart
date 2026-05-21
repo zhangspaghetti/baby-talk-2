@@ -112,6 +112,12 @@ abstract class AppLocalizations {
   /// **'重试'**
   String get retry;
 
+  /// No description provided for @viewAll.
+  ///
+  /// In zh, this message translates to:
+  /// **'查看全部'**
+  String get viewAll;
+
   /// No description provided for @processing.
   ///
   /// In zh, this message translates to:
@@ -1770,6 +1776,18 @@ abstract class AppLocalizations {
   /// **'已连起 {completed}/{total} 句 · {events} 次记录'**
   String gardenActivityProgress(Object completed, Object total, Object events);
 
+  /// No description provided for @gardenPatchSemantics.
+  ///
+  /// In zh, this message translates to:
+  /// **'花圃：{title}，阶段 {stage}'**
+  String gardenPatchSemantics(Object title, Object stage);
+
+  /// No description provided for @gardenFlowerSemantics.
+  ///
+  /// In zh, this message translates to:
+  /// **'活动：{title}，阶段 {stage}'**
+  String gardenFlowerSemantics(Object title, Object stage);
+
   /// No description provided for @gardenSharedContinuityUnavailable.
   ///
   /// In zh, this message translates to:
@@ -2058,6 +2076,12 @@ abstract class AppLocalizations {
   /// **'里程碑会在真实练习后逐步点亮。'**
   String get growthMilestoneNote;
 
+  /// No description provided for @growthDiaryLabel.
+  ///
+  /// In zh, this message translates to:
+  /// **'成长日记'**
+  String get growthDiaryLabel;
+
   /// No description provided for @growthNotScore.
   ///
   /// In zh, this message translates to:
@@ -2103,6 +2127,24 @@ abstract class AppLocalizations {
     Object totalActivities,
     Object completed,
   );
+
+  /// No description provided for @growthLatestImpactSemantics.
+  ///
+  /// In zh, this message translates to:
+  /// **'最近成长：{title}'**
+  String growthLatestImpactSemantics(Object title);
+
+  /// No description provided for @growthDiaryEntrySemantics.
+  ///
+  /// In zh, this message translates to:
+  /// **'成长日记：{title}'**
+  String growthDiaryEntrySemantics(Object title);
+
+  /// No description provided for @growthMilestoneSemantics.
+  ///
+  /// In zh, this message translates to:
+  /// **'成长里程碑：{title}'**
+  String growthMilestoneSemantics(Object title);
 
   /// No description provided for @inviteNotConnected.
   ///

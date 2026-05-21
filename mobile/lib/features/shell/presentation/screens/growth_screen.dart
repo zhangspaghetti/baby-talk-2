@@ -39,7 +39,7 @@ class GrowthScreen extends StatelessWidget {
               children: [
                 _GrowthHeroCard(snapshot: snapshot, notifier: notifier),
                 if (notifier?.hasError ?? false) ...[
-                  const SizedBox(height: 16),
+                  const SizedBox(height: AppLayoutConstants.spacingMd),
                   AppBanner(
                     key: const Key('growth-warning-banner'),
                     message: notifier!.message ?? l.growthRefreshFailed,
@@ -47,11 +47,11 @@ class GrowthScreen extends StatelessWidget {
                     foregroundColor: colors.warning,
                   ),
                 ],
-                const SizedBox(height: 16),
+                const SizedBox(height: AppLayoutConstants.spacingMd),
                 if (snapshot.isEmpty) const _GrowthEmptyState(),
                 if (!snapshot.isEmpty) ...[
                   _SectionTitle(title: l.growthAutoDiary),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: AppLayoutConstants.spacingSm),
                   if (snapshot.diaryEntries.isEmpty)
                     _SectionEmptyCard(
                       stateKey: Key('growth-diary-empty'),
@@ -62,13 +62,15 @@ class GrowthScreen extends StatelessWidget {
                         .take(3)
                         .map(
                           (entry) => Padding(
-                            padding: const EdgeInsets.only(bottom: 12),
+                            padding: const EdgeInsets.only(
+                              bottom: AppLayoutConstants.spacingSm,
+                            ),
                             child: _DiaryCard(entry: entry),
                           ),
                         ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: AppLayoutConstants.spacingSm),
                   _SectionTitle(title: l.growthSceneProgress),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: AppLayoutConstants.spacingSm),
                   if (snapshot.spaces.isEmpty)
                     _SectionEmptyCard(
                       stateKey: Key('growth-space-empty'),
@@ -77,13 +79,15 @@ class GrowthScreen extends StatelessWidget {
                   else
                     ...snapshot.spaces.map(
                       (space) => Padding(
-                        padding: const EdgeInsets.only(bottom: 12),
+                        padding: const EdgeInsets.only(
+                          bottom: AppLayoutConstants.spacingSm,
+                        ),
                         child: _SpaceProgressCard(space: space),
                       ),
                     ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: AppLayoutConstants.spacingSm),
                   _SectionTitle(title: l.growthMilestone),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: AppLayoutConstants.spacingSm),
                   if (snapshot.milestones.isEmpty)
                     _SectionEmptyCard(
                       stateKey: Key('growth-milestones-empty'),
@@ -94,7 +98,9 @@ class GrowthScreen extends StatelessWidget {
                         .take(6)
                         .map(
                           (milestone) => Padding(
-                            padding: const EdgeInsets.only(bottom: 12),
+                            padding: const EdgeInsets.only(
+                              bottom: AppLayoutConstants.spacingSm,
+                            ),
                             child: _MilestoneCard(milestone: milestone),
                           ),
                         ),
@@ -133,32 +139,36 @@ class _GrowthHeroCard extends StatelessWidget {
       body = impact.detail;
     }
 
-    return Container(
-      key: const Key('growth-latest-impact'),
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: colors.bgSurface,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: colors.outlineSoft),
-        boxShadow: colors.warmShadowSm,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text('Growth diary', style: theme.textTheme.labelMedium),
-          const SizedBox(height: 12),
-          Text(title, style: theme.textTheme.titleLarge),
-          const SizedBox(height: 10),
-          Text(body, style: theme.textTheme.bodyMedium),
-          if (snapshot.hasIssues && snapshot.projectionWarning != null) ...[
-            const SizedBox(height: 12),
-            Text(
-              snapshot.projectionWarning!,
-              key: const Key('growth-projection-warning'),
-              style: theme.textTheme.bodySmall,
-            ),
+    return Semantics(
+      container: true,
+      label: l.growthLatestImpactSemantics(title),
+      child: Container(
+        key: const Key('growth-latest-impact'),
+        padding: const EdgeInsets.all(AppLayoutConstants.spacingXl),
+        decoration: BoxDecoration(
+          color: colors.bgSurface,
+          borderRadius: BorderRadius.circular(AppLayoutConstants.largeRadius),
+          border: Border.all(color: colors.outlineSoft),
+          boxShadow: colors.warmShadowSm,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(l.growthDiaryLabel, style: theme.textTheme.labelMedium),
+            const SizedBox(height: AppLayoutConstants.spacingSm),
+            Text(title, style: theme.textTheme.titleLarge),
+            const SizedBox(height: AppLayoutConstants.spacingXs),
+            Text(body, style: theme.textTheme.bodyMedium),
+            if (snapshot.hasIssues && snapshot.projectionWarning != null) ...[
+              const SizedBox(height: AppLayoutConstants.spacingSm),
+              Text(
+                snapshot.projectionWarning!,
+                key: const Key('growth-projection-warning'),
+                style: theme.textTheme.bodySmall,
+              ),
+            ],
           ],
-        ],
+        ),
       ),
     );
   }
@@ -173,10 +183,10 @@ class _GrowthEmptyState extends StatelessWidget {
     final colors = context.appColors;
     return Container(
       key: const Key('growth-empty-state'),
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.all(AppLayoutConstants.spacingXl),
       decoration: BoxDecoration(
         color: colors.bgAccentSoft,
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(AppLayoutConstants.largeRadius),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -185,7 +195,7 @@ class _GrowthEmptyState extends StatelessWidget {
             l.growthPlaceholder,
             style: Theme.of(context).textTheme.titleMedium,
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: AppLayoutConstants.spacingXs),
           Text(
             l.growthAfterPractice,
             style: Theme.of(
@@ -216,42 +226,49 @@ class _DiaryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
     final colors = context.appColors;
     final theme = Theme.of(context);
     final accentColor = entry.kind == GrowthDiaryEntryKind.practice
         ? colors.english
         : colors.accentDark;
-    return Container(
-      key: Key('growth-diary-${entry.entryId}'),
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: colors.bgSurface,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: colors.outlineSoft),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: 4,
-            height: 64,
-            decoration: BoxDecoration(
-              color: accentColor,
-              borderRadius: BorderRadius.circular(999),
+    return Semantics(
+      container: true,
+      label: l.growthDiaryEntrySemantics(entry.title),
+      child: Container(
+        key: Key('growth-diary-${entry.entryId}'),
+        padding: const EdgeInsets.all(AppLayoutConstants.spacingLg),
+        decoration: BoxDecoration(
+          color: colors.bgSurface,
+          borderRadius: BorderRadius.circular(AppLayoutConstants.mediumRadius),
+          border: Border.all(color: colors.outlineSoft),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: 4,
+              height: 64,
+              decoration: BoxDecoration(
+                color: accentColor,
+                borderRadius: BorderRadius.circular(
+                  AppLayoutConstants.pillRadius,
+                ),
+              ),
             ),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(entry.title, style: theme.textTheme.titleMedium),
-                const SizedBox(height: 6),
-                Text(entry.body, style: theme.textTheme.bodyMedium),
-              ],
+            const SizedBox(width: AppLayoutConstants.spacingSm),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(entry.title, style: theme.textTheme.titleMedium),
+                  const SizedBox(height: AppLayoutConstants.spacingXs),
+                  Text(entry.body, style: theme.textTheme.bodyMedium),
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -264,53 +281,64 @@ class _SpaceProgressCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
     final colors = context.appColors;
-    return Container(
-      key: Key('growth-space-${space.spaceId}'),
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: colors.bgSurface,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: colors.outlineSoft),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  space.title,
-                  style: Theme.of(context).textTheme.titleMedium,
+    return Semantics(
+      container: true,
+      label: l.gardenPatchSemantics(space.title, space.stage.label),
+      child: Container(
+        key: Key('growth-space-${space.spaceId}'),
+        padding: const EdgeInsets.all(AppLayoutConstants.spacingLg),
+        decoration: BoxDecoration(
+          color: colors.bgSurface,
+          borderRadius: BorderRadius.circular(AppLayoutConstants.mediumRadius),
+          border: Border.all(color: colors.outlineSoft),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    space.title,
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
                 ),
+                Container(
+                  key: Key('growth-space-stage-${space.spaceId}'),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppLayoutConstants.spacingSm,
+                    vertical: AppLayoutConstants.spacingXs,
+                  ),
+                  decoration: BoxDecoration(
+                    color: colors.successSoft,
+                    borderRadius: BorderRadius.circular(
+                      AppLayoutConstants.pillRadius,
+                    ),
+                  ),
+                  child: Text(
+                    space.stage.label,
+                    style: Theme.of(
+                      context,
+                    ).textTheme.labelMedium?.copyWith(color: colors.success),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: AppLayoutConstants.spacingXs),
+            Text(space.careNote, style: Theme.of(context).textTheme.bodyMedium),
+            const SizedBox(height: AppLayoutConstants.spacingXs),
+            Text(
+              l.growthSpaceProgress(
+                space.startedActivityCount,
+                space.totalActivityCount,
+                space.completedActivityCount,
               ),
-              Container(
-                key: Key('growth-space-stage-${space.spaceId}'),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 8,
-                ),
-                decoration: BoxDecoration(
-                  color: colors.successSoft,
-                  borderRadius: BorderRadius.circular(999),
-                ),
-                child: Text(
-                  space.stage.label,
-                  style: Theme.of(
-                    context,
-                  ).textTheme.labelMedium?.copyWith(color: colors.success),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Text(space.careNote, style: Theme.of(context).textTheme.bodyMedium),
-          const SizedBox(height: 10),
-          Text(
-            '已开始 ${space.startedActivityCount}/${space.totalActivityCount} 个活动 · 已完成 ${space.completedActivityCount}/${space.totalActivityCount} 个活动',
-            style: Theme.of(context).textTheme.bodySmall,
-          ),
-        ],
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -323,42 +351,47 @@ class _MilestoneCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
     final colors = context.appColors;
     final achieved = milestone.isAchieved;
-    return Container(
-      key: Key('growth-milestone-${milestone.id}'),
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: achieved ? colors.successSoft : colors.bgSunken,
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(
-            achieved
-                ? Icons.check_circle_rounded
-                : Icons.radio_button_unchecked,
-            color: achieved ? colors.success : colors.textMuted,
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  milestone.title,
-                  style: Theme.of(context).textTheme.titleMedium,
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  milestone.body,
-                  style: Theme.of(context).textTheme.bodyMedium,
-                ),
-              ],
+    return Semantics(
+      container: true,
+      label: l.growthMilestoneSemantics(milestone.title),
+      child: Container(
+        key: Key('growth-milestone-${milestone.id}'),
+        padding: const EdgeInsets.all(AppLayoutConstants.spacingLg),
+        decoration: BoxDecoration(
+          color: achieved ? colors.successSoft : colors.bgSunken,
+          borderRadius: BorderRadius.circular(AppLayoutConstants.mediumRadius),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(
+              achieved
+                  ? Icons.check_circle_rounded
+                  : Icons.radio_button_unchecked,
+              color: achieved ? colors.success : colors.textMuted,
             ),
-          ),
-        ],
+            const SizedBox(width: AppLayoutConstants.spacingSm),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    milestone.title,
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    milestone.body,
+                    style: Theme.of(context).textTheme.bodyMedium,
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -375,10 +408,10 @@ class _SectionEmptyCard extends StatelessWidget {
     final colors = context.appColors;
     return Container(
       key: stateKey,
-      padding: const EdgeInsets.all(18),
+      padding: const EdgeInsets.all(AppLayoutConstants.spacingLg),
       decoration: BoxDecoration(
         color: colors.bgSunken,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(AppLayoutConstants.mediumRadius),
       ),
       child: Text(message, style: Theme.of(context).textTheme.bodyMedium),
     );
