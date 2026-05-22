@@ -429,7 +429,8 @@ void main() {
 
     expect(find.byKey(const Key('boot-route-gate-failed')), findsOneWidget);
     expect(find.byKey(const Key('boot-route-gate-retry')), findsOneWidget);
-    expect(find.textContaining('onboarding 本地档案读取失败'), findsOneWidget);
+    expect(find.textContaining('本地档案读取失败，请重试'), findsOneWidget);
+    expect(find.textContaining('onboarding 本地档案'), findsNothing);
   });
 }
 

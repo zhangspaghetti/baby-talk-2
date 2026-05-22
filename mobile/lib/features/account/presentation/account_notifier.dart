@@ -7,8 +7,8 @@ import 'package:mobile/features/account/data/repositories/account_repository_con
 import 'package:mobile/features/account/data/services/account_external_link_opener.dart';
 import 'package:mobile/features/account/domain/models/account_consent_state.dart';
 
-const _localOnlyPhoneHint = '先离线练习也没关系，登录后会把 append-only 事件补传到后端。';
-const _signedOutPhoneHint = '请输入手机号与验证码，完成登录并同意后再同步。';
+const _localOnlyPhoneHint = '先离线练习也没关系，登录后会补同步最近记录。';
+const _signedOutPhoneHint = '请输入手机号与验证码，完成登录并同意同步。';
 
 typedef AccountLocalSensitiveDataClearanceRunner =
     Future<LocalSensitiveDataClearanceReport> Function({
@@ -127,15 +127,15 @@ class AccountNotifier extends ChangeNotifier with WidgetsBindingObserver {
     if (isVersionBlocked) {
       final upgradeHint = upgradeActionHint;
       if (upgradeHint == null) {
-        return '当前版本已被服务端拦截，请升级后再返回重试同步。';
+        return '当前版本暂时无法继续同步，请升级后再返回重试。';
       }
-      return '当前版本已被服务端拦截。$upgradeHint';
+      return '当前版本暂时无法继续同步。$upgradeHint';
     }
     if (isSignedIn && hasPendingSync) {
-      return '当前仍有待同步事件；可以继续练习，前台会在合适时机自动重试。';
+      return '当前仍有练习记录待同步；可以继续练习，应用会在合适时机自动重试。';
     }
     if (isSignedIn) {
-      return '账号已建立，同 installation 的重登会先 bootstrap 再恢复最近结果。';
+      return '账号已建立；在同一设备重新登录后，会恢复最近结果。';
     }
     if (isSignedOut) {
       return _signedOutPhoneHint;
@@ -383,7 +383,7 @@ class AccountNotifier extends ChangeNotifier with WidgetsBindingObserver {
       return;
     }
     _isBusy = true;
-    _submissionMessage = revertToLocalOnly ? '正在回到 local-only…' : '正在退出账号…';
+    _submissionMessage = revertToLocalOnly ? '正在回到本机档案…' : '正在退出账号…';
     notifyListeners();
 
     try {
@@ -392,7 +392,7 @@ class AccountNotifier extends ChangeNotifier with WidgetsBindingObserver {
       );
       _bumpRuntimeToken();
       _submissionMessage = revertToLocalOnly
-          ? '已回到 local-only 档案模式。'
+          ? '已回到本机档案模式。'
           : '已退出账号；本机练习记录仍保留。';
     } catch (error) {
       _submissionMessage = '清理账号状态失败：$error';
@@ -510,7 +510,7 @@ class AccountNotifier extends ChangeNotifier with WidgetsBindingObserver {
       case AccountRuntimeTrigger.homeVisible:
         return '正在检查首页返回后的同步状态…';
       case AccountRuntimeTrigger.foregroundResume:
-        return '应用已回到前台，正在检查待同步事件…';
+        return '应用已打开，正在检查待同步记录…';
       case AccountRuntimeTrigger.manualRetry:
         return '正在手动重试同步…';
     }
@@ -522,7 +522,7 @@ class AccountNotifier extends ChangeNotifier with WidgetsBindingObserver {
       return '$prefix：$error';
     }
     if (isSignedIn && hasPendingSync) {
-      return '$prefix：仍有 ${_snapshot.pendingSyncCount} 条待同步事件。';
+      return '$prefix：仍有 ${_snapshot.pendingSyncCount} 条练习记录待同步。';
     }
     if (isSignedIn) {
       return '$prefix：账号已接通，最近结果可恢复。';

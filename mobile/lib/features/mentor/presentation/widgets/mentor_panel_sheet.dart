@@ -280,7 +280,9 @@ class _MentorChatTab extends StatelessWidget {
               Chip(
                 key: const Key('mentor-chat-phase-chip'),
                 label: Text(
-                  'phase · ${notifier.chatResponsePhase ?? availability.phase}',
+                  notifier.chatResponsePhase == null
+                      ? availability.title
+                      : '最近回应已更新',
                 ),
               ),
               Chip(
@@ -290,15 +292,13 @@ class _MentorChatTab extends StatelessWidget {
               if (accountNotifier.snapshot.lastSyncPhase.trim().isNotEmpty)
                 Chip(
                   key: const Key('mentor-chat-account-phase-chip'),
-                  label: Text(
-                    'account · ${accountNotifier.snapshot.lastSyncPhase}',
-                  ),
+                  label: Text(l.accountSyncPhaseUpdated),
                 ),
               if (notifier.chatRateLimit != null)
                 Chip(
                   key: const Key('mentor-chat-rate-chip'),
                   label: Text(
-                    'limit · ${notifier.chatRateLimit!.remaining}/${notifier.chatRateLimit!.limit}',
+                    '今日剩余 ${notifier.chatRateLimit!.remaining}/${notifier.chatRateLimit!.limit}',
                   ),
                 ),
             ],
@@ -412,9 +412,13 @@ class _ChatResponseCard extends StatelessWidget {
             runSpacing: 8,
             children: [
               if (notifier.chatResponseCode != null)
-                Chip(label: Text('code · ${notifier.chatResponseCode}')),
+                Chip(
+                  label: Text(
+                    notifier.chatResponseCode == 'ok' ? '回应已生成' : '回应状态已更新',
+                  ),
+                ),
               if (notifier.chatAuthenticated)
-                const Chip(label: Text('auth · session'))
+                const Chip(label: Text('账号已连接'))
               else
                 Chip(label: Text(l.mentorNotLoggedIn)),
               if (notifier.chatFallbackUsed)

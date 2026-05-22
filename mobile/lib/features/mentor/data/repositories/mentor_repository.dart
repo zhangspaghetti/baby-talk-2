@@ -401,7 +401,7 @@ class MentorRepository {
       return _SharedContextResolution(
         status: _skippedSharedStatus(
           code: 'shared_next_step_missing',
-          detail: '共享下一步缺少安全 route args，Mentor 继续使用本地建议。',
+          detail: '共享下一步暂时打不开，导师继续使用本地建议。',
         ),
       );
     }
@@ -417,7 +417,7 @@ class MentorRepository {
       return _SharedContextResolution(
         status: _skippedSharedStatus(
           code: 'shared_context_skipped_local_newer',
-          detail: '本机 continuity 更新更近，Mentor 保持本地建议。',
+          detail: '本机最近练习更新更近，导师保持本地建议。',
         ),
       );
     }
@@ -452,21 +452,21 @@ class MentorRepository {
       return _SharedContextResolution(
         status: _skippedSharedStatus(
           code: 'shared_next_step_timeout',
-          detail: '共享下一步活动读取超时，Mentor 继续使用本地建议。',
+          detail: '共享下一步活动读取超时，导师继续使用本地建议。',
         ),
       );
     } on FormatException {
       return _SharedContextResolution(
         status: _skippedSharedStatus(
           code: 'shared_next_step_invalid',
-          detail: '共享下一步活动不可用，Mentor 继续使用本地建议。',
+          detail: '共享下一步活动不可用，导师继续使用本地建议。',
         ),
       );
     } catch (_) {
       return _SharedContextResolution(
         status: _skippedSharedStatus(
           code: 'shared_next_step_unavailable',
-          detail: '共享下一步活动暂不可读，Mentor 继续使用本地建议。',
+          detail: '共享下一步活动暂不可读，导师继续使用本地建议。',
         ),
       );
     }
@@ -567,34 +567,34 @@ class MentorRepository {
     if (phase.contains('malformed')) {
       return _skippedSharedStatus(
         code: 'shared_snapshot_malformed',
-        detail: '共享 household 快照格式异常，Mentor 继续使用本地建议。',
+        detail: '家庭共享资料暂时不可读，导师继续使用本地建议。',
       );
     }
     if (phase.contains('offline')) {
       return _skippedSharedStatus(
         code: 'shared_snapshot_offline',
-        detail: '当前离线，共享 household 快照未更新，Mentor 继续使用本地建议。',
+        detail: '当前离线，家庭共享资料暂未更新，导师继续使用本地建议。',
       );
     }
     if (phase.contains('unavailable') || phase.contains('timeout')) {
       return _skippedSharedStatus(
         code: 'shared_context_unavailable',
         detail: visibleError == null
-            ? '共享上下文暂不可用，Mentor 继续使用本地建议。'
-            : '$visibleError Mentor 已保留本地建议。',
+        ? '共享上下文暂不可用，导师继续使用本地建议。'
+        : '$visibleError 导师已保留本地建议。',
       );
     }
     if (phase.contains('ready') || phase.contains('accept')) {
       return _skippedSharedStatus(
         code: 'shared_context_missing',
-        detail: '共享 household 快照里还没有结构化 continuity，Mentor 继续使用本地建议。',
+        detail: '家庭共享资料还没有可继续的练习建议，导师继续使用本地建议。',
       );
     }
     return _skippedSharedStatus(
       code: 'shared_context_missing',
       detail: visibleError == null
-          ? '共享 household 快照还没准备好，Mentor 继续使用本地建议。'
-          : '$visibleError Mentor 已保留本地建议。',
+          ? '家庭共享资料还没准备好，导师继续使用本地建议。'
+          : '$visibleError 导师已保留本地建议。',
     );
   }
 
@@ -609,9 +609,8 @@ class MentorRepository {
     return MentorSharedContextStatus(
       code: code,
       adopted: true,
-      headline: '已采用家庭共享连续性',
-      detail:
-          '$actorLabel刚完成一次共享练习，Mentor 现在按“$activityTitle”继续；$nextStepLabel。',
+      headline: '已采用家庭共享建议',
+      detail: '$actorLabel刚完成一次共享练习，导师现在按“$activityTitle”继续；$nextStepLabel。',
     );
   }
 
@@ -622,7 +621,7 @@ class MentorRepository {
     return MentorSharedContextStatus(
       code: code,
       adopted: false,
-      headline: '共享连续性已安全放弃',
+      headline: '共享建议已保留本地版本',
       detail: detail,
     );
   }

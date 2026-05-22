@@ -106,7 +106,7 @@ class PracticeRouteEntry {
     }
 
     return const PracticeRouteEntry._(
-      errorMessage: '缺少或损坏 practice route 参数；请从首页、发现或花园重新进入。',
+      errorMessage: '练习入口暂时打不开，请从首页、发现或花园重新进入。',
     );
   }
 }

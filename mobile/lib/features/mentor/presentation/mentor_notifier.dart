@@ -58,15 +58,15 @@ extension MentorPanelStatusLabel on MentorPanelStatus {
   String get label {
     switch (this) {
       case MentorPanelStatus.idle:
-        return 'idle';
+        return '准备中';
       case MentorPanelStatus.loading:
-        return 'loading';
+        return '正在整理';
       case MentorPanelStatus.ready:
-        return 'success';
+        return '建议已准备';
       case MentorPanelStatus.fallback:
-        return 'fallback';
+        return '使用本地建议';
       case MentorPanelStatus.error:
-        return 'error';
+        return '已保留安全建议';
     }
   }
 }
@@ -105,7 +105,7 @@ class MentorChatAvailability {
   final bool retryable;
   final bool canSubmit;
 
-  String get chipLabel => 'chat · ${code.wireValue}';
+  String get chipLabel => '聊天：$title';
 }
 
 class MentorChatFailureSurface {
@@ -195,8 +195,8 @@ class MentorNotifier extends ChangeNotifier {
   bool get isPanelVisible => _isPanelVisible;
   bool get isLoading => _panelStatus == MentorPanelStatus.loading;
   bool get isRefreshingSuggestions => _isRefreshingSuggestions;
-  String get statusChipLabel => 'state · ${_panelStatus.label}';
-  String get selectedTabChipLabel => 'tab · ${_selectedTab.label}';
+  String get statusChipLabel => '状态：${_panelStatus.label}';
+  String get selectedTabChipLabel => '当前：${_selectedTab.label}';
 
   String get chatDraft => _chatDraft;
   bool get isSubmittingChat => _isSubmittingChat;
@@ -396,7 +396,7 @@ class MentorNotifier extends ChangeNotifier {
       eventType: MentorFactType.chatRequested,
       phase: 'chat_requested',
       correlationId: correlationId,
-      redactedSummary:
+        redactedSummary:
           'surface:$_lastSurface;len:${prompt.length};auth:bearer',
       visibleStatus: 'chat-requested',
       visibleDetail: '正在请求一次受控回应',
@@ -772,7 +772,7 @@ class MentorNotifier extends ChangeNotifier {
   String _buildFallbackBanner(String reasonCode) {
     switch (reasonCode) {
       case 'onboarding_missing':
-        return '还没读到 onboarding 档案，先给你一条通用建议，不影响继续开口。';
+        return '还没读到本地档案，先给你一条通用建议，不影响继续开口。';
       case 'onboarding_malformed':
       case 'onboarding_unavailable':
         return '本地档案暂时不可读，先给你一条通用建议，避免面板空白。';
@@ -790,7 +790,7 @@ class MentorNotifier extends ChangeNotifier {
 
   String _visibleDetailForSuggestions(LocalMentorSuggestionResult result) {
     if (result.sharedContextStatus?.adopted ?? false) {
-      return '当前展示共享 continuity 建议';
+      return '当前展示共享继续练习建议';
     }
     if (result.contextFallbackUsed) {
       return '当前展示通用本地建议';

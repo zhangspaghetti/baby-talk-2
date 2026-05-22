@@ -29,7 +29,7 @@ void main() {
             ),
             pendingSyncCount: 1,
             lastSyncPhase: 'home_visible_offline',
-            lastVisibleError: '当前离线，已保留本地待同步事件，可稍后重试。',
+            lastVisibleError: '当前离线，已保留本机待同步记录，可稍后重试。',
           ),
         ),
       );
@@ -82,7 +82,7 @@ void main() {
       );
     });
 
-    test('共享 continuity adopted/skipped 状态会暴露给面板层', () async {
+    test('共享建议 adopted/skipped 状态会暴露给面板层', () async {
       final accountNotifier = AccountNotifier(
         repository: _StaticAccountRepository(
           seedSnapshot: AccountLocalSnapshot.signedOut,
@@ -106,8 +106,8 @@ void main() {
               'shared:shared_context_adopted_newer:caregiver:feeding_time',
           sharedContextStatus: const MentorSharedContextStatus(
             code: 'shared_context_adopted_newer',
-            headline: '已采用家庭共享连续性',
-            detail: '次照护者刚完成一次共享练习，Mentor 现在按“喂饭时间”继续。',
+            headline: '已采用家庭共享建议',
+            detail: '次照护者刚完成一次共享练习，导师现在按“喂饭时间”继续。',
             adopted: true,
           ),
         ),

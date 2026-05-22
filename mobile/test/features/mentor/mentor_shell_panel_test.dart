@@ -69,7 +69,7 @@ void main() {
           ),
           pendingSyncCount: 1,
           lastSyncPhase: 'home_visible_offline',
-          lastVisibleError: '当前离线，已保留本地待同步事件，可稍后重试。',
+          lastVisibleError: '当前离线，已保留本机待同步记录，可稍后重试。',
         ),
         mentorSuggestionResult: LocalMentorSuggestionResult(
           suggestions: [
@@ -134,7 +134,7 @@ void main() {
     expect(panelOpenedFacts, hasLength(1));
   });
 
-  testWidgets('Mentor 建议页会显示共享 continuity adopted 的状态卡', (tester) async {
+  testWidgets('Mentor 建议页会显示共享建议 adopted 的状态卡', (tester) async {
     await _setTallSurface(tester);
     final harness = (await tester.runAsync<_Harness>(
       () => _Harness.create(
@@ -155,8 +155,8 @@ void main() {
               'shared:shared_context_adopted_newer:caregiver:feeding_time',
           sharedContextStatus: const MentorSharedContextStatus(
             code: 'shared_context_adopted_newer',
-            headline: '已采用家庭共享连续性',
-            detail: '次照护者刚完成一次共享练习，Mentor 现在按“喂饭时间”继续。',
+            headline: '已采用家庭共享建议',
+            detail: '次照护者刚完成一次共享练习，导师现在按“喂饭时间”继续。',
             adopted: true,
           ),
         ),
@@ -183,11 +183,11 @@ void main() {
       findsOneWidget,
     );
     expect(find.byKey(const Key('mentor-shared-context-chip')), findsOneWidget);
-    expect(find.text('已采用家庭共享连续性'), findsOneWidget);
+    expect(find.text('已采用家庭共享建议'), findsOneWidget);
     expect(find.textContaining('喂饭时间'), findsWidgets);
   });
 
-  testWidgets('Mentor 建议页会显示共享 continuity skipped 的安全原因', (tester) async {
+  testWidgets('Mentor 建议页会显示共享建议 skipped 的安全原因', (tester) async {
     await _setTallSurface(tester);
     final harness = (await tester.runAsync<_Harness>(
       () => _Harness.create(
@@ -209,8 +209,8 @@ void main() {
               'starter_phrase:bath_time/bath_time_warm_water;shared:shared_next_step_missing',
           sharedContextStatus: const MentorSharedContextStatus(
             code: 'shared_next_step_missing',
-            headline: '共享连续性已安全放弃',
-            detail: '共享下一步缺少安全 route args，Mentor 继续使用本地建议。',
+            headline: '共享建议已保留本地版本',
+            detail: '共享下一步暂时打不开，导师继续使用本地建议。',
             adopted: false,
           ),
         ),
@@ -236,8 +236,9 @@ void main() {
       find.byKey(const Key('mentor-shared-context-banner')),
       findsOneWidget,
     );
-    expect(find.text('共享连续性已安全放弃'), findsOneWidget);
-    expect(find.textContaining('安全 route args'), findsOneWidget);
+    expect(find.text('共享建议已保留本地版本'), findsOneWidget);
+    expect(find.textContaining('共享下一步暂时打不开'), findsOneWidget);
+    expect(find.textContaining('route args'), findsNothing);
   });
 
   testWidgets('standalone home 小 FAB 在缺失 onboarding 时仍打开同一 Mentor 面板并回退通用建议', (
@@ -283,7 +284,8 @@ void main() {
       find.byKey(const Key('mentor-suggestion-card-safe_small_step')),
       findsOneWidget,
     );
-    expect(find.textContaining('还没读到 onboarding 档案'), findsOneWidget);
+    expect(find.textContaining('还没读到本地档案'), findsOneWidget);
+    expect(find.textContaining('onboarding 档案'), findsNothing);
   });
 
   testWidgets('chat tab 已登录且已同意时可提交一次求助并显示受控回应', (tester) async {

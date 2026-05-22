@@ -281,7 +281,7 @@ class AccountStatusCard extends ConsumerWidget {
       chips.add(
         Chip(
           key: Key('$scopeKeyPrefix-account-phase-chip'),
-          label: Text('phase · ${notifier.snapshot.lastSyncPhase}'),
+          label: Text(l.accountSyncPhaseUpdated),
         ),
       );
     }
@@ -667,27 +667,27 @@ class AccountEntryScreen extends HookConsumerWidget {
   ) {
     switch (phase) {
       case AccountSurfacePhase.loading:
-        return 'loading';
+        return l.accountReading;
       case AccountSurfacePhase.localOnly:
-        return 'local-only';
+        return l.accountLocalOnly;
       case AccountSurfacePhase.signedOut:
-        return 'signed-out';
+        return l.accountNotLoggedIn;
       case AccountSurfacePhase.signedInPendingSync:
         return l.accountSignedInPendingSyncStatus(
           notifier.snapshot.pendingSyncCount,
         );
       case AccountSurfacePhase.signedInSynced:
-        return 'signed-in-synced';
+        return l.accountEntrySignedInSynced(notifier.maskedPhoneNumber);
       case AccountSurfacePhase.signedInFailed:
-        return 'signed-in-retry-needed';
+        return l.accountSyncRetryNeeded;
       case AccountSurfacePhase.revoked:
-        return 'consent-revoked';
+        return l.accountConsentRevoked;
       case AccountSurfacePhase.deleted:
-        return 'account-deleted';
+        return l.accountDeleted;
       case AccountSurfacePhase.versionBlocked:
-        return 'upgrade-required-426';
+        return l.accountUpgradeNeeded;
       case AccountSurfacePhase.error:
-        return 'error';
+        return l.accountStatusUnreadable;
     }
   }
 

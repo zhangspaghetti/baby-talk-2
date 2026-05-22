@@ -36,7 +36,8 @@ void main() {
     expect(find.byKey(const Key('home-account-card')), findsOneWidget);
     expect(find.byKey(const Key('home-account-open-entry')), findsOneWidget);
     expect(find.byKey(const Key('home-account-upgrade-button')), findsNothing);
-    expect(find.text('仍是 local-only 档案模式'), findsOneWidget);
+    expect(find.text('仍是本机档案模式'), findsOneWidget);
+    expect(find.textContaining('local-only'), findsNothing);
 
     await tester.tap(find.byKey(const Key('home-account-open-entry')));
     await tester.pumpAndSettle();
@@ -199,7 +200,8 @@ void main() {
     );
     expect(find.textContaining('138****8000'), findsWidgets);
     expect(find.textContaining('待同步 3'), findsOneWidget);
-    expect(find.textContaining('登录已完成：仍有 3 条待同步事件。'), findsOneWidget);
+    expect(find.textContaining('登录已完成：仍有 3 条练习记录待同步。'), findsOneWidget);
+    expect(find.textContaining('待同步事件'), findsNothing);
   });
 
   testWidgets('账号状态读取失败时暴露 error 态，并允许重试恢复', (WidgetTester tester) async {

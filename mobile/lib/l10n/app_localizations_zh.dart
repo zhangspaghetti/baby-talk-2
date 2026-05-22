@@ -57,9 +57,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get bootErrorUnknown => '未知启动错误';
 
   @override
-  String bootErrorOnboardingRead(Object error) {
-    return 'onboarding 本地档案读取失败：$error';
-  }
+  String get bootErrorOnboardingRead => '本地档案读取失败，请重试。';
 
   @override
   String get bootErrorStartup => '应用启动失败，请重启后重试。';
@@ -426,11 +424,11 @@ class AppLocalizationsZh extends AppLocalizations {
   String get shellSharedNotConnected => '共享未接通';
 
   @override
-  String get shellNoStageDescription => '当前还没有完整阶段说明，后续完成 onboarding 后会显示这里。';
+  String get shellNoStageDescription => '完成首次设置后，这里会显示更合适的阶段说明。';
 
   @override
   String get shellLocalOnlyNote =>
-      '同意前，这里的昵称、月龄档和阶段仅保存在这台设备上；共享照护只会显示脱敏后的角色、phase 和上下文摘要。';
+      '同意前，这里的昵称、月龄档和阶段仅保存在这台设备上；共享照护只会显示脱敏后的角色和共享摘要。';
 
   @override
   String get shellSharedProfile => '共享家庭档案';
@@ -482,7 +480,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get accountReading => '正在读取账号状态';
 
   @override
-  String get accountLocalOnly => '仍是 local-only 档案模式';
+  String get accountLocalOnly => '仍是本机档案模式';
 
   @override
   String get accountNotLoggedIn => '当前未登录账号';
@@ -508,7 +506,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get accountStatusUnreadable => '账号状态暂时不可读';
 
   @override
-  String get accountShellNote => 'Shell 可继续进入，稍后会在这里显示 consent、待同步数量和最近状态。';
+  String get accountShellNote => '账号状态准备中；你仍可以先继续练习，稍后这里会显示同步进展。';
 
   @override
   String get accountCurrentProfile => '当前档案';
@@ -524,27 +522,24 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
-  String get accountEntryNote =>
-      '账号入口已挂到真实 shell/home；登录前不会把手机号、验证码或 session 混进 onboarding / practice 状态。';
+  String get accountEntryNote => '登录前，手机号和验证码只用于账号流程，不会影响本机练习记录。';
 
   @override
   String accountPendingSync(Object count) {
-    return '仍有 $count 条 append-only 练习事件待同步，前台会在启动、回首页、回前台和手动重试时继续尝试。';
+    return '仍有 $count 条练习记录待同步，打开应用、回到首页或手动重试时会继续尝试。';
   }
 
   @override
-  String get accountAlignedNote =>
-      '最近状态已对齐；重登时会先 bootstrap，再恢复 recent result 与继续练习位置。';
+  String get accountAlignedNote => '最近状态已对齐；重新登录后会恢复最近结果和继续练习位置。';
 
   @override
-  String get accountSyncIncomplete =>
-      '最近一次同步没有完成，但本地 pending 事件仍保留，可继续练习并稍后重试。';
+  String get accountSyncIncomplete => '最近一次同步没有完成，但本机练习记录仍保留，可继续练习并稍后重试。';
 
   @override
   String get accountRevokedNote => '撤回后不会再上传或恢复远端数据；重新登录并再次同意后才会继续同步。';
 
   @override
-  String get accountDeletedNote => '删除后远端账号不可恢复；本机仍可继续 guest/local-only 使用。';
+  String get accountDeletedNote => '删除后账号不可恢复；本机仍可继续保留练习。';
 
   @override
   String get accountUpgradeNote => '服务端已拒绝当前版本；请先打开升级页面安装新版本，再返回重试同步。';
@@ -553,7 +548,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get accountUpgradeUnavailable => '服务端已拒绝当前版本；当前会保留升级受阻提示，但升级入口暂不可用。';
 
   @override
-  String get accountReadFailed => '账号状态读取失败，但 onboarding / practice 路由不会因此崩溃。';
+  String get accountReadFailed => '账号状态暂时读不到，练习入口仍会保持可用。';
 
   @override
   String accountPendingSyncCount(Object count) {
@@ -576,10 +571,13 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
+  String get accountSyncPhaseUpdated => '同步状态已更新';
+
+  @override
   String get accountEntryLabel => '账号入口';
 
   @override
-  String get accountS03Label => 'S03 账号 / 同意 / 同步闭环';
+  String get accountS03Label => '账号与同步设置';
 
   @override
   String get accountRetryReadStatus => '重试读取账号状态';
@@ -591,11 +589,10 @@ class AppLocalizationsZh extends AppLocalizations {
   String get accountCodeLabel => '验证码';
 
   @override
-  String get accountDevStub => '开发 stub 默认 246810';
+  String get accountDevStub => '请输入 6 位验证码';
 
   @override
-  String get accountRealLoginNote =>
-      '真实登录会调用 challenge → verify → consent accept → bootstrap → batch sync；错误会留在独立 account/sync seam 中，不回写 onboarding snapshot，也不让 PracticeSessionNotifier 直接发请求。';
+  String get accountRealLoginNote => '登录成功后会同步账号资料和本机练习记录；出错时会停留在账号页，不影响当前练习。';
 
   @override
   String accountLastError(Object error) {
@@ -618,7 +615,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get accountLogout => '退出为未登录';
 
   @override
-  String get accountBackToLocal => '回到 local-only';
+  String get accountBackToLocal => '回到本机档案';
 
   @override
   String get accountPreparing => '正在准备账号状态';
@@ -631,7 +628,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String accountSignedInPending(Object phone) {
-    return '已用 $phone 登录，仍有待同步事件';
+    return '已用 $phone 登录，仍有练习记录待同步';
   }
 
   @override
@@ -643,11 +640,11 @@ class AppLocalizationsZh extends AppLocalizations {
   String get accountSignedInSyncRetry => '登录已完成，但最近同步仍需重试';
 
   @override
-  String get accountReadFailedShell => '账号状态读取失败，但当前 shell 仍可继续使用';
+  String get accountReadFailedShell => '账号状态读取失败，但当前页面仍可继续使用';
 
   @override
   String accountSignedInPendingSyncStatus(Object count) {
-    return 'signed-in-pending-sync · 待同步 $count';
+    return '已登录 · 待同步 $count';
   }
 
   @override
@@ -708,11 +705,11 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
-  String get householdNextStepMissing => '共享下一步缺少安全 route args，入口已停留在安全禁用态。';
+  String get householdNextStepMissing => '共享下一步暂时打不开，入口已保持安全禁用。';
 
   @override
   String householdRecentInteraction(Object interactionTime, Object updateTime) {
-    return '最近互动 $interactionTime · 投影刷新 $updateTime';
+    return '最近互动 $interactionTime · 更新 $updateTime';
   }
 
   @override
@@ -738,8 +735,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get householdSharedFeatureNotConnected => '共享功能暂未接通';
 
   @override
-  String get householdFallbackNote =>
-      '共享档案、角色和最近 continuity 已退回安全空态，不会回退到错误默认 activity。';
+  String get householdFallbackNote => '共享档案和最近练习暂时不可用，已保留安全空态。';
 
   @override
   String householdLastAccepted(Object time) {
@@ -786,8 +782,7 @@ class AppLocalizationsZh extends AppLocalizations {
       '角色尚未同步；共享档案会继续停留在安全 fallback，不会把错误参数写进练习入口。';
 
   @override
-  String get householdContextUnavailableNote =>
-      '共享上下文暂不可用；当前不会把缺字段或坏 route args 写进 Practice/Garden。';
+  String get householdContextUnavailableNote => '共享上下文暂不可用；当前不会写入不完整的下一步。';
 
   @override
   String get householdPrimaryInviteNote => '生成邀请并等待次照护者接受后，这里会出现共享宝宝档案与下一步入口。';
@@ -817,7 +812,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get householdSharedBabyProfile => '共享宝宝档案';
 
   @override
-  String get householdRecentContinuity => '最近 continuity';
+  String get householdRecentContinuity => '最近继续练习';
 
   @override
   String get householdGardenContext => '花园上下文';
@@ -866,8 +861,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get discoverBrowseByActivity => '按活动浏览';
 
   @override
-  String get discoverActivityRouteNote =>
-      '每张 ActivityCard 都带着自己的 spaceId/activityId 进入练习页。';
+  String get discoverActivityRouteNote => '每张活动卡都会打开对应练习。';
 
   @override
   String discoverActivityCardSemantics(Object title) {
@@ -919,8 +913,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get discoverBrowseBySpace => '按空间浏览';
 
   @override
-  String get discoverSpaceRouteNote =>
-      '每个 SpaceGridItem 会保留被点击 activity 的 route 作用域。';
+  String get discoverSpaceRouteNote => '每个空间会保留你点击的活动入口。';
 
   @override
   String discoverSpaceProgress(Object started, Object total, Object events) {
@@ -941,7 +934,7 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
-  String get discoverInvalidCard => '这张活动卡缺少有效的 spaceId/activityId，已禁止导航。';
+  String get discoverInvalidCard => '这张活动卡暂时打不开，已为你保留在当前页面。';
 
   @override
   String discoverOpenError(Object title, Object error) {
@@ -1054,7 +1047,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String gardenTotalEvents(Object count) {
-    return '$count 次练习事件';
+    return '$count 条练习记录';
   }
 
   @override
@@ -1131,8 +1124,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get mentorChatTab => '聊天';
 
   @override
-  String get mentorChatNote =>
-      'Mentor 只返回一条 text-first 受控回应；不会在面板里展示 raw provider 输出。';
+  String get mentorChatNote => '导师只返回一条清晰回应，帮助你先稳住当下。';
 
   @override
   String get mentorReadStatus => '朗读状态';
@@ -1258,7 +1250,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get growthOrganizing => '成长页正在整理练习记录';
 
   @override
-  String get growthOrganizingNote => '等投影准备好后，这里会出现最新一次变化、自动日记和里程碑。';
+  String get growthOrganizingNote => '准备好后，这里会出现最新一次变化、自动日记和里程碑。';
 
   @override
   String get growthPlaceholder => '最近成长会写在这里';
@@ -1329,8 +1321,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get invitePermissionPending => '邀请权限待同步';
 
   @override
-  String get inviteGenerateNote =>
-      '生成真实 invite link 后，次照护者可通过链接接受邀请并看到共享宝宝档案摘要。';
+  String get inviteGenerateNote => '生成邀请链接后，次照护者可通过链接接受邀请并看到共享宝宝档案摘要。';
 
   @override
   String get inviteCaregiverNote => '你当前是次照护者，只读查看共享照护内容；如需新增成员，请让主照护者操作。';
@@ -1374,7 +1365,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get shareUnavailable => '分享暂时不可用，请稍后重试。';
 
   @override
-  String get sharePrivacyNote => '分享内容会自动脱敏，不包含昵称、安装号或调试信息。';
+  String get sharePrivacyNote => '分享内容会自动脱敏，只保留适合家人查看的成长片段。';
 
   @override
   String get activationFrameLabel => '当前短语练习区';
@@ -1394,13 +1385,13 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
-  String get accountEntryReadFailedShell => '账号状态读取失败，但当前 shell 仍可继续使用';
+  String get accountEntryReadFailedShell => '账号状态读取失败，但当前页面仍可继续使用';
 
   @override
   String get accountEntryTitle => '账号入口';
 
   @override
-  String get accountEntryS03Label => 'S03 账号 / 同意 / 同步闭环';
+  String get accountEntryS03Label => '账号与同步设置';
 
   @override
   String get accountEntrySubmitMessage => '登录已完成，可返回首页查看最近恢复结果。';
@@ -1464,7 +1455,7 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
-  String get discoverInvalidCardError => '这张活动卡缺少有效的 spaceId/activityId，已禁止导航。';
+  String get discoverInvalidCardError => '这张活动卡暂时打不开，已为你保留在当前页面。';
 
   @override
   String discoverOpenActivityError(Object title, Object error) {

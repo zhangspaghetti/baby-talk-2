@@ -57,7 +57,8 @@ void main() {
     );
 
     expect(find.byKey(const Key('practice-safe-fallback')), findsOneWidget);
-    expect(find.textContaining('practice route 参数'), findsOneWidget);
+    expect(find.textContaining('练习入口暂时打不开'), findsOneWidget);
+    expect(find.textContaining('practice route 参数'), findsNothing);
 
     await _pumpApp(
       tester,

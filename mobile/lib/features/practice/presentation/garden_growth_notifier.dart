@@ -80,13 +80,13 @@ class GardenGrowthNotifier extends ChangeNotifier {
         return;
       }
       _status = GardenGrowthLoadStatus.error;
-      _message = '成长投影刷新超时，先保留上一次稳定结果。';
+      _message = '成长更新超时，先保留上一次稳定结果。';
     } catch (error) {
       if (_disposed) {
         return;
       }
       _status = GardenGrowthLoadStatus.error;
-      _message = '成长投影暂时不可用：$error';
+      _message = '成长更新暂时不可用，请稍后重试。';
     } finally {
       _isRefreshing = false;
       notifyListeners();

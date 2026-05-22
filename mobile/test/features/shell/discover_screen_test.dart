@@ -225,7 +225,8 @@ void main() {
 
     expect(openCount, 0);
     expect(find.byKey(const Key('discover-navigation-error')), findsOneWidget);
-    expect(find.textContaining('缺少有效的 spaceId/activityId'), findsOneWidget);
+    expect(find.textContaining('这张活动卡暂时打不开'), findsOneWidget);
+    expect(find.textContaining('spaceId/activityId'), findsNothing);
   });
 }
 

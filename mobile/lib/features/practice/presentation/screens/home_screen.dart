@@ -204,8 +204,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with RouteAware {
     );
     final homeWarningMessage = _resolveHomeWarningMessage(continuityNotifier);
     final homeDisabledReason = continuityNotifier.disabledReason == null
-      ? null
-      : l.homeContinuityDisabledNote;
+        ? null
+        : l.homeContinuityDisabledNote;
     final sharedContext = householdNotifier.snapshot.sharedContext;
     final localContinuityAt = continuitySnapshot?.cadence.lastEventTime;
     final sharedNextStepArgs = resolveHouseholdSharedNextStepArgs(
@@ -330,8 +330,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with RouteAware {
                         ),
                         const SizedBox(height: 12),
                         Text(
-                          activity?.phrases.first.english ??
-                              'Continuity unavailable.',
+                          activity?.phrases.first.english ?? '先从熟悉短句开始。',
                           style: Theme.of(context).textTheme.displayMedium
                               ?.copyWith(color: colors.english),
                         ),
@@ -606,7 +605,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with RouteAware {
 
   String _buildGuestRestoreMessage(PracticeContinuitySnapshot? snapshot) {
     if (snapshot == null || snapshot.cadence.totalKnownEvents == 0) {
-      return '未找到本地记录，可以直接开始 guest 练习。';
+      return '未找到本地记录，可以直接开始练习。';
     }
     return '已从本地恢复最近一次练习结果，共 ${snapshot.cadence.totalKnownEvents} 条记录。';
   }

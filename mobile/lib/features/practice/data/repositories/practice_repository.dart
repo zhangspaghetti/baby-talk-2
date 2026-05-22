@@ -939,21 +939,11 @@ class PracticeRepository {
     required int skippedUnknownPhraseCount,
   }) {
     if (inspection.scanErrorMessage != null) {
-      return '${inspection.scanErrorMessage}；已退回安全空态，可直接重新开始 guest 练习。';
+      return '${inspection.scanErrorMessage}；已退回安全空态，可直接重新开始练习。';
     }
 
     if (inspection.skippedEventCount > 0) {
-      final issue = inspection.lastIssue;
-      final localEventId = issue?.localEventId;
-      final reason = issue?.message;
-      final detail = [
-        if (localEventId != null && localEventId.isNotEmpty)
-          '最近失败 localEventId=$localEventId',
-        if (reason != null && reason.isNotEmpty) reason,
-      ].join('，');
-      return detail.isEmpty
-          ? '恢复时跳过 ${inspection.skippedEventCount} 条损坏记录。'
-          : '恢复时跳过 ${inspection.skippedEventCount} 条损坏记录：$detail。';
+      return '恢复时跳过 ${inspection.skippedEventCount} 条暂不可用记录，其余本地结果已保留。';
     }
 
     if (skippedUnknownPhraseCount > 0) {
@@ -961,7 +951,7 @@ class PracticeRepository {
     }
 
     if (homeSummary.isEmpty) {
-      return '未找到本地记录，可以直接开始 guest 练习。';
+      return '未找到本地记录，可以直接开始练习。';
     }
 
     return '已从本地恢复最近一次练习结果，共 ${homeSummary.totalEvents} 条记录。';

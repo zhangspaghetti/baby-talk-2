@@ -99,13 +99,13 @@ String householdSharedAttributionDetail(HouseholdSharedContext sharedContext) {
 String householdSharedNextStepDetail(HouseholdSharedContext sharedContext) {
   final safeArgs = resolveHouseholdSharedNextStepArgs(sharedContext);
   if (safeArgs == null) {
-    return '共享下一步缺少安全 route args，入口已停留在安全禁用态。';
+    return '共享下一步暂时打不开，入口已停留在安全禁用态。';
   }
   return '${householdNextStepReasonLabel(sharedContext.nextStep?.reason)} · ${safeArgs.scopeLabel}';
 }
 
 String householdSharedProjectionMeta(HouseholdSharedContext sharedContext) {
-  return '最近互动 ${formatHouseholdSharedDateTime(sharedContext.latestInteractionAt)} · 投影刷新 ${formatHouseholdSharedDateTime(sharedContext.updatedAt)}';
+  return '最近互动 ${formatHouseholdSharedDateTime(sharedContext.latestInteractionAt)} · 更新 ${formatHouseholdSharedDateTime(sharedContext.updatedAt)}';
 }
 
 String householdSharedUnavailableNextStepMessage(
@@ -284,7 +284,7 @@ class HouseholdSharedContextCard extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              '共享档案、角色和最近 continuity 已退回安全空态，不会回退到错误默认 activity。',
+              '共享档案、角色和最近练习已退回安全空态，不会打开错误入口。',
               style: Theme.of(context).textTheme.bodyMedium,
             ),
           ],
@@ -322,7 +322,7 @@ class HouseholdSharedContextCard extends StatelessWidget {
               _buildRoleChip(
                 context,
                 key: Key('$surfaceKeyPrefix-household-phase-chip'),
-                label: 'phase · ${snapshot.lastPhase}',
+                label: _statusLabelFor(snapshot),
                 backgroundColor: colors.bgSunken,
                 foregroundColor: colors.textSecondary,
               ),
@@ -486,6 +486,16 @@ class HouseholdSharedContextCard extends StatelessWidget {
     return '共享照护尚未接通';
   }
 
+  String _statusLabelFor(HouseholdLocalSnapshot snapshot) {
+    if (snapshot.hasSharedContext) {
+      return '共享状态已更新';
+    }
+    if (_isUnavailablePhase(snapshot.lastPhase)) {
+      return '共享状态暂不可用';
+    }
+    return '共享状态准备中';
+  }
+
   String _roleNoteFor(HouseholdLocalSnapshot snapshot) {
     switch (snapshot.role) {
       case HouseholdRole.primaryCaregiver:
@@ -495,7 +505,7 @@ class HouseholdSharedContextCard extends StatelessWidget {
             ? '你当前是次照护者；邀请接受成功后，这里会显示共享宝宝档案、最近归因与下一步入口。'
             : '你当前是次照护者；这里展示的是共享宝宝档案、最近归因与下一步入口。';
       case null:
-        return '角色尚未同步；共享档案会继续停留在安全 fallback，不会把错误参数写进练习入口。';
+        return '角色尚未同步；共享档案会继续停留在安全空态，不会写入不完整的练习入口。';
     }
   }
 
@@ -503,7 +513,7 @@ class HouseholdSharedContextCard extends StatelessWidget {
     if (snapshot.lastVisibleError != null &&
         snapshot.lastVisibleError!.trim().isNotEmpty) {
       if (_isUnavailablePhase(snapshot.lastPhase)) {
-        return '共享上下文暂不可用；当前不会把缺字段或坏 route args 写进 Practice/Garden。';
+        return '共享上下文暂不可用；当前不会写入不完整的下一步。';
       }
       return snapshot.lastVisibleError!;
     }

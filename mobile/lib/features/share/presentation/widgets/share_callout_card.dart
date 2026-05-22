@@ -190,14 +190,14 @@ class _ShareStateSpec {
       case ShareViewStatus.idle:
         return _ShareStateSpec(
           name: 'ready',
-          message: '分享内容会自动脱敏，不包含昵称、安装号或调试信息。',
+          message: '分享内容会自动脱敏，只保留适合家人查看的成长片段。',
           backgroundColor: colors.englishSoft,
           foregroundColor: colors.english,
         );
       default:
         return _ShareStateSpec(
           name: 'ready',
-          message: '分享内容会自动脱敏，不包含昵称、安装号或调试信息。',
+          message: '分享内容会自动脱敏，只保留适合家人查看的成长片段。',
           backgroundColor: colors.englishSoft,
           foregroundColor: colors.english,
         );

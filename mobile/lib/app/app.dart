@@ -287,7 +287,7 @@ class _BabyTalkAppState extends State<BabyTalkApp> {
             darkTheme: AppTheme.buildDark(),
             themeMode: ThemeMode.system,
             home: BootFailureScreen(
-              message: 'onboarding 本地档案读取失败：${snapshot.error}',
+              message: '本地档案读取失败，请重试。',
               statusKey: const Key('boot-route-gate-failed'),
               actionLabel: '重试',
               onAction: _retryLaunchState,

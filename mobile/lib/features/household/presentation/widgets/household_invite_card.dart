@@ -192,7 +192,7 @@ class HouseholdInviteCard extends StatelessWidget {
   String _bodyFor(HouseholdLocalSnapshot snapshot) {
     switch (snapshot.role) {
       case HouseholdRole.primaryCaregiver:
-        return '生成真实 invite link 后，次照护者可通过链接接受邀请并看到共享宝宝档案摘要。';
+        return '生成邀请链接后，次照护者可通过链接接受邀请并看到共享宝宝档案摘要。';
       case HouseholdRole.caregiver:
         return '你当前是次照护者，只读查看共享照护内容；如需新增成员，请让主照护者操作。';
       case null:

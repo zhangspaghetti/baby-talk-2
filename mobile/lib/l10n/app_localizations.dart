@@ -193,8 +193,8 @@ abstract class AppLocalizations {
   /// No description provided for @bootErrorOnboardingRead.
   ///
   /// In zh, this message translates to:
-  /// **'onboarding 本地档案读取失败：{error}'**
-  String bootErrorOnboardingRead(Object error);
+  /// **'本地档案读取失败，请重试。'**
+  String get bootErrorOnboardingRead;
 
   /// No description provided for @bootErrorStartup.
   ///
@@ -863,13 +863,13 @@ abstract class AppLocalizations {
   /// No description provided for @shellNoStageDescription.
   ///
   /// In zh, this message translates to:
-  /// **'当前还没有完整阶段说明，后续完成 onboarding 后会显示这里。'**
+  /// **'完成首次设置后，这里会显示更合适的阶段说明。'**
   String get shellNoStageDescription;
 
   /// No description provided for @shellLocalOnlyNote.
   ///
   /// In zh, this message translates to:
-  /// **'同意前，这里的昵称、月龄档和阶段仅保存在这台设备上；共享照护只会显示脱敏后的角色、phase 和上下文摘要。'**
+  /// **'同意前，这里的昵称、月龄档和阶段仅保存在这台设备上；共享照护只会显示脱敏后的角色和共享摘要。'**
   String get shellLocalOnlyNote;
 
   /// No description provided for @shellSharedProfile.
@@ -971,7 +971,7 @@ abstract class AppLocalizations {
   /// No description provided for @accountLocalOnly.
   ///
   /// In zh, this message translates to:
-  /// **'仍是 local-only 档案模式'**
+  /// **'仍是本机档案模式'**
   String get accountLocalOnly;
 
   /// No description provided for @accountNotLoggedIn.
@@ -1019,7 +1019,7 @@ abstract class AppLocalizations {
   /// No description provided for @accountShellNote.
   ///
   /// In zh, this message translates to:
-  /// **'Shell 可继续进入，稍后会在这里显示 consent、待同步数量和最近状态。'**
+  /// **'账号状态准备中；你仍可以先继续练习，稍后这里会显示同步进展。'**
   String get accountShellNote;
 
   /// No description provided for @accountCurrentProfile.
@@ -1043,25 +1043,25 @@ abstract class AppLocalizations {
   /// No description provided for @accountEntryNote.
   ///
   /// In zh, this message translates to:
-  /// **'账号入口已挂到真实 shell/home；登录前不会把手机号、验证码或 session 混进 onboarding / practice 状态。'**
+  /// **'登录前，手机号和验证码只用于账号流程，不会影响本机练习记录。'**
   String get accountEntryNote;
 
   /// No description provided for @accountPendingSync.
   ///
   /// In zh, this message translates to:
-  /// **'仍有 {count} 条 append-only 练习事件待同步，前台会在启动、回首页、回前台和手动重试时继续尝试。'**
+  /// **'仍有 {count} 条练习记录待同步，打开应用、回到首页或手动重试时会继续尝试。'**
   String accountPendingSync(Object count);
 
   /// No description provided for @accountAlignedNote.
   ///
   /// In zh, this message translates to:
-  /// **'最近状态已对齐；重登时会先 bootstrap，再恢复 recent result 与继续练习位置。'**
+  /// **'最近状态已对齐；重新登录后会恢复最近结果和继续练习位置。'**
   String get accountAlignedNote;
 
   /// No description provided for @accountSyncIncomplete.
   ///
   /// In zh, this message translates to:
-  /// **'最近一次同步没有完成，但本地 pending 事件仍保留，可继续练习并稍后重试。'**
+  /// **'最近一次同步没有完成，但本机练习记录仍保留，可继续练习并稍后重试。'**
   String get accountSyncIncomplete;
 
   /// No description provided for @accountRevokedNote.
@@ -1073,7 +1073,7 @@ abstract class AppLocalizations {
   /// No description provided for @accountDeletedNote.
   ///
   /// In zh, this message translates to:
-  /// **'删除后远端账号不可恢复；本机仍可继续 guest/local-only 使用。'**
+  /// **'删除后账号不可恢复；本机仍可继续保留练习。'**
   String get accountDeletedNote;
 
   /// No description provided for @accountUpgradeNote.
@@ -1091,7 +1091,7 @@ abstract class AppLocalizations {
   /// No description provided for @accountReadFailed.
   ///
   /// In zh, this message translates to:
-  /// **'账号状态读取失败，但 onboarding / practice 路由不会因此崩溃。'**
+  /// **'账号状态暂时读不到，练习入口仍会保持可用。'**
   String get accountReadFailed;
 
   /// No description provided for @accountPendingSyncCount.
@@ -1118,6 +1118,12 @@ abstract class AppLocalizations {
   /// **'最近 {time}'**
   String accountRecentTime(Object time);
 
+  /// No description provided for @accountSyncPhaseUpdated.
+  ///
+  /// In zh, this message translates to:
+  /// **'同步状态已更新'**
+  String get accountSyncPhaseUpdated;
+
   /// No description provided for @accountEntryLabel.
   ///
   /// In zh, this message translates to:
@@ -1127,7 +1133,7 @@ abstract class AppLocalizations {
   /// No description provided for @accountS03Label.
   ///
   /// In zh, this message translates to:
-  /// **'S03 账号 / 同意 / 同步闭环'**
+  /// **'账号与同步设置'**
   String get accountS03Label;
 
   /// No description provided for @accountRetryReadStatus.
@@ -1151,13 +1157,13 @@ abstract class AppLocalizations {
   /// No description provided for @accountDevStub.
   ///
   /// In zh, this message translates to:
-  /// **'开发 stub 默认 246810'**
+  /// **'请输入 6 位验证码'**
   String get accountDevStub;
 
   /// No description provided for @accountRealLoginNote.
   ///
   /// In zh, this message translates to:
-  /// **'真实登录会调用 challenge → verify → consent accept → bootstrap → batch sync；错误会留在独立 account/sync seam 中，不回写 onboarding snapshot，也不让 PracticeSessionNotifier 直接发请求。'**
+  /// **'登录成功后会同步账号资料和本机练习记录；出错时会停留在账号页，不影响当前练习。'**
   String get accountRealLoginNote;
 
   /// No description provided for @accountLastError.
@@ -1199,7 +1205,7 @@ abstract class AppLocalizations {
   /// No description provided for @accountBackToLocal.
   ///
   /// In zh, this message translates to:
-  /// **'回到 local-only'**
+  /// **'回到本机档案'**
   String get accountBackToLocal;
 
   /// No description provided for @accountPreparing.
@@ -1223,7 +1229,7 @@ abstract class AppLocalizations {
   /// No description provided for @accountSignedInPending.
   ///
   /// In zh, this message translates to:
-  /// **'已用 {phone} 登录，仍有待同步事件'**
+  /// **'已用 {phone} 登录，仍有练习记录待同步'**
   String accountSignedInPending(Object phone);
 
   /// No description provided for @accountSignedInAligned.
@@ -1241,13 +1247,13 @@ abstract class AppLocalizations {
   /// No description provided for @accountReadFailedShell.
   ///
   /// In zh, this message translates to:
-  /// **'账号状态读取失败，但当前 shell 仍可继续使用'**
+  /// **'账号状态读取失败，但当前页面仍可继续使用'**
   String get accountReadFailedShell;
 
   /// No description provided for @accountSignedInPendingSyncStatus.
   ///
   /// In zh, this message translates to:
-  /// **'signed-in-pending-sync · 待同步 {count}'**
+  /// **'已登录 · 待同步 {count}'**
   String accountSignedInPendingSyncStatus(Object count);
 
   /// No description provided for @householdPrimaryCaregiver.
@@ -1355,13 +1361,13 @@ abstract class AppLocalizations {
   /// No description provided for @householdNextStepMissing.
   ///
   /// In zh, this message translates to:
-  /// **'共享下一步缺少安全 route args，入口已停留在安全禁用态。'**
+  /// **'共享下一步暂时打不开，入口已保持安全禁用。'**
   String get householdNextStepMissing;
 
   /// No description provided for @householdRecentInteraction.
   ///
   /// In zh, this message translates to:
-  /// **'最近互动 {interactionTime} · 投影刷新 {updateTime}'**
+  /// **'最近互动 {interactionTime} · 更新 {updateTime}'**
   String householdRecentInteraction(Object interactionTime, Object updateTime);
 
   /// No description provided for @householdSharedRefreshedNoEntry.
@@ -1409,7 +1415,7 @@ abstract class AppLocalizations {
   /// No description provided for @householdFallbackNote.
   ///
   /// In zh, this message translates to:
-  /// **'共享档案、角色和最近 continuity 已退回安全空态，不会回退到错误默认 activity。'**
+  /// **'共享档案和最近练习暂时不可用，已保留安全空态。'**
   String get householdFallbackNote;
 
   /// No description provided for @householdLastAccepted.
@@ -1493,7 +1499,7 @@ abstract class AppLocalizations {
   /// No description provided for @householdContextUnavailableNote.
   ///
   /// In zh, this message translates to:
-  /// **'共享上下文暂不可用；当前不会把缺字段或坏 route args 写进 Practice/Garden。'**
+  /// **'共享上下文暂不可用；当前不会写入不完整的下一步。'**
   String get householdContextUnavailableNote;
 
   /// No description provided for @householdPrimaryInviteNote.
@@ -1553,7 +1559,7 @@ abstract class AppLocalizations {
   /// No description provided for @householdRecentContinuity.
   ///
   /// In zh, this message translates to:
-  /// **'最近 continuity'**
+  /// **'最近继续练习'**
   String get householdRecentContinuity;
 
   /// No description provided for @householdGardenContext.
@@ -1649,7 +1655,7 @@ abstract class AppLocalizations {
   /// No description provided for @discoverActivityRouteNote.
   ///
   /// In zh, this message translates to:
-  /// **'每张 ActivityCard 都带着自己的 spaceId/activityId 进入练习页。'**
+  /// **'每张活动卡都会打开对应练习。'**
   String get discoverActivityRouteNote;
 
   /// No description provided for @discoverActivityCardSemantics.
@@ -1733,7 +1739,7 @@ abstract class AppLocalizations {
   /// No description provided for @discoverSpaceRouteNote.
   ///
   /// In zh, this message translates to:
-  /// **'每个 SpaceGridItem 会保留被点击 activity 的 route 作用域。'**
+  /// **'每个空间会保留你点击的活动入口。'**
   String get discoverSpaceRouteNote;
 
   /// No description provided for @discoverSpaceProgress.
@@ -1763,7 +1769,7 @@ abstract class AppLocalizations {
   /// No description provided for @discoverInvalidCard.
   ///
   /// In zh, this message translates to:
-  /// **'这张活动卡缺少有效的 spaceId/activityId，已禁止导航。'**
+  /// **'这张活动卡暂时打不开，已为你保留在当前页面。'**
   String get discoverInvalidCard;
 
   /// No description provided for @discoverOpenError.
@@ -1959,7 +1965,7 @@ abstract class AppLocalizations {
   /// No description provided for @gardenTotalEvents.
   ///
   /// In zh, this message translates to:
-  /// **'{count} 次练习事件'**
+  /// **'{count} 条练习记录'**
   String gardenTotalEvents(Object count);
 
   /// No description provided for @gardenActivityProgress.
@@ -2091,7 +2097,7 @@ abstract class AppLocalizations {
   /// No description provided for @mentorChatNote.
   ///
   /// In zh, this message translates to:
-  /// **'Mentor 只返回一条 text-first 受控回应；不会在面板里展示 raw provider 输出。'**
+  /// **'导师只返回一条清晰回应，帮助你先稳住当下。'**
   String get mentorChatNote;
 
   /// No description provided for @mentorReadStatus.
@@ -2343,7 +2349,7 @@ abstract class AppLocalizations {
   /// No description provided for @growthOrganizingNote.
   ///
   /// In zh, this message translates to:
-  /// **'等投影准备好后，这里会出现最新一次变化、自动日记和里程碑。'**
+  /// **'准备好后，这里会出现最新一次变化、自动日记和里程碑。'**
   String get growthOrganizingNote;
 
   /// No description provided for @growthPlaceholder.
@@ -2461,7 +2467,7 @@ abstract class AppLocalizations {
   /// No description provided for @inviteGenerateNote.
   ///
   /// In zh, this message translates to:
-  /// **'生成真实 invite link 后，次照护者可通过链接接受邀请并看到共享宝宝档案摘要。'**
+  /// **'生成邀请链接后，次照护者可通过链接接受邀请并看到共享宝宝档案摘要。'**
   String get inviteGenerateNote;
 
   /// No description provided for @inviteCaregiverNote.
@@ -2545,7 +2551,7 @@ abstract class AppLocalizations {
   /// No description provided for @sharePrivacyNote.
   ///
   /// In zh, this message translates to:
-  /// **'分享内容会自动脱敏，不包含昵称、安装号或调试信息。'**
+  /// **'分享内容会自动脱敏，只保留适合家人查看的成长片段。'**
   String get sharePrivacyNote;
 
   /// No description provided for @activationFrameLabel.
@@ -2581,7 +2587,7 @@ abstract class AppLocalizations {
   /// No description provided for @accountEntryReadFailedShell.
   ///
   /// In zh, this message translates to:
-  /// **'账号状态读取失败，但当前 shell 仍可继续使用'**
+  /// **'账号状态读取失败，但当前页面仍可继续使用'**
   String get accountEntryReadFailedShell;
 
   /// No description provided for @accountEntryTitle.
@@ -2593,7 +2599,7 @@ abstract class AppLocalizations {
   /// No description provided for @accountEntryS03Label.
   ///
   /// In zh, this message translates to:
-  /// **'S03 账号 / 同意 / 同步闭环'**
+  /// **'账号与同步设置'**
   String get accountEntryS03Label;
 
   /// No description provided for @accountEntrySubmitMessage.
@@ -2699,7 +2705,7 @@ abstract class AppLocalizations {
   /// No description provided for @discoverInvalidCardError.
   ///
   /// In zh, this message translates to:
-  /// **'这张活动卡缺少有效的 spaceId/activityId，已禁止导航。'**
+  /// **'这张活动卡暂时打不开，已为你保留在当前页面。'**
   String get discoverInvalidCardError;
 
   /// No description provided for @discoverOpenActivityError.

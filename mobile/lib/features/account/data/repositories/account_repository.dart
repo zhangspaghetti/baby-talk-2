@@ -377,7 +377,7 @@ class AccountRepository implements AccountRepositoryContract {
                   current.upgradeUrl,
                 ),
               )
-            : '当前离线，已保留本地待同步事件，可稍后重试。',
+            : '当前离线，已保留本机待同步记录，可稍后重试。',
         lastSyncAt: DateTime.now().toUtc(),
       );
       await _localStore.write(snapshot);
@@ -830,10 +830,10 @@ class AccountRepository implements AccountRepositoryContract {
 
   String _visibleMessageForError(AccountApiException error) {
     if (error.kind == AccountApiFailureKind.timeout) {
-      return '同步超时，已保留本地待同步事件，可稍后重试。';
+      return '同步超时，已保留本机待同步记录，可稍后重试。';
     }
     if (error.kind == AccountApiFailureKind.network) {
-      return '当前离线，已保留本地待同步事件，可稍后重试。';
+      return '当前离线，已保留本机待同步记录，可稍后重试。';
     }
     if (error.isVersionBlocked) {
       return _visibleUpgradeMessage(
@@ -856,7 +856,7 @@ class AccountRepository implements AccountRepositoryContract {
       return '服务响应异常，未导入远端恢复数据。';
     }
     if (error.isServerFailure) {
-      return '服务暂时不可用，已保留本地待同步事件。';
+      return '服务暂时不可用，已保留本机待同步记录。';
     }
     return _sanitizeVisibleError(error.message);
   }
