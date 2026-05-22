@@ -2292,6 +2292,24 @@ abstract class AppLocalizations {
   /// **'自动日记'**
   String get growthAutoDiary;
 
+  /// No description provided for @growthDiarySheetTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'全部成长日记'**
+  String get growthDiarySheetTitle;
+
+  /// No description provided for @growthDiaryPracticeTag.
+  ///
+  /// In zh, this message translates to:
+  /// **'练习记录'**
+  String get growthDiaryPracticeTag;
+
+  /// No description provided for @growthDiaryMilestoneTag.
+  ///
+  /// In zh, this message translates to:
+  /// **'里程碑记录'**
+  String get growthDiaryMilestoneTag;
+
   /// No description provided for @growthNoDiary.
   ///
   /// In zh, this message translates to:
@@ -2315,6 +2333,24 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'里程碑'**
   String get growthMilestone;
+
+  /// No description provided for @growthMilestoneSheetTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'全部里程碑'**
+  String get growthMilestoneSheetTitle;
+
+  /// No description provided for @growthMilestoneAchieved.
+  ///
+  /// In zh, this message translates to:
+  /// **'已点亮'**
+  String get growthMilestoneAchieved;
+
+  /// No description provided for @growthMilestoneLocked.
+  ///
+  /// In zh, this message translates to:
+  /// **'待点亮'**
+  String get growthMilestoneLocked;
 
   /// No description provided for @growthMilestoneNote.
   ///
@@ -2391,6 +2427,12 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'成长里程碑：{title}'**
   String growthMilestoneSemantics(Object title);
+
+  /// No description provided for @growthPreviewCount.
+  ///
+  /// In zh, this message translates to:
+  /// **'共 {count} 条记录'**
+  String growthPreviewCount(Object count);
 
   /// No description provided for @inviteNotConnected.
   ///

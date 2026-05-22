@@ -103,10 +103,7 @@ void main() {
       find.byKey(const Key('growth-combined-projection-warning')),
       findsOneWidget,
     );
-    expect(
-      find.text('有一小段练习记录暂时没整理好，花圃先保留可用结果。'),
-      findsOneWidget,
-    );
+    expect(find.text('有一小段练习记录暂时没整理好，花圃先保留可用结果。'), findsOneWidget);
     expect(find.textContaining('有 1 条记录'), findsNothing);
     expect(find.text('花圃醒来了'), findsOneWidget);
     expect(find.text('宝宝模仿了 hello。'), findsOneWidget);
@@ -142,10 +139,38 @@ void main() {
     );
 
     await tester.tap(find.byKey(const Key('growth-combined-diary-view-all')));
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const Key('growth-combined-diary-sheet')),
+      findsOneWidget,
+    );
+    expect(find.text('全部成长日记'), findsOneWidget);
+    expect(find.text('共 4 条记录'), findsOneWidget);
+    expect(find.text('练习记录'), findsWidgets);
+    expect(
+      find.byKey(const Key('growth-combined-diary-sheet-diary_3')),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.byKey(const Key('growth-preview-sheet-close')));
+    await tester.pumpAndSettle();
+
     await tester.tap(
       find.byKey(const Key('growth-combined-milestones-view-all')),
     );
     await tester.pumpAndSettle();
+    expect(
+      find.byKey(const Key('growth-combined-milestones-sheet')),
+      findsOneWidget,
+    );
+    expect(find.text('全部里程碑'), findsOneWidget);
+    expect(find.text('已点亮'), findsWidgets);
+    expect(find.text('待点亮'), findsWidgets);
+    expect(
+      find.byKey(const Key('growth-combined-milestone-sheet-milestone_6')),
+      findsOneWidget,
+    );
+
     expect(
       find.byKey(const Key('growth-combined-latest-impact')),
       findsOneWidget,
@@ -219,6 +244,76 @@ void main() {
       findsNothing,
     );
   });
+
+  testWidgets('growth preview sheets stay scrollable on compact phones', (
+    tester,
+  ) async {
+    _setPhoneViewport(tester);
+
+    await _pumpScreen(
+      tester,
+      status: GardenGrowthLoadStatus.ready,
+      snapshot: _gardenSnapshot(
+        spaces: [_gardenPatch()],
+        diaryEntries: _diaryEntries(12),
+        milestones: _milestones(12),
+      ),
+    );
+
+    await _openGrowthTab(tester);
+
+    await tester.tap(find.byKey(const Key('growth-combined-diary-view-all')));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const Key('growth-combined-diary-sheet')),
+      findsOneWidget,
+    );
+    expect(find.byKey(const Key('growth-preview-sheet-close')), findsOneWidget);
+
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('growth-combined-diary-sheet-diary_9')),
+      240,
+      scrollable: find.descendant(
+        of: find.byKey(const Key('growth-combined-diary-sheet')),
+        matching: find.byType(Scrollable),
+      ),
+    );
+    expect(
+      find.byKey(const Key('growth-combined-diary-sheet-diary_9')),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.byKey(const Key('growth-preview-sheet-close')));
+    await tester.pumpAndSettle();
+
+    await tester.ensureVisible(
+      find.byKey(const Key('growth-combined-milestones-view-all')),
+    );
+    await tester.tap(
+      find.byKey(const Key('growth-combined-milestones-view-all')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const Key('growth-combined-milestones-sheet')),
+      findsOneWidget,
+    );
+    expect(find.byKey(const Key('growth-preview-sheet-close')), findsOneWidget);
+
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('growth-combined-milestone-sheet-milestone_11')),
+      240,
+      scrollable: find.descendant(
+        of: find.byKey(const Key('growth-combined-milestones-sheet')),
+        matching: find.byType(Scrollable),
+      ),
+    );
+    expect(
+      find.byKey(const Key('growth-combined-milestone-sheet-milestone_11')),
+      findsOneWidget,
+    );
+  });
 }
 
 Future<_GardenGrowthNotifierHarness> _pumpScreen(
@@ -262,6 +357,13 @@ Future<void> _openGrowthTab(WidgetTester tester) async {
 void _setTallViewport(WidgetTester tester) {
   tester.view.devicePixelRatio = 1.0;
   tester.view.physicalSize = const Size(900, 4200);
+  addTearDown(tester.view.resetDevicePixelRatio);
+  addTearDown(tester.view.resetPhysicalSize);
+}
+
+void _setPhoneViewport(WidgetTester tester) {
+  tester.view.devicePixelRatio = 1.0;
+  tester.view.physicalSize = const Size(390, 844);
   addTearDown(tester.view.resetDevicePixelRatio);
   addTearDown(tester.view.resetPhysicalSize);
 }

@@ -328,7 +328,19 @@ class _GardenGrowthCombinedScreenState
                   key: const Key('growth-combined-diary-view-all'),
                   onPressed: () {
                     AppHaptics.lightTap();
-                    // Navigation is deferred until a dedicated diary route is approved.
+                    _showGrowthPreviewSheet(
+                      context: context,
+                      sheetKey: const Key('growth-combined-diary-sheet'),
+                      title: l.growthDiarySheetTitle,
+                      subtitle: l.growthPreviewCount(
+                        snapshot.diaryEntries.length,
+                      ),
+                      itemCount: snapshot.diaryEntries.length,
+                      itemBuilder: (context, index) => _DiaryCard(
+                        entry: snapshot.diaryEntries[index],
+                        keyPrefix: 'growth-combined-diary-sheet',
+                      ),
+                    );
                   },
                   label: l.viewAll,
                 ),
@@ -363,7 +375,19 @@ class _GardenGrowthCombinedScreenState
                   key: const Key('growth-combined-milestones-view-all'),
                   onPressed: () {
                     AppHaptics.lightTap();
-                    // Navigation is deferred until a dedicated milestones route is approved.
+                    _showGrowthPreviewSheet(
+                      context: context,
+                      sheetKey: const Key('growth-combined-milestones-sheet'),
+                      title: l.growthMilestoneSheetTitle,
+                      subtitle: l.growthPreviewCount(
+                        snapshot.milestones.length,
+                      ),
+                      itemCount: snapshot.milestones.length,
+                      itemBuilder: (context, index) => _MilestoneCard(
+                        milestone: snapshot.milestones[index],
+                        keyPrefix: 'growth-combined-milestone-sheet',
+                      ),
+                    );
                   },
                   label: l.viewAll,
                 ),
@@ -388,6 +412,111 @@ class _GardenGrowthCombinedScreenState
                 ),
         ],
       ],
+    );
+  }
+
+  void _showGrowthPreviewSheet({
+    required BuildContext context,
+    required Key sheetKey,
+    required String title,
+    required String subtitle,
+    required int itemCount,
+    required IndexedWidgetBuilder itemBuilder,
+  }) {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) {
+        final colors = sheetContext.appColors;
+        final theme = Theme.of(sheetContext);
+        final mediaQuery = MediaQuery.of(sheetContext);
+        return SafeArea(
+          child: Align(
+            alignment: Alignment.bottomCenter,
+            child: Container(
+              key: sheetKey,
+              constraints: BoxConstraints(
+                maxHeight: mediaQuery.size.height * 0.76,
+                maxWidth: AppLayoutConstants.maxContentWidth,
+              ),
+              decoration: BoxDecoration(
+                color: colors.bgSurface,
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(AppLayoutConstants.largeRadius),
+                ),
+                boxShadow: colors.warmShadowMd,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const SizedBox(height: AppLayoutConstants.spacingSm),
+                  Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: colors.outlineSoft,
+                      borderRadius: BorderRadius.circular(
+                        AppLayoutConstants.pillRadius,
+                      ),
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(
+                      AppLayoutConstants.spacingLg,
+                      AppLayoutConstants.spacingMd,
+                      AppLayoutConstants.spacingMd,
+                      AppLayoutConstants.spacingSm,
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(title, style: theme.textTheme.titleLarge),
+                              const SizedBox(
+                                height: AppLayoutConstants.spacingXxs,
+                              ),
+                              Text(
+                                subtitle,
+                                style: theme.textTheme.bodyMedium?.copyWith(
+                                  color: colors.textSecondary,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        IconButton(
+                          key: const Key('growth-preview-sheet-close'),
+                          tooltip: AppLocalizations.of(sheetContext)!.close,
+                          onPressed: () =>
+                              Navigator.of(sheetContext).maybePop(),
+                          icon: const Icon(Icons.close_rounded),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Flexible(
+                    child: ListView.separated(
+                      padding: const EdgeInsets.fromLTRB(
+                        AppLayoutConstants.spacingLg,
+                        0,
+                        AppLayoutConstants.spacingLg,
+                        AppLayoutConstants.spacingLg,
+                      ),
+                      itemBuilder: itemBuilder,
+                      separatorBuilder: (_, _) =>
+                          const SizedBox(height: AppLayoutConstants.spacingSm),
+                      itemCount: itemCount,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 }
@@ -527,9 +656,13 @@ class _GardenLoadingShimmer extends StatelessWidget {
 // ---------------------------------------------------------------------------
 
 class _DiaryCard extends StatelessWidget {
-  const _DiaryCard({required this.entry});
+  const _DiaryCard({
+    required this.entry,
+    this.keyPrefix = 'growth-combined-diary',
+  });
 
   final GrowthDiaryEntry entry;
+  final String keyPrefix;
 
   @override
   Widget build(BuildContext context) {
@@ -539,11 +672,14 @@ class _DiaryCard extends StatelessWidget {
     final accentColor = entry.kind == GrowthDiaryEntryKind.practice
         ? colors.english
         : colors.accentDark;
+    final kindLabel = entry.kind == GrowthDiaryEntryKind.practice
+        ? l.growthDiaryPracticeTag
+        : l.growthDiaryMilestoneTag;
     return Semantics(
       container: true,
       label: l.growthDiaryEntrySemantics(entry.title),
       child: Container(
-        key: Key('growth-combined-diary-${entry.entryId}'),
+        key: Key('$keyPrefix-${entry.entryId}'),
         padding: const EdgeInsets.all(AppLayoutConstants.spacingLg),
         decoration: BoxDecoration(
           color: colors.bgSurface,
@@ -568,7 +704,30 @@ class _DiaryCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(entry.title, style: theme.textTheme.titleMedium),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          entry.title,
+                          style: theme.textTheme.titleMedium,
+                        ),
+                      ),
+                      const SizedBox(width: AppLayoutConstants.spacingSm),
+                      _GrowthStatusPill(
+                        label: kindLabel,
+                        backgroundColor: accentColor.withValues(alpha: 0.12),
+                        foregroundColor: accentColor,
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: AppLayoutConstants.spacingXs),
+                  Text(
+                    _formatShortDateTime(entry.occurredAt),
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: colors.textMuted,
+                    ),
+                  ),
                   const SizedBox(height: AppLayoutConstants.spacingXs),
                   Text(entry.body, style: theme.textTheme.bodyMedium),
                 ],
@@ -582,20 +741,27 @@ class _DiaryCard extends StatelessWidget {
 }
 
 class _MilestoneCard extends StatelessWidget {
-  const _MilestoneCard({required this.milestone});
+  const _MilestoneCard({
+    required this.milestone,
+    this.keyPrefix = 'growth-combined-milestone',
+  });
 
   final GrowthMilestoneSnapshot milestone;
+  final String keyPrefix;
 
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
     final colors = context.appColors;
     final achieved = milestone.isAchieved;
+    final statusLabel = achieved
+        ? l.growthMilestoneAchieved
+        : l.growthMilestoneLocked;
     return Semantics(
       container: true,
       label: l.growthMilestoneSemantics(milestone.title),
       child: Container(
-        key: Key('growth-combined-milestone-${milestone.id}'),
+        key: Key('$keyPrefix-${milestone.id}'),
         padding: const EdgeInsets.all(AppLayoutConstants.spacingLg),
         decoration: BoxDecoration(
           color: achieved ? colors.successSoft : colors.bgSunken,
@@ -615,9 +781,26 @@ class _MilestoneCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    milestone.title,
-                    style: Theme.of(context).textTheme.titleMedium,
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          milestone.title,
+                          style: Theme.of(context).textTheme.titleMedium,
+                        ),
+                      ),
+                      const SizedBox(width: AppLayoutConstants.spacingSm),
+                      _GrowthStatusPill(
+                        label: statusLabel,
+                        backgroundColor: achieved
+                            ? colors.successSoft
+                            : colors.outlineSoft,
+                        foregroundColor: achieved
+                            ? colors.success
+                            : colors.textMuted,
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 6),
                   Text(
@@ -628,6 +811,39 @@ class _MilestoneCard extends StatelessWidget {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _GrowthStatusPill extends StatelessWidget {
+  const _GrowthStatusPill({
+    required this.label,
+    required this.backgroundColor,
+    required this.foregroundColor,
+  });
+
+  final String label;
+  final Color backgroundColor;
+  final Color foregroundColor;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppLayoutConstants.spacingSm,
+        vertical: AppLayoutConstants.spacingXxs,
+      ),
+      decoration: BoxDecoration(
+        color: backgroundColor,
+        borderRadius: BorderRadius.circular(AppLayoutConstants.pillRadius),
+      ),
+      child: Text(
+        label,
+        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+          color: foregroundColor,
+          fontWeight: FontWeight.w700,
         ),
       ),
     );
@@ -681,4 +897,13 @@ class _GrowthPreviewActionButton extends StatelessWidget {
       child: Text(label),
     );
   }
+}
+
+String _formatShortDateTime(DateTime value) {
+  final local = value.toLocal();
+  final month = local.month.toString().padLeft(2, '0');
+  final day = local.day.toString().padLeft(2, '0');
+  final hour = local.hour.toString().padLeft(2, '0');
+  final minute = local.minute.toString().padLeft(2, '0');
+  return '$month-$day $hour:$minute';
 }

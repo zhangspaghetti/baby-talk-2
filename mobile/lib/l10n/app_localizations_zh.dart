@@ -1223,6 +1223,15 @@ class AppLocalizationsZh extends AppLocalizations {
   String get growthAutoDiary => '自动日记';
 
   @override
+  String get growthDiarySheetTitle => '全部成长日记';
+
+  @override
+  String get growthDiaryPracticeTag => '练习记录';
+
+  @override
+  String get growthDiaryMilestoneTag => '里程碑记录';
+
+  @override
   String get growthNoDiary => '还没有自动日记，第一次练习完成后会在这里记下变化。';
 
   @override
@@ -1233,6 +1242,15 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get growthMilestone => '里程碑';
+
+  @override
+  String get growthMilestoneSheetTitle => '全部里程碑';
+
+  @override
+  String get growthMilestoneAchieved => '已点亮';
+
+  @override
+  String get growthMilestoneLocked => '待点亮';
 
   @override
   String get growthMilestoneNote => '里程碑会在真实练习后逐步点亮。';
@@ -1280,6 +1298,11 @@ class AppLocalizationsZh extends AppLocalizations {
   @override
   String growthMilestoneSemantics(Object title) {
     return '成长里程碑：$title';
+  }
+
+  @override
+  String growthPreviewCount(Object count) {
+    return '共 $count 条记录';
   }
 
   @override
