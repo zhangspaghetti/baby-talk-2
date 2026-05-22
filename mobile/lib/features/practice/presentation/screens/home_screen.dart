@@ -395,7 +395,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with RouteAware {
                           notifier: shareNotifier,
                           sectionLabel: l.homeShareGrowthFamily,
                           emptyMessage: l.homeShareWaitStable,
-                          onShare: () => shareNotifier.shareCurrent(),
+                          onShare: (draft) => shareNotifier.shareDraft(draft),
                         ),
                       ],
                       if (kDebugMode) ...[

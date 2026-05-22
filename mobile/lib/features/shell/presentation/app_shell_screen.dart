@@ -269,7 +269,8 @@ class _HouseholdDrawer extends ConsumerWidget {
                     foregroundColor: _drawerRoleForeground(role, colors),
                   ),
                   _DrawerRoleChip(
-                    label: householdSnapshot.lastPhase,
+                    key: const Key('shell-drawer-shared-status-badge'),
+                    label: _drawerHouseholdStatusLabel(l, householdSnapshot),
                     backgroundColor: colors.bgSunken,
                     foregroundColor: colors.textSecondary,
                   ),
@@ -411,6 +412,43 @@ Color _drawerRoleForeground(HouseholdRole? role, BabyTalkColors colors) {
     case null:
       return colors.textSecondary;
   }
+}
+
+String _drawerHouseholdStatusLabel(
+  AppLocalizations l,
+  dynamic householdSnapshot,
+) {
+  return drawerHouseholdStatusLabel(l, householdSnapshot.lastPhase.toString());
+}
+
+@visibleForTesting
+String drawerHouseholdStatusLabel(AppLocalizations l, String? lastPhase) {
+  final phase = lastPhase?.trim().toLowerCase() ?? '';
+  if (phase.isEmpty || phase == 'idle' || phase == 'unknown') {
+    return l.shellSharedStatusPending;
+  }
+  if (phase.contains('unavailable') ||
+      phase.contains('error') ||
+      phase.contains('timeout')) {
+    return l.shellSharedStatusUnavailable;
+  }
+  if (phase.contains('disabled') ||
+      phase.contains('read_only') ||
+      phase.contains('read-only')) {
+    return l.shellSharedStatusReadOnly;
+  }
+  if (phase.contains('invite') &&
+      (phase.contains('created') ||
+          phase.contains('waiting') ||
+          phase.contains('pending'))) {
+    return l.shellSharedStatusWaiting;
+  }
+  if (phase.contains('ready') ||
+      phase.contains('accepted') ||
+      phase.contains('synced')) {
+    return l.shellSharedStatusReady;
+  }
+  return l.shellSharedStatusPending;
 }
 
 class _DrawerMetaRow extends StatelessWidget {

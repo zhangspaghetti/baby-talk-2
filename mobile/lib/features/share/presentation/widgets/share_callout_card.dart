@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:mobile/app/theme/app_layout_constants.dart';
 import 'package:mobile/app/theme/app_theme.dart';
 import 'package:mobile/app/widgets/app_surface_card.dart';
+import 'package:mobile/features/share/domain/models/share_link_draft.dart';
 import 'package:mobile/features/share/presentation/share_notifier.dart'
     show ShareViewStatus;
 import 'package:mobile/l10n/app_localizations.dart';
@@ -23,14 +25,14 @@ class ShareCalloutCard extends StatelessWidget {
   final dynamic notifier;
   final String sectionLabel;
   final String emptyMessage;
-  final Future<void> Function()? onShare;
+  final Future<void> Function(ShareLinkDraft draft)? onShare;
 
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
     final colors = context.appColors;
     final theme = Theme.of(context);
-    final draft = notifier.currentDraft;
+    final draft = notifier.currentDraft as ShareLinkDraft?;
     final hasDraft = draft != null;
     final buttonEnabled = hasDraft && !notifier.isSharing && onShare != null;
     final state = _ShareStateSpec.resolve(
@@ -111,17 +113,172 @@ class ShareCalloutCard extends StatelessWidget {
             onPressed: !buttonEnabled
                 ? null
                 : () async {
-                    await onShare!();
+                    await _openSharePreviewSheet(context, draft);
                   },
             child: Text(
               notifier.isSharing
                   ? l.shareGenerating
                   : hasDraft
-                  ? l.shareButton
+                  ? l.sharePreviewButton
                   : l.shareWaiting,
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Future<void> _openSharePreviewSheet(BuildContext context, dynamic draft) {
+    return showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(AppLayoutConstants.largeRadius),
+        ),
+      ),
+      builder: (_) => _SharePreviewSheet(
+        key: Key('$surfaceKeyPrefix-share-preview-sheet'),
+        surfaceKeyPrefix: surfaceKeyPrefix,
+        draft: draft,
+        onConfirm: onShare!,
+      ),
+    );
+  }
+}
+
+class _SharePreviewSheet extends StatelessWidget {
+  const _SharePreviewSheet({
+    super.key,
+    required this.surfaceKeyPrefix,
+    required this.draft,
+    required this.onConfirm,
+  });
+
+  final String surfaceKeyPrefix;
+  final dynamic draft;
+  final Future<void> Function(ShareLinkDraft draft) onConfirm;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    final colors = context.appColors;
+    final theme = Theme.of(context);
+    final phrase = draft.phraseText?.trim();
+    final recommendationTitle = draft.recommendationTitle?.trim();
+    final recommendationReason = draft.recommendationReason?.trim();
+
+    return Padding(
+      padding: EdgeInsets.fromLTRB(
+        AppLayoutConstants.spacingLg,
+        AppLayoutConstants.spacingLg,
+        AppLayoutConstants.spacingLg,
+        MediaQuery.paddingOf(context).bottom + AppLayoutConstants.spacingLg,
+      ),
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(l.sharePreviewTitle, style: theme.textTheme.headlineSmall),
+            const SizedBox(height: AppLayoutConstants.spacingXs),
+            Text(
+              l.sharePreviewIntro,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: colors.textSecondary,
+              ),
+            ),
+            const SizedBox(height: AppLayoutConstants.spacingMd),
+            Container(
+              width: double.infinity,
+              padding: AppLayoutConstants.bannerPadding,
+              decoration: BoxDecoration(
+                color: colors.bgSunken,
+                borderRadius: BorderRadius.circular(
+                  AppLayoutConstants.cardRadius,
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    l.sharePreviewIncludes,
+                    style: theme.textTheme.labelMedium,
+                  ),
+                  const SizedBox(height: AppLayoutConstants.spacingXs),
+                  Text(draft.headline, style: theme.textTheme.titleMedium),
+                  const SizedBox(height: AppLayoutConstants.spacingXs),
+                  Text(draft.storyText, style: theme.textTheme.bodyMedium),
+                  if (phrase != null && phrase.isNotEmpty) ...[
+                    const SizedBox(height: AppLayoutConstants.spacingSm),
+                    Text(
+                      l.sharePhraseTodayLabel(phrase),
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: colors.english,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                  if (recommendationTitle != null &&
+                      recommendationTitle.isNotEmpty) ...[
+                    const SizedBox(height: AppLayoutConstants.spacingSm),
+                    Text(
+                      recommendationReason != null &&
+                              recommendationReason.isNotEmpty
+                          ? '$recommendationTitle · $recommendationReason'
+                          : recommendationTitle,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: colors.textSecondary,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            const SizedBox(height: AppLayoutConstants.spacingSm),
+            Container(
+              width: double.infinity,
+              padding: AppLayoutConstants.bannerPadding,
+              decoration: BoxDecoration(
+                color: colors.englishSoft,
+                borderRadius: BorderRadius.circular(
+                  AppLayoutConstants.cardRadius,
+                ),
+              ),
+              child: Text(
+                l.sharePreviewPrivacyOmitted,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: colors.english,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+            const SizedBox(height: AppLayoutConstants.spacingMd),
+            SizedBox(
+              width: double.infinity,
+              height: AppLayoutConstants.buttonMinHeight,
+              child: FilledButton(
+                key: Key('$surfaceKeyPrefix-share-preview-confirm-button'),
+                onPressed: () async {
+                  Navigator.of(context).pop();
+                  await onConfirm(draft);
+                },
+                child: Text(l.sharePreviewConfirm),
+              ),
+            ),
+            const SizedBox(height: AppLayoutConstants.spacingXs),
+            SizedBox(
+              width: double.infinity,
+              height: AppLayoutConstants.minTouchTarget,
+              child: TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: Text(l.sharePreviewCancel),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

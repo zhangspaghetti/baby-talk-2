@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:mobile/app/theme/app_layout_constants.dart';
 import 'package:mobile/app/theme/app_theme.dart';
 import 'package:mobile/features/household/data/local/household_local_store.dart';
 import 'package:mobile/features/household/domain/models/household_role.dart';
@@ -92,6 +93,12 @@ class HouseholdInviteCard extends StatelessWidget {
           ],
           if (invite != null) ...[
             const SizedBox(height: 12),
+            _InviteTrustPanel(
+              surfaceKeyPrefix: surfaceKeyPrefix,
+              role: invite.role as HouseholdRole,
+              expiresAt: invite.expiresAt,
+            ),
+            const SizedBox(height: 12),
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(14),
@@ -114,7 +121,10 @@ class HouseholdInviteCard extends StatelessWidget {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    '角色：${(invite.role as HouseholdRole).label} · 到期：${_formatDateTime(invite.expiresAt)}',
+                    l.inviteRoleExpiry(
+                      (invite.role as HouseholdRole).label,
+                      _formatDateTime(invite.expiresAt),
+                    ),
                     key: Key('$surfaceKeyPrefix-household-invite-meta'),
                     style: theme.textTheme.bodySmall,
                   ),
@@ -240,6 +250,71 @@ class HouseholdInviteCard extends StatelessWidget {
           : colors.warning;
     }
     return colors.info;
+  }
+}
+
+class _InviteTrustPanel extends StatelessWidget {
+  const _InviteTrustPanel({
+    required this.surfaceKeyPrefix,
+    required this.role,
+    required this.expiresAt,
+  });
+
+  final String surfaceKeyPrefix;
+  final HouseholdRole role;
+  final DateTime expiresAt;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    final colors = context.appColors;
+    final theme = Theme.of(context);
+
+    return Container(
+      key: Key('$surfaceKeyPrefix-household-invite-trust-panel'),
+      width: double.infinity,
+      padding: AppLayoutConstants.bannerPadding,
+      decoration: BoxDecoration(
+        color: colors.englishSoft,
+        borderRadius: BorderRadius.circular(AppLayoutConstants.cardRadius),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(l.inviteTrustTitle, style: theme.textTheme.labelMedium),
+          const SizedBox(height: AppLayoutConstants.spacingXs),
+          Text(
+            l.inviteTrustRole(role.label),
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: colors.textPrimary,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: AppLayoutConstants.spacingXs),
+          Text(
+            l.inviteTrustExpiry(_formatDateTime(expiresAt)),
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: colors.textSecondary,
+            ),
+          ),
+          const SizedBox(height: AppLayoutConstants.spacingXs),
+          Text(
+            l.inviteTrustScope(role.label),
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: colors.textPrimary,
+            ),
+          ),
+          const SizedBox(height: AppLayoutConstants.spacingXs),
+          Text(
+            l.inviteTrustPrivacy,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: colors.english,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 

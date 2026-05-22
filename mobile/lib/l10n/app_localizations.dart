@@ -860,6 +860,36 @@ abstract class AppLocalizations {
   /// **'共享未接通'**
   String get shellSharedNotConnected;
 
+  /// No description provided for @shellSharedStatusReady.
+  ///
+  /// In zh, this message translates to:
+  /// **'共享已接通'**
+  String get shellSharedStatusReady;
+
+  /// No description provided for @shellSharedStatusWaiting.
+  ///
+  /// In zh, this message translates to:
+  /// **'邀请待确认'**
+  String get shellSharedStatusWaiting;
+
+  /// No description provided for @shellSharedStatusUnavailable.
+  ///
+  /// In zh, this message translates to:
+  /// **'共享暂时不可用'**
+  String get shellSharedStatusUnavailable;
+
+  /// No description provided for @shellSharedStatusReadOnly.
+  ///
+  /// In zh, this message translates to:
+  /// **'仅可查看共享'**
+  String get shellSharedStatusReadOnly;
+
+  /// No description provided for @shellSharedStatusPending.
+  ///
+  /// In zh, this message translates to:
+  /// **'共享待同步'**
+  String get shellSharedStatusPending;
+
   /// No description provided for @shellNoStageDescription.
   ///
   /// In zh, this message translates to:
@@ -2530,6 +2560,36 @@ abstract class AppLocalizations {
   /// **'照护邀请'**
   String get inviteLabel;
 
+  /// No description provided for @inviteTrustTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'邀请范围'**
+  String get inviteTrustTitle;
+
+  /// No description provided for @inviteTrustRole.
+  ///
+  /// In zh, this message translates to:
+  /// **'接收角色：{role}'**
+  String inviteTrustRole(Object role);
+
+  /// No description provided for @inviteTrustExpiry.
+  ///
+  /// In zh, this message translates to:
+  /// **'有效期至 {expiry}'**
+  String inviteTrustExpiry(Object expiry);
+
+  /// No description provided for @inviteTrustScope.
+  ///
+  /// In zh, this message translates to:
+  /// **'{role}可查看共享宝宝档案摘要和照护进度，不会获得账号管理权限。'**
+  String inviteTrustScope(Object role);
+
+  /// No description provided for @inviteTrustPrivacy.
+  ///
+  /// In zh, this message translates to:
+  /// **'链接不会包含手机号、设备标识或内部记录编号。'**
+  String get inviteTrustPrivacy;
+
   /// No description provided for @shareNoContent.
   ///
   /// In zh, this message translates to:
@@ -2553,6 +2613,12 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'分享给家人'**
   String get shareButton;
+
+  /// No description provided for @sharePreviewButton.
+  ///
+  /// In zh, this message translates to:
+  /// **'预览后分享'**
+  String get sharePreviewButton;
 
   /// No description provided for @shareWaiting.
   ///
@@ -2595,6 +2661,42 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'分享内容会自动脱敏，只保留适合家人查看的成长片段。'**
   String get sharePrivacyNote;
+
+  /// No description provided for @sharePreviewTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'分享预览'**
+  String get sharePreviewTitle;
+
+  /// No description provided for @sharePreviewIntro.
+  ///
+  /// In zh, this message translates to:
+  /// **'家人会看到这些脱敏后的内容。'**
+  String get sharePreviewIntro;
+
+  /// No description provided for @sharePreviewIncludes.
+  ///
+  /// In zh, this message translates to:
+  /// **'将分享'**
+  String get sharePreviewIncludes;
+
+  /// No description provided for @sharePreviewPrivacyOmitted.
+  ///
+  /// In zh, this message translates to:
+  /// **'不会包含手机号、设备标识、账号信息或内部记录编号。'**
+  String get sharePreviewPrivacyOmitted;
+
+  /// No description provided for @sharePreviewConfirm.
+  ///
+  /// In zh, this message translates to:
+  /// **'确认分享给家人'**
+  String get sharePreviewConfirm;
+
+  /// No description provided for @sharePreviewCancel.
+  ///
+  /// In zh, this message translates to:
+  /// **'先不分享'**
+  String get sharePreviewCancel;
 
   /// No description provided for @activationFrameLabel.
   ///

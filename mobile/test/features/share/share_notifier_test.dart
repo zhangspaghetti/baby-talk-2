@@ -118,6 +118,41 @@ void main() {
       expect(notifier.message, contains('取消'));
     });
 
+    test('分享预览确认会使用打开预览时冻结的 draft', () async {
+      final api = _FakeShareApiService();
+      final repository = ShareRepository(
+        apiService: api,
+        shareSheetLauncher: _StaticShareSheetLauncher(),
+        platformHintResolver: () => 'android',
+      );
+      final notifier = ShareNotifier(repository: repository)
+        ..updateSnapshots(
+          growthSnapshot: _buildGrowthSnapshot(),
+          continuitySnapshot: _buildContinuitySnapshot(),
+        );
+      addTearDown(notifier.dispose);
+
+      final previewDraft = notifier.currentDraft!;
+      final changedGrowth = _buildGrowthSnapshot();
+      notifier.updateSnapshots(
+        growthSnapshot: changedGrowth.copyWith(
+          latestImpact: changedGrowth.latestImpact!.copyWith(
+            headline: '后来的家庭故事',
+            detail: '这是一条预览打开后才出现的成长内容。',
+          ),
+        ),
+        continuitySnapshot: _buildContinuitySnapshot(),
+      );
+      expect(notifier.currentDraft?.headline, isNot(previewDraft.headline));
+
+      final result = await notifier.shareDraft(previewDraft);
+
+      expect(result.status, ShareExecutionStatus.shared);
+      expect(api.lastDraft, same(previewDraft));
+      expect(api.lastDraft?.headline, previewDraft.headline);
+      expect(api.lastDraft?.headline, isNot('后来的家庭故事'));
+    });
+
     test('API timeout 会停在 error 状态并保留可重试 message', () async {
       final repository = ShareRepository(
         apiService: _FakeShareApiService(
@@ -150,6 +185,7 @@ class _FakeShareApiService extends ShareApiService {
 
   final ShareApiException? error;
   int callCount = 0;
+  ShareLinkDraft? lastDraft;
 
   @override
   Future<ShareCreateLinkResponse> createShareLink({
@@ -157,6 +193,7 @@ class _FakeShareApiService extends ShareApiService {
     String? platformHint,
   }) async {
     callCount += 1;
+    lastDraft = draft;
     if (error != null) {
       throw error!;
     }

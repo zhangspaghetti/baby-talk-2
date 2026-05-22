@@ -424,6 +424,21 @@ class AppLocalizationsZh extends AppLocalizations {
   String get shellSharedNotConnected => '共享未接通';
 
   @override
+  String get shellSharedStatusReady => '共享已接通';
+
+  @override
+  String get shellSharedStatusWaiting => '邀请待确认';
+
+  @override
+  String get shellSharedStatusUnavailable => '共享暂时不可用';
+
+  @override
+  String get shellSharedStatusReadOnly => '仅可查看共享';
+
+  @override
+  String get shellSharedStatusPending => '共享待同步';
+
+  @override
   String get shellNoStageDescription => '完成首次设置后，这里会显示更合适的阶段说明。';
 
   @override
@@ -1356,6 +1371,27 @@ class AppLocalizationsZh extends AppLocalizations {
   String get inviteLabel => '照护邀请';
 
   @override
+  String get inviteTrustTitle => '邀请范围';
+
+  @override
+  String inviteTrustRole(Object role) {
+    return '接收角色：$role';
+  }
+
+  @override
+  String inviteTrustExpiry(Object expiry) {
+    return '有效期至 $expiry';
+  }
+
+  @override
+  String inviteTrustScope(Object role) {
+    return '$role可查看共享宝宝档案摘要和照护进度，不会获得账号管理权限。';
+  }
+
+  @override
+  String get inviteTrustPrivacy => '链接不会包含手机号、设备标识或内部记录编号。';
+
+  @override
   String get shareNoContent => '当前还没有可分享的成长瞬间';
 
   @override
@@ -1368,6 +1404,9 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get shareButton => '分享给家人';
+
+  @override
+  String get sharePreviewButton => '预览后分享';
 
   @override
   String get shareWaiting => '等待可分享内容';
@@ -1389,6 +1428,24 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get sharePrivacyNote => '分享内容会自动脱敏，只保留适合家人查看的成长片段。';
+
+  @override
+  String get sharePreviewTitle => '分享预览';
+
+  @override
+  String get sharePreviewIntro => '家人会看到这些脱敏后的内容。';
+
+  @override
+  String get sharePreviewIncludes => '将分享';
+
+  @override
+  String get sharePreviewPrivacyOmitted => '不会包含手机号、设备标识、账号信息或内部记录编号。';
+
+  @override
+  String get sharePreviewConfirm => '确认分享给家人';
+
+  @override
+  String get sharePreviewCancel => '先不分享';
 
   @override
   String get activationFrameLabel => '当前短语练习区';

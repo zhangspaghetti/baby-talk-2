@@ -1,6 +1,6 @@
 # REFACTOR-049 Family Trust Preview Plan
 
-Status: proposed
+Status: done
 
 ## Context
 
@@ -113,6 +113,27 @@ The implementation should make three promises visible:
 - `git diff --check`
 - Staged credential scan before commit
 
+## Implementation Outcome
+
+REFACTOR-049 completed Option A only:
+
+- `ShareCalloutCard` now opens a localized preview sheet before invoking the platform share callback.
+- Preview confirmation now shares the frozen draft that was displayed in the sheet, so later snapshot updates cannot change the payload after the parent reviews it.
+- `HouseholdInviteCard` now shows invite role, expiry, safety scope, and privacy copy before the copyable URL.
+- `AppShellScreen` maps household phases into localized family status labels instead of rendering `lastPhase` directly.
+- New widget coverage locks share preview gating, invite trust copy, drawer rendering, and all status-label mapping families.
+
+Verification completed:
+
+- `flutter gen-l10n`
+- `dart_format` on edited Dart files
+- `flutter analyze`
+- `flutter test test/features/share/share_notifier_test.dart --plain-name "分享预览确认会使用打开预览时冻结的 draft"`
+- `flutter test test/features/share/share_notifier_test.dart test/features/share/share_repository_test.dart test/features/practice/critical_ui_coverage_test.dart test/features/household/household_widget_coverage_test.dart`
+- `flutter test test/features/practice/critical_ui_coverage_test.dart test/features/household/household_widget_coverage_test.dart`
+- `bash ci/mobile-r4-release-gates.sh`
+- Code review caught preview/share drift; fixed with frozen-draft sharing and re-verified
+
 ## Approval Gate
 
-Do not enter Stage 3.1 implementation until REFACTOR-049 is approved. If approved, execute Option A only. If the user wants a larger account page redesign, split that into a separate REFACTOR-050 so destructive account flows stay isolated.
+REFACTOR-049 was approved for Option A and completed. If the user wants a larger account page redesign, split that into a separate REFACTOR-050 so destructive account flows stay isolated.

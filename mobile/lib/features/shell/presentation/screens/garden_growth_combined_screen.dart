@@ -163,7 +163,7 @@ class _GardenGrowthCombinedScreenState
                     notifier: shareNotifier,
                     sectionLabel: l.gardenShareFamily,
                     emptyMessage: l.growthShareWaitStable,
-                    onShare: () => shareNotifier.shareCurrent(),
+                    onShare: (draft) => shareNotifier.shareDraft(draft),
                   ),
                 ],
                 if (shouldShowSharedOverlay) ...[

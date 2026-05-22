@@ -85,6 +85,19 @@ class ShareRepository {
       );
     }
 
+    return shareDraft(draft);
+  }
+
+  Future<ShareExecutionResult> shareDraft(ShareLinkDraft draft) async {
+    if (!draft.hasPublicPayload) {
+      return ShareExecutionResult(
+        status: ShareExecutionStatus.failed,
+        phase: 'draft_unavailable',
+        message: '当前还没有可分享的成长瞬间。',
+        draft: draft,
+      );
+    }
+
     final platformHint = _platformHintResolver();
     final ShareCreateLinkResponse response;
     try {

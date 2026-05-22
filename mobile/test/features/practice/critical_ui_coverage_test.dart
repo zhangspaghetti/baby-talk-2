@@ -39,6 +39,7 @@ import 'package:mobile/features/share/data/repositories/share_repository.dart';
 import 'package:mobile/features/share/domain/models/share_link_draft.dart';
 import 'package:mobile/features/share/presentation/share_notifier.dart';
 import 'package:mobile/features/share/presentation/widgets/share_callout_card.dart';
+import 'package:mobile/features/shell/presentation/app_shell_screen.dart';
 import 'package:mobile/features/shell/presentation/widgets/garden_continue_card.dart';
 import 'package:mobile/features/shell/presentation/widgets/garden_hero_card.dart';
 import 'package:mobile/features/shell/presentation/widgets/garden_patch_card.dart';
@@ -419,10 +420,7 @@ void main() {
       find.byKey(const Key('home-garden-mini-entry-warning')),
       findsOneWidget,
     );
-    expect(
-      find.text('有一小段练习记录暂时没整理好，花圃先保留可用结果。'),
-      findsOneWidget,
-    );
+    expect(find.text('有一小段练习记录暂时没整理好，花圃先保留可用结果。'), findsOneWidget);
     expect(find.textContaining('有 1 条记录'), findsNothing);
 
     await _pumpApp(tester, HomeGrowthSummaryCard(notifier: notifier));
@@ -532,14 +530,8 @@ void main() {
       ),
     );
 
-    expect(
-      find.text('有一小段练习记录暂时没整理好，当前建议仍可继续。'),
-      findsOneWidget,
-    );
-    expect(
-      find.text('这条继续练习暂时打不开，先回首页或稍后再试。'),
-      findsOneWidget,
-    );
+    expect(find.text('有一小段练习记录暂时没整理好，当前建议仍可继续。'), findsOneWidget);
+    expect(find.text('这条继续练习暂时打不开，先回首页或稍后再试。'), findsOneWidget);
     expect(find.textContaining('continuity snapshot'), findsNothing);
     expect(find.textContaining('route args'), findsNothing);
   });
@@ -606,7 +598,7 @@ void main() {
           notifier: _ShareNotifierStub(currentDraft: null),
           sectionLabel: '分享给家人',
           emptyMessage: '暂无可分享内容。',
-          onShare: () async {
+          onShare: (_) async {
             shareCount += 1;
           },
         ),
@@ -626,7 +618,7 @@ void main() {
           notifier: _ShareNotifierStub(currentDraft: draft),
           sectionLabel: '分享给家人',
           emptyMessage: '暂无可分享内容。',
-          onShare: () async {
+          onShare: (_) async {
             shareCount += 1;
           },
         ),
@@ -639,7 +631,16 @@ void main() {
         findsOneWidget,
       );
       await tester.tap(find.byKey(const Key('home-share-button')));
-      await tester.pump();
+      await tester.pumpAndSettle();
+      expect(shareCount, 0);
+      expect(find.byKey(const Key('home-share-preview-sheet')), findsOneWidget);
+      expect(find.text('今天有一个新尝试'), findsWidgets);
+      expect(find.textContaining('宝宝跟着节奏模仿了一次'), findsWidgets);
+      expect(find.textContaining('不会包含手机号、设备标识'), findsOneWidget);
+      await tester.tap(
+        find.byKey(const Key('home-share-preview-confirm-button')),
+      );
+      await tester.pumpAndSettle();
       expect(shareCount, 1);
 
       await _pumpApp(
@@ -649,7 +650,7 @@ void main() {
           notifier: _ShareNotifierStub(currentDraft: draft, isSharing: true),
           sectionLabel: '分享给家人',
           emptyMessage: '暂无可分享内容。',
-          onShare: () async {
+          onShare: (_) async {
             shareCount += 1;
           },
         ),
@@ -676,6 +677,104 @@ void main() {
       expect(find.text('分享服务暂时不可用。'), findsOneWidget);
     },
   );
+
+  testWidgets('Shell drawer maps household phases to family-safe labels', (
+    tester,
+  ) async {
+    final gardenSnapshot = _gardenSnapshot(spaces: [_gardenPatch()]);
+    final continuitySnapshot = _continuitySnapshot();
+    final householdNotifier = HouseholdNotifier(
+      repository: _HomeHouseholdRepository(
+        snapshot: const HouseholdLocalSnapshot(
+          lastPhase: 'create_invite_created',
+        ),
+      ),
+    );
+    await householdNotifier.initialize();
+
+    await _pumpApp(
+      tester,
+      AppShellScreen(
+        onboardingSnapshot: OnboardingSnapshot(
+          childDisplayName: '米米',
+          ageBucket: OnboardingAgeBucket.twelveToEighteen,
+          approxMonths: 15,
+          currentStage: 'gesture_plus_words',
+          starterSpaceId: 'home',
+          starterActivityId: 'song_time',
+          starterPhraseId: 'hello_wave',
+          consentState: OnboardingConsentState.localOnly,
+          completedAt: DateTime.utc(2026, 4, 8, 8),
+        ),
+      ),
+      scaffold: false,
+      overrides: [
+        accountNotifierProvider.overrideWith((ref) {
+          return AccountNotifier(repository: _ScreenAccountRepository());
+        }),
+        practiceContinuityNotifierProvider.overrideWith((ref) {
+          return _homeContinuityNotifier(continuitySnapshot);
+        }),
+        gardenGrowthNotifierProvider.overrideWith((ref) {
+          return GardenGrowthNotifier(
+            repository: _HomeGardenGrowthRepository(gardenSnapshot),
+            refreshTimeout: Duration.zero,
+          );
+        }),
+        householdNotifierProvider.overrideWith((ref) {
+          return householdNotifier;
+        }),
+        shareNotifierProvider.overrideWith((ref) {
+          return ShareNotifier(
+            repository: _HomeShareRepository(),
+            initialGrowthSnapshot: gardenSnapshot,
+            initialContinuitySnapshot: continuitySnapshot,
+          );
+        }),
+      ],
+    );
+    await _pumpFrames(tester, count: 10);
+
+    await tester.tap(find.byKey(const Key('shell-drawer-trigger')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('create_invite_created'), findsNothing);
+    expect(find.text('邀请待确认'), findsOneWidget);
+  });
+
+  testWidgets('Shell household status labels cover sanitized phase families', (
+    tester,
+  ) async {
+    await _pumpApp(
+      tester,
+      Builder(
+        builder: (context) {
+          final l = AppLocalizations.of(context)!;
+
+          expect(
+            drawerHouseholdStatusLabel(l, 'shared_context_ready'),
+            '共享已接通',
+          );
+          expect(
+            drawerHouseholdStatusLabel(l, 'create_invite_created'),
+            '邀请待确认',
+          );
+          expect(
+            drawerHouseholdStatusLabel(l, 'accept_invite_timeout'),
+            '共享暂时不可用',
+          );
+          expect(drawerHouseholdStatusLabel(l, 'read_only'), '仅可查看共享');
+          expect(drawerHouseholdStatusLabel(l, null), '共享待同步');
+          expect(
+            drawerHouseholdStatusLabel(l, 'internal_debug_phase'),
+            '共享待同步',
+          );
+
+          return const SizedBox.shrink();
+        },
+      ),
+    );
+  });
 }
 
 Future<void> _pumpApp(
@@ -1128,9 +1227,17 @@ class _HomeGardenGrowthRepository implements GardenGrowthRepository {
 }
 
 class _HomeHouseholdRepository implements HouseholdRepository {
+  _HomeHouseholdRepository({
+    this.snapshot = const HouseholdLocalSnapshot(
+      lastPhase: 'home_screen_test_empty',
+    ),
+  });
+
+  final HouseholdLocalSnapshot snapshot;
+
   @override
   Future<HouseholdLocalSnapshot> loadSnapshot() async {
-    return const HouseholdLocalSnapshot(lastPhase: 'home_screen_test_empty');
+    return snapshot;
   }
 
   @override

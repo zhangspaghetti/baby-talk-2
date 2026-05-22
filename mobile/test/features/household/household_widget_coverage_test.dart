@@ -223,6 +223,13 @@ void main() {
         find.byKey(const Key('invite-primary-household-invite-meta')),
         findsOneWidget,
       );
+      expect(
+        find.byKey(const Key('invite-primary-household-invite-trust-panel')),
+        findsOneWidget,
+      );
+      expect(find.textContaining('次照护者可查看共享宝宝档案摘要'), findsOneWidget);
+      expect(find.textContaining('不会包含手机号、设备标识'), findsOneWidget);
+      expect(find.textContaining('有效期至'), findsOneWidget);
       await tester.tap(
         find.byKey(const Key('invite-primary-household-create-invite')),
       );

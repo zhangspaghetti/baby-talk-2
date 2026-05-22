@@ -115,7 +115,7 @@ class GardenScreen extends StatelessWidget {
                     notifier: shareNotifier,
                     sectionLabel: l.gardenShareFamily,
                     emptyMessage: '等最近成长和继续建议整理稳定后，再生成一条脱敏分享链接。',
-                    onShare: () => shareNotifier.shareCurrent(),
+                    onShare: (draft) => shareNotifier.shareDraft(draft),
                   ),
                 ],
                 const SizedBox(height: 16),

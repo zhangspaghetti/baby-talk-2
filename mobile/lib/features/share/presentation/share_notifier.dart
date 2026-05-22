@@ -81,15 +81,40 @@ class ShareNotifier extends ChangeNotifier {
     });
   }
 
-  Future<ShareExecutionResult> _shareInternal() async {
+  Future<ShareExecutionResult> shareDraft(ShareLinkDraft draft) {
+    if (isSharing) {
+      return _shareFuture ??
+          Future<ShareExecutionResult>.value(
+            ShareExecutionResult(
+              status: ShareExecutionStatus.failed,
+              phase: 'share_already_running',
+              message: '分享仍在进行中，请稍候。',
+            ),
+          );
+    }
+
+    final future = _shareInternal(frozenDraft: draft);
+    _shareFuture = future;
+    return future.whenComplete(() {
+      if (identical(_shareFuture, future)) {
+        _shareFuture = null;
+      }
+    });
+  }
+
+  Future<ShareExecutionResult> _shareInternal({
+    ShareLinkDraft? frozenDraft,
+  }) async {
     _shareRequest = const AsyncValue<ShareExecutionResult?>.loading();
     _message = null;
     notifyListeners();
 
-    final result = await _repository.shareSnapshots(
-      growthSnapshot: _growthSnapshot,
-      continuitySnapshot: _continuitySnapshot,
-    );
+    final result = frozenDraft == null
+        ? await _repository.shareSnapshots(
+            growthSnapshot: _growthSnapshot,
+            continuitySnapshot: _continuitySnapshot,
+          )
+        : await _repository.shareDraft(frozenDraft);
 
     if (_disposed) {
       return result;
