@@ -1,6 +1,6 @@
 # REFACTOR-051 Account Lifecycle Confirmation Hardening Plan
 
-Status: proposed
+Status: done
 
 ## Context
 
@@ -117,4 +117,23 @@ The page must preserve these distinctions:
 
 ## Approval Gate
 
-Do not enter Stage 3.1 implementation until REFACTOR-051 is approved. If approved, execute Option A only.
+REFACTOR-051 was approved and completed with Option A only.
+
+## Implementation Outcome
+
+REFACTOR-051 completed lifecycle confirmation hardening on account entry without changing repository/notifier semantics:
+
+- Revoke now requires an explicit confirmation dialog before `revokeConsent()` is called.
+- Logout now requires an explicit confirmation dialog before `clearSession()` is called.
+- Return-to-local-only now requires an explicit confirmation dialog before `clearSession(revertToLocalOnly: true)` is called.
+- Delete confirmation path remains separate and unchanged.
+
+Verification completed locally:
+
+- `flutter test test/features/account/account_entry_screen_test.dart`
+- `flutter test test/features/account/account_repository_test.dart`
+- `flutter test test/core/local_data_lifecycle/local_sensitive_data_clearance_orchestrator_test.dart`
+
+Follow-up:
+
+- Enter REFACTOR-052 as the next product-level UI/UX slice to remove remaining hard-coded delete dialog copy and unify lifecycle/destructive copy under l10n.

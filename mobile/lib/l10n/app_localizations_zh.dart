@@ -557,13 +557,19 @@ class AppLocalizationsZh extends AppLocalizations {
   String get accountDeletedNote => '删除后账号不可恢复；本机仍可继续保留练习。';
 
   @override
-  String get accountUpgradeNote => '服务端已拒绝当前版本；请先打开升级页面安装新版本，再返回重试同步。';
+  String get accountUpgradeNote => '服务端已拒绝当前版本；请先安装新版本，再返回这里继续同步。';
 
   @override
-  String get accountUpgradeUnavailable => '服务端已拒绝当前版本；当前会保留升级受阻提示，但升级入口暂不可用。';
+  String get accountUpgradeUnavailable => '服务端已拒绝当前版本；升级入口暂不可用，请稍后重试或联系支持。';
 
   @override
-  String get accountReadFailed => '账号状态暂时读不到，练习入口仍会保持可用。';
+  String get accountUpgradeReassurance => '升级等待期间，本机练习记录仍会保留，你可以继续在本机使用。';
+
+  @override
+  String get accountReadFailed => '账号状态暂时没有读取成功；你仍可以继续当前练习，稍后再重试。';
+
+  @override
+  String get accountReadRetryGuidance => '重试只会重新读取账号状态，不会清空本机练习记录。';
 
   @override
   String accountPendingSyncCount(Object count) {
@@ -579,6 +585,16 @@ class AppLocalizationsZh extends AppLocalizations {
   String accountFailedCount(Object count) {
     return '失败 $count';
   }
+
+  @override
+  String get accountSyncChipGuidance => '待同步和失败不会影响当前练习；有空时点“重试同步”即可继续推进。';
+
+  @override
+  String get accountLifecycleChipGuidance =>
+      '状态已变更（如撤回同意或账号删除）；芯片仅展示本机统计，不代表可继续同步。';
+
+  @override
+  String get accountReadErrorChipGuidance => '当前账号状态读取异常；芯片仅供参考，可稍后重试读取。';
 
   @override
   String accountRecentTime(Object time) {
@@ -607,7 +623,8 @@ class AppLocalizationsZh extends AppLocalizations {
   String get accountDevStub => '请输入 6 位验证码';
 
   @override
-  String get accountRealLoginNote => '登录成功后会同步账号资料和本机练习记录；出错时会停留在账号页，不影响当前练习。';
+  String get accountRealLoginNote =>
+      '登录只会接入账号同步，不会清空本机练习记录；如果出错，你仍会停留在账号页并可继续当前练习。';
 
   @override
   String accountLastError(Object error) {
@@ -1520,6 +1537,16 @@ class AppLocalizationsZh extends AppLocalizations {
   String get accountLifecycleCancel => '取消';
 
   @override
+  String get accountDeleteConfirmTitle => '确认删除账号？';
+
+  @override
+  String get accountDeleteConfirmBody =>
+      '删除后会清理本机账号、宝宝资料、家庭上下文、练习记录、导师事实和设备标识。此操作不可撤销。';
+
+  @override
+  String get accountDeleteConfirmAction => '确认删除';
+
+  @override
   String get accountRevokeConfirmTitle => '确认撤回同意？';
 
   @override
@@ -1547,7 +1574,8 @@ class AppLocalizationsZh extends AppLocalizations {
   String get accountLocalOnlyConfirmAction => '确认切换';
 
   @override
-  String get accountEntrySubmitMessage => '登录已完成，可返回首页查看最近恢复结果。';
+  String get accountEntrySubmitMessage =>
+      '登录已完成；你现在可以返回首页查看最近恢复结果，待同步记录也会继续尝试上传。';
 
   @override
   String get accountEntrySubmitButton => '提交';

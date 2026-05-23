@@ -1109,20 +1109,32 @@ abstract class AppLocalizations {
   /// No description provided for @accountUpgradeNote.
   ///
   /// In zh, this message translates to:
-  /// **'服务端已拒绝当前版本；请先打开升级页面安装新版本，再返回重试同步。'**
+  /// **'服务端已拒绝当前版本；请先安装新版本，再返回这里继续同步。'**
   String get accountUpgradeNote;
 
   /// No description provided for @accountUpgradeUnavailable.
   ///
   /// In zh, this message translates to:
-  /// **'服务端已拒绝当前版本；当前会保留升级受阻提示，但升级入口暂不可用。'**
+  /// **'服务端已拒绝当前版本；升级入口暂不可用，请稍后重试或联系支持。'**
   String get accountUpgradeUnavailable;
+
+  /// No description provided for @accountUpgradeReassurance.
+  ///
+  /// In zh, this message translates to:
+  /// **'升级等待期间，本机练习记录仍会保留，你可以继续在本机使用。'**
+  String get accountUpgradeReassurance;
 
   /// No description provided for @accountReadFailed.
   ///
   /// In zh, this message translates to:
-  /// **'账号状态暂时读不到，练习入口仍会保持可用。'**
+  /// **'账号状态暂时没有读取成功；你仍可以继续当前练习，稍后再重试。'**
   String get accountReadFailed;
+
+  /// No description provided for @accountReadRetryGuidance.
+  ///
+  /// In zh, this message translates to:
+  /// **'重试只会重新读取账号状态，不会清空本机练习记录。'**
+  String get accountReadRetryGuidance;
 
   /// No description provided for @accountPendingSyncCount.
   ///
@@ -1141,6 +1153,24 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'失败 {count}'**
   String accountFailedCount(Object count);
+
+  /// No description provided for @accountSyncChipGuidance.
+  ///
+  /// In zh, this message translates to:
+  /// **'待同步和失败不会影响当前练习；有空时点“重试同步”即可继续推进。'**
+  String get accountSyncChipGuidance;
+
+  /// No description provided for @accountLifecycleChipGuidance.
+  ///
+  /// In zh, this message translates to:
+  /// **'状态已变更（如撤回同意或账号删除）；芯片仅展示本机统计，不代表可继续同步。'**
+  String get accountLifecycleChipGuidance;
+
+  /// No description provided for @accountReadErrorChipGuidance.
+  ///
+  /// In zh, this message translates to:
+  /// **'当前账号状态读取异常；芯片仅供参考，可稍后重试读取。'**
+  String get accountReadErrorChipGuidance;
 
   /// No description provided for @accountRecentTime.
   ///
@@ -1193,7 +1223,7 @@ abstract class AppLocalizations {
   /// No description provided for @accountRealLoginNote.
   ///
   /// In zh, this message translates to:
-  /// **'登录成功后会同步账号资料和本机练习记录；出错时会停留在账号页，不影响当前练习。'**
+  /// **'登录只会接入账号同步，不会清空本机练习记录；如果出错，你仍会停留在账号页并可继续当前练习。'**
   String get accountRealLoginNote;
 
   /// No description provided for @accountLastError.
@@ -2836,6 +2866,24 @@ abstract class AppLocalizations {
   /// **'取消'**
   String get accountLifecycleCancel;
 
+  /// No description provided for @accountDeleteConfirmTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'确认删除账号？'**
+  String get accountDeleteConfirmTitle;
+
+  /// No description provided for @accountDeleteConfirmBody.
+  ///
+  /// In zh, this message translates to:
+  /// **'删除后会清理本机账号、宝宝资料、家庭上下文、练习记录、导师事实和设备标识。此操作不可撤销。'**
+  String get accountDeleteConfirmBody;
+
+  /// No description provided for @accountDeleteConfirmAction.
+  ///
+  /// In zh, this message translates to:
+  /// **'确认删除'**
+  String get accountDeleteConfirmAction;
+
   /// No description provided for @accountRevokeConfirmTitle.
   ///
   /// In zh, this message translates to:
@@ -2893,7 +2941,7 @@ abstract class AppLocalizations {
   /// No description provided for @accountEntrySubmitMessage.
   ///
   /// In zh, this message translates to:
-  /// **'登录已完成，可返回首页查看最近恢复结果。'**
+  /// **'登录已完成；你现在可以返回首页查看最近恢复结果，待同步记录也会继续尝试上传。'**
   String get accountEntrySubmitMessage;
 
   /// No description provided for @accountEntrySubmitButton.

@@ -19,27 +19,64 @@ Future<void> openAccountEntryScreen(BuildContext context) {
   return GoRouter.of(context).push('/account');
 }
 
+String _accountBodyForPhase(
+  AppLocalizations l,
+  AccountSurfacePhase phase,
+  OnboardingSnapshot? snapshot,
+  AccountNotifier notifier,
+) {
+  switch (phase) {
+    case AccountSurfacePhase.loading:
+      return l.accountShellNote;
+    case AccountSurfacePhase.localOnly:
+      final name = snapshot?.childDisplayName.trim();
+      final prefix = name == null || name.isEmpty
+          ? l.accountCurrentProfile
+          : l.accountProfileName(name);
+      return l.accountLocalOnlyNote(prefix);
+    case AccountSurfacePhase.signedOut:
+      return l.accountEntryNote;
+    case AccountSurfacePhase.signedInPendingSync:
+      return l.accountPendingSync(notifier.snapshot.pendingSyncCount);
+    case AccountSurfacePhase.signedInSynced:
+      return l.accountAlignedNote;
+    case AccountSurfacePhase.signedInFailed:
+      return l.accountSyncIncomplete;
+    case AccountSurfacePhase.revoked:
+      return l.accountRevokedNote;
+    case AccountSurfacePhase.deleted:
+      return l.accountDeletedNote;
+    case AccountSurfacePhase.versionBlocked:
+      return notifier.canOpenUpgradePage
+          ? l.accountUpgradeNote
+          : l.accountUpgradeUnavailable;
+    case AccountSurfacePhase.error:
+      return notifier.loadErrorMessage ?? l.accountReadFailed;
+  }
+}
+
 Future<void> _confirmAccountDeletion(
   BuildContext context,
   WidgetRef ref,
 ) async {
+  final l = AppLocalizations.of(context)!;
   final confirmed = await showDialog<bool>(
     context: context,
     builder: (context) {
       return AlertDialog(
         key: const Key('account-delete-confirm-dialog'),
-        title: const Text('确认删除账号？'),
-        content: const Text('删除后会清理本机账号、宝宝资料、家庭上下文、练习记录、导师事实和设备标识。此操作不可撤销。'),
+        title: Text(l.accountDeleteConfirmTitle),
+        content: Text(l.accountDeleteConfirmBody),
         actions: [
           TextButton(
             key: const Key('account-delete-cancel-button'),
             onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('取消'),
+            child: Text(l.accountLifecycleCancel),
           ),
           FilledButton(
             key: const Key('account-delete-confirm-button'),
             onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('确认删除'),
+            child: Text(l.accountDeleteConfirmAction),
           ),
         ],
       );
@@ -174,6 +211,16 @@ class AccountStatusCard extends ConsumerWidget {
     final title = _titleForPhase(l, phase, notifier);
     final body = _bodyForPhase(l, phase, onboardingSnapshot, notifier);
     final chips = _buildChips(l, notifier);
+    final hasLastVisibleError =
+      notifier.snapshot.lastVisibleError != null &&
+      notifier.snapshot.lastVisibleError!.trim().isNotEmpty;
+    final hasUpgradeHelper =
+      phase == AccountSurfacePhase.versionBlocked &&
+      notifier.upgradeActionHint != null;
+    final showChipGuidance = chips.isNotEmpty && !hasUpgradeHelper;
+    final showSubmissionMessage =
+      notifier.submissionMessage != null &&
+      phase != AccountSurfacePhase.error;
 
     return Container(
       key: Key('$scopeKeyPrefix-account-card'),
@@ -193,8 +240,7 @@ class AccountStatusCard extends ConsumerWidget {
           Text(title, style: theme.textTheme.titleMedium),
           const SizedBox(height: 8),
           Text(body, style: theme.textTheme.bodyMedium),
-          if (notifier.snapshot.lastVisibleError != null &&
-              notifier.snapshot.lastVisibleError!.trim().isNotEmpty) ...[
+          if (hasLastVisibleError) ...[
             const SizedBox(height: 12),
             Container(
               key: Key('$scopeKeyPrefix-account-banner'),
@@ -217,7 +263,17 @@ class AccountStatusCard extends ConsumerWidget {
             const SizedBox(height: 12),
             Wrap(spacing: 8, runSpacing: 8, children: chips),
           ],
-          if (notifier.submissionMessage != null) ...[
+          if (showChipGuidance) ...[
+            const SizedBox(height: 8),
+            Text(
+              _chipGuidanceForPhase(l, phase),
+              key: Key('$scopeKeyPrefix-account-sync-chip-guidance'),
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: colors.textSecondary,
+              ),
+            ),
+          ],
+          if (showSubmissionMessage) ...[
             const SizedBox(height: 12),
             Text(
               notifier.submissionMessage!,
@@ -231,6 +287,14 @@ class AccountStatusCard extends ConsumerWidget {
             Text(
               notifier.upgradeActionHint!,
               key: Key('$scopeKeyPrefix-account-upgrade-hint'),
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: colors.textSecondary,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              l.accountUpgradeReassurance,
+              key: Key('$scopeKeyPrefix-account-upgrade-reassurance'),
               style: theme.textTheme.bodySmall?.copyWith(
                 color: colors.textSecondary,
               ),
@@ -322,34 +386,7 @@ class AccountStatusCard extends ConsumerWidget {
     OnboardingSnapshot? snapshot,
     AccountNotifier notifier,
   ) {
-    switch (phase) {
-      case AccountSurfacePhase.loading:
-        return l.accountShellNote;
-      case AccountSurfacePhase.localOnly:
-        final name = snapshot?.childDisplayName.trim();
-        final prefix = name == null || name.isEmpty
-            ? l.accountCurrentProfile
-            : l.accountProfileName(name);
-        return l.accountLocalOnlyNote(prefix);
-      case AccountSurfacePhase.signedOut:
-        return l.accountEntryNote;
-      case AccountSurfacePhase.signedInPendingSync:
-        return l.accountPendingSync(notifier.snapshot.pendingSyncCount);
-      case AccountSurfacePhase.signedInSynced:
-        return l.accountAlignedNote;
-      case AccountSurfacePhase.signedInFailed:
-        return l.accountSyncIncomplete;
-      case AccountSurfacePhase.revoked:
-        return l.accountRevokedNote;
-      case AccountSurfacePhase.deleted:
-        return l.accountDeletedNote;
-      case AccountSurfacePhase.versionBlocked:
-        return notifier.canOpenUpgradePage
-            ? l.accountUpgradeNote
-            : l.accountUpgradeUnavailable;
-      case AccountSurfacePhase.error:
-        return notifier.loadErrorMessage ?? l.accountReadFailed;
-    }
+    return _accountBodyForPhase(l, phase, snapshot, notifier);
   }
 
   List<Widget> _buildChips(AppLocalizations l, AccountNotifier notifier) {
@@ -395,6 +432,18 @@ class AccountStatusCard extends ConsumerWidget {
       );
     }
     return chips;
+  }
+
+  String _chipGuidanceForPhase(AppLocalizations l, AccountSurfacePhase phase) {
+    switch (phase) {
+      case AccountSurfacePhase.revoked:
+      case AccountSurfacePhase.deleted:
+        return l.accountLifecycleChipGuidance;
+      case AccountSurfacePhase.error:
+        return l.accountReadErrorChipGuidance;
+      default:
+        return l.accountSyncChipGuidance;
+    }
   }
 
   Color _bannerBackgroundForPhase(
@@ -495,6 +544,10 @@ class AccountEntryScreen extends HookConsumerWidget {
     final notifier = ref.watch(accountNotifierProvider);
     final householdNotifier = ref.watch(householdNotifierProvider);
     final phase = resolveAccountPhase(notifier);
+    final helperBody = _accountBodyForPhase(l, phase, null, notifier);
+    final showSubmissionMessage =
+      notifier.submissionMessage != null &&
+      phase != AccountSurfacePhase.error;
     final showSignInForm =
         !notifier.isSignedIn || phase == AccountSurfacePhase.revoked;
 
@@ -550,7 +603,7 @@ class AccountEntryScreen extends HookConsumerWidget {
                             ),
                             const SizedBox(height: 12),
                             Text(
-                              notifier.primaryHint,
+                              helperBody,
                               style: theme.textTheme.bodyMedium,
                             ),
                             const SizedBox(height: 16),
@@ -577,6 +630,14 @@ class AccountEntryScreen extends HookConsumerWidget {
                                 onPressed: notifier.reload,
                                 child: Text(l.accountRetryReadStatus),
                               ),
+                              const SizedBox(height: 8),
+                              Text(
+                                l.accountReadRetryGuidance,
+                                key: const Key('account-read-retry-guidance'),
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: colors.textSecondary,
+                                ),
+                              ),
                             ],
                             if (notifier.snapshot.lastVisibleError != null &&
                                 notifier.snapshot.lastVisibleError!
@@ -594,7 +655,7 @@ class AccountEntryScreen extends HookConsumerWidget {
                                 ),
                               ),
                             ],
-                            if (notifier.submissionMessage != null) ...[
+                            if (showSubmissionMessage) ...[
                               const SizedBox(height: 12),
                               Text(
                                 notifier.submissionMessage!,
@@ -608,6 +669,14 @@ class AccountEntryScreen extends HookConsumerWidget {
                               Text(
                                 notifier.upgradeActionHint!,
                                 key: const Key('account-upgrade-hint'),
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: colors.textSecondary,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                l.accountUpgradeReassurance,
+                                key: const Key('account-upgrade-reassurance'),
                                 style: theme.textTheme.bodySmall?.copyWith(
                                   color: colors.textSecondary,
                                 ),
@@ -655,6 +724,7 @@ class AccountEntryScreen extends HookConsumerWidget {
                                   const SizedBox(height: 16),
                                   Text(
                                     l.accountRealLoginNote,
+                                    key: const Key('account-sign-in-trust-note'),
                                     style: theme.textTheme.bodySmall,
                                   ),
                                   const SizedBox(height: 16),
