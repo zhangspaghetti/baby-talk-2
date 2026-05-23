@@ -274,18 +274,42 @@ void main() {
     );
     await _pumpEntryScreen(tester, repository: revokeRepository);
     await _pressButton(tester, find.byKey(const Key('account-revoke-button')));
-    expect(revokeRepository.revokeCalls, 1);
+    expect(
+      find.byKey(const Key('account-revoke-confirm-dialog')),
+      findsOneWidget,
+    );
+    expect(revokeRepository.revokeCalls, 0);
     expect(revokeRepository.deleteCalls, 0);
     expect(
       find.byKey(const Key('account-delete-confirm-dialog')),
       findsNothing,
     );
+    await tester.tap(find.byKey(const Key('account-revoke-cancel-button')));
+    await tester.pumpAndSettle();
+    expect(revokeRepository.revokeCalls, 0);
+
+    await _pressButton(tester, find.byKey(const Key('account-revoke-button')));
+    await tester.tap(find.byKey(const Key('account-revoke-confirm-button')));
+    await tester.pumpAndSettle();
+    expect(revokeRepository.revokeCalls, 1);
 
     final logoutRepository = FakeAccountRepository(
       currentSnapshot: _signedInSnapshot(),
     );
     await _pumpEntryScreen(tester, repository: logoutRepository);
     await _pressButton(tester, find.byKey(const Key('account-clear-button')));
+    expect(
+      find.byKey(const Key('account-clear-confirm-dialog')),
+      findsOneWidget,
+    );
+    expect(logoutRepository.clearCalls, 0);
+    await tester.tap(find.byKey(const Key('account-clear-cancel-button')));
+    await tester.pumpAndSettle();
+    expect(logoutRepository.clearCalls, 0);
+
+    await _pressButton(tester, find.byKey(const Key('account-clear-button')));
+    await tester.tap(find.byKey(const Key('account-clear-confirm-button')));
+    await tester.pumpAndSettle();
     expect(logoutRepository.clearCalls, 1);
     expect(logoutRepository.lastClearRevertToLocalOnly, isFalse);
     expect(logoutRepository.revokeCalls, 0);
@@ -299,6 +323,23 @@ void main() {
       tester,
       find.byKey(const Key('account-local-only-button')),
     );
+    expect(
+      find.byKey(const Key('account-local-only-confirm-dialog')),
+      findsOneWidget,
+    );
+    expect(localRepository.clearCalls, 0);
+    await tester.tap(find.byKey(const Key('account-local-only-cancel-button')));
+    await tester.pumpAndSettle();
+    expect(localRepository.clearCalls, 0);
+
+    await _pressButton(
+      tester,
+      find.byKey(const Key('account-local-only-button')),
+    );
+    await tester.tap(
+      find.byKey(const Key('account-local-only-confirm-button')),
+    );
+    await tester.pumpAndSettle();
     expect(localRepository.clearCalls, 1);
     expect(localRepository.lastClearRevertToLocalOnly, isTrue);
     expect(localRepository.revokeCalls, 0);

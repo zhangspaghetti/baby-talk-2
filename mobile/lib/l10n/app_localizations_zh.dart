@@ -1517,6 +1517,36 @@ class AppLocalizationsZh extends AppLocalizations {
   String get accountDangerZoneRetentionNote => '本机记录仍会保留；删除账号只会在确认后清理本机敏感数据。';
 
   @override
+  String get accountLifecycleCancel => '取消';
+
+  @override
+  String get accountRevokeConfirmTitle => '确认撤回同意？';
+
+  @override
+  String get accountRevokeConfirmBody => '撤回后将停止账号同步；后续需重新登录并再次同意才能恢复。';
+
+  @override
+  String get accountRevokeConfirmAction => '确认撤回';
+
+  @override
+  String get accountClearConfirmTitle => '确认退出为未登录？';
+
+  @override
+  String get accountClearConfirmBody => '退出后账号会变为未登录状态，但本机练习记录仍会保留。';
+
+  @override
+  String get accountClearConfirmAction => '确认退出';
+
+  @override
+  String get accountLocalOnlyConfirmTitle => '确认回到本机档案？';
+
+  @override
+  String get accountLocalOnlyConfirmBody => '切换后将回到本机档案模式；本机练习记录仍会保留。';
+
+  @override
+  String get accountLocalOnlyConfirmAction => '确认切换';
+
+  @override
   String get accountEntrySubmitMessage => '登录已完成，可返回首页查看最近恢复结果。';
 
   @override

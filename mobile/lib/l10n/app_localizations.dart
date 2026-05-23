@@ -2830,6 +2830,66 @@ abstract class AppLocalizations {
   /// **'本机记录仍会保留；删除账号只会在确认后清理本机敏感数据。'**
   String get accountDangerZoneRetentionNote;
 
+  /// No description provided for @accountLifecycleCancel.
+  ///
+  /// In zh, this message translates to:
+  /// **'取消'**
+  String get accountLifecycleCancel;
+
+  /// No description provided for @accountRevokeConfirmTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'确认撤回同意？'**
+  String get accountRevokeConfirmTitle;
+
+  /// No description provided for @accountRevokeConfirmBody.
+  ///
+  /// In zh, this message translates to:
+  /// **'撤回后将停止账号同步；后续需重新登录并再次同意才能恢复。'**
+  String get accountRevokeConfirmBody;
+
+  /// No description provided for @accountRevokeConfirmAction.
+  ///
+  /// In zh, this message translates to:
+  /// **'确认撤回'**
+  String get accountRevokeConfirmAction;
+
+  /// No description provided for @accountClearConfirmTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'确认退出为未登录？'**
+  String get accountClearConfirmTitle;
+
+  /// No description provided for @accountClearConfirmBody.
+  ///
+  /// In zh, this message translates to:
+  /// **'退出后账号会变为未登录状态，但本机练习记录仍会保留。'**
+  String get accountClearConfirmBody;
+
+  /// No description provided for @accountClearConfirmAction.
+  ///
+  /// In zh, this message translates to:
+  /// **'确认退出'**
+  String get accountClearConfirmAction;
+
+  /// No description provided for @accountLocalOnlyConfirmTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'确认回到本机档案？'**
+  String get accountLocalOnlyConfirmTitle;
+
+  /// No description provided for @accountLocalOnlyConfirmBody.
+  ///
+  /// In zh, this message translates to:
+  /// **'切换后将回到本机档案模式；本机练习记录仍会保留。'**
+  String get accountLocalOnlyConfirmBody;
+
+  /// No description provided for @accountLocalOnlyConfirmAction.
+  ///
+  /// In zh, this message translates to:
+  /// **'确认切换'**
+  String get accountLocalOnlyConfirmAction;
+
   /// No description provided for @accountEntrySubmitMessage.
   ///
   /// In zh, this message translates to:

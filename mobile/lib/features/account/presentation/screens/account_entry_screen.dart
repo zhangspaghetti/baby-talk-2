@@ -52,6 +52,103 @@ Future<void> _confirmAccountDeletion(
   await ref.read(accountNotifierProvider.notifier).deleteAccount();
 }
 
+Future<bool> _confirmLifecycleAction(
+  BuildContext context, {
+  required String title,
+  required String content,
+  required String confirmLabel,
+  required Key dialogKey,
+  required Key cancelKey,
+  required Key confirmKey,
+}) async {
+  final confirmed = await showDialog<bool>(
+    context: context,
+    builder: (context) {
+      return AlertDialog(
+        key: dialogKey,
+        title: Text(title),
+        content: Text(content),
+        actions: [
+          TextButton(
+            key: cancelKey,
+            onPressed: () => Navigator.of(context).pop(false),
+            child: Text(AppLocalizations.of(context)!.accountLifecycleCancel),
+          ),
+          FilledButton(
+            key: confirmKey,
+            onPressed: () => Navigator.of(context).pop(true),
+            child: Text(confirmLabel),
+          ),
+        ],
+      );
+    },
+  );
+
+  return confirmed == true;
+}
+
+Future<void> _confirmRevokeConsent(
+  BuildContext context,
+  WidgetRef ref,
+  AppLocalizations l,
+) async {
+  final confirmed = await _confirmLifecycleAction(
+    context,
+    title: l.accountRevokeConfirmTitle,
+    content: l.accountRevokeConfirmBody,
+    confirmLabel: l.accountRevokeConfirmAction,
+    dialogKey: const Key('account-revoke-confirm-dialog'),
+    cancelKey: const Key('account-revoke-cancel-button'),
+    confirmKey: const Key('account-revoke-confirm-button'),
+  );
+  if (!confirmed || !context.mounted) {
+    return;
+  }
+  await ref.read(accountNotifierProvider.notifier).revokeConsent();
+}
+
+Future<void> _confirmLogout(
+  BuildContext context,
+  WidgetRef ref,
+  AppLocalizations l,
+) async {
+  final confirmed = await _confirmLifecycleAction(
+    context,
+    title: l.accountClearConfirmTitle,
+    content: l.accountClearConfirmBody,
+    confirmLabel: l.accountClearConfirmAction,
+    dialogKey: const Key('account-clear-confirm-dialog'),
+    cancelKey: const Key('account-clear-cancel-button'),
+    confirmKey: const Key('account-clear-confirm-button'),
+  );
+  if (!confirmed || !context.mounted) {
+    return;
+  }
+  await ref.read(accountNotifierProvider.notifier).clearSession();
+}
+
+Future<void> _confirmReturnToLocalOnly(
+  BuildContext context,
+  WidgetRef ref,
+  AppLocalizations l,
+) async {
+  final confirmed = await _confirmLifecycleAction(
+    context,
+    title: l.accountLocalOnlyConfirmTitle,
+    content: l.accountLocalOnlyConfirmBody,
+    confirmLabel: l.accountLocalOnlyConfirmAction,
+    dialogKey: const Key('account-local-only-confirm-dialog'),
+    cancelKey: const Key('account-local-only-cancel-button'),
+    confirmKey: const Key('account-local-only-confirm-button'),
+  );
+  if (!confirmed || !context.mounted) {
+    return;
+  }
+  await ref
+      .read(accountNotifierProvider.notifier)
+      .clearSession(revertToLocalOnly: true);
+}
+
 class AccountStatusCard extends ConsumerWidget {
   const AccountStatusCard({
     super.key,
@@ -680,13 +777,9 @@ class AccountEntryScreen extends HookConsumerWidget {
                               key: const Key('account-clear-button'),
                               onPressed: notifier.isBusy
                                   ? null
-                                  : () {
+                                  : () async {
                                       AppHaptics.lightTap();
-                                      ref
-                                          .read(
-                                            accountNotifierProvider.notifier,
-                                          )
-                                          .clearSession();
+                                      await _confirmLogout(context, ref, l);
                                     },
                               child: Text(l.accountLogout),
                             ),
@@ -694,15 +787,13 @@ class AccountEntryScreen extends HookConsumerWidget {
                               key: const Key('account-local-only-button'),
                               onPressed: notifier.isBusy
                                   ? null
-                                  : () {
+                                  : () async {
                                       AppHaptics.lightTap();
-                                      ref
-                                          .read(
-                                            accountNotifierProvider.notifier,
-                                          )
-                                          .clearSession(
-                                            revertToLocalOnly: true,
-                                          );
+                                      await _confirmReturnToLocalOnly(
+                                        context,
+                                        ref,
+                                        l,
+                                      );
                                     },
                               child: Text(l.accountBackToLocal),
                             ),
@@ -738,14 +829,13 @@ class AccountEntryScreen extends HookConsumerWidget {
                                   onPressed:
                                       notifier.isBusy || !notifier.isSignedIn
                                       ? null
-                                      : () {
+                                      : () async {
                                           AppHaptics.lightTap();
-                                          ref
-                                              .read(
-                                                accountNotifierProvider
-                                                    .notifier,
-                                              )
-                                              .revokeConsent();
+                                          await _confirmRevokeConsent(
+                                            context,
+                                            ref,
+                                            l,
+                                          );
                                         },
                                   child: Text(l.accountRevokeConsent),
                                 ),
