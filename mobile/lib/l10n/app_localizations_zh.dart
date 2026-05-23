@@ -1474,6 +1474,49 @@ class AppLocalizationsZh extends AppLocalizations {
   String get accountEntryS03Label => '账号与同步设置';
 
   @override
+  String get accountCurrentStatusSectionTitle => '当前账号状态';
+
+  @override
+  String get accountPrimaryActionSectionTitle => '登录与同意';
+
+  @override
+  String get accountPrimaryActionSectionHint => '需要登录或重新同意时，在这里完成手机号与验证码提交。';
+
+  @override
+  String get accountPrimaryActionSignedInHint => '已登录状态下不再重复展示登录表单。';
+
+  @override
+  String get accountPrimaryActionSignedInBody =>
+      '当前账号已完成登录；如遇恢复或同步问题，请使用下方恢复区。';
+
+  @override
+  String get accountRecoverySectionTitle => '恢复与同步';
+
+  @override
+  String get accountRecoverySectionHint => '同步失败、版本受阻或恢复中断时，先从这里重试。';
+
+  @override
+  String get accountFamilyContextSectionTitle => '家庭共享上下文';
+
+  @override
+  String get accountFamilyContextSectionHint => '家庭共享入口会保持脱敏展示，并与账号状态分开处理。';
+
+  @override
+  String get accountManagementSectionTitle => '日常管理';
+
+  @override
+  String get accountManagementSectionHint => '退出或回到本机档案不会删除本机练习记录。';
+
+  @override
+  String get accountDangerZoneSectionTitle => '高风险操作';
+
+  @override
+  String get accountDangerZoneSectionHint => '撤回同意和删除账号会改变远端账号状态，确认前请核对影响范围。';
+
+  @override
+  String get accountDangerZoneRetentionNote => '本机记录仍会保留；删除账号只会在确认后清理本机敏感数据。';
+
+  @override
   String get accountEntrySubmitMessage => '登录已完成，可返回首页查看最近恢复结果。';
 
   @override

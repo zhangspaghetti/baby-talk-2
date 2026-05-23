@@ -2746,6 +2746,90 @@ abstract class AppLocalizations {
   /// **'账号与同步设置'**
   String get accountEntryS03Label;
 
+  /// No description provided for @accountCurrentStatusSectionTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'当前账号状态'**
+  String get accountCurrentStatusSectionTitle;
+
+  /// No description provided for @accountPrimaryActionSectionTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'登录与同意'**
+  String get accountPrimaryActionSectionTitle;
+
+  /// No description provided for @accountPrimaryActionSectionHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'需要登录或重新同意时，在这里完成手机号与验证码提交。'**
+  String get accountPrimaryActionSectionHint;
+
+  /// No description provided for @accountPrimaryActionSignedInHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'已登录状态下不再重复展示登录表单。'**
+  String get accountPrimaryActionSignedInHint;
+
+  /// No description provided for @accountPrimaryActionSignedInBody.
+  ///
+  /// In zh, this message translates to:
+  /// **'当前账号已完成登录；如遇恢复或同步问题，请使用下方恢复区。'**
+  String get accountPrimaryActionSignedInBody;
+
+  /// No description provided for @accountRecoverySectionTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'恢复与同步'**
+  String get accountRecoverySectionTitle;
+
+  /// No description provided for @accountRecoverySectionHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'同步失败、版本受阻或恢复中断时，先从这里重试。'**
+  String get accountRecoverySectionHint;
+
+  /// No description provided for @accountFamilyContextSectionTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'家庭共享上下文'**
+  String get accountFamilyContextSectionTitle;
+
+  /// No description provided for @accountFamilyContextSectionHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'家庭共享入口会保持脱敏展示，并与账号状态分开处理。'**
+  String get accountFamilyContextSectionHint;
+
+  /// No description provided for @accountManagementSectionTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'日常管理'**
+  String get accountManagementSectionTitle;
+
+  /// No description provided for @accountManagementSectionHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'退出或回到本机档案不会删除本机练习记录。'**
+  String get accountManagementSectionHint;
+
+  /// No description provided for @accountDangerZoneSectionTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'高风险操作'**
+  String get accountDangerZoneSectionTitle;
+
+  /// No description provided for @accountDangerZoneSectionHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'撤回同意和删除账号会改变远端账号状态，确认前请核对影响范围。'**
+  String get accountDangerZoneSectionHint;
+
+  /// No description provided for @accountDangerZoneRetentionNote.
+  ///
+  /// In zh, this message translates to:
+  /// **'本机记录仍会保留；删除账号只会在确认后清理本机敏感数据。'**
+  String get accountDangerZoneRetentionNote;
+
   /// No description provided for @accountEntrySubmitMessage.
   ///
   /// In zh, this message translates to:

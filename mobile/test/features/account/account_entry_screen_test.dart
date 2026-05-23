@@ -226,6 +226,96 @@ void main() {
     expect(find.text('账号入口已可见，但你还没有登录'), findsOneWidget);
   });
 
+  testWidgets('账号页将状态、恢复、家庭、管理和高风险动作分区展示', (WidgetTester tester) async {
+    final repository = FakeAccountRepository(
+      currentSnapshot: _signedInSnapshot(),
+    );
+
+    await _pumpEntryScreen(tester, repository: repository);
+
+    expect(
+      find.byKey(const Key('account-current-status-section')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const Key('account-primary-action-section')),
+      findsOneWidget,
+    );
+    expect(find.byKey(const Key('account-recovery-section')), findsOneWidget);
+    expect(
+      find.byKey(const Key('account-family-context-section')),
+      findsOneWidget,
+    );
+    expect(find.byKey(const Key('account-management-section')), findsOneWidget);
+    expect(
+      find.byKey(const Key('account-danger-zone-section')),
+      findsOneWidget,
+    );
+    expect(find.textContaining('本机记录仍会保留'), findsOneWidget);
+    expect(find.byKey(const Key('account-submit-button')), findsNothing);
+  });
+
+  testWidgets('账号恢复和生命周期动作保持各自原有 handler', (WidgetTester tester) async {
+    final retryRepository = FakeAccountRepository(
+      currentSnapshot: _signedInSnapshot(),
+    );
+    await _pumpEntryScreen(tester, repository: retryRepository);
+    await _pressButton(
+      tester,
+      find.byKey(const Key('account-sync-retry-button')),
+    );
+    expect(
+      retryRepository.lastRefreshTrigger,
+      AccountRuntimeTrigger.manualRetry,
+    );
+
+    final revokeRepository = FakeAccountRepository(
+      currentSnapshot: _signedInSnapshot(),
+    );
+    await _pumpEntryScreen(tester, repository: revokeRepository);
+    await _pressButton(tester, find.byKey(const Key('account-revoke-button')));
+    expect(revokeRepository.revokeCalls, 1);
+    expect(revokeRepository.deleteCalls, 0);
+    expect(
+      find.byKey(const Key('account-delete-confirm-dialog')),
+      findsNothing,
+    );
+
+    final logoutRepository = FakeAccountRepository(
+      currentSnapshot: _signedInSnapshot(),
+    );
+    await _pumpEntryScreen(tester, repository: logoutRepository);
+    await _pressButton(tester, find.byKey(const Key('account-clear-button')));
+    expect(logoutRepository.clearCalls, 1);
+    expect(logoutRepository.lastClearRevertToLocalOnly, isFalse);
+    expect(logoutRepository.revokeCalls, 0);
+    expect(logoutRepository.deleteCalls, 0);
+
+    final localRepository = FakeAccountRepository(
+      currentSnapshot: _signedInSnapshot(),
+    );
+    await _pumpEntryScreen(tester, repository: localRepository);
+    await _pressButton(
+      tester,
+      find.byKey(const Key('account-local-only-button')),
+    );
+    expect(localRepository.clearCalls, 1);
+    expect(localRepository.lastClearRevertToLocalOnly, isTrue);
+    expect(localRepository.revokeCalls, 0);
+    expect(localRepository.deleteCalls, 0);
+
+    final closeRepository = FakeAccountRepository(
+      currentSnapshot: _signedInSnapshot(),
+    );
+    await _pumpEntryScreen(tester, repository: closeRepository);
+    closeRepository.lastRefreshTrigger = null;
+    await _pressButton(tester, find.byKey(const Key('account-close-button')));
+    expect(closeRepository.clearCalls, 0);
+    expect(closeRepository.revokeCalls, 0);
+    expect(closeRepository.deleteCalls, 0);
+    expect(closeRepository.lastRefreshTrigger, isNull);
+  });
+
   testWidgets('删除账号需要二次确认，并在确认后触发本机敏感数据清理', (WidgetTester tester) async {
     final repository = FakeAccountRepository(
       currentSnapshot: _signedInSnapshot(),
@@ -273,6 +363,15 @@ void main() {
     );
     expect(clearanceRequests, isEmpty);
 
+    await tester.tap(find.byKey(const Key('account-delete-cancel-button')));
+    await tester.pumpAndSettle();
+
+    expect(clearanceRequests, isEmpty);
+    expect(repository.deleteCalls, 0);
+
+    await tester.tap(deleteButton);
+    await tester.pumpAndSettle();
+
     await tester.tap(find.byKey(const Key('account-delete-confirm-button')));
     await tester.pump();
     await tester.pumpAndSettle();
@@ -280,8 +379,18 @@ void main() {
     expect(clearanceRequests, [
       LocalSensitiveDataClearanceTrigger.accountDeletionConfirmed,
     ]);
+    expect(repository.deleteCalls, 1);
     expect(find.text('账号已删除；本机敏感数据已清理。'), findsOneWidget);
   });
+}
+
+Future<void> _pressButton(WidgetTester tester, Finder finder) async {
+  final button = tester.widget<ButtonStyleButton>(finder);
+  expect(button.onPressed, isNotNull);
+  button.onPressed!.call();
+  await tester.idle();
+  await tester.pump();
+  await tester.pumpAndSettle();
 }
 
 Future<void> _pumpEntryScreen(
@@ -300,6 +409,7 @@ Future<void> _pumpEntryScreen(
 
   await tester.pumpWidget(
     ProviderScope(
+      key: UniqueKey(),
       overrides: [
         accountNotifierProvider.overrideWith((ref) => notifier),
         householdNotifierProvider.overrideWith(
@@ -322,9 +432,8 @@ Future<void> _pumpEntryScreen(
     ),
   );
 
-  notifier.initialize();
-  await tester.pump();
-  await tester.pumpAndSettle();
+  await notifier.initialize();
+  await _settleAccountNotifier(tester, notifier);
 }
 
 Future<void> _pumpStatusCard(
@@ -342,6 +451,7 @@ Future<void> _pumpStatusCard(
 
   await tester.pumpWidget(
     ProviderScope(
+      key: UniqueKey(),
       overrides: [
         accountNotifierProvider.overrideWith((ref) => notifier),
         householdNotifierProvider.overrideWith(
@@ -373,8 +483,22 @@ Future<void> _pumpStatusCard(
     ),
   );
 
-  notifier.initialize();
-  await tester.pump();
+  await notifier.initialize();
+  await _settleAccountNotifier(tester, notifier);
+}
+
+Future<void> _settleAccountNotifier(
+  WidgetTester tester,
+  AccountNotifier notifier,
+) async {
+  for (var attempt = 0; attempt < 8; attempt += 1) {
+    await tester.idle();
+    await tester.pump();
+    if (!notifier.isLoading && !notifier.isBusy) {
+      await tester.pumpAndSettle();
+      return;
+    }
+  }
   await tester.pumpAndSettle();
 }
 
@@ -482,6 +606,10 @@ class FakeAccountRepository implements AccountRepository {
   int loadCalls = 0;
   int saveCalls = 0;
   int clearCalls = 0;
+  int revokeCalls = 0;
+  int deleteCalls = 0;
+  bool? lastClearRevertToLocalOnly;
+  AccountRuntimeTrigger? lastRefreshTrigger;
 
   @override
   Future<AccountLocalSnapshot> loadSnapshot() async {
@@ -541,6 +669,7 @@ class FakeAccountRepository implements AccountRepository {
     AccountLocalSnapshot? seedSnapshot,
     bool forceBootstrap = false,
   }) async {
+    lastRefreshTrigger = trigger;
     return seedSnapshot ?? currentSnapshot;
   }
 
@@ -549,6 +678,7 @@ class FakeAccountRepository implements AccountRepository {
     bool revertToLocalOnly = false,
   }) async {
     clearCalls += 1;
+    lastClearRevertToLocalOnly = revertToLocalOnly;
     currentSnapshot = revertToLocalOnly
         ? AccountLocalSnapshot.localOnly
         : AccountLocalSnapshot.signedOut;
@@ -559,6 +689,7 @@ class FakeAccountRepository implements AccountRepository {
   Future<AccountLocalSnapshot> revokeConsent({
     String reason = 'user_requested',
   }) async {
+    revokeCalls += 1;
     currentSnapshot = currentSnapshot.copyWith(
       consentState: AccountConsentState.revoked,
       lastSyncPhase: 'consent_revoked',
@@ -573,6 +704,7 @@ class FakeAccountRepository implements AccountRepository {
   Future<AccountLocalSnapshot> deleteAccount({
     String reason = 'forget_me',
   }) async {
+    deleteCalls += 1;
     currentSnapshot = currentSnapshot.copyWith(
       consentState: AccountConsentState.deleted,
       clearSession: true,

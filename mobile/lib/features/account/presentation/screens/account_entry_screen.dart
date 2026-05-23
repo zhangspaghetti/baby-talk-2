@@ -336,6 +336,54 @@ class AccountStatusCard extends ConsumerWidget {
   }
 }
 
+class _AccountEntrySection extends StatelessWidget {
+  const _AccountEntrySection({
+    super.key,
+    required this.title,
+    required this.child,
+    this.eyebrow,
+    this.description,
+  });
+
+  final String title;
+  final String? eyebrow;
+  final String? description;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    final theme = Theme.of(context);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (eyebrow != null) ...[
+          Text(
+            eyebrow!,
+            style: theme.textTheme.labelMedium?.copyWith(
+              color: colors.textSecondary,
+            ),
+          ),
+          const SizedBox(height: 8),
+        ],
+        Text(title, style: theme.textTheme.titleMedium),
+        if (description != null) ...[
+          const SizedBox(height: 8),
+          Text(
+            description!,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: colors.textSecondary,
+            ),
+          ),
+        ],
+        const SizedBox(height: 14),
+        child,
+      ],
+    );
+  }
+}
+
 class AccountEntryScreen extends HookConsumerWidget {
   const AccountEntryScreen({super.key});
 
@@ -350,6 +398,8 @@ class AccountEntryScreen extends HookConsumerWidget {
     final notifier = ref.watch(accountNotifierProvider);
     final householdNotifier = ref.watch(householdNotifierProvider);
     final phase = resolveAccountPhase(notifier);
+    final showSignInForm =
+        !notifier.isSignedIn || phase == AccountSurfacePhase.revoked;
 
     if (phoneController.text != notifier.phoneNumber) {
       phoneController.value = TextEditingValue(
@@ -390,235 +440,333 @@ class AccountEntryScreen extends HookConsumerWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        l.accountEntryS03Label,
-                        style: theme.textTheme.labelMedium,
-                      ),
-                      const SizedBox(height: 12),
-                      Text(
-                        _headlineForPhase(l, phase, notifier),
-                        style: theme.textTheme.titleLarge,
-                      ),
-                      const SizedBox(height: 12),
-                      Text(
-                        notifier.primaryHint,
-                        style: theme.textTheme.bodyMedium,
-                      ),
-                      const SizedBox(height: 16),
-                      Container(
-                        key: Key('account-status-${_phaseKey(phase)}'),
-                        width: double.infinity,
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: _phaseBackground(phase, colors),
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        child: Text(
-                          _statusText(l, phase, notifier),
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            color: _phaseForeground(phase, colors),
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ),
-                      if (notifier.loadErrorMessage != null) ...[
-                        const SizedBox(height: 12),
-                        OutlinedButton(
-                          key: const Key('account-load-retry'),
-                          onPressed: notifier.reload,
-                          child: Text(l.accountRetryReadStatus),
-                        ),
-                      ],
-                      const SizedBox(height: 20),
-                      TextField(
-                        key: const Key('account-phone-field'),
-                        controller: phoneController,
-                        keyboardType: TextInputType.phone,
-                        decoration: InputDecoration(
-                          labelText: l.accountPhoneLabel,
-                          hintText: kDebugMode ? '13800138000' : null,
-                          errorText: notifier.phoneError,
-                        ),
-                        onChanged: notifier.updatePhoneNumber,
-                      ),
-                      const SizedBox(height: 16),
-                      TextField(
-                        key: const Key('account-code-field'),
-                        controller: codeController,
-                        keyboardType: TextInputType.number,
-                        decoration: InputDecoration(
-                          labelText: l.accountCodeLabel,
-                          hintText: l.accountDevStub,
-                          errorText: notifier.verificationCodeError,
-                        ),
-                        onChanged: notifier.updateVerificationCode,
-                      ),
-                      const SizedBox(height: 16),
-                      Text(
-                        l.accountRealLoginNote,
-                        style: theme.textTheme.bodySmall,
-                      ),
-                      if (notifier.snapshot.lastVisibleError != null &&
-                          notifier.snapshot.lastVisibleError!
-                              .trim()
-                              .isNotEmpty) ...[
-                        const SizedBox(height: 12),
-                        Text(
-                          l.accountLastError(
-                            notifier.snapshot.lastVisibleError!,
-                          ),
-                          key: const Key('account-last-error'),
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: _phaseForeground(phase, colors),
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ],
-                      if (notifier.submissionMessage != null) ...[
-                        const SizedBox(height: 12),
-                        Text(
-                          notifier.submissionMessage!,
-                          key: const Key('account-submit-message'),
-                          style: theme.textTheme.bodySmall,
-                        ),
-                      ],
-                      if (phase == AccountSurfacePhase.versionBlocked &&
-                          notifier.upgradeActionHint != null) ...[
-                        const SizedBox(height: 12),
-                        Text(
-                          notifier.upgradeActionHint!,
-                          key: const Key('account-upgrade-hint'),
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: colors.textSecondary,
-                          ),
-                        ),
-                      ],
-                      const SizedBox(height: 20),
-                      HouseholdSharedContextCard(
-                        surfaceKeyPrefix: 'account',
-                        notifier: householdNotifier,
-                        title: l.sharedAttributionNextStep,
-                        retryReason: 'account_entry_manual_refresh',
-                      ),
-                      const SizedBox(height: 16),
-                      HouseholdInviteCard(
-                        surfaceKeyPrefix: 'account',
-                        notifier: householdNotifier,
-                        inviteSource: 'account_entry',
-                      ),
-                      const SizedBox(height: 20),
-                      Wrap(
-                        spacing: 12,
-                        runSpacing: 12,
-                        children: [
-                          FilledButton(
-                            key: const Key('account-submit-button'),
-                            onPressed: notifier.isBusy
-                                ? null
-                                : () async {
-                                    AppHaptics.lightTap();
-                                    final succeeded = await ref
-                                        .read(accountNotifierProvider.notifier)
-                                        .submitSignIn();
-                                    if (!context.mounted || !succeeded) {
-                                      return;
-                                    }
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(
-                                        content: Text(
-                                          l.accountEntrySubmitMessage,
-                                        ),
-                                      ),
-                                    );
-                                  },
-                            child: Text(
-                              notifier.isBusy
-                                  ? l.processing
-                                  : l.accountLoginConsent,
+                      _AccountEntrySection(
+                        key: const Key('account-current-status-section'),
+                        title: l.accountCurrentStatusSectionTitle,
+                        eyebrow: l.accountEntryS03Label,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              _headlineForPhase(l, phase, notifier),
+                              style: theme.textTheme.titleLarge,
                             ),
-                          ),
-                          if (phase == AccountSurfacePhase.versionBlocked)
-                            FilledButton(
-                              key: const Key('account-upgrade-button'),
-                              onPressed: notifier.canOpenUpgradePage
-                                  ? () {
+                            const SizedBox(height: 12),
+                            Text(
+                              notifier.primaryHint,
+                              style: theme.textTheme.bodyMedium,
+                            ),
+                            const SizedBox(height: 16),
+                            Container(
+                              key: Key('account-status-${_phaseKey(phase)}'),
+                              width: double.infinity,
+                              padding: const EdgeInsets.all(16),
+                              decoration: BoxDecoration(
+                                color: _phaseBackground(phase, colors),
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                              child: Text(
+                                _statusText(l, phase, notifier),
+                                style: theme.textTheme.bodyMedium?.copyWith(
+                                  color: _phaseForeground(phase, colors),
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ),
+                            if (notifier.loadErrorMessage != null) ...[
+                              const SizedBox(height: 12),
+                              OutlinedButton(
+                                key: const Key('account-load-retry'),
+                                onPressed: notifier.reload,
+                                child: Text(l.accountRetryReadStatus),
+                              ),
+                            ],
+                            if (notifier.snapshot.lastVisibleError != null &&
+                                notifier.snapshot.lastVisibleError!
+                                    .trim()
+                                    .isNotEmpty) ...[
+                              const SizedBox(height: 12),
+                              Text(
+                                l.accountLastError(
+                                  notifier.snapshot.lastVisibleError!,
+                                ),
+                                key: const Key('account-last-error'),
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: _phaseForeground(phase, colors),
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ],
+                            if (notifier.submissionMessage != null) ...[
+                              const SizedBox(height: 12),
+                              Text(
+                                notifier.submissionMessage!,
+                                key: const Key('account-submit-message'),
+                                style: theme.textTheme.bodySmall,
+                              ),
+                            ],
+                            if (phase == AccountSurfacePhase.versionBlocked &&
+                                notifier.upgradeActionHint != null) ...[
+                              const SizedBox(height: 12),
+                              Text(
+                                notifier.upgradeActionHint!,
+                                key: const Key('account-upgrade-hint'),
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: colors.textSecondary,
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+                      _AccountEntrySection(
+                        key: const Key('account-primary-action-section'),
+                        title: l.accountPrimaryActionSectionTitle,
+                        description: showSignInForm
+                            ? l.accountPrimaryActionSectionHint
+                            : l.accountPrimaryActionSignedInHint,
+                        child: showSignInForm
+                            ? Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  TextField(
+                                    key: const Key('account-phone-field'),
+                                    controller: phoneController,
+                                    keyboardType: TextInputType.phone,
+                                    decoration: InputDecoration(
+                                      labelText: l.accountPhoneLabel,
+                                      hintText: kDebugMode
+                                          ? '13800138000'
+                                          : null,
+                                      errorText: notifier.phoneError,
+                                    ),
+                                    onChanged: notifier.updatePhoneNumber,
+                                  ),
+                                  const SizedBox(height: 16),
+                                  TextField(
+                                    key: const Key('account-code-field'),
+                                    controller: codeController,
+                                    keyboardType: TextInputType.number,
+                                    decoration: InputDecoration(
+                                      labelText: l.accountCodeLabel,
+                                      hintText: l.accountDevStub,
+                                      errorText: notifier.verificationCodeError,
+                                    ),
+                                    onChanged: notifier.updateVerificationCode,
+                                  ),
+                                  const SizedBox(height: 16),
+                                  Text(
+                                    l.accountRealLoginNote,
+                                    style: theme.textTheme.bodySmall,
+                                  ),
+                                  const SizedBox(height: 16),
+                                  FilledButton(
+                                    key: const Key('account-submit-button'),
+                                    onPressed: notifier.isBusy
+                                        ? null
+                                        : () async {
+                                            AppHaptics.lightTap();
+                                            final succeeded = await ref
+                                                .read(
+                                                  accountNotifierProvider
+                                                      .notifier,
+                                                )
+                                                .submitSignIn();
+                                            if (!context.mounted ||
+                                                !succeeded) {
+                                              return;
+                                            }
+                                            ScaffoldMessenger.of(
+                                              context,
+                                            ).showSnackBar(
+                                              SnackBar(
+                                                content: Text(
+                                                  l.accountEntrySubmitMessage,
+                                                ),
+                                              ),
+                                            );
+                                          },
+                                    child: Text(
+                                      notifier.isBusy
+                                          ? l.processing
+                                          : l.accountLoginConsent,
+                                    ),
+                                  ),
+                                ],
+                              )
+                            : Text(
+                                l.accountPrimaryActionSignedInBody,
+                                style: theme.textTheme.bodyMedium,
+                              ),
+                      ),
+                      const SizedBox(height: 24),
+                      _AccountEntrySection(
+                        key: const Key('account-recovery-section'),
+                        title: l.accountRecoverySectionTitle,
+                        description: l.accountRecoverySectionHint,
+                        child: Wrap(
+                          spacing: 12,
+                          runSpacing: 12,
+                          children: [
+                            if (phase == AccountSurfacePhase.versionBlocked)
+                              FilledButton(
+                                key: const Key('account-upgrade-button'),
+                                onPressed: notifier.canOpenUpgradePage
+                                    ? () {
+                                        AppHaptics.lightTap();
+                                        ref
+                                            .read(
+                                              accountNotifierProvider.notifier,
+                                            )
+                                            .openUpgradePage();
+                                      }
+                                    : null,
+                                child: Text(notifier.upgradeActionLabel),
+                              ),
+                            OutlinedButton(
+                              key: const Key('account-sync-retry-button'),
+                              onPressed: notifier.isBusy
+                                  ? null
+                                  : () {
                                       AppHaptics.lightTap();
                                       ref
                                           .read(
                                             accountNotifierProvider.notifier,
                                           )
-                                          .openUpgradePage();
-                                    }
-                                  : null,
-                              child: Text(notifier.upgradeActionLabel),
+                                          .refreshRuntimeState(
+                                            trigger: AccountRuntimeTrigger
+                                                .manualRetry,
+                                          );
+                                    },
+                              child: Text(l.accountRetrySync),
                             ),
-                          OutlinedButton(
-                            key: const Key('account-sync-retry-button'),
-                            onPressed: notifier.isBusy
-                                ? null
-                                : () {
-                                    AppHaptics.lightTap();
-                                    ref
-                                        .read(accountNotifierProvider.notifier)
-                                        .refreshRuntimeState(
-                                          trigger:
-                                              AccountRuntimeTrigger.manualRetry,
-                                        );
-                                  },
-                            child: Text(l.accountRetrySync),
-                          ),
-                          OutlinedButton(
-                            key: const Key('account-revoke-button'),
-                            onPressed: notifier.isBusy || !notifier.isSignedIn
-                                ? null
-                                : () {
-                                    AppHaptics.lightTap();
-                                    ref
-                                        .read(accountNotifierProvider.notifier)
-                                        .revokeConsent();
-                                  },
-                            child: Text(l.accountRevokeConsent),
-                          ),
-                          OutlinedButton(
-                            key: const Key('account-delete-button'),
-                            onPressed: notifier.isBusy || !notifier.isSignedIn
-                                ? null
-                                : () async {
-                                    AppHaptics.lightTap();
-                                    await _confirmAccountDeletion(context, ref);
-                                  },
-                            child: Text(l.accountDeleteAccount),
-                          ),
-                          OutlinedButton(
-                            key: const Key('account-clear-button'),
-                            onPressed: notifier.isBusy
-                                ? null
-                                : () {
-                                    AppHaptics.lightTap();
-                                    ref
-                                        .read(accountNotifierProvider.notifier)
-                                        .clearSession();
-                                  },
-                            child: Text(l.accountLogout),
-                          ),
-                          OutlinedButton(
-                            key: const Key('account-local-only-button'),
-                            onPressed: notifier.isBusy
-                                ? null
-                                : () {
-                                    AppHaptics.lightTap();
-                                    ref
-                                        .read(accountNotifierProvider.notifier)
-                                        .clearSession(revertToLocalOnly: true);
-                                  },
-                            child: Text(l.accountBackToLocal),
-                          ),
-                          OutlinedButton(
-                            key: const Key('account-close-button'),
-                            onPressed: () => Navigator.of(context).maybePop(),
-                            child: Text(l.close),
-                          ),
-                        ],
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+                      _AccountEntrySection(
+                        key: const Key('account-family-context-section'),
+                        title: l.accountFamilyContextSectionTitle,
+                        description: l.accountFamilyContextSectionHint,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            HouseholdSharedContextCard(
+                              surfaceKeyPrefix: 'account',
+                              notifier: householdNotifier,
+                              title: l.sharedAttributionNextStep,
+                              retryReason: 'account_entry_manual_refresh',
+                            ),
+                            const SizedBox(height: 16),
+                            HouseholdInviteCard(
+                              surfaceKeyPrefix: 'account',
+                              notifier: householdNotifier,
+                              inviteSource: 'account_entry',
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+                      _AccountEntrySection(
+                        key: const Key('account-management-section'),
+                        title: l.accountManagementSectionTitle,
+                        description: l.accountManagementSectionHint,
+                        child: Wrap(
+                          spacing: 12,
+                          runSpacing: 12,
+                          children: [
+                            OutlinedButton(
+                              key: const Key('account-clear-button'),
+                              onPressed: notifier.isBusy
+                                  ? null
+                                  : () {
+                                      AppHaptics.lightTap();
+                                      ref
+                                          .read(
+                                            accountNotifierProvider.notifier,
+                                          )
+                                          .clearSession();
+                                    },
+                              child: Text(l.accountLogout),
+                            ),
+                            OutlinedButton(
+                              key: const Key('account-local-only-button'),
+                              onPressed: notifier.isBusy
+                                  ? null
+                                  : () {
+                                      AppHaptics.lightTap();
+                                      ref
+                                          .read(
+                                            accountNotifierProvider.notifier,
+                                          )
+                                          .clearSession(
+                                            revertToLocalOnly: true,
+                                          );
+                                    },
+                              child: Text(l.accountBackToLocal),
+                            ),
+                            OutlinedButton(
+                              key: const Key('account-close-button'),
+                              onPressed: () => Navigator.of(context).maybePop(),
+                              child: Text(l.close),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+                      _AccountEntrySection(
+                        key: const Key('account-danger-zone-section'),
+                        title: l.accountDangerZoneSectionTitle,
+                        description: l.accountDangerZoneSectionHint,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              l.accountDangerZoneRetentionNote,
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: colors.textSecondary,
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            Wrap(
+                              spacing: 12,
+                              runSpacing: 12,
+                              children: [
+                                OutlinedButton(
+                                  key: const Key('account-revoke-button'),
+                                  onPressed:
+                                      notifier.isBusy || !notifier.isSignedIn
+                                      ? null
+                                      : () {
+                                          AppHaptics.lightTap();
+                                          ref
+                                              .read(
+                                                accountNotifierProvider
+                                                    .notifier,
+                                              )
+                                              .revokeConsent();
+                                        },
+                                  child: Text(l.accountRevokeConsent),
+                                ),
+                                OutlinedButton(
+                                  key: const Key('account-delete-button'),
+                                  onPressed:
+                                      notifier.isBusy || !notifier.isSignedIn
+                                      ? null
+                                      : () async {
+                                          AppHaptics.lightTap();
+                                          await _confirmAccountDeletion(
+                                            context,
+                                            ref,
+                                          );
+                                        },
+                                  child: Text(l.accountDeleteAccount),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
                       ),
                     ],
                   ),
