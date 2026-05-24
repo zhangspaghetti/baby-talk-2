@@ -1130,10 +1130,16 @@ abstract class AppLocalizations {
   /// **'账号状态暂时没有读取成功；你仍可以继续当前练习，稍后再重试。'**
   String get accountReadFailed;
 
+  /// No description provided for @accountReadFailedPrimary.
+  ///
+  /// In zh, this message translates to:
+  /// **'账号状态暂时不可读；先重试读取即可，不会影响本机练习记录。'**
+  String get accountReadFailedPrimary;
+
   /// No description provided for @accountReadRetryGuidance.
   ///
   /// In zh, this message translates to:
-  /// **'重试只会重新读取账号状态，不会清空本机练习记录。'**
+  /// **'重试只会重新读取账号状态，不会改动本机练习记录。'**
   String get accountReadRetryGuidance;
 
   /// No description provided for @accountPendingSyncCount.

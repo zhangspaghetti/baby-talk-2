@@ -569,7 +569,10 @@ class AppLocalizationsZh extends AppLocalizations {
   String get accountReadFailed => '账号状态暂时没有读取成功；你仍可以继续当前练习，稍后再重试。';
 
   @override
-  String get accountReadRetryGuidance => '重试只会重新读取账号状态，不会清空本机练习记录。';
+  String get accountReadFailedPrimary => '账号状态暂时不可读；先重试读取即可，不会影响本机练习记录。';
+
+  @override
+  String get accountReadRetryGuidance => '重试只会重新读取账号状态，不会改动本机练习记录。';
 
   @override
   String accountPendingSyncCount(Object count) {

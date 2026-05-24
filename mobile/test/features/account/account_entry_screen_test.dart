@@ -69,20 +69,13 @@ void main() {
       findsOneWidget,
     );
     expect(find.byKey(const Key('home-account-upgrade-hint')), findsOneWidget);
-    expect(find.byKey(const Key('home-account-sync-chip-guidance')), findsNothing);
     expect(
-      find.byKey(const Key('home-account-upgrade-reassurance')),
-      findsOneWidget,
+      find.byKey(const Key('home-account-sync-chip-guidance')),
+      findsNothing,
     );
     expect(find.text('立即升级'), findsOneWidget);
-    expect(
-      find.text('升级等待期间，本机练习记录仍会保留，你可以继续在本机使用。'),
-      findsWidgets,
-    );
-    expect(
-      find.text('服务端已拒绝当前版本；请先安装新版本，再返回这里继续同步。'),
-      findsOneWidget,
-    );
+    expect(find.text('升级等待期间，本机练习记录仍会保留，你可以继续在本机使用。'), findsNothing);
+    expect(find.text('服务端已拒绝当前版本；请先安装新版本，再返回这里继续同步。'), findsOneWidget);
 
     await tester.tap(find.byKey(const Key('home-account-upgrade-button')));
     await tester.pump();
@@ -95,10 +88,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byKey(const Key('account-entry-surface')), findsOneWidget);
-    expect(
-      find.text('服务端已拒绝当前版本；请先安装新版本，再返回这里继续同步。'),
-      findsOneWidget,
-    );
+    expect(find.text('服务端已拒绝当前版本；请先安装新版本，再返回这里继续同步。'), findsOneWidget);
     expect(find.byKey(const Key('account-upgrade-hint')), findsOneWidget);
   });
 
@@ -119,12 +109,12 @@ void main() {
     );
     expect(find.byKey(const Key('account-upgrade-button')), findsOneWidget);
     expect(find.text('升级入口暂不可用'), findsOneWidget);
-    expect(find.byKey(const Key('account-upgrade-reassurance')), findsOneWidget);
-    expect(find.text('升级入口暂未配置，请稍后重试或联系支持。'), findsWidgets);
     expect(
-      find.text('升级等待期间，本机练习记录仍会保留，你可以继续在本机使用。'),
-      findsWidgets,
+      find.byKey(const Key('account-upgrade-reassurance')),
+      findsOneWidget,
     );
+    expect(find.text('升级入口暂未配置，请稍后重试或联系支持。'), findsWidgets);
+    expect(find.text('升级等待期间，本机练习记录仍会保留，你可以继续在本机使用。'), findsWidgets);
 
     final button = tester.widget<FilledButton>(
       find.byKey(const Key('account-upgrade-button')),
@@ -161,7 +151,10 @@ void main() {
 
     expect(opener.openedUrls, [upgradeUrl]);
     expect(find.byKey(const Key('account-upgrade-button')), findsOneWidget);
-    expect(find.byKey(const Key('account-upgrade-reassurance')), findsOneWidget);
+    expect(
+      find.byKey(const Key('account-upgrade-reassurance')),
+      findsOneWidget,
+    );
     expect(find.text('打开升级页面失败，请稍后重试。'), findsOneWidget);
   });
 
@@ -236,17 +229,17 @@ void main() {
     expect(find.textContaining('138****8000'), findsWidgets);
     expect(find.textContaining('待同步 3'), findsOneWidget);
     expect(find.byKey(const Key('account-upgrade-reassurance')), findsNothing);
-    expect(find.byKey(const Key('account-status-consent-revoked')), findsNothing);
-    expect(find.byKey(const Key('account-status-account-deleted')), findsNothing);
+    expect(
+      find.byKey(const Key('account-status-consent-revoked')),
+      findsNothing,
+    );
+    expect(
+      find.byKey(const Key('account-status-account-deleted')),
+      findsNothing,
+    );
     expect(find.textContaining('登录已完成：仍有 3 条练习记录待同步。'), findsOneWidget);
-    expect(
-      find.text('登录已完成；你现在可以返回首页查看最近恢复结果，待同步记录也会继续尝试上传。'),
-      findsOneWidget,
-    );
-    expect(
-      find.text('仍有 3 条练习记录待同步，打开应用、回到首页或手动重试时会继续尝试。'),
-      findsOneWidget,
-    );
+    expect(find.text('登录已完成；你现在可以返回首页查看最近恢复结果，待同步记录也会继续尝试上传。'), findsOneWidget);
+    expect(find.text('仍有 3 条练习记录待同步，打开应用、回到首页或手动重试时会继续尝试。'), findsOneWidget);
     expect(find.textContaining('待同步事件'), findsNothing);
   });
 
@@ -260,14 +253,18 @@ void main() {
 
     expect(find.byKey(const Key('account-status-error')), findsOneWidget);
     expect(find.byKey(const Key('account-load-retry')), findsOneWidget);
-    expect(find.byKey(const Key('account-read-retry-guidance')), findsOneWidget);
-    expect(find.byKey(const Key('account-submit-message')), findsNothing);
-    expect(find.textContaining('账号状态读取失败'), findsWidgets);
-    expect(find.byKey(const Key('account-status-signed-in-pending-sync')), findsNothing);
     expect(
-      find.text('重试只会重新读取账号状态，不会清空本机练习记录。'),
+      find.byKey(const Key('account-read-retry-guidance')),
       findsOneWidget,
     );
+    expect(find.byKey(const Key('account-last-error')), findsNothing);
+    expect(find.byKey(const Key('account-submit-message')), findsNothing);
+    expect(find.textContaining('账号状态暂时不可读'), findsWidgets);
+    expect(
+      find.byKey(const Key('account-status-signed-in-pending-sync')),
+      findsNothing,
+    );
+    expect(find.text('重试只会重新读取账号状态，不会改动本机练习记录。'), findsOneWidget);
 
     repository.loadError = null;
     repository.currentSnapshot = AccountLocalSnapshot.signedOut;
@@ -345,7 +342,10 @@ void main() {
     await tester.tap(find.byKey(const Key('account-revoke-confirm-button')));
     await tester.pumpAndSettle();
     expect(revokeRepository.revokeCalls, 1);
-    expect(find.byKey(const Key('account-status-consent-revoked')), findsOneWidget);
+    expect(
+      find.byKey(const Key('account-status-consent-revoked')),
+      findsOneWidget,
+    );
 
     final logoutRepository = FakeAccountRepository(
       currentSnapshot: _signedInSnapshot(),
@@ -482,7 +482,10 @@ void main() {
       LocalSensitiveDataClearanceTrigger.accountDeletionConfirmed,
     ]);
     expect(repository.deleteCalls, 1);
-    expect(find.byKey(const Key('account-status-account-deleted')), findsOneWidget);
+    expect(
+      find.byKey(const Key('account-status-account-deleted')),
+      findsOneWidget,
+    );
     expect(find.text('账号已删除；本机敏感数据已清理。'), findsOneWidget);
   });
 }

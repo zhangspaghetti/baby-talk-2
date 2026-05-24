@@ -51,7 +51,7 @@ String _accountBodyForPhase(
           ? l.accountUpgradeNote
           : l.accountUpgradeUnavailable;
     case AccountSurfacePhase.error:
-      return notifier.loadErrorMessage ?? l.accountReadFailed;
+      return l.accountReadFailedPrimary;
   }
 }
 
@@ -212,15 +212,19 @@ class AccountStatusCard extends ConsumerWidget {
     final body = _bodyForPhase(l, phase, onboardingSnapshot, notifier);
     final chips = _buildChips(l, notifier);
     final hasLastVisibleError =
-      notifier.snapshot.lastVisibleError != null &&
-      notifier.snapshot.lastVisibleError!.trim().isNotEmpty;
+        notifier.snapshot.lastVisibleError != null &&
+        notifier.snapshot.lastVisibleError!.trim().isNotEmpty &&
+        phase != AccountSurfacePhase.error;
     final hasUpgradeHelper =
-      phase == AccountSurfacePhase.versionBlocked &&
-      notifier.upgradeActionHint != null;
-    final showChipGuidance = chips.isNotEmpty && !hasUpgradeHelper;
+        phase == AccountSurfacePhase.versionBlocked &&
+        notifier.upgradeActionHint != null;
+    final showChipGuidance =
+        chips.isNotEmpty &&
+        !hasUpgradeHelper &&
+        phase != AccountSurfacePhase.error;
     final showSubmissionMessage =
-      notifier.submissionMessage != null &&
-      phase != AccountSurfacePhase.error;
+        notifier.submissionMessage != null &&
+        phase != AccountSurfacePhase.error;
 
     return Container(
       key: Key('$scopeKeyPrefix-account-card'),
@@ -287,14 +291,6 @@ class AccountStatusCard extends ConsumerWidget {
             Text(
               notifier.upgradeActionHint!,
               key: Key('$scopeKeyPrefix-account-upgrade-hint'),
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: colors.textSecondary,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              l.accountUpgradeReassurance,
-              key: Key('$scopeKeyPrefix-account-upgrade-reassurance'),
               style: theme.textTheme.bodySmall?.copyWith(
                 color: colors.textSecondary,
               ),
@@ -546,8 +542,8 @@ class AccountEntryScreen extends HookConsumerWidget {
     final phase = resolveAccountPhase(notifier);
     final helperBody = _accountBodyForPhase(l, phase, null, notifier);
     final showSubmissionMessage =
-      notifier.submissionMessage != null &&
-      phase != AccountSurfacePhase.error;
+        notifier.submissionMessage != null &&
+        phase != AccountSurfacePhase.error;
     final showSignInForm =
         !notifier.isSignedIn || phase == AccountSurfacePhase.revoked;
 
@@ -602,10 +598,7 @@ class AccountEntryScreen extends HookConsumerWidget {
                               style: theme.textTheme.titleLarge,
                             ),
                             const SizedBox(height: 12),
-                            Text(
-                              helperBody,
-                              style: theme.textTheme.bodyMedium,
-                            ),
+                            Text(helperBody, style: theme.textTheme.bodyMedium),
                             const SizedBox(height: 16),
                             Container(
                               key: Key('account-status-${_phaseKey(phase)}'),
@@ -639,7 +632,8 @@ class AccountEntryScreen extends HookConsumerWidget {
                                 ),
                               ),
                             ],
-                            if (notifier.snapshot.lastVisibleError != null &&
+                            if (phase != AccountSurfacePhase.error &&
+                                notifier.snapshot.lastVisibleError != null &&
                                 notifier.snapshot.lastVisibleError!
                                     .trim()
                                     .isNotEmpty) ...[
@@ -724,7 +718,9 @@ class AccountEntryScreen extends HookConsumerWidget {
                                   const SizedBox(height: 16),
                                   Text(
                                     l.accountRealLoginNote,
-                                    key: const Key('account-sign-in-trust-note'),
+                                    key: const Key(
+                                      'account-sign-in-trust-note',
+                                    ),
                                     style: theme.textTheme.bodySmall,
                                   ),
                                   const SizedBox(height: 16),
