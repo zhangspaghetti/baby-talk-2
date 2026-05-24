@@ -1,6 +1,6 @@
 import axios, { type InternalAxiosRequestConfig } from 'axios';
 import { authApi, parseAdminIdentity, toApiError, ApiError } from './auth-api';
-import { clearStoredSession, persistStoredSession, type AuthBannerState } from './session-store';
+import { clearStoredSession, loadStoredSession, persistStoredSession, type AuthBannerState } from './session-store';
 
 export type JsonRequestOptions = {
   method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
@@ -26,8 +26,14 @@ let inFlightRefresh: Promise<void> | null = null;
 
 protectedTransport.interceptors.request.use((config) => {
   const headers = axios.AxiosHeaders.from(config.headers ?? {});
+  const accessToken = loadStoredSession()?.accessToken;
 
   headers.set('Accept', 'application/json');
+  if (accessToken) {
+    headers.set('Authorization', `Bearer ${accessToken}`);
+  } else {
+    headers.delete('Authorization');
+  }
   if (config.data != null && !headers.has('Content-Type') && !(config.data instanceof FormData)) {
     headers.set('Content-Type', 'application/json');
   }
@@ -64,8 +70,15 @@ async function refreshSession(): Promise<void> {
     return inFlightRefresh;
   }
 
+  const refreshToken = loadStoredSession()?.refreshToken;
+  if (!refreshToken) {
+    const apiError = new ApiError(401, 'admin_session_invalid', '管理员会话已失效，请重新登录。');
+    clearStoredSession(toSessionResetBanner(apiError));
+    throw apiError;
+  }
+
   inFlightRefresh = authApi
-    .refresh()
+    .refresh(refreshToken)
     .then((nextSession) => {
       persistStoredSession(nextSession);
     })

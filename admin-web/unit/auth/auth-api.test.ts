@@ -22,7 +22,7 @@ describe('auth-api parsing', () => {
     expect(parseAuthSession({ admin: adminPayload })).toEqual({ admin: adminPayload });
   });
 
-  it('parses legacy token responses without retaining tokens in AuthSession', () => {
+  it('parses legacy token responses while retaining token fields in AuthSession', () => {
     expect(
       parseAuthSession({
         accessToken: 'access-token',
@@ -32,7 +32,14 @@ describe('auth-api parsing', () => {
         refreshTokenExpiresAt: '2026-01-02T00:00:00Z',
         admin: adminPayload,
       }),
-    ).toEqual({ admin: adminPayload });
+    ).toEqual({
+      admin: adminPayload,
+      accessToken: 'access-token',
+      refreshToken: 'refresh-token',
+      tokenType: 'Bearer',
+      accessTokenExpiresAt: '2026-01-01T00:00:00Z',
+      refreshTokenExpiresAt: '2026-01-02T00:00:00Z',
+    });
   });
 
   it('allows stored profile cache without permissions', () => {

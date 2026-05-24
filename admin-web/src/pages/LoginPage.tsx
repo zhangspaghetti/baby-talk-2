@@ -60,7 +60,7 @@ export default function LoginPage() {
               </Typography.Title>
             </div>
 
-            {returnTo && returnTo !== '/protected' ? (
+            {returnTo ? (
               <Typography.Text type="secondary" data-testid="login-return-to">
                 登录后将返回：{returnTo}
               </Typography.Text>

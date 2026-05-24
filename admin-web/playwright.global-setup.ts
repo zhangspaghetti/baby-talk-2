@@ -12,7 +12,8 @@ const composeFreeMode = reuseComposeBoot || !composeFileExists;
 const dockerApiVersion = process.env.DOCKER_API_VERSION?.trim() || '1.44';
 const appApiHealthUrl = 'http://127.0.0.1:8080/actuator/health';
 const adminApiHealthUrl = 'http://127.0.0.1:8081/actuator/health';
-const adminWebUrl = 'http://127.0.0.1:3000/';
+const adminWebBaseUrl = process.env.PLAYWRIGHT_BASE_URL?.trim() || 'http://127.0.0.1:3100';
+const adminWebUrl = `${adminWebBaseUrl.replace(/\/$/, '')}/`;
 const composePollIntervalMs = 2_000;
 const composeServiceOrder = ['postgres', 'minio', 'db-migration', 'app-api', 'admin-api', 'admin-web'];
 const composeDiagnosticServices = ['db-migration', 'app-api', 'admin-api', 'admin-web', 'minio'];
@@ -404,7 +405,9 @@ export default async function globalSetup() {
     }
     await waitForHealth('app-api', appApiHealthUrl, 180_000);
     await waitForHealth('admin-api', adminApiHealthUrl, 180_000);
-    await waitForAdminWeb(180_000);
+    if (!composeFreeMode) {
+      await waitForAdminWeb(180_000);
+    }
   } catch (error) {
     if (composeFreeMode) {
       throw new Error(

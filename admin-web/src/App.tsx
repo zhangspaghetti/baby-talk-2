@@ -86,7 +86,7 @@ function AppRoutes() {
 }
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
-  const { session } = useAuth();
+  const { banner, session } = useAuth();
   const location = useLocation();
 
   if (!session) {
@@ -97,11 +97,13 @@ function RequireAuth({ children }: { children: React.ReactNode }) {
         replace
         state={{
           returnTo,
-          banner: {
-            type: 'warning',
-            message: '请先登录管理员账号。',
-            code: 'admin_authentication_required',
-          } satisfies AuthBannerState,
+          banner:
+            banner ??
+            ({
+              type: 'warning',
+              message: '请先登录管理员账号。',
+              code: 'admin_authentication_required',
+            } satisfies AuthBannerState),
         } satisfies RouteState}
       />
     );

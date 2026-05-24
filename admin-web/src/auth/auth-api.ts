@@ -11,6 +11,11 @@ export interface AdminIdentity {
 
 export interface AuthSession {
   admin: AdminIdentity;
+  accessToken?: string;
+  refreshToken?: string;
+  tokenType?: string;
+  accessTokenExpiresAt?: string;
+  refreshTokenExpiresAt?: string;
 }
 
 export interface LogoutResponse {
@@ -49,6 +54,17 @@ function readRequiredBoolean(record: Record<string, unknown>, key: string, messa
   const value = record[key];
   if (typeof value !== 'boolean') {
     throw new ApiError(502, 'invalid_response_payload', message, { field: key });
+  }
+  return value;
+}
+
+function readOptionalString(record: Record<string, unknown>, key: string): string | undefined {
+  const value = record[key];
+  if (value == null) {
+    return undefined;
+  }
+  if (typeof value !== 'string' || !value.trim()) {
+    return undefined;
   }
   return value;
 }
@@ -95,6 +111,11 @@ export function parseAuthSession(payload: unknown): AuthSession {
 
   return {
     admin: parseAdminIdentity('admin' in payload ? payload.admin : payload, { requirePermissions: true }),
+    accessToken: readOptionalString(payload, 'accessToken'),
+    refreshToken: readOptionalString(payload, 'refreshToken'),
+    tokenType: readOptionalString(payload, 'tokenType'),
+    accessTokenExpiresAt: readOptionalString(payload, 'accessTokenExpiresAt'),
+    refreshTokenExpiresAt: readOptionalString(payload, 'refreshTokenExpiresAt'),
   };
 }
 
@@ -105,6 +126,11 @@ export function parseStoredSessionPayload(payload: unknown): AuthSession {
 
   return {
     admin: parseAdminIdentity(payload.admin, { requirePermissions: false }),
+    accessToken: readOptionalString(payload, 'accessToken'),
+    refreshToken: readOptionalString(payload, 'refreshToken'),
+    tokenType: readOptionalString(payload, 'tokenType'),
+    accessTokenExpiresAt: readOptionalString(payload, 'accessTokenExpiresAt'),
+    refreshTokenExpiresAt: readOptionalString(payload, 'refreshTokenExpiresAt'),
   };
 }
 
@@ -119,11 +145,15 @@ export function parseLogoutResponse(payload: unknown): LogoutResponse {
   };
 }
 
-async function requestAuthPayload(path: string, body?: Record<string, unknown>): Promise<unknown> {
+async function requestAuthPayload(
+  path: string,
+  body?: Record<string, unknown>,
+  method: 'GET' | 'POST' = body ? 'POST' : 'GET',
+): Promise<unknown> {
   try {
     const response = await authTransport.request<unknown>({
       url: path,
-      method: body ? 'POST' : 'GET',
+      method,
       data: body,
     });
 
@@ -143,8 +173,8 @@ export const authApi = {
     return parseAuthSession(payload);
   },
 
-  async refresh() {
-    const payload = await requestAuthPayload('/api/admin/auth/refresh');
+  async refresh(refreshToken: string) {
+    const payload = await requestAuthPayload('/api/admin/auth/refresh', { refreshToken }, 'POST');
     return parseAuthSession(payload);
   },
 

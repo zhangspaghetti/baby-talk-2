@@ -54,6 +54,9 @@ describe('http-client cookie refresh flow', () => {
     };
 
     const { requestCurrentAdmin } = await import('../../src/auth/http-client');
+    const { persistStoredSession } = await import('../../src/auth/session-store');
+
+    persistStoredSession({ admin: adminPayload, refreshToken: 'refresh-token' });
 
     await expect(Promise.all([requestCurrentAdmin(), requestCurrentAdmin()])).resolves.toEqual([
       adminPayload,
@@ -74,7 +77,7 @@ describe('http-client cookie refresh flow', () => {
     const { requestCurrentAdmin } = await import('../../src/auth/http-client');
     const { getSessionSnapshot, persistStoredSession } = await import('../../src/auth/session-store');
 
-    persistStoredSession({ admin: adminPayload });
+    persistStoredSession({ admin: adminPayload, refreshToken: 'refresh-token' });
     await expect(requestCurrentAdmin()).rejects.toMatchObject({ status: 401, code: 'refresh_invalid' });
     expect(getSessionSnapshot()).toMatchObject({
       session: null,
