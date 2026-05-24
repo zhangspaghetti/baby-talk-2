@@ -141,29 +141,127 @@ Purpose: make one visible user flow conform to tokens, l10n, component hierarchy
 
 Primary files:
 
-- `mobile/lib/features/shell/presentation/screens/growth_screen.dart`
-- `mobile/lib/features/shell/presentation/screens/garden_growth_combined_screen.dart`
-- `mobile/lib/features/shell/presentation/widgets/*` as needed for existing shell widgets
-- `mobile/lib/l10n/app_zh.arb`
-- generated l10n files after Flutter generation
 
 Allowed support files:
 
-- `mobile/lib/app/widgets/app_surface_card.dart`
-- `mobile/lib/app/widgets/app_empty_state.dart`
-- `mobile/lib/app/widgets/app_shimmer.dart`
-- `mobile/lib/app/theme/app_layout_constants.dart` only if an existing token is missing and the addition is approved as a token, not as a one-off value
 
 Acceptance criteria:
 
-- Growth/Garden Growth has no normal user-visible hardcoded strings.
-- Repeated Growth card structure is consolidated only where duplication is proven in this slice.
-- Raw spacing/radius values in touched Growth UI are replaced with existing tokens or named constants.
-- Interactive controls meet 48dp target requirements.
-- Main cards and actions have localized semantic labels where needed.
-- Loading, error, empty, and data states are explicitly represented or documented as not applicable for that widget.
-- No behavior change to data calculation, repository logic, navigation, or account/session flows.
 
+
+## 6.2 Stage 3.0 Slice: Admin Web E2E Governance Recovery (2026-05-24)
+
+Purpose: use the management decision brief and latest full-stack E2E evidence to produce an executable two-week governance plan, then iterate with explicit approvals.
+
+Source inputs:
+
+- `docs/reviews/management-decision-brief-2026-05-24.md`
+- `docs/e2e-full-test-report-2026-05-23.md`
+
+Stage classification:
+
+- Current work is Stage 3.0 (design and planning), not Stage 3.1 implementation.
+- Scope is governance and release decision quality, not feature delivery.
+
+Scenario and stack routing:
+
+- Scenario: `hotfix` + `refactor-governance` hybrid.
+- Primary stack focus: React/Admin-Web test governance and release gates.
+- Risk tier: medium-high because release decisions touch auth/RBAC/control-plane confidence.
+
+### 6.2.1 Socratic Convergence Questions (Stage 3.0 gate)
+
+1. If Playwright browser install is fixed but high-risk specs still fail, what is the predefined fallback path?
+2. Which exact API routes and UI capabilities are inside the "high-risk frozen domain"?
+3. Who has veto authority at D11 and what evidence threshold is required to unfreeze?
+4. What is the minimum evidence bundle required for one failed spec and one passed spec?
+5. How do we prevent low-risk changes from silently modifying frozen-domain behavior?
+6. What commit/build identifiers must be attached to every artifact bundle?
+7. What is the escalation path when D5 full regression cannot complete on time?
+8. Which failures are classified as environment-only vs functional regression?
+9. What is the rollback decision trigger after unfreeze (first 24h)?
+10. Which metrics indicate governance recovery actually worked (not just one green run)?
+
+### 6.2.2 File-Level Task Plan (Stage 3.0 outputs only)
+
+Task A: Harden decision brief with explicit gate criteria
+
+- Target file: `docs/reviews/management-decision-brief-2026-05-24.md`
+- Output: quantifiable D11 pass/fail thresholds and accountable approver matrix.
+
+Task B: Add evidence contract appendix
+
+- Target file: `docs/reviews/management-decision-brief-2026-05-24.md`
+- Output: artifact schema (required files, naming, retention, redaction, build linkage).
+
+Task C: Add failure classification and rescue map
+
+- Target files:
+   - `docs/reviews/management-decision-brief-2026-05-24.md`
+   - `docs/e2e-full-test-report-2026-05-23.md` (reference alignment only)
+- Output: environment/use-case/functional classification rules and response actions.
+
+Task D: Add two-week execution RACI and escalation chain
+
+- Target file: `docs/reviews/management-decision-brief-2026-05-24.md`
+- Output: D1-D14 owners, backup owners, escalation checkpoints.
+
+Task E: Add verification checklist for Stage 3.1 entry
+
+- Target file: `ai/context/stage-3.0-plan.md`
+- Output: a checklist proving Stage 3.0 outputs are approved and executable.
+
+### 6.2.3 Dependency DAG
+
+```text
+S0. Baseline evidence lock
+   -> S1. Decision gate quantification
+      -> S2. Evidence contract + failure taxonomy
+         -> S3. RACI + escalation plan
+            -> S4. Human approval bundle
+               -> S5. Stage 3.1 execution entry
+```
+
+### 6.2.4 Unified Governance Contracts
+
+Contract G1 (D11 Unfreeze Gate):
+
+- Must define pass threshold for high-risk domain suite.
+- Must define max allowed unresolved blocker defects.
+- Must define mandatory sign-off roles.
+
+Contract G2 (Evidence Completeness):
+
+- Every run must retain trace, screenshot or video, stdout/stderr, and build id mapping.
+- Missing required artifact means run is non-decisionable.
+
+Contract G3 (Risk Boundary Enforcement):
+
+- Frozen domain changes blocked unless explicitly approved.
+- Low-risk lane must not alter auth/session/RBAC write paths.
+
+### 6.2.5 Acceptance Criteria and Test Strategy
+
+Acceptance criteria:
+
+- Management brief includes measurable D11 gate values.
+- Evidence bundle requirements are machine-checkable.
+- Frozen-domain boundary is represented as explicit route/capability list.
+- D1-D14 plan has named owners and escalation steps.
+- Human approver can make go/no-go using document alone.
+
+Verification strategy:
+
+- Doc consistency check: no conflicting freeze definitions.
+- Traceability check: every decision rule maps to at least one artifact.
+- Drill-down check: one failed and one passed case can both satisfy evidence contract.
+
+### 6.2.6 Stage 3.1 Entry Blockers (must be approved)
+
+- Blocker B1: D11 gate has no numeric threshold.
+- Blocker B2: Evidence contract lacks build-level traceability.
+- Blocker B3: Frozen-domain definition not mapped to concrete capabilities.
+- Blocker B4: No owner/escalation mapping for D1-D14 milestones.
 ### Slice 2: Onboarding Preview and Save-State UX
 
 Primary files:

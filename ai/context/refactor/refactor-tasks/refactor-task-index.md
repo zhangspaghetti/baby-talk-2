@@ -77,7 +77,7 @@ Status: approved queue complete through REFACTOR-059; REFACTOR-060 proposed pend
 | 57 | REFACTOR-057 | 5 | done | Account lifecycle chip semantics for edge phases | REFACTOR-056 |
 | 58 | REFACTOR-058 | 5 | done | Account status card message hierarchy polish | REFACTOR-057 |
 | 59 | REFACTOR-059 | 5 | done | Account status helper parity and consistency pass | REFACTOR-058 |
-| 60 | REFACTOR-060 | 5 | proposed | Account status helper density trim and error-state wording unification | REFACTOR-059 |
+| 60 | REFACTOR-060 | 5 | in_progress | Account status helper density trim and error-state wording unification | REFACTOR-059 |
 
 ## First Implementation Candidate
 

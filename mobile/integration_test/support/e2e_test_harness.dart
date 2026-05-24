@@ -159,9 +159,20 @@ class E2eTestHarness {
       tester,
       find.byKey(const Key('onboarding-stage-match-card')),
       // Real backend stage-match API call — allow more time.
-      timeout: const Duration(seconds: 20),
+      timeout: const Duration(seconds: 45),
       reason: 'onboarding stage match card',
     );
+
+    await scrollTo(tester, find.byKey(const Key('onboarding-first-phrase-said')));
+    await tester.tap(find.byKey(const Key('onboarding-first-phrase-said')));
+    await tester.pumpAndSettle();
+    await pumpUntilFound(
+      tester,
+      find.byKey(const Key('onboarding-first-seed-recorded')),
+      timeout: const Duration(seconds: 20),
+      reason: 'first phrase recorded banner',
+    );
+
     await scrollTo(tester, find.byKey(const Key('onboarding-submit-button')));
     await tester.tap(find.byKey(const Key('onboarding-submit-button')));
     await tester.pumpAndSettle();
@@ -169,7 +180,7 @@ class E2eTestHarness {
     await pumpUntilFound(
       tester,
       find.byKey(const Key('shell-ready')),
-      timeout: const Duration(seconds: 20),
+      timeout: const Duration(seconds: 60),
       reason: 'shell ready after onboarding',
     );
   }

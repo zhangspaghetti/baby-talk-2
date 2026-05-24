@@ -39,6 +39,29 @@ REM Generate date string for report filename
 for /f "tokens=2 delims==" %%I in ('wmic os get localdatetime /value') do set datetime=%%I
 set REPORT_DATE=%datetime:~0,4%-%datetime:~4,2%-%datetime:~6,2%
 set REPORT_FILE=%REPO_ROOT%\docs\e2e-full-test-report-%REPORT_DATE%.md
+set RUN_BATCH_ID=%datetime:~0,8%-%datetime:~8,6%
+
+for /f %%I in ('git -C "%REPO_ROOT%" rev-parse --short HEAD 2^>NUL') do set GIT_COMMIT=%%I
+if "%GIT_COMMIT%"=="" set GIT_COMMIT=unknown
+
+set ARTIFACT_RUN_DIR=%REPO_ROOT%\artifacts\e2e\%REPORT_DATE%\%GIT_COMMIT%\fullstack-%RUN_BATCH_ID%
+set PLAYWRIGHT_LOG=%ARTIFACT_RUN_DIR%\playwright-stdout-stderr.log
+set PLAYWRIGHT_PREFLIGHT_LOG=%ARTIFACT_RUN_DIR%\playwright-preflight.log
+set FLUTTER_LOG=%ARTIFACT_RUN_DIR%\flutter-stdout-stderr.log
+set RUN_METADATA=%ARTIFACT_RUN_DIR%\run-metadata.txt
+
+if not exist "%ARTIFACT_RUN_DIR%" mkdir "%ARTIFACT_RUN_DIR%"
+
+(
+echo run_batch_id=%RUN_BATCH_ID%
+echo commit=%GIT_COMMIT%
+echo date=%date%
+echo time=%time%
+echo app_api=%APP_API_URL%
+echo admin_api=%ADMIN_API_URL%
+echo admin_web=%ADMIN_WEB_URL%
+echo emulator=%EMULATOR%
+) > "%RUN_METADATA%"
 
 echo ============================================================
 echo   BabyTalk Full-Stack E2E Test
@@ -101,13 +124,29 @@ if not exist "%SCREENSHOTS_ADMIN%" mkdir "%SCREENSHOTS_ADMIN%"
 
 cd /d "%REPO_ROOT%\admin-web"
 set BABY_TALK_PLAYWRIGHT_SKIP_COMPOSE_BOOT=1
-call pnpm exec playwright test --reporter=list,html > %TEMP%\playwright-out.txt 2>&1
+
+echo   Preflight: using system-installed Chrome via Playwright channel=chrome (no browser download).
+(
+echo mode=system-chrome
+echo note=skip playwright install chromium
+echo date=%date%
+echo time=%time%
+) > "%PLAYWRIGHT_PREFLIGHT_LOG%"
+
+call pnpm exec playwright test --reporter=list,html > "%PLAYWRIGHT_LOG%" 2>&1
 set PLAYWRIGHT_EXIT=%errorlevel%
 
 if exist "%REPO_ROOT%\admin-web\playwright-report" (
     echo   OK: Playwright report at admin-web\playwright-report\index.html
 ) else (
     echo   WARN: Playwright report directory not found.
+)
+
+if exist "%REPO_ROOT%\admin-web\test-results" (
+    xcopy /E /I /Y "%REPO_ROOT%\admin-web\test-results" "%ARTIFACT_RUN_DIR%\playwright\test-results" >NUL 2>&1
+)
+if exist "%REPO_ROOT%\admin-web\playwright-report" (
+    xcopy /E /I /Y "%REPO_ROOT%\admin-web\playwright-report" "%ARTIFACT_RUN_DIR%\playwright\playwright-report" >NUL 2>&1
 )
 
 REM Copy any standalone PNGs from test-results
@@ -129,12 +168,12 @@ REM Clear old screenshots (requires com.babytalk.mobile to already be installed)
 adb -s %EMULATOR% shell "run-as com.babytalk.mobile rm -rf %APP_INTERNAL%" 2>NUL
 echo   OK: Cleared old screenshots from internal storage (if app was installed).
 
-del /f /q %TEMP%\flutter-e2e-out.txt 2>NUL
+del /f /q "%FLUTTER_LOG%" 2>NUL
 
 REM Run flutter test in BACKGROUND so Step 5 can extract screenshots during
 REM the 30-second extraction window the test inserts at the end of its body.
 cd /d "%REPO_ROOT%\mobile"
-start /b cmd /c "flutter test integration_test/e2e_full_flow_test.dart --dart-define=BABY_TALK_E2E=true ""--dart-define=BABY_TALK_API_BASE_URL=%BACKEND_URL_EMULATOR%"" -d %EMULATOR% --timeout none > %TEMP%\flutter-e2e-out.txt 2>&1"
+start /b cmd /c "flutter test integration_test/e2e_full_flow_test.dart --dart-define=BABY_TALK_E2E=true ""--dart-define=BABY_TALK_API_BASE_URL=%BACKEND_URL_EMULATOR%"" -d %EMULATOR% --timeout none > ""%FLUTTER_LOG%"" 2>&1"
 echo   OK: flutter test started in background.
 
 cd /d "%REPO_ROOT%"
@@ -148,7 +187,7 @@ if not exist "%SCREENSHOTS_MOBILE%" mkdir "%SCREENSHOTS_MOBILE%"
 REM Write a PowerShell helper script to a temp file to avoid messy escaping.
 set PS_EXTRACT=%TEMP%\bt_extract_screenshots.ps1
 (
-echo $logFile = '%TEMP%\flutter-e2e-out.txt'
+echo $logFile = '%FLUTTER_LOG%'
 echo $screenshotDir = '%SCREENSHOTS_MOBILE%'
 echo $emulator = '%EMULATOR%'
 echo $appInternal = '/data/user/0/com.babytalk.mobile/app_flutter/baby_talk_e2e'
@@ -160,8 +199,7 @@ echo     Write-Host "  Extraction window detected after $i seconds. Pulling PNGs
 echo     $files = ^(adb -s $emulator shell "run-as com.babytalk.mobile ls '$appInternal/'" 2^>$null^) -split "`n" ^| ForEach-Object { $_.Trim^(^) } ^| Where-Object { $_ -ne '' }
 echo     foreach ^($f in $files^) {
 echo       $dest = Join-Path $screenshotDir $f
-echo       $bytes = adb -s $emulator exec-out "run-as com.babytalk.mobile cat '$appInternal/$f'" 2^>$null
-echo       [System.IO.File]::WriteAllBytes^($dest, [byte[]]$bytes^)
+echo       cmd /c "adb -s $emulator exec-out ""run-as com.babytalk.mobile cat '$appInternal/$f'"" ^> ""$dest"""
 echo       Write-Host "  OK: $f"
 echo     }
 echo     $extracted = $true; break
@@ -180,14 +218,14 @@ tasklist /fi "imagename eq flutter.exe" /fo csv 2>NUL | findstr /i "flutter.exe"
 if not errorlevel 1 goto WAIT_FLUTTER
 
 REM Determine pass/fail by inspecting log
-findstr /i "All tests passed" %TEMP%\flutter-e2e-out.txt >NUL 2>&1
+findstr /i "All tests passed" "%FLUTTER_LOG%" >NUL 2>&1
 if not errorlevel 1 (
     set FLUTTER_EXIT=0
 ) else (
     set FLUTTER_EXIT=1
 )
 
-type %TEMP%\flutter-e2e-out.txt
+type "%FLUTTER_LOG%"
 
 set MOBILE_SHOT_COUNT=0
 for %%f in ("%SCREENSHOTS_MOBILE%\*.png") do set /a MOBILE_SHOT_COUNT+=1
@@ -201,12 +239,12 @@ REM Determine pass/fail labels
 if "%PLAYWRIGHT_EXIT%"=="0" (
     set PW_STATUS=PASS
 ) else (
-    set PW_STATUS=FAIL (exit %PLAYWRIGHT_EXIT%)
+    set PW_STATUS=FAIL exit %PLAYWRIGHT_EXIT%
 )
 if "%FLUTTER_EXIT%"=="0" (
     set FL_STATUS=PASS
 ) else (
-    set FL_STATUS=FAIL (exit %FLUTTER_EXIT%)
+    set FL_STATUS=FAIL exit %FLUTTER_EXIT%
 )
 
 (
@@ -222,7 +260,7 @@ echo.
 echo ## 测试结果摘要
 echo.
 echo ^| 测试套件 ^| 状态 ^|
-echo ^|---------|------|
+echo ^|---------^|------^|
 echo ^| Admin Web ^(Playwright^) ^| %PW_STATUS% ^|
 echo ^| Mobile E2E ^(Flutter^)   ^| %FL_STATUS% ^|
 echo.
@@ -236,6 +274,9 @@ echo Admin API:  %ADMIN_API_URL% ^(kubectl port-forward -^> babytalk admin-api p
 echo Admin Web:  %ADMIN_WEB_URL% ^(Vite dev server 或 k8s pod^)
 echo Namespace:  babytalk
 echo Dev SMS code: 246810
+echo Commit SHA: %GIT_COMMIT%
+echo Run batch ID: %RUN_BATCH_ID%
+echo Artifacts: %ARTIFACT_RUN_DIR%
 echo ```
 echo.
 echo ---
@@ -254,7 +295,7 @@ for %%f in ("%SCREENSHOTS_MOBILE%\*.png") do (
     (
     echo ### !LABEL!
     echo.
-    echo ![!LABEL!]^(screenshots/mobile/%%~nxf^)
+    echo ^<img src="screenshots/mobile/%%~nxf" alt="!LABEL!" /^>
     echo.
     ) >> "%REPORT_FILE%"
 )
@@ -270,7 +311,7 @@ echo.
 echo 测试覆盖范围：
 echo.
 echo ^| 功能模块 ^| 测试文件 ^|
-echo ^|---------|---------|
+echo ^|---------^|---------^|
 echo ^| 登录 / 登出 ^| tests/login.spec.ts ^|
 echo ^| 控制台概览 ^| tests/overview.spec.ts ^|
 echo ^| 用户管理 ^| tests/users.spec.ts ^|
@@ -290,12 +331,14 @@ echo   Mobile screenshots: %SCREENSHOTS_MOBILE% (%MOBILE_SHOT_COUNT% files)
 echo   Admin Playwright report: %REPO_ROOT%\admin-web\playwright-report\index.html
 echo ============================================================
 
-if "%PLAYWRIGHT_EXIT%"=="0" if "%FLUTTER_EXIT%"=="0" (
-    echo.
-    echo   All tests PASSED.
-    exit /b 0
-) else (
-    echo.
-    echo   WARN: One or more test suites had failures. Check logs above.
-    exit /b 1
+if "%PLAYWRIGHT_EXIT%"=="0" (
+    if "%FLUTTER_EXIT%"=="0" (
+        echo.
+        echo   All tests PASSED.
+        exit /b 0
+    )
 )
+
+echo.
+echo   WARN: One or more test suites had failures. Check logs above.
+exit /b 1

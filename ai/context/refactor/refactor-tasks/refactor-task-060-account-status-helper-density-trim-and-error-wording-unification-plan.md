@@ -1,6 +1,8 @@
 # REFACTOR-060 Account Status Helper Density Trim and Error Wording Unification Plan
 
-Status: proposed
+Status: in_progress
+
+Kickoff: 2026-05-24 (after second full-regression validation batch `20260524-154929`)
 
 ## Context
 
