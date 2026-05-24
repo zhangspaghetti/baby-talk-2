@@ -26,6 +26,8 @@ node_modules/
 /.flutter-plugins-dependencies
 /admin-web/playwright-report/
 /admin-web/test-results/
+/admin-web/playwright-full-report.json
+/artifacts/e2e/
 /Python/
 .next/
 dist/
