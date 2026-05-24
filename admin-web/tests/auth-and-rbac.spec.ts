@@ -252,12 +252,16 @@ async function loginViaUi(
     expect((await loginResponse).status()).toBe(200);
     const me = await meResponse;
     if (me?.status() === 401 && attempt < 2) {
-      await page.context().clearCookies();
-      await page.evaluate((storageKey) => {
-        window.localStorage.removeItem(storageKey);
-        window.sessionStorage.clear();
-      }, sessionStorageKey);
-      continue;
+      const loginBanner = page.getByTestId('login-banner');
+      const loginBannerText = (await loginBanner.count()) > 0 ? (await loginBanner.textContent()) ?? '' : '';
+      if (loginBannerText.includes('admin_session_invalid')) {
+        await page.context().clearCookies();
+        await page.evaluate((storageKey) => {
+          window.localStorage.removeItem(storageKey);
+          window.sessionStorage.clear();
+        }, sessionStorageKey);
+        continue;
+      }
     }
     if (me) {
       expect(me.status()).toBe(200);
