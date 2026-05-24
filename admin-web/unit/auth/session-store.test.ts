@@ -17,14 +17,14 @@ describe('session-store', () => {
     window.localStorage.clear();
   });
 
-  it('does not hydrate session from localStorage', async () => {
+  it('hydrates session from localStorage', async () => {
     window.localStorage.setItem('babytalk.admin.session', JSON.stringify(session));
     const { getSessionSnapshot } = await import('../../src/auth/session-store');
 
-    expect(getSessionSnapshot().session).toBeNull();
+    expect(getSessionSnapshot().session).toEqual(session);
   });
 
-  it('keeps sessions in memory without writing localStorage', async () => {
+  it('keeps session in memory but skips localStorage without tokens', async () => {
     const { getSessionSnapshot, persistStoredSession } = await import('../../src/auth/session-store');
 
     persistStoredSession(session);
@@ -44,6 +44,23 @@ describe('session-store', () => {
       session: null,
       banner: { type: 'warning', message: '重新登录', code: 'admin_session_invalid' },
     });
+    expect(window.localStorage.getItem('babytalk.admin.session')).toBeNull();
+  });
+
+  it('clears malformed stored session and exposes reset banner', async () => {
+    window.localStorage.setItem('babytalk.admin.session', '{"accessToken":');
+
+    const { getSessionSnapshot } = await import('../../src/auth/session-store');
+
+    expect(getSessionSnapshot()).toEqual({
+      session: null,
+      banner: {
+        type: 'warning',
+        message: '本地管理员会话已损坏，已清理并请重新登录。',
+        code: 'stored_session_reset',
+      },
+    });
+    expect(window.localStorage.getItem('babytalk.admin.session')).toBeNull();
   });
 
   it('notifies subscribers on session changes', async () => {
