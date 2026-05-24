@@ -7,8 +7,13 @@ import type { APIRequestContext, APIResponse } from '@playwright/test';
 const currentDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(currentDir, '..', '..', '..');
 
-export const adminApiBaseUrl = 'http://127.0.0.1:8081';
+const composeCommandTimeoutMs = 120_000;
+export const adminApiBaseUrl = process.env['BABY_TALK_ADMIN_API_BASE_URL'] ?? 'http://127.0.0.1:8081';
 export const sessionStorageKey = 'babytalk.admin.session';
+const k8sNamespace = process.env['BABY_TALK_PLAYWRIGHT_K8S_NAMESPACE'] ?? 'babytalk-qa';
+const k8sPostgresDeployment = process.env['BABY_TALK_PLAYWRIGHT_K8S_POSTGRES_DEPLOYMENT'] ?? 'babytalk-qa-infra-postgres';
+const postgresUser = process.env['BABY_TALK_PLAYWRIGHT_POSTGRES_USER'] ?? 'babytalk';
+const postgresDb = process.env['BABY_TALK_PLAYWRIGHT_POSTGRES_DB'] ?? 'babytalk';
 export const superAdminCredentials = {
   username: 'super_admin',
   password: 'SuperAdmin123!',
@@ -334,7 +339,20 @@ function runComposePsql(sql: string, tuplesOnly: boolean, label: string): string
 
   let result;
   if (isK8sMode) {
-    const args = ['exec', '-n', 'babytalk', 'deploy/babytalk-infra-postgres', '--', 'psql', '-U', 'babytalk', '-d', 'babytalk', '-v', 'ON_ERROR_STOP=1'];
+    const args = [
+      'exec',
+      '-n',
+      k8sNamespace,
+      `deploy/${k8sPostgresDeployment}`,
+      '--',
+      'psql',
+      '-U',
+      postgresUser,
+      '-d',
+      postgresDb,
+      '-v',
+      'ON_ERROR_STOP=1',
+    ];
     if (tuplesOnly) {
       args.push('-At');
     }
@@ -342,9 +360,10 @@ function runComposePsql(sql: string, tuplesOnly: boolean, label: string): string
     result = spawnSync('kubectl', args, {
       encoding: 'utf-8',
       stdio: 'pipe',
+      timeout: composeCommandTimeoutMs,
     });
   } else {
-    const args = ['compose', 'exec', '-T', 'postgres', 'psql', '-U', 'babytalk', '-d', 'babytalk', '-v', 'ON_ERROR_STOP=1'];
+    const args = ['compose', 'exec', '-T', 'postgres', 'psql', '-U', postgresUser, '-d', postgresDb, '-v', 'ON_ERROR_STOP=1'];
     if (tuplesOnly) {
       args.push('-At');
     }
@@ -353,7 +372,14 @@ function runComposePsql(sql: string, tuplesOnly: boolean, label: string): string
       cwd: repoRoot,
       encoding: 'utf-8',
       stdio: 'pipe',
+      timeout: composeCommandTimeoutMs,
     });
+  }
+
+  if (result.error?.code === 'ETIMEDOUT') {
+    throw new Error(
+      `[admin-api seed] ${label} timed out after ${composeCommandTimeoutMs}ms\nstdout:\n${result.stdout}\nstderr:\n${result.stderr}`,
+    );
   }
 
   if (result.status !== 0) {
