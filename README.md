@@ -103,6 +103,22 @@ adb wait-for-device
 adb install -r mobile/build/app/outputs/flutter-apk/app-debug.apk
 ```
 
+### 仅构建并安装 Flutter APK（不重启 QA 环境）
+
+```bash
+./scripts/qa-install-apk.sh
+```
+
+常用参数：
+
+```bash
+# 指定 QA gateway 端口并自动拉起指定模拟器
+./scripts/qa-install-apk.sh --gateway-port 8091 --avd <avd_name>
+
+# 跳过构建，直接安装已有 APK 到指定设备
+./scripts/qa-install-apk.sh --skip-build --device <serial>
+```
+
 ### 查看 QA 环境状态
 
 ```bash

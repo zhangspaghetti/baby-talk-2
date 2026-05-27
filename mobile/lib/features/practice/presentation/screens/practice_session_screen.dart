@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide ChangeNotifierProvider;
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobile/app/providers/repository_providers.dart';
 import 'package:mobile/app/widgets/app_banner.dart';
 import 'package:mobile/app/widgets/app_celebration_overlay.dart';
 import 'package:mobile/app/widgets/app_haptics.dart';
+import 'package:mobile/app/widgets/app_surface_card.dart';
 import 'package:mobile/app/theme/app_layout_constants.dart';
 import 'package:mobile/app/theme/app_theme.dart';
 import 'package:mobile/features/mentor/presentation/mentor_audio_controller.dart';
@@ -12,7 +12,6 @@ import 'package:mobile/features/practice/presentation/practice_route_args.dart';
 import 'package:mobile/features/practice/presentation/practice_session_notifier.dart';
 import 'package:mobile/features/practice/presentation/widgets/activation_frame.dart';
 import 'package:mobile/features/practice/presentation/widgets/phrase_card.dart';
-import 'package:provider/provider.dart';
 import 'package:mobile/l10n/app_localizations.dart';
 
 class PracticeSessionScreen extends ConsumerWidget {
@@ -37,18 +36,13 @@ class PracticeSessionScreen extends ConsumerWidget {
     final args = routeEntry.args!;
     final repositoryValue = ref.watch(practiceRepositoryProvider);
     return repositoryValue.when(
-      data: (repository) {
-        final accountNotifier = ref.read(accountNotifierProvider);
-        return ChangeNotifierProvider<PracticeSessionNotifier>(
-          create: (_) => PracticeSessionNotifier(
-            repository: repository,
-            spaceId: args.spaceId,
-            activityId: args.activityId,
-            accessTokenLoader: () =>
-                accountNotifier.snapshot.session?.accessToken,
-            audioController: audioControllerFactory?.call(),
-          )..initialize(),
-          child: _PracticeSessionBody(routeArgs: args),
+      data: (_) {
+        return _PracticeSessionBody(
+          routeArgs: args,
+          providerArgs: PracticeSessionProviderArgs(
+            routeArgs: args,
+            audioControllerFactory: audioControllerFactory,
+          ),
         );
       },
       loading: () => const _PracticeLoadingScaffold(),
@@ -75,16 +69,21 @@ class _PracticeLoadingScaffold extends StatelessWidget {
   }
 }
 
-class _PracticeSessionBody extends StatefulWidget {
-  const _PracticeSessionBody({required this.routeArgs});
+class _PracticeSessionBody extends ConsumerStatefulWidget {
+  const _PracticeSessionBody({
+    required this.routeArgs,
+    required this.providerArgs,
+  });
 
   final PracticeRouteArgs routeArgs;
+  final PracticeSessionProviderArgs providerArgs;
 
   @override
-  State<_PracticeSessionBody> createState() => _PracticeSessionBodyState();
+  ConsumerState<_PracticeSessionBody> createState() =>
+      _PracticeSessionBodyState();
 }
 
-class _PracticeSessionBodyState extends State<_PracticeSessionBody> {
+class _PracticeSessionBodyState extends ConsumerState<_PracticeSessionBody> {
   MentorAudioController? _ttsController;
 
   @override
@@ -94,7 +93,9 @@ class _PracticeSessionBodyState extends State<_PracticeSessionBody> {
       if (!mounted) {
         return;
       }
-      final notifier = context.read<PracticeSessionNotifier>();
+      final notifier = ref.read(
+        practiceSessionNotifierProvider(widget.providerArgs),
+      );
       if (notifier.isDynamic) {
         _ttsController = FlutterTtsMentorAudioController();
       }
@@ -113,19 +114,19 @@ class _PracticeSessionBodyState extends State<_PracticeSessionBody> {
 
   Future<void> _speakPhrase(String text) async {
     final controller = _ttsController;
-    if (controller == null) return;
-    try {
-      await controller.speakText(text);
-    } catch (_) {
-      // TTS 失败静默处理
+    if (controller == null) {
+      throw StateError('tts unavailable');
     }
+    await controller.speakText(text);
   }
 
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
     final colors = context.appColors;
-    final notifier = context.watch<PracticeSessionNotifier>();
+    final notifier = ref.watch(
+      practiceSessionNotifierProvider(widget.providerArgs),
+    );
     final activity = notifier.activitySnapshot;
 
     if (notifier.isSessionLoading && activity == null) {
@@ -159,23 +160,36 @@ class _PracticeSessionBodyState extends State<_PracticeSessionBody> {
         title: Text(activity.title),
       ),
       body: SafeArea(
-        child: Align(
+        child: Semantics(
+          label:
+              '${activity.title}，${l.practiceProgress(notifier.currentPhraseIndex + 1, phrases.length)}',
+          explicitChildNodes: true,
+          child: Align(
           alignment: Alignment.topCenter,
           child: ConstrainedBox(
             constraints: const BoxConstraints(
               maxWidth: AppLayoutConstants.maxContentWidth,
             ),
             child: ListView(
-              padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
+              padding: AppLayoutConstants.practicePadding,
               children: [
                 const SizedBox(height: 4),
-                LinearProgressIndicator(
-                  key: const Key('session-progress'),
-                  value: progressValue,
-                  minHeight: 4,
-                  borderRadius: BorderRadius.circular(999),
-                  color: colors.accent,
-                  backgroundColor: colors.outlineSoft,
+                Semantics(
+                  label: l.practiceProgress(
+                    notifier.currentPhraseIndex + 1,
+                    phrases.length,
+                  ),
+                  value: '${(progressValue * 100).round()}%',
+                  child: LinearProgressIndicator(
+                    key: const Key('session-progress'),
+                    value: progressValue,
+                    minHeight: 6,
+                    borderRadius: BorderRadius.circular(
+                      AppLayoutConstants.pillRadius,
+                    ),
+                    color: colors.textPrimary,
+                    backgroundColor: colors.outlineSoft,
+                  ),
                 ),
                 const SizedBox(height: 12),
                 Text(
@@ -190,15 +204,47 @@ class _PracticeSessionBodyState extends State<_PracticeSessionBody> {
                   ),
                 ),
                 const SizedBox(height: 16),
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: colors.bgAccentSoft,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(
-                    activity.coachTip,
-                    style: Theme.of(context).textTheme.bodyMedium,
+                Semantics(
+                  button: true,
+                  label: '提示，${activity.coachTip}',
+                  child: AppSurfaceCard(
+                    padding: EdgeInsets.zero,
+                    backgroundColor: colors.bgSurface,
+                    borderRadius: AppLayoutConstants.cardRadius,
+                    boxShadow: const [],
+                    child: Theme(
+                      data: Theme.of(context).copyWith(
+                        dividerColor: Colors.transparent,
+                      ),
+                      child: ExpansionTile(
+                        key: const Key('practice-coach-tip'),
+                        tilePadding: const EdgeInsets.symmetric(
+                          horizontal: AppLayoutConstants.spacingMd,
+                        ),
+                        childrenPadding: const EdgeInsets.fromLTRB(
+                          AppLayoutConstants.spacingMd,
+                          0,
+                          AppLayoutConstants.spacingMd,
+                          AppLayoutConstants.spacingMd,
+                        ),
+                        minTileHeight: AppLayoutConstants.minTouchTarget,
+                        title: Text(
+                          '提示',
+                          style: Theme.of(context).textTheme.titleMedium
+                              ?.copyWith(color: colors.textPrimary),
+                        ),
+                        children: [
+                          Align(
+                            alignment: Alignment.centerLeft,
+                            child: Text(
+                              activity.coachTip,
+                              style: Theme.of(context).textTheme.bodyMedium
+                                  ?.copyWith(color: colors.textSecondary),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
                 ),
                 if (notifier.restoreStatusMessage != null) ...[
@@ -209,9 +255,7 @@ class _PracticeSessionBodyState extends State<_PracticeSessionBody> {
                     backgroundColor: notifier.hasRecoverableRestoreIssue
                         ? colors.warningSoft
                         : colors.infoSoft,
-                    foregroundColor: notifier.hasRecoverableRestoreIssue
-                        ? colors.warning
-                        : colors.info,
+                    foregroundColor: colors.textPrimary,
                   ),
                 ],
                 if (notifier.sessionErrorMessage != null) ...[
@@ -220,7 +264,7 @@ class _PracticeSessionBodyState extends State<_PracticeSessionBody> {
                     key: const Key('session-error-banner'),
                     message: notifier.sessionErrorMessage!,
                     backgroundColor: colors.errorSoft,
-                    foregroundColor: colors.error,
+                    foregroundColor: colors.textPrimary,
                   ),
                 ],
                 if (notifier.sessionCompleted) ...[
@@ -231,7 +275,7 @@ class _PracticeSessionBodyState extends State<_PracticeSessionBody> {
                       key: const Key('practice-complete-banner'),
                       message: l.practiceLastSaved,
                       backgroundColor: colors.successSoft,
-                      foregroundColor: colors.success,
+                      foregroundColor: colors.textPrimary,
                     ),
                   ),
                 ],
@@ -260,13 +304,17 @@ class _PracticeSessionBodyState extends State<_PracticeSessionBody> {
                         onTtsSpeak:
                             (notifier.isDynamic &&
                                 phrases[index].audioAsset.isEmpty)
-                            ? () => _speakPhrase(phrases[index].english)
+                            ? () => notifier.speakCurrentPhrase(_speakPhrase)
                             : null,
                         onReactionSelected: (reactionType) async {
                           AppHaptics.lightTap();
                           final navigator = Navigator.of(context);
-                          final outcome = await context
-                              .read<PracticeSessionNotifier>()
+                          final outcome = await ref
+                              .read(
+                                practiceSessionNotifierProvider(
+                                  widget.providerArgs,
+                                ),
+                              )
                               .recordReaction(reactionType);
                           if (!mounted) {
                             return;
@@ -309,6 +357,7 @@ class _PracticeSessionBodyState extends State<_PracticeSessionBody> {
               ],
             ),
           ),
+        ),
         ),
       ),
     );

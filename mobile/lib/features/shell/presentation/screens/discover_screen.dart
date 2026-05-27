@@ -126,15 +126,13 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen>
     );
   }
 
-  Future<PracticeActivityCatalog> _loadCatalog() {
+  Future<PracticeActivityCatalog> _loadCatalog() async {
     final loader = widget.catalogLoader;
     if (loader != null) {
       return loader();
     }
-    return ref
-        .read(practiceRepositoryProvider)
-        .requireValue
-        .getActivityCatalog();
+    final repo = await ref.read(practiceRepositoryProvider.future);
+    return repo.getActivityCatalog();
   }
 
   Future<void> _retryCatalog() async {

@@ -24,11 +24,16 @@ import 'package:mobile/features/shell/presentation/widgets/garden_patch_card.dar
 import 'package:provider/provider.dart';
 import 'package:mobile/l10n/app_localizations.dart';
 
-/// Internal tab index for the segmented control.
-enum _GrowthTab { garden, growth }
+/// Public tab index so external screens can navigate directly.
+enum GrowthTab { garden, growth }
 
 class GardenGrowthCombinedScreen extends ConsumerStatefulWidget {
-  const GardenGrowthCombinedScreen({super.key});
+  const GardenGrowthCombinedScreen({
+    super.key,
+    this.initialTab = GrowthTab.garden,
+  });
+
+  final GrowthTab initialTab;
 
   @override
   ConsumerState<GardenGrowthCombinedScreen> createState() =>
@@ -37,7 +42,21 @@ class GardenGrowthCombinedScreen extends ConsumerStatefulWidget {
 
 class _GardenGrowthCombinedScreenState
     extends ConsumerState<GardenGrowthCombinedScreen> {
-  _GrowthTab _selectedTab = _GrowthTab.garden;
+  late GrowthTab _selectedTab;
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedTab = widget.initialTab;
+  }
+
+  @override
+  void didUpdateWidget(GardenGrowthCombinedScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.initialTab != widget.initialTab) {
+      _selectedTab = widget.initialTab;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -126,7 +145,7 @@ class _GardenGrowthCombinedScreenState
                 ],
 
                 // ── Tab content ──
-                if (_selectedTab == _GrowthTab.garden)
+                if (_selectedTab == GrowthTab.garden)
                   _buildGardenTab(
                     context: context,
                     l: l,
@@ -531,8 +550,8 @@ class _GardenSegmentedControl extends StatelessWidget {
     required this.onTabChanged,
   });
 
-  final _GrowthTab selectedTab;
-  final ValueChanged<_GrowthTab> onTabChanged;
+  final GrowthTab selectedTab;
+  final ValueChanged<GrowthTab> onTabChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -550,15 +569,15 @@ class _GardenSegmentedControl extends StatelessWidget {
           Expanded(
             child: _SegmentTab(
               label: l.shellGarden,
-              isSelected: selectedTab == _GrowthTab.garden,
-              onTap: () => onTabChanged(_GrowthTab.garden),
+              isSelected: selectedTab == GrowthTab.garden,
+              onTap: () => onTabChanged(GrowthTab.garden),
             ),
           ),
           Expanded(
             child: _SegmentTab(
               label: l.shellGrowth,
-              isSelected: selectedTab == _GrowthTab.growth,
-              onTap: () => onTabChanged(_GrowthTab.growth),
+              isSelected: selectedTab == GrowthTab.growth,
+              onTap: () => onTabChanged(GrowthTab.growth),
             ),
           ),
         ],

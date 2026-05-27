@@ -316,22 +316,19 @@ void main() {
       await _pumpFrames(tester, count: 10);
 
       expect(
-        find.byKey(const ValueKey('home-hero-activity-song_time')),
+        find.byKey(const Key('home-v23-phrase-hero')),
         findsOneWidget,
       );
       expect(find.byKey(const Key('home-start-practice')), findsOneWidget);
-      expect(find.byKey(const Key('home-restore-banner')), findsOneWidget);
-      expect(find.byKey(const Key('home-mentor-fab')), findsOneWidget);
+      expect(find.byKey(const Key('home-mentor-entry')), findsOneWidget);
 
       await tester.scrollUntilVisible(
-        find.byKey(const Key('home-share-card')),
+        find.byType(HomeGardenMiniEntry),
         320,
         scrollable: find.byType(Scrollable).first,
         maxScrolls: 8,
       );
-      expect(find.byKey(const Key('home-garden-mini-entry')), findsOneWidget);
-      expect(find.byKey(const Key('home-growth-summary')), findsOneWidget);
-      expect(find.byKey(const Key('home-share-card')), findsOneWidget);
+      expect(find.byType(HomeGardenMiniEntry), findsOneWidget);
     },
   );
 
@@ -386,12 +383,11 @@ void main() {
     );
     await _pumpFrames(tester, count: 10);
 
-    expect(find.byKey(const Key('home-local-only-banner')), findsOneWidget);
-    expect(find.byKey(const Key('home-starter-seed')), findsOneWidget);
-    expect(find.byKey(const Key('home-daily-phrase-cue')), findsOneWidget);
-    expect(find.text('今天继续这一句'), findsOneWidget);
+    expect(find.byKey(const Key('home-v23-phrase-hero')), findsOneWidget);
+    expect(find.byKey(const Key('home-start-practice')), findsOneWidget);
+    expect(find.text('今天先说一句'), findsOneWidget);
     expect(find.text('Hello wave.'), findsWidgets);
-    expect(find.text('挥挥手说你好。'), findsOneWidget);
+    expect(find.text('挥挥手说你好。 · 适合递勺前后轻轻说一次'), findsOneWidget);
   });
 
   testWidgets('Garden cards render ready and warning states', (tester) async {

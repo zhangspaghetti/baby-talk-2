@@ -62,23 +62,18 @@ class PracticeReactionOption {
 const List<PracticeReactionOption> practiceReactionOptions = [
   PracticeReactionOption(
     type: BabyReactionType.calm,
-    label: '宝宝放松',
-    description: '表情柔和，继续慢慢说。',
+    label: '安静听',
+    description: '宝宝停下来听你说。',
   ),
   PracticeReactionOption(
     type: BabyReactionType.engaged,
-    label: '宝宝在看',
-    description: '眼神跟着你，保持节奏。',
+    label: '看着你',
+    description: '宝宝看向你或有眼神回应。',
   ),
   PracticeReactionOption(
     type: BabyReactionType.imitated,
-    label: '宝宝模仿',
-    description: '嘴型或声音开始跟读。',
-  ),
-  PracticeReactionOption(
-    type: BabyReactionType.needsBreak,
-    label: '先休息',
-    description: '停一下，给宝宝缓冲。',
+    label: '跟着咿呀',
+    description: '宝宝出声、嘴型或动作回应。',
   ),
 ];
 
@@ -302,6 +297,31 @@ class PracticeSessionNotifier extends ChangeNotifier {
       _cancelPlaybackTimeout();
       _playbackStatus = PracticePlaybackStatus.error;
       _playbackMessage = '播放失败：$error';
+      notifyListeners();
+    }
+  }
+
+  Future<void> speakCurrentPhrase(
+    Future<void> Function(String text) speak,
+  ) async {
+    final phrase = currentPhrase;
+    if (phrase == null) {
+      return;
+    }
+
+    _cancelPlaybackTimeout();
+    _playbackStatus = PracticePlaybackStatus.playing;
+    _playbackMessage = null;
+    notifyListeners();
+
+    try {
+      await speak(phrase.english);
+      _playbackStatus = PracticePlaybackStatus.completed;
+      _playbackMessage = '播放完成，可以记录宝宝反应。';
+      notifyListeners();
+    } catch (error) {
+      _playbackStatus = PracticePlaybackStatus.error;
+      _playbackMessage = '语音合成失败：$error';
       notifyListeners();
     }
   }

@@ -505,6 +505,7 @@ class _Harness {
 
   Widget buildShell() {
     final riverpodOverrides = <Override>[
+      practiceRepositoryProvider.overrideWith((ref) async => practiceRepository),
       accountNotifierProvider.overrideWith((ref) => accountNotifier),
       gardenGrowthNotifierProvider.overrideWith((ref) => gardenGrowthNotifier),
       practiceContinuityNotifierProvider.overrideWith(
@@ -582,6 +583,7 @@ class _Harness {
 
   Widget buildStandaloneHome() {
     final riverpodOverrides = <Override>[
+      practiceRepositoryProvider.overrideWith((ref) async => practiceRepository),
       accountNotifierProvider.overrideWith((ref) => accountNotifier),
       gardenGrowthNotifierProvider.overrideWith((ref) => gardenGrowthNotifier),
       practiceContinuityNotifierProvider.overrideWith(

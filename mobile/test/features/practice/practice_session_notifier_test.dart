@@ -143,8 +143,7 @@ void main() {
 
       expect(notifier.homeSummary?.isEmpty, isTrue);
       expect(notifier.hasRecoverableRestoreIssue, isTrue);
-      expect(notifier.restoreStatusMessage, contains('跳过 1 条损坏记录'));
-      expect(notifier.restoreStatusMessage, contains('evt_bad_payload'));
+      expect(notifier.restoreStatusMessage, contains('跳过 1 条暂不可用记录'));
       expect(notifier.canStartPractice, isTrue);
     });
 

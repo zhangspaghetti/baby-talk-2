@@ -47,6 +47,17 @@ deploy/helm/babytalk-app/values-kind-qa-secrets.yaml
 .mcp.json
 .gstack/
 
+# ── Prototype / brainstorm artifacts ──
+.superpowers/
+/artifacts/
+
+# ── Temp scripts (generated during development) ──
+clean_home.py
+clean_vars.py
+fix_braces.py
+patch_activity.py
+replace_home.py
+
 # ── Runtime artifacts (never track) ──
 .data/
 *.lock.db

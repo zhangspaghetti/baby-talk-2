@@ -11,8 +11,6 @@ import 'package:mobile/app/widgets/app_shimmer.dart';
 import 'package:mobile/app/theme/app_layout_constants.dart';
 import 'package:mobile/app/theme/app_theme.dart';
 import 'package:mobile/features/account/presentation/account_notifier.dart';
-import 'package:mobile/features/account/presentation/screens/account_entry_screen.dart';
-import 'package:mobile/features/household/presentation/widgets/household_shared_context_card.dart';
 import 'package:mobile/features/mentor/presentation/widgets/mentor_panel_sheet.dart';
 import 'package:mobile/features/onboarding/domain/models/onboarding_snapshot.dart';
 import 'package:mobile/features/onboarding/domain/models/stage_match.dart';
@@ -23,12 +21,8 @@ import 'package:mobile/features/practice/presentation/practice_continuity_notifi
     show PracticeContinuityLoadStatusLabel;
 import 'package:mobile/features/practice/presentation/practice_route_args.dart';
 import 'package:mobile/features/practice/presentation/widgets/home_garden_mini_entry.dart';
-import 'package:mobile/features/practice/presentation/widgets/home_growth_summary_card.dart';
-import 'package:mobile/features/practice/presentation/widgets/home_personalized_hero.dart';
-import 'package:mobile/features/practice/presentation/widgets/home_recent_result_card.dart';
-import 'package:mobile/features/practice/presentation/widgets/home_today_scene_card.dart';
-import 'package:mobile/features/practice/presentation/widgets/home_week_stats_card.dart';
-import 'package:mobile/features/share/presentation/widgets/share_callout_card.dart';
+import 'package:mobile/features/practice/presentation/widgets/home_v23_phrase_hero.dart';
+import 'package:mobile/features/practice/presentation/widgets/home_v23_activity_slots.dart';
 import 'package:mobile/l10n/app_localizations.dart';
 import 'package:provider/provider.dart' as old_provider;
 
@@ -180,7 +174,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with RouteAware {
     final gardenGrowthNotifier = ref.watch(gardenGrowthNotifierProvider);
     final continuityNotifier = ref.watch(practiceContinuityNotifierProvider);
     final householdNotifier = ref.watch(householdNotifierProvider);
-    final shareNotifier = ref.watch(shareNotifierProvider);
     final hasResolvedContinuity = continuityNotifier.hasResolvedRecommendation;
     final continuitySnapshot = hasResolvedContinuity
         ? continuityNotifier.snapshot
@@ -188,16 +181,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with RouteAware {
     final activity = hasResolvedContinuity
         ? continuityNotifier.activitySnapshot
         : null;
-    final recommendedActivity = hasResolvedContinuity
-        ? continuitySnapshot?.recommendedActivity
-        : null;
     final practiceArgs = continuityNotifier.recommendedArgs;
     final canLaunchPractice =
         hasResolvedContinuity &&
         !continuityNotifier.isActionDisabled &&
         practiceArgs != null &&
         activity != null;
-    final stageMatch = _resolveStageMatch(widget.onboardingSnapshot);
     final starterPhrase = _resolveStarterPhrase(
       activity,
       widget.onboardingSnapshot,
@@ -206,27 +195,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with RouteAware {
     final homeDisabledReason = continuityNotifier.disabledReason == null
         ? null
         : l.homeContinuityDisabledNote;
-    final sharedContext = householdNotifier.snapshot.sharedContext;
-    final localContinuityAt = continuitySnapshot?.cadence.lastEventTime;
-    final sharedNextStepArgs = resolveHouseholdSharedNextStepArgs(
-      sharedContext,
-    );
-    final isSharedOverlayNewer =
-        sharedContext != null &&
-        isHouseholdSharedProjectionNewer(sharedContext, localContinuityAt);
-    final shouldShowSharedOverlay =
-        isSharedOverlayNewer && sharedNextStepArgs != null;
-    final shouldShowSharedOverlayDisabled =
-        isSharedOverlayNewer && sharedNextStepArgs == null;
 
     // Banner priority: error > warning > info (at most 1 visible)
-    final banner = _resolveTopBanner(
-      continuityNotifier: continuityNotifier,
-      homeWarningMessage: homeWarningMessage,
-      homeDisabledReason: homeDisabledReason,
-      colors: colors,
-      l: l,
-    );
 
     final body = SafeArea(
       top: !widget.embeddedInShell,
@@ -253,21 +223,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with RouteAware {
                     ),
                     children: [
                       const SizedBox(height: 20),
-                      HomeTodaySceneCard(
-                        activityId:
-                            recommendedActivity?.activityId ?? 'safe-empty',
-                        activityTitle:
-                            activity?.title ?? l.continueEntryUnavailable,
-                        activitySummary:
-                            activity?.summary ??
-                            _resolveSafeHomeSummary(continuityNotifier),
-                        sceneTag: activity?.sceneTag,
-                        recommendation: continuitySnapshot?.recommendation,
-                        nextIncompleteActivity:
-                            continuitySnapshot?.nextIncompleteActivity,
-                        buttonLabel: _resolveButtonLabel(continuitySnapshot),
-                        disabledReason: homeDisabledReason,
-                        onPressed: canLaunchPractice
+                      HomeV23PhraseHero(
+                        snapshot: widget.onboardingSnapshot,
+                        starterPhrase: starterPhrase,
+                        activityTitle: activity?.title,
+                        activitySceneTag: activity?.sceneTag,
+                        onStartPractice: canLaunchPractice
                             ? () async {
                                 await practiceArgs.push(context);
                                 if (!mounted) {
@@ -279,137 +240,25 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with RouteAware {
                                 await gardenGrowthNotifier.refresh();
                               }
                             : null,
+                        onOpenMentor: () {
+                          openMentorPanelSheet(
+                            context,
+                            launcher: 'home_v23_hero',
+                            surface: widget.embeddedInShell ? 'app_shell' : 'standalone_home',
+                          );
+                        },
                       ),
-                      if (widget.onboardingSnapshot != null) ...[
-                        AppBanner(
-                          key: const Key('home-local-only-banner'),
-                          message: l.homeLocalOnlyBanner(
-                            widget.onboardingSnapshot!.childDisplayName,
-                          ),
-                          backgroundColor: colors.bgSunken,
-                          foregroundColor: colors.textSecondary,
-                          icon: Icons.lock_outline,
-                        ),
-                        const SizedBox(height: 20),
-                        HomePersonalizedHero(
-                          snapshot: widget.onboardingSnapshot!,
-                          stageMatch: stageMatch,
-                          starterPhrase: starterPhrase,
-                          activitySceneTag: activity?.sceneTag,
-                        ),
-                        const SizedBox(height: 16),
-                        HomeRecentResultCard(
-                          continuitySnapshot: continuitySnapshot,
-                        ),
-                      ] else ...[
-                        Wrap(
-                          spacing: 8,
-                          runSpacing: 8,
-                          children: [
-                            Chip(label: Text(l.localMode)),
-                            Chip(label: Text(l.guest)),
-                          ],
-                        ),
-                        if (hasResolvedContinuity) ...[
-                          const SizedBox(height: 12),
-                          AppBanner(
-                            key: const Key('home-restore-banner'),
-                            message: _buildGuestRestoreMessage(
-                              continuitySnapshot,
-                            ),
-                            backgroundColor: colors.infoSoft,
-                            foregroundColor: colors.info,
-                          ),
-                        ],
-                        const SizedBox(height: 24),
-                        Text(
-                          continuityNotifier.hasResolvedRecommendation
-                              ? l.homeTonightTryActivity
-                              : l.homeContinuityNotConnected,
-                          style: Theme.of(context).textTheme.titleLarge,
-                        ),
-                        const SizedBox(height: 12),
-                        Text(
-                          activity?.phrases.first.english ?? '先从熟悉短句开始。',
-                          style: Theme.of(context).textTheme.displayMedium
-                              ?.copyWith(color: colors.english),
-                        ),
-                        const SizedBox(height: 12),
-                        Text(
-                          continuityNotifier.hasResolvedRecommendation
-                              ? l.homeContinuitySharedNote
-                              : l.homeWelcomeBack,
-                          style: Theme.of(context).textTheme.bodyMedium,
-                        ),
-                        const SizedBox(height: 16),
-                        HomeRecentResultCard(
-                          continuitySnapshot: continuitySnapshot,
-                        ),
-                      ],
-                      const SizedBox(height: 20),
-                      AccountStatusCard(
-                        scopeKeyPrefix: 'home',
-                        onboardingSnapshot: widget.onboardingSnapshot,
-                      ),
-                      const SizedBox(height: 20),
-                      HouseholdSharedContextCard(
-                        surfaceKeyPrefix: 'home',
-                        notifier: householdNotifier,
-                        title: l.sharedAttributionNextStep,
-                        retryReason: 'home_household_manual_refresh',
-                      ),
-                      // Dismissible banner (at most 1, priority: error > warning > info)
-                      if (banner != null) ...[
-                        const SizedBox(height: 20),
-                        banner,
-                      ],
-                      if (shouldShowSharedOverlay) ...[
-                        const SizedBox(height: 20),
-                        HouseholdSharedPracticeOverlayCard(
-                          surfaceKeyPrefix: 'home-shared-overlay',
-                          sharedContext: sharedContext,
-                          buttonLabel: l.enterSharedNextStep,
-                        ),
-                      ],
-                      if (shouldShowSharedOverlayDisabled) ...[
-                        const SizedBox(height: 20),
-                        AppBanner(
-                          key: const Key('home-shared-overlay-disabled-banner'),
-                          message: householdSharedUnavailableNextStepMessage(
-                            sharedContext,
-                          ),
-                          backgroundColor: colors.warningSoft,
-                          foregroundColor: colors.warning,
-                        ),
-                      ],
-                      const SizedBox(height: 16),
-                      HomeWeekStatsCard(continuitySnapshot: continuitySnapshot),
-                      const SizedBox(height: 16),
+                      const HomeV23ActivitySlots(),
+                      const SizedBox(height: 24),
                       HomeGardenMiniEntry(notifier: gardenGrowthNotifier),
-                      const SizedBox(height: 16),
-                      HomeGrowthSummaryCard(notifier: gardenGrowthNotifier),
-                      if (shareNotifier.hasShareDraft) ...[
-                        const SizedBox(height: 16),
-                        ShareCalloutCard(
-                          surfaceKeyPrefix: 'home',
-                          notifier: shareNotifier,
-                          sectionLabel: l.homeShareGrowthFamily,
-                          emptyMessage: l.homeShareWaitStable,
-                          onShare: (draft) => shareNotifier.shareDraft(draft),
-                        ),
-                      ],
                       if (kDebugMode) ...[
                         const SizedBox(height: 12),
                         Text(
                           'continuity: ${continuityNotifier.status.label}${continuityNotifier.lastRefreshReason == null ? '' : ' · refresh: ${continuityNotifier.lastRefreshReason}'}',
-                          key: const Key('home-continuity-status'),
-                          style: Theme.of(context).textTheme.bodySmall,
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          'boot: ready${continuitySnapshot?.catalog.installationId == null ? '' : ' · install: ${_shortInstallationId(continuitySnapshot!.catalog.installationId!)}'}',
-                          key: const Key('boot-status-ready'),
-                          style: Theme.of(context).textTheme.bodySmall,
+                          key: const Key('home-debug-status'),
+                          style: Theme.of(context).textTheme.labelSmall
+                              ?.copyWith(color: colors.textMuted),
+                          textAlign: TextAlign.center,
                         ),
                       ],
                     ],
@@ -548,16 +397,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with RouteAware {
     return l.homeContinuityNoActivity;
   }
 
-  String _resolveButtonLabel(PracticeContinuitySnapshot? continuitySnapshot) {
-    final l = AppLocalizations.of(context)!;
-    final recommendedActivity = continuitySnapshot?.recommendedActivity;
-    if (recommendedActivity == null ||
-        recommendedActivity.recentResult == null) {
-      return l.homeStartPractice;
-    }
-    return l.homeContinuePractice;
-  }
-
   PracticeRouteArgs? _resolveStarterArgs() {
     final snapshotArgs = PracticeRouteArgs.maybeCreate(
       spaceId: widget.onboardingSnapshot?.starterSpaceId,
@@ -594,13 +433,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with RouteAware {
       return activity.phrases.first;
     }
     return null;
-  }
-
-  String _shortInstallationId(String installationId) {
-    if (installationId.length <= 12) {
-      return installationId;
-    }
-    return '${installationId.substring(0, 12)}…';
   }
 
   String _buildGuestRestoreMessage(PracticeContinuitySnapshot? snapshot) {

@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart' show MissingPluginException;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
@@ -28,6 +29,7 @@ import 'package:mobile/features/practice/data/services/asset_phrase_service.dart
 import 'package:mobile/features/practice/data/services/dynamic_practice_api_service.dart';
 import 'package:mobile/features/practice/presentation/garden_growth_notifier.dart';
 import 'package:mobile/features/practice/presentation/practice_continuity_notifier.dart';
+import 'package:mobile/features/practice/presentation/practice_route_args.dart';
 import 'package:mobile/features/practice/presentation/practice_session_notifier.dart';
 import 'package:mobile/features/share/data/repositories/share_repository.dart';
 import 'package:mobile/features/share/data/services/share_api_service.dart';
@@ -422,6 +424,56 @@ final practiceContinuityNotifierProvider =
       return PracticeContinuityNotifier(repository: practiceRepository)
         ..initialize();
     });
+
+@immutable
+class PracticeSessionProviderArgs {
+  const PracticeSessionProviderArgs({
+    required this.routeArgs,
+    this.audioControllerFactory,
+  });
+
+  final PracticeRouteArgs routeArgs;
+  final PracticeAudioController Function()? audioControllerFactory;
+
+  @override
+  bool operator ==(Object other) {
+    return other is PracticeSessionProviderArgs &&
+        routeArgs.normalizedSpaceId == other.routeArgs.normalizedSpaceId &&
+        routeArgs.normalizedActivityId == other.routeArgs.normalizedActivityId &&
+        routeArgs.normalizedShareToken == other.routeArgs.normalizedShareToken &&
+        routeArgs.entrySource == other.routeArgs.entrySource &&
+        identical(audioControllerFactory, other.audioControllerFactory);
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    routeArgs.normalizedSpaceId,
+    routeArgs.normalizedActivityId,
+    routeArgs.normalizedShareToken,
+    routeArgs.entrySource,
+    audioControllerFactory,
+  );
+}
+
+/// Creates a per-route [PracticeSessionNotifier] backed by the Riverpod graph.
+final practiceSessionNotifierProvider =
+    ChangeNotifierProvider.autoDispose
+        .family<PracticeSessionNotifier, PracticeSessionProviderArgs>((
+          ref,
+          args,
+        ) {
+          final repository = ref.watch(practiceRepositoryProvider).requireValue;
+          final accountNotifier = ref.read(accountNotifierProvider);
+          final routeArgs = args.routeArgs;
+          return PracticeSessionNotifier(
+            repository: repository,
+            spaceId: routeArgs.spaceId,
+            activityId: routeArgs.activityId,
+            accessTokenLoader: () =>
+                accountNotifier.snapshot.session?.accessToken,
+            audioController: args.audioControllerFactory?.call(),
+          )..initialize();
+        });
 
 // ---------------------------------------------------------------------------
 // Share notifier

@@ -56,26 +56,7 @@ class _AppShellScreenState extends ConsumerState<AppShellScreen> {
           style: Theme.of(context).textTheme.titleLarge,
         ),
         actions: [
-          IconButton(
-            key: const Key('shell-discover-action'),
-            tooltip: l.shellDiscoverTooltip,
-            icon: const Icon(Icons.explore_outlined),
-            onPressed: () => showModalBottomSheet<void>(
-              context: context,
-              isScrollControlled: true,
-              useSafeArea: true,
-              shape: const RoundedRectangleBorder(
-                borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-              ),
-              builder: (_) => DraggableScrollableSheet(
-                initialChildSize: 0.92,
-                minChildSize: 0.5,
-                maxChildSize: 0.95,
-                expand: false,
-                builder: (_, scrollController) => const DiscoverScreen(),
-              ),
-            ),
-          ),
+          // Discover is now a tab
         ],
       ),
       endDrawer: _HouseholdDrawer(
@@ -102,7 +83,9 @@ class _AppShellScreenState extends ConsumerState<AppShellScreen> {
               onboardingSnapshot: widget.onboardingSnapshot,
               embeddedInShell: true,
             ),
-            const GardenGrowthCombinedScreen(),
+            const DiscoverScreen(),
+            const GardenGrowthCombinedScreen(initialTab: GrowthTab.garden),
+            const GardenGrowthCombinedScreen(initialTab: GrowthTab.growth),
           ],
         ),
       ),
@@ -121,16 +104,28 @@ class _AppShellScreenState extends ConsumerState<AppShellScreen> {
         },
         destinations: [
           NavigationDestination(
-            key: const Key('shell-nav-practice'),
-            icon: const Icon(Icons.record_voice_over_outlined),
-            selectedIcon: const Icon(Icons.record_voice_over_rounded),
-            label: l.shellPractice,
+            key: const Key('shell-nav-home'),
+            icon: const Icon(Icons.home_outlined),
+            selectedIcon: const Icon(Icons.home_rounded),
+            label: l.shellHome,
+          ),
+          NavigationDestination(
+            key: const Key('shell-nav-discover'),
+            icon: const Icon(Icons.explore_outlined),
+            selectedIcon: const Icon(Icons.explore_rounded),
+            label: l.shellDiscover,
+          ),
+          NavigationDestination(
+            key: const Key('shell-nav-garden'),
+            icon: const Icon(Icons.local_florist_outlined),
+            selectedIcon: const Icon(Icons.local_florist_rounded),
+            label: l.shellGarden,
           ),
           NavigationDestination(
             key: const Key('shell-nav-growth'),
             icon: const Icon(Icons.auto_graph_outlined),
             selectedIcon: const Icon(Icons.auto_graph_rounded),
-            label: l.shellGrowthTab,
+            label: l.shellGrowth,
           ),
         ],
       ),
@@ -150,7 +145,11 @@ class _AppShellScreenState extends ConsumerState<AppShellScreen> {
         }
         return l.shellPractice;
       case 1:
-        return l.shellGrowthTab;
+        return l.shellDiscover;
+      case 2:
+        return l.shellGarden;
+      case 3:
+        return l.shellGrowth;
     }
     return 'Baby Talk 2';
   }
@@ -158,11 +157,15 @@ class _AppShellScreenState extends ConsumerState<AppShellScreen> {
   String _surfaceForIndex(int index) {
     switch (index) {
       case 0:
-        return 'practice';
+        return 'home';
       case 1:
+        return 'discover';
+      case 2:
+        return 'garden';
+      case 3:
         return 'growth';
     }
-    return 'practice';
+    return 'home';
   }
 
   StageMatch? _resolveStageMatch(OnboardingSnapshot? snapshot) {

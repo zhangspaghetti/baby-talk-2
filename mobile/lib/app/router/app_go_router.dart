@@ -7,7 +7,7 @@ import 'package:mobile/app/router/app_route_contract.dart';
 import 'package:mobile/features/onboarding/presentation/screens/onboarding_screen.dart';
 import 'package:mobile/features/shell/presentation/app_shell_screen.dart';
 import 'package:mobile/features/practice/presentation/screens/practice_session_screen.dart';
-import 'package:mobile/features/account/presentation/screens/account_entry_screen.dart';
+import 'package:mobile/features/auth/presentation/screens/auth_screen.dart';
 import 'package:mobile/features/practice/presentation/practice_route_args.dart';
 
 final GlobalKey<NavigatorState> _rootNavigatorKey = GlobalKey<NavigatorState>();
@@ -34,7 +34,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: AppRouteNames.account,
-        builder: (context, state) => const AccountEntryScreen(),
+        builder: (context, state) => const AuthScreen(),
       ),
     ],
     redirect: (context, state) {
