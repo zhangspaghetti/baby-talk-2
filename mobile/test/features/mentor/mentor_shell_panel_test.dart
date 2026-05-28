@@ -3,8 +3,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    hide ChangeNotifierProvider, Provider;
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:isar/isar.dart';
 import 'package:mobile/app/providers/repository_providers.dart';
@@ -44,7 +43,6 @@ import 'package:mobile/features/practice/presentation/practice_route_args.dart';
 import 'package:mobile/features/practice/presentation/practice_session_notifier.dart';
 import 'package:mobile/features/practice/presentation/screens/home_screen.dart';
 import 'package:mobile/features/shell/presentation/app_shell_screen.dart';
-import 'package:provider/provider.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -534,47 +532,21 @@ class _Harness {
     ];
     return ProviderScope(
       overrides: riverpodOverrides,
-      child: MultiProvider(
-        providers: [
-          Provider<PracticeRepository>.value(value: practiceRepository),
-          Provider<MentorRepository>.value(value: mentorRepository),
-          Provider<PracticeRouteArgs>.value(
-            value: const PracticeRouteArgs(
-              spaceId: 'daily_care',
-              activityId: 'bath_time',
-            ),
-          ),
-          ChangeNotifierProvider<PracticeContinuityNotifier>(
-            create: (_) => PracticeContinuityNotifier(
-              repository: practiceRepository,
-              initialStarterArgs: const PracticeRouteArgs(
-                spaceId: 'daily_care',
-                activityId: 'bath_time',
-              ),
-            )..initialize(reason: 'test_boot'),
-          ),
-          ChangeNotifierProvider<AccountNotifier>.value(value: accountNotifier),
-          ChangeNotifierProvider<MentorNotifier>.value(value: mentorNotifier),
-          ChangeNotifierProvider<PracticeSessionNotifier>.value(
-            value: practiceSessionNotifier,
-          ),
-        ],
-        child: MaterialApp(
-          theme: AppTheme.build(),
-          localizationsDelegates: AppLocalizations.localizationsDelegates,
-          supportedLocales: AppLocalizations.supportedLocales,
-          home: AppShellScreen(
-            onboardingSnapshot: OnboardingSnapshot(
-              childDisplayName: '米米',
-              ageBucket: OnboardingAgeBucket.twelveToEighteen,
-              approxMonths: 15,
-              currentStage: 'gesture_plus_words',
-              starterSpaceId: 'daily_care',
-              starterActivityId: 'bath_time',
-              starterPhraseId: 'bath_time_warm_water',
-              consentState: OnboardingConsentState.localOnly,
-              completedAt: DateTime.utc(2026, 4, 8, 8),
-            ),
+      child: MaterialApp(
+        theme: AppTheme.build(),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: AppShellScreen(
+          onboardingSnapshot: OnboardingSnapshot(
+            childDisplayName: '米米',
+            ageBucket: OnboardingAgeBucket.twelveToEighteen,
+            approxMonths: 15,
+            currentStage: 'gesture_plus_words',
+            starterSpaceId: 'daily_care',
+            starterActivityId: 'bath_time',
+            starterPhraseId: 'bath_time_warm_water',
+            consentState: OnboardingConsentState.localOnly,
+            completedAt: DateTime.utc(2026, 4, 8, 8),
           ),
         ),
       ),
@@ -612,37 +584,11 @@ class _Harness {
     ];
     return ProviderScope(
       overrides: riverpodOverrides,
-      child: MultiProvider(
-        providers: [
-          Provider<PracticeRepository>.value(value: practiceRepository),
-          Provider<MentorRepository>.value(value: mentorRepository),
-          Provider<PracticeRouteArgs>.value(
-            value: const PracticeRouteArgs(
-              spaceId: 'daily_care',
-              activityId: 'bath_time',
-            ),
-          ),
-          ChangeNotifierProvider<PracticeContinuityNotifier>(
-            create: (_) => PracticeContinuityNotifier(
-              repository: practiceRepository,
-              initialStarterArgs: const PracticeRouteArgs(
-                spaceId: 'daily_care',
-                activityId: 'bath_time',
-              ),
-            )..initialize(reason: 'test_boot'),
-          ),
-          ChangeNotifierProvider<AccountNotifier>.value(value: accountNotifier),
-          ChangeNotifierProvider<MentorNotifier>.value(value: mentorNotifier),
-          ChangeNotifierProvider<PracticeSessionNotifier>.value(
-            value: practiceSessionNotifier,
-          ),
-        ],
-        child: MaterialApp(
-          theme: AppTheme.build(),
-          localizationsDelegates: AppLocalizations.localizationsDelegates,
-          supportedLocales: AppLocalizations.supportedLocales,
-          home: const HomeScreen(embeddedInShell: false),
-        ),
+      child: MaterialApp(
+        theme: AppTheme.build(),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: const HomeScreen(embeddedInShell: false),
       ),
     );
   }

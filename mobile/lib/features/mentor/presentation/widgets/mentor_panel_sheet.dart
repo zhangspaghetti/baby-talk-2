@@ -1,14 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobile/app/widgets/app_banner.dart';
 import 'package:mobile/app/theme/app_layout_constants.dart';
 import 'package:mobile/app/theme/app_theme.dart';
-import 'package:mobile/features/account/presentation/account_notifier.dart';
+import 'package:mobile/app/providers/repository_providers.dart';
 import 'package:mobile/features/mentor/data/services/mentor_api_service.dart'
     show mentorPromptMaxLength;
 import 'package:mobile/features/mentor/presentation/mentor_notifier.dart';
 import 'package:mobile/features/mentor/presentation/widgets/mentor_suggestion_tab.dart';
 import 'package:mobile/features/onboarding/presentation/widgets/mentor_bubble.dart';
-import 'package:provider/provider.dart';
 import 'package:mobile/l10n/app_localizations.dart';
 
 Future<void> openMentorPanelSheet(
@@ -16,14 +16,8 @@ Future<void> openMentorPanelSheet(
   required String launcher,
   String surface = 'home',
 }) async {
-  final notifier = Provider.of<MentorNotifier?>(context, listen: false);
-  if (notifier == null) {
-    final l = AppLocalizations.of(context)!;
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(l.mentorNotReady)));
-    return;
-  }
+  final container = ProviderScope.containerOf(context);
+  final notifier = container.read(mentorNotifierProvider);
 
   final shouldOpen = await notifier.beginPanelSession(
     launcher: launcher,
@@ -42,24 +36,21 @@ Future<void> openMentorPanelSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (_) => ChangeNotifierProvider<MentorNotifier>.value(
-        value: notifier,
-        child: const MentorPanelSheet(),
-      ),
+      builder: (_) => const MentorPanelSheet(),
     );
   } finally {
     notifier.endPanelSession();
   }
 }
 
-class MentorPanelSheet extends StatelessWidget {
+class MentorPanelSheet extends ConsumerWidget {
   const MentorPanelSheet({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final l = AppLocalizations.of(context)!;
     final colors = context.appColors;
-    final notifier = context.watch<MentorNotifier>();
+    final notifier = ref.watch(mentorNotifierProvider);
     final mediaQuery = MediaQuery.of(context);
     final maxHeight = mediaQuery.size.height * 0.78;
 
@@ -141,16 +132,16 @@ class MentorPanelSheet extends StatelessWidget {
   }
 }
 
-class _SegmentedTabBar extends StatelessWidget {
+class _SegmentedTabBar extends ConsumerWidget {
   const _SegmentedTabBar({required this.selectedTab});
 
   final MentorPanelTab selectedTab;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final l = AppLocalizations.of(context)!;
     final colors = context.appColors;
-    final notifier = context.read<MentorNotifier>();
+    final notifier = ref.read(mentorNotifierProvider);
     return Container(
       padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
@@ -229,16 +220,16 @@ class _SegmentedButton extends StatelessWidget {
   }
 }
 
-class _MentorChatTab extends StatelessWidget {
+class _MentorChatTab extends ConsumerWidget {
   const _MentorChatTab({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final l = AppLocalizations.of(context)!;
     final colors = context.appColors;
     final theme = Theme.of(context);
-    final accountNotifier = context.watch<AccountNotifier>();
-    final notifier = context.watch<MentorNotifier>();
+    final accountNotifier = ref.watch(accountNotifierProvider);
+    final notifier = ref.watch(mentorNotifierProvider);
     final availability = notifier.chatAvailability;
 
     return SingleChildScrollView(

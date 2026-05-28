@@ -1,22 +1,23 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:mobile/app/providers/repository_providers.dart';
 import 'package:mobile/app/widgets/app_banner.dart';
 import 'package:mobile/app/theme/app_layout_constants.dart';
 import 'package:mobile/app/theme/app_theme.dart';
 import 'package:mobile/features/practice/domain/models/garden_growth_snapshot.dart';
 import 'package:mobile/features/practice/presentation/garden_growth_notifier.dart';
-import 'package:provider/provider.dart';
 import 'package:mobile/l10n/app_localizations.dart';
 
 @Deprecated('Use GardenGrowthCombinedScreen instead')
-class GrowthScreen extends StatelessWidget {
+class GrowthScreen extends ConsumerWidget {
   const GrowthScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final l = AppLocalizations.of(context)!;
     final colors = context.appColors;
-    final notifier = context.watch<GardenGrowthNotifier?>();
-    final snapshot = notifier?.snapshot ?? GardenGrowthSnapshot.empty();
+    final notifier = ref.watch(gardenGrowthNotifierProvider);
+    final snapshot = notifier.snapshot;
 
     return SafeArea(
       top: false,
@@ -28,9 +29,7 @@ class GrowthScreen extends StatelessWidget {
           ),
           child: RefreshIndicator(
             onRefresh: () async {
-              if (notifier != null) {
-                await notifier.refresh();
-              }
+              await notifier.refresh();
             },
             child: ListView(
               key: const Key('shell-tab-growth'),
@@ -38,11 +37,11 @@ class GrowthScreen extends StatelessWidget {
               padding: AppLayoutConstants.shellTabPadding,
               children: [
                 _GrowthHeroCard(snapshot: snapshot, notifier: notifier),
-                if (notifier?.hasError ?? false) ...[
+                if (notifier.hasError) ...[
                   const SizedBox(height: AppLayoutConstants.spacingMd),
                   AppBanner(
                     key: const Key('growth-warning-banner'),
-                    message: notifier!.message ?? l.growthRefreshFailed,
+                    message: notifier.message ?? l.growthRefreshFailed,
                     backgroundColor: colors.warningSoft,
                     foregroundColor: colors.warning,
                   ),
@@ -118,7 +117,7 @@ class _GrowthHeroCard extends StatelessWidget {
   const _GrowthHeroCard({required this.snapshot, required this.notifier});
 
   final GardenGrowthSnapshot snapshot;
-  final GardenGrowthNotifier? notifier;
+  final GardenGrowthNotifier notifier;
 
   @override
   Widget build(BuildContext context) {
@@ -129,9 +128,8 @@ class _GrowthHeroCard extends StatelessWidget {
     String title = l.growthNotScore;
     String body = l.growthNote;
 
-    if (notifier != null &&
-        (notifier!.status == GardenGrowthLoadStatus.loading ||
-            notifier!.status == GardenGrowthLoadStatus.idle)) {
+    if (notifier.status == GardenGrowthLoadStatus.loading ||
+        notifier.status == GardenGrowthLoadStatus.idle) {
       title = l.growthOrganizing;
       body = l.growthOrganizingNote;
     } else if (impact != null) {

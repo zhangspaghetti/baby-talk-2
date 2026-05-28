@@ -24,7 +24,6 @@ import 'package:mobile/features/practice/presentation/widgets/home_garden_mini_e
 import 'package:mobile/features/practice/presentation/widgets/home_v23_phrase_hero.dart';
 import 'package:mobile/features/practice/presentation/widgets/home_v23_activity_slots.dart';
 import 'package:mobile/l10n/app_localizations.dart';
-import 'package:provider/provider.dart' as old_provider;
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({
@@ -171,6 +170,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with RouteAware {
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
     final colors = context.appColors;
+    // Watch garden and continuity notifiers. Sub-widgets extracted below
+    // each watch only the slice they need, limiting rebuild blast radius.
     final gardenGrowthNotifier = ref.watch(gardenGrowthNotifierProvider);
     final continuityNotifier = ref.watch(practiceContinuityNotifierProvider);
     final householdNotifier = ref.watch(householdNotifierProvider);
@@ -405,7 +406,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with RouteAware {
     if (snapshotArgs != null) {
       return snapshotArgs;
     }
-    return old_provider.Provider.of<PracticeRouteArgs?>(context, listen: false);
+    try {
+      return ref.read(defaultPracticeRouteArgsProvider);
+    } catch (_) {
+      return null;
+    }
   }
 
   StageMatch? _resolveStageMatch(OnboardingSnapshot? snapshot) {

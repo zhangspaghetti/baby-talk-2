@@ -10,6 +10,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart'
     hide ChangeNotifierProvider, Provider;
 import 'package:isar/isar.dart';
 import 'package:mobile/app/app.dart';
+import 'package:mobile/app/providers/repository_providers.dart';
 import 'package:mobile/core/device/installation_id_service.dart';
 import 'package:mobile/features/account/data/local/account_local_store.dart';
 import 'package:mobile/features/account/data/repositories/account_repository.dart';
@@ -19,6 +20,7 @@ import 'package:mobile/features/household/data/repositories/household_repository
 import 'package:mobile/features/household/data/services/household_api_service.dart';
 import 'package:mobile/features/onboarding/data/local/onboarding_snapshot_store.dart';
 import 'package:mobile/features/onboarding/data/repositories/onboarding_repository.dart';
+import 'package:mobile/features/onboarding/presentation/onboarding_notifier.dart';
 import 'package:mobile/features/onboarding/domain/models/onboarding_snapshot.dart';
 import 'package:mobile/features/onboarding/domain/models/stage_match.dart';
 import 'package:mobile/features/practice/data/local/practice_local_data_source.dart';
@@ -27,7 +29,6 @@ import 'package:mobile/features/practice/domain/models/interaction_event_payload
 import 'package:mobile/features/practice/domain/models/practice_continuity_snapshot.dart';
 import 'package:mobile/features/practice/presentation/practice_continuity_notifier.dart';
 import 'package:mobile/features/practice/presentation/practice_session_notifier.dart';
-import 'package:provider/provider.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -99,24 +100,34 @@ void main() {
 
     await tester.pumpWidget(
       ProviderScope(
+        overrides: [
+          assetPhraseServiceProvider.overrideWithValue(
+            harness.bootState.assetPhraseService!,
+          ),
+          appDirectoryProvider.overrideWith((ref) => harness.tempDir),
+          practiceRepositoryProvider.overrideWith((ref) => harness.repository),
+          accountRepositoryProvider.overrideWith(
+            (ref) => AccountRepository(
+              localStore: AccountLocalStore(),
+              practiceRepository: harness.repository,
+            ),
+          ),
+          householdRepositoryProvider.overrideWith((ref) {
+            final accountRepo = ref
+                .read(accountRepositoryProvider)
+                .requireValue;
+            return HouseholdRepository(
+              localStore: HouseholdLocalStore(
+                directoryResolver: () async => harness.tempDir,
+              ),
+              apiService: HouseholdApiService(),
+              accountSnapshotLoader: accountRepo.loadSnapshot,
+              persistRefreshedSession: accountRepo.persistRefreshedSession,
+            );
+          }),
+        ],
         child: BabyTalkApp(
           bootState: harness.bootState,
-          repositoryFactory: (_) async => harness.repository,
-          accountRepositoryFactory: (practiceRepo, dir) async =>
-              AccountRepository(
-                localStore: AccountLocalStore(),
-                practiceRepository: practiceRepo,
-              ),
-          householdRepositoryFactory: (accountRepo, dir) async =>
-              HouseholdRepository(
-                localStore: HouseholdLocalStore(
-                  directoryResolver: () async => dir,
-                ),
-                apiService: HouseholdApiService(),
-                accountSnapshotLoader: accountRepo.loadSnapshot,
-                persistRefreshedSession: accountRepo.persistRefreshedSession,
-              ),
-          appDirectoryResolver: () async => harness.tempDir,
           audioControllerFactory: _SilentPracticeAudioController.new,
           completedSnapshotLoader: () async => null,
           practiceContinuityRefreshTimeout: const Duration(milliseconds: 1),
@@ -124,6 +135,7 @@ void main() {
         ),
       ),
     );
+    expect(tester.takeException(), isNull);
     await _pumpUntilFound(
       tester,
       find.byKey(const Key('boot-route-onboarding')),
@@ -191,24 +203,53 @@ void main() {
 
     await tester.pumpWidget(
       ProviderScope(
+        overrides: [
+          assetPhraseServiceProvider.overrideWithValue(
+            harness.bootState.assetPhraseService!,
+          ),
+          appDirectoryProvider.overrideWith((ref) => harness.tempDir),
+          practiceRepositoryProvider.overrideWith((ref) => harness.repository),
+          accountRepositoryProvider.overrideWith(
+            (ref) => AccountRepository(
+              localStore: AccountLocalStore(),
+              practiceRepository: harness.repository,
+            ),
+          ),
+          householdRepositoryProvider.overrideWith((ref) {
+            final accountRepo = ref
+                .read(accountRepositoryProvider)
+                .requireValue;
+            return HouseholdRepository(
+              localStore: HouseholdLocalStore(
+                directoryResolver: () async => harness.tempDir,
+              ),
+              apiService: HouseholdApiService(),
+              accountSnapshotLoader: accountRepo.loadSnapshot,
+              persistRefreshedSession: accountRepo.persistRefreshedSession,
+            );
+          }),
+          onboardingRepositoryProvider.overrideWith((ref) {
+            final practiceRepo = ref
+                .read(practiceRepositoryProvider)
+                .requireValue;
+            return OnboardingRepository(
+              snapshotStore: OnboardingSnapshotStore(
+                directoryResolver: () async => harness.tempDir,
+              ),
+              practiceRepository: practiceRepo,
+              starterSpaceId: harness.bootState.primarySpaceId!,
+              starterActivityId: harness.bootState.primaryActivityId!,
+            );
+          }),
+          onboardingNotifierProvider.overrideWith((ref) {
+            final repository = ref
+                .read(onboardingRepositoryProvider)
+                .requireValue;
+            return OnboardingNotifier(repository: repository)..initialize();
+          }),
+        ],
         child: BabyTalkApp(
           bootState: harness.bootState,
-          repositoryFactory: (_) async => harness.repository,
-          accountRepositoryFactory: (practiceRepo, dir) async =>
-              AccountRepository(
-                localStore: AccountLocalStore(),
-                practiceRepository: practiceRepo,
-              ),
-          householdRepositoryFactory: (accountRepo, dir) async =>
-              HouseholdRepository(
-                localStore: HouseholdLocalStore(
-                  directoryResolver: () async => dir,
-                ),
-                apiService: HouseholdApiService(),
-                accountSnapshotLoader: accountRepo.loadSnapshot,
-                persistRefreshedSession: accountRepo.persistRefreshedSession,
-              ),
-          appDirectoryResolver: () async => harness.tempDir,
           audioControllerFactory: _SilentPracticeAudioController.new,
           completedSnapshotLoader: () async => completedSnapshot,
           practiceContinuityRefreshTimeout: const Duration(milliseconds: 1),
@@ -267,24 +308,55 @@ void main() {
 
       await tester.pumpWidget(
         ProviderScope(
+          overrides: [
+            assetPhraseServiceProvider.overrideWithValue(
+              harness.bootState.assetPhraseService!,
+            ),
+            appDirectoryProvider.overrideWith((ref) => harness.tempDir),
+            practiceRepositoryProvider.overrideWith(
+              (ref) => harness.repository,
+            ),
+            accountRepositoryProvider.overrideWith(
+              (ref) => AccountRepository(
+                localStore: AccountLocalStore(),
+                practiceRepository: harness.repository,
+              ),
+            ),
+            householdRepositoryProvider.overrideWith((ref) {
+              final accountRepo = ref
+                  .read(accountRepositoryProvider)
+                  .requireValue;
+              return HouseholdRepository(
+                localStore: HouseholdLocalStore(
+                  directoryResolver: () async => harness.tempDir,
+                ),
+                apiService: HouseholdApiService(),
+                accountSnapshotLoader: accountRepo.loadSnapshot,
+                persistRefreshedSession: accountRepo.persistRefreshedSession,
+              );
+            }),
+            onboardingRepositoryProvider.overrideWith((ref) {
+              final practiceRepo = ref
+                  .read(practiceRepositoryProvider)
+                  .requireValue;
+              return OnboardingRepository(
+                snapshotStore: OnboardingSnapshotStore(
+                  directoryResolver: () async => harness.tempDir,
+                ),
+                practiceRepository: practiceRepo,
+                starterSpaceId: harness.bootState.primarySpaceId!,
+                starterActivityId: harness.bootState.primaryActivityId!,
+              );
+            }),
+            onboardingNotifierProvider.overrideWith((ref) {
+              final repository = ref
+                  .read(onboardingRepositoryProvider)
+                  .requireValue;
+              return OnboardingNotifier(repository: repository)..initialize();
+            }),
+          ],
           child: BabyTalkApp(
             bootState: harness.bootState,
-            repositoryFactory: (_) async => harness.repository,
-            accountRepositoryFactory: (practiceRepo, dir) async =>
-                AccountRepository(
-                  localStore: AccountLocalStore(),
-                  practiceRepository: practiceRepo,
-                ),
-            householdRepositoryFactory: (accountRepo, dir) async =>
-                HouseholdRepository(
-                  localStore: HouseholdLocalStore(
-                    directoryResolver: () async => dir,
-                  ),
-                  apiService: HouseholdApiService(),
-                  accountSnapshotLoader: accountRepo.loadSnapshot,
-                  persistRefreshedSession: accountRepo.persistRefreshedSession,
-                ),
-            appDirectoryResolver: () async => harness.tempDir,
             audioControllerFactory: _SilentPracticeAudioController.new,
             completedSnapshotLoader: () async => completedSnapshot,
             practiceContinuityRefreshTimeout: const Duration(milliseconds: 1),
@@ -296,10 +368,9 @@ void main() {
       await tester.pump();
 
       final shellElement = tester.element(find.byKey(const Key('shell-ready')));
-      final continuityNotifier = Provider.of<PracticeContinuityNotifier>(
+      final continuityNotifier = ProviderScope.containerOf(
         shellElement,
-        listen: false,
-      );
+      ).read(practiceContinuityNotifierProvider);
       expect(continuityNotifier.hasResolvedRecommendation, isTrue);
       expect(continuityNotifier.recommendedArgs?.activityId, 'feeding_time');
       expect(
@@ -368,24 +439,53 @@ void main() {
 
     await tester.pumpWidget(
       ProviderScope(
+        overrides: [
+          assetPhraseServiceProvider.overrideWithValue(
+            harness.bootState.assetPhraseService!,
+          ),
+          appDirectoryProvider.overrideWith((ref) => harness.tempDir),
+          practiceRepositoryProvider.overrideWith((ref) => harness.repository),
+          accountRepositoryProvider.overrideWith(
+            (ref) => AccountRepository(
+              localStore: AccountLocalStore(),
+              practiceRepository: harness.repository,
+            ),
+          ),
+          householdRepositoryProvider.overrideWith((ref) {
+            final accountRepo = ref
+                .read(accountRepositoryProvider)
+                .requireValue;
+            return HouseholdRepository(
+              localStore: HouseholdLocalStore(
+                directoryResolver: () async => harness.tempDir,
+              ),
+              apiService: HouseholdApiService(),
+              accountSnapshotLoader: accountRepo.loadSnapshot,
+              persistRefreshedSession: accountRepo.persistRefreshedSession,
+            );
+          }),
+          onboardingRepositoryProvider.overrideWith((ref) {
+            final practiceRepo = ref
+                .read(practiceRepositoryProvider)
+                .requireValue;
+            return OnboardingRepository(
+              snapshotStore: OnboardingSnapshotStore(
+                directoryResolver: () async => harness.tempDir,
+              ),
+              practiceRepository: practiceRepo,
+              starterSpaceId: harness.bootState.primarySpaceId!,
+              starterActivityId: harness.bootState.primaryActivityId!,
+            );
+          }),
+          onboardingNotifierProvider.overrideWith((ref) {
+            final repository = ref
+                .read(onboardingRepositoryProvider)
+                .requireValue;
+            return OnboardingNotifier(repository: repository)..initialize();
+          }),
+        ],
         child: BabyTalkApp(
           bootState: harness.bootState,
-          repositoryFactory: (_) async => harness.repository,
-          accountRepositoryFactory: (practiceRepo, dir) async =>
-              AccountRepository(
-                localStore: AccountLocalStore(),
-                practiceRepository: practiceRepo,
-              ),
-          householdRepositoryFactory: (accountRepo, dir) async =>
-              HouseholdRepository(
-                localStore: HouseholdLocalStore(
-                  directoryResolver: () async => dir,
-                ),
-                apiService: HouseholdApiService(),
-                accountSnapshotLoader: accountRepo.loadSnapshot,
-                persistRefreshedSession: accountRepo.persistRefreshedSession,
-              ),
-          appDirectoryResolver: () async => harness.tempDir,
           audioControllerFactory: _SilentPracticeAudioController.new,
           completedSnapshotLoader: () async => completedSnapshot,
           practiceContinuityRefreshTimeout: const Duration(milliseconds: 1),
@@ -412,12 +512,16 @@ void main() {
 
     await tester.pumpWidget(
       ProviderScope(
+        overrides: [
+          assetPhraseServiceProvider.overrideWithValue(
+            bootState.assetPhraseService!,
+          ),
+          appDirectoryProvider.overrideWith((ref) {
+            throw StateError('disk denied');
+          }),
+        ],
         child: BabyTalkApp(
           bootState: bootState,
-          repositoryFactory: (_) async {
-            throw StateError('repository factory should not be called');
-          },
-          appDirectoryResolver: () async => throw StateError('disk denied'),
           audioControllerFactory: _SilentPracticeAudioController.new,
         ),
       ),

@@ -38,7 +38,12 @@ import 'package:mobile/features/account/presentation/account_notifier.dart';
 import 'package:mobile/features/household/presentation/household_notifier.dart';
 import 'package:mobile/features/mentor/presentation/mentor_notifier.dart';
 import 'package:mobile/features/onboarding/presentation/onboarding_notifier.dart';
+import 'package:mobile/features/settings/data/local/settings_local_data_source.dart';
+import 'package:mobile/features/settings/data/repositories/settings_repository.dart';
+import 'package:mobile/features/settings/presentation/settings_notifier.dart';
 import 'package:mobile/features/share/presentation/share_notifier.dart';
+import 'package:mobile/app/share_reentry_coordinator.dart';
+import 'package:mobile/app/invite_reentry_coordinator.dart';
 
 // ---------------------------------------------------------------------------
 // App directory
@@ -275,7 +280,7 @@ final onboardingNotifierProvider =
           return audioController.playAsset(starterSeed.audioAssetSource);
         },
       )..initialize();
-    });
+    }, dependencies: [onboardingRepositoryProvider]);
 
 // ---------------------------------------------------------------------------
 // Mentor repository
@@ -351,15 +356,16 @@ final localSensitiveDataClearanceOrchestratorProvider =
 /// Watches [accountNotifierProvider] so that account state changes (e.g.
 /// login/logout) flow automatically into chat availability derivation —
 /// mirroring the old `ChangeNotifierProxyProvider` behavior.
-final mentorNotifierProvider =
-    ChangeNotifierProvider.autoDispose<MentorNotifier>((ref) {
-      final mentorRepository = ref.watch(mentorRepositoryProvider).requireValue;
-      final accountNotifier = ref.watch(accountNotifierProvider);
-      return MentorNotifier(
-        repository: mentorRepository,
-        accountNotifier: accountNotifier,
-      );
-    });
+/// Non-autoDispose because mentor state must persist across tab switches
+/// and modal sheet open/close cycles.
+final mentorNotifierProvider = ChangeNotifierProvider<MentorNotifier>((ref) {
+  final mentorRepository = ref.watch(mentorRepositoryProvider).requireValue;
+  final accountNotifier = ref.watch(accountNotifierProvider);
+  return MentorNotifier(
+    repository: mentorRepository,
+    accountNotifier: accountNotifier,
+  );
+});
 
 // ---------------------------------------------------------------------------
 // Garden growth repository & notifier
@@ -379,10 +385,10 @@ final gardenGrowthRepositoryProvider = Provider<GardenGrowthRepository>((ref) {
 
 /// Creates a [GardenGrowthNotifier] backed by the Riverpod provider graph.
 ///
-/// The notifier is auto-disposed so that pulling the tab away from the garden
-/// screen releases the resources.
+/// Non-autoDispose because garden state is read by multiple tabs (garden,
+/// growth, share) and must persist across tab switches.
 final gardenGrowthNotifierProvider =
-    ChangeNotifierProvider.autoDispose<GardenGrowthNotifier>((ref) {
+    ChangeNotifierProvider<GardenGrowthNotifier>((ref) {
       final repository = ref.watch(gardenGrowthRepositoryProvider);
       return GardenGrowthNotifier(repository: repository)..initialize();
     });
@@ -414,10 +420,10 @@ final shareRepositoryProvider = Provider<ShareRepository>((ref) {
 
 /// Creates a [PracticeContinuityNotifier] backed by the Riverpod provider graph.
 ///
-/// The notifier is auto-disposed so that pulling the tab away from the practice
-/// screen releases the resources.
+/// Non-autoDispose because continuity state is read by garden, growth, and
+/// share tabs and must persist across tab switches.
 final practiceContinuityNotifierProvider =
-    ChangeNotifierProvider.autoDispose<PracticeContinuityNotifier>((ref) {
+    ChangeNotifierProvider<PracticeContinuityNotifier>((ref) {
       final practiceRepository = ref
           .watch(practiceRepositoryProvider)
           .requireValue;
@@ -439,8 +445,8 @@ class PracticeSessionProviderArgs {
   bool operator ==(Object other) {
     return other is PracticeSessionProviderArgs &&
         routeArgs.normalizedSpaceId == other.routeArgs.normalizedSpaceId &&
-        routeArgs.normalizedActivityId == other.routeArgs.normalizedActivityId &&
-        routeArgs.normalizedShareToken == other.routeArgs.normalizedShareToken &&
+      routeArgs.normalizedActivityId == other.routeArgs.normalizedActivityId &&
+      routeArgs.normalizedShareToken == other.routeArgs.normalizedShareToken &&
         routeArgs.entrySource == other.routeArgs.entrySource &&
         identical(audioControllerFactory, other.audioControllerFactory);
   }
@@ -500,3 +506,63 @@ final shareNotifierProvider = ChangeNotifierProvider.autoDispose<ShareNotifier>(
     );
   },
 );
+
+// ---------------------------------------------------------------------------
+// Reentry coordinators
+// ---------------------------------------------------------------------------
+
+/// Manages share deep-link reentry state. Non-autoDispose because it must
+/// survive across route transitions and tab switches.
+final shareReentryCoordinatorProvider =
+    ChangeNotifierProvider<ShareReentryCoordinator>(
+      (ref) => ShareReentryCoordinator(),
+    );
+
+/// Manages invite deep-link reentry state. Non-autoDispose because it must
+/// survive across route transitions and tab switches.
+final inviteReentryCoordinatorProvider =
+    ChangeNotifierProvider<InviteReentryCoordinator>(
+      (ref) => InviteReentryCoordinator(),
+    );
+
+// ---------------------------------------------------------------------------
+// Default practice route args (from boot state)
+// ---------------------------------------------------------------------------
+
+/// Provides the default [PracticeRouteArgs] resolved from boot state.
+///
+/// Must be overridden at startup with the primarySpaceId and primaryActivityId
+/// from [AppBootState].
+final defaultPracticeRouteArgsProvider = Provider<PracticeRouteArgs>((ref) {
+  throw UnimplementedError(
+    'defaultPracticeRouteArgsProvider must be overridden at startup with '
+    'primarySpaceId and primaryActivityId from AppBootState.',
+  );
+});
+
+// ---------------------------------------------------------------------------
+// Settings repository
+// ---------------------------------------------------------------------------
+
+final settingsRepositoryProvider = FutureProvider<SettingsRepository>((
+  ref,
+) async {
+  final directory = await ref.watch(appDirectoryProvider.future);
+  final localDataSource = await SettingsLocalDataSource.open(
+    directory: directory.path,
+  );
+  return SettingsRepository(localDataSource: localDataSource);
+});
+
+// ---------------------------------------------------------------------------
+// Settings notifier
+// ---------------------------------------------------------------------------
+
+/// Creates a [SettingsNotifier] backed by the Riverpod provider graph.
+///
+/// Non-autoDispose because settings state is read by multiple screens (shell,
+/// home, practice) and must persist across tab switches.
+final settingsNotifierProvider = ChangeNotifierProvider<SettingsNotifier>((ref) {
+  final repository = ref.watch(settingsRepositoryProvider).requireValue;
+  return SettingsNotifier(repository: repository)..initialize();
+});

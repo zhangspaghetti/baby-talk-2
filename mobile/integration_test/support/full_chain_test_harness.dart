@@ -21,7 +21,6 @@ import 'package:mobile/features/practice/domain/models/interaction_event_payload
 import 'package:mobile/features/practice/presentation/screens/home_screen.dart';
 import 'package:mobile/features/practice/presentation/garden_growth_notifier.dart';
 import 'package:mobile/features/sync/data/repositories/sync_repository.dart';
-import 'package:provider/provider.dart';
 
 import 'app_test_repositories.dart';
 import 'in_memory_demo_backend.dart';
@@ -89,31 +88,44 @@ class FullChainTestHarness {
     OnboardingCompletedSnapshotLoader? completedSnapshotLoader,
   }) async {
     await disposeMountedApp(tester);
+    final practiceRepository = await _openRepository(
+      bootState.assetPhraseService!,
+    );
+    final accountRepository = AccountRepository(
+      localStore: AccountLocalStore(
+        storageKey: 'test_full_chain_account_${tempDir.path.hashCode}',
+      ),
+      practiceRepository: practiceRepository,
+      apiService: AccountApiService(baseUrl: backend.baseUri.toString()),
+      connectivityChecker: () async => true,
+    );
+    final householdRepository = createLocalHouseholdRepository(
+      accountRepository: accountRepository,
+      directory: tempDir,
+      apiBaseUrl: backend.baseUri.toString(),
+    );
     await tester.pumpWidget(
-      BabyTalkApp(
-        bootState: bootState,
-        repositoryFactory: _openRepository,
-        accountRepositoryFactory: (practiceRepository, directory) async {
-          return AccountRepository(
-            localStore: AccountLocalStore(
-              storageKey: 'test_full_chain_account_${tempDir.path.hashCode}',
-            ),
-            practiceRepository: practiceRepository,
-            apiService: AccountApiService(baseUrl: backend.baseUri.toString()),
-            connectivityChecker: () async => true,
-          );
-        },
-        householdRepositoryFactory: (accountRepository, directory) async {
-          return createLocalHouseholdRepository(
-            accountRepository: accountRepository,
-            directory: directory,
-            apiBaseUrl: backend.baseUri.toString(),
-          );
-        },
-        appDirectoryResolver: () async => tempDir,
-        completedSnapshotLoader: completedSnapshotLoader,
-        mentorStoreName: _mentorStoreName,
-        practiceContinuityRefreshTimeout: Duration.zero,
+      riverpod.ProviderScope(
+        overrides: [
+          assetPhraseServiceProvider.overrideWithValue(
+            bootState.assetPhraseService!,
+          ),
+          appDirectoryProvider.overrideWith((ref) => tempDir),
+          practiceRepositoryProvider.overrideWith(
+            (ref) => practiceRepository,
+          ),
+          accountRepositoryProvider.overrideWith(
+            (ref) => accountRepository,
+          ),
+          householdRepositoryProvider.overrideWith(
+            (ref) => householdRepository,
+          ),
+        ],
+        child: BabyTalkApp(
+          bootState: bootState,
+          completedSnapshotLoader: completedSnapshotLoader,
+          practiceContinuityRefreshTimeout: Duration.zero,
+        ),
       ),
     );
     await tester.pump();
@@ -439,10 +451,10 @@ class FullChainTestHarness {
     );
     final submitChat = submitButton.onPressed;
     if (submitChat == null) {
-      final notifier = Provider.of<MentorNotifier>(
+      final notifier = riverpod.ProviderScope.containerOf(
         tester.element(find.byKey(const Key('mentor-panel-sheet'))),
         listen: false,
-      );
+      ).read(mentorNotifierProvider);
       fail(
         'Mentor chat submit is disabled: '
         'phase=${notifier.chatAvailability.phase}; '
@@ -642,10 +654,10 @@ class FullChainTestHarness {
         if (sheet.evaluate().isEmpty) {
           return false;
         }
-        final notifier = Provider.of<MentorNotifier>(
+        final notifier = riverpod.ProviderScope.containerOf(
           tester.element(sheet),
           listen: false,
-        );
+        ).read(mentorNotifierProvider);
         if (notifier.isSubmittingChat) {
           return false;
         }

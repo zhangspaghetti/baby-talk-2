@@ -15,7 +15,9 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobile/app/app.dart';
+import 'package:mobile/app/providers/repository_providers.dart';
 import 'package:mobile/core/device/installation_id_service.dart';
 import 'package:mobile/features/account/data/local/account_local_store.dart';
 import 'package:mobile/features/account/data/repositories/account_repository.dart';
@@ -26,7 +28,6 @@ import 'package:mobile/features/practice/data/local/practice_local_data_source.d
 import 'package:mobile/features/practice/data/repositories/practice_repository.dart';
 import 'package:mobile/features/practice/data/services/asset_phrase_service.dart';
 import 'package:mobile/features/practice/presentation/screens/home_screen.dart';
-import 'package:provider/provider.dart';
 
 import 'app_test_repositories.dart';
 
@@ -78,27 +79,41 @@ class E2eTestHarness {
 
   Future<void> pumpApp(WidgetTester tester) async {
     await _disposeMountedApp(tester);
+    final practiceRepository = await _openRepository(
+      bootState.assetPhraseService!,
+    );
+    final accountRepository = AccountRepository(
+      localStore: AccountLocalStore(storageKey: 'e2e_smoke_account'),
+      practiceRepository: practiceRepository,
+      apiService: AccountApiService(baseUrl: backendUri.toString()),
+      connectivityChecker: () async => true,
+    );
+    final householdRepository = createLocalHouseholdRepository(
+      accountRepository: accountRepository,
+      directory: tempDir,
+      apiBaseUrl: backendUri.toString(),
+    );
     await tester.pumpWidget(
-      BabyTalkApp(
-        bootState: bootState,
-        repositoryFactory: _openRepository,
-        accountRepositoryFactory: (practiceRepository, directory) async {
-          return AccountRepository(
-            localStore: AccountLocalStore(storageKey: 'e2e_smoke_account'),
-            practiceRepository: practiceRepository,
-            apiService: AccountApiService(baseUrl: backendUri.toString()),
-            connectivityChecker: () async => true,
-          );
-        },
-        householdRepositoryFactory: (accountRepository, directory) async {
-          return createLocalHouseholdRepository(
-            accountRepository: accountRepository,
-            directory: directory,
-            apiBaseUrl: backendUri.toString(),
-          );
-        },
-        appDirectoryResolver: () async => tempDir,
-        practiceContinuityRefreshTimeout: Duration.zero,
+      ProviderScope(
+        overrides: [
+          assetPhraseServiceProvider.overrideWithValue(
+            bootState.assetPhraseService!,
+          ),
+          appDirectoryProvider.overrideWith((ref) => tempDir),
+          practiceRepositoryProvider.overrideWith(
+            (ref) => practiceRepository,
+          ),
+          accountRepositoryProvider.overrideWith(
+            (ref) => accountRepository,
+          ),
+          householdRepositoryProvider.overrideWith(
+            (ref) => householdRepository,
+          ),
+        ],
+        child: BabyTalkApp(
+          bootState: bootState,
+          practiceContinuityRefreshTimeout: Duration.zero,
+        ),
       ),
     );
     await tester.pump();
@@ -367,10 +382,9 @@ class E2eTestHarness {
       () {
         final sheet = find.byKey(const Key('mentor-panel-sheet'));
         if (sheet.evaluate().isEmpty) return false;
-        final notifier = Provider.of<MentorNotifier>(
+        final notifier = ProviderScope.containerOf(
           tester.element(sheet),
-          listen: false,
-        );
+        ).read(mentorNotifierProvider);
         if (notifier.isSubmittingChat) return false;
         resolved = notifier;
         return true;

@@ -1,21 +1,22 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:mobile/app/providers/repository_providers.dart';
 import 'package:mobile/app/theme/app_theme.dart';
 import 'package:mobile/features/mentor/domain/models/local_mentor_suggestion.dart';
 import 'package:mobile/features/mentor/domain/services/local_mentor_suggestion_service.dart';
 import 'package:mobile/features/mentor/presentation/mentor_notifier.dart';
 import 'package:mobile/features/onboarding/presentation/widgets/mentor_bubble.dart';
-import 'package:provider/provider.dart';
 import 'package:mobile/l10n/app_localizations.dart';
 
-class MentorSuggestionTab extends StatelessWidget {
+class MentorSuggestionTab extends ConsumerWidget {
   const MentorSuggestionTab({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final l = AppLocalizations.of(context)!;
     final colors = context.appColors;
     final theme = Theme.of(context);
-    final notifier = context.watch<MentorNotifier>();
+    final notifier = ref.watch(mentorNotifierProvider);
 
     return ListView(
       key: const Key('mentor-suggestion-tab'),

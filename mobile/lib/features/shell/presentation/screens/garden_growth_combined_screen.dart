@@ -7,7 +7,6 @@ import 'package:mobile/app/widgets/app_haptics.dart';
 import 'package:mobile/app/widgets/app_shimmer.dart';
 import 'package:mobile/app/theme/app_layout_constants.dart';
 import 'package:mobile/app/theme/app_theme.dart';
-import 'package:mobile/features/household/presentation/household_notifier.dart';
 import 'package:mobile/features/household/presentation/widgets/household_shared_context_card.dart';
 import 'package:mobile/features/practice/data/repositories/practice_repository.dart'
     show PracticeActivitySnapshot;
@@ -16,12 +15,10 @@ import 'package:mobile/features/practice/domain/models/practice_continuity_snaps
     show PracticeContinuitySnapshot;
 import 'package:mobile/features/practice/presentation/garden_growth_notifier.dart';
 import 'package:mobile/features/practice/presentation/practice_continuity_notifier.dart';
-import 'package:mobile/features/share/presentation/share_notifier.dart';
 import 'package:mobile/features/share/presentation/widgets/share_callout_card.dart';
 import 'package:mobile/features/shell/presentation/widgets/garden_continue_card.dart';
 import 'package:mobile/features/shell/presentation/widgets/garden_hero_card.dart';
 import 'package:mobile/features/shell/presentation/widgets/garden_patch_card.dart';
-import 'package:provider/provider.dart';
 import 'package:mobile/l10n/app_localizations.dart';
 
 /// Public tab index so external screens can navigate directly.
@@ -68,16 +65,16 @@ class _GardenGrowthCombinedScreenState
     final gardenSnapshot = gardenNotifier.snapshot;
     final gardenStatus = gardenNotifier.status;
 
-    // Provider: other Notifiers (still Provider-based)
-    final continuityNotifier = context.watch<PracticeContinuityNotifier?>();
-    final householdNotifier = context.watch<HouseholdNotifier?>();
-    final shareNotifier = context.watch<ShareNotifier?>();
-    final continuitySnapshot = continuityNotifier?.snapshot;
-    final continuityActivity = continuityNotifier?.activitySnapshot;
-    final practiceArgs = continuityNotifier?.recommendedArgs;
+    // Riverpod: other notifiers
+    final continuityNotifier = ref.watch(practiceContinuityNotifierProvider);
+    final householdNotifier = ref.watch(householdNotifierProvider);
+    final shareNotifier = ref.watch(shareNotifierProvider);
+    final continuitySnapshot = continuityNotifier.snapshot;
+    final continuityActivity = continuityNotifier.activitySnapshot;
+    final practiceArgs = continuityNotifier.recommendedArgs;
 
     // Shared context
-    final sharedContext = householdNotifier?.snapshot.sharedContext;
+    final sharedContext = householdNotifier.snapshot.sharedContext;
     final sharedNextStepArgs = resolveHouseholdSharedNextStepArgs(
       sharedContext,
     );
@@ -86,7 +83,6 @@ class _GardenGrowthCombinedScreenState
         gardenSnapshot.primarySpace?.lastPracticedAt ??
         continuitySnapshot?.cadence.lastEventTime;
     final isSharedOverlayNewer =
-        continuityNotifier != null &&
         sharedContext != null &&
         isHouseholdSharedProjectionNewer(sharedContext, localGardenAt);
     final shouldShowSharedOverlay =
@@ -112,10 +108,9 @@ class _GardenGrowthCombinedScreenState
               AppHaptics.lightTap();
               await Future.wait([
                 gardenNotifier.refresh(),
-                if (continuityNotifier != null)
-                  continuityNotifier.refresh(
-                    reason: 'growth_combined_pull_to_refresh',
-                  ),
+                continuityNotifier.refresh(
+                  reason: 'growth_combined_pull_to_refresh',
+                ),
               ]);
             },
             child: ListView(
@@ -175,16 +170,14 @@ class _GardenGrowthCombinedScreenState
                   title: l.gardenSharedAttributionTitle,
                   retryReason: 'growth_combined_household_manual_refresh',
                 ),
-                if (shareNotifier != null) ...[
-                  const SizedBox(height: AppLayoutConstants.spacingMd),
-                  ShareCalloutCard(
-                    surfaceKeyPrefix: 'growth-combined',
-                    notifier: shareNotifier,
-                    sectionLabel: l.gardenShareFamily,
-                    emptyMessage: l.growthShareWaitStable,
-                    onShare: (draft) => shareNotifier.shareDraft(draft),
-                  ),
-                ],
+                const SizedBox(height: AppLayoutConstants.spacingMd),
+                ShareCalloutCard(
+                  surfaceKeyPrefix: 'growth-combined',
+                  notifier: shareNotifier,
+                  sectionLabel: l.gardenShareFamily,
+                  emptyMessage: l.growthShareWaitStable,
+                  onShare: (draft) => shareNotifier.shareDraft(draft),
+                ),
                 if (shouldShowSharedOverlay) ...[
                   const SizedBox(height: AppLayoutConstants.spacingMd),
                   HouseholdSharedPracticeOverlayCard(
@@ -224,7 +217,7 @@ class _GardenGrowthCombinedScreenState
     required GardenGrowthSnapshot snapshot,
     required bool isLoading,
     required GardenGrowthNotifier gardenNotifier,
-    required PracticeContinuityNotifier? continuityNotifier,
+    required PracticeContinuityNotifier continuityNotifier,
     required PracticeContinuitySnapshot? continuitySnapshot,
     required PracticeActivitySnapshot? continuityActivity,
     required dynamic practiceArgs,

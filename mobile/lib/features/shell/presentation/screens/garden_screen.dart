@@ -1,37 +1,33 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:mobile/app/providers/repository_providers.dart';
 import 'package:mobile/app/widgets/app_banner.dart';
 import 'package:mobile/app/theme/app_layout_constants.dart';
 import 'package:mobile/app/theme/app_theme.dart';
-import 'package:mobile/features/household/presentation/household_notifier.dart';
 import 'package:mobile/features/household/presentation/widgets/household_shared_context_card.dart';
-import 'package:mobile/features/practice/domain/models/garden_growth_snapshot.dart';
-import 'package:mobile/features/practice/presentation/garden_growth_notifier.dart';
-import 'package:mobile/features/practice/presentation/practice_continuity_notifier.dart';
-import 'package:mobile/features/share/presentation/share_notifier.dart';
 import 'package:mobile/features/share/presentation/widgets/share_callout_card.dart';
 import 'package:mobile/features/shell/presentation/widgets/garden_continue_card.dart';
 import 'package:mobile/features/shell/presentation/widgets/garden_hero_card.dart';
 import 'package:mobile/features/shell/presentation/widgets/garden_patch_card.dart';
-import 'package:provider/provider.dart';
 import 'package:mobile/l10n/app_localizations.dart';
 
 @Deprecated('Use GardenGrowthCombinedScreen instead')
-class GardenScreen extends StatelessWidget {
+class GardenScreen extends ConsumerWidget {
   const GardenScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final l = AppLocalizations.of(context)!;
     final colors = context.appColors;
-    final notifier = context.watch<GardenGrowthNotifier?>();
-    final continuityNotifier = context.watch<PracticeContinuityNotifier?>();
-    final householdNotifier = context.watch<HouseholdNotifier?>();
-    final shareNotifier = context.watch<ShareNotifier?>();
-    final snapshot = notifier?.snapshot ?? GardenGrowthSnapshot.empty();
-    final continuitySnapshot = continuityNotifier?.snapshot;
-    final continuityActivity = continuityNotifier?.activitySnapshot;
-    final practiceArgs = continuityNotifier?.recommendedArgs;
-    final sharedContext = householdNotifier?.snapshot.sharedContext;
+    final notifier = ref.watch(gardenGrowthNotifierProvider);
+    final continuityNotifier = ref.watch(practiceContinuityNotifierProvider);
+    final householdNotifier = ref.watch(householdNotifierProvider);
+    final shareNotifier = ref.watch(shareNotifierProvider);
+    final snapshot = notifier.snapshot;
+    final continuitySnapshot = continuityNotifier.snapshot;
+    final continuityActivity = continuityNotifier.activitySnapshot;
+    final practiceArgs = continuityNotifier.recommendedArgs;
+    final sharedContext = householdNotifier.snapshot.sharedContext;
     final sharedNextStepArgs = resolveHouseholdSharedNextStepArgs(
       sharedContext,
     );
@@ -40,7 +36,6 @@ class GardenScreen extends StatelessWidget {
         snapshot.primarySpace?.lastPracticedAt ??
         continuitySnapshot?.cadence.lastEventTime;
     final isSharedOverlayNewer =
-        continuityNotifier != null &&
         sharedContext != null &&
         isHouseholdSharedProjectionNewer(sharedContext, localGardenAt);
     final shouldShowSharedOverlay =
@@ -59,9 +54,8 @@ class GardenScreen extends StatelessWidget {
           child: RefreshIndicator(
             onRefresh: () async {
               await Future.wait([
-                if (notifier != null) notifier.refresh(),
-                if (continuityNotifier != null)
-                  continuityNotifier.refresh(reason: 'garden_pull_to_refresh'),
+                notifier.refresh(),
+                continuityNotifier.refresh(reason: 'garden_pull_to_refresh'),
               ]);
             },
             child: ListView(
@@ -71,7 +65,7 @@ class GardenScreen extends StatelessWidget {
               children: [
                 GardenHeroCard(
                   snapshot: snapshot,
-                  status: notifier?.status ?? GardenGrowthLoadStatus.idle,
+                  status: notifier.status,
                   continuityNotifier: continuityNotifier,
                   continuitySnapshot: continuitySnapshot,
                   continuityActivity: continuityActivity,
@@ -83,11 +77,11 @@ class GardenScreen extends StatelessWidget {
                   continuitySnapshot: continuitySnapshot,
                   continuityActivity: continuityActivity,
                 ),
-                if (notifier?.hasError ?? false) ...[
+                if (notifier.hasError) ...[
                   const SizedBox(height: 16),
                   AppBanner(
                     key: const Key('garden-warning-banner'),
-                    message: notifier!.message ?? l.gardenRefreshFailed,
+                    message: notifier.message ?? l.gardenRefreshFailed,
                     backgroundColor: colors.warningSoft,
                     foregroundColor: colors.warning,
                   ),
@@ -108,16 +102,14 @@ class GardenScreen extends StatelessWidget {
                   title: l.gardenSharedAttributionTitle,
                   retryReason: 'garden_household_manual_refresh',
                 ),
-                if (shareNotifier != null) ...[
-                  const SizedBox(height: 16),
-                  ShareCalloutCard(
-                    surfaceKeyPrefix: 'garden',
-                    notifier: shareNotifier,
-                    sectionLabel: l.gardenShareFamily,
-                    emptyMessage: '等最近成长和继续建议整理稳定后，再生成一条脱敏分享链接。',
-                    onShare: (draft) => shareNotifier.shareDraft(draft),
-                  ),
-                ],
+                const SizedBox(height: 16),
+                ShareCalloutCard(
+                  surfaceKeyPrefix: 'garden',
+                  notifier: shareNotifier,
+                  sectionLabel: l.gardenShareFamily,
+                  emptyMessage: '等最近成长和继续建议整理稳定后，再生成一条脱敏分享链接。',
+                  onShare: (draft) => shareNotifier.shareDraft(draft),
+                ),
                 const SizedBox(height: 16),
                 if (shouldShowSharedOverlay) ...[
                   HouseholdSharedPracticeOverlayCard(

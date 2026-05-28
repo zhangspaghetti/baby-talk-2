@@ -1,14 +1,10 @@
 import 'dart:async';
-import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:mobile/app/app_reentry_orchestrator.dart';
 import 'package:mobile/app/auth_state.dart';
 import 'package:mobile/app/feature_gates.dart';
-import 'package:mobile/app/local_sensitive_data_clearance_registry.dart';
-import 'package:mobile/app/session_bootstrap.dart';
-import 'package:mobile/core/local_data_lifecycle/local_sensitive_data_clearance.dart';
 import 'package:mobile/l10n/app_localizations.dart';
 import 'package:mobile/app/invite_reentry_coordinator.dart';
 import 'package:mobile/app/router/app_route_contract.dart';
@@ -16,20 +12,14 @@ import 'package:mobile/app/share_reentry_coordinator.dart';
 import 'package:mobile/app/theme/app_layout_constants.dart';
 import 'package:mobile/app/theme/app_theme.dart';
 import 'package:mobile/features/account/data/repositories/account_repository.dart';
-import 'package:mobile/features/account/data/services/account_api_service.dart';
-import 'package:mobile/features/account/data/services/authenticated_api_client.dart';
-import 'package:mobile/features/account/presentation/account_notifier.dart';
 import 'package:mobile/features/account/presentation/screens/account_entry_screen.dart';
 import 'package:mobile/features/household/data/repositories/household_repository.dart';
 import 'package:mobile/features/household/presentation/household_notifier.dart';
 import 'package:mobile/features/mentor/data/repositories/mentor_repository.dart';
-import 'package:mobile/features/mentor/data/services/mentor_api_service.dart';
-import 'package:mobile/features/mentor/presentation/mentor_notifier.dart';
+import 'package:mobile/features/onboarding/data/local/onboarding_snapshot_store.dart';
 import 'package:mobile/features/onboarding/data/repositories/onboarding_repository.dart';
 import 'package:mobile/features/onboarding/domain/models/onboarding_snapshot.dart';
-import 'package:mobile/features/onboarding/presentation/onboarding_notifier.dart';
 import 'package:mobile/features/onboarding/presentation/screens/onboarding_screen.dart';
-import 'package:mobile/features/practice/data/repositories/garden_growth_repository.dart';
 import 'package:mobile/features/practice/data/repositories/practice_repository.dart';
 import 'package:mobile/features/practice/data/services/asset_phrase_service.dart';
 import 'package:mobile/features/practice/presentation/garden_growth_notifier.dart';
@@ -38,16 +28,12 @@ import 'package:mobile/features/practice/presentation/practice_route_args.dart';
 import 'package:mobile/features/practice/presentation/practice_session_notifier.dart';
 import 'package:mobile/features/practice/presentation/screens/practice_session_screen.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart'
-    show Override, ProviderScope;
+    show ConsumerState, ConsumerStatefulWidget, ConsumerWidget, Override,
+        ProviderScope, WidgetRef;
 import 'package:mobile/app/providers/repository_providers.dart';
-import 'package:mobile/features/onboarding/presentation/onboarding_notifier.dart'
-    show OnboardingNotifier;
-import 'package:mobile/features/share/data/repositories/share_repository.dart';
-import 'package:mobile/features/share/data/services/share_api_service.dart';
-import 'package:mobile/features/share/data/services/share_sheet_launcher.dart';
-import 'package:mobile/features/share/presentation/share_notifier.dart';
+import 'package:mobile/features/settings/presentation/screens/settings_screen.dart';
 import 'package:mobile/features/shell/presentation/app_shell_screen.dart';
-import 'package:provider/provider.dart';
+import 'package:mobile/features/shell/presentation/screens/garden_growth_combined_screen.dart';
 export 'package:mobile/features/practice/data/services/asset_phrase_service.dart'
     show SeedActivity, SeedContentBundle, SeedPhrase, SeedSpace;
 
@@ -97,19 +83,6 @@ class AppBootState {
   }
 }
 
-typedef PracticeRepositoryFactory =
-    Future<PracticeRepository> Function(AssetPhraseService assetPhraseService);
-typedef AccountRepositoryFactory =
-    Future<AccountRepository> Function(
-      PracticeRepository practiceRepository,
-      Directory directory,
-    );
-typedef HouseholdRepositoryFactory =
-    Future<HouseholdRepository> Function(
-      AccountRepository accountRepository,
-      Directory directory,
-    );
-typedef AppDirectoryResolver = Future<Directory> Function();
 typedef PracticeAudioControllerFactory = PracticeAudioController Function();
 typedef OnboardingCompletedSnapshotLoader =
     Future<OnboardingSnapshot?> Function();
@@ -127,7 +100,6 @@ class _AppLaunchState {
     required this.defaultPracticeArgs,
     this.continuitySeed,
     this.completedSnapshot,
-    this.mentorApiService,
   });
 
   final PracticeRepository practiceRepository;
@@ -140,7 +112,6 @@ class _AppLaunchState {
   final PracticeRouteArgs defaultPracticeArgs;
   final PracticeContinuitySeedState? continuitySeed;
   final OnboardingSnapshot? completedSnapshot;
-  final MentorApiService? mentorApiService;
 
   String get initialRoute => switch (destination) {
     AppLaunchDestination.onboarding => AppRouteNames.onboarding,
@@ -148,17 +119,12 @@ class _AppLaunchState {
   };
 }
 
-class BabyTalkApp extends StatefulWidget {
+class BabyTalkApp extends ConsumerStatefulWidget {
   const BabyTalkApp({
     super.key,
     required this.bootState,
-    this.repositoryFactory,
-    this.accountRepositoryFactory,
-    this.householdRepositoryFactory,
-    this.appDirectoryResolver,
     this.audioControllerFactory,
     this.completedSnapshotLoader,
-    this.mentorStoreName,
     this.shareUriStream,
     this.shareReentryCoordinator,
     this.inviteReentryCoordinator,
@@ -167,13 +133,8 @@ class BabyTalkApp extends StatefulWidget {
   });
 
   final AppBootState bootState;
-  final PracticeRepositoryFactory? repositoryFactory;
-  final AccountRepositoryFactory? accountRepositoryFactory;
-  final HouseholdRepositoryFactory? householdRepositoryFactory;
-  final AppDirectoryResolver? appDirectoryResolver;
   final PracticeAudioControllerFactory? audioControllerFactory;
   final OnboardingCompletedSnapshotLoader? completedSnapshotLoader;
-  final String? mentorStoreName;
   final Stream<Uri>? shareUriStream;
   final ShareReentryCoordinator? shareReentryCoordinator;
   final InviteReentryCoordinator? inviteReentryCoordinator;
@@ -181,10 +142,10 @@ class BabyTalkApp extends StatefulWidget {
   final Duration gardenGrowthRefreshTimeout;
 
   @override
-  State<BabyTalkApp> createState() => _BabyTalkAppState();
+  ConsumerState<BabyTalkApp> createState() => _BabyTalkAppState();
 }
 
-class _BabyTalkAppState extends State<BabyTalkApp> {
+class _BabyTalkAppState extends ConsumerState<BabyTalkApp> {
   late Future<_AppLaunchState> _launchStateFuture;
   late final ShareReentryCoordinator _shareReentryCoordinator;
   late final InviteReentryCoordinator _inviteReentryCoordinator;
@@ -193,10 +154,6 @@ class _BabyTalkAppState extends State<BabyTalkApp> {
   late final AppReentryOrchestrator _reentryOrchestrator;
   final GlobalKey<NavigatorState> _navigatorKey = GlobalKey<NavigatorState>();
   GoRouter? _currentRouter;
-  PracticeRepository? _repository;
-  MentorRepository? _mentorRepository;
-  AccountRepository? _accountNotifierRepository;
-  AccountNotifier? _accountNotifier;
   _AppLaunchState? _resolvedLaunchState;
 
   @override
@@ -230,14 +187,8 @@ class _BabyTalkAppState extends State<BabyTalkApp> {
       _reentryOrchestrator.configureShareUriSubscription(widget.shareUriStream);
     }
     if (oldWidget.bootState != widget.bootState ||
-        oldWidget.repositoryFactory != widget.repositoryFactory ||
-        oldWidget.accountRepositoryFactory != widget.accountRepositoryFactory ||
-        oldWidget.householdRepositoryFactory !=
-            widget.householdRepositoryFactory ||
-        oldWidget.appDirectoryResolver != widget.appDirectoryResolver ||
         oldWidget.audioControllerFactory != widget.audioControllerFactory ||
         oldWidget.completedSnapshotLoader != widget.completedSnapshotLoader ||
-        oldWidget.mentorStoreName != widget.mentorStoreName ||
         oldWidget.practiceContinuityRefreshTimeout !=
             widget.practiceContinuityRefreshTimeout ||
         oldWidget.gardenGrowthRefreshTimeout !=
@@ -301,161 +252,25 @@ class _BabyTalkAppState extends State<BabyTalkApp> {
           _reentryOrchestrator.drainPendingShareReentry();
           unawaited(_reentryOrchestrator.drainPendingInviteReentry());
         });
-        final practiceRepository = launchState.practiceRepository;
         final onboardingRepository = launchState.onboardingRepository;
-        final accountRepository = launchState.accountRepository;
-        final householdRepository = launchState.householdRepository;
-        final mentorRepository = launchState.mentorRepository;
-        final accountNotifier = _resolveAccountNotifier(
-          accountRepository: accountRepository,
-          onboardingRepository: onboardingRepository,
-          householdRepository: householdRepository,
-          practiceRepository: practiceRepository,
-          mentorRepository: mentorRepository,
-        );
-        return MultiProvider(
-          providers: [
-            ChangeNotifierProvider<ShareReentryCoordinator>.value(
-              value: _shareReentryCoordinator,
-            ),
-            ChangeNotifierProvider<InviteReentryCoordinator>.value(
-              value: _inviteReentryCoordinator,
-            ),
-            Provider<PracticeRepository>.value(value: practiceRepository),
-            Provider<OnboardingRepository>.value(value: onboardingRepository),
-            Provider<AccountRepository>.value(value: accountRepository),
-            Provider<HouseholdRepository>.value(value: householdRepository),
-            Provider<MentorRepository>.value(value: mentorRepository),
-            Provider<PracticeRouteArgs>.value(
-              value: launchState.defaultPracticeArgs,
-            ),
-            Provider<AccountApiService>(
-              create: (_) => AccountApiService(),
-              dispose: (_, service) => service.close(),
-            ),
-            Provider<AuthenticatedApiClient>(
-              create: (context) => AuthenticatedApiClient(
-                apiService: context.read<AccountApiService>(),
-              ),
-            ),
-            Provider<MentorApiService>(
-              create: (context) {
-                final service = launchState.mentorApiService;
-                if (service != null) {
-                  return service;
-                }
-                return MentorApiService(
-                  authenticatedApiClient: context
-                      .read<AuthenticatedApiClient>(),
-                );
-              },
-              dispose: (_, service) {
-                if (!identical(service, launchState.mentorApiService)) {
-                  service.close();
-                }
-              },
-            ),
-            Provider<GardenGrowthRepository>(
-              create: (_) => GardenGrowthRepository(
-                practiceRepository: practiceRepository,
-                assetPhraseService: widget.bootState.assetPhraseService!,
-              ),
-            ),
-            ChangeNotifierProvider<PracticeContinuityNotifier>(
-              create: (_) => PracticeContinuityNotifier(
-                repository: practiceRepository,
-                initialStarterArgs: launchState.starterArgs,
-                seedState: launchState.continuitySeed,
-                refreshTimeout: widget.practiceContinuityRefreshTimeout,
-              ),
-            ),
-            ChangeNotifierProvider<AccountNotifier>.value(
-              value: accountNotifier,
-            ),
-            ChangeNotifierProvider<HouseholdNotifier>(
-              create: (_) =>
-                  HouseholdNotifier(repository: householdRepository)
-                    ..initialize(),
-            ),
-            ChangeNotifierProvider<MentorNotifier>(
-              create: (context) => MentorNotifier(
-                repository: context.read<MentorRepository>(),
-                accountNotifier: context.read<AccountNotifier>(),
-                apiService: context.read<MentorApiService>(),
-                persistRefreshedSession:
-                    accountRepository.persistRefreshedSession,
-              ),
-            ),
-            ChangeNotifierProvider<GardenGrowthNotifier>(
-              create: (context) => GardenGrowthNotifier(
-                repository: context.read<GardenGrowthRepository>(),
-                refreshTimeout: widget.gardenGrowthRefreshTimeout,
-              ),
-            ),
-            Provider<ShareApiService>(
-              create: (_) => ShareApiService(),
-              dispose: (_, service) => service.close(),
-            ),
-            Provider<ShareRepository>(
-              create: (context) => ShareRepository(
-                apiService: context.read<ShareApiService>(),
-                shareSheetLauncher: const SharePlusSheetLauncher(),
-              ),
-            ),
-            ChangeNotifierProxyProvider2<
-              GardenGrowthNotifier,
-              PracticeContinuityNotifier,
-              ShareNotifier
-            >(
-              create: (context) =>
-                  ShareNotifier(repository: context.read<ShareRepository>()),
-              update:
-                  (
-                    context,
-                    gardenGrowthNotifier,
-                    continuityNotifier,
-                    shareNotifier,
-                  ) {
-                    final nextNotifier =
-                        shareNotifier ??
-                        ShareNotifier(
-                          repository: context.read<ShareRepository>(),
-                        );
-                    nextNotifier.updateSnapshots(
-                      growthSnapshot: gardenGrowthNotifier.snapshot,
-                      continuitySnapshot:
-                          continuityNotifier.hasResolvedRecommendation
-                          ? continuityNotifier.snapshot
-                          : null,
-                      notify: false,
-                    );
-                    return nextNotifier;
-                  },
-            ),
-          ],
-          child: ProviderScope(
-            overrides: _buildRiverpodOverrides(
-              practiceRepository: practiceRepository,
-              householdRepository: householdRepository,
-              accountNotifier: accountNotifier,
+        return ProviderScope(
+          overrides: _buildRiverpodOverrides(
+            onboardingRepository: onboardingRepository,
+            defaultPracticeArgs: launchState.defaultPracticeArgs,
+          ),
+          child: MaterialApp.router(
+            routerConfig: _resolveRouter(
+              launchState: launchState,
               onboardingRepository: onboardingRepository,
-              mentorRepository: mentorRepository,
-              defaultPracticeArgs: launchState.defaultPracticeArgs,
             ),
-            child: MaterialApp.router(
-              routerConfig: _resolveRouter(
-                launchState: launchState,
-                onboardingRepository: onboardingRepository,
-              ),
-              builder: (context, child) => _ReentryOverlay(child: child),
-              debugShowCheckedModeBanner: false,
-              title: 'Baby Talk 2',
-              localizationsDelegates: AppLocalizations.localizationsDelegates,
-              supportedLocales: AppLocalizations.supportedLocales,
-              theme: AppTheme.build(),
-              darkTheme: AppTheme.buildDark(),
-              themeMode: ThemeMode.system,
-            ),
+            builder: (context, child) => _ReentryOverlay(child: child),
+            debugShowCheckedModeBanner: false,
+            title: 'Baby Talk 2',
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            theme: AppTheme.build(),
+            darkTheme: AppTheme.buildDark(),
+            themeMode: ThemeMode.system,
           ),
         );
       },
@@ -463,58 +278,17 @@ class _BabyTalkAppState extends State<BabyTalkApp> {
   }
 
   List<Override> _buildRiverpodOverrides({
-    required PracticeRepository practiceRepository,
-    required HouseholdRepository householdRepository,
-    required AccountNotifier accountNotifier,
     required OnboardingRepository onboardingRepository,
-    required MentorRepository mentorRepository,
     required PracticeRouteArgs defaultPracticeArgs,
   }) {
-    final gardenGrowthRepo = GardenGrowthRepository(
-      practiceRepository: practiceRepository,
-      assetPhraseService: widget.bootState.assetPhraseService!,
-    );
     return [
-      practiceRepositoryProvider.overrideWith((ref) => practiceRepository),
       onboardingRepositoryProvider.overrideWith((ref) => onboardingRepository),
-      onboardingNotifierProvider.overrideWith(
-        (ref) =>
-            OnboardingNotifier(repository: onboardingRepository)..initialize(),
-      ),
-      gardenGrowthNotifierProvider.overrideWith(
-        (ref) => GardenGrowthNotifier(repository: gardenGrowthRepo),
-      ),
-      practiceContinuityNotifierProvider.overrideWith(
-        (ref) => PracticeContinuityNotifier(
-          repository: practiceRepository,
-          initialStarterArgs: defaultPracticeArgs,
-          refreshTimeout: widget.practiceContinuityRefreshTimeout,
-        ),
-      ),
-      householdNotifierProvider.overrideWith(
-        (ref) =>
-            HouseholdNotifier(repository: householdRepository)..initialize(),
-      ),
-      accountNotifierProvider.overrideWith((ref) => accountNotifier),
-      shareNotifierProvider.overrideWith(
-        (ref) => ShareNotifier(
-          repository: ShareRepository(
-            apiService: ShareApiService(),
-            shareSheetLauncher: const SharePlusSheetLauncher(),
-          ),
-          initialGrowthSnapshot: ref
-              .watch(gardenGrowthNotifierProvider)
-              .snapshot,
-          initialContinuitySnapshot: null,
-        ),
-      ),
+      defaultPracticeRouteArgsProvider.overrideWithValue(defaultPracticeArgs),
     ];
   }
 
   @override
   void dispose() {
-    final repository = _repository;
-    final mentorRepository = _mentorRepository;
     _reentryOrchestrator.dispose();
     if (_ownsShareReentryCoordinator) {
       _shareReentryCoordinator.dispose();
@@ -522,60 +296,7 @@ class _BabyTalkAppState extends State<BabyTalkApp> {
     if (_ownsInviteReentryCoordinator) {
       _inviteReentryCoordinator.dispose();
     }
-    if (repository != null) {
-      unawaited(repository.close());
-    }
-    if (mentorRepository != null) {
-      unawaited(mentorRepository.close());
-    }
-    _accountNotifier?.dispose();
     super.dispose();
-  }
-
-  AccountNotifier _resolveAccountNotifier({
-    required AccountRepository accountRepository,
-    required OnboardingRepository onboardingRepository,
-    required HouseholdRepository householdRepository,
-    required PracticeRepository practiceRepository,
-    required MentorRepository mentorRepository,
-  }) {
-    final currentNotifier = _accountNotifier;
-    if (currentNotifier != null &&
-        identical(_accountNotifierRepository, accountRepository)) {
-      return currentNotifier;
-    }
-
-    currentNotifier?.dispose();
-    final orchestrator = createLocalSensitiveDataClearanceOrchestrator(
-      accountRepository: accountRepository,
-      onboardingRepository: onboardingRepository,
-      householdRepository: householdRepository,
-      practiceRepository: practiceRepository,
-      mentorRepository: mentorRepository,
-    );
-    final nextNotifier = AccountNotifier(
-      repository: accountRepository,
-      localDataClearanceRunner:
-          ({required trigger, required correlationId, required requestedAt}) {
-            return orchestrator.clear(
-              LocalSensitiveDataClearanceRequest(
-                trigger: trigger,
-                authorization: StaffPlusDestructiveAuthorization(
-                  decisionId: 'HDR-R4-003',
-                  approvedBy: 'human-red-decision',
-                  approvedAt: DateTime.utc(2026, 5, 20),
-                  confirmationText:
-                      'Approved account deletion/device erasure local sensitive data clearance.',
-                ),
-                correlationId: correlationId,
-                requestedAt: requestedAt,
-              ),
-            );
-          },
-    );
-    _accountNotifierRepository = accountRepository;
-    _accountNotifier = nextNotifier;
-    return nextNotifier;
   }
 
   T? _lookupNotifier<T>() {
@@ -584,8 +305,19 @@ class _BabyTalkAppState extends State<BabyTalkApp> {
       return null;
     }
     try {
-      return Provider.of<T>(context, listen: false);
-    } on ProviderNotFoundException {
+      final container = ProviderScope.containerOf(context);
+      // Match by runtime type since Riverpod providers are typed.
+      if (T == HouseholdNotifier) {
+        return container.read(householdNotifierProvider) as T;
+      }
+      if (T == PracticeContinuityNotifier) {
+        return container.read(practiceContinuityNotifierProvider) as T;
+      }
+      if (T == GardenGrowthNotifier) {
+        return container.read(gardenGrowthNotifierProvider) as T;
+      }
+      return null;
+    } catch (_) {
       return null;
     }
   }
@@ -612,16 +344,10 @@ class _BabyTalkAppState extends State<BabyTalkApp> {
         ),
         GoRoute(
           path: AppRouteNames.onboarding,
-          builder: (context, state) =>
-              ChangeNotifierProvider<OnboardingNotifier>(
-                create: (_) =>
-                    OnboardingNotifier(repository: onboardingRepository)
-                      ..initialize(),
-                child: const _BootRouteMarker(
-                  routeKey: Key('boot-route-onboarding'),
-                  child: OnboardingScreen(),
-                ),
-              ),
+          builder: (context, state) => const _BootRouteMarker(
+            routeKey: Key('boot-route-onboarding'),
+            child: OnboardingScreen(),
+          ),
         ),
         GoRoute(
           path: AppRouteNames.practice,
@@ -637,6 +363,16 @@ class _BabyTalkAppState extends State<BabyTalkApp> {
           path: AppRouteNames.account,
           builder: (context, state) => const AccountEntryScreen(),
         ),
+        GoRoute(
+          path: '/me/settings',
+          builder: (context, state) => const SettingsScreen(),
+        ),
+        GoRoute(
+          path: '/me/growth',
+          builder: (context, state) => const GardenGrowthCombinedScreen(
+            initialTab: GrowthTab.growth,
+          ),
+        ),
       ],
     );
     return _currentRouter!;
@@ -649,52 +385,56 @@ class _BabyTalkAppState extends State<BabyTalkApp> {
   }
 
   Future<_AppLaunchState> _loadLaunchState() async {
-    try {
-      // 1. SessionBootstrap: 创建所有 repositories
-      final bootstrap = await SessionBootstrap.create(
-        assetPhraseService: widget.bootState.assetPhraseService!,
-        primarySpaceId: widget.bootState.primarySpaceId!,
-        primaryActivityId: widget.bootState.primaryActivityId!,
-        repositoryFactory: widget.repositoryFactory,
-        accountRepositoryFactory: widget.accountRepositoryFactory,
-        householdRepositoryFactory: widget.householdRepositoryFactory,
-        appDirectoryResolver: widget.appDirectoryResolver,
-        mentorStoreName: widget.mentorStoreName,
-      );
+    // 1. 从 Riverpod provider graph 读取仓库
+    //    assetPhraseServiceProvider 已在 main.dart 的 ProviderScope 中覆盖
+    final practiceRepository = await ref.read(
+      practiceRepositoryProvider.future,
+    );
+    final accountRepository = await ref.read(accountRepositoryProvider.future);
+    final householdRepository = await ref.read(
+      householdRepositoryProvider.future,
+    );
+    final mentorRepository = await ref.read(mentorRepositoryProvider.future);
 
-      // 2. AuthState: 读取认证状态
-      final authState = await AuthState.load(
-        onboardingRepository: bootstrap.onboardingRepository,
-        completedSnapshotLoader: widget.completedSnapshotLoader,
-      );
+    // 2. OnboardingRepository 需要 AppBootState 的 ID，手动构造
+    final directory = await ref.read(appDirectoryProvider.future);
+    final onboardingStore = OnboardingSnapshotStore(
+      directoryResolver: () async => directory,
+    );
+    final onboardingRepository = OnboardingRepository(
+      snapshotStore: onboardingStore,
+      practiceRepository: practiceRepository,
+      starterSpaceId: widget.bootState.primarySpaceId!,
+      starterActivityId: widget.bootState.primaryActivityId!,
+    );
 
-      // 3. FeatureGates: 解析启动目标和 feature gates
-      final featureGates = await FeatureGates.resolve(
-        practiceRepository: bootstrap.practiceRepository,
-        completedSnapshot: authState.completedSnapshot,
-        primarySpaceId: widget.bootState.primarySpaceId!,
-        primaryActivityId: widget.bootState.primaryActivityId!,
-        continuitySeedTimeout: _bootContinuitySeedTimeout,
-      );
+    // 3. AuthState: 读取认证状态
+    final authState = await AuthState.load(
+      onboardingRepository: onboardingRepository,
+      completedSnapshotLoader: widget.completedSnapshotLoader,
+    );
 
-      _repository = bootstrap.practiceRepository;
-      _mentorRepository = bootstrap.mentorRepository;
-      return _AppLaunchState(
-        practiceRepository: bootstrap.practiceRepository,
-        onboardingRepository: bootstrap.onboardingRepository,
-        accountRepository: bootstrap.accountRepository,
-        householdRepository: bootstrap.householdRepository,
-        mentorRepository: bootstrap.mentorRepository,
-        destination: featureGates.destination,
-        starterArgs: featureGates.starterArgs,
-        defaultPracticeArgs: featureGates.defaultPracticeArgs,
-        continuitySeed: featureGates.continuitySeed,
-        completedSnapshot: authState.completedSnapshot,
-        mentorApiService: null,
-      );
-    } catch (error) {
-      rethrow;
-    }
+    // 4. FeatureGates: 解析启动目标和 feature gates
+    final featureGates = await FeatureGates.resolve(
+      practiceRepository: practiceRepository,
+      completedSnapshot: authState.completedSnapshot,
+      primarySpaceId: widget.bootState.primarySpaceId!,
+      primaryActivityId: widget.bootState.primaryActivityId!,
+      continuitySeedTimeout: _bootContinuitySeedTimeout,
+    );
+
+    return _AppLaunchState(
+      practiceRepository: practiceRepository,
+      onboardingRepository: onboardingRepository,
+      accountRepository: accountRepository,
+      householdRepository: householdRepository,
+      mentorRepository: mentorRepository,
+      destination: featureGates.destination,
+      starterArgs: featureGates.starterArgs,
+      defaultPracticeArgs: featureGates.defaultPracticeArgs,
+      continuitySeed: featureGates.continuitySeed,
+      completedSnapshot: authState.completedSnapshot,
+    );
   }
 }
 
@@ -780,16 +520,16 @@ class _BootRouteMarker extends StatelessWidget {
   }
 }
 
-class _ReentryOverlay extends StatelessWidget {
+class _ReentryOverlay extends ConsumerWidget {
   const _ReentryOverlay({this.child});
 
   final Widget? child;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final colors = context.appColors;
-    final inviteCoordinator = context.watch<InviteReentryCoordinator>();
-    final shareCoordinator = context.watch<ShareReentryCoordinator>();
+    final inviteCoordinator = ref.watch(inviteReentryCoordinatorProvider);
+    final shareCoordinator = ref.watch(shareReentryCoordinatorProvider);
     final inviteMessage = inviteCoordinator.displayMessage?.trim();
     final shareMessage = shareCoordinator.displayMessage?.trim();
     final hasInviteMessage = inviteMessage != null && inviteMessage.isNotEmpty;
