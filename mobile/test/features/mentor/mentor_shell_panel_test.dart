@@ -505,6 +505,8 @@ class _Harness {
     final riverpodOverrides = <Override>[
       practiceRepositoryProvider.overrideWith((ref) async => practiceRepository),
       accountNotifierProvider.overrideWith((ref) => accountNotifier),
+      mentorRepositoryProvider.overrideWith((ref) async => mentorRepository),
+      mentorNotifierProvider.overrideWith((ref) => mentorNotifier),
       gardenGrowthNotifierProvider.overrideWith((ref) => gardenGrowthNotifier),
       practiceContinuityNotifierProvider.overrideWith(
         (ref) => practiceContinuityNotifier,
@@ -557,6 +559,8 @@ class _Harness {
     final riverpodOverrides = <Override>[
       practiceRepositoryProvider.overrideWith((ref) async => practiceRepository),
       accountNotifierProvider.overrideWith((ref) => accountNotifier),
+      mentorRepositoryProvider.overrideWith((ref) async => mentorRepository),
+      mentorNotifierProvider.overrideWith((ref) => mentorNotifier),
       gardenGrowthNotifierProvider.overrideWith((ref) => gardenGrowthNotifier),
       practiceContinuityNotifierProvider.overrideWith(
         (ref) => practiceContinuityNotifier,
