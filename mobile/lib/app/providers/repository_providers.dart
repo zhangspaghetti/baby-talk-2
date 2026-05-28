@@ -242,7 +242,7 @@ final householdRepositoryProvider = FutureProvider<HouseholdRepository>((
 
 /// Creates a [HouseholdNotifier] backed by the Riverpod provider graph.
 final householdNotifierProvider =
-    ChangeNotifierProvider.autoDispose<HouseholdNotifier>((ref) {
+    ChangeNotifierProvider<HouseholdNotifier>((ref) {
       final repository = ref.watch(householdRepositoryProvider).requireValue;
       return HouseholdNotifier(repository: repository)..initialize();
     });

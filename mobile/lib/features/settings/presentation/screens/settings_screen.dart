@@ -3,6 +3,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:mobile/app/providers/repository_providers.dart';
 import 'package:mobile/app/theme/app_theme.dart';
+import 'package:mobile/l10n/app_localizations.dart';
 
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
@@ -12,11 +13,12 @@ class SettingsScreen extends ConsumerWidget {
     final notifier = ref.watch(settingsNotifierProvider);
     final snapshot = notifier.snapshot;
     final colors = context.appColors;
+    final l = AppLocalizations.of(context)!;
 
     return Scaffold(
       backgroundColor: colors.bgBase,
       appBar: AppBar(
-        title: const Text('设置'),
+        title: Text(l.settingsTitle),
         backgroundColor: colors.bgSurface,
         foregroundColor: colors.textPrimary,
         elevation: 0,
@@ -28,14 +30,14 @@ class SettingsScreen extends ConsumerWidget {
               children: [
                 // --- Reminder ---
                 _SettingsSection(
-                  title: '提醒设置',
+                  title: l.settingsReminderSection,
                   children: [
                     _SettingsTile(
                       icon: Icons.notifications_outlined,
-                      title: '每日提醒',
+                      title: l.settingsDailyReminder,
                       subtitle: snapshot.reminderEnabled
                           ? '${_padZero(snapshot.reminderHour)}:${_padZero(snapshot.reminderMinute)}'
-                          : '未开启',
+                          : l.settingsNotEnabled,
                       trailing: Switch(
                         value: snapshot.reminderEnabled,
                         onChanged: (value) {
@@ -47,78 +49,78 @@ class SettingsScreen extends ConsumerWidget {
                         },
                         activeThumbColor: colors.accent,
                       ),
-                      onTap: () => context.push('/settings/reminder'),
+                      onTap: () => context.push('/me/settings/reminder'),
                     ),
                   ],
                 ),
 
                 // --- Baby Profile ---
                 _SettingsSection(
-                  title: '宝宝档案',
+                  title: l.settingsBabyProfileSection,
                   children: [
                     _SettingsTile(
                       icon: Icons.child_care_outlined,
-                      title: '宝宝信息',
+                      title: l.settingsBabyInfo,
                       subtitle: snapshot.childName.isNotEmpty
-                          ? '${snapshot.childName}${snapshot.childAgeMonths != null ? '  ·  ${snapshot.childAgeMonths}个月' : ''}'
-                          : '点击设置宝宝信息',
-                      onTap: () => context.push('/settings/baby-profile'),
+                          ? '${snapshot.childName}${snapshot.childAgeMonths != null ? '  ·  ${l.settingsMonthSuffix(snapshot.childAgeMonths!)}' : ''}'
+                          : l.settingsTapToSetBabyInfo,
+                      onTap: () => context.push('/me/settings/baby-profile'),
                     ),
                   ],
                 ),
 
                 // --- Caregiver Preferences ---
                 _SettingsSection(
-                  title: '看护人偏好',
+                  title: l.settingsCaregiverSection,
                   children: [
                     _SettingsTile(
                       icon: Icons.person_outline,
-                      title: '角色与语言',
+                      title: l.settingsRoleAndLanguage,
                       subtitle: snapshot.caregiverRole.isNotEmpty
-                          ? '${snapshot.caregiverRole}  ·  ${_languageLabel(snapshot.preferredLanguage)}'
-                          : '点击设置',
-                      onTap: () => context.push('/settings/caregiver'),
+                          ? '${snapshot.caregiverRole}  ·  ${_languageLabel(l, snapshot.preferredLanguage)}'
+                          : l.settingsTapToSet,
+                      onTap: () => context.push('/me/settings/caregiver'),
                     ),
                   ],
                 ),
 
                 // --- Playback Preferences ---
                 _SettingsSection(
-                  title: '播放设置',
+                  title: l.settingsPlaybackSection,
                   children: [
                     _SettingsTile(
                       icon: Icons.play_circle_outline,
-                      title: '播放偏好',
+                      title: l.settingsPlaybackPrefs,
                       subtitle:
-                          '自动播放${snapshot.autoPlayEnabled ? '开启' : '关闭'}  ·  语速 ${snapshot.audioSpeed}x',
-                      onTap: () => context.push('/settings/playback'),
+                          '${snapshot.autoPlayEnabled ? l.settingsAutoPlayOn : l.settingsAutoPlayOff}  ·  ${l.settingsSpeed} ${snapshot.audioSpeed}x',
+                      onTap: () => context.push('/me/settings/playback'),
                     ),
                   ],
                 ),
 
                 // --- Help & Feedback ---
                 _SettingsSection(
-                  title: '帮助与反馈',
+                  title: l.settingsHelpSection,
                   children: [
                     _SettingsTile(
                       icon: Icons.help_outline,
-                      title: '帮助与反馈',
-                      onTap: () => context.push('/settings/help'),
+                      title: l.settingsHelpSection,
+                      onTap: () => context.push('/me/settings/help'),
                     ),
                   ],
                 ),
 
                 // --- About ---
                 _SettingsSection(
-                  title: '关于',
+                  title: l.settingsAboutSection,
                   children: [
                     _SettingsTile(
                       icon: Icons.info_outline,
-                      title: '关于 BabyTalk',
+                      title: l.settingsAboutBabyTalk,
                       subtitle: snapshot.appVersion.isNotEmpty
-                          ? '版本 ${snapshot.appVersion}'
+                          ? l.settingsVersion(snapshot.appVersion)
                           : null,
-                      onTap: () => context.push('/settings/about'),
+                      onTap: () => context.push('/me/settings/about'),
                     ),
                   ],
                 ),
@@ -129,12 +131,12 @@ class SettingsScreen extends ConsumerWidget {
 
   static String _padZero(int value) => value.toString().padLeft(2, '0');
 
-  static String _languageLabel(String code) {
+  static String _languageLabel(AppLocalizations l, String code) {
     switch (code) {
       case 'zh':
-        return '中文';
+        return l.settingsLanguageZh;
       case 'en':
-        return 'English';
+        return l.settingsLanguageEn;
       default:
         return code;
     }

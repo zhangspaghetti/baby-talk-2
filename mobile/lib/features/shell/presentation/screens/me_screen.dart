@@ -305,22 +305,22 @@ class _FunctionGrid extends StatelessWidget {
       _GridEntry(
         icon: Icons.notifications_outlined,
         label: l.meReminders,
-        route: '/settings',
+        route: '/me/settings',
       ),
       _GridEntry(
         icon: Icons.child_care_outlined,
         label: l.meBabyProfile,
-        route: '/settings',
+        route: '/me/settings',
       ),
       _GridEntry(
         icon: Icons.play_circle_outline,
         label: l.mePlaybackPrefs,
-        route: '/settings',
+        route: '/me/settings',
       ),
       _GridEntry(
         icon: Icons.help_outline,
         label: l.meHelp,
-        route: '/settings',
+        route: '/me/settings',
       ),
     ];
 

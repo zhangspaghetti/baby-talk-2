@@ -31,6 +31,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart'
     show ConsumerState, ConsumerStatefulWidget, ConsumerWidget, Override,
         ProviderScope, WidgetRef;
 import 'package:mobile/app/providers/repository_providers.dart';
+import 'package:mobile/features/settings/presentation/screens/about_screen.dart';
+import 'package:mobile/features/settings/presentation/screens/baby_profile_screen.dart';
+import 'package:mobile/features/settings/presentation/screens/caregiver_preferences_screen.dart';
+import 'package:mobile/features/settings/presentation/screens/help_feedback_screen.dart';
+import 'package:mobile/features/settings/presentation/screens/playback_preferences_screen.dart';
+import 'package:mobile/features/settings/presentation/screens/reminder_settings_screen.dart';
 import 'package:mobile/features/settings/presentation/screens/settings_screen.dart';
 import 'package:mobile/features/shell/presentation/app_shell_screen.dart';
 import 'package:mobile/features/shell/presentation/screens/garden_growth_combined_screen.dart';
@@ -366,6 +372,32 @@ class _BabyTalkAppState extends ConsumerState<BabyTalkApp> {
         GoRoute(
           path: '/me/settings',
           builder: (context, state) => const SettingsScreen(),
+          routes: [
+            GoRoute(
+              path: 'reminder',
+              builder: (context, state) => const ReminderSettingsScreen(),
+            ),
+            GoRoute(
+              path: 'baby-profile',
+              builder: (context, state) => const BabyProfileScreen(),
+            ),
+            GoRoute(
+              path: 'caregiver',
+              builder: (context, state) => const CaregiverPreferencesScreen(),
+            ),
+            GoRoute(
+              path: 'playback',
+              builder: (context, state) => const PlaybackPreferencesScreen(),
+            ),
+            GoRoute(
+              path: 'help',
+              builder: (context, state) => const HelpFeedbackScreen(),
+            ),
+            GoRoute(
+              path: 'about',
+              builder: (context, state) => const AboutScreen(),
+            ),
+          ],
         ),
         GoRoute(
           path: '/me/growth',

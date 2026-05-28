@@ -3057,186 +3057,375 @@ abstract class AppLocalizations {
   String discoverOpenActivityError(Object title, Object error);
 
   /// No description provided for @discoverSearchHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'搜索短语或场景...'**
   String get discoverSearchHint;
 
   /// No description provided for @discoverSceneAll.
+  ///
+  /// In zh, this message translates to:
+  /// **'全部'**
   String get discoverSceneAll;
 
   /// No description provided for @discoverSceneMealtime.
+  ///
+  /// In zh, this message translates to:
+  /// **'喂饭'**
   String get discoverSceneMealtime;
 
   /// No description provided for @discoverSceneDrinking.
+  ///
+  /// In zh, this message translates to:
+  /// **'喝水'**
   String get discoverSceneDrinking;
 
   /// No description provided for @discoverSceneDiaper.
+  ///
+  /// In zh, this message translates to:
+  /// **'换尿布'**
   String get discoverSceneDiaper;
 
   /// No description provided for @discoverSceneBath.
+  ///
+  /// In zh, this message translates to:
+  /// **'洗澡'**
   String get discoverSceneBath;
 
   /// No description provided for @discoverSceneBedtime.
+  ///
+  /// In zh, this message translates to:
+  /// **'睡前'**
   String get discoverSceneBedtime;
 
   /// No description provided for @discoverSceneOuting.
+  ///
+  /// In zh, this message translates to:
+  /// **'出门'**
   String get discoverSceneOuting;
 
   /// No description provided for @discoverSortMostUsed.
+  ///
+  /// In zh, this message translates to:
+  /// **'最常用'**
   String get discoverSortMostUsed;
 
   /// No description provided for @discoverSortNewest.
+  ///
+  /// In zh, this message translates to:
+  /// **'最新'**
   String get discoverSortNewest;
 
   /// No description provided for @discoverSortAll.
+  ///
+  /// In zh, this message translates to:
+  /// **'全部'**
   String get discoverSortAll;
 
   /// No description provided for @discoverSortLabel.
+  ///
+  /// In zh, this message translates to:
+  /// **'排序'**
   String get discoverSortLabel;
 
   /// No description provided for @discoverPracticeThis.
+  ///
+  /// In zh, this message translates to:
+  /// **'练这一句'**
   String get discoverPracticeThis;
 
   /// No description provided for @discoverUsageHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'适合在{scene}时轻轻说一次'**
   String discoverUsageHint(Object scene);
 
   /// No description provided for @discoverSearchEmpty.
+  ///
+  /// In zh, this message translates to:
+  /// **'没有找到匹配的短语，换个关键词试试'**
   String get discoverSearchEmpty;
 
   /// No description provided for @discoverSceneEmpty.
+  ///
+  /// In zh, this message translates to:
+  /// **'这个场景还没有短语，换个场景试试'**
   String get discoverSceneEmpty;
 
   /// No description provided for @discoverSceneTagMealtime.
+  ///
+  /// In zh, this message translates to:
+  /// **'喂饭'**
   String get discoverSceneTagMealtime;
 
   /// No description provided for @discoverSceneTagDrinking.
+  ///
+  /// In zh, this message translates to:
+  /// **'喝水'**
   String get discoverSceneTagDrinking;
 
   /// No description provided for @discoverSceneTagDiaper.
+  ///
+  /// In zh, this message translates to:
+  /// **'换尿布'**
   String get discoverSceneTagDiaper;
 
   /// No description provided for @discoverSceneTagBath.
+  ///
+  /// In zh, this message translates to:
+  /// **'洗澡'**
   String get discoverSceneTagBath;
 
   /// No description provided for @discoverSceneTagBedtime.
+  ///
+  /// In zh, this message translates to:
+  /// **'睡前'**
   String get discoverSceneTagBedtime;
 
   /// No description provided for @discoverSceneTagOuting.
+  ///
+  /// In zh, this message translates to:
+  /// **'出门'**
   String get discoverSceneTagOuting;
 
   /// No description provided for @discoverSceneTagOther.
+  ///
+  /// In zh, this message translates to:
+  /// **'其他'**
   String get discoverSceneTagOther;
 
+  /// No description provided for @discoverPracticePhraseHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'点击卡片或按钮进入练习'**
+  String get discoverPracticePhraseHint;
+
   /// No description provided for @discoverTrustSubtitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'每天一句亲子英语'**
   String get discoverTrustSubtitle;
 
   /// No description provided for @discoverTrustPrivacy.
+  ///
+  /// In zh, this message translates to:
+  /// **'你的信息受到保护'**
   String get discoverTrustPrivacy;
 
   /// No description provided for @discoverUnifiedLoginTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'欢迎使用 BabyTalk'**
   String get discoverUnifiedLoginTitle;
 
   /// No description provided for @discoverUnifiedLoginSubtitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'输入手机号，自动识别新老用户'**
   String get discoverUnifiedLoginSubtitle;
 
   /// No description provided for @discoverPhoneLabel.
+  ///
+  /// In zh, this message translates to:
+  /// **'手机号'**
   String get discoverPhoneLabel;
 
   /// No description provided for @discoverPhoneHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'用于登录或注册 BabyTalk'**
   String get discoverPhoneHint;
 
   /// No description provided for @discoverGetCode.
+  ///
+  /// In zh, this message translates to:
+  /// **'获取验证码'**
   String get discoverGetCode;
 
   /// No description provided for @discoverCodeLabel.
+  ///
+  /// In zh, this message translates to:
+  /// **'验证码'**
   String get discoverCodeLabel;
 
   /// No description provided for @discoverCodeHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'输入 6 位短信验证码'**
   String get discoverCodeHint;
 
   /// No description provided for @discoverCodeAutoHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'支持自动填充和粘贴'**
   String get discoverCodeAutoHint;
 
   /// No description provided for @discoverResendCode.
+  ///
+  /// In zh, this message translates to:
+  /// **'重新发送'**
   String get discoverResendCode;
 
   /// No description provided for @discoverResendCountdown.
+  ///
+  /// In zh, this message translates to:
+  /// **'{seconds}s 后可重发'**
   String discoverResendCountdown(Object seconds);
 
   /// No description provided for @discoverResendReady.
+  ///
+  /// In zh, this message translates to:
+  /// **'没有收到？可以重新发送'**
   String get discoverResendReady;
 
   /// No description provided for @discoverLoginButton.
+  ///
+  /// In zh, this message translates to:
+  /// **'登录 / 注册'**
   String get discoverLoginButton;
 
   /// No description provided for @discoverPasswordLabel.
+  ///
+  /// In zh, this message translates to:
+  /// **'密码'**
   String get discoverPasswordLabel;
 
   /// No description provided for @discoverPasswordHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'至少 8 位，建议包含字母和数字'**
   String get discoverPasswordHint;
 
   /// No description provided for @discoverConfirmPasswordLabel.
+  ///
+  /// In zh, this message translates to:
+  /// **'确认密码'**
   String get discoverConfirmPasswordLabel;
 
   /// No description provided for @discoverForgotPassword.
+  ///
+  /// In zh, this message translates to:
+  /// **'忘记密码？'**
   String get discoverForgotPassword;
 
   /// No description provided for @discoverResetPasswordTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'重置密码'**
   String get discoverResetPasswordTitle;
 
   /// No description provided for @discoverResetPasswordSubtitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'通过验证码确认身份后设置新密码'**
   String get discoverResetPasswordSubtitle;
 
   /// No description provided for @discoverNewPasswordLabel.
+  ///
+  /// In zh, this message translates to:
+  /// **'新密码'**
   String get discoverNewPasswordLabel;
 
   /// No description provided for @discoverSetPasswordLabel.
+  ///
+  /// In zh, this message translates to:
+  /// **'设置密码'**
   String get discoverSetPasswordLabel;
 
   /// No description provided for @discoverTermsPrefix.
+  ///
+  /// In zh, this message translates to:
+  /// **'我已阅读并同意'**
   String get discoverTermsPrefix;
 
   /// No description provided for @discoverTermsOfService.
+  ///
+  /// In zh, this message translates to:
+  /// **'《服务条款》'**
   String get discoverTermsOfService;
 
   /// No description provided for @discoverPrivacyPolicy.
+  ///
+  /// In zh, this message translates to:
+  /// **'《隐私协议》'**
   String get discoverPrivacyPolicy;
 
   /// No description provided for @discoverPrivacyNote.
+  ///
+  /// In zh, this message translates to:
+  /// **'登录即表示同意我们的服务条款和隐私协议'**
   String get discoverPrivacyNote;
 
   /// No description provided for @discoverVerificationPassed.
+  ///
+  /// In zh, this message translates to:
+  /// **'人机校验已通过，验证码已发送'**
   String get discoverVerificationPassed;
 
   /// No description provided for @discoverVerificationPending.
+  ///
+  /// In zh, this message translates to:
+  /// **'验证码待发送'**
   String get discoverVerificationPending;
 
   /// No description provided for @discoverCodeSentToast.
+  ///
+  /// In zh, this message translates to:
+  /// **'验证码已发送，请查看短信'**
   String get discoverCodeSentToast;
 
   /// No description provided for @discoverCaptchaTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'安全验证'**
   String get discoverCaptchaTitle;
 
   /// No description provided for @discoverCaptchaDescription.
+  ///
+  /// In zh, this message translates to:
+  /// **'请先完成校验，验证通过后再发送验证码。'**
   String get discoverCaptchaDescription;
 
   /// No description provided for @discoverCaptchaArea.
+  ///
+  /// In zh, this message translates to:
+  /// **'CAPTCHA 校验区域'**
   String get discoverCaptchaArea;
 
   /// No description provided for @discoverCaptchaPass.
+  ///
+  /// In zh, this message translates to:
+  /// **'模拟验证通过'**
   String get discoverCaptchaPass;
 
   /// No description provided for @discoverCaptchaCancel.
+  ///
+  /// In zh, this message translates to:
+  /// **'取消'**
   String get discoverCaptchaCancel;
 
   /// No description provided for @discoverModeCodeLogin.
+  ///
+  /// In zh, this message translates to:
+  /// **'验证码登录'**
   String get discoverModeCodeLogin;
 
   /// No description provided for @discoverModePasswordLogin.
+  ///
+  /// In zh, this message translates to:
+  /// **'密码登录'**
   String get discoverModePasswordLogin;
 
   /// No description provided for @discoverModeRegister.
+  ///
+  /// In zh, this message translates to:
+  /// **'注册'**
   String get discoverModeRegister;
 
   /// No description provided for @discoverReturnToLogin.
+  ///
+  /// In zh, this message translates to:
+  /// **'返回登录'**
   String get discoverReturnToLogin;
 
   /// No description provided for @sharePhraseTodayLabel.
@@ -3322,6 +3511,144 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'帮助与反馈'**
   String get meHelp;
+
+  /// No description provided for @settingsTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'设置'**
+  String get settingsTitle;
+
+  /// No description provided for @settingsReminderSection.
+  ///
+  /// In zh, this message translates to:
+  /// **'提醒设置'**
+  String get settingsReminderSection;
+
+  /// No description provided for @settingsDailyReminder.
+  ///
+  /// In zh, this message translates to:
+  /// **'每日提醒'**
+  String get settingsDailyReminder;
+
+  /// No description provided for @settingsNotEnabled.
+  ///
+  /// In zh, this message translates to:
+  /// **'未开启'**
+  String get settingsNotEnabled;
+
+  /// No description provided for @settingsBabyProfileSection.
+  ///
+  /// In zh, this message translates to:
+  /// **'宝宝档案'**
+  String get settingsBabyProfileSection;
+
+  /// No description provided for @settingsBabyInfo.
+  ///
+  /// In zh, this message translates to:
+  /// **'宝宝信息'**
+  String get settingsBabyInfo;
+
+  /// No description provided for @settingsTapToSetBabyInfo.
+  ///
+  /// In zh, this message translates to:
+  /// **'点击设置宝宝信息'**
+  String get settingsTapToSetBabyInfo;
+
+  /// No description provided for @settingsCaregiverSection.
+  ///
+  /// In zh, this message translates to:
+  /// **'看护人偏好'**
+  String get settingsCaregiverSection;
+
+  /// No description provided for @settingsRoleAndLanguage.
+  ///
+  /// In zh, this message translates to:
+  /// **'角色与语言'**
+  String get settingsRoleAndLanguage;
+
+  /// No description provided for @settingsTapToSet.
+  ///
+  /// In zh, this message translates to:
+  /// **'点击设置'**
+  String get settingsTapToSet;
+
+  /// No description provided for @settingsPlaybackSection.
+  ///
+  /// In zh, this message translates to:
+  /// **'播放设置'**
+  String get settingsPlaybackSection;
+
+  /// No description provided for @settingsPlaybackPrefs.
+  ///
+  /// In zh, this message translates to:
+  /// **'播放偏好'**
+  String get settingsPlaybackPrefs;
+
+  /// No description provided for @settingsAutoPlayOn.
+  ///
+  /// In zh, this message translates to:
+  /// **'自动播放开启'**
+  String get settingsAutoPlayOn;
+
+  /// No description provided for @settingsAutoPlayOff.
+  ///
+  /// In zh, this message translates to:
+  /// **'自动播放关闭'**
+  String get settingsAutoPlayOff;
+
+  /// No description provided for @settingsSpeed.
+  ///
+  /// In zh, this message translates to:
+  /// **'语速'**
+  String get settingsSpeed;
+
+  /// No description provided for @settingsHelpSection.
+  ///
+  /// In zh, this message translates to:
+  /// **'帮助与反馈'**
+  String get settingsHelpSection;
+
+  /// No description provided for @settingsHelpTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'帮助与反馈'**
+  String get settingsHelpTitle;
+
+  /// No description provided for @settingsAboutSection.
+  ///
+  /// In zh, this message translates to:
+  /// **'关于'**
+  String get settingsAboutSection;
+
+  /// No description provided for @settingsAboutBabyTalk.
+  ///
+  /// In zh, this message translates to:
+  /// **'关于 BabyTalk'**
+  String get settingsAboutBabyTalk;
+
+  /// No description provided for @settingsVersion.
+  ///
+  /// In zh, this message translates to:
+  /// **'版本 {version}'**
+  String settingsVersion(Object version);
+
+  /// No description provided for @settingsMonthSuffix.
+  ///
+  /// In zh, this message translates to:
+  /// **'{months}个月'**
+  String settingsMonthSuffix(Object months);
+
+  /// No description provided for @settingsLanguageZh.
+  ///
+  /// In zh, this message translates to:
+  /// **'中文'**
+  String get settingsLanguageZh;
+
+  /// No description provided for @settingsLanguageEn.
+  ///
+  /// In zh, this message translates to:
+  /// **'English'**
+  String get settingsLanguageEn;
 }
 
 class _AppLocalizationsDelegate

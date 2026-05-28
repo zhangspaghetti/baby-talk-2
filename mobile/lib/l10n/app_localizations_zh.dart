@@ -1718,6 +1718,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get discoverSceneTagOther => '其他';
 
   @override
+  String get discoverPracticePhraseHint => '点击卡片或按钮进入练习';
+
+  @override
   String get discoverTrustSubtitle => '每天一句亲子英语';
 
   @override
@@ -1752,7 +1755,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String discoverResendCountdown(Object seconds) {
-    return '$seconds 秒后可重发';
+    return '${seconds}s 后可重发';
   }
 
   @override
@@ -1878,4 +1881,77 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get meHelp => '帮助与反馈';
+
+  @override
+  String get settingsTitle => '设置';
+
+  @override
+  String get settingsReminderSection => '提醒设置';
+
+  @override
+  String get settingsDailyReminder => '每日提醒';
+
+  @override
+  String get settingsNotEnabled => '未开启';
+
+  @override
+  String get settingsBabyProfileSection => '宝宝档案';
+
+  @override
+  String get settingsBabyInfo => '宝宝信息';
+
+  @override
+  String get settingsTapToSetBabyInfo => '点击设置宝宝信息';
+
+  @override
+  String get settingsCaregiverSection => '看护人偏好';
+
+  @override
+  String get settingsRoleAndLanguage => '角色与语言';
+
+  @override
+  String get settingsTapToSet => '点击设置';
+
+  @override
+  String get settingsPlaybackSection => '播放设置';
+
+  @override
+  String get settingsPlaybackPrefs => '播放偏好';
+
+  @override
+  String get settingsAutoPlayOn => '自动播放开启';
+
+  @override
+  String get settingsAutoPlayOff => '自动播放关闭';
+
+  @override
+  String get settingsSpeed => '语速';
+
+  @override
+  String get settingsHelpSection => '帮助与反馈';
+
+  @override
+  String get settingsHelpTitle => '帮助与反馈';
+
+  @override
+  String get settingsAboutSection => '关于';
+
+  @override
+  String get settingsAboutBabyTalk => '关于 BabyTalk';
+
+  @override
+  String settingsVersion(Object version) {
+    return '版本 $version';
+  }
+
+  @override
+  String settingsMonthSuffix(Object months) {
+    return '$months个月';
+  }
+
+  @override
+  String get settingsLanguageZh => '中文';
+
+  @override
+  String get settingsLanguageEn => 'English';
 }
