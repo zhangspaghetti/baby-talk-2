@@ -23,6 +23,7 @@ targets:
           include:
             - lib/features/mentor/data/local/mentor_fact_event_entity.dart
             - lib/features/practice/data/local/interaction_event_entity.dart
+            - lib/features/settings/data/local/settings_entity.dart
       source_gen|combining_builder:
         options:
           build_extensions:

@@ -3073,6 +3073,72 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'聊天标签页'**
   String get mentorChatTabSemantics;
+
+  /// No description provided for @shellMe.
+  ///
+  /// In zh, this message translates to:
+  /// **'我'**
+  String get shellMe;
+
+  /// No description provided for @meGardenEmpty.
+  ///
+  /// In zh, this message translates to:
+  /// **'还没有种下花圃'**
+  String get meGardenEmpty;
+
+  /// No description provided for @meGardenSummary.
+  ///
+  /// In zh, this message translates to:
+  /// **'{count} 个花圃正在成长'**
+  String meGardenSummary(Object count);
+
+  /// No description provided for @meGrowthTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'成长数据'**
+  String get meGrowthTitle;
+
+  /// No description provided for @meStatEvents.
+  ///
+  /// In zh, this message translates to:
+  /// **'练习次数'**
+  String get meStatEvents;
+
+  /// No description provided for @meStatDiary.
+  ///
+  /// In zh, this message translates to:
+  /// **'成长日记'**
+  String get meStatDiary;
+
+  /// No description provided for @meStatMilestones.
+  ///
+  /// In zh, this message translates to:
+  /// **'里程碑'**
+  String get meStatMilestones;
+
+  /// No description provided for @meReminders.
+  ///
+  /// In zh, this message translates to:
+  /// **'提醒设置'**
+  String get meReminders;
+
+  /// No description provided for @meBabyProfile.
+  ///
+  /// In zh, this message translates to:
+  /// **'宝宝档案'**
+  String get meBabyProfile;
+
+  /// No description provided for @mePlaybackPrefs.
+  ///
+  /// In zh, this message translates to:
+  /// **'播放偏好'**
+  String get mePlaybackPrefs;
+
+  /// No description provided for @meHelp.
+  ///
+  /// In zh, this message translates to:
+  /// **'帮助与反馈'**
+  String get meHelp;
 }
 
 class _AppLocalizationsDelegate

@@ -17,6 +17,7 @@ import 'package:mobile/features/practice/presentation/garden_growth_notifier.dar
 import 'package:mobile/features/practice/presentation/screens/home_screen.dart';
 import 'package:mobile/features/shell/presentation/screens/discover_screen.dart';
 import 'package:mobile/features/shell/presentation/screens/garden_growth_combined_screen.dart';
+import 'package:mobile/features/shell/presentation/screens/me_screen.dart';
 import 'package:mobile/l10n/app_localizations.dart';
 
 class AppShellScreen extends ConsumerStatefulWidget {
@@ -85,7 +86,7 @@ class _AppShellScreenState extends ConsumerState<AppShellScreen> {
             ),
             const DiscoverScreen(),
             const GardenGrowthCombinedScreen(initialTab: GrowthTab.garden),
-            const GardenGrowthCombinedScreen(initialTab: GrowthTab.growth),
+            MeScreen(onboardingSnapshot: widget.onboardingSnapshot),
           ],
         ),
       ),
@@ -122,10 +123,10 @@ class _AppShellScreenState extends ConsumerState<AppShellScreen> {
             label: l.shellGarden,
           ),
           NavigationDestination(
-            key: const Key('shell-nav-growth'),
-            icon: const Icon(Icons.auto_graph_outlined),
-            selectedIcon: const Icon(Icons.auto_graph_rounded),
-            label: l.shellGrowth,
+            key: const Key('shell-nav-me'),
+            icon: const Icon(Icons.person_outlined),
+            selectedIcon: const Icon(Icons.person_rounded),
+            label: l.shellMe,
           ),
         ],
       ),
@@ -149,7 +150,7 @@ class _AppShellScreenState extends ConsumerState<AppShellScreen> {
       case 2:
         return l.shellGarden;
       case 3:
-        return l.shellGrowth;
+        return l.shellMe;
     }
     return 'Baby Talk 2';
   }
@@ -163,7 +164,7 @@ class _AppShellScreenState extends ConsumerState<AppShellScreen> {
       case 2:
         return 'garden';
       case 3:
-        return 'growth';
+        return 'me';
     }
     return 'home';
   }

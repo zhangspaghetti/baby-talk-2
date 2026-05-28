@@ -586,5 +586,18 @@
   "@sharePhraseTodayLabel": {"placeholders": {"phrase": {}}},
 
   "mentorSuggestionTabSemantics": "建议标签页",
-  "mentorChatTabSemantics": "聊天标签页"
+  "mentorChatTabSemantics": "聊天标签页",
+
+  "shellMe": "我",
+  "meGardenEmpty": "还没有种下花圃",
+  "meGardenSummary": "{count} 个花圃正在成长",
+  "@meGardenSummary": {"placeholders": {"count": {}}},
+  "meGrowthTitle": "成长数据",
+  "meStatEvents": "练习次数",
+  "meStatDiary": "成长日记",
+  "meStatMilestones": "里程碑",
+  "meReminders": "提醒设置",
+  "meBabyProfile": "宝宝档案",
+  "mePlaybackPrefs": "播放偏好",
+  "meHelp": "帮助与反馈"
 }

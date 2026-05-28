@@ -1656,4 +1656,39 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get mentorChatTabSemantics => '聊天标签页';
+
+  @override
+  String get shellMe => '我';
+
+  @override
+  String get meGardenEmpty => '还没有种下花圃';
+
+  @override
+  String meGardenSummary(Object count) {
+    return '$count 个花圃正在成长';
+  }
+
+  @override
+  String get meGrowthTitle => '成长数据';
+
+  @override
+  String get meStatEvents => '练习次数';
+
+  @override
+  String get meStatDiary => '成长日记';
+
+  @override
+  String get meStatMilestones => '里程碑';
+
+  @override
+  String get meReminders => '提醒设置';
+
+  @override
+  String get meBabyProfile => '宝宝档案';
+
+  @override
+  String get mePlaybackPrefs => '播放偏好';
+
+  @override
+  String get meHelp => '帮助与反馈';
 }
