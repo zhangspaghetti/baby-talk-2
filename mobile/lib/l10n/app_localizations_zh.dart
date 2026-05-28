@@ -1647,6 +1647,193 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
+  String get discoverSearchHint => '搜索短语或场景...';
+
+  @override
+  String get discoverSceneAll => '全部';
+
+  @override
+  String get discoverSceneMealtime => '喂饭';
+
+  @override
+  String get discoverSceneDrinking => '喝水';
+
+  @override
+  String get discoverSceneDiaper => '换尿布';
+
+  @override
+  String get discoverSceneBath => '洗澡';
+
+  @override
+  String get discoverSceneBedtime => '睡前';
+
+  @override
+  String get discoverSceneOuting => '出门';
+
+  @override
+  String get discoverSortMostUsed => '最常用';
+
+  @override
+  String get discoverSortNewest => '最新';
+
+  @override
+  String get discoverSortAll => '全部';
+
+  @override
+  String get discoverSortLabel => '排序';
+
+  @override
+  String get discoverPracticeThis => '练这一句';
+
+  @override
+  String discoverUsageHint(Object scene) {
+    return '适合在$scene时轻轻说一次';
+  }
+
+  @override
+  String get discoverSearchEmpty => '没有找到匹配的短语，换个关键词试试';
+
+  @override
+  String get discoverSceneEmpty => '这个场景还没有短语，换个场景试试';
+
+  @override
+  String get discoverSceneTagMealtime => '喂饭';
+
+  @override
+  String get discoverSceneTagDrinking => '喝水';
+
+  @override
+  String get discoverSceneTagDiaper => '换尿布';
+
+  @override
+  String get discoverSceneTagBath => '洗澡';
+
+  @override
+  String get discoverSceneTagBedtime => '睡前';
+
+  @override
+  String get discoverSceneTagOuting => '出门';
+
+  @override
+  String get discoverSceneTagOther => '其他';
+
+  @override
+  String get discoverTrustSubtitle => '每天一句亲子英语';
+
+  @override
+  String get discoverTrustPrivacy => '你的信息受到保护';
+
+  @override
+  String get discoverUnifiedLoginTitle => '欢迎使用 BabyTalk';
+
+  @override
+  String get discoverUnifiedLoginSubtitle => '输入手机号，自动识别新老用户';
+
+  @override
+  String get discoverPhoneLabel => '手机号';
+
+  @override
+  String get discoverPhoneHint => '用于登录或注册 BabyTalk';
+
+  @override
+  String get discoverGetCode => '获取验证码';
+
+  @override
+  String get discoverCodeLabel => '验证码';
+
+  @override
+  String get discoverCodeHint => '输入 6 位短信验证码';
+
+  @override
+  String get discoverCodeAutoHint => '支持自动填充和粘贴';
+
+  @override
+  String get discoverResendCode => '重新发送';
+
+  @override
+  String discoverResendCountdown(Object seconds) {
+    return '$seconds 秒后可重发';
+  }
+
+  @override
+  String get discoverResendReady => '没有收到？可以重新发送';
+
+  @override
+  String get discoverLoginButton => '登录 / 注册';
+
+  @override
+  String get discoverPasswordLabel => '密码';
+
+  @override
+  String get discoverPasswordHint => '至少 8 位，建议包含字母和数字';
+
+  @override
+  String get discoverConfirmPasswordLabel => '确认密码';
+
+  @override
+  String get discoverForgotPassword => '忘记密码？';
+
+  @override
+  String get discoverResetPasswordTitle => '重置密码';
+
+  @override
+  String get discoverResetPasswordSubtitle => '通过验证码确认身份后设置新密码';
+
+  @override
+  String get discoverNewPasswordLabel => '新密码';
+
+  @override
+  String get discoverSetPasswordLabel => '设置密码';
+
+  @override
+  String get discoverTermsPrefix => '我已阅读并同意';
+
+  @override
+  String get discoverTermsOfService => '《服务条款》';
+
+  @override
+  String get discoverPrivacyPolicy => '《隐私协议》';
+
+  @override
+  String get discoverPrivacyNote => '登录即表示同意我们的服务条款和隐私协议';
+
+  @override
+  String get discoverVerificationPassed => '人机校验已通过，验证码已发送';
+
+  @override
+  String get discoverVerificationPending => '验证码待发送';
+
+  @override
+  String get discoverCodeSentToast => '验证码已发送，请查看短信';
+
+  @override
+  String get discoverCaptchaTitle => '安全验证';
+
+  @override
+  String get discoverCaptchaDescription => '请先完成校验，验证通过后再发送验证码。';
+
+  @override
+  String get discoverCaptchaArea => 'CAPTCHA 校验区域';
+
+  @override
+  String get discoverCaptchaPass => '模拟验证通过';
+
+  @override
+  String get discoverCaptchaCancel => '取消';
+
+  @override
+  String get discoverModeCodeLogin => '验证码登录';
+
+  @override
+  String get discoverModePasswordLogin => '密码登录';
+
+  @override
+  String get discoverModeRegister => '注册';
+
+  @override
+  String get discoverReturnToLogin => '返回登录';
+
+  @override
   String sharePhraseTodayLabel(Object phrase) {
     return '今天说的一句：$phrase';
   }

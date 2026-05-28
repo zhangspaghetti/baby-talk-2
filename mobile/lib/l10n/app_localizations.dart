@@ -3056,6 +3056,189 @@ abstract class AppLocalizations {
   /// **'打开 {title} 失败：{error}'**
   String discoverOpenActivityError(Object title, Object error);
 
+  /// No description provided for @discoverSearchHint.
+  String get discoverSearchHint;
+
+  /// No description provided for @discoverSceneAll.
+  String get discoverSceneAll;
+
+  /// No description provided for @discoverSceneMealtime.
+  String get discoverSceneMealtime;
+
+  /// No description provided for @discoverSceneDrinking.
+  String get discoverSceneDrinking;
+
+  /// No description provided for @discoverSceneDiaper.
+  String get discoverSceneDiaper;
+
+  /// No description provided for @discoverSceneBath.
+  String get discoverSceneBath;
+
+  /// No description provided for @discoverSceneBedtime.
+  String get discoverSceneBedtime;
+
+  /// No description provided for @discoverSceneOuting.
+  String get discoverSceneOuting;
+
+  /// No description provided for @discoverSortMostUsed.
+  String get discoverSortMostUsed;
+
+  /// No description provided for @discoverSortNewest.
+  String get discoverSortNewest;
+
+  /// No description provided for @discoverSortAll.
+  String get discoverSortAll;
+
+  /// No description provided for @discoverSortLabel.
+  String get discoverSortLabel;
+
+  /// No description provided for @discoverPracticeThis.
+  String get discoverPracticeThis;
+
+  /// No description provided for @discoverUsageHint.
+  String discoverUsageHint(Object scene);
+
+  /// No description provided for @discoverSearchEmpty.
+  String get discoverSearchEmpty;
+
+  /// No description provided for @discoverSceneEmpty.
+  String get discoverSceneEmpty;
+
+  /// No description provided for @discoverSceneTagMealtime.
+  String get discoverSceneTagMealtime;
+
+  /// No description provided for @discoverSceneTagDrinking.
+  String get discoverSceneTagDrinking;
+
+  /// No description provided for @discoverSceneTagDiaper.
+  String get discoverSceneTagDiaper;
+
+  /// No description provided for @discoverSceneTagBath.
+  String get discoverSceneTagBath;
+
+  /// No description provided for @discoverSceneTagBedtime.
+  String get discoverSceneTagBedtime;
+
+  /// No description provided for @discoverSceneTagOuting.
+  String get discoverSceneTagOuting;
+
+  /// No description provided for @discoverSceneTagOther.
+  String get discoverSceneTagOther;
+
+  /// No description provided for @discoverTrustSubtitle.
+  String get discoverTrustSubtitle;
+
+  /// No description provided for @discoverTrustPrivacy.
+  String get discoverTrustPrivacy;
+
+  /// No description provided for @discoverUnifiedLoginTitle.
+  String get discoverUnifiedLoginTitle;
+
+  /// No description provided for @discoverUnifiedLoginSubtitle.
+  String get discoverUnifiedLoginSubtitle;
+
+  /// No description provided for @discoverPhoneLabel.
+  String get discoverPhoneLabel;
+
+  /// No description provided for @discoverPhoneHint.
+  String get discoverPhoneHint;
+
+  /// No description provided for @discoverGetCode.
+  String get discoverGetCode;
+
+  /// No description provided for @discoverCodeLabel.
+  String get discoverCodeLabel;
+
+  /// No description provided for @discoverCodeHint.
+  String get discoverCodeHint;
+
+  /// No description provided for @discoverCodeAutoHint.
+  String get discoverCodeAutoHint;
+
+  /// No description provided for @discoverResendCode.
+  String get discoverResendCode;
+
+  /// No description provided for @discoverResendCountdown.
+  String discoverResendCountdown(Object seconds);
+
+  /// No description provided for @discoverResendReady.
+  String get discoverResendReady;
+
+  /// No description provided for @discoverLoginButton.
+  String get discoverLoginButton;
+
+  /// No description provided for @discoverPasswordLabel.
+  String get discoverPasswordLabel;
+
+  /// No description provided for @discoverPasswordHint.
+  String get discoverPasswordHint;
+
+  /// No description provided for @discoverConfirmPasswordLabel.
+  String get discoverConfirmPasswordLabel;
+
+  /// No description provided for @discoverForgotPassword.
+  String get discoverForgotPassword;
+
+  /// No description provided for @discoverResetPasswordTitle.
+  String get discoverResetPasswordTitle;
+
+  /// No description provided for @discoverResetPasswordSubtitle.
+  String get discoverResetPasswordSubtitle;
+
+  /// No description provided for @discoverNewPasswordLabel.
+  String get discoverNewPasswordLabel;
+
+  /// No description provided for @discoverSetPasswordLabel.
+  String get discoverSetPasswordLabel;
+
+  /// No description provided for @discoverTermsPrefix.
+  String get discoverTermsPrefix;
+
+  /// No description provided for @discoverTermsOfService.
+  String get discoverTermsOfService;
+
+  /// No description provided for @discoverPrivacyPolicy.
+  String get discoverPrivacyPolicy;
+
+  /// No description provided for @discoverPrivacyNote.
+  String get discoverPrivacyNote;
+
+  /// No description provided for @discoverVerificationPassed.
+  String get discoverVerificationPassed;
+
+  /// No description provided for @discoverVerificationPending.
+  String get discoverVerificationPending;
+
+  /// No description provided for @discoverCodeSentToast.
+  String get discoverCodeSentToast;
+
+  /// No description provided for @discoverCaptchaTitle.
+  String get discoverCaptchaTitle;
+
+  /// No description provided for @discoverCaptchaDescription.
+  String get discoverCaptchaDescription;
+
+  /// No description provided for @discoverCaptchaArea.
+  String get discoverCaptchaArea;
+
+  /// No description provided for @discoverCaptchaPass.
+  String get discoverCaptchaPass;
+
+  /// No description provided for @discoverCaptchaCancel.
+  String get discoverCaptchaCancel;
+
+  /// No description provided for @discoverModeCodeLogin.
+  String get discoverModeCodeLogin;
+
+  /// No description provided for @discoverModePasswordLogin.
+  String get discoverModePasswordLogin;
+
+  /// No description provided for @discoverModeRegister.
+  String get discoverModeRegister;
+
+  /// No description provided for @discoverReturnToLogin.
+  String get discoverReturnToLogin;
+
   /// No description provided for @sharePhraseTodayLabel.
   ///
   /// In zh, this message translates to:

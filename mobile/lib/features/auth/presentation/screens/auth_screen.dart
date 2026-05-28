@@ -4,7 +4,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:mobile/app/theme/app_layout_constants.dart';
+import 'package:mobile/app/theme/app_theme.dart';
+import 'package:mobile/l10n/app_localizations.dart';
 
+/// Auth flow mode — V11 unified entry: codeLogin merges login+register detection.
 enum AuthMode { codeLogin, passwordLogin, register, resetPassword }
 
 class AuthScreen extends HookConsumerWidget {
@@ -12,6 +16,8 @@ class AuthScreen extends HookConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l = AppLocalizations.of(context)!;
+    final colors = context.appColors;
     final mode = useState(AuthMode.codeLogin);
     final contactController = useTextEditingController();
     final codeController = useTextEditingController();
@@ -26,6 +32,7 @@ class AuthScreen extends HookConsumerWidget {
     final confirmPasswordVisible = useState(false);
     final errorMessage = useState<String?>(null);
     final infoMessage = useState<String?>(null);
+    final isSubmitting = useState(false);
 
     useEffect(() {
       codeSent.value = false;
@@ -39,6 +46,7 @@ class AuthScreen extends HookConsumerWidget {
       confirmPasswordController.clear();
       errorMessage.value = null;
       infoMessage.value = null;
+      isSubmitting.value = false;
       return null;
     }, [mode.value]);
 
@@ -58,8 +66,8 @@ class AuthScreen extends HookConsumerWidget {
     }, [codeSent.value]);
 
     final isCodeFlow = _usesVerificationCode(mode.value);
-    final contactLabel = _contactLabel(mode.value);
-    final contactHelp = _contactHelp(mode.value);
+    final isResetPassword = mode.value == AuthMode.resetPassword;
+    final showSegmented = !isResetPassword;
 
     Future<void> requestCode() async {
       errorMessage.value = null;
@@ -78,7 +86,7 @@ class AuthScreen extends HookConsumerWidget {
           captchaPassed.value = true;
           codeSent.value = true;
           resendSeconds.value = 59;
-          infoMessage.value = '${_codeSentMessage(mode.value)}，请查看短信。';
+          infoMessage.value = l.discoverCodeSentToast;
         },
       );
     }
@@ -111,65 +119,39 @@ class AuthScreen extends HookConsumerWidget {
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 520),
             child: SingleChildScrollView(
-              padding: const EdgeInsets.all(24.0),
+              padding: const EdgeInsets.all(AppLayoutConstants.spacingXl),
               child: Semantics(
                 container: true,
                 label: _screenSemanticsLabel(mode.value, codeSent.value),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Semantics(
-                      header: true,
-                      child: Text(
-                        '陪伴宝宝说英语',
-                        style: TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      _subtitleForMode(mode.value),
-                      style: Theme.of(context).textTheme.bodyMedium,
-                    ),
-                    const SizedBox(height: 24),
+                    // --- Brand trust header ---
+                    _BrandHeader(colors: colors, l: l),
+                    const SizedBox(height: AppLayoutConstants.spacingXl),
 
-                    if (mode.value != AuthMode.resetPassword)
+                    // --- Mode selector ---
+                    if (showSegmented)
                       Semantics(
-                        label: '认证方式选择，可选择验证码登录、密码登录或注册',
-                        child: SegmentedButton<AuthMode>(
-                          segments: const [
-                            ButtonSegment(
-                              value: AuthMode.codeLogin,
-                              label: Text('验证码登录'),
-                            ),
-                            ButtonSegment(
-                              value: AuthMode.passwordLogin,
-                              label: Text('密码登录'),
-                            ),
-                            ButtonSegment(
-                              value: AuthMode.register,
-                              label: Text('注册'),
-                            ),
-                          ],
-                          selected: {mode.value},
-                          onSelectionChanged: (selection) {
-                            mode.value = selection.first;
-                          },
+                        label: '认证方式选择',
+                        child: _AuthModeSelector(
+                          mode: mode.value,
+                          onChanged: (m) => mode.value = m,
                         ),
                       )
                     else
                       _ModeHeader(
-                        title: '重置密码',
-                        description: '通过验证码确认身份后设置新密码。',
+                        title: l.discoverResetPasswordTitle,
+                        description: l.discoverResetPasswordSubtitle,
                       ),
 
-                    const SizedBox(height: 24),
+                    const SizedBox(height: AppLayoutConstants.spacingXl),
+
+                    // --- Contact input ---
                     Semantics(
                       textField: true,
-                      label: contactLabel,
-                      hint: contactHelp,
+                      label: _contactLabel(mode.value, l),
+                      hint: _contactHelp(mode.value, l),
                       child: TextField(
                         key: const Key('auth-contact-field'),
                         controller: contactController,
@@ -180,9 +162,10 @@ class AuthScreen extends HookConsumerWidget {
                             : TextInputAction.done,
                         inputFormatters: _inputFormattersForMode(mode.value),
                         decoration: InputDecoration(
-                          labelText: contactLabel,
-                          helperText: contactHelp,
-                          prefixText: _usesPhoneOnly(mode.value) ? '+86 ' : null,
+                          labelText: _contactLabel(mode.value, l),
+                          helperText: _contactHelp(mode.value, l),
+                          prefixText:
+                              _usesPhoneOnly(mode.value) ? '+86 ' : null,
                           border: const OutlineInputBorder(),
                         ),
                         onChanged: (_) {
@@ -191,8 +174,9 @@ class AuthScreen extends HookConsumerWidget {
                         },
                       ),
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: AppLayoutConstants.spacingMd),
 
+                    // --- Verification code or password ---
                     if (isCodeFlow) ...[
                       _VerificationCodeStep(
                         mode: mode.value,
@@ -202,15 +186,17 @@ class AuthScreen extends HookConsumerWidget {
                         codeController: codeController,
                         onSendCode: requestCode,
                       ),
+
+                      // Password fields for register / reset
                       if (codeSent.value &&
                           (mode.value == AuthMode.register ||
                               mode.value == AuthMode.resetPassword)) ...[
-                        const SizedBox(height: 16),
+                        const SizedBox(height: AppLayoutConstants.spacingMd),
                         _PasswordField(
                           controller: passwordController,
                           labelText: mode.value == AuthMode.register
-                              ? '设置密码'
-                              : '新密码',
+                              ? l.discoverSetPasswordLabel
+                              : l.discoverNewPasswordLabel,
                           semanticsLabel: mode.value == AuthMode.register
                               ? '设置注册密码'
                               : '输入新密码',
@@ -220,10 +206,10 @@ class AuthScreen extends HookConsumerWidget {
                           },
                           textInputAction: TextInputAction.next,
                         ),
-                        const SizedBox(height: 16),
+                        const SizedBox(height: AppLayoutConstants.spacingMd),
                         _PasswordField(
                           controller: confirmPasswordController,
-                          labelText: '确认密码',
+                          labelText: l.discoverConfirmPasswordLabel,
                           semanticsLabel: '再次输入密码用于确认',
                           visible: confirmPasswordVisible.value,
                           onToggleVisibility: () {
@@ -234,9 +220,10 @@ class AuthScreen extends HookConsumerWidget {
                         ),
                       ],
                     ] else ...[
+                      // Password login mode
                       _PasswordField(
                         controller: passwordController,
-                        labelText: '密码',
+                        labelText: l.discoverPasswordLabel,
                         semanticsLabel: '输入登录密码',
                         visible: passwordVisible.value,
                         onToggleVisibility: () {
@@ -250,49 +237,82 @@ class AuthScreen extends HookConsumerWidget {
                           button: true,
                           label: '忘记密码，进入重置密码流程',
                           child: TextButton(
-                            onPressed: () => mode.value = AuthMode.resetPassword,
-                            child: const Text('忘记密码？'),
+                            onPressed: () =>
+                                mode.value = AuthMode.resetPassword,
+                            child: Text(l.discoverForgotPassword),
                           ),
                         ),
                       ),
                     ],
 
+                    // --- Terms (register only) ---
                     if (mode.value == AuthMode.register) ...[
-                      const SizedBox(height: 16),
+                      const SizedBox(height: AppLayoutConstants.spacingMd),
                       _TermsRow(
                         accepted: acceptedTerms.value,
-                        onChanged: (value) => acceptedTerms.value = value,
+                        onChanged: (v) => acceptedTerms.value = v,
                       ),
                     ],
 
+                    // --- Privacy note (code login, pre-submit) ---
+                    if (mode.value == AuthMode.codeLogin &&
+                        !codeSent.value) ...[
+                      const SizedBox(height: AppLayoutConstants.spacingSm),
+                      Semantics(
+                        label: l.discoverPrivacyNote,
+                        child: Text(
+                          l.discoverPrivacyNote,
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: colors.textMuted,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    ],
+
+                    // --- Status messages ---
                     if (errorMessage.value != null) ...[
-                      const SizedBox(height: 16),
+                      const SizedBox(height: AppLayoutConstants.spacingMd),
                       _StatusMessage(
                         message: errorMessage.value!,
                         isError: true,
                       ),
                     ],
                     if (infoMessage.value != null) ...[
-                      const SizedBox(height: 16),
+                      const SizedBox(height: AppLayoutConstants.spacingMd),
                       _StatusMessage(
                         message: infoMessage.value!,
                         isError: false,
                       ),
                     ],
 
-                    const SizedBox(height: 24),
+                    // --- Submit button ---
+                    const SizedBox(height: AppLayoutConstants.spacingXl),
                     Semantics(
                       button: true,
                       label: _mainButtonSemantics(mode.value, codeSent.value),
                       child: FilledButton(
-                        onPressed: submit,
+                        onPressed: isSubmitting.value ? null : submit,
                         style: FilledButton.styleFrom(
-                          minimumSize: const Size.fromHeight(56),
+                          minimumSize: const Size.fromHeight(
+                            AppLayoutConstants.buttonMinHeight,
+                          ),
                         ),
-                        child: Text(_getMainButtonText(mode.value)),
+                        child: isSubmitting.value
+                            ? const SizedBox(
+                                height: 20,
+                                width: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.white,
+                                ),
+                              )
+                            : Text(_getMainButtonText(mode.value, l)),
                       ),
                     ),
-                    const SizedBox(height: 16),
+
+                    // --- Footer links ---
+                    const SizedBox(height: AppLayoutConstants.spacingMd),
                     _FooterLinks(mode: mode, codeSent: codeSent),
                   ],
                 ),
@@ -303,6 +323,8 @@ class AuthScreen extends HookConsumerWidget {
       ),
     );
   }
+
+  // ─── Static helpers ────────────────────────────────────────
 
   static bool _usesVerificationCode(AuthMode mode) {
     return mode == AuthMode.codeLogin ||
@@ -329,43 +351,33 @@ class AuthScreen extends HookConsumerWidget {
     if (!_usesPhoneOnly(mode)) {
       return const [];
     }
-    return [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(11)];
+    return [
+      FilteringTextInputFormatter.digitsOnly,
+      LengthLimitingTextInputFormatter(11),
+    ];
   }
 
-  static String _contactLabel(AuthMode mode) {
+  static String _contactLabel(AuthMode mode, AppLocalizations l) {
     switch (mode) {
       case AuthMode.codeLogin:
       case AuthMode.register:
-        return '手机号';
+        return l.discoverPhoneLabel;
       case AuthMode.passwordLogin:
       case AuthMode.resetPassword:
         return '手机号或邮箱';
     }
   }
 
-  static String _contactHelp(AuthMode mode) {
+  static String _contactHelp(AuthMode mode, AppLocalizations l) {
     switch (mode) {
       case AuthMode.codeLogin:
-        return '用于接收登录验证码';
+        return l.discoverPhoneHint;
       case AuthMode.passwordLogin:
         return '输入注册手机号或邮箱';
       case AuthMode.register:
         return '用于创建 BabyTalk 账号';
       case AuthMode.resetPassword:
         return '用于接收重置验证码';
-    }
-  }
-
-  static String _subtitleForMode(AuthMode mode) {
-    switch (mode) {
-      case AuthMode.codeLogin:
-        return '输入手机号后发送验证码，完成安全验证再登录。';
-      case AuthMode.passwordLogin:
-        return '使用已注册账号和密码登录。';
-      case AuthMode.register:
-        return '创建新账号前需要验证手机号。';
-      case AuthMode.resetPassword:
-        return '忘记密码时，用验证码确认身份并设置新密码。';
     }
   }
 
@@ -379,19 +391,6 @@ class AuthScreen extends HookConsumerWidget {
         return '重置密码验证码';
       case AuthMode.passwordLogin:
         return '验证码';
-    }
-  }
-
-  static String _codeSentMessage(AuthMode mode) {
-    switch (mode) {
-      case AuthMode.codeLogin:
-        return '登录验证码已发送';
-      case AuthMode.register:
-        return '注册验证码已发送';
-      case AuthMode.resetPassword:
-        return '重置验证码已发送';
-      case AuthMode.passwordLogin:
-        return '验证码已发送';
     }
   }
 
@@ -409,11 +408,11 @@ class AuthScreen extends HookConsumerWidget {
     }
   }
 
-  static String _getMainButtonText(AuthMode mode) {
+  static String _getMainButtonText(AuthMode mode, AppLocalizations l) {
     switch (mode) {
       case AuthMode.codeLogin:
       case AuthMode.passwordLogin:
-        return '登录';
+        return l.discoverLoginButton;
       case AuthMode.register:
         return '完成注册';
       case AuthMode.resetPassword:
@@ -505,13 +504,14 @@ class AuthScreen extends HookConsumerWidget {
     required String purposeLabel,
     required VoidCallback onPassed,
   }) {
+    final l = AppLocalizations.of(context)!;
     return showModalBottomSheet<void>(
       context: context,
       isDismissible: false,
       isScrollControlled: true,
       builder: (ctx) => SafeArea(
         child: Padding(
-          padding: const EdgeInsets.all(24.0),
+          padding: const EdgeInsets.all(AppLayoutConstants.spacingXl),
           child: Semantics(
             container: true,
             label: '人机校验弹层，通过后发送$purposeLabel',
@@ -522,25 +522,30 @@ class AuthScreen extends HookConsumerWidget {
                 Semantics(
                   header: true,
                   child: Text(
-                    '安全验证',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    l.discoverCaptchaTitle,
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: AppLayoutConstants.spacingXs),
                 Text(
-                  '请先完成校验，验证通过后再发送$purposeLabel。',
+                  l.discoverCaptchaDescription,
                   style: Theme.of(ctx).textTheme.bodyMedium,
                 ),
-                const SizedBox(height: 24),
+                const SizedBox(height: AppLayoutConstants.spacingXl),
                 Semantics(
-                  label: 'CAPTCHA 校验区域，当前为模拟拼图验证',
+                  label: l.discoverCaptchaArea,
                   hint: '点击模拟验证通过按钮完成校验',
                   child: Container(
                     height: 150,
                     width: double.infinity,
                     decoration: BoxDecoration(
                       color: Colors.grey.shade200,
-                      borderRadius: BorderRadius.circular(16),
+                      borderRadius: BorderRadius.circular(
+                        AppLayoutConstants.cardRadius,
+                      ),
                       border: Border.all(color: Colors.grey.shade300),
                     ),
                     alignment: Alignment.center,
@@ -550,7 +555,7 @@ class AuthScreen extends HookConsumerWidget {
                     ),
                   ),
                 ),
-                const SizedBox(height: 24),
+                const SizedBox(height: AppLayoutConstants.spacingXl),
                 Semantics(
                   button: true,
                   label: '模拟人机校验通过并发送验证码',
@@ -560,14 +565,16 @@ class AuthScreen extends HookConsumerWidget {
                       Navigator.of(ctx).pop();
                     },
                     style: FilledButton.styleFrom(
-                      minimumSize: const Size.fromHeight(56),
+                      minimumSize: const Size.fromHeight(
+                        AppLayoutConstants.buttonMinHeight,
+                      ),
                     ),
-                    child: const Text('模拟验证通过'),
+                    child: Text(l.discoverCaptchaPass),
                   ),
                 ),
                 TextButton(
                   onPressed: () => Navigator.of(ctx).pop(),
-                  child: const Text('取消'),
+                  child: Text(l.discoverCaptchaCancel),
                 ),
               ],
             ),
@@ -577,6 +584,109 @@ class AuthScreen extends HookConsumerWidget {
     );
   }
 }
+
+// ─────────────────────────────────────────────────────────────
+// Brand Header (V11 trust copy)
+// ─────────────────────────────────────────────────────────────
+
+class _BrandHeader extends StatelessWidget {
+  const _BrandHeader({required this.colors, required this.l});
+
+  final BabyTalkColors colors;
+  final AppLocalizations l;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      header: true,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            l.discoverUnifiedLoginTitle,
+            style: TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+              color: colors.textPrimary,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            l.discoverUnifiedLoginSubtitle,
+            style: TextStyle(
+              fontSize: 15,
+              color: colors.textSecondary,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Row(
+            children: [
+              Icon(
+                Icons.shield_outlined,
+                size: 14,
+                color: colors.textMuted,
+              ),
+              const SizedBox(width: 4),
+              Text(
+                l.discoverTrustPrivacy,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: colors.textMuted,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────
+// Auth Mode Selector (Segmented)
+// ─────────────────────────────────────────────────────────────
+
+class _AuthModeSelector extends StatelessWidget {
+  const _AuthModeSelector({
+    required this.mode,
+    required this.onChanged,
+  });
+
+  final AuthMode mode;
+  final ValueChanged<AuthMode> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    return Semantics(
+      label: '认证方式选择',
+      child: SegmentedButton<AuthMode>(
+        segments: [
+          ButtonSegment(
+            value: AuthMode.codeLogin,
+            label: Text(l.discoverModeCodeLogin),
+          ),
+          ButtonSegment(
+            value: AuthMode.passwordLogin,
+            label: Text(l.discoverModePasswordLogin),
+          ),
+          ButtonSegment(
+            value: AuthMode.register,
+            label: Text(l.discoverModeRegister),
+          ),
+        ],
+        selected: {mode},
+        onSelectionChanged: (selection) {
+          onChanged(selection.first);
+        },
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────
+// Mode Header (for reset password)
+// ─────────────────────────────────────────────────────────────
 
 class _ModeHeader extends StatelessWidget {
   const _ModeHeader({required this.title, required this.description});
@@ -603,6 +713,10 @@ class _ModeHeader extends StatelessWidget {
   }
 }
 
+// ─────────────────────────────────────────────────────────────
+// Verification Code Step (V11: improved autofill + visual)
+// ─────────────────────────────────────────────────────────────
+
 class _VerificationCodeStep extends StatelessWidget {
   const _VerificationCodeStep({
     required this.mode,
@@ -622,14 +736,21 @@ class _VerificationCodeStep extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    final colors = context.appColors;
+
     if (!codeSent) {
       return Semantics(
         button: true,
-        label: '${_sendButtonText(mode)}，点击后打开人机校验',
+        label: '${_sendButtonText(mode, l)}，点击后打开人机校验',
         child: OutlinedButton(
           onPressed: onSendCode,
-          style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(56)),
-          child: Text(_sendButtonText(mode)),
+          style: OutlinedButton.styleFrom(
+            minimumSize: const Size.fromHeight(
+              AppLayoutConstants.buttonMinHeight,
+            ),
+          ),
+          child: Text(_sendButtonText(mode, l)),
         ),
       );
     }
@@ -637,47 +758,75 @@ class _VerificationCodeStep extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        // Status line
         Semantics(
           liveRegion: true,
-          label: captchaPassed ? '人机校验已通过，验证码已发送' : '验证码待发送',
+          label: captchaPassed ? l.discoverVerificationPassed : l.discoverVerificationPending,
           child: Text(
-            captchaPassed ? '验证码已发送，请输入短信中的 6 位数字。' : '等待验证码发送。',
+            captchaPassed ? l.discoverVerificationPassed : '等待验证码发送。',
             style: Theme.of(context).textTheme.bodySmall,
           ),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: AppLayoutConstants.spacingXs),
+
+        // Code input (V11: improved autofill hints + visual grouping)
         Semantics(
           textField: true,
-          label: '短信验证码输入框，6 位数字，支持粘贴和自动填充',
+          label: '短信验证码输入框，6 位数字，支持自动填充',
           child: TextField(
             key: const Key('auth-code-field'),
             controller: codeController,
             keyboardType: TextInputType.number,
             autofillHints: const [AutofillHints.oneTimeCode],
             textInputAction: TextInputAction.next,
-            inputFormatters: const [],
             maxLength: 6,
+            style: const TextStyle(
+              letterSpacing: 8,
+              fontSize: 18,
+              fontFamily: 'JetBrains Mono',
+            ),
             decoration: InputDecoration(
-              labelText: '验证码',
-              helperText: '可直接粘贴短信验证码',
+              labelText: l.discoverCodeLabel,
+              helperText: l.discoverCodeAutoHint,
               counterText: '',
               border: const OutlineInputBorder(),
-              suffixIcon: TextButton(
-                onPressed: resendSeconds == 0 ? onSendCode : null,
-                child: Text(resendSeconds == 0 ? '重新发送' : '${resendSeconds}s'),
+              prefixIcon: Icon(
+                Icons.pin_outlined,
+                size: 20,
+                color: colors.textMuted,
+              ),
+              suffixIcon: Semantics(
+                button: true,
+                label: resendSeconds == 0
+                    ? l.discoverResendCode
+                    : l.discoverResendCountdown(resendSeconds),
+                child: TextButton(
+                  onPressed: resendSeconds == 0 ? onSendCode : null,
+                  child: Text(
+                    resendSeconds == 0
+                        ? l.discoverResendCode
+                        : '${resendSeconds}s',
+                    style: TextStyle(
+                      color: resendSeconds == 0 ? colors.accent : colors.textMuted,
+                    ),
+                  ),
+                ),
               ),
             ),
-            style: const TextStyle(letterSpacing: 8),
           ),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: AppLayoutConstants.spacingXs),
+
+        // Resend countdown
         Semantics(
           liveRegion: true,
           label: resendSeconds == 0
               ? '可以重新发送验证码'
               : '重新发送验证码倒计时 $resendSeconds 秒',
           child: Text(
-            resendSeconds == 0 ? '没有收到？可以重新发送。' : '$resendSeconds 秒后可重新发送。',
+            resendSeconds == 0
+                ? l.discoverResendReady
+                : l.discoverResendCountdown(resendSeconds),
             style: Theme.of(context).textTheme.bodySmall,
           ),
         ),
@@ -685,19 +834,23 @@ class _VerificationCodeStep extends StatelessWidget {
     );
   }
 
-  static String _sendButtonText(AuthMode mode) {
+  static String _sendButtonText(AuthMode mode, AppLocalizations l) {
     switch (mode) {
       case AuthMode.codeLogin:
-        return '发送验证码';
+        return l.discoverGetCode;
       case AuthMode.register:
         return '发送注册验证码';
       case AuthMode.resetPassword:
         return '发送重置验证码';
       case AuthMode.passwordLogin:
-        return '发送验证码';
+        return l.discoverGetCode;
     }
   }
 }
+
+// ─────────────────────────────────────────────────────────────
+// Password Field
+// ─────────────────────────────────────────────────────────────
 
 class _PasswordField extends StatelessWidget {
   const _PasswordField({
@@ -718,6 +871,7 @@ class _PasswordField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.appColors;
     return Semantics(
       textField: true,
       label: semanticsLabel,
@@ -731,6 +885,11 @@ class _PasswordField extends StatelessWidget {
           labelText: labelText,
           helperText: '至少 8 位，建议包含字母和数字',
           border: const OutlineInputBorder(),
+          prefixIcon: Icon(
+            Icons.lock_outline,
+            size: 20,
+            color: colors.textMuted,
+          ),
           suffixIcon: Semantics(
             button: true,
             label: visible ? '隐藏密码' : '显示密码',
@@ -745,6 +904,10 @@ class _PasswordField extends StatelessWidget {
   }
 }
 
+// ─────────────────────────────────────────────────────────────
+// Terms Row
+// ─────────────────────────────────────────────────────────────
+
 class _TermsRow extends StatelessWidget {
   const _TermsRow({required this.accepted, required this.onChanged});
 
@@ -753,18 +916,38 @@ class _TermsRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    final colors = context.appColors;
     return Semantics(
       checked: accepted,
       button: true,
       label: '同意服务条款和隐私协议',
       child: InkWell(
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(AppLayoutConstants.cardRadius),
         onTap: () => onChanged(!accepted),
         child: Row(
           children: [
-            Checkbox(value: accepted, onChanged: (value) => onChanged(value ?? false)),
-            const Expanded(
-              child: Text('我已阅读并同意《服务条款》和《隐私协议》'),
+            Checkbox(
+              value: accepted,
+              onChanged: (value) => onChanged(value ?? false),
+            ),
+            Expanded(
+              child: RichText(
+                text: TextSpan(
+                  style: Theme.of(context).textTheme.bodySmall,
+                  children: [
+                    TextSpan(text: l.discoverTermsPrefix),
+                    TextSpan(
+                      text: l.discoverTermsOfService,
+                      style: TextStyle(
+                        color: colors.accent,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    TextSpan(text: l.discoverPrivacyPolicy),
+                  ],
+                ),
+              ),
             ),
           ],
         ),
@@ -772,6 +955,10 @@ class _TermsRow extends StatelessWidget {
     );
   }
 }
+
+// ─────────────────────────────────────────────────────────────
+// Status Message
+// ─────────────────────────────────────────────────────────────
 
 class _StatusMessage extends StatelessWidget {
   const _StatusMessage({required this.message, required this.isError});
@@ -781,32 +968,41 @@ class _StatusMessage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final foreground = isError ? colorScheme.error : colorScheme.primary;
-    final background = foreground.withValues(alpha: 0.08);
+    final colors = context.appColors;
+    final foreground = isError ? colors.error : colors.success;
+    final background = isError ? colors.errorSoft : colors.successSoft;
 
     return Semantics(
       liveRegion: true,
       label: isError ? '错误提示：$message' : '状态提示：$message',
       child: Container(
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.all(AppLayoutConstants.spacingMd),
         decoration: BoxDecoration(
           color: background,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(AppLayoutConstants.cardRadius),
           border: Border.all(color: foreground.withValues(alpha: 0.24)),
         ),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(isError ? Icons.error_outline : Icons.check_circle_outline, color: foreground),
-            const SizedBox(width: 8),
-            Expanded(child: Text(message, style: TextStyle(color: foreground))),
+            Icon(
+              isError ? Icons.error_outline : Icons.check_circle_outline,
+              color: foreground,
+            ),
+            const SizedBox(width: AppLayoutConstants.spacingXs),
+            Expanded(
+              child: Text(message, style: TextStyle(color: foreground)),
+            ),
           ],
         ),
       ),
     );
   }
 }
+
+// ─────────────────────────────────────────────────────────────
+// Footer Links
+// ─────────────────────────────────────────────────────────────
 
 class _FooterLinks extends StatelessWidget {
   const _FooterLinks({required this.mode, required this.codeSent});
@@ -816,33 +1012,35 @@ class _FooterLinks extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+
     if (mode.value == AuthMode.resetPassword) {
       return Center(
         child: TextButton(
           onPressed: () => mode.value = AuthMode.passwordLogin,
-          child: const Text('返回密码登录'),
+          child: Text(l.discoverReturnToLogin),
         ),
       );
     }
 
     return Wrap(
       alignment: WrapAlignment.center,
-      spacing: 8,
+      spacing: AppLayoutConstants.spacingXs,
       children: [
         if (mode.value != AuthMode.codeLogin)
           TextButton(
             onPressed: () => mode.value = AuthMode.codeLogin,
-            child: const Text('验证码登录'),
+            child: Text(l.discoverModeCodeLogin),
           ),
         if (mode.value != AuthMode.passwordLogin)
           TextButton(
             onPressed: () => mode.value = AuthMode.passwordLogin,
-            child: const Text('密码登录'),
+            child: Text(l.discoverModePasswordLogin),
           ),
         if (mode.value != AuthMode.register)
           TextButton(
             onPressed: () => mode.value = AuthMode.register,
-            child: const Text('注册新账号'),
+            child: Text(l.discoverModeRegister),
           ),
       ],
     );
