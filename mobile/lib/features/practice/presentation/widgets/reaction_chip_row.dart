@@ -3,6 +3,43 @@ import 'package:mobile/app/theme/app_theme.dart';
 import 'package:mobile/features/practice/domain/models/interaction_event_payload.dart';
 import 'package:mobile/features/practice/presentation/practice_session_notifier.dart';
 
+/// Maps reaction types to their icon and accent color.
+class _ReactionVisual {
+  const _ReactionVisual({required this.icon, required this.color});
+
+  final IconData icon;
+  final Color color;
+}
+
+_ReactionVisual _visualFor(
+  BabyReactionType type,
+  BabyTalkColors colors,
+  bool enabled,
+) {
+  switch (type) {
+    case BabyReactionType.engaged:
+      return _ReactionVisual(
+        icon: Icons.sentiment_satisfied_alt_rounded,
+        color: enabled ? colors.success : colors.textMuted,
+      );
+    case BabyReactionType.calm:
+      return _ReactionVisual(
+        icon: Icons.sentiment_neutral_rounded,
+        color: enabled ? colors.info : colors.textMuted,
+      );
+    case BabyReactionType.imitated:
+      return _ReactionVisual(
+        icon: Icons.sentiment_dissatisfied_rounded,
+        color: enabled ? colors.textMuted : colors.textMuted,
+      );
+    case BabyReactionType.needsBreak:
+      return _ReactionVisual(
+        icon: Icons.sentiment_very_dissatisfied_rounded,
+        color: enabled ? colors.warning : colors.textMuted,
+      );
+  }
+}
+
 class ReactionChipRow extends StatelessWidget {
   const ReactionChipRow({
     super.key,
@@ -26,43 +63,58 @@ class ReactionChipRow extends StatelessWidget {
           Semantics(
             button: true,
             enabled: enabled,
-            child: OutlinedButton(
-              key: Key('reaction-$phraseId-${option.type.wireValue}'),
-              onPressed: enabled && onSelected != null
-                  ? () => onSelected!(option.type)
-                  : null,
-              style: OutlinedButton.styleFrom(
-                minimumSize: const Size(0, 48),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 14,
-                  vertical: 12,
-                ),
-                side: BorderSide(
-                  color: enabled ? colors.english : colors.textMuted,
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(9999),
-                ),
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    option.label,
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: enabled ? colors.textPrimary : colors.textMuted,
-                      fontWeight: FontWeight.w700,
+            child: Builder(
+              builder: (context) {
+                final visual = _visualFor(option.type, colors, enabled);
+                return Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    key: Key(
+                      'reaction-$phraseId-${option.type.wireValue}',
+                    ),
+                    borderRadius: BorderRadius.circular(9999),
+                    onTap:
+                        enabled && onSelected != null
+                            ? () => onSelected!(option.type)
+                            : null,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 10,
+                      ),
+                      decoration: BoxDecoration(
+                        border: Border.all(
+                          color: enabled
+                              ? colors.outlineSoft
+                              : colors.textMuted,
+                        ),
+                        borderRadius: BorderRadius.circular(9999),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            visual.icon,
+                            size: 18,
+                            color: visual.color,
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            option.label,
+                            style: Theme.of(context).textTheme.bodyMedium
+                                ?.copyWith(
+                                  color: enabled
+                                      ? colors.textPrimary
+                                      : colors.textMuted,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
-                  const SizedBox(height: 2),
-                  Text(
-                    option.description,
-                    style: Theme.of(context).textTheme.bodySmall,
-                    textAlign: TextAlign.start,
-                  ),
-                ],
-              ),
+                );
+              },
             ),
           ),
       ],

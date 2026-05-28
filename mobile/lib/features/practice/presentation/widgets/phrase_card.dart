@@ -41,25 +41,17 @@ class PhraseCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = context.appColors;
-    final borderColor = isActive
-        ? colors.english
-        : isCompleted
-        ? colors.success
-        : colors.outlineSoft;
-
     return Semantics(
       label: 'English phrase: ${phrase.english}',
       excludeSemantics: false,
       child: Container(
         key: Key('phrase-card-${phrase.phraseId}'),
-        padding: const EdgeInsets.all(AppLayoutConstants.spacingLg),
-        decoration: BoxDecoration(
-          color: colors.bgSurface,
-          borderRadius: BorderRadius.circular(AppLayoutConstants.cardRadius),
-          border: Border.all(color: borderColor, width: isActive ? 2 : 1),
-          boxShadow: colors.warmShadowSm,
-        ),
+        padding: isActive
+            ? const EdgeInsets.all(AppLayoutConstants.spacingLg)
+            : const EdgeInsets.symmetric(
+                horizontal: AppLayoutConstants.spacingMd,
+                vertical: AppLayoutConstants.spacingSm,
+              ),
         child: isActive ? _buildExpanded(context) : _buildCollapsed(context),
       ),
     );
@@ -246,28 +238,41 @@ class PhraseCard extends StatelessWidget {
   }
 
   Widget _buildPlayButton(BuildContext context) {
-    return SizedBox(
-      width: 72,
-      height: 72,
-      child: Semantics(
-        label: isTtsMode ? '朗读发音' : '播放发音',
-        button: true,
-        child: ElevatedButton(
-          key: Key(
-            isTtsMode ? 'tts-${phrase.phraseId}' : 'play-${phrase.phraseId}',
-          ),
-          style: ElevatedButton.styleFrom(
-            shape: const CircleBorder(),
-            padding: EdgeInsets.zero,
-          ),
-          onPressed: isTtsMode ? onTtsSpeak : (canPlay ? onPlay : null),
-          child: Icon(
-            isTtsMode
-                ? Icons.record_voice_over_rounded
-                : (playbackStatus == PracticePlaybackStatus.playing
-                      ? Icons.graphic_eq_rounded
-                      : Icons.play_arrow_rounded),
-            size: 30,
+    final colors = context.appColors;
+    final isPlaying = playbackStatus == PracticePlaybackStatus.playing;
+    return Semantics(
+      label: isTtsMode ? '朗读发音' : '播放发音',
+      button: true,
+      child: InkWell(
+        key: Key(
+          isTtsMode ? 'tts-${phrase.phraseId}' : 'play-${phrase.phraseId}',
+        ),
+        borderRadius: BorderRadius.circular(9999),
+        onTap: isTtsMode ? onTtsSpeak : (canPlay ? onPlay : null),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                isTtsMode
+                    ? Icons.record_voice_over_rounded
+                    : (isPlaying
+                          ? Icons.graphic_eq_rounded
+                          : Icons.volume_up_outlined),
+                size: 18,
+                color: colors.textSecondary,
+              ),
+              if (isPlaying) ...[
+                const SizedBox(width: 4),
+                Text(
+                  '播放中',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: colors.textSecondary,
+                  ),
+                ),
+              ],
+            ],
           ),
         ),
       ),

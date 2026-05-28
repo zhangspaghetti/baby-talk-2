@@ -56,8 +56,6 @@ class MentorBubble extends StatelessWidget {
                   bottomRight: Radius.circular(24),
                   bottomLeft: Radius.circular(24),
                 ),
-                border: Border.all(color: colors.outlineSoft),
-                boxShadow: colors.warmShadowSm,
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,

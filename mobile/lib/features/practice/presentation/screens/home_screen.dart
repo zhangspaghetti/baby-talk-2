@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobile/app/providers/repository_providers.dart';
 import 'package:mobile/app/router/app_router.dart';
-import 'package:mobile/app/widgets/app_banner.dart';
 import 'package:mobile/app/widgets/app_haptics.dart';
 import 'package:mobile/app/widgets/app_shimmer.dart';
 import 'package:mobile/app/theme/app_layout_constants.dart';
@@ -13,16 +12,18 @@ import 'package:mobile/app/theme/app_theme.dart';
 import 'package:mobile/features/account/presentation/account_notifier.dart';
 import 'package:mobile/features/mentor/presentation/widgets/mentor_panel_sheet.dart';
 import 'package:mobile/features/onboarding/domain/models/onboarding_snapshot.dart';
-import 'package:mobile/features/onboarding/domain/models/stage_match.dart';
 import 'package:mobile/features/practice/data/repositories/practice_repository.dart';
-import 'package:mobile/features/practice/domain/models/practice_continuity_snapshot.dart';
 import 'package:mobile/features/practice/domain/models/practice_phrase.dart';
 import 'package:mobile/features/practice/presentation/practice_continuity_notifier.dart'
     show PracticeContinuityLoadStatusLabel;
 import 'package:mobile/features/practice/presentation/practice_route_args.dart';
+import 'package:mobile/features/practice/presentation/widgets/home_b_care_moment_title.dart';
+import 'package:mobile/features/practice/presentation/widgets/home_b_mentor_bubble.dart';
+import 'package:mobile/features/practice/presentation/widgets/home_b_scene_card.dart';
+import 'package:mobile/features/practice/presentation/widgets/home_b_quick_rescue_row.dart';
+import 'package:mobile/features/practice/presentation/widgets/home_b_practice_result.dart';
+import 'package:mobile/features/practice/presentation/widgets/home_b_temporary_scene_sheet.dart';
 import 'package:mobile/features/practice/presentation/widgets/home_garden_mini_entry.dart';
-import 'package:mobile/features/practice/presentation/widgets/home_v23_phrase_hero.dart';
-import 'package:mobile/features/practice/presentation/widgets/home_v23_activity_slots.dart';
 import 'package:mobile/l10n/app_localizations.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
@@ -45,6 +46,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with RouteAware {
   ModalRoute<dynamic>? _subscribedRoute;
   String? _lastResolvedScopeLabel;
   AccountNotifier? _cachedAccountNotifier;
+
+  // Home B state: tracks whether the user has just completed a practice
+  bool _showPracticeResult = false;
+  String? _completedPhrase;
+  String? _completedSceneTag;
 
   @override
   void initState() {
@@ -174,11 +180,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with RouteAware {
     // each watch only the slice they need, limiting rebuild blast radius.
     final gardenGrowthNotifier = ref.watch(gardenGrowthNotifierProvider);
     final continuityNotifier = ref.watch(practiceContinuityNotifierProvider);
-    final householdNotifier = ref.watch(householdNotifierProvider);
     final hasResolvedContinuity = continuityNotifier.hasResolvedRecommendation;
-    final continuitySnapshot = hasResolvedContinuity
-        ? continuityNotifier.snapshot
-        : null;
     final activity = hasResolvedContinuity
         ? continuityNotifier.activitySnapshot
         : null;
@@ -192,12 +194,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with RouteAware {
       activity,
       widget.onboardingSnapshot,
     );
-    final homeWarningMessage = _resolveHomeWarningMessage(continuityNotifier);
-    final homeDisabledReason = continuityNotifier.disabledReason == null
-        ? null
-        : l.homeContinuityDisabledNote;
+    final childName = widget.onboardingSnapshot?.childDisplayName ?? l.guest;
+    final sceneTag = activity?.sceneTag ?? '照护场景';
+    final activityTitle = activity?.title ?? '收玩具';
 
-    // Banner priority: error > warning > info (at most 1 visible)
+    // Home B: Default mentor bubble message
+    final mentorMessage = starterPhrase != null
+        ? '这句适合$activityTitle，${_resolveMentorHint(starterPhrase)}'
+        : '小禾帮你挑一句最合适的';
 
     final body = SafeArea(
       top: !widget.embeddedInShell,
@@ -224,34 +228,100 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with RouteAware {
                     ),
                     children: [
                       const SizedBox(height: 20),
-                      HomeV23PhraseHero(
-                        snapshot: widget.onboardingSnapshot,
-                        starterPhrase: starterPhrase,
-                        activityTitle: activity?.title,
-                        activitySceneTag: activity?.sceneTag,
-                        onStartPractice: canLaunchPractice
-                            ? () async {
-                                await practiceArgs.push(context);
-                                if (!mounted) {
-                                  return;
-                                }
-                                await _refreshContinuity(
-                                  reason: 'practice_return',
-                                );
-                                await gardenGrowthNotifier.refresh();
-                              }
-                            : null,
-                        onOpenMentor: () {
+
+                      // Home B: Care moment title
+                      HomeBCareMomentTitle(
+                        sceneTag: sceneTag,
+                        sceneTitle: activityTitle,
+                        childName: childName,
+                      ),
+                      const SizedBox(height: 16),
+
+                      // Home B: Xiaohe mentor bubble
+                      HomeBMentorBubble(
+                        message: mentorMessage,
+                        onTap: () {
                           openMentorPanelSheet(
                             context,
-                            launcher: 'home_v23_hero',
-                            surface: widget.embeddedInShell ? 'app_shell' : 'standalone_home',
+                            launcher: 'home_b_mentor_bubble',
+                            surface: widget.embeddedInShell
+                                ? 'app_shell'
+                                : 'standalone_home',
                           );
                         },
                       ),
-                      const HomeV23ActivitySlots(),
+                      const SizedBox(height: 20),
+
+                      // Home B: Practice result or scene card
+                      if (_showPracticeResult && _completedPhrase != null)
+                        HomeBPracticeResult(
+                          phrase: _completedPhrase!,
+                          sceneTag: _completedSceneTag ?? sceneTag,
+                          childName: childName,
+                          onPracticeAgain: () {
+                            setState(() {
+                              _showPracticeResult = false;
+                            });
+                            if (canLaunchPractice) {
+                              practiceArgs.push(context);
+                            }
+                          },
+                          onNextPhrase: () {
+                            setState(() {
+                              _showPracticeResult = false;
+                            });
+                            AppHaptics.lightTap();
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: const Text('下一句会在明天的照护时刻等你'),
+                                behavior: SnackBarBehavior.floating,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                              ),
+                            );
+                          },
+                        )
+                      else
+                        HomeBSceneCard(
+                          phrase: starterPhrase,
+                          parentAction:
+                              _resolveParentAction(activityTitle, activity?.coachTip),
+                          sceneTag: sceneTag,
+                          coachTip: activity?.coachTip,
+                          onStartPractice: canLaunchPractice
+                              ? () async {
+                                  await practiceArgs.push(context);
+                                  if (!mounted) {
+                                    return;
+                                  }
+                                  // Show post-completion result
+                                  setState(() {
+                                    _showPracticeResult = true;
+                                    _completedPhrase =
+                                        starterPhrase?.english ?? "Let's put it back.";
+                                    _completedSceneTag = sceneTag;
+                                  });
+                                  await _refreshContinuity(
+                                    reason: 'practice_return',
+                                  );
+                                  await gardenGrowthNotifier.refresh();
+                                }
+                              : null,
+                        ),
                       const SizedBox(height: 24),
+
+                      // Home B: Quick rescue row
+                      HomeBQuickRescueRow(
+                        onSceneSelected: (scene) {
+                          _openTemporarySceneSheet(scene);
+                        },
+                      ),
+                      const SizedBox(height: 24),
+
+                      // Garden summary
                       HomeGardenMiniEntry(notifier: gardenGrowthNotifier),
+
                       if (kDebugMode) ...[
                         const SizedBox(height: 12),
                         Text(
@@ -291,70 +361,33 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with RouteAware {
     );
   }
 
-  /// Resolves the topmost banner based on priority: error > warning > info.
-  ///
-  /// Returns at most one banner widget; earlier banners in the list take priority.
-  Widget? _resolveTopBanner({
-    required dynamic continuityNotifier,
-    required String? homeWarningMessage,
-    required String? homeDisabledReason,
-    required BabyTalkColors colors,
-    required AppLocalizations l,
-  }) {
-    // 1. Disabled reason (error-level)
-    if (homeDisabledReason != null) {
-      return AppBanner(
-        key: const Key('home-continuity-disabled-banner'),
-        message: homeDisabledReason,
-        backgroundColor: colors.errorSoft,
-        foregroundColor: colors.error,
-        actionLabel: l.retry,
-        onAction: () => _refreshContinuity(reason: 'home_retry'),
-        onDismiss: () {
-          // Dismiss by clearing the disabled reason is not directly possible,
-          // but the banner can be visually dismissed via haptic feedback.
-          AppHaptics.lightTap();
-        },
-      );
-    }
+  void _openTemporarySceneSheet(String initialScene) {
+    AppHaptics.lightTap();
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => HomeBTemporarySceneSheet(
+        initialScene: initialScene,
+      ),
+    );
+  }
 
-    // 2. Warning message
-    if (homeWarningMessage != null) {
-      return AppBanner(
-        key: const Key('home-continuity-warning-banner'),
-        message: homeWarningMessage,
-        backgroundColor: colors.warningSoft,
-        foregroundColor: colors.warning,
-        actionLabel: l.homeReorganize,
-        onAction: () => _refreshContinuity(reason: 'home_manual_refresh'),
-        onDismiss: () {
-          AppHaptics.lightTap();
-        },
-      );
+  String _resolveParentAction(String activityTitle, String? coachTip) {
+    // Use coach tip as parent action if available
+    if (coachTip != null && coachTip.isNotEmpty) {
+      return coachTip;
     }
+    // Fallback contextual action
+    return '一边$activityTitle，一边轻轻说给宝宝听。';
+  }
 
-    // 3. Continuity provider missing (warning-level)
-    if (continuityNotifier == null) {
-      return AppBanner(
-        key: const Key('home-continuity-provider-missing-banner'),
-        message: l.homePracticeUnavailable,
-        backgroundColor: colors.warningSoft,
-        foregroundColor: colors.warning,
-      );
+  String _resolveMentorHint(PracticePhrase phrase) {
+    // Generate a short contextual hint for the mentor bubble
+    if (phrase.english.isNotEmpty) {
+      return '现在就能用，不像命令，更像邀请宝宝一起完成。';
     }
-
-    // 4. Fallback reason (info-level)
-    final fallbackReason = continuityNotifier.snapshot?.fallbackReason;
-    if (fallbackReason != null) {
-      return AppBanner(
-        key: const Key('home-continuity-fallback-banner'),
-        message: l.homeContinuityFallbackNote,
-        backgroundColor: colors.infoSoft,
-        foregroundColor: colors.info,
-      );
-    }
-
-    return null;
+    return '小禾帮你挑一句最合适的。';
   }
 
   Future<void> _syncContinuityStarterArgs({required String reason}) async {
@@ -378,26 +411,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with RouteAware {
     await continuityNotifier.refresh(reason: reason);
   }
 
-  String? _resolveHomeWarningMessage(dynamic continuityNotifier) {
-    final warningMessage = continuityNotifier.warningMessage?.trim();
-    if (warningMessage == null || warningMessage.isEmpty) {
-      return null;
-    }
-    final l = AppLocalizations.of(context)!;
-    return l.homeContinuityWarningNote;
-  }
-
-  String _resolveSafeHomeSummary(dynamic continuityNotifier) {
-    final l = AppLocalizations.of(context)!;
-    if (continuityNotifier.isInitialLoading) {
-      return l.homeOrganizingContinuity;
-    }
-    if (continuityNotifier.disabledReason != null) {
-      return l.homeContinuityDisabledNote;
-    }
-    return l.homeContinuityNoActivity;
-  }
-
   PracticeRouteArgs? _resolveStarterArgs() {
     final snapshotArgs = PracticeRouteArgs.maybeCreate(
       spaceId: widget.onboardingSnapshot?.starterSpaceId,
@@ -411,14 +424,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with RouteAware {
     } catch (_) {
       return null;
     }
-  }
-
-  StageMatch? _resolveStageMatch(OnboardingSnapshot? snapshot) {
-    final stageId = snapshot?.currentStage.trim();
-    if (stageId == null || stageId.isEmpty) {
-      return null;
-    }
-    return StageMatchCatalog.maybeForStageId(stageId);
   }
 
   PracticePhrase? _resolveStarterPhrase(
@@ -440,12 +445,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with RouteAware {
     return null;
   }
 
-  String _buildGuestRestoreMessage(PracticeContinuitySnapshot? snapshot) {
-    if (snapshot == null || snapshot.cadence.totalKnownEvents == 0) {
-      return '未找到本地记录，可以直接开始练习。';
-    }
-    return '已从本地恢复最近一次练习结果，共 ${snapshot.cadence.totalKnownEvents} 条记录。';
-  }
 }
 
 /// Skeleton loading state using AppShimmer instead of the old 4px gray bar.

@@ -8,11 +8,32 @@ import 'package:mobile/app/widgets/app_surface_card.dart';
 import 'package:mobile/app/theme/app_layout_constants.dart';
 import 'package:mobile/app/theme/app_theme.dart';
 import 'package:mobile/features/mentor/presentation/mentor_audio_controller.dart';
+import 'package:mobile/features/onboarding/presentation/widgets/mentor_bubble.dart';
 import 'package:mobile/features/practice/presentation/practice_route_args.dart';
 import 'package:mobile/features/practice/presentation/practice_session_notifier.dart';
 import 'package:mobile/features/practice/presentation/widgets/activation_frame.dart';
 import 'package:mobile/features/practice/presentation/widgets/phrase_card.dart';
 import 'package:mobile/l10n/app_localizations.dart';
+
+/// Scene-specific dynamic mentor copy for the practice page (V21).
+String _sceneMentorCopy(String? sceneTag) {
+  switch (sceneTag) {
+    case 'feeding':
+      return '喂饭时轻轻说，宝宝会听的。';
+    case 'drinking':
+      return '递水的时候说一句就好。';
+    case 'diaper':
+      return '换尿布时说，宝宝反而更安静。';
+    case 'bath':
+      return '洗澡时说，宝宝会觉得好玩。';
+    case 'bedtime':
+      return '睡前轻轻说，像讲故事一样。';
+    case 'going_out':
+      return '出门前说一句，今天就开始了。';
+    default:
+      return '会说就直接说。';
+  }
+}
 
 class PracticeSessionScreen extends ConsumerWidget {
   const PracticeSessionScreen({
@@ -204,6 +225,11 @@ class _PracticeSessionBodyState extends ConsumerState<_PracticeSessionBody> {
                   ),
                 ),
                 const SizedBox(height: 16),
+                // Xiaohe dynamic scene copy (V21)
+                MentorBubble(
+                  message: _sceneMentorCopy(notifier.sceneTag),
+                ),
+                const SizedBox(height: 16),
                 Semantics(
                   button: true,
                   label: '提示，${activity.coachTip}',
@@ -211,6 +237,7 @@ class _PracticeSessionBodyState extends ConsumerState<_PracticeSessionBody> {
                     padding: EdgeInsets.zero,
                     backgroundColor: colors.bgSurface,
                     borderRadius: AppLayoutConstants.cardRadius,
+                    borderColor: Colors.transparent,
                     boxShadow: const [],
                     child: Theme(
                       data: Theme.of(context).copyWith(
@@ -321,9 +348,9 @@ class _PracticeSessionBodyState extends ConsumerState<_PracticeSessionBody> {
                           }
                           if (outcome == PracticeRecordOutcome.completed &&
                               navigator.canPop()) {
-                            // Show celebration overlay before navigating back.
+                            // V21: extend auto-advance to 2.5-3s for onboarding feel
                             await Future<void>.delayed(
-                              const Duration(milliseconds: 800),
+                              const Duration(milliseconds: 2700),
                             );
                             if (!mounted || !navigator.canPop()) {
                               return;

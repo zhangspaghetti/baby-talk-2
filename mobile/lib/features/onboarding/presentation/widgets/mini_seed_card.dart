@@ -25,7 +25,6 @@ class MiniSeedCard extends StatelessWidget {
           decoration: BoxDecoration(
             color: colors.englishSoft,
             borderRadius: BorderRadius.circular(AppLayoutConstants.largeRadius),
-            border: Border.all(color: colors.info),
           ),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,

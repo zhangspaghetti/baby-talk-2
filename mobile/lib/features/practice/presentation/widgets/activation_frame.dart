@@ -28,11 +28,6 @@ class ActivationFrame extends StatelessWidget {
         decoration: BoxDecoration(
           color: colors.bgSunken,
           borderRadius: BorderRadius.circular(AppLayoutConstants.largeRadius),
-          border: Border.all(
-            color: colors.english.withValues(alpha: 0.32),
-            width: 2,
-          ),
-          boxShadow: colors.warmShadowMd,
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
