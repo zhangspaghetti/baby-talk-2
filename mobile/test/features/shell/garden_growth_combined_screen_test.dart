@@ -7,6 +7,14 @@ import 'package:mobile/features/practice/data/repositories/garden_growth_reposit
 import 'package:mobile/features/practice/domain/models/garden_growth_snapshot.dart';
 import 'package:mobile/features/practice/domain/models/interaction_event_payload.dart';
 import 'package:mobile/features/practice/presentation/garden_growth_notifier.dart';
+import 'package:mobile/features/practice/presentation/practice_continuity_notifier.dart';
+import 'package:mobile/features/practice/domain/models/practice_continuity_snapshot.dart';
+import 'package:mobile/features/practice/data/repositories/practice_repository.dart';
+import 'package:mobile/features/household/presentation/household_notifier.dart';
+import 'package:mobile/features/household/data/repositories/household_repository.dart';
+import 'package:mobile/features/share/presentation/share_notifier.dart';
+import 'package:mobile/features/share/data/repositories/share_repository.dart';
+import 'package:mobile/features/share/domain/models/share_link_draft.dart';
 import 'package:mobile/features/shell/presentation/screens/garden_growth_combined_screen.dart';
 import 'package:mobile/l10n/app_localizations.dart';
 
@@ -71,10 +79,8 @@ void main() {
     expect(find.byKey(const Key('garden-continue-card')), findsOneWidget);
     expect(find.byKey(const Key('garden-patch-home')), findsOneWidget);
     expect(find.byKey(const Key('garden-flower-song_time')), findsOneWidget);
-    expect(
-      find.byKey(const Key('growth-combined-household-provider-missing')),
-      findsOneWidget,
-    );
+    // With Riverpod, household notifier is always provided via override,
+    // so the "provider-missing" message no longer appears.
   });
 
   testWidgets('growth tab keeps diary and milestone preview limits', (
@@ -330,7 +336,18 @@ Future<_GardenGrowthNotifierHarness> _pumpScreen(
 
   await tester.pumpWidget(
     ProviderScope(
-      overrides: [gardenGrowthNotifierProvider.overrideWith((ref) => notifier)],
+      overrides: [
+        gardenGrowthNotifierProvider.overrideWith((ref) => notifier),
+        practiceContinuityNotifierProvider.overrideWith(
+          (ref) => _PracticeContinuityNotifierStub(),
+        ),
+        householdNotifierProvider.overrideWith(
+          (ref) => _HouseholdNotifierStub(),
+        ),
+        shareNotifierProvider.overrideWith(
+          (ref) => _ShareNotifierStub(),
+        ),
+      ],
       key: UniqueKey(),
       child: MaterialApp(
         locale: const Locale('zh'),
@@ -515,4 +532,46 @@ class _GardenGrowthRepositoryFake implements GardenGrowthRepository {
 
   @override
   Future<GardenGrowthSnapshot> buildSnapshot() async => snapshot;
+}
+
+class _PracticeContinuityNotifierStub extends PracticeContinuityNotifier {
+  _PracticeContinuityNotifierStub()
+      : super(repository: _PracticeRepositoryStub());
+
+  @override
+  bool get hasResolvedRecommendation => false;
+
+  @override
+  PracticeContinuitySnapshot? get snapshot => null;
+
+  @override
+  Future<void> refresh({String? reason}) async {}
+}
+
+class _PracticeRepositoryStub extends Fake
+    implements PracticeRepository {}
+
+class _HouseholdNotifierStub extends HouseholdNotifier {
+  _HouseholdNotifierStub() : super(repository: _HouseholdRepositoryStub());
+}
+
+class _HouseholdRepositoryStub extends Fake implements HouseholdRepository {
+  @override
+  Future<void> close() async {}
+}
+
+class _ShareNotifierStub extends ShareNotifier {
+  _ShareNotifierStub()
+      : super(repository: _ShareRepositoryStub());
+}
+
+class _ShareRepositoryStub extends Fake implements ShareRepository {
+  @override
+  ShareLinkDraft? buildDraft({
+    GardenGrowthSnapshot? growthSnapshot,
+    PracticeContinuitySnapshot? continuitySnapshot,
+  }) => null;
+
+  @override
+  Future<void> close() async {}
 }
