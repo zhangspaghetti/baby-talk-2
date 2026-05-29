@@ -99,6 +99,14 @@ void main() {
     await tester.pumpWidget(harness.buildShell());
     await _pumpUntilFound(tester, find.byKey(const Key('shell-ready')));
 
+    // §5 规则1：首页隐藏全局 FAB（用内联「问小禾」入口），故先切到「发现」Tab，
+    // 验证非首页/非花园页的全局 FAB 能打开默认建议页。
+    tester
+        .widget<NavigationBar>(find.byType(NavigationBar))
+        .onDestinationSelected!(1);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+
     await tester.tap(find.byKey(const Key('shell-mentor-fab')));
     await tester.pump();
     await _pumpUntilFound(tester, find.byKey(const Key('mentor-panel-sheet')));

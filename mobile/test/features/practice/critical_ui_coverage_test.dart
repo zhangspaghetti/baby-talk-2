@@ -745,7 +745,9 @@ void main() {
     expect(find.text('邀请待确认'), findsOneWidget);
   });
 
-  testWidgets('Shell FAB hides on garden tab and settings gear shows on me tab', (
+  testWidgets(
+      'Shell FAB hides on home and garden tabs and settings gear shows on me tab',
+      (
     tester,
   ) async {
     final gardenSnapshot = _gardenSnapshot(spaces: [_gardenPatch()]);
@@ -795,7 +797,16 @@ void main() {
     );
     await _pumpFrames(tester, count: 10);
 
-    // Home tab (default): FAB visible, no settings gear.
+    // §5 规则1：首页隐藏全局 FAB（用内联「问小禾」入口）；首页也无设置齿轮。
+    expect(find.byKey(const Key('shell-mentor-fab')), findsNothing);
+    expect(find.byKey(const Key('shell-settings-gear')), findsNothing);
+
+    // §5 规则3：发现 Tab 固定显示全局 FAB。
+    tester
+        .widget<NavigationBar>(find.byType(NavigationBar))
+        .onDestinationSelected!(1);
+    await _pumpFrames(tester, count: 6);
+    await tester.pump(const Duration(milliseconds: 500));
     expect(find.byKey(const Key('shell-mentor-fab')), findsOneWidget);
     expect(find.byKey(const Key('shell-settings-gear')), findsNothing);
 
