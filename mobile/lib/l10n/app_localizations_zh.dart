@@ -1896,6 +1896,12 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
+  String get meAccountSignedOutHint => '登录后同步数据';
+
+  @override
+  String get meAccountSyncing => '同步中…';
+
+  @override
   String get meReminders => '提醒设置';
 
   @override

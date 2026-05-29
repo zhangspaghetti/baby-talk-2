@@ -3,6 +3,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mobile/app/providers/repository_providers.dart';
 import 'package:mobile/app/theme/app_theme.dart';
+import 'package:mobile/features/account/data/local/account_local_store.dart';
+import 'package:mobile/features/account/data/repositories/account_repository.dart';
+import 'package:mobile/features/account/domain/models/account_consent_state.dart';
+import 'package:mobile/features/account/domain/models/account_session.dart';
+import 'package:mobile/features/account/presentation/account_notifier.dart';
 import 'package:mobile/features/onboarding/domain/models/onboarding_snapshot.dart';
 import 'package:mobile/features/onboarding/domain/models/stage_match.dart';
 import 'package:mobile/features/practice/domain/models/garden_growth_snapshot.dart';
@@ -135,6 +140,37 @@ void main() {
 
       expect(growthTaps, 1);
     });
+
+    testWidgets('shows sign-in hint when not signed in', (tester) async {
+      await _pumpMeScreen(tester);
+
+      expect(find.byKey(const Key('me-account-state')), findsOneWidget);
+      expect(find.text('登录后同步数据'), findsOneWidget);
+      expect(find.byKey(const Key('me-account-syncing')), findsNothing);
+    });
+
+    testWidgets('shows masked phone and no syncing indicator when signed in', (
+      tester,
+    ) async {
+      await _pumpMeScreen(
+        tester,
+        accountSnapshot: _signedInAccountSnapshot(),
+      );
+
+      expect(find.text('138****8000'), findsOneWidget);
+      expect(find.text('登录后同步数据'), findsNothing);
+      expect(find.byKey(const Key('me-account-syncing')), findsNothing);
+    });
+
+    testWidgets('shows syncing indicator when sync is pending', (tester) async {
+      await _pumpMeScreen(
+        tester,
+        accountSnapshot: _signedInAccountSnapshot(pendingSyncCount: 2),
+      );
+
+      expect(find.text('138****8000'), findsOneWidget);
+      expect(find.byKey(const Key('me-account-syncing')), findsOneWidget);
+    });
   });
 }
 
@@ -144,8 +180,15 @@ Future<void> _pumpMeScreen(
   GardenGrowthSnapshot? gardenSnapshot,
   VoidCallback? onOpenGarden,
   VoidCallback? onOpenGrowth,
+  AccountLocalSnapshot? accountSnapshot,
 }) async {
   final snapshot = gardenSnapshot ?? GardenGrowthSnapshot.empty();
+  final accountNotifier = AccountNotifier(
+    repository: _StaticAccountRepository(
+      seedSnapshot: accountSnapshot ?? AccountLocalSnapshot.localOnly,
+    ),
+  );
+  await accountNotifier.initialize();
 
   await tester.pumpWidget(
     ProviderScope(
@@ -153,6 +196,7 @@ Future<void> _pumpMeScreen(
         gardenGrowthNotifierProvider.overrideWith((ref) {
           return _StubGardenGrowthNotifier(snapshot: snapshot);
         }),
+        accountNotifierProvider.overrideWith((ref) => accountNotifier),
       ],
       child: MaterialApp(
         locale: const Locale('zh'),
@@ -169,7 +213,26 @@ Future<void> _pumpMeScreen(
       ),
     ),
   );
-  await tester.pumpAndSettle();
+  // Avoid pumpAndSettle: the syncing indicator animates indefinitely.
+  await tester.pump();
+  await tester.pump(const Duration(milliseconds: 100));
+}
+
+AccountLocalSnapshot _signedInAccountSnapshot({int pendingSyncCount = 0}) {
+  return AccountLocalSnapshot(
+    consentState: AccountConsentState.acceptedPendingSync,
+    session: AccountSession(
+      accountId: 'acct-me-screen',
+      sessionId: 'sess-me-screen',
+      maskedPhoneNumber: '138****8000',
+      createdAt: DateTime.utc(2026, 4, 9, 1),
+    ),
+    pendingSyncCount: pendingSyncCount,
+    syncedCount: 4,
+    failedCount: 0,
+    lastSyncPhase: pendingSyncCount > 0 ? 'pending' : 'synced',
+    lastSyncAt: DateTime.utc(2026, 4, 9, 1, 5),
+  );
 }
 
 OnboardingSnapshot _onboardingSnapshot() {
@@ -299,4 +362,62 @@ class _StubGardenGrowthNotifier extends ChangeNotifier
     _snapshot = GardenGrowthSnapshot.empty();
     notifyListeners();
   }
+}
+
+/// A static [AccountRepository] returning a fixed snapshot, for MeScreen tests.
+class _StaticAccountRepository implements AccountRepository {
+  _StaticAccountRepository({required this.seedSnapshot});
+
+  final AccountLocalSnapshot seedSnapshot;
+
+  @override
+  final String consentVersion = 'pipl-v1';
+
+  @override
+  Future<AccountLocalSnapshot> loadSnapshot() async => seedSnapshot;
+
+  @override
+  Future<AccountLocalSnapshot> signIn({
+    required String phoneNumber,
+    required String verificationCode,
+  }) async => seedSnapshot;
+
+  @override
+  Future<AccountLocalSnapshot> savePlaceholderSession({
+    required String phoneNumber,
+    required String verificationCode,
+  }) async => seedSnapshot;
+
+  @override
+  Future<AccountLocalSnapshot> refreshRuntimeState({
+    required AccountRuntimeTrigger trigger,
+    AccountLocalSnapshot? seedSnapshot,
+    bool forceBootstrap = false,
+  }) async => seedSnapshot ?? this.seedSnapshot;
+
+  @override
+  Future<AccountLocalSnapshot> clearPlaceholderSession({
+    bool revertToLocalOnly = false,
+  }) async => seedSnapshot;
+
+  @override
+  Future<AccountLocalSnapshot> revokeConsent({
+    String reason = 'user_requested',
+  }) async => seedSnapshot;
+
+  @override
+  Future<AccountLocalSnapshot> deleteAccount({
+    String reason = 'forget_me',
+  }) async => seedSnapshot;
+
+  @override
+  Future<AccountSession> persistRefreshedSession(
+    AccountSession refreshedSession,
+  ) async => refreshedSession;
+
+  @override
+  Future<void> deleteLocalSnapshotForLifecycle() async {}
+
+  @override
+  Future<void> close() async {}
 }

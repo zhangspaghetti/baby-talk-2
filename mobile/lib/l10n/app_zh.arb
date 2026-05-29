@@ -668,6 +668,8 @@
   "@meGrowthPracticeTotalValue": {"placeholders": {"count": {}, "scenes": {}}},
   "meGrowthStreakValue": "{days} 天",
   "@meGrowthStreakValue": {"placeholders": {"days": {}}},
+  "meAccountSignedOutHint": "登录后同步数据",
+  "meAccountSyncing": "同步中…",
   "meReminders": "提醒设置",
   "meBabyProfile": "宝宝档案",
   "mePlaybackPrefs": "播放偏好",

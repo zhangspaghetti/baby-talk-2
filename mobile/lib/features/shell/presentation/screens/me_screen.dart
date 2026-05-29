@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:mobile/app/providers/repository_providers.dart';
 import 'package:mobile/app/theme/app_theme.dart';
+import 'package:mobile/features/account/presentation/screens/account_entry_screen.dart';
 import 'package:mobile/features/onboarding/domain/models/onboarding_snapshot.dart';
 import 'package:mobile/features/onboarding/domain/models/stage_match.dart';
 import 'package:mobile/l10n/app_localizations.dart';
@@ -29,6 +30,7 @@ class MeScreen extends ConsumerWidget {
     final l = AppLocalizations.of(context)!;
     final gardenNotifier = ref.watch(gardenGrowthNotifierProvider);
     final gardenSnapshot = gardenNotifier.snapshot;
+    final account = ref.watch(accountNotifierProvider);
 
     final childName = onboardingSnapshot?.childDisplayName.trim();
     final displayName =
@@ -37,6 +39,12 @@ class MeScreen extends ConsumerWidget {
         (childName != null && childName.isNotEmpty)
             ? childName.substring(0, 1)
             : '?';
+
+    // §6 账号入口状态：未登录 → 轻提示；已登录 → 昵称(脱敏手机号)；同步中 → 指示器。
+    final bool accountSyncing = account.isSignedIn && account.hasPendingSync;
+    final String accountStateLabel = account.isSignedIn
+        ? account.maskedPhoneNumber
+        : l.meAccountSignedOutHint;
 
     return SafeArea(
       top: false,
@@ -50,6 +58,9 @@ class MeScreen extends ConsumerWidget {
               avatarLabel: avatarLabel,
               displayName: displayName,
               ageBucketLabel: onboardingSnapshot?.ageBucket.label,
+              accountStateLabel: accountStateLabel,
+              isSyncing: accountSyncing,
+              onTap: () => openAccountEntryScreen(context),
             ),
             const SizedBox(height: 20),
 
@@ -88,67 +99,112 @@ class _UserInfoSection extends StatelessWidget {
     required this.avatarLabel,
     required this.displayName,
     this.ageBucketLabel,
+    required this.accountStateLabel,
+    this.isSyncing = false,
+    this.onTap,
   });
 
   final String avatarLabel;
   final String displayName;
   final String? ageBucketLabel;
+  final String accountStateLabel;
+  final bool isSyncing;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
     final theme = Theme.of(context);
-    return Container(
-      key: const Key('me-user-info'),
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: colors.bgSurface,
+    return Material(
+      color: colors.bgSurface,
+      borderRadius: BorderRadius.circular(16),
+      child: InkWell(
+        key: const Key('me-user-info'),
         borderRadius: BorderRadius.circular(16),
-        boxShadow: colors.warmShadowSm,
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 56,
-            height: 56,
-            decoration: BoxDecoration(
-              color: colors.bgAccentSoft,
-              shape: BoxShape.circle,
-              border: Border.all(color: colors.outlineSoft),
-            ),
-            alignment: Alignment.center,
-            child: Text(
-              avatarLabel,
-              style: theme.textTheme.headlineSmall?.copyWith(
-                color: colors.accentDark,
-              ),
-            ),
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: colors.warmShadowSm,
           ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  displayName,
-                  style: theme.textTheme.titleLarge?.copyWith(
-                    color: colors.textPrimary,
-                  ),
-                ),
-                if (ageBucketLabel != null) ...[
-                  const SizedBox(height: 4),
-                  Text(
-                    ageBucketLabel!,
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: colors.textSecondary,
+          child: Row(
+            children: [
+              Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  Container(
+                    width: 56,
+                    height: 56,
+                    decoration: BoxDecoration(
+                      color: colors.bgAccentSoft,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: colors.outlineSoft),
+                    ),
+                    alignment: Alignment.center,
+                    child: Text(
+                      avatarLabel,
+                      style: theme.textTheme.headlineSmall?.copyWith(
+                        color: colors.accentDark,
+                      ),
                     ),
                   ),
+                  if (isSyncing)
+                    Positioned(
+                      right: -2,
+                      bottom: -2,
+                      child: Container(
+                        key: const Key('me-account-syncing'),
+                        width: 18,
+                        height: 18,
+                        padding: const EdgeInsets.all(3),
+                        decoration: BoxDecoration(
+                          color: colors.bgSurface,
+                          shape: BoxShape.circle,
+                        ),
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: colors.accent,
+                        ),
+                      ),
+                    ),
                 ],
-              ],
-            ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      displayName,
+                      style: theme.textTheme.titleLarge?.copyWith(
+                        color: colors.textPrimary,
+                      ),
+                    ),
+                    if (ageBucketLabel != null) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        ageBucketLabel!,
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: colors.textSecondary,
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 4),
+                    Text(
+                      accountStateLabel,
+                      key: const Key('me-account-state'),
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: colors.textMuted,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(Icons.chevron_right, color: colors.textMuted),
+            ],
           ),
-          Icon(Icons.chevron_right, color: colors.textMuted),
-        ],
+        ),
       ),
     );
   }

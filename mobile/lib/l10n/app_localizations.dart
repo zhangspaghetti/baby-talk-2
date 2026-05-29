@@ -3530,6 +3530,18 @@ abstract class AppLocalizations {
   /// **'{days} 天'**
   String meGrowthStreakValue(Object days);
 
+  /// No description provided for @meAccountSignedOutHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'登录后同步数据'**
+  String get meAccountSignedOutHint;
+
+  /// No description provided for @meAccountSyncing.
+  ///
+  /// In zh, this message translates to:
+  /// **'同步中…'**
+  String get meAccountSyncing;
+
   /// No description provided for @meReminders.
   ///
   /// In zh, this message translates to:
