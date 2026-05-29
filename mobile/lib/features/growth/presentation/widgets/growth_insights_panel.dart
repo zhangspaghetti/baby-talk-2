@@ -6,6 +6,7 @@ import 'package:mobile/app/theme/app_layout_constants.dart';
 import 'package:mobile/app/theme/app_theme.dart';
 import 'package:mobile/app/widgets/app_haptics.dart';
 import 'package:mobile/app/widgets/app_shimmer.dart';
+import 'package:mobile/features/growth/domain/services/growth_stats_service.dart';
 import 'package:mobile/features/growth/presentation/growth_insights_models.dart';
 
 /// Growth V2 insights panel: period selector (本周/本月/今年) + streak card
@@ -194,6 +195,12 @@ class _GrowthInsightsPanelState extends ConsumerState<GrowthInsightsPanel> {
           height: 160,
           child: _TrendBarChart(view: view, colors: colors, theme: theme),
         ),
+
+        // ── Scene distribution (top spaces by event count) ──
+        if (view.scenes.isNotEmpty) ...[
+          const SizedBox(height: AppLayoutConstants.spacingLg),
+          _SceneDistribution(scenes: view.scenes, colors: colors, theme: theme),
+        ],
       ],
     );
   }
@@ -445,6 +452,105 @@ class _TrendBarChart extends StatelessWidget {
             ),
         ],
       ),
+    );
+  }
+}
+
+/// Top scenes (spaces) ranked by event count, shown as proportional bars.
+class _SceneDistribution extends StatelessWidget {
+  const _SceneDistribution({
+    required this.scenes,
+    required this.colors,
+    required this.theme,
+  });
+
+  final List<SceneDistribution> scenes;
+  final BabyTalkColors colors;
+  final ThemeData theme;
+
+  @override
+  Widget build(BuildContext context) {
+    final top = scenes.take(4).toList();
+    final maxCount = top.fold<int>(
+      1,
+      (value, scene) => scene.eventCount > value ? scene.eventCount : value,
+    );
+    return Column(
+      key: const Key('growth-insights-scenes'),
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          '场景分布',
+          style: theme.textTheme.labelLarge?.copyWith(
+            color: colors.textSecondary,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        const SizedBox(height: AppLayoutConstants.spacingSm),
+        for (final scene in top) ...[
+          _SceneRow(
+            scene: scene,
+            maxCount: maxCount,
+            colors: colors,
+            theme: theme,
+          ),
+          const SizedBox(height: AppLayoutConstants.spacingSm),
+        ],
+      ],
+    );
+  }
+}
+
+class _SceneRow extends StatelessWidget {
+  const _SceneRow({
+    required this.scene,
+    required this.maxCount,
+    required this.colors,
+    required this.theme,
+  });
+
+  final SceneDistribution scene;
+  final int maxCount;
+  final BabyTalkColors colors;
+  final ThemeData theme;
+
+  @override
+  Widget build(BuildContext context) {
+    final fraction = (scene.eventCount / maxCount).clamp(0.0, 1.0);
+    final percentLabel = '${(scene.percentage * 100).round()}%';
+    return Row(
+      children: [
+        SizedBox(
+          width: 64,
+          child: Text(
+            scene.sceneTag,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: theme.textTheme.labelMedium?.copyWith(
+              color: colors.textPrimary,
+            ),
+          ),
+        ),
+        const SizedBox(width: AppLayoutConstants.spacingSm),
+        Expanded(
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(AppLayoutConstants.pillRadius),
+            child: LinearProgressIndicator(
+              value: fraction == 0 ? 0.04 : fraction,
+              minHeight: 8,
+              backgroundColor: colors.bgSunken,
+              valueColor: AlwaysStoppedAnimation<Color>(colors.accent),
+            ),
+          ),
+        ),
+        const SizedBox(width: AppLayoutConstants.spacingSm),
+        Text(
+          percentLabel,
+          style: theme.textTheme.labelSmall?.copyWith(
+            color: colors.textMuted,
+          ),
+        ),
+      ],
     );
   }
 }

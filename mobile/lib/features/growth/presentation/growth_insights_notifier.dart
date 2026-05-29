@@ -23,6 +23,7 @@ class GrowthInsightsNotifier extends ChangeNotifier {
   final DateTime Function() _now;
 
   List<PracticeEventRecord> _records = const <PracticeEventRecord>[];
+  Map<String, String> _spaceLabels = const <String, String>{};
   bool _loaded = false;
   bool _hasError = false;
   bool _disposed = false;
@@ -47,6 +48,16 @@ class GrowthInsightsNotifier extends ChangeNotifier {
             ),
           )
           .toList(growable: false);
+      // Resolve human-readable scene labels (spaceId -> title). Best-effort:
+      // a catalog failure must not drop the loaded event history.
+      try {
+        final catalog = await repository.getActivityCatalog();
+        _spaceLabels = {
+          for (final space in catalog.spaces) space.spaceId: space.title,
+        };
+      } catch (_) {
+        _spaceLabels = const <String, String>{};
+      }
       _hasError = false;
     } catch (_) {
       _records = const <PracticeEventRecord>[];
@@ -72,20 +83,33 @@ class GrowthInsightsNotifier extends ChangeNotifier {
 
     final PeriodStats stats;
     final List<GrowthBarBucket> bars;
+    final DateTime windowStart;
     switch (period) {
       case GrowthPeriod.week:
         stats = _stats.aggregateThisWeek(events: _records, now: now);
         bars = _weekBuckets(now);
+        windowStart = _weekStart(now);
         break;
       case GrowthPeriod.month:
         stats = _stats.aggregateThisMonth(events: _records, now: now);
         bars = _monthBuckets(now);
+        windowStart = DateTime(now.toLocal().year, now.toLocal().month, 1);
         break;
       case GrowthPeriod.year:
         stats = _stats.aggregateThisYear(events: _records, now: now);
         bars = _yearBuckets(now);
+        windowStart = DateTime(now.toLocal().year, 1, 1);
         break;
     }
+
+    final windowRecords = _records.where((e) {
+      final ts = e.clientTimestamp;
+      return !ts.isBefore(windowStart) && !ts.isAfter(now);
+    }).toList(growable: false);
+    final scenes = _stats.aggregateSceneDistribution(
+      events: windowRecords,
+      spaceLabels: _spaceLabels,
+    );
 
     return GrowthInsightsViewState(
       isLoading: false,
@@ -94,6 +118,7 @@ class GrowthInsightsNotifier extends ChangeNotifier {
       streak: streak,
       stats: stats,
       bars: bars,
+      scenes: scenes,
     );
   }
 
@@ -103,9 +128,7 @@ class GrowthInsightsNotifier extends ChangeNotifier {
 
   /// Seven daily buckets for the current week (Monday → Sunday).
   List<GrowthBarBucket> _weekBuckets(DateTime now) {
-    final local = now.toLocal();
-    final today = DateTime(local.year, local.month, local.day);
-    final weekStart = today.subtract(Duration(days: local.weekday - 1));
+    final weekStart = _weekStart(now);
     return List<GrowthBarBucket>.generate(7, (i) {
       final day = weekStart.add(Duration(days: i));
       return GrowthBarBucket(
@@ -113,6 +136,13 @@ class GrowthInsightsNotifier extends ChangeNotifier {
         count: _countInDay(day),
       );
     });
+  }
+
+  /// Monday 00:00 of the week that contains [now] (local).
+  DateTime _weekStart(DateTime now) {
+    final local = now.toLocal();
+    final today = DateTime(local.year, local.month, local.day);
+    return today.subtract(Duration(days: local.weekday - 1));
   }
 
   /// Weekly buckets covering the current month (第1周 … 第N周).

@@ -5,6 +5,7 @@ import 'package:mobile/features/growth/presentation/growth_insights_models.dart'
 import 'package:mobile/features/growth/presentation/growth_insights_notifier.dart';
 import 'package:mobile/features/practice/data/repositories/practice_repository.dart';
 import 'package:mobile/features/practice/domain/models/interaction_event_payload.dart';
+import 'package:mobile/features/practice/domain/models/practice_activity_catalog.dart';
 
 void main() {
   // 2026-05-20 is a Wednesday → ISO week is Mon 05-18 .. Sun 05-24.
@@ -16,11 +17,12 @@ void main() {
     required String activityId,
     required BabyReactionType reactionType,
     required DateTime clientTimestamp,
+    String spaceId = 'space_1',
   }) {
     return InteractionEventPayload(
       localEventId: localEventId,
       installationId: 'install_test',
-      spaceId: 'space_1',
+      spaceId: spaceId,
       activityId: activityId,
       phraseId: phraseId,
       reactionType: reactionType,
@@ -52,6 +54,7 @@ void main() {
       activityId: 'a2',
       reactionType: BabyReactionType.calm,
       clientTimestamp: DateTime(2026, 5, 19, 9),
+      spaceId: 'space_2',
     ),
     event(
       localEventId: 'e4',
@@ -169,6 +172,25 @@ void main() {
       expect(week.hasError, isTrue);
       expect(week.stats.totalEvents, 0);
     });
+
+    test('ranks scene distribution with catalog labels', () async {
+      final notifier = GrowthInsightsNotifier(
+        repositoryFuture: Future.value(_FakeRepository(sampleEvents())),
+        now: fixedNow,
+      );
+      addTearDown(notifier.dispose);
+
+      await notifier.initialize();
+      final week = notifier.viewFor(GrowthPeriod.week);
+
+      // Week: space_1 has e1+e2 (2 events), space_2 has e3 (1 event).
+      expect(week.scenes.length, 2);
+      expect(week.scenes.first.spaceId, 'space_1');
+      expect(week.scenes.first.eventCount, 2);
+      expect(week.scenes.first.sceneTag, '喂饭');
+      expect(week.scenes.last.spaceId, 'space_2');
+      expect(week.scenes.last.sceneTag, '洗澡');
+    });
   });
 }
 
@@ -183,6 +205,32 @@ class _FakeRepository extends Fake implements PracticeRepository {
     String? activityId,
   }) async {
     return _events;
+  }
+
+  @override
+  Future<PracticeActivityCatalog> getActivityCatalog() async {
+    PracticeCatalogSpaceSummary space(String id, String title) {
+      return PracticeCatalogSpaceSummary(
+        spaceId: id,
+        title: title,
+        description: '',
+        activities: const <PracticeCatalogActivitySummary>[],
+        totalEvents: 0,
+        startedActivityCount: 0,
+        completedActivityCount: 0,
+      );
+    }
+
+    return PracticeActivityCatalog(
+      installationId: 'install_test',
+      spaces: [space('space_1', '喂饭'), space('space_2', '洗澡')],
+      activities: const <PracticeCatalogActivitySummary>[],
+      totalStoredEvents: _events.length,
+      validEvents: _events.length,
+      knownEvents: _events.length,
+      skippedMalformedEvents: 0,
+      skippedUnknownContentEvents: 0,
+    );
   }
 }
 

@@ -34,6 +34,7 @@ class GrowthInsightsViewState {
     required this.streak,
     required this.stats,
     required this.bars,
+    this.scenes = const <SceneDistribution>[],
   });
 
   const GrowthInsightsViewState.loading(this.period)
@@ -54,7 +55,8 @@ class GrowthInsightsViewState {
         lastEventAt: null,
         practicedDays: 0,
       ),
-      bars = const <GrowthBarBucket>[];
+      bars = const <GrowthBarBucket>[],
+      scenes = const <SceneDistribution>[];
 
   final bool isLoading;
   final bool hasError;
@@ -62,6 +64,9 @@ class GrowthInsightsViewState {
   final StreakResult streak;
   final PeriodStats stats;
   final List<GrowthBarBucket> bars;
+
+  /// Scene (space) distribution for the selected period, sorted desc.
+  final List<SceneDistribution> scenes;
 
   /// Loaded, no events recorded for the selected period.
   bool get isEmpty => !isLoading && !hasError && stats.totalEvents == 0;

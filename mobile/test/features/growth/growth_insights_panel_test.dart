@@ -40,6 +40,22 @@ void main() {
         GrowthBarBucket(label: '二', count: 3),
         GrowthBarBucket(label: '三', count: 1),
       ],
+      scenes: const [
+        SceneDistribution(
+          sceneTag: '喂饭',
+          spaceId: 'space_1',
+          eventCount: 8,
+          activityCount: 3,
+          percentage: 0.66,
+        ),
+        SceneDistribution(
+          sceneTag: '洗澡',
+          spaceId: 'space_2',
+          eventCount: 4,
+          activityCount: 2,
+          percentage: 0.34,
+        ),
+      ],
     );
   }
 
@@ -111,6 +127,29 @@ void main() {
     expect(find.byKey(const Key('growth-insights-empty')), findsOneWidget);
     expect(find.byKey(const Key('growth-insights-chart')), findsNothing);
     expect(find.byKey(const Key('growth-insights-streak')), findsNothing);
+  });
+
+  testWidgets('renders scene distribution rows for content view', (
+    tester,
+  ) async {
+    final stub = _StubNotifier({
+      GrowthPeriod.week: contentView(GrowthPeriod.week, currentStreak: 11),
+    });
+    await pump(tester, stub);
+
+    expect(find.byKey(const Key('growth-insights-scenes')), findsOneWidget);
+    expect(find.text('场景分布'), findsOneWidget);
+    expect(find.text('喂饭'), findsOneWidget);
+    expect(find.text('洗澡'), findsOneWidget);
+  });
+
+  testWidgets('hides scene distribution for empty view', (tester) async {
+    final stub = _StubNotifier({
+      GrowthPeriod.week: emptyView(GrowthPeriod.week),
+    });
+    await pump(tester, stub);
+
+    expect(find.byKey(const Key('growth-insights-scenes')), findsNothing);
   });
 
   testWidgets('renders loading shimmer for loading view', (tester) async {
