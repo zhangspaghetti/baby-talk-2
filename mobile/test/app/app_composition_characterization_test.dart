@@ -18,6 +18,8 @@ import 'package:mobile/features/account/data/repositories/account_repository.dar
 import 'package:mobile/features/household/data/local/household_local_store.dart';
 import 'package:mobile/features/household/data/repositories/household_repository.dart';
 import 'package:mobile/features/household/data/services/household_api_service.dart';
+import 'package:mobile/features/mentor/data/local/mentor_local_data_source.dart';
+import 'package:mobile/features/mentor/data/repositories/mentor_repository.dart';
 import 'package:mobile/features/onboarding/data/local/onboarding_snapshot_store.dart';
 import 'package:mobile/features/onboarding/data/repositories/onboarding_repository.dart';
 import 'package:mobile/features/onboarding/presentation/onboarding_notifier.dart';
@@ -41,6 +43,20 @@ void main() {
           const MethodChannel('com.llfbandit.app_links/events'),
           (MethodCall methodCall) async => null,
         );
+
+    // Stub the audioplayers plugin channels. Some providers may lazily create
+    // an AudioPlayer whose init fires after a test completes; without a stub it
+    // throws MissingPluginException and fails the surrounding test.
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(
+          const MethodChannel('xyz.luan/audioplayers.global'),
+          (MethodCall methodCall) async => null,
+        );
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(
+          const MethodChannel('xyz.luan/audioplayers'),
+          (MethodCall methodCall) async => null,
+        );
   });
 
   testWidgets(
@@ -49,8 +65,6 @@ void main() {
       late OnboardingSnapshot completedSnapshot;
       final shareCoordinator = ShareReentryCoordinator();
       final inviteCoordinator = InviteReentryCoordinator();
-      addTearDown(shareCoordinator.dispose);
-      addTearDown(inviteCoordinator.dispose);
 
       final harness = (await tester.runAsync<_AppCompositionHarness>(() async {
         final created = await _createHarness();
@@ -122,6 +136,9 @@ void main() {
                   .requireValue;
               return OnboardingNotifier(repository: repository)..initialize();
             }),
+            mentorRepositoryProvider.overrideWith(
+              (ref) async => harness.mentorRepository,
+            ),
             shareReentryCoordinatorProvider.overrideWith(
               (ref) => shareCoordinator,
             ),
@@ -135,8 +152,8 @@ void main() {
             completedSnapshotLoader: () async => completedSnapshot,
             shareReentryCoordinator: shareCoordinator,
             inviteReentryCoordinator: inviteCoordinator,
-            practiceContinuityRefreshTimeout: const Duration(milliseconds: 1),
-            gardenGrowthRefreshTimeout: const Duration(milliseconds: 1),
+            practiceContinuityRefreshTimeout: Duration.zero,
+            gardenGrowthRefreshTimeout: Duration.zero,
           ),
         ),
       );
@@ -249,13 +266,16 @@ class _AppCompositionHarness {
     required this.bootState,
     required this.tempDir,
     required this.repository,
+    required this.mentorRepository,
   });
 
   final AppBootState bootState;
   final Directory tempDir;
   final PracticeRepository repository;
+  final MentorRepository mentorRepository;
 
   Future<void> close() async {
+    await mentorRepository.close(deleteFromDisk: true);
     await repository.close(deleteFromDisk: true);
     await Future<void>.delayed(const Duration(milliseconds: 50));
     if (await tempDir.exists()) {
@@ -300,10 +320,22 @@ Future<_AppCompositionHarness> _createHarness() async {
       idGenerator: () => 'install_app_composition_test',
     ),
   );
+  final mentorLocalDataSource = await MentorLocalDataSource.open(
+    directory: tempDir.path,
+    name: 'mentor_app_composition_test_${DateTime.now().microsecondsSinceEpoch}',
+  );
+  final mentorRepository = MentorRepository(
+    localDataSource: mentorLocalDataSource,
+    practiceRepository: repository,
+    onboardingSnapshotStore: OnboardingSnapshotStore(
+      directoryResolver: () async => tempDir,
+    ),
+  );
   return _AppCompositionHarness(
     bootState: bootState,
     tempDir: tempDir,
     repository: repository,
+    mentorRepository: mentorRepository,
   );
 }
 
@@ -335,10 +367,19 @@ Future<void> _disposeWidgetTree(WidgetTester tester) async {
   await tester.pumpWidget(const SizedBox.shrink());
   await tester.pump();
   await tester.pump(const Duration(seconds: 5));
-  await tester.runAsync(() async {
-    await Future<void>.delayed(Duration.zero);
-  });
-  await tester.pump();
+  // Settle any mixed real/fake async Isar operations kicked off by the
+  // HomeScreen post-frame notifier inits (continuity/garden reads, account
+  // installation-id write). Their native completions need a real event loop
+  // (tester.runAsync) while their Dart continuations are microtasks parked on
+  // the fake-async queue (drained by tester.pump). Alternating both repeatedly
+  // lets the transactions fully commit and release the practice Isar lock, so
+  // repository.close(deleteFromDisk: true) does not deadlock during teardown.
+  for (var i = 0; i < 12; i++) {
+    await tester.runAsync(() async {
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+    });
+    await tester.pump();
+  }
 }
 
 Future<void> _pumpUntilFound(

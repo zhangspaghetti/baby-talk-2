@@ -505,6 +505,10 @@ final shareNotifierProvider = ChangeNotifierProvider.autoDispose<ShareNotifier>(
           : null,
     );
   },
+  // Declared so this provider can be re-created within nested ProviderScopes
+  // that override the garden/continuity notifiers (e.g. the boot scope which
+  // seeds the continuity notifier with a boot continuity snapshot).
+  dependencies: [gardenGrowthNotifierProvider, practiceContinuityNotifierProvider],
 );
 
 // ---------------------------------------------------------------------------

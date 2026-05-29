@@ -18,6 +18,8 @@ import 'package:mobile/features/account/domain/models/account_consent_state.dart
 import 'package:mobile/features/household/data/local/household_local_store.dart';
 import 'package:mobile/features/household/data/repositories/household_repository.dart';
 import 'package:mobile/features/household/data/services/household_api_service.dart';
+import 'package:mobile/features/mentor/data/local/mentor_local_data_source.dart';
+import 'package:mobile/features/mentor/data/repositories/mentor_repository.dart';
 import 'package:mobile/features/onboarding/data/local/onboarding_snapshot_store.dart';
 import 'package:mobile/features/onboarding/data/repositories/onboarding_repository.dart';
 import 'package:mobile/features/onboarding/presentation/onboarding_notifier.dart';
@@ -42,6 +44,19 @@ void main() {
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(
           const MethodChannel('com.llfbandit.app_links/events'),
+          (MethodCall methodCall) async => null,
+        );
+
+    // audioplayers 插件可能被惰性创建的 AudioPlayer 在测试完成后初始化，
+    // 若不 mock 会抛出 MissingPluginException 连累所在测试失败。
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(
+          const MethodChannel('xyz.luan/audioplayers.global'),
+          (MethodCall methodCall) async => null,
+        );
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(
+          const MethodChannel('xyz.luan/audioplayers'),
           (MethodCall methodCall) async => null,
         );
   });
@@ -105,6 +120,9 @@ void main() {
             harness.bootState.assetPhraseService!,
           ),
           appDirectoryProvider.overrideWith((ref) => harness.tempDir),
+          mentorRepositoryProvider.overrideWith(
+            (ref) async => harness.mentorRepository,
+          ),
           practiceRepositoryProvider.overrideWith((ref) => harness.repository),
           accountRepositoryProvider.overrideWith(
             (ref) => AccountRepository(
@@ -130,8 +148,8 @@ void main() {
           bootState: harness.bootState,
           audioControllerFactory: _SilentPracticeAudioController.new,
           completedSnapshotLoader: () async => null,
-          practiceContinuityRefreshTimeout: const Duration(milliseconds: 1),
-          gardenGrowthRefreshTimeout: const Duration(milliseconds: 1),
+          practiceContinuityRefreshTimeout: Duration.zero,
+          gardenGrowthRefreshTimeout: Duration.zero,
         ),
       ),
     );
@@ -208,6 +226,9 @@ void main() {
             harness.bootState.assetPhraseService!,
           ),
           appDirectoryProvider.overrideWith((ref) => harness.tempDir),
+          mentorRepositoryProvider.overrideWith(
+            (ref) async => harness.mentorRepository,
+          ),
           practiceRepositoryProvider.overrideWith((ref) => harness.repository),
           accountRepositoryProvider.overrideWith(
             (ref) => AccountRepository(
@@ -252,8 +273,8 @@ void main() {
           bootState: harness.bootState,
           audioControllerFactory: _SilentPracticeAudioController.new,
           completedSnapshotLoader: () async => completedSnapshot,
-          practiceContinuityRefreshTimeout: const Duration(milliseconds: 1),
-          gardenGrowthRefreshTimeout: const Duration(milliseconds: 1),
+          practiceContinuityRefreshTimeout: Duration.zero,
+          gardenGrowthRefreshTimeout: Duration.zero,
         ),
       ),
     );
@@ -313,6 +334,9 @@ void main() {
               harness.bootState.assetPhraseService!,
             ),
             appDirectoryProvider.overrideWith((ref) => harness.tempDir),
+            mentorRepositoryProvider.overrideWith(
+              (ref) async => harness.mentorRepository,
+            ),
             practiceRepositoryProvider.overrideWith(
               (ref) => harness.repository,
             ),
@@ -359,18 +383,38 @@ void main() {
             bootState: harness.bootState,
             audioControllerFactory: _SilentPracticeAudioController.new,
             completedSnapshotLoader: () async => completedSnapshot,
-            practiceContinuityRefreshTimeout: const Duration(milliseconds: 1),
-            gardenGrowthRefreshTimeout: const Duration(milliseconds: 1),
+            practiceContinuityRefreshTimeout: Duration.zero,
+            gardenGrowthRefreshTimeout: Duration.zero,
           ),
         ),
       );
-      await _pumpUntilFound(tester, find.byKey(const Key('boot-route-shell')));
+      // Drive boot resolution with real wall-clock time WITHOUT advancing the
+      // fake clock. The boot continuity seed performs real-async Isar reads
+      // bounded by a fake-timer .timeout(4s) inside FeatureGates.resolve. If we
+      // advance fake time (e.g. pump(50ms)) while waiting, that fake timeout
+      // fires before the real Isar read finishes and the seed is dropped
+      // (continuitySeed=null), so the recommendation only later resolves via
+      // the home_bootstrap refresh. By only pumping microtasks (Duration.zero)
+      // between real runAsync windows, the seed read wins the race and the
+      // notifier boots already seeded with reason 'boot_seed_recent_activity'.
+      final bootShellFinder = find.byKey(const Key('boot-route-shell'));
+      for (var i = 0; i < 60 && bootShellFinder.evaluate().isEmpty; i++) {
+        await tester.runAsync(() async {
+          await Future<void>.delayed(const Duration(milliseconds: 50));
+        });
+        await tester.pump();
+      }
+      expect(
+        bootShellFinder,
+        findsOneWidget,
+        reason: 'boot shell should mount after boot resolution',
+      );
       await tester.pump();
 
-      final shellElement = tester.element(find.byKey(const Key('shell-ready')));
       final continuityNotifier = ProviderScope.containerOf(
-        shellElement,
+        tester.element(find.byKey(const Key('shell-ready'))),
       ).read(practiceContinuityNotifierProvider);
+
       expect(continuityNotifier.hasResolvedRecommendation, isTrue);
       expect(continuityNotifier.recommendedArgs?.activityId, 'feeding_time');
       expect(
@@ -379,12 +423,16 @@ void main() {
       );
       expect(continuityNotifier.lastRefreshReason, 'boot_seed_recent_activity');
 
-      await tester.tap(find.byTooltip('成长'));
+      await tester.tap(find.byKey(const Key('shell-nav-garden')));
       await _pumpUntilFound(
         tester,
         find.byKey(const Key('shell-tab-growth-combined')),
       );
-      await tester.pumpAndSettle();
+      // Bounded settle: pumpAndSettle can hang if a notifier keeps a pending
+      // refresh/animation alive, so advance a fixed number of frames instead.
+      for (var i = 0; i < 10; i++) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
       await tester.scrollUntilVisible(
         find.byKey(const Key('garden-continue-practice')),
         180,
@@ -444,6 +492,9 @@ void main() {
             harness.bootState.assetPhraseService!,
           ),
           appDirectoryProvider.overrideWith((ref) => harness.tempDir),
+          mentorRepositoryProvider.overrideWith(
+            (ref) async => harness.mentorRepository,
+          ),
           practiceRepositoryProvider.overrideWith((ref) => harness.repository),
           accountRepositoryProvider.overrideWith(
             (ref) => AccountRepository(
@@ -488,8 +539,8 @@ void main() {
           bootState: harness.bootState,
           audioControllerFactory: _SilentPracticeAudioController.new,
           completedSnapshotLoader: () async => completedSnapshot,
-          practiceContinuityRefreshTimeout: const Duration(milliseconds: 1),
-          gardenGrowthRefreshTimeout: const Duration(milliseconds: 1),
+          practiceContinuityRefreshTimeout: Duration.zero,
+          gardenGrowthRefreshTimeout: Duration.zero,
         ),
       ),
     );
@@ -544,14 +595,17 @@ class _AppBootHarness {
     required this.tempDir,
     required this.localDataSource,
     required this.repository,
+    required this.mentorRepository,
   });
 
   final AppBootState bootState;
   final Directory tempDir;
   final PracticeLocalDataSource localDataSource;
   final PracticeRepository repository;
+  final MentorRepository mentorRepository;
 
   Future<void> close() async {
+    await mentorRepository.close(deleteFromDisk: true);
     await repository.close(deleteFromDisk: true);
     await Future<void>.delayed(const Duration(milliseconds: 50));
     if (await tempDir.exists()) {
@@ -596,11 +650,23 @@ Future<_AppBootHarness> _createHarness() async {
       idGenerator: () => 'install_app_boot_test',
     ),
   );
+  final mentorLocalDataSource = await MentorLocalDataSource.open(
+    directory: tempDir.path,
+    name: 'mentor_app_boot_test_${DateTime.now().microsecondsSinceEpoch}',
+  );
+  final mentorRepository = MentorRepository(
+    localDataSource: mentorLocalDataSource,
+    practiceRepository: repository,
+    onboardingSnapshotStore: OnboardingSnapshotStore(
+      directoryResolver: () async => tempDir,
+    ),
+  );
   return _AppBootHarness(
     bootState: bootState,
     tempDir: tempDir,
     localDataSource: localDataSource,
     repository: repository,
+    mentorRepository: mentorRepository,
   );
 }
 
@@ -634,10 +700,19 @@ Future<void> _disposeWidgetTree(WidgetTester tester) async {
   await tester.pumpWidget(const SizedBox.shrink());
   await tester.pump();
   await tester.pump(const Duration(seconds: 5));
-  await tester.runAsync(() async {
-    await Future<void>.delayed(Duration.zero);
-  });
-  await tester.pump();
+  // Settle any mixed real/fake async Isar operations kicked off by the
+  // HomeScreen post-frame notifier inits (continuity/garden reads, account
+  // installation-id write). Their native completions need a real event loop
+  // (tester.runAsync) while their Dart continuations are microtasks parked on
+  // the fake-async queue (drained by tester.pump). Alternating both repeatedly
+  // lets the transactions fully commit and release the practice Isar lock, so
+  // repository.close(deleteFromDisk: true) does not deadlock during teardown.
+  for (var i = 0; i < 12; i++) {
+    await tester.runAsync(() async {
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+    });
+    await tester.pump();
+  }
 }
 
 Future<void> _pumpUntilFound(

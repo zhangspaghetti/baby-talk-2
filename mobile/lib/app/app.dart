@@ -263,6 +263,8 @@ class _BabyTalkAppState extends ConsumerState<BabyTalkApp> {
           overrides: _buildRiverpodOverrides(
             onboardingRepository: onboardingRepository,
             defaultPracticeArgs: launchState.defaultPracticeArgs,
+            practiceRepository: launchState.practiceRepository,
+            continuitySeed: launchState.continuitySeed,
           ),
           child: MaterialApp.router(
             routerConfig: _resolveRouter(
@@ -286,10 +288,26 @@ class _BabyTalkAppState extends ConsumerState<BabyTalkApp> {
   List<Override> _buildRiverpodOverrides({
     required OnboardingRepository onboardingRepository,
     required PracticeRouteArgs defaultPracticeArgs,
+    required PracticeRepository practiceRepository,
+    required PracticeContinuitySeedState? continuitySeed,
   }) {
     return [
       onboardingRepositoryProvider.overrideWith((ref) => onboardingRepository),
       defaultPracticeRouteArgsProvider.overrideWithValue(defaultPracticeArgs),
+      practiceContinuityNotifierProvider.overrideWith((ref) {
+        return PracticeContinuityNotifier(
+          repository: practiceRepository,
+          seedState: continuitySeed,
+          refreshTimeout: widget.practiceContinuityRefreshTimeout,
+        )..initialize();
+      }),
+      gardenGrowthNotifierProvider.overrideWith((ref) {
+        final repository = ref.watch(gardenGrowthRepositoryProvider);
+        return GardenGrowthNotifier(
+          repository: repository,
+          refreshTimeout: widget.gardenGrowthRefreshTimeout,
+        )..initialize();
+      }),
     ];
   }
 
