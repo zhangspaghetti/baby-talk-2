@@ -1306,6 +1306,15 @@ class AppLocalizationsZh extends AppLocalizations {
   String get growthOrganizingNote => '准备好后，这里会出现最新一次变化、自动日记和里程碑。';
 
   @override
+  String get growthEmptyTitle => '你的成长还没有开始。';
+
+  @override
+  String get growthEmptyDescription => '说完第一句英语后，这里会记录你的陪伴轨迹。';
+
+  @override
+  String get growthEmptyAction => '回到首页说一句';
+
+  @override
   String get growthPlaceholder => '最近成长会写在这里';
 
   @override

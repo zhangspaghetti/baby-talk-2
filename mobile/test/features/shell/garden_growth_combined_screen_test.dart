@@ -261,6 +261,46 @@ void main() {
     );
   });
 
+  testWidgets(
+    'growth tab shows the §9 empty state and returns home on action tap',
+    (tester) async {
+      _setTallViewport(tester);
+      var goHomeCalls = 0;
+
+      await _pumpScreen(
+        tester,
+        status: GardenGrowthLoadStatus.ready,
+        snapshot: GardenGrowthSnapshot.empty(),
+        onGoHome: () => goHomeCalls++,
+      );
+
+      await _openGrowthTab(tester);
+
+      final context = tester.element(
+        find.byKey(const Key('growth-combined-segmented-control')),
+      );
+      final l = AppLocalizations.of(context)!;
+
+      expect(
+        find.byKey(const Key('growth-combined-growth-empty-state')),
+        findsOneWidget,
+      );
+      expect(find.text(l.growthEmptyTitle), findsOneWidget);
+      expect(find.text(l.growthEmptyDescription), findsOneWidget);
+      // 空态时隐藏里程碑、最近活跃等区域。
+      expect(
+        find.byKey(const Key('growth-combined-milestones-empty')),
+        findsNothing,
+      );
+      expect(find.byKey(const Key('growth-insights-recent')), findsNothing);
+
+      await tester.tap(find.text(l.growthEmptyAction));
+      await tester.pumpAndSettle();
+
+      expect(goHomeCalls, 1);
+    },
+  );
+
   testWidgets('growth preview sheets stay scrollable on compact phones', (
     tester,
   ) async {
@@ -439,6 +479,7 @@ Future<_GardenGrowthNotifierHarness> _pumpScreen(
   required GardenGrowthLoadStatus status,
   required GardenGrowthSnapshot snapshot,
   String? message,
+  VoidCallback? onGoHome,
 }) async {
   final notifier = _GardenGrowthNotifierHarness(
     snapshot: snapshot,
@@ -474,7 +515,9 @@ Future<_GardenGrowthNotifierHarness> _pumpScreen(
         localizationsDelegates: AppLocalizations.localizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
         theme: AppTheme.build(),
-        home: const Scaffold(body: GardenGrowthCombinedScreen()),
+        home: Scaffold(
+          body: GardenGrowthCombinedScreen(onGoHome: onGoHome),
+        ),
       ),
     ),
   );

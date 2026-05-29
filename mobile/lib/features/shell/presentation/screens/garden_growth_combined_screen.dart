@@ -30,9 +30,13 @@ class GardenGrowthCombinedScreen extends ConsumerStatefulWidget {
   const GardenGrowthCombinedScreen({
     super.key,
     this.initialTab = GrowthTab.garden,
+    this.onGoHome,
   });
 
   final GrowthTab initialTab;
+
+  /// 回调：从成长页空态返回首页（由外层 Shell 注入，用于切换底部导航到首页）。
+  final VoidCallback? onGoHome;
 
   @override
   ConsumerState<GardenGrowthCombinedScreen> createState() =>
@@ -284,13 +288,33 @@ class _GardenGrowthCombinedScreenState
     String title = l.growthNotScore;
     String body = l.growthNote;
 
-    if (gardenNotifier.status == GardenGrowthLoadStatus.loading ||
-        gardenNotifier.status == GardenGrowthLoadStatus.idle) {
+    final isLoading =
+        gardenNotifier.status == GardenGrowthLoadStatus.loading ||
+        gardenNotifier.status == GardenGrowthLoadStatus.idle;
+
+    if (isLoading) {
       title = l.growthOrganizing;
       body = l.growthOrganizingNote;
     } else if (impact != null) {
       title = impact.headline;
       body = impact.detail;
+    }
+
+    // ── §9 成长页空态：尚无任何练习记录时居中显示，引导回到首页 ──
+    if (!isLoading && snapshot.isEmpty) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(
+          vertical: AppLayoutConstants.spacingXl,
+        ),
+        child: AppEmptyState(
+          key: const Key('growth-combined-growth-empty-state'),
+          icon: Icons.auto_awesome_rounded,
+          title: l.growthEmptyTitle,
+          description: l.growthEmptyDescription,
+          actionLabel: l.growthEmptyAction,
+          onAction: widget.onGoHome,
+        ),
+      );
     }
 
     return Column(

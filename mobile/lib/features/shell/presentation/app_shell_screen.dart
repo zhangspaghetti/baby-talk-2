@@ -82,7 +82,10 @@ class _AppShellScreenState extends ConsumerState<AppShellScreen> {
               embeddedInShell: true,
             ),
             const DiscoverScreen(),
-            const GardenGrowthCombinedScreen(initialTab: GrowthTab.garden),
+            GardenGrowthCombinedScreen(
+              initialTab: GrowthTab.garden,
+              onGoHome: () => setState(() => _selectedIndex = 0),
+            ),
             MeScreen(onboardingSnapshot: widget.onboardingSnapshot),
           ],
         ),

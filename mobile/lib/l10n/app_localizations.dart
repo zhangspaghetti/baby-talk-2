@@ -2454,6 +2454,24 @@ abstract class AppLocalizations {
   /// **'准备好后，这里会出现最新一次变化、自动日记和里程碑。'**
   String get growthOrganizingNote;
 
+  /// No description provided for @growthEmptyTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'你的成长还没有开始。'**
+  String get growthEmptyTitle;
+
+  /// No description provided for @growthEmptyDescription.
+  ///
+  /// In zh, this message translates to:
+  /// **'说完第一句英语后，这里会记录你的陪伴轨迹。'**
+  String get growthEmptyDescription;
+
+  /// No description provided for @growthEmptyAction.
+  ///
+  /// In zh, this message translates to:
+  /// **'回到首页说一句'**
+  String get growthEmptyAction;
+
   /// No description provided for @growthPlaceholder.
   ///
   /// In zh, this message translates to:
