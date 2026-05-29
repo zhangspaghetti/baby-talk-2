@@ -5,6 +5,8 @@ import 'package:mobile/app/theme/app_layout_constants.dart';
 import 'package:mobile/app/theme/app_theme.dart';
 import 'package:mobile/app/widgets/app_banner.dart';
 import 'package:mobile/app/widgets/app_empty_state.dart';
+import 'package:mobile/app/widgets/app_english_phrase.dart';
+import 'package:mobile/app/widgets/app_scene_pill.dart';
 import 'package:mobile/app/widgets/app_shimmer.dart';
 import 'package:mobile/app/widgets/app_surface_card.dart';
 import 'package:mobile/features/practice/domain/models/practice_activity_catalog.dart';
@@ -448,7 +450,7 @@ class _DiscoverFilterBar extends StatelessWidget {
                 for (var i = 0; i < _sceneCategories.length; i++) ...[
                   if (i > 0)
                     const SizedBox(width: AppLayoutConstants.spacingXs),
-                  _ScenePill(
+                  AppScenePill(
                     key: Key('discover-pill-${_sceneCategories[i]}'),
                     label: _sceneLabelFromKey(l, _sceneCategories[i]),
                     isSelected: _sceneCategories[i] == selectedScene,
@@ -499,60 +501,6 @@ class _DiscoverFilterBar extends StatelessWidget {
 // ─────────────────────────────────────────────────────────────
 // Scene Pill
 // ─────────────────────────────────────────────────────────────
-
-class _ScenePill extends StatelessWidget {
-  const _ScenePill({
-    super.key,
-    required this.label,
-    required this.isSelected,
-    required this.onTap,
-  });
-
-  final String label;
-  final bool isSelected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = context.appColors;
-    final theme = Theme.of(context);
-    return Semantics(
-      label: '场景筛选: $label${isSelected ? "，已选中" : ""}',
-      button: true,
-      selected: isSelected,
-      child: Material(
-        color: isSelected ? colors.accent : colors.bgSunken,
-        borderRadius: BorderRadius.circular(AppLayoutConstants.pillRadius),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(AppLayoutConstants.pillRadius),
-          onTap: onTap,
-          child: Container(
-            constraints: const BoxConstraints(minHeight: 44),
-            padding: const EdgeInsets.symmetric(
-              horizontal: AppLayoutConstants.spacingMd,
-              vertical: AppLayoutConstants.spacingXs,
-            ),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(AppLayoutConstants.pillRadius),
-              border: isSelected
-                  ? Border.all(color: colors.accentDark, width: 1.5)
-                  : null,
-            ),
-            child: Center(
-              child: Text(
-                label,
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: isSelected ? Colors.white : colors.textSecondary,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
 
 // ─────────────────────────────────────────────────────────────
 // Sort Dropdown
@@ -788,12 +736,7 @@ class _PhraseCard extends StatelessWidget {
             const SizedBox(height: AppLayoutConstants.spacingSm),
 
             // English phrase (most prominent text)
-            Text(
-              activity.title,
-              style: theme.textTheme.headlineSmall?.copyWith(
-                color: colors.english,
-              ),
-            ),
+            AppEnglishPhrase(activity.title),
             const SizedBox(height: AppLayoutConstants.spacingXs),
 
             // Chinese translation
