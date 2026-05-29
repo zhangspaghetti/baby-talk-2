@@ -1,0 +1,450 @@
+import 'package:fl_chart/fl_chart.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:mobile/app/providers/repository_providers.dart';
+import 'package:mobile/app/theme/app_layout_constants.dart';
+import 'package:mobile/app/theme/app_theme.dart';
+import 'package:mobile/app/widgets/app_haptics.dart';
+import 'package:mobile/app/widgets/app_shimmer.dart';
+import 'package:mobile/features/growth/presentation/growth_insights_models.dart';
+
+/// Growth V2 insights panel: period selector (本周/本月/今年) + streak card
+/// + period stats tiles + a trend bar chart (fl_chart). Consumes the pure
+/// [GrowthStatsService] via [growthInsightsNotifierProvider].
+class GrowthInsightsPanel extends ConsumerStatefulWidget {
+  const GrowthInsightsPanel({super.key});
+
+  @override
+  ConsumerState<GrowthInsightsPanel> createState() =>
+      _GrowthInsightsPanelState();
+}
+
+class _GrowthInsightsPanelState extends ConsumerState<GrowthInsightsPanel> {
+  GrowthPeriod _period = GrowthPeriod.week;
+
+  void _selectPeriod(GrowthPeriod period) {
+    if (period == _period) return;
+    AppHaptics.lightTap();
+    setState(() => _period = period);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    final theme = Theme.of(context);
+    final notifier = ref.watch(growthInsightsNotifierProvider);
+    final view = notifier.viewFor(_period);
+
+    return Container(
+      key: const Key('growth-insights-panel'),
+      padding: const EdgeInsets.all(AppLayoutConstants.spacingXl),
+      decoration: BoxDecoration(
+        color: colors.bgSurface,
+        borderRadius: BorderRadius.circular(AppLayoutConstants.largeRadius),
+        border: Border.all(color: colors.outlineSoft),
+        boxShadow: colors.warmShadowSm,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Flexible(
+                child: Text(
+                  '练习趋势',
+                  style: theme.textTheme.titleMedium,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              _PeriodSelector(selected: _period, onSelected: _selectPeriod),
+            ],
+          ),
+          const SizedBox(height: AppLayoutConstants.spacingLg),
+          if (view.isLoading)
+            _buildLoading(colors)
+          else if (view.isEmpty)
+            _buildEmpty(theme, colors)
+          else
+            _buildContent(context, theme, colors, view),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLoading(BabyTalkColors colors) {
+    return Column(
+      key: const Key('growth-insights-loading'),
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: const [
+        AppShimmer(width: 160, height: 56),
+        SizedBox(height: AppLayoutConstants.spacingMd),
+        AppShimmer(width: double.infinity, height: 140),
+      ],
+    );
+  }
+
+  Widget _buildEmpty(ThemeData theme, BabyTalkColors colors) {
+    return Padding(
+      key: const Key('growth-insights-empty'),
+      padding: const EdgeInsets.symmetric(
+        vertical: AppLayoutConstants.spacingLg,
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.insights_rounded, color: colors.textMuted, size: 28),
+          const SizedBox(width: AppLayoutConstants.spacingSm),
+          Expanded(
+            child: Text(
+              '这段时间还没有练习记录，去和宝宝说几句吧。',
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: colors.textSecondary,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildContent(
+    BuildContext context,
+    ThemeData theme,
+    BabyTalkColors colors,
+    GrowthInsightsViewState view,
+  ) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // ── Streak card ──
+        Container(
+          key: const Key('growth-insights-streak'),
+          padding: const EdgeInsets.all(AppLayoutConstants.spacingMd),
+          decoration: BoxDecoration(
+            color: colors.bgAccentSoft,
+            borderRadius: BorderRadius.circular(AppLayoutConstants.cardRadius),
+          ),
+          child: Row(
+            children: [
+              _StatCell(
+                label: '连续打卡',
+                value: '${view.streak.currentStreak}',
+                unit: '天',
+                colors: colors,
+                theme: theme,
+                emphasize: true,
+              ),
+              _CellDivider(colors: colors),
+              _StatCell(
+                label: '最长连续',
+                value: '${view.streak.longestStreak}',
+                unit: '天',
+                colors: colors,
+                theme: theme,
+              ),
+              _CellDivider(colors: colors),
+              _StatCell(
+                label: '累计天数',
+                value: '${view.streak.totalDaysPracticed}',
+                unit: '天',
+                colors: colors,
+                theme: theme,
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: AppLayoutConstants.spacingMd),
+
+        // ── Period stat tiles ──
+        Wrap(
+          spacing: AppLayoutConstants.spacingSm,
+          runSpacing: AppLayoutConstants.spacingSm,
+          children: [
+            _StatChip(
+              label: '${view.period.label}练习',
+              value: '${view.stats.totalEvents}',
+              colors: colors,
+              theme: theme,
+            ),
+            _StatChip(
+              label: '说过的话',
+              value: '${view.stats.uniquePhrases}',
+              colors: colors,
+              theme: theme,
+            ),
+            _StatChip(
+              label: '涉及活动',
+              value: '${view.stats.uniqueActivities}',
+              colors: colors,
+              theme: theme,
+            ),
+            _StatChip(
+              label: '宝宝模仿',
+              value: '${view.stats.imitationCount}',
+              colors: colors,
+              theme: theme,
+            ),
+          ],
+        ),
+        const SizedBox(height: AppLayoutConstants.spacingLg),
+
+        // ── Trend bar chart ──
+        SizedBox(
+          key: const Key('growth-insights-chart'),
+          height: 160,
+          child: _TrendBarChart(view: view, colors: colors, theme: theme),
+        ),
+      ],
+    );
+  }
+}
+
+class _PeriodSelector extends StatelessWidget {
+  const _PeriodSelector({required this.selected, required this.onSelected});
+
+  final GrowthPeriod selected;
+  final ValueChanged<GrowthPeriod> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    return Container(
+      padding: const EdgeInsets.all(3),
+      decoration: BoxDecoration(
+        color: colors.bgSunken,
+        borderRadius: BorderRadius.circular(AppLayoutConstants.pillRadius),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: GrowthPeriod.values.map((period) {
+          final isSelected = period == selected;
+          return GestureDetector(
+            key: Key('growth-insights-period-${period.name}'),
+            onTap: () => onSelected(period),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 180),
+              curve: Curves.easeOut,
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppLayoutConstants.spacingSm,
+                vertical: 6,
+              ),
+              decoration: BoxDecoration(
+                color: isSelected ? colors.bgSurface : Colors.transparent,
+                borderRadius: BorderRadius.circular(
+                  AppLayoutConstants.pillRadius,
+                ),
+                boxShadow: isSelected ? colors.warmShadowSm : null,
+              ),
+              child: Text(
+                period.label,
+                style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                  color: isSelected ? colors.textPrimary : colors.textMuted,
+                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                ),
+              ),
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+}
+
+class _StatCell extends StatelessWidget {
+  const _StatCell({
+    required this.label,
+    required this.value,
+    required this.unit,
+    required this.colors,
+    required this.theme,
+    this.emphasize = false,
+  });
+
+  final String label;
+  final String value;
+  final String unit;
+  final BabyTalkColors colors;
+  final ThemeData theme;
+  final bool emphasize;
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: Column(
+        children: [
+          RichText(
+            text: TextSpan(
+              children: [
+                TextSpan(
+                  text: value,
+                  style: theme.textTheme.headlineSmall?.copyWith(
+                    color: emphasize ? colors.accentDark : colors.textPrimary,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                TextSpan(
+                  text: ' $unit',
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: colors.textMuted,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            label,
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: colors.textSecondary,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CellDivider extends StatelessWidget {
+  const _CellDivider({required this.colors});
+
+  final BabyTalkColors colors;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(width: 1, height: 32, color: colors.outlineSoft);
+  }
+}
+
+class _StatChip extends StatelessWidget {
+  const _StatChip({
+    required this.label,
+    required this.value,
+    required this.colors,
+    required this.theme,
+  });
+
+  final String label;
+  final String value;
+  final BabyTalkColors colors;
+  final ThemeData theme;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppLayoutConstants.spacingSm,
+        vertical: 6,
+      ),
+      decoration: BoxDecoration(
+        color: colors.bgSunken,
+        borderRadius: BorderRadius.circular(AppLayoutConstants.smallRadius),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            value,
+            style: theme.textTheme.titleSmall?.copyWith(
+              color: colors.textPrimary,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(width: 4),
+          Text(
+            label,
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: colors.textSecondary,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TrendBarChart extends StatelessWidget {
+  const _TrendBarChart({
+    required this.view,
+    required this.colors,
+    required this.theme,
+  });
+
+  final GrowthInsightsViewState view;
+  final BabyTalkColors colors;
+  final ThemeData theme;
+
+  @override
+  Widget build(BuildContext context) {
+    final bars = view.bars;
+    final maxCount = view.maxBarCount;
+    return BarChart(
+      BarChartData(
+        alignment: BarChartAlignment.spaceAround,
+        maxY: maxCount.toDouble(),
+        minY: 0,
+        gridData: const FlGridData(show: false),
+        borderData: FlBorderData(show: false),
+        barTouchData: BarTouchData(
+          enabled: true,
+          touchTooltipData: BarTouchTooltipData(
+            getTooltipColor: (_) => colors.textPrimary,
+            getTooltipItem: (group, groupIndex, rod, rodIndex) {
+              return BarTooltipItem(
+                '${rod.toY.toInt()}',
+                theme.textTheme.labelSmall!.copyWith(color: colors.bgSurface),
+              );
+            },
+          ),
+        ),
+        titlesData: FlTitlesData(
+          leftTitles: const AxisTitles(
+            sideTitles: SideTitles(showTitles: false),
+          ),
+          rightTitles: const AxisTitles(
+            sideTitles: SideTitles(showTitles: false),
+          ),
+          topTitles: const AxisTitles(
+            sideTitles: SideTitles(showTitles: false),
+          ),
+          bottomTitles: AxisTitles(
+            sideTitles: SideTitles(
+              showTitles: true,
+              reservedSize: 22,
+              getTitlesWidget: (value, meta) {
+                final index = value.toInt();
+                if (index < 0 || index >= bars.length) {
+                  return const SizedBox.shrink();
+                }
+                return Padding(
+                  padding: const EdgeInsets.only(top: 4),
+                  child: Text(
+                    bars[index].label,
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: colors.textMuted,
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ),
+        barGroups: [
+          for (var i = 0; i < bars.length; i++)
+            BarChartGroupData(
+              x: i,
+              barRods: [
+                BarChartRodData(
+                  toY: bars[i].count.toDouble(),
+                  width: bars.length > 8 ? 8 : 16,
+                  borderRadius: const BorderRadius.vertical(
+                    top: Radius.circular(AppLayoutConstants.smallRadius),
+                  ),
+                  color: bars[i].count > 0 ? colors.accent : colors.outlineSoft,
+                ),
+              ],
+            ),
+        ],
+      ),
+    );
+  }
+}

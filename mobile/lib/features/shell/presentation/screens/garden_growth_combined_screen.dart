@@ -9,6 +9,7 @@ import 'package:mobile/app/theme/app_layout_constants.dart';
 import 'package:mobile/app/theme/app_theme.dart';
 import 'package:mobile/features/household/presentation/widgets/household_shared_context_card.dart';
 import 'package:mobile/features/garden/presentation/widgets/garden_fertilizer_panel.dart';
+import 'package:mobile/features/growth/presentation/widgets/growth_insights_panel.dart';
 import 'package:mobile/features/practice/data/repositories/practice_repository.dart'
     show PracticeActivitySnapshot;
 import 'package:mobile/features/practice/domain/models/garden_growth_snapshot.dart';
@@ -426,6 +427,10 @@ class _GardenGrowthCombinedScreenState
                     child: _MilestoneCard(milestone: milestone),
                   ),
                 ),
+
+          // ── Growth insights (周/月/年 trend + streak) ──
+          const SizedBox(height: AppLayoutConstants.spacingXl),
+          const GrowthInsightsPanel(),
         ],
       ],
     );

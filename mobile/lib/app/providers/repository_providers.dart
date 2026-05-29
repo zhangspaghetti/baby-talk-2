@@ -20,6 +20,7 @@ import 'package:mobile/features/household/data/services/household_api_service.da
 import 'package:mobile/features/garden/data/local/garden_fertilizer_local_data_source.dart';
 import 'package:mobile/features/garden/data/repositories/garden_fertilizer_repository.dart';
 import 'package:mobile/features/garden/presentation/garden_fertilizer_notifier.dart';
+import 'package:mobile/features/growth/presentation/growth_insights_notifier.dart';
 import 'package:mobile/features/mentor/data/local/mentor_local_data_source.dart';
 import 'package:mobile/features/mentor/data/repositories/mentor_repository.dart';
 import 'package:mobile/features/mentor/data/services/mentor_api_service.dart';
@@ -418,6 +419,16 @@ final gardenFertilizerNotifierProvider =
       // Declared so this provider is re-created within the nested ProviderScope
       // in app.dart where gardenGrowthNotifierProvider is overridden.
     }, dependencies: [gardenGrowthNotifierProvider]);
+
+/// Growth V2 insights notifier: loads the local practice event history and
+/// exposes aggregated streak / per-period stats / trend buckets for the
+/// growth tab. Backed by the pure [GrowthStatsService].
+final growthInsightsNotifierProvider =
+    ChangeNotifierProvider<GrowthInsightsNotifier>((ref) {
+      return GrowthInsightsNotifier(
+        repositoryFuture: ref.watch(practiceRepositoryProvider.future),
+      )..initialize();
+    });
 
 // ---------------------------------------------------------------------------
 // Share services & repository

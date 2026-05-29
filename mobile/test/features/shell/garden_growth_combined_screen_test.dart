@@ -1,8 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'dart:async';
 import 'package:mobile/app/providers/repository_providers.dart';
 import 'package:mobile/app/theme/app_theme.dart';
+import 'package:mobile/features/garden/data/repositories/garden_fertilizer_repository.dart';
+import 'package:mobile/features/garden/domain/models/fertilizer_flower_stage.dart';
+import 'package:mobile/features/garden/domain/models/fertilizer_state.dart';
+import 'package:mobile/features/garden/presentation/garden_fertilizer_notifier.dart';
+import 'package:mobile/features/growth/domain/services/growth_stats_service.dart';
+import 'package:mobile/features/growth/presentation/growth_insights_models.dart';
+import 'package:mobile/features/growth/presentation/growth_insights_notifier.dart';
 import 'package:mobile/features/practice/data/repositories/garden_growth_repository.dart';
 import 'package:mobile/features/practice/domain/models/garden_growth_snapshot.dart';
 import 'package:mobile/features/practice/domain/models/interaction_event_payload.dart';
@@ -322,6 +330,62 @@ void main() {
   });
 }
 
+/// Static fertilizer notifier stub: renders the empty panel state without the
+/// loading shimmer animation, so [WidgetTester.pumpAndSettle] can settle.
+class _FertilizerNotifierStub extends GardenFertilizerNotifier {
+  _FertilizerNotifierStub(GardenGrowthNotifier growth)
+    : super(
+        repositoryFuture: Completer<GardenFertilizerRepository>().future,
+        growthNotifier: growth,
+      );
+
+  @override
+  GardenFertilizerViewState get view => GardenFertilizerViewState(
+    isLoading: false,
+    pendingPacks: const [],
+    claimedPacks: const [],
+    backpackCount: 0,
+    stageInfo: resolveFertilizerStage(0),
+  );
+
+  @override
+  Future<void> initialize() async {}
+}
+
+/// Static growth-insights stub: renders the loaded empty state (no chart, no
+/// loading shimmer) so [WidgetTester.pumpAndSettle] can settle.
+class _GrowthInsightsNotifierStub extends GrowthInsightsNotifier {
+  _GrowthInsightsNotifierStub()
+    : super(repositoryFuture: Completer<PracticeRepository>().future);
+
+  @override
+  Future<void> initialize() async {}
+
+  @override
+  GrowthInsightsViewState viewFor(GrowthPeriod period) =>
+      GrowthInsightsViewState(
+        isLoading: false,
+        hasError: false,
+        period: period,
+        streak: const StreakResult(
+          currentStreak: 0,
+          longestStreak: 0,
+          totalDaysPracticed: 0,
+          lastPracticedAt: null,
+        ),
+        stats: const PeriodStats(
+          totalEvents: 0,
+          uniquePhrases: 0,
+          uniqueActivities: 0,
+          imitationCount: 0,
+          firstEventAt: null,
+          lastEventAt: null,
+          practicedDays: 0,
+        ),
+        bars: const [],
+      );
+}
+
 Future<_GardenGrowthNotifierHarness> _pumpScreen(
   WidgetTester tester, {
   required GardenGrowthLoadStatus status,
@@ -338,6 +402,14 @@ Future<_GardenGrowthNotifierHarness> _pumpScreen(
     ProviderScope(
       overrides: [
         gardenGrowthNotifierProvider.overrideWith((ref) => notifier),
+        gardenFertilizerNotifierProvider.overrideWith(
+          (ref) => _FertilizerNotifierStub(
+            ref.watch(gardenGrowthNotifierProvider),
+          ),
+        ),
+        growthInsightsNotifierProvider.overrideWith(
+          (ref) => _GrowthInsightsNotifierStub(),
+        ),
         practiceContinuityNotifierProvider.overrideWith(
           (ref) => _PracticeContinuityNotifierStub(),
         ),
