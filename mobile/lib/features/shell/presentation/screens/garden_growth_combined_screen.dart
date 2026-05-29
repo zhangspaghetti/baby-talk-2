@@ -383,50 +383,67 @@ class _GardenGrowthCombinedScreenState
 
           // ── Milestones section ──
           const SizedBox(height: AppLayoutConstants.spacingXl),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(l.growthMilestone, style: theme.textTheme.titleMedium),
-              if (snapshot.milestones.length > 6)
-                _GrowthPreviewActionButton(
-                  key: const Key('growth-combined-milestones-view-all'),
-                  onPressed: () {
-                    AppHaptics.lightTap();
-                    _showGrowthPreviewSheet(
-                      context: context,
-                      sheetKey: const Key('growth-combined-milestones-sheet'),
-                      title: l.growthMilestoneSheetTitle,
-                      subtitle: l.growthPreviewCount(
-                        snapshot.milestones.length,
+          Builder(
+            builder: (context) {
+              final orderedMilestones = _orderMilestones(snapshot.milestones);
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        l.growthMilestone,
+                        style: theme.textTheme.titleMedium,
                       ),
-                      itemCount: snapshot.milestones.length,
-                      itemBuilder: (context, index) => _MilestoneCard(
-                        milestone: snapshot.milestones[index],
-                        keyPrefix: 'growth-combined-milestone-sheet',
-                      ),
-                    );
-                  },
-                  label: l.viewAll,
-                ),
-            ],
-          ),
-          const SizedBox(height: AppLayoutConstants.spacingSm),
-          if (snapshot.milestones.isEmpty)
-            _SectionEmptyCard(
-              stateKey: const Key('growth-combined-milestones-empty'),
-              message: l.growthMilestoneEmpty,
-            )
-          else
-            ...snapshot.milestones
-                .take(6)
-                .map(
-                  (milestone) => Padding(
-                    padding: const EdgeInsets.only(
-                      bottom: AppLayoutConstants.spacingSm,
-                    ),
-                    child: _MilestoneCard(milestone: milestone),
+                      if (orderedMilestones.length > 6)
+                        _GrowthPreviewActionButton(
+                          key: const Key(
+                            'growth-combined-milestones-view-all',
+                          ),
+                          onPressed: () {
+                            AppHaptics.lightTap();
+                            _showGrowthPreviewSheet(
+                              context: context,
+                              sheetKey: const Key(
+                                'growth-combined-milestones-sheet',
+                              ),
+                              title: l.growthMilestoneSheetTitle,
+                              subtitle: l.growthPreviewCount(
+                                orderedMilestones.length,
+                              ),
+                              itemCount: orderedMilestones.length,
+                              itemBuilder: (context, index) => _MilestoneCard(
+                                milestone: orderedMilestones[index],
+                                keyPrefix: 'growth-combined-milestone-sheet',
+                              ),
+                            );
+                          },
+                          label: l.viewAll,
+                        ),
+                    ],
                   ),
-                ),
+                  const SizedBox(height: AppLayoutConstants.spacingSm),
+                  if (orderedMilestones.isEmpty)
+                    _SectionEmptyCard(
+                      stateKey: const Key('growth-combined-milestones-empty'),
+                      message: l.growthMilestoneEmpty,
+                    )
+                  else
+                    ...orderedMilestones
+                        .take(6)
+                        .map(
+                          (milestone) => Padding(
+                            padding: const EdgeInsets.only(
+                              bottom: AppLayoutConstants.spacingSm,
+                            ),
+                            child: _MilestoneCard(milestone: milestone),
+                          ),
+                        ),
+                ],
+              );
+            },
+          ),
 
           // ── Growth insights (周/月/年 trend + streak) ──
           const SizedBox(height: AppLayoutConstants.spacingXl),
@@ -828,6 +845,25 @@ class _MilestoneCard extends StatelessWidget {
                     milestone.body,
                     style: Theme.of(context).textTheme.bodyMedium,
                   ),
+                  if (achieved && milestone.achievedAt != null) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      _formatMilestoneDate(milestone.achievedAt!),
+                      key: Key('$keyPrefix-${milestone.id}-date'),
+                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                        color: colors.textMuted,
+                      ),
+                    ),
+                  ] else if (!achieved && milestone.remainingHint != null) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      milestone.remainingHint!,
+                      key: Key('$keyPrefix-${milestone.id}-remaining'),
+                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                        color: colors.textMuted,
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -836,6 +872,33 @@ class _MilestoneCard extends StatelessWidget {
       ),
     );
   }
+}
+
+String _formatMilestoneDate(DateTime when) {
+  final local = when.toLocal();
+  final month = local.month.toString().padLeft(2, '0');
+  final day = local.day.toString().padLeft(2, '0');
+  return '${local.year}/$month/$day';
+}
+
+/// spec §7 规则3：已完成里程碑在前（按达成时间），未完成在后（按定义顺序）。
+List<GrowthMilestoneSnapshot> _orderMilestones(
+  List<GrowthMilestoneSnapshot> items,
+) {
+  final ordered = [...items];
+  ordered.sort((a, b) {
+    if (a.isAchieved != b.isAchieved) {
+      return a.isAchieved ? -1 : 1;
+    }
+    if (a.isAchieved && b.isAchieved) {
+      final byTime = a.achievedAt!.compareTo(b.achievedAt!);
+      if (byTime != 0) {
+        return byTime;
+      }
+    }
+    return a.sortOrder.compareTo(b.sortOrder);
+  });
+  return ordered;
 }
 
 class _GrowthStatusPill extends StatelessWidget {

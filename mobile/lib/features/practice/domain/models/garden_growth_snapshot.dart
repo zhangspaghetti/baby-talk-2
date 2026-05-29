@@ -138,6 +138,7 @@ class GrowthMilestoneSnapshot with _$GrowthMilestoneSnapshot {
     required String body,
     required int sortOrder,
     DateTime? achievedAt,
+    String? remainingHint,
   }) = _GrowthMilestoneSnapshot;
 
   bool get isAchieved => achievedAt != null;

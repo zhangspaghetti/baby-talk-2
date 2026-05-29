@@ -154,6 +154,44 @@ void main() {
         ]),
       );
     });
+
+    test('累计句数与坚持天数阈值里程碑会记录达成时间并给未达成项还差提示', () async {
+      // 连续 12 天、每天 1 句：触发 cumulative_10 与 streak_7，
+      // 而 cumulative_25 / streak_14 仍处于未达成态并带“还差 N”提示。
+      for (var day = 1; day <= 12; day += 1) {
+        await practiceRepository.recordReaction(
+          spaceId: 'daily_care',
+          activityId: 'bath_time',
+          phraseId: 'bath_time_warm_water',
+          reactionType: BabyReactionType.engaged,
+          clientTimestamp: DateTime.utc(2026, 4, day, 8, 0),
+          localEventId: 'evt_streak_$day',
+        );
+      }
+
+      final snapshot = await repository.buildSnapshot();
+
+      expect(snapshot.knownEvents, 12);
+
+      GrowthMilestoneSnapshot byId(String id) =>
+          snapshot.milestones.firstWhere((item) => item.id == id);
+
+      final cumulative10 = byId('cumulative_10');
+      expect(cumulative10.isAchieved, isTrue);
+      expect(cumulative10.achievedAt, isNotNull);
+
+      final cumulative25 = byId('cumulative_25');
+      expect(cumulative25.isAchieved, isFalse);
+      expect(cumulative25.remainingHint, '还差13句');
+
+      final streak7 = byId('streak_7');
+      expect(streak7.isAchieved, isTrue);
+      expect(streak7.achievedAt, isNotNull);
+
+      final streak14 = byId('streak_14');
+      expect(streak14.isAchieved, isFalse);
+      expect(streak14.remainingHint, '还差2天');
+    });
   });
 }
 

@@ -141,14 +141,16 @@ void main() {
       findsNothing,
     );
 
-    for (var index = 0; index < 6; index += 1) {
+    // 已达成里程碑(0,2,4,6)在前，未达成(1,3)随后；第 6 个位置之后的
+    // milestone_5 退入“查看更多”。
+    for (final index in [0, 1, 2, 3, 4, 6]) {
       expect(
         find.byKey(Key('growth-combined-milestone-milestone_$index')),
         findsOneWidget,
       );
     }
     expect(
-      find.byKey(const Key('growth-combined-milestone-milestone_6')),
+      find.byKey(const Key('growth-combined-milestone-milestone_5')),
       findsNothing,
     );
 
@@ -327,6 +329,52 @@ void main() {
       find.byKey(const Key('growth-combined-milestone-sheet-milestone_11')),
       findsOneWidget,
     );
+  });
+
+  testWidgets('milestone card renders achieved date and locked 还差 hint', (
+    tester,
+  ) async {
+    _setTallViewport(tester);
+
+    await _pumpScreen(
+      tester,
+      status: GardenGrowthLoadStatus.ready,
+      snapshot: _gardenSnapshot(
+        spaces: [_gardenPatch()],
+        milestones: [
+          GrowthMilestoneSnapshot(
+            id: 'cumulative_10',
+            title: '累计 10 句',
+            body: '已经把 10 句英语带进真实的日常照护。',
+            sortOrder: 0,
+            achievedAt: DateTime.utc(2026, 5, 19, 8),
+          ),
+          const GrowthMilestoneSnapshot(
+            id: 'cumulative_25',
+            title: '累计 25 句',
+            body: '继续把英语自然地说给宝宝听。',
+            sortOrder: 1,
+            remainingHint: '还差15句',
+          ),
+        ],
+      ),
+    );
+
+    await _openGrowthTab(tester);
+
+    expect(
+      find.byKey(
+        const Key('growth-combined-milestone-cumulative_10-date'),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(
+        const Key('growth-combined-milestone-cumulative_25-remaining'),
+      ),
+      findsOneWidget,
+    );
+    expect(find.text('还差15句'), findsOneWidget);
   });
 }
 

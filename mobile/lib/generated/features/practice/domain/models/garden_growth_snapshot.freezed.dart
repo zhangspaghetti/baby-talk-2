@@ -993,6 +993,7 @@ mixin _$GrowthMilestoneSnapshot {
   String get body => throw _privateConstructorUsedError;
   int get sortOrder => throw _privateConstructorUsedError;
   DateTime? get achievedAt => throw _privateConstructorUsedError;
+  String? get remainingHint => throw _privateConstructorUsedError;
 
   @JsonKey(ignore: true)
   $GrowthMilestoneSnapshotCopyWith<GrowthMilestoneSnapshot> get copyWith =>
@@ -1010,7 +1011,8 @@ abstract class $GrowthMilestoneSnapshotCopyWith<$Res> {
       String title,
       String body,
       int sortOrder,
-      DateTime? achievedAt});
+      DateTime? achievedAt,
+      String? remainingHint});
 }
 
 /// @nodoc
@@ -1032,6 +1034,7 @@ class _$GrowthMilestoneSnapshotCopyWithImpl<$Res,
     Object? body = null,
     Object? sortOrder = null,
     Object? achievedAt = freezed,
+    Object? remainingHint = freezed,
   }) {
     return _then(_value.copyWith(
       id: null == id
@@ -1054,6 +1057,10 @@ class _$GrowthMilestoneSnapshotCopyWithImpl<$Res,
           ? _value.achievedAt
           : achievedAt // ignore: cast_nullable_to_non_nullable
               as DateTime?,
+      remainingHint: freezed == remainingHint
+          ? _value.remainingHint
+          : remainingHint // ignore: cast_nullable_to_non_nullable
+              as String?,
     ) as $Val);
   }
 }
@@ -1072,7 +1079,8 @@ abstract class _$$GrowthMilestoneSnapshotImplCopyWith<$Res>
       String title,
       String body,
       int sortOrder,
-      DateTime? achievedAt});
+      DateTime? achievedAt,
+      String? remainingHint});
 }
 
 /// @nodoc
@@ -1093,6 +1101,7 @@ class __$$GrowthMilestoneSnapshotImplCopyWithImpl<$Res>
     Object? body = null,
     Object? sortOrder = null,
     Object? achievedAt = freezed,
+    Object? remainingHint = freezed,
   }) {
     return _then(_$GrowthMilestoneSnapshotImpl(
       id: null == id
@@ -1115,6 +1124,10 @@ class __$$GrowthMilestoneSnapshotImplCopyWithImpl<$Res>
           ? _value.achievedAt
           : achievedAt // ignore: cast_nullable_to_non_nullable
               as DateTime?,
+      remainingHint: freezed == remainingHint
+          ? _value.remainingHint
+          : remainingHint // ignore: cast_nullable_to_non_nullable
+              as String?,
     ));
   }
 }
@@ -1127,7 +1140,8 @@ class _$GrowthMilestoneSnapshotImpl extends _GrowthMilestoneSnapshot {
       required this.title,
       required this.body,
       required this.sortOrder,
-      this.achievedAt})
+      this.achievedAt,
+      this.remainingHint})
       : super._();
 
   @override
@@ -1140,10 +1154,12 @@ class _$GrowthMilestoneSnapshotImpl extends _GrowthMilestoneSnapshot {
   final int sortOrder;
   @override
   final DateTime? achievedAt;
+  @override
+  final String? remainingHint;
 
   @override
   String toString() {
-    return 'GrowthMilestoneSnapshot(id: $id, title: $title, body: $body, sortOrder: $sortOrder, achievedAt: $achievedAt)';
+    return 'GrowthMilestoneSnapshot(id: $id, title: $title, body: $body, sortOrder: $sortOrder, achievedAt: $achievedAt, remainingHint: $remainingHint)';
   }
 
   @override
@@ -1157,12 +1173,14 @@ class _$GrowthMilestoneSnapshotImpl extends _GrowthMilestoneSnapshot {
             (identical(other.sortOrder, sortOrder) ||
                 other.sortOrder == sortOrder) &&
             (identical(other.achievedAt, achievedAt) ||
-                other.achievedAt == achievedAt));
+                other.achievedAt == achievedAt) &&
+            (identical(other.remainingHint, remainingHint) ||
+                other.remainingHint == remainingHint));
   }
 
   @override
-  int get hashCode =>
-      Object.hash(runtimeType, id, title, body, sortOrder, achievedAt);
+  int get hashCode => Object.hash(
+      runtimeType, id, title, body, sortOrder, achievedAt, remainingHint);
 
   @JsonKey(ignore: true)
   @override
@@ -1178,7 +1196,8 @@ abstract class _GrowthMilestoneSnapshot extends GrowthMilestoneSnapshot {
       required final String title,
       required final String body,
       required final int sortOrder,
-      final DateTime? achievedAt}) = _$GrowthMilestoneSnapshotImpl;
+      final DateTime? achievedAt,
+      final String? remainingHint}) = _$GrowthMilestoneSnapshotImpl;
   const _GrowthMilestoneSnapshot._() : super._();
 
   @override
@@ -1191,6 +1210,8 @@ abstract class _GrowthMilestoneSnapshot extends GrowthMilestoneSnapshot {
   int get sortOrder;
   @override
   DateTime? get achievedAt;
+  @override
+  String? get remainingHint;
   @override
   @JsonKey(ignore: true)
   _$$GrowthMilestoneSnapshotImplCopyWith<_$GrowthMilestoneSnapshotImpl>

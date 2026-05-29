@@ -52,6 +52,11 @@ class GardenGrowthRepository {
     var sawImitated = false;
     LatestPracticeImpact? latestImpact;
 
+    // 阈值里程碑追踪（spec §7 累计句数 / 场景覆盖 / 坚持天数）。
+    final coveredSpaceIds = <String>{};
+    DateTime? streakLastDay;
+    var streakRun = 0;
+
     for (final event in inspection.validEvents) {
       final phraseRef =
           phraseRefs[_PhraseKey(
@@ -149,6 +154,44 @@ class GardenGrowthRepository {
         milestoneTimes['activity_${event.activityId}_completed'] =
             event.clientTimestamp;
       }
+
+      // 累计句数里程碑：10 / 25 / 50 / 100。
+      for (final threshold in _cumulativeThresholds) {
+        if (knownEvents == threshold) {
+          milestoneTimes['cumulative_$threshold'] = event.clientTimestamp;
+        }
+      }
+
+      // 场景覆盖里程碑：3 / 5 个场景。
+      final spaceNewlyCovered = coveredSpaceIds.add(event.spaceId);
+      if (spaceNewlyCovered) {
+        for (final threshold in _coverageThresholds) {
+          if (coveredSpaceIds.length == threshold) {
+            milestoneTimes['coverage_$threshold'] = event.clientTimestamp;
+          }
+        }
+      }
+
+      // 坚持天数里程碑：7 / 14 / 30 天连续练习。
+      final local = event.clientTimestamp.toLocal();
+      final eventDay = DateTime(local.year, local.month, local.day);
+      if (streakLastDay == null) {
+        streakRun = 1;
+      } else {
+        final dayGap = eventDay.difference(streakLastDay).inDays;
+        if (dayGap == 1) {
+          streakRun += 1;
+        } else if (dayGap > 1) {
+          streakRun = 1;
+        }
+      }
+      streakLastDay = eventDay;
+      for (final threshold in _streakThresholds) {
+        if (streakRun == threshold &&
+            !milestoneTimes.containsKey('streak_$threshold')) {
+          milestoneTimes['streak_$threshold'] = event.clientTimestamp;
+        }
+      }
     }
 
     final spaces = <GardenPatchSnapshot>[];
@@ -198,6 +241,9 @@ class GardenGrowthRepository {
     final milestones = _buildMilestones(
       content: content,
       milestoneTimes: milestoneTimes,
+      knownEvents: knownEvents,
+      coveredSpaceCount: coveredSpaceIds.length,
+      currentStreakDays: streakRun,
     );
 
     diaryEntries.sort((left, right) {
@@ -230,6 +276,9 @@ class GardenGrowthRepository {
   List<GrowthMilestoneSnapshot> _buildMilestones({
     required SeedContentBundle content,
     required Map<String, DateTime> milestoneTimes,
+    required int knownEvents,
+    required int coveredSpaceCount,
+    required int currentStreakDays,
   }) {
     final definitions = <_MilestoneDefinition>[
       const _MilestoneDefinition(
@@ -277,6 +326,49 @@ class GardenGrowthRepository {
       }
     }
 
+    // 累计句数里程碑。
+    for (final threshold in _cumulativeThresholds) {
+      expanded.add(
+        _MilestoneDefinition(
+          id: 'cumulative_$threshold',
+          title: '累计 $threshold 句',
+          body: '已经把 $threshold 句英语带进真实的日常照护。',
+          sortOrder: sortOrder++,
+          threshold: threshold,
+          currentValue: knownEvents,
+          unit: '句',
+        ),
+      );
+    }
+    // 场景覆盖里程碑。
+    for (final threshold in _coverageThresholds) {
+      expanded.add(
+        _MilestoneDefinition(
+          id: 'coverage_$threshold',
+          title: '覆盖 $threshold 个场景',
+          body: '在 $threshold 个不同场景里都自然开过口。',
+          sortOrder: sortOrder++,
+          threshold: threshold,
+          currentValue: coveredSpaceCount,
+          unit: '个场景',
+        ),
+      );
+    }
+    // 坚持天数里程碑。
+    for (final threshold in _streakThresholds) {
+      expanded.add(
+        _MilestoneDefinition(
+          id: 'streak_$threshold',
+          title: '坚持 $threshold 天',
+          body: '连续 $threshold 天都没有断过这份温柔的练习。',
+          sortOrder: sortOrder++,
+          threshold: threshold,
+          currentValue: currentStreakDays,
+          unit: '天',
+        ),
+      );
+    }
+
     return expanded
         .map(
           (definition) => GrowthMilestoneSnapshot(
@@ -285,9 +377,30 @@ class GardenGrowthRepository {
             body: definition.body,
             sortOrder: definition.sortOrder,
             achievedAt: milestoneTimes[definition.id],
+            remainingHint: _remainingHint(definition, milestoneTimes),
           ),
         )
         .toList(growable: false);
+  }
+
+  /// 为未完成的阈值里程碑生成温和的“还差 N 单位”提示（spec §7）。
+  String? _remainingHint(
+    _MilestoneDefinition definition,
+    Map<String, DateTime> milestoneTimes,
+  ) {
+    final threshold = definition.threshold;
+    final unit = definition.unit;
+    if (threshold == null || unit == null) {
+      return null;
+    }
+    if (milestoneTimes.containsKey(definition.id)) {
+      return null;
+    }
+    final remaining = threshold - definition.currentValue;
+    if (remaining <= 0) {
+      return null;
+    }
+    return '还差$remaining$unit';
   }
 
   GardenFlowerStage _deriveFlowerStage(_ActivityProjectionState state) {
@@ -463,18 +576,28 @@ class _PhraseReference {
   final SeedPhrase phrase;
 }
 
+const List<int> _cumulativeThresholds = <int>[10, 25, 50, 100];
+const List<int> _coverageThresholds = <int>[3, 5];
+const List<int> _streakThresholds = <int>[7, 14, 30];
+
 class _MilestoneDefinition {
   const _MilestoneDefinition({
     required this.id,
     required this.title,
     required this.body,
     required this.sortOrder,
+    this.threshold,
+    this.currentValue = 0,
+    this.unit,
   });
 
   final String id;
   final String title;
   final String body;
   final int sortOrder;
+  final int? threshold;
+  final int currentValue;
+  final String? unit;
 }
 
 class _ActivityKey {
