@@ -119,6 +119,8 @@ class GrowthInsightsNotifier extends ChangeNotifier {
       stats: stats,
       bars: bars,
       scenes: scenes,
+      windowStart: windowStart,
+      windowEnd: now,
     );
   }
 

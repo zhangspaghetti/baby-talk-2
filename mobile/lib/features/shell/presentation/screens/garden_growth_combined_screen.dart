@@ -430,7 +430,7 @@ class _GardenGrowthCombinedScreenState
 
           // ── Growth insights (周/月/年 trend + streak) ──
           const SizedBox(height: AppLayoutConstants.spacingXl),
-          const GrowthInsightsPanel(),
+          GrowthInsightsPanel(milestones: snapshot.milestones),
         ],
       ],
     );

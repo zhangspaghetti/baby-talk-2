@@ -10,6 +10,7 @@ import 'package:mobile/features/growth/presentation/growth_insights_models.dart'
 import 'package:mobile/features/growth/presentation/growth_insights_notifier.dart';
 import 'package:mobile/features/growth/presentation/widgets/growth_insights_panel.dart';
 import 'package:mobile/features/practice/data/repositories/practice_repository.dart';
+import 'package:mobile/features/practice/domain/models/garden_growth_snapshot.dart';
 
 void main() {
   GrowthInsightsViewState contentView(
@@ -56,6 +57,8 @@ void main() {
           percentage: 0.34,
         ),
       ],
+      windowStart: DateTime(2026, 5, 18),
+      windowEnd: DateTime(2026, 5, 20, 12),
     );
   }
 
@@ -83,7 +86,11 @@ void main() {
     );
   }
 
-  Future<void> pump(WidgetTester tester, _StubNotifier stub) async {
+  Future<void> pump(
+    WidgetTester tester,
+    _StubNotifier stub, {
+    List<GrowthMilestoneSnapshot> milestones = const [],
+  }) async {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
@@ -91,8 +98,10 @@ void main() {
         ],
         child: MaterialApp(
           theme: AppTheme.build(),
-          home: const Scaffold(
-            body: SingleChildScrollView(child: GrowthInsightsPanel()),
+          home: Scaffold(
+            body: SingleChildScrollView(
+              child: GrowthInsightsPanel(milestones: milestones),
+            ),
           ),
         ),
       ),
@@ -150,6 +159,69 @@ void main() {
     await pump(tester, stub);
 
     expect(find.byKey(const Key('growth-insights-scenes')), findsNothing);
+  });
+
+  testWidgets('renders milestones achieved within the active window', (
+    tester,
+  ) async {
+    final stub = _StubNotifier({
+      GrowthPeriod.week: contentView(GrowthPeriod.week, currentStreak: 11),
+    });
+    await pump(
+      tester,
+      stub,
+      milestones: [
+        GrowthMilestoneSnapshot(
+          id: 'm-in',
+          title: '开始照料"喂饭"',
+          body: '本周达成',
+          sortOrder: 0,
+          achievedAt: DateTime(2026, 5, 19),
+        ),
+        const GrowthMilestoneSnapshot(
+          id: 'm-locked',
+          title: '尚未达成',
+          body: '锁定',
+          sortOrder: 1,
+          achievedAt: null,
+        ),
+        GrowthMilestoneSnapshot(
+          id: 'm-out',
+          title: '窗口之外',
+          body: '上个月',
+          sortOrder: 2,
+          achievedAt: DateTime(2026, 4, 1),
+        ),
+      ],
+    );
+
+    expect(find.byKey(const Key('growth-insights-milestones')), findsOneWidget);
+    expect(find.text('开始照料"喂饭"'), findsOneWidget);
+    expect(find.text('尚未达成'), findsNothing);
+    expect(find.text('窗口之外'), findsNothing);
+  });
+
+  testWidgets('hides milestones when none fall in the active window', (
+    tester,
+  ) async {
+    final stub = _StubNotifier({
+      GrowthPeriod.week: contentView(GrowthPeriod.week, currentStreak: 11),
+    });
+    await pump(
+      tester,
+      stub,
+      milestones: [
+        GrowthMilestoneSnapshot(
+          id: 'm-out',
+          title: '窗口之外',
+          body: '上个月',
+          sortOrder: 0,
+          achievedAt: DateTime(2026, 4, 1),
+        ),
+      ],
+    );
+
+    expect(find.byKey(const Key('growth-insights-milestones')), findsNothing);
   });
 
   testWidgets('renders loading shimmer for loading view', (tester) async {

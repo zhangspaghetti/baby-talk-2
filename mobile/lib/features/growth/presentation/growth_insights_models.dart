@@ -35,6 +35,8 @@ class GrowthInsightsViewState {
     required this.stats,
     required this.bars,
     this.scenes = const <SceneDistribution>[],
+    this.windowStart,
+    this.windowEnd,
   });
 
   const GrowthInsightsViewState.loading(this.period)
@@ -56,7 +58,9 @@ class GrowthInsightsViewState {
         practicedDays: 0,
       ),
       bars = const <GrowthBarBucket>[],
-      scenes = const <SceneDistribution>[];
+      scenes = const <SceneDistribution>[],
+      windowStart = null,
+      windowEnd = null;
 
   final bool isLoading;
   final bool hasError;
@@ -67,6 +71,12 @@ class GrowthInsightsViewState {
 
   /// Scene (space) distribution for the selected period, sorted desc.
   final List<SceneDistribution> scenes;
+
+  /// Inclusive start of the aggregation window for the selected period.
+  final DateTime? windowStart;
+
+  /// Inclusive end of the aggregation window (typically "now").
+  final DateTime? windowEnd;
 
   /// Loaded, no events recorded for the selected period.
   bool get isEmpty => !isLoading && !hasError && stats.totalEvents == 0;

@@ -8,12 +8,17 @@ import 'package:mobile/app/widgets/app_haptics.dart';
 import 'package:mobile/app/widgets/app_shimmer.dart';
 import 'package:mobile/features/growth/domain/services/growth_stats_service.dart';
 import 'package:mobile/features/growth/presentation/growth_insights_models.dart';
+import 'package:mobile/features/practice/domain/models/garden_growth_snapshot.dart';
 
 /// Growth V2 insights panel: period selector (本周/本月/今年) + streak card
 /// + period stats tiles + a trend bar chart (fl_chart). Consumes the pure
 /// [GrowthStatsService] via [growthInsightsNotifierProvider].
 class GrowthInsightsPanel extends ConsumerStatefulWidget {
-  const GrowthInsightsPanel({super.key});
+  const GrowthInsightsPanel({super.key, this.milestones = const []});
+
+  /// All-time milestones from the garden growth snapshot. The panel filters
+  /// them by [GrowthMilestoneSnapshot.achievedAt] within the selected period.
+  final List<GrowthMilestoneSnapshot> milestones;
 
   @override
   ConsumerState<GrowthInsightsPanel> createState() =>
@@ -201,8 +206,32 @@ class _GrowthInsightsPanelState extends ConsumerState<GrowthInsightsPanel> {
           const SizedBox(height: AppLayoutConstants.spacingLg),
           _SceneDistribution(scenes: view.scenes, colors: colors, theme: theme),
         ],
+
+        // ── Period milestones (achieved within the selected window) ──
+        if (_periodMilestones(view).isNotEmpty) ...[
+          const SizedBox(height: AppLayoutConstants.spacingLg),
+          _PeriodMilestones(
+            milestones: _periodMilestones(view),
+            colors: colors,
+            theme: theme,
+          ),
+        ],
       ],
     );
+  }
+
+  /// Milestones from [widget.milestones] whose achievedAt falls inside the
+  /// view's aggregation window, most recent first.
+  List<GrowthMilestoneSnapshot> _periodMilestones(GrowthInsightsViewState view) {
+    final start = view.windowStart;
+    final end = view.windowEnd;
+    if (start == null || end == null) return const [];
+    final inWindow = widget.milestones.where((m) {
+      final at = m.achievedAt;
+      return at != null && !at.isBefore(start) && !at.isAfter(end);
+    }).toList();
+    inWindow.sort((a, b) => b.achievedAt!.compareTo(a.achievedAt!));
+    return inWindow;
   }
 }
 
@@ -550,6 +579,82 @@ class _SceneRow extends StatelessWidget {
             color: colors.textMuted,
           ),
         ),
+      ],
+    );
+  }
+}
+
+class _PeriodMilestones extends StatelessWidget {
+  const _PeriodMilestones({
+    required this.milestones,
+    required this.colors,
+    required this.theme,
+  });
+
+  final List<GrowthMilestoneSnapshot> milestones;
+  final BabyTalkColors colors;
+  final ThemeData theme;
+
+  @override
+  Widget build(BuildContext context) {
+    final top = milestones.take(3).toList();
+    return Column(
+      key: const Key('growth-insights-milestones'),
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Text(
+              '本周期里程碑',
+              style: theme.textTheme.labelLarge?.copyWith(
+                color: colors.textSecondary,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(width: AppLayoutConstants.spacingSm),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+              decoration: BoxDecoration(
+                color: colors.bgAccentSoft,
+                borderRadius: BorderRadius.circular(
+                  AppLayoutConstants.pillRadius,
+                ),
+              ),
+              child: Text(
+                '${milestones.length}',
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: colors.accentDark,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: AppLayoutConstants.spacingSm),
+        for (final milestone in top) ...[
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(
+                Icons.local_florist_rounded,
+                size: 18,
+                color: colors.accent,
+              ),
+              const SizedBox(width: AppLayoutConstants.spacingSm),
+              Expanded(
+                child: Text(
+                  milestone.title,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: colors.textPrimary,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppLayoutConstants.spacingSm),
+        ],
       ],
     );
   }
