@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:mobile/app/theme/app_theme.dart';
+import 'package:skeletonizer/skeletonizer.dart';
 
 /// Skeleton screen loading placeholder that replaces 4px gray bars.
-class AppShimmer extends StatefulWidget {
+///
+/// 2026-06-01：微光引擎改用 `skeletonizer`（替代自研 `AnimatedBuilder`），
+/// 基色/高亮沿用 Warm Paper 令牌。API（[width]/[height]/[borderRadius]）保持不变。
+class AppShimmer extends StatelessWidget {
   const AppShimmer({
     super.key,
     this.width,
@@ -15,46 +19,18 @@ class AppShimmer extends StatefulWidget {
   final double borderRadius;
 
   @override
-  State<AppShimmer> createState() => _AppShimmerState();
-}
-
-class _AppShimmerState extends State<AppShimmer>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _controller;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1500),
-    )..repeat();
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
-    return AnimatedBuilder(
-      animation: _controller,
-      builder: (context, child) {
-        final value = _controller.value;
-        final opacity =
-            0.08 + (0.15 * (value < 0.5 ? value * 2 : 2 - value * 2));
-        return Container(
-          width: widget.width,
-          height: widget.height,
-          decoration: BoxDecoration(
-            color: colors.outlineSoft.withValues(alpha: opacity),
-            borderRadius: BorderRadius.circular(widget.borderRadius),
-          ),
-        );
-      },
+    return Skeletonizer.zone(
+      effect: ShimmerEffect(
+        baseColor: colors.outlineSoft.withValues(alpha: 0.10),
+        highlightColor: colors.outlineSoft.withValues(alpha: 0.22),
+      ),
+      child: Bone(
+        width: width,
+        height: height,
+        borderRadius: BorderRadius.circular(borderRadius),
+      ),
     );
   }
 }

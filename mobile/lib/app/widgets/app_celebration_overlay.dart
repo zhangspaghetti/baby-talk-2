@@ -1,8 +1,11 @@
-import 'dart:math';
+import 'package:confetti/confetti.dart';
 import 'package:flutter/material.dart';
 import 'package:mobile/app/theme/app_theme.dart';
 
 /// Celebration overlay shown after completing a practice session or onboarding.
+///
+/// 2026-06-01：彩带绘制改用 `confetti` 库（替代自研 `_ConfettiPainter`），
+/// 颜色沿用 Warm Paper 色板。外部 API（[child] + [duration]）保持不变。
 class AppCelebrationOverlay extends StatefulWidget {
   const AppCelebrationOverlay({
     super.key,
@@ -17,80 +20,45 @@ class AppCelebrationOverlay extends StatefulWidget {
   State<AppCelebrationOverlay> createState() => _AppCelebrationOverlayState();
 }
 
-class _AppCelebrationOverlayState extends State<AppCelebrationOverlay>
-    with TickerProviderStateMixin {
-  late final AnimationController _fadeController;
-  late final AnimationController _particleController;
+class _AppCelebrationOverlayState extends State<AppCelebrationOverlay> {
+  late final ConfettiController _controller;
 
   @override
   void initState() {
     super.initState();
-    _fadeController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 500),
-    );
-    _particleController = AnimationController(
-      vsync: this,
-      duration: widget.duration,
-    );
-    _fadeController.forward();
-    _particleController.forward().then((_) {
-      if (mounted) _fadeController.reverse();
-    });
+    _controller = ConfettiController(duration: widget.duration);
+    _controller.play();
   }
 
   @override
   void dispose() {
-    _fadeController.dispose();
-    _particleController.dispose();
+    _controller.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
-    return CustomPaint(
-      foregroundPainter: _ConfettiPainter(
-        animation: _particleController,
-        opacity: _fadeController,
-        colors: [colors.accent, colors.success, colors.info, colors.warning],
-      ),
-      child: widget.child,
+    return Stack(
+      children: [
+        widget.child,
+        Align(
+          alignment: Alignment.topCenter,
+          child: ConfettiWidget(
+            confettiController: _controller,
+            blastDirectionality: BlastDirectionality.explosive,
+            shouldLoop: false,
+            numberOfParticles: 20,
+            gravity: 0.25,
+            colors: [
+              colors.accent,
+              colors.success,
+              colors.info,
+              colors.warning,
+            ],
+          ),
+        ),
+      ],
     );
   }
-}
-
-class _ConfettiPainter extends CustomPainter {
-  _ConfettiPainter({
-    required this.animation,
-    required this.opacity,
-    required this.colors,
-  }) : super(repaint: Listenable.merge([animation, opacity]));
-
-  final Animation<double> animation;
-  final Animation<double> opacity;
-  final List<Color> colors;
-  final _random = Random();
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final progress = animation.value;
-    final alpha = opacity.value.clamp(0.0, 1.0);
-    for (var i = 0; i < 40; i++) {
-      final paint = Paint()
-        ..color = colors[i % colors.length].withValues(alpha: alpha);
-      final x = _random.nextDouble() * size.width;
-      final startY = -20.0;
-      final endY = size.height + 20.0;
-      final y = startY + (endY - startY) * progress;
-      final offset = Offset(x, y);
-      canvas.drawRect(
-        Rect.fromCenter(center: offset, width: 6, height: 6),
-        paint,
-      );
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant _ConfettiPainter oldDelegate) => true;
 }
