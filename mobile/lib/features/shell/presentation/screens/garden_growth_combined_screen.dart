@@ -8,6 +8,7 @@ import 'package:mobile/app/widgets/app_shimmer.dart';
 import 'package:mobile/app/theme/app_layout_constants.dart';
 import 'package:mobile/app/theme/app_theme.dart';
 import 'package:mobile/features/household/presentation/widgets/household_shared_context_card.dart';
+import 'package:mobile/features/garden/presentation/widgets/garden_fertilizer_panel.dart';
 import 'package:mobile/features/practice/data/repositories/practice_repository.dart'
     show PracticeActivitySnapshot;
 import 'package:mobile/features/practice/domain/models/garden_growth_snapshot.dart';
@@ -225,6 +226,9 @@ class _GardenGrowthCombinedScreenState
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        // ── Fertilizer panel (Garden V2: 待领取/领取/施肥) ──
+        const GardenFertilizerPanel(),
+
         // ── Hero card ──
         GardenHeroCard(
           snapshot: snapshot,

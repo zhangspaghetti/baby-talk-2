@@ -21,6 +21,7 @@ targets:
       isar_generator:
         generate_for:
           include:
+            - lib/features/garden/data/local/fertilizer_state_entity.dart
             - lib/features/mentor/data/local/mentor_fact_event_entity.dart
             - lib/features/practice/data/local/interaction_event_entity.dart
             - lib/features/settings/data/local/settings_entity.dart

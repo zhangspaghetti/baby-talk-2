@@ -17,6 +17,9 @@ import 'package:mobile/features/account/data/services/authenticated_api_client.d
 import 'package:mobile/features/household/data/local/household_local_store.dart';
 import 'package:mobile/features/household/data/repositories/household_repository.dart';
 import 'package:mobile/features/household/data/services/household_api_service.dart';
+import 'package:mobile/features/garden/data/local/garden_fertilizer_local_data_source.dart';
+import 'package:mobile/features/garden/data/repositories/garden_fertilizer_repository.dart';
+import 'package:mobile/features/garden/presentation/garden_fertilizer_notifier.dart';
 import 'package:mobile/features/mentor/data/local/mentor_local_data_source.dart';
 import 'package:mobile/features/mentor/data/repositories/mentor_repository.dart';
 import 'package:mobile/features/mentor/data/services/mentor_api_service.dart';
@@ -391,6 +394,27 @@ final gardenGrowthNotifierProvider =
     ChangeNotifierProvider<GardenGrowthNotifier>((ref) {
       final repository = ref.watch(gardenGrowthRepositoryProvider);
       return GardenGrowthNotifier(repository: repository)..initialize();
+    });
+
+/// Garden V2 fertilizer repository (own Isar instance, lazily opened).
+final gardenFertilizerRepositoryProvider =
+    FutureProvider<GardenFertilizerRepository>((ref) async {
+      final directory = await ref.watch(appDirectoryProvider.future);
+      final localDataSource = await GardenFertilizerLocalDataSource.open(
+        directory: directory.path,
+      );
+      return GardenFertilizerRepository(localDataSource: localDataSource);
+    });
+
+/// Garden V2 fertilizer notifier composing the persisted fertilizer state with
+/// the garden growth snapshot (practice traces).
+final gardenFertilizerNotifierProvider =
+    ChangeNotifierProvider<GardenFertilizerNotifier>((ref) {
+      final growthNotifier = ref.watch(gardenGrowthNotifierProvider);
+      return GardenFertilizerNotifier(
+        repositoryFuture: ref.watch(gardenFertilizerRepositoryProvider.future),
+        growthNotifier: growthNotifier,
+      )..initialize();
     });
 
 // ---------------------------------------------------------------------------
