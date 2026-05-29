@@ -1,3 +1,4 @@
+import 'package:confetti/confetti.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobile/app/providers/repository_providers.dart';
@@ -7,19 +8,62 @@ import 'package:mobile/app/widgets/app_haptics.dart';
 import 'package:mobile/app/widgets/app_shimmer.dart';
 import 'package:mobile/features/garden/domain/models/fertilizer_flower_stage.dart';
 import 'package:mobile/features/garden/domain/models/fertilizer_state.dart';
+import 'package:mobile/features/garden/presentation/garden_fertilizer_notifier.dart';
 
 /// Garden V2 fertilizer panel: flower visualization + progress + backpack
 /// (施肥) + practice-trace claim list (待领取 / 已领取).
-class GardenFertilizerPanel extends ConsumerWidget {
+class GardenFertilizerPanel extends ConsumerStatefulWidget {
   const GardenFertilizerPanel({super.key});
 
+  @override
+  ConsumerState<GardenFertilizerPanel> createState() =>
+      _GardenFertilizerPanelState();
+}
+
+class _GardenFertilizerPanelState extends ConsumerState<GardenFertilizerPanel> {
   static const int _maxClaimedShown = 5;
 
+  late final ConfettiController _confetti;
+
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  void initState() {
+    super.initState();
+    _confetti = ConfettiController(duration: const Duration(milliseconds: 900));
+  }
+
+  @override
+  void dispose() {
+    _confetti.dispose();
+    super.dispose();
+  }
+
+  void _celebrate(FertilizerFlowerStage stage) {
+    _confetti.play();
+    ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+      SnackBar(
+        content: Text('小花长大啦，进入「${stage.label}」了 🎉'),
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final colors = context.appColors;
     final notifier = ref.watch(gardenFertilizerNotifierProvider);
     final view = notifier.view;
+
+    ref.listen<GardenFertilizerNotifier>(gardenFertilizerNotifierProvider, (
+      _,
+      next,
+    ) {
+      final stage = next.celebrationStage;
+      if (stage == null) return;
+      next.consumeCelebration();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _celebrate(stage);
+      });
+    });
 
     if (view.isLoading) {
       return Padding(
@@ -38,7 +82,7 @@ class GardenFertilizerPanel extends ConsumerWidget {
 
     final stageInfo = view.stageInfo!;
 
-    return Container(
+    final panel = Container(
       key: const Key('garden-fertilizer-panel'),
       margin: const EdgeInsets.only(bottom: AppLayoutConstants.spacingMd),
       padding: const EdgeInsets.all(AppLayoutConstants.spacingLg),
@@ -92,6 +136,32 @@ class GardenFertilizerPanel extends ConsumerWidget {
         ],
       ),
     );
+
+    return Stack(
+      children: [
+        panel,
+        Positioned.fill(
+          child: IgnorePointer(
+            child: Align(
+              alignment: Alignment.topCenter,
+              child: ConfettiWidget(
+                confettiController: _confetti,
+                blastDirectionality: BlastDirectionality.explosive,
+                shouldLoop: false,
+                numberOfParticles: 16,
+                gravity: 0.25,
+                colors: [
+                  colors.accent,
+                  colors.success,
+                  colors.info,
+                  colors.warning,
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
   }
 }
 
@@ -128,7 +198,18 @@ class _FlowerVisual extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Center(child: Text(_glyph, style: const TextStyle(fontSize: 56))),
+        Center(
+          child: TweenAnimationBuilder<double>(
+            // New key on each apply → restarts the elastic pop animation.
+            key: ValueKey<int>(stageInfo.appliedCount),
+            tween: Tween<double>(begin: 0.8, end: 1.0),
+            duration: const Duration(milliseconds: 450),
+            curve: Curves.elasticOut,
+            builder: (_, scale, child) =>
+                Transform.scale(scale: scale, child: child),
+            child: Text(_glyph, style: const TextStyle(fontSize: 56)),
+          ),
+        ),
         const SizedBox(height: AppLayoutConstants.spacingSm),
         Text(
           stageInfo.stage.label,

@@ -9,7 +9,7 @@ import 'package:mobile/features/account/presentation/screens/account_entry_scree
 import 'package:mobile/features/household/domain/models/household_role.dart';
 import 'package:mobile/features/household/presentation/widgets/household_invite_card.dart';
 import 'package:mobile/features/household/presentation/widgets/household_shared_context_card.dart';
-import 'package:mobile/features/mentor/presentation/widgets/mentor_panel_sheet.dart';
+import 'package:mobile/app/widgets/xiaohe_fab.dart';
 import 'package:mobile/features/onboarding/domain/models/onboarding_snapshot.dart';
 import 'package:mobile/features/onboarding/domain/models/stage_match.dart';
 import 'package:mobile/features/practice/presentation/garden_growth_notifier.dart'
@@ -36,6 +36,8 @@ class _AppShellScreenState extends ConsumerState<AppShellScreen> {
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
     final stageMatch = _resolveStageMatch(widget.onboardingSnapshot);
+    final hasPendingFertilizer =
+        ref.watch(gardenFertilizerNotifierProvider).view.hasPendingPacks;
 
     return Scaffold(
       key: const Key('shell-ready'),
@@ -64,15 +66,10 @@ class _AppShellScreenState extends ConsumerState<AppShellScreen> {
         onboardingSnapshot: widget.onboardingSnapshot,
         stageMatch: stageMatch,
       ),
-      floatingActionButton: FloatingActionButton(
+      floatingActionButton: XiaoheFab(
         key: const Key('shell-mentor-fab'),
-        tooltip: l.mentorName,
-        onPressed: () => openMentorPanelSheet(
-          context,
-          launcher: 'shell_fab',
-          surface: _surfaceForIndex(_selectedIndex),
-        ),
-        child: const Icon(Icons.auto_awesome),
+        launcher: 'shell_fab',
+        surface: _surfaceForIndex(_selectedIndex),
       ),
       body: AnimatedSwitcher(
         duration: const Duration(milliseconds: 200),
@@ -118,8 +115,15 @@ class _AppShellScreenState extends ConsumerState<AppShellScreen> {
           ),
           NavigationDestination(
             key: const Key('shell-nav-garden'),
-            icon: const Icon(Icons.local_florist_outlined),
-            selectedIcon: const Icon(Icons.local_florist_rounded),
+            icon: Badge(
+              key: const Key('shell-nav-garden-badge'),
+              isLabelVisible: hasPendingFertilizer,
+              child: const Icon(Icons.local_florist_outlined),
+            ),
+            selectedIcon: Badge(
+              isLabelVisible: hasPendingFertilizer,
+              child: const Icon(Icons.local_florist_rounded),
+            ),
             label: l.shellGarden,
           ),
           NavigationDestination(

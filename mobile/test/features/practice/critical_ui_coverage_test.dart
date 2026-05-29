@@ -18,6 +18,10 @@ import 'package:mobile/features/onboarding/domain/models/onboarding_snapshot.dar
 import 'package:mobile/features/onboarding/domain/models/stage_match.dart';
 import 'package:mobile/features/practice/data/repositories/garden_growth_repository.dart';
 import 'package:mobile/features/practice/data/repositories/practice_repository.dart';
+import 'package:mobile/features/garden/data/repositories/garden_fertilizer_repository.dart';
+import 'package:mobile/features/garden/domain/models/fertilizer_flower_stage.dart';
+import 'package:mobile/features/garden/domain/models/fertilizer_state.dart';
+import 'package:mobile/features/garden/presentation/garden_fertilizer_notifier.dart';
 import 'package:mobile/app/widgets/app_celebration_overlay.dart';
 import 'package:mobile/features/practice/domain/models/garden_growth_snapshot.dart';
 import 'package:mobile/features/practice/domain/models/interaction_event_payload.dart';
@@ -316,11 +320,10 @@ void main() {
       await _pumpFrames(tester, count: 10);
 
       expect(
-        find.byKey(const Key('home-v23-phrase-hero')),
+        find.byKey(const Key('home-b-care-moment-title')),
         findsOneWidget,
       );
-      expect(find.byKey(const Key('home-start-practice')), findsOneWidget);
-      expect(find.byKey(const Key('home-mentor-entry')), findsOneWidget);
+      expect(find.byKey(const Key('home-b-mentor-bubble')), findsOneWidget);
 
       await tester.scrollUntilVisible(
         find.byType(HomeGardenMiniEntry),
@@ -383,11 +386,10 @@ void main() {
     );
     await _pumpFrames(tester, count: 10);
 
-    expect(find.byKey(const Key('home-v23-phrase-hero')), findsOneWidget);
-    expect(find.byKey(const Key('home-start-practice')), findsOneWidget);
-    expect(find.text('今天先说一句'), findsOneWidget);
+    expect(find.byKey(const Key('home-b-care-moment-title')), findsOneWidget);
+    expect(find.byKey(const Key('home-b-scene-card')), findsOneWidget);
     expect(find.text('Hello wave.'), findsWidgets);
-    expect(find.text('挥挥手说你好。 · 适合递勺前后轻轻说一次'), findsOneWidget);
+    expect(find.text('温温的水。'), findsNothing);
   });
 
   testWidgets('Garden cards render ready and warning states', (tester) async {
@@ -720,6 +722,11 @@ void main() {
         householdNotifierProvider.overrideWith((ref) {
           return householdNotifier;
         }),
+        gardenFertilizerNotifierProvider.overrideWith(
+          (ref) => _FertilizerNotifierStub(
+            ref.watch(gardenGrowthNotifierProvider),
+          ),
+        ),
         shareNotifierProvider.overrideWith((ref) {
           return ShareNotifier(
             repository: _HomeShareRepository(),
@@ -771,6 +778,29 @@ void main() {
       ),
     );
   });
+}
+
+/// Static fertilizer notifier stub: renders the empty panel state without the
+/// loading shimmer animation, so [WidgetTester.pumpAndSettle] can settle when
+/// the shell embeds the garden tab off-stage.
+class _FertilizerNotifierStub extends GardenFertilizerNotifier {
+  _FertilizerNotifierStub(GardenGrowthNotifier growth)
+    : super(
+        repositoryFuture: Completer<GardenFertilizerRepository>().future,
+        growthNotifier: growth,
+      );
+
+  @override
+  GardenFertilizerViewState get view => GardenFertilizerViewState(
+    isLoading: false,
+    pendingPacks: const [],
+    claimedPacks: const [],
+    backpackCount: 0,
+    stageInfo: resolveFertilizerStage(0),
+  );
+
+  @override
+  Future<void> initialize() async {}
 }
 
 Future<void> _pumpApp(

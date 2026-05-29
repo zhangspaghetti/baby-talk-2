@@ -24,6 +24,15 @@ class GardenFertilizerNotifier extends ChangeNotifier {
   bool _stateLoaded = false;
   bool _disposed = false;
 
+  /// Set when [apply] pushes the flower into a higher stage; consumed by the UI
+  /// to trigger a one-shot celebration (confetti). Null when nothing to show.
+  FertilizerFlowerStage? _celebrationStage;
+  FertilizerFlowerStage? get celebrationStage => _celebrationStage;
+
+  /// Clears the pending celebration without notifying listeners (avoids loops
+  /// when called from a listener callback).
+  void consumeCelebration() => _celebrationStage = null;
+
   GardenFertilizerViewState _view = const GardenFertilizerViewState.loading();
   GardenFertilizerViewState get view => _view;
 
@@ -51,7 +60,12 @@ class GardenFertilizerNotifier extends ChangeNotifier {
   Future<void> apply() async {
     final repository = _repository;
     if (repository == null || _state.backpackCount <= 0) return;
+    final previousStage = resolveFertilizerStage(_state.appliedCount).stage;
     _state = await repository.apply();
+    final newStage = resolveFertilizerStage(_state.appliedCount).stage;
+    if (newStage.index > previousStage.index) {
+      _celebrationStage = newStage;
+    }
     _recompute();
   }
 

@@ -7,6 +7,8 @@ import 'package:mobile/app/providers/repository_providers.dart';
 import 'package:mobile/app/router/app_router.dart';
 import 'package:mobile/app/widgets/app_haptics.dart';
 import 'package:mobile/app/widgets/app_shimmer.dart';
+import 'package:mobile/app/widgets/app_toast.dart';
+import 'package:mobile/app/widgets/xiaohe_fab.dart';
 import 'package:mobile/app/theme/app_layout_constants.dart';
 import 'package:mobile/app/theme/app_theme.dart';
 import 'package:mobile/features/account/presentation/account_notifier.dart';
@@ -179,6 +181,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with RouteAware {
     // Watch garden and continuity notifiers. Sub-widgets extracted below
     // each watch only the slice they need, limiting rebuild blast radius.
     final gardenGrowthNotifier = ref.watch(gardenGrowthNotifierProvider);
+    final pendingFertilizerCount =
+        ref.watch(gardenFertilizerNotifierProvider).view.pendingPacks.length;
     final continuityNotifier = ref.watch(practiceContinuityNotifierProvider);
     final hasResolvedContinuity = continuityNotifier.hasResolvedRecommendation;
     final activity = hasResolvedContinuity
@@ -271,15 +275,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with RouteAware {
                               _showPracticeResult = false;
                             });
                             AppHaptics.lightTap();
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: const Text('下一句会在明天的照护时刻等你'),
-                                behavior: SnackBarBehavior.floating,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                              ),
-                            );
+                            showAppToast(context, '下一句会在明天的照护时刻等你');
                           },
                         )
                       else
@@ -320,7 +316,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with RouteAware {
                       const SizedBox(height: 24),
 
                       // Garden summary
-                      HomeGardenMiniEntry(notifier: gardenGrowthNotifier),
+                      HomeGardenMiniEntry(
+                        notifier: gardenGrowthNotifier,
+                        pendingFertilizerCount: pendingFertilizerCount,
+                      ),
 
                       if (kDebugMode) ...[
                         const SizedBox(height: 12),
@@ -344,18 +343,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with RouteAware {
     }
 
     return Scaffold(
-      floatingActionButton: FloatingActionButton.small(
-        key: const Key('home-mentor-fab'),
-        tooltip: l.mentorName,
-        onPressed: () {
-          AppHaptics.lightTap();
-          openMentorPanelSheet(
-            context,
-            launcher: 'home_fab',
-            surface: 'standalone_home',
-          );
-        },
-        child: const Icon(Icons.auto_awesome),
+      floatingActionButton: const XiaoheFab(
+        key: Key('home-mentor-fab'),
+        launcher: 'home_fab',
+        surface: 'standalone_home',
+        small: true,
       ),
       body: body,
     );

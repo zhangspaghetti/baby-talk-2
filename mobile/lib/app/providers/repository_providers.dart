@@ -415,7 +415,9 @@ final gardenFertilizerNotifierProvider =
         repositoryFuture: ref.watch(gardenFertilizerRepositoryProvider.future),
         growthNotifier: growthNotifier,
       )..initialize();
-    });
+      // Declared so this provider is re-created within the nested ProviderScope
+      // in app.dart where gardenGrowthNotifierProvider is overridden.
+    }, dependencies: [gardenGrowthNotifierProvider]);
 
 // ---------------------------------------------------------------------------
 // Share services & repository

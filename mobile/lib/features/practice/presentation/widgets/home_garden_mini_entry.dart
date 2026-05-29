@@ -10,9 +10,16 @@ import 'package:mobile/l10n/app_localizations.dart';
 /// Both expose the same API surface (snapshot, status, message, etc.),
 /// so we accept `ChangeNotifier?` and access properties dynamically.
 class HomeGardenMiniEntry extends StatelessWidget {
-  const HomeGardenMiniEntry({super.key, required this.notifier});
+  const HomeGardenMiniEntry({
+    super.key,
+    required this.notifier,
+    this.pendingFertilizerCount = 0,
+  });
 
   final dynamic notifier;
+
+  /// 待领取的肥料包数量，用于在花园摘要里联动提示「有新肥料」。
+  final int pendingFertilizerCount;
 
   @override
   Widget build(BuildContext context) {
@@ -85,6 +92,32 @@ class HomeGardenMiniEntry extends StatelessWidget {
               l.homeGrowthGarden,
               style: Theme.of(context).textTheme.labelMedium,
             ),
+            if (pendingFertilizerCount > 0) ...[
+              const SizedBox(height: 10),
+              Container(
+                key: const Key('home-garden-mini-entry-fertilizer'),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 6,
+                ),
+                decoration: BoxDecoration(
+                  color: colors.bgSurface,
+                  borderRadius: BorderRadius.circular(9999),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.eco_rounded, size: 16, color: colors.success),
+                    const SizedBox(width: 6),
+                    Text(
+                      '$pendingFertilizerCount 包肥料待领取',
+                      style: Theme.of(context).textTheme.labelMedium
+                          ?.copyWith(color: colors.success),
+                    ),
+                  ],
+                ),
+              ),
+            ],
             const SizedBox(height: 10),
             Text(
               title,
