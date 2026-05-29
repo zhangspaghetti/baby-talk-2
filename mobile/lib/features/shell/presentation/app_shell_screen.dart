@@ -3,7 +3,9 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:mobile/app/providers/repository_providers.dart';
+import 'package:mobile/app/router/app_route_contract.dart';
 import 'package:mobile/app/theme/app_theme.dart';
 import 'package:mobile/features/account/presentation/screens/account_entry_screen.dart';
 import 'package:mobile/features/household/domain/models/household_role.dart';
@@ -71,18 +73,34 @@ class _AppShellScreenState extends ConsumerState<AppShellScreen> {
           style: Theme.of(context).textTheme.titleLarge,
         ),
         actions: [
-          // Discover is now a tab
+          // §4 设置入口：仅在「我」Tab 顶栏右上角显示 46x46 齿轮图标，进入设置页。
+          if (_selectedIndex == 3)
+            Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: SizedBox(
+                width: 46,
+                height: 46,
+                child: IconButton(
+                  key: const Key('shell-settings-gear'),
+                  tooltip: l.settingsTitle,
+                  icon: const Icon(Icons.settings_outlined),
+                  onPressed: () => context.push(AppRouteNames.meSettings),
+                ),
+              ),
+            ),
         ],
       ),
       endDrawer: _HouseholdDrawer(
         onboardingSnapshot: widget.onboardingSnapshot,
         stageMatch: stageMatch,
       ),
-      floatingActionButton: XiaoheFab(
-        key: const Key('shell-mentor-fab'),
-        launcher: 'shell_fab',
-        surface: _surfaceForIndex(_selectedIndex),
-      ),
+      floatingActionButton: _selectedIndex == 2
+          ? null
+          : XiaoheFab(
+              key: const Key('shell-mentor-fab'),
+              launcher: 'shell_fab',
+              surface: _surfaceForIndex(_selectedIndex),
+            ),
       body: AnimatedSwitcher(
         duration: const Duration(milliseconds: 200),
         child: IndexedStack(

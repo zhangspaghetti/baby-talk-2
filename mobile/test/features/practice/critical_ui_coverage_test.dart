@@ -745,6 +745,80 @@ void main() {
     expect(find.text('邀请待确认'), findsOneWidget);
   });
 
+  testWidgets('Shell FAB hides on garden tab and settings gear shows on me tab', (
+    tester,
+  ) async {
+    final gardenSnapshot = _gardenSnapshot(spaces: [_gardenPatch()]);
+    final continuitySnapshot = _continuitySnapshot();
+    final householdNotifier = HouseholdNotifier(
+      repository: _HomeHouseholdRepository(
+        snapshot: const HouseholdLocalSnapshot(
+          lastPhase: 'shared_context_ready',
+        ),
+      ),
+    );
+    await householdNotifier.initialize();
+
+    await _pumpApp(
+      tester,
+      const AppShellScreen(),
+      scaffold: false,
+      overrides: [
+        accountNotifierProvider.overrideWith((ref) {
+          return AccountNotifier(repository: _ScreenAccountRepository());
+        }),
+        practiceContinuityNotifierProvider.overrideWith((ref) {
+          return _homeContinuityNotifier(continuitySnapshot);
+        }),
+        gardenGrowthNotifierProvider.overrideWith((ref) {
+          return GardenGrowthNotifier(
+            repository: _HomeGardenGrowthRepository(gardenSnapshot),
+            refreshTimeout: Duration.zero,
+          );
+        }),
+        householdNotifierProvider.overrideWith((ref) {
+          return householdNotifier;
+        }),
+        gardenFertilizerNotifierProvider.overrideWith(
+          (ref) => _FertilizerNotifierStub(
+            ref.watch(gardenGrowthNotifierProvider),
+          ),
+        ),
+        shareNotifierProvider.overrideWith((ref) {
+          return ShareNotifier(
+            repository: _HomeShareRepository(),
+            initialGrowthSnapshot: gardenSnapshot,
+            initialContinuitySnapshot: continuitySnapshot,
+          );
+        }),
+      ],
+    );
+    await _pumpFrames(tester, count: 10);
+
+    // Home tab (default): FAB visible, no settings gear.
+    expect(find.byKey(const Key('shell-mentor-fab')), findsOneWidget);
+    expect(find.byKey(const Key('shell-settings-gear')), findsNothing);
+
+    // §5 规则2：花园 Tab 隐藏全局 FAB（花园有自己的施肥交互）。
+    tester
+        .widget<NavigationBar>(find.byType(NavigationBar))
+        .onDestinationSelected!(2);
+    await _pumpFrames(tester, count: 6);
+    // Scaffold 的 FAB 退出动画约 200ms+，再补一帧长 pump 让其完成移除。
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(find.byKey(const Key('shell-mentor-fab')), findsNothing);
+    expect(find.byKey(const Key('shell-settings-gear')), findsNothing);
+
+    // §4：我 Tab 顶栏右上角出现设置齿轮；FAB 恢复显示。
+    tester
+        .widget<NavigationBar>(find.byType(NavigationBar))
+        .onDestinationSelected!(3);
+    await _pumpFrames(tester, count: 6);
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(find.byKey(const Key('shell-settings-gear')), findsOneWidget);
+    expect(find.byKey(const Key('shell-mentor-fab')), findsOneWidget);
+  });
+
   testWidgets('Shell household status labels cover sanitized phase families', (
     tester,
   ) async {
