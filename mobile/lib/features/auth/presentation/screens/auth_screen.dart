@@ -7,6 +7,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:mobile/app/theme/app_layout_constants.dart';
 import 'package:mobile/app/theme/app_theme.dart';
 import 'package:mobile/l10n/app_localizations.dart';
+import 'package:pinput/pinput.dart';
 
 /// Auth flow mode — V11 unified entry: codeLogin merges login+register detection.
 enum AuthMode { codeLogin, passwordLogin, register, resetPassword }
@@ -755,6 +756,34 @@ class _VerificationCodeStep extends StatelessWidget {
       );
     }
 
+    // pinput OTP boxes — Warm Paper token-driven theme (替代自研等宽 TextField)。
+    final defaultPinTheme = PinTheme(
+      width: 48,
+      height: 56,
+      textStyle: TextStyle(
+        fontSize: 18,
+        fontFamily: 'JetBrains Mono',
+        color: colors.textPrimary,
+      ),
+      decoration: BoxDecoration(
+        color: colors.bgSunken,
+        borderRadius: BorderRadius.circular(AppLayoutConstants.smallRadius),
+        border: Border.all(color: colors.outlineSoft),
+      ),
+    );
+    final focusedPinTheme = defaultPinTheme.copyWith(
+      decoration: defaultPinTheme.decoration!.copyWith(
+        color: colors.bgSurface,
+        border: Border.all(color: colors.accent, width: 1.5),
+      ),
+    );
+    final submittedPinTheme = defaultPinTheme.copyWith(
+      decoration: defaultPinTheme.decoration!.copyWith(
+        color: colors.bgSurface,
+        border: Border.all(color: colors.accent),
+      ),
+    );
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -767,53 +796,69 @@ class _VerificationCodeStep extends StatelessWidget {
             style: Theme.of(context).textTheme.bodySmall,
           ),
         ),
+        const SizedBox(height: AppLayoutConstants.spacingSm),
+
+        // Field label
+        Text(
+          l.discoverCodeLabel,
+          style: Theme.of(context)
+              .textTheme
+              .bodySmall
+              ?.copyWith(color: colors.textSecondary),
+        ),
         const SizedBox(height: AppLayoutConstants.spacingXs),
 
-        // Code input (V11: improved autofill hints + visual grouping)
+        // Code input (V11: pinput OTP boxes — SMS autofill + monospaced)
         Semantics(
           textField: true,
           label: '短信验证码输入框，6 位数字，支持自动填充',
-          child: TextField(
+          child: Pinput(
             key: const Key('auth-code-field'),
             controller: codeController,
+            length: 6,
             keyboardType: TextInputType.number,
-            autofillHints: const [AutofillHints.oneTimeCode],
-            textInputAction: TextInputAction.next,
-            maxLength: 6,
-            style: const TextStyle(
-              letterSpacing: 8,
-              fontSize: 18,
-              fontFamily: 'JetBrains Mono',
-            ),
-            decoration: InputDecoration(
-              labelText: l.discoverCodeLabel,
-              helperText: l.discoverCodeAutoHint,
-              counterText: '',
-              border: const OutlineInputBorder(),
-              prefixIcon: Icon(
-                Icons.pin_outlined,
-                size: 20,
-                color: colors.textMuted,
+            defaultPinTheme: defaultPinTheme,
+            focusedPinTheme: focusedPinTheme,
+            submittedPinTheme: submittedPinTheme,
+            separatorBuilder: (_) =>
+                const SizedBox(width: AppLayoutConstants.spacingXs),
+          ),
+        ),
+        const SizedBox(height: AppLayoutConstants.spacingXs),
+
+        // Auto-fill hint + resend
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Expanded(
+              child: Text(
+                l.discoverCodeAutoHint,
+                style: Theme.of(context)
+                    .textTheme
+                    .bodySmall
+                    ?.copyWith(color: colors.textMuted),
               ),
-              suffixIcon: Semantics(
-                button: true,
-                label: resendSeconds == 0
-                    ? l.discoverResendCode
-                    : l.discoverResendCountdown(resendSeconds),
-                child: TextButton(
-                  onPressed: resendSeconds == 0 ? onSendCode : null,
-                  child: Text(
-                    resendSeconds == 0
-                        ? l.discoverResendCode
-                        : '${resendSeconds}s',
-                    style: TextStyle(
-                      color: resendSeconds == 0 ? colors.accent : colors.textMuted,
-                    ),
+            ),
+            Semantics(
+              button: true,
+              label: resendSeconds == 0
+                  ? l.discoverResendCode
+                  : l.discoverResendCountdown(resendSeconds),
+              child: TextButton(
+                onPressed: resendSeconds == 0 ? onSendCode : null,
+                child: Text(
+                  resendSeconds == 0
+                      ? l.discoverResendCode
+                      : '${resendSeconds}s',
+                  style: TextStyle(
+                    color:
+                        resendSeconds == 0 ? colors.accent : colors.textMuted,
                   ),
                 ),
               ),
             ),
-          ),
+          ],
         ),
         const SizedBox(height: AppLayoutConstants.spacingXs),
 
