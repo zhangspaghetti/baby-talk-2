@@ -63,21 +63,6 @@ class StreakResult {
   final DateTime? lastPracticedAt;
 }
 
-/// A detected milestone with its achievement time.
-class MilestoneResult {
-  const MilestoneResult({
-    required this.id,
-    required this.title,
-    required this.body,
-    required this.achievedAt,
-  });
-
-  final String id;
-  final String title;
-  final String body;
-  final DateTime achievedAt;
-}
-
 /// Aggregated stats for a time period.
 class PeriodStats {
   const PeriodStats({
@@ -235,66 +220,6 @@ class GrowthStatsService {
       totalDaysPracticed: totalDaysPracticed,
       lastPracticedAt: lastPracticedAt,
     );
-  }
-
-  /// Detects milestones from a chronological list of events.
-  ///
-  /// Returns a list of [MilestoneResult] in chronological order.
-  /// [knownActivityIds] and [knownSpaceIds] define the full content catalog
-  /// so the service can detect "all activities completed" milestones.
-  List<MilestoneResult> detectMilestones({
-    required List<PracticeEventRecord> events,
-    required Set<String> knownActivityIds,
-    required Set<String> knownSpaceIds,
-  }) {
-    if (events.isEmpty) {
-      return const <MilestoneResult>[];
-    }
-
-    final milestones = <MilestoneResult>[];
-    final seenFirstEvent = <String>{};
-    final seenImitated = <String>{};
-    var totalKnownEvents = 0;
-
-    for (final event in events) {
-      totalKnownEvents += 1;
-
-      // First opening milestone.
-      if (totalKnownEvents == 1) {
-        milestones.add(MilestoneResult(
-          id: 'first_opening',
-          title: '第一句已经说出口',
-          body: '从这一句开始，花园会记住每一次温柔的练习。',
-          achievedAt: event.clientTimestamp,
-        ));
-      }
-
-      // First imitated milestone per activity.
-      if (event.reactionType == 'imitated' &&
-          !seenImitated.contains(event.activityId)) {
-        seenImitated.add(event.activityId);
-        milestones.add(MilestoneResult(
-          id: 'first_imitated_${event.activityId}',
-          title: '宝宝开始回应你的声音',
-          body: '一旦出现模仿反应，成长页会把它记成一次暖暖的回声。',
-          achievedAt: event.clientTimestamp,
-        ));
-      }
-
-      // Activity started.
-      if (!seenFirstEvent.contains(event.activityId)) {
-        seenFirstEvent.add(event.activityId);
-        milestones.add(MilestoneResult(
-          id: 'activity_${event.activityId}_started',
-          title: '开始照料"${event.activityId}"',
-          body: '你已经把第一句放进真实动作里，这朵花开始冒芽。',
-          achievedAt: event.clientTimestamp,
-        ));
-      }
-    }
-
-    milestones.sort((a, b) => a.achievedAt.compareTo(b.achievedAt));
-    return milestones;
   }
 
   /// Aggregates stats for events within a given time window.
