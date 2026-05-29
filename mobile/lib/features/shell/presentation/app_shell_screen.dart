@@ -31,6 +31,18 @@ class AppShellScreen extends ConsumerStatefulWidget {
 
 class _AppShellScreenState extends ConsumerState<AppShellScreen> {
   int _selectedIndex = 0;
+  GrowthTab _gardenInitialTab = GrowthTab.garden;
+
+  void _openGardenTab(GrowthTab tab) {
+    final gardenGrowthNotifier = ref.read(gardenGrowthNotifierProvider);
+    if (gardenGrowthNotifier.status == GardenGrowthLoadStatus.idle) {
+      unawaited(gardenGrowthNotifier.initialize());
+    }
+    setState(() {
+      _gardenInitialTab = tab;
+      _selectedIndex = 2;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -83,10 +95,14 @@ class _AppShellScreenState extends ConsumerState<AppShellScreen> {
             ),
             const DiscoverScreen(),
             GardenGrowthCombinedScreen(
-              initialTab: GrowthTab.garden,
+              initialTab: _gardenInitialTab,
               onGoHome: () => setState(() => _selectedIndex = 0),
             ),
-            MeScreen(onboardingSnapshot: widget.onboardingSnapshot),
+            MeScreen(
+              onboardingSnapshot: widget.onboardingSnapshot,
+              onOpenGarden: () => _openGardenTab(GrowthTab.garden),
+              onOpenGrowth: () => _openGardenTab(GrowthTab.growth),
+            ),
           ],
         ),
       ),

@@ -9,9 +9,20 @@ import 'package:mobile/l10n/app_localizations.dart';
 
 /// The "Me" tab screen — user profile, garden/growth summary, and function grid.
 class MeScreen extends ConsumerWidget {
-  const MeScreen({super.key, this.onboardingSnapshot});
+  const MeScreen({
+    super.key,
+    this.onboardingSnapshot,
+    this.onOpenGarden,
+    this.onOpenGrowth,
+  });
 
   final OnboardingSnapshot? onboardingSnapshot;
+
+  /// 回调：点击花园状态入口块 → 切到底部「花园」Tab（由 Shell 注入）。
+  final VoidCallback? onOpenGarden;
+
+  /// 回调：点击成长数据入口块 → 切到「花园」Tab 的成长分段（由 Shell 注入）。
+  final VoidCallback? onOpenGrowth;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -46,6 +57,7 @@ class MeScreen extends ConsumerWidget {
             _GardenStatusBlock(
               spacesCount: gardenSnapshot.spaces.length,
               latestImpact: gardenSnapshot.latestImpact,
+              onTap: onOpenGarden,
             ),
             const SizedBox(height: 12),
 
@@ -57,6 +69,7 @@ class MeScreen extends ConsumerWidget {
               achievedMilestones: gardenSnapshot.milestones
                   .where((m) => m.isAchieved)
                   .length,
+              onTap: onOpenGrowth,
             ),
             const SizedBox(height: 20),
 
@@ -152,10 +165,12 @@ class _GardenStatusBlock extends StatelessWidget {
   const _GardenStatusBlock({
     required this.spacesCount,
     required this.latestImpact,
+    this.onTap,
   });
 
   final int spacesCount;
   final dynamic latestImpact;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -170,26 +185,36 @@ class _GardenStatusBlock extends StatelessWidget {
       statusText = l.meGardenSummary(spacesCount);
     }
 
-    return Container(
-      key: const Key('me-garden-status'),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: colors.successSoft,
+    return Material(
+      color: colors.successSoft,
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        key: const Key('me-garden-status'),
         borderRadius: BorderRadius.circular(12),
-      ),
-      child: Row(
-        children: [
-          Icon(Icons.local_florist_rounded, color: colors.success, size: 22),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              statusText,
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: colors.textPrimary,
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            children: [
+              Icon(
+                Icons.local_florist_rounded,
+                color: colors.success,
+                size: 22,
               ),
-            ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  statusText,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: colors.textPrimary,
+                  ),
+                ),
+              ),
+              if (onTap != null)
+                Icon(Icons.chevron_right, color: colors.textMuted),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
@@ -205,12 +230,14 @@ class _GrowthDataBlock extends StatelessWidget {
     required this.diaryCount,
     required this.milestoneCount,
     required this.achievedMilestones,
+    this.onTap,
   });
 
   final int totalEvents;
   final int diaryCount;
   final int milestoneCount;
   final int achievedMilestones;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -218,38 +245,56 @@ class _GrowthDataBlock extends StatelessWidget {
     final colors = context.appColors;
     final theme = Theme.of(context);
 
-    return Container(
-      key: const Key('me-growth-data'),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: colors.bgSurface,
+    return Material(
+      color: colors.bgSurface,
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        key: const Key('me-growth-data'),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: colors.outlineSoft),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(l.meGrowthTitle, style: theme.textTheme.labelMedium),
-          const SizedBox(height: 12),
-          Row(
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: colors.outlineSoft),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _StatItem(
-                label: l.meStatEvents,
-                value: '$totalEvents',
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      l.meGrowthTitle,
+                      style: theme.textTheme.labelMedium,
+                    ),
+                  ),
+                  if (onTap != null)
+                    Icon(Icons.chevron_right, color: colors.textMuted),
+                ],
               ),
-              const SizedBox(width: 16),
-              _StatItem(
-                label: l.meStatDiary,
-                value: '$diaryCount',
-              ),
-              const SizedBox(width: 16),
-              _StatItem(
-                label: l.meStatMilestones,
-                value: '$achievedMilestones/$milestoneCount',
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  _StatItem(
+                    label: l.meStatEvents,
+                    value: '$totalEvents',
+                  ),
+                  const SizedBox(width: 16),
+                  _StatItem(
+                    label: l.meStatDiary,
+                    value: '$diaryCount',
+                  ),
+                  const SizedBox(width: 16),
+                  _StatItem(
+                    label: l.meStatMilestones,
+                    value: '$achievedMilestones/$milestoneCount',
+                  ),
+                ],
               ),
             ],
           ),
-        ],
+        ),
       ),
     );
   }

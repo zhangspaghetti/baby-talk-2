@@ -108,6 +108,36 @@ void main() {
       expect(find.text('成长日记'), findsOneWidget);
       expect(find.text('里程碑'), findsOneWidget);
     });
+
+    testWidgets('garden status block opens the garden tab on tap', (
+      tester,
+    ) async {
+      var gardenTaps = 0;
+      await _pumpMeScreen(
+        tester,
+        onOpenGarden: () => gardenTaps++,
+      );
+
+      await tester.tap(find.byKey(const Key('me-garden-status')));
+      await tester.pumpAndSettle();
+
+      expect(gardenTaps, 1);
+    });
+
+    testWidgets('growth data block opens the growth detail on tap', (
+      tester,
+    ) async {
+      var growthTaps = 0;
+      await _pumpMeScreen(
+        tester,
+        onOpenGrowth: () => growthTaps++,
+      );
+
+      await tester.tap(find.byKey(const Key('me-growth-data')));
+      await tester.pumpAndSettle();
+
+      expect(growthTaps, 1);
+    });
   });
 }
 
@@ -115,6 +145,8 @@ Future<void> _pumpMeScreen(
   WidgetTester tester, {
   OnboardingSnapshot? onboardingSnapshot,
   GardenGrowthSnapshot? gardenSnapshot,
+  VoidCallback? onOpenGarden,
+  VoidCallback? onOpenGrowth,
 }) async {
   final snapshot = gardenSnapshot ?? GardenGrowthSnapshot.empty();
 
@@ -131,7 +163,11 @@ Future<void> _pumpMeScreen(
         supportedLocales: AppLocalizations.supportedLocales,
         theme: AppTheme.build(),
         home: Scaffold(
-          body: MeScreen(onboardingSnapshot: onboardingSnapshot),
+          body: MeScreen(
+            onboardingSnapshot: onboardingSnapshot,
+            onOpenGarden: onOpenGarden,
+            onOpenGrowth: onOpenGrowth,
+          ),
         ),
       ),
     ),
