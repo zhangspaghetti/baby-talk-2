@@ -275,6 +275,16 @@ class _GrowthInsightsPanelState extends ConsumerState<GrowthInsightsPanel> {
             onTry: () => _startSuggestedPractice(context, view.suggestion!),
           ),
         ],
+
+        // ── Recent activity (this week vs last week, spec §8) ──
+        if (view.recentActivity != null) ...[
+          const SizedBox(height: AppLayoutConstants.spacingLg),
+          _RecentActivity(
+            activity: view.recentActivity!,
+            colors: colors,
+            theme: theme,
+          ),
+        ],
       ],
     );
   }
@@ -681,6 +691,118 @@ class _SceneRow extends StatelessWidget {
             color: colors.textMuted,
           ),
         ),
+      ],
+    );
+  }
+}
+
+class _RecentActivity extends StatelessWidget {
+  const _RecentActivity({
+    required this.activity,
+    required this.colors,
+    required this.theme,
+  });
+
+  final GrowthRecentActivity activity;
+  final BabyTalkColors colors;
+  final ThemeData theme;
+
+  String get _trendText {
+    switch (activity.trend) {
+      case GrowthRecentTrend.more:
+        return '本周比上周多说了 ${activity.gain} 句。';
+      case GrowthRecentTrend.less:
+        return '本周稍有减少，没关系。';
+      case GrowthRecentTrend.flat:
+        return '和上周差不多，保持就好。';
+      case GrowthRecentTrend.none:
+        return '开始练习后，这里会显示你的活跃节奏。';
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final numberStyle = theme.textTheme.titleMedium?.copyWith(
+      color: colors.textPrimary,
+      fontWeight: FontWeight.w700,
+      fontFeatures: const [FontFeature.tabularFigures()],
+    );
+    final labelStyle = theme.textTheme.labelSmall?.copyWith(
+      color: colors.textMuted,
+    );
+    return Container(
+      key: const Key('growth-insights-recent'),
+      padding: const EdgeInsets.all(AppLayoutConstants.spacingMd),
+      decoration: BoxDecoration(
+        color: colors.bgSunken,
+        borderRadius: BorderRadius.circular(AppLayoutConstants.cardRadius),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '最近活跃',
+            style: theme.textTheme.labelLarge?.copyWith(
+              color: colors.textSecondary,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: AppLayoutConstants.spacingSm),
+          Row(
+            children: [
+              _RecentStat(
+                label: '本周',
+                value: '${activity.thisWeekCount}',
+                numberStyle: numberStyle,
+                labelStyle: labelStyle,
+              ),
+              const SizedBox(width: AppLayoutConstants.spacingXl),
+              _RecentStat(
+                label: '上周',
+                value: '${activity.lastWeekCount}',
+                numberStyle: numberStyle,
+                labelStyle: labelStyle,
+              ),
+            ],
+          ),
+          const SizedBox(height: AppLayoutConstants.spacingXxs),
+          Text(
+            key: const Key('growth-insights-recent-trend'),
+            _trendText,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: colors.textSecondary,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _RecentStat extends StatelessWidget {
+  const _RecentStat({
+    required this.label,
+    required this.value,
+    required this.numberStyle,
+    required this.labelStyle,
+  });
+
+  final String label;
+  final String value;
+  final TextStyle? numberStyle;
+  final TextStyle? labelStyle;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.baseline,
+      textBaseline: TextBaseline.alphabetic,
+      children: [
+        Text(label, style: labelStyle),
+        const SizedBox(width: AppLayoutConstants.spacingXxs),
+        Text(value, style: numberStyle),
+        const SizedBox(width: 2),
+        Text('句', style: labelStyle),
       ],
     );
   }

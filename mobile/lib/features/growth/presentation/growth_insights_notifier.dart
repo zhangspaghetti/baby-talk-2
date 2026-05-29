@@ -126,6 +126,23 @@ class GrowthInsightsNotifier extends ChangeNotifier {
       windowStart: windowStart,
       windowEnd: now,
       suggestion: _nextStepSuggestion(period),
+      recentActivity: _recentActivity(now),
+    );
+  }
+
+  /// This-week vs last-week practice counts for the lightweight recent-activity
+  /// module (spec §8). Always weekly, independent of the selected period.
+  GrowthRecentActivity _recentActivity(DateTime now) {
+    final thisWeekStart = _weekStart(now);
+    final lastWeekStart = thisWeekStart.subtract(const Duration(days: 7));
+    final thisWeek = _countInRange(
+      thisWeekStart,
+      thisWeekStart.add(const Duration(days: 7)),
+    );
+    final lastWeek = _countInRange(lastWeekStart, thisWeekStart);
+    return GrowthRecentActivity(
+      thisWeekCount: thisWeek,
+      lastWeekCount: lastWeek,
     );
   }
 

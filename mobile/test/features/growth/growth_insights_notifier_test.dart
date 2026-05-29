@@ -156,6 +156,67 @@ void main() {
       expect(week.isEmpty, isTrue);
       expect(week.stats.totalEvents, 0);
       expect(barSum(week.bars), 0);
+      expect(week.recentActivity, isNotNull);
+      expect(week.recentActivity!.trend, GrowthRecentTrend.none);
+    });
+
+    test('summarizes recent weekly activity (this vs last week)', () async {
+      // This week (05-18..05-24): 2 events; last week (05-11..05-17): 3 events.
+      final events = [
+        event(
+          localEventId: 'tw1',
+          phraseId: 'p1',
+          activityId: 'a1',
+          reactionType: BabyReactionType.engaged,
+          clientTimestamp: DateTime(2026, 5, 20, 9),
+        ),
+        event(
+          localEventId: 'tw2',
+          phraseId: 'p2',
+          activityId: 'a1',
+          reactionType: BabyReactionType.engaged,
+          clientTimestamp: DateTime(2026, 5, 19, 9),
+        ),
+        event(
+          localEventId: 'lw1',
+          phraseId: 'p1',
+          activityId: 'a1',
+          reactionType: BabyReactionType.engaged,
+          clientTimestamp: DateTime(2026, 5, 13, 9),
+        ),
+        event(
+          localEventId: 'lw2',
+          phraseId: 'p2',
+          activityId: 'a1',
+          reactionType: BabyReactionType.engaged,
+          clientTimestamp: DateTime(2026, 5, 14, 9),
+        ),
+        event(
+          localEventId: 'lw3',
+          phraseId: 'p3',
+          activityId: 'a1',
+          reactionType: BabyReactionType.engaged,
+          clientTimestamp: DateTime(2026, 5, 15, 9),
+        ),
+      ];
+      final notifier = GrowthInsightsNotifier(
+        repositoryFuture: Future.value(_FakeRepository(events)),
+        now: fixedNow,
+      );
+      addTearDown(notifier.dispose);
+
+      await notifier.initialize();
+      final recent = notifier.viewFor(GrowthPeriod.week).recentActivity;
+
+      expect(recent, isNotNull);
+      expect(recent!.thisWeekCount, 2);
+      expect(recent.lastWeekCount, 3);
+      expect(recent.trend, GrowthRecentTrend.less);
+      // Period-independent: identical on the year view.
+      final yearRecent =
+          notifier.viewFor(GrowthPeriod.year).recentActivity;
+      expect(yearRecent!.thisWeekCount, 2);
+      expect(yearRecent.lastWeekCount, 3);
     });
 
     test('flags error state when repository throws', () async {

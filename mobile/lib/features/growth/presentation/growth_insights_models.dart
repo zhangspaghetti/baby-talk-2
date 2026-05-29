@@ -46,6 +46,33 @@ class GrowthNextStepSuggestion {
   final String activityId;
 }
 
+/// Trend of this week's practice volume relative to last week.
+enum GrowthRecentTrend { more, less, flat, none }
+
+/// Lightweight "recent activity" module shown at the bottom of the growth
+/// page (spec §8): this week's and last week's practice sentence counts plus
+/// a gentle trend. Period-independent — always weekly.
+class GrowthRecentActivity {
+  const GrowthRecentActivity({
+    required this.thisWeekCount,
+    required this.lastWeekCount,
+  });
+
+  final int thisWeekCount;
+  final int lastWeekCount;
+
+  GrowthRecentTrend get trend {
+    if (thisWeekCount == 0 && lastWeekCount == 0) return GrowthRecentTrend.none;
+    if (thisWeekCount > lastWeekCount) return GrowthRecentTrend.more;
+    if (thisWeekCount < lastWeekCount) return GrowthRecentTrend.less;
+    return GrowthRecentTrend.flat;
+  }
+
+  /// How many more sentences this week than last (>= 0).
+  int get gain =>
+      thisWeekCount > lastWeekCount ? thisWeekCount - lastWeekCount : 0;
+}
+
 /// Immutable view-state for the growth insights panel for one selected period.
 class GrowthInsightsViewState {
   const GrowthInsightsViewState({
@@ -59,6 +86,7 @@ class GrowthInsightsViewState {
     this.windowStart,
     this.windowEnd,
     this.suggestion,
+    this.recentActivity,
   });
 
   const GrowthInsightsViewState.loading(this.period)
@@ -83,7 +111,8 @@ class GrowthInsightsViewState {
       scenes = const <SceneDistribution>[],
       windowStart = null,
       windowEnd = null,
-      suggestion = null;
+      suggestion = null,
+      recentActivity = null;
 
   final bool isLoading;
   final bool hasError;
@@ -103,6 +132,9 @@ class GrowthInsightsViewState {
 
   /// Optional gentle next-step suggestion (week/month views only).
   final GrowthNextStepSuggestion? suggestion;
+
+  /// Lightweight weekly recent-activity module (spec §8). Period-independent.
+  final GrowthRecentActivity? recentActivity;
 
   /// Loaded, no events recorded for the selected period.
   bool get isEmpty => !isLoading && !hasError && stats.totalEvents == 0;

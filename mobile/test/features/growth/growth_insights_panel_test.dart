@@ -18,6 +18,7 @@ void main() {
     GrowthPeriod period, {
     required int currentStreak,
     GrowthNextStepSuggestion? suggestion,
+    GrowthRecentActivity? recentActivity,
   }) {
     return GrowthInsightsViewState(
       isLoading: false,
@@ -62,6 +63,7 @@ void main() {
       windowStart: DateTime(2026, 5, 18),
       windowEnd: DateTime(2026, 5, 20, 12),
       suggestion: suggestion,
+      recentActivity: recentActivity,
     );
   }
 
@@ -322,6 +324,39 @@ void main() {
     await pump(tester, stub);
 
     expect(find.byKey(const Key('growth-insights-next-step')), findsNothing);
+  });
+
+  testWidgets('renders recent activity with a gentle increase trend', (
+    tester,
+  ) async {
+    final stub = _StubNotifier({
+      GrowthPeriod.week: contentView(
+        GrowthPeriod.week,
+        currentStreak: 11,
+        recentActivity: const GrowthRecentActivity(
+          thisWeekCount: 5,
+          lastWeekCount: 2,
+        ),
+      ),
+    });
+    await pump(tester, stub);
+
+    final recent = find.byKey(const Key('growth-insights-recent'));
+    expect(recent, findsOneWidget);
+    expect(
+      find.byKey(const Key('growth-insights-recent-trend')),
+      findsOneWidget,
+    );
+    expect(find.text('本周比上周多说了 3 句。'), findsOneWidget);
+  });
+
+  testWidgets('hides recent activity when none is provided', (tester) async {
+    final stub = _StubNotifier({
+      GrowthPeriod.week: contentView(GrowthPeriod.week, currentStreak: 11),
+    });
+    await pump(tester, stub);
+
+    expect(find.byKey(const Key('growth-insights-recent')), findsNothing);
   });
 
   testWidgets('renders loading shimmer for loading view', (tester) async {
