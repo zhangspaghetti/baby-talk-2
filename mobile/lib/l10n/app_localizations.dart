@@ -3506,6 +3506,30 @@ abstract class AppLocalizations {
   /// **'里程碑'**
   String get meStatMilestones;
 
+  /// No description provided for @meStatPracticeTotal.
+  ///
+  /// In zh, this message translates to:
+  /// **'练习总量'**
+  String get meStatPracticeTotal;
+
+  /// No description provided for @meStatStreak.
+  ///
+  /// In zh, this message translates to:
+  /// **'坚持天数'**
+  String get meStatStreak;
+
+  /// No description provided for @meGrowthPracticeTotalValue.
+  ///
+  /// In zh, this message translates to:
+  /// **'{count} 句 · {scenes} 场景'**
+  String meGrowthPracticeTotalValue(Object count, Object scenes);
+
+  /// No description provided for @meGrowthStreakValue.
+  ///
+  /// In zh, this message translates to:
+  /// **'{days} 天'**
+  String meGrowthStreakValue(Object days);
+
   /// No description provided for @meReminders.
   ///
   /// In zh, this message translates to:

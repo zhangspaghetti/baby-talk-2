@@ -1880,6 +1880,22 @@ class AppLocalizationsZh extends AppLocalizations {
   String get meStatMilestones => '里程碑';
 
   @override
+  String get meStatPracticeTotal => '练习总量';
+
+  @override
+  String get meStatStreak => '坚持天数';
+
+  @override
+  String meGrowthPracticeTotalValue(Object count, Object scenes) {
+    return '$count 句 · $scenes 场景';
+  }
+
+  @override
+  String meGrowthStreakValue(Object days) {
+    return '$days 天';
+  }
+
+  @override
   String get meReminders => '提醒设置';
 
   @override

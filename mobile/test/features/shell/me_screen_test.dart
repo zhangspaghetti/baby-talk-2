@@ -60,19 +60,16 @@ void main() {
       tester,
     ) async {
       final gardenSnapshot = _gardenSnapshot(
-        spaceCount: 1,
-        knownEvents: 5,
-        diaryCount: 2,
-        milestoneCount: 3,
-        achievedMilestones: 1,
+        spaceCount: 6,
+        knownEvents: 47,
+        streakDays: 18,
       );
       await _pumpMeScreen(tester, gardenSnapshot: gardenSnapshot);
 
       expect(find.byKey(const Key('me-growth-data')), findsOneWidget);
       expect(find.text('成长数据'), findsOneWidget);
-      expect(find.text('5'), findsOneWidget); // events
-      expect(find.text('2'), findsOneWidget); // diary
-      expect(find.text('1/3'), findsOneWidget); // milestones
+      expect(find.text('47 句 · 6 场景'), findsOneWidget); // 练习总量
+      expect(find.text('18 天'), findsOneWidget); // 坚持天数
     });
 
     testWidgets('renders growth data block with zero stats', (tester) async {
@@ -80,7 +77,8 @@ void main() {
 
       expect(find.byKey(const Key('me-growth-data')), findsOneWidget);
       expect(find.text('成长数据'), findsOneWidget);
-      expect(find.text('0'), findsWidgets); // all zero
+      expect(find.text('0 句 · 0 场景'), findsOneWidget);
+      expect(find.text('0 天'), findsOneWidget);
     });
 
     testWidgets('renders function grid with all four tiles', (tester) async {
@@ -104,9 +102,8 @@ void main() {
     testWidgets('renders stat labels in growth data block', (tester) async {
       await _pumpMeScreen(tester);
 
-      expect(find.text('练习次数'), findsOneWidget);
-      expect(find.text('成长日记'), findsOneWidget);
-      expect(find.text('里程碑'), findsOneWidget);
+      expect(find.text('练习总量'), findsOneWidget);
+      expect(find.text('坚持天数'), findsOneWidget);
     });
 
     testWidgets('garden status block opens the garden tab on tap', (
@@ -198,6 +195,7 @@ GardenGrowthSnapshot _gardenSnapshot({
   int diaryCount = 0,
   int milestoneCount = 0,
   int achievedMilestones = 0,
+  int streakDays = 0,
 }) {
   final spaces = List.generate(
     spaceCount,
@@ -253,6 +251,7 @@ GardenGrowthSnapshot _gardenSnapshot({
     knownEvents: knownEvents,
     skippedMalformedEvents: 0,
     skippedUnknownContentEvents: 0,
+    currentStreakDays: streakDays,
   );
 }
 

@@ -1668,6 +1668,7 @@ mixin _$GardenGrowthSnapshot {
   int get knownEvents => throw _privateConstructorUsedError;
   int get skippedMalformedEvents => throw _privateConstructorUsedError;
   int get skippedUnknownContentEvents => throw _privateConstructorUsedError;
+  int get currentStreakDays => throw _privateConstructorUsedError;
   String? get lastIssueMessage => throw _privateConstructorUsedError;
   String? get projectionWarning => throw _privateConstructorUsedError;
 
@@ -1693,6 +1694,7 @@ abstract class $GardenGrowthSnapshotCopyWith<$Res> {
       int knownEvents,
       int skippedMalformedEvents,
       int skippedUnknownContentEvents,
+      int currentStreakDays,
       String? lastIssueMessage,
       String? projectionWarning});
 
@@ -1723,6 +1725,7 @@ class _$GardenGrowthSnapshotCopyWithImpl<$Res,
     Object? knownEvents = null,
     Object? skippedMalformedEvents = null,
     Object? skippedUnknownContentEvents = null,
+    Object? currentStreakDays = null,
     Object? lastIssueMessage = freezed,
     Object? projectionWarning = freezed,
   }) {
@@ -1767,6 +1770,10 @@ class _$GardenGrowthSnapshotCopyWithImpl<$Res,
           ? _value.skippedUnknownContentEvents
           : skippedUnknownContentEvents // ignore: cast_nullable_to_non_nullable
               as int,
+      currentStreakDays: null == currentStreakDays
+          ? _value.currentStreakDays
+          : currentStreakDays // ignore: cast_nullable_to_non_nullable
+              as int,
       lastIssueMessage: freezed == lastIssueMessage
           ? _value.lastIssueMessage
           : lastIssueMessage // ignore: cast_nullable_to_non_nullable
@@ -1810,6 +1817,7 @@ abstract class _$$GardenGrowthSnapshotImplCopyWith<$Res>
       int knownEvents,
       int skippedMalformedEvents,
       int skippedUnknownContentEvents,
+      int currentStreakDays,
       String? lastIssueMessage,
       String? projectionWarning});
 
@@ -1838,6 +1846,7 @@ class __$$GardenGrowthSnapshotImplCopyWithImpl<$Res>
     Object? knownEvents = null,
     Object? skippedMalformedEvents = null,
     Object? skippedUnknownContentEvents = null,
+    Object? currentStreakDays = null,
     Object? lastIssueMessage = freezed,
     Object? projectionWarning = freezed,
   }) {
@@ -1882,6 +1891,10 @@ class __$$GardenGrowthSnapshotImplCopyWithImpl<$Res>
           ? _value.skippedUnknownContentEvents
           : skippedUnknownContentEvents // ignore: cast_nullable_to_non_nullable
               as int,
+      currentStreakDays: null == currentStreakDays
+          ? _value.currentStreakDays
+          : currentStreakDays // ignore: cast_nullable_to_non_nullable
+              as int,
       lastIssueMessage: freezed == lastIssueMessage
           ? _value.lastIssueMessage
           : lastIssueMessage // ignore: cast_nullable_to_non_nullable
@@ -1908,6 +1921,7 @@ class _$GardenGrowthSnapshotImpl extends _GardenGrowthSnapshot {
       required this.knownEvents,
       required this.skippedMalformedEvents,
       required this.skippedUnknownContentEvents,
+      this.currentStreakDays = 0,
       this.lastIssueMessage,
       this.projectionWarning})
       : _spaces = spaces,
@@ -1954,13 +1968,16 @@ class _$GardenGrowthSnapshotImpl extends _GardenGrowthSnapshot {
   @override
   final int skippedUnknownContentEvents;
   @override
+  @JsonKey()
+  final int currentStreakDays;
+  @override
   final String? lastIssueMessage;
   @override
   final String? projectionWarning;
 
   @override
   String toString() {
-    return 'GardenGrowthSnapshot(installationId: $installationId, spaces: $spaces, diaryEntries: $diaryEntries, milestones: $milestones, latestImpact: $latestImpact, totalStoredEvents: $totalStoredEvents, validEvents: $validEvents, knownEvents: $knownEvents, skippedMalformedEvents: $skippedMalformedEvents, skippedUnknownContentEvents: $skippedUnknownContentEvents, lastIssueMessage: $lastIssueMessage, projectionWarning: $projectionWarning)';
+    return 'GardenGrowthSnapshot(installationId: $installationId, spaces: $spaces, diaryEntries: $diaryEntries, milestones: $milestones, latestImpact: $latestImpact, totalStoredEvents: $totalStoredEvents, validEvents: $validEvents, knownEvents: $knownEvents, skippedMalformedEvents: $skippedMalformedEvents, skippedUnknownContentEvents: $skippedUnknownContentEvents, currentStreakDays: $currentStreakDays, lastIssueMessage: $lastIssueMessage, projectionWarning: $projectionWarning)';
   }
 
   @override
@@ -1989,6 +2006,8 @@ class _$GardenGrowthSnapshotImpl extends _GardenGrowthSnapshot {
                     skippedUnknownContentEvents) ||
                 other.skippedUnknownContentEvents ==
                     skippedUnknownContentEvents) &&
+            (identical(other.currentStreakDays, currentStreakDays) ||
+                other.currentStreakDays == currentStreakDays) &&
             (identical(other.lastIssueMessage, lastIssueMessage) ||
                 other.lastIssueMessage == lastIssueMessage) &&
             (identical(other.projectionWarning, projectionWarning) ||
@@ -2008,6 +2027,7 @@ class _$GardenGrowthSnapshotImpl extends _GardenGrowthSnapshot {
       knownEvents,
       skippedMalformedEvents,
       skippedUnknownContentEvents,
+      currentStreakDays,
       lastIssueMessage,
       projectionWarning);
 
@@ -2032,6 +2052,7 @@ abstract class _GardenGrowthSnapshot extends GardenGrowthSnapshot {
       required final int knownEvents,
       required final int skippedMalformedEvents,
       required final int skippedUnknownContentEvents,
+      final int currentStreakDays,
       final String? lastIssueMessage,
       final String? projectionWarning}) = _$GardenGrowthSnapshotImpl;
   const _GardenGrowthSnapshot._() : super._();
@@ -2056,6 +2077,8 @@ abstract class _GardenGrowthSnapshot extends GardenGrowthSnapshot {
   int get skippedMalformedEvents;
   @override
   int get skippedUnknownContentEvents;
+  @override
+  int get currentStreakDays;
   @override
   String? get lastIssueMessage;
   @override

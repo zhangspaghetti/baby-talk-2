@@ -265,6 +265,7 @@ class GardenGrowthRepository {
       knownEvents: knownEvents,
       skippedMalformedEvents: inspection.skippedEventCount,
       skippedUnknownContentEvents: skippedUnknownContentEvents,
+      currentStreakDays: streakRun,
       lastIssueMessage: inspection.lastIssue?.message,
       projectionWarning: _buildProjectionWarning(
         skippedMalformedEvents: inspection.skippedEventCount,

@@ -188,6 +188,7 @@ class GardenGrowthSnapshot with _$GardenGrowthSnapshot {
     required int knownEvents,
     required int skippedMalformedEvents,
     required int skippedUnknownContentEvents,
+    @Default(0) int currentStreakDays,
     String? lastIssueMessage,
     String? projectionWarning,
   }) = _GardenGrowthSnapshot;

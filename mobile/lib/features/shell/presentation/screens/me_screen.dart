@@ -63,12 +63,9 @@ class MeScreen extends ConsumerWidget {
 
             // ── Growth data block ──
             _GrowthDataBlock(
-              totalEvents: gardenSnapshot.knownEvents,
-              diaryCount: gardenSnapshot.diaryEntries.length,
-              milestoneCount: gardenSnapshot.milestones.length,
-              achievedMilestones: gardenSnapshot.milestones
-                  .where((m) => m.isAchieved)
-                  .length,
+              knownEvents: gardenSnapshot.knownEvents,
+              sceneCount: gardenSnapshot.spaces.length,
+              streakDays: gardenSnapshot.currentStreakDays,
               onTap: onOpenGrowth,
             ),
             const SizedBox(height: 20),
@@ -226,17 +223,15 @@ class _GardenStatusBlock extends StatelessWidget {
 
 class _GrowthDataBlock extends StatelessWidget {
   const _GrowthDataBlock({
-    required this.totalEvents,
-    required this.diaryCount,
-    required this.milestoneCount,
-    required this.achievedMilestones,
+    required this.knownEvents,
+    required this.sceneCount,
+    required this.streakDays,
     this.onTap,
   });
 
-  final int totalEvents;
-  final int diaryCount;
-  final int milestoneCount;
-  final int achievedMilestones;
+  final int knownEvents;
+  final int sceneCount;
+  final int streakDays;
   final VoidCallback? onTap;
 
   @override
@@ -277,18 +272,13 @@ class _GrowthDataBlock extends StatelessWidget {
               Row(
                 children: [
                   _StatItem(
-                    label: l.meStatEvents,
-                    value: '$totalEvents',
+                    label: l.meStatPracticeTotal,
+                    value: l.meGrowthPracticeTotalValue(knownEvents, sceneCount),
                   ),
                   const SizedBox(width: 16),
                   _StatItem(
-                    label: l.meStatDiary,
-                    value: '$diaryCount',
-                  ),
-                  const SizedBox(width: 16),
-                  _StatItem(
-                    label: l.meStatMilestones,
-                    value: '$achievedMilestones/$milestoneCount',
+                    label: l.meStatStreak,
+                    value: l.meGrowthStreakValue(streakDays),
                   ),
                 ],
               ),
