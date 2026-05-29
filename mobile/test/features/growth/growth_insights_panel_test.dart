@@ -224,6 +224,50 @@ void main() {
     expect(find.byKey(const Key('growth-insights-milestones')), findsNothing);
   });
 
+  testWidgets('tapping a bar shows the selected detail caption', (
+    tester,
+  ) async {
+    final stub = _StubNotifier({
+      GrowthPeriod.week: contentView(GrowthPeriod.week, currentStreak: 11),
+    });
+    await pump(tester, stub);
+
+    expect(
+      find.byKey(const Key('growth-insights-chart-caption')),
+      findsNothing,
+    );
+
+    // Tap inside the chart to select a bar.
+    await tester.tap(find.byKey(const Key('growth-insights-chart')));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const Key('growth-insights-chart-caption')),
+      findsOneWidget,
+    );
+    // Caption text follows "<label> · <count> 次练习".
+    expect(find.textContaining('次练习'), findsOneWidget);
+  });
+
+  testWidgets('empty hint copy is period specific', (tester) async {
+    final stub = _StubNotifier({
+      GrowthPeriod.week: emptyView(GrowthPeriod.week),
+      GrowthPeriod.month: emptyView(GrowthPeriod.month),
+      GrowthPeriod.year: emptyView(GrowthPeriod.year),
+    });
+    await pump(tester, stub);
+
+    expect(find.textContaining('本周还没有练习记录'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('growth-insights-period-month')));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('本月还没有练习记录'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('growth-insights-period-year')));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('今年还没有练习记录'), findsOneWidget);
+  });
+
   testWidgets('renders loading shimmer for loading view', (tester) async {
     final stub = _StubNotifier({
       GrowthPeriod.week: GrowthInsightsViewState.loading(GrowthPeriod.week),

@@ -27,11 +27,21 @@ class GrowthInsightsPanel extends ConsumerStatefulWidget {
 
 class _GrowthInsightsPanelState extends ConsumerState<GrowthInsightsPanel> {
   GrowthPeriod _period = GrowthPeriod.week;
+  int? _selectedBarIndex;
 
   void _selectPeriod(GrowthPeriod period) {
     if (period == _period) return;
     AppHaptics.lightTap();
-    setState(() => _period = period);
+    setState(() {
+      _period = period;
+      _selectedBarIndex = null;
+    });
+  }
+
+  void _selectBar(int? index) {
+    if (index == _selectedBarIndex) return;
+    AppHaptics.lightTap();
+    setState(() => _selectedBarIndex = index);
   }
 
   @override
@@ -102,7 +112,7 @@ class _GrowthInsightsPanelState extends ConsumerState<GrowthInsightsPanel> {
           const SizedBox(width: AppLayoutConstants.spacingSm),
           Expanded(
             child: Text(
-              '这段时间还没有练习记录，去和宝宝说几句吧。',
+              _emptyHint(_period),
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: colors.textSecondary,
               ),
@@ -111,6 +121,17 @@ class _GrowthInsightsPanelState extends ConsumerState<GrowthInsightsPanel> {
         ],
       ),
     );
+  }
+
+  String _emptyHint(GrowthPeriod period) {
+    switch (period) {
+      case GrowthPeriod.week:
+        return '本周还没有练习记录，去和宝宝说几句吧。';
+      case GrowthPeriod.month:
+        return '本月还没有练习记录，挑个场景陪宝宝开口试试。';
+      case GrowthPeriod.year:
+        return '今年还没有练习记录，从今天的第一句开始吧。';
+    }
   }
 
   Widget _buildContent(
@@ -198,8 +219,25 @@ class _GrowthInsightsPanelState extends ConsumerState<GrowthInsightsPanel> {
         SizedBox(
           key: const Key('growth-insights-chart'),
           height: 160,
-          child: _TrendBarChart(view: view, colors: colors, theme: theme),
+          child: _TrendBarChart(
+            view: view,
+            colors: colors,
+            theme: theme,
+            selectedIndex: _selectedBarIndex,
+            onBarSelected: _selectBar,
+          ),
         ),
+        if (_selectedBarCaption(view) != null) ...[
+          const SizedBox(height: AppLayoutConstants.spacingSm),
+          Text(
+            key: const Key('growth-insights-chart-caption'),
+            _selectedBarCaption(view)!,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: colors.textSecondary,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
 
         // ── Scene distribution (top spaces by event count) ──
         if (view.scenes.isNotEmpty) ...[
@@ -232,6 +270,15 @@ class _GrowthInsightsPanelState extends ConsumerState<GrowthInsightsPanel> {
     }).toList();
     inWindow.sort((a, b) => b.achievedAt!.compareTo(a.achievedAt!));
     return inWindow;
+  }
+
+  /// Caption describing the currently selected bar, or null when nothing is
+  /// selected or the index is out of range.
+  String? _selectedBarCaption(GrowthInsightsViewState view) {
+    final index = _selectedBarIndex;
+    if (index == null || index < 0 || index >= view.bars.length) return null;
+    final bar = view.bars[index];
+    return '${bar.label} · ${bar.count} 次练习';
   }
 }
 
@@ -403,11 +450,15 @@ class _TrendBarChart extends StatelessWidget {
     required this.view,
     required this.colors,
     required this.theme,
+    required this.selectedIndex,
+    required this.onBarSelected,
   });
 
   final GrowthInsightsViewState view;
   final BabyTalkColors colors;
   final ThemeData theme;
+  final int? selectedIndex;
+  final ValueChanged<int?> onBarSelected;
 
   @override
   Widget build(BuildContext context) {
@@ -422,6 +473,15 @@ class _TrendBarChart extends StatelessWidget {
         borderData: FlBorderData(show: false),
         barTouchData: BarTouchData(
           enabled: true,
+          touchCallback: (event, response) {
+            if (!event.isInterestedForInteractions) return;
+            final spot = response?.spot;
+            if (spot == null) {
+              onBarSelected(null);
+              return;
+            }
+            onBarSelected(spot.touchedBarGroupIndex);
+          },
           touchTooltipData: BarTouchTooltipData(
             getTooltipColor: (_) => colors.textPrimary,
             getTooltipItem: (group, groupIndex, rod, rodIndex) {
@@ -475,7 +535,11 @@ class _TrendBarChart extends StatelessWidget {
                   borderRadius: const BorderRadius.vertical(
                     top: Radius.circular(AppLayoutConstants.smallRadius),
                   ),
-                  color: bars[i].count > 0 ? colors.accent : colors.outlineSoft,
+                  color: bars[i].count > 0
+                      ? (i == selectedIndex
+                            ? colors.accentDark
+                            : colors.accent)
+                      : colors.outlineSoft,
                 ),
               ],
             ),
