@@ -3,6 +3,7 @@ import 'package:mobile/features/growth/domain/services/growth_stats_service.dart
 import 'package:mobile/features/growth/presentation/growth_insights_models.dart';
 import 'package:mobile/features/practice/data/repositories/practice_repository.dart';
 import 'package:mobile/features/practice/domain/models/interaction_event_payload.dart';
+import 'package:mobile/features/practice/domain/models/practice_activity_catalog.dart';
 
 /// Loads the local practice event history and exposes aggregated growth
 /// insights (streak + per-period stats + trend buckets) for the growth tab.
@@ -24,6 +25,7 @@ class GrowthInsightsNotifier extends ChangeNotifier {
 
   List<PracticeEventRecord> _records = const <PracticeEventRecord>[];
   Map<String, String> _spaceLabels = const <String, String>{};
+  PracticeActivityCatalog? _catalog;
   bool _loaded = false;
   bool _hasError = false;
   bool _disposed = false;
@@ -52,10 +54,12 @@ class GrowthInsightsNotifier extends ChangeNotifier {
       // a catalog failure must not drop the loaded event history.
       try {
         final catalog = await repository.getActivityCatalog();
+        _catalog = catalog;
         _spaceLabels = {
           for (final space in catalog.spaces) space.spaceId: space.title,
         };
       } catch (_) {
+        _catalog = null;
         _spaceLabels = const <String, String>{};
       }
       _hasError = false;
@@ -121,7 +125,33 @@ class GrowthInsightsNotifier extends ChangeNotifier {
       scenes: scenes,
       windowStart: windowStart,
       windowEnd: now,
+      suggestion: _nextStepSuggestion(period),
     );
+  }
+
+  /// A gentle next-step suggestion for the week/month views: the first scene
+  /// the user has never practiced, paired with one concrete phrase to try.
+  /// Returns null for the year view, when the catalog is unavailable, or once
+  /// every scene has at least one recorded event.
+  GrowthNextStepSuggestion? _nextStepSuggestion(GrowthPeriod period) {
+    if (period == GrowthPeriod.year) return null;
+    final catalog = _catalog;
+    if (catalog == null) return null;
+
+    for (final space in catalog.spaces) {
+      if (space.totalEvents > 0) continue;
+      for (final activity in space.activities) {
+        final phrase = activity.nextPhraseEnglish;
+        if (phrase == null || phrase.trim().isEmpty) continue;
+        return GrowthNextStepSuggestion(
+          sceneLabel: space.title,
+          phraseEnglish: phrase,
+          spaceId: space.spaceId,
+          activityId: activity.activityId,
+        );
+      }
+    }
+    return null;
   }
 
   // ── Bucket builders ──────────────────────────────────────────────────────

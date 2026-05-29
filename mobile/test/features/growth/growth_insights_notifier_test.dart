@@ -191,6 +191,33 @@ void main() {
       expect(week.scenes.last.spaceId, 'space_2');
       expect(week.scenes.last.sceneTag, '洗澡');
     });
+
+    test('suggests an uncovered scene for week/month but not year', () async {
+      final notifier = GrowthInsightsNotifier(
+        repositoryFuture: Future.value(_FakeRepository(sampleEvents())),
+        now: fixedNow,
+      );
+      addTearDown(notifier.dispose);
+
+      await notifier.initialize();
+
+      final week = notifier.viewFor(GrowthPeriod.week);
+      final month = notifier.viewFor(GrowthPeriod.month);
+      final year = notifier.viewFor(GrowthPeriod.year);
+
+      // space_3 (睡前) is the first uncovered scene with a concrete phrase.
+      expect(week.suggestion, isNotNull);
+      expect(week.suggestion!.sceneLabel, '睡前');
+      expect(week.suggestion!.phraseEnglish, 'Time to sleep');
+      expect(week.suggestion!.spaceId, 'space_3');
+      expect(week.suggestion!.activityId, 'bedtime_story');
+
+      expect(month.suggestion, isNotNull);
+      expect(month.suggestion!.spaceId, 'space_3');
+
+      // The year view never surfaces the gentle next-step nudge.
+      expect(year.suggestion, isNull);
+    });
   });
 }
 
@@ -209,22 +236,76 @@ class _FakeRepository extends Fake implements PracticeRepository {
 
   @override
   Future<PracticeActivityCatalog> getActivityCatalog() async {
-    PracticeCatalogSpaceSummary space(String id, String title) {
+    PracticeCatalogActivitySummary activity(
+      String spaceId,
+      String spaceTitle,
+      String activityId, {
+      String? nextPhraseEnglish,
+      int totalEvents = 0,
+    }) {
+      return PracticeCatalogActivitySummary(
+        spaceId: spaceId,
+        spaceTitle: spaceTitle,
+        activityId: activityId,
+        title: '$spaceTitle 活动',
+        summary: '',
+        sceneTag: spaceTitle,
+        coachTip: '',
+        totalPhraseCount: 1,
+        completedPhraseCount: 0,
+        completedPhraseIds: const <String>[],
+        nextPhraseId: nextPhraseEnglish == null ? null : 'next_$activityId',
+        nextPhraseEnglish: nextPhraseEnglish,
+        totalEvents: totalEvents,
+        skippedUnknownPhraseCount: 0,
+        skippedMalformedEventCount: 0,
+      );
+    }
+
+    PracticeCatalogSpaceSummary space(
+      String id,
+      String title, {
+      required int totalEvents,
+      List<PracticeCatalogActivitySummary> activities =
+          const <PracticeCatalogActivitySummary>[],
+    }) {
       return PracticeCatalogSpaceSummary(
         spaceId: id,
         title: title,
         description: '',
-        activities: const <PracticeCatalogActivitySummary>[],
-        totalEvents: 0,
-        startedActivityCount: 0,
+        activities: activities,
+        totalEvents: totalEvents,
+        startedActivityCount: totalEvents > 0 ? 1 : 0,
         completedActivityCount: 0,
       );
     }
 
+    // space_1 / space_2 already practiced; space_3 (睡前) is uncovered and
+    // exposes a concrete next phrase → drives the next-step suggestion.
+    final spaces = [
+      space('space_1', '喂饭', totalEvents: 2),
+      space('space_2', '洗澡', totalEvents: 1),
+      space(
+        'space_3',
+        '睡前',
+        totalEvents: 0,
+        activities: [
+          activity(
+            'space_3',
+            '睡前',
+            'bedtime_story',
+            nextPhraseEnglish: 'Time to sleep',
+          ),
+        ],
+      ),
+    ];
+
     return PracticeActivityCatalog(
       installationId: 'install_test',
-      spaces: [space('space_1', '喂饭'), space('space_2', '洗澡')],
-      activities: const <PracticeCatalogActivitySummary>[],
+      spaces: spaces,
+      activities: [
+        for (final s in spaces) ...s.activities,
+      ],
       totalStoredEvents: _events.length,
       validEvents: _events.length,
       knownEvents: _events.length,

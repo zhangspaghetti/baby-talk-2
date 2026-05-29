@@ -9,16 +9,26 @@ import 'package:mobile/app/widgets/app_shimmer.dart';
 import 'package:mobile/features/growth/domain/services/growth_stats_service.dart';
 import 'package:mobile/features/growth/presentation/growth_insights_models.dart';
 import 'package:mobile/features/practice/domain/models/garden_growth_snapshot.dart';
+import 'package:mobile/features/practice/presentation/practice_route_args.dart';
 
 /// Growth V2 insights panel: period selector (本周/本月/今年) + streak card
 /// + period stats tiles + a trend bar chart (fl_chart). Consumes the pure
 /// [GrowthStatsService] via [growthInsightsNotifierProvider].
 class GrowthInsightsPanel extends ConsumerStatefulWidget {
-  const GrowthInsightsPanel({super.key, this.milestones = const []});
+  const GrowthInsightsPanel({
+    super.key,
+    this.milestones = const [],
+    this.onStartSuggestedPractice,
+  });
 
   /// All-time milestones from the garden growth snapshot. The panel filters
   /// them by [GrowthMilestoneSnapshot.achievedAt] within the selected period.
   final List<GrowthMilestoneSnapshot> milestones;
+
+  /// Invoked when the user taps the next-step suggestion's "试这一句" action.
+  /// Defaults to pushing the practice route via [PracticeRouteArgs.push].
+  /// Injected in tests to capture the navigation intent.
+  final void Function(PracticeRouteArgs args)? onStartSuggestedPractice;
 
   @override
   ConsumerState<GrowthInsightsPanel> createState() =>
@@ -254,8 +264,36 @@ class _GrowthInsightsPanelState extends ConsumerState<GrowthInsightsPanel> {
             theme: theme,
           ),
         ],
+
+        // ── Gentle next-step suggestion (week/month only) ──
+        if (view.suggestion != null) ...[
+          const SizedBox(height: AppLayoutConstants.spacingLg),
+          _NextStepSuggestion(
+            suggestion: view.suggestion!,
+            colors: colors,
+            theme: theme,
+            onTry: () => _startSuggestedPractice(context, view.suggestion!),
+          ),
+        ],
       ],
     );
+  }
+
+  void _startSuggestedPractice(
+    BuildContext context,
+    GrowthNextStepSuggestion suggestion,
+  ) {
+    AppHaptics.lightTap();
+    final args = PracticeRouteArgs(
+      spaceId: suggestion.spaceId,
+      activityId: suggestion.activityId,
+    );
+    final handler = widget.onStartSuggestedPractice;
+    if (handler != null) {
+      handler(args);
+    } else {
+      args.push(context);
+    }
   }
 
   /// Milestones from [widget.milestones] whose achievedAt falls inside the
@@ -720,6 +758,95 @@ class _PeriodMilestones extends StatelessWidget {
           const SizedBox(height: AppLayoutConstants.spacingSm),
         ],
       ],
+    );
+  }
+}
+
+/// Gentle next-step suggestion: an uncovered scene plus one concrete phrase to
+/// try, with a button that jumps straight into practice. Shown only on the
+/// week/month views (the notifier returns null for the year view).
+class _NextStepSuggestion extends StatelessWidget {
+  const _NextStepSuggestion({
+    required this.suggestion,
+    required this.colors,
+    required this.theme,
+    required this.onTry,
+  });
+
+  final GrowthNextStepSuggestion suggestion;
+  final BabyTalkColors colors;
+  final ThemeData theme;
+  final VoidCallback onTry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      key: const Key('growth-insights-next-step'),
+      padding: const EdgeInsets.all(AppLayoutConstants.spacingMd),
+      decoration: BoxDecoration(
+        color: colors.bgAccentSoft,
+        borderRadius: BorderRadius.circular(AppLayoutConstants.cardRadius),
+        border: Border.all(color: colors.outlineSoft),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                Icons.tips_and_updates_rounded,
+                size: 18,
+                color: colors.accentDark,
+              ),
+              const SizedBox(width: AppLayoutConstants.spacingSm),
+              Text(
+                '下一步',
+                style: theme.textTheme.labelLarge?.copyWith(
+                  color: colors.textSecondary,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppLayoutConstants.spacingSm),
+          Text(
+            '你还没试过${suggestion.sceneLabel}场景。',
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: colors.textPrimary,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            '试试 "${suggestion.phraseEnglish}"',
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: colors.textSecondary,
+              fontStyle: FontStyle.italic,
+            ),
+          ),
+          const SizedBox(height: AppLayoutConstants.spacingSm),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: FilledButton(
+              key: const Key('growth-insights-next-step-try'),
+              onPressed: onTry,
+              style: FilledButton.styleFrom(
+                backgroundColor: colors.accent,
+                foregroundColor: colors.bgSurface,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppLayoutConstants.spacingLg,
+                  vertical: AppLayoutConstants.spacingSm,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(
+                    AppLayoutConstants.pillRadius,
+                  ),
+                ),
+              ),
+              child: const Text('试这一句'),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

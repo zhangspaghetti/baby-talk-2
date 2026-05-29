@@ -11,11 +11,13 @@ import 'package:mobile/features/growth/presentation/growth_insights_notifier.dar
 import 'package:mobile/features/growth/presentation/widgets/growth_insights_panel.dart';
 import 'package:mobile/features/practice/data/repositories/practice_repository.dart';
 import 'package:mobile/features/practice/domain/models/garden_growth_snapshot.dart';
+import 'package:mobile/features/practice/presentation/practice_route_args.dart';
 
 void main() {
   GrowthInsightsViewState contentView(
     GrowthPeriod period, {
     required int currentStreak,
+    GrowthNextStepSuggestion? suggestion,
   }) {
     return GrowthInsightsViewState(
       isLoading: false,
@@ -59,6 +61,7 @@ void main() {
       ],
       windowStart: DateTime(2026, 5, 18),
       windowEnd: DateTime(2026, 5, 20, 12),
+      suggestion: suggestion,
     );
   }
 
@@ -90,6 +93,7 @@ void main() {
     WidgetTester tester,
     _StubNotifier stub, {
     List<GrowthMilestoneSnapshot> milestones = const [],
+    void Function(PracticeRouteArgs args)? onStartSuggestedPractice,
   }) async {
     await tester.pumpWidget(
       ProviderScope(
@@ -100,7 +104,10 @@ void main() {
           theme: AppTheme.build(),
           home: Scaffold(
             body: SingleChildScrollView(
-              child: GrowthInsightsPanel(milestones: milestones),
+              child: GrowthInsightsPanel(
+                milestones: milestones,
+                onStartSuggestedPractice: onStartSuggestedPractice,
+              ),
             ),
           ),
         ),
@@ -266,6 +273,55 @@ void main() {
     await tester.tap(find.byKey(const Key('growth-insights-period-year')));
     await tester.pumpAndSettle();
     expect(find.textContaining('今年还没有练习记录'), findsOneWidget);
+  });
+
+  testWidgets('renders next-step suggestion and forwards practice args on tap', (
+    tester,
+  ) async {
+    final stub = _StubNotifier({
+      GrowthPeriod.week: contentView(
+        GrowthPeriod.week,
+        currentStreak: 11,
+        suggestion: const GrowthNextStepSuggestion(
+          sceneLabel: '洗澡',
+          phraseEnglish: 'Splash splash',
+          spaceId: 'space_2',
+          activityId: 'activity_bath',
+        ),
+      ),
+    });
+    PracticeRouteArgs? captured;
+    await pump(
+      tester,
+      stub,
+      onStartSuggestedPractice: (args) => captured = args,
+    );
+
+    expect(find.byKey(const Key('growth-insights-next-step')), findsOneWidget);
+    expect(find.textContaining('你还没试过洗澡场景'), findsOneWidget);
+    expect(find.textContaining('Splash splash'), findsOneWidget);
+
+    await tester.ensureVisible(
+      find.byKey(const Key('growth-insights-next-step-try')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('growth-insights-next-step-try')));
+    await tester.pumpAndSettle();
+
+    expect(captured, isNotNull);
+    expect(captured!.spaceId, 'space_2');
+    expect(captured!.activityId, 'activity_bath');
+  });
+
+  testWidgets('hides next-step suggestion when none is provided', (
+    tester,
+  ) async {
+    final stub = _StubNotifier({
+      GrowthPeriod.week: contentView(GrowthPeriod.week, currentStreak: 11),
+    });
+    await pump(tester, stub);
+
+    expect(find.byKey(const Key('growth-insights-next-step')), findsNothing);
   });
 
   testWidgets('renders loading shimmer for loading view', (tester) async {

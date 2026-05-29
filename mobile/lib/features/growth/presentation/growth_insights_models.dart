@@ -25,6 +25,27 @@ class GrowthBarBucket {
   final int count;
 }
 
+/// A gentle "next step" recommendation surfaced at the bottom of the week and
+/// month views: an uncovered scene plus one concrete phrase to try, with the
+/// route arguments needed to jump straight into practice.
+class GrowthNextStepSuggestion {
+  const GrowthNextStepSuggestion({
+    required this.sceneLabel,
+    required this.phraseEnglish,
+    required this.spaceId,
+    required this.activityId,
+  });
+
+  /// Human-readable scene title (e.g. "洗澡").
+  final String sceneLabel;
+
+  /// The concrete English phrase to recommend (e.g. "Splash splash").
+  final String phraseEnglish;
+
+  final String spaceId;
+  final String activityId;
+}
+
 /// Immutable view-state for the growth insights panel for one selected period.
 class GrowthInsightsViewState {
   const GrowthInsightsViewState({
@@ -37,6 +58,7 @@ class GrowthInsightsViewState {
     this.scenes = const <SceneDistribution>[],
     this.windowStart,
     this.windowEnd,
+    this.suggestion,
   });
 
   const GrowthInsightsViewState.loading(this.period)
@@ -60,7 +82,8 @@ class GrowthInsightsViewState {
       bars = const <GrowthBarBucket>[],
       scenes = const <SceneDistribution>[],
       windowStart = null,
-      windowEnd = null;
+      windowEnd = null,
+      suggestion = null;
 
   final bool isLoading;
   final bool hasError;
@@ -77,6 +100,9 @@ class GrowthInsightsViewState {
 
   /// Inclusive end of the aggregation window (typically "now").
   final DateTime? windowEnd;
+
+  /// Optional gentle next-step suggestion (week/month views only).
+  final GrowthNextStepSuggestion? suggestion;
 
   /// Loaded, no events recorded for the selected period.
   bool get isEmpty => !isLoading && !hasError && stats.totalEvents == 0;
