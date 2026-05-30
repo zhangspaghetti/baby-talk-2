@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:mobile/app/theme/app_layout_constants.dart';
 import 'package:mobile/app/theme/app_theme.dart';
 
 /// Post-completion result echo for Home B (Scene-mentor direction).
@@ -36,7 +37,7 @@ class HomeBPracticeResult extends StatelessWidget {
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
         color: colors.successSoft,
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(AppLayoutConstants.largeRadius),
         border: Border.all(color: colors.success.withValues(alpha: 0.2)),
       ),
       child: Column(
@@ -77,7 +78,9 @@ class HomeBPracticeResult extends StatelessWidget {
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
               color: colors.bgSurface,
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(
+                AppLayoutConstants.cardRadius,
+              ),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -121,7 +124,9 @@ class HomeBPracticeResult extends StatelessWidget {
                   style: OutlinedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
+                      borderRadius: BorderRadius.circular(
+                        AppLayoutConstants.cardRadius,
+                      ),
                     ),
                   ),
                   child: const Text('再说一次'),
@@ -135,7 +140,9 @@ class HomeBPracticeResult extends StatelessWidget {
                   style: FilledButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
+                      borderRadius: BorderRadius.circular(
+                        AppLayoutConstants.cardRadius,
+                      ),
                     ),
                   ),
                   child: const Text('下一句稍后再来'),

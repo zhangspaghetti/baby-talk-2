@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:mobile/app/theme/app_layout_constants.dart';
 import 'package:mobile/app/theme/app_theme.dart';
 import 'package:mobile/features/practice/domain/models/practice_phrase.dart';
 import 'package:mobile/features/practice/presentation/practice_session_notifier.dart';
@@ -99,7 +100,7 @@ class _HomeBSceneCardState extends State<HomeBSceneCard> {
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
         color: colors.bgSurface,
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(AppLayoutConstants.largeRadius),
         border: Border.all(color: colors.outlineSoft),
       ),
       child: Column(
@@ -239,7 +240,9 @@ class _HomeBSceneCardState extends State<HomeBSceneCard> {
                     vertical: 14,
                   ),
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
+                    borderRadius: BorderRadius.circular(
+                      AppLayoutConstants.cardRadius,
+                    ),
                   ),
                 ),
                 child: const Text('试着说这一句'),
