@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:mobile/app/providers/repository_providers.dart';
+import 'package:mobile/app/theme/app_layout_constants.dart';
 import 'package:mobile/app/theme/app_theme.dart';
 
 class CaregiverPreferencesScreen extends ConsumerStatefulWidget {
@@ -49,46 +50,56 @@ class _CaregiverPreferencesScreenState
           ),
         ],
       ),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          // Role
-          _buildSection(
-            colors,
-            title: '您的角色',
-            child: Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                _roleChip('妈妈', colors),
-                _roleChip('爸爸', colors),
-                _roleChip('祖父母', colors),
-                _roleChip('其他', colors),
-              ],
-            ),
+      body: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(
+            maxWidth: AppLayoutConstants.maxContentWidth,
           ),
+          child: ListView(
+            padding: const EdgeInsets.all(16),
+            children: [
+              // Role
+              _buildSection(
+                colors,
+                title: '您的角色',
+                child: Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    _roleChip('妈妈', colors),
+                    _roleChip('爸爸', colors),
+                    _roleChip('祖父母', colors),
+                    _roleChip('其他', colors),
+                  ],
+                ),
+              ),
 
-          const SizedBox(height: 16),
+              const SizedBox(height: 16),
 
-          // Language
-          _buildSection(
-            colors,
-            title: '偏好语言',
-            child: Column(
-              children: [
-                _languageTile('中文', 'zh', colors),
-                _languageTile('English', 'en', colors),
-                _languageTile('双语', 'bilingual', colors),
-              ],
-            ),
+              // Language
+              _buildSection(
+                colors,
+                title: '偏好语言',
+                child: Column(
+                  children: [
+                    _languageTile('中文', 'zh', colors),
+                    _languageTile('English', 'en', colors),
+                    _languageTile('双语', 'bilingual', colors),
+                  ],
+                ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
 
-  Widget _buildSection(BabyTalkColors colors,
-      {required String title, required Widget child}) {
+  Widget _buildSection(
+    BabyTalkColors colors, {
+    required String title,
+    required Widget child,
+  }) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -168,7 +179,9 @@ class _CaregiverPreferencesScreenState
   }
 
   void _save() {
-    ref.read(settingsNotifierProvider.notifier).updateCaregiverPreferences(
+    ref
+        .read(settingsNotifierProvider.notifier)
+        .updateCaregiverPreferences(
           role: _selectedRole,
           language: _selectedLanguage,
         );

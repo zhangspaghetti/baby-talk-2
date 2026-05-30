@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:mobile/app/theme/app_layout_constants.dart';
 import 'package:mobile/app/theme/app_theme.dart';
 
 class HelpFeedbackScreen extends StatelessWidget {
@@ -16,69 +17,75 @@ class HelpFeedbackScreen extends StatelessWidget {
         foregroundColor: colors.textPrimary,
         elevation: 0,
       ),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          // FAQ section
-          _buildSection(
-            colors,
-            title: '常见问题',
+      body: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(
+            maxWidth: AppLayoutConstants.maxContentWidth,
+          ),
+          child: ListView(
+            padding: const EdgeInsets.all(16),
             children: [
-              _faqTile(
+              // FAQ section
+              _buildSection(
                 colors,
-                question: '如何开始使用 BabyTalk？',
-                answer:
-                    '完成引导流程后，系统会根据宝宝的月龄自动匹配适合的启蒙内容。',
+                title: '常见问题',
+                children: [
+                  _faqTile(
+                    colors,
+                    question: '如何开始使用 BabyTalk？',
+                    answer: '完成引导流程后，系统会根据宝宝的月龄自动匹配适合的启蒙内容。',
+                  ),
+                  _faqTile(
+                    colors,
+                    question: '如何修改宝宝信息？',
+                    answer: '前往 设置 → 宝宝档案，可以随时更新宝宝的昵称、月龄和成长阶段。',
+                  ),
+                  _faqTile(
+                    colors,
+                    question: '如何设置每日提醒？',
+                    answer: '前往 设置 → 提醒设置，开启每日提醒并选择合适的提醒时间。',
+                  ),
+                  _faqTile(
+                    colors,
+                    question: '数据会同步到云端吗？',
+                    answer: '当前版本所有数据仅存储在本地设备，不会上传到服务器。',
+                  ),
+                ],
               ),
-              _faqTile(
+
+              const SizedBox(height: 16),
+
+              // Feedback section
+              _buildSection(
                 colors,
-                question: '如何修改宝宝信息？',
-                answer:
-                    '前往 设置 → 宝宝档案，可以随时更新宝宝的昵称、月龄和成长阶段。',
-              ),
-              _faqTile(
-                colors,
-                question: '如何设置每日提醒？',
-                answer:
-                    '前往 设置 → 提醒设置，开启每日提醒并选择合适的提醒时间。',
-              ),
-              _faqTile(
-                colors,
-                question: '数据会同步到云端吗？',
-                answer:
-                    '当前版本所有数据仅存储在本地设备，不会上传到服务器。',
+                title: '意见反馈',
+                children: [
+                  _feedbackTile(
+                    colors,
+                    icon: Icons.email_outlined,
+                    title: '发送邮件',
+                    subtitle: 'feedback@babytalk.app',
+                  ),
+                  _feedbackTile(
+                    colors,
+                    icon: Icons.star_outline,
+                    title: '给我们评分',
+                    subtitle: '在应用商店为 BabyTalk 评分',
+                  ),
+                ],
               ),
             ],
           ),
-
-          const SizedBox(height: 16),
-
-          // Feedback section
-          _buildSection(
-            colors,
-            title: '意见反馈',
-            children: [
-              _feedbackTile(
-                colors,
-                icon: Icons.email_outlined,
-                title: '发送邮件',
-                subtitle: 'feedback@babytalk.app',
-              ),
-              _feedbackTile(
-                colors,
-                icon: Icons.star_outline,
-                title: '给我们评分',
-                subtitle: '在应用商店为 BabyTalk 评分',
-              ),
-            ],
-          ),
-        ],
+        ),
       ),
     );
   }
 
-  Widget _buildSection(BabyTalkColors colors,
-      {required String title, required List<Widget> children}) {
+  Widget _buildSection(
+    BabyTalkColors colors, {
+    required String title,
+    required List<Widget> children,
+  }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -103,8 +110,11 @@ class HelpFeedbackScreen extends StatelessWidget {
     );
   }
 
-  Widget _faqTile(BabyTalkColors colors,
-      {required String question, required String answer}) {
+  Widget _faqTile(
+    BabyTalkColors colors, {
+    required String question,
+    required String answer,
+  }) {
     return ExpansionTile(
       tilePadding: const EdgeInsets.symmetric(horizontal: 16),
       childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
@@ -117,14 +127,22 @@ class HelpFeedbackScreen extends StatelessWidget {
       children: [
         Text(
           answer,
-          style: TextStyle(fontSize: 14, color: colors.textSecondary, height: 1.5),
+          style: TextStyle(
+            fontSize: 14,
+            color: colors.textSecondary,
+            height: 1.5,
+          ),
         ),
       ],
     );
   }
 
-  Widget _feedbackTile(BabyTalkColors colors,
-      {required IconData icon, required String title, required String subtitle}) {
+  Widget _feedbackTile(
+    BabyTalkColors colors, {
+    required IconData icon,
+    required String title,
+    required String subtitle,
+  }) {
     return ListTile(
       leading: Icon(icon, color: colors.accent),
       title: Text(

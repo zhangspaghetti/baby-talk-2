@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:mobile/app/providers/repository_providers.dart';
+import 'package:mobile/app/theme/app_layout_constants.dart';
 import 'package:mobile/app/theme/app_theme.dart';
 import 'package:mobile/l10n/app_localizations.dart';
 
@@ -25,106 +26,116 @@ class SettingsScreen extends ConsumerWidget {
       ),
       body: notifier.isLoading
           ? const Center(child: CircularProgressIndicator())
-          : ListView(
-              padding: const EdgeInsets.symmetric(vertical: 8),
-              children: [
-                // --- Reminder ---
-                _SettingsSection(
-                  title: l.settingsReminderSection,
-                  children: [
-                    _SettingsTile(
-                      icon: Icons.notifications_outlined,
-                      title: l.settingsDailyReminder,
-                      subtitle: snapshot.reminderEnabled
-                          ? '${_padZero(snapshot.reminderHour)}:${_padZero(snapshot.reminderMinute)}'
-                          : l.settingsNotEnabled,
-                      trailing: Switch(
-                        value: snapshot.reminderEnabled,
-                        onChanged: (value) {
-                          ref.read(settingsNotifierProvider.notifier).updateReminder(
-                                enabled: value,
-                                hour: snapshot.reminderHour,
-                                minute: snapshot.reminderMinute,
-                              );
-                        },
-                        activeThumbColor: colors.accent,
-                      ),
-                      onTap: () => context.push('/me/settings/reminder'),
-                    ),
-                  ],
+          : Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(
+                  maxWidth: AppLayoutConstants.maxContentWidth,
                 ),
-
-                // --- Baby Profile ---
-                _SettingsSection(
-                  title: l.settingsBabyProfileSection,
+                child: ListView(
+                  padding: const EdgeInsets.symmetric(vertical: 8),
                   children: [
-                    _SettingsTile(
-                      icon: Icons.child_care_outlined,
-                      title: l.settingsBabyInfo,
-                      subtitle: snapshot.childName.isNotEmpty
-                          ? '${snapshot.childName}${snapshot.childAgeMonths != null ? '  ·  ${l.settingsMonthSuffix(snapshot.childAgeMonths!)}' : ''}'
-                          : l.settingsTapToSetBabyInfo,
-                      onTap: () => context.push('/me/settings/baby-profile'),
+                    // --- Reminder ---
+                    _SettingsSection(
+                      title: l.settingsReminderSection,
+                      children: [
+                        _SettingsTile(
+                          icon: Icons.notifications_outlined,
+                          title: l.settingsDailyReminder,
+                          subtitle: snapshot.reminderEnabled
+                              ? '${_padZero(snapshot.reminderHour)}:${_padZero(snapshot.reminderMinute)}'
+                              : l.settingsNotEnabled,
+                          trailing: Switch(
+                            value: snapshot.reminderEnabled,
+                            onChanged: (value) {
+                              ref
+                                  .read(settingsNotifierProvider.notifier)
+                                  .updateReminder(
+                                    enabled: value,
+                                    hour: snapshot.reminderHour,
+                                    minute: snapshot.reminderMinute,
+                                  );
+                            },
+                            activeThumbColor: colors.accent,
+                          ),
+                          onTap: () => context.push('/me/settings/reminder'),
+                        ),
+                      ],
                     ),
-                  ],
-                ),
 
-                // --- Caregiver Preferences ---
-                _SettingsSection(
-                  title: l.settingsCaregiverSection,
-                  children: [
-                    _SettingsTile(
-                      icon: Icons.person_outline,
-                      title: l.settingsRoleAndLanguage,
-                      subtitle: snapshot.caregiverRole.isNotEmpty
-                          ? '${snapshot.caregiverRole}  ·  ${_languageLabel(l, snapshot.preferredLanguage)}'
-                          : l.settingsTapToSet,
-                      onTap: () => context.push('/me/settings/caregiver'),
+                    // --- Baby Profile ---
+                    _SettingsSection(
+                      title: l.settingsBabyProfileSection,
+                      children: [
+                        _SettingsTile(
+                          icon: Icons.child_care_outlined,
+                          title: l.settingsBabyInfo,
+                          subtitle: snapshot.childName.isNotEmpty
+                              ? '${snapshot.childName}${snapshot.childAgeMonths != null ? '  ·  ${l.settingsMonthSuffix(snapshot.childAgeMonths!)}' : ''}'
+                              : l.settingsTapToSetBabyInfo,
+                          onTap: () =>
+                              context.push('/me/settings/baby-profile'),
+                        ),
+                      ],
                     ),
-                  ],
-                ),
 
-                // --- Playback Preferences ---
-                _SettingsSection(
-                  title: l.settingsPlaybackSection,
-                  children: [
-                    _SettingsTile(
-                      icon: Icons.play_circle_outline,
-                      title: l.settingsPlaybackPrefs,
-                      subtitle:
-                          '${snapshot.autoPlayEnabled ? l.settingsAutoPlayOn : l.settingsAutoPlayOff}  ·  ${l.settingsSpeed} ${snapshot.audioSpeed}x',
-                      onTap: () => context.push('/me/settings/playback'),
+                    // --- Caregiver Preferences ---
+                    _SettingsSection(
+                      title: l.settingsCaregiverSection,
+                      children: [
+                        _SettingsTile(
+                          icon: Icons.person_outline,
+                          title: l.settingsRoleAndLanguage,
+                          subtitle: snapshot.caregiverRole.isNotEmpty
+                              ? '${snapshot.caregiverRole}  ·  ${_languageLabel(l, snapshot.preferredLanguage)}'
+                              : l.settingsTapToSet,
+                          onTap: () => context.push('/me/settings/caregiver'),
+                        ),
+                      ],
                     ),
-                  ],
-                ),
 
-                // --- Help & Feedback ---
-                _SettingsSection(
-                  title: l.settingsHelpSection,
-                  children: [
-                    _SettingsTile(
-                      icon: Icons.help_outline,
+                    // --- Playback Preferences ---
+                    _SettingsSection(
+                      title: l.settingsPlaybackSection,
+                      children: [
+                        _SettingsTile(
+                          icon: Icons.play_circle_outline,
+                          title: l.settingsPlaybackPrefs,
+                          subtitle:
+                              '${snapshot.autoPlayEnabled ? l.settingsAutoPlayOn : l.settingsAutoPlayOff}  ·  ${l.settingsSpeed} ${snapshot.audioSpeed}x',
+                          onTap: () => context.push('/me/settings/playback'),
+                        ),
+                      ],
+                    ),
+
+                    // --- Help & Feedback ---
+                    _SettingsSection(
                       title: l.settingsHelpSection,
-                      onTap: () => context.push('/me/settings/help'),
+                      children: [
+                        _SettingsTile(
+                          icon: Icons.help_outline,
+                          title: l.settingsHelpSection,
+                          onTap: () => context.push('/me/settings/help'),
+                        ),
+                      ],
                     ),
-                  ],
-                ),
 
-                // --- About ---
-                _SettingsSection(
-                  title: l.settingsAboutSection,
-                  children: [
-                    _SettingsTile(
-                      icon: Icons.info_outline,
-                      title: l.settingsAboutBabyTalk,
-                      subtitle: snapshot.appVersion.isNotEmpty
-                          ? l.settingsVersion(snapshot.appVersion)
-                          : null,
-                      onTap: () => context.push('/me/settings/about'),
+                    // --- About ---
+                    _SettingsSection(
+                      title: l.settingsAboutSection,
+                      children: [
+                        _SettingsTile(
+                          icon: Icons.info_outline,
+                          title: l.settingsAboutBabyTalk,
+                          subtitle: snapshot.appVersion.isNotEmpty
+                              ? l.settingsVersion(snapshot.appVersion)
+                              : null,
+                          onTap: () => context.push('/me/settings/about'),
+                        ),
+                      ],
                     ),
                   ],
                 ),
-              ],
+              ),
             ),
     );
   }
@@ -217,19 +228,13 @@ class _SettingsTile extends StatelessWidget {
                 children: [
                   Text(
                     title,
-                    style: TextStyle(
-                      fontSize: 16,
-                      color: colors.textPrimary,
-                    ),
+                    style: TextStyle(fontSize: 16, color: colors.textPrimary),
                   ),
                   if (subtitle != null) ...[
                     const SizedBox(height: 2),
                     Text(
                       subtitle!,
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: colors.textMuted,
-                      ),
+                      style: TextStyle(fontSize: 13, color: colors.textMuted),
                     ),
                   ],
                 ],

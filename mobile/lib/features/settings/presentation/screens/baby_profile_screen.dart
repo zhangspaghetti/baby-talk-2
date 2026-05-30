@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:mobile/app/providers/repository_providers.dart';
+import 'package:mobile/app/theme/app_layout_constants.dart';
 import 'package:mobile/app/theme/app_theme.dart';
 
 class BabyProfileScreen extends ConsumerStatefulWidget {
@@ -63,93 +64,103 @@ class _BabyProfileScreenState extends ConsumerState<BabyProfileScreen> {
           ),
         ],
       ),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          // Name
-          _buildSection(
-            colors,
-            title: '宝宝昵称',
-            child: TextField(
-              controller: _nameController,
-              decoration: InputDecoration(
-                hintText: '请输入宝宝昵称',
-                hintStyle: TextStyle(color: colors.textMuted),
-                border: InputBorder.none,
-              ),
-              style: TextStyle(fontSize: 16, color: colors.textPrimary),
-              maxLength: 12,
-            ),
+      body: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(
+            maxWidth: AppLayoutConstants.maxContentWidth,
           ),
-
-          const SizedBox(height: 16),
-
-          // Age months
-          _buildSection(
-            colors,
-            title: '月龄',
-            child: Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                _ageChip(0, '0-3个月', colors),
-                _ageChip(3, '4-6个月', colors),
-                _ageChip(6, '7-9个月', colors),
-                _ageChip(9, '10-12个月', colors),
-                _ageChip(12, '1-2岁', colors),
-                _ageChip(24, '2-3岁', colors),
-              ],
-            ),
-          ),
-
-          const SizedBox(height: 16),
-
-          // Birth date
-          _buildSection(
-            colors,
-            title: '出生日期（选填）',
-            child: ListTile(
-              contentPadding: EdgeInsets.zero,
-              title: Text(
-                _selectedBirthDate != null
-                    ? '${_selectedBirthDate!.year}-${_padZero(_selectedBirthDate!.month)}-${_padZero(_selectedBirthDate!.day)}'
-                    : '点击选择',
-                style: TextStyle(
-                  fontSize: 16,
-                  color: _selectedBirthDate != null
-                      ? colors.textPrimary
-                      : colors.textMuted,
+          child: ListView(
+            padding: const EdgeInsets.all(16),
+            children: [
+              // Name
+              _buildSection(
+                colors,
+                title: '宝宝昵称',
+                child: TextField(
+                  controller: _nameController,
+                  decoration: InputDecoration(
+                    hintText: '请输入宝宝昵称',
+                    hintStyle: TextStyle(color: colors.textMuted),
+                    border: InputBorder.none,
+                  ),
+                  style: TextStyle(fontSize: 16, color: colors.textPrimary),
+                  maxLength: 12,
                 ),
               ),
-              trailing: Icon(Icons.calendar_today, color: colors.accent),
-              onTap: _pickBirthDate,
-            ),
-          ),
 
-          const SizedBox(height: 16),
+              const SizedBox(height: 16),
 
-          // Stage
-          _buildSection(
-            colors,
-            title: '成长阶段',
-            child: Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                _stageChip('听觉启蒙', colors),
-                _stageChip('语言萌芽', colors),
-                _stageChip('表达爆发', colors),
-                _stageChip('社交互动', colors),
-              ],
-            ),
+              // Age months
+              _buildSection(
+                colors,
+                title: '月龄',
+                child: Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    _ageChip(0, '0-3个月', colors),
+                    _ageChip(3, '4-6个月', colors),
+                    _ageChip(6, '7-9个月', colors),
+                    _ageChip(9, '10-12个月', colors),
+                    _ageChip(12, '1-2岁', colors),
+                    _ageChip(24, '2-3岁', colors),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 16),
+
+              // Birth date
+              _buildSection(
+                colors,
+                title: '出生日期（选填）',
+                child: ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: Text(
+                    _selectedBirthDate != null
+                        ? '${_selectedBirthDate!.year}-${_padZero(_selectedBirthDate!.month)}-${_padZero(_selectedBirthDate!.day)}'
+                        : '点击选择',
+                    style: TextStyle(
+                      fontSize: 16,
+                      color: _selectedBirthDate != null
+                          ? colors.textPrimary
+                          : colors.textMuted,
+                    ),
+                  ),
+                  trailing: Icon(Icons.calendar_today, color: colors.accent),
+                  onTap: _pickBirthDate,
+                ),
+              ),
+
+              const SizedBox(height: 16),
+
+              // Stage
+              _buildSection(
+                colors,
+                title: '成长阶段',
+                child: Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    _stageChip('听觉启蒙', colors),
+                    _stageChip('语言萌芽', colors),
+                    _stageChip('表达爆发', colors),
+                    _stageChip('社交互动', colors),
+                  ],
+                ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
 
-  Widget _buildSection(BabyTalkColors colors,
-      {required String title, required Widget child}) {
+  Widget _buildSection(
+    BabyTalkColors colors, {
+    required String title,
+    required Widget child,
+  }) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -222,13 +233,19 @@ class _BabyProfileScreenState extends ConsumerState<BabyProfileScreen> {
     );
     if (picked != null) {
       setState(() {
-        _selectedBirthDate = DateTime.utc(picked.year, picked.month, picked.day);
+        _selectedBirthDate = DateTime.utc(
+          picked.year,
+          picked.month,
+          picked.day,
+        );
       });
     }
   }
 
   void _save() {
-    ref.read(settingsNotifierProvider.notifier).updateBabyProfile(
+    ref
+        .read(settingsNotifierProvider.notifier)
+        .updateBabyProfile(
           name: _nameController.text.trim(),
           birthDate: _selectedBirthDate,
           clearBirthDate: _selectedBirthDate == null,
