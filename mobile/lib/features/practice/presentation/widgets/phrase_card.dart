@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:mobile/app/theme/app_layout_constants.dart';
 import 'package:mobile/app/theme/app_theme.dart';
+import 'package:mobile/app/widgets/app_english_phrase.dart';
+import 'package:mobile/app/widgets/app_audio_button.dart';
 import 'package:mobile/features/practice/domain/models/interaction_event_payload.dart';
 import 'package:mobile/features/practice/domain/models/practice_phrase.dart';
 import 'package:mobile/features/practice/presentation/practice_session_notifier.dart';
@@ -146,12 +148,7 @@ class PhraseCard extends StatelessWidget {
           ],
         ),
         const SizedBox(height: AppLayoutConstants.spacingMd),
-        Text(
-          phrase.english,
-          style: Theme.of(
-            context,
-          ).textTheme.headlineMedium?.copyWith(color: colors.english),
-        ),
+        AppEnglishPhrase(phrase.english),
         const SizedBox(height: AppLayoutConstants.spacingXs),
         Text(
           phrase.pronunciation,
@@ -189,7 +186,7 @@ class PhraseCard extends StatelessWidget {
               key: Key('phrase-action-row-${phrase.phraseId}'),
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                playButton,
+                Expanded(child: playButton),
                 const SizedBox(width: AppLayoutConstants.spacingMd),
                 Expanded(child: note),
               ],
@@ -238,44 +235,18 @@ class PhraseCard extends StatelessWidget {
   }
 
   Widget _buildPlayButton(BuildContext context) {
-    final colors = context.appColors;
     final isPlaying = playbackStatus == PracticePlaybackStatus.playing;
-    return Semantics(
-      label: isTtsMode ? '朗读发音' : '播放发音',
-      button: true,
-      child: InkWell(
-        key: Key(
-          isTtsMode ? 'tts-${phrase.phraseId}' : 'play-${phrase.phraseId}',
-        ),
-        borderRadius: BorderRadius.circular(9999),
-        onTap: isTtsMode ? onTtsSpeak : (canPlay ? onPlay : null),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                isTtsMode
-                    ? Icons.record_voice_over_rounded
-                    : (isPlaying
-                          ? Icons.graphic_eq_rounded
-                          : Icons.volume_up_outlined),
-                size: 18,
-                color: colors.textSecondary,
-              ),
-              if (isPlaying) ...[
-                const SizedBox(width: 4),
-                Text(
-                  '播放中',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: colors.textSecondary,
-                  ),
-                ),
-              ],
-            ],
-          ),
-        ),
+    final icon = isTtsMode
+        ? Icons.record_voice_over_rounded
+        : (isPlaying ? Icons.graphic_eq_rounded : Icons.volume_up_outlined);
+    return AppAudioButton(
+      buttonKey: Key(
+        isTtsMode ? 'tts-${phrase.phraseId}' : 'play-${phrase.phraseId}',
       ),
+      semanticsLabel: isTtsMode ? '朗读发音' : '播放发音',
+      icon: icon,
+      isPlaying: isPlaying,
+      onTap: isTtsMode ? onTtsSpeak : (canPlay ? onPlay : null),
     );
   }
 

@@ -58,6 +58,9 @@ class AppLayoutConstants {
   /// Standard border radius for cards.
   static const double cardRadius = 16;
 
+  /// Small border radius for inputs, secondary buttons and tags (`--radius-sm`).
+  static const double smallRadius = 8;
+
   /// Large border radius for hero cards and sheets.
   static const double largeRadius = 24;
 
