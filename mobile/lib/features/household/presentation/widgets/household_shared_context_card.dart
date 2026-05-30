@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:mobile/app/theme/app_layout_constants.dart';
 import 'package:mobile/app/theme/app_theme.dart';
 import 'package:mobile/features/household/data/local/household_local_store.dart';
 import 'package:mobile/features/household/domain/models/household_role.dart';
@@ -147,7 +148,7 @@ class HouseholdSharedPracticeOverlayCard extends StatelessWidget {
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: colors.bgAccentSoft,
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(AppLayoutConstants.largeRadius),
         border: Border.all(color: colors.accent.withValues(alpha: 0.18)),
       ),
       child: Column(
@@ -216,7 +217,9 @@ class HouseholdSharedPracticeOverlayCard extends StatelessWidget {
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
                 color: colors.warningSoft,
-                borderRadius: BorderRadius.circular(16),
+                borderRadius: BorderRadius.circular(
+                  AppLayoutConstants.cardRadius,
+                ),
               ),
               child: Text(
                 householdSharedUnavailableNextStepMessage(sharedContext),
@@ -389,7 +392,9 @@ class HouseholdSharedContextCard extends StatelessWidget {
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
                 color: colors.bgSunken,
-                borderRadius: BorderRadius.circular(16),
+                borderRadius: BorderRadius.circular(
+                  AppLayoutConstants.cardRadius,
+                ),
               ),
               child: Text(
                 _emptyStateMessage(snapshot),
@@ -603,7 +608,7 @@ class _SharedAttributionPanel extends StatelessWidget {
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: colors.englishSoft,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(AppLayoutConstants.cardRadius),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -674,7 +679,7 @@ class _SharedNextStepPanel extends StatelessWidget {
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: colors.bgSunken,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(AppLayoutConstants.cardRadius),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -777,7 +782,7 @@ class _SummaryRow extends StatelessWidget {
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: colors.bgSurface,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(AppLayoutConstants.cardRadius),
         border: Border.all(color: colors.outlineSoft),
       ),
       child: Column(
@@ -820,7 +825,9 @@ class _HouseholdCardShell extends StatelessWidget {
       padding: EdgeInsets.all(compact ? 16 : 18),
       decoration: BoxDecoration(
         color: colors.bgSurface,
-        borderRadius: BorderRadius.circular(compact ? 20 : 24),
+        borderRadius: BorderRadius.circular(
+          compact ? AppLayoutConstants.mediumRadius : AppLayoutConstants.largeRadius,
+        ),
         border: Border.all(color: colors.outlineSoft),
         boxShadow: colors.warmShadowSm,
       ),
@@ -915,7 +922,7 @@ Widget _buildRoleChip(
     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
     decoration: BoxDecoration(
       color: backgroundColor,
-      borderRadius: BorderRadius.circular(999),
+      borderRadius: BorderRadius.circular(AppLayoutConstants.pillRadius),
     ),
     child: Text(
       label,
