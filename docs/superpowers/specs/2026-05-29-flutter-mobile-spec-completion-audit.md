@@ -9,6 +9,9 @@
 > - **Growth V2 🔴→✅**：周/月/年多维度已实现（`GrowthPeriod{week,month,year}` + `GrowthBarBucket` 柱状图 + trend + streak + 场景覆盖推荐，`growth_insights_panel.dart`/`growth_insights_notifier.dart`，接入 garden_growth_combined_screen:475），含 `growth_insights_panel_test`/`growth_insights_notifier_test`。
 > - **组件规格 🔴→🟢 大体闭环**：13 组件多数已抽到 `app/widgets/`（MentorBubble/EnglishPhrase/AudioButton/InputField/Toast/Card/ScenePill/SegmentTab 等）+ 按钮身份(色/高/圆角)集中到 `app_theme` 的 filled/outlined/text ButtonTheme；私有重复 widget 已清除。详见 /memories/repo/baby-talk-2-component-extraction.md。
 > - **跨页一致性 🟡→改善**：圆角 token 化(shell/practice/mentor)、大屏限宽(me_screen + settings 系列 `ConstrainedBox(maxContentWidth=430)`) 已统一。
+> - **Discover「换一批」🟡→非缺口（已被设计取代）**：discover-design spec §16.3「去掉换一批，用排序替代」明确演进——当前 Discover 的场景内排序(最常用/最新/全部)正是其替代实现，审计"缺换一批"判断已被 spec 自身推翻。
+> - **Auth 🟡→✅**：密码登录/注册/确认密码/忘记密码/重置密码/CAPTCHA 全套(`discoverModePasswordLogin`/`discoverModeRegister`/`discoverResetPasswordTitle`/`discoverCaptchaTitle`)已实现。
+> - **Growth V1 汇总/场景覆盖 🟡→✅**：`HomeGrowthSummaryCard` + garden_growth_repository §7「累计句数/场景覆盖/坚持天数」里程碑已实现。
 
 
 ## 一、完成度总览
