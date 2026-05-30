@@ -4,6 +4,7 @@ import 'package:mobile/app/providers/repository_providers.dart';
 import 'package:mobile/app/widgets/app_banner.dart';
 import 'package:mobile/app/widgets/app_empty_state.dart';
 import 'package:mobile/app/widgets/app_haptics.dart';
+import 'package:mobile/app/widgets/app_segment_tab.dart';
 import 'package:mobile/app/widgets/app_shimmer.dart';
 import 'package:mobile/app/theme/app_layout_constants.dart';
 import 'package:mobile/app/theme/app_theme.dart';
@@ -610,68 +611,20 @@ class _GardenSegmentedControl extends StatelessWidget {
       child: Row(
         children: [
           Expanded(
-            child: _SegmentTab(
+            child: AppSegmentTab(
               label: l.shellGarden,
               isSelected: selectedTab == GrowthTab.garden,
               onTap: () => onTabChanged(GrowthTab.garden),
             ),
           ),
           Expanded(
-            child: _SegmentTab(
+            child: AppSegmentTab(
               label: l.shellGrowth,
               isSelected: selectedTab == GrowthTab.growth,
               onTap: () => onTabChanged(GrowthTab.growth),
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _SegmentTab extends StatelessWidget {
-  const _SegmentTab({
-    required this.label,
-    required this.isSelected,
-    required this.onTap,
-  });
-
-  final String label;
-  final bool isSelected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = context.appColors;
-    final theme = Theme.of(context);
-    return Semantics(
-      button: true,
-      label: label,
-      selected: isSelected,
-      child: GestureDetector(
-        onTap: onTap,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          constraints: const BoxConstraints(
-            minHeight: AppLayoutConstants.minTouchTarget,
-          ),
-          padding: const EdgeInsets.symmetric(
-            vertical: AppLayoutConstants.spacingSm,
-          ),
-          decoration: BoxDecoration(
-            color: isSelected ? colors.bgSurface : Colors.transparent,
-            borderRadius: BorderRadius.circular(AppLayoutConstants.spacingSm),
-            boxShadow: isSelected ? colors.warmShadowSm : null,
-          ),
-          alignment: Alignment.center,
-          child: Text(
-            label,
-            style: theme.textTheme.titleMedium?.copyWith(
-              color: isSelected ? colors.textPrimary : colors.textMuted,
-              fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-            ),
-          ),
-        ),
       ),
     );
   }
