@@ -470,6 +470,20 @@ class AppTheme {
           ),
         ),
       ),
+      textButtonTheme: TextButtonThemeData(
+        style: TextButton.styleFrom(
+          foregroundColor: accent,
+          minimumSize: const Size(64, AppLayoutConstants.minTouchTarget),
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppLayoutConstants.spacingMd,
+            vertical: AppLayoutConstants.spacingSm,
+          ),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppLayoutConstants.cardRadius),
+          ),
+          textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
+        ),
+      ),
       navigationBarTheme: const NavigationBarThemeData(
         backgroundColor: bgSurface,
         indicatorColor: bgAccentSoft,
@@ -701,6 +715,20 @@ class AppTheme {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(AppLayoutConstants.cardRadius),
           ),
+        ),
+      ),
+      textButtonTheme: TextButtonThemeData(
+        style: TextButton.styleFrom(
+          foregroundColor: dk.accent,
+          minimumSize: const Size(64, AppLayoutConstants.minTouchTarget),
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppLayoutConstants.spacingMd,
+            vertical: AppLayoutConstants.spacingSm,
+          ),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppLayoutConstants.cardRadius),
+          ),
+          textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
         ),
       ),
       navigationBarTheme: NavigationBarThemeData(
