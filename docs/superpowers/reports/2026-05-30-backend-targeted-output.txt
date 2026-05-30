@@ -1,0 +1,842 @@
+[INFO] Scanning for projects...
+[INFO] 
+[INFO] ---------------------< com.zhangspaghetti:app-api >---------------------
+[INFO] Building babytalk-app-api 0.0.1-SNAPSHOT
+[INFO]   from pom.xml
+[INFO] --------------------------------[ jar ]---------------------------------
+[INFO] 
+[INFO] --- jacoco:0.8.11:prepare-agent (default) @ app-api ---
+[INFO] argLine set to -javaagent:C:\\Users\\zhang\\.m2\\repository\\org\\jacoco\\org.jacoco.agent\\0.8.11\\org.jacoco.agent-0.8.11-runtime.jar=destfile=C:\\code\\AI\\baby-talk-2\\backend\\app-api\\target\\jacoco.exec
+[INFO] 
+[INFO] --- resources:3.3.1:resources (default-resources) @ app-api ---
+[INFO] Copying 1 resource from src\main\resources to target\classes
+[INFO] Copying 15 resources from src\main\resources to target\classes
+[INFO] 
+[INFO] --- compiler:3.13.0:compile (default-compile) @ app-api ---
+[INFO] Nothing to compile - all classes are up to date.
+[INFO] 
+[INFO] --- resources:3.3.1:testResources (default-testResources) @ app-api ---
+[INFO] Copying 4 resources from src\test\resources to target\test-classes
+[INFO] 
+[INFO] --- compiler:3.13.0:testCompile (default-testCompile) @ app-api ---
+[INFO] Nothing to compile - all classes are up to date.
+[INFO] 
+[INFO] --- surefire:3.5.2:test (default-test) @ app-api ---
+[INFO] Using auto detected provider org.apache.maven.surefire.junitplatform.JUnitPlatformProvider
+[INFO] 
+[INFO] -------------------------------------------------------
+[INFO]  T E S T S
+[INFO] -------------------------------------------------------
+[INFO] Running com.zhangspaghetti.babytalk.service.GardenFertilizerServiceTest
+19:00:10.356 [main] INFO org.springframework.test.context.support.AnnotationConfigContextLoaderUtils -- Could not detect default configuration classes for test class [com.zhangspaghetti.babytalk.service.GardenFertilizerServiceTest]: GardenFertilizerServiceTest does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
+19:00:10.743 [main] INFO org.springframework.boot.test.context.SpringBootTestContextBootstrapper -- Found @SpringBootConfiguration com.zhangspaghetti.babytalk.AppApiApplication for test class com.zhangspaghetti.babytalk.service.GardenFertilizerServiceTest
+19:00:11.015 [main] INFO org.testcontainers.images.PullPolicy -- Image pull policy will be performed by: DefaultPullPolicy()
+19:00:11.021 [main] INFO org.testcontainers.utility.ImageNameSubstitutor -- Image name substitution will be performed by: DefaultImageNameSubstitutor (composite of 'ConfigurationFileImageNameSubstitutor' and 'PrefixingImageNameSubstitutor')
+19:00:11.084 [main] INFO org.testcontainers.DockerClientFactory -- Testcontainers version: 1.20.6
+19:00:11.458 [main] INFO org.testcontainers.dockerclient.DockerClientProviderStrategy -- Loaded org.testcontainers.dockerclient.NpipeSocketClientProviderStrategy from ~/.testcontainers.properties, will try it first
+19:00:11.511 [main] WARN org.testcontainers.dockerclient.DockerClientProviderStrategy -- DOCKER_HOST tcp://localhost:2375 is not listening
+java.net.ConnectException: Connection refused: connect
+	at java.base/sun.nio.ch.Net.connect0(Native Method)
+	at java.base/sun.nio.ch.Net.connect(Net.java:601)
+	at java.base/sun.nio.ch.Net.connect(Net.java:590)
+	at java.base/sun.nio.ch.NioSocketImpl.connect(NioSocketImpl.java:583)
+	at java.base/java.net.SocksSocketImpl.connect(SocksSocketImpl.java:327)
+	at java.base/java.net.Socket.connect(Socket.java:751)
+	at java.base/java.net.Socket.connect(Socket.java:686)
+	at org.testcontainers.dockerclient.DockerClientProviderStrategy.lambda$test$3(DockerClientProviderStrategy.java:214)
+	at org.testcontainers.shaded.org.awaitility.core.AssertionCondition.lambda$new$0(AssertionCondition.java:53)
+	at org.testcontainers.shaded.org.awaitility.core.ConditionAwaiter$ConditionPoller.call(ConditionAwaiter.java:248)
+	at org.testcontainers.shaded.org.awaitility.core.ConditionAwaiter$ConditionPoller.call(ConditionAwaiter.java:235)
+	at java.base/java.util.concurrent.FutureTask.run(FutureTask.java:317)
+	at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1144)
+	at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:642)
+	at java.base/java.lang.Thread.run(Thread.java:1583)
+19:00:12.111 [main] INFO org.testcontainers.dockerclient.DockerClientProviderStrategy -- Found Docker environment with local Npipe socket (npipe:////./pipe/docker_engine)
+19:00:12.114 [main] INFO org.testcontainers.DockerClientFactory -- Docker host IP address is localhost
+19:00:12.185 [main] INFO org.testcontainers.DockerClientFactory -- Connected to docker: 
+  Server Version: 29.2.1
+  API Version: 1.53
+  Operating System: Docker Desktop
+  Total Memory: 3917 MB
+  Labels: 
+    com.docker.desktop.address=npipe://\\.\pipe\docker_cli
+19:00:12.202 [main] INFO org.testcontainers.DockerClientFactory -- Checking the system...
+19:00:12.203 [main] INFO org.testcontainers.DockerClientFactory -- ✔︎ Docker server version should be at least 1.6.0
+19:00:12.966 [main] INFO tc.pgvector/pgvector:pg16 -- Creating container for image: pgvector/pgvector:pg16
+19:00:13.181 [main] INFO tc.testcontainers/ryuk:0.11.0 -- Creating container for image: testcontainers/ryuk:0.11.0
+19:00:13.576 [main] INFO tc.testcontainers/ryuk:0.11.0 -- Container testcontainers/ryuk:0.11.0 is starting: a44011451e2243b28773dce7dbae193e5aa22f391f2db7a62de10d9c6b6c1591
+19:00:15.202 [main] INFO tc.testcontainers/ryuk:0.11.0 -- Container testcontainers/ryuk:0.11.0 started in PT2.0211547S
+19:00:15.545 [main] INFO tc.pgvector/pgvector:pg16 -- Container pgvector/pgvector:pg16 is starting: 74c13bc8da16ef6fa0d3920454c2c61de14e0bab71ec52ffe899db30ec6c4a04
+19:00:19.752 [main] INFO tc.pgvector/pgvector:pg16 -- Container pgvector/pgvector:pg16 started in PT6.786748S
+19:00:19.753 [main] INFO tc.pgvector/pgvector:pg16 -- Container is started (JDBC URL: jdbc:postgresql://localhost:4089/babytalk_test?loggerLevel=OFF)
+
+  .   ____          _            __ _ _
+ /\\ / ___'_ __ _ _(_)_ __  __ _ \ \ \ \
+( ( )\___ | '_ | '_| | '_ \/ _` | \ \ \ \
+ \\/  ___)| |_)| | | | | || (_| |  ) ) ) )
+  '  |____| .__|_| |_|_| |_\__, | / / / /
+ =========|_|==============|___/=/_/_/_/
+
+ :: Spring Boot ::                (v3.4.4)
+
+2026-05-30T19:00:20.400+08:00  INFO 24316 --- [babytalk-app-api] [           main] c.z.b.s.GardenFertilizerServiceTest      : Starting GardenFertilizerServiceTest using Java 21.0.10 with PID 24316 (started by zhang in C:\code\AI\baby-talk-2\backend\app-api)
+2026-05-30T19:00:20.402+08:00  INFO 24316 --- [babytalk-app-api] [           main] c.z.b.s.GardenFertilizerServiceTest      : The following 1 profile is active: "test"
+2026-05-30T19:00:22.821+08:00  INFO 24316 --- [babytalk-app-api] [           main] .s.d.r.c.RepositoryConfigurationDelegate : Bootstrapping Spring Data JPA repositories in DEFAULT mode.
+2026-05-30T19:00:23.113+08:00  INFO 24316 --- [babytalk-app-api] [           main] .s.d.r.c.RepositoryConfigurationDelegate : Finished Spring Data repository scanning in 273 ms. Found 4 JPA repository interfaces.
+2026-05-30T19:00:24.237+08:00  INFO 24316 --- [babytalk-app-api] [           main] c.a.d.s.b.a.DruidDataSourceAutoConfigure : Init DruidDataSource
+2026-05-30T19:00:24.974+08:00  INFO 24316 --- [babytalk-app-api] [           main] com.alibaba.druid.pool.DruidDataSource   : {dataSource-1} inited
+2026-05-30T19:00:25.341+08:00  INFO 24316 --- [babytalk-app-api] [           main] org.flywaydb.core.FlywayExecutor         : Database: jdbc:postgresql://localhost:4089/babytalk_test?loggerLevel=OFF (PostgreSQL 16.13)
+2026-05-30T19:00:25.553+08:00  INFO 24316 --- [babytalk-app-api] [           main] o.f.c.i.s.JdbcTableSchemaHistory         : Schema history table "public"."flyway_schema_history" does not exist yet
+2026-05-30T19:00:25.588+08:00  INFO 24316 --- [babytalk-app-api] [           main] o.f.core.internal.command.DbValidate     : Successfully validated 16 migrations (execution time 00:00.105s)
+2026-05-30T19:00:25.649+08:00  INFO 24316 --- [babytalk-app-api] [           main] o.f.c.i.s.JdbcTableSchemaHistory         : Creating Schema History table "public"."flyway_schema_history" ...
+2026-05-30T19:00:25.938+08:00  INFO 24316 --- [babytalk-app-api] [           main] o.f.core.internal.command.DbMigrate      : Current version of schema "public": << Empty Schema >>
+2026-05-30T19:00:25.975+08:00  INFO 24316 --- [babytalk-app-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "3 - create accounts and sync tables"
+2026-05-30T19:00:26.421+08:00  INFO 24316 --- [babytalk-app-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "4 - create mentor tables"
+2026-05-30T19:00:27.190+08:00  INFO 24316 --- [babytalk-app-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "5 - create release distribution tables"
+2026-05-30T19:00:27.354+08:00  INFO 24316 --- [babytalk-app-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "6 - create share landing tables"
+2026-05-30T19:00:27.456+08:00  INFO 24316 --- [babytalk-app-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "7 - create caregiver invite tables"
+2026-05-30T19:00:27.623+08:00  INFO 24316 --- [babytalk-app-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "8 - align caregiver invite public audit"
+2026-05-30T19:00:27.695+08:00  INFO 24316 --- [babytalk-app-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "9 - extend household shared context for caregiver attribution"
+2026-05-30T19:00:27.769+08:00  INFO 24316 --- [babytalk-app-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "10 - create pgvector and minio infra"
+2026-05-30T19:00:27.856+08:00  INFO 24316 --- [babytalk-app-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "11 - create ingestion tables"
+2026-05-30T19:00:27.936+08:00  INFO 24316 --- [babytalk-app-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "12 - add keyword search to vector store"
+2026-05-30T19:00:28.030+08:00  INFO 24316 --- [babytalk-app-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "13 - create chat memory table"
+2026-05-30T19:00:28.088+08:00  INFO 24316 --- [babytalk-app-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "14 - create knowledge graph tables"
+2026-05-30T19:00:28.241+08:00  INFO 24316 --- [babytalk-app-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "15 - create admin auth tables"
+2026-05-30T19:00:28.366+08:00  INFO 24316 --- [babytalk-app-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "16 - create account jwt tables"
+2026-05-30T19:00:28.429+08:00  INFO 24316 --- [babytalk-app-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "17 - create admin rbac permissions"
+2026-05-30T19:00:28.527+08:00  INFO 24316 --- [babytalk-app-api] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "public" to version "18 - create palace projection tables"
+2026-05-30T19:00:28.652+08:00  INFO 24316 --- [babytalk-app-api] [           main] o.f.core.internal.command.DbMigrate      : Successfully applied 16 migrations to schema "public", now at version v18 (execution time 00:01.539s)
+2026-05-30T19:00:28.909+08:00  INFO 24316 --- [babytalk-app-api] [           main] o.hibernate.jpa.internal.util.LogHelper  : HHH000204: Processing PersistenceUnitInfo [name: default]
+2026-05-30T19:00:29.058+08:00  INFO 24316 --- [babytalk-app-api] [           main] org.hibernate.Version                    : HHH000412: Hibernate ORM core version 6.6.11.Final
+2026-05-30T19:00:29.134+08:00  INFO 24316 --- [babytalk-app-api] [           main] o.h.c.internal.RegionFactoryInitiator    : HHH000026: Second-level cache disabled
+2026-05-30T19:00:29.720+08:00  INFO 24316 --- [babytalk-app-api] [           main] o.s.o.j.p.SpringPersistenceUnitInfo      : No LoadTimeWeaver setup: ignoring JPA class transformer
+2026-05-30T19:00:29.890+08:00  INFO 24316 --- [babytalk-app-api] [           main] org.hibernate.orm.connections.pooling    : HHH10001005: Database info:
+	Database JDBC URL [Connecting through datasource '{
+	CreateTime:"2026-05-30 19:00:24",
+	ActiveCount:0,
+	PoolingCount:2,
+	CreateCount:2,
+	DestroyCount:0,
+	CloseCount:4,
+	ConnectCount:4,
+	Connections:[
+		{ID:1118775671, ConnectTime:"2026-05-30 19:00:25", UseCount:1, LastActiveTime:"2026-05-30 19:00:28"},
+		{ID:346866494, ConnectTime:"2026-05-30 19:00:24", UseCount:3, LastActiveTime:"2026-05-30 19:00:29"}
+	]
+}']
+	Database driver: undefined/unknown
+	Database version: 16.13
+	Autocommit mode: undefined/unknown
+	Isolation level: undefined/unknown
+	Minimum pool size: undefined/unknown
+	Maximum pool size: undefined/unknown
+2026-05-30T19:00:31.506+08:00  INFO 24316 --- [babytalk-app-api] [           main] o.h.e.t.j.p.i.JtaPlatformInitiator       : HHH000489: No JTA platform available (set 'hibernate.transaction.jta.platform' to enable JTA platform integration)
+2026-05-30T19:00:31.511+08:00  INFO 24316 --- [babytalk-app-api] [           main] j.LocalContainerEntityManagerFactoryBean : Initialized JPA EntityManagerFactory for persistence unit 'default'
+ _ _   |_  _ _|_. ___ _ |    _ 
+| | |\/|_)(_| | |_\  |_)||_|_\ 
+     /               |         
+                        3.5.9 
+2026-05-30T19:00:33.065+08:00  INFO 24316 --- [babytalk-app-api] [           main] c.z.b.config.EmbeddingConfiguration      : 初始化 EmbeddingModel: mode=OPENAI, model=text-embedding-3-small, dimensions=1536
+2026-05-30T19:00:33.094+08:00  INFO 24316 --- [babytalk-app-api] [           main] c.z.b.config.EmbeddingConfiguration      : 初始化 PgVectorStore: initializeSchema=false, dimensions=1536, embeddingMode=OPENAI
+2026-05-30T19:00:33.240+08:00  INFO 24316 --- [babytalk-app-api] [           main] o.s.a.v.pgvector.PgVectorStore           : Using the vector table name: vector_store. Is empty: false
+2026-05-30T19:00:33.244+08:00  INFO 24316 --- [babytalk-app-api] [           main] o.s.a.v.pgvector.PgVectorStore           : Initializing PGVectorStore schema for table: vector_store in schema: public
+2026-05-30T19:00:33.244+08:00  INFO 24316 --- [babytalk-app-api] [           main] o.s.a.v.pgvector.PgVectorStore           : vectorTableValidationsEnabled false
+2026-05-30T19:00:33.883+08:00  INFO 24316 --- [babytalk-app-api] [           main] o.s.d.j.r.query.QueryEnhancerFactory     : Hibernate is in classpath; If applicable, HQL parser will be used.
+2026-05-30T19:00:35.843+08:00  INFO 24316 --- [babytalk-app-api] [           main] c.z.babytalk.config.AsyncConfiguration   : 初始化 ingestion 线程池: core=2, max=4, queue=50
+2026-05-30T19:00:36.068+08:00  WARN 24316 --- [babytalk-app-api] [           main] JpaBaseConfiguration$JpaWebConfiguration : spring.jpa.open-in-view is enabled by default. Therefore, database queries may be performed during view rendering. Explicitly configure spring.jpa.open-in-view to disable this warning
+2026-05-30T19:00:36.955+08:00  INFO 24316 --- [babytalk-app-api] [           main] o.s.b.a.e.web.EndpointLinksResolver      : Exposing 5 endpoints beneath base path '/actuator'
+2026-05-30T19:00:37.203+08:00  INFO 24316 --- [babytalk-app-api] [           main] c.z.b.config.ChatMemoryConfiguration     : 初始化 JdbcChatMemoryRepository: dialect=PostgresChatMemoryRepositoryDialect
+2026-05-30T19:00:37.208+08:00  INFO 24316 --- [babytalk-app-api] [           main] c.z.b.config.ChatMemoryConfiguration     : 初始化 MessageWindowChatMemory: maxMessages=10
+2026-05-30T19:00:37.212+08:00  INFO 24316 --- [babytalk-app-api] [           main] c.z.b.config.ChatMemoryConfiguration     : 初始化 MessageChatMemoryAdvisor
+2026-05-30T19:00:38.209+08:00  INFO 24316 --- [babytalk-app-api] [           main] c.z.b.s.GardenFertilizerServiceTest      : Started GardenFertilizerServiceTest in 18.394 seconds (process running for 29.306)
+2026-05-30T19:00:39.267+08:00  INFO 24316 --- [babytalk-app-api] [           main] c.z.b.migration.DbMigrationApplication   : db-migration completed successfully. currentVersion=18, appliedCount=16
+Mockito is currently self-attaching to enable the inline-mock-maker. This will no longer work in future releases of the JDK. Please add Mockito as an agent to your build what is described in Mockito's documentation: https://javadoc.io/doc/org.mockito/mockito-core/latest/org/mockito/Mockito.html#0.3
+OpenJDK 64-Bit Server VM warning: Sharing is only supported for boot loader classes because bootstrap classpath has been appended
+WARNING: A Java agent has been loaded dynamically (C:\Users\zhang\.m2\repository\net\bytebuddy\byte-buddy-agent\1.15.11\byte-buddy-agent-1.15.11.jar)
+WARNING: If a serviceability tool is in use, please run with -XX:+EnableDynamicAgentLoading to hide this warning
+WARNING: If a serviceability tool is not in use, please run with -Djdk.instrument.traceUsage for more information
+WARNING: Dynamic loading of agents will be disallowed by default in a future release
+[ERROR] Tests run: 2, Failures: 0, Errors: 2, Skipped: 0, Time elapsed: 30.75 s <<< FAILURE! -- in com.zhangspaghetti.babytalk.service.GardenFertilizerServiceTest
+[ERROR] com.zhangspaghetti.babytalk.service.GardenFertilizerServiceTest.shouldRejectDuplicateClaimByUserAndRequestId -- Time elapsed: 1.229 s <<< ERROR!
+org.springframework.jdbc.BadSqlGrammarException: PreparedStatementCallback; bad SQL grammar [insert into garden_fertilizer_claim_log(user_id, event_key, request_id) values (?, ?, ?)]
+	at org.springframework.jdbc.support.SQLStateSQLExceptionTranslator.doTranslate(SQLStateSQLExceptionTranslator.java:112)
+	at org.springframework.jdbc.support.AbstractFallbackSQLExceptionTranslator.translate(AbstractFallbackSQLExceptionTranslator.java:107)
+	at org.springframework.jdbc.support.AbstractFallbackSQLExceptionTranslator.translate(AbstractFallbackSQLExceptionTranslator.java:116)
+	at org.springframework.jdbc.core.JdbcTemplate.translateException(JdbcTemplate.java:1556)
+	at org.springframework.jdbc.core.JdbcTemplate.execute(JdbcTemplate.java:677)
+	at org.springframework.jdbc.core.JdbcTemplate.update(JdbcTemplate.java:972)
+	at org.springframework.jdbc.core.JdbcTemplate.update(JdbcTemplate.java:1016)
+	at org.springframework.jdbc.core.JdbcTemplate.update(JdbcTemplate.java:1026)
+	at com.zhangspaghetti.babytalk.service.GardenFertilizerServiceTest.shouldRejectDuplicateClaimByUserAndRequestId(GardenFertilizerServiceTest.java:41)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
+Caused by: org.postgresql.util.PSQLException: ERROR: relation "garden_fertilizer_claim_log" does not exist
+  位置：13
+	at org.postgresql.core.v3.QueryExecutorImpl.receiveErrorResponse(QueryExecutorImpl.java:2733)
+	at org.postgresql.core.v3.QueryExecutorImpl.processResults(QueryExecutorImpl.java:2420)
+	at org.postgresql.core.v3.QueryExecutorImpl.execute(QueryExecutorImpl.java:372)
+	at org.postgresql.jdbc.PgStatement.executeInternal(PgStatement.java:517)
+	at org.postgresql.jdbc.PgStatement.execute(PgStatement.java:434)
+	at org.postgresql.jdbc.PgPreparedStatement.executeWithFlags(PgPreparedStatement.java:194)
+	at org.postgresql.jdbc.PgPreparedStatement.executeUpdate(PgPreparedStatement.java:155)
+	at com.alibaba.druid.filter.FilterChainImpl.preparedStatement_executeUpdate(FilterChainImpl.java:3254)
+	at com.alibaba.druid.filter.FilterAdapter.preparedStatement_executeUpdate(FilterAdapter.java:1075)
+	at com.alibaba.druid.filter.FilterEventAdapter.preparedStatement_executeUpdate(FilterEventAdapter.java:486)
+	at com.alibaba.druid.filter.FilterChainImpl.preparedStatement_executeUpdate(FilterChainImpl.java:3252)
+	at com.alibaba.druid.proxy.jdbc.PreparedStatementProxyImpl.executeUpdate(PreparedStatementProxyImpl.java:192)
+	at com.alibaba.druid.pool.DruidPooledPreparedStatement.executeUpdate(DruidPooledPreparedStatement.java:241)
+	at org.springframework.jdbc.core.JdbcTemplate.lambda$update$2(JdbcTemplate.java:977)
+	at org.springframework.jdbc.core.JdbcTemplate.execute(JdbcTemplate.java:658)
+	... 7 more
+
+[ERROR] com.zhangspaghetti.babytalk.service.GardenFertilizerServiceTest.shouldRejectDuplicateClaimByUserAndEventKey -- Time elapsed: 0.314 s <<< ERROR!
+org.springframework.jdbc.BadSqlGrammarException: PreparedStatementCallback; bad SQL grammar [insert into garden_fertilizer_claim_log(user_id, event_key, request_id) values (?, ?, ?)]
+	at org.springframework.jdbc.support.SQLStateSQLExceptionTranslator.doTranslate(SQLStateSQLExceptionTranslator.java:112)
+	at org.springframework.jdbc.support.AbstractFallbackSQLExceptionTranslator.translate(AbstractFallbackSQLExceptionTranslator.java:107)
+	at org.springframework.jdbc.support.AbstractFallbackSQLExceptionTranslator.translate(AbstractFallbackSQLExceptionTranslator.java:116)
+	at org.springframework.jdbc.core.JdbcTemplate.translateException(JdbcTemplate.java:1556)
+	at org.springframework.jdbc.core.JdbcTemplate.execute(JdbcTemplate.java:677)
+	at org.springframework.jdbc.core.JdbcTemplate.update(JdbcTemplate.java:972)
+	at org.springframework.jdbc.core.JdbcTemplate.update(JdbcTemplate.java:1016)
+	at org.springframework.jdbc.core.JdbcTemplate.update(JdbcTemplate.java:1026)
+	at com.zhangspaghetti.babytalk.service.GardenFertilizerServiceTest.shouldRejectDuplicateClaimByUserAndEventKey(GardenFertilizerServiceTest.java:22)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
+Caused by: org.postgresql.util.PSQLException: ERROR: relation "garden_fertilizer_claim_log" does not exist
+  位置：13
+	at org.postgresql.core.v3.QueryExecutorImpl.receiveErrorResponse(QueryExecutorImpl.java:2733)
+	at org.postgresql.core.v3.QueryExecutorImpl.processResults(QueryExecutorImpl.java:2420)
+	at org.postgresql.core.v3.QueryExecutorImpl.execute(QueryExecutorImpl.java:372)
+	at org.postgresql.jdbc.PgStatement.executeInternal(PgStatement.java:517)
+	at org.postgresql.jdbc.PgStatement.execute(PgStatement.java:434)
+	at org.postgresql.jdbc.PgPreparedStatement.executeWithFlags(PgPreparedStatement.java:194)
+	at org.postgresql.jdbc.PgPreparedStatement.executeUpdate(PgPreparedStatement.java:155)
+	at com.alibaba.druid.filter.FilterChainImpl.preparedStatement_executeUpdate(FilterChainImpl.java:3254)
+	at com.alibaba.druid.filter.FilterAdapter.preparedStatement_executeUpdate(FilterAdapter.java:1075)
+	at com.alibaba.druid.filter.FilterEventAdapter.preparedStatement_executeUpdate(FilterEventAdapter.java:486)
+	at com.alibaba.druid.filter.FilterChainImpl.preparedStatement_executeUpdate(FilterChainImpl.java:3252)
+	at com.alibaba.druid.proxy.jdbc.PreparedStatementProxyImpl.executeUpdate(PreparedStatementProxyImpl.java:192)
+	at com.alibaba.druid.pool.DruidPooledPreparedStatement.executeUpdate(DruidPooledPreparedStatement.java:241)
+	at org.springframework.jdbc.core.JdbcTemplate.lambda$update$2(JdbcTemplate.java:977)
+	at org.springframework.jdbc.core.JdbcTemplate.execute(JdbcTemplate.java:658)
+	... 7 more
+
+[INFO] Running com.zhangspaghetti.babytalk.web.GardenFertilizerControllerTest
+2026-05-30T19:00:40.855+08:00  INFO 24316 --- [babytalk-app-api] [           main] t.c.s.AnnotationConfigContextLoaderUtils : Could not detect default configuration classes for test class [com.zhangspaghetti.babytalk.web.GardenFertilizerControllerTest]: GardenFertilizerControllerTest does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
+2026-05-30T19:00:40.920+08:00  INFO 24316 --- [babytalk-app-api] [           main] .b.t.c.SpringBootTestContextBootstrapper : Found @SpringBootConfiguration com.zhangspaghetti.babytalk.AppApiApplication for test class com.zhangspaghetti.babytalk.web.GardenFertilizerControllerTest
+
+  .   ____          _            __ _ _
+ /\\ / ___'_ __ _ _(_)_ __  __ _ \ \ \ \
+( ( )\___ | '_ | '_| | '_ \/ _` | \ \ \ \
+ \\/  ___)| |_)| | | | | || (_| |  ) ) ) )
+  '  |____| .__|_| |_|_| |_\__, | / / / /
+ =========|_|==============|___/=/_/_/_/
+
+ :: Spring Boot ::                (v3.4.4)
+
+2026-05-30T19:00:40.989+08:00  INFO 24316 --- [babytalk-app-api] [           main] c.z.b.w.GardenFertilizerControllerTest   : Starting GardenFertilizerControllerTest using Java 21.0.10 with PID 24316 (started by zhang in C:\code\AI\baby-talk-2\backend\app-api)
+2026-05-30T19:00:40.989+08:00  INFO 24316 --- [babytalk-app-api] [           main] c.z.b.w.GardenFertilizerControllerTest   : The following 1 profile is active: "test"
+2026-05-30T19:00:41.883+08:00  INFO 24316 --- [babytalk-app-api] [           main] .s.d.r.c.RepositoryConfigurationDelegate : Bootstrapping Spring Data JPA repositories in DEFAULT mode.
+2026-05-30T19:00:41.937+08:00  INFO 24316 --- [babytalk-app-api] [           main] .s.d.r.c.RepositoryConfigurationDelegate : Finished Spring Data repository scanning in 52 ms. Found 4 JPA repository interfaces.
+2026-05-30T19:00:42.090+08:00  INFO 24316 --- [babytalk-app-api] [           main] c.a.d.s.b.a.DruidDataSourceAutoConfigure : Init DruidDataSource
+2026-05-30T19:00:42.297+08:00  INFO 24316 --- [babytalk-app-api] [           main] com.alibaba.druid.pool.DruidDataSource   : {dataSource-2} inited
+2026-05-30T19:00:42.352+08:00  INFO 24316 --- [babytalk-app-api] [           main] org.flywaydb.core.FlywayExecutor         : Database: jdbc:postgresql://localhost:4089/babytalk_test?loggerLevel=OFF (PostgreSQL 16.13)
+2026-05-30T19:00:42.555+08:00  INFO 24316 --- [babytalk-app-api] [           main] o.f.core.internal.command.DbValidate     : Successfully validated 16 migrations (execution time 00:00.077s)
+2026-05-30T19:00:42.651+08:00  INFO 24316 --- [babytalk-app-api] [           main] o.f.core.internal.command.DbMigrate      : Current version of schema "public": 18
+2026-05-30T19:00:42.653+08:00  INFO 24316 --- [babytalk-app-api] [           main] o.f.core.internal.command.DbMigrate      : Schema "public" is up to date. No migration necessary.
+2026-05-30T19:00:42.723+08:00  INFO 24316 --- [babytalk-app-api] [           main] o.hibernate.jpa.internal.util.LogHelper  : HHH000204: Processing PersistenceUnitInfo [name: default]
+2026-05-30T19:00:42.735+08:00  INFO 24316 --- [babytalk-app-api] [           main] o.h.c.internal.RegionFactoryInitiator    : HHH000026: Second-level cache disabled
+2026-05-30T19:00:42.779+08:00  INFO 24316 --- [babytalk-app-api] [           main] o.s.o.j.p.SpringPersistenceUnitInfo      : No LoadTimeWeaver setup: ignoring JPA class transformer
+2026-05-30T19:00:42.797+08:00  INFO 24316 --- [babytalk-app-api] [           main] org.hibernate.orm.connections.pooling    : HHH10001005: Database info:
+	Database JDBC URL [Connecting through datasource '{
+	CreateTime:"2026-05-30 19:00:42",
+	ActiveCount:0,
+	PoolingCount:2,
+	CreateCount:2,
+	DestroyCount:0,
+	CloseCount:4,
+	ConnectCount:4,
+	Connections:[
+		{ID:729623480, ConnectTime:"2026-05-30 19:00:42", UseCount:1, LastActiveTime:"2026-05-30 19:00:42"},
+		{ID:998184495, ConnectTime:"2026-05-30 19:00:42", UseCount:3, LastActiveTime:"2026-05-30 19:00:42"}
+	]
+}']
+	Database driver: undefined/unknown
+	Database version: 16.13
+	Autocommit mode: undefined/unknown
+	Isolation level: undefined/unknown
+	Minimum pool size: undefined/unknown
+	Maximum pool size: undefined/unknown
+2026-05-30T19:00:42.933+08:00  INFO 24316 --- [babytalk-app-api] [           main] o.h.e.t.j.p.i.JtaPlatformInitiator       : HHH000489: No JTA platform available (set 'hibernate.transaction.jta.platform' to enable JTA platform integration)
+2026-05-30T19:00:42.934+08:00  INFO 24316 --- [babytalk-app-api] [           main] j.LocalContainerEntityManagerFactoryBean : Initialized JPA EntityManagerFactory for persistence unit 'default'
+ _ _   |_  _ _|_. ___ _ |    _ 
+| | |\/|_)(_| | |_\  |_)||_|_\ 
+     /               |         
+                        3.5.9 
+2026-05-30T19:00:43.407+08:00  INFO 24316 --- [babytalk-app-api] [           main] c.z.b.config.EmbeddingConfiguration      : 初始化 EmbeddingModel: mode=OPENAI, model=text-embedding-3-small, dimensions=1536
+2026-05-30T19:00:43.421+08:00  INFO 24316 --- [babytalk-app-api] [           main] c.z.b.config.EmbeddingConfiguration      : 初始化 PgVectorStore: initializeSchema=false, dimensions=1536, embeddingMode=OPENAI
+2026-05-30T19:00:43.504+08:00  INFO 24316 --- [babytalk-app-api] [           main] o.s.a.v.pgvector.PgVectorStore           : Using the vector table name: vector_store. Is empty: false
+2026-05-30T19:00:43.504+08:00  INFO 24316 --- [babytalk-app-api] [           main] o.s.a.v.pgvector.PgVectorStore           : Initializing PGVectorStore schema for table: vector_store in schema: public
+2026-05-30T19:00:43.504+08:00  INFO 24316 --- [babytalk-app-api] [           main] o.s.a.v.pgvector.PgVectorStore           : vectorTableValidationsEnabled false
+2026-05-30T19:00:43.954+08:00  INFO 24316 --- [babytalk-app-api] [           main] c.z.babytalk.config.AsyncConfiguration   : 初始化 ingestion 线程池: core=2, max=4, queue=50
+2026-05-30T19:00:44.121+08:00  WARN 24316 --- [babytalk-app-api] [           main] JpaBaseConfiguration$JpaWebConfiguration : spring.jpa.open-in-view is enabled by default. Therefore, database queries may be performed during view rendering. Explicitly configure spring.jpa.open-in-view to disable this warning
+2026-05-30T19:00:44.424+08:00  INFO 24316 --- [babytalk-app-api] [           main] o.s.b.a.e.web.EndpointLinksResolver      : Exposing 5 endpoints beneath base path '/actuator'
+2026-05-30T19:00:44.548+08:00  INFO 24316 --- [babytalk-app-api] [           main] c.z.b.config.ChatMemoryConfiguration     : 初始化 JdbcChatMemoryRepository: dialect=PostgresChatMemoryRepositoryDialect
+2026-05-30T19:00:44.551+08:00  INFO 24316 --- [babytalk-app-api] [           main] c.z.b.config.ChatMemoryConfiguration     : 初始化 MessageWindowChatMemory: maxMessages=10
+2026-05-30T19:00:44.552+08:00  INFO 24316 --- [babytalk-app-api] [           main] c.z.b.config.ChatMemoryConfiguration     : 初始化 MessageChatMemoryAdvisor
+2026-05-30T19:00:44.969+08:00  INFO 24316 --- [babytalk-app-api] [           main] o.s.b.t.m.w.SpringBootMockServletContext : Initializing Spring TestDispatcherServlet ''
+2026-05-30T19:00:44.970+08:00  INFO 24316 --- [babytalk-app-api] [           main] o.s.t.web.servlet.TestDispatcherServlet  : Initializing Servlet ''
+2026-05-30T19:00:44.972+08:00  INFO 24316 --- [babytalk-app-api] [           main] o.s.t.web.servlet.TestDispatcherServlet  : Completed initialization in 2 ms
+2026-05-30T19:00:45.058+08:00  INFO 24316 --- [babytalk-app-api] [           main] c.z.b.w.GardenFertilizerControllerTest   : Started GardenFertilizerControllerTest in 4.134 seconds (process running for 36.155)
+2026-05-30T19:00:45.171+08:00  INFO 24316 --- [babytalk-app-api] [           main] c.z.b.migration.DbMigrationApplication   : db-migration completed successfully. currentVersion=18, appliedCount=16
+
+MockHttpServletRequest:
+      HTTP Method = POST
+      Request URI = /api/v1/auth/challenges
+       Parameters = {}
+          Headers = [Content-Type:"application/json;charset=UTF-8", X-App-Version:"1.2.0", Content-Length:"30"]
+             Body = {"phoneNumber":"13800138002"}
+
+    Session Attrs = {}
+
+Handler:
+             Type = com.zhangspaghetti.babytalk.web.AuthConsentSyncController
+           Method = com.zhangspaghetti.babytalk.web.AuthConsentSyncController#createChallenge(CreateChallengeRequest)
+
+Async:
+    Async started = false
+     Async result = null
+
+Resolved Exception:
+             Type = null
+
+ModelAndView:
+        View name = null
+             View = null
+            Model = null
+
+FlashMap:
+       Attributes = null
+
+MockHttpServletResponse:
+           Status = 201
+    Error message = null
+          Headers = [Content-Security-Policy:"default-src 'none'; frame-ancestors 'none'", X-Content-Type-Options:"nosniff", X-Frame-Options:"DENY", Strict-Transport-Security:"max-age=31536000; includeSubDomains", Referrer-Policy:"strict-origin-when-cross-origin", Permissions-Policy:"camera=(), microphone=(), geolocation=()", Content-Type:"application/json", X-XSS-Protection:"0", Cache-Control:"no-cache, no-store, max-age=0, must-revalidate", Pragma:"no-cache", Expires:"0"]
+     Content type = application/json
+             Body = {"challengeId":"challenge_70626188-0910-40bc-a223-c4cdf6a91be1","maskedPhoneNumber":"138****8002","codeLength":6,"expiresAt":"2026-05-30T11:05:45.470935300Z"}
+    Forwarded URL = null
+   Redirected URL = null
+          Cookies = []
+
+MockHttpServletRequest:
+      HTTP Method = POST
+      Request URI = /api/v1/auth/verify
+       Parameters = {}
+          Headers = [Content-Type:"application/json;charset=UTF-8", X-App-Version:"1.2.0", Content-Length:"137"]
+             Body = {
+  "challengeId":"challenge_70626188-0910-40bc-a223-c4cdf6a91be1",
+  "verificationCode":"246810",
+  "installationId":"fert-install-3"
+}
+
+    Session Attrs = {}
+
+Handler:
+             Type = com.zhangspaghetti.babytalk.web.AuthConsentSyncController
+           Method = com.zhangspaghetti.babytalk.web.AuthConsentSyncController#verifyChallenge(VerifyChallengeRequest)
+
+Async:
+    Async started = false
+     Async result = null
+
+Resolved Exception:
+             Type = null
+
+ModelAndView:
+        View name = null
+             View = null
+            Model = null
+
+FlashMap:
+       Attributes = null
+
+MockHttpServletResponse:
+           Status = 200
+    Error message = null
+          Headers = [Content-Security-Policy:"default-src 'none'; frame-ancestors 'none'", X-Content-Type-Options:"nosniff", X-Frame-Options:"DENY", Strict-Transport-Security:"max-age=31536000; includeSubDomains", Referrer-Policy:"strict-origin-when-cross-origin", Permissions-Policy:"camera=(), microphone=(), geolocation=()", Content-Type:"application/json", X-XSS-Protection:"0", Cache-Control:"no-cache, no-store, max-age=0, must-revalidate", Pragma:"no-cache", Expires:"0"]
+     Content type = application/json
+             Body = {"accountId":"acct_1de2266d-f3ce-4503-8273-d41f6793cc86","sessionId":"sess_858b3086-7bc2-4207-957f-ca2512016b25","maskedPhoneNumber":"138****8002","createdAt":"2026-05-30T11:00:45.784002400Z","consentStatus":"signed_out","accessToken":"eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJhY2N0XzFkZTIyNjZkLWYzY2UtNDUwMy04MjczLWQ0MWY2NzkzY2M4NiIsImlzcyI6ImJhYnl0YWxrLWFwcC1hcGkiLCJydGlkIjoiY3J0X2E0OGJmNmYzLTY4ZDAtNDg3ZC04NDRkLWVjM2M1ZTRjZjE2YSIsImV4cCI6MTc4MDEzOTc0NSwidHlwZSI6ImFjY2VzcyIsImlhdCI6MTc4MDEzODg0NSwianRpIjoiY2F0Xzk0NGFmNWQ0LTU1ZWItNGY5Yi05ODMxLTNjMWQ4NWM0ZTEyNCIsInNpZCI6InNlc3NfODU4YjMwODYtN2JjMi00MjA3LTk1N2YtY2EyNTEyMDE2YjI1In0.CWVsRcStBV9g0zpBrcwtlCGwysZ2U9RSL-FGW2EsnB4","refreshToken":"eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJhY2N0XzFkZTIyNjZkLWYzY2UtNDUwMy04MjczLWQ0MWY2NzkzY2M4NiIsImlzcyI6ImJhYnl0YWxrLWFwcC1hcGkiLCJydGlkIjoiY3J0X2E0OGJmNmYzLTY4ZDAtNDg3ZC04NDRkLWVjM2M1ZTRjZjE2YSIsImV4cCI6MTc4MjczMDg0NiwidHlwZSI6InJlZnJlc2giLCJpYXQiOjE3ODAxMzg4NDYsImp0aSI6ImNydF9hNDhiZjZmMy02OGQwLTQ4N2QtODQ0ZC1lYzNjNWU0Y2YxNmEiLCJzaWQiOiJzZXNzXzg1OGIzMDg2LTdiYzItNDIwNy05NTdmLWNhMjUxMjAxNmIyNSJ9.rACAF-b2xr0qxlY8phAZSv_cJZq89sUlVD3l3g4H7f4","tokenType":"Bearer","accessTokenExpiresAt":"2026-05-30T11:15:45.956649600Z","refreshTokenExpiresAt":"2026-06-29T11:00:46.031684300Z"}
+    Forwarded URL = null
+   Redirected URL = null
+          Cookies = []
+
+MockHttpServletRequest:
+      HTTP Method = POST
+      Request URI = /api/v1/garden/fertilizer/claim
+       Parameters = {}
+          Headers = [Content-Type:"application/json;charset=UTF-8", X-App-Version:"1.2.0", Authorization:"Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJhY2N0XzFkZTIyNjZkLWYzY2UtNDUwMy04MjczLWQ0MWY2NzkzY2M4NiIsImlzcyI6ImJhYnl0YWxrLWFwcC1hcGkiLCJydGlkIjoiY3J0X2E0OGJmNmYzLTY4ZDAtNDg3ZC04NDRkLWVjM2M1ZTRjZjE2YSIsImV4cCI6MTc4MDEzOTc0NSwidHlwZSI6ImFjY2VzcyIsImlhdCI6MTc4MDEzODg0NSwianRpIjoiY2F0Xzk0NGFmNWQ0LTU1ZWItNGY5Yi05ODMxLTNjMWQ4NWM0ZTEyNCIsInNpZCI6InNlc3NfODU4YjMwODYtN2JjMi00MjA3LTk1N2YtY2EyNTEyMDE2YjI1In0.CWVsRcStBV9g0zpBrcwtlCGwysZ2U9RSL-FGW2EsnB4", Content-Length:"49"]
+             Body = {
+  "eventKey":"e2",
+  "requestId":"r-claim-2"
+}
+
+    Session Attrs = {}
+
+Handler:
+             Type = com.zhangspaghetti.babytalk.web.GardenFertilizerController
+           Method = com.zhangspaghetti.babytalk.web.GardenFertilizerController#claim(JwtAuthenticationToken, ClaimRequest)
+
+Async:
+    Async started = false
+     Async result = null
+
+Resolved Exception:
+             Type = org.springframework.jdbc.BadSqlGrammarException
+
+ModelAndView:
+        View name = null
+             View = null
+            Model = null
+
+FlashMap:
+       Attributes = null
+
+MockHttpServletResponse:
+           Status = 500
+    Error message = null
+          Headers = [Content-Security-Policy:"default-src 'none'; frame-ancestors 'none'", X-Content-Type-Options:"nosniff", X-Frame-Options:"DENY", Strict-Transport-Security:"max-age=31536000; includeSubDomains", Referrer-Policy:"strict-origin-when-cross-origin", Permissions-Policy:"camera=(), microphone=(), geolocation=()", Content-Type:"application/json", X-XSS-Protection:"0", Cache-Control:"no-cache, no-store, max-age=0, must-revalidate", Pragma:"no-cache", Expires:"0"]
+     Content type = application/json
+             Body = {"details":{},"timestamp":"2026-05-30T11:00:46.205543300Z","message":"服务端处理失败。","code":"internal_error","status":500}
+    Forwarded URL = null
+   Redirected URL = null
+          Cookies = []
+
+MockHttpServletRequest:
+      HTTP Method = POST
+      Request URI = /api/v1/auth/challenges
+       Parameters = {}
+          Headers = [Content-Type:"application/json;charset=UTF-8", X-App-Version:"1.2.0", Content-Length:"30"]
+             Body = {"phoneNumber":"13800138001"}
+
+    Session Attrs = {}
+
+Handler:
+             Type = com.zhangspaghetti.babytalk.web.AuthConsentSyncController
+           Method = com.zhangspaghetti.babytalk.web.AuthConsentSyncController#createChallenge(CreateChallengeRequest)
+
+Async:
+    Async started = false
+     Async result = null
+
+Resolved Exception:
+             Type = null
+
+ModelAndView:
+        View name = null
+             View = null
+            Model = null
+
+FlashMap:
+       Attributes = null
+
+MockHttpServletResponse:
+           Status = 201
+    Error message = null
+          Headers = [Content-Security-Policy:"default-src 'none'; frame-ancestors 'none'", X-Content-Type-Options:"nosniff", X-Frame-Options:"DENY", Strict-Transport-Security:"max-age=31536000; includeSubDomains", Referrer-Policy:"strict-origin-when-cross-origin", Permissions-Policy:"camera=(), microphone=(), geolocation=()", Content-Type:"application/json", X-XSS-Protection:"0", Cache-Control:"no-cache, no-store, max-age=0, must-revalidate", Pragma:"no-cache", Expires:"0"]
+     Content type = application/json
+             Body = {"challengeId":"challenge_857aaaec-a2d5-4d98-ac08-362e7a7a0eab","maskedPhoneNumber":"138****8001","codeLength":6,"expiresAt":"2026-05-30T11:05:46.339137900Z"}
+    Forwarded URL = null
+   Redirected URL = null
+          Cookies = []
+
+MockHttpServletRequest:
+      HTTP Method = POST
+      Request URI = /api/v1/auth/verify
+       Parameters = {}
+          Headers = [Content-Type:"application/json;charset=UTF-8", X-App-Version:"1.2.0", Content-Length:"137"]
+             Body = {
+  "challengeId":"challenge_857aaaec-a2d5-4d98-ac08-362e7a7a0eab",
+  "verificationCode":"246810",
+  "installationId":"fert-install-2"
+}
+
+    Session Attrs = {}
+
+Handler:
+             Type = com.zhangspaghetti.babytalk.web.AuthConsentSyncController
+           Method = com.zhangspaghetti.babytalk.web.AuthConsentSyncController#verifyChallenge(VerifyChallengeRequest)
+
+Async:
+    Async started = false
+     Async result = null
+
+Resolved Exception:
+             Type = null
+
+ModelAndView:
+        View name = null
+             View = null
+            Model = null
+
+FlashMap:
+       Attributes = null
+
+MockHttpServletResponse:
+           Status = 200
+    Error message = null
+          Headers = [Content-Security-Policy:"default-src 'none'; frame-ancestors 'none'", X-Content-Type-Options:"nosniff", X-Frame-Options:"DENY", Strict-Transport-Security:"max-age=31536000; includeSubDomains", Referrer-Policy:"strict-origin-when-cross-origin", Permissions-Policy:"camera=(), microphone=(), geolocation=()", Content-Type:"application/json", X-XSS-Protection:"0", Cache-Control:"no-cache, no-store, max-age=0, must-revalidate", Pragma:"no-cache", Expires:"0"]
+     Content type = application/json
+             Body = {"accountId":"acct_56576ca7-8723-44b8-ae97-ac131bea0984","sessionId":"sess_edfc62d4-3c94-4de3-b11f-d4f30bcef629","maskedPhoneNumber":"138****8001","createdAt":"2026-05-30T11:00:46.352874700Z","consentStatus":"signed_out","accessToken":"eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJhY2N0XzU2NTc2Y2E3LTg3MjMtNDRiOC1hZTk3LWFjMTMxYmVhMDk4NCIsImlzcyI6ImJhYnl0YWxrLWFwcC1hcGkiLCJydGlkIjoiY3J0XzU0YmY1ZGNhLWU2ZjItNDFiZS1hYTFlLWRhZTNmZWIzYmEzNSIsImV4cCI6MTc4MDEzOTc0NiwidHlwZSI6ImFjY2VzcyIsImlhdCI6MTc4MDEzODg0NiwianRpIjoiY2F0XzAwMDU4YTA1LTJhZDQtNDQzYi05MDI0LThhYjI5NDVhNDQ1MSIsInNpZCI6InNlc3NfZWRmYzYyZDQtM2M5NC00ZGUzLWIxMWYtZDRmMzBiY2VmNjI5In0.ARZ338qlJvewjxkyDmXbYhBHiMmXj8sDuCZI_vyfC4E","refreshToken":"eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJhY2N0XzU2NTc2Y2E3LTg3MjMtNDRiOC1hZTk3LWFjMTMxYmVhMDk4NCIsImlzcyI6ImJhYnl0YWxrLWFwcC1hcGkiLCJydGlkIjoiY3J0XzU0YmY1ZGNhLWU2ZjItNDFiZS1hYTFlLWRhZTNmZWIzYmEzNSIsImV4cCI6MTc4MjczMDg0NiwidHlwZSI6InJlZnJlc2giLCJpYXQiOjE3ODAxMzg4NDYsImp0aSI6ImNydF81NGJmNWRjYS1lNmYyLTQxYmUtYWExZS1kYWUzZmViM2JhMzUiLCJzaWQiOiJzZXNzX2VkZmM2MmQ0LTNjOTQtNGRlMy1iMTFmLWQ0ZjMwYmNlZjYyOSJ9.W1PfzvLgxK_arMMFgrToTAZ7vk4XTQVzApDBmndiP7g","tokenType":"Bearer","accessTokenExpiresAt":"2026-05-30T11:15:46.374873100Z","refreshTokenExpiresAt":"2026-06-29T11:00:46.375874200Z"}
+    Forwarded URL = null
+   Redirected URL = null
+          Cookies = []
+
+MockHttpServletRequest:
+      HTTP Method = POST
+      Request URI = /api/v1/garden/fertilizer/claim
+       Parameters = {}
+          Headers = [Content-Type:"application/json;charset=UTF-8", X-App-Version:"1.2.0", Authorization:"Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJhY2N0XzU2NTc2Y2E3LTg3MjMtNDRiOC1hZTk3LWFjMTMxYmVhMDk4NCIsImlzcyI6ImJhYnl0YWxrLWFwcC1hcGkiLCJydGlkIjoiY3J0XzU0YmY1ZGNhLWU2ZjItNDFiZS1hYTFlLWRhZTNmZWIzYmEzNSIsImV4cCI6MTc4MDEzOTc0NiwidHlwZSI6ImFjY2VzcyIsImlhdCI6MTc4MDEzODg0NiwianRpIjoiY2F0XzAwMDU4YTA1LTJhZDQtNDQzYi05MDI0LThhYjI5NDVhNDQ1MSIsInNpZCI6InNlc3NfZWRmYzYyZDQtM2M5NC00ZGUzLWIxMWYtZDRmMzBiY2VmNjI5In0.ARZ338qlJvewjxkyDmXbYhBHiMmXj8sDuCZI_vyfC4E", Content-Length:"49"]
+             Body = {
+  "eventKey":"e1",
+  "requestId":"r-claim-1"
+}
+
+    Session Attrs = {}
+
+Handler:
+             Type = com.zhangspaghetti.babytalk.web.GardenFertilizerController
+           Method = com.zhangspaghetti.babytalk.web.GardenFertilizerController#claim(JwtAuthenticationToken, ClaimRequest)
+
+Async:
+    Async started = false
+     Async result = null
+
+Resolved Exception:
+             Type = org.springframework.jdbc.BadSqlGrammarException
+
+ModelAndView:
+        View name = null
+             View = null
+            Model = null
+
+FlashMap:
+       Attributes = null
+
+MockHttpServletResponse:
+           Status = 500
+    Error message = null
+          Headers = [Content-Security-Policy:"default-src 'none'; frame-ancestors 'none'", X-Content-Type-Options:"nosniff", X-Frame-Options:"DENY", Strict-Transport-Security:"max-age=31536000; includeSubDomains", Referrer-Policy:"strict-origin-when-cross-origin", Permissions-Policy:"camera=(), microphone=(), geolocation=()", Content-Type:"application/json", X-XSS-Protection:"0", Cache-Control:"no-cache, no-store, max-age=0, must-revalidate", Pragma:"no-cache", Expires:"0"]
+     Content type = application/json
+             Body = {"details":{},"timestamp":"2026-05-30T11:00:46.417552700Z","message":"服务端处理失败。","code":"internal_error","status":500}
+    Forwarded URL = null
+   Redirected URL = null
+          Cookies = []
+
+MockHttpServletRequest:
+      HTTP Method = POST
+      Request URI = /api/v1/auth/challenges
+       Parameters = {}
+          Headers = [Content-Type:"application/json;charset=UTF-8", X-App-Version:"1.2.0", Content-Length:"30"]
+             Body = {"phoneNumber":"13800138000"}
+
+    Session Attrs = {}
+
+Handler:
+             Type = com.zhangspaghetti.babytalk.web.AuthConsentSyncController
+           Method = com.zhangspaghetti.babytalk.web.AuthConsentSyncController#createChallenge(CreateChallengeRequest)
+
+Async:
+    Async started = false
+     Async result = null
+
+Resolved Exception:
+             Type = null
+
+ModelAndView:
+        View name = null
+             View = null
+            Model = null
+
+FlashMap:
+       Attributes = null
+
+MockHttpServletResponse:
+           Status = 201
+    Error message = null
+          Headers = [Content-Security-Policy:"default-src 'none'; frame-ancestors 'none'", X-Content-Type-Options:"nosniff", X-Frame-Options:"DENY", Strict-Transport-Security:"max-age=31536000; includeSubDomains", Referrer-Policy:"strict-origin-when-cross-origin", Permissions-Policy:"camera=(), microphone=(), geolocation=()", Content-Type:"application/json", X-XSS-Protection:"0", Cache-Control:"no-cache, no-store, max-age=0, must-revalidate", Pragma:"no-cache", Expires:"0"]
+     Content type = application/json
+             Body = {"challengeId":"challenge_b1f16a42-98cb-4898-8b35-cd2954a46b6e","maskedPhoneNumber":"138****8000","codeLength":6,"expiresAt":"2026-05-30T11:05:46.795504100Z"}
+    Forwarded URL = null
+   Redirected URL = null
+          Cookies = []
+
+MockHttpServletRequest:
+      HTTP Method = POST
+      Request URI = /api/v1/auth/verify
+       Parameters = {}
+          Headers = [Content-Type:"application/json;charset=UTF-8", X-App-Version:"1.2.0", Content-Length:"137"]
+             Body = {
+  "challengeId":"challenge_b1f16a42-98cb-4898-8b35-cd2954a46b6e",
+  "verificationCode":"246810",
+  "installationId":"fert-install-1"
+}
+
+    Session Attrs = {}
+
+Handler:
+             Type = com.zhangspaghetti.babytalk.web.AuthConsentSyncController
+           Method = com.zhangspaghetti.babytalk.web.AuthConsentSyncController#verifyChallenge(VerifyChallengeRequest)
+
+Async:
+    Async started = false
+     Async result = null
+
+Resolved Exception:
+             Type = null
+
+ModelAndView:
+        View name = null
+             View = null
+            Model = null
+
+FlashMap:
+       Attributes = null
+
+MockHttpServletResponse:
+           Status = 200
+    Error message = null
+          Headers = [Content-Security-Policy:"default-src 'none'; frame-ancestors 'none'", X-Content-Type-Options:"nosniff", X-Frame-Options:"DENY", Strict-Transport-Security:"max-age=31536000; includeSubDomains", Referrer-Policy:"strict-origin-when-cross-origin", Permissions-Policy:"camera=(), microphone=(), geolocation=()", Content-Type:"application/json", X-XSS-Protection:"0", Cache-Control:"no-cache, no-store, max-age=0, must-revalidate", Pragma:"no-cache", Expires:"0"]
+     Content type = application/json
+             Body = {"accountId":"acct_868e748f-c73c-4f48-9368-f68b8430e033","sessionId":"sess_a02d613c-1f2c-4dbc-b85d-489b8ec8c5fe","maskedPhoneNumber":"138****8000","createdAt":"2026-05-30T11:00:46.819624600Z","consentStatus":"signed_out","accessToken":"eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJhY2N0Xzg2OGU3NDhmLWM3M2MtNGY0OC05MzY4LWY2OGI4NDMwZTAzMyIsImlzcyI6ImJhYnl0YWxrLWFwcC1hcGkiLCJydGlkIjoiY3J0X2FiYTU0ZDZhLTFjYjUtNGRmYS05MTBjLTc1ZjU4MTVjNjIzYiIsImV4cCI6MTc4MDEzOTc0NiwidHlwZSI6ImFjY2VzcyIsImlhdCI6MTc4MDEzODg0NiwianRpIjoiY2F0XzI1YjViNDBmLTVlYzAtNGU3NS1iZTE1LWRhNzkzMjNiNTZiZSIsInNpZCI6InNlc3NfYTAyZDYxM2MtMWYyYy00ZGJjLWI4NWQtNDg5YjhlYzhjNWZlIn0.OcqJofhxlrkrrDPWakEndNdRqu3EhgR2ZWjr-myqi48","refreshToken":"eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJhY2N0Xzg2OGU3NDhmLWM3M2MtNGY0OC05MzY4LWY2OGI4NDMwZTAzMyIsImlzcyI6ImJhYnl0YWxrLWFwcC1hcGkiLCJydGlkIjoiY3J0X2FiYTU0ZDZhLTFjYjUtNGRmYS05MTBjLTc1ZjU4MTVjNjIzYiIsImV4cCI6MTc4MjczMDg0NiwidHlwZSI6InJlZnJlc2giLCJpYXQiOjE3ODAxMzg4NDYsImp0aSI6ImNydF9hYmE1NGQ2YS0xY2I1LTRkZmEtOTEwYy03NWY1ODE1YzYyM2IiLCJzaWQiOiJzZXNzX2EwMmQ2MTNjLTFmMmMtNGRiYy1iODVkLTQ4OWI4ZWM4YzVmZSJ9.eLS4OnwBHl-RIO5OAfVv2m1FDnwZCJ6z1DCA9Gzxn3w","tokenType":"Bearer","accessTokenExpiresAt":"2026-05-30T11:15:46.838844700Z","refreshTokenExpiresAt":"2026-06-29T11:00:46.839358200Z"}
+    Forwarded URL = null
+   Redirected URL = null
+          Cookies = []
+
+MockHttpServletRequest:
+      HTTP Method = POST
+      Request URI = /api/v1/auth/challenges
+       Parameters = {}
+          Headers = [Content-Type:"application/json;charset=UTF-8", X-App-Version:"1.2.0", Content-Length:"30"]
+             Body = {"phoneNumber":"13800138003"}
+
+    Session Attrs = {}
+
+Handler:
+             Type = com.zhangspaghetti.babytalk.web.AuthConsentSyncController
+           Method = com.zhangspaghetti.babytalk.web.AuthConsentSyncController#createChallenge(CreateChallengeRequest)
+
+Async:
+    Async started = false
+     Async result = null
+
+Resolved Exception:
+             Type = null
+
+ModelAndView:
+        View name = null
+             View = null
+            Model = null
+
+FlashMap:
+       Attributes = null
+
+MockHttpServletResponse:
+           Status = 201
+    Error message = null
+          Headers = [Content-Security-Policy:"default-src 'none'; frame-ancestors 'none'", X-Content-Type-Options:"nosniff", X-Frame-Options:"DENY", Strict-Transport-Security:"max-age=31536000; includeSubDomains", Referrer-Policy:"strict-origin-when-cross-origin", Permissions-Policy:"camera=(), microphone=(), geolocation=()", Content-Type:"application/json", X-XSS-Protection:"0", Cache-Control:"no-cache, no-store, max-age=0, must-revalidate", Pragma:"no-cache", Expires:"0"]
+     Content type = application/json
+             Body = {"challengeId":"challenge_29eb7d52-b774-49dd-b0e3-15f2a6e86cca","maskedPhoneNumber":"138****8003","codeLength":6,"expiresAt":"2026-05-30T11:05:47.747837500Z"}
+    Forwarded URL = null
+   Redirected URL = null
+          Cookies = []
+
+MockHttpServletRequest:
+      HTTP Method = POST
+      Request URI = /api/v1/auth/verify
+       Parameters = {}
+          Headers = [Content-Type:"application/json;charset=UTF-8", X-App-Version:"1.2.0", Content-Length:"137"]
+             Body = {
+  "challengeId":"challenge_29eb7d52-b774-49dd-b0e3-15f2a6e86cca",
+  "verificationCode":"246810",
+  "installationId":"fert-install-4"
+}
+
+    Session Attrs = {}
+
+Handler:
+             Type = com.zhangspaghetti.babytalk.web.AuthConsentSyncController
+           Method = com.zhangspaghetti.babytalk.web.AuthConsentSyncController#verifyChallenge(VerifyChallengeRequest)
+
+Async:
+    Async started = false
+     Async result = null
+
+Resolved Exception:
+             Type = null
+
+ModelAndView:
+        View name = null
+             View = null
+            Model = null
+
+FlashMap:
+       Attributes = null
+
+MockHttpServletResponse:
+           Status = 200
+    Error message = null
+          Headers = [Content-Security-Policy:"default-src 'none'; frame-ancestors 'none'", X-Content-Type-Options:"nosniff", X-Frame-Options:"DENY", Strict-Transport-Security:"max-age=31536000; includeSubDomains", Referrer-Policy:"strict-origin-when-cross-origin", Permissions-Policy:"camera=(), microphone=(), geolocation=()", Content-Type:"application/json", X-XSS-Protection:"0", Cache-Control:"no-cache, no-store, max-age=0, must-revalidate", Pragma:"no-cache", Expires:"0"]
+     Content type = application/json
+             Body = {"accountId":"acct_09a62e06-4ab2-46c0-bfdf-a89c9e617545","sessionId":"sess_4db469a7-5ab2-44d4-949e-ec366230e28c","maskedPhoneNumber":"138****8003","createdAt":"2026-05-30T11:00:47.787806100Z","consentStatus":"signed_out","accessToken":"eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJhY2N0XzA5YTYyZTA2LTRhYjItNDZjMC1iZmRmLWE4OWM5ZTYxNzU0NSIsImlzcyI6ImJhYnl0YWxrLWFwcC1hcGkiLCJydGlkIjoiY3J0XzEwNmFmYmE0LWM5NTUtNDg1NC1iMDk2LTdlOWU3NjhkNjFkMiIsImV4cCI6MTc4MDEzOTc0NywidHlwZSI6ImFjY2VzcyIsImlhdCI6MTc4MDEzODg0NywianRpIjoiY2F0XzFlODQzNzVkLTFlZWItNGMxMi05NDQ3LTBhYjAzNjEzYzA0YiIsInNpZCI6InNlc3NfNGRiNDY5YTctNWFiMi00NGQ0LTk0OWUtZWMzNjYyMzBlMjhjIn0.-OKhdabaxJnry-LeygjI08fBKFj6L5SmAOorqjV558g","refreshToken":"eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJhY2N0XzA5YTYyZTA2LTRhYjItNDZjMC1iZmRmLWE4OWM5ZTYxNzU0NSIsImlzcyI6ImJhYnl0YWxrLWFwcC1hcGkiLCJydGlkIjoiY3J0XzEwNmFmYmE0LWM5NTUtNDg1NC1iMDk2LTdlOWU3NjhkNjFkMiIsImV4cCI6MTc4MjczMDg0NywidHlwZSI6InJlZnJlc2giLCJpYXQiOjE3ODAxMzg4NDcsImp0aSI6ImNydF8xMDZhZmJhNC1jOTU1LTQ4NTQtYjA5Ni03ZTllNzY4ZDYxZDIiLCJzaWQiOiJzZXNzXzRkYjQ2OWE3LTVhYjItNDRkNC05NDllLWVjMzY2MjMwZTI4YyJ9.NfNxnLhDksgy3CDSXYqBLlxzaBuJaHzVQotcCKuFkXw","tokenType":"Bearer","accessTokenExpiresAt":"2026-05-30T11:15:47.811337700Z","refreshTokenExpiresAt":"2026-06-29T11:00:47.812341500Z"}
+    Forwarded URL = null
+   Redirected URL = null
+          Cookies = []
+
+MockHttpServletRequest:
+      HTTP Method = POST
+      Request URI = /api/v1/garden/fertilizer/claim
+       Parameters = {}
+          Headers = [Content-Type:"application/json;charset=UTF-8", X-App-Version:"1.2.0", Authorization:"Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJhY2N0XzA5YTYyZTA2LTRhYjItNDZjMC1iZmRmLWE4OWM5ZTYxNzU0NSIsImlzcyI6ImJhYnl0YWxrLWFwcC1hcGkiLCJydGlkIjoiY3J0XzEwNmFmYmE0LWM5NTUtNDg1NC1iMDk2LTdlOWU3NjhkNjFkMiIsImV4cCI6MTc4MDEzOTc0NywidHlwZSI6ImFjY2VzcyIsImlhdCI6MTc4MDEzODg0NywianRpIjoiY2F0XzFlODQzNzVkLTFlZWItNGMxMi05NDQ3LTBhYjAzNjEzYzA0YiIsInNpZCI6InNlc3NfNGRiNDY5YTctNWFiMi00NGQ0LTk0OWUtZWMzNjYyMzBlMjhjIn0.-OKhdabaxJnry-LeygjI08fBKFj6L5SmAOorqjV558g", Content-Length:"57"]
+             Body = {
+  "eventKey":"e-conflict",
+  "requestId":"r-claim-a"
+}
+
+    Session Attrs = {}
+
+Handler:
+             Type = com.zhangspaghetti.babytalk.web.GardenFertilizerController
+           Method = com.zhangspaghetti.babytalk.web.GardenFertilizerController#claim(JwtAuthenticationToken, ClaimRequest)
+
+Async:
+    Async started = false
+     Async result = null
+
+Resolved Exception:
+             Type = org.springframework.jdbc.BadSqlGrammarException
+
+ModelAndView:
+        View name = null
+             View = null
+            Model = null
+
+FlashMap:
+       Attributes = null
+
+MockHttpServletResponse:
+           Status = 500
+    Error message = null
+          Headers = [Content-Security-Policy:"default-src 'none'; frame-ancestors 'none'", X-Content-Type-Options:"nosniff", X-Frame-Options:"DENY", Strict-Transport-Security:"max-age=31536000; includeSubDomains", Referrer-Policy:"strict-origin-when-cross-origin", Permissions-Policy:"camera=(), microphone=(), geolocation=()", Content-Type:"application/json", X-XSS-Protection:"0", Cache-Control:"no-cache, no-store, max-age=0, must-revalidate", Pragma:"no-cache", Expires:"0"]
+     Content type = application/json
+             Body = {"details":{},"timestamp":"2026-05-30T11:00:47.862044800Z","message":"服务端处理失败。","code":"internal_error","status":500}
+    Forwarded URL = null
+   Redirected URL = null
+          Cookies = []
+[ERROR] Tests run: 6, Failures: 3, Errors: 1, Skipped: 0, Time elapsed: 7.019 s <<< FAILURE! -- in com.zhangspaghetti.babytalk.web.GardenFertilizerControllerTest
+[ERROR] com.zhangspaghetti.babytalk.web.GardenFertilizerControllerTest.applyShouldBeIdempotentByRequestId -- Time elapsed: 1.051 s <<< FAILURE!
+java.lang.AssertionError: Status expected:<200> but was:<500>
+	at org.springframework.test.util.AssertionErrors.fail(AssertionErrors.java:61)
+	at org.springframework.test.util.AssertionErrors.assertEquals(AssertionErrors.java:128)
+	at org.springframework.test.web.servlet.result.StatusResultMatchers.lambda$matcher$9(StatusResultMatchers.java:640)
+	at org.springframework.test.web.servlet.MockMvc$1.andExpect(MockMvc.java:214)
+	at com.zhangspaghetti.babytalk.web.GardenFertilizerControllerTest.applyShouldBeIdempotentByRequestId(GardenFertilizerControllerTest.java:137)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
+
+[ERROR] com.zhangspaghetti.babytalk.web.GardenFertilizerControllerTest.claimShouldBeIdempotentByRequestId -- Time elapsed: 0.197 s <<< FAILURE!
+java.lang.AssertionError: Status expected:<200> but was:<500>
+	at org.springframework.test.util.AssertionErrors.fail(AssertionErrors.java:61)
+	at org.springframework.test.util.AssertionErrors.assertEquals(AssertionErrors.java:128)
+	at org.springframework.test.web.servlet.result.StatusResultMatchers.lambda$matcher$9(StatusResultMatchers.java:640)
+	at org.springframework.test.web.servlet.MockMvc$1.andExpect(MockMvc.java:214)
+	at com.zhangspaghetti.babytalk.web.GardenFertilizerControllerTest.claimShouldBeIdempotentByRequestId(GardenFertilizerControllerTest.java:104)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
+
+[ERROR] com.zhangspaghetti.babytalk.web.GardenFertilizerControllerTest.getShouldReturnInitialFertilizerState -- Time elapsed: 0.177 s <<< ERROR!
+org.springframework.jdbc.BadSqlGrammarException: StatementCallback; bad SQL grammar [select count(*) from garden_fertilizer_state]
+	at org.springframework.jdbc.support.SQLStateSQLExceptionTranslator.doTranslate(SQLStateSQLExceptionTranslator.java:112)
+	at org.springframework.jdbc.support.AbstractFallbackSQLExceptionTranslator.translate(AbstractFallbackSQLExceptionTranslator.java:107)
+	at org.springframework.jdbc.support.AbstractFallbackSQLExceptionTranslator.translate(AbstractFallbackSQLExceptionTranslator.java:116)
+	at org.springframework.jdbc.core.JdbcTemplate.translateException(JdbcTemplate.java:1556)
+	at org.springframework.jdbc.core.JdbcTemplate.execute(JdbcTemplate.java:408)
+	at org.springframework.jdbc.core.JdbcTemplate.query(JdbcTemplate.java:476)
+	at org.springframework.jdbc.core.JdbcTemplate.query(JdbcTemplate.java:486)
+	at org.springframework.jdbc.core.JdbcTemplate.queryForObject(JdbcTemplate.java:519)
+	at org.springframework.jdbc.core.JdbcTemplate.queryForObject(JdbcTemplate.java:526)
+	at com.zhangspaghetti.babytalk.web.GardenFertilizerControllerTest.getShouldReturnInitialFertilizerState(GardenFertilizerControllerTest.java:57)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
+Caused by: org.postgresql.util.PSQLException: ERROR: relation "garden_fertilizer_state" does not exist
+  位置：22
+	at org.postgresql.core.v3.QueryExecutorImpl.receiveErrorResponse(QueryExecutorImpl.java:2733)
+	at org.postgresql.core.v3.QueryExecutorImpl.processResults(QueryExecutorImpl.java:2420)
+	at org.postgresql.core.v3.QueryExecutorImpl.execute(QueryExecutorImpl.java:372)
+	at org.postgresql.jdbc.PgStatement.executeInternal(PgStatement.java:517)
+	at org.postgresql.jdbc.PgStatement.execute(PgStatement.java:434)
+	at org.postgresql.jdbc.PgStatement.executeWithFlags(PgStatement.java:356)
+	at org.postgresql.jdbc.PgStatement.executeCachedSql(PgStatement.java:341)
+	at org.postgresql.jdbc.PgStatement.executeWithFlags(PgStatement.java:317)
+	at org.postgresql.jdbc.PgStatement.executeQuery(PgStatement.java:266)
+	at com.alibaba.druid.filter.FilterChainImpl.statement_executeQuery(FilterChainImpl.java:2882)
+	at com.alibaba.druid.filter.FilterAdapter.statement_executeQuery(FilterAdapter.java:2513)
+	at com.alibaba.druid.filter.FilterEventAdapter.statement_executeQuery(FilterEventAdapter.java:296)
+	at com.alibaba.druid.filter.FilterChainImpl.statement_executeQuery(FilterChainImpl.java:2879)
+	at com.alibaba.druid.proxy.jdbc.StatementProxyImpl.executeQuery(StatementProxyImpl.java:217)
+	at com.alibaba.druid.pool.DruidPooledStatement.executeQuery(DruidPooledStatement.java:300)
+	at org.springframework.jdbc.core.JdbcTemplate$1QueryStatementCallback.doInStatement(JdbcTemplate.java:463)
+	at org.springframework.jdbc.core.JdbcTemplate.execute(JdbcTemplate.java:393)
+	... 8 more
+
+[ERROR] com.zhangspaghetti.babytalk.web.GardenFertilizerControllerTest.claimShouldReturnConflictWhenSameEventKeyWithDifferentRequestId -- Time elapsed: 0.411 s <<< FAILURE!
+java.lang.AssertionError: Status expected:<200> but was:<500>
+	at org.springframework.test.util.AssertionErrors.fail(AssertionErrors.java:61)
+	at org.springframework.test.util.AssertionErrors.assertEquals(AssertionErrors.java:128)
+	at org.springframework.test.web.servlet.result.StatusResultMatchers.lambda$matcher$9(StatusResultMatchers.java:640)
+	at org.springframework.test.web.servlet.MockMvc$1.andExpect(MockMvc.java:214)
+	at com.zhangspaghetti.babytalk.web.GardenFertilizerControllerTest.claimShouldReturnConflictWhenSameEventKeyWithDifferentRequestId(GardenFertilizerControllerTest.java:182)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
+
+[INFO] Running com.zhangspaghetti.babytalk.web.GrowthSummaryControllerTest
+2026-05-30T19:00:47.873+08:00  INFO 24316 --- [babytalk-app-api] [           main] t.c.s.AnnotationConfigContextLoaderUtils : Could not detect default configuration classes for test class [com.zhangspaghetti.babytalk.web.GrowthSummaryControllerTest]: GrowthSummaryControllerTest does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
+2026-05-30T19:00:47.887+08:00  INFO 24316 --- [babytalk-app-api] [           main] .b.t.c.SpringBootTestContextBootstrapper : Found @SpringBootConfiguration com.zhangspaghetti.babytalk.AppApiApplication for test class com.zhangspaghetti.babytalk.web.GrowthSummaryControllerTest
+[INFO] Tests run: 3, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 2.278 s -- in com.zhangspaghetti.babytalk.web.GrowthSummaryControllerTest
+[INFO] 
+[INFO] Results:
+[INFO] 
+[ERROR] Failures: 
+[ERROR]   GardenFertilizerControllerTest.applyShouldBeIdempotentByRequestId:137 Status expected:<200> but was:<500>
+[ERROR]   GardenFertilizerControllerTest.claimShouldBeIdempotentByRequestId:104 Status expected:<200> but was:<500>
+[ERROR]   GardenFertilizerControllerTest.claimShouldReturnConflictWhenSameEventKeyWithDifferentRequestId:182 Status expected:<200> but was:<500>
+[ERROR] Errors: 
+[ERROR]   GardenFertilizerServiceTest.shouldRejectDuplicateClaimByUserAndEventKey:22 » BadSqlGrammar PreparedStatementCallback; bad SQL grammar [insert into garden_fertilizer_claim_log(user_id, event_key, request_id) values (?, ?, ?)]
+[ERROR]   GardenFertilizerServiceTest.shouldRejectDuplicateClaimByUserAndRequestId:41 » BadSqlGrammar PreparedStatementCallback; bad SQL grammar [insert into garden_fertilizer_claim_log(user_id, event_key, request_id) values (?, ?, ?)]
+[ERROR]   GardenFertilizerControllerTest.getShouldReturnInitialFertilizerState:57 » BadSqlGrammar StatementCallback; bad SQL grammar [select count(*) from garden_fertilizer_state]
+[INFO] 
+[ERROR] Tests run: 11, Failures: 3, Errors: 3, Skipped: 0
+[INFO] 
+[INFO] ------------------------------------------------------------------------
+[INFO] BUILD FAILURE
+[INFO] ------------------------------------------------------------------------
+[INFO] Total time:  51.659 s
+[INFO] Finished at: 2026-05-30T19:00:50+08:00
+[INFO] ------------------------------------------------------------------------
+[ERROR] Failed to execute goal org.apache.maven.plugins:maven-surefire-plugin:3.5.2:test (default-test) on project app-api: There are test failures.
+[ERROR] 
+[ERROR] See C:\code\AI\baby-talk-2\backend\app-api\target\surefire-reports for the individual test results.
+[ERROR] See dump files (if any exist) [date].dump, [date]-jvmRun[N].dump and [date].dumpstream.
+[ERROR] -> [Help 1]
+[ERROR] 
+[ERROR] To see the full stack trace of the errors, re-run Maven with the -e switch.
+[ERROR] Re-run Maven using the -X switch to enable full debug logging.
+[ERROR] 
+[ERROR] For more information about the errors and possible solutions, please read the following articles:
+[ERROR] [Help 1] http://cwiki.apache.org/confluence/display/MAVEN/MojoFailureException

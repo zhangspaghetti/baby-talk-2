@@ -172,71 +172,16 @@
 
 ## 10. Task6 实际验证记录与门禁（2026-05-30，记录性附录）
 
-本轮补齐了 Task6 基准命令复核，并保留定向验证作为补充诊断。结论如下：
-
-1. Task6 基准验证未通过（门禁红）
-- 后端基准命令：
-
-```bash
-cd backend
-mvn -pl app-api test
-```
-
-- 结果：exit code 1。
-- 关键失败簇：
-  - LLM integration 相关测试失败（`LlmAgenticIntegrationTest`、`LlmIntegrationTest`、`LlmRagIntegrationTest`）
-  - fertilizer 相关测试失败（`GardenFertilizerServiceTest`、`GardenFertilizerControllerTest`）
-  - `GrowthSummaryControllerTest` 在该轮仍为通过。
-
-- 移动端基准命令：
-
-```bash
-cd mobile
-..\flutter.cmd test test/features/garden test/features/growth test/features/share
-```
-
-- 结果：exit code 1。
-- 关键失败：编译错误 `lib/app/providers/repository_providers.dart:452`，`BabyReactionType` 缺少 `wireValue` getter，导致基准测试集无法完整执行。
-
-2. 定向验证（仅补充诊断，不用于 Task6 基准门禁）
-- 后端 persistence 定向测试未通过（fertiizer 缺表/500 路径仍有问题）
-- 执行命令：
-
-```bash
-cd backend
-mvn -pl app-api "-Dtest=GardenFertilizerServiceTest,GardenFertilizerControllerTest,GrowthSummaryControllerTest" test
-```
-
-- 结果摘要：
-  - `GrowthSummaryControllerTest` 通过
-  - `GardenFertilizerServiceTest`、`GardenFertilizerControllerTest` 失败
-  - 关键错误：`relation "garden_fertilizer_claim_log" does not exist`、`relation "garden_fertilizer_state" does not exist`
-  - Maven 汇总：Tests run 11, Failures 3, Errors 3, BUILD FAILURE
-
-- 移动端定向测试通过（仅说明目标链路局部可用，不代表 Task6 基准通过）
-- 执行命令：
-
-```bash
-Get-Process -Name dart,flutter_tester -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
-cd mobile
-flutter test test/features/garden/data/remote/garden_fertilizer_api_service_test.dart test/features/growth/domain/growth_stats_service_remote_fallback_test.dart test/features/share/presentation/share_notifier_live_snapshot_test.dart
-```
-
-- 结果摘要：`00:05 +13: All tests passed`
-
-3. 灰度观测门禁尚未满足（Task6 Step3 缺失）
-- 本次验证窗口未采样以下指标基线：
-  - `idempotent_conflict_rate`
-  - `fallback_to_local_rate`
-  - `share_stale_snapshot_reports`
-
-- 数据状态：当前为 N/A，无法完成阈值比对，按门禁策略视为阻断。
+本节仅记录门禁结论；完整命令、失败明细、指标采样状态与证据锚点统一以报告为准：
+`docs/superpowers/reports/2026-05-30-garden-growth-persistence-verification.md`
 
 ### 当前门禁结论
 
 - 总体门禁：FAIL（阻断发布）
-- 阻断原因：Task6 基准后端/移动端命令均未通过，且灰度指标基线缺失。
+- 阻断原因：
+  1) Task6 基准后端与移动端命令均未通过；
+  2) `idempotent_conflict_rate`、`fallback_to_local_rate`、`share_stale_snapshot_reports` 基线为 N/A，无法阈值比对。
 - 放行前置条件：
-  1) 先完成 Task6 两条基准命令全绿（而非仅定向命令）；
-  2) 采样并记录三项灰度指标基线（含窗口、来源、值、阈值比对）；
+  1) Task6 两条基准命令全绿；
+  2) 三项指标完成采样并记录窗口、来源、值、阈值比对；
   3) 回填验证报告并复核门禁状态。

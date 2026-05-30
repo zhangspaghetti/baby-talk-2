@@ -1,0 +1,100 @@
+Flutter assets will be downloaded from https://storage.flutter-io.cn. Make sure you trust this source!
+00:00 +0: loading C:/code/AI/baby-talk-2/mobile/test/features/garden/data/remote/garden_fertilizer_api_service_test.dart
+00:00 +0: C:/code/AI/baby-talk-2/mobile/test/features/garden/data/remote/garden_fertilizer_api_service_test.dart: GardenFertilizerApiService claim sends eventKey and requestId
+00:00 +1: C:/code/AI/baby-talk-2/mobile/test/features/garden/data/remote/garden_fertilizer_api_service_test.dart: GardenFertilizerApiService apply sends requestId and parses fertilizer state
+00:00 +2: C:/code/AI/baby-talk-2/mobile/test/features/garden/data/remote/garden_fertilizer_api_service_test.dart: GardenFertilizerApiService fetchState reads remote authoritative state
+00:00 +3: C:/code/AI/baby-talk-2/mobile/test/features/garden/data/remote/garden_fertilizer_api_service_test.dart: GardenFertilizerApiService network error maps to network exception
+00:00 +4: C:/code/AI/baby-talk-2/mobile/test/features/garden/data/remote/garden_fertilizer_api_service_test.dart: GardenFertilizerApiService malformed when response data is empty string
+00:00 +5: C:/code/AI/baby-talk-2/mobile/test/features/garden/data/remote/garden_fertilizer_api_service_test.dart: GardenFertilizerApiService malformed when response data is array json string
+00:00 +6: C:/code/AI/baby-talk-2/mobile/test/features/garden/data/remote/garden_fertilizer_api_service_test.dart: GardenFertilizerApiService malformed when response data is number
+00:00 +7: C:/code/AI/baby-talk-2/mobile/test/features/garden/data/remote/garden_fertilizer_api_service_test.dart: GardenFertilizerApiService malformed when key fields are both unavailable
+00:00 +8: C:/code/AI/baby-talk-2/mobile/test/features/garden/data/remote/garden_fertilizer_api_service_test.dart: GardenFertilizerApiService malformed when key fields are both missing
+00:00 +9: loading C:/code/AI/baby-talk-2/mobile/test/features/garden/fertilizer_flower_stage_test.dart
+00:01 +9: C:/code/AI/baby-talk-2/mobile/test/features/garden/fertilizer_flower_stage_test.dart: resolveFertilizerStage maps apply count to the correct stage at thresholds
+00:01 +10: C:/code/AI/baby-talk-2/mobile/test/features/garden/fertilizer_flower_stage_test.dart: resolveFertilizerStage clamps negative counts to seed
+00:01 +11: C:/code/AI/baby-talk-2/mobile/test/features/garden/fertilizer_flower_stage_test.dart: resolveFertilizerStage reports next stage and applies remaining
+00:01 +12: C:/code/AI/baby-talk-2/mobile/test/features/garden/fertilizer_flower_stage_test.dart: resolveFertilizerStage progress is fractional between thresholds
+00:01 +13: C:/code/AI/baby-talk-2/mobile/test/features/garden/fertilizer_flower_stage_test.dart: resolveFertilizerStage final stage reports full progress and no next
+00:01 +14: C:/code/AI/baby-talk-2/mobile/test/features/garden/fertilizer_flower_stage_test.dart: FertilizerState.backpackCount is claimed minus applied, clamped at zero
+00:01 +15: C:/code/AI/baby-talk-2/mobile/test/features/garden/fertilizer_flower_stage_test.dart: FertilizerState.backpackCount never goes negative when applied exceeds claimed
+00:01 +16: C:/code/AI/baby-talk-2/mobile/test/features/garden/fertilizer_flower_stage_test.dart: FertilizerState.backpackCount initial state is empty
+00:01 +17: loading C:/code/AI/baby-talk-2/mobile/test/features/garden/garden_fertilizer_notifier_test.dart
+00:02 +17: C:/code/AI/baby-talk-2/mobile/test/features/garden/garden_fertilizer_notifier_test.dart: (setUpAll)
+00:02 +17: C:/code/AI/baby-talk-2/mobile/test/features/garden/garden_fertilizer_notifier_test.dart: GardenFertilizerNotifier celebration celebrationStage is set only when an apply crosses a threshold
+00:02 +18: C:/code/AI/baby-talk-2/mobile/test/features/garden/garden_fertilizer_notifier_test.dart: GardenFertilizerNotifier celebration consumeCelebration clears the pending celebration
+00:02 +19: C:/code/AI/baby-talk-2/mobile/test/features/garden/garden_fertilizer_notifier_test.dart: GardenFertilizerNotifier celebration apply on an empty backpack never triggers a celebration
+00:02 +20: C:/code/AI/baby-talk-2/mobile/test/features/garden/garden_fertilizer_notifier_test.dart: (tearDownAll)
+00:02 +20: loading C:/code/AI/baby-talk-2/mobile/test/features/garden/garden_fertilizer_panel_test.dart
+lib/app/providers/repository_providers.dart:452:50: Error: The getter 'wireValue' isn't defined for the type 'BabyReactionType'.
+ - 'BabyReactionType' is from 'package:mobile/features/practice/domain/models/interaction_event_payload.dart' ('lib/features/practice/domain/models/interaction_event_payload.dart').
+Try correcting the name to the name of an existing getter, or defining a getter or field named 'wireValue'.
+                    reactionType: e.reactionType.wireValue,
+                                                 ^^^^^^^^^
+00:05 +20 -1: loading C:/code/AI/baby-talk-2/mobile/test/features/garden/garden_fertilizer_panel_test.dart [E]
+  Failed to load "C:/code/AI/baby-talk-2/mobile/test/features/garden/garden_fertilizer_panel_test.dart":
+  Compilation failed for testPath=C:/code/AI/baby-talk-2/mobile/test/features/garden/garden_fertilizer_panel_test.dart: lib/app/providers/repository_providers.dart:452:50: Error: The getter 'wireValue' isn't defined for the type 'BabyReactionType'.
+   - 'BabyReactionType' is from 'package:mobile/features/practice/domain/models/interaction_event_payload.dart' ('lib/features/practice/domain/models/interaction_event_payload.dart').
+  Try correcting the name to the name of an existing getter, or defining a getter or field named 'wireValue'.
+                      reactionType: e.reactionType.wireValue,
+                                                   ^^^^^^^^^
+  .
+00:05 +20 -1: loading C:/code/AI/baby-talk-2/mobile/test/features/garden/garden_fertilizer_repository_test.dart
+00:08 +20 -1: C:/code/AI/baby-talk-2/mobile/test/features/garden/garden_fertilizer_repository_test.dart: (setUpAll)
+00:09 +20 -1: C:/code/AI/baby-talk-2/mobile/test/features/garden/garden_fertilizer_repository_test.dart: GardenFertilizerRepository load returns initial state on a fresh store
+00:09 +21 -1: C:/code/AI/baby-talk-2/mobile/test/features/garden/garden_fertilizer_repository_test.dart: GardenFertilizerRepository claim adds a pack to the backpack and is idempotent
+00:09 +22 -1: C:/code/AI/baby-talk-2/mobile/test/features/garden/garden_fertilizer_repository_test.dart: GardenFertilizerRepository apply consumes a backpack pack and raises applied count
+00:09 +23 -1: C:/code/AI/baby-talk-2/mobile/test/features/garden/garden_fertilizer_repository_test.dart: GardenFertilizerRepository apply is a no-op when the backpack is empty
+00:09 +24 -1: C:/code/AI/baby-talk-2/mobile/test/features/garden/garden_fertilizer_repository_test.dart: GardenFertilizerRepository state persists across data source reopen
+00:09 +25 -1: C:/code/AI/baby-talk-2/mobile/test/features/garden/garden_fertilizer_repository_test.dart: (tearDownAll)
+00:09 +25 -1: loading C:/code/AI/baby-talk-2/mobile/test/features/garden/presentation/garden_fertilizer_notifier_remote_test.dart
+00:10 +25 -1: C:/code/AI/baby-talk-2/mobile/test/features/garden/presentation/garden_fertilizer_notifier_remote_test.dart: (setUpAll)
+00:10 +25 -1: C:/code/AI/baby-talk-2/mobile/test/features/garden/presentation/garden_fertilizer_notifier_remote_test.dart: GardenFertilizerNotifier remote fallback claim falls back to local state when remote claim fails
+00:10 +26 -1: C:/code/AI/baby-talk-2/mobile/test/features/garden/presentation/garden_fertilizer_notifier_remote_test.dart: GardenFertilizerNotifier remote fallback apply falls back to local state when remote apply fails
+00:10 +27 -1: C:/code/AI/baby-talk-2/mobile/test/features/garden/presentation/garden_fertilizer_notifier_remote_test.dart: GardenFertilizerNotifier remote fallback stale remote success does not roll back newer local state
+00:10 +28 -1: C:/code/AI/baby-talk-2/mobile/test/features/garden/presentation/garden_fertilizer_notifier_remote_test.dart: (tearDownAll)
+00:10 +28 -1: loading C:/code/AI/baby-talk-2/mobile/test/features/growth/domain/growth_stats_service_remote_fallback_test.dart
+00:11 +28 -1: C:/code/AI/baby-talk-2/mobile/test/features/growth/domain/growth_stats_service_remote_fallback_test.dart: GrowthStatsService.loadSummary reads remote summary first when available
+00:11 +29 -1: C:/code/AI/baby-talk-2/mobile/test/features/growth/domain/growth_stats_service_remote_fallback_test.dart: GrowthStatsService.loadSummary falls back to local summary when remote throws
+00:11 +30 -1: loading C:/code/AI/baby-talk-2/mobile/test/features/growth/growth_insights_notifier_test.dart
+00:12 +30 -1: C:/code/AI/baby-talk-2/mobile/test/features/growth/growth_insights_notifier_test.dart: GrowthInsightsNotifier returns loading view before initialize completes
+00:12 +31 -1: C:/code/AI/baby-talk-2/mobile/test/features/growth/growth_insights_notifier_test.dart: GrowthInsightsNotifier aggregates week/month/year totals from event history
+00:12 +32 -1: C:/code/AI/baby-talk-2/mobile/test/features/growth/growth_insights_notifier_test.dart: GrowthInsightsNotifier tracks imitation count and streak for recent events
+00:12 +33 -1: C:/code/AI/baby-talk-2/mobile/test/features/growth/growth_insights_notifier_test.dart: GrowthInsightsNotifier exposes empty view when there is no history
+00:12 +34 -1: C:/code/AI/baby-talk-2/mobile/test/features/growth/growth_insights_notifier_test.dart: GrowthInsightsNotifier summarizes recent weekly activity (this vs last week)
+00:12 +35 -1: C:/code/AI/baby-talk-2/mobile/test/features/growth/growth_insights_notifier_test.dart: GrowthInsightsNotifier flags error state when repository throws
+00:12 +36 -1: C:/code/AI/baby-talk-2/mobile/test/features/growth/growth_insights_notifier_test.dart: GrowthInsightsNotifier ranks scene distribution with catalog labels
+00:12 +37 -1: C:/code/AI/baby-talk-2/mobile/test/features/growth/growth_insights_notifier_test.dart: GrowthInsightsNotifier suggests an uncovered scene for week/month but not year
+00:12 +38 -1: loading C:/code/AI/baby-talk-2/mobile/test/features/growth/growth_insights_panel_test.dart
+lib/app/providers/repository_providers.dart:452:50: Error: The getter 'wireValue' isn't defined for the type 'BabyReactionType'.
+ - 'BabyReactionType' is from 'package:mobile/features/practice/domain/models/interaction_event_payload.dart' ('lib/features/practice/domain/models/interaction_event_payload.dart').
+Try correcting the name to the name of an existing getter, or defining a getter or field named 'wireValue'.
+                    reactionType: e.reactionType.wireValue,
+                                                 ^^^^^^^^^
+00:19 +38 -2: loading C:/code/AI/baby-talk-2/mobile/test/features/growth/growth_insights_panel_test.dart [E]
+  Failed to load "C:/code/AI/baby-talk-2/mobile/test/features/growth/growth_insights_panel_test.dart":
+  Compilation failed for testPath=C:/code/AI/baby-talk-2/mobile/test/features/growth/growth_insights_panel_test.dart: lib/app/providers/repository_providers.dart:452:50: Error: The getter 'wireValue' isn't defined for the type 'BabyReactionType'.
+   - 'BabyReactionType' is from 'package:mobile/features/practice/domain/models/interaction_event_payload.dart' ('lib/features/practice/domain/models/interaction_event_payload.dart').
+  Try correcting the name to the name of an existing getter, or defining a getter or field named 'wireValue'.
+                      reactionType: e.reactionType.wireValue,
+                                                   ^^^^^^^^^
+  .
+00:19 +38 -2: loading C:/code/AI/baby-talk-2/mobile/test/features/growth/presentation/growth_insights_notifier_remote_first_test.dart
+00:22 +38 -2: C:/code/AI/baby-talk-2/mobile/test/features/growth/presentation/growth_insights_notifier_remote_first_test.dart: uses remote summary data when remote load succeeds
+00:22 +39 -2: C:/code/AI/baby-talk-2/mobile/test/features/growth/presentation/growth_insights_notifier_remote_first_test.dart: falls back to local stats when remote load throws
+00:22 +40 -2: loading C:/code/AI/baby-talk-2/mobile/test/features/share/presentation/share_notifier_live_snapshot_test.dart
+00:27 +40 -2: C:/code/AI/baby-talk-2/mobile/test/features/share/presentation/share_notifier_live_snapshot_test.dart: ShareNotifier live snapshot binding currentDraft reflects latest loader snapshots without updateSnapshots
+00:27 +41 -2: C:/code/AI/baby-talk-2/mobile/test/features/share/presentation/share_notifier_live_snapshot_test.dart: ShareNotifier live snapshot binding shareCurrent uses live snapshots at execution time
+00:27 +42 -2: loading C:/code/AI/baby-talk-2/mobile/test/features/share/share_notifier_test.dart
+00:29 +42 -2: C:/code/AI/baby-talk-2/mobile/test/features/share/share_notifier_test.dart: ShareNotifier 分享进行中会暴露 isSharing 并保护重复点击
+00:29 +43 -2: C:/code/AI/baby-talk-2/mobile/test/features/share/share_notifier_test.dart: ShareNotifier REFACTOR-012: 分享请求通过 AsyncValue 暴露 loading 和完成态
+00:29 +44 -2: C:/code/AI/baby-talk-2/mobile/test/features/share/share_notifier_test.dart: ShareNotifier 用户取消分享后会恢复按钮状态并暴露 cancelled
+00:29 +45 -2: C:/code/AI/baby-talk-2/mobile/test/features/share/share_notifier_test.dart: ShareNotifier 分享预览确认会使用打开预览时冻结的 draft
+00:29 +46 -2: C:/code/AI/baby-talk-2/mobile/test/features/share/share_notifier_test.dart: ShareNotifier API timeout 会停在 error 状态并保留可重试 message
+00:29 +47 -2: loading C:/code/AI/baby-talk-2/mobile/test/features/share/share_repository_test.dart
+00:30 +47 -2: C:/code/AI/baby-talk-2/mobile/test/features/share/share_repository_test.dart: ShareRepository buildDraft 只使用 snapshot truth source 并剔除 internal 字段
+00:30 +48 -2: C:/code/AI/baby-talk-2/mobile/test/features/share/share_repository_test.dart: ShareRepository 只有 continuity recommendation 时仍可生成分享
+00:30 +49 -2: C:/code/AI/baby-talk-2/mobile/test/features/share/share_repository_test.dart: ShareRepository 空 headline 且无 continuity 时不可分享
+00:30 +50 -2: C:/code/AI/baby-talk-2/mobile/test/features/share/share_repository_test.dart: ShareRepository 非法 response URL 会阻止打开 share sheet
+00:30 +51 -2: C:/code/AI/baby-talk-2/mobile/test/features/share/share_repository_test.dart: ShareRepository API 5xx 与 timeout 会被映射为可重试失败
+00:30 +52 -2: C:/code/AI/baby-talk-2/mobile/test/features/share/share_repository_test.dart: ShareRepository share sheet unavailable 会停在可见失败态
+00:30 +53 -2: Some tests failed.

@@ -1,0 +1,18 @@
+Flutter assets will be downloaded from https://storage.flutter-io.cn. Make sure you trust this source!
+00:00 +0: loading C:/code/AI/baby-talk-2/mobile/test/features/garden/data/remote/garden_fertilizer_api_service_test.dart
+00:00 +0: C:/code/AI/baby-talk-2/mobile/test/features/garden/data/remote/garden_fertilizer_api_service_test.dart: GardenFertilizerApiService claim sends eventKey and requestId
+00:00 +1: C:/code/AI/baby-talk-2/mobile/test/features/garden/data/remote/garden_fertilizer_api_service_test.dart: GardenFertilizerApiService apply sends requestId and parses fertilizer state
+00:00 +2: C:/code/AI/baby-talk-2/mobile/test/features/garden/data/remote/garden_fertilizer_api_service_test.dart: GardenFertilizerApiService fetchState reads remote authoritative state
+00:00 +3: C:/code/AI/baby-talk-2/mobile/test/features/garden/data/remote/garden_fertilizer_api_service_test.dart: GardenFertilizerApiService network error maps to network exception
+00:00 +4: C:/code/AI/baby-talk-2/mobile/test/features/garden/data/remote/garden_fertilizer_api_service_test.dart: GardenFertilizerApiService malformed when response data is empty string
+00:00 +5: C:/code/AI/baby-talk-2/mobile/test/features/garden/data/remote/garden_fertilizer_api_service_test.dart: GardenFertilizerApiService malformed when response data is array json string
+00:00 +6: C:/code/AI/baby-talk-2/mobile/test/features/garden/data/remote/garden_fertilizer_api_service_test.dart: GardenFertilizerApiService malformed when response data is number
+00:00 +7: C:/code/AI/baby-talk-2/mobile/test/features/garden/data/remote/garden_fertilizer_api_service_test.dart: GardenFertilizerApiService malformed when key fields are both unavailable
+00:00 +8: C:/code/AI/baby-talk-2/mobile/test/features/garden/data/remote/garden_fertilizer_api_service_test.dart: GardenFertilizerApiService malformed when key fields are both missing
+00:00 +9: loading C:/code/AI/baby-talk-2/mobile/test/features/growth/domain/growth_stats_service_remote_fallback_test.dart
+00:01 +9: C:/code/AI/baby-talk-2/mobile/test/features/growth/domain/growth_stats_service_remote_fallback_test.dart: GrowthStatsService.loadSummary reads remote summary first when available
+00:01 +10: C:/code/AI/baby-talk-2/mobile/test/features/growth/domain/growth_stats_service_remote_fallback_test.dart: GrowthStatsService.loadSummary falls back to local summary when remote throws
+00:01 +11: loading C:/code/AI/baby-talk-2/mobile/test/features/share/presentation/share_notifier_live_snapshot_test.dart
+00:02 +11: C:/code/AI/baby-talk-2/mobile/test/features/share/presentation/share_notifier_live_snapshot_test.dart: ShareNotifier live snapshot binding currentDraft reflects latest loader snapshots without updateSnapshots
+00:02 +12: C:/code/AI/baby-talk-2/mobile/test/features/share/presentation/share_notifier_live_snapshot_test.dart: ShareNotifier live snapshot binding shareCurrent uses live snapshots at execution time
+00:03 +13: All tests passed!

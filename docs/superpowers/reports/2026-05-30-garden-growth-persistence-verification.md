@@ -6,6 +6,21 @@
 
 ## 1. Verification Commands
 
+### 1.0 Evidence Anchors
+
+- Execution date/time (local): 2026-05-30 18:29 (backend baseline), 2026-05-30 18:30 (mobile baseline)
+- Execution commit: `9bc1b3c2b83d5c82070a051b5ef8f9e8262b5fea`
+- Raw evidence paths:
+  - Backend baseline command output: `docs/superpowers/reports/2026-05-30-backend-baseline-output.txt`
+  - Backend surefire summaries:
+    - `backend/app-api/target/surefire-reports/com.zhangspaghetti.babytalk.LlmAgenticIntegrationTest.txt`
+    - `backend/app-api/target/surefire-reports/com.zhangspaghetti.babytalk.LlmIntegrationTest.txt`
+    - `backend/app-api/target/surefire-reports/com.zhangspaghetti.babytalk.LlmRagIntegrationTest.txt`
+    - `backend/app-api/target/surefire-reports/com.zhangspaghetti.babytalk.service.GardenFertilizerServiceTest.txt`
+    - `backend/app-api/target/surefire-reports/com.zhangspaghetti.babytalk.web.GardenFertilizerControllerTest.txt`
+    - `backend/app-api/target/surefire-reports/com.zhangspaghetti.babytalk.web.GrowthSummaryControllerTest.txt`
+  - Mobile baseline command output: `docs/superpowers/reports/2026-05-30-mobile-baseline-output.txt`
+
 ### 1.1 Task6 Baseline Verification (as planned)
 
 1) Backend baseline suite
@@ -60,6 +75,7 @@ mvn -pl app-api "-Dtest=GardenFertilizerServiceTest,GardenFertilizerControllerTe
   - relation "garden_fertilizer_claim_log" does not exist
   - relation "garden_fertilizer_state" does not exist
   - claim/apply endpoints returned HTTP 500 in controller tests where 200 was expected
+- Evidence file: `docs/superpowers/reports/2026-05-30-backend-targeted-output.txt`
 
 2) Mobile targeted persistence-aligned suite
 
@@ -71,6 +87,7 @@ flutter test test/features/garden/data/remote/garden_fertilizer_api_service_test
 
 - Exit code: 0
 - Result summary: 00:05 +13: All tests passed
+- Evidence file: `docs/superpowers/reports/2026-05-30-mobile-targeted-output.txt`
 
 ## 2. Checklist Against Task6
 
@@ -85,18 +102,21 @@ Sampling window: 2026-05-30 (current local verification window)
 
 1) `idempotent_conflict_rate`
 - Data source: backend runtime metrics dashboard/log aggregation (not wired in current local verification run)
+- Evidence file: N/A (no dashboard/log export captured in this verification window)
 - Actual value: N/A
 - Threshold comparison: cannot evaluate
 - Gate impact: BLOCKING
 
 2) `fallback_to_local_rate`
 - Data source: mobile telemetry aggregation (not available in local unit/integration command outputs)
+- Evidence file: N/A (no telemetry export captured in this verification window)
 - Actual value: N/A
 - Threshold comparison: cannot evaluate
 - Gate impact: BLOCKING
 
 3) `share_stale_snapshot_reports`
 - Data source: product error/event reporting stream (not sampled in this run)
+- Evidence file: N/A (no event-reporting export captured in this verification window)
 - Actual value: N/A
 - Threshold comparison: cannot evaluate
 - Gate impact: BLOCKING
