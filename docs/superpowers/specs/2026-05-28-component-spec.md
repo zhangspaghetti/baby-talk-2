@@ -92,7 +92,7 @@
 |---|--------|------|---------|---------|
 | 1 | ScenePill | 场景筛选标签 | Discover, Home, Onboarding | 已统一 · **已抽取闭环**（`AppScenePill`，commit a36b25e）[^impl-scenepill] |
 | 2 | PrimaryCTA | 主行动按钮 | 全部页面 | 已统一 · **已闭环**（`filledButtonTheme`，commit 63a9cb8）[^impl-primarycta] |
-| 3 | SecondaryButton | 次要文字按钮 | Practice, Onboarding | 一致 · 待抽取（走 Flutter 原生 `OutlinedButton`/`TextButton` + theme，详见技术评审第 4 节）|
+| 3 | SecondaryButton | 次要文字按钮 | Practice, Onboarding | 一致 · **已闭环**（`textButtonTheme`+`outlinedButtonTheme`，commit 8baed70）[^impl-secondary] |
 | 4 | MentorAvatar | 小禾头像 | Onboarding, Home, Practice | 已统一 |
 | 5 | MentorBubble | 小禾对话气泡 | Onboarding, Home, Practice | 已统一 |
 | 6 | EnglishPhrase | 英文短语展示 | 全部页面 | 已统一 |
@@ -106,6 +106,7 @@
 
 [^impl-scenepill]: 2026-05-30 抽取为公开 `mobile/lib/app/widgets/app_scene_pill.dart`，Discover 私有 `_ScenePill` 已删除并迁移；home_b 临时场景表（Material `Chip` 风格）与 Onboarding 大按钮按设计差异**不迁移**。
 [^impl-primarycta]: 2026-05-30 给 `app_theme.dart` light+dark 补 `filledButtonTheme`（accent / 56 高 / 16 圆角 / DM Sans 16 w700）；`minimumSize` 用 `Size(64, 56)` 而非 `Size.fromHeight`，避免 Row 内紧凑 FilledButton 溢出，全宽由调用点 stretch/SizedBox 决定；auth_screen 两处内联 `styleFrom(minimumSize)` 补丁已清理。
+[^impl-secondary]: 2026-05-30 走 Flutter 原生正道：`outlinedButtonTheme`（Outline 变体，已有）+ 新增 `textButtonTheme`（Ghost 变体，light+dark，accent 文字 / 16 圆角 / 15px w500 / `Size(64, 48)` 不强制全宽）。修复前所有 `TextButton` 掉回 M3 默认色，现统一；**不**再造 `AppSecondaryButton` 包装。164 项 feature 测试全绿。
 
 ---
 
