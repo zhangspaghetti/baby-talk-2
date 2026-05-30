@@ -1,9 +1,17 @@
 # Garden V2 肥料系统实现计划
 
 - 日期：2026-06-01
-- 状态：待批准（动手前确认架构决策）
+- 状态：✅ 已实现（Phase 1 全部 + Phase 2 部分，2026-06 核对）
 - 依据：specs/2026-05-28-flutter-mobile-garden-v2-design.md、completion-audit（Garden V2 🟡 部分）
-- 核实结论：`GardenFertilizerService` 是纯逻辑层（算阶段/上限/过期/阈值）；当前 Garden 数据是**事件投影只读模型**（`GardenGrowthRepository.buildSnapshot` 从 Isar `InteractionEventEntity` 事件日志派生）；**无任何可变肥料状态、无领取/施肥 UI**。
+- 核实结论：`GardenFertilizerService` 是纯逻辑层（算阶段/上限/过期/阈值）；当前 Garden 数据是**事件投影只读模型**（`GardenGrowthRepository.buildSnapshot` 从 Isar `InteractionEventEntity` 事件日志派生）；本计划在其上**新增可变肥料状态 + 领取/施肥 UI**。
+
+## ✅ 实现核对（2026-06 复盘逐项绿）
+- 决策采用：决策 1=(A) 新增 Isar `FertilizerStateEntity`；决策 2=(A) 单株花肥料区叠加在 garden tab 顶部；决策 3=Phase 1 + 提前接入 Phase 2 庆祝/红点。
+- Phase 1 落地：①`fertilizer_state_entity.dart`(+codegen `.g.dart`)✅ ②`garden_fertilizer_repository.dart`(claim/apply/availablePacks)✅
+  ③`garden_fertilizer_notifier.dart`+`gardenFertilizerNotifierProvider`✅ ④`GardenFertilizerPanel`(花可视化`_FlowerVisual`/进度/背包`_BackpackRow`/施肥/待领取`_PendingPackTile`/已领取`_ClaimedPackTile`/空态)✅
+  ⑤测试 `test/features/garden/garden_fertilizer_panel_test.dart` 等，garden 21/21 全绿✅ ⑥garden tab 接入 `garden_growth_combined_screen.dart:236 const GardenFertilizerPanel()`✅
+- Phase 2 已提前接入：阶段庆祝（panel `_celebrate`+`ConfettiWidget`，复用 confetti）✅；Home 摘要红点（`home_screen.dart:185` 用 `gardenFertilizerNotifierProvider.view.pendingPacks.length`）✅。
+- 剩余 Phase 2 可选项（施肥 0.5s 微动画 / 阶段列表自动滚动）按需后补，不阻塞主循环。
 
 ## 现状架构（已核实）
 - 持久化：Isar（`practice_local_data_source.dart`，collection `InteractionEventEntity`）。
