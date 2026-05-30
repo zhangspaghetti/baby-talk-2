@@ -34,12 +34,12 @@ class MeScreen extends ConsumerWidget {
     final account = ref.watch(accountNotifierProvider);
 
     final childName = onboardingSnapshot?.childDisplayName.trim();
-    final displayName =
-        (childName != null && childName.isNotEmpty) ? childName : l.shellBabyName;
-    final avatarLabel =
-        (childName != null && childName.isNotEmpty)
-            ? childName.substring(0, 1)
-            : '?';
+    final displayName = (childName != null && childName.isNotEmpty)
+        ? childName
+        : l.shellBabyName;
+    final avatarLabel = (childName != null && childName.isNotEmpty)
+        ? childName.substring(0, 1)
+        : '?';
 
     // §6 账号入口状态：未登录 → 轻提示；已登录 → 昵称(脱敏手机号)；同步中 → 指示器。
     final bool accountSyncing = account.isSignedIn && account.hasPendingSync;
@@ -51,40 +51,45 @@ class MeScreen extends ConsumerWidget {
       top: false,
       child: Align(
         alignment: Alignment.topCenter,
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-          children: [
-            // ── User info section ──
-            _UserInfoSection(
-              avatarLabel: avatarLabel,
-              displayName: displayName,
-              ageBucketLabel: onboardingSnapshot?.ageBucket.label,
-              accountStateLabel: accountStateLabel,
-              isSyncing: accountSyncing,
-              onTap: () => openAccountEntryScreen(context),
-            ),
-            const SizedBox(height: 20),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(
+            maxWidth: AppLayoutConstants.maxContentWidth,
+          ),
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+            children: [
+              // ── User info section ──
+              _UserInfoSection(
+                avatarLabel: avatarLabel,
+                displayName: displayName,
+                ageBucketLabel: onboardingSnapshot?.ageBucket.label,
+                accountStateLabel: accountStateLabel,
+                isSyncing: accountSyncing,
+                onTap: () => openAccountEntryScreen(context),
+              ),
+              const SizedBox(height: 20),
 
-            // ── Garden status block ──
-            _GardenStatusBlock(
-              spacesCount: gardenSnapshot.spaces.length,
-              latestImpact: gardenSnapshot.latestImpact,
-              onTap: onOpenGarden,
-            ),
-            const SizedBox(height: 12),
+              // ── Garden status block ──
+              _GardenStatusBlock(
+                spacesCount: gardenSnapshot.spaces.length,
+                latestImpact: gardenSnapshot.latestImpact,
+                onTap: onOpenGarden,
+              ),
+              const SizedBox(height: 12),
 
-            // ── Growth data block ──
-            _GrowthDataBlock(
-              knownEvents: gardenSnapshot.knownEvents,
-              sceneCount: gardenSnapshot.spaces.length,
-              streakDays: gardenSnapshot.currentStreakDays,
-              onTap: onOpenGrowth,
-            ),
-            const SizedBox(height: 20),
+              // ── Growth data block ──
+              _GrowthDataBlock(
+                knownEvents: gardenSnapshot.knownEvents,
+                sceneCount: gardenSnapshot.spaces.length,
+                streakDays: gardenSnapshot.currentStreakDays,
+                onTap: onOpenGrowth,
+              ),
+              const SizedBox(height: 20),
 
-            // ── Function grid ──
-            _FunctionGrid(onboardingSnapshot: onboardingSnapshot),
-          ],
+              // ── Function grid ──
+              _FunctionGrid(onboardingSnapshot: onboardingSnapshot),
+            ],
+          ),
         ),
       ),
     );
@@ -330,7 +335,10 @@ class _GrowthDataBlock extends StatelessWidget {
                 children: [
                   _StatItem(
                     label: l.meStatPracticeTotal,
-                    value: l.meGrowthPracticeTotalValue(knownEvents, sceneCount),
+                    value: l.meGrowthPracticeTotalValue(
+                      knownEvents,
+                      sceneCount,
+                    ),
                   ),
                   const SizedBox(width: 16),
                   _StatItem(
@@ -371,9 +379,7 @@ class _StatItem extends StatelessWidget {
           const SizedBox(height: 2),
           Text(
             label,
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: colors.textMuted,
-            ),
+            style: theme.textTheme.bodySmall?.copyWith(color: colors.textMuted),
           ),
         ],
       ),
