@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:mobile/app/providers/repository_providers.dart';
+import 'package:mobile/app/theme/app_layout_constants.dart';
 import 'package:mobile/app/theme/app_theme.dart';
 import 'package:mobile/features/account/presentation/screens/account_entry_screen.dart';
 import 'package:mobile/features/onboarding/domain/models/onboarding_snapshot.dart';
@@ -117,15 +118,15 @@ class _UserInfoSection extends StatelessWidget {
     final theme = Theme.of(context);
     return Material(
       color: colors.bgSurface,
-      borderRadius: BorderRadius.circular(16),
+      borderRadius: BorderRadius.circular(AppLayoutConstants.cardRadius),
       child: InkWell(
         key: const Key('me-user-info'),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(AppLayoutConstants.cardRadius),
         onTap: onTap,
         child: Container(
-          padding: const EdgeInsets.all(20),
+          padding: const EdgeInsets.all(AppLayoutConstants.spacingLg),
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(AppLayoutConstants.cardRadius),
             boxShadow: colors.warmShadowSm,
           ),
           child: Row(
@@ -246,7 +247,7 @@ class _GardenStatusBlock extends StatelessWidget {
         borderRadius: BorderRadius.circular(12),
         onTap: onTap,
         child: Padding(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(AppLayoutConstants.spacingMd),
           child: Row(
             children: [
               Icon(

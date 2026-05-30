@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:mobile/app/theme/app_layout_constants.dart';
 import 'package:mobile/app/theme/app_theme.dart';
 import 'package:mobile/l10n/app_localizations.dart';
 
@@ -23,7 +24,7 @@ class DiscoverViewToggle extends StatelessWidget {
       padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
         color: colors.bgSunken,
-        borderRadius: BorderRadius.circular(999),
+        borderRadius: BorderRadius.circular(AppLayoutConstants.pillRadius),
       ),
       child: Row(
         children: [
@@ -71,13 +72,18 @@ class DiscoverTogglePill extends StatelessWidget {
     final colors = context.appColors;
     return Material(
       color: selected ? colors.bgSurface : Colors.transparent,
-      borderRadius: BorderRadius.circular(999),
+      borderRadius: BorderRadius.circular(AppLayoutConstants.pillRadius),
       child: InkWell(
-        borderRadius: BorderRadius.circular(999),
+        borderRadius: BorderRadius.circular(AppLayoutConstants.pillRadius),
         onTap: onTap,
         child: Container(
-          constraints: const BoxConstraints(minHeight: 48),
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+          constraints: const BoxConstraints(
+            minHeight: AppLayoutConstants.minTouchTarget,
+          ),
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppLayoutConstants.spacingSm,
+            vertical: AppLayoutConstants.spacingSm,
+          ),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
