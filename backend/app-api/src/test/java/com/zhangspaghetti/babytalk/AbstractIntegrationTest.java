@@ -1,6 +1,8 @@
 package com.zhangspaghetti.babytalk;
 
 import java.util.List;
+import org.junit.jupiter.api.BeforeEach;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
@@ -21,6 +23,9 @@ import org.testcontainers.utility.DockerImageName;
 @ActiveProfiles("test")
 public abstract class AbstractIntegrationTest {
 
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
+
     private static final List<String> RESET_APP_TABLES = List.of(
             "kg_admin_notifications",
             "kg_contradictions",
@@ -37,6 +42,9 @@ public abstract class AbstractIntegrationTest {
             "share_landing_events",
             "share_landing_cards",
             "release_distribution_events",
+            "garden_fertilizer_claim_log",
+            "garden_fertilizer_apply_log",
+            "garden_fertilizer_state",
             "mentor_audit_logs",
             "mentor_turns",
             "interaction_events",
@@ -92,5 +100,10 @@ public abstract class AbstractIntegrationTest {
         jdbcTemplate.execute(
             "TRUNCATE TABLE " + String.join(", ", tablesToReset) + " RESTART IDENTITY CASCADE"
         );
+    }
+
+    @BeforeEach
+    void resetDatabaseBeforeEachTest() {
+        resetDatabase(jdbcTemplate);
     }
 }
