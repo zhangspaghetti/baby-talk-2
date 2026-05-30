@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:mobile/app/theme/app_layout_constants.dart';
 import 'package:mobile/app/theme/app_theme.dart';
+import 'package:mobile/app/widgets/app_english_phrase.dart';
 import 'package:mobile/features/practice/data/repositories/practice_repository.dart';
 import 'package:mobile/features/practice/domain/models/garden_growth_snapshot.dart';
 import 'package:mobile/features/practice/domain/models/practice_continuity_snapshot.dart';
@@ -79,7 +81,7 @@ class GardenHeroCard extends StatelessWidget {
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
         color: colors.bgSurface,
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(AppLayoutConstants.largeRadius),
         border: Border.all(color: colors.outlineSoft),
         boxShadow: colors.warmShadowSm,
       ),
@@ -95,14 +97,11 @@ class GardenHeroCard extends StatelessWidget {
               padding: const EdgeInsets.all(18),
               decoration: BoxDecoration(
                 color: colors.englishSoft,
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Text(
-                impact.phraseTitle,
-                style: theme.textTheme.headlineMedium?.copyWith(
-                  color: colors.english,
+                borderRadius: BorderRadius.circular(
+                  AppLayoutConstants.mediumRadius,
                 ),
               ),
+              child: AppEnglishPhrase(impact.phraseTitle),
             ),
             const SizedBox(height: 16),
           ],
