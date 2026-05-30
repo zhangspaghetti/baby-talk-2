@@ -1,0 +1,775 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>BabyTalk 花园 - Warm Garden V1</title>
+<style>
+  /* === DESIGN TOKENS === */
+  :root {
+    --bg-base: #FFF8F0;
+    --bg-surface: #FFFFFF;
+    --bg-sunken: #F5F0EB;
+    --bg-accent-soft: #FFF0E5;
+    --accent: #FF8C42;
+    --accent-dark: #E67A30;
+    --accent-light: #FFF0E5;
+    --english: #3B8577;
+    --english-soft: #D4E8E3;
+    --text-primary: #2D2926;
+    --text-secondary: #6B5E57;
+    --text-muted: #8A7D76;
+    --text-on-accent: #FFFFFF;
+    --success: #6B8F5E;
+    --success-soft: #E8F0E5;
+    --border: #E8E0D8;
+    --shadow-sm: 0 1px 3px rgba(45,41,38,0.06);
+    --shadow-md: 0 2px 12px rgba(45,41,38,0.08);
+    --radius-sm: 8px;
+    --radius-md: 16px;
+    --radius-lg: 24px;
+    --radius-full: 9999px;
+    --space-xs: 4px;
+    --space-sm: 8px;
+    --space-md: 16px;
+    --space-lg: 24px;
+    --space-xl: 32px;
+    --space-2xl: 48px;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'PingFang SC', 'Noto Sans SC', 'Microsoft YaHei', sans-serif;
+    background: var(--bg-base);
+    color: var(--text-primary);
+    max-width: 430px;
+    margin: 0 auto;
+    min-height: 100vh;
+    position: relative;
+    padding-bottom: 80px;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* === TOP BAR === */
+  .top-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 20px;
+    background: var(--bg-base);
+    position: sticky;
+    top: 0;
+    z-index: 10;
+  }
+  .top-bar .back-btn {
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    border-radius: var(--radius-full);
+    color: var(--text-primary);
+    font-size: 20px;
+  }
+  .top-bar .back-btn:hover { background: var(--bg-sunken); }
+  .top-bar .title {
+    font-size: 17px;
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+  .top-bar .spacer { width: 40px; }
+
+  /* === GARDEN STATUS === */
+  .garden-status {
+    padding: 0 20px 16px;
+  }
+  .garden-status .status-text {
+    font-size: 14px;
+    color: var(--text-secondary);
+    line-height: 1.5;
+  }
+  .garden-status .status-text strong {
+    color: var(--english);
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* === DATE GROUP === */
+  .date-group {
+    margin-bottom: 4px;
+  }
+  .date-group-header {
+    padding: 12px 20px 8px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-muted);
+    letter-spacing: 0.5px;
+  }
+
+  /* === TRACE ITEM === */
+  .trace-item {
+    background: var(--bg-surface);
+    margin: 0 16px 8px;
+    padding: 16px 20px;
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-sm);
+    position: relative;
+  }
+  .trace-item.today {
+    background: var(--english-soft);
+    box-shadow: none;
+  }
+  .trace-item .trace-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 8px;
+  }
+  .trace-item .scene-tag {
+    display: inline-flex;
+    align-items: center;
+    padding: 3px 10px;
+    background: var(--accent-light);
+    color: var(--accent);
+    font-size: 12px;
+    font-weight: 600;
+    border-radius: var(--radius-full);
+    line-height: 1.4;
+  }
+  .trace-item .trace-time {
+    font-size: 12px;
+    color: var(--text-muted);
+    font-variant-numeric: tabular-nums;
+  }
+  .trace-item .trace-phrase {
+    font-family: 'Fraunces', 'Georgia', serif;
+    font-size: 20px;
+    font-weight: 500;
+    color: var(--english);
+    line-height: 1.3;
+    margin-bottom: 4px;
+  }
+  .trace-item .trace-meaning {
+    font-size: 13px;
+    color: var(--text-secondary);
+    line-height: 1.4;
+    margin-bottom: 8px;
+  }
+  .trace-item .trace-bottom {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .trace-item .reaction-tag {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 8px;
+    font-size: 12px;
+    font-weight: 500;
+    border-radius: var(--radius-full);
+    line-height: 1.5;
+  }
+  .trace-item .reaction-tag.positive {
+    background: var(--success-soft);
+    color: var(--success);
+  }
+  .trace-item .reaction-tag.neutral {
+    background: var(--bg-sunken);
+    color: var(--text-muted);
+  }
+  .trace-item .source-tag {
+    font-size: 11px;
+    color: var(--text-muted);
+    padding: 2px 8px;
+    background: var(--bg-sunken);
+    border-radius: var(--radius-full);
+  }
+  .trace-item.today .today-badge {
+    font-size: 11px;
+    color: var(--english);
+    font-weight: 600;
+    padding: 2px 8px;
+    background: rgba(59,133,119,0.12);
+    border-radius: var(--radius-full);
+  }
+
+  /* === SCENE DISTRIBUTION === */
+  .scene-distribution {
+    margin: 24px 16px 16px;
+    padding: 16px 20px;
+    background: var(--bg-sunken);
+    border-radius: var(--radius-md);
+  }
+  .scene-distribution .dist-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-muted);
+    margin-bottom: 12px;
+  }
+  .scene-distribution .dist-items {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .scene-distribution .dist-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 12px;
+    background: var(--bg-surface);
+    border-radius: var(--radius-full);
+    font-size: 13px;
+    color: var(--text-secondary);
+    box-shadow: var(--shadow-sm);
+  }
+  .scene-distribution .dist-item .dist-count {
+    font-weight: 600;
+    color: var(--text-primary);
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* === BOTTOM NAV === */
+  .bottom-nav {
+    position: fixed;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 100%;
+    max-width: 430px;
+    background: var(--bg-surface);
+    border-top: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-around;
+    padding: 8px 0;
+    padding-bottom: calc(8px + env(safe-area-inset-bottom, 0px));
+    z-index: 20;
+  }
+  .bottom-nav .nav-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    padding: 4px 12px;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    min-width: 56px;
+  }
+  .bottom-nav .nav-item .nav-icon {
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    color: var(--text-muted);
+  }
+  .bottom-nav .nav-item.active .nav-icon { color: var(--accent); }
+  .bottom-nav .nav-item .nav-label {
+    font-size: 10px;
+    color: var(--text-muted);
+    font-weight: 500;
+  }
+  .bottom-nav .nav-item.active .nav-label {
+    color: var(--accent);
+    font-weight: 600;
+  }
+
+  /* === EMPTY STATE === */
+  .empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 80px 40px;
+    text-align: center;
+  }
+  .empty-state .empty-icon {
+    width: 64px;
+    height: 64px;
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .empty-state .empty-icon svg {
+    width: 64px;
+    height: 64px;
+    opacity: 0.4;
+  }
+  .empty-state .empty-title {
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 8px;
+  }
+  .empty-state .empty-desc {
+    font-size: 14px;
+    color: var(--text-secondary);
+    line-height: 1.6;
+    margin-bottom: 24px;
+    max-width: 280px;
+  }
+  .empty-state .empty-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 12px 32px;
+    background: var(--accent);
+    color: var(--text-on-accent);
+    font-size: 15px;
+    font-weight: 600;
+    border: none;
+    border-radius: var(--radius-full);
+    cursor: pointer;
+    box-shadow: var(--shadow-md);
+    min-height: 48px;
+    font-family: inherit;
+  }
+  .empty-state .empty-btn:hover { background: var(--accent-dark); }
+
+  /* === OFFLINE BANNER === */
+  .offline-banner {
+    margin: 0 16px 12px;
+    padding: 10px 16px;
+    background: var(--bg-accent-soft);
+    border-radius: var(--radius-sm);
+    font-size: 13px;
+    color: var(--text-secondary);
+    text-align: center;
+  }
+
+  /* === SKELETON === */
+  .skeleton-item {
+    background: var(--bg-surface);
+    margin: 0 16px 8px;
+    padding: 16px 20px;
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-sm);
+  }
+  .skeleton-line {
+    height: 14px;
+    background: var(--bg-sunken);
+    border-radius: 4px;
+    margin-bottom: 8px;
+    animation: pulse 1.5s ease-in-out infinite;
+  }
+  .skeleton-line.short { width: 40%; }
+  .skeleton-line.medium { width: 65%; }
+  .skeleton-line.long { width: 85%; }
+  .skeleton-line.phrase {
+    height: 22px;
+    width: 55%;
+    margin-bottom: 10px;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+
+  /* === HIDDEN STATE === */
+  .hidden { display: none !important; }
+</style>
+</head>
+<body>
+
+<!-- === STATE: HAS TRACES (default) === -->
+<div id="state-has-traces">
+
+  <!-- Top Bar -->
+  <div class="top-bar">
+    <button class="back-btn" aria-label="返回">
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M12.5 15L7.5 10L12.5 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </button>
+    <span class="title">花园</span>
+    <div class="spacer"></div>
+  </div>
+
+  <!-- Garden Status -->
+  <div class="garden-status">
+    <p class="status-text">你的花园里有 <strong>28</strong> 条真实练习痕迹。</p>
+  </div>
+
+  <!-- Today -->
+  <div class="date-group">
+    <div class="date-group-header">今天</div>
+
+    <div class="trace-item today">
+      <div class="trace-top">
+        <span class="scene-tag">喂饭</span>
+        <span class="trace-time">10:23</span>
+      </div>
+      <div class="trace-phrase">One more bite.</div>
+      <div class="trace-meaning">再吃一口</div>
+      <div class="trace-bottom">
+        <span class="reaction-tag positive">有回应了</span>
+        <span class="today-badge">今日痕迹</span>
+      </div>
+    </div>
+
+    <div class="trace-item today">
+      <div class="trace-top">
+        <span class="scene-tag">睡前</span>
+        <span class="trace-time">09:15</span>
+      </div>
+      <div class="trace-phrase">Let's put it back.</div>
+      <div class="trace-meaning">我们把它放回去吧</div>
+      <div class="trace-bottom">
+        <span class="reaction-tag positive">安静了</span>
+        <span class="today-badge">今日痕迹</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Yesterday -->
+  <div class="date-group">
+    <div class="date-group-header">昨天</div>
+
+    <div class="trace-item">
+      <div class="trace-top">
+        <span class="scene-tag">洗澡</span>
+        <span class="trace-time">20:45</span>
+      </div>
+      <div class="trace-phrase">Water is warm.</div>
+      <div class="trace-meaning">水是暖的</div>
+      <div class="trace-bottom">
+        <span class="reaction-tag positive">配合了</span>
+      </div>
+    </div>
+
+    <div class="trace-item">
+      <div class="trace-top">
+        <span class="scene-tag">出门</span>
+        <span class="trace-time">18:30</span>
+      </div>
+      <div class="trace-phrase">Shoes on.</div>
+      <div class="trace-meaning">穿鞋子</div>
+      <div class="trace-bottom">
+        <span class="reaction-tag neutral">没反应</span>
+      </div>
+    </div>
+
+    <div class="trace-item">
+      <div class="trace-top">
+        <span class="scene-tag">喂饭</span>
+        <span class="trace-time">12:10</span>
+      </div>
+      <div class="trace-phrase">Yummy, right?</div>
+      <div class="trace-meaning">好吃对吧</div>
+      <div class="trace-bottom">
+        <span class="reaction-tag positive">吃了一口</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Earlier -->
+  <div class="date-group">
+    <div class="date-group-header">5月26日</div>
+
+    <div class="trace-item">
+      <div class="trace-top">
+        <span class="scene-tag">睡前</span>
+        <span class="trace-time">21:30</span>
+      </div>
+      <div class="trace-phrase">Good night, sweetie.</div>
+      <div class="trace-meaning">晚安，宝贝</div>
+      <div class="trace-bottom">
+        <span class="reaction-tag positive">安静了</span>
+      </div>
+    </div>
+
+    <div class="trace-item">
+      <div class="trace-top">
+        <span class="scene-tag">换尿布</span>
+        <span class="trace-time">15:20</span>
+      </div>
+      <div class="trace-phrase">All clean now.</div>
+      <div class="trace-meaning">现在干净了</div>
+      <div class="trace-bottom">
+        <span class="reaction-tag positive">配合了</span>
+      </div>
+    </div>
+
+    <div class="trace-item">
+      <div class="trace-top">
+        <span class="scene-tag">喝水</span>
+        <span class="trace-time">14:05</span>
+      </div>
+      <div class="trace-phrase">Some water?</div>
+      <div class="trace-meaning">喝点水吗</div>
+      <div class="trace-bottom">
+        <span class="reaction-tag positive">喝了一口</span>
+        <span class="source-tag">小禾建议</span>
+      </div>
+    </div>
+
+    <div class="trace-item">
+      <div class="trace-top">
+        <span class="scene-tag">出门</span>
+        <span class="trace-time">09:40</span>
+      </div>
+      <div class="trace-phrase">Let's go outside.</div>
+      <div class="trace-meaning">我们出去吧</div>
+      <div class="trace-bottom">
+        <span class="reaction-tag neutral">没反应</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- May 25 -->
+  <div class="date-group">
+    <div class="date-group-header">5月25日</div>
+
+    <div class="trace-item">
+      <div class="trace-top">
+        <span class="scene-tag">洗澡</span>
+        <span class="trace-time">19:50</span>
+      </div>
+      <div class="trace-phrase">Splish splash!</div>
+      <div class="trace-meaning">哗啦哗啦</div>
+      <div class="trace-bottom">
+        <span class="reaction-tag positive">有回应了</span>
+      </div>
+    </div>
+
+    <div class="trace-item">
+      <div class="trace-top">
+        <span class="scene-tag">睡前</span>
+        <span class="trace-time">20:30</span>
+      </div>
+      <div class="trace-phrase">Time for bed.</div>
+      <div class="trace-meaning">该睡觉了</div>
+      <div class="trace-bottom">
+        <span class="reaction-tag positive">安静了</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Scene Distribution -->
+  <div class="scene-distribution">
+    <div class="dist-title">场景分布</div>
+    <div class="dist-items">
+      <div class="dist-item">
+        <span>睡前</span>
+        <span class="dist-count">12</span>
+      </div>
+      <div class="dist-item">
+        <span>喂饭</span>
+        <span class="dist-count">8</span>
+      </div>
+      <div class="dist-item">
+        <span>洗澡</span>
+        <span class="dist-count">5</span>
+      </div>
+      <div class="dist-item">
+        <span>出门</span>
+        <span class="dist-count">3</span>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- === STATE: EMPTY === -->
+<div id="state-empty" class="hidden">
+
+  <!-- Top Bar -->
+  <div class="top-bar">
+    <button class="back-btn" aria-label="返回">
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M12.5 15L7.5 10L12.5 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </button>
+    <span class="title">花园</span>
+    <div class="spacer"></div>
+  </div>
+
+  <div class="empty-state">
+    <div class="empty-icon">
+      <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <ellipse cx="32" cy="52" rx="20" ry="6" fill="#D4E8E3" opacity="0.5"/>
+        <path d="M32 48V28" stroke="#6B8F5E" stroke-width="2" stroke-linecap="round"/>
+        <path d="M32 36C28 32 24 28 24 24C24 20 28 18 32 22" stroke="#6B8F5E" stroke-width="1.5" stroke-linecap="round" fill="none"/>
+        <path d="M32 30C36 26 40 22 40 18C40 14 36 12 32 16" stroke="#6B8F5E" stroke-width="1.5" stroke-linecap="round" fill="none"/>
+        <circle cx="32" cy="26" r="3" fill="#D4E8E3" stroke="#6B8F5E" stroke-width="1"/>
+      </svg>
+    </div>
+    <p class="empty-title">你的花园还很安静。</p>
+    <p class="empty-desc">说完今日短语后，这里会记下你的第一条真实练习痕迹。</p>
+    <button class="empty-btn">回到首页说一句</button>
+  </div>
+
+</div>
+
+<!-- === STATE: LOADING SKELETON === -->
+<div id="state-loading" class="hidden">
+
+  <!-- Top Bar -->
+  <div class="top-bar">
+    <button class="back-btn" aria-label="返回">
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M12.5 15L7.5 10L12.5 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </button>
+    <span class="title">花园</span>
+    <div class="spacer"></div>
+  </div>
+
+  <div class="garden-status">
+    <div class="skeleton-line short" style="height:16px;width:180px;"></div>
+  </div>
+
+  <div class="date-group">
+    <div class="date-group-header">今天</div>
+    <div class="skeleton-item">
+      <div class="skeleton-line short"></div>
+      <div class="skeleton-line phrase"></div>
+      <div class="skeleton-line medium"></div>
+      <div class="skeleton-line short"></div>
+    </div>
+    <div class="skeleton-item">
+      <div class="skeleton-line short"></div>
+      <div class="skeleton-line phrase"></div>
+      <div class="skeleton-line medium"></div>
+      <div class="skeleton-line short"></div>
+    </div>
+  </div>
+
+  <div class="date-group">
+    <div class="date-group-header">昨天</div>
+    <div class="skeleton-item">
+      <div class="skeleton-line short"></div>
+      <div class="skeleton-line phrase"></div>
+      <div class="skeleton-line medium"></div>
+      <div class="skeleton-line short"></div>
+    </div>
+    <div class="skeleton-item">
+      <div class="skeleton-line short"></div>
+      <div class="skeleton-line phrase"></div>
+      <div class="skeleton-line medium"></div>
+      <div class="skeleton-line short"></div>
+    </div>
+  </div>
+
+</div>
+
+<!-- === STATE: OFFLINE === -->
+<div id="state-offline" class="hidden">
+
+  <!-- Top Bar -->
+  <div class="top-bar">
+    <button class="back-btn" aria-label="返回">
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M12.5 15L7.5 10L12.5 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </button>
+    <span class="title">花园</span>
+    <div class="spacer"></div>
+  </div>
+
+  <div class="offline-banner">离线时看到的是上次同步的痕迹。</div>
+
+  <div class="garden-status">
+    <p class="status-text">你的花园里有 <strong>28</strong> 条真实练习痕迹。</p>
+  </div>
+
+  <!-- Reuse same trace content -->
+  <div class="date-group">
+    <div class="date-group-header">今天</div>
+    <div class="trace-item today">
+      <div class="trace-top">
+        <span class="scene-tag">喂饭</span>
+        <span class="trace-time">10:23</span>
+      </div>
+      <div class="trace-phrase">One more bite.</div>
+      <div class="trace-meaning">再吃一口</div>
+      <div class="trace-bottom">
+        <span class="reaction-tag positive">有回应了</span>
+        <span class="today-badge">今日痕迹</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="date-group">
+    <div class="date-group-header">昨天</div>
+    <div class="trace-item">
+      <div class="trace-top">
+        <span class="scene-tag">洗澡</span>
+        <span class="trace-time">20:45</span>
+      </div>
+      <div class="trace-phrase">Water is warm.</div>
+      <div class="trace-meaning">水是暖的</div>
+      <div class="trace-bottom">
+        <span class="reaction-tag positive">配合了</span>
+      </div>
+    </div>
+    <div class="trace-item">
+      <div class="trace-top">
+        <span class="scene-tag">出门</span>
+        <span class="trace-time">18:30</span>
+      </div>
+      <div class="trace-phrase">Shoes on.</div>
+      <div class="trace-meaning">穿鞋子</div>
+      <div class="trace-bottom">
+        <span class="reaction-tag neutral">没反应</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="scene-distribution">
+    <div class="dist-title">场景分布</div>
+    <div class="dist-items">
+      <div class="dist-item"><span>睡前</span><span class="dist-count">12</span></div>
+      <div class="dist-item"><span>喂饭</span><span class="dist-count">8</span></div>
+      <div class="dist-item"><span>洗澡</span><span class="dist-count">5</span></div>
+      <div class="dist-item"><span>出门</span><span class="dist-count">3</span></div>
+    </div>
+  </div>
+
+</div>
+
+<!-- === BOTTOM NAV === -->
+<div class="bottom-nav">
+  <button class="nav-item" aria-label="首页">
+    <span class="nav-icon">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M3 9.5L12 3L21 9.5V20C21 20.5304 20.7893 21.0391 20.4142 21.4142C20.0391 21.7893 19.5304 22 19 22H5C4.46957 22 3.96086 21.7893 3.58579 21.4142C3.21071 21.0391 3 20.5304 3 20V9.5Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M9 22V12H15V22" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </span>
+    <span class="nav-label">首页</span>
+  </button>
+  <button class="nav-item" aria-label="发现">
+    <span class="nav-icon">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="1.5"/><path d="M16.24 7.76L14.12 14.12L7.76 16.24L9.88 9.88L16.24 7.76Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </span>
+    <span class="nav-label">发现</span>
+  </button>
+  <button class="nav-item active" aria-label="花园">
+    <span class="nav-icon">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M12 22V12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M12 16C8 12 4 8 4 4C4 0 8 -2 12 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" fill="none"/><path d="M12 12C16 8 20 4 20 0C20 -4 16 -6 12 0" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" fill="none"/><ellipse cx="12" cy="22" rx="4" ry="1.5" fill="currentColor" opacity="0.2"/></svg>
+    </span>
+    <span class="nav-label">花园</span>
+  </button>
+  <button class="nav-item" aria-label="成长">
+    <span class="nav-icon">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M22 12H18L15 21L9 3L6 12H2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </span>
+    <span class="nav-label">成长</span>
+  </button>
+</div>
+
+<!-- === STATE SWITCHER === -->
+<div style="position:fixed;top:8px;right:8px;z-index:999;background:var(--bg-surface);border-radius:var(--radius-sm);box-shadow:var(--shadow-md);padding:6px;display:flex;gap:4px;flex-wrap:wrap;max-width:200px;">
+  <button onclick="switchState('has-traces')" style="font-size:11px;padding:4px 8px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg-surface);cursor:pointer;font-family:inherit;">有痕迹</button>
+  <button onclick="switchState('empty')" style="font-size:11px;padding:4px 8px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg-surface);cursor:pointer;font-family:inherit;">空态</button>
+  <button onclick="switchState('loading')" style="font-size:11px;padding:4px 8px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg-surface);cursor:pointer;font-family:inherit;">加载中</button>
+  <button onclick="switchState('offline')" style="font-size:11px;padding:4px 8px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg-surface);cursor:pointer;font-family:inherit;">离线</button>
+</div>
+
+<script>
+function switchState(name) {
+  document.querySelectorAll('[id^="state-"]').forEach(el => el.classList.add('hidden'));
+  document.getElementById('state-' + name).classList.remove('hidden');
+}
+</script>
+
+</body>
+</html>

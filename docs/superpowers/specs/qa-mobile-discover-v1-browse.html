@@ -1,0 +1,1247 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>BabyTalk Discover V1</title>
+  <style>
+    :root {
+      --bg-base: #FFF8F0;
+      --bg-surface: #FFFFFF;
+      --bg-sunken: #F5F0EB;
+      --bg-accent-soft: #FFF0E5;
+      --accent: #FF8C42;
+      --accent-dark: #E67A30;
+      --accent-light: #FFF0E5;
+      --english: #3B8577;
+      --english-soft: #D4E8E3;
+      --text-primary: #2D2926;
+      --text-secondary: #6B5E57;
+      --text-muted: #8A7D76;
+      --paper: var(--bg-base);
+      --surface: rgba(255, 255, 255, .94);
+      --ink: var(--text-primary);
+      --muted: var(--text-secondary);
+      --muted-2: var(--text-muted);
+      --warm: var(--accent);
+      --warm-2: var(--accent-dark);
+      --warm-soft: rgba(255, 140, 66, .12);
+      --sage: var(--english);
+      --sage-2: #2F6B60;
+      --sage-soft: rgba(212, 232, 227, .72);
+      --honey: #E6A817;
+      --honey-soft: #FFF5D9;
+      --line: rgba(88, 68, 48, .13);
+      --line-soft: rgba(88, 68, 48, .08);
+      --shadow: 0 8px 24px rgba(45, 41, 38, .12);
+      --soft-shadow: 0 2px 12px rgba(45, 41, 38, .08);
+      --button-shadow: 0 6px 14px rgba(255, 140, 66, .16);
+      --nav-height: 82px;
+      --weight-strong: 700;
+      --weight-medium: 600;
+      --weight-body: 500;
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body {
+      min-height: 100%;
+      overscroll-behavior: contain;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      padding: 18px;
+      background: var(--bg-base);
+      color: var(--ink);
+      font-family: "DM Sans", "PingFang SC", "Noto Sans SC", "Microsoft YaHei", system-ui, sans-serif;
+    }
+
+    button {
+      min-height: 44px;
+      border: 0;
+      font: inherit;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    button:focus-visible, [tabindex]:focus-visible {
+      outline: 3px solid rgba(87, 119, 104, .42);
+      outline-offset: 3px;
+    }
+
+    .prototypeShell {
+      width: min(980px, 100%);
+      display: grid;
+      grid-template-columns: minmax(0, 414px) minmax(260px, 380px);
+      gap: 24px;
+      align-items: start;
+    }
+
+    .phone {
+      width: min(414px, 100%);
+      height: min(820px, calc(100vh - 36px));
+      min-height: 704px;
+      overflow: hidden;
+      border-radius: 36px;
+      border: 1px solid rgba(118, 92, 70, .16);
+      background: var(--paper);
+      box-shadow: var(--shadow);
+    }
+
+    .screen {
+      position: relative;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      overscroll-behavior: contain;
+    }
+
+    .status {
+      flex: 0 0 28px;
+      padding-top: 9px;
+      text-align: center;
+      color: rgba(48, 40, 32, .56);
+      font-size: 12px;
+      font-weight: 800;
+    }
+
+    .appTop {
+      flex: 0 0 64px;
+      display: grid;
+      grid-template-columns: 46px minmax(0, 1fr) auto;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 18px;
+      border-bottom: 1px solid var(--line-soft);
+      background: rgba(255, 252, 247, .62);
+    }
+
+    .iconButton {
+      width: 46px;
+      height: 46px;
+      display: inline-grid;
+      place-items: center;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: rgba(255, 252, 247, .78);
+      color: var(--warm);
+      font-weight: var(--weight-strong);
+      transition: background-color .18s ease;
+    }
+
+    .menuMark, .menuMark::before, .menuMark::after {
+      display: block;
+      width: 18px;
+      height: 2px;
+      border-radius: 99px;
+      background: currentColor;
+    }
+
+    .menuMark { position: relative; }
+    .menuMark::before, .menuMark::after { content: ""; position: absolute; left: 0; }
+    .menuMark::before { top: -6px; }
+    .menuMark::after { top: 6px; }
+
+    .titleBlock { min-width: 0; }
+
+    .appName {
+      color: var(--ink);
+      font-size: 17px;
+      font-weight: var(--weight-strong);
+      line-height: 1.1;
+    }
+
+    .appSub {
+      margin-top: 3px;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: var(--weight-medium);
+      line-height: 1.2;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .syncButton {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      min-width: 44px;
+      min-height: 44px;
+      padding: 0 12px;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: rgba(255, 252, 247, .8);
+      color: var(--sage);
+      font-size: 13px;
+      font-weight: var(--weight-strong);
+      white-space: nowrap;
+    }
+
+    .syncDot {
+      width: 9px;
+      height: 9px;
+      border-radius: 99px;
+      background: var(--honey);
+      box-shadow: 0 0 0 3px rgba(215, 169, 94, .18);
+    }
+
+    .content {
+      flex: 1;
+      min-height: 0;
+      overflow: auto;
+      overscroll-behavior: contain;
+      padding: 14px 18px calc(var(--nav-height) + 92px);
+      scrollbar-width: none;
+    }
+
+    .content::-webkit-scrollbar { display: none; }
+
+    /* Search bar */
+    .searchBar {
+      display: grid;
+      grid-template-columns: 38px 1fr;
+      align-items: center;
+      min-height: 48px;
+      padding: 0 12px;
+      border-radius: 16px;
+      border: 1px solid var(--line);
+      background: var(--bg-sunken);
+      transition: border-color .18s ease;
+    }
+
+    .searchBar:focus-within {
+      border-color: rgba(87, 119, 104, .3);
+    }
+
+    .searchIcon {
+      width: 18px;
+      height: 18px;
+      position: relative;
+    }
+
+    .searchIcon::before {
+      content: "";
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 13px;
+      height: 13px;
+      border: 2px solid var(--muted);
+      border-radius: 99px;
+    }
+
+    .searchIcon::after {
+      content: "";
+      position: absolute;
+      left: 12px;
+      top: 12px;
+      width: 6px;
+      height: 2px;
+      border-radius: 99px;
+      background: var(--muted);
+      transform: rotate(45deg);
+    }
+
+    .searchInput {
+      min-width: 0;
+      height: 44px;
+      border: 0;
+      background: transparent;
+      color: var(--ink);
+      font: inherit;
+      font-size: 14px;
+      font-weight: var(--weight-body);
+    }
+
+    .searchInput::placeholder {
+      color: var(--muted-2);
+    }
+
+    /* Scene filter strip */
+    .filterStrip {
+      display: flex;
+      gap: 8px;
+      margin: 14px 0 4px;
+      padding-bottom: 4px;
+      overflow-x: auto;
+      scrollbar-width: none;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    .filterStrip::-webkit-scrollbar { display: none; }
+
+    .filterPill {
+      flex: 0 0 auto;
+      min-height: 38px;
+      min-width: 64px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0 14px;
+      border-radius: 99px;
+      border: 1px solid rgba(88, 68, 48, .1);
+      background: rgba(255, 252, 247, .78);
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: var(--weight-medium);
+      white-space: nowrap;
+      transition: background-color .18s ease, color .18s ease, border-color .18s ease;
+    }
+
+    .filterPill.active {
+      background: var(--sage-soft);
+      color: var(--sage-2);
+      border-color: rgba(87, 119, 104, .24);
+      font-weight: var(--weight-strong);
+    }
+
+    /* Section header */
+    .sectionHeader {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin: 16px 0 10px;
+    }
+
+    .sectionHeader h2 {
+      margin: 0;
+      color: var(--ink);
+      font-size: 16px;
+      line-height: 1.2;
+      font-weight: var(--weight-strong);
+      letter-spacing: 0;
+    }
+
+    .sectionMeta {
+      color: var(--muted-2);
+      font-size: 12px;
+      font-weight: var(--weight-medium);
+      white-space: nowrap;
+    }
+
+    /* Phrase card */
+    .phraseCard {
+      width: 100%;
+      display: grid;
+      gap: 6px;
+      padding: 16px;
+      border-radius: 20px;
+      border: 1px solid rgba(88, 68, 48, .1);
+      background: var(--surface);
+      box-shadow: var(--soft-shadow);
+      text-align: left;
+      transition: box-shadow .18s ease, transform .18s ease;
+    }
+
+    .phraseCard:active {
+      transform: scale(.995);
+    }
+
+    .phraseCardHead {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      min-height: 28px;
+      padding: 0 10px;
+      border-radius: 99px;
+      font-size: 12px;
+      font-weight: var(--weight-strong);
+      line-height: 1;
+      white-space: nowrap;
+    }
+
+    .pillScene {
+      background: var(--sage-soft);
+      color: var(--sage-2);
+    }
+
+    .pillPractice {
+      min-height: 34px;
+      padding: 0 12px;
+      background: var(--warm-soft);
+      color: var(--warm);
+      font-size: 13px;
+    }
+
+    .phraseEnglish {
+      margin: 0;
+      color: var(--english);
+      font-family: "Fraunces", Georgia, serif;
+      font-size: 28px;
+      font-weight: 500;
+      line-height: 1.18;
+      letter-spacing: 0;
+      overflow-wrap: break-word;
+    }
+
+    .phraseChinese {
+      margin: 0;
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.45;
+      font-weight: var(--weight-body);
+    }
+
+    .phraseCardAction {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      margin-top: 4px;
+    }
+
+    .cardList {
+      display: grid;
+      gap: 10px;
+    }
+
+    /* Refresh button */
+    .refreshRow {
+      display: flex;
+      justify-content: center;
+      margin: 16px 0 8px;
+    }
+
+    .refreshButton {
+      min-height: 44px;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 0 18px;
+      border-radius: 99px;
+      border: 1px solid var(--line);
+      background: rgba(255, 252, 247, .78);
+      color: var(--muted);
+      font-size: 14px;
+      font-weight: var(--weight-medium);
+      transition: background-color .18s ease, color .18s ease;
+    }
+
+    .refreshIcon {
+      width: 16px;
+      height: 16px;
+      position: relative;
+    }
+
+    .refreshIcon::before {
+      content: "";
+      position: absolute;
+      inset: 2px;
+      border: 2px solid currentColor;
+      border-radius: 99px;
+      border-right-color: transparent;
+    }
+
+    .refreshIcon::after {
+      content: "";
+      position: absolute;
+      right: 0;
+      top: 0;
+      width: 0;
+      height: 0;
+      border-left: 5px solid transparent;
+      border-right: 5px solid transparent;
+      border-bottom: 6px solid currentColor;
+    }
+
+    /* Empty state */
+    .emptyState {
+      display: grid;
+      place-items: center;
+      gap: 8px;
+      padding: 48px 24px;
+      text-align: center;
+    }
+
+    .emptyIcon {
+      width: 48px;
+      height: 48px;
+      border-radius: 99px;
+      background: var(--sage-soft);
+      position: relative;
+    }
+
+    .emptyIcon::before {
+      content: "";
+      position: absolute;
+      left: 18px;
+      top: 14px;
+      width: 12px;
+      height: 12px;
+      border: 2px solid var(--sage);
+      border-radius: 99px;
+    }
+
+    .emptyIcon::after {
+      content: "";
+      position: absolute;
+      left: 27px;
+      top: 23px;
+      width: 5px;
+      height: 2px;
+      border-radius: 99px;
+      background: var(--sage);
+      transform: rotate(45deg);
+    }
+
+    .emptyTitle {
+      margin: 0;
+      color: var(--ink);
+      font-size: 16px;
+      font-weight: var(--weight-strong);
+      line-height: 1.3;
+    }
+
+    .emptyCopy {
+      margin: 0;
+      color: var(--muted);
+      font-size: 14px;
+      font-weight: var(--weight-body);
+      line-height: 1.5;
+    }
+
+    /* Bottom nav */
+    .bottomNav {
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      z-index: 6;
+      height: var(--nav-height);
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 2px;
+      padding: 8px 12px 13px;
+      border-top: 1px solid var(--line-soft);
+      background: rgba(255, 252, 247, .92);
+      backdrop-filter: blur(18px);
+    }
+
+    .navItem {
+      min-width: 0;
+      min-height: 58px;
+      display: grid;
+      place-items: center;
+      align-content: center;
+      gap: 4px;
+      padding: 4px 2px;
+      border-radius: 18px;
+      background: transparent;
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: var(--weight-medium);
+      line-height: 1.1;
+    }
+
+    .navItem.active {
+      background: var(--sage-soft);
+      color: var(--sage-2);
+    }
+
+    .navIcon {
+      width: 20px;
+      height: 20px;
+      color: currentColor;
+      position: relative;
+      display: inline-block;
+    }
+
+    .navIcon.home::before {
+      content: "";
+      position: absolute;
+      left: 4px;
+      top: 7px;
+      width: 12px;
+      height: 10px;
+      border: 2px solid currentColor;
+      border-top: 0;
+      border-radius: 3px;
+    }
+
+    .navIcon.home::after {
+      content: "";
+      position: absolute;
+      left: 4px;
+      top: 2px;
+      width: 12px;
+      height: 12px;
+      border-left: 2px solid currentColor;
+      border-top: 2px solid currentColor;
+      transform: rotate(45deg);
+      border-radius: 2px;
+    }
+
+    .navIcon.discover::before {
+      content: "";
+      position: absolute;
+      inset: 3px;
+      border: 2px solid currentColor;
+      transform: rotate(45deg);
+      border-radius: 5px;
+    }
+
+    .navIcon.discover::after {
+      content: "";
+      position: absolute;
+      left: 8px;
+      top: 8px;
+      width: 4px;
+      height: 4px;
+      border-radius: 99px;
+      background: currentColor;
+    }
+
+    .navIcon.garden::before {
+      content: "";
+      position: absolute;
+      left: 9px;
+      top: 5px;
+      width: 2px;
+      height: 13px;
+      border-radius: 99px;
+      background: currentColor;
+    }
+
+    .navIcon.garden::after {
+      content: "";
+      position: absolute;
+      left: 5px;
+      top: 4px;
+      width: 12px;
+      height: 8px;
+      border-radius: 999px 999px 999px 0;
+      background: currentColor;
+      transform: rotate(-28deg);
+      opacity: .82;
+    }
+
+    .navIcon.growth::before {
+      content: "";
+      position: absolute;
+      left: 4px;
+      bottom: 3px;
+      width: 3px;
+      height: 8px;
+      border-radius: 99px;
+      background: currentColor;
+      box-shadow: 6px -4px 0 currentColor, 12px -9px 0 currentColor;
+    }
+
+    /* Mentor FAB */
+    .mentorFab {
+      position: absolute;
+      right: 20px;
+      bottom: calc(var(--nav-height) + 14px);
+      z-index: 7;
+      min-height: 54px;
+      display: inline-flex;
+      align-items: center;
+      gap: 9px;
+      padding: 0 14px 0 10px;
+      border: 1px solid rgba(87, 119, 104, .2);
+      border-radius: 18px;
+      background: rgba(255, 252, 247, .94);
+      color: var(--sage-2);
+      box-shadow: 0 16px 34px rgba(80, 57, 35, .16);
+      backdrop-filter: blur(16px);
+      font-size: 14px;
+      font-weight: var(--weight-strong);
+    }
+
+    .mentorMark {
+      position: relative;
+      flex: 0 0 auto;
+      width: 34px;
+      height: 34px;
+      border-radius: 15px;
+      background: var(--sage-soft);
+      border: 1px solid rgba(87, 119, 104, .16);
+    }
+
+    .mentorMark::before, .mentorMark::after {
+      content: "";
+      position: absolute;
+      border-radius: 99px;
+      background: var(--sage);
+    }
+
+    .mentorMark::before { left: 10px; top: 12px; width: 14px; height: 3px; }
+    .mentorMark::after { left: 12px; top: 18px; width: 10px; height: 3px; opacity: .72; }
+
+    /* Overlay / sheet */
+    .overlay {
+      position: absolute;
+      inset: 0;
+      z-index: 12;
+      display: grid;
+      align-items: end;
+      background: rgba(48, 40, 32, .16);
+    }
+
+    .sheet {
+      max-height: 66%;
+      overflow: auto;
+      overscroll-behavior: contain;
+      padding: 18px 18px 22px;
+      border-top-left-radius: 28px;
+      border-top-right-radius: 28px;
+      border: 1px solid rgba(88, 68, 48, .1);
+      background: rgba(255, 252, 247, .98);
+      box-shadow: 0 -18px 48px rgba(80, 57, 35, .18);
+    }
+
+    .sheetHeader {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .sheetTitle {
+      margin: 0;
+      color: var(--ink);
+      font-size: 20px;
+      font-weight: var(--weight-strong);
+      line-height: 1.2;
+    }
+
+    .sheetCopy {
+      margin: 10px 0 14px;
+      color: var(--muted);
+      font-size: 14px;
+      font-weight: var(--weight-body);
+      line-height: 1.55;
+    }
+
+    .sheetClose {
+      width: 44px;
+      height: 44px;
+      border-radius: 16px;
+      border: 1px solid var(--line);
+      background: rgba(255, 252, 247, .82);
+      color: var(--muted);
+      font-size: 18px;
+      font-weight: var(--weight-strong);
+    }
+
+    .menuList {
+      display: grid;
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    .menuLink {
+      min-height: 48px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 0 13px;
+      border: 1px solid rgba(88, 68, 48, .1);
+      border-radius: 18px;
+      background: rgba(255, 252, 247, .78);
+      color: var(--ink);
+      font-size: 14px;
+      font-weight: var(--weight-medium);
+      text-align: left;
+    }
+
+    .menuLink span:last-child {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: var(--weight-body);
+    }
+
+    .authActions, .sheetActions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    .sheetButton {
+      min-height: 48px;
+      padding: 0 12px;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: rgba(255, 252, 247, .78);
+      color: var(--sage);
+      font-size: 14px;
+      font-weight: var(--weight-strong);
+    }
+
+    .sheetButton.strong {
+      border-color: transparent;
+      background: var(--sage-soft);
+      color: var(--sage-2);
+    }
+
+    /* Review panel */
+    .reviewPanel {
+      padding: 22px;
+      border-radius: 24px;
+      border: 1px solid rgba(88, 68, 48, .12);
+      background: rgba(255, 252, 247, .82);
+      box-shadow: 0 18px 48px rgba(80, 57, 35, .11);
+      color: var(--muted);
+    }
+
+    .reviewPanel h1 {
+      margin: 0 0 10px;
+      color: var(--ink);
+      font-size: 24px;
+      font-weight: 1000;
+      line-height: 1.12;
+    }
+
+    .reviewPanel p {
+      margin: 0 0 14px;
+      font-size: 14px;
+      font-weight: 800;
+      line-height: 1.6;
+    }
+
+    .reviewPanel h2 {
+      margin: 18px 0 8px;
+      color: var(--warm);
+      font-size: 14px;
+      font-weight: 1000;
+    }
+
+    .reviewPanel ul {
+      display: grid;
+      gap: 8px;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .reviewPanel li {
+      padding: 10px 11px;
+      border-radius: 15px;
+      background: rgba(251, 245, 235, .76);
+      border: 1px solid rgba(88, 68, 48, .09);
+      font-size: 13px;
+      font-weight: 800;
+      line-height: 1.45;
+    }
+
+    @keyframes glide {
+      0% { transform: translateX(-120%); }
+      100% { transform: translateX(260%); }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        scroll-behavior: auto !important;
+        transition: none !important;
+        animation: none !important;
+      }
+    }
+
+    @media (max-width: 380px) {
+      body { padding: 10px; }
+      .phone { height: calc(100vh - 20px); min-height: 680px; border-radius: 30px; }
+      .content { padding: 12px 14px calc(var(--nav-height) + 78px); }
+      .appTop { padding-left: 14px; padding-right: 14px; }
+      .phraseEnglish { font-size: 24px; }
+      .filterPill { min-height: 36px; padding: 0 12px; font-size: 12px; }
+      .mentorFab {
+        right: 14px;
+        bottom: calc(var(--nav-height) + 6px);
+        width: 46px;
+        min-height: 46px;
+        padding: 0;
+        justify-content: center;
+        border-radius: 999px;
+      }
+      .mentorMark { width: 22px; height: 22px; }
+      .mentorFab span:last-child {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip-path: inset(50%);
+        white-space: nowrap;
+      }
+    }
+
+    @media (max-width: 860px) {
+      body { align-items: start; }
+      .prototypeShell {
+        grid-template-columns: 1fr;
+        justify-items: center;
+      }
+      .reviewPanel {
+        width: min(414px, 100%);
+        order: 2;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="prototypeShell">
+    <main class="phone" aria-label="BabyTalk Discover V1 prototype">
+      <section class="screen" id="app"></section>
+    </main>
+
+    <aside class="reviewPanel" aria-label="产品审核说明">
+      <h1>Discover V1 审核稿</h1>
+      <p>发现页是家长主动探索短语库的入口。Home 负责"今天先说哪一句"，Discover 负责"还想看看别的场景和句子"。</p>
+      <h2>关键交互</h2>
+      <ul>
+        <li>场景筛选使用横滑 pill，选中态使用青绿高亮，切换时列表平滑更新。</li>
+        <li>短语卡片使用单列卡片流，英文短语是最醒目的文字，点击进入 Practice。</li>
+        <li>搜索栏保持轻量，支持英文和中文实时筛选，不做全屏搜索页。</li>
+        <li>换一批按钮位于列表底部，使用次级样式，不悬浮遮挡内容。</li>
+      </ul>
+      <h2>区别于 Home 和 Practice</h2>
+      <ul>
+        <li>Home 是今日编排：问候、路线、今日短语、活动、花园痕迹。</li>
+        <li>Discover 是场景浏览：搜索、筛选、短语列表、换一批。</li>
+        <li>Practice 只承接"当前一句"的执行。</li>
+      </ul>
+      <h2>产品口径已定</h2>
+      <ul>
+        <li>场景筛选使用横滑 pill，不使用下拉或弹窗。</li>
+        <li>短语卡片使用 --bg-surface 背景，--shadow-sm 阴影。</li>
+        <li>英文短语使用 Fraunces 字体，--english 颜色。</li>
+        <li>空态使用友好文案，不让页面看起来"坏了"。</li>
+        <li>320/360 小屏首屏优先保住搜索栏、场景筛选和第一张短语卡。</li>
+      </ul>
+    </aside>
+  </div>
+
+  <script>
+    (() => {
+      const app = document.getElementById('app');
+
+      const phrases = [
+        { scene: '喂饭', en: 'One more bite.', zh: '再吃一口' },
+        { scene: '喂饭', en: 'Open wide.', zh: '张大嘴' },
+        { scene: '喂饭', en: 'Yummy!', zh: '好吃!' },
+        { scene: '喝水', en: 'Take a sip.', zh: '喝一口' },
+        { scene: '喝水', en: 'Water time.', zh: '喝水时间' },
+        { scene: '换尿布', en: 'Fresh diaper.', zh: '换好啦' },
+        { scene: '换尿布', en: 'All clean.', zh: '干净啦' },
+        { scene: '洗澡', en: 'Nice and clean.', zh: '干净啦' },
+        { scene: '洗澡', en: 'Splash splash.', zh: '哗哗哗' },
+        { scene: '睡前', en: 'Time to sleep.', zh: '该睡觉了' },
+        { scene: '睡前', en: 'Good night.', zh: '晚安' },
+        { scene: '睡前', en: 'Sweet dreams.', zh: '做个好梦' },
+        { scene: '出门', en: 'Hold my hand.', zh: '牵着手' },
+        { scene: '出门', en: 'Shoes on.', zh: '穿鞋啦' },
+        { scene: '出门', en: 'Let\'s go!', zh: '出发!' }
+      ];
+
+      const scenes = ['全部', '喂饭', '喝水', '换尿布', '洗澡', '睡前', '出门'];
+
+      const state = {
+        filter: '全部',
+        search: '',
+        menuOpen: false,
+        authOpen: false
+      };
+
+      function filteredPhrases() {
+        let list = phrases;
+        if (state.filter !== '全部') {
+          list = list.filter(p => p.scene === state.filter);
+        }
+        if (state.search.trim()) {
+          const q = state.search.trim().toLowerCase();
+          list = list.filter(p =>
+            p.en.toLowerCase().includes(q) ||
+            p.zh.includes(state.search.trim())
+          );
+        }
+        return list;
+      }
+
+      function escapeHtml(value) {
+        return String(value)
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;')
+          .replace(/'/g, '&#39;');
+      }
+
+      function appChrome() {
+        return `
+          <div class="status">9:41</div>
+          <header class="appTop">
+            <button class="iconButton" id="drawerBtn" type="button" aria-label="打开菜单">
+              <span class="menuMark" aria-hidden="true"></span>
+            </button>
+            <div class="titleBlock">
+              <div class="appName">BabyTalk</div>
+              <div class="appSub">每天一句亲子英语</div>
+            </div>
+            <button class="syncButton" id="syncBtn" type="button" aria-label="账号与同步入口">
+              <span class="syncDot" aria-hidden="true"></span><span>账号</span>
+            </button>
+          </header>
+        `;
+      }
+
+      function searchBar() {
+        return `
+          <div class="searchBar">
+            <span class="searchIcon" aria-hidden="true"></span>
+            <input class="searchInput" id="searchInput" type="text" maxlength="60"
+              value="${escapeHtml(state.search)}"
+              placeholder="搜索短语或场景..."
+              aria-label="搜索短语或场景">
+          </div>
+        `;
+      }
+
+      function filterStrip() {
+        return `
+          <div class="filterStrip" role="tablist" aria-label="场景筛选">
+            ${scenes.map(scene => `
+              <button class="filterPill ${scene === state.filter ? 'active' : ''}"
+                data-scene="${scene}"
+                role="tab"
+                aria-selected="${scene === state.filter}"
+                type="button">${scene}</button>
+            `).join('')}
+          </div>
+        `;
+      }
+
+      function phraseCard(phrase) {
+        return `
+          <button class="phraseCard" data-practice="${escapeHtml(phrase.en)}" data-scene="${escapeHtml(phrase.scene)}" data-zh="${escapeHtml(phrase.zh)}" type="button">
+            <div class="phraseCardHead">
+              <span class="pill pillScene">${phrase.scene}</span>
+              <span class="pill pillPractice">练这一句</span>
+            </div>
+            <p class="phraseEnglish">${phrase.en}</p>
+            <p class="phraseChinese">${phrase.zh}</p>
+          </button>
+        `;
+      }
+
+      function phraseList() {
+        const list = filteredPhrases();
+        if (list.length === 0) {
+          return `
+            <div class="emptyState">
+              <div class="emptyIcon" aria-hidden="true"></div>
+              <p class="emptyTitle">${state.search.trim() ? '没有找到匹配的短语' : '这个场景还没有短语'}</p>
+              <p class="emptyCopy">${state.search.trim() ? '换个关键词试试' : '换个场景试试'}</p>
+            </div>
+          `;
+        }
+        return `
+          <div class="sectionHeader">
+            <h2>短语库</h2>
+            <span class="sectionMeta">${list.length} 条短语</span>
+          </div>
+          <div class="cardList">
+            ${list.map(phraseCard).join('')}
+          </div>
+          <div class="refreshRow">
+            <button class="refreshButton" id="refreshBtn" type="button">
+              <span class="refreshIcon" aria-hidden="true"></span>
+              <span>换一批短语</span>
+            </button>
+          </div>
+        `;
+      }
+
+      function bottomNav() {
+        const items = [
+          ['home', '首页', 'home'],
+          ['discover', '发现', 'discover'],
+          ['garden', '花园', 'garden'],
+          ['growth', '成长', 'growth']
+        ];
+        return `
+          <nav class="bottomNav" aria-label="主要导航">
+            ${items.map(([id, label, icon]) => `
+              <button class="navItem ${id === 'discover' ? 'active' : ''}" type="button" aria-current="${id === 'discover' ? 'page' : 'false'}">
+                <span class="navIcon ${icon}" aria-hidden="true"></span>
+                <span>${label}</span>
+              </button>
+            `).join('')}
+          </nav>
+        `;
+      }
+
+      function mentorFab() {
+        return `
+          <button class="mentorFab" id="mentorFab" type="button" aria-label="问小禾老师">
+            <span class="mentorMark" aria-hidden="true"></span>
+            <span>问小禾</span>
+          </button>
+        `;
+      }
+
+      function menuSheet() {
+        if (!state.menuOpen) return '';
+        return `
+          <div class="overlay" role="dialog" aria-modal="true" aria-label="更多入口">
+            <section class="sheet">
+              <div class="sheetHeader">
+                <div>
+                  <h2 class="sheetTitle">更多设置</h2>
+                  <p class="sheetCopy">提醒、宝宝档案和照护者偏好放在这里。</p>
+                </div>
+                <button class="sheetClose" id="closeMenu" type="button" aria-label="关闭菜单">×</button>
+              </div>
+              <div class="menuList">
+                <button class="menuLink" data-menu="reminder" type="button"><span>提醒时间</span><span>按照护节奏</span></button>
+                <button class="menuLink" data-menu="profile" type="button"><span>宝宝档案</span><span>月龄与称呼</span></button>
+                <button class="menuLink" data-menu="caregiver" type="button"><span>照护者偏好</span><span>妈妈、爸爸、老人</span></button>
+                <button class="menuLink" data-menu="audio" type="button"><span>播放偏好</span><span>音量与语速</span></button>
+                <button class="menuLink" data-menu="help" type="button"><span>帮助与反馈</span><span>遇到问题</span></button>
+              </div>
+            </section>
+          </div>
+        `;
+      }
+
+      function authSheet() {
+        if (!state.authOpen) return '';
+        return `
+          <div class="overlay" role="dialog" aria-modal="true" aria-label="同步与账号">
+            <section class="sheet">
+              <div class="sheetHeader">
+                <div>
+                  <h2 class="sheetTitle">账号与同步</h2>
+                  <p class="sheetCopy">不用登录也能先体验。登录后，今天说过的句子和花园痕迹会同步到账号。</p>
+                </div>
+                <button class="sheetClose" id="closeAuth" type="button" aria-label="关闭同步入口">×</button>
+              </div>
+              <div class="authActions">
+                <button class="sheetButton" id="authLater" type="button">稍后再说</button>
+                <button class="sheetButton strong" id="authLogin" type="button">去登录</button>
+              </div>
+            </section>
+          </div>
+        `;
+      }
+
+      function render() {
+        app.innerHTML = `
+          ${appChrome()}
+          <div class="content">
+            ${searchBar()}
+            ${filterStrip()}
+            ${phraseList()}
+          </div>
+          ${mentorFab()}
+          ${bottomNav()}
+          ${menuSheet()}
+          ${authSheet()}
+        `;
+        bindAll();
+      }
+
+      function bindAll() {
+        const searchInput = document.getElementById('searchInput');
+        if (searchInput) {
+          searchInput.oninput = () => {
+            state.search = searchInput.value.slice(0, 60);
+            render();
+            const newInput = document.getElementById('searchInput');
+            if (newInput) {
+              newInput.focus();
+              newInput.setSelectionRange(newInput.value.length, newInput.value.length);
+            }
+          };
+        }
+
+        document.querySelectorAll('[data-scene]').forEach(button => {
+          button.onclick = () => {
+            state.filter = button.dataset.scene;
+            render();
+          };
+        });
+
+        document.querySelectorAll('[data-practice]').forEach(button => {
+          button.onclick = () => {
+            // In real app: navigate to Practice with phrase data
+            alert(`进入练习: ${button.dataset.scene} - ${button.dataset.practice}`);
+          };
+        });
+
+        const refreshBtn = document.getElementById('refreshBtn');
+        if (refreshBtn) {
+          refreshBtn.onclick = () => {
+            // In real app: call backend for new batch
+            render();
+          };
+        }
+
+        const drawerBtn = document.getElementById('drawerBtn');
+        if (drawerBtn) drawerBtn.onclick = () => {
+          state.menuOpen = true;
+          state.authOpen = false;
+          render();
+        };
+
+        const closeMenu = document.getElementById('closeMenu');
+        if (closeMenu) closeMenu.onclick = () => {
+          state.menuOpen = false;
+          render();
+        };
+
+        document.querySelectorAll('[data-menu]').forEach(button => {
+          button.onclick = () => {
+            state.menuOpen = false;
+            render();
+          };
+        });
+
+        const syncBtn = document.getElementById('syncBtn');
+        if (syncBtn) syncBtn.onclick = () => {
+          state.authOpen = true;
+          state.menuOpen = false;
+          render();
+        };
+
+        const closeAuth = document.getElementById('closeAuth');
+        if (closeAuth) closeAuth.onclick = () => {
+          state.authOpen = false;
+          render();
+        };
+
+        const authLater = document.getElementById('authLater');
+        if (authLater) authLater.onclick = () => {
+          state.authOpen = false;
+          render();
+        };
+
+        const authLogin = document.getElementById('authLogin');
+        if (authLogin) authLogin.onclick = () => {
+          state.authOpen = false;
+          render();
+        };
+
+        const mentorFab = document.getElementById('mentorFab');
+        if (mentorFab) mentorFab.onclick = () => {
+          alert('打开小禾面板');
+        };
+      }
+
+      render();
+    })();
+  </script>
+</body>
+</html>

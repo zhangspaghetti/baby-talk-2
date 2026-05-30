@@ -1,0 +1,793 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>BabyTalk Shell V1 Navigation</title>
+  <style>
+    :root {
+      --bg-base: #FFF8F0;
+      --bg-surface: #FFFFFF;
+      --bg-sunken: #F5F0EB;
+      --accent: #FF8C42;
+      --accent-dark: #E67A30;
+      --english: #3B8577;
+      --english-soft: #D4E8E3;
+      --text-primary: #2D2926;
+      --text-secondary: #6B5E57;
+      --text-muted: #8A7D76;
+      --paper: var(--bg-base);
+      --ink: var(--text-primary);
+      --muted: var(--text-secondary);
+      --muted-2: var(--text-muted);
+      --warm: var(--accent);
+      --warm-soft: rgba(255, 140, 66, .12);
+      --sage: var(--english);
+      --sage-2: #2F6B60;
+      --sage-soft: rgba(212, 232, 227, .72);
+      --honey: #E6A817;
+      --error: #D94B3C;
+      --line: rgba(88, 68, 48, .13);
+      --line-soft: rgba(88, 68, 48, .08);
+      --shadow: 0 8px 24px rgba(45, 41, 38, .12);
+      --nav-height: 82px;
+      --weight-strong: 700;
+      --weight-medium: 600;
+      --weight-body: 500;
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body { min-height: 100%; overscroll-behavior: contain; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      padding: 18px;
+      background: var(--bg-base);
+      color: var(--ink);
+      font-family: "DM Sans", "PingFang SC", "Noto Sans SC", "Microsoft YaHei", system-ui, sans-serif;
+    }
+
+    button {
+      min-height: 44px;
+      border: 0;
+      font: inherit;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    button:focus-visible, [tabindex]:focus-visible {
+      outline: 3px solid rgba(87, 119, 104, .42);
+      outline-offset: 3px;
+    }
+
+    .prototypeShell {
+      width: min(1100px, 100%);
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 340px));
+      gap: 24px;
+      align-items: start;
+    }
+
+    .phoneWrap {
+      display: grid;
+      gap: 10px;
+      justify-items: center;
+    }
+
+    .phoneLabel {
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 800;
+      text-align: center;
+    }
+
+    .phone {
+      width: 340px;
+      height: 680px;
+      overflow: hidden;
+      border-radius: 30px;
+      border: 1px solid rgba(118, 92, 70, .16);
+      background: var(--paper);
+      box-shadow: var(--shadow);
+    }
+
+    .screen {
+      position: relative;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .status {
+      flex: 0 0 24px;
+      padding-top: 7px;
+      text-align: center;
+      color: rgba(48, 40, 32, .56);
+      font-size: 11px;
+      font-weight: 800;
+    }
+
+    /* Top bar */
+    .appTop {
+      flex: 0 0 54px;
+      display: grid;
+      grid-template-columns: 40px minmax(0, 1fr) auto;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 14px;
+      border-bottom: 1px solid var(--line-soft);
+      background: rgba(255, 252, 247, .62);
+    }
+
+    .iconButton {
+      width: 40px;
+      height: 40px;
+      display: inline-grid;
+      place-items: center;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: rgba(255, 252, 247, .78);
+      color: var(--warm);
+      font-weight: var(--weight-strong);
+    }
+
+    .menuMark, .menuMark::before, .menuMark::after {
+      display: block;
+      width: 16px;
+      height: 2px;
+      border-radius: 99px;
+      background: currentColor;
+    }
+
+    .menuMark { position: relative; }
+    .menuMark::before, .menuMark::after { content: ""; position: absolute; left: 0; }
+    .menuMark::before { top: -5px; }
+    .menuMark::after { top: 5px; }
+
+    .titleBlock { min-width: 0; }
+
+    .appName {
+      color: var(--ink);
+      font-size: 15px;
+      font-weight: var(--weight-strong);
+      line-height: 1.1;
+    }
+
+    .appSub {
+      margin-top: 2px;
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: var(--weight-medium);
+      line-height: 1.2;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .syncButton {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      min-width: 40px;
+      min-height: 40px;
+      padding: 0 10px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: rgba(255, 252, 247, .8);
+      color: var(--sage);
+      font-size: 12px;
+      font-weight: var(--weight-strong);
+      white-space: nowrap;
+    }
+
+    .syncDot {
+      width: 8px;
+      height: 8px;
+      border-radius: 99px;
+    }
+
+    .syncDot.amber { background: var(--honey); box-shadow: 0 0 0 2px rgba(215, 169, 94, .18); }
+    .syncDot.green { background: var(--sage); box-shadow: 0 0 0 2px rgba(87, 119, 104, .18); }
+    .syncDot.red { background: var(--error); box-shadow: 0 0 0 2px rgba(217, 75, 60, .18); }
+
+    /* Content placeholder */
+    .content {
+      flex: 1;
+      min-height: 0;
+      overflow: auto;
+      padding: 12px 14px calc(var(--nav-height) + 60px);
+      scrollbar-width: none;
+    }
+
+    .content::-webkit-scrollbar { display: none; }
+
+    .placeholder {
+      padding: 24px 0;
+      text-align: center;
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: var(--weight-medium);
+    }
+
+    .placeholderBlock {
+      height: 80px;
+      margin: 12px 0;
+      border-radius: 16px;
+      border: 1px dashed rgba(88, 68, 48, .14);
+      background: rgba(255, 252, 247, .5);
+    }
+
+    /* Bottom nav */
+    .bottomNav {
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      z-index: 6;
+      height: var(--nav-height);
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 2px;
+      padding: 6px 10px 10px;
+      border-top: 1px solid var(--line-soft);
+      background: rgba(255, 252, 247, .92);
+      backdrop-filter: blur(18px);
+    }
+
+    .navItem {
+      min-width: 0;
+      min-height: 52px;
+      display: grid;
+      place-items: center;
+      align-content: center;
+      gap: 3px;
+      padding: 3px 2px;
+      border-radius: 14px;
+      background: transparent;
+      color: var(--muted);
+      font-size: 10px;
+      font-weight: var(--weight-medium);
+      line-height: 1.1;
+    }
+
+    .navItem.active {
+      background: var(--sage-soft);
+      color: var(--sage-2);
+    }
+
+    .navIcon {
+      width: 18px;
+      height: 18px;
+      color: currentColor;
+      position: relative;
+      display: inline-block;
+    }
+
+    .navIcon.home::before {
+      content: "";
+      position: absolute;
+      left: 3px;
+      top: 6px;
+      width: 12px;
+      height: 9px;
+      border: 2px solid currentColor;
+      border-top: 0;
+      border-radius: 3px;
+    }
+
+    .navIcon.home::after {
+      content: "";
+      position: absolute;
+      left: 3px;
+      top: 1px;
+      width: 12px;
+      height: 12px;
+      border-left: 2px solid currentColor;
+      border-top: 2px solid currentColor;
+      transform: rotate(45deg);
+      border-radius: 2px;
+    }
+
+    .navIcon.discover::before {
+      content: "";
+      position: absolute;
+      inset: 2px;
+      border: 2px solid currentColor;
+      transform: rotate(45deg);
+      border-radius: 4px;
+    }
+
+    .navIcon.discover::after {
+      content: "";
+      position: absolute;
+      left: 7px;
+      top: 7px;
+      width: 4px;
+      height: 4px;
+      border-radius: 99px;
+      background: currentColor;
+    }
+
+    .navIcon.garden::before {
+      content: "";
+      position: absolute;
+      left: 8px;
+      top: 4px;
+      width: 2px;
+      height: 12px;
+      border-radius: 99px;
+      background: currentColor;
+    }
+
+    .navIcon.garden::after {
+      content: "";
+      position: absolute;
+      left: 4px;
+      top: 3px;
+      width: 11px;
+      height: 7px;
+      border-radius: 999px 999px 999px 0;
+      background: currentColor;
+      transform: rotate(-28deg);
+      opacity: .82;
+    }
+
+    .navIcon.growth::before {
+      content: "";
+      position: absolute;
+      left: 3px;
+      bottom: 2px;
+      width: 3px;
+      height: 7px;
+      border-radius: 99px;
+      background: currentColor;
+      box-shadow: 5px -3px 0 currentColor, 10px -8px 0 currentColor;
+    }
+
+    /* Mentor FAB */
+    .mentorFab {
+      position: absolute;
+      right: 16px;
+      bottom: calc(var(--nav-height) + 10px);
+      z-index: 7;
+      min-height: 46px;
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      padding: 0 12px 0 8px;
+      border: 1px solid rgba(87, 119, 104, .2);
+      border-radius: 14px;
+      background: rgba(255, 252, 247, .94);
+      color: var(--sage-2);
+      box-shadow: 0 12px 28px rgba(80, 57, 35, .14);
+      backdrop-filter: blur(16px);
+      font-size: 12px;
+      font-weight: var(--weight-strong);
+    }
+
+    .mentorFab.hidden { display: none; }
+
+    .mentorFabCircle {
+      position: absolute;
+      right: 16px;
+      bottom: calc(var(--nav-height) + 10px);
+      z-index: 7;
+      width: 46px;
+      height: 46px;
+      display: inline-grid;
+      place-items: center;
+      border: 1px solid rgba(87, 119, 104, .2);
+      border-radius: 999px;
+      background: rgba(255, 252, 247, .94);
+      box-shadow: 0 12px 28px rgba(80, 57, 35, .14);
+      backdrop-filter: blur(16px);
+    }
+
+    .mentorFabCircle.hidden { display: none; }
+
+    .mentorMark {
+      position: relative;
+      flex: 0 0 auto;
+      width: 28px;
+      height: 28px;
+      border-radius: 12px;
+      background: var(--sage-soft);
+      border: 1px solid rgba(87, 119, 104, .16);
+    }
+
+    .mentorMark::before, .mentorMark::after {
+      content: "";
+      position: absolute;
+      border-radius: 99px;
+      background: var(--sage);
+    }
+
+    .mentorMark::before { left: 8px; top: 10px; width: 12px; height: 2px; }
+    .mentorMark::after { left: 10px; top: 15px; width: 8px; height: 2px; opacity: .72; }
+
+    /* Sheet overlay */
+    .overlay {
+      position: absolute;
+      inset: 0;
+      z-index: 12;
+      display: grid;
+      align-items: end;
+      background: rgba(48, 40, 32, .16);
+    }
+
+    .sheet {
+      max-height: 66%;
+      overflow: auto;
+      padding: 16px 16px 20px;
+      border-top-left-radius: 24px;
+      border-top-right-radius: 24px;
+      border: 1px solid rgba(88, 68, 48, .1);
+      background: rgba(255, 252, 247, .98);
+      box-shadow: 0 -16px 40px rgba(80, 57, 35, .16);
+    }
+
+    .sheetHeader {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .sheetTitle {
+      margin: 0;
+      color: var(--ink);
+      font-size: 18px;
+      font-weight: var(--weight-strong);
+      line-height: 1.2;
+    }
+
+    .sheetCopy {
+      margin: 8px 0 12px;
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: var(--weight-body);
+      line-height: 1.5;
+    }
+
+    .sheetClose {
+      width: 40px;
+      height: 40px;
+      border-radius: 14px;
+      border: 1px solid var(--line);
+      background: rgba(255, 252, 247, .82);
+      color: var(--muted);
+      font-size: 16px;
+      font-weight: var(--weight-strong);
+    }
+
+    .menuList {
+      display: grid;
+      gap: 6px;
+      margin-top: 10px;
+    }
+
+    .menuLink {
+      min-height: 44px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 0 12px;
+      border: 1px solid rgba(88, 68, 48, .1);
+      border-radius: 14px;
+      background: rgba(255, 252, 247, .78);
+      color: var(--ink);
+      font-size: 13px;
+      font-weight: var(--weight-medium);
+      text-align: left;
+    }
+
+    .menuLink span:last-child {
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: var(--weight-body);
+    }
+
+    .authActions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+      margin-top: 10px;
+    }
+
+    .sheetButton {
+      min-height: 44px;
+      padding: 0 10px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: rgba(255, 252, 247, .78);
+      color: var(--sage);
+      font-size: 13px;
+      font-weight: var(--weight-strong);
+    }
+
+    .sheetButton.strong {
+      border-color: transparent;
+      background: var(--sage-soft);
+      color: var(--sage-2);
+    }
+
+    /* Review panel - full width below */
+    .reviewPanel {
+      grid-column: 1 / -1;
+      padding: 22px;
+      border-radius: 24px;
+      border: 1px solid rgba(88, 68, 48, .12);
+      background: rgba(255, 252, 247, .82);
+      box-shadow: 0 18px 48px rgba(80, 57, 35, .11);
+      color: var(--muted);
+    }
+
+    .reviewPanel h1 {
+      margin: 0 0 10px;
+      color: var(--ink);
+      font-size: 22px;
+      font-weight: 1000;
+      line-height: 1.12;
+    }
+
+    .reviewPanel p {
+      margin: 0 0 12px;
+      font-size: 13px;
+      font-weight: 800;
+      line-height: 1.6;
+    }
+
+    .reviewPanel h2 {
+      margin: 16px 0 6px;
+      color: var(--warm);
+      font-size: 13px;
+      font-weight: 1000;
+    }
+
+    .reviewPanel ul {
+      display: grid;
+      gap: 6px;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .reviewPanel li {
+      padding: 8px 10px;
+      border-radius: 12px;
+      background: rgba(251, 245, 235, .76);
+      border: 1px solid rgba(88, 68, 48, .09);
+      font-size: 12px;
+      font-weight: 800;
+      line-height: 1.45;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        scroll-behavior: auto !important;
+        transition: none !important;
+        animation: none !important;
+      }
+    }
+
+    @media (max-width: 1100px) {
+      .prototypeShell {
+        grid-template-columns: repeat(2, minmax(0, 340px));
+      }
+    }
+
+    @media (max-width: 740px) {
+      body { align-items: start; padding: 12px; }
+      .prototypeShell {
+        grid-template-columns: 1fr;
+        justify-items: center;
+      }
+      .phone { width: min(340px, 100%); height: 640px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="prototypeShell">
+    <!-- Phone 1: Home with drawer open -->
+    <div class="phoneWrap">
+      <div class="phoneLabel">首页 + Drawer</div>
+      <main class="phone" aria-label="Shell - Home with Drawer">
+        <section class="screen" id="phone1"></section>
+      </main>
+    </div>
+
+    <!-- Phone 2: Discover with FAB -->
+    <div class="phoneWrap">
+      <div class="phoneLabel">发现 + FAB</div>
+      <main class="phone" aria-label="Shell - Discover with FAB">
+        <section class="screen" id="phone2"></section>
+      </main>
+    </div>
+
+    <!-- Phone 3: Account states -->
+    <div class="phoneWrap">
+      <div class="phoneLabel">账号状态</div>
+      <main class="phone" aria-label="Shell - Account states">
+        <section class="screen" id="phone3"></section>
+      </main>
+    </div>
+
+    <!-- Review panel -->
+    <aside class="reviewPanel" aria-label="Shell 审核说明">
+      <h1>Shell V1 导航审核稿</h1>
+      <p>Shell 是 app 的全局导航框架，包含底部四 Tab、顶部栏、Drawer、账号入口和小禾 FAB。三台手机分别展示：首页+Drawer、发现+FAB、账号状态。</p>
+      <h2>关键设计</h2>
+      <ul>
+        <li>底部四 Tab 使用 CSS 伪元素绘制图标，选中态用 --sage-soft 背景 + --sage-2 文字。</li>
+        <li>Drawer 采用底部 sheet 样式，从底部滑入，最大高度 66%。</li>
+        <li>小禾 FAB 在首页隐藏（首页用内联入口），其他页面右下角固定。</li>
+        <li>账号入口区分未登录（琥珀点）、已同步（绿点）、同步失败（红点）三种状态。</li>
+        <li>顶部栏在所有页面保持一致：菜单 / BabyTalk / 账号。</li>
+      </ul>
+      <h2>规则</h2>
+      <ul>
+        <li>Drawer 不承载主 Tab 入口，只放设置类功能。</li>
+        <li>FAB 不遮挡主要内容和主按钮。</li>
+        <li>账号入口不阻断主路径，未登录时可继续体验。</li>
+        <li>所有触控目标不小于 44px。</li>
+        <li>转场动画支持 prefers-reduced-motion。</li>
+      </ul>
+    </aside>
+  </div>
+
+  <script>
+    (() => {
+      const navItems = [
+        { id: 'home', label: '首页', icon: 'home' },
+        { id: 'discover', label: '发现', icon: 'discover' },
+        { id: 'garden', label: '花园', icon: 'garden' },
+        { id: 'growth', label: '成长', icon: 'growth' }
+      ];
+
+      const menuItems = [
+        { label: '提醒时间', desc: '按照护节奏' },
+        { label: '宝宝档案', desc: '月龄与称呼' },
+        { label: '照护者偏好', desc: '妈妈、爸爸、老人' },
+        { label: '播放偏好', desc: '音量与语速' },
+        { label: '帮助与反馈', desc: '遇到问题' }
+      ];
+
+      function escapeHtml(v) {
+        return String(v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+      }
+
+      function topBar(syncDotClass, syncLabel) {
+        return `
+          <div class="status">9:41</div>
+          <header class="appTop">
+            <button class="iconButton" type="button" aria-label="打开菜单">
+              <span class="menuMark" aria-hidden="true"></span>
+            </button>
+            <div class="titleBlock">
+              <div class="appName">BabyTalk</div>
+              <div class="appSub">每天一句亲子英语</div>
+            </div>
+            <button class="syncButton" type="button" aria-label="账号入口">
+              <span class="syncDot ${syncDotClass}" aria-hidden="true"></span><span>${syncLabel}</span>
+            </button>
+          </header>
+        `;
+      }
+
+      function bottomNav(activeId) {
+        return `
+          <nav class="bottomNav" aria-label="主要导航">
+            ${navItems.map(item => `
+              <button class="navItem ${item.id === activeId ? 'active' : ''}" type="button" aria-current="${item.id === activeId ? 'page' : 'false'}">
+                <span class="navIcon ${item.icon}" aria-hidden="true"></span>
+                <span>${item.label}</span>
+              </button>
+            `).join('')}
+          </nav>
+        `;
+      }
+
+      function mentorFab(show, text) {
+        if (!show) return '';
+        if (text) {
+          return `
+            <button class="mentorFab" type="button" aria-label="问小禾老师">
+              <span class="mentorMark" aria-hidden="true"></span>
+              <span>${text}</span>
+            </button>
+          `;
+        }
+        return `
+          <button class="mentorFabCircle" type="button" aria-label="问小禾老师">
+            <span class="mentorMark" aria-hidden="true"></span>
+          </button>
+        `;
+      }
+
+      function placeholderContent(label) {
+        return `
+          <div class="content">
+            <div class="placeholder">${label}</div>
+            <div class="placeholderBlock"></div>
+            <div class="placeholderBlock"></div>
+          </div>
+        `;
+      }
+
+      // Phone 1: Home + Drawer open
+      function renderPhone1() {
+        const el = document.getElementById('phone1');
+        el.innerHTML = `
+          ${topBar('amber', '账号')}
+          ${placeholderContent('首页内容区')}
+          ${mentorFab(false)}
+          ${bottomNav('home')}
+          <div class="overlay" role="dialog" aria-modal="true" aria-label="更多设置">
+            <section class="sheet">
+              <div class="sheetHeader">
+                <div>
+                  <h2 class="sheetTitle">更多设置</h2>
+                  <p class="sheetCopy">提醒、宝宝档案和照护者偏好放在这里。</p>
+                </div>
+                <button class="sheetClose" type="button" aria-label="关闭">×</button>
+              </div>
+              <div class="menuList">
+                ${menuItems.map(item => `
+                  <button class="menuLink" type="button"><span>${item.label}</span><span>${item.desc}</span></button>
+                `).join('')}
+              </div>
+            </section>
+          </div>
+        `;
+      }
+
+      // Phone 2: Discover + FAB
+      function renderPhone2() {
+        const el = document.getElementById('phone2');
+        el.innerHTML = `
+          ${topBar('green', '已同步')}
+          ${placeholderContent('发现页内容区')}
+          ${mentorFab(true, '问小禾')}
+          ${bottomNav('discover')}
+        `;
+      }
+
+      // Phone 3: Account states
+      function renderPhone3() {
+        const el = document.getElementById('phone3');
+        el.innerHTML = `
+          ${topBar('green', '已同步')}
+          ${placeholderContent('花园页内容区')}
+          ${mentorFab(true)}
+          ${bottomNav('garden')}
+          <div class="overlay" role="dialog" aria-modal="true" aria-label="账号与同步">
+            <section class="sheet">
+              <div class="sheetHeader">
+                <div>
+                  <h2 class="sheetTitle">账号与同步</h2>
+                  <p class="sheetCopy">已登录。今天说过的句子和花园痕迹会同步到账号。</p>
+                </div>
+                <button class="sheetClose" type="button" aria-label="关闭">×</button>
+              </div>
+              <div class="authActions">
+                <button class="sheetButton" type="button">退出登录</button>
+                <button class="sheetButton strong" type="button">知道了</button>
+              </div>
+            </section>
+          </div>
+        `;
+      }
+
+      renderPhone1();
+      renderPhone2();
+      renderPhone3();
+    })();
+  </script>
+</body>
+</html>

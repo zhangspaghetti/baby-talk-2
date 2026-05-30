@@ -1,0 +1,746 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>BabyTalk 成长 - Warm Growth V1</title>
+<style>
+  /* === DESIGN TOKENS === */
+  :root {
+    --bg-base: #FFF8F0;
+    --bg-surface: #FFFFFF;
+    --bg-sunken: #F5F0EB;
+    --bg-accent-soft: #FFF0E5;
+    --accent: #FF8C42;
+    --accent-dark: #E67A30;
+    --accent-light: #FFF0E5;
+    --english: #3B8577;
+    --english-soft: #D4E8E3;
+    --text-primary: #2D2926;
+    --text-secondary: #6B5E57;
+    --text-muted: #8A7D76;
+    --text-on-accent: #FFFFFF;
+    --success: #6B8F5E;
+    --success-soft: #E8F0E5;
+    --border: #E8E0D8;
+    --shadow-sm: 0 1px 3px rgba(45,41,38,0.06);
+    --shadow-md: 0 2px 12px rgba(45,41,38,0.08);
+    --radius-sm: 8px;
+    --radius-md: 16px;
+    --radius-lg: 24px;
+    --radius-full: 9999px;
+    --space-xs: 4px;
+    --space-sm: 8px;
+    --space-md: 16px;
+    --space-lg: 24px;
+    --space-xl: 32px;
+    --space-2xl: 48px;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'PingFang SC', 'Noto Sans SC', 'Microsoft YaHei', sans-serif;
+    background: var(--bg-base);
+    color: var(--text-primary);
+    max-width: 430px;
+    margin: 0 auto;
+    min-height: 100vh;
+    position: relative;
+    padding-bottom: 80px;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* === TOP BAR === */
+  .top-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 20px;
+    background: var(--bg-base);
+    position: sticky;
+    top: 0;
+    z-index: 10;
+  }
+  .top-bar .back-btn {
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    border-radius: var(--radius-full);
+    color: var(--text-primary);
+    font-size: 20px;
+  }
+  .top-bar .back-btn:hover { background: var(--bg-sunken); }
+  .top-bar .title {
+    font-size: 17px;
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+  .top-bar .spacer { width: 40px; }
+
+  /* === SUMMARY CARD === */
+  .summary-card {
+    margin: 8px 16px 24px;
+    padding: 24px;
+    background: var(--bg-surface);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-md);
+  }
+  .summary-card .summary-main {
+    font-size: 18px;
+    font-weight: 500;
+    color: var(--text-primary);
+    line-height: 1.5;
+    margin-bottom: 8px;
+  }
+  .summary-card .summary-main .num {
+    font-family: 'DM Sans', sans-serif;
+    font-weight: 700;
+    color: var(--english);
+    font-variant-numeric: tabular-nums;
+  }
+  .summary-card .summary-sub {
+    font-size: 14px;
+    color: var(--text-secondary);
+    line-height: 1.5;
+  }
+  .summary-card .summary-sub .num {
+    font-family: 'DM Sans', sans-serif;
+    font-weight: 600;
+    color: var(--text-primary);
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* === SECTION === */
+  .section {
+    margin: 0 16px 24px;
+  }
+  .section-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-muted);
+    letter-spacing: 0.5px;
+    margin-bottom: 16px;
+  }
+
+  /* === SCENE PROGRESS === */
+  .scene-progress-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 12px;
+  }
+  .scene-progress-item:last-child { margin-bottom: 0; }
+  .scene-progress-item .scene-name {
+    font-size: 14px;
+    color: var(--text-secondary);
+    min-width: 48px;
+    flex-shrink: 0;
+  }
+  .scene-progress-item .progress-track {
+    flex: 1;
+    height: 4px;
+    background: var(--bg-sunken);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+  .scene-progress-item .progress-fill {
+    height: 100%;
+    background: var(--english);
+    border-radius: 2px;
+    transition: width 0.3s ease;
+  }
+  .scene-progress-item .scene-count {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-primary);
+    min-width: 32px;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* === MILESTONES === */
+  .milestone-list {
+    background: var(--bg-surface);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-sm);
+    overflow: hidden;
+  }
+  .milestone-item {
+    display: flex;
+    align-items: center;
+    padding: 14px 20px;
+    gap: 12px;
+    border-bottom: 1px solid var(--bg-sunken);
+  }
+  .milestone-item:last-child { border-bottom: none; }
+  .milestone-item .milestone-icon {
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  .milestone-item .milestone-icon.done {
+    color: var(--success);
+  }
+  .milestone-item .milestone-icon.pending {
+    color: var(--text-muted);
+  }
+  .milestone-item .milestone-content {
+    flex: 1;
+    min-width: 0;
+  }
+  .milestone-item .milestone-name {
+    font-size: 15px;
+    font-weight: 500;
+    color: var(--text-primary);
+    line-height: 1.4;
+  }
+  .milestone-item.pending .milestone-name {
+    color: var(--text-muted);
+  }
+  .milestone-item .milestone-detail {
+    font-size: 12px;
+    color: var(--text-muted);
+    line-height: 1.4;
+    margin-top: 2px;
+  }
+  .milestone-item .milestone-detail .num {
+    font-family: 'DM Sans', sans-serif;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* === RECENT ACTIVITY === */
+  .recent-activity {
+    padding: 16px 20px;
+    background: var(--bg-sunken);
+    border-radius: var(--radius-md);
+  }
+  .recent-activity .activity-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 8px;
+  }
+  .recent-activity .activity-row:last-child { margin-bottom: 0; }
+  .recent-activity .activity-label {
+    font-size: 14px;
+    color: var(--text-secondary);
+  }
+  .recent-activity .activity-value {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-primary);
+    font-variant-numeric: tabular-nums;
+  }
+  .recent-activity .activity-trend {
+    font-size: 13px;
+    color: var(--text-secondary);
+    line-height: 1.5;
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid var(--border);
+  }
+
+  /* === BOTTOM NAV === */
+  .bottom-nav {
+    position: fixed;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 100%;
+    max-width: 430px;
+    background: var(--bg-surface);
+    border-top: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-around;
+    padding: 8px 0;
+    padding-bottom: calc(8px + env(safe-area-inset-bottom, 0px));
+    z-index: 20;
+  }
+  .bottom-nav .nav-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    padding: 4px 12px;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    min-width: 56px;
+  }
+  .bottom-nav .nav-item .nav-icon {
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    color: var(--text-muted);
+  }
+  .bottom-nav .nav-item.active .nav-icon { color: var(--accent); }
+  .bottom-nav .nav-item .nav-label {
+    font-size: 10px;
+    color: var(--text-muted);
+    font-weight: 500;
+  }
+  .bottom-nav .nav-item.active .nav-label {
+    color: var(--accent);
+    font-weight: 600;
+  }
+
+  /* === EMPTY STATE === */
+  .empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 80px 40px;
+    text-align: center;
+  }
+  .empty-state .empty-icon {
+    width: 64px;
+    height: 64px;
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .empty-state .empty-icon svg {
+    width: 64px;
+    height: 64px;
+    opacity: 0.4;
+  }
+  .empty-state .empty-title {
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 8px;
+  }
+  .empty-state .empty-desc {
+    font-size: 14px;
+    color: var(--text-secondary);
+    line-height: 1.6;
+    margin-bottom: 24px;
+    max-width: 280px;
+  }
+  .empty-state .empty-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 12px 32px;
+    background: var(--accent);
+    color: var(--text-on-accent);
+    font-size: 15px;
+    font-weight: 600;
+    border: none;
+    border-radius: var(--radius-full);
+    cursor: pointer;
+    box-shadow: var(--shadow-md);
+    min-height: 48px;
+    font-family: inherit;
+  }
+  .empty-state .empty-btn:hover { background: var(--accent-dark); }
+
+  /* === OFFLINE BANNER === */
+  .offline-banner {
+    margin: 0 16px 12px;
+    padding: 10px 16px;
+    background: var(--bg-accent-soft);
+    border-radius: var(--radius-sm);
+    font-size: 13px;
+    color: var(--text-secondary);
+    text-align: center;
+  }
+
+  /* === SKELETON === */
+  .skeleton-line {
+    height: 14px;
+    background: var(--bg-sunken);
+    border-radius: 4px;
+    margin-bottom: 8px;
+    animation: pulse 1.5s ease-in-out infinite;
+  }
+  .skeleton-line.short { width: 40%; }
+  .skeleton-line.medium { width: 65%; }
+  .skeleton-line.long { width: 85%; }
+  .skeleton-block {
+    height: 120px;
+    background: var(--bg-sunken);
+    border-radius: var(--radius-md);
+    animation: pulse 1.5s ease-in-out infinite;
+    margin-bottom: 16px;
+  }
+  .skeleton-bar {
+    height: 4px;
+    background: var(--bg-sunken);
+    border-radius: 2px;
+    margin-bottom: 12px;
+    animation: pulse 1.5s ease-in-out infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+
+  .hidden { display: none !important; }
+</style>
+</head>
+<body>
+
+<!-- === STATE: HAS DATA (default) === -->
+<div id="state-has-data">
+
+  <!-- Top Bar -->
+  <div class="top-bar">
+    <button class="back-btn" aria-label="返回">
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M12.5 15L7.5 10L12.5 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </button>
+    <span class="title">成长</span>
+    <div class="spacer"></div>
+  </div>
+
+  <!-- Summary Card -->
+  <div class="summary-card">
+    <p class="summary-main">你已经对宝宝说了 <span class="num">47</span> 句英语。</p>
+    <p class="summary-sub">覆盖了 <span class="num">6</span> 个照护场景，坚持了 <span class="num">18</span> 天。</p>
+  </div>
+
+  <!-- Scene Coverage -->
+  <div class="section">
+    <div class="section-title">场景覆盖</div>
+    <div class="scene-progress-item">
+      <span class="scene-name">睡前</span>
+      <div class="progress-track"><div class="progress-fill" style="width:100%"></div></div>
+      <span class="scene-count">15</span>
+    </div>
+    <div class="scene-progress-item">
+      <span class="scene-name">喂饭</span>
+      <div class="progress-track"><div class="progress-fill" style="width:80%"></div></div>
+      <span class="scene-count">12</span>
+    </div>
+    <div class="scene-progress-item">
+      <span class="scene-name">洗澡</span>
+      <div class="progress-track"><div class="progress-fill" style="width:53%"></div></div>
+      <span class="scene-count">8</span>
+    </div>
+    <div class="scene-progress-item">
+      <span class="scene-name">出门</span>
+      <div class="progress-track"><div class="progress-fill" style="width:33%"></div></div>
+      <span class="scene-count">5</span>
+    </div>
+    <div class="scene-progress-item">
+      <span class="scene-name">换尿布</span>
+      <div class="progress-track"><div class="progress-fill" style="width:27%"></div></div>
+      <span class="scene-count">4</span>
+    </div>
+    <div class="scene-progress-item">
+      <span class="scene-name">喝水</span>
+      <div class="progress-track"><div class="progress-fill" style="width:20%"></div></div>
+      <span class="scene-count">3</span>
+    </div>
+  </div>
+
+  <!-- Milestones -->
+  <div class="section">
+    <div class="section-title">里程碑</div>
+    <div class="milestone-list">
+      <div class="milestone-item">
+        <div class="milestone-icon done">
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="9" fill="currentColor" opacity="0.15"/><path d="M6 10L9 13L14 7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </div>
+        <div class="milestone-content">
+          <div class="milestone-name">第一句英语</div>
+          <div class="milestone-detail">5月10日</div>
+        </div>
+      </div>
+      <div class="milestone-item">
+        <div class="milestone-icon done">
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="9" fill="currentColor" opacity="0.15"/><path d="M6 10L9 13L14 7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </div>
+        <div class="milestone-content">
+          <div class="milestone-name">第一次睡前场景</div>
+          <div class="milestone-detail">5月12日</div>
+        </div>
+      </div>
+      <div class="milestone-item">
+        <div class="milestone-icon done">
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="9" fill="currentColor" opacity="0.15"/><path d="M6 10L9 13L14 7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </div>
+        <div class="milestone-content">
+          <div class="milestone-name">累计10句</div>
+          <div class="milestone-detail">5月18日</div>
+        </div>
+      </div>
+      <div class="milestone-item">
+        <div class="milestone-icon done">
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="9" fill="currentColor" opacity="0.15"/><path d="M6 10L9 13L14 7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </div>
+        <div class="milestone-content">
+          <div class="milestone-name">覆盖3个场景</div>
+          <div class="milestone-detail">5月20日</div>
+        </div>
+      </div>
+      <div class="milestone-item">
+        <div class="milestone-icon done">
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="9" fill="currentColor" opacity="0.15"/><path d="M6 10L9 13L14 7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </div>
+        <div class="milestone-content">
+          <div class="milestone-name">坚持7天</div>
+          <div class="milestone-detail">5月22日</div>
+        </div>
+      </div>
+      <div class="milestone-item pending">
+        <div class="milestone-icon pending">
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="9" stroke="currentColor" stroke-width="1.2" fill="none"/></svg>
+        </div>
+        <div class="milestone-content">
+          <div class="milestone-name">累计50句</div>
+          <div class="milestone-detail">还差 <span class="num">3</span> 句</div>
+        </div>
+      </div>
+      <div class="milestone-item pending">
+        <div class="milestone-icon pending">
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="9" stroke="currentColor" stroke-width="1.2" fill="none"/></svg>
+        </div>
+        <div class="milestone-content">
+          <div class="milestone-name">覆盖5个场景</div>
+          <div class="milestone-detail">还差 <span class="num">0</span> 个场景（已有6个）</div>
+        </div>
+      </div>
+      <div class="milestone-item pending">
+        <div class="milestone-icon pending">
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="9" stroke="currentColor" stroke-width="1.2" fill="none"/></svg>
+        </div>
+        <div class="milestone-content">
+          <div class="milestone-name">坚持14天</div>
+          <div class="milestone-detail">还差 <span class="num">0</span> 天（已达18天）</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Recent Activity -->
+  <div class="section">
+    <div class="section-title">最近活跃</div>
+    <div class="recent-activity">
+      <div class="activity-row">
+        <span class="activity-label">本周</span>
+        <span class="activity-value">8 句</span>
+      </div>
+      <div class="activity-row">
+        <span class="activity-label">上周</span>
+        <span class="activity-value">12 句</span>
+      </div>
+      <div class="activity-trend">本周稍有减少，没关系。</div>
+    </div>
+  </div>
+
+</div>
+
+<!-- === STATE: EMPTY === -->
+<div id="state-empty" class="hidden">
+
+  <!-- Top Bar -->
+  <div class="top-bar">
+    <button class="back-btn" aria-label="返回">
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M12.5 15L7.5 10L12.5 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </button>
+    <span class="title">成长</span>
+    <div class="spacer"></div>
+  </div>
+
+  <div class="empty-state">
+    <div class="empty-icon">
+      <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M20 48L32 16L44 48" stroke="#8A7D76" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+        <path d="M24 40H40" stroke="#8A7D76" stroke-width="1.5" stroke-linecap="round"/>
+        <circle cx="32" cy="12" r="3" fill="#D4E8E3" stroke="#8A7D76" stroke-width="1"/>
+      </svg>
+    </div>
+    <p class="empty-title">你的成长还没有开始。</p>
+    <p class="empty-desc">说完第一句英语后，这里会记录你的陪伴轨迹。</p>
+    <button class="empty-btn">回到首页说一句</button>
+  </div>
+
+</div>
+
+<!-- === STATE: LOADING === -->
+<div id="state-loading" class="hidden">
+
+  <!-- Top Bar -->
+  <div class="top-bar">
+    <button class="back-btn" aria-label="返回">
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M12.5 15L7.5 10L12.5 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </button>
+    <span class="title">成长</span>
+    <div class="spacer"></div>
+  </div>
+
+  <!-- Skeleton Summary -->
+  <div class="summary-card">
+    <div class="skeleton-line long"></div>
+    <div class="skeleton-line medium" style="margin-top:12px;"></div>
+  </div>
+
+  <!-- Skeleton Scene Progress -->
+  <div class="section">
+    <div class="section-title">场景覆盖</div>
+    <div class="skeleton-bar" style="width:60%"></div>
+    <div class="skeleton-bar" style="width:75%"></div>
+    <div class="skeleton-bar" style="width:45%"></div>
+    <div class="skeleton-bar" style="width:30%"></div>
+  </div>
+
+  <!-- Skeleton Milestones -->
+  <div class="section">
+    <div class="section-title">里程碑</div>
+    <div class="skeleton-block" style="height:200px;"></div>
+  </div>
+
+</div>
+
+<!-- === STATE: OFFLINE === -->
+<div id="state-offline" class="hidden">
+
+  <!-- Top Bar -->
+  <div class="top-bar">
+    <button class="back-btn" aria-label="返回">
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M12.5 15L7.5 10L12.5 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </button>
+    <span class="title">成长</span>
+    <div class="spacer"></div>
+  </div>
+
+  <div class="offline-banner">离线时看到的是上次同步的数据。</div>
+
+  <!-- Same content as has-data -->
+  <div class="summary-card">
+    <p class="summary-main">你已经对宝宝说了 <span class="num">47</span> 句英语。</p>
+    <p class="summary-sub">覆盖了 <span class="num">6</span> 个照护场景，坚持了 <span class="num">18</span> 天。</p>
+  </div>
+
+  <div class="section">
+    <div class="section-title">场景覆盖</div>
+    <div class="scene-progress-item">
+      <span class="scene-name">睡前</span>
+      <div class="progress-track"><div class="progress-fill" style="width:100%"></div></div>
+      <span class="scene-count">15</span>
+    </div>
+    <div class="scene-progress-item">
+      <span class="scene-name">喂饭</span>
+      <div class="progress-track"><div class="progress-fill" style="width:80%"></div></div>
+      <span class="scene-count">12</span>
+    </div>
+    <div class="scene-progress-item">
+      <span class="scene-name">洗澡</span>
+      <div class="progress-track"><div class="progress-fill" style="width:53%"></div></div>
+      <span class="scene-count">8</span>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">里程碑</div>
+    <div class="milestone-list">
+      <div class="milestone-item">
+        <div class="milestone-icon done">
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="9" fill="currentColor" opacity="0.15"/><path d="M6 10L9 13L14 7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </div>
+        <div class="milestone-content">
+          <div class="milestone-name">第一句英语</div>
+          <div class="milestone-detail">5月10日</div>
+        </div>
+      </div>
+      <div class="milestone-item">
+        <div class="milestone-icon done">
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="9" fill="currentColor" opacity="0.15"/><path d="M6 10L9 13L14 7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </div>
+        <div class="milestone-content">
+          <div class="milestone-name">累计10句</div>
+          <div class="milestone-detail">5月18日</div>
+        </div>
+      </div>
+      <div class="milestone-item pending">
+        <div class="milestone-icon pending">
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="9" stroke="currentColor" stroke-width="1.2" fill="none"/></svg>
+        </div>
+        <div class="milestone-content">
+          <div class="milestone-name">累计50句</div>
+          <div class="milestone-detail">还差 <span class="num">3</span> 句</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">最近活跃</div>
+    <div class="recent-activity">
+      <div class="activity-row">
+        <span class="activity-label">本周</span>
+        <span class="activity-value">8 句</span>
+      </div>
+      <div class="activity-row">
+        <span class="activity-label">上周</span>
+        <span class="activity-value">12 句</span>
+      </div>
+      <div class="activity-trend">本周稍有减少，没关系。</div>
+    </div>
+  </div>
+
+</div>
+
+<!-- === BOTTOM NAV === -->
+<div class="bottom-nav">
+  <button class="nav-item" aria-label="首页">
+    <span class="nav-icon">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M3 9.5L12 3L21 9.5V20C21 20.5304 20.7893 21.0391 20.4142 21.4142C20.0391 21.7893 19.5304 22 19 22H5C4.46957 22 3.96086 21.7893 3.58579 21.4142C3.21071 21.0391 3 20.5304 3 20V9.5Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M9 22V12H15V22" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </span>
+    <span class="nav-label">首页</span>
+  </button>
+  <button class="nav-item" aria-label="发现">
+    <span class="nav-icon">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="1.5"/><path d="M16.24 7.76L14.12 14.12L7.76 16.24L9.88 9.88L16.24 7.76Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </span>
+    <span class="nav-label">发现</span>
+  </button>
+  <button class="nav-item" aria-label="花园">
+    <span class="nav-icon">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M12 22V12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M12 16C8 12 4 8 4 4C4 0 8 -2 12 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" fill="none"/><path d="M12 12C16 8 20 4 20 0C20 -4 16 -6 12 0" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" fill="none"/><ellipse cx="12" cy="22" rx="4" ry="1.5" fill="currentColor" opacity="0.2"/></svg>
+    </span>
+    <span class="nav-label">花园</span>
+  </button>
+  <button class="nav-item active" aria-label="成长">
+    <span class="nav-icon">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M22 12H18L15 21L9 3L6 12H2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </span>
+    <span class="nav-label">成长</span>
+  </button>
+</div>
+
+<!-- === STATE SWITCHER === -->
+<div style="position:fixed;top:8px;right:8px;z-index:999;background:var(--bg-surface);border-radius:var(--radius-sm);box-shadow:var(--shadow-md);padding:6px;display:flex;gap:4px;flex-wrap:wrap;max-width:200px;">
+  <button onclick="switchState('has-data')" style="font-size:11px;padding:4px 8px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg-surface);cursor:pointer;font-family:inherit;">有数据</button>
+  <button onclick="switchState('empty')" style="font-size:11px;padding:4px 8px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg-surface);cursor:pointer;font-family:inherit;">空态</button>
+  <button onclick="switchState('loading')" style="font-size:11px;padding:4px 8px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg-surface);cursor:pointer;font-family:inherit;">加载中</button>
+  <button onclick="switchState('offline')" style="font-size:11px;padding:4px 8px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg-surface);cursor:pointer;font-family:inherit;">离线</button>
+</div>
+
+<script>
+function switchState(name) {
+  document.querySelectorAll('[id^="state-"]').forEach(el => el.classList.add('hidden'));
+  document.getElementById('state-' + name).classList.remove('hidden');
+}
+</script>
+
+</body>
+</html>

@@ -1,0 +1,1617 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>BabyTalk Home A/B Prototype</title>
+  <style>
+    :root {
+      --bg-base: #FFF8F0;
+      --bg-surface: #FFFFFF;
+      --bg-sunken: #F5F0EB;
+      --accent: #FF8C42;
+      --accent-dark: #E67A30;
+      --accent-light: #FFF0E5;
+      --english: #3B8577;
+      --english-soft: #D4E8E3;
+      --text-primary: #2D2926;
+      --text-secondary: #6B5E57;
+      --text-muted: #8A7D76;
+      --paper: var(--bg-base);
+      --surface: rgba(255, 255, 255, .94);
+      --ink: var(--text-primary);
+      --muted: var(--text-secondary);
+      --muted-2: var(--text-muted);
+      --warm: var(--accent);
+      --warm-2: var(--accent-dark);
+      --warm-soft: rgba(255, 140, 66, .12);
+      --sage: var(--english);
+      --sage-2: #2F6B60;
+      --sage-soft: rgba(212, 232, 227, .72);
+      --honey: #E6A817;
+      --honey-soft: #FFF5D9;
+      --line: rgba(88, 68, 48, .13);
+      --line-soft: rgba(88, 68, 48, .08);
+      --shadow: 0 8px 24px rgba(45, 41, 38, .12);
+      --soft-shadow: 0 2px 12px rgba(45, 41, 38, .08);
+      --button-shadow: 0 6px 14px rgba(255, 140, 66, .16);
+      --nav-height: 82px;
+      --weight-strong: 700;
+      --weight-medium: 600;
+      --weight-body: 500;
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body {
+      min-height: 100%;
+      overscroll-behavior: contain;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      padding: 16px;
+      background: #F0EBE5;
+      color: var(--ink);
+      font-family: "DM Sans", "PingFang SC", "Noto Sans SC", "Microsoft YaHei", system-ui, sans-serif;
+    }
+
+    button {
+      min-height: 44px;
+      border: 0;
+      font: inherit;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    button:focus-visible, [tabindex]:focus-visible {
+      outline: 3px solid rgba(87, 119, 104, .42);
+      outline-offset: 3px;
+    }
+
+    /* Layout */
+    .pageHeader {
+      text-align: center;
+      margin-bottom: 12px;
+    }
+
+    .pageHeader h1 {
+      margin: 0;
+      font-size: 22px;
+      font-weight: var(--weight-strong);
+      color: var(--ink);
+    }
+
+    .pageHeader p {
+      margin: 4px 0 0;
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    .taskBar {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-bottom: 12px;
+    }
+
+    .taskBtn {
+      min-height: 38px;
+      padding: 0 14px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      background: rgba(255, 252, 247, .9);
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: var(--weight-medium);
+    }
+
+    .taskBtn.active {
+      border-color: var(--warm);
+      background: var(--warm-soft);
+      color: var(--warm-2);
+      font-weight: var(--weight-strong);
+    }
+
+    .taskHint {
+      text-align: center;
+      margin-bottom: 10px;
+      padding: 8px 14px;
+      border-radius: 14px;
+      background: rgba(255, 140, 66, .08);
+      color: var(--warm-2);
+      font-size: 13px;
+      font-weight: var(--weight-medium);
+    }
+
+    .shell {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      max-width: 920px;
+      margin: 0 auto;
+      align-items: start;
+    }
+
+    .variantCol {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .variantLabel {
+      margin-bottom: 6px;
+      padding: 5px 14px;
+      border-radius: 999px;
+      font-size: 13px;
+      font-weight: var(--weight-strong);
+      line-height: 1;
+    }
+
+    .variantLabel.a { background: rgba(87, 119, 104, .12); color: var(--sage-2); }
+    .variantLabel.b { background: var(--warm-soft); color: var(--warm-2); }
+
+    .phone {
+      width: 380px;
+      height: 740px;
+      overflow: hidden;
+      border-radius: 32px;
+      border: 1px solid rgba(118, 92, 70, .16);
+      background: var(--paper);
+      box-shadow: var(--shadow);
+    }
+
+    .screen {
+      position: relative;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* Status bar */
+    .statusBar {
+      flex: 0 0 26px;
+      padding-top: 8px;
+      text-align: center;
+      color: rgba(48, 40, 32, .56);
+      font-size: 11px;
+      font-weight: 800;
+    }
+
+    /* App top bar */
+    .appTop {
+      flex: 0 0 56px;
+      display: grid;
+      grid-template-columns: 40px minmax(0, 1fr) auto;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 14px;
+      border-bottom: 1px solid var(--line-soft);
+      background: rgba(255, 252, 247, .62);
+    }
+
+    .iconBtn {
+      width: 40px;
+      height: 40px;
+      display: inline-grid;
+      place-items: center;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: rgba(255, 252, 247, .78);
+      color: var(--warm);
+      font-size: 14px;
+    }
+
+    .menuLines, .menuLines::before, .menuLines::after {
+      display: block;
+      width: 16px;
+      height: 2px;
+      border-radius: 99px;
+      background: currentColor;
+    }
+
+    .menuLines { position: relative; }
+    .menuLines::before, .menuLines::after { content: ""; position: absolute; left: 0; }
+    .menuLines::before { top: -5px; }
+    .menuLines::after { top: 5px; }
+
+    .titleArea { min-width: 0; }
+
+    .appName {
+      color: var(--ink);
+      font-size: 15px;
+      font-weight: var(--weight-strong);
+      line-height: 1.1;
+    }
+
+    .appSub {
+      margin-top: 2px;
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: var(--weight-medium);
+      line-height: 1.2;
+    }
+
+    .syncBtn {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      min-width: 40px;
+      min-height: 40px;
+      padding: 0 10px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: rgba(255, 252, 247, .8);
+      color: var(--sage);
+      font-size: 12px;
+      font-weight: var(--weight-medium);
+    }
+
+    .syncDot {
+      width: 7px;
+      height: 7px;
+      border-radius: 99px;
+      background: var(--honey);
+    }
+
+    /* Content area */
+    .content {
+      flex: 1;
+      min-height: 0;
+      overflow: auto;
+      overscroll-behavior: contain;
+      padding: 10px 14px calc(var(--nav-height) + 80px);
+      scrollbar-width: none;
+    }
+
+    .content::-webkit-scrollbar { display: none; }
+
+    /* Bottom nav */
+    .bottomNav {
+      position: absolute;
+      left: 0; right: 0; bottom: 0;
+      z-index: 6;
+      height: var(--nav-height);
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 2px;
+      padding: 6px 10px 10px;
+      border-top: 1px solid var(--line-soft);
+      background: rgba(255, 252, 247, .92);
+      backdrop-filter: blur(18px);
+    }
+
+    .navItem {
+      min-width: 0;
+      min-height: 50px;
+      display: grid;
+      place-items: center;
+      align-content: center;
+      gap: 3px;
+      padding: 3px 2px;
+      border-radius: 14px;
+      background: transparent;
+      color: var(--muted);
+      font-size: 10px;
+      font-weight: var(--weight-medium);
+      line-height: 1;
+    }
+
+    .navItem.active {
+      background: var(--sage-soft);
+      color: var(--sage-2);
+    }
+
+    .navDot {
+      width: 18px;
+      height: 18px;
+      border-radius: 6px;
+      border: 2px solid currentColor;
+    }
+
+    /* Shared components */
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      min-height: 28px;
+      padding: 0 10px;
+      border-radius: 99px;
+      background: var(--sage-soft);
+      color: var(--sage-2);
+      font-size: 12px;
+      font-weight: var(--weight-strong);
+      line-height: 1;
+      white-space: nowrap;
+    }
+
+    .pill.soft { background: var(--honey-soft); color: #82603a; }
+
+    .sectionTitle {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin: 12px 0 6px;
+    }
+
+    .sectionTitle h2 {
+      margin: 0;
+      color: var(--ink);
+      font-size: 14px;
+      line-height: 1.2;
+      font-weight: var(--weight-strong);
+    }
+
+    .sectionMeta {
+      color: var(--muted-2);
+      font-size: 11px;
+      font-weight: var(--weight-medium);
+    }
+
+    .listenBtn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      min-height: 46px;
+      padding: 0 12px;
+      border: 1px solid rgba(87, 119, 104, .2);
+      border-radius: 16px;
+      background: rgba(255, 252, 247, .7);
+      color: var(--sage);
+      font-size: 13px;
+      font-weight: var(--weight-strong);
+    }
+
+    .listenGlyph {
+      width: 15px;
+      height: 15px;
+      position: relative;
+      flex: 0 0 15px;
+      border-radius: 5px;
+      background: var(--sage-soft);
+    }
+
+    .listenGlyph::before {
+      content: "";
+      position: absolute;
+      left: 5px; top: 3.5px;
+      width: 0; height: 0;
+      border-top: 4px solid transparent;
+      border-bottom: 4px solid transparent;
+      border-left: 6px solid var(--sage);
+    }
+
+    .ctaBtn {
+      min-height: 48px;
+      padding: 0 14px;
+      border-radius: 16px;
+      background: var(--accent);
+      color: #FFFFFF;
+      box-shadow: var(--button-shadow);
+      font-size: 14px;
+      font-weight: var(--weight-strong);
+    }
+
+    .secBtn {
+      min-height: 44px;
+      padding: 0 12px;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: rgba(255, 252, 247, .78);
+      color: var(--sage);
+      font-size: 13px;
+      font-weight: var(--weight-strong);
+    }
+
+    .playState {
+      min-height: 18px;
+      margin: 6px 0 0;
+      color: var(--muted-2);
+      font-size: 11px;
+      font-weight: var(--weight-medium);
+      line-height: 1.3;
+    }
+
+    /* Overlay / Sheet */
+    .overlay {
+      position: absolute;
+      inset: 0;
+      z-index: 12;
+      display: grid;
+      align-items: end;
+      background: rgba(48, 40, 32, .16);
+    }
+
+    .sheet {
+      max-height: 62%;
+      overflow: auto;
+      overscroll-behavior: contain;
+      padding: 16px 16px 20px;
+      border-top-left-radius: 24px;
+      border-top-right-radius: 24px;
+      border: 1px solid rgba(88, 68, 48, .1);
+      background: rgba(255, 252, 247, .98);
+      box-shadow: 0 -16px 40px rgba(80, 57, 35, .18);
+    }
+
+    .sheetHeader {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .sheetTitle {
+      margin: 0;
+      color: var(--ink);
+      font-size: 18px;
+      font-weight: var(--weight-strong);
+      line-height: 1.2;
+    }
+
+    .sheetCopy {
+      margin: 8px 0 12px;
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: var(--weight-body);
+      line-height: 1.5;
+    }
+
+    .sheetClose {
+      width: 40px;
+      height: 40px;
+      border-radius: 14px;
+      border: 1px solid var(--line);
+      background: rgba(255, 252, 247, .82);
+      color: var(--muted);
+      font-size: 16px;
+      font-weight: var(--weight-strong);
+    }
+
+    .sheetActions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    .sheetBtn {
+      min-height: 44px;
+      padding: 0 12px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: rgba(255, 252, 247, .78);
+      color: var(--sage);
+      font-size: 13px;
+      font-weight: var(--weight-strong);
+    }
+
+    .sheetBtn.strong {
+      border-color: transparent;
+      background: var(--sage-soft);
+      color: var(--sage-2);
+    }
+
+    .quickChip {
+      width: 100%;
+      min-height: 44px;
+      padding: 0 12px;
+      border: 1px solid rgba(87, 119, 104, .16);
+      border-radius: 14px;
+      background: rgba(238, 245, 240, .62);
+      color: var(--sage-2);
+      text-align: left;
+      font-size: 13px;
+      font-weight: var(--weight-medium);
+    }
+
+    .quickChip.active {
+      border-color: rgba(149, 101, 72, .28);
+      background: var(--warm-soft);
+      color: var(--warm);
+    }
+
+    .mentorAnswer {
+      margin-top: 10px;
+      padding: 12px;
+      border-radius: 16px;
+      border: 1px solid rgba(88, 68, 48, .11);
+      background: rgba(255, 252, 247, .76);
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: var(--weight-body);
+      line-height: 1.5;
+    }
+
+    .mentorAnswer strong {
+      display: block;
+      margin-bottom: 4px;
+      color: var(--ink);
+      font-size: 15px;
+      font-weight: var(--weight-strong);
+      line-height: 1.2;
+    }
+
+    .askField {
+      display: grid;
+      gap: 5px;
+      margin-top: 10px;
+    }
+
+    .askField label {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: var(--weight-medium);
+    }
+
+    .askInputRow {
+      display: grid;
+      grid-template-columns: 1fr 70px;
+      gap: 6px;
+    }
+
+    .askInputRow input {
+      min-width: 0;
+      height: 42px;
+      padding: 0 10px;
+      border-radius: 14px;
+      border: 1px solid rgba(88, 68, 48, .12);
+      background: rgba(255, 252, 247, .86);
+      color: var(--ink);
+      font: inherit;
+      font-size: 13px;
+      font-weight: var(--weight-body);
+    }
+
+    .askInputRow input::placeholder { color: rgba(108, 91, 72, .58); }
+
+    .askInputRow button {
+      min-height: 42px;
+      padding: 0 8px;
+      border: 1px solid rgba(87, 119, 104, .16);
+      border-radius: 14px;
+      background: rgba(238, 245, 240, .72);
+      color: var(--sage-2);
+      font-size: 12px;
+      font-weight: var(--weight-strong);
+    }
+
+    /* Toast */
+    .toast {
+      position: absolute;
+      left: 14px; right: 14px;
+      bottom: calc(var(--nav-height) + 14px);
+      z-index: 8;
+      min-height: 46px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      border-radius: 16px;
+      border: 1px solid rgba(87, 119, 104, .16);
+      background: rgba(255, 252, 247, .96);
+      color: var(--sage-2);
+      box-shadow: 0 12px 28px rgba(80, 57, 35, .12);
+      font-size: 12px;
+      font-weight: var(--weight-strong);
+      line-height: 1.4;
+    }
+
+    .toast::before {
+      content: "";
+      width: 16px;
+      height: 16px;
+      flex: 0 0 auto;
+      border-radius: 8px 8px 8px 3px;
+      background: var(--sage-soft);
+      box-shadow: inset 0 0 0 2px rgba(87, 119, 104, .22);
+    }
+
+    /* Mentor mark */
+    .mentorMark {
+      position: relative;
+      flex: 0 0 auto;
+      width: 28px;
+      height: 28px;
+      border-radius: 12px;
+      background: var(--sage-soft);
+      border: 1px solid rgba(87, 119, 104, .16);
+    }
+
+    .mentorMark::before, .mentorMark::after {
+      content: "";
+      position: absolute;
+      border-radius: 99px;
+      background: var(--sage);
+    }
+
+    .mentorMark::before { left: 8px; top: 10px; width: 12px; height: 3px; }
+    .mentorMark::after { left: 10px; top: 15px; width: 8px; height: 3px; opacity: .72; }
+
+    /* Practice stage */
+    .practiceStage {
+      display: grid;
+      min-height: 100%;
+      align-content: center;
+      padding-bottom: 12px;
+    }
+
+    .practiceCard {
+      padding: 18px;
+      border-radius: 24px;
+      border: 1px solid rgba(88, 68, 48, .12);
+      background: var(--surface);
+      box-shadow: 0 16px 40px rgba(80, 57, 35, .12);
+    }
+
+    .practiceCard h1 {
+      margin: 12px 0 6px;
+      color: var(--ink);
+      font-size: 24px;
+      font-weight: var(--weight-strong);
+      line-height: 1.1;
+    }
+
+    .practiceCard p { margin: 0; color: var(--muted); font-size: 13px; font-weight: var(--weight-body); line-height: 1.5; }
+
+    .practicePhrase {
+      margin: 14px 0 0;
+      color: var(--english);
+      font-family: "Fraunces", Georgia, serif;
+      font-size: 32px;
+      font-weight: 500;
+      line-height: 1.16;
+    }
+
+    .practiceMeaning {
+      margin: 8px 0 0;
+      color: var(--muted);
+      font-size: 14px;
+      font-weight: var(--weight-body);
+    }
+
+    .practiceActions {
+      display: grid;
+      gap: 7px;
+      margin-top: 14px;
+    }
+
+    /* ==================== VARIANT B SPECIFIC ==================== */
+
+    .momentHeader {
+      margin: 0 0 8px;
+      padding: 12px 14px;
+      border-radius: 18px;
+      background: linear-gradient(135deg, rgba(255, 140, 66, .06), rgba(212, 232, 227, .18));
+      border: 1px solid rgba(255, 140, 66, .1);
+    }
+
+    .momentTitle {
+      margin: 0;
+      color: var(--ink);
+      font-size: 17px;
+      font-weight: var(--weight-strong);
+      line-height: 1.3;
+    }
+
+    .momentTitle em {
+      font-style: normal;
+      color: var(--warm-2);
+    }
+
+    .momentSub {
+      margin: 4px 0 0;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: var(--weight-body);
+      line-height: 1.4;
+    }
+
+    .mentorBubble {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      margin: 8px 0;
+      padding: 10px 12px;
+      border-radius: 16px;
+      background: rgba(238, 245, 240, .5);
+      border: 1px solid rgba(87, 119, 104, .1);
+    }
+
+    .mentorBubble .mentorMark { margin-top: 2px; }
+
+    .mentorBubbleText {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .mentorBubbleName {
+      display: block;
+      color: var(--sage-2);
+      font-size: 12px;
+      font-weight: var(--weight-strong);
+      line-height: 1.2;
+    }
+
+    .mentorBubbleMsg {
+      display: block;
+      margin-top: 3px;
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: var(--weight-body);
+      line-height: 1.45;
+    }
+
+    .sceneCard {
+      padding: 14px;
+      border-radius: 20px;
+      border: 1px solid rgba(88, 68, 48, .1);
+      background: var(--surface);
+      box-shadow: var(--soft-shadow);
+    }
+
+    .sceneAction {
+      margin: 0 0 6px;
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: var(--weight-body);
+      line-height: 1.45;
+    }
+
+    .scenePhrase {
+      margin: 8px 0 0;
+      color: var(--english);
+      font-family: "Fraunces", Georgia, serif;
+      font-size: 30px;
+      font-weight: 500;
+      line-height: 1.16;
+    }
+
+    .sceneMeaning {
+      margin: 6px 0 0;
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: var(--weight-body);
+      line-height: 1.4;
+    }
+
+    .sceneCardActions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    .quickRescue {
+      display: flex;
+      gap: 6px;
+      margin: 10px 0;
+      overflow-x: auto;
+      scrollbar-width: none;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    .quickRescue::-webkit-scrollbar { display: none; }
+
+    .rescueChip {
+      flex: 0 0 auto;
+      min-height: 36px;
+      padding: 0 12px;
+      border: 1px solid rgba(87, 119, 104, .16);
+      border-radius: 999px;
+      background: rgba(238, 245, 240, .5);
+      color: var(--sage-2);
+      font-size: 12px;
+      font-weight: var(--weight-strong);
+      white-space: nowrap;
+    }
+
+    .rescueChip.active {
+      border-color: var(--warm);
+      background: var(--warm-soft);
+      color: var(--warm-2);
+    }
+
+    .resultEcho {
+      margin: 10px 0;
+      padding: 12px 14px;
+      border-radius: 18px;
+      border: 1px solid rgba(87, 119, 104, .12);
+      background: rgba(238, 245, 240, .35);
+    }
+
+    .resultEchoTitle {
+      margin: 0;
+      color: var(--sage-2);
+      font-size: 14px;
+      font-weight: var(--weight-strong);
+      line-height: 1.3;
+    }
+
+    .resultEchoBody {
+      margin: 4px 0 0;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: var(--weight-body);
+      line-height: 1.45;
+    }
+
+    /* Garden */
+    .gardenStrip {
+      width: 100%;
+      min-height: 54px;
+      display: grid;
+      grid-template-columns: 38px minmax(0, 1fr) auto;
+      align-items: center;
+      gap: 8px;
+      padding: 7px 10px;
+      border: 1px solid rgba(87, 119, 104, .15);
+      border-radius: 18px;
+      background: rgba(255, 252, 247, .74);
+      color: var(--sage-2);
+      text-align: left;
+    }
+
+    .gardenIcon {
+      position: relative;
+      width: 34px;
+      height: 34px;
+      border-radius: 14px;
+      border: 1px solid rgba(87, 119, 104, .13);
+      background: rgba(87, 119, 104, .1);
+    }
+
+    .gardenIcon::before {
+      content: "";
+      position: absolute;
+      left: 16px;
+      bottom: 7px;
+      width: 3px;
+      height: 17px;
+      border-radius: 99px;
+      background: var(--sage);
+    }
+
+    .gardenIcon::after {
+      content: "";
+      position: absolute;
+      left: 11px;
+      top: 10px;
+      width: 14px;
+      height: 10px;
+      border-radius: 999px 999px 999px 0;
+      background: rgba(87, 119, 104, .72);
+      transform: rotate(-28deg);
+      box-shadow: 8px 4px 0 rgba(149, 101, 72, .23);
+    }
+
+    .gardenTitle {
+      display: block;
+      color: var(--sage-2);
+      font-size: 13px;
+      font-weight: var(--weight-strong);
+      line-height: 1.2;
+    }
+
+    .gardenMeta {
+      display: block;
+      margin-top: 3px;
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: var(--weight-body);
+      line-height: 1.3;
+    }
+
+    .gardenAction {
+      color: var(--warm);
+      font-size: 12px;
+      font-weight: var(--weight-strong);
+    }
+
+    .gardenSummary {
+      margin-top: 6px;
+      padding: 10px;
+      border-radius: 14px;
+      border: 1px solid rgba(87, 119, 104, .12);
+      background: rgba(255, 252, 247, .7);
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: var(--weight-body);
+      line-height: 1.5;
+    }
+
+    .gardenSummary strong { color: var(--sage-2); font-weight: var(--weight-strong); }
+
+    /* Responsive */
+    @media (max-width: 840px) {
+      .shell {
+        grid-template-columns: 1fr;
+        max-width: 420px;
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        scroll-behavior: auto !important;
+        transition: none !important;
+        animation: none !important;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="pageHeader">
+    <h1>BabyTalk Home A/B Prototype</h1>
+    <p>对比 Variant A（Plan-led）与 Variant B（Scene-mentor） · 使用下方任务按钮引导测试</p>
+  </div>
+
+  <div class="taskBar" id="taskBar"></div>
+  <div class="taskHint" id="taskHint"></div>
+
+  <div class="shell">
+    <div class="variantCol">
+      <span class="variantLabel a">A: Plan-led V23</span>
+      <div class="phone"><section class="screen" id="phoneA"></section></div>
+    </div>
+    <div class="variantCol">
+      <span class="variantLabel b">B: Scene-mentor (推荐)</span>
+      <div class="phone"><section class="screen" id="phoneB"></section></div>
+    </div>
+  </div>
+
+  <script>
+    (() => {
+      // Shared content data
+      const dailyPhrase = {
+        en: "Let's put it back.",
+        zh: '我们把它放回去吧。',
+        scene: '睡前收玩具',
+        action: '一边把玩具放回盒子，一边轻轻说给宝宝听。',
+        note: '这句适合睡前收尾，不像命令，更像邀请宝宝一起完成。'
+      };
+
+      const tempScenes = [
+        { id: 'sleep', label: '宝宝不肯睡', en: 'Time to sleep.', zh: '该睡觉了', desc: '降低声音，不讲长道理，轻轻拍着说。' },
+        { id: 'bath', label: '洗澡时哭了', en: "It's okay.", zh: '没关系的', desc: '先安抚情绪，声音放柔，不要急着擦干。' },
+        { id: 'goout', label: '要出门但宝宝不配合', en: 'Shoes on.', zh: '穿鞋啦', desc: '指着鞋子说，给一个明确的下一步。' }
+      ];
+
+      const activities = [
+        { id: 'tpr', title: 'TPR 小动作', time: '2 分钟', desc: '递勺、张嘴、点头，配一个动作。' },
+        { id: 'book', title: '绘本一页', time: '1 分钟', desc: '翻到一页，只补一句。' },
+        { id: 'tip', title: '方法提示', time: '1 分钟', desc: '今天只把一句说顺。' }
+      ];
+
+      // Test tasks
+      const tasks = [
+        { id: 1, label: 'Task 1', hint: '打开 Home，你觉得今天应该做什么？观察两个版本，哪个更快理解推荐动作？' },
+        { id: 2, label: 'Task 2', hint: '点击主 CTA 完成一句短语，然后返回 Home。两个版本的路径是否清晰？' },
+        { id: 3, label: 'Task 3', hint: '完成后回到 Home，观察什么变了。哪个版本的反馈更有意义？' },
+        { id: 4, label: 'Task 4', hint: '宝宝不肯睡，你想马上说一句英语安抚他。在两个版本中找到小禾帮忙。' },
+        { id: 5, label: 'Task 5', hint: '哪个版本更像你真实育儿时会打开的？为什么？' }
+      ];
+
+      // State per variant
+      function createState() {
+        return {
+          view: 'home',
+          playState: 'idle',
+          playTimer: 0,
+          transitionTimer: 0,
+          toastTimer: 0,
+          toastMessage: '',
+          completed: 0,
+          lastTrace: null,
+          gardenOpen: false,
+          mentorOpen: false,
+          selectedAsk: '',
+          customAsk: '',
+          practicePhrase: null,
+          activeScene: null
+        };
+      }
+
+      const stateA = createState();
+      const stateB = createState();
+
+      let activeTask = 0;
+
+      // Helpers
+      function esc(v) { return String(v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
+
+      function clearTimers(s) {
+        ['playTimer','transitionTimer','toastTimer'].forEach(k => { if (s[k]) { clearTimeout(s[k]); s[k] = 0; } });
+      }
+
+      // Task bar
+      function renderTasks() {
+        const bar = document.getElementById('taskBar');
+        const hint = document.getElementById('taskHint');
+        bar.innerHTML = tasks.map(t =>
+          `<button class="taskBtn ${t.id === activeTask ? 'active' : ''}" data-task="${t.id}">${t.label}</button>`
+        ).join('');
+        const current = tasks.find(t => t.id === activeTask);
+        hint.textContent = current ? current.hint : '选择一个测试任务开始';
+        bar.querySelectorAll('[data-task]').forEach(btn => {
+          btn.onclick = () => {
+            activeTask = parseInt(btn.dataset.task);
+            renderTasks();
+          };
+        });
+      }
+
+      // Chrome
+      function appChrome(variant, sub) {
+        const subText = sub || '每天一句亲子英语';
+        return `
+          <div class="statusBar">9:41</div>
+          <header class="appTop">
+            <button class="iconBtn" data-v="${variant}" data-action="menu" aria-label="菜单"><span class="menuLines"></span></button>
+            <div class="titleArea">
+              <div class="appName">BabyTalk</div>
+              <div class="appSub">${subText}</div>
+            </div>
+            <button class="syncBtn" data-v="${variant}" data-action="sync" aria-label="账号"><span class="syncDot"></span><span>账号</span></button>
+          </header>
+        `;
+      }
+
+      function bottomNav(variant) {
+        return `
+          <nav class="bottomNav" aria-label="导航">
+            <button class="navItem active" type="button"><span class="navDot"></span><span>首页</span></button>
+            <button class="navItem" type="button"><span class="navDot"></span><span>发现</span></button>
+            <button class="navItem" type="button"><span class="navDot"></span><span>花园</span></button>
+            <button class="navItem" type="button"><span class="navDot"></span><span>我</span></button>
+          </nav>
+        `;
+      }
+
+      function gardenSection(variant, s) {
+        const trace = s.lastTrace;
+        const hasTrace = Boolean(trace);
+        const meta = hasTrace ? '今天的痕迹来自刚刚说过的一句' : '说完一句后，这里会出现一条小芽';
+        const summary = hasTrace
+          ? `${trace.scene}时说过"${trace.en}"。${trace.origin === 'mentor' ? '这是一次临时场景练习，今日推荐还在这里。' : '这只是成长痕迹，不需要额外打卡。'}`
+          : '还没有新的痕迹。说完今日短语后，这里会记下一次真实练习。';
+
+        return `
+          <section aria-label="花园痕迹">
+            <div class="sectionTitle"><h2>花园</h2><span class="sectionMeta">练完会留下</span></div>
+            <button class="gardenStrip" data-v="${variant}" data-action="garden" aria-expanded="${s.gardenOpen}">
+              <span class="gardenIcon"></span>
+              <span><span class="gardenTitle">今日痕迹 / 小芽</span><span class="gardenMeta">${meta}</span></span>
+              <span class="gardenAction">${s.gardenOpen ? '收起' : '查看'}</span>
+            </button>
+            ${s.gardenOpen ? `<div class="gardenSummary"><strong>今日摘要</strong><br>${summary}</div>` : ''}
+          </section>
+        `;
+      }
+
+      function toastHtml(s) {
+        if (!s.toastMessage) return '';
+        return `<div class="toast" role="status" aria-live="polite">${s.toastMessage}</div>`;
+      }
+
+      // ========== VARIANT A RENDERERS ==========
+
+      function renderAHome(s) {
+        const progressText = s.completed > 0 ? '刚刚那一句已经留在花园里。' : '先说一句，再顺手做一个小活动。';
+        const playLabel = s.playState === 'playing' ? '播放中' : s.playState === 'done' ? '再读一次' : '读一下';
+        const playText = s.playState === 'playing' ? '听完就可以说。' : s.playState === 'done' ? '可以开始练。' : '听一遍，也可以直接开始。';
+
+        const mentorSheetHtml = s.mentorOpen ? renderAMentorSheet(s) : '';
+
+        return `
+          ${appChrome('a')}
+          <div class="content">
+            <section aria-label="今日入口">
+              <div style="display:grid;gap:6px;justify-items:start;padding:2px 0 0">
+                <div style="color:var(--accent-dark);font-size:12px;font-weight:var(--weight-medium)">早上好，林林妈妈</div>
+                <span class="pill" style="font-size:11px;min-height:26px">照护场景 · ${esc(dailyPhrase.scene)}</span>
+              </div>
+              <p style="margin:6px 2px 0;color:var(--muted);font-size:12px;font-weight:var(--weight-body);line-height:1.45">${progressText}</p>
+              <div style="display:grid;grid-template-columns:1fr auto;align-items:center;gap:8px;margin-top:8px">
+                <button style="min-height:40px;padding:0 4px;background:transparent;border:0;color:var(--english);font-size:12px;font-weight:var(--weight-strong);text-align:left;cursor:pointer" data-v="a" data-action="openMentor">不是现在？换个眼前场景</button>
+                <button style="min-height:40px;display:inline-flex;align-items:center;gap:5px;padding:0 10px;border-radius:999px;border:1px solid rgba(87,119,104,.16);background:rgba(255,252,247,.88);color:var(--sage-2);font-size:12px;font-weight:var(--weight-strong);cursor:pointer" data-v="a" data-action="openMentor">
+                  <span class="mentorMark" style="width:20px;height:20px"></span>问小禾
+                </button>
+              </div>
+            </section>
+
+            <section aria-label="今日短语">
+              <div class="sectionTitle"><h2>今日短语</h2><span class="sectionMeta">先说这一句</span></div>
+              <article style="padding:14px;border-radius:22px;border:1px solid rgba(88,68,48,.13);background:var(--surface);box-shadow:var(--soft-shadow)">
+                <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px">
+                  <span class="pill">${dailyPhrase.scene}</span>
+                  <span class="pill soft">适合现在</span>
+                </div>
+                <div style="display:grid;gap:5px;margin:0 0 10px">
+                  <p style="margin:0;color:var(--english);font-family:Fraunces,Georgia,serif;font-size:30px;font-weight:500;line-height:1.16">${dailyPhrase.en}</p>
+                  <p style="margin:0;color:var(--muted);font-size:13px;line-height:1.45;font-weight:var(--weight-body)">${dailyPhrase.zh} · ${dailyPhrase.note}</p>
+                </div>
+                <div style="display:grid;grid-template-columns:minmax(90px,.8fr) minmax(120px,1.2fr);gap:8px;align-items:center">
+                  <button class="listenBtn" data-v="a" data-action="listen"><span class="listenGlyph"></span><span>${playLabel}</span></button>
+                  <button class="ctaBtn" data-v="a" data-action="startPractice">开始练一句</button>
+                </div>
+                <div class="playState">${playText}</div>
+              </article>
+            </section>
+
+            <section aria-label="今日活动">
+              <div class="sectionTitle"><h2>今日活动</h2><span class="sectionMeta">可选小活动</span></div>
+              <div style="display:grid;gap:6px">
+                ${activities.map(a => `
+                  <div style="display:grid;grid-template-columns:34px 1fr auto;align-items:center;gap:8px;padding:8px 10px;border:1px solid rgba(88,68,48,.11);border-radius:16px;background:rgba(255,252,247,.72)">
+                    <span style="width:34px;height:34px;border-radius:12px;border:1px solid rgba(87,119,104,.14);background:var(--sage-soft)"></span>
+                    <span><span style="display:block;color:var(--ink);font-size:13px;font-weight:var(--weight-strong);line-height:1.2">${a.title}</span><span style="display:block;margin-top:2px;color:var(--muted);font-size:11px;font-weight:var(--weight-body)">${a.desc}</span></span>
+                    <span style="color:var(--warm);font-size:11px;font-weight:var(--weight-strong)">${a.time}</span>
+                  </div>
+                `).join('')}
+              </div>
+            </section>
+
+            ${gardenSection('a', s)}
+          </div>
+          ${bottomNav('a')}
+          ${mentorSheetHtml}
+          ${toastHtml(s)}
+        `;
+      }
+
+      function renderAMentorSheet(s) {
+        const ask = s.selectedAsk ? tempScenes.find(t => t.id === s.selectedAsk) : null;
+        return `
+          <div class="overlay" role="dialog" aria-modal="true" aria-label="问小禾">
+            <section class="sheet">
+              <div class="sheetHeader">
+                <div>
+                  <h2 class="sheetTitle">问小禾</h2>
+                  <p class="sheetCopy">选一个场景，小禾给一句临时建议，不改今天安排。</p>
+                </div>
+                <button class="sheetClose" data-v="a" data-action="closeMentor" aria-label="关闭">&times;</button>
+              </div>
+              <div style="display:grid;gap:6px">
+                ${tempScenes.map(t => `
+                  <button class="quickChip ${t.id === s.selectedAsk ? 'active' : ''}" data-v="a" data-action="selectAsk" data-ask="${t.id}">${t.label}</button>
+                `).join('')}
+              </div>
+              ${ask ? `
+                <div class="mentorAnswer" aria-live="polite">
+                  <strong>${ask.en}</strong>
+                  ${ask.zh}<br><span style="color:var(--muted);font-size:12px">${ask.desc}</span>
+                </div>
+                <div class="sheetActions">
+                  <button class="sheetBtn" data-v="a" data-action="mentorAnother">再问一个</button>
+                  <button class="sheetBtn strong" data-v="a" data-action="useSuggestion" data-ask="${ask.id}">练这句</button>
+                </div>
+              ` : ''}
+            </section>
+          </div>
+        `;
+      }
+
+      function renderAPractice(s) {
+        const p = s.practicePhrase || dailyPhrase;
+        return `
+          ${appChrome('a', `今日一句 / ${p.scene || '练习'}`)}
+          <div class="content practiceStage">
+            <article class="practiceCard">
+              <span class="pill">当前一句</span>
+              <h1>说给宝宝听</h1>
+              <p>这一页只负责把一句说完。</p>
+              <p class="practicePhrase">${p.en}</p>
+              <p class="practiceMeaning">${p.zh}</p>
+              <div class="practiceActions">
+                <button class="listenBtn" data-v="a" data-action="practiceListen"><span class="listenGlyph"></span><span>读一下</span></button>
+                <button class="ctaBtn" data-v="a" data-action="finishPractice">说完了</button>
+                <button class="secBtn" data-v="a" data-action="backHome">回首页</button>
+              </div>
+            </article>
+          </div>
+          ${bottomNav('a')}
+        `;
+      }
+
+      function renderAComplete(s) {
+        const p = s.practicePhrase || dailyPhrase;
+        return `
+          ${appChrome('a')}
+          <div class="content">
+            <section aria-label="今日入口">
+              <div style="display:grid;gap:6px;justify-items:start;padding:2px 0 0">
+                <div style="color:var(--accent-dark);font-size:12px;font-weight:var(--weight-medium)">早上好，林林妈妈</div>
+                <span class="pill" style="font-size:11px;min-height:26px">照护场景 · ${esc(dailyPhrase.scene)}</span>
+              </div>
+              <p style="margin:6px 2px 0;color:var(--muted);font-size:12px;font-weight:var(--weight-body);line-height:1.45">刚刚那一句已经留在花园里。</p>
+            </section>
+
+            <section aria-label="今日短语">
+              <div class="sectionTitle"><h2>今日短语</h2><span class="sectionMeta" style="color:var(--sage)">已完成</span></div>
+              <article style="padding:14px;border-radius:22px;border:1px solid rgba(87,119,104,.15);background:rgba(238,245,240,.35);box-shadow:var(--soft-shadow)">
+                <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px">
+                  <span class="pill">${dailyPhrase.scene}</span>
+                  <span style="color:var(--sage);font-size:12px;font-weight:var(--weight-strong)">已完成</span>
+                </div>
+                <p style="margin:0;color:var(--english);font-family:Fraunces,Georgia,serif;font-size:26px;font-weight:500;line-height:1.16;opacity:.7">${p.en}</p>
+                <p style="margin:4px 0 0;color:var(--muted);font-size:12px;font-weight:var(--weight-body)">${p.zh}</p>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px">
+                  <button class="secBtn" data-v="a" data-action="resetHome">再说一次</button>
+                  <button class="secBtn" data-v="a" data-action="resetHome">下一句稍后再来</button>
+                </div>
+                <p style="margin:8px 0 0;color:var(--sage-2);font-size:12px;font-weight:var(--weight-strong);line-height:1.4">小禾：刚才这句用得不错，今晚睡前可以再试一次。</p>
+              </article>
+            </section>
+
+            <section aria-label="今日活动">
+              <div class="sectionTitle"><h2>今日活动</h2><span class="sectionMeta">可选小活动</span></div>
+              <div style="display:grid;gap:6px">
+                ${activities.map(a => `
+                  <div style="display:grid;grid-template-columns:34px 1fr auto;align-items:center;gap:8px;padding:8px 10px;border:1px solid rgba(88,68,48,.11);border-radius:16px;background:rgba(255,252,247,.72)">
+                    <span style="width:34px;height:34px;border-radius:12px;border:1px solid rgba(87,119,104,.14);background:var(--sage-soft)"></span>
+                    <span><span style="display:block;color:var(--ink);font-size:13px;font-weight:var(--weight-strong);line-height:1.2">${a.title}</span><span style="display:block;margin-top:2px;color:var(--muted);font-size:11px;font-weight:var(--weight-body)">${a.desc}</span></span>
+                    <span style="color:var(--warm);font-size:11px;font-weight:var(--weight-strong)">${a.time}</span>
+                  </div>
+                `).join('')}
+              </div>
+            </section>
+
+            ${gardenSection('a', s)}
+          </div>
+          ${bottomNav('a')}
+          ${toastHtml(s)}
+        `;
+      }
+
+      // ========== VARIANT B RENDERERS ==========
+
+      function renderBHome(s) {
+        const mentorSheetHtml = s.mentorOpen ? renderBMentorSheet(s) : '';
+
+        return `
+          ${appChrome('b')}
+          <div class="content">
+            <div class="momentHeader">
+              <p class="momentTitle">今晚 <em>3 分钟</em>，陪宝宝收个尾</p>
+              <p class="momentSub">睡前收玩具的时候，顺便说一句英语</p>
+            </div>
+
+            <div class="mentorBubble">
+              <span class="mentorMark"></span>
+              <div class="mentorBubbleText">
+                <span class="mentorBubbleName">小禾</span>
+                <span class="mentorBubbleMsg">${dailyPhrase.note}</span>
+              </div>
+            </div>
+
+            <div class="sceneCard">
+              <p class="sceneAction">${dailyPhrase.action}</p>
+              <p class="scenePhrase">${dailyPhrase.en}</p>
+              <p class="sceneMeaning">${dailyPhrase.zh}</p>
+              <div class="sceneCardActions">
+                <button class="listenBtn" data-v="b" data-action="listen" style="font-size:12px;min-height:42px"><span class="listenGlyph"></span><span>${s.playState === 'playing' ? '播放中' : s.playState === 'done' ? '再读一次' : '读一下'}</span></button>
+                <button class="ctaBtn" data-v="b" data-action="startPractice" style="font-size:13px;min-height:42px">试着说这一句</button>
+              </div>
+              <div class="playState">${s.playState === 'playing' ? '听完就可以说。' : s.playState === 'done' ? '可以开始练。' : '可以直接对宝宝说。'}</div>
+            </div>
+
+            <section aria-label="快速场景">
+              <div class="sectionTitle"><h2>遇到别的情况？</h2></div>
+              <div class="quickRescue">
+                ${tempScenes.map(t => `
+                  <button class="rescueChip ${t.id === s.activeScene ? 'active' : ''}" data-v="b" data-action="rescueScene" data-scene="${t.id}">${t.label}</button>
+                `).join('')}
+              </div>
+              ${s.activeScene ? renderBSceneExpanded(s) : ''}
+            </section>
+
+            ${gardenSection('b', s)}
+          </div>
+          ${bottomNav('b')}
+          ${mentorSheetHtml}
+          ${toastHtml(s)}
+        `;
+      }
+
+      function renderBSceneExpanded(s) {
+        const scene = tempScenes.find(t => t.id === s.activeScene);
+        if (!scene) return '';
+        return `
+          <div style="margin-top:6px;padding:12px;border-radius:18px;border:1px solid rgba(87,119,104,.12);background:rgba(238,245,240,.35)">
+            <div class="mentorBubble" style="margin:0 0 8px;background:transparent;border:0;padding:0">
+              <span class="mentorMark" style="width:24px;height:24px"></span>
+              <div class="mentorBubbleText">
+                <span class="mentorBubbleName">小禾建议</span>
+                <span class="mentorBubbleMsg">${scene.desc}</span>
+              </div>
+            </div>
+            <p style="margin:0;color:var(--english);font-family:Fraunces,Georgia,serif;font-size:22px;font-weight:500;line-height:1.16">${scene.en}</p>
+            <p style="margin:4px 0 0;color:var(--muted);font-size:12px;font-weight:var(--weight-body)">${scene.zh}</p>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:8px">
+              <button class="sheetBtn" data-v="b" data-action="tempPractice" data-scene="${scene.id}" style="font-size:12px;min-height:38px">练这句</button>
+              <button class="sheetBtn" data-v="b" data-action="clearScene" style="font-size:12px;min-height:38px">回到今日计划</button>
+            </div>
+          </div>
+        `;
+      }
+
+      function renderBMentorSheet(s) {
+        const ask = s.selectedAsk ? tempScenes.find(t => t.id === s.selectedAsk) : null;
+        return `
+          <div class="overlay" role="dialog" aria-modal="true" aria-label="问小禾">
+            <section class="sheet">
+              <div class="sheetHeader">
+                <div>
+                  <h2 class="sheetTitle">问小禾</h2>
+                  <p class="sheetCopy">选一个场景，小禾给一句临时建议，不改今天安排。</p>
+                </div>
+                <button class="sheetClose" data-v="b" data-action="closeMentor" aria-label="关闭">&times;</button>
+              </div>
+              <div style="display:grid;gap:6px">
+                ${tempScenes.map(t => `
+                  <button class="quickChip ${t.id === s.selectedAsk ? 'active' : ''}" data-v="b" data-action="selectAsk" data-ask="${t.id}">${t.label}</button>
+                `).join('')}
+              </div>
+              ${ask ? `
+                <div class="mentorAnswer" aria-live="polite">
+                  <strong>${ask.en}</strong>
+                  ${ask.zh}<br><span style="color:var(--muted);font-size:12px">${ask.desc}</span>
+                </div>
+                <div class="sheetActions">
+                  <button class="sheetBtn" data-v="b" data-action="mentorAnother">换个更温柔的说法</button>
+                  <button class="sheetBtn strong" data-v="b" data-action="useSuggestion" data-ask="${ask.id}">练这句</button>
+                </div>
+              ` : ''}
+            </section>
+          </div>
+        `;
+      }
+
+      function renderBPractice(s) {
+        const p = s.practicePhrase || dailyPhrase;
+        return `
+          ${appChrome('b', `${p.scene || '练习'}`)}
+          <div class="content practiceStage">
+            <article class="practiceCard">
+              <div class="mentorBubble" style="margin:0 0 10px;background:transparent;border:0;padding:0">
+                <span class="mentorMark" style="width:24px;height:24px"></span>
+                <div class="mentorBubbleText">
+                  <span class="mentorBubbleName">小禾</span>
+                  <span class="mentorBubbleMsg">会说就直接说，不需要先听。</span>
+                </div>
+              </div>
+              <p class="practicePhrase">${p.en}</p>
+              <p class="practiceMeaning">${p.zh}</p>
+              <div class="practiceActions">
+                <button class="listenBtn" data-v="b" data-action="practiceListen"><span class="listenGlyph"></span><span>读一下</span></button>
+                <button class="ctaBtn" data-v="b" data-action="finishPractice">说完了</button>
+                <button class="secBtn" data-v="b" data-action="backHome">回首页</button>
+              </div>
+            </article>
+          </div>
+          ${bottomNav('b')}
+        `;
+      }
+
+      function renderBComplete(s) {
+        const p = s.practicePhrase || dailyPhrase;
+        return `
+          ${appChrome('b')}
+          <div class="content">
+            <div class="momentHeader" style="background:linear-gradient(135deg,rgba(212,232,227,.3),rgba(255,140,66,.06))">
+              <p class="momentTitle">刚刚完成一次<em>亲子英语时刻</em></p>
+              <p class="momentSub">${p.scene} · ${p.en}</p>
+            </div>
+
+            <div class="mentorBubble">
+              <span class="mentorMark"></span>
+              <div class="mentorBubbleText">
+                <span class="mentorBubbleName">小禾</span>
+                <span class="mentorBubbleMsg">说得好。今晚可以再用一次，宝宝会慢慢习惯这句话。</span>
+              </div>
+            </div>
+
+            <div class="resultEcho">
+              <p class="resultEchoTitle">今晚可以这样复用</p>
+              <p class="resultEchoBody">${p.action || dailyPhrase.action} 下次${p.scene}时，再说一次就好。</p>
+            </div>
+
+            <div class="sceneCard">
+              <p class="sceneAction" style="color:var(--muted-2)">今日推荐 · 仍然可用</p>
+              <p class="scenePhrase" style="font-size:24px;opacity:.6">${dailyPhrase.en}</p>
+              <p class="sceneMeaning">${dailyPhrase.zh}</p>
+              <div class="sceneCardActions">
+                <button class="secBtn" data-v="b" data-action="resetHome" style="font-size:12px">回到今日计划</button>
+                <button class="ctaBtn" data-v="b" data-action="resetHome" style="font-size:12px">再说一次</button>
+              </div>
+            </div>
+
+            <section aria-label="快速场景">
+              <div class="sectionTitle"><h2>遇到别的情况？</h2></div>
+              <div class="quickRescue">
+                ${tempScenes.map(t => `
+                  <button class="rescueChip" data-v="b" data-action="rescueScene" data-scene="${t.id}">${t.label}</button>
+                `).join('')}
+              </div>
+            </section>
+
+            ${gardenSection('b', s)}
+          </div>
+          ${bottomNav('b')}
+          ${toastHtml(s)}
+        `;
+      }
+
+      // ========== RENDER DISPATCH ==========
+
+      function renderA() {
+        const el = document.getElementById('phoneA');
+        if (stateA.view === 'practice') {
+          el.innerHTML = renderAPractice(stateA);
+        } else if (stateA.view === 'complete') {
+          el.innerHTML = renderAComplete(stateA);
+        } else {
+          el.innerHTML = renderAHome(stateA);
+        }
+        bindA();
+      }
+
+      function renderB() {
+        const el = document.getElementById('phoneB');
+        if (stateB.view === 'practice') {
+          el.innerHTML = renderBPractice(stateB);
+        } else if (stateB.view === 'complete') {
+          el.innerHTML = renderBComplete(stateB);
+        } else {
+          el.innerHTML = renderBHome(stateB);
+        }
+        bindB();
+      }
+
+      function render() {
+        renderA();
+        renderB();
+      }
+
+      // ========== EVENT BINDING ==========
+
+      function bindGlobal() {
+        document.querySelectorAll('[data-action="menu"]').forEach(btn => {
+          btn.onclick = () => { /* no-op in prototype */ };
+        });
+        document.querySelectorAll('[data-action="sync"]').forEach(btn => {
+          btn.onclick = () => { /* no-op in prototype */ };
+        });
+      }
+
+      function startPractice(variant, phrase) {
+        const s = variant === 'a' ? stateA : stateB;
+        clearTimers(s);
+        s.practicePhrase = phrase || { ...dailyPhrase, origin: 'daily' };
+        s.view = 'practice';
+        s.mentorOpen = false;
+        s.activeScene = null;
+        s.toastMessage = '';
+        render();
+      }
+
+      function finishPractice(variant) {
+        const s = variant === 'a' ? stateA : stateB;
+        const p = s.practicePhrase || dailyPhrase;
+        clearTimers(s);
+        s.completed += 1;
+        s.lastTrace = { en: p.en, scene: p.scene || dailyPhrase.scene, origin: p.origin || 'daily' };
+        s.gardenOpen = true;
+        s.view = 'complete';
+        s.playState = 'idle';
+        s.toastMessage = s.lastTrace.origin === 'mentor'
+          ? `刚刚这句已经留在${s.lastTrace.scene}痕迹里。`
+          : `刚刚这句已经留在${s.lastTrace.scene}小芽里。`;
+        render();
+        s.toastTimer = setTimeout(() => { s.toastTimer = 0; s.toastMessage = ''; render(); }, 2500);
+      }
+
+      function bindA() {
+        bindGlobal();
+        const el = document.getElementById('phoneA');
+
+        el.querySelectorAll('[data-v="a"]').forEach(btn => {
+          const action = btn.dataset.action;
+          if (action === 'listen') {
+            btn.onclick = () => {
+              if (stateA.playState === 'playing') return;
+              stateA.playState = 'playing';
+              renderA();
+              stateA.playTimer = setTimeout(() => { stateA.playTimer = 0; stateA.playState = 'done'; renderA(); }, 800);
+            };
+          } else if (action === 'startPractice') {
+            btn.onclick = () => startPractice('a');
+          } else if (action === 'finishPractice') {
+            btn.onclick = () => finishPractice('a');
+          } else if (action === 'backHome' || action === 'resetHome') {
+            btn.onclick = () => { clearTimers(stateA); stateA.view = 'home'; stateA.playState = 'idle'; stateA.activeScene = null; render(); };
+          } else if (action === 'openMentor') {
+            btn.onclick = () => { stateA.mentorOpen = true; stateA.selectedAsk = ''; renderA(); };
+          } else if (action === 'closeMentor') {
+            btn.onclick = () => { stateA.mentorOpen = false; renderA(); };
+          } else if (action === 'selectAsk') {
+            btn.onclick = () => { stateA.selectedAsk = btn.dataset.ask; renderA(); };
+          } else if (action === 'mentorAnother') {
+            btn.onclick = () => { stateA.selectedAsk = ''; renderA(); };
+          } else if (action === 'useSuggestion') {
+            btn.onclick = () => {
+              const scene = tempScenes.find(t => t.id === btn.dataset.ask);
+              if (scene) startPractice('a', { en: scene.en, zh: scene.zh, scene: scene.label, origin: 'mentor' });
+            };
+          } else if (action === 'garden') {
+            btn.onclick = () => { stateA.gardenOpen = !stateA.gardenOpen; renderA(); };
+          } else if (action === 'practiceListen') {
+            btn.onclick = () => { btn.querySelector('span:last-child').textContent = '再读一次'; };
+          }
+        });
+      }
+
+      function bindB() {
+        bindGlobal();
+        const el = document.getElementById('phoneB');
+
+        el.querySelectorAll('[data-v="b"]').forEach(btn => {
+          const action = btn.dataset.action;
+          if (action === 'listen') {
+            btn.onclick = () => {
+              if (stateB.playState === 'playing') return;
+              stateB.playState = 'playing';
+              renderB();
+              stateB.playTimer = setTimeout(() => { stateB.playTimer = 0; stateB.playState = 'done'; renderB(); }, 800);
+            };
+          } else if (action === 'startPractice') {
+            btn.onclick = () => startPractice('b');
+          } else if (action === 'finishPractice') {
+            btn.onclick = () => finishPractice('b');
+          } else if (action === 'backHome' || action === 'resetHome') {
+            btn.onclick = () => { clearTimers(stateB); stateB.view = 'home'; stateB.playState = 'idle'; stateB.activeScene = null; render(); };
+          } else if (action === 'openMentor') {
+            btn.onclick = () => { stateB.mentorOpen = true; stateB.selectedAsk = ''; renderB(); };
+          } else if (action === 'closeMentor') {
+            btn.onclick = () => { stateB.mentorOpen = false; renderB(); };
+          } else if (action === 'selectAsk') {
+            btn.onclick = () => { stateB.selectedAsk = btn.dataset.ask; renderB(); };
+          } else if (action === 'mentorAnother') {
+            btn.onclick = () => { stateB.selectedAsk = ''; renderB(); };
+          } else if (action === 'useSuggestion') {
+            btn.onclick = () => {
+              const scene = tempScenes.find(t => t.id === btn.dataset.ask);
+              if (scene) startPractice('b', { en: scene.en, zh: scene.zh, scene: scene.label, origin: 'mentor' });
+            };
+          } else if (action === 'rescueScene') {
+            btn.onclick = () => {
+              stateB.activeScene = stateB.activeScene === btn.dataset.scene ? null : btn.dataset.scene;
+              renderB();
+            };
+          } else if (action === 'tempPractice') {
+            btn.onclick = () => {
+              const scene = tempScenes.find(t => t.id === btn.dataset.scene);
+              if (scene) startPractice('b', { en: scene.en, zh: scene.zh, scene: scene.label, origin: 'mentor' });
+            };
+          } else if (action === 'clearScene') {
+            btn.onclick = () => { stateB.activeScene = null; renderB(); };
+          } else if (action === 'garden') {
+            btn.onclick = () => { stateB.gardenOpen = !stateB.gardenOpen; renderB(); };
+          } else if (action === 'practiceListen') {
+            btn.onclick = () => { btn.querySelector('span:last-child').textContent = '再读一次'; };
+          }
+        });
+      }
+
+      // Init
+      renderTasks();
+      render();
+    })();
+  </script>
+</body>
+</html>
