@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:mobile/app/theme/app_layout_constants.dart';
 import 'package:mobile/app/theme/app_theme.dart';
 import 'package:mobile/app/widgets/app_surface_card.dart';
 import 'package:mobile/features/practice/domain/models/interaction_event_payload.dart';
@@ -47,7 +48,9 @@ class DiscoverActivityCard extends StatelessWidget {
                   height: 64,
                   decoration: BoxDecoration(
                     color: colors.accent,
-                    borderRadius: BorderRadius.circular(999),
+                    borderRadius: BorderRadius.circular(
+                      AppLayoutConstants.pillRadius,
+                    ),
                   ),
                 ),
                 const SizedBox(width: 14),
@@ -78,7 +81,7 @@ class DiscoverActivityCard extends StatelessWidget {
               key: Key('discover-progress-${activity.activityId}'),
               value: progress.clamp(0.0, 1.0),
               minHeight: 6,
-              borderRadius: BorderRadius.circular(999),
+              borderRadius: BorderRadius.circular(AppLayoutConstants.pillRadius),
               color: colors.accent,
               backgroundColor: colors.bgSunken,
             ),

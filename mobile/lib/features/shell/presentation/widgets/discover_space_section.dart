@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:mobile/app/theme/app_layout_constants.dart';
 import 'package:mobile/app/theme/app_theme.dart';
 import 'package:mobile/features/practice/domain/models/practice_activity_catalog.dart';
 import 'package:mobile/l10n/app_localizations.dart';
@@ -23,7 +24,7 @@ class DiscoverSpaceSection extends StatelessWidget {
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: colors.bgSurface,
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(AppLayoutConstants.largeRadius),
         border: Border.all(color: colors.outlineSoft),
         boxShadow: colors.warmShadowSm,
       ),
@@ -104,14 +105,18 @@ class DiscoverSpaceGridItem extends StatelessWidget {
               end: Alignment.bottomRight,
               colors: [colors.bgAccentSoft, colors.bgSurface],
             ),
-            borderRadius: BorderRadius.circular(20),
+            borderRadius: BorderRadius.circular(
+              AppLayoutConstants.mediumRadius,
+            ),
             border: Border.all(color: colors.outlineSoft),
           ),
           child: InkWell(
             key: Key(
               'discover-route-target-${activity.spaceId}-${activity.activityId}',
             ),
-            borderRadius: BorderRadius.circular(20),
+            borderRadius: BorderRadius.circular(
+              AppLayoutConstants.mediumRadius,
+            ),
             onTap: onTap,
             child: Padding(
               padding: const EdgeInsets.all(16),
@@ -147,7 +152,9 @@ class DiscoverSpaceGridItem extends StatelessWidget {
                     key: Key('discover-space-progress-${activity.activityId}'),
                     value: progress.clamp(0.0, 1.0),
                     minHeight: 6,
-                    borderRadius: BorderRadius.circular(999),
+                    borderRadius: BorderRadius.circular(
+                      AppLayoutConstants.pillRadius,
+                    ),
                     color: colors.english,
                     backgroundColor: colors.bgSurface,
                   ),
