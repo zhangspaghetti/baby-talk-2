@@ -169,3 +169,47 @@
 2. growth 周/月/年统计在新设备可直接获取，且与旧设备同口径
 3. share 流程无陈旧快照副本导致的滞后显示
 4. 灰度期间无高频幂等冲突告警
+
+## 10. Task6 实际验证结果与门禁（2026-05-30）
+
+本轮按最小必要范围执行了后端与移动端定向验证，结论如下：
+
+1. 后端 persistence 定向测试未通过（门禁红）
+- 执行命令：
+
+```bash
+cd backend
+mvn -pl app-api "-Dtest=GardenFertilizerServiceTest,GardenFertilizerControllerTest,GrowthSummaryControllerTest" test
+```
+
+- 结果摘要：
+  - `GrowthSummaryControllerTest` 通过
+  - `GardenFertilizerServiceTest`、`GardenFertilizerControllerTest` 失败
+  - 关键错误：`relation "garden_fertilizer_claim_log" does not exist`、`relation "garden_fertilizer_state" does not exist`
+  - Maven 汇总：Tests run 11, Failures 3, Errors 3, BUILD FAILURE
+
+2. 移动端定向测试通过（门禁黄，依赖后端修复）
+- 执行命令：
+
+```bash
+Get-Process -Name dart,flutter_tester -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+cd mobile
+flutter test test/features/garden/data/remote/garden_fertilizer_api_service_test.dart test/features/growth/domain/growth_stats_service_remote_fallback_test.dart test/features/share/presentation/share_notifier_live_snapshot_test.dart
+```
+
+- 结果摘要：`00:05 +13: All tests passed`
+
+3. 灰度观测门禁尚未满足
+- 本次验证窗口未采样以下指标基线：
+  - `idempotent_conflict_rate`
+  - `fallback_to_local_rate`
+  - `share_stale_snapshot_reports`
+
+### 当前门禁结论
+
+- 总体门禁：FAIL（阻断发布）
+- 阻断原因：后端 fertilizer 持久化相关测试失败，且灰度指标基线缺失。
+- 放行前置条件：
+  1) 修复后端缺表/迁移链路问题并使上述后端定向测试全绿；
+  2) 采样并记录三项灰度指标基线；
+  3) 回填验证报告并复核门禁状态。
