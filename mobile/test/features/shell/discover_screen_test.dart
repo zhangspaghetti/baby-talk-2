@@ -2,7 +2,9 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:mobile/app/theme/app_layout_constants.dart';
 import 'package:mobile/app/theme/app_theme.dart';
+import 'package:mobile/app/widgets/app_surface_card.dart';
 import 'package:mobile/l10n/app_localizations.dart';
 import 'package:mobile/features/practice/domain/models/interaction_event_payload.dart';
 import 'package:mobile/features/practice/domain/models/practice_activity_catalog.dart';
@@ -318,6 +320,30 @@ void main() {
     expect(openCount, 0);
     expect(find.byKey(const Key('discover-navigation-error')), findsOneWidget);
     expect(find.textContaining('这张活动卡暂时打不开'), findsOneWidget);
+  });
+
+  testWidgets('Discover 活动卡在真实页面中保持 AppSurfaceCard 默认风格契约', (tester) async {
+    await tester.pumpWidget(
+      _buildApp(
+        catalogLoader: () async => _buildCatalog(),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final card = tester.widget<AppSurfaceCard>(
+      find.byKey(const Key('discover-phrase-card-bath_time')),
+    );
+
+    expect(card.variant, AppSurfaceCardVariant.standard);
+    expect(card.borderColor, isNull);
+    expect(card.borderRadius, AppLayoutConstants.cardRadius);
+    expect(
+      card.padding,
+      const EdgeInsets.symmetric(
+        horizontal: AppLayoutConstants.spacingLg,
+        vertical: AppLayoutConstants.spacingXl,
+      ),
+    );
   });
 }
 

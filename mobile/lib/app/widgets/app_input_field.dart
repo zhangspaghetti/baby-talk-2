@@ -97,22 +97,8 @@ class AppInputField extends StatelessWidget {
               )
             : null);
 
-    final showClear = _isSearch &&
-        onClear != null &&
-        (controller?.text.isNotEmpty ?? false);
-    final effectiveSuffix = suffixIcon ??
-        (showClear
-            ? IconButton(
-                icon: Icon(
-                  Icons.clear,
-                  size: AppLayoutConstants.iconSizeMd,
-                  color: colors.textMuted,
-                ),
-                onPressed: onClear,
-              )
-            : null);
-
-    final field = TextField(
+    Widget buildField(Widget? effectiveSuffix) {
+      return TextField(
       key: fieldKey,
       controller: controller,
       focusNode: focusNode,
@@ -155,6 +141,31 @@ class AppInputField extends StatelessWidget {
         disabledBorder: borderWith(colors.outlineSoft),
       ),
     );
+    }
+
+    Widget? buildSuffixWithText(String text) {
+      final showClear = _isSearch && onClear != null && text.isNotEmpty;
+      return suffixIcon ??
+          (showClear
+              ? IconButton(
+                  icon: Icon(
+                    Icons.clear,
+                    size: AppLayoutConstants.iconSizeMd,
+                    color: colors.textMuted,
+                  ),
+                  onPressed: onClear,
+                )
+              : null);
+    }
+
+    final field = controller == null
+        ? buildField(buildSuffixWithText(''))
+        : ValueListenableBuilder<TextEditingValue>(
+            valueListenable: controller!,
+            builder: (context, value, _) {
+              return buildField(buildSuffixWithText(value.text));
+            },
+          );
 
     if (semanticsLabel == null) {
       return field;

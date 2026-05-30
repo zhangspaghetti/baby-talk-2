@@ -90,6 +90,32 @@ void main() {
       expect(find.byIcon(Icons.clear), findsOneWidget);
     });
 
+    testWidgets('search 变体：输入变化时清除按钮随 empty->text->empty 自动切换', (tester) async {
+      final controller = TextEditingController();
+      addTearDown(controller.dispose);
+
+      await tester.pumpWidget(
+        buildApp(
+          AppInputField(
+            variant: AppInputFieldVariant.search,
+            controller: controller,
+            onClear: controller.clear,
+            fieldKey: const Key('search-field'),
+          ),
+        ),
+      );
+
+      expect(find.byIcon(Icons.clear), findsNothing);
+
+      await tester.enterText(find.byKey(const Key('search-field')), 'hello');
+      await tester.pump();
+      expect(find.byIcon(Icons.clear), findsOneWidget);
+
+      await tester.enterText(find.byKey(const Key('search-field')), '');
+      await tester.pump();
+      expect(find.byIcon(Icons.clear), findsNothing);
+    });
+
     testWidgets('search 变体：无 onClear 时不显示清除按钮', (tester) async {
       final controller = TextEditingController(text: 'hi');
       addTearDown(controller.dispose);

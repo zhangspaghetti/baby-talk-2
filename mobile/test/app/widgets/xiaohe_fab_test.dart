@@ -47,4 +47,23 @@ void main() {
     expect(fab.mini, isTrue);
     expect(find.byIcon(Icons.auto_awesome), findsOneWidget);
   });
+
+  testWidgets('XiaoheFab 点击触发注入的交互回调路径', (tester) async {
+    var pressed = false;
+
+    await tester.pumpWidget(
+      buildTestApp(
+        XiaoheFab(
+          launcher: 'shell_fab',
+          surface: 'home',
+          onPressedOverride: () => pressed = true,
+        ),
+      ),
+    );
+
+    await tester.tap(find.byType(FloatingActionButton));
+    await tester.pumpAndSettle();
+
+    expect(pressed, isTrue);
+  });
 }

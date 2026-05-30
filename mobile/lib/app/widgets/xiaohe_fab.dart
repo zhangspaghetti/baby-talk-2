@@ -17,6 +17,7 @@ class XiaoheFab extends StatelessWidget {
     required this.launcher,
     this.surface = 'home',
     this.small = false,
+    this.onPressedOverride,
   });
 
   /// 埋点入口标识，例如 `shell_fab` / `home_fab`。
@@ -28,7 +29,14 @@ class XiaoheFab extends StatelessWidget {
   /// 是否使用 `FloatingActionButton.small` 紧凑形态。
   final bool small;
 
+  /// 可选注入点击逻辑，便于局部交互测试。
+  final VoidCallback? onPressedOverride;
+
   void _onPressed(BuildContext context) {
+    if (onPressedOverride != null) {
+      onPressedOverride!.call();
+      return;
+    }
     AppHaptics.lightTap();
     openMentorPanelSheet(context, launcher: launcher, surface: surface);
   }
