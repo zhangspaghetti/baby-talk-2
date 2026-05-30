@@ -11,6 +11,8 @@ void main() {
       expect(AppRouteNames.onboarding, '/onboarding');
       expect(AppRouteNames.practice, '/practice');
       expect(AppRouteNames.account, '/account');
+      expect(AppRouteNames.meSettings, '/me/settings');
+      expect(AppRouteNames.meGrowth, '/me/growth');
       expect(
         AppRouteNames.canonicalPaths,
         containsAll(<String>[
@@ -18,9 +20,11 @@ void main() {
           AppRouteNames.onboarding,
           AppRouteNames.practice,
           AppRouteNames.account,
+          AppRouteNames.meSettings,
+          AppRouteNames.meGrowth,
         ]),
       );
-      expect(AppRouteNames.canonicalPaths.length, 4);
+      expect(AppRouteNames.canonicalPaths.length, 6);
     });
 
     test(

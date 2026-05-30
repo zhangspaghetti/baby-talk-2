@@ -13,7 +13,7 @@ import 'package:mobile/app/theme/app_layout_constants.dart';
 import 'package:mobile/app/theme/app_theme.dart';
 import 'package:mobile/features/onboarding/domain/models/stage_match.dart';
 import 'package:mobile/features/onboarding/presentation/onboarding_notifier.dart';
-import 'package:mobile/features/onboarding/presentation/widgets/mentor_bubble.dart';
+import 'package:mobile/app/widgets/app_mentor_bubble.dart';
 import 'package:mobile/features/onboarding/presentation/widgets/mini_seed_card.dart';
 import 'package:mobile/features/onboarding/presentation/widgets/quick_select_card.dart';
 import 'package:mobile/l10n/app_localizations.dart';
@@ -149,14 +149,14 @@ class OnboardingScreen extends HookConsumerWidget {
     AppLocalizations l,
   ) {
     final widgets = <Widget>[
-      MentorBubble(caption: l.mentorName, message: l.onboardingMentorGreeting),
+      AppMentorBubble(caption: l.mentorName, message: l.onboardingMentorGreeting),
     ];
 
     if (notifier.currentStep.index >= OnboardingFlowStep.name.index ||
         notifier.draftName.trim().isNotEmpty) {
       widgets
         ..add(const SizedBox(height: 16))
-        ..add(MentorBubble(message: l.onboardingAskName));
+        ..add(AppMentorBubble(message: l.onboardingAskName));
     }
 
     if (notifier.draftName.trim().isNotEmpty) {
@@ -169,7 +169,7 @@ class OnboardingScreen extends HookConsumerWidget {
         notifier.selectedAgeBucket != null) {
       widgets
         ..add(const SizedBox(height: 16))
-        ..add(MentorBubble(message: l.onboardingAskAge));
+        ..add(AppMentorBubble(message: l.onboardingAskAge));
     }
 
     final selectedAgeBucket = notifier.selectedAgeBucket;
@@ -190,7 +190,7 @@ class OnboardingScreen extends HookConsumerWidget {
       widgets
         ..add(const SizedBox(height: 16))
         ..add(
-          MentorBubble(
+          AppMentorBubble(
             message: l.onboardingStagePreview(notifier.draftName.trim()),
           ),
         )

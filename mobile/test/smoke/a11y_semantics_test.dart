@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mobile/app/theme/app_theme.dart';
-import 'package:mobile/features/onboarding/presentation/widgets/mentor_bubble.dart';
+import 'package:mobile/app/widgets/app_mentor_bubble.dart';
 import 'package:mobile/features/onboarding/presentation/widgets/mini_seed_card.dart';
 import 'package:mobile/features/practice/domain/models/practice_phrase.dart';
 import 'package:mobile/features/practice/presentation/practice_session_notifier.dart';
@@ -24,7 +24,7 @@ void main() {
       final semantics = tester.ensureSemantics();
       try {
         await tester.pumpWidget(
-          buildTestApp(const MentorBubble(message: '你好，欢迎使用 Baby Talk！')),
+          buildTestApp(const AppMentorBubble(message: '你好，欢迎使用 Baby Talk！')),
         );
 
         expect(
@@ -44,7 +44,7 @@ void main() {
       try {
         await tester.pumpWidget(
           buildTestApp(
-            const MentorBubble(message: '先看一条提示。', trailing: Text('文字优先回复说明')),
+            const AppMentorBubble(message: '先看一条提示。', trailing: Text('文字优先回复说明')),
           ),
         );
 

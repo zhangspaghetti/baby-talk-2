@@ -8,7 +8,7 @@ import 'package:mobile/app/widgets/app_surface_card.dart';
 import 'package:mobile/app/theme/app_layout_constants.dart';
 import 'package:mobile/app/theme/app_theme.dart';
 import 'package:mobile/features/mentor/presentation/mentor_audio_controller.dart';
-import 'package:mobile/features/onboarding/presentation/widgets/mentor_bubble.dart';
+import 'package:mobile/app/widgets/app_mentor_bubble.dart';
 import 'package:mobile/features/practice/presentation/practice_route_args.dart';
 import 'package:mobile/features/practice/presentation/practice_session_notifier.dart';
 import 'package:mobile/features/practice/presentation/widgets/activation_frame.dart';
@@ -226,7 +226,7 @@ class _PracticeSessionBodyState extends ConsumerState<_PracticeSessionBody> {
                 ),
                 const SizedBox(height: 16),
                 // Xiaohe dynamic scene copy (V21)
-                MentorBubble(
+                AppMentorBubble(
                   message: _sceneMentorCopy(notifier.sceneTag),
                 ),
                 const SizedBox(height: 16),

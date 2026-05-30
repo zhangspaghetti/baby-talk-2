@@ -7,6 +7,7 @@ import 'package:mobile/app/providers/repository_providers.dart';
 import 'package:mobile/app/theme/app_layout_constants.dart';
 import 'package:mobile/app/theme/app_theme.dart';
 import 'package:mobile/app/widgets/app_haptics.dart';
+import 'package:mobile/app/widgets/app_toast.dart';
 import 'package:mobile/features/account/data/repositories/account_repository.dart';
 import 'package:mobile/features/account/presentation/account_notifier.dart';
 import 'package:mobile/features/account/presentation/account_surface_phase.dart';
@@ -740,14 +741,9 @@ class AccountEntryScreen extends HookConsumerWidget {
                                                 !succeeded) {
                                               return;
                                             }
-                                            ScaffoldMessenger.of(
+                                            showAppToast(
                                               context,
-                                            ).showSnackBar(
-                                              SnackBar(
-                                                content: Text(
-                                                  l.accountEntrySubmitMessage,
-                                                ),
-                                              ),
+                                              l.accountEntrySubmitMessage,
                                             );
                                           },
                                     child: Text(
