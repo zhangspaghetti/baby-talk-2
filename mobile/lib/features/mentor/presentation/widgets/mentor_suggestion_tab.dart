@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobile/app/providers/repository_providers.dart';
+import 'package:mobile/app/theme/app_layout_constants.dart';
 import 'package:mobile/app/theme/app_theme.dart';
 import 'package:mobile/features/mentor/domain/models/local_mentor_suggestion.dart';
 import 'package:mobile/features/mentor/domain/services/local_mentor_suggestion_service.dart';
 import 'package:mobile/features/mentor/presentation/mentor_notifier.dart';
-import 'package:mobile/features/onboarding/presentation/widgets/mentor_bubble.dart';
+import 'package:mobile/app/widgets/app_mentor_bubble.dart';
 import 'package:mobile/l10n/app_localizations.dart';
 
 class MentorSuggestionTab extends ConsumerWidget {
@@ -22,7 +23,7 @@ class MentorSuggestionTab extends ConsumerWidget {
       key: const Key('mentor-suggestion-tab'),
       padding: const EdgeInsets.fromLTRB(20, 4, 20, 20),
       children: [
-        MentorBubble(
+        AppMentorBubble(
           message: '先给你几条现在就能说出口的建议。离线时也可以直接用，不需要等聊天连通。',
           caption: '小禾老师',
         ),
@@ -87,7 +88,9 @@ class MentorSuggestionTab extends ConsumerWidget {
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
               color: colors.bgSurface,
-              borderRadius: BorderRadius.circular(24),
+              borderRadius: BorderRadius.circular(
+                AppLayoutConstants.largeRadius,
+              ),
               border: Border.all(color: colors.outlineSoft),
             ),
             child: Row(
@@ -115,7 +118,9 @@ class MentorSuggestionTab extends ConsumerWidget {
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
               color: colors.bgSurface,
-              borderRadius: BorderRadius.circular(24),
+              borderRadius: BorderRadius.circular(
+                AppLayoutConstants.largeRadius,
+              ),
               border: Border.all(color: colors.outlineSoft),
             ),
             child: Column(
@@ -274,7 +279,7 @@ class _SuggestionCard extends StatelessWidget {
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: colors.bgSurface,
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(AppLayoutConstants.largeRadius),
         border: Border.all(color: colors.outlineSoft),
         boxShadow: colors.warmShadowSm,
       ),
