@@ -4,6 +4,14 @@
 
 ---
 
+## 实施计划
+
+| 文件 | 说明 |
+|------|------|
+| [未提交审查与分批提交实施计划](plans/2026-05-30-uncommitted-review-and-staged-commit-implementation-plan.md) | Task1 代码质量问题修复与分步提交方案 |
+
+---
+
 ## Flutter Mobile 设计规格
 
 ### 页面设计
@@ -32,6 +40,16 @@
 | [全页面决策汇总](specs/2026-05-28-all-pages-design-decisions-summary.md) | 8 个页面的 50+ 项设计决策 |
 | [Onboarding 讨论汇总](specs/2026-05-28-onboarding-v21-discussion-summary.md) | Onboarding 18 项决策的讨论过程 |
 | [Home A/B 用户测试](specs/2026-05-26-flutter-mobile-home-ab-prototype-user-test-design.md) | A/B 测试设计 |
+| [组件规范技术审查](specs/2026-05-29-component-spec-tech-review.md) | 组件规范工程可行性审查 |
+| [Flutter UI 库调研（2026）](specs/2026-05-31-flutter-ui-library-landscape-2026.md) | Flutter UI 组件库现状与候选对比 |
+| [InputField 库评估](specs/2026-05-31-inputfield-library-evaluation.md) | 输入组件库评估与接入建议 |
+| [提取组件库替换评估](specs/2026-06-01-extracted-components-library-replacement-eval.md) | 已提取组件的替换成本与风险评估 |
+
+### 已归档（Superseded）
+
+| 文件 | 说明 |
+|------|------|
+| [Shell 导航设计（归档）](specs/archived/2026-05-28-flutter-mobile-shell-nav-design.md) | 已被 [Shell V2](specs/2026-05-28-flutter-mobile-shell-v2-design.md) superseded |
 
 ---
 
@@ -69,7 +87,7 @@
 | 原型 | 路径 | 关键特性 |
 |------|------|---------|
 | Onboarding V21 | `.superpowers/brainstorm/onboarding-v21/` | 微交互+转场动画+声源统一 |
-| Home A/B | `docs/superpowers/specs/` | Side-by-side 对比 |
+| Home A/B | [specs/2026-05-28-home-ab-prototype.html](specs/2026-05-28-home-ab-prototype.html) | Side-by-side 对比 |
 | Practice 独立 | `.superpowers/brainstorm/practice/` | 完整练习流程 |
 | Auth V11 | `.superpowers/brainstorm/auth/` | 合并登录/注册 |
 | Garden V2 | `.superpowers/brainstorm/garden/` | 芭芭农场式单株成长 |
