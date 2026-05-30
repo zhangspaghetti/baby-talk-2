@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:mobile/app/theme/app_layout_constants.dart';
 import 'package:mobile/app/theme/app_theme.dart';
 
 /// Care moment title widget for Home B (Scene-mentor direction).
@@ -55,7 +56,7 @@ class HomeBCareMomentTitle extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
           decoration: BoxDecoration(
             color: colors.bgAccentSoft,
-            borderRadius: BorderRadius.circular(20),
+            borderRadius: BorderRadius.circular(AppLayoutConstants.mediumRadius),
           ),
           child: Text(
             sceneTag,

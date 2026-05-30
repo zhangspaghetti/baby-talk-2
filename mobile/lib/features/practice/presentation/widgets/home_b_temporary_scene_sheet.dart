@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:mobile/app/theme/app_layout_constants.dart';
 import 'package:mobile/app/theme/app_theme.dart';
 
 /// Temporary scene bottom sheet for Home B.
@@ -147,7 +148,7 @@ class _HomeBTemporarySceneSheetState
           decoration: BoxDecoration(
             color: colors.bgSurface,
             borderRadius: const BorderRadius.vertical(
-              top: Radius.circular(24),
+              top: Radius.circular(AppLayoutConstants.largeRadius),
             ),
           ),
           child: SingleChildScrollView(
@@ -163,7 +164,9 @@ class _HomeBTemporarySceneSheetState
                     height: 4,
                     decoration: BoxDecoration(
                       color: colors.outlineSoft,
-                      borderRadius: BorderRadius.circular(999),
+                      borderRadius: BorderRadius.circular(
+                        AppLayoutConstants.pillRadius,
+                      ),
                     ),
                   ),
                 ),
@@ -230,15 +233,21 @@ class _HomeBTemporarySceneSheetState
                     filled: true,
                     fillColor: colors.bgSunken,
                     border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(16),
+                      borderRadius: BorderRadius.circular(
+                        AppLayoutConstants.cardRadius,
+                      ),
                       borderSide: BorderSide(color: colors.outlineSoft),
                     ),
                     enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(16),
+                      borderRadius: BorderRadius.circular(
+                        AppLayoutConstants.cardRadius,
+                      ),
                       borderSide: BorderSide(color: colors.outlineSoft),
                     ),
                     focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(16),
+                      borderRadius: BorderRadius.circular(
+                        AppLayoutConstants.cardRadius,
+                      ),
                       borderSide: BorderSide(color: colors.accentDark),
                     ),
                   ),
@@ -257,7 +266,9 @@ class _HomeBTemporarySceneSheetState
                     style: FilledButton.styleFrom(
                       padding: const EdgeInsets.symmetric(vertical: 16),
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
+                        borderRadius: BorderRadius.circular(
+                          AppLayoutConstants.cardRadius,
+                        ),
                       ),
                     ),
                     child: _isGenerating
@@ -293,7 +304,7 @@ class _HomeBTemporarySceneSheetState
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
             color: colors.englishSoft,
-            borderRadius: BorderRadius.circular(20),
+            borderRadius: BorderRadius.circular(AppLayoutConstants.mediumRadius),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -403,7 +414,9 @@ class _HomeBTemporarySceneSheetState
                 style: OutlinedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 14),
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
+                    borderRadius: BorderRadius.circular(
+                      AppLayoutConstants.cardRadius,
+                    ),
                   ),
                 ),
                 child: const Text('换个更温柔的说法'),
