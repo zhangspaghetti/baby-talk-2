@@ -443,6 +443,22 @@ class AppTheme {
           ),
         ),
       ),
+      filledButtonTheme: FilledButtonThemeData(
+        style: FilledButton.styleFrom(
+          backgroundColor: accent,
+          foregroundColor: Colors.white,
+          minimumSize: const Size(64, AppLayoutConstants.buttonMinHeight),
+          padding: AppLayoutConstants.primaryButtonPadding,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppLayoutConstants.cardRadius),
+          ),
+          textStyle: const TextStyle(
+            fontFamily: 'DM Sans',
+            fontSize: 16,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ),
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
           minimumSize: const Size.square(AppLayoutConstants.minTouchTarget),
@@ -649,6 +665,22 @@ class AppTheme {
           minimumSize: const Size.fromHeight(
             AppLayoutConstants.buttonMinHeight,
           ),
+          padding: AppLayoutConstants.primaryButtonPadding,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppLayoutConstants.cardRadius),
+          ),
+          textStyle: const TextStyle(
+            fontFamily: 'DM Sans',
+            fontSize: 16,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ),
+      filledButtonTheme: FilledButtonThemeData(
+        style: FilledButton.styleFrom(
+          backgroundColor: dk.accent,
+          foregroundColor: const Color(0xFF1C1816), // 深色按钮文字
+          minimumSize: const Size(64, AppLayoutConstants.buttonMinHeight),
           padding: AppLayoutConstants.primaryButtonPadding,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(AppLayoutConstants.cardRadius),

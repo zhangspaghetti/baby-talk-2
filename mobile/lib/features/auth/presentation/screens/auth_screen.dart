@@ -294,11 +294,6 @@ class AuthScreen extends HookConsumerWidget {
                       label: _mainButtonSemantics(mode.value, codeSent.value),
                       child: FilledButton(
                         onPressed: isSubmitting.value ? null : submit,
-                        style: FilledButton.styleFrom(
-                          minimumSize: const Size.fromHeight(
-                            AppLayoutConstants.buttonMinHeight,
-                          ),
-                        ),
                         child: isSubmitting.value
                             ? const SizedBox(
                                 height: 20,
@@ -565,11 +560,6 @@ class AuthScreen extends HookConsumerWidget {
                       onPassed();
                       Navigator.of(ctx).pop();
                     },
-                    style: FilledButton.styleFrom(
-                      minimumSize: const Size.fromHeight(
-                        AppLayoutConstants.buttonMinHeight,
-                      ),
-                    ),
                     child: Text(l.discoverCaptchaPass),
                   ),
                 ),
