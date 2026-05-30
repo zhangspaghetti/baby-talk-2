@@ -6,6 +6,44 @@
 
 ## 1. Verification Commands
 
+### 1.1 Task6 Baseline Verification (as planned)
+
+1) Backend baseline suite
+
+```bash
+cd backend
+mvn -pl app-api test
+```
+
+- Exit code: 1
+- Result summary:
+  - Failing groups include LLM integration and garden persistence suites
+  - Example failing classes from surefire reports:
+    - `LlmAgenticIntegrationTest` (Errors: 1)
+    - `LlmIntegrationTest` (Failures: 1, Errors: 1)
+    - `LlmRagIntegrationTest` (Errors: 1)
+    - `GardenFertilizerServiceTest` (Errors: 2)
+    - `GardenFertilizerControllerTest` (Failures: 3, Errors: 1)
+  - Garden growth related status in this baseline run:
+    - `GrowthSummaryControllerTest` passed (3/3)
+    - Fertilizer service/controller suites failed
+
+2) Mobile baseline suite
+
+```bash
+cd mobile
+..\flutter.cmd test test/features/garden test/features/growth test/features/share
+```
+
+- Exit code: 1
+- Result summary:
+  - Compile-time failure blocked suite execution:
+    - `lib/app/providers/repository_providers.dart:452`
+    - `Error: The getter 'wireValue' isn't defined for the type 'BabyReactionType'.`
+  - Affected loading tests include garden and growth panel test files.
+
+### 1.2 Targeted Verification (diagnostic only, not Task6 gate)
+
 1) Backend targeted persistence suite
 
 ```bash
@@ -36,42 +74,67 @@ flutter test test/features/garden/data/remote/garden_fertilizer_api_service_test
 
 ## 2. Checklist Against Task6
 
-- [ ] Backend fertilizer APIs healthy
-- [x] Growth summary week/month/year parity path has targeted coverage and passed in controller suite
-- [x] Share draft no stale snapshot path passes targeted mobile verification
-- [ ] Fallback rate < threshold (no runtime metrics sampling in this verification window)
+- [ ] Backend fertilizer APIs healthy (Task6 baseline failed)
+- [ ] Growth summary period parity verified (targeted controller coverage passed, but no standalone week/month/year parity proof under baseline gate)
+- [ ] Share live-read snapshot freshness path no stale reproduction (targeted path passed, but Task6 baseline mobile suite failed at compile stage)
+- [ ] Fallback rate < threshold
 
-## 3. Risk Assessment
+## 3. Rollout Metrics Baseline (Task6 Step3)
+
+Sampling window: 2026-05-30 (current local verification window)
+
+1) `idempotent_conflict_rate`
+- Data source: backend runtime metrics dashboard/log aggregation (not wired in current local verification run)
+- Actual value: N/A
+- Threshold comparison: cannot evaluate
+- Gate impact: BLOCKING
+
+2) `fallback_to_local_rate`
+- Data source: mobile telemetry aggregation (not available in local unit/integration command outputs)
+- Actual value: N/A
+- Threshold comparison: cannot evaluate
+- Gate impact: BLOCKING
+
+3) `share_stale_snapshot_reports`
+- Data source: product error/event reporting stream (not sampled in this run)
+- Actual value: N/A
+- Threshold comparison: cannot evaluate
+- Gate impact: BLOCKING
+
+## 4. Risk Assessment
 
 1) High: backend fertilizer schema/tables unavailable in test runtime
 - Evidence: missing relations garden_fertilizer_claim_log and garden_fertilizer_state
 - Impact: fertilizer claim/apply cannot be considered releasable; API calls can return 500
 
-2) Medium: rollout observability gate not yet executed
+2) High: Task6 baseline command for mobile is red at compile stage
+- Evidence: `BabyReactionType.wireValue` missing member compile error during baseline mobile test command
+- Impact: baseline verification cannot complete; cannot claim cross-feature release readiness
+
+3) High: rollout observability gate not yet executed
 - Evidence: no sampled values for idempotent_conflict_rate, fallback_to_local_rate, share_stale_snapshot_reports
 - Impact: cannot validate gray-release safety threshold
 
-3) Low: mobile client-side behavior appears healthy for targeted paths
+4) Low: mobile client-side behavior appears healthy for targeted paths
 - Evidence: all selected remote-first/fallback/live-snapshot tests are green
 - Impact: frontend readiness is not sufficient to offset backend red gate
 
-## 4. Gate Conclusion
+## 5. Gate Conclusion
 
 - Overall gate: FAIL (block release)
-- Reason: backend persistence verification is red, and required rollout metrics baseline is not collected.
+- Reason: Task6 baseline backend and mobile commands are red, and required rollout metrics baseline is not collected.
 
-## 5. Required Exit Criteria to Flip Gate to PASS
+## 6. Required Exit Criteria to Flip Gate to PASS
 
-1) Backend targeted suite passes end-to-end:
-- GardenFertilizerServiceTest
-- GardenFertilizerControllerTest
-- GrowthSummaryControllerTest
+1) Task6 baseline backend command passes:
+- `cd backend && mvn -pl app-api test`
 
-2) No missing-relation errors for fertilizer tables in app-api test runtime.
+2) Task6 baseline mobile command passes:
+- `cd mobile; ..\flutter.cmd test test/features/garden test/features/growth test/features/share`
 
 3) Record baseline values for:
 - idempotent_conflict_rate
 - fallback_to_local_rate
 - share_stale_snapshot_reports
 
-4) Re-run this report with updated command outputs and mark all checklist items complete.
+4) Keep targeted suites as supplementary diagnostics only; do not use them to mark Task6 baseline checklist complete.
