@@ -33,4 +33,23 @@ class GardenFertilizerServiceTest extends AbstractIntegrationTest {
                 "req-2"
         ));
     }
+
+    @Test
+    void shouldRejectDuplicateClaimByUserAndRequestId() {
+        String userId = "u_task1_req";
+
+        jdbcTemplate.update(
+                "insert into garden_fertilizer_claim_log(user_id, event_key, request_id) values (?, ?, ?)",
+                userId,
+                "event-1",
+                "req-1"
+        );
+
+        assertThrows(DataIntegrityViolationException.class, () -> jdbcTemplate.update(
+                "insert into garden_fertilizer_claim_log(user_id, event_key, request_id) values (?, ?, ?)",
+                userId,
+                "event-2",
+                "req-1"
+        ));
+    }
 }
