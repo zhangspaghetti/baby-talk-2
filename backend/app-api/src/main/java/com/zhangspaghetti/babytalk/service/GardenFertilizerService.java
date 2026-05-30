@@ -6,6 +6,7 @@ import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.List;
+import org.springframework.dao.DataAccessException;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -65,17 +66,9 @@ public class GardenFertilizerService {
                     Timestamp.from(claimedAt),
                     userId
             );
-        } catch (DataIntegrityViolationException exception) {
-            if (existsClaimByRequestId(userId, requestId)) {
-                var state = loadStateOrVirtual(userId);
-                return new ClaimResponse(
-                        state.availableCount(),
-                        state.appliedCount(),
-                        state.lastClaimedAt(),
-                        state.lastAppliedAt(),
-                        state.version(),
-                        true
-                );
+        } catch (DataAccessException exception) {
+            if (!isUniqueViolation(exception)) {
+                throw exception;
             }
             throw new ContractException(
                     HttpStatus.CONFLICT,
@@ -230,6 +223,22 @@ public class GardenFertilizerService {
 
     private Instant toInstant(Timestamp timestamp) {
         return timestamp == null ? null : timestamp.toInstant();
+    }
+
+    private boolean isUniqueViolation(DataAccessException exception) {
+        if (exception instanceof DataIntegrityViolationException) {
+            return true;
+        }
+        Throwable cause = exception.getCause();
+        while (cause != null) {
+            if (cause instanceof SQLException sqlException) {
+                if ("23505".equals(sqlException.getSQLState())) {
+                    return true;
+                }
+            }
+            cause = cause.getCause();
+        }
+        return false;
     }
 
     public record FertilizerStateResponse(
