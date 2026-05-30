@@ -9,19 +9,31 @@ import 'package:mobile/features/share/domain/models/share_link_draft.dart';
 
 enum ShareViewStatus { idle, success, cancelled, error }
 
+typedef GardenGrowthSnapshotLoader = GardenGrowthSnapshot? Function();
+typedef PracticeContinuitySnapshotLoader =
+  PracticeContinuitySnapshot? Function();
+
 class ShareNotifier extends ChangeNotifier {
   ShareNotifier({
     required ShareRepository repository,
     GardenGrowthSnapshot? initialGrowthSnapshot,
     PracticeContinuitySnapshot? initialContinuitySnapshot,
+    GardenGrowthSnapshotLoader? growthSnapshotLoader,
+    PracticeContinuitySnapshotLoader? continuitySnapshotLoader,
   }) : _repository = repository,
        _growthSnapshot = initialGrowthSnapshot,
-       _continuitySnapshot = initialContinuitySnapshot;
+       _continuitySnapshot = initialContinuitySnapshot {
+    _growthSnapshotLoader = growthSnapshotLoader ?? _defaultGrowthSnapshotLoader;
+    _continuitySnapshotLoader =
+        continuitySnapshotLoader ?? _defaultContinuitySnapshotLoader;
+  }
 
   final ShareRepository _repository;
 
   GardenGrowthSnapshot? _growthSnapshot;
   PracticeContinuitySnapshot? _continuitySnapshot;
+  late final GardenGrowthSnapshotLoader _growthSnapshotLoader;
+  late final PracticeContinuitySnapshotLoader _continuitySnapshotLoader;
   AsyncValue<ShareExecutionResult?> _shareRequest =
       const AsyncValue<ShareExecutionResult?>.data(null);
   ShareViewStatus _lastShareStatus = ShareViewStatus.idle;
@@ -31,8 +43,8 @@ class ShareNotifier extends ChangeNotifier {
   Future<ShareExecutionResult>? _shareFuture;
 
   ShareLinkDraft? get currentDraft => _repository.buildDraft(
-    growthSnapshot: _growthSnapshot,
-    continuitySnapshot: _continuitySnapshot,
+    growthSnapshot: _liveGrowthSnapshot,
+    continuitySnapshot: _liveContinuitySnapshot,
   );
 
   bool get hasShareDraft => currentDraft != null;
@@ -111,8 +123,8 @@ class ShareNotifier extends ChangeNotifier {
 
     final result = frozenDraft == null
         ? await _repository.shareSnapshots(
-            growthSnapshot: _growthSnapshot,
-            continuitySnapshot: _continuitySnapshot,
+            growthSnapshot: _liveGrowthSnapshot,
+            continuitySnapshot: _liveContinuitySnapshot,
           )
         : await _repository.shareDraft(frozenDraft);
 
@@ -164,4 +176,15 @@ class ShareNotifier extends ChangeNotifier {
       draft.activityId,
     ].join('|');
   }
+
+  GardenGrowthSnapshot? get _liveGrowthSnapshot =>
+      _growthSnapshotLoader() ?? _growthSnapshot;
+
+  PracticeContinuitySnapshot? get _liveContinuitySnapshot =>
+      _continuitySnapshotLoader() ?? _continuitySnapshot;
+
+  GardenGrowthSnapshot? _defaultGrowthSnapshotLoader() => _growthSnapshot;
+
+  PracticeContinuitySnapshot? _defaultContinuitySnapshotLoader() =>
+      _continuitySnapshot;
 }

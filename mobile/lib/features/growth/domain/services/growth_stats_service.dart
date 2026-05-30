@@ -1,5 +1,7 @@
 import 'dart:math';
 
+import 'package:mobile/features/growth/data/remote/growth_summary_api_service.dart';
+
 /// Pure Dart Logic Layer service for growth statistics calculations.
 ///
 /// Stateless, no Flutter dependencies, no Repository dependencies.
@@ -84,12 +86,67 @@ class PeriodStats {
   final int practicedDays;
 }
 
+typedef LocalPeriodStatsLoader =
+    Future<PeriodStats> Function({required GrowthSummaryPeriod period});
+
+enum GrowthSummarySource { remote, localFallback }
+
+class GrowthSummaryResult {
+  const GrowthSummaryResult({required this.source, required this.stats});
+
+  final GrowthSummarySource source;
+  final PeriodStats stats;
+}
+
 // ---------------------------------------------------------------------------
 // Service
 // ---------------------------------------------------------------------------
 
 class GrowthStatsService {
-  const GrowthStatsService();
+  const GrowthStatsService()
+    : _remoteDataSource = null,
+      _localPeriodLoader = null;
+
+  GrowthStatsService.remoteFirst({
+    required GrowthSummaryRemoteDataSource remoteDataSource,
+    required LocalPeriodStatsLoader localPeriodLoader,
+  }) : _remoteDataSource = remoteDataSource,
+       _localPeriodLoader = localPeriodLoader;
+
+  final GrowthSummaryRemoteDataSource? _remoteDataSource;
+  final LocalPeriodStatsLoader? _localPeriodLoader;
+
+  Future<GrowthSummaryResult> loadSummary({
+    required GrowthSummaryPeriod period,
+  }) async {
+    final remoteDataSource = _remoteDataSource;
+    final localPeriodLoader = _localPeriodLoader;
+    if (remoteDataSource == null || localPeriodLoader == null) {
+      throw StateError('GrowthStatsService 未配置 remote-first 依赖。');
+    }
+
+    try {
+      final remoteSummary = await remoteDataSource.fetchSummary(period: period);
+      return GrowthSummaryResult(
+        source: GrowthSummarySource.remote,
+        stats: PeriodStats(
+          totalEvents: remoteSummary.totalEvents,
+          uniquePhrases: remoteSummary.uniquePhrases,
+          uniqueActivities: remoteSummary.uniqueActivities,
+          imitationCount: remoteSummary.imitationCount,
+          firstEventAt: remoteSummary.firstEventAt,
+          lastEventAt: remoteSummary.lastEventAt,
+          practicedDays: remoteSummary.practicedDays,
+        ),
+      );
+    } on Object {
+      final fallbackStats = await localPeriodLoader(period: period);
+      return GrowthSummaryResult(
+        source: GrowthSummarySource.localFallback,
+        stats: fallbackStats,
+      );
+    }
+  }
 
   /// Aggregates events by scene (space) and returns the distribution.
   ///

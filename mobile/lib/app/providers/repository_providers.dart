@@ -20,6 +20,8 @@ import 'package:mobile/features/household/data/services/household_api_service.da
 import 'package:mobile/features/garden/data/local/garden_fertilizer_local_data_source.dart';
 import 'package:mobile/features/garden/data/repositories/garden_fertilizer_repository.dart';
 import 'package:mobile/features/garden/presentation/garden_fertilizer_notifier.dart';
+import 'package:mobile/features/growth/data/remote/growth_summary_api_service.dart';
+import 'package:mobile/features/growth/domain/services/growth_stats_service.dart';
 import 'package:mobile/features/growth/presentation/growth_insights_notifier.dart';
 import 'package:mobile/features/mentor/data/local/mentor_local_data_source.dart';
 import 'package:mobile/features/mentor/data/repositories/mentor_repository.dart';
@@ -104,6 +106,14 @@ final mentorApiServiceProvider = Provider<MentorApiService>((ref) {
   final service = MentorApiService(
     authenticatedApiClient: ref.watch(authenticatedApiClientProvider),
   );
+  ref.onDispose(service.close);
+  return service;
+});
+
+final growthSummaryApiServiceProvider = Provider<GrowthSummaryApiService>((
+  ref,
+) {
+  final service = GrowthSummaryApiService();
   ref.onDispose(service.close);
   return service;
 });
@@ -427,6 +437,36 @@ final growthInsightsNotifierProvider =
     ChangeNotifierProvider<GrowthInsightsNotifier>((ref) {
       return GrowthInsightsNotifier(
         repositoryFuture: ref.watch(practiceRepositoryProvider.future),
+        statsService: GrowthStatsService.remoteFirst(
+          remoteDataSource: ref.watch(growthSummaryApiServiceProvider),
+          localPeriodLoader: ({required period}) async {
+            final repository = await ref.read(practiceRepositoryProvider.future);
+            final events = await repository.listEventHistory();
+            final records = events
+                .map(
+                  (e) => PracticeEventRecord(
+                    eventKey: e.eventKey,
+                    spaceId: e.spaceId,
+                    activityId: e.activityId,
+                    phraseId: e.phraseId,
+                    reactionType: e.reactionType.wireValue,
+                    clientTimestamp: e.clientTimestamp,
+                  ),
+                )
+                .toList(growable: false);
+            final localStats = const GrowthStatsService();
+            final now = DateTime.now();
+
+            switch (period) {
+              case GrowthSummaryPeriod.week:
+                return localStats.aggregateThisWeek(events: records, now: now);
+              case GrowthSummaryPeriod.month:
+                return localStats.aggregateThisMonth(events: records, now: now);
+              case GrowthSummaryPeriod.year:
+                return localStats.aggregateThisYear(events: records, now: now);
+            }
+          },
+        ),
       )..initialize();
     });
 
@@ -538,6 +578,10 @@ final shareNotifierProvider = ChangeNotifierProvider.autoDispose<ShareNotifier>(
       repository: shareRepository,
       initialGrowthSnapshot: gardenNotifier.snapshot,
       initialContinuitySnapshot: continuityNotifier.hasResolvedRecommendation
+          ? continuityNotifier.snapshot
+          : null,
+      growthSnapshotLoader: () => gardenNotifier.snapshot,
+      continuitySnapshotLoader: () => continuityNotifier.hasResolvedRecommendation
           ? continuityNotifier.snapshot
           : null,
     );
