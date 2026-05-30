@@ -8,7 +8,8 @@ import 'package:mobile/features/mentor/data/services/mentor_api_service.dart'
     show mentorPromptMaxLength;
 import 'package:mobile/features/mentor/presentation/mentor_notifier.dart';
 import 'package:mobile/features/mentor/presentation/widgets/mentor_suggestion_tab.dart';
-import 'package:mobile/features/onboarding/presentation/widgets/mentor_bubble.dart';
+import 'package:mobile/app/widgets/app_mentor_bubble.dart';
+import 'package:mobile/app/widgets/app_segment_tab.dart';
 import 'package:mobile/l10n/app_localizations.dart';
 
 Future<void> openMentorPanelSheet(
@@ -143,78 +144,33 @@ class _SegmentedTabBar extends ConsumerWidget {
     final colors = context.appColors;
     final notifier = ref.read(mentorNotifierProvider);
     return Container(
-      padding: const EdgeInsets.all(4),
+      padding: const EdgeInsets.all(AppLayoutConstants.spacingXxs * 2),
       decoration: BoxDecoration(
         color: colors.bgSunken,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(AppLayoutConstants.cardRadius),
       ),
       child: Row(
         children: [
           Expanded(
-            child: Semantics(
-              label: l.mentorSuggestionTabSemantics,
-              button: true,
-              child: _SegmentedButton(
-                buttonKey: const Key('mentor-tab-suggestions-button'),
-                label: l.mentorSuggestionTab,
-                selected: selectedTab == MentorPanelTab.suggestions,
-                onPressed: () => notifier.selectTab(MentorPanelTab.suggestions),
-              ),
+            child: AppSegmentTab(
+              key: const Key('mentor-tab-suggestions-button'),
+              label: l.mentorSuggestionTab,
+              isSelected: selectedTab == MentorPanelTab.suggestions,
+              onTap: () => notifier.selectTab(MentorPanelTab.suggestions),
+              semanticsLabel: l.mentorSuggestionTabSemantics,
             ),
           ),
           const SizedBox(width: 6),
           Expanded(
-            child: Semantics(
-              label: l.mentorChatTabSemantics,
-              button: true,
-              child: _SegmentedButton(
-                buttonKey: const Key('mentor-tab-chat-button'),
-                label: l.mentorChatTab,
-                selected: selectedTab == MentorPanelTab.chat,
-                onPressed: () => notifier.selectTab(MentorPanelTab.chat),
-              ),
+            child: AppSegmentTab(
+              key: const Key('mentor-tab-chat-button'),
+              label: l.mentorChatTab,
+              isSelected: selectedTab == MentorPanelTab.chat,
+              onTap: () => notifier.selectTab(MentorPanelTab.chat),
+              semanticsLabel: l.mentorChatTabSemantics,
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _SegmentedButton extends StatelessWidget {
-  const _SegmentedButton({
-    required this.buttonKey,
-    required this.label,
-    required this.selected,
-    required this.onPressed,
-  });
-
-  final Key buttonKey;
-  final String label;
-  final bool selected;
-  final VoidCallback onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = context.appColors;
-    return Material(
-      color: selected ? colors.bgSurface : Colors.transparent,
-      borderRadius: BorderRadius.circular(12),
-      child: InkWell(
-        key: buttonKey,
-        borderRadius: BorderRadius.circular(12),
-        onTap: onPressed,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-          child: Center(
-            child: Text(
-              label,
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                color: selected ? colors.textPrimary : colors.textSecondary,
-              ),
-            ),
-          ),
-        ),
       ),
     );
   }
@@ -238,7 +194,7 @@ class _MentorChatTab extends ConsumerWidget {
         key: const Key('mentor-chat-tab'),
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          MentorBubble(
+          AppMentorBubble(
             caption: availability.title,
             message: availability.detail,
             trailing: Text(
