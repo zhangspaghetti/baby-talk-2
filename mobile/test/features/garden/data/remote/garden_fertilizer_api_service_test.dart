@@ -49,6 +49,31 @@ Dio _createMockDio(
 
 void main() {
   group('GardenFertilizerApiService', () {
+    Future<void> expectMalformedForData(dynamic data) async {
+      final dio = _createMockDio((options) async {
+        return Response<dynamic>(
+          requestOptions: options,
+          statusCode: 200,
+          data: data,
+          headers: Headers.fromMap({
+            'content-type': ['application/json'],
+          }),
+        );
+      });
+      final service = GardenFertilizerApiService(dio: dio);
+
+      await expectLater(
+        service.fetchState(),
+        throwsA(
+          isA<GardenFertilizerApiException>().having(
+            (e) => e.kind,
+            'kind',
+            GardenFertilizerApiFailureKind.malformed,
+          ),
+        ),
+      );
+    }
+
     test('claim sends eventKey and requestId', () async {
       final dio = _createMockDio((options) async {
         expect(options.method, 'POST');
@@ -156,6 +181,31 @@ void main() {
           ),
         ),
       );
+    });
+
+    test('malformed when response data is empty string', () async {
+      await expectMalformedForData('');
+    });
+
+    test('malformed when response data is array json string', () async {
+      await expectMalformedForData('[]');
+    });
+
+    test('malformed when response data is number', () async {
+      await expectMalformedForData(123);
+    });
+
+    test('malformed when key fields are both unavailable', () async {
+      await expectMalformedForData({
+        'state': {
+          'appliedCount': 'not-a-number',
+          'claimedEventKeys': 1,
+        },
+      });
+    });
+
+    test('malformed when key fields are both missing', () async {
+      await expectMalformedForData({'state': {'lastAppliedAt': '2026-05-30T10:01:00Z'}});
     });
   });
 }

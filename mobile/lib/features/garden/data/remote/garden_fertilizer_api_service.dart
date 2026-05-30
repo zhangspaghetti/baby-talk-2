@@ -141,23 +141,43 @@ class GardenFertilizerApiService implements GardenFertilizerRemoteDataSource {
     if (data is Map<String, dynamic>) {
       return data;
     }
-    if (data is String && data.trim().isNotEmpty) {
+    if (data is String) {
+      if (data.trim().isEmpty) {
+        throw const GardenFertilizerApiException.malformed(
+          message: '响应体为空。',
+        );
+      }
       try {
         final decoded = jsonDecode(data);
         if (decoded is Map<String, dynamic>) {
           return decoded;
         }
+        throw const GardenFertilizerApiException.malformed(
+          message: '响应 JSON 不是对象。',
+        );
+      } on GardenFertilizerApiException {
+        rethrow;
       } on Object {
         throw const GardenFertilizerApiException.malformed(
           message: '响应不是合法 JSON。',
         );
       }
     }
-    return <String, dynamic>{};
+    throw const GardenFertilizerApiException.malformed(
+      message: '响应体不是对象。',
+    );
   }
 
   FertilizerState _readFertilizerState(Map<String, dynamic> json) {
     final stateJson = _readStateMap(json);
+    final hasAppliedCount = _hasIntValue(stateJson, 'appliedCount');
+    final hasClaimedEventKeys = _hasStringListValue(stateJson, 'claimedEventKeys');
+
+    if (!hasAppliedCount && !hasClaimedEventKeys) {
+      throw const GardenFertilizerApiException.malformed(
+        message: '缺少可用的肥料状态关键字段。',
+      );
+    }
 
     final appliedCount = _readInt(stateJson, 'appliedCount');
     final claimedEventKeys = _readStringSet(stateJson, 'claimedEventKeys');
@@ -171,6 +191,16 @@ class GardenFertilizerApiService implements GardenFertilizerRemoteDataSource {
       lastAppliedAt: lastAppliedAt,
     );
   }
+}
+
+bool _hasIntValue(Map<String, dynamic> json, String key) {
+  final value = json[key];
+  return value is num;
+}
+
+bool _hasStringListValue(Map<String, dynamic> json, String key) {
+  final value = json[key];
+  return value is List;
 }
 
 Map<String, dynamic> _readStateMap(Map<String, dynamic> json) {

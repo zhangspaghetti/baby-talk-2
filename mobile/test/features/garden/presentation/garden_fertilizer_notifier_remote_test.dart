@@ -69,6 +69,54 @@ void main() {
       expect(notifier.view.backpackCount, 0);
       expect(notifier.view.stageInfo?.appliedCount, 1);
     });
+
+    test('stale remote success does not roll back newer local state', () async {
+      final newerLocal = FertilizerState(
+        appliedCount: 2,
+        claimedEventKeys: {'evt-1', 'evt-2', 'evt-3'},
+        lastClaimedAt: DateTime(2026, 5, 30, 12, 0),
+        lastAppliedAt: DateTime(2026, 5, 30, 12, 1),
+      );
+
+      await localDataSource.writeState(newerLocal);
+
+      final staleRemoteState = FertilizerState(
+        appliedCount: 1,
+        claimedEventKeys: {'evt-1'},
+        lastClaimedAt: DateTime(2026, 5, 30, 11, 0),
+        lastAppliedAt: DateTime(2026, 5, 30, 11, 1),
+      );
+
+      final staleRepository = GardenFertilizerRepository(
+        localDataSource: localDataSource,
+        remoteDataSource: _AlwaysStaleRemoteDataSource(staleRemoteState),
+      );
+
+      final staleNotifier = GardenFertilizerNotifier(
+        repositoryFuture: Future<GardenFertilizerRepository>.value(
+          staleRepository,
+        ),
+        growthNotifier: _GrowthStub(),
+      );
+
+      await staleNotifier.initialize();
+      await staleNotifier.claim('evt-4');
+      await staleNotifier.apply();
+
+      final merged = await localDataSource.readState();
+      staleNotifier.dispose();
+
+      expect(merged.appliedCount, 2);
+      expect(merged.claimedEventKeys, {'evt-1', 'evt-2', 'evt-3'});
+      expect(
+        merged.lastClaimedAt,
+        DateTime(2026, 5, 30, 12, 0),
+      );
+      expect(
+        merged.lastAppliedAt,
+        DateTime(2026, 5, 30, 12, 1),
+      );
+    });
   });
 }
 
@@ -90,6 +138,24 @@ class _AlwaysFailRemoteDataSource implements GardenFertilizerRemoteDataSource {
   Future<FertilizerState> apply({required String requestId}) async {
     throw const GardenFertilizerApiException.network(message: 'offline');
   }
+}
+
+class _AlwaysStaleRemoteDataSource implements GardenFertilizerRemoteDataSource {
+  _AlwaysStaleRemoteDataSource(this.state);
+
+  final FertilizerState state;
+
+  @override
+  Future<FertilizerState> fetchState() async => state;
+
+  @override
+  Future<FertilizerState> claim({
+    required String eventKey,
+    required String requestId,
+  }) async => state;
+
+  @override
+  Future<FertilizerState> apply({required String requestId}) async => state;
 }
 
 class _GrowthStub extends GardenGrowthNotifier {

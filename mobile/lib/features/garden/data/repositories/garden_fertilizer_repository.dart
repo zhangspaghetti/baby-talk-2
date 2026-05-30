@@ -27,7 +27,8 @@ class GardenFertilizerRepository {
 
     try {
       final remoteState = await remoteDataSource.fetchState();
-      return _localDataSource.writeState(remoteState);
+      final merged = await _mergeWithLocal(remoteState);
+      return _localDataSource.writeState(merged);
     } on Object {
       return _localDataSource.readState();
     }
@@ -44,7 +45,8 @@ class GardenFertilizerRepository {
           eventKey: eventKey,
           requestId: _requestIdFactory(),
         );
-        return _localDataSource.writeState(remoteState);
+        final merged = await _mergeWithLocal(remoteState);
+        return _localDataSource.writeState(merged);
       } on Object {
         // Remote failure falls back to local optimistic logic.
       }
@@ -63,7 +65,8 @@ class GardenFertilizerRepository {
         final remoteState = await remoteDataSource.apply(
           requestId: _requestIdFactory(),
         );
-        return _localDataSource.writeState(remoteState);
+        final merged = await _mergeWithLocal(remoteState);
+        return _localDataSource.writeState(merged);
       } on Object {
         // Remote failure falls back to local optimistic logic.
       }
@@ -99,8 +102,33 @@ class GardenFertilizerRepository {
     );
     return _localDataSource.writeState(next);
   }
+
+  Future<FertilizerState> _mergeWithLocal(FertilizerState remoteState) async {
+    final localState = await _localDataSource.readState();
+    return FertilizerState(
+      appliedCount: localState.appliedCount >= remoteState.appliedCount
+          ? localState.appliedCount
+          : remoteState.appliedCount,
+      claimedEventKeys: {
+        ...localState.claimedEventKeys,
+        ...remoteState.claimedEventKeys,
+      },
+      lastClaimedAt: _newerOf(localState.lastClaimedAt, remoteState.lastClaimedAt),
+      lastAppliedAt: _newerOf(localState.lastAppliedAt, remoteState.lastAppliedAt),
+    );
+  }
 }
 
 String _defaultRequestId() {
   return 'fert_${DateTime.now().microsecondsSinceEpoch}';
+}
+
+DateTime? _newerOf(DateTime? left, DateTime? right) {
+  if (left == null) {
+    return right;
+  }
+  if (right == null) {
+    return left;
+  }
+  return left.isAfter(right) ? left : right;
 }
