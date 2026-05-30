@@ -1,7 +1,7 @@
 # BabyTalk 安全与合规策略文档
 
-> 最后更新: 2026-05-28  
-> 适用范围: BabyTalk Flutter 移动端 + Spring Boot 后端  
+> 最后更新: 2026-05-28
+> 适用范围: BabyTalk Flutter 移动端 + Spring Boot 后端
 > 目标受众: 安全审计、隐私合规评审、架构决策
 
 ---

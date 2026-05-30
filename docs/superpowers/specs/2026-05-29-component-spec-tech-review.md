@@ -254,4 +254,3 @@
 | 决策人（设计） | 日期 | 结论摘要 |
 |---------------|------|---------|
 | Step 5 三组件抽取（会话裁定） | 2026-05-29 | XiaoheFAB=抽 `XiaoheFab`（补齐 shell haptics）；Toast=加 `showAppToast` 并消除 home r12 覆写；AudioButton=抽外观层 `AppAudioButton`（状态留调用点）。3 护栏测试 + 73/73 回归通过，审计表三行翻转为已收敛。 |
-
