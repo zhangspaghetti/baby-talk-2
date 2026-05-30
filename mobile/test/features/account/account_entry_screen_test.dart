@@ -882,6 +882,16 @@ class _FakeHouseholdRepository implements HouseholdRepository {
   }) async => const HouseholdLocalSnapshot(lastPhase: 'idle');
 
   @override
+  Future<HouseholdRevokeInviteResult> revokeInvite({
+    required String token,
+    String source = 'account_entry',
+  }) async => const HouseholdRevokeInviteResult(
+    snapshot: HouseholdLocalSnapshot(lastPhase: 'revoke_invite_revoked'),
+    message: 'revoked',
+    applied: true,
+  );
+
+  @override
   Future<void> deleteLocalSnapshotForLifecycle() async {}
 
   @override

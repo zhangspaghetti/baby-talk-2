@@ -511,7 +511,9 @@ class _Harness {
 
   Widget buildShell() {
     final riverpodOverrides = <Override>[
-      practiceRepositoryProvider.overrideWith((ref) async => practiceRepository),
+      practiceRepositoryProvider.overrideWith(
+        (ref) async => practiceRepository,
+      ),
       accountNotifierProvider.overrideWith((ref) => accountNotifier),
       mentorRepositoryProvider.overrideWith((ref) async => mentorRepository),
       mentorNotifierProvider.overrideWith((ref) => mentorNotifier),
@@ -565,7 +567,9 @@ class _Harness {
 
   Widget buildStandaloneHome() {
     final riverpodOverrides = <Override>[
-      practiceRepositoryProvider.overrideWith((ref) async => practiceRepository),
+      practiceRepositoryProvider.overrideWith(
+        (ref) async => practiceRepository,
+      ),
       accountNotifierProvider.overrideWith((ref) => accountNotifier),
       mentorRepositoryProvider.overrideWith((ref) async => mentorRepository),
       mentorNotifierProvider.overrideWith((ref) => mentorNotifier),
@@ -866,6 +870,18 @@ class _FakeHouseholdRepository implements HouseholdRepository {
     String reason = 'manual_refresh',
   }) async {
     return loadSnapshotResult;
+  }
+
+  @override
+  Future<HouseholdRevokeInviteResult> revokeInvite({
+    required String token,
+    String source = 'household_settings',
+  }) async {
+    return const HouseholdRevokeInviteResult(
+      snapshot: HouseholdLocalSnapshot(lastPhase: 'revoke_invite_revoked'),
+      message: '邀请已撤销。',
+      applied: true,
+    );
   }
 }
 

@@ -151,6 +151,10 @@ class _FakeHouseholdRepository implements HouseholdRepository {
   int acceptCallCount = 0;
   String? lastAcceptedToken;
 
+  HouseholdRevokeInviteResult? revokeInviteResult;
+  int revokeCallCount = 0;
+  String? lastRevokedToken;
+
   @override
   Future<HouseholdCreateInviteResult> createInvite({
     HouseholdRole role = HouseholdRole.caregiver,
@@ -163,6 +167,21 @@ class _FakeHouseholdRepository implements HouseholdRepository {
             lastVisibleError: '邀请服务暂时不可用，请稍后重试。',
           ),
           message: '邀请服务暂时不可用，请稍后重试。',
+        );
+  }
+
+  @override
+  Future<HouseholdRevokeInviteResult> revokeInvite({
+    required String token,
+    String source = 'household_settings',
+  }) async {
+    revokeCallCount += 1;
+    lastRevokedToken = token;
+    return revokeInviteResult ??
+        const HouseholdRevokeInviteResult(
+          snapshot: HouseholdLocalSnapshot(lastPhase: 'revoke_invite_revoked'),
+          message: '邀请已撤销。',
+          applied: true,
         );
   }
 

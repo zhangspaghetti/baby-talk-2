@@ -41,6 +41,20 @@ class HouseholdInviteAcceptResult {
   bool get shouldRouteToPractice => practiceArgs != null;
 }
 
+class HouseholdRevokeInviteResult {
+  const HouseholdRevokeInviteResult({
+    required this.snapshot,
+    required this.message,
+    this.applied = false,
+  });
+
+  final HouseholdLocalSnapshot snapshot;
+  final String message;
+  final bool applied;
+
+  bool get isSuccess => applied;
+}
+
 class HouseholdRepository {
   HouseholdRepository({
     required HouseholdLocalStore localStore,
@@ -60,6 +74,7 @@ class HouseholdRepository {
   Future<HouseholdLocalSnapshot>? _refreshFuture;
   Future<HouseholdInviteAcceptResult>? _acceptFuture;
   Future<HouseholdCreateInviteResult>? _createFuture;
+  Future<HouseholdRevokeInviteResult>? _revokeFuture;
 
   Future<HouseholdLocalSnapshot> loadSnapshot() async {
     try {
@@ -90,6 +105,23 @@ class HouseholdRepository {
     return future.whenComplete(() {
       if (identical(_createFuture, future)) {
         _createFuture = null;
+      }
+    });
+  }
+
+  Future<HouseholdRevokeInviteResult> revokeInvite({
+    required String token,
+    String source = 'household_settings',
+  }) {
+    final inFlight = _revokeFuture;
+    if (inFlight != null) {
+      return inFlight;
+    }
+    final future = _revokeInviteInternal(token: token, source: source);
+    _revokeFuture = future;
+    return future.whenComplete(() {
+      if (identical(_revokeFuture, future)) {
+        _revokeFuture = null;
       }
     });
   }
@@ -183,6 +215,55 @@ class HouseholdRepository {
       return HouseholdCreateInviteResult(
         snapshot: snapshot,
         message: snapshot.lastVisibleError ?? '当前无法创建邀请。',
+      );
+    }
+  }
+
+  Future<HouseholdRevokeInviteResult> _revokeInviteInternal({
+    required String token,
+    required String source,
+  }) async {
+    final current = await _readSnapshotSafely();
+    final sessionGate = await _resolveSessionGate(action: 'revoke_invite');
+    if (!sessionGate.canProceed) {
+      final snapshot = await _persistSnapshot(sessionGate.snapshot!);
+      return HouseholdRevokeInviteResult(
+        snapshot: snapshot,
+        message: snapshot.lastVisibleError ?? '当前无法撤销邀请。',
+      );
+    }
+
+    try {
+      final response = await _apiService.revokeInvite(
+        session: sessionGate.session!,
+        persistRefreshedSession: _persistRefreshedSession,
+        token: token.trim(),
+      );
+      final snapshot = await _persistSnapshot(
+        current.copyWith(
+          lastPhase: 'revoke_invite_revoked',
+          clearLastVisibleError: true,
+        ),
+        phaseOnWriteFailure: 'revoke_invite_persist_failed',
+        messageOnWriteFailure: '邀请已撤销，但 household 本地状态保存失败。',
+      );
+      return HouseholdRevokeInviteResult(
+        snapshot: snapshot,
+        applied: response.applied,
+        message: snapshot.lastVisibleError ?? '邀请已撤销。',
+      );
+    } on HouseholdApiException catch (error) {
+      final snapshot = await _persistSnapshot(
+        _snapshotForApiError(
+          current: current,
+          error: error,
+          action: 'revoke_invite',
+          preserveSharedContext: true,
+        ),
+      );
+      return HouseholdRevokeInviteResult(
+        snapshot: snapshot,
+        message: snapshot.lastVisibleError ?? '当前无法撤销邀请。',
       );
     }
   }

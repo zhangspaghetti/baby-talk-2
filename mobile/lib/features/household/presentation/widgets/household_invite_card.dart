@@ -160,6 +160,24 @@ class HouseholdInviteCard extends StatelessWidget {
                       : () => notifier!.retryLastAction(),
                   child: Text(l.inviteRetry),
                 ),
+              if (isPrimary && invite != null)
+                OutlinedButton(
+                  key: Key('$surfaceKeyPrefix-household-revoke-invite'),
+                  onPressed: notifier!.isBusy
+                      ? null
+                      : () => _confirmRevokeInvite(
+                          context,
+                          notifier!,
+                          invite.token as String,
+                        ),
+                  child: Text(
+                    notifier!.isBusy &&
+                            notifier!.lastActionKind ==
+                                HouseholdActionKind.revokeInvite
+                        ? '撤销中…'
+                        : '撤销邀请',
+                  ),
+                ),
             ],
           ),
           if (!isPrimary) ...[
@@ -175,6 +193,33 @@ class HouseholdInviteCard extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  Future<void> _confirmRevokeInvite(
+    BuildContext context,
+    dynamic notifier,
+    String token,
+  ) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('撤销邀请'),
+        content: const Text('撤销后该邀请链接将立即失效，次照护者将无法再通过它加入。确定要撤销吗？'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('确认撤销'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true) {
+      await notifier.revokeInvite(token: token, source: inviteSource);
+    }
   }
 
   bool _shouldShowRetry(dynamic notifier, HouseholdLocalSnapshot snapshot) {

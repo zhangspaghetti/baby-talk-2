@@ -310,6 +310,12 @@ class AccountRepository implements AccountRepositoryContract {
   Future<AccountLocalSnapshot> clearPlaceholderSession({
     bool revertToLocalOnly = false,
   }) async {
+    // 真正退出账号时，先尽力通知后端使 refresh token 失效（best-effort：
+    // 离线或后端失败不应阻塞本地清理）。回到本机档案模式（revertToLocalOnly）
+    // 不属于会话注销，跳过。
+    if (!revertToLocalOnly) {
+      await _bestEffortBackendLogout();
+    }
     final syncSummary = await _readSyncSummarySafely();
     final snapshot = AccountLocalSnapshot(
       consentState: revertToLocalOnly
@@ -326,6 +332,23 @@ class AccountRepository implements AccountRepositoryContract {
     );
     await _localStore.write(snapshot);
     return snapshot;
+  }
+
+  Future<void> _bestEffortBackendLogout() async {
+    final api = _apiService;
+    if (api == null) {
+      return;
+    }
+    try {
+      final current = await _readSnapshotSafely();
+      final refreshToken = current.session?.refreshToken;
+      if (refreshToken == null || refreshToken.trim().isEmpty) {
+        return;
+      }
+      await api.logout(refreshToken: refreshToken);
+    } on Object {
+      // best-effort：忽略任何登出失败，本地清理照常进行。
+    }
   }
 
   @override

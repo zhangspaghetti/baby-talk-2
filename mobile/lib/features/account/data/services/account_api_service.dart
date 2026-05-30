@@ -163,6 +163,16 @@ class BootstrapResponse {
   final DateTime bootstrapAt;
 }
 
+class AccountLogoutResponse {
+  const AccountLogoutResponse({
+    required this.loggedOut,
+    required this.loggedOutAt,
+  });
+
+  final bool loggedOut;
+  final DateTime loggedOutAt;
+}
+
 class AccountApiService {
   AccountApiService({
     Dio? dio,
@@ -220,6 +230,18 @@ class AccountApiService {
       body: <String, Object?>{'refreshToken': refreshToken},
     );
     return _readSessionResponse(json);
+  }
+
+  Future<AccountLogoutResponse> logout({required String refreshToken}) async {
+    final json = await _requestJson(
+      'POST',
+      '/api/v1/auth/logout',
+      body: <String, Object?>{'refreshToken': refreshToken},
+    );
+    return AccountLogoutResponse(
+      loggedOut: _readRequiredBool(json, 'loggedOut'),
+      loggedOutAt: _readRequiredDateTime(json, 'loggedOutAt'),
+    );
   }
 
   Future<AccountConsentResponse> acceptConsent({

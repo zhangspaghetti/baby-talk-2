@@ -95,6 +95,20 @@ class HouseholdAcceptInviteResponse {
   final HouseholdSharedContextResponse sharedContext;
 }
 
+class HouseholdRevokeInviteResponse {
+  const HouseholdRevokeInviteResponse({
+    required this.applied,
+    required this.result,
+    required this.token,
+    required this.updatedAt,
+  });
+
+  final bool applied;
+  final String result;
+  final String token;
+  final DateTime updatedAt;
+}
+
 class HouseholdApiService {
   HouseholdApiService({
     Dio? dio,
@@ -170,6 +184,25 @@ class HouseholdApiService {
       persistRefreshedSession: persistRefreshedSession,
     );
     return _readSharedContextResponse(json);
+  }
+
+  Future<HouseholdRevokeInviteResponse> revokeInvite({
+    required AccountSession session,
+    required PersistRefreshedSession persistRefreshedSession,
+    required String token,
+  }) async {
+    final json = await _requestAuthenticatedJson(
+      method: 'POST',
+      path: '/api/v1/caregiver-invites/${Uri.encodeComponent(token)}/revoke',
+      session: session,
+      persistRefreshedSession: persistRefreshedSession,
+    );
+    return HouseholdRevokeInviteResponse(
+      applied: _readRequiredBool(json, 'applied'),
+      result: _readRequiredString(json, 'result'),
+      token: _readRequiredString(json, 'token'),
+      updatedAt: _readRequiredDateTime(json, 'updatedAt'),
+    );
   }
 
   void close() {
@@ -326,6 +359,14 @@ String _readRequiredString(Map<String, dynamic> json, String key) {
   final value = json[key];
   if (value is! String || value.trim().isEmpty) {
     throw HouseholdApiException.malformed(message: '字段 `$key` 缺失或不是非空字符串。');
+  }
+  return value;
+}
+
+bool _readRequiredBool(Map<String, dynamic> json, String key) {
+  final value = json[key];
+  if (value is! bool) {
+    throw HouseholdApiException.malformed(message: '字段 `$key` 缺失或不是布尔值。');
   }
   return value;
 }

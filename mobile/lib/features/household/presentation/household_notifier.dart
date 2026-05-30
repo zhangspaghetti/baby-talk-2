@@ -12,6 +12,7 @@ enum HouseholdActionKind {
   createInvite,
   acceptInvite,
   refreshSharedContext,
+  revokeInvite,
 }
 
 class HouseholdNotifier extends ChangeNotifier {
@@ -33,7 +34,7 @@ class HouseholdNotifier extends ChangeNotifier {
   Future<HouseholdCreateInviteResult>? _createFuture;
   Future<HouseholdInviteAcceptResult>? _acceptFuture;
   Future<HouseholdLocalSnapshot>? _refreshFuture;
-
+  Future<HouseholdRevokeInviteResult>? _revokeFuture;
   bool get isLoading => _isLoading;
   bool get hasLoaded => _hasLoaded;
   bool get isBusy => _isBusy;
@@ -107,6 +108,51 @@ class HouseholdNotifier extends ChangeNotifier {
       }
       _snapshot = result.snapshot;
       _lastCreatedInvite = result.inviteLink;
+      _message = result.message;
+      return result;
+    } finally {
+      _isBusy = false;
+      notifyListeners();
+    }
+  }
+
+  Future<HouseholdRevokeInviteResult> revokeInvite({
+    required String token,
+    String source = 'household_settings',
+  }) {
+    final inFlight = _revokeFuture;
+    if (inFlight != null) {
+      return inFlight;
+    }
+    final future = _revokeInviteInternal(token: token, source: source);
+    _revokeFuture = future;
+    return future.whenComplete(() {
+      if (identical(_revokeFuture, future)) {
+        _revokeFuture = null;
+      }
+    });
+  }
+
+  Future<HouseholdRevokeInviteResult> _revokeInviteInternal({
+    required String token,
+    required String source,
+  }) async {
+    _isBusy = true;
+    _message = '正在撤销照护邀请…';
+    _lastActionKind = HouseholdActionKind.revokeInvite;
+    notifyListeners();
+    try {
+      final result = await _repository.revokeInvite(
+        token: token,
+        source: source,
+      );
+      if (_disposed) {
+        return result;
+      }
+      _snapshot = result.snapshot;
+      if (result.isSuccess) {
+        _lastCreatedInvite = null;
+      }
       _message = result.message;
       return result;
     } finally {
@@ -212,6 +258,9 @@ class HouseholdNotifier extends ChangeNotifier {
           reason: 'retry_last_action',
         );
         return snapshot.hasSharedContext;
+      case HouseholdActionKind.revokeInvite:
+        // 撤销需要具体 token，未保留上次 token，故不支持自动重试。
+        return false;
     }
   }
 

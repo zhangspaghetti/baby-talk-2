@@ -541,6 +541,7 @@ class HouseholdSharedContextCard extends StatelessWidget {
       switch (notifier.lastActionKind) {
         case HouseholdActionKind.acceptInvite:
         case HouseholdActionKind.refreshSharedContext:
+        case HouseholdActionKind.revokeInvite:
           return notifierMessage;
         case HouseholdActionKind.createInvite:
         case HouseholdActionKind.none:
@@ -826,7 +827,9 @@ class _HouseholdCardShell extends StatelessWidget {
       decoration: BoxDecoration(
         color: colors.bgSurface,
         borderRadius: BorderRadius.circular(
-          compact ? AppLayoutConstants.mediumRadius : AppLayoutConstants.largeRadius,
+          compact
+              ? AppLayoutConstants.mediumRadius
+              : AppLayoutConstants.largeRadius,
         ),
         border: Border.all(color: colors.outlineSoft),
         boxShadow: colors.warmShadowSm,
