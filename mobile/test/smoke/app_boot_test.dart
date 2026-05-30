@@ -587,6 +587,46 @@ void main() {
     expect(find.textContaining('本地档案读取失败，请重试'), findsOneWidget);
     expect(find.textContaining('onboarding 本地档案'), findsNothing);
   });
+
+  testWidgets('boot 失败态不依赖 asset override 且可渲染失败屏', (
+    WidgetTester tester,
+  ) async {
+    addTearDown(() async {
+      await _disposeWidgetTree(tester);
+    });
+    final bootState = (await tester.runAsync<AppBootState>(() async {
+      return AppBootState.load(_AlwaysFailingAssetBundle());
+    }))!;
+
+    expect(bootState.isReady, isFalse);
+    expect(bootState.assetPhraseService, isNull);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        child: BabyTalkApp(
+          bootState: bootState,
+          audioControllerFactory: _SilentPracticeAudioController.new,
+        ),
+      ),
+    );
+    await tester.pump();
+
+    expect(tester.takeException(), isNull);
+    expect(find.byKey(const Key('boot-status-failed')), findsOneWidget);
+    expect(find.textContaining('应用启动失败'), findsOneWidget);
+  });
+}
+
+class _AlwaysFailingAssetBundle extends CachingAssetBundle {
+  @override
+  Future<ByteData> load(String key) async {
+    throw FlutterError('asset load failed: $key');
+  }
+
+  @override
+  Future<String> loadString(String key, {bool cache = true}) async {
+    throw FlutterError('asset loadString failed: $key');
+  }
 }
 
 class _AppBootHarness {

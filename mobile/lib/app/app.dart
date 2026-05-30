@@ -183,7 +183,7 @@ class _BabyTalkAppState extends ConsumerState<BabyTalkApp> {
       gardenGrowthNotifierLookup: _lookupNotifier<GardenGrowthNotifier>,
     );
     _reentryOrchestrator.configureShareUriSubscription(widget.shareUriStream);
-    _launchStateFuture = _loadLaunchState();
+    _launchStateFuture = _buildLaunchStateFuture();
   }
 
   @override
@@ -199,8 +199,15 @@ class _BabyTalkAppState extends ConsumerState<BabyTalkApp> {
             widget.practiceContinuityRefreshTimeout ||
         oldWidget.gardenGrowthRefreshTimeout !=
             widget.gardenGrowthRefreshTimeout) {
-      _launchStateFuture = _loadLaunchState();
+      _launchStateFuture = _buildLaunchStateFuture();
     }
+  }
+
+  Future<_AppLaunchState> _buildLaunchStateFuture() {
+    if (!widget.bootState.isReady) {
+      return Completer<_AppLaunchState>().future;
+    }
+    return _loadLaunchState();
   }
 
   @override
