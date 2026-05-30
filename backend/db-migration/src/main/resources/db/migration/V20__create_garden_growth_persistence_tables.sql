@@ -1,0 +1,18 @@
+create table if not exists garden_fertilizer_state (
+    user_id varchar(128) primary key,
+    applied_count integer not null default 0,
+    last_claimed_at timestamp with time zone,
+    last_applied_at timestamp with time zone,
+    version bigint not null default 0,
+    updated_at timestamp with time zone not null default now()
+);
+
+create table if not exists garden_fertilizer_claim_log (
+    id bigserial primary key,
+    user_id varchar(128) not null,
+    event_key varchar(128) not null,
+    request_id varchar(128) not null,
+    claimed_at timestamp with time zone not null default now(),
+    unique (user_id, event_key),
+    unique (user_id, request_id)
+);
