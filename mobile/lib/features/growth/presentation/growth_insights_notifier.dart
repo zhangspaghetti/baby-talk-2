@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:mobile/features/growth/data/remote/growth_summary_api_service.dart';
 import 'package:mobile/features/growth/domain/services/growth_stats_service.dart';
 import 'package:mobile/features/growth/presentation/growth_insights_models.dart';
 import 'package:mobile/features/practice/data/repositories/practice_repository.dart';
@@ -29,6 +30,8 @@ class GrowthInsightsNotifier extends ChangeNotifier {
   bool _loaded = false;
   bool _hasError = false;
   bool _disposed = false;
+  Map<GrowthPeriod, PeriodStats> _periodStats =
+      const <GrowthPeriod, PeriodStats>{};
 
   bool get isLoaded => _loaded;
   bool get hasError => _hasError;
@@ -62,9 +65,26 @@ class GrowthInsightsNotifier extends ChangeNotifier {
         _catalog = null;
         _spaceLabels = const <String, String>{};
       }
+
+      final now = _now();
+      _periodStats = {
+        GrowthPeriod.week: await _loadPeriodStats(
+          period: GrowthPeriod.week,
+          now: now,
+        ),
+        GrowthPeriod.month: await _loadPeriodStats(
+          period: GrowthPeriod.month,
+          now: now,
+        ),
+        GrowthPeriod.year: await _loadPeriodStats(
+          period: GrowthPeriod.year,
+          now: now,
+        ),
+      };
       _hasError = false;
     } catch (_) {
       _records = const <PracticeEventRecord>[];
+      _periodStats = const <GrowthPeriod, PeriodStats>{};
       _hasError = true;
     } finally {
       _loaded = true;
@@ -90,17 +110,23 @@ class GrowthInsightsNotifier extends ChangeNotifier {
     final DateTime windowStart;
     switch (period) {
       case GrowthPeriod.week:
-        stats = _stats.aggregateThisWeek(events: _records, now: now);
+        stats =
+            _periodStats[GrowthPeriod.week] ??
+            _stats.aggregateThisWeek(events: _records, now: now);
         bars = _weekBuckets(now);
         windowStart = _weekStart(now);
         break;
       case GrowthPeriod.month:
-        stats = _stats.aggregateThisMonth(events: _records, now: now);
+        stats =
+            _periodStats[GrowthPeriod.month] ??
+            _stats.aggregateThisMonth(events: _records, now: now);
         bars = _monthBuckets(now);
         windowStart = DateTime(now.toLocal().year, now.toLocal().month, 1);
         break;
       case GrowthPeriod.year:
-        stats = _stats.aggregateThisYear(events: _records, now: now);
+        stats =
+            _periodStats[GrowthPeriod.year] ??
+            _stats.aggregateThisYear(events: _records, now: now);
         bars = _yearBuckets(now);
         windowStart = DateTime(now.toLocal().year, 1, 1);
         break;
@@ -238,6 +264,43 @@ class GrowthInsightsNotifier extends ChangeNotifier {
       }
     }
     return count;
+  }
+
+  Future<PeriodStats> _loadPeriodStats({
+    required GrowthPeriod period,
+    required DateTime now,
+  }) async {
+    try {
+      final summary = await _stats.loadSummary(period: _toSummaryPeriod(period));
+      return summary.stats;
+    } catch (_) {
+      return _computeLocalPeriodStats(period: period, now: now);
+    }
+  }
+
+  PeriodStats _computeLocalPeriodStats({
+    required GrowthPeriod period,
+    required DateTime now,
+  }) {
+    switch (period) {
+      case GrowthPeriod.week:
+        return _stats.aggregateThisWeek(events: _records, now: now);
+      case GrowthPeriod.month:
+        return _stats.aggregateThisMonth(events: _records, now: now);
+      case GrowthPeriod.year:
+        return _stats.aggregateThisYear(events: _records, now: now);
+    }
+  }
+
+  GrowthSummaryPeriod _toSummaryPeriod(GrowthPeriod period) {
+    switch (period) {
+      case GrowthPeriod.week:
+        return GrowthSummaryPeriod.week;
+      case GrowthPeriod.month:
+        return GrowthSummaryPeriod.month;
+      case GrowthPeriod.year:
+        return GrowthSummaryPeriod.year;
+    }
   }
 
   @override
