@@ -53,7 +53,11 @@ class GardenFertilizerNotifier extends ChangeNotifier {
   Future<void> claim(String eventKey) async {
     final repository = _repository;
     if (repository == null) return;
-    _state = await repository.claim(eventKey);
+    try {
+      _state = await repository.claim(eventKey);
+    } on Object {
+      return;
+    }
     _recompute();
   }
 
@@ -61,7 +65,11 @@ class GardenFertilizerNotifier extends ChangeNotifier {
     final repository = _repository;
     if (repository == null || _state.backpackCount <= 0) return;
     final previousStage = resolveFertilizerStage(_state.appliedCount).stage;
-    _state = await repository.apply();
+    try {
+      _state = await repository.apply();
+    } on Object {
+      return;
+    }
     final newStage = resolveFertilizerStage(_state.appliedCount).stage;
     if (newStage.index > previousStage.index) {
       _celebrationStage = newStage;
