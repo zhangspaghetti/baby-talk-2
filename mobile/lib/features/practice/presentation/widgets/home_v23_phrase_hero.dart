@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:mobile/app/theme/app_layout_constants.dart';
 import 'package:mobile/app/theme/app_theme.dart';
 import 'package:mobile/features/onboarding/domain/models/onboarding_snapshot.dart';
 import 'package:mobile/features/practice/domain/models/practice_phrase.dart';
@@ -210,7 +211,7 @@ class _HomeV23PhraseHeroState extends State<HomeV23PhraseHero> {
           padding: const EdgeInsets.all(24),
           decoration: BoxDecoration(
             color: colors.englishSoft,
-            borderRadius: BorderRadius.circular(24),
+            borderRadius: BorderRadius.circular(AppLayoutConstants.largeRadius),
             border: Border.all(color: colors.outlineSoft),
           ),
           child: Column(
@@ -287,7 +288,9 @@ class _HomeV23PhraseHeroState extends State<HomeV23PhraseHero> {
                       style: OutlinedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 16),
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
+                          borderRadius: BorderRadius.circular(
+                            AppLayoutConstants.cardRadius,
+                          ),
                         ),
                       ),
                     ),
@@ -301,7 +304,9 @@ class _HomeV23PhraseHeroState extends State<HomeV23PhraseHero> {
                       style: FilledButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 16),
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
+                          borderRadius: BorderRadius.circular(
+                            AppLayoutConstants.cardRadius,
+                          ),
                         ),
                       ),
                       child: const Text('今天先说一句'),

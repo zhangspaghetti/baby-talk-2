@@ -29,7 +29,7 @@ class HomePersonalizedHero extends StatelessWidget {
       padding: const EdgeInsets.all(AppLayoutConstants.spacingLg),
       decoration: BoxDecoration(
         color: colors.bgSurface,
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(AppLayoutConstants.largeRadius),
         border: Border.all(color: colors.outlineSoft),
         boxShadow: colors.warmShadowSm,
       ),

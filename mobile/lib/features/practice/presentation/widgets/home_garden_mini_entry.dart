@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:mobile/app/theme/app_layout_constants.dart';
 import 'package:mobile/app/theme/app_theme.dart';
 import 'package:mobile/features/practice/domain/models/garden_growth_snapshot.dart';
 import 'package:mobile/features/practice/presentation/garden_growth_notifier.dart'
@@ -83,7 +84,7 @@ class HomeGardenMiniEntry extends StatelessWidget {
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
           color: backgroundColor,
-          borderRadius: BorderRadius.circular(24),
+          borderRadius: BorderRadius.circular(AppLayoutConstants.largeRadius),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -102,7 +103,9 @@ class HomeGardenMiniEntry extends StatelessWidget {
                 ),
                 decoration: BoxDecoration(
                   color: colors.bgSurface,
-                  borderRadius: BorderRadius.circular(9999),
+                  borderRadius: BorderRadius.circular(
+                    AppLayoutConstants.pillRadius,
+                  ),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
