@@ -398,6 +398,11 @@ public class AuthConsentSyncService {
     }
 
     @Transactional(readOnly = true)
+    public String resolveAccountIdForGrowthSummary(String sessionId) {
+        return requireSessionForSync(sessionId).accountId();
+    }
+
+    @Transactional(readOnly = true)
     public List<AuditEntry> listAuditEntries(String accountId) {
         return repository.listAuditEntries(accountId)
                 .stream()
