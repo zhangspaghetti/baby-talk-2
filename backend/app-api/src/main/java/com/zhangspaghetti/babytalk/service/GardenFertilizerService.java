@@ -5,6 +5,8 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.time.Instant;
+import java.util.List;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
@@ -21,8 +23,7 @@ public class GardenFertilizerService {
 
     @Transactional(readOnly = true)
     public FertilizerStateResponse getState(String userId) {
-        ensureStateRow(userId);
-        return loadState(userId);
+        return loadStateOrVirtual(userId);
     }
 
     @Transactional
@@ -30,19 +31,29 @@ public class GardenFertilizerService {
         ensureStateRow(userId);
         var claimedAt = clientTime == null ? Instant.now() : clientTime;
 
-        int inserted = jdbcTemplate.update(
-                """
-                insert into garden_fertilizer_claim_log(user_id, event_key, request_id, claimed_at)
-                values (?, ?, ?, ?)
-                on conflict do nothing
-                """,
-                userId,
-                eventKey,
-                requestId,
-                Timestamp.from(claimedAt)
-        );
+        if (existsClaimByRequestId(userId, requestId)) {
+            var state = loadStateOrVirtual(userId);
+            return new ClaimResponse(
+                    state.availableCount(),
+                    state.appliedCount(),
+                    state.lastClaimedAt(),
+                    state.lastAppliedAt(),
+                    state.version(),
+                    true
+            );
+        }
 
-        if (inserted > 0) {
+        try {
+            jdbcTemplate.update(
+                    """
+                    insert into garden_fertilizer_claim_log(user_id, event_key, request_id, claimed_at)
+                    values (?, ?, ?, ?)
+                    """,
+                    userId,
+                    eventKey,
+                    requestId,
+                    Timestamp.from(claimedAt)
+            );
             jdbcTemplate.update(
                     """
                     update garden_fertilizer_state
@@ -54,16 +65,34 @@ public class GardenFertilizerService {
                     Timestamp.from(claimedAt),
                     userId
             );
+        } catch (DataIntegrityViolationException exception) {
+            if (existsClaimByRequestId(userId, requestId)) {
+                var state = loadStateOrVirtual(userId);
+                return new ClaimResponse(
+                        state.availableCount(),
+                        state.appliedCount(),
+                        state.lastClaimedAt(),
+                        state.lastAppliedAt(),
+                        state.version(),
+                        true
+                );
+            }
+            throw new ContractException(
+                    HttpStatus.CONFLICT,
+                    "fertilizer_claim_conflict",
+                    "该 eventKey 已被领取。",
+                    java.util.Map.of("eventKey", eventKey)
+            );
         }
 
-        var state = loadState(userId);
+        var state = loadStateOrVirtual(userId);
         return new ClaimResponse(
                 state.availableCount(),
                 state.appliedCount(),
                 state.lastClaimedAt(),
                 state.lastAppliedAt(),
                 state.version(),
-                inserted == 0
+                false
         );
     }
 
@@ -84,7 +113,7 @@ public class GardenFertilizerService {
         );
 
         if (inserted == 0) {
-            var state = loadState(userId);
+            var state = loadStateOrVirtual(userId);
             return new ApplyResponse(
                     state.availableCount(),
                     state.appliedCount(),
@@ -117,7 +146,7 @@ public class GardenFertilizerService {
             );
         }
 
-        var state = loadState(userId);
+        var state = loadStateOrVirtual(userId);
         return new ApplyResponse(
                 state.availableCount(),
                 state.appliedCount(),
@@ -126,6 +155,20 @@ public class GardenFertilizerService {
                 state.version(),
                 false
         );
+    }
+
+    private boolean existsClaimByRequestId(String userId, String requestId) {
+        Integer count = jdbcTemplate.queryForObject(
+                """
+                select count(*)
+                from garden_fertilizer_claim_log
+                where user_id = ? and request_id = ?
+                """,
+                Integer.class,
+                userId,
+                requestId
+        );
+        return count != null && count > 0;
     }
 
     private void ensureStateRow(String userId) {
@@ -139,8 +182,8 @@ public class GardenFertilizerService {
         );
     }
 
-    private FertilizerStateResponse loadState(String userId) {
-        return jdbcTemplate.queryForObject(
+    private FertilizerStateResponse loadStateOrVirtual(String userId) {
+        List<FertilizerStateResponse> states = jdbcTemplate.query(
                 """
                 select s.applied_count,
                        s.last_claimed_at,
@@ -153,6 +196,21 @@ public class GardenFertilizerService {
                 this::mapState,
                 userId
         );
+        if (!states.isEmpty()) {
+            return states.get(0);
+        }
+
+        Integer claimCount = jdbcTemplate.queryForObject(
+                """
+                select count(*)
+                from garden_fertilizer_claim_log
+                where user_id = ?
+                """,
+                Integer.class,
+                userId
+        );
+        int available = claimCount == null ? 0 : claimCount;
+        return new FertilizerStateResponse(available, 0, null, null, 0L);
     }
 
     private FertilizerStateResponse mapState(ResultSet rs, int rowNum) throws SQLException {

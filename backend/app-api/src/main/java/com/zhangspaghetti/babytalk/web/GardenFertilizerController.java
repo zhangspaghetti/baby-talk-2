@@ -3,7 +3,9 @@ package com.zhangspaghetti.babytalk.web;
 import com.zhangspaghetti.babytalk.service.GardenFertilizerService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 import java.time.Instant;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -54,18 +56,25 @@ public class GardenFertilizerController {
     }
 
     private String sessionId(JwtAuthenticationToken authentication) {
-        return authentication.getToken().getClaimAsString("sid");
+        if (authentication == null || authentication.getToken() == null) {
+            throw new ContractException(HttpStatus.BAD_REQUEST, "consumer_session_invalid", "访问令牌缺少 sid。", java.util.Map.of("field", "sid"));
+        }
+        var sid = authentication.getToken().getClaimAsString("sid");
+        if (sid == null || sid.isBlank()) {
+            throw new ContractException(HttpStatus.BAD_REQUEST, "consumer_session_invalid", "访问令牌缺少 sid。", java.util.Map.of("field", "sid"));
+        }
+        return sid;
     }
 
     public record ClaimRequest(
-            @NotBlank String eventKey,
-            @NotBlank String requestId,
+            @NotBlank @Size(max = 128) String eventKey,
+            @NotBlank @Size(max = 128) String requestId,
             Instant clientTime
     ) {
     }
 
     public record ApplyRequest(
-            @NotBlank String requestId,
+            @NotBlank @Size(max = 128) String requestId,
             Instant clientTime
     ) {
     }
