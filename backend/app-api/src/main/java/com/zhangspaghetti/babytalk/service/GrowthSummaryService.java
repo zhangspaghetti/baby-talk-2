@@ -88,11 +88,12 @@ public class GrowthSummaryService {
     }
 
     private ContractException invalidPeriod(String periodRaw) {
+        String periodValue = periodRaw == null ? "<null>" : periodRaw;
         return new ContractException(
                 HttpStatus.BAD_REQUEST,
                 "invalid_period",
                 "period 仅支持 week/month/year。",
-                java.util.Map.of("period", periodRaw, "allowed", java.util.List.of("week", "month", "year"))
+            java.util.Map.of("period", periodValue, "allowed", java.util.List.of("week", "month", "year"))
         );
     }
 

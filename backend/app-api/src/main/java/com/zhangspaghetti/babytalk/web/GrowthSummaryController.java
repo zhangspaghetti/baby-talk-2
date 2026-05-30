@@ -21,7 +21,7 @@ public class GrowthSummaryController {
     @GetMapping("/summary")
     public GrowthSummaryService.GrowthSummaryResponse getSummary(
             JwtAuthenticationToken authentication,
-            @RequestParam("period") String period
+            @RequestParam(value = "period", required = false) String period
     ) {
         return growthSummaryService.loadSummary(sessionId(authentication), period);
     }

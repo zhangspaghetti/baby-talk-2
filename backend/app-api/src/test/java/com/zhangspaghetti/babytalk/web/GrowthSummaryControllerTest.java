@@ -60,6 +60,31 @@ class GrowthSummaryControllerTest extends AbstractIntegrationTest {
             }
     }
 
+            @Test
+            void shouldReturn400WhenPeriodMissing() throws Exception {
+            var installationId = "growth-install-2";
+            var session = createAcceptedSession("13800139001", installationId);
+
+            mockMvc.perform(get("/api/v1/growth/summary")
+                    .header(ApiVersionInterceptor.VERSION_HEADER, "1.2.0")
+                    .header(HttpHeaders.AUTHORIZATION, bearer(session.accessToken())))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("invalid_period"));
+            }
+
+            @Test
+            void shouldReturn400WhenPeriodInvalid() throws Exception {
+            var installationId = "growth-install-3";
+            var session = createAcceptedSession("13800139002", installationId);
+
+            mockMvc.perform(get("/api/v1/growth/summary")
+                    .param("period", "quarter")
+                    .header(ApiVersionInterceptor.VERSION_HEADER, "1.2.0")
+                    .header(HttpHeaders.AUTHORIZATION, bearer(session.accessToken())))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("invalid_period"));
+            }
+
     private AuthConsentSyncService.SessionResponse createAcceptedSession(String phoneNumber, String installationId) {
         var challenge = authConsentSyncService.createChallenge(phoneNumber);
         var session = authConsentSyncService.verifyChallenge(challenge.challengeId(), "246810", installationId);
