@@ -90,6 +90,9 @@ void main() {
     await _waitForHomeReady(tester);
 
     expect(find.byKey(const Key('boot-route-shell')), findsOneWidget);
+    final startButton = _homeStartPracticeButton();
+    await _scrollHomeTo(tester, startButton);
+    expect(startButton, findsOneWidget);
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pump(const Duration(milliseconds: 200));
     await firstRepository.close();
