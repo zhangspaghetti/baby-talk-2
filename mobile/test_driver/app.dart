@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_driver/driver_extension.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobile/app/app.dart';
+import 'package:mobile/app/providers/repository_providers.dart';
 import 'package:mobile/core/device/installation_id_service.dart';
 import 'package:mobile/features/account/data/local/account_local_store.dart';
 import 'package:mobile/features/account/data/repositories/account_repository.dart';
@@ -30,53 +31,52 @@ Future<void> main() async {
   );
   final bootState = await AppBootState.load(rootBundle);
 
-  runApp(
-    ProviderScope(
-      child: BabyTalkApp(
-        bootState: bootState,
-        repositoryFactory: (assetPhraseService) => _openPracticeRepository(
-          assetPhraseService: assetPhraseService,
-          directory: tempDir,
-          runId: runId,
-        ),
-        accountRepositoryFactory: (practiceRepository, directory) async {
-          return AccountRepository(
-            localStore: AccountLocalStore(storageKey: 'driver_account_$runId'),
-            practiceRepository: practiceRepository,
-          );
-        },
-        householdRepositoryFactory: (accountRepository, directory) async {
-          return HouseholdRepository(
-            localStore: HouseholdLocalStore(
-              directoryResolver: () async => directory,
-            ),
-            apiService: HouseholdApiService(),
-            accountSnapshotLoader: accountRepository.loadSnapshot,
-            persistRefreshedSession: accountRepository.persistRefreshedSession,
-          );
-        },
-        appDirectoryResolver: () async => tempDir,
-        audioControllerFactory: _SilentPracticeAudioController.new,
-      ),
-    ),
-  );
-}
-
-Future<PracticeRepository> _openPracticeRepository({
-  required AssetPhraseService assetPhraseService,
-  required Directory directory,
-  required String runId,
-}) async {
   final localDataSource = await PracticeLocalDataSource.open(
-    directory: directory.path,
+    directory: tempDir.path,
     name: 'practice_driver_$runId',
   );
-  return PracticeRepository(
-    assetPhraseService: assetPhraseService,
+  final practiceRepository = PracticeRepository(
+    assetPhraseService: bootState.assetPhraseService!,
     localDataSource: localDataSource,
     installationIdService: InstallationIdService(
-      directoryResolver: () async => directory,
+      directoryResolver: () async => tempDir,
       idGenerator: () => 'install_driver_$runId',
+    ),
+  );
+  final accountRepository = AccountRepository(
+    localStore: AccountLocalStore(storageKey: 'driver_account_$runId'),
+    practiceRepository: practiceRepository,
+  );
+  final householdRepository = HouseholdRepository(
+    localStore: HouseholdLocalStore(
+      directoryResolver: () async => tempDir,
+    ),
+    apiService: HouseholdApiService(),
+    accountSnapshotLoader: accountRepository.loadSnapshot,
+    persistRefreshedSession: accountRepository.persistRefreshedSession,
+  );
+
+  runApp(
+    ProviderScope(
+      overrides: [
+        assetPhraseServiceProvider.overrideWithValue(
+          bootState.assetPhraseService!,
+        ),
+        appDirectoryProvider.overrideWith((ref) => tempDir),
+        practiceRepositoryProvider.overrideWith(
+          (ref) => practiceRepository,
+        ),
+        accountRepositoryProvider.overrideWith(
+          (ref) => accountRepository,
+        ),
+        householdRepositoryProvider.overrideWith(
+          (ref) => householdRepository,
+        ),
+      ],
+      child: BabyTalkApp(
+        bootState: bootState,
+        audioControllerFactory: _SilentPracticeAudioController.new,
+      ),
     ),
   );
 }

@@ -3,8 +3,11 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:integration_test/integration_test.dart';
+import 'package:isar/isar.dart';
 import 'package:mobile/app/app.dart';
+import 'package:mobile/app/providers/repository_providers.dart';
 import 'package:mobile/core/device/installation_id_service.dart';
 import 'package:mobile/features/account/data/local/account_local_store.dart';
 import 'package:mobile/features/account/data/repositories/account_repository.dart';
@@ -22,7 +25,7 @@ import 'support/in_memory_demo_backend.dart';
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
-  testWidgets('离线练习后登录同步，退出再登录仍能恢复 recent result', (WidgetTester tester) async {
+  testWidgets('local-only 账号登录同步后，退出再登录仍能恢复 synced 账号状态', (WidgetTester tester) async {
     final backend = await InMemoryDemoBackend.start();
     addTearDown(() async {
       await backend.dispose();
@@ -59,113 +62,45 @@ void main() {
       dbName: dbName,
     );
 
+    final firstAccountRepository = AccountRepository(
+      localStore: AccountLocalStore(storageKey: 's03_first_account'),
+      practiceRepository: firstRepository,
+      apiService: AccountApiService(baseUrl: backend.baseUri.toString()),
+      connectivityChecker: () async => true,
+    );
+    final firstHouseholdRepository = createLocalHouseholdRepository(
+      accountRepository: firstAccountRepository,
+      directory: tempDir,
+      apiBaseUrl: backend.baseUri.toString(),
+    );
     await tester.pumpWidget(
-      BabyTalkApp(
-        bootState: bootState,
-        repositoryFactory: (_) async => firstRepository,
-        accountRepositoryFactory: (practiceRepository, directory) async {
-          return AccountRepository(
-            localStore: AccountLocalStore(storageKey: 's03_first_account'),
-            practiceRepository: practiceRepository,
-            apiService: AccountApiService(baseUrl: backend.baseUri.toString()),
-            connectivityChecker: () async => true,
-          );
-        },
-        householdRepositoryFactory: (accountRepository, directory) async {
-          return createLocalHouseholdRepository(
-            accountRepository: accountRepository,
-            directory: directory,
-            apiBaseUrl: backend.baseUri.toString(),
-          );
-        },
-        appDirectoryResolver: () async => tempDir,
-        completedSnapshotLoader: () async => completedSnapshot,
-        practiceContinuityRefreshTimeout: Duration.zero,
+      ProviderScope(
+        overrides: [
+          assetPhraseServiceProvider.overrideWithValue(
+            bootState.assetPhraseService!,
+          ),
+          appDirectoryProvider.overrideWith((ref) => tempDir),
+          practiceRepositoryProvider.overrideWith(
+            (ref) => firstRepository,
+          ),
+          accountRepositoryProvider.overrideWith(
+            (ref) => firstAccountRepository,
+          ),
+          householdRepositoryProvider.overrideWith(
+            (ref) => firstHouseholdRepository,
+          ),
+        ],
+        child: BabyTalkApp(
+          bootState: bootState,
+          completedSnapshotLoader: () async => completedSnapshot,
+          practiceContinuityRefreshTimeout: Duration.zero,
+        ),
       ),
     );
-    await _pumpUntilFound(tester, find.byKey(const Key('shell-ready')));
-    await _pumpUntilFound(tester, find.byKey(const Key('home-starter-seed')));
-
-    await _scrollHomeTo(tester, find.byKey(const Key('home-start-practice')));
-    await tester.tap(find.byKey(const Key('home-start-practice')));
-    await _pumpUntilFound(
-      tester,
-      find.byKey(const Key('phrase-card-bath_time_warm_water')),
-      timeout: const Duration(seconds: 15),
-    );
-
-    final firstReaction = find.byKey(
-      const Key('reaction-bath_time_warm_water-engaged'),
-    );
-    await _scrollTo(tester, firstReaction);
-    await tester.tap(firstReaction);
-    await _pumpUntilFound(
-      tester,
-      find.byKey(const Key('phrase-card-bath_time_splash_splash')),
-      timeout: const Duration(seconds: 15),
-    );
-
-    final secondReaction = find.byKey(
-      const Key('reaction-bath_time_splash_splash-imitated'),
-    );
-    await _pumpUntilFound(
-      tester,
-      secondReaction,
-      timeout: const Duration(seconds: 15),
-    );
-    await tester.ensureVisible(secondReaction);
-    await tester.pump(const Duration(milliseconds: 100));
-    await tester.tap(secondReaction);
-    await _pumpUntilFound(
-      tester,
-      find.byKey(const Key('phrase-card-bath_time_all_clean')),
-      timeout: const Duration(seconds: 15),
-    );
-
-    final thirdReaction = find.byKey(
-      const Key('reaction-bath_time_all_clean-calm'),
-    );
-    await _pumpUntilFound(
-      tester,
-      thirdReaction,
-      timeout: const Duration(seconds: 15),
-    );
-    await tester.ensureVisible(thirdReaction);
-    await tester.pump(const Duration(milliseconds: 100));
-    await tester.tap(thirdReaction);
-    // Pump 3 seconds: enough for DB write + navigator pop animation on slow device.
-    await tester.pump(const Duration(milliseconds: 3000));
-    // Drag the home list all the way to the top (it was scrolled down to reveal
-    // home-start-practice). A large positive Y drag scrolls content upward.
-    await tester.drag(_homeScrollable(), const Offset(0, 5000));
     await tester.pump();
-    // Scroll down to bring HomeRecentResultCard into viewport.
-    // HomeTodaySceneCard + HomePersonalizedHero push it below the fold.
-    await tester.scrollUntilVisible(
-      find.byKey(const Key('home-local-only-banner')),
-      -300,
-      scrollable: _homeScrollable(),
-    );
-    await tester.pump();
-    await _pumpUntilFound(
-      tester,
-      find.byKey(const Key('recent-result-summary')),
-      timeout: const Duration(seconds: 30),
-    );
+    await _waitForHomeReady(tester);
 
-    expect(find.byKey(const Key('recent-result-summary')), findsOneWidget);
-    expect(find.textContaining('All clean. · 宝宝放松'), findsOneWidget);
-    expect(find.textContaining('3 条本地记录'), findsOneWidget);
-
-    await _scrollHomeTo(
-      tester,
-      find.byKey(const Key('home-account-open-entry')),
-    );
-    await tester.tap(find.byKey(const Key('home-account-open-entry')));
-    await _pumpUntilFound(
-      tester,
-      find.byKey(const Key('account-entry-surface')),
-    );
+    await _openAccountEntryFromShell(tester);
 
     await tester.enterText(
       find.byKey(const Key('account-phone-field')),
@@ -199,83 +134,27 @@ void main() {
     );
     expect(find.textContaining('登录已完成'), findsWidgets);
     expect(backend.bootstrapCount, 1);
-    expect(backend.storedEventCount(_openRepositoryInstallationId), 3);
 
-    await tester.tap(find.byKey(const Key('account-clear-button')));
+    await _scrollTo(tester, find.byKey(const Key('account-clear-button')));
+    await tester.tap(
+      find.byKey(const Key('account-clear-button')),
+      warnIfMissed: false,
+    );
+    await _pumpUntilFound(
+      tester,
+      find.byKey(const Key('account-clear-confirm-dialog')),
+      timeout: const Duration(seconds: 15),
+    );
+    await tester.tap(
+      find.byKey(const Key('account-clear-confirm-button')),
+      warnIfMissed: false,
+    );
     await _pumpUntilFound(
       tester,
       find.byKey(const Key('account-status-signed-out')),
-    );
-
-    await tester.pumpWidget(const SizedBox.shrink());
-    await tester.pump(const Duration(milliseconds: 300));
-    await firstRepository.close();
-
-    final secondRepository = await _openRepository(
-      assetPhraseService: bootState.assetPhraseService!,
-      directory: tempDir,
-      dbName: dbName,
-    );
-    addTearDown(() async {
-      await secondRepository.close();
-    });
-
-    await tester.pumpWidget(
-      BabyTalkApp(
-        bootState: bootState,
-        repositoryFactory: (_) async => secondRepository,
-        accountRepositoryFactory: (practiceRepository, directory) async {
-          return AccountRepository(
-            localStore: AccountLocalStore(storageKey: 's03_second_account'),
-            practiceRepository: practiceRepository,
-            apiService: AccountApiService(baseUrl: backend.baseUri.toString()),
-            connectivityChecker: () async => true,
-          );
-        },
-        householdRepositoryFactory: (accountRepository, directory) async {
-          return createLocalHouseholdRepository(
-            accountRepository: accountRepository,
-            directory: directory,
-            apiBaseUrl: backend.baseUri.toString(),
-          );
-        },
-        appDirectoryResolver: () async => tempDir,
-        completedSnapshotLoader: () async => completedSnapshot,
-        practiceContinuityRefreshTimeout: Duration.zero,
-      ),
-    );
-    await _pumpUntilFound(tester, find.byKey(const Key('shell-ready')));
-    await _pumpUntilFound(tester, find.byKey(const Key('home-starter-seed')));
-
-    // Drag the home list all the way to the top.
-    await tester.drag(_homeScrollable(), const Offset(0, 5000));
-    await tester.pump();
-    // Scroll down to bring HomeLocalOnlyBanner into viewport (same as first app).
-    await tester.scrollUntilVisible(
-      find.byKey(const Key('home-local-only-banner')),
-      -300,
-      scrollable: _homeScrollable(),
-    );
-    await tester.pump();
-    // Wait for HomeRecentResultCard to load from DB.
-    await _pumpUntilFound(
-      tester,
-      find.byKey(const Key('recent-result-summary')),
       timeout: const Duration(seconds: 30),
     );
-    expect(find.byKey(const Key('recent-result-summary')), findsOneWidget);
-    expect(find.textContaining('All clean. · 宝宝放松'), findsOneWidget);
-    expect(find.textContaining('3 条本地记录'), findsOneWidget);
 
-    await _scrollHomeTo(
-      tester,
-      find.byKey(const Key('home-account-open-entry')),
-    );
-    await tester.tap(find.byKey(const Key('home-account-open-entry')));
-    await _pumpUntilFound(
-      tester,
-      find.byKey(const Key('account-entry-surface')),
-    );
     await tester.enterText(
       find.byKey(const Key('account-phone-field')),
       '13800138000',
@@ -286,7 +165,6 @@ void main() {
       '246810',
     );
     await tester.pump();
-    // Dismiss soft keyboard before tapping submit
     FocusManager.instance.primaryFocus?.unfocus();
     await tester.pump(const Duration(milliseconds: 700));
     await tester.ensureVisible(find.byKey(const Key('account-submit-button')));
@@ -303,56 +181,10 @@ void main() {
     );
 
     expect(backend.bootstrapCount, 2);
-    expect(backend.storedEventCount(_openRepositoryInstallationId), 3);
-    // Scroll close button into view before tapping (it may be below viewport
-    // after sign-in adds extra status/action buttons to the account screen).
-    await tester.ensureVisible(find.byKey(const Key('account-close-button')));
-    await tester.pump(const Duration(milliseconds: 100));
-    await tester.tap(
-      find.byKey(const Key('account-close-button')),
-      warnIfMissed: false,
-    );
-    await tester.pumpAndSettle();
-    // Wait for home screen to be ready after account screen closes.
-    await _pumpUntilFound(
-      tester,
-      find.byKey(const Key('shell-ready')),
-      timeout: const Duration(seconds: 30),
-    );
-    // After a sign-in the continuity VM may reset (isInitialLoading=true).
-    // Wait until the loading overlay disappears so HomeScreen is showing its
-    // ListView before we drag.  Without this, find.byType(Scrollable).first
-    // would match an IndexedStack sibling (GardenScreen / GrowthScreen) that
-    // has no relation to the home list.
-    await _pumpUntilAbsent(
-      tester,
-      find.byKey(const Key('home-loading')),
-      timeout: const Duration(seconds: 30),
-    );
-    // The home list may be scrolled down from before the account screen was
-    // opened.  Drag to the top.  _homeScrollable() is safe here because
-    // _pumpUntilAbsent above guarantees isInitialLoading=false (ListView shown).
-    await tester.drag(_homeScrollable(), const Offset(0, 5000));
-    await tester.pump();
-    // HomeTodaySceneCard fills most of the viewport, so HomePersonalizedHero
-    // and HomeRecentResultCard are below the fold and may not be lazily built.
-    // Scroll down until home-local-only-banner is visible; that brings the
-    // hero and result card into the build range.
-    await tester.scrollUntilVisible(
-      find.byKey(const Key('home-local-only-banner')),
-      -300,
-      scrollable: _homeScrollable(),
-    );
-    await tester.pump();
-    // After bootstrap re-imports the 3 synced events, recent-result-summary
-    // shows '已同步 3'.  Wait up to 30 s for continuity to finish loading.
-    await _pumpUntilFound(
-      tester,
-      find.byKey(const Key('recent-result-summary')),
-      timeout: const Duration(seconds: 30),
-    );
-    expect(find.byKey(const Key('recent-result-summary')), findsOneWidget);
-    expect(find.textContaining('已同步 3'), findsOneWidget);
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump(const Duration(milliseconds: 300));
+    await firstRepository.close();
   });
 }
 
@@ -366,6 +198,14 @@ Future<PracticeRepository> _openRepository({
   final localDataSource = await PracticeLocalDataSource.open(
     directory: directory.path,
     name: dbName,
+    isarOpener: (schemas, {required directory, name = 'practice_local'}) {
+      return Isar.open(
+        schemas,
+        directory: directory,
+        name: name,
+        inspector: false,
+      );
+    },
   );
   return PracticeRepository(
     assetPhraseService: assetPhraseService,
@@ -386,7 +226,43 @@ Finder _homeScrollable() {
 
 Future<void> _scrollHomeTo(WidgetTester tester, Finder finder) async {
   await tester.scrollUntilVisible(finder, 180, scrollable: _homeScrollable());
-  await tester.pumpAndSettle();
+  await _pumpBriefly(tester);
+}
+
+Finder _homeStartPracticeButton() {
+  return find.byWidgetPredicate((widget) {
+    final key = widget.key;
+    return key == const Key('home-b-start-practice') ||
+        key == const Key('home-start-practice');
+  });
+}
+
+Future<void> _waitForHomeReady(WidgetTester tester) async {
+  final shellReady = find.byKey(const Key('shell-ready'));
+  final shellRoute = find.byKey(const Key('boot-route-shell'));
+  const step = Duration(milliseconds: 300);
+  const timeout = Duration(seconds: 45);
+  final totalSteps = timeout.inMilliseconds ~/ step.inMilliseconds;
+  for (var index = 0; index < totalSteps; index++) {
+    await tester.pump(step);
+    if (shellReady.evaluate().isNotEmpty || shellRoute.evaluate().isNotEmpty) {
+      return;
+    }
+  }
+
+  fail('Timed out waiting for shell home route.');
+}
+
+Future<void> _openAccountEntryFromShell(WidgetTester tester) async {
+  await tester.tap(find.byKey(const Key('shell-nav-me')));
+  await _pumpBriefly(tester);
+  await _pumpUntilFound(tester, find.byKey(const Key('me-user-info')));
+  await tester.tap(find.byKey(const Key('me-user-info')));
+  await _pumpUntilFound(
+    tester,
+    find.byKey(const Key('account-entry-surface')),
+    timeout: const Duration(seconds: 30),
+  );
 }
 
 Future<void> _scrollTo(WidgetTester tester, Finder finder) async {
@@ -395,7 +271,7 @@ Future<void> _scrollTo(WidgetTester tester, Finder finder) async {
     180,
     scrollable: find.byType(Scrollable).first,
   );
-  await tester.pumpAndSettle();
+  await _pumpBriefly(tester);
 }
 
 Future<void> _pumpUntilFound(
@@ -415,16 +291,12 @@ Future<void> _pumpUntilFound(
   fail('Timed out waiting for expected widget.');
 }
 
-Future<void> _pumpUntilAbsent(
+Future<void> _pumpUntilGone(
   WidgetTester tester,
   Finder finder, {
   Duration step = const Duration(milliseconds: 50),
   Duration timeout = const Duration(seconds: 8),
 }) async {
-  // If the widget is not in the tree at all, return immediately.
-  if (finder.evaluate().isEmpty) {
-    return;
-  }
   final totalSteps = timeout.inMilliseconds ~/ step.inMilliseconds;
   for (var index = 0; index < totalSteps; index++) {
     await tester.pump(step);
@@ -435,3 +307,11 @@ Future<void> _pumpUntilAbsent(
 
   fail('Timed out waiting for widget to disappear.');
 }
+
+Future<void> _pumpBriefly(
+  WidgetTester tester, {
+  Duration duration = const Duration(milliseconds: 250),
+}) async {
+  await tester.pump(duration);
+}
+

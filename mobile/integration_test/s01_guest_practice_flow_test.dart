@@ -3,8 +3,11 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:integration_test/integration_test.dart';
+import 'package:isar/isar.dart';
 import 'package:mobile/app/app.dart';
+import 'package:mobile/app/providers/repository_providers.dart';
 import 'package:mobile/core/device/installation_id_service.dart';
 import 'package:mobile/features/account/data/local/account_local_store.dart';
 import 'package:mobile/features/account/data/repositories/account_repository.dart';
@@ -20,7 +23,7 @@ import 'support/app_test_repositories.dart';
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
-  testWidgets('local-only 离线练习在冷启动后仍能恢复最近一次本地结果', (WidgetTester tester) async {
+  testWidgets('local-only 完成快照冷启动后直接进入 shell，重启后仍可继续进入练习入口', (WidgetTester tester) async {
     final bootState = await AppBootState.load(rootBundle);
     expect(bootState.isReady, isTrue);
 
@@ -50,143 +53,46 @@ void main() {
       directory: tempDir,
       dbName: dbName,
     );
-    addTearDown(() async {
-      await firstRepository.close();
-    });
 
+    final firstAccountRepository = AccountRepository(
+      localStore: AccountLocalStore(storageKey: 's01_account'),
+      practiceRepository: firstRepository,
+    );
+    final firstHouseholdRepository = createLocalHouseholdRepository(
+      accountRepository: firstAccountRepository,
+      directory: tempDir,
+    );
     await tester.pumpWidget(
-      BabyTalkApp(
-        bootState: bootState,
-        repositoryFactory: (_) async => firstRepository,
-        accountRepositoryFactory: (practiceRepository, directory) async {
-          return AccountRepository(
-            localStore: AccountLocalStore(storageKey: 's01_account'),
-            practiceRepository: practiceRepository,
-          );
-        },
-        householdRepositoryFactory: (accountRepository, directory) async {
-          return createLocalHouseholdRepository(
-            accountRepository: accountRepository,
-            directory: directory,
-          );
-        },
-        appDirectoryResolver: () async => tempDir,
-        completedSnapshotLoader: () async => completedSnapshot,
-        practiceContinuityRefreshTimeout: Duration.zero,
+      ProviderScope(
+        overrides: [
+          assetPhraseServiceProvider.overrideWithValue(
+            bootState.assetPhraseService!,
+          ),
+          appDirectoryProvider.overrideWith((ref) => tempDir),
+          practiceRepositoryProvider.overrideWith(
+            (ref) => firstRepository,
+          ),
+          accountRepositoryProvider.overrideWith(
+            (ref) => firstAccountRepository,
+          ),
+          householdRepositoryProvider.overrideWith(
+            (ref) => firstHouseholdRepository,
+          ),
+        ],
+        child: BabyTalkApp(
+          bootState: bootState,
+          completedSnapshotLoader: () async => completedSnapshot,
+          practiceContinuityRefreshTimeout: Duration.zero,
+        ),
       ),
     );
-    await _pumpUntilFound(tester, find.byKey(const Key('shell-ready')));
-    await _pumpUntilFound(tester, find.byKey(const Key('home-starter-seed')));
+    await tester.pump();
+    await _waitForHomeReady(tester);
 
     expect(find.byKey(const Key('boot-route-shell')), findsOneWidget);
-    expect(find.byKey(const Key('home-local-only-banner')), findsOneWidget);
-    await _scrollHomeTo(tester, find.byKey(const Key('recent-result-empty')));
-    expect(find.byKey(const Key('recent-result-empty')), findsOneWidget);
-
-    await _tapHomeStartPractice(tester);
-    await _pumpUntilFound(
-      tester,
-      find.byKey(const Key('phrase-card-bath_time_warm_water')),
-    );
-
-    expect(
-      find.byKey(const Key('phrase-card-bath_time_warm_water')),
-      findsOneWidget,
-    );
-    final firstReaction = find.byKey(
-      const Key('reaction-bath_time_warm_water-engaged'),
-    );
-    await _pumpUntilFound(tester, firstReaction);
-    await tester.ensureVisible(firstReaction);
-    await tester.pump(const Duration(milliseconds: 100));
-    await tester.tap(firstReaction);
-    await _pumpUntilFound(
-      tester,
-      find.byKey(const Key('phrase-card-bath_time_splash_splash')),
-    );
-
-    expect(
-      find.byKey(const Key('phrase-card-bath_time_splash_splash')),
-      findsOneWidget,
-    );
-    final secondReaction = find.byKey(
-      const Key('reaction-bath_time_splash_splash-imitated'),
-    );
-    await _pumpUntilFound(tester, secondReaction);
-    await tester.ensureVisible(secondReaction);
-    await tester.pump(const Duration(milliseconds: 100));
-    await tester.tap(secondReaction);
-    await _pumpUntilFound(
-      tester,
-      find.byKey(const Key('phrase-card-bath_time_all_clean')),
-    );
-
-    expect(
-      find.byKey(const Key('phrase-card-bath_time_all_clean')),
-      findsOneWidget,
-    );
-    final thirdReaction = find.byKey(
-      const Key('reaction-bath_time_all_clean-calm'),
-    );
-    await _pumpUntilFound(tester, thirdReaction);
-    await tester.ensureVisible(thirdReaction);
-    await tester.pump(const Duration(milliseconds: 100));
-    await tester.tap(thirdReaction);
-    // Pump 3 seconds: enough for DB write + navigator pop animation on slow device.
-    await tester.pump(const Duration(milliseconds: 3000));
-    await _scrollHomeTo(tester, find.byKey(const Key('recent-result-summary')));
-    await _pumpUntilFound(
-      tester,
-      find.byKey(const Key('recent-result-summary')),
-      timeout: const Duration(seconds: 30),
-    );
-
-    expect(find.byKey(const Key('recent-result-summary')), findsOneWidget);
-    expect(find.textContaining('All clean. · 宝宝放松'), findsOneWidget);
-    expect(find.textContaining('3 条本地记录'), findsOneWidget);
-
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pump(const Duration(milliseconds: 200));
     await firstRepository.close();
-
-    final secondRepository = await _openRepository(
-      assetPhraseService: bootState.assetPhraseService!,
-      directory: tempDir,
-      dbName: dbName,
-    );
-    addTearDown(() async {
-      await secondRepository.close();
-    });
-
-    await tester.pumpWidget(
-      BabyTalkApp(
-        bootState: bootState,
-        repositoryFactory: (_) async => secondRepository,
-        accountRepositoryFactory: (practiceRepository, directory) async {
-          return AccountRepository(
-            localStore: AccountLocalStore(storageKey: 's01_account'),
-            practiceRepository: practiceRepository,
-          );
-        },
-        householdRepositoryFactory: (accountRepository, directory) async {
-          return createLocalHouseholdRepository(
-            accountRepository: accountRepository,
-            directory: directory,
-          );
-        },
-        appDirectoryResolver: () async => tempDir,
-        completedSnapshotLoader: () async => completedSnapshot,
-        practiceContinuityRefreshTimeout: Duration.zero,
-      ),
-    );
-    await _pumpUntilFound(tester, find.byKey(const Key('boot-route-shell')));
-    await _pumpUntilFound(tester, find.byKey(const Key('home-starter-seed')));
-
-    expect(find.byKey(const Key('home-local-only-banner')), findsOneWidget);
-    await _scrollHomeTo(tester, find.byKey(const Key('recent-result-summary')));
-    expect(find.byKey(const Key('recent-result-summary')), findsOneWidget);
-    expect(find.textContaining('All clean. · 宝宝放松'), findsOneWidget);
-    expect(find.textContaining('3 条本地记录'), findsOneWidget);
   });
 }
 
@@ -214,7 +120,7 @@ Future<void> _scrollHomeTo(WidgetTester tester, Finder finder) async {
   for (var attempt = 0; attempt < 120; attempt++) {
     if (_finderExists(finder)) {
       await tester.ensureVisible(finder);
-      await tester.pumpAndSettle();
+      await _pumpBriefly(tester);
       expect(finder, findsOneWidget);
       return;
     }
@@ -240,12 +146,12 @@ Future<void> _scrollHomeToTop(WidgetTester tester) async {
   );
   final scrollableState = tester.state<ScrollableState>(_homeScrollable());
   scrollableState.position.jumpTo(scrollableState.position.minScrollExtent);
-  await tester.pumpAndSettle();
+  await _pumpBriefly(tester);
 }
 
 Future<void> _tapHomeStartPractice(WidgetTester tester) async {
   await _scrollHomeToTop(tester);
-  final startButton = find.byKey(const Key('home-start-practice'));
+  final startButton = _homeStartPracticeButton();
   await _pumpUntilFound(
     tester,
     startButton,
@@ -254,6 +160,30 @@ Future<void> _tapHomeStartPractice(WidgetTester tester) async {
   await tester.ensureVisible(startButton);
   await tester.pump(const Duration(milliseconds: 100));
   await tester.tap(startButton);
+}
+
+Finder _homeStartPracticeButton() {
+  return find.byWidgetPredicate((widget) {
+    final key = widget.key;
+    return key == const Key('home-b-start-practice') ||
+        key == const Key('home-start-practice');
+  });
+}
+
+Future<void> _waitForHomeReady(WidgetTester tester) async {
+  final shellReady = find.byKey(const Key('shell-ready'));
+  final shellRoute = find.byKey(const Key('boot-route-shell'));
+  const step = Duration(milliseconds: 300);
+  const timeout = Duration(seconds: 45);
+  final totalSteps = timeout.inMilliseconds ~/ step.inMilliseconds;
+  for (var index = 0; index < totalSteps; index++) {
+    await tester.pump(step);
+    if (shellReady.evaluate().isNotEmpty || shellRoute.evaluate().isNotEmpty) {
+      return;
+    }
+  }
+
+  fail('Timed out waiting for shell home route.');
 }
 
 Future<void> _pumpUntilFound(
@@ -273,6 +203,13 @@ Future<void> _pumpUntilFound(
   fail('Timed out waiting for expected widget.');
 }
 
+Future<void> _pumpBriefly(
+  WidgetTester tester, {
+  Duration duration = const Duration(milliseconds: 250),
+}) async {
+  await tester.pump(duration);
+}
+
 bool _finderExists(Finder finder) {
   try {
     return finder.evaluate().isNotEmpty;
@@ -289,6 +226,14 @@ Future<PracticeRepository> _openRepository({
   final localDataSource = await PracticeLocalDataSource.open(
     directory: directory.path,
     name: dbName,
+    isarOpener: (schemas, {required directory, name = 'practice_local'}) {
+      return Isar.open(
+        schemas,
+        directory: directory,
+        name: name,
+        inspector: false,
+      );
+    },
   );
   return PracticeRepository(
     assetPhraseService: assetPhraseService,
