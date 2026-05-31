@@ -23,7 +23,7 @@ import 'support/app_test_repositories.dart';
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
-  testWidgets('fresh install 完成 onboarding 后进入个性化 shell，冷启动后跳过 onboarding 并保留练习入口', (
+  testWidgets('fresh install 完成 onboarding 后进入个性化 shell，并保留练习入口', (
     WidgetTester tester,
   ) async {
     final bootState = await AppBootState.load(rootBundle);

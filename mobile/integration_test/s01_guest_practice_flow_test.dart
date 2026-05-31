@@ -23,7 +23,7 @@ import 'support/app_test_repositories.dart';
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
-  testWidgets('local-only 完成快照冷启动后直接进入 shell，重启后仍可继续进入练习入口', (WidgetTester tester) async {
+  testWidgets('local-only 完成快照冷启动后直接进入 shell，并保持练习入口可见', (WidgetTester tester) async {
     final bootState = await AppBootState.load(rootBundle);
     expect(bootState.isReady, isTrue);
 
