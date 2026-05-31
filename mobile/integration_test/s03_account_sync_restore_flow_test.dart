@@ -314,4 +314,3 @@ Future<void> _pumpBriefly(
 }) async {
   await tester.pump(duration);
 }
-
