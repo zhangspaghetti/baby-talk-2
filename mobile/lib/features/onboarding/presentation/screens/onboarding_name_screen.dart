@@ -68,6 +68,18 @@ class OnboardingNameScreen extends HookConsumerWidget {
                       : null,
                   child: Text(l.onboardingV21NextButton),
                 ),
+                const SizedBox(height: AppLayoutConstants.spacingMd),
+                Text(
+                  key: const Key('onboarding-local-only-banner'),
+                  l.onboardingLocalOnly,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Theme.of(context)
+                            .colorScheme
+                            .onSurface
+                            .withValues(alpha: 0.55),
+                      ),
+                  textAlign: TextAlign.center,
+                ),
               ],
             ),
           ),
