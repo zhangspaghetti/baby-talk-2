@@ -1222,16 +1222,16 @@ class AppLocalizationsZh extends AppLocalizations {
   String get phrasePending => '待练习';
 
   @override
-  String get phrasePlaybackReady => '发音可播放';
+  String get phrasePlaybackReady => '听小禾读';
 
   @override
-  String get phrasePlaybackPlaying => '正在播放';
+  String get phrasePlaybackPlaying => '播放中';
 
   @override
-  String get phrasePlaybackCompleted => '已经听过';
+  String get phrasePlaybackCompleted => '再听一次';
 
   @override
-  String get phrasePlaybackRetry => '播放需重试';
+  String get phrasePlaybackRetry => '这句没读出来，点我重试';
 
   @override
   String get phraseSaveAwaitingReaction => '等宝宝反应';

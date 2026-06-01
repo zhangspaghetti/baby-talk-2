@@ -2289,25 +2289,25 @@ abstract class AppLocalizations {
   /// No description provided for @phrasePlaybackReady.
   ///
   /// In zh, this message translates to:
-  /// **'发音可播放'**
+  /// **'听小禾读'**
   String get phrasePlaybackReady;
 
   /// No description provided for @phrasePlaybackPlaying.
   ///
   /// In zh, this message translates to:
-  /// **'正在播放'**
+  /// **'播放中'**
   String get phrasePlaybackPlaying;
 
   /// No description provided for @phrasePlaybackCompleted.
   ///
   /// In zh, this message translates to:
-  /// **'已经听过'**
+  /// **'再听一次'**
   String get phrasePlaybackCompleted;
 
   /// No description provided for @phrasePlaybackRetry.
   ///
   /// In zh, this message translates to:
-  /// **'播放需重试'**
+  /// **'这句没读出来，点我重试'**
   String get phrasePlaybackRetry;
 
   /// No description provided for @phraseSaveAwaitingReaction.
