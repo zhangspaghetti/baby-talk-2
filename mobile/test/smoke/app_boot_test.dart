@@ -22,7 +22,6 @@ import 'package:mobile/features/mentor/data/local/mentor_local_data_source.dart'
 import 'package:mobile/features/mentor/data/repositories/mentor_repository.dart';
 import 'package:mobile/features/onboarding/data/local/onboarding_snapshot_store.dart';
 import 'package:mobile/features/onboarding/data/repositories/onboarding_repository.dart';
-import 'package:mobile/features/onboarding/presentation/onboarding_notifier.dart';
 import 'package:mobile/features/onboarding/domain/models/onboarding_snapshot.dart';
 import 'package:mobile/features/onboarding/domain/models/stage_match.dart';
 import 'package:mobile/features/practice/data/local/practice_local_data_source.dart';
@@ -262,12 +261,6 @@ void main() {
               starterActivityId: harness.bootState.primaryActivityId!,
             );
           }),
-          onboardingNotifierProvider.overrideWith((ref) {
-            final repository = ref
-                .read(onboardingRepositoryProvider)
-                .requireValue;
-            return OnboardingNotifier(repository: repository)..initialize();
-          }),
         ],
         child: BabyTalkApp(
           bootState: harness.bootState,
@@ -371,12 +364,6 @@ void main() {
                 starterSpaceId: harness.bootState.primarySpaceId!,
                 starterActivityId: harness.bootState.primaryActivityId!,
               );
-            }),
-            onboardingNotifierProvider.overrideWith((ref) {
-              final repository = ref
-                  .read(onboardingRepositoryProvider)
-                  .requireValue;
-              return OnboardingNotifier(repository: repository)..initialize();
             }),
           ],
           child: BabyTalkApp(
@@ -527,12 +514,6 @@ void main() {
               starterSpaceId: harness.bootState.primarySpaceId!,
               starterActivityId: harness.bootState.primaryActivityId!,
             );
-          }),
-          onboardingNotifierProvider.overrideWith((ref) {
-            final repository = ref
-                .read(onboardingRepositoryProvider)
-                .requireValue;
-            return OnboardingNotifier(repository: repository)..initialize();
           }),
         ],
         child: BabyTalkApp(

@@ -13,7 +13,6 @@ import 'package:mobile/app/providers/repository_providers.dart';
 import 'package:mobile/core/device/installation_id_service.dart';
 import 'package:mobile/features/onboarding/data/local/onboarding_snapshot_store.dart';
 import 'package:mobile/features/onboarding/data/repositories/onboarding_repository.dart';
-import 'package:mobile/features/onboarding/presentation/onboarding_notifier.dart';
 import 'package:mobile/features/account/data/local/account_local_store.dart';
 import 'package:mobile/features/account/data/repositories/account_repository.dart';
 import 'package:mobile/features/household/data/local/household_local_store.dart';
@@ -85,11 +84,6 @@ void main() {
               starterSpaceId: harness.bootState.primarySpaceId!,
               starterActivityId: harness.bootState.primaryActivityId!,
             );
-          }),
-          onboardingNotifierProvider.overrideWith((ref) {
-            final repository =
-                ref.read(onboardingRepositoryProvider).requireValue;
-            return OnboardingNotifier(repository: repository)..initialize();
           }),
         ],
         child: BabyTalkApp(

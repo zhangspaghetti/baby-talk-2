@@ -47,7 +47,6 @@ import 'package:mobile/features/share/data/services/share_sheet_launcher.dart';
 import 'package:mobile/features/account/presentation/account_notifier.dart';
 import 'package:mobile/features/household/presentation/household_notifier.dart';
 import 'package:mobile/features/mentor/presentation/mentor_notifier.dart';
-import 'package:mobile/features/onboarding/presentation/onboarding_notifier.dart';
 import 'package:mobile/features/settings/data/local/settings_local_data_source.dart';
 import 'package:mobile/features/settings/data/repositories/settings_repository.dart';
 import 'package:mobile/features/settings/presentation/settings_notifier.dart';
@@ -292,27 +291,6 @@ final onboardingRepositoryProvider = FutureProvider<OnboardingRepository>((
     'starterSpaceId and starterActivityId from AppBootState.',
   );
 });
-
-// ---------------------------------------------------------------------------
-// Onboarding notifier
-// ---------------------------------------------------------------------------
-
-/// Creates an [OnboardingNotifier] backed by the Riverpod provider graph.
-///
-/// The repository is resolved from [onboardingRepositoryProvider] which must
-/// be overridden at boot with the correct starterSpaceId and starterActivityId.
-final onboardingNotifierProvider =
-    ChangeNotifierProvider.autoDispose<OnboardingNotifier>((ref) {
-      final repository = ref.watch(onboardingRepositoryProvider).requireValue;
-      final audioController = AudioplayersPracticeAudioController();
-      ref.onDispose(audioController.dispose);
-      return OnboardingNotifier(
-        repository: repository,
-        playFirstPhraseAudio: (starterSeed) {
-          return audioController.playAsset(starterSeed.audioAssetSource);
-        },
-      )..initialize();
-    }, dependencies: [onboardingRepositoryProvider]);
 
 // ---------------------------------------------------------------------------
 // V21 Onboarding session notifier

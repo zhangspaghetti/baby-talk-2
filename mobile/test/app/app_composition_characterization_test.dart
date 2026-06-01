@@ -22,7 +22,6 @@ import 'package:mobile/features/mentor/data/local/mentor_local_data_source.dart'
 import 'package:mobile/features/mentor/data/repositories/mentor_repository.dart';
 import 'package:mobile/features/onboarding/data/local/onboarding_snapshot_store.dart';
 import 'package:mobile/features/onboarding/data/repositories/onboarding_repository.dart';
-import 'package:mobile/features/onboarding/presentation/onboarding_notifier.dart';
 import 'package:mobile/features/onboarding/domain/models/onboarding_snapshot.dart';
 import 'package:mobile/features/onboarding/domain/models/stage_match.dart';
 import 'package:mobile/features/practice/data/local/practice_local_data_source.dart';
@@ -130,12 +129,6 @@ void main() {
                 starterActivityId: harness.bootState.primaryActivityId!,
               );
             }),
-            onboardingNotifierProvider.overrideWith((ref) {
-              final repository = ref
-                  .read(onboardingRepositoryProvider)
-                  .requireValue;
-              return OnboardingNotifier(repository: repository)..initialize();
-            }),
             mentorRepositoryProvider.overrideWith(
               (ref) async => harness.mentorRepository,
             ),
@@ -216,49 +209,6 @@ void main() {
     },
   );
 
-  testWidgets(
-    'onboarding notifier can read the boot-scoped repository override',
-    (WidgetTester tester) async {
-      final harness = (await tester.runAsync<_AppCompositionHarness>(() async {
-        return _createHarness();
-      }))!;
-      addTearDown(harness.close);
-      addTearDown(() async {
-        await _disposeWidgetTree(tester);
-      });
-
-      final onboardingRepository = OnboardingRepository(
-        snapshotStore: OnboardingSnapshotStore(
-          directoryResolver: () async => harness.tempDir,
-        ),
-        practiceRepository: harness.repository,
-        starterSpaceId: harness.bootState.primarySpaceId!,
-        starterActivityId: harness.bootState.primaryActivityId!,
-      );
-      await tester.pumpWidget(
-        ProviderScope(
-          child: ProviderScope(
-            overrides: [
-              onboardingRepositoryProvider.overrideWith(
-                (ref) => onboardingRepository,
-              ),
-            ],
-            child: Consumer(
-              builder: (context, ref, child) {
-                ref.watch(onboardingNotifierProvider);
-                return const Directionality(
-                  textDirection: TextDirection.ltr,
-                  child: SizedBox.shrink(),
-                );
-              },
-            ),
-          ),
-        ),
-      );
-
-      expect(tester.takeException(), isNull);
-    },
-  );
 }
 
 class _AppCompositionHarness {

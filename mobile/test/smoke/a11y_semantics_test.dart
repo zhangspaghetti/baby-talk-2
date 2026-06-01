@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mobile/app/theme/app_theme.dart';
 import 'package:mobile/app/widgets/app_mentor_bubble.dart';
-import 'package:mobile/features/onboarding/presentation/widgets/mini_seed_card.dart';
 import 'package:mobile/features/practice/domain/models/practice_phrase.dart';
 import 'package:mobile/features/practice/presentation/practice_session_notifier.dart';
 import 'package:mobile/features/practice/presentation/widgets/phrase_card.dart';
@@ -52,25 +51,6 @@ void main() {
           find.bySemanticsLabel(RegExp('文字优先回复说明')),
           findsOneWidget,
           reason: 'MentorBubble trailing 内容不能被共享语义 wrapper 静音',
-        );
-      } finally {
-        semantics.dispose();
-      }
-    });
-  });
-
-  group('MiniSeedCard a11y', () {
-    testWidgets('MiniSeedCard 包含 Semantics widget with label', (tester) async {
-      final semantics = tester.ensureSemantics();
-      try {
-        await tester.pumpWidget(
-          buildTestApp(const MiniSeedCard(english: 'Hello', chinese: '你好')),
-        );
-
-        expect(
-          find.bySemanticsLabel('第一颗种子：Hello'),
-          findsOneWidget,
-          reason: 'MiniSeedCard 需要本地化 Semantics label',
         );
       } finally {
         semantics.dispose();

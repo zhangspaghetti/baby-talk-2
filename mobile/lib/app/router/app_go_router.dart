@@ -4,7 +4,6 @@ import 'package:go_router/go_router.dart';
 import 'package:mobile/app/router/app_route_contract.dart';
 
 // Import screens
-import 'package:mobile/features/onboarding/presentation/screens/onboarding_screen.dart';
 import 'package:mobile/features/onboarding/presentation/screens/onboarding_name_screen.dart';
 import 'package:mobile/features/onboarding/presentation/screens/onboarding_scene_screen.dart';
 import 'package:mobile/features/onboarding/presentation/screens/onboarding_practice_screen.dart';
@@ -24,10 +23,6 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: AppRouteNames.shell,
         builder: (context, state) => const AppShellScreen(),
-      ),
-      GoRoute(
-        path: AppRouteNames.onboarding,
-        builder: (context, state) => const OnboardingScreen(),
       ),
       GoRoute(
         path: AppRouteNames.onboardingName,
