@@ -5,6 +5,10 @@ import 'package:mobile/app/router/app_route_contract.dart';
 
 // Import screens
 import 'package:mobile/features/onboarding/presentation/screens/onboarding_screen.dart';
+import 'package:mobile/features/onboarding/presentation/screens/onboarding_name_screen.dart';
+import 'package:mobile/features/onboarding/presentation/screens/onboarding_scene_screen.dart';
+import 'package:mobile/features/onboarding/presentation/screens/onboarding_practice_screen.dart';
+import 'package:mobile/features/onboarding/presentation/screens/onboarding_complete_screen.dart';
 import 'package:mobile/features/shell/presentation/app_shell_screen.dart';
 import 'package:mobile/features/practice/presentation/screens/practice_session_screen.dart';
 import 'package:mobile/features/auth/presentation/screens/auth_screen.dart';
@@ -24,6 +28,22 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: AppRouteNames.onboarding,
         builder: (context, state) => const OnboardingScreen(),
+      ),
+      GoRoute(
+        path: AppRouteNames.onboardingName,
+        builder: (context, state) => const OnboardingNameScreen(),
+      ),
+      GoRoute(
+        path: AppRouteNames.onboardingScene,
+        builder: (context, state) => const OnboardingSceneScreen(),
+      ),
+      GoRoute(
+        path: AppRouteNames.onboardingPractice,
+        builder: (context, state) => const OnboardingPracticeScreen(),
+      ),
+      GoRoute(
+        path: AppRouteNames.onboardingComplete,
+        builder: (context, state) => const OnboardingCompleteScreen(),
       ),
       GoRoute(
         path: AppRouteNames.practice,
