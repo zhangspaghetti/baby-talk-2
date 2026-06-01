@@ -237,10 +237,12 @@ class _BottomActions extends ConsumerWidget {
               HapticFeedback.mediumImpact();
               sessionNotifier.recordSaid();
             },
-            child: ElevatedButton(
-              key: const Key('onboarding-said-button'),
-              onPressed: null,
-              child: Text(l.onboardingV21SaidButton),
+            child: IgnorePointer(
+              child: ElevatedButton(
+                key: const Key('onboarding-said-button'),
+                onPressed: () {}, // non-null = renders as enabled; tap handled by AppScaleButton
+                child: Text(l.onboardingV21SaidButton),
+              ),
             ),
           ),
           const SizedBox(height: AppLayoutConstants.spacingSm),

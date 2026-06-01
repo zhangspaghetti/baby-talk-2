@@ -66,11 +66,13 @@ class OnboardingSessionNotifier extends ChangeNotifier {
       _session.updateReaction(lastIndex, reaction);
     }
     _showReactionPicker = false;
+    _loadNextPhrase(); // auto-advance to next phrase after reaction
     notifyListeners();
   }
 
   void skipReaction() {
     _showReactionPicker = false;
+    _loadNextPhrase(); // auto-advance to next phrase after skip
     notifyListeners();
   }
 
