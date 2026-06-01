@@ -109,9 +109,12 @@ public class GrowthInsightsService {
                 SELECT DISTINCT DATE(client_timestamp AT TIME ZONE 'Asia/Shanghai') AS practice_date
                 FROM interaction_events
                 WHERE account_id = ?
+                  AND client_timestamp >= ?
                 ORDER BY practice_date DESC
+                LIMIT 366
                 """,
-                accountId
+                accountId,
+                Timestamp.from(now)
         );
 
         var dates = rows.stream()
