@@ -149,13 +149,13 @@ class _OnboardingCompleteScreenState
     final ageBucket = session.ageBucket ?? OnboardingAgeBucket.zeroToSix;
 
     final repository = ref.read(onboardingRepositoryProvider).requireValue;
-    await repository.completeOnboarding(
+    final snapshot = await repository.completeOnboarding(
       childDisplayName: session.childName.isEmpty ? '宝宝' : session.childName,
       ageBucket: ageBucket,
     );
 
     if (context.mounted) {
-      context.go('/');
+      context.go('/', extra: snapshot);
     }
   }
 }
