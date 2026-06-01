@@ -382,6 +382,111 @@ void main() {
       expect((await repository.getSyncSummary()).pendingCount, 0);
     });
   });
+
+  group('V21 phrase interaction phase', () {
+    test('saveCurrentPhrase 把 phrasePhase 从 ready 改为 saved', () async {
+      final harness = await _createHarness();
+      addTearDown(harness.dispose);
+      final notifier = PracticeSessionNotifier(
+        repository: harness.repository,
+        spaceId: 'daily_care',
+        activityId: 'bath_time',
+        audioController: _SilentPracticeAudioController(),
+      );
+      addTearDown(notifier.dispose);
+
+      await notifier.initialize();
+      await notifier.ensureSessionReady();
+
+      expect(notifier.phrasePhase, PhraseInteractionPhase.ready);
+      notifier.saveCurrentPhrase();
+      expect(notifier.phrasePhase, PhraseInteractionPhase.saved);
+    });
+
+    test('recordReaction 在 saved 阶段推进 index 并把 phase 设为 advancing', () async {
+      final harness = await _createHarness();
+      addTearDown(harness.dispose);
+      final notifier = PracticeSessionNotifier(
+        repository: harness.repository,
+        spaceId: 'daily_care',
+        activityId: 'bath_time',
+        audioController: _SilentPracticeAudioController(),
+      );
+      addTearDown(notifier.dispose);
+
+      await notifier.initialize();
+      await notifier.ensureSessionReady();
+      notifier.saveCurrentPhrase();
+
+      final outcome = await notifier.recordReaction(BabyReactionType.engaged);
+      expect(outcome, PracticeRecordOutcome.advanced);
+      expect(notifier.phrasePhase, PhraseInteractionPhase.advancing);
+      // index already advanced — next phrase visible immediately
+      expect(notifier.currentPhrase?.phraseId, 'bath_time_splash_splash');
+    });
+
+    test('skipToNextPhrase 在 saved 阶段跳过反应直接到下一句', () async {
+      final harness = await _createHarness();
+      addTearDown(harness.dispose);
+      final notifier = PracticeSessionNotifier(
+        repository: harness.repository,
+        spaceId: 'daily_care',
+        activityId: 'bath_time',
+        audioController: _SilentPracticeAudioController(),
+      );
+      addTearDown(notifier.dispose);
+
+      await notifier.initialize();
+      await notifier.ensureSessionReady();
+      expect(notifier.currentPhrase?.phraseId, 'bath_time_warm_water');
+
+      notifier.saveCurrentPhrase();
+      notifier.skipToNextPhrase();
+
+      expect(notifier.currentPhrase?.phraseId, 'bath_time_splash_splash');
+      expect(notifier.phrasePhase, PhraseInteractionPhase.ready);
+    });
+
+    test('cancelAutoAdvance 在 advancing 阶段把 phase 退回 saved', () async {
+      final harness = await _createHarness();
+      addTearDown(harness.dispose);
+      final notifier = PracticeSessionNotifier(
+        repository: harness.repository,
+        spaceId: 'daily_care',
+        activityId: 'bath_time',
+        audioController: _SilentPracticeAudioController(),
+      );
+      addTearDown(notifier.dispose);
+
+      await notifier.initialize();
+      await notifier.ensureSessionReady();
+      notifier.saveCurrentPhrase();
+      await notifier.recordReaction(BabyReactionType.calm);
+      expect(notifier.phrasePhase, PhraseInteractionPhase.advancing);
+
+      notifier.cancelAutoAdvance();
+      expect(notifier.phrasePhase, PhraseInteractionPhase.saved);
+    });
+
+    test('endSession 把 phase 设为 complete 并标记 sessionCompleted', () async {
+      final harness = await _createHarness();
+      addTearDown(harness.dispose);
+      final notifier = PracticeSessionNotifier(
+        repository: harness.repository,
+        spaceId: 'daily_care',
+        activityId: 'bath_time',
+        audioController: _SilentPracticeAudioController(),
+      );
+      addTearDown(notifier.dispose);
+
+      await notifier.initialize();
+      await notifier.ensureSessionReady();
+
+      notifier.endSession();
+      expect(notifier.phrasePhase, PhraseInteractionPhase.complete);
+      expect(notifier.sessionCompleted, isTrue);
+    });
+  });
 }
 
 Future<_Harness> _createHarness({Directory? tempDir, String? dbName}) async {

@@ -77,6 +77,21 @@ const List<PracticeReactionOption> practiceReactionOptions = [
   ),
 ];
 
+/// Controls the lifecycle of a single practice phrase (V21).
+enum PhraseInteractionPhase {
+  ready,      // Waiting for user to say the phrase ("说完了")
+  saved,      // Phrase marked spoken; reaction chips visible
+  advancing,  // Reaction recorded; 1.35 s animation before next card
+  complete,   // All phrases done; completion view shown
+}
+
+/// Status of the "换一句" background load (V21).
+enum NextPhraseLoadStatus {
+  idle,
+  loading,
+  error,
+}
+
 class PracticeSessionNotifier extends ChangeNotifier {
   PracticeSessionNotifier({
     required PracticeRepository repository,
@@ -128,6 +143,10 @@ class PracticeSessionNotifier extends ChangeNotifier {
   PracticeSaveStatus _saveStatus = PracticeSaveStatus.idle;
   String? _playbackMessage;
   String? _saveMessage;
+  PhraseInteractionPhase _phrasePhase = PhraseInteractionPhase.ready;
+  NextPhraseLoadStatus _nextPhraseLoadStatus = NextPhraseLoadStatus.idle;
+  Timer? _autoAdvanceTimer;
+  bool _skipCancelled = false;
 
   bool get isHomeLoading => _isHomeLoading;
   bool get isSessionLoading => _isSessionLoading;
@@ -146,6 +165,8 @@ class PracticeSessionNotifier extends ChangeNotifier {
   PracticeSaveStatus get saveStatus => _saveStatus;
   String? get playbackMessage => _playbackMessage;
   String? get saveMessage => _saveMessage;
+  PhraseInteractionPhase get phrasePhase => _phrasePhase;
+  NextPhraseLoadStatus get nextPhraseLoadStatus => _nextPhraseLoadStatus;
 
   PracticePhrase? get currentPhrase {
     final snapshot = _activitySnapshot;
@@ -363,14 +384,28 @@ class PracticeSessionNotifier extends ChangeNotifier {
       _resetPlaybackState(clearMessage: true, notify: false);
       _saveStatus = PracticeSaveStatus.saved;
       _saveMessage = isLastPhrase ? '已保存本地结果，当前活动已完成。' : '已保存本地结果，继续下一句。';
-      _sessionCompleted = isLastPhrase;
+
+      // Advance index immediately so currentPhrase reflects next phrase.
+      // phrasePhase stays "advancing" for 1.35 s (UI animation window).
       if (!isLastPhrase) {
-        _currentPhraseIndex = (_currentPhraseIndex + 1).clamp(
-          0,
-          snapshot.phrases.length - 1,
-        );
+        _currentPhraseIndex = (_currentPhraseIndex + 1)
+            .clamp(0, snapshot.phrases.length - 1);
+      } else {
+        _sessionCompleted = true;
       }
+      _phrasePhase = PhraseInteractionPhase.advancing;
       notifyListeners();
+
+      // After 1.35 s, flip to the steady state.
+      _autoAdvanceTimer?.cancel();
+      _autoAdvanceTimer = Timer(const Duration(milliseconds: 1350), () {
+        _autoAdvanceTimer = null;
+        _phrasePhase = isLastPhrase
+            ? PhraseInteractionPhase.complete
+            : PhraseInteractionPhase.ready;
+        notifyListeners();
+      });
+
       return isLastPhrase
           ? PracticeRecordOutcome.completed
           : PracticeRecordOutcome.advanced;
@@ -379,6 +414,107 @@ class PracticeSessionNotifier extends ChangeNotifier {
       _saveMessage = '保存失败：$error';
       notifyListeners();
       return PracticeRecordOutcome.failed;
+    }
+  }
+
+  /// Marks the current phrase as spoken; transitions phase to [saved].
+  /// Idempotent — calling while already in [saved] or [advancing] is a no-op.
+  void saveCurrentPhrase() {
+    if (_phrasePhase != PhraseInteractionPhase.ready) return;
+    _phrasePhase = PhraseInteractionPhase.saved;
+    notifyListeners();
+  }
+
+  /// Skips the reaction and advances to the next phrase.
+  /// Cancels any pending auto-advance timer.
+  void skipToNextPhrase() {
+    cancelAutoAdvance();
+    _advanceToNextPhrase();
+  }
+
+  /// Cancels the 1.35 s auto-advance timer.
+  /// If the phase was [advancing], rolls it back to [saved].
+  void cancelAutoAdvance() {
+    _autoAdvanceTimer?.cancel();
+    _autoAdvanceTimer = null;
+    if (_phrasePhase == PhraseInteractionPhase.advancing) {
+      _phrasePhase = PhraseInteractionPhase.saved;
+      notifyListeners();
+    }
+  }
+
+  /// Ends the session immediately (e.g. user taps "结束").
+  void endSession() {
+    _skipCancelled = true;
+    _autoAdvanceTimer?.cancel();
+    _autoAdvanceTimer = null;
+    _sessionCompleted = true;
+    _phrasePhase = PhraseInteractionPhase.complete;
+    notifyListeners();
+  }
+
+  /// Calls the generate API to replace the current phrase ("换一句").
+  Future<void> skipCurrentPhrase() async {
+    if (_nextPhraseLoadStatus == NextPhraseLoadStatus.loading) return;
+    _skipCancelled = false;
+    _nextPhraseLoadStatus = NextPhraseLoadStatus.loading;
+    _sessionErrorMessage = null;
+    notifyListeners();
+
+    final currentEnglish = currentPhrase?.english;
+
+    try {
+      final newSnapshot = await _repository.getActivitySnapshotDynamic(
+        babyAgeMonths: babyAgeMonths,
+        sceneTag: sceneTag,
+        fallbackSpaceId: spaceId,
+        fallbackActivityId: activityId,
+        accessToken: accessTokenLoader?.call(),
+      );
+
+      if (_skipCancelled) return;
+
+      // Client-side dedup: prefer a phrase with different English text.
+      final candidates = newSnapshot.phrases;
+      final newDynPhrase = candidates.firstWhere(
+        (p) => p.english != currentEnglish,
+        orElse: () => candidates.first,
+      );
+
+      final currentSnapshot = _activitySnapshot!;
+      final updatedPhrases =
+          List<PracticePhrase>.from(currentSnapshot.phrases);
+      updatedPhrases[_currentPhraseIndex] = PracticePhrase(
+        spaceId: newDynPhrase.spaceId,
+        activityId: newDynPhrase.activityId,
+        phraseId: 'dyn_replaced_${DateTime.now().microsecondsSinceEpoch}',
+        step: currentSnapshot.phrases[_currentPhraseIndex].step,
+        english: newDynPhrase.english,
+        chinese: newDynPhrase.chinese,
+        pronunciation: newDynPhrase.pronunciation,
+        difficulty: newDynPhrase.difficulty,
+        audioAsset: newDynPhrase.audioAsset,
+      );
+
+      _activitySnapshot = PracticeActivitySnapshot(
+        spaceId: currentSnapshot.spaceId,
+        activityId: currentSnapshot.activityId,
+        title: currentSnapshot.title,
+        summary: currentSnapshot.summary,
+        sceneTag: currentSnapshot.sceneTag,
+        coachTip: currentSnapshot.coachTip,
+        phrases: List.unmodifiable(updatedPhrases),
+      );
+
+      _phrasePhase = PhraseInteractionPhase.ready;
+      _nextPhraseLoadStatus = NextPhraseLoadStatus.idle;
+      _resetPlaybackState(clearMessage: true, notify: false);
+      notifyListeners();
+    } catch (error) {
+      if (_skipCancelled) return;
+      _nextPhraseLoadStatus = NextPhraseLoadStatus.error;
+      _sessionErrorMessage = '换一句没准备好，点我重试';
+      notifyListeners();
     }
   }
 
@@ -398,6 +534,23 @@ class PracticeSessionNotifier extends ChangeNotifier {
       case BabyReactionType.needsBreak:
         return '先休息';
     }
+  }
+
+  void _advanceToNextPhrase() {
+    final snapshot = _activitySnapshot;
+    if (snapshot == null) return;
+    final isLast = _currentPhraseIndex >= snapshot.phrases.length - 1;
+    if (isLast) {
+      _sessionCompleted = true;
+      _phrasePhase = PhraseInteractionPhase.complete;
+    } else {
+      _currentPhraseIndex++;
+      _phrasePhase = PhraseInteractionPhase.ready;
+      _saveStatus = PracticeSaveStatus.idle;
+      _saveMessage = null;
+      _resetPlaybackState(clearMessage: true, notify: false);
+    }
+    notifyListeners();
   }
 
   Future<void> _loadHomeState() async {
@@ -534,6 +687,7 @@ class PracticeSessionNotifier extends ChangeNotifier {
   @override
   void dispose() {
     _cancelPlaybackTimeout();
+    _autoAdvanceTimer?.cancel();
     _audioCompletionSubscription?.cancel();
     unawaited(_audioController.dispose());
     super.dispose();
