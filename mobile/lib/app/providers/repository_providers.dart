@@ -20,6 +20,7 @@ import 'package:mobile/features/household/data/services/household_api_service.da
 import 'package:mobile/features/garden/data/local/garden_fertilizer_local_data_source.dart';
 import 'package:mobile/features/garden/data/repositories/garden_fertilizer_repository.dart';
 import 'package:mobile/features/garden/presentation/garden_fertilizer_notifier.dart';
+import 'package:mobile/features/growth/data/remote/growth_insights_api_service.dart';
 import 'package:mobile/features/growth/data/remote/growth_summary_api_service.dart';
 import 'package:mobile/features/growth/domain/services/growth_stats_service.dart';
 import 'package:mobile/features/growth/presentation/growth_insights_notifier.dart';
@@ -118,6 +119,13 @@ final growthSummaryApiServiceProvider = Provider<GrowthSummaryApiService>((
   ref.onDispose(service.close);
   return service;
 });
+
+final growthInsightsApiServiceProvider =
+    Provider<GrowthInsightsApiService>((ref) {
+      final service = GrowthInsightsApiService();
+      ref.onDispose(service.close);
+      return service;
+    });
 
 // ---------------------------------------------------------------------------
 // Asset phrase service
