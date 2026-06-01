@@ -177,19 +177,13 @@ public class GrowthInsightsService {
 
     // ── scenes ─────────────────────────────────────────────────────────────
     private List<SceneEntry> loadScenes(String accountId, Window window) {
-        long total = jdbc.queryForObject(
-                "SELECT COUNT(*) FROM interaction_events WHERE account_id = ? AND client_timestamp >= ? AND client_timestamp < ?",
-                Long.class,
-                accountId, Timestamp.from(window.start()), Timestamp.from(window.end())
-        );
-        if (total == 0) return List.of();
-
         return jdbc.query(
                 """
-                SELECT COALESCE(ps.slug, ie.activity_id)  AS space_id,
+                SELECT COALESCE(ps.slug, ie.activity_id)   AS space_id,
                        COALESCE(ps.title_zh, ie.activity_id) AS scene_tag,
                        COUNT(*)                             AS event_count,
-                       COUNT(DISTINCT ie.activity_id)       AS activity_count
+                       COUNT(DISTINCT ie.activity_id)       AS activity_count,
+                       COUNT(*) OVER ()                     AS total
                 FROM interaction_events ie
                 LEFT JOIN practice_activities pa ON pa.slug = ie.activity_id
                 LEFT JOIN practice_spaces ps      ON ps.id  = pa.space_id
@@ -205,7 +199,7 @@ public class GrowthInsightsService {
                         rs.getString("scene_tag"),
                         rs.getLong("event_count"),
                         rs.getInt("activity_count"),
-                        total > 0 ? (double) rs.getLong("event_count") / total * 100 : 0.0
+                        rs.getLong("total") > 0 ? (double) rs.getLong("event_count") / rs.getLong("total") * 100 : 0.0
                 ),
                 accountId,
                 Timestamp.from(window.start()),

@@ -45,7 +45,8 @@ public class GardenSnapshotService {
                 """
                 SELECT COUNT(*)                                                    AS known_events,
                        COUNT(DISTINCT ie.phrase_id)                                AS unique_phrases,
-                       COUNT(DISTINCT ps.slug)                                     AS covered_space_count
+                       COUNT(DISTINCT ps.slug)                                     AS covered_space_count,
+                       MIN(client_timestamp)                                       AS first_event_at
                 FROM interaction_events ie
                 LEFT JOIN practice_activities pa ON pa.slug = ie.activity_id
                 LEFT JOIN practice_spaces ps     ON ps.id  = pa.space_id
@@ -54,7 +55,8 @@ public class GardenSnapshotService {
                 (rs, n) -> new StatsSnapshot(
                         rs.getLong("known_events"),
                         rs.getInt("unique_phrases"),
-                        rs.getInt("covered_space_count")
+                        rs.getInt("covered_space_count"),
+                        toInstant(rs.getTimestamp("first_event_at"))
                 ),
                 accountId
         );
@@ -138,13 +140,9 @@ public class GardenSnapshotService {
 
         // 1. first_practice
         if (stats.knownEvents() >= 1) {
-            var achievedAt = jdbc.queryForObject(
-                    "SELECT MIN(client_timestamp) FROM interaction_events WHERE account_id = ?",
-                    Timestamp.class, accountId
-            );
             milestones.add(new MilestoneEntry(
                     "first_practice", "初次练习", 1,
-                    achievedAt != null ? achievedAt.toInstant() : null, null
+                    stats.firstEventAt(), null
             ));
         } else {
             milestones.add(new MilestoneEntry(
@@ -247,9 +245,13 @@ public class GardenSnapshotService {
         return milestones;
     }
 
+    private static Instant toInstant(Timestamp ts) {
+        return ts == null ? null : ts.toInstant();
+    }
+
     // ── Records ────────────────────────────────────────────────────────────
 
-    private record StatsSnapshot(long knownEvents, int uniquePhrases, int coveredSpaceCount) {}
+    private record StatsSnapshot(long knownEvents, int uniquePhrases, int coveredSpaceCount, Instant firstEventAt) {}
 
     public record MilestoneEntry(
             String id,
