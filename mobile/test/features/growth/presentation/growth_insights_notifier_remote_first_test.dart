@@ -1,70 +1,26 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mobile/features/growth/data/remote/growth_summary_api_service.dart';
-import 'package:mobile/features/growth/domain/services/growth_stats_service.dart';
+import 'package:mobile/features/growth/data/models/growth_insights_payload.dart';
+import 'package:mobile/features/growth/data/remote/growth_insights_api_service.dart';
 import 'package:mobile/features/growth/presentation/growth_insights_models.dart';
 import 'package:mobile/features/growth/presentation/growth_insights_notifier.dart';
-import 'package:mobile/features/practice/data/repositories/practice_repository.dart';
-import 'package:mobile/features/practice/domain/models/interaction_event_payload.dart';
-import 'package:mobile/features/practice/domain/models/practice_activity_catalog.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
-  DateTime fixedNow() => DateTime(2026, 5, 20, 12);
+  TestWidgetsFlutterBinding.ensureInitialized();
 
-  InteractionEventPayload event({
-    required String id,
-    required DateTime clientTimestamp,
-  }) {
-    return InteractionEventPayload(
-      localEventId: id,
-      installationId: 'install_test',
-      spaceId: 'space_1',
-      activityId: 'a1',
-      phraseId: 'p1',
-      reactionType: BabyReactionType.engaged,
-      clientTimestamp: clientTimestamp,
-    );
-  }
-
-  test('uses remote summary data when remote load succeeds', () async {
-    final statsService = _StubGrowthStatsService(
-      weekResult: const PeriodStats(
+  test('uses remote API data when fetch succeeds', () async {
+    final api = _FakeApiService(
+      weekPayload: _makePayload(
+        period: 'week',
         totalEvents: 99,
         uniquePhrases: 10,
         uniqueActivities: 7,
-        imitationCount: 5,
-        firstEventAt: null,
-        lastEventAt: null,
-        practicedDays: 6,
-      ),
-      monthResult: const PeriodStats(
-        totalEvents: 88,
-        uniquePhrases: 9,
-        uniqueActivities: 6,
-        imitationCount: 4,
-        firstEventAt: null,
-        lastEventAt: null,
-        practicedDays: 5,
-      ),
-      yearResult: const PeriodStats(
-        totalEvents: 77,
-        uniquePhrases: 8,
-        uniqueActivities: 5,
-        imitationCount: 3,
-        firstEventAt: null,
-        lastEventAt: null,
-        practicedDays: 4,
       ),
     );
 
     final notifier = GrowthInsightsNotifier(
-      repositoryFuture: Future.value(
-        _FakeRepository([
-          event(id: 'e1', clientTimestamp: DateTime(2026, 5, 20, 9)),
-          event(id: 'e2', clientTimestamp: DateTime(2026, 5, 19, 9)),
-        ]),
-      ),
-      statsService: statsService,
-      now: fixedNow,
+      apiService: api,
+      prefs: _FakePrefs(),
     );
     addTearDown(notifier.dispose);
 
@@ -72,115 +28,206 @@ void main() {
 
     final week = notifier.viewFor(GrowthPeriod.week);
     expect(week.stats.totalEvents, 99);
-    expect(statsService.loadedPeriods, [
-      GrowthSummaryPeriod.week,
-      GrowthSummaryPeriod.month,
-      GrowthSummaryPeriod.year,
-    ]);
+    expect(week.stats.uniquePhrases, 10);
+    expect(week.stats.uniqueActivities, 7);
+    expect(api.calls, ['week', 'month', 'year']);
   });
 
-  test('falls back to local stats when remote load throws', () async {
-    final statsService = _StubGrowthStatsService(throwOnLoad: true);
-    final notifier = GrowthInsightsNotifier(
-      repositoryFuture: Future.value(
-        _FakeRepository([
-          event(id: 'e1', clientTimestamp: DateTime(2026, 5, 20, 9)),
-          event(id: 'e2', clientTimestamp: DateTime(2026, 5, 20, 10)),
-        ]),
+  test('falls back to stale cache when remote fetch throws', () async {
+    final prefs = _FakePrefs();
+    // Pre-populate cache with stale data.
+    await prefs.setString(
+      'growth_insights_v1_week',
+      _cacheEntry(
+        totalEvents: 42,
+        uniquePhrases: 5,
+        uniqueActivities: 3,
       ),
-      statsService: statsService,
-      now: fixedNow,
+    );
+
+    final api = _FakeApiService(throwOnFetch: true);
+    final notifier = GrowthInsightsNotifier(
+      apiService: api,
+      prefs: prefs,
     );
     addTearDown(notifier.dispose);
 
     await notifier.initialize();
 
     final week = notifier.viewFor(GrowthPeriod.week);
-    expect(week.stats.totalEvents, 2);
-    expect(week.stats.uniquePhrases, 1);
-    expect(statsService.loadedPeriods, [
-      GrowthSummaryPeriod.week,
-      GrowthSummaryPeriod.month,
-      GrowthSummaryPeriod.year,
-    ]);
+    expect(week.stats.totalEvents, 42); // from cache
+    expect(notifier.hasError, isFalse); // stale cache available
+  });
+
+  test('shows error when remote fails and no cache exists', () async {
+    final api = _FakeApiService(throwOnFetch: true);
+    final notifier = GrowthInsightsNotifier(
+      apiService: api,
+      prefs: _FakePrefs(),
+    );
+    addTearDown(notifier.dispose);
+
+    await notifier.initialize();
+
+    expect(notifier.hasError, isTrue);
+    final week = notifier.viewFor(GrowthPeriod.week);
+    expect(week.hasError, isTrue);
   });
 }
 
-class _StubGrowthStatsService extends GrowthStatsService {
-  _StubGrowthStatsService({
-    this.throwOnLoad = false,
-    this.weekResult,
-    this.monthResult,
-    this.yearResult,
-  });
+GrowthInsightsPayload _makePayload({
+  required String period,
+  int totalEvents = 10,
+  int uniquePhrases = 4,
+  int uniqueActivities = 3,
+}) {
+  return GrowthInsightsPayload(
+    period: period,
+    windowStart: DateTime(2026, 5, 18),
+    windowEnd: DateTime(2026, 5, 20, 12),
+    generatedAt: DateTime(2026, 5, 20, 12),
+    stats: InsightsStats(
+      totalEvents: totalEvents,
+      uniquePhrases: uniquePhrases,
+      uniqueActivities: uniqueActivities,
+      imitationCount: 2,
+      practicedDays: 3,
+      firstEventAt: DateTime(2026, 5, 18),
+      lastEventAt: DateTime(2026, 5, 20),
+    ),
+    streak: InsightsStreak(
+      currentStreak: 3,
+      longestStreak: 7,
+      totalDaysPracticed: 15,
+      lastPracticedAt: DateTime(2026, 5, 20),
+    ),
+    bars: [
+      InsightsBarBucket(bucketStart: DateTime(2026, 5, 18), count: 2),
+      InsightsBarBucket(bucketStart: DateTime(2026, 5, 19), count: 3),
+      InsightsBarBucket(bucketStart: DateTime(2026, 5, 20), count: 5),
+    ],
+    scenes: const [
+      InsightsScene(
+        spaceId: 'space_1',
+        sceneTag: '喂饭',
+        eventCount: 7,
+        activityCount: 2,
+        percentage: 0.7,
+      ),
+    ],
+    recentActivity: const InsightsRecentActivity(
+      thisWeekCount: 5,
+      lastWeekCount: 3,
+    ),
+  );
+}
 
-  final bool throwOnLoad;
-  final PeriodStats? weekResult;
-  final PeriodStats? monthResult;
-  final PeriodStats? yearResult;
-  final List<GrowthSummaryPeriod> loadedPeriods = <GrowthSummaryPeriod>[];
-
-  @override
-  Future<GrowthSummaryResult> loadSummary({
-    required GrowthSummaryPeriod period,
-  }) async {
-    loadedPeriods.add(period);
-    if (throwOnLoad) {
-      throw StateError('remote failed');
-    }
-
-    PeriodStats pick() {
-      switch (period) {
-        case GrowthSummaryPeriod.week:
-          return weekResult!;
-        case GrowthSummaryPeriod.month:
-          return monthResult!;
-        case GrowthSummaryPeriod.year:
-          return yearResult!;
+String _cacheEntry({
+  required int totalEvents,
+  required int uniquePhrases,
+  required int uniqueActivities,
+}) {
+  return '''{
+    "cachedAt": "${DateTime.now().toUtc().toIso8601String()}",
+    "payload": {
+      "period": "week",
+      "windowStart": "2026-05-18T00:00:00.000Z",
+      "windowEnd": "2026-05-20T12:00:00.000Z",
+      "generatedAt": "2026-05-20T12:00:00.000Z",
+      "stats": {
+        "totalEvents": $totalEvents,
+        "uniquePhrases": $uniquePhrases,
+        "uniqueActivities": $uniqueActivities,
+        "imitationCount": 0,
+        "practicedDays": 1
+      },
+      "streak": {
+        "currentStreak": 1,
+        "longestStreak": 1,
+        "totalDaysPracticed": 1
+      },
+      "bars": [],
+      "scenes": [],
+      "recentActivity": {
+        "thisWeekCount": $totalEvents,
+        "lastWeekCount": 0
       }
     }
-
-    return GrowthSummaryResult(
-      source: GrowthSummarySource.remote,
-      stats: pick(),
-    );
-  }
+  }''';
 }
 
-class _FakeRepository extends Fake implements PracticeRepository {
-  _FakeRepository(this._events);
+class _FakeApiService implements GrowthInsightsApiService {
+  _FakeApiService({
+    this.throwOnFetch = false,
+    GrowthInsightsPayload? weekPayload,
+  }) : weekPayload = weekPayload ?? _makePayload(period: 'week');
 
-  final List<InteractionEventPayload> _events;
+  final bool throwOnFetch;
+  final GrowthInsightsPayload weekPayload;
+  final List<String> calls = [];
 
   @override
-  Future<List<InteractionEventPayload>> listEventHistory({
-    String? spaceId,
-    String? activityId,
-  }) async {
-    return _events;
+  String get appVersion => '1.0.0';
+
+  @override
+  Future<GrowthInsightsPayload> fetchInsights(String period) async {
+    calls.add(period);
+    if (throwOnFetch) {
+      throw const GrowthInsightsApiException.network(message: 'offline');
+    }
+    if (period == 'week') return weekPayload;
+    return _makePayload(period: period);
   }
 
   @override
-  Future<PracticeActivityCatalog> getActivityCatalog() async {
-    final space = PracticeCatalogSpaceSummary(
-      spaceId: 'space_1',
-      title: 'Scene 1',
-      description: '',
-      activities: const <PracticeCatalogActivitySummary>[],
-      totalEvents: _events.length,
-      startedActivityCount: 1,
-      completedActivityCount: 0,
-    );
+  void close() {}
+}
 
-    return PracticeActivityCatalog(
-      installationId: 'install_test',
-      spaces: [space],
-      activities: const <PracticeCatalogActivitySummary>[],
-      totalStoredEvents: _events.length,
-      validEvents: _events.length,
-      knownEvents: _events.length,
-      skippedMalformedEvents: 0,
-      skippedUnknownContentEvents: 0,
-    );
+/// Minimal in-memory SharedPreferences fake for unit tests.
+class _FakePrefs implements SharedPreferences {
+  final Map<String, Object?> _store = {};
+
+  @override
+  Object? get(String key) => _store[key];
+
+  @override
+  Future<bool> setString(String key, String value) async {
+    _store[key] = value;
+    return true;
   }
+
+  @override
+  String? getString(String key) => _store[key] as String?;
+
+  @override
+  Set<String> getKeys() => _store.keys.toSet();
+
+  @override
+  Future<bool> commit() async => true;
+
+  // Unused SharedPreferences members.
+  @override
+  Future<bool> setBool(String key, bool value) async => false;
+  @override
+  bool? getBool(String key) => null;
+  @override
+  Future<bool> setInt(String key, int value) async => false;
+  @override
+  int? getInt(String key) => null;
+  @override
+  Future<bool> setDouble(String key, double value) async => false;
+  @override
+  double? getDouble(String key) => null;
+  @override
+  Future<bool> setStringList(String key, List<String> value) async => false;
+  @override
+  List<String>? getStringList(String key) => null;
+  @override
+  Future<bool> remove(String key) async => false;
+  @override
+  Future<bool> clear() async => false;
+  @override
+  Future<void> reload() async {}
+  @override
+  bool containsKey(String key) => _store.containsKey(key);
 }

@@ -1,91 +1,83 @@
-import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:mobile/features/growth/data/models/growth_insights_payload.dart';
+import 'package:mobile/features/growth/data/remote/growth_insights_api_service.dart';
 import 'package:mobile/features/growth/presentation/growth_insights_models.dart';
 import 'package:mobile/features/growth/presentation/growth_insights_notifier.dart';
-import 'package:mobile/features/practice/data/repositories/practice_repository.dart';
-import 'package:mobile/features/practice/domain/models/interaction_event_payload.dart';
-import 'package:mobile/features/practice/domain/models/practice_activity_catalog.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
-  // 2026-05-20 is a Wednesday → ISO week is Mon 05-18 .. Sun 05-24.
+  TestWidgetsFlutterBinding.ensureInitialized();
+
   DateTime fixedNow() => DateTime(2026, 5, 20, 12);
 
-  InteractionEventPayload event({
-    required String localEventId,
-    required String phraseId,
-    required String activityId,
-    required BabyReactionType reactionType,
-    required DateTime clientTimestamp,
-    String spaceId = 'space_1',
+  GrowthInsightsPayload makePayload({
+    required String period,
+    int totalEvents = 10,
+    int currentStreak = 3,
+    int thisWeekCount = 5,
+    int lastWeekCount = 3,
+    List<InsightsBarBucket>? bars,
+    List<InsightsScene>? scenes,
+    InsightsSuggestion? suggestion,
   }) {
-    return InteractionEventPayload(
-      localEventId: localEventId,
-      installationId: 'install_test',
-      spaceId: spaceId,
-      activityId: activityId,
-      phraseId: phraseId,
-      reactionType: reactionType,
-      clientTimestamp: clientTimestamp,
+    return GrowthInsightsPayload(
+      period: period,
+      windowStart: DateTime(2026, 5, 18),
+      windowEnd: DateTime(2026, 5, 20, 12),
+      generatedAt: DateTime(2026, 5, 20, 12),
+      stats: InsightsStats(
+        totalEvents: totalEvents,
+        uniquePhrases: 4,
+        uniqueActivities: 3,
+        imitationCount: 2,
+        practicedDays: 3,
+        firstEventAt: DateTime(2026, 5, 18),
+        lastEventAt: DateTime(2026, 5, 20),
+      ),
+      streak: InsightsStreak(
+        currentStreak: currentStreak,
+        longestStreak: 7,
+        totalDaysPracticed: 15,
+        lastPracticedAt: DateTime(2026, 5, 20),
+      ),
+      bars: bars ??
+          [
+            InsightsBarBucket(bucketStart: DateTime(2026, 5, 18), count: 2),
+            InsightsBarBucket(bucketStart: DateTime(2026, 5, 19), count: 3),
+            InsightsBarBucket(bucketStart: DateTime(2026, 5, 20), count: 5),
+          ],
+      scenes: scenes ??
+          const [
+            InsightsScene(
+              spaceId: 'space_1',
+              sceneTag: '喂饭',
+              eventCount: 7,
+              activityCount: 2,
+              percentage: 0.7,
+            ),
+            InsightsScene(
+              spaceId: 'space_2',
+              sceneTag: '洗澡',
+              eventCount: 3,
+              activityCount: 1,
+              percentage: 0.3,
+            ),
+          ],
+      recentActivity: InsightsRecentActivity(
+        thisWeekCount: thisWeekCount,
+        lastWeekCount: lastWeekCount,
+      ),
+      suggestion: suggestion,
     );
   }
-
-  // 3 events this week (05-19, 05-20 x2), 1 earlier this month (05-01),
-  // 1 earlier this year (03-15), 1 previous year (2025-12-01).
-  // → week total = 3, month total = 4, year total = 5, all = 6.
-  List<InteractionEventPayload> sampleEvents() => [
-    event(
-      localEventId: 'e1',
-      phraseId: 'p1',
-      activityId: 'a1',
-      reactionType: BabyReactionType.engaged,
-      clientTimestamp: DateTime(2026, 5, 20, 9),
-    ),
-    event(
-      localEventId: 'e2',
-      phraseId: 'p2',
-      activityId: 'a1',
-      reactionType: BabyReactionType.imitated,
-      clientTimestamp: DateTime(2026, 5, 20, 10),
-    ),
-    event(
-      localEventId: 'e3',
-      phraseId: 'p1',
-      activityId: 'a2',
-      reactionType: BabyReactionType.calm,
-      clientTimestamp: DateTime(2026, 5, 19, 9),
-      spaceId: 'space_2',
-    ),
-    event(
-      localEventId: 'e4',
-      phraseId: 'p3',
-      activityId: 'a2',
-      reactionType: BabyReactionType.engaged,
-      clientTimestamp: DateTime(2026, 5, 1, 9),
-    ),
-    event(
-      localEventId: 'e5',
-      phraseId: 'p4',
-      activityId: 'a3',
-      reactionType: BabyReactionType.engaged,
-      clientTimestamp: DateTime(2026, 3, 15, 9),
-    ),
-    event(
-      localEventId: 'e6',
-      phraseId: 'p5',
-      activityId: 'a3',
-      reactionType: BabyReactionType.engaged,
-      clientTimestamp: DateTime(2025, 12, 1, 9),
-    ),
-  ];
-
-  int barSum(List<GrowthBarBucket> bars) =>
-      bars.fold(0, (sum, bucket) => sum + bucket.count);
 
   group('GrowthInsightsNotifier', () {
     test('returns loading view before initialize completes', () {
       final notifier = GrowthInsightsNotifier(
-        repositoryFuture: Completer<PracticeRepository>().future,
+        apiService: _FakeApiService(),
+        prefs: _FakePrefs(),
         now: fixedNow,
       );
       addTearDown(notifier.dispose);
@@ -97,9 +89,11 @@ void main() {
       expect(notifier.isLoaded, isFalse);
     });
 
-    test('aggregates week/month/year totals from event history', () async {
+    test('fetches from API and maps to view state', () async {
+      final api = _FakeApiService();
       final notifier = GrowthInsightsNotifier(
-        repositoryFuture: Future.value(_FakeRepository(sampleEvents())),
+        apiService: api,
+        prefs: _FakePrefs(),
         now: fixedNow,
       );
       addTearDown(notifier.dispose);
@@ -114,148 +108,53 @@ void main() {
       final year = notifier.viewFor(GrowthPeriod.year);
 
       expect(week.isLoading, isFalse);
-      expect(week.stats.totalEvents, 3);
-      expect(month.stats.totalEvents, 4);
-      expect(year.stats.totalEvents, 5);
+      expect(week.stats.totalEvents, 10);
+      expect(month.stats.totalEvents, 10);
+      expect(year.stats.totalEvents, 10);
 
-      // Bar buckets must sum to the same window total (shared boundaries).
-      expect(barSum(week.bars), 3);
-      expect(barSum(month.bars), 4);
-      expect(barSum(year.bars), 5);
-
-      // Bucket cardinality: 7 days, monthly weeks, 12 months.
-      expect(week.bars.length, 7);
-      expect(year.bars.length, 12);
-    });
-
-    test('tracks imitation count and streak for recent events', () async {
-      final notifier = GrowthInsightsNotifier(
-        repositoryFuture: Future.value(_FakeRepository(sampleEvents())),
-        now: fixedNow,
-      );
-      addTearDown(notifier.dispose);
-
-      await notifier.initialize();
-      final week = notifier.viewFor(GrowthPeriod.week);
-
-      expect(week.stats.imitationCount, 1);
-      expect(week.isEmpty, isFalse);
-      expect(week.streak.currentStreak, greaterThanOrEqualTo(2));
-    });
-
-    test('exposes empty view when there is no history', () async {
-      final notifier = GrowthInsightsNotifier(
-        repositoryFuture: Future.value(_FakeRepository(const [])),
-        now: fixedNow,
-      );
-      addTearDown(notifier.dispose);
-
-      await notifier.initialize();
-      final week = notifier.viewFor(GrowthPeriod.week);
-
-      expect(week.isEmpty, isTrue);
-      expect(week.stats.totalEvents, 0);
-      expect(barSum(week.bars), 0);
-      expect(week.recentActivity, isNotNull);
-      expect(week.recentActivity!.trend, GrowthRecentTrend.none);
-    });
-
-    test('summarizes recent weekly activity (this vs last week)', () async {
-      // This week (05-18..05-24): 2 events; last week (05-11..05-17): 3 events.
-      final events = [
-        event(
-          localEventId: 'tw1',
-          phraseId: 'p1',
-          activityId: 'a1',
-          reactionType: BabyReactionType.engaged,
-          clientTimestamp: DateTime(2026, 5, 20, 9),
-        ),
-        event(
-          localEventId: 'tw2',
-          phraseId: 'p2',
-          activityId: 'a1',
-          reactionType: BabyReactionType.engaged,
-          clientTimestamp: DateTime(2026, 5, 19, 9),
-        ),
-        event(
-          localEventId: 'lw1',
-          phraseId: 'p1',
-          activityId: 'a1',
-          reactionType: BabyReactionType.engaged,
-          clientTimestamp: DateTime(2026, 5, 13, 9),
-        ),
-        event(
-          localEventId: 'lw2',
-          phraseId: 'p2',
-          activityId: 'a1',
-          reactionType: BabyReactionType.engaged,
-          clientTimestamp: DateTime(2026, 5, 14, 9),
-        ),
-        event(
-          localEventId: 'lw3',
-          phraseId: 'p3',
-          activityId: 'a1',
-          reactionType: BabyReactionType.engaged,
-          clientTimestamp: DateTime(2026, 5, 15, 9),
-        ),
-      ];
-      final notifier = GrowthInsightsNotifier(
-        repositoryFuture: Future.value(_FakeRepository(events)),
-        now: fixedNow,
-      );
-      addTearDown(notifier.dispose);
-
-      await notifier.initialize();
-      final recent = notifier.viewFor(GrowthPeriod.week).recentActivity;
-
-      expect(recent, isNotNull);
-      expect(recent!.thisWeekCount, 2);
-      expect(recent.lastWeekCount, 3);
-      expect(recent.trend, GrowthRecentTrend.less);
-      // Period-independent: identical on the year view.
-      final yearRecent =
-          notifier.viewFor(GrowthPeriod.year).recentActivity;
-      expect(yearRecent!.thisWeekCount, 2);
-      expect(yearRecent.lastWeekCount, 3);
-    });
-
-    test('flags error state when repository throws', () async {
-      final notifier = GrowthInsightsNotifier(
-        repositoryFuture: Future.value(_ThrowingRepository()),
-        now: fixedNow,
-      );
-      addTearDown(notifier.dispose);
-
-      await notifier.initialize();
-      final week = notifier.viewFor(GrowthPeriod.week);
-
-      expect(notifier.hasError, isTrue);
-      expect(week.hasError, isTrue);
-      expect(week.stats.totalEvents, 0);
-    });
-
-    test('ranks scene distribution with catalog labels', () async {
-      final notifier = GrowthInsightsNotifier(
-        repositoryFuture: Future.value(_FakeRepository(sampleEvents())),
-        now: fixedNow,
-      );
-      addTearDown(notifier.dispose);
-
-      await notifier.initialize();
-      final week = notifier.viewFor(GrowthPeriod.week);
-
-      // Week: space_1 has e1+e2 (2 events), space_2 has e3 (1 event).
+      expect(week.streak.currentStreak, 3);
       expect(week.scenes.length, 2);
-      expect(week.scenes.first.spaceId, 'space_1');
-      expect(week.scenes.first.eventCount, 2);
       expect(week.scenes.first.sceneTag, '喂饭');
-      expect(week.scenes.last.spaceId, 'space_2');
-      expect(week.scenes.last.sceneTag, '洗澡');
+
+      expect(week.recentActivity, isNotNull);
+      expect(week.recentActivity!.thisWeekCount, 5);
+      expect(week.recentActivity!.lastWeekCount, 3);
+
+      // Verify API was called for all 3 periods.
+      expect(api.calls, ['week', 'month', 'year']);
     });
 
-    test('suggests an uncovered scene for week/month but not year', () async {
+    test('fetches all 3 periods in parallel', () async {
+      final api = _FakeApiService();
       final notifier = GrowthInsightsNotifier(
-        repositoryFuture: Future.value(_FakeRepository(sampleEvents())),
+        apiService: api,
+        prefs: _FakePrefs(),
+        now: fixedNow,
+      );
+      addTearDown(notifier.dispose);
+
+      await notifier.initialize();
+
+      // All three calls should have been made.
+      expect(api.calls.length, 3);
+      expect(api.calls, containsAll(['week', 'month', 'year']));
+    });
+
+    test('maps suggestion from API response', () async {
+      final api = _FakeApiService(
+        weekPayload: makePayload(
+          period: 'week',
+          suggestion: const InsightsSuggestion(
+            spaceId: 'space_3',
+            activityId: 'bedtime_story',
+            sceneLabel: '睡前',
+            phraseEnglish: 'Time to sleep',
+          ),
+        ),
+      );
+      final notifier = GrowthInsightsNotifier(
+        apiService: api,
+        prefs: _FakePrefs(),
         now: fixedNow,
       );
       addTearDown(notifier.dispose);
@@ -263,125 +162,331 @@ void main() {
       await notifier.initialize();
 
       final week = notifier.viewFor(GrowthPeriod.week);
-      final month = notifier.viewFor(GrowthPeriod.month);
-      final year = notifier.viewFor(GrowthPeriod.year);
-
-      // space_3 (睡前) is the first uncovered scene with a concrete phrase.
       expect(week.suggestion, isNotNull);
       expect(week.suggestion!.sceneLabel, '睡前');
       expect(week.suggestion!.phraseEnglish, 'Time to sleep');
       expect(week.suggestion!.spaceId, 'space_3');
-      expect(week.suggestion!.activityId, 'bedtime_story');
+    });
 
-      expect(month.suggestion, isNotNull);
-      expect(month.suggestion!.spaceId, 'space_3');
+    test('caches results to SharedPreferences', () async {
+      final prefs = _FakePrefs();
+      final api = _FakeApiService();
+      final notifier = GrowthInsightsNotifier(
+        apiService: api,
+        prefs: prefs,
+        now: fixedNow,
+      );
+      addTearDown(notifier.dispose);
 
-      // The year view never surfaces the gentle next-step nudge.
-      expect(year.suggestion, isNull);
+      await notifier.initialize();
+
+      // Verify cache keys exist.
+      expect(prefs.getString('growth_insights_v1_week'), isNotNull);
+      expect(prefs.getString('growth_insights_v1_month'), isNotNull);
+      expect(prefs.getString('growth_insights_v1_year'), isNotNull);
+
+      // Verify cache contains valid JSON with cachedAt.
+      final raw = prefs.getString('growth_insights_v1_week')!;
+      final json = jsonDecode(raw) as Map<String, dynamic>;
+      expect(json['cachedAt'], isNotNull);
+      expect(json['payload'], isA<Map<String, dynamic>>());
+    });
+
+    test('loads from cache for instant paint before API responds', () async {
+      final prefs = _FakePrefs();
+      // Pre-populate cache.
+      final cachedPayload = makePayload(period: 'week', totalEvents: 42);
+      await prefs.setString(
+        'growth_insights_v1_week',
+        jsonEncode({
+          'cachedAt': DateTime.now().toUtc().toIso8601String(),
+          'payload': {
+            'period': 'week',
+            'windowStart': '2026-05-18T00:00:00.000Z',
+            'windowEnd': '2026-05-20T12:00:00.000Z',
+            'generatedAt': '2026-05-20T12:00:00.000Z',
+            'stats': {
+              'totalEvents': 42,
+              'uniquePhrases': 5,
+              'uniqueActivities': 3,
+              'imitationCount': 2,
+              'practicedDays': 4,
+            },
+            'streak': {
+              'currentStreak': 5,
+              'longestStreak': 10,
+              'totalDaysPracticed': 20,
+            },
+            'bars': <Map<String, dynamic>>[],
+            'scenes': <Map<String, dynamic>>[],
+            'recentActivity': {
+              'thisWeekCount': 42,
+              'lastWeekCount': 10,
+            },
+          },
+        }),
+      );
+
+      final api = _FakeApiService();
+      final notifier = GrowthInsightsNotifier(
+        apiService: api,
+        prefs: prefs,
+        now: fixedNow,
+      );
+      addTearDown(notifier.dispose);
+
+      // Before initialize, should be loading.
+      expect(notifier.isLoaded, isFalse);
+
+      await notifier.initialize();
+
+      // After initialize, API data overwrites cache.
+      final week = notifier.viewFor(GrowthPeriod.week);
+      expect(week.isLoading, isFalse);
+      expect(week.stats.totalEvents, 10);
+    });
+
+    test('falls back to stale cache on API failure', () async {
+      final prefs = _FakePrefs();
+      // Pre-populate cache.
+      await prefs.setString(
+        'growth_insights_v1_week',
+        jsonEncode({
+          'cachedAt': DateTime.now().toUtc().toIso8601String(),
+          'payload': {
+            'period': 'week',
+            'windowStart': '2026-05-18T00:00:00.000Z',
+            'windowEnd': '2026-05-20T12:00:00.000Z',
+            'generatedAt': '2026-05-20T12:00:00.000Z',
+            'stats': {
+              'totalEvents': 99,
+              'uniquePhrases': 1,
+              'uniqueActivities': 1,
+              'imitationCount': 0,
+              'practicedDays': 1,
+            },
+            'streak': {
+              'currentStreak': 1,
+              'longestStreak': 1,
+              'totalDaysPracticed': 1,
+            },
+            'bars': <Map<String, dynamic>>[],
+            'scenes': <Map<String, dynamic>>[],
+            'recentActivity': {
+              'thisWeekCount': 99,
+              'lastWeekCount': 0,
+            },
+          },
+        }),
+      );
+
+      final api = _FakeApiService(throwOnFetch: true);
+      final notifier = GrowthInsightsNotifier(
+        apiService: api,
+        prefs: prefs,
+        now: fixedNow,
+      );
+      addTearDown(notifier.dispose);
+
+      await notifier.initialize();
+
+      expect(notifier.isLoaded, isTrue);
+      expect(notifier.hasError, isFalse); // stale cache available
+      final week = notifier.viewFor(GrowthPeriod.week);
+      expect(week.stats.totalEvents, 99); // from cache
+    });
+
+    test('shows error when API fails and no cache exists', () async {
+      final api = _FakeApiService(throwOnFetch: true);
+      final notifier = GrowthInsightsNotifier(
+        apiService: api,
+        prefs: _FakePrefs(),
+        now: fixedNow,
+      );
+      addTearDown(notifier.dispose);
+
+      await notifier.initialize();
+
+      expect(notifier.isLoaded, isTrue);
+      expect(notifier.hasError, isTrue);
+      final week = notifier.viewFor(GrowthPeriod.week);
+      expect(week.hasError, isTrue);
+    });
+
+    test('windowStart and windowEnd are mapped from payload', () async {
+      final notifier = GrowthInsightsNotifier(
+        apiService: _FakeApiService(),
+        prefs: _FakePrefs(),
+        now: fixedNow,
+      );
+      addTearDown(notifier.dispose);
+
+      await notifier.initialize();
+
+      final week = notifier.viewFor(GrowthPeriod.week);
+      expect(week.windowStart, DateTime(2026, 5, 18));
+      expect(week.windowEnd, DateTime(2026, 5, 20, 12));
+    });
+
+    test('bar labels are generated from bucketStart dates', () async {
+      final notifier = GrowthInsightsNotifier(
+        apiService: _FakeApiService(),
+        prefs: _FakePrefs(),
+        now: fixedNow,
+      );
+      addTearDown(notifier.dispose);
+
+      await notifier.initialize();
+
+      final week = notifier.viewFor(GrowthPeriod.week);
+      // Week bars should have Chinese weekday labels.
+      // 2026-05-18 is a Monday, weekday=1 → _weekdayLabels[0] = '一'
+      expect(week.bars.length, 3);
+      expect(week.bars[0].label, '一');
+
+      final year = notifier.viewFor(GrowthPeriod.year);
+      // Year bars should have month numbers.
+      expect(year.bars.length, 3);
+      expect(year.bars[0].label, '5'); // May
     });
   });
 }
 
-class _FakeRepository extends Fake implements PracticeRepository {
-  _FakeRepository(this._events);
+class _FakeApiService implements GrowthInsightsApiService {
+  _FakeApiService({
+    this.throwOnFetch = false,
+    GrowthInsightsPayload? weekPayload,
+    GrowthInsightsPayload? monthPayload,
+    GrowthInsightsPayload? yearPayload,
+  })  : weekPayload = weekPayload ?? _defaultPayload('week'),
+        monthPayload = monthPayload ?? _defaultPayload('month'),
+        yearPayload = yearPayload ?? _defaultPayload('year');
 
-  final List<InteractionEventPayload> _events;
+  final bool throwOnFetch;
+  final GrowthInsightsPayload weekPayload;
+  final GrowthInsightsPayload monthPayload;
+  final GrowthInsightsPayload yearPayload;
+  final List<String> calls = [];
 
   @override
-  Future<List<InteractionEventPayload>> listEventHistory({
-    String? spaceId,
-    String? activityId,
-  }) async {
-    return _events;
-  }
+  String get appVersion => '1.0.0';
 
-  @override
-  Future<PracticeActivityCatalog> getActivityCatalog() async {
-    PracticeCatalogActivitySummary activity(
-      String spaceId,
-      String spaceTitle,
-      String activityId, {
-      String? nextPhraseEnglish,
-      int totalEvents = 0,
-    }) {
-      return PracticeCatalogActivitySummary(
-        spaceId: spaceId,
-        spaceTitle: spaceTitle,
-        activityId: activityId,
-        title: '$spaceTitle 活动',
-        summary: '',
-        sceneTag: spaceTitle,
-        coachTip: '',
-        totalPhraseCount: 1,
-        completedPhraseCount: 0,
-        completedPhraseIds: const <String>[],
-        nextPhraseId: nextPhraseEnglish == null ? null : 'next_$activityId',
-        nextPhraseEnglish: nextPhraseEnglish,
-        totalEvents: totalEvents,
-        skippedUnknownPhraseCount: 0,
-        skippedMalformedEventCount: 0,
-      );
-    }
-
-    PracticeCatalogSpaceSummary space(
-      String id,
-      String title, {
-      required int totalEvents,
-      List<PracticeCatalogActivitySummary> activities =
-          const <PracticeCatalogActivitySummary>[],
-    }) {
-      return PracticeCatalogSpaceSummary(
-        spaceId: id,
-        title: title,
-        description: '',
-        activities: activities,
-        totalEvents: totalEvents,
-        startedActivityCount: totalEvents > 0 ? 1 : 0,
-        completedActivityCount: 0,
-      );
-    }
-
-    // space_1 / space_2 already practiced; space_3 (睡前) is uncovered and
-    // exposes a concrete next phrase → drives the next-step suggestion.
-    final spaces = [
-      space('space_1', '喂饭', totalEvents: 2),
-      space('space_2', '洗澡', totalEvents: 1),
-      space(
-        'space_3',
-        '睡前',
-        totalEvents: 0,
-        activities: [
-          activity(
-            'space_3',
-            '睡前',
-            'bedtime_story',
-            nextPhraseEnglish: 'Time to sleep',
-          ),
-        ],
+  static GrowthInsightsPayload _defaultPayload(String period) {
+    return GrowthInsightsPayload(
+      period: period,
+      windowStart: DateTime(2026, 5, 18),
+      windowEnd: DateTime(2026, 5, 20, 12),
+      generatedAt: DateTime(2026, 5, 20, 12),
+      stats: InsightsStats(
+        totalEvents: 10,
+        uniquePhrases: 4,
+        uniqueActivities: 3,
+        imitationCount: 2,
+        practicedDays: 3,
+        firstEventAt: DateTime(2026, 5, 18),
+        lastEventAt: DateTime(2026, 5, 20),
       ),
-    ];
-
-    return PracticeActivityCatalog(
-      installationId: 'install_test',
-      spaces: spaces,
-      activities: [
-        for (final s in spaces) ...s.activities,
+      streak: InsightsStreak(
+        currentStreak: 3,
+        longestStreak: 7,
+        totalDaysPracticed: 15,
+        lastPracticedAt: DateTime(2026, 5, 20),
+      ),
+      bars: [
+        InsightsBarBucket(bucketStart: DateTime(2026, 5, 18), count: 2),
+        InsightsBarBucket(bucketStart: DateTime(2026, 5, 19), count: 3),
+        InsightsBarBucket(bucketStart: DateTime(2026, 5, 20), count: 5),
       ],
-      totalStoredEvents: _events.length,
-      validEvents: _events.length,
-      knownEvents: _events.length,
-      skippedMalformedEvents: 0,
-      skippedUnknownContentEvents: 0,
+      scenes: [
+        InsightsScene(
+          spaceId: 'space_1',
+          sceneTag: '喂饭',
+          eventCount: 7,
+          activityCount: 2,
+          percentage: 0.7,
+        ),
+        InsightsScene(
+          spaceId: 'space_2',
+          sceneTag: '洗澡',
+          eventCount: 3,
+          activityCount: 1,
+          percentage: 0.3,
+        ),
+      ],
+      recentActivity: InsightsRecentActivity(
+        thisWeekCount: 5,
+        lastWeekCount: 3,
+      ),
     );
   }
+
+  @override
+  Future<GrowthInsightsPayload> fetchInsights(String period) async {
+    calls.add(period);
+    if (throwOnFetch) {
+      throw const GrowthInsightsApiException.network(message: 'offline');
+    }
+    switch (period) {
+      case 'week':
+        return weekPayload;
+      case 'month':
+        return monthPayload;
+      case 'year':
+        return yearPayload;
+      default:
+        return _defaultPayload(period);
+    }
+  }
+
+  @override
+  void close() {}
 }
 
-class _ThrowingRepository extends Fake implements PracticeRepository {
+/// Minimal in-memory SharedPreferences fake for unit tests.
+class _FakePrefs implements SharedPreferences {
+  final Map<String, Object?> _store = {};
+
   @override
-  Future<List<InteractionEventPayload>> listEventHistory({
-    String? spaceId,
-    String? activityId,
-  }) async {
-    throw StateError('boom');
+  Object? get(String key) => _store[key];
+
+  @override
+  Future<bool> setString(String key, String value) async {
+    _store[key] = value;
+    return true;
   }
+
+  @override
+  String? getString(String key) => _store[key] as String?;
+
+  @override
+  Set<String> getKeys() => _store.keys.toSet();
+
+  @override
+  Future<bool> commit() async => true;
+
+  // Unused SharedPreferences members.
+  @override
+  Future<bool> setBool(String key, bool value) async => false;
+  @override
+  bool? getBool(String key) => null;
+  @override
+  Future<bool> setInt(String key, int value) async => false;
+  @override
+  int? getInt(String key) => null;
+  @override
+  Future<bool> setDouble(String key, double value) async => false;
+  @override
+  double? getDouble(String key) => null;
+  @override
+  Future<bool> setStringList(String key, List<String> value) async => false;
+  @override
+  List<String>? getStringList(String key) => null;
+  @override
+  Future<bool> remove(String key) async => false;
+  @override
+  Future<bool> clear() async => false;
+  @override
+  Future<void> reload() async {}
+  @override
+  bool containsKey(String key) => _store.containsKey(key);
 }

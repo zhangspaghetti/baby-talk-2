@@ -1,15 +1,14 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mobile/app/providers/repository_providers.dart';
 import 'package:mobile/app/theme/app_theme.dart';
+import 'package:mobile/features/growth/data/models/growth_insights_payload.dart';
+import 'package:mobile/features/growth/data/remote/growth_insights_api_service.dart';
 import 'package:mobile/features/growth/domain/services/growth_stats_service.dart';
 import 'package:mobile/features/growth/presentation/growth_insights_models.dart';
 import 'package:mobile/features/growth/presentation/growth_insights_notifier.dart';
 import 'package:mobile/features/growth/presentation/widgets/growth_insights_panel.dart';
-import 'package:mobile/features/practice/data/repositories/practice_repository.dart';
 import 'package:mobile/features/practice/domain/models/garden_growth_snapshot.dart';
 import 'package:mobile/features/practice/presentation/practice_route_args.dart';
 
@@ -393,7 +392,7 @@ void main() {
 
 class _StubNotifier extends GrowthInsightsNotifier {
   _StubNotifier(this._views)
-    : super(repositoryFuture: Completer<PracticeRepository>().future);
+    : super(apiService: _FakeApiService());
 
   final Map<GrowthPeriod, GrowthInsightsViewState> _views;
   final List<GrowthPeriod> requested = [];
@@ -409,4 +408,16 @@ class _StubNotifier extends GrowthInsightsNotifier {
 
   GrowthInsightsViewState emptyFor(GrowthPeriod period) =>
       GrowthInsightsViewState.loading(period);
+}
+
+class _FakeApiService implements GrowthInsightsApiService {
+  @override
+  String get appVersion => '1.0.0';
+
+  @override
+  Future<GrowthInsightsPayload> fetchInsights(String period) async =>
+      throw UnimplementedError('not expected in panel tests');
+
+  @override
+  void close() {}
 }

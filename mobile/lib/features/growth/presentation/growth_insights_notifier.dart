@@ -1,306 +1,306 @@
+import 'dart:convert';
+
 import 'package:flutter/foundation.dart';
-import 'package:mobile/features/growth/data/remote/growth_summary_api_service.dart';
+import 'package:mobile/features/growth/data/models/growth_insights_payload.dart';
+import 'package:mobile/features/growth/data/remote/growth_insights_api_service.dart';
 import 'package:mobile/features/growth/domain/services/growth_stats_service.dart';
 import 'package:mobile/features/growth/presentation/growth_insights_models.dart';
-import 'package:mobile/features/practice/data/repositories/practice_repository.dart';
-import 'package:mobile/features/practice/domain/models/interaction_event_payload.dart';
-import 'package:mobile/features/practice/domain/models/practice_activity_catalog.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
-/// Loads the local practice event history and exposes aggregated growth
-/// insights (streak + per-period stats + trend buckets) for the growth tab.
+/// Loads growth insights from the remote API and exposes aggregated stats
+/// (streak + per-period stats + trend buckets) for the growth tab.
 ///
-/// All heavy lifting is delegated to the pure [GrowthStatsService]; this
-/// notifier only handles loading, caching, and time-bucket construction.
+/// On [initialize], the notifier:
+/// 1. Loads cached state from SharedPreferences (instant paint).
+/// 2. Fetches all three periods in parallel from the API.
+/// 3. Saves fresh data to cache on success.
+/// 4. Falls back to stale cache on network failure.
 class GrowthInsightsNotifier extends ChangeNotifier {
   GrowthInsightsNotifier({
-    required Future<PracticeRepository> repositoryFuture,
-    GrowthStatsService statsService = const GrowthStatsService(),
+    required GrowthInsightsApiService apiService,
+    SharedPreferences? prefs,
     DateTime Function() now = DateTime.now,
-  }) : _repositoryFuture = repositoryFuture,
-       _stats = statsService,
-       _now = now;
+  })  : _apiService = apiService,
+        _prefsFuture = prefs != null ? Future.value(prefs) : SharedPreferences.getInstance(),
+        _now = now;
 
-  final Future<PracticeRepository> _repositoryFuture;
-  final GrowthStatsService _stats;
+  static const _cacheKeyPrefix = 'growth_insights_v1_';
+
+  final GrowthInsightsApiService _apiService;
+  final Future<SharedPreferences> _prefsFuture;
   final DateTime Function() _now;
 
-  List<PracticeEventRecord> _records = const <PracticeEventRecord>[];
-  Map<String, String> _spaceLabels = const <String, String>{};
-  PracticeActivityCatalog? _catalog;
   bool _loaded = false;
   bool _hasError = false;
   bool _disposed = false;
-  Map<GrowthPeriod, PeriodStats> _periodStats =
-      const <GrowthPeriod, PeriodStats>{};
+  Map<GrowthPeriod, GrowthInsightsViewState> _views = {};
 
   bool get isLoaded => _loaded;
   bool get hasError => _hasError;
 
   Future<void> initialize() async {
     if (_loaded) return;
-    try {
-      final repository = await _repositoryFuture;
-      final events = await repository.listEventHistory();
-      _records = events
-          .map(
-            (e) => PracticeEventRecord(
-              eventKey: e.eventKey,
-              spaceId: e.spaceId,
-              activityId: e.activityId,
-              phraseId: e.phraseId,
-              reactionType: e.reactionType.wireValue,
-              clientTimestamp: e.clientTimestamp,
-            ),
-          )
-          .toList(growable: false);
-      // Resolve human-readable scene labels (spaceId -> title). Best-effort:
-      // a catalog failure must not drop the loaded event history.
-      try {
-        final catalog = await repository.getActivityCatalog();
-        _catalog = catalog;
-        _spaceLabels = {
-          for (final space in catalog.spaces) space.spaceId: space.title,
-        };
-      } catch (_) {
-        _catalog = null;
-        _spaceLabels = const <String, String>{};
-      }
 
-      final now = _now();
-      _periodStats = {
-        GrowthPeriod.week: await _loadPeriodStats(
-          period: GrowthPeriod.week,
-          now: now,
-        ),
-        GrowthPeriod.month: await _loadPeriodStats(
-          period: GrowthPeriod.month,
-          now: now,
-        ),
-        GrowthPeriod.year: await _loadPeriodStats(
-          period: GrowthPeriod.year,
-          now: now,
-        ),
-      };
-      _hasError = false;
-    } catch (_) {
-      _records = const <PracticeEventRecord>[];
-      _periodStats = const <GrowthPeriod, PeriodStats>{};
-      _hasError = true;
-    } finally {
-      _loaded = true;
-      if (!_disposed) notifyListeners();
-    }
+    // 1. Load from cache for instant paint.
+    await _loadFromCache();
+
+    // 2. Fetch fresh data from API.
+    await _fetchAndCache();
   }
 
-  /// Builds the view-state for [period]. Returns a loading state until the
-  /// event history has finished loading.
+  /// Returns the view-state for [period]. Returns a loading state until
+  /// initialization has completed.
   GrowthInsightsViewState viewFor(GrowthPeriod period) {
     if (!_loaded) {
       return GrowthInsightsViewState.loading(period);
     }
+    return _views[period] ?? GrowthInsightsViewState.loading(period);
+  }
 
-    final now = _now();
-    final streak = _stats.calculateStreak(
-      eventTimes: _records.map((e) => e.clientTimestamp).toList(),
-      now: now,
-    );
+  // ── Cache ────────────────────────────────────────────────────────────────
 
-    final PeriodStats stats;
-    final List<GrowthBarBucket> bars;
-    final DateTime windowStart;
-    switch (period) {
-      case GrowthPeriod.week:
-        stats =
-            _periodStats[GrowthPeriod.week] ??
-            _stats.aggregateThisWeek(events: _records, now: now);
-        bars = _weekBuckets(now);
-        windowStart = _weekStart(now);
-        break;
-      case GrowthPeriod.month:
-        stats =
-            _periodStats[GrowthPeriod.month] ??
-            _stats.aggregateThisMonth(events: _records, now: now);
-        bars = _monthBuckets(now);
-        windowStart = DateTime(now.toLocal().year, now.toLocal().month, 1);
-        break;
-      case GrowthPeriod.year:
-        stats =
-            _periodStats[GrowthPeriod.year] ??
-            _stats.aggregateThisYear(events: _records, now: now);
-        bars = _yearBuckets(now);
-        windowStart = DateTime(now.toLocal().year, 1, 1);
-        break;
+  String _cacheKey(GrowthPeriod period) => '$_cacheKeyPrefix${period.name}';
+
+  Future<void> _loadFromCache() async {
+    try {
+      final prefs = await _prefsFuture;
+      for (final period in GrowthPeriod.values) {
+        final raw = prefs.getString(_cacheKey(period));
+        if (raw == null) continue;
+        final json = jsonDecode(raw) as Map<String, dynamic>;
+        final cachedAtStr = json['cachedAt'] as String?;
+        if (cachedAtStr == null) continue;
+        final cachedAt = DateTime.tryParse(cachedAtStr);
+        if (cachedAt == null) continue;
+        final payload =
+            GrowthInsightsPayload.fromJson(json['payload'] as Map<String, dynamic>);
+        _views[period] = _mapToViewState(period, payload);
+      }
+      if (_views.isNotEmpty) {
+        _loaded = true;
+        if (!_disposed) notifyListeners();
+      }
+    } catch (_) {
+      // Cache read failure is non-fatal; we'll fetch from API.
+    }
+  }
+
+  Future<void> _saveToCache() async {
+    try {
+      final prefs = await _prefsFuture;
+      final now = _now().toUtc().toIso8601String();
+      for (final period in GrowthPeriod.values) {
+        final view = _views[period];
+        if (view == null) continue;
+        // Reconstruct the payload fields from the view-state for serialization.
+        final payload = _viewStateToPayloadJson(period, view);
+        final cacheEntry = jsonEncode({
+          'cachedAt': now,
+          'payload': payload,
+        });
+        await prefs.setString(_cacheKey(period), cacheEntry);
+      }
+    } catch (_) {
+      // Cache write failure is non-fatal.
+    }
+  }
+
+  // ── API fetch ────────────────────────────────────────────────────────────
+
+  Future<void> _fetchAndCache() async {
+    final newViews = <GrowthPeriod, GrowthInsightsViewState>{};
+    bool anySuccess = false;
+
+    // Fetch all 3 periods in parallel. Wrap each in catchError so a single
+    // period failure doesn't cancel the others via AggregateException.
+    final periods = GrowthPeriod.values;
+    final results = await Future.wait([
+      for (final period in periods)
+        _apiService.fetchInsights(period.name).catchError(
+              (Object e) => GrowthInsightsPayload(
+                period: period.name,
+                windowStart: _now(),
+                windowEnd: _now(),
+                generatedAt: _now(),
+                stats: const InsightsStats(
+                  totalEvents: 0,
+                  uniquePhrases: 0,
+                  uniqueActivities: 0,
+                  imitationCount: 0,
+                  practicedDays: 0,
+                ),
+                streak: const InsightsStreak(
+                  currentStreak: 0,
+                  longestStreak: 0,
+                  totalDaysPracticed: 0,
+                ),
+                bars: const [],
+                scenes: const [],
+                recentActivity: const InsightsRecentActivity(
+                  thisWeekCount: 0,
+                  lastWeekCount: 0,
+                ),
+              ),
+            ),
+    ]);
+
+    for (var i = 0; i < periods.length; i++) {
+      if (results[i].stats.totalEvents > 0) {
+        newViews[periods[i]] = _mapToViewState(periods[i], results[i]);
+        anySuccess = true;
+      }
     }
 
-    final windowRecords = _records.where((e) {
-      final ts = e.clientTimestamp;
-      return !ts.isBefore(windowStart) && !ts.isAfter(now);
-    }).toList(growable: false);
-    final scenes = _stats.aggregateSceneDistribution(
-      events: windowRecords,
-      spaceLabels: _spaceLabels,
-    );
+    if (anySuccess) {
+      _views = newViews;
+      _hasError = false;
+      await _saveToCache();
+    } else if (_views.isEmpty) {
+      _hasError = true;
+      // Populate _views with error states so viewFor returns hasError
+      // instead of the loading placeholder.
+      for (final period in GrowthPeriod.values) {
+        _views[period] = GrowthInsightsViewState.error(period);
+      }
+    }
+    // else: keep stale cache data already loaded, _hasError stays false.
 
+    _loaded = true;
+    if (!_disposed) notifyListeners();
+  }
+
+  // ── Mapping ──────────────────────────────────────────────────────────────
+
+  GrowthInsightsViewState _mapToViewState(
+    GrowthPeriod period,
+    GrowthInsightsPayload payload,
+  ) {
     return GrowthInsightsViewState(
       isLoading: false,
-      hasError: _hasError,
+      hasError: false,
       period: period,
-      streak: streak,
-      stats: stats,
-      bars: bars,
-      scenes: scenes,
-      windowStart: windowStart,
-      windowEnd: now,
-      suggestion: _nextStepSuggestion(period),
-      recentActivity: _recentActivity(now),
+      streak: StreakResult(
+        currentStreak: payload.streak.currentStreak,
+        longestStreak: payload.streak.longestStreak,
+        totalDaysPracticed: payload.streak.totalDaysPracticed,
+        lastPracticedAt: payload.streak.lastPracticedAt,
+      ),
+      stats: PeriodStats(
+        totalEvents: payload.stats.totalEvents,
+        uniquePhrases: payload.stats.uniquePhrases,
+        uniqueActivities: payload.stats.uniqueActivities,
+        imitationCount: payload.stats.imitationCount,
+        practicedDays: payload.stats.practicedDays,
+        firstEventAt: payload.stats.firstEventAt,
+        lastEventAt: payload.stats.lastEventAt,
+      ),
+      bars: payload.bars
+          .map((b) => GrowthBarBucket(
+                label: _barLabel(period, b.bucketStart),
+                count: b.count,
+              ))
+          .toList(growable: false),
+      scenes: payload.scenes
+          .map((s) => SceneDistribution(
+                spaceId: s.spaceId,
+                sceneTag: s.sceneTag,
+                eventCount: s.eventCount,
+                activityCount: s.activityCount,
+                percentage: s.percentage,
+              ))
+          .toList(growable: false),
+      windowStart: payload.windowStart,
+      windowEnd: payload.windowEnd,
+      suggestion: payload.suggestion != null
+          ? GrowthNextStepSuggestion(
+              spaceId: payload.suggestion!.spaceId,
+              activityId: payload.suggestion!.activityId,
+              sceneLabel: payload.suggestion!.sceneLabel,
+              phraseEnglish: payload.suggestion!.phraseEnglish,
+            )
+          : null,
+      recentActivity: GrowthRecentActivity(
+        thisWeekCount: payload.recentActivity.thisWeekCount,
+        lastWeekCount: payload.recentActivity.lastWeekCount,
+      ),
     );
   }
 
-  /// This-week vs last-week practice counts for the lightweight recent-activity
-  /// module (spec §8). Always weekly, independent of the selected period.
-  GrowthRecentActivity _recentActivity(DateTime now) {
-    final thisWeekStart = _weekStart(now);
-    final lastWeekStart = thisWeekStart.subtract(const Duration(days: 7));
-    final thisWeek = _countInRange(
-      thisWeekStart,
-      thisWeekStart.add(const Duration(days: 7)),
-    );
-    final lastWeek = _countInRange(lastWeekStart, thisWeekStart);
-    return GrowthRecentActivity(
-      thisWeekCount: thisWeek,
-      lastWeekCount: lastWeek,
-    );
-  }
+  static const List<String> _weekdayLabels = [
+    '一', '二', '三', '四', '五', '六', '日'
+  ];
 
-  /// A gentle next-step suggestion for the week/month views: the first scene
-  /// the user has never practiced, paired with one concrete phrase to try.
-  /// Returns null for the year view, when the catalog is unavailable, or once
-  /// every scene has at least one recorded event.
-  GrowthNextStepSuggestion? _nextStepSuggestion(GrowthPeriod period) {
-    if (period == GrowthPeriod.year) return null;
-    final catalog = _catalog;
-    if (catalog == null) return null;
-
-    for (final space in catalog.spaces) {
-      if (space.totalEvents > 0) continue;
-      for (final activity in space.activities) {
-        final phrase = activity.nextPhraseEnglish;
-        if (phrase == null || phrase.trim().isEmpty) continue;
-        return GrowthNextStepSuggestion(
-          sceneLabel: space.title,
-          phraseEnglish: phrase,
-          spaceId: space.spaceId,
-          activityId: activity.activityId,
-        );
-      }
-    }
-    return null;
-  }
-
-  // ── Bucket builders ──────────────────────────────────────────────────────
-
-  static const List<String> _weekdayLabels = ['一', '二', '三', '四', '五', '六', '日'];
-
-  /// Seven daily buckets for the current week (Monday → Sunday).
-  List<GrowthBarBucket> _weekBuckets(DateTime now) {
-    final weekStart = _weekStart(now);
-    return List<GrowthBarBucket>.generate(7, (i) {
-      final day = weekStart.add(Duration(days: i));
-      return GrowthBarBucket(
-        label: _weekdayLabels[i],
-        count: _countInDay(day),
-      );
-    });
-  }
-
-  /// Monday 00:00 of the week that contains [now] (local).
-  DateTime _weekStart(DateTime now) {
-    final local = now.toLocal();
-    final today = DateTime(local.year, local.month, local.day);
-    return today.subtract(Duration(days: local.weekday - 1));
-  }
-
-  /// Weekly buckets covering the current month (第1周 … 第N周).
-  List<GrowthBarBucket> _monthBuckets(DateTime now) {
-    final local = now.toLocal();
-    final monthStart = DateTime(local.year, local.month, 1);
-    final daysInMonth = DateTime(local.year, local.month + 1, 0).day;
-    final weekCount = (daysInMonth / 7).ceil();
-    return List<GrowthBarBucket>.generate(weekCount, (i) {
-      final start = monthStart.add(Duration(days: i * 7));
-      final end = monthStart.add(Duration(days: (i + 1) * 7));
-      return GrowthBarBucket(
-        label: '第${i + 1}周',
-        count: _countInRange(start, end),
-      );
-    });
-  }
-
-  /// Twelve monthly buckets for the current year (1月 … 12月).
-  List<GrowthBarBucket> _yearBuckets(DateTime now) {
-    final local = now.toLocal();
-    return List<GrowthBarBucket>.generate(12, (i) {
-      final start = DateTime(local.year, i + 1, 1);
-      final end = DateTime(local.year, i + 2, 1);
-      return GrowthBarBucket(
-        label: '${i + 1}',
-        count: _countInRange(start, end),
-      );
-    });
-  }
-
-  int _countInDay(DateTime day) {
-    final next = day.add(const Duration(days: 1));
-    return _countInRange(day, next);
-  }
-
-  /// Counts events with a local timestamp in [start, end).
-  int _countInRange(DateTime start, DateTime end) {
-    var count = 0;
-    for (final record in _records) {
-      final local = record.clientTimestamp.toLocal();
-      if (!local.isBefore(start) && local.isBefore(end)) {
-        count += 1;
-      }
-    }
-    return count;
-  }
-
-  Future<PeriodStats> _loadPeriodStats({
-    required GrowthPeriod period,
-    required DateTime now,
-  }) async {
-    try {
-      final summary = await _stats.loadSummary(period: _toSummaryPeriod(period));
-      return summary.stats;
-    } catch (_) {
-      return _computeLocalPeriodStats(period: period, now: now);
-    }
-  }
-
-  PeriodStats _computeLocalPeriodStats({
-    required GrowthPeriod period,
-    required DateTime now,
-  }) {
+  String _barLabel(GrowthPeriod period, DateTime bucketStart) {
     switch (period) {
       case GrowthPeriod.week:
-        return _stats.aggregateThisWeek(events: _records, now: now);
+        // bucketStart is a Monday-based day.
+        final weekday = bucketStart.toLocal().weekday;
+        return _weekdayLabels[weekday - 1];
       case GrowthPeriod.month:
-        return _stats.aggregateThisMonth(events: _records, now: now);
+        // Approximate week-in-month index from day-of-month.
+        final dayOfMonth = bucketStart.toLocal().day;
+        final weekIndex = ((dayOfMonth - 1) ~/ 7) + 1;
+        return '第$weekIndex周';
       case GrowthPeriod.year:
-        return _stats.aggregateThisYear(events: _records, now: now);
+        return '${bucketStart.toLocal().month}';
     }
   }
 
-  GrowthSummaryPeriod _toSummaryPeriod(GrowthPeriod period) {
-    switch (period) {
-      case GrowthPeriod.week:
-        return GrowthSummaryPeriod.week;
-      case GrowthPeriod.month:
-        return GrowthSummaryPeriod.month;
-      case GrowthPeriod.year:
-        return GrowthSummaryPeriod.year;
-    }
+  /// Serializes a [GrowthInsightsViewState] back to a JSON map that can be
+  /// wrapped in a cache entry with a `cachedAt` timestamp.
+  Map<String, dynamic> _viewStateToPayloadJson(
+    GrowthPeriod period,
+    GrowthInsightsViewState view,
+  ) {
+    return {
+      'period': period.name,
+      'windowStart': view.windowStart?.toUtc().toIso8601String(),
+      'windowEnd': view.windowEnd?.toUtc().toIso8601String(),
+      'generatedAt': view.windowEnd?.toUtc().toIso8601String(),
+      'stats': {
+        'totalEvents': view.stats.totalEvents,
+        'uniquePhrases': view.stats.uniquePhrases,
+        'uniqueActivities': view.stats.uniqueActivities,
+        'imitationCount': view.stats.imitationCount,
+        'practicedDays': view.stats.practicedDays,
+        'firstEventAt': view.stats.firstEventAt?.toUtc().toIso8601String(),
+        'lastEventAt': view.stats.lastEventAt?.toUtc().toIso8601String(),
+      },
+      'streak': {
+        'currentStreak': view.streak.currentStreak,
+        'longestStreak': view.streak.longestStreak,
+        'totalDaysPracticed': view.streak.totalDaysPracticed,
+        'lastPracticedAt': view.streak.lastPracticedAt?.toUtc().toIso8601String(),
+      },
+      'bars': [
+        for (final bar in view.bars)
+          {
+            'count': bar.count,
+            'label': bar.label,
+          },
+      ],
+      'scenes': [
+        for (final scene in view.scenes)
+          {
+            'spaceId': scene.spaceId,
+            'sceneTag': scene.sceneTag,
+            'eventCount': scene.eventCount,
+            'activityCount': scene.activityCount,
+            'percentage': scene.percentage,
+          },
+      ],
+      'recentActivity': {
+        'thisWeekCount': view.recentActivity?.thisWeekCount ?? 0,
+        'lastWeekCount': view.recentActivity?.lastWeekCount ?? 0,
+      },
+      if (view.suggestion != null)
+        'suggestion': {
+          'spaceId': view.suggestion!.spaceId,
+          'activityId': view.suggestion!.activityId,
+          'sceneLabel': view.suggestion!.sceneLabel,
+          'phraseEnglish': view.suggestion!.phraseEnglish,
+        },
+    };
   }
 
   @override

@@ -114,6 +114,31 @@ class GrowthInsightsViewState {
       suggestion = null,
       recentActivity = null;
 
+  const GrowthInsightsViewState.error(this.period)
+    : isLoading = false,
+      hasError = true,
+      streak = const StreakResult(
+        currentStreak: 0,
+        longestStreak: 0,
+        totalDaysPracticed: 0,
+        lastPracticedAt: null,
+      ),
+      stats = const PeriodStats(
+        totalEvents: 0,
+        uniquePhrases: 0,
+        uniqueActivities: 0,
+        imitationCount: 0,
+        firstEventAt: null,
+        lastEventAt: null,
+        practicedDays: 0,
+      ),
+      bars = const <GrowthBarBucket>[],
+      scenes = const <SceneDistribution>[],
+      windowStart = null,
+      windowEnd = null,
+      suggestion = null,
+      recentActivity = null;
+
   final bool isLoading;
   final bool hasError;
   final GrowthPeriod period;
