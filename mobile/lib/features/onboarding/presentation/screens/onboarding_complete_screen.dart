@@ -8,7 +8,6 @@ import 'package:mobile/l10n/app_localizations.dart';
 import 'package:mobile/app/theme/app_layout_constants.dart';
 import 'package:mobile/app/theme/app_theme.dart';
 import 'package:mobile/app/widgets/app_mentor_bubble.dart';
-import 'package:mobile/app/widgets/app_scale_button.dart';
 import 'package:mobile/app/widgets/app_seed_sprout.dart';
 import 'package:mobile/features/onboarding/domain/models/practice_scene.dart';
 import 'package:mobile/features/onboarding/domain/models/stage_match.dart';
@@ -120,15 +119,11 @@ class _OnboardingCompleteScreenState
                   duration: const Duration(milliseconds: 200),
                   child: Column(
                     children: [
-                      AppScaleButton(
-                        scaleDown: 0.97,
-                        onTap: () {
+                      ElevatedButton(
+                        onPressed: () {
                           context.go('/onboarding/practice');
                         },
-                        child: ElevatedButton(
-                          onPressed: null,
-                          child: Text(l.onboardingV21AgainButton),
-                        ),
+                        child: Text(l.onboardingV21AgainButton),
                       ),
                       const SizedBox(height: AppLayoutConstants.spacingSm),
                       TextButton(
