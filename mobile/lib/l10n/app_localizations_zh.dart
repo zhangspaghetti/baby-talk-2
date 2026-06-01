@@ -1985,4 +1985,64 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get settingsLanguageEn => 'English';
+
+  @override
+  String get onboardingV21MentorGreeting => '先告诉小禾，宝宝叫什么？';
+
+  @override
+  String get onboardingV21NameLabel => '宝宝昵称';
+
+  @override
+  String get onboardingV21NameHint => '填一个昵称就好';
+
+  @override
+  String get onboardingV21NextButton => '下一步';
+
+  @override
+  String get onboardingV21SceneTitle => '今天先说一句';
+
+  @override
+  String get onboardingV21SceneHint => '选个正在发生的场景';
+
+  @override
+  String get onboardingV21DirectPhrase => '直接给一句';
+
+  @override
+  String get onboardingV21AgeEntry => '宝宝多大？可稍后补';
+
+  @override
+  String get onboardingV21AgeSkip => '先跳过';
+
+  @override
+  String get onboardingV21PracticeSubtitle => '一句就够';
+
+  @override
+  String get onboardingV21SaidButton => '说完了';
+
+  @override
+  String get onboardingV21SwapButton => '换一句';
+
+  @override
+  String get onboardingV21EndButton => '结束';
+
+  @override
+  String get onboardingV21Saved => '已保存本句';
+
+  @override
+  String get onboardingV21SkipReaction => '跳过，下一句';
+
+  @override
+  String get onboardingV21PhrasesExhausted => '句子都试过了';
+
+  @override
+  String get onboardingV21CompleteTitle => '小禾老师 / 今天已完成';
+
+  @override
+  String get onboardingV21AgainButton => '再来一句';
+
+  @override
+  String get onboardingV21DoneButton => '先到这里';
+
+  @override
+  String get onboardingV21NextTime => '下次打开，小禾会给你新的一句。';
 }

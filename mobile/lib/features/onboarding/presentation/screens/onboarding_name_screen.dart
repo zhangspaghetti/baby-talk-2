@@ -6,6 +6,7 @@ import 'package:mobile/app/theme/app_layout_constants.dart';
 import 'package:mobile/app/theme/app_theme.dart';
 import 'package:mobile/app/widgets/app_mentor_bubble.dart';
 import 'package:mobile/app/providers/repository_providers.dart';
+import 'package:mobile/l10n/app_localizations.dart';
 
 class OnboardingNameScreen extends HookConsumerWidget {
   const OnboardingNameScreen({super.key});
@@ -25,6 +26,7 @@ class OnboardingNameScreen extends HookConsumerWidget {
       return () => controller.removeListener(listener);
     }, const []);
 
+    final l = AppLocalizations.of(context)!;
     final colors = context.appColors;
     final theme = Theme.of(context);
 
@@ -40,8 +42,8 @@ class OnboardingNameScreen extends HookConsumerWidget {
               padding: AppLayoutConstants.screenPadding,
               children: [
                 const SizedBox(height: AppLayoutConstants.spacingXl),
-                const AppMentorBubble(
-                  message: '先告诉小禾，宝宝叫什么？',
+                AppMentorBubble(
+                  message: l.onboardingV21MentorGreeting,
                   caption: '小禾老师',
                 ),
                 const SizedBox(height: AppLayoutConstants.spacingXl),
@@ -51,9 +53,9 @@ class OnboardingNameScreen extends HookConsumerWidget {
                   focusNode: focusNode,
                   textInputAction: TextInputAction.done,
                   maxLength: 12,
-                  decoration: const InputDecoration(
-                    labelText: '宝宝昵称',
-                    hintText: '填一个昵称就好',
+                  decoration: InputDecoration(
+                    labelText: l.onboardingV21NameLabel,
+                    hintText: l.onboardingV21NameHint,
                   ),
                   onSubmitted: (_) {
                     if (name.value.trim().isNotEmpty) {
@@ -67,7 +69,7 @@ class OnboardingNameScreen extends HookConsumerWidget {
                   onPressed: name.value.trim().isNotEmpty
                       ? () => _submit(context, ref, name.value.trim())
                       : null,
-                  child: const Text('下一步'),
+                  child: Text(l.onboardingV21NextButton),
                 ),
               ],
             ),

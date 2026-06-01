@@ -699,5 +699,65 @@
   "settingsMonthSuffix": "{months}个月",
   "@settingsMonthSuffix": {"placeholders": {"months": {}}},
   "settingsLanguageZh": "中文",
-  "settingsLanguageEn": "English"
+  "settingsLanguageEn": "English",
+
+  "@onboardingV21MentorGreeting": { "description": "Mentor bubble on name input screen" },
+  "onboardingV21MentorGreeting": "先告诉小禾，宝宝叫什么？",
+
+  "@onboardingV21NameLabel": { "description": "Name input label" },
+  "onboardingV21NameLabel": "宝宝昵称",
+
+  "@onboardingV21NameHint": { "description": "Name input hint" },
+  "onboardingV21NameHint": "填一个昵称就好",
+
+  "@onboardingV21NextButton": { "description": "Next button on name screen" },
+  "onboardingV21NextButton": "下一步",
+
+  "@onboardingV21SceneTitle": { "description": "Scene selection title" },
+  "onboardingV21SceneTitle": "今天先说一句",
+
+  "@onboardingV21SceneHint": { "description": "Scene selection hint" },
+  "onboardingV21SceneHint": "选个正在发生的场景",
+
+  "@onboardingV21DirectPhrase": { "description": "Skip scene selection button" },
+  "onboardingV21DirectPhrase": "直接给一句",
+
+  "@onboardingV21AgeEntry": { "description": "Age entry button" },
+  "onboardingV21AgeEntry": "宝宝多大？可稍后补",
+
+  "@onboardingV21AgeSkip": { "description": "Skip age selection" },
+  "onboardingV21AgeSkip": "先跳过",
+
+  "@onboardingV21PracticeSubtitle": { "description": "Practice screen subtitle" },
+  "onboardingV21PracticeSubtitle": "一句就够",
+
+  "@onboardingV21SaidButton": { "description": "Said button on practice screen" },
+  "onboardingV21SaidButton": "说完了",
+
+  "@onboardingV21SwapButton": { "description": "Swap phrase button" },
+  "onboardingV21SwapButton": "换一句",
+
+  "@onboardingV21EndButton": { "description": "End practice button" },
+  "onboardingV21EndButton": "结束",
+
+  "@onboardingV21Saved": { "description": "Saved confirmation" },
+  "onboardingV21Saved": "已保存本句",
+
+  "@onboardingV21SkipReaction": { "description": "Skip reaction button" },
+  "onboardingV21SkipReaction": "跳过，下一句",
+
+  "@onboardingV21PhrasesExhausted": { "description": "All phrases used" },
+  "onboardingV21PhrasesExhausted": "句子都试过了",
+
+  "@onboardingV21CompleteTitle": { "description": "Completion screen title" },
+  "onboardingV21CompleteTitle": "小禾老师 / 今天已完成",
+
+  "@onboardingV21AgainButton": { "description": "Practice again button" },
+  "onboardingV21AgainButton": "再来一句",
+
+  "@onboardingV21DoneButton": { "description": "Done button" },
+  "onboardingV21DoneButton": "先到这里",
+
+  "@onboardingV21NextTime": { "description": "Next time copy" },
+  "onboardingV21NextTime": "下次打开，小禾会给你新的一句。"
 }

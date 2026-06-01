@@ -3703,6 +3703,126 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'English'**
   String get settingsLanguageEn;
+
+  /// Mentor bubble on name input screen
+  ///
+  /// In zh, this message translates to:
+  /// **'先告诉小禾，宝宝叫什么？'**
+  String get onboardingV21MentorGreeting;
+
+  /// Name input label
+  ///
+  /// In zh, this message translates to:
+  /// **'宝宝昵称'**
+  String get onboardingV21NameLabel;
+
+  /// Name input hint
+  ///
+  /// In zh, this message translates to:
+  /// **'填一个昵称就好'**
+  String get onboardingV21NameHint;
+
+  /// Next button on name screen
+  ///
+  /// In zh, this message translates to:
+  /// **'下一步'**
+  String get onboardingV21NextButton;
+
+  /// Scene selection title
+  ///
+  /// In zh, this message translates to:
+  /// **'今天先说一句'**
+  String get onboardingV21SceneTitle;
+
+  /// Scene selection hint
+  ///
+  /// In zh, this message translates to:
+  /// **'选个正在发生的场景'**
+  String get onboardingV21SceneHint;
+
+  /// Skip scene selection button
+  ///
+  /// In zh, this message translates to:
+  /// **'直接给一句'**
+  String get onboardingV21DirectPhrase;
+
+  /// Age entry button
+  ///
+  /// In zh, this message translates to:
+  /// **'宝宝多大？可稍后补'**
+  String get onboardingV21AgeEntry;
+
+  /// Skip age selection
+  ///
+  /// In zh, this message translates to:
+  /// **'先跳过'**
+  String get onboardingV21AgeSkip;
+
+  /// Practice screen subtitle
+  ///
+  /// In zh, this message translates to:
+  /// **'一句就够'**
+  String get onboardingV21PracticeSubtitle;
+
+  /// Said button on practice screen
+  ///
+  /// In zh, this message translates to:
+  /// **'说完了'**
+  String get onboardingV21SaidButton;
+
+  /// Swap phrase button
+  ///
+  /// In zh, this message translates to:
+  /// **'换一句'**
+  String get onboardingV21SwapButton;
+
+  /// End practice button
+  ///
+  /// In zh, this message translates to:
+  /// **'结束'**
+  String get onboardingV21EndButton;
+
+  /// Saved confirmation
+  ///
+  /// In zh, this message translates to:
+  /// **'已保存本句'**
+  String get onboardingV21Saved;
+
+  /// Skip reaction button
+  ///
+  /// In zh, this message translates to:
+  /// **'跳过，下一句'**
+  String get onboardingV21SkipReaction;
+
+  /// All phrases used
+  ///
+  /// In zh, this message translates to:
+  /// **'句子都试过了'**
+  String get onboardingV21PhrasesExhausted;
+
+  /// Completion screen title
+  ///
+  /// In zh, this message translates to:
+  /// **'小禾老师 / 今天已完成'**
+  String get onboardingV21CompleteTitle;
+
+  /// Practice again button
+  ///
+  /// In zh, this message translates to:
+  /// **'再来一句'**
+  String get onboardingV21AgainButton;
+
+  /// Done button
+  ///
+  /// In zh, this message translates to:
+  /// **'先到这里'**
+  String get onboardingV21DoneButton;
+
+  /// Next time copy
+  ///
+  /// In zh, this message translates to:
+  /// **'下次打开，小禾会给你新的一句。'**
+  String get onboardingV21NextTime;
 }
 
 class _AppLocalizationsDelegate

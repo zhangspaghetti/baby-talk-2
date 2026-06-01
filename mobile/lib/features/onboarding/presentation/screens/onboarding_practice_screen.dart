@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:mobile/app/providers/repository_providers.dart';
+import 'package:mobile/l10n/app_localizations.dart';
 import 'package:mobile/app/theme/app_layout_constants.dart';
 import 'package:mobile/app/theme/app_theme.dart';
 import 'package:mobile/app/widgets/app_mentor_bubble.dart';
@@ -16,6 +17,7 @@ class OnboardingPracticeScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l = AppLocalizations.of(context)!;
     final notifier = ref.watch(onboardingSessionProvider);
     final session = notifier.session;
     final scene = session.selectedScene;
@@ -51,7 +53,7 @@ class OnboardingPracticeScreen extends ConsumerWidget {
                       ),
                       Expanded(
                         child: Text(
-                          '${scene.label} / 一句就够',
+                          '${scene.label} / ${l.onboardingV21PracticeSubtitle}',
                           textAlign: TextAlign.center,
                           style: Theme.of(context).textTheme.titleSmall,
                         ),
@@ -60,7 +62,7 @@ class OnboardingPracticeScreen extends ConsumerWidget {
                         onPressed: () {
                           context.push('/onboarding/complete');
                         },
-                        child: const Text('结束'),
+                        child: Text(l.onboardingV21EndButton),
                       ),
                     ],
                   ),
@@ -169,13 +171,14 @@ class _ReactionArea extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          '已保存本句',
+          l.onboardingV21Saved,
           style: theme.textTheme.bodyMedium?.copyWith(
             color: Theme.of(context).colorScheme.primary,
             fontWeight: FontWeight.w600,
@@ -199,7 +202,7 @@ class _ReactionArea extends StatelessWidget {
         Center(
           child: TextButton(
             onPressed: () => notifier.skipReaction(),
-            child: const Text('跳过，下一句'),
+            child: Text(l.onboardingV21SkipReaction),
           ),
         ),
       ],
@@ -214,6 +217,7 @@ class _BottomActions extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l = AppLocalizations.of(context)!;
     final sessionNotifier = ref.read(onboardingSessionProvider.notifier);
 
     if (notifier.showReactionPicker) {
@@ -231,10 +235,10 @@ class _BottomActions extends ConsumerWidget {
               HapticFeedback.mediumImpact();
               sessionNotifier.recordSaid();
             },
-            child: const ElevatedButton(
-              key: Key('onboarding-said-button'),
+            child: ElevatedButton(
+              key: const Key('onboarding-said-button'),
               onPressed: null,
-              child: Text('说完了'),
+              child: Text(l.onboardingV21SaidButton),
             ),
           ),
           const SizedBox(height: AppLayoutConstants.spacingSm),
@@ -246,7 +250,9 @@ class _BottomActions extends ConsumerWidget {
                     ? null
                     : () => sessionNotifier.swapPhrase(),
                 child: Text(
-                  notifier.phrasePoolExhausted ? '句子都试过了' : '换一句',
+                  notifier.phrasePoolExhausted
+                      ? l.onboardingV21PhrasesExhausted
+                      : l.onboardingV21SwapButton,
                 ),
               ),
               const SizedBox(width: AppLayoutConstants.spacingMd),
@@ -254,7 +260,7 @@ class _BottomActions extends ConsumerWidget {
                 onPressed: () {
                   context.push('/onboarding/complete');
                 },
-                child: const Text('结束'),
+                child: Text(l.onboardingV21EndButton),
               ),
             ],
           ),

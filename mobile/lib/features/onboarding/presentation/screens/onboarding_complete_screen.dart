@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:mobile/app/providers/repository_providers.dart';
+import 'package:mobile/l10n/app_localizations.dart';
 import 'package:mobile/app/theme/app_layout_constants.dart';
 import 'package:mobile/app/theme/app_theme.dart';
 import 'package:mobile/app/widgets/app_mentor_bubble.dart';
@@ -32,6 +33,7 @@ class _OnboardingCompleteScreenState
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
     final notifier = ref.watch(onboardingSessionProvider);
     final session = notifier.session;
     final scene = session.selectedScene;
@@ -58,7 +60,7 @@ class _OnboardingCompleteScreenState
                     ),
                     Expanded(
                       child: Text(
-                        '小禾老师 / 今天已完成',
+                        l.onboardingV21CompleteTitle,
                         textAlign: TextAlign.center,
                         style: theme.textTheme.titleSmall,
                       ),
@@ -94,7 +96,7 @@ class _OnboardingCompleteScreenState
                         ),
                       const SizedBox(height: AppLayoutConstants.spacingSm),
                       Text(
-                        '下次打开，小禾会给你新的一句。',
+                        l.onboardingV21NextTime,
                         style: theme.textTheme.bodyMedium?.copyWith(
                           color: colors.textSecondary,
                         ),
@@ -123,15 +125,15 @@ class _OnboardingCompleteScreenState
                         onTap: () {
                           context.go('/onboarding/practice');
                         },
-                        child: const ElevatedButton(
+                        child: ElevatedButton(
                           onPressed: null,
-                          child: Text('再来一句'),
+                          child: Text(l.onboardingV21AgainButton),
                         ),
                       ),
                       const SizedBox(height: AppLayoutConstants.spacingSm),
                       TextButton(
                         onPressed: () => _completeOnboarding(context, ref),
-                        child: const Text('先到这里'),
+                        child: Text(l.onboardingV21DoneButton),
                       ),
                     ],
                   ),

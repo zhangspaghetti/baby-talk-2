@@ -9,6 +9,7 @@ import 'package:mobile/app/widgets/app_mentor_bubble.dart';
 import 'package:mobile/features/onboarding/domain/models/practice_scene.dart';
 import 'package:mobile/features/onboarding/domain/models/stage_match.dart';
 import 'package:mobile/app/providers/repository_providers.dart';
+import 'package:mobile/l10n/app_localizations.dart';
 import 'package:mobile/features/onboarding/presentation/widgets/scene_button.dart';
 
 class OnboardingSceneScreen extends ConsumerStatefulWidget {
@@ -45,6 +46,7 @@ class _OnboardingSceneScreenState extends ConsumerState<OnboardingSceneScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
     final colors = context.appColors;
     final theme = Theme.of(context);
 
@@ -73,25 +75,25 @@ class _OnboardingSceneScreenState extends ConsumerState<OnboardingSceneScreen> {
                         notifier.selectScene(_resolveDefaultScene());
                         context.push('/onboarding/practice');
                       },
-                      child: const Text('直接给一句'),
+                      child: Text(l.onboardingV21DirectPhrase),
                     ),
                   ],
                 ),
                 const SizedBox(height: AppLayoutConstants.spacingSm),
-                const AppMentorBubble(
-                  message: '选个正在发生的场景，小禾给你一句现在就能说的。',
+                AppMentorBubble(
+                  message: l.onboardingV21SceneHint,
                   caption: '小禾老师',
                 ),
                 const SizedBox(height: AppLayoutConstants.spacingXl),
                 Text(
-                  '今天先说一句',
+                  l.onboardingV21SceneTitle,
                   style: theme.textTheme.headlineSmall?.copyWith(
                     fontWeight: FontWeight.w700,
                   ),
                 ),
                 const SizedBox(height: AppLayoutConstants.spacingXs),
                 Text(
-                  '选个正在发生的场景',
+                  l.onboardingV21SceneHint,
                   style: theme.textTheme.bodyMedium?.copyWith(
                     color: colors.textSecondary,
                   ),
@@ -120,7 +122,7 @@ class _OnboardingSceneScreenState extends ConsumerState<OnboardingSceneScreen> {
                   label: Text(
                     _selectedAge != null
                         ? '${_selectedAge!.label} ✓'
-                        : '宝宝多大？可稍后补',
+                        : l.onboardingV21AgeEntry,
                   ),
                   style: OutlinedButton.styleFrom(
                     side: BorderSide(
@@ -184,7 +186,7 @@ class _AgeSelectionPanel extends StatelessWidget {
             );
           }),
           ListTile(
-            title: const Text('先跳过'),
+            title: Text(AppLocalizations.of(context)!.onboardingV21AgeSkip),
             onTap: () {
               // Close panel without selecting
             },
