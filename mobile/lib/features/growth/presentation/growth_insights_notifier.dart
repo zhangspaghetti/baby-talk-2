@@ -154,7 +154,7 @@ class GrowthInsightsNotifier extends ChangeNotifier {
     }
 
     if (anySuccess) {
-      _views = newViews;
+      _views = {..._views, ...newViews};
       _hasError = false;
       await _saveToCache();
     } else if (_views.isEmpty) {
@@ -200,6 +200,7 @@ class GrowthInsightsNotifier extends ChangeNotifier {
           .map((b) => GrowthBarBucket(
                 label: _barLabel(period, b.bucketStart),
                 count: b.count,
+                bucketStart: b.bucketStart,
               ))
           .toList(growable: false),
       scenes: payload.scenes
@@ -277,8 +278,8 @@ class GrowthInsightsNotifier extends ChangeNotifier {
       'bars': [
         for (final bar in view.bars)
           {
+            'bucketStart': bar.bucketStart.toUtc().toIso8601String(),
             'count': bar.count,
-            'label': bar.label,
           },
       ],
       'scenes': [

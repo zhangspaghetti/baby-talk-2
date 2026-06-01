@@ -19,10 +19,15 @@ extension GrowthPeriodInfo on GrowthPeriod {
 
 /// A single bar in the trend chart: a labelled time bucket and its event count.
 class GrowthBarBucket {
-  const GrowthBarBucket({required this.label, required this.count});
+  const GrowthBarBucket({
+    required this.label,
+    required this.count,
+    required this.bucketStart,
+  });
 
   final String label;
   final int count;
+  final DateTime bucketStart;
 }
 
 /// A gentle "next step" recommendation surfaced at the bottom of the week and

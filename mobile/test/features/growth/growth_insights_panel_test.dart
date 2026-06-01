@@ -38,10 +38,10 @@ void main() {
         lastEventAt: null,
         practicedDays: 7,
       ),
-      bars: const [
-        GrowthBarBucket(label: '一', count: 2),
-        GrowthBarBucket(label: '二', count: 3),
-        GrowthBarBucket(label: '三', count: 1),
+      bars: [
+        GrowthBarBucket(label: '一', count: 2, bucketStart: DateTime(2026, 5, 25)),
+        GrowthBarBucket(label: '二', count: 3, bucketStart: DateTime(2026, 5, 26)),
+        GrowthBarBucket(label: '三', count: 1, bucketStart: DateTime(2026, 5, 27)),
       ],
       scenes: const [
         SceneDistribution(
