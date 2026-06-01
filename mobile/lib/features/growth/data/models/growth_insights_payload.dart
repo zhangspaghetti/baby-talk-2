@@ -1,5 +1,4 @@
-/// Deserialization models for the `/api/v1/growth/insights` response.
-library;
+// Deserialization models for the `/api/v1/growth/insights` response.
 
 class GrowthInsightsPayload {
   const GrowthInsightsPayload({
@@ -78,8 +77,8 @@ class InsightsStats {
       uniqueActivities: _readInt(json, 'uniqueActivities'),
       imitationCount: _readInt(json, 'imitationCount'),
       practicedDays: _readInt(json, 'practicedDays'),
-      firstEventAt: _readNullableDateTime(json, 'firstEventAt'),
-      lastEventAt: _readNullableDateTime(json, 'lastEventAt'),
+      firstEventAt: _readDateTime(json, 'firstEventAt'),
+      lastEventAt: _readDateTime(json, 'lastEventAt'),
     );
   }
 }
@@ -102,7 +101,7 @@ class InsightsStreak {
       currentStreak: _readInt(json, 'currentStreak'),
       longestStreak: _readInt(json, 'longestStreak'),
       totalDaysPracticed: _readInt(json, 'totalDaysPracticed'),
-      lastPracticedAt: _readNullableDateTime(json, 'lastPracticedAt'),
+      lastPracticedAt: _readDateTime(json, 'lastPracticedAt'),
     );
   }
 }
@@ -214,6 +213,3 @@ DateTime? _readDateTime(Map<String, dynamic> json, String key) {
   return DateTime.tryParse(value)?.toLocal();
 }
 
-DateTime? _readNullableDateTime(Map<String, dynamic> json, String key) {
-  return _readDateTime(json, key);
-}
