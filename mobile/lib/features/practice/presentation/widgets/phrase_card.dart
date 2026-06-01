@@ -221,23 +221,25 @@ class PhraseCard extends StatelessWidget {
                 : colors.info,
           ),
         ],
-        if (phase == PhraseCardPhase.saved) ...[
+        if (phase == PhraseCardPhase.saved || canSubmitReaction) ...[
           const SizedBox(height: AppLayoutConstants.spacingMd),
-          Row(
-            children: [
-              Icon(Icons.check_circle_rounded,
-                  size: 16, color: colors.success),
-              const SizedBox(width: 6),
-              Text(
-                '已保存本句',
-                style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                      color: colors.success,
-                      fontWeight: FontWeight.w700,
-                    ),
-              ),
-            ],
-          ),
-          const SizedBox(height: AppLayoutConstants.spacingMd),
+          if (phase == PhraseCardPhase.saved) ...[
+            Row(
+              children: [
+                Icon(Icons.check_circle_rounded,
+                    size: 16, color: colors.success),
+                const SizedBox(width: 6),
+                Text(
+                  '已保存本句',
+                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                        color: colors.success,
+                        fontWeight: FontWeight.w700,
+                      ),
+                ),
+              ],
+            ),
+            const SizedBox(height: AppLayoutConstants.spacingMd),
+          ],
           Text(
             l.phraseReactionLabel,
             style: Theme.of(context).textTheme.titleMedium,

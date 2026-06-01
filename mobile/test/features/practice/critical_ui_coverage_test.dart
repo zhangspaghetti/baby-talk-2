@@ -164,8 +164,7 @@ void main() {
       expect(find.byKey(const Key('session-progress')), findsOneWidget);
       expect(find.byKey(const Key('practice-progress-text')), findsOneWidget);
       expect(find.text('第 1 / 3 句'), findsOneWidget);
-      expect(find.text('现在试试这一句'), findsOneWidget);
-      expect(find.text('发音可播放'), findsOneWidget);
+      expect(find.text('听小禾读'), findsOneWidget);
       expect(find.text('等宝宝反应'), findsOneWidget);
       expect(find.textContaining('idle'), findsNothing);
       expect(find.textContaining('C3'), findsNothing);
@@ -233,7 +232,7 @@ void main() {
       find.byKey(const Key('phrase-action-row-bath_time_warm_water')),
       findsNothing,
     );
-    expect(find.text('发音可播放'), findsOneWidget);
+    expect(find.text('听小禾读'), findsOneWidget);
     expect(find.text('等宝宝反应'), findsOneWidget);
 
     final playButtonSize = tester.getSize(

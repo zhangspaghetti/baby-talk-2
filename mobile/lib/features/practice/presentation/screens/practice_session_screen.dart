@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobile/app/providers/repository_providers.dart';
 import 'package:mobile/app/widgets/app_banner.dart';
-import 'package:mobile/app/widgets/app_celebration_overlay.dart';
 import 'package:mobile/app/widgets/app_haptics.dart';
 import 'package:mobile/app/widgets/app_surface_card.dart';
 import 'package:mobile/app/theme/app_layout_constants.dart';
@@ -11,8 +10,9 @@ import 'package:mobile/features/mentor/presentation/mentor_audio_controller.dart
 import 'package:mobile/app/widgets/app_mentor_bubble.dart';
 import 'package:mobile/features/practice/presentation/practice_route_args.dart';
 import 'package:mobile/features/practice/presentation/practice_session_notifier.dart';
-import 'package:mobile/features/practice/presentation/widgets/activation_frame.dart';
 import 'package:mobile/features/practice/presentation/widgets/phrase_card.dart';
+import 'package:mobile/features/practice/presentation/widgets/practice_bottom_action_bar.dart';
+import 'package:mobile/features/practice/presentation/widgets/practice_completion_view.dart';
 import 'package:mobile/l10n/app_localizations.dart';
 
 /// Scene-specific dynamic mentor copy for the practice page (V21).
@@ -32,6 +32,18 @@ String _sceneMentorCopy(String? sceneTag) {
       return '出门前说一句，今天就开始了。';
     default:
       return '会说就直接说。';
+  }
+}
+
+String _sceneSubtitle(String? sceneTag) {
+  switch (sceneTag) {
+    case 'feeding':   return '喂饭 / 一句就够';
+    case 'drinking':  return '喝水 / 一句就够';
+    case 'diaper':    return '换尿布 / 一句就够';
+    case 'bath':      return '洗澡 / 一句就够';
+    case 'bedtime':   return '睡前 / 一句就够';
+    case 'going_out': return '出门 / 一句就够';
+    default:          return '一句就够';
   }
 }
 
@@ -174,222 +186,291 @@ class _PracticeSessionBodyState extends ConsumerState<_PracticeSessionBody> {
         ? 0.0
         : ((notifier.currentPhraseIndex + 1) / phrases.length).clamp(0.0, 1.0);
 
+    final isComplete = notifier.phrasePhase == PhraseInteractionPhase.complete;
+    final phrase = notifier.currentPhrase;
+    // Only show reaction chips when explicitly in 'saved' phase.
+    // During 'advancing' the index already points to the NEW phrase — show it in 'ready'.
+    final cardPhase = notifier.phrasePhase == PhraseInteractionPhase.saved
+        ? PhraseCardPhase.saved
+        : PhraseCardPhase.ready;
+
     return Scaffold(
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         surfaceTintColor: Colors.transparent,
-        title: Text(activity.title),
+        title: const Text('今日一句'),
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(24),
+          child: Align(
+            alignment: Alignment.centerLeft,
+            child: Padding(
+              padding: const EdgeInsets.only(
+                left: AppLayoutConstants.spacingMd,
+                bottom: 6,
+              ),
+              child: Text(
+                _sceneSubtitle(notifier.sceneTag),
+                style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                      color: colors.textSecondary,
+                    ),
+              ),
+            ),
+          ),
+        ),
       ),
       body: SafeArea(
         child: Semantics(
           label:
-              '${activity.title}，${l.practiceProgress(notifier.currentPhraseIndex + 1, phrases.length)}',
+              '今日一句，${l.practiceProgress(notifier.currentPhraseIndex + 1, phrases.length)}',
           explicitChildNodes: true,
           child: Align(
-          alignment: Alignment.topCenter,
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(
-              maxWidth: AppLayoutConstants.maxContentWidth,
-            ),
-            child: ListView(
-              padding: AppLayoutConstants.practicePadding,
-              children: [
-                const SizedBox(height: 4),
-                Semantics(
-                  label: l.practiceProgress(
-                    notifier.currentPhraseIndex + 1,
-                    phrases.length,
-                  ),
-                  value: '${(progressValue * 100).round()}%',
-                  child: LinearProgressIndicator(
-                    key: const Key('session-progress'),
-                    value: progressValue,
-                    minHeight: 6,
-                    borderRadius: BorderRadius.circular(
-                      AppLayoutConstants.pillRadius,
+            alignment: Alignment.topCenter,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(
+                maxWidth: AppLayoutConstants.maxContentWidth,
+              ),
+              child: Column(
+                children: [
+                  // ── Progress row ─────────────────────────────────────────
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(
+                      AppLayoutConstants.spacingMd,
+                      AppLayoutConstants.spacingMd,
+                      AppLayoutConstants.spacingMd,
+                      4,
                     ),
-                    color: colors.textPrimary,
-                    backgroundColor: colors.outlineSoft,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  l.practiceProgress(
-                    notifier.currentPhraseIndex + 1,
-                    phrases.length,
-                  ),
-                  key: const Key('practice-progress-text'),
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: colors.textPrimary,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                // Xiaohe dynamic scene copy (V21)
-                AppMentorBubble(
-                  message: _sceneMentorCopy(notifier.sceneTag),
-                ),
-                const SizedBox(height: 16),
-                Semantics(
-                  button: true,
-                  label: '提示，${activity.coachTip}',
-                  child: AppSurfaceCard(
-                    padding: EdgeInsets.zero,
-                    backgroundColor: colors.bgSurface,
-                    borderRadius: AppLayoutConstants.cardRadius,
-                    borderColor: Colors.transparent,
-                    boxShadow: const [],
-                    child: Theme(
-                      data: Theme.of(context).copyWith(
-                        dividerColor: Colors.transparent,
-                      ),
-                      child: ExpansionTile(
-                        key: const Key('practice-coach-tip'),
-                        tilePadding: const EdgeInsets.symmetric(
-                          horizontal: AppLayoutConstants.spacingMd,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Semantics(
+                          label: l.practiceProgress(
+                            notifier.currentPhraseIndex + 1,
+                            phrases.length,
+                          ),
+                          value: '${(progressValue * 100).round()}%',
+                          child: LinearProgressIndicator(
+                            key: const Key('session-progress'),
+                            value: progressValue,
+                            minHeight: 6,
+                            borderRadius: BorderRadius.circular(
+                              AppLayoutConstants.pillRadius,
+                            ),
+                            color: colors.textPrimary,
+                            backgroundColor: colors.outlineSoft,
+                          ),
                         ),
-                        childrenPadding: const EdgeInsets.fromLTRB(
-                          AppLayoutConstants.spacingMd,
-                          0,
-                          AppLayoutConstants.spacingMd,
-                          AppLayoutConstants.spacingMd,
+                        const SizedBox(height: 6),
+                        Text(
+                          l.practiceProgress(
+                            notifier.currentPhraseIndex + 1,
+                            phrases.length,
+                          ),
+                          key: const Key('practice-progress-text'),
+                          style: Theme.of(context).textTheme.bodySmall
+                              ?.copyWith(
+                            color: colors.textPrimary,
+                            fontWeight: FontWeight.w700,
+                          ),
                         ),
-                        minTileHeight: AppLayoutConstants.minTouchTarget,
-                        title: Text(
-                          '提示',
-                          style: Theme.of(context).textTheme.titleMedium
-                              ?.copyWith(color: colors.textPrimary),
-                        ),
+                      ],
+                    ),
+                  ),
+                  // ── Scrollable content ────────────────────────────────────
+                  Expanded(
+                    child: SingleChildScrollView(
+                      padding: AppLayoutConstants.practicePadding,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          Align(
-                            alignment: Alignment.centerLeft,
-                            child: Text(
-                              activity.coachTip,
-                              style: Theme.of(context).textTheme.bodyMedium
-                                  ?.copyWith(color: colors.textSecondary),
+                          AppMentorBubble(
+                            message: _sceneMentorCopy(notifier.sceneTag),
+                          ),
+                          const SizedBox(height: 16),
+                          // Coach tip
+                          Semantics(
+                            button: true,
+                            label: '提示，${activity.coachTip}',
+                            child: AppSurfaceCard(
+                              padding: EdgeInsets.zero,
+                              backgroundColor: colors.bgSurface,
+                              borderRadius: AppLayoutConstants.cardRadius,
+                              borderColor: Colors.transparent,
+                              boxShadow: const [],
+                              child: Theme(
+                                data: Theme.of(context).copyWith(
+                                  dividerColor: Colors.transparent,
+                                ),
+                                child: ExpansionTile(
+                                  key: const Key('practice-coach-tip'),
+                                  tilePadding: const EdgeInsets.symmetric(
+                                    horizontal: AppLayoutConstants.spacingMd,
+                                  ),
+                                  childrenPadding: const EdgeInsets.fromLTRB(
+                                    AppLayoutConstants.spacingMd,
+                                    0,
+                                    AppLayoutConstants.spacingMd,
+                                    AppLayoutConstants.spacingMd,
+                                  ),
+                                  minTileHeight:
+                                      AppLayoutConstants.minTouchTarget,
+                                  title: Text(
+                                    '提示',
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .titleMedium
+                                        ?.copyWith(color: colors.textPrimary),
+                                  ),
+                                  children: [
+                                    Align(
+                                      alignment: Alignment.centerLeft,
+                                      child: Text(
+                                        activity.coachTip,
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .bodyMedium
+                                            ?.copyWith(
+                                                color: colors.textSecondary),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
                             ),
                           ),
+                          if (notifier.restoreStatusMessage != null) ...[
+                            const SizedBox(height: 16),
+                            AppBanner(
+                              key: const Key('practice-restore-banner'),
+                              message: notifier.restoreStatusMessage!,
+                              backgroundColor:
+                                  notifier.hasRecoverableRestoreIssue
+                                      ? colors.warningSoft
+                                      : colors.infoSoft,
+                              foregroundColor: colors.textPrimary,
+                            ),
+                          ],
+                          if (notifier.sessionErrorMessage != null) ...[
+                            const SizedBox(height: 16),
+                            AppBanner(
+                              key: const Key('session-error-banner'),
+                              message: notifier.sessionErrorMessage!,
+                              backgroundColor: colors.errorSoft,
+                              foregroundColor: colors.textPrimary,
+                            ),
+                          ],
+                          const SizedBox(height: 20),
+                          // ── Main card / completion view ───────────────────
+                          AnimatedSwitcher(
+                            duration: const Duration(milliseconds: 300),
+                            child: isComplete
+                                ? PracticeCompletionView(
+                                    key: const Key('practice-completion-view'),
+                                    spokenCount:
+                                        notifier.currentPhraseIndex + 1,
+                                    onRestart: () {
+                                      ref
+                                          .read(
+                                            practiceSessionNotifierProvider(
+                                                widget.providerArgs),
+                                          )
+                                          .ensureSessionReady();
+                                    },
+                                    onExit: () =>
+                                        Navigator.of(context).maybePop(),
+                                  )
+                                : phrase != null
+                                    ? PhraseCard(
+
+                                        phrase: phrase,
+                                        isActive: true,
+                                        isCompleted: notifier.isPhraseCompleted(
+                                            phrase.phraseId),
+                                        playbackStatus: notifier.playbackStatus,
+                                        saveStatus: notifier.saveStatus,
+                                        playbackMessage:
+                                            notifier.playbackMessage,
+                                        saveMessage: notifier.saveMessage,
+                                        canPlay: notifier.canPlayCurrentPhrase,
+                                        canSubmitReaction:
+                                            notifier.canSubmitReaction,
+                                        onPlay: notifier.playCurrentPhrase,
+                                        isTtsMode: notifier.isDynamic &&
+                                            phrase.audioAsset.isEmpty,
+                                        onTtsSpeak: (notifier.isDynamic &&
+                                                phrase.audioAsset.isEmpty)
+                                            ? () =>
+                                                notifier.speakCurrentPhrase(
+                                                    _speakPhrase)
+                                            : null,
+                                        phase: cardPhase,
+                                        sceneTag: notifier.sceneTag,
+                                        onReactionSelected:
+                                            (reactionType) async {
+                                          AppHaptics.lightTap();
+                                          await ref
+                                              .read(
+                                                practiceSessionNotifierProvider(
+                                                    widget.providerArgs),
+                                              )
+                                              .recordReaction(reactionType);
+                                        },
+                                      )
+                                    : const SizedBox.shrink(),
+                          ),
+                          const SizedBox(height: 80), // bottom bar clearance
                         ],
                       ),
                     ),
                   ),
-                ),
-                if (notifier.restoreStatusMessage != null) ...[
-                  const SizedBox(height: 16),
-                  AppBanner(
-                    key: const Key('practice-restore-banner'),
-                    message: notifier.restoreStatusMessage!,
-                    backgroundColor: notifier.hasRecoverableRestoreIssue
-                        ? colors.warningSoft
-                        : colors.infoSoft,
-                    foregroundColor: colors.textPrimary,
-                  ),
-                ],
-                if (notifier.sessionErrorMessage != null) ...[
-                  const SizedBox(height: 16),
-                  AppBanner(
-                    key: const Key('session-error-banner'),
-                    message: notifier.sessionErrorMessage!,
-                    backgroundColor: colors.errorSoft,
-                    foregroundColor: colors.textPrimary,
-                  ),
-                ],
-                if (notifier.sessionCompleted) ...[
-                  const SizedBox(height: 16),
-                  AppCelebrationOverlay(
-                    key: const Key('practice-celebration-overlay'),
-                    child: AppBanner(
-                      key: const Key('practice-complete-banner'),
-                      message: l.practiceLastSaved,
-                      backgroundColor: colors.successSoft,
-                      foregroundColor: colors.textPrimary,
+                  // ── Fixed bottom action bar ───────────────────────────────
+                  if (!isComplete)
+                    PracticeBottomActionBar(
+                      phase: notifier.phrasePhase,
+                      nextLoadStatus: notifier.nextPhraseLoadStatus,
+                      onSave: () {
+                        AppHaptics.lightTap();
+                        ref
+                            .read(practiceSessionNotifierProvider(
+                                widget.providerArgs))
+                            .saveCurrentPhrase();
+                      },
+                      onSkipPhrase: () {
+                        AppHaptics.lightTap();
+                        ref
+                            .read(practiceSessionNotifierProvider(
+                                widget.providerArgs))
+                            .skipCurrentPhrase();
+                      },
+                      onEnd: () {
+                        ref
+                            .read(practiceSessionNotifierProvider(
+                                widget.providerArgs))
+                            .endSession();
+                      },
+                      onSkipReaction: () {
+                        AppHaptics.lightTap();
+                        ref
+                            .read(practiceSessionNotifierProvider(
+                                widget.providerArgs))
+                            .skipToNextPhrase();
+                      },
+                      onRetryNextPhrase: () {
+                        ref
+                            .read(practiceSessionNotifierProvider(
+                                widget.providerArgs))
+                            .skipCurrentPhrase();
+                      },
                     ),
-                  ),
                 ],
-                const SizedBox(height: 20),
-                for (var index = 0; index < phrases.length; index++) ...[
-                  if (index == notifier.currentPhraseIndex)
-                    ActivationFrame(
-                      stepLabel: l.practicePhraseStep(phrases[index].step),
-                      title: l.practiceCurrentPhrases,
-                      child: PhraseCard(
-                        phrase: phrases[index],
-                        isActive: true,
-                        isCompleted: notifier.isPhraseCompleted(
-                          phrases[index].phraseId,
-                        ),
-                        playbackStatus: notifier.playbackStatus,
-                        saveStatus: notifier.saveStatus,
-                        playbackMessage: notifier.playbackMessage,
-                        saveMessage: notifier.saveMessage,
-                        canPlay: notifier.canPlayCurrentPhrase,
-                        canSubmitReaction: notifier.canSubmitReaction,
-                        onPlay: notifier.playCurrentPhrase,
-                        isTtsMode:
-                            notifier.isDynamic &&
-                            phrases[index].audioAsset.isEmpty,
-                        onTtsSpeak:
-                            (notifier.isDynamic &&
-                                phrases[index].audioAsset.isEmpty)
-                            ? () => notifier.speakCurrentPhrase(_speakPhrase)
-                            : null,
-                        onReactionSelected: (reactionType) async {
-                          AppHaptics.lightTap();
-                          final navigator = Navigator.of(context);
-                          final outcome = await ref
-                              .read(
-                                practiceSessionNotifierProvider(
-                                  widget.providerArgs,
-                                ),
-                              )
-                              .recordReaction(reactionType);
-                          if (!mounted) {
-                            return;
-                          }
-                          if (outcome == PracticeRecordOutcome.completed &&
-                              navigator.canPop()) {
-                            // V21: extend auto-advance to 2.5-3s for onboarding feel
-                            await Future<void>.delayed(
-                              const Duration(milliseconds: 2700),
-                            );
-                            if (!mounted || !navigator.canPop()) {
-                              return;
-                            }
-                            navigator.pop();
-                          }
-                        },
-                      ),
-                    )
-                  else
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 16),
-                      child: PhraseCard(
-                        phrase: phrases[index],
-                        isActive: false,
-                        isCompleted: notifier.isPhraseCompleted(
-                          phrases[index].phraseId,
-                        ),
-                        playbackStatus: PracticePlaybackStatus.idle,
-                        saveStatus: PracticeSaveStatus.idle,
-                        playbackMessage: null,
-                        saveMessage: null,
-                        canPlay: false,
-                        canSubmitReaction: false,
-                        onPlay: null,
-                        onReactionSelected: null,
-                      ),
-                    ),
-                  const SizedBox(height: 16),
-                ],
-              ],
+              ),
             ),
           ),
-        ),
         ),
       ),
     );
   }
 }
+
 
 class PracticeFallbackScaffold extends StatelessWidget {
   const PracticeFallbackScaffold({super.key, required this.message});
