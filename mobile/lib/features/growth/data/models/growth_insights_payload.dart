@@ -12,6 +12,7 @@ class GrowthInsightsPayload {
     required this.scenes,
     required this.recentActivity,
     this.suggestion,
+    this.isFallback = false,
   });
 
   final String period;
@@ -24,6 +25,7 @@ class GrowthInsightsPayload {
   final List<InsightsScene> scenes;
   final InsightsRecentActivity recentActivity;
   final InsightsSuggestion? suggestion;
+  final bool isFallback;
 
   factory GrowthInsightsPayload.fromJson(Map<String, dynamic> json) {
     return GrowthInsightsPayload(

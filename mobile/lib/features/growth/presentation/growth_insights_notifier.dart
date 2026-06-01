@@ -72,6 +72,7 @@ class GrowthInsightsNotifier extends ChangeNotifier {
         if (cachedAtStr == null) continue;
         final cachedAt = DateTime.tryParse(cachedAtStr);
         if (cachedAt == null) continue;
+        if (_now().difference(cachedAt).inMinutes > 15) continue;
         final payload =
             GrowthInsightsPayload.fromJson(json['payload'] as Map<String, dynamic>);
         _views[period] = _mapToViewState(period, payload);
@@ -140,12 +141,13 @@ class GrowthInsightsNotifier extends ChangeNotifier {
                   thisWeekCount: 0,
                   lastWeekCount: 0,
                 ),
+                isFallback: true,
               ),
             ),
     ]);
 
     for (var i = 0; i < periods.length; i++) {
-      if (results[i].stats.totalEvents > 0) {
+      if (!results[i].isFallback) {
         newViews[periods[i]] = _mapToViewState(periods[i], results[i]);
         anySuccess = true;
       }
