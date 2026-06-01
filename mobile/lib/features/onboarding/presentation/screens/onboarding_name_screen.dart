@@ -3,7 +3,6 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:mobile/app/theme/app_layout_constants.dart';
-import 'package:mobile/app/theme/app_theme.dart';
 import 'package:mobile/app/widgets/app_mentor_bubble.dart';
 import 'package:mobile/app/providers/repository_providers.dart';
 import 'package:mobile/l10n/app_localizations.dart';
@@ -27,8 +26,6 @@ class OnboardingNameScreen extends HookConsumerWidget {
     }, const []);
 
     final l = AppLocalizations.of(context)!;
-    final colors = context.appColors;
-    final theme = Theme.of(context);
 
     return Scaffold(
       body: SafeArea(

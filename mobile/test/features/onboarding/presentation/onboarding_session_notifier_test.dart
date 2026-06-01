@@ -50,7 +50,6 @@ void main() {
 
     test('nextPhrase loads a different phrase', () {
       notifier.selectScene(PracticeScene.feeding);
-      final firstPhrase = notifier.currentPhrase;
       notifier.recordSaid();
       notifier.selectReaction(BabyReaction.responded);
       notifier.nextPhrase();
@@ -60,7 +59,6 @@ void main() {
 
     test('swapPhrase replaces current phrase with unused one', () {
       notifier.selectScene(PracticeScene.feeding);
-      final first = notifier.currentPhrase;
       notifier.swapPhrase();
       expect(notifier.currentPhrase, isNotNull);
     });
