@@ -7,7 +7,6 @@ import 'package:mobile/l10n/app_localizations.dart';
 import 'package:mobile/app/theme/app_layout_constants.dart';
 import 'package:mobile/app/theme/app_theme.dart';
 import 'package:mobile/app/widgets/app_mentor_bubble.dart';
-import 'package:mobile/app/widgets/app_scale_button.dart';
 import 'package:mobile/features/onboarding/data/services/scene_phrase_service.dart';
 import 'package:mobile/features/onboarding/domain/models/baby_reaction.dart';
 import 'package:mobile/features/onboarding/domain/models/practice_scene.dart';
@@ -231,19 +230,13 @@ class _BottomActions extends ConsumerWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          AppScaleButton(
-            scaleDown: 0.97,
-            onTap: () {
+          ElevatedButton(
+            key: const Key('onboarding-said-button'),
+            onPressed: () {
               HapticFeedback.mediumImpact();
               sessionNotifier.recordSaid();
             },
-            child: IgnorePointer(
-              child: ElevatedButton(
-                key: const Key('onboarding-said-button'),
-                onPressed: () {}, // non-null = renders as enabled; tap handled by AppScaleButton
-                child: Text(l.onboardingV21SaidButton),
-              ),
-            ),
+            child: Text(l.onboardingV21SaidButton),
           ),
           const SizedBox(height: AppLayoutConstants.spacingSm),
           Row(
