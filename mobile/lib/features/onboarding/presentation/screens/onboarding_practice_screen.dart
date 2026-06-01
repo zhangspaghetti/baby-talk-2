@@ -8,8 +8,10 @@ import 'package:mobile/app/theme/app_layout_constants.dart';
 import 'package:mobile/app/theme/app_theme.dart';
 import 'package:mobile/app/widgets/app_mentor_bubble.dart';
 import 'package:mobile/app/widgets/app_scale_button.dart';
+import 'package:mobile/features/onboarding/data/services/scene_phrase_service.dart';
 import 'package:mobile/features/onboarding/domain/models/baby_reaction.dart';
 import 'package:mobile/features/onboarding/domain/models/practice_scene.dart';
+import 'package:mobile/features/onboarding/presentation/onboarding_session_notifier.dart';
 import 'package:mobile/features/onboarding/presentation/widgets/reaction_button.dart';
 
 class OnboardingPracticeScreen extends ConsumerWidget {
@@ -97,7 +99,7 @@ class OnboardingPracticeScreen extends ConsumerWidget {
 class _PhraseDisplay extends StatelessWidget {
   const _PhraseDisplay({required this.phrase});
 
-  final dynamic phrase; // ScenePhrase
+  final ScenePhrase phrase;
 
   @override
   Widget build(BuildContext context) {
@@ -167,7 +169,7 @@ class _PhraseDisplay extends StatelessWidget {
 class _ReactionArea extends StatelessWidget {
   const _ReactionArea({required this.notifier});
 
-  final dynamic notifier; // OnboardingSessionNotifier
+  final OnboardingSessionNotifier notifier;
 
   @override
   Widget build(BuildContext context) {
