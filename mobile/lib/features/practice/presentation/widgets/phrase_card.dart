@@ -6,8 +6,17 @@ import 'package:mobile/app/widgets/app_audio_button.dart';
 import 'package:mobile/features/practice/domain/models/interaction_event_payload.dart';
 import 'package:mobile/features/practice/domain/models/practice_phrase.dart';
 import 'package:mobile/features/practice/presentation/practice_session_notifier.dart';
-import 'package:mobile/features/practice/presentation/widgets/reaction_chip_row.dart';
+import 'package:mobile/features/practice/presentation/widgets/scene_reaction_chip_row.dart';
 import 'package:mobile/l10n/app_localizations.dart';
+
+/// Controls which mode the expanded [PhraseCard] renders.
+enum PhraseCardPhase {
+  /// Default state: phrase text + playback button.
+  ready,
+
+  /// After "说完了": "已保存本句" label + [SceneReactionChipRow].
+  saved,
+}
 
 class PhraseCard extends StatelessWidget {
   const PhraseCard({
@@ -25,6 +34,9 @@ class PhraseCard extends StatelessWidget {
     required this.onReactionSelected,
     this.onTtsSpeak,
     this.isTtsMode = false,
+    this.phase = PhraseCardPhase.ready,
+    this.sceneTag,
+    this.selectedReactionType,
   });
 
   final PracticePhrase phrase;
@@ -40,6 +52,9 @@ class PhraseCard extends StatelessWidget {
   final ValueChanged<BabyReactionType>? onReactionSelected;
   final VoidCallback? onTtsSpeak;
   final bool isTtsMode;
+  final PhraseCardPhase phase;
+  final String? sceneTag;
+  final BabyReactionType? selectedReactionType;
 
   @override
   Widget build(BuildContext context) {
@@ -206,17 +221,36 @@ class PhraseCard extends StatelessWidget {
                 : colors.info,
           ),
         ],
-        const SizedBox(height: AppLayoutConstants.spacingMd),
-        Text(
-          l.phraseReactionLabel,
-          style: Theme.of(context).textTheme.titleMedium,
-        ),
-        const SizedBox(height: AppLayoutConstants.spacingXs),
-        ReactionChipRow(
-          phraseId: phrase.phraseId,
-          enabled: canSubmitReaction,
-          onSelected: onReactionSelected,
-        ),
+        if (phase == PhraseCardPhase.saved) ...[
+          const SizedBox(height: AppLayoutConstants.spacingMd),
+          Row(
+            children: [
+              Icon(Icons.check_circle_rounded,
+                  size: 16, color: colors.success),
+              const SizedBox(width: 6),
+              Text(
+                '已保存本句',
+                style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                      color: colors.success,
+                      fontWeight: FontWeight.w700,
+                    ),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppLayoutConstants.spacingMd),
+          Text(
+            l.phraseReactionLabel,
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
+          const SizedBox(height: AppLayoutConstants.spacingXs),
+          SceneReactionChipRow(
+            phraseId: phrase.phraseId,
+            sceneTag: sceneTag,
+            enabled: canSubmitReaction,
+            selectedType: selectedReactionType,
+            onSelected: onReactionSelected,
+          ),
+        ],
         if (saveMessage != null) ...[
           const SizedBox(height: 14),
           _MessageBanner(
