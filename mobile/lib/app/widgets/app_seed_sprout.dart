@@ -63,19 +63,21 @@ class _AppSeedSproutState extends State<AppSeedSprout>
       ),
     );
 
-    final reducedMotion = MediaQuery.disableAnimationsOf(context);
-    if (reducedMotion) {
-      _controller.value = 1.0;
-      WidgetsBinding.instance.addPostFrameCallback((_) {
+    // MediaQuery must not be called in initState() — schedule after first frame.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final reducedMotion = MediaQuery.disableAnimationsOf(context);
+      if (reducedMotion) {
+        _controller.value = 1.0;
         widget.onAnimationComplete?.call();
-      });
-    } else {
-      _controller.forward().then((_) {
-        if (mounted) {
-          widget.onAnimationComplete?.call();
-        }
-      });
-    }
+      } else {
+        _controller.forward().then((_) {
+          if (mounted) {
+            widget.onAnimationComplete?.call();
+          }
+        });
+      }
+    });
   }
 
   @override
