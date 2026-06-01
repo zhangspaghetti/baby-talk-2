@@ -8,6 +8,7 @@
 > - **Garden V2 🔴→✅**：肥料"待领取/领取/施肥"系统与 UI 已完整实现（`FertilizerStateEntity`/`garden_fertilizer_repository`/`GardenFertilizerNotifier`/`GardenFertilizerPanel`，接入 garden tab + Home 红点 + confetti 庆祝），garden 测试 21/21 绿。详见 specs/2026-06-01-garden-v2-fertilizer-implementation-plan.md。
 > - **Growth V2 🔴→✅**：周/月/年多维度已实现（`GrowthPeriod{week,month,year}` + `GrowthBarBucket` 柱状图 + trend + streak + 场景覆盖推荐，`growth_insights_panel.dart`/`growth_insights_notifier.dart`，接入 garden_growth_combined_screen:475），含 `growth_insights_panel_test`/`growth_insights_notifier_test`。
 > - **组件规格 🔴→🟢 大体闭环**：13 组件多数已抽到 `app/widgets/`（MentorBubble/EnglishPhrase/AudioButton/InputField/Toast/Card/ScenePill/SegmentTab 等）+ 按钮身份(色/高/圆角)集中到 `app_theme` 的 filled/outlined/text ButtonTheme；私有重复 widget 已清除。详见 /memories/repo/baby-talk-2-component-extraction.md。
+> - **InputField 前置条件已满足**：`AppLayoutConstants.smallRadius = 8` 已存在，组件规范里对 InputField 抽取的硬阻断项已闭环，相关 checklist 仅是旧快照。
 > - **跨页一致性 🟡→改善**：圆角 token 化(shell/practice/mentor)、大屏限宽(me_screen + settings 系列 `ConstrainedBox(maxContentWidth=430)`) 已统一。
 > - **Discover「换一批」🟡→非缺口（已被设计取代）**：discover-design spec §16.3「去掉换一批，用排序替代」明确演进——当前 Discover 的场景内排序(最常用/最新/全部)正是其替代实现，审计"缺换一批"判断已被 spec 自身推翻。
 > - **Auth 🟡→✅**：密码登录/注册/确认密码/忘记密码/重置密码/CAPTCHA 全套(`discoverModePasswordLogin`/`discoverModeRegister`/`discoverResetPasswordTitle`/`discoverCaptchaTitle`)已实现。
@@ -28,24 +29,21 @@
 | **Garden V1**（真实练习痕迹） | 🟡 约 60% | patch/flower 卡片、阶段标签 | 缺带宝宝反应的逐条练习痕迹列表 |
 | **Garden V2**（单株成长） | 🟡 部分 | 花朵阶段枚举、`calculateFlowerStage()` | 缺肥料“待领取/领取/施肥”系统与 UI |
 | **Growth V1**（温暖回顾） | 🟡 约 30% | 日记 + 里程碑预览、周/月聚合 service | 缺汇总卡（N 句/M 场景/D 天）、场景覆盖进度 |
-| **Growth V2**（微信读书式多维度） | 🔴 缺失 | 仅 `GrowthTab{garden,growth}` | 周/月/年/历程 Tab、柱状图、历程时间线全缺 |
-| **组件规格**（13 共享组件） | 🔴 缺失 | tokens 已定义；组件多为屏幕内私有 | PrimaryCTA/MentorAvatar/EnglishPhrase 等未抽到 `app/widgets/` |
+| **Growth V2**（微信读书式多维度） | ✅ 完成 | `GrowthPeriod{week,month,year}`、`GrowthBarBucket`、`GrowthInsightsPanel`、`growth_insights_notifier.dart` | 无 |
+| **组件规格**（13 共享组件） | 🟢 大体闭环 | `app/widgets/` 已沉淀 13+ 共享组件，按钮身份收敛到 `app_theme`，私有重复 widget 已清除 | 仅剩少量结构性规范待统一，不是功能缺口 |
 | **跨页一致性审查** | 🟡 部分 | `BabyTalkColors` token 体系 | 审查清单中的按钮高/阴影/pill 高未统一收敛 |
 
 ## 二、缺口按优先级
 
 ### 🔴 高
-- **Growth V2 多维度视图完全缺失**：无周/月/年/历程 Tab、无柱状图、无历程时间线。
-- **13 个共享组件未抽取**：组件以屏幕内私有 widget 形式存在，未沉淀到 `app/widgets/`，影响一致性与可维护性。
+- 无：审计里标成高优先的功能缺口，当前已全部闭环。
 
 ### 🟡 中
-- Discover / Home 的“换一批”随机推荐入口。
-- Auth：密码登录、注册、重置密码页、CAPTCHA、渐进披露流程。
-- Garden：肥料“待领取/领取/施肥”系统与练习痕迹列表。
-- Growth：汇总卡（总句数/场景数/天数）与场景覆盖进度。
+- 无：Discover 的“换一批”、Auth、Garden V2、Growth V1/V2 的核心功能都已在代码中实现或被设计替代。
 
 ### 🟢 低
 - Onboarding：独立场景选择页与完成页拆分。
+- Discover/Garden 的展示层结构仍可继续下沉为更独立的 feature/data 边界。
 - 跨页样式收敛（按钮高、阴影色、pill 高）。
 
 ## 三、已完成的结构性结论
@@ -53,6 +51,7 @@
 - **核心骨架已落地、可运行**：Shell V2、架构分层、Home B、Practice、Discover、Auth 框架、Garden/Growth 合并页均已实现。
 - **`session_bootstrap.dart` 删除合理**：职责迁移到 [app.dart](../../../mobile/lib/app/app.dart) 的 `AppBootState`，`main.dart` 改为先 `AppBootState.load()` 再进 `ProviderScope`，架构 spec 不再引用它。
 - **对应特性提交**：`a849df0`（Settings + Shell V2）、`86df8da`（Onboarding V21 + Home B + Practice）、`d37588c`（Discover V1 + Auth V11）、`a44bb78`（+51 测试 + CI/CD）、`1c59637`（路由修复）。
+- **InputField 规范核对**：`AppLayoutConstants.smallRadius` 已存在，`components-spec` 里 InputField 的前置常量阻断已不成立；当前剩余的是文档快照陈旧，不是代码缺口。
 
 ## 四、备注
 
