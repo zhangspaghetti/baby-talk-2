@@ -259,7 +259,7 @@ class GrowthInsightsNotifier extends ChangeNotifier {
       'period': period.name,
       'windowStart': view.windowStart?.toUtc().toIso8601String(),
       'windowEnd': view.windowEnd?.toUtc().toIso8601String(),
-      'generatedAt': view.windowEnd?.toUtc().toIso8601String(),
+      'generatedAt': _now().toUtc().toIso8601String(),
       'stats': {
         'totalEvents': view.stats.totalEvents,
         'uniquePhrases': view.stats.uniquePhrases,
