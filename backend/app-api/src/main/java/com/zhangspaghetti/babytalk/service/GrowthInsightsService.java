@@ -214,7 +214,7 @@ public class GrowthInsightsService {
     private RecentActivity loadRecentActivity(String accountId, Instant now) {
         var weekEnd   = now.atZone(SHANGHAI).with(DayOfWeek.MONDAY).toLocalDate().atStartOfDay(SHANGHAI).toInstant();
         var weekStart = weekEnd.atZone(SHANGHAI).minusWeeks(1).toInstant();
-        var prevStart = weekStart.atZone(SHANGHAI).minusWeeks(1).toInstant();
+
 
         var row = jdbc.queryForMap(
                 """
