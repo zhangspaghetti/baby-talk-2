@@ -18,6 +18,8 @@ import 'package:mobile/features/household/data/local/household_local_store.dart'
 import 'package:mobile/features/household/data/repositories/household_repository.dart';
 import 'package:mobile/features/household/data/services/household_api_service.dart';
 import 'package:mobile/features/garden/data/local/garden_fertilizer_local_data_source.dart';
+import 'package:mobile/features/garden/data/remote/garden_fertilizer_api_service.dart';
+import 'package:mobile/features/garden/data/remote/garden_snapshot_api_service.dart';
 import 'package:mobile/features/garden/data/repositories/garden_fertilizer_repository.dart';
 import 'package:mobile/features/garden/presentation/garden_fertilizer_notifier.dart';
 import 'package:mobile/features/growth/data/remote/growth_insights_api_service.dart';
@@ -121,6 +123,13 @@ final growthSummaryApiServiceProvider = Provider<GrowthSummaryApiService>((
 final growthInsightsApiServiceProvider =
     Provider<GrowthInsightsApiService>((ref) {
       final service = GrowthInsightsApiService();
+      ref.onDispose(service.close);
+      return service;
+    });
+
+final gardenSnapshotApiServiceProvider =
+    Provider<GardenSnapshotApiService>((ref) {
+      final service = GardenSnapshotApiService();
       ref.onDispose(service.close);
       return service;
     });
@@ -414,6 +423,14 @@ final gardenGrowthNotifierProvider =
       return GardenGrowthNotifier(repository: repository)..initialize();
     });
 
+/// Garden V2 fertilizer API service (remote data source for fertilizer state).
+final gardenFertilizerApiServiceProvider =
+    Provider<GardenFertilizerApiService>((ref) {
+      final service = GardenFertilizerApiService();
+      ref.onDispose(service.close);
+      return service;
+    });
+
 /// Garden V2 fertilizer repository (own Isar instance, lazily opened).
 final gardenFertilizerRepositoryProvider =
     FutureProvider<GardenFertilizerRepository>((ref) async {
@@ -421,7 +438,10 @@ final gardenFertilizerRepositoryProvider =
       final localDataSource = await GardenFertilizerLocalDataSource.open(
         directory: directory.path,
       );
-      return GardenFertilizerRepository(localDataSource: localDataSource);
+      return GardenFertilizerRepository(
+        localDataSource: localDataSource,
+        remoteDataSource: ref.watch(gardenFertilizerApiServiceProvider),
+      );
     });
 
 /// Garden V2 fertilizer notifier composing the persisted fertilizer state with
