@@ -746,7 +746,4 @@ class _ShareRepositoryStub extends Fake implements ShareRepository {
     GardenGrowthSnapshot? growthSnapshot,
     PracticeContinuitySnapshot? continuitySnapshot,
   }) => null;
-
-  @override
-  Future<void> close() async {}
 }

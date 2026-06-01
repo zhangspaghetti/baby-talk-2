@@ -15,7 +15,6 @@ import 'package:mobile/features/household/data/repositories/household_repository
 import 'package:mobile/features/household/data/services/household_api_service.dart';
 import 'package:mobile/features/practice/data/local/practice_local_data_source.dart';
 import 'package:mobile/features/practice/data/repositories/practice_repository.dart';
-import 'package:mobile/features/practice/data/services/asset_phrase_service.dart';
 import 'package:mobile/features/practice/presentation/practice_session_notifier.dart';
 
 Future<void> main() async {

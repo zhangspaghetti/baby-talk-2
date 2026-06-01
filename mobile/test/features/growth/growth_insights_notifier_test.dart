@@ -195,7 +195,6 @@ void main() {
     test('loads from cache for instant paint before API responds', () async {
       final prefs = _FakePrefs();
       // Pre-populate cache.
-      final cachedPayload = makePayload(period: 'week', totalEvents: 42);
       await prefs.setString(
         'growth_insights_v1_week',
         jsonEncode({

@@ -186,37 +186,6 @@ Finder _homeScrollable() {
   return _homeScrollables().first;
 }
 
-Future<void> _scrollHomeTo(WidgetTester tester, Finder finder) async {
-  await _pumpUntilFound(
-    tester,
-    _homeScrollables(),
-    timeout: const Duration(seconds: 30),
-  );
-  final scrollableState = tester.state<ScrollableState>(_homeScrollable());
-  scrollableState.position.jumpTo(scrollableState.position.minScrollExtent);
-  await tester.pump();
-
-  for (var attempt = 0; attempt < 120; attempt++) {
-    if (_finderExists(finder)) {
-      await tester.ensureVisible(finder);
-      await _pumpBriefly(tester);
-      expect(finder, findsOneWidget);
-      return;
-    }
-    if (_finderExists(_homeScrollables())) {
-      if (attempt > 0 && attempt % 30 == 0) {
-        final state = tester.state<ScrollableState>(_homeScrollable());
-        state.position.jumpTo(state.position.minScrollExtent);
-      } else {
-        await tester.drag(_homeScrollable(), const Offset(0, -300));
-      }
-    }
-    await tester.pump(const Duration(milliseconds: 100));
-  }
-
-  fail('Timed out waiting for home content.');
-}
-
 Future<void> _scrollHomeToTop(WidgetTester tester) async {
   await _pumpUntilFound(
     tester,
@@ -352,22 +321,6 @@ Future<void> _expectGardenContinuation(
   await _pumpBriefly(tester);
   expect(targetFinder, findsOneWidget);
   expect(find.textContaining('接着刚才练过的场景'), findsWidgets);
-}
-
-Future<void> _waitForHomeReady(WidgetTester tester) async {
-  final shellReady = find.byKey(const Key('shell-ready'));
-  final shellRoute = find.byKey(const Key('boot-route-shell'));
-  const step = Duration(milliseconds: 300);
-  const timeout = Duration(seconds: 120);
-  final totalSteps = timeout.inMilliseconds ~/ step.inMilliseconds;
-  for (var index = 0; index < totalSteps; index++) {
-    await tester.pump(step);
-    if (shellReady.evaluate().isNotEmpty || shellRoute.evaluate().isNotEmpty) {
-      return;
-    }
-  }
-
-  fail('Timed out waiting for shell home route.');
 }
 
 Future<void> _pumpUntilFound(

@@ -374,7 +374,6 @@ Future<void> _completeStarterPractice(WidgetTester tester) async {
   await tester.pump(const Duration(milliseconds: 700));
 }
 
-Future<void> _waitForHomeReady(WidgetTester tester) async {
 Future<void> _waitForShellWithRetry(WidgetTester tester) async {
   final shellRoute = find.byKey(const Key('boot-route-shell'));
   final shellReady = find.byKey(const Key('shell-ready'));
@@ -434,23 +433,6 @@ Future<void> _pumpUntilFound(
   }
 
   fail('Timed out waiting for expected widget.');
-}
-
-Future<void> _pumpUntilGone(
-  WidgetTester tester,
-  Finder finder, {
-  Duration step = const Duration(milliseconds: 50),
-  Duration timeout = const Duration(seconds: 8),
-}) async {
-  final totalSteps = timeout.inMilliseconds ~/ step.inMilliseconds;
-  for (var index = 0; index < totalSteps; index++) {
-    await tester.pump(step);
-    if (finder.evaluate().isEmpty) {
-      return;
-    }
-  }
-
-  fail('Timed out waiting for widget to disappear.');
 }
 
 Future<void> _pumpBriefly(

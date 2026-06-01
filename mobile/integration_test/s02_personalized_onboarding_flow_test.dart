@@ -375,22 +375,6 @@ Future<void> _scrollTo(WidgetTester tester, Finder finder) async {
   await _pumpBriefly(tester);
 }
 
-Future<void> _waitForHomeReady(WidgetTester tester) async {
-  final shellReady = find.byKey(const Key('shell-ready'));
-  final shellRoute = find.byKey(const Key('boot-route-shell'));
-  const step = Duration(milliseconds: 300);
-  const timeout = Duration(seconds: 45);
-  final totalSteps = timeout.inMilliseconds ~/ step.inMilliseconds;
-  for (var index = 0; index < totalSteps; index++) {
-    await tester.pump(step);
-    if (shellReady.evaluate().isNotEmpty || shellRoute.evaluate().isNotEmpty) {
-      return;
-    }
-  }
-
-  fail('Timed out waiting for shell home route.');
-}
-
 Future<void> _waitForShellWithRetry(WidgetTester tester) async {
   final shellRoute = find.byKey(const Key('boot-route-shell'));
   final shellReady = find.byKey(const Key('shell-ready'));
@@ -444,23 +428,6 @@ Future<void> _pumpUntilFound(
   }
 
   fail('Timed out waiting for expected widget.');
-}
-
-Future<void> _pumpUntilGone(
-  WidgetTester tester,
-  Finder finder, {
-  Duration step = const Duration(milliseconds: 50),
-  Duration timeout = const Duration(seconds: 8),
-}) async {
-  final totalSteps = timeout.inMilliseconds ~/ step.inMilliseconds;
-  for (var index = 0; index < totalSteps; index++) {
-    await tester.pump(step);
-    if (finder.evaluate().isEmpty) {
-      return;
-    }
-  }
-
-  fail('Timed out waiting for widget to disappear.');
 }
 
 Future<void> _pumpBriefly(

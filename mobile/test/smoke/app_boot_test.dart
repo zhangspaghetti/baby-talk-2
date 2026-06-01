@@ -28,7 +28,6 @@ import 'package:mobile/features/practice/data/local/practice_local_data_source.d
 import 'package:mobile/features/practice/data/repositories/practice_repository.dart';
 import 'package:mobile/features/practice/domain/models/interaction_event_payload.dart';
 import 'package:mobile/features/practice/domain/models/practice_continuity_snapshot.dart';
-import 'package:mobile/features/practice/presentation/practice_continuity_notifier.dart';
 import 'package:mobile/features/practice/presentation/practice_session_notifier.dart';
 
 void main() {
