@@ -20,6 +20,9 @@ import 'package:mobile/features/onboarding/data/local/onboarding_snapshot_store.
 import 'package:mobile/features/onboarding/data/repositories/onboarding_repository.dart';
 import 'package:mobile/features/onboarding/domain/models/onboarding_snapshot.dart';
 import 'package:mobile/features/onboarding/presentation/screens/onboarding_name_screen.dart';
+import 'package:mobile/features/onboarding/presentation/screens/onboarding_scene_screen.dart';
+import 'package:mobile/features/onboarding/presentation/screens/onboarding_practice_screen.dart';
+import 'package:mobile/features/onboarding/presentation/screens/onboarding_complete_screen.dart';
 import 'package:mobile/features/practice/data/repositories/practice_repository.dart';
 import 'package:mobile/features/practice/data/services/asset_phrase_service.dart';
 import 'package:mobile/features/practice/presentation/garden_growth_notifier.dart';
@@ -379,6 +382,20 @@ class _BabyTalkAppState extends ConsumerState<BabyTalkApp> {
             routeKey: Key('boot-route-onboarding'),
             child: OnboardingNameScreen(),
           ),
+          routes: [
+            GoRoute(
+              path: 'scene',
+              builder: (context, state) => const OnboardingSceneScreen(),
+            ),
+            GoRoute(
+              path: 'practice',
+              builder: (context, state) => const OnboardingPracticeScreen(),
+            ),
+            GoRoute(
+              path: 'complete',
+              builder: (context, state) => const OnboardingCompleteScreen(),
+            ),
+          ],
         ),
         GoRoute(
           path: AppRouteNames.practice,
