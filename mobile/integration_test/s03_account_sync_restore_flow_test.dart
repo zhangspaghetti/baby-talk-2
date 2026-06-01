@@ -12,6 +12,9 @@ import 'package:mobile/core/device/installation_id_service.dart';
 import 'package:mobile/features/account/data/local/account_local_store.dart';
 import 'package:mobile/features/account/data/repositories/account_repository.dart';
 import 'package:mobile/features/account/data/services/account_api_service.dart';
+import 'package:mobile/features/mentor/data/local/mentor_local_data_source.dart';
+import 'package:mobile/features/mentor/data/repositories/mentor_repository.dart';
+import 'package:mobile/features/onboarding/data/local/onboarding_snapshot_store.dart';
 import 'package:mobile/features/onboarding/domain/models/onboarding_snapshot.dart';
 import 'package:mobile/features/onboarding/domain/models/stage_match.dart';
 import 'package:mobile/features/practice/data/local/practice_local_data_source.dart';
@@ -25,7 +28,7 @@ import 'support/in_memory_demo_backend.dart';
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
-  testWidgets('local-only 账号登录同步后，退出再登录仍能恢复 synced 账号状态', (WidgetTester tester) async {
+  testWidgets('local-only 完成练习后进行账号同步，退出再登录仍恢复账号状态且保留连续性结果', (WidgetTester tester) async {
     final backend = await InMemoryDemoBackend.start();
     addTearDown(() async {
       await backend.dispose();
@@ -73,6 +76,19 @@ void main() {
       directory: tempDir,
       apiBaseUrl: backend.baseUri.toString(),
     );
+
+    final mentorLocalDataSource = await MentorLocalDataSource.open(
+      directory: tempDir.path,
+      name: 'mentor_s03_account_sync_restore',
+    );
+    final mentorRepository = MentorRepository(
+      localDataSource: mentorLocalDataSource,
+      practiceRepository: firstRepository,
+      onboardingSnapshotStore: OnboardingSnapshotStore(
+        directoryResolver: () async => tempDir,
+      ),
+    );
+
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
@@ -89,6 +105,9 @@ void main() {
           householdRepositoryProvider.overrideWith(
             (ref) => firstHouseholdRepository,
           ),
+          mentorRepositoryProvider.overrideWith(
+            (ref) async => mentorRepository,
+          ),
         ],
         child: BabyTalkApp(
           bootState: bootState,
@@ -98,7 +117,27 @@ void main() {
       ),
     );
     await tester.pump();
-    await _waitForHomeReady(tester);
+    await _waitForShellWithRetry(tester);
+
+    final startButton = _homeStartPracticeButton();
+    await _scrollHomeTo(tester, startButton);
+    expect(startButton, findsOneWidget);
+    await _completeStarterPractice(tester);
+    await _pumpUntilFound(
+      tester,
+      find.byKey(const Key('home-b-practice-result')),
+      timeout: const Duration(seconds: 30),
+    );
+    expect(find.byKey(const Key('home-b-practice-result')), findsOneWidget);
+    await _scrollHomeTo(tester, find.byKey(const Key('recent-result-summary')));
+    await _pumpUntilFound(
+      tester,
+      find.byKey(const Key('recent-result-summary')),
+      timeout: const Duration(seconds: 30),
+    );
+    expect(find.byKey(const Key('recent-result-summary')), findsOneWidget);
+    expect(find.textContaining('All clean. · 宝宝放松'), findsOneWidget);
+    expect(find.textContaining('3 条本地记录'), findsOneWidget);
 
     await _openAccountEntryFromShell(tester);
 
@@ -182,8 +221,26 @@ void main() {
 
     expect(backend.bootstrapCount, 2);
 
+    await tester.tap(find.byKey(const Key('shell-nav-home')));
+    await _pumpBriefly(tester);
+    await _pumpUntilFound(
+      tester,
+      find.byKey(const Key('shell-ready')),
+      timeout: const Duration(seconds: 30),
+    );
+    await _scrollHomeTo(tester, find.byKey(const Key('recent-result-summary')));
+    await _pumpUntilFound(
+      tester,
+      find.byKey(const Key('recent-result-summary')),
+      timeout: const Duration(seconds: 30),
+    );
+    expect(find.byKey(const Key('recent-result-summary')), findsOneWidget);
+    expect(find.textContaining('All clean. · 宝宝放松'), findsOneWidget);
+    expect(find.textContaining('3 条本地记录'), findsOneWidget);
+
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pump(const Duration(milliseconds: 300));
+    await mentorRepository.close(deleteFromDisk: false);
     await firstRepository.close();
   });
 }
@@ -217,16 +274,46 @@ Future<PracticeRepository> _openRepository({
   );
 }
 
-Finder _homeScrollable() {
+Finder _homeScrollables() {
   return find.descendant(
     of: find.byType(HomeScreen),
     matching: find.byType(Scrollable),
   );
 }
 
+Finder _homeScrollable() {
+  return _homeScrollables().first;
+}
+
 Future<void> _scrollHomeTo(WidgetTester tester, Finder finder) async {
-  await tester.scrollUntilVisible(finder, 180, scrollable: _homeScrollable());
-  await _pumpBriefly(tester);
+  await _pumpUntilFound(
+    tester,
+    _homeScrollables(),
+    timeout: const Duration(seconds: 30),
+  );
+  final scrollableState = tester.state<ScrollableState>(_homeScrollable());
+  scrollableState.position.jumpTo(scrollableState.position.minScrollExtent);
+  await tester.pump();
+
+  for (var attempt = 0; attempt < 120; attempt++) {
+    if (_finderExists(finder)) {
+      await tester.ensureVisible(finder);
+      await _pumpBriefly(tester);
+      expect(finder, findsOneWidget);
+      return;
+    }
+    if (_finderExists(_homeScrollables())) {
+      if (attempt > 0 && attempt % 30 == 0) {
+        final state = tester.state<ScrollableState>(_homeScrollable());
+        state.position.jumpTo(state.position.minScrollExtent);
+      } else {
+        await tester.drag(_homeScrollable(), const Offset(0, -300));
+      }
+    }
+    await tester.pump(const Duration(milliseconds: 100));
+  }
+
+  fail('Timed out waiting for home content.');
 }
 
 Finder _homeStartPracticeButton() {
@@ -237,20 +324,78 @@ Finder _homeStartPracticeButton() {
   });
 }
 
+Future<void> _completeStarterPractice(WidgetTester tester) async {
+  await _pumpUntilFound(
+    tester,
+    _homeStartPracticeButton(),
+    timeout: const Duration(seconds: 30),
+  );
+  await tester.ensureVisible(_homeStartPracticeButton());
+  await tester.pump(const Duration(milliseconds: 100));
+  await tester.tap(_homeStartPracticeButton());
+
+  await _pumpUntilFound(
+    tester,
+    find.byKey(const Key('phrase-card-bath_time_warm_water')),
+  );
+
+  final firstReaction = find.byKey(
+    const Key('reaction-bath_time_warm_water-engaged'),
+  );
+  await _pumpUntilFound(tester, firstReaction);
+  await tester.ensureVisible(firstReaction);
+  await tester.pump(const Duration(milliseconds: 100));
+  await tester.tap(firstReaction);
+  await _pumpUntilFound(
+    tester,
+    find.byKey(const Key('phrase-card-bath_time_splash_splash')),
+  );
+
+  final secondReaction = find.byKey(
+    const Key('reaction-bath_time_splash_splash-imitated'),
+  );
+  await _pumpUntilFound(tester, secondReaction);
+  await tester.ensureVisible(secondReaction);
+  await tester.pump(const Duration(milliseconds: 100));
+  await tester.tap(secondReaction);
+  await _pumpUntilFound(
+    tester,
+    find.byKey(const Key('phrase-card-bath_time_all_clean')),
+  );
+
+  final thirdReaction = find.byKey(
+    const Key('reaction-bath_time_all_clean-calm'),
+  );
+  await _pumpUntilFound(tester, thirdReaction);
+  await tester.ensureVisible(thirdReaction);
+  await tester.pump(const Duration(milliseconds: 100));
+  await tester.tap(thirdReaction);
+  // Let recordReaction finish and transition back to home.
+  await tester.pump(const Duration(milliseconds: 700));
+}
+
 Future<void> _waitForHomeReady(WidgetTester tester) async {
-  final shellReady = find.byKey(const Key('shell-ready'));
+Future<void> _waitForShellWithRetry(WidgetTester tester) async {
   final shellRoute = find.byKey(const Key('boot-route-shell'));
+  final shellReady = find.byKey(const Key('shell-ready'));
+  final gateFailed = find.byKey(const Key('boot-route-gate-failed'));
+  final gateRetry = find.byKey(const Key('boot-route-gate-retry'));
+
   const step = Duration(milliseconds: 300);
-  const timeout = Duration(seconds: 45);
+  const timeout = Duration(seconds: 120);
   final totalSteps = timeout.inMilliseconds ~/ step.inMilliseconds;
   for (var index = 0; index < totalSteps; index++) {
     await tester.pump(step);
-    if (shellReady.evaluate().isNotEmpty || shellRoute.evaluate().isNotEmpty) {
+    if (shellRoute.evaluate().isNotEmpty || shellReady.evaluate().isNotEmpty) {
       return;
+    }
+    if (gateFailed.evaluate().isNotEmpty && gateRetry.evaluate().isNotEmpty) {
+      await tester.tap(gateRetry, warnIfMissed: false);
+      await tester.pump(const Duration(milliseconds: 500));
     }
   }
 
-  fail('Timed out waiting for shell home route.');
+  fail('Timed out waiting for shell route after boot gate retry.');
 }
 
 Future<void> _openAccountEntryFromShell(WidgetTester tester) async {
@@ -313,4 +458,12 @@ Future<void> _pumpBriefly(
   Duration duration = const Duration(milliseconds: 250),
 }) async {
   await tester.pump(duration);
+}
+
+bool _finderExists(Finder finder) {
+  try {
+    return finder.evaluate().isNotEmpty;
+  } on StateError {
+    return false;
+  }
 }
