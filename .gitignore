@@ -49,7 +49,11 @@ deploy/helm/babytalk-app/values-kind-qa-secrets.yaml
 
 # ── Prototype / brainstorm artifacts ──
 .superpowers/
+.omc/
 /artifacts/
+
+# ── Screenshots / captures ──
+emulator_screenshot*.png
 
 # ── Temp scripts (generated during development) ──
 clean_home.py
@@ -78,3 +82,13 @@ META-INF/
 # MemPalace per-project files (issue #185)
 mempalace.yaml
 entities.json
+
+# ── Root-level flutter create scaffolding (real app is in mobile/) ──
+/lib/
+/android/
+/.metadata
+/analysis_options.yaml
+*.iml
+
+# ── Temp debugging files ──
+mobile/tmp_*.dart
