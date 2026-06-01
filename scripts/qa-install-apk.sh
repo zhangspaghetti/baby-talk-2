@@ -116,6 +116,11 @@ fi
 echo "==> [adb] installing APK on $TARGET_DEVICE ..."
 adb -s "$TARGET_DEVICE" install -r "$APK_PATH"
 
+echo "==> [adb] setting up port reverse (emulator 127.0.0.1:${GATEWAY_PORT} -> host localhost:${GATEWAY_PORT})..."
+adb -s "$TARGET_DEVICE" reverse "tcp:${GATEWAY_PORT}" "tcp:${GATEWAY_PORT}" || {
+  echo "==> [adb] warning: adb reverse failed (OK on physical devices; emulator should work)"
+}
+
 echo "install_status=ok"
 echo "apk_path=$APK_PATH"
 echo "target_device=$TARGET_DEVICE"
