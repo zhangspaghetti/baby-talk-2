@@ -10,6 +10,8 @@ import 'package:mobile/features/garden/domain/models/fertilizer_state.dart';
 import 'package:mobile/features/garden/presentation/garden_fertilizer_notifier.dart';
 import 'package:mobile/features/growth/domain/services/growth_stats_service.dart';
 import 'package:mobile/features/growth/presentation/growth_insights_models.dart';
+import 'package:mobile/features/growth/data/models/growth_insights_payload.dart';
+import 'package:mobile/features/growth/data/remote/growth_insights_api_service.dart';
 import 'package:mobile/features/growth/presentation/growth_insights_notifier.dart';
 import 'package:mobile/features/practice/data/repositories/garden_growth_repository.dart';
 import 'package:mobile/features/practice/domain/models/garden_growth_snapshot.dart';
@@ -442,9 +444,19 @@ class _FertilizerNotifierStub extends GardenFertilizerNotifier {
 
 /// Static growth-insights stub: renders the loaded empty state (no chart, no
 /// loading shimmer) so [WidgetTester.pumpAndSettle] can settle.
+class _StubApiService implements GrowthInsightsApiService {
+  @override
+  final String appVersion = '1.0.0';
+  @override
+  Future<GrowthInsightsPayload> fetchInsights(String period) =>
+      throw UnimplementedError();
+  @override
+  void close() {}
+}
+
 class _GrowthInsightsNotifierStub extends GrowthInsightsNotifier {
   _GrowthInsightsNotifierStub()
-    : super(repositoryFuture: Completer<PracticeRepository>().future);
+    : super(apiService: _StubApiService());
 
   @override
   Future<void> initialize() async {}
