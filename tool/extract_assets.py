@@ -7,6 +7,7 @@ from PIL import Image
 import json
 import os
 from pathlib import Path
+from dataclasses import dataclass
 
 SPRITE_SHEET_PATH = r"C:\Users\zhang\Downloads\gpt\ChatGPT Image 2026年6月3日 08_59_49.png"
 OUTPUT_DIR = Path("mobile/assets/images")
@@ -33,15 +34,59 @@ def preprocess(img: np.ndarray) -> np.ndarray:
     return thresh
 
 
+@dataclass
+class ContourInfo:
+    """Information about a detected contour."""
+    x: int
+    y: int
+    width: int
+    height: int
+    area: float
+    center_x: int
+    center_y: int
+
+
+def detect_contours(thresh: np.ndarray) -> list[ContourInfo]:
+    """Find and filter contours from thresholded image."""
+    contours, _ = cv2.findContours(
+        thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
+    )
+    
+    result = []
+    for contour in contours:
+        area = cv2.contourArea(contour)
+        if area < MIN_CONTOUR_AREA:
+            continue
+        
+        x, y, w, h = cv2.boundingRect(contour)
+        center_x = x + w // 2
+        center_y = y + h // 2
+        
+        result.append(ContourInfo(
+            x=x, y=y, width=w, height=h,
+            area=area, center_x=center_x, center_y=center_y
+        ))
+    
+    # Sort by position (top-to-bottom, left-to-right)
+    result.sort(key=lambda c: (c.center_y, c.center_x))
+    
+    return result
+
+
 def main():
     print("Loading sprite sheet...")
     img = load_sprite_sheet(SPRITE_SHEET_PATH)
-    print(f"Image shape: {img.shape}")
     
     print("Preprocessing...")
     thresh = preprocess(img)
-    print(f"Threshold shape: {thresh.shape}")
-    print(f"Non-zero pixels: {cv2.countNonZero(thresh)}")
+    
+    print("Detecting contours...")
+    contours = detect_contours(thresh)
+    print(f"Found {len(contours)} contours")
+    
+    # Show first 5 contours
+    for i, c in enumerate(contours[:5]):
+        print(f"  {i}: pos=({c.x},{c.y}) size={c.width}x{c.height} area={c.area}")
 
 
 if __name__ == "__main__":
