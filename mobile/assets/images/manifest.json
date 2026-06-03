@@ -1,0 +1,131 @@
+{
+  "version": "1.0",
+  "source": "ChatGPT Image 2026年6月3日 08_59_49.png",
+  "categories": {
+    "plants": {
+      "count": 28,
+      "files": [
+        "plants_01.png",
+        "plants_02.png",
+        "plants_03.png",
+        "plants_04.png",
+        "plants_05.png",
+        "plants_06.png",
+        "plants_07.png",
+        "plants_08.png",
+        "plants_09.png",
+        "plants_10.png",
+        "plants_11.png",
+        "plants_12.png",
+        "plants_13.png",
+        "plants_14.png",
+        "plants_15.png",
+        "plants_16.png",
+        "plants_17.png",
+        "plants_18.png",
+        "plants_19.png",
+        "plants_20.png",
+        "plants_21.png",
+        "plants_22.png",
+        "plants_23.png",
+        "plants_24.png",
+        "plants_25.png",
+        "plants_26.png",
+        "plants_27.png",
+        "plants_28.png"
+      ]
+    },
+    "baby_items": {
+      "count": 10,
+      "files": [
+        "baby_items_01.png",
+        "baby_items_02.png",
+        "baby_items_03.png",
+        "baby_items_04.png",
+        "baby_items_05.png",
+        "baby_items_06.png",
+        "baby_items_07.png",
+        "baby_items_08.png",
+        "baby_items_09.png",
+        "baby_items_10.png"
+      ]
+    },
+    "activities": {
+      "count": 23,
+      "files": [
+        "activities_01.png",
+        "activities_02.png",
+        "activities_03.png",
+        "activities_04.png",
+        "activities_05.png",
+        "activities_06.png",
+        "activities_07.png",
+        "activities_08.png",
+        "activities_09.png",
+        "activities_10.png",
+        "activities_11.png",
+        "activities_12.png",
+        "activities_13.png",
+        "activities_14.png",
+        "activities_15.png",
+        "activities_16.png",
+        "activities_17.png",
+        "activities_18.png",
+        "activities_19.png",
+        "activities_20.png",
+        "activities_21.png",
+        "activities_22.png",
+        "activities_23.png"
+      ]
+    },
+    "emotions": {
+      "count": 10,
+      "files": [
+        "emotions_01.png",
+        "emotions_02.png",
+        "emotions_03.png",
+        "emotions_04.png",
+        "emotions_05.png",
+        "emotions_06.png",
+        "emotions_07.png",
+        "emotions_08.png",
+        "emotions_09.png",
+        "emotions_10.png"
+      ]
+    },
+    "mentor": {
+      "count": 24,
+      "files": [
+        "mentor_01.png",
+        "mentor_02.png",
+        "mentor_03.png",
+        "mentor_04.png",
+        "mentor_05.png",
+        "mentor_06.png",
+        "mentor_07.png",
+        "mentor_08.png",
+        "mentor_09.png",
+        "mentor_10.png",
+        "mentor_11.png",
+        "mentor_12.png",
+        "mentor_13.png",
+        "mentor_14.png",
+        "mentor_15.png",
+        "mentor_16.png",
+        "mentor_17.png",
+        "mentor_18.png",
+        "mentor_19.png",
+        "mentor_20.png",
+        "mentor_21.png",
+        "mentor_22.png",
+        "mentor_23.png",
+        "mentor_24.png"
+      ]
+    },
+    "garden": {
+      "count": 0,
+      "files": []
+    }
+  },
+  "total_assets": 95
+}
