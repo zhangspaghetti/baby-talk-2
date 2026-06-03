@@ -30,6 +30,9 @@ class OnboardingPracticeScreen extends ConsumerWidget {
       );
     }
 
+    final theme = Theme.of(context);
+    final colors = context.appColors;
+
     return Scaffold(
       body: SafeArea(
         child: Align(
@@ -73,9 +76,20 @@ class OnboardingPracticeScreen extends ConsumerWidget {
                   child: ListView(
                     padding: AppLayoutConstants.screenPadding,
                     children: [
+                      // Progress indicator
+                      Center(
+                        child: Text(
+                          '${notifier.currentPhraseIndex} / ${notifier.totalPhrasesInScene}',
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            color: colors.textSecondary,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: AppLayoutConstants.spacingMd),
                       AppMentorBubble(message: scene.mentorBubbleCopy),
                       const SizedBox(height: AppLayoutConstants.spacingXl),
-                      // Phrase display (no border)
+                      // Phrase display (centered)
                       _PhraseDisplay(phrase: phrase),
                       const SizedBox(height: AppLayoutConstants.spacingXl),
                       // Reaction area
@@ -106,32 +120,19 @@ class _PhraseDisplay extends StatelessWidget {
     final theme = Theme.of(context);
 
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        // Scene pill
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-          decoration: BoxDecoration(
-            color: colors.bgAccentSoft,
-            borderRadius: BorderRadius.circular(AppLayoutConstants.pillRadius),
-          ),
-          child: Text(
-            phrase.scene.label,
-            style: theme.textTheme.labelSmall?.copyWith(
-              color: colors.accentDark,
-            ),
-          ),
-        ),
-        const SizedBox(height: AppLayoutConstants.spacingSm),
-        // English phrase
+        // English phrase (centered, large)
         Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            Expanded(
+            Flexible(
               child: Text(
                 phrase.english,
+                textAlign: TextAlign.center,
                 style: theme.textTheme.displayMedium?.copyWith(
-                  fontSize: 32,
+                  fontSize: 26,
                   height: 1.3,
                   color: colors.english,
                 ),
@@ -141,7 +142,7 @@ class _PhraseDisplay extends StatelessWidget {
             IconButton(
               icon: Icon(
                 Icons.volume_up_outlined,
-                size: 20,
+                size: 22,
                 color: colors.textSecondary,
               ),
               onPressed: () {
@@ -153,9 +154,10 @@ class _PhraseDisplay extends StatelessWidget {
           ],
         ),
         const SizedBox(height: AppLayoutConstants.spacingXs),
-        // Chinese translation
+        // Chinese translation (centered)
         Text(
           phrase.chinese,
+          textAlign: TextAlign.center,
           style: theme.textTheme.bodyMedium?.copyWith(
             color: colors.textSecondary,
           ),
@@ -219,6 +221,8 @@ class _BottomActions extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l = AppLocalizations.of(context)!;
+    final colors = context.appColors;
+    final theme = Theme.of(context);
     final sessionNotifier = ref.read(onboardingSessionProvider.notifier);
 
     if (notifier.showReactionPicker) {
@@ -230,13 +234,41 @@ class _BottomActions extends ConsumerWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          ElevatedButton(
-            key: const Key('onboarding-said-button'),
-            onPressed: () {
-              HapticFeedback.mediumImpact();
-              sessionNotifier.recordSaid();
-            },
-            child: Text(l.onboardingV21SaidButton),
+          // CTA button: "我说了 ✨" with heart icon
+          SizedBox(
+            width: double.infinity,
+            height: 52,
+            child: ElevatedButton.icon(
+              key: const Key('onboarding-said-button'),
+              onPressed: () {
+                HapticFeedback.mediumImpact();
+                sessionNotifier.recordSaid();
+              },
+              icon: const Text('❤️', style: TextStyle(fontSize: 18)),
+              label: Text(
+                '我说了 ✨',
+                style: theme.textTheme.titleMedium?.copyWith(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: colors.accent,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(AppLayoutConstants.cardRadius),
+                ),
+                elevation: 2,
+              ),
+            ),
+          ),
+          const SizedBox(height: AppLayoutConstants.spacingXs),
+          // Helper text
+          Text(
+            '等你说完再点哦 →',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: colors.textMuted,
+            ),
           ),
           const SizedBox(height: AppLayoutConstants.spacingSm),
           Row(

@@ -20,6 +20,9 @@ class OnboardingSessionNotifier extends ChangeNotifier {
   OnboardingSession get session => _session;
   ScenePhrase? get currentPhrase => _currentPhrase;
   bool get showReactionPicker => _showReactionPicker;
+  int get currentPhraseIndex => _session.practicedCount + 1;
+  int get totalPhrasesInScene =>
+      _phraseService.getPhrases(_session.selectedScene!).length;
 
   bool get phrasePoolExhausted {
     final scene = _session.selectedScene;
