@@ -95,9 +95,9 @@ class _AppShellScreenState extends ConsumerState<AppShellScreen> {
         onboardingSnapshot: widget.onboardingSnapshot,
         stageMatch: stageMatch,
       ),
-      // §5 规则1/规则2：首页用内联「问小禾」入口、花园页有自己的施肥交互，
-      // 两者均隐藏全局小禾 FAB；其余页面（发现/我）固定显示。
-      floatingActionButton: (_selectedIndex == 0 || _selectedIndex == 2)
+      // §5 规则1/规则2：花园页有自己的施肥交互，隐藏全局小禾 FAB；
+      // 其余页面（首页/发现/我）固定显示。
+      floatingActionButton: _selectedIndex == 2
           ? null
           : XiaoheFab(
               key: const Key('shell-mentor-fab'),

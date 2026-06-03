@@ -12,7 +12,7 @@ import 'package:mobile/app/share_reentry_coordinator.dart';
 import 'package:mobile/app/theme/app_layout_constants.dart';
 import 'package:mobile/app/theme/app_theme.dart';
 import 'package:mobile/features/account/data/repositories/account_repository.dart';
-import 'package:mobile/features/account/presentation/screens/account_entry_screen.dart';
+import 'package:mobile/features/auth/presentation/screens/auth_screen.dart';
 import 'package:mobile/features/household/data/repositories/household_repository.dart';
 import 'package:mobile/features/household/presentation/household_notifier.dart';
 import 'package:mobile/features/mentor/data/repositories/mentor_repository.dart';
@@ -409,7 +409,7 @@ class _BabyTalkAppState extends ConsumerState<BabyTalkApp> {
         ),
         GoRoute(
           path: AppRouteNames.account,
-          builder: (context, state) => const AccountEntryScreen(),
+          builder: (context, state) => const AuthScreen(),
         ),
         GoRoute(
           path: '/me/settings',

@@ -148,6 +148,14 @@ if command -v adb >/dev/null 2>&1; then
     echo "==> [adb] installing APK on connected device/emulator..."
     adb install -r "$APK_PATH"
     echo "    install: ok"
+
+    echo "==> [adb] setting up port reverse (emulator -> host)..."
+    adb reverse "tcp:${GATEWAY_LOCAL_PORT}" "tcp:${GATEWAY_LOCAL_PORT}" || {
+      echo "    WARNING: adb reverse gateway failed (OK on physical devices; emulator needs this)"
+    }
+    adb reverse "tcp:${ADMIN_WEB_LOCAL_PORT}" "tcp:${ADMIN_WEB_LOCAL_PORT}" || {
+      echo "    WARNING: adb reverse admin-web failed (OK on physical devices; emulator needs this)"
+    }
   else
     echo "==> [adb] no connected emulator/device found — APK ready for manual install"
     echo "    To start emulator: emulator -avd <your_avd_name>"

@@ -4,8 +4,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:mobile/app/providers/repository_providers.dart';
 import 'package:mobile/app/theme/app_layout_constants.dart';
 import 'package:mobile/app/theme/app_theme.dart';
+import 'package:mobile/features/account/data/services/account_api_service.dart';
 import 'package:mobile/l10n/app_localizations.dart';
 import 'package:pinput/pinput.dart';
 
@@ -34,6 +36,8 @@ class AuthScreen extends HookConsumerWidget {
     final errorMessage = useState<String?>(null);
     final infoMessage = useState<String?>(null);
     final isSubmitting = useState(false);
+    final challengeId = useState<String?>(null);
+    final maskedPhoneNumber = useState<String?>(null);
 
     useEffect(() {
       codeSent.value = false;
@@ -48,6 +52,8 @@ class AuthScreen extends HookConsumerWidget {
       errorMessage.value = null;
       infoMessage.value = null;
       isSubmitting.value = false;
+      challengeId.value = null;
+      maskedPhoneNumber.value = null;
       return null;
     }, [mode.value]);
 
@@ -80,19 +86,40 @@ class AuthScreen extends HookConsumerWidget {
             : '请输入 11 位手机号。';
         return;
       }
+
+      // Password login doesn't need verification code
+      if (mode.value == AuthMode.passwordLogin) {
+        return;
+      }
+
       await _showCaptchaSheet(
         context,
         purposeLabel: _captchaPurpose(mode.value),
-        onPassed: () {
+        onPassed: () async {
           captchaPassed.value = true;
-          codeSent.value = true;
-          resendSeconds.value = 59;
-          infoMessage.value = l.discoverCodeSentToast;
+          // Call backend API to send verification code
+          try {
+            final api = ref.read(accountApiServiceProvider);
+            final result = await api.createChallenge(
+              phoneNumber: contactController.text.trim(),
+            );
+            challengeId.value = result.challengeId;
+            maskedPhoneNumber.value = result.maskedPhoneNumber;
+            codeSent.value = true;
+            resendSeconds.value = 59;
+            infoMessage.value = '验证码已发送至 ${result.maskedPhoneNumber}';
+          } on AccountApiException catch (e) {
+            errorMessage.value = _friendlyErrorMessage(e);
+            captchaPassed.value = false;
+          } catch (e) {
+            errorMessage.value = '发送验证码失败，请稍后重试。';
+            captchaPassed.value = false;
+          }
         },
       );
     }
 
-    void submit() {
+    Future<void> submit() async {
       errorMessage.value = null;
       infoMessage.value = null;
 
@@ -110,17 +137,51 @@ class AuthScreen extends HookConsumerWidget {
         return;
       }
 
-      infoMessage.value = _successMessage(mode.value);
+      isSubmitting.value = true;
+      try {
+        final api = ref.read(accountApiServiceProvider);
+
+        if (mode.value == AuthMode.passwordLogin) {
+          // Password login - not yet supported by backend
+          errorMessage.value = '密码登录功能即将上线，请使用验证码登录。';
+          return;
+        }
+
+        // Verify the code
+        final currentChallengeId = challengeId.value;
+        if (currentChallengeId == null) {
+          errorMessage.value = '请先发送验证码。';
+          return;
+        }
+
+        await api.verifyChallenge(
+          challengeId: currentChallengeId,
+          verificationCode: codeController.text.trim(),
+          installationId: 'mobile-${DateTime.now().millisecondsSinceEpoch}',
+        );
+
+        infoMessage.value = _successMessage(mode.value);
+        // TODO: Navigate to home or handle session
+      } on AccountApiException catch (e) {
+        errorMessage.value = _friendlyErrorMessage(e);
+      } catch (e) {
+        errorMessage.value = '操作失败，请稍后重试。';
+      } finally {
+        isSubmitting.value = false;
+      }
     }
 
     return Scaffold(
-      appBar: AppBar(title: const Text('BabyTalk')),
+      backgroundColor: colors.bgBase,
       body: SafeArea(
         child: Center(
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 520),
             child: SingleChildScrollView(
-              padding: const EdgeInsets.all(AppLayoutConstants.spacingXl),
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppLayoutConstants.spacingXl,
+                vertical: AppLayoutConstants.spacing2xl,
+              ),
               child: Semantics(
                 container: true,
                 label: _screenSemanticsLabel(mode.value, codeSent.value),
@@ -129,7 +190,7 @@ class AuthScreen extends HookConsumerWidget {
                   children: [
                     // --- Brand trust header ---
                     _BrandHeader(colors: colors, l: l),
-                    const SizedBox(height: AppLayoutConstants.spacingXl),
+                    const SizedBox(height: AppLayoutConstants.spacing2xl),
 
                     // --- Mode selector ---
                     if (showSegmented)
@@ -153,7 +214,7 @@ class AuthScreen extends HookConsumerWidget {
                       textField: true,
                       label: _contactLabel(mode.value, l),
                       hint: _contactHelp(mode.value, l),
-                      child: TextField(
+                      child: _WarmTextField(
                         key: const Key('auth-contact-field'),
                         controller: contactController,
                         keyboardType: _keyboardTypeForMode(mode.value),
@@ -162,13 +223,11 @@ class AuthScreen extends HookConsumerWidget {
                             ? TextInputAction.next
                             : TextInputAction.done,
                         inputFormatters: _inputFormattersForMode(mode.value),
-                        decoration: InputDecoration(
-                          labelText: _contactLabel(mode.value, l),
-                          helperText: _contactHelp(mode.value, l),
-                          prefixText:
-                              _usesPhoneOnly(mode.value) ? '+86 ' : null,
-                          border: const OutlineInputBorder(),
-                        ),
+                        labelText: _contactLabel(mode.value, l),
+                        hintText: _contactHelp(mode.value, l),
+                        prefixIcon: _usesPhoneOnly(mode.value)
+                            ? Icons.phone_outlined
+                            : Icons.alternate_email,
                         onChanged: (_) {
                           errorMessage.value = null;
                           infoMessage.value = null;
@@ -483,6 +542,28 @@ class AuthScreen extends HookConsumerWidget {
     return null;
   }
 
+  static String _friendlyErrorMessage(AccountApiException e) {
+    if (e.isUnauthorized) {
+      return '验证码错误或已过期，请重新获取。';
+    }
+    if (e.isVersionBlocked) {
+      return '应用版本过低，请更新后重试。';
+    }
+    if (e.isConsentRevoked) {
+      return '账号权限已撤销，请联系客服。';
+    }
+    if (e.isAccountDeleted) {
+      return '该账号已注销。';
+    }
+    if (e.isServerFailure) {
+      return '服务器繁忙，请稍后重试。';
+    }
+    if (e.isRetryable) {
+      return '网络不稳定，请稍后重试。';
+    }
+    return e.message.isNotEmpty ? e.message : '操作失败，请稍后重试。';
+  }
+
   static String _successMessage(AuthMode mode) {
     switch (mode) {
       case AuthMode.codeLogin:
@@ -577,7 +658,7 @@ class AuthScreen extends HookConsumerWidget {
 }
 
 // ─────────────────────────────────────────────────────────────
-// Brand Header (V11 trust copy)
+// Brand Header (Warm Paper Kindness design)
 // ─────────────────────────────────────────────────────────────
 
 class _BrandHeader extends StatelessWidget {
@@ -591,43 +672,181 @@ class _BrandHeader extends StatelessWidget {
     return Semantics(
       header: true,
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Logo / brand icon
+          Container(
+            width: 80,
+            height: 80,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  colors.accent,
+                  colors.accent.withValues(alpha: 0.8),
+                ],
+              ),
+              borderRadius: BorderRadius.circular(24),
+              boxShadow: [
+                BoxShadow(
+                  color: colors.accent.withValues(alpha: 0.3),
+                  blurRadius: 20,
+                  offset: const Offset(0, 8),
+                ),
+              ],
+            ),
+            child: const Icon(
+              Icons.child_care,
+              size: 40,
+              color: Colors.white,
+            ),
+          ),
+          const SizedBox(height: AppLayoutConstants.spacingXl),
+
+          // Title
           Text(
             l.discoverUnifiedLoginTitle,
             style: TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
+              fontSize: 28,
+              fontWeight: FontWeight.w700,
               color: colors.textPrimary,
+              letterSpacing: -0.5,
             ),
+            textAlign: TextAlign.center,
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: AppLayoutConstants.spacingSm),
+
+          // Subtitle
           Text(
             l.discoverUnifiedLoginSubtitle,
             style: TextStyle(
               fontSize: 15,
               color: colors.textSecondary,
+              height: 1.5,
+            ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: AppLayoutConstants.spacingMd),
+
+          // Trust badge
+          Container(
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppLayoutConstants.spacingMd,
+              vertical: AppLayoutConstants.spacingXs,
+            ),
+            decoration: BoxDecoration(
+              color: colors.bgAccentSoft,
+              borderRadius: BorderRadius.circular(AppLayoutConstants.pillRadius),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.shield_outlined,
+                  size: 14,
+                  color: colors.accent,
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  l.discoverTrustPrivacy,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: colors.accent,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
             ),
           ),
-          const SizedBox(height: 4),
-          Row(
-            children: [
-              Icon(
-                Icons.shield_outlined,
-                size: 14,
-                color: colors.textMuted,
-              ),
-              const SizedBox(width: 4),
-              Text(
-                l.discoverTrustPrivacy,
-                style: TextStyle(
-                  fontSize: 12,
-                  color: colors.textMuted,
-                ),
-              ),
-            ],
-          ),
         ],
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────
+// Warm Text Field (Warm Paper Kindness design)
+// ─────────────────────────────────────────────────────────────
+
+class _WarmTextField extends StatelessWidget {
+  const _WarmTextField({
+    super.key,
+    required this.controller,
+    required this.labelText,
+    required this.hintText,
+    required this.prefixIcon,
+    this.keyboardType,
+    this.autofillHints,
+    this.textInputAction,
+    this.inputFormatters,
+    this.onChanged,
+  });
+
+  final TextEditingController controller;
+  final String labelText;
+  final String hintText;
+  final IconData prefixIcon;
+  final TextInputType? keyboardType;
+  final Iterable<String>? autofillHints;
+  final TextInputAction? textInputAction;
+  final List<TextInputFormatter>? inputFormatters;
+  final ValueChanged<String>? onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    return Container(
+      decoration: BoxDecoration(
+        color: colors.bgSurface,
+        borderRadius: BorderRadius.circular(AppLayoutConstants.cardRadius),
+        boxShadow: colors.warmShadowSm,
+      ),
+      child: TextField(
+        controller: controller,
+        keyboardType: keyboardType,
+        autofillHints: autofillHints,
+        textInputAction: textInputAction,
+        inputFormatters: inputFormatters,
+        onChanged: onChanged,
+        style: TextStyle(
+          fontSize: 16,
+          color: colors.textPrimary,
+        ),
+        decoration: InputDecoration(
+          labelText: labelText,
+          hintText: hintText,
+          labelStyle: TextStyle(
+            color: colors.textSecondary,
+            fontSize: 14,
+          ),
+          hintStyle: TextStyle(
+            color: colors.textMuted,
+            fontSize: 14,
+          ),
+          prefixIcon: Icon(
+            prefixIcon,
+            size: 20,
+            color: colors.textMuted,
+          ),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(AppLayoutConstants.cardRadius),
+            borderSide: BorderSide.none,
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(AppLayoutConstants.cardRadius),
+            borderSide: BorderSide(color: colors.outlineSoft),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(AppLayoutConstants.cardRadius),
+            borderSide: BorderSide(color: colors.accent, width: 2),
+          ),
+          filled: true,
+          fillColor: colors.bgSurface,
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: AppLayoutConstants.spacingMd,
+            vertical: AppLayoutConstants.spacingMd,
+          ),
+        ),
       ),
     );
   }
@@ -649,27 +868,70 @@ class _AuthModeSelector extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
+    final colors = context.appColors;
     return Semantics(
       label: '认证方式选择',
-      child: SegmentedButton<AuthMode>(
-        segments: [
-          ButtonSegment(
-            value: AuthMode.codeLogin,
-            label: Text(l.discoverModeCodeLogin),
+      child: Container(
+        padding: const EdgeInsets.all(4),
+        decoration: BoxDecoration(
+          color: colors.bgSunken,
+          borderRadius: BorderRadius.circular(AppLayoutConstants.cardRadius),
+        ),
+        child: Row(
+          children: [
+            _buildTab(
+              context,
+              label: l.discoverModeCodeLogin,
+              isSelected: mode == AuthMode.codeLogin,
+              onTap: () => onChanged(AuthMode.codeLogin),
+            ),
+            _buildTab(
+              context,
+              label: l.discoverModePasswordLogin,
+              isSelected: mode == AuthMode.passwordLogin,
+              onTap: () => onChanged(AuthMode.passwordLogin),
+            ),
+            _buildTab(
+              context,
+              label: l.discoverModeRegister,
+              isSelected: mode == AuthMode.register,
+              onTap: () => onChanged(AuthMode.register),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTab(
+    BuildContext context, {
+    required String label,
+    required bool isSelected,
+    required VoidCallback onTap,
+  }) {
+    final colors = context.appColors;
+    return Expanded(
+      child: GestureDetector(
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.easeInOut,
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          decoration: BoxDecoration(
+            color: isSelected ? colors.bgSurface : Colors.transparent,
+            borderRadius: BorderRadius.circular(AppLayoutConstants.smallRadius),
+            boxShadow: isSelected ? colors.warmShadowSm : null,
           ),
-          ButtonSegment(
-            value: AuthMode.passwordLogin,
-            label: Text(l.discoverModePasswordLogin),
+          child: Text(
+            label,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+              color: isSelected ? colors.accent : colors.textSecondary,
+            ),
           ),
-          ButtonSegment(
-            value: AuthMode.register,
-            label: Text(l.discoverModeRegister),
-          ),
-        ],
-        selected: {mode},
-        onSelectionChanged: (selection) {
-          onChanged(selection.first);
-        },
+        ),
       ),
     );
   }
@@ -910,27 +1172,66 @@ class _PasswordField extends StatelessWidget {
     return Semantics(
       textField: true,
       label: semanticsLabel,
-      child: TextField(
-        key: ValueKey(labelText),
-        controller: controller,
-        obscureText: !visible,
-        autofillHints: const [AutofillHints.password],
-        textInputAction: textInputAction,
-        decoration: InputDecoration(
-          labelText: labelText,
-          helperText: '至少 8 位，建议包含字母和数字',
-          border: const OutlineInputBorder(),
-          prefixIcon: Icon(
-            Icons.lock_outline,
-            size: 20,
-            color: colors.textMuted,
+      child: Container(
+        decoration: BoxDecoration(
+          color: colors.bgSurface,
+          borderRadius: BorderRadius.circular(AppLayoutConstants.cardRadius),
+          boxShadow: colors.warmShadowSm,
+        ),
+        child: TextField(
+          key: ValueKey(labelText),
+          controller: controller,
+          obscureText: !visible,
+          autofillHints: const [AutofillHints.password],
+          textInputAction: textInputAction,
+          style: TextStyle(
+            fontSize: 16,
+            color: colors.textPrimary,
           ),
-          suffixIcon: Semantics(
-            button: true,
-            label: visible ? '隐藏密码' : '显示密码',
-            child: IconButton(
-              onPressed: onToggleVisibility,
-              icon: Icon(visible ? Icons.visibility_off : Icons.visibility),
+          decoration: InputDecoration(
+            labelText: labelText,
+            helperText: '至少 8 位，建议包含字母和数字',
+            labelStyle: TextStyle(
+              color: colors.textSecondary,
+              fontSize: 14,
+            ),
+            helperStyle: TextStyle(
+              color: colors.textMuted,
+              fontSize: 12,
+            ),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(AppLayoutConstants.cardRadius),
+              borderSide: BorderSide.none,
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(AppLayoutConstants.cardRadius),
+              borderSide: BorderSide(color: colors.outlineSoft),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(AppLayoutConstants.cardRadius),
+              borderSide: BorderSide(color: colors.accent, width: 2),
+            ),
+            filled: true,
+            fillColor: colors.bgSurface,
+            prefixIcon: Icon(
+              Icons.lock_outline,
+              size: 20,
+              color: colors.textMuted,
+            ),
+            suffixIcon: Semantics(
+              button: true,
+              label: visible ? '隐藏密码' : '显示密码',
+              child: IconButton(
+                onPressed: onToggleVisibility,
+                icon: Icon(
+                  visible ? Icons.visibility_off : Icons.visibility,
+                  color: colors.textMuted,
+                ),
+              ),
+            ),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: AppLayoutConstants.spacingMd,
+              vertical: AppLayoutConstants.spacingMd,
             ),
           ),
         ),

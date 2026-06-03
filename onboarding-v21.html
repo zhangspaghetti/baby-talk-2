@@ -1,0 +1,858 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>BabyTalk Onboarding V21</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Nunito+Sans:wght@300;400;500;600;700&family=Varela+Round&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+tailwind.config = {
+  theme: {
+    extend: {
+      colors: {
+        warm: { 50: '#FFFBF5', 100: '#FFF5E8', 200: '#FFE8CC', 300: '#FFD4A8', 400: '#FFBE78', paper: '#FFF8F0' },
+        accent: { DEFAULT: '#FF8C42', light: '#FFA96B', dark: '#E07020', 50: '#FFF4EB' },
+        leaf: { DEFAULT: '#3B8577', light: '#5AA899', dark: '#2D6B5F', 50: '#F0F9F7' },
+        seed: { DEFAULT: '#8B6F47', light: '#A68B5B' },
+        slate: { 750: '#293548' }
+      },
+      fontFamily: {
+        fraunces: ['Fraunces', 'Georgia', 'serif'],
+        body: ['Nunito Sans', 'system-ui', 'sans-serif'],
+        round: ['Varela Round', 'sans-serif'],
+      },
+      animation: {
+        'sprout-grow': 'sproutGrow 1.5s cubic-bezier(0.25, 0.1, 0.25, 1) forwards',
+        'leaf-left': 'leafLeft 0.8s cubic-bezier(0.34, 1.56, 0.64, 1) 0.5s forwards',
+        'leaf-right': 'leafRight 0.8s cubic-bezier(0.34, 1.56, 0.64, 1) 0.7s forwards',
+        'fade-up': 'fadeUp 0.5s ease-out forwards',
+        'fade-in': 'fadeIn 0.4s ease-out forwards',
+        'slide-up': 'slideUp 0.3s ease-out forwards',
+        'pulse-gentle': 'pulseGentle 2s ease-in-out infinite',
+        'countdown': 'countdown 3s linear forwards',
+        'bounce-in': 'bounceIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) forwards',
+        'stagger-1': 'fadeIn 0.3s ease-out 0.05s forwards',
+        'stagger-2': 'fadeIn 0.3s ease-out 0.1s forwards',
+        'stagger-3': 'fadeIn 0.3s ease-out 0.15s forwards',
+      },
+      keyframes: {
+        sproutGrow: {
+          '0%': { transform: 'scaleY(0)', transformOrigin: 'bottom', opacity: '0' },
+          '60%': { transform: 'scaleY(1.1)', opacity: '1' },
+          '100%': { transform: 'scaleY(1)', opacity: '1' },
+        },
+        leafLeft: {
+          '0%': { transform: 'rotate(0deg) scale(0)', opacity: '0' },
+          '100%': { transform: 'rotate(-25deg) scale(1)', opacity: '1' },
+        },
+        leafRight: {
+          '0%': { transform: 'rotate(0deg) scale(0)', opacity: '0' },
+          '100%': { transform: 'rotate(25deg) scale(1)', opacity: '1' },
+        },
+        fadeUp: {
+          '0%': { transform: 'translateY(16px)', opacity: '0' },
+          '100%': { transform: 'translateY(0)', opacity: '1' },
+        },
+        fadeIn: {
+          '0%': { opacity: '0' },
+          '100%': { opacity: '1' },
+        },
+        slideUp: {
+          '0%': { transform: 'translateY(100%)', opacity: '0' },
+          '100%': { transform: 'translateY(0)', opacity: '1' },
+        },
+        pulseGentle: {
+          '0%, 100%': { opacity: '1' },
+          '50%': { opacity: '0.7' },
+        },
+        countdown: {
+          '0%': { width: '100%' },
+          '100%': { width: '0%' },
+        },
+        bounceIn: {
+          '0%': { transform: 'scale(0.8)', opacity: '0' },
+          '60%': { transform: 'scale(1.05)' },
+          '100%': { transform: 'scale(1)', opacity: '1' },
+        },
+      }
+    }
+  }
+}
+</script>
+<style>
+  * { -webkit-tap-highlight-color: transparent; }
+  html { scroll-behavior: smooth; }
+  body { overscroll-behavior: none; }
+
+  .page { display: none; min-height: 100dvh; }
+  .page.active { display: flex; flex-direction: column; }
+
+  .scene-btn { transition: all 0.2s ease-out; }
+  .scene-btn:active { transform: scale(0.95); }
+  .scene-btn.selected {
+    background: linear-gradient(135deg, #FF8C42, #FFA96B);
+    color: white;
+    border-color: transparent;
+    box-shadow: 0 4px 16px rgba(255, 140, 66, 0.3);
+  }
+
+  .reaction-btn { transition: all 0.2s ease-out; }
+  .reaction-btn:active { transform: scale(0.95); }
+  .reaction-btn.selected { transform: scale(1.05); }
+
+  .primary-btn { transition: all 0.15s ease-out; }
+  .primary-btn:active { transform: scale(0.97); }
+
+  .sprout-container { opacity: 0; }
+  .sprout-container.animate { opacity: 1; }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+
+  .progress-bar { transition: width 0.1s linear; }
+
+  ::-webkit-scrollbar { display: none; }
+</style>
+</head>
+<body class="bg-warm-paper font-body text-slate-800 antialiased">
+
+<!-- ==================== PAGE 1: SCENE SELECTION ==================== -->
+<div id="page-scene" class="page active">
+  <!-- Top Bar -->
+  <div class="flex items-center justify-between px-5 pt-4 pb-2">
+    <div class="flex items-center gap-2">
+      <div class="w-8 h-8 rounded-full bg-leaf/10 flex items-center justify-center">
+        <svg class="w-4 h-4 text-leaf" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>
+      </div>
+      <span class="font-round text-sm text-slate-600">小禾老师</span>
+    </div>
+    <span class="text-xs text-slate-400 font-medium">一句就好</span>
+  </div>
+
+  <!-- Main Content -->
+  <div class="flex-1 px-5 pb-6 overflow-y-auto">
+    <!-- Xiaohe Bubble -->
+    <div class="relative mt-4 mb-6">
+      <div class="bg-white rounded-2xl rounded-tl-sm px-4 py-3 shadow-sm border border-slate-100 max-w-[85%]">
+        <p class="text-sm text-slate-700 leading-relaxed">选个正在发生的场景，小禾给你一句现在就能说的。</p>
+      </div>
+    </div>
+
+    <!-- Title -->
+    <h1 class="font-round text-2xl text-slate-900 mb-1">今天先说一句</h1>
+    <p class="text-sm text-slate-500 mb-6">选个正在发生的场景</p>
+
+    <!-- Scene List -->
+    <div id="scene-list" class="space-y-3 mb-8">
+      <button class="scene-btn w-full flex items-center gap-4 px-5 py-4 rounded-2xl bg-white border border-slate-150 cursor-pointer text-left shadow-sm hover:shadow-md" data-scene="feeding" onclick="selectScene(this)">
+        <span class="text-2xl" aria-hidden="true">
+          <svg class="w-7 h-7 text-accent" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 8h1a4 4 0 010 8h-1"/><path d="M2 8h16v9a4 4 0 01-4 4H6a4 4 0 01-4-4V8z"/><line x1="6" y1="1" x2="6" y2="4"/><line x1="10" y1="1" x2="10" y2="4"/><line x1="14" y1="1" x2="14" y2="4"/></svg>
+        </span>
+        <span class="font-medium text-slate-800">喂饭</span>
+      </button>
+
+      <button class="scene-btn w-full flex items-center gap-4 px-5 py-4 rounded-2xl bg-white border border-slate-150 cursor-pointer text-left shadow-sm hover:shadow-md" data-scene="drinking" onclick="selectScene(this)">
+        <span class="text-2xl" aria-hidden="true">
+          <svg class="w-7 h-7 text-sky-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z"/><path d="M12 6v6l4 2"/></svg>
+        </span>
+        <span class="font-medium text-slate-800">喝水</span>
+      </button>
+
+      <button class="scene-btn w-full flex items-center gap-4 px-5 py-4 rounded-2xl bg-white border border-slate-150 cursor-pointer text-left shadow-sm hover:shadow-md" data-scene="diaper" onclick="selectScene(this)">
+        <span class="text-2xl" aria-hidden="true">
+          <svg class="w-7 h-7 text-amber-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M20.38 3.46L16 2 12 5.5 8 2l-4.38 1.46a2 2 0 00-1.34 2.23l2.1 12.62A2 2 0 006.35 20h11.3a2 2 0 001.97-1.69l2.1-12.62a2 2 0 00-1.34-2.23z"/></svg>
+        </span>
+        <span class="font-medium text-slate-800">换尿布</span>
+      </button>
+
+      <button class="scene-btn w-full flex items-center gap-4 px-5 py-4 rounded-2xl bg-white border border-slate-150 cursor-pointer text-left shadow-sm hover:shadow-md" data-scene="bath" onclick="selectScene(this)">
+        <span class="text-2xl" aria-hidden="true">
+          <svg class="w-7 h-7 text-cyan-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 12h16a1 1 0 011 1v3a4 4 0 01-4 4H7a4 4 0 01-4-4v-3a1 1 0 011-1z"/><path d="M6 12V5a2 2 0 012-2h3v2.25"/><path d="M12 8V3"/><path d="M8 8V5"/></svg>
+        </span>
+        <span class="font-medium text-slate-800">洗澡</span>
+      </button>
+
+      <button class="scene-btn w-full flex items-center gap-4 px-5 py-4 rounded-2xl bg-white border border-slate-150 cursor-pointer text-left shadow-sm hover:shadow-md" data-scene="bedtime" onclick="selectScene(this)">
+        <span class="text-2xl" aria-hidden="true">
+          <svg class="w-7 h-7 text-indigo-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>
+        </span>
+        <span class="font-medium text-slate-800">睡前</span>
+      </button>
+
+      <button class="scene-btn w-full flex items-center gap-4 px-5 py-4 rounded-2xl bg-white border border-slate-150 cursor-pointer text-left shadow-sm hover:shadow-md" data-scene="outing" onclick="selectScene(this)">
+        <span class="text-2xl" aria-hidden="true">
+          <svg class="w-7 h-7 text-emerald-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+        </span>
+        <span class="font-medium text-slate-800">出门</span>
+      </button>
+    </div>
+
+    <!-- Age Entry -->
+    <button id="age-btn" onclick="toggleAge()" class="w-full flex items-center justify-center gap-2 px-5 py-3.5 rounded-2xl border-2 border-dashed border-slate-200 text-slate-400 text-sm cursor-pointer hover:border-accent/40 hover:text-accent transition-colors mb-4">
+      <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>
+      <span>宝宝多大？可稍后补</span>
+    </button>
+
+    <!-- Age Selector (hidden by default) -->
+    <div id="age-panel" class="hidden mb-6">
+      <div class="bg-white rounded-2xl p-4 shadow-sm border border-slate-100">
+        <p class="text-sm text-slate-600 mb-3 font-medium">选择宝宝月龄</p>
+        <div class="grid grid-cols-2 gap-2">
+          <button onclick="selectAge(this, '0-6')" class="age-option px-4 py-3 rounded-xl bg-warm-50 border border-slate-100 text-sm text-slate-700 hover:border-accent/40 transition-colors cursor-pointer">0-6 月</button>
+          <button onclick="selectAge(this, '7-12')" class="age-option px-4 py-3 rounded-xl bg-warm-50 border border-slate-100 text-sm text-slate-700 hover:border-accent/40 transition-colors cursor-pointer">7-12 月</button>
+          <button onclick="selectAge(this, '13-18')" class="age-option px-4 py-3 rounded-xl bg-warm-50 border border-slate-100 text-sm text-slate-700 hover:border-accent/40 transition-colors cursor-pointer">13-18 月</button>
+          <button onclick="selectAge(this, '19-36')" class="age-option px-4 py-3 rounded-xl bg-warm-50 border border-slate-100 text-sm text-slate-700 hover:border-accent/40 transition-colors cursor-pointer">19-36 月</button>
+        </div>
+        <button onclick="skipAge()" class="w-full mt-2 py-2 text-xs text-slate-400 hover:text-slate-600 transition-colors cursor-pointer">先跳过</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bottom Actions -->
+  <div class="px-5 pb-8 pt-2 space-y-2">
+    <button onclick="goDirect()" class="w-full py-3.5 text-sm text-accent font-semibold rounded-2xl hover:bg-accent-50 transition-colors cursor-pointer">
+      直接给一句
+    </button>
+    <button class="w-full py-2.5 text-xs text-slate-400 hover:text-slate-600 transition-colors cursor-pointer">
+      先看看再说
+    </button>
+  </div>
+</div>
+
+<!-- ==================== PAGE 2: PRACTICE ==================== -->
+<div id="page-practice" class="page">
+  <!-- Top Bar -->
+  <div class="flex items-center justify-between px-5 pt-4 pb-2">
+    <button onclick="goBack()" class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-slate-100 transition-colors cursor-pointer" aria-label="返回">
+      <svg class="w-5 h-5 text-slate-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/></svg>
+    </button>
+    <div class="text-center">
+      <span id="practice-scene-name" class="font-round text-sm text-slate-700">喂饭</span>
+      <span class="text-slate-300 mx-1">/</span>
+      <span class="text-xs text-slate-400">一句就够</span>
+    </div>
+    <button onclick="goToEnd()" class="text-sm text-slate-400 hover:text-slate-600 transition-colors px-2 py-1 cursor-pointer">稍后</button>
+  </div>
+
+  <!-- Xiaohe Bubble -->
+  <div class="px-5 mt-2 mb-4">
+    <div class="bg-white rounded-2xl rounded-tl-sm px-4 py-2.5 shadow-sm border border-slate-100 max-w-[85%]">
+      <p id="practice-bubble" class="text-sm text-slate-600 leading-relaxed">喂饭时轻轻说，宝宝会听的。</p>
+    </div>
+  </div>
+
+  <!-- Sentence Area (no card border - floating) -->
+  <div class="flex-1 px-6 flex flex-col justify-center -mt-8">
+    <!-- Scene pill -->
+    <div class="mb-4">
+      <span id="practice-pill" class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-accent/10 text-accent text-xs font-medium">
+        <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8h1a4 4 0 010 8h-1"/><path d="M2 8h16v9a4 4 0 01-4 4H6a4 4 0 01-4-4V8z"/></svg>
+        喂饭
+      </span>
+    </div>
+
+    <!-- Sentence count -->
+    <p class="text-xs text-slate-400 mb-3">第 <span id="sentence-num">1</span> 句</p>
+
+    <!-- English sentence -->
+    <div class="mb-3">
+      <h2 id="english-sentence" class="font-fraunces text-[28px] sm:text-[32px] leading-snug text-slate-900 font-semibold">Just one bite at a time.</h2>
+      <button onclick="playPronunciation()" class="inline-flex items-center gap-1 mt-2 text-slate-400 hover:text-accent transition-colors cursor-pointer p-1 -ml-1" aria-label="播放发音">
+        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+        <span id="tts-status" class="text-xs hidden">播放中</span>
+      </button>
+    </div>
+
+    <!-- Chinese translation -->
+    <p id="chinese-sentence" class="text-[15px] text-slate-500 leading-relaxed">慢慢来，一口一口吃。</p>
+  </div>
+
+  <!-- Bottom Actions -->
+  <div class="px-5 pb-8 pt-4 space-y-3">
+    <button id="btn-done" onclick="markDone()" class="primary-btn w-full py-4 bg-accent text-white font-semibold rounded-2xl text-base shadow-lg shadow-accent/25 hover:bg-accent-dark transition-colors cursor-pointer min-h-[56px]">
+      说完了
+    </button>
+    <div class="flex justify-center gap-6">
+      <button onclick="changeSentence()" class="text-sm text-slate-400 hover:text-accent transition-colors cursor-pointer py-2">换一句</button>
+      <button onclick="goToEnd()" class="text-sm text-slate-400 hover:text-slate-600 transition-colors cursor-pointer py-2">结束</button>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== PAGE 3: REACTION ==================== -->
+<div id="page-reaction" class="page">
+  <!-- Top Bar -->
+  <div class="flex items-center justify-between px-5 pt-4 pb-2">
+    <button onclick="goBack()" class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-slate-100 transition-colors cursor-pointer" aria-label="返回">
+      <svg class="w-5 h-5 text-slate-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/></svg>
+    </button>
+    <span class="text-sm text-slate-500">已保存本句</span>
+    <div class="w-10"></div>
+  </div>
+
+  <!-- Saved confirmation -->
+  <div class="px-5 mt-4 mb-6 flex justify-center">
+    <div class="flex items-center gap-2 px-4 py-2 rounded-full bg-leaf/10 text-leaf text-sm font-medium">
+      <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+      已保存
+    </div>
+  </div>
+
+  <!-- Reaction question -->
+  <div class="px-5 mb-6 text-center">
+    <p class="text-base text-slate-700 font-medium">宝宝有反应吗？</p>
+    <p class="text-xs text-slate-400 mt-1">选一个，小禾会记住</p>
+  </div>
+
+  <!-- Reaction buttons -->
+  <div class="px-5 space-y-3 mb-8">
+    <button onclick="selectReaction(this, 'happy')" class="reaction-btn w-full flex items-center gap-4 px-5 py-4 rounded-2xl bg-white border border-slate-150 cursor-pointer text-left shadow-sm hover:shadow-md hover:border-green-200">
+      <span class="w-10 h-10 rounded-full bg-green-50 flex items-center justify-center">
+        <svg class="w-6 h-6 text-green-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>
+      </span>
+      <span>
+        <span class="font-medium text-slate-800 block">有回应</span>
+        <span class="text-xs text-slate-400">宝宝笑了、发声了、看向你了</span>
+      </span>
+    </button>
+
+    <button onclick="selectReaction(this, 'calm')" class="reaction-btn w-full flex items-center gap-4 px-5 py-4 rounded-2xl bg-white border border-slate-150 cursor-pointer text-left shadow-sm hover:shadow-md hover:border-blue-200">
+      <span class="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center">
+        <svg class="w-6 h-6 text-blue-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="10"/><path d="M8 15h8"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>
+      </span>
+      <span>
+        <span class="font-medium text-slate-800 block">安静了</span>
+        <span class="text-xs text-slate-400">宝宝安静下来、在听</span>
+      </span>
+    </button>
+
+    <button onclick="selectReaction(this, 'none')" class="reaction-btn w-full flex items-center gap-4 px-5 py-4 rounded-2xl bg-white border border-slate-150 cursor-pointer text-left shadow-sm hover:shadow-md hover:border-slate-300">
+      <span class="w-10 h-10 rounded-full bg-slate-50 flex items-center justify-center">
+        <svg class="w-6 h-6 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="10"/><line x1="8" y1="15" x2="16" y2="15"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>
+      </span>
+      <span>
+        <span class="font-medium text-slate-800 block">没反应</span>
+        <span class="text-xs text-slate-400">没关系，换一句试试</span>
+      </span>
+    </button>
+  </div>
+
+  <!-- Feedback + countdown (hidden until reaction selected) -->
+  <div id="reaction-feedback" class="hidden px-5 mb-4">
+    <p id="feedback-text" class="text-center text-sm text-slate-600 mb-3">记下来了，小禾给你下一句。</p>
+    <div class="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden">
+      <div id="countdown-bar" class="progress-bar h-full bg-accent rounded-full" style="width: 100%"></div>
+    </div>
+    <p class="text-center text-xs text-slate-400 mt-2">
+      <button onclick="nextSentence()" class="text-accent hover:underline cursor-pointer">下一句</button>
+      <span class="mx-1">·</span>
+      <span id="countdown-text">3 秒后自动跳转</span>
+    </p>
+  </div>
+
+  <!-- Skip reaction -->
+  <div class="px-5 pb-8 mt-auto">
+    <button onclick="nextSentence()" class="w-full text-center text-sm text-slate-400 hover:text-slate-600 transition-colors cursor-pointer py-3">
+      跳过，下一句
+    </button>
+  </div>
+</div>
+
+<!-- ==================== PAGE 4: COMPLETION ==================== -->
+<div id="page-complete" class="page">
+  <!-- Top Bar -->
+  <div class="flex items-center justify-between px-5 pt-4 pb-2">
+    <div class="flex items-center gap-2">
+      <div class="w-8 h-8 rounded-full bg-leaf/10 flex items-center justify-center">
+        <svg class="w-4 h-4 text-leaf" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>
+      </div>
+      <span class="font-round text-sm text-slate-600">小禾老师</span>
+    </div>
+    <span class="text-xs text-slate-400 font-medium">今天已完成</span>
+  </div>
+
+  <!-- Sprout Animation -->
+  <div class="flex-1 flex flex-col items-center justify-center px-6 -mt-12">
+    <!-- Sprout SVG -->
+    <div id="sprout" class="sprout-container mb-8">
+      <svg width="120" height="160" viewBox="0 0 120 160" fill="none" class="mx-auto">
+        <!-- Soil / seed base -->
+        <ellipse cx="60" cy="145" rx="30" ry="8" fill="#D4A574" opacity="0.4"/>
+        <!-- Stem -->
+        <g class="animate-sprout-grow" style="transform-origin: 60px 145px;">
+          <path d="M60 145 Q58 110 60 80" stroke="#3B8577" stroke-width="3" fill="none" stroke-linecap="round"/>
+        </g>
+        <!-- Left leaf -->
+        <g class="animate-leaf-left" style="transform-origin: 58px 100px; opacity: 0;">
+          <path d="M58 100 Q30 75 45 55 Q55 70 58 100Z" fill="#5AA899"/>
+          <path d="M58 100 Q42 78 48 65" stroke="#3B8577" stroke-width="1" fill="none" opacity="0.5"/>
+        </g>
+        <!-- Right leaf -->
+        <g class="animate-leaf-right" style="transform-origin: 62px 90px; opacity: 0;">
+          <path d="M62 90 Q90 65 75 45 Q65 60 62 90Z" fill="#3B8577"/>
+          <path d="M62 90 Q78 68 72 55" stroke="#2D6B5F" stroke-width="1" fill="none" opacity="0.5"/>
+        </g>
+      </svg>
+    </div>
+
+    <!-- Xiaohe Bubble -->
+    <div id="complete-bubble" class="mb-5 opacity-0">
+      <div class="bg-white rounded-2xl rounded-tl-sm px-4 py-3 shadow-sm border border-slate-100 max-w-[85%]">
+        <p id="complete-bubble-text" class="text-sm text-slate-600 leading-relaxed">第一句最难，你已经开始了。</p>
+      </div>
+    </div>
+
+    <!-- Dynamic title -->
+    <h2 id="complete-title" class="font-round text-xl text-slate-900 text-center mb-3 opacity-0">
+      喂饭时说的这句，下次还能用。
+    </h2>
+
+    <!-- Summary -->
+    <p id="complete-summary" class="text-sm text-slate-500 text-center mb-2 opacity-0">
+      下次打开，小禾会给你新的一句。
+    </p>
+    <p id="complete-extra" class="text-xs text-slate-400 text-center mb-8 opacity-0">
+      刚才宝宝有回应的那句，可以留着多用几次。
+    </p>
+  </div>
+
+  <!-- Bottom Actions -->
+  <div class="px-5 pb-8 pt-4 space-y-3">
+    <button onclick="restart()" class="primary-btn w-full py-4 bg-accent text-white font-semibold rounded-2xl text-base shadow-lg shadow-accent/25 hover:bg-accent-dark transition-colors cursor-pointer min-h-[56px]">
+      再来一句
+    </button>
+    <button onclick="finish()" class="w-full py-3 text-sm text-slate-400 hover:text-slate-600 transition-colors cursor-pointer">
+      先到这里
+    </button>
+  </div>
+</div>
+
+<script>
+// ============ DATA ============
+const SCENES = {
+  feeding: {
+    name: '喂饭',
+    bubble: '喂饭时轻轻说，宝宝会听的。',
+    sentences: [
+      { en: 'Just one bite at a time.', zh: '慢慢来，一口一口吃。' },
+      { en: 'This is yummy, try it!', zh: '这个很好吃，试试看！' },
+      { en: 'You are doing so well.', zh: '你吃得很棒。' },
+      { en: 'Open wide, here comes the spoon.', zh: '张大嘴巴，勺子来啦。' },
+      { en: 'Good job eating all of it.', zh: '全部吃完了，真厉害。' },
+    ],
+    completionTitle: '喂饭时说的这句，下次还能用。',
+    icon: '<svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 8h1a4 4 0 010 8h-1"/><path d="M2 8h16v9a4 4 0 01-4 4H6a4 4 0 01-4-4V8z"/><line x1="6" y1="1" x2="6" y2="4"/><line x1="10" y1="1" x2="10" y2="4"/><line x1="14" y1="1" x2="14" y2="4"/></svg>',
+  },
+  drinking: {
+    name: '喝水',
+    bubble: '递水的时候说一句就好。',
+    sentences: [
+      { en: 'Have some water, sweetie.', zh: '喝点水吧，宝贝。' },
+      { en: 'Water makes you strong.', zh: '喝水会让你更强壮。' },
+      { en: 'Just a little sip.', zh: '就喝一小口。' },
+      { en: 'Good job drinking your water.', zh: '水喝得真好。' },
+      { en: 'You must be thirsty.', zh: '你一定渴了吧。' },
+    ],
+    completionTitle: '喝水时说的这句，明天还能用。',
+    icon: '<svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z"/><path d="M12 6v6l4 2"/></svg>',
+  },
+  diaper: {
+    name: '换尿布',
+    bubble: '换尿布时说，宝宝反而更安静。',
+    sentences: [
+      { en: 'Let me get you nice and clean.', zh: '让我把你弄干净。' },
+      { en: 'Almost done, you are so patient.', zh: '快好了，你真有耐心。' },
+      { en: 'There we go, all clean now.', zh: '好了，现在干净了。' },
+      { en: 'You are such a good baby.', zh: '你真是个乖宝宝。' },
+      { en: 'Let us put on a fresh diaper.', zh: '我们换一片新的尿布。' },
+    ],
+    completionTitle: '换尿布时说的这句，宝宝会慢慢习惯。',
+    icon: '<svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M20.38 3.46L16 2 12 5.5 8 2l-4.38 1.46a2 2 0 00-1.34 2.23l2.1 12.62A2 2 0 006.35 20h11.3a2 2 0 001.97-1.69l2.1-12.62a2 2 0 00-1.34-2.23z"/></svg>',
+  },
+  bath: {
+    name: '洗澡',
+    bubble: '洗澡时说，宝宝会觉得好玩。',
+    sentences: [
+      { en: 'Splash splash, the water is warm.', zh: '扑通扑通，水是暖的。' },
+      { en: 'You are my little fish.', zh: '你是我的小鱼。' },
+      { en: 'Let us wash your tiny toes.', zh: '我们来洗洗小脚趾。' },
+      { en: 'The bubbles are so fun.', zh: '泡泡好好玩。' },
+      { en: 'All clean and smelling good.', zh: '洗得干干净净，香喷喷。' },
+    ],
+    completionTitle: '洗澡时说的这句，宝宝会觉得好玩。',
+    icon: '<svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 12h16a1 1 0 011 1v3a4 4 0 01-4 4H7a4 4 0 01-4-4v-3a1 1 0 011-1z"/><path d="M6 12V5a2 2 0 012-2h3v2.25"/></svg>',
+  },
+  bedtime: {
+    name: '睡前',
+    bubble: '睡前轻轻说，像讲故事一样。',
+    sentences: [
+      { en: 'Time to sleep, my little star.', zh: '该睡觉了，我的小星星。' },
+      { en: 'Close your eyes, I am here.', zh: '闭上眼睛，我在这里。' },
+      { en: 'Tomorrow is a new day.', zh: '明天又是新的一天。' },
+      { en: 'Sweet dreams, my love.', zh: '做个好梦，宝贝。' },
+      { en: 'I love you more than the moon.', zh: '我爱你比月亮还多。' },
+    ],
+    completionTitle: '睡前说的这句，会变成你们的小仪式。',
+    icon: '<svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>',
+  },
+  outing: {
+    name: '出门',
+    bubble: '出门前说一句，今天就开始了。',
+    sentences: [
+      { en: 'Let us go see the world.', zh: '我们去看看这个世界。' },
+      { en: 'The sun is shining for you.', zh: '阳光为你而照耀。' },
+      { en: 'Hold my hand, let us go.', zh: '牵着我的手，走吧。' },
+      { en: 'What a beautiful day to explore.', zh: '多美好的一天，去探险吧。' },
+      { en: 'Say bye-bye to the house.', zh: '跟房子说拜拜。' },
+    ],
+    completionTitle: '出门前说的这句，今天就开始了。',
+    icon: '<svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/></svg>',
+  },
+};
+
+const FEEDBACK_TEXTS = {
+  happy: '记下来了，小禾给你下一句。',
+  calm: '记下来了，这句可以留着用。',
+  none: '没关系，换一句试试。',
+};
+
+const COMPLETION_BUBBLES = {
+  1: '第一句最难，你已经开始了。',
+  2: '连续说了几句，宝宝有听到的。',
+  3: '连续说了几句，宝宝有听到的。',
+  default: '今天说的比很多家长一周都多。',
+};
+
+// ============ STATE ============
+let currentScene = null;
+let currentSentenceIndex = 0;
+let sentencesCompleted = 0;
+let lastReaction = null;
+let countdownTimer = null;
+let selectedSceneButton = null;
+
+// ============ INIT ============
+document.addEventListener('DOMContentLoaded', () => {
+  // Smart default: select scene based on time of day
+  const hour = new Date().getHours();
+  let defaultScene = 'outing';
+  if (hour >= 7 && hour < 9) defaultScene = 'feeding';
+  else if (hour >= 10 && hour < 11) defaultScene = 'drinking';
+  else if (hour >= 12 && hour < 14) defaultScene = 'diaper';
+  else if (hour >= 15 && hour < 17) defaultScene = 'bath';
+  else if (hour >= 18 && hour < 21) defaultScene = 'bedtime';
+
+  const btn = document.querySelector(`[data-scene="${defaultScene}"]`);
+  if (btn) {
+    // Don't auto-select, just highlight suggestion
+    btn.classList.add('ring-2', 'ring-accent/20');
+  }
+});
+
+// ============ NAVIGATION ============
+function showPage(pageId) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  const page = document.getElementById(pageId);
+  page.classList.add('active');
+  // Scroll to top
+  page.scrollTop = 0;
+}
+
+function goBack() {
+  if (countdownTimer) clearInterval(countdownTimer);
+  showPage('page-scene');
+}
+
+// ============ SCENE SELECTION ============
+function selectScene(btn) {
+  // Deselect previous
+  if (selectedSceneButton) {
+    selectedSceneButton.classList.remove('selected');
+    selectedSceneButton.classList.add('bg-white', 'border-slate-150');
+  }
+
+  // Select new
+  btn.classList.add('selected');
+  btn.classList.remove('bg-white', 'border-slate-150');
+  selectedSceneButton = btn;
+
+  const sceneKey = btn.dataset.scene;
+  currentScene = SCENES[sceneKey];
+  currentSentenceIndex = 0;
+  sentencesCompleted = 0;
+
+  // Haptic feedback (if available)
+  if (navigator.vibrate) navigator.vibrate(10);
+
+  // Auto-advance after short delay
+  setTimeout(() => {
+    startPractice();
+  }, 300);
+}
+
+function goDirect() {
+  // Use feeding as default
+  currentScene = SCENES.feeding;
+  currentSentenceIndex = 0;
+  sentencesCompleted = 0;
+  startPractice();
+}
+
+// ============ AGE ============
+function toggleAge() {
+  const panel = document.getElementById('age-panel');
+  const btn = document.getElementById('age-btn');
+  if (panel.classList.contains('hidden')) {
+    panel.classList.remove('hidden');
+    btn.classList.add('hidden');
+  } else {
+    panel.classList.add('hidden');
+    btn.classList.remove('hidden');
+  }
+}
+
+function selectAge(btn, range) {
+  document.querySelectorAll('.age-option').forEach(b => {
+    b.classList.remove('border-accent', 'bg-accent-50', 'text-accent');
+    b.classList.add('border-slate-100', 'bg-warm-50', 'text-slate-700');
+  });
+  btn.classList.add('border-accent', 'bg-accent-50', 'text-accent');
+  btn.classList.remove('border-slate-100', 'bg-warm-50', 'text-slate-700');
+
+  const ageBtn = document.getElementById('age-btn');
+  const panel = document.getElementById('age-panel');
+  setTimeout(() => {
+    panel.classList.add('hidden');
+    ageBtn.classList.remove('hidden');
+    ageBtn.querySelector('span').textContent = range + ' 月';
+    ageBtn.classList.remove('border-dashed', 'text-slate-400');
+    ageBtn.classList.add('border-solid', 'text-accent', 'border-accent/30');
+  }, 500);
+}
+
+function skipAge() {
+  const panel = document.getElementById('age-panel');
+  const btn = document.getElementById('age-btn');
+  panel.classList.add('hidden');
+  btn.classList.remove('hidden');
+}
+
+// ============ PRACTICE ============
+function startPractice() {
+  const sentence = currentScene.sentences[currentSentenceIndex];
+
+  // Update practice page
+  document.getElementById('practice-scene-name').textContent = currentScene.name;
+  document.getElementById('practice-bubble').textContent = currentScene.bubble;
+  document.getElementById('practice-pill').innerHTML = currentScene.icon + ' ' + currentScene.name;
+  document.getElementById('sentence-num').textContent = sentencesCompleted + 1;
+  document.getElementById('english-sentence').textContent = sentence.en;
+  document.getElementById('chinese-sentence').textContent = sentence.zh;
+  document.getElementById('tts-status').classList.add('hidden');
+
+  showPage('page-practice');
+}
+
+function playPronunciation() {
+  const status = document.getElementById('tts-status');
+  status.classList.remove('hidden');
+  status.textContent = '播放中';
+
+  // Simulate TTS playback
+  if ('speechSynthesis' in window) {
+    const utterance = new SpeechSynthesisUtterance(currentScene.sentences[currentSentenceIndex].en);
+    utterance.lang = 'en-US';
+    utterance.rate = 0.9;
+    utterance.onend = () => {
+      status.classList.add('hidden');
+    };
+    utterance.onerror = () => {
+      status.textContent = '加载失败';
+      setTimeout(() => status.classList.add('hidden'), 2000);
+    };
+    window.speechSynthesis.speak(utterance);
+  } else {
+    // Fallback: just show status briefly
+    setTimeout(() => status.classList.add('hidden'), 1500);
+  }
+}
+
+function changeSentence() {
+  currentSentenceIndex = (currentSentenceIndex + 1) % currentScene.sentences.length;
+  const sentence = currentScene.sentences[currentSentenceIndex];
+
+  // Animate sentence change
+  const enEl = document.getElementById('english-sentence');
+  const zhEl = document.getElementById('chinese-sentence');
+  enEl.style.opacity = '0';
+  zhEl.style.opacity = '0';
+
+  setTimeout(() => {
+    enEl.textContent = sentence.en;
+    zhEl.textContent = sentence.zh;
+    enEl.style.transition = 'opacity 0.3s ease-out';
+    zhEl.style.transition = 'opacity 0.3s ease-out';
+    enEl.style.opacity = '1';
+    zhEl.style.opacity = '1';
+  }, 200);
+}
+
+function markDone() {
+  sentencesCompleted++;
+
+  // Haptic feedback
+  if (navigator.vibrate) navigator.vibrate(20);
+
+  // Update button to show saved state
+  const btn = document.getElementById('btn-done');
+  btn.innerHTML = '<svg class="w-5 h-5 inline mr-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> 已保存';
+  btn.classList.remove('bg-accent', 'shadow-accent/25');
+  btn.classList.add('bg-leaf', 'shadow-leaf/25');
+
+  setTimeout(() => {
+    // Reset button for next time
+    btn.innerHTML = '说完了';
+    btn.classList.add('bg-accent', 'shadow-accent/25');
+    btn.classList.remove('bg-leaf', 'shadow-leaf/25');
+
+    showPage('page-reaction');
+    // Reset reaction selection
+    document.querySelectorAll('.reaction-btn').forEach(b => {
+      b.classList.remove('selected', 'border-green-300', 'border-blue-300', 'border-slate-300');
+    });
+    document.getElementById('reaction-feedback').classList.add('hidden');
+  }, 800);
+}
+
+// ============ REACTION ============
+function selectReaction(btn, type) {
+  // Deselect all
+  document.querySelectorAll('.reaction-btn').forEach(b => {
+    b.classList.remove('selected', 'border-green-300', 'border-blue-300', 'border-slate-300');
+  });
+
+  // Select this one
+  btn.classList.add('selected');
+  if (type === 'happy') btn.classList.add('border-green-300');
+  else if (type === 'calm') btn.classList.add('border-blue-300');
+  else btn.classList.add('border-slate-300');
+
+  lastReaction = type;
+
+  // Haptic feedback
+  if (navigator.vibrate) navigator.vibrate(10);
+
+  // Show feedback and countdown
+  const feedbackEl = document.getElementById('reaction-feedback');
+  const feedbackText = document.getElementById('feedback-text');
+  const countdownBar = document.getElementById('countdown-bar');
+  const countdownTextEl = document.getElementById('countdown-text');
+
+  feedbackText.textContent = FEEDBACK_TEXTS[type];
+  feedbackEl.classList.remove('hidden');
+
+  // Start countdown
+  let seconds = 3;
+  countdownBar.style.width = '100%';
+  countdownTextEl.textContent = seconds + ' 秒后自动跳转';
+
+  if (countdownTimer) clearInterval(countdownTimer);
+  countdownTimer = setInterval(() => {
+    seconds--;
+    countdownBar.style.width = ((3 - seconds) / 3 * 100) + '%';
+    countdownTextEl.textContent = seconds > 0 ? seconds + ' 秒后自动跳转' : '跳转中...';
+    if (seconds <= 0) {
+      clearInterval(countdownTimer);
+      nextSentence();
+    }
+  }, 1000);
+}
+
+function nextSentence() {
+  if (countdownTimer) clearInterval(countdownTimer);
+
+  if (sentencesCompleted >= 3) {
+    showCompletion();
+  } else {
+    currentSentenceIndex = (currentSentenceIndex + 1) % currentScene.sentences.length;
+    startPractice();
+  }
+}
+
+// ============ COMPLETION ============
+function showCompletion() {
+  showPage('page-complete');
+
+  // Update dynamic content
+  const bubbleText = COMPLETION_BUBBLES[Math.min(sentencesCompleted, 3)] || COMPLETION_BUBBLES.default;
+  document.getElementById('complete-bubble-text').textContent = bubbleText;
+  document.getElementById('complete-title').textContent = currentScene.completionTitle;
+
+  // Reaction-based extra text
+  const extraEl = document.getElementById('complete-extra');
+  if (lastReaction === 'happy') {
+    extraEl.textContent = '刚才宝宝有回应的那句，可以留着多用几次。';
+  } else if (lastReaction === 'none') {
+    extraEl.textContent = '有些句子需要宝宝听几次才会有反应，这很正常。';
+  } else {
+    extraEl.textContent = '';
+  }
+
+  // Trigger animations
+  setTimeout(() => {
+    document.getElementById('sprout').classList.add('animate');
+  }, 200);
+
+  setTimeout(() => {
+    document.getElementById('complete-bubble').style.transition = 'opacity 0.5s ease-out';
+    document.getElementById('complete-bubble').style.opacity = '1';
+  }, 1500);
+
+  setTimeout(() => {
+    document.getElementById('complete-title').style.transition = 'opacity 0.5s ease-out';
+    document.getElementById('complete-title').style.opacity = '1';
+  }, 1800);
+
+  setTimeout(() => {
+    document.getElementById('complete-summary').style.transition = 'opacity 0.5s ease-out';
+    document.getElementById('complete-summary').style.opacity = '1';
+  }, 2100);
+
+  setTimeout(() => {
+    document.getElementById('complete-extra').style.transition = 'opacity 0.5s ease-out';
+    document.getElementById('complete-extra').style.opacity = '1';
+  }, 2400);
+}
+
+function restart() {
+  // Reset state
+  sentencesCompleted = 0;
+  currentSentenceIndex = 0;
+  lastReaction = null;
+
+  // Reset sprout animation
+  document.getElementById('sprout').classList.remove('animate');
+  document.getElementById('complete-bubble').style.opacity = '0';
+  document.getElementById('complete-title').style.opacity = '0';
+  document.getElementById('complete-summary').style.opacity = '0';
+  document.getElementById('complete-extra').style.opacity = '0';
+
+  showPage('page-scene');
+}
+
+function finish() {
+  // Show a warm goodbye
+  restart();
+}
+</script>
+
+</body>
+</html>

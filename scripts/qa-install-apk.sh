@@ -69,8 +69,12 @@ command -v flutter >/dev/null 2>&1 || die "missing_flutter" "Install Flutter and
 command -v adb >/dev/null 2>&1 || die "missing_adb" "Install Android platform-tools and ensure 'adb' is in PATH"
 
 if [ "$SKIP_BUILD" -eq 0 ]; then
-  echo "==> [apk] building debug APK (gateway=${GATEWAY_PORT})..."
+  echo "==> [apk] cleaning build artifacts..."
   cd "$MOBILE_DIR"
+  flutter clean >/dev/null 2>&1
+  echo "    clean: ok"
+
+  echo "==> [apk] building debug APK (gateway=${GATEWAY_PORT})..."
   flutter build apk --debug \
     --dart-define=BABY_TALK_API_BASE_URL="http://127.0.0.1:${GATEWAY_PORT}"
 else

@@ -81,6 +81,7 @@ public class AuthConsentSyncService {
                         null
                 )
         );
+        log.info("[AUTH] 验证码已创建: challengeId={}, phone={}, codeLen={}", challengeId, issued.maskedPhoneNumber(), issued.codeLength());
         return new ChallengeResponse(challengeId, issued.maskedPhoneNumber(), issued.codeLength(), issued.expiresAt());
     }
 
@@ -94,17 +95,21 @@ public class AuthConsentSyncService {
         }
         var normalizedInstallationId = normalizeInstallationId(installationId);
 
+        log.info("[AUTH] 验证请求: challengeId={}, codeLen={}", challengeId, verificationCode.length());
         var challenge = repository.findChallenge(challengeId)
                 .orElseThrow(() -> new ContractException(HttpStatus.BAD_REQUEST, "challenge_not_found", "challenge 不存在。"));
         var now = Instant.now(clock);
         if (challenge.expiresAt().isBefore(now)) {
+            log.warn("[AUTH] 验证码已过期: challengeId={}", challengeId);
             repository.markChallengeExpired(challengeId, "expired_before_verify");
             throw new ContractException(HttpStatus.BAD_REQUEST, "challenge_expired", "验证码已过期，请重新获取。", Map.of("retryable", true));
         }
         if (!challenge.verificationCode().equals(verificationCode)) {
+            log.warn("[AUTH] 验证码不匹配: challengeId={}, expected={}, got={}", challengeId, challenge.verificationCode(), verificationCode);
             throw new ContractException(HttpStatus.BAD_REQUEST, "verification_code_invalid", "验证码错误。", Map.of("retryable", true));
         }
 
+        log.info("[AUTH] 验证成功: challengeId={}", challengeId);
         int affectedRows = repository.markChallengeVerified(challengeId, now);
         if (affectedRows == 0) {
             throw new ContractException(HttpStatus.CONFLICT, "challenge_already_verified", "challenge 已被其他请求验证。");

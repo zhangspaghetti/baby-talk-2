@@ -7,25 +7,21 @@ import 'package:mobile/app/providers/repository_providers.dart';
 import 'package:mobile/app/router/app_router.dart';
 import 'package:mobile/app/widgets/app_haptics.dart';
 import 'package:mobile/app/widgets/app_shimmer.dart';
-import 'package:mobile/app/widgets/app_toast.dart';
 import 'package:mobile/app/widgets/xiaohe_fab.dart';
 import 'package:mobile/app/theme/app_layout_constants.dart';
 import 'package:mobile/app/theme/app_theme.dart';
 import 'package:mobile/features/account/presentation/account_notifier.dart';
-import 'package:mobile/features/mentor/presentation/widgets/mentor_panel_sheet.dart';
 import 'package:mobile/features/onboarding/domain/models/onboarding_snapshot.dart';
 import 'package:mobile/features/practice/data/repositories/practice_repository.dart';
+import 'package:mobile/features/practice/domain/models/garden_growth_snapshot.dart';
 import 'package:mobile/features/practice/domain/models/practice_phrase.dart';
 import 'package:mobile/features/practice/presentation/practice_continuity_notifier.dart'
     show PracticeContinuityLoadStatusLabel;
 import 'package:mobile/features/practice/presentation/practice_route_args.dart';
-import 'package:mobile/features/practice/presentation/widgets/home_b_care_moment_title.dart';
-import 'package:mobile/features/practice/presentation/widgets/home_b_mentor_bubble.dart';
-import 'package:mobile/features/practice/presentation/widgets/home_b_scene_card.dart';
-import 'package:mobile/features/practice/presentation/widgets/home_b_quick_rescue_row.dart';
-import 'package:mobile/features/practice/presentation/widgets/home_b_practice_result.dart';
-import 'package:mobile/features/practice/presentation/widgets/home_b_temporary_scene_sheet.dart';
-import 'package:mobile/features/practice/presentation/widgets/home_garden_mini_entry.dart';
+import 'package:mobile/features/practice/presentation/widgets/home_botanical_header.dart';
+import 'package:mobile/features/practice/presentation/widgets/home_progress_bar.dart';
+import 'package:mobile/features/practice/presentation/widgets/home_garden_card.dart';
+import 'package:mobile/features/practice/presentation/widgets/home_daily_activities.dart';
 import 'package:mobile/l10n/app_localizations.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
@@ -202,10 +198,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with RouteAware {
     final sceneTag = activity?.sceneTag ?? '照护场景';
     final activityTitle = activity?.title ?? '收玩具';
 
-    // Home B: Default mentor bubble message
-    final mentorMessage = starterPhrase != null
-        ? '这句适合$activityTitle，${_resolveMentorHint(starterPhrase)}'
-        : '小禾帮你挑一句最合适的';
+    // Calculate garden stats for the new layout
+    final gardenSnapshot = gardenGrowthNotifier.snapshot;
+    final primarySpace = gardenSnapshot.primarySpace;
+    final weekNumber = _calculateWeekNumber(gardenSnapshot);
+    final stageName = primarySpace?.stage.label ?? 'Seedling';
+    final wordsPlanted = gardenSnapshot.validEvents;
 
     final body = SafeArea(
       top: !widget.embeddedInShell,
@@ -225,112 +223,68 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with RouteAware {
                   },
                   child: ListView(
                     padding: EdgeInsets.fromLTRB(
-                      20,
-                      widget.embeddedInShell ? 12 : 20,
-                      20,
+                      0,
+                      widget.embeddedInShell ? 0 : 0,
+                      0,
                       widget.embeddedInShell ? 120 : 32,
                     ),
                     children: [
-                      const SizedBox(height: 20),
+                      // Botanical header with title and settings
+                      const HomeBotanicalHeader(),
 
-                      // Home B: Care moment title
-                      HomeBCareMomentTitle(
-                        sceneTag: sceneTag,
-                        sceneTitle: activityTitle,
-                        childName: childName,
-                      ),
-                      const SizedBox(height: 16),
+                      // Content area with padding
+                      Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: AppLayoutConstants.spacingLg,
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const SizedBox(height: 16),
 
-                      // Home B: Xiaohe mentor bubble
-                      HomeBMentorBubble(
-                        message: mentorMessage,
-                        onTap: () {
-                          openMentorPanelSheet(
-                            context,
-                            launcher: 'home_b_mentor_bubble',
-                            surface: widget.embeddedInShell
-                                ? 'app_shell'
-                                : 'standalone_home',
-                          );
-                        },
-                      ),
-                      const SizedBox(height: 20),
+                            // Progress bar
+                            HomeProgressBar(
+                              progress: _calculateProgress(gardenSnapshot),
+                              label: '本周学习进度',
+                            ),
 
-                      // Home B: Practice result or scene card
-                      if (_showPracticeResult && _completedPhrase != null)
-                        HomeBPracticeResult(
-                          phrase: _completedPhrase!,
-                          sceneTag: _completedSceneTag ?? sceneTag,
-                          childName: childName,
-                          onPracticeAgain: () {
-                            setState(() {
-                              _showPracticeResult = false;
-                            });
-                            if (canLaunchPractice) {
-                              practiceArgs.push(context);
-                            }
-                          },
-                          onNextPhrase: () {
-                            setState(() {
-                              _showPracticeResult = false;
-                            });
-                            AppHaptics.lightTap();
-                            showAppToast(context, '下一句会在明天的照护时刻等你');
-                          },
-                        )
-                      else
-                        HomeBSceneCard(
-                          phrase: starterPhrase,
-                          parentAction:
-                              _resolveParentAction(activityTitle, activity?.coachTip),
-                          sceneTag: sceneTag,
-                          coachTip: activity?.coachTip,
-                          onStartPractice: canLaunchPractice
-                              ? () async {
-                                  await practiceArgs.push(context);
-                                  if (!mounted) {
-                                    return;
-                                  }
-                                  // Show post-completion result
-                                  setState(() {
-                                    _showPracticeResult = true;
-                                    _completedPhrase =
-                                        starterPhrase?.english ?? "Let's put it back.";
-                                    _completedSceneTag = sceneTag;
-                                  });
-                                  await _refreshContinuity(
-                                    reason: 'practice_return',
-                                  );
-                                  await gardenGrowthNotifier.refresh();
+                            const SizedBox(height: 16),
+
+                            // Garden card
+                            HomeGardenCard(
+                              weekNumber: weekNumber,
+                              stageName: stageName,
+                              wordsPlanted: wordsPlanted,
+                            ),
+
+                            const SizedBox(height: 24),
+
+                            // Daily activities
+                            HomeDailyActivities(
+                              onActivityTap: (activity) {
+                                // Navigate to practice flow based on activity
+                                if (canLaunchPractice) {
+                                  practiceArgs.push(context);
                                 }
-                              : null,
+                              },
+                              onSeeAll: () {
+                                // Navigate to full activities list
+                              },
+                            ),
+
+                            if (kDebugMode) ...[
+                              const SizedBox(height: 12),
+                              Text(
+                                'continuity: ${continuityNotifier.status.label}${continuityNotifier.lastRefreshReason == null ? '' : ' · refresh: ${continuityNotifier.lastRefreshReason}'}',
+                                key: const Key('home-debug-status'),
+                                style: Theme.of(context).textTheme.labelSmall
+                                    ?.copyWith(color: colors.textMuted),
+                                textAlign: TextAlign.center,
+                              ),
+                            ],
+                          ],
                         ),
-                      const SizedBox(height: 24),
-
-                      // Home B: Quick rescue row
-                      HomeBQuickRescueRow(
-                        onSceneSelected: (scene) {
-                          _openTemporarySceneSheet(scene);
-                        },
                       ),
-                      const SizedBox(height: 24),
-
-                      // Garden summary
-                      HomeGardenMiniEntry(
-                        notifier: gardenGrowthNotifier,
-                        pendingFertilizerCount: pendingFertilizerCount,
-                      ),
-
-                      if (kDebugMode) ...[
-                        const SizedBox(height: 12),
-                        Text(
-                          'continuity: ${continuityNotifier.status.label}${continuityNotifier.lastRefreshReason == null ? '' : ' · refresh: ${continuityNotifier.lastRefreshReason}'}',
-                          key: const Key('home-debug-status'),
-                          style: Theme.of(context).textTheme.labelSmall
-                              ?.copyWith(color: colors.textMuted),
-                          textAlign: TextAlign.center,
-                        ),
-                      ],
                     ],
                   ),
                 ),
@@ -353,33 +307,22 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with RouteAware {
     );
   }
 
-  void _openTemporarySceneSheet(String initialScene) {
-    AppHaptics.lightTap();
-    showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) => HomeBTemporarySceneSheet(
-        initialScene: initialScene,
-      ),
-    );
+  int _calculateWeekNumber(GardenGrowthSnapshot snapshot) {
+    if (snapshot.isEmpty) return 1;
+    // Calculate week number based on first event or installation date
+    final firstEvent = snapshot.diaryEntries.isNotEmpty
+        ? snapshot.diaryEntries.first.occurredAt
+        : DateTime.now();
+    final weeksSinceStart = DateTime.now().difference(firstEvent).inDays ~/ 7;
+    return (weeksSinceStart + 1).clamp(1, 52);
   }
 
-  String _resolveParentAction(String activityTitle, String? coachTip) {
-    // Use coach tip as parent action if available
-    if (coachTip != null && coachTip.isNotEmpty) {
-      return coachTip;
-    }
-    // Fallback contextual action
-    return '一边$activityTitle，一边轻轻说给宝宝听。';
-  }
-
-  String _resolveMentorHint(PracticePhrase phrase) {
-    // Generate a short contextual hint for the mentor bubble
-    if (phrase.english.isNotEmpty) {
-      return '现在就能用，不像命令，更像邀请宝宝一起完成。';
-    }
-    return '小禾帮你挑一句最合适的。';
+  double _calculateProgress(GardenGrowthSnapshot snapshot) {
+    if (snapshot.isEmpty) return 0.0;
+    // Progress based on completed activities vs total
+    final space = snapshot.primarySpace;
+    if (space == null || space.totalActivityCount == 0) return 0.0;
+    return (space.completedActivityCount / space.totalActivityCount).clamp(0.0, 1.0);
   }
 
   Future<void> _syncContinuityStarterArgs({required String reason}) async {

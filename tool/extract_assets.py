@@ -73,6 +73,108 @@ def detect_contours(thresh: np.ndarray) -> list[ContourInfo]:
     return result
 
 
+def classify_contours(contours: list[ContourInfo], image_height: int) -> dict[str, list[ContourInfo]]:
+    """Classify contours into categories based on vertical position.
+    
+    Sprite sheet layout (top to bottom):
+    - Row 1 (0-25%): Plants, flowers, leaves, growth stages
+    - Row 2 (25-45%): Seeds, sprouts, baby items
+    - Row 3 (45-65%): Baby activities, toys
+    - Row 4 (65-80%): Emotions, decorative elements
+    - Row 5 (80-95%): Mentor character poses
+    - Row 6 (95-100%): Garden elements
+    """
+    categories = {
+        'plants': [],
+        'baby_items': [],
+        'activities': [],
+        'emotions': [],
+        'mentor': [],
+        'garden': [],
+    }
+    
+    for c in contours:
+        ratio = c.center_y / image_height
+        if ratio < 0.25:
+            categories['plants'].append(c)
+        elif ratio < 0.45:
+            categories['baby_items'].append(c)
+        elif ratio < 0.65:
+            categories['activities'].append(c)
+        elif ratio < 0.80:
+            categories['emotions'].append(c)
+        elif ratio < 0.95:
+            categories['mentor'].append(c)
+        else:
+            categories['garden'].append(c)
+    
+    return categories
+
+
+def crop_and_save(
+    img: np.ndarray,
+    thresh: np.ndarray,
+    contour: ContourInfo,
+    output_path: Path,
+) -> bool:
+    """Crop illustration from image and save with transparent background."""
+    # Calculate crop bounds with padding
+    x1 = max(0, contour.x - PADDING)
+    y1 = max(0, contour.y - PADDING)
+    x2 = min(img.shape[1], contour.x + contour.width + PADDING)
+    y2 = min(img.shape[0], contour.y + contour.height + PADDING)
+    
+    # Crop RGB image
+    cropped_rgb = img[y1:y2, x1:x2]
+    
+    # Crop threshold for alpha mask
+    cropped_thresh = thresh[y1:y2, x1:x2]
+    
+    # Create RGBA image
+    h, w = cropped_rgb.shape[:2]
+    rgba = np.zeros((h, w, 4), dtype=np.uint8)
+    rgba[:, :, :3] = cropped_rgb
+    rgba[:, :, 3] = cropped_thresh  # Alpha channel from threshold
+    
+    # Save as PNG
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    pil_img = Image.fromarray(rgba, 'RGBA')
+    pil_img.save(output_path, 'PNG')
+    
+    return True
+
+
+def generate_manifest(categories: dict[str, list[ContourInfo]]) -> dict:
+    """Generate JSON manifest of extracted assets."""
+    manifest = {
+        "version": "1.0",
+        "source": "ChatGPT Image 2026年6月3日 08_59_49.png",
+        "categories": {},
+        "total_assets": 0,
+    }
+    
+    for category, contours_list in categories.items():
+        files = []
+        for i in range(len(contours_list)):
+            filename = f"{category}_{i+1:02d}.png"
+            files.append(filename)
+        
+        manifest["categories"][category] = {
+            "count": len(files),
+            "files": files,
+        }
+        manifest["total_assets"] += len(files)
+    
+    return manifest
+
+
+def save_manifest(manifest: dict, output_path: Path) -> None:
+    """Save manifest to JSON file."""
+    with open(output_path, 'w', encoding='utf-8') as f:
+        json.dump(manifest, f, indent=2, ensure_ascii=False)
+    print(f"Manifest saved to: {output_path}")
+
+
 def main():
     print("Loading sprite sheet...")
     img = load_sprite_sheet(SPRITE_SHEET_PATH)
@@ -84,9 +186,32 @@ def main():
     contours = detect_contours(thresh)
     print(f"Found {len(contours)} contours")
     
-    # Show first 5 contours
-    for i, c in enumerate(contours[:5]):
-        print(f"  {i}: pos=({c.x},{c.y}) size={c.width}x{c.height} area={c.area}")
+    # Classify contours by position
+    categories = classify_contours(contours, img.shape[0])
+    print("\nCategory classification:")
+    for cat, items in categories.items():
+        print(f'  {cat}: {len(items)} items')
+    
+    # Crop and save all contours
+    saved_count = 0
+    for category, contours_list in categories.items():
+        category_dir = OUTPUT_DIR / category
+        category_dir.mkdir(parents=True, exist_ok=True)
+        
+        for i, contour in enumerate(contours_list):
+            filename = f"{category}_{i+1:02d}.png"
+            output_path = category_dir / filename
+            
+            if crop_and_save(img, thresh, contour, output_path):
+                saved_count += 1
+                print(f"Saved: {category}/{filename}")
+
+    print(f"\nTotal saved: {saved_count} assets")
+    
+    # Generate and save manifest
+    manifest = generate_manifest(categories)
+    manifest_path = OUTPUT_DIR / "manifest.json"
+    save_manifest(manifest, manifest_path)
 
 
 if __name__ == "__main__":

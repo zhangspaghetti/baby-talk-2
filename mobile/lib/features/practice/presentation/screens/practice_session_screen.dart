@@ -1,51 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobile/app/providers/repository_providers.dart';
-import 'package:mobile/app/widgets/app_banner.dart';
 import 'package:mobile/app/widgets/app_haptics.dart';
-import 'package:mobile/app/widgets/app_surface_card.dart';
 import 'package:mobile/app/theme/app_layout_constants.dart';
 import 'package:mobile/app/theme/app_theme.dart';
 import 'package:mobile/features/mentor/presentation/mentor_audio_controller.dart';
-import 'package:mobile/app/widgets/app_mentor_bubble.dart';
 import 'package:mobile/features/practice/presentation/practice_route_args.dart';
 import 'package:mobile/features/practice/presentation/practice_session_notifier.dart';
 import 'package:mobile/features/practice/presentation/widgets/phrase_card.dart';
 import 'package:mobile/features/practice/presentation/widgets/practice_bottom_action_bar.dart';
 import 'package:mobile/features/practice/presentation/widgets/practice_completion_view.dart';
 import 'package:mobile/l10n/app_localizations.dart';
-
-/// Scene-specific dynamic mentor copy for the practice page (V21).
-String _sceneMentorCopy(String? sceneTag) {
-  switch (sceneTag) {
-    case 'feeding':
-      return '喂饭时轻轻说，宝宝会听的。';
-    case 'drinking':
-      return '递水的时候说一句就好。';
-    case 'diaper':
-      return '换尿布时说，宝宝反而更安静。';
-    case 'bath':
-      return '洗澡时说，宝宝会觉得好玩。';
-    case 'bedtime':
-      return '睡前轻轻说，像讲故事一样。';
-    case 'going_out':
-      return '出门前说一句，今天就开始了。';
-    default:
-      return '会说就直接说。';
-  }
-}
-
-String _sceneSubtitle(String? sceneTag) {
-  switch (sceneTag) {
-    case 'feeding':   return '喂饭 / 一句就够';
-    case 'drinking':  return '喝水 / 一句就够';
-    case 'diaper':    return '换尿布 / 一句就够';
-    case 'bath':      return '洗澡 / 一句就够';
-    case 'bedtime':   return '睡前 / 一句就够';
-    case 'going_out': return '出门 / 一句就够';
-    default:          return '一句就够';
-  }
-}
 
 class PracticeSessionScreen extends ConsumerWidget {
   const PracticeSessionScreen({
@@ -118,6 +83,7 @@ class _PracticeSessionBody extends ConsumerStatefulWidget {
 
 class _PracticeSessionBodyState extends ConsumerState<_PracticeSessionBody> {
   MentorAudioController? _ttsController;
+  bool _restoreBannerShown = false;
 
   @override
   void initState() {
@@ -153,6 +119,30 @@ class _PracticeSessionBodyState extends ConsumerState<_PracticeSessionBody> {
     await controller.speakText(text);
   }
 
+  void _showCoachTip(BuildContext context, String tip) {
+    final colors = context.appColors;
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        content: Text(
+          tip,
+          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: colors.textPrimary,
+              ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: Text(
+              '知道了',
+              style: TextStyle(color: colors.textSecondary),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
@@ -181,6 +171,24 @@ class _PracticeSessionBodyState extends ConsumerState<_PracticeSessionBody> {
       );
     }
 
+    // Show restore banner as SnackBar (once)
+    if (!_restoreBannerShown && notifier.restoreStatusMessage != null) {
+      _restoreBannerShown = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(notifier.restoreStatusMessage!),
+            backgroundColor: notifier.hasRecoverableRestoreIssue
+                ? colors.warningSoft
+                : colors.infoSoft,
+            duration: const Duration(seconds: 3),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      });
+    }
+
     final phrases = activity.phrases;
     final progressValue = phrases.isEmpty
         ? 0.0
@@ -199,24 +207,6 @@ class _PracticeSessionBodyState extends ConsumerState<_PracticeSessionBody> {
         backgroundColor: Colors.transparent,
         surfaceTintColor: Colors.transparent,
         title: const Text('今日一句'),
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(24),
-          child: Align(
-            alignment: Alignment.centerLeft,
-            child: Padding(
-              padding: const EdgeInsets.only(
-                left: AppLayoutConstants.spacingMd,
-                bottom: 6,
-              ),
-              child: Text(
-                _sceneSubtitle(notifier.sceneTag),
-                style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                      color: colors.textSecondary,
-                    ),
-              ),
-            ),
-          ),
-        ),
       ),
       body: SafeArea(
         child: Semantics(
@@ -231,13 +221,13 @@ class _PracticeSessionBodyState extends ConsumerState<_PracticeSessionBody> {
               ),
               child: Column(
                 children: [
-                  // ── Progress row ─────────────────────────────────────────
+                  // ── Progress row (compact) ───────────────────────────────
                   Padding(
                     padding: const EdgeInsets.fromLTRB(
                       AppLayoutConstants.spacingMd,
+                      AppLayoutConstants.spacingSm,
                       AppLayoutConstants.spacingMd,
-                      AppLayoutConstants.spacingMd,
-                      4,
+                      0,
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -251,7 +241,7 @@ class _PracticeSessionBodyState extends ConsumerState<_PracticeSessionBody> {
                           child: LinearProgressIndicator(
                             key: const Key('session-progress'),
                             value: progressValue,
-                            minHeight: 6,
+                            minHeight: 4,
                             borderRadius: BorderRadius.circular(
                               AppLayoutConstants.pillRadius,
                             ),
@@ -259,18 +249,32 @@ class _PracticeSessionBodyState extends ConsumerState<_PracticeSessionBody> {
                             backgroundColor: colors.outlineSoft,
                           ),
                         ),
-                        const SizedBox(height: 6),
-                        Text(
-                          l.practiceProgress(
-                            notifier.currentPhraseIndex + 1,
-                            phrases.length,
-                          ),
-                          key: const Key('practice-progress-text'),
-                          style: Theme.of(context).textTheme.bodySmall
-                              ?.copyWith(
-                            color: colors.textPrimary,
-                            fontWeight: FontWeight.w700,
-                          ),
+                        const SizedBox(height: 4),
+                        Row(
+                          children: [
+                            Text(
+                              l.practiceProgress(
+                                notifier.currentPhraseIndex + 1,
+                                phrases.length,
+                              ),
+                              key: const Key('practice-progress-text'),
+                              style: Theme.of(context).textTheme.labelSmall
+                                  ?.copyWith(
+                                color: colors.textSecondary,
+                              ),
+                            ),
+                            const Spacer(),
+                            GestureDetector(
+                              onTap: () {
+                                _showCoachTip(context, activity.coachTip);
+                              },
+                              child: Icon(
+                                Icons.info_outline_rounded,
+                                size: 16,
+                                color: colors.textSecondary,
+                              ),
+                            ),
+                          ],
                         ),
                       ],
                     ),
@@ -278,87 +282,15 @@ class _PracticeSessionBodyState extends ConsumerState<_PracticeSessionBody> {
                   // ── Scrollable content ────────────────────────────────────
                   Expanded(
                     child: SingleChildScrollView(
-                      padding: AppLayoutConstants.practicePadding,
+                      padding: const EdgeInsets.fromLTRB(
+                        AppLayoutConstants.spacingLg,
+                        AppLayoutConstants.spacingXs,
+                        AppLayoutConstants.spacingLg,
+                        AppLayoutConstants.spacingLg,
+                      ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          AppMentorBubble(
-                            message: _sceneMentorCopy(notifier.sceneTag),
-                          ),
-                          const SizedBox(height: 16),
-                          // Coach tip
-                          Semantics(
-                            button: true,
-                            label: '提示，${activity.coachTip}',
-                            child: AppSurfaceCard(
-                              padding: EdgeInsets.zero,
-                              backgroundColor: colors.bgSurface,
-                              borderRadius: AppLayoutConstants.cardRadius,
-                              borderColor: Colors.transparent,
-                              boxShadow: const [],
-                              child: Theme(
-                                data: Theme.of(context).copyWith(
-                                  dividerColor: Colors.transparent,
-                                ),
-                                child: ExpansionTile(
-                                  key: const Key('practice-coach-tip'),
-                                  tilePadding: const EdgeInsets.symmetric(
-                                    horizontal: AppLayoutConstants.spacingMd,
-                                  ),
-                                  childrenPadding: const EdgeInsets.fromLTRB(
-                                    AppLayoutConstants.spacingMd,
-                                    0,
-                                    AppLayoutConstants.spacingMd,
-                                    AppLayoutConstants.spacingMd,
-                                  ),
-                                  minTileHeight:
-                                      AppLayoutConstants.minTouchTarget,
-                                  title: Text(
-                                    '提示',
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .titleMedium
-                                        ?.copyWith(color: colors.textPrimary),
-                                  ),
-                                  children: [
-                                    Align(
-                                      alignment: Alignment.centerLeft,
-                                      child: Text(
-                                        activity.coachTip,
-                                        style: Theme.of(context)
-                                            .textTheme
-                                            .bodyMedium
-                                            ?.copyWith(
-                                                color: colors.textSecondary),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ),
-                          if (notifier.restoreStatusMessage != null) ...[
-                            const SizedBox(height: 16),
-                            AppBanner(
-                              key: const Key('practice-restore-banner'),
-                              message: notifier.restoreStatusMessage!,
-                              backgroundColor:
-                                  notifier.hasRecoverableRestoreIssue
-                                      ? colors.warningSoft
-                                      : colors.infoSoft,
-                              foregroundColor: colors.textPrimary,
-                            ),
-                          ],
-                          if (notifier.sessionErrorMessage != null) ...[
-                            const SizedBox(height: 16),
-                            AppBanner(
-                              key: const Key('session-error-banner'),
-                              message: notifier.sessionErrorMessage!,
-                              backgroundColor: colors.errorSoft,
-                              foregroundColor: colors.textPrimary,
-                            ),
-                          ],
-                          const SizedBox(height: 20),
                           // ── Main card / completion view ───────────────────
                           AnimatedSwitcher(
                             duration: const Duration(milliseconds: 300),
@@ -417,7 +349,7 @@ class _PracticeSessionBodyState extends ConsumerState<_PracticeSessionBody> {
                                       )
                                     : const SizedBox.shrink(),
                           ),
-                          const SizedBox(height: 80), // bottom bar clearance
+                          const SizedBox(height: 60), // bottom bar clearance
                         ],
                       ),
                     ),
