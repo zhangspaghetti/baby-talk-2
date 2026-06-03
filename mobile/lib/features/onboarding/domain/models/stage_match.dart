@@ -22,7 +22,20 @@ extension OnboardingAgeBucketWire on OnboardingAgeBucket {
     }
   }
 
-  String get label => '$wireValue 月';
+  String get label {
+    switch (this) {
+      case OnboardingAgeBucket.zeroToSix:
+        return '0-6个月 🌱';
+      case OnboardingAgeBucket.sixToTwelve:
+        return '7-12个月 🌿';
+      case OnboardingAgeBucket.twelveToEighteen:
+        return '1岁 🌳';
+      case OnboardingAgeBucket.eighteenToTwentyFour:
+        return '2岁 🌳';
+      case OnboardingAgeBucket.twentyFourToThirtySix:
+        return '3岁 🌳';
+    }
+  }
 }
 
 OnboardingAgeBucket parseOnboardingAgeBucket(String value) {

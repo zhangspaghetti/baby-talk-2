@@ -3,8 +3,10 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:mobile/app/theme/app_layout_constants.dart';
+import 'package:mobile/app/theme/app_theme.dart';
 import 'package:mobile/app/widgets/app_mentor_bubble.dart';
 import 'package:mobile/app/providers/repository_providers.dart';
+import 'package:mobile/features/onboarding/domain/models/stage_match.dart';
 import 'package:mobile/l10n/app_localizations.dart';
 
 class OnboardingNameScreen extends HookConsumerWidget {
@@ -15,6 +17,7 @@ class OnboardingNameScreen extends HookConsumerWidget {
     final controller = useTextEditingController();
     final focusNode = useFocusNode();
     final name = useState('');
+    final selectedAge = useState<OnboardingAgeBucket?>(null);
 
     useEffect(() {
       void listener() {
@@ -26,6 +29,7 @@ class OnboardingNameScreen extends HookConsumerWidget {
     }, const []);
 
     final l = AppLocalizations.of(context)!;
+    final colors = context.appColors;
 
     return Scaffold(
       body: SafeArea(
@@ -38,7 +42,17 @@ class OnboardingNameScreen extends HookConsumerWidget {
             child: ListView(
               padding: AppLayoutConstants.screenPadding,
               children: [
-                const SizedBox(height: AppLayoutConstants.spacingXl),
+                Row(
+                  children: [
+                    const Spacer(),
+                    TextButton(
+                      key: const Key('onboarding-name-skip-top'),
+                      onPressed: () => _submit(context, ref, name.value.trim()),
+                      child: Text(l.onboardingV21SkipButton),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: AppLayoutConstants.spacingSm),
                 AppMentorBubble(
                   message: l.onboardingV21MentorGreeting,
                   caption: '小禾老师',
@@ -55,18 +69,47 @@ class OnboardingNameScreen extends HookConsumerWidget {
                     hintText: l.onboardingV21NameHint,
                   ),
                   onSubmitted: (_) {
-                    if (name.value.trim().isNotEmpty) {
-                      _submit(context, ref, name.value.trim());
-                    }
+                    _submit(context, ref, name.value.trim());
                   },
                 ),
+                const SizedBox(height: AppLayoutConstants.spacingLg),
+                Text(
+                  l.onboardingV21AgeTitle,
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                ),
+                const SizedBox(height: AppLayoutConstants.spacingSm),
+                ...OnboardingAgeBucket.values.map((bucket) {
+                  return Padding(
+                    padding: const EdgeInsets.only(
+                      bottom: AppLayoutConstants.spacingXs,
+                    ),
+                    child: RadioListTile<OnboardingAgeBucket>(
+                      key: Key('onboarding-age-${bucket.name}'),
+                      value: bucket,
+                      groupValue: selectedAge.value,
+                      onChanged: (value) {
+                        selectedAge.value = value;
+                      },
+                      title: Text(bucket.label),
+                      contentPadding: EdgeInsets.zero,
+                      dense: true,
+                      activeColor: colors.accent,
+                    ),
+                  );
+                }),
                 const SizedBox(height: AppLayoutConstants.spacingXl),
                 ElevatedButton(
                   key: const Key('onboarding-name-next'),
-                  onPressed: name.value.trim().isNotEmpty
-                      ? () => _submit(context, ref, name.value.trim())
-                      : null,
-                  child: Text(l.onboardingV21NextButton),
+                  onPressed: () => _submit(context, ref, name.value.trim()),
+                  child: Text(l.onboardingV21SaveButton),
+                ),
+                const SizedBox(height: AppLayoutConstants.spacingMd),
+                TextButton(
+                  key: const Key('onboarding-name-skip-bottom'),
+                  onPressed: () => _submit(context, ref, name.value.trim()),
+                  child: Text(l.onboardingV21SkipButton),
                 ),
                 const SizedBox(height: AppLayoutConstants.spacingMd),
                 Text(
@@ -89,7 +132,10 @@ class OnboardingNameScreen extends HookConsumerWidget {
   }
 
   void _submit(BuildContext context, WidgetRef ref, String name) {
-    ref.read(onboardingSessionProvider.notifier).setChildName(name);
+    final notifier = ref.read(onboardingSessionProvider.notifier);
+    if (name.isNotEmpty) {
+      notifier.setChildName(name);
+    }
     context.push('/onboarding/scene');
   }
 }

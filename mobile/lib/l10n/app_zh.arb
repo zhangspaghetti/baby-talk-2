@@ -702,15 +702,24 @@
   "settingsLanguageEn": "English",
 
   "@onboardingV21MentorGreeting": { "description": "Mentor bubble on name input screen" },
-  "onboardingV21MentorGreeting": "先告诉小禾，宝宝叫什么？",
+  "onboardingV21MentorGreeting": "小禾想帮你记录这段珍贵的成长，可以告诉我一些关于宝宝的小信息吗？",
 
   "@onboardingV21NameLabel": { "description": "Name input label" },
-  "onboardingV21NameLabel": "宝宝昵称",
+  "onboardingV21NameLabel": "宝宝昵称（可选）",
 
   "@onboardingV21NameHint": { "description": "Name input hint" },
-  "onboardingV21NameHint": "填一个昵称就好",
+  "onboardingV21NameHint": "比如：小宝、小明...",
 
-  "@onboardingV21NextButton": { "description": "Next button on name screen" },
+  "@onboardingV21AgeTitle": { "description": "Age selection title" },
+  "onboardingV21AgeTitle": "宝宝月龄",
+
+  "@onboardingV21SaveButton": { "description": "Save button on name screen" },
+  "onboardingV21SaveButton": "保存",
+
+  "@onboardingV21SkipButton": { "description": "Skip button" },
+  "onboardingV21SkipButton": "稍后再说",
+
+  "@onboardingV21NextButton": { "description": "Next button on name screen (deprecated)" },
   "onboardingV21NextButton": "下一步",
 
   "@onboardingV21SceneTitle": { "description": "Scene selection title" },

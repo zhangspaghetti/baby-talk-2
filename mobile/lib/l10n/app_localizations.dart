@@ -3707,22 +3707,40 @@ abstract class AppLocalizations {
   /// Mentor bubble on name input screen
   ///
   /// In zh, this message translates to:
-  /// **'先告诉小禾，宝宝叫什么？'**
+  /// **'小禾想帮你记录这段珍贵的成长，可以告诉我一些关于宝宝的小信息吗？'**
   String get onboardingV21MentorGreeting;
 
   /// Name input label
   ///
   /// In zh, this message translates to:
-  /// **'宝宝昵称'**
+  /// **'宝宝昵称（可选）'**
   String get onboardingV21NameLabel;
 
   /// Name input hint
   ///
   /// In zh, this message translates to:
-  /// **'填一个昵称就好'**
+  /// **'比如：小宝、小明...'**
   String get onboardingV21NameHint;
 
-  /// Next button on name screen
+  /// Age selection title
+  ///
+  /// In zh, this message translates to:
+  /// **'宝宝月龄'**
+  String get onboardingV21AgeTitle;
+
+  /// Save button on name screen
+  ///
+  /// In zh, this message translates to:
+  /// **'保存'**
+  String get onboardingV21SaveButton;
+
+  /// Skip button
+  ///
+  /// In zh, this message translates to:
+  /// **'稍后再说'**
+  String get onboardingV21SkipButton;
+
+  /// Next button on name screen (deprecated)
   ///
   /// In zh, this message translates to:
   /// **'下一步'**

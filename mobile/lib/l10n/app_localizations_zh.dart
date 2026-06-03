@@ -1987,13 +1987,22 @@ class AppLocalizationsZh extends AppLocalizations {
   String get settingsLanguageEn => 'English';
 
   @override
-  String get onboardingV21MentorGreeting => '先告诉小禾，宝宝叫什么？';
+  String get onboardingV21MentorGreeting => '小禾想帮你记录这段珍贵的成长，可以告诉我一些关于宝宝的小信息吗？';
 
   @override
-  String get onboardingV21NameLabel => '宝宝昵称';
+  String get onboardingV21NameLabel => '宝宝昵称（可选）';
 
   @override
-  String get onboardingV21NameHint => '填一个昵称就好';
+  String get onboardingV21NameHint => '比如：小宝、小明...';
+
+  @override
+  String get onboardingV21AgeTitle => '宝宝月龄';
+
+  @override
+  String get onboardingV21SaveButton => '保存';
+
+  @override
+  String get onboardingV21SkipButton => '稍后再说';
 
   @override
   String get onboardingV21NextButton => '下一步';
