@@ -23,6 +23,7 @@ import 'package:mobile/features/onboarding/presentation/screens/onboarding_name_
 import 'package:mobile/features/onboarding/presentation/screens/onboarding_scene_screen.dart';
 import 'package:mobile/features/onboarding/presentation/screens/onboarding_practice_screen.dart';
 import 'package:mobile/features/onboarding/presentation/screens/onboarding_complete_screen.dart';
+import 'package:mobile/features/onboarding/presentation/screens/onboarding_garden_welcome_screen.dart';
 import 'package:mobile/features/practice/data/repositories/practice_repository.dart';
 import 'package:mobile/features/practice/data/services/asset_phrase_service.dart';
 import 'package:mobile/features/practice/presentation/garden_growth_notifier.dart';
@@ -380,7 +381,7 @@ class _BabyTalkAppState extends ConsumerState<BabyTalkApp> {
           path: AppRouteNames.onboarding,
           builder: (context, state) => const _BootRouteMarker(
             routeKey: Key('boot-route-onboarding'),
-            child: OnboardingNameScreen(),
+            child: OnboardingSceneScreen(),
           ),
           routes: [
             GoRoute(
@@ -394,6 +395,10 @@ class _BabyTalkAppState extends ConsumerState<BabyTalkApp> {
             GoRoute(
               path: 'complete',
               builder: (context, state) => const OnboardingCompleteScreen(),
+            ),
+            GoRoute(
+              path: 'garden-welcome',
+              builder: (context, state) => const OnboardingGardenWelcomeScreen(),
             ),
           ],
         ),
