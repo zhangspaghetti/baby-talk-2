@@ -4,12 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:mobile/app/providers/repository_providers.dart';
-import 'package:mobile/l10n/app_localizations.dart';
 import 'package:mobile/app/theme/app_layout_constants.dart';
 import 'package:mobile/app/theme/app_theme.dart';
-import 'package:mobile/app/widgets/app_mentor_bubble.dart';
 import 'package:mobile/app/widgets/app_seed_sprout.dart';
-import 'package:mobile/features/onboarding/domain/models/practice_scene.dart';
 import 'package:mobile/features/onboarding/domain/models/stage_match.dart';
 
 class OnboardingCompleteScreen extends ConsumerStatefulWidget {
@@ -32,10 +29,8 @@ class _OnboardingCompleteScreenState
 
   @override
   Widget build(BuildContext context) {
-    final l = AppLocalizations.of(context)!;
     final notifier = ref.watch(onboardingSessionProvider);
     final session = notifier.session;
-    final scene = session.selectedScene;
     final colors = context.appColors;
     final theme = Theme.of(context);
 
@@ -50,70 +45,41 @@ class _OnboardingCompleteScreenState
             child: ListView(
               padding: AppLayoutConstants.screenPadding,
               children: [
-                // Top bar
-                Row(
-                  children: [
-                    IconButton(
-                      icon: const Icon(Icons.arrow_back),
-                      onPressed: () => context.pop(),
-                    ),
-                    Expanded(
-                      child: Text(
-                        l.onboardingV21CompleteTitle,
-                        textAlign: TextAlign.center,
-                        style: theme.textTheme.titleSmall,
-                      ),
-                    ),
-                    const SizedBox(width: 48),
-                  ],
-                ),
-                const SizedBox(height: AppLayoutConstants.spacingLg),
-                // Mentor bubble
-                AppMentorBubble(message: session.completionBubbleCopy),
-                const SizedBox(height: AppLayoutConstants.spacingXl),
                 // Sprout animation
                 Center(
                   child: AppSeedSprout(
-                    size: 120,
+                    size: 160,
                     onAnimationComplete: _onSproutComplete,
                   ),
                 ),
                 const SizedBox(height: AppLayoutConstants.spacingXl),
-                // Dynamic title (fades in after sprout)
+                // Title (fades in after sprout)
                 AnimatedOpacity(
                   opacity: _textVisible ? 1.0 : 0.0,
                   duration: const Duration(milliseconds: 300),
                   child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                    crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
-                      if (scene != null)
-                        Text(
-                          scene.completionTitle,
-                          style: theme.textTheme.titleLarge?.copyWith(
-                            fontWeight: FontWeight.w700,
-                          ),
+                      Text(
+                        '你刚刚和宝宝分享了第一组英语 🌱',
+                        textAlign: TextAlign.center,
+                        style: theme.textTheme.headlineSmall?.copyWith(
+                          fontWeight: FontWeight.w700,
                         ),
+                      ),
                       const SizedBox(height: AppLayoutConstants.spacingSm),
                       Text(
-                        l.onboardingV21NextTime,
+                        '一颗小种子已经种下，持续的表达会让它慢慢成长。',
+                        textAlign: TextAlign.center,
                         style: theme.textTheme.bodyMedium?.copyWith(
                           color: colors.textSecondary,
                         ),
                       ),
-                      if (session.completionReactionSummary != null) ...[
-                        const SizedBox(height: AppLayoutConstants.spacingSm),
-                        Text(
-                          session.completionReactionSummary!,
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            color: colors.textSecondary,
-                          ),
-                        ),
-                      ],
                     ],
                   ),
                 ),
                 const SizedBox(height: AppLayoutConstants.spacing2xl),
-                // Buttons
+                // CTA button
                 AnimatedOpacity(
                   opacity: _textVisible ? 1.0 : 0.0,
                   duration: const Duration(milliseconds: 200),
@@ -123,12 +89,12 @@ class _OnboardingCompleteScreenState
                         onPressed: () {
                           context.go('/onboarding/practice');
                         },
-                        child: Text(l.onboardingV21AgainButton),
+                        child: const Text('看看我的花园'),
                       ),
                       const SizedBox(height: AppLayoutConstants.spacingSm),
                       TextButton(
                         onPressed: () => _completeOnboarding(context, ref),
-                        child: Text(l.onboardingV21DoneButton),
+                        child: const Text('稍后再说'),
                       ),
                     ],
                   ),
@@ -150,7 +116,10 @@ class _OnboardingCompleteScreenState
 
     final repository = ref.read(onboardingRepositoryProvider).requireValue;
     final snapshot = await repository.completeOnboarding(
-      childDisplayName: (session.childName == null || session.childName!.isEmpty) ? '宝宝' : session.childName!,
+      childDisplayName:
+          (session.childName == null || session.childName!.isEmpty)
+              ? '宝宝'
+              : session.childName!,
       ageBucket: ageBucket,
     );
 
