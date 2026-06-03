@@ -13,6 +13,7 @@ class AppRouteNames {
   static const onboardingScene = '/onboarding/scene';
   static const onboardingPractice = '/onboarding/practice';
   static const onboardingComplete = '/onboarding/complete';
+  static const onboardingGardenWelcome = '/onboarding/garden-welcome';
 
   static const canonicalPaths = <String>{
     shell,
@@ -25,5 +26,6 @@ class AppRouteNames {
     onboardingScene,
     onboardingPractice,
     onboardingComplete,
+    onboardingGardenWelcome,
   };
 }

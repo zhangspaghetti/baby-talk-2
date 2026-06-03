@@ -87,7 +87,7 @@ class _OnboardingCompleteScreenState
                     children: [
                       ElevatedButton(
                         onPressed: () {
-                          context.go('/onboarding/practice');
+                          context.go('/onboarding/name');
                         },
                         child: const Text('看看我的花园'),
                       ),

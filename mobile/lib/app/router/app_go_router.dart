@@ -8,6 +8,7 @@ import 'package:mobile/features/onboarding/presentation/screens/onboarding_name_
 import 'package:mobile/features/onboarding/presentation/screens/onboarding_scene_screen.dart';
 import 'package:mobile/features/onboarding/presentation/screens/onboarding_practice_screen.dart';
 import 'package:mobile/features/onboarding/presentation/screens/onboarding_complete_screen.dart';
+import 'package:mobile/features/onboarding/presentation/screens/onboarding_garden_welcome_screen.dart';
 import 'package:mobile/features/shell/presentation/app_shell_screen.dart';
 import 'package:mobile/features/practice/presentation/screens/practice_session_screen.dart';
 import 'package:mobile/features/auth/presentation/screens/auth_screen.dart';
@@ -39,6 +40,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: AppRouteNames.onboardingComplete,
         builder: (context, state) => const OnboardingCompleteScreen(),
+      ),
+      GoRoute(
+        path: AppRouteNames.onboardingGardenWelcome,
+        builder: (context, state) => const OnboardingGardenWelcomeScreen(),
       ),
       GoRoute(
         path: AppRouteNames.practice,

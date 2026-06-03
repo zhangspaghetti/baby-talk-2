@@ -136,6 +136,6 @@ class OnboardingNameScreen extends HookConsumerWidget {
     if (name.isNotEmpty) {
       notifier.setChildName(name);
     }
-    context.push('/onboarding/scene');
+    context.push('/onboarding/garden-welcome');
   }
 }
