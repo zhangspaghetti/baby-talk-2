@@ -13,17 +13,34 @@ extension PracticeSceneX on PracticeScene {
   String get label {
     switch (this) {
       case PracticeScene.feeding:
-        return '喂饭';
+        return '吃饭时间';
       case PracticeScene.drinking:
-        return '喝水';
+        return '喝水时间';
       case PracticeScene.diaper:
         return '换尿布';
       case PracticeScene.bath:
-        return '洗澡';
+        return '洗澡时间';
       case PracticeScene.bedtime:
-        return '睡前';
+        return '睡前时光';
       case PracticeScene.outing:
-        return '出门';
+        return '出门时光';
+    }
+  }
+
+  String get emoji {
+    switch (this) {
+      case PracticeScene.feeding:
+        return '🍚';
+      case PracticeScene.drinking:
+        return '🥤';
+      case PracticeScene.diaper:
+        return '👶';
+      case PracticeScene.bath:
+        return '🛁';
+      case PracticeScene.bedtime:
+        return '🌙';
+      case PracticeScene.outing:
+        return '🚶';
     }
   }
 
