@@ -6,11 +6,13 @@ import 'package:mobile/app/widgets/app_scale_button.dart';
 class SceneButton extends StatelessWidget {
   const SceneButton({
     super.key,
+    required this.emoji,
     required this.label,
     required this.isSelected,
     required this.onTap,
   });
 
+  final String emoji;
   final String label;
   final bool isSelected;
   final VoidCallback onTap;
@@ -29,11 +31,11 @@ class SceneButton extends StatelessWidget {
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
         curve: Curves.easeOut,
-        width: double.infinity,
-        constraints: const BoxConstraints(minHeight: 48),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
         decoration: BoxDecoration(
-          color: isSelected ? colors.accent : colors.bgSurface,
+          color: isSelected
+              ? colors.accent.withValues(alpha: 0.12)
+              : colors.bgSurface,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
             color: isSelected ? colors.accent : colors.outlineSoft,
@@ -41,12 +43,23 @@ class SceneButton extends StatelessWidget {
           ),
           boxShadow: isSelected ? colors.warmShadowSm : null,
         ),
-        child: Text(
-          label,
-          style: theme.textTheme.titleMedium?.copyWith(
-            color: isSelected ? Colors.white : colors.textPrimary,
-            fontWeight: FontWeight.w600,
-          ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              emoji,
+              style: const TextStyle(fontSize: 32),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              label,
+              style: theme.textTheme.titleSmall?.copyWith(
+                color: isSelected ? colors.accent : colors.textPrimary,
+                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
         ),
       ),
     );
