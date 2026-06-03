@@ -10,7 +10,7 @@ extension BabyReactionX on BabyReaction {
       case BabyReaction.responded:
         return '😊';
       case BabyReaction.calmed:
-        return '😌';
+        return '🍼';
       case BabyReaction.noResponse:
         return '😐';
     }
@@ -19,11 +19,11 @@ extension BabyReactionX on BabyReaction {
   String get label {
     switch (this) {
       case BabyReaction.responded:
-        return '有回应';
+        return '开心回应';
       case BabyReaction.calmed:
-        return '安静了';
+        return '玩水了';
       case BabyReaction.noResponse:
-        return '没反应';
+        return '没反应也没关系';
     }
   }
 
