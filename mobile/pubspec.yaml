@@ -72,6 +72,14 @@ flutter:
     - assets/audio/phrases/feeding_time_yummy_bite.mp3
     - assets/audio/phrases/bedtime_dim_the_lights.mp3
     - assets/audio/phrases/bedtime_time_to_sleep.mp3
+    - assets/images/plants/
+    - assets/images/baby/
+    - assets/images/items/
+    - assets/images/emotions/
+    - assets/images/mentor/
+    - assets/images/garden/
+    - assets/images/decorative/
+    - assets/images/ui/
   fonts:
     - family: Fraunces
       fonts:
