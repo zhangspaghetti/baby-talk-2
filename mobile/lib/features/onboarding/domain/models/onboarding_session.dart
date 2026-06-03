@@ -5,13 +5,13 @@ import 'package:mobile/features/onboarding/domain/models/stage_match.dart';
 
 class OnboardingSession {
   OnboardingSession({
-    this.childName = '',
+    this.childName,
     this.selectedScene,
     this.ageBucket,
     List<PracticeRecord>? records,
   }) : records = records ?? [];
 
-  String childName;
+  String? childName;
   PracticeScene? selectedScene;
   OnboardingAgeBucket? ageBucket;
   final List<PracticeRecord> records;

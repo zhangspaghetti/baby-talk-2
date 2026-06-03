@@ -150,7 +150,7 @@ class _OnboardingCompleteScreenState
 
     final repository = ref.read(onboardingRepositoryProvider).requireValue;
     final snapshot = await repository.completeOnboarding(
-      childDisplayName: session.childName.isEmpty ? '宝宝' : session.childName,
+      childDisplayName: (session.childName == null || session.childName!.isEmpty) ? '宝宝' : session.childName!,
       ageBucket: ageBucket,
     );
 
