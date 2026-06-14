@@ -1,15 +1,12 @@
-// mobile/lib/features/onboarding/presentation/screens/onboarding_scene_screen.dart
-
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:mobile/app/theme/app_layout_constants.dart';
-import 'package:mobile/app/theme/app_theme.dart';
-import 'package:mobile/features/onboarding/domain/models/practice_scene.dart';
-import 'package:mobile/features/onboarding/domain/models/stage_match.dart';
 import 'package:mobile/app/providers/repository_providers.dart';
-import 'package:mobile/l10n/app_localizations.dart';
-import 'package:mobile/features/onboarding/presentation/widgets/scene_button.dart';
+import 'package:mobile/app/theme/app_theme.dart';
+import 'package:mobile/app/widgets/app_haptics.dart';
+import 'package:mobile/app/widgets/app_scale_button.dart';
+import 'package:mobile/features/onboarding/domain/models/practice_scene.dart';
+import 'package:mobile/features/onboarding/presentation/widgets/onboarding_design_widgets.dart';
 
 class OnboardingSceneScreen extends ConsumerStatefulWidget {
   const OnboardingSceneScreen({super.key});
@@ -20,277 +17,236 @@ class OnboardingSceneScreen extends ConsumerStatefulWidget {
 }
 
 class _OnboardingSceneScreenState extends ConsumerState<OnboardingSceneScreen> {
-  PracticeScene? _selectedScene;
-  OnboardingAgeBucket? _selectedAge;
-  bool _showAgePanel = false;
+  PracticeScene _selectedScene = PracticeScene.bath;
 
-  @override
-  void initState() {
-    super.initState();
-    _selectedScene = _resolveDefaultScene();
-  }
+  static const _sceneOptions = [
+    _SceneOption(
+      scene: PracticeScene.bedtime,
+      title: '睡前时光',
+      assetName: OnboardingAssets.bedtime,
+    ),
+    _SceneOption(
+      scene: PracticeScene.feeding,
+      title: '吃饭时间',
+      assetName: OnboardingAssets.feeding,
+    ),
+    _SceneOption(
+      scene: PracticeScene.bath,
+      title: '洗澡时间',
+      assetName: OnboardingAssets.bath,
+    ),
+    _SceneOption(
+      scene: PracticeScene.diaper,
+      title: '换尿布',
+      assetName: OnboardingAssets.diaper,
+    ),
+  ];
 
-  PracticeScene _resolveDefaultScene() {
-    final session = ref.read(onboardingSessionProvider).session;
-    if (session.selectedScene != null) return session.selectedScene!;
-    return PracticeSceneX.defaultSceneForHour(DateTime.now().hour);
-  }
-
-  void _onSceneTap(PracticeScene scene) {
+  void _selectScene(PracticeScene scene) {
+    AppHaptics.lightTap();
     setState(() => _selectedScene = scene);
+    // Auto-navigate to practice after scene selection
+    _startPractice();
+  }
+
+  void _startPractice() {
     final notifier = ref.read(onboardingSessionProvider.notifier);
-    notifier.selectScene(scene);
+    notifier.selectScene(_selectedScene);
     context.push('/onboarding/practice');
   }
 
   @override
   Widget build(BuildContext context) {
-    final l = AppLocalizations.of(context)!;
     final colors = context.appColors;
     final theme = Theme.of(context);
 
-    return Scaffold(
-      body: SafeArea(
-        child: Align(
-          alignment: Alignment.topCenter,
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(
-              maxWidth: AppLayoutConstants.maxContentWidth,
-            ),
-            child: ListView(
-              padding: AppLayoutConstants.screenPadding,
-              children: [
-                Row(
-                  children: [
-                    IconButton(
-                      icon: const Icon(Icons.arrow_back),
-                      onPressed: () => context.pop(),
-                    ),
-                    const Spacer(),
-                    TextButton(
-                      onPressed: () {
-                        final notifier =
-                            ref.read(onboardingSessionProvider.notifier);
-                        notifier.selectScene(_resolveDefaultScene());
-                        context.push('/onboarding/practice');
-                      },
-                      child: Text(l.onboardingV21DirectPhrase),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: AppLayoutConstants.spacingSm),
-
-                // Mentor avatar
-                Center(
-                  child: Column(
-                    children: [
-                      _MentorAvatar(colors: colors, theme: theme, l: l),
-                      const SizedBox(height: AppLayoutConstants.spacingSm),
-                      Text(
-                        '你的英语育儿伙伴',
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: colors.textSecondary,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: AppLayoutConstants.spacingLg),
-
-                // Title
-                Text(
-                  l.onboardingV21SceneTitle,
-                  style: theme.textTheme.headlineSmall?.copyWith(
-                    fontWeight: FontWeight.w700,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: AppLayoutConstants.spacingXs),
-
-                // Subtitle
-                Text(
-                  l.onboardingV21SceneHint,
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: colors.textSecondary,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: AppLayoutConstants.spacingLg),
-
-                // 2x2 scene grid
-                GridView.count(
-                  crossAxisCount: 2,
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  mainAxisSpacing: AppLayoutConstants.spacingSm,
-                  crossAxisSpacing: AppLayoutConstants.spacingSm,
-                  childAspectRatio: 1.0,
-                  children: PracticeSceneX.allScenes.map((scene) {
-                    return SceneButton(
-                      emoji: scene.emoji,
-                      label: scene.label,
-                      isSelected: _selectedScene == scene,
-                      onTap: () => _onSceneTap(scene),
-                    );
-                  }).toList(),
-                ),
-                const SizedBox(height: AppLayoutConstants.spacingLg),
-
-                // Helper text
-                Text(
-                  '不知道说什么？点下面按钮，小禾给你几句话',
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: colors.textSecondary,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: AppLayoutConstants.spacingMd),
-
-                // CTA button
-                FilledButton(
-                  onPressed: () {
-                    if (_selectedScene != null) {
-                      _onSceneTap(_selectedScene!);
-                    } else {
-                      _onSceneTap(_resolveDefaultScene());
-                    }
-                  },
-                  style: FilledButton.styleFrom(
-                    minimumSize: const Size(double.infinity, 52),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
+    return OnboardingWarmScaffold(
+      child: ListView(
+        padding: const EdgeInsets.fromLTRB(24, 18, 24, 22),
+        children: [
+          Row(
+            children: [
+              ClipOval(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(color: colors.bgAccentSoft),
+                  child: const Padding(
+                    padding: EdgeInsets.all(3),
+                    child: OnboardingAssetImage(
+                      OnboardingAssets.mentor,
+                      width: 62,
+                      height: 62,
                     ),
                   ),
-                  child: Text(
-                    '给我几句话',
+                ),
+              ),
+              const SizedBox(width: 14),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '小禾老师',
                     style: theme.textTheme.titleMedium?.copyWith(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w600,
+                      color: colors.textPrimary,
+                      fontWeight: FontWeight.w700,
                     ),
                   ),
-                ),
-                const SizedBox(height: AppLayoutConstants.spacingLg),
-
-                // Age entry (dashed outline button)
-                OutlinedButton.icon(
-                  key: const Key('onboarding-age-entry'),
-                  onPressed: () {
-                    setState(() => _showAgePanel = !_showAgePanel);
-                  },
-                  icon: const Icon(Icons.child_care_outlined),
-                  label: Text(
-                    _selectedAge != null
-                        ? '${_selectedAge!.label} ✓'
-                        : l.onboardingV21AgeEntry,
-                  ),
-                  style: OutlinedButton.styleFrom(
-                    side: BorderSide(
-                      color: colors.outlineSoft,
-                      style: BorderStyle.solid,
+                  const SizedBox(height: 2),
+                  Text(
+                    '你的英语育儿伙伴',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: colors.textSecondary,
                     ),
-                    minimumSize: const Size(double.infinity, 48),
-                  ),
-                ),
-                if (_showAgePanel) ...[
-                  const SizedBox(height: AppLayoutConstants.spacingSm),
-                  _AgeSelectionPanel(
-                    selected: _selectedAge,
-                    onSelected: (bucket) {
-                      setState(() {
-                        _selectedAge = bucket;
-                        _showAgePanel = false;
-                      });
-                      ref
-                          .read(onboardingSessionProvider.notifier)
-                          .selectAgeBucket(bucket);
-                    },
                   ),
                 ],
-              ],
+              ),
+            ],
+          ),
+          const SizedBox(height: 30),
+          Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Text(
+                '今晚想和宝宝\n说些什么呢？',
+                style: theme.textTheme.displayMedium?.copyWith(
+                  fontSize: 31,
+                  height: 1.34,
+                  color: colors.textPrimary,
+                ),
+              ),
+              const Positioned(
+                right: 4,
+                bottom: -22,
+                child: OnboardingAssetImage(
+                  OnboardingAssets.flower,
+                  width: 88,
+                  height: 102,
+                ),
+              ),
+              Positioned(
+                right: 0,
+                top: 12,
+                child: Text(
+                  '✦',
+                  style: TextStyle(color: colors.warning, fontSize: 15),
+                ),
+              ),
+              Positioned(
+                right: 42,
+                top: 44,
+                child: Text(
+                  '✦',
+                  style: TextStyle(color: colors.warning, fontSize: 13),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 18),
+          Text(
+            '不需要学英语，\n只需要和宝宝说几句话。',
+            style: theme.textTheme.bodyLarge?.copyWith(
+              color: colors.textPrimary,
+              height: 1.7,
             ),
           ),
-        ),
+          const SizedBox(height: 24),
+          GridView.count(
+            crossAxisCount: 2,
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            mainAxisSpacing: 12,
+            crossAxisSpacing: 12,
+            childAspectRatio: 1.08,
+            children: _sceneOptions.map((option) {
+              return _WatercolorSceneCard(
+                option: option,
+                selected: option.scene == _selectedScene,
+                onTap: () => _selectScene(option.scene),
+              );
+            }).toList(),
+          ),
+          const SizedBox(height: 24),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('💡', style: theme.textTheme.titleMedium),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  '不知道说什么？\n点上面的场景，小禾给你几句话',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: colors.textMuted,
+                    height: 1.55,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 22),
+        ],
       ),
     );
   }
 }
 
-/// Mentor avatar widget - 28×28 rounded rectangle with warm gradient.
-class _MentorAvatar extends StatelessWidget {
-  const _MentorAvatar({
-    required this.colors,
-    required this.theme,
-    required this.l,
+class _SceneOption {
+  const _SceneOption({
+    required this.scene,
+    required this.title,
+    required this.assetName,
   });
 
-  final BabyTalkColors colors;
-  final ThemeData theme;
-  final AppLocalizations l;
-
-  static const LinearGradient _avatarGradient = LinearGradient(
-    begin: Alignment.topLeft,
-    end: Alignment.bottomRight,
-    colors: [Color(0xFFEAD0B6), Color(0xFFF8E7D4)],
-  );
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 56,
-      height: 56,
-      decoration: const BoxDecoration(
-        gradient: _avatarGradient,
-        borderRadius: BorderRadius.all(Radius.circular(16)),
-      ),
-      alignment: Alignment.center,
-      child: Text(
-        l.onboardingMentorCaption,
-        style: theme.textTheme.titleMedium?.copyWith(
-          color: colors.accentDark,
-          fontWeight: FontWeight.w700,
-        ),
-      ),
-    );
-  }
+  final PracticeScene scene;
+  final String title;
+  final String assetName;
 }
 
-class _AgeSelectionPanel extends StatelessWidget {
-  const _AgeSelectionPanel({
+class _WatercolorSceneCard extends StatelessWidget {
+  const _WatercolorSceneCard({
+    required this.option,
     required this.selected,
-    required this.onSelected,
+    required this.onTap,
   });
 
-  final OnboardingAgeBucket? selected;
-  final ValueChanged<OnboardingAgeBucket> onSelected;
+  final _SceneOption option;
+  final bool selected;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
-    return Container(
-      padding: AppLayoutConstants.bannerPadding,
-      decoration: BoxDecoration(
-        color: colors.bgSunken,
-        borderRadius: BorderRadius.circular(AppLayoutConstants.cardRadius),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          ...OnboardingAgeBucket.values.map((bucket) {
-            return ListTile(
-              title: Text(bucket.label),
-              selected: selected == bucket,
-              onTap: () => onSelected(bucket),
-              contentPadding: EdgeInsets.zero,
-            );
-          }),
-          ListTile(
-            title: Text(AppLocalizations.of(context)!.onboardingV21AgeSkip),
-            onTap: () {
-              // Close panel without selecting
-            },
-            contentPadding: EdgeInsets.zero,
+    final theme = Theme.of(context);
+
+    return AppScaleButton(
+      onTap: onTap,
+      scaleDown: 0.96,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        curve: Curves.easeOut,
+        padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
+        decoration: BoxDecoration(
+          color: const Color(0xFFFFFBF5),
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(
+            color: selected ? colors.accent : const Color(0xFFE9CBA8),
+            width: selected ? 1.6 : 1,
           ),
-        ],
+          boxShadow: selected ? colors.warmShadowSm : null,
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Expanded(child: OnboardingAssetImage(option.assetName)),
+            const SizedBox(height: 6),
+            Text(
+              option.title,
+              style: theme.textTheme.bodyLarge?.copyWith(
+                color: colors.textPrimary,
+                fontWeight: FontWeight.w600,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
       ),
     );
   }

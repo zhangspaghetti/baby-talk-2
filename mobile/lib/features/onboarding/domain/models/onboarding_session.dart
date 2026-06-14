@@ -5,11 +5,12 @@ import 'package:mobile/features/onboarding/domain/models/stage_match.dart';
 
 class OnboardingSession {
   OnboardingSession({
-    this.childName,
+    String? childName,
     this.selectedScene,
     this.ageBucket,
     List<PracticeRecord>? records,
-  }) : records = records ?? [];
+  }) : childName = childName ?? '',
+       records = records ?? [];
 
   String? childName;
   PracticeScene? selectedScene;
@@ -35,7 +36,8 @@ class OnboardingSession {
       records.where((r) => r.reaction == BabyReaction.noResponse).length;
 
   bool get allNoResponse =>
-      records.isNotEmpty && records.every((r) => r.reaction == BabyReaction.noResponse);
+      records.isNotEmpty &&
+      records.every((r) => r.reaction == BabyReaction.noResponse);
 
   bool get hasAnyResponded => respondedCount > 0;
 

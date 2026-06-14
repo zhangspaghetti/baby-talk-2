@@ -10,9 +10,7 @@ import 'package:mobile/l10n/app_localizations.dart';
 void main() {
   Widget buildSubject(OnboardingSessionNotifier notifier) {
     return ProviderScope(
-      overrides: [
-        onboardingSessionProvider.overrideWith((ref) => notifier),
-      ],
+      overrides: [onboardingSessionProvider.overrideWith((ref) => notifier)],
       child: MaterialApp(
         localizationsDelegates: AppLocalizations.localizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
@@ -21,23 +19,26 @@ void main() {
     );
   }
 
-  testWidgets('shows name input and next button', (tester) async {
+  testWidgets('shows optional name input and save button', (tester) async {
     final notifier = OnboardingSessionNotifier(
       phraseService: ScenePhraseService(),
     );
     await tester.pumpWidget(buildSubject(notifier));
 
     expect(find.byType(TextField), findsOneWidget);
-    expect(find.text('下一步'), findsOneWidget);
+    await tester.drag(find.byType(ListView), const Offset(0, -500));
+    await tester.pumpAndSettle();
+    expect(find.text('保存'), findsOneWidget);
   });
 
-  testWidgets('next button disabled when name is empty', (tester) async {
+  testWidgets('save button is available when name is empty', (tester) async {
     final notifier = OnboardingSessionNotifier(
       phraseService: ScenePhraseService(),
     );
     await tester.pumpWidget(buildSubject(notifier));
 
-    final button = tester.widget<ElevatedButton>(find.byType(ElevatedButton));
-    expect(button.onPressed, isNull);
+    await tester.drag(find.byType(ListView), const Offset(0, -500));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('onboarding-name-next')), findsOneWidget);
   });
 }

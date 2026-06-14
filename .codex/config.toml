@@ -1,0 +1,44 @@
+sandbox_mode = "workspace-write"
+[mcp_servers.exa]
+command = "npx"
+args = [
+    "-y",
+    "exa-mcp-server",
+]
+
+[mcp_servers.exa.env]
+EXA_API_KEY = "19aeb30e-e57d-4ab7-bf8c-178ade38c9ea"
+
+[mcp_servers.filesystem]
+command = "npx"
+args = [
+    "-y",
+    "@modelcontextprotocol/server-filesystem",
+    "C:/code/AI/baby-talk-2",
+]
+
+[mcp_servers.filesystem.tools.write_file]
+approval_mode = "approve"
+
+[mcp_servers.github]
+command = "docker"
+args = [
+    "run",
+    "-i",
+    "--rm",
+    "-e",
+    "GITHUB_PERSONAL_ACCESS_TOKEN",
+    "ghcr.io/github/github-mcp-server",
+]
+
+[mcp_servers.github.env]
+GITHUB_PERSONAL_ACCESS_TOKEN = "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"
+
+[mcp_servers.mempalace]
+command = "mempalace-mcp"
+
+[mcp_servers.mempalace.tools.mempalace_add_drawer]
+approval_mode = "approve"
+
+[sandbox_workspace_write]
+network_access = true

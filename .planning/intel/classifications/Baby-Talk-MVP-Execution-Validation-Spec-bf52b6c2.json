@@ -1,0 +1,20 @@
+{
+  "source_path": "C:/code/AI/baby-talk-2/docs/Baby_Talk_MVP_Execution_Validation_Spec.md",
+  "type": "PRD",
+  "confidence": "medium",
+  "manifest_override": false,
+  "title": "Baby Talk MVP Execution Validation Spec",
+  "summary": "Narrows the MVP to a real-care validation loop, defines success and kill criteria, and turns the design into a short execution plan.",
+  "scope": [
+    "MVP v0.1",
+    "validation hypotheses",
+    "instrumentation",
+    "kill criteria",
+    "two-week build plan",
+    "real-care usage"
+  ],
+  "cross_refs": [],
+  "locked": false,
+  "precedence": null,
+  "notes": "Classified as PRD because scope cuts, behavioral success thresholds, and acceptance-style validation dominate, even though the document also contains technical instrumentation details."
+}

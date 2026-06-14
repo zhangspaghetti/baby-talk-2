@@ -1,0 +1,22 @@
+{
+  "source_path": "C:/code/AI/baby-talk-2/docs/Baby_Talk_Product_Architecture_Spec_vNext.md",
+  "type": "SPEC",
+  "confidence": "high",
+  "manifest_override": false,
+  "title": "Baby Talk Product Architecture Spec vNext",
+  "summary": "Defines the target Baby Talk architecture, strategy-pack runtime model, and long-term system layers for context-aware parent-child phrase generation.",
+  "scope": [
+    "Observed Moment",
+    "Interpreted Moment",
+    "Communication Primitive",
+    "Strategy Graph",
+    "Strategy Pack",
+    "Conversation Path",
+    "Runtime Agent",
+    "Parent Confidence"
+  ],
+  "cross_refs": [],
+  "locked": false,
+  "precedence": null,
+  "notes": ""
+}

@@ -2,12 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:mobile/app/theme/app_layout_constants.dart';
-import 'package:mobile/app/theme/app_theme.dart';
-import 'package:mobile/app/widgets/app_mentor_bubble.dart';
 import 'package:mobile/app/providers/repository_providers.dart';
+import 'package:mobile/app/theme/app_theme.dart';
+import 'package:mobile/app/widgets/app_haptics.dart';
+import 'package:mobile/app/widgets/app_scale_button.dart';
 import 'package:mobile/features/onboarding/domain/models/stage_match.dart';
-import 'package:mobile/l10n/app_localizations.dart';
+import 'package:mobile/features/onboarding/presentation/widgets/onboarding_design_widgets.dart';
 
 class OnboardingNameScreen extends HookConsumerWidget {
   const OnboardingNameScreen({super.key});
@@ -15,127 +15,192 @@ class OnboardingNameScreen extends HookConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final controller = useTextEditingController();
-    final focusNode = useFocusNode();
-    final name = useState('');
     final selectedAge = useState<OnboardingAgeBucket?>(null);
-
-    useEffect(() {
-      void listener() {
-        name.value = controller.text;
-      }
-
-      controller.addListener(listener);
-      return () => controller.removeListener(listener);
-    }, const []);
-
-    final l = AppLocalizations.of(context)!;
     final colors = context.appColors;
+    final theme = Theme.of(context);
 
-    return Scaffold(
-      body: SafeArea(
-        child: Align(
-          alignment: Alignment.topCenter,
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(
-              maxWidth: AppLayoutConstants.maxContentWidth,
-            ),
-            child: ListView(
-              padding: AppLayoutConstants.screenPadding,
-              children: [
-                Row(
-                  children: [
-                    const Spacer(),
-                    TextButton(
-                      key: const Key('onboarding-name-skip-top'),
-                      onPressed: () => _submit(context, ref, name.value.trim()),
-                      child: Text(l.onboardingV21SkipButton),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: AppLayoutConstants.spacingSm),
-                AppMentorBubble(
-                  message: l.onboardingV21MentorGreeting,
-                  caption: '小禾老师',
-                ),
-                const SizedBox(height: AppLayoutConstants.spacingXl),
-                TextField(
-                  key: const Key('onboarding-name-input'),
-                  controller: controller,
-                  focusNode: focusNode,
-                  textInputAction: TextInputAction.done,
-                  maxLength: 12,
-                  decoration: InputDecoration(
-                    labelText: l.onboardingV21NameLabel,
-                    hintText: l.onboardingV21NameHint,
-                  ),
-                  onSubmitted: (_) {
-                    _submit(context, ref, name.value.trim());
-                  },
-                ),
-                const SizedBox(height: AppLayoutConstants.spacingLg),
-                Text(
-                  l.onboardingV21AgeTitle,
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
-                ),
-                const SizedBox(height: AppLayoutConstants.spacingSm),
-                ...OnboardingAgeBucket.values.map((bucket) {
-                  return Padding(
-                    padding: const EdgeInsets.only(
-                      bottom: AppLayoutConstants.spacingXs,
-                    ),
-                    child: RadioListTile<OnboardingAgeBucket>(
-                      key: Key('onboarding-age-${bucket.name}'),
-                      value: bucket,
-                      groupValue: selectedAge.value,
-                      onChanged: (value) {
-                        selectedAge.value = value;
-                      },
-                      title: Text(bucket.label),
-                      contentPadding: EdgeInsets.zero,
-                      dense: true,
-                      activeColor: colors.accent,
-                    ),
-                  );
-                }),
-                const SizedBox(height: AppLayoutConstants.spacingXl),
-                ElevatedButton(
-                  key: const Key('onboarding-name-next'),
-                  onPressed: () => _submit(context, ref, name.value.trim()),
-                  child: Text(l.onboardingV21SaveButton),
-                ),
-                const SizedBox(height: AppLayoutConstants.spacingMd),
-                TextButton(
-                  key: const Key('onboarding-name-skip-bottom'),
-                  onPressed: () => _submit(context, ref, name.value.trim()),
-                  child: Text(l.onboardingV21SkipButton),
-                ),
-                const SizedBox(height: AppLayoutConstants.spacingMd),
-                Text(
-                  key: const Key('onboarding-local-only-banner'),
-                  l.onboardingLocalOnly,
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: Theme.of(context)
-                            .colorScheme
-                            .onSurface
-                            .withValues(alpha: 0.55),
-                      ),
-                  textAlign: TextAlign.center,
-                ),
-              ],
+    void submit() =>
+        _submit(context, ref, controller.text.trim(), selectedAge.value);
+
+    return OnboardingWarmScaffold(
+      resizeToAvoidBottomInset: true,
+      child: ListView(
+        padding: const EdgeInsets.fromLTRB(22, 8, 22, 18),
+        children: [
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton(
+              key: const Key('onboarding-name-skip-top'),
+              onPressed: submit,
+              child: Text(
+                '稍后再说',
+                style: TextStyle(color: colors.textSecondary),
+              ),
             ),
           ),
+          const SizedBox(height: 18),
+          const OnboardingMentorBubble(
+            message: '小禾想帮你记录这段珍贵的成长，\n可以告诉我一些关于宝宝的\n小信息吗？',
+            assetName: OnboardingAssets.mentor,
+            maxWidth: 258,
+          ),
+          const SizedBox(height: 34),
+          Text(
+            '宝宝昵称（可选）',
+            style: theme.textTheme.bodyLarge?.copyWith(
+              color: colors.textPrimary,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 8),
+          TextField(
+            key: const Key('onboarding-name-input'),
+            controller: controller,
+            textInputAction: TextInputAction.done,
+            maxLength: 12,
+            decoration: InputDecoration(
+              counterText: '',
+              hintText: '比如：小宝、小明...',
+              suffixIcon: Padding(
+                padding: const EdgeInsets.all(12),
+                child: OnboardingAssetImage(
+                  OnboardingAssets.wildflowers,
+                  width: 28,
+                  height: 28,
+                ),
+              ),
+            ),
+            onSubmitted: (_) => submit(),
+          ),
+          const SizedBox(height: 24),
+          Text(
+            '宝宝年龄',
+            style: theme.textTheme.bodyLarge?.copyWith(
+              color: colors.textPrimary,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 12),
+          GridView.count(
+            crossAxisCount: 3,
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            mainAxisSpacing: 10,
+            crossAxisSpacing: 10,
+            childAspectRatio: 1.26,
+            children: OnboardingAgeBucket.values.map((bucket) {
+              return _AgeCard(
+                bucket: bucket,
+                selected: selectedAge.value == bucket,
+                onTap: () {
+                  AppHaptics.lightTap();
+                  selectedAge.value = bucket;
+                },
+              );
+            }).toList(),
+          ),
+          const SizedBox(height: 72),
+          OnboardingPrimaryButton(
+            key: const Key('onboarding-name-next'),
+            label: '保存',
+            onPressed: submit,
+          ),
+          const SizedBox(height: 10),
+          TextButton(
+            key: const Key('onboarding-name-skip-bottom'),
+            onPressed: submit,
+            child: Text('稍后再说', style: TextStyle(color: colors.textPrimary)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _submit(
+    BuildContext context,
+    WidgetRef ref,
+    String name,
+    OnboardingAgeBucket? ageBucket,
+  ) {
+    final notifier = ref.read(onboardingSessionProvider.notifier);
+    if (name.isNotEmpty) {
+      notifier.setChildName(name);
+    }
+    if (ageBucket != null) {
+      notifier.selectAgeBucket(ageBucket);
+    }
+    context.push('/onboarding/garden-welcome');
+  }
+}
+
+class _AgeCard extends StatelessWidget {
+  const _AgeCard({
+    required this.bucket,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final OnboardingAgeBucket bucket;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    final theme = Theme.of(context);
+    return AppScaleButton(
+      onTap: onTap,
+      scaleDown: 0.96,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 160),
+        decoration: BoxDecoration(
+          color: const Color(0xFFFFFBF5),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: selected ? colors.accent : const Color(0xFFE9CBA8),
+            width: selected ? 1.6 : 1,
+          ),
+        ),
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            Positioned(
+              bottom: 5,
+              child: Opacity(
+                opacity: selected ? 1 : 0.45,
+                child: const OnboardingAssetImage(
+                  OnboardingAssets.sprout,
+                  width: 28,
+                  height: 24,
+                ),
+              ),
+            ),
+            Text(
+              _labelFor(bucket),
+              textAlign: TextAlign.center,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: colors.textPrimary,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
         ),
       ),
     );
   }
 
-  void _submit(BuildContext context, WidgetRef ref, String name) {
-    final notifier = ref.read(onboardingSessionProvider.notifier);
-    if (name.isNotEmpty) {
-      notifier.setChildName(name);
+  String _labelFor(OnboardingAgeBucket bucket) {
+    switch (bucket) {
+      case OnboardingAgeBucket.zeroToSix:
+        return '0-6 个月';
+      case OnboardingAgeBucket.sixToTwelve:
+        return '7-12 个月';
+      case OnboardingAgeBucket.twelveToEighteen:
+        return '1 岁';
+      case OnboardingAgeBucket.eighteenToTwentyFour:
+        return '2 岁';
+      case OnboardingAgeBucket.twentyFourToThirtySix:
+        return '3 岁';
     }
-    context.push('/onboarding/garden-welcome');
   }
 }

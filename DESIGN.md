@@ -14,6 +14,51 @@
 - **Reference sites:** kinedu.com (同赛道定位最接近), babysparks.com (亲子工具审美)
 - **Anti-slop:** 禁止紫色渐变、三列图标网格、居中万物、统一圆角气泡、渐变按钮
 
+## 移动端产品一致性补充（2026-06-09）
+
+本节是 Baby Talk 2 移动端原型一致性的基准。所有生成原型和 Flutter 页面都必须看起来属于同一个产品，并延续已批准的 onboarding 暖纸方向。
+
+### 产品承诺
+- App 不把英语当学科来教，而是帮助家长在真实照护时刻对宝宝说一句或几句简单英语。
+- 核心承诺：`不是学英语，而是在和宝宝说话。`
+- 用户永远是家长，不是孩子。避免儿童化卡通、游戏机制、分数反馈和课堂语言。
+
+### Home 产品模型
+- Home 不是固定短语模板页，而是**当前时刻的对话入口页**。
+- 打开 Home 后 3 秒内应该回答：
+  1. App 认为现在大概是什么照护时刻？
+  2. 哪个可见入口可以马上开始一段照护对话？
+  3. 如何继续刚才的对话，或描述当前特殊情况？
+- Home 展示照护情境入口，不展示英语短语卡。家长选择入口后，英语短语才在 Practice 中出现。
+- Home 的入口推荐可根据时间、最近场景、宝宝年龄/昵称、最近说过的话、进行中的对话和家长偏好动态准备。
+- UI 必须隐藏 AI 机制。禁止显示 `AI生成`、`LLM`、`prompt`、`模型`、`置信度`、`重新生成`。
+- 使用小禾语言：`小禾在看现在适合怎么开口`、`小禾正在换成更贴近现在的入口`、`告诉小禾一点点，下一句会更贴近`。
+
+### 跨页面风格规则
+- Onboarding、Home、Practice、Discover、Garden/Growth、Me 和小禾页面必须共享暖奶油纸背景、暖棕文字、英语短语青绿色、克制植物痕迹和同一套圆角节奏。
+- 不为每个页面创建独立视觉语言。Home 应该像 onboarding 之后自然出现的页面，而不是仪表盘。
+- 橙色很稀缺：每屏只用于一个主要动作，最多再用于一个小的选中状态。不要用橙色强调数字、tab 背景、分数或装饰。
+- 青绿色只用于英语短语文字和少量发音相关强调。不要把青绿色做成大面积背景。
+- 避免胶带、拼贴、渐变光斑、贴纸、大量卡片堆叠和仪表盘式统计模块。
+- 底部导航保持安静：只使用线性图标和文字，不使用填充式选中背景，不显示 badge。页面规格允许时，选中 tab 可使用 `--accent-dark`。
+
+### 交互边界
+- Home 负责展示当前照护入口、可选继续入口、宝宝信号入口和自定义当前情况入口。
+- Practice 负责展示英语短语、标准发音、`我说了`、可选宝宝反应，以及逐句生成下一句。
+- Garden/Growth 负责长期记录和叙事反馈。
+- 小禾可以解释为什么某个入口适合当下，但 Home 不应该像通用聊天机器人页面。
+- 除非未来明确加入录音功能，否则不出现麦克风或录音暗示。发音支持只使用扬声器/播放。
+- 不出现发音评分、失败状态、连续打卡压力、积分、排行榜或任务完成框架。
+
+### 动态时刻状态
+- **默认状态：** 当前推断时刻下显示 4 个直接开始的对话入口。
+- **继续状态：** 仅当有 30 分钟内更新过的 open 对话时，显示 1 个继续入口。
+- **宝宝信号：** 打开温柔底部抽屉，可选 `哭了`、`笑了`、`指东西`、`说了一个词` 或短文本。
+- **自定义情况：** 打开底部抽屉处理 `不肯睡`、`要喝水`、`吃饭闹`、`要出门`、`刚洗完澡`、`想继续玩` 等例外情况。
+- **入口准备中：** 小禾准备更贴近当前时刻的入口时，保留本地/缓存入口可用，不能清空页面。
+- **离线：** 使用本地默认入口，文案为 `现在没联网，先用这几个常用入口。`
+- **低置信度：** 保持 4 个入口可见，文案为 `现在可能适合先轻轻说几句。`，不要说识别失败。
+
 ## Typography
 
 ### Font Stack
@@ -61,7 +106,7 @@
 | Token | Hex | Usage |
 |-------|-----|-------|
 | `--bg-base` | #FFF8F0 | 奶油纸 — 主背景 |
-| `--bg-surface` | #FFFFFF | 卡片表面 |
+| `--bg-surface` | #FFFCF7 | 温纸表面，移动端避免纯白 |
 | `--bg-sunken` | #F5F0EB | 下沉区域、页面底色 |
 | `--bg-accent-soft` | #FFF0E5 | 强调淡底、标签背景 |
 | `--accent` | #FF8C42 | 暖橙 — 主 CTA、品牌色 |
@@ -89,7 +134,7 @@
 |-------|-----|--------------|-------|
 | `--success` | #6B8F5E | #E8F0E5 | 苔藓绿 — 完成、掌握 |
 | `--warning` | #E6A817 | #FFF5D9 | 琥珀 — 提醒、中断 |
-| `--error` | #D94B3C | #FDE8E6 | 红 — 错误、失败 |
+| `--error` | #B36B5E | #F6E7E1 | 暖陶土 — 系统问题提示，不用于评价用户 |
 | `--info` | #3B8577 | #D4E8E3 | 青绿 — 教练提示 |
 
 ### Dark Mode Strategy
@@ -187,7 +232,7 @@
 
 | Component | Usage | Key tokens |
 |-----------|-------|-----------|
-| BottomNav | 底部导航栏 | 4 tabs (首页/发现/花园/成长), --bg-surface |
+| BottomNav | 底部导航栏 | 4 tabs (首页/发现/花园&成长/我的), quiet line icons/text, no filled active background, --bg-surface |
 | Drawer | 右侧抽屉菜单 (首页左上角头像/汉堡触发) | --bg-surface, --shadow-lg, --radius-lg (左侧圆角), 310px 宽 |
 | MentorFAB | 小禾老师全局悬浮按钮 (所有页面) | --accent, 56px, circular, --shadow-lg, 右下角固定 |
 | MentorPanel | 小禾老师双模式面板 (建议+聊天) | --bg-surface, --radius-lg (顶部圆角), 60%屏高, backdrop-filter: blur(8px) |
@@ -202,15 +247,22 @@
 | WaterButton | 浇水按钮 (底部浮层) | --accent, --radius-full, 触觉反馈 |
 | GardenToast | 练习→花园因果反馈 toast | --success-soft bg, 花圃缩略图, 3s 自动消失 |
 
-### 场景练习组件 (Design Review v3 更新)
+### 场景练习组件 (Practice V2 共同注意力回合台)
+
+本节覆盖旧的 `ActivationFrame`、`CardSummary`、`CardExpanded`、`StepProgressBar` 和 `DifficultyPill` 模型。Practice 不再使用固定步骤、难度选择或短语组进度。
 
 | Component | Usage | Key tokens |
 |-----------|-------|-----------|
-| ActivationFrame | 屏幕中部激活区域 | --english-soft border, 标记当前练习的卡片 |
-| CardSummary | 收缩态短语卡 | 步骤号圆点 + 标题 + 短语preview + 完成badge, --bg-sunken |
-| CardExpanded | 展开态短语卡 | Fraunces 大号 + IPA(JetBrains Mono) + 播放 + 速度 + 反应chips |
-| StepProgressBar | 步骤进度条 (固定顶部) | --accent fill, 步数计数器 |
-| DifficultyPill | 难度选择 pill | --radius-full, 初级/中级/高级, 锁定态用 --text-muted + 🔒 |
+| PracticeContextHeader | 当前照护上下文 | 场景标题 + 1 行上下文，warm brown text，不显示进度 |
+| CurrentPhrasePanel | 当前可说的一句 | Fraunces 大号英文, --english color, --bg-surface, --radius-md, warm shadow |
+| StandardPronunciationControl | 标准发音播放 | 扬声器/播放图标 + `听标准发音`，禁止麦克风/录音/波形 |
+| SaidItButton | `我说了` 主动作 | --accent, 56px height, no icon, bottom safe area |
+| SaidConfirmationPill | 已经说出的轻确认 | soft green background, no reward language |
+| BabySignalStrip | `我说了` 后的宝宝信号 | responsive chips, max 6 signals, no emoji grid, optional text entry |
+| BabyWordsSheet | 宝宝说了轻文本输入 | bottom sheet, single-line input, no recording permission |
+| NextPhraseLoadingPanel | 下一句准备中 | previous phrase dimmed, warm loading copy, no spinner-only blank screen |
+| NextPhraseReadyPanel | 下一句已生成 | generated phrase + `继续说下去` / `今天先到这里` |
+| PracticeSummaryPanel | 温柔复盘 | narrative count + garden trace, no score/accuracy |
 
 ### 成长组件 (Design Review v3 新增)
 
@@ -222,23 +274,38 @@
 | SceneProgressCard | 空间进度卡片 | --bg-surface, --radius-md, 条形图 + 练习次数 + 宝宝回应次数 |
 | MilestoneItem | 里程碑条目 | ✅/⬜ 图标, 时间戳, --success or --text-muted |
 
-### Onboarding 组件 (Design Review v3 更新)
+### Onboarding 组件 (Onboarding V4 连续生成体验)
 
 | Component | Usage | Key tokens |
 |-----------|-------|-----------|
-| MentorBubble | 小禾老师对话气泡 | --bg-surface, --shadow-sm, 左对齐 + 头像 |
-| UserBubble | 用户对话气泡 | --accent bg, --text-on-accent, 右对齐 |
-| QuickSelectCard | 月龄快速选择 (4格) | --bg-surface, --radius-md, active: --accent border |
-| MiniSceneCard | 迷你场景体验卡 | --english-soft bg, Fraunces 短语, 播放按钮 |
+| OnboardingTopBar | 小禾身份与首次问候 | 小禾头像/initials + 一句低压力说明 |
+| OnboardingPromiseBlock | 产品承诺说明 | `不用学英语，只要对宝宝轻轻说一句。` |
+| OnboardingRouteSelector | 首次当前情境选择 | 2x2 情境入口，固定显示 4 个 |
+| OnboardingRouteTile | 单个照护情境入口 | line icon + title + subtitle, selected route uses scarce orange border |
+| FirstPhraseLoadingState | 第一句准备中 | 暖纸 shimmer，不使用全屏 spinner |
+| OnboardingPhrasePanel | 当前要说的一句 | Fraunces English phrase, Chinese translation, phonetic helper |
+| StandardPronunciationControl | 标准发音播放 | 只用扬声器/播放，不用麦克风/录音/波形 |
+| SaidItActionBar | `我说了` 底部动作 | 易触达底部动作，不带录音暗示 |
+| BabySignalPanel | `我说了` 后的可选宝宝信号 | chips + optional text, auto-continue after 4s |
+| NextPhraseLoadingState | 下一句上下文生成中 | `小禾正在接住刚才这一刻。` |
+| NextPhraseReadyPanel | 下一句已生成 | Shows generated next phrase and `继续说下去` / `今天先到这里` |
+| OnboardingGardenWelcome | 首句花园欢迎 | Skippable nickname field, no reward language |
 
-### 首页组件 (Design Review v3 更新)
+### 首页组件 (Home V4 Context Launcher)
 
 | Component | Usage | Key tokens |
 |-----------|-------|-----------|
-| BabyStatusBar | 宝宝状态条 (天气=情绪映射) | --bg-sunken, emoji天气图标, --text-secondary |
-| TodaySceneCard | 今日场景大卡片 (核心 CTA) | --bg-surface, --shadow-md, --radius-lg, 播放按钮 |
-| GardenMiniEntry | 花园迷你入口 | --success-soft bg, 花圃缩略图, "查看花园→" |
-| WeekStats | 本周统计条 | --bg-sunken, 短语数 + 连续天数 |
+| HomeTopBar | 小禾身份和问候 | 小禾头像/initials + `晚上好，妈妈`, menu icon |
+| CurrentContextStatement | 当前时刻判断 | `现在可能是睡前或安抚时间。`, 3 quiet context pills |
+| ContinueConversationStrip | 继续刚才的对话 | One slim warm row, visible only for open conversations updated within 30 minutes |
+| ConversationRouteGrid | 4 个当下对话入口 | 2x2 情境入口，固定显示 4 个，不是三列图标网格 |
+| ConversationRouteTile | 单个照护对话入口 | line icon + title + subtitle + chevron; whole tile is tappable |
+| BabySignalEntry | 宝宝信号入口 | Full-width warm row, opens BabySignalSheet |
+| CurrentSituationEntry | 自定义当前情况入口 | Full-width warm row, opens CurrentSituationSheet |
+| BabySignalSheet | 宝宝反应/行为底部抽屉 | `宝宝刚刚怎么样？`, optional signal chips and text |
+| CurrentSituationSheet | 当前情况底部抽屉 | `现在是什么情况？`, quick choices + required short text/choice |
+| RoutePreparingHint | 动态入口准备状态 | Keeps current route entries visible, copy: `小禾正在换成更贴近现在的入口` |
+| HomeGardenWhisper | 花园轻瞥 | One quiet line or tiny sprout only; never stats, never main narrative |
 
 ### 发现组件 (Design Review v3 更新)
 
@@ -258,6 +325,11 @@
 | 2026-04-02 | English highlight color changed from blue to teal | RISK: #2563EB → #3B8577. Blue signals "foreign language", teal signals "naturally growing in your home". Better harmony with warm palette. |
 | 2026-04-02 | Keep PingFang SC for Chinese (defer 得意黑) | SAFE: zero loading cost, best rendering on iOS. Smiley Sans is Phase 2 upgrade candidate, pending font file size evaluation. |
 | 2026-04-02 | Keep #FFF8F0 + #FF8C42 core palette | SAFE: validated across 12 existing HTML mockups. Changing would require redoing all mockups. |
+| 2026-06-09 | 增加移动端一致性补充和 Home V3 当前时刻入口模型 | Home 曾被定义为由后端动态准备的当前时刻语言入口，并隐藏 AI 机制。该模型已在 2026-06-10 被 Home V4 取代。 |
+| 2026-06-09 | 用当前时刻入口组件替代 Home 仪表盘/统计组件 | 避免固定模板、周统计和任务产品感。该组件模型已被 Home V4 情境入口模型取代。 |
+| 2026-06-10 | Home V4 当下对话入口模型批准 | Home 不再展示英语短语卡或固定 3 句短语组；改为 4 个直接开始的照护对话入口、可选继续入口、宝宝信号入口和自定义当前情况入口。Practice 负责短语生成和发音。 |
+| 2026-06-10 | Onboarding V4 连续生成闭环批准 | Onboarding 不再教学固定短语组，而是教会用户：选择情境、听第一句、对宝宝说、可选宝宝信号、收到上下文生成的下一句，然后继续或温柔结束。 |
+| 2026-06-09 | 移动端表面避免纯白，错误色避免红色评判感 | 保持暖纸材质一致，避免系统问题让用户感觉自己做错了。 |
 | 2026-04-02 | Hierarchical border radius 8/16/24/full | Replaces flat 16px everywhere. Small elements sharper, large containers softer. |
 | 2026-04-02 | Warm shadows rgba(45,41,38) instead of cool gray | Blends naturally with cream background. Subtle but noticeable difference. |
 | 2026-04-02 | ~~Navigation: 4-tab+FAB → 5-tab with center Coach icon~~ | ~~Design Review v2~~ **SUPERSEDED by Design Review v3** |

@@ -1,0 +1,22 @@
+{
+  "source_path": "C:/code/AI/baby-talk-2/docs/design-spec/README.md",
+  "type": "DOC",
+  "confidence": "high",
+  "manifest_override": false,
+  "title": "Baby Talk 2 – Final Design Brief",
+  "summary": "Captures the overarching design DNA, emotional rules, and documentation standards that the page-level specs should follow.",
+  "scope": [
+    "Warm Paper Kindness",
+    "design brief",
+    "page spec template",
+    "copy rules",
+    "asset rules",
+    "cross-screen standards"
+  ],
+  "cross_refs": [
+    "docs/design-spec/07_Practice_Screen.md"
+  ],
+  "locked": false,
+  "precedence": null,
+  "notes": ""
+}

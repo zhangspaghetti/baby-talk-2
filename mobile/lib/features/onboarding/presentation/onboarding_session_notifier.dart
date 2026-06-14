@@ -60,6 +60,7 @@ class OnboardingSessionNotifier extends ChangeNotifier {
     ));
     _usedPhraseIds.add(phrase.phraseId);
     _showReactionPicker = true;
+    _loadNextPhrase();
     notifyListeners();
   }
 
@@ -69,17 +70,11 @@ class OnboardingSessionNotifier extends ChangeNotifier {
       _session.updateReaction(lastIndex, reaction);
     }
     _showReactionPicker = false;
-    if (!phrasePoolExhausted) {
-      _loadNextPhrase(); // auto-advance only when there are more phrases
-    }
     notifyListeners();
   }
 
   void skipReaction() {
     _showReactionPicker = false;
-    if (!phrasePoolExhausted) {
-      _loadNextPhrase(); // auto-advance only when there are more phrases
-    }
     notifyListeners();
   }
 

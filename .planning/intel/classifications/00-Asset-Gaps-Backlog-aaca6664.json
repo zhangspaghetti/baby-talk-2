@@ -1,0 +1,18 @@
+{
+  "source_path": "C:/code/AI/baby-talk-2/docs/design-spec/00_Asset_Gaps_Backlog.md",
+  "type": "DOC",
+  "confidence": "medium",
+  "manifest_override": false,
+  "title": "00_Asset_Gaps_Backlog",
+  "summary": "Records missing design assets and temporary implementation fallback rules until the full page design pass is approved.",
+  "scope": [
+    "design assets",
+    "fallback rules",
+    "Flutter icons",
+    "visual placeholders"
+  ],
+  "cross_refs": [],
+  "locked": false,
+  "precedence": null,
+  "notes": "Contains a deferred decision, but lacks ADR status/consequences structure and primarily serves as supporting implementation context."
+}

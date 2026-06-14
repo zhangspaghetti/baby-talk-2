@@ -1,0 +1,30 @@
+{
+  "source_path": "C:/code/AI/baby-talk-2/docs/design-spec/12_Onboarding_Screen.md",
+  "type": "PRD",
+  "confidence": "medium",
+  "manifest_override": false,
+  "title": "12_Onboarding_Screen",
+  "summary": "Defines onboarding as a low-pressure first-turn conversation experience that proves contextual continuation instead of a fixed phrase-group tutorial.",
+  "scope": [
+    "Onboarding",
+    "route selection",
+    "first phrase",
+    "baby signal follow-up",
+    "next phrase",
+    "garden welcome",
+    "deferred exit"
+  ],
+  "cross_refs": [
+    "DESIGN.md",
+    "docs/PRODUCT_COPILOT.md",
+    "docs/design-spec/README.md",
+    "docs/design-spec/06_Home_Screen.md",
+    "docs/design-spec/assets/onboarding-v4-continuous-loop.png",
+    "docs/design-spec/assets/onboarding-v3-moment-consistent.png",
+    "docs/design-spec/assets/onboarding-v1-early-prototype.png",
+    "docs/design-spec/assets/onboarding-v2-approved-interaction.png"
+  ],
+  "locked": false,
+  "precedence": null,
+  "notes": "Classified as PRD because it defines first-time user experience goals, flow completion rules, and acceptance criteria, even though it also includes payload examples and fallback behavior."
+}

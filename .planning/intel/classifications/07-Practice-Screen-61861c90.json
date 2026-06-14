@@ -1,0 +1,29 @@
+{
+  "source_path": "C:/code/AI/baby-talk-2/docs/design-spec/07_Practice_Screen.md",
+  "type": "PRD",
+  "confidence": "medium",
+  "manifest_override": false,
+  "title": "07_Practice_Screen",
+  "summary": "Defines Practice as a continuous one-phrase turn loop with optional baby feedback, contextual next-phrase generation, and gentle ending states.",
+  "scope": [
+    "Practice",
+    "current phrase panel",
+    "standard pronunciation",
+    "I said it action",
+    "baby signal loop",
+    "next phrase generation",
+    "session summary"
+  ],
+  "cross_refs": [
+    "DESIGN.md",
+    "docs/PRODUCT_COPILOT.md",
+    "docs/design-spec/README.md",
+    "docs/design-spec/06_Home_Screen.md",
+    "docs/design-spec/12_Onboarding_Screen.md",
+    "docs/refs/Captivate! Contextual Language Guidance for Parent–Child Interaction.pdf",
+    "docs/design-spec/assets/practice-v2-joint-attention-loop.png"
+  ],
+  "locked": false,
+  "precedence": null,
+  "notes": "Classified as PRD because the document's primary purpose is defining the user-facing loop, state transitions, and acceptance rules for the Practice experience, despite embedded request/response contracts."
+}

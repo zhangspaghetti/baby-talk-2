@@ -39,8 +39,8 @@ class ScenePhraseService {
       const ScenePhrase(phraseId: 'diaper_3', english: 'You feel better now.', chinese: '你现在舒服了。', scene: PracticeScene.diaper),
     ],
     PracticeScene.bath: [
-      const ScenePhrase(phraseId: 'bath_1', english: 'Bath time!', chinese: '洗澡时间到！', scene: PracticeScene.bath),
-      const ScenePhrase(phraseId: 'bath_2', english: 'The water is warm.', chinese: '水是暖的。', scene: PracticeScene.bath),
+      const ScenePhrase(phraseId: 'bath_1', english: 'I love bath time with you.', chinese: '我喜欢和你一起洗澡。', scene: PracticeScene.bath),
+      const ScenePhrase(phraseId: 'bath_2', english: 'You\'re so warm and clean.', chinese: '你暖暖的，干干净净。', scene: PracticeScene.bath),
       const ScenePhrase(phraseId: 'bath_3', english: 'Splash splash!', chinese: '哗啦哗啦！', scene: PracticeScene.bath),
       const ScenePhrase(phraseId: 'bath_4', english: 'Let\'s wash your hands.', chinese: '我们洗手吧。', scene: PracticeScene.bath),
     ],
@@ -70,6 +70,7 @@ class ScenePhraseService {
         .where((p) => !usedPhraseIds.contains(p.phraseId))
         .toList();
     if (available.isEmpty) return null;
+    if (usedPhraseIds.isEmpty) return available.first;
     return available[_random.nextInt(available.length)];
   }
 }

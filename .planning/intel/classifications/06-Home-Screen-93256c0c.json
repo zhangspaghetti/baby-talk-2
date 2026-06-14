@@ -1,0 +1,27 @@
+{
+  "source_path": "C:/code/AI/baby-talk-2/docs/design-spec/06_Home_Screen.md",
+  "type": "PRD",
+  "confidence": "medium",
+  "manifest_override": false,
+  "title": "06_Home_Screen",
+  "summary": "Specifies Home as a current-moment conversation entry surface with four direct care routes, resume affordance, and no phrase-card payload.",
+  "scope": [
+    "Home",
+    "conversation routes",
+    "continue entry",
+    "baby signal entry",
+    "custom situation entry",
+    "Practice handoff"
+  ],
+  "cross_refs": [
+    "DESIGN.md",
+    "docs/PRODUCT_COPILOT.md",
+    "docs/design-spec/README.md",
+    "docs/design-spec/06_Home_Screen.md",
+    "docs/design-spec/assets/home-v4-context-launcher.png",
+    "docs/design-spec/assets/home-v3-moment-entry.png"
+  ],
+  "locked": false,
+  "precedence": null,
+  "notes": "Classified as PRD because page goal, user flow, product rules, and acceptance criteria dominate, even though the doc embeds data contracts and implementation guardrails."
+}

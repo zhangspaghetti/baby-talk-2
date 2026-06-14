@@ -32,8 +32,13 @@ import 'package:mobile/features/practice/presentation/practice_route_args.dart';
 import 'package:mobile/features/practice/presentation/practice_session_notifier.dart';
 import 'package:mobile/features/practice/presentation/screens/practice_session_screen.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart'
-    show ConsumerState, ConsumerStatefulWidget, ConsumerWidget, Override,
-        ProviderScope, WidgetRef;
+    show
+        ConsumerState,
+        ConsumerStatefulWidget,
+        ConsumerWidget,
+        Override,
+        ProviderScope,
+        WidgetRef;
 import 'package:mobile/app/providers/repository_providers.dart';
 import 'package:mobile/features/settings/presentation/screens/about_screen.dart';
 import 'package:mobile/features/settings/presentation/screens/baby_profile_screen.dart';
@@ -385,6 +390,10 @@ class _BabyTalkAppState extends ConsumerState<BabyTalkApp> {
           ),
           routes: [
             GoRoute(
+              path: 'name',
+              builder: (context, state) => const OnboardingNameScreen(),
+            ),
+            GoRoute(
               path: 'scene',
               builder: (context, state) => const OnboardingSceneScreen(),
             ),
@@ -398,7 +407,8 @@ class _BabyTalkAppState extends ConsumerState<BabyTalkApp> {
             ),
             GoRoute(
               path: 'garden-welcome',
-              builder: (context, state) => const OnboardingGardenWelcomeScreen(),
+              builder: (context, state) =>
+                  const OnboardingGardenWelcomeScreen(),
             ),
           ],
         ),
@@ -448,9 +458,8 @@ class _BabyTalkAppState extends ConsumerState<BabyTalkApp> {
         ),
         GoRoute(
           path: '/me/growth',
-          builder: (context, state) => const GardenGrowthCombinedScreen(
-            initialTab: GrowthTab.growth,
-          ),
+          builder: (context, state) =>
+              const GardenGrowthCombinedScreen(initialTab: GrowthTab.growth),
         ),
       ],
     );

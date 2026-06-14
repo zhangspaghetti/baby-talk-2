@@ -344,6 +344,7 @@ curl -s http://127.0.0.1:3000/api/admin/overview/summary \
 
 ## 继续往下读什么
 
+- [Product architecture vNext](docs/Baby_Talk_Product_Architecture_Spec_vNext.md) — Baby Talk 的长期产品架构、v1 边界、Activation Governor / Garden Memory 契约
 - [CONTRIBUTING](CONTRIBUTING.md) — 日常开发路径、verification ladder、目录职责
 - [Kubernetes split-stack deploy runbook](docs/runbooks/k8s-deploy.md) — Helm 安装、发布、回滚与 `bash ci/k8s-smoke.sh` truth
 - [Post-deploy checklist](docs/runbooks/post-deploy-checklist.md) — 每次 helm upgrade 后的分层验证清单（离线 smoke → gateway → Playwright → Flutter E2E）

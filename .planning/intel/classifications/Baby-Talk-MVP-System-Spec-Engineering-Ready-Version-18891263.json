@@ -1,0 +1,21 @@
+{
+  "source_path": "C:/code/AI/baby-talk-2/docs/Baby_Talk_MVP_System_Spec_Engineering_Ready_Version.md",
+  "type": "SPEC",
+  "confidence": "high",
+  "manifest_override": false,
+  "title": "Baby Talk MVP System Spec（Engineering Ready Version）",
+  "summary": "Defines the MVP system boundary, storage model, runtime loop, and pack-matching contract in engineering-ready terms.",
+  "scope": [
+    "moment_signal",
+    "strategy_pack",
+    "interaction_session",
+    "MVP runtime agent",
+    "Pack match",
+    "Generation constraints",
+    "Fallback behavior"
+  ],
+  "cross_refs": [],
+  "locked": false,
+  "precedence": null,
+  "notes": ""
+}
