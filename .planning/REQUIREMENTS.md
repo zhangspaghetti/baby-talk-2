@@ -180,113 +180,113 @@ This file is the explicit capability and coverage contract for the project.
 - Primary owning slice: M007/S06
 - Validation: M007/S06 complete: new developer can reach gateway admin login from clone without compose; README has Getting Started section; README/CONTRIBUTING/runbooks/verifiers all reference the same Helm-first deploy path
 
-### R058 - Home 必须作为当前时刻的对话入口页而不是短语卡片页：固定展示 4 个直接开始的照护入口，可选继续入口、宝宝信号入口和当前情况入口；首句生成归属 Practice。
+### R058 - Baby Talk v1 必须采用 Family-micro-ritual-first 产品承诺，并显式排除课程、翻译器、打卡和无限生成路线。
 
 - Class: core-capability
 - Status: active
-- Description: Home 必须作为当前时刻的对话入口页而不是短语卡片页：固定展示 4 个直接开始的照护入口，可选继续入口、宝宝信号入口和当前情况入口；首句生成归属 Practice。
-- Why it matters: 这把首页从"浏览句子"转成"马上开口"的低负担入口，更贴合真实照护时刻。
-- Source: ingest-docs
-- Primary owning slice: M010/S01
-- Supporting slices: M010/S02
+- Description: Baby Talk v1 是面向中国 0-3 岁家庭的 Family English Micro-ritual System + Activation-governed English Enlightenment Expert；它不以生成更多句子、覆盖更多场景、打卡、孩子词汇测试或英语课表为目标。
+- Why it matters: 这条 thesis 决定后续 Home、Practice、Garden、Runtime、Pack 和指标都围绕少数英语声音迁移进家庭日常，而不是把父母推入新内容任务。
+- Source: `docs/Baby_Talk_Product_Architecture_Spec_vNext.md`
+- Primary owning slice: M010/P39
+- Supporting slices: M010/P40, M010/P41
 - Validation: mapped
-- Notes: 来源于 `docs/design-spec/06_Home_Screen.md`；作为前瞻重构轨道，不回写 M009 已验证历史。
+- Notes: Replaces the discarded old M010/S01 Home-first framing; UI surfaces must be re-derived from this thesis during spec/discuss phases.
 
-### R059 - Practice 必须使用单句连续回合模型：每轮只有一句当前英文，`我说了` 后才出现可选宝宝信号，不选信号也能 4 秒后继续下一句。
+### R059 - v1 的核心产品单位必须是 Family English Micro-ritual，而不是 Phrase、Path、Pack 或 activity completion。
 
 - Class: primary-user-loop
 - Status: active
-- Description: Practice 必须使用单句连续回合模型：每轮只有一句当前英文，`我说了` 后才出现可选宝宝信号，不选信号也能 4 秒后继续下一句。
-- Why it matters: 真实照护中的操作成本必须低于固定短语组和显式任务流，否则家长不会持续开口。
-- Source: ingest-docs
-- Primary owning slice: M010/S01
-- Supporting slices: M010/S02, M010/S03
+- Description: 每个可激活的 micro-ritual 至少定义 fixedSound、routineAnchor、actionBinding、toneHint、childNoResponseRule、softVariant、doNotUseWhen 和 exitCondition；它允许中文共存，不要求孩子回应，并能长期重复直至迁移出 app。
+- Why it matters: Phrase 容易把产品拉回句子库和翻译器；micro-ritual 才能把英语绑定真实动作、声音、节奏和家庭记忆。
+- Source: `docs/Baby_Talk_Product_Architecture_Spec_vNext.md`
+- Primary owning slice: M010/P39
+- Supporting slices: M010/P40, M010/P41
 - Validation: mapped
-- Notes: 来源于 `docs/design-spec/07_Practice_Screen.md`；和现有已验证 Practice contract 并存，等待 M010 明确 supersession。
+- Notes: Phase 39 must decide which existing phrase/activity/garden concepts are superseded, retained, or wrapped by this unit.
 
-### R060 - Onboarding 必须证明"一句就能开始"：首屏先选当前照护情境，完成至少 1 次真实开口即可完成 onboarding，不要求固定句数组或必填资料。
+### R060 - Observed Moment 必须作为 Context Seed 证据，Interpreted Moment 必须作为 joinability 假设，不能变成宝宝诊断或自动任务触发器。
 
 - Class: core-capability
 - Status: active
-- Description: Onboarding 必须证明"一句就能开始"：首屏先选当前照护情境，完成至少 1 次真实开口即可完成 onboarding，不要求固定句数组或必填资料。
-- Why it matters: 首次体验如果像课程、注册或固定任务，会直接稀释 Baby Talk 的产品承诺。
-- Source: ingest-docs
-- Primary owning slice: M010/S01
-- Supporting slices: M010/S02
+- Description: 系统必须区分看见的信号和解释出的假设：Observed Moment/Context Seed 只记录行为、对象、共同注意、节律、互动和父母状态；Interpreted Moment 判断英语能否轻轻加入，并支持 Joinable、Chinese-first、Action-bound、Silence-better、Too-teachy、Parent-awkward、Routine-ready、Already-active 等结果。
+- Why it matters: 如果把假设说成事实，或因为看到合适场景就自动推新内容，产品会从关系安全的陪伴变成育儿判断和任务系统。
+- Source: `docs/Baby_Talk_Product_Architecture_Spec_vNext.md`
+- Primary owning slice: M010/P39
+- Supporting slices: M010/P41
 - Validation: mapped
-- Notes: 来源于 `docs/design-spec/12_Onboarding_Screen.md`；作为新版 onboarding 方向进入前瞻规划。
+- Notes: Pack matching may read interpreted context, age, risk, preference and Garden Memory, but matching candidate content is not activation.
 
-### R061 - v0.1 真实照护验证必须由明确埋点和 kill criteria 驱动：能判断家长是否在真实照护时刻打开、说出口并继续至少一句。
-
-- Class: operability
-- Status: active
-- Description: v0.1 真实照护验证必须由明确埋点和 kill criteria 驱动：能判断家长是否在真实照护时刻打开、说出口并继续至少一句。
-- Why it matters: 如果没有行为级证据，团队无法区分是产品循环无效还是实现细节需要调整。
-- Source: ingest-docs
-- Primary owning slice: M010/S02
-- Supporting slices: M010/S01
-- Validation: mapped
-- Notes: 来源于 `docs/Baby_Talk_MVP_Execution_Validation_Spec.md`；用于再验证轨道，不代表回滚现有已交付能力。
-
-### R062 - Strategy Pack 必须在前瞻 MVP 中继续作为唯一核心运营资产，运行时在低置信度下回退到 broad safe pack，并保持单句生成约束。
+### R061 - Communication Primitive Library 与 Strategy Graph 必须约束回应策略、Primitive 顺序和切换规则，Runtime 只能在允许范围内微调用词。
 
 - Class: functional
 - Status: active
-- Description: Strategy Pack 必须在前瞻 MVP 中继续作为唯一核心运营资产，运行时在低置信度下回退到 broad safe pack，并保持单句生成约束。
-- Why it matters: 这让系统既保持场景约束和安全边界，也避免退化成无遮拦的裸生成体验。
-- Source: ingest-docs
-- Primary owning slice: M010/S03
-- Supporting slices: M010/S01, M010/S02
+- Description: Primitive Library 至少覆盖 Joint Attention Anchor、Connection、Narration、Choice、Waiting、Boundary、Transition、Repair、Expansion 等原语；Strategy Graph 将 Interpreted Moment 映射到 Primitive Sequence，并定义继续/切换策略的证据条件。
+- Why it matters: 没有底层 Primitive/Graph 约束，系统会退化成自由生成句子，难以保持短、温柔、低控制、可说出口的 Baby Talk 风格。
+- Source: `docs/Baby_Talk_Product_Architecture_Spec_vNext.md`
+- Primary owning slice: M010/P41
+- Supporting slices: M010/P39
 - Validation: mapped
-- Notes: 来源于 `docs/Baby_Talk_Product_Architecture_Spec_vNext.md` 和 `docs/Baby_Talk_MVP_System_Spec_Engineering_Ready_Version.md`。
+- Notes: Runtime 可调整措辞、长度、具体物体和下一句微调；不得裸生成新教育目标、催促服从、评价宝宝或提高英语难度。
+
+### R062 - Strategy Pack 必须作为 Strategy Graph 的发布形态、推荐系统消费单元和运营资产；Pack 匹配只能产生候选，不能直接激活家庭日常。
+
+- Class: functional
+- Status: active
+- Description: Pack schema 必须表达 momentScope、strategy.graphRef、goals、languagePolicy、avoidRules、exampleOpeners、microRitual、evaluationRubric 和 metrics；Pack 可以被推荐、复用、实验、升级或下架，但候选进入家庭日常前必须经过 Activation Governor。
+- Why it matters: Pack 是可发布资产，但如果把 Pack 匹配等同于激活，系统会把丰富专家内容压进家庭 routine，违背 conservative activation。
+- Source: `docs/Baby_Talk_Product_Architecture_Spec_vNext.md`
+- Primary owning slice: M010/P41
+- Supporting slices: M010/P39, M010/P40
+- Validation: mapped
+- Notes: This supersedes the old requirement that treated Strategy Pack as the single core asset; Primitive + Graph are lower-level assets, Pack is publication/runtime consumption surface.
 
 ### R063 - Baby Talk v1 必须把 Activation Governor 作为 Pack/Graph candidate 与 Runtime Agent response 之间的激活门控层。
 
 - Class: functional
 - Status: active
-- Description: Baby Talk v1 必须把 Activation Governor 作为 Pack/Graph candidate 与 Runtime Agent response 之间的激活门控层。
+- Description: Baby Talk v1 必须把 Activation Governor 作为 Pack/Graph candidate 与 Runtime Agent response 之间的激活门控层；它控制 Activate，不控制 Explore，并输出 allow_activation、nearby_expansion_only、defer_to_garden、save_for_later、rest_existing、belongs_to_family 等节奏决策。
 - Why it matters: 产品风险不是内容不足，而是把太多内容激活成家庭任务；没有独立激活门控，Runtime 很容易从“帮助开口”滑向“持续推新内容”。
-- Source: explore
-- Primary owning slice: M010/S03
-- Supporting slices: M010/S01, M010/S02
+- Source: `docs/Baby_Talk_Product_Architecture_Spec_vNext.md`
+- Primary owning slice: M010/P40
+- Supporting slices: M010/P41
 - Validation: mapped
-- Notes: Activation Governor 控制 Activate，不控制 Explore；Runtime Agent 只能应用 activationDecision，不能自行读取 activation policy 决定激活。
+- Notes: v1 默认 active capacity 为 3；mature-family upper bound 是内部保护参数，不应暴露成用户目标。
 
 ### R064 - Garden Memory 必须是 parent-confirmed 的家庭英语 micro-ritual 记忆层，而不是完成度、打卡或系统评分层。
 
 - Class: differentiator
 - Status: active
-- Description: Garden Memory 必须是 parent-confirmed 的家庭英语 micro-ritual 记忆层，而不是完成度、打卡或系统评分层。
+- Description: Garden Memory 必须记录 candidate、active、familiar、resting、expandable、belongs-to-family 等 micro-ritual 家庭迁移状态，并通过低压力父母确认更新；weak signals 可辅助提示，但不能直接判定 familiar 或 belongs-to-family。
 - Why it matters: 花园如果变成换皮打卡，会重新制造父母压力；它的价值是帮助家庭看见哪些英语声音已经在真实 routine 里活下来。
-- Source: explore
-- Primary owning slice: M010/S01
-- Supporting slices: M010/S02, M010/S03
+- Source: `docs/Baby_Talk_Product_Architecture_Spec_vNext.md`
+- Primary owning slice: M010/P40
+- Supporting slices: M010/P39, M010/P41
 - Validation: mapped
-- Notes: Garden 可以呈现 candidate / active / familiar / resting / expandable / belongs-to-family 等状态并收集父母确认，但 activation 决策权属于 Activation Governor。
+- Notes: 禁止 streak、完成数、枯萎惩罚、解锁场景等打卡语义；Garden 呈现状态并收集反馈，但不拥有 activation policy。
 
 ### R065 - v1 必须明确区分 Explore 和 Activate：专家内容可开放访问，但进入家庭日常的 active micro-ritual 必须保守限速。
 
 - Class: core-capability
 - Status: active
-- Description: v1 必须明确区分 Explore 和 Activate：专家内容可开放访问，但进入家庭日常的 active micro-ritual 必须保守限速。
+- Description: 父母可以开放探索路线、绘本、儿歌、场景和表达；但任何“今天去说 / 现在去试 / 加入你们家的新声音”都必须作为 Activate 进入 Governor 决策，不得由内容推荐或 Runtime Agent 直接推进。
 - Why it matters: Baby Talk 需要保持高上限专家能力，同时避免把父母日常淹没成内容执行表。
-- Source: explore
-- Primary owning slice: M010/S03
-- Supporting slices: M010/S01, M010/S02
+- Source: `docs/Baby_Talk_Product_Architecture_Spec_vNext.md`
+- Primary owning slice: M010/P40
+- Supporting slices: M010/P39, M010/P41
 - Validation: mapped
-- Notes: v1 默认 active capacity 为 3；mature-family upper bound 是内部保护参数，不应暴露成用户目标。
+- Notes: Explore More 开放；Activate Today 保守；Nearby Expansion 中等开放；New Micro-ritual 严格限速。
 
 ### R066 - v1 成功指标必须转向 Parent-confirmed Micro-ritual Transfer，而不是生成量、使用量、打卡、streak 或孩子词汇测试。
 
 - Class: operability
 - Status: active
-- Description: v1 成功指标必须转向 Parent-confirmed Micro-ritual Transfer，而不是生成量、使用量、打卡、streak 或孩子词汇测试。
+- Description: v1 成功指标必须转向 Parent-confirmed Micro-ritual Transfer，并观察 first active micro-ritual spoken without pressure、routine reuse rate、micro-ritual repeat comfort、parent-confirmed familiar/belongs-to-family、resting without shame 和 over-activation prevention。
 - Why it matters: Baby Talk 第一阶段要证明的是少数英语声音能否在真实家庭 routine 里自然迁移，而不是系统能生成多少句。
-- Source: explore
-- Primary owning slice: M010/S02
-- Supporting slices: M010/S01, M010/S03
+- Source: `docs/Baby_Talk_Product_Architecture_Spec_vNext.md`
+- Primary owning slice: M010/P41
+- Supporting slices: M010/P40
 - Validation: mapped
-- Notes: 应优先观察 first active micro-ritual spoken without pressure、parent-confirmed familiar / belongs-to-family、active micro-ritual stability 与哪些 Pack 形成 transfer。
+- Notes: 不优化宝宝服从、孩子词汇、生成句子数量、连续打卡、AI 新奇程度、激活新 ritual 数量或花园植物数量。
 
 ## Validated
 
@@ -669,15 +669,15 @@ This file is the explicit capability and coverage contract for the project.
 | R055 | functional | validated | M007/S03-S04 | none | S03 delivered: admin-web nginx.conf and vite proxy both forward /api/ to gateway:8090; admin-api has no external ingress in the Helm chart; AdminJwtGlobalFilter with 6 named error codes passes 9 unit tests; helm template shows babytalk/gateway:1.0.0 with no nginx:alpine; ci/k8s-smoke.sh passes 58 assertions (0 failures) confirming gateway is sole admin entry point. |
 | R056 | functional | validated | M007/S05 | none | M007/S05 complete: zero owned JdbcTemplate in runtime paths; Druid slow-query observable |
 | R057 | operability | validated | M007/S06 | none | M007/S06 complete: README Getting Started; all deploy commands point to Helm-first path |
-| R058 | core-capability | active | M010/S01 | M010/S02 | mapped |
-| R059 | primary-user-loop | active | M010/S01 | M010/S02, M010/S03 | mapped |
-| R060 | core-capability | active | M010/S01 | M010/S02 | mapped |
-| R061 | operability | active | M010/S02 | M010/S01 | mapped |
-| R062 | functional | active | M010/S03 | M010/S01, M010/S02 | mapped |
-| R063 | functional | active | M010/S03 | M010/S01, M010/S02 | mapped |
-| R064 | differentiator | active | M010/S01 | M010/S02, M010/S03 | mapped |
-| R065 | core-capability | active | M010/S03 | M010/S01, M010/S02 | mapped |
-| R066 | operability | active | M010/S02 | M010/S01, M010/S03 | mapped |
+| R058 | core-capability | active | M010/P39 | M010/P40, M010/P41 | mapped |
+| R059 | primary-user-loop | active | M010/P39 | M010/P40, M010/P41 | mapped |
+| R060 | core-capability | active | M010/P39 | M010/P41 | mapped |
+| R061 | functional | active | M010/P41 | M010/P39 | mapped |
+| R062 | functional | active | M010/P41 | M010/P39, M010/P40 | mapped |
+| R063 | functional | active | M010/P40 | M010/P41 | mapped |
+| R064 | differentiator | active | M010/P40 | M010/P39, M010/P41 | mapped |
+| R065 | core-capability | active | M010/P40 | M010/P39, M010/P41 | mapped |
+| R066 | operability | active | M010/P41 | M010/P40 | mapped |
 
 ## Coverage Summary
 

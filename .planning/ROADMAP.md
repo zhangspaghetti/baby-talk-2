@@ -61,8 +61,37 @@
 - [x] **Phase 37: s07** — S07
 - [x] **Phase 38: s08** — S08
 
-## M010: 当前时刻对话模型重构与 v0.1 真实照护再验证
+## M010: Baby Talk vNext Family Micro-ritual 架构重启
 
-- [ ] **Phase 39: s01** — Home / Practice / Onboarding 当前时刻模型收敛
-- [ ] **Phase 40: s02** — MVP v0.1 真实照护验证与埋点闭环
-- [ ] **Phase 41: s03** — Strategy Pack 运行时与 schema 收敛
+### Phase 39: vNext 产品承诺与 Family English Micro-ritual 单元收敛
+
+**Goal:** Lock the vNext product thesis, anti-goals, Family English Micro-ritual unit, Context Seed / Joinability boundary, and supersession rules before any UI or runtime implementation planning.
+**Requirements**: R058, R059, R060
+**Depends on:** Phase 38
+**Plans:** 0 plans
+
+Plans:
+
+- [ ] Run `$gsd-spec-phase 39` from `docs/Baby_Talk_Product_Architecture_Spec_vNext.md` to lock WHAT/WHY.
+
+### Phase 40: Activation Governor 与 Garden Memory 节奏治理合同
+
+**Goal:** Define the activation pacing contract that separates Explore from Activate, gates new micro-rituals conservatively, and records only parent-confirmed Garden Memory states without checklist pressure.
+**Requirements**: R063, R064, R065
+**Depends on:** Phase 39
+**Plans:** 0 plans
+
+Plans:
+
+- [ ] Run `$gsd-spec-phase 40` after Phase 39 SPEC locks the product unit and supersession boundaries.
+
+### Phase 41: Strategy Pack Graph Runtime Agent 与迁移指标闭环
+
+**Goal:** Align Primitive Library, Strategy Graph, Strategy Pack schema, Runtime Agent input/output contract, and parent-confirmed micro-ritual transfer metrics into one constrained runtime loop.
+**Requirements**: R061, R062, R066
+**Depends on:** Phase 40
+**Plans:** 0 plans
+
+Plans:
+
+- [ ] Run `$gsd-spec-phase 41` after Activation Governor and Garden Memory contracts are locked.
