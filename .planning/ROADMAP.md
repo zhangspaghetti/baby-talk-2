@@ -68,12 +68,12 @@
 **Goal:** Lock the vNext product thesis, anti-goals, Family English Micro-ritual unit, Context Seed / Joinability boundary, and supersession rules before any UI or runtime implementation planning.
 **Requirements**: R058, R059, R060
 **Depends on:** Phase 38
-**Plans:** 3 plans
+**Plans:** 2/3 plans executed
 Plans:
 **Wave 1**
 
-- [ ] 39-01-PLAN.md — Create source-grounded supersession proof and link SPEC to proof/verifier artifacts.
-- [ ] 39-02-PLAN.md — Build semantic-firewall verifier, root tests, targeted vNext surface contract tests, and mobile test wrapper.
+- [x] 39-01-PLAN.md — Create source-grounded supersession proof and link SPEC to proof/verifier artifacts.
+- [x] 39-02-PLAN.md — Build semantic-firewall verifier, root tests, targeted vNext surface contract tests, and mobile test wrapper.
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
