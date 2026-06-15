@@ -2,10 +2,10 @@
 gsd_state_version: 1.0
 milestone: v0.1
 milestone_name: milestone
-status: verifying
-stopped_at: Phase 39 UI-SPEC approved
-last_updated: "2026-06-15T14:32:26.206Z"
-last_activity: 2026-06-15 -- Phase 39 execution started
+status: ready_for_phase_40
+stopped_at: Phase 39 verified and completed; Phase 40 ready for specification
+last_updated: "2026-06-15T14:57:36.507Z"
+last_activity: 2026-06-15 -- Phase 39 verified and completed; Phase 40 ready for specification
 progress:
   total_phases: 3
   completed_phases: 1
@@ -20,16 +20,16 @@ progress:
 
 See: .planning/PROJECT.md
 
-**Current focus:** Phase 39 — vnext-family-english-micro-ritual
+**Current focus:** Phase 40 — activation-governor-garden-memory
 
 ## Current Position
 
-Phase: 39 (vnext-family-english-micro-ritual) — EXECUTING
-Plan: 3 of 3
-Status: Phase complete — ready for verification
-Last activity: 2026-06-15 -- Phase 39 execution started
+Phase: 40 (activation-governor-garden-memory) — NOT STARTED
+Plan: Not started
+Status: Phase 39 complete; Phase 40 ready for specification
+Last activity: 2026-06-15 -- Phase 39 verified and completed; Phase 40 ready for specification
 
-Progress: [█████████░] 93%
+Progress: [███░░░░░░░] 33%
 
 ## Accumulated Context
 
@@ -43,16 +43,17 @@ Migrated from GSD-2. Old M010 phases 39-41 were generated from outdated planning
 - 2026-06-14: Added new Phase 39: vNext 产品承诺与 Family English Micro-ritual 单元收敛.
 - 2026-06-14: Added new Phase 40: Activation Governor 与 Garden Memory 节奏治理合同.
 - 2026-06-14: Added new Phase 41: Strategy Pack Graph Runtime Agent 与迁移指标闭环.
+- 2026-06-15: Completed Phase 39 execution, code review, verification, and supersession boundary closeout.
 
 ### Blockers/Concerns
 
-Phase 39 must lock the vNext product thesis, non-goals, Family English Micro-ritual unit, and supersession boundaries before implementation planning. Home / Practice / Onboarding design-spec assumptions from the discarded track are not active unless re-adopted by the new SPEC.
+Phase 40 must now lock Activation Governor and Garden Memory pacing contracts before any runtime or UI planning extends the vNext boundary.
 
 ## Session Continuity
 
-Last session: 2026-06-15T00:50:53.108Z
-Stopped at: Phase 39 UI-SPEC approved
-Resume file: .planning/phases/39-vnext-family-english-micro-ritual/39-UI-SPEC.md
+Last session: 2026-06-15T14:57:36.507Z
+Stopped at: Phase 39 complete; Phase 40 ready for specification
+Resume file: .planning/ROADMAP.md
 
 ## Performance Metrics
 

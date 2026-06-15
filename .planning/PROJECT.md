@@ -10,6 +10,14 @@ Baby Talk 2 是一个面向中国父母的 Flutter 原生移动应用，围绕�
 
 ## Current State
 
+**M010《Baby Talk vNext Family Micro-ritual 架构重启》已启动。Phase 39《vNext 产品承诺与 Family English Micro-ritual 单元收敛》已完成（2026-06-15）：产品承诺、旧语义 supersession、Context Seed / Joinability 边界、semantic firewall、独立 `mobile_v2` 非 UI 边界均已锁定。Phase 40《Activation Governor 与 Garden Memory 节奏治理合同》未开始。**
+
+### M010 Phase 39 已交付
+
+- ✅ **39-01** — Source-grounded supersession proof 与 SPEC linkage 完成；R058/R059/R060 对应的 Family English Micro-ritual 产品承诺、非目标、旧 Phrase/Activity/completion/streak/GardenGrowth 语义处置已记录。
+- ✅ **39-02** — `tool/verify_mobile_v2_semantic_firewall.dart` 与 root/mobile 测试完成；`mobile_v2/lib` 禁止旧 mobile practice/onboarding/garden import，禁止 old-product runtime terms，且禁止 runtime 导入 quarantine/reference 路径。
+- ✅ **39-03** — 独立 `mobile_v2/` Flutter package boundary 建立；`mobile_v2/lib` 只保留 vNext semantic anchors；reference assets 与 legacy reference 均明确隔离，Phase 39 validation/review/verification 通过。
+
 **M009《Historical completeness re-review and UX maturity closure》已完成（2026-04-28）。所有 8 个切片 S01–S08 ✅，里程碑验证通过并已关闭。**
 
 ### M009 已交付
@@ -57,6 +65,7 @@ Baby Talk 2 是一个面向中国父母的 Flutter 原生移动应用，围绕�
 ## Architecture / Key Patterns
 
 - **客户端**：Flutter Native（Android + iOS），竖屏优先
+- **vNext mobile boundary（M010/P39 后）**：`mobile_v2/` 是独立 Flutter package，不依赖旧 `mobile/`；`mobile_v2/lib` 只允许 boundary-level semantic anchors，不承载 UI/runtime/domain truth；`tool/verify_mobile_v2_semantic_firewall.dart` 阻止旧 practice/onboarding/garden import、old-product runtime terms，以及 runtime 对 quarantine/reference 路径的导入。
 - **服务端**：Spring Boot 3.4.4，**Maven 五模块 reactor**（`common` / `app-api` / `admin-api` / `db-migration` / `gateway`）
 - **认证**：
   - mobile 侧已升级为 **JWT 双令牌**（access / refresh），但 controller/service 之间仍通过 `sid` claim 回桥到既有 session-centric seam
@@ -117,11 +126,13 @@ Notable current status:
 - `R055`（Gateway single front door）— **validated**（S03 admin + S04 consumer/public paths fully switched）
 - `R056`（Repo-wide runtime persistence migration）— **validated**（M007/S05 complete: zero owned JdbcTemplate, Druid slow-query, 4-batch parity green）
 - `R057`（Collaborative onboarding docs）— **validated**（M007/S06 complete）
+- `R058`–`R060`（Family English Micro-ritual product promise, product unit, Context Seed / Joinability boundary）— **satisfied by M010/P39**（proof, SPEC linkage, semantic firewall, `mobile_v2` boundary, and verification report complete）
 - M008 palace RAG enhancements (age-aware retrieval, QueryTrace, bridge review, projection visibility) — shipped and verified; no dedicated R0XX requirement; advances R005 and R011
 - M009 UX maturity (Home/Discover/Garden hierarchy + mobile extraction + admin shell + KnowledgeOps) — all 8 slices complete; milestone closed 2026-04-28; validation evidence in `docs/reviews/m009-autoplan-2026-04-26.md`; E2E knowledge-ops.spec.ts deferred pending live stack
 
-## Outstanding Follow-ups (Post-M009)
+## Outstanding Follow-ups (Post-M009 / M010)
 
+- Run `$gsd-spec-phase 40` to define Activation Governor and Garden Memory pacing contracts before any runtime/UI extension of the vNext boundary.
 - Run `npm --prefix admin-web run test:e2e -- tests/knowledge-ops.spec.ts` against a live stack to retire the DEFERRED E2E row (validates URL truth, testid contracts, readonly alert)
 - Run `npm --prefix admin-web run test:e2e -- tests/admin-login.spec.ts` against a live server to confirm AdminLayout.tsx testid DOM contracts hold after Collapse-based progressive disclosure
 
@@ -136,3 +147,4 @@ Notable current status:
 - [x] M007: Helm-first split deployment + gateway + persistence migration + docs — S01–S06 全部 ✅ 完成（2026-04-27）
 - [x] M008: Graph-aware knowledge palace RAG + temporal retrieval + MemPalace design closure — S01–S03 全部 ✅ 完成（2026-04-27）
 - [x] M009: Historical completeness re-review and UX maturity closure — S01–S08 全部 ✅ 完成（2026-04-28）
+- [ ] M010: Baby Talk vNext Family Micro-ritual 架构重启 — Phase 39 ✅ 完成（2026-06-15）；Phase 40/41 未开始
