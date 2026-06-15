@@ -269,20 +269,20 @@ GardenGrowth
 | # | Claim | Section | Risk if Wrong |
 |---|-------|---------|---------------|
 | A1 | Dart/Flutter are installed but version probes timed out, so availability should be rechecked in Wave 0. | Environment Availability | Planner may choose commands that hang in this shell without a preflight fallback. |
-| A2 | It is unclear whether Phase 39 should create an empty `mobile_v2/` package skeleton or only prepare the proof contract. | Open Questions | Planner may either overbuild runtime structure too early or lack a concrete path for verifier proof. |
-| A3 | It is unclear whether docs supersession proof should live in a phase-local note or a durable `docs/` supersession note. | Open Questions | Supersession evidence may be hard for future phases to find. |
+| A2 | Resolved: Phase 39 creates the minimum non-UI `mobile_v2/` boundary needed for executable semantic-firewall proof. | Open Questions (RESOLVED) | If changed later, planner may either overbuild runtime structure too early or lack a concrete path for verifier proof. |
+| A3 | Resolved: supersession proof lives in phase-local `39-SUPERSESSION-PROOF.md` and is linked from `39-SPEC.md`. | Open Questions (RESOLVED) | If changed later, supersession evidence may be hard for future phases to find. |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **Should Phase 39 itself create `mobile_v2/` or only prepare the proof contract?**
    - What we know: Context locks `mobile_v2/` as the boundary and proof must be stronger than docs-only. [VERIFIED: 39-CONTEXT.md]
-   - What's unclear: Whether the first implementation plan should create an empty `mobile_v2` package skeleton or leave package creation to the next phase. [ASSUMED]
-   - Recommendation: Create only the minimum path/skeleton needed for verifier tests if the planner needs executable proof; avoid UI/runtime screens in this phase.
+   - Selected resolution: Phase 39 creates the minimum non-UI `mobile_v2/` boundary needed for executable semantic-firewall proof.
+   - Plan decision: Create only the minimum path/skeleton needed for verifier tests; avoid UI/runtime screens in this phase.
 
 2. **Should docs supersession proof update archived design specs or add a new supersession note?**
    - What we know: Old design docs may be reference-only and fail if imported as binding vNext requirements. [VERIFIED: 39-SPEC.md]
-   - What's unclear: The preferred docs location for a durable supersession note. [ASSUMED]
-   - Recommendation: Prefer a small phase-local or `docs/` supersession note linked from `39-SPEC.md`, not broad archived-doc rewrites.
+   - Selected resolution: Supersession proof lives in phase-local `39-SUPERSESSION-PROOF.md` and is linked from `39-SPEC.md`.
+   - Plan decision: Add a small phase-local supersession proof linked from `39-SPEC.md`, not broad archived-doc rewrites.
 
 ## Environment Availability
 
