@@ -112,7 +112,9 @@ void _expectBannedTerm(
     report.violations.any(
       (violation) =>
           violation.type ==
-              verifier.MobileV2SemanticFirewallViolationType.bannedRuntimeTerm &&
+              verifier
+                  .MobileV2SemanticFirewallViolationType
+                  .bannedRuntimeTerm &&
           violation.term == term,
     ),
     isTrue,

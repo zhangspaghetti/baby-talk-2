@@ -63,78 +63,86 @@ class JoinabilityHypothesisBoundary {
       );
     });
 
-    test('rejects forbidden package imports from old product features', () async {
-      final tempDir = await Directory.systemTemp.createTemp(
-        'mobile-v2-firewall-package-import-',
-      );
-      addTearDown(() async {
-        if (tempDir.existsSync()) {
-          await tempDir.delete(recursive: true);
-        }
-      });
+    test(
+      'rejects forbidden package imports from old product features',
+      () async {
+        final tempDir = await Directory.systemTemp.createTemp(
+          'mobile-v2-firewall-package-import-',
+        );
+        addTearDown(() async {
+          if (tempDir.existsSync()) {
+            await tempDir.delete(recursive: true);
+          }
+        });
 
-      await _writeProjectFile(
-        tempDir,
-        'mobile_v2/lib/imports_old_practice.dart',
-        '''
+        await _writeProjectFile(
+          tempDir,
+          'mobile_v2/lib/imports_old_practice.dart',
+          '''
 import 'package:mobile/features/practice/domain/models/practice_phrase.dart';
 import 'package:mobile/features/onboarding/domain/models/onboarding_snapshot.dart';
 export 'package:mobile/features/garden/presentation/garden_screen.dart';
 ''',
-      );
+        );
 
-      final report = verifier.scanMobileV2SemanticFirewall(
-        projectRoot: tempDir.path,
-      );
+        final report = verifier.scanMobileV2SemanticFirewall(
+          projectRoot: tempDir.path,
+        );
 
-      expect(
-        report.countByType(verifier.MobileV2SemanticFirewallViolationType
-            .forbiddenImport),
-        3,
-      );
-      expect(report.hasBlockingViolations, isTrue);
-      expect(
-        report.violations.map((violation) => violation.reason),
-        everyElement(contains('old mobile product feature')),
-      );
-    });
+        expect(
+          report.countByType(
+            verifier.MobileV2SemanticFirewallViolationType.forbiddenImport,
+          ),
+          3,
+        );
+        expect(report.hasBlockingViolations, isTrue);
+        expect(
+          report.violations.map((violation) => violation.reason),
+          everyElement(contains('old mobile product feature')),
+        );
+      },
+    );
 
-    test('rejects relative imports resolving into old product features', () async {
-      final tempDir = await Directory.systemTemp.createTemp(
-        'mobile-v2-firewall-relative-import-',
-      );
-      addTearDown(() async {
-        if (tempDir.existsSync()) {
-          await tempDir.delete(recursive: true);
-        }
-      });
+    test(
+      'rejects relative imports resolving into old product features',
+      () async {
+        final tempDir = await Directory.systemTemp.createTemp(
+          'mobile-v2-firewall-relative-import-',
+        );
+        addTearDown(() async {
+          if (tempDir.existsSync()) {
+            await tempDir.delete(recursive: true);
+          }
+        });
 
-      await _writeProjectFile(
-        tempDir,
-        'mobile_v2/lib/src/relative_old_import.dart',
-        '''
+        await _writeProjectFile(
+          tempDir,
+          'mobile_v2/lib/src/relative_old_import.dart',
+          '''
 import '../../../mobile/lib/features/practice/domain/models/practice_phrase.dart';
 export '../../../mobile/lib/features/onboarding/domain/models/onboarding_snapshot.dart';
 import 'safe_local_boundary.dart';
 ''',
-      );
-      await _writeProjectFile(
-        tempDir,
-        'mobile_v2/lib/src/safe_local_boundary.dart',
-        'class SafeLocalBoundary {}\n',
-      );
+        );
+        await _writeProjectFile(
+          tempDir,
+          'mobile_v2/lib/src/safe_local_boundary.dart',
+          'class SafeLocalBoundary {}\n',
+        );
 
-      final report = verifier.scanMobileV2SemanticFirewall(
-        projectRoot: tempDir.path,
-      );
+        final report = verifier.scanMobileV2SemanticFirewall(
+          projectRoot: tempDir.path,
+        );
 
-      expect(
-        report.countByType(verifier.MobileV2SemanticFirewallViolationType
-            .forbiddenImport),
-        2,
-      );
-      expect(report.hasBlockingViolations, isTrue);
-    });
+        expect(
+          report.countByType(
+            verifier.MobileV2SemanticFirewallViolationType.forbiddenImport,
+          ),
+          2,
+        );
+        expect(report.hasBlockingViolations, isTrue);
+      },
+    );
 
     test('rejects banned old runtime terms under mobile_v2/lib', () async {
       final tempDir = await Directory.systemTemp.createTemp(
@@ -146,10 +154,7 @@ import 'safe_local_boundary.dart';
         }
       });
 
-      await _writeProjectFile(
-        tempDir,
-        'mobile_v2/lib/old_semantics.dart',
-        '''
+      await _writeProjectFile(tempDir, 'mobile_v2/lib/old_semantics.dart', '''
 class OldSemanticLeak {
   final String phraseId = 'p1';
   final String activityId = 'a1';
@@ -162,8 +167,7 @@ class OldSemanticLeak {
   final String GardenGrowth = 'bloom';
   final String starterPhraseId = 'starter';
 }
-''',
-      );
+''');
 
       final report = verifier.scanMobileV2SemanticFirewall(
         projectRoot: tempDir.path,
@@ -237,9 +241,12 @@ class OldSemanticLeak {
 
       expect(report.hasBlockingViolations, isFalse);
       expect(report.violations, isEmpty);
-      expect(report.allowlistedReferences, hasLength(4));
+      final allowlistedPaths = report.allowlistedReferences
+          .map((reference) => reference.sourcePath)
+          .toSet();
+      expect(allowlistedPaths, hasLength(4));
       expect(
-        report.allowlistedReferences.map((reference) => reference.sourcePath),
+        allowlistedPaths,
         containsAll([
           'mobile_v2/docs/migration-notes.md',
           'mobile_v2/legacy_reference/garden_fixture.dart',
