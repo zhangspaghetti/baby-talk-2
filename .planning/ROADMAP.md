@@ -68,11 +68,13 @@
 **Goal:** Lock the vNext product thesis, anti-goals, Family English Micro-ritual unit, Context Seed / Joinability boundary, and supersession rules before any UI or runtime implementation planning.
 **Requirements**: R058, R059, R060
 **Depends on:** Phase 38
-**Plans:** 0 plans
+**Plans:** 3 plans
 
 Plans:
 
-- [ ] Run `$gsd-spec-phase 39` from `docs/Baby_Talk_Product_Architecture_Spec_vNext.md` to lock WHAT/WHY.
+- [ ] 39-01-PLAN.md — Create source-grounded supersession proof and link SPEC to proof/verifier artifacts.
+- [ ] 39-02-PLAN.md — Build semantic-firewall verifier, root tests, targeted vNext surface contract tests, and mobile test wrapper.
+- [ ] 39-03-PLAN.md — Create non-UI `mobile_v2` boundary package and close Phase 39 validation gates.
 
 ### Phase 40: Activation Governor 与 Garden Memory 节奏治理合同
 
