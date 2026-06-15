@@ -144,6 +144,54 @@ import 'safe_local_boundary.dart';
       },
     );
 
+    test('rejects runtime imports into quarantine reference paths', () async {
+      final tempDir = await Directory.systemTemp.createTemp(
+        'mobile-v2-firewall-quarantine-import-',
+      );
+      addTearDown(() async {
+        if (tempDir.existsSync()) {
+          await tempDir.delete(recursive: true);
+        }
+      });
+
+      await _writeProjectFile(
+        tempDir,
+        'mobile_v2/lib/imports_quarantine.dart',
+        '''
+import '../legacy_reference/neutral_reference.dart';
+import '../reference_assets/raw_copy.dart';
+''',
+      );
+      await _writeProjectFile(
+        tempDir,
+        'mobile_v2/legacy_reference/neutral_reference.dart',
+        'const neutralReference = "read only";\n',
+      );
+      await _writeProjectFile(
+        tempDir,
+        'mobile_v2/reference_assets/raw_copy.dart',
+        'const rawCopy = "sample only";\n',
+      );
+
+      final report = verifier.scanMobileV2SemanticFirewall(
+        projectRoot: tempDir.path,
+      );
+
+      expect(
+        report.countByType(
+          verifier.MobileV2SemanticFirewallViolationType.forbiddenImport,
+        ),
+        2,
+      );
+      expect(
+        report.violations.map((violation) => violation.resolvedPath),
+        containsAll([
+          'mobile_v2/legacy_reference/neutral_reference.dart',
+          'mobile_v2/reference_assets/raw_copy.dart',
+        ]),
+      );
+    });
+
     test('rejects banned old runtime terms under mobile_v2/lib', () async {
       final tempDir = await Directory.systemTemp.createTemp(
         'mobile-v2-firewall-banned-terms-',
@@ -254,6 +302,36 @@ class OldSemanticLeak {
           'mobile_v2/test/fixtures/old_terms_fixture.dart',
         ]),
       );
+    });
+
+    test('skips binary files in allowlisted reference material', () async {
+      final tempDir = await Directory.systemTemp.createTemp(
+        'mobile-v2-firewall-binary-reference-',
+      );
+      addTearDown(() async {
+        if (tempDir.existsSync()) {
+          await tempDir.delete(recursive: true);
+        }
+      });
+
+      await _writeProjectFile(
+        tempDir,
+        'mobile_v2/lib/boundary.dart',
+        'class Boundary { final String fixedSound = "Peek-a-boo"; }\n',
+      );
+      final binaryFile = File(
+        '${tempDir.path}/mobile_v2/reference_assets/sample.mp3',
+      );
+      await binaryFile.parent.create(recursive: true);
+      await binaryFile.writeAsBytes(const [0xff, 0xfe, 0x00, 0x01]);
+
+      final report = verifier.scanMobileV2SemanticFirewall(
+        projectRoot: tempDir.path,
+      );
+
+      expect(report.hasBlockingViolations, isFalse);
+      expect(report.scannedReferenceFileCount, 0);
+      expect(report.allowlistedReferences, isEmpty);
     });
 
     test('fails closed when mobile_v2/lib is missing', () async {

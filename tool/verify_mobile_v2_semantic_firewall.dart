@@ -38,6 +38,15 @@ const _allowlistedReferencePrefixes = <String>[
   'mobile_v2/test/fixtures/',
 ];
 
+const _referenceTextExtensions = <String>{
+  '.dart',
+  '.json',
+  '.md',
+  '.txt',
+  '.yaml',
+  '.yml',
+};
+
 final _directivePattern = RegExp(r'''^\s*(import|export)\s+['"]([^'"]+)['"]''');
 
 Future<void> main(List<String> args) async {
@@ -307,7 +316,7 @@ void _scanRuntimeFile(
         directive.importUri,
         sourcePath: sourcePath,
       );
-      if (_isForbiddenOldMobileProductPath(targetPath)) {
+      if (_isForbiddenRuntimeImportTarget(targetPath)) {
         violations.add(
           MobileV2SemanticFirewallViolation(
             type: MobileV2SemanticFirewallViolationType.forbiddenImport,
@@ -317,7 +326,7 @@ void _scanRuntimeFile(
             importUri: directive.importUri,
             resolvedPath: targetPath,
             reason:
-                'mobile_v2/lib cannot import old mobile product feature code as vNext runtime truth',
+                'mobile_v2/lib cannot import old mobile product feature code or quarantined reference material as vNext runtime truth',
           ),
         );
       }
@@ -394,7 +403,8 @@ List<File> _listReferenceFiles(String projectRoot) {
       directory
           .listSync(recursive: true)
           .whereType<File>()
-          .where((file) => !_isGeneratedDartFile(file.path)),
+          .where((file) => !_isGeneratedDartFile(file.path))
+          .where((file) => _isReferenceTextFile(file.path)),
     );
   }
   files.sort((left, right) {
@@ -442,6 +452,23 @@ bool _isForbiddenOldMobileProductPath(String? projectPath) {
     }
   }
   return false;
+}
+
+bool _isForbiddenRuntimeImportTarget(String? projectPath) =>
+    _isForbiddenOldMobileProductPath(projectPath) ||
+    _isQuarantinedReferencePath(projectPath);
+
+bool _isQuarantinedReferencePath(String? projectPath) {
+  if (projectPath == null) {
+    return false;
+  }
+  final normalized = _normalizePath(projectPath);
+  return _allowlistedReferencePrefixes.any(normalized.startsWith);
+}
+
+bool _isReferenceTextFile(String path) {
+  final lowerPath = _normalizePath(path).toLowerCase();
+  return _referenceTextExtensions.any(lowerPath.endsWith);
 }
 
 bool _lineContainsTerm(String line, String term) {
