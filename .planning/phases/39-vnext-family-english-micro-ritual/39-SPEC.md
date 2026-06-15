@@ -136,6 +136,20 @@ Previously validated infrastructure remains valuable if it does not carry old pr
 - [ ] SPEC clearly defers Pack / Graph / Runtime / metrics contracts to Phase 41.
 - [ ] A planner can read this SPEC and know how to treat old Phrase/Activity/completion/streak/growth, the four core surface assumptions, referenceable assets, and Phase 40/41 handoffs without asking another WHAT question.
 
+## Phase 39 Proof Artifacts
+
+The following artifacts operationalize D-17, D-18, D-19, D-20, D-21, and D-22 for R058, R059, and R060:
+
+| Artifact | Purpose |
+|---|---|
+| `.planning/phases/39-vnext-family-english-micro-ritual/39-SUPERSESSION-PROOF.md` | Source-grounded supersession proof for the vNext thesis, old-semantic disposition, reuse quarantine, and Phase 40/41 handoff boundaries. |
+| `tool/verify_mobile_v2_semantic_firewall.dart` | Fail-closed verifier for the `mobile_v2/lib` semantic firewall, import guard, and banned-term scan. |
+| `test/tool/verify_mobile_v2_semantic_firewall_test.dart` | Root verifier tests for clean paths, forbidden old mobile imports, and banned old semantics outside allowlisted paths. |
+| `test/features/vnext/mobile_v2_surface_contract_test.dart` | Targeted vNext surface contract tests for onboarding, Home, Practice, and Garden behavior that does not depend on phrase completion, streak, or old Garden growth. |
+| `mobile_v2/lib/vnext_semantic_boundary.dart` | Runtime boundary anchor for Family English Micro-ritual, Context Seed evidence, Joinability hypothesis, and activation-candidate separation. |
+
+Old `mobile/` remains readable reference only per D-03. `mobile_v2/lib` cannot import old `mobile/` product/domain/data/presentation models per D-04, D-10, and D-19; any copied material must be semantically re-derived before becoming vNext runtime truth.
+
 ## Ambiguity Report
 
 | Dimension          | Score | Min   | Status | Notes |
