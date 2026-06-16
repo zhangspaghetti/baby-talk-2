@@ -249,8 +249,8 @@ This file is the explicit capability and coverage contract for the project.
 - Source: `docs/Baby_Talk_Product_Architecture_Spec_vNext.md`
 - Primary owning slice: M010/P40
 - Supporting slices: M010/P41
-- Validation: mapped
-- Notes: v1 默认 active capacity 为 3；mature-family upper bound 是内部保护参数，不应暴露成用户目标。
+- Validation: mapped; P40-01 verifier foundation complete via `tool/verify_activation_governor_contract.dart` authority-seam cases
+- Notes: v1 默认 active capacity 为 3；mature-family upper bound 是内部保护参数，不应暴露成用户目标。P40-01 makes Pack/Graph, Runtime, Garden, and `candidate -> active` bypasses machine-checkable; P40-02/P40-03 complete broader surface/proof coverage.
 
 ### R064 - Garden Memory 必须是 parent-confirmed 的家庭英语 micro-ritual 记忆层，而不是完成度、打卡或系统评分层。
 
@@ -261,8 +261,8 @@ This file is the explicit capability and coverage contract for the project.
 - Source: `docs/Baby_Talk_Product_Architecture_Spec_vNext.md`
 - Primary owning slice: M010/P40
 - Supporting slices: M010/P39, M010/P41
-- Validation: mapped
-- Notes: 禁止 streak、完成数、枯萎惩罚、解锁场景等打卡语义；Garden 呈现状态并收集反馈，但不拥有 activation policy。
+- Validation: mapped; P40-01 verifier foundation complete via typed Garden Memory authority and parent-intent cases
+- Notes: 禁止 streak、完成数、枯萎惩罚、解锁场景等打卡语义；Garden 呈现状态并收集反馈，但不拥有 activation policy。P40-01 proves Garden cannot own activation policy and meaningful Garden states are gated by parent intent; P40-02/P40-03 complete broader copy/proof coverage.
 
 ### R065 - v1 必须明确区分 Explore 和 Activate：专家内容可开放访问，但进入家庭日常的 active micro-ritual 必须保守限速。
 
@@ -273,8 +273,8 @@ This file is the explicit capability and coverage contract for the project.
 - Source: `docs/Baby_Talk_Product_Architecture_Spec_vNext.md`
 - Primary owning slice: M010/P40
 - Supporting slices: M010/P39, M010/P41
-- Validation: mapped
-- Notes: Explore More 开放；Activate Today 保守；Nearby Expansion 中等开放；New Micro-ritual 严格限速。
+- Validation: mapped; P40-01 verifier foundation complete via positive Explore and activation-intent authority cases
+- Notes: Explore More 开放；Activate Today 保守；Nearby Expansion 中等开放；New Micro-ritual 严格限速。P40-01 proves Explore/candidate examples can pass without Governor decisions when they avoid action-now activation intent; P40-02/P40-03 complete broader surface coverage.
 
 ### R066 - v1 成功指标必须转向 Parent-confirmed Micro-ritual Transfer，而不是生成量、使用量、打卡、streak 或孩子词汇测试。
 

@@ -4,14 +4,14 @@ milestone: v0.1
 milestone_name: milestone
 status: executing
 stopped_at: Phase 40 planned and verified
-last_updated: "2026-06-16T02:05:37.397Z"
-last_activity: 2026-06-16 -- Phase 40 planned and verified; ready to execute
+last_updated: "2026-06-16T04:38:23.281Z"
+last_activity: 2026-06-16 -- Phase 40 Plan 01 executed; Activation Governor verifier foundation complete
 progress:
   total_phases: 3
   completed_phases: 1
-  total_plans: 3
-  completed_plans: 3
-  percent: 33
+  total_plans: 6
+  completed_plans: 4
+  percent: 67
 ---
 
 # Project State
@@ -24,18 +24,22 @@ See: .planning/PROJECT.md
 
 ## Current Position
 
-Phase: 40 (activation-governor-garden-memory) — PLANNED
-Plan: 3/3 plans ready
-Status: Ready to execute
-Last activity: 2026-06-16 -- Phase 40 planned and verified; ready to execute
+Phase: 40 (activation-governor-garden-memory) — EXECUTING
+Plan: 1/3 plans executed
+Status: Ready for 40-02
+Last activity: 2026-06-16 -- Phase 40 Plan 01 executed; Activation Governor verifier foundation complete
 
-Progress: [███░░░░░░░] 33%
+Progress: [███████░░░] 67%
 
 ## Accumulated Context
 
 ### Decisions
 
 Migrated from GSD-2. Old M010 phases 39-41 were generated from outdated planning docs and have been discarded. The active M010 track now restarts from `docs/Baby_Talk_Product_Architecture_Spec_vNext.md`; existing validated history remains canonical until a vNext SPEC explicitly supersedes it.
+
+- Phase 40 Plan 01 established an independent pure Dart Activation Governor / Garden Memory contract verifier instead of extending the Phase 39 semantic firewall.
+- Default verifier proof cases include expected negative authority seams, but the no-arg CLI passes only when Pack/Graph, Runtime, and Garden bypasses are correctly rejected.
+- Phase 40 scanning remains scoped to `mobile_v2/lib`; repo-wide activation/Garden scans are deferred until more vNext runtime paths exist.
 
 ### Roadmap Evolution
 
@@ -51,9 +55,9 @@ Phase 40 planning is complete. Execution must now build the Activation Governor 
 
 ## Session Continuity
 
-Last session: 2026-06-16T02:05:37.397Z
-Stopped at: Phase 40 planned and verified
-Resume file: .planning/phases/40-activation-governor-garden-memory/40-01-PLAN.md
+Last session: 2026-06-16T04:36:24Z
+Stopped at: Completed 40-01-PLAN.md
+Resume file: .planning/phases/40-activation-governor-garden-memory/40-02-PLAN.md
 
 ## Performance Metrics
 
@@ -61,3 +65,4 @@ Resume file: .planning/phases/40-activation-governor-garden-memory/40-01-PLAN.md
 |-------|------|----------|-------|
 | Phase 39 P02 | 5h 19m | 2 tasks | 4 files |
 | Phase 39 P03 | 22 min | 2 tasks | 5 files |
+| Phase 40 P01 | 20 min | 3 tasks | 2 files |

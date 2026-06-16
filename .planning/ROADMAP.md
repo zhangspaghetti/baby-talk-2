@@ -84,7 +84,7 @@ Plans:
 **Goal:** Define the activation pacing contract that separates Explore from Activate, gates new micro-rituals conservatively, and records only parent-confirmed Garden Memory states without checklist pressure.
 **Requirements**: R063, R064, R065
 **Depends on:** Phase 39
-**Plans:** 3/3 plans complete
+**Plans:** 1/3 plans executed
 Plans:
 
 **Wave 1**
@@ -93,11 +93,11 @@ Plans:
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
-- [x] 40-02-PLAN.md — Extend verifier for surface activation intent, weak-signal limits, parent-confirmed Garden Memory copy, and wrapper parity.
+- [ ] 40-02-PLAN.md — Extend verifier for surface activation intent, weak-signal limits, parent-confirmed Garden Memory copy, and wrapper parity.
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
-- [x] 40-03-PLAN.md — Create Phase 40 proof/validation artifacts and SPEC links.
+- [ ] 40-03-PLAN.md — Create Phase 40 proof/validation artifacts and SPEC links.
 
 ### Phase 41: Strategy Pack Graph Runtime Agent 与迁移指标闭环
 
