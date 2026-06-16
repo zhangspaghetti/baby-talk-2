@@ -5,6 +5,11 @@
   },
   "workflow": {
     "_auto_chain_active": false,
-    "use_worktrees": false
+    "use_worktrees": false,
+    "tdd_mode": true
+  },
+  "git": {
+    "branching_strategy": "milestone",
+    "base_branch": "Develop"
   }
 }
