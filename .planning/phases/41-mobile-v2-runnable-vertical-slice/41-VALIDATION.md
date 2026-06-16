@@ -2,8 +2,8 @@
 phase: 41
 slug: mobile-v2-runnable-vertical-slice
 status: draft
-nyquist_compliant: false
-wave_0_complete: false
+nyquist_compliant: true
+wave_0_plan_ready: true
 created: 2026-06-16
 ---
 
@@ -36,24 +36,29 @@ created: 2026-06-16
 
 ## Per-Task Verification Map
 
-| Task ID | Plan | Wave | Requirement | Threat Ref | Secure Behavior | Test Type | Automated Command | File Exists | Status |
-|---------|------|------|-------------|------------|-----------------|-----------|-------------------|-------------|--------|
-| 41-W0-01 | 00 | 0 | R058-R065 | T-41-01 / T-41-02 | Flutter and Dart commands run from the correct `mobile_v2` and repo roots, not the root Flutter wrapper that delegates to old `mobile/`. | command health | `cd mobile_v2 && flutter test --help`; `dart --version` | Missing W0 | pending |
-| 41-01-01 | 01 | 1 | R058, R059, R060, R063 | T-41-01 / T-41-02 | Local fixture truth is one active Ritual Room backed by fake Context Seed, Joinability hypothesis, and explicit fake Governor `allow_activation`. | fixture unit/widget | `cd mobile_v2 && flutter test test/first_micro_ritual_fixture_test.dart` | Missing W0 | pending |
-| 41-02-01 | 02 | 1 | R058, R059, R063 | T-41-01 / T-41-02 | Runnable app opens First Entry and Today Orientation without phrase/activity/completion/streak/progress semantics. | widget flow | `cd mobile_v2 && flutter test test/first_micro_ritual_flow_test.dart` | Missing W0 | pending |
-| 41-03-01 | 03 | 2 | R059, R064, R065 | T-41-02 / T-41-03 | Room Support and Memory Lens stay low-pressure, do not score or complete the ritual, and preserve parent-confirmed memory framing. | widget flow + verifier | `cd mobile_v2 && flutter test`; `dart run tool/verify_activation_governor_contract.dart` | Missing W0 / guard exists | pending |
-| 41-04-01 | 04 | 3 | R058-R065 | T-41-01 / T-41-02 / T-41-03 | Final source tree contains no old mobile imports, forbidden old semantics, ungoverned activation intent, backend/AI/runtime integration, or production Garden transition state. | full gate | `dart run tool/verify_mobile_v2_semantic_firewall.dart`; `dart run tool/verify_activation_governor_contract.dart` | Guards exist | pending |
+| Task ID | Plan | Wave | Requirement | Threat Ref | Secure Behavior | Test Type | Automated Command | Plan Coverage | Status |
+|---------|------|------|-------------|------------|-----------------|-----------|-------------------|---------------|--------|
+| 41-01-01 | 41-01 | 0 | R058-R065 | T-41-01 / T-41-02 | Flutter and Dart commands run from the correct `mobile_v2` and repo roots, not the root Flutter wrapper that delegates to old `mobile/`. | command health | `cd mobile_v2 && flutter test --help`; `dart --version` | Covered by 41-01 Task 1 | planned |
+| 41-01-02 | 41-01 | 0 | R058-R065 | T-41-01 / T-41-02 | Final verifier commands and direct SDK fallbacks are documented before runtime files change. | command map | `Select-String -Path .planning/phases/41-mobile-v2-runnable-vertical-slice/41-COMMAND-HEALTH.md -Pattern 'Phase 41 Final Gate'` | Covered by 41-01 Task 2 | planned |
+| 41-02-01 | 41-02 | 1 | R058, R059, R060, R063 | T-41-01 / T-41-02 | RED tests encode the one-room fixture and local lens controller contract before source exists. | fixture/controller TDD RED | `cd mobile_v2 && flutter test test/first_micro_ritual_fixture_test.dart test/ritual_lens_controller_test.dart` | Test files planned by 41-02 Task 1 | planned |
+| 41-02-02 | 41-02 | 1 | R058, R059, R060, R063 | T-41-01 / T-41-02 | Local fixture truth is one active Ritual Room backed by fake Context Seed, Joinability hypothesis, and explicit fake Governor `allow_activation`. | fixture/controller TDD GREEN | `cd mobile_v2 && flutter test test/first_micro_ritual_fixture_test.dart test/ritual_lens_controller_test.dart` | Runtime files planned by 41-02 Task 2 | planned |
+| 41-02-03 | 41-02 | 1 | R058-R065 | T-41-01 / T-41-02 | Fixture/controller naming passes semantic firewall and Activation Governor checks. | verifier TDD REFACTOR | `dart run tool/verify_mobile_v2_semantic_firewall.dart`; `dart run tool/verify_activation_governor_contract.dart` | Guard cleanup planned by 41-02 Task 3 | planned |
+| 41-03-01 | 41-03 | 2 | R058, R059, R060, R063 | T-41-01 / T-41-02 | The `mobile_v2` app shell exists without importing old `mobile/` runtime code. | app shell | `cd mobile_v2 && flutter test test/first_micro_ritual_fixture_test.dart test/ritual_lens_controller_test.dart` | App shell planned by 41-03 Task 1 | planned |
+| 41-03-02 | 41-03 | 2 | R058, R059, R060, R063 | T-41-01 / T-41-02 | Runnable app opens First Entry and Today Orientation without phrase/activity/completion/streak/progress semantics. | widget flow + verifier | `cd mobile_v2 && flutter test test/first_micro_ritual_entry_orientation_test.dart`; `dart run tool/verify_mobile_v2_semantic_firewall.dart`; `dart run tool/verify_activation_governor_contract.dart` | Entry/orientation tests planned by 41-03 Task 2 | planned |
+| 41-04-01 | 41-04 | 2 | R059, R064, R065 | T-41-02 / T-41-03 | Room Support stays action-bound and does not train, record, score, or complete the ritual. | widget flow + verifier | `cd mobile_v2 && flutter test test/room_support_memory_lens_test.dart`; `dart run tool/verify_mobile_v2_semantic_firewall.dart` | Room Support tests planned by 41-04 Task 1 | planned |
+| 41-04-02 | 41-04 | 2 | R059, R064, R065 | T-41-02 / T-41-03 | Memory Lens stays low-pressure, parent-confirmed, and free of production Garden transition mechanics. | widget flow + verifier | `cd mobile_v2 && flutter test test/room_support_memory_lens_test.dart`; `dart run tool/verify_activation_governor_contract.dart` | Memory Lens tests planned by 41-04 Task 2 | planned |
+| 41-05-01 | 41-05 | 3 | R058-R065 | T-41-01 / T-41-02 / T-41-03 | The full First Entry -> Today Orientation -> Room Support -> Memory Lens path is runnable in one app shell. | end-to-end widget flow + verifier | `cd mobile_v2 && flutter test test/first_micro_ritual_flow_test.dart`; `dart run tool/verify_mobile_v2_semantic_firewall.dart`; `dart run tool/verify_activation_governor_contract.dart` | End-to-end flow planned by 41-05 Task 1 | planned |
+| 41-05-02 | 41-05 | 3 | R058-R065 | T-41-01 / T-41-02 / T-41-03 | Final source tree contains no old mobile imports, forbidden old semantics, ungoverned activation intent, backend/AI/runtime integration, or production Garden transition state. | full gate + proof | `cd mobile_v2 && flutter test`; `dart run tool/verify_mobile_v2_semantic_firewall.dart`; `dart run tool/verify_activation_governor_contract.dart` | Accessibility/proof planned by 41-05 Task 2 | planned |
 
 *Status: pending, green, red, flaky*
 
 ---
 
-## Wave 0 Requirements
+## Wave 0 Plan Readiness
 
-- [ ] `mobile_v2/test/first_micro_ritual_flow_test.dart` - tap-through First Entry -> Today Orientation -> Room Support -> Memory Lens.
-- [ ] `mobile_v2/test/first_micro_ritual_fixture_test.dart` - fixture field and forbidden old-semantics assertions.
-- [ ] Optional `mobile_v2/test/accessibility_smoke_test.dart` - tap target and semantics-label smoke coverage if practical in the executor environment.
-- [ ] Command-health proof for Flutter/Dart in this workspace, because research found current CLI/cache execution issues.
+- Plan `41-01` is the real Wave 0 plan. It creates `41-COMMAND-HEALTH.md` and locks the final verification command map before runtime files change.
+- App/widget tests are planned under `mobile_v2/test` by plans `41-02` through `41-05`; this validation strategy does not claim those files already exist before execution.
+- Execution status remains `planned` until `$gsd-execute-phase 41` runs the submitted plans and records summaries.
 
 ---
 
@@ -67,11 +72,11 @@ created: 2026-06-16
 
 ## Validation Sign-Off
 
-- [ ] All tasks have automated verification or Wave 0 dependencies.
+- [x] All planned tasks have automated verification.
 - [ ] Sampling continuity: no 3 consecutive tasks without automated verify.
-- [ ] Wave 0 covers all missing test files and command-health proof.
+- [x] Wave 0 maps to real Plan `41-01` and covers command-health proof and final command-map readiness.
 - [ ] No watch-mode flags.
 - [ ] Feedback latency < 90s after command-health remediation.
-- [ ] `nyquist_compliant: true` set in frontmatter after Wave 0 proof exists.
+- [x] `nyquist_compliant: true` set in frontmatter after the verification map was aligned to plans `41-01` through `41-05`; this does not assert execution completion.
 
 **Approval:** pending

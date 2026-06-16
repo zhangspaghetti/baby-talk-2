@@ -432,16 +432,16 @@ void main() => root_test.main();
 | A2 | Real audio playback is not required because UI-SPEC marks AudioPlayControl optional and Phase 41 acceptance centers on support flow. [ASSUMED] | Don't Hand-Roll | Medium; if user expects audible `Shoes on.`, planner must add asset/TTS scope and package checks. |
 | A3 | Flutter CLI timeouts are environment/tool-cache issues, not evidence that Flutter is unavailable. [ASSUMED] | Environment Availability | Medium; executor must prove command health before claiming validation. |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **Should Room Support include a real sound playback asset in Phase 41?**
    - What we know: AudioPlayControl is optional and can use a speaker/play icon; no package or asset is declared in `mobile_v2`. [VERIFIED: 41-UI-SPEC.md + mobile_v2/pubspec.yaml]
-   - What's unclear: Whether acceptance expects actual audio output or only the support affordance. [ASSUMED]
-   - Recommendation: Plan a no-op/placeholder playback button with semantics label only, unless the planner explicitly adds an audio asset task and package/asset verification. [VERIFIED: 41-UI-SPEC.md]
+   - Resolution: Phase 41 uses no real audio asset and no audio playback package. `AudioPlayControl` is a Material-only placeholder/affordance with a semantics label only, unless later phases explicitly add assets and package verification. [RESOLVED: 41-UI-SPEC.md + mobile_v2/pubspec.yaml]
+   - Recommendation: Plan a no-op/placeholder playback button with semantics label only; do not add an audio asset task or package/asset verification in Phase 41. [VERIFIED: 41-UI-SPEC.md]
 
 2. **Should widget tests live only in `mobile_v2/test` or also root `test/features/vnext`?**
    - What we know: Phase 41 context allows `mobile_v2/test` and/or root vNext paths; existing semantic guard tests live at root and mobile wrapper paths. [VERIFIED: 41-CONTEXT.md + repo file list]
-   - What's unclear: Which path the execution workflow will prefer for final test commands. [ASSUMED]
+   - Resolution: Phase 41 app/widget tests live under `mobile_v2/test`. Existing root tests remain verifier-contract tests and should not be duplicated for the runnable slice. [RESOLVED: mobile_v2/pubspec.yaml + existing test layout]
    - Recommendation: Put app/widget flow tests in `mobile_v2/test` and keep verifier contract tests in existing root paths. [VERIFIED: mobile_v2/pubspec.yaml + existing test layout]
 
 ## Environment Availability
