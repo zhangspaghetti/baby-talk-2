@@ -13,6 +13,8 @@ pressure.
 const activationGovernorContractSuccessMarker =
     'M010-P40 activation governor contract verified.';
 
+const _runtimeScanRoot = 'mobile_v2/lib';
+
 const defaultActivationGovernorContractCases =
     <ActivationGovernorContractCase>[
       ActivationGovernorContractCase(
@@ -293,7 +295,7 @@ ActivationGovernorContractReport scanActivationGovernorContract({
   final resolvedProjectRoot = _normalizePath(
     projectRoot ?? Directory.current.path,
   );
-  final runtimeRoot = Directory('$resolvedProjectRoot/mobile_v2/lib');
+  final runtimeRoot = Directory('$resolvedProjectRoot/$_runtimeScanRoot');
   final violations = <ActivationGovernorContractViolation>[];
 
   var scannedRuntimeFileCount = 0;
@@ -301,7 +303,7 @@ ActivationGovernorContractReport scanActivationGovernorContract({
     violations.add(
       const ActivationGovernorContractViolation(
         type: ActivationGovernorContractViolationType.missingBoundary,
-        sourcePath: 'mobile_v2/lib',
+        sourcePath: _runtimeScanRoot,
         lineNumber: 0,
         reason:
             'mobile_v2/lib is missing; Activation Governor contract verifier must fail closed until the vNext runtime boundary exists',
@@ -381,7 +383,7 @@ String renderActivationGovernorContractReport(
     '${report.hasBlockingViolations ? 'fail' : 'pass'}',
   );
   buffer.writeln('project_root=${report.projectRoot}');
-  buffer.writeln('runtime_root=mobile_v2/lib');
+  buffer.writeln('runtime_root=$_runtimeScanRoot');
   buffer.writeln('scanned_runtime_files=${report.scannedRuntimeFileCount}');
   buffer.writeln('evaluated_contract_cases=${report.evaluatedCaseCount}');
   buffer.writeln(

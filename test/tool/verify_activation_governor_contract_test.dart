@@ -371,6 +371,49 @@ void main() {
       expect(help.usageError, isNull);
       expect(unknown.usageError, contains('Unknown argument'));
     });
+
+    test('does not scan repo-wide deprecated or reference material', () async {
+      final tempDir = await _createProjectWithMobileV2Boundary(
+        'activation-governor-scan-scope-',
+      );
+      addTearDown(() async {
+        if (tempDir.existsSync()) {
+          await tempDir.delete(recursive: true);
+        }
+      });
+      await _writeProjectFile(
+        tempDir,
+        'docs/reference_activation_copy.md',
+        'Reference-only note: start this micro-ritual today.',
+      );
+      await _writeProjectFile(
+        tempDir,
+        'mobile/lib/features/garden/old_growth_reference.dart',
+        'const oldCopy = "GardenGrowth streak reward";',
+      );
+
+      final report = verifier.scanActivationGovernorContract(
+        projectRoot: tempDir.path,
+        contractCases: _passingExploreCases,
+      );
+
+      expect(report.hasBlockingViolations, isFalse);
+      expect(report.scannedRuntimeFileCount, 1);
+      expect(report.violations, isEmpty);
+    });
+
+    test('keeps contract fixtures typed in Dart without JSON or YAML paths', () {
+      final source = File(
+        'tool/verify_activation_governor_contract.dart',
+      ).readAsStringSync();
+
+      expect(source, isNot(contains('.json')));
+      expect(source, isNot(contains('.yaml')));
+      expect(source, isNot(contains('.yml')));
+      expect(source, isNot(contains('jsonDecode')));
+      expect(source, isNot(contains('loadFixture')));
+      expect(source, contains('ActivationGovernorContractCase'));
+    });
   });
 }
 
