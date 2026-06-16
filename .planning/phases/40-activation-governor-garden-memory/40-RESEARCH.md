@@ -393,17 +393,17 @@ void main() => root_test.main();
 | A1 | `rg` is available and suitable for research-time scans, but exact version was not probed in this phase. | Standard Stack | Low; planner does not need `rg` for implementation if Dart verifier owns scanning. |
 | A2 | The wrapper timeout is environmental rather than a Phase 39 test regression, because the direct Phase 39 verifier CLI passed and the wrapper command did not return before test output. | Environment Availability | Medium; planner should add Wave 0 command-health checks before relying on wrapper commands. |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **Should Phase 40 add boundary constants to `mobile_v2/lib/vnext_semantic_boundary.dart`?**
-   - What we know: Phase 39 added boundary constants for the prior contract, and Phase 40 scan scope includes `mobile_v2/lib`. [VERIFIED: mobile_v2/lib/vnext_semantic_boundary.dart + 40-CONTEXT.md]
-   - What's unclear: The context requires a verifier and fixtures, not runtime constants. [VERIFIED: 40-CONTEXT.md]
-   - Recommendation: Make constants optional; only add minimal boundary anchors if a red test needs a real runtime file, and do not encode algorithm/schema/UI details. [VERIFIED: 40-SPEC.md]
+   - Resolution: Do not add runtime boundary constants by default. Runtime boundary anchors are optional and must stay minimal; add them only if the RED tests require a real `mobile_v2/lib` runtime anchor to prove the scanner path. [VERIFIED: 40-CONTEXT.md + 40-SPEC.md]
+   - Rationale: Phase 40 requires an independent verifier and typed fixtures, not new runtime constants. Any anchor added for test realism must avoid algorithm, schema, UI, API, Runtime Agent payload, Strategy Pack, Primitive, metrics, or activation-threshold details. [VERIFIED: 40-SPEC.md]
+   - Planning stance: Plans should prioritize `tool/verify_activation_governor_contract.dart` and table-driven Dart fixtures; `mobile_v2/lib/vnext_semantic_boundary.dart` remains untouched unless the executor's RED test demonstrates that a minimal runtime source file anchor is required. [VERIFIED: 40-CONTEXT.md]
 
 2. **Should the final gate use `dart run tool/...` or direct `dart.exe tool\...` on this Windows machine?**
-   - What we know: Direct `dart.exe tool\verify_mobile_v2_semantic_firewall.dart` passed, while `dart run tool\... --help` failed due telemetry write access under `C:\Users\zhang\AppData\Roaming\.dart-tool`. [VERIFIED: command output]
-   - What's unclear: Whether executor environment will have telemetry write access or disabled analytics. [ASSUMED]
-   - Recommendation: Plan Wave 0 to choose a stable command path; direct SDK invocation is currently the reliable local fallback. [VERIFIED: command output]
+   - Resolution: Use direct Dart SDK invocation as the reliable local verifier path: `C:\software\flutter\bin\cache\dart-sdk\bin\dart.exe tool\verify_activation_governor_contract.dart`. [VERIFIED: command output]
+   - Rationale: Direct `dart.exe tool\verify_mobile_v2_semantic_firewall.dart` passed, while `dart run tool\... --help` failed because of telemetry write access under `C:\Users\zhang\AppData\Roaming\.dart-tool`. [VERIFIED: command output]
+   - Planning stance: Keep `./flutter.cmd test ...` for test-wrapper parity and health checks, and keep the direct `flutter_tools.snapshot test` fallback when the wrapper stalls or SDK telemetry/cache writes block. Do not make `dart run` the required Phase 40 gate. [VERIFIED: command output + flutter.cmd]
 
 ## Environment Availability
 
