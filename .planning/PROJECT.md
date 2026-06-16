@@ -10,7 +10,13 @@ Baby Talk 2 是一个面向中国父母的 Flutter 原生移动应用，围绕�
 
 ## Current State
 
-**M010《Baby Talk vNext Family Micro-ritual 架构重启》已启动。Phase 39《vNext 产品承诺与 Family English Micro-ritual 单元收敛》已完成（2026-06-15）：产品承诺、旧语义 supersession、Context Seed / Joinability 边界、semantic firewall、独立 `mobile_v2` 非 UI 边界均已锁定。Phase 40《Activation Governor 与 Garden Memory 节奏治理合同》未开始。**
+**M010《Baby Talk vNext Family Micro-ritual 架构重启》已推进至 Phase 41 planning。Phase 39《vNext 产品承诺与 Family English Micro-ritual 单元收敛》已完成（2026-06-15）：产品承诺、旧语义 supersession、Context Seed / Joinability 边界、semantic firewall、独立 `mobile_v2` 非 UI 边界均已锁定。Phase 40《Activation Governor 与 Garden Memory 节奏治理合同》已完成并验证通过（2026-06-16）：Activation Governor 权威、Garden Memory parent-confirmation、Explore/Activate 边界已由独立 verifier、proof、validation、verification artifacts 锁定。**
+
+### M010 Phase 40 已交付
+
+- ✅ **40-01** — `tool/verify_activation_governor_contract.dart` 与 root verifier tests 完成；Activation Governor 作为唯一 activation pacing authority，Pack/Graph、Runtime、Garden 绕过均 fail-closed。
+- ✅ **40-02** — surface activation intent、weak-signal、parent-confirmed Garden Memory、pressure language、mobile wrapper parity 覆盖完成；Explore remains open while Activate intent is gated。
+- ✅ **40-03** — `40-ACTIVATION-GOVERNOR-CONTRACT-PROOF.md`、`40-VALIDATION.md`、SPEC proof links、`40-VERIFICATION.md` 完成；D-31/D-32/D-33 compact decision/state matrix 保留为 verifier/planning contract，不锁 schema/API/UI/runtime payload。
 
 ### M010 Phase 39 已交付
 
@@ -127,12 +133,12 @@ Notable current status:
 - `R056`（Repo-wide runtime persistence migration）— **validated**（M007/S05 complete: zero owned JdbcTemplate, Druid slow-query, 4-batch parity green）
 - `R057`（Collaborative onboarding docs）— **validated**（M007/S06 complete）
 - `R058`–`R060`（Family English Micro-ritual product promise, product unit, Context Seed / Joinability boundary）— **satisfied by M010/P39**（proof, SPEC linkage, semantic firewall, `mobile_v2` boundary, and verification report complete）
+- `R063`–`R065`（Activation Governor authority, Garden Memory parent-confirmation, Explore/Activate pacing boundary）— **satisfied by M010/P40**（independent verifier, surface/mobile tests, proof artifact, validation gate, and verification report complete）
 - M008 palace RAG enhancements (age-aware retrieval, QueryTrace, bridge review, projection visibility) — shipped and verified; no dedicated R0XX requirement; advances R005 and R011
 - M009 UX maturity (Home/Discover/Garden hierarchy + mobile extraction + admin shell + KnowledgeOps) — all 8 slices complete; milestone closed 2026-04-28; validation evidence in `docs/reviews/m009-autoplan-2026-04-26.md`; E2E knowledge-ops.spec.ts deferred pending live stack
 
 ## Outstanding Follow-ups (Post-M009 / M010)
 
-- Run `$gsd-spec-phase 40` to define Activation Governor and Garden Memory pacing contracts before any runtime/UI extension of the vNext boundary.
 - Run `npm --prefix admin-web run test:e2e -- tests/knowledge-ops.spec.ts` against a live stack to retire the DEFERRED E2E row (validates URL truth, testid contracts, readonly alert)
 - Run `npm --prefix admin-web run test:e2e -- tests/admin-login.spec.ts` against a live server to confirm AdminLayout.tsx testid DOM contracts hold after Collapse-based progressive disclosure
 
@@ -147,4 +153,4 @@ Notable current status:
 - [x] M007: Helm-first split deployment + gateway + persistence migration + docs — S01–S06 全部 ✅ 完成（2026-04-27）
 - [x] M008: Graph-aware knowledge palace RAG + temporal retrieval + MemPalace design closure — S01–S03 全部 ✅ 完成（2026-04-27）
 - [x] M009: Historical completeness re-review and UX maturity closure — S01–S08 全部 ✅ 完成（2026-04-28）
-- [ ] M010: Baby Talk vNext Family Micro-ritual 架构重启 — Phase 39 ✅ 完成（2026-06-15）；Phase 40/41 未开始
+- [ ] M010: Baby Talk vNext Family Micro-ritual 架构重启 — Phase 39 ✅ 完成（2026-06-15）；Phase 40 ✅ 完成（2026-06-16）；Phase 41 未开始
