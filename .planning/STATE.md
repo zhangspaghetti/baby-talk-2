@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v0.1
 milestone_name: milestone
-status: executing
-stopped_at: Phase 40 planned and verified
-last_updated: "2026-06-16T04:38:23.281Z"
-last_activity: 2026-06-16 -- Phase 40 Plan 01 executed; Activation Governor verifier foundation complete
+status: Ready for 40-03
+stopped_at: Completed 40-02-PLAN.md
+last_updated: "2026-06-16T05:00:20.988Z"
+last_activity: 2026-06-16 -- Phase 40 Plan 02 executed; surface activation and Garden confirmation scanner coverage complete
 progress:
   total_phases: 3
   completed_phases: 1
   total_plans: 6
-  completed_plans: 4
-  percent: 67
+  completed_plans: 5
+  percent: 83
 ---
 
 # Project State
@@ -25,11 +25,11 @@ See: .planning/PROJECT.md
 ## Current Position
 
 Phase: 40 (activation-governor-garden-memory) — EXECUTING
-Plan: 1/3 plans executed
-Status: Ready for 40-02
-Last activity: 2026-06-16 -- Phase 40 Plan 01 executed; Activation Governor verifier foundation complete
+Plan: 2/3 plans executed
+Status: Ready for 40-03
+Last activity: 2026-06-16 -- Phase 40 Plan 02 executed; surface activation and Garden confirmation scanner coverage complete
 
-Progress: [███████░░░] 67%
+Progress: [████████░░] 83%
 
 ## Accumulated Context
 
@@ -40,6 +40,9 @@ Migrated from GSD-2. Old M010 phases 39-41 were generated from outdated planning
 - Phase 40 Plan 01 established an independent pure Dart Activation Governor / Garden Memory contract verifier instead of extending the Phase 39 semantic firewall.
 - Default verifier proof cases include expected negative authority seams, but the no-arg CLI passes only when Pack/Graph, Runtime, and Garden bypasses are correctly rejected.
 - Phase 40 scanning remains scoped to `mobile_v2/lib`; repo-wide activation/Garden scans are deferred until more vNext runtime paths exist.
+- Phase 40 Plan 02 keeps activation and Garden Memory enforcement in the pure Dart verifier/test layer only; no runtime UI, schema, API, Runtime Agent, Strategy Pack, Primitive, or metrics constructs were added.
+- Chinese and English activation/pressure copy are auxiliary scanner guards; structured `ActivationGovernorContractCase` fields remain the authority backbone.
+- Mobile wrapper parity forwards to the root Activation Governor verifier tests as the single source of truth.
 
 ### Roadmap Evolution
 
@@ -51,13 +54,13 @@ Migrated from GSD-2. Old M010 phases 39-41 were generated from outdated planning
 
 ### Blockers/Concerns
 
-Phase 40 planning is complete. Execution must now build the Activation Governor and Garden Memory contract verifier/proof artifacts before any runtime or UI implementation extends the vNext boundary.
+Phase 40 Plan 03 still needs proof/validation artifacts and SPEC links before Phase 40 can close.
 
 ## Session Continuity
 
-Last session: 2026-06-16T04:36:24Z
-Stopped at: Completed 40-01-PLAN.md
-Resume file: .planning/phases/40-activation-governor-garden-memory/40-02-PLAN.md
+Last session: 2026-06-16T05:00:20.979Z
+Stopped at: Completed 40-02-PLAN.md
+Resume file: .planning/phases/40-activation-governor-garden-memory/40-03-PLAN.md
 
 ## Performance Metrics
 
@@ -66,3 +69,4 @@ Resume file: .planning/phases/40-activation-governor-garden-memory/40-02-PLAN.md
 | Phase 39 P02 | 5h 19m | 2 tasks | 4 files |
 | Phase 39 P03 | 22 min | 2 tasks | 5 files |
 | Phase 40 P01 | 20 min | 3 tasks | 2 files |
+| Phase 40 P02 | 11 min | 3 tasks | 4 files |
