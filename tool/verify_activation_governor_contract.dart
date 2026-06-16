@@ -112,6 +112,14 @@ final _activationIntentPatterns = <RegExp>[
   RegExp(r'\bsay\s+this\s+during\b', caseSensitive: false),
   RegExp(r'\bsay\s+this\b.*\btoday\b', caseSensitive: false),
   RegExp(r'\bshould\s+say\b', caseSensitive: false),
+  RegExp('今天\\s*试试'),
+  RegExp('现在\\s*试'),
+  RegExp('加(一个|入)?\\s*新声音'),
+  RegExp('加入\\s*家里(的)?声音'),
+  RegExp('开始\\s*这个\\s*micro-?ritual', caseSensitive: false),
+  RegExp('今天.*放进.*日常'),
+  RegExp('(睡前|换鞋|洗澡|吃饭|出门|尿布|换尿布)就说这句'),
+  RegExp('现在.*说这句'),
 ];
 
 final _gardenPressurePatterns = <RegExp>[
@@ -128,6 +136,25 @@ final _gardenPressurePatterns = <RegExp>[
   RegExp(r'\bprogress\s+bar\b', caseSensitive: false),
   RegExp(r'\bGardenGrowth\b'),
   RegExp(r'\bcurrentStreakDays\b'),
+  RegExp('打卡'),
+  RegExp('连续\\s*完成'),
+  RegExp('完成度'),
+  RegExp('得分'),
+  RegExp('成长'),
+  RegExp('解锁'),
+  RegExp('奖励'),
+  RegExp('进度条'),
+  RegExp('惩罚'),
+  RegExp('降进度'),
+];
+
+final _lowPressureParentConfirmationPatterns = <RegExp>[
+  RegExp('这句最近会自然冒出来吗'),
+  RegExp('要不要先放一边'),
+  RegExp('这句是不是已经属于你们家了'),
+  RegExp(r'\bfeel\s+natural\b', caseSensitive: false),
+  RegExp(r'\brest\s+this\b', caseSensitive: false),
+  RegExp(r'\bpart\s+of\s+your\s+family\b', caseSensitive: false),
 ];
 
 const _suspiciousAuthorityNames = <String>{
@@ -427,6 +454,7 @@ List<ActivationGovernorContractViolation> _evaluateContractCase(
   final text = contractCase.text;
   final hasActivationIntent = _hasActivationIntent(text);
   final meaningfulGardenAction = _isMeaningfulGardenStateAction(gardenAction);
+  final truthLikeGardenAction = _isTruthLikeGardenStateAction(gardenAction);
 
   if (contractCase.requiresGovernorDecision &&
       (!_isGovernor(decisionSource) || !contractCase.hasGovernorDecision)) {
@@ -515,7 +543,7 @@ List<ActivationGovernorContractViolation> _evaluateContractCase(
     }
   }
 
-  if (meaningfulGardenAction) {
+  if (meaningfulGardenAction || truthLikeGardenAction) {
     if (contractCase.weakSignalOnly) {
       violations.add(
         _caseViolation(
@@ -532,6 +560,17 @@ List<ActivationGovernorContractViolation> _evaluateContractCase(
           contractCase,
           ActivationGovernorContractViolationType.parentConfirmation,
           'meaningful Garden Memory states require parent confirmation',
+        ),
+      );
+    }
+    if (contractCase.requiresParentConfirmation &&
+        contractCase.hasParentIntent &&
+        !_hasLowPressureParentConfirmationLanguage(text)) {
+      violations.add(
+        _caseViolation(
+          contractCase,
+          ActivationGovernorContractViolationType.parentConfirmation,
+          'parent confirmation must use warm low-pressure non-scoring copy',
         ),
       );
     }
@@ -652,6 +691,11 @@ bool _hasActivationIntent(String text) =>
 bool _hasGardenPressureLanguage(String text) =>
     _gardenPressurePatterns.any((pattern) => pattern.hasMatch(text));
 
+bool _hasLowPressureParentConfirmationLanguage(String text) =>
+    _lowPressureParentConfirmationPatterns.any(
+      (pattern) => pattern.hasMatch(text),
+    );
+
 bool _lineMentionsGovernorDecision(String line) {
   final normalized = _normalizeToken(line);
   return normalized.contains('activationgovernor') ||
@@ -671,6 +715,14 @@ bool _isMeaningfulGardenStateAction(String gardenAction) =>
     gardenAction == 'set_belongs_to_family' ||
     gardenAction == 'belongs_to_family' ||
     gardenAction == 'family_transfer';
+
+bool _isTruthLikeGardenStateAction(String gardenAction) =>
+    gardenAction == 'set_active' ||
+    gardenAction == 'suggested_familiar' ||
+    gardenAction == 'almost_familiar' ||
+    gardenAction == 'mark_progress_toward_transfer' ||
+    gardenAction == 'family_transfer_progress' ||
+    gardenAction == 'auto_transfer';
 
 bool _lineContainsTerm(String line, String term) {
   final pattern = RegExp(
