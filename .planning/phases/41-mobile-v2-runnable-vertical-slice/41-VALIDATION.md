@@ -19,9 +19,9 @@ created: 2026-06-16
 |----------|-------|
 | **Framework** | Flutter widget tests with `flutter_test`; repo-owned Dart verifier CLIs |
 | **Config file** | `mobile_v2/pubspec.yaml` |
-| **Quick run command** | `cd mobile_v2 && flutter test test/first_micro_ritual_flow_test.dart test/first_micro_ritual_fixture_test.dart` |
+| **Quick run command** | Run the focused test touched by the current task, for example `cd mobile_v2 && flutter test test/first_micro_ritual_entry_orientation_test.dart` for the app shell / First Entry path. |
 | **Full suite command** | `cd mobile_v2 && flutter test`; `dart run tool/verify_mobile_v2_semantic_firewall.dart`; `dart run tool/verify_activation_governor_contract.dart` |
-| **Estimated runtime** | ~60 seconds after Flutter CLI health is restored |
+| **Estimated runtime** | Focused per-task commands target <=30 seconds after Flutter command-health is restored; full wave/final gates can take longer. |
 
 ---
 
@@ -30,7 +30,7 @@ created: 2026-06-16
 - **After every task commit:** Run the focused `mobile_v2` widget or fixture test touched by the task.
 - **After every plan wave:** Run `cd mobile_v2 && flutter test`, then both Phase 39 and Phase 40 verifier CLIs.
 - **Before `$gsd-verify-work`:** Full `mobile_v2` test suite, semantic firewall, and Activation Governor / Garden Memory verifier must be green.
-- **Max feedback latency:** 90 seconds once Flutter command-health is fixed.
+- **Max feedback latency:** <=30 seconds for focused per-task commands once Flutter command-health is fixed; full `cd mobile_v2 && flutter test` plus verifier CLIs are wave/final gates and may exceed the per-task latency target.
 
 ---
 
@@ -43,7 +43,7 @@ created: 2026-06-16
 | 41-02-01 | 41-02 | 1 | R058, R059, R060, R063 | T-41-01 / T-41-02 | RED tests encode the one-room fixture and local lens controller contract before source exists. | fixture/controller TDD RED | `cd mobile_v2 && flutter test test/first_micro_ritual_fixture_test.dart test/ritual_lens_controller_test.dart` | Test files planned by 41-02 Task 1 | planned |
 | 41-02-02 | 41-02 | 1 | R058, R059, R060, R063 | T-41-01 / T-41-02 | Local fixture truth is one active Ritual Room backed by fake Context Seed, Joinability hypothesis, and explicit fake Governor `allow_activation`. | fixture/controller TDD GREEN | `cd mobile_v2 && flutter test test/first_micro_ritual_fixture_test.dart test/ritual_lens_controller_test.dart` | Runtime files planned by 41-02 Task 2 | planned |
 | 41-02-03 | 41-02 | 1 | R058-R065 | T-41-01 / T-41-02 | Fixture/controller naming passes semantic firewall and Activation Governor checks. | verifier TDD REFACTOR | `dart run tool/verify_mobile_v2_semantic_firewall.dart`; `dart run tool/verify_activation_governor_contract.dart` | Guard cleanup planned by 41-02 Task 3 | planned |
-| 41-03-01 | 41-03 | 2 | R058, R059, R060, R063 | T-41-01 / T-41-02 | The `mobile_v2` app shell exists without importing old `mobile/` runtime code. | app shell | `cd mobile_v2 && flutter test test/first_micro_ritual_fixture_test.dart test/ritual_lens_controller_test.dart` | App shell planned by 41-03 Task 1 | planned |
+| 41-03-01 | 41-03 | 2 | R058, R059, R060, R063 | T-41-01 / T-41-02 | The `mobile_v2` app shell compiles and renders First Entry without importing old `mobile/` runtime code. | app-shell widget smoke | `cd mobile_v2 && flutter test test/first_micro_ritual_entry_orientation_test.dart` | App shell smoke planned by 41-03 Task 1 | planned |
 | 41-03-02 | 41-03 | 2 | R058, R059, R060, R063 | T-41-01 / T-41-02 | Runnable app opens First Entry and Today Orientation without phrase/activity/completion/streak/progress semantics. | widget flow + verifier | `cd mobile_v2 && flutter test test/first_micro_ritual_entry_orientation_test.dart`; `dart run tool/verify_mobile_v2_semantic_firewall.dart`; `dart run tool/verify_activation_governor_contract.dart` | Entry/orientation tests planned by 41-03 Task 2 | planned |
 | 41-04-01 | 41-04 | 2 | R059, R064, R065 | T-41-02 / T-41-03 | Room Support stays action-bound and does not train, record, score, or complete the ritual. | widget flow + verifier | `cd mobile_v2 && flutter test test/room_support_memory_lens_test.dart`; `dart run tool/verify_mobile_v2_semantic_firewall.dart` | Room Support tests planned by 41-04 Task 1 | planned |
 | 41-04-02 | 41-04 | 2 | R059, R064, R065 | T-41-02 / T-41-03 | Memory Lens stays low-pressure, parent-confirmed, and free of production Garden transition mechanics. | widget flow + verifier | `cd mobile_v2 && flutter test test/room_support_memory_lens_test.dart`; `dart run tool/verify_activation_governor_contract.dart` | Memory Lens tests planned by 41-04 Task 2 | planned |
@@ -76,7 +76,7 @@ created: 2026-06-16
 - [ ] Sampling continuity: no 3 consecutive tasks without automated verify.
 - [x] Wave 0 maps to real Plan `41-01` and covers command-health proof and final command-map readiness.
 - [ ] No watch-mode flags.
-- [ ] Feedback latency < 90s after command-health remediation.
+- [ ] Focused per-task feedback latency <=30s after command-health remediation; full wave/final gates may take longer.
 - [x] `nyquist_compliant: true` set in frontmatter after the verification map was aligned to plans `41-01` through `41-05`; this does not assert execution completion.
 
 **Approval:** pending
