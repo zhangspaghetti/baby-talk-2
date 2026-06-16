@@ -128,6 +128,17 @@ The verifier should pass when:
 - [ ] SPEC requires a machine-checkable contract verifier as the main proof artifact.
 - [ ] SPEC defers algorithm, UI, schema, Runtime payloads, and exact implementation model to discuss/plan.
 
+## Phase 40 Proof Artifacts
+
+Phase 40 is closed by executable proof artifacts, not by SPEC text alone:
+
+- `40-ACTIVATION-GOVERNOR-CONTRACT-PROOF.md` - source coverage audit, R063/R064/R065 proof map, D-01 through D-33 coverage, and compact decision/state matrix preservation.
+- `tool/verify_activation_governor_contract.dart` - pure Dart Activation Governor / Garden Memory contract verifier and CLI gate.
+- `test/tool/verify_activation_governor_contract_test.dart` - root verifier tests for authority seams, Explore openness, activation intent, weak-signal limits, and parent-confirmed Garden Memory transitions.
+- `test/features/vnext/activation_governor_contract_surface_test.dart` - surface scanner tests for Home, Onboarding, Garden, Runtime, reminder/push-like copy, suspicious authority names, and Garden pressure copy.
+- `mobile/test/tool/verify_activation_governor_contract_test.dart` - mobile wrapper parity forwarding to the root verifier tests.
+- `40-VALIDATION.md` - Phase 40 validation record, Nyquist coverage map, and final automated gate commands.
+
 ## Ambiguity Report
 
 | Dimension           | Score | Min   | Status | Notes |
