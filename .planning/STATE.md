@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v0.1
 milestone_name: milestone
-status: Ready for 40-03
-stopped_at: Completed 40-02-PLAN.md
-last_updated: "2026-06-16T05:00:20.988Z"
-last_activity: 2026-06-16 -- Phase 40 Plan 02 executed; surface activation and Garden confirmation scanner coverage complete
+status: Phase 40 complete
+stopped_at: Completed 40-03-PLAN.md
+last_updated: "2026-06-16T05:17:40.470Z"
+last_activity: 2026-06-16 -- Phase 40 Plan 03 executed; proof, SPEC links, validation, and final gates complete
 progress:
   total_phases: 3
-  completed_phases: 1
+  completed_phases: 2
   total_plans: 6
-  completed_plans: 5
-  percent: 83
+  completed_plans: 6
+  percent: 100
 ---
 
 # Project State
@@ -24,12 +24,12 @@ See: .planning/PROJECT.md
 
 ## Current Position
 
-Phase: 40 (activation-governor-garden-memory) — EXECUTING
-Plan: 2/3 plans executed
-Status: Ready for 40-03
-Last activity: 2026-06-16 -- Phase 40 Plan 02 executed; surface activation and Garden confirmation scanner coverage complete
+Phase: 40 (activation-governor-garden-memory) — COMPLETE
+Plan: 3/3 plans executed
+Status: Phase 40 complete; ready for verification and Phase 41 planning
+Last activity: 2026-06-16 -- Phase 40 Plan 03 executed; proof, SPEC links, validation, and final gates complete
 
-Progress: [████████░░] 83%
+Progress: [██████████] 100%
 
 ## Accumulated Context
 
@@ -43,6 +43,8 @@ Migrated from GSD-2. Old M010 phases 39-41 were generated from outdated planning
 - Phase 40 Plan 02 keeps activation and Garden Memory enforcement in the pure Dart verifier/test layer only; no runtime UI, schema, API, Runtime Agent, Strategy Pack, Primitive, or metrics constructs were added.
 - Chinese and English activation/pressure copy are auxiliary scanner guards; structured `ActivationGovernorContractCase` fields remain the authority backbone.
 - Mobile wrapper parity forwards to the root Activation Governor verifier tests as the single source of truth.
+- Phase 40 Plan 03 preserves the D-31/D-32/D-33 compact decision/state matrix as a verifier/planning contract only, not schema, API, UI, runtime payload, algorithm, or metrics design.
+- Phase 40 final validation uses direct Dart verifier CLIs plus the direct Flutter-tools fallback when the repo `flutter.cmd` wrapper stalls.
 
 ### Roadmap Evolution
 
@@ -54,13 +56,13 @@ Migrated from GSD-2. Old M010 phases 39-41 were generated from outdated planning
 
 ### Blockers/Concerns
 
-Phase 40 Plan 03 still needs proof/validation artifacts and SPEC links before Phase 40 can close.
+None. Phase 40 proof/validation artifacts, SPEC links, and final gates are complete.
 
 ## Session Continuity
 
-Last session: 2026-06-16T05:00:20.979Z
-Stopped at: Completed 40-02-PLAN.md
-Resume file: .planning/phases/40-activation-governor-garden-memory/40-03-PLAN.md
+Last session: 2026-06-16T05:17:40.213Z
+Stopped at: Completed 40-03-PLAN.md
+Resume file: None
 
 ## Performance Metrics
 
@@ -70,3 +72,4 @@ Resume file: .planning/phases/40-activation-governor-garden-memory/40-03-PLAN.md
 | Phase 39 P03 | 22 min | 2 tasks | 5 files |
 | Phase 40 P01 | 20 min | 3 tasks | 2 files |
 | Phase 40 P02 | 11 min | 3 tasks | 4 files |
+| Phase 40 P03 | 11 min | 3 tasks | 3 files |

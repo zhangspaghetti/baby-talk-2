@@ -219,7 +219,7 @@ This file is the explicit capability and coverage contract for the project.
 ### R061 - Communication Primitive Library 与 Strategy Graph 必须约束回应策略、Primitive 顺序和切换规则，Runtime 只能在允许范围内微调用词。
 
 - Class: functional
-- Status: active
+- Status: validated
 - Description: Primitive Library 至少覆盖 Joint Attention Anchor、Connection、Narration、Choice、Waiting、Boundary、Transition、Repair、Expansion 等原语；Strategy Graph 将 Interpreted Moment 映射到 Primitive Sequence，并定义继续/切换策略的证据条件。
 - Why it matters: 没有底层 Primitive/Graph 约束，系统会退化成自由生成句子，难以保持短、温柔、低控制、可说出口的 Baby Talk 风格。
 - Source: `docs/Baby_Talk_Product_Architecture_Spec_vNext.md`
@@ -249,32 +249,32 @@ This file is the explicit capability and coverage contract for the project.
 - Source: `docs/Baby_Talk_Product_Architecture_Spec_vNext.md`
 - Primary owning slice: M010/P40
 - Supporting slices: M010/P41
-- Validation: mapped; P40-01 verifier foundation complete via `tool/verify_activation_governor_contract.dart` authority-seam cases
-- Notes: v1 默认 active capacity 为 3；mature-family upper bound 是内部保护参数，不应暴露成用户目标。P40-01 makes Pack/Graph, Runtime, Garden, and `candidate -> active` bypasses machine-checkable; P40-02/P40-03 complete broader surface/proof coverage.
+- Validation: P40 complete: `tool/verify_activation_governor_contract.dart` passes; authority seams, `candidate -> active`, surface activation intent, proof matrix, SPEC links, and final validation gate are complete.
+- Notes: v1 默认 active capacity 为 3；mature-family upper bound 是内部保护参数，不应暴露成用户目标。P40 proves Pack/Graph, Runtime, Garden, and `candidate -> active` bypasses are machine-checkable while preserving D-31/D-32/D-33 as contract language, not implementation schema.
 
 ### R064 - Garden Memory 必须是 parent-confirmed 的家庭英语 micro-ritual 记忆层，而不是完成度、打卡或系统评分层。
 
 - Class: differentiator
-- Status: active
+- Status: validated
 - Description: Garden Memory 必须记录 candidate、active、familiar、resting、expandable、belongs-to-family 等 micro-ritual 家庭迁移状态，并通过低压力父母确认更新；weak signals 可辅助提示，但不能直接判定 familiar 或 belongs-to-family。
 - Why it matters: 花园如果变成换皮打卡，会重新制造父母压力；它的价值是帮助家庭看见哪些英语声音已经在真实 routine 里活下来。
 - Source: `docs/Baby_Talk_Product_Architecture_Spec_vNext.md`
 - Primary owning slice: M010/P40
 - Supporting slices: M010/P39, M010/P41
-- Validation: mapped; P40-01 verifier foundation complete via typed Garden Memory authority and parent-intent cases
-- Notes: 禁止 streak、完成数、枯萎惩罚、解锁场景等打卡语义；Garden 呈现状态并收集反馈，但不拥有 activation policy。P40-01 proves Garden cannot own activation policy and meaningful Garden states are gated by parent intent; P40-02/P40-03 complete broader copy/proof coverage.
+- Validation: P40 complete: weak-signal limits, low-pressure parent confirmation, Garden pressure-copy rejection, proof matrix, SPEC links, and final validation gate are complete.
+- Notes: 禁止 streak、完成数、枯萎惩罚、解锁场景等打卡语义；Garden 呈现状态并收集反馈，但不拥有 activation policy。P40 proves Garden cannot own activation policy and meaningful Garden states require parent confirmation without checklist pressure.
 
 ### R065 - v1 必须明确区分 Explore 和 Activate：专家内容可开放访问，但进入家庭日常的 active micro-ritual 必须保守限速。
 
 - Class: core-capability
-- Status: active
+- Status: validated
 - Description: 父母可以开放探索路线、绘本、儿歌、场景和表达；但任何“今天去说 / 现在去试 / 加入你们家的新声音”都必须作为 Activate 进入 Governor 决策，不得由内容推荐或 Runtime Agent 直接推进。
 - Why it matters: Baby Talk 需要保持高上限专家能力，同时避免把父母日常淹没成内容执行表。
 - Source: `docs/Baby_Talk_Product_Architecture_Spec_vNext.md`
 - Primary owning slice: M010/P40
 - Supporting slices: M010/P39, M010/P41
-- Validation: mapped; P40-01 verifier foundation complete via positive Explore and activation-intent authority cases
-- Notes: Explore More 开放；Activate Today 保守；Nearby Expansion 中等开放；New Micro-ritual 严格限速。P40-01 proves Explore/candidate examples can pass without Governor decisions when they avoid action-now activation intent; P40-02/P40-03 complete broader surface coverage.
+- Validation: P40 complete: positive Explore fixtures pass, Home/Onboarding/Garden/Runtime/reminder activation-intent fixtures fail without Governor decision, proof artifacts are SPEC-linked, and final validation gate passed.
+- Notes: Explore More 开放；Activate Today 保守；Nearby Expansion 中等开放；New Micro-ritual 严格限速。P40 proves Explore/candidate examples can pass without Governor decisions when they avoid action-now activation intent and that action-now copy remains governed.
 
 ### R066 - v1 成功指标必须转向 Parent-confirmed Micro-ritual Transfer，而不是生成量、使用量、打卡、streak 或孩子词汇测试。
 
@@ -674,14 +674,14 @@ This file is the explicit capability and coverage contract for the project.
 | R060 | core-capability | active | M010/P39 | M010/P41 | mapped |
 | R061 | functional | active | M010/P41 | M010/P39 | mapped |
 | R062 | functional | active | M010/P41 | M010/P39, M010/P40 | mapped |
-| R063 | functional | active | M010/P40 | M010/P41 | mapped |
-| R064 | differentiator | active | M010/P40 | M010/P39, M010/P41 | mapped |
-| R065 | core-capability | active | M010/P40 | M010/P39, M010/P41 | mapped |
+| R063 | functional | validated | M010/P40 | M010/P41 | P40 complete: verifier CLI, root tests, surface tests, proof matrix, SPEC links, and final gate passed |
+| R064 | differentiator | validated | M010/P40 | M010/P39, M010/P41 | P40 complete: parent-confirmed Garden Memory, weak-signal limits, pressure-copy rejection, proof matrix, and validation gate passed |
+| R065 | core-capability | validated | M010/P40 | M010/P39, M010/P41 | P40 complete: Explore positives and activation-intent governed surface fixtures passed |
 | R066 | operability | active | M010/P41 | M010/P40 | mapped |
 
 ## Coverage Summary
 
-- Active requirements: 22
+- Active requirements: 19
 - Mapped to slices: 22
-- Validated: 24 (R020, R035, R036, R037, R038, R039, R040, R041, R042, R043, R044, R045, R046, R047, R048, R049, R050, R051, R052, R053, R054, R055, R056, R057)
+- Validated: 27 (R020, R035, R036, R037, R038, R039, R040, R041, R042, R043, R044, R045, R046, R047, R048, R049, R050, R051, R052, R053, R054, R055, R056, R057, R063, R064, R065)
 - Unmapped active requirements: 0
