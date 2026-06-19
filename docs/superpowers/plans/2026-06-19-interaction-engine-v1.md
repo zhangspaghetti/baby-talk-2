@@ -18,6 +18,11 @@ mock response table, a pre-normalized voice input, or a single flattened
 `RitualInteractionSnapshot`, this plan and
 `41-INTERACTION-ENGINE-CONTRACT.md` control.
 
+**Flutter integration update:** Tasks 4 and 5 are superseded by
+`docs/superpowers/plans/2026-06-19-interaction-engine-flutter-riverpod.md`.
+Execute Tasks 1-3 here, then the Flutter/Riverpod plan, then return to Task 6
+for the complete contract proof.
+
 The work is split into independently testable slices:
 
 1. contract/model foundation
@@ -38,6 +43,7 @@ mobile_v2/lib/features/ritual_room/
 ├── domain/
 │   ├── engine/
 │   │   ├── interaction_engine.dart
+│   │   ├── interaction_engine_port.dart
 │   │   ├── normalize_engine.dart
 │   │   ├── state_accumulator.dart
 │   │   ├── strategy_engine.dart
@@ -618,6 +624,7 @@ git commit -m "feat(41): add deterministic interaction pipeline"
 - Create: `mobile_v2/lib/features/ritual_room/domain/runtime/replay_journal.dart`
 - Create: `mobile_v2/lib/features/ritual_room/domain/runtime/interaction_runtime_state.dart`
 - Create: `mobile_v2/lib/features/ritual_room/domain/runtime/interaction_runtime_store.dart`
+- Create: `mobile_v2/lib/features/ritual_room/domain/engine/interaction_engine_port.dart`
 - Create: `mobile_v2/lib/features/ritual_room/domain/engine/interaction_engine.dart`
 - Test: `mobile_v2/test/features/ritual_room/domain/runtime/input_fingerprint_test.dart`
 - Test: `mobile_v2/test/features/ritual_room/domain/runtime/replay_journal_test.dart`
@@ -827,7 +834,21 @@ exclusive operation across pipeline awaits is acceptable in Phase 41.
 abstract interface class InteractionSessionInitializer {
   Future<ProductSnapshot> initialize(String ritualRoomId);
 }
+
+abstract interface class InteractionEnginePort {
+  Future<ProductSnapshot?> getSnapshot(String interactionId);
+
+  Future<AdvanceResult> advance({
+    required String interactionId,
+    required int expectedRevision,
+    required InputEvent input,
+  });
+}
 ```
+
+The concrete `InteractionEngine` implements both interfaces. Initialization
+remains absent from `InteractionEnginePort`, so transport adapters cannot create
+interactions.
 
 The advance ordering must be literal:
 
@@ -1235,7 +1256,7 @@ Run:
 
 ```powershell
 cd mobile_v2
-flutter test test/features/ritual_room/domain test/features/ritual_room/data test/features/ritual_room/presentation/controllers test/features/ritual_room/interaction_engine_contract_test.dart
+flutter test test/features/ritual_room/domain test/features/ritual_room/data test/features/ritual_room/presentation/state test/app/providers test/features/ritual_room/interaction_engine_contract_test.dart
 ```
 
 Expected: all tests PASS.
