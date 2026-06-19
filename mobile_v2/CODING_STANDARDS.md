@@ -695,7 +695,6 @@ lib/features/ritual_room/
 │       └── ritual_interaction_repository_impl.dart
 ├── domain/
 │   ├── models/
-│   │   ├── ritual_action_beat.dart
 │   │   ├── ritual_context_input.dart
 │   │   ├── ritual_interaction_snapshot.dart
 │   │   ├── ritual_utterance_suggestion.dart
@@ -711,12 +710,13 @@ lib/features/ritual_room/
     │   ├── ritual_room_screen.dart
     │   └── ritual_memory_lens_screen.dart
     └── widgets/
-        ├── ritual_action_beat_list.dart
+        ├── ritual_action_cue.dart
         ├── ritual_context_input_tray.dart
         ├── ritual_current_utterance.dart
         ├── ritual_identity_header.dart
         ├── ritual_listen_control.dart
-        └── ritual_reassurance.dart
+        ├── ritual_reassurance.dart
+        └── ritual_submitting_indicator.dart
 ```
 
 Phase 41's mock JSON belongs at:
@@ -751,7 +751,9 @@ and equivalent rollout-order names are forbidden.
 - Do not collapse the repository into
   `Map<Reaction, String>` or equivalent stateless lookup logic.
 - Every accepted input returns a new immutable snapshot with a monotonic
-  revision and one primary speakable utterance.
+  revision, one primary speakable utterance, and at most one current action cue.
+- Phase 41 presentation must not render a multi-utterance action list. Additional
+  utterances remain engine behavior for later product decisions.
 - Contract tests cover every input variant plus a mixed-channel sequence that
   proves accumulated context and strategy evolution.
 - The controller dispatches typed inputs and replaces its snapshot from the

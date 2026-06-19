@@ -1,7 +1,7 @@
 ---
 phase: 41
 slug: mobile-v2-runnable-vertical-slice
-status: draft
+status: approved
 shadcn_initialized: false
 preset: none
 created: 2026-06-16
@@ -9,7 +9,10 @@ created: 2026-06-16
 
 # Phase 41 — UI Design Contract
 
-> Visual and interaction contract for Phase 41: mobile_v2 runnable Ritual Room vertical slice.
+> Approved visual and interaction contract for Phase 41: mobile_v2 runnable Ritual Room vertical slice.
+>
+> Prototype: `assets/prototypes/phase41-d4-5-interaction-engine.png`
+> Runtime illustration: `mobile_v2/assets/illustrations/rituals/shoes_on/shoes_on_approved_v1.png`
 
 ## 2026-06-19 Interaction Engine Override
 
@@ -35,7 +38,7 @@ fallback exposure level, not the terminal product capability.
 
 This UI contract is controlled by `41-SCHEMATIC-DESIGN.md` wherever older sections describe a four-screen First Entry -> Today Orientation -> Room Support -> Memory Lens flow.
 
-The corrected Phase 41 UI is one `Ritual Room Support` surface for `出门小声音 / 出门穿鞋 / Shoes on.`. D.4.3 uses a short ritual identity header followed by a dominant continuous family talk sheet. It must include a parent-child line illustration, ritual title, Chinese helper, complete caregiver utterances, action / TPR cues, low-pressure audio affordances, reassurance, and quiet exit `先这样就好`.
+The approved Phase 41 UI is the D.4.5 `Ritual Room Support` projection for `出门小声音 / 出门穿鞋 / Shoes on.`. It uses a compact side-by-side ritual identity header followed by one dominant current caregiver utterance, one action / TPR timing cue, one low-pressure audio affordance, neutral reaction selection, reassurance, and quiet exit `先这样就好`. It does not render the historical D.4.3 three-action list.
 
 There is no per-ritual First Entry page in Phase 41. Today Orientation is folded into Room Support copy. Memory Lens, if present, appears only after `先这样就好` and remains optional; Phase 41 does not implement full memory tracking.
 
@@ -61,8 +64,8 @@ The mock response owns:
 - illustration asset reference and approved status
 - ritual title, context label, and Chinese helper
 - reassurance copy
-- action-list heading/supporting copy
-- ordered action beats with complete caregiver utterances and Chinese helpers
+- one current complete caregiver utterance and Chinese situational helper
+- one current action / TPR timing cue
 - low-pressure context choices
 - current context label and current utterance suggestion
 - interaction ID, revision, accumulated context summary, and internal strategy
@@ -130,7 +133,7 @@ Typography rules:
 
 - `Display` is reserved for the ritual title `Shoes on.` only.
 - Chinese helper copy uses Body or Heading, never Display.
-- Complete action-beat utterances use Heading or Body and receive most of the main list's visual attention.
+- The current complete caregiver utterance uses Heading and receives the strongest body emphasis.
 - Long utterances wrap naturally to multiple lines; they must never truncate or collide with playback controls.
 - Labels are for lens names, state chips, and secondary CTA text only.
 - Do not use negative letter spacing or viewport-scaled font sizes.
@@ -174,7 +177,10 @@ Lens copy that is locked for this phase:
 
 | Lens | Required Copy / Contract |
 |------|--------------------------|
-| Ritual Room Support | Title: `Shoes on.` Helper: `穿鞋啦。` Context: `出门穿鞋`. Body heading: `现在可以这样说`. Play-all: `连起来听`. Action moments: `拿起鞋时` -> emphasized `Let's put your shoes on.` -> `拿起鞋，就说这一句。`; `穿第一只时` -> emphasized `Let's put this shoe on first.` + secondary `Now let's put the other one on.` -> `第一只穿好，再接第二句。`; `穿好后` -> emphasized `Your shoes are on.` + secondary `All done. Let's go.` -> `穿好后，顺口收尾。`. Reassurance: `不用每句都说，跟着当下的动作说一句就够了。` Quiet exit: `先这样就好`. |
+| Ritual Room Support ready | Room: `出门小声音`. Title: `Shoes on.` Helper: `穿鞋啦。` Context: `出门穿鞋`. Current utterance: `Let's put your shoes on.` Situational helper: `我们来穿鞋吧。` Action cue: `拿起鞋时`. Audio: `听一遍`. Prompt: `现在是什么情况？` Inline choices: `还不想穿`, `想自己来`. More: `更多情况`. Reassurance: `不用每句都说，说一句就够了。` Quiet exit: `先这样就好`. |
+| Reaction sheet | Title: `现在是什么情况？`. Choices: `还不想穿`, `想自己来`, `哭了`, `跑开了`, `已经穿好了`. Choices are neutral context input and have no child-score or diagnostic iconography. |
+| Submitting | Keep the last usable utterance visible. Selected context example: `还不想穿`. Pending copy: `正在换一种说法…`. |
+| Revised example | Stable title remains `Shoes on.` Context: `还不想穿`. Current utterance: `You don't want your shoes on yet.` Situational helper: `你现在还不想穿鞋。` Quiet support: `可以先等等。` Audio and context input remain available. |
 | Optional Memory Lens | Only after the parent exits/rests. Prompt: `这句最近有没有更容易从嘴边冒出来？` Options: `有一点，更顺口了`, `还没有，先慢慢来`, `今天先放一边`. Optional and not full memory tracking. |
 
 The static Room Support row above is bootstrap/fallback copy, not the complete
@@ -237,14 +243,15 @@ Implement the smallest local component vocabulary needed for this phase:
 
 | Component | Contract |
 |-----------|----------|
-| RitualRoomScreen | One scrollable warm Material screen with compact identity header and a dominant unframed action-list surface; no dashboard and no nested cards. |
-| RitualIllustration | Approved static parent-child line illustration for `shoes_on`, showing caregiver helping toddler put on shoes. No photo-real style, no plant/leaf/garden/growth imagery, no classroom objects. |
-| RitualIdentityHeader | Places a 96-112dp approved illustration beside `Shoes on.`, `出门穿鞋`, and `穿鞋啦。` in about 22-26% of the viewport. It contains no intro paragraph and no `日常动作` label. |
-| RitualActionBeatList | Occupies most of the screen and renders exactly three unnumbered action moments as one continuous talk sheet. It uses light spacing and optional hairline separators, not cards or equal lesson rows. One minimum utterance is emphasized per moment; continuations are secondary and use authored semantic line breaks. |
-| RitualListenControl | Uses a filled circular play/pause affordance for `连起来听` and each action moment. All hit targets are at least 48x48; utterance text is also tappable. No microphone, waveform recording, progress bar, scoring, or child-response capture. |
-| RitualReassurance | Shows `不用每句都说，跟着当下的动作说一句就够了。` as concrete parent-facing permission copy. |
-| RitualCurrentUtterance | Renders the latest snapshot-owned context label, complete English utterance, Chinese helper, and one audio affordance as the primary output focus. |
-| RitualContextInputTray | Shows a small set of neutral reaction choices inline and additional choices in a bottom sheet; dispatches typed context input without page navigation or child-performance semantics. |
+| RitualRoomScreen | One warm Material screen with fixed geometry across ready, reaction-sheet, submitting, revised, and recoverable-error states; no dashboard, list, or nested cards. |
+| RitualIllustration | Approved static parent-child line illustration at `mobile_v2/assets/illustrations/rituals/shoes_on/shoes_on_approved_v1.png`. No photo-real style, plant/leaf/garden/growth imagery, or classroom objects. |
+| RitualIdentityHeader | Places the 96-112dp approved illustration beside `Shoes on.`, `出门穿鞋`, and `穿鞋啦。` in about 22-26% of the viewport. It remains stable across interaction revisions. |
+| RitualCurrentUtterance | Occupies the largest visual share and renders the latest snapshot-owned context label, one complete English utterance, Chinese situational helper, one action timing cue, and one audio affordance. It preserves the last usable utterance during submission. |
+| RitualActionCue | Renders one small API-owned action / TPR timing cue such as `拿起鞋时`; it is not a list, step, lesson, or progression marker. |
+| RitualListenControl | Uses one clear circular Material play/pause affordance labeled by API-owned copy such as `听一遍`. Hit target is at least 48x48. No waveform, progress bar, recording, scoring, or child-response capture. |
+| RitualReassurance | Shows API-owned concrete permission copy such as `不用每句都说，说一句就够了。`. |
+| RitualContextInputTray | Shows two text-only neutral reaction choices inline and additional text-only choices in a half-height bottom sheet. Selection dispatches typed context input without navigation or child-performance semantics. |
+| RitualSubmittingIndicator | Keeps the current utterance readable and adds only a small inline pending indicator/copy; no page replacement or full-screen progress state. |
 | MemoryOptionGroup | Three 48px-min touch options, visually equal weight; selected option uses one accent border and soft surface response. |
 | GentleResponse | Optional local placeholder after Memory Lens selection; copy must be narrative and low-pressure, not a status transition proof. |
 
@@ -294,11 +301,11 @@ Surface rules:
 
 ## Checker Sign-Off
 
-- [ ] Dimension 1 Copywriting: PASS
-- [ ] Dimension 2 Visuals: PASS
-- [ ] Dimension 3 Color: PASS
-- [ ] Dimension 4 Typography: PASS
-- [ ] Dimension 5 Spacing: PASS
-- [ ] Dimension 6 Registry Safety: PASS
+- [x] Dimension 1 Copywriting: PASS — one current utterance, neutral context input, no progression/performance language.
+- [x] Dimension 2 Visuals: PASS — approved D.4.5 prototype and static line illustration are stored in the workspace.
+- [x] Dimension 3 Color: PASS — warm paper, restrained teal, and limited orange accents remain within the declared palette.
+- [x] Dimension 4 Typography: PASS — stable ritual title and dominant current utterance have distinct roles without score-like hierarchy.
+- [x] Dimension 5 Spacing: PASS — compact 22-26% identity header, dominant utterance area, and lower-thumb context controls are specified.
+- [x] Dimension 6 Registry Safety: PASS — Flutter Material only; no registry or third-party component dependency.
 
-**Approval:** pending
+**Approval:** user-approved 2026-06-19; D.4.5 is the Phase 41 execution reference.

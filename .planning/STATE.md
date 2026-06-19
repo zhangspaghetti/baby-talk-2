@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v0.1
 milestone_name: milestone
-status: Phase 41 Interaction Engine visual and architecture gate pending
-stopped_at: Phase 41 Interaction Engine docs updated; next prototype pending
-last_updated: "2026-06-19T00:00:00+08:00"
-last_activity: 2026-06-19 -- Interaction Engine contract added and plans revised
+status: Phase 41 D.4.5 visual and static-asset gate approved; execution has not started.
+stopped_at: Phase 41 D.4.5 UI-SPEC and assets approved
+last_updated: "2026-06-19T11:14:13.577Z"
+last_activity: 2026-06-19 -- D.4.5 prototype and shoes_on illustration approved and saved.
 progress:
-  total_phases: 7
+  total_phases: 8
   completed_phases: 2
-  total_plans: 6
+  total_plans: 11
   completed_plans: 6
-  percent: 29
+  percent: 25
 ---
 
 # Project State
@@ -26,8 +26,8 @@ See: .planning/PROJECT.md
 
 Phase: 41
 Plan: Not started
-Status: Phase 41 Interaction Engine visual and architecture gate pending.
-Last activity: 2026-06-19 -- Interaction Engine contract added and plans revised.
+Status: Phase 41 D.4.5 visual and static-asset gate approved; execution has not started.
+Last activity: 2026-06-19 -- D.4.5 prototype and shoes_on illustration approved and saved.
 
 Progress: [███░░░░░░░] 29%
 
@@ -58,7 +58,8 @@ Migrated from GSD-2. Old M010 phases 39-41 were generated from outdated planning
 - 2026-06-17: Phase 46 added: Ritual Illustration System.
 - 2026-06-17: Phase 41 product schematic revised: per-ritual First Entry and Today Orientation removed; `shoes_on` Room Support now includes parent-child line illustration, ritual identity, complete caregiver utterances, and action-bound low-pressure TPR cues.
 - 2026-06-18: Phase 41 content ownership revised: all ritual-specific content must flow through `MockRitualContentApi -> DTO -> mapper -> repository -> domain -> controller -> UI`; presentation code may not hardcode ritual content.
-- 2026-06-18: D.4.3 ImageGen prototype generated and iterated. Phase 41 execution remains blocked until explicit prototype approval and approved static asset generation.
+- 2026-06-18: D.4.3 ImageGen prototype generated and iterated as historical exploration.
+- 2026-06-19: D.4.5 single-screen multi-state Interaction Engine prototype approved and stored at `assets/prototypes/phase41-d4-5-interaction-engine.png`; approved static `shoes_on` illustration generated and stored at its canonical mobile asset path.
 - 2026-06-19: Phase 41 corrected from a static phrase/support slice into a
   vertical slice of the long-term Ritual Interaction Engine. Room bootstrap and
   interaction advance are separate repository boundaries. The engine executes
@@ -67,15 +68,14 @@ Migrated from GSD-2. Old M010 phases 39-41 were generated from outdated planning
 
 ### Blockers/Concerns
 
-Phase 41 single-screen multi-state Interaction Engine prototype and static asset
-approval are pending. Execute-phase coding must not begin until
-`41-SCHEMATIC-DESIGN.md` is marked approved and links the workspace prototype
-plus approved `shoes_on` illustration.
+The visual and static-asset gate is complete. Phase 41 execution remains
+unstarted and must follow approved D.4.5, the capability-complete Interaction
+Engine contract, and the UI-restricted projection rules.
 
 ## Session Continuity
 
-Last session: 2026-06-16T13:47:53.044Z
-Stopped at: Phase 41 UI-SPEC approved
+Last session: 2026-06-19T11:14:13.564Z
+Stopped at: Phase 41 D.4.5 UI-SPEC and assets approved
 Resume file: .planning/phases/41-mobile-v2-runnable-vertical-slice/41-UI-SPEC.md
 
 ## Performance Metrics

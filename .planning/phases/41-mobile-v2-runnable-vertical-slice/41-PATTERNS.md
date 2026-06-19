@@ -50,7 +50,6 @@ superseded and must not be used by executors.
 | `data/repositories/ritual_room_repository_impl.dart` | coordinates source and mapper | implements domain repository |
 | `data/repositories/ritual_interaction_repository_impl.dart` | advances interaction through source and mapper | implements interaction repository |
 | `domain/models/ritual_room_content.dart` | immutable presentation-ready ritual content | no data or Flutter dependency |
-| `domain/models/ritual_action_beat.dart` | immutable action moment with minimum and optional utterances | no data or Flutter dependency |
 | `domain/models/ritual_context_input.dart` | typed reaction/voice/text/future-signal/strategy envelope | every variant executes; UI exposes reaction only |
 | `domain/models/ritual_interaction_snapshot.dart` | accumulated interaction revision and current output | immutable; no widget-owned history |
 | `domain/models/ritual_utterance_suggestion.dart` | one complete current caregiver utterance | no data or Flutter dependency |
@@ -60,7 +59,8 @@ superseded and must not be used by executors.
 | `presentation/controllers/ritual_room_controller.dart` | single owner of load/submit/retry and optional post-exit state | depends on both domain repositories |
 | `presentation/screens/ritual_room_screen.dart` | composes the approved single-screen interaction projection | consumes room content and interaction snapshot |
 | `presentation/widgets/ritual_identity_header.dart` | short illustration + ritual identity header | consumes smallest domain slice |
-| `presentation/widgets/ritual_action_beat_list.dart` | continuous action-bound family talk sheet | no DTO/mock/fixture imports |
+| `presentation/widgets/ritual_action_cue.dart` | one snapshot-owned action / TPR timing cue | no DTO/mock/fixture imports; never renders a list |
+| `presentation/widgets/ritual_submitting_indicator.dart` | small inline pending state while preserving current output | no full-screen loading replacement |
 | `presentation/widgets/ritual_listen_control.dart` | generic play/pause affordance | callbacks and generic labels only |
 | `presentation/widgets/ritual_reassurance.dart` | low-pressure parent permission copy | content supplied by domain model |
 | `presentation/widgets/ritual_current_utterance.dart` | primary current output | content supplied by interaction snapshot |
@@ -72,14 +72,14 @@ superseded and must not be used by executors.
 
 1. Stable compact Ritual identity and anchor.
 2. One current complete utterance as the primary output focus.
-3. Default action-bound support without lesson progression.
-4. A small set of neutral context choices and optional bottom sheet.
-5. In-place submitting/revised/retry behavior.
+3. One current action / TPR timing cue without a list or lesson progression.
+4. A small set of text-only neutral context choices and a half-height bottom sheet.
+5. In-place submitting/revised/retry behavior that preserves the last usable utterance.
 6. Concrete reassurance and quiet `先这样就好` exit.
 
-Do not make each moment a card. Use typography, spacing, alignment, and optional
-hairline separators before borders or elevation. One minimum utterance is
-emphasized per moment; optional continuation lines are visually secondary.
+Do not turn the current utterance, action cue, or context input into competing
+cards. Use typography, spacing, and alignment before borders or elevation. The
+single current utterance is the only dominant body output.
 
 ## State Pattern
 
@@ -112,7 +112,7 @@ test/features/ritual_room/
   presentation/
     controllers/ritual_room_controller_test.dart
     screens/ritual_room_screen_test.dart
-    widgets/ritual_action_beat_list_test.dart
+    widgets/ritual_room_support_widgets_test.dart
     ritual_room_accessibility_test.dart
 ```
 
@@ -128,6 +128,7 @@ Required evidence:
   evolve strategy/output
 - the UI exposes only reaction without constraining engine capability
 - two safe payloads render different content
+- exactly one current utterance and at most one action cue render at a time
 - long utterances wrap without clipping controls
 - text and audio controls expose semantic playback labels
 - controls meet 48x48 minimum touch targets

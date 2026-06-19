@@ -1,7 +1,7 @@
 # Phase 41: mobile-v2-runnable-vertical-slice - Context
 
 **Updated:** 2026-06-19
-**Status:** Visual prototype gate; Interaction Engine single-screen states pending approval
+**Status:** D.4.5 visual prototype and `shoes_on` static illustration approved
 
 ## Product Decision
 
@@ -47,60 +47,42 @@ Memory Lens is optional and may appear only after quiet exit. Phase 41 does not
 implement production memory tracking, child performance tracking, or Garden
 state transitions.
 
-## Historical D.4.3 Visual Decision
+## Approved D.4.5 Visual Decision
 
-D.4.3 established the action-bound, non-lesson visual language. It is no longer
-the complete interaction model. D.4.4 first image is the approved refinement
-baseline, while the next single-screen multi-state prototype must add
-context-input and in-place utterance-update states before execution approval.
+D.4.3 established the warm, action-bound, non-lesson visual language and D.4.4
+provided the first refinement baseline. Both are historical. D.4.5 is the
+approved execution reference:
 
-The supplied music-list screenshot is an information-hierarchy reference only:
-a compact identity area above a large practical content area. Phase 41 does not
-copy its dark theme, album art, social metrics, playlist controls, or music
-product semantics.
+`assets/prototypes/phase41-d4-5-interaction-engine.png`
 
-D.4.3 rules:
+D.4.5 rules:
 
-- portrait Flutter/Material layout at 390x844
+- four panels show states of one screen, never a four-page flow
+- portrait Flutter/Material geometry at 390x844
 - warm paper background and parent-first tone
+- compact side-by-side identity header using about 22-26% of the viewport
 - approved parent-child line illustration, never a photo or classroom cartoon
-- identity header uses about 22-26% of the viewport
-- header contains only `Shoes on.`, `出门穿鞋`, and `穿鞋啦。`
-- body heading is `现在可以这样说`
-- play-all label is `连起来听`
-- action-bound talk sheet occupies most of the viewport
-- first English utterance is the first strong visual focus
-- no cards for each action moment and no equal lesson-row treatment
-- no progress bar, numbered steps, checklist, score, streak, reward, badge, or
-  growth imagery
+- stable `Shoes on.` identity across every interaction revision
+- exactly one current complete caregiver utterance as the dominant body focus
+- exactly one small action / TPR timing cue, not a list or lesson sequence
+- one clear 48x48-min `听一遍` play/pause affordance
+- two text-only neutral reaction choices inline and more choices in a half-height
+  Material bottom sheet
+- submitting preserves the last usable utterance and adds only a small inline
+  pending indicator
+- revised context and wording replace the previous snapshot in place
+- no microphone, visible free-text input, future-signal control, or strategy tray
+- no task-like filled CTA, progress, numbered steps, checklist, score, streak,
+  reward, badge, Garden, leaf, or growth imagery
 
-The three action moments are:
+The ready-state bootstrap example is `Let's put your shoes on.` / `我们来穿鞋吧。`
+with action cue `拿起鞋时`. The revised example for neutral context `还不想穿` is
+`You don't want your shoes on yet.` / `你现在还不想穿鞋。`. These values come
+through the mock API; presentation code does not own them.
 
-| Cue | Minimum utterance | Optional continuation | Chinese action helper |
-|---|---|---|---|
-| `拿起鞋时` | `Let's put your shoes on.` | none | `拿起鞋，就说这一句。` |
-| `穿第一只时` | `Let's put this shoe on first.` | `Now let's put the other one on.` | `第一只穿好，再接第二句。` |
-| `穿好后` | `Your shoes are on.` | `All done. Let's go.` | `穿好后，顺口收尾。` |
-
-Long English content uses authored semantic line breaks. One minimum utterance
-is visually emphasized; optional continuations are quieter. Short fragments such
-as `One shoe.` or `Tap tap.` may exist as secondary ritual grammar, but the UI
-must not expect a parent who lacks speaking confidence to expand fragments into
-natural sentences.
-
-Playback rules:
-
-- `连起来听` and each action moment have distinct hierarchy
-- controls use a minimum 48x48 touch target
-- the utterance text is also tappable
-- playing state switches play to pause and may highlight the current utterance
-- the Phase 41 visible UI has no waveform recording or microphone because those
-  channels are not yet executable; the engine contract still reserves them
-- no playback progress bar, score, child compliance, or performance capture
-
-Reassurance is:
-
-`不用每句都说，跟着当下的动作说一句就够了。`
+Voice transcript, free-text, future-signal, and strategy-preference inputs are
+not visible in D.4.5, but every normalized channel is executable through the
+Phase 41 engine contract.
 
 ## Content And Data Contract
 
@@ -127,10 +109,10 @@ The mock response owns:
 - ritual identity and room metadata
 - approved illustration reference and lifecycle status
 - title, context label, Chinese helper, and reassurance
-- body heading and play-all label
-- ordered action moments
-- minimum utterances and optional continuations
-- Chinese action helpers
+- one bootstrap/current utterance suggestion and Chinese situational helper
+- one current action / TPR timing cue
+- reaction-sheet title and neutral context choices
+- submitting-state copy
 - low-pressure reaction/context options
 - contextual utterance responses for at least two sequential submissions
 - interaction ID, monotonic revision, accumulated context summary, and active
@@ -198,7 +180,6 @@ mobile_v2/
       domain/
         models/
           ritual_room_content.dart
-          ritual_action_beat.dart
           ritual_context_input.dart
           ritual_interaction_snapshot.dart
           ritual_utterance_suggestion.dart
@@ -212,8 +193,9 @@ mobile_v2/
           ritual_identity_header.dart
           ritual_current_utterance.dart
           ritual_context_input_tray.dart
-          ritual_action_beat_list.dart
+          ritual_action_cue.dart
           ritual_listen_control.dart
+          ritual_submitting_indicator.dart
   test/
     features/ritual_room/
       data/
@@ -224,9 +206,8 @@ Tests mirror `lib` ownership. No broad `helpers.dart`, `utils.dart`, or
 ritual-specific content literals should appear in presentation.
 
 `mobile_v2/pubspec.yaml` must register
-`assets/fixtures/ritual_rooms/` and `assets/illustrations/rituals/`. The
-approved static illustration is generated and copied into the workspace only
-after prototype approval, before Phase 41 execution.
+`assets/fixtures/ritual_rooms/` and `assets/illustrations/rituals/`. The approved static illustration now exists at the canonical workspace path and
+must be registered before Phase 41 execution.
 
 ## Forbidden Product Semantics
 

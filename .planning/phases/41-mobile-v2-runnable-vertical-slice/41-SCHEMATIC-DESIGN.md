@@ -1,6 +1,8 @@
 # Phase 41 - Schematic Design Gate
 
-**Status:** Interaction Engine single-screen states pending visual approval
+**Status:** approved
+**Approved prototype:** `assets/prototypes/phase41-d4-5-interaction-engine.png`
+**Approved runtime illustration:** `mobile_v2/assets/illustrations/rituals/shoes_on/shoes_on_approved_v1.png`
 **Updated:** 2026-06-19
 **Scope:** Phase 41 `mobile_v2` runnable mock-API-backed slice before execute-phase coding
 
@@ -17,7 +19,7 @@ the engine must fully execute voice observation, free-text observation, future
 signals, accumulated context, and strategy evolution. Those channels are only
 hidden from this projection.
 
-The next prototype must be one Ritual Room screen shown in multiple states:
+The approved D.4.5 prototype is one Ritual Room screen shown in multiple states:
 
 1. stable Ritual identity and anchor
 2. default action-bound utterance
@@ -88,21 +90,17 @@ The mock response is the single demo content source and should include:
 - approved illustration asset reference and lifecycle status
 - anchor phrase and Chinese helper
 - no-response reassurance
-- action rhythm section labels
-- ordered action moments with minimum utterances, optional continuations, and
-  action / TPR cues
-- per-moment optional audio reference or playback availability
+- one bootstrap/current utterance suggestion and Chinese situational helper
+- one current action / TPR timing cue
+- neutral context choices, reaction-sheet title, and submitting copy
+- current-utterance optional audio reference or playback availability
 - quiet exit copy
 - optional post-exit Memory Lens copy only if that prompt remains in Phase 41
 
-The API response should contain the complete D.4.3 action moments defined
-below. Short rhythm fragments such as `One shoe.` or `Tap tap.` may remain
-secondary ritual grammar, but the primary parent support must be complete
-sayable utterances.
-
-The action moments are not phrase progression. Do not label them `下一句`,
-`next phrase`, lesson steps, or a checklist. They are a calm action rhythm:
-`动作到哪，说到哪`.
+The API response should contain one complete current caregiver utterance and at
+most one action timing cue. Additional variants are engine behavior, not a
+visible Phase 41 list. Do not label contextual revision `下一句`, `next phrase`,
+a lesson step, or a checklist.
 
 Required demo boundary:
 
@@ -127,11 +125,12 @@ Required loading states:
 
 Tests must prove the rendered ritual content comes from an injected mock API response by changing test payload values and observing the changed UI. Exact production copy assertions alone are insufficient because hardcoded widgets could pass them.
 
-## D.4.3 Room Support Layout
+## Historical D.4.3 Room Support Layout
 
-D.4.3 keeps the useful hierarchy from the supplied music-list reference without
-copying playlist semantics. The identity header is deliberately short; the
-action-bound family talk sheet is the primary working area.
+D.4.3 established the useful compact-identity / practical-content hierarchy,
+but its three-row family talk sheet is historical. It must not be implemented
+as the Phase 41 projection. The approved D.4.5 direction replaces it with one
+current utterance and in-place contextual revision.
 
 1. The identity header occupies about 22-26% of the viewport.
 2. The approved parent-child line illustration is 96-112dp and sits beside the
@@ -143,19 +142,11 @@ action-bound family talk sheet is the primary working area.
    scrolling on a 390x844 viewport.
 6. The body heading is `现在可以这样说`.
 7. The play-all affordance is `连起来听`.
-8. Three unnumbered action moments form one continuous family talk sheet. They
-   must not become three equal cards, lesson rows, checklist steps, or a course
-   list.
-9. Time cues are `拿起鞋时`, `穿第一只时`, and `穿好后`.
-10. Each moment emphasizes one minimum useful utterance. Additional lines are
-    visually secondary and use authored semantic line breaks.
-11. Per-moment audio uses a minimum 48x48 touch target and a clear filled
-    play/pause control. The utterance text is also tappable. Playback may
-    highlight the current utterance, but there is no progress bar.
-12. Reassurance is `不用每句都说，跟着当下的动作说一句就够了。`
-13. Quiet exit remains `先这样就好` and must not look like task completion.
+8. The historical three-action composition is reference-only.
+9. D.4.5 renders one current utterance, one action timing cue, one play/pause
+   control, neutral context input, reassurance, and quiet exit.
 
-### D.4.3 Action Moments
+### Historical D.4.3 Action Moments
 
 The parent is assumed to understand English but not confidently generate natural
 caregiver speech. Short fragments therefore cannot be the primary support content.
@@ -167,9 +158,8 @@ The backend-owned content model must provide complete sayable utterances:
 | `穿第一只时` | `Let's put this shoe on first.` | `Now let's put the other one on.` | `第一只穿好，再接第二句。` |
 | `穿好后` | `Your shoes are on.` | `All done. Let's go.` | `穿好后，顺口收尾。` |
 
-`Shoes on.`, `Tap tap.`, and similar short rhythm language may remain secondary
-micro-copy or audio grammar, but they must not be the only material a parent is
-expected to expand alone.
+These rows document product exploration only. Phase 41 does not render them as
+a list and does not ask the parent to choose or progress through them.
 
 ### D.4.3 Prototype Reference
 
@@ -178,7 +168,7 @@ expected to expand alone.
   floating body card, duplicate per-line audio icons, the overflow menu, and the
   task-like filled exit button.
 - ImageGen text rendering is a visual-layout reference, not copy authority.
-  Exact runtime copy must follow the D.4.3 Action Moments table above.
+  D.4.3 copy is historical; exact runtime examples follow `41-UI-SPEC.md`.
 - The music-list screenshot supplied by the user is a hierarchy reference only:
   compact collection identity above a large practical list.
 - The prototype does not copy the music application's dark theme, brand, social
@@ -186,7 +176,40 @@ expected to expand alone.
 - Share, comment, favorite, and social-count actions are deferred and are not
   rendered as disabled placeholders in Phase 41.
 - The D.4.2 preview remains historical and is not an approved execution target.
-- D.4.3 is also not an execution target until the user explicitly approves it.
+- D.4.3 is not an execution target.
+
+## Approved D.4.5 Interaction Engine Prototype
+
+![Phase 41 D.4.5 Interaction Engine prototype](assets/prototypes/phase41-d4-5-interaction-engine.png)
+
+The user approved the current direction by asking that the new prototype be
+saved as the Phase 41 record and that required assets be generated. D.4.5 is
+therefore the execution reference.
+
+The board shows four states of the same `Ritual Room Support` screen:
+
+| State | Visible behavior |
+|---|---|
+| Ready | Stable room identity, compact caregiver-child illustration, one current complete caregiver utterance, one action timing cue, one audio affordance, neutral reaction choices, reassurance, and quiet exit. |
+| Reaction sheet | A half-height Material sheet adds neutral reaction choices without leaving or replacing the room screen. |
+| Submitting | The last usable utterance remains visible while a small inline pending indicator reports that wording is being adjusted. |
+| Revised | Stable room identity remains; context label and current utterance update in place from the new interaction snapshot. |
+
+The prototype is geometry authority, not literal image-copy authority. Runtime
+copy comes from the mock API and the exact examples in `41-UI-SPEC.md`.
+ImageGen rendering artifacts must not be copied blindly.
+
+D.4.5 deliberately contains:
+
+- one current caregiver utterance, not a phrase list
+- one small action / TPR timing cue, not a multi-step action list
+- text-only neutral context choices
+- reaction selection as the only visible Phase 41 input channel
+- no microphone, free-text field, future-signal control, or strategy tray
+- no page transition between context submission and revised wording
+- no task-like filled CTA
+- no child-performance, completion, lesson, progress, reward, or Garden
+  semantics
 
 ## Phase 41 Asset Manifest
 
@@ -194,11 +217,25 @@ Phase 41 consumes assets but does not implement the Ritual Illustration System:
 
 | Asset | Phase 41 rule |
 |---|---|
-| `shoes_on_approved_v1` illustration | One approved static caregiver-and-toddler line illustration; warm paper-compatible; no photo-real elements. |
+| `shoes_on_approved_v1` illustration | **Approved.** `mobile_v2/assets/illustrations/rituals/shoes_on/shoes_on_approved_v1.png`. One static caregiver-and-toddler line illustration; warm paper-compatible; no photo-real elements. |
 | Play/pause icon | Flutter Material icon with a filled warm circular surface and 48x48 minimum hit target. |
-| Room mark | Optional tiny shoe/door line mark only if it improves orientation; no leaf, garden, growth, reward, or classroom imagery. |
+| Room mark | Not required in Phase 41. Do not generate a decorative substitute. |
 | Audio metadata | Supplied by mock API content; Phase 41 may use a fake/no-op playback callback and does not add a production audio service. |
-| Memory mark | Not required for the core screen. If the optional Memory Lens remains, use typography and spacing rather than a leaf/growth symbol. |
+| Memory mark | Not required. If the optional Memory Lens remains, use typography and spacing rather than a leaf/growth symbol. |
+
+### Approved Illustration Reference
+
+![Approved shoes_on caregiver-child illustration](../../../mobile_v2/assets/illustrations/rituals/shoes_on/shoes_on_approved_v1.png)
+
+Generation record:
+
+- Generated with the built-in ImageGen tool on 2026-06-19.
+- Warm charcoal/sepia family line art with restrained muted teal/orange wash.
+- Same caregiver/toddler visual grammar as D.4.5.
+- Flat warm-paper background; no photo-real room, classroom, leaf, growth,
+  reward, or task imagery.
+- This is a static Phase 41 asset. Phase 41 does not implement illustration
+  generation or lifecycle services.
 
 ## Forbidden Semantics
 
@@ -232,9 +269,9 @@ Phase 46 owns the Ritual Illustration System and future Ritual Grammar work:
 
 ## Prototype Gate
 
-The approved D.4.4 first image is the visual baseline, not the final interaction
-specification. A new single-image, multi-state Interaction Engine prototype
-must use this schematic:
+D.4.4 remains the historical visual baseline. D.4.5 is the approved
+single-image, multi-state Interaction Engine execution reference and satisfies
+this schematic:
 
 - one core `Ritual Room Support` mobile screen
 - parent-child line illustration
@@ -257,18 +294,14 @@ must use this schematic:
 - all engine input channels are executable through the stable contract
 - only their Phase 41 UI controls are hidden
 
-### Execute-Phase Blocker
+### Execute-Phase Gate Status
 
-`$gsd-execute-phase 41` must not begin while this document says
-`pending visual approval`.
+- [x] User approved the prototype direction.
+- [x] Document status is `approved`.
+- [x] Approved prototype is stored and linked in the workspace.
+- [x] Approved static `shoes_on` illustration exists at the manifest path.
+- [x] Plans 41-03, 41-04, and 41-05 reference and enforce D.4.5 plus the approved static illustration.
 
-Before execution:
-
-1. The user explicitly approves the prototype direction.
-2. This document status is changed to `approved`.
-3. The approved prototype image is copied into the workspace and linked here.
-4. The approved static `shoes_on` illustration asset exists at the manifest path.
-5. Plans 41-03, 41-04, and 41-05 reference the approved prototype and asset.
-
-ImageGen previews in the thread are review material only. They are not runtime
-assets and must not be scraped, approximated, or implemented before approval.
+Discarded ImageGen variants remain review history only. Executors must use the
+workspace D.4.5 image and approved static illustration, not earlier thread
+previews.

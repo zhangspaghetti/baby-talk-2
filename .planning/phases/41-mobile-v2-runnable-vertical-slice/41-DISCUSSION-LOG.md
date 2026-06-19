@@ -158,3 +158,21 @@ See `41-SCHEMATIC-DESIGN.md` for the controlling design gate.
 - Per-channel and mixed-channel tests are required.
 - Future UI evolution opens controls/adapters over the stable contract; it does
   not add missing engine channels or redesign the engine.
+
+## 2026-06-19 D.4.5 Prototype And Asset Approval
+
+- The user requested that the new prototype be saved as the Phase 41 design
+  record and authorized generation of required assets.
+- D.4.5 is one Ritual Room screen shown in ready, reaction-sheet, submitting,
+  and revised states; it is not a four-page flow.
+- The visible projection contains one current complete caregiver utterance and
+  at most one action / TPR cue. The historical D.4.3 three-action list is not an
+  execution target.
+- Reaction selection is text-only, remains on the current screen, and updates
+  the utterance in place.
+- The approved prototype is stored at
+  `assets/prototypes/phase41-d4-5-interaction-engine.png`.
+- The approved static illustration is stored at
+  `mobile_v2/assets/illustrations/rituals/shoes_on/shoes_on_approved_v1.png`.
+- Play/pause uses Flutter Material icons. Room and memory marks are not required,
+  so no additional generated decorative assets were created.

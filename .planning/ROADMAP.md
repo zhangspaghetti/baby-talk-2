@@ -103,7 +103,7 @@ Plans:
 
 ### Phase 41: mobile_v2 可运行 Ritual Room Vertical Slice
 
-**Goal:** After visual prototype and static-asset approval, build a runnable Flutter `mobile_v2` vertical slice of the long-term Ritual Interaction Engine. Stable `shoes_on` room content loads through the content repository; every normalized input channel (reaction, voice transcript, free text, future signal, strategy preference), accumulated interaction revision, strategy metadata, and current speakable utterance advance through `MockRitualInteractionApi -> DTO -> mapper -> interaction repository -> domain snapshot -> controller`. The mobile UI is a restricted projection that visibly opens reaction selection only; later UI/input adapters can open other channels without changing the engine contract.
+**Goal:** With the approved D.4.5 visual prototype and static `shoes_on` asset, build a runnable Flutter `mobile_v2` vertical slice of the long-term Ritual Interaction Engine. Stable `shoes_on` room content loads through the content repository; every normalized input channel (reaction, voice transcript, free text, future signal, strategy preference), accumulated interaction revision, strategy metadata, and current speakable utterance advance through `MockRitualInteractionApi -> DTO -> mapper -> interaction repository -> domain snapshot -> controller`. The mobile UI is a restricted projection that visibly opens reaction selection only; later UI/input adapters can open other channels without changing the engine contract.
 **Architecture authority:** `.planning/phases/41-mobile-v2-runnable-vertical-slice/41-INTERACTION-ENGINE-CONTRACT.md`
 **Requirements**: R058, R059, R060, R063, R064, R065, R067
 **Depends on:** Phase 40
@@ -120,7 +120,7 @@ Plans:
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
-- [ ] 41-04-PLAN.md — Build the approved single-screen Interaction Engine projection: stable Ritual anchor, current utterance focus, neutral context input tray, in-place response updates, audio affordances, reassurance, quiet exit, and optional API-owned Memory Lens.
+- [ ] 41-04-PLAN.md — Build the approved D.4.5 single-screen Interaction Engine projection: side-by-side stable Ritual identity, one current utterance, one action cue, text-only reaction tray/sheet, preserved submitting state, in-place response updates, one audio affordance, reassurance, quiet exit, and optional API-owned Memory Lens.
 
 **Wave 3** *(blocked on Wave 2 completion)*
 

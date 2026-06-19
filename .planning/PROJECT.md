@@ -13,17 +13,17 @@ Baby Talk 2 是一个面向中国父母的 Flutter 原生移动应用，围绕�
 
 ## Current State
 
-**M010《Baby Talk vNext Family Micro-ritual 架构重启》已推进至 Phase
-41 visual prototype gate。Phase 39 与 Phase 40 的产品语义、Activation
-Governor、Garden Memory 和 verifier 合同已锁定。Phase 41 当前目标是一张
-经批准的 `shoes_on` Ritual Room Support 原型及其后续可运行 Flutter
-vertical slice；Strategy Pack / Graph / Runtime / metrics 闭环后移到 Phase
-44/45，Ritual Illustration System 后移到 Phase 46。**
+**M010《Baby Talk vNext Family Micro-ritual 架构重启》已完成 Phase 41
+visual prototype 与 static-asset gate。Phase 39 与 Phase 40 的产品语义、
+Activation Governor、Garden Memory 和 verifier 合同已锁定。D.4.5
+`shoes_on` Ritual Room Support 原型与静态亲子线稿已存入 workspace；Phase
+41 execute 尚未开始。Strategy Pack / Graph / Runtime / metrics 闭环后移到
+Phase 44/45，Ritual Illustration System 后移到 Phase 46。**
 
 ### M010 Construction Roadmap 已调整
 
-- **Phase 41** — `mobile_v2` 可运行 Ritual Room Vertical Slice：先批准
-  Interaction Engine 单屏多状态原型与静态 `shoes_on` 插画，再用 mock
+- **Phase 41** — `mobile_v2` 可运行 Ritual Room Vertical Slice：已批准
+  D.4.5 Interaction Engine 单屏多状态原型与静态 `shoes_on` 插画；执行时用 mock
   Interaction API -> DTO -> mapper -> repository -> evolving snapshot ->
   controller -> UI 构建 direct Room Support。Phase 41 可见实现 neutral
   reaction input 与原位话术更新，不实现 child-performance session。Engine、
