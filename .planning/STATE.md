@@ -2,10 +2,10 @@
 gsd_state_version: 1.0
 milestone: v0.1
 milestone_name: milestone
-status: Phase 41 D.4.5 visual and static-asset gate approved; execution has not started.
-stopped_at: Phase 41 D.4.5 UI-SPEC and assets approved
-last_updated: "2026-06-19T11:14:13.577Z"
-last_activity: 2026-06-19 -- D.4.5 prototype and shoes_on illustration approved and saved.
+status: Ready to execute Phase 41; 11 Interaction Engine plans verified against the locked core and Riverpod implementation authorities.
+stopped_at: Phase 41 planning verified; ready for Wave 0 execution
+last_updated: "2026-06-20T07:34:50.3005399+08:00"
+last_activity: 2026-06-20 -- Phase 41 plans revised and verified against both locked Interaction Engine implementation plans.
 progress:
   total_phases: 8
   completed_phases: 2
@@ -26,8 +26,8 @@ See: .planning/PROJECT.md
 
 Phase: 41
 Plan: Not started
-Status: Phase 41 D.4.5 visual and static-asset gate approved; execution has not started.
-Last activity: 2026-06-19 -- D.4.5 prototype and shoes_on illustration approved and saved.
+Status: Ready to execute Phase 41; 11 Interaction Engine plans verified against the locked core and Riverpod implementation authorities.
+Last activity: 2026-06-20 -- Phase 41 plans revised and verified against both locked Interaction Engine implementation plans.
 
 Progress: [███░░░░░░░] 29%
 
@@ -65,18 +65,22 @@ Migrated from GSD-2. Old M010 phases 39-41 were generated from outdated planning
   interaction advance are separate repository boundaries. The engine executes
   reaction, normalized voice observation, free text, future signals, and
   strategy preference; the Phase 41 UI exposes reaction selection only.
+- 2026-06-20: Phase 41 planning was reconciled with the locked pure-Dart engine
+  and Flutter/Riverpod implementation plans. Eleven dependency-ordered plans now
+  cover engine authority, runtime consistency/replay, thin adapters, one
+  Riverpod session Notifier, reaction-only UI projection, and final proof gates.
 
 ### Blockers/Concerns
 
-The visual and static-asset gate is complete. Phase 41 execution remains
-unstarted and must follow approved D.4.5, the capability-complete Interaction
-Engine contract, and the UI-restricted projection rules.
+No planning blocker remains. Phase 41 execution has not started and must follow
+the approved D.4.5/static-asset gates, the locked Interaction Engine contract,
+the 11 verified plan dependencies, and the UI-restricted projection rules.
 
 ## Session Continuity
 
-Last session: 2026-06-19T11:14:13.564Z
-Stopped at: Phase 41 D.4.5 UI-SPEC and assets approved
-Resume file: .planning/phases/41-mobile-v2-runnable-vertical-slice/41-UI-SPEC.md
+Last session: 2026-06-20T07:34:50.3005399+08:00
+Stopped at: Phase 41 planning verified; ready for Wave 0 execution
+Resume file: .planning/phases/41-mobile-v2-runnable-vertical-slice/41-01-PLAN.md
 
 ## Performance Metrics
 

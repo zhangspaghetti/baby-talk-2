@@ -1,24 +1,26 @@
-# Phase 41: mobile_v2 可运行 First Micro-ritual Vertical Slice - Research
+# Phase 41: mobile_v2 Runnable Interaction Engine Vertical Slice - Research
 
-> Historical research snapshot. Do not use its old four-screen flow, old
-> `first_micro_ritual` paths, or direct DTO-to-widget examples for execution.
-> Current authority is `41-CONTEXT.md`, `41-SCHEMATIC-DESIGN.md`,
-> `41-INTERACTION-ENGINE-CONTRACT.md`, `41-PATTERNS.md`, `41-UI-SPEC.md`,
-> `mobile_v2/AGENTS.md`, and `mobile_v2/CODING_STANDARDS.md`.
+## 2026-06-19 Locked Supersession
 
-**Researched:** 2026-06-16
-**Domain:** Flutter `mobile_v2` runnable vertical slice, local fixture state, vNext semantic/activation guardrails
-**Confidence:** MEDIUM - phase-local product contracts and repo guardrails are strong, Flutter docs were checked through Context7, but local Flutter CLI execution is currently blocked by tool/cache access issues. [VERIFIED: 41-CONTEXT.md + Context7 Flutter docs + shell output]
+This file began as 2026-06-16 research and contains historical material. For execution, the later locked authorities below take precedence over every conflicting statement, recommendation, example, path, diagram, test map, and security classification in this file:
 
-## 2026-06-19 Interaction Engine Override
+1. `.planning/phases/41-mobile-v2-runnable-vertical-slice/41-INTERACTION-ENGINE-CONTRACT.md`
+2. `docs/superpowers/plans/2026-06-19-interaction-engine-v1.md`
+3. `docs/superpowers/plans/2026-06-19-interaction-engine-flutter-riverpod.md`
 
-This research predates the long-term Interaction Engine correction. Do not use
-its static content-only controller or broad prohibition on child reaction input.
-Current planning separates room bootstrap from interaction advance, permits
-neutral contextual reaction selection, accumulates interaction revision, and
-requires executable engine handling for reaction, normalized voice
-observation, free text, future signal, and strategy preference. Only the Phase
-41 UI exposure is restricted. `41-INTERACTION-ENGINE-CONTRACT.md` controls.
+The current `41-CONTEXT.md`, `41-SCHEMATIC-DESIGN.md`, `41-PATTERNS.md`, `41-UI-SPEC.md`, `mobile_v2/AGENTS.md`, and `mobile_v2/CODING_STANDARDS.md` remain binding where they do not conflict with those three later authorities.
+
+The following older conclusions are historical and superseded, not executable instructions: no-new-package; no-Riverpod/plain-controller; no repository or adapter layer; `first_micro_ritual` feature paths; First Entry -> Today Orientation -> Room Support -> Memory Lens as a required four-screen flow; static content-only or reaction-to-sentence behavior; and V6-N-A/no-cryptography reasoning that would forbid `crypto` for non-secret SHA-256 fingerprints. Current Phase 41 uses the `ritual_room` feature, a direct D.4.5 Room Support projection, pure-Dart `InteractionEngine` authority, thin DTO/API/repository adapters, and a later Riverpod composition/session plan.
+
+Dependency order is locked: Plan 41-01 installs only `crypto:^3.0.7`; the first Riverpod plan, 41-08, later installs `flutter_riverpod:^3.3.0`, updates the lockfile and Riverpod-specific coding standards, creates `riverpod_smoke_test.dart`, and proves the smoke test before provider implementation.
+
+**Researched:** 2026-06-16; locked supersession applied 2026-06-19
+**Domain:** Flutter `mobile_v2` runnable Interaction Engine vertical slice with vNext semantic/activation guardrails
+**Confidence:** HIGH for the locked 2026-06-19 authorities; historical sections below are context only.
+
+## Current Interaction Engine Direction
+
+Current planning separates room bootstrap from interaction advance, permits neutral contextual reaction selection, accumulates interaction revision, and requires executable engine handling for reaction, normalized voice observation, free text, future signal, and strategy preference. Only the Phase 41 UI exposure is restricted. `InteractionEngine` is the sole lifecycle/consistency authority; DTO, mock API, repository, Riverpod providers, and the one session Notifier are adapters/projections.
 
 ### 2026-06-17 Historical Product Correction
 
@@ -32,11 +34,11 @@ repository, immutable domain models, loading/error states, and
 payload-substitution tests. A deployed backend and AI generation remain deferred.
 
 <user_constraints>
-## User Constraints (from CONTEXT.md)
+## Historical User Constraints Snapshot
 
-All items in this section are copied from `.planning/phases/41-mobile-v2-runnable-vertical-slice/41-CONTEXT.md`; planners must treat these as locked phase constraints. [VERIFIED: 41-CONTEXT.md]
+This section preserves the 2026-06-16 discussion snapshot for traceability. It is historical, not a current locked-decision source. Any First Entry, Today Orientation, four-lens/four-screen, local-controller, or Memory Lens requirement below is superseded by the 2026-06-19 Locked Supersession and the current `41-CONTEXT.md`; retain only non-conflicting product semantics such as ritual-first, low-pressure, non-scoring, and fake-Governor evidence.
 
-### Locked Decisions
+### Historical Decisions (Superseded Where Conflicting)
 
 #### Ritual Room Schematic
 - **D-01:** Phase 41's core product object is a `Ritual Room`: a persistent context space for one family sound.
@@ -111,21 +113,21 @@ All items in this section are copied from `.planning/phases/41-mobile-v2-runnabl
 - **D-34:** The implementation must not use completion, streak, score, growth, phrase progression, or activity dashboard language.
 - **D-35:** Acceptance must include runnable Flutter app evidence, widget/golden/smoke tests for the lens path, and passing Phase 39 semantic firewall plus Phase 40 Activation Governor / Garden Memory verifier guards.
 
-### the agent's Discretion
+### Historical Discretion Notes
 
-- Planner/executor may choose exact file names, class names, route mechanics, local state holder, widget structure, and test layout as long as the Ritual Room decisions above remain the product truth.
+- Historical note: file names, route mechanics, and a local state holder were once discretionary. Current file ownership, `ritual_room` paths, InteractionEngine authority, Riverpod composition, and one-Notifier rules are now locked by the 2026-06-19 authorities.
 - Planner/executor may choose the visual composition and copy refinements within the locked tone: parent-facing, warm, low-pressure, action-bound, and non-scoring.
 - Planner/executor may re-derive selected warm visual/audio interaction patterns from old `mobile/`, but must not import old mobile product/domain/data/presentation code into `mobile_v2/lib`.
 - Planner/executor may decide whether the local Memory Lens option response is a visual placeholder, banner, or local in-memory field, as long as it is not production Garden Memory transition truth.
 
-### Deferred Ideas (OUT OF SCOPE)
+### Historical Deferred Ideas Snapshot (not current execution authority)
 
 - Bottom navigation and multi-room organization are deferred until after the first Ritual Room works.
 - Full Garden Memory transition mechanics are deferred; Phase 41 may only show local visual placeholder responses.
-- Future Ritual Room activation flows are deferred; Phase 41 First Entry opens only the first room.
+- Historical note: First Entry activation flow is superseded; Phase 41 starts directly on Room Support and future Ritual List/activation flows remain deferred.
 - Backend integration, AI, real Strategy Pack, real Strategy Graph, production Runtime Agent, and transfer metrics remain deferred to later M010 phases.
 - Phase 42 owns refinement of low-pressure interaction schematic, layout rhythm, accessible touch flow, and screenshot/golden polish.
-- Phase 43 owns hardening local fixture/state into replaceable adapters and a testable local state backbone.
+- Historical note, superseded: DTO/API/repository adapters and the testable Riverpod state backbone moved into Phase 41; Phase 43 must not be used to defer them.
 </user_constraints>
 
 <phase_requirements>
@@ -139,15 +141,14 @@ All items in this section are copied from `.planning/phases/41-mobile-v2-runnabl
 | R063 | Activation Governor gates activation between candidates and Runtime responses. [VERIFIED: REQUIREMENTS.md] | The slice may start with active state only because the fake Governor decision is explicitly `allow_activation`; no other surface may imply ungoverned activation. [VERIFIED: 41-CONTEXT.md + tool/verify_activation_governor_contract.dart] |
 | R064 | Garden Memory is parent-confirmed family micro-ritual memory, not completion, check-in, or system scoring. [VERIFIED: REQUIREMENTS.md] | Memory Lens should ask one low-pressure prompt and update only a local placeholder or gentle response, not production transfer state. [VERIFIED: 41-CONTEXT.md] |
 | R065 | Explore and Activate must remain distinct; expert content can be open, but active micro-rituals are conservative. [VERIFIED: REQUIREMENTS.md] | Phase 41 should not add Explore, Pack, Runtime, or activation recommendations beyond the single fake-governed active room. [VERIFIED: ROADMAP.md + 41-CONTEXT.md] |
+| R067 | Ritual Room must be a five-channel evolving Interaction Engine, not a fixed page or reaction lookup. [VERIFIED: REQUIREMENTS.md] | Execute all five channels through domain, DTO, mapper, mock API, repository, snapshot evolution, providers/session, and tests while exposing reaction controls only. [VERIFIED: locked 2026-06-19 authorities] |
 </phase_requirements>
 
 ## Summary
 
-Phase 41 should be planned as a tiny runnable Flutter product slice inside the independent `mobile_v2` package, not as a port of old `mobile/` surfaces. [VERIFIED: mobile_v2/pubspec.yaml + 41-CONTEXT.md] The implementation should create a `runApp`/`MaterialApp` entrypoint, one local fixture-backed Ritual Room, minimal local state for the four semantic lenses, and widget tests that tap through First Entry -> Today Orientation -> Room Support -> Memory Lens. [CITED: https://docs.flutter.dev/learn/pathway/tutorial/create-an-app] [CITED: https://docs.flutter.dev/cookbook/testing/widget/finders]
+Phase 41 is a runnable Flutter vertical slice inside the independent `mobile_v2` package, not a port of old `mobile/` surfaces. It starts directly on one D.4.5 `shoes_on_room_v1` Room Support projection while preserving the ritual-first, low-pressure, non-scoring product semantics and fake Governor `allow_activation` evidence.
 
-The product truth is locked to `shoes_on_room_v1` / `出门小声音` / `Shoes on.` and a fake Governor `allow_activation` decision. [VERIFIED: 41-CONTEXT.md] The planner should avoid backend, AI, Strategy Pack/Graph, Runtime Agent, transfer metrics, bottom navigation, multi-room organization, production Garden state transitions, and old phrase/activity/completion/streak/Garden-growth language. [VERIFIED: ROADMAP.md + 41-CONTEXT.md]
-
-**Primary recommendation:** Build `mobile_v2` as a self-contained Flutter slice with no new packages: local fixture/domain types, `BabyTalkV2App`, lens widgets, one in-memory controller, widget/smoke tests, and a final gate that includes `cd mobile_v2 && flutter test`, Phase 39 semantic firewall, and Phase 40 Activation Governor / Garden Memory verifier guards. [VERIFIED: mobile_v2/pubspec.yaml + tool/verify_mobile_v2_semantic_firewall.dart + tool/verify_activation_governor_contract.dart]
+**Current recommendation:** Build the locked pure-Dart `InteractionEngine` and immutable runtime contracts first, install only `crypto:^3.0.7` in the core plan, add thin DTO/mock API/repository adapters, then install and smoke-test `flutter_riverpod:^3.3.0` in Plan 41-08 for app composition and one whole-ProductSnapshot session Notifier. The UI exposes reaction selection only while all five channels remain executable. Final gates include focused/full `mobile_v2` tests, the Phase 39 semantic firewall, and the Phase 40 Activation Governor verifier.
 
 ## Project Constraints (from AGENTS.md)
 
@@ -163,15 +164,15 @@ The product truth is locked to `shoes_on_room_v1` / `出门小声音` / `Shoes o
 
 | Capability | Primary Tier | Secondary Tier | Rationale |
 |------------|--------------|----------------|-----------|
-| Runnable `mobile_v2` app shell | Mobile Client | Tooling / Tests | Phase 41 acceptance requires Flutter app entrypoint and runnable page/state flow inside `mobile_v2`. [VERIFIED: ROADMAP.md] |
-| Ritual Room fixture truth | Mobile Client | Test Fixtures | Phase 41 uses local fake data only; backend/AI/Pack/Graph/Runtime are out of scope. [VERIFIED: 41-CONTEXT.md] |
-| First Entry lens | Mobile Client | Local State | It creates/opens only `shoes_on_room_v1`, not recurring onboarding or profile setup. [VERIFIED: 41-CONTEXT.md] |
-| Today Orientation lens | Mobile Client | Local State | It orients the parent to the one active room and current small job, not a task dashboard. [VERIFIED: 41-CONTEXT.md] |
-| Room Support lens | Mobile Client | Optional Local Playback Stub | It helps the parent say `Shoes on.` naturally once; no recording/scoring/child response requirement. [VERIFIED: 41-CONTEXT.md + 41-UI-SPEC.md] |
-| Memory Lens | Mobile Client | Local Placeholder State | It asks one low-pressure parent prompt and can update local UI only; production Garden Memory transition mechanics are deferred. [VERIFIED: 41-CONTEXT.md] |
-| Semantic firewall | Tooling / CI | Mobile Client | Existing verifier scans `mobile_v2/lib` for old phrase/activity/completion/streak/Garden terms and forbidden imports. [VERIFIED: tool/verify_mobile_v2_semantic_firewall.dart] |
-| Activation/Garden guard | Tooling / CI | Mobile Client | Existing verifier scans `mobile_v2/lib` for activation-intent copy without Governor decision and Garden pressure semantics. [VERIFIED: tool/verify_activation_governor_contract.dart] |
-| Backend/API/AI integration | Deferred Backend / Runtime | — | Explicitly out of scope for Phase 41. [VERIFIED: ROADMAP.md + 41-CONTEXT.md] |
+| Runnable `mobile_v2` app shell | Mobile Client | Tooling / Tests | One root `ProviderScope` opens the direct D.4.5 Room Support screen. |
+| Interaction authority | Pure-Dart Domain | In-memory Runtime | `InteractionEngine` alone owns initialize/advance, consistency, atomic commit, and replay. |
+| Stable ritual content | Data Adapter | Local Fixture | `MockRitualContentApi -> mapper -> RitualRoomRepository` supplies `shoes_on` content independently of interaction authority. |
+| Interaction transport | Data Adapter | Pure-Dart Domain | Strict five-channel DTOs, mapper, mock API, and repository delegate to `InteractionEnginePort` without policy or state mutation. |
+| Riverpod composition | App Composition | Presentation | Plan 41-08 installs Riverpod; read-only providers compose dependencies and one later Notifier projects whole snapshots plus transient UI state. |
+| Room Support projection | Presentation | Domain Snapshot | D.4.5 renders one current utterance/action cue/listen affordance, reaction-only controls, preserved submitting state, retry, reassurance, and quiet exit. |
+| Semantic firewall | Tooling / CI | Mobile Client | Existing verifier rejects old phrase/activity/completion/streak/Garden semantics and forbidden imports. |
+| Activation/Garden guard | Tooling / CI | Mobile Client | Existing verifier preserves Governor authority and rejects pressure semantics. |
+| Deployed backend/LLM/persistence | Deferred | — | Explicitly out of Phase 41; in-process mock boundaries are required, not forbidden. |
 
 ## Standard Stack
 
@@ -198,162 +199,64 @@ The product truth is locked to `shoes_on_room_v1` / `出门小声音` / `Shoes o
 
 | Instead of | Could Use | Tradeoff |
 |------------|-----------|----------|
-| Riverpod/GoRouter/codegen in Phase 41 | Plain Flutter local state and simple route/lens stack | `mobile_v2` currently has no Riverpod/GoRouter dependencies; adding them would require package legitimacy and overbuild a single-room slice. [VERIFIED: mobile_v2/pubspec.yaml] |
+| Riverpod with code generation or GoRouter | `flutter_riverpod:^3.3.0` without codegen, installed in Plan 41-08 | Riverpod is locked for composition/session orchestration; `riverpod_generator`, `build_runner`, hooks, Freezed, and routing expansion remain out of scope. |
 | Porting old `mobile` `PhraseCard` | Re-derived `FixedSoundDisplay` + optional `AudioPlayControl` | Old widget imports phrase model, completion state, reaction chips, and `phraseId`; only the visual/play affordance is safe as reference. [VERIFIED: mobile/lib/features/practice/presentation/widgets/phrase_card.dart] |
 | Root `flutter.cmd` | `cd mobile_v2 && flutter test` or direct SDK Flutter from `mobile_v2` | Root wrapper delegates into old `mobile/`, so it is wrong for `mobile_v2` package tests. [VERIFIED: flutter.cmd] |
 | Golden-heavy UI proof | Focused widget/smoke tests first | Phase 42 owns screenshot/golden polish; Phase 41 needs runnable flow proof. [VERIFIED: ROADMAP.md + 41-CONTEXT.md] |
 
-**Installation:** No new packages should be installed for Phase 41. [VERIFIED: mobile_v2/pubspec.yaml + 41-UI-SPEC.md]
+**Installation order:** Plan 41-01 installs only audited `crypto:^3.0.7`. Plan 41-08 later installs audited `flutter_riverpod:^3.3.0`, updates the lockfile and Riverpod-specific coding standards, creates the smoke test, and proves it before provider implementation. No code generation, networking, persistence, or additional UI package is approved.
 
 ## Package Legitimacy Audit
 
-Not applicable: Phase 41 should not install external packages. [VERIFIED: mobile_v2/pubspec.yaml + 41-UI-SPEC.md]
+Identity and policy details were retrieved from official package/project sources on 2026-06-19. Mutable download totals and publication-age claims are intentionally omitted.
 
-| Package | Registry | Age | Downloads | Source Repo | Verdict | Disposition |
-|---------|----------|-----|-----------|-------------|---------|-------------|
-| none | — | — | — | — | — | No install planned |
+| Package / owner plan | Official URL | Publisher / project | Source repository | License | Purpose and constraints | Verdict | Retrieved |
+|---|---|---|---|---|---|---|---|
+| `crypto` `^3.0.7` / core Plan 41-01 | `https://pub.dev/packages/crypto` | `dart.dev` / Dart core packages | `https://github.com/dart-lang/core/tree/main/pkgs/crypto` | BSD-3-Clause | Canonical SHA-256 event fingerprints only; no secrets, encryption, credentials, or raw-input retention | [VERIFIED] | 2026-06-19 |
+| `flutter_riverpod` `^3.3.0` / later Plan 41-08 | `https://pub.dev/packages/flutter_riverpod` | Riverpod / `rrousselGit/riverpod` | `https://github.com/rrousselGit/riverpod` | MIT | App composition and one transient session Notifier only; no codegen, hooks, Freezed, StateNotifier compatibility layer, domain/data imports, or second product-state authority | [VERIFIED] | 2026-06-19 |
 
-**Packages removed due to [SLOP] verdict:** none
-**Packages flagged as suspicious [SUS]:** none
+Both identities are approved for their named plans. Any different package, source, version family, generator, networking, or persistence dependency requires a new legitimacy audit before installation.
 
 ## Architecture Patterns
 
-### System Architecture Diagram
+The active architecture is defined by the three locked 2026-06-19 authorities. The former local-fixture -> four-lens controller diagram, `first_micro_ritual/` structure, and four-screen widget-flow example have been removed because they conflict with execution.
+
+### Active System Architecture
 
 ```text
-Local Phase 41 fixture
-  RitualRoom(shoes_on_room_v1)
-  ContextSeed(parent preparing shoes / child near door)
-  Joinability(action_bound + routine_ready)
-  FakeGovernorDecision(allow_activation)
-  GardenMemory(active)
-        |
-        v
-BabyTalkV2App / MaterialApp
-        |
-        v
-Lens controller or simple route stack
-        |
-        +--> First Entry
-        |      opens the first Ritual Room only
-        |
-        +--> Today Orientation
-        |      shows active room and one-small-sound framing
-        |
-        +--> Room Support
-        |      fixed sound + Chinese helper + action binding + no-response reassurance
-        |
-        +--> Memory Lens
-               one low-pressure prompt + local placeholder response only
-        |
-        v
-Validation gates
-  mobile_v2 widget flow tests
-  Phase 39 semantic firewall
-  Phase 40 Activation/Garden verifier
+shoes_on.json -> MockRitualContentApi -> mapper -> RitualRoomRepository
+                                             |
+raw InputEvent -> InteractionEngine authority + private runtime store
+                     | atomic ProductSnapshot result
+                     v
+              DTO <-> MockInteractionApi <-> InteractionRepository
+                                             |
+Plan 41-08 ProviderScope/read-only providers + input factory + CapabilityMask
+                                             |
+one RitualRoomSessionNotifier carrying whole ProductSnapshot + transient UI
+                                             |
+direct D.4.5 Ritual Room Support screen (reaction controls visible only)
 ```
 
-### Recommended Project Structure
+### Active Project Structure
 
-```text
-mobile_v2/
-├── lib/
-│   ├── main.dart                         # runApp entrypoint
-│   ├── baby_talk_v2_app.dart             # MaterialApp shell
-│   ├── vnext_semantic_boundary.dart      # keep existing anchors
-│   └── first_micro_ritual/
-│       ├── first_micro_ritual_fixture.dart
-│       ├── ritual_room_models.dart
-│       ├── ritual_lens_controller.dart
-│       └── widgets/
-│           ├── first_entry_lens.dart
-│           ├── today_orientation_lens.dart
-│           ├── room_support_lens.dart
-│           ├── memory_lens.dart
-│           └── ritual_room_surface.dart
-└── test/
-    ├── first_micro_ritual_flow_test.dart
-    ├── first_micro_ritual_fixture_test.dart
-    └── accessibility_smoke_test.dart
-```
+Production code uses `mobile_v2/lib/features/ritual_room/{domain,data,presentation}` plus `mobile_v2/lib/app/providers` and `mobile_v2/lib/app/input`. Tests mirror those paths under `mobile_v2/test`. Do not create `first_micro_ritual/`, lens-controller, First Entry, Today Orientation, or four-screen flow files.
 
-This structure is recommended, not locked; names can change as long as runtime truth stays under `mobile_v2/lib` and tests stay inside `mobile_v2/test` or existing root vNext test paths. [VERIFIED: 41-CONTEXT.md]
+### Pattern 1: Separate stable content from interaction authority
 
-### Pattern 1: Single Fixture, Future-Compatible Shape
+`RitualRoomRepository` owns stable `shoes_on` content. `InteractionEngine` owns lifecycle, revision, consistency, replay, strategy, and utterance evolution. Neither may absorb the other responsibility.
 
-**What:** Define one local fixture for `shoes_on_room_v1` with nested Context Seed, Joinability, fake Governor decision, and Garden Memory state. [VERIFIED: 41-CONTEXT.md]
+### Pattern 2: Keep adapters and Riverpod thin
 
-**When to use:** Use it as the only data source for Phase 41 screens and tests. [VERIFIED: 41-CONTEXT.md]
+DTOs, mappers, MockInteractionApi, and InteractionRepository adapt every result without deriving policy or mutating snapshots. Riverpod is installed only in Plan 41-08, remains in app composition/bootstrap, and exposes one later mutable session Notifier.
 
-**Example:**
-```dart
-// Source: 41-CONTEXT.md fixture decisions, re-derived for planning only. [VERIFIED: 41-CONTEXT.md]
-const firstRitualRoomFixture = RitualRoomFixture(
-  roomId: 'shoes_on_room_v1',
-  roomName: '出门小声音',
-  fixedSound: 'Shoes on.',
-  routineAnchor: '出门穿鞋',
-  actionBinding: '拿鞋、套脚、轻拍鞋',
-  toneHint: 'short, warm, action-bound',
-  childNoResponseRule: '宝宝不用跟读、回答或看 app；父母继续穿鞋动作即可',
-  softVariants: ['One shoe. Two shoes.', 'Tap tap.'],
-  fakeGovernorDecision: 'allow_activation',
-  gardenMemoryState: 'active',
-);
-```
+### Pattern 3: Test the direct Room Support loop and all hidden engine channels
 
-### Pattern 2: In-Memory Lens Controller
-
-**What:** Use one small local state holder for lens position, support-seen state, and selected Memory Lens option. [VERIFIED: Context7 Flutter docs]
-
-**When to use:** Use it when implementing the guided path without bottom navigation or global app state. [VERIFIED: 41-CONTEXT.md]
-
-**Example:**
-```dart
-// Source: Flutter widget testing supports pumpWidget/tap/pump for local state flows. [CITED: https://docs.flutter.dev/cookbook/testing/widget/tap-drag]
-enum RitualLens { firstEntry, todayOrientation, roomSupport, memoryLens }
-
-class RitualLensState {
-  const RitualLensState({
-    this.currentLens = RitualLens.firstEntry,
-    this.hasVisitedSupport = false,
-    this.memoryChoice,
-  });
-
-  final RitualLens currentLens;
-  final bool hasVisitedSupport;
-  final String? memoryChoice;
-}
-```
-
-### Pattern 3: Widget Test the Whole Behavioral Path
-
-**What:** Pump the app, assert the first lens, tap the CTA, pump, and assert each subsequent lens and copy. [CITED: https://docs.flutter.dev/cookbook/testing/widget/finders]
-
-**When to use:** Use as Phase 41’s main runnable proof before visual polish. [VERIFIED: ROADMAP.md]
-
-**Example:**
-```dart
-// Source: Flutter official widget testing docs. [CITED: https://docs.flutter.dev/cookbook/testing/widget/finders]
-testWidgets('walks first Ritual Room through all four lenses', (tester) async {
-  await tester.pumpWidget(const BabyTalkV2App());
-
-  expect(find.text('出门小声音'), findsOneWidget);
-  await tester.tap(find.text('进入小声音房间'));
-  await tester.pumpAndSettle();
-
-  expect(find.text('试试这句小声音'), findsOneWidget);
-  await tester.tap(find.text('试试这句小声音'));
-  await tester.pumpAndSettle();
-
-  expect(find.text('Shoes on.'), findsOneWidget);
-  expect(find.text('宝宝不用跟读，也不用回应。你继续穿鞋就好。'), findsOneWidget);
-});
-```
+Widget tests start directly on Room Support and cover loading, ready, submitting-with-last-snapshot, revised result, retry, payload substitution, layout, and accessibility. Domain/data tests execute reaction, voice transcript, free text, future signal, and strategy preference even though only reaction controls are visible.
 
 ### Anti-Patterns to Avoid
 
-- **Old surface reproduction:** Do not rebuild Onboarding/Home/Practice/Garden as old page structures or global tabs; they are semantic lenses over one room. [VERIFIED: 41-CONTEXT.md]
+- **Old surface reproduction:** Do not rebuild Onboarding/Home/Practice/Garden or the historical First Entry/Today Orientation/Memory Lens chain; Phase 41 opens direct Room Support.
 - **Progress language:** Do not use completion, score, streak, growth, unlock, reward, `phraseId`, `activityId`, `completedPhraseCount`, or `nextPhraseId` in runtime truth. [VERIFIED: 41-CONTEXT.md + tool/verify_mobile_v2_semantic_firewall.dart]
 - **Ungoverned activation copy:** Copy such as “今天试试这个声音” can trigger Phase 40 verifier unless it is tied to an explicit Governor decision; use locked safer copy from UI-SPEC. [VERIFIED: tool/verify_activation_governor_contract.dart + 41-UI-SPEC.md]
 - **Production Garden transition:** Memory option selection may update only a local placeholder response, not `familiar`, `resting`, or `belongs_to_family` truth. [VERIFIED: 41-CONTEXT.md + 40-SPEC.md]
@@ -363,11 +266,11 @@ testWidgets('walks first Ritual Room through all four lenses', (tester) async {
 
 | Problem | Don't Build | Use Instead | Why |
 |---------|-------------|-------------|-----|
-| Navigation shell | Bottom nav, drawer, global mentor FAB, multi-room switcher | In-memory lens state or minimal route stack | Phase 41 is a single guided room slice. [VERIFIED: 41-CONTEXT.md] |
-| State architecture | Riverpod/provider/codegen stack | One local state holder or `StatefulWidget` controller | `mobile_v2` has no such dependencies and Phase 43 owns hardened state backbone. [VERIFIED: mobile_v2/pubspec.yaml + ROADMAP.md] |
-| Data source | Backend/API/AI/real Pack/Graph/Runtime | Local fixture/fake data | Backend and real runtime systems are explicitly out of scope. [VERIFIED: 41-CONTEXT.md] |
+| Navigation shell | Bottom nav, drawer, global mentor FAB, multi-room switcher, four-screen route chain | Direct D.4.5 Room Support screen | Phase 41 is one screen with multiple interaction states. |
+| State architecture | ViewModel + Notifier dual truth, generated Riverpod, or local lens controller | Plan 41-08 read-only providers plus one later whole-ProductSnapshot session Notifier | Riverpod is required but must remain composition/transient UI orchestration, never a second domain authority. |
+| Data source | Deployed backend/AI/real Pack/Graph/Runtime or widget literals | Required local fixture plus Mock APIs, DTO mappers, repositories, and pure-Dart engine | In-process adapter boundaries are Phase 41 scope; deployed integrations are not. |
 | Audio engine | TTS/audio playback implementation | Optional button stub or no-op local callback | Acceptance needs support UI, not real audio. [VERIFIED: 41-UI-SPEC.md] |
-| Garden state machine | Production transfer transitions | Local visual placeholder / gentle response | Phase 41 Memory Lens must not implement full Garden Memory mechanics. [VERIFIED: 41-CONTEXT.md] |
+| Garden state machine | Production transfer transitions or Memory Lens result flow | Fake Governor/Garden evidence in content plus no production transition UI | Phase 41 direct Room Support must remain non-scoring and transition-free. |
 | Semantic scanning | Ad hoc grep-only proof | Existing Phase 39/40 Dart verifiers | Repo already owns fail-closed verifiers for this boundary. [VERIFIED: tool/verify_mobile_v2_semantic_firewall.dart + tool/verify_activation_governor_contract.dart] |
 
 **Key insight:** the implementation is technically small; the planning risk is semantic regression into old task/progress/scoring product truth. [VERIFIED: 41-CONTEXT.md + Phase 39/40 verifiers]
@@ -386,17 +289,17 @@ testWidgets('walks first Ritual Room through all four lenses', (tester) async {
 **How to avoid:** Build a fresh `FixedSoundDisplay` and optional `AudioPlayControl`; copy no model imports or keys tied to phrase IDs. [VERIFIED: 41-CONTEXT.md]
 **Warning signs:** Phase 39 verifier reports banned runtime terms under `mobile_v2/lib`. [VERIFIED: tool/verify_mobile_v2_semantic_firewall.dart]
 
-### Pitfall 3: Memory Lens Becomes a Result Screen
-**What goes wrong:** The Garden lens frames the parent selection as completion, success, score, progress, growth, or state promotion. [VERIFIED: 40-SPEC.md]
-**Why it happens:** Old Garden semantics and common app patterns push toward visible achievement feedback. [VERIFIED: 39-SPEC.md + DESIGN.md]
-**How to avoid:** Ask only the locked low-pressure prompt and show a local narrative response; do not name production transfer states in UI. [VERIFIED: 41-CONTEXT.md]
-**Warning signs:** Copy includes `完成`, `进度`, `积分`, `连胜`, `解锁`, `成长值`, `reward`, or `score`. [VERIFIED: 41-UI-SPEC.md + tool/verify_activation_governor_contract.dart]
+### Pitfall 3: Garden/result semantics leak into Room Support
+**What goes wrong:** The direct Room Support screen frames reaction or quiet exit as completion, success, score, progress, growth, or state promotion.
+**Why it happens:** Old Garden/result-screen semantics and common app patterns push toward visible achievement feedback.
+**How to avoid:** Keep reaction choices neutral, retain fake Governor/Garden evidence in the content boundary only, and implement no Memory Lens route or production transition state.
+**Warning signs:** Copy includes `完成`, `进度`, `积分`, `连胜`, `解锁`, `成长值`, `reward`, or `score`, or navigation opens a result screen.
 
-### Pitfall 4: Overbuilding Phase 43 Early
-**What goes wrong:** Planner adds repositories, adapters, persistence, event schema, or multi-room state backbone in Phase 41. [VERIFIED: ROADMAP.md]
-**Why it happens:** The fixture is future-compatible, which can be mistaken for production architecture scope. [VERIFIED: 41-CONTEXT.md]
-**How to avoid:** Keep the required in-process API interface and mock adapter small and replaceable; defer deployed networking, persistence, and hardened adapter/state infrastructure to Phase 43+. [VERIFIED: ROADMAP.md]
-**Warning signs:** Tasks mention Isar, HTTP clients, credentials, service discovery, Pack IDs as runtime truth, production Garden store, or multi-room rendering. [VERIFIED: ROADMAP.md + 41-CONTEXT.md]
+### Pitfall 4: Mistaking required adapter boundaries for deferred infrastructure
+**What goes wrong:** An executor omits DTOs, Mock APIs, repositories, InteractionEngine runtime contracts, or Riverpod composition because older research called them later work.
+**Why it happens:** The 2026-06-16 scope predates the locked Interaction Engine and Flutter/Riverpod plans.
+**How to avoid:** Implement the required in-process engine, DTO/API/repository, and Riverpod boundaries exactly as planned; defer only deployed networking, persistence, credentials, production Pack/Graph/Runtime, and multi-room infrastructure.
+**Warning signs:** Direct fixture-to-widget flow, a local lens controller, repository-free transport, or Riverpod postponed beyond Plan 41-08.
 
 ## Code Examples
 
@@ -445,9 +348,9 @@ void main() => root_test.main();
 | Old Approach | Current Approach | When Changed | Impact |
 |--------------|------------------|--------------|--------|
 | Phrase/activity/completion/streak/Garden growth product loop | Family English Micro-ritual with conservative activation and parent-confirmed memory | M010 restart, Phase 39/40 | Phase 41 must prove the new loop in a runnable app, not old surface parity. [VERIFIED: 39-SPEC.md + 40-SPEC.md + ROADMAP.md] |
-| Home/Practice/Garden as app surfaces | First Entry / Today Orientation / Room Support / Memory Lens as lenses over one Ritual Room | Phase 41 discuss context | Planner should assign tasks by lens behavior, not old feature folders. [VERIFIED: 41-CONTEXT.md] |
-| Docs/proof-only closure | Runnable Flutter construction evidence | Roadmap revision on 2026-06-16 | Acceptance must include app entrypoint, state flow, tests, and verifiers. [VERIFIED: ROADMAP.md + STATE.md] |
-| Real Pack/Graph/Runtime before UI | Local fake data first, adapters later | Roadmap revision on 2026-06-16 | Phase 44/45 own Pack/Graph/Runtime/metrics readiness after the slice exists. [VERIFIED: ROADMAP.md] |
+| Home/Practice/Garden or four sequential lenses | Direct D.4.5 Room Support projection with multiple states | 2026-06-19 locked UI/context correction | Tests start on one screen; First Entry and Today Orientation are absent. |
+| Static fixture/controller slice | Pure-Dart InteractionEngine plus thin adapters and one Riverpod session projection | 2026-06-19 locked engine plans | All five channels execute; only reaction controls are visible. |
+| Real Pack/Graph/LLM/persistence before UI | Local deterministic engine and in-process Mock APIs first | 2026-06-19 locked scope | Production services remain deferred while required adapter contracts ship now. |
 
 **Deprecated/outdated:** old `mobile/` product semantics; old phrase-completion Garden growth; old bottom navigation/multi-surface app shell for this phase; docs-only acceptance for Phase 41. [VERIFIED: 39-SPEC.md + 41-CONTEXT.md]
 
@@ -455,7 +358,7 @@ void main() => root_test.main();
 
 | # | Claim | Section | Risk if Wrong |
 |---|-------|---------|---------------|
-| A1 | A plain `StatefulWidget` or tiny controller is enough for Phase 41 local lens state. [ASSUMED] | Standard Stack / Patterns | Low; if implementation complexity grows, Phase 43 can harden state, but Phase 41 should stay small. |
+| A1 | Historical plain-controller guidance is superseded; Plan 41-08 installs Riverpod and Plan 41-09 creates the sole mutable session Notifier. [LOCKED] | Locked Supersession / Architecture Patterns | Execution must not substitute a StatefulWidget/local lens controller as product state authority. |
 | A2 | Real audio playback is not required because UI-SPEC marks AudioPlayControl optional and Phase 41 acceptance centers on support flow. [ASSUMED] | Don't Hand-Roll | Medium; if user expects audible `Shoes on.`, planner must add asset/TTS scope and package checks. |
 | A3 | Flutter CLI timeouts are environment/tool-cache issues, not evidence that Flutter is unavailable. [ASSUMED] | Environment Availability | Medium; executor must prove command health before claiming validation. |
 
@@ -482,48 +385,37 @@ void main() => root_test.main();
 | `gsd-tools` shim | phase metadata/research-plan | yes | local `gsd-tools.cjs`; no `--version` flag | Invoke through `node C:\Users\zhang\.codex\gsd-core\bin\gsd-tools.cjs`. [VERIFIED: shell output] |
 | Research cache store | GSD digest caching | blocked by sandbox | writes under `C:\Users\zhang\.gsd\research-cache` | Not required for artifact; note cache persistence failed. [VERIFIED: shell output] |
 
-**Missing dependencies with no fallback:** none confirmed. [VERIFIED: environment probes]
+**Planned dependencies:** `crypto:^3.0.7` is installed by Plan 41-01; `flutter_riverpod:^3.3.0` is intentionally absent until Plan 41-08 installs it and passes `riverpod_smoke_test.dart`.
 
-**Missing dependencies with fallback:** Flutter/Dart CLI execution needs Wave 0 health work because `flutter --version`, direct `flutter.bat --version`, and `dart run tool/...` did not complete cleanly in this sandbox. [VERIFIED: shell output]
+**Command-health dependency:** Flutter/Dart CLI execution still requires the Plan 41-01 command-health proof and direct SDK fallback map before implementation claims validation success.
 
 ## Validation Architecture
 
-### Test Framework
+`41-VALIDATION.md` is the active per-task command and requirement map. It supersedes the historical `first_micro_ritual` test names, four-screen tap-through checks, and Wave 0 app-shell gaps formerly listed here.
 
-| Property | Value |
-|----------|-------|
-| Framework | Flutter widget tests using `flutter_test`; existing guard CLIs are Dart verifier tools. [VERIFIED: mobile_v2/pubspec.yaml + tool files] |
-| Config file | `mobile_v2/pubspec.yaml`; root `flutter.cmd` is not suitable for `mobile_v2` because it delegates to old `mobile/`. [VERIFIED: mobile_v2/pubspec.yaml + flutter.cmd] |
-| Quick run command | `cd mobile_v2 && flutter test test/first_micro_ritual_flow_test.dart` after Flutter CLI health is resolved. [VERIFIED: Flutter docs + mobile_v2/pubspec.yaml] |
-| Full suite command | `cd mobile_v2 && flutter test` plus root verifier gates. [VERIFIED: ROADMAP.md + tool files] |
-| Guard command | `dart run tool/verify_mobile_v2_semantic_firewall.dart` and `dart run tool/verify_activation_governor_contract.dart`, or direct SDK equivalents if `dart run` remains blocked. [VERIFIED: tool files + shell output] |
+### Active test layers
 
-### Phase Requirements -> Test Map
+1. Immutable InputEvent/ProductSnapshot/AdvanceResult contracts.
+2. Four deterministic pipeline modules.
+3. Fingerprint, consistency, replay, direct replay, and serialized runtime store.
+4. InteractionEngine lifecycle/conflict/atomicity/concurrency/privacy authority.
+5. Stable content DTO/API/repository path.
+6. Five-channel transport DTO/mapper path.
+7. Thin InteractionEnginePort API/repository adapters and parity.
+8. Plan 41-08 Riverpod dependency/smoke, read-only providers, input factory, and CapabilityMask isolation.
+9. One whole-ProductSnapshot session Notifier.
+10. Direct D.4.5 widgets/app, accessibility, semantic firewall, Activation Governor verifier, and final proof artifacts.
 
-| Req ID | Behavior | Test Type | Automated Command | File Exists? |
-|--------|----------|-----------|-------------------|--------------|
-| R058 | App presents one low-pressure family micro-ritual loop, not course/check-in/content volume. | widget flow + copy assertions | `cd mobile_v2 && flutter test test/first_micro_ritual_flow_test.dart` | No - Wave 0 |
-| R059 | Runtime truth is Ritual Room / micro-ritual fields, not phrase/activity/completion progress. | fixture unit + semantic firewall | `dart run tool/verify_mobile_v2_semantic_firewall.dart` | Guard exists; new app tests missing |
-| R060 | Context Seed and Joinability are displayed/held as evidence/hypothesis only, not diagnosis or auto-task trigger. | fixture unit | `cd mobile_v2 && flutter test test/first_micro_ritual_fixture_test.dart` | No - Wave 0 |
-| R063 | Initial active room is justified by fake Governor `allow_activation`; no ungoverned activation copy appears. | source verifier | `dart run tool/verify_activation_governor_contract.dart` | Guard exists |
-| R064 | Memory Lens asks low-pressure parent prompt and does not score/complete/promote production Garden state. | widget flow + source verifier | `cd mobile_v2 && flutter test test/first_micro_ritual_flow_test.dart` | No - Wave 0 |
-| R065 | No Explore/Activate confusion or multi-candidate activation flow is introduced. | source verifier + widget assertions | `dart run tool/verify_activation_governor_contract.dart` | Guard exists |
+### Active requirement mapping
 
-### Sampling Rate
+| Requirement | Mechanical proof |
+|---|---|
+| R058/R059 | ritual-first content and widget semantics; no course/phrase/progress truth |
+| R060 | observed-versus-interpreted engine tests, privacy scans, whole-snapshot boundaries |
+| R063/R064/R065 | fake Governor evidence plus Phase 40 verifier and no production Garden transitions |
+| R067 | five model/DTO/factory/repository channels, mixed revision sequence, reaction-only mask isolation |
 
-- **Per task commit:** Run the focused `mobile_v2` widget/fixture test for changed lens or fixture. [CITED: https://docs.flutter.dev/cookbook/testing/widget/tap-drag]
-- **Per wave merge:** Run `cd mobile_v2 && flutter test`, then the Phase 39 and Phase 40 verifier CLIs. [VERIFIED: ROADMAP.md]
-- **Phase gate:** Full `mobile_v2` test suite green, Phase 39 semantic firewall green, Phase 40 Activation/Garden verifier green, and a source assertion that no backend/AI/Pack/Graph/Runtime/metrics code was added for this phase. [VERIFIED: 41-CONTEXT.md]
-
-### Wave 0 Gaps
-
-- [ ] `mobile_v2/lib/main.dart` - runnable entrypoint. [VERIFIED: mobile_v2 file list]
-- [ ] `mobile_v2/lib/baby_talk_v2_app.dart` - `MaterialApp` app shell. [CITED: https://docs.flutter.dev/learn/pathway/tutorial/create-an-app]
-- [ ] `mobile_v2/lib/first_micro_ritual/*` - local fixture, models, lens state, and widgets. [VERIFIED: 41-CONTEXT.md]
-- [ ] `mobile_v2/test/first_micro_ritual_flow_test.dart` - tap-through lens path. [CITED: https://docs.flutter.dev/cookbook/testing/widget/finders]
-- [ ] `mobile_v2/test/first_micro_ritual_fixture_test.dart` - local fixture fields and forbidden old semantics assertions. [VERIFIED: 41-CONTEXT.md]
-- [ ] `mobile_v2/test/accessibility_smoke_test.dart` - tap target/label checks if practical. [CITED: https://docs.flutter.dev/ui/accessibility/accessibility-testing]
-- [ ] Flutter command-health task - resolve current CLI timeout / telemetry-cache issue before final validation. [VERIFIED: shell output]
+All PLAN `<automated>` bodies are direct current-PowerShell scripts. RED gates retain captured `Start-Process` output assertions; GREEN/final gates remain fail-fast through `$LASTEXITCODE`; negative source assertions throw on matches.
 
 ## Security Domain
 
@@ -535,7 +427,7 @@ void main() => root_test.main();
 | V3 Session Management | no | No session state or tokens in scope. [VERIFIED: 41-CONTEXT.md] |
 | V4 Access Control | yes, semantic authority boundary | Fake `allow_activation` must be explicit; app must not create new active rituals without Governor authority. [VERIFIED: 40-SPEC.md + 41-CONTEXT.md] |
 | V5 Input Validation | yes | Validate fixture values and UI copy through widget tests and verifiers; reject old semantics and pressure language. [VERIFIED: tool/verify_mobile_v2_semantic_firewall.dart + tool/verify_activation_governor_contract.dart] |
-| V6 Cryptography | no | Do not add secrets, crypto, secure storage, or backend credentials. [VERIFIED: 41-CONTEXT.md] |
+| V6 Cryptography | limited | `crypto:^3.0.7` is allowed only for canonical SHA-256 fingerprints; it does not add secrets, encryption, secure storage, credentials, or raw-input retention. |
 
 ### Known Threat Patterns for This Stack
 
@@ -545,12 +437,15 @@ void main() => root_test.main();
 | Ungoverned activation intent | Elevation of Privilege | Phase 40 source scan and explicit fake Governor decision. [VERIFIED: tool/verify_activation_governor_contract.dart] |
 | Parent shame/pressure from memory prompt | Safety / Repudiation | Low-pressure locked prompt/options and no production state promotion. [VERIFIED: 41-CONTEXT.md] |
 | Child learning inference | Safety / Privacy | No baby response requirement, no scoring, no proof of learning. [VERIFIED: 41-CONTEXT.md] |
-| Hidden external dependency | Supply Chain | No new packages; use only the repo-owned in-process mock API and payload. [VERIFIED: mobile_v2/pubspec.yaml] |
+| Hidden external dependency | Supply Chain | Install only audited `crypto:^3.0.7` in Plan 41-01 and audited `flutter_riverpod:^3.3.0` in Plan 41-08; reject codegen, networking, persistence, or unreviewed packages. |
 
 ## Sources
 
 ### Primary (HIGH confidence project sources)
-- `.planning/phases/41-mobile-v2-runnable-vertical-slice/41-CONTEXT.md` - locked decisions, fixture truth, flow, acceptance. [VERIFIED: file read]
+- `.planning/phases/41-mobile-v2-runnable-vertical-slice/41-INTERACTION-ENGINE-CONTRACT.md` - later locked engine authority, state, lifecycle, replay, privacy, capability, and adapter contract.
+- `docs/superpowers/plans/2026-06-19-interaction-engine-v1.md` - later locked pure-Dart core and crypto execution order.
+- `docs/superpowers/plans/2026-06-19-interaction-engine-flutter-riverpod.md` - later locked Riverpod install, smoke, composition, repository, and one-Notifier plan.
+- `.planning/phases/41-mobile-v2-runnable-vertical-slice/41-CONTEXT.md` - current direct Room Support, D.4.5, fixture/content, and scope decisions.
 - `.planning/phases/41-mobile-v2-runnable-vertical-slice/41-UI-SPEC.md` - design, copy, interaction, accessibility contract. [VERIFIED: file read]
 - `.planning/ROADMAP.md` - construction rule and Phase 41/42/43 boundaries. [VERIFIED: file read]
 - `.planning/REQUIREMENTS.md` - R058/R059/R060/R063/R064/R065 requirement text and validation state. [VERIFIED: file read]
@@ -575,7 +470,7 @@ void main() => root_test.main();
 
 **Confidence breakdown:**
 - Standard stack: MEDIUM - current local `mobile_v2` package and Flutter docs are verified, but CLI execution is unhealthy in this sandbox. [VERIFIED: mobile_v2/pubspec.yaml + Context7 + shell output]
-- Architecture: HIGH - Phase 41 context, UI-SPEC, and prior Phase 39/40 contracts are explicit and machine-guarded. [VERIFIED: 41-CONTEXT.md + 41-UI-SPEC.md + verifier files]
+- Architecture: HIGH - the 2026-06-19 Interaction Engine contract and two implementation plans supersede the historical architecture while current context/UI and Phase 39/40 verifiers preserve product boundaries.
 - Pitfalls: HIGH - old semantics and verifier failure modes are directly visible in repo files. [VERIFIED: old mobile files + verifier files]
 - Environment: MEDIUM - SDK files and versions are present, but command execution requires Wave 0 remediation. [VERIFIED: shell output]
 

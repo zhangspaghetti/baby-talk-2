@@ -300,7 +300,7 @@ this schematic:
 - [x] Document status is `approved`.
 - [x] Approved prototype is stored and linked in the workspace.
 - [x] Approved static `shoes_on` illustration exists at the manifest path.
-- [x] Plans 41-03, 41-04, and 41-05 reference and enforce D.4.5 plus the approved static illustration.
+- [x] Plans 41-01, 41-10, and 41-11 hard-assert and enforce D.4.5 plus the approved static illustration.
 
 Discarded ImageGen variants remain review history only. Executors must use the
 workspace D.4.5 image and approved static illustration, not earlier thread

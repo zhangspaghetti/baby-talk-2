@@ -103,32 +103,48 @@ Plans:
 
 ### Phase 41: mobile_v2 可运行 Ritual Room Vertical Slice
 
-**Goal:** With the approved D.4.5 visual prototype and static `shoes_on` asset, build a runnable Flutter `mobile_v2` vertical slice of the long-term Ritual Interaction Engine. Stable `shoes_on` room content loads through the content repository; every normalized input channel (reaction, voice transcript, free text, future signal, strategy preference), accumulated interaction revision, strategy metadata, and current speakable utterance advance through `MockRitualInteractionApi -> DTO -> mapper -> interaction repository -> domain snapshot -> controller`. The mobile UI is a restricted projection that visibly opens reaction selection only; later UI/input adapters can open other channels without changing the engine contract.
+**Goal:** With the approved D.4.5 visual prototype and static `shoes_on` asset, build a runnable Flutter `mobile_v2` vertical slice of the long-term Ritual Interaction Engine. Stable `shoes_on` room content loads through the content repository; raw reaction, voice transcript, free text, future signal, and strategy-preference events pass through the pure-Dart `InteractionEngine` authority into an atomically committed `ProductSnapshot + ConsistencyState + ReplayJournal`, then through thin MockInteractionApi/DTO/repository adapters into one Riverpod `RitualRoomSessionNotifier`. The mobile UI renders ProductSnapshot as a restricted projection that visibly exposes reaction selection only; later UI/input adapters can open other channels without changing engine lifecycle, version, conflict, replay, or state-authority contracts.
 **Architecture authority:** `.planning/phases/41-mobile-v2-runnable-vertical-slice/41-INTERACTION-ENGINE-CONTRACT.md`
+**Locked implementation authorities:** `docs/superpowers/plans/2026-06-19-interaction-engine-v1.md`; `docs/superpowers/plans/2026-06-19-interaction-engine-flutter-riverpod.md`
 **Requirements**: R058, R059, R060, R063, R064, R065, R067
 **Depends on:** Phase 40
-**Plans:** 5 plans
+**Plans:** 11 plans
 Plans:
 
 **Wave 0**
 
-- [ ] 41-01-PLAN.md — Enforce the approved-prototype/static-asset gate, then establish `mobile_v2` Flutter/Dart command-health proof and final gate map.
+- [ ] 41-01-PLAN.md — Hard-gate D.4.5/static assets, install only audited crypto, record command health, and TDD immutable engine models.
 
-**Wave 1** *(blocked on Wave 0 completion)*
+**Wave 1** *(four independent plans after Wave 0)*
 
-- [ ] 41-02-PLAN.md — TDD the capability-complete Ritual Interaction API/DTO/mapper/repository/domain snapshot boundary, executable handling of all normalized input channels, accumulated revision/strategy evolution, mock responses, asset registration, and loading/submitting/error states.
+- [ ] 41-02-PLAN.md — TDD the four pure deterministic Normalize/Accumulator/Strategy/Utterance modules.
+- [ ] 41-03-PLAN.md — TDD fingerprinting, consistency truth, evidence-only replay, direct replay, and serialized runtime storage.
+- [ ] 41-05-PLAN.md — TDD the independent shoes_on content DTO/mapper/API/repository path and governance evidence.
+- [ ] 41-06-PLAN.md — TDD strict five-channel interaction DTOs and schema/privacy mapper contracts.
 
-**Wave 2** *(blocked on Wave 1 completion)*
+**Wave 2** *(blocked on 41-02 and 41-03)*
 
-- [ ] 41-04-PLAN.md — Build the approved D.4.5 single-screen Interaction Engine projection: side-by-side stable Ritual identity, one current utterance, one action cue, text-only reaction tray/sheet, preserved submitting state, in-place response updates, one audio affordance, reassurance, quiet exit, and optional API-owned Memory Lens.
+- [ ] 41-04-PLAN.md — TDD InteractionEngine as the sole lifecycle/conflict/atomic-commit authority with one-clock-read and direct-replay integration.
 
-**Wave 3** *(blocked on Wave 2 completion)*
+**Wave 3** *(blocked on 41-04 and 41-06)*
 
-- [ ] 41-03-PLAN.md — Build the `mobile_v2` composition root, app shell, and direct `Ritual Room Support` screen from Plan 04 widgets; no per-ritual First Entry or Today Orientation page.
+- [ ] 41-07-PLAN.md — TDD thin InteractionEnginePort API/repository adapters, all-result mapping, and direct-engine parity.
 
-**Wave 4** *(blocked on Wave 3 completion)*
+**Wave 4** *(blocked on 41-04, 41-05, and 41-07)*
 
-- [ ] 41-05-PLAN.md — Integrate the evolving mock interaction loop, accessibility smoke coverage, visual gate proof, engine capability-completeness audit, UI-scope audit, and final runnable-slice proof.
+- [ ] 41-08-PLAN.md — Install/smoke-test audited Riverpod, lock its coding standards, then TDD the read-only provider graph, five-channel input factory, overrides, and reaction-only CapabilityMask.
+
+**Wave 5** *(blocked on 41-08)*
+
+- [ ] 41-09-PLAN.md — TDD the sole RitualRoomSessionNotifier and whole-ProductSnapshot transient UI state.
+
+**Wave 6** *(blocked on 41-09)*
+
+- [ ] 41-10-PLAN.md — Reassert D.4.5/static assets and TDD projection-only Ritual Room widgets.
+
+**Wave 7** *(blocked on authority, adapters, session, and widgets)*
+
+- [ ] 41-11-PLAN.md — Build the ProviderScope app shell/direct screen and close engine, provider, accessibility, requirement, source-audit, and scope proof.
 
 ### Phase 42: mobile_v2 Low-pressure Interaction Schematic
 
