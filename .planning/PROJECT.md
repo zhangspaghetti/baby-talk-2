@@ -6,11 +6,34 @@ Baby Talk 2 是一个面向中国父母的 Flutter 原生移动应用，围绕�
 
 ## Core Value
 
-如果 scope 被迫缩小，最不能丢的是：父母在真实场景里打开 app 后，马上拿到一句自然、可播放、可跟说的英语短语，并在说出口之后获得继续开口的反馈，而不是被带去"学习英语"。
+如果 scope 被迫缩小，最不能丢的是：父母在真实场景里打开 app
+后，马上拿到与当下动作绑定、可播放、可直接照着说的完整家庭英语话术，
+并能根据孩子和场景的实时变化继续获得合适表达，而不是被带去“学习
+英语”、汇报孩子表现或完成任务。
 
 ## Current State
 
-**M010《Baby Talk vNext Family Micro-ritual 架构重启》已推进至 Phase 41 planning。Phase 39《vNext 产品承诺与 Family English Micro-ritual 单元收敛》已完成（2026-06-15）：产品承诺、旧语义 supersession、Context Seed / Joinability 边界、semantic firewall、独立 `mobile_v2` 非 UI 边界均已锁定。Phase 40《Activation Governor 与 Garden Memory 节奏治理合同》已完成并验证通过（2026-06-16）：Activation Governor 权威、Garden Memory parent-confirmation、Explore/Activate 边界已由独立 verifier、proof、validation、verification artifacts 锁定。**
+**M010《Baby Talk vNext Family Micro-ritual 架构重启》已推进至 Phase
+41 visual prototype gate。Phase 39 与 Phase 40 的产品语义、Activation
+Governor、Garden Memory 和 verifier 合同已锁定。Phase 41 当前目标是一张
+经批准的 `shoes_on` Ritual Room Support 原型及其后续可运行 Flutter
+vertical slice；Strategy Pack / Graph / Runtime / metrics 闭环后移到 Phase
+44/45，Ritual Illustration System 后移到 Phase 46。**
+
+### M010 Construction Roadmap 已调整
+
+- **Phase 41** — `mobile_v2` 可运行 Ritual Room Vertical Slice：先批准
+  Interaction Engine 单屏多状态原型与静态 `shoes_on` 插画，再用 mock
+  Interaction API -> DTO -> mapper -> repository -> evolving snapshot ->
+  controller -> UI 构建 direct Room Support。Phase 41 可见实现 neutral
+  reaction input 与原位话术更新，不实现 child-performance session。Engine、
+  mock API、mapper、repository 与测试必须完整执行 reaction、normalized voice
+  transcript、free text、future signal 和 strategy preference；Phase 41 仅隐藏
+  后四类输入的采集适配器与 UI 控件，不得把它们降级为 enum 占位、unsupported
+  分支或后续 TODO。
+- **Phase 42** — Low-pressure Interaction Schematic：在可运行 slice 上完善低压力交互、布局节奏、copy placeholder 与截图/组件测试。
+- **Phase 43** — Local Micro-ritual State Backbone：把本地 fixture/state 收束成可替换 adapter 和可测试状态流。
+- **Phase 44/45** — Strategy Pack / Graph / Runtime adapter 与 transfer metrics/backend/AI readiness：必须跟在可运行用户 loop 之后。
 
 ### M010 Phase 40 已交付
 
@@ -134,6 +157,7 @@ Notable current status:
 - `R057`（Collaborative onboarding docs）— **validated**（M007/S06 complete）
 - `R058`–`R060`（Family English Micro-ritual product promise, product unit, Context Seed / Joinability boundary）— **satisfied by M010/P39**（proof, SPEC linkage, semantic firewall, `mobile_v2` boundary, and verification report complete）
 - `R063`–`R065`（Activation Governor authority, Garden Memory parent-confirmation, Explore/Activate pacing boundary）— **satisfied by M010/P40**（independent verifier, surface/mobile tests, proof artifact, validation gate, and verification report complete）
+- `R067`（多输入、状态累积、策略演化的 Ritual Interaction Engine）— **active in M010/P41-P45**；Phase 41 engine 执行 reaction/voice/free text/future signal/strategy 全通道，但 mobile UI 只开放 reaction primary entry；后续 phase 逐步开放采集 adapter 与 UI，不重构 engine contract。
 - M008 palace RAG enhancements (age-aware retrieval, QueryTrace, bridge review, projection visibility) — shipped and verified; no dedicated R0XX requirement; advances R005 and R011
 - M009 UX maturity (Home/Discover/Garden hierarchy + mobile extraction + admin shell + KnowledgeOps) — all 8 slices complete; milestone closed 2026-04-28; validation evidence in `docs/reviews/m009-autoplan-2026-04-26.md`; E2E knowledge-ops.spec.ts deferred pending live stack
 
@@ -153,4 +177,4 @@ Notable current status:
 - [x] M007: Helm-first split deployment + gateway + persistence migration + docs — S01–S06 全部 ✅ 完成（2026-04-27）
 - [x] M008: Graph-aware knowledge palace RAG + temporal retrieval + MemPalace design closure — S01–S03 全部 ✅ 完成（2026-04-27）
 - [x] M009: Historical completeness re-review and UX maturity closure — S01–S08 全部 ✅ 完成（2026-04-28）
-- [ ] M010: Baby Talk vNext Family Micro-ritual 架构重启 — Phase 39 ✅ 完成（2026-06-15）；Phase 40 ✅ 完成（2026-06-16）；Phase 41 未开始
+- [ ] M010: Baby Talk vNext Family Micro-ritual 架构重启 — Phase 39 ✅ 完成（2026-06-15）；Phase 40 ✅ 完成（2026-06-16）；Phase 41 已重构为 construction-first `mobile_v2` vertical slice，未开始

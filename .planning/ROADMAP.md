@@ -63,6 +63,8 @@
 
 ## M010: Baby Talk vNext Family Micro-ritual 架构重启
 
+**Construction rule:** Phase 39 and Phase 40 remain architecture governance and semantic/activation guardrails. Starting Phase 41, phases must close with runnable `mobile_v2` product construction evidence where applicable: Flutter app entrypoints, page/state flow, widget/golden/smoke tests, and verifier guards. SPEC/proof/verifier artifacts support construction but cannot replace the runnable slice.
+
 ### Phase 39: vNext 产品承诺与 Family English Micro-ritual 单元收敛
 
 **Goal:** Lock the vNext product thesis, anti-goals, Family English Micro-ritual unit, Context Seed / Joinability boundary, and supersession rules before any UI or runtime implementation planning.
@@ -99,13 +101,98 @@ Plans:
 
 - [x] 40-03-PLAN.md — Create Phase 40 proof/validation artifacts and SPEC links. (completed 2026-06-16)
 
-### Phase 41: Strategy Pack Graph Runtime Agent 与迁移指标闭环
+### Phase 41: mobile_v2 可运行 Ritual Room Vertical Slice
 
-**Goal:** Align Primitive Library, Strategy Graph, Strategy Pack schema, Runtime Agent input/output contract, and parent-confirmed micro-ritual transfer metrics into one constrained runtime loop.
-**Requirements**: R061, R062, R066
+**Goal:** After visual prototype and static-asset approval, build a runnable Flutter `mobile_v2` vertical slice of the long-term Ritual Interaction Engine. Stable `shoes_on` room content loads through the content repository; every normalized input channel (reaction, voice transcript, free text, future signal, strategy preference), accumulated interaction revision, strategy metadata, and current speakable utterance advance through `MockRitualInteractionApi -> DTO -> mapper -> interaction repository -> domain snapshot -> controller`. The mobile UI is a restricted projection that visibly opens reaction selection only; later UI/input adapters can open other channels without changing the engine contract.
+**Architecture authority:** `.planning/phases/41-mobile-v2-runnable-vertical-slice/41-INTERACTION-ENGINE-CONTRACT.md`
+**Requirements**: R058, R059, R060, R063, R064, R065, R067
 **Depends on:** Phase 40
+**Plans:** 5 plans
+Plans:
+
+**Wave 0**
+
+- [ ] 41-01-PLAN.md — Enforce the approved-prototype/static-asset gate, then establish `mobile_v2` Flutter/Dart command-health proof and final gate map.
+
+**Wave 1** *(blocked on Wave 0 completion)*
+
+- [ ] 41-02-PLAN.md — TDD the capability-complete Ritual Interaction API/DTO/mapper/repository/domain snapshot boundary, executable handling of all normalized input channels, accumulated revision/strategy evolution, mock responses, asset registration, and loading/submitting/error states.
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [ ] 41-04-PLAN.md — Build the approved single-screen Interaction Engine projection: stable Ritual anchor, current utterance focus, neutral context input tray, in-place response updates, audio affordances, reassurance, quiet exit, and optional API-owned Memory Lens.
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
+- [ ] 41-03-PLAN.md — Build the `mobile_v2` composition root, app shell, and direct `Ritual Room Support` screen from Plan 04 widgets; no per-ritual First Entry or Today Orientation page.
+
+**Wave 4** *(blocked on Wave 3 completion)*
+
+- [ ] 41-05-PLAN.md — Integrate the evolving mock interaction loop, accessibility smoke coverage, visual gate proof, engine capability-completeness audit, UI-scope audit, and final runnable-slice proof.
+
+### Phase 42: mobile_v2 Low-pressure Interaction Schematic
+
+**Goal:** Open more controls over the already capability-complete Phase 41 Interaction Engine through coherent progressive disclosure for reaction, voice, free-text, and strategy inputs; stable layout rhythm; accessible one-hand operation; and no control-console overload.
+**Requirements**: R058, R059, R063, R064, R065, R067
+**Depends on:** Phase 41
 **Plans:** 0 plans
 
 Plans:
 
-- [ ] Run `$gsd-spec-phase 41` after Activation Governor and Garden Memory contracts are locked.
+- [ ] Refine the vertical slice UI and prototype truthful voice/free-text/strategy affordance states without introducing a control-console layout, checklist pressure, streaks, scores, completion goals, or Garden growth semantics.
+- [ ] Add responsive/widget/golden or screenshot smoke coverage for the primary flow and low-pressure Garden states.
+- [ ] Keep an injected backend-shaped mock API acceptable; no deployed backend, AI generation, or production Pack/Graph required.
+
+### Phase 43: Local Micro-ritual State Backbone
+
+**Goal:** Harden the Interaction Engine state/domain seams behind the vertical slice: multi-channel context envelope, accumulated interaction snapshot, strategy evolution, mock/real API adapter boundary, micro-ritual state transitions, fake Governor decision adapter, and fake Garden Memory store.
+**Requirements**: R059, R063, R064, R065, R067
+**Depends on:** Phase 42
+**Plans:** 0 plans
+
+Plans:
+
+- [ ] Harden the Phase 41 mock Interaction API/repository contract into replaceable multi-channel adapters while preserving the running app flow.
+- [ ] Encode candidate/active/familiar/resting/belongs-to-family semantics only as local construction scaffolding, not production schema.
+- [ ] Verify state tests, widget flow tests, and Phase 39/40 guardrails.
+
+### Phase 44: Strategy Pack / Graph / Runtime Adapter Skeleton
+
+**Goal:** Reintroduce the original Pack/Graph/Runtime work as an adapter behind the working `mobile_v2` slice, so Primitive Library, Strategy Graph, Strategy Pack, Runtime Agent input/output, and transfer metrics are shaped by a concrete user loop instead of preceding it.
+**Requirements**: R061, R062, R066, R067
+**Depends on:** Phase 43
+**Plans:** 0 plans
+
+Plans:
+
+- [ ] Map the Phase 41-43 API-shaped Ritual content contract into early Pack/Graph/Runtime-shaped adapter boundaries without locking full production schema too early.
+- [ ] Preserve Activation Governor authority and Garden Memory parent-confirmation as guardrails, not optional implementation details.
+- [ ] Keep adapter tests tied to the runnable vertical slice.
+
+### Phase 45: Transfer Metrics / Backend / AI Integration Readiness
+
+**Goal:** Prepare parent-confirmed micro-ritual transfer metrics and backend/AI integration seams after the mobile loop exists, using the construction slice as the behavioral authority.
+**Requirements**: R062, R066, R067
+**Depends on:** Phase 44
+**Plans:** 0 plans
+
+Plans:
+
+- [ ] Define transfer metrics only from parent-confirmed low-pressure Garden Memory events, not completion, score, streak, or child-test signals.
+- [ ] Identify backend/API/AI integration seams needed to replace the Phase 41 mock adapter safely without changing mobile UI content ownership.
+- [ ] Acceptance must include integration-readiness tests or contract tests plus existing mobile smoke/widget flow protection.
+
+### Phase 46: Ritual Illustration System
+
+**Goal:** Build the backend / AI asset pipeline for ritual-linked approved illustrations, using a shared Ritual Illustration Grammar and stable caregiver / child reference characters so each ritual can have a coherent, inspectable visual asset.
+**Requirements**: TBD — must preserve R058/R059/R064 low-pressure micro-ritual semantics and must not introduce classroom, reward, streak, growth, or task-dashboard imagery.
+**Depends on:** Phase 45
+**Plans:** 0 plans
+
+Plans:
+
+- [ ] Define the Ritual Illustration Grammar and Ritual action / TPR Grammar, including allowed composition, line style, palette, character references, action focus, phrase-action pairing, and forbidden imagery.
+- [ ] Model per-ritual illustration lifecycle states such as `missing`, `generating`, `ready`, `failed`, and `approved`.
+- [ ] Design backend/API/AI generation flow for rituals without approved illustrations, using preset caregiver / child reference assets to reduce character drift.
+- [ ] Define approval, retry, and fallback behavior so mobile clients consume only approved or safe static illustration assets.
+- [ ] Keep Phase 41 out of this scope: Phase 41 may use one approved static `shoes_on` illustration but must not implement generation services.

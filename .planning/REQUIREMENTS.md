@@ -163,7 +163,7 @@ This file is the explicit capability and coverage contract for the project.
 ### R056 — Repo-wide runtime persistence migration：common / app-api / admin-api 的所有运行时 direct JdbcTemplate 替换为 MyBatisPlus-backed repository adapters；Druid 作为 datasource 层、Hutool 作为定向工具库接入；测试代码可暂留 JdbcTemplate。
 
 - Class: functional
-- Status: validated
+- Status: active
 - Description: Repo-wide runtime persistence migration：common / app-api / admin-api 的所有运行时 direct JdbcTemplate 替换为 MyBatisPlus-backed repository adapters；Druid 作为 datasource 层、Hutool 作为定向工具库接入；测试代码可暂留 JdbcTemplate。
 - Why it matters: 当前 JdbcTemplate 分散在多个运行时面，持久层风格不统一，新增代码的模式不明确，也缺少 datasource-level 的慢查询可见性。
 - Source: user
@@ -223,8 +223,8 @@ This file is the explicit capability and coverage contract for the project.
 - Description: Primitive Library 至少覆盖 Joint Attention Anchor、Connection、Narration、Choice、Waiting、Boundary、Transition、Repair、Expansion 等原语；Strategy Graph 将 Interpreted Moment 映射到 Primitive Sequence，并定义继续/切换策略的证据条件。
 - Why it matters: 没有底层 Primitive/Graph 约束，系统会退化成自由生成句子，难以保持短、温柔、低控制、可说出口的 Baby Talk 风格。
 - Source: `docs/Baby_Talk_Product_Architecture_Spec_vNext.md`
-- Primary owning slice: M010/P41
-- Supporting slices: M010/P39
+- Primary owning slice: M010/P44
+- Supporting slices: M010/P39, M010/P41, M010/P43
 - Validation: mapped
 - Notes: Runtime 可调整措辞、长度、具体物体和下一句微调；不得裸生成新教育目标、催促服从、评价宝宝或提高英语难度。
 
@@ -235,8 +235,8 @@ This file is the explicit capability and coverage contract for the project.
 - Description: Pack schema 必须表达 momentScope、strategy.graphRef、goals、languagePolicy、avoidRules、exampleOpeners、microRitual、evaluationRubric 和 metrics；Pack 可以被推荐、复用、实验、升级或下架，但候选进入家庭日常前必须经过 Activation Governor。
 - Why it matters: Pack 是可发布资产，但如果把 Pack 匹配等同于激活，系统会把丰富专家内容压进家庭 routine，违背 conservative activation。
 - Source: `docs/Baby_Talk_Product_Architecture_Spec_vNext.md`
-- Primary owning slice: M010/P41
-- Supporting slices: M010/P39, M010/P40
+- Primary owning slice: M010/P44
+- Supporting slices: M010/P39, M010/P40, M010/P41
 - Validation: mapped
 - Notes: This supersedes the old requirement that treated Strategy Pack as the single core asset; Primitive + Graph are lower-level assets, Pack is publication/runtime consumption surface.
 
@@ -283,10 +283,22 @@ This file is the explicit capability and coverage contract for the project.
 - Description: v1 成功指标必须转向 Parent-confirmed Micro-ritual Transfer，并观察 first active micro-ritual spoken without pressure、routine reuse rate、micro-ritual repeat comfort、parent-confirmed familiar/belongs-to-family、resting without shame 和 over-activation prevention。
 - Why it matters: Baby Talk 第一阶段要证明的是少数英语声音能否在真实家庭 routine 里自然迁移，而不是系统能生成多少句。
 - Source: `docs/Baby_Talk_Product_Architecture_Spec_vNext.md`
-- Primary owning slice: M010/P41
-- Supporting slices: M010/P40
+- Primary owning slice: M010/P45
+- Supporting slices: M010/P40, M010/P41, M010/P44
 - Validation: mapped
 - Notes: 不优化宝宝服从、孩子词汇、生成句子数量、连续打卡、AI 新奇程度、激活新 ritual 数量或花园植物数量。
+
+### R067 - Ritual Room 必须建立为可演化的多输入 Interaction Engine，而不是固定话术页或 reaction-to-sentence 单点工具。
+
+- Class: core-capability
+- Status: active
+- Description: Ritual Interaction Engine 必须支持并执行 reaction、normalized voice transcript、free text、future signal 和 strategy preference 等输入通道，维护可累积的 interaction snapshot 与策略状态，并向低认知负担 UI 输出当前可直接说的完整话术。Phase 41 UI 可以只呈现 reaction selection；其余通道仅为 UI-hidden，仍必须贯通 domain input、request DTO、mapper、mock API、repository、snapshot 演化与自动化测试。阶段性隐藏采集适配器或控件不得被解释为 system-disabled、unsupported、typed-only placeholder 或未来 TODO。
+- Why it matters: 产品终态是基于真实亲子上下文持续调整表达的系统；如果 Phase 41 把架构锁成静态句库或无状态 reaction lookup，后续语音、自由输入、上下文累积和策略演化都需要推翻重做。
+- Source: user
+- Primary owning slice: M010/P41
+- Supporting slices: M010/P42, M010/P43, M010/P44, M010/P45
+- Validation: Phase 41 must prove separate content/interaction repositories, executable handling of every normalized input channel, UI exposure limited to reaction selection, mixed-channel sequential snapshot revisions, strategy evolution, and capability-completeness audit. Later phases open additional UI/input-acquisition adapters and production engine integration without changing the engine contract.
+- Notes: Context input 不是孩子表现记录。禁止服从、正确性、学习结果、完成度或行为评分。Phase 41 不实现麦克风/STT、可见自由文本框、外部信号生产器或可见策略控件，但 engine 必须接受这些适配器未来会提交的 normalized input，后续 UI evolution 不得要求重构 engine contract。
 
 ## Validated
 
@@ -672,16 +684,17 @@ This file is the explicit capability and coverage contract for the project.
 | R058 | core-capability | active | M010/P39 | M010/P40, M010/P41 | mapped |
 | R059 | primary-user-loop | active | M010/P39 | M010/P40, M010/P41 | mapped |
 | R060 | core-capability | active | M010/P39 | M010/P41 | mapped |
-| R061 | functional | active | M010/P41 | M010/P39 | mapped |
-| R062 | functional | active | M010/P41 | M010/P39, M010/P40 | mapped |
+| R061 | functional | active | M010/P44 | M010/P39, M010/P41, M010/P43 | mapped |
+| R062 | functional | active | M010/P44 | M010/P39, M010/P40, M010/P41 | mapped |
 | R063 | functional | validated | M010/P40 | M010/P41 | P40 complete: verifier CLI, root tests, surface tests, proof matrix, SPEC links, and final gate passed |
 | R064 | differentiator | validated | M010/P40 | M010/P39, M010/P41 | P40 complete: parent-confirmed Garden Memory, weak-signal limits, pressure-copy rejection, proof matrix, and validation gate passed |
 | R065 | core-capability | validated | M010/P40 | M010/P39, M010/P41 | P40 complete: Explore positives and activation-intent governed surface fixtures passed |
-| R066 | operability | active | M010/P41 | M010/P40 | mapped |
+| R066 | operability | active | M010/P45 | M010/P40, M010/P41, M010/P44 | mapped |
+| R067 | core-capability | active | M010/P41 | M010/P42, M010/P43, M010/P44, M010/P45 | mapped |
 
 ## Coverage Summary
 
-- Active requirements: 19
-- Mapped to slices: 22
+- Active requirements: 20
+- Mapped to slices: 23
 - Validated: 27 (R020, R035, R036, R037, R038, R039, R040, R041, R042, R043, R044, R045, R046, R047, R048, R049, R050, R051, R052, R053, R054, R055, R056, R057, R063, R064, R065)
 - Unmapped active requirements: 0

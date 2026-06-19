@@ -1,8 +1,35 @@
 # Phase 41: mobile_v2 可运行 First Micro-ritual Vertical Slice - Research
 
+> Historical research snapshot. Do not use its old four-screen flow, old
+> `first_micro_ritual` paths, or direct DTO-to-widget examples for execution.
+> Current authority is `41-CONTEXT.md`, `41-SCHEMATIC-DESIGN.md`,
+> `41-INTERACTION-ENGINE-CONTRACT.md`, `41-PATTERNS.md`, `41-UI-SPEC.md`,
+> `mobile_v2/AGENTS.md`, and `mobile_v2/CODING_STANDARDS.md`.
+
 **Researched:** 2026-06-16
 **Domain:** Flutter `mobile_v2` runnable vertical slice, local fixture state, vNext semantic/activation guardrails
 **Confidence:** MEDIUM - phase-local product contracts and repo guardrails are strong, Flutter docs were checked through Context7, but local Flutter CLI execution is currently blocked by tool/cache access issues. [VERIFIED: 41-CONTEXT.md + Context7 Flutter docs + shell output]
+
+## 2026-06-19 Interaction Engine Override
+
+This research predates the long-term Interaction Engine correction. Do not use
+its static content-only controller or broad prohibition on child reaction input.
+Current planning separates room bootstrap from interaction advance, permits
+neutral contextual reaction selection, accumulates interaction revision, and
+requires executable engine handling for reaction, normalized voice
+observation, free text, future signal, and strategy preference. Only the Phase
+41 UI exposure is restricted. `41-INTERACTION-ENGINE-CONTRACT.md` controls.
+
+### 2026-06-17 Historical Product Correction
+
+This research artifact predates the TPR / action-bound language correction. Treat any older reference to First Entry, Today Orientation, a four-lens tap-through flow, or `One shoe. Two shoes.` as superseded by `41-SCHEMATIC-DESIGN.md`.
+
+The current Phase 41 product truth is one mock-API-backed `shoes_on` `Ritual Room Support` surface with anchor phrase, full phrase set, action / TPR cues, approved static line illustration metadata, low-pressure audio affordance, no-response reassurance, and quiet exit `先这样就好`.
+
+All ritual-specific content must come through an injected `RitualContentApi`.
+Current plans implement `MockRitualContentApi`, transport DTOs, a mapper,
+repository, immutable domain models, loading/error states, and
+payload-substitution tests. A deployed backend and AI generation remain deferred.
 
 <user_constraints>
 ## User Constraints (from CONTEXT.md)
@@ -186,7 +213,7 @@ Not applicable: Phase 41 should not install external packages. [VERIFIED: mobile
 |---------|----------|-----|-----------|-------------|---------|-------------|
 | none | — | — | — | — | — | No install planned |
 
-**Packages removed due to [SLOP] verdict:** none  
+**Packages removed due to [SLOP] verdict:** none
 **Packages flagged as suspicious [SUS]:** none
 
 ## Architecture Patterns
@@ -368,8 +395,8 @@ testWidgets('walks first Ritual Room through all four lenses', (tester) async {
 ### Pitfall 4: Overbuilding Phase 43 Early
 **What goes wrong:** Planner adds repositories, adapters, persistence, event schema, or multi-room state backbone in Phase 41. [VERIFIED: ROADMAP.md]
 **Why it happens:** The fixture is future-compatible, which can be mistaken for production architecture scope. [VERIFIED: 41-CONTEXT.md]
-**How to avoid:** Keep fixture local and replaceable; defer hardened adapters and state backbone to Phase 43. [VERIFIED: ROADMAP.md]
-**Warning signs:** Tasks mention Isar, API clients, Pack IDs as runtime truth, production Garden store, or multi-room rendering. [VERIFIED: ROADMAP.md + 41-CONTEXT.md]
+**How to avoid:** Keep the required in-process API interface and mock adapter small and replaceable; defer deployed networking, persistence, and hardened adapter/state infrastructure to Phase 43+. [VERIFIED: ROADMAP.md]
+**Warning signs:** Tasks mention Isar, HTTP clients, credentials, service discovery, Pack IDs as runtime truth, production Garden store, or multi-room rendering. [VERIFIED: ROADMAP.md + 41-CONTEXT.md]
 
 ## Code Examples
 
@@ -518,7 +545,7 @@ void main() => root_test.main();
 | Ungoverned activation intent | Elevation of Privilege | Phase 40 source scan and explicit fake Governor decision. [VERIFIED: tool/verify_activation_governor_contract.dart] |
 | Parent shame/pressure from memory prompt | Safety / Repudiation | Low-pressure locked prompt/options and no production state promotion. [VERIFIED: 41-CONTEXT.md] |
 | Child learning inference | Safety / Privacy | No baby response requirement, no scoring, no proof of learning. [VERIFIED: 41-CONTEXT.md] |
-| Hidden external dependency | Supply Chain | No new packages; local fixture only. [VERIFIED: mobile_v2/pubspec.yaml] |
+| Hidden external dependency | Supply Chain | No new packages; use only the repo-owned in-process mock API and payload. [VERIFIED: mobile_v2/pubspec.yaml] |
 
 ## Sources
 
@@ -552,5 +579,5 @@ void main() => root_test.main();
 - Pitfalls: HIGH - old semantics and verifier failure modes are directly visible in repo files. [VERIFIED: old mobile files + verifier files]
 - Environment: MEDIUM - SDK files and versions are present, but command execution requires Wave 0 remediation. [VERIFIED: shell output]
 
-**Research date:** 2026-06-16  
+**Research date:** 2026-06-16
 **Valid until:** 2026-07-16, or until Phase 42/43 changes the `mobile_v2` interaction/state backbone. [ASSUMED]

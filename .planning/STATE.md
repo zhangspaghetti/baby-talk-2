@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v0.1
 milestone_name: milestone
-status: planning
-stopped_at: Completed 40-03-PLAN.md
-last_updated: "2026-06-16T09:52:37.883Z"
-last_activity: 2026-06-16
+status: Phase 41 Interaction Engine visual and architecture gate pending
+stopped_at: Phase 41 Interaction Engine docs updated; next prototype pending
+last_updated: "2026-06-19T00:00:00+08:00"
+last_activity: 2026-06-19 -- Interaction Engine contract added and plans revised
 progress:
-  total_phases: 3
+  total_phases: 7
   completed_phases: 2
   total_plans: 6
   completed_plans: 6
-  percent: 67
+  percent: 29
 ---
 
 # Project State
@@ -20,16 +20,16 @@ progress:
 
 See: .planning/PROJECT.md
 
-**Current focus:** Phase 41 — strategy-pack-graph-runtime-agent
+**Current focus:** Phase 41 — mobile_v2-runnable-vertical-slice
 
 ## Current Position
 
 Phase: 41
 Plan: Not started
-Status: Phase 40 verified complete; ready for Phase 41 planning
-Last activity: 2026-06-16
+Status: Phase 41 Interaction Engine visual and architecture gate pending.
+Last activity: 2026-06-19 -- Interaction Engine contract added and plans revised.
 
-Progress: [███████░░░] 67%
+Progress: [███░░░░░░░] 29%
 
 ## Accumulated Context
 
@@ -54,16 +54,29 @@ Migrated from GSD-2. Old M010 phases 39-41 were generated from outdated planning
 - 2026-06-14: Added new Phase 40: Activation Governor 与 Garden Memory 节奏治理合同.
 - 2026-06-14: Added new Phase 41: Strategy Pack Graph Runtime Agent 与迁移指标闭环.
 - 2026-06-15: Completed Phase 39 execution, code review, verification, and supersession boundary closeout.
+- 2026-06-16: Revised M010 roadmap from architecture-governance continuation into construction-first flow. Phase 41 is now a `mobile_v2` runnable Ritual Room vertical slice; the prior Strategy Pack / Graph / Runtime / metrics closure is moved behind the working slice as Phase 44/45 work.
+- 2026-06-17: Phase 46 added: Ritual Illustration System.
+- 2026-06-17: Phase 41 product schematic revised: per-ritual First Entry and Today Orientation removed; `shoes_on` Room Support now includes parent-child line illustration, ritual identity, complete caregiver utterances, and action-bound low-pressure TPR cues.
+- 2026-06-18: Phase 41 content ownership revised: all ritual-specific content must flow through `MockRitualContentApi -> DTO -> mapper -> repository -> domain -> controller -> UI`; presentation code may not hardcode ritual content.
+- 2026-06-18: D.4.3 ImageGen prototype generated and iterated. Phase 41 execution remains blocked until explicit prototype approval and approved static asset generation.
+- 2026-06-19: Phase 41 corrected from a static phrase/support slice into a
+  vertical slice of the long-term Ritual Interaction Engine. Room bootstrap and
+  interaction advance are separate repository boundaries. The engine executes
+  reaction, normalized voice observation, free text, future signals, and
+  strategy preference; the Phase 41 UI exposes reaction selection only.
 
 ### Blockers/Concerns
 
-None. Phase 40 proof/validation artifacts, SPEC links, and final gates are complete.
+Phase 41 single-screen multi-state Interaction Engine prototype and static asset
+approval are pending. Execute-phase coding must not begin until
+`41-SCHEMATIC-DESIGN.md` is marked approved and links the workspace prototype
+plus approved `shoes_on` illustration.
 
 ## Session Continuity
 
-Last session: 2026-06-16T09:52:37.883Z
-Stopped at: Phase 40 verified and marked complete
-Resume file: None
+Last session: 2026-06-16T13:47:53.044Z
+Stopped at: Phase 41 UI-SPEC approved
+Resume file: .planning/phases/41-mobile-v2-runnable-vertical-slice/41-UI-SPEC.md
 
 ## Performance Metrics
 

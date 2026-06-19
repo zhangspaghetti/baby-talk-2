@@ -1,198 +1,278 @@
 # Phase 41: mobile-v2-runnable-vertical-slice - Context
 
-**Gathered:** 2026-06-16T21:23:32.2293570+08:00
-**Status:** Ready for planning
+**Updated:** 2026-06-19
+**Status:** Visual prototype gate; Interaction Engine single-screen states pending approval
 
-<domain>
-## Phase Boundary
+## Product Decision
 
-Phase 41 builds a runnable Flutter `mobile_v2` vertical slice around one persistent `Ritual Room`: `shoes_on_room_v1`. The phase must demonstrate the first family sound through First Entry, Today Orientation, Ritual Room Support, and Memory Lens, using local fixture/fake data only.
+Phase 41 implements one direct `Ritual Room Support` surface. It does not
+implement a required First Entry screen, Today Orientation screen, lesson flow,
+child-performance reaction session, ritual list, or four-screen sequence.
 
-The core object is not Onboarding, Home, Practice, Garden, phrase card, activity, or practice session. Those old surfaces are reinterpreted only as semantic lenses over the same Ritual Room. This phase must prove the product loop can run without old phrase/activity/completion/streak/Garden-growth semantics.
+The surface is a thin projection of the durable Ritual Interaction Engine
+defined in `41-INTERACTION-ENGINE-CONTRACT.md`. Phase 41 visibly supports
+reaction selection as its primary contextual input and receives a revised
+utterance from a mock API. The Phase 41 engine and mock repository must also
+execute voice observation, free text, future signals, and strategy preference
+when submitted programmatically. Those channels are UI-hidden, not
+system-disabled.
 
-Phase 41 must close with runnable product construction evidence: Flutter app entrypoint, page/state flow, local fixture, widget/golden/smoke tests, and passing Phase 39 semantic firewall plus Phase 40 Activation Governor / Garden Memory verifier guards. Backend, AI, real Strategy Pack, real Strategy Graph, production Runtime Agent, production transfer metrics, bottom navigation, multi-room organization, and full Garden Memory transition mechanics are out of scope.
+The product model is:
 
-</domain>
+```text
+Ritual Room = real family scene
+  + approved caregiver-child line illustration
+  + anchor phrase
+  + action / TPR cues
+  + evolving interaction context
+  + current complete caregiver utterance
+```
 
-<decisions>
-## Implementation Decisions
+The supported fixture is `shoes_on_room_v1`:
 
-### Ritual Room Schematic
-- **D-01:** Phase 41's core product object is a `Ritual Room`: a persistent context space for one family sound.
-- **D-02:** `Ritual Room` is not a phrase card, activity, one-off practice session, or four-step task flow.
-- **D-03:** Old Onboarding, Home, Practice, and Garden must not be reproduced as old mobile page structure. In Phase 41 they are semantic lenses over one Ritual Room.
-- **D-04:** The four Phase 41 lenses are First Entry, Today Orientation, Room Support, and Memory Lens.
-- **D-05:** Do not design a required lifecycle where every future ritual room must pass through Onboarding -> Home -> Practice -> Garden. Future rituals should come through activation, not onboarding.
-- **D-06:** Phase 41 can implement a simple guided path: First Entry -> Today Orientation -> Ritual Room Support -> Memory Lens.
-- **D-07:** Do not add bottom navigation in Phase 41. Use a minimal route stack or single guided vertical slice. Bottom navigation and multi-room organization belong after the first room feels right.
+| Field | Value |
+|---|---|
+| Room | `出门小声音` |
+| Routine | `出门穿鞋` |
+| Title / anchor phrase | `Shoes on.` |
+| Chinese helper | `穿鞋啦。` |
+| Illustration | approved static `shoes_on` caregiver-child line illustration |
+| Exit | `先这样就好` |
 
-### First Ritual Seed
-- **D-08:** Use `Shoes on` as the first micro-ritual because it comes from the vNext architecture doc example, is frequent, short, action-bound, does not need a baby response, demonstrates entry/support/memory well, and is less likely to become teaching/testing.
-- **D-09:** The Phase 41 fixture locks these values:
-  - `ritualRoomId`: `shoes_on_room_v1`
-  - `roomName`: `出门小声音`
-  - `fixedSound`: `Shoes on.`
-  - `routineAnchor`: `出门穿鞋`
-  - `actionBinding`: `拿鞋、套脚、轻拍鞋`
-  - `toneHint`: `short, warm, action-bound`
-  - `childNoResponseRule`: `宝宝不用跟读、回答或看 app；父母继续穿鞋动作即可`
-  - `softVariant`: `One shoe. Two shoes.` / `Tap tap.`
-  - `doNotUseWhen`: `宝宝强烈抗拒、父母说出口很别扭、当下太赶`
-  - `initialState`: `active` only because fake Governor returns `allow_activation`
-- **D-10:** The slice must not imply the baby needs to repeat, answer, look at the app, or prove learning.
+Selecting a ritual from a future Ritual List should open Room Support directly,
+like selecting a song opens its playback surface. Ritual List is not Phase 41
+scope.
 
-### Local Fixture Truth
-- **D-11:** Local fixture truth centers on one active Ritual Room, not phrase/activity progress.
-- **D-12:** Include exactly one rendered active room for Phase 41, while allowing a future-compatible collection shape internally if useful.
-- **D-13:** The fixture should include:
-  - one active Ritual Room
-  - one fake Context Seed: parent preparing shoes / child near door
-  - one fake Joinability hypothesis: `action_bound` + `routine_ready`
-  - one fake Governor decision: `allow_activation`
-  - one Garden Memory state: `active`
-  - one weak-signal-free parent prompt opportunity
-- **D-14:** Do not include `phraseId` as product truth, `activityId` / path / space as product progression, `completedPhraseCount`, `nextPhraseId`, streak, growth stage, reward, unlock, fertilizer, or progress semantics.
-- **D-15:** The fixture may be structurally multi-ready, but the runnable slice must render a single room only.
+Memory Lens is optional and may appear only after quiet exit. Phase 41 does not
+implement production memory tracking, child performance tracking, or Garden
+state transitions.
 
-### Lens Flow
-- **D-16:** First Entry replaces old Onboarding. It is only used to create/open the first Ritual Room.
-- **D-17:** Today Orientation replaces old Home dashboard. It orients the parent to the current active room and why one tiny sound is enough for today.
-- **D-18:** Room Support replaces old Practice. It is support mode inside the Ritual Room and helps the parent say the fixed sound with action binding and no-response reassurance.
-- **D-19:** Memory Lens replaces old Garden result screen. It gently reviews the same room and asks whether the sound is becoming easier, should rest, or belongs to family life.
-- **D-20:** Today Orientation before Room Support should show the active room `出门小声音`, state that today's job is small, and use a CTA to enter support mode.
-- **D-21:** Today Orientation after Room Support must not say complete or success. Acceptable framing: `这个小声音已经在你们的出门 routine 里了。想先看看花园记忆吗？`
-- **D-22:** After Room Support, CTAs may point to memory prompt, rest, or back to the room, but must not imply completion or scoring.
+## Historical D.4.3 Visual Decision
 
-### Room Support
-- **D-23:** Room Support should feel like "help me say this naturally once", not training.
-- **D-24:** Room Support should show:
-  - fixed sound: `Shoes on.`
-  - Chinese helper: `穿鞋啦。`
-  - action binding: `套鞋/轻轻拍拍鞋的时候说`
-  - no-response reassurance: `宝宝不用跟读，也不用回应。你继续穿鞋就好。`
-  - optional soft variant, visually secondary
-- **D-25:** Acceptable Room Support CTAs include `我知道怎么说了`, `先这样就好`, and `看看这个声音怎么留在家里`.
-- **D-26:** Avoid `完成练习`, `今日任务`, `说了 1/3`, `继续下一句`, `打卡成功`, and `宝宝学会了吗`.
+D.4.3 established the action-bound, non-lesson visual language. It is no longer
+the complete interaction model. D.4.4 first image is the approved refinement
+baseline, while the next single-screen multi-state prototype must add
+context-input and in-place utterance-update states before execution approval.
 
-### Memory Lens
-- **D-27:** Phase 41 Memory Lens should ask one low-pressure parent-confirmation prompt, not record completion.
-- **D-28:** Use active-state memory prompt only in Phase 41. Full Garden Memory transition mechanics are later work.
-- **D-29:** Suggested prompt: `这句最近有没有更容易从嘴边冒出来？`
-- **D-30:** Suggested options:
-  - `有一点，更顺口了`
-  - `还没有，先慢慢来`
-  - `今天先放一边`
-- **D-31:** These options may update a local visual placeholder or show a gentle response in Phase 41, but must not implement full production state transitions.
+The supplied music-list screenshot is an information-hierarchy reference only:
+a compact identity area above a large practical content area. Phase 41 does not
+copy its dark theme, album art, social metrics, playlist controls, or music
+product semantics.
 
-### Acceptance and Proof
-- **D-32:** The runnable app must demonstrate one Ritual Room through First Entry, Today Orientation, Room Support, and Memory Lens.
-- **D-33:** The implementation must not reproduce old Onboarding/Home/Practice/Garden semantics.
-- **D-34:** The implementation must not use completion, streak, score, growth, phrase progression, or activity dashboard language.
-- **D-35:** Acceptance must include runnable Flutter app evidence, widget/golden/smoke tests for the lens path, and passing Phase 39 semantic firewall plus Phase 40 Activation Governor / Garden Memory verifier guards.
+D.4.3 rules:
 
-### the agent's Discretion
-- Planner/executor may choose exact file names, class names, route mechanics, local state holder, widget structure, and test layout as long as the Ritual Room decisions above remain the product truth.
-- Planner/executor may choose the visual composition and copy refinements within the locked tone: parent-facing, warm, low-pressure, action-bound, and non-scoring.
-- Planner/executor may re-derive selected warm visual/audio interaction patterns from old `mobile/`, but must not import old mobile product/domain/data/presentation code into `mobile_v2/lib`.
-- Planner/executor may decide whether the local Memory Lens option response is a visual placeholder, banner, or local in-memory field, as long as it is not production Garden Memory transition truth.
+- portrait Flutter/Material layout at 390x844
+- warm paper background and parent-first tone
+- approved parent-child line illustration, never a photo or classroom cartoon
+- identity header uses about 22-26% of the viewport
+- header contains only `Shoes on.`, `出门穿鞋`, and `穿鞋啦。`
+- body heading is `现在可以这样说`
+- play-all label is `连起来听`
+- action-bound talk sheet occupies most of the viewport
+- first English utterance is the first strong visual focus
+- no cards for each action moment and no equal lesson-row treatment
+- no progress bar, numbered steps, checklist, score, streak, reward, badge, or
+  growth imagery
 
-</decisions>
+The three action moments are:
 
-<canonical_refs>
+| Cue | Minimum utterance | Optional continuation | Chinese action helper |
+|---|---|---|---|
+| `拿起鞋时` | `Let's put your shoes on.` | none | `拿起鞋，就说这一句。` |
+| `穿第一只时` | `Let's put this shoe on first.` | `Now let's put the other one on.` | `第一只穿好，再接第二句。` |
+| `穿好后` | `Your shoes are on.` | `All done. Let's go.` | `穿好后，顺口收尾。` |
+
+Long English content uses authored semantic line breaks. One minimum utterance
+is visually emphasized; optional continuations are quieter. Short fragments such
+as `One shoe.` or `Tap tap.` may exist as secondary ritual grammar, but the UI
+must not expect a parent who lacks speaking confidence to expand fragments into
+natural sentences.
+
+Playback rules:
+
+- `连起来听` and each action moment have distinct hierarchy
+- controls use a minimum 48x48 touch target
+- the utterance text is also tappable
+- playing state switches play to pause and may highlight the current utterance
+- the Phase 41 visible UI has no waveform recording or microphone because those
+  channels are not yet executable; the engine contract still reserves them
+- no playback progress bar, score, child compliance, or performance capture
+
+Reassurance is:
+
+`不用每句都说，跟着当下的动作说一句就够了。`
+
+## Content And Data Contract
+
+All ritual-specific content comes from a backend-shaped API boundary. It must
+not be hardcoded in widgets, controllers, routes, app composition, or themes.
+
+Required flow:
+
+```text
+assets/fixtures/ritual_rooms/shoes_on.json
+  -> MockRitualContentApi -> RitualRoomRepository -> RitualRoomContent
+  -> MockRitualInteractionApi -> RitualInteractionRepository
+     -> RitualInteractionSnapshot
+  -> RitualRoomController
+  -> RitualRoomScreen and focused presentation widgets
+```
+
+Presentation consumes only domain models and controller state. It must not
+import the JSON fixture, mock data source, mapper implementation, or transport
+DTOs.
+
+The mock response owns:
+
+- ritual identity and room metadata
+- approved illustration reference and lifecycle status
+- title, context label, Chinese helper, and reassurance
+- body heading and play-all label
+- ordered action moments
+- minimum utterances and optional continuations
+- Chinese action helpers
+- low-pressure reaction/context options
+- contextual utterance responses for at least two sequential submissions
+- interaction ID, monotonic revision, accumulated context summary, and active
+  strategy metadata
+- audio availability and references
+- quiet exit copy
+- optional Memory Lens content if the optional prompt remains
+- fake Context Seed, Joinability hypothesis, and Governor
+  `allow_activation` evidence required by prior vNext contracts
+
+The demo must support loading, ready, and recoverable error/retry states.
+Payload-substitution tests must change a safe mock response and observe changed
+rendered UI, proving the presentation layer is not the content source.
+
+No deployed backend, credentials, production service discovery, LLM generation,
+real audio service, microphone/STT acquisition adapter, visible free-text entry,
+automatic signal producer, persistent child-behavior history, complete memory
+tracking, Strategy Pack, Strategy Graph, Runtime Agent, transfer metrics,
+bottom navigation, or multi-room organization belongs to Phase 41. The engine
+still accepts normalized voice transcripts, free-text observations, typed
+future signals, and strategy preferences through its stable contract.
+
+## Artifact And Coding Authority
+
+All executors modifying `mobile_v2/**` must read:
+
+- `mobile_v2/AGENTS.md`
+- `mobile_v2/CODING_STANDARDS.md`
+- `41-INTERACTION-ENGINE-CONTRACT.md`
+- `41-SCHEMATIC-DESIGN.md`
+- `41-UI-SPEC.md`
+
+The feature name is `ritual_room`. Do not use `first_micro_ritual` or class names
+that encode first-run status as the durable feature identity.
+
+The canonical feature structure is:
+
+```text
+mobile_v2/
+  assets/
+    fixtures/ritual_rooms/shoes_on.json
+    illustrations/rituals/shoes_on/shoes_on_approved_v1.png
+  lib/
+    main.dart
+    app/
+      baby_talk_app.dart
+      theme/baby_talk_theme.dart
+    features/ritual_room/
+      data/
+        datasources/
+          ritual_content_api.dart
+          mock_ritual_content_api.dart
+          ritual_interaction_api.dart
+          mock_ritual_interaction_api.dart
+        dto/
+          ritual_room_response.dart
+          ritual_interaction_request.dart
+          ritual_interaction_response.dart
+        mappers/
+          ritual_room_mapper.dart
+          ritual_interaction_mapper.dart
+        repositories/
+          ritual_room_repository_impl.dart
+          ritual_interaction_repository_impl.dart
+      domain/
+        models/
+          ritual_room_content.dart
+          ritual_action_beat.dart
+          ritual_context_input.dart
+          ritual_interaction_snapshot.dart
+          ritual_utterance_suggestion.dart
+        repositories/
+          ritual_room_repository.dart
+          ritual_interaction_repository.dart
+      presentation/
+        controllers/ritual_room_controller.dart
+        screens/ritual_room_screen.dart
+        widgets/
+          ritual_identity_header.dart
+          ritual_current_utterance.dart
+          ritual_context_input_tray.dart
+          ritual_action_beat_list.dart
+          ritual_listen_control.dart
+  test/
+    features/ritual_room/
+      data/
+      presentation/
+```
+
+Tests mirror `lib` ownership. No broad `helpers.dart`, `utils.dart`, or
+ritual-specific content literals should appear in presentation.
+
+`mobile_v2/pubspec.yaml` must register
+`assets/fixtures/ritual_rooms/` and `assets/illustrations/rituals/`. The
+approved static illustration is generated and copied into the workspace only
+after prototype approval, before Phase 41 execution.
+
+## Forbidden Product Semantics
+
+Do not introduce:
+
+- `下一句`, `继续下一句`, lesson progression, course directory, or curriculum
+- `孩子有没有照做？`, `做对了`, `完成动作`, or child performance records
+- reaction choices framed as judging, reporting, or scoring the child; neutral
+  contextual observations such as `还不想穿` are allowed engine input
+- completion, daily task, check-in, progress, score, streak, badge, reward,
+  unlock, growth, checklist, or classroom framing
+- Garden, leaf, sprout, plant, medal, trophy, star, or checkmark imagery
+- photo-real shoes, doorways, or room perspective mixed with the line system
+- AI, model, generation, confidence, or backend terminology in user-facing UI
+
+## Acceptance Proof
+
+Phase 41 execution is accepted only when:
+
+- the app starts on direct Ritual Room Support
+- loading, ready, error/retry, long-text wrapping, playback semantics, and
+  payload substitution are tested
+- reaction submission covers submitting, revised-snapshot, and retry behavior
+- every input variant advances a valid interaction snapshot
+- sequential mixed-channel inputs prove monotonic revision, accumulated context,
+  strategy evolution, and changing response state
+- the first viewport visibly prioritizes the current speakable utterance
+- all ritual-specific content and contextual responses are supplied through the
+  mock API/repository path
+- accessibility smoke checks cover semantic labels and 48x48 touch targets
+- Phase 39 semantic firewall passes
+- Phase 40 Activation Governor / Garden Memory verifier passes
+
 ## Canonical References
 
-**Downstream agents MUST read these before planning or implementing.**
+- `.planning/ROADMAP.md`
+- `.planning/REQUIREMENTS.md`
+- `.planning/phases/39-vnext-family-english-micro-ritual/39-SPEC.md`
+- `.planning/phases/40-activation-governor-garden-memory/40-SPEC.md`
+- `docs/Baby_Talk_Product_Architecture_Spec_vNext.md`
+- `DESIGN.md`
+- `mobile_v2/AGENTS.md`
+- `mobile_v2/CODING_STANDARDS.md`
+- `41-INTERACTION-ENGINE-CONTRACT.md`
+- `tool/verify_mobile_v2_semantic_firewall.dart`
+- `tool/verify_activation_governor_contract.dart`
 
-### Phase 41 Scope
-- `.planning/ROADMAP.md` — Phase 41 construction rule, goal, plan bullets, and explicit exclusion of backend, AI, real Strategy Pack/Graph/Runtime, and real transfer metrics.
-- `.planning/PROJECT.md` — current M010 construction-first state and project-level product promise.
-- `.planning/REQUIREMENTS.md` — active R058, R059, R060, R063, R064, and R065 requirements that Phase 41 must satisfy.
-- `.planning/STATE.md` — current focus and Phase 41 restart context.
-
-### Prior Phase Contracts
-- `.planning/phases/39-vnext-family-english-micro-ritual/39-SPEC.md` — locked vNext product thesis, micro-ritual unit, supersession boundaries, and old semantic exclusions.
-- `.planning/phases/39-vnext-family-english-micro-ritual/39-CONTEXT.md` — mobile_v2 boundary, surface rewrite order, semantic firewall, and reuse policy.
-- `.planning/phases/39-vnext-family-english-micro-ritual/39-SUPERSESSION-PROOF.md` — proof that old phrase/activity/completion/streak/Garden-growth semantics are deprecated or reference-only.
-- `.planning/phases/40-activation-governor-garden-memory/40-SPEC.md` — locked Activation Governor and Garden Memory requirements, boundaries, and verifier failure modes.
-- `.planning/phases/40-activation-governor-garden-memory/40-CONTEXT.md` — Activation Governor authority seams, Garden Memory parent-confirmation rules, weak-signal limits, and decision/state matrix.
-- `.planning/phases/40-activation-governor-garden-memory/40-ACTIVATION-GOVERNOR-CONTRACT-PROOF.md` — Phase 40 proof artifact for the authority and memory contract.
-
-### vNext Product Source
-- `docs/Baby_Talk_Product_Architecture_Spec_vNext.md` — canonical source for `Shoes on`, Family English Micro-ritual fields, Context Seed / Joinability, Activation Governor, Garden Memory, and Parent-confirmed Micro-ritual Transfer.
-- `.planning/research/questions.md` — open research prompts around low-shame Garden confirmation and conservative activation; useful for keeping Phase 41 Memory Lens low-pressure.
-
-### Runtime Boundary and Verifier Guards
-- `mobile_v2/pubspec.yaml` — current independent Flutter package boundary.
-- `mobile_v2/lib/vnext_semantic_boundary.dart` — current vNext semantic anchor file; Phase 41 expands this into a runnable app.
-- `mobile_v2/reference_assets/README.md` — quarantine rule for copied wording/audio/design samples.
-- `mobile_v2/legacy_reference/README.md` — quarantine rule for old mobile snippets.
-- `tool/verify_mobile_v2_semantic_firewall.dart` — Phase 39 guard that must pass after adding runtime code.
-- `test/tool/verify_mobile_v2_semantic_firewall_test.dart` — semantic firewall root tests.
-- `test/features/vnext/mobile_v2_surface_contract_test.dart` — old-surface semantic rejection fixtures.
-- `tool/verify_activation_governor_contract.dart` — Phase 40 guard that must pass after adding runtime code.
-- `test/tool/verify_activation_governor_contract_test.dart` — Activation Governor / Garden Memory contract tests.
-- `test/features/vnext/activation_governor_contract_surface_test.dart` — surface activation-intent and Garden pressure-copy rejection fixtures.
-
-### Reference-Only Old Mobile Patterns
-- `mobile/lib/app/theme/app_theme.dart` — warm tone, colors, typography, and shadows may be re-derived into `mobile_v2`; do not import directly into runtime truth.
-- `mobile/lib/app/widgets/app_audio_button.dart` — audio-button interaction pattern may inform Room Support; do not import directly.
-- `mobile/lib/features/practice/presentation/widgets/phrase_card.dart` — reference-only pronunciation/playback layout material; phrase/completion semantics are forbidden.
-- `mobile/lib/features/practice/presentation/widgets/activation_frame.dart` — reference-only warm framing pattern; old activation framing must be re-derived around Ritual Room support.
-- `mobile/lib/main.dart` — reference-only Flutter app entrypoint pattern; old app wiring and providers are not vNext truth.
-
-</canonical_refs>
-
-<code_context>
-## Existing Code Insights
-
-### Reusable Assets
-- `mobile_v2/pubspec.yaml` gives a minimal independent Flutter package with no product dependencies beyond Flutter.
-- `mobile_v2/lib/vnext_semantic_boundary.dart` is the current runtime boundary anchor and can be expanded into app/domain/widget code.
-- `tool/verify_mobile_v2_semantic_firewall.dart` and `tool/verify_activation_governor_contract.dart` are mandatory guards for Phase 41 runtime code.
-- Old `mobile/` theme, audio button, phrase card, and activation frame files are useful visual/interaction references only; copied material must be semantically rebuilt inside `mobile_v2`.
-
-### Established Patterns
-- vNext active runtime truth lives under `mobile_v2/lib`; old `mobile/` remains readable reference only.
-- Runtime code must avoid old terms and old product meanings even when implementing familiar-looking surfaces.
-- Existing proof style favors repo-owned Dart verifier CLIs plus focused test fixtures over docs-only acceptance.
-- The current package is intentionally sparse, so Phase 41 should add the smallest runnable shell rather than porting the old mobile app.
-
-### Integration Points
-- Add a Flutter app entrypoint under `mobile_v2/lib` and tests under `mobile_v2/test` and/or root vNext test paths.
-- Ensure any runtime copy mentioning activation intent either consumes the fake Governor `allow_activation` decision explicitly or avoids action-now activation language.
-- Keep reference/quarantine paths out of `mobile_v2/lib` imports.
-- Verification should include the new app flow tests plus the existing Phase 39 and Phase 40 verifier commands.
-
-</code_context>
-
-<specifics>
-## Specific Ideas
-
-- The dominant schematic design phrase is: "Ritual Room first; old surfaces are lenses."
-- First Room: `出门小声音` / `Shoes on.`
-- First Entry creates or opens `shoes_on_room_v1`; it is not a recurring onboarding model for future rooms.
-- Today Orientation says one tiny sound with one action is enough for today.
-- Room Support helps the parent say `Shoes on.` during the shoe action, with `穿鞋啦。` as Chinese helper and no baby-response requirement.
-- Optional soft variants are `One shoe. Two shoes.` and `Tap tap.`, always secondary.
-- Memory Lens prompt: `这句最近有没有更容易从嘴边冒出来？`
-- Memory Lens options: `有一点，更顺口了`, `还没有，先慢慢来`, `今天先放一边`.
-- The local fixture can include a fake Context Seed, Joinability hypothesis, Governor decision, and Garden Memory state, but only the single active room is rendered.
-
-</specifics>
-
-<deferred>
-## Deferred Ideas
-
-- Bottom navigation and multi-room organization are deferred until after the first Ritual Room works.
-- Full Garden Memory transition mechanics are deferred; Phase 41 may only show local visual placeholder responses.
-- Future Ritual Room activation flows are deferred; Phase 41 First Entry opens only the first room.
-- Backend integration, AI, real Strategy Pack, real Strategy Graph, production Runtime Agent, and transfer metrics remain deferred to later M010 phases.
-- Phase 42 owns refinement of low-pressure interaction schematic, layout rhythm, accessible touch flow, and screenshot/golden polish.
-- Phase 43 owns hardening local fixture/state into replaceable adapters and a testable local state backbone.
-
-</deferred>
-
----
-
-*Phase: 41-mobile-v2-runnable-vertical-slice*
-*Context gathered: 2026-06-16T21:23:32.2293570+08:00*
+Old `mobile/` theme and audio widgets are reference-only. They must not be
+imported into `mobile_v2/lib`.
