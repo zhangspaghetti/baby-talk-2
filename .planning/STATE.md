@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v0.1
 milestone_name: milestone
 status: executing
-stopped_at: Completed 41-07-PLAN.md
-last_updated: "2026-06-20T10:51:42.012Z"
+stopped_at: Completed 41-08-PLAN.md
+last_updated: "2026-06-20T15:01:46.626Z"
 last_activity: 2026-06-19 -- Phase 41 execution started
 progress:
   total_phases: 8
   completed_phases: 2
   total_plans: 17
-  completed_plans: 13
-  percent: 76
+  completed_plans: 14
+  percent: 82
 ---
 
 # Project State
@@ -25,11 +25,11 @@ See: .planning/PROJECT.md
 ## Current Position
 
 Phase: 41 (mobile-v2-runnable-vertical-slice) — EXECUTING
-Plan: 8 of 11
+Plan: 9 of 11
 Status: Ready to execute
 Last activity: 2026-06-19 -- Phase 41 execution started
 
-Progress: [████████░░] 76%
+Progress: [████████░░] 82%
 
 ## Accumulated Context
 
@@ -66,6 +66,9 @@ Migrated from GSD-2. Old M010 phases 39-41 were generated from outdated planning
 - [Phase 41]: Replay applies recorded TransitionRecord outputs from revision zero and never invokes live modules, clock, or ID generation.
 - [Phase 41]: Keep interactionId separate from InteractionAdvanceRequest; the request remains revision/input-only. — Preserves the Plan 06 transport contract and avoids duplicate identity truth.
 - [Phase 41]: Unsupported-schema recovery snapshots are not interpreted; repository mapping returns only the rejection code. — Unknown product truth must fail closed instead of being treated as schema 1.
+- [Phase 41]: Resolve the concrete engine, engine port, and session initializer as one provider-owned authority over one runtime store. — Prevents wrappers or duplicate lifecycle authorities in Riverpod composition.
+- [Phase 41]: Generate raw input identity and time through public override seams while retaining no input content in the factory. — Keeps all five channels deterministic in tests and non-retaining in production.
+- [Phase 41]: Keep EngineCapabilities complete and InteractionCapabilityMask presentation-only with reaction selection as the Phase 41 exposure. — UI disclosure must not narrow engine or repository capability.
 
 ### Roadmap Evolution
 
@@ -99,8 +102,8 @@ the 11 verified plan dependencies, and the UI-restricted projection rules.
 
 ## Session Continuity
 
-Last session: 2026-06-20T10:50:42.451Z
-Stopped at: Completed 41-07-PLAN.md
+Last session: 2026-06-20T15:01:46.453Z
+Stopped at: Completed 41-08-PLAN.md
 Resume file: None
 
 ## Performance Metrics
@@ -119,3 +122,4 @@ Resume file: None
 | Phase 41 P06 | 25 min | 2 tasks | 6 files |
 | Phase 41 P04 | 10 min | 2 tasks | 5 files |
 | Phase 41 P07 | 19 min | 2 tasks | 9 files |
+| Phase 41 P08 | 3h 53m | 2 tasks | 15 files |
