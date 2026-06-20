@@ -18,5 +18,5 @@ dev_dependencies:
 flutter:
   assets:
     - assets/fixtures/ritual_rooms/
-    - assets/illustrations/rituals/
+    - assets/illustrations/rituals/shoes_on/
   uses-material-design: true
