@@ -27,7 +27,6 @@ void main() {
       var listenCalls = 0;
       var quietExitCalls = 0;
       final semantics = tester.ensureSemantics();
-      addTearDown(semantics.dispose);
 
       await tester.pumpWidget(
         _supportSurface(
@@ -84,6 +83,7 @@ void main() {
       expect(reactions, [room.reactionChoices[0].id]);
       expect(quietExitCalls, 1);
       expect(tester.takeException(), isNull);
+      semantics.dispose();
     },
   );
 
