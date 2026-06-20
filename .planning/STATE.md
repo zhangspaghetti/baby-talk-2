@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v0.1
 milestone_name: milestone
 status: executing
-stopped_at: Completed 41-06-PLAN.md
-last_updated: "2026-06-20T05:47:44.513Z"
+stopped_at: Completed 41-04-PLAN.md
+last_updated: "2026-06-20T10:25:02.892Z"
 last_activity: 2026-06-19 -- Phase 41 execution started
 progress:
   total_phases: 8
   completed_phases: 2
   total_plans: 17
-  completed_plans: 11
-  percent: 65
+  completed_plans: 12
+  percent: 71
 ---
 
 # Project State
@@ -25,11 +25,11 @@ See: .planning/PROJECT.md
 ## Current Position
 
 Phase: 41 (mobile-v2-runnable-vertical-slice) — EXECUTING
-Plan: 6 of 11
+Plan: 7 of 11
 Status: Ready to execute
 Last activity: 2026-06-19 -- Phase 41 execution started
 
-Progress: [███████░░░] 65%
+Progress: [███████░░░] 71%
 
 ## Accumulated Context
 
@@ -61,6 +61,9 @@ Migrated from GSD-2. Old M010 phases 39-41 were generated from outdated planning
 - [Phase 41]: Keep expectedRevision exclusively on InteractionAdvanceRequest; raw input payloads remain revision-independent. — Keeps schema compatibility independent from optimistic concurrency.
 - [Phase 41]: Ignore unknown schema-v1 optional fields while rejecting missing or mistyped required fields. — Allows additive compatibility without weakening required transport contracts.
 - [Phase 41]: Require latestSnapshot whenever revision or event-ID conflicts cross the transport boundary. — Makes authoritative conflict recovery explicit for repository and session consumers.
+- [Phase 41]: Keep initialize on the internal InteractionSessionInitializer seam while InteractionEnginePort exposes only getSnapshot and advance.
+- [Phase 41]: Hold the per-interaction exclusive operation across the full pipeline, then commit one prepared immutable aggregate.
+- [Phase 41]: Replay applies recorded TransitionRecord outputs from revision zero and never invokes live modules, clock, or ID generation.
 
 ### Roadmap Evolution
 
@@ -94,8 +97,8 @@ the 11 verified plan dependencies, and the UI-restricted projection rules.
 
 ## Session Continuity
 
-Last session: 2026-06-20T05:47:44.349Z
-Stopped at: Completed 41-06-PLAN.md
+Last session: 2026-06-20T10:25:02.740Z
+Stopped at: Completed 41-04-PLAN.md
 Resume file: None
 
 ## Performance Metrics
@@ -112,3 +115,4 @@ Resume file: None
 | Phase 41 P03 | 13 min | 2 tasks | 11 files |
 | Phase 41 P05 | 10 min | 2 tasks | 12 files |
 | Phase 41 P06 | 25 min | 2 tasks | 6 files |
+| Phase 41 P04 | 10 min | 2 tasks | 5 files |
