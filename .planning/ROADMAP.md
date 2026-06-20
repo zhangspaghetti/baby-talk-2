@@ -108,7 +108,7 @@ Plans:
 **Locked implementation authorities:** `docs/superpowers/plans/2026-06-19-interaction-engine-v1.md`; `docs/superpowers/plans/2026-06-19-interaction-engine-flutter-riverpod.md`
 **Requirements**: R058, R059, R060, R063, R064, R065, R067
 **Depends on:** Phase 40
-**Plans:** 4/11 plans executed
+**Plans:** 5/11 plans executed
 Plans:
 
 **Wave 0**
@@ -120,7 +120,7 @@ Plans:
 - [x] 41-02-PLAN.md — TDD the four pure deterministic Normalize/Accumulator/Strategy/Utterance modules.
 - [x] 41-03-PLAN.md — TDD fingerprinting, consistency truth, evidence-only replay, direct replay, and serialized runtime storage.
 - [x] 41-05-PLAN.md — TDD the independent shoes_on content DTO/mapper/API/repository path and governance evidence.
-- [ ] 41-06-PLAN.md — TDD strict five-channel interaction DTOs and schema/privacy mapper contracts.
+- [x] 41-06-PLAN.md — TDD strict five-channel interaction DTOs and schema/privacy mapper contracts.
 
 **Wave 2** *(blocked on 41-02 and 41-03)*
 

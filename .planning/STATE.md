@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v0.1
 milestone_name: milestone
 status: executing
-stopped_at: Completed 41-05-PLAN.md
-last_updated: "2026-06-20T05:15:26.762Z"
+stopped_at: Completed 41-06-PLAN.md
+last_updated: "2026-06-20T05:47:44.513Z"
 last_activity: 2026-06-19 -- Phase 41 execution started
 progress:
   total_phases: 8
   completed_phases: 2
   total_plans: 17
-  completed_plans: 10
-  percent: 59
+  completed_plans: 11
+  percent: 65
 ---
 
 # Project State
@@ -25,11 +25,11 @@ See: .planning/PROJECT.md
 ## Current Position
 
 Phase: 41 (mobile-v2-runnable-vertical-slice) — EXECUTING
-Plan: 5 of 11
+Plan: 6 of 11
 Status: Ready to execute
 Last activity: 2026-06-19 -- Phase 41 execution started
 
-Progress: [██████░░░░] 59%
+Progress: [███████░░░] 65%
 
 ## Accumulated Context
 
@@ -58,6 +58,9 @@ Migrated from GSD-2. Old M010 phases 39-41 were generated from outdated planning
 - [Phase 41]: Keep stable ritual content in a dedicated fixture-to-domain adapter path. — Prevents widgets, providers, and interaction runtime from owning ritual-specific content.
 - [Phase 41]: Validate approved shoes_on illustration status and canonical asset path in the mapper. — Fails closed against spoofed or unreviewed illustration metadata.
 - [Phase 41]: Carry prior-phase governance values as immutable evidence only. — Content cannot activate a ritual or perform a production Garden transition.
+- [Phase 41]: Keep expectedRevision exclusively on InteractionAdvanceRequest; raw input payloads remain revision-independent. — Keeps schema compatibility independent from optimistic concurrency.
+- [Phase 41]: Ignore unknown schema-v1 optional fields while rejecting missing or mistyped required fields. — Allows additive compatibility without weakening required transport contracts.
+- [Phase 41]: Require latestSnapshot whenever revision or event-ID conflicts cross the transport boundary. — Makes authoritative conflict recovery explicit for repository and session consumers.
 
 ### Roadmap Evolution
 
@@ -91,8 +94,8 @@ the 11 verified plan dependencies, and the UI-restricted projection rules.
 
 ## Session Continuity
 
-Last session: 2026-06-20T05:15:26.748Z
-Stopped at: Completed 41-05-PLAN.md
+Last session: 2026-06-20T05:47:44.349Z
+Stopped at: Completed 41-06-PLAN.md
 Resume file: None
 
 ## Performance Metrics
@@ -108,3 +111,4 @@ Resume file: None
 | Phase 41 P02 | 16 min | 2 tasks | 8 files |
 | Phase 41 P03 | 13 min | 2 tasks | 11 files |
 | Phase 41 P05 | 10 min | 2 tasks | 12 files |
+| Phase 41 P06 | 25 min | 2 tasks | 6 files |
