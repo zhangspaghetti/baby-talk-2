@@ -7,6 +7,7 @@ environment:
   sdk: ^3.11.4
 
 dependencies:
+  crypto: ^3.0.7
   flutter:
     sdk: flutter
 
@@ -15,4 +16,7 @@ dev_dependencies:
     sdk: flutter
 
 flutter:
+  assets:
+    - assets/fixtures/ritual_rooms/
+    - assets/illustrations/rituals/
   uses-material-design: true
