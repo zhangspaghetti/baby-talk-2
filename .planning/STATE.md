@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v0.1
 milestone_name: milestone
 status: executing
-stopped_at: Completed 41-09-PLAN.md
-last_updated: "2026-06-20T18:13:29.619Z"
+stopped_at: Completed 41-10-PLAN.md
+last_updated: "2026-06-20T22:00:11.482Z"
 last_activity: 2026-06-19 -- Phase 41 execution started
 progress:
   total_phases: 8
   completed_phases: 2
   total_plans: 17
-  completed_plans: 15
-  percent: 88
+  completed_plans: 16
+  percent: 94
 ---
 
 # Project State
@@ -25,11 +25,11 @@ See: .planning/PROJECT.md
 ## Current Position
 
 Phase: 41 (mobile-v2-runnable-vertical-slice) — EXECUTING
-Plan: 10 of 11
+Plan: 11 of 11
 Status: Ready to execute
 Last activity: 2026-06-19 -- Phase 41 execution started
 
-Progress: [█████████░] 88%
+Progress: [█████████░] 94%
 
 ## Accumulated Context
 
@@ -72,6 +72,8 @@ Migrated from GSD-2. Old M010 phases 39-41 were generated from outdated planning
 - [Phase 41]: Use one operation epoch across room opens and submissions so newer work or disposal invalidates stale async completion.
 - [Phase 41]: Keep RitualRoomUiState limited to whole RitualRoomContent and ProductSnapshot references plus transient failure data.
 - [Phase 41]: Replace whole snapshots for applied, duplicate, and conflict outcomes while preserving the last usable snapshot for other failures.
+- [Phase 41]: Phase 41 Plan 10 keeps Ritual Room widgets projection-only with immutable domain inputs and callback-only intent. — This preserves the sole session Notifier and prevents presentation from acquiring content, strategy, or repository authority.
+- [Phase 41]: The approved identity header uses 196dp height, a 112dp illustration, and the UI-SPEC typography scale. — This keeps D.4.5 geometry readable at 390x844 and text scale 1.3 without clipping or viewport-scaled type.
 
 ### Roadmap Evolution
 
@@ -105,8 +107,8 @@ the 11 verified plan dependencies, and the UI-restricted projection rules.
 
 ## Session Continuity
 
-Last session: 2026-06-20T18:13:29.448Z
-Stopped at: Completed 41-09-PLAN.md
+Last session: 2026-06-20T21:59:12.978Z
+Stopped at: Completed 41-10-PLAN.md
 Resume file: None
 
 ## Performance Metrics
@@ -127,3 +129,4 @@ Resume file: None
 | Phase 41 P07 | 19 min | 2 tasks | 9 files |
 | Phase 41 P08 | 3h 53m | 2 tasks | 15 files |
 | Phase 41 P09 | 1h 2m | 2 tasks | 4 files |
+| Phase 41 P10 | 3h 43m | 2 tasks | 8 files |
