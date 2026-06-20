@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v0.1
 milestone_name: milestone
-status: Ready to execute Phase 41; 11 Interaction Engine plans verified against the locked core and Riverpod implementation authorities.
-stopped_at: Phase 41 planning verified; ready for Wave 0 execution
-last_updated: "2026-06-20T07:34:50.3005399+08:00"
-last_activity: 2026-06-20 -- Phase 41 plans revised and verified against both locked Interaction Engine implementation plans.
+status: executing
+stopped_at: Completed 41-01-PLAN.md
+last_updated: "2026-06-20T00:29:27.096Z"
+last_activity: 2026-06-19 -- Phase 41 execution started
 progress:
   total_phases: 8
   completed_phases: 2
-  total_plans: 11
-  completed_plans: 6
+  total_plans: 17
+  completed_plans: 7
   percent: 25
 ---
 
@@ -20,14 +20,14 @@ progress:
 
 See: .planning/PROJECT.md
 
-**Current focus:** Phase 41 — mobile_v2-runnable-vertical-slice
+**Current focus:** Phase 41 — mobile-v2-runnable-vertical-slice
 
 ## Current Position
 
-Phase: 41
-Plan: Not started
-Status: Ready to execute Phase 41; 11 Interaction Engine plans verified against the locked core and Riverpod implementation authorities.
-Last activity: 2026-06-20 -- Phase 41 plans revised and verified against both locked Interaction Engine implementation plans.
+Phase: 41 (mobile-v2-runnable-vertical-slice) — EXECUTING
+Plan: 2 of 11
+Status: Ready to execute
+Last activity: 2026-06-19 -- Phase 41 execution started
 
 Progress: [███░░░░░░░] 29%
 
@@ -46,6 +46,9 @@ Migrated from GSD-2. Old M010 phases 39-41 were generated from outdated planning
 - Phase 40 Plan 03 preserves the D-31/D-32/D-33 compact decision/state matrix as a verifier/planning contract only, not schema, API, UI, runtime payload, algorithm, or metrics design.
 - Phase 40 final validation uses direct Dart verifier CLIs plus the direct Flutter-tools fallback when the repo `flutter.cmd` wrapper stalls.
 - Phase 40 verification passed with 9/9 must-haves, no gaps, and no human verification items.
+- [Phase 41]: Keep Riverpod absent until Plan 41-08; Plan 41-01 adds only crypto 3.0.7. — Preserves the locked pure-Dart-first dependency order.
+- [Phase 41]: Use one immutable InputEvent envelope over five sealed payload variants with UTC canonical content. — Keeps channel completeness explicit while preparing deterministic fingerprinting.
+- [Phase 41]: Keep ProductSnapshot limited to current product truth. — Raw observations, consistency receipts, replay evidence, and UI state belong outside the public snapshot.
 
 ### Roadmap Evolution
 
@@ -65,6 +68,7 @@ Migrated from GSD-2. Old M010 phases 39-41 were generated from outdated planning
   interaction advance are separate repository boundaries. The engine executes
   reaction, normalized voice observation, free text, future signals, and
   strategy preference; the Phase 41 UI exposes reaction selection only.
+
 - 2026-06-20: Phase 41 planning was reconciled with the locked pure-Dart engine
   and Flutter/Riverpod implementation plans. Eleven dependency-ordered plans now
   cover engine authority, runtime consistency/replay, thin adapters, one
@@ -78,9 +82,9 @@ the 11 verified plan dependencies, and the UI-restricted projection rules.
 
 ## Session Continuity
 
-Last session: 2026-06-20T07:34:50.3005399+08:00
-Stopped at: Phase 41 planning verified; ready for Wave 0 execution
-Resume file: .planning/phases/41-mobile-v2-runnable-vertical-slice/41-01-PLAN.md
+Last session: 2026-06-20T00:28:41.282Z
+Stopped at: Completed 41-01-PLAN.md
+Resume file: None
 
 ## Performance Metrics
 
@@ -91,3 +95,4 @@ Resume file: .planning/phases/41-mobile-v2-runnable-vertical-slice/41-01-PLAN.md
 | Phase 40 P01 | 20 min | 3 tasks | 2 files |
 | Phase 40 P02 | 11 min | 3 tasks | 4 files |
 | Phase 40 P03 | 11 min | 3 tasks | 3 files |
+| Phase 41 P01 | 26 min | 3 tasks | 13 files |
