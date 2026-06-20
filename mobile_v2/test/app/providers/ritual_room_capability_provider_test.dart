@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mobile_v2/app/providers/interaction_engine_providers.dart';
 import 'package:mobile_v2/app/providers/ritual_room_capability_provider.dart';
+import 'package:mobile_v2/app/providers/ritual_room_data_providers.dart';
 import 'package:mobile_v2/features/ritual_room/domain/models/advance_result.dart';
 import 'package:mobile_v2/features/ritual_room/domain/runtime/interaction_seed_source.dart';
 import 'package:mobile_v2/features/ritual_room/presentation/capability/interaction_capability_mask.dart';
@@ -44,11 +45,12 @@ void main() {
     expect(container.read(interactionCapabilityMaskProvider).visible, isEmpty);
     final initializer = container.read(interactionSessionInitializerProvider);
     final engine = container.read(interactionEnginePortProvider);
+    final repository = container.read(interactionRepositoryProvider);
     final initial = await initializer.initialize(ritualRoomId);
 
     for (final input in interactionInputs) {
       final current = await engine.getSnapshot(initial.interactionId);
-      final result = await engine.advance(
+      final result = await repository.advance(
         interactionId: initial.interactionId,
         expectedRevision: current!.revision,
         input: input,

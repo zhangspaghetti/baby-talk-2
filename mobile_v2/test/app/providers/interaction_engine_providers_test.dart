@@ -16,13 +16,17 @@ import 'package:mobile_v2/features/ritual_room/domain/runtime/interaction_sessio
 import '../../fixtures/interaction_test_fixtures.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
   test('provider graph builds one engine over one runtime store', () {
     final container = ProviderContainer.test();
 
     final engine = container.read(interactionEngineProvider);
     final port = container.read(interactionEnginePortProvider);
     final initializer = container.read(interactionSessionInitializerProvider);
-    final store = container.read(interactionRuntimeStoreProvider);
+    final store =
+        container.read(interactionRuntimeStoreProvider)
+            as InMemoryInteractionRuntimeStore;
 
     expect(engine, isA<InteractionEngine>());
     expect(port, isA<InteractionEnginePort>());
@@ -75,6 +79,22 @@ void main() {
         .initialize(ritualRoomId);
     expect(snapshot.interactionId, 'override-interaction');
     expect(snapshot.metadata.updatedAt, DateTime.utc(2026, 6, 20, 12));
+    expect(store.read(snapshot.interactionId)?.snapshot, same(snapshot));
+  });
+
+  test('default seed adapter initializes from stable room content', () async {
+    final container = ProviderContainer.test();
+
+    final snapshot = await container
+        .read(interactionSessionInitializerProvider)
+        .initialize(ritualRoomId);
+    final store =
+        container.read(interactionRuntimeStoreProvider)
+            as InMemoryInteractionRuntimeStore;
+
+    expect(snapshot.ritualRoomId, ritualRoomId);
+    expect(snapshot.anchor, 'Shoes on.');
+    expect(snapshot.revision, 0);
     expect(store.read(snapshot.interactionId)?.snapshot, same(snapshot));
   });
 }
