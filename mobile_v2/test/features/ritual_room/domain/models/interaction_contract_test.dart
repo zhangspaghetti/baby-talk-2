@@ -46,7 +46,10 @@ void main() {
         events.map((event) => event.type).toSet(),
         equals(InputEventType.values.toSet()),
       );
-      expect(events.map((event) => event.payload.runtimeType).toSet(), hasLength(5));
+      expect(
+        events.map((event) => event.payload.runtimeType).toSet(),
+        hasLength(5),
+      );
       expect(events.every((event) => event.occurredAt.isUtc), isTrue);
     });
 
@@ -113,27 +116,34 @@ void main() {
       );
     });
 
-    test('product truth source excludes raw, replay, receipt, and UI state', () {
-      final source = File(
-        'lib/features/ritual_room/domain/models/product_snapshot.dart',
-      ).readAsStringSync();
-      const forbidden = <String>[
-        'rawTranscript',
-        'rawFreeText',
-        'InputEvent',
-        'ConsistencyState',
-        'ReplayJournal',
-        'processedEvents',
-        'receipt',
-        'isLoading',
-        'isSubmitting',
-        'navigation',
-      ];
+    test(
+      'product truth source excludes raw, replay, receipt, and UI state',
+      () {
+        final source = File(
+          'lib/features/ritual_room/domain/models/product_snapshot.dart',
+        ).readAsStringSync();
+        const forbidden = <String>[
+          'rawTranscript',
+          'rawFreeText',
+          'InputEvent',
+          'ConsistencyState',
+          'ReplayJournal',
+          'processedEvents',
+          'receipt',
+          'isLoading',
+          'isSubmitting',
+          'navigation',
+        ];
 
-      for (final term in forbidden) {
-        expect(source, isNot(contains(term)), reason: 'ProductSnapshot leaked $term');
-      }
-    });
+        for (final term in forbidden) {
+          expect(
+            source,
+            isNot(contains(term)),
+            reason: 'ProductSnapshot leaked $term',
+          );
+        }
+      },
+    );
   });
 
   group('AdvanceResult', () {
@@ -151,35 +161,38 @@ void main() {
       expect(results.every((result) => result.snapshot == snapshot), isTrue);
     });
 
-    test('covers every locked rejection code and latest snapshot conflicts', () {
-      final snapshot = _initialSnapshot();
+    test(
+      'covers every locked rejection code and latest snapshot conflicts',
+      () {
+        final snapshot = _initialSnapshot();
 
-      expect(AdvanceErrorCode.values.toSet(), {
-        AdvanceErrorCode.interactionNotFound,
-        AdvanceErrorCode.revisionConflict,
-        AdvanceErrorCode.eventIdConflict,
-        AdvanceErrorCode.unsupportedSchemaVersion,
-        AdvanceErrorCode.invalidInput,
-        AdvanceErrorCode.pipelineFailed,
-      });
+        expect(AdvanceErrorCode.values.toSet(), {
+          AdvanceErrorCode.interactionNotFound,
+          AdvanceErrorCode.revisionConflict,
+          AdvanceErrorCode.eventIdConflict,
+          AdvanceErrorCode.unsupportedSchemaVersion,
+          AdvanceErrorCode.invalidInput,
+          AdvanceErrorCode.pipelineFailed,
+        });
 
-      final revisionConflict = AdvanceRejected(
-        code: AdvanceErrorCode.revisionConflict,
-        latestSnapshot: snapshot,
-      );
-      final eventIdConflict = AdvanceRejected(
-        code: AdvanceErrorCode.eventIdConflict,
-        latestSnapshot: snapshot,
-      );
-      final notFound = const AdvanceRejected(
-        code: AdvanceErrorCode.interactionNotFound,
-      );
+        final revisionConflict = AdvanceRejected(
+          code: AdvanceErrorCode.revisionConflict,
+          latestSnapshot: snapshot,
+        );
+        final eventIdConflict = AdvanceRejected(
+          code: AdvanceErrorCode.eventIdConflict,
+          latestSnapshot: snapshot,
+        );
+        final notFound = const AdvanceRejected(
+          code: AdvanceErrorCode.interactionNotFound,
+        );
 
-      expect(revisionConflict.latestSnapshot, same(snapshot));
-      expect(eventIdConflict.latestSnapshot, same(snapshot));
-      expect(notFound.latestSnapshot, isNull);
-      expect(revisionConflict.status, AdvanceStatus.rejected);
-    });
+        expect(revisionConflict.latestSnapshot, same(snapshot));
+        expect(eventIdConflict.latestSnapshot, same(snapshot));
+        expect(notFound.latestSnapshot, isNull);
+        expect(revisionConflict.status, AdvanceStatus.rejected);
+      },
+    );
   });
 }
 
@@ -187,7 +200,7 @@ ProductSnapshot _initialSnapshot() => ProductSnapshot.initial(
   interactionId: 'interaction-1',
   ritualRoomId: 'shoes_on_room_v1',
   anchor: 'Shoes on.',
-  normalizedContext: const NormalizedInput(
+  normalizedContext: NormalizedInput(
     semanticSignals: ['shared_action'],
     intentEstimate: 'engage',
     momentHypothesis: 'the shared action is open to enter',
@@ -198,7 +211,7 @@ ProductSnapshot _initialSnapshot() => ProductSnapshot.initial(
     confidence: 0.8,
     eventSummary: 'the shared shoe routine is available',
   ),
-  memory: const ContextMemory(
+  memory: ContextMemory(
     summary: 'the interaction has just started',
     eventLog: ['interaction initialized'],
     signalWeights: {'shared_action': 1.0},
@@ -206,16 +219,20 @@ ProductSnapshot _initialSnapshot() => ProductSnapshot.initial(
     contextStability: 1.0,
     narrative: 'caregiver and child are at the shoe routine',
   ),
-  strategy: const StrategyDecision(
+  strategy: StrategyDecision(
     primary: PressurePolicy.lowPressure,
-    modifiers: [StrategyModifier.continueInteraction, StrategyModifier.maintain],
+    modifiers: [
+      StrategyModifier.continueInteraction,
+      StrategyModifier.maintain,
+    ],
     confidence: 0.9,
     rationale: 'begin with one warm shared action',
     pressureLevel: 20,
     recommendedTone: 'soft',
-    interactionHint: 'offer one small shared action without requiring a response',
+    interactionHint:
+        'offer one small shared action without requiring a response',
   ),
-  utterance: const Utterance(
+  utterance: Utterance(
     primary: "Let's put your shoes on.",
     zhHelper: '我们来穿鞋吧。',
     tone: 'soft',
