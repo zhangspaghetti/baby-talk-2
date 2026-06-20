@@ -3,7 +3,9 @@ import 'package:mobile_v2/features/ritual_room/data/datasources/mock_interaction
 import 'package:mobile_v2/features/ritual_room/data/mappers/interaction_mapper.dart';
 import 'package:mobile_v2/features/ritual_room/data/repositories/interaction_repository_impl.dart';
 import 'package:mobile_v2/features/ritual_room/domain/models/advance_result.dart';
+import 'package:mobile_v2/features/ritual_room/domain/models/input_event.dart';
 import 'package:mobile_v2/features/ritual_room/domain/models/product_snapshot.dart';
+import 'package:mobile_v2/features/ritual_room/domain/runtime/interaction_runtime_state.dart';
 
 import '../../../../fixtures/interaction_test_fixtures.dart';
 import '../../../../helpers/interaction_test_doubles.dart';
@@ -135,6 +137,221 @@ void main() {
       }
     },
   );
+
+  test(
+    'adapter execution equals direct engine for every result path',
+    () async {
+      await _expectUnknownInteractionParity(mapper);
+      await _expectRevisionAndInvalidParity(mapper);
+      await _expectDuplicateAndEventIdParity(mapper);
+      await _expectUnsupportedSchemaParity(mapper);
+      await _expectPipelineFailureParity(mapper);
+    },
+  );
+}
+
+Future<void> _expectUnknownInteractionParity(InteractionMapper mapper) async {
+  final direct = InteractionEngineHarness();
+  final adapted = InteractionEngineHarness();
+
+  await _expectAdvanceParity(
+    direct: () => direct.engine.advance(
+      interactionId: 'missing-interaction',
+      expectedRevision: 0,
+      input: interactionInputs.first,
+    ),
+    adapted: () => _repository(adapted, mapper).advance(
+      interactionId: 'missing-interaction',
+      expectedRevision: 0,
+      input: interactionInputs.first,
+    ),
+  );
+}
+
+Future<void> _expectRevisionAndInvalidParity(InteractionMapper mapper) async {
+  final direct = InteractionEngineHarness();
+  final adapted = InteractionEngineHarness();
+  await direct.engine.initialize(ritualRoomId);
+  await adapted.engine.initialize(ritualRoomId);
+
+  await _expectAdvanceParity(
+    direct: () => direct.engine.advance(
+      interactionId: interactionId,
+      expectedRevision: 1,
+      input: interactionInputs.first,
+    ),
+    adapted: () => _repository(adapted, mapper).advance(
+      interactionId: interactionId,
+      expectedRevision: 1,
+      input: interactionInputs.first,
+    ),
+  );
+
+  await _expectAdvanceParity(
+    direct: () => direct.engine.advance(
+      interactionId: interactionId,
+      expectedRevision: -1,
+      input: interactionInputs.first,
+    ),
+    adapted: () => _repository(adapted, mapper).advance(
+      interactionId: interactionId,
+      expectedRevision: -1,
+      input: interactionInputs.first,
+    ),
+  );
+}
+
+Future<void> _expectDuplicateAndEventIdParity(InteractionMapper mapper) async {
+  final direct = InteractionEngineHarness();
+  final adapted = InteractionEngineHarness();
+  await direct.engine.initialize(ritualRoomId);
+  await adapted.engine.initialize(ritualRoomId);
+  final original = interactionInputs.first;
+
+  await direct.engine.advance(
+    interactionId: interactionId,
+    expectedRevision: 0,
+    input: original,
+  );
+  await _repository(
+    adapted,
+    mapper,
+  ).advance(interactionId: interactionId, expectedRevision: 0, input: original);
+
+  await _expectAdvanceParity(
+    direct: () => direct.engine.advance(
+      interactionId: interactionId,
+      expectedRevision: 0,
+      input: original,
+    ),
+    adapted: () => _repository(adapted, mapper).advance(
+      interactionId: interactionId,
+      expectedRevision: 0,
+      input: original,
+    ),
+  );
+
+  final changedReuse = InputEvent.reactionSelection(
+    eventId: original.eventId,
+    occurredAt: original.occurredAt,
+    selected: 'joining_action',
+  );
+  await _expectAdvanceParity(
+    direct: () => direct.engine.advance(
+      interactionId: interactionId,
+      expectedRevision: 1,
+      input: changedReuse,
+    ),
+    adapted: () => _repository(adapted, mapper).advance(
+      interactionId: interactionId,
+      expectedRevision: 1,
+      input: changedReuse,
+    ),
+  );
+}
+
+Future<void> _expectUnsupportedSchemaParity(InteractionMapper mapper) async {
+  final direct = InteractionEngineHarness();
+  final adapted = InteractionEngineHarness();
+  final unsupported = interactionSnapshot();
+  final unsupportedSnapshot = ProductSnapshot(
+    schemaVersion: 2,
+    revision: unsupported.revision,
+    interactionId: 'unsupported-interaction',
+    ritualRoomId: unsupported.ritualRoomId,
+    anchor: unsupported.anchor,
+    normalizedContext: unsupported.normalizedContext,
+    memory: unsupported.memory,
+    strategy: unsupported.strategy,
+    utterance: unsupported.utterance,
+    metadata: unsupported.metadata,
+  );
+  direct.store.add(InteractionRuntimeState.initial(unsupportedSnapshot));
+  adapted.store.add(InteractionRuntimeState.initial(unsupportedSnapshot));
+
+  await _expectAdvanceParity(
+    direct: () => direct.engine.advance(
+      interactionId: unsupportedSnapshot.interactionId,
+      expectedRevision: 0,
+      input: interactionInputs.first,
+    ),
+    adapted: () => _repository(adapted, mapper).advance(
+      interactionId: unsupportedSnapshot.interactionId,
+      expectedRevision: 0,
+      input: interactionInputs.first,
+    ),
+  );
+}
+
+Future<void> _expectPipelineFailureParity(InteractionMapper mapper) async {
+  final direct = InteractionEngineHarness(failPipeline: true);
+  final adapted = InteractionEngineHarness(failPipeline: true);
+  await direct.engine.initialize(ritualRoomId);
+  await adapted.engine.initialize(ritualRoomId);
+
+  await _expectAdvanceParity(
+    direct: () => direct.engine.advance(
+      interactionId: interactionId,
+      expectedRevision: 0,
+      input: interactionInputs.first,
+    ),
+    adapted: () => _repository(adapted, mapper).advance(
+      interactionId: interactionId,
+      expectedRevision: 0,
+      input: interactionInputs.first,
+    ),
+  );
+}
+
+InteractionRepositoryImpl _repository(
+  InteractionEngineHarness harness,
+  InteractionMapper mapper,
+) => InteractionRepositoryImpl(
+  api: MockInteractionApi(engine: harness.engine, mapper: mapper),
+  mapper: mapper,
+);
+
+Future<void> _expectAdvanceParity({
+  required Future<AdvanceResult> Function() direct,
+  required Future<AdvanceResult> Function() adapted,
+}) async {
+  final directResult = await direct();
+  final adaptedResult = await adapted();
+
+  expect(adaptedResult.status, directResult.status);
+  switch ((directResult, adaptedResult)) {
+    case (
+      AdvanceApplied(snapshot: final directSnapshot),
+      AdvanceApplied(snapshot: final adaptedSnapshot),
+    ):
+      expectProductSnapshotEquals(adaptedSnapshot, directSnapshot);
+    case (
+      AdvanceDuplicateIgnored(snapshot: final directSnapshot),
+      AdvanceDuplicateIgnored(snapshot: final adaptedSnapshot),
+    ):
+      expectProductSnapshotEquals(adaptedSnapshot, directSnapshot);
+    case (
+      AdvanceRejected(
+        code: final directCode,
+        latestSnapshot: final directSnapshot,
+      ),
+      AdvanceRejected(
+        code: final adaptedCode,
+        latestSnapshot: final adaptedSnapshot,
+      ),
+    ):
+      expect(adaptedCode, directCode);
+      if (directCode == AdvanceErrorCode.unsupportedSchemaVersion) {
+        expect(adaptedSnapshot, isNull);
+        return;
+      }
+      expect(adaptedSnapshot == null, directSnapshot == null);
+      if (directSnapshot != null && adaptedSnapshot != null) {
+        expectProductSnapshotEquals(adaptedSnapshot, directSnapshot);
+      }
+    default:
+      fail('adapter changed the direct engine result variant');
+  }
 }
 
 void expectProductSnapshotEquals(

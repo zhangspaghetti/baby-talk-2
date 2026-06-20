@@ -223,6 +223,9 @@ final class InteractionMapper {
 
   AdvanceRejected _rejectedToDomain(InteractionResultResponse response) {
     final code = _advanceErrorCode(response.error);
+    if (code == AdvanceErrorCode.unsupportedSchemaVersion) {
+      return AdvanceRejected(code: code);
+    }
     final latestSnapshot = response.latestSnapshot == null
         ? null
         : snapshotToDomain(response.latestSnapshot!);

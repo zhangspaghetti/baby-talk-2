@@ -10,6 +10,7 @@ import 'package:mobile_v2/features/ritual_room/domain/engine/strategy_engine.dar
 import 'package:mobile_v2/features/ritual_room/domain/engine/utterance_engine.dart';
 import 'package:mobile_v2/features/ritual_room/domain/models/advance_result.dart';
 import 'package:mobile_v2/features/ritual_room/domain/models/input_event.dart';
+import 'package:mobile_v2/features/ritual_room/domain/models/normalized_input.dart';
 import 'package:mobile_v2/features/ritual_room/domain/models/product_snapshot.dart';
 import 'package:mobile_v2/features/ritual_room/domain/runtime/interaction_clock.dart';
 import 'package:mobile_v2/features/ritual_room/domain/runtime/interaction_id_generator.dart';
@@ -83,7 +84,7 @@ final class FakeInteractionApi implements InteractionApi {
 }
 
 final class InteractionEngineHarness {
-  InteractionEngineHarness()
+  InteractionEngineHarness({bool failPipeline = false})
     : store = InMemoryInteractionRuntimeStore(),
       clock = _FixedClock(),
       ids = _FixedIdGenerator(),
@@ -93,7 +94,9 @@ final class InteractionEngineHarness {
       idGenerator: ids,
       seedSource: seed,
       store: store,
-      normalizeEngine: RuleBasedNormalizeEngine(),
+      normalizeEngine: failPipeline
+          ? _FailingNormalizeEngine()
+          : RuleBasedNormalizeEngine(),
       stateAccumulator: DecayStateAccumulator(),
       strategyEngine: RuleBasedStrategyEngine(),
       utteranceEngine: RuleBasedUtteranceEngine(),
@@ -105,6 +108,13 @@ final class InteractionEngineHarness {
   final _FixedIdGenerator ids;
   final _FixedSeedSource seed;
   late final InteractionEngine engine;
+}
+
+final class _FailingNormalizeEngine implements NormalizeEngine {
+  @override
+  Future<NormalizedInput> normalize(InputEvent event) async {
+    throw StateError('pipeline failed');
+  }
 }
 
 final class _FixedClock implements InteractionClock {
