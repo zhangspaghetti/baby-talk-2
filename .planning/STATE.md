@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v0.1
 milestone_name: milestone
 status: executing
-stopped_at: Completed 41-01-PLAN.md
-last_updated: "2026-06-20T00:29:27.096Z"
+stopped_at: Completed 41-02-PLAN.md
+last_updated: "2026-06-20T04:39:00.002Z"
 last_activity: 2026-06-19 -- Phase 41 execution started
 progress:
   total_phases: 8
   completed_phases: 2
   total_plans: 17
-  completed_plans: 7
+  completed_plans: 8
   percent: 25
 ---
 
@@ -25,7 +25,7 @@ See: .planning/PROJECT.md
 ## Current Position
 
 Phase: 41 (mobile-v2-runnable-vertical-slice) — EXECUTING
-Plan: 2 of 11
+Plan: 3 of 11
 Status: Ready to execute
 Last activity: 2026-06-19 -- Phase 41 execution started
 
@@ -49,6 +49,9 @@ Migrated from GSD-2. Old M010 phases 39-41 were generated from outdated planning
 - [Phase 41]: Keep Riverpod absent until Plan 41-08; Plan 41-01 adds only crypto 3.0.7. — Preserves the locked pure-Dart-first dependency order.
 - [Phase 41]: Use one immutable InputEvent envelope over five sealed payload variants with UTC canonical content. — Keeps channel completeness explicit while preparing deterministic fingerprinting.
 - [Phase 41]: Keep ProductSnapshot limited to current product truth. — Raw observations, consistency receipts, replay evidence, and UI state belong outside the public snapshot.
+- [Phase 41]: Treat future signals and caregiver strategy preferences as normalized evidence; only StrategyEngine selects policy.
+- [Phase 41]: Bound compressed interaction history to eight irreversible summaries and decay prior signal weights before applying new evidence.
+- [Phase 41]: Keep utterance realization downstream of immutable StrategyDecision and return exactly one primary caregiver line.
 
 ### Roadmap Evolution
 
@@ -82,8 +85,8 @@ the 11 verified plan dependencies, and the UI-restricted projection rules.
 
 ## Session Continuity
 
-Last session: 2026-06-20T00:28:41.282Z
-Stopped at: Completed 41-01-PLAN.md
+Last session: 2026-06-20T04:38:59.987Z
+Stopped at: Completed 41-02-PLAN.md
 Resume file: None
 
 ## Performance Metrics
@@ -96,3 +99,4 @@ Resume file: None
 | Phase 40 P02 | 11 min | 3 tasks | 4 files |
 | Phase 40 P03 | 11 min | 3 tasks | 3 files |
 | Phase 41 P01 | 26 min | 3 tasks | 13 files |
+| Phase 41 P02 | 16 min | 2 tasks | 8 files |
