@@ -108,7 +108,7 @@ Plans:
 **Locked implementation authorities:** `docs/superpowers/plans/2026-06-19-interaction-engine-v1.md`; `docs/superpowers/plans/2026-06-19-interaction-engine-flutter-riverpod.md`
 **Requirements**: R058, R059, R060, R063, R064, R065, R067
 **Depends on:** Phase 40
-**Plans:** 6/11 plans executed
+**Plans:** 7/11 plans executed
 Plans:
 
 **Wave 0**
@@ -128,7 +128,7 @@ Plans:
 
 **Wave 3** *(blocked on 41-04 and 41-06)*
 
-- [ ] 41-07-PLAN.md — TDD thin InteractionEnginePort API/repository adapters, all-result mapping, and direct-engine parity.
+- [x] 41-07-PLAN.md — TDD thin InteractionEnginePort API/repository adapters, all-result mapping, and direct-engine parity.
 
 **Wave 4** *(blocked on 41-04, 41-05, and 41-07)*
 

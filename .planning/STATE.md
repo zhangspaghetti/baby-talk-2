@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v0.1
 milestone_name: milestone
 status: executing
-stopped_at: Completed 41-04-PLAN.md
-last_updated: "2026-06-20T10:25:02.892Z"
+stopped_at: Completed 41-07-PLAN.md
+last_updated: "2026-06-20T10:51:42.012Z"
 last_activity: 2026-06-19 -- Phase 41 execution started
 progress:
   total_phases: 8
   completed_phases: 2
   total_plans: 17
-  completed_plans: 12
-  percent: 71
+  completed_plans: 13
+  percent: 76
 ---
 
 # Project State
@@ -25,11 +25,11 @@ See: .planning/PROJECT.md
 ## Current Position
 
 Phase: 41 (mobile-v2-runnable-vertical-slice) — EXECUTING
-Plan: 7 of 11
+Plan: 8 of 11
 Status: Ready to execute
 Last activity: 2026-06-19 -- Phase 41 execution started
 
-Progress: [███████░░░] 71%
+Progress: [████████░░] 76%
 
 ## Accumulated Context
 
@@ -64,6 +64,8 @@ Migrated from GSD-2. Old M010 phases 39-41 were generated from outdated planning
 - [Phase 41]: Keep initialize on the internal InteractionSessionInitializer seam while InteractionEnginePort exposes only getSnapshot and advance.
 - [Phase 41]: Hold the per-interaction exclusive operation across the full pipeline, then commit one prepared immutable aggregate.
 - [Phase 41]: Replay applies recorded TransitionRecord outputs from revision zero and never invokes live modules, clock, or ID generation.
+- [Phase 41]: Keep interactionId separate from InteractionAdvanceRequest; the request remains revision/input-only. — Preserves the Plan 06 transport contract and avoids duplicate identity truth.
+- [Phase 41]: Unsupported-schema recovery snapshots are not interpreted; repository mapping returns only the rejection code. — Unknown product truth must fail closed instead of being treated as schema 1.
 
 ### Roadmap Evolution
 
@@ -97,8 +99,8 @@ the 11 verified plan dependencies, and the UI-restricted projection rules.
 
 ## Session Continuity
 
-Last session: 2026-06-20T10:25:02.740Z
-Stopped at: Completed 41-04-PLAN.md
+Last session: 2026-06-20T10:50:42.451Z
+Stopped at: Completed 41-07-PLAN.md
 Resume file: None
 
 ## Performance Metrics
@@ -116,3 +118,4 @@ Resume file: None
 | Phase 41 P05 | 10 min | 2 tasks | 12 files |
 | Phase 41 P06 | 25 min | 2 tasks | 6 files |
 | Phase 41 P04 | 10 min | 2 tasks | 5 files |
+| Phase 41 P07 | 19 min | 2 tasks | 9 files |
