@@ -101,7 +101,7 @@ void main() {
 
     final state = container.read(ritualRoomSessionProvider) as RitualRoomReady;
     expect(state.room.ritualRoomId, 'room-b');
-    expect(state.snapshot?.ritualRoomId, 'room-b');
+    expect(state.snapshot.ritualRoomId, 'room-b');
     expect(initializer.roomIds, ['room-b']);
   });
 
