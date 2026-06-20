@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v0.1
 milestone_name: milestone
 status: executing
-stopped_at: Completed 41-08-PLAN.md
-last_updated: "2026-06-20T15:01:46.626Z"
+stopped_at: Completed 41-09-PLAN.md
+last_updated: "2026-06-20T18:13:29.619Z"
 last_activity: 2026-06-19 -- Phase 41 execution started
 progress:
   total_phases: 8
   completed_phases: 2
   total_plans: 17
-  completed_plans: 14
-  percent: 82
+  completed_plans: 15
+  percent: 88
 ---
 
 # Project State
@@ -25,11 +25,11 @@ See: .planning/PROJECT.md
 ## Current Position
 
 Phase: 41 (mobile-v2-runnable-vertical-slice) — EXECUTING
-Plan: 9 of 11
+Plan: 10 of 11
 Status: Ready to execute
 Last activity: 2026-06-19 -- Phase 41 execution started
 
-Progress: [████████░░] 82%
+Progress: [█████████░] 88%
 
 ## Accumulated Context
 
@@ -69,6 +69,9 @@ Migrated from GSD-2. Old M010 phases 39-41 were generated from outdated planning
 - [Phase 41]: Resolve the concrete engine, engine port, and session initializer as one provider-owned authority over one runtime store. — Prevents wrappers or duplicate lifecycle authorities in Riverpod composition.
 - [Phase 41]: Generate raw input identity and time through public override seams while retaining no input content in the factory. — Keeps all five channels deterministic in tests and non-retaining in production.
 - [Phase 41]: Keep EngineCapabilities complete and InteractionCapabilityMask presentation-only with reaction selection as the Phase 41 exposure. — UI disclosure must not narrow engine or repository capability.
+- [Phase 41]: Use one operation epoch across room opens and submissions so newer work or disposal invalidates stale async completion.
+- [Phase 41]: Keep RitualRoomUiState limited to whole RitualRoomContent and ProductSnapshot references plus transient failure data.
+- [Phase 41]: Replace whole snapshots for applied, duplicate, and conflict outcomes while preserving the last usable snapshot for other failures.
 
 ### Roadmap Evolution
 
@@ -102,8 +105,8 @@ the 11 verified plan dependencies, and the UI-restricted projection rules.
 
 ## Session Continuity
 
-Last session: 2026-06-20T15:01:46.453Z
-Stopped at: Completed 41-08-PLAN.md
+Last session: 2026-06-20T18:13:29.448Z
+Stopped at: Completed 41-09-PLAN.md
 Resume file: None
 
 ## Performance Metrics
@@ -123,3 +126,4 @@ Resume file: None
 | Phase 41 P04 | 10 min | 2 tasks | 5 files |
 | Phase 41 P07 | 19 min | 2 tasks | 9 files |
 | Phase 41 P08 | 3h 53m | 2 tasks | 15 files |
+| Phase 41 P09 | 1h 2m | 2 tasks | 4 files |

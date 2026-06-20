@@ -108,7 +108,7 @@ Plans:
 **Locked implementation authorities:** `docs/superpowers/plans/2026-06-19-interaction-engine-v1.md`; `docs/superpowers/plans/2026-06-19-interaction-engine-flutter-riverpod.md`
 **Requirements**: R058, R059, R060, R063, R064, R065, R067
 **Depends on:** Phase 40
-**Plans:** 8/11 plans executed
+**Plans:** 9/11 plans executed
 Plans:
 
 **Wave 0**
@@ -136,7 +136,7 @@ Plans:
 
 **Wave 5** *(blocked on 41-08)*
 
-- [ ] 41-09-PLAN.md — TDD the sole RitualRoomSessionNotifier and whole-ProductSnapshot transient UI state.
+- [x] 41-09-PLAN.md — TDD the sole RitualRoomSessionNotifier and whole-ProductSnapshot transient UI state.
 
 **Wave 6** *(blocked on 41-09)*
 
