@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v0.1
 milestone_name: milestone
 status: executing
-stopped_at: Completed 41-02-PLAN.md
-last_updated: "2026-06-20T04:39:00.002Z"
+stopped_at: Completed 41-03-PLAN.md
+last_updated: "2026-06-20T04:59:23.672Z"
 last_activity: 2026-06-19 -- Phase 41 execution started
 progress:
   total_phases: 8
   completed_phases: 2
   total_plans: 17
-  completed_plans: 8
+  completed_plans: 9
   percent: 25
 ---
 
@@ -25,7 +25,7 @@ See: .planning/PROJECT.md
 ## Current Position
 
 Phase: 41 (mobile-v2-runnable-vertical-slice) — EXECUTING
-Plan: 3 of 11
+Plan: 4 of 11
 Status: Ready to execute
 Last activity: 2026-06-19 -- Phase 41 execution started
 
@@ -52,6 +52,9 @@ Migrated from GSD-2. Old M010 phases 39-41 were generated from outdated planning
 - [Phase 41]: Treat future signals and caregiver strategy preferences as normalized evidence; only StrategyEngine selects policy.
 - [Phase 41]: Bound compressed interaction history to eight irreversible summaries and decay prior signal weights before applying new evidence.
 - [Phase 41]: Keep utterance realization downstream of immutable StrategyDecision and return exactly one primary caregiver line.
+- [Phase 41]: Canonicalize complete InputEvent content recursively with sorted map keys, order-preserving lists, and UTC timestamps before SHA-256 hashing. — Makes retry identity deterministic without retaining raw payloads.
+- [Phase 41]: Stage an exclusive-operation commit and replace the runtime aggregate only after the operation completes successfully. — Prevents partial mutation when an operation fails after preparing state.
+- [Phase 41]: Keep replay dependency-free and apply recorded derived outputs directly from revision 0. — Preserves ReplayJournal as evidence rather than a third authority.
 
 ### Roadmap Evolution
 
@@ -85,8 +88,8 @@ the 11 verified plan dependencies, and the UI-restricted projection rules.
 
 ## Session Continuity
 
-Last session: 2026-06-20T04:38:59.987Z
-Stopped at: Completed 41-02-PLAN.md
+Last session: 2026-06-20T04:58:30.699Z
+Stopped at: Completed 41-03-PLAN.md
 Resume file: None
 
 ## Performance Metrics
@@ -100,3 +103,4 @@ Resume file: None
 | Phase 40 P03 | 11 min | 3 tasks | 3 files |
 | Phase 41 P01 | 26 min | 3 tasks | 13 files |
 | Phase 41 P02 | 16 min | 2 tasks | 8 files |
+| Phase 41 P03 | 13 min | 2 tasks | 11 files |
