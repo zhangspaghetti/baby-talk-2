@@ -47,7 +47,9 @@ void main() {
       final runtime = harness.store.debugState(initial.interactionId)!;
       final callsBeforeReplay = harness.calls;
 
-      final replayed = runtime.replayJournal.replayFrom(runtime.initialSnapshot);
+      final replayed = runtime.replayJournal.replayFrom(
+        runtime.initialSnapshot,
+      );
 
       _expectSnapshot(replayed, latest);
       expect(harness.calls, callsBeforeReplay);
@@ -242,12 +244,30 @@ void _expectSnapshot(ProductSnapshot actual, ProductSnapshot expected) {
   expect(actual.interactionId, expected.interactionId);
   expect(actual.ritualRoomId, expected.ritualRoomId);
   expect(actual.anchor, expected.anchor);
-  expect(actual.normalizedContext.semanticSignals, expected.normalizedContext.semanticSignals);
-  expect(actual.normalizedContext.intentEstimate, expected.normalizedContext.intentEstimate);
-  expect(actual.normalizedContext.momentHypothesis, expected.normalizedContext.momentHypothesis);
-  expect(actual.normalizedContext.contextFrame, expected.normalizedContext.contextFrame);
-  expect(actual.normalizedContext.confidence, expected.normalizedContext.confidence);
-  expect(actual.normalizedContext.eventSummary, expected.normalizedContext.eventSummary);
+  expect(
+    actual.normalizedContext.semanticSignals,
+    expected.normalizedContext.semanticSignals,
+  );
+  expect(
+    actual.normalizedContext.intentEstimate,
+    expected.normalizedContext.intentEstimate,
+  );
+  expect(
+    actual.normalizedContext.momentHypothesis,
+    expected.normalizedContext.momentHypothesis,
+  );
+  expect(
+    actual.normalizedContext.contextFrame,
+    expected.normalizedContext.contextFrame,
+  );
+  expect(
+    actual.normalizedContext.confidence,
+    expected.normalizedContext.confidence,
+  );
+  expect(
+    actual.normalizedContext.eventSummary,
+    expected.normalizedContext.eventSummary,
+  );
   expect(actual.memory.summary, expected.memory.summary);
   expect(actual.memory.eventLog, expected.memory.eventLog);
   expect(actual.memory.signalWeights, expected.memory.signalWeights);

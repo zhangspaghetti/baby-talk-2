@@ -19,125 +19,143 @@ import 'package:mobile_v2/features/ritual_room/domain/runtime/interaction_runtim
 import 'package:mobile_v2/features/ritual_room/domain/runtime/interaction_seed_source.dart';
 
 void main() {
-  test('accepted transition reads one clock and commits all evidence once', () async {
-    final harness = _AtomicHarness();
-    final initial = await harness.engine.initialize('shoes_on_room_v1');
-    final before = harness.measure(initial.interactionId);
+  test(
+    'accepted transition reads one clock and commits all evidence once',
+    () async {
+      final harness = _AtomicHarness();
+      final initial = await harness.engine.initialize('shoes_on_room_v1');
+      final before = harness.measure(initial.interactionId);
 
-    final result = await harness.engine.advance(
-      interactionId: initial.interactionId,
-      expectedRevision: 0,
-      input: _event('event-1'),
-    );
-    final after = harness.measure(initial.interactionId);
-    final record = harness.store
-        .debugState(initial.interactionId)!
-        .replayJournal
-        .records
-        .single;
+      final result = await harness.engine.advance(
+        interactionId: initial.interactionId,
+        expectedRevision: 0,
+        input: _event('event-1'),
+      );
+      final after = harness.measure(initial.interactionId);
+      final record = harness.store
+          .debugState(initial.interactionId)!
+          .replayJournal
+          .records
+          .single;
 
-    expect(result, isA<AdvanceApplied>());
-    expect(after.revision, before.revision + 1);
-    expect(after.receipts, before.receipts + 1);
-    expect(after.records, before.records + 1);
-    expect(after.normalizeCalls, before.normalizeCalls + 1);
-    expect(after.accumulateCalls, before.accumulateCalls + 1);
-    expect(after.strategyCalls, before.strategyCalls + 1);
-    expect(after.utteranceCalls, before.utteranceCalls + 1);
-    expect(after.clockCalls, before.clockCalls + 1);
-    expect(result.snapshot!.metadata.updatedAt, record.occurredAt);
-  });
+      expect(result, isA<AdvanceApplied>());
+      expect(after.revision, before.revision + 1);
+      expect(after.receipts, before.receipts + 1);
+      expect(after.records, before.records + 1);
+      expect(after.normalizeCalls, before.normalizeCalls + 1);
+      expect(after.accumulateCalls, before.accumulateCalls + 1);
+      expect(after.strategyCalls, before.strategyCalls + 1);
+      expect(after.utteranceCalls, before.utteranceCalls + 1);
+      expect(after.clockCalls, before.clockCalls + 1);
+      expect(result.snapshot!.metadata.updatedAt, record.occurredAt);
+    },
+  );
 
-  test('pipeline failure leaks no revision, receipt, journal, or clock work', () async {
-    final harness = _AtomicHarness(failUtterance: true);
-    final initial = await harness.engine.initialize('shoes_on_room_v1');
-    final before = harness.measure(initial.interactionId);
+  test(
+    'pipeline failure leaks no revision, receipt, journal, or clock work',
+    () async {
+      final harness = _AtomicHarness(failUtterance: true);
+      final initial = await harness.engine.initialize('shoes_on_room_v1');
+      final before = harness.measure(initial.interactionId);
 
-    final result = await harness.engine.advance(
-      interactionId: initial.interactionId,
-      expectedRevision: 0,
-      input: _event('event-1'),
-    );
-    final after = harness.measure(initial.interactionId);
+      final result = await harness.engine.advance(
+        interactionId: initial.interactionId,
+        expectedRevision: 0,
+        input: _event('event-1'),
+      );
+      final after = harness.measure(initial.interactionId);
 
-    expect((result as AdvanceRejected).code, AdvanceErrorCode.pipelineFailed);
-    expect(after.revision, before.revision);
-    expect(after.receipts, before.receipts);
-    expect(after.records, before.records);
-    expect(after.normalizeCalls, before.normalizeCalls + 1);
-    expect(after.accumulateCalls, before.accumulateCalls + 1);
-    expect(after.strategyCalls, before.strategyCalls + 1);
-    expect(after.utteranceCalls, before.utteranceCalls + 1);
-    expect(after.clockCalls, before.clockCalls);
-  });
+      expect((result as AdvanceRejected).code, AdvanceErrorCode.pipelineFailed);
+      expect(after.revision, before.revision);
+      expect(after.receipts, before.receipts);
+      expect(after.records, before.records);
+      expect(after.normalizeCalls, before.normalizeCalls + 1);
+      expect(after.accumulateCalls, before.accumulateCalls + 1);
+      expect(after.strategyCalls, before.strategyCalls + 1);
+      expect(after.utteranceCalls, before.utteranceCalls + 1);
+      expect(after.clockCalls, before.clockCalls);
+    },
+  );
 
-  test('duplicate and revision rejection run no pipeline or clock work', () async {
-    final harness = _AtomicHarness();
-    final initial = await harness.engine.initialize('shoes_on_room_v1');
-    await harness.engine.advance(
-      interactionId: initial.interactionId,
-      expectedRevision: 0,
-      input: _event('event-1'),
-    );
-    final beforeDuplicate = harness.measure(initial.interactionId);
+  test(
+    'duplicate and revision rejection run no pipeline or clock work',
+    () async {
+      final harness = _AtomicHarness();
+      final initial = await harness.engine.initialize('shoes_on_room_v1');
+      await harness.engine.advance(
+        interactionId: initial.interactionId,
+        expectedRevision: 0,
+        input: _event('event-1'),
+      );
+      final beforeDuplicate = harness.measure(initial.interactionId);
 
-    final duplicate = await harness.engine.advance(
-      interactionId: initial.interactionId,
-      expectedRevision: 0,
-      input: _event('event-1'),
-    );
-    final afterDuplicate = harness.measure(initial.interactionId);
-    final stale = await harness.engine.advance(
-      interactionId: initial.interactionId,
-      expectedRevision: 0,
-      input: _event('event-2'),
-    );
-    final afterStale = harness.measure(initial.interactionId);
+      final duplicate = await harness.engine.advance(
+        interactionId: initial.interactionId,
+        expectedRevision: 0,
+        input: _event('event-1'),
+      );
+      final afterDuplicate = harness.measure(initial.interactionId);
+      final stale = await harness.engine.advance(
+        interactionId: initial.interactionId,
+        expectedRevision: 0,
+        input: _event('event-2'),
+      );
+      final afterStale = harness.measure(initial.interactionId);
 
-    expect(duplicate, isA<AdvanceDuplicateIgnored>());
-    expect((stale as AdvanceRejected).code, AdvanceErrorCode.revisionConflict);
-    expect(afterDuplicate, beforeDuplicate);
-    expect(afterStale, beforeDuplicate);
-  });
+      expect(duplicate, isA<AdvanceDuplicateIgnored>());
+      expect(
+        (stale as AdvanceRejected).code,
+        AdvanceErrorCode.revisionConflict,
+      );
+      expect(afterDuplicate, beforeDuplicate);
+      expect(afterStale, beforeDuplicate);
+    },
+  );
 
-  test('two concurrent requests from one revision produce exactly one commit', () async {
-    final gate = Completer<void>();
-    final entered = Completer<void>();
-    final harness = _AtomicHarness(pipelineGate: gate, pipelineEntered: entered);
-    final initial = await harness.engine.initialize('shoes_on_room_v1');
-    final before = harness.measure(initial.interactionId);
+  test(
+    'two concurrent requests from one revision produce exactly one commit',
+    () async {
+      final gate = Completer<void>();
+      final entered = Completer<void>();
+      final harness = _AtomicHarness(
+        pipelineGate: gate,
+        pipelineEntered: entered,
+      );
+      final initial = await harness.engine.initialize('shoes_on_room_v1');
+      final before = harness.measure(initial.interactionId);
 
-    final first = harness.engine.advance(
-      interactionId: initial.interactionId,
-      expectedRevision: 0,
-      input: _event('event-1'),
-    );
-    await entered.future;
-    final second = harness.engine.advance(
-      interactionId: initial.interactionId,
-      expectedRevision: 0,
-      input: _event('event-2'),
-    );
-    gate.complete();
-    final results = await Future.wait([first, second]);
-    final after = harness.measure(initial.interactionId);
+      final first = harness.engine.advance(
+        interactionId: initial.interactionId,
+        expectedRevision: 0,
+        input: _event('event-1'),
+      );
+      await entered.future;
+      final second = harness.engine.advance(
+        interactionId: initial.interactionId,
+        expectedRevision: 0,
+        input: _event('event-2'),
+      );
+      gate.complete();
+      final results = await Future.wait([first, second]);
+      final after = harness.measure(initial.interactionId);
 
-    expect(results.whereType<AdvanceApplied>(), hasLength(1));
-    expect(
-      results
-          .whereType<AdvanceRejected>()
-          .where((result) => result.code == AdvanceErrorCode.revisionConflict),
-      hasLength(1),
-    );
-    expect(after.revision, before.revision + 1);
-    expect(after.receipts, before.receipts + 1);
-    expect(after.records, before.records + 1);
-    expect(after.normalizeCalls, before.normalizeCalls + 1);
-    expect(after.accumulateCalls, before.accumulateCalls + 1);
-    expect(after.strategyCalls, before.strategyCalls + 1);
-    expect(after.utteranceCalls, before.utteranceCalls + 1);
-    expect(after.clockCalls, before.clockCalls + 1);
-  });
+      expect(results.whereType<AdvanceApplied>(), hasLength(1));
+      expect(
+        results.whereType<AdvanceRejected>().where(
+          (result) => result.code == AdvanceErrorCode.revisionConflict,
+        ),
+        hasLength(1),
+      );
+      expect(after.revision, before.revision + 1);
+      expect(after.receipts, before.receipts + 1);
+      expect(after.records, before.records + 1);
+      expect(after.normalizeCalls, before.normalizeCalls + 1);
+      expect(after.accumulateCalls, before.accumulateCalls + 1);
+      expect(after.strategyCalls, before.strategyCalls + 1);
+      expect(after.utteranceCalls, before.utteranceCalls + 1);
+      expect(after.clockCalls, before.clockCalls + 1);
+    },
+  );
 }
 
 InputEvent _event(String id) => InputEvent.reactionSelection(
@@ -198,10 +216,7 @@ final class _AtomicHarness {
     Completer<void>? pipelineGate,
     Completer<void>? pipelineEntered,
   }) {
-    normalize = _NormalizeSpy(
-      gate: pipelineGate,
-      entered: pipelineEntered,
-    );
+    normalize = _NormalizeSpy(gate: pipelineGate, entered: pipelineEntered);
     utterance = _UtteranceSpy(fail: failUtterance);
     engine = InteractionEngine(
       clock: clock,

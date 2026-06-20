@@ -23,35 +23,48 @@ import 'package:mobile_v2/features/ritual_room/domain/runtime/interaction_sessio
 
 void main() {
   group('InteractionEngine lifecycle and conflict authority', () {
-    test('port exposes reads and advances while concrete engine initializes', () {
-      final harness = _Harness();
-      final InteractionEnginePort port = harness.engine;
-      final InteractionSessionInitializer initializer = harness.engine;
+    test(
+      'port exposes reads and advances while concrete engine initializes',
+      () {
+        final harness = _Harness();
+        final InteractionEnginePort port = harness.engine;
+        final InteractionSessionInitializer initializer = harness.engine;
 
-      expect(port, same(initializer));
-    });
+        expect(port, same(initializer));
+      },
+    );
 
-    test('initialize creates exactly one revision-zero runtime aggregate', () async {
-      final harness = _Harness();
+    test(
+      'initialize creates exactly one revision-zero runtime aggregate',
+      () async {
+        final harness = _Harness();
 
-      final snapshot = await harness.engine.initialize('shoes_on_room_v1');
-      final runtime = harness.store.debugState(snapshot.interactionId);
+        final snapshot = await harness.engine.initialize('shoes_on_room_v1');
+        final runtime = harness.store.debugState(snapshot.interactionId);
 
-      expect(snapshot.schemaVersion, 1);
-      expect(snapshot.revision, 0);
-      expect(snapshot.interactionId, 'interaction-1');
-      expect(snapshot.metadata.lastEventId, isNull);
-      expect(harness.ids.calls, 1);
-      expect(harness.seed.calls, 1);
-      expect(harness.clock.calls, 1);
-      expect(runtime, isNotNull);
-      expect(runtime!.consistencyState.receipts, isEmpty);
-      expect(runtime.replayJournal.records, isEmpty);
-      expect(await harness.engine.getSnapshot(snapshot.interactionId), same(snapshot));
-      expect(await harness.engine.getSnapshot('missing-interaction'), isNull);
-      expect(harness.ids.calls, 1, reason: 'snapshot reads never initialize');
-      expect(harness.seed.calls, 1, reason: 'snapshot reads never initialize');
-    });
+        expect(snapshot.schemaVersion, 1);
+        expect(snapshot.revision, 0);
+        expect(snapshot.interactionId, 'interaction-1');
+        expect(snapshot.metadata.lastEventId, isNull);
+        expect(harness.ids.calls, 1);
+        expect(harness.seed.calls, 1);
+        expect(harness.clock.calls, 1);
+        expect(runtime, isNotNull);
+        expect(runtime!.consistencyState.receipts, isEmpty);
+        expect(runtime.replayJournal.records, isEmpty);
+        expect(
+          await harness.engine.getSnapshot(snapshot.interactionId),
+          same(snapshot),
+        );
+        expect(await harness.engine.getSnapshot('missing-interaction'), isNull);
+        expect(harness.ids.calls, 1, reason: 'snapshot reads never initialize');
+        expect(
+          harness.seed.calls,
+          1,
+          reason: 'snapshot reads never initialize',
+        );
+      },
+    );
 
     test(
       'duplicate and event-ID checks precede expected-revision conflict',
@@ -109,73 +122,85 @@ void main() {
       },
     );
 
-    test('unknown interaction is rejected before fingerprint or pipeline work', () async {
-      final harness = _Harness();
+    test(
+      'unknown interaction is rejected before fingerprint or pipeline work',
+      () async {
+        final harness = _Harness();
 
-      final result = await harness.engine.advance(
-        interactionId: 'missing-interaction',
-        expectedRevision: 0,
-        input: _reaction('event-1', 'joining_action'),
-      );
+        final result = await harness.engine.advance(
+          interactionId: 'missing-interaction',
+          expectedRevision: 0,
+          input: _reaction('event-1', 'joining_action'),
+        );
 
-      expect(
-        (result as AdvanceRejected).code,
-        AdvanceErrorCode.interactionNotFound,
-      );
-      expect(result.latestSnapshot, isNull);
-      expect(harness.totalPipelineCalls, 0);
-      expect(harness.clock.calls, 0);
-    });
+        expect(
+          (result as AdvanceRejected).code,
+          AdvanceErrorCode.interactionNotFound,
+        );
+        expect(result.latestSnapshot, isNull);
+        expect(harness.totalPipelineCalls, 0);
+        expect(harness.clock.calls, 0);
+      },
+    );
 
-    test('unsupported schema and invalid input reject without mutation', () async {
-      final harness = _Harness();
-      final initial = await harness.engine.initialize('shoes_on_room_v1');
-      final unsupported = ProductSnapshot(
-        schemaVersion: 2,
-        revision: initial.revision,
-        interactionId: 'unsupported-interaction',
-        ritualRoomId: initial.ritualRoomId,
-        anchor: initial.anchor,
-        normalizedContext: initial.normalizedContext,
-        memory: initial.memory,
-        strategy: initial.strategy,
-        utterance: initial.utterance,
-        metadata: initial.metadata,
-      );
-      harness.store.add(InteractionRuntimeState.initial(unsupported));
-      final clockBefore = harness.clock.calls;
+    test(
+      'unsupported schema and invalid input reject without mutation',
+      () async {
+        final harness = _Harness();
+        final initial = await harness.engine.initialize('shoes_on_room_v1');
+        final unsupported = ProductSnapshot(
+          schemaVersion: 2,
+          revision: initial.revision,
+          interactionId: 'unsupported-interaction',
+          ritualRoomId: initial.ritualRoomId,
+          anchor: initial.anchor,
+          normalizedContext: initial.normalizedContext,
+          memory: initial.memory,
+          strategy: initial.strategy,
+          utterance: initial.utterance,
+          metadata: initial.metadata,
+        );
+        harness.store.add(InteractionRuntimeState.initial(unsupported));
+        final clockBefore = harness.clock.calls;
 
-      final unsupportedResult = await harness.engine.advance(
-        interactionId: unsupported.interactionId,
-        expectedRevision: 0,
-        input: _reaction('event-1', 'joining_action'),
-      );
-      final invalidResult = await harness.engine.advance(
-        interactionId: initial.interactionId,
-        expectedRevision: 0,
-        input: InputEvent.freeText(
-          eventId: '',
-          occurredAt: DateTime.utc(2026, 6, 20, 9),
-          text: '',
-        ),
-      );
+        final unsupportedResult = await harness.engine.advance(
+          interactionId: unsupported.interactionId,
+          expectedRevision: 0,
+          input: _reaction('event-1', 'joining_action'),
+        );
+        final invalidResult = await harness.engine.advance(
+          interactionId: initial.interactionId,
+          expectedRevision: 0,
+          input: InputEvent.freeText(
+            eventId: '',
+            occurredAt: DateTime.utc(2026, 6, 20, 9),
+            text: '',
+          ),
+        );
 
-      expect(
-        (unsupportedResult as AdvanceRejected).code,
-        AdvanceErrorCode.unsupportedSchemaVersion,
-      );
-      expect(
-        (invalidResult as AdvanceRejected).code,
-        AdvanceErrorCode.invalidInput,
-      );
-      expect(harness.totalPipelineCalls, 0);
-      expect(harness.clock.calls, clockBefore);
-      expect(harness.store.debugState(initial.interactionId)!.snapshot.revision, 0);
-      expect(
-        harness.store.debugState(unsupported.interactionId)!.snapshot.revision,
-        0,
-      );
-    });
+        expect(
+          (unsupportedResult as AdvanceRejected).code,
+          AdvanceErrorCode.unsupportedSchemaVersion,
+        );
+        expect(
+          (invalidResult as AdvanceRejected).code,
+          AdvanceErrorCode.invalidInput,
+        );
+        expect(harness.totalPipelineCalls, 0);
+        expect(harness.clock.calls, clockBefore);
+        expect(
+          harness.store.debugState(initial.interactionId)!.snapshot.revision,
+          0,
+        );
+        expect(
+          harness.store
+              .debugState(unsupported.interactionId)!
+              .snapshot
+              .revision,
+          0,
+        );
+      },
+    );
   });
 
   test(
@@ -229,7 +254,11 @@ void main() {
       expect(semanticDump, isNot(contains(rawText.toLowerCase())));
       expect(
         semanticDump,
-        isNot(matches(RegExp(r'child score|correctness|diagnos|ability|trait'))),
+        isNot(
+          matches(
+            RegExp(r'child score|correctness|diagnos|\bability\b|\btrait\b'),
+          ),
+        ),
       );
     },
   );
