@@ -45,6 +45,21 @@ plan before implementation. Do not encode a known conflict in code.
 - Do not add a package, code generator, global singleton, service locator, or
   architectural layer without a demonstrated need and plan approval.
 
+## Riverpod Authority
+
+- Riverpod is limited to app bootstrap, `app/providers/`, and provider-focused
+  tests. Feature screens and widgets receive immutable domain values and
+  callbacks; they do not import Riverpod.
+- `RitualRoomSessionNotifier` is the only mutable Riverpod node for Ritual Room
+  product-session orchestration. Do not add a second Notifier, StateNotifier,
+  controller, or ViewModel that mirrors its state.
+- `ProductSnapshot` remains the complete product truth. `ConsistencyState` and
+  `ReplayJournal` remain internal to `InteractionEngine`; UI state carries the
+  whole snapshot and may add only transient loading, submitting, or error data.
+- App composition watches `ritualRoomSessionProvider` and
+  `interactionCapabilityMaskProvider`. User callbacks read the input factory
+  and the sole session notifier.
+
 ## Required Quality Gates
 
 Run the narrowest relevant checks during development, then before completion run:
