@@ -293,6 +293,30 @@ impossible combinations.
   owner for the same state.
 - Controllers must dispose resources and must not update state after disposal.
 
+### 5.4 Riverpod Composition Contract
+
+`flutter_riverpod` 3.3.x is approved because the Interaction Engine composition
+is shared, lifecycle-aware, dependency-rich, and requires provider overrides in
+tests. The package is MIT licensed, supports Flutter platforms, collects or
+transports no data, and is tested through `ProviderContainer.test`,
+`ProviderScope`, and public override seams.
+
+- Riverpod production imports are limited to `app/providers` and app bootstrap.
+- Domain and data layers must remain Riverpod-free.
+- Read-only providers compose clocks, IDs, seeds, modules, stores, APIs,
+  mappers, repositories, and capability policy.
+- Phase 41 permits one mutable Notifier for Ritual Room orchestration. Do not add
+  another ViewModel, controller, or Notifier that mirrors the same state.
+- Mutable presentation state carries the whole `ProductSnapshot`; it must not
+  duplicate revision, context, memory, strategy, or utterance fields.
+- Public override seams must replace clocks, IDs, seeds, modules, stores, APIs,
+  repositories, and presentation capabilities without provider-internal
+  business rules.
+- `CapabilityMask` controls visible presentation affordances only. It must not
+  enter the engine, API, repository, or domain dependency graph.
+- No `riverpod_generator`, `build_runner`, `hooks_riverpod`, Freezed, or
+  StateNotifier compatibility package is approved for Phase 41.
+
 ## 6. Models, DTOs, And Serialization
 
 - Transport DTOs mirror the backend contract and may contain nullable or

@@ -10,6 +10,7 @@ dependencies:
   crypto: ^3.0.7
   flutter:
     sdk: flutter
+  flutter_riverpod: ^3.3.0
 
 dev_dependencies:
   flutter_test:
