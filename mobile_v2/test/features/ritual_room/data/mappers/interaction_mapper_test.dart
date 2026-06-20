@@ -19,54 +19,55 @@ void main() {
 
   group('InteractionInputDto', () {
     final timestamp = DateTime.parse('2026-06-20T08:30:00+08:00');
-    final cases = <({String wireType, InputEvent event, Map<String, Object?> payload})>[
-      (
-        wireType: 'reaction_selection',
-        event: InputEvent.reactionSelection(
-          eventId: 'evt-reaction',
-          occurredAt: timestamp,
-          selected: 'not_ready_yet',
-        ),
-        payload: const {'selected': 'not_ready_yet'},
-      ),
-      (
-        wireType: 'voice_observation',
-        event: InputEvent.voiceObservation(
-          eventId: 'evt-voice',
-          occurredAt: timestamp,
-          transcript: '  wants to try independently  ',
-        ),
-        payload: const {'transcript': '  wants to try independently  '},
-      ),
-      (
-        wireType: 'free_text',
-        event: InputEvent.freeText(
-          eventId: 'evt-text',
-          occurredAt: timestamp,
-          text: 'moved away from the shoes',
-        ),
-        payload: const {'text': 'moved away from the shoes'},
-      ),
-      (
-        wireType: 'future_signal',
-        event: InputEvent.futureSignal(
-          eventId: 'evt-signal',
-          occurredAt: timestamp,
-          signal: 'shared_action',
-          value: 'available',
-        ),
-        payload: const {'signal': 'shared_action', 'value': 'available'},
-      ),
-      (
-        wireType: 'strategy_preference',
-        event: InputEvent.strategyPreference(
-          eventId: 'evt-preference',
-          occurredAt: timestamp,
-          preference: 'reduce_options',
-        ),
-        payload: const {'preference': 'reduce_options'},
-      ),
-    ];
+    final cases =
+        <({String wireType, InputEvent event, Map<String, Object?> payload})>[
+          (
+            wireType: 'reaction_selection',
+            event: InputEvent.reactionSelection(
+              eventId: 'evt-reaction',
+              occurredAt: timestamp,
+              selected: 'not_ready_yet',
+            ),
+            payload: const {'selected': 'not_ready_yet'},
+          ),
+          (
+            wireType: 'voice_observation',
+            event: InputEvent.voiceObservation(
+              eventId: 'evt-voice',
+              occurredAt: timestamp,
+              transcript: '  wants to try independently  ',
+            ),
+            payload: const {'transcript': '  wants to try independently  '},
+          ),
+          (
+            wireType: 'free_text',
+            event: InputEvent.freeText(
+              eventId: 'evt-text',
+              occurredAt: timestamp,
+              text: 'moved away from the shoes',
+            ),
+            payload: const {'text': 'moved away from the shoes'},
+          ),
+          (
+            wireType: 'future_signal',
+            event: InputEvent.futureSignal(
+              eventId: 'evt-signal',
+              occurredAt: timestamp,
+              signal: 'shared_action',
+              value: 'available',
+            ),
+            payload: const {'signal': 'shared_action', 'value': 'available'},
+          ),
+          (
+            wireType: 'strategy_preference',
+            event: InputEvent.strategyPreference(
+              eventId: 'evt-preference',
+              occurredAt: timestamp,
+              preference: 'reduce_options',
+            ),
+            payload: const {'preference': 'reduce_options'},
+          ),
+        ];
 
     for (final testCase in cases) {
       test('R067 round-trips ${testCase.wireType} losslessly', () {
@@ -84,22 +85,25 @@ void main() {
       });
     }
 
-    test('expectedRevision belongs to the request, never the input payload', () {
-      final input = mapper.inputFromDomain(cases.first.event);
-      final request = InteractionAdvanceRequest(
-        expectedRevision: 7,
-        input: input,
-      );
-      final json = request.toJson();
+    test(
+      'expectedRevision belongs to the request, never the input payload',
+      () {
+        final input = mapper.inputFromDomain(cases.first.event);
+        final request = InteractionAdvanceRequest(
+          expectedRevision: 7,
+          input: input,
+        );
+        final json = request.toJson();
 
-      expect(json['expectedRevision'], 7);
-      expect(json['input'], input.toJson());
-      expect(input.toJson(), isNot(contains('expectedRevision')));
-      expect(
-        (input.toJson()['payload']! as Map<String, Object?>),
-        isNot(contains('expectedRevision')),
-      );
-    });
+        expect(json['expectedRevision'], 7);
+        expect(json['input'], input.toJson());
+        expect(input.toJson(), isNot(contains('expectedRevision')));
+        expect(
+          (input.toJson()['payload']! as Map<String, Object?>),
+          isNot(contains('expectedRevision')),
+        );
+      },
+    );
 
     test('R060 strategy preference remains evidence, not a decision', () {
       final dto = mapper.inputFromDomain(cases.last.event);
@@ -130,10 +134,8 @@ void main() {
         throwsFormatException,
       );
       expect(
-        () => InteractionInputDto.fromJson({
-          ...valid,
-          'type': 'unknown_channel',
-        }),
+        () =>
+            InteractionInputDto.fromJson({...valid, 'type': 'unknown_channel'}),
         throwsFormatException,
       );
     });
@@ -154,7 +156,10 @@ void main() {
       expect(snapshot.schemaVersion, ProductSnapshot.currentSchemaVersion);
       expect(snapshot.revision, 3);
       expect(snapshot.interactionId, 'interaction-1');
-      expect(snapshot.normalizedContext.momentHypothesis, contains('uncertain'));
+      expect(
+        snapshot.normalizedContext.momentHypothesis,
+        contains('uncertain'),
+      );
       expect(snapshot.strategy.primary, PressurePolicy.lowPressure);
       expect(snapshot.utterance.primary, "Let's pause by the shoes.");
       expect(response.toJson(), isNot(contains('future_optional_field')));
@@ -213,31 +218,34 @@ void main() {
       }
     });
 
-    test('maps every rejection code and conflict latestSnapshot explicitly', () {
-      for (final code in AdvanceErrorCode.values) {
-        final hasLatestSnapshot =
-            code == AdvanceErrorCode.revisionConflict ||
-            code == AdvanceErrorCode.eventIdConflict;
-        final result = AdvanceRejected(
-          code: code,
-          latestSnapshot: hasLatestSnapshot ? _snapshot() : null,
-        );
+    test(
+      'maps every rejection code and conflict latestSnapshot explicitly',
+      () {
+        for (final code in AdvanceErrorCode.values) {
+          final hasLatestSnapshot =
+              code == AdvanceErrorCode.revisionConflict ||
+              code == AdvanceErrorCode.eventIdConflict;
+          final result = AdvanceRejected(
+            code: code,
+            latestSnapshot: hasLatestSnapshot ? _snapshot() : null,
+          );
 
-        final response = mapper.resultFromDomain(result);
-        final roundTripped =
-            mapper.resultToDomain(
-                  InteractionResultResponse.fromJson(response.toJson()),
-                )
-                as AdvanceRejected;
+          final response = mapper.resultFromDomain(result);
+          final roundTripped =
+              mapper.resultToDomain(
+                    InteractionResultResponse.fromJson(response.toJson()),
+                  )
+                  as AdvanceRejected;
 
-        expect(response.error, code.wireName);
-        expect(roundTripped.code, code);
-        expect(
-          roundTripped.latestSnapshot?.revision,
-          hasLatestSnapshot ? 3 : null,
-        );
-      }
-    });
+          expect(response.error, code.wireName);
+          expect(roundTripped.code, code);
+          expect(
+            roundTripped.latestSnapshot?.revision,
+            hasLatestSnapshot ? 3 : null,
+          );
+        }
+      },
+    );
 
     test('T-41-06-02 serializes product results without engine evidence', () {
       final responses = <InteractionResultResponse>[
@@ -259,12 +267,12 @@ void main() {
 
       for (final response in responses) {
         final serialized = jsonEncode(response.toJson());
-        expect(response.toJson().keys, everyElement(isIn(<String>[
-          'status',
-          'error',
-          'snapshot',
-          'latestSnapshot',
-        ])));
+        expect(
+          response.toJson().keys,
+          everyElement(
+            isIn(<String>['status', 'error', 'snapshot', 'latestSnapshot']),
+          ),
+        );
         for (final term in forbidden) {
           expect(
             serialized,
@@ -334,8 +342,7 @@ Map<String, Object?> _snapshotJson() => {
   'normalizedContext': {
     'semanticSignals': ['uncertain'],
     'intentEstimate': 'observe',
-    'momentHypothesis':
-        'the current shared-action moment remains uncertain',
+    'momentHypothesis': 'the current shared-action moment remains uncertain',
     'contextFrame': {
       'actionContext': 'putting shoes on',
       'sourceModality': 'reaction_selection',
