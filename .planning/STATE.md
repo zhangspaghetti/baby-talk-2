@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v0.1
 milestone_name: milestone
 status: executing
-stopped_at: Completed 41-03-PLAN.md
-last_updated: "2026-06-20T04:59:23.672Z"
+stopped_at: Completed 41-05-PLAN.md
+last_updated: "2026-06-20T05:15:26.762Z"
 last_activity: 2026-06-19 -- Phase 41 execution started
 progress:
   total_phases: 8
   completed_phases: 2
   total_plans: 17
-  completed_plans: 9
-  percent: 25
+  completed_plans: 10
+  percent: 59
 ---
 
 # Project State
@@ -25,11 +25,11 @@ See: .planning/PROJECT.md
 ## Current Position
 
 Phase: 41 (mobile-v2-runnable-vertical-slice) — EXECUTING
-Plan: 4 of 11
+Plan: 5 of 11
 Status: Ready to execute
 Last activity: 2026-06-19 -- Phase 41 execution started
 
-Progress: [███░░░░░░░] 29%
+Progress: [██████░░░░] 59%
 
 ## Accumulated Context
 
@@ -55,6 +55,9 @@ Migrated from GSD-2. Old M010 phases 39-41 were generated from outdated planning
 - [Phase 41]: Canonicalize complete InputEvent content recursively with sorted map keys, order-preserving lists, and UTC timestamps before SHA-256 hashing. — Makes retry identity deterministic without retaining raw payloads.
 - [Phase 41]: Stage an exclusive-operation commit and replace the runtime aggregate only after the operation completes successfully. — Prevents partial mutation when an operation fails after preparing state.
 - [Phase 41]: Keep replay dependency-free and apply recorded derived outputs directly from revision 0. — Preserves ReplayJournal as evidence rather than a third authority.
+- [Phase 41]: Keep stable ritual content in a dedicated fixture-to-domain adapter path. — Prevents widgets, providers, and interaction runtime from owning ritual-specific content.
+- [Phase 41]: Validate approved shoes_on illustration status and canonical asset path in the mapper. — Fails closed against spoofed or unreviewed illustration metadata.
+- [Phase 41]: Carry prior-phase governance values as immutable evidence only. — Content cannot activate a ritual or perform a production Garden transition.
 
 ### Roadmap Evolution
 
@@ -88,8 +91,8 @@ the 11 verified plan dependencies, and the UI-restricted projection rules.
 
 ## Session Continuity
 
-Last session: 2026-06-20T04:58:30.699Z
-Stopped at: Completed 41-03-PLAN.md
+Last session: 2026-06-20T05:15:26.748Z
+Stopped at: Completed 41-05-PLAN.md
 Resume file: None
 
 ## Performance Metrics
@@ -104,3 +107,4 @@ Resume file: None
 | Phase 41 P01 | 26 min | 3 tasks | 13 files |
 | Phase 41 P02 | 16 min | 2 tasks | 8 files |
 | Phase 41 P03 | 13 min | 2 tasks | 11 files |
+| Phase 41 P05 | 10 min | 2 tasks | 12 files |
