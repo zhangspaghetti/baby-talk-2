@@ -181,6 +181,11 @@ final class InteractionMapper {
   }
 
   InteractionResultResponse resultFromDomain(AdvanceResult result) {
+    if (result case AdvanceRejected(:final code, latestSnapshot: null)
+        when code == AdvanceErrorCode.revisionConflict ||
+            code == AdvanceErrorCode.eventIdConflict) {
+      throw FormatException('${code.wireName} requires latestSnapshot');
+    }
     return switch (result) {
       AdvanceApplied(:final snapshot) => InteractionResultResponse(
         status: AdvanceStatus.applied.wireName,

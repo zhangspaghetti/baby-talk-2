@@ -247,6 +247,18 @@ void main() {
       },
     );
 
+    test('conflict results cannot cross transport without latestSnapshot', () {
+      for (final code in const [
+        AdvanceErrorCode.revisionConflict,
+        AdvanceErrorCode.eventIdConflict,
+      ]) {
+        expect(
+          () => mapper.resultFromDomain(AdvanceRejected(code: code)),
+          throwsFormatException,
+        );
+      }
+    });
+
     test('T-41-06-02 serializes product results without engine evidence', () {
       final responses = <InteractionResultResponse>[
         mapper.resultFromDomain(AdvanceApplied(_snapshot())),
