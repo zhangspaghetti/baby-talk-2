@@ -63,7 +63,7 @@ void main() {
       await _setPhoneViewport(tester);
       final room = _room(
         actionCue: '把鞋放在身边以后，停一下，再慢慢说出这一句。',
-        reassurance: '不用要求孩子回应，也不用把这个时刻变成任务，只要自然地说一句就够了。',
+        reassurance: '不用要求孩子回应，也不用催促，只要自然地说一句就够了。',
       );
       final snapshot = _longSnapshot();
 
@@ -86,6 +86,12 @@ void main() {
       expect(find.text(snapshot.utterance.primary), findsOneWidget);
       expect(find.text(snapshot.utterance.zhHelper), findsOneWidget);
       expect(find.text(room.actionCue), findsOneWidget);
+      await tester.scrollUntilVisible(
+        find.text(room.reassurance),
+        160,
+        scrollable: find.byType(Scrollable).first,
+      );
+
       expect(find.text(room.reassurance), findsOneWidget);
       expect(find.byType(TextField), findsNothing);
       expect(find.byIcon(Icons.mic), findsNothing);
