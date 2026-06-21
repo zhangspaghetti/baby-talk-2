@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../features/ritual_room/presentation/screens/ritual_room_screen.dart';
-import 'providers/interaction_engine_providers.dart';
 import 'providers/ritual_room_capability_provider.dart';
 import 'providers/ritual_room_session_provider.dart';
 import 'theme/baby_talk_theme.dart';
@@ -40,15 +39,14 @@ final class _BabyTalkAppState extends ConsumerState<BabyTalkApp> {
       home: RitualRoomScreen(
         state: state,
         capabilityMask: capabilityMask,
-        onReactionSelected: (selected) {
-          final input = ref
-              .read(interactionInputFactoryProvider)
-              .reaction(selected);
-          ref.read(ritualRoomSessionProvider.notifier).submit(input);
-        },
+        onReactionSelected: (selected) => ref
+            .read(ritualRoomSessionProvider.notifier)
+            .submitReaction(selected),
         onRetry: () => ref
             .read(ritualRoomSessionProvider.notifier)
-            .openRoom(_ritualRoomId),
+            .reloadRoom(_ritualRoomId),
+        onRetryPendingEvent: () =>
+            ref.read(ritualRoomSessionProvider.notifier).retryPendingEvent(),
         onListen: () {},
         onQuietExit: () {
           _messengerKey.currentState?.showSnackBar(

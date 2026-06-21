@@ -15,6 +15,7 @@ final class RitualRoomScreen extends StatelessWidget {
     required this.capabilityMask,
     required this.onReactionSelected,
     required this.onRetry,
+    required this.onRetryPendingEvent,
     required this.onListen,
     required this.onQuietExit,
   });
@@ -23,6 +24,7 @@ final class RitualRoomScreen extends StatelessWidget {
   final InteractionCapabilityMask capabilityMask;
   final ValueChanged<String> onReactionSelected;
   final VoidCallback onRetry;
+  final VoidCallback onRetryPendingEvent;
   final VoidCallback onListen;
   final VoidCallback onQuietExit;
 
@@ -53,6 +55,15 @@ final class RitualRoomScreen extends StatelessWidget {
                 snapshotState: state,
                 capabilityMask: capabilityMask,
                 onReactionSelected: onReactionSelected,
+                onListen: onListen,
+                onQuietExit: onQuietExit,
+              ),
+              RitualRoomUnknownOutcome(:final room) => _RoomProjection(
+                room: room,
+                snapshotState: state,
+                capabilityMask: capabilityMask,
+                onReactionSelected: onReactionSelected,
+                onRetryPendingEvent: onRetryPendingEvent,
                 onListen: onListen,
                 onQuietExit: onQuietExit,
               ),
@@ -108,6 +119,7 @@ final class _RoomProjection extends StatelessWidget {
     required this.snapshotState,
     required this.capabilityMask,
     required this.onReactionSelected,
+    this.onRetryPendingEvent,
     required this.onListen,
     required this.onQuietExit,
   });
@@ -116,6 +128,7 @@ final class _RoomProjection extends StatelessWidget {
   final RitualRoomUiState snapshotState;
   final InteractionCapabilityMask capabilityMask;
   final ValueChanged<String> onReactionSelected;
+  final VoidCallback? onRetryPendingEvent;
   final VoidCallback onListen;
   final VoidCallback onQuietExit;
 
@@ -123,7 +136,16 @@ final class _RoomProjection extends StatelessWidget {
   Widget build(BuildContext context) {
     final snapshot = snapshotState.snapshot!;
     final isSubmitting = snapshotState is RitualRoomSubmitting;
+    final unknownOutcome = snapshotState is RitualRoomUnknownOutcome
+        ? snapshotState as RitualRoomUnknownOutcome
+        : null;
     final isRecoverableFailure = snapshotState is RitualRoomRecoverableFailure;
+    final reactionsLocked = isSubmitting || unknownOutcome != null;
+    final selectedReaction = switch (snapshotState) {
+      RitualRoomSubmitting(:final selectedReaction) => selectedReaction,
+      RitualRoomUnknownOutcome(:final selectedReaction) => selectedReaction,
+      _ => null,
+    };
 
     return ListView(
       padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -139,10 +161,39 @@ final class _RoomProjection extends StatelessWidget {
           snapshot: snapshot,
           actionCue: room.actionCue,
           audio: room.audio,
-          submitting: isSubmitting,
+          submitting: isSubmitting || (unknownOutcome?.isRetrying ?? false),
           pendingCopy: room.pendingCopy,
           onListen: onListen,
         ),
+        if (unknownOutcome != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: Column(
+              children: [
+                Semantics(
+                  label: '刚才这次没有确认成功，可以再试一次',
+                  liveRegion: true,
+                  container: true,
+                  excludeSemantics: true,
+                  child: Text(
+                    '刚才这次没有确认成功，可以再试一次',
+                    style: Theme.of(context).textTheme.bodyMedium,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                OutlinedButton(
+                  key: const Key('ritual-unknown-outcome-retry'),
+                  style: OutlinedButton.styleFrom(
+                    minimumSize: const Size(48, 48),
+                  ),
+                  onPressed: unknownOutcome.isRetrying
+                      ? null
+                      : onRetryPendingEvent,
+                  child: const Text('再试一次'),
+                ),
+              ],
+            ),
+          ),
         if (isRecoverableFailure)
           Semantics(
             liveRegion: true,
@@ -160,6 +211,8 @@ final class _RoomProjection extends StatelessWidget {
             choices: room.reactionChoices,
             moreChoicesLabel: '更多情况',
             onReactionSelected: onReactionSelected,
+            enabled: !reactionsLocked,
+            selectedReactionId: selectedReaction,
           ),
         RitualReassurance(
           message: room.reassurance,

@@ -277,6 +277,10 @@ void main() {
         matching: find.byType(OutlinedButton),
       );
       expect(choices, findsNWidgets(3));
+      await tester.tap(choices.first, warnIfMissed: false);
+      expect(find.byKey(const Key('ritual-reaction-sheet')), findsOneWidget);
+      expect(emitted, isEmpty);
+      await tester.pump();
       for (final button in tester.widgetList<OutlinedButton>(choices)) {
         expect(button.onPressed, isNull);
       }
@@ -288,6 +292,7 @@ void main() {
       }
 
       state.value = RitualRoomReady(room: room, snapshot: snapshot);
+      await tester.pump();
       await tester.pump();
       final enabledChoice = tester.widget<OutlinedButton>(choices.first);
       expect(enabledChoice.onPressed, isNotNull);
