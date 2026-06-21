@@ -16,6 +16,9 @@ import 'package:mobile_v2/features/ritual_room/domain/repositories/interaction_r
 import 'package:mobile_v2/features/ritual_room/domain/repositories/ritual_room_repository.dart';
 import 'package:mobile_v2/features/ritual_room/domain/runtime/interaction_clock.dart';
 import 'package:mobile_v2/features/ritual_room/domain/runtime/interaction_session_initializer.dart';
+import 'package:mobile_v2/features/ritual_room/presentation/capability/interaction_capability_mask.dart';
+import 'package:mobile_v2/features/ritual_room/presentation/screens/ritual_room_screen.dart';
+import 'package:mobile_v2/features/ritual_room/presentation/state/ritual_room_ui_state.dart';
 
 import '../../../../fixtures/interaction_test_fixtures.dart';
 
@@ -97,7 +100,7 @@ void main() {
   );
 
   testWidgets(
-    'R060 recoverable failure keeps the room usable and a new reaction retries safely',
+    'R060 authoritative pipeline failure clears the old command and a later tap creates a new event',
     (tester) async {
       await _setPhoneViewport(tester);
       final repository = _InteractionRepository((call) async {
@@ -122,6 +125,173 @@ void main() {
       expect(find.textContaining('再试'), findsNothing);
       expect(repository.inputs, hasLength(2));
       expect(repository.inputs[0].eventId, isNot(repository.inputs[1].eventId));
+    },
+  );
+
+  testWidgets(
+    'submitting and unknown outcome lock reactions but preserve selected playback and exit',
+    (tester) async {
+      await _setPhoneViewport(tester);
+      final room = _room();
+      final snapshot = interactionSnapshot();
+      var listened = 0;
+      var exited = 0;
+      var retried = 0;
+
+      for (final state in <RitualRoomUiState>[
+        RitualRoomSubmitting(
+          room: room,
+          snapshot: snapshot,
+          selectedReaction: 'not_ready',
+        ),
+        RitualRoomUnknownOutcome(
+          room: room,
+          snapshot: snapshot,
+          selectedReaction: 'not_ready',
+          isRetrying: false,
+        ),
+        RitualRoomUnknownOutcome(
+          room: room,
+          snapshot: snapshot,
+          selectedReaction: 'not_ready',
+          isRetrying: true,
+        ),
+      ]) {
+        await tester.pumpWidget(
+          MaterialApp(
+            home: RitualRoomScreen(
+              state: state,
+              capabilityMask: InteractionCapabilityMask.phase41,
+              onReactionSelected: (_) => fail('locked reaction emitted'),
+              onRetry: () {},
+              onRetryPendingEvent: () => retried += 1,
+              onListen: () => listened += 1,
+              onQuietExit: () => exited += 1,
+            ),
+          ),
+        );
+        await tester.pump();
+
+        for (final key in const [
+          Key('ritual-reaction-choice-0'),
+          Key('ritual-reaction-choice-1'),
+          Key('ritual-more-reactions'),
+        ]) {
+          final button = tester.widget<ButtonStyleButton>(find.byKey(key));
+          expect(button.onPressed, isNull);
+        }
+        expect(
+          tester
+              .widgetList<Semantics>(find.byType(Semantics))
+              .any(
+                (widget) =>
+                    widget.properties.label == '还不想穿' &&
+                    widget.properties.selected == true,
+              ),
+          isTrue,
+        );
+
+        if (state is RitualRoomUnknownOutcome) {
+          expect(find.text('刚才这次没有确认成功，可以再试一次'), findsOneWidget);
+          final retry = tester.widget<OutlinedButton>(
+            find.byKey(const Key('ritual-unknown-outcome-retry')),
+          );
+          expect(retry.onPressed, state.isRetrying ? isNull : isNotNull);
+          if (!state.isRetrying) {
+            await tester.tap(
+              find.byKey(const Key('ritual-unknown-outcome-retry')),
+            );
+            expect(retried, 1);
+          }
+        }
+
+        await tester.tap(find.byKey(const Key('ritual-listen-control')));
+        await tester.ensureVisible(find.byKey(const Key('ritual-quiet-exit')));
+        await tester.tap(find.byKey(const Key('ritual-quiet-exit')));
+      }
+
+      expect(listened, 3);
+      expect(exited, 3);
+    },
+  );
+
+  testWidgets(
+    'already-open reaction sheet follows reaction lock and releases its listener lifecycle',
+    (tester) async {
+      await _setPhoneViewport(tester);
+      final room = _room();
+      final snapshot = interactionSnapshot();
+      final state = ValueNotifier<RitualRoomUiState>(
+        RitualRoomReady(room: room, snapshot: snapshot),
+      );
+      addTearDown(state.dispose);
+      final emitted = <String>[];
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: ValueListenableBuilder<RitualRoomUiState>(
+            valueListenable: state,
+            builder: (context, current, child) => RitualRoomScreen(
+              state: current,
+              capabilityMask: InteractionCapabilityMask.phase41,
+              onReactionSelected: emitted.add,
+              onRetry: () {},
+              onRetryPendingEvent: () {},
+              onListen: () {},
+              onQuietExit: () {},
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.byKey(const Key('ritual-more-reactions')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('ritual-reaction-sheet')), findsOneWidget);
+
+      state.value = RitualRoomSubmitting(
+        room: room,
+        snapshot: snapshot,
+        selectedReaction: 'crying',
+      );
+      await tester.pump();
+
+      final sheet = find.byKey(const Key('ritual-reaction-sheet'));
+      final choices = find.descendant(
+        of: sheet,
+        matching: find.byType(OutlinedButton),
+      );
+      expect(choices, findsNWidgets(3));
+      for (final button in tester.widgetList<OutlinedButton>(choices)) {
+        expect(button.onPressed, isNull);
+      }
+      for (var index = 0; index < choices.evaluate().length; index += 1) {
+        await tester.tap(choices.at(index), warnIfMissed: false);
+        await tester.pump();
+        expect(find.byKey(const Key('ritual-reaction-sheet')), findsOneWidget);
+        expect(emitted, isEmpty);
+      }
+
+      state.value = RitualRoomReady(room: room, snapshot: snapshot);
+      await tester.pump();
+      final enabledChoice = tester.widget<OutlinedButton>(choices.first);
+      expect(enabledChoice.onPressed, isNotNull);
+      await tester.tap(choices.first);
+      await tester.pumpAndSettle();
+      expect(emitted, ['crying']);
+      expect(find.byKey(const Key('ritual-reaction-sheet')), findsNothing);
+
+      await tester.tap(find.byKey(const Key('ritual-more-reactions')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('ritual-reaction-sheet')), findsOneWidget);
+      Navigator.of(
+        tester.element(find.byKey(const Key('ritual-reaction-sheet'))),
+      ).pop();
+      await tester.pumpAndSettle();
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pumpAndSettle();
+
+      expect(emitted, ['crying']);
+      expect(tester.takeException(), isNull);
     },
   );
 

@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:mobile_v2/app/input/event_id_generator.dart';
 import 'package:mobile_v2/app/providers/interaction_engine_providers.dart';
 import 'package:mobile_v2/app/providers/ritual_room_data_providers.dart';
 import 'package:mobile_v2/app/providers/ritual_room_session_provider.dart';
@@ -11,11 +12,13 @@ import 'package:mobile_v2/features/ritual_room/domain/models/input_event.dart';
 import 'package:mobile_v2/features/ritual_room/domain/models/product_snapshot.dart';
 import 'package:mobile_v2/features/ritual_room/domain/models/ritual_room_content.dart';
 import 'package:mobile_v2/features/ritual_room/domain/repositories/interaction_repository.dart';
+import 'package:mobile_v2/features/ritual_room/domain/repositories/interaction_outcome_unknown_exception.dart';
 import 'package:mobile_v2/features/ritual_room/domain/repositories/ritual_room_repository.dart';
 import 'package:mobile_v2/features/ritual_room/domain/runtime/interaction_session_initializer.dart';
 import 'package:mobile_v2/features/ritual_room/presentation/state/ritual_room_ui_state.dart';
 
 import '../../fixtures/interaction_test_fixtures.dart';
+import '../../helpers/interaction_test_doubles.dart';
 
 void main() {
   test(
@@ -153,6 +156,261 @@ void main() {
     expect(container.read(ritualRoomSessionProvider), isA<RitualRoomReady>());
     expect(container.read(ritualRoomSessionProvider).snapshot?.revision, 3);
   });
+
+  test(
+    'two rapid reaction taps allocate and submit exactly one command',
+    () async {
+      final advance = Completer<AdvanceResult>();
+      final ids = _CountingEventIdGenerator();
+      final repository = _FakeInteractionRepository(
+        onAdvance:
+            ({
+              required interactionId,
+              required expectedRevision,
+              required input,
+            }) => advance.future,
+      );
+      final container = await _openedContainer(
+        interactionRepository: repository,
+        snapshot: interactionSnapshot(),
+        eventIdGenerator: ids,
+      );
+      final notifier = container.read(ritualRoomSessionProvider.notifier);
+
+      final first = notifier.submitReaction('not_ready');
+      final second = notifier.submitReaction('self');
+      await second;
+
+      final submitting =
+          container.read(ritualRoomSessionProvider) as RitualRoomSubmitting;
+      expect(submitting.selectedReaction, 'not_ready');
+      expect(ids.calls, 1);
+      expect(repository.inputs, hasLength(1));
+      expect(
+        (repository.inputs.single.payload as ReactionSelectionPayload).selected,
+        'not_ready',
+      );
+
+      advance.complete(AdvanceApplied(interactionSnapshot(revision: 1)));
+      await first;
+
+      final ready =
+          container.read(ritualRoomSessionProvider) as RitualRoomReady;
+      expect(ready.snapshot.revision, 1);
+      expect(ids.calls, 1);
+      expect(repository.inputs, hasLength(1));
+    },
+  );
+
+  test(
+    'commit then lost response retries the exact command and reconciles duplicate',
+    () async {
+      final harness = InteractionEngineHarness();
+      final initial = await harness.engine.initialize(ritualRoomId);
+      final ids = _CountingEventIdGenerator();
+      final repository = _CommitThenLoseResponseRepository(harness);
+      final container = await _openedContainer(
+        interactionRepository: repository,
+        snapshot: initial,
+        eventIdGenerator: ids,
+      );
+      final notifier = container.read(ritualRoomSessionProvider.notifier);
+
+      await notifier.submitReaction('not_ready');
+
+      final unknown =
+          container.read(ritualRoomSessionProvider) as RitualRoomUnknownOutcome;
+      expect(unknown.selectedReaction, 'not_ready');
+      expect(unknown.isRetrying, isFalse);
+      expect(repository.firstCommittedResult, isA<AdvanceApplied>());
+      expect(repository.calls, hasLength(1));
+      expect(ids.calls, 1);
+
+      await notifier.retryPendingEvent();
+
+      expect(repository.calls, hasLength(2));
+      expect(repository.calls[1].input, same(repository.calls[0].input));
+      expect(
+        repository.calls[1].input.eventId,
+        repository.calls[0].input.eventId,
+      );
+      expect(
+        repository.calls[1].interactionId,
+        repository.calls[0].interactionId,
+      );
+      expect(
+        repository.calls[1].expectedRevision,
+        repository.calls[0].expectedRevision,
+      );
+      expect(repository.calls.single.expectedRevision, 0);
+      expect(repository.retryResult, isA<AdvanceDuplicateIgnored>());
+      expect(ids.calls, 1);
+      final ready =
+          container.read(ritualRoomSessionProvider) as RitualRoomReady;
+      expect(ready.snapshot.revision, 1);
+    },
+  );
+
+  test(
+    'unknown outcome retains one command and repeated retry taps remain single flight',
+    () async {
+      final retry = Completer<AdvanceResult>();
+      final ids = _CountingEventIdGenerator();
+      var call = 0;
+      final repository = _FakeInteractionRepository(
+        onAdvance:
+            ({
+              required interactionId,
+              required expectedRevision,
+              required input,
+            }) {
+              call += 1;
+              if (call == 1) {
+                throw const InteractionOutcomeUnknownException(
+                  reason:
+                      InteractionOutcomeUnknownReason.responseLostAfterDispatch,
+                );
+              }
+              return retry.future;
+            },
+      );
+      final container = await _openedContainer(
+        interactionRepository: repository,
+        snapshot: interactionSnapshot(),
+        eventIdGenerator: ids,
+      );
+      final notifier = container.read(ritualRoomSessionProvider.notifier);
+      await notifier.submitReaction('not_ready');
+
+      final firstRetry = notifier.retryPendingEvent();
+      final ignoredRetry = notifier.retryPendingEvent();
+      await ignoredRetry;
+      await notifier.submitReaction('self');
+
+      expect(repository.inputs, hasLength(2));
+      expect(repository.inputs[1], same(repository.inputs[0]));
+      expect(ids.calls, 1);
+      expect(
+        (container.read(ritualRoomSessionProvider) as RitualRoomUnknownOutcome)
+            .isRetrying,
+        isTrue,
+      );
+
+      retry.completeError(
+        const InteractionOutcomeUnknownException(
+          reason: InteractionOutcomeUnknownReason.connectionClosedAfterDispatch,
+        ),
+      );
+      await firstRetry;
+
+      final unknown =
+          container.read(ritualRoomSessionProvider) as RitualRoomUnknownOutcome;
+      expect(unknown.isRetrying, isFalse);
+      expect(repository.inputs, hasLength(2));
+      expect(ids.calls, 1);
+    },
+  );
+
+  test(
+    'authoritative rejection and non-unknown exception clear retry command',
+    () async {
+      final cases = <Future<AdvanceResult> Function(int call)>[
+        (call) async => call == 1
+            ? const AdvanceRejected(code: AdvanceErrorCode.pipelineFailed)
+            : AdvanceApplied(interactionSnapshot(revision: 1)),
+        (call) async {
+          if (call == 1) {
+            throw StateError('known failure');
+          }
+          return AdvanceApplied(interactionSnapshot(revision: 1));
+        },
+        (call) async => call == 1
+            ? AdvanceRejected(
+                code: AdvanceErrorCode.revisionConflict,
+                latestSnapshot: interactionSnapshot(revision: 7),
+              )
+            : AdvanceApplied(interactionSnapshot(revision: 8)),
+      ];
+
+      for (final resultForCall in cases) {
+        final ids = _CountingEventIdGenerator();
+        var call = 0;
+        final repository = _FakeInteractionRepository(
+          onAdvance:
+              ({
+                required interactionId,
+                required expectedRevision,
+                required input,
+              }) => resultForCall(++call),
+        );
+        final container = await _openedContainer(
+          interactionRepository: repository,
+          snapshot: interactionSnapshot(),
+          eventIdGenerator: ids,
+        );
+        final notifier = container.read(ritualRoomSessionProvider.notifier);
+
+        await notifier.submitReaction('not_ready');
+        await notifier.retryPendingEvent();
+        expect(repository.inputs, hasLength(1));
+
+        await notifier.submitReaction('self');
+        expect(repository.inputs, hasLength(2));
+        expect(repository.inputs[1], isNot(same(repository.inputs[0])));
+        expect(
+          repository.inputs[1].eventId,
+          isNot(repository.inputs[0].eventId),
+        );
+        expect(ids.calls, 2);
+      }
+    },
+  );
+
+  test(
+    'room switch reload and disposal abandon retry without replacement submission',
+    () async {
+      for (final lifecycle in ['switch', 'reload', 'dispose']) {
+        final ids = _CountingEventIdGenerator();
+        final repository = _FakeInteractionRepository(
+          onAdvance:
+              ({
+                required interactionId,
+                required expectedRevision,
+                required input,
+              }) async => throw const InteractionOutcomeUnknownException(
+                reason: InteractionOutcomeUnknownReason.timeoutAfterDispatch,
+              ),
+        );
+        final container = _container(
+          roomRepository: _FakeRitualRoomRepository(
+            onLoad: (roomId) async => _room(ritualRoomId: roomId),
+          ),
+          initializer: _FakeInitializer(
+            onInitialize: (roomId) async => _snapshotFor(roomId, revision: 0),
+          ),
+          interactionRepository: repository,
+          eventIdGenerator: ids,
+        );
+        final notifier = container.read(ritualRoomSessionProvider.notifier);
+        await notifier.openRoom('room-a');
+        await notifier.submitReaction('not_ready');
+
+        switch (lifecycle) {
+          case 'switch':
+            await notifier.openRoom('room-b');
+            await notifier.retryPendingEvent();
+          case 'reload':
+            await notifier.reloadRoom('room-a');
+            await notifier.retryPendingEvent();
+          case 'dispose':
+            container.dispose();
+        }
+
+        expect(repository.inputs, hasLength(1));
+        expect(ids.calls, 1);
+      }
+    },
+  );
 
   test('applied and duplicate results replace the whole snapshot', () async {
     for (final result in <AdvanceResult>[
@@ -347,23 +605,28 @@ ProviderContainer _container({
   required RitualRoomRepository roomRepository,
   required InteractionSessionInitializer initializer,
   InteractionRepository? interactionRepository,
+  EventIdGenerator? eventIdGenerator,
 }) => ProviderContainer.test(
   overrides: [
     ritualRoomRepositoryProvider.overrideWithValue(roomRepository),
     interactionSessionInitializerProvider.overrideWithValue(initializer),
     if (interactionRepository != null)
       interactionRepositoryProvider.overrideWithValue(interactionRepository),
+    if (eventIdGenerator != null)
+      interactionEventIdGeneratorProvider.overrideWithValue(eventIdGenerator),
   ],
 );
 
 Future<ProviderContainer> _openedContainer({
   required InteractionRepository interactionRepository,
   required ProductSnapshot snapshot,
+  EventIdGenerator? eventIdGenerator,
 }) async {
   final container = _container(
     roomRepository: _FakeRitualRoomRepository(onLoad: (_) async => _room()),
     initializer: _FakeInitializer(onInitialize: (_) async => snapshot),
     interactionRepository: interactionRepository,
+    eventIdGenerator: eventIdGenerator,
   );
   await container
       .read(ritualRoomSessionProvider.notifier)
@@ -437,6 +700,66 @@ final class _FakeInteractionRepository implements InteractionRepository {
   @override
   Future<ProductSnapshot> getSnapshot(String interactionId) async =>
       throw UnsupportedError('not used by session orchestration');
+}
+
+final class _CountingEventIdGenerator implements EventIdGenerator {
+  var calls = 0;
+
+  @override
+  String nextEventId() => 'reaction-event-${++calls}';
+}
+
+final class _RecordedAdvanceCall {
+  const _RecordedAdvanceCall({
+    required this.input,
+    required this.interactionId,
+    required this.expectedRevision,
+  });
+
+  final InputEvent input;
+  final String interactionId;
+  final int expectedRevision;
+}
+
+final class _CommitThenLoseResponseRepository implements InteractionRepository {
+  _CommitThenLoseResponseRepository(this.harness);
+
+  final InteractionEngineHarness harness;
+  final calls = <_RecordedAdvanceCall>[];
+  AdvanceResult? firstCommittedResult;
+  AdvanceResult? retryResult;
+
+  @override
+  Future<AdvanceResult> advance({
+    required String interactionId,
+    required int expectedRevision,
+    required InputEvent input,
+  }) async {
+    calls.add(
+      _RecordedAdvanceCall(
+        input: input,
+        interactionId: interactionId,
+        expectedRevision: expectedRevision,
+      ),
+    );
+    final result = await harness.engine.advance(
+      interactionId: interactionId,
+      expectedRevision: expectedRevision,
+      input: input,
+    );
+    if (calls.length == 1) {
+      firstCommittedResult = result;
+      throw const InteractionOutcomeUnknownException(
+        reason: InteractionOutcomeUnknownReason.responseLostAfterDispatch,
+      );
+    }
+    retryResult = result;
+    return result;
+  }
+
+  @override
+  Future<ProductSnapshot> getSnapshot(String interactionId) async =>
+      (await harness.engine.getSnapshot(interactionId))!;
 }
 
 RitualRoomContent _room({String ritualRoomId = 'shoes_on_room_v1'}) =>

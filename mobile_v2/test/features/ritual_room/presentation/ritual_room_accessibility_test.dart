@@ -26,6 +26,7 @@ void main() {
             capabilityMask: InteractionCapabilityMask.phase41,
             onReactionSelected: (_) {},
             onRetry: () {},
+            onRetryPendingEvent: () {},
             onListen: () {},
             onQuietExit: () {},
           ),
@@ -76,6 +77,7 @@ void main() {
               capabilityMask: InteractionCapabilityMask.phase41,
               onReactionSelected: (_) {},
               onRetry: () {},
+              onRetryPendingEvent: () {},
               onListen: () {},
               onQuietExit: () {},
             ),
@@ -105,6 +107,45 @@ void main() {
       expect(find.textContaining('Garden'), findsNothing);
       expect(find.textContaining('Phase 42'), findsNothing);
       expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'unknown outcome message and retry action remain semantically reachable',
+    (tester) async {
+      await _setPhoneViewport(tester);
+      final semantics = tester.ensureSemantics();
+      final room = _room();
+      var retries = 0;
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: RitualRoomScreen(
+            state: RitualRoomUnknownOutcome(
+              room: room,
+              snapshot: interactionSnapshot(),
+              selectedReaction: 'not_ready',
+              isRetrying: false,
+            ),
+            capabilityMask: InteractionCapabilityMask.phase41,
+            onReactionSelected: (_) {},
+            onRetry: () {},
+            onRetryPendingEvent: () => retries += 1,
+            onListen: () {},
+            onQuietExit: () {},
+          ),
+        ),
+      );
+
+      expect(find.bySemanticsLabel('刚才这次没有确认成功，可以再试一次'), findsOneWidget);
+      final retryFinder = find.byKey(const Key('ritual-unknown-outcome-retry'));
+      expect(retryFinder, findsOneWidget);
+      expect(tester.getSize(retryFinder).width, greaterThanOrEqualTo(48));
+      expect(tester.getSize(retryFinder).height, greaterThanOrEqualTo(48));
+      await tester.tap(retryFinder);
+      expect(retries, 1);
+      expect(tester.takeException(), isNull);
+      semantics.dispose();
     },
   );
 }

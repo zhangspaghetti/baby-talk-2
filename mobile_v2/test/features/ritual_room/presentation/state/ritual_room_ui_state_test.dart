@@ -20,7 +20,17 @@ void main() {
       const RitualRoomIdle(),
       const RitualRoomLoading(),
       RitualRoomReady(room: room, snapshot: snapshot),
-      RitualRoomSubmitting(room: room, snapshot: snapshot),
+      RitualRoomSubmitting(
+        room: room,
+        snapshot: snapshot,
+        selectedReaction: 'not_ready',
+      ),
+      RitualRoomUnknownOutcome(
+        room: room,
+        snapshot: snapshot,
+        selectedReaction: 'not_ready',
+        isRetrying: false,
+      ),
       RitualRoomRecoverableFailure(
         room: room,
         snapshot: snapshot,
@@ -35,10 +45,18 @@ void main() {
     expect(states[2].snapshot, same(snapshot));
     expect((states[3] as RitualRoomSubmitting).room, same(room));
     expect(states[3].snapshot, same(snapshot));
-    expect((states[4] as RitualRoomRecoverableFailure).room, same(room));
+    expect((states[3] as RitualRoomSubmitting).selectedReaction, 'not_ready');
+    expect((states[4] as RitualRoomUnknownOutcome).room, same(room));
     expect(states[4].snapshot, same(snapshot));
-    expect((states[4] as RitualRoomRecoverableFailure).problem, same(problem));
-    expect(states[5].snapshot, isNull);
+    expect(
+      (states[4] as RitualRoomUnknownOutcome).selectedReaction,
+      'not_ready',
+    );
+    expect((states[4] as RitualRoomUnknownOutcome).isRetrying, isFalse);
+    expect((states[5] as RitualRoomRecoverableFailure).room, same(room));
+    expect(states[5].snapshot, same(snapshot));
+    expect((states[5] as RitualRoomRecoverableFailure).problem, same(problem));
+    expect(states[6].snapshot, isNull);
   });
 
   test('interpreted context remains inside the complete ProductSnapshot', () {
@@ -52,11 +70,18 @@ void main() {
   });
 
   test(
-    'state source declares no snapshot fragments or raw InputEvent field',
+    'public app screen and state declare no private command-envelope fields',
     () {
-      final source = File(
+      final stateSource = File(
         'lib/features/ritual_room/presentation/state/ritual_room_ui_state.dart',
       ).readAsStringSync();
+      final publicSource = [
+        stateSource,
+        File('lib/app/baby_talk_app.dart').readAsStringSync(),
+        File(
+          'lib/features/ritual_room/presentation/screens/ritual_room_screen.dart',
+        ).readAsStringSync(),
+      ].join('\n');
 
       for (final forbidden in [
         RegExp(r'final\s+InteractionContext\b'),
@@ -67,9 +92,16 @@ void main() {
         RegExp(r'final\s+int\s+revision\b'),
         RegExp(r'final\s+int\s+schemaVersion\b'),
         RegExp(r'final\s+InputEvent\b'),
+        RegExp(r'final\s+String\s+eventId\b'),
+        RegExp(r'final\s+String\s+interactionId\b'),
+        RegExp(r'final\s+int\s+expectedRevision\b'),
+        RegExp(r'_PendingInteractionCommand'),
       ]) {
-        expect(source, isNot(matches(forbidden)));
+        expect(publicSource, isNot(matches(forbidden)));
       }
+      expect(publicSource, isNot(contains('interactionInputFactoryProvider')));
+      expect(publicSource, isNot(contains("domain/models/input_event.dart")));
+      expect(stateSource, contains('RitualRoomUnknownOutcome'));
     },
   );
 }
