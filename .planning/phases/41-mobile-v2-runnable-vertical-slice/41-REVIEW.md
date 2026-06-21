@@ -1,97 +1,22 @@
 ---
 phase: 41-mobile-v2-runnable-vertical-slice
-reviewed: 2026-06-20T22:40:01Z
+reviewed: 2026-06-21T09:19:19Z
 depth: standard
-files_reviewed: 85
+files_reviewed: 10
 files_reviewed_list:
-  - mobile_v2/AGENTS.md
-  - mobile_v2/assets/fixtures/ritual_rooms/shoes_on.json
-  - mobile_v2/CODING_STANDARDS.md
   - mobile_v2/lib/app/baby_talk_app.dart
-  - mobile_v2/lib/app/input/event_id_generator.dart
-  - mobile_v2/lib/app/input/interaction_input_factory.dart
-  - mobile_v2/lib/app/providers/interaction_engine_providers.dart
-  - mobile_v2/lib/app/providers/ritual_room_capability_provider.dart
-  - mobile_v2/lib/app/providers/ritual_room_data_providers.dart
   - mobile_v2/lib/app/providers/ritual_room_session_provider.dart
-  - mobile_v2/lib/app/theme/baby_talk_theme.dart
-  - mobile_v2/lib/features/ritual_room/data/datasources/interaction_api.dart
-  - mobile_v2/lib/features/ritual_room/data/datasources/mock_interaction_api.dart
-  - mobile_v2/lib/features/ritual_room/data/datasources/mock_ritual_content_api.dart
-  - mobile_v2/lib/features/ritual_room/data/datasources/ritual_content_api.dart
-  - mobile_v2/lib/features/ritual_room/data/dto/interaction_advance_request.dart
-  - mobile_v2/lib/features/ritual_room/data/dto/interaction_input_dto.dart
-  - mobile_v2/lib/features/ritual_room/data/dto/interaction_result_response.dart
-  - mobile_v2/lib/features/ritual_room/data/dto/interaction_snapshot_response.dart
-  - mobile_v2/lib/features/ritual_room/data/dto/ritual_room_response.dart
-  - mobile_v2/lib/features/ritual_room/data/mappers/interaction_mapper.dart
-  - mobile_v2/lib/features/ritual_room/data/mappers/ritual_room_mapper.dart
-  - mobile_v2/lib/features/ritual_room/data/repositories/interaction_repository_impl.dart
-  - mobile_v2/lib/features/ritual_room/data/repositories/ritual_room_repository_impl.dart
-  - mobile_v2/lib/features/ritual_room/domain/engine/interaction_engine_port.dart
-  - mobile_v2/lib/features/ritual_room/domain/engine/interaction_engine.dart
-  - mobile_v2/lib/features/ritual_room/domain/engine/normalize_engine.dart
-  - mobile_v2/lib/features/ritual_room/domain/engine/state_accumulator.dart
-  - mobile_v2/lib/features/ritual_room/domain/engine/strategy_engine.dart
-  - mobile_v2/lib/features/ritual_room/domain/engine/utterance_engine.dart
-  - mobile_v2/lib/features/ritual_room/domain/models/advance_result.dart
-  - mobile_v2/lib/features/ritual_room/domain/models/input_event.dart
-  - mobile_v2/lib/features/ritual_room/domain/models/product_snapshot.dart
-  - mobile_v2/lib/features/ritual_room/domain/models/ritual_room_content.dart
-  - mobile_v2/lib/features/ritual_room/domain/repositories/interaction_repository.dart
-  - mobile_v2/lib/features/ritual_room/domain/repositories/ritual_room_repository.dart
-  - mobile_v2/lib/features/ritual_room/domain/runtime/consistency_state.dart
-  - mobile_v2/lib/features/ritual_room/domain/runtime/input_fingerprint.dart
-  - mobile_v2/lib/features/ritual_room/domain/runtime/interaction_clock.dart
-  - mobile_v2/lib/features/ritual_room/domain/runtime/interaction_id_generator.dart
-  - mobile_v2/lib/features/ritual_room/domain/runtime/interaction_runtime_state.dart
-  - mobile_v2/lib/features/ritual_room/domain/runtime/interaction_runtime_store.dart
-  - mobile_v2/lib/features/ritual_room/domain/runtime/interaction_seed_source.dart
-  - mobile_v2/lib/features/ritual_room/domain/runtime/interaction_session_initializer.dart
-  - mobile_v2/lib/features/ritual_room/domain/runtime/replay_journal.dart
-  - mobile_v2/lib/features/ritual_room/domain/runtime/ritual_room_interaction_seed_source.dart
-  - mobile_v2/lib/features/ritual_room/presentation/capability/interaction_capability_mask.dart
+  - mobile_v2/lib/features/ritual_room/domain/repositories/interaction_outcome_unknown_exception.dart
   - mobile_v2/lib/features/ritual_room/presentation/screens/ritual_room_screen.dart
   - mobile_v2/lib/features/ritual_room/presentation/state/ritual_room_ui_state.dart
-  - mobile_v2/lib/features/ritual_room/presentation/widgets/ritual_action_cue.dart
   - mobile_v2/lib/features/ritual_room/presentation/widgets/ritual_context_input_tray.dart
-  - mobile_v2/lib/features/ritual_room/presentation/widgets/ritual_current_utterance.dart
-  - mobile_v2/lib/features/ritual_room/presentation/widgets/ritual_identity_header.dart
-  - mobile_v2/lib/features/ritual_room/presentation/widgets/ritual_listen_control.dart
-  - mobile_v2/lib/features/ritual_room/presentation/widgets/ritual_reassurance.dart
-  - mobile_v2/lib/features/ritual_room/presentation/widgets/ritual_submitting_indicator.dart
-  - mobile_v2/lib/main.dart
-  - mobile_v2/pubspec.lock
-  - mobile_v2/pubspec.yaml
-  - mobile_v2/test/app/providers/interaction_engine_providers_test.dart
-  - mobile_v2/test/app/providers/ritual_room_capability_provider_test.dart
   - mobile_v2/test/app/providers/ritual_room_session_provider_test.dart
-  - mobile_v2/test/features/ritual_room/data/datasources/mock_interaction_api_test.dart
-  - mobile_v2/test/features/ritual_room/data/datasources/mock_ritual_content_api_test.dart
-  - mobile_v2/test/features/ritual_room/data/mappers/interaction_mapper_test.dart
-  - mobile_v2/test/features/ritual_room/data/mappers/ritual_room_mapper_test.dart
-  - mobile_v2/test/features/ritual_room/data/repositories/interaction_repository_test.dart
-  - mobile_v2/test/features/ritual_room/data/repositories/ritual_room_repository_test.dart
-  - mobile_v2/test/features/ritual_room/domain/engine/interaction_engine_atomicity_test.dart
-  - mobile_v2/test/features/ritual_room/domain/engine/interaction_engine_replay_test.dart
-  - mobile_v2/test/features/ritual_room/domain/engine/interaction_engine_test.dart
-  - mobile_v2/test/features/ritual_room/domain/engine/normalize_engine_test.dart
-  - mobile_v2/test/features/ritual_room/domain/engine/state_accumulator_test.dart
-  - mobile_v2/test/features/ritual_room/domain/engine/strategy_engine_test.dart
-  - mobile_v2/test/features/ritual_room/domain/engine/utterance_engine_test.dart
-  - mobile_v2/test/features/ritual_room/domain/models/interaction_contract_test.dart
-  - mobile_v2/test/features/ritual_room/domain/runtime/input_fingerprint_test.dart
-  - mobile_v2/test/features/ritual_room/domain/runtime/interaction_runtime_test.dart
-  - mobile_v2/test/features/ritual_room/interaction_engine_contract_test.dart
   - mobile_v2/test/features/ritual_room/presentation/ritual_room_accessibility_test.dart
   - mobile_v2/test/features/ritual_room/presentation/screens/ritual_room_screen_test.dart
   - mobile_v2/test/features/ritual_room/presentation/state/ritual_room_ui_state_test.dart
-  - mobile_v2/test/features/ritual_room/presentation/widgets/ritual_room_support_widgets_test.dart
-  - mobile_v2/test/fixtures/interaction_test_fixtures.dart
-  - mobile_v2/test/helpers/interaction_test_doubles.dart
 findings:
-  critical: 2
-  warning: 6
+  critical: 0
+  warning: 8
   info: 0
   total: 8
 status: issues_found
@@ -99,100 +24,115 @@ status: issues_found
 
 # Phase 41: Code Review Report
 
-**Reviewed:** 2026-06-20T22:40:01Z  
-**Depth:** standard  
-**Files Reviewed:** 85  
+**Reviewed:** 2026-06-21T09:19:19Z
+**Depth:** standard
+**Files Reviewed:** 10
 **Status:** issues_found
 
 ## Summary
 
-The engine authority and immutable runtime structures are generally separated as intended, but the presentation/session boundary does not safely handle repeated submissions or retries. Two defects can produce false conflict errors or violate the event-id idempotency contract. Additional gaps exist in future-signal normalization, content ownership, transport validation, immutable capability configuration, double-fetch consistency, and exception handling.
+Plan 41-12 genuinely closes both prior reaction-lifecycle criticals. Reaction admission now occurs before event allocation, one notifier-private command enforces single flight, explicit unknown outcomes retain that exact command, and retry replays the same `InputEvent`, event ID, interaction ID, and expected revision. Submitting, unknown-outcome, and retrying projections also lock reaction controls, including an already-open additional-choice sheet.
 
-`flutter analyze --no-pub` passed. Focused Flutter tests did not complete within 120 seconds in two attempts; both runs stalled before reporting test results and left a Dart process running.
+No critical issue remains. All six prior warnings are still present. Two new presentation warnings were found: a selected reaction from the additional-choice sheet becomes invisible after the sheet closes, and the new reconciliation UI copy bypasses localization. Independent supplied verification reports formatter and analyzer clean, 122 tests passing, both semantic verifiers passing, and all five Plan 41-12 key links verified; those checks do not invalidate the source-level findings below.
 
 ## Narrative Findings (AI reviewer)
 
-## Critical Issues
+## Resolved Prior Critical Findings
 
-### CR-01: Repeated taps discard a successful response and surface a false conflict
+### CR-01: Repeated taps no longer discard a successful response
 
-**Classification:** BLOCKER  
-**File:** `mobile_v2/lib/app/providers/ritual_room_session_provider.dart:66-101`  
-**Related:** `mobile_v2/lib/features/ritual_room/presentation/screens/ritual_room_screen.dart:157-163`
+**Status:** RESOLVED
+**Evidence:** `mobile_v2/lib/app/providers/ritual_room_session_provider.dart:76-92,135-151,210-218`; `mobile_v2/lib/features/ritual_room/presentation/screens/ritual_room_screen.dart:137-148,208-216`
 
-**Issue:** `submit` accepts `RitualRoomSubmitting` as a usable session, and the reaction controls remain enabled while a request is pending. Two quick taps therefore submit different events with the same `expectedRevision`. The engine correctly applies one and rejects the other with `revision_conflict`, but `_operationEpoch` causes the notifier to discard the first successful completion. The second completion then wins and places the UI in `RitualRoomRecoverableFailure`, even though the interaction advanced successfully.
+`RitualRoomSubmitting` is no longer a usable submission state, `_pendingCommand` blocks repeated admission before the input factory is called, and the UI disables all reaction-producing controls. Rapid taps therefore allocate and dispatch only one command.
 
-**Fix:** Reject or coalesce submission while `state is RitualRoomSubmitting`, and disable all reaction controls during submission. Add a regression test that starts two submissions before the first completes and verifies only one repository call and one applied snapshot.
+### CR-02: Unknown-outcome retry now reuses the original idempotency command
 
-### CR-02: Recoverable retry creates a new event instead of reusing the idempotency key
+**Status:** RESOLVED
+**Evidence:** `mobile_v2/lib/app/providers/ritual_room_session_provider.dart:111-132,154-205,228-240`
 
-**Classification:** BLOCKER  
-**File:** `mobile_v2/lib/app/baby_talk_app.dart:43-47`  
-**Related:** `mobile_v2/lib/app/providers/ritual_room_session_provider.dart:66-111`, `mobile_v2/test/features/ritual_room/presentation/screens/ritual_room_screen_test.dart:102-124`
-
-**Issue:** Every retry gesture calls `InteractionInputFactory.reaction`, generating a new event ID. The notifier does not retain the failed `InputEvent`, so it cannot retry the same immutable event. This contradicts the Phase 41 contract that retries reuse the same event object and event ID. A lost response after a successful engine commit cannot be resolved as `duplicate_ignored`; the replacement event instead produces a revision conflict. The screen test explicitly asserts that retry IDs differ, codifying the incorrect behavior.
-
-**Fix:** Keep the pending `InputEvent` as transient notifier-owned transport state, expose a retry command that resubmits that exact object, and clear it only after an authoritative result. Change the test to assert identical event IDs/content across retry attempts and cover a “commit succeeded, response failed” scenario.
+Only `InteractionOutcomeUnknownException` preserves `_pendingCommand`. `retryPendingEvent` replays the retained immutable envelope without regenerating or rebasing it, while every authoritative result and non-unknown exception clears retry capability.
 
 ## Warnings
 
-### WR-01: Future-signal values are accepted and fingerprinted but ignored by normalization
+### WR-01: Future-signal values are fingerprinted but ignored by normalization
 
-**Classification:** WARNING  
+**Classification:** WARNING
 **File:** `mobile_v2/lib/features/ritual_room/domain/engine/normalize_engine.dart:24,93-107`
 
-**Issue:** `FutureSignalPayload` contains both `signal` and `value`, but normalization passes only `signal`. Events such as `shared_action=available` and `shared_action=absent` produce identical semantic output even though they are distinct accepted events. This makes the channel incapable of representing the evidence carried by its own contract.
+**Issue:** `FutureSignalPayload` contains both `signal` and `value`, but normalization passes only `signal`. Opposite values such as `shared_action=available` and `shared_action=absent` therefore produce identical semantic output despite having different accepted event content and fingerprints.
 
-**Fix:** Pass both fields into `_fromFutureSignal` and map supported signal/value combinations explicitly. Reject unsupported combinations as `invalid_input` or normalize them to a documented uncertainty result. Add opposite-value tests.
+**Fix:** Pass both fields into `_fromFutureSignal`, explicitly map supported signal/value combinations, and reject or conservatively normalize unsupported combinations. Add opposite-value tests.
 
-### WR-02: Visible “more choices” copy bypasses the content boundary
+### WR-02: “More choices” copy still bypasses the content boundary
 
-**Classification:** WARNING  
-**File:** `mobile_v2/lib/features/ritual_room/presentation/screens/ritual_room_screen.dart:157-163`
+**Classification:** WARNING
+**File:** `mobile_v2/lib/features/ritual_room/presentation/screens/ritual_room_screen.dart:208-216`
 
-**Issue:** `更多情况` is hardcoded in the screen while the Phase 41 content contract requires ritual-visible copy to come through the fixture/API/repository/domain path. Payload-substitution tests cannot replace this label, and future localization or room-specific wording will require presentation edits.
+**Issue:** `更多情况` remains hardcoded in the screen. It cannot be substituted through the fixture/API/repository/domain path, so room-specific content and payload-substitution tests cannot control all visible ritual copy.
 
-**Fix:** Add a `moreChoicesLabel` field to the fixture, DTO, mapper, and `RitualRoomContent`, then pass `room.moreChoicesLabel` to `RitualContextInputTray`.
+**Fix:** Add a `moreChoicesLabel` field through the fixture, DTO, mapper, and `RitualRoomContent`, then pass `room.moreChoicesLabel` to the tray.
 
-### WR-03: Snapshot decoding permits semantically invalid numeric values
+### WR-03: Snapshot decoding still accepts semantically invalid numeric values
 
-**Classification:** WARNING  
-**File:** `mobile_v2/lib/features/ritual_room/data/dto/interaction_snapshot_response.dart:78-86,117-124,155-164`
+**Classification:** WARNING
+**File:** `mobile_v2/lib/features/ritual_room/data/dto/interaction_snapshot_response.dart:78-86,117-124,155-164,271-277`
 
-**Issue:** The decoder checks only that confidence and stability values are finite and that pressure is non-negative. It accepts values such as confidence `-4`, context stability `2`, and pressure level `100000`, which then enter `ProductSnapshot` as valid domain truth. The domain constructors also enforce no ranges.
+**Issue:** Confidence and context-stability values are checked only for finiteness, and pressure is checked only for non-negativity. Values such as confidence `-4`, stability `2`, or an unbounded pressure level enter domain truth. `NormalizedInput`, `ContextMemory`, and `StrategyDecision` also enforce no range invariants.
 
-**Fix:** Validate confidence and stability as `0..1`, define and enforce the pressure range (for example `0..100`), and duplicate critical invariants in domain constructors/factories so invalid snapshots are hard to construct outside transport parsing.
+**Fix:** Validate confidence and stability as `0..1`, define and enforce the pressure range, and enforce the same invariants in domain constructors or factories.
 
-### WR-04: Capability sets are externally mutable
+### WR-04: Capability sets remain externally mutable
 
-**Classification:** WARNING  
+**Classification:** WARNING
 **File:** `mobile_v2/lib/features/ritual_room/presentation/capability/interaction_capability_mask.dart:11-16,29-34`
 
-**Issue:** Both public constructors retain the caller-provided `Set` directly. A caller can mutate a set after construction and silently change engine capability declarations or visible UI policy, violating the immutable-boundary standard.
+**Issue:** Both constructors retain caller-provided `Set` instances directly. Mutating the original set after construction silently changes engine declarations or visible presentation policy, violating the immutable-boundary standard.
 
-**Fix:** Defensively copy with `Set.unmodifiable`, or represent capabilities with an immutable enum bitmask/value object. Add a test that mutation of the original input set cannot affect the constructed object.
+**Fix:** Defensively copy with `Set.unmodifiable`, or use an immutable enum bitmask/value object. Add a mutation-resistance test.
 
-### WR-05: Room bootstrap reads stable content twice and can combine different versions
+### WR-05: Room bootstrap still reads stable content twice
 
-**Classification:** WARNING  
-**File:** `mobile_v2/lib/app/providers/ritual_room_session_provider.dart:41-56`  
-**Related:** `mobile_v2/lib/features/ritual_room/domain/runtime/ritual_room_interaction_seed_source.dart:17-19`
+**Classification:** WARNING
+**File:** `mobile_v2/lib/app/providers/ritual_room_session_provider.dart:45-55`
 
-**Issue:** `openRoom` loads `RitualRoomContent`, then the production initializer loads the same repository again through `RitualRoomInteractionSeedSource`. With a remote or mutable source, the UI can pair room metadata from response A with an anchor/bootstrap snapshot from response B. Current tests replace the initializer and therefore do not exercise the production double read.
+**Related:** `mobile_v2/lib/features/ritual_room/domain/runtime/ritual_room_interaction_seed_source.dart:16-19`; `mobile_v2/lib/app/providers/interaction_engine_providers.dart:38-41,64-84`
 
-**Fix:** Initialize the interaction from the already loaded immutable room content, or introduce a request-scoped snapshot/cache that guarantees both consumers use the same content version. Add a production-graph test whose repository returns different values on consecutive calls.
+**Issue:** `openRoom` loads `RitualRoomContent`, then the production initializer reaches the same repository again through `RitualRoomInteractionSeedSource`. A mutable or remote source can pair room metadata from one version with a bootstrap snapshot from another.
 
-### WR-06: Broad catches erase failure diagnostics and misclassify invariant defects
+**Fix:** Initialize from the already loaded immutable room content, or introduce a request-scoped content snapshot/cache shared by both consumers. Add a production-provider-graph test with different consecutive repository responses.
 
-**Classification:** WARNING  
+### WR-06: Broad engine catches still erase diagnostics and invariant failures
+
+**Classification:** WARNING
 **File:** `mobile_v2/lib/features/ritual_room/domain/engine/interaction_engine.dart:120-188`
 
-**Issue:** `on Object` converts every exception and error—including programming/invariant failures in receipt, journal, or commit construction—into `pipeline_failed` without recording a safe cause. This hides defects as expected pipeline failures and prevents actionable diagnostics while the public result gives no distinction.
+**Issue:** `on Object` converts every exception and `Error`, including programming or invariant failures during receipt, journal, and commit construction, into `pipeline_failed` without preserving safe diagnostic context. Defects become indistinguishable from expected pipeline failures.
 
-**Fix:** Catch documented pipeline exception types, report sanitized operation/correlation details through an injected diagnostics boundary, and allow unexpected `Error`/invariant failures to propagate in development and tests. Preserve atomic no-commit behavior.
+**Fix:** Catch documented pipeline exception types, report sanitized operation and correlation details through a diagnostics boundary, and allow unexpected `Error` or invariant failures to surface in development and tests.
+
+### WR-07: Additional-choice selections disappear during reconciliation
+
+**Classification:** WARNING
+**File:** `mobile_v2/lib/features/ritual_room/presentation/widgets/ritual_context_input_tray.dart:55,74-80,100-116,263-270`
+
+**Related:** `mobile_v2/lib/features/ritual_room/presentation/screens/ritual_room_screen.dart:144-148,208-216`
+
+**Issue:** The selected ID is retained, but only the first two inline choices expose `Semantics.selected`. Choosing an item at index 2 or later closes the sheet immediately; during submitting or unknown-outcome states, the disabled `更多情况` launcher exposes neither the selected label nor selected semantics. The user and screen reader cannot tell which additional reaction is pending or being retried.
+
+**Fix:** Resolve the selected ID to its label and project it on the launcher or a persistent selected-reaction status with `selected: true`. Add submitting, unknown-outcome, and retrying tests using a choice from `choices.skip(2)`.
+
+### WR-08: New reconciliation copy bypasses localization
+
+**Classification:** WARNING
+**File:** `mobile_v2/lib/features/ritual_room/presentation/screens/ritual_room_screen.dart:168-192`
+
+**Issue:** The newly added unknown-outcome message and retry label are embedded Chinese strings in the widget. This violates the mandatory localization standard and prevents locale substitution or translation testing.
+
+**Fix:** Move reconciliation message and retry-action text into Flutter localization resources and reference localized values from the screen. Add a locale-substitution widget test.
 
 ---
 
-_Reviewed: 2026-06-20T22:40:01Z_  
-_Reviewer: the agent (gsd-code-reviewer)_  
+_Reviewed: 2026-06-21T09:19:19Z_
+_Reviewer: the agent (gsd-code-reviewer)_
 _Depth: standard_
