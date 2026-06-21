@@ -77,7 +77,6 @@ void main() {
       ).readAsStringSync();
       final publicSource = [
         stateSource,
-        File('lib/app/baby_talk_app.dart').readAsStringSync(),
         File(
           'lib/features/ritual_room/presentation/screens/ritual_room_screen.dart',
         ).readAsStringSync(),
@@ -99,7 +98,6 @@ void main() {
       ]) {
         expect(publicSource, isNot(matches(forbidden)));
       }
-      expect(publicSource, isNot(contains('interactionInputFactoryProvider')));
       expect(publicSource, isNot(contains("domain/models/input_event.dart")));
       expect(stateSource, contains('RitualRoomUnknownOutcome'));
     },

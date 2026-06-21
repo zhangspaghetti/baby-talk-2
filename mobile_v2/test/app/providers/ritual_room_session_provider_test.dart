@@ -242,7 +242,7 @@ void main() {
         repository.calls[1].expectedRevision,
         repository.calls[0].expectedRevision,
       );
-      expect(repository.calls.single.expectedRevision, 0);
+      expect(repository.calls.first.expectedRevision, 0);
       expect(repository.retryResult, isA<AdvanceDuplicateIgnored>());
       expect(ids.calls, 1);
       final ready =

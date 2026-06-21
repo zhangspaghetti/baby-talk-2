@@ -5,6 +5,7 @@ import '../../features/ritual_room/domain/models/input_event.dart';
 import '../../features/ritual_room/domain/models/product_snapshot.dart';
 import '../../features/ritual_room/domain/models/ritual_room_content.dart';
 import '../../features/ritual_room/presentation/state/ritual_room_ui_state.dart';
+import '../../features/ritual_room/domain/repositories/interaction_outcome_unknown_exception.dart';
 import 'interaction_engine_providers.dart';
 import 'ritual_room_data_providers.dart';
 
@@ -17,12 +18,14 @@ final class RitualRoomSessionNotifier extends Notifier<RitualRoomUiState> {
   var _operationEpoch = 0;
   var _disposed = false;
   String? _activeRoomId;
+  _PendingInteractionCommand? _pendingCommand;
 
   @override
   RitualRoomUiState build() {
     ref.onDispose(() {
       _disposed = true;
       _operationEpoch += 1;
+      _pendingCommand = null;
     });
     return const RitualRoomIdle();
   }
@@ -34,6 +37,7 @@ final class RitualRoomSessionNotifier extends Notifier<RitualRoomUiState> {
       return;
     }
 
+    _pendingCommand = null;
     final epoch = ++_operationEpoch;
     _activeRoomId = ritualRoomId;
     state = const RitualRoomLoading();
@@ -63,49 +67,139 @@ final class RitualRoomSessionNotifier extends Notifier<RitualRoomUiState> {
     }
   }
 
+  Future<void> reloadRoom(String ritualRoomId) async {
+    _pendingCommand = null;
+    _activeRoomId = null;
+    await openRoom(ritualRoomId);
+  }
+
+  Future<void> submitReaction(String selected) async {
+    final current = _usableSession(state);
+    if (current == null || _pendingCommand != null) {
+      return;
+    }
+
+    final input = ref.read(interactionInputFactoryProvider).reaction(selected);
+    await _submitCommand(
+      current: current,
+      command: _PendingInteractionCommand(
+        input: input,
+        interactionId: current.snapshot.interactionId,
+        expectedRevision: current.snapshot.revision,
+        selectedReaction: selected,
+      ),
+    );
+  }
+
   Future<void> submit(InputEvent input) async {
     final current = _usableSession(state);
-    if (current == null) {
+    if (current == null || _pendingCommand != null) {
+      return;
+    }
+
+    await _submitCommand(
+      current: current,
+      command: _PendingInteractionCommand(
+        input: input,
+        interactionId: current.snapshot.interactionId,
+        expectedRevision: current.snapshot.revision,
+        selectedReaction: null,
+      ),
+    );
+  }
+
+  Future<void> retryPendingEvent() async {
+    final currentState = state;
+    final command = _pendingCommand;
+    if (currentState is! RitualRoomUnknownOutcome ||
+        currentState.isRetrying ||
+        command == null) {
       return;
     }
 
     final epoch = ++_operationEpoch;
+    state = RitualRoomUnknownOutcome(
+      room: currentState.room,
+      snapshot: currentState.snapshot,
+      selectedReaction: currentState.selectedReaction,
+      isRetrying: true,
+    );
+    await _executeCommand(
+      epoch: epoch,
+      room: currentState.room,
+      priorSnapshot: currentState.snapshot,
+      command: command,
+    );
+  }
+
+  Future<void> _submitCommand({
+    required _UsableSession current,
+    required _PendingInteractionCommand command,
+  }) async {
+    _pendingCommand = command;
+    final epoch = ++_operationEpoch;
     state = RitualRoomSubmitting(
       room: current.room,
       snapshot: current.snapshot,
+      selectedReaction: command.selectedReaction,
     );
+    await _executeCommand(
+      epoch: epoch,
+      room: current.room,
+      priorSnapshot: current.snapshot,
+      command: command,
+    );
+  }
 
+  Future<void> _executeCommand({
+    required int epoch,
+    required RitualRoomContent room,
+    required ProductSnapshot priorSnapshot,
+    required _PendingInteractionCommand command,
+  }) async {
     try {
       final result = await ref
           .read(interactionRepositoryProvider)
           .advance(
-            interactionId: current.snapshot.interactionId,
-            expectedRevision: current.snapshot.revision,
-            input: input,
+            interactionId: command.interactionId,
+            expectedRevision: command.expectedRevision,
+            input: command.input,
           );
       if (!_isCurrent(epoch)) {
         return;
       }
 
+      _pendingCommand = null;
       state = switch (result) {
         AdvanceApplied(:final snapshot) ||
         AdvanceDuplicateIgnored(
           :final snapshot,
-        ) => RitualRoomReady(room: current.room, snapshot: snapshot),
+        ) => RitualRoomReady(room: room, snapshot: snapshot),
         AdvanceRejected(:final code, :final latestSnapshot) =>
           RitualRoomRecoverableFailure(
-            room: current.room,
-            snapshot: latestSnapshot ?? current.snapshot,
+            room: room,
+            snapshot: latestSnapshot ?? priorSnapshot,
             problem: RitualRoomProblem(code),
           ),
       };
+    } on InteractionOutcomeUnknownException {
+      if (!_isCurrent(epoch) || !identical(_pendingCommand, command)) {
+        return;
+      }
+      state = RitualRoomUnknownOutcome(
+        room: room,
+        snapshot: priorSnapshot,
+        selectedReaction: command.selectedReaction,
+        isRetrying: false,
+      );
     } on Object catch (cause) {
       if (!_isCurrent(epoch)) {
         return;
       }
+      _pendingCommand = null;
       state = RitualRoomRecoverableFailure(
-        room: current.room,
-        snapshot: current.snapshot,
+        room: room,
+        snapshot: priorSnapshot,
         problem: RitualRoomProblem(null, cause: cause),
       );
     }
@@ -116,7 +210,6 @@ final class RitualRoomSessionNotifier extends Notifier<RitualRoomUiState> {
   _UsableSession? _usableSession(RitualRoomUiState current) =>
       switch (current) {
         RitualRoomReady(:final room, :final snapshot) ||
-        RitualRoomSubmitting(:final room, :final snapshot) ||
         RitualRoomRecoverableFailure(
           :final room,
           :final snapshot,
@@ -130,4 +223,18 @@ final class _UsableSession {
 
   final RitualRoomContent room;
   final ProductSnapshot snapshot;
+}
+
+final class _PendingInteractionCommand {
+  const _PendingInteractionCommand({
+    required this.input,
+    required this.interactionId,
+    required this.expectedRevision,
+    required this.selectedReaction,
+  });
+
+  final InputEvent input;
+  final String interactionId;
+  final int expectedRevision;
+  final String? selectedReaction;
 }

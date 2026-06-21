@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -58,6 +59,21 @@ void main() {
       expect(find.text('先这样就好'), findsOneWidget);
     },
   );
+
+  test('BabyTalkApp owns reaction intent but no command-envelope details', () {
+    final source = File('lib/app/baby_talk_app.dart').readAsStringSync();
+
+    expect(source, contains('submitReaction'));
+    expect(source, contains('retryPendingEvent'));
+    for (final forbidden in [
+      'InputEvent',
+      'interactionInputFactoryProvider',
+      'eventId',
+      'expectedRevision',
+    ]) {
+      expect(source, isNot(contains(forbidden)));
+    }
+  });
 
   testWidgets(
     'R067 reaction sheet submits typed events, preserves pending content, and applies two in-place revisions',

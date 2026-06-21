@@ -32,12 +32,35 @@ final class RitualRoomReady extends RitualRoomUiState {
 }
 
 final class RitualRoomSubmitting extends RitualRoomUiState {
-  const RitualRoomSubmitting({required this.room, required this.snapshot});
+  const RitualRoomSubmitting({
+    required this.room,
+    required this.snapshot,
+    required this.selectedReaction,
+  });
 
   final RitualRoomContent room;
 
   @override
   final ProductSnapshot snapshot;
+
+  final String? selectedReaction;
+}
+
+final class RitualRoomUnknownOutcome extends RitualRoomUiState {
+  const RitualRoomUnknownOutcome({
+    required this.room,
+    required this.snapshot,
+    required this.selectedReaction,
+    required this.isRetrying,
+  });
+
+  final RitualRoomContent room;
+
+  @override
+  final ProductSnapshot snapshot;
+
+  final String? selectedReaction;
+  final bool isRetrying;
 }
 
 final class RitualRoomProblem {
