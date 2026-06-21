@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v0.1
 milestone_name: milestone
-status: verifying
-stopped_at: Completed 41-11-PLAN.md
-last_updated: "2026-06-20T22:22:42.287Z"
-last_activity: 2026-06-21 -- Phase 41 execution completed
+status: executing
+stopped_at: Planned 41-12-PLAN.md
+last_updated: "2026-06-21T04:41:03.047Z"
+last_activity: 2026-06-21 -- Phase 41 gap closure planned
 progress:
   total_phases: 8
   completed_phases: 3
-  total_plans: 17
+  total_plans: 18
   completed_plans: 17
   percent: 38
 ---
@@ -24,12 +24,12 @@ See: .planning/PROJECT.md
 
 ## Current Position
 
-Phase: 41 (mobile-v2-runnable-vertical-slice) — COMPLETE
-Plan: 11 of 11
-Status: Phase complete — ready for verification
-Last activity: 2026-06-21 -- Phase 41 execution completed
+Phase: 41 (mobile-v2-runnable-vertical-slice) — GAP CLOSURE
+Plan: 11 of 12
+Status: Ready to execute 41-12-PLAN.md
+Last activity: 2026-06-21 -- Phase 41 gap closure planned
 
-Progress: [██████████] 100%
+Progress: [█████████░] 92%
 
 ## Accumulated Context
 
@@ -75,8 +75,8 @@ Migrated from GSD-2. Old M010 phases 39-41 were generated from outdated planning
 - [Phase 41]: Phase 41 Plan 10 keeps Ritual Room widgets projection-only with immutable domain inputs and callback-only intent. — This preserves the sole session Notifier and prevents presentation from acquiring content, strategy, or repository authority.
 - [Phase 41]: The approved identity header uses 196dp height, a 112dp illustration, and the UI-SPEC typography scale. — This keeps D.4.5 geometry readable at 390x844 and text scale 1.3 without clipping or viewport-scaled type.
 - [Phase 41]: Keep Riverpod in the app composition root; BabyTalkApp watches only session state and capability mask while RitualRoomScreen receives immutable values and callbacks. — Preserves one mutable authority and a projection-only feature screen.
-- [Phase 41]: Create visible reaction events through interactionInputFactoryProvider and submit them through the sole RitualRoomSession NotifierProvider. — Keeps event identity/time generation and state mutation in approved app seams.
-- [Phase 41]: Recoverable submission failures preserve the last snapshot and accept a fresh typed reaction retry without retaining raw input. — Maintains usability and the privacy contract simultaneously.
+- [Phase 41 gap closure]: BabyTalkApp forwards reaction intent only; RitualRoomSessionNotifier applies the single-flight guard before creating the InputEvent/eventId and owns the private command envelope.
+- [Phase 41 gap closure]: Same-event retry is reserved for explicit unknown outcomes and replays the original InputEvent, eventId, interactionId, and expectedRevision; every authoritative result and non-unknown exception clears retry capability.
 
 ### Roadmap Evolution
 
@@ -104,14 +104,15 @@ Migrated from GSD-2. Old M010 phases 39-41 were generated from outdated planning
 
 ### Blockers/Concerns
 
-No blocker remains. Phase 41 completed with the approved D.4.5/static assets,
-the locked Interaction Engine contract, all 11 plan summaries, and passing
-architecture, UI, accessibility, semantic, and Activation Governor gates.
+Phase 41 verification found two reaction-lifecycle blockers: rapid repeated
+submissions were not single-flight, and unknown-outcome retry did not preserve
+the original idempotency command. Plan 41-12 is ready to execute and is scoped
+only to those blockers; the six verification warnings remain deferred.
 
 ## Session Continuity
 
-Last session: 2026-06-20T22:22:04.877Z
-Stopped at: Completed 41-11-PLAN.md
+Last session: 2026-06-21T04:41:03.047Z
+Stopped at: Planned 41-12-PLAN.md
 Resume file: None
 
 ## Performance Metrics

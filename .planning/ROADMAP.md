@@ -108,7 +108,7 @@ Plans:
 **Locked implementation authorities:** `docs/superpowers/plans/2026-06-19-interaction-engine-v1.md`; `docs/superpowers/plans/2026-06-19-interaction-engine-flutter-riverpod.md`
 **Requirements**: R058, R059, R060, R063, R064, R065, R067
 **Depends on:** Phase 40
-**Plans:** 11/11 plans complete
+**Plans:** 11/12 plans complete
 Plans:
 
 **Wave 0**
@@ -145,6 +145,10 @@ Plans:
 **Wave 7** *(blocked on authority, adapters, session, and widgets)*
 
 - [x] 41-11-PLAN.md — Build the ProviderScope app shell/direct screen and close engine, provider, accessibility, requirement, source-audit, and scope proof.
+
+**Wave 8** *(gap closure; blocked on 41-11)*
+
+- [ ] 41-12-PLAN.md — TDD single-flight reaction admission and exact unknown-outcome command reconciliation without exposing event identity to app or UI state.
 
 ### Phase 42: mobile_v2 Low-pressure Interaction Schematic
 
