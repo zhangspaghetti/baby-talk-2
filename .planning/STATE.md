@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v0.1
 milestone_name: milestone
 status: executing
-stopped_at: Planned 41-12-PLAN.md
-last_updated: "2026-06-21T04:41:03.047Z"
-last_activity: 2026-06-21 -- Phase 41 gap closure planned
+stopped_at: Completed 41-12-PLAN.md
+last_updated: "2026-06-21T06:50:35.616Z"
+last_activity: 2026-06-21 -- Phase 41 gap closure plan 41-12 completed
 progress:
   total_phases: 8
   completed_phases: 3
   total_plans: 18
-  completed_plans: 17
+  completed_plans: 18
   percent: 38
 ---
 
@@ -24,12 +24,12 @@ See: .planning/PROJECT.md
 
 ## Current Position
 
-Phase: 41 (mobile-v2-runnable-vertical-slice) — GAP CLOSURE
-Plan: 11 of 12
-Status: Ready to execute 41-12-PLAN.md
-Last activity: 2026-06-21 -- Phase 41 gap closure planned
+Phase: 41 (mobile-v2-runnable-vertical-slice) — GAP CLOSURE COMPLETE
+Plan: 12 of 12
+Status: Plan 41-12 complete; phase verification pending
+Last activity: 2026-06-21 -- Phase 41 gap closure plan 41-12 completed
 
-Progress: [█████████░] 92%
+Progress: [██████████] 100%
 
 ## Accumulated Context
 
@@ -77,6 +77,10 @@ Migrated from GSD-2. Old M010 phases 39-41 were generated from outdated planning
 - [Phase 41]: Keep Riverpod in the app composition root; BabyTalkApp watches only session state and capability mask while RitualRoomScreen receives immutable values and callbacks. — Preserves one mutable authority and a projection-only feature screen.
 - [Phase 41 gap closure]: BabyTalkApp forwards reaction intent only; RitualRoomSessionNotifier applies the single-flight guard before creating the InputEvent/eventId and owns the private command envelope.
 - [Phase 41 gap closure]: Same-event retry is reserved for explicit unknown outcomes and replays the original InputEvent, eventId, interactionId, and expectedRevision; every authoritative result and non-unknown exception clears retry capability.
+- [Phase 41]: Mint reaction InputEvents only inside RitualRoomSessionNotifier after single-flight admission.
+- [Phase 41]: Reserve same-event replay for explicit post-dispatch unknown outcomes; clear retry capability on every authoritative or non-unknown outcome.
+- [Phase 41]: Keep command identity private while projecting only selected reaction and retrying status.
+- [Phase 41]: Use an immediate live modal guard plus post-frame visual publication for lifecycle-safe reaction locking.
 
 ### Roadmap Evolution
 
@@ -104,15 +108,14 @@ Migrated from GSD-2. Old M010 phases 39-41 were generated from outdated planning
 
 ### Blockers/Concerns
 
-Phase 41 verification found two reaction-lifecycle blockers: rapid repeated
-submissions were not single-flight, and unknown-outcome retry did not preserve
-the original idempotency command. Plan 41-12 is ready to execute and is scoped
-only to those blockers; the six verification warnings remain deferred.
+Plan 41-12 closed both reaction-lifecycle blockers with single-flight admission
+and exact unknown-outcome command replay. The six non-blocking verification
+warnings remain deferred and explicitly out of scope.
 
 ## Session Continuity
 
-Last session: 2026-06-21T04:41:03.047Z
-Stopped at: Planned 41-12-PLAN.md
+Last session: 2026-06-21T06:50:35.603Z
+Stopped at: Completed 41-12-PLAN.md
 Resume file: None
 
 ## Performance Metrics
@@ -135,3 +138,4 @@ Resume file: None
 | Phase 41 P09 | 1h 2m | 2 tasks | 4 files |
 | Phase 41 P10 | 3h 43m | 2 tasks | 8 files |
 | Phase 41 P11 | 15 min | 3 tasks | 11 files |
+| Phase 41 P12 | 13 min | 3 tasks | 10 files |
