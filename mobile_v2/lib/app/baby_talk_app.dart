@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../features/ritual_room/presentation/screens/ritual_room_screen.dart';
+import 'localization/generated/app_localizations.dart';
 import 'providers/ritual_room_capability_provider.dart';
 import 'providers/ritual_room_session_provider.dart';
 import 'theme/baby_talk_theme.dart';
@@ -35,6 +36,8 @@ final class _BabyTalkAppState extends ConsumerState<BabyTalkApp> {
       scaffoldMessengerKey: _messengerKey,
       debugShowCheckedModeBanner: false,
       title: 'Baby Talk',
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
       theme: BabyTalkTheme.light,
       home: RitualRoomScreen(
         state: state,

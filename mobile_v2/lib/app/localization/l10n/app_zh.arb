@@ -1,0 +1,32 @@
+{
+  "@@locale": "zh",
+  "listen": "听一下",
+  "pause": "暂停",
+  "playSentenceSemantics": "播放这句话",
+  "pauseSentenceSemantics": "暂停播放",
+  "loadingAudioSemantics": "正在加载语音",
+  "audioUnavailable": "暂时听不了，你也可以直接照着说。",
+  "contextEntry": "想让这句话更贴近一点吗？",
+  "contextEntryHint": "轻触告诉我",
+  "contextPrompt": "宝宝现在怎么了？",
+  "contextPromptHint": "选一个最接近的就好",
+  "collapseContext": "收起",
+  "retry": "再试一次",
+  "adjustingUtterance": "正在让这句话更贴近一点…",
+  "recoverableFailure": "这次没有换好，刚才那句话还可以继续用。",
+  "unknownOutcome": "刚才的调整还没有确认。",
+  "loadingSentence": "正在准备这句话…",
+  "loadFailure": "这个小声音暂时没准备好。稍后再打开一次。",
+  "timingSemantics": "说这句话的时机：{timing}",
+  "@timingSemantics": {
+    "placeholders": {
+      "timing": {"type": "String"}
+    }
+  },
+  "adjustedSentenceSemantics": "说法已调整：{sentence}",
+  "@adjustedSentenceSemantics": {
+    "placeholders": {
+      "sentence": {"type": "String"}
+    }
+  }
+}
