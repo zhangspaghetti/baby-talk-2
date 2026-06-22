@@ -81,10 +81,23 @@ void main() {
           ),
           replayJournal: ReplayJournal.empty().append(transition),
         );
-        final recordJson = transition.toJson();
-        final runtimeDump = jsonEncode(runtime.toJson());
+        final runtimeJson = runtime.toJson();
+        final runtimeDump = jsonEncode(runtimeJson);
+        final initialSnapshotJson =
+            runtimeJson['initialSnapshot']! as Map<String, Object?>;
+        final currentSnapshotJson =
+            runtimeJson['currentSnapshot']! as Map<String, Object?>;
+        final initialUtteranceJson =
+            initialSnapshotJson['activeUtterance']! as Map<String, Object?>;
+        final currentUtteranceJson =
+            currentSnapshotJson['activeUtterance']! as Map<String, Object?>;
+        final replayJournalJson =
+            runtimeJson['replayJournal']! as List<Map<String, Object>>;
+        final replayRecordJson = replayJournalJson.single;
+        final replayUtteranceJson =
+            replayRecordJson['activeUtterance']! as Map<String, Object?>;
 
-        expect(recordJson.keys.toSet(), {
+        expect(replayRecordJson.keys.toSet(), {
           'eventId',
           'fromRevision',
           'toRevision',
@@ -95,10 +108,17 @@ void main() {
           'activeUtterance',
         });
         expect(
-          (recordJson['activeUtterance']! as Map<String, Object?>)['actionCue'],
+          initialUtteranceJson['actionCue'],
+          runtime.initialSnapshot.activeUtterance.actionCue,
+        );
+        expect(
+          currentUtteranceJson['actionCue'],
+          runtime.currentSnapshot.activeUtterance.actionCue,
+        );
+        expect(
+          replayUtteranceJson['actionCue'],
           transition.activeUtterance.actionCue,
         );
-        expect(runtimeDump, contains('"actionCue":"shared action moment"'));
         expect(runtimeDump, isNot(contains(rawVoice)));
         expect(runtimeDump, isNot(contains(rawFreeText)));
         expect(runtimeDump, isNot(contains('transcript')));

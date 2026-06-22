@@ -9,15 +9,6 @@ import '../dto/interaction_input_dto.dart';
 import '../dto/interaction_result_response.dart';
 import '../dto/interaction_snapshot_response.dart';
 
-final class UnsupportedInteractionSchemaException implements Exception {
-  const UnsupportedInteractionSchemaException(this.schemaVersion);
-
-  final int schemaVersion;
-
-  @override
-  String toString() => 'Unsupported interaction schema version: $schemaVersion';
-}
-
 /// Strict conversion boundary between stable transport names and domain values.
 final class InteractionMapper {
   const InteractionMapper();
@@ -80,6 +71,9 @@ final class InteractionMapper {
   }
 
   InteractionSnapshotResponse snapshotFromDomain(ProductSnapshot snapshot) {
+    if (snapshot.schemaVersion != ProductSnapshot.currentSchemaVersion) {
+      throw UnsupportedInteractionSchemaException(snapshot.schemaVersion);
+    }
     return InteractionSnapshotResponse(
       schemaVersion: snapshot.schemaVersion,
       revision: snapshot.revision,
@@ -207,7 +201,9 @@ final class InteractionMapper {
         InteractionResultResponse(
           status: AdvanceStatus.rejected.wireName,
           error: code.wireName,
-          latestSnapshot: latestSnapshot == null
+          latestSnapshot:
+              code == AdvanceErrorCode.unsupportedSchemaVersion ||
+                  latestSnapshot == null
               ? null
               : snapshotFromDomain(latestSnapshot),
         ),

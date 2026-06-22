@@ -261,15 +261,61 @@ void main() {
       );
     });
 
-    test('schemas 1 and 3 map to explicit unsupported-schema failures', () {
+    test('genuine schema 1 fails before parsing its legacy utterance', () {
+      final schema1Json = _snapshotJson()..['schemaVersion'] = 1;
+      final legacyUtterance = Map<String, Object?>.from(
+        schema1Json['utterance']! as Map<String, Object?>,
+      )..remove('actionCue');
+      schema1Json['utterance'] = legacyUtterance;
+
+      expect(
+        () => InteractionSnapshotResponse.fromJson(schema1Json),
+        throwsA(
+          isA<UnsupportedInteractionSchemaException>().having(
+            (error) => error.schemaVersion,
+            'schemaVersion',
+            1,
+          ),
+        ),
+      );
+    });
+
+    test('future schemas fail before parsing schema-2 body fields', () {
+      final schema3Json = _snapshotJson()
+        ..['schemaVersion'] = 3
+        ..remove('utterance');
+
+      expect(
+        () => InteractionSnapshotResponse.fromJson(schema3Json),
+        throwsA(
+          isA<UnsupportedInteractionSchemaException>().having(
+            (error) => error.schemaVersion,
+            'schemaVersion',
+            3,
+          ),
+        ),
+      );
+    });
+
+    test('outbound mapping rejects unsupported snapshot schemas', () {
+      final current = _snapshot();
+
       for (final schemaVersion in const [1, 3]) {
-        final response = InteractionSnapshotResponse.fromJson({
-          ..._snapshotJson(),
-          'schemaVersion': schemaVersion,
-        });
+        final unsupported = ProductSnapshot(
+          schemaVersion: schemaVersion,
+          revision: current.revision,
+          interactionId: current.interactionId,
+          ritualRoomId: current.ritualRoomId,
+          anchor: current.anchor,
+          normalizedContext: current.normalizedContext,
+          memory: current.memory,
+          strategy: current.strategy,
+          activeUtterance: current.activeUtterance,
+          metadata: current.metadata,
+        );
 
         expect(
-          () => mapper.snapshotToDomain(response),
+          () => mapper.snapshotFromDomain(unsupported),
           throwsA(
             isA<UnsupportedInteractionSchemaException>().having(
               (error) => error.schemaVersion,

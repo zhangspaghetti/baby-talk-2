@@ -1,5 +1,16 @@
 import 'dart:collection';
 
+import '../../domain/models/product_snapshot.dart';
+
+final class UnsupportedInteractionSchemaException implements Exception {
+  const UnsupportedInteractionSchemaException(this.schemaVersion);
+
+  final int schemaVersion;
+
+  @override
+  String toString() => 'Unsupported interaction schema version: $schemaVersion';
+}
+
 /// Schema-versioned transport projection of current product truth.
 final class InteractionSnapshotResponse {
   const InteractionSnapshotResponse({
@@ -15,29 +26,32 @@ final class InteractionSnapshotResponse {
     required this.metadata,
   });
 
-  factory InteractionSnapshotResponse.fromJson(Map<String, Object?> json) =>
-      InteractionSnapshotResponse(
-        schemaVersion: _requiredNonNegativeInt(json, 'schemaVersion'),
-        revision: _requiredNonNegativeInt(json, 'revision'),
-        interactionId: _requiredString(json, 'interactionId'),
-        ritualRoomId: _requiredString(json, 'ritualRoomId'),
-        anchor: _requiredString(json, 'anchor'),
-        normalizedContext: InteractionNormalizedContextResponse.fromJson(
-          _requiredMap(json, 'normalizedContext'),
-        ),
-        memory: InteractionMemoryResponse.fromJson(
-          _requiredMap(json, 'memory'),
-        ),
-        strategy: InteractionStrategyResponse.fromJson(
-          _requiredMap(json, 'strategy'),
-        ),
-        utterance: InteractionUtteranceResponse.fromJson(
-          _requiredMap(json, 'utterance'),
-        ),
-        metadata: InteractionSnapshotMetadataResponse.fromJson(
-          _requiredMap(json, 'metadata'),
-        ),
-      );
+  factory InteractionSnapshotResponse.fromJson(Map<String, Object?> json) {
+    final schemaVersion = _requiredNonNegativeInt(json, 'schemaVersion');
+    if (schemaVersion != ProductSnapshot.currentSchemaVersion) {
+      throw UnsupportedInteractionSchemaException(schemaVersion);
+    }
+    return InteractionSnapshotResponse(
+      schemaVersion: schemaVersion,
+      revision: _requiredNonNegativeInt(json, 'revision'),
+      interactionId: _requiredString(json, 'interactionId'),
+      ritualRoomId: _requiredString(json, 'ritualRoomId'),
+      anchor: _requiredString(json, 'anchor'),
+      normalizedContext: InteractionNormalizedContextResponse.fromJson(
+        _requiredMap(json, 'normalizedContext'),
+      ),
+      memory: InteractionMemoryResponse.fromJson(_requiredMap(json, 'memory')),
+      strategy: InteractionStrategyResponse.fromJson(
+        _requiredMap(json, 'strategy'),
+      ),
+      utterance: InteractionUtteranceResponse.fromJson(
+        _requiredMap(json, 'utterance'),
+      ),
+      metadata: InteractionSnapshotMetadataResponse.fromJson(
+        _requiredMap(json, 'metadata'),
+      ),
+    );
+  }
 
   final int schemaVersion;
   final int revision;

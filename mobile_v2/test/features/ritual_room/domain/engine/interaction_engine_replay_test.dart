@@ -293,6 +293,14 @@ void _expectSnapshot(ProductSnapshot actual, ProductSnapshot expected) {
     actual.activeUtterance.audioAssetId,
     expected.activeUtterance.audioAssetId,
   );
+  expect(
+    actual.activeUtterance.contextLabel,
+    expected.activeUtterance.contextLabel,
+  );
+  expect(
+    actual.activeUtterance.gentleSupport,
+    expected.activeUtterance.gentleSupport,
+  );
   expect(actual.metadata.lastEventId, expected.metadata.lastEventId);
   expect(actual.metadata.updatedAt, expected.metadata.updatedAt);
 }
