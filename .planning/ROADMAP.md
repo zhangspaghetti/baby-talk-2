@@ -152,16 +152,17 @@ Plans:
 
 ### Phase 42: mobile_v2 Low-pressure Interaction Schematic
 
-**Goal:** Open more controls over the already capability-complete Phase 41 Interaction Engine through coherent progressive disclosure for reaction, voice, free-text, and strategy inputs; stable layout rhythm; accessible one-hand operation; and no control-console overload.
+**Goal:** Deliver the approved reaction-only “句子光场” core over the already capability-complete Phase 41 Interaction Engine, preserving its reaction, voice, free-text, future-signal, and strategy input capabilities without exposing unapproved controls.
 **Requirements**: R058, R059, R063, R064, R065, R067
 **Depends on:** Phase 41
 **Plans:** 0 plans
 
 Plans:
 
-- [ ] Refine the vertical slice UI and prototype truthful voice/free-text/strategy affordance states without introducing a control-console layout, checklist pressure, streaks, scores, completion goals, or Garden growth semantics.
-- [ ] Add responsive/widget/golden or screenshot smoke coverage for the primary flow and low-pressure Garden states.
-- [ ] Keep an injected backend-shaped mock API acceptable; no deployed backend, AI generation, or production Pack/Graph required.
+- [ ] Implement the approved reaction-only “句子光场” core: stable sentence
+  plane, non-modal context Dock, responsive layout, accessibility, and visual UAT.
+- [ ] Prototype voice/free-text/strategy affordances only after a separate
+  product schematic is approved; no placeholder controls belong to the core plan.
 
 ### Phase 43: Local Micro-ritual State Backbone
 

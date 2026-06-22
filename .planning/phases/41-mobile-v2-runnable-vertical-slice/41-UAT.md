@@ -3,29 +3,30 @@ status: testing
 phase: 41-mobile-v2-runnable-vertical-slice
 source: [41-VERIFICATION.md]
 started: 2026-06-21T09:42:53Z
-updated: 2026-06-21T09:42:53Z
+updated: 2026-06-22
 ---
 
 ## Current Test
 
-number: 1
-name: Compare the running Ritual Room states with the approved D.4.5 prototype
+number: 2
+name: Exercise reaction and unknown-outcome reconciliation
 expected: |
-  On a representative phone at 390x844, the ready, reaction-sheet,
-  submitting, unknown-outcome, and revised states preserve the approved
-  compact identity, one dominant utterance, one action cue, restrained
-  pending/retry treatment, and reaction-only hierarchy without clipping or
-  task-like emphasis.
+  Reaction selection remains single-flight. An unknown outcome reuses the
+  original event ID, reconciles to the accepted result, and does not advance
+  revision twice.
 awaiting: user response
 
 ## Tests
 
-### 1. Compare the running Ritual Room states with the approved D.4.5 prototype
-expected: On a representative phone at 390x844, the ready, reaction-sheet, submitting, unknown-outcome, and revised states match the approved visual hierarchy without clipping or task-like emphasis.
-result: pending
+### 1. D.4.5 visual comparison
+result: superseded
+evidence: |
+  Superseded on 2026-06-22 by the approved Phase 41/42 Ritual Room
+  “句子光场” design contract. Do not approve or reject the current milestone
+  by comparing it with the obsolete card/modal D.4.5 projection.
 
-### 2. Exercise reaction and unknown-outcome retry with TalkBack and VoiceOver
-expected: Controls, selected and disabled state, live status, retry action, playback, and quiet exit are announced in a coherent order and remain operable on Android TalkBack and iOS VoiceOver.
+### 2. Exercise reaction and unknown-outcome reconciliation
+expected: Reaction selection remains single-flight. An unknown outcome reuses the original event ID, reconciles to the accepted result, and does not advance revision twice.
 result: pending
 
 ## Summary
@@ -33,8 +34,12 @@ result: pending
 total: 2
 passed: 0
 issues: 0
-pending: 2
+pending: 1
 skipped: 0
 blocked: 0
+superseded: 1
 
 ## Gaps
+
+Sentence-light-field visual acceptance and TalkBack focus behavior move to
+Phase 42 UAT. TalkBack device work is not marked passed here.

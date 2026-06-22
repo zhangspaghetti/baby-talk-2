@@ -216,3 +216,11 @@ No code-verifiable goal blockers remain. Plan 41-12 closes both previous gaps wi
 
 _Verified: 2026-06-21T09:40:00Z_
 _Verifier: the agent (gsd-verifier)_
+
+## 2026-06-22 Design Supersession Addendum
+
+Phase 41 engine, repository, Notifier, single-flight, and original-event
+reconciliation evidence remains valid. The D.4.5 presentation fidelity gate is
+superseded. Sentence-light-field layout, non-modal Dock, TalkBack focus behavior,
+dual viewport screenshots, text scaling, and reduced-motion acceptance are
+Phase 42 gates.
