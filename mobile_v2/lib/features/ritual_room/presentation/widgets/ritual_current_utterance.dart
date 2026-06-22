@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart';
 
 import '../../domain/models/product_snapshot.dart';
 import '../../domain/models/ritual_room_content.dart';
+import '../models/ritual_listen_state.dart';
 import 'ritual_action_cue.dart';
 import 'ritual_listen_control.dart';
 import 'ritual_submitting_indicator.dart';
@@ -69,11 +71,14 @@ final class RitualCurrentUtterance extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           RitualListenControl(
-            label: audio.label,
+            state: audio.available
+                ? const RitualListenReady()
+                : const RitualListenUnavailable(),
+            sortKey: const OrdinalSortKey(4),
             onPressed: onListen,
-            enabled: audio.available,
+            readyLabel: audio.available ? audio.label : null,
           ),
-          RitualActionCue(cue: actionCue),
+          RitualActionCue(cue: actionCue, sortKey: const OrdinalSortKey(3)),
           if (submitting) RitualSubmittingIndicator(message: pendingCopy),
         ],
       ),
