@@ -1,5 +1,6 @@
 {
   "ritual_room_id": "shoes_on_room_v1",
+  "atmosphere_tone": "everyday_calm",
   "room_name": "出门小声音",
   "routine_anchor": "出门穿鞋",
   "anchor_phrase": "Shoes on.",

@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mobile_v2/features/ritual_room/data/dto/ritual_room_response.dart';
 import 'package:mobile_v2/features/ritual_room/data/mappers/ritual_room_mapper.dart';
 import 'package:mobile_v2/features/ritual_room/domain/models/active_utterance.dart';
+import 'package:mobile_v2/features/ritual_room/domain/models/ritual_atmosphere_tone.dart';
 
 void main() {
   group('RitualRoomMapper', () {
@@ -19,6 +20,7 @@ void main() {
         expect(content.routineAnchor, '出门穿鞋');
         expect(content.anchorPhrase, 'Shoes on.');
         expect(content.chineseHelper, '穿鞋啦。');
+        expect(content.atmosphereTone, RitualAtmosphereTone.everydayCalm);
         expect(content.illustration.assetPath, _approvedIllustrationPath);
         expect(content.illustration.status, 'approved');
         final ready = const RitualRoomMapper().toActiveUtterance(
@@ -153,6 +155,39 @@ void main() {
       );
     });
 
+    test('maps every supported atmosphere tone wire name', () {
+      for (final tone in RitualAtmosphereTone.values) {
+        final payload = _payload()..['atmosphere_tone'] = tone.wireName;
+
+        final content = const RitualRoomMapper().toDomain(
+          RitualRoomResponse.fromJson(payload),
+        );
+
+        expect(content.atmosphereTone, tone);
+      }
+    });
+
+    test('rejects missing, empty, and unsupported atmosphere tones', () {
+      final missing = _payload()..remove('atmosphere_tone');
+      final empty = _payload()..['atmosphere_tone'] = ' ';
+      final unsupported = _payload()..['atmosphere_tone'] = 'energetic';
+
+      expect(() => RitualRoomResponse.fromJson(missing), throwsFormatException);
+      expect(() => RitualRoomResponse.fromJson(empty), throwsFormatException);
+      expect(
+        () => const RitualRoomMapper().toDomain(
+          RitualRoomResponse.fromJson(unsupported),
+        ),
+        throwsA(
+          isA<FormatException>().having(
+            (error) => error.message,
+            'message',
+            'Unsupported ritual atmosphere tone: energetic',
+          ),
+        ),
+      );
+    });
+
     test(
       'R064/R065 content structures exclude runtime, score, completion, replay, and Garden authority',
       () {
@@ -195,6 +230,7 @@ const _approvedIllustrationPath =
 
 Map<String, Object?> _payload() => {
   'ritual_room_id': 'shoes_on_room_v1',
+  'atmosphere_tone': 'everyday_calm',
   'room_name': '出门小声音',
   'routine_anchor': '出门穿鞋',
   'anchor_phrase': 'Shoes on.',

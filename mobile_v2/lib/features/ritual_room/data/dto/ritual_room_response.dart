@@ -2,6 +2,7 @@
 final class RitualRoomResponse {
   const RitualRoomResponse({
     required this.ritualRoomId,
+    required this.atmosphereTone,
     required this.roomName,
     required this.routineAnchor,
     required this.anchorPhrase,
@@ -22,6 +23,7 @@ final class RitualRoomResponse {
   factory RitualRoomResponse.fromJson(Map<String, Object?> json) =>
       RitualRoomResponse(
         ritualRoomId: _requiredString(json, 'ritual_room_id'),
+        atmosphereTone: _requiredString(json, 'atmosphere_tone'),
         roomName: _requiredString(json, 'room_name'),
         routineAnchor: _requiredString(json, 'routine_anchor'),
         anchorPhrase: _requiredString(json, 'anchor_phrase'),
@@ -57,6 +59,7 @@ final class RitualRoomResponse {
       );
 
   final String ritualRoomId;
+  final String atmosphereTone;
   final String roomName;
   final String routineAnchor;
   final String anchorPhrase;
@@ -75,6 +78,7 @@ final class RitualRoomResponse {
 
   Map<String, Object?> toJson() => {
     'ritual_room_id': ritualRoomId,
+    'atmosphere_tone': atmosphereTone,
     'room_name': roomName,
     'routine_anchor': routineAnchor,
     'anchor_phrase': anchorPhrase,

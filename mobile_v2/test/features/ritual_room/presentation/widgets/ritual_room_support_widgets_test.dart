@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mobile_v2/features/ritual_room/domain/models/context_memory.dart';
 import 'package:mobile_v2/features/ritual_room/domain/models/normalized_input.dart';
 import 'package:mobile_v2/features/ritual_room/domain/models/product_snapshot.dart';
+import 'package:mobile_v2/features/ritual_room/domain/models/ritual_atmosphere_tone.dart';
 import 'package:mobile_v2/features/ritual_room/domain/models/ritual_room_content.dart';
 import 'package:mobile_v2/features/ritual_room/domain/models/strategy_decision.dart';
 import 'package:mobile_v2/features/ritual_room/domain/models/active_utterance.dart';
@@ -337,6 +338,7 @@ RitualRoomContent _room({
 }) {
   return RitualRoomContent(
     ritualRoomId: ritualRoomId,
+    atmosphereTone: RitualAtmosphereTone.everydayCalm,
     roomName: roomName,
     routineAnchor: routineAnchor,
     anchorPhrase: anchorPhrase,

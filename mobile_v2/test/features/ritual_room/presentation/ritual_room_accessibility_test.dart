@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mobile_v2/features/ritual_room/domain/models/product_snapshot.dart';
+import 'package:mobile_v2/features/ritual_room/domain/models/ritual_atmosphere_tone.dart';
 import 'package:mobile_v2/features/ritual_room/domain/models/ritual_room_content.dart';
 import 'package:mobile_v2/features/ritual_room/domain/models/active_utterance.dart';
 import 'package:mobile_v2/features/ritual_room/presentation/capability/interaction_capability_mask.dart';
@@ -162,6 +163,7 @@ RitualRoomContent _room({
   String reassurance = '不用每句都说，说一句就够了。',
 }) => RitualRoomContent(
   ritualRoomId: 'shoes_on_room_v1',
+  atmosphereTone: RitualAtmosphereTone.everydayCalm,
   roomName: '出门小声音',
   routineAnchor: '出门穿鞋',
   anchorPhrase: 'Shoes on.',

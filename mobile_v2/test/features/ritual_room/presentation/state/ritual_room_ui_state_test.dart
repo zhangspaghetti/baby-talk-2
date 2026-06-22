@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mobile_v2/features/ritual_room/domain/models/advance_result.dart';
+import 'package:mobile_v2/features/ritual_room/domain/models/ritual_atmosphere_tone.dart';
 import 'package:mobile_v2/features/ritual_room/domain/models/ritual_room_content.dart';
 import 'package:mobile_v2/features/ritual_room/presentation/state/ritual_room_ui_state.dart';
 
@@ -107,6 +108,7 @@ void main() {
 RitualRoomContent _room({String ritualRoomId = 'shoes_on_room_v1'}) =>
     RitualRoomContent(
       ritualRoomId: ritualRoomId,
+      atmosphereTone: RitualAtmosphereTone.everydayCalm,
       roomName: 'Shoes On',
       routineAnchor: 'getting ready to go outside',
       anchorPhrase: 'Shoes on.',

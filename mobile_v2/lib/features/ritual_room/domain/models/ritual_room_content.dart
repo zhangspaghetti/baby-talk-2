@@ -1,5 +1,7 @@
 import 'dart:collection';
 
+import 'ritual_atmosphere_tone.dart';
+
 /// Approved illustration metadata supplied by the stable content boundary.
 final class RitualIllustration {
   const RitualIllustration({required this.assetPath, required this.status});
@@ -48,6 +50,7 @@ final class RitualGovernanceEvidence {
 final class RitualRoomContent {
   RitualRoomContent({
     required this.ritualRoomId,
+    required this.atmosphereTone,
     required this.roomName,
     required this.routineAnchor,
     required this.anchorPhrase,
@@ -66,6 +69,7 @@ final class RitualRoomContent {
        );
 
   final String ritualRoomId;
+  final RitualAtmosphereTone atmosphereTone;
   final String roomName;
   final String routineAnchor;
   final String anchorPhrase;

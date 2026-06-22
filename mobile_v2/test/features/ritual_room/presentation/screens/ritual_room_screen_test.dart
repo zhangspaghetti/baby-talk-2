@@ -11,6 +11,7 @@ import 'package:mobile_v2/app/providers/ritual_room_data_providers.dart';
 import 'package:mobile_v2/features/ritual_room/domain/models/advance_result.dart';
 import 'package:mobile_v2/features/ritual_room/domain/models/input_event.dart';
 import 'package:mobile_v2/features/ritual_room/domain/models/product_snapshot.dart';
+import 'package:mobile_v2/features/ritual_room/domain/models/ritual_atmosphere_tone.dart';
 import 'package:mobile_v2/features/ritual_room/domain/models/ritual_room_content.dart';
 import 'package:mobile_v2/features/ritual_room/domain/models/active_utterance.dart';
 import 'package:mobile_v2/features/ritual_room/domain/repositories/interaction_repository.dart';
@@ -483,6 +484,7 @@ RitualRoomContent _room({
   String quietExit = '先这样就好',
 }) => RitualRoomContent(
   ritualRoomId: ritualRoomId,
+  atmosphereTone: RitualAtmosphereTone.everydayCalm,
   roomName: roomName,
   routineAnchor: routineAnchor,
   anchorPhrase: anchorPhrase,

@@ -56,6 +56,7 @@ final class _FakeRitualContentApi implements RitualContentApi {
 
 RitualRoomResponse _alternateResponse() => RitualRoomResponse.fromJson({
   'ritual_room_id': 'alternate_room_v1',
+  'atmosphere_tone': 'gently_lively',
   'room_name': '雨天小声音',
   'routine_anchor': '雨天出门',
   'anchor_phrase': 'Boots on.',

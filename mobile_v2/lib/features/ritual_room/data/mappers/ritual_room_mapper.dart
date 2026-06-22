@@ -1,4 +1,5 @@
 import '../../domain/models/active_utterance.dart';
+import '../../domain/models/ritual_atmosphere_tone.dart';
 import '../../domain/models/ritual_room_content.dart';
 import '../dto/ritual_room_response.dart';
 
@@ -22,6 +23,9 @@ final class RitualRoomMapper {
 
     return RitualRoomContent(
       ritualRoomId: response.ritualRoomId,
+      atmosphereTone: RitualAtmosphereTone.fromWireName(
+        response.atmosphereTone,
+      ),
       roomName: response.roomName,
       routineAnchor: response.routineAnchor,
       anchorPhrase: response.anchorPhrase,
