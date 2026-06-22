@@ -8,9 +8,22 @@
     "asset_path": "assets/illustrations/rituals/shoes_on/shoes_on_approved_v1.png",
     "status": "approved"
   },
-  "bootstrap_utterance": {
-    "primary": "Let's put your shoes on.",
-    "zh_helper": "我们来穿鞋吧。"
+  "listen_label": "听一遍",
+  "active_utterances": {
+    "ready": {
+      "display_id": "shoes_on_ready_v1",
+      "primary": "Let's put your shoes on.",
+      "zh_support": "我们来穿鞋吧。",
+      "audio_asset_id": "rr_shoes_001"
+    },
+    "not_ready_yet": {
+      "display_id": "shoes_on_revised_wait_v1",
+      "primary": "You don't want your shoes on yet.",
+      "zh_support": "你现在还不想穿鞋。",
+      "context_label": "还不想穿",
+      "gentle_support": "可以先等等。",
+      "audio_asset_id": "rr_shoes_002"
+    }
   },
   "action_cue": "拿起鞋时",
   "audio": {

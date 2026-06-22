@@ -1,10 +1,10 @@
 import '../../domain/models/advance_result.dart';
+import '../../domain/models/active_utterance.dart';
 import '../../domain/models/context_memory.dart';
 import '../../domain/models/input_event.dart';
 import '../../domain/models/normalized_input.dart';
 import '../../domain/models/product_snapshot.dart';
 import '../../domain/models/strategy_decision.dart';
-import '../../domain/models/utterance.dart';
 import '../dto/interaction_input_dto.dart';
 import '../dto/interaction_result_response.dart';
 import '../dto/interaction_snapshot_response.dart';
@@ -114,12 +114,16 @@ final class InteractionMapper {
         interactionHint: snapshot.strategy.interactionHint,
       ),
       utterance: InteractionUtteranceResponse(
-        primary: snapshot.utterance.primary,
-        zhHelper: snapshot.utterance.zhHelper,
-        tone: snapshot.utterance.tone,
-        clarityLevel: snapshot.utterance.clarityLevel,
-        contextFit: snapshot.utterance.contextFit,
-        alternatives: snapshot.utterance.alternatives,
+        primary: snapshot.activeUtterance.primary,
+        zhHelper: snapshot.activeUtterance.zhSupport,
+        tone: snapshot.strategy.recommendedTone,
+        clarityLevel: snapshot.activeUtterance.displayId,
+        contextFit: snapshot.activeUtterance.contextLabel ?? snapshot.anchor,
+        alternatives: [
+          snapshot.activeUtterance.audioAssetId,
+          if (snapshot.activeUtterance.gentleSupport != null)
+            snapshot.activeUtterance.gentleSupport!,
+        ],
       ),
       metadata: InteractionSnapshotMetadataResponse(
         lastEventId: snapshot.metadata.lastEventId,
@@ -165,13 +169,17 @@ final class InteractionMapper {
         recommendedTone: response.strategy.recommendedTone,
         interactionHint: response.strategy.interactionHint,
       ),
-      utterance: Utterance(
+      activeUtterance: ActiveUtterance(
+        displayId: response.utterance.clarityLevel,
         primary: response.utterance.primary,
-        zhHelper: response.utterance.zhHelper,
-        tone: response.utterance.tone,
-        clarityLevel: response.utterance.clarityLevel,
-        contextFit: response.utterance.contextFit,
-        alternatives: response.utterance.alternatives,
+        zhSupport: response.utterance.zhHelper,
+        audioAssetId: response.utterance.alternatives.isEmpty
+            ? 'transport_audio_unavailable'
+            : response.utterance.alternatives.first,
+        contextLabel: response.utterance.contextFit,
+        gentleSupport: response.utterance.alternatives.length < 2
+            ? null
+            : response.utterance.alternatives[1],
       ),
       metadata: ProductSnapshotMetadata(
         lastEventId: response.metadata.lastEventId,

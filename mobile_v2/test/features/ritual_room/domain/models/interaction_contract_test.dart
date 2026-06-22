@@ -2,12 +2,12 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mobile_v2/features/ritual_room/domain/models/advance_result.dart';
+import 'package:mobile_v2/features/ritual_room/domain/models/active_utterance.dart';
 import 'package:mobile_v2/features/ritual_room/domain/models/context_memory.dart';
 import 'package:mobile_v2/features/ritual_room/domain/models/input_event.dart';
 import 'package:mobile_v2/features/ritual_room/domain/models/normalized_input.dart';
 import 'package:mobile_v2/features/ritual_room/domain/models/product_snapshot.dart';
 import 'package:mobile_v2/features/ritual_room/domain/models/strategy_decision.dart';
-import 'package:mobile_v2/features/ritual_room/domain/models/utterance.dart';
 
 void main() {
   group('InputEvent', () {
@@ -82,7 +82,10 @@ void main() {
       expect(snapshot.interactionId, 'interaction-1');
       expect(snapshot.ritualRoomId, 'shoes_on_room_v1');
       expect(snapshot.anchor, 'Shoes on.');
-      expect(snapshot.utterance.primary, isNotEmpty);
+      expect(snapshot.activeUtterance.displayId, 'shoes_on_ready_v1');
+      expect(snapshot.activeUtterance.primary, "Let's put your shoes on.");
+      expect(snapshot.activeUtterance.zhSupport, '我们来穿鞋吧。');
+      expect(snapshot.activeUtterance.audioAssetId, 'rr_shoes_001');
       expect(snapshot.metadata.lastEventId, isNull);
       expect(snapshot.metadata.updatedAt.isUtc, isTrue);
     });
@@ -108,10 +111,6 @@ void main() {
       );
       expect(
         () => snapshot.strategy.modifiers.add(StrategyModifier.increaseClarity),
-        throwsUnsupportedError,
-      );
-      expect(
-        () => snapshot.utterance.alternatives.add('another line'),
         throwsUnsupportedError,
       );
     });
@@ -142,6 +141,8 @@ void main() {
             reason: 'ProductSnapshot leaked $term',
           );
         }
+        expect(source, contains('final ActiveUtterance activeUtterance;'));
+        expect(source, isNot(contains('final Utterance utterance;')));
       },
     );
   });
@@ -232,13 +233,11 @@ ProductSnapshot _initialSnapshot() => ProductSnapshot.initial(
     interactionHint:
         'offer one small shared action without requiring a response',
   ),
-  utterance: Utterance(
+  activeUtterance: ActiveUtterance(
+    displayId: 'shoes_on_ready_v1',
     primary: "Let's put your shoes on.",
-    zhHelper: '我们来穿鞋吧。',
-    tone: 'soft',
-    clarityLevel: 'high',
-    contextFit: 'when beginning the shared shoe routine',
-    alternatives: [],
+    zhSupport: '我们来穿鞋吧。',
+    audioAssetId: 'rr_shoes_001',
   ),
   updatedAt: DateTime.utc(2026, 6, 19),
 );

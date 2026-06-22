@@ -7,7 +7,8 @@ final class RitualRoomResponse {
     required this.anchorPhrase,
     required this.chineseHelper,
     required this.illustration,
-    required this.bootstrapUtterance,
+    required this.listenLabel,
+    required this.activeUtterances,
     required this.actionCue,
     required this.audio,
     required this.reactionPrompt,
@@ -28,8 +29,14 @@ final class RitualRoomResponse {
         illustration: RitualIllustrationResponse.fromJson(
           _requiredMap(json, 'illustration'),
         ),
-        bootstrapUtterance: RitualBootstrapUtteranceResponse.fromJson(
-          _requiredMap(json, 'bootstrap_utterance'),
+        listenLabel: _requiredString(json, 'listen_label'),
+        activeUtterances: _requiredMap(json, 'active_utterances').map(
+          (key, value) => MapEntry(
+            key,
+            RitualActiveUtteranceResponse.fromJson(
+              _objectMap(value, 'active_utterances.$key'),
+            ),
+          ),
         ),
         actionCue: _requiredString(json, 'action_cue'),
         audio: RitualAudioResponse.fromJson(_requiredMap(json, 'audio')),
@@ -55,7 +62,8 @@ final class RitualRoomResponse {
   final String anchorPhrase;
   final String chineseHelper;
   final RitualIllustrationResponse illustration;
-  final RitualBootstrapUtteranceResponse bootstrapUtterance;
+  final String listenLabel;
+  final Map<String, RitualActiveUtteranceResponse> activeUtterances;
   final String actionCue;
   final RitualAudioResponse audio;
   final String reactionPrompt;
@@ -72,7 +80,10 @@ final class RitualRoomResponse {
     'anchor_phrase': anchorPhrase,
     'chinese_helper': chineseHelper,
     'illustration': illustration.toJson(),
-    'bootstrap_utterance': bootstrapUtterance.toJson(),
+    'listen_label': listenLabel,
+    'active_utterances': activeUtterances.map(
+      (key, value) => MapEntry(key, value.toJson()),
+    ),
     'action_cue': actionCue,
     'audio': audio.toJson(),
     'reaction_prompt': reactionPrompt,
@@ -104,23 +115,41 @@ final class RitualIllustrationResponse {
   Map<String, Object?> toJson() => {'asset_path': assetPath, 'status': status};
 }
 
-final class RitualBootstrapUtteranceResponse {
-  const RitualBootstrapUtteranceResponse({
+final class RitualActiveUtteranceResponse {
+  const RitualActiveUtteranceResponse({
+    required this.displayId,
     required this.primary,
-    required this.zhHelper,
+    required this.zhSupport,
+    required this.audioAssetId,
+    required this.contextLabel,
+    required this.gentleSupport,
   });
 
-  factory RitualBootstrapUtteranceResponse.fromJson(
-    Map<String, Object?> json,
-  ) => RitualBootstrapUtteranceResponse(
-    primary: _requiredString(json, 'primary'),
-    zhHelper: _requiredString(json, 'zh_helper'),
-  );
+  factory RitualActiveUtteranceResponse.fromJson(Map<String, Object?> json) =>
+      RitualActiveUtteranceResponse(
+        displayId: _requiredString(json, 'display_id'),
+        primary: _requiredString(json, 'primary'),
+        zhSupport: _requiredString(json, 'zh_support'),
+        audioAssetId: _requiredString(json, 'audio_asset_id'),
+        contextLabel: _optionalString(json, 'context_label'),
+        gentleSupport: _optionalString(json, 'gentle_support'),
+      );
 
+  final String displayId;
   final String primary;
-  final String zhHelper;
+  final String zhSupport;
+  final String audioAssetId;
+  final String? contextLabel;
+  final String? gentleSupport;
 
-  Map<String, Object?> toJson() => {'primary': primary, 'zh_helper': zhHelper};
+  Map<String, Object?> toJson() => {
+    'display_id': displayId,
+    'primary': primary,
+    'zh_support': zhSupport,
+    'audio_asset_id': audioAssetId,
+    if (contextLabel != null) 'context_label': contextLabel,
+    if (gentleSupport != null) 'gentle_support': gentleSupport,
+  };
 }
 
 final class RitualAudioResponse {

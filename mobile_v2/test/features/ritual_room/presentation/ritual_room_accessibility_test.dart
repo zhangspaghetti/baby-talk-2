@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mobile_v2/features/ritual_room/domain/models/product_snapshot.dart';
 import 'package:mobile_v2/features/ritual_room/domain/models/ritual_room_content.dart';
-import 'package:mobile_v2/features/ritual_room/domain/models/utterance.dart';
+import 'package:mobile_v2/features/ritual_room/domain/models/active_utterance.dart';
 import 'package:mobile_v2/features/ritual_room/presentation/capability/interaction_capability_mask.dart';
 import 'package:mobile_v2/features/ritual_room/presentation/screens/ritual_room_screen.dart';
 import 'package:mobile_v2/features/ritual_room/presentation/state/ritual_room_ui_state.dart';
@@ -85,8 +85,8 @@ void main() {
         ),
       );
 
-      expect(find.text(snapshot.utterance.primary), findsOneWidget);
-      expect(find.text(snapshot.utterance.zhHelper), findsOneWidget);
+      expect(find.text(snapshot.activeUtterance.primary), findsOneWidget);
+      expect(find.text(snapshot.activeUtterance.zhSupport), findsOneWidget);
       expect(find.text(room.actionCue), findsOneWidget);
       await tester.scrollUntilVisible(
         find.text(room.reassurance),
@@ -170,10 +170,6 @@ RitualRoomContent _room({
     assetPath: 'assets/illustrations/rituals/shoes_on/shoes_on_approved_v1.png',
     status: 'approved',
   ),
-  bootstrapUtterance: const RitualBootstrapUtterance(
-    primary: "Let's put your shoes on.",
-    zhHelper: '我们来穿鞋吧。',
-  ),
   actionCue: actionCue,
   audio: const RitualAudioContent(
     available: true,
@@ -208,14 +204,12 @@ ProductSnapshot _longSnapshot() {
     normalizedContext: base.normalizedContext,
     memory: base.memory,
     strategy: base.strategy,
-    utterance: Utterance(
+    activeUtterance: const ActiveUtterance(
+      displayId: 'shoes_on_long_v1',
       primary:
           'Let us place one shoe beside you and wait together until this shared moment feels easier to enter.',
-      zhHelper: '我们先把一只鞋放在你身边，一起等一等，等这个共同的时刻更容易加入。',
-      tone: base.utterance.tone,
-      clarityLevel: base.utterance.clarityLevel,
-      contextFit: base.utterance.contextFit,
-      alternatives: base.utterance.alternatives,
+      zhSupport: '我们先把一只鞋放在你身边，一起等一等，等这个共同的时刻更容易加入。',
+      audioAssetId: 'rr_shoes_001',
     ),
     metadata: base.metadata,
   );

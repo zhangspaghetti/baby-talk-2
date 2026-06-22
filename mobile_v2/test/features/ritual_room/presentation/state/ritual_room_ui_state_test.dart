@@ -66,7 +66,7 @@ void main() {
     expect(state.snapshot.normalizedContext, same(snapshot.normalizedContext));
     expect(state.snapshot.memory, same(snapshot.memory));
     expect(state.snapshot.strategy, same(snapshot.strategy));
-    expect(state.snapshot.utterance, same(snapshot.utterance));
+    expect(state.snapshot.activeUtterance, same(snapshot.activeUtterance));
   });
 
   test(
@@ -114,10 +114,6 @@ RitualRoomContent _room({String ritualRoomId = 'shoes_on_room_v1'}) =>
       illustration: const RitualIllustration(
         assetPath: 'assets/illustrations/rituals/shoes_on/shoes_on.png',
         status: 'approved',
-      ),
-      bootstrapUtterance: const RitualBootstrapUtterance(
-        primary: "Let's put your shoes on.",
-        zhHelper: '我们来穿鞋吧。',
       ),
       actionCue: 'Hold one shoe nearby.',
       audio: const RitualAudioContent(

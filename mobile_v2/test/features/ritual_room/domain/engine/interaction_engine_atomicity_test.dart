@@ -12,7 +12,7 @@ import 'package:mobile_v2/features/ritual_room/domain/models/input_event.dart';
 import 'package:mobile_v2/features/ritual_room/domain/models/normalized_input.dart';
 import 'package:mobile_v2/features/ritual_room/domain/models/product_snapshot.dart';
 import 'package:mobile_v2/features/ritual_room/domain/models/strategy_decision.dart';
-import 'package:mobile_v2/features/ritual_room/domain/models/utterance.dart';
+import 'package:mobile_v2/features/ritual_room/domain/models/active_utterance.dart';
 import 'package:mobile_v2/features/ritual_room/domain/runtime/interaction_clock.dart';
 import 'package:mobile_v2/features/ritual_room/domain/runtime/interaction_id_generator.dart';
 import 'package:mobile_v2/features/ritual_room/domain/runtime/interaction_runtime_store.dart';
@@ -272,7 +272,7 @@ final class _Seed implements InteractionSeedSource {
     normalizedContext: _normalized(),
     memory: _memory(),
     strategy: _strategy(),
-    utterance: _utterance(),
+    activeUtterance: _activeUtterance(),
   );
 }
 
@@ -331,8 +331,8 @@ final class _UtteranceSpy implements UtteranceEngine {
   int calls = 0;
 
   @override
-  Future<Utterance> realize({
-    required String anchor,
+  Future<ActiveUtterance> realize({
+    required String ritualRoomId,
     required StrategyDecision strategy,
     required NormalizedInput normalized,
     required ContextMemory memory,
@@ -341,7 +341,7 @@ final class _UtteranceSpy implements UtteranceEngine {
     if (fail) {
       throw StateError('planned pipeline failure');
     }
-    return _utterance();
+    return _activeUtterance();
   }
 }
 
@@ -373,11 +373,9 @@ StrategyDecision _strategy() => StrategyDecision(
   interactionHint: 'offer one small shared action',
 );
 
-Utterance _utterance() => Utterance(
+ActiveUtterance _activeUtterance() => const ActiveUtterance(
+  displayId: 'shoes_on_ready_v1',
   primary: "Let's put your shoes on.",
-  zhHelper: '我们来穿鞋吧。',
-  tone: 'soft',
-  clarityLevel: 'high',
-  contextFit: 'the shared shoe routine',
-  alternatives: const [],
+  zhSupport: '我们来穿鞋吧。',
+  audioAssetId: 'rr_shoes_001',
 );

@@ -8,17 +8,6 @@ final class RitualIllustration {
   final String status;
 }
 
-/// One complete caregiver line used to bootstrap the interaction.
-final class RitualBootstrapUtterance {
-  const RitualBootstrapUtterance({
-    required this.primary,
-    required this.zhHelper,
-  });
-
-  final String primary;
-  final String zhHelper;
-}
-
 /// Playback metadata for the current stable room content.
 final class RitualAudioContent {
   const RitualAudioContent({
@@ -64,7 +53,6 @@ final class RitualRoomContent {
     required this.anchorPhrase,
     required this.chineseHelper,
     required this.illustration,
-    required this.bootstrapUtterance,
     required this.actionCue,
     required this.audio,
     required this.reactionPrompt,
@@ -83,7 +71,6 @@ final class RitualRoomContent {
   final String anchorPhrase;
   final String chineseHelper;
   final RitualIllustration illustration;
-  final RitualBootstrapUtterance bootstrapUtterance;
   final String actionCue;
   final RitualAudioContent audio;
   final String reactionPrompt;

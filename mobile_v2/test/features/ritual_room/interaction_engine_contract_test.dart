@@ -197,7 +197,7 @@ void _expectSnapshotEquals(ProductSnapshot actual, ProductSnapshot expected) {
   );
   expect(actual.memory.summary, expected.memory.summary);
   expect(actual.strategy.primary, expected.strategy.primary);
-  expect(actual.utterance.primary, expected.utterance.primary);
+  expect(actual.activeUtterance.primary, expected.activeUtterance.primary);
   expect(actual.metadata.lastEventId, expected.metadata.lastEventId);
   expect(actual.metadata.updatedAt, expected.metadata.updatedAt);
 }
@@ -222,6 +222,6 @@ void _expectProductSemanticsEqual(
   expect(adapted.memory.eventLog, direct.memory.eventLog);
   expect(adapted.strategy.primary, direct.strategy.primary);
   expect(adapted.strategy.modifiers, direct.strategy.modifiers);
-  expect(adapted.utterance.primary, direct.utterance.primary);
-  expect(adapted.utterance.zhHelper, direct.utterance.zhHelper);
+  expect(adapted.activeUtterance.primary, direct.activeUtterance.primary);
+  expect(adapted.activeUtterance.zhSupport, direct.activeUtterance.zhSupport);
 }

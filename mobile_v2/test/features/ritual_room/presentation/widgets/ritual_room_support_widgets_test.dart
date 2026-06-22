@@ -5,7 +5,7 @@ import 'package:mobile_v2/features/ritual_room/domain/models/normalized_input.da
 import 'package:mobile_v2/features/ritual_room/domain/models/product_snapshot.dart';
 import 'package:mobile_v2/features/ritual_room/domain/models/ritual_room_content.dart';
 import 'package:mobile_v2/features/ritual_room/domain/models/strategy_decision.dart';
-import 'package:mobile_v2/features/ritual_room/domain/models/utterance.dart';
+import 'package:mobile_v2/features/ritual_room/domain/models/active_utterance.dart';
 import 'package:mobile_v2/features/ritual_room/presentation/widgets/ritual_action_cue.dart';
 import 'package:mobile_v2/features/ritual_room/presentation/widgets/ritual_context_input_tray.dart';
 import 'package:mobile_v2/features/ritual_room/presentation/widgets/ritual_current_utterance.dart';
@@ -43,7 +43,7 @@ void main() {
       expect(find.byType(RitualActionCue), findsOneWidget);
       expect(find.byType(RitualListenControl), findsOneWidget);
       expect(find.byType(RitualReassurance), findsOneWidget);
-      expect(find.text(snapshot.utterance.primary), findsOneWidget);
+      expect(find.text(snapshot.activeUtterance.primary), findsOneWidget);
       expect(find.text(room.actionCue), findsOneWidget);
       expect(find.text(room.reassurance), findsOneWidget);
       expect(find.text(room.quietExit), findsOneWidget);
@@ -144,7 +144,7 @@ void main() {
       );
 
       expect(find.byType(RitualCurrentUtterance), findsOneWidget);
-      expect(find.text(current.utterance.primary), findsOneWidget);
+      expect(find.text(current.activeUtterance.primary), findsOneWidget);
       expect(find.byType(RitualSubmittingIndicator), findsOneWidget);
       expect(find.text(room.pendingCopy), findsOneWidget);
 
@@ -152,10 +152,10 @@ void main() {
       await tester.pump();
 
       expect(find.byType(RitualCurrentUtterance), findsOneWidget);
-      expect(find.text(current.utterance.primary), findsNothing);
+      expect(find.text(current.activeUtterance.primary), findsNothing);
       expect(find.text(revised.normalizedContext.eventSummary), findsOneWidget);
-      expect(find.text(revised.utterance.primary), findsOneWidget);
-      expect(find.text(revised.utterance.zhHelper), findsOneWidget);
+      expect(find.text(revised.activeUtterance.primary), findsOneWidget);
+      expect(find.text(revised.activeUtterance.zhSupport), findsOneWidget);
       expect(find.byType(RitualSubmittingIndicator), findsNothing);
       expect(find.text(room.anchorPhrase), findsOneWidget);
     },
@@ -218,8 +218,8 @@ void main() {
         alternateRoom.reassurance,
         alternateRoom.quietExit,
         alternateSnapshot.normalizedContext.eventSummary,
-        alternateSnapshot.utterance.primary,
-        alternateSnapshot.utterance.zhHelper,
+        alternateSnapshot.activeUtterance.primary,
+        alternateSnapshot.activeUtterance.zhSupport,
       ]) {
         expect(find.text(value), findsOneWidget);
       }
@@ -345,10 +345,6 @@ RitualRoomContent _room({
       assetPath: illustrationPath,
       status: 'approved',
     ),
-    bootstrapUtterance: const RitualBootstrapUtterance(
-      primary: "Let's put your shoes on.",
-      zhHelper: '我们来穿鞋吧。',
-    ),
     actionCue: actionCue,
     audio: RitualAudioContent(
       available: true,
@@ -413,13 +409,14 @@ ProductSnapshot _snapshot({
       recommendedTone: 'soft',
       interactionHint: 'offer one line without requiring a response',
     ),
-    utterance: Utterance(
+    activeUtterance: ActiveUtterance(
+      displayId: revision == 0
+          ? 'shoes_on_ready_v1'
+          : 'shoes_on_revised_wait_v1',
       primary: utterance,
-      zhHelper: helper,
-      tone: 'soft',
-      clarityLevel: 'high',
-      contextFit: 'current shared action',
-      alternatives: const [],
+      zhSupport: helper,
+      audioAssetId: revision == 0 ? 'rr_shoes_001' : 'rr_shoes_002',
+      contextLabel: contextLabel,
     ),
     metadata: ProductSnapshotMetadata(
       lastEventId: revision == 0 ? null : 'event-$revision',

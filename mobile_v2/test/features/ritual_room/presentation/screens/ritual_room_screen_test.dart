@@ -12,7 +12,7 @@ import 'package:mobile_v2/features/ritual_room/domain/models/advance_result.dart
 import 'package:mobile_v2/features/ritual_room/domain/models/input_event.dart';
 import 'package:mobile_v2/features/ritual_room/domain/models/product_snapshot.dart';
 import 'package:mobile_v2/features/ritual_room/domain/models/ritual_room_content.dart';
-import 'package:mobile_v2/features/ritual_room/domain/models/utterance.dart';
+import 'package:mobile_v2/features/ritual_room/domain/models/active_utterance.dart';
 import 'package:mobile_v2/features/ritual_room/domain/repositories/interaction_repository.dart';
 import 'package:mobile_v2/features/ritual_room/domain/repositories/ritual_room_repository.dart';
 import 'package:mobile_v2/features/ritual_room/domain/runtime/interaction_clock.dart';
@@ -420,6 +420,12 @@ final class _RoomRepository implements RitualRoomRepository {
 
   @override
   Future<RitualRoomContent> loadRoom(String ritualRoomId) => load(ritualRoomId);
+
+  @override
+  Future<ActiveUtterance> resolveActiveUtterance({
+    required String ritualRoomId,
+    required ActiveUtteranceSlot slot,
+  }) => throw UnsupportedError('not used');
 }
 
 final class _Initializer implements InteractionSessionInitializer {
@@ -485,10 +491,6 @@ RitualRoomContent _room({
     assetPath: 'assets/illustrations/rituals/shoes_on/shoes_on_approved_v1.png',
     status: 'approved',
   ),
-  bootstrapUtterance: const RitualBootstrapUtterance(
-    primary: "Let's put your shoes on.",
-    zhHelper: '我们来穿鞋吧。',
-  ),
   actionCue: actionCue,
   audio: const RitualAudioContent(
     available: true,
@@ -531,17 +533,17 @@ ProductSnapshot _snapshot({
     normalizedContext: interactionNormalizedInput(label),
     memory: base.memory,
     strategy: base.strategy,
-    utterance: Utterance(
+    activeUtterance: ActiveUtterance(
+      displayId: revision == 0
+          ? 'shoes_on_ready_v1'
+          : 'shoes_on_revised_$revision',
       primary:
           utterance ??
           (revision == 0
               ? "Let's put your shoes on."
               : 'revised utterance $revision'),
-      zhHelper: helper,
-      tone: base.utterance.tone,
-      clarityLevel: base.utterance.clarityLevel,
-      contextFit: base.utterance.contextFit,
-      alternatives: base.utterance.alternatives,
+      zhSupport: helper,
+      audioAssetId: revision == 0 ? 'rr_shoes_001' : 'rr_shoes_002',
     ),
     metadata: base.metadata,
   );

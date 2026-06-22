@@ -1,8 +1,8 @@
+import '../models/active_utterance.dart';
 import '../models/context_memory.dart';
 import '../models/normalized_input.dart';
 import '../models/product_snapshot.dart';
 import '../models/strategy_decision.dart';
-import '../models/utterance.dart';
 import 'consistency_state.dart';
 import 'replay_journal.dart';
 
@@ -64,7 +64,7 @@ Map<String, Object?> _snapshotToJson(ProductSnapshot value) => {
   'normalizedContext': _normalizedToJson(value.normalizedContext),
   'memory': _memoryToJson(value.memory),
   'strategy': _strategyToJson(value.strategy),
-  'utterance': _utteranceToJson(value.utterance),
+  'activeUtterance': _activeUtteranceToJson(value.activeUtterance),
   'metadata': {
     'lastEventId': value.metadata.lastEventId,
     'updatedAt': value.metadata.updatedAt.toUtc().toIso8601String(),
@@ -99,11 +99,11 @@ Map<String, Object> _strategyToJson(StrategyDecision value) => {
   'interactionHint': value.interactionHint,
 };
 
-Map<String, Object> _utteranceToJson(Utterance value) => {
+Map<String, Object?> _activeUtteranceToJson(ActiveUtterance value) => {
+  'displayId': value.displayId,
   'primary': value.primary,
-  'zhHelper': value.zhHelper,
-  'tone': value.tone,
-  'clarityLevel': value.clarityLevel,
-  'contextFit': value.contextFit,
-  'alternatives': value.alternatives,
+  'zhSupport': value.zhSupport,
+  'audioAssetId': value.audioAssetId,
+  'contextLabel': value.contextLabel,
+  'gentleSupport': value.gentleSupport,
 };

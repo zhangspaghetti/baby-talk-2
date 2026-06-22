@@ -1,11 +1,11 @@
 import 'package:mobile_v2/features/ritual_room/data/dto/interaction_advance_request.dart';
 import 'package:mobile_v2/features/ritual_room/data/mappers/interaction_mapper.dart';
+import 'package:mobile_v2/features/ritual_room/domain/models/active_utterance.dart';
 import 'package:mobile_v2/features/ritual_room/domain/models/context_memory.dart';
 import 'package:mobile_v2/features/ritual_room/domain/models/input_event.dart';
 import 'package:mobile_v2/features/ritual_room/domain/models/normalized_input.dart';
 import 'package:mobile_v2/features/ritual_room/domain/models/product_snapshot.dart';
 import 'package:mobile_v2/features/ritual_room/domain/models/strategy_decision.dart';
-import 'package:mobile_v2/features/ritual_room/domain/models/utterance.dart';
 
 const interactionId = 'interaction-1';
 const ritualRoomId = 'shoes_on_room_v1';
@@ -48,7 +48,7 @@ ProductSnapshot interactionSnapshot({int revision = 0}) => ProductSnapshot(
   normalizedContext: interactionNormalizedInput('shared_action'),
   memory: interactionMemory('shared_action'),
   strategy: interactionStrategy(),
-  utterance: interactionUtterance(),
+  activeUtterance: interactionActiveUtterance(),
   metadata: ProductSnapshotMetadata(
     lastEventId: revision == 0 ? null : 'event-$revision',
     updatedAt: DateTime.utc(2026, 6, 20, 10, revision),
@@ -86,13 +86,20 @@ StrategyDecision interactionStrategy() => StrategyDecision(
   interactionHint: 'offer one small shared action',
 );
 
-Utterance interactionUtterance() => Utterance(
-  primary: "Let's put your shoes on.",
-  zhHelper: '我们来穿鞋吧。',
-  tone: 'soft',
-  clarityLevel: 'high',
-  contextFit: 'the current shared shoe routine',
-  alternatives: const [],
+ActiveUtterance interactionActiveUtterance({
+  String displayId = 'shoes_on_ready_v1',
+  String primary = "Let's put your shoes on.",
+  String zhSupport = '我们来穿鞋吧。',
+  String audioAssetId = 'rr_shoes_001',
+  String? contextLabel,
+  String? gentleSupport,
+}) => ActiveUtterance(
+  displayId: displayId,
+  primary: primary,
+  zhSupport: zhSupport,
+  audioAssetId: audioAssetId,
+  contextLabel: contextLabel,
+  gentleSupport: gentleSupport,
 );
 
 InteractionAdvanceRequest interactionRequest({

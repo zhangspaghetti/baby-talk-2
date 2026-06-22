@@ -1,36 +1,30 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mobile_v2/features/ritual_room/domain/engine/utterance_engine.dart';
+import 'package:mobile_v2/features/ritual_room/domain/models/active_utterance.dart';
 import 'package:mobile_v2/features/ritual_room/domain/models/context_memory.dart';
 import 'package:mobile_v2/features/ritual_room/domain/models/normalized_input.dart';
 import 'package:mobile_v2/features/ritual_room/domain/models/strategy_decision.dart';
+import 'package:mobile_v2/features/ritual_room/domain/repositories/active_utterance_source.dart';
 
 void main() {
   group('RuleBasedUtteranceEngine', () {
-    test(
-      'realizes a preselected policy as exactly one speakable line',
-      () async {
-        final decision = _decision();
+    test('low joinability resolves validated not-ready content', () async {
+      final source = _FakeActiveUtteranceSource();
 
-        final utterance = await RuleBasedUtteranceEngine().realize(
-          anchor: 'Shoes on.',
-          strategy: decision,
-          normalized: _normalized(),
-          memory: _memory(),
-        );
+      final utterance = await RuleBasedUtteranceEngine(source: source).realize(
+        ritualRoomId: 'shoes_on_room_v1',
+        strategy: _decision(),
+        normalized: _normalized(),
+        memory: _memory(),
+      );
 
-        expect(utterance.primary, isNotEmpty);
-        expect(
-          utterance.primary
-              .trim()
-              .split(RegExp(r'[.!?]+'))
-              .where((part) => part.trim().isNotEmpty),
-          hasLength(1),
-        );
-        expect(utterance.alternatives, isEmpty);
-        expect(utterance.primary.toLowerCase(), contains('shoe'));
-        expect(utterance.tone, decision.recommendedTone);
-      },
-    );
+      expect(source.lastRitualRoomId, 'shoes_on_room_v1');
+      expect(source.lastSlot, ActiveUtteranceSlot.notReadyYet);
+      expect(utterance.displayId, 'shoes_on_revised_wait_v1');
+      expect(utterance.primary, "You don't want your shoes on yet.");
+      expect(utterance.zhSupport, '你现在还不想穿鞋。');
+      expect(utterance.audioAssetId, 'rr_shoes_002');
+    });
 
     test(
       'does not mutate or override the supplied strategy decision',
@@ -38,8 +32,10 @@ void main() {
         final decision = _decision();
         final originalModifiers = List<StrategyModifier>.of(decision.modifiers);
 
-        await RuleBasedUtteranceEngine().realize(
-          anchor: 'Shoes on.',
+        await RuleBasedUtteranceEngine(
+          source: _FakeActiveUtteranceSource(),
+        ).realize(
+          ritualRoomId: 'shoes_on_room_v1',
           strategy: decision,
           normalized: _normalized(),
           memory: _memory(),
@@ -51,30 +47,29 @@ void main() {
         expect(decision.interactionHint, 'offer one small shared action');
       },
     );
-
-    test(
-      'keeps the stable ritual anchor and avoids lesson semantics',
-      () async {
-        final utterance = await RuleBasedUtteranceEngine().realize(
-          anchor: 'Shoes on.',
-          strategy: _decision(),
-          normalized: _normalized(),
-          memory: _memory(),
-        );
-        final language = [
-          utterance.primary,
-          utterance.zhHelper,
-          utterance.contextFit,
-        ].join(' ').toLowerCase();
-
-        expect(utterance.primary.toLowerCase(), contains('shoe'));
-        expect(
-          language,
-          isNot(matches(RegExp(r'lesson|score|correct|diagnos|ability|trait'))),
-        );
-      },
-    );
   });
+}
+
+final class _FakeActiveUtteranceSource implements ActiveUtteranceSource {
+  String? lastRitualRoomId;
+  ActiveUtteranceSlot? lastSlot;
+
+  @override
+  Future<ActiveUtterance> resolveActiveUtterance({
+    required String ritualRoomId,
+    required ActiveUtteranceSlot slot,
+  }) async {
+    lastRitualRoomId = ritualRoomId;
+    lastSlot = slot;
+    return const ActiveUtterance(
+      displayId: 'shoes_on_revised_wait_v1',
+      primary: "You don't want your shoes on yet.",
+      zhSupport: '你现在还不想穿鞋。',
+      contextLabel: '还不想穿',
+      gentleSupport: '可以先等等。',
+      audioAssetId: 'rr_shoes_002',
+    );
+  }
 }
 
 StrategyDecision _decision() => StrategyDecision(

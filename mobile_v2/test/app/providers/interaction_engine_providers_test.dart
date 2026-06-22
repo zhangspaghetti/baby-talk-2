@@ -7,6 +7,8 @@ import 'package:mobile_v2/features/ritual_room/domain/engine/normalize_engine.da
 import 'package:mobile_v2/features/ritual_room/domain/engine/state_accumulator.dart';
 import 'package:mobile_v2/features/ritual_room/domain/engine/strategy_engine.dart';
 import 'package:mobile_v2/features/ritual_room/domain/engine/utterance_engine.dart';
+import 'package:mobile_v2/features/ritual_room/domain/models/active_utterance.dart';
+import 'package:mobile_v2/features/ritual_room/domain/repositories/active_utterance_source.dart';
 import 'package:mobile_v2/features/ritual_room/domain/runtime/interaction_clock.dart';
 import 'package:mobile_v2/features/ritual_room/domain/runtime/interaction_id_generator.dart';
 import 'package:mobile_v2/features/ritual_room/domain/runtime/interaction_runtime_store.dart';
@@ -50,7 +52,7 @@ void main() {
     final normalize = RuleBasedNormalizeEngine();
     final accumulator = DecayStateAccumulator(decay: 0.5);
     final strategy = RuleBasedStrategyEngine();
-    final utterance = RuleBasedUtteranceEngine();
+    final utterance = RuleBasedUtteranceEngine(source: _ActiveSource());
     final store = InMemoryInteractionRuntimeStore();
     final container = ProviderContainer.test(
       overrides: [
@@ -99,6 +101,14 @@ void main() {
   });
 }
 
+final class _ActiveSource implements ActiveUtteranceSource {
+  @override
+  Future<ActiveUtterance> resolveActiveUtterance({
+    required String ritualRoomId,
+    required ActiveUtteranceSlot slot,
+  }) async => interactionActiveUtterance();
+}
+
 final class _FixedClock implements InteractionClock {
   @override
   DateTime now() => DateTime.utc(2026, 6, 20, 12);
@@ -116,6 +126,6 @@ final class _FixedSeedSource implements InteractionSeedSource {
     normalizedContext: interactionNormalizedInput('shared_action'),
     memory: interactionMemory('shared_action'),
     strategy: interactionStrategy(),
-    utterance: interactionUtterance(),
+    activeUtterance: interactionActiveUtterance(),
   );
 }

@@ -8,6 +8,7 @@ import 'package:mobile_v2/app/providers/interaction_engine_providers.dart';
 import 'package:mobile_v2/app/providers/ritual_room_data_providers.dart';
 import 'package:mobile_v2/app/providers/ritual_room_session_provider.dart';
 import 'package:mobile_v2/features/ritual_room/domain/models/advance_result.dart';
+import 'package:mobile_v2/features/ritual_room/domain/models/active_utterance.dart';
 import 'package:mobile_v2/features/ritual_room/domain/models/input_event.dart';
 import 'package:mobile_v2/features/ritual_room/domain/models/product_snapshot.dart';
 import 'package:mobile_v2/features/ritual_room/domain/models/ritual_room_content.dart';
@@ -645,6 +646,12 @@ final class _FakeRitualRoomRepository implements RitualRoomRepository {
     calls += 1;
     return onLoad(ritualRoomId);
   }
+
+  @override
+  Future<ActiveUtterance> resolveActiveUtterance({
+    required String ritualRoomId,
+    required ActiveUtteranceSlot slot,
+  }) async => interactionActiveUtterance();
 }
 
 final class _FakeInitializer implements InteractionSessionInitializer {
@@ -773,10 +780,6 @@ RitualRoomContent _room({String ritualRoomId = 'shoes_on_room_v1'}) =>
         assetPath: 'assets/illustrations/rituals/shoes_on/shoes_on.png',
         status: 'approved',
       ),
-      bootstrapUtterance: const RitualBootstrapUtterance(
-        primary: "Let's put your shoes on.",
-        zhHelper: '我们来穿鞋吧。',
-      ),
       actionCue: 'Hold one shoe nearby.',
       audio: const RitualAudioContent(
         available: false,
@@ -809,7 +812,7 @@ ProductSnapshot _snapshotFor(String roomId, {required int revision}) {
     normalizedContext: base.normalizedContext,
     memory: base.memory,
     strategy: base.strategy,
-    utterance: base.utterance,
+    activeUtterance: base.activeUtterance,
     metadata: base.metadata,
   );
 }

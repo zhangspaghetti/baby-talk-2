@@ -1,8 +1,8 @@
+import '../models/active_utterance.dart';
 import '../models/context_memory.dart';
 import '../models/normalized_input.dart';
 import '../models/product_snapshot.dart';
 import '../models/strategy_decision.dart';
-import '../models/utterance.dart';
 
 final class TransitionRecord {
   TransitionRecord({
@@ -13,7 +13,7 @@ final class TransitionRecord {
     required this.normalizedInput,
     required this.updatedContextMemory,
     required this.strategyDecision,
-    required this.utterance,
+    required this.activeUtterance,
   }) : occurredAt = occurredAt.toUtc() {
     if (toRevision != fromRevision + 1) {
       throw ArgumentError('Transition revisions must advance by exactly one');
@@ -27,7 +27,7 @@ final class TransitionRecord {
   final NormalizedInput normalizedInput;
   final ContextMemory updatedContextMemory;
   final StrategyDecision strategyDecision;
-  final Utterance utterance;
+  final ActiveUtterance activeUtterance;
 
   Map<String, Object> toJson() => {
     'eventId': eventId,
@@ -37,7 +37,7 @@ final class TransitionRecord {
     'normalizedInput': _normalizedToJson(normalizedInput),
     'updatedContextMemory': _memoryToJson(updatedContextMemory),
     'strategyDecision': _strategyToJson(strategyDecision),
-    'utterance': _utteranceToJson(utterance),
+    'activeUtterance': _activeUtteranceToJson(activeUtterance),
   };
 }
 
@@ -83,7 +83,7 @@ final class ReplayJournal {
         normalizedContext: record.normalizedInput,
         memory: record.updatedContextMemory,
         strategy: record.strategyDecision,
-        utterance: record.utterance,
+        activeUtterance: record.activeUtterance,
         metadata: ProductSnapshotMetadata(
           lastEventId: record.eventId,
           updatedAt: record.occurredAt,
@@ -125,11 +125,11 @@ Map<String, Object> _strategyToJson(StrategyDecision value) => {
   'interactionHint': value.interactionHint,
 };
 
-Map<String, Object> _utteranceToJson(Utterance value) => {
+Map<String, Object?> _activeUtteranceToJson(ActiveUtterance value) => {
+  'displayId': value.displayId,
   'primary': value.primary,
-  'zhHelper': value.zhHelper,
-  'tone': value.tone,
-  'clarityLevel': value.clarityLevel,
-  'contextFit': value.contextFit,
-  'alternatives': value.alternatives,
+  'zhSupport': value.zhSupport,
+  'audioAssetId': value.audioAssetId,
+  'contextLabel': value.contextLabel,
+  'gentleSupport': value.gentleSupport,
 };

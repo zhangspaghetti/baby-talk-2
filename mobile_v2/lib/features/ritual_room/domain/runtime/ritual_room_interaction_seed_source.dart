@@ -1,7 +1,7 @@
 import '../models/context_memory.dart';
 import '../models/normalized_input.dart';
 import '../models/strategy_decision.dart';
-import '../models/utterance.dart';
+import '../models/active_utterance.dart';
 import '../repositories/ritual_room_repository.dart';
 import 'interaction_seed_source.dart';
 
@@ -16,6 +16,10 @@ final class RitualRoomInteractionSeedSource implements InteractionSeedSource {
   @override
   Future<InteractionSeed> load(String ritualRoomId) async {
     final room = await _repository.loadRoom(ritualRoomId);
+    final activeUtterance = await _repository.resolveActiveUtterance(
+      ritualRoomId: ritualRoomId,
+      slot: ActiveUtteranceSlot.ready,
+    );
     final initialContext = NormalizedInput(
       semanticSignals: const ['shared_action'],
       intentEstimate: 'observe',
@@ -49,14 +53,7 @@ final class RitualRoomInteractionSeedSource implements InteractionSeedSource {
         recommendedTone: 'soft',
         interactionHint: 'offer one warm shared action',
       ),
-      utterance: Utterance(
-        primary: room.bootstrapUtterance.primary,
-        zhHelper: room.bootstrapUtterance.zhHelper,
-        tone: 'soft',
-        clarityLevel: 'high',
-        contextFit: room.routineAnchor,
-        alternatives: const [],
-      ),
+      activeUtterance: activeUtterance,
     );
   }
 }

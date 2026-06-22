@@ -263,7 +263,7 @@ Future<void> _expectUnsupportedSchemaParity(InteractionMapper mapper) async {
     normalizedContext: unsupported.normalizedContext,
     memory: unsupported.memory,
     strategy: unsupported.strategy,
-    utterance: unsupported.utterance,
+    activeUtterance: unsupported.activeUtterance,
     metadata: unsupported.metadata,
   );
   direct.store.add(InteractionRuntimeState.initial(unsupportedSnapshot));
@@ -400,12 +400,13 @@ void expectProductSnapshotEquals(
   expect(actual.strategy.pressureLevel, expected.strategy.pressureLevel);
   expect(actual.strategy.recommendedTone, expected.strategy.recommendedTone);
   expect(actual.strategy.interactionHint, expected.strategy.interactionHint);
-  expect(actual.utterance.primary, expected.utterance.primary);
-  expect(actual.utterance.zhHelper, expected.utterance.zhHelper);
-  expect(actual.utterance.tone, expected.utterance.tone);
-  expect(actual.utterance.clarityLevel, expected.utterance.clarityLevel);
-  expect(actual.utterance.contextFit, expected.utterance.contextFit);
-  expect(actual.utterance.alternatives, expected.utterance.alternatives);
+  expect(actual.activeUtterance.displayId, expected.activeUtterance.displayId);
+  expect(actual.activeUtterance.primary, expected.activeUtterance.primary);
+  expect(actual.activeUtterance.zhSupport, expected.activeUtterance.zhSupport);
+  expect(
+    actual.activeUtterance.audioAssetId,
+    expected.activeUtterance.audioAssetId,
+  );
   expect(actual.metadata.lastEventId, expected.metadata.lastEventId);
   expect(actual.metadata.updatedAt, expected.metadata.updatedAt);
 }

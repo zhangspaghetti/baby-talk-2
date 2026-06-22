@@ -55,7 +55,7 @@ final class RitualCurrentUtterance extends StatelessWidget {
             ),
           const SizedBox(height: 8),
           Text(
-            snapshot.utterance.primary,
+            snapshot.activeUtterance.primary,
             style: textTheme.headlineMedium?.copyWith(
               fontSize: 20,
               fontWeight: FontWeight.w600,
@@ -64,7 +64,7 @@ final class RitualCurrentUtterance extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Text(
-            snapshot.utterance.zhHelper,
+            snapshot.activeUtterance.zhSupport,
             style: textTheme.bodyLarge?.copyWith(fontSize: 15, height: 1.6),
           ),
           const SizedBox(height: 8),

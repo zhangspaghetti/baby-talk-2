@@ -8,12 +8,13 @@ import 'package:mobile_v2/features/ritual_room/domain/engine/state_accumulator.d
 import 'package:mobile_v2/features/ritual_room/domain/engine/strategy_engine.dart';
 import 'package:mobile_v2/features/ritual_room/domain/engine/utterance_engine.dart';
 import 'package:mobile_v2/features/ritual_room/domain/models/advance_result.dart';
+import 'package:mobile_v2/features/ritual_room/domain/models/active_utterance.dart';
 import 'package:mobile_v2/features/ritual_room/domain/models/context_memory.dart';
 import 'package:mobile_v2/features/ritual_room/domain/models/input_event.dart';
 import 'package:mobile_v2/features/ritual_room/domain/models/normalized_input.dart';
 import 'package:mobile_v2/features/ritual_room/domain/models/product_snapshot.dart';
 import 'package:mobile_v2/features/ritual_room/domain/models/strategy_decision.dart';
-import 'package:mobile_v2/features/ritual_room/domain/models/utterance.dart';
+import 'package:mobile_v2/features/ritual_room/domain/repositories/active_utterance_source.dart';
 import 'package:mobile_v2/features/ritual_room/domain/runtime/interaction_clock.dart';
 import 'package:mobile_v2/features/ritual_room/domain/runtime/interaction_id_generator.dart';
 import 'package:mobile_v2/features/ritual_room/domain/runtime/interaction_runtime_state.dart';
@@ -157,7 +158,7 @@ void main() {
           normalizedContext: initial.normalizedContext,
           memory: initial.memory,
           strategy: initial.strategy,
-          utterance: initial.utterance,
+          activeUtterance: initial.activeUtterance,
           metadata: initial.metadata,
         );
         harness.store.add(InteractionRuntimeState.initial(unsupported));
@@ -287,7 +288,9 @@ final class _Harness {
         delegate: useRealPipeline ? RuleBasedStrategyEngine() : null,
       ),
       utterance = _CountingUtteranceEngine(
-        delegate: useRealPipeline ? RuleBasedUtteranceEngine() : null,
+        delegate: useRealPipeline
+            ? RuleBasedUtteranceEngine(source: _ActiveSource())
+            : null,
       ) {
     engine = InteractionEngine(
       clock: clock,
@@ -340,7 +343,7 @@ final class _CountingSeedSource implements InteractionSeedSource {
       normalizedContext: _normalized('shared_action'),
       memory: _memory('shared_action'),
       strategy: _strategy(),
-      utterance: _utterance(),
+      activeUtterance: _activeUtterance(),
     );
   }
 }
@@ -409,20 +412,20 @@ final class _CountingUtteranceEngine implements UtteranceEngine {
   int calls = 0;
 
   @override
-  Future<Utterance> realize({
-    required String anchor,
+  Future<ActiveUtterance> realize({
+    required String ritualRoomId,
     required StrategyDecision strategy,
     required NormalizedInput normalized,
     required ContextMemory memory,
   }) async {
     calls += 1;
     return delegate?.realize(
-          anchor: anchor,
+          ritualRoomId: ritualRoomId,
           strategy: strategy,
           normalized: normalized,
           memory: memory,
         ) ??
-        _utterance();
+        _activeUtterance();
   }
 }
 
@@ -457,11 +460,17 @@ StrategyDecision _strategy() => StrategyDecision(
   interactionHint: 'offer one small shared action',
 );
 
-Utterance _utterance() => Utterance(
+ActiveUtterance _activeUtterance() => const ActiveUtterance(
+  displayId: 'shoes_on_ready_v1',
   primary: "Let's put your shoes on.",
-  zhHelper: '我们来穿鞋吧。',
-  tone: 'soft',
-  clarityLevel: 'high',
-  contextFit: 'the current shared shoe routine',
-  alternatives: const [],
+  zhSupport: '我们来穿鞋吧。',
+  audioAssetId: 'rr_shoes_001',
 );
+
+final class _ActiveSource implements ActiveUtteranceSource {
+  @override
+  Future<ActiveUtterance> resolveActiveUtterance({
+    required String ritualRoomId,
+    required ActiveUtteranceSlot slot,
+  }) async => _activeUtterance();
+}

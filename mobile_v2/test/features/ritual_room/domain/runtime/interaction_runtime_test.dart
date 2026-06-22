@@ -6,7 +6,7 @@ import 'package:mobile_v2/features/ritual_room/domain/models/context_memory.dart
 import 'package:mobile_v2/features/ritual_room/domain/models/normalized_input.dart';
 import 'package:mobile_v2/features/ritual_room/domain/models/product_snapshot.dart';
 import 'package:mobile_v2/features/ritual_room/domain/models/strategy_decision.dart';
-import 'package:mobile_v2/features/ritual_room/domain/models/utterance.dart';
+import 'package:mobile_v2/features/ritual_room/domain/models/active_utterance.dart';
 import 'package:mobile_v2/features/ritual_room/domain/runtime/consistency_state.dart';
 import 'package:mobile_v2/features/ritual_room/domain/runtime/interaction_runtime_state.dart';
 import 'package:mobile_v2/features/ritual_room/domain/runtime/interaction_runtime_store.dart';
@@ -92,7 +92,7 @@ void main() {
           'normalizedInput',
           'updatedContextMemory',
           'strategyDecision',
-          'utterance',
+          'activeUtterance',
         });
         expect(runtimeDump, isNot(contains(rawVoice)));
         expect(runtimeDump, isNot(contains(rawFreeText)));
@@ -129,7 +129,10 @@ void main() {
         _expectNormalized(replayed.normalizedContext, second.normalizedInput);
         _expectMemory(replayed.memory, second.updatedContextMemory);
         _expectStrategy(replayed.strategy, second.strategyDecision);
-        _expectUtterance(replayed.utterance, second.utterance);
+        _expectActiveUtterance(
+          replayed.activeUtterance,
+          second.activeUtterance,
+        );
         expect(journal.records, hasLength(2));
         expect(() => journal.records.clear(), throwsUnsupportedError);
       },
@@ -211,7 +214,7 @@ TransitionRecord _transition({
   normalizedInput: _normalized(signal),
   updatedContextMemory: _memory(signal),
   strategyDecision: _strategy(signal),
-  utterance: _utterance(signal),
+  activeUtterance: _activeUtterance(signal),
 );
 
 ProductSnapshot _apply(ProductSnapshot initial, TransitionRecord transition) =>
@@ -224,7 +227,7 @@ ProductSnapshot _apply(ProductSnapshot initial, TransitionRecord transition) =>
       normalizedContext: transition.normalizedInput,
       memory: transition.updatedContextMemory,
       strategy: transition.strategyDecision,
-      utterance: transition.utterance,
+      activeUtterance: transition.activeUtterance,
       metadata: ProductSnapshotMetadata(
         lastEventId: transition.eventId,
         updatedAt: transition.occurredAt,
@@ -243,7 +246,7 @@ ProductSnapshot _snapshot({
   normalizedContext: _normalized('shared_action'),
   memory: _memory('shared_action'),
   strategy: _strategy('shared_action'),
-  utterance: _utterance('shared_action'),
+  activeUtterance: _activeUtterance('shared_action'),
   metadata: ProductSnapshotMetadata(
     lastEventId: revision == 0 ? null : 'event-$revision',
     updatedAt: DateTime.utc(2026, 6, 20, 4, 30 + revision),
@@ -290,15 +293,15 @@ StrategyDecision _strategy(String signal) => StrategyDecision(
   interactionHint: 'offer one small shared action',
 );
 
-Utterance _utterance(String signal) => Utterance(
+ActiveUtterance _activeUtterance(String signal) => ActiveUtterance(
+  displayId: signal == 'shared_action'
+      ? 'shoes_on_ready_v1'
+      : 'shoes_on_revised_wait_v1',
   primary: signal == 'shared_action'
       ? "Let's put your shoes on."
       : "Let's try one shoe together.",
-  zhHelper: signal == 'shared_action' ? '我们来穿鞋吧。' : '我们先一起试一只鞋。',
-  tone: 'soft',
-  clarityLevel: 'high',
-  contextFit: 'the current shared shoe routine',
-  alternatives: const [],
+  zhSupport: signal == 'shared_action' ? '我们来穿鞋吧。' : '我们先一起试一只鞋。',
+  audioAssetId: signal == 'shared_action' ? 'rr_shoes_001' : 'rr_shoes_002',
 );
 
 void _expectNormalized(NormalizedInput actual, NormalizedInput expected) {
@@ -329,11 +332,9 @@ void _expectStrategy(StrategyDecision actual, StrategyDecision expected) {
   expect(actual.interactionHint, expected.interactionHint);
 }
 
-void _expectUtterance(Utterance actual, Utterance expected) {
+void _expectActiveUtterance(ActiveUtterance actual, ActiveUtterance expected) {
+  expect(actual.displayId, expected.displayId);
   expect(actual.primary, expected.primary);
-  expect(actual.zhHelper, expected.zhHelper);
-  expect(actual.tone, expected.tone);
-  expect(actual.clarityLevel, expected.clarityLevel);
-  expect(actual.contextFit, expected.contextFit);
-  expect(actual.alternatives, expected.alternatives);
+  expect(actual.zhSupport, expected.zhSupport);
+  expect(actual.audioAssetId, expected.audioAssetId);
 }

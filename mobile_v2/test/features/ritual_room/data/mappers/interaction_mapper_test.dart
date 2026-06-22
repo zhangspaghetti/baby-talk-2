@@ -12,7 +12,7 @@ import 'package:mobile_v2/features/ritual_room/domain/models/input_event.dart';
 import 'package:mobile_v2/features/ritual_room/domain/models/normalized_input.dart';
 import 'package:mobile_v2/features/ritual_room/domain/models/product_snapshot.dart';
 import 'package:mobile_v2/features/ritual_room/domain/models/strategy_decision.dart';
-import 'package:mobile_v2/features/ritual_room/domain/models/utterance.dart';
+import 'package:mobile_v2/features/ritual_room/domain/models/active_utterance.dart';
 
 void main() {
   const mapper = InteractionMapper();
@@ -161,7 +161,7 @@ void main() {
         contains('uncertain'),
       );
       expect(snapshot.strategy.primary, PressurePolicy.lowPressure);
-      expect(snapshot.utterance.primary, "Let's pause by the shoes.");
+      expect(snapshot.activeUtterance.primary, "Let's pause by the shoes.");
       expect(response.toJson(), isNot(contains('future_optional_field')));
     });
 
@@ -331,13 +331,12 @@ ProductSnapshot _snapshot() => ProductSnapshot(
     recommendedTone: 'soft',
     interactionHint: 'pause and offer one shared action',
   ),
-  utterance: Utterance(
+  activeUtterance: const ActiveUtterance(
+    displayId: 'shoes_on_pause_v1',
     primary: "Let's pause by the shoes.",
-    zhHelper: '我们先在鞋子旁边等等。',
-    tone: 'soft',
-    clarityLevel: 'simple',
-    contextFit: 'uncertain',
-    alternatives: const [],
+    zhSupport: '我们先在鞋子旁边等等。',
+    audioAssetId: 'rr_shoes_002',
+    contextLabel: 'uncertain',
   ),
   metadata: ProductSnapshotMetadata(
     lastEventId: 'evt-reaction',

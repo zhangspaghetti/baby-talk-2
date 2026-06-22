@@ -36,7 +36,7 @@ final class SeededInteractionSessionInitializer
       normalizedContext: seed.normalizedContext,
       memory: seed.memory,
       strategy: seed.strategy,
-      utterance: seed.utterance,
+      activeUtterance: seed.activeUtterance,
       updatedAt: _clock.now(),
     );
     await _store.create(InteractionRuntimeState.initial(snapshot));

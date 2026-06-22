@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mobile_v2/features/ritual_room/data/datasources/ritual_content_api.dart';
 import 'package:mobile_v2/features/ritual_room/data/dto/ritual_room_response.dart';
 import 'package:mobile_v2/features/ritual_room/data/repositories/ritual_room_repository_impl.dart';
+import 'package:mobile_v2/features/ritual_room/domain/models/active_utterance.dart';
 import 'package:mobile_v2/features/ritual_room/domain/repositories/ritual_room_repository.dart';
 
 void main() {
@@ -20,9 +21,22 @@ void main() {
       expect(content.roomName, '雨天小声音');
       expect(content.anchorPhrase, 'Boots on.');
       expect(content.chineseHelper, '穿雨靴啦。');
-      expect(content.bootstrapUtterance.primary, "Let's put your boots on.");
       expect(content.actionCue, '拿起雨靴时');
       expect(content.reactionChoices.single.label, '现在想穿了');
+
+      final active = await repository.resolveActiveUtterance(
+        ritualRoomId: 'alternate_room_v1',
+        slot: ActiveUtteranceSlot.ready,
+      );
+      final revised = await repository.resolveActiveUtterance(
+        ritualRoomId: 'alternate_room_v1',
+        slot: ActiveUtteranceSlot.notReadyYet,
+      );
+      expect(active.displayId, 'boots_on_ready_v1');
+      expect(active.primary, "Let's put your boots on.");
+      expect(revised.displayId, 'boots_on_wait_v1');
+      expect(revised.audioAssetId, 'rr_boots_002');
+      expect(api.requestedIds, ['alternate_room_v1']);
     },
   );
 }
@@ -51,9 +65,20 @@ RitualRoomResponse _alternateResponse() => RitualRoomResponse.fromJson({
         'assets/illustrations/rituals/shoes_on/shoes_on_approved_v1.png',
     'status': 'approved',
   },
-  'bootstrap_utterance': {
-    'primary': "Let's put your boots on.",
-    'zh_helper': '我们来穿雨靴吧。',
+  'listen_label': '听一遍',
+  'active_utterances': {
+    'ready': {
+      'display_id': 'boots_on_ready_v1',
+      'primary': "Let's put your boots on.",
+      'zh_support': '我们来穿雨靴吧。',
+      'audio_asset_id': 'rr_boots_001',
+    },
+    'not_ready_yet': {
+      'display_id': 'boots_on_wait_v1',
+      'primary': 'Boots can wait.',
+      'zh_support': '雨靴可以等等。',
+      'audio_asset_id': 'rr_boots_002',
+    },
   },
   'action_cue': '拿起雨靴时',
   'audio': {'available': false, 'label': '听一遍', 'asset_reference': null},

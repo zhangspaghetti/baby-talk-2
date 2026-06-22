@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mobile_v2/features/ritual_room/data/dto/ritual_room_response.dart';
 import 'package:mobile_v2/features/ritual_room/data/mappers/ritual_room_mapper.dart';
+import 'package:mobile_v2/features/ritual_room/domain/models/active_utterance.dart';
 
 void main() {
   group('RitualRoomMapper', () {
@@ -20,8 +21,22 @@ void main() {
         expect(content.chineseHelper, '穿鞋啦。');
         expect(content.illustration.assetPath, _approvedIllustrationPath);
         expect(content.illustration.status, 'approved');
-        expect(content.bootstrapUtterance.primary, "Let's put your shoes on.");
-        expect(content.bootstrapUtterance.zhHelper, '我们来穿鞋吧。');
+        final active = const RitualRoomMapper().toActiveUtterance(
+          RitualRoomResponse.fromJson(_payload()),
+          ActiveUtteranceSlot.ready,
+        );
+        expect(active.displayId, 'shoes_on_ready_v1');
+        expect(active.primary, "Let's put your shoes on.");
+        expect(active.zhSupport, '我们来穿鞋吧。');
+        expect(active.audioAssetId, 'rr_shoes_001');
+        final revised = const RitualRoomMapper().toActiveUtterance(
+          RitualRoomResponse.fromJson(_payload()),
+          ActiveUtteranceSlot.notReadyYet,
+        );
+        expect(revised.displayId, 'shoes_on_revised_wait_v1');
+        expect(revised.contextLabel, '还不想穿');
+        expect(revised.gentleSupport, '可以先等等。');
+        expect(revised.audioAssetId, 'rr_shoes_002');
         expect(content.actionCue, '拿起鞋时');
         expect(content.audio.label, '听一遍');
         expect(content.reactionPrompt, '现在是什么情况？');
@@ -68,9 +83,19 @@ void main() {
           ..['room_name'] = '雨天小声音'
           ..['anchor_phrase'] = 'Boots on.'
           ..['chinese_helper'] = '穿雨靴啦。'
-          ..['bootstrap_utterance'] = {
-            'primary': "Let's put your boots on.",
-            'zh_helper': '我们来穿雨靴吧。',
+          ..['active_utterances'] = {
+            'ready': {
+              'display_id': 'boots_on_ready_v1',
+              'primary': "Let's put your boots on.",
+              'zh_support': '我们来穿雨靴吧。',
+              'audio_asset_id': 'rr_boots_001',
+            },
+            'not_ready_yet': {
+              'display_id': 'boots_on_wait_v1',
+              'primary': 'Boots can wait.',
+              'zh_support': '雨靴可以等等。',
+              'audio_asset_id': 'rr_boots_002',
+            },
           }
           ..['action_cue'] = '拿起雨靴时'
           ..['reaction_choices'] = [
@@ -85,7 +110,11 @@ void main() {
         expect(content.roomName, '雨天小声音');
         expect(content.anchorPhrase, 'Boots on.');
         expect(content.chineseHelper, '穿雨靴啦。');
-        expect(content.bootstrapUtterance.primary, "Let's put your boots on.");
+        final active = const RitualRoomMapper().toActiveUtterance(
+          RitualRoomResponse.fromJson(alternate),
+          ActiveUtteranceSlot.ready,
+        );
+        expect(active.primary, "Let's put your boots on.");
         expect(content.actionCue, '拿起雨靴时');
         expect(content.reactionChoices.map((choice) => choice.label), [
           '想请你帮忙',
@@ -170,9 +199,22 @@ Map<String, Object?> _payload() => {
     'asset_path': _approvedIllustrationPath,
     'status': 'approved',
   },
-  'bootstrap_utterance': {
-    'primary': "Let's put your shoes on.",
-    'zh_helper': '我们来穿鞋吧。',
+  'listen_label': '听一遍',
+  'active_utterances': {
+    'ready': {
+      'display_id': 'shoes_on_ready_v1',
+      'primary': "Let's put your shoes on.",
+      'zh_support': '我们来穿鞋吧。',
+      'audio_asset_id': 'rr_shoes_001',
+    },
+    'not_ready_yet': {
+      'display_id': 'shoes_on_revised_wait_v1',
+      'primary': "You don't want your shoes on yet.",
+      'zh_support': '你现在还不想穿鞋。',
+      'context_label': '还不想穿',
+      'gentle_support': '可以先等等。',
+      'audio_asset_id': 'rr_shoes_002',
+    },
   },
   'action_cue': '拿起鞋时',
   'audio': {'available': false, 'label': '听一遍', 'asset_reference': null},

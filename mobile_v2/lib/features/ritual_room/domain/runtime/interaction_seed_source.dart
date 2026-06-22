@@ -1,7 +1,7 @@
+import '../models/active_utterance.dart';
 import '../models/context_memory.dart';
 import '../models/normalized_input.dart';
 import '../models/strategy_decision.dart';
-import '../models/utterance.dart';
 
 final class InteractionSeed {
   const InteractionSeed({
@@ -9,14 +9,14 @@ final class InteractionSeed {
     required this.normalizedContext,
     required this.memory,
     required this.strategy,
-    required this.utterance,
+    required this.activeUtterance,
   });
 
   final String anchor;
   final NormalizedInput normalizedContext;
   final ContextMemory memory;
   final StrategyDecision strategy;
-  final Utterance utterance;
+  final ActiveUtterance activeUtterance;
 }
 
 abstract interface class InteractionSeedSource {

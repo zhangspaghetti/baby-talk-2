@@ -3,7 +3,10 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mobile_v2/app/providers/interaction_engine_providers.dart';
 import 'package:mobile_v2/app/providers/ritual_room_capability_provider.dart';
 import 'package:mobile_v2/app/providers/ritual_room_data_providers.dart';
+import 'package:mobile_v2/features/ritual_room/domain/engine/utterance_engine.dart';
 import 'package:mobile_v2/features/ritual_room/domain/models/advance_result.dart';
+import 'package:mobile_v2/features/ritual_room/domain/models/active_utterance.dart';
+import 'package:mobile_v2/features/ritual_room/domain/repositories/active_utterance_source.dart';
 import 'package:mobile_v2/features/ritual_room/domain/runtime/interaction_seed_source.dart';
 import 'package:mobile_v2/features/ritual_room/presentation/capability/interaction_capability_mask.dart';
 
@@ -36,6 +39,9 @@ void main() {
     final container = ProviderContainer.test(
       overrides: [
         interactionSeedSourceProvider.overrideWithValue(_FixedSeedSource()),
+        utteranceEngineProvider.overrideWithValue(
+          RuleBasedUtteranceEngine(source: _ActiveSource()),
+        ),
         interactionCapabilityMaskProvider.overrideWithValue(
           const InteractionCapabilityMask({}),
         ),
@@ -55,7 +61,11 @@ void main() {
         expectedRevision: current!.revision,
         input: input,
       );
-      expect(result, isA<AdvanceApplied>());
+      expect(
+        result,
+        isA<AdvanceApplied>(),
+        reason: result is AdvanceRejected ? result.code.wireName : null,
+      );
     }
 
     expect(
@@ -65,6 +75,18 @@ void main() {
   });
 }
 
+final class _ActiveSource implements ActiveUtteranceSource {
+  @override
+  Future<ActiveUtterance> resolveActiveUtterance({
+    required String ritualRoomId,
+    required ActiveUtteranceSlot slot,
+  }) async => interactionActiveUtterance(
+    displayId: slot == ActiveUtteranceSlot.ready
+        ? 'shoes_on_ready_v1'
+        : 'shoes_on_revised_wait_v1',
+  );
+}
+
 final class _FixedSeedSource implements InteractionSeedSource {
   @override
   Future<InteractionSeed> load(String ritualRoomId) async => InteractionSeed(
@@ -72,6 +94,6 @@ final class _FixedSeedSource implements InteractionSeedSource {
     normalizedContext: interactionNormalizedInput('shared_action'),
     memory: interactionMemory('shared_action'),
     strategy: interactionStrategy(),
-    utterance: interactionUtterance(),
+    activeUtterance: interactionActiveUtterance(),
   );
 }

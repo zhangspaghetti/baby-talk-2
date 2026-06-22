@@ -5,12 +5,12 @@ import 'package:mobile_v2/features/ritual_room/domain/engine/state_accumulator.d
 import 'package:mobile_v2/features/ritual_room/domain/engine/strategy_engine.dart';
 import 'package:mobile_v2/features/ritual_room/domain/engine/utterance_engine.dart';
 import 'package:mobile_v2/features/ritual_room/domain/models/advance_result.dart';
+import 'package:mobile_v2/features/ritual_room/domain/models/active_utterance.dart';
 import 'package:mobile_v2/features/ritual_room/domain/models/context_memory.dart';
 import 'package:mobile_v2/features/ritual_room/domain/models/input_event.dart';
 import 'package:mobile_v2/features/ritual_room/domain/models/normalized_input.dart';
 import 'package:mobile_v2/features/ritual_room/domain/models/product_snapshot.dart';
 import 'package:mobile_v2/features/ritual_room/domain/models/strategy_decision.dart';
-import 'package:mobile_v2/features/ritual_room/domain/models/utterance.dart';
 import 'package:mobile_v2/features/ritual_room/domain/runtime/interaction_clock.dart';
 import 'package:mobile_v2/features/ritual_room/domain/runtime/interaction_id_generator.dart';
 import 'package:mobile_v2/features/ritual_room/domain/runtime/interaction_runtime_store.dart';
@@ -144,7 +144,7 @@ final class _Seed implements InteractionSeedSource {
     normalizedContext: _normalized('seed'),
     memory: _memory('seed'),
     strategy: _strategy('seed'),
-    utterance: _utterance('seed'),
+    activeUtterance: _activeUtterance('seed'),
   );
 }
 
@@ -190,14 +190,14 @@ final class _Utterance implements UtteranceEngine {
   int calls = 0;
 
   @override
-  Future<Utterance> realize({
-    required String anchor,
+  Future<ActiveUtterance> realize({
+    required String ritualRoomId,
     required StrategyDecision strategy,
     required NormalizedInput normalized,
     required ContextMemory memory,
   }) async {
     calls += 1;
-    return _utterance(normalized.eventSummary);
+    return _activeUtterance(normalized.eventSummary);
   }
 }
 
@@ -229,13 +229,12 @@ StrategyDecision _strategy(String marker) => StrategyDecision(
   interactionHint: 'hint-$marker',
 );
 
-Utterance _utterance(String marker) => Utterance(
+ActiveUtterance _activeUtterance(String marker) => ActiveUtterance(
+  displayId: 'display-$marker',
   primary: 'primary-$marker',
-  zhHelper: 'helper-$marker',
-  tone: 'soft',
-  clarityLevel: 'high',
-  contextFit: 'fit-$marker',
-  alternatives: const [],
+  zhSupport: 'helper-$marker',
+  audioAssetId: 'audio-$marker',
+  contextLabel: 'fit-$marker',
 );
 
 void _expectSnapshot(ProductSnapshot actual, ProductSnapshot expected) {
@@ -281,12 +280,13 @@ void _expectSnapshot(ProductSnapshot actual, ProductSnapshot expected) {
   expect(actual.strategy.pressureLevel, expected.strategy.pressureLevel);
   expect(actual.strategy.recommendedTone, expected.strategy.recommendedTone);
   expect(actual.strategy.interactionHint, expected.strategy.interactionHint);
-  expect(actual.utterance.primary, expected.utterance.primary);
-  expect(actual.utterance.zhHelper, expected.utterance.zhHelper);
-  expect(actual.utterance.tone, expected.utterance.tone);
-  expect(actual.utterance.clarityLevel, expected.utterance.clarityLevel);
-  expect(actual.utterance.contextFit, expected.utterance.contextFit);
-  expect(actual.utterance.alternatives, expected.utterance.alternatives);
+  expect(actual.activeUtterance.displayId, expected.activeUtterance.displayId);
+  expect(actual.activeUtterance.primary, expected.activeUtterance.primary);
+  expect(actual.activeUtterance.zhSupport, expected.activeUtterance.zhSupport);
+  expect(
+    actual.activeUtterance.audioAssetId,
+    expected.activeUtterance.audioAssetId,
+  );
   expect(actual.metadata.lastEventId, expected.metadata.lastEventId);
   expect(actual.metadata.updatedAt, expected.metadata.updatedAt);
 }

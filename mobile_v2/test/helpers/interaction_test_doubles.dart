@@ -9,6 +9,7 @@ import 'package:mobile_v2/features/ritual_room/domain/engine/state_accumulator.d
 import 'package:mobile_v2/features/ritual_room/domain/engine/strategy_engine.dart';
 import 'package:mobile_v2/features/ritual_room/domain/engine/utterance_engine.dart';
 import 'package:mobile_v2/features/ritual_room/domain/models/advance_result.dart';
+import 'package:mobile_v2/features/ritual_room/domain/models/active_utterance.dart';
 import 'package:mobile_v2/features/ritual_room/domain/models/input_event.dart';
 import 'package:mobile_v2/features/ritual_room/domain/models/normalized_input.dart';
 import 'package:mobile_v2/features/ritual_room/domain/models/product_snapshot.dart';
@@ -16,6 +17,7 @@ import 'package:mobile_v2/features/ritual_room/domain/runtime/interaction_clock.
 import 'package:mobile_v2/features/ritual_room/domain/runtime/interaction_id_generator.dart';
 import 'package:mobile_v2/features/ritual_room/domain/runtime/interaction_runtime_store.dart';
 import 'package:mobile_v2/features/ritual_room/domain/runtime/interaction_seed_source.dart';
+import 'package:mobile_v2/features/ritual_room/domain/repositories/active_utterance_source.dart';
 
 import '../fixtures/interaction_test_fixtures.dart';
 
@@ -99,7 +101,7 @@ final class InteractionEngineHarness {
           : RuleBasedNormalizeEngine(),
       stateAccumulator: DecayStateAccumulator(),
       strategyEngine: RuleBasedStrategyEngine(),
-      utteranceEngine: RuleBasedUtteranceEngine(),
+      utteranceEngine: RuleBasedUtteranceEngine(source: _ActiveSource()),
     );
   }
 
@@ -136,6 +138,18 @@ final class _FixedSeedSource implements InteractionSeedSource {
     normalizedContext: interactionNormalizedInput('shared_action'),
     memory: interactionMemory('shared_action'),
     strategy: interactionStrategy(),
-    utterance: interactionUtterance(),
+    activeUtterance: interactionActiveUtterance(),
+  );
+}
+
+final class _ActiveSource implements ActiveUtteranceSource {
+  @override
+  Future<ActiveUtterance> resolveActiveUtterance({
+    required String ritualRoomId,
+    required ActiveUtteranceSlot slot,
+  }) async => interactionActiveUtterance(
+    displayId: slot == ActiveUtteranceSlot.ready
+        ? 'shoes_on_ready_v1'
+        : 'shoes_on_revised_wait_v1',
   );
 }

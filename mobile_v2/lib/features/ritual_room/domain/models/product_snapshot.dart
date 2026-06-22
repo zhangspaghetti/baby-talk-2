@@ -1,7 +1,7 @@
+import 'active_utterance.dart';
 import 'context_memory.dart';
 import 'normalized_input.dart';
 import 'strategy_decision.dart';
-import 'utterance.dart';
 
 final class ProductSnapshotMetadata {
   const ProductSnapshotMetadata({
@@ -24,7 +24,7 @@ final class ProductSnapshot {
     required this.normalizedContext,
     required this.memory,
     required this.strategy,
-    required this.utterance,
+    required this.activeUtterance,
     required this.metadata,
   });
 
@@ -35,7 +35,7 @@ final class ProductSnapshot {
     required NormalizedInput normalizedContext,
     required ContextMemory memory,
     required StrategyDecision strategy,
-    required Utterance utterance,
+    required ActiveUtterance activeUtterance,
     required DateTime updatedAt,
   }) => ProductSnapshot(
     schemaVersion: currentSchemaVersion,
@@ -46,7 +46,7 @@ final class ProductSnapshot {
     normalizedContext: normalizedContext,
     memory: memory,
     strategy: strategy,
-    utterance: utterance,
+    activeUtterance: activeUtterance,
     metadata: ProductSnapshotMetadata(
       lastEventId: null,
       updatedAt: updatedAt.toUtc(),
@@ -63,6 +63,6 @@ final class ProductSnapshot {
   final NormalizedInput normalizedContext;
   final ContextMemory memory;
   final StrategyDecision strategy;
-  final Utterance utterance;
+  final ActiveUtterance activeUtterance;
   final ProductSnapshotMetadata metadata;
 }

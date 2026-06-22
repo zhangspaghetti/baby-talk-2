@@ -56,7 +56,7 @@ final class InteractionEngine
       normalizedContext: seed.normalizedContext,
       memory: seed.memory,
       strategy: seed.strategy,
-      utterance: seed.utterance,
+      activeUtterance: seed.activeUtterance,
       updatedAt: _clock.now(),
     );
     await _store.create(InteractionRuntimeState.initial(snapshot));
@@ -129,8 +129,8 @@ final class InteractionEngine
           memory: memory,
           current: current.snapshot,
         );
-        final utterance = await _utteranceEngine.realize(
-          anchor: current.snapshot.anchor,
+        final activeUtterance = await _utteranceEngine.realize(
+          ritualRoomId: current.snapshot.ritualRoomId,
           strategy: strategy,
           normalized: normalized,
           memory: memory,
@@ -147,7 +147,7 @@ final class InteractionEngine
           normalizedContext: normalized,
           memory: memory,
           strategy: strategy,
-          utterance: utterance,
+          activeUtterance: activeUtterance,
           metadata: ProductSnapshotMetadata(
             lastEventId: input.eventId,
             updatedAt: occurredAt,
@@ -169,7 +169,7 @@ final class InteractionEngine
             normalizedInput: normalized,
             updatedContextMemory: memory,
             strategyDecision: strategy,
-            utterance: utterance,
+            activeUtterance: activeUtterance,
           ),
         );
         final nextState = current.commit(

@@ -54,7 +54,8 @@ final strategyEngineProvider = Provider<StrategyEngine>(
 );
 
 final utteranceEngineProvider = Provider<UtteranceEngine>(
-  (ref) => RuleBasedUtteranceEngine(),
+  (ref) =>
+      RuleBasedUtteranceEngine(source: ref.watch(ritualRoomRepositoryProvider)),
 );
 
 final interactionRuntimeStoreProvider = Provider<InteractionRuntimeStore>(

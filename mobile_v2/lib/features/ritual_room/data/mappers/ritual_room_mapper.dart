@@ -1,3 +1,4 @@
+import '../../domain/models/active_utterance.dart';
 import '../../domain/models/ritual_room_content.dart';
 import '../dto/ritual_room_response.dart';
 
@@ -29,10 +30,6 @@ final class RitualRoomMapper {
         assetPath: response.illustration.assetPath,
         status: response.illustration.status,
       ),
-      bootstrapUtterance: RitualBootstrapUtterance(
-        primary: response.bootstrapUtterance.primary,
-        zhHelper: response.bootstrapUtterance.zhHelper,
-      ),
       actionCue: response.actionCue,
       audio: RitualAudioContent(
         available: response.audio.available,
@@ -57,6 +54,28 @@ final class RitualRoomMapper {
         productionGardenStatus:
             response.governanceEvidence.productionGardenStatus,
       ),
+    );
+  }
+
+  ActiveUtterance toActiveUtterance(
+    RitualRoomResponse response,
+    ActiveUtteranceSlot slot,
+  ) {
+    final key = switch (slot) {
+      ActiveUtteranceSlot.ready => 'ready',
+      ActiveUtteranceSlot.notReadyYet => 'not_ready_yet',
+    };
+    final value = response.activeUtterances[key];
+    if (value == null) {
+      throw FormatException('active_utterances.$key is required');
+    }
+    return ActiveUtterance(
+      displayId: value.displayId,
+      primary: value.primary,
+      zhSupport: value.zhSupport,
+      audioAssetId: value.audioAssetId,
+      contextLabel: value.contextLabel,
+      gentleSupport: value.gentleSupport,
     );
   }
 }

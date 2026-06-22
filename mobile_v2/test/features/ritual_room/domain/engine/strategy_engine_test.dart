@@ -4,7 +4,7 @@ import 'package:mobile_v2/features/ritual_room/domain/models/context_memory.dart
 import 'package:mobile_v2/features/ritual_room/domain/models/normalized_input.dart';
 import 'package:mobile_v2/features/ritual_room/domain/models/product_snapshot.dart';
 import 'package:mobile_v2/features/ritual_room/domain/models/strategy_decision.dart';
-import 'package:mobile_v2/features/ritual_room/domain/models/utterance.dart';
+import 'package:mobile_v2/features/ritual_room/domain/models/active_utterance.dart';
 
 void main() {
   group('RuleBasedStrategyEngine', () {
@@ -113,13 +113,11 @@ ProductSnapshot _snapshot() => ProductSnapshot.initial(
     recommendedTone: 'soft',
     interactionHint: 'offer one small shared action',
   ),
-  utterance: Utterance(
+  activeUtterance: const ActiveUtterance(
+    displayId: 'shoes_on_ready_v1',
     primary: 'Existing caregiver line.',
-    zhHelper: '现有照护者话术。',
-    tone: 'soft',
-    clarityLevel: 'high',
-    contextFit: 'beginning the shared shoe routine',
-    alternatives: const [],
+    zhSupport: '现有照护者话术。',
+    audioAssetId: 'rr_shoes_001',
   ),
   updatedAt: DateTime.utc(2026, 6, 20),
 );
