@@ -40,5 +40,8 @@ command = "mempalace-mcp"
 [mcp_servers.mempalace.tools.mempalace_add_drawer]
 approval_mode = "approve"
 
+[mcp_servers.mempalace.tools.mempalace_hook_settings]
+approval_mode = "approve"
+
 [sandbox_workspace_write]
 network_access = true
