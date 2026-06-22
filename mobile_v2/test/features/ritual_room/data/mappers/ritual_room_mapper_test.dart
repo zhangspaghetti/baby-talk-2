@@ -155,15 +155,23 @@ void main() {
       );
     });
 
-    test('maps every supported atmosphere tone wire name', () {
-      for (final tone in RitualAtmosphereTone.values) {
-        final payload = _payload()..['atmosphere_tone'] = tone.wireName;
+    test('pins every supported atmosphere tone wire name', () {
+      const expectedWireNames = <RitualAtmosphereTone, String>{
+        RitualAtmosphereTone.everydayCalm: 'everyday_calm',
+        RitualAtmosphereTone.gentlyLively: 'gently_lively',
+        RitualAtmosphereTone.groundedSoothing: 'grounded_soothing',
+        RitualAtmosphereTone.bedtimeQuiet: 'bedtime_quiet',
+      };
 
+      for (final entry in expectedWireNames.entries) {
+        expect(entry.key.wireName, entry.value);
+        expect(RitualAtmosphereTone.fromWireName(entry.value), entry.key);
+
+        final payload = _payload()..['atmosphere_tone'] = entry.value;
         final content = const RitualRoomMapper().toDomain(
           RitualRoomResponse.fromJson(payload),
         );
-
-        expect(content.atmosphereTone, tone);
+        expect(content.atmosphereTone, entry.key);
       }
     });
 

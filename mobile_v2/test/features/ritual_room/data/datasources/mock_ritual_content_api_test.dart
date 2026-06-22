@@ -15,6 +15,7 @@ void main() {
       final response = await api.fetchRoom('shoes_on_room_v1');
 
       expect(response.ritualRoomId, 'shoes_on_room_v1');
+      expect(response.atmosphereTone, 'everyday_calm');
       expect(response.anchorPhrase, 'Shoes on.');
       expect(
         response.illustration.assetPath,
@@ -36,6 +37,7 @@ void main() {
       );
       final payload = jsonDecode(raw) as Map<String, Object?>;
 
+      expect(payload['atmosphere_tone'], 'everyday_calm');
       expect(payload['governance_evidence'], {
         'context_seed_id': 'context_seed_shoes_on',
         'joinability_hypothesis': 'shared_action_is_open',
