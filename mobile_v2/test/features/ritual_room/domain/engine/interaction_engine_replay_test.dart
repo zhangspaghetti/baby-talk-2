@@ -52,6 +52,10 @@ void main() {
       );
 
       _expectSnapshot(replayed, latest);
+      expect(
+        replayed.activeUtterance.actionCue,
+        latest.activeUtterance.actionCue,
+      );
       expect(harness.calls, callsBeforeReplay);
       expect(runtime.replayJournal.records, hasLength(2));
     },

@@ -186,6 +186,7 @@ final class InteractionUtteranceResponse {
   InteractionUtteranceResponse({
     required this.primary,
     required this.zhHelper,
+    required this.actionCue,
     required this.tone,
     required this.clarityLevel,
     required this.contextFit,
@@ -196,6 +197,7 @@ final class InteractionUtteranceResponse {
       InteractionUtteranceResponse(
         primary: _requiredString(json, 'primary'),
         zhHelper: _requiredString(json, 'zhHelper'),
+        actionCue: _requiredString(json, 'actionCue'),
         tone: _requiredString(json, 'tone'),
         clarityLevel: _requiredString(json, 'clarityLevel'),
         contextFit: _requiredString(json, 'contextFit'),
@@ -204,6 +206,7 @@ final class InteractionUtteranceResponse {
 
   final String primary;
   final String zhHelper;
+  final String actionCue;
   final String tone;
   final String clarityLevel;
   final String contextFit;
@@ -212,6 +215,7 @@ final class InteractionUtteranceResponse {
   Map<String, Object?> toJson() => {
     'primary': primary,
     'zhHelper': zhHelper,
+    'actionCue': actionCue,
     'tone': tone,
     'clarityLevel': clarityLevel,
     'contextFit': contextFit,

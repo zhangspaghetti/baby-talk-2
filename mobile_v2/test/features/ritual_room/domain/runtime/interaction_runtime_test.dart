@@ -94,6 +94,11 @@ void main() {
           'strategyDecision',
           'activeUtterance',
         });
+        expect(
+          (recordJson['activeUtterance']! as Map<String, Object?>)['actionCue'],
+          transition.activeUtterance.actionCue,
+        );
+        expect(runtimeDump, contains('"actionCue":"shared action moment"'));
         expect(runtimeDump, isNot(contains(rawVoice)));
         expect(runtimeDump, isNot(contains(rawFreeText)));
         expect(runtimeDump, isNot(contains('transcript')));

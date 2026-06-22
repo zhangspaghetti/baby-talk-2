@@ -23,11 +23,12 @@ void main() {
       );
       final repository = InteractionRepositoryImpl(api: api, mapper: mapper);
 
-      final actual = await repository.getSnapshot(interactionId);
+      final repositoryResult = await repository.getSnapshot(interactionId);
 
       expect(api.snapshotCalls, 1);
       expect(api.lastInteractionId, interactionId);
-      expectProductSnapshotEquals(actual, snapshot);
+      expectProductSnapshotEquals(repositoryResult, snapshot);
+      expect(repositoryResult.activeUtterance.actionCue, '宝宝停下来时');
     },
   );
 
@@ -251,36 +252,38 @@ Future<void> _expectDuplicateAndEventIdParity(InteractionMapper mapper) async {
 }
 
 Future<void> _expectUnsupportedSchemaParity(InteractionMapper mapper) async {
-  final direct = InteractionEngineHarness();
-  final adapted = InteractionEngineHarness();
-  final unsupported = interactionSnapshot();
-  final unsupportedSnapshot = ProductSnapshot(
-    schemaVersion: 2,
-    revision: unsupported.revision,
-    interactionId: 'unsupported-interaction',
-    ritualRoomId: unsupported.ritualRoomId,
-    anchor: unsupported.anchor,
-    normalizedContext: unsupported.normalizedContext,
-    memory: unsupported.memory,
-    strategy: unsupported.strategy,
-    activeUtterance: unsupported.activeUtterance,
-    metadata: unsupported.metadata,
-  );
-  direct.store.add(InteractionRuntimeState.initial(unsupportedSnapshot));
-  adapted.store.add(InteractionRuntimeState.initial(unsupportedSnapshot));
+  for (final schemaVersion in const [1, 3]) {
+    final direct = InteractionEngineHarness();
+    final adapted = InteractionEngineHarness();
+    final unsupported = interactionSnapshot();
+    final unsupportedSnapshot = ProductSnapshot(
+      schemaVersion: schemaVersion,
+      revision: unsupported.revision,
+      interactionId: 'unsupported-interaction-$schemaVersion',
+      ritualRoomId: unsupported.ritualRoomId,
+      anchor: unsupported.anchor,
+      normalizedContext: unsupported.normalizedContext,
+      memory: unsupported.memory,
+      strategy: unsupported.strategy,
+      activeUtterance: unsupported.activeUtterance,
+      metadata: unsupported.metadata,
+    );
+    direct.store.add(InteractionRuntimeState.initial(unsupportedSnapshot));
+    adapted.store.add(InteractionRuntimeState.initial(unsupportedSnapshot));
 
-  await _expectAdvanceParity(
-    direct: () => direct.engine.advance(
-      interactionId: unsupportedSnapshot.interactionId,
-      expectedRevision: 0,
-      input: interactionInputs.first,
-    ),
-    adapted: () => _repository(adapted, mapper).advance(
-      interactionId: unsupportedSnapshot.interactionId,
-      expectedRevision: 0,
-      input: interactionInputs.first,
-    ),
-  );
+    await _expectAdvanceParity(
+      direct: () => direct.engine.advance(
+        interactionId: unsupportedSnapshot.interactionId,
+        expectedRevision: 0,
+        input: interactionInputs.first,
+      ),
+      adapted: () => _repository(adapted, mapper).advance(
+        interactionId: unsupportedSnapshot.interactionId,
+        expectedRevision: 0,
+        input: interactionInputs.first,
+      ),
+    );
+  }
 }
 
 Future<void> _expectPipelineFailureParity(InteractionMapper mapper) async {
@@ -403,6 +406,7 @@ void expectProductSnapshotEquals(
   expect(actual.activeUtterance.displayId, expected.activeUtterance.displayId);
   expect(actual.activeUtterance.primary, expected.activeUtterance.primary);
   expect(actual.activeUtterance.zhSupport, expected.activeUtterance.zhSupport);
+  expect(actual.activeUtterance.actionCue, expected.activeUtterance.actionCue);
   expect(
     actual.activeUtterance.audioAssetId,
     expected.activeUtterance.audioAssetId,

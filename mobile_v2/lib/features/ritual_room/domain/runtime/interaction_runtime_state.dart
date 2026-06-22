@@ -103,6 +103,7 @@ Map<String, Object?> _activeUtteranceToJson(ActiveUtterance value) => {
   'displayId': value.displayId,
   'primary': value.primary,
   'zhSupport': value.zhSupport,
+  'actionCue': value.actionCue,
   'audioAssetId': value.audioAssetId,
   'contextLabel': value.contextLabel,
   'gentleSupport': value.gentleSupport,

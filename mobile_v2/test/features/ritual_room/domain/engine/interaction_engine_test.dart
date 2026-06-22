@@ -43,7 +43,7 @@ void main() {
         final snapshot = await harness.engine.initialize('shoes_on_room_v1');
         final runtime = harness.store.debugState(snapshot.interactionId);
 
-        expect(snapshot.schemaVersion, 1);
+        expect(snapshot.schemaVersion, 2);
         expect(snapshot.revision, 0);
         expect(snapshot.interactionId, 'interaction-1');
         expect(snapshot.metadata.lastEventId, isNull);
@@ -149,26 +149,40 @@ void main() {
       () async {
         final harness = _Harness();
         final initial = await harness.engine.initialize('shoes_on_room_v1');
-        final unsupported = ProductSnapshot(
-          schemaVersion: 2,
-          revision: initial.revision,
-          interactionId: 'unsupported-interaction',
-          ritualRoomId: initial.ritualRoomId,
-          anchor: initial.anchor,
-          normalizedContext: initial.normalizedContext,
-          memory: initial.memory,
-          strategy: initial.strategy,
-          activeUtterance: initial.activeUtterance,
-          metadata: initial.metadata,
-        );
-        harness.store.add(InteractionRuntimeState.initial(unsupported));
         final clockBefore = harness.clock.calls;
 
-        final unsupportedResult = await harness.engine.advance(
-          interactionId: unsupported.interactionId,
-          expectedRevision: 0,
-          input: _reaction('event-1', 'joining_action'),
-        );
+        for (final schemaVersion in const [1, 3]) {
+          final unsupported = ProductSnapshot(
+            schemaVersion: schemaVersion,
+            revision: initial.revision,
+            interactionId: 'unsupported-interaction-$schemaVersion',
+            ritualRoomId: initial.ritualRoomId,
+            anchor: initial.anchor,
+            normalizedContext: initial.normalizedContext,
+            memory: initial.memory,
+            strategy: initial.strategy,
+            activeUtterance: initial.activeUtterance,
+            metadata: initial.metadata,
+          );
+          harness.store.add(InteractionRuntimeState.initial(unsupported));
+          final unsupportedResult = await harness.engine.advance(
+            interactionId: unsupported.interactionId,
+            expectedRevision: 0,
+            input: _reaction('event-$schemaVersion', 'joining_action'),
+          );
+
+          expect(
+            (unsupportedResult as AdvanceRejected).code,
+            AdvanceErrorCode.unsupportedSchemaVersion,
+          );
+          expect(
+            harness.store
+                .debugState(unsupported.interactionId)!
+                .snapshot
+                .revision,
+            0,
+          );
+        }
         final invalidResult = await harness.engine.advance(
           interactionId: initial.interactionId,
           expectedRevision: 0,
@@ -180,10 +194,6 @@ void main() {
         );
 
         expect(
-          (unsupportedResult as AdvanceRejected).code,
-          AdvanceErrorCode.unsupportedSchemaVersion,
-        );
-        expect(
           (invalidResult as AdvanceRejected).code,
           AdvanceErrorCode.invalidInput,
         );
@@ -191,13 +201,6 @@ void main() {
         expect(harness.clock.calls, clockBefore);
         expect(
           harness.store.debugState(initial.interactionId)!.snapshot.revision,
-          0,
-        );
-        expect(
-          harness.store
-              .debugState(unsupported.interactionId)!
-              .snapshot
-              .revision,
           0,
         );
       },

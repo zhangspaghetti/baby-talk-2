@@ -90,7 +90,7 @@ ActiveUtterance interactionActiveUtterance({
   String displayId = 'shoes_on_ready_v1',
   String primary = 'Let’s put your shoes on.',
   String zhSupport = '我们来穿鞋吧。',
-  String actionCue = 'shared action moment',
+  String actionCue = '宝宝停下来时',
   String audioAssetId = 'rr_shoes_001',
   String? contextLabel,
   String? gentleSupport,

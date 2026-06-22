@@ -116,6 +116,7 @@ final class InteractionMapper {
       utterance: InteractionUtteranceResponse(
         primary: snapshot.activeUtterance.primary,
         zhHelper: snapshot.activeUtterance.zhSupport,
+        actionCue: snapshot.activeUtterance.actionCue,
         tone: snapshot.strategy.recommendedTone,
         clarityLevel: snapshot.activeUtterance.displayId,
         contextFit: snapshot.activeUtterance.contextLabel ?? snapshot.anchor,
@@ -173,7 +174,7 @@ final class InteractionMapper {
         displayId: response.utterance.clarityLevel,
         primary: response.utterance.primary,
         zhSupport: response.utterance.zhHelper,
-        actionCue: 'shared action moment',
+        actionCue: response.utterance.actionCue,
         audioAssetId: response.utterance.alternatives.isEmpty
             ? 'transport_audio_unavailable'
             : response.utterance.alternatives.first,

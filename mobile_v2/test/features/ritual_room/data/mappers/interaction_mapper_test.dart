@@ -142,8 +142,8 @@ void main() {
   });
 
   group('InteractionSnapshotResponse', () {
-    test('legacy utterance shape preserves absent optional active fields', () {
-      final original = _snapshot(
+    test('schema 2 utterance preserves absent optional active fields', () {
+      final source = _snapshot(
         activeUtterance: const ActiveUtterance(
           displayId: 'shoes_on_ready_v1',
           primary: 'Let’s put your shoes on.',
@@ -153,7 +153,7 @@ void main() {
         ),
       );
 
-      final response = mapper.snapshotFromDomain(original);
+      final response = mapper.snapshotFromDomain(source);
       final json = response.toJson();
       final roundTripped = mapper.snapshotToDomain(
         InteractionSnapshotResponse.fromJson(json),
@@ -166,11 +166,14 @@ void main() {
       expect(jsonEncode(json), isNot(contains('gentleSupport')));
       expect(roundTripped.activeUtterance.contextLabel, isNull);
       expect(roundTripped.activeUtterance.gentleSupport, isNull);
-      expect(roundTripped.activeUtterance.actionCue, 'shared action moment');
+      expect(
+        roundTripped.activeUtterance.actionCue,
+        source.activeUtterance.actionCue,
+      );
     });
 
-    test('legacy utterance shape preserves present optional active fields', () {
-      final original = _snapshot(
+    test('schema 2 utterance preserves present optional active fields', () {
+      final source = _snapshot(
         activeUtterance: const ActiveUtterance(
           displayId: 'shoes_on_revised_wait_v1',
           primary: 'You don’t want your shoes on yet.',
@@ -182,7 +185,7 @@ void main() {
         ),
       );
 
-      final response = mapper.snapshotFromDomain(original);
+      final response = mapper.snapshotFromDomain(source);
       final json = response.toJson();
       final roundTripped = mapper.snapshotToDomain(
         InteractionSnapshotResponse.fromJson(json),
@@ -203,10 +206,13 @@ void main() {
       );
       expect(roundTripped.activeUtterance.contextLabel, '还不想穿');
       expect(roundTripped.activeUtterance.gentleSupport, '可以先等等。');
-      expect(roundTripped.activeUtterance.actionCue, 'shared action moment');
+      expect(
+        roundTripped.activeUtterance.actionCue,
+        source.activeUtterance.actionCue,
+      );
     });
 
-    test('schema 1 ignores unknown optional fields and maps product truth', () {
+    test('schema 2 ignores unknown optional fields and maps product truth', () {
       final json = _snapshotJson()
         ..['future_optional_field'] = {'ignored': true}
         ..['metadata'] = {
@@ -229,7 +235,13 @@ void main() {
       expect(response.toJson(), isNot(contains('future_optional_field')));
     });
 
-    test('missing required schema-1 fields fail parsing', () {
+    test('missing required schema-2 fields fail parsing', () {
+      final missingActionCue = _snapshotJson();
+      final utteranceWithoutActionCue = Map<String, Object?>.from(
+        missingActionCue['utterance']! as Map<String, Object?>,
+      )..remove('actionCue');
+      missingActionCue['utterance'] = utteranceWithoutActionCue;
+
       expect(
         () => InteractionSnapshotResponse.fromJson(
           _snapshotJson()..remove('utterance'),
@@ -243,24 +255,30 @@ void main() {
         }),
         throwsFormatException,
       );
+      expect(
+        () => InteractionSnapshotResponse.fromJson(missingActionCue),
+        throwsFormatException,
+      );
     });
 
-    test('schema other than 1 maps to explicit unsupported-schema failure', () {
-      final response = InteractionSnapshotResponse.fromJson({
-        ..._snapshotJson(),
-        'schemaVersion': 2,
-      });
+    test('schemas 1 and 3 map to explicit unsupported-schema failures', () {
+      for (final schemaVersion in const [1, 3]) {
+        final response = InteractionSnapshotResponse.fromJson({
+          ..._snapshotJson(),
+          'schemaVersion': schemaVersion,
+        });
 
-      expect(
-        () => mapper.snapshotToDomain(response),
-        throwsA(
-          isA<UnsupportedInteractionSchemaException>().having(
-            (error) => error.schemaVersion,
-            'schemaVersion',
-            2,
+        expect(
+          () => mapper.snapshotToDomain(response),
+          throwsA(
+            isA<UnsupportedInteractionSchemaException>().having(
+              (error) => error.schemaVersion,
+              'schemaVersion',
+              schemaVersion,
+            ),
           ),
-        ),
-      );
+        );
+      }
     });
   });
 
@@ -413,7 +431,7 @@ ProductSnapshot _snapshot({ActiveUtterance? activeUtterance}) =>
     );
 
 Map<String, Object?> _snapshotJson() => {
-  'schemaVersion': 1,
+  'schemaVersion': 2,
   'revision': 3,
   'interactionId': 'interaction-1',
   'ritualRoomId': 'shoes_on_room_v1',
@@ -449,6 +467,7 @@ Map<String, Object?> _snapshotJson() => {
   'utterance': {
     'primary': "Let's pause by the shoes.",
     'zhHelper': '我们先在鞋子旁边等等。',
+    'actionCue': '宝宝停下来时',
     'tone': 'soft',
     'clarityLevel': 'simple',
     'contextFit': 'uncertain',

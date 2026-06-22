@@ -76,8 +76,8 @@ void main() {
     test('initial snapshot separates schema version from revision', () {
       final snapshot = _initialSnapshot();
 
-      expect(ProductSnapshot.currentSchemaVersion, 1);
-      expect(snapshot.schemaVersion, 1);
+      expect(ProductSnapshot.currentSchemaVersion, 2);
+      expect(snapshot.schemaVersion, 2);
       expect(snapshot.revision, 0);
       expect(snapshot.interactionId, 'interaction-1');
       expect(snapshot.ritualRoomId, 'shoes_on_room_v1');

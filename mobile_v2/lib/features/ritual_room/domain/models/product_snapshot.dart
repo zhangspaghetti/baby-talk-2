@@ -53,7 +53,7 @@ final class ProductSnapshot {
     ),
   );
 
-  static const int currentSchemaVersion = 1;
+  static const int currentSchemaVersion = 2;
 
   final int schemaVersion;
   final int revision;
