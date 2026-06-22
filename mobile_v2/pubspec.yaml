@@ -13,6 +13,7 @@ dependencies:
   flutter_localizations:
     sdk: flutter
   flutter_riverpod: ^3.3.0
+  intl: any
 
 dev_dependencies:
   flutter_test:
