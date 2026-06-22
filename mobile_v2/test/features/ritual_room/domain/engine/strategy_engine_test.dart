@@ -117,6 +117,7 @@ ProductSnapshot _snapshot() => ProductSnapshot.initial(
     displayId: 'shoes_on_ready_v1',
     primary: 'Existing caregiver line.',
     zhSupport: '现有照护者话术。',
+    actionCue: 'shared action moment',
     audioAssetId: 'rr_shoes_001',
   ),
   updatedAt: DateTime.utc(2026, 6, 20),

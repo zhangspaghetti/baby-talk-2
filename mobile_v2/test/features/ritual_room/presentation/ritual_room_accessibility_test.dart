@@ -209,6 +209,7 @@ ProductSnapshot _longSnapshot() {
       primary:
           'Let us place one shoe beside you and wait together until this shared moment feels easier to enter.',
       zhSupport: '我们先把一只鞋放在你身边，一起等一等，等这个共同的时刻更容易加入。',
+      actionCue: '拿起鞋时',
       audioAssetId: 'rr_shoes_001',
     ),
     metadata: base.metadata,

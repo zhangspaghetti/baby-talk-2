@@ -14,12 +14,14 @@
       "display_id": "shoes_on_ready_v1",
       "primary": "Let’s put your shoes on.",
       "zh_support": "我们来穿鞋吧。",
+      "action_cue": "拿起鞋时",
       "audio_asset_id": "rr_shoes_001"
     },
     "not_ready_yet": {
       "display_id": "shoes_on_revised_wait_v1",
       "primary": "You don’t want your shoes on yet.",
       "zh_support": "你现在还不想穿鞋。",
+      "action_cue": "宝宝停下来时",
       "context_label": "还不想穿",
       "gentle_support": "可以先等等。",
       "audio_asset_id": "rr_shoes_002"

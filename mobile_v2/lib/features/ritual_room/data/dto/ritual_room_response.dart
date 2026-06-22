@@ -120,6 +120,7 @@ final class RitualActiveUtteranceResponse {
     required this.displayId,
     required this.primary,
     required this.zhSupport,
+    required this.actionCue,
     required this.audioAssetId,
     required this.contextLabel,
     required this.gentleSupport,
@@ -130,6 +131,7 @@ final class RitualActiveUtteranceResponse {
         displayId: _requiredString(json, 'display_id'),
         primary: _requiredString(json, 'primary'),
         zhSupport: _requiredString(json, 'zh_support'),
+        actionCue: _requiredString(json, 'action_cue'),
         audioAssetId: _requiredString(json, 'audio_asset_id'),
         contextLabel: _optionalString(json, 'context_label'),
         gentleSupport: _optionalString(json, 'gentle_support'),
@@ -138,6 +140,7 @@ final class RitualActiveUtteranceResponse {
   final String displayId;
   final String primary;
   final String zhSupport;
+  final String actionCue;
   final String audioAssetId;
   final String? contextLabel;
   final String? gentleSupport;
@@ -146,6 +149,7 @@ final class RitualActiveUtteranceResponse {
     'display_id': displayId,
     'primary': primary,
     'zh_support': zhSupport,
+    'action_cue': actionCue,
     'audio_asset_id': audioAssetId,
     if (contextLabel != null) 'context_label': contextLabel,
     if (gentleSupport != null) 'gentle_support': gentleSupport,

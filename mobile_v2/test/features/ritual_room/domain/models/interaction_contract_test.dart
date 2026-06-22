@@ -85,6 +85,7 @@ void main() {
       expect(snapshot.activeUtterance.displayId, 'shoes_on_ready_v1');
       expect(snapshot.activeUtterance.primary, 'Let’s put your shoes on.');
       expect(snapshot.activeUtterance.zhSupport, '我们来穿鞋吧。');
+      expect(snapshot.activeUtterance.actionCue, isNotEmpty);
       expect(snapshot.activeUtterance.audioAssetId, 'rr_shoes_001');
       expect(snapshot.metadata.lastEventId, isNull);
       expect(snapshot.metadata.updatedAt.isUtc, isTrue);
@@ -237,6 +238,7 @@ ProductSnapshot _initialSnapshot() => ProductSnapshot.initial(
     displayId: 'shoes_on_ready_v1',
     primary: 'Let’s put your shoes on.',
     zhSupport: '我们来穿鞋吧。',
+    actionCue: '拿起鞋时',
     audioAssetId: 'rr_shoes_001',
   ),
   updatedAt: DateTime.utc(2026, 6, 19),

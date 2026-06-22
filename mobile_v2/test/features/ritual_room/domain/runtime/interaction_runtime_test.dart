@@ -301,6 +301,7 @@ ActiveUtterance _activeUtterance(String signal) => ActiveUtterance(
       ? 'Let’s put your shoes on.'
       : "Let's try one shoe together.",
   zhSupport: signal == 'shared_action' ? '我们来穿鞋吧。' : '我们先一起试一只鞋。',
+  actionCue: 'shared action moment',
   audioAssetId: signal == 'shared_action' ? 'rr_shoes_001' : 'rr_shoes_002',
 );
 
@@ -336,5 +337,6 @@ void _expectActiveUtterance(ActiveUtterance actual, ActiveUtterance expected) {
   expect(actual.displayId, expected.displayId);
   expect(actual.primary, expected.primary);
   expect(actual.zhSupport, expected.zhSupport);
+  expect(actual.actionCue, expected.actionCue);
   expect(actual.audioAssetId, expected.audioAssetId);
 }

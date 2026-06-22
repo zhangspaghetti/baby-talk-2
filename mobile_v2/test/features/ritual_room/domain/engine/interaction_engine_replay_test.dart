@@ -233,6 +233,7 @@ ActiveUtterance _activeUtterance(String marker) => ActiveUtterance(
   displayId: 'display-$marker',
   primary: 'primary-$marker',
   zhSupport: 'helper-$marker',
+  actionCue: 'shared action moment',
   audioAssetId: 'audio-$marker',
   contextLabel: 'fit-$marker',
 );
@@ -283,6 +284,7 @@ void _expectSnapshot(ProductSnapshot actual, ProductSnapshot expected) {
   expect(actual.activeUtterance.displayId, expected.activeUtterance.displayId);
   expect(actual.activeUtterance.primary, expected.activeUtterance.primary);
   expect(actual.activeUtterance.zhSupport, expected.activeUtterance.zhSupport);
+  expect(actual.activeUtterance.actionCue, expected.activeUtterance.actionCue);
   expect(
     actual.activeUtterance.audioAssetId,
     expected.activeUtterance.audioAssetId,

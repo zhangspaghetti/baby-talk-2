@@ -73,6 +73,7 @@ final class RitualRoomMapper {
       displayId: value.displayId,
       primary: value.primary,
       zhSupport: value.zhSupport,
+      actionCue: value.actionCue,
       audioAssetId: value.audioAssetId,
       contextLabel: value.contextLabel,
       gentleSupport: value.gentleSupport,

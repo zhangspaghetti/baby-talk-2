@@ -148,6 +148,7 @@ void main() {
           displayId: 'shoes_on_ready_v1',
           primary: 'Let’s put your shoes on.',
           zhSupport: '我们来穿鞋吧。',
+          actionCue: '拿起鞋时',
           audioAssetId: 'rr_shoes_001',
         ),
       );
@@ -163,6 +164,7 @@ void main() {
       expect(jsonEncode(json), isNot(contains('gentleSupport')));
       expect(roundTripped.activeUtterance.contextLabel, isNull);
       expect(roundTripped.activeUtterance.gentleSupport, isNull);
+      expect(roundTripped.activeUtterance.actionCue, '拿起鞋时');
     });
 
     test('legacy utterance shape preserves present optional active fields', () {
@@ -171,6 +173,7 @@ void main() {
           displayId: 'shoes_on_revised_wait_v1',
           primary: 'You don’t want your shoes on yet.',
           zhSupport: '你现在还不想穿鞋。',
+          actionCue: '宝宝停下来时',
           audioAssetId: 'rr_shoes_002',
           contextLabel: '还不想穿',
           gentleSupport: '可以先等等。',
@@ -192,6 +195,7 @@ void main() {
       );
       expect(roundTripped.activeUtterance.contextLabel, '还不想穿');
       expect(roundTripped.activeUtterance.gentleSupport, '可以先等等。');
+      expect(roundTripped.activeUtterance.actionCue, '宝宝停下来时');
     });
 
     test('schema 1 ignores unknown optional fields and maps product truth', () {
@@ -390,6 +394,7 @@ ProductSnapshot _snapshot({ActiveUtterance? activeUtterance}) =>
             displayId: 'shoes_on_pause_v1',
             primary: "Let's pause by the shoes.",
             zhSupport: '我们先在鞋子旁边等等。',
+            actionCue: '宝宝停下来时',
             audioAssetId: 'rr_shoes_002',
             contextLabel: 'uncertain',
           ),

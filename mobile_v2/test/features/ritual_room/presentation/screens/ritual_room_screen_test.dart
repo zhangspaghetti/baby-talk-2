@@ -543,6 +543,7 @@ ProductSnapshot _snapshot({
               ? 'Let’s put your shoes on.'
               : 'revised utterance $revision'),
       zhSupport: helper,
+      actionCue: revision == 0 ? '拿起鞋时' : '宝宝停下来时',
       audioAssetId: revision == 0 ? 'rr_shoes_001' : 'rr_shoes_002',
     ),
     metadata: base.metadata,

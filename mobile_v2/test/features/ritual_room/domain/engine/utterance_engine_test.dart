@@ -65,6 +65,7 @@ final class _FakeActiveUtteranceSource implements ActiveUtteranceSource {
       displayId: 'shoes_on_revised_wait_v1',
       primary: 'You don’t want your shoes on yet.',
       zhSupport: '你现在还不想穿鞋。',
+      actionCue: 'shared action moment',
       contextLabel: '还不想穿',
       gentleSupport: '可以先等等。',
       audioAssetId: 'rr_shoes_002',

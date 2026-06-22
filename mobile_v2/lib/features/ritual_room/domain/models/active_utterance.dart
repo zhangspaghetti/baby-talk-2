@@ -4,6 +4,7 @@ final class ActiveUtterance {
     required this.displayId,
     required this.primary,
     required this.zhSupport,
+    required this.actionCue,
     required this.audioAssetId,
     this.contextLabel,
     this.gentleSupport,
@@ -12,6 +13,7 @@ final class ActiveUtterance {
   final String displayId;
   final String primary;
   final String zhSupport;
+  final String actionCue;
   final String audioAssetId;
   final String? contextLabel;
   final String? gentleSupport;

@@ -377,5 +377,6 @@ ActiveUtterance _activeUtterance() => const ActiveUtterance(
   displayId: 'shoes_on_ready_v1',
   primary: 'Let’s put your shoes on.',
   zhSupport: '我们来穿鞋吧。',
+  actionCue: 'shared action moment',
   audioAssetId: 'rr_shoes_001',
 );

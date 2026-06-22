@@ -123,6 +123,7 @@ final class InteractionMapper {
           snapshot.activeUtterance.audioAssetId,
           _encodeOptional(snapshot.activeUtterance.contextLabel),
           _encodeOptional(snapshot.activeUtterance.gentleSupport),
+          snapshot.activeUtterance.actionCue,
         ],
       ),
       metadata: InteractionSnapshotMetadataResponse(
@@ -173,6 +174,7 @@ final class InteractionMapper {
         displayId: response.utterance.clarityLevel,
         primary: response.utterance.primary,
         zhSupport: response.utterance.zhHelper,
+        actionCue: _decodedActionCue(response.utterance),
         audioAssetId: response.utterance.alternatives.isEmpty
             ? 'transport_audio_unavailable'
             : response.utterance.alternatives.first,
@@ -257,6 +259,11 @@ String? _decodedGentleSupport(InteractionUtteranceResponse response) {
   }
   return _decodeOptional(response.alternatives[2]);
 }
+
+String _decodedActionCue(InteractionUtteranceResponse response) =>
+    response.alternatives.length < 4
+    ? 'shared action moment'
+    : response.alternatives[3];
 
 String _encodeOptional(String? value) => value == null ? '0' : '1$value';
 
