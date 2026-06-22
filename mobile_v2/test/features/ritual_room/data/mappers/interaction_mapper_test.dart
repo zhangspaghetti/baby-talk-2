@@ -153,18 +153,20 @@ void main() {
         ),
       );
 
-      final json = mapper.snapshotFromDomain(original).toJson();
+      final response = mapper.snapshotFromDomain(original);
+      final json = response.toJson();
       final roundTripped = mapper.snapshotToDomain(
         InteractionSnapshotResponse.fromJson(json),
       );
 
+      expect(response.utterance.alternatives, ['rr_shoes_001', '0', '0']);
       expect(json, contains('utterance'));
       expect(json, isNot(contains('activeUtterance')));
       expect(jsonEncode(json), isNot(contains('contextLabel')));
       expect(jsonEncode(json), isNot(contains('gentleSupport')));
       expect(roundTripped.activeUtterance.contextLabel, isNull);
       expect(roundTripped.activeUtterance.gentleSupport, isNull);
-      expect(roundTripped.activeUtterance.actionCue, '拿起鞋时');
+      expect(roundTripped.activeUtterance.actionCue, 'shared action moment');
     });
 
     test('legacy utterance shape preserves present optional active fields', () {
@@ -180,11 +182,17 @@ void main() {
         ),
       );
 
-      final json = mapper.snapshotFromDomain(original).toJson();
+      final response = mapper.snapshotFromDomain(original);
+      final json = response.toJson();
       final roundTripped = mapper.snapshotToDomain(
         InteractionSnapshotResponse.fromJson(json),
       );
 
+      expect(response.utterance.alternatives, [
+        'rr_shoes_002',
+        '1还不想穿',
+        '1可以先等等。',
+      ]);
       expect(json, contains('utterance'));
       expect(json, isNot(contains('activeUtterance')));
       expect(jsonEncode(json), isNot(contains('contextLabel')));
@@ -195,7 +203,7 @@ void main() {
       );
       expect(roundTripped.activeUtterance.contextLabel, '还不想穿');
       expect(roundTripped.activeUtterance.gentleSupport, '可以先等等。');
-      expect(roundTripped.activeUtterance.actionCue, '宝宝停下来时');
+      expect(roundTripped.activeUtterance.actionCue, 'shared action moment');
     });
 
     test('schema 1 ignores unknown optional fields and maps product truth', () {
