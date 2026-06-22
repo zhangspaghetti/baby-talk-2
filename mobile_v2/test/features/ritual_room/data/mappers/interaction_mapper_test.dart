@@ -142,6 +142,58 @@ void main() {
   });
 
   group('InteractionSnapshotResponse', () {
+    test('legacy utterance shape preserves absent optional active fields', () {
+      final original = _snapshot(
+        activeUtterance: const ActiveUtterance(
+          displayId: 'shoes_on_ready_v1',
+          primary: 'Let’s put your shoes on.',
+          zhSupport: '我们来穿鞋吧。',
+          audioAssetId: 'rr_shoes_001',
+        ),
+      );
+
+      final json = mapper.snapshotFromDomain(original).toJson();
+      final roundTripped = mapper.snapshotToDomain(
+        InteractionSnapshotResponse.fromJson(json),
+      );
+
+      expect(json, contains('utterance'));
+      expect(json, isNot(contains('activeUtterance')));
+      expect(jsonEncode(json), isNot(contains('contextLabel')));
+      expect(jsonEncode(json), isNot(contains('gentleSupport')));
+      expect(roundTripped.activeUtterance.contextLabel, isNull);
+      expect(roundTripped.activeUtterance.gentleSupport, isNull);
+    });
+
+    test('legacy utterance shape preserves present optional active fields', () {
+      final original = _snapshot(
+        activeUtterance: const ActiveUtterance(
+          displayId: 'shoes_on_revised_wait_v1',
+          primary: 'You don’t want your shoes on yet.',
+          zhSupport: '你现在还不想穿鞋。',
+          audioAssetId: 'rr_shoes_002',
+          contextLabel: '还不想穿',
+          gentleSupport: '可以先等等。',
+        ),
+      );
+
+      final json = mapper.snapshotFromDomain(original).toJson();
+      final roundTripped = mapper.snapshotToDomain(
+        InteractionSnapshotResponse.fromJson(json),
+      );
+
+      expect(json, contains('utterance'));
+      expect(json, isNot(contains('activeUtterance')));
+      expect(jsonEncode(json), isNot(contains('contextLabel')));
+      expect(jsonEncode(json), isNot(contains('gentleSupport')));
+      expect(
+        roundTripped.activeUtterance.displayId,
+        'shoes_on_revised_wait_v1',
+      );
+      expect(roundTripped.activeUtterance.contextLabel, '还不想穿');
+      expect(roundTripped.activeUtterance.gentleSupport, '可以先等等。');
+    });
+
     test('schema 1 ignores unknown optional fields and maps product truth', () {
       final json = _snapshotJson()
         ..['future_optional_field'] = {'ignored': true}
@@ -297,52 +349,55 @@ void main() {
   });
 }
 
-ProductSnapshot _snapshot() => ProductSnapshot(
-  schemaVersion: ProductSnapshot.currentSchemaVersion,
-  revision: 3,
-  interactionId: 'interaction-1',
-  ritualRoomId: 'shoes_on_room_v1',
-  anchor: 'putting_shoes_on',
-  normalizedContext: NormalizedInput(
-    semanticSignals: const ['uncertain'],
-    intentEstimate: 'observe',
-    momentHypothesis: 'the current shared-action moment remains uncertain',
-    contextFrame: const {
-      'actionContext': 'putting shoes on',
-      'sourceModality': 'reaction_selection',
-    },
-    confidence: 0.45,
-    eventSummary: 'the current interaction evidence is uncertain',
-  ),
-  memory: ContextMemory(
-    summary: 'the current interaction evidence is uncertain',
-    eventLog: const ['the current interaction evidence is uncertain'],
-    signalWeights: const {'uncertain': 1},
-    interactionTrend: 'uncertain',
-    contextStability: 0.5,
-    narrative: 'The routine contains mixed current-interaction evidence.',
-  ),
-  strategy: StrategyDecision(
-    primary: PressurePolicy.lowPressure,
-    modifiers: const [StrategyModifier.pause, StrategyModifier.simplify],
-    confidence: 0.8,
-    rationale: 'current evidence remains uncertain',
-    pressureLevel: 20,
-    recommendedTone: 'soft',
-    interactionHint: 'pause and offer one shared action',
-  ),
-  activeUtterance: const ActiveUtterance(
-    displayId: 'shoes_on_pause_v1',
-    primary: "Let's pause by the shoes.",
-    zhSupport: '我们先在鞋子旁边等等。',
-    audioAssetId: 'rr_shoes_002',
-    contextLabel: 'uncertain',
-  ),
-  metadata: ProductSnapshotMetadata(
-    lastEventId: 'evt-reaction',
-    updatedAt: DateTime.parse('2026-06-20T00:30:00Z'),
-  ),
-);
+ProductSnapshot _snapshot({ActiveUtterance? activeUtterance}) =>
+    ProductSnapshot(
+      schemaVersion: ProductSnapshot.currentSchemaVersion,
+      revision: 3,
+      interactionId: 'interaction-1',
+      ritualRoomId: 'shoes_on_room_v1',
+      anchor: 'putting_shoes_on',
+      normalizedContext: NormalizedInput(
+        semanticSignals: const ['uncertain'],
+        intentEstimate: 'observe',
+        momentHypothesis: 'the current shared-action moment remains uncertain',
+        contextFrame: const {
+          'actionContext': 'putting shoes on',
+          'sourceModality': 'reaction_selection',
+        },
+        confidence: 0.45,
+        eventSummary: 'the current interaction evidence is uncertain',
+      ),
+      memory: ContextMemory(
+        summary: 'the current interaction evidence is uncertain',
+        eventLog: const ['the current interaction evidence is uncertain'],
+        signalWeights: const {'uncertain': 1},
+        interactionTrend: 'uncertain',
+        contextStability: 0.5,
+        narrative: 'The routine contains mixed current-interaction evidence.',
+      ),
+      strategy: StrategyDecision(
+        primary: PressurePolicy.lowPressure,
+        modifiers: const [StrategyModifier.pause, StrategyModifier.simplify],
+        confidence: 0.8,
+        rationale: 'current evidence remains uncertain',
+        pressureLevel: 20,
+        recommendedTone: 'soft',
+        interactionHint: 'pause and offer one shared action',
+      ),
+      activeUtterance:
+          activeUtterance ??
+          const ActiveUtterance(
+            displayId: 'shoes_on_pause_v1',
+            primary: "Let's pause by the shoes.",
+            zhSupport: '我们先在鞋子旁边等等。',
+            audioAssetId: 'rr_shoes_002',
+            contextLabel: 'uncertain',
+          ),
+      metadata: ProductSnapshotMetadata(
+        lastEventId: 'evt-reaction',
+        updatedAt: DateTime.parse('2026-06-20T00:30:00Z'),
+      ),
+    );
 
 Map<String, Object?> _snapshotJson() => {
   'schemaVersion': 1,

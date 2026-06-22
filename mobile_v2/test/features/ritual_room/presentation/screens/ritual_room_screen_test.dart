@@ -55,7 +55,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Shoes on.'), findsOneWidget);
-      expect(find.text("Let's put your shoes on."), findsOneWidget);
+      expect(find.text('Let’s put your shoes on.'), findsOneWidget);
       expect(find.text('先这样就好'), findsOneWidget);
     },
   );
@@ -96,7 +96,7 @@ void main() {
       await tester.tap(find.text('哭了'));
       await tester.pump();
 
-      expect(find.text("Let's put your shoes on."), findsOneWidget);
+      expect(find.text('Let’s put your shoes on.'), findsOneWidget);
       expect(find.text('正在换一种说法…'), findsOneWidget);
       expect(repository.inputs.single.payload, isA<ReactionSelectionPayload>());
 
@@ -131,7 +131,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.textContaining('再试'), findsOneWidget);
-      expect(find.text("Let's put your shoes on."), findsOneWidget);
+      expect(find.text('Let’s put your shoes on.'), findsOneWidget);
       expect(find.byKey(const Key('ritual-reaction-choice-0')), findsOneWidget);
 
       await tester.tap(find.byKey(const Key('ritual-reaction-choice-0')));
@@ -540,7 +540,7 @@ ProductSnapshot _snapshot({
       primary:
           utterance ??
           (revision == 0
-              ? "Let's put your shoes on."
+              ? 'Let’s put your shoes on.'
               : 'revised utterance $revision'),
       zhSupport: helper,
       audioAssetId: revision == 0 ? 'rr_shoes_001' : 'rr_shoes_002',

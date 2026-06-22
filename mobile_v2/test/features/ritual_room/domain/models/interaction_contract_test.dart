@@ -83,7 +83,7 @@ void main() {
       expect(snapshot.ritualRoomId, 'shoes_on_room_v1');
       expect(snapshot.anchor, 'Shoes on.');
       expect(snapshot.activeUtterance.displayId, 'shoes_on_ready_v1');
-      expect(snapshot.activeUtterance.primary, "Let's put your shoes on.");
+      expect(snapshot.activeUtterance.primary, 'Let’s put your shoes on.');
       expect(snapshot.activeUtterance.zhSupport, '我们来穿鞋吧。');
       expect(snapshot.activeUtterance.audioAssetId, 'rr_shoes_001');
       expect(snapshot.metadata.lastEventId, isNull);
@@ -235,7 +235,7 @@ ProductSnapshot _initialSnapshot() => ProductSnapshot.initial(
   ),
   activeUtterance: ActiveUtterance(
     displayId: 'shoes_on_ready_v1',
-    primary: "Let's put your shoes on.",
+    primary: 'Let’s put your shoes on.',
     zhSupport: '我们来穿鞋吧。',
     audioAssetId: 'rr_shoes_001',
   ),

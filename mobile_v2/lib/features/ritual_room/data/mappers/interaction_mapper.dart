@@ -121,8 +121,8 @@ final class InteractionMapper {
         contextFit: snapshot.activeUtterance.contextLabel ?? snapshot.anchor,
         alternatives: [
           snapshot.activeUtterance.audioAssetId,
-          if (snapshot.activeUtterance.gentleSupport != null)
-            snapshot.activeUtterance.gentleSupport!,
+          _encodeOptional(snapshot.activeUtterance.contextLabel),
+          _encodeOptional(snapshot.activeUtterance.gentleSupport),
         ],
       ),
       metadata: InteractionSnapshotMetadataResponse(
@@ -176,10 +176,8 @@ final class InteractionMapper {
         audioAssetId: response.utterance.alternatives.isEmpty
             ? 'transport_audio_unavailable'
             : response.utterance.alternatives.first,
-        contextLabel: response.utterance.contextFit,
-        gentleSupport: response.utterance.alternatives.length < 2
-            ? null
-            : response.utterance.alternatives[1],
+        contextLabel: _decodedContextLabel(response.utterance),
+        gentleSupport: _decodedGentleSupport(response.utterance),
       ),
       metadata: ProductSnapshotMetadata(
         lastEventId: response.metadata.lastEventId,
@@ -245,6 +243,28 @@ final class InteractionMapper {
     return AdvanceRejected(code: code, latestSnapshot: latestSnapshot);
   }
 }
+
+String? _decodedContextLabel(InteractionUtteranceResponse response) {
+  if (response.alternatives.length < 3) {
+    return response.contextFit;
+  }
+  return _decodeOptional(response.alternatives[1]);
+}
+
+String? _decodedGentleSupport(InteractionUtteranceResponse response) {
+  if (response.alternatives.length < 3) {
+    return response.alternatives.length < 2 ? null : response.alternatives[1];
+  }
+  return _decodeOptional(response.alternatives[2]);
+}
+
+String _encodeOptional(String? value) => value == null ? '0' : '1$value';
+
+String? _decodeOptional(String value) => switch (value) {
+  '0' => null,
+  _ when value.startsWith('1') => value.substring(1),
+  _ => value,
+};
 
 String _payloadString(InteractionInputDto input, String key) {
   final value = input.payload[key];

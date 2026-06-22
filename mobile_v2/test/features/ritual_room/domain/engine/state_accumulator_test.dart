@@ -144,7 +144,7 @@ ProductSnapshot _snapshot() => ProductSnapshot.initial(
   ),
   activeUtterance: const ActiveUtterance(
     displayId: 'shoes_on_ready_v1',
-    primary: "Let's put your shoes on.",
+    primary: 'Let’s put your shoes on.',
     zhSupport: '我们来穿鞋吧。',
     audioAssetId: 'rr_shoes_001',
   ),

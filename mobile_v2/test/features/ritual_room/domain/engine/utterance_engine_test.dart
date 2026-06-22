@@ -21,7 +21,7 @@ void main() {
       expect(source.lastRitualRoomId, 'shoes_on_room_v1');
       expect(source.lastSlot, ActiveUtteranceSlot.notReadyYet);
       expect(utterance.displayId, 'shoes_on_revised_wait_v1');
-      expect(utterance.primary, "You don't want your shoes on yet.");
+      expect(utterance.primary, 'You don’t want your shoes on yet.');
       expect(utterance.zhSupport, '你现在还不想穿鞋。');
       expect(utterance.audioAssetId, 'rr_shoes_002');
     });
@@ -63,7 +63,7 @@ final class _FakeActiveUtteranceSource implements ActiveUtteranceSource {
     lastSlot = slot;
     return const ActiveUtterance(
       displayId: 'shoes_on_revised_wait_v1',
-      primary: "You don't want your shoes on yet.",
+      primary: 'You don’t want your shoes on yet.',
       zhSupport: '你现在还不想穿鞋。',
       contextLabel: '还不想穿',
       gentleSupport: '可以先等等。',

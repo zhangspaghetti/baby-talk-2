@@ -135,7 +135,7 @@ void main() {
       final revised = _snapshot(
         revision: 1,
         contextLabel: '还不想穿',
-        utterance: "You don't want your shoes on yet.",
+        utterance: 'You don’t want your shoes on yet.',
         helper: '你现在还不想穿鞋。',
       );
 
@@ -229,7 +229,7 @@ void main() {
         '出门穿鞋',
         'Shoes on.',
         '穿鞋啦。',
-        "Let's put your shoes on.",
+        'Let’s put your shoes on.',
         '我们来穿鞋吧。',
         '拿起鞋时',
         '听一遍',
@@ -370,7 +370,7 @@ ProductSnapshot _snapshot({
   String roomId = 'shoes_on_room_v1',
   String anchor = 'Shoes on.',
   String contextLabel = '出门穿鞋',
-  String utterance = "Let's put your shoes on.",
+  String utterance = 'Let’s put your shoes on.',
   String helper = '我们来穿鞋吧。',
 }) {
   return ProductSnapshot(

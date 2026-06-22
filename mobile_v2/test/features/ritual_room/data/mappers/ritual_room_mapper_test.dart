@@ -26,7 +26,7 @@ void main() {
           ActiveUtteranceSlot.ready,
         );
         expect(active.displayId, 'shoes_on_ready_v1');
-        expect(active.primary, "Let's put your shoes on.");
+        expect(active.primary, 'Let’s put your shoes on.');
         expect(active.zhSupport, '我们来穿鞋吧。');
         expect(active.audioAssetId, 'rr_shoes_001');
         final revised = const RitualRoomMapper().toActiveUtterance(
@@ -203,13 +203,13 @@ Map<String, Object?> _payload() => {
   'active_utterances': {
     'ready': {
       'display_id': 'shoes_on_ready_v1',
-      'primary': "Let's put your shoes on.",
+      'primary': 'Let’s put your shoes on.',
       'zh_support': '我们来穿鞋吧。',
       'audio_asset_id': 'rr_shoes_001',
     },
     'not_ready_yet': {
       'display_id': 'shoes_on_revised_wait_v1',
-      'primary': "You don't want your shoes on yet.",
+      'primary': 'You don’t want your shoes on yet.',
       'zh_support': '你现在还不想穿鞋。',
       'context_label': '还不想穿',
       'gentle_support': '可以先等等。',

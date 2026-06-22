@@ -298,7 +298,7 @@ ActiveUtterance _activeUtterance(String signal) => ActiveUtterance(
       ? 'shoes_on_ready_v1'
       : 'shoes_on_revised_wait_v1',
   primary: signal == 'shared_action'
-      ? "Let's put your shoes on."
+      ? 'Let’s put your shoes on.'
       : "Let's try one shoe together.",
   zhSupport: signal == 'shared_action' ? '我们来穿鞋吧。' : '我们先一起试一只鞋。',
   audioAssetId: signal == 'shared_action' ? 'rr_shoes_001' : 'rr_shoes_002',
