@@ -41,7 +41,6 @@ void main() {
         expect(revised.gentleSupport, '可以先等等。');
         expect(revised.actionCue, '宝宝停下来时');
         expect(revised.audioAssetId, 'rr_shoes_002');
-        expect(content.actionCue, '拿起鞋时');
         expect(content.audio.label, '听一遍');
         expect(content.reactionPrompt, '现在是什么情况？');
         expect(content.reactionChoices.map((choice) => choice.label), [
@@ -103,7 +102,6 @@ void main() {
               'audio_asset_id': 'rr_boots_002',
             },
           }
-          ..['action_cue'] = '拿起雨靴时'
           ..['reaction_choices'] = [
             {'id': 'needs_help', 'label': '想请你帮忙'},
             {'id': 'ready_now', 'label': '现在想穿了'},
@@ -121,7 +119,7 @@ void main() {
           ActiveUtteranceSlot.ready,
         );
         expect(active.primary, "Let's put your boots on.");
-        expect(content.actionCue, '拿起雨靴时');
+        expect(active.actionCue, '拿起雨靴时');
         expect(content.reactionChoices.map((choice) => choice.label), [
           '想请你帮忙',
           '现在想穿了',
@@ -266,7 +264,6 @@ Map<String, Object?> _payload() => {
       'audio_asset_id': 'rr_shoes_002',
     },
   },
-  'action_cue': '拿起鞋时',
   'audio': {'available': false, 'label': '听一遍', 'asset_reference': null},
   'reaction_prompt': '现在是什么情况？',
   'reaction_choices': [

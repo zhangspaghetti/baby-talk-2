@@ -10,7 +10,6 @@ final class RitualRoomResponse {
     required this.illustration,
     required this.listenLabel,
     required this.activeUtterances,
-    required this.actionCue,
     required this.audio,
     required this.reactionPrompt,
     required this.reactionChoices,
@@ -40,7 +39,6 @@ final class RitualRoomResponse {
             ),
           ),
         ),
-        actionCue: _requiredString(json, 'action_cue'),
         audio: RitualAudioResponse.fromJson(_requiredMap(json, 'audio')),
         reactionPrompt: _requiredString(json, 'reaction_prompt'),
         reactionChoices: _requiredList(json, 'reaction_choices')
@@ -67,7 +65,6 @@ final class RitualRoomResponse {
   final RitualIllustrationResponse illustration;
   final String listenLabel;
   final Map<String, RitualActiveUtteranceResponse> activeUtterances;
-  final String actionCue;
   final RitualAudioResponse audio;
   final String reactionPrompt;
   final List<RitualReactionChoiceResponse> reactionChoices;
@@ -88,7 +85,6 @@ final class RitualRoomResponse {
     'active_utterances': activeUtterances.map(
       (key, value) => MapEntry(key, value.toJson()),
     ),
-    'action_cue': actionCue,
     'audio': audio.toJson(),
     'reaction_prompt': reactionPrompt,
     'reaction_choices': reactionChoices

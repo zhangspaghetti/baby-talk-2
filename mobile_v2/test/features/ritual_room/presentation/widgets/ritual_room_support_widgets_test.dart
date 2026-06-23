@@ -13,15 +13,10 @@ import 'package:mobile_v2/features/ritual_room/domain/models/strategy_decision.d
 import 'package:mobile_v2/features/ritual_room/presentation/models/ritual_listen_state.dart';
 import 'package:mobile_v2/features/ritual_room/presentation/widgets/ritual_action_cue.dart';
 import 'package:mobile_v2/features/ritual_room/presentation/widgets/ritual_atmosphere_layer.dart';
-import 'package:mobile_v2/features/ritual_room/presentation/widgets/ritual_context_input_tray.dart';
 import 'package:mobile_v2/features/ritual_room/presentation/widgets/ritual_context_choices.dart';
 import 'package:mobile_v2/features/ritual_room/presentation/widgets/ritual_context_dock.dart';
-import 'package:mobile_v2/features/ritual_room/presentation/widgets/ritual_current_utterance.dart';
-import 'package:mobile_v2/features/ritual_room/presentation/widgets/ritual_identity_header.dart';
 import 'package:mobile_v2/features/ritual_room/presentation/widgets/ritual_listen_control.dart';
-import 'package:mobile_v2/features/ritual_room/presentation/widgets/ritual_reassurance.dart';
 import 'package:mobile_v2/features/ritual_room/presentation/widgets/ritual_sentence_plane.dart';
-import 'package:mobile_v2/features/ritual_room/presentation/widgets/ritual_submitting_indicator.dart';
 import 'package:mobile_v2/features/ritual_room/presentation/widgets/ritual_transient_notice.dart';
 
 void main() {
@@ -42,7 +37,6 @@ void main() {
       expect(find.byType(RitualSentencePlane), findsOneWidget);
       expect(find.byType(Card), findsNothing);
       expect(find.byType(AppBar), findsNothing);
-      expect(find.byType(RitualIdentityHeader), findsNothing);
       expect(find.text(snapshot.activeUtterance.primary), findsOneWidget);
       expect(find.text(snapshot.activeUtterance.zhSupport), findsOneWidget);
       expect(find.text(snapshot.activeUtterance.actionCue), findsOneWidget);
@@ -350,37 +344,6 @@ void main() {
     );
   });
 
-  testWidgets('compatibility uses snapshot timing before listen', (
-    tester,
-  ) async {
-    await _setPhoneViewport(tester);
-    final room = _room();
-    final snapshot = _snapshot(actionCue: 'snapshot-owned cue');
-
-    await tester.pumpWidget(
-      MaterialApp(
-        theme: BabyTalkTheme.light,
-        home: Scaffold(
-          body: RitualCurrentUtterance(
-            snapshot: snapshot,
-            actionCue: room.actionCue,
-            audio: room.audio,
-            submitting: false,
-            pendingCopy: room.pendingCopy,
-            onListen: () {},
-          ),
-        ),
-      ),
-    );
-
-    expect(find.text(snapshot.activeUtterance.actionCue), findsOneWidget);
-    expect(find.text(room.actionCue), findsNothing);
-    expect(
-      tester.getTopLeft(find.byType(RitualActionCue)).dy,
-      lessThan(tester.getTopLeft(find.byType(RitualListenControl)).dy),
-    );
-  });
-
   testWidgets(
     'keeps the ritual context dock collapsed and non modal until expanded',
     (tester) async {
@@ -398,7 +361,6 @@ void main() {
       expect(find.text(room.reactionChoices[0].label), findsNothing);
       expect(find.text(room.reactionChoices[1].label), findsNothing);
       expect(find.byType(ModalBarrier), findsNothing);
-      expect(find.byKey(const Key('ritual-reaction-sheet')), findsNothing);
 
       final entry = tester.widget<Semantics>(
         find.byKey(const Key('ritual-context-entry')),
@@ -423,7 +385,6 @@ void main() {
       expect(find.text(room.reactionChoices[0].label), findsOneWidget);
       expect(find.text(room.reactionChoices[1].label), findsOneWidget);
       expect(find.byType(ModalBarrier), findsNothing);
-      expect(find.byKey(const Key('ritual-reaction-sheet')), findsNothing);
       semantics.dispose();
     },
   );
@@ -574,133 +535,6 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets(
-    'preserves snapshot while submitting and replaces a revision in place',
-    (tester) async {
-      await _setPhoneViewport(tester);
-      final room = _room();
-      final current = _snapshot();
-      final revised = _snapshot(
-        revision: 1,
-        contextLabel: '还不想穿',
-        utterance: 'You don’t want your shoes on yet.',
-        helper: '你现在还不想穿鞋。',
-      );
-
-      await tester.pumpWidget(
-        _compatibilitySurface(room: room, snapshot: current, submitting: true),
-      );
-
-      expect(find.text(current.activeUtterance.primary), findsOneWidget);
-      expect(find.byType(RitualSubmittingIndicator), findsOneWidget);
-      expect(find.text(room.pendingCopy), findsOneWidget);
-
-      await tester.pumpWidget(
-        _compatibilitySurface(room: room, snapshot: revised),
-      );
-      await tester.pump();
-
-      expect(find.text(current.activeUtterance.primary), findsNothing);
-      expect(find.text(revised.normalizedContext.eventSummary), findsOneWidget);
-      expect(find.text(revised.activeUtterance.primary), findsOneWidget);
-      expect(find.text(revised.activeUtterance.zhSupport), findsOneWidget);
-      expect(find.byType(RitualSubmittingIndicator), findsNothing);
-    },
-  );
-
-  testWidgets(
-    'alternate payload and scaled text replace values without forbidden controls',
-    (tester) async {
-      await _setPhoneViewport(tester);
-      final alternateRoom = _room(
-        ritualRoomId: 'bath_room_v1',
-        roomName: '洗澡小声音',
-        routineAnchor: '洗澡时间',
-        anchorPhrase: 'Bath time.',
-        chineseHelper: '洗澡啦。',
-        actionCue: '放好浴巾以后，慢慢说这一句。',
-        audioLabel: '播放这句话',
-        reactionPrompt: '现在这个时刻是什么样？',
-        reactionChoices: const [
-          RitualReactionChoice(id: 'watching_water', label: '在看水'),
-          RitualReactionChoice(id: 'holding_towel', label: '抱着浴巾'),
-          RitualReactionChoice(id: 'needs_pause', label: '想先停一下'),
-        ],
-        pendingCopy: '正在准备更贴近此刻的说法…',
-        reassurance: '不用要求回应，只要把这句话放进正在发生的动作里。',
-        quietExit: '今天先到这里',
-      );
-      final alternateSnapshot = _snapshot(
-        roomId: alternateRoom.ritualRoomId,
-        anchor: alternateRoom.anchorPhrase,
-        contextLabel: '正在一起准备很长很长的洗澡步骤',
-        utterance:
-            'Let us put the warm towel beside the tub before we begin bath time together.',
-        helper: '开始一起洗澡之前，我们先把暖和的浴巾放在浴缸旁边。',
-        actionCue: alternateRoom.actionCue,
-      );
-
-      await tester.pumpWidget(
-        MediaQuery(
-          data: const MediaQueryData(textScaler: TextScaler.linear(1.3)),
-          child: _compatibilitySurface(
-            room: alternateRoom,
-            snapshot: alternateSnapshot,
-            moreChoicesLabel: '看看其他情况',
-          ),
-        ),
-      );
-
-      for (final value in [
-        alternateRoom.roomName,
-        alternateRoom.routineAnchor,
-        alternateRoom.anchorPhrase,
-        alternateRoom.chineseHelper,
-        alternateRoom.actionCue,
-        alternateRoom.audio.label,
-        alternateRoom.reactionPrompt,
-        alternateRoom.reactionChoices[0].label,
-        alternateRoom.reactionChoices[1].label,
-        alternateRoom.reassurance,
-        alternateRoom.quietExit,
-        alternateSnapshot.normalizedContext.eventSummary,
-        alternateSnapshot.activeUtterance.primary,
-        alternateSnapshot.activeUtterance.zhSupport,
-      ]) {
-        expect(find.text(value), findsOneWidget);
-      }
-
-      for (final oldValue in [
-        '出门小声音',
-        '出门穿鞋',
-        'Shoes on.',
-        '穿鞋啦。',
-        'Let’s put your shoes on.',
-        '我们来穿鞋吧。',
-        'legacy room-level cue',
-        '听一遍',
-        '现在是什么情况？',
-        '还不想穿',
-        '想自己来',
-        '不用每句都说，说一句就够了。',
-        '先这样就好',
-      ]) {
-        expect(find.text(oldValue), findsNothing);
-      }
-
-      expect(find.byType(TextField), findsNothing);
-      expect(find.byIcon(Icons.mic), findsNothing);
-      expect(find.byType(LinearProgressIndicator), findsNothing);
-      expect(find.byType(Slider), findsNothing);
-      expect(find.textContaining('下一句'), findsNothing);
-      expect(find.textContaining('进度'), findsNothing);
-      expect(find.textContaining('积分'), findsNothing);
-      expect(find.textContaining('任务'), findsNothing);
-      expect(find.textContaining('Garden'), findsNothing);
-      expect(find.textContaining('表现'), findsNothing);
-      expect(tester.takeException(), isNull);
-    },
-  );
 }
 
 BoxDecoration _atmosphereDecoration(WidgetTester tester) =>
@@ -747,55 +581,6 @@ Widget _sentenceFieldSurface({
                 onListen: onListen,
                 motionDuration: motionDuration,
               ),
-            ),
-          ],
-        ),
-      ),
-    ),
-  );
-}
-
-Widget _compatibilitySurface({
-  required RitualRoomContent room,
-  required ProductSnapshot snapshot,
-  bool submitting = false,
-  String moreChoicesLabel = '更多情况',
-  VoidCallback? onListen,
-  ValueChanged<String>? onReactionSelected,
-  VoidCallback? onQuietExit,
-}) {
-  return MaterialApp(
-    theme: BabyTalkTheme.light,
-    home: Scaffold(
-      body: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          children: [
-            RitualIdentityHeader(
-              illustration: room.illustration,
-              roomName: room.roomName,
-              routineAnchor: room.routineAnchor,
-              anchorPhrase: room.anchorPhrase,
-              chineseHelper: room.chineseHelper,
-            ),
-            RitualCurrentUtterance(
-              snapshot: snapshot,
-              actionCue: room.actionCue,
-              audio: room.audio,
-              submitting: submitting,
-              pendingCopy: room.pendingCopy,
-              onListen: onListen ?? () {},
-            ),
-            RitualContextInputTray(
-              prompt: room.reactionPrompt,
-              choices: room.reactionChoices,
-              moreChoicesLabel: moreChoicesLabel,
-              onReactionSelected: onReactionSelected ?? (_) {},
-            ),
-            RitualReassurance(
-              message: room.reassurance,
-              quietExitLabel: room.quietExit,
-              onQuietExit: onQuietExit ?? () {},
             ),
           ],
         ),
@@ -866,7 +651,6 @@ RitualRoomContent _room({
   String routineAnchor = '出门穿鞋',
   String anchorPhrase = 'Shoes on.',
   String chineseHelper = '穿鞋啦。',
-  String actionCue = 'legacy room-level cue',
   String audioLabel = '听一遍',
   String reactionPrompt = '现在是什么情况？',
   List<RitualReactionChoice> reactionChoices = const [
@@ -892,7 +676,6 @@ RitualRoomContent _room({
           'assets/illustrations/rituals/shoes_on/shoes_on_approved_v1.png',
       status: 'approved',
     ),
-    actionCue: actionCue,
     audio: RitualAudioContent(
       available: true,
       label: audioLabel,

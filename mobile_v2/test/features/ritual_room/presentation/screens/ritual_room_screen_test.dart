@@ -659,7 +659,6 @@ void main() {
         routineAnchor: '雨天出门',
         anchorPhrase: 'Boots on.',
         chineseHelper: '穿雨靴啦。',
-        actionCue: '拿起雨靴时',
         reassurance: '只说一句也可以。',
         quietExit: '今天先到这里',
       );
@@ -677,7 +676,7 @@ void main() {
                   utterance: "Let's put your boots on.",
                   helper: '我们来穿雨靴吧。',
                   label: '雨天出门',
-                  actionCue: alternate.actionCue,
+                  actionCue: '拿起雨靴时',
                 ),
               ),
             ),
@@ -843,7 +842,6 @@ RitualRoomContent _room({
   String routineAnchor = '出门穿鞋',
   String anchorPhrase = 'Shoes on.',
   String chineseHelper = '穿鞋啦。',
-  String actionCue = '拿起鞋时',
   String reassurance = '不用每句都说，说一句就够了。',
   String quietExit = '先这样就好',
 }) => RitualRoomContent(
@@ -857,7 +855,6 @@ RitualRoomContent _room({
     assetPath: 'assets/illustrations/rituals/shoes_on/shoes_on_approved_v1.png',
     status: 'approved',
   ),
-  actionCue: actionCue,
   audio: const RitualAudioContent(
     available: true,
     label: '听一遍',

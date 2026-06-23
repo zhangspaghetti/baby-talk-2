@@ -56,7 +56,6 @@ final class RitualRoomContent {
     required this.anchorPhrase,
     required this.chineseHelper,
     required this.illustration,
-    required this.actionCue,
     required this.audio,
     required this.reactionPrompt,
     required List<RitualReactionChoice> reactionChoices,
@@ -75,7 +74,6 @@ final class RitualRoomContent {
   final String anchorPhrase;
   final String chineseHelper;
   final RitualIllustration illustration;
-  final String actionCue;
   final RitualAudioContent audio;
   final String reactionPrompt;
   final List<RitualReactionChoice> reactionChoices;

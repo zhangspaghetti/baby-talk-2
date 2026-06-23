@@ -21,7 +21,6 @@ void main() {
       expect(content.roomName, '雨天小声音');
       expect(content.anchorPhrase, 'Boots on.');
       expect(content.chineseHelper, '穿雨靴啦。');
-      expect(content.actionCue, '拿起雨靴时');
       expect(content.reactionChoices.single.label, '现在想穿了');
 
       final active = await repository.resolveActiveUtterance(
@@ -83,7 +82,6 @@ RitualRoomResponse _alternateResponse() => RitualRoomResponse.fromJson({
       'audio_asset_id': 'rr_boots_002',
     },
   },
-  'action_cue': '拿起雨靴时',
   'audio': {'available': false, 'label': '听一遍', 'asset_reference': null},
   'reaction_prompt': '现在是什么情况？',
   'reaction_choices': [

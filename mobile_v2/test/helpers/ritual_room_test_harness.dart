@@ -92,7 +92,6 @@ RitualRoomContent ritualRoomTestRoom({bool audioAvailable = true}) {
       assetPath: 'assets/illustrations/rituals/shoes_on/shoes_on_approved_v1.png',
       status: 'approved',
     ),
-    actionCue: '拿起鞋时',
     audio: RitualAudioContent(
       available: audioAvailable,
       label: audioAvailable ? '听一遍' : '暂时听不了',

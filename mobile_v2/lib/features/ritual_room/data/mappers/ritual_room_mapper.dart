@@ -34,7 +34,6 @@ final class RitualRoomMapper {
         assetPath: response.illustration.assetPath,
         status: response.illustration.status,
       ),
-      actionCue: response.actionCue,
       audio: RitualAudioContent(
         available: response.audio.available,
         label: response.audio.label,

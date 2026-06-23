@@ -143,10 +143,11 @@ void main() {
     (tester) async {
       await _setPhoneViewport(tester);
       final room = _room(
-        actionCue: '把鞋放在身边以后，停一下，再慢慢说出这一句。',
         reassurance: '不用要求孩子回应，也不用催促，只要自然地说一句就够了。',
       );
-      final snapshot = _longSnapshot(actionCue: room.actionCue);
+      final snapshot = _longSnapshot(
+        actionCue: '把鞋放在身边以后，停一下，再慢慢说出这一句。',
+      );
 
       await tester.pumpWidget(
         MediaQuery(
@@ -197,10 +198,11 @@ void main() {
       const viewports = [Size(427, 952), Size(390, 844)];
       const textScales = [1.0, 1.3, 2.0];
       final room = _room(
-        actionCue: '把鞋放在身边以后，停一下，再慢慢说出这一句。',
         reassurance: '不用要求孩子回应，也不用催促，只要自然地说一句就够了。',
       );
-      final snapshot = _longSnapshot(actionCue: room.actionCue);
+      final snapshot = _longSnapshot(
+        actionCue: '把鞋放在身边以后，停一下，再慢慢说出这一句。',
+      );
 
       for (final viewport in viewports) {
         for (final scale in textScales) {
@@ -424,7 +426,6 @@ Future<void> _setPhoneViewport(WidgetTester tester) async {
 }
 
 RitualRoomContent _room({
-  String actionCue = '拿起鞋时',
   String reassurance = '不用每句都说，说一句就够了。',
   bool audioAvailable = true,
 }) => RitualRoomContent(
@@ -438,7 +439,6 @@ RitualRoomContent _room({
     assetPath: 'assets/illustrations/rituals/shoes_on/shoes_on_approved_v1.png',
     status: 'approved',
   ),
-  actionCue: actionCue,
   audio: RitualAudioContent(
     available: audioAvailable,
     label: '听一遍',
