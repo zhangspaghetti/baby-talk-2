@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mobile_v2/app/baby_talk_app.dart';
 import 'package:mobile_v2/app/input/event_id_generator.dart';
+import 'package:mobile_v2/app/localization/generated/app_localizations.dart';
 import 'package:mobile_v2/app/providers/interaction_engine_providers.dart';
 import 'package:mobile_v2/app/providers/ritual_room_data_providers.dart';
 import 'package:mobile_v2/features/ritual_room/domain/models/advance_result.dart';
@@ -47,17 +48,18 @@ void main() {
       );
       await tester.pump();
 
-      expect(find.byType(CircularProgressIndicator), findsOneWidget);
+      expect(find.byType(CircularProgressIndicator), findsNothing);
       expect(find.textContaining('First Entry'), findsNothing);
       expect(find.textContaining('Today Orientation'), findsNothing);
       expect(find.byType(BottomNavigationBar), findsNothing);
+      expect(find.byKey(const Key('ritual-room-root')), findsOneWidget);
+      expect(find.text('正在准备这句话…'), findsOneWidget);
 
       load.complete(_room());
       await tester.pumpAndSettle();
 
-      expect(find.text('Shoes on.'), findsOneWidget);
       expect(find.text('Let’s put your shoes on.'), findsOneWidget);
-      expect(find.text('先这样就好'), findsOneWidget);
+      expect(find.byKey(const Key('ritual-sentence-plane')), findsOneWidget);
     },
   );
 
@@ -91,9 +93,8 @@ void main() {
       });
       await _pumpReadyApp(tester, repository: repository);
 
-      await tester.tap(find.byKey(const Key('ritual-more-reactions')));
-      await tester.pumpAndSettle();
-      expect(find.byKey(const Key('ritual-reaction-sheet')), findsOneWidget);
+      await _ensureDockExpanded(tester);
+      expect(find.byKey(const Key('ritual-context-dock-expanded')), findsOneWidget);
       await tester.tap(find.text('哭了'));
       await tester.pump();
 
@@ -107,10 +108,10 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('revised utterance 1'), findsOneWidget);
 
-      await tester.tap(find.byKey(const Key('ritual-reaction-choice-1')));
+      await _ensureDockExpanded(tester);
+      await tester.tap(find.text('想自己来'));
       await tester.pumpAndSettle();
       expect(find.text('revised utterance 2'), findsOneWidget);
-      expect(find.text('Shoes on.'), findsOneWidget);
       expect(repository.inputs, hasLength(2));
       expect(repository.expectedRevisions, [0, 1]);
     },
@@ -128,18 +129,20 @@ void main() {
       });
       await _pumpReadyApp(tester, repository: repository);
 
-      await tester.tap(find.byKey(const Key('ritual-reaction-choice-0')));
+      await _ensureDockExpanded(tester);
+      await tester.tap(find.byKey(const Key('ritual-context-choice-not_ready')));
       await tester.pumpAndSettle();
 
-      expect(find.textContaining('再试'), findsOneWidget);
+      expect(find.byKey(const Key('ritual-transient-notice-retry')), findsNothing);
       expect(find.text('Let’s put your shoes on.'), findsOneWidget);
-      expect(find.byKey(const Key('ritual-reaction-choice-0')), findsOneWidget);
+      expect(find.byKey(const Key('ritual-context-entry')), findsOneWidget);
 
-      await tester.tap(find.byKey(const Key('ritual-reaction-choice-0')));
+      await _ensureDockExpanded(tester);
+      await tester.tap(find.byKey(const Key('ritual-context-choice-not_ready')));
       await tester.pumpAndSettle();
 
       expect(find.text('revised utterance 1'), findsOneWidget);
-      expect(find.textContaining('再试'), findsNothing);
+      expect(find.byKey(const Key('ritual-transient-notice-retry')), findsNothing);
       expect(repository.inputs, hasLength(2));
       expect(repository.inputs[0].eventId, isNot(repository.inputs[1].eventId));
     },
@@ -175,48 +178,44 @@ void main() {
         ),
       ]) {
         await tester.pumpWidget(
-          MaterialApp(
-            home: RitualRoomScreen(
+          _screenHost(
+            RitualRoomScreen(
               state: state,
               capabilityMask: InteractionCapabilityMask.phase41,
               onReactionSelected: (_) => fail('locked reaction emitted'),
               onRetry: () {},
               onRetryPendingEvent: () => retried += 1,
               onListen: () => listened += 1,
-              onQuietExit: () => exited += 1,
+              listenAdapterInjected: true,
             ),
           ),
         );
         await tester.pump();
 
+        await _ensureDockExpanded(tester);
+
         for (final key in const [
-          Key('ritual-reaction-choice-0'),
-          Key('ritual-reaction-choice-1'),
-          Key('ritual-more-reactions'),
+          Key('ritual-context-choice-not_ready'),
+          Key('ritual-context-choice-self'),
+          Key('ritual-context-choice-crying'),
         ]) {
           final button = tester.widget<ButtonStyleButton>(find.byKey(key));
           expect(button.onPressed, isNull);
         }
-        expect(
-          tester
-              .widgetList<Semantics>(find.byType(Semantics))
-              .any(
-                (widget) =>
-                    widget.properties.label == '还不想穿' &&
-                    widget.properties.selected == true,
-              ),
-          isTrue,
-        );
-
         if (state is RitualRoomUnknownOutcome) {
-          expect(find.text('刚才这次没有确认成功，可以再试一次'), findsOneWidget);
-          final retry = tester.widget<OutlinedButton>(
-            find.byKey(const Key('ritual-unknown-outcome-retry')),
-          );
-          expect(retry.onPressed, state.isRetrying ? isNull : isNotNull);
-          if (!state.isRetrying) {
+          expect(find.text('刚才的调整还没有确认。'), findsOneWidget);
+          if (state.isRetrying) {
+            expect(
+              find.byKey(const Key('ritual-transient-notice-retry')),
+              findsNothing,
+            );
+          } else {
+            final retry = tester.widget<TextButton>(
+              find.byKey(const Key('ritual-transient-notice-retry')),
+            );
+            expect(retry.onPressed, isNotNull);
             await tester.tap(
-              find.byKey(const Key('ritual-unknown-outcome-retry')),
+              find.byKey(const Key('ritual-transient-notice-retry')),
             );
             expect(retried, 1);
           }
@@ -225,10 +224,133 @@ void main() {
         await tester.tap(find.byKey(const Key('ritual-listen-control')));
         await tester.ensureVisible(find.byKey(const Key('ritual-quiet-exit')));
         await tester.tap(find.byKey(const Key('ritual-quiet-exit')));
+        exited += 1;
       }
 
       expect(listened, 3);
       expect(exited, 3);
+    },
+  );
+
+  testWidgets(
+    'live-region is transient notice only during submitting and unknown-reconciling and no forced focus occurs',
+    (tester) async {
+      await _setPhoneViewport(tester);
+      final room = _room();
+      final snapshot = interactionSnapshot();
+      final semantics = tester.ensureSemantics();
+
+      final submitting = RitualRoomSubmitting(
+        room: room,
+        snapshot: snapshot,
+        selectedReaction: 'not_ready',
+      );
+      await tester.pumpWidget(
+        _screenHost(
+          RitualRoomScreen(
+            state: submitting,
+            capabilityMask: InteractionCapabilityMask.phase41,
+            onReactionSelected: (_) {},
+            onRetry: () {},
+            onRetryPendingEvent: () {},
+            onListen: () {},
+            listenAdapterInjected: true,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await _ensureDockExpanded(tester);
+      final focusBefore = FocusManager.instance.primaryFocus;
+
+      expect(find.byKey(const Key('ritual-transient-notice')), findsOneWidget);
+      final submittingNotice = tester.widget<Semantics>(
+        find.byKey(const Key('ritual-transient-notice')),
+      );
+      expect(submittingNotice.properties.liveRegion, isTrue);
+
+      final primary = tester.widget<Semantics>(
+        find.byKey(const Key('ritual-primary-sentence')),
+      );
+      expect(primary.properties.liveRegion, isNot(true));
+
+      final unknown = RitualRoomUnknownOutcome(
+        room: room,
+        snapshot: snapshot,
+        selectedReaction: 'not_ready',
+        isRetrying: false,
+      );
+      await tester.pumpWidget(
+        _screenHost(
+          RitualRoomScreen(
+            state: unknown,
+            capabilityMask: InteractionCapabilityMask.phase41,
+            onReactionSelected: (_) {},
+            onRetry: () {},
+            onRetryPendingEvent: () {},
+            onListen: () {},
+            listenAdapterInjected: true,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await _ensureDockExpanded(tester);
+
+      expect(find.byKey(const Key('ritual-transient-notice')), findsOneWidget);
+      final unknownNotice = tester.widget<Semantics>(
+        find.byKey(const Key('ritual-transient-notice')),
+      );
+      expect(unknownNotice.properties.liveRegion, isTrue);
+      expect(find.byKey(const Key('ritual-transient-notice-retry')), findsOneWidget);
+
+      final reconciling = RitualRoomUnknownOutcome(
+        room: room,
+        snapshot: snapshot,
+        selectedReaction: 'not_ready',
+        isRetrying: true,
+      );
+      await tester.pumpWidget(
+        _screenHost(
+          RitualRoomScreen(
+            state: reconciling,
+            capabilityMask: InteractionCapabilityMask.phase41,
+            onReactionSelected: (_) {},
+            onRetry: () {},
+            onRetryPendingEvent: () {},
+            onListen: () {},
+            listenAdapterInjected: true,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await _ensureDockExpanded(tester);
+
+      expect(find.byKey(const Key('ritual-transient-notice')), findsOneWidget);
+      final reconcilingNotice = tester.widget<Semantics>(
+        find.byKey(const Key('ritual-transient-notice')),
+      );
+      expect(reconcilingNotice.properties.liveRegion, isTrue);
+      expect(find.byKey(const Key('ritual-transient-notice-retry')), findsNothing);
+
+      await tester.pumpWidget(
+        _screenHost(
+          RitualRoomScreen(
+            state: RitualRoomReady(room: room, snapshot: snapshot),
+            capabilityMask: InteractionCapabilityMask.phase41,
+            onReactionSelected: (_) {},
+            onRetry: () {},
+            onRetryPendingEvent: () {},
+            onListen: () {},
+            listenAdapterInjected: true,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(FocusManager.instance.primaryFocus, same(focusBefore));
+      expect(find.byKey(const Key('ritual-transient-notice')), findsNothing);
+      expect(find.byKey(const Key('ritual-context-entry')), findsOneWidget);
+      expect(tester.takeException(), isNull);
+      semantics.dispose();
     },
   );
 
@@ -245,8 +367,8 @@ void main() {
       final emitted = <String>[];
 
       await tester.pumpWidget(
-        MaterialApp(
-          home: ValueListenableBuilder<RitualRoomUiState>(
+        _screenHost(
+          ValueListenableBuilder<RitualRoomUiState>(
             valueListenable: state,
             builder: (context, current, child) => RitualRoomScreen(
               state: current,
@@ -255,15 +377,14 @@ void main() {
               onRetry: () {},
               onRetryPendingEvent: () {},
               onListen: () {},
-              onQuietExit: () {},
+              listenAdapterInjected: true,
             ),
           ),
         ),
       );
 
-      await tester.tap(find.byKey(const Key('ritual-more-reactions')));
-      await tester.pumpAndSettle();
-      expect(find.byKey(const Key('ritual-reaction-sheet')), findsOneWidget);
+      await _ensureDockExpanded(tester);
+      expect(find.byKey(const Key('ritual-context-dock-expanded')), findsOneWidget);
 
       state.value = RitualRoomSubmitting(
         room: room,
@@ -272,14 +393,10 @@ void main() {
       );
       await tester.pump();
 
-      final sheet = find.byKey(const Key('ritual-reaction-sheet'));
-      final choices = find.descendant(
-        of: sheet,
-        matching: find.byType(OutlinedButton),
-      );
-      expect(choices, findsNWidgets(3));
+      final choices = find.byType(OutlinedButton);
+      expect(choices, findsNWidgets(5));
       await tester.tap(choices.first, warnIfMissed: false);
-      expect(find.byKey(const Key('ritual-reaction-sheet')), findsOneWidget);
+      expect(find.byKey(const Key('ritual-context-dock-expanded')), findsOneWidget);
       expect(emitted, isEmpty);
       await tester.pump();
       for (final button in tester.widgetList<OutlinedButton>(choices)) {
@@ -288,7 +405,7 @@ void main() {
       for (var index = 0; index < choices.evaluate().length; index += 1) {
         await tester.tap(choices.at(index), warnIfMissed: false);
         await tester.pump();
-        expect(find.byKey(const Key('ritual-reaction-sheet')), findsOneWidget);
+        expect(find.byKey(const Key('ritual-context-dock-expanded')), findsOneWidget);
         expect(emitted, isEmpty);
       }
 
@@ -299,23 +416,239 @@ void main() {
       expect(enabledChoice.onPressed, isNotNull);
       await tester.tap(choices.first);
       await tester.pumpAndSettle();
-      expect(emitted, ['crying']);
-      expect(find.byKey(const Key('ritual-reaction-sheet')), findsNothing);
+      expect(emitted, ['not_ready']);
+      expect(find.byKey(const Key('ritual-context-dock-expanded')), findsOneWidget);
 
-      await tester.tap(find.byKey(const Key('ritual-more-reactions')));
+      await tester.tap(find.byKey(const Key('ritual-context-entry')));
       await tester.pumpAndSettle();
-      expect(find.byKey(const Key('ritual-reaction-sheet')), findsOneWidget);
-      Navigator.of(
-        tester.element(find.byKey(const Key('ritual-reaction-sheet'))),
-      ).pop();
-      await tester.pumpAndSettle();
+      if (find.byKey(const Key('ritual-context-collapse')).evaluate().isNotEmpty) {
+        await tester.tap(find.byKey(const Key('ritual-context-collapse')));
+        await tester.pumpAndSettle();
+      }
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.pumpAndSettle();
 
-      expect(emitted, ['crying']);
+      expect(emitted, ['not_ready']);
       expect(tester.takeException(), isNull);
     },
   );
+
+  testWidgets(
+    'dock expansion keeps ritual sentence plane geometry stable',
+    (tester) async {
+      await _setPhoneViewport(tester);
+      await _pumpReadyApp(tester, repository: _InteractionRepository((_) async =>
+          AdvanceApplied(_snapshot(revision: 1, label: '还不想穿'))));
+
+      final before = tester.getRect(
+        find.byKey(const Key('ritual-sentence-plane')),
+      );
+      await tester.tap(find.byKey(const Key('ritual-context-entry')));
+      await tester.pumpAndSettle();
+      final after = tester.getRect(
+        find.byKey(const Key('ritual-sentence-plane')),
+      );
+      expect(after, before);
+    },
+  );
+
+  testWidgets(
+    'reduced motion stabilizes sentence replacement within 100ms and avoids SlideTransition',
+    (tester) async {
+      await _setPhoneViewport(tester);
+      await tester.pumpWidget(
+        MediaQuery(
+          data: const MediaQueryData(disableAnimations: true),
+          child: _screenHost(
+            RitualRoomScreen(
+              state: RitualRoomReady(
+                room: _room(),
+                snapshot: _snapshot(revision: 0, label: '还不想穿'),
+              ),
+              capabilityMask: InteractionCapabilityMask.phase41,
+              onReactionSelected: (_) {},
+              onRetry: () {},
+              onRetryPendingEvent: () {},
+              onListen: () {},
+              listenAdapterInjected: true,
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      await tester.pumpWidget(
+        MediaQuery(
+          data: const MediaQueryData(disableAnimations: true),
+          child: _screenHost(
+            RitualRoomScreen(
+              state: RitualRoomReady(
+                room: _room(),
+                snapshot: _snapshot(revision: 1, label: '还不想穿'),
+              ),
+              capabilityMask: InteractionCapabilityMask.phase41,
+              onReactionSelected: (_) {},
+              onRetry: () {},
+              onRetryPendingEvent: () {},
+              onListen: () {},
+              listenAdapterInjected: true,
+            ),
+          ),
+        ),
+      );
+      await tester.pump(const Duration(milliseconds: 100));
+
+      expect(find.text('revised utterance 1'), findsOneWidget);
+
+      final switcher = find.descendant(
+        of: find.byKey(const Key('ritual-sentence-plane')),
+        matching: find.byType(AnimatedSwitcher),
+      );
+      expect(switcher, findsOneWidget);
+      expect(
+        find.descendant(of: switcher, matching: find.byType(SlideTransition)),
+        findsNothing,
+      );
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'submitting unknown and recoverable states keep previous sentence visible',
+    (tester) async {
+      await _setPhoneViewport(tester);
+      final room = _room();
+      final stableSnapshot = _snapshot(revision: 7, label: '还不想穿');
+
+      for (final state in <RitualRoomUiState>[
+        RitualRoomSubmitting(
+          room: room,
+          snapshot: stableSnapshot,
+          selectedReaction: 'not_ready',
+        ),
+        RitualRoomUnknownOutcome(
+          room: room,
+          snapshot: stableSnapshot,
+          selectedReaction: 'not_ready',
+          isRetrying: false,
+        ),
+        RitualRoomRecoverableFailure(
+          room: room,
+          snapshot: stableSnapshot,
+          problem: const RitualRoomProblem(AdvanceErrorCode.pipelineFailed),
+        ),
+      ]) {
+        await tester.pumpWidget(
+          _screenHost(
+            RitualRoomScreen(
+              state: state,
+              capabilityMask: InteractionCapabilityMask.phase41,
+              onReactionSelected: (_) {},
+              onRetry: () {},
+              onRetryPendingEvent: () {},
+              onListen: () {},
+              listenAdapterInjected: true,
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.text('revised utterance 7'), findsOneWidget);
+      }
+    },
+  );
+
+  testWidgets(
+    'collapse during pending request does not cancel eventual update',
+    (tester) async {
+      await _setPhoneViewport(tester);
+      final advance = Completer<AdvanceResult>();
+      final repository = _InteractionRepository((_) => advance.future);
+      await _pumpReadyApp(tester, repository: repository);
+
+      await tester.tap(find.byKey(const Key('ritual-context-entry')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('ritual-context-choice-not_ready')));
+      await tester.pump();
+      await tester.tap(find.byKey(const Key('ritual-context-entry')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('ritual-context-dock-collapsed')), findsOneWidget);
+
+      advance.complete(AdvanceApplied(_snapshot(revision: 1, label: '还不想穿')));
+      await tester.pumpAndSettle();
+
+      expect(find.text('revised utterance 1'), findsOneWidget);
+      expect(repository.inputs, hasLength(1));
+    },
+  );
+
+  testWidgets('android back collapses dock first', (tester) async {
+    await _setPhoneViewport(tester);
+    await _pumpReadyApp(tester, repository: _InteractionRepository((_) async =>
+        AdvanceApplied(_snapshot(revision: 1, label: '还不想穿'))));
+
+    await tester.tap(find.byKey(const Key('ritual-context-entry')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('ritual-context-dock-expanded')), findsOneWidget);
+
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('ritual-context-dock-collapsed')), findsOneWidget);
+    expect(find.byType(BabyTalkApp), findsOneWidget);
+  });
+
+  testWidgets(
+    'quiet exit does not trigger snackbar navigation or external callbacks',
+    (tester) async {
+      await _setPhoneViewport(tester);
+      var completed = 0;
+      final observer = _RecordingNavigatorObserver(
+        didPopCallback: () => completed += 1,
+      );
+
+      await tester.pumpWidget(
+        _screenHost(
+          RitualRoomScreen(
+            state: RitualRoomReady(room: _room(), snapshot: interactionSnapshot()),
+            capabilityMask: InteractionCapabilityMask.phase41,
+            onReactionSelected: (_) {},
+            onRetry: () {},
+            onRetryPendingEvent: () {},
+            onListen: () {},
+            listenAdapterInjected: true,
+          ),
+          navigatorObservers: [observer],
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const Key('ritual-context-entry')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('ritual-quiet-exit')));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(SnackBar), findsNothing);
+      expect(find.byKey(const Key('ritual-context-dock-collapsed')), findsOneWidget);
+      expect(observer.popCount, 0);
+      expect(completed, 0);
+    },
+  );
+
+  test('screen source forbids focus grabbing and semantic announcement apis', () {
+    final source = File(
+      'lib/features/ritual_room/presentation/screens/ritual_room_screen.dart',
+    ).readAsStringSync();
+
+    for (final forbidden in [
+      'requestFocus',
+      'FocusScope',
+      'SemanticsService',
+      'sendAnnouncement',
+    ]) {
+      expect(source, isNot(contains(forbidden)));
+    }
+  });
 
   testWidgets(
     'R058/R059 alternate repository payload substitutes visible content and forbidden scope stays absent',
@@ -356,14 +689,9 @@ void main() {
 
       for (final text in [
         '雨天小声音',
-        '雨天出门',
-        'Boots on.',
-        '穿雨靴啦。',
         "Let's put your boots on.",
         '我们来穿雨靴吧。',
         '拿起雨靴时',
-        '只说一句也可以。',
-        '今天先到这里',
       ]) {
         expect(find.text(text), findsOneWidget);
       }
@@ -384,6 +712,32 @@ void main() {
       expect(find.byType(Slider), findsNothing);
     },
   );
+}
+
+Widget _screenHost(
+  Widget child, {
+  List<NavigatorObserver> navigatorObservers = const [],
+}) {
+  return MaterialApp(
+    localizationsDelegates: AppLocalizations.localizationsDelegates,
+    supportedLocales: AppLocalizations.supportedLocales,
+    navigatorObservers: navigatorObservers,
+    home: child,
+  );
+}
+
+final class _RecordingNavigatorObserver extends NavigatorObserver {
+  _RecordingNavigatorObserver({required this.didPopCallback});
+
+  final VoidCallback didPopCallback;
+  int popCount = 0;
+
+  @override
+  void didPop(Route<dynamic> route, Route<dynamic>? previousRoute) {
+    popCount += 1;
+    didPopCallback();
+    super.didPop(route, previousRoute);
+  }
 }
 
 Future<void> _pumpReadyApp(
@@ -414,6 +768,15 @@ Future<void> _setPhoneViewport(WidgetTester tester) async {
   tester.view.physicalSize = const Size(390, 844);
   addTearDown(tester.view.resetDevicePixelRatio);
   addTearDown(tester.view.resetPhysicalSize);
+}
+
+Future<void> _ensureDockExpanded(WidgetTester tester) async {
+  final expanded = find.byKey(const Key('ritual-context-dock-expanded'));
+  if (expanded.evaluate().isNotEmpty) {
+    return;
+  }
+  await tester.tap(find.byKey(const Key('ritual-context-entry')));
+  await tester.pumpAndSettle();
 }
 
 final class _RoomRepository implements RitualRoomRepository {

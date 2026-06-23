@@ -16,6 +16,7 @@ final class RitualActionCue extends StatelessWidget {
         Theme.of(context).extension<RitualRoomTheme>() ?? RitualRoomTheme.light;
 
     return Semantics(
+      key: const Key('ritual-action-cue'),
       sortKey: sortKey,
       label: _copyOf(context).timingSemantics(cue),
       container: true,

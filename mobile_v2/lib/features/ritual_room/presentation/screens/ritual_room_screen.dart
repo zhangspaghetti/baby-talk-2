@@ -1,14 +1,15 @@
 import 'package:flutter/material.dart';
 
+import '../../../../app/localization/generated/app_localizations.dart';
 import '../../domain/models/ritual_room_content.dart';
 import '../capability/interaction_capability_mask.dart';
+import '../models/ritual_listen_state.dart';
 import '../state/ritual_room_ui_state.dart';
-import '../widgets/ritual_context_input_tray.dart';
-import '../widgets/ritual_current_utterance.dart';
-import '../widgets/ritual_identity_header.dart';
-import '../widgets/ritual_reassurance.dart';
+import '../widgets/ritual_atmosphere_layer.dart';
+import '../widgets/ritual_context_dock.dart';
+import '../widgets/ritual_sentence_plane.dart';
 
-final class RitualRoomScreen extends StatelessWidget {
+final class RitualRoomScreen extends StatefulWidget {
   const RitualRoomScreen({
     super.key,
     required this.state,
@@ -16,8 +17,9 @@ final class RitualRoomScreen extends StatelessWidget {
     required this.onReactionSelected,
     required this.onRetry,
     required this.onRetryPendingEvent,
+    this.onQuietExit = _noopCallback,
     required this.onListen,
-    required this.onQuietExit,
+    this.listenAdapterInjected = false,
   });
 
   final RitualRoomUiState state;
@@ -25,59 +27,148 @@ final class RitualRoomScreen extends StatelessWidget {
   final ValueChanged<String> onReactionSelected;
   final VoidCallback onRetry;
   final VoidCallback onRetryPendingEvent;
-  final VoidCallback onListen;
   final VoidCallback onQuietExit;
+  final VoidCallback onListen;
+  final bool listenAdapterInjected;
+
+  @override
+  State<RitualRoomScreen> createState() => _RitualRoomScreenState();
+}
+
+void _noopCallback() {}
+
+final class _RitualRoomScreenState extends State<RitualRoomScreen> {
+  bool _dockExpanded = false;
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: SafeArea(
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 430),
-            child: switch (state) {
-              RitualRoomIdle() || RitualRoomLoading() => const Center(
-                child: CircularProgressIndicator(
-                  semanticsLabel: '正在准备 Ritual Room',
+    final state = widget.state;
+    final room = switch (state) {
+      RitualRoomReady(:final room) ||
+      RitualRoomSubmitting(:final room) ||
+      RitualRoomUnknownOutcome(:final room) ||
+      RitualRoomRecoverableFailure(:final room) => room,
+      _ => null,
+    };
+
+    return PopScope(
+      canPop: !_dockExpanded,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop && _dockExpanded) {
+          setState(() => _dockExpanded = false);
+        }
+      },
+      child: Scaffold(
+        key: const Key('ritual-room-root'),
+        body: SafeArea(
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 430),
+              child: LayoutBuilder(
+                builder: (context, constraints) => Stack(
+                  children: [
+                    Positioned.fill(
+                      child: room == null
+                          ? const _FallbackAtmosphereLayer()
+                          : RitualAtmosphereLayer(
+                              illustration: room.illustration,
+                              tone: room.atmosphereTone,
+                              roomName: room.roomName,
+                            ),
+                    ),
+                    Positioned.fill(
+                      child: switch (state) {
+                        RitualRoomIdle() || RitualRoomLoading() =>
+                          _LoadingContent(dockExpanded: _dockExpanded),
+                        RitualRoomLoadFailure() => _LoadFailure(
+                          onRetry: widget.onRetry,
+                        ),
+                        RitualRoomReady() ||
+                        RitualRoomSubmitting() ||
+                        RitualRoomUnknownOutcome() ||
+                        RitualRoomRecoverableFailure() => _RitualSemanticContent(
+                          state: state,
+                          capabilityMask: widget.capabilityMask,
+                          dockExpanded: _dockExpanded,
+                          onDockExpandedChanged: (expanded) {
+                            setState(() => _dockExpanded = expanded);
+                          },
+                          onReactionSelected: widget.onReactionSelected,
+                          onRetryPendingEvent: widget.onRetryPendingEvent,
+                          onQuietExit: widget.onQuietExit,
+                          onListen: widget.onListen,
+                          listenAdapterInjected: widget.listenAdapterInjected,
+                        ),
+                      },
+                    ),
+                  ],
                 ),
               ),
-              RitualRoomLoadFailure() => _LoadFailure(onRetry: onRetry),
-              RitualRoomReady(:final room) => _RoomProjection(
-                room: room,
-                snapshotState: state,
-                capabilityMask: capabilityMask,
-                onReactionSelected: onReactionSelected,
-                onListen: onListen,
-                onQuietExit: onQuietExit,
-              ),
-              RitualRoomSubmitting(:final room) => _RoomProjection(
-                room: room,
-                snapshotState: state,
-                capabilityMask: capabilityMask,
-                onReactionSelected: onReactionSelected,
-                onListen: onListen,
-                onQuietExit: onQuietExit,
-              ),
-              RitualRoomUnknownOutcome(:final room) => _RoomProjection(
-                room: room,
-                snapshotState: state,
-                capabilityMask: capabilityMask,
-                onReactionSelected: onReactionSelected,
-                onRetryPendingEvent: onRetryPendingEvent,
-                onListen: onListen,
-                onQuietExit: onQuietExit,
-              ),
-              RitualRoomRecoverableFailure(:final room) => _RoomProjection(
-                room: room,
-                snapshotState: state,
-                capabilityMask: capabilityMask,
-                onReactionSelected: onReactionSelected,
-                onListen: onListen,
-                onQuietExit: onQuietExit,
-              ),
-            },
+            ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+final class _FallbackAtmosphereLayer extends StatelessWidget {
+  const _FallbackAtmosphereLayer();
+
+  @override
+  Widget build(BuildContext context) {
+    return IgnorePointer(
+      child: ExcludeSemantics(
+        child: DecoratedBox(
+          key: const Key('ritual-atmosphere-field'),
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.surface,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+final class _LoadingContent extends StatelessWidget {
+  const _LoadingContent({required this.dockExpanded});
+
+  final bool dockExpanded;
+
+  @override
+  Widget build(BuildContext context) {
+    final copy = AppLocalizations.of(context);
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Semantics(
+            liveRegion: true,
+            container: true,
+            child: Text(
+              copy.loadingSentence,
+              style: Theme.of(context).textTheme.bodyLarge,
+            ),
+          ),
+          const Spacer(),
+          IgnorePointer(
+            child: RitualContextDock(
+              expanded: dockExpanded,
+              requestStatus: RitualDockRequestStatus.idle,
+              prompt: copy.contextPrompt,
+              reassurance: copy.contextPromptHint,
+              quietExitLabel: copy.collapseContext,
+              choices: const [],
+              selectedReactionId: null,
+              notice: null,
+              onToggleExpanded: (_) {},
+              onReactionSelected: (_) {},
+              onReconcileUnknown: null,
+              onQuietExit: () {},
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -90,13 +181,14 @@ final class _LoadFailure extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final copy = AppLocalizations.of(context);
     return Padding(
       padding: const EdgeInsets.all(24),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Text(
-            '这个小声音暂时没准备好。稍后再打开一次。',
+            copy.loadFailure,
             textAlign: TextAlign.center,
             style: Theme.of(context).textTheme.bodyLarge,
           ),
@@ -105,7 +197,7 @@ final class _LoadFailure extends StatelessWidget {
             key: const Key('ritual-load-retry'),
             style: OutlinedButton.styleFrom(minimumSize: const Size(48, 48)),
             onPressed: onRetry,
-            child: const Text('再试一次'),
+            child: Text(copy.retry),
           ),
         ],
       ),
@@ -113,113 +205,116 @@ final class _LoadFailure extends StatelessWidget {
   }
 }
 
-final class _RoomProjection extends StatelessWidget {
-  const _RoomProjection({
-    required this.room,
-    required this.snapshotState,
+final class _RitualSemanticContent extends StatelessWidget {
+  const _RitualSemanticContent({
+    required this.state,
     required this.capabilityMask,
+    required this.dockExpanded,
+    required this.onDockExpandedChanged,
     required this.onReactionSelected,
-    this.onRetryPendingEvent,
-    required this.onListen,
+    required this.onRetryPendingEvent,
     required this.onQuietExit,
+    required this.onListen,
+    required this.listenAdapterInjected,
   });
 
-  final RitualRoomContent room;
-  final RitualRoomUiState snapshotState;
+  final RitualRoomUiState state;
   final InteractionCapabilityMask capabilityMask;
+  final bool dockExpanded;
+  final ValueChanged<bool> onDockExpandedChanged;
   final ValueChanged<String> onReactionSelected;
-  final VoidCallback? onRetryPendingEvent;
-  final VoidCallback onListen;
+  final VoidCallback onRetryPendingEvent;
   final VoidCallback onQuietExit;
+  final VoidCallback onListen;
+  final bool listenAdapterInjected;
 
   @override
   Widget build(BuildContext context) {
-    final snapshot = snapshotState.snapshot!;
-    final isSubmitting = snapshotState is RitualRoomSubmitting;
-    final unknownOutcome = snapshotState is RitualRoomUnknownOutcome
-        ? snapshotState as RitualRoomUnknownOutcome
+    final room = switch (state) {
+      RitualRoomReady(:final room) ||
+      RitualRoomSubmitting(:final room) ||
+      RitualRoomUnknownOutcome(:final room) ||
+      RitualRoomRecoverableFailure(:final room) => room,
+      _ => throw StateError('Semantic content requires room state'),
+    };
+    final snapshot = state.snapshot!;
+    final copy = AppLocalizations.of(context);
+    final requestStatus = switch (state) {
+      RitualRoomSubmitting() => RitualDockRequestStatus.submitting,
+      RitualRoomUnknownOutcome(:final isRetrying) => isRetrying
+          ? RitualDockRequestStatus.reconciling
+          : RitualDockRequestStatus.unknownOutcome,
+      RitualRoomRecoverableFailure() => RitualDockRequestStatus.recoverableFailure,
+      _ => RitualDockRequestStatus.idle,
+    };
+    final unknownOutcome = state is RitualRoomUnknownOutcome
+        ? state as RitualRoomUnknownOutcome
         : null;
-    final isRecoverableFailure = snapshotState is RitualRoomRecoverableFailure;
-    final reactionsLocked = isSubmitting || unknownOutcome != null;
-    final selectedReaction = switch (snapshotState) {
+    final selectedReaction = switch (state) {
       RitualRoomSubmitting(:final selectedReaction) => selectedReaction,
       RitualRoomUnknownOutcome(:final selectedReaction) => selectedReaction,
       _ => null,
     };
+    final notice = switch (requestStatus) {
+      RitualDockRequestStatus.submitting => room.pendingCopy,
+      RitualDockRequestStatus.recoverableFailure => copy.recoverableFailure,
+      RitualDockRequestStatus.unknownOutcome || RitualDockRequestStatus.reconciling =>
+        copy.unknownOutcome,
+      RitualDockRequestStatus.idle => null,
+    };
+    final reduceMotion = MediaQuery.maybeOf(context)?.disableAnimations ?? false;
+    final motionDuration = reduceMotion
+        ? const Duration(milliseconds: 80)
+        : const Duration(milliseconds: 220);
+    final listenState = room.audio.available
+        ? const RitualListenReady()
+        : const RitualListenUnavailable();
+    final effectiveListenState =
+      room.audio.available && !listenAdapterInjected
+        ? const RitualListenUnavailable()
+        : listenState;
+    final listenAction = effectiveListenState is RitualListenUnavailable
+      ? null
+      : onListen;
 
-    return ListView(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      children: [
-        RitualIdentityHeader(
-          illustration: room.illustration,
-          roomName: room.roomName,
-          routineAnchor: room.routineAnchor,
-          anchorPhrase: room.anchorPhrase,
-          chineseHelper: room.chineseHelper,
-        ),
-        RitualCurrentUtterance(
-          snapshot: snapshot,
-          actionCue: room.actionCue,
-          audio: room.audio,
-          submitting: isSubmitting || (unknownOutcome?.isRetrying ?? false),
-          pendingCopy: room.pendingCopy,
-          onListen: onListen,
-        ),
-        if (unknownOutcome != null)
-          Padding(
-            padding: const EdgeInsets.only(top: 8),
-            child: Column(
-              children: [
-                Semantics(
-                  label: '刚才这次没有确认成功，可以再试一次',
-                  liveRegion: true,
-                  container: true,
-                  excludeSemantics: true,
-                  child: Text(
-                    '刚才这次没有确认成功，可以再试一次',
-                    style: Theme.of(context).textTheme.bodyMedium,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                OutlinedButton(
-                  key: const Key('ritual-unknown-outcome-retry'),
-                  style: OutlinedButton.styleFrom(
-                    minimumSize: const Size(48, 48),
-                  ),
-                  onPressed: unknownOutcome.isRetrying
-                      ? null
-                      : onRetryPendingEvent,
-                  child: const Text('再试一次'),
-                ),
-              ],
-            ),
-          ),
-        if (isRecoverableFailure)
-          Semantics(
-            liveRegion: true,
-            child: Padding(
-              padding: const EdgeInsets.only(top: 8),
-              child: Text(
-                '暂时没换好说法，可以再试一次。',
-                style: Theme.of(context).textTheme.bodyMedium,
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Flexible(
+            child: SingleChildScrollView(
+              child: RitualSentencePlane(
+                utterance: snapshot.activeUtterance,
+                listenState: effectiveListenState,
+                onListen: listenAction,
+                motionDuration: motionDuration,
               ),
             ),
           ),
-        if (capabilityMask.exposes(InteractionCapability.reactionSelection))
-          RitualContextInputTray(
-            prompt: room.reactionPrompt,
-            choices: room.reactionChoices,
-            moreChoicesLabel: '更多情况',
-            onReactionSelected: onReactionSelected,
-            enabled: !reactionsLocked,
-            selectedReactionId: selectedReaction,
-          ),
-        RitualReassurance(
-          message: room.reassurance,
-          quietExitLabel: room.quietExit,
-          onQuietExit: onQuietExit,
-        ),
-      ],
+          const SizedBox(height: 12),
+          if (capabilityMask.exposes(InteractionCapability.reactionSelection))
+            RitualContextDock(
+              expanded: dockExpanded,
+              requestStatus: requestStatus,
+              prompt: room.reactionPrompt,
+              reassurance: room.reassurance,
+              quietExitLabel: room.quietExit,
+              choices: room.reactionChoices,
+              selectedReactionId: selectedReaction,
+              notice: notice,
+              onToggleExpanded: onDockExpandedChanged,
+              onReactionSelected: onReactionSelected,
+              onReconcileUnknown: unknownOutcome != null && !unknownOutcome.isRetrying
+                  ? onRetryPendingEvent
+                  : null,
+              onQuietExit: () {
+                onQuietExit();
+                onDockExpandedChanged(false);
+              },
+            ),
+        ],
+      ),
     );
   }
 }

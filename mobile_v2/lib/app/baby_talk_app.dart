@@ -16,7 +16,6 @@ final class BabyTalkApp extends ConsumerStatefulWidget {
 
 final class _BabyTalkAppState extends ConsumerState<BabyTalkApp> {
   static const _ritualRoomId = 'shoes_on_room_v1';
-  final _messengerKey = GlobalKey<ScaffoldMessengerState>();
 
   @override
   void initState() {
@@ -33,7 +32,6 @@ final class _BabyTalkAppState extends ConsumerState<BabyTalkApp> {
     final capabilityMask = ref.watch(interactionCapabilityMaskProvider);
 
     return MaterialApp(
-      scaffoldMessengerKey: _messengerKey,
       debugShowCheckedModeBanner: false,
       title: 'Baby Talk',
       localizationsDelegates: AppLocalizations.localizationsDelegates,
@@ -51,11 +49,7 @@ final class _BabyTalkAppState extends ConsumerState<BabyTalkApp> {
         onRetryPendingEvent: () =>
             ref.read(ritualRoomSessionProvider.notifier).retryPendingEvent(),
         onListen: () {},
-        onQuietExit: () {
-          _messengerKey.currentState?.showSnackBar(
-            const SnackBar(content: Text('先停在这里，随时可以回来。')),
-          );
-        },
+        listenAdapterInjected: false,
       ),
     );
   }

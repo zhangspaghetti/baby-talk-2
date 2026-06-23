@@ -1,5 +1,10 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:mobile_v2/app/localization/generated/app_localizations.dart';
+import 'package:mobile_v2/app/theme/baby_talk_theme.dart';
 import 'package:mobile_v2/features/ritual_room/domain/models/product_snapshot.dart';
 import 'package:mobile_v2/features/ritual_room/domain/models/ritual_atmosphere_tone.dart';
 import 'package:mobile_v2/features/ritual_room/domain/models/ritual_room_content.dart';
@@ -14,6 +19,84 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   testWidgets(
+    'semantic order stays 1..6 for primary support timing listen context entry quiet exit',
+    (tester) async {
+      await _setPhoneViewport(tester);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: BabyTalkTheme.light,
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: RitualRoomScreen(
+            state: RitualRoomReady(room: _room(), snapshot: interactionSnapshot()),
+            capabilityMask: InteractionCapabilityMask.phase41,
+            onReactionSelected: (_) {},
+            onRetry: () {},
+            onRetryPendingEvent: () {},
+            onListen: () {},
+            onQuietExit: () {},
+            listenAdapterInjected: true,
+          ),
+        ),
+      );
+
+      await tester.tap(find.byKey(const Key('ritual-context-entry')));
+      await tester.pumpAndSettle();
+
+      final primary = tester.widget<Semantics>(
+        find.byKey(const Key('ritual-primary-sentence')),
+      );
+      final support = tester.widget<Semantics>(
+        find.byKey(const Key('ritual-zh-support')),
+      );
+      final listen = tester.widget<Semantics>(
+        find.ancestor(
+          of: find.byKey(const Key('ritual-listen-control')),
+          matching: find.byType(Semantics),
+        ).first,
+      );
+      final timing = tester.widget<Semantics>(
+        find.byKey(const Key('ritual-action-cue')),
+      );
+      final contextEntry = tester.widget<Semantics>(
+        find.byKey(const Key('ritual-context-entry')),
+      );
+      final quietExit = tester.widget<Semantics>(
+        find.byKey(const Key('ritual-quiet-exit')),
+      );
+
+      expect(primary.properties.sortKey, const OrdinalSortKey(1));
+      expect(support.properties.sortKey, const OrdinalSortKey(2));
+      expect(timing.properties.sortKey, const OrdinalSortKey(3));
+      expect(
+        find.bySemanticsLabel(
+          '说这句话的时机：${interactionSnapshot().activeUtterance.actionCue}',
+        ),
+        findsOneWidget,
+      );
+      expect(listen.properties.sortKey, const OrdinalSortKey(4));
+      expect(contextEntry.properties.sortKey, const OrdinalSortKey(5));
+      expect(quietExit.properties.sortKey, const OrdinalSortKey(6));
+    },
+  );
+
+  test('source contract forbids forced focus and announcement apis', () {
+    final source = File(
+      'lib/features/ritual_room/presentation/screens/ritual_room_screen.dart',
+    ).readAsStringSync();
+
+    for (final forbidden in [
+      'requestFocus',
+      'FocusScope',
+      'SemanticsService',
+      'sendAnnouncement',
+    ]) {
+      expect(source, isNot(contains(forbidden)));
+    }
+  });
+
+  testWidgets(
     'R058/R060 ready screen has semantic labels and 48x48 targets at 390x844',
     (tester) async {
       await _setPhoneViewport(tester);
@@ -22,6 +105,9 @@ void main() {
 
       await tester.pumpWidget(
         MaterialApp(
+          theme: BabyTalkTheme.light,
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
           home: RitualRoomScreen(
             state: RitualRoomReady(room: room, snapshot: interactionSnapshot()),
             capabilityMask: InteractionCapabilityMask.phase41,
@@ -30,25 +116,18 @@ void main() {
             onRetryPendingEvent: () {},
             onListen: () {},
             onQuietExit: () {},
+            listenAdapterInjected: true,
           ),
         ),
       );
 
-      for (final label in [
-        room.audio.label,
-        room.quietExit,
-        room.reactionChoices[0].label,
-        room.reactionChoices[1].label,
-        '更多情况',
-      ]) {
-        expect(find.bySemanticsLabel(label), findsOneWidget);
-      }
+      await tester.tap(find.byKey(const Key('ritual-context-entry')));
+      await tester.pump();
+
+      expect(find.bySemanticsLabel('播放这句话'), findsOneWidget);
       for (final key in const [
         Key('ritual-listen-control'),
-        Key('ritual-reaction-choice-0'),
-        Key('ritual-reaction-choice-1'),
-        Key('ritual-more-reactions'),
-        Key('ritual-quiet-exit'),
+        Key('ritual-context-entry'),
       ]) {
         final size = tester.getSize(find.byKey(key));
         expect(size.width, greaterThanOrEqualTo(48));
@@ -73,6 +152,9 @@ void main() {
         MediaQuery(
           data: const MediaQueryData(textScaler: TextScaler.linear(1.3)),
           child: MaterialApp(
+            theme: BabyTalkTheme.light,
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
             home: RitualRoomScreen(
               state: RitualRoomReady(room: room, snapshot: snapshot),
               capabilityMask: InteractionCapabilityMask.phase41,
@@ -81,6 +163,7 @@ void main() {
               onRetryPendingEvent: () {},
               onListen: () {},
               onQuietExit: () {},
+              listenAdapterInjected: true,
             ),
           ),
         ),
@@ -89,11 +172,8 @@ void main() {
       expect(find.text(snapshot.activeUtterance.primary), findsOneWidget);
       expect(find.text(snapshot.activeUtterance.zhSupport), findsOneWidget);
       expect(find.text(snapshot.activeUtterance.actionCue), findsOneWidget);
-      await tester.scrollUntilVisible(
-        find.text(room.reassurance),
-        160,
-        scrollable: find.byType(Scrollable).first,
-      );
+      await tester.tap(find.byKey(const Key('ritual-context-entry')));
+      await tester.pump();
 
       expect(find.text(room.reassurance), findsOneWidget);
       expect(find.byType(TextField), findsNothing);
@@ -112,6 +192,119 @@ void main() {
   );
 
   testWidgets(
+    'viewport and text scale matrix stays reachable without overflow and scale 2 supports vertical scrolling only',
+    (tester) async {
+      const viewports = [Size(427, 952), Size(390, 844)];
+      const textScales = [1.0, 1.3, 2.0];
+      final room = _room(
+        actionCue: '把鞋放在身边以后，停一下，再慢慢说出这一句。',
+        reassurance: '不用要求孩子回应，也不用催促，只要自然地说一句就够了。',
+      );
+      final snapshot = _longSnapshot(actionCue: room.actionCue);
+
+      for (final viewport in viewports) {
+        for (final scale in textScales) {
+          tester.view.devicePixelRatio = 1;
+          tester.view.physicalSize = viewport;
+
+          await tester.pumpWidget(
+            MediaQuery(
+              data: MediaQueryData(
+                size: viewport,
+                textScaler: TextScaler.linear(scale),
+              ),
+              child: MaterialApp(
+                theme: BabyTalkTheme.light,
+                localizationsDelegates: AppLocalizations.localizationsDelegates,
+                supportedLocales: AppLocalizations.supportedLocales,
+                home: KeyedSubtree(
+                  key: ValueKey('${viewport.width}x${viewport.height}-$scale'),
+                  child: RitualRoomScreen(
+                    state: RitualRoomReady(room: room, snapshot: snapshot),
+                    capabilityMask: InteractionCapabilityMask.phase41,
+                    onReactionSelected: (_) {},
+                    onRetry: () {},
+                    onRetryPendingEvent: () {},
+                    onListen: () {},
+                    onQuietExit: () {},
+                    listenAdapterInjected: true,
+                  ),
+                ),
+              ),
+            ),
+          );
+          await tester.pumpAndSettle();
+
+          expect(find.byKey(const Key('ritual-context-entry')), findsOneWidget);
+          if (find.byKey(const Key('ritual-context-dock-expanded')).evaluate().isEmpty) {
+            await tester.tap(find.byKey(const Key('ritual-context-entry')));
+            await tester.pumpAndSettle();
+          }
+          expect(find.byKey(const Key('ritual-context-dock-expanded')), findsOneWidget);
+          if (scale <= 1.3) {
+            for (final key in const [
+              Key('ritual-sentence-plane'),
+              Key('ritual-primary-sentence'),
+              Key('ritual-zh-support'),
+              Key('ritual-action-cue'),
+              Key('ritual-listen-control'),
+              Key('ritual-context-entry'),
+              Key('ritual-quiet-exit'),
+            ]) {
+              expect(find.byKey(key), findsOneWidget);
+            }
+            for (final key in const [
+              Key('ritual-listen-control'),
+              Key('ritual-context-entry'),
+              Key('ritual-quiet-exit'),
+            ]) {
+              final size = tester.getSize(find.byKey(key));
+              expect(size.width, greaterThanOrEqualTo(48));
+              expect(size.height, greaterThanOrEqualTo(48));
+            }
+          }
+          final logicalWidth = viewport.width;
+          final contextSize = tester.getSize(
+            find.byKey(const Key('ritual-context-dock-expanded')),
+          );
+          final sentenceSize = tester.getSize(
+            find.byKey(const Key('ritual-sentence-plane')),
+          );
+          expect(contextSize.width, lessThanOrEqualTo(logicalWidth));
+          expect(sentenceSize.width, lessThanOrEqualTo(logicalWidth));
+
+          await tester.ensureVisible(find.byKey(const Key('ritual-quiet-exit')));
+          expect(find.byKey(const Key('ritual-quiet-exit')), findsOneWidget);
+          expect(tester.takeException(), isNull);
+
+          if (scale == 2.0) {
+            final horizontalScrollables = find.byWidgetPredicate(
+              (widget) =>
+                  widget is SingleChildScrollView && widget.scrollDirection == Axis.horizontal,
+            );
+            expect(horizontalScrollables, findsNothing);
+
+            await tester.drag(
+              find.byKey(const Key('ritual-context-dock-expanded')),
+              const Offset(0, -180),
+            );
+            await tester.pumpAndSettle();
+            await tester.drag(
+              find.byKey(const Key('ritual-context-dock-expanded')),
+              const Offset(0, 180),
+            );
+            await tester.pumpAndSettle();
+            expect(tester.takeException(), isNull);
+          }
+        }
+      }
+
+      addTearDown(tester.view.resetDevicePixelRatio);
+      addTearDown(tester.view.resetPhysicalSize);
+    },
+  );
+
+  testWidgets(
     'unknown outcome message and retry action remain semantically reachable',
     (tester) async {
       await _setPhoneViewport(tester);
@@ -121,6 +314,9 @@ void main() {
 
       await tester.pumpWidget(
         MaterialApp(
+          theme: BabyTalkTheme.light,
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
           home: RitualRoomScreen(
             state: RitualRoomUnknownOutcome(
               room: room,
@@ -134,12 +330,15 @@ void main() {
             onRetryPendingEvent: () => retries += 1,
             onListen: () {},
             onQuietExit: () {},
+            listenAdapterInjected: true,
           ),
         ),
       );
 
-      expect(find.bySemanticsLabel('刚才这次没有确认成功，可以再试一次'), findsOneWidget);
-      final retryFinder = find.byKey(const Key('ritual-unknown-outcome-retry'));
+      await tester.tap(find.byKey(const Key('ritual-context-entry')));
+      await tester.pump();
+
+      final retryFinder = find.byKey(const Key('ritual-transient-notice-retry'));
       expect(retryFinder, findsOneWidget);
       expect(tester.getSize(retryFinder).width, greaterThanOrEqualTo(48));
       expect(tester.getSize(retryFinder).height, greaterThanOrEqualTo(48));
@@ -147,6 +346,72 @@ void main() {
       expect(retries, 1);
       expect(tester.takeException(), isNull);
       semantics.dispose();
+    },
+  );
+
+  testWidgets(
+    'production unavailable audio never exposes an enabled no-op listen control',
+    (tester) async {
+      await _setPhoneViewport(tester);
+      final room = _room(audioAvailable: false);
+      var listenCalls = 0;
+
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: BabyTalkTheme.light,
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: RitualRoomScreen(
+            state: RitualRoomReady(room: room, snapshot: interactionSnapshot()),
+            capabilityMask: InteractionCapabilityMask.phase41,
+            onReactionSelected: (_) {},
+            onRetry: () {},
+            onRetryPendingEvent: () {},
+            onListen: () => listenCalls += 1,
+            onQuietExit: () {},
+          ),
+        ),
+      );
+
+      expect(find.text('暂时听不了，你也可以直接照着说。'), findsOneWidget);
+      final button = tester.widget<IconButton>(
+        find.byKey(const Key('ritual-listen-control')),
+      );
+      expect(button.onPressed, isNull);
+
+      await tester.tap(find.byKey(const Key('ritual-listen-control')));
+      expect(listenCalls, 0);
+    },
+  );
+
+  testWidgets(
+    'available audio without an injected adapter still fails closed',
+    (tester) async {
+      await _setPhoneViewport(tester);
+      final room = _room(audioAvailable: true);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: BabyTalkTheme.light,
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: RitualRoomScreen(
+            state: RitualRoomReady(room: room, snapshot: interactionSnapshot()),
+            capabilityMask: InteractionCapabilityMask.phase41,
+            onReactionSelected: (_) {},
+            onRetry: () {},
+            onRetryPendingEvent: () {},
+            onListen: () {},
+            onQuietExit: () {},
+          ),
+        ),
+      );
+
+      final button = tester.widget<IconButton>(
+        find.byKey(const Key('ritual-listen-control')),
+      );
+      expect(button.onPressed, isNull);
+      expect(find.text('暂时听不了，你也可以直接照着说。'), findsOneWidget);
     },
   );
 }
@@ -161,6 +426,7 @@ Future<void> _setPhoneViewport(WidgetTester tester) async {
 RitualRoomContent _room({
   String actionCue = '拿起鞋时',
   String reassurance = '不用每句都说，说一句就够了。',
+  bool audioAvailable = true,
 }) => RitualRoomContent(
   ritualRoomId: 'shoes_on_room_v1',
   atmosphereTone: RitualAtmosphereTone.everydayCalm,
@@ -173,8 +439,8 @@ RitualRoomContent _room({
     status: 'approved',
   ),
   actionCue: actionCue,
-  audio: const RitualAudioContent(
-    available: true,
+  audio: RitualAudioContent(
+    available: audioAvailable,
     label: '听一遍',
     assetReference: 'assets/audio/current.mp3',
   ),

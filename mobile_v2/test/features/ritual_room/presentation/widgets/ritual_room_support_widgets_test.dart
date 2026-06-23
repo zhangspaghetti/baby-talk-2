@@ -209,6 +209,80 @@ void main() {
     semantics.dispose();
   });
 
+  testWidgets('renders truthful listen semantics and unavailable copy per state', (
+    tester,
+  ) async {
+    await _setPhoneViewport(tester);
+
+    await tester.pumpWidget(
+      _sentenceFieldSurface(
+        room: _room(),
+        snapshot: _snapshot(),
+        listenState: const RitualListenReady(),
+        onListen: () {},
+      ),
+    );
+    expect(find.bySemanticsLabel('播放这句话'), findsOneWidget);
+    expect(find.text('听一下'), findsOneWidget);
+
+    await tester.pumpWidget(
+      _sentenceFieldSurface(
+        room: _room(),
+        snapshot: _snapshot(),
+        listenState: const RitualListenPaused(),
+        onListen: () {},
+      ),
+    );
+    expect(find.bySemanticsLabel('播放这句话'), findsOneWidget);
+    expect(find.text('听一下'), findsOneWidget);
+
+    await tester.pumpWidget(
+      _sentenceFieldSurface(
+        room: _room(),
+        snapshot: _snapshot(),
+        listenState: const RitualListenPlaying(),
+        onListen: () {},
+      ),
+    );
+    expect(find.bySemanticsLabel('暂停播放'), findsOneWidget);
+    expect(find.text('暂停'), findsOneWidget);
+
+    await tester.pumpWidget(
+      _sentenceFieldSurface(
+        room: _room(),
+        snapshot: _snapshot(),
+        listenState: const RitualListenLoading(),
+        onListen: () {},
+      ),
+    );
+    expect(find.bySemanticsLabel('正在加载语音'), findsOneWidget);
+    expect(
+      find.byType(CircularProgressIndicator),
+      findsOneWidget,
+    );
+
+    await tester.pumpWidget(
+      _sentenceFieldSurface(
+        room: _room(),
+        snapshot: _snapshot(),
+        listenState: const RitualListenFailure(),
+        onListen: () {},
+      ),
+    );
+    expect(find.text(_snapshot().activeUtterance.primary), findsOneWidget);
+    expect(find.text('暂时听不了，你也可以直接照着说。'), findsOneWidget);
+
+    await tester.pumpWidget(
+      _sentenceFieldSurface(
+        room: _room(),
+        snapshot: _snapshot(),
+        listenState: const RitualListenUnavailable(),
+        onListen: () {},
+      ),
+    );
+    expect(find.text('暂时听不了，你也可以直接照着说。'), findsOneWidget);
+  });
+
   testWidgets('uses fade-only switching for an 80ms motion duration', (
     tester,
   ) async {

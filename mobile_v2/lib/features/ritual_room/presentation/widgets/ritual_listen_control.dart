@@ -50,17 +50,17 @@ final class RitualListenControl extends StatelessWidget {
         enabled: onPressed != null,
       ),
       RitualListenFailure() => _ListenPresentation(
-        label: copy.retry,
-        semanticsLabel: copy.retry,
-        icon: Icons.refresh_rounded,
-        enabled: onPressed != null,
+        label: copy.audioUnavailable,
+        semanticsLabel: copy.audioUnavailable,
+        icon: Icons.volume_off_outlined,
+        enabled: false,
       ),
     };
 
     return Semantics(
       sortKey: sortKey,
       label: presentation.semanticsLabel,
-      button: true,
+      button: presentation.enabled,
       enabled: presentation.enabled,
       container: true,
       excludeSemantics: true,
