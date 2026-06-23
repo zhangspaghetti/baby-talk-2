@@ -14,12 +14,15 @@ import 'package:mobile_v2/features/ritual_room/presentation/models/ritual_listen
 import 'package:mobile_v2/features/ritual_room/presentation/widgets/ritual_action_cue.dart';
 import 'package:mobile_v2/features/ritual_room/presentation/widgets/ritual_atmosphere_layer.dart';
 import 'package:mobile_v2/features/ritual_room/presentation/widgets/ritual_context_input_tray.dart';
+import 'package:mobile_v2/features/ritual_room/presentation/widgets/ritual_context_choices.dart';
+import 'package:mobile_v2/features/ritual_room/presentation/widgets/ritual_context_dock.dart';
 import 'package:mobile_v2/features/ritual_room/presentation/widgets/ritual_current_utterance.dart';
 import 'package:mobile_v2/features/ritual_room/presentation/widgets/ritual_identity_header.dart';
 import 'package:mobile_v2/features/ritual_room/presentation/widgets/ritual_listen_control.dart';
 import 'package:mobile_v2/features/ritual_room/presentation/widgets/ritual_reassurance.dart';
 import 'package:mobile_v2/features/ritual_room/presentation/widgets/ritual_sentence_plane.dart';
 import 'package:mobile_v2/features/ritual_room/presentation/widgets/ritual_submitting_indicator.dart';
+import 'package:mobile_v2/features/ritual_room/presentation/widgets/ritual_transient_notice.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -305,98 +308,197 @@ void main() {
   });
 
   testWidgets(
-    'restores reactions, listen, reassurance, and quiet exit coverage',
+    'keeps the ritual context dock collapsed and non modal until expanded',
     (tester) async {
       await _setPhoneViewport(tester);
       final room = _room();
-      final snapshot = _snapshot();
-      final reactions = <String>[];
-      var listenCalls = 0;
-      var quietExitCalls = 0;
       final semantics = tester.ensureSemantics();
 
-      await tester.pumpWidget(
-        _compatibilitySurface(
-          room: room,
-          snapshot: snapshot,
-          onListen: () => listenCalls += 1,
-          onReactionSelected: reactions.add,
-          onQuietExit: () => quietExitCalls += 1,
-        ),
-      );
+      await tester.pumpWidget(_dockSurface(room: room));
 
-      expect(find.byType(RitualIdentityHeader), findsOneWidget);
-      expect(find.byType(RitualCurrentUtterance), findsOneWidget);
-      expect(find.byType(RitualActionCue), findsOneWidget);
-      expect(find.byType(RitualListenControl), findsOneWidget);
-      expect(find.byType(RitualReassurance), findsOneWidget);
+      expect(
+        find.byKey(const Key('ritual-context-dock-collapsed')),
+        findsOneWidget,
+      );
+      expect(find.byType(RitualContextChoices), findsNothing);
+      expect(find.text(room.reactionChoices[0].label), findsNothing);
+      expect(find.text(room.reactionChoices[1].label), findsNothing);
+      expect(find.byType(ModalBarrier), findsNothing);
+      expect(find.byKey(const Key('ritual-reaction-sheet')), findsNothing);
+
+      final entry = tester.widget<Semantics>(
+        find.byKey(const Key('ritual-context-entry')),
+      );
+      expect(entry.properties.sortKey, const OrdinalSortKey(5));
+
+      final entrySize = tester.getSize(
+        find.byKey(const Key('ritual-context-entry')),
+      );
+      expect(entrySize.height, greaterThanOrEqualTo(48));
+
+      await tester.tap(find.byKey(const Key('ritual-context-entry')));
+      await tester.pump();
+
+      expect(
+        find.byKey(const Key('ritual-context-dock-expanded')),
+        findsOneWidget,
+      );
+      expect(find.byType(RitualContextChoices), findsOneWidget);
+      expect(find.text(room.reactionPrompt), findsOneWidget);
+      expect(find.text(room.reassurance), findsOneWidget);
       expect(find.text(room.reactionChoices[0].label), findsOneWidget);
       expect(find.text(room.reactionChoices[1].label), findsOneWidget);
-      expect(find.text(room.reactionChoices[2].label), findsNothing);
-      expect(find.bySemanticsLabel(room.audio.label), findsOneWidget);
-      expect(find.bySemanticsLabel(room.quietExit), findsOneWidget);
-
-      for (final key in const [
-        Key('ritual-listen-control'),
-        Key('ritual-reaction-choice-0'),
-        Key('ritual-reaction-choice-1'),
-        Key('ritual-more-reactions'),
-        Key('ritual-quiet-exit'),
-      ]) {
-        final size = tester.getSize(find.byKey(key));
-        expect(size.width, greaterThanOrEqualTo(48));
-        expect(size.height, greaterThanOrEqualTo(48));
-      }
-
-      await tester.tap(find.byKey(const Key('ritual-listen-control')));
-      await tester.tap(find.byKey(const Key('ritual-reaction-choice-0')));
-      await tester.tap(find.byKey(const Key('ritual-quiet-exit')));
-
-      expect(listenCalls, 1);
-      expect(reactions, [room.reactionChoices[0].id]);
-      expect(quietExitCalls, 1);
+      expect(find.byType(ModalBarrier), findsNothing);
+      expect(find.byKey(const Key('ritual-reaction-sheet')), findsNothing);
       semantics.dispose();
     },
   );
 
   testWidgets(
-    'shows additional content-owned reactions in a half-height Material sheet',
+    'disables choices but keeps collapse and quiet exit enabled while submitting',
     (tester) async {
       await _setPhoneViewport(tester);
       final room = _room();
       final reactions = <String>[];
+      var collapseCalls = 0;
+      var quietExitCalls = 0;
 
       await tester.pumpWidget(
-        MaterialApp(
-          home: Scaffold(
-            body: RitualContextInputTray(
-              prompt: room.reactionPrompt,
-              choices: room.reactionChoices,
-              moreChoicesLabel: '更多情况',
-              onReactionSelected: reactions.add,
-            ),
-          ),
+        _dockSurface(
+          room: room,
+          expanded: true,
+          requestStatus: RitualDockRequestStatus.submitting,
+          onReactionSelected: reactions.add,
+          onToggleExpanded: (_) => collapseCalls += 1,
+          onQuietExit: () => quietExitCalls += 1,
         ),
       );
 
-      await tester.tap(find.byKey(const Key('ritual-more-reactions')));
-      await tester.pumpAndSettle();
-
-      expect(find.byKey(const Key('ritual-reaction-sheet')), findsOneWidget);
-      expect(
-        tester.getSize(find.byKey(const Key('ritual-reaction-sheet'))).height,
-        inInclusiveRange(390, 430),
+      final choice = tester.widget<OutlinedButton>(
+        find.widgetWithText(OutlinedButton, room.reactionChoices[0].label),
       );
-      expect(find.text(room.reactionChoices[2].label), findsOneWidget);
-      expect(find.text(room.reactionChoices[4].label), findsOneWidget);
+      final collapse = tester.widget<TextButton>(
+        find.byKey(const Key('ritual-context-collapse')),
+      );
+      final quietExit = tester.widget<Semantics>(
+        find.byKey(const Key('ritual-quiet-exit')),
+      );
 
-      await tester.tap(find.text(room.reactionChoices[3].label));
-      await tester.pumpAndSettle();
+      expect(choice.onPressed, isNull);
+      expect(collapse.onPressed, isNotNull);
+      expect(quietExit.properties.sortKey, const OrdinalSortKey(6));
 
-      expect(reactions, [room.reactionChoices[3].id]);
-      expect(find.byKey(const Key('ritual-reaction-sheet')), findsNothing);
+      await tester.tap(find.byKey(const Key('ritual-context-collapse')));
+      await tester.pump();
+      await tester.tap(find.byKey(const Key('ritual-quiet-exit')));
+
+      expect(reactions, isEmpty);
+      expect(collapseCalls, 1);
+      expect(quietExitCalls, 1);
     },
   );
+
+  testWidgets(
+    'shows a transient live-region retry notice only for unknown outcome',
+    (tester) async {
+      await _setPhoneViewport(tester);
+      final semantics = tester.ensureSemantics();
+      var retryCalls = 0;
+
+      await tester.pumpWidget(
+        _dockSurface(
+          room: _room(),
+          expanded: true,
+          requestStatus: RitualDockRequestStatus.unknownOutcome,
+          notice: '刚才的调整还没有确认。',
+          onReconcileUnknown: () => retryCalls += 1,
+        ),
+      );
+
+      expect(find.byType(RitualTransientNotice), findsOneWidget);
+      final notice = tester.widget<Semantics>(
+        find.byKey(const Key('ritual-transient-notice')),
+      );
+      expect(notice.properties.liveRegion, isTrue);
+      expect(find.text('刚才的调整还没有确认。'), findsOneWidget);
+      expect(find.byKey(const Key('ritual-transient-notice-retry')), findsOneWidget);
+
+      await tester.tap(find.byKey(const Key('ritual-transient-notice-retry')));
+      expect(retryCalls, 1);
+      semantics.dispose();
+    },
+  );
+
+  testWidgets('does not show retry outside unknown outcome states', (
+    tester,
+  ) async {
+    await _setPhoneViewport(tester);
+    const nonRetryStates = [
+      RitualDockRequestStatus.idle,
+      RitualDockRequestStatus.submitting,
+      RitualDockRequestStatus.recoverableFailure,
+      RitualDockRequestStatus.reconciling,
+    ];
+
+    for (final status in nonRetryStates) {
+      await tester.pumpWidget(
+        _dockSurface(
+          room: _room(),
+          expanded: true,
+          requestStatus: status,
+          notice: '通知文案',
+          onReconcileUnknown: () {},
+        ),
+      );
+
+      expect(find.byType(RitualTransientNotice), findsOneWidget);
+      expect(
+        find.byKey(const Key('ritual-transient-notice-retry')),
+        findsNothing,
+      );
+    }
+  });
+
+  testWidgets('uses internal scroll view under constrained dock height', (
+    tester,
+  ) async {
+    await _setPhoneViewport(tester);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: BabyTalkTheme.light,
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: Scaffold(
+          body: SafeArea(
+            child: Center(
+              child: SizedBox(
+                height: 220,
+                width: 320,
+                child: RitualContextDock(
+                  expanded: true,
+                  requestStatus: RitualDockRequestStatus.idle,
+                  prompt: _room().reactionPrompt,
+                  reassurance: _room().reassurance,
+                  quietExitLabel: _room().quietExit,
+                  choices: _room().reactionChoices,
+                  selectedReactionId: null,
+                  notice: null,
+                  onToggleExpanded: (_) {},
+                  onReactionSelected: (_) {},
+                  onReconcileUnknown: null,
+                  onQuietExit: () {},
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    expect(find.byType(SingleChildScrollView), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
 
   testWidgets(
     'preserves snapshot while submitting and replaces a revision in place',
@@ -622,6 +724,62 @@ Widget _compatibilitySurface({
               onQuietExit: onQuietExit ?? () {},
             ),
           ],
+        ),
+      ),
+    ),
+  );
+}
+
+Widget _dockSurface({
+  required RitualRoomContent room,
+  bool expanded = false,
+  RitualDockRequestStatus requestStatus = RitualDockRequestStatus.idle,
+  String? selectedReactionId,
+  String? notice,
+  ValueChanged<bool>? onToggleExpanded,
+  ValueChanged<String>? onReactionSelected,
+  VoidCallback? onReconcileUnknown,
+  VoidCallback? onQuietExit,
+}) {
+  var currentExpanded = expanded;
+
+  return Localizations(
+    locale: const Locale('zh'),
+    delegates: AppLocalizations.localizationsDelegates,
+    child: Directionality(
+      textDirection: TextDirection.ltr,
+      child: Theme(
+        data: BabyTalkTheme.light,
+        child: MediaQuery(
+          data: const MediaQueryData(size: Size(390, 844)),
+          child: StatefulBuilder(
+            builder: (context, setState) => Material(
+              child: SafeArea(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Align(
+                    alignment: Alignment.bottomCenter,
+                    child: RitualContextDock(
+                      expanded: currentExpanded,
+                      requestStatus: requestStatus,
+                      prompt: room.reactionPrompt,
+                      reassurance: room.reassurance,
+                      quietExitLabel: room.quietExit,
+                      choices: room.reactionChoices,
+                      selectedReactionId: selectedReactionId,
+                      notice: notice,
+                      onToggleExpanded:
+                          onToggleExpanded ??
+                          (value) => setState(() => currentExpanded = value),
+                      onReactionSelected: onReactionSelected ?? (_) {},
+                      onReconcileUnknown: onReconcileUnknown,
+                      onQuietExit: onQuietExit ?? () {},
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
         ),
       ),
     ),

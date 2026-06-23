@@ -162,7 +162,7 @@ to the new unframed sentence-plane APIs.
 - Modify: `.planning/ROADMAP.md`
 - Create: `.planning/phases/42-mobile-v2-low-pressure-interaction-schematic/42-CONTEXT.md`
 
-- [ ] **Step 1: Replace ambiguous focus wording in the approved design**
+- [x] **Step 1: Replace ambiguous focus wording in the approved design**
 
 Use this exact contract wherever the document says the reading focus returns to
 the sentence:
@@ -175,7 +175,7 @@ the sentence:
 新主句。
 ```
 
-- [ ] **Step 2: Mark the old D.4.5 visual UAT as superseded**
+- [x] **Step 2: Mark the old D.4.5 visual UAT as superseded**
 
 Change Test 1 in `41-UAT.md` to:
 
@@ -191,7 +191,7 @@ evidence: |
 Keep the interaction/reconciliation evidence. Do not mark TalkBack device work
 as passed; move its visual/focus acceptance to Phase 42 UAT.
 
-- [ ] **Step 3: Reconcile the Phase 42 roadmap scope**
+- [x] **Step 3: Reconcile the Phase 42 roadmap scope**
 
 In `.planning/ROADMAP.md`, keep the capability-complete engine goal but split
 delivery into:
@@ -216,7 +216,7 @@ Interaction Engine remains capable of reaction, voice, free-text, future-signal,
 and strategy inputs, but this plan does not expose unapproved controls.
 ```
 
-- [ ] **Step 4: Update verification status without rewriting historical evidence**
+- [x] **Step 4: Update verification status without rewriting historical evidence**
 
 Append a dated addendum to `41-VERIFICATION.md`:
 
@@ -230,7 +230,7 @@ dual viewport screenshots, text scaling, and reduced-motion acceptance are
 Phase 42 gates.
 ```
 
-- [ ] **Step 5: Run documentation checks**
+- [x] **Step 5: Run documentation checks**
 
 Run:
 
@@ -247,7 +247,7 @@ git diff --check
 Expected: focus non-grab wording and supersession addendum are found; no
 whitespace errors.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```powershell
 git add -- `
@@ -274,7 +274,7 @@ git commit -m "docs(41): supersede d4.5 visual uat"
 - Test: `mobile_v2/test/features/ritual_room/data/mappers/ritual_room_mapper_test.dart`
 - Test: `mobile_v2/test/features/ritual_room/domain/models/interaction_contract_test.dart`
 
-- [ ] **Step 1: Write failing mapper and contract tests**
+- [x] **Step 1: Write failing mapper and contract tests**
 
 Add assertions:
 
@@ -303,7 +303,7 @@ Update the mapper test payload so each active utterance owns its timing:
 },
 ```
 
-- [ ] **Step 2: Run the focused tests and verify failure**
+- [x] **Step 2: Run the focused tests and verify failure**
 
 Run from `mobile_v2`:
 
@@ -315,7 +315,7 @@ flutter test `
 
 Expected: compile failure because `ActiveUtterance.actionCue` does not exist.
 
-- [ ] **Step 3: Add the required domain field**
+- [x] **Step 3: Add the required domain field**
 
 Change the constructor and fields to:
 
@@ -341,7 +341,7 @@ final class ActiveUtterance {
 }
 ```
 
-- [ ] **Step 4: Add `action_cue` to the stable content DTO**
+- [x] **Step 4: Add `action_cue` to the stable content DTO**
 
 In `RitualActiveUtteranceResponse`:
 
@@ -367,7 +367,7 @@ Map it in `RitualRoomMapper.toActiveUtterance`:
 actionCue: value.actionCue,
 ```
 
-- [ ] **Step 5: Update the canonical fixture**
+- [x] **Step 5: Update the canonical fixture**
 
 Add:
 
@@ -387,7 +387,7 @@ The top-level `action_cue` may remain for one compatibility commit, but Phase 42
 presentation must stop reading it. Remove it only after all consumers use
 `snapshot.activeUtterance.actionCue`.
 
-- [ ] **Step 6: Update every constructor**
+- [x] **Step 6: Update every constructor**
 
 Run:
 
@@ -405,7 +405,7 @@ actionCue: 'shared action moment',
 
 Do not use an empty string or derive timing in a widget.
 
-- [ ] **Step 7: Re-run focused tests**
+- [x] **Step 7: Re-run focused tests**
 
 ```powershell
 flutter test `
@@ -415,7 +415,7 @@ flutter test `
 
 Expected: PASS.
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```powershell
 git add -- mobile_v2
@@ -439,7 +439,7 @@ git commit -m "refactor(41): bind action cue to active utterance"
 - Test: `mobile_v2/test/features/ritual_room/domain/engine/interaction_engine_replay_test.dart`
 - Test: `mobile_v2/test/features/ritual_room/data/repositories/interaction_repository_test.dart`
 
-- [ ] **Step 1: Write failing round-trip and replay assertions**
+- [x] **Step 1: Write failing round-trip and replay assertions**
 
 Add:
 
@@ -450,7 +450,7 @@ expect(repositoryResult.activeUtterance.actionCue, '宝宝停下来时');
 expect(ProductSnapshot.currentSchemaVersion, 2);
 ```
 
-- [ ] **Step 2: Run focused tests and verify failure**
+- [x] **Step 2: Run focused tests and verify failure**
 
 ```powershell
 flutter test `
@@ -461,7 +461,7 @@ flutter test `
 
 Expected: FAIL because transport and replay do not preserve `actionCue`.
 
-- [ ] **Step 3: Add explicit transport ownership**
+- [x] **Step 3: Add explicit transport ownership**
 
 Because the snapshot wire shape changes, bump:
 
@@ -488,7 +488,7 @@ final String actionCue;
 
 Do not encode action timing into `alternatives`.
 
-- [ ] **Step 4: Map both directions**
+- [x] **Step 4: Map both directions**
 
 In `snapshotFromDomain`:
 
@@ -502,7 +502,7 @@ In `snapshotToDomain`:
 actionCue: response.utterance.actionCue,
 ```
 
-- [ ] **Step 5: Serialize runtime and journal evidence**
+- [x] **Step 5: Serialize runtime and journal evidence**
 
 Add to both `_activeUtteranceToJson` helpers:
 
@@ -513,14 +513,14 @@ Add to both `_activeUtteranceToJson` helpers:
 Replay already carries the whole `ActiveUtterance`; do not create a separate
 action-cue field on `ProductSnapshot`.
 
-- [ ] **Step 6: Run the focused tests**
+- [x] **Step 6: Run the focused tests**
 
 Run the command from Step 2.
 
 Expected: PASS with action timing preserved across DTO round-trip, repository,
 runtime JSON, and replay.
 
-- [ ] **Step 7: Run the complete Phase 41 authority suite**
+- [x] **Step 7: Run the complete Phase 41 authority suite**
 
 ```powershell
 flutter test test/features/ritual_room/domain
@@ -531,7 +531,7 @@ flutter test test/app/providers/ritual_room_session_provider_test.dart
 Expected: PASS. Event identity, revision, atomicity, and original-event retry
 remain unchanged.
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```powershell
 git add -- mobile_v2
@@ -556,7 +556,7 @@ git commit -m "refactor(41): round trip utterance timing"
 - Test: `mobile_v2/test/features/ritual_room/data/mappers/ritual_room_mapper_test.dart`
 - Create: `mobile_v2/test/app/theme/ritual_room_theme_test.dart`
 
-- [ ] **Step 1: Write failing tone parsing and token tests**
+- [x] **Step 1: Write failing tone parsing and token tests**
 
 ```dart
 expect(content.atmosphereTone, RitualAtmosphereTone.everydayCalm);
@@ -567,7 +567,7 @@ expect(
 expect(RitualRoomTheme.light.textMuted, const Color(0xFF756A63));
 ```
 
-- [ ] **Step 2: Run tests and verify failure**
+- [x] **Step 2: Run tests and verify failure**
 
 ```powershell
 flutter test `
@@ -577,7 +577,7 @@ flutter test `
 
 Expected: FAIL because the tone and theme extension do not exist.
 
-- [ ] **Step 3: Add the domain-safe tone**
+- [x] **Step 3: Add the domain-safe tone**
 
 ```dart
 enum RitualAtmosphereTone {
@@ -602,7 +602,7 @@ enum RitualAtmosphereTone {
 
 Add `required this.atmosphereTone` to `RitualRoomContent`.
 
-- [ ] **Step 4: Add transport and fixture fields**
+- [x] **Step 4: Add transport and fixture fields**
 
 At the room root:
 
@@ -613,7 +613,7 @@ At the room root:
 Parse it as a required non-empty string and map with
 `RitualAtmosphereTone.fromWireName`.
 
-- [ ] **Step 5: Add the ThemeExtension**
+- [x] **Step 5: Add the ThemeExtension**
 
 Define a palette value and tokens with these exact core colors:
 
@@ -694,7 +694,7 @@ final class RitualRoomTheme extends ThemeExtension<RitualRoomTheme> {
 Implement `copyWith` and `lerp` for every field. Add the extension to
 `BabyTalkTheme.light.extensions`.
 
-- [ ] **Step 6: Set typography without online fonts**
+- [x] **Step 6: Set typography without online fonts**
 
 Use system sans-serif and these roles in `BabyTalkTheme.light`:
 
@@ -721,13 +721,13 @@ labelLarge: TextStyle(
 
 Do not add `google_fonts` or a network font.
 
-- [ ] **Step 7: Run tests**
+- [x] **Step 7: Run tests**
 
 Run the command from Step 2.
 
 Expected: PASS.
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```powershell
 git add -- mobile_v2
@@ -748,7 +748,7 @@ git commit -m "feat(42): add ritual atmosphere design tokens"
 - Modify: `mobile_v2/lib/app/baby_talk_app.dart`
 - Test: `mobile_v2/test/app/localization/ritual_room_localization_test.dart`
 
-- [ ] **Step 1: Add the localization test**
+- [x] **Step 1: Add the localization test**
 
 Assert that generated localization exposes:
 
@@ -761,7 +761,7 @@ expect(copy.adjustingUtterance, '正在让这句话更贴近一点…');
 expect(copy.unknownOutcome, '刚才的调整还没有确认。');
 ```
 
-- [ ] **Step 2: Configure gen-l10n**
+- [x] **Step 2: Configure gen-l10n**
 
 `l10n.yaml`:
 
@@ -786,7 +786,7 @@ flutter:
   generate: true
 ```
 
-- [ ] **Step 3: Add the Chinese ARB**
+- [x] **Step 3: Add the Chinese ARB**
 
 ```json
 {
@@ -823,7 +823,7 @@ flutter:
 }
 ```
 
-- [ ] **Step 4: Generate and wire localization**
+- [x] **Step 4: Generate and wire localization**
 
 Run:
 
@@ -839,7 +839,7 @@ localizationsDelegates: AppLocalizations.localizationsDelegates,
 supportedLocales: AppLocalizations.supportedLocales,
 ```
 
-- [ ] **Step 5: Run tests**
+- [x] **Step 5: Run tests**
 
 ```powershell
 flutter test test/app/localization/ritual_room_localization_test.dart
@@ -847,7 +847,7 @@ flutter test test/app/localization/ritual_room_localization_test.dart
 
 Expected: PASS.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```powershell
 git add -- mobile_v2
@@ -869,7 +869,7 @@ git commit -m "feat(42): localize ritual room chrome"
 - Modify: `mobile_v2/lib/features/ritual_room/presentation/widgets/ritual_listen_control.dart`
 - Test: `mobile_v2/test/features/ritual_room/presentation/widgets/ritual_room_support_widgets_test.dart`
 
-- [ ] **Step 1: Replace old widget expectations with failing sentence-field tests**
+- [x] **Step 1: Replace old widget expectations with failing sentence-field tests**
 
 Assert:
 
@@ -891,7 +891,7 @@ values in the same pump. Build the test room with
 `actionCue: '拿起鞋时'` so the assertion proves the widget is not reading the
 old room-level field.
 
-- [ ] **Step 2: Run the widget test and verify failure**
+- [x] **Step 2: Run the widget test and verify failure**
 
 ```powershell
 flutter test `
@@ -900,7 +900,7 @@ flutter test `
 
 Expected: FAIL because the new components do not exist.
 
-- [ ] **Step 3: Define the audio presentation states used by the sentence plane**
+- [x] **Step 3: Define the audio presentation states used by the sentence plane**
 
 ```dart
 sealed class RitualListenState {
@@ -932,7 +932,7 @@ final class RitualListenFailure extends RitualListenState {
 }
 ```
 
-- [ ] **Step 4: Implement `RitualAtmosphereLayer`**
+- [x] **Step 4: Implement `RitualAtmosphereLayer`**
 
 Public API:
 
@@ -965,7 +965,7 @@ Implementation constraints:
 - use a radial/linear light-field gradient only when
   `MediaQuery.highContrastOf(context)` is false
 
-- [ ] **Step 5: Implement `RitualSentencePlane`**
+- [x] **Step 5: Implement `RitualSentencePlane`**
 
 Public API:
 
@@ -1026,7 +1026,7 @@ RitualListenControl(
 Use one `AnimatedSwitcher` keyed by `utterance.displayId` around the complete
 English/Chinese/timing group. Do not animate each field separately.
 
-- [ ] **Step 6: Respect reduced motion**
+- [x] **Step 6: Respect reduced motion**
 
 Calculate duration at the screen boundary:
 
@@ -1050,13 +1050,13 @@ final sentenceDuration = reduceMotion
 When reduced motion is enabled, use `FadeTransition` only; do not translate,
 scale, or slide.
 
-- [ ] **Step 7: Run tests**
+- [x] **Step 7: Run tests**
 
 Run the command from Step 2.
 
 Expected: PASS; no old identity/card component remains in the harness.
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```powershell
 git add -- mobile_v2
@@ -1076,7 +1076,7 @@ git commit -m "feat(42): add sentence light field components"
 - Create: `mobile_v2/lib/features/ritual_room/presentation/widgets/ritual_transient_notice.dart`
 - Test: `mobile_v2/test/features/ritual_room/presentation/widgets/ritual_room_support_widgets_test.dart`
 
-- [ ] **Step 1: Write failing Dock tests**
+- [x] **Step 1: Write failing Dock tests**
 
 Cover:
 
@@ -1104,7 +1104,7 @@ expect(collapse.onPressed, isNotNull);
 expect(quietExit.onPressed, isNotNull);
 ```
 
-- [ ] **Step 2: Run tests and verify failure**
+- [x] **Step 2: Run tests and verify failure**
 
 ```powershell
 flutter test `
@@ -1113,7 +1113,7 @@ flutter test `
 
 Expected: FAIL because the Dock does not exist and the old widget opens a modal.
 
-- [ ] **Step 3: Implement immutable Dock inputs**
+- [x] **Step 3: Implement immutable Dock inputs**
 
 ```dart
 enum RitualDockRequestStatus {
@@ -1184,7 +1184,7 @@ Recoverable failure does not retain a private command and therefore does not
 call `onReconcileUnknown`; the parent may select a context again. Only
 `unknownOutcome` exposes original-event reconciliation.
 
-- [ ] **Step 4: Implement the collapsed and expanded layouts**
+- [x] **Step 4: Implement the collapsed and expanded layouts**
 
 Collapsed:
 
@@ -1206,7 +1206,7 @@ Expanded:
 
 Quiet exit has `OrdinalSortKey(6)`.
 
-- [ ] **Step 5: Implement transient notices**
+- [x] **Step 5: Implement transient notices**
 
 ```dart
 final class RitualTransientNotice extends StatelessWidget {
@@ -1232,13 +1232,13 @@ Semantics(
 Do not use `FocusNode`, `requestFocus`, `FocusScope`, or
 `SemanticsService.sendAnnouncement`.
 
-- [ ] **Step 6: Run tests**
+- [x] **Step 6: Run tests**
 
 Run the command from Step 2.
 
 Expected: PASS; modal widgets and old sheet keys are absent.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```powershell
 git add -- mobile_v2
