@@ -1,0 +1,12 @@
+Negative fixture for semantic firewall verification only.
+The following banned terms are intentionally present here as test evidence:
+phraseId
+activityId
+completedPhrase
+nextPhraseId
+currentStreakDays
+GardenGrowth
+starterPhraseId
+下一句
+完成练习
+积分

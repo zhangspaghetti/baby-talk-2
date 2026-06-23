@@ -1,6 +1,6 @@
 import 'dart:io';
 
-import 'package:flutter_test/flutter_test.dart';
+import 'package:test/test.dart';
 
 import '../../tool/verify_mobile_v2_semantic_firewall.dart' as verifier;
 
@@ -279,8 +279,8 @@ class OldSemanticLeak {
       );
       await _writeProjectFile(
         tempDir,
-        'mobile_v2/test/fixtures/old_terms_fixture.dart',
-        'const fixture = "activityId nextPhraseId streak";\n',
+        'test/fixtures/mobile_v2_semantic_firewall/negative/forbidden_runtime_terms.txt',
+        'activityId nextPhraseId streak',
       );
 
       final report = verifier.scanMobileV2SemanticFirewall(
@@ -299,9 +299,38 @@ class OldSemanticLeak {
           'mobile_v2/docs/migration-notes.md',
           'mobile_v2/legacy_reference/garden_fixture.dart',
           'mobile_v2/reference_assets/old_phrase_note.md',
-          'mobile_v2/test/fixtures/old_terms_fixture.dart',
+          'test/fixtures/mobile_v2_semantic_firewall/negative/forbidden_runtime_terms.txt',
         ]),
       );
+    });
+
+    test('does not blanket-allow mobile_v2 test fixtures', () async {
+      final tempDir = await Directory.systemTemp.createTemp(
+        'mobile-v2-firewall-no-broad-test-fixture-allowlist-',
+      );
+      addTearDown(() async {
+        if (tempDir.existsSync()) {
+          await tempDir.delete(recursive: true);
+        }
+      });
+
+      await _writeProjectFile(
+        tempDir,
+        'mobile_v2/lib/boundary.dart',
+        'class Boundary { final String fixedSound = "Peek-a-boo"; }\n',
+      );
+      await _writeProjectFile(
+        tempDir,
+        'mobile_v2/test/fixtures/old_terms_fixture.dart',
+        'const fixture = "activityId nextPhraseId streak";\n',
+      );
+
+      final report = verifier.scanMobileV2SemanticFirewall(
+        projectRoot: tempDir.path,
+      );
+
+      expect(report.hasBlockingViolations, isFalse);
+      expect(report.allowlistedReferences, isEmpty);
     });
 
     test('skips binary files in allowlisted reference material', () async {

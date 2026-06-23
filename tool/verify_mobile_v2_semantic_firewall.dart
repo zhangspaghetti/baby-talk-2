@@ -23,6 +23,15 @@ const mobileV2BannedRuntimeTerms = <String>[
   'streak',
   'GardenGrowth',
   'starterPhraseId',
+  '下一句',
+  '继续下一句',
+  '完成练习',
+  '今日任务',
+  '打卡成功',
+  '宝宝学会了吗',
+  '积分',
+  '连胜',
+  '成长值',
 ];
 
 const _forbiddenOldMobileFeatures = <String>{
@@ -35,7 +44,10 @@ const _allowlistedReferencePrefixes = <String>[
   'mobile_v2/reference_assets/',
   'mobile_v2/legacy_reference/',
   'mobile_v2/docs/',
-  'mobile_v2/test/fixtures/',
+];
+
+const _negativeFixturePrefixes = <String>[
+  'test/fixtures/mobile_v2_semantic_firewall/negative/',
 ];
 
 const _referenceTextExtensions = <String>{
@@ -392,7 +404,10 @@ List<File> _listRuntimeDartFiles(Directory runtimeRoot, String projectRoot) {
 
 List<File> _listReferenceFiles(String projectRoot) {
   final files = <File>[];
-  for (final prefix in _allowlistedReferencePrefixes) {
+  for (final prefix in [
+    ..._allowlistedReferencePrefixes,
+    ..._negativeFixturePrefixes,
+  ]) {
     final directory = Directory(
       '$projectRoot/${prefix.substring(0, prefix.length - 1)}',
     );
