@@ -242,18 +242,50 @@ void main() {
     );
   });
 
-  testWidgets('compatibility composition keeps timing before listen', (
+  testWidgets('normal motion switching includes a slide transition', (
     tester,
   ) async {
     await _setPhoneViewport(tester);
     final room = _room();
 
     await tester.pumpWidget(
+      _sentenceFieldSurface(
+        room: room,
+        snapshot: _snapshot(),
+        motionDuration: const Duration(milliseconds: 200),
+      ),
+    );
+    await tester.pumpWidget(
+      _sentenceFieldSurface(
+        room: room,
+        snapshot: _snapshot(revision: 1),
+        motionDuration: const Duration(milliseconds: 200),
+      ),
+    );
+
+    final switcher = find.descendant(
+      of: find.byKey(const Key('ritual-sentence-plane')),
+      matching: find.byType(AnimatedSwitcher),
+    );
+    expect(
+      find.descendant(of: switcher, matching: find.byType(SlideTransition)),
+      findsWidgets,
+    );
+  });
+
+  testWidgets('compatibility uses snapshot timing before listen', (
+    tester,
+  ) async {
+    await _setPhoneViewport(tester);
+    final room = _room();
+    final snapshot = _snapshot(actionCue: 'snapshot-owned cue');
+
+    await tester.pumpWidget(
       MaterialApp(
         theme: BabyTalkTheme.light,
         home: Scaffold(
           body: RitualCurrentUtterance(
-            snapshot: _snapshot(),
+            snapshot: snapshot,
             actionCue: room.actionCue,
             audio: room.audio,
             submitting: false,
@@ -264,6 +296,8 @@ void main() {
       ),
     );
 
+    expect(find.text(snapshot.activeUtterance.actionCue), findsOneWidget);
+    expect(find.text(room.actionCue), findsNothing);
     expect(
       tester.getTopLeft(find.byType(RitualActionCue)).dy,
       lessThan(tester.getTopLeft(find.byType(RitualListenControl)).dy),
@@ -427,6 +461,7 @@ void main() {
         utterance:
             'Let us put the warm towel beside the tub before we begin bath time together.',
         helper: '开始一起洗澡之前，我们先把暖和的浴巾放在浴缸旁边。',
+        actionCue: alternateRoom.actionCue,
       );
 
       await tester.pumpWidget(

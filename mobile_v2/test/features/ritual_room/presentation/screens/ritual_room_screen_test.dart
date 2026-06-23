@@ -344,6 +344,7 @@ void main() {
                   utterance: "Let's put your boots on.",
                   helper: '我们来穿雨靴吧。',
                   label: '雨天出门',
+                  actionCue: alternate.actionCue,
                 ),
               ),
             ),
@@ -524,6 +525,7 @@ ProductSnapshot _snapshot({
   String anchor = 'Shoes on.',
   String? utterance,
   String helper = '我们来穿鞋吧。',
+  String? actionCue,
 }) {
   final base = interactionSnapshot(revision: revision);
   return ProductSnapshot(
@@ -545,7 +547,7 @@ ProductSnapshot _snapshot({
               ? 'Let’s put your shoes on.'
               : 'revised utterance $revision'),
       zhSupport: helper,
-      actionCue: revision == 0 ? '拿起鞋时' : '宝宝停下来时',
+      actionCue: actionCue ?? (revision == 0 ? '拿起鞋时' : '宝宝停下来时'),
       audioAssetId: revision == 0 ? 'rr_shoes_001' : 'rr_shoes_002',
     ),
     metadata: base.metadata,

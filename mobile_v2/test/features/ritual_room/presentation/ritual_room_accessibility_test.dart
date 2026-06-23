@@ -67,7 +67,7 @@ void main() {
         actionCue: '把鞋放在身边以后，停一下，再慢慢说出这一句。',
         reassurance: '不用要求孩子回应，也不用催促，只要自然地说一句就够了。',
       );
-      final snapshot = _longSnapshot();
+      final snapshot = _longSnapshot(actionCue: room.actionCue);
 
       await tester.pumpWidget(
         MediaQuery(
@@ -88,7 +88,7 @@ void main() {
 
       expect(find.text(snapshot.activeUtterance.primary), findsOneWidget);
       expect(find.text(snapshot.activeUtterance.zhSupport), findsOneWidget);
-      expect(find.text(room.actionCue), findsOneWidget);
+      expect(find.text(snapshot.activeUtterance.actionCue), findsOneWidget);
       await tester.scrollUntilVisible(
         find.text(room.reassurance),
         160,
@@ -195,7 +195,7 @@ RitualRoomContent _room({
   ),
 );
 
-ProductSnapshot _longSnapshot() {
+ProductSnapshot _longSnapshot({required String actionCue}) {
   final base = interactionSnapshot();
   return ProductSnapshot(
     schemaVersion: base.schemaVersion,
@@ -206,12 +206,12 @@ ProductSnapshot _longSnapshot() {
     normalizedContext: base.normalizedContext,
     memory: base.memory,
     strategy: base.strategy,
-    activeUtterance: const ActiveUtterance(
+    activeUtterance: ActiveUtterance(
       displayId: 'shoes_on_long_v1',
       primary:
           'Let us place one shoe beside you and wait together until this shared moment feels easier to enter.',
       zhSupport: '我们先把一只鞋放在你身边，一起等一等，等这个共同的时刻更容易加入。',
-      actionCue: '拿起鞋时',
+      actionCue: actionCue,
       audioAssetId: 'rr_shoes_001',
     ),
     metadata: base.metadata,
