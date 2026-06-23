@@ -5,7 +5,6 @@ import 'package:mobile_v2/app/theme/baby_talk_theme.dart';
 import 'package:mobile_v2/features/ritual_room/domain/models/active_utterance.dart';
 import 'package:mobile_v2/features/ritual_room/domain/models/advance_result.dart';
 import 'package:mobile_v2/features/ritual_room/domain/models/context_memory.dart';
-import 'package:mobile_v2/features/ritual_room/domain/models/input_event.dart';
 import 'package:mobile_v2/features/ritual_room/domain/models/normalized_input.dart';
 import 'package:mobile_v2/features/ritual_room/domain/models/product_snapshot.dart';
 import 'package:mobile_v2/features/ritual_room/domain/models/ritual_atmosphere_tone.dart';

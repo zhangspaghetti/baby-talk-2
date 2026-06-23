@@ -11,11 +11,9 @@ import 'package:mobile_v2/features/ritual_room/domain/models/ritual_atmosphere_t
 import 'package:mobile_v2/features/ritual_room/domain/models/ritual_room_content.dart';
 import 'package:mobile_v2/features/ritual_room/domain/models/strategy_decision.dart';
 import 'package:mobile_v2/features/ritual_room/presentation/models/ritual_listen_state.dart';
-import 'package:mobile_v2/features/ritual_room/presentation/widgets/ritual_action_cue.dart';
 import 'package:mobile_v2/features/ritual_room/presentation/widgets/ritual_atmosphere_layer.dart';
 import 'package:mobile_v2/features/ritual_room/presentation/widgets/ritual_context_choices.dart';
 import 'package:mobile_v2/features/ritual_room/presentation/widgets/ritual_context_dock.dart';
-import 'package:mobile_v2/features/ritual_room/presentation/widgets/ritual_listen_control.dart';
 import 'package:mobile_v2/features/ritual_room/presentation/widgets/ritual_sentence_plane.dart';
 import 'package:mobile_v2/features/ritual_room/presentation/widgets/ritual_transient_notice.dart';
 

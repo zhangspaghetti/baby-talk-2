@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../../../../app/localization/generated/app_localizations.dart';
-import '../../domain/models/ritual_room_content.dart';
 import '../capability/interaction_capability_mask.dart';
 import '../models/ritual_listen_state.dart';
 import '../state/ritual_room_ui_state.dart';

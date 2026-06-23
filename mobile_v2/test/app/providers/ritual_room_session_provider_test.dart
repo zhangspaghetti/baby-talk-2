@@ -782,7 +782,6 @@ RitualRoomContent _room({String ritualRoomId = 'shoes_on_room_v1'}) =>
         assetPath: 'assets/illustrations/rituals/shoes_on/shoes_on.png',
         status: 'approved',
       ),
-      actionCue: 'Hold one shoe nearby.',
       audio: const RitualAudioContent(
         available: false,
         label: 'Play',
