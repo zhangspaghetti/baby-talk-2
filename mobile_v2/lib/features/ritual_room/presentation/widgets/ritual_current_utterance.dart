@@ -70,6 +70,7 @@ final class RitualCurrentUtterance extends StatelessWidget {
             style: textTheme.bodyLarge?.copyWith(fontSize: 15, height: 1.6),
           ),
           const SizedBox(height: 8),
+          RitualActionCue(cue: actionCue, sortKey: const OrdinalSortKey(3)),
           RitualListenControl(
             state: audio.available
                 ? const RitualListenReady()
@@ -78,7 +79,6 @@ final class RitualCurrentUtterance extends StatelessWidget {
             onPressed: onListen,
             readyLabel: audio.available ? audio.label : null,
           ),
-          RitualActionCue(cue: actionCue, sortKey: const OrdinalSortKey(3)),
           if (submitting) RitualSubmittingIndicator(message: pendingCopy),
         ],
       ),
