@@ -281,14 +281,14 @@ Contract enum:
 cooperating / hesitant / resisting / no_response / other
 ```
 
-Recommendation: extend `BabyReactionType` and wire values now, with a backwards-compatible mapper for old events.
+Recommendation: use ADR-0001 Option D, a clean cutover to the new five-value reaction contract before UI implementation starts. Because the project has no production users, no released legacy client, and no online historical data that must remain compatible, do not carry a long-term dual-accept strategy.
 
 ```text
-Old event wire value     Product meaning in old UI       New display fallback
-calm                     baby relaxed/listened            配合
-engaged                  baby looked/responded            配合
-imitated                 baby vocalized/imitated          配合
-needs_break              pause needed                     不想
+Old development/test value     One-time migration target
+calm                           cooperating
+engaged                        cooperating
+imitated                       cooperating
+needs_break                    resisting
 ```
 
 New persisted values:
@@ -301,7 +301,7 @@ no_response
 other
 ```
 
-If backend sync is in scope for the implementation PR, update backend enum validation in the same PR. If backend is not in scope, the first mobile slice may store new reactions locally only and upload after backend support lands. Do not fake the five reactions by compressing them permanently into the old four-value enum; it would lose the product's central signal.
+Mobile must be new-read/new-write only. Backend validation and the database constraint must accept only the five new values. If development or test data already contains the old four values, handle it with a one-time migration or development reset only. Do not fake the five reactions by compressing them permanently into the old four-value enum; it would lose the product's central signal.
 
 ## Implementation Gate: Reaction Contract
 
@@ -309,10 +309,11 @@ If backend sync is in scope for the implementation PR, update backend enum valid
 
 The ADR must choose exactly one strategy:
 
-- Option A: mobile + backend 同 PR 支持新 5-value reaction wire contract。
-- Option B: mobile 先 local-only 保存新 reaction，sync pending，backend 支持后再上传。
+- Option D: clean cutover to the new 5-value reaction wire contract before UI implementation.
 
-不得把 cooperating / hesitant / resisting / no_response / other 永久压缩成旧的 calm / engaged / imitated / needs_break。
+ADR-0001 documents the recommended strategy. 在 ADR 明确批准之前，不允许开始 Today/Scene/One-utterance UI implementation。
+
+不得把 cooperating / hesitant / resisting / no_response / other 永久压缩成旧的 calm / engaged / imitated / needs_break。旧四值不再作为正式 contract 保留。
 
 ## Data Flow
 
@@ -465,14 +466,14 @@ but the new care-path semantics are mostly untested until these gaps land.
 | --- | --- | --- | --- |
 | Seed content missing current activity | Today has no safe current node | Unit + widget | Fall back to first available care moment with gentle note |
 | Audio asset missing | Parent can still read phrase but cannot listen | Unit existing `validateAssets` + widget | Keep phrase visible, audio retry secondary |
-| Reaction enum unsupported by old backend | Sync fails after local save | Unit + sync integration | Keep event pending, show no blame, retry after backend supports value |
+| Backend or DB still uses old reaction contract | New reaction saves fail or contract drifts before UI ships | Backend + sync integration | Block UI implementation until mobile/backend/DB clean cutover lands |
 | Next support API timeout | Parent loses flow after reaction | Unit + widget | Keep current utterance and show local safe fallback |
-| Garden projection sees old reaction values | Trace disappears or crashes | Unit | Backwards-compatible mapper |
+| Development/test data still contains old reaction values | Trace disappears or crashes during cutover verification | Unit + migration/reset check | One-time migrate old dev/test values or reset the development data store |
 | App restarts after `我说了` before reaction | Spoken moment might be lost | Widget/integration | Only persist trace after reaction or explicit no-response timeout; restore phase safely |
 | Scene search empty | Parent thinks content is missing | Widget | Clear filters action and common scene suggestions |
 | Copy regression says `练习/完成/学习进度` | Product drifts into course/task framing | Tool test | Fail CI semantic firewall |
 
-Critical gap: reaction enum/backend compatibility has no current implementation. Do not start UI implementation without deciding whether backend support is same PR or local-only first.
+Critical gap: reaction enum/backend clean cutover has no current implementation. Do not start UI implementation until ADR-0001 is explicitly approved and the implementation plan uses new-read/new-write mobile, new-only backend validation, and a new-only DB constraint.
 
 ## Performance Review
 
@@ -534,14 +535,14 @@ Conflict flags:
 
 ## Implementation Tasks
 
-- [ ] **T0 (P0, human: ~30min / CC: ~10min)** — Reaction Contract ADR / sync decision — Choose Option A or Option B before Today/Scene/One-utterance UI starts.
+- [ ] **T0 (P0, human: ~30min / CC: ~10min)** — Reaction Contract ADR / sync decision — Approve ADR-0001 Option D before Today/Scene/One-utterance UI starts.
   - Surfaced by: implementation gate — reaction enum/backend sync compatibility is unresolved.
-  - Files: ADR or architecture addendum, with mobile/backend owner sign-off.
+  - Files: `docs/adr/ADR-0001-reaction-contract-clean-cutover.md`, with mobile/backend owner sign-off.
   - Verify: ADR merged or explicitly approved.
 
-- [ ] **T1 (P1, human: ~2h / CC: ~25min)** — Reaction model implementation — Add care-path reaction enum and backwards-compatible old-event mapping.
+- [ ] **T1 (P1, human: ~2h / CC: ~25min)** — Reaction model implementation — Cut over mobile/backend/database to the new five-value reaction contract.
   - Surfaced by: architecture/data contract — current `BabyReactionType` has 4 values, contract requires 5.
-  - Files: `mobile/lib/features/practice/domain/models/interaction_event_payload.dart`, generated files, tests; backend enum if sync included.
+  - Files: `mobile/lib/features/practice/domain/models/interaction_event_payload.dart`, generated files, tests, backend validation, and DB constraint migration.
   - Verify: `cd mobile && flutter test test/features/practice/interaction_event_payload_test.dart`.
 
 - [ ] **T2 (P1, human: ~3h / CC: ~45min)** — Care path facade — Add `features/care_path` domain, repository facade, and notifier.
