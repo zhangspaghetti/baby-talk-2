@@ -151,7 +151,7 @@ void main() {
       );
     });
 
-    test('configures the required system-font typography roles', () {
+    test('configures the required bundled Noto Sans typography roles', () {
       final textTheme = BabyTalkTheme.light.textTheme;
 
       _expectTextStyle(
@@ -175,11 +175,21 @@ void main() {
         height: 1.4,
         fontWeight: FontWeight.w600,
       );
+
+      // Design contract §6: offline sans-serif only (Noto Sans / Noto Sans SC),
+      // never serif/decorative fonts and never an online font service.
+      expect(textTheme.displaySmall?.fontFamily, 'Noto Sans');
+      expect(textTheme.bodyLarge?.fontFamily, 'Noto Sans');
+      expect(textTheme.labelLarge?.fontFamily, 'Noto Sans');
+      expect(
+        textTheme.displaySmall?.fontFamilyFallback,
+        contains('Noto Sans SC'),
+      );
+
       final themeSource = File(
         'lib/app/theme/baby_talk_theme.dart',
       ).readAsStringSync();
       expect(themeSource, isNot(contains('GoogleFonts')));
-      expect(themeSource, isNot(contains('fontFamily:')));
     });
   });
 }

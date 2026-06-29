@@ -23,25 +23,38 @@ final class RitualContextChoices extends StatelessWidget {
         Theme.of(context).extension<RitualRoomTheme>() ?? RitualRoomTheme.light;
 
     return Wrap(
-      spacing: 8,
-      runSpacing: 8,
+      spacing: 10,
+      runSpacing: 10,
       children: [
         for (final choice in choices)
           OutlinedButton(
             key: Key('ritual-context-choice-${choice.id}'),
             style: OutlinedButton.styleFrom(
               minimumSize: const Size(48, 48),
+              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
               backgroundColor: selectedReactionId == choice.id
                   ? ritualTheme.assistiveSurface
-                  : null,
-              foregroundColor: ritualTheme.textPrimary,
+                  : ritualTheme.canvas,
+              foregroundColor: selectedReactionId == choice.id
+                  ? ritualTheme.assistive
+                  : ritualTheme.textPrimary,
+              elevation: 0,
               side: BorderSide(
                 color: selectedReactionId == choice.id
                     ? ritualTheme.assistive
-                    : ritualTheme.divider,
+                    : ritualTheme.divider.withValues(alpha: 0.5),
+                width: selectedReactionId == choice.id ? 1.5 : 1,
               ),
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              textStyle: TextStyle(
+                fontSize: 15,
+                height: 1.2,
+                letterSpacing: 0.1,
+                fontWeight: selectedReactionId == choice.id
+                    ? FontWeight.w700
+                    : FontWeight.w600,
               ),
             ),
             onPressed: enabled ? () => onSelected(choice.id) : null,

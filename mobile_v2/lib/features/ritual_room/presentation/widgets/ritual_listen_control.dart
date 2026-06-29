@@ -80,7 +80,10 @@ final class RitualListenControl extends StatelessWidget {
                     onPressed: presentation.enabled ? onPressed : null,
                     color: ritualTheme.assistive,
                     style: IconButton.styleFrom(
-                      backgroundColor: ritualTheme.assistiveSurface,
+                      backgroundColor: presentation.enabled
+                          ? ritualTheme.assistiveSurface
+                          : ritualTheme.divider.withValues(alpha: 0.32),
+                      shape: const CircleBorder(),
                     ),
                     icon: Icon(presentation.icon),
                   ),

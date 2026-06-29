@@ -23,12 +23,30 @@ final class RitualActionCue extends StatelessWidget {
       excludeSemantics: true,
       child: Padding(
         padding: const EdgeInsets.only(top: 16),
-        child: Text(
-          cue,
-          style: Theme.of(context).textTheme.labelLarge?.copyWith(
-            fontWeight: FontWeight.w600,
-            color: ritualTheme.warmAccent,
-          ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: 5,
+              height: 5,
+              margin: const EdgeInsets.only(right: 8, top: 6),
+              decoration: BoxDecoration(
+                color: ritualTheme.warmAccent,
+                shape: BoxShape.circle,
+              ),
+            ),
+            Flexible(
+              child: Text(
+                cue,
+                style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                  fontWeight: FontWeight.w600,
+                  color: ritualTheme.warmAccent,
+                  letterSpacing: 0.3,
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );

@@ -67,11 +67,24 @@ final class RitualContextDock extends StatelessWidget {
       ),
       decoration: BoxDecoration(
         color: ritualTheme.lightField,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: ritualTheme.divider),
+        borderRadius: BorderRadius.circular(28),
+        border: Border.all(color: ritualTheme.divider.withValues(alpha: 0.55)),
+        boxShadow: [
+          BoxShadow(
+            color: ritualTheme.textPrimary.withValues(alpha: 0.10),
+            blurRadius: 30,
+            spreadRadius: -8,
+            offset: const Offset(0, 14),
+          ),
+          BoxShadow(
+            color: ritualTheme.textPrimary.withValues(alpha: 0.04),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: Padding(
-        padding: const EdgeInsets.all(12),
+        padding: EdgeInsets.all(expanded ? 18 : 6),
         child: expanded
             ? _buildExpanded(context, copy)
             : _buildCollapsed(context, copy),

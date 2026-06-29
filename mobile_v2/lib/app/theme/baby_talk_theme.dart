@@ -26,6 +26,8 @@ abstract final class BabyTalkTheme {
       useMaterial3: true,
       colorScheme: colorScheme,
       scaffoldBackgroundColor: _warmPaper,
+      fontFamily: 'Noto Sans',
+      fontFamilyFallback: const ['Noto Sans SC'],
       extensions: const <ThemeExtension<dynamic>>[ritual],
       textTheme: TextTheme(
         bodyLarge: TextStyle(
@@ -33,30 +35,35 @@ abstract final class BabyTalkTheme {
           fontSize: 16,
           height: 1.55,
           fontWeight: FontWeight.w400,
+          letterSpacing: 0.1,
         ),
         bodyMedium: const TextStyle(
           color: _textSecondary,
           fontSize: 15,
           height: 1.6,
           fontWeight: FontWeight.w400,
+          letterSpacing: 0.1,
         ),
         labelLarge: TextStyle(
           color: ritual.textMuted,
           fontSize: 13,
           height: 1.4,
           fontWeight: FontWeight.w600,
+          letterSpacing: 0.2,
         ),
         headlineMedium: const TextStyle(
           color: _textPrimary,
           fontSize: 20,
           height: 1.3,
           fontWeight: FontWeight.w600,
+          letterSpacing: -0.2,
         ),
         displaySmall: TextStyle(
           color: ritual.textPrimary,
           fontSize: 36,
           height: 1.25,
           fontWeight: FontWeight.w600,
+          letterSpacing: -0.4,
         ),
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(

@@ -23,5 +23,9 @@ flutter:
   assets:
     - assets/fixtures/ritual_rooms/
     - assets/illustrations/rituals/shoes_on/
+  fonts:
+    - family: Noto Sans
+      fonts:
+        - asset: assets/fonts/NotoSans/NotoSans-Variable.ttf
   generate: true
   uses-material-design: true
