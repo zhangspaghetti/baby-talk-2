@@ -1,0 +1,188 @@
+import 'dart:async';
+
+import 'package:flutter/foundation.dart';
+import 'package:mobile/features/care_path/data/repositories/care_path_repository.dart';
+import 'package:mobile/features/care_path/domain/models/care_path_models.dart';
+import 'package:mobile/features/care_path/presentation/care_path_view_model.dart';
+import 'package:mobile/features/practice/domain/models/interaction_event_payload.dart';
+
+class CarePathNotifier extends ChangeNotifier {
+  CarePathNotifier({required CarePathRepository repository})
+    : _repository = repository;
+
+  final CarePathRepository _repository;
+
+  CarePathViewModel _viewModel = CarePathViewModel.idle();
+  bool _disposed = false;
+  Future<void>? _operationFuture;
+  int _operationGeneration = 0;
+
+  CarePathViewModel get viewModel => _viewModel;
+  CareTurnSnapshot? get snapshot => _viewModel.snapshot;
+  CareTurnPhase get phase => _viewModel.phase;
+  String? get message => _viewModel.message;
+  bool get isBusy =>
+      _viewModel.phase == CareTurnPhase.loading ||
+      _viewModel.phase == CareTurnPhase.savingTrace;
+
+  Future<void> initialize({String? starterSpaceId, String? starterActivityId}) {
+    if (!_viewModel.isIdle || _operationFuture != null) {
+      return _operationFuture ?? Future.value();
+    }
+    return loadCurrentUtterance(
+      starterSpaceId: starterSpaceId,
+      starterActivityId: starterActivityId,
+    );
+  }
+
+  Future<void> loadCurrentUtterance({
+    String? starterSpaceId,
+    String? starterActivityId,
+  }) {
+    return _runSnapshotOperation(
+      busyPhase: CareTurnPhase.loading,
+      loader: () => _repository.loadCurrentTurn(
+        starterSpaceId: starterSpaceId,
+        starterActivityId: starterActivityId,
+      ),
+    );
+  }
+
+  Future<void> startMoment({
+    required String spaceId,
+    required String activityId,
+  }) {
+    return _runSnapshotOperation(
+      busyPhase: CareTurnPhase.loading,
+      loader: () =>
+          _repository.startMoment(spaceId: spaceId, activityId: activityId),
+    );
+  }
+
+  Future<void> selectReaction(
+    BabyReactionType reactionType, {
+    DateTime? clientTimestamp,
+    String? localEventId,
+  }) {
+    final turn = _viewModel.snapshot;
+    if (turn == null) {
+      _viewModel = _viewModel.copyWith(
+        phase: CareTurnPhase.heldWithFallback,
+        message: '当前节点还没有加载完成，无法记录回应。',
+      );
+      notifyListeners();
+      return Future.value();
+    }
+    if (turn.currentUtterance == null) {
+      _applySnapshot(
+        turn.copyWith(
+          phase: CareTurnPhase.heldWithFallback,
+          selectedReaction: reactionType,
+          message: '当前节点没有可记录的 utterance，已保留在安全状态。',
+        ),
+      );
+      return Future.value();
+    }
+    if (!_viewModel.canSelectReaction) {
+      _viewModel = _viewModel.copyWith(message: '当前 turn 已经完成，请加载下一句后再记录回应。');
+      notifyListeners();
+      return Future.value();
+    }
+
+    return _runSnapshotOperation(
+      busyPhase: CareTurnPhase.savingTrace,
+      busySnapshot: turn.copyWith(
+        phase: CareTurnPhase.savingTrace,
+        selectedReaction: reactionType,
+        message: null,
+      ),
+      loader: () => _repository.recordReaction(
+        turn: turn,
+        reactionType: reactionType,
+        clientTimestamp: clientTimestamp,
+        localEventId: localEventId,
+      ),
+    );
+  }
+
+  void resetToSafeEmpty() {
+    _operationGeneration += 1;
+    _operationFuture = null;
+    _viewModel = CarePathViewModel.idle();
+    notifyListeners();
+  }
+
+  Future<void> _runSnapshotOperation({
+    required CareTurnPhase busyPhase,
+    required Future<CareTurnSnapshot> Function() loader,
+    CareTurnSnapshot? busySnapshot,
+  }) {
+    if (_disposed) {
+      return Future.value();
+    }
+    final running = _operationFuture;
+    if (running != null) {
+      return running;
+    }
+
+    if (busySnapshot != null) {
+      _viewModel = CarePathViewModel.fromSnapshot(busySnapshot);
+    } else {
+      _viewModel = _viewModel.copyWith(phase: busyPhase, message: null);
+    }
+    notifyListeners();
+
+    final generation = ++_operationGeneration;
+    final future = _completeSnapshotOperation(loader, generation: generation);
+    _operationFuture = future;
+    return future.whenComplete(() {
+      if (identical(_operationFuture, future)) {
+        _operationFuture = null;
+      }
+    });
+  }
+
+  Future<void> _completeSnapshotOperation(
+    Future<CareTurnSnapshot> Function() loader, {
+    required int generation,
+  }) async {
+    try {
+      final nextSnapshot = await loader();
+      if (_disposed || generation != _operationGeneration) {
+        return;
+      }
+      _applySnapshot(nextSnapshot);
+    } catch (error) {
+      if (_disposed || generation != _operationGeneration) {
+        return;
+      }
+      _viewModel = _viewModel.copyWith(
+        phase: CareTurnPhase.error,
+        message: 'care path 状态更新失败：$error',
+      );
+      notifyListeners();
+    }
+  }
+
+  void _applySnapshot(CareTurnSnapshot? snapshot) {
+    if (snapshot == null) {
+      return;
+    }
+    _viewModel = CarePathViewModel.fromSnapshot(snapshot);
+    notifyListeners();
+  }
+
+  @override
+  void notifyListeners() {
+    if (_disposed) {
+      return;
+    }
+    super.notifyListeners();
+  }
+
+  @override
+  void dispose() {
+    _disposed = true;
+    super.dispose();
+  }
+}

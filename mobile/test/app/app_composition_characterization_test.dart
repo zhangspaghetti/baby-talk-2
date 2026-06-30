@@ -15,6 +15,12 @@ import 'package:mobile/app/share_reentry_coordinator.dart';
 import 'package:mobile/core/device/installation_id_service.dart';
 import 'package:mobile/features/account/data/local/account_local_store.dart';
 import 'package:mobile/features/account/data/repositories/account_repository.dart';
+import 'package:mobile/features/care_path/data/repositories/care_path_repository.dart';
+import 'package:mobile/features/care_path/presentation/care_path_notifier.dart';
+import 'package:mobile/features/garden/data/repositories/garden_fertilizer_repository.dart';
+import 'package:mobile/features/garden/domain/models/fertilizer_flower_stage.dart';
+import 'package:mobile/features/garden/domain/models/fertilizer_state.dart';
+import 'package:mobile/features/garden/presentation/garden_fertilizer_notifier.dart';
 import 'package:mobile/features/household/data/local/household_local_store.dart';
 import 'package:mobile/features/household/data/repositories/household_repository.dart';
 import 'package:mobile/features/household/data/services/household_api_service.dart';
@@ -26,6 +32,7 @@ import 'package:mobile/features/onboarding/domain/models/onboarding_snapshot.dar
 import 'package:mobile/features/onboarding/domain/models/stage_match.dart';
 import 'package:mobile/features/practice/data/local/practice_local_data_source.dart';
 import 'package:mobile/features/practice/data/repositories/practice_repository.dart';
+import 'package:mobile/features/practice/presentation/garden_growth_notifier.dart';
 import 'package:mobile/features/practice/presentation/practice_session_notifier.dart';
 
 void main() {
@@ -137,6 +144,11 @@ void main() {
             inviteReentryCoordinatorProvider.overrideWith(
               (ref) => inviteCoordinator,
             ),
+            gardenFertilizerNotifierProvider.overrideWith(
+              (ref) => _FertilizerNotifierStub(
+                ref.watch(gardenGrowthNotifierProvider),
+              ),
+            ),
           ],
           child: BabyTalkApp(
             bootState: harness.bootState,
@@ -194,6 +206,10 @@ void main() {
 
       expect(riverpodPracticeRepository, same(legacyPracticeRepository));
       expect(riverpodOnboardingRepository, isA<OnboardingRepository>());
+      expect(
+        container.read(carePathRepositoryProvider),
+        isA<CarePathRepository>(),
+      );
 
       final riverpodAccountRepository = (await tester
           .runAsync<AccountRepository>(() {
@@ -205,9 +221,21 @@ void main() {
           }))!;
       expect(riverpodAccountRepository, isA<AccountRepository>());
       expect(riverpodHouseholdRepository, isA<HouseholdRepository>());
+
+      final riverpodCarePathNotifier = (await tester.runAsync<CarePathNotifier>(
+        () async {
+          final notifier = container.read(carePathNotifierProvider);
+          await notifier.initialize(
+            starterSpaceId: harness.bootState.primarySpaceId,
+            starterActivityId: harness.bootState.primaryActivityId,
+          );
+          return notifier;
+        },
+      ))!;
+      expect(riverpodCarePathNotifier, isA<CarePathNotifier>());
+      expect(riverpodCarePathNotifier.viewModel.currentUtterance, isNotNull);
     },
   );
-
 }
 
 class _AppCompositionHarness {
@@ -251,6 +279,26 @@ class _SilentPracticeAudioController implements PracticeAudioController {
   }
 }
 
+class _FertilizerNotifierStub extends GardenFertilizerNotifier {
+  _FertilizerNotifierStub(GardenGrowthNotifier growth)
+    : super(
+        repositoryFuture: Completer<GardenFertilizerRepository>().future,
+        growthNotifier: growth,
+      );
+
+  @override
+  GardenFertilizerViewState get view => GardenFertilizerViewState(
+    isLoading: false,
+    pendingPacks: const [],
+    claimedPacks: const [],
+    backpackCount: 0,
+    stageInfo: resolveFertilizerStage(0),
+  );
+
+  @override
+  Future<void> initialize() async {}
+}
+
 Future<_AppCompositionHarness> _createHarness() async {
   final bootState = await AppBootState.load(rootBundle);
   final tempDir = Directory(
@@ -271,7 +319,8 @@ Future<_AppCompositionHarness> _createHarness() async {
   );
   final mentorLocalDataSource = await MentorLocalDataSource.open(
     directory: tempDir.path,
-    name: 'mentor_app_composition_test_${DateTime.now().microsecondsSinceEpoch}',
+    name:
+        'mentor_app_composition_test_${DateTime.now().microsecondsSinceEpoch}',
   );
   final mentorRepository = MentorRepository(
     localDataSource: mentorLocalDataSource,
