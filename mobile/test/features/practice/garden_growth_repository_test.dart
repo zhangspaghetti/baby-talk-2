@@ -75,7 +75,7 @@ void main() {
         spaceId: 'daily_care',
         activityId: 'bath_time',
         phraseId: 'bath_time_warm_water',
-        reactionType: BabyReactionType.engaged,
+        reactionType: BabyReactionType.cooperating,
         clientTimestamp: DateTime.utc(2026, 4, 9, 8, 0),
         localEventId: 'evt_local_1',
       );
@@ -83,7 +83,7 @@ void main() {
         spaceId: 'daily_care',
         activityId: 'bath_time',
         phraseId: 'bath_time_splash_splash',
-        reactionType: BabyReactionType.imitated,
+        reactionType: BabyReactionType.cooperating,
         clientTimestamp: DateTime.utc(2026, 4, 9, 8, 1),
         localEventId: 'evt_local_2',
       );
@@ -95,7 +95,7 @@ void main() {
           spaceId: 'daily_care',
           activityId: 'bath_time',
           phraseId: 'bath_time_all_clean',
-          reactionType: 'calm',
+          reactionType: 'cooperating',
           clientTimestamp: DateTime.utc(2026, 4, 9, 8, 2),
           syncState: 'synced',
           lastSyncPhase: 'bootstrap_import',
@@ -108,7 +108,7 @@ void main() {
           spaceId: 'daily_care',
           activityId: 'bath_time',
           phraseId: 'bath_time_unknown',
-          reactionType: 'calm',
+          reactionType: 'cooperating',
           clientTimestamp: DateTime.utc(2026, 4, 9, 8, 4),
           syncState: 'synced',
           lastSyncPhase: 'bootstrap_import',
@@ -149,7 +149,7 @@ void main() {
             .map((item) => item.id),
         containsAll(<String>[
           'first_opening',
-          'first_imitated',
+          'first_cooperating',
           'activity_bath_time_completed',
         ]),
       );
@@ -163,7 +163,7 @@ void main() {
           spaceId: 'daily_care',
           activityId: 'bath_time',
           phraseId: 'bath_time_warm_water',
-          reactionType: BabyReactionType.engaged,
+          reactionType: BabyReactionType.cooperating,
           clientTimestamp: DateTime.utc(2026, 4, day, 8, 0),
           localEventId: 'evt_streak_$day',
         );

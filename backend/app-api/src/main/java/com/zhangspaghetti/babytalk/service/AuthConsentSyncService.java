@@ -24,7 +24,8 @@ public class AuthConsentSyncService {
 
     private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(AuthConsentSyncService.class);
 
-    private static final Set<String> ALLOWED_REACTION_TYPES = Set.of("calm", "engaged", "imitated", "needs_break");
+    private static final Set<String> ALLOWED_REACTION_TYPES =
+            Set.of("cooperating", "hesitant", "resisting", "no_response", "other");
 
     private final AuthConsentSyncRepository repository;
     private final SmsVerificationProvider smsVerificationProvider;

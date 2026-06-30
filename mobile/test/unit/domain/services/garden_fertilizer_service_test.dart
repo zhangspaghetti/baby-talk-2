@@ -15,7 +15,7 @@ void main() {
           totalEvents: 0,
           completedPhraseCount: 0,
           totalPhraseCount: 5,
-          hasImitated: false,
+          hasCooperatingReaction: false,
         );
 
         expect(service.calculateFlowerStage(stats), GardenFlowerStage.seed);
@@ -26,7 +26,7 @@ void main() {
           totalEvents: 1,
           completedPhraseCount: 1,
           totalPhraseCount: 5,
-          hasImitated: false,
+          hasCooperatingReaction: false,
         );
 
         expect(service.calculateFlowerStage(stats), GardenFlowerStage.sprout);
@@ -37,7 +37,7 @@ void main() {
           totalEvents: 2,
           completedPhraseCount: 2,
           totalPhraseCount: 5,
-          hasImitated: false,
+          hasCooperatingReaction: false,
         );
 
         expect(service.calculateFlowerStage(stats), GardenFlowerStage.growing);
@@ -48,29 +48,29 @@ void main() {
           totalEvents: 3,
           completedPhraseCount: 1,
           totalPhraseCount: 5,
-          hasImitated: false,
+          hasCooperatingReaction: false,
         );
 
         expect(service.calculateFlowerStage(stats), GardenFlowerStage.growing);
       });
 
-      test('all phrases completed without imitation returns blooming', () {
+      test('all phrases completed without cooperation returns blooming', () {
         const stats = ActivityStats(
           totalEvents: 5,
           completedPhraseCount: 5,
           totalPhraseCount: 5,
-          hasImitated: false,
+          hasCooperatingReaction: false,
         );
 
         expect(service.calculateFlowerStage(stats), GardenFlowerStage.blooming);
       });
 
-      test('all phrases completed with imitation returns fullBloom', () {
+      test('all phrases completed with cooperation returns fullBloom', () {
         const stats = ActivityStats(
           totalEvents: 5,
           completedPhraseCount: 5,
           totalPhraseCount: 5,
-          hasImitated: true,
+          hasCooperatingReaction: true,
         );
 
         expect(
@@ -84,7 +84,7 @@ void main() {
           totalEvents: 6,
           completedPhraseCount: 5,
           totalPhraseCount: 5,
-          hasImitated: false,
+          hasCooperatingReaction: false,
         );
 
         expect(
@@ -98,7 +98,7 @@ void main() {
           totalEvents: 1,
           completedPhraseCount: 0,
           totalPhraseCount: 0,
-          hasImitated: false,
+          hasCooperatingReaction: false,
         );
 
         // Not completed (0 >= 0 is true but totalPhraseCount > 0 guard).
@@ -235,10 +235,7 @@ void main() {
         );
 
         expect(result.isExpired, isFalse);
-        expect(
-          result.remainingDuration,
-          const Duration(hours: 22),
-        );
+        expect(result.remainingDuration, const Duration(hours: 22));
         expect(result.expiresAt, DateTime(2026, 5, 30, 10, 0));
       });
 
@@ -287,7 +284,7 @@ void main() {
           totalEvents: 0,
           completedPhraseCount: 0,
           totalPhraseCount: 5,
-          hasImitated: false,
+          hasCooperatingReaction: false,
         );
 
         final result = service.computeStageThreshold(
@@ -306,7 +303,7 @@ void main() {
           totalEvents: 1,
           completedPhraseCount: 1,
           totalPhraseCount: 5,
-          hasImitated: false,
+          hasCooperatingReaction: false,
         );
 
         final result = service.computeStageThreshold(
@@ -322,7 +319,7 @@ void main() {
           totalEvents: 1,
           completedPhraseCount: 1,
           totalPhraseCount: 5,
-          hasImitated: false,
+          hasCooperatingReaction: false,
         );
 
         final result = service.computeStageThreshold(
@@ -339,7 +336,7 @@ void main() {
           totalEvents: 2,
           completedPhraseCount: 1,
           totalPhraseCount: 5,
-          hasImitated: false,
+          hasCooperatingReaction: false,
         );
 
         final result = service.computeStageThreshold(
@@ -355,7 +352,7 @@ void main() {
           totalEvents: 3,
           completedPhraseCount: 3,
           totalPhraseCount: 5,
-          hasImitated: false,
+          hasCooperatingReaction: false,
         );
 
         final result = service.computeStageThreshold(
@@ -372,7 +369,7 @@ void main() {
           totalEvents: 5,
           completedPhraseCount: 5,
           totalPhraseCount: 5,
-          hasImitated: false,
+          hasCooperatingReaction: false,
         );
 
         final result = service.computeStageThreshold(
@@ -383,12 +380,12 @@ void main() {
         expect(result.isThresholdMet, isTrue);
       });
 
-      test('blooming to fullBloom requires imitation or extra events', () {
+      test('blooming to fullBloom requires cooperation or extra events', () {
         const stats = ActivityStats(
           totalEvents: 5,
           completedPhraseCount: 5,
           totalPhraseCount: 5,
-          hasImitated: false,
+          hasCooperatingReaction: false,
         );
 
         final result = service.computeStageThreshold(
@@ -400,12 +397,12 @@ void main() {
         expect(result.isThresholdMet, isFalse);
       });
 
-      test('blooming to fullBloom met with imitation', () {
+      test('blooming to fullBloom met with cooperation', () {
         const stats = ActivityStats(
           totalEvents: 5,
           completedPhraseCount: 5,
           totalPhraseCount: 5,
-          hasImitated: true,
+          hasCooperatingReaction: true,
         );
 
         final result = service.computeStageThreshold(
@@ -421,7 +418,7 @@ void main() {
           totalEvents: 10,
           completedPhraseCount: 5,
           totalPhraseCount: 5,
-          hasImitated: true,
+          hasCooperatingReaction: true,
         );
 
         final result = service.computeStageThreshold(

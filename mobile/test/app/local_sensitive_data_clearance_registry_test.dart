@@ -280,7 +280,7 @@ class _LifecycleHarness {
       spaceId: 'daily_care',
       activityId: 'bath_time',
       phraseId: 'bath_time_warm_water',
-      reactionType: BabyReactionType.engaged,
+      reactionType: BabyReactionType.cooperating,
       clientTimestamp: DateTime.utc(2026, 5, 20, 10),
       localEventId: 'lifecycle_practice_1',
     );

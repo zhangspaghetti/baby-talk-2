@@ -44,7 +44,7 @@ class GrowthSummaryControllerTest extends AbstractIntegrationTest {
                         "daily_care",
                         "bath_time",
                         "bath_time_warm_water",
-                        "calm",
+                        "cooperating",
                         Instant.now()
                 ))
         );

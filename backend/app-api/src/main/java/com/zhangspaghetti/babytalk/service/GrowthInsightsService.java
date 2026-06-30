@@ -76,7 +76,7 @@ public class GrowthInsightsService {
                 SELECT COUNT(*)                                                   AS total_events,
                        COUNT(DISTINCT phrase_id)                                  AS unique_phrases,
                        COUNT(DISTINCT activity_id)                                AS unique_activities,
-                       COUNT(*) FILTER (WHERE reaction_type = 'imitated')         AS imitation_count,
+                       COUNT(*) FILTER (WHERE reaction_type = 'cooperating')      AS cooperating_count,
                        COUNT(DISTINCT DATE(client_timestamp AT TIME ZONE 'Asia/Shanghai'))
                                                                                   AS practiced_days,
                        MIN(client_timestamp)                                      AS first_event_at,
@@ -90,7 +90,7 @@ public class GrowthInsightsService {
                         rs.getLong("total_events"),
                         rs.getInt("unique_phrases"),
                         rs.getInt("unique_activities"),
-                        rs.getInt("imitation_count"),
+                        rs.getInt("cooperating_count"),
                         rs.getInt("practiced_days"),
                         toInstant(rs.getTimestamp("first_event_at")),
                         toInstant(rs.getTimestamp("last_event_at"))
@@ -308,7 +308,7 @@ public class GrowthInsightsService {
     public record Window(Instant start, Instant end) {}
 
     public record Stats(long totalEvents, int uniquePhrases, int uniqueActivities,
-                        int imitationCount, int practicedDays,
+                        int cooperatingCount, int practicedDays,
                         Instant firstEventAt, Instant lastEventAt) {}
 
     public record Streak(int currentStreak, int longestStreak,

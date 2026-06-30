@@ -30,16 +30,19 @@ class AppLocalizationsZh extends AppLocalizations {
   String get guest => '访客';
 
   @override
-  String get reactionCalm => '宝宝放松';
+  String get reactionCooperating => '配合';
 
   @override
-  String get reactionEngaged => '宝宝在看';
+  String get reactionHesitant => '犹豫';
 
   @override
-  String get reactionImitated => '宝宝模仿';
+  String get reactionResisting => '不想';
 
   @override
-  String get reactionNeedsBreak => '先休息';
+  String get reactionNoResponse => '没反应';
+
+  @override
+  String get reactionOther => '其他';
 
   @override
   String get sharedAttributionNextStep => '共享归因与下一步';

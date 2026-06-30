@@ -38,10 +38,7 @@ void main() {
     );
     await pump(tester, stub);
 
-    expect(
-      find.byKey(const Key('garden-fertilizer-loading')),
-      findsOneWidget,
-    );
+    expect(find.byKey(const Key('garden-fertilizer-loading')), findsOneWidget);
     expect(find.byKey(const Key('garden-fertilizer-panel')), findsNothing);
   });
 
@@ -59,7 +56,10 @@ void main() {
 
     expect(find.byKey(const Key('garden-fertilizer-panel')), findsOneWidget);
     expect(find.byKey(const Key('garden-fertilizer-empty')), findsOneWidget);
-    expect(find.byKey(const Key('garden-fertilizer-stage-label')), findsOneWidget);
+    expect(
+      find.byKey(const Key('garden-fertilizer-stage-label')),
+      findsOneWidget,
+    );
     expect(find.byKey(const Key('garden-fertilizer-progress')), findsOneWidget);
   });
 
@@ -73,7 +73,7 @@ void main() {
           FertilizerPack(
             eventKey: 'evt-1',
             title: '说了 hello',
-            detail: '宝宝模仿了 hello。',
+            detail: '配合了 hello。',
             occurredAt: DateTime(2026, 6, 1, 9, 30),
             claimed: false,
           ),
@@ -90,10 +90,9 @@ void main() {
     );
     expect(claimButton, findsOneWidget);
 
-    await tester.tap(find.descendant(
-      of: claimButton,
-      matching: find.byType(OutlinedButton),
-    ));
+    await tester.tap(
+      find.descendant(of: claimButton, matching: find.byType(OutlinedButton)),
+    );
     await tester.pump();
 
     expect(stub.claimedKeys, ['evt-1']);
@@ -110,7 +109,7 @@ void main() {
           FertilizerPack(
             eventKey: 'evt-1',
             title: '说了 hello',
-            detail: '宝宝模仿了 hello。',
+            detail: '配合了 hello。',
             occurredAt: DateTime(2026, 6, 1, 9, 30),
             claimed: true,
           ),
@@ -144,7 +143,7 @@ void main() {
           FertilizerPack(
             eventKey: 'evt-1',
             title: '说了 hello',
-            detail: '宝宝模仿了 hello。',
+            detail: '配合了 hello。',
             occurredAt: DateTime(2026, 6, 1, 9, 30),
             claimed: false,
           ),

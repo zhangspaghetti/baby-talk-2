@@ -53,13 +53,13 @@ class ActivityStats {
     required this.totalEvents,
     required this.completedPhraseCount,
     required this.totalPhraseCount,
-    required this.hasImitated,
+    required this.hasCooperatingReaction,
   });
 
   final int totalEvents;
   final int completedPhraseCount;
   final int totalPhraseCount;
-  final bool hasImitated;
+  final bool hasCooperatingReaction;
 }
 
 /// Input data representing a space (patch) state for patch stage calculation.
@@ -143,18 +143,20 @@ class GardenFertilizerService {
   /// - seed:   totalEvents == 0
   /// - sprout: started but only 1 phrase completed and < 2 total events
   /// - growing: >= 2 completed phrases OR >= 2 total events (not yet complete)
-  /// - blooming: all phrases completed, no imitation and no extra events
-  /// - fullBloom: all phrases completed AND (has imitation OR extra events)
+  /// - blooming: all phrases completed, no cooperating reaction and no extra events
+  /// - fullBloom: all phrases completed AND (has cooperating reaction OR extra events)
   GardenFlowerStage calculateFlowerStage(ActivityStats stats) {
     if (stats.totalEvents == 0) {
       return GardenFlowerStage.seed;
     }
 
-    final isCompleted = stats.totalPhraseCount > 0 &&
+    final isCompleted =
+        stats.totalPhraseCount > 0 &&
         stats.completedPhraseCount >= stats.totalPhraseCount;
 
     if (isCompleted) {
-      if (stats.hasImitated || stats.totalEvents > stats.totalPhraseCount) {
+      if (stats.hasCooperatingReaction ||
+          stats.totalEvents > stats.totalPhraseCount) {
         return GardenFlowerStage.fullBloom;
       }
       return GardenFlowerStage.blooming;
@@ -225,8 +227,7 @@ class GardenFertilizerService {
   }) {
     final expiresAt = appliedAt.add(ttl);
     final isExpired = now.isAfter(expiresAt);
-    final remaining =
-        isExpired ? Duration.zero : expiresAt.difference(now);
+    final remaining = isExpired ? Duration.zero : expiresAt.difference(now);
     return FertilizerExpiry(
       appliedAt: appliedAt,
       expiresAt: expiresAt,
@@ -245,7 +246,7 @@ class GardenFertilizerService {
   /// - seed -> sprout:      1 event is enough
   /// - sprout -> growing:   2 events or 2 completed phrases
   /// - growing -> blooming: all phrases completed
-  /// - blooming -> fullBloom: all phrases completed + imitation or extra events
+  /// - blooming -> fullBloom: all phrases completed + cooperation or extra events
   StageThreshold computeStageThreshold({
     required GardenFlowerStage currentStage,
     required ActivityStats stats,
@@ -280,7 +281,8 @@ class GardenFertilizerService {
           completedPhrases: stats.completedPhraseCount,
           requiredEvents: stats.totalPhraseCount,
           requiredPhrases: stats.totalPhraseCount,
-          isThresholdMet: stats.totalPhraseCount > 0 &&
+          isThresholdMet:
+              stats.totalPhraseCount > 0 &&
               stats.completedPhraseCount >= stats.totalPhraseCount,
         );
       case GardenFlowerStage.blooming:
@@ -291,9 +293,10 @@ class GardenFertilizerService {
           completedPhrases: stats.completedPhraseCount,
           requiredEvents: stats.totalPhraseCount + 1,
           requiredPhrases: stats.totalPhraseCount,
-          isThresholdMet: stats.totalPhraseCount > 0 &&
+          isThresholdMet:
+              stats.totalPhraseCount > 0 &&
               stats.completedPhraseCount >= stats.totalPhraseCount &&
-              (stats.hasImitated ||
+              (stats.hasCooperatingReaction ||
                   stats.totalEvents > stats.totalPhraseCount),
         );
       case GardenFlowerStage.fullBloom:

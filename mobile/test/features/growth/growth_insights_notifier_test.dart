@@ -31,7 +31,7 @@ void main() {
         totalEvents: totalEvents,
         uniquePhrases: 4,
         uniqueActivities: 3,
-        imitationCount: 2,
+        cooperatingCount: 2,
         practicedDays: 3,
         firstEventAt: DateTime(2026, 5, 18),
         lastEventAt: DateTime(2026, 5, 20),
@@ -42,13 +42,15 @@ void main() {
         totalDaysPracticed: 15,
         lastPracticedAt: DateTime(2026, 5, 20),
       ),
-      bars: bars ??
+      bars:
+          bars ??
           [
             InsightsBarBucket(bucketStart: DateTime(2026, 5, 18), count: 2),
             InsightsBarBucket(bucketStart: DateTime(2026, 5, 19), count: 3),
             InsightsBarBucket(bucketStart: DateTime(2026, 5, 20), count: 5),
           ],
-      scenes: scenes ??
+      scenes:
+          scenes ??
           const [
             InsightsScene(
               spaceId: 'space_1',
@@ -181,12 +183,12 @@ void main() {
       await notifier.initialize();
 
       // Verify cache keys exist.
-      expect(prefs.getString('growth_insights_v1_week'), isNotNull);
-      expect(prefs.getString('growth_insights_v1_month'), isNotNull);
-      expect(prefs.getString('growth_insights_v1_year'), isNotNull);
+      expect(prefs.getString('growth_insights_reaction_v2_week'), isNotNull);
+      expect(prefs.getString('growth_insights_reaction_v2_month'), isNotNull);
+      expect(prefs.getString('growth_insights_reaction_v2_year'), isNotNull);
 
       // Verify cache contains valid JSON with cachedAt.
-      final raw = prefs.getString('growth_insights_v1_week')!;
+      final raw = prefs.getString('growth_insights_reaction_v2_week')!;
       final json = jsonDecode(raw) as Map<String, dynamic>;
       expect(json['cachedAt'], isNotNull);
       expect(json['payload'], isA<Map<String, dynamic>>());
@@ -196,7 +198,7 @@ void main() {
       final prefs = _FakePrefs();
       // Pre-populate cache.
       await prefs.setString(
-        'growth_insights_v1_week',
+        'growth_insights_reaction_v2_week',
         jsonEncode({
           'cachedAt': DateTime.now().toUtc().toIso8601String(),
           'payload': {
@@ -208,7 +210,7 @@ void main() {
               'totalEvents': 42,
               'uniquePhrases': 5,
               'uniqueActivities': 3,
-              'imitationCount': 2,
+              'cooperatingCount': 2,
               'practicedDays': 4,
             },
             'streak': {
@@ -218,10 +220,7 @@ void main() {
             },
             'bars': <Map<String, dynamic>>[],
             'scenes': <Map<String, dynamic>>[],
-            'recentActivity': {
-              'thisWeekCount': 42,
-              'lastWeekCount': 10,
-            },
+            'recentActivity': {'thisWeekCount': 42, 'lastWeekCount': 10},
           },
         }),
       );
@@ -249,7 +248,7 @@ void main() {
       final prefs = _FakePrefs();
       // Pre-populate cache.
       await prefs.setString(
-        'growth_insights_v1_week',
+        'growth_insights_reaction_v2_week',
         jsonEncode({
           'cachedAt': DateTime.now().toUtc().toIso8601String(),
           'payload': {
@@ -261,7 +260,7 @@ void main() {
               'totalEvents': 99,
               'uniquePhrases': 1,
               'uniqueActivities': 1,
-              'imitationCount': 0,
+              'cooperatingCount': 0,
               'practicedDays': 1,
             },
             'streak': {
@@ -271,10 +270,7 @@ void main() {
             },
             'bars': <Map<String, dynamic>>[],
             'scenes': <Map<String, dynamic>>[],
-            'recentActivity': {
-              'thisWeekCount': 99,
-              'lastWeekCount': 0,
-            },
+            'recentActivity': {'thisWeekCount': 99, 'lastWeekCount': 0},
           },
         }),
       );
@@ -357,9 +353,9 @@ class _FakeApiService implements GrowthInsightsApiService {
     GrowthInsightsPayload? weekPayload,
     GrowthInsightsPayload? monthPayload,
     GrowthInsightsPayload? yearPayload,
-  })  : weekPayload = weekPayload ?? _defaultPayload('week'),
-        monthPayload = monthPayload ?? _defaultPayload('month'),
-        yearPayload = yearPayload ?? _defaultPayload('year');
+  }) : weekPayload = weekPayload ?? _defaultPayload('week'),
+       monthPayload = monthPayload ?? _defaultPayload('month'),
+       yearPayload = yearPayload ?? _defaultPayload('year');
 
   final bool throwOnFetch;
   final GrowthInsightsPayload weekPayload;
@@ -380,7 +376,7 @@ class _FakeApiService implements GrowthInsightsApiService {
         totalEvents: 10,
         uniquePhrases: 4,
         uniqueActivities: 3,
-        imitationCount: 2,
+        cooperatingCount: 2,
         practicedDays: 3,
         firstEventAt: DateTime(2026, 5, 18),
         lastEventAt: DateTime(2026, 5, 20),

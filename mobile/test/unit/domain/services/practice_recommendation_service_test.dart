@@ -355,8 +355,8 @@ void main() {
         const input = PracticeSessionInput(
           phrasesAttempted: 0,
           phrasesCompleted: 0,
-          imitationCount: 0,
-          needsBreakCount: 0,
+          cooperatingCount: 0,
+          resistingCount: 0,
           currentStreakDays: 0,
         );
 
@@ -370,42 +370,42 @@ void main() {
         const input = PracticeSessionInput(
           phrasesAttempted: 5,
           phrasesCompleted: 5,
-          imitationCount: 0,
-          needsBreakCount: 0,
+          cooperatingCount: 0,
+          resistingCount: 0,
           currentStreakDays: 0,
         );
 
         final result = service.scoreSession(input);
 
-        // 50 (base) + 0 (imitation) + 20 (completion) + 0 (streak) = 70.
+        // 50 (base) + 0 (cooperation) + 20 (completion) + 0 (streak) = 70.
         expect(result.totalScore, 70);
         expect(result.completionBonus, 20);
-        expect(result.imitationBonus, 0);
+        expect(result.cooperationBonus, 0);
         expect(result.streakBonus, 0);
       });
 
-      test('imitations add bonus', () {
+      test('cooperating reactions add bonus', () {
         const input = PracticeSessionInput(
           phrasesAttempted: 3,
           phrasesCompleted: 3,
-          imitationCount: 2,
-          needsBreakCount: 0,
+          cooperatingCount: 2,
+          resistingCount: 0,
           currentStreakDays: 0,
         );
 
         final result = service.scoreSession(input);
 
-        // 30 (base) + 30 (imitation, capped) + 20 (completion) + 0 = 80.
+        // 30 (base) + 30 (cooperation, capped) + 20 (completion) + 0 = 80.
         expect(result.totalScore, 80);
-        expect(result.imitationBonus, 30);
+        expect(result.cooperationBonus, 30);
       });
 
       test('streak adds bonus', () {
         const input = PracticeSessionInput(
           phrasesAttempted: 2,
           phrasesCompleted: 2,
-          imitationCount: 0,
-          needsBreakCount: 0,
+          cooperatingCount: 0,
+          resistingCount: 0,
           currentStreakDays: 5,
         );
 
@@ -420,8 +420,8 @@ void main() {
         const input = PracticeSessionInput(
           phrasesAttempted: 10,
           phrasesCompleted: 10,
-          imitationCount: 10,
-          needsBreakCount: 0,
+          cooperatingCount: 10,
+          resistingCount: 0,
           currentStreakDays: 10,
         );
 
@@ -430,32 +430,32 @@ void main() {
         expect(result.totalScore, 100);
       });
 
-      test('needsBreak is reflected in feedback', () {
+      test('resisting count is reflected in feedback', () {
         const input = PracticeSessionInput(
           phrasesAttempted: 1,
           phrasesCompleted: 1,
-          imitationCount: 0,
-          needsBreakCount: 3,
+          cooperatingCount: 0,
+          resistingCount: 3,
           currentStreakDays: 0,
         );
 
         final result = service.scoreSession(input);
 
-        expect(result.feedback, contains('需要休息'));
+        expect(result.feedback, contains('不想继续'));
       });
 
-      test('imitation count in feedback', () {
+      test('cooperating count in feedback', () {
         const input = PracticeSessionInput(
           phrasesAttempted: 3,
           phrasesCompleted: 3,
-          imitationCount: 2,
-          needsBreakCount: 0,
+          cooperatingCount: 2,
+          resistingCount: 0,
           currentStreakDays: 0,
         );
 
         final result = service.scoreSession(input);
 
-        expect(result.feedback, contains('模仿了 2 次'));
+        expect(result.feedback, contains('配合了 2 次'));
       });
     });
   });

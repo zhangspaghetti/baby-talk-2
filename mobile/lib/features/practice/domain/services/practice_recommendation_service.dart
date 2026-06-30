@@ -24,10 +24,7 @@ class PhraseReference {
 
 /// Context for time-based scene recommendation.
 class TimeContext {
-  const TimeContext({
-    required this.hour,
-    this.isWeekend = false,
-  });
+  const TimeContext({required this.hour, this.isWeekend = false});
 
   final int hour;
   final bool isWeekend;
@@ -95,14 +92,14 @@ class BabyDifficultyProfile {
 class SessionScore {
   const SessionScore({
     required this.totalScore,
-    required this.imitationBonus,
+    required this.cooperationBonus,
     required this.completionBonus,
     required this.streakBonus,
     required this.feedback,
   });
 
   final int totalScore;
-  final int imitationBonus;
+  final int cooperationBonus;
   final int completionBonus;
   final int streakBonus;
   final String feedback;
@@ -113,15 +110,15 @@ class PracticeSessionInput {
   const PracticeSessionInput({
     required this.phrasesAttempted,
     required this.phrasesCompleted,
-    required this.imitationCount,
-    required this.needsBreakCount,
+    required this.cooperatingCount,
+    required this.resistingCount,
     required this.currentStreakDays,
   });
 
   final int phrasesAttempted;
   final int phrasesCompleted;
-  final int imitationCount;
-  final int needsBreakCount;
+  final int cooperatingCount;
+  final int resistingCount;
   final int currentStreakDays;
 }
 
@@ -274,7 +271,8 @@ class PracticeRecommendationService {
     final phraseDifficulty = _parseDifficulty(phrase.difficulty);
     final delta = (phraseDifficulty - profile.targetDifficulty).abs();
 
-    final isAppropriate = phraseDifficulty >= profile.minDifficulty &&
+    final isAppropriate =
+        phraseDifficulty >= profile.minDifficulty &&
         phraseDifficulty <= profile.maxDifficulty;
 
     String reason;
@@ -316,35 +314,36 @@ class PracticeRecommendationService {
   ///
   /// Scoring:
   /// - Base: 10 points per completed phrase (max 50)
-  /// - Imitation bonus: 15 points per imitation (max 30)
+  /// - Cooperation bonus: 15 points per cooperating reaction (max 30)
   /// - Completion bonus: 20 points if all attempted phrases completed
   /// - Streak bonus: 2 points per streak day (max 10)
   ///
   /// Total is clamped to 0-100.
   SessionScore scoreSession(PracticeSessionInput input) {
     final baseScore = (input.phrasesCompleted * 10).clamp(0, 50);
-    final imitationBonus = (input.imitationCount * 15).clamp(0, 30);
+    final cooperationBonus = (input.cooperatingCount * 15).clamp(0, 30);
 
-    final completionBonus = input.phrasesAttempted > 0 &&
+    final completionBonus =
+        input.phrasesAttempted > 0 &&
             input.phrasesCompleted >= input.phrasesAttempted
         ? 20
         : 0;
 
     final streakBonus = (input.currentStreakDays * 2).clamp(0, 10);
 
-    final total = baseScore + imitationBonus + completionBonus + streakBonus;
+    final total = baseScore + cooperationBonus + completionBonus + streakBonus;
     final totalScore = total.clamp(0, 100);
 
     final feedback = _buildScoreFeedback(
       totalScore: totalScore,
-      imitationCount: input.imitationCount,
-      needsBreakCount: input.needsBreakCount,
+      cooperatingCount: input.cooperatingCount,
+      resistingCount: input.resistingCount,
       completionBonus: completionBonus,
     );
 
     return SessionScore(
       totalScore: totalScore,
-      imitationBonus: imitationBonus,
+      cooperationBonus: cooperationBonus,
       completionBonus: completionBonus,
       streakBonus: streakBonus,
       feedback: feedback,
@@ -376,8 +375,8 @@ class PracticeRecommendationService {
 
   String _buildScoreFeedback({
     required int totalScore,
-    required int imitationCount,
-    required int needsBreakCount,
+    required int cooperatingCount,
+    required int resistingCount,
     required int completionBonus,
   }) {
     final parts = <String>[];
@@ -392,12 +391,12 @@ class PracticeRecommendationService {
       parts.add('宝宝今天可能不太在状态，下次再试试。');
     }
 
-    if (imitationCount > 0) {
-      parts.add('宝宝模仿了 $imitationCount 次，特别棒！');
+    if (cooperatingCount > 0) {
+      parts.add('宝宝配合了 $cooperatingCount 次，特别棒！');
     }
 
-    if (needsBreakCount > 0) {
-      parts.add('宝宝需要休息了，及时停下来是对的。');
+    if (resistingCount > 0) {
+      parts.add('宝宝不想继续时，及时停下来是对的。');
     }
 
     if (completionBonus > 0) {

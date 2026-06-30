@@ -523,7 +523,7 @@ class AdminUsersWebTest {
                 "space-1",
                 "activity-1",
                 "phrase-1",
-                "calm",
+                "cooperating",
                 Timestamp.from(clientTimestamp),
                 Timestamp.from(clientTimestamp.plusSeconds(5))
         );

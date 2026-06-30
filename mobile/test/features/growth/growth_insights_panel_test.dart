@@ -33,15 +33,27 @@ void main() {
         totalEvents: 12,
         uniquePhrases: 4,
         uniqueActivities: 5,
-        imitationCount: 6,
+        cooperatingCount: 6,
         firstEventAt: null,
         lastEventAt: null,
         practicedDays: 7,
       ),
       bars: [
-        GrowthBarBucket(label: '一', count: 2, bucketStart: DateTime(2026, 5, 25)),
-        GrowthBarBucket(label: '二', count: 3, bucketStart: DateTime(2026, 5, 26)),
-        GrowthBarBucket(label: '三', count: 1, bucketStart: DateTime(2026, 5, 27)),
+        GrowthBarBucket(
+          label: '一',
+          count: 2,
+          bucketStart: DateTime(2026, 5, 25),
+        ),
+        GrowthBarBucket(
+          label: '二',
+          count: 3,
+          bucketStart: DateTime(2026, 5, 26),
+        ),
+        GrowthBarBucket(
+          label: '三',
+          count: 1,
+          bucketStart: DateTime(2026, 5, 27),
+        ),
       ],
       scenes: const [
         SceneDistribution(
@@ -81,7 +93,7 @@ void main() {
         totalEvents: 0,
         uniquePhrases: 0,
         uniqueActivities: 0,
-        imitationCount: 0,
+        cooperatingCount: 0,
         firstEventAt: null,
         lastEventAt: null,
         practicedDays: 0,
@@ -98,9 +110,7 @@ void main() {
   }) async {
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [
-          growthInsightsNotifierProvider.overrideWith((ref) => stub),
-        ],
+        overrides: [growthInsightsNotifierProvider.overrideWith((ref) => stub)],
         child: MaterialApp(
           theme: AppTheme.build(),
           home: Scaffold(
@@ -276,43 +286,47 @@ void main() {
     expect(find.textContaining('今年还没有练习记录'), findsOneWidget);
   });
 
-  testWidgets('renders next-step suggestion and forwards practice args on tap', (
-    tester,
-  ) async {
-    final stub = _StubNotifier({
-      GrowthPeriod.week: contentView(
-        GrowthPeriod.week,
-        currentStreak: 11,
-        suggestion: const GrowthNextStepSuggestion(
-          sceneLabel: '洗澡',
-          phraseEnglish: 'Splash splash',
-          spaceId: 'space_2',
-          activityId: 'activity_bath',
+  testWidgets(
+    'renders next-step suggestion and forwards practice args on tap',
+    (tester) async {
+      final stub = _StubNotifier({
+        GrowthPeriod.week: contentView(
+          GrowthPeriod.week,
+          currentStreak: 11,
+          suggestion: const GrowthNextStepSuggestion(
+            sceneLabel: '洗澡',
+            phraseEnglish: 'Splash splash',
+            spaceId: 'space_2',
+            activityId: 'activity_bath',
+          ),
         ),
-      ),
-    });
-    PracticeRouteArgs? captured;
-    await pump(
-      tester,
-      stub,
-      onStartSuggestedPractice: (args) => captured = args,
-    );
+      });
+      PracticeRouteArgs? captured;
+      await pump(
+        tester,
+        stub,
+        onStartSuggestedPractice: (args) => captured = args,
+      );
 
-    expect(find.byKey(const Key('growth-insights-next-step')), findsOneWidget);
-    expect(find.textContaining('你还没试过洗澡场景'), findsOneWidget);
-    expect(find.textContaining('Splash splash'), findsOneWidget);
+      expect(
+        find.byKey(const Key('growth-insights-next-step')),
+        findsOneWidget,
+      );
+      expect(find.textContaining('你还没试过洗澡场景'), findsOneWidget);
+      expect(find.textContaining('Splash splash'), findsOneWidget);
 
-    await tester.ensureVisible(
-      find.byKey(const Key('growth-insights-next-step-try')),
-    );
-    await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const Key('growth-insights-next-step-try')));
-    await tester.pumpAndSettle();
+      await tester.ensureVisible(
+        find.byKey(const Key('growth-insights-next-step-try')),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('growth-insights-next-step-try')));
+      await tester.pumpAndSettle();
 
-    expect(captured, isNotNull);
-    expect(captured!.spaceId, 'space_2');
-    expect(captured!.activityId, 'activity_bath');
-  });
+      expect(captured, isNotNull);
+      expect(captured!.spaceId, 'space_2');
+      expect(captured!.activityId, 'activity_bath');
+    },
+  );
 
   testWidgets('hides next-step suggestion when none is provided', (
     tester,
@@ -391,8 +405,7 @@ void main() {
 }
 
 class _StubNotifier extends GrowthInsightsNotifier {
-  _StubNotifier(this._views)
-    : super(apiService: _FakeApiService());
+  _StubNotifier(this._views) : super(apiService: _FakeApiService());
 
   final Map<GrowthPeriod, GrowthInsightsViewState> _views;
   final List<GrowthPeriod> requested = [];

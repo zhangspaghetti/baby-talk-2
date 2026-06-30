@@ -28,7 +28,9 @@ import 'support/in_memory_demo_backend.dart';
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
-  testWidgets('local-only 完成练习后进行账号同步，退出再登录仍恢复账号状态且保留连续性结果', (WidgetTester tester) async {
+  testWidgets('local-only 完成练习后进行账号同步，退出再登录仍恢复账号状态且保留连续性结果', (
+    WidgetTester tester,
+  ) async {
     final backend = await InMemoryDemoBackend.start();
     addTearDown(() async {
       await backend.dispose();
@@ -96,9 +98,7 @@ void main() {
             bootState.assetPhraseService!,
           ),
           appDirectoryProvider.overrideWith((ref) => tempDir),
-          practiceRepositoryProvider.overrideWith(
-            (ref) => firstRepository,
-          ),
+          practiceRepositoryProvider.overrideWith((ref) => firstRepository),
           accountRepositoryProvider.overrideWith(
             (ref) => firstAccountRepository,
           ),
@@ -136,7 +136,7 @@ void main() {
       timeout: const Duration(seconds: 30),
     );
     expect(find.byKey(const Key('recent-result-summary')), findsOneWidget);
-    expect(find.textContaining('All clean. · 宝宝放松'), findsOneWidget);
+    expect(find.textContaining('All clean. · 配合'), findsOneWidget);
     expect(find.textContaining('3 条本地记录'), findsOneWidget);
 
     await _openAccountEntryFromShell(tester);
@@ -235,7 +235,7 @@ void main() {
       timeout: const Duration(seconds: 30),
     );
     expect(find.byKey(const Key('recent-result-summary')), findsOneWidget);
-    expect(find.textContaining('All clean. · 宝宝放松'), findsOneWidget);
+    expect(find.textContaining('All clean. · 配合'), findsOneWidget);
     expect(find.textContaining('3 条本地记录'), findsOneWidget);
 
     await tester.pumpWidget(const SizedBox.shrink());
@@ -340,7 +340,7 @@ Future<void> _completeStarterPractice(WidgetTester tester) async {
   );
 
   final firstReaction = find.byKey(
-    const Key('reaction-bath_time_warm_water-engaged'),
+    const Key('reaction-bath_time_warm_water-cooperating'),
   );
   await _pumpUntilFound(tester, firstReaction);
   await tester.ensureVisible(firstReaction);
@@ -352,7 +352,7 @@ Future<void> _completeStarterPractice(WidgetTester tester) async {
   );
 
   final secondReaction = find.byKey(
-    const Key('reaction-bath_time_splash_splash-imitated'),
+    const Key('reaction-bath_time_splash_splash-no_response'),
   );
   await _pumpUntilFound(tester, secondReaction);
   await tester.ensureVisible(secondReaction);
@@ -364,7 +364,7 @@ Future<void> _completeStarterPractice(WidgetTester tester) async {
   );
 
   final thirdReaction = find.byKey(
-    const Key('reaction-bath_time_all_clean-calm'),
+    const Key('reaction-bath_time_all_clean-cooperating'),
   );
   await _pumpUntilFound(tester, thirdReaction);
   await tester.ensureVisible(thirdReaction);

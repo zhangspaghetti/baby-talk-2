@@ -187,7 +187,7 @@ void main() {
       expect(find.byKey(const Key('playback-banner')), findsOneWidget);
 
       final reactionButton = find.byKey(
-        const Key('reaction-bath_time_warm_water-calm'),
+        const Key('reaction-bath_time_warm_water-cooperating'),
       );
       await tester.ensureVisible(reactionButton);
       await tester.pump();
@@ -318,10 +318,7 @@ void main() {
       );
       await _pumpFrames(tester, count: 10);
 
-      expect(
-        find.byKey(const Key('home-b-care-moment-title')),
-        findsOneWidget,
-      );
+      expect(find.byKey(const Key('home-b-care-moment-title')), findsOneWidget);
       expect(find.byKey(const Key('home-b-mentor-bubble')), findsOneWidget);
 
       await tester.scrollUntilVisible(
@@ -424,7 +421,7 @@ void main() {
 
     expect(find.byKey(const Key('home-growth-summary')), findsOneWidget);
     expect(find.text('花圃醒来了'), findsOneWidget);
-    expect(find.text('宝宝模仿了 hello。'), findsOneWidget);
+    expect(find.text('配合了 hello。'), findsOneWidget);
     expect(
       find.byKey(const Key('home-growth-summary-warning')),
       findsOneWidget,
@@ -632,7 +629,7 @@ void main() {
       expect(shareCount, 0);
       expect(find.byKey(const Key('home-share-preview-sheet')), findsOneWidget);
       expect(find.text('今天有一个新尝试'), findsWidgets);
-      expect(find.textContaining('宝宝跟着节奏模仿了一次'), findsWidgets);
+      expect(find.textContaining('宝宝跟着节奏配合了一次'), findsWidgets);
       expect(find.textContaining('不会包含手机号、设备标识'), findsOneWidget);
       await tester.tap(
         find.byKey(const Key('home-share-preview-confirm-button')),
@@ -722,9 +719,8 @@ void main() {
           return householdNotifier;
         }),
         gardenFertilizerNotifierProvider.overrideWith(
-          (ref) => _FertilizerNotifierStub(
-            ref.watch(gardenGrowthNotifierProvider),
-          ),
+          (ref) =>
+              _FertilizerNotifierStub(ref.watch(gardenGrowthNotifierProvider)),
         ),
         shareNotifierProvider.overrideWith((ref) {
           return ShareNotifier(
@@ -745,89 +741,88 @@ void main() {
   });
 
   testWidgets(
-      'Shell FAB hides on home and garden tabs and settings gear shows on me tab',
-      (
-    tester,
-  ) async {
-    final gardenSnapshot = _gardenSnapshot(spaces: [_gardenPatch()]);
-    final continuitySnapshot = _continuitySnapshot();
-    final householdNotifier = HouseholdNotifier(
-      repository: _HomeHouseholdRepository(
-        snapshot: const HouseholdLocalSnapshot(
-          lastPhase: 'shared_context_ready',
-        ),
-      ),
-    );
-    await householdNotifier.initialize();
-
-    await _pumpApp(
-      tester,
-      const AppShellScreen(),
-      scaffold: false,
-      overrides: [
-        accountNotifierProvider.overrideWith((ref) {
-          return AccountNotifier(repository: _ScreenAccountRepository());
-        }),
-        practiceContinuityNotifierProvider.overrideWith((ref) {
-          return _homeContinuityNotifier(continuitySnapshot);
-        }),
-        gardenGrowthNotifierProvider.overrideWith((ref) {
-          return GardenGrowthNotifier(
-            repository: _HomeGardenGrowthRepository(gardenSnapshot),
-            refreshTimeout: Duration.zero,
-          );
-        }),
-        householdNotifierProvider.overrideWith((ref) {
-          return householdNotifier;
-        }),
-        gardenFertilizerNotifierProvider.overrideWith(
-          (ref) => _FertilizerNotifierStub(
-            ref.watch(gardenGrowthNotifierProvider),
+    'Shell FAB hides on home and garden tabs and settings gear shows on me tab',
+    (tester) async {
+      final gardenSnapshot = _gardenSnapshot(spaces: [_gardenPatch()]);
+      final continuitySnapshot = _continuitySnapshot();
+      final householdNotifier = HouseholdNotifier(
+        repository: _HomeHouseholdRepository(
+          snapshot: const HouseholdLocalSnapshot(
+            lastPhase: 'shared_context_ready',
           ),
         ),
-        shareNotifierProvider.overrideWith((ref) {
-          return ShareNotifier(
-            repository: _HomeShareRepository(),
-            initialGrowthSnapshot: gardenSnapshot,
-            initialContinuitySnapshot: continuitySnapshot,
-          );
-        }),
-      ],
-    );
-    await _pumpFrames(tester, count: 10);
+      );
+      await householdNotifier.initialize();
 
-    // §5 规则1：首页隐藏全局 FAB（用内联「问小禾」入口）；首页也无设置齿轮。
-    expect(find.byKey(const Key('shell-mentor-fab')), findsNothing);
-    expect(find.byKey(const Key('shell-settings-gear')), findsNothing);
+      await _pumpApp(
+        tester,
+        const AppShellScreen(),
+        scaffold: false,
+        overrides: [
+          accountNotifierProvider.overrideWith((ref) {
+            return AccountNotifier(repository: _ScreenAccountRepository());
+          }),
+          practiceContinuityNotifierProvider.overrideWith((ref) {
+            return _homeContinuityNotifier(continuitySnapshot);
+          }),
+          gardenGrowthNotifierProvider.overrideWith((ref) {
+            return GardenGrowthNotifier(
+              repository: _HomeGardenGrowthRepository(gardenSnapshot),
+              refreshTimeout: Duration.zero,
+            );
+          }),
+          householdNotifierProvider.overrideWith((ref) {
+            return householdNotifier;
+          }),
+          gardenFertilizerNotifierProvider.overrideWith(
+            (ref) => _FertilizerNotifierStub(
+              ref.watch(gardenGrowthNotifierProvider),
+            ),
+          ),
+          shareNotifierProvider.overrideWith((ref) {
+            return ShareNotifier(
+              repository: _HomeShareRepository(),
+              initialGrowthSnapshot: gardenSnapshot,
+              initialContinuitySnapshot: continuitySnapshot,
+            );
+          }),
+        ],
+      );
+      await _pumpFrames(tester, count: 10);
 
-    // §5 规则3：发现 Tab 固定显示全局 FAB。
-    tester
-        .widget<NavigationBar>(find.byType(NavigationBar))
-        .onDestinationSelected!(1);
-    await _pumpFrames(tester, count: 6);
-    await tester.pump(const Duration(milliseconds: 500));
-    expect(find.byKey(const Key('shell-mentor-fab')), findsOneWidget);
-    expect(find.byKey(const Key('shell-settings-gear')), findsNothing);
+      // §5 规则1：首页隐藏全局 FAB（用内联「问小禾」入口）；首页也无设置齿轮。
+      expect(find.byKey(const Key('shell-mentor-fab')), findsNothing);
+      expect(find.byKey(const Key('shell-settings-gear')), findsNothing);
 
-    // §5 规则2：花园 Tab 隐藏全局 FAB（花园有自己的施肥交互）。
-    tester
-        .widget<NavigationBar>(find.byType(NavigationBar))
-        .onDestinationSelected!(2);
-    await _pumpFrames(tester, count: 6);
-    // Scaffold 的 FAB 退出动画约 200ms+，再补一帧长 pump 让其完成移除。
-    await tester.pump(const Duration(milliseconds: 500));
-    expect(find.byKey(const Key('shell-mentor-fab')), findsNothing);
-    expect(find.byKey(const Key('shell-settings-gear')), findsNothing);
+      // §5 规则3：发现 Tab 固定显示全局 FAB。
+      tester
+          .widget<NavigationBar>(find.byType(NavigationBar))
+          .onDestinationSelected!(1);
+      await _pumpFrames(tester, count: 6);
+      await tester.pump(const Duration(milliseconds: 500));
+      expect(find.byKey(const Key('shell-mentor-fab')), findsOneWidget);
+      expect(find.byKey(const Key('shell-settings-gear')), findsNothing);
 
-    // §4：我 Tab 顶栏右上角出现设置齿轮；FAB 恢复显示。
-    tester
-        .widget<NavigationBar>(find.byType(NavigationBar))
-        .onDestinationSelected!(3);
-    await _pumpFrames(tester, count: 6);
-    await tester.pump(const Duration(milliseconds: 500));
-    expect(find.byKey(const Key('shell-settings-gear')), findsOneWidget);
-    expect(find.byKey(const Key('shell-mentor-fab')), findsOneWidget);
-  });
+      // §5 规则2：花园 Tab 隐藏全局 FAB（花园有自己的施肥交互）。
+      tester
+          .widget<NavigationBar>(find.byType(NavigationBar))
+          .onDestinationSelected!(2);
+      await _pumpFrames(tester, count: 6);
+      // Scaffold 的 FAB 退出动画约 200ms+，再补一帧长 pump 让其完成移除。
+      await tester.pump(const Duration(milliseconds: 500));
+      expect(find.byKey(const Key('shell-mentor-fab')), findsNothing);
+      expect(find.byKey(const Key('shell-settings-gear')), findsNothing);
+
+      // §4：我 Tab 顶栏右上角出现设置齿轮；FAB 恢复显示。
+      tester
+          .widget<NavigationBar>(find.byType(NavigationBar))
+          .onDestinationSelected!(3);
+      await _pumpFrames(tester, count: 6);
+      await tester.pump(const Duration(milliseconds: 500));
+      expect(find.byKey(const Key('shell-settings-gear')), findsOneWidget);
+      expect(find.byKey(const Key('shell-mentor-fab')), findsOneWidget);
+    },
+  );
 
   testWidgets('Shell household status labels cover sanitized phase families', (
     tester,
@@ -973,13 +968,13 @@ GardenGrowthSnapshot _gardenSnapshot({
       activityTitle: '唱一小段',
       phraseId: 'hello_wave',
       phraseTitle: 'hello',
-      reactionType: BabyReactionType.imitated,
+      reactionType: BabyReactionType.cooperating,
       previousPatchStage: GardenPatchStage.quiet,
       currentPatchStage: GardenPatchStage.tended,
       previousFlowerStage: GardenFlowerStage.seed,
       currentFlowerStage: GardenFlowerStage.sprout,
       headline: '花圃醒来了',
-      detail: '宝宝模仿了 hello。',
+      detail: '配合了 hello。',
     ),
     totalStoredEvents: 2,
     validEvents: 2,
@@ -1015,7 +1010,7 @@ PracticeContinuitySnapshot _continuitySnapshot({
         ? PracticeCatalogRecentResultSummary(
             phraseId: 'hello_wave',
             phraseEnglish: 'Hello wave',
-            reactionType: BabyReactionType.imitated,
+            reactionType: BabyReactionType.cooperating,
             eventTime: DateTime.utc(2026, 5, 19, 8),
             totalEvents: 2,
           )
@@ -1059,7 +1054,7 @@ ShareLinkDraft _shareDraft() {
   return const ShareLinkDraft(
     source: ShareLinkSource.pairedProgress,
     headline: '今天有一个新尝试',
-    storyText: '宝宝跟着节奏模仿了一次。',
+    storyText: '宝宝跟着节奏配合了一次。',
     phraseText: 'hello',
     recommendationTitle: '接下来继续唱一小段',
     recommendationReason: '继续刚才的节奏。',

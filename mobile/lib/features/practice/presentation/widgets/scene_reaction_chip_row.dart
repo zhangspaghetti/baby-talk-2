@@ -22,48 +22,33 @@ class PracticeReactionOption {
 // Scene-specific reaction option data
 // ---------------------------------------------------------------------------
 
-/// Returns the three reaction options for [sceneTag].
-///
-/// Mapping per spec §6:
-/// - index 0 → [BabyReactionType.engaged]  → always 「有回应」
-/// - index 1 → [BabyReactionType.calm]     → scene-specific action word
-/// - index 2 → [BabyReactionType.imitated] → always 「没反应」
+/// Returns the canonical reaction options for [sceneTag].
 List<PracticeReactionOption> sceneReactionOptions(String? sceneTag) {
-  final String calmLabel;
-  switch (sceneTag) {
-    case 'feeding':
-      calmLabel = '吃了一口';
-      break;
-    case 'drinking':
-      calmLabel = '喝了一口';
-      break;
-    case 'diaper':
-    case 'bath':
-    case 'going_out':
-      calmLabel = '配合了';
-      break;
-    case 'bedtime':
-      calmLabel = '安静了';
-      break;
-    default:
-      calmLabel = '认真听了';
-  }
-
-  return [
+  return const [
     PracticeReactionOption(
-      type: BabyReactionType.engaged,
-      label: '有回应',
+      type: BabyReactionType.cooperating,
+      label: '配合',
       description: '宝宝有明显回应。',
     ),
     PracticeReactionOption(
-      type: BabyReactionType.calm,
-      label: calmLabel,
-      description: '宝宝做出具体动作。',
+      type: BabyReactionType.hesitant,
+      label: '犹豫',
+      description: '宝宝有点犹豫，还在观察。',
     ),
     PracticeReactionOption(
-      type: BabyReactionType.imitated,
+      type: BabyReactionType.resisting,
+      label: '不想',
+      description: '宝宝现在不太想继续。',
+    ),
+    PracticeReactionOption(
+      type: BabyReactionType.noResponse,
       label: '没反应',
       description: '宝宝暂时没有回应。',
+    ),
+    PracticeReactionOption(
+      type: BabyReactionType.other,
+      label: '其他',
+      description: '这次反应不属于前面的几类。',
     ),
   ];
 }
@@ -169,9 +154,9 @@ class _ReactionChip extends StatelessWidget {
                 Text(
                   option.label,
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: isSelected ? colors.success : textColor,
-                        fontWeight: FontWeight.w700,
-                      ),
+                    color: isSelected ? colors.success : textColor,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
               ],
             ),

@@ -42,7 +42,7 @@ void main() {
       const draft = ShareLinkDraft(
         source: ShareLinkSource.latestImpact,
         headline: '今天有一个新尝试',
-        storyText: '宝宝跟着节奏模仿了一次。',
+        storyText: '宝宝跟着节奏配合了一次。',
         phraseText: 'hello',
         spaceId: 'home',
         activityId: 'song_time',
@@ -227,7 +227,7 @@ void main() {
         activityTitle: '唱一小段',
         phraseId: 'hello_wave',
         phraseTitle: 'Hello',
-        reactionType: BabyReactionType.imitated,
+        reactionType: BabyReactionType.cooperating,
         previousPatchStage: GardenPatchStage.quiet,
         currentPatchStage: GardenPatchStage.tended,
         previousFlowerStage: GardenFlowerStage.seed,
@@ -358,7 +358,7 @@ void main() {
           spaceId: 'space_home',
           activityId: 'activity_song',
           phraseId: 'phrase_hello',
-          reactionType: BabyReactionType.imitated,
+          reactionType: BabyReactionType.cooperating,
           clientTimestamp: DateTime.utc(2026, 5, 19, 8),
           syncState: InteractionSyncState.failed,
           lastSyncPhase: 'upload_attempt',
@@ -369,7 +369,7 @@ void main() {
           syncState: InteractionSyncState.synced,
         );
         final uploadRecord = payload.uploadRecord.copyWith(
-          reactionType: BabyReactionType.calm,
+          reactionType: BabyReactionType.cooperating,
         );
 
         final entity = InteractionEventEntity.fromPayload(payload);
@@ -377,10 +377,10 @@ void main() {
         expect(updated.eventKey, payload.eventKey);
         expect(updated.toSyncMetadataMap()['syncState'], 'synced');
         expect(payload.syncState, InteractionSyncState.failed);
-        expect(uploadRecord.toJsonMap()['reactionType'], 'calm');
+        expect(uploadRecord.toJsonMap()['reactionType'], 'cooperating');
         expect(InteractionEventEntitySchema.name, r'InteractionEventEntity');
         expect(entity.eventKey, 'install_canary:practice_evt_1');
-        expect(entity.reactionType, 'imitated');
+        expect(entity.reactionType, 'cooperating');
         expect(entity.toPersistedFactMap()['phraseId'], 'phrase_hello');
         expect(
           entity.toPersistedSyncMetadataMap()['lastSyncPhase'],

@@ -68,7 +68,7 @@ void main() {
       expect(firstNotifier.currentPhrase?.phraseId, 'bath_time_warm_water');
 
       final outcome = await firstNotifier.recordReaction(
-        BabyReactionType.engaged,
+        BabyReactionType.cooperating,
       );
       expect(outcome, PracticeRecordOutcome.advanced);
       expect(firstNotifier.homeSummary?.totalEvents, 1);
@@ -166,7 +166,7 @@ void main() {
       await bathNotifier.initialize();
       expect(await bathNotifier.ensureSessionReady(), isTrue);
       expect(bathNotifier.currentPhrase?.phraseId, 'bath_time_warm_water');
-      await bathNotifier.recordReaction(BabyReactionType.engaged);
+      await bathNotifier.recordReaction(BabyReactionType.cooperating);
       expect(bathNotifier.currentPhrase?.phraseId, 'bath_time_splash_splash');
 
       final diaperNotifier = PracticeSessionNotifier(
@@ -240,7 +240,9 @@ void main() {
       expect(await notifier.ensureSessionReady(), isTrue);
       expect(notifier.currentPhrase?.phraseId, 'bath_time_warm_water');
 
-      final outcome = await notifier.recordReaction(BabyReactionType.calm);
+      final outcome = await notifier.recordReaction(
+        BabyReactionType.cooperating,
+      );
 
       expect(outcome, PracticeRecordOutcome.failed);
       expect(notifier.currentPhrase?.phraseId, 'bath_time_warm_water');
@@ -278,7 +280,9 @@ void main() {
       expect(notifier.playbackStatus, PracticePlaybackStatus.completed);
       expect(notifier.playbackMessage, contains('播放完成'));
 
-      final outcome = await notifier.recordReaction(BabyReactionType.calm);
+      final outcome = await notifier.recordReaction(
+        BabyReactionType.cooperating,
+      );
 
       expect(outcome, PracticeRecordOutcome.advanced);
       expect(notifier.currentPhrase?.phraseId, 'bath_time_splash_splash');
@@ -286,10 +290,11 @@ void main() {
       expect(notifier.saveStatus, PracticeSaveStatus.saved);
       expect(notifier.saveStatusLabel, 'saved');
       expect(notifier.isPhraseCompleted('bath_time_warm_water'), isTrue);
-      expect(notifier.labelForReaction(BabyReactionType.calm), '宝宝放松');
-      expect(notifier.labelForReaction(BabyReactionType.engaged), '宝宝在看');
-      expect(notifier.labelForReaction(BabyReactionType.imitated), '宝宝模仿');
-      expect(notifier.labelForReaction(BabyReactionType.needsBreak), '先休息');
+      expect(notifier.labelForReaction(BabyReactionType.cooperating), '配合');
+      expect(notifier.labelForReaction(BabyReactionType.hesitant), '犹豫');
+      expect(notifier.labelForReaction(BabyReactionType.resisting), '不想');
+      expect(notifier.labelForReaction(BabyReactionType.noResponse), '没反应');
+      expect(notifier.labelForReaction(BabyReactionType.other), '其他');
     });
 
     test('播放失败与播放超时都会留下可重试状态', () async {
@@ -374,7 +379,9 @@ void main() {
       expect(notifier.playbackStatus, PracticePlaybackStatus.error);
       expect(notifier.playbackMessage, contains('音频资源缺失'));
 
-      final outcome = await notifier.recordReaction(BabyReactionType.imitated);
+      final outcome = await notifier.recordReaction(
+        BabyReactionType.cooperating,
+      );
 
       expect(outcome, PracticeRecordOutcome.advanced);
       expect(notifier.currentPhrase?.phraseId, 'dynamic_phrase_2');
@@ -418,7 +425,9 @@ void main() {
       await notifier.ensureSessionReady();
       notifier.saveCurrentPhrase();
 
-      final outcome = await notifier.recordReaction(BabyReactionType.engaged);
+      final outcome = await notifier.recordReaction(
+        BabyReactionType.cooperating,
+      );
       expect(outcome, PracticeRecordOutcome.advanced);
       expect(notifier.phrasePhase, PhraseInteractionPhase.advancing);
       // index already advanced — next phrase visible immediately
@@ -461,7 +470,7 @@ void main() {
       await notifier.initialize();
       await notifier.ensureSessionReady();
       notifier.saveCurrentPhrase();
-      await notifier.recordReaction(BabyReactionType.calm);
+      await notifier.recordReaction(BabyReactionType.cooperating);
       expect(notifier.phrasePhase, PhraseInteractionPhase.advancing);
 
       notifier.cancelAutoAdvance();

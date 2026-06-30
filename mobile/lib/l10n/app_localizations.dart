@@ -136,29 +136,35 @@ abstract class AppLocalizations {
   /// **'访客'**
   String get guest;
 
-  /// No description provided for @reactionCalm.
+  /// No description provided for @reactionCooperating.
   ///
   /// In zh, this message translates to:
-  /// **'宝宝放松'**
-  String get reactionCalm;
+  /// **'配合'**
+  String get reactionCooperating;
 
-  /// No description provided for @reactionEngaged.
+  /// No description provided for @reactionHesitant.
   ///
   /// In zh, this message translates to:
-  /// **'宝宝在看'**
-  String get reactionEngaged;
+  /// **'犹豫'**
+  String get reactionHesitant;
 
-  /// No description provided for @reactionImitated.
+  /// No description provided for @reactionResisting.
   ///
   /// In zh, this message translates to:
-  /// **'宝宝模仿'**
-  String get reactionImitated;
+  /// **'不想'**
+  String get reactionResisting;
 
-  /// No description provided for @reactionNeedsBreak.
+  /// No description provided for @reactionNoResponse.
   ///
   /// In zh, this message translates to:
-  /// **'先休息'**
-  String get reactionNeedsBreak;
+  /// **'没反应'**
+  String get reactionNoResponse;
+
+  /// No description provided for @reactionOther.
+  ///
+  /// In zh, this message translates to:
+  /// **'其他'**
+  String get reactionOther;
 
   /// No description provided for @sharedAttributionNextStep.
   ///

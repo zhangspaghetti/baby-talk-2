@@ -185,7 +185,7 @@ InteractionEventPayload _payload({
     spaceId: 'daily_care',
     activityId: 'bath_time',
     phraseId: phraseId,
-    reactionType: BabyReactionType.calm,
+    reactionType: BabyReactionType.cooperating,
     clientTimestamp: clientTimestamp,
     syncState: syncState,
     lastSyncPhase: lastSyncPhase,

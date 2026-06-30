@@ -81,7 +81,7 @@ class AuthConsentSyncWebTest extends AbstractIntegrationTest {
                                       "spaceId":"daily_care",
                                       "activityId":"bath_time",
                                       "phraseId":"bath_time_warm_water",
-                                      "reactionType":"calm",
+                                      "reactionType":"cooperating",
                                       "clientTimestamp":"2026-04-09T02:00:00Z"
                                     },
                                     {
@@ -91,7 +91,7 @@ class AuthConsentSyncWebTest extends AbstractIntegrationTest {
                                       "spaceId":"daily_care",
                                       "activityId":"bath_time",
                                       "phraseId":"bath_time_splash_splash",
-                                      "reactionType":"engaged",
+                                      "reactionType":"cooperating",
                                       "clientTimestamp":"2026-04-09T02:01:00Z"
                                     }
                                   ]
@@ -116,7 +116,7 @@ class AuthConsentSyncWebTest extends AbstractIntegrationTest {
                                       "spaceId":"daily_care",
                                       "activityId":"bath_time",
                                       "phraseId":"bath_time_warm_water",
-                                      "reactionType":"calm",
+                                      "reactionType":"cooperating",
                                       "clientTimestamp":"2026-04-09T02:00:00Z"
                                     },
                                     {
@@ -126,7 +126,7 @@ class AuthConsentSyncWebTest extends AbstractIntegrationTest {
                                       "spaceId":"daily_care",
                                       "activityId":"bath_time",
                                       "phraseId":"bath_time_splash_splash",
-                                      "reactionType":"engaged",
+                                      "reactionType":"cooperating",
                                       "clientTimestamp":"2026-04-09T02:01:00Z"
                                     }
                                   ]

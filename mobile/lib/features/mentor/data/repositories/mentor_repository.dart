@@ -580,8 +580,8 @@ class MentorRepository {
       return _skippedSharedStatus(
         code: 'shared_context_unavailable',
         detail: visibleError == null
-        ? '共享上下文暂不可用，导师继续使用本地建议。'
-        : '$visibleError 导师已保留本地建议。',
+            ? '共享上下文暂不可用，导师继续使用本地建议。'
+            : '$visibleError 导师已保留本地建议。',
       );
     }
     if (phase.contains('ready') || phase.contains('accept')) {
@@ -654,14 +654,16 @@ class MentorRepository {
 
   String _actorResultLabel(String? result) {
     switch (result?.trim()) {
-      case 'calm':
-        return '平静回应';
-      case 'engaged':
-        return '愿意看着你';
-      case 'imitated':
-        return '开始模仿';
-      case 'needs_break':
-        return '需要先休息';
+      case 'cooperating':
+        return '配合';
+      case 'hesitant':
+        return '犹豫';
+      case 'resisting':
+        return '不想';
+      case 'no_response':
+        return '没反应';
+      case 'other':
+        return '其他';
       default:
         return '已记录反馈';
     }

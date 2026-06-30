@@ -33,7 +33,7 @@ void main() {
 
       await harness.completeStarterPractice(tester);
       expect(find.byKey(const Key('recent-result-summary')), findsOneWidget);
-      expect(find.textContaining('All clean. · 宝宝放松'), findsOneWidget);
+      expect(find.textContaining('All clean. · 配合'), findsOneWidget);
       expect(find.textContaining('3 条本地记录'), findsOneWidget);
       // Garden items are below recent-result-summary; scroll down to build them.
       await FullChainTestHarness.scrollHomeTo(

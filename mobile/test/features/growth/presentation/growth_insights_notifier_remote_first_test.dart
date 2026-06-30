@@ -37,19 +37,12 @@ void main() {
     final prefs = _FakePrefs();
     // Pre-populate cache with stale data.
     await prefs.setString(
-      'growth_insights_v1_week',
-      _cacheEntry(
-        totalEvents: 42,
-        uniquePhrases: 5,
-        uniqueActivities: 3,
-      ),
+      'growth_insights_reaction_v2_week',
+      _cacheEntry(totalEvents: 42, uniquePhrases: 5, uniqueActivities: 3),
     );
 
     final api = _FakeApiService(throwOnFetch: true);
-    final notifier = GrowthInsightsNotifier(
-      apiService: api,
-      prefs: prefs,
-    );
+    final notifier = GrowthInsightsNotifier(apiService: api, prefs: prefs);
     addTearDown(notifier.dispose);
 
     await notifier.initialize();
@@ -90,7 +83,7 @@ GrowthInsightsPayload _makePayload({
       totalEvents: totalEvents,
       uniquePhrases: uniquePhrases,
       uniqueActivities: uniqueActivities,
-      imitationCount: 2,
+      cooperatingCount: 2,
       practicedDays: 3,
       firstEventAt: DateTime(2026, 5, 18),
       lastEventAt: DateTime(2026, 5, 20),
@@ -138,7 +131,7 @@ String _cacheEntry({
         "totalEvents": $totalEvents,
         "uniquePhrases": $uniquePhrases,
         "uniqueActivities": $uniqueActivities,
-        "imitationCount": 0,
+        "cooperatingCount": 0,
         "practicedDays": 1
       },
       "streak": {

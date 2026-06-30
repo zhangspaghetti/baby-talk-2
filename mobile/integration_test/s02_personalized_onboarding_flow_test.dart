@@ -24,222 +24,237 @@ import 'support/app_test_repositories.dart';
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
-  testWidgets('fresh install 完成 onboarding 后进入个性化 shell，冷启动后跳过 onboarding 并恢复最近结果', (
-    WidgetTester tester,
-  ) async {
-    final bootState = await AppBootState.load(rootBundle);
-    expect(bootState.isReady, isTrue);
+  testWidgets(
+    'fresh install 完成 onboarding 后进入个性化 shell，冷启动后跳过 onboarding 并恢复最近结果',
+    (WidgetTester tester) async {
+      final bootState = await AppBootState.load(rootBundle);
+      expect(bootState.isReady, isTrue);
 
-    final tempDir = await Directory.systemTemp.createTemp(
-      's02_personalized_onboarding_',
-    );
-    addTearDown(() async {
-      if (await tempDir.exists()) {
-        await tempDir.delete(recursive: true);
-      }
-    });
+      final tempDir = await Directory.systemTemp.createTemp(
+        's02_personalized_onboarding_',
+      );
+      addTearDown(() async {
+        if (await tempDir.exists()) {
+          await tempDir.delete(recursive: true);
+        }
+      });
 
-    const dbName = 's02_personalized_onboarding';
-    final firstRepository = await _openRepository(
-      assetPhraseService: bootState.assetPhraseService!,
-      directory: tempDir,
-      dbName: dbName,
-    );
-    final mentorLocalDataSource = await MentorLocalDataSource.open(
-      directory: tempDir.path,
-      name: 'mentor_s02_personalized_onboarding',
-    );
-    final mentorRepository = MentorRepository(
-      localDataSource: mentorLocalDataSource,
-      practiceRepository: firstRepository,
-      onboardingSnapshotStore: OnboardingSnapshotStore(
-        directoryResolver: () async => tempDir,
-      ),
-    );
-    final firstAccountRepository = AccountRepository(
-      localStore: AccountLocalStore(storageKey: 's02_account'),
-      practiceRepository: firstRepository,
-    );
-    final firstHouseholdRepository = createLocalHouseholdRepository(
-      accountRepository: firstAccountRepository,
-      directory: tempDir,
-    );
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [
-          assetPhraseServiceProvider.overrideWithValue(
-            bootState.assetPhraseService!,
-          ),
-          appDirectoryProvider.overrideWith((ref) => tempDir),
-          practiceRepositoryProvider.overrideWith(
-            (ref) => firstRepository,
-          ),
-          mentorRepositoryProvider.overrideWith(
-            (ref) async => mentorRepository,
-          ),
-          accountRepositoryProvider.overrideWith(
-            (ref) => firstAccountRepository,
-          ),
-          householdRepositoryProvider.overrideWith(
-            (ref) => firstHouseholdRepository,
-          ),
-        ],
-        child: BabyTalkApp(
-          bootState: bootState,
-          practiceContinuityRefreshTimeout: Duration.zero,
+      const dbName = 's02_personalized_onboarding';
+      final firstRepository = await _openRepository(
+        assetPhraseService: bootState.assetPhraseService!,
+        directory: tempDir,
+        dbName: dbName,
+      );
+      final mentorLocalDataSource = await MentorLocalDataSource.open(
+        directory: tempDir.path,
+        name: 'mentor_s02_personalized_onboarding',
+      );
+      final mentorRepository = MentorRepository(
+        localDataSource: mentorLocalDataSource,
+        practiceRepository: firstRepository,
+        onboardingSnapshotStore: OnboardingSnapshotStore(
+          directoryResolver: () async => tempDir,
         ),
-      ),
-    );
-    await _pumpUntilFound(
-      tester,
-      find.byKey(const Key('onboarding-local-only-banner')),
-      timeout: const Duration(seconds: 30),
-    );
-
-    expect(find.byKey(const Key('boot-route-onboarding')), findsOneWidget);
-    expect(find.byKey(const Key('onboarding-local-only-banner')), findsOneWidget);
-
-    await _completeOnboarding(tester, childDisplayName: '米米');
-    await _waitForShellWithRetry(tester);
-    await _pumpUntilFound(
-      tester,
-      find.byKey(const Key('home-starter-seed')),
-      timeout: const Duration(seconds: 30),
-    );
-
-    expect(find.byKey(const Key('boot-route-shell')), findsOneWidget);
-    expect(find.byKey(const Key('boot-route-onboarding')), findsNothing);
-    expect(find.text('米米 的练习'), findsOneWidget);
-    expect(find.byKey(const Key('personalized-home-heading')), findsOneWidget);
-    expect(find.textContaining('米米'), findsWidgets);
-    expect(find.text('动作带词连接期'), findsWidgets);
-    expect(find.textContaining('Warm water.'), findsOneWidget);
-
-    await tester.tap(find.byKey(const Key('shell-drawer-trigger')));
-    await tester.pumpAndSettle();
-    expect(find.byKey(const Key('shell-end-drawer')), findsOneWidget);
-    expect(find.byKey(const Key('shell-drawer-child-name')), findsOneWidget);
-    expect(find.byKey(const Key('shell-drawer-stage-title')), findsOneWidget);
-    expect(find.byKey(const Key('shell-drawer-local-only-note')), findsOneWidget);
-    await tester.tap(find.byTooltip('关闭'));
-    await tester.pumpAndSettle();
-
-    final startButton = _homeStartPracticeButton();
-    await _pumpUntilFound(
-      tester,
-      startButton,
-      timeout: const Duration(seconds: 60),
-    );
-    await _scrollHomeTo(tester, startButton);
-
-    await tester.tap(startButton);
-    await _pumpUntilFound(
-      tester,
-      find.byKey(const Key('phrase-card-bath_time_warm_water')),
-      timeout: const Duration(seconds: 30),
-    );
-
-    final firstReaction = find.byKey(
-      const Key('reaction-bath_time_warm_water-engaged'),
-    );
-    await _pumpUntilFound(tester, firstReaction);
-    await tester.ensureVisible(firstReaction);
-    await tester.pump(const Duration(milliseconds: 100));
-    await tester.tap(firstReaction);
-    await _pumpUntilFound(
-      tester,
-      find.byKey(const Key('phrase-card-bath_time_splash_splash')),
-      timeout: const Duration(seconds: 30),
-    );
-
-    final secondReaction = find.byKey(
-      const Key('reaction-bath_time_splash_splash-imitated'),
-    );
-    await _pumpUntilFound(tester, secondReaction);
-    await tester.ensureVisible(secondReaction);
-    await tester.pump(const Duration(milliseconds: 100));
-    await tester.tap(secondReaction);
-    await _pumpUntilFound(
-      tester,
-      find.byKey(const Key('phrase-card-bath_time_all_clean')),
-      timeout: const Duration(seconds: 30),
-    );
-
-    final thirdReaction = find.byKey(
-      const Key('reaction-bath_time_all_clean-calm'),
-    );
-    await _pumpUntilFound(tester, thirdReaction);
-    await tester.ensureVisible(thirdReaction);
-    await tester.pump(const Duration(milliseconds: 100));
-    await tester.tap(thirdReaction);
-    await tester.pump(const Duration(milliseconds: 700));
-    await _scrollHomeTo(tester, find.byKey(const Key('recent-result-summary')));
-    await _pumpUntilFound(
-      tester,
-      find.byKey(const Key('recent-result-summary')),
-      timeout: const Duration(seconds: 30),
-    );
-    expect(find.byKey(const Key('recent-result-summary')), findsOneWidget);
-    expect(find.textContaining('All clean. · 宝宝放松'), findsOneWidget);
-    expect(find.textContaining('3 条本地记录'), findsOneWidget);
-
-    await tester.pumpWidget(const SizedBox.shrink());
-    await tester.pump(const Duration(milliseconds: 200));
-
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [
-          assetPhraseServiceProvider.overrideWithValue(
-            bootState.assetPhraseService!,
+      );
+      final firstAccountRepository = AccountRepository(
+        localStore: AccountLocalStore(storageKey: 's02_account'),
+        practiceRepository: firstRepository,
+      );
+      final firstHouseholdRepository = createLocalHouseholdRepository(
+        accountRepository: firstAccountRepository,
+        directory: tempDir,
+      );
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            assetPhraseServiceProvider.overrideWithValue(
+              bootState.assetPhraseService!,
+            ),
+            appDirectoryProvider.overrideWith((ref) => tempDir),
+            practiceRepositoryProvider.overrideWith((ref) => firstRepository),
+            mentorRepositoryProvider.overrideWith(
+              (ref) async => mentorRepository,
+            ),
+            accountRepositoryProvider.overrideWith(
+              (ref) => firstAccountRepository,
+            ),
+            householdRepositoryProvider.overrideWith(
+              (ref) => firstHouseholdRepository,
+            ),
+          ],
+          child: BabyTalkApp(
+            bootState: bootState,
+            practiceContinuityRefreshTimeout: Duration.zero,
           ),
-          appDirectoryProvider.overrideWith((ref) => tempDir),
-          practiceRepositoryProvider.overrideWith(
-            (ref) => firstRepository,
-          ),
-          mentorRepositoryProvider.overrideWith(
-            (ref) async => mentorRepository,
-          ),
-          accountRepositoryProvider.overrideWith(
-            (ref) => firstAccountRepository,
-          ),
-          householdRepositoryProvider.overrideWith(
-            (ref) => firstHouseholdRepository,
-          ),
-        ],
-        child: BabyTalkApp(
-          bootState: bootState,
-          practiceContinuityRefreshTimeout: Duration.zero,
         ),
-      ),
-    );
-    await tester.pump();
-    await _waitForShellWithRetry(tester);
+      );
+      await _pumpUntilFound(
+        tester,
+        find.byKey(const Key('onboarding-local-only-banner')),
+        timeout: const Duration(seconds: 30),
+      );
 
-    expect(find.byKey(const Key('boot-route-onboarding')), findsNothing);
-    expect(find.byKey(const Key('boot-route-shell')), findsOneWidget);
-    expect(find.byKey(const Key('onboarding-local-only-banner')), findsNothing);
-    expect(find.byKey(const Key('shell-ready')), findsOneWidget);
-    expect(find.text('米米 的练习'), findsOneWidget);
-    await _pumpUntilFound(
-      tester,
-      find.byKey(const Key('home-starter-seed')),
-      timeout: const Duration(seconds: 30),
-    );
-    await _scrollHomeTo(tester, find.byKey(const Key('recent-result-summary')));
-    await _pumpUntilFound(
-      tester,
-      find.byKey(const Key('recent-result-summary')),
-      timeout: const Duration(seconds: 30),
-    );
-    expect(find.byKey(const Key('recent-result-summary')), findsOneWidget);
-    expect(find.textContaining('All clean. · 宝宝放松'), findsOneWidget);
-    expect(find.textContaining('3 条本地记录'), findsOneWidget);
+      expect(find.byKey(const Key('boot-route-onboarding')), findsOneWidget);
+      expect(
+        find.byKey(const Key('onboarding-local-only-banner')),
+        findsOneWidget,
+      );
 
-    await tester.pumpWidget(const SizedBox.shrink());
-    await tester.pump(const Duration(milliseconds: 200));
-    await mentorRepository.close(deleteFromDisk: false);
-    await _closeRepositoryWithTimeout(firstRepository);
-  });
+      await _completeOnboarding(tester, childDisplayName: '米米');
+      await _waitForShellWithRetry(tester);
+      await _pumpUntilFound(
+        tester,
+        find.byKey(const Key('home-starter-seed')),
+        timeout: const Duration(seconds: 30),
+      );
+
+      expect(find.byKey(const Key('boot-route-shell')), findsOneWidget);
+      expect(find.byKey(const Key('boot-route-onboarding')), findsNothing);
+      expect(find.text('米米 的练习'), findsOneWidget);
+      expect(
+        find.byKey(const Key('personalized-home-heading')),
+        findsOneWidget,
+      );
+      expect(find.textContaining('米米'), findsWidgets);
+      expect(find.text('动作带词连接期'), findsWidgets);
+      expect(find.textContaining('Warm water.'), findsOneWidget);
+
+      await tester.tap(find.byKey(const Key('shell-drawer-trigger')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('shell-end-drawer')), findsOneWidget);
+      expect(find.byKey(const Key('shell-drawer-child-name')), findsOneWidget);
+      expect(find.byKey(const Key('shell-drawer-stage-title')), findsOneWidget);
+      expect(
+        find.byKey(const Key('shell-drawer-local-only-note')),
+        findsOneWidget,
+      );
+      await tester.tap(find.byTooltip('关闭'));
+      await tester.pumpAndSettle();
+
+      final startButton = _homeStartPracticeButton();
+      await _pumpUntilFound(
+        tester,
+        startButton,
+        timeout: const Duration(seconds: 60),
+      );
+      await _scrollHomeTo(tester, startButton);
+
+      await tester.tap(startButton);
+      await _pumpUntilFound(
+        tester,
+        find.byKey(const Key('phrase-card-bath_time_warm_water')),
+        timeout: const Duration(seconds: 30),
+      );
+
+      final firstReaction = find.byKey(
+        const Key('reaction-bath_time_warm_water-cooperating'),
+      );
+      await _pumpUntilFound(tester, firstReaction);
+      await tester.ensureVisible(firstReaction);
+      await tester.pump(const Duration(milliseconds: 100));
+      await tester.tap(firstReaction);
+      await _pumpUntilFound(
+        tester,
+        find.byKey(const Key('phrase-card-bath_time_splash_splash')),
+        timeout: const Duration(seconds: 30),
+      );
+
+      final secondReaction = find.byKey(
+        const Key('reaction-bath_time_splash_splash-no_response'),
+      );
+      await _pumpUntilFound(tester, secondReaction);
+      await tester.ensureVisible(secondReaction);
+      await tester.pump(const Duration(milliseconds: 100));
+      await tester.tap(secondReaction);
+      await _pumpUntilFound(
+        tester,
+        find.byKey(const Key('phrase-card-bath_time_all_clean')),
+        timeout: const Duration(seconds: 30),
+      );
+
+      final thirdReaction = find.byKey(
+        const Key('reaction-bath_time_all_clean-cooperating'),
+      );
+      await _pumpUntilFound(tester, thirdReaction);
+      await tester.ensureVisible(thirdReaction);
+      await tester.pump(const Duration(milliseconds: 100));
+      await tester.tap(thirdReaction);
+      await tester.pump(const Duration(milliseconds: 700));
+      await _scrollHomeTo(
+        tester,
+        find.byKey(const Key('recent-result-summary')),
+      );
+      await _pumpUntilFound(
+        tester,
+        find.byKey(const Key('recent-result-summary')),
+        timeout: const Duration(seconds: 30),
+      );
+      expect(find.byKey(const Key('recent-result-summary')), findsOneWidget);
+      expect(find.textContaining('All clean. · 配合'), findsOneWidget);
+      expect(find.textContaining('3 条本地记录'), findsOneWidget);
+
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump(const Duration(milliseconds: 200));
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            assetPhraseServiceProvider.overrideWithValue(
+              bootState.assetPhraseService!,
+            ),
+            appDirectoryProvider.overrideWith((ref) => tempDir),
+            practiceRepositoryProvider.overrideWith((ref) => firstRepository),
+            mentorRepositoryProvider.overrideWith(
+              (ref) async => mentorRepository,
+            ),
+            accountRepositoryProvider.overrideWith(
+              (ref) => firstAccountRepository,
+            ),
+            householdRepositoryProvider.overrideWith(
+              (ref) => firstHouseholdRepository,
+            ),
+          ],
+          child: BabyTalkApp(
+            bootState: bootState,
+            practiceContinuityRefreshTimeout: Duration.zero,
+          ),
+        ),
+      );
+      await tester.pump();
+      await _waitForShellWithRetry(tester);
+
+      expect(find.byKey(const Key('boot-route-onboarding')), findsNothing);
+      expect(find.byKey(const Key('boot-route-shell')), findsOneWidget);
+      expect(
+        find.byKey(const Key('onboarding-local-only-banner')),
+        findsNothing,
+      );
+      expect(find.byKey(const Key('shell-ready')), findsOneWidget);
+      expect(find.text('米米 的练习'), findsOneWidget);
+      await _pumpUntilFound(
+        tester,
+        find.byKey(const Key('home-starter-seed')),
+        timeout: const Duration(seconds: 30),
+      );
+      await _scrollHomeTo(
+        tester,
+        find.byKey(const Key('recent-result-summary')),
+      );
+      await _pumpUntilFound(
+        tester,
+        find.byKey(const Key('recent-result-summary')),
+        timeout: const Duration(seconds: 30),
+      );
+      expect(find.byKey(const Key('recent-result-summary')), findsOneWidget);
+      expect(find.textContaining('All clean. · 配合'), findsOneWidget);
+      expect(find.textContaining('3 条本地记录'), findsOneWidget);
+
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump(const Duration(milliseconds: 200));
+      await mentorRepository.close(deleteFromDisk: false);
+      await _closeRepositoryWithTimeout(firstRepository);
+    },
+  );
 }
 
 Future<void> _completeOnboarding(

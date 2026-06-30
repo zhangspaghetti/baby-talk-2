@@ -20,11 +20,13 @@ class GrowthInsightsNotifier extends ChangeNotifier {
     required GrowthInsightsApiService apiService,
     SharedPreferences? prefs,
     DateTime Function() now = DateTime.now,
-  })  : _apiService = apiService,
-        _prefsFuture = prefs != null ? Future.value(prefs) : SharedPreferences.getInstance(),
-        _now = now;
+  }) : _apiService = apiService,
+       _prefsFuture = prefs != null
+           ? Future.value(prefs)
+           : SharedPreferences.getInstance(),
+       _now = now;
 
-  static const _cacheKeyPrefix = 'growth_insights_v1_';
+  static const _cacheKeyPrefix = 'growth_insights_reaction_v2_';
 
   final GrowthInsightsApiService _apiService;
   final Future<SharedPreferences> _prefsFuture;
@@ -73,8 +75,9 @@ class GrowthInsightsNotifier extends ChangeNotifier {
         final cachedAt = DateTime.tryParse(cachedAtStr);
         if (cachedAt == null) continue;
         if (_now().difference(cachedAt).inMinutes > 15) continue;
-        final payload =
-            GrowthInsightsPayload.fromJson(json['payload'] as Map<String, dynamic>);
+        final payload = GrowthInsightsPayload.fromJson(
+          json['payload'] as Map<String, dynamic>,
+        );
         _views[period] = _mapToViewState(period, payload);
       }
       if (_views.isNotEmpty) {
@@ -95,10 +98,7 @@ class GrowthInsightsNotifier extends ChangeNotifier {
         if (view == null) continue;
         // Reconstruct the payload fields from the view-state for serialization.
         final payload = _viewStateToPayloadJson(period, view);
-        final cacheEntry = jsonEncode({
-          'cachedAt': now,
-          'payload': payload,
-        });
+        final cacheEntry = jsonEncode({'cachedAt': now, 'payload': payload});
         await prefs.setString(_cacheKey(period), cacheEntry);
       }
     } catch (_) {
@@ -117,7 +117,9 @@ class GrowthInsightsNotifier extends ChangeNotifier {
     final periods = GrowthPeriod.values;
     final results = await Future.wait([
       for (final period in periods)
-        _apiService.fetchInsights(period.name).catchError(
+        _apiService
+            .fetchInsights(period.name)
+            .catchError(
               (Object e) => GrowthInsightsPayload(
                 period: period.name,
                 windowStart: _now(),
@@ -127,7 +129,7 @@ class GrowthInsightsNotifier extends ChangeNotifier {
                   totalEvents: 0,
                   uniquePhrases: 0,
                   uniqueActivities: 0,
-                  imitationCount: 0,
+                  cooperatingCount: 0,
                   practicedDays: 0,
                 ),
                 streak: const InsightsStreak(
@@ -191,26 +193,30 @@ class GrowthInsightsNotifier extends ChangeNotifier {
         totalEvents: payload.stats.totalEvents,
         uniquePhrases: payload.stats.uniquePhrases,
         uniqueActivities: payload.stats.uniqueActivities,
-        imitationCount: payload.stats.imitationCount,
+        cooperatingCount: payload.stats.cooperatingCount,
         practicedDays: payload.stats.practicedDays,
         firstEventAt: payload.stats.firstEventAt,
         lastEventAt: payload.stats.lastEventAt,
       ),
       bars: payload.bars
-          .map((b) => GrowthBarBucket(
-                label: _barLabel(period, b.bucketStart),
-                count: b.count,
-                bucketStart: b.bucketStart,
-              ))
+          .map(
+            (b) => GrowthBarBucket(
+              label: _barLabel(period, b.bucketStart),
+              count: b.count,
+              bucketStart: b.bucketStart,
+            ),
+          )
           .toList(growable: false),
       scenes: payload.scenes
-          .map((s) => SceneDistribution(
-                spaceId: s.spaceId,
-                sceneTag: s.sceneTag,
-                eventCount: s.eventCount,
-                activityCount: s.activityCount,
-                percentage: s.percentage,
-              ))
+          .map(
+            (s) => SceneDistribution(
+              spaceId: s.spaceId,
+              sceneTag: s.sceneTag,
+              eventCount: s.eventCount,
+              activityCount: s.activityCount,
+              percentage: s.percentage,
+            ),
+          )
           .toList(growable: false),
       windowStart: payload.windowStart,
       windowEnd: payload.windowEnd,
@@ -230,7 +236,13 @@ class GrowthInsightsNotifier extends ChangeNotifier {
   }
 
   static const List<String> _weekdayLabels = [
-    '一', '二', '三', '四', '五', '六', '日'
+    '一',
+    '二',
+    '三',
+    '四',
+    '五',
+    '六',
+    '日',
   ];
 
   String _barLabel(GrowthPeriod period, DateTime bucketStart) {
@@ -264,7 +276,7 @@ class GrowthInsightsNotifier extends ChangeNotifier {
         'totalEvents': view.stats.totalEvents,
         'uniquePhrases': view.stats.uniquePhrases,
         'uniqueActivities': view.stats.uniqueActivities,
-        'imitationCount': view.stats.imitationCount,
+        'cooperatingCount': view.stats.cooperatingCount,
         'practicedDays': view.stats.practicedDays,
         'firstEventAt': view.stats.firstEventAt?.toUtc().toIso8601String(),
         'lastEventAt': view.stats.lastEventAt?.toUtc().toIso8601String(),
@@ -273,7 +285,9 @@ class GrowthInsightsNotifier extends ChangeNotifier {
         'currentStreak': view.streak.currentStreak,
         'longestStreak': view.streak.longestStreak,
         'totalDaysPracticed': view.streak.totalDaysPracticed,
-        'lastPracticedAt': view.streak.lastPracticedAt?.toUtc().toIso8601String(),
+        'lastPracticedAt': view.streak.lastPracticedAt
+            ?.toUtc()
+            .toIso8601String(),
       },
       'bars': [
         for (final bar in view.bars)

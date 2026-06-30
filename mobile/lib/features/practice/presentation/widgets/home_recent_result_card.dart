@@ -66,14 +66,16 @@ class HomeRecentResultCard extends StatelessWidget {
 
   String _labelForReaction(AppLocalizations l, BabyReactionType reactionType) {
     switch (reactionType) {
-      case BabyReactionType.calm:
-        return l.reactionCalm;
-      case BabyReactionType.engaged:
-        return l.reactionEngaged;
-      case BabyReactionType.imitated:
-        return l.reactionImitated;
-      case BabyReactionType.needsBreak:
-        return l.reactionNeedsBreak;
+      case BabyReactionType.cooperating:
+        return l.reactionCooperating;
+      case BabyReactionType.hesitant:
+        return l.reactionHesitant;
+      case BabyReactionType.resisting:
+        return l.reactionResisting;
+      case BabyReactionType.noResponse:
+        return l.reactionNoResponse;
+      case BabyReactionType.other:
+        return l.reactionOther;
     }
   }
 

@@ -287,7 +287,7 @@ void main() {
           spaceId: 'family_rhythm',
           activityId: 'feeding_time',
           phraseId: 'feeding_time_open_wide',
-          reactionType: BabyReactionType.engaged,
+          reactionType: BabyReactionType.cooperating,
           clientTimestamp: DateTime.utc(2026, 4, 8, 9, 0),
           localEventId: 'evt_boot_feed_1',
         );
@@ -295,7 +295,7 @@ void main() {
           spaceId: 'family_rhythm',
           activityId: 'feeding_time',
           phraseId: 'feeding_time_yummy_bite',
-          reactionType: BabyReactionType.imitated,
+          reactionType: BabyReactionType.cooperating,
           clientTimestamp: DateTime.utc(2026, 4, 8, 9, 1),
           localEventId: 'evt_boot_feed_2',
         );

@@ -54,14 +54,16 @@ String householdActorSourceLabel(String? source) {
 
 String householdActorResultLabel(String? result) {
   switch (result?.trim()) {
-    case 'calm':
-      return '平静回应';
-    case 'engaged':
-      return '愿意看着你';
-    case 'imitated':
-      return '开始模仿';
-    case 'needs_break':
-      return '需要先休息';
+    case 'cooperating':
+      return '配合';
+    case 'hesitant':
+      return '犹豫';
+    case 'resisting':
+      return '不想';
+    case 'no_response':
+      return '没反应';
+    case 'other':
+      return '其他';
     default:
       return '已记录反馈';
   }

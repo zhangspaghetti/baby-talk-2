@@ -191,7 +191,7 @@ void main() {
           spaceId: 'family_rhythm',
           activityId: 'feeding_time',
           phraseId: 'feeding_time_open_wide',
-          reactionType: BabyReactionType.calm,
+          reactionType: BabyReactionType.cooperating,
           clientTimestamp: DateTime.utc(2026, 4, 9, 8, 3),
           localEventId: 'practice_evt_feed_1',
         );
@@ -199,7 +199,7 @@ void main() {
           spaceId: 'family_rhythm',
           activityId: 'feeding_time',
           phraseId: 'feeding_time_yummy_bite',
-          reactionType: BabyReactionType.imitated,
+          reactionType: BabyReactionType.cooperating,
           clientTimestamp: DateTime.utc(2026, 4, 9, 8, 4),
           localEventId: 'practice_evt_feed_2',
         );
@@ -222,7 +222,7 @@ void main() {
         expect(result.suggestions.first.phraseEnglish, 'Yummy bite.');
         expect(
           result.redactedContextSummary,
-          'recent_result:feeding_time/feeding_time_yummy_bite:imitated',
+          'recent_result:feeding_time/feeding_time_yummy_bite:cooperating',
         );
       },
     );
@@ -331,7 +331,7 @@ void main() {
           spaceId: 'family_rhythm',
           activityId: 'feeding_time',
           phraseId: 'feeding_time_yummy_bite',
-          reactionType: BabyReactionType.imitated,
+          reactionType: BabyReactionType.cooperating,
           clientTimestamp: DateTime.utc(2026, 4, 9, 8, 4),
           localEventId: 'practice_evt_recent_1',
         );
@@ -517,7 +517,7 @@ void main() {
         spaceId: 'daily_care',
         activityId: 'bath_time',
         phraseId: 'bath_time_warm_water',
-        reactionType: BabyReactionType.calm,
+        reactionType: BabyReactionType.cooperating,
         clientTimestamp: DateTime.utc(2026, 4, 9, 8, 1),
         localEventId: 'practice_evt_local_recent_1',
       );
@@ -568,7 +568,7 @@ void main() {
         spaceId: 'family_rhythm',
         activityId: 'feeding_time',
         phraseId: 'feeding_time_yummy_bite',
-        reactionType: BabyReactionType.imitated,
+        reactionType: BabyReactionType.cooperating,
         clientTimestamp: DateTime.utc(2026, 4, 9, 8, 10),
         localEventId: 'practice_evt_local_recent_2',
       );
@@ -622,7 +622,7 @@ void main() {
         spaceId: 'family_rhythm',
         activityId: 'feeding_time',
         phraseId: 'feeding_time_yummy_bite',
-        reactionType: BabyReactionType.imitated,
+        reactionType: BabyReactionType.cooperating,
         clientTimestamp: DateTime.utc(2026, 4, 9, 8, 10),
         localEventId: 'practice_evt_local_recent_3',
       );
@@ -664,7 +664,7 @@ void main() {
         spaceId: 'family_rhythm',
         activityId: 'feeding_time',
         phraseId: 'feeding_time_yummy_bite',
-        reactionType: BabyReactionType.imitated,
+        reactionType: BabyReactionType.cooperating,
         clientTimestamp: DateTime.utc(2026, 4, 9, 8, 10),
         localEventId: 'practice_evt_local_recent_4',
       );
@@ -685,7 +685,7 @@ void main() {
             actor: const HouseholdSharedActor(
               role: 'caregiver',
               source: 'sync_event',
-              result: 'needs_break',
+              result: 'resisting',
             ),
             nextStep: null,
             latestInteractionAt: DateTime.utc(2026, 4, 9, 8, 5),
@@ -720,7 +720,7 @@ void main() {
         spaceId: 'family_rhythm',
         activityId: 'feeding_time',
         phraseId: 'feeding_time_yummy_bite',
-        reactionType: BabyReactionType.imitated,
+        reactionType: BabyReactionType.cooperating,
         clientTimestamp: DateTime.utc(2026, 4, 9, 8, 10),
         localEventId: 'practice_evt_local_recent_5',
       );
@@ -845,7 +845,7 @@ HouseholdLocalSnapshot _sharedSnapshot({
   ),
   String actorRole = 'caregiver',
   String actorSource = 'sync_event',
-  String actorResult = 'needs_break',
+  String actorResult = 'resisting',
   String babyProfileSummary = '共享宝宝档案：家庭已同步 2 条互动。',
   String continuitySummary = '最近 continuity：先继续这条共享 activity。',
   String gardenSummary = '花园上下文：共享花圃正在缓慢生长。',
