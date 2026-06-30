@@ -10,6 +10,7 @@ import java.time.ZonedDateTime;
 import java.time.temporal.TemporalAdjusters;
 import java.util.List;
 import java.util.Map;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
@@ -23,6 +24,7 @@ public class GrowthInsightsService {
     private final AuthConsentSyncService authConsentSyncService;
     private final Clock clock;
 
+    @Autowired
     public GrowthInsightsService(JdbcTemplate jdbc,
                                   AuthConsentSyncService authConsentSyncService) {
         this(jdbc, authConsentSyncService, Clock.systemUTC());

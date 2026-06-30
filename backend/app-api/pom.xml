@@ -21,12 +21,6 @@
             <version>${project.version}</version>
         </dependency>
         <dependency>
-            <groupId>com.zhangspaghetti</groupId>
-            <artifactId>db-migration</artifactId>
-            <version>${project.version}</version>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-web</artifactId>
         </dependency>
@@ -120,6 +114,17 @@
     </dependencies>
 
     <build>
+        <testResources>
+            <testResource>
+                <directory>src/test/resources</directory>
+            </testResource>
+            <testResource>
+                <directory>../db-migration/src/main/resources</directory>
+                <includes>
+                    <include>db/migration/**</include>
+                </includes>
+            </testResource>
+        </testResources>
         <plugins>
             <plugin>
                 <groupId>org.springframework.boot</groupId>
