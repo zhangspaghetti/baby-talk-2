@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:mobile/app/theme/app_layout_constants.dart';
 import 'package:mobile/app/theme/app_theme.dart';
 import 'package:mobile/features/practice/domain/models/interaction_event_payload.dart';
 
@@ -130,6 +131,7 @@ class _ReactionChip extends StatelessWidget {
     return Semantics(
       button: true,
       enabled: enabled,
+      excludeSemantics: true,
       selected: isSelected,
       label: option.label,
       child: Material(
@@ -138,7 +140,12 @@ class _ReactionChip extends StatelessWidget {
           borderRadius: BorderRadius.circular(9999),
           onTap: onTap,
           child: Container(
+            constraints: const BoxConstraints(
+              minWidth: AppLayoutConstants.minTouchTarget,
+              minHeight: AppLayoutConstants.minTouchTarget,
+            ),
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            alignment: Alignment.center,
             decoration: BoxDecoration(
               border: Border.all(color: borderColor),
               borderRadius: BorderRadius.circular(9999),

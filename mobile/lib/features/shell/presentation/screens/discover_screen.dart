@@ -796,7 +796,7 @@ class _SceneCard extends StatelessWidget {
         .replaceAll('练习', '照护')
         .replaceAll('课程', '场景')
         .replaceAll('学习进度', '照护节奏')
-        .replaceAll('完成任务', '完成照护')
+        .replaceAll('完成任务', '照护收尾')
         .replaceAll('短语', '表达')
         .replaceAll('1 of N', '当前节点');
   }

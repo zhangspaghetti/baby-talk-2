@@ -27,7 +27,9 @@ class PracticeSessionScreen extends ConsumerWidget {
     final l = AppLocalizations.of(context)!;
     if (!routeEntry.hasValidArgs) {
       return PracticeFallbackScaffold(
-        message: routeEntry.errorMessage ?? l.practiceInvalidParams,
+        message: _careTurnFallbackCopy(
+          routeEntry.errorMessage ?? l.practiceInvalidParams,
+        ),
       );
     }
 
@@ -41,9 +43,18 @@ class PracticeSessionScreen extends ConsumerWidget {
         );
       },
       loading: () => const _PracticeLoadingScaffold(),
-      error: (error, stackTrace) =>
-          PracticeFallbackScaffold(message: l.homePracticeUnavailable),
+      error: (error, stackTrace) => PracticeFallbackScaffold(
+        message: _careTurnFallbackCopy(l.homePracticeUnavailable),
+      ),
     );
+  }
+
+  String _careTurnFallbackCopy(String message) {
+    return message
+        .replaceAll('练习', '照护')
+        .replaceAll('课程', '场景')
+        .replaceAll('进度', '节奏')
+        .replaceAll('完成', '收尾');
   }
 }
 

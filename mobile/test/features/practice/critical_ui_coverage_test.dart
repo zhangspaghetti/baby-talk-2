@@ -48,6 +48,7 @@ import 'package:mobile/features/share/domain/models/share_link_draft.dart';
 import 'package:mobile/features/share/presentation/share_notifier.dart';
 import 'package:mobile/features/share/presentation/widgets/share_callout_card.dart';
 import 'package:mobile/features/shell/presentation/app_shell_screen.dart';
+import 'package:mobile/features/shell/presentation/screens/discover_screen.dart';
 import 'package:mobile/features/shell/presentation/widgets/garden_continue_card.dart';
 import 'package:mobile/features/shell/presentation/widgets/garden_hero_card.dart';
 import 'package:mobile/features/shell/presentation/widgets/garden_patch_card.dart';
@@ -66,7 +67,8 @@ void main() {
     );
 
     expect(find.byKey(const Key('practice-safe-fallback')), findsOneWidget);
-    expect(find.textContaining('练习入口暂时打不开'), findsOneWidget);
+    expect(find.textContaining('照护入口暂时打不开'), findsOneWidget);
+    expect(find.textContaining('练习入口'), findsNothing);
     expect(find.textContaining('practice route 参数'), findsNothing);
 
     await _pumpApp(
@@ -213,6 +215,163 @@ void main() {
       expect(find.text('配合了 hello。'), findsOneWidget);
     },
   );
+
+  for (final viewportCase in _careTurnViewportCases) {
+    testWidgets(
+      'Practice session screen fits ${viewportCase.label} with 48dp controls',
+      (tester) async {
+        _setViewport(
+          tester,
+          viewportCase.size,
+          textScale: viewportCase.textScale,
+        );
+        final repository = _CarePathScreenPracticeRepository();
+        final notifier = CarePathNotifier(
+          repository: CarePathRepository(
+            practiceRepository: repository,
+            gardenGrowthRepository: _ScreenGardenGrowthRepository(
+              _gardenSnapshot(spaces: [_gardenPatch()]),
+            ),
+          ),
+        );
+        final routeEntry = PracticeRouteEntry.fromObject(
+          const PracticeRouteArgs(
+            spaceId: 'daily_care',
+            activityId: 'bath_time',
+          ),
+        );
+
+        await _pumpApp(
+          tester,
+          PracticeSessionScreen(routeEntry: routeEntry),
+          scaffold: false,
+          overrides: [
+            practiceRepositoryProvider.overrideWith((ref) async => repository),
+            carePathNotifierProvider.overrideWith((ref) => notifier),
+          ],
+        );
+        await _pumpFrames(tester, count: 8);
+
+        _expectNoFlutterException(tester);
+        await tester.ensureVisible(
+          find.byKey(const Key('practice-current-utterance')),
+        );
+        await tester.ensureVisible(
+          find.byKey(const Key('practice-listen-once')),
+        );
+        await tester.ensureVisible(
+          find.byKey(const Key('practice-said-button')),
+        );
+        _expectMinTouchTarget(tester, const Key('practice-listen-once'));
+        _expectMinTouchTarget(tester, const Key('practice-said-button'));
+
+        await tester.tap(find.byKey(const Key('practice-said-button')));
+        await tester.pump();
+        _expectNoFlutterException(tester);
+
+        const reactionKeys = [
+          Key('reaction-bath_time_warm_water-cooperating'),
+          Key('reaction-bath_time_warm_water-hesitant'),
+          Key('reaction-bath_time_warm_water-resisting'),
+          Key('reaction-bath_time_warm_water-no_response'),
+          Key('reaction-bath_time_warm_water-other'),
+        ];
+        for (final key in reactionKeys) {
+          await tester.ensureVisible(find.byKey(key));
+          _expectMinTouchTarget(tester, key);
+        }
+
+        await tester.tap(find.byKey(reactionKeys.first));
+        await _pumpFrames(tester, count: 8);
+        _expectNoFlutterException(tester);
+
+        await tester.ensureVisible(
+          find.byKey(const Key('practice-next-support')),
+        );
+        await tester.ensureVisible(
+          find.byKey(const Key('practice-garden-trace')),
+        );
+
+        expect(find.text('Warm water.'), findsOneWidget);
+        expect(find.text('温温的水。'), findsOneWidget);
+        expect(find.text('听一下'), findsOneWidget);
+        expect(find.text('我说了'), findsOneWidget);
+        expect(find.text('下一句照护支持'), findsOneWidget);
+        expect(find.text('花园留痕'), findsOneWidget);
+      },
+    );
+  }
+
+  testWidgets('Practice session screen exposes care-turn semantics only', (
+    tester,
+  ) async {
+    final semantics = tester.ensureSemantics();
+    try {
+      final repository = _CarePathScreenPracticeRepository();
+      final notifier = CarePathNotifier(
+        repository: CarePathRepository(
+          practiceRepository: repository,
+          gardenGrowthRepository: _ScreenGardenGrowthRepository(
+            _gardenSnapshot(spaces: [_gardenPatch()]),
+          ),
+        ),
+      );
+      final routeEntry = PracticeRouteEntry.fromObject(
+        const PracticeRouteArgs(spaceId: 'daily_care', activityId: 'bath_time'),
+      );
+
+      await _pumpApp(
+        tester,
+        PracticeSessionScreen(routeEntry: routeEntry),
+        scaffold: false,
+        overrides: [
+          practiceRepositoryProvider.overrideWith((ref) async => repository),
+          carePathNotifierProvider.overrideWith((ref) => notifier),
+        ],
+      );
+      await _pumpFrames(tester, count: 8);
+
+      expect(find.bySemanticsLabel('Warm water.'), findsOneWidget);
+      expect(find.bySemanticsLabel('温温的水。'), findsOneWidget);
+      expect(find.bySemanticsLabel('听一下'), findsOneWidget);
+      expect(find.bySemanticsLabel('我说了'), findsOneWidget);
+
+      await tester.tap(find.byKey(const Key('practice-said-button')));
+      await tester.pump();
+
+      expect(find.bySemanticsLabel('宝宝刚刚是什么反应？'), findsOneWidget);
+      for (final label in ['配合', '犹豫', '不想', '没反应', '其他']) {
+        expect(find.bySemanticsLabel(label), findsOneWidget);
+      }
+      for (final blocked in [
+        'cooperating',
+        'hesitant',
+        'resisting',
+        'no_response',
+        'session-progress',
+        'practice-progress-text',
+        'practice-completion-view',
+        'PracticeSessionNotifier',
+        'practice route 参数',
+        '第 1 /',
+        '完成总结',
+      ]) {
+        expect(find.bySemanticsLabel(blocked), findsNothing);
+      }
+
+      await tester.tap(
+        find.byKey(const Key('reaction-bath_time_warm_water-cooperating')),
+      );
+      await _pumpFrames(tester, count: 8);
+
+      expect(find.bySemanticsLabel('下一句照护支持'), findsOneWidget);
+      expect(find.bySemanticsLabel('Splash splash.'), findsOneWidget);
+      expect(find.bySemanticsLabel('花园留痕'), findsOneWidget);
+      expect(find.bySemanticsLabel('花圃醒来了'), findsOneWidget);
+    } finally {
+      semantics.dispose();
+    }
+  });
 
   testWidgets(
     'Practice session screen does not restart moment on repeated pump with same args',
@@ -645,11 +804,15 @@ void main() {
     expect(find.text('温温的水。'), findsNothing);
   });
 
-  testWidgets('HomeScreen primary care CTA routes with expected args', (
+  testWidgets('HomeScreen primary care CTA opens real one-turn route', (
     tester,
   ) async {
     final gardenSnapshot = _gardenSnapshot(spaces: [_gardenPatch()]);
     final continuitySnapshot = _continuitySnapshot();
+    final repository = _HomeDefaultCarePathScreenPracticeRepository();
+    final carePathNotifier = CarePathNotifier(
+      repository: CarePathRepository(practiceRepository: repository),
+    );
     PracticeRouteArgs? openedArgs;
 
     final router = GoRouter(
@@ -662,8 +825,10 @@ void main() {
         GoRoute(
           path: AppRouteNames.practice,
           builder: (context, state) {
-            openedArgs = state.extra as PracticeRouteArgs?;
-            return const SizedBox(key: Key('home-practice-route-sentinel'));
+            openedArgs = PracticeRouteArgs.maybeFromObject(state.extra);
+            return PracticeSessionScreen(
+              routeEntry: PracticeRouteEntry.fromObject(state.extra),
+            );
           },
         ),
       ],
@@ -679,7 +844,10 @@ void main() {
             return _homeContinuityNotifier(continuitySnapshot);
           }),
           carePathNotifierProvider.overrideWith((ref) {
-            return _homeCarePathNotifier(continuitySnapshot);
+            return carePathNotifier;
+          }),
+          practiceRepositoryProvider.overrideWith((ref) async {
+            return repository;
           }),
           gardenGrowthNotifierProvider.overrideWith((ref) {
             return GardenGrowthNotifier(
@@ -707,13 +875,166 @@ void main() {
     await tester.tap(find.byKey(const Key('home-today-primary-cta')));
     await tester.pumpAndSettle();
 
-    expect(
-      find.byKey(const Key('home-practice-route-sentinel')),
-      findsOneWidget,
-    );
+    expect(find.byKey(const Key('practice-current-utterance')), findsOneWidget);
+    expect(find.text('听一下'), findsOneWidget);
+    expect(find.text('我说了'), findsOneWidget);
     expect(openedArgs?.spaceId, 'home');
     expect(openedArgs?.activityId, 'song_time');
     expect(openedArgs?.entrySource, PracticeRouteEntrySource.inApp);
+  });
+
+  testWidgets('Discover scene CTA opens real one-turn route', (tester) async {
+    _setViewport(tester, const Size(800, 1200));
+    final repository = _CarePathScreenPracticeRepository();
+    final notifier = CarePathNotifier(
+      repository: CarePathRepository(practiceRepository: repository),
+    );
+    PracticeRouteArgs? openedArgs;
+
+    final router = GoRouter(
+      initialLocation: AppRouteNames.home,
+      routes: [
+        GoRoute(
+          path: AppRouteNames.home,
+          builder: (context, state) => Scaffold(
+            body: DiscoverScreen(catalogLoader: repository.getActivityCatalog),
+          ),
+        ),
+        GoRoute(
+          path: AppRouteNames.practice,
+          builder: (context, state) {
+            openedArgs = PracticeRouteArgs.maybeFromObject(state.extra);
+            return PracticeSessionScreen(
+              routeEntry: PracticeRouteEntry.fromObject(state.extra),
+            );
+          },
+        ),
+      ],
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          practiceRepositoryProvider.overrideWith((ref) async => repository),
+          carePathNotifierProvider.overrideWith((ref) => notifier),
+        ],
+        child: MaterialApp.router(
+          locale: const Locale('zh'),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          theme: AppTheme.build(),
+          routerConfig: router,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.ensureVisible(find.text('现在说一句').first);
+    await tester.pump();
+    await tester.tap(find.text('现在说一句').first);
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('practice-current-utterance')), findsOneWidget);
+    expect(find.text('Warm water.'), findsOneWidget);
+    expect(find.text('温温的水。'), findsOneWidget);
+    expect(find.text('听一下'), findsOneWidget);
+    expect(find.text('我说了'), findsOneWidget);
+    expect(openedArgs?.spaceId, 'daily_care');
+    expect(openedArgs?.activityId, 'bath_time');
+    expect(openedArgs?.entrySource, PracticeRouteEntrySource.inApp);
+  });
+
+  testWidgets('Practice route re-entry and back exit stay one-turn clean', (
+    tester,
+  ) async {
+    final repository = _CarePathScreenPracticeRepository();
+    final notifier = CarePathNotifier(
+      repository: CarePathRepository(
+        practiceRepository: repository,
+        gardenGrowthRepository: _ScreenGardenGrowthRepository(
+          _gardenSnapshot(spaces: [_gardenPatch()]),
+        ),
+      ),
+    );
+    final routeArgs = const PracticeRouteArgs(
+      spaceId: 'daily_care',
+      activityId: 'bath_time',
+    );
+    final router = GoRouter(
+      initialLocation: AppRouteNames.home,
+      routes: [
+        GoRoute(
+          path: AppRouteNames.home,
+          builder: (context, state) => Scaffold(
+            body: Center(
+              child: ElevatedButton(
+                key: const Key('route-reentry-open'),
+                onPressed: () => routeArgs.push<void>(context),
+                child: const Text('open care turn'),
+              ),
+            ),
+          ),
+        ),
+        GoRoute(
+          path: AppRouteNames.practice,
+          builder: (context, state) => PracticeSessionScreen(
+            routeEntry: PracticeRouteEntry.fromObject(state.extra),
+          ),
+        ),
+      ],
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          practiceRepositoryProvider.overrideWith((ref) async => repository),
+          carePathNotifierProvider.overrideWith((ref) => notifier),
+        ],
+        child: MaterialApp.router(
+          locale: const Locale('zh'),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          theme: AppTheme.build(),
+          routerConfig: router,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('route-reentry-open')));
+    await tester.pumpAndSettle();
+    expect(find.text('Warm water.'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('practice-said-button')));
+    await tester.pump();
+    expect(
+      find.byKey(const Key('reaction-bath_time_warm_water-cooperating')),
+      findsOneWidget,
+    );
+    await tester.tap(
+      find.byKey(const Key('reaction-bath_time_warm_water-cooperating')),
+    );
+    await _pumpFrames(tester, count: 8);
+    expect(find.byKey(const Key('practice-next-support')), findsOneWidget);
+
+    router.pop();
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('route-reentry-open')), findsOneWidget);
+    expect(find.byKey(const Key('practice-completion-view')), findsNothing);
+    expect(find.text('完成总结'), findsNothing);
+
+    await tester.tap(find.byKey(const Key('route-reentry-open')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Splash splash.'), findsOneWidget);
+    expect(find.byKey(const Key('practice-next-support')), findsNothing);
+    expect(
+      find.byKey(const Key('reaction-bath_time_warm_water-cooperating')),
+      findsNothing,
+    );
+    expect(find.byKey(const Key('practice-completion-view')), findsNothing);
+    expect(find.text('完成总结'), findsNothing);
   });
 
   testWidgets('Garden cards render ready and warning states', (tester) async {
@@ -1268,6 +1589,39 @@ Future<void> _pumpFrames(
   }
 }
 
+void _setViewport(WidgetTester tester, Size size, {double textScale = 1.0}) {
+  tester.view.devicePixelRatio = 1.0;
+  tester.view.physicalSize = size;
+  tester.binding.platformDispatcher.textScaleFactorTestValue = textScale;
+  addTearDown(tester.view.resetDevicePixelRatio);
+  addTearDown(tester.view.resetPhysicalSize);
+  addTearDown(tester.binding.platformDispatcher.clearTextScaleFactorTestValue);
+}
+
+void _expectMinTouchTarget(WidgetTester tester, Key key) {
+  final size = tester.getSize(find.byKey(key));
+  expect(size.width, greaterThanOrEqualTo(AppLayoutConstants.minTouchTarget));
+  expect(size.height, greaterThanOrEqualTo(AppLayoutConstants.minTouchTarget));
+}
+
+void _expectNoFlutterException(WidgetTester tester) {
+  expect(tester.takeException(), isNull);
+}
+
+const _careTurnViewportCases = [
+  _CareTurnViewportCase('427x952dp @ 1.0', Size(427, 952), 1.0),
+  _CareTurnViewportCase('427x952dp @ 1.3', Size(427, 952), 1.3),
+  _CareTurnViewportCase('390x844dp @ 1.3', Size(390, 844), 1.3),
+];
+
+class _CareTurnViewportCase {
+  const _CareTurnViewportCase(this.label, this.size, this.textScale);
+
+  final String label;
+  final Size size;
+  final double textScale;
+}
+
 GardenFlowerSnapshot _flower() {
   return GardenFlowerSnapshot(
     spaceId: 'home',
@@ -1771,6 +2125,20 @@ class _CarePathScreenPracticeRepository implements PracticeRepository {
 
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class _HomeDefaultCarePathScreenPracticeRepository
+    extends _CarePathScreenPracticeRepository {
+  @override
+  Future<PracticeContinuitySnapshot> getContinuitySnapshot({
+    String? starterSpaceId,
+    String? starterActivityId,
+  }) {
+    return super.getContinuitySnapshot(
+      starterSpaceId: starterSpaceId ?? 'home',
+      starterActivityId: starterActivityId ?? 'song_time',
+    );
+  }
 }
 
 class _GatedContinuityCarePathScreenPracticeRepository

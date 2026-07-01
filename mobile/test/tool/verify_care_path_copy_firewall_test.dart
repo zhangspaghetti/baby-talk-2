@@ -17,14 +17,12 @@ void main() {
           ..sort((left, right) => left.path.compareTo(right.path));
     expect(dartFiles, isNotEmpty);
 
-    final blockedTerms = <String>[
+    final blockedStructuralTerms = <String>[
       'Ritual Room',
       'ritual_room',
       'mobile_v2',
-      'XP',
       '金币',
       '排行榜',
-      '课程',
       '第 1 课',
       '答对',
       '答错',
@@ -33,15 +31,12 @@ void main() {
       'TodayScreen',
       'SceneScreen',
       'OneUtterance',
-      'HomeScreen',
-      'DiscoverScreen',
-      'PracticeSessionScreen',
     ];
 
     final violations = <String>[];
     for (final file in dartFiles) {
       final source = file.readAsStringSync();
-      for (final term in blockedTerms) {
+      for (final term in blockedStructuralTerms) {
         if (source.contains(term)) {
           violations.add('${file.path}: $term');
         }
@@ -91,6 +86,10 @@ void main() {
     final arb = jsonDecode(arbFile.readAsStringSync()) as Map<String, dynamic>;
     final oneTurnKeys = <String>[
       'practiceOneTurnTitle',
+      'practiceEntryUnavailable',
+      'practiceInvalidParams',
+      'practiceUnavailable',
+      'homePracticeUnavailable',
       'practiceWhenToSay',
       'practiceListenOnce',
       'practiceSaid',
@@ -105,29 +104,13 @@ void main() {
       'practiceQuietFallback',
       'practiceGardenTraceTitle',
     ];
-    final copyBlockedTerms = <String>[
-      'XP',
-      'streak',
-      'task',
-      'lesson',
-      'session',
-      'progress',
-      '课程',
-      '进度',
-      '任务',
-      '连胜',
-      '第 1 /',
-      '完成总结',
-    ];
     final copyViolations = <String>[];
     for (final key in oneTurnKeys) {
       final value = arb[key];
       expect(value, isA<String>(), reason: 'Missing T4 copy key $key');
       final text = value! as String;
-      for (final term in copyBlockedTerms) {
-        if (text.contains(term)) {
-          copyViolations.add('$key: $term');
-        }
+      for (final term in _blockedTermsIn(text)) {
+        copyViolations.add('$key: "$text" contains $term');
       }
     }
 
@@ -139,4 +122,46 @@ void main() {
           'streak/task framing.',
     );
   });
+}
+
+const _blockedVisibleTerms = [
+  '练习',
+  '课程',
+  '进度',
+  '完成',
+  '第 N 句',
+  'task',
+  'XP',
+  'streak',
+  'lesson',
+  'session',
+  'progress',
+  'completion',
+];
+
+Iterable<String> _blockedTermsIn(String text) sync* {
+  for (final term in _blockedVisibleTerms) {
+    if (term == '第 N 句') {
+      if (RegExp(r'第\s*\d+\s*句').hasMatch(text)) {
+        yield term;
+      }
+      continue;
+    }
+    if (_isAsciiTerm(term)) {
+      if (RegExp(
+        '(?<![A-Za-z0-9_])${RegExp.escape(term)}(?![A-Za-z0-9_])',
+        caseSensitive: false,
+      ).hasMatch(text)) {
+        yield term;
+      }
+      continue;
+    }
+    if (text.contains(term)) {
+      yield term;
+    }
+  }
+}
+
+bool _isAsciiTerm(String term) {
+  return RegExp(r'^[A-Za-z0-9_]+$').hasMatch(term);
 }

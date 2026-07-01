@@ -54,7 +54,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get continueEntryUnavailable => '继续入口暂不可用';
 
   @override
-  String get practiceEntryUnavailable => '练习入口暂时不可用。';
+  String get practiceEntryUnavailable => '照护入口暂时不可用。';
 
   @override
   String get bootErrorUnknown => '未知启动错误';
@@ -84,7 +84,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get homeContinuitySharedNote => '首页和花园会一起记住这次练习，回来后同步更新。';
 
   @override
-  String get homePracticeUnavailable => '暂时无法获取练习建议，请稍后重试。';
+  String get homePracticeUnavailable => '暂时无法获取照护建议，请稍后重试。';
 
   @override
   String get homeReorganize => '重新整理';
@@ -114,10 +114,10 @@ class AppLocalizationsZh extends AppLocalizations {
   String get homeContinuityFallbackNote => '已经为你换到一条稳定可继续的练习。';
 
   @override
-  String get homeStartPractice => '开始练习';
+  String get homeStartPractice => '开始照护';
 
   @override
-  String get homeContinuePractice => '继续练习';
+  String get homeContinuePractice => '继续照护';
 
   @override
   String homeTodaySceneSemantics(Object activityTitle) {
@@ -150,7 +150,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get homeStartBathTime => '先从洗澡时间这句开始。';
 
   @override
-  String get homeContinuityUnavailable => '继续练习暂时不可用';
+  String get homeContinuityUnavailable => '继续照护暂时不可用';
 
   @override
   String get homeContinuationRecent => '接着刚才练过的场景';
@@ -1116,7 +1116,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get gardenContinueToday => '继续今天的练习';
 
   @override
-  String get practiceInvalidParams => '当前练习入口缺少有效参数，请返回上一个页面重试。';
+  String get practiceInvalidParams => '当前照护入口缺少有效参数，请返回上一个页面重试。';
 
   @override
   String get practiceContextMissing => '当前活动上下文缺失，请返回首页重试。';
@@ -1141,7 +1141,7 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
-  String get practiceUnavailable => '练习暂不可用';
+  String get practiceUnavailable => '照护暂不可用';
 
   @override
   String get practiceBackHome => '返回首页';

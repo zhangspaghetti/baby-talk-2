@@ -6,7 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   group('T3 Today/Scene copy firewall', () {
     test(
-      'targeted Home, Discover, and shell source does not leak old framing',
+      'targeted Home, Discover, and shell visible copy does not leak old framing',
       () {
         const sourcePaths = [
           'lib/features/practice/presentation/screens/home_screen.dart',
@@ -21,14 +21,12 @@ void main() {
           final lines = file.readAsLinesSync();
           for (var index = 0; index < lines.length; index += 1) {
             final line = lines[index];
-            for (final term in _blockedVisibleTerms) {
-              if (!line.contains(term)) {
-                continue;
+            for (final visibleText in _visibleSourceTextFromLine(line)) {
+              for (final term in _blockedTermsIn(visibleText)) {
+                violations.add(
+                  '$path:${index + 1}: "$visibleText" contains $term',
+                );
               }
-              if (_isAllowedAdapterLine(line, term)) {
-                continue;
-              }
-              violations.add('$path:${index + 1}: $term');
             }
           }
         }
@@ -62,10 +60,8 @@ void main() {
         if (value == null) {
           continue;
         }
-        for (final term in _blockedVisibleTerms) {
-          if (value.contains(term)) {
-            violations.add('${entry.key}: $term');
-          }
+        for (final term in _blockedTermsIn(value)) {
+          violations.add('${entry.key}: "$value" contains $term');
         }
       }
 
@@ -100,7 +96,20 @@ void main() {
   });
 }
 
-const _blockedVisibleTerms = ['练习', '课程', '学习进度', '完成任务', '短语', '1 of N'];
+const _blockedVisibleTerms = [
+  '练习',
+  '课程',
+  '进度',
+  '完成',
+  '第 N 句',
+  'task',
+  'XP',
+  'streak',
+  'lesson',
+  'session',
+  'progress',
+  'completion',
+];
 
 const _targetedL10nKeys = [
   'shellHome',
@@ -119,12 +128,91 @@ const _targetedL10nKeys = [
   'discoverSceneEmpty',
   'discoverPracticePhraseHint',
   'discoverTrustSubtitle',
+  'homeTodaySceneSemantics',
+  'homeContinuityUnavailable',
+  'homeContinuationRecent',
+  'homeContinuationNextIncomplete',
+  'homeContinuationStarter',
+  'homeContinuationSafeFallback',
+  'homeStartPractice',
+  'homeContinuePractice',
+  'homeNextAlternative',
 ];
 
-bool _isAllowedAdapterLine(String line, String term) {
-  final trimmed = line.trimLeft();
-  if (trimmed.startsWith('//') || trimmed.startsWith('///')) {
-    return true;
+Iterable<String> _visibleSourceTextFromLine(String line) sync* {
+  if (_isCommentLine(line)) {
+    return;
   }
-  return line.contains(".replaceAll('$term'");
+  if (line.contains('.replaceAll(')) {
+    final literals = _singleQuotedLiterals(line).toList(growable: false);
+    if (literals.length >= 2) {
+      yield literals[1];
+    }
+    return;
+  }
+
+  if (!_looksLikeVisibleWidgetLine(line)) {
+    return;
+  }
+  yield* _singleQuotedLiterals(line);
+  yield* _doubleQuotedLiterals(line);
+}
+
+bool _isCommentLine(String line) {
+  final trimmed = line.trimLeft();
+  return trimmed.startsWith('//') || trimmed.startsWith('///');
+}
+
+bool _looksLikeVisibleWidgetLine(String line) {
+  return line.contains('Text(') ||
+      line.contains('SnackBar(') ||
+      line.contains('Semantics(') ||
+      line.contains('label:') ||
+      line.contains('tooltip:') ||
+      line.contains('hintText:') ||
+      line.contains('message:') ||
+      line.contains('title:');
+}
+
+Iterable<String> _singleQuotedLiterals(String line) sync* {
+  for (final match in RegExp(
+    "'([^'\\\\]*(?:\\\\.[^'\\\\]*)*)'",
+  ).allMatches(line)) {
+    yield match.group(1)!;
+  }
+}
+
+Iterable<String> _doubleQuotedLiterals(String line) sync* {
+  for (final match in RegExp(
+    '"([^"\\\\]*(?:\\\\.[^"\\\\]*)*)"',
+  ).allMatches(line)) {
+    yield match.group(1)!;
+  }
+}
+
+Iterable<String> _blockedTermsIn(String text) sync* {
+  for (final term in _blockedVisibleTerms) {
+    if (term == '第 N 句') {
+      if (RegExp(r'第\s*\d+\s*句').hasMatch(text)) {
+        yield term;
+      }
+      continue;
+    }
+    if (_isAsciiTerm(term)) {
+      if (RegExp(
+        '(?<![A-Za-z0-9_])${RegExp.escape(term)}(?![A-Za-z0-9_])',
+        caseSensitive: false,
+      ).hasMatch(text)) {
+        yield term;
+      }
+      continue;
+    }
+    if (text.contains(term)) {
+      yield term;
+    }
+  }
+}
+
+bool _isAsciiTerm(String term) {
+  return RegExp(r'^[A-Za-z0-9_]+$').hasMatch(term);
 }
