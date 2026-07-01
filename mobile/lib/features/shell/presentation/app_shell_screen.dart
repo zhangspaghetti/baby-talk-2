@@ -51,8 +51,10 @@ class _AppShellScreenState extends ConsumerState<AppShellScreen> {
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
     final stageMatch = _resolveStageMatch(widget.onboardingSnapshot);
-    final hasPendingFertilizer =
-        ref.watch(gardenFertilizerNotifierProvider).view.hasPendingPacks;
+    final hasPendingFertilizer = ref
+        .watch(gardenFertilizerNotifierProvider)
+        .view
+        .hasPendingPacks;
 
     return Scaffold(
       key: const Key('shell-ready'),
@@ -96,7 +98,7 @@ class _AppShellScreenState extends ConsumerState<AppShellScreen> {
         stageMatch: stageMatch,
       ),
       // §5 规则1/规则2：花园页有自己的施肥交互，隐藏全局小禾 FAB；
-      // 其余页面（首页/发现/我）固定显示。
+      // 其余页面（今天/场景/我）固定显示。
       floatingActionButton: _selectedIndex == 2
           ? null
           : XiaoheFab(
@@ -130,7 +132,7 @@ class _AppShellScreenState extends ConsumerState<AppShellScreen> {
       bottomNavigationBar: NavigationBar(
         selectedIndex: _selectedIndex,
         onDestinationSelected: (index) {
-          if (index == 1) {
+          if (index == 2) {
             final gardenGrowthNotifier = ref.read(gardenGrowthNotifierProvider);
             if (gardenGrowthNotifier.status == GardenGrowthLoadStatus.idle) {
               unawaited(gardenGrowthNotifier.initialize());
@@ -186,9 +188,9 @@ class _AppShellScreenState extends ConsumerState<AppShellScreen> {
       case 0:
         final name = snapshot?.childDisplayName.trim();
         if (name != null && name.isNotEmpty) {
-          return l.shellPracticeName(name);
+          return l.shellHomeName(name);
         }
-        return l.shellPractice;
+        return l.shellHome;
       case 1:
         return l.shellDiscover;
       case 2:

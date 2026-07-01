@@ -225,7 +225,8 @@ void main() {
       final riverpodCarePathNotifier = (await tester.runAsync<CarePathNotifier>(
         () async {
           final notifier = container.read(carePathNotifierProvider);
-          await notifier.initialize(
+          notifier.resetToSafeEmpty();
+          await notifier.loadCurrentUtterance(
             starterSpaceId: harness.bootState.primarySpaceId,
             starterActivityId: harness.bootState.primaryActivityId,
           );

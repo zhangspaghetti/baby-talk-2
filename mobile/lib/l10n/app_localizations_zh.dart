@@ -401,10 +401,10 @@ class AppLocalizationsZh extends AppLocalizations {
   String get shellDrawerTooltip => '打开家庭抽屉';
 
   @override
-  String get shellHome => '首页';
+  String get shellHome => '今天';
 
   @override
-  String get shellDiscover => '发现';
+  String get shellDiscover => '场景';
 
   @override
   String get shellGarden => '花园';
@@ -414,7 +414,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String shellHomeName(Object name) {
-    return '$name 的首页';
+    return '$name 的今天';
   }
 
   @override
@@ -875,10 +875,10 @@ class AppLocalizationsZh extends AppLocalizations {
   String get discoverBySpace => '按空间';
 
   @override
-  String get discoverLoadingCatalog => '正在整理离线 activity 目录…';
+  String get discoverLoadingCatalog => '正在整理离线场景目录…';
 
   @override
-  String get discoverLoadingNote => '加载只影响 Discover，不会阻塞首页、花园和成长 tab。';
+  String get discoverLoadingNote => '加载只影响场景，不会阻塞今天、花园和成长 tab。';
 
   @override
   String get discoverLoadError => '目录暂时没有整理好';
@@ -890,7 +890,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get discoverEmpty => '目录还是空的';
 
   @override
-  String get discoverEmptyNote => '目前没有可展示的 activity。稍后重试即可重新读取本地目录。';
+  String get discoverEmptyNote => '目前没有可展示的场景。稍后重试即可重新读取本地目录。';
 
   @override
   String get discoverRetryRead => '重新读取目录';
@@ -1596,14 +1596,14 @@ class AppLocalizationsZh extends AppLocalizations {
   String get accountEntrySubmitButton => '提交';
 
   @override
-  String get shellDiscoverTooltip => '发现活动';
+  String get shellDiscoverTooltip => '场景';
 
   @override
-  String get shellPractice => '练习';
+  String get shellPractice => '今天';
 
   @override
   String shellPracticeName(Object name) {
-    return '$name 的练习';
+    return '$name 的今天';
   }
 
   @override
@@ -1651,7 +1651,7 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
-  String get discoverInvalidCardError => '这张活动卡暂时打不开，已为你保留在当前页面。';
+  String get discoverInvalidCardError => '这个场景暂时打不开，已为你保留在当前页面。';
 
   @override
   String discoverOpenActivityError(Object title, Object error) {
@@ -1659,7 +1659,7 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
-  String get discoverSearchHint => '搜索短语或场景...';
+  String get discoverSearchHint => '搜索场景或照护时刻...';
 
   @override
   String get discoverSceneAll => '全部';
@@ -1695,7 +1695,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get discoverSortLabel => '排序';
 
   @override
-  String get discoverPracticeThis => '练这一句';
+  String get discoverPracticeThis => '现在说一句';
 
   @override
   String discoverUsageHint(Object scene) {
@@ -1703,10 +1703,10 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
-  String get discoverSearchEmpty => '没有找到匹配的短语，换个关键词试试';
+  String get discoverSearchEmpty => '没有找到匹配的场景，换个关键词试试';
 
   @override
-  String get discoverSceneEmpty => '这个场景还没有短语，换个场景试试';
+  String get discoverSceneEmpty => '这个分类还没有场景，换个分类试试';
 
   @override
   String get discoverSceneTagMealtime => '喂饭';
@@ -1730,10 +1730,10 @@ class AppLocalizationsZh extends AppLocalizations {
   String get discoverSceneTagOther => '其他';
 
   @override
-  String get discoverPracticePhraseHint => '点击卡片或按钮进入练习';
+  String get discoverPracticePhraseHint => '点击卡片或按钮进入当前场景';
 
   @override
-  String get discoverTrustSubtitle => '每天一句亲子英语';
+  String get discoverTrustSubtitle => '照护场景';
 
   @override
   String get discoverTrustPrivacy => '你的信息受到保护';

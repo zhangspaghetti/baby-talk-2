@@ -821,13 +821,13 @@ abstract class AppLocalizations {
   /// No description provided for @shellHome.
   ///
   /// In zh, this message translates to:
-  /// **'首页'**
+  /// **'今天'**
   String get shellHome;
 
   /// No description provided for @shellDiscover.
   ///
   /// In zh, this message translates to:
-  /// **'发现'**
+  /// **'场景'**
   String get shellDiscover;
 
   /// No description provided for @shellGarden.
@@ -845,7 +845,7 @@ abstract class AppLocalizations {
   /// No description provided for @shellHomeName.
   ///
   /// In zh, this message translates to:
-  /// **'{name} 的首页'**
+  /// **'{name} 的今天'**
   String shellHomeName(Object name);
 
   /// No description provided for @shellBabyName.
@@ -1679,13 +1679,13 @@ abstract class AppLocalizations {
   /// No description provided for @discoverLoadingCatalog.
   ///
   /// In zh, this message translates to:
-  /// **'正在整理离线 activity 目录…'**
+  /// **'正在整理离线场景目录…'**
   String get discoverLoadingCatalog;
 
   /// No description provided for @discoverLoadingNote.
   ///
   /// In zh, this message translates to:
-  /// **'加载只影响 Discover，不会阻塞首页、花园和成长 tab。'**
+  /// **'加载只影响场景，不会阻塞今天、花园和成长 tab。'**
   String get discoverLoadingNote;
 
   /// No description provided for @discoverLoadError.
@@ -1709,7 +1709,7 @@ abstract class AppLocalizations {
   /// No description provided for @discoverEmptyNote.
   ///
   /// In zh, this message translates to:
-  /// **'目前没有可展示的 activity。稍后重试即可重新读取本地目录。'**
+  /// **'目前没有可展示的场景。稍后重试即可重新读取本地目录。'**
   String get discoverEmptyNote;
 
   /// No description provided for @discoverRetryRead.
@@ -2983,19 +2983,19 @@ abstract class AppLocalizations {
   /// No description provided for @shellDiscoverTooltip.
   ///
   /// In zh, this message translates to:
-  /// **'发现活动'**
+  /// **'场景'**
   String get shellDiscoverTooltip;
 
   /// No description provided for @shellPractice.
   ///
   /// In zh, this message translates to:
-  /// **'练习'**
+  /// **'今天'**
   String get shellPractice;
 
   /// No description provided for @shellPracticeName.
   ///
   /// In zh, this message translates to:
-  /// **'{name} 的练习'**
+  /// **'{name} 的今天'**
   String shellPracticeName(Object name);
 
   /// No description provided for @shellGrowthTab.
@@ -3071,7 +3071,7 @@ abstract class AppLocalizations {
   /// No description provided for @discoverInvalidCardError.
   ///
   /// In zh, this message translates to:
-  /// **'这张活动卡暂时打不开，已为你保留在当前页面。'**
+  /// **'这个场景暂时打不开，已为你保留在当前页面。'**
   String get discoverInvalidCardError;
 
   /// No description provided for @discoverOpenActivityError.
@@ -3083,7 +3083,7 @@ abstract class AppLocalizations {
   /// No description provided for @discoverSearchHint.
   ///
   /// In zh, this message translates to:
-  /// **'搜索短语或场景...'**
+  /// **'搜索场景或照护时刻...'**
   String get discoverSearchHint;
 
   /// No description provided for @discoverSceneAll.
@@ -3155,7 +3155,7 @@ abstract class AppLocalizations {
   /// No description provided for @discoverPracticeThis.
   ///
   /// In zh, this message translates to:
-  /// **'练这一句'**
+  /// **'现在说一句'**
   String get discoverPracticeThis;
 
   /// No description provided for @discoverUsageHint.
@@ -3167,13 +3167,13 @@ abstract class AppLocalizations {
   /// No description provided for @discoverSearchEmpty.
   ///
   /// In zh, this message translates to:
-  /// **'没有找到匹配的短语，换个关键词试试'**
+  /// **'没有找到匹配的场景，换个关键词试试'**
   String get discoverSearchEmpty;
 
   /// No description provided for @discoverSceneEmpty.
   ///
   /// In zh, this message translates to:
-  /// **'这个场景还没有短语，换个场景试试'**
+  /// **'这个分类还没有场景，换个分类试试'**
   String get discoverSceneEmpty;
 
   /// No description provided for @discoverSceneTagMealtime.
@@ -3221,13 +3221,13 @@ abstract class AppLocalizations {
   /// No description provided for @discoverPracticePhraseHint.
   ///
   /// In zh, this message translates to:
-  /// **'点击卡片或按钮进入练习'**
+  /// **'点击卡片或按钮进入当前场景'**
   String get discoverPracticePhraseHint;
 
   /// No description provided for @discoverTrustSubtitle.
   ///
   /// In zh, this message translates to:
-  /// **'每天一句亲子英语'**
+  /// **'照护场景'**
   String get discoverTrustSubtitle;
 
   /// No description provided for @discoverTrustPrivacy.

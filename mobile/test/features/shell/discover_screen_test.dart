@@ -13,7 +13,7 @@ import 'package:mobile/features/shell/presentation/screens/discover_screen.dart'
 
 void main() {
   testWidgets(
-    'Discover V1 renders hero, search bar, scene pills, and phrase cards',
+    'Discover scene adapter renders hero, search bar, scene pills, and cards',
     (tester) async {
       var loadCount = 0;
 
@@ -37,7 +37,7 @@ void main() {
       // Hero card
       expect(find.byKey(const Key('discover-hero-card')), findsOneWidget);
       expect(find.text('BabyTalk'), findsOneWidget);
-      expect(find.text('每天一句亲子英语'), findsOneWidget);
+      expect(find.text('照护场景'), findsOneWidget);
 
       // Search bar
       expect(find.byKey(const Key('discover-search-field')), findsOneWidget);
@@ -51,7 +51,7 @@ void main() {
       // Sort dropdown
       expect(find.byKey(const Key('discover-sort-dropdown')), findsOneWidget);
 
-      // Phrase list with cards
+      // Scene list with cards
       expect(find.byKey(const Key('discover-phrase-list')), findsOneWidget);
       expect(
         find.byKey(const Key('discover-phrase-card-bath_time')),
@@ -70,8 +70,9 @@ void main() {
         findsOneWidget,
       );
 
-      // Practice button exists
-      expect(find.text('练这一句'), findsWidgets);
+      expect(find.text('现在说一句'), findsWidgets);
+      expect(find.textContaining('表达'), findsWidgets);
+      expect(find.textContaining('短语'), findsNothing);
     },
   );
 
@@ -205,7 +206,7 @@ void main() {
     // Clear search and search for nonexistent term
     await tester.enterText(
       find.byKey(const Key('discover-search-field')),
-      '不存在的短语xyz',
+      '不存在的场景xyz',
     );
     await tester.pumpAndSettle();
 
@@ -224,10 +225,10 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    // Search for nonexistent phrase
+    // Search for nonexistent scene
     await tester.enterText(
       find.byKey(const Key('discover-search-field')),
-      '不存在的短语',
+      '不存在的场景',
     );
     await tester.pumpAndSettle();
 
@@ -235,7 +236,7 @@ void main() {
       find.byKey(const Key('discover-filter-empty-state')),
       findsOneWidget,
     );
-    expect(find.text('没有找到匹配的短语，换个关键词试试'), findsOneWidget);
+    expect(find.text('没有找到匹配的场景，换个关键词试试'), findsOneWidget);
 
     // Clear filters
     await tester.tap(find.byKey(const Key('discover-clear-filters')));
@@ -252,7 +253,7 @@ void main() {
     );
   });
 
-  testWidgets('Discover practice button triggers opener with route args', (
+  testWidgets('Discover care CTA triggers opener with route args', (
     tester,
   ) async {
     _setTallViewport(tester);
@@ -268,11 +269,12 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    // Tap the first "练这一句" button
-    await tester.tap(find.text('练这一句').first);
+    await tester.tap(find.text('现在说一句').first);
     await tester.pumpAndSettle();
 
     expect(openedArgs, isNotNull);
+    expect(openedArgs?.spaceId, 'daily_care');
+    expect(openedArgs?.activityId, 'bath_time');
   });
 
   testWidgets('Discover loading state shows shimmer', (tester) async {
@@ -344,12 +346,10 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    // The malformed card has a "练这一句" button; scroll to find it
-    final practiceButtons = find.text('练这一句');
-    expect(practiceButtons, findsWidgets);
+    final careButtons = find.text('现在说一句');
+    expect(careButtons, findsWidgets);
 
-    // Scroll to the last practice button (malformed card is at the bottom)
-    final lastButton = practiceButtons.last;
+    final lastButton = careButtons.last;
     await tester.ensureVisible(lastButton);
     await tester.pumpAndSettle();
     await tester.tap(lastButton);
@@ -357,7 +357,7 @@ void main() {
 
     expect(openCount, 0);
     expect(find.byKey(const Key('discover-navigation-error')), findsOneWidget);
-    expect(find.textContaining('这张活动卡暂时打不开'), findsOneWidget);
+    expect(find.textContaining('这个场景暂时打不开'), findsOneWidget);
   });
 
   testWidgets('Discover 活动卡在真实页面中保持 AppSurfaceCard 默认风格契约', (tester) async {

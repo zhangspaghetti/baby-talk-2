@@ -3,9 +3,13 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 import 'package:mobile/app/providers/repository_providers.dart';
+import 'package:mobile/app/router/app_route_contract.dart';
 import 'package:mobile/app/theme/app_layout_constants.dart';
 import 'package:mobile/app/theme/app_theme.dart';
+import 'package:mobile/features/care_path/data/repositories/care_path_repository.dart';
+import 'package:mobile/features/care_path/presentation/care_path_notifier.dart';
 import 'package:mobile/features/account/data/local/account_local_store.dart';
 import 'package:mobile/features/account/data/repositories/account_repository_contract.dart';
 import 'package:mobile/features/account/domain/models/account_consent_state.dart';
@@ -281,57 +285,57 @@ void main() {
     );
   });
 
-  testWidgets(
-    'HomeScreen renders resolved continuity surface and lower cards',
-    (tester) async {
-      final gardenSnapshot = _gardenSnapshot(spaces: [_gardenPatch()]);
-      final continuitySnapshot = _continuitySnapshot();
+  testWidgets('HomeScreen renders current care node surface', (tester) async {
+    final gardenSnapshot = _gardenSnapshot(spaces: [_gardenPatch()]);
+    final continuitySnapshot = _continuitySnapshot();
 
-      await _pumpApp(
-        tester,
-        const HomeScreen(),
-        scaffold: false,
-        overrides: [
-          accountNotifierProvider.overrideWith((ref) {
-            return AccountNotifier(repository: _ScreenAccountRepository());
-          }),
-          practiceContinuityNotifierProvider.overrideWith((ref) {
-            return _homeContinuityNotifier(continuitySnapshot);
-          }),
-          gardenGrowthNotifierProvider.overrideWith((ref) {
-            return GardenGrowthNotifier(
-              repository: _HomeGardenGrowthRepository(gardenSnapshot),
-              refreshTimeout: Duration.zero,
-            );
-          }),
-          householdNotifierProvider.overrideWith((ref) {
-            return HouseholdNotifier(repository: _HomeHouseholdRepository());
-          }),
-          shareNotifierProvider.overrideWith((ref) {
-            return ShareNotifier(
-              repository: _HomeShareRepository(),
-              initialGrowthSnapshot: gardenSnapshot,
-              initialContinuitySnapshot: continuitySnapshot,
-            );
-          }),
-        ],
-      );
-      await _pumpFrames(tester, count: 10);
+    await _pumpApp(
+      tester,
+      const HomeScreen(),
+      scaffold: false,
+      overrides: [
+        accountNotifierProvider.overrideWith((ref) {
+          return AccountNotifier(repository: _ScreenAccountRepository());
+        }),
+        practiceContinuityNotifierProvider.overrideWith((ref) {
+          return _homeContinuityNotifier(continuitySnapshot);
+        }),
+        carePathNotifierProvider.overrideWith((ref) {
+          return _homeCarePathNotifier(continuitySnapshot);
+        }),
+        gardenGrowthNotifierProvider.overrideWith((ref) {
+          return GardenGrowthNotifier(
+            repository: _HomeGardenGrowthRepository(gardenSnapshot),
+            refreshTimeout: Duration.zero,
+          );
+        }),
+        householdNotifierProvider.overrideWith((ref) {
+          return HouseholdNotifier(repository: _HomeHouseholdRepository());
+        }),
+        shareNotifierProvider.overrideWith((ref) {
+          return ShareNotifier(
+            repository: _HomeShareRepository(),
+            initialGrowthSnapshot: gardenSnapshot,
+            initialContinuitySnapshot: continuitySnapshot,
+          );
+        }),
+      ],
+    );
+    await _pumpFrames(tester, count: 10);
 
-      expect(find.byKey(const Key('home-b-care-moment-title')), findsOneWidget);
-      expect(find.byKey(const Key('home-b-mentor-bubble')), findsOneWidget);
+    expect(find.byKey(const Key('home-today-care-node-card')), findsOneWidget);
+    expect(
+      find.byKey(const Key('home-today-care-moment-title')),
+      findsOneWidget,
+    );
+    expect(find.text('今天'), findsOneWidget);
+    expect(find.text('唱一小段'), findsOneWidget);
+    expect(find.text('Hello wave.'), findsWidgets);
+    expect(find.byKey(const Key('home-today-primary-cta')), findsOneWidget);
+    expect(find.text('现在说一句'), findsWidgets);
+  });
 
-      await tester.scrollUntilVisible(
-        find.byType(HomeGardenMiniEntry),
-        320,
-        scrollable: find.byType(Scrollable).first,
-        maxScrolls: 8,
-      );
-      expect(find.byType(HomeGardenMiniEntry), findsOneWidget);
-    },
-  );
-
-  testWidgets('HomeScreen carries onboarding first seed and daily phrase cue', (
+  testWidgets('HomeScreen carries onboarding first seed into care node', (
     tester,
   ) async {
     final gardenSnapshot = _gardenSnapshot(spaces: [_gardenPatch()]);
@@ -362,6 +366,9 @@ void main() {
         practiceContinuityNotifierProvider.overrideWith((ref) {
           return _homeContinuityNotifier(continuitySnapshot);
         }),
+        carePathNotifierProvider.overrideWith((ref) {
+          return _homeCarePathNotifier(continuitySnapshot);
+        }),
         gardenGrowthNotifierProvider.overrideWith((ref) {
           return GardenGrowthNotifier(
             repository: _HomeGardenGrowthRepository(gardenSnapshot),
@@ -382,10 +389,84 @@ void main() {
     );
     await _pumpFrames(tester, count: 10);
 
-    expect(find.byKey(const Key('home-b-care-moment-title')), findsOneWidget);
-    expect(find.byKey(const Key('home-b-scene-card')), findsOneWidget);
+    expect(find.byKey(const Key('home-today-care-node-card')), findsOneWidget);
+    expect(
+      find.byKey(const Key('home-today-utterance-english')),
+      findsOneWidget,
+    );
     expect(find.text('Hello wave.'), findsWidgets);
     expect(find.text('温温的水。'), findsNothing);
+  });
+
+  testWidgets('HomeScreen primary care CTA routes with expected args', (
+    tester,
+  ) async {
+    final gardenSnapshot = _gardenSnapshot(spaces: [_gardenPatch()]);
+    final continuitySnapshot = _continuitySnapshot();
+    PracticeRouteArgs? openedArgs;
+
+    final router = GoRouter(
+      initialLocation: AppRouteNames.home,
+      routes: [
+        GoRoute(
+          path: AppRouteNames.home,
+          builder: (context, state) => const HomeScreen(),
+        ),
+        GoRoute(
+          path: AppRouteNames.practice,
+          builder: (context, state) {
+            openedArgs = state.extra as PracticeRouteArgs?;
+            return const SizedBox(key: Key('home-practice-route-sentinel'));
+          },
+        ),
+      ],
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          accountNotifierProvider.overrideWith((ref) {
+            return AccountNotifier(repository: _ScreenAccountRepository());
+          }),
+          practiceContinuityNotifierProvider.overrideWith((ref) {
+            return _homeContinuityNotifier(continuitySnapshot);
+          }),
+          carePathNotifierProvider.overrideWith((ref) {
+            return _homeCarePathNotifier(continuitySnapshot);
+          }),
+          gardenGrowthNotifierProvider.overrideWith((ref) {
+            return GardenGrowthNotifier(
+              repository: _HomeGardenGrowthRepository(gardenSnapshot),
+              refreshTimeout: Duration.zero,
+            );
+          }),
+          householdNotifierProvider.overrideWith((ref) {
+            return HouseholdNotifier(repository: _HomeHouseholdRepository());
+          }),
+        ],
+        child: MaterialApp.router(
+          locale: const Locale('zh'),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          theme: AppTheme.build(),
+          routerConfig: router,
+        ),
+      ),
+    );
+    await _pumpFrames(tester, count: 10);
+
+    await tester.ensureVisible(find.byKey(const Key('home-today-primary-cta')));
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('home-today-primary-cta')));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const Key('home-practice-route-sentinel')),
+      findsOneWidget,
+    );
+    expect(openedArgs?.spaceId, 'home');
+    expect(openedArgs?.activityId, 'song_time');
+    expect(openedArgs?.entrySource, PracticeRouteEntrySource.inApp);
   });
 
   testWidgets('Garden cards render ready and warning states', (tester) async {
@@ -709,6 +790,9 @@ void main() {
         practiceContinuityNotifierProvider.overrideWith((ref) {
           return _homeContinuityNotifier(continuitySnapshot);
         }),
+        carePathNotifierProvider.overrideWith((ref) {
+          return _homeCarePathNotifier(continuitySnapshot);
+        }),
         gardenGrowthNotifierProvider.overrideWith((ref) {
           return GardenGrowthNotifier(
             repository: _HomeGardenGrowthRepository(gardenSnapshot),
@@ -740,89 +824,109 @@ void main() {
     expect(find.text('邀请待确认'), findsOneWidget);
   });
 
-  testWidgets(
-    'Shell FAB hides on home and garden tabs and settings gear shows on me tab',
-    (tester) async {
-      final gardenSnapshot = _gardenSnapshot(spaces: [_gardenPatch()]);
-      final continuitySnapshot = _continuitySnapshot();
-      final householdNotifier = HouseholdNotifier(
-        repository: _HomeHouseholdRepository(
-          snapshot: const HouseholdLocalSnapshot(
-            lastPhase: 'shared_context_ready',
-          ),
+  testWidgets('Shell labels use Today/Scene and Garden remains index 2', (
+    tester,
+  ) async {
+    final gardenSnapshot = _gardenSnapshot(spaces: [_gardenPatch()]);
+    final continuitySnapshot = _continuitySnapshot();
+    final householdNotifier = HouseholdNotifier(
+      repository: _HomeHouseholdRepository(
+        snapshot: const HouseholdLocalSnapshot(
+          lastPhase: 'shared_context_ready',
         ),
-      );
-      await householdNotifier.initialize();
+      ),
+    );
+    await householdNotifier.initialize();
 
-      await _pumpApp(
-        tester,
-        const AppShellScreen(),
-        scaffold: false,
-        overrides: [
-          accountNotifierProvider.overrideWith((ref) {
-            return AccountNotifier(repository: _ScreenAccountRepository());
-          }),
-          practiceContinuityNotifierProvider.overrideWith((ref) {
-            return _homeContinuityNotifier(continuitySnapshot);
-          }),
-          gardenGrowthNotifierProvider.overrideWith((ref) {
-            return GardenGrowthNotifier(
-              repository: _HomeGardenGrowthRepository(gardenSnapshot),
-              refreshTimeout: Duration.zero,
-            );
-          }),
-          householdNotifierProvider.overrideWith((ref) {
-            return householdNotifier;
-          }),
-          gardenFertilizerNotifierProvider.overrideWith(
-            (ref) => _FertilizerNotifierStub(
-              ref.watch(gardenGrowthNotifierProvider),
-            ),
-          ),
-          shareNotifierProvider.overrideWith((ref) {
-            return ShareNotifier(
-              repository: _HomeShareRepository(),
-              initialGrowthSnapshot: gardenSnapshot,
-              initialContinuitySnapshot: continuitySnapshot,
-            );
-          }),
-        ],
-      );
-      await _pumpFrames(tester, count: 10);
+    await _pumpApp(
+      tester,
+      const AppShellScreen(),
+      scaffold: false,
+      overrides: [
+        accountNotifierProvider.overrideWith((ref) {
+          return AccountNotifier(repository: _ScreenAccountRepository());
+        }),
+        practiceContinuityNotifierProvider.overrideWith((ref) {
+          return _homeContinuityNotifier(continuitySnapshot);
+        }),
+        carePathNotifierProvider.overrideWith((ref) {
+          return _homeCarePathNotifier(continuitySnapshot);
+        }),
+        gardenGrowthNotifierProvider.overrideWith((ref) {
+          return GardenGrowthNotifier(
+            repository: _HomeGardenGrowthRepository(gardenSnapshot),
+            refreshTimeout: Duration.zero,
+          );
+        }),
+        householdNotifierProvider.overrideWith((ref) {
+          return householdNotifier;
+        }),
+        gardenFertilizerNotifierProvider.overrideWith(
+          (ref) =>
+              _FertilizerNotifierStub(ref.watch(gardenGrowthNotifierProvider)),
+        ),
+        shareNotifierProvider.overrideWith((ref) {
+          return ShareNotifier(
+            repository: _HomeShareRepository(),
+            initialGrowthSnapshot: gardenSnapshot,
+            initialContinuitySnapshot: continuitySnapshot,
+          );
+        }),
+      ],
+    );
+    await _pumpFrames(tester, count: 10);
 
-      // §5 规则1：首页隐藏全局 FAB（用内联「问小禾」入口）；首页也无设置齿轮。
-      expect(find.byKey(const Key('shell-mentor-fab')), findsNothing);
-      expect(find.byKey(const Key('shell-settings-gear')), findsNothing);
+    expect(find.text('今天'), findsWidgets);
+    expect(find.text('场景'), findsOneWidget);
+    expect(find.byKey(const Key('shell-nav-home')), findsOneWidget);
+    expect(find.byKey(const Key('shell-nav-discover')), findsOneWidget);
+    expect(find.byKey(const Key('shell-nav-garden')), findsOneWidget);
+    expect(
+      tester.widget<NavigationBar>(find.byType(NavigationBar)).selectedIndex,
+      0,
+    );
 
-      // §5 规则3：发现 Tab 固定显示全局 FAB。
-      tester
-          .widget<NavigationBar>(find.byType(NavigationBar))
-          .onDestinationSelected!(1);
-      await _pumpFrames(tester, count: 6);
-      await tester.pump(const Duration(milliseconds: 500));
-      expect(find.byKey(const Key('shell-mentor-fab')), findsOneWidget);
-      expect(find.byKey(const Key('shell-settings-gear')), findsNothing);
+    // Home keeps the existing shell FAB behavior; T3 only changes IA labels.
+    expect(find.byKey(const Key('shell-mentor-fab')), findsOneWidget);
+    expect(find.byKey(const Key('shell-settings-gear')), findsNothing);
 
-      // §5 规则2：花园 Tab 隐藏全局 FAB（花园有自己的施肥交互）。
-      tester
-          .widget<NavigationBar>(find.byType(NavigationBar))
-          .onDestinationSelected!(2);
-      await _pumpFrames(tester, count: 6);
-      // Scaffold 的 FAB 退出动画约 200ms+，再补一帧长 pump 让其完成移除。
-      await tester.pump(const Duration(milliseconds: 500));
-      expect(find.byKey(const Key('shell-mentor-fab')), findsNothing);
-      expect(find.byKey(const Key('shell-settings-gear')), findsNothing);
+    // §5 规则3：场景 Tab 固定显示全局 FAB。
+    tester
+        .widget<NavigationBar>(find.byType(NavigationBar))
+        .onDestinationSelected!(1);
+    await _pumpFrames(tester, count: 6);
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(
+      tester.widget<NavigationBar>(find.byType(NavigationBar)).selectedIndex,
+      1,
+    );
+    expect(find.text('场景'), findsWidgets);
+    expect(find.byKey(const Key('shell-mentor-fab')), findsOneWidget);
+    expect(find.byKey(const Key('shell-settings-gear')), findsNothing);
 
-      // §4：我 Tab 顶栏右上角出现设置齿轮；FAB 恢复显示。
-      tester
-          .widget<NavigationBar>(find.byType(NavigationBar))
-          .onDestinationSelected!(3);
-      await _pumpFrames(tester, count: 6);
-      await tester.pump(const Duration(milliseconds: 500));
-      expect(find.byKey(const Key('shell-settings-gear')), findsOneWidget);
-      expect(find.byKey(const Key('shell-mentor-fab')), findsOneWidget);
-    },
-  );
+    // §5 规则2：花园 Tab 隐藏全局 FAB（花园有自己的施肥交互）。
+    tester
+        .widget<NavigationBar>(find.byType(NavigationBar))
+        .onDestinationSelected!(2);
+    await _pumpFrames(tester, count: 6);
+    // Scaffold 的 FAB 退出动画约 200ms+，再补一帧长 pump 让其完成移除。
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(
+      tester.widget<NavigationBar>(find.byType(NavigationBar)).selectedIndex,
+      2,
+    );
+    expect(find.byKey(const Key('shell-mentor-fab')), findsNothing);
+    expect(find.byKey(const Key('shell-settings-gear')), findsNothing);
+
+    // §4：我 Tab 顶栏右上角出现设置齿轮；FAB 恢复显示。
+    tester
+        .widget<NavigationBar>(find.byType(NavigationBar))
+        .onDestinationSelected!(3);
+    await _pumpFrames(tester, count: 6);
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(find.byKey(const Key('shell-settings-gear')), findsOneWidget);
+    expect(find.byKey(const Key('shell-mentor-fab')), findsOneWidget);
+  });
 
   testWidgets('Shell household status labels cover sanitized phase families', (
     tester,
@@ -1286,6 +1390,19 @@ PracticeContinuityNotifier _homeContinuityNotifier(
   );
 }
 
+CarePathNotifier _homeCarePathNotifier(
+  PracticeContinuitySnapshot continuitySnapshot,
+) {
+  return CarePathNotifier(
+    repository: CarePathRepository(
+      practiceRepository: _HomeCarePathPracticeRepository(continuitySnapshot),
+    ),
+  )..loadCurrentUtterance(
+    starterSpaceId: 'home',
+    starterActivityId: 'song_time',
+  );
+}
+
 const _homeActivitySnapshot = PracticeActivitySnapshot(
   spaceId: 'home',
   activityId: 'song_time',
@@ -1318,6 +1435,48 @@ const _homeActivitySnapshot = PracticeActivitySnapshot(
     ),
   ],
 );
+
+class _HomeCarePathPracticeRepository implements PracticeRepository {
+  const _HomeCarePathPracticeRepository(this.continuitySnapshot);
+
+  final PracticeContinuitySnapshot continuitySnapshot;
+
+  @override
+  Future<PracticeContinuitySnapshot> getContinuitySnapshot({
+    String? starterSpaceId,
+    String? starterActivityId,
+  }) async {
+    return continuitySnapshot;
+  }
+
+  @override
+  Future<PracticeActivitySnapshot> getActivitySnapshot({
+    required String spaceId,
+    required String activityId,
+  }) async {
+    return _homeActivitySnapshot;
+  }
+
+  @override
+  Future<PracticeResumeInfo> getResumeInfo({
+    required String spaceId,
+    required String activityId,
+  }) async {
+    return PracticeResumeInfo(
+      activityId: activityId,
+      totalPhrases: _homeActivitySnapshot.phrases.length,
+      completedPhraseIds: const [],
+      nextPhraseId: 'hello_wave',
+      lastEventTime: null,
+    );
+  }
+
+  @override
+  Future<void> close({bool deleteFromDisk = false}) async {}
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
 
 class _HomeGardenGrowthRepository implements GardenGrowthRepository {
   const _HomeGardenGrowthRepository(this.snapshot);

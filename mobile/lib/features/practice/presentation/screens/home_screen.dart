@@ -6,23 +6,20 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobile/app/providers/repository_providers.dart';
 import 'package:mobile/app/router/app_router.dart';
 import 'package:mobile/app/widgets/app_haptics.dart';
+import 'package:mobile/app/widgets/app_english_phrase.dart';
 import 'package:mobile/app/widgets/app_shimmer.dart';
+import 'package:mobile/app/widgets/app_surface_card.dart';
 import 'package:mobile/app/widgets/xiaohe_fab.dart';
 import 'package:mobile/app/theme/app_layout_constants.dart';
 import 'package:mobile/app/theme/app_theme.dart';
 import 'package:mobile/features/account/presentation/account_notifier.dart';
+import 'package:mobile/features/care_path/domain/models/care_path_models.dart';
+import 'package:mobile/features/care_path/presentation/care_path_view_model.dart';
 import 'package:mobile/features/onboarding/domain/models/onboarding_snapshot.dart';
-import 'package:mobile/features/practice/data/repositories/practice_repository.dart';
-import 'package:mobile/features/practice/domain/models/garden_growth_snapshot.dart';
-import 'package:mobile/features/practice/domain/models/practice_phrase.dart';
 import 'package:mobile/features/practice/presentation/practice_continuity_notifier.dart'
     show PracticeContinuityLoadStatusLabel;
 import 'package:mobile/features/practice/presentation/practice_route_args.dart';
 import 'package:mobile/features/practice/presentation/widgets/home_botanical_header.dart';
-import 'package:mobile/features/practice/presentation/widgets/home_progress_bar.dart';
-import 'package:mobile/features/practice/presentation/widgets/home_garden_card.dart';
-import 'package:mobile/features/practice/presentation/widgets/home_daily_activities.dart';
-import 'package:mobile/l10n/app_localizations.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({
@@ -44,11 +41,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with RouteAware {
   ModalRoute<dynamic>? _subscribedRoute;
   String? _lastResolvedScopeLabel;
   AccountNotifier? _cachedAccountNotifier;
-
-  // Home B state: tracks whether the user has just completed a practice
-  bool _showPracticeResult = false;
-  String? _completedPhrase;
-  String? _completedSceneTag;
+  String? _todayNavigationError;
 
   @override
   void initState() {
@@ -71,6 +64,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with RouteAware {
         ),
       );
       unawaited(continuityNotifier.initialize(reason: 'home_bootstrap'));
+      unawaited(_refreshCarePath());
     });
   }
 
@@ -85,6 +79,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with RouteAware {
         unawaited(
           _syncContinuityStarterArgs(reason: 'onboarding_snapshot_changed'),
         );
+        unawaited(_refreshCarePath());
       });
     }
   }
@@ -112,6 +107,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with RouteAware {
         unawaited(
           _syncContinuityStarterArgs(reason: 'starter_context_changed'),
         );
+        unawaited(_refreshCarePath());
       });
     }
   }
@@ -122,6 +118,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with RouteAware {
     final gardenGrowthNotifier = ref.read(gardenGrowthNotifierProvider);
     unawaited(gardenGrowthNotifier.refresh());
     unawaited(_refreshContinuity(reason: 'practice_return'));
+    unawaited(_refreshCarePath());
   }
 
   @override
@@ -156,6 +153,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with RouteAware {
       // (prevents accidental local data wipe on first launch before login)
       if (_accountHasHadActiveSession) {
         ref.read(practiceContinuityNotifierProvider).resetToSafeEmpty();
+        ref.read(carePathNotifierProvider).resetToSafeEmpty();
         ref.read(gardenGrowthNotifierProvider).resetToSafeEmpty();
         ref.read(householdNotifierProvider).resetToSafeEmpty();
       }
@@ -166,44 +164,19 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with RouteAware {
       return;
     }
     unawaited(_refreshContinuity(reason: 'account_runtime_change'));
+    unawaited(_refreshCarePath());
     final gardenGrowthNotifier = ref.read(gardenGrowthNotifierProvider);
     unawaited(gardenGrowthNotifier.refresh());
   }
 
   @override
   Widget build(BuildContext context) {
-    final l = AppLocalizations.of(context)!;
     final colors = context.appColors;
-    // Watch garden and continuity notifiers. Sub-widgets extracted below
-    // each watch only the slice they need, limiting rebuild blast radius.
-    final gardenGrowthNotifier = ref.watch(gardenGrowthNotifierProvider);
-    final pendingFertilizerCount =
-        ref.watch(gardenFertilizerNotifierProvider).view.pendingPacks.length;
     final continuityNotifier = ref.watch(practiceContinuityNotifierProvider);
-    final hasResolvedContinuity = continuityNotifier.hasResolvedRecommendation;
-    final activity = hasResolvedContinuity
-        ? continuityNotifier.activitySnapshot
-        : null;
-    final practiceArgs = continuityNotifier.recommendedArgs;
-    final canLaunchPractice =
-        hasResolvedContinuity &&
-        !continuityNotifier.isActionDisabled &&
-        practiceArgs != null &&
-        activity != null;
-    final starterPhrase = _resolveStarterPhrase(
-      activity,
-      widget.onboardingSnapshot,
-    );
-    final childName = widget.onboardingSnapshot?.childDisplayName ?? l.guest;
-    final sceneTag = activity?.sceneTag ?? '照护场景';
-    final activityTitle = activity?.title ?? '收玩具';
-
-    // Calculate garden stats for the new layout
-    final gardenSnapshot = gardenGrowthNotifier.snapshot;
-    final primarySpace = gardenSnapshot.primarySpace;
-    final weekNumber = _calculateWeekNumber(gardenSnapshot);
-    final stageName = primarySpace?.stage.label ?? 'Seedling';
-    final wordsPlanted = gardenSnapshot.validEvents;
+    final carePathNotifier = ref.watch(carePathNotifierProvider);
+    final carePathViewModel = carePathNotifier.viewModel;
+    final isInitialCarePathLoading =
+        carePathViewModel.isLoading && carePathViewModel.moment == null;
 
     final body = SafeArea(
       top: !widget.embeddedInShell,
@@ -213,15 +186,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with RouteAware {
           constraints: const BoxConstraints(
             maxWidth: AppLayoutConstants.maxContentWidth,
           ),
-          child: continuityNotifier.isInitialLoading
+          child: continuityNotifier.isInitialLoading || isInitialCarePathLoading
               ? const _HomeLoadingShimmer()
               : RefreshIndicator(
                   onRefresh: () async {
                     AppHaptics.lightTap();
-                    await _refreshContinuity(reason: 'pull_to_refresh');
-                    await gardenGrowthNotifier.refresh();
+                    await _refreshTodaySurface(reason: 'pull_to_refresh');
                   },
                   child: ListView(
+                    physics: const AlwaysScrollableScrollPhysics(),
                     padding: EdgeInsets.fromLTRB(
                       0,
                       widget.embeddedInShell ? 0 : 0,
@@ -241,36 +214,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with RouteAware {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             const SizedBox(height: 16),
-
-                            // Progress bar
-                            HomeProgressBar(
-                              progress: _calculateProgress(gardenSnapshot),
-                              label: '本周学习进度',
-                            ),
-
-                            const SizedBox(height: 16),
-
-                            // Garden card
-                            HomeGardenCard(
-                              weekNumber: weekNumber,
-                              stageName: stageName,
-                              wordsPlanted: wordsPlanted,
+                            _HomeTodayCareNodeCard(
+                              viewModel: carePathViewModel,
+                              navigationError: _todayNavigationError,
+                              onStart: _openCurrentCareMoment,
                             ),
 
                             const SizedBox(height: 24),
-
-                            // Daily activities
-                            HomeDailyActivities(
-                              onActivityTap: (activity) {
-                                // Navigate to practice flow based on activity
-                                if (canLaunchPractice) {
-                                  practiceArgs.push(context);
-                                }
-                              },
-                              onSeeAll: () {
-                                // Navigate to full activities list
-                              },
-                            ),
 
                             if (kDebugMode) ...[
                               const SizedBox(height: 12),
@@ -307,30 +257,18 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with RouteAware {
     );
   }
 
-  int _calculateWeekNumber(GardenGrowthSnapshot snapshot) {
-    if (snapshot.isEmpty) return 1;
-    // Calculate week number based on first event or installation date
-    final firstEvent = snapshot.diaryEntries.isNotEmpty
-        ? snapshot.diaryEntries.first.occurredAt
-        : DateTime.now();
-    final weeksSinceStart = DateTime.now().difference(firstEvent).inDays ~/ 7;
-    return (weeksSinceStart + 1).clamp(1, 52);
-  }
-
-  double _calculateProgress(GardenGrowthSnapshot snapshot) {
-    if (snapshot.isEmpty) return 0.0;
-    // Progress based on completed activities vs total
-    final space = snapshot.primarySpace;
-    if (space == null || space.totalActivityCount == 0) return 0.0;
-    return (space.completedActivityCount / space.totalActivityCount).clamp(0.0, 1.0);
-  }
-
   Future<void> _syncContinuityStarterArgs({required String reason}) async {
     final continuityNotifier = ref.read(practiceContinuityNotifierProvider);
     await continuityNotifier.configureStarterArgs(
       _resolveStarterArgs(),
       reason: reason,
     );
+  }
+
+  Future<void> _refreshTodaySurface({required String reason}) async {
+    await _refreshContinuity(reason: reason);
+    await _refreshCarePath();
+    await ref.read(gardenGrowthNotifierProvider).refresh();
   }
 
   Future<void> _refreshContinuity({required String reason}) async {
@@ -344,6 +282,45 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with RouteAware {
       return;
     }
     await continuityNotifier.refresh(reason: reason);
+  }
+
+  Future<void> _refreshCarePath() async {
+    final carePathNotifier = ref.read(carePathNotifierProvider);
+    final starterArgs = _resolveStarterArgs();
+    await carePathNotifier.initialize();
+    await carePathNotifier.loadCurrentUtterance(
+      starterSpaceId: starterArgs?.spaceId,
+      starterActivityId: starterArgs?.activityId,
+    );
+  }
+
+  Future<void> _openCurrentCareMoment() async {
+    final moment = ref.read(carePathNotifierProvider).viewModel.moment;
+    final routeArgs = PracticeRouteArgs.maybeCreate(
+      spaceId: moment?.spaceId,
+      activityId: moment?.activityId,
+    );
+    if (routeArgs == null) {
+      setState(() {
+        _todayNavigationError = '这个场景暂时打不开，请稍后再试。';
+      });
+      return;
+    }
+
+    setState(() {
+      _todayNavigationError = null;
+    });
+
+    try {
+      await routeArgs.push<void>(context);
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _todayNavigationError = '这个场景暂时打不开，请稍后再试。';
+      });
+    }
   }
 
   PracticeRouteArgs? _resolveStarterArgs() {
@@ -360,26 +337,220 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with RouteAware {
       return null;
     }
   }
+}
 
-  PracticePhrase? _resolveStarterPhrase(
-    PracticeActivitySnapshot? activity,
-    OnboardingSnapshot? snapshot,
-  ) {
-    if (activity == null || snapshot == null) {
-      return null;
-    }
+class _HomeTodayCareNodeCard extends StatelessWidget {
+  const _HomeTodayCareNodeCard({
+    required this.viewModel,
+    required this.navigationError,
+    required this.onStart,
+  });
 
-    for (final phrase in activity.phrases) {
-      if (phrase.phraseId == snapshot.starterPhraseId) {
-        return phrase;
-      }
-    }
-    if (activity.phrases.isNotEmpty) {
-      return activity.phrases.first;
-    }
-    return null;
+  final CarePathViewModel viewModel;
+  final String? navigationError;
+  final VoidCallback onStart;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    final theme = Theme.of(context);
+    final moment = viewModel.moment;
+    final utterance = viewModel.currentUtterance;
+    final hasOpenableMoment =
+        moment != null &&
+        moment.nodeState != CarePathNodeState.unavailable &&
+        moment.spaceId.trim().isNotEmpty &&
+        moment.activityId.trim().isNotEmpty;
+    final title = _clean(moment?.title) ?? '今天的照护时刻';
+    final actionLabel = _carePathCopy(_clean(moment?.careActionLabel));
+    final sceneLabel =
+        _clean(moment?.sceneTag) ?? _clean(moment?.spaceTitle) ?? '照护场景';
+    final coachTip =
+        _carePathCopy(_clean(utterance?.whenToSay)) ??
+        _carePathCopy(_clean(moment?.coachTip));
+    final ctaLabel = utterance == null ? '继续这个场景' : '现在说一句';
+
+    return AppSurfaceCard(
+      key: const Key('home-today-care-node-card'),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '今天',
+            key: const Key('home-today-label'),
+            style: theme.textTheme.labelLarge?.copyWith(
+              color: colors.accentDark,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: AppLayoutConstants.spacingXs),
+          Text(
+            title,
+            key: const Key('home-today-care-moment-title'),
+            style: theme.textTheme.headlineSmall?.copyWith(
+              color: colors.textPrimary,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: AppLayoutConstants.spacingSm),
+          Wrap(
+            spacing: AppLayoutConstants.spacingXs,
+            runSpacing: AppLayoutConstants.spacingXs,
+            children: [
+              _CareNodeChip(label: sceneLabel),
+              if (moment?.nodeState == CarePathNodeState.doneToday)
+                const _CareNodeChip(label: '今日已照护'),
+            ],
+          ),
+          if (actionLabel != null) ...[
+            const SizedBox(height: AppLayoutConstants.spacingMd),
+            Text(
+              actionLabel,
+              key: const Key('home-today-care-action'),
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: colors.textSecondary,
+                height: 1.5,
+              ),
+            ),
+          ],
+          const SizedBox(height: AppLayoutConstants.spacingLg),
+          if (utterance != null) ...[
+            Text(
+              '现在说一句',
+              style: theme.textTheme.labelMedium?.copyWith(
+                color: colors.textMuted,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: AppLayoutConstants.spacingXs),
+            AppEnglishPhrase(
+              utterance.english,
+              key: const Key('home-today-utterance-english'),
+            ),
+            if (_clean(utterance.chinese) != null) ...[
+              const SizedBox(height: AppLayoutConstants.spacingXs),
+              Text(
+                utterance.chinese,
+                key: const Key('home-today-utterance-chinese'),
+                style: theme.textTheme.bodyLarge?.copyWith(
+                  color: colors.textPrimary,
+                ),
+              ),
+            ],
+            if (_clean(utterance.pronunciation) != null) ...[
+              const SizedBox(height: AppLayoutConstants.spacingXs),
+              Text(
+                utterance.pronunciation,
+                key: const Key('home-today-utterance-pronunciation'),
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: colors.textMuted,
+                ),
+              ),
+            ],
+          ] else ...[
+            Text(
+              viewModel.message ?? '当前照护节点暂时不可用。',
+              key: const Key('home-today-held-message'),
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: colors.textSecondary,
+                height: 1.5,
+              ),
+            ),
+          ],
+          if (coachTip != null) ...[
+            const SizedBox(height: AppLayoutConstants.spacingMd),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(
+                  Icons.lightbulb_outline,
+                  size: 18,
+                  color: colors.textMuted,
+                ),
+                const SizedBox(width: AppLayoutConstants.spacingXs),
+                Expanded(
+                  child: Text(
+                    coachTip,
+                    key: const Key('home-today-care-tip'),
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: colors.textMuted,
+                      height: 1.45,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+          if (navigationError != null) ...[
+            const SizedBox(height: AppLayoutConstants.spacingMd),
+            Text(
+              navigationError!,
+              key: const Key('home-today-navigation-error'),
+              style: theme.textTheme.bodySmall?.copyWith(color: colors.error),
+            ),
+          ],
+          const SizedBox(height: AppLayoutConstants.spacingLg),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton(
+              key: const Key('home-today-primary-cta'),
+              onPressed: hasOpenableMoment ? onStart : null,
+              child: Text(ctaLabel),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
+  String? _clean(String? value) {
+    final trimmed = value?.trim();
+    if (trimmed == null || trimmed.isEmpty) {
+      return null;
+    }
+    return trimmed;
+  }
+
+  String? _carePathCopy(String? value) {
+    if (value == null) {
+      return null;
+    }
+    return value
+        .replaceAll('练习', '照护')
+        .replaceAll('课程', '场景')
+        .replaceAll('学习进度', '照护节奏')
+        .replaceAll('完成任务', '完成照护')
+        .replaceAll('短语', '表达')
+        .replaceAll('1 of N', '当前节点');
+  }
+}
+
+class _CareNodeChip extends StatelessWidget {
+  const _CareNodeChip({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppLayoutConstants.spacingSm,
+        vertical: AppLayoutConstants.spacingXxs,
+      ),
+      decoration: BoxDecoration(
+        color: colors.bgAccentSoft,
+        borderRadius: BorderRadius.circular(AppLayoutConstants.pillRadius),
+      ),
+      child: Text(
+        label,
+        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+          color: colors.accentDark,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+    );
+  }
 }
 
 /// Skeleton loading state using AppShimmer instead of the old 4px gray bar.
