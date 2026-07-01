@@ -139,9 +139,17 @@ void main() {
   });
 
   testWidgets(
-    'Practice session screen renders loaded flow and records reaction',
+    'Practice session screen renders one-turn care path UI and records reaction',
     (tester) async {
-      final repository = _ScreenPracticeRepository();
+      final repository = _CarePathScreenPracticeRepository();
+      final notifier = CarePathNotifier(
+        repository: CarePathRepository(
+          practiceRepository: repository,
+          gardenGrowthRepository: _ScreenGardenGrowthRepository(
+            _gardenSnapshot(spaces: [_gardenPatch()]),
+          ),
+        ),
+      );
       final audioController = _ScreenPracticeAudioController();
       final routeEntry = PracticeRouteEntry.fromObject(
         const PracticeRouteArgs(spaceId: 'daily_care', activityId: 'bath_time'),
@@ -155,51 +163,290 @@ void main() {
         ),
         scaffold: false,
         overrides: [
-          practiceRepositoryProvider.overrideWith((ref) async {
-            return repository;
-          }),
-          accountNotifierProvider.overrideWith((ref) {
-            return AccountNotifier(repository: _ScreenAccountRepository());
-          }),
+          practiceRepositoryProvider.overrideWith((ref) async => repository),
+          carePathNotifierProvider.overrideWith((ref) => notifier),
         ],
       );
       await _pumpFrames(tester, count: 8);
 
-      expect(find.byKey(const Key('session-progress')), findsOneWidget);
-      expect(find.byKey(const Key('practice-progress-text')), findsOneWidget);
-      expect(find.text('第 1 / 3 句'), findsOneWidget);
-      expect(find.text('听小禾读'), findsOneWidget);
-      expect(find.text('等宝宝反应'), findsOneWidget);
-      expect(find.textContaining('idle'), findsNothing);
-      expect(find.textContaining('C3'), findsNothing);
-      expect(find.textContaining('STEP'), findsNothing);
+      expect(find.text('Warm water.'), findsOneWidget);
+      expect(find.text('温温的水。'), findsOneWidget);
+      expect(find.text('wɔːrm ˈwɔːtər'), findsOneWidget);
+      expect(find.text('听一下'), findsOneWidget);
+      expect(find.text('我说了'), findsOneWidget);
+      expect(find.text('先说动作，再慢慢等待宝宝回应。'), findsAtLeastNWidgets(1));
+      expect(find.byKey(const Key('session-progress')), findsNothing);
+      expect(find.byKey(const Key('practice-progress-text')), findsNothing);
+      expect(find.byKey(const Key('practice-completion-view')), findsNothing);
+      expect(find.text('第 1 / 3 句'), findsNothing);
       expect(
-        find.byKey(const Key('phrase-card-bath_time_warm_water')),
+        find.byKey(const Key('reaction-bath_time_warm_water-cooperating')),
+        findsNothing,
+      );
+
+      await tester.tap(find.text('听一下'));
+      await tester.pump();
+      expect(
+        audioController.playedAssets.single,
+        'audio/phrases/bath_time_warm_water.mp3',
+      );
+      audioController.completePlayback();
+      await tester.pump();
+      expect(find.text('已听过一次'), findsOneWidget);
+
+      await tester.tap(find.text('我说了'));
+      await tester.pump();
+      expect(
+        find.byKey(const Key('reaction-bath_time_warm_water-cooperating')),
         findsOneWidget,
       );
 
-      final playButton = find.byKey(const Key('play-bath_time_warm_water'));
-      await tester.ensureVisible(playButton);
-      await tester.pump();
-      await tester.tap(playButton);
-      await tester.pump();
-
-      expect(audioController.playedAssets.single, endsWith('warm_water.mp3'));
-      audioController.completePlayback();
-      await tester.pump();
-
-      expect(find.byKey(const Key('playback-banner')), findsOneWidget);
-
-      final reactionButton = find.byKey(
-        const Key('reaction-bath_time_warm_water-cooperating'),
+      await tester.tap(
+        find.byKey(const Key('reaction-bath_time_warm_water-cooperating')),
       );
-      await tester.ensureVisible(reactionButton);
-      await tester.pump();
-      await tester.tap(reactionButton);
       await _pumpFrames(tester, count: 8);
 
-      expect(find.byKey(const Key('save-banner')), findsOneWidget);
-      expect(repository._events, hasLength(1));
+      expect(repository.recordedEvents, hasLength(1));
+      expect(find.text('下一句照护支持'), findsOneWidget);
+      expect(find.text('Splash splash.'), findsOneWidget);
+      expect(find.text('花圃醒来了'), findsOneWidget);
+      expect(find.text('配合了 hello。'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'Practice session screen does not restart moment on repeated pump with same args',
+    (tester) async {
+      final repository = _CarePathScreenPracticeRepository();
+      final notifier = _TrackingCarePathNotifier(
+        repository: CarePathRepository(practiceRepository: repository),
+      );
+      final routeEntry = PracticeRouteEntry.fromObject(
+        const PracticeRouteArgs(spaceId: 'daily_care', activityId: 'bath_time'),
+      );
+
+      await _pumpApp(
+        tester,
+        PracticeSessionScreen(routeEntry: routeEntry),
+        scaffold: false,
+        overrides: [
+          practiceRepositoryProvider.overrideWith((ref) async => repository),
+          carePathNotifierProvider.overrideWith((ref) => notifier),
+        ],
+      );
+      await _pumpFrames(tester, count: 8);
+
+      expect(notifier.startMomentCalls, ['daily_care/bath_time']);
+
+      await _pumpFrames(tester, count: 8);
+      expect(notifier.startMomentCalls, ['daily_care/bath_time']);
+    },
+  );
+
+  testWidgets(
+    'Practice session screen keeps utterance speakable when audio is missing',
+    (tester) async {
+      final repository = _CarePathScreenPracticeRepository(
+        activitySnapshots: {
+          'daily_care/bath_time': _screenActivitySnapshotWithoutFirstAudio(),
+        },
+      );
+      final notifier = CarePathNotifier(
+        repository: CarePathRepository(practiceRepository: repository),
+      );
+      final audioController = _ScreenPracticeAudioController();
+      final routeEntry = PracticeRouteEntry.fromObject(
+        const PracticeRouteArgs(spaceId: 'daily_care', activityId: 'bath_time'),
+      );
+
+      await _pumpApp(
+        tester,
+        PracticeSessionScreen(
+          routeEntry: routeEntry,
+          audioControllerFactory: () => audioController,
+        ),
+        scaffold: false,
+        overrides: [
+          practiceRepositoryProvider.overrideWith((ref) async => repository),
+          carePathNotifierProvider.overrideWith((ref) => notifier),
+        ],
+      );
+      await _pumpFrames(tester, count: 8);
+
+      await tester.tap(find.text('听一下'));
+      await tester.pump();
+
+      expect(audioController.playedAssets, isEmpty);
+      expect(find.text('这句暂时没有音频，可以直接说。'), findsOneWidget);
+      expect(find.text('Warm water.'), findsOneWidget);
+
+      await tester.tap(find.text('我说了'));
+      await tester.pump();
+
+      expect(
+        find.byKey(const Key('reaction-bath_time_warm_water-cooperating')),
+        findsOneWidget,
+      );
+    },
+  );
+
+  testWidgets(
+    'Practice session screen route start replaces provider initialization',
+    (tester) async {
+      final repository = _GatedContinuityCarePathScreenPracticeRepository();
+      final notifier = _TrackingCarePathNotifier(
+        repository: CarePathRepository(practiceRepository: repository),
+      );
+      final initializeFuture = notifier.initialize();
+      final routeEntry = PracticeRouteEntry.fromObject(
+        const PracticeRouteArgs(spaceId: 'daily_care', activityId: 'bath_time'),
+      );
+
+      await _pumpApp(
+        tester,
+        PracticeSessionScreen(routeEntry: routeEntry),
+        scaffold: false,
+        overrides: [
+          practiceRepositoryProvider.overrideWith((ref) async => repository),
+          carePathNotifierProvider.overrideWith((ref) => notifier),
+        ],
+      );
+      await _pumpFrames(tester, count: 8);
+
+      expect(repository.continuityRequested, isTrue);
+      expect(notifier.startMomentCalls, ['daily_care/bath_time']);
+      expect(find.text('Warm water.'), findsOneWidget);
+
+      repository.releaseContinuity();
+      await initializeFuture;
+      await tester.pump();
+
+      expect(find.text('Warm water.'), findsOneWidget);
+      expect(notifier.startMomentCalls, ['daily_care/bath_time']);
+    },
+  );
+
+  testWidgets(
+    'Practice session screen starts a new moment when route args change',
+    (tester) async {
+      final repository = _CarePathScreenPracticeRepository();
+      final notifier = _TrackingCarePathNotifier(
+        repository: CarePathRepository(practiceRepository: repository),
+      );
+      final hostState = ValueNotifier<_PracticeSessionHostState>(
+        _PracticeSessionHostState(
+          routeEntry: PracticeRouteEntry.fromObject(
+            const PracticeRouteArgs(
+              spaceId: 'daily_care',
+              activityId: 'bath_time',
+            ),
+          ),
+        ),
+      );
+      addTearDown(hostState.dispose);
+
+      await _pumpApp(
+        tester,
+        _PracticeSessionHost(state: hostState),
+        scaffold: false,
+        overrides: [
+          practiceRepositoryProvider.overrideWith((ref) async => repository),
+          carePathNotifierProvider.overrideWith((ref) => notifier),
+        ],
+      );
+      await _pumpFrames(tester, count: 8);
+
+      expect(notifier.startMomentCalls, ['daily_care/bath_time']);
+      expect(find.text('Warm water.'), findsOneWidget);
+
+      hostState.value = _PracticeSessionHostState(
+        routeEntry: PracticeRouteEntry.fromObject(
+          const PracticeRouteArgs(spaceId: 'home', activityId: 'song_time'),
+        ),
+      );
+      await tester.pump();
+      expect(
+        find.byKey(const Key('practice-repository-loading')),
+        findsOneWidget,
+      );
+      expect(find.text('Warm water.'), findsNothing);
+      await _pumpFrames(tester, count: 8);
+
+      expect(notifier.startMomentCalls, [
+        'daily_care/bath_time',
+        'home/song_time',
+      ]);
+      expect(find.text('Hello wave.'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'Practice session screen reopen starts cleanly without stale reaction state',
+    (tester) async {
+      final repository = _CarePathScreenPracticeRepository();
+      final notifier = _TrackingCarePathNotifier(
+        repository: CarePathRepository(practiceRepository: repository),
+      );
+      final hostState = ValueNotifier<_PracticeSessionHostState>(
+        _PracticeSessionHostState(
+          routeEntry: PracticeRouteEntry.fromObject(
+            const PracticeRouteArgs(
+              spaceId: 'daily_care',
+              activityId: 'bath_time',
+            ),
+          ),
+        ),
+      );
+      addTearDown(hostState.dispose);
+
+      await _pumpApp(
+        tester,
+        _PracticeSessionHost(state: hostState),
+        scaffold: false,
+        overrides: [
+          practiceRepositoryProvider.overrideWith((ref) async => repository),
+          carePathNotifierProvider.overrideWith((ref) => notifier),
+        ],
+      );
+      await _pumpFrames(tester, count: 8);
+
+      await tester.tap(find.text('我说了'));
+      await tester.pump();
+      expect(
+        find.byKey(const Key('reaction-bath_time_warm_water-cooperating')),
+        findsOneWidget,
+      );
+
+      hostState.value = _PracticeSessionHostState(
+        routeEntry: hostState.value.routeEntry,
+        showScreen: false,
+      );
+      await _pumpFrames(tester, count: 4);
+
+      hostState.value = _PracticeSessionHostState(
+        routeEntry: hostState.value.routeEntry,
+      );
+      await tester.pump();
+      expect(
+        find.byKey(const Key('practice-repository-loading')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('reaction-bath_time_warm_water-cooperating')),
+        findsNothing,
+      );
+      await _pumpFrames(tester, count: 8);
+
+      expect(notifier.startMomentCalls, [
+        'daily_care/bath_time',
+        'daily_care/bath_time',
+      ]);
+      expect(find.text('Warm water.'), findsOneWidget);
+      expect(find.text('我说了'), findsOneWidget);
+      expect(
+        find.byKey(const Key('reaction-bath_time_warm_water-cooperating')),
+        findsNothing,
+      );
     },
   );
 
@@ -1226,55 +1473,242 @@ class _ScreenPracticeAudioController implements PracticeAudioController {
   }
 }
 
-class _ScreenPracticeRepository implements PracticeRepository {
-  final List<InteractionEventPayload> _events = [];
+class _PracticeSessionHost extends StatelessWidget {
+  const _PracticeSessionHost({required this.state});
+
+  final ValueNotifier<_PracticeSessionHostState> state;
+
+  @override
+  Widget build(BuildContext context) {
+    return ValueListenableBuilder<_PracticeSessionHostState>(
+      valueListenable: state,
+      builder: (context, currentState, _) {
+        if (!currentState.showScreen) {
+          return const SizedBox.shrink();
+        }
+        return PracticeSessionScreen(routeEntry: currentState.routeEntry);
+      },
+    );
+  }
+}
+
+class _PracticeSessionHostState {
+  const _PracticeSessionHostState({
+    required this.routeEntry,
+    this.showScreen = true,
+  });
+
+  final PracticeRouteEntry routeEntry;
+  final bool showScreen;
+}
+
+class _TrackingCarePathNotifier extends CarePathNotifier {
+  _TrackingCarePathNotifier({required super.repository});
+
+  final List<String> startMomentCalls = [];
+
+  @override
+  Future<void> startMoment({
+    required String spaceId,
+    required String activityId,
+  }) {
+    startMomentCalls.add('$spaceId/$activityId');
+    return super.startMoment(spaceId: spaceId, activityId: activityId);
+  }
+}
+
+class _ScreenGardenGrowthRepository implements GardenGrowthRepository {
+  const _ScreenGardenGrowthRepository(this.snapshot);
+
+  final GardenGrowthSnapshot snapshot;
+
+  @override
+  Future<GardenGrowthSnapshot> buildSnapshot() async => snapshot;
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class _CarePathScreenPracticeRepository implements PracticeRepository {
+  _CarePathScreenPracticeRepository({
+    Map<String, PracticeActivitySnapshot>? activitySnapshots,
+  }) : activitySnapshots = activitySnapshots ?? _screenActivitySnapshots;
+
+  final Map<String, PracticeActivitySnapshot> activitySnapshots;
+  final List<InteractionEventPayload> recordedEvents = [];
+
+  @override
+  Future<PracticeContinuitySnapshot> getContinuitySnapshot({
+    String? starterSpaceId,
+    String? starterActivityId,
+  }) async {
+    final catalog = await getActivityCatalog();
+    final activity =
+        catalog.findActivity(
+          spaceId: starterSpaceId ?? 'daily_care',
+          activityId: starterActivityId ?? 'bath_time',
+        ) ??
+        catalog.activities.first;
+    return PracticeContinuitySnapshot(
+      catalog: catalog,
+      recommendedActivity: activity,
+      recentActivity: activity,
+      nextIncompleteActivity: activity,
+      starterActivity: activity,
+      recommendation: PracticeContinuityRecommendation(
+        spaceId: activity.spaceId,
+        activityId: activity.activityId,
+        activityTitle: activity.title,
+        reason: PracticeContinuityReason.starterFallback,
+        reasonLabel: PracticeContinuityReason.starterFallback.label,
+      ),
+      cadence: PracticeContinuityCadenceSummary(
+        totalKnownEvents: recordedEvents.length,
+        startedActivityCount: recordedEvents.isEmpty ? 0 : 1,
+        lastEventTime: recordedEvents.isEmpty
+            ? null
+            : recordedEvents.last.clientTimestamp,
+        headline: '从这一句开始',
+        detail: '先保持一个照护节奏。',
+      ),
+    );
+  }
 
   @override
   Future<PracticeRestoreSnapshot> restorePracticeState({
     required String spaceId,
     required String activityId,
   }) async {
+    final activity = await getActivitySnapshot(
+      spaceId: spaceId,
+      activityId: activityId,
+    );
     return PracticeRestoreSnapshot(
       installationId: 'install_screen_test',
-      activitySnapshot: _screenActivitySnapshot,
+      activitySnapshot: activity,
       homeSummary: PracticeHomeSummary(
-        spaceId: _screenActivitySnapshot.spaceId,
-        activityId: _screenActivitySnapshot.activityId,
-        activityTitle: _screenActivitySnapshot.title,
-        totalEvents: _events.length,
-        lastEventTime: _events.isEmpty ? null : _events.last.clientTimestamp,
-        recentResult: _events.isEmpty
+        spaceId: activity.spaceId,
+        activityId: activity.activityId,
+        activityTitle: activity.title,
+        totalEvents: _eventsFor(spaceId, activityId).length,
+        lastEventTime: _eventsFor(spaceId, activityId).isEmpty
+            ? null
+            : _eventsFor(spaceId, activityId).last.clientTimestamp,
+        recentResult: _eventsFor(spaceId, activityId).isEmpty
             ? null
             : PracticeRecentResultSummary(
-                activityId: _screenActivitySnapshot.activityId,
-                activityTitle: _screenActivitySnapshot.title,
-                phraseId: _events.last.phraseId,
-                phraseEnglish: _screenActivitySnapshot.phrases
+                activityId: activity.activityId,
+                activityTitle: activity.title,
+                phraseId: _eventsFor(spaceId, activityId).last.phraseId,
+                phraseEnglish: activity.phrases
                     .firstWhere(
-                      (phrase) => phrase.phraseId == _events.last.phraseId,
+                      (phrase) =>
+                          phrase.phraseId ==
+                          _eventsFor(spaceId, activityId).last.phraseId,
                     )
                     .english,
-                reactionType: _events.last.reactionType,
-                eventTime: _events.last.clientTimestamp,
-                totalEvents: _events.length,
+                reactionType: _eventsFor(spaceId, activityId).last.reactionType,
+                eventTime: _eventsFor(spaceId, activityId).last.clientTimestamp,
+                totalEvents: _eventsFor(spaceId, activityId).length,
               ),
       ),
       resumeInfo: PracticeResumeInfo(
-        activityId: _screenActivitySnapshot.activityId,
-        totalPhrases: _screenActivitySnapshot.phrases.length,
-        completedPhraseIds: _events.map((event) => event.phraseId).toList(),
-        nextPhraseId: _resolveNextPhraseId(),
-        lastEventTime: _events.isEmpty ? null : _events.last.clientTimestamp,
+        activityId: activity.activityId,
+        totalPhrases: activity.phrases.length,
+        completedPhraseIds: _eventsFor(
+          spaceId,
+          activityId,
+        ).map((event) => event.phraseId).toList(),
+        nextPhraseId: _resolveNextPhraseId(activity),
+        lastEventTime: _eventsFor(spaceId, activityId).isEmpty
+            ? null
+            : _eventsFor(spaceId, activityId).last.clientTimestamp,
       ),
       inspection: PracticeEventInspection(
         installationId: 'install_screen_test',
-        storedEventCount: _events.length,
-        validEvents: List<InteractionEventPayload>.unmodifiable(_events),
+        storedEventCount: _eventsFor(spaceId, activityId).length,
+        validEvents: List<InteractionEventPayload>.unmodifiable(
+          _eventsFor(spaceId, activityId),
+        ),
         skippedEventCount: 0,
       ),
-      restoreMessage: _events.isEmpty ? '未找到本地记录。' : '已从本地恢复。',
+      restoreMessage: _eventsFor(spaceId, activityId).isEmpty
+          ? '未找到本地记录。'
+          : '已从本地恢复。',
       hasRecoverableIssue: false,
     );
+  }
+
+  @override
+  Future<PracticeActivityCatalog> getActivityCatalog() async {
+    final activities = activitySnapshots.values.map((activity) {
+      final events = _eventsFor(activity.spaceId, activity.activityId);
+      return PracticeCatalogActivitySummary(
+        spaceId: activity.spaceId,
+        spaceTitle: activity.spaceId == 'daily_care' ? '日常照护' : '家里',
+        activityId: activity.activityId,
+        title: activity.title,
+        summary: activity.summary,
+        sceneTag: activity.sceneTag,
+        coachTip: activity.coachTip,
+        totalPhraseCount: activity.phrases.length,
+        completedPhraseCount: events.length.clamp(0, activity.phrases.length),
+        completedPhraseIds: events.map((event) => event.phraseId).toList(),
+        nextPhraseId: _resolveNextPhraseId(activity),
+        nextPhraseEnglish: _nextPhrase(activity)?.english,
+        totalEvents: events.length,
+        skippedUnknownPhraseCount: 0,
+        skippedMalformedEventCount: 0,
+        recentResult: events.isEmpty
+            ? null
+            : PracticeCatalogRecentResultSummary(
+                phraseId: events.last.phraseId,
+                phraseEnglish: activity.phrases
+                    .firstWhere(
+                      (phrase) => phrase.phraseId == events.last.phraseId,
+                    )
+                    .english,
+                reactionType: events.last.reactionType,
+                eventTime: events.last.clientTimestamp,
+                totalEvents: events.length,
+              ),
+      );
+    }).toList();
+
+    return PracticeActivityCatalog(
+      installationId: 'install_screen_test',
+      spaces: const [],
+      activities: activities,
+      totalStoredEvents: recordedEvents.length,
+      validEvents: recordedEvents.length,
+      knownEvents: recordedEvents.length,
+      skippedMalformedEvents: 0,
+      skippedUnknownContentEvents: 0,
+    );
+  }
+
+  @override
+  Future<PracticeActivitySnapshot> getActivitySnapshot({
+    required String spaceId,
+    required String activityId,
+  }) async {
+    final activity = activitySnapshots['$spaceId/$activityId'];
+    if (activity == null) {
+      throw StateError('unknown activity $spaceId/$activityId');
+    }
+    return activity;
+  }
+
+  @override
+  Future<PracticeResumeInfo> getResumeInfo({
+    required String spaceId,
+    required String activityId,
+  }) async {
+    final restored = await restorePracticeState(
+      spaceId: spaceId,
+      activityId: activityId,
+    );
+    return restored.resumeInfo;
   }
 
   @override
@@ -1287,22 +1721,34 @@ class _ScreenPracticeRepository implements PracticeRepository {
     String? localEventId,
   }) async {
     final event = InteractionEventPayload(
-      localEventId: localEventId ?? 'evt_screen_${_events.length + 1}',
+      localEventId: localEventId ?? 'evt_screen_${recordedEvents.length + 1}',
       installationId: 'install_screen_test',
       spaceId: spaceId,
       activityId: activityId,
       phraseId: phraseId,
       reactionType: reactionType,
       clientTimestamp:
-          clientTimestamp ?? DateTime.utc(2026, 5, 20, 8, _events.length),
+          clientTimestamp ??
+          DateTime.utc(2026, 5, 20, 8, recordedEvents.length),
     );
-    _events.add(event);
+    recordedEvents.add(event);
     return event;
   }
 
-  String? _resolveNextPhraseId() {
-    final completedIds = _events.map((event) => event.phraseId).toSet();
-    for (final phrase in _screenActivitySnapshot.phrases) {
+  List<InteractionEventPayload> _eventsFor(String spaceId, String activityId) {
+    return recordedEvents
+        .where(
+          (event) => event.spaceId == spaceId && event.activityId == activityId,
+        )
+        .toList();
+  }
+
+  String? _resolveNextPhraseId(PracticeActivitySnapshot activity) {
+    final completedIds = _eventsFor(
+      activity.spaceId,
+      activity.activityId,
+    ).map((event) => event.phraseId).toSet();
+    for (final phrase in activity.phrases) {
       if (!completedIds.contains(phrase.phraseId)) {
         return phrase.phraseId;
       }
@@ -1310,11 +1756,46 @@ class _ScreenPracticeRepository implements PracticeRepository {
     return null;
   }
 
+  PracticePhrase? _nextPhrase(PracticeActivitySnapshot activity) {
+    final nextPhraseId = _resolveNextPhraseId(activity);
+    if (nextPhraseId == null) {
+      return null;
+    }
+    return activity.phrases.firstWhere(
+      (phrase) => phrase.phraseId == nextPhraseId,
+    );
+  }
+
   @override
   Future<void> close({bool deleteFromDisk = false}) async {}
 
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class _GatedContinuityCarePathScreenPracticeRepository
+    extends _CarePathScreenPracticeRepository {
+  final Completer<void> _continuityGate = Completer<void>();
+  bool continuityRequested = false;
+
+  @override
+  Future<PracticeContinuitySnapshot> getContinuitySnapshot({
+    String? starterSpaceId,
+    String? starterActivityId,
+  }) async {
+    continuityRequested = true;
+    await _continuityGate.future;
+    return super.getContinuitySnapshot(
+      starterSpaceId: starterSpaceId,
+      starterActivityId: starterActivityId,
+    );
+  }
+
+  void releaseContinuity() {
+    if (!_continuityGate.isCompleted) {
+      _continuityGate.complete();
+    }
+  }
 }
 
 const _screenActivitySnapshot = PracticeActivitySnapshot(
@@ -1360,6 +1841,27 @@ const _screenActivitySnapshot = PracticeActivitySnapshot(
     ),
   ],
 );
+
+const _screenActivitySnapshots = <String, PracticeActivitySnapshot>{
+  'daily_care/bath_time': _screenActivitySnapshot,
+  'home/song_time': _homeActivitySnapshot,
+};
+
+PracticeActivitySnapshot _screenActivitySnapshotWithoutFirstAudio() {
+  final firstPhrase = _screenActivitySnapshot.phrases.first;
+  return PracticeActivitySnapshot(
+    spaceId: _screenActivitySnapshot.spaceId,
+    activityId: _screenActivitySnapshot.activityId,
+    title: _screenActivitySnapshot.title,
+    summary: _screenActivitySnapshot.summary,
+    sceneTag: _screenActivitySnapshot.sceneTag,
+    coachTip: _screenActivitySnapshot.coachTip,
+    phrases: [
+      firstPhrase.copyWith(audioAsset: ''),
+      ..._screenActivitySnapshot.phrases.skip(1),
+    ],
+  );
+}
 
 PracticeContinuityNotifier _homeContinuityNotifier(
   PracticeContinuitySnapshot continuitySnapshot, {

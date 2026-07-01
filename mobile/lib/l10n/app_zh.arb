@@ -769,5 +769,47 @@
   "onboardingV21DoneButton": "先到这里",
 
   "@onboardingV21NextTime": { "description": "Next time copy" },
-  "onboardingV21NextTime": "下次打开，小禾会给你新的一句。"
+  "onboardingV21NextTime": "下次打开，小禾会给你新的一句。",
+
+  "@practiceOneTurnTitle": { "description": "T4 one-turn practice screen title" },
+  "practiceOneTurnTitle": "今日一句",
+
+  "@practiceWhenToSay": { "description": "T4 one-turn timing label" },
+  "practiceWhenToSay": "什么时候说",
+
+  "@practiceListenOnce": { "description": "T4 one-turn listen button" },
+  "practiceListenOnce": "听一下",
+
+  "@practiceSaid": { "description": "T4 one-turn said button" },
+  "practiceSaid": "我说了",
+
+  "@practiceAudioPlayedOnce": { "description": "T4 one-turn audio completion status" },
+  "practiceAudioPlayedOnce": "已听过一次",
+
+  "@practiceAudioMissingInline": { "description": "T4 one-turn inline copy when current utterance has no audio asset" },
+  "practiceAudioMissingInline": "这句暂时没有音频，可以直接说。",
+
+  "@practiceAudioMissingSnack": { "description": "T4 one-turn snackbar copy when current utterance has no audio asset" },
+  "practiceAudioMissingSnack": "这句暂时没有可播放的音频。",
+
+  "@practiceAudioUnavailableInline": { "description": "T4 one-turn inline copy when audio playback fails" },
+  "practiceAudioUnavailableInline": "音频暂时不可用",
+
+  "@practiceAudioUnavailableSnack": { "description": "T4 one-turn snackbar copy when audio playback fails" },
+  "practiceAudioUnavailableSnack": "音频暂时不可用，请直接先说这一句。",
+
+  "@practiceSavingTrace": { "description": "T4 one-turn saving reaction trace status" },
+  "practiceSavingTrace": "正在记下这次回应…",
+
+  "@practiceReactionPrompt": { "description": "T4 one-turn reaction prompt heading" },
+  "practiceReactionPrompt": "宝宝刚刚是什么反应？",
+
+  "@practiceNextSupportTitle": { "description": "T4 one-turn next support section title" },
+  "practiceNextSupportTitle": "下一句照护支持",
+
+  "@practiceQuietFallback": { "description": "T4 one-turn held fallback copy" },
+  "practiceQuietFallback": "先停在这里，等下一次再继续。",
+
+  "@practiceGardenTraceTitle": { "description": "T4 one-turn garden trace section title" },
+  "practiceGardenTraceTitle": "花园留痕"
 }

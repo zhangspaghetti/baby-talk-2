@@ -73,7 +73,7 @@ class CarePathRepository {
         activityId: activityId,
       );
 
-      return _buildTurnSnapshot(
+      final snapshot = _buildTurnSnapshot(
         activity: activity,
         summary: activitySummary,
         nextPhraseId: resumeInfo.nextPhraseId,
@@ -81,6 +81,16 @@ class CarePathRepository {
             ? CarePathNodeState.doneToday
             : CarePathNodeState.current,
         warningMessage: activitySummary?.warningMessage,
+      );
+      if (snapshot.currentUtterance == null) {
+        return snapshot;
+      }
+      return snapshot.copyWith(
+        phase: CareTurnPhase.utteranceReady,
+        selectedReaction: null,
+        nextSupportUtterance: null,
+        traceEventKey: null,
+        latestGardenImpact: null,
       );
     } catch (error) {
       return _unavailableSnapshot(
@@ -120,6 +130,16 @@ class CarePathRepository {
         activityId: turn.moment.activityId,
       );
       final latestGardenImpact = await _loadLatestGardenImpact();
+      if (nextTurn.currentUtterance == null) {
+        return turn.copyWith(
+          selectedReaction: reactionType,
+          nextSupportUtterance: null,
+          phase: CareTurnPhase.heldWithFallback,
+          traceEventKey: event.eventKey,
+          latestGardenImpact: latestGardenImpact,
+          message: nextTurn.message,
+        );
+      }
 
       return turn.copyWith(
         selectedReaction: reactionType,

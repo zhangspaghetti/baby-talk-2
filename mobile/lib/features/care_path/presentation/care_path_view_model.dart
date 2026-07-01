@@ -36,9 +36,7 @@ class CarePathViewModel {
   bool get hasError => phase == CareTurnPhase.error;
   bool get isHeldWithFallback => phase == CareTurnPhase.heldWithFallback;
   bool get canSelectReaction =>
-      currentUtterance != null &&
-      (phase == CareTurnPhase.utteranceReady ||
-          phase == CareTurnPhase.reactionPrompt);
+      currentUtterance != null && phase == CareTurnPhase.reactionPrompt;
 
   CarePathViewModel copyWith({
     Object? snapshot = _unset,

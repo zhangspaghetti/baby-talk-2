@@ -2057,4 +2057,46 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get onboardingV21NextTime => '下次打开，小禾会给你新的一句。';
+
+  @override
+  String get practiceOneTurnTitle => '今日一句';
+
+  @override
+  String get practiceWhenToSay => '什么时候说';
+
+  @override
+  String get practiceListenOnce => '听一下';
+
+  @override
+  String get practiceSaid => '我说了';
+
+  @override
+  String get practiceAudioPlayedOnce => '已听过一次';
+
+  @override
+  String get practiceAudioMissingInline => '这句暂时没有音频，可以直接说。';
+
+  @override
+  String get practiceAudioMissingSnack => '这句暂时没有可播放的音频。';
+
+  @override
+  String get practiceAudioUnavailableInline => '音频暂时不可用';
+
+  @override
+  String get practiceAudioUnavailableSnack => '音频暂时不可用，请直接先说这一句。';
+
+  @override
+  String get practiceSavingTrace => '正在记下这次回应…';
+
+  @override
+  String get practiceReactionPrompt => '宝宝刚刚是什么反应？';
+
+  @override
+  String get practiceNextSupportTitle => '下一句照护支持';
+
+  @override
+  String get practiceQuietFallback => '先停在这里，等下一次再继续。';
+
+  @override
+  String get practiceGardenTraceTitle => '花园留痕';
 }

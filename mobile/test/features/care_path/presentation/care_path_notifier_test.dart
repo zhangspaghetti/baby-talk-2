@@ -44,7 +44,7 @@ void main() {
         currentUtterance: utterance,
         selectedReaction: null,
         nextSupportUtterance: null,
-        phase: CareTurnPhase.reactionPrompt,
+        phase: CareTurnPhase.utteranceReady,
         traceEventKey: null,
         latestGardenImpact: null,
         message: null,
@@ -54,8 +54,8 @@ void main() {
 
       expect(ready.moment, moment);
       expect(ready.currentUtterance, utterance);
-      expect(ready.phase, CareTurnPhase.reactionPrompt);
-      expect(ready.canSelectReaction, isTrue);
+      expect(ready.phase, CareTurnPhase.utteranceReady);
+      expect(ready.canSelectReaction, isFalse);
       expect(ready.hasCurrentUtterance, isTrue);
     });
   });
@@ -96,48 +96,106 @@ void main() {
       expect(notifier.message, isNull);
     });
 
-    test('starts requested moment and records selected reaction', () async {
-      final phases = <CareTurnPhase>[];
-      notifier.addListener(() => phases.add(notifier.phase));
+    test(
+      'markSaid moves utteranceReady into reactionPrompt without writes',
+      () async {
+        await notifier.startMoment(
+          spaceId: 'daily_care',
+          activityId: 'bath_time',
+        );
 
+        expect(notifier.phase, CareTurnPhase.utteranceReady);
+        expect(
+          notifier.viewModel.currentUtterance?.phraseId,
+          'bath_time_warm_water',
+        );
+
+        notifier.markSaid();
+
+        expect(notifier.phase, CareTurnPhase.reactionPrompt);
+        expect(
+          notifier.viewModel.currentUtterance?.phraseId,
+          'bath_time_warm_water',
+        );
+        expect(notifier.viewModel.selectedReaction, isNull);
+        expect(notifier.viewModel.nextSupportUtterance, isNull);
+        expect(notifier.viewModel.traceEventKey, isNull);
+        expect(notifier.viewModel.latestGardenImpact, isNull);
+
+        final events = await harness.repository.listEventHistory(
+          activityId: 'bath_time',
+        );
+        expect(events, isEmpty);
+      },
+    );
+
+    test('selectReaction before markSaid does not write', () async {
       await notifier.startMoment(
         spaceId: 'daily_care',
         activityId: 'bath_time',
       );
+
       await notifier.selectReaction(
-        BabyReactionType.resisting,
-        clientTimestamp: DateTime.utc(2026, 6, 30, 10),
-        localEventId: 'evt_care_path_notifier_resisting',
+        BabyReactionType.other,
+        localEventId: 'evt_care_path_notifier_before_mark_said',
       );
 
-      expect(phases, contains(CareTurnPhase.savingTrace));
-      expect(notifier.phase, CareTurnPhase.nextSupportReady);
-      expect(notifier.viewModel.selectedReaction, BabyReactionType.resisting);
-      expect(notifier.viewModel.canSelectReaction, isFalse);
-      expect(
-        notifier.viewModel.traceEventKey,
-        '$practiceCharacterizationInstallationId:evt_care_path_notifier_resisting',
-      );
-      expect(
-        notifier.viewModel.nextSupportUtterance?.phraseId,
-        'bath_time_splash_splash',
-      );
+      expect(notifier.phase, CareTurnPhase.utteranceReady);
+      expect(notifier.viewModel.selectedReaction, isNull);
+      expect(notifier.message, contains('说完'));
 
       final events = await harness.repository.listEventHistory(
         activityId: 'bath_time',
       );
-      expect(events.single.reactionType, BabyReactionType.resisting);
-
-      await notifier.selectReaction(
-        BabyReactionType.cooperating,
-        localEventId: 'evt_care_path_notifier_duplicate',
-      );
-
-      final eventsAfterDuplicateAttempt = await harness.repository
-          .listEventHistory(activityId: 'bath_time');
-      expect(eventsAfterDuplicateAttempt, hasLength(1));
-      expect(notifier.message, contains('已经完成'));
+      expect(events, isEmpty);
     });
+
+    test(
+      'starts requested moment, marks said, and records selected reaction',
+      () async {
+        final phases = <CareTurnPhase>[];
+        notifier.addListener(() => phases.add(notifier.phase));
+
+        await notifier.startMoment(
+          spaceId: 'daily_care',
+          activityId: 'bath_time',
+        );
+        notifier.markSaid();
+        await notifier.selectReaction(
+          BabyReactionType.other,
+          clientTimestamp: DateTime.utc(2026, 6, 30, 10),
+          localEventId: 'evt_care_path_notifier_other',
+        );
+
+        expect(phases, contains(CareTurnPhase.savingTrace));
+        expect(notifier.phase, CareTurnPhase.nextSupportReady);
+        expect(notifier.viewModel.selectedReaction, BabyReactionType.other);
+        expect(notifier.viewModel.canSelectReaction, isFalse);
+        expect(
+          notifier.viewModel.traceEventKey,
+          '$practiceCharacterizationInstallationId:evt_care_path_notifier_other',
+        );
+        expect(
+          notifier.viewModel.nextSupportUtterance?.phraseId,
+          'bath_time_splash_splash',
+        );
+
+        final events = await harness.repository.listEventHistory(
+          activityId: 'bath_time',
+        );
+        expect(events.single.reactionType, BabyReactionType.other);
+
+        await notifier.selectReaction(
+          BabyReactionType.cooperating,
+          localEventId: 'evt_care_path_notifier_duplicate',
+        );
+
+        final eventsAfterDuplicateAttempt = await harness.repository
+            .listEventHistory(activityId: 'bath_time');
+        expect(eventsAfterDuplicateAttempt, hasLength(1));
+        expect(notifier.message, contains('已经完成'));
+      },
+    );
 
     test('holds safe fallback when reaction is selected before load', () async {
       await notifier.selectReaction(BabyReactionType.other);

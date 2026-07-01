@@ -54,6 +54,7 @@ class CarePathNotifier extends ChangeNotifier {
   }) {
     return _runSnapshotOperation(
       busyPhase: CareTurnPhase.loading,
+      replaceRunning: true,
       loader: () =>
           _repository.startMoment(spaceId: spaceId, activityId: activityId),
     );
@@ -83,8 +84,15 @@ class CarePathNotifier extends ChangeNotifier {
       );
       return Future.value();
     }
+    if (turn.phase != CareTurnPhase.reactionPrompt) {
+      final message = turn.phase == CareTurnPhase.utteranceReady
+          ? '请先说完当前 utterance，再记录回应。'
+          : '当前 turn 已经完成，请加载下一句后再记录回应。';
+      _applySnapshot(turn.copyWith(message: message));
+      return Future.value();
+    }
     if (!_viewModel.canSelectReaction) {
-      _viewModel = _viewModel.copyWith(message: '当前 turn 已经完成，请加载下一句后再记录回应。');
+      _viewModel = _viewModel.copyWith(message: '当前 turn 暂时不能记录回应。');
       notifyListeners();
       return Future.value();
     }
@@ -105,6 +113,33 @@ class CarePathNotifier extends ChangeNotifier {
     );
   }
 
+  void markSaid() {
+    final turn = _viewModel.snapshot;
+    if (turn == null || turn.currentUtterance == null) {
+      return;
+    }
+    if (turn.phase == CareTurnPhase.reactionPrompt) {
+      if (_viewModel.message != turn.message) {
+        _applySnapshot(turn.copyWith(message: turn.message));
+      }
+      return;
+    }
+    if (turn.phase != CareTurnPhase.utteranceReady) {
+      return;
+    }
+
+    _applySnapshot(
+      turn.copyWith(
+        phase: CareTurnPhase.reactionPrompt,
+        selectedReaction: null,
+        nextSupportUtterance: null,
+        traceEventKey: null,
+        latestGardenImpact: null,
+        message: null,
+      ),
+    );
+  }
+
   void resetToSafeEmpty() {
     _operationGeneration += 1;
     _operationFuture = null;
@@ -116,12 +151,13 @@ class CarePathNotifier extends ChangeNotifier {
     required CareTurnPhase busyPhase,
     required Future<CareTurnSnapshot> Function() loader,
     CareTurnSnapshot? busySnapshot,
+    bool replaceRunning = false,
   }) {
     if (_disposed) {
       return Future.value();
     }
     final running = _operationFuture;
-    if (running != null) {
+    if (running != null && !replaceRunning) {
       return running;
     }
 

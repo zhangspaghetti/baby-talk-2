@@ -3847,6 +3847,90 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'下次打开，小禾会给你新的一句。'**
   String get onboardingV21NextTime;
+
+  /// T4 one-turn practice screen title
+  ///
+  /// In zh, this message translates to:
+  /// **'今日一句'**
+  String get practiceOneTurnTitle;
+
+  /// T4 one-turn timing label
+  ///
+  /// In zh, this message translates to:
+  /// **'什么时候说'**
+  String get practiceWhenToSay;
+
+  /// T4 one-turn listen button
+  ///
+  /// In zh, this message translates to:
+  /// **'听一下'**
+  String get practiceListenOnce;
+
+  /// T4 one-turn said button
+  ///
+  /// In zh, this message translates to:
+  /// **'我说了'**
+  String get practiceSaid;
+
+  /// T4 one-turn audio completion status
+  ///
+  /// In zh, this message translates to:
+  /// **'已听过一次'**
+  String get practiceAudioPlayedOnce;
+
+  /// T4 one-turn inline copy when current utterance has no audio asset
+  ///
+  /// In zh, this message translates to:
+  /// **'这句暂时没有音频，可以直接说。'**
+  String get practiceAudioMissingInline;
+
+  /// T4 one-turn snackbar copy when current utterance has no audio asset
+  ///
+  /// In zh, this message translates to:
+  /// **'这句暂时没有可播放的音频。'**
+  String get practiceAudioMissingSnack;
+
+  /// T4 one-turn inline copy when audio playback fails
+  ///
+  /// In zh, this message translates to:
+  /// **'音频暂时不可用'**
+  String get practiceAudioUnavailableInline;
+
+  /// T4 one-turn snackbar copy when audio playback fails
+  ///
+  /// In zh, this message translates to:
+  /// **'音频暂时不可用，请直接先说这一句。'**
+  String get practiceAudioUnavailableSnack;
+
+  /// T4 one-turn saving reaction trace status
+  ///
+  /// In zh, this message translates to:
+  /// **'正在记下这次回应…'**
+  String get practiceSavingTrace;
+
+  /// T4 one-turn reaction prompt heading
+  ///
+  /// In zh, this message translates to:
+  /// **'宝宝刚刚是什么反应？'**
+  String get practiceReactionPrompt;
+
+  /// T4 one-turn next support section title
+  ///
+  /// In zh, this message translates to:
+  /// **'下一句照护支持'**
+  String get practiceNextSupportTitle;
+
+  /// T4 one-turn held fallback copy
+  ///
+  /// In zh, this message translates to:
+  /// **'先停在这里，等下一次再继续。'**
+  String get practiceQuietFallback;
+
+  /// T4 one-turn garden trace section title
+  ///
+  /// In zh, this message translates to:
+  /// **'花园留痕'**
+  String get practiceGardenTraceTitle;
 }
 
 class _AppLocalizationsDelegate

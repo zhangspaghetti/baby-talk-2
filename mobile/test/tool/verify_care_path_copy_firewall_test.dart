@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -53,6 +54,89 @@ void main() {
       reason:
           'care_path must not import superseded product copy, UI screen names, '
           'or a parallel reaction contract.',
+    );
+  });
+
+  test('T4 one-turn practice copy stays behind the framing firewall', () {
+    final screenFile = File(
+      'lib/features/practice/presentation/screens/practice_session_screen.dart',
+    );
+    expect(screenFile.existsSync(), isTrue);
+
+    final sourceBlockedTerms = <String>[
+      'practiceSessionNotifierProvider',
+      'PracticeCompletionView',
+      'PracticeBottomActionBar',
+      'PhraseCard(',
+      'session-progress',
+      'practice-progress-text',
+      'practice-completion-view',
+      'practiceProgress',
+    ];
+    final source = screenFile.readAsStringSync();
+    final sourceViolations = [
+      for (final term in sourceBlockedTerms)
+        if (source.contains(term)) term,
+    ];
+    expect(
+      sourceViolations,
+      isEmpty,
+      reason:
+          'T4 practice screen must stay on the one-utterance loop and not '
+          'restore session/progress/completion framing.',
+    );
+
+    final arbFile = File('lib/l10n/app_zh.arb');
+    expect(arbFile.existsSync(), isTrue);
+    final arb = jsonDecode(arbFile.readAsStringSync()) as Map<String, dynamic>;
+    final oneTurnKeys = <String>[
+      'practiceOneTurnTitle',
+      'practiceWhenToSay',
+      'practiceListenOnce',
+      'practiceSaid',
+      'practiceAudioPlayedOnce',
+      'practiceAudioMissingInline',
+      'practiceAudioMissingSnack',
+      'practiceAudioUnavailableInline',
+      'practiceAudioUnavailableSnack',
+      'practiceSavingTrace',
+      'practiceReactionPrompt',
+      'practiceNextSupportTitle',
+      'practiceQuietFallback',
+      'practiceGardenTraceTitle',
+    ];
+    final copyBlockedTerms = <String>[
+      'XP',
+      'streak',
+      'task',
+      'lesson',
+      'session',
+      'progress',
+      '课程',
+      '进度',
+      '任务',
+      '连胜',
+      '第 1 /',
+      '完成总结',
+    ];
+    final copyViolations = <String>[];
+    for (final key in oneTurnKeys) {
+      final value = arb[key];
+      expect(value, isA<String>(), reason: 'Missing T4 copy key $key');
+      final text = value! as String;
+      for (final term in copyBlockedTerms) {
+        if (text.contains(term)) {
+          copyViolations.add('$key: $term');
+        }
+      }
+    }
+
+    expect(
+      copyViolations,
+      isEmpty,
+      reason:
+          'T4 one-turn copy must avoid lesson/progress/session/completion/XP/'
+          'streak/task framing.',
     );
   });
 }
