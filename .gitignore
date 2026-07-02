@@ -43,6 +43,7 @@ vendor/
 coverage/
 .cache/
 tmp/
+.tmp/
 deploy/helm/babytalk-app/values-kind-secrets.yaml
 deploy/helm/babytalk-app/values-kind-qa-secrets.yaml
 .mcp.json
