@@ -28,7 +28,9 @@ class OnboardingPracticeScreen extends ConsumerWidget {
           context.go('/onboarding/scene');
         }
       });
-      return const OnboardingWarmScaffold(child: Center(child: CircularProgressIndicator()));
+      return const OnboardingWarmScaffold(
+        child: Center(child: CircularProgressIndicator()),
+      );
     }
 
     // When phrase pool is exhausted, navigate to complete screen
@@ -313,7 +315,7 @@ class _ReactionCard extends StatelessWidget {
       onTap: onTap,
       scaleDown: 0.96,
       child: Container(
-        height: 92,
+        constraints: const BoxConstraints(minHeight: 92),
         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 10),
         decoration: BoxDecoration(
           color: const Color(0xFFFFFBF5),
