@@ -1,11 +1,15 @@
 package com.zhangspaghetti.babytalk.migration;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import java.sql.Timestamp;
+import java.time.Instant;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
@@ -70,10 +74,10 @@ class DbMigrationSmokeTest {
                 select count(*)
                 from flyway_schema_history
                 where success = true
-                  and version in ('3', '14', '15', '16', '17', '18', '19')
+                  and version in ('3', '14', '15', '16', '17', '18', '19', '24')
                 """,
                 Integer.class);
-        assertThat(trackedVersions).isEqualTo(7);
+        assertThat(trackedVersions).isEqualTo(8);
 
         assertThat(tableExists("accounts")).isTrue();
         assertThat(tableExists("spring_ai_chat_memory")).isTrue();
@@ -87,6 +91,7 @@ class DbMigrationSmokeTest {
         assertThat(tableExists("palace_bridge_edges")).isTrue();
         assertThat(tableExists("palace_projection_version")).isTrue();
         assertThat(tableExists("palace_query_traces")).isTrue();
+        assertThat(tableExists("baby_profiles")).isTrue();
 
         List<String> expectedPermissionCodes = List.of(
                 "users:read",
@@ -166,6 +171,77 @@ class DbMigrationSmokeTest {
         assertThat(indexExists("idx_palace_query_traces_installation_id")).isTrue();
     }
 
+    @Test
+    void createsBabyProfilesTableConstraintsAndIndexes() {
+        assertThat(columnNamesFor("baby_profiles"))
+                .containsExactly(
+                        "profile_id",
+                        "account_id",
+                        "baby_name",
+                        "age_range",
+                        "parent_goal",
+                        "starter_scene_id",
+                        "starter_moment_id",
+                        "starter_activity_id",
+                        "starter_utterance_id",
+                        "starter_phrase_id",
+                        "starter_source",
+                        "onboarding_state",
+                        "onboarding_completed_at",
+                        "version",
+                        "created_at",
+                        "updated_at");
+        assertThat(constraintExists("uq_baby_profiles_account_id")).isTrue();
+        assertThat(indexExists("idx_baby_profiles_updated_at")).isTrue();
+        assertThat(indexExists("idx_baby_profiles_state_updated_at")).isTrue();
+
+        assertBabyProfileRejected(
+                "profile_bad_age",
+                "acct_bad_age",
+                "m99",
+                null,
+                null,
+                "draft",
+                null,
+                1);
+        assertBabyProfileRejected(
+                "profile_bad_goal",
+                "acct_bad_goal",
+                "m7_11",
+                "sleep_better",
+                null,
+                "draft",
+                null,
+                1);
+        assertBabyProfileRejected(
+                "profile_bad_state",
+                "acct_bad_state",
+                "m7_11",
+                null,
+                null,
+                "done",
+                null,
+                1);
+        assertBabyProfileRejected(
+                "profile_bad_completed",
+                "acct_bad_completed",
+                "m7_11",
+                "calmer_care",
+                null,
+                "completed",
+                Instant.parse("2026-07-03T02:00:00Z"),
+                1);
+        assertBabyProfileRejected(
+                "profile_bad_version",
+                "acct_bad_version",
+                "m7_11",
+                null,
+                null,
+                "draft",
+                null,
+                0);
+    }
+
     private boolean tableExists(String tableName) {
         Boolean exists = jdbcTemplate.queryForObject(
                 """
@@ -207,5 +283,119 @@ class DbMigrationSmokeTest {
                 Boolean.class,
                 indexName);
         return Boolean.TRUE.equals(exists);
+    }
+
+    private boolean constraintExists(String constraintName) {
+        Boolean exists = jdbcTemplate.queryForObject(
+                """
+                select exists(
+                    select 1
+                    from information_schema.table_constraints
+                    where table_schema = current_schema()
+                      and constraint_name = ?
+                )
+                """,
+                Boolean.class,
+                constraintName);
+        return Boolean.TRUE.equals(exists);
+    }
+
+    private void assertBabyProfileRejected(
+            String profileId,
+            String accountId,
+            String ageRange,
+            String parentGoal,
+            Starter starter,
+            String onboardingState,
+            Instant completedAt,
+            int version
+    ) {
+        insertAccount(accountId);
+        assertThatThrownBy(() -> insertBabyProfile(
+                profileId,
+                accountId,
+                ageRange,
+                parentGoal,
+                starter,
+                onboardingState,
+                completedAt,
+                version))
+                .isInstanceOf(DataIntegrityViolationException.class);
+    }
+
+    private void insertAccount(String accountId) {
+        jdbcTemplate.update(
+                """
+                insert into accounts (
+                    account_id,
+                    phone_number,
+                    status,
+                    latest_consent_status,
+                    created_at,
+                    deleted_at
+                ) values (?, ?, 'active', 'accepted', ?, null)
+                """,
+                accountId,
+                accountId + "_phone",
+                Timestamp.from(Instant.parse("2026-07-03T00:00:00Z")));
+    }
+
+    private void insertBabyProfile(
+            String profileId,
+            String accountId,
+            String ageRange,
+            String parentGoal,
+            Starter starter,
+            String onboardingState,
+            Instant completedAt,
+            int version
+    ) {
+        var now = Timestamp.from(Instant.parse("2026-07-03T00:00:00Z"));
+        jdbcTemplate.update(
+                """
+                insert into baby_profiles (
+                    profile_id,
+                    account_id,
+                    baby_name,
+                    age_range,
+                    parent_goal,
+                    starter_scene_id,
+                    starter_moment_id,
+                    starter_activity_id,
+                    starter_utterance_id,
+                    starter_phrase_id,
+                    starter_source,
+                    onboarding_state,
+                    onboarding_completed_at,
+                    version,
+                    created_at,
+                    updated_at
+                ) values (?, ?, null, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                profileId,
+                accountId,
+                ageRange,
+                parentGoal,
+                starter == null ? null : starter.sceneId(),
+                starter == null ? null : starter.momentId(),
+                starter == null ? null : starter.activityId(),
+                starter == null ? null : starter.utteranceId(),
+                starter == null ? null : starter.phraseId(),
+                starter == null ? null : starter.source(),
+                onboardingState,
+                completedAt == null ? null : Timestamp.from(completedAt),
+                version,
+                now,
+                now);
+    }
+
+    private record Starter(
+            String sceneId,
+            String momentId,
+            String activityId,
+            String utteranceId,
+            String phraseId,
+            String source
+    ) {
     }
 }

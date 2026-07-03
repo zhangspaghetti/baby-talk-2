@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -248,6 +249,21 @@ class AuthConsentSyncWebTest extends AbstractIntegrationTest {
         var reloginSession = verifyChallenge(reloginChallengeId, "install-alpha");
         acceptConsent(reloginSession.accessToken());
 
+        mockMvc.perform(put("/api/v1/onboarding/profile")
+                        .header(ApiVersionInterceptor.VERSION_HEADER, "1.2.0")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(reloginSession.accessToken()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "babyName":"删除前宝宝",
+                                  "ageRange":"m7_11",
+                                  "onboardingState":"draft"
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.version").value(1));
+        assertThat(babyProfileCount(reloginSession.accountId())).isEqualTo(1);
+
         mockMvc.perform(delete("/api/v1/account")
                         .header(ApiVersionInterceptor.VERSION_HEADER, "1.2.0")
                         .header(HttpHeaders.AUTHORIZATION, bearer(reloginSession.accessToken()))
@@ -257,6 +273,7 @@ class AuthConsentSyncWebTest extends AbstractIntegrationTest {
                                 """))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.result").value("applied"));
+        assertThat(babyProfileCount(reloginSession.accountId())).isZero();
 
         mockMvc.perform(delete("/api/v1/account")
                         .header(ApiVersionInterceptor.VERSION_HEADER, "1.2.0")
@@ -346,6 +363,15 @@ class AuthConsentSyncWebTest extends AbstractIntegrationTest {
 
     private String bearer(String accessToken) {
         return "Bearer " + accessToken;
+    }
+
+    private int babyProfileCount(String accountId) {
+        Integer count = jdbcTemplate.queryForObject(
+                "select count(*) from baby_profiles where account_id = ?",
+                Integer.class,
+                accountId
+        );
+        return count == null ? 0 : count;
     }
 
     private record TokenView(String accountId, String sessionId, String accessToken, String refreshToken) {

@@ -47,6 +47,7 @@ public abstract class AbstractIntegrationTest {
             "garden_fertilizer_state",
             "mentor_audit_logs",
             "mentor_turns",
+            "baby_profiles",
             "interaction_events",
             "consent_audit_logs",
             "sms_challenges",
