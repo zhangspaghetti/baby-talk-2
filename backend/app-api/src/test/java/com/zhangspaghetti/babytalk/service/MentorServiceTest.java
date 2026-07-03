@@ -210,6 +210,42 @@ class MentorServiceTest extends AbstractIntegrationTest {
         assertThat(mentorService.countAuditRows()).isEqualTo(4);
     }
 
+    @Test
+    void generatePracticeCacheHitReturnsSeedCatalogDataWithoutProviderJson() {
+        var bathTimeId = jdbcTemplate.queryForObject(
+                "select id from practice_activities where slug = 'bath_time'",
+                Long.class
+        );
+        var warmWaterId = jdbcTemplate.queryForObject(
+                "select id from practice_phrases where slug = 'bath_time_warm_water'",
+                Long.class
+        );
+
+        var response = mentorService.generatePractice(
+                new MentorService.PracticeGenerateCommand(
+                        "install-practice-cache",
+                        "practice",
+                        12,
+                        "Bath time",
+                        null
+                ),
+                null
+        );
+
+        assertThat(response.activities()).hasSize(1);
+        var activity = response.activities().get(0);
+        assertThat(activity.activityId()).isEqualTo(bathTimeId);
+        assertThat(activity.title()).isEqualTo("洗澡时间");
+        assertThat(activity.summary()).isNull();
+        assertThat(activity.sceneTag()).isNull();
+        assertThat(activity.coachTip()).contains("慢速");
+        assertThat(activity.phrases())
+                .extracting(MentorService.PhraseDto::english)
+                .containsExactly("Warm water.", "Splash, splash!", "All clean.");
+        assertThat(activity.phrases().get(0).phraseId()).isEqualTo(warmWaterId);
+        assertThat(mentorService.countTurns()).isZero();
+    }
+
     private AuthConsentSyncService.SessionResponse createSignedInSession(String phoneNumber, String installationId) {
         var challenge = authConsentSyncService.createChallenge(phoneNumber);
         return authConsentSyncService.verifyChallenge(challenge.challengeId(), "246810", installationId);

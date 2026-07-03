@@ -551,36 +551,38 @@ public class MentorService {
      */
     private PracticeGenerateResponse persistToCatalog(String sceneTag, PracticeGenerateResponse parsed) {
         try {
-            var spaceSlug = classifySceneTagToSpaceSlug(sceneTag);
-            var spaceId = catalogRepo.insertSpace(spaceSlug, spaceSlug);
-            var activitySlug = "llm_" + sanitizeSlug(sceneTag) + "_" +
-                    UUID.randomUUID().toString().replace("-", "").substring(0, 8);
+            return transactionTemplate.execute(status -> {
+                var spaceSlug = classifySceneTagToSpaceSlug(sceneTag);
+                var spaceId = catalogRepo.insertSpace(spaceSlug, spaceSlug);
+                var activitySlug = "llm_" + sanitizeSlug(sceneTag) + "_" +
+                        UUID.randomUUID().toString().replace("-", "").substring(0, 8);
 
-            var activityId = catalogRepo.insertActivity(
-                    activitySlug, spaceId, sceneTag, sceneTag, null);
+                var activityId = catalogRepo.insertActivity(
+                        activitySlug, spaceId, sceneTag, sceneTag, null);
 
-            var enrichedActivities = new ArrayList<ActivityDto>();
-            for (int i = 0; i < parsed.activities().size(); i++) {
-                var act = parsed.activities().get(i);
-                var enrichedPhrases = new ArrayList<PhraseDto>();
-                for (int j = 0; j < act.phrases().size(); j++) {
-                    var phrase = act.phrases().get(j);
-                    var phraseSlug = activitySlug + "_" + (j + 1);
-                    var phraseId = catalogRepo.insertPhrase(
-                            phraseSlug, activityId, j + 1,
-                            phrase.english(), phrase.chinese(),
-                            phrase.pronunciation(), phrase.difficulty());
-                    enrichedPhrases.add(new PhraseDto(
-                            phraseId, phrase.english(), phrase.chinese(),
-                            phrase.pronunciation(), phrase.difficulty()));
+                var enrichedActivities = new ArrayList<ActivityDto>();
+                for (int i = 0; i < parsed.activities().size(); i++) {
+                    var act = parsed.activities().get(i);
+                    var enrichedPhrases = new ArrayList<PhraseDto>();
+                    for (int j = 0; j < act.phrases().size(); j++) {
+                        var phrase = act.phrases().get(j);
+                        var phraseSlug = activitySlug + "_" + (j + 1);
+                        var phraseId = catalogRepo.insertPhrase(
+                                phraseSlug, activityId, j + 1,
+                                phrase.english(), phrase.chinese(),
+                                phrase.pronunciation(), phrase.difficulty());
+                        enrichedPhrases.add(new PhraseDto(
+                                phraseId, phrase.english(), phrase.chinese(),
+                                phrase.pronunciation(), phrase.difficulty()));
+                    }
+                    enrichedActivities.add(new ActivityDto(
+                            activityId, act.title(), act.summary(),
+                            act.sceneTag(), act.coachTip(), enrichedPhrases));
                 }
-                enrichedActivities.add(new ActivityDto(
-                        activityId, act.title(), act.summary(),
-                        act.sceneTag(), act.coachTip(), enrichedPhrases));
-            }
-            log.info("practice.generate: persisted to catalog, activitySlug={}, activityId={}",
-                    activitySlug, activityId);
-            return new PracticeGenerateResponse(enrichedActivities);
+                log.info("practice.generate: persisted to catalog, activitySlug={}, activityId={}",
+                        activitySlug, activityId);
+                return new PracticeGenerateResponse(enrichedActivities);
+            });
         } catch (Exception e) {
             // Write-through failure should not break the response
             log.warn("practice.generate: catalog write-through failed", e);
