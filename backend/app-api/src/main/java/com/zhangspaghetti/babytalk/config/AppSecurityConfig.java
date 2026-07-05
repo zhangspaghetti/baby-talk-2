@@ -147,6 +147,7 @@ public class AppSecurityConfig {
                                 "/actuator/info",
                                 "/error",
                                 "/api/v1/share-links",
+                                "/api/v1/onboarding/discovery",
                                 "/api/v1/mentor/chat")
                         .permitAll()
                         .anyRequest().authenticated())

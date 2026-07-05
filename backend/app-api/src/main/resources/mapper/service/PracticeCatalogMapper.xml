@@ -193,6 +193,9 @@
         from practice_phrases p
         join practice_activities a on a.id = p.activity_id
         where a.slug = #{activityId}
+        <if test="seedOnly">
+          and p.source = 'seed'
+        </if>
         order by case when p.difficulty = 'starter' then 0 else 1 end,
                  p.step asc,
                  p.id asc

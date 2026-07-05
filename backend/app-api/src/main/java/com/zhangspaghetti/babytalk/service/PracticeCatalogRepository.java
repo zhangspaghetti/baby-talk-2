@@ -44,7 +44,16 @@ public class PracticeCatalogRepository {
     }
 
     public Optional<PracticePhraseRow> findStarterPhrase(String activityId, String locale) {
-        return Optional.ofNullable(mapper.findStarterPhrase(activityId));
+        return findStarterPhrase(activityId, locale, StarterPhraseSourcePolicy.ANY_SOURCE);
+    }
+
+    public Optional<PracticePhraseRow> findStarterPhrase(
+            String activityId,
+            String locale,
+            StarterPhraseSourcePolicy sourcePolicy
+    ) {
+        var seedOnly = sourcePolicy == StarterPhraseSourcePolicy.SEED_ONLY;
+        return Optional.ofNullable(mapper.findStarterPhrase(activityId, seedOnly));
     }
 
     public Optional<PracticePhraseRow> findNextPhrase(String activityId, String currentPhraseId) {
@@ -159,5 +168,10 @@ public class PracticeCatalogRepository {
             String audioAsset,
             String source
     ) {
+    }
+
+    public enum StarterPhraseSourcePolicy {
+        ANY_SOURCE,
+        SEED_ONLY
     }
 }

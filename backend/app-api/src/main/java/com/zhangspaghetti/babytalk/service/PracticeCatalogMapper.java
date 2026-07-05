@@ -46,7 +46,10 @@ public interface PracticeCatalogMapper {
             @Param("limit") int limit
     );
 
-    PracticeCatalogRepository.PracticePhraseRow findStarterPhrase(@Param("activityId") String activityId);
+    PracticeCatalogRepository.PracticePhraseRow findStarterPhrase(
+            @Param("activityId") String activityId,
+            @Param("seedOnly") boolean seedOnly
+    );
 
     PracticeCatalogRepository.PracticePhraseRow findNextPhrase(
             @Param("activityId") String activityId,

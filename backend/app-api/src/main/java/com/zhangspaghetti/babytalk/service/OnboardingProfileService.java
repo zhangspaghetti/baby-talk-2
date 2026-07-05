@@ -23,21 +23,6 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class OnboardingProfileService {
 
-    private static final Set<String> AGE_RANGES = Set.of(
-            "m0_3",
-            "m4_6",
-            "m7_11",
-            "m12_17",
-            "m18_23",
-            "m24_30",
-            "m31_36"
-    );
-    private static final Set<String> PARENT_GOALS = Set.of(
-            "natural_opening",
-            "confident_pronunciation",
-            "calmer_care",
-            "keep_talking"
-    );
     private static final Set<String> ONBOARDING_STATES = Set.of("draft", "completed");
     private static final Set<String> STARTER_SOURCES = Set.of("catalog", "generated");
     private static final Pattern CLIENT_TRACE_ID_PATTERN = Pattern.compile("^[A-Za-z0-9][A-Za-z0-9_-]{0,95}$");
@@ -155,7 +140,12 @@ public class OnboardingProfileService {
             throw new ContractException(HttpStatus.BAD_REQUEST, "validation_failed", "expectedVersion 必须为正整数。");
         }
         var babyName = normalizeBabyName(request.babyName());
-        var ageRange = requireAllowed(trimToNull(request.ageRange()), AGE_RANGES, "invalid_age_range", "ageRange 不支持。");
+        var ageRange = requireAllowed(
+                trimToNull(request.ageRange()),
+                OnboardingProfileOptions.AGE_RANGES,
+                "invalid_age_range",
+                "ageRange 不支持。"
+        );
         var onboardingState = requireAllowed(
                 trimToNull(request.onboardingState()),
                 ONBOARDING_STATES,
@@ -164,7 +154,7 @@ public class OnboardingProfileService {
         );
         var parentGoal = optionalAllowed(
                 trimToNull(request.parentGoal()),
-                PARENT_GOALS,
+                OnboardingProfileOptions.PARENT_GOALS,
                 "invalid_parent_goal",
                 "parentGoal 不支持。"
         );

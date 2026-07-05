@@ -408,6 +408,42 @@ class PracticeCatalogRepositoryTest extends AbstractIntegrationTest {
     }
 
     @Test
+    void findStarterPhraseSourcePolicyControlsWhetherLlmCanShadowSeedPhrase() {
+        var bathTimeId = seedActivityId("bath_time");
+        catalogRepository.insertPhrase(
+                TEST_PREFIX + "shadow_llm_starter",
+                bathTimeId,
+                0,
+                "Generated first.",
+                "生成优先。",
+                null,
+                "starter"
+        );
+
+        var legacyPhrase = catalogRepository.findStarterPhrase("bath_time", "zh-CN");
+        var anySourcePhrase = catalogRepository.findStarterPhrase(
+                "bath_time",
+                "zh-CN",
+                PracticeCatalogRepository.StarterPhraseSourcePolicy.ANY_SOURCE
+        );
+        var seedPhrase = catalogRepository.findStarterPhrase(
+                "bath_time",
+                "zh-CN",
+                PracticeCatalogRepository.StarterPhraseSourcePolicy.SEED_ONLY
+        );
+
+        assertThat(legacyPhrase).isPresent();
+        assertThat(legacyPhrase.get().phraseId()).isEqualTo(TEST_PREFIX + "shadow_llm_starter");
+        assertThat(legacyPhrase.get().source()).isEqualTo("llm");
+        assertThat(anySourcePhrase).isPresent();
+        assertThat(anySourcePhrase.get().phraseId()).isEqualTo(TEST_PREFIX + "shadow_llm_starter");
+        assertThat(anySourcePhrase.get().source()).isEqualTo("llm");
+        assertThat(seedPhrase).isPresent();
+        assertThat(seedPhrase.get().phraseId()).isEqualTo("bath_time_warm_water");
+        assertThat(seedPhrase.get().source()).isEqualTo("seed");
+    }
+
+    @Test
     void findStarterPhraseReturnsEmptyForMissingActivity() {
         assertThat(catalogRepository.findStarterPhrase(TEST_PREFIX + "missing_activity", "zh-CN"))
                 .isEmpty();
