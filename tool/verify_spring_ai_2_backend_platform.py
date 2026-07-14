@@ -20,6 +20,141 @@ def require(text: str, pattern: str, message: str, errors: list[str]) -> None:
         errors.append(message)
 
 
+def production_java_sources(root: pathlib.Path) -> list[pathlib.Path]:
+    return sorted((root / "backend").glob("*/src/main/**/*.java"))
+
+
+def balanced_parentheses_end(source: str, opening_parenthesis: int) -> int | None:
+    depth = 0
+    quote: str | None = None
+    escaped = False
+    for index in range(opening_parenthesis, len(source)):
+        character = source[index]
+        if quote:
+            if escaped:
+                escaped = False
+            elif character == "\\\\":
+                escaped = True
+            elif character == quote:
+                quote = None
+            continue
+        if character in ('"', "'"):
+            quote = character
+        elif character == "(":
+            depth += 1
+        elif character == ")":
+            depth -= 1
+            if depth == 0:
+                return index
+    return None
+
+
+def model_options_expression(source: str, builder_end: int) -> str | None:
+    """Return the explicit .options(...) argument for one model builder chain."""
+    position = builder_end
+    while True:
+        method = re.match(r"\s*\.\s*([A-Za-z_$][A-Za-z0-9_$]*)\s*\(", source[position:])
+        if method is None:
+            return None
+        opening_parenthesis = position + method.end() - 1
+        closing_parenthesis = balanced_parentheses_end(source, opening_parenthesis)
+        if closing_parenthesis is None:
+            return None
+        method_name = method.group(1)
+        if method_name == "options":
+            return source[opening_parenthesis + 1:closing_parenthesis]
+        if method_name == "build":
+            return None
+        position = closing_parenthesis + 1
+
+
+def supplied_options_source(source: str, expression: str, options: str) -> str | None:
+    if re.search(rf"\b{re.escape(options)}\s*\.\s*builder\s*\(", expression):
+        return expression
+
+    supplied_factory = re.fullmatch(
+        r"\s*(?:this\s*\.\s*)?([A-Za-z_$][A-Za-z0-9_$]*)\s*\(.*\)\s*",
+        expression,
+        re.DOTALL,
+    )
+    if supplied_factory is None:
+        return None
+    factory_name = supplied_factory.group(1)
+    declaration = re.search(
+        rf"\b{re.escape(options)}\s+{re.escape(factory_name)}\s*\([^)]*\)\s*(?:throws[^{{]+)?\{{",
+        source,
+    )
+    if declaration is None:
+        return None
+    opening_brace = declaration.end() - 1
+    closing_brace = balanced_brace_end(source, opening_brace)
+    if closing_brace is None:
+        return None
+    factory_body = source[opening_brace + 1:closing_brace]
+    if re.search(rf"\b{re.escape(options)}\s*\.\s*builder\s*\(", factory_body) is None:
+        return None
+    return factory_body
+
+
+def balanced_brace_end(source: str, opening_brace: int) -> int | None:
+    depth = 0
+    quote: str | None = None
+    escaped = False
+    for index in range(opening_brace, len(source)):
+        character = source[index]
+        if quote:
+            if escaped:
+                escaped = False
+            elif character == "\\\\":
+                escaped = True
+            elif character == quote:
+                quote = None
+            continue
+        if character in ('"', "'"):
+            quote = character
+        elif character == "{":
+            depth += 1
+        elif character == "}":
+            depth -= 1
+            if depth == 0:
+                return index
+    return None
+
+
+def verify_manual_model_configuration(root: pathlib.Path, errors: list[str]) -> None:
+    required_options = {
+        "OpenAiChatModel": "OpenAiChatOptions",
+        "OpenAiEmbeddingModel": "OpenAiEmbeddingOptions",
+    }
+    required_provider_fields = ("baseUrl", "apiKey", "model", "timeout")
+    for path in production_java_sources(root):
+        source = path.read_text(encoding="utf-8")
+        relative_path = path.relative_to(root)
+        if re.search(r"\bnew\s+OpenAiApi\s*\(", source):
+            errors.append(f"Production OpenAiApi construction remains: {relative_path}")
+        for model, options in required_options.items():
+            for builder in re.finditer(
+                rf"\b{re.escape(model)}\s*\.\s*builder\s*\(\s*\)", source
+            ):
+                expression = model_options_expression(source, builder.end())
+                if expression is None:
+                    errors.append(
+                        f"Manual {model} construction lacks supplied {options} provider configuration: {relative_path}"
+                    )
+                    continue
+                option_source = supplied_options_source(source, expression, options)
+                if option_source is None:
+                    errors.append(
+                        f"Manual {model} construction lacks {options} provider configuration: {relative_path}"
+                    )
+                    continue
+                for field in required_provider_fields:
+                    if not re.search(rf"\.{field}\s*\(", option_source):
+                        errors.append(
+                            f"Manual {model} construction lacks explicit {field}: {relative_path}"
+                        )
+
+
 def verify(root: pathlib.Path) -> list[str]:
     errors: list[str] = []
     parent = (root / "backend" / "pom.xml").read_text(encoding="utf-8")
@@ -43,10 +178,20 @@ def verify(root: pathlib.Path) -> list[str]:
     gateway_pom = (root / "backend" / "gateway" / "pom.xml").read_text(encoding="utf-8")
     require(gateway_pom, r"spring-cloud-starter-gateway-server-webflux", "Expected gateway-server-webflux starter", errors)
     gateway_yml = (root / "backend" / "gateway" / "src" / "main" / "resources" / "application.yml").read_text(encoding="utf-8")
-    if re.search(r"^\s{4}gateway:\s*$", gateway_yml, re.MULTILINE):
+    old_gateway_prefix = re.search(
+        r"^ {4}gateway:\s*\n(?:^ {6}(?!server:).*(?:\n|$))*^ {6}routes:",
+        gateway_yml,
+        re.MULTILINE,
+    )
+    if old_gateway_prefix:
         errors.append("Old spring.cloud.gateway prefix remains")
-    require(gateway_yml, r"server:\s*\n\s+webflux:\s*\n\s+routes:",
-            "Expected spring.cloud.gateway.server.webflux.routes", errors)
+    if not all((
+            re.search(r"^ {6}server:\s*$", gateway_yml, re.MULTILINE),
+            re.search(r"^ {8}webflux:\s*$", gateway_yml, re.MULTILINE),
+            re.search(r"^ {10}routes:", gateway_yml, re.MULTILINE),
+    )):
+        errors.append("Expected spring.cloud.gateway.server.webflux.routes")
+    verify_manual_model_configuration(root, errors)
     return errors
 
 

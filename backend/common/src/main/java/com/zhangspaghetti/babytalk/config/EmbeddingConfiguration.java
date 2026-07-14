@@ -1,6 +1,7 @@
 package com.zhangspaghetti.babytalk.config;
 
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import org.slf4j.Logger;
@@ -13,7 +14,6 @@ import org.springframework.ai.embedding.EmbeddingRequest;
 import org.springframework.ai.embedding.EmbeddingResponse;
 import org.springframework.ai.openai.OpenAiEmbeddingModel;
 import org.springframework.ai.openai.OpenAiEmbeddingOptions;
-import org.springframework.ai.openai.api.OpenAiApi;
 import org.springframework.ai.vectorstore.VectorStore;
 import org.springframework.ai.vectorstore.pgvector.PgVectorStore;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -47,19 +47,16 @@ public class EmbeddingConfiguration {
                     "app.embedding.mode=openai 但仍在使用 compose placeholder key；请显式切到 dev-hash mode 或提供真实密钥");
         }
 
-        var openAiApi = OpenAiApi.builder()
-                .baseUrl(properties.baseUrl())
-                .apiKey(properties.apiKey())
-                .build();
-
-        return new OpenAiEmbeddingModel(
-                openAiApi,
-                MetadataMode.EMBED,
-                OpenAiEmbeddingOptions.builder()
+        return OpenAiEmbeddingModel.builder()
+                .options(OpenAiEmbeddingOptions.builder()
+                        .baseUrl(properties.baseUrl())
+                        .apiKey(properties.apiKey())
                         .model(properties.model())
+                        .timeout(Duration.ofSeconds(60))
                         .dimensions(properties.dimensions())
-                        .build()
-        );
+                        .build())
+                .metadataMode(MetadataMode.EMBED)
+                .build();
     }
 
     @Bean
