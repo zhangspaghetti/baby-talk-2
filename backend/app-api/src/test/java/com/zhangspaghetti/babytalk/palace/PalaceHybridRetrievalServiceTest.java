@@ -8,7 +8,8 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
 import com.zhangspaghetti.babytalk.kg.KgEntityRepository;
 import com.zhangspaghetti.babytalk.palace.PalaceKeywordRepository.ChunkResult;
 import com.zhangspaghetti.babytalk.palace.projection.PalaceBridgeEdgeRepository;
@@ -65,7 +66,7 @@ class PalaceHybridRetrievalServiceTest {
                 palaceBridgeEdgeRepository,
                 palaceProjectionVersionRepository,
                 palaceQueryTraceRepository,
-                new ObjectMapper(),
+                JsonMapper.builder().build(),
                 Clock.fixed(Instant.parse("2026-04-27T08:00:00Z"), ZoneOffset.UTC));
 
         when(kgEntityRepository.findByNameLike(anyString())).thenReturn(List.of());

@@ -1,6 +1,6 @@
 package com.zhangspaghetti.babytalk.palace;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
 import com.zhangspaghetti.babytalk.kg.KgEntity;
 import com.zhangspaghetti.babytalk.kg.KgEntityRepository;
 import com.zhangspaghetti.babytalk.palace.PalaceKeywordRepository.ChunkResult;

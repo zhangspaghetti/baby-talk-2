@@ -3,8 +3,9 @@ package com.zhangspaghetti.babytalk.kg;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.when;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
@@ -28,7 +29,7 @@ class KgQueryToolTest {
     @Mock
     private KgRelationshipRepository relationshipRepository;
 
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final ObjectMapper objectMapper = JsonMapper.builder().build();
     private KgQueryTool queryTool;
 
     @BeforeEach

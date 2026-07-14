@@ -5,7 +5,8 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
 import com.zhangspaghetti.babytalk.palace.PalaceKeywordMapper.ChunkRow;
 import com.zhangspaghetti.babytalk.palace.PalaceKeywordRepository.ChunkResult;
 import java.util.List;
@@ -31,7 +32,7 @@ class PalaceKeywordRepositoryTest {
 
     @BeforeEach
     void setUp() {
-        repository = new PalaceKeywordRepository(palaceKeywordMapper, new ObjectMapper());
+        repository = new PalaceKeywordRepository(palaceKeywordMapper, JsonMapper.builder().build());
     }
 
     @Test

@@ -9,8 +9,9 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.core.type.TypeReference;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
 import com.zhangspaghetti.babytalk.kg.KgQueryTool;
 import com.zhangspaghetti.babytalk.palace.PalaceKeywordRepository.ChunkResult;
 import java.lang.reflect.Method;
@@ -54,7 +55,7 @@ class PalaceToolProviderTest {
     @Mock
     private ObjectProvider<KgQueryTool> kgQueryToolProvider;
 
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final ObjectMapper objectMapper = JsonMapper.builder().build();
 
     private PalaceToolProvider provider;
 

@@ -7,8 +7,8 @@ import com.zhangspaghetti.babytalk.practice.catalog.PracticeCatalogService;
 import com.zhangspaghetti.babytalk.practice.catalog.model.CachedActivity;
 import com.zhangspaghetti.babytalk.practice.catalog.model.CachedPhrase;
 import com.zhangspaghetti.babytalk.web.ContractException;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.ObjectMapper;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -627,7 +627,7 @@ public class MentorService {
         // 先尝试直接解析
         try {
             return objectMapper.readValue(rawResponse.trim(), PracticeGenerateResponse.class);
-        } catch (JsonProcessingException e) {
+        } catch (JacksonException e) {
             log.debug("practice.generate: direct JSON parse failed, trying regex extraction");
         }
 
@@ -636,7 +636,7 @@ public class MentorService {
         if (extracted != null) {
             try {
                 return objectMapper.readValue(extracted, PracticeGenerateResponse.class);
-            } catch (JsonProcessingException e) {
+            } catch (JacksonException e) {
                 log.warn("practice.generate: JSON parse fallback failed, rawResponse.length={}", rawResponse.length());
                 log.debug("practice.generate: full LLM response for diagnosis: {}", rawResponse);
             }

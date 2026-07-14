@@ -1,7 +1,7 @@
 package com.zhangspaghetti.babytalk.kg;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
 import java.util.List;
 import java.util.Optional;
 import org.slf4j.Logger;

@@ -1,6 +1,6 @@
 package com.zhangspaghetti.babytalk.admin.auth;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
 import com.nimbusds.jose.jwk.source.ImmutableSecret;
 import com.nimbusds.jose.proc.SecurityContext;
 import com.zhangspaghetti.babytalk.security.JwtTokenService;

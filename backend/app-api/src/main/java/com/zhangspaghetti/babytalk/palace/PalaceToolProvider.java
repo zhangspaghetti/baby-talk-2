@@ -1,7 +1,7 @@
 package com.zhangspaghetti.babytalk.palace;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.ObjectMapper;
 import com.zhangspaghetti.babytalk.kg.KgQueryTool;
 import com.zhangspaghetti.babytalk.palace.MemPalaceTaxonomy.BookMapping;
 import com.zhangspaghetti.babytalk.palace.PalaceKeywordRepository.ChunkResult;
@@ -279,7 +279,7 @@ public class PalaceToolProvider {
     String toJson(Object obj) {
         try {
             return objectMapper.writeValueAsString(obj);
-        } catch (JsonProcessingException e) {
+        } catch (JacksonException e) {
             log.error("JSON 序列化失败", e);
             return "{\"error\":\"JSON 序列化失败\"}";
         }
