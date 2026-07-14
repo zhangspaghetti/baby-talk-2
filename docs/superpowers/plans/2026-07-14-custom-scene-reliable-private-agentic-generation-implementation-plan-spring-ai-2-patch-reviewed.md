@@ -6,7 +6,7 @@
 
 **Architecture:** Keep `PracticeDiscoveryService` as the HTTP/domain entry point and turn `PracticeGeneratedContentService` into a small public facade over a dedicated generation orchestrator. Split query and mutation persistence, represent semantic attempts separately from real provider calls, freeze one immutable evidence bundle per attempt, and route typed Spring AI capabilities through a provider manager whose provider selection is configured in Helm/YAML. This plan implements only the approved first private-generation scope; semantic reuse, Scene Abstraction, Reuse Match, Reuse Eligibility, public Approved Output Assets, and global indexing remain separate follow-on plans.
 
-**Tech Stack:** JDK 21 runtime/toolchain with Java 17 source and bytecode, Spring Boot 4.0.7, Spring AI 2.0.0, Spring Cloud 2025.1.2, ICU4J 76.1, MyBatis-Plus 3.5.17 Boot 4 starter, Druid 1.2.28 Boot 4 starter, Jackson 3, PostgreSQL, Flyway V25, JUnit 5, Mockito, Testcontainers, Helm.
+**Tech Stack:** JDK 21 runtime/toolchain with Java 17 source and bytecode, Spring Boot 4.0.7, Spring AI 2.0.0, Spring Cloud 2025.1.2, ICU4J 76.1, MyBatis-Plus 3.5.17 Boot 4 starter, Druid 1.2.28 Boot 4 starter, Jackson 3, PostgreSQL, Flyway V25/V26, JUnit 5, Mockito, Testcontainers, Helm.
 
 ## Global Constraints
 
@@ -30,7 +30,7 @@
 - Every semantic attempt uses one immutable evidence bundle. Repair uses a new bundle for the new attempt, either derived with `REUSED` evidence or rebuilt with `REFRESHED` evidence.
 - Terminal generated-content rows are never revived. A retry creates a new `practice_generated_content` row.
 - `OffsetDateTime` remains the Java timestamp type and all application-created values are UTC.
-- Current V25 is uncommitted in the reviewed B2.1 working tree, so this plan rewrites V25 rather than creating V26. If V25 has been applied in any shared environment before execution, stop and create additive V26 migrations instead.
+- V25 and V26 are immutable Flyway history. Current repository evidence proves them only in disposable Testcontainers schemas; no execution in a non-disposable environment is known. If either version has run outside disposable/Testcontainers infrastructure, every generated-content follow-up must use an additive V27+ migration. Never rewrite V25 or V26.
 - The reviewed B2.1 hardening working tree must be preserved. Commit commands below assume it has first been committed or captured in an explicitly approved execution baseline; do not accidentally fold the pre-existing patch into a task commit.
 - Follow TDD: each task begins with focused failing tests, implements the smallest complete behavior, runs focused tests, then runs the relevant regression set.
 
@@ -89,8 +89,8 @@ Execution rules:
   work. Fake mode remains dev/test-only.
 - Preserve the existing catalog/profile/controller package migration and all
   corresponding regression tests.
-- V25 may be rewritten only when it has never run in a shared environment.
-  Otherwise the implementer must create additive V26+ migrations.
+- V25 and V26 must never be rewritten. If either has run outside a disposable
+  Testcontainers schema, generated-content follow-up work starts at additive V27+.
 
 ## File Structure
 
@@ -2513,8 +2513,9 @@ Before declaring the implementation complete:
 4. Confirm no provider secret, prompt body, model response, raw scene, or raw
    evidence chunk appears in `git diff` outside approved resource prompts and
    test fixtures.
-5. Confirm V25 is still safe to edit; if it has been deployed, replace migration
-   edits with additive V26+ migrations and rerun all migration tests.
+5. Confirm whether V25 or V26 has run outside a disposable Testcontainers schema.
+   If so, generated-content follow-up uses additive V27+ migrations and reruns all
+   migration tests; neither historical migration may be edited.
 6. Confirm production Helm values cannot select fake mode.
 7. Confirm the public API still exposes one complete directly speakable
    utterance and composed guidance, without course, score, completion, reward,

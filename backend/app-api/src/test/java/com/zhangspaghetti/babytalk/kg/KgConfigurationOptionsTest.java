@@ -24,6 +24,14 @@ class KgConfigurationOptionsTest {
         assertThat(options.getMaxRetries()).isEqualTo(9);
     }
 
+    @Test
+    void mapsSingleTotalAttemptToZeroSpringAiRetries() {
+        var options = configuration.openAiOptions(properties(
+                "https://models.inference.ai.azure.com", "secret", "gpt-4o-mini", 600, 1), "secret");
+
+        assertThat(options.getMaxRetries()).isZero();
+    }
+
     private static MentorProperties properties(
             String baseUrl, String apiKey, String model, Integer maxTokens, int maxAttempts) {
         return new MentorProperties(

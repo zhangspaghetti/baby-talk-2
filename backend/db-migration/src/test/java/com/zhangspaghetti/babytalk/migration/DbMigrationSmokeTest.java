@@ -9,6 +9,7 @@ import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
 import org.junit.jupiter.api.Test;
+import org.flywaydb.core.Flyway;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -20,6 +21,8 @@ import org.testcontainers.utility.DockerImageName;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.NONE)
 class DbMigrationSmokeTest {
+
+    private static final String V13_UPGRADE_SCHEMA = "flyway_v13_chat_memory_upgrade";
 
     @SuppressWarnings("resource")
     static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>(
@@ -76,10 +79,10 @@ class DbMigrationSmokeTest {
                 select count(*)
                 from flyway_schema_history
                 where success = true
-                  and version in ('3', '14', '15', '16', '17', '18', '19', '24', '25')
+                  and version in ('3', '14', '15', '16', '17', '18', '19', '24', '25', '26')
                 """,
                 Integer.class);
-        assertThat(trackedVersions).isEqualTo(9);
+        assertThat(trackedVersions).isEqualTo(10);
 
         assertThat(tableExists("accounts")).isTrue();
         assertThat(tableExists("spring_ai_chat_memory")).isTrue();
@@ -127,6 +130,83 @@ class DbMigrationSmokeTest {
                 """,
                 Integer.class);
         assertThat(seededSuperAdminGrants).isEqualTo(expectedPermissionCodes.size());
+    }
+
+    @Test
+    void upgradesChatMemorySchemaForSpringAi2SequenceOrdering() {
+        assertThat(columnNamesFor("spring_ai_chat_memory"))
+                .contains("conversation_id", "content", "type", "timestamp", "sequence_id");
+        assertThat(columnIsNullable("spring_ai_chat_memory", "sequence_id")).isFalse();
+        assertThat(columnDefault("spring_ai_chat_memory", "sequence_id"))
+                .containsIgnoringCase("nextval")
+                .contains("spring_ai_chat_memory_sequence_id_seq");
+        assertThat(indexExists("uq_spring_ai_chat_memory_conversation_sequence")).isTrue();
+        assertThat(indexIsUnique("uq_spring_ai_chat_memory_conversation_sequence")).isTrue();
+    }
+
+    @Test
+    void flywayUpgradeFromV13PreservesChatMemoryRowsAndAddsSpringAi2Contract() {
+        Flyway v13 = flywayFor(V13_UPGRADE_SCHEMA, "13");
+        v13.migrate();
+        assertThat(v13.info().current().getVersion().getVersion()).isEqualTo("13");
+
+        String chatMemoryTable = V13_UPGRADE_SCHEMA + ".spring_ai_chat_memory";
+        Timestamp first = Timestamp.from(Instant.parse("2026-07-03T01:00:00Z"));
+        Timestamp second = Timestamp.from(Instant.parse("2026-07-03T01:00:00Z"));
+        jdbcTemplate.update(
+                "INSERT INTO " + chatMemoryTable + " (conversation_id, content, type, \"timestamp\") VALUES (?, ?, ?, ?)",
+                "legacy-conversation", "first", "USER", first);
+        jdbcTemplate.update(
+                "INSERT INTO " + chatMemoryTable + " (conversation_id, content, type, \"timestamp\") VALUES (?, ?, ?, ?)",
+                "legacy-conversation", "second", "ASSISTANT", second);
+        jdbcTemplate.update(
+                "INSERT INTO " + chatMemoryTable + " (conversation_id, content, type, \"timestamp\") VALUES (?, ?, ?, ?)",
+                "second-legacy-conversation", "independent", "USER", first);
+
+        Flyway v26 = flywayFor(V13_UPGRADE_SCHEMA, "26");
+        v26.migrate();
+        assertThat(v26.info().current().getVersion().getVersion()).isEqualTo("26");
+
+        assertThat(jdbcTemplate.queryForList(
+                "SELECT content FROM " + chatMemoryTable + " WHERE conversation_id = ? ORDER BY sequence_id",
+                String.class,
+                "legacy-conversation")).containsExactly("first", "second");
+        assertThat(jdbcTemplate.queryForList(
+                "SELECT sequence_id FROM " + chatMemoryTable + " WHERE conversation_id = ? ORDER BY sequence_id",
+                Long.class,
+                "legacy-conversation")).containsExactly(1L, 2L);
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT sequence_id FROM " + chatMemoryTable + " WHERE conversation_id = ?",
+                Long.class,
+                "second-legacy-conversation")).isEqualTo(1L);
+        assertThat(columnIsNullable(V13_UPGRADE_SCHEMA, "spring_ai_chat_memory", "sequence_id")).isFalse();
+        assertThat(columnDefault(V13_UPGRADE_SCHEMA, "spring_ai_chat_memory", "sequence_id"))
+                .containsIgnoringCase("nextval")
+                .contains("spring_ai_chat_memory_sequence_id_seq");
+        assertThat(indexIsUnique(V13_UPGRADE_SCHEMA, "uq_spring_ai_chat_memory_conversation_sequence")).isTrue();
+        jdbcTemplate.update(
+                "INSERT INTO " + chatMemoryTable + " (conversation_id, content, type, \"timestamp\") VALUES (?, ?, ?, ?)",
+                "legacy-conversation", "database-default", "USER", second);
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT sequence_id FROM " + chatMemoryTable + " WHERE conversation_id = ? AND content = ?",
+                Long.class,
+                "legacy-conversation",
+                "database-default")).isGreaterThan(2L);
+        assertThatThrownBy(() -> jdbcTemplate.update(
+                "INSERT INTO " + chatMemoryTable + " (conversation_id, content, type, \"timestamp\", sequence_id) VALUES (?, ?, ?, ?, ?)",
+                "legacy-conversation", "duplicate-sequence", "USER", second, 1L))
+                .isInstanceOf(DataIntegrityViolationException.class);
+    }
+
+    private Flyway flywayFor(String schema, String target) {
+        return Flyway.configure()
+                .dataSource(jdbcTemplate.getDataSource())
+                .locations("classpath:db/migration")
+                .schemas(schema)
+                .defaultSchema(schema)
+                .createSchemas(true)
+                .target(target)
+                .load();
     }
 
     @Test
@@ -415,6 +495,37 @@ class DbMigrationSmokeTest {
         return Boolean.TRUE.equals(exists);
     }
 
+    private boolean indexIsUnique(String indexName) {
+        Boolean unique = jdbcTemplate.queryForObject(
+                """
+                select i.indisunique
+                from pg_index i
+                join pg_class c on c.oid = i.indexrelid
+                join pg_namespace n on n.oid = c.relnamespace
+                where n.nspname = current_schema()
+                  and c.relname = ?
+                """,
+                Boolean.class,
+                indexName);
+        return Boolean.TRUE.equals(unique);
+    }
+
+    private boolean indexIsUnique(String schemaName, String indexName) {
+        Boolean unique = jdbcTemplate.queryForObject(
+                """
+                select i.indisunique
+                from pg_index i
+                join pg_class c on c.oid = i.indexrelid
+                join pg_namespace n on n.oid = c.relnamespace
+                where n.nspname = ?
+                  and c.relname = ?
+                """,
+                Boolean.class,
+                schemaName,
+                indexName);
+        return Boolean.TRUE.equals(unique);
+    }
+
     private String indexDefinition(String indexName) {
         return jdbcTemplate.queryForObject(
                 """
@@ -439,6 +550,50 @@ class DbMigrationSmokeTest {
                 String.class,
                 tableName,
                 columnName));
+    }
+
+    private boolean columnIsNullable(String schemaName, String tableName, String columnName) {
+        return "YES".equals(jdbcTemplate.queryForObject(
+                """
+                select is_nullable
+                from information_schema.columns
+                where table_schema = ?
+                  and table_name = ?
+                  and column_name = ?
+                """,
+                String.class,
+                schemaName,
+                tableName,
+                columnName));
+    }
+
+    private String columnDefault(String tableName, String columnName) {
+        return jdbcTemplate.queryForObject(
+                """
+                select column_default
+                from information_schema.columns
+                where table_schema = current_schema()
+                  and table_name = ?
+                  and column_name = ?
+                """,
+                String.class,
+                tableName,
+                columnName);
+    }
+
+    private String columnDefault(String schemaName, String tableName, String columnName) {
+        return jdbcTemplate.queryForObject(
+                """
+                select column_default
+                from information_schema.columns
+                where table_schema = ?
+                  and table_name = ?
+                  and column_name = ?
+                """,
+                String.class,
+                schemaName,
+                tableName,
+                columnName);
     }
 
     private String columnComment(String tableName, String columnName) {
