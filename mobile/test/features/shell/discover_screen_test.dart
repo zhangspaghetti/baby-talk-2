@@ -12,47 +12,81 @@ import 'package:mobile/features/practice/presentation/practice_route_args.dart';
 import 'package:mobile/features/shell/presentation/screens/discover_screen.dart';
 
 void main() {
-  testWidgets('Discover V1 renders hero, search bar, scene pills, and phrase cards', (
+  testWidgets(
+    'Discover scene adapter renders hero, search bar, scene pills, and cards',
+    (tester) async {
+      var loadCount = 0;
+
+      await tester.pumpWidget(
+        _buildApp(
+          catalogLoader: () async {
+            loadCount += 1;
+            await Future<void>.delayed(const Duration(milliseconds: 10));
+            return _buildCatalog();
+          },
+        ),
+      );
+
+      expect(find.byKey(const Key('discover-loading-state')), findsOneWidget);
+
+      await tester.pumpAndSettle();
+
+      expect(loadCount, 1);
+      expect(find.byKey(const Key('shell-tab-discover')), findsOneWidget);
+
+      // Hero card
+      expect(find.byKey(const Key('discover-hero-card')), findsOneWidget);
+      expect(find.text('BabyTalk'), findsOneWidget);
+      expect(find.text('照护场景'), findsOneWidget);
+
+      // Search bar
+      expect(find.byKey(const Key('discover-search-field')), findsOneWidget);
+
+      // Scene pills
+      expect(find.byKey(const Key('discover-scene-pills')), findsOneWidget);
+      expect(find.byKey(const Key('discover-pill-all')), findsOneWidget);
+      expect(find.byKey(const Key('discover-pill-mealtime')), findsOneWidget);
+      expect(find.byKey(const Key('discover-pill-bath')), findsOneWidget);
+
+      // Sort dropdown
+      expect(find.byKey(const Key('discover-sort-dropdown')), findsOneWidget);
+
+      // Scene list with cards
+      expect(find.byKey(const Key('discover-phrase-list')), findsOneWidget);
+      expect(
+        find.byKey(const Key('discover-phrase-card-bath_time')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('discover-phrase-card-diaper_change')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('discover-phrase-card-feeding_time')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('discover-phrase-card-bedtime')),
+        findsOneWidget,
+      );
+
+      expect(find.text('现在说一句'), findsWidgets);
+      expect(find.textContaining('表达'), findsWidgets);
+      expect(find.textContaining('短语'), findsNothing);
+    },
+  );
+
+  testWidgets('Discover scene pill filters activities by scene tag', (
     tester,
   ) async {
-    var loadCount = 0;
+    _setWideViewport(tester);
 
     await tester.pumpWidget(
-      _buildApp(
-        catalogLoader: () async {
-          loadCount += 1;
-          await Future<void>.delayed(const Duration(milliseconds: 10));
-          return _buildCatalog();
-        },
-      ),
+      _buildApp(catalogLoader: () async => _buildCatalog()),
     );
-
-    expect(find.byKey(const Key('discover-loading-state')), findsOneWidget);
-
     await tester.pumpAndSettle();
 
-    expect(loadCount, 1);
-    expect(find.byKey(const Key('shell-tab-discover')), findsOneWidget);
-
-    // Hero card
-    expect(find.byKey(const Key('discover-hero-card')), findsOneWidget);
-    expect(find.text('BabyTalk'), findsOneWidget);
-    expect(find.text('每天一句亲子英语'), findsOneWidget);
-
-    // Search bar
-    expect(find.byKey(const Key('discover-search-field')), findsOneWidget);
-
-    // Scene pills
-    expect(find.byKey(const Key('discover-scene-pills')), findsOneWidget);
-    expect(find.byKey(const Key('discover-pill-all')), findsOneWidget);
-    expect(find.byKey(const Key('discover-pill-mealtime')), findsOneWidget);
-    expect(find.byKey(const Key('discover-pill-bath')), findsOneWidget);
-
-    // Sort dropdown
-    expect(find.byKey(const Key('discover-sort-dropdown')), findsOneWidget);
-
-    // Phrase list with cards
-    expect(find.byKey(const Key('discover-phrase-list')), findsOneWidget);
+    // All 4 activities visible by default
     expect(
       find.byKey(const Key('discover-phrase-card-bath_time')),
       findsOneWidget,
@@ -70,28 +104,6 @@ void main() {
       findsOneWidget,
     );
 
-    // Practice button exists
-    expect(find.text('练这一句'), findsWidgets);
-  });
-
-  testWidgets('Discover scene pill filters activities by scene tag', (
-    tester,
-  ) async {
-    _setWideViewport(tester);
-
-    await tester.pumpWidget(
-      _buildApp(
-        catalogLoader: () async => _buildCatalog(),
-      ),
-    );
-    await tester.pumpAndSettle();
-
-    // All 4 activities visible by default
-    expect(find.byKey(const Key('discover-phrase-card-bath_time')), findsOneWidget);
-    expect(find.byKey(const Key('discover-phrase-card-diaper_change')), findsOneWidget);
-    expect(find.byKey(const Key('discover-phrase-card-feeding_time')), findsOneWidget);
-    expect(find.byKey(const Key('discover-phrase-card-bedtime')), findsOneWidget);
-
     // Scene pills container exists with all 7 pills
     expect(find.byKey(const Key('discover-scene-pills')), findsOneWidget);
     expect(find.byKey(const Key('discover-pill-all')), findsOneWidget);
@@ -105,17 +117,21 @@ void main() {
     // Tap "全部" pill (always visible) - should keep all activities
     await tester.tap(find.byKey(const Key('discover-pill-all')));
     await tester.pumpAndSettle();
-    expect(find.byKey(const Key('discover-phrase-card-bath_time')), findsOneWidget);
-    expect(find.byKey(const Key('discover-phrase-card-diaper_change')), findsOneWidget);
+    expect(
+      find.byKey(const Key('discover-phrase-card-bath_time')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const Key('discover-phrase-card-diaper_change')),
+      findsOneWidget,
+    );
   });
 
   testWidgets('Discover search bar filters activities by title', (
     tester,
   ) async {
     await tester.pumpWidget(
-      _buildApp(
-        catalogLoader: () async => _buildCatalog(),
-      ),
+      _buildApp(catalogLoader: () async => _buildCatalog()),
     );
     await tester.pumpAndSettle();
 
@@ -127,32 +143,40 @@ void main() {
     await tester.pumpAndSettle();
 
     // Only matching activity visible
-    expect(find.byKey(const Key('discover-phrase-card-bath_time')), findsOneWidget);
-    expect(find.byKey(const Key('discover-phrase-card-diaper_change')), findsNothing);
-    expect(find.byKey(const Key('discover-phrase-card-feeding_time')), findsNothing);
+    expect(
+      find.byKey(const Key('discover-phrase-card-bath_time')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const Key('discover-phrase-card-diaper_change')),
+      findsNothing,
+    );
+    expect(
+      find.byKey(const Key('discover-phrase-card-feeding_time')),
+      findsNothing,
+    );
     expect(find.byKey(const Key('discover-phrase-card-bedtime')), findsNothing);
 
     // Clear search
-    await tester.enterText(
-      find.byKey(const Key('discover-search-field')),
-      '',
-    );
+    await tester.enterText(find.byKey(const Key('discover-search-field')), '');
     await tester.pumpAndSettle();
 
     // All activities visible again
-    expect(find.byKey(const Key('discover-phrase-card-bath_time')), findsOneWidget);
-    expect(find.byKey(const Key('discover-phrase-card-diaper_change')), findsOneWidget);
+    expect(
+      find.byKey(const Key('discover-phrase-card-bath_time')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const Key('discover-phrase-card-diaper_change')),
+      findsOneWidget,
+    );
   });
 
-  testWidgets('Discover search + scene filter combined', (
-    tester,
-  ) async {
+  testWidgets('Discover search + scene filter combined', (tester) async {
     _setWideViewport(tester);
 
     await tester.pumpWidget(
-      _buildApp(
-        catalogLoader: () async => _buildCatalog(),
-      ),
+      _buildApp(catalogLoader: () async => _buildCatalog()),
     );
     await tester.pumpAndSettle();
 
@@ -164,53 +188,72 @@ void main() {
     await tester.pumpAndSettle();
 
     // Only bath_time visible
-    expect(find.byKey(const Key('discover-phrase-card-bath_time')), findsOneWidget);
-    expect(find.byKey(const Key('discover-phrase-card-diaper_change')), findsNothing);
-    expect(find.byKey(const Key('discover-phrase-card-feeding_time')), findsNothing);
+    expect(
+      find.byKey(const Key('discover-phrase-card-bath_time')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const Key('discover-phrase-card-diaper_change')),
+      findsNothing,
+    );
+    expect(
+      find.byKey(const Key('discover-phrase-card-feeding_time')),
+      findsNothing,
+    );
 
     // Now add scene filter that doesn't match - no results
     // (search "洗澡" + tap "全部" still matches because scene filter is "all")
     // Clear search and search for nonexistent term
     await tester.enterText(
       find.byKey(const Key('discover-search-field')),
-      '不存在的短语xyz',
+      '不存在的场景xyz',
     );
     await tester.pumpAndSettle();
 
     // Empty filter state shown
-    expect(find.byKey(const Key('discover-filter-empty-state')), findsOneWidget);
+    expect(
+      find.byKey(const Key('discover-filter-empty-state')),
+      findsOneWidget,
+    );
   });
 
   testWidgets('Discover filter empty state shows clear filters button', (
     tester,
   ) async {
     await tester.pumpWidget(
-      _buildApp(
-        catalogLoader: () async => _buildCatalog(),
-      ),
+      _buildApp(catalogLoader: () async => _buildCatalog()),
     );
     await tester.pumpAndSettle();
 
-    // Search for nonexistent phrase
+    // Search for nonexistent scene
     await tester.enterText(
       find.byKey(const Key('discover-search-field')),
-      '不存在的短语',
+      '不存在的场景',
     );
     await tester.pumpAndSettle();
 
-    expect(find.byKey(const Key('discover-filter-empty-state')), findsOneWidget);
-    expect(find.text('没有找到匹配的短语，换个关键词试试'), findsOneWidget);
+    expect(
+      find.byKey(const Key('discover-filter-empty-state')),
+      findsOneWidget,
+    );
+    expect(find.text('没有找到匹配的场景，换个关键词试试'), findsOneWidget);
 
     // Clear filters
     await tester.tap(find.byKey(const Key('discover-clear-filters')));
     await tester.pumpAndSettle();
 
     // All activities restored
-    expect(find.byKey(const Key('discover-phrase-card-bath_time')), findsOneWidget);
-    expect(find.byKey(const Key('discover-phrase-card-diaper_change')), findsOneWidget);
+    expect(
+      find.byKey(const Key('discover-phrase-card-bath_time')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const Key('discover-phrase-card-diaper_change')),
+      findsOneWidget,
+    );
   });
 
-  testWidgets('Discover practice button triggers opener with route args', (
+  testWidgets('Discover care CTA triggers opener with route args', (
     tester,
   ) async {
     _setTallViewport(tester);
@@ -226,21 +269,18 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    // Tap the first "练这一句" button
-    await tester.tap(find.text('练这一句').first);
+    await tester.tap(find.text('现在说一句').first);
     await tester.pumpAndSettle();
 
     expect(openedArgs, isNotNull);
+    expect(openedArgs?.spaceId, 'daily_care');
+    expect(openedArgs?.activityId, 'bath_time');
   });
 
   testWidgets('Discover loading state shows shimmer', (tester) async {
     final completer = Completer<PracticeActivityCatalog>();
 
-    await tester.pumpWidget(
-      _buildApp(
-        catalogLoader: () => completer.future,
-      ),
-    );
+    await tester.pumpWidget(_buildApp(catalogLoader: () => completer.future));
 
     await tester.pump();
     expect(find.byKey(const Key('discover-loading-state')), findsOneWidget);
@@ -306,12 +346,10 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    // The malformed card has a "练这一句" button; scroll to find it
-    final practiceButtons = find.text('练这一句');
-    expect(practiceButtons, findsWidgets);
+    final careButtons = find.text('现在说一句');
+    expect(careButtons, findsWidgets);
 
-    // Scroll to the last practice button (malformed card is at the bottom)
-    final lastButton = practiceButtons.last;
+    final lastButton = careButtons.last;
     await tester.ensureVisible(lastButton);
     await tester.pumpAndSettle();
     await tester.tap(lastButton);
@@ -319,14 +357,12 @@ void main() {
 
     expect(openCount, 0);
     expect(find.byKey(const Key('discover-navigation-error')), findsOneWidget);
-    expect(find.textContaining('这张活动卡暂时打不开'), findsOneWidget);
+    expect(find.textContaining('这个场景暂时打不开'), findsOneWidget);
   });
 
   testWidgets('Discover 活动卡在真实页面中保持 AppSurfaceCard 默认风格契约', (tester) async {
     await tester.pumpWidget(
-      _buildApp(
-        catalogLoader: () async => _buildCatalog(),
-      ),
+      _buildApp(catalogLoader: () async => _buildCatalog()),
     );
     await tester.pumpAndSettle();
 
@@ -399,7 +435,7 @@ PracticeActivityCatalog _buildCatalog({
       recentResult: PracticeCatalogRecentResultSummary(
         phraseId: 'bath_time_warm_water',
         phraseEnglish: 'Warm water.',
-        reactionType: BabyReactionType.engaged,
+        reactionType: BabyReactionType.cooperating,
         eventTime: DateTime.utc(2026, 4, 10, 9),
         totalEvents: 1,
       ),

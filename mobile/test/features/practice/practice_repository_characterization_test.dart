@@ -25,13 +25,13 @@ void main() {
         final firstEvent = await harness.recordBathTimeReaction(
           localEventId: 'evt_harness_warm_water',
           phraseId: 'bath_time_warm_water',
-          reactionType: BabyReactionType.engaged,
+          reactionType: BabyReactionType.cooperating,
           clientTimestamp: DateTime.utc(2026, 4, 10, 9),
         );
         final secondEvent = await harness.recordBathTimeReaction(
           localEventId: 'evt_harness_splash',
           phraseId: 'bath_time_splash_splash',
-          reactionType: BabyReactionType.imitated,
+          reactionType: BabyReactionType.cooperating,
           clientTimestamp: DateTime.utc(2026, 4, 10, 9, 1),
         );
 
@@ -139,7 +139,7 @@ List<Map<String, Object?>> _expectedFactMaps() {
       'spaceId': 'daily_care',
       'activityId': 'bath_time',
       'phraseId': 'bath_time_warm_water',
-      'reactionType': 'engaged',
+      'reactionType': 'cooperating',
       'clientTimestamp': '2026-04-10T09:00:00.000Z',
     },
     {
@@ -149,7 +149,7 @@ List<Map<String, Object?>> _expectedFactMaps() {
       'spaceId': 'daily_care',
       'activityId': 'bath_time',
       'phraseId': 'bath_time_splash_splash',
-      'reactionType': 'imitated',
+      'reactionType': 'cooperating',
       'clientTimestamp': '2026-04-10T09:01:00.000Z',
     },
   ];
@@ -164,7 +164,7 @@ List<Map<String, Object?>> _expectedUploadMaps() {
       'spaceId': 'daily_care',
       'activityId': 'bath_time',
       'phraseId': 'bath_time_warm_water',
-      'reactionType': 'engaged',
+      'reactionType': 'cooperating',
       'clientTimestamp': '2026-04-10T09:00:00.000Z',
     },
     {
@@ -174,7 +174,7 @@ List<Map<String, Object?>> _expectedUploadMaps() {
       'spaceId': 'daily_care',
       'activityId': 'bath_time',
       'phraseId': 'bath_time_splash_splash',
-      'reactionType': 'imitated',
+      'reactionType': 'cooperating',
       'clientTimestamp': '2026-04-10T09:01:00.000Z',
     },
   ];
@@ -189,7 +189,7 @@ Map<String, Object?> _expectedRestoreMap() {
       'activityId': 'bath_time',
       'phraseId': 'bath_time_splash_splash',
       'phraseEnglish': 'Splash, splash!',
-      'reactionType': 'imitated',
+      'reactionType': 'cooperating',
       'eventTime': '2026-04-10T09:01:00.000Z',
       'totalEvents': 2,
     },
@@ -223,7 +223,7 @@ Map<String, Object?> _expectedCatalogMap() {
       'recentResult': {
         'phraseId': 'bath_time_splash_splash',
         'phraseEnglish': 'Splash, splash!',
-        'reactionType': 'imitated',
+        'reactionType': 'cooperating',
         'eventTime': '2026-04-10T09:01:00.000Z',
         'totalEvents': 2,
       },

@@ -30,16 +30,19 @@ class AppLocalizationsZh extends AppLocalizations {
   String get guest => '访客';
 
   @override
-  String get reactionCalm => '宝宝放松';
+  String get reactionCooperating => '配合';
 
   @override
-  String get reactionEngaged => '宝宝在看';
+  String get reactionHesitant => '犹豫';
 
   @override
-  String get reactionImitated => '宝宝模仿';
+  String get reactionResisting => '不想';
 
   @override
-  String get reactionNeedsBreak => '先休息';
+  String get reactionNoResponse => '没反应';
+
+  @override
+  String get reactionOther => '其他';
 
   @override
   String get sharedAttributionNextStep => '共享归因与下一步';
@@ -51,7 +54,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get continueEntryUnavailable => '继续入口暂不可用';
 
   @override
-  String get practiceEntryUnavailable => '练习入口暂时不可用。';
+  String get practiceEntryUnavailable => '照护入口暂时不可用。';
 
   @override
   String get bootErrorUnknown => '未知启动错误';
@@ -81,7 +84,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get homeContinuitySharedNote => '首页和花园会一起记住这次练习，回来后同步更新。';
 
   @override
-  String get homePracticeUnavailable => '暂时无法获取练习建议，请稍后重试。';
+  String get homePracticeUnavailable => '暂时无法获取照护建议，请稍后重试。';
 
   @override
   String get homeReorganize => '重新整理';
@@ -111,10 +114,10 @@ class AppLocalizationsZh extends AppLocalizations {
   String get homeContinuityFallbackNote => '已经为你换到一条稳定可继续的练习。';
 
   @override
-  String get homeStartPractice => '开始练习';
+  String get homeStartPractice => '开始照护';
 
   @override
-  String get homeContinuePractice => '继续练习';
+  String get homeContinuePractice => '继续照护';
 
   @override
   String homeTodaySceneSemantics(Object activityTitle) {
@@ -147,7 +150,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get homeStartBathTime => '先从洗澡时间这句开始。';
 
   @override
-  String get homeContinuityUnavailable => '继续练习暂时不可用';
+  String get homeContinuityUnavailable => '继续照护暂时不可用';
 
   @override
   String get homeContinuationRecent => '接着刚才练过的场景';
@@ -398,10 +401,10 @@ class AppLocalizationsZh extends AppLocalizations {
   String get shellDrawerTooltip => '打开家庭抽屉';
 
   @override
-  String get shellHome => '首页';
+  String get shellHome => '今天';
 
   @override
-  String get shellDiscover => '发现';
+  String get shellDiscover => '场景';
 
   @override
   String get shellGarden => '花园';
@@ -411,7 +414,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String shellHomeName(Object name) {
-    return '$name 的首页';
+    return '$name 的今天';
   }
 
   @override
@@ -872,10 +875,10 @@ class AppLocalizationsZh extends AppLocalizations {
   String get discoverBySpace => '按空间';
 
   @override
-  String get discoverLoadingCatalog => '正在整理离线 activity 目录…';
+  String get discoverLoadingCatalog => '正在整理离线场景目录…';
 
   @override
-  String get discoverLoadingNote => '加载只影响 Discover，不会阻塞首页、花园和成长 tab。';
+  String get discoverLoadingNote => '加载只影响场景，不会阻塞今天、花园和成长 tab。';
 
   @override
   String get discoverLoadError => '目录暂时没有整理好';
@@ -887,7 +890,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get discoverEmpty => '目录还是空的';
 
   @override
-  String get discoverEmptyNote => '目前没有可展示的 activity。稍后重试即可重新读取本地目录。';
+  String get discoverEmptyNote => '目前没有可展示的场景。稍后重试即可重新读取本地目录。';
 
   @override
   String get discoverRetryRead => '重新读取目录';
@@ -1113,7 +1116,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get gardenContinueToday => '继续今天的练习';
 
   @override
-  String get practiceInvalidParams => '当前练习入口缺少有效参数，请返回上一个页面重试。';
+  String get practiceInvalidParams => '当前照护入口缺少有效参数，请返回上一个页面重试。';
 
   @override
   String get practiceContextMissing => '当前活动上下文缺失，请返回首页重试。';
@@ -1138,7 +1141,7 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
-  String get practiceUnavailable => '练习暂不可用';
+  String get practiceUnavailable => '照护暂不可用';
 
   @override
   String get practiceBackHome => '返回首页';
@@ -1593,14 +1596,14 @@ class AppLocalizationsZh extends AppLocalizations {
   String get accountEntrySubmitButton => '提交';
 
   @override
-  String get shellDiscoverTooltip => '发现活动';
+  String get shellDiscoverTooltip => '场景';
 
   @override
-  String get shellPractice => '练习';
+  String get shellPractice => '今天';
 
   @override
   String shellPracticeName(Object name) {
-    return '$name 的练习';
+    return '$name 的今天';
   }
 
   @override
@@ -1648,7 +1651,7 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
-  String get discoverInvalidCardError => '这张活动卡暂时打不开，已为你保留在当前页面。';
+  String get discoverInvalidCardError => '这个场景暂时打不开，已为你保留在当前页面。';
 
   @override
   String discoverOpenActivityError(Object title, Object error) {
@@ -1656,7 +1659,7 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
-  String get discoverSearchHint => '搜索短语或场景...';
+  String get discoverSearchHint => '搜索场景或照护时刻...';
 
   @override
   String get discoverSceneAll => '全部';
@@ -1692,7 +1695,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get discoverSortLabel => '排序';
 
   @override
-  String get discoverPracticeThis => '练这一句';
+  String get discoverPracticeThis => '现在说一句';
 
   @override
   String discoverUsageHint(Object scene) {
@@ -1700,10 +1703,10 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
-  String get discoverSearchEmpty => '没有找到匹配的短语，换个关键词试试';
+  String get discoverSearchEmpty => '没有找到匹配的场景，换个关键词试试';
 
   @override
-  String get discoverSceneEmpty => '这个场景还没有短语，换个场景试试';
+  String get discoverSceneEmpty => '这个分类还没有场景，换个分类试试';
 
   @override
   String get discoverSceneTagMealtime => '喂饭';
@@ -1727,10 +1730,10 @@ class AppLocalizationsZh extends AppLocalizations {
   String get discoverSceneTagOther => '其他';
 
   @override
-  String get discoverPracticePhraseHint => '点击卡片或按钮进入练习';
+  String get discoverPracticePhraseHint => '点击卡片或按钮进入当前场景';
 
   @override
-  String get discoverTrustSubtitle => '每天一句亲子英语';
+  String get discoverTrustSubtitle => '照护场景';
 
   @override
   String get discoverTrustPrivacy => '你的信息受到保护';
@@ -2054,4 +2057,46 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get onboardingV21NextTime => '下次打开，小禾会给你新的一句。';
+
+  @override
+  String get practiceOneTurnTitle => '今日一句';
+
+  @override
+  String get practiceWhenToSay => '什么时候说';
+
+  @override
+  String get practiceListenOnce => '听一下';
+
+  @override
+  String get practiceSaid => '我说了';
+
+  @override
+  String get practiceAudioPlayedOnce => '已听过一次';
+
+  @override
+  String get practiceAudioMissingInline => '这句暂时没有音频，可以直接说。';
+
+  @override
+  String get practiceAudioMissingSnack => '这句暂时没有可播放的音频。';
+
+  @override
+  String get practiceAudioUnavailableInline => '音频暂时不可用';
+
+  @override
+  String get practiceAudioUnavailableSnack => '音频暂时不可用，请直接先说这一句。';
+
+  @override
+  String get practiceSavingTrace => '正在记下这次回应…';
+
+  @override
+  String get practiceReactionPrompt => '宝宝刚刚是什么反应？';
+
+  @override
+  String get practiceNextSupportTitle => '下一句照护支持';
+
+  @override
+  String get practiceQuietFallback => '先停在这里，等下一次再继续。';
+
+  @override
+  String get practiceGardenTraceTitle => '花园留痕';
 }

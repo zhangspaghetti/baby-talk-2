@@ -136,29 +136,35 @@ abstract class AppLocalizations {
   /// **'访客'**
   String get guest;
 
-  /// No description provided for @reactionCalm.
+  /// No description provided for @reactionCooperating.
   ///
   /// In zh, this message translates to:
-  /// **'宝宝放松'**
-  String get reactionCalm;
+  /// **'配合'**
+  String get reactionCooperating;
 
-  /// No description provided for @reactionEngaged.
+  /// No description provided for @reactionHesitant.
   ///
   /// In zh, this message translates to:
-  /// **'宝宝在看'**
-  String get reactionEngaged;
+  /// **'犹豫'**
+  String get reactionHesitant;
 
-  /// No description provided for @reactionImitated.
+  /// No description provided for @reactionResisting.
   ///
   /// In zh, this message translates to:
-  /// **'宝宝模仿'**
-  String get reactionImitated;
+  /// **'不想'**
+  String get reactionResisting;
 
-  /// No description provided for @reactionNeedsBreak.
+  /// No description provided for @reactionNoResponse.
   ///
   /// In zh, this message translates to:
-  /// **'先休息'**
-  String get reactionNeedsBreak;
+  /// **'没反应'**
+  String get reactionNoResponse;
+
+  /// No description provided for @reactionOther.
+  ///
+  /// In zh, this message translates to:
+  /// **'其他'**
+  String get reactionOther;
 
   /// No description provided for @sharedAttributionNextStep.
   ///
@@ -815,13 +821,13 @@ abstract class AppLocalizations {
   /// No description provided for @shellHome.
   ///
   /// In zh, this message translates to:
-  /// **'首页'**
+  /// **'今天'**
   String get shellHome;
 
   /// No description provided for @shellDiscover.
   ///
   /// In zh, this message translates to:
-  /// **'发现'**
+  /// **'场景'**
   String get shellDiscover;
 
   /// No description provided for @shellGarden.
@@ -839,7 +845,7 @@ abstract class AppLocalizations {
   /// No description provided for @shellHomeName.
   ///
   /// In zh, this message translates to:
-  /// **'{name} 的首页'**
+  /// **'{name} 的今天'**
   String shellHomeName(Object name);
 
   /// No description provided for @shellBabyName.
@@ -1673,13 +1679,13 @@ abstract class AppLocalizations {
   /// No description provided for @discoverLoadingCatalog.
   ///
   /// In zh, this message translates to:
-  /// **'正在整理离线 activity 目录…'**
+  /// **'正在整理离线场景目录…'**
   String get discoverLoadingCatalog;
 
   /// No description provided for @discoverLoadingNote.
   ///
   /// In zh, this message translates to:
-  /// **'加载只影响 Discover，不会阻塞首页、花园和成长 tab。'**
+  /// **'加载只影响场景，不会阻塞今天、花园和成长 tab。'**
   String get discoverLoadingNote;
 
   /// No description provided for @discoverLoadError.
@@ -1703,7 +1709,7 @@ abstract class AppLocalizations {
   /// No description provided for @discoverEmptyNote.
   ///
   /// In zh, this message translates to:
-  /// **'目前没有可展示的 activity。稍后重试即可重新读取本地目录。'**
+  /// **'目前没有可展示的场景。稍后重试即可重新读取本地目录。'**
   String get discoverEmptyNote;
 
   /// No description provided for @discoverRetryRead.
@@ -2977,19 +2983,19 @@ abstract class AppLocalizations {
   /// No description provided for @shellDiscoverTooltip.
   ///
   /// In zh, this message translates to:
-  /// **'发现活动'**
+  /// **'场景'**
   String get shellDiscoverTooltip;
 
   /// No description provided for @shellPractice.
   ///
   /// In zh, this message translates to:
-  /// **'练习'**
+  /// **'今天'**
   String get shellPractice;
 
   /// No description provided for @shellPracticeName.
   ///
   /// In zh, this message translates to:
-  /// **'{name} 的练习'**
+  /// **'{name} 的今天'**
   String shellPracticeName(Object name);
 
   /// No description provided for @shellGrowthTab.
@@ -3065,7 +3071,7 @@ abstract class AppLocalizations {
   /// No description provided for @discoverInvalidCardError.
   ///
   /// In zh, this message translates to:
-  /// **'这张活动卡暂时打不开，已为你保留在当前页面。'**
+  /// **'这个场景暂时打不开，已为你保留在当前页面。'**
   String get discoverInvalidCardError;
 
   /// No description provided for @discoverOpenActivityError.
@@ -3077,7 +3083,7 @@ abstract class AppLocalizations {
   /// No description provided for @discoverSearchHint.
   ///
   /// In zh, this message translates to:
-  /// **'搜索短语或场景...'**
+  /// **'搜索场景或照护时刻...'**
   String get discoverSearchHint;
 
   /// No description provided for @discoverSceneAll.
@@ -3149,7 +3155,7 @@ abstract class AppLocalizations {
   /// No description provided for @discoverPracticeThis.
   ///
   /// In zh, this message translates to:
-  /// **'练这一句'**
+  /// **'现在说一句'**
   String get discoverPracticeThis;
 
   /// No description provided for @discoverUsageHint.
@@ -3161,13 +3167,13 @@ abstract class AppLocalizations {
   /// No description provided for @discoverSearchEmpty.
   ///
   /// In zh, this message translates to:
-  /// **'没有找到匹配的短语，换个关键词试试'**
+  /// **'没有找到匹配的场景，换个关键词试试'**
   String get discoverSearchEmpty;
 
   /// No description provided for @discoverSceneEmpty.
   ///
   /// In zh, this message translates to:
-  /// **'这个场景还没有短语，换个场景试试'**
+  /// **'这个分类还没有场景，换个分类试试'**
   String get discoverSceneEmpty;
 
   /// No description provided for @discoverSceneTagMealtime.
@@ -3215,13 +3221,13 @@ abstract class AppLocalizations {
   /// No description provided for @discoverPracticePhraseHint.
   ///
   /// In zh, this message translates to:
-  /// **'点击卡片或按钮进入练习'**
+  /// **'点击卡片或按钮进入当前场景'**
   String get discoverPracticePhraseHint;
 
   /// No description provided for @discoverTrustSubtitle.
   ///
   /// In zh, this message translates to:
-  /// **'每天一句亲子英语'**
+  /// **'照护场景'**
   String get discoverTrustSubtitle;
 
   /// No description provided for @discoverTrustPrivacy.
@@ -3841,6 +3847,90 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'下次打开，小禾会给你新的一句。'**
   String get onboardingV21NextTime;
+
+  /// T4 one-turn practice screen title
+  ///
+  /// In zh, this message translates to:
+  /// **'今日一句'**
+  String get practiceOneTurnTitle;
+
+  /// T4 one-turn timing label
+  ///
+  /// In zh, this message translates to:
+  /// **'什么时候说'**
+  String get practiceWhenToSay;
+
+  /// T4 one-turn listen button
+  ///
+  /// In zh, this message translates to:
+  /// **'听一下'**
+  String get practiceListenOnce;
+
+  /// T4 one-turn said button
+  ///
+  /// In zh, this message translates to:
+  /// **'我说了'**
+  String get practiceSaid;
+
+  /// T4 one-turn audio completion status
+  ///
+  /// In zh, this message translates to:
+  /// **'已听过一次'**
+  String get practiceAudioPlayedOnce;
+
+  /// T4 one-turn inline copy when current utterance has no audio asset
+  ///
+  /// In zh, this message translates to:
+  /// **'这句暂时没有音频，可以直接说。'**
+  String get practiceAudioMissingInline;
+
+  /// T4 one-turn snackbar copy when current utterance has no audio asset
+  ///
+  /// In zh, this message translates to:
+  /// **'这句暂时没有可播放的音频。'**
+  String get practiceAudioMissingSnack;
+
+  /// T4 one-turn inline copy when audio playback fails
+  ///
+  /// In zh, this message translates to:
+  /// **'音频暂时不可用'**
+  String get practiceAudioUnavailableInline;
+
+  /// T4 one-turn snackbar copy when audio playback fails
+  ///
+  /// In zh, this message translates to:
+  /// **'音频暂时不可用，请直接先说这一句。'**
+  String get practiceAudioUnavailableSnack;
+
+  /// T4 one-turn saving reaction trace status
+  ///
+  /// In zh, this message translates to:
+  /// **'正在记下这次回应…'**
+  String get practiceSavingTrace;
+
+  /// T4 one-turn reaction prompt heading
+  ///
+  /// In zh, this message translates to:
+  /// **'宝宝刚刚是什么反应？'**
+  String get practiceReactionPrompt;
+
+  /// T4 one-turn next support section title
+  ///
+  /// In zh, this message translates to:
+  /// **'下一句照护支持'**
+  String get practiceNextSupportTitle;
+
+  /// T4 one-turn held fallback copy
+  ///
+  /// In zh, this message translates to:
+  /// **'先停在这里，等下一次再继续。'**
+  String get practiceQuietFallback;
+
+  /// T4 one-turn garden trace section title
+  ///
+  /// In zh, this message translates to:
+  /// **'花园留痕'**
+  String get practiceGardenTraceTitle;
 }
 
 class _AppLocalizationsDelegate

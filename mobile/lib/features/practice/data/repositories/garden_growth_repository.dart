@@ -49,7 +49,7 @@ class GardenGrowthRepository {
     final milestoneTimes = <String, DateTime>{};
     var knownEvents = 0;
     var skippedUnknownContentEvents = 0;
-    var sawImitated = false;
+    var sawCooperatingReaction = false;
     LatestPracticeImpact? latestImpact;
 
     // 阈值里程碑追踪（spec §7 累计句数 / 场景覆盖 / 坚持天数）。
@@ -77,7 +77,7 @@ class GardenGrowthRepository {
       final wasStarted = activityState.isStarted;
       final wasCompleted = activityState.isCompleted;
       final wasSpaceStarted = spaceState.totalKnownEvents > 0;
-      final hadImitated = sawImitated;
+      final hadCooperatingReaction = sawCooperatingReaction;
 
       activityState.record(event);
       spaceState.record(
@@ -86,8 +86,9 @@ class GardenGrowthRepository {
         activityCompleted: activityState.isCompleted,
       );
       knownEvents += 1;
-      sawImitated =
-          sawImitated || event.reactionType == BabyReactionType.imitated;
+      sawCooperatingReaction =
+          sawCooperatingReaction ||
+          event.reactionType == BabyReactionType.cooperating;
 
       final currentFlowerStage = _deriveFlowerStage(activityState);
       final currentPatchStage = _derivePatchStage(spaceState);
@@ -147,8 +148,9 @@ class GardenGrowthRepository {
         milestoneTimes['activity_${event.activityId}_started'] =
             event.clientTimestamp;
       }
-      if (!hadImitated && event.reactionType == BabyReactionType.imitated) {
-        milestoneTimes['first_imitated'] = event.clientTimestamp;
+      if (!hadCooperatingReaction &&
+          event.reactionType == BabyReactionType.cooperating) {
+        milestoneTimes['first_cooperating'] = event.clientTimestamp;
       }
       if (!wasCompleted && activityState.isCompleted) {
         milestoneTimes['activity_${event.activityId}_completed'] =
@@ -289,9 +291,9 @@ class GardenGrowthRepository {
         sortOrder: 0,
       ),
       const _MilestoneDefinition(
-        id: 'first_imitated',
+        id: 'first_cooperating',
         title: '宝宝开始回应你的声音',
-        body: '一旦出现模仿反应，成长页会把它记成一次暖暖的回声。',
+        body: '一旦出现配合反应，成长页会把它记成一次暖暖的回声。',
         sortOrder: 1,
       ),
     ];
@@ -409,7 +411,8 @@ class GardenGrowthRepository {
       return GardenFlowerStage.seed;
     }
     if (state.isCompleted) {
-      if (state.hasImitated || state.totalEvents > state.totalPhraseCount) {
+      if (state.hasCooperatingReaction ||
+          state.totalEvents > state.totalPhraseCount) {
         return GardenFlowerStage.fullBloom;
       }
       return GardenFlowerStage.blooming;
@@ -486,14 +489,16 @@ class GardenGrowthRepository {
 
   String _labelForReaction(BabyReactionType reactionType) {
     switch (reactionType) {
-      case BabyReactionType.calm:
-        return '宝宝放松';
-      case BabyReactionType.engaged:
-        return '宝宝在看';
-      case BabyReactionType.imitated:
-        return '宝宝模仿';
-      case BabyReactionType.needsBreak:
-        return '先休息';
+      case BabyReactionType.cooperating:
+        return '配合';
+      case BabyReactionType.hesitant:
+        return '犹豫';
+      case BabyReactionType.resisting:
+        return '不想';
+      case BabyReactionType.noResponse:
+        return '没反应';
+      case BabyReactionType.other:
+        return '其他';
     }
   }
 }
@@ -548,7 +553,7 @@ class _ActivityProjectionState {
   final int totalPhraseCount;
   int totalEvents = 0;
   final Set<String> completedPhraseIds = <String>{};
-  bool hasImitated = false;
+  bool hasCooperatingReaction = false;
   DateTime? lastEventTime;
 
   bool get isStarted => totalEvents > 0;
@@ -559,8 +564,9 @@ class _ActivityProjectionState {
   void record(InteractionEventPayload event) {
     totalEvents += 1;
     completedPhraseIds.add(event.phraseId);
-    hasImitated =
-        hasImitated || event.reactionType == BabyReactionType.imitated;
+    hasCooperatingReaction =
+        hasCooperatingReaction ||
+        event.reactionType == BabyReactionType.cooperating;
     lastEventTime = event.clientTimestamp;
   }
 }

@@ -300,14 +300,16 @@ class LocalMentorSuggestionService {
 
   String _reactionLabel(BabyReactionType reactionType) {
     switch (reactionType) {
-      case BabyReactionType.calm:
-        return '平静回应';
-      case BabyReactionType.engaged:
-        return '专注回应';
-      case BabyReactionType.imitated:
-        return '模仿回应';
-      case BabyReactionType.needsBreak:
-        return '想先休息一下';
+      case BabyReactionType.cooperating:
+        return '配合';
+      case BabyReactionType.hesitant:
+        return '犹豫';
+      case BabyReactionType.resisting:
+        return '不想';
+      case BabyReactionType.noResponse:
+        return '没反应';
+      case BabyReactionType.other:
+        return '其他';
     }
   }
 

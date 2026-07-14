@@ -10,7 +10,7 @@ void main() {
       required String spaceId,
       required String activityId,
       required String phraseId,
-      String reactionType = 'calm',
+      String reactionType = 'other',
       required DateTime clientTimestamp,
     }) {
       return PracticeEventRecord(
@@ -220,7 +220,7 @@ void main() {
         expect(result.totalEvents, 0);
         expect(result.uniquePhrases, 0);
         expect(result.uniqueActivities, 0);
-        expect(result.imitationCount, 0);
+        expect(result.cooperatingCount, 0);
         expect(result.firstEventAt, isNull);
         expect(result.lastEventAt, isNull);
         expect(result.practicedDays, 0);
@@ -247,7 +247,7 @@ void main() {
             spaceId: 's1',
             activityId: 'a2',
             phraseId: 'p3',
-            reactionType: 'imitated',
+            reactionType: 'cooperating',
             clientTimestamp: DateTime(2026, 5, 25, 10, 0),
           ),
           // Outside window.
@@ -269,7 +269,7 @@ void main() {
         expect(result.totalEvents, 3);
         expect(result.uniquePhrases, 3);
         expect(result.uniqueActivities, 2);
-        expect(result.imitationCount, 1);
+        expect(result.cooperatingCount, 1);
         expect(result.firstEventAt, DateTime(2026, 5, 15, 10, 0));
         expect(result.lastEventAt, DateTime(2026, 5, 25, 10, 0));
         expect(result.practicedDays, 3);

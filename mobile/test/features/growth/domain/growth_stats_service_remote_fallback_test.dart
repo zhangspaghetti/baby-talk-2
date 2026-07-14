@@ -10,7 +10,7 @@ void main() {
           totalEvents: 12,
           uniquePhrases: 6,
           uniqueActivities: 3,
-          imitationCount: 4,
+          cooperatingCount: 4,
           practicedDays: 5,
         ),
       );
@@ -23,7 +23,7 @@ void main() {
             totalEvents: 1,
             uniquePhrases: 1,
             uniqueActivities: 1,
-            imitationCount: 0,
+            cooperatingCount: 0,
             firstEventAt: null,
             lastEventAt: null,
             practicedDays: 1,
@@ -31,7 +31,9 @@ void main() {
         },
       );
 
-      final result = await service.loadSummary(period: GrowthSummaryPeriod.week);
+      final result = await service.loadSummary(
+        period: GrowthSummaryPeriod.week,
+      );
 
       expect(result.source, GrowthSummarySource.remote);
       expect(result.stats.totalEvents, 12);
@@ -53,7 +55,7 @@ void main() {
             totalEvents: 7,
             uniquePhrases: 4,
             uniqueActivities: 2,
-            imitationCount: 2,
+            cooperatingCount: 2,
             firstEventAt: null,
             lastEventAt: null,
             practicedDays: 3,
@@ -61,7 +63,9 @@ void main() {
         },
       );
 
-      final result = await service.loadSummary(period: GrowthSummaryPeriod.month);
+      final result = await service.loadSummary(
+        period: GrowthSummaryPeriod.month,
+      );
 
       expect(result.source, GrowthSummarySource.localFallback);
       expect(result.stats.totalEvents, 7);
@@ -70,7 +74,8 @@ void main() {
   });
 }
 
-class _FakeGrowthSummaryRemoteDataSource implements GrowthSummaryRemoteDataSource {
+class _FakeGrowthSummaryRemoteDataSource
+    implements GrowthSummaryRemoteDataSource {
   _FakeGrowthSummaryRemoteDataSource({this.response, this.error});
 
   final GrowthSummaryPayload? response;
@@ -90,7 +95,7 @@ class _FakeGrowthSummaryRemoteDataSource implements GrowthSummaryRemoteDataSourc
           totalEvents: 0,
           uniquePhrases: 0,
           uniqueActivities: 0,
-          imitationCount: 0,
+          cooperatingCount: 0,
           practicedDays: 0,
         );
   }

@@ -2,6 +2,8 @@ package com.zhangspaghetti.babytalk.service;
 
 import com.zhangspaghetti.babytalk.config.ApiContractProperties;
 import com.zhangspaghetti.babytalk.config.ConsumerAuthProperties;
+import com.zhangspaghetti.babytalk.practice.generated.PracticeGeneratedContentService;
+import com.zhangspaghetti.babytalk.profile.BabyProfileMapper;
 import com.zhangspaghetti.babytalk.security.JwtTokenService;
 import com.zhangspaghetti.babytalk.web.ContractException;
 import java.time.Clock;
@@ -24,9 +26,12 @@ public class AuthConsentSyncService {
 
     private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(AuthConsentSyncService.class);
 
-    private static final Set<String> ALLOWED_REACTION_TYPES = Set.of("calm", "engaged", "imitated", "needs_break");
+    private static final Set<String> ALLOWED_REACTION_TYPES =
+            Set.of("cooperating", "hesitant", "resisting", "no_response", "other");
 
     private final AuthConsentSyncRepository repository;
+    private final BabyProfileMapper babyProfileMapper;
+    private final PracticeGeneratedContentService practiceGeneratedContentService;
     private final SmsVerificationProvider smsVerificationProvider;
     private final HouseholdSharedContextProjector householdSharedContextProjector;
     private final ApiContractProperties contractProperties;
@@ -36,6 +41,8 @@ public class AuthConsentSyncService {
 
     public AuthConsentSyncService(
             AuthConsentSyncRepository repository,
+            BabyProfileMapper babyProfileMapper,
+            PracticeGeneratedContentService practiceGeneratedContentService,
             SmsVerificationProvider smsVerificationProvider,
             HouseholdSharedContextProjector householdSharedContextProjector,
             ApiContractProperties contractProperties,
@@ -43,6 +50,8 @@ public class AuthConsentSyncService {
             JwtTokenService jwtTokenService
     ) {
         this.repository = repository;
+        this.babyProfileMapper = babyProfileMapper;
+        this.practiceGeneratedContentService = practiceGeneratedContentService;
         this.smsVerificationProvider = smsVerificationProvider;
         this.householdSharedContextProjector = householdSharedContextProjector;
         this.contractProperties = contractProperties;
@@ -247,6 +256,8 @@ public class AuthConsentSyncService {
         }
 
         var deletedEvents = repository.deleteInteractionEvents(session.accountId());
+        practiceGeneratedContentService.deleteAccountOwned(session.accountId());
+        babyProfileMapper.deleteByAccountId(session.accountId());
         repository.updateSessionsStatus(session.accountId(), "deleted", now);
         repository.tombstoneAccount(session.accountId(), "deleted:" + session.accountId(), now);
         repository.insertConsentAudit(audit(session, "delete", "applied", sanitizeReason(reason), now));
@@ -408,6 +419,23 @@ public class AuthConsentSyncService {
     }
 
     @Transactional(readOnly = true)
+    public ConsumerSessionView requireAcceptedConsumerSession(String sessionId, String purpose) {
+        var normalizedPurpose = normalizePurpose(purpose);
+        var session = requireAcceptedSession(
+                sessionId,
+                "账号已删除，" + normalizedPurpose + "不再可用。请重新注册。",
+                "同意已撤回，请重新登录并再次同意后再" + normalizedPurpose + "。",
+                "当前账号尚未完成同意，不能" + normalizedPurpose + "。"
+        );
+        return new ConsumerSessionView(
+                session.accountId(),
+                session.sessionId(),
+                session.installationId(),
+                session.latestConsentStatus()
+        );
+    }
+
+    @Transactional(readOnly = true)
     public List<AuditEntry> listAuditEntries(String accountId) {
         return repository.listAuditEntries(accountId)
                 .stream()
@@ -440,20 +468,42 @@ public class AuthConsentSyncService {
     }
 
     private AuthConsentSyncRepository.SessionContextRow requireSessionForSync(String sessionId) {
+        return requireAcceptedSession(
+                sessionId,
+                "账号已删除，bootstrap/sync 不再可用。请重新注册。",
+                "同意已撤回，请重新登录并再次同意后再同步。",
+                "当前账号尚未完成同意，不能执行 bootstrap/sync。"
+        );
+    }
+
+    private AuthConsentSyncRepository.SessionContextRow requireAcceptedSession(
+            String sessionId,
+            String accountDeletedMessage,
+            String consentRevokedMessage,
+            String consentRequiredMessage
+    ) {
         var session = requireExistingSessionAnyStatus(sessionId);
         if ("deleted".equals(session.accountStatus()) || "deleted".equals(session.sessionStatus())) {
-            throw new ContractException(HttpStatus.GONE, "account_deleted", "账号已删除，bootstrap/sync 不再可用。请重新注册。");
+            throw new ContractException(HttpStatus.GONE, "account_deleted", accountDeletedMessage);
         }
         if ("revoked".equals(session.sessionStatus()) || "revoked".equals(session.latestConsentStatus())) {
-            throw new ContractException(HttpStatus.CONFLICT, "consent_revoked", "同意已撤回，请重新登录并再次同意后再同步。", Map.of("retryable", true));
+            throw new ContractException(HttpStatus.CONFLICT, "consent_revoked", consentRevokedMessage, Map.of("retryable", true));
         }
         if (!"accepted".equals(session.latestConsentStatus())) {
-            throw new ContractException(HttpStatus.CONFLICT, "consent_required", "当前账号尚未完成同意，不能执行 bootstrap/sync。", Map.of("retryable", true));
+            throw new ContractException(HttpStatus.CONFLICT, "consent_required", consentRequiredMessage, Map.of("retryable", true));
         }
         if (!"active".equals(session.sessionStatus())) {
             throw new ContractException(HttpStatus.UNAUTHORIZED, "invalid_session", "session 不存在或已失效。");
         }
         return session;
+    }
+
+    private String normalizePurpose(String purpose) {
+        if (purpose == null || purpose.isBlank()) {
+            return "访问账号数据";
+        }
+        var trimmed = purpose.trim();
+        return trimmed.length() > 80 ? trimmed.substring(0, 80) : trimmed;
     }
 
     private AuthConsentSyncRepository.SyncEventRecord validateSyncEvent(
@@ -817,6 +867,14 @@ public class AuthConsentSyncService {
             List<String> acceptedEventKeys,
             List<String> duplicateEventKeys,
             Instant syncedAt
+    ) {
+    }
+
+    public record ConsumerSessionView(
+            String accountId,
+            String sessionId,
+            String installationId,
+            String latestConsentStatus
     ) {
     }
 

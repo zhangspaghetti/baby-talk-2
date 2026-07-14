@@ -26,7 +26,9 @@ import 'support/app_test_repositories.dart';
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
-  testWidgets('local-only 完成快照冷启动后可完成练习，且重挂载后连续性结果仍可恢复', (WidgetTester tester) async {
+  testWidgets('local-only 完成快照冷启动后可完成练习，且重挂载后连续性结果仍可恢复', (
+    WidgetTester tester,
+  ) async {
     final bootState = await AppBootState.load(rootBundle);
     expect(bootState.isReady, isTrue);
 
@@ -82,9 +84,7 @@ void main() {
             bootState.assetPhraseService!,
           ),
           appDirectoryProvider.overrideWith((ref) => tempDir),
-          practiceRepositoryProvider.overrideWith(
-            (ref) => firstRepository,
-          ),
+          practiceRepositoryProvider.overrideWith((ref) => firstRepository),
           mentorRepositoryProvider.overrideWith(
             (ref) async => mentorRepository,
           ),
@@ -129,7 +129,10 @@ void main() {
     );
     expect(persistedHomeSummary.recentResult, isNotNull);
     expect(persistedHomeSummary.recentResult!.phraseId, 'bath_time_all_clean');
-    expect(persistedHomeSummary.recentResult!.totalEvents, greaterThanOrEqualTo(3));
+    expect(
+      persistedHomeSummary.recentResult!.totalEvents,
+      greaterThanOrEqualTo(3),
+    );
 
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pump(const Duration(milliseconds: 200));
@@ -141,9 +144,7 @@ void main() {
             bootState.assetPhraseService!,
           ),
           appDirectoryProvider.overrideWith((ref) => tempDir),
-          practiceRepositoryProvider.overrideWith(
-            (ref) => firstRepository,
-          ),
+          practiceRepositoryProvider.overrideWith((ref) => firstRepository),
           mentorRepositoryProvider.overrideWith(
             (ref) async => mentorRepository,
           ),
@@ -218,7 +219,7 @@ Future<void> _completeStarterPractice(WidgetTester tester) async {
   );
 
   final firstReaction = find.byKey(
-    const Key('reaction-bath_time_warm_water-engaged'),
+    const Key('reaction-bath_time_warm_water-cooperating'),
   );
   await _pumpUntilFound(tester, firstReaction);
   await tester.ensureVisible(firstReaction);
@@ -230,7 +231,7 @@ Future<void> _completeStarterPractice(WidgetTester tester) async {
   );
 
   final secondReaction = find.byKey(
-    const Key('reaction-bath_time_splash_splash-imitated'),
+    const Key('reaction-bath_time_splash_splash-no_response'),
   );
   await _pumpUntilFound(tester, secondReaction);
   await tester.ensureVisible(secondReaction);
@@ -242,7 +243,7 @@ Future<void> _completeStarterPractice(WidgetTester tester) async {
   );
 
   final thirdReaction = find.byKey(
-    const Key('reaction-bath_time_all_clean-calm'),
+    const Key('reaction-bath_time_all_clean-cooperating'),
   );
   await _pumpUntilFound(tester, thirdReaction);
   await tester.ensureVisible(thirdReaction);

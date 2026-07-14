@@ -8,6 +8,7 @@ import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -21,6 +22,7 @@ public class GardenSnapshotService {
     private final AuthConsentSyncService authConsentSyncService;
     private final Clock clock;
 
+    @Autowired
     public GardenSnapshotService(JdbcTemplate jdbc,
                                  AuthConsentSyncService authConsentSyncService) {
         this(jdbc, authConsentSyncService, Clock.systemUTC());

@@ -2,33 +2,37 @@ import 'package:freezed_annotation/freezed_annotation.dart';
 
 part '../../../../generated/features/practice/domain/models/interaction_event_payload.freezed.dart';
 
-enum BabyReactionType { calm, engaged, imitated, needsBreak }
+enum BabyReactionType { cooperating, hesitant, resisting, noResponse, other }
 
 extension BabyReactionTypeWire on BabyReactionType {
   String get wireValue {
     switch (this) {
-      case BabyReactionType.calm:
-        return 'calm';
-      case BabyReactionType.engaged:
-        return 'engaged';
-      case BabyReactionType.imitated:
-        return 'imitated';
-      case BabyReactionType.needsBreak:
-        return 'needs_break';
+      case BabyReactionType.cooperating:
+        return 'cooperating';
+      case BabyReactionType.hesitant:
+        return 'hesitant';
+      case BabyReactionType.resisting:
+        return 'resisting';
+      case BabyReactionType.noResponse:
+        return 'no_response';
+      case BabyReactionType.other:
+        return 'other';
     }
   }
 }
 
 BabyReactionType parseBabyReactionType(String value) {
   switch (value.trim()) {
-    case 'calm':
-      return BabyReactionType.calm;
-    case 'engaged':
-      return BabyReactionType.engaged;
-    case 'imitated':
-      return BabyReactionType.imitated;
-    case 'needs_break':
-      return BabyReactionType.needsBreak;
+    case 'cooperating':
+      return BabyReactionType.cooperating;
+    case 'hesitant':
+      return BabyReactionType.hesitant;
+    case 'resisting':
+      return BabyReactionType.resisting;
+    case 'no_response':
+      return BabyReactionType.noResponse;
+    case 'other':
+      return BabyReactionType.other;
     default:
       throw FormatException('未知 reaction type: $value');
   }

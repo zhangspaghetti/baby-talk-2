@@ -72,9 +72,9 @@ class CaregiverInviteApiWebTest extends AbstractIntegrationTest {
     @Test
     void createInviteAcceptInviteAndFetchSharedContextUseAccountLevelMemberships() throws Exception {
         var primary = createAcceptedSession("13800138000", "install-primary");
-        syncEvent(primary.accessToken(), "install-primary", "evt_1", "daily_care", "bath_time", "bath_time_warm_water", "calm",
+        syncEvent(primary.accessToken(), "install-primary", "evt_1", "daily_care", "bath_time", "bath_time_warm_water", "cooperating",
                 "2026-04-09T02:00:00Z");
-        syncEvent(primary.accessToken(), "install-primary", "evt_2", "daily_care", "bath_time", "bath_time_splash_splash", "engaged",
+        syncEvent(primary.accessToken(), "install-primary", "evt_2", "daily_care", "bath_time", "bath_time_splash_splash", "cooperating",
                 "2026-04-09T02:01:00Z");
 
         var invite = createInvite(primary.accessToken(), "caregiver", "household_settings");
@@ -98,7 +98,7 @@ class CaregiverInviteApiWebTest extends AbstractIntegrationTest {
                 .andExpect(jsonPath("$.sharedContext.snapshot.practice.activityId").value("bath_time"))
                 .andExpect(jsonPath("$.sharedContext.snapshot.actor.role").value("primary_caregiver"))
                 .andExpect(jsonPath("$.sharedContext.snapshot.actor.source").value("sync_event"))
-                .andExpect(jsonPath("$.sharedContext.snapshot.actor.result").value("engaged"))
+                .andExpect(jsonPath("$.sharedContext.snapshot.actor.result").value("cooperating"))
                 .andExpect(jsonPath("$.sharedContext.snapshot.nextStep.spaceId").value("daily_care"))
                 .andExpect(jsonPath("$.sharedContext.snapshot.nextStep.activityId").value("bath_time"))
                 .andExpect(jsonPath("$.sharedContext.snapshot.nextStep.reason").value("latest_activity"))
@@ -145,7 +145,7 @@ class CaregiverInviteApiWebTest extends AbstractIntegrationTest {
     @Test
     void caregiverCannotCreateInviteAndRoleDeniedIsAudited() throws Exception {
         var primary = createAcceptedSession("13800138000", "install-primary");
-        syncEvent(primary.accessToken(), "install-primary", "evt_1", "daily_care", "bath_time", "bath_time_warm_water", "calm",
+        syncEvent(primary.accessToken(), "install-primary", "evt_1", "daily_care", "bath_time", "bath_time_warm_water", "cooperating",
                 "2026-04-09T02:00:00Z");
         var invite = createInvite(primary.accessToken(), "caregiver", "household_settings");
 
@@ -187,7 +187,7 @@ class CaregiverInviteApiWebTest extends AbstractIntegrationTest {
     @Test
     void acceptInviteReturnsStableInvalidAndExpiredContracts() throws Exception {
         var primary = createAcceptedSession("13800138000", "install-primary");
-        syncEvent(primary.accessToken(), "install-primary", "evt_1", "daily_care", "bath_time", "bath_time_warm_water", "calm",
+        syncEvent(primary.accessToken(), "install-primary", "evt_1", "daily_care", "bath_time", "bath_time_warm_water", "cooperating",
                 "2026-04-09T02:00:00Z");
         var invite = createInvite(primary.accessToken(), "caregiver", "household_settings");
         jdbcTemplate.update(
@@ -248,7 +248,7 @@ class CaregiverInviteApiWebTest extends AbstractIntegrationTest {
     @Test
     void acceptInviteReportsAlreadyUsedAndKeepsPendingInviteWhenSharedContextUnavailable() throws Exception {
         var primary = createAcceptedSession("13800138000", "install-primary");
-        syncEvent(primary.accessToken(), "install-primary", "evt_1", "daily_care", "bath_time", "bath_time_warm_water", "calm",
+        syncEvent(primary.accessToken(), "install-primary", "evt_1", "daily_care", "bath_time", "bath_time_warm_water", "cooperating",
                 "2026-04-09T02:00:00Z");
         var usedInvite = createInvite(primary.accessToken(), "caregiver", "household_settings");
         var acceptedCaregiver = createAcceptedSession("13900139000", "install-secondary");
@@ -317,7 +317,7 @@ class CaregiverInviteApiWebTest extends AbstractIntegrationTest {
     @Test
     void primaryCaregiverCanRevokeInviteAndPreventFutureAccept() throws Exception {
         var primary = createAcceptedSession("13800138000", "install-primary");
-        syncEvent(primary.accessToken(), "install-primary", "evt_1", "daily_care", "bath_time", "bath_time_warm_water", "calm",
+        syncEvent(primary.accessToken(), "install-primary", "evt_1", "daily_care", "bath_time", "bath_time_warm_water", "cooperating",
                 "2026-04-09T02:00:00Z");
         var invite = createInvite(primary.accessToken(), "caregiver", "household_settings");
 

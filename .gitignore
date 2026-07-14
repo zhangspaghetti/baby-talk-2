@@ -4,6 +4,7 @@ workflows/
 !.github/workflows/
 !.github/workflows/admin-web.yml
 .sisyphus/
+.codex/
 
 # ── GSD baseline (auto-generated) ──
 .bg-shell/
@@ -17,6 +18,9 @@ Thumbs.db
 .idea/
 .vscode/
 *.code-workspace
+**/.project
+**/.classpath
+**/.factorypath
 .env
 .env.*
 !.env.example
@@ -42,6 +46,7 @@ vendor/
 coverage/
 .cache/
 tmp/
+.tmp/
 deploy/helm/babytalk-app/values-kind-secrets.yaml
 deploy/helm/babytalk-app/values-kind-qa-secrets.yaml
 .mcp.json

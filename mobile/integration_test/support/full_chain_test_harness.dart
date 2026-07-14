@@ -111,12 +111,8 @@ class FullChainTestHarness {
             bootState.assetPhraseService!,
           ),
           appDirectoryProvider.overrideWith((ref) => tempDir),
-          practiceRepositoryProvider.overrideWith(
-            (ref) => practiceRepository,
-          ),
-          accountRepositoryProvider.overrideWith(
-            (ref) => accountRepository,
-          ),
+          practiceRepositoryProvider.overrideWith((ref) => practiceRepository),
+          accountRepositoryProvider.overrideWith((ref) => accountRepository),
           householdRepositoryProvider.overrideWith(
             (ref) => householdRepository,
           ),
@@ -166,9 +162,9 @@ class FullChainTestHarness {
       'bath_time_all_clean',
     ];
     const reactionTypes = <BabyReactionType>[
-      BabyReactionType.engaged,
-      BabyReactionType.imitated,
-      BabyReactionType.calm,
+      BabyReactionType.cooperating,
+      BabyReactionType.cooperating,
+      BabyReactionType.cooperating,
     ];
     final baseTimestamp = DateTime.utc(2026, 5, 20, 8);
     try {
@@ -307,7 +303,7 @@ class FullChainTestHarness {
     );
 
     final firstReaction = find.byKey(
-      const Key('reaction-bath_time_warm_water-engaged'),
+      const Key('reaction-bath_time_warm_water-cooperating'),
     );
     await scrollTo(tester, firstReaction);
     await tester.tap(firstReaction);
@@ -318,7 +314,7 @@ class FullChainTestHarness {
     );
 
     final secondReaction = find.byKey(
-      const Key('reaction-bath_time_splash_splash-imitated'),
+      const Key('reaction-bath_time_splash_splash-no_response'),
     );
     await pumpUntilFound(
       tester,
@@ -335,7 +331,7 @@ class FullChainTestHarness {
     );
 
     final thirdReaction = find.byKey(
-      const Key('reaction-bath_time_all_clean-calm'),
+      const Key('reaction-bath_time_all_clean-cooperating'),
     );
     await pumpUntilFound(
       tester,

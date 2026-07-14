@@ -81,7 +81,9 @@ class DiscoverActivityCard extends StatelessWidget {
               key: Key('discover-progress-${activity.activityId}'),
               value: progress.clamp(0.0, 1.0),
               minHeight: 6,
-              borderRadius: BorderRadius.circular(AppLayoutConstants.pillRadius),
+              borderRadius: BorderRadius.circular(
+                AppLayoutConstants.pillRadius,
+              ),
               color: colors.accent,
               backgroundColor: colors.bgSunken,
             ),
@@ -133,13 +135,15 @@ class DiscoverActivityCard extends StatelessWidget {
 
 String _reactionLabel(AppLocalizations l, BabyReactionType reactionType) {
   switch (reactionType) {
-    case BabyReactionType.calm:
-      return l.reactionCalm;
-    case BabyReactionType.engaged:
-      return l.reactionEngaged;
-    case BabyReactionType.imitated:
-      return l.reactionImitated;
-    case BabyReactionType.needsBreak:
-      return l.reactionNeedsBreak;
+    case BabyReactionType.cooperating:
+      return l.reactionCooperating;
+    case BabyReactionType.hesitant:
+      return l.reactionHesitant;
+    case BabyReactionType.resisting:
+      return l.reactionResisting;
+    case BabyReactionType.noResponse:
+      return l.reactionNoResponse;
+    case BabyReactionType.other:
+      return l.reactionOther;
   }
 }

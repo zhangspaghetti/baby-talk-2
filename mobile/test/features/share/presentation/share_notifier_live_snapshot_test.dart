@@ -11,31 +11,34 @@ import 'package:mobile/features/share/presentation/share_notifier.dart';
 
 void main() {
   group('ShareNotifier live snapshot binding', () {
-    test('currentDraft reflects latest loader snapshots without updateSnapshots', () {
-      final repository = ShareRepository(
-        apiService: _FakeShareApiService(),
-        shareSheetLauncher: _StaticShareSheetLauncher(),
-        platformHintResolver: () => 'android',
-      );
+    test(
+      'currentDraft reflects latest loader snapshots without updateSnapshots',
+      () {
+        final repository = ShareRepository(
+          apiService: _FakeShareApiService(),
+          shareSheetLauncher: _StaticShareSheetLauncher(),
+          platformHintResolver: () => 'android',
+        );
 
-      var growth = _buildGrowthSnapshot(headline: '第一版成长故事');
-      final continuity = _buildContinuitySnapshot();
+        var growth = _buildGrowthSnapshot(headline: '第一版成长故事');
+        final continuity = _buildContinuitySnapshot();
 
-      final notifier = ShareNotifier(
-        repository: repository,
-        initialGrowthSnapshot: growth,
-        initialContinuitySnapshot: continuity,
-        growthSnapshotLoader: () => growth,
-        continuitySnapshotLoader: () => continuity,
-      );
-      addTearDown(notifier.dispose);
+        final notifier = ShareNotifier(
+          repository: repository,
+          initialGrowthSnapshot: growth,
+          initialContinuitySnapshot: continuity,
+          growthSnapshotLoader: () => growth,
+          continuitySnapshotLoader: () => continuity,
+        );
+        addTearDown(notifier.dispose);
 
-      expect(notifier.currentDraft?.headline, '第一版成长故事');
+        expect(notifier.currentDraft?.headline, '第一版成长故事');
 
-      growth = _buildGrowthSnapshot(headline: '最新权威成长故事');
+        growth = _buildGrowthSnapshot(headline: '最新权威成长故事');
 
-      expect(notifier.currentDraft?.headline, '最新权威成长故事');
-    });
+        expect(notifier.currentDraft?.headline, '最新权威成长故事');
+      },
+    );
 
     test('shareCurrent uses live snapshots at execution time', () async {
       final api = _FakeShareApiService();
@@ -114,7 +117,7 @@ GardenGrowthSnapshot _buildGrowthSnapshot({required String headline}) {
       activityTitle: '洗澡时间',
       phraseId: 'bath_time_warm_water',
       phraseTitle: 'Warm water.',
-      reactionType: BabyReactionType.imitated,
+      reactionType: BabyReactionType.cooperating,
       previousPatchStage: GardenPatchStage.tended,
       currentPatchStage: GardenPatchStage.rooted,
       previousFlowerStage: GardenFlowerStage.sprout,

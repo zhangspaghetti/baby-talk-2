@@ -51,7 +51,7 @@ void main() {
             spaceId: 'daily_care',
             activityId: 'bath_time',
             phraseId: 'bath_time_warm_water',
-            reactionType: BabyReactionType.calm,
+            reactionType: BabyReactionType.cooperating,
             clientTimestamp: DateTime.utc(2026, 4, 10, 8),
           ),
         ],
@@ -195,7 +195,7 @@ Map<String, Object?> _sharedContextResponseJson() {
     'snapshot': <String, Object?>{
       'babyProfileSummary': '20 months',
       'continuitySummary': 'bath_time recent',
-      'gardenSummary': 'calm streak',
+      'gardenSummary': 'cooperating streak',
       'practice': <String, Object?>{
         'spaceId': 'daily_care',
         'activityId': 'bath_time',

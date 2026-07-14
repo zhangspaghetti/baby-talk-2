@@ -1,3 +1,21 @@
+# Caveman output mode
+
+For every new Codex session and every spawned subagent:
+
+1. Invoke `$caveman full` before normal work.
+2. Keep technical accuracy and all code/commands/error text exact.
+3. Compress explanations, avoid filler, but do not omit required review details.
+4. Preserve the user's language. If the user writes Chinese, answer Chinese.
+5. Do not apply caveman style inside code blocks, file contents, SQL, JSON, XML, YAML, shell commands, logs, or copied prompts unless explicitly requested.
+
+## Subagent rule
+
+When spawning or instructing subagents, include this first line in each subagent task:
+
+`$caveman full`
+
+Subagents must follow the same Caveman output mode unless the task explicitly requires verbose reasoning, legal/security wording, or exact user-facing copy.
+
 # PROJECT KNOWLEDGE BASE
 
 **Generated:** 2026-05-13
@@ -51,6 +69,18 @@ baby-talk-2/
 - **Flutter**：analysis_options.yaml（flutter_lints），Riverpod 代码生成
 - **Java**：Spring Boot 3.4.4，Java 17，MyBatis-Plus
 - **TypeScript**：Vite 5，React 18，AntD 5
+
+### Backend database design
+- Use Flyway versioned SQL migrations under `backend/db-migration/src/main/resources/db/migration`. Keep versions monotonic and migration filenames descriptive.
+- Prefer PostgreSQL constraints for invariants: `primary key`, `foreign key`, `unique`, `check`, and `not null` where the domain requires it.
+- Name constraints and indexes with stable prefixes: `pk_`, `fk_`, `uq_`, `chk_`, `idx_`. Keep names tied to table and purpose.
+- Design indexes from query paths. Use partial unique indexes when idempotency or live-state uniqueness depends on row status; avoid redundant indexes already covered by primary/unique constraints.
+- Store timestamps as `timestamp with time zone`. In Java DB entities, request DTOs, and response DTOs, use `OffsetDateTime`, normalize values to UTC, and serialize JSON as ISO 8601 (for example `2026-07-03T02:00:00Z`). Do not convert these boundaries to handwritten strings or unnecessary `Instant` values. Use `created_at` and `updated_at` on mutable tables; fill application entities with MyBatis Plus `MetaObjectHandler` and keep custom SQL fallbacks explicit.
+- Do not persist raw device, installation, phone, token, or user-entered private identifiers when a hash/HMAC reference is enough. Do not return or log hashed owner keys unless needed for debug-safe correlation.
+- Use MyBatis Plus `BaseMapper` / `IService` / `ServiceImpl` for single-table CRUD. Keep complex SQL, `returning`, idempotent upserts, partial-index queries, and lock-aware operations in mapper XML.
+- Keep DTO, Entity, Mapper, Service, and XML responsibilities separate. Do not place mapper/entity/model types in a root `service` package.
+- Tests for schema changes must cover migration smoke, key constraints, idempotency, and cleanup paths touched by the migration.
+- IDE files (`.project`, `.classpath`, `.factorypath`) must not be committed.
 
 ## ANTI-PATTERNS (THIS PROJECT)
 

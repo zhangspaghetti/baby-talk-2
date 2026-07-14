@@ -47,7 +47,7 @@ void main() {
             activityTitle: '洗澡时间',
             phraseId: 'bath_time_splash_splash',
             phraseEnglish: 'Splash, splash!',
-            reactionType: BabyReactionType.imitated,
+            reactionType: BabyReactionType.cooperating,
             totalEvents: 3,
           ),
         ),

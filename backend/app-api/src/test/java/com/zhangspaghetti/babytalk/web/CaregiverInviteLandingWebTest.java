@@ -123,7 +123,7 @@ class CaregiverInviteLandingWebTest extends AbstractIntegrationTest {
     @Test
     void invalidExpiredAlreadyUsedAndRevokedTokensRenderVisibleFailureStatesAndAuditRows() throws Exception {
         var primary = createAcceptedSession("13800138000", "install-primary");
-        syncEvent(primary.accessToken(), "install-primary", "evt_1", "daily_care", "bath_time", "bath_time_warm_water", "calm",
+        syncEvent(primary.accessToken(), "install-primary", "evt_1", "daily_care", "bath_time", "bath_time_warm_water", "cooperating",
                 "2026-04-09T02:00:00Z");
         var expiredInvite = createInvite(primary.accessToken(), "caregiver", "household_settings");
         jdbcTemplate.update(

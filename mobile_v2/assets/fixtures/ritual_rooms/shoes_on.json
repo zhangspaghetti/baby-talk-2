@@ -1,0 +1,68 @@
+{
+  "ritual_room_id": "shoes_on_room_v1",
+  "atmosphere_tone": "everyday_calm",
+  "room_name": "出门小声音",
+  "routine_anchor": "出门穿鞋",
+  "anchor_phrase": "Shoes on.",
+  "chinese_helper": "穿鞋啦。",
+  "illustration": {
+    "asset_path": "assets/illustrations/rituals/shoes_on/shoes_on_approved_v1.png",
+    "status": "approved"
+  },
+  "listen_label": "听一遍",
+  "active_utterances": {
+    "ready": {
+      "display_id": "shoes_on_ready_v1",
+      "primary": "Let’s put your shoes on.",
+      "zh_support": "我们来穿鞋吧。",
+      "action_cue": "拿起鞋时",
+      "audio_asset_id": "rr_shoes_001"
+    },
+    "not_ready_yet": {
+      "display_id": "shoes_on_revised_wait_v1",
+      "primary": "You don’t want your shoes on yet.",
+      "zh_support": "你现在还不想穿鞋。",
+      "action_cue": "宝宝停下来时",
+      "context_label": "还不想穿",
+      "gentle_support": "可以先等等。",
+      "audio_asset_id": "rr_shoes_002"
+    }
+  },
+  "audio": {
+    "available": false,
+    "label": "听一遍",
+    "asset_reference": null
+  },
+  "reaction_prompt": "现在是什么情况？",
+  "reaction_choices": [
+    {
+      "id": "not_ready_yet",
+      "label": "还不想穿"
+    },
+    {
+      "id": "wants_independence",
+      "label": "想自己来"
+    },
+    {
+      "id": "crying",
+      "label": "哭了"
+    },
+    {
+      "id": "moved_away",
+      "label": "跑开了"
+    },
+    {
+      "id": "already_wearing",
+      "label": "已经穿好了"
+    }
+  ],
+  "pending_copy": "正在换一种说法…",
+  "reassurance": "不用每句都说，说一句就够了。",
+  "quiet_exit": "先这样就好",
+  "governance_evidence": {
+    "context_seed_id": "context_seed_shoes_on",
+    "joinability_hypothesis": "shared_action_is_open",
+    "governor_decision": "allow_activation",
+    "production_garden_status": "not_enabled"
+  }
+}

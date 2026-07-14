@@ -100,12 +100,8 @@ class E2eTestHarness {
             bootState.assetPhraseService!,
           ),
           appDirectoryProvider.overrideWith((ref) => tempDir),
-          practiceRepositoryProvider.overrideWith(
-            (ref) => practiceRepository,
-          ),
-          accountRepositoryProvider.overrideWith(
-            (ref) => accountRepository,
-          ),
+          practiceRepositoryProvider.overrideWith((ref) => practiceRepository),
+          accountRepositoryProvider.overrideWith((ref) => accountRepository),
           householdRepositoryProvider.overrideWith(
             (ref) => householdRepository,
           ),
@@ -178,7 +174,10 @@ class E2eTestHarness {
       reason: 'onboarding stage match card',
     );
 
-    await scrollTo(tester, find.byKey(const Key('onboarding-first-phrase-said')));
+    await scrollTo(
+      tester,
+      find.byKey(const Key('onboarding-first-phrase-said')),
+    );
     await tester.tap(find.byKey(const Key('onboarding-first-phrase-said')));
     await tester.pumpAndSettle();
     await pumpUntilFound(
@@ -218,7 +217,7 @@ class E2eTestHarness {
       reason: 'first starter phrase',
     );
     final firstReaction = find.byKey(
-      const Key('reaction-bath_time_warm_water-engaged'),
+      const Key('reaction-bath_time_warm_water-cooperating'),
     );
     await scrollTo(tester, firstReaction);
     await tester.tap(firstReaction);
@@ -229,7 +228,7 @@ class E2eTestHarness {
       reason: 'second starter phrase',
     );
     final secondReaction = find.byKey(
-      const Key('reaction-bath_time_splash_splash-imitated'),
+      const Key('reaction-bath_time_splash_splash-no_response'),
     );
     await pumpUntilFound(tester, secondReaction, reason: 'second reaction');
     await tester.ensureVisible(secondReaction);
@@ -242,7 +241,7 @@ class E2eTestHarness {
       reason: 'third starter phrase',
     );
     final thirdReaction = find.byKey(
-      const Key('reaction-bath_time_all_clean-calm'),
+      const Key('reaction-bath_time_all_clean-cooperating'),
     );
     await pumpUntilFound(tester, thirdReaction, reason: 'third reaction');
     await tester.ensureVisible(thirdReaction);

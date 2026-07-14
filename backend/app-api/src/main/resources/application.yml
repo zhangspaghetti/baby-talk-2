@@ -1,6 +1,8 @@
 spring:
   application:
     name: babytalk-app-api
+  config:
+    import: classpath:config/practice-discovery-policy.yml
   autoconfigure:
     exclude:
       - org.springframework.ai.model.openai.autoconfigure.OpenAiChatAutoConfiguration
@@ -78,6 +80,22 @@ management:
   otlp:
     tracing:
       endpoint: ${OTLP_ENDPOINT:http://localhost:4318/v1/traces}
+
+babytalk:
+  practice:
+    discovery:
+      custom-scene:
+        enabled: ${BABY_TALK_PRACTICE_DISCOVERY_CUSTOM_SCENE_ENABLED:false}
+        timeout: ${BABY_TALK_PRACTICE_DISCOVERY_CUSTOM_SCENE_TIMEOUT:5s}
+        prompt-version: ${BABY_TALK_PRACTICE_DISCOVERY_CUSTOM_SCENE_PROMPT_VERSION:practice-custom-scene-v1}
+        strategy-version: ${BABY_TALK_PRACTICE_DISCOVERY_CUSTOM_SCENE_STRATEGY_VERSION:fake-generator-v1}
+        provider-mode: ${BABY_TALK_PRACTICE_DISCOVERY_CUSTOM_SCENE_PROVIDER_MODE:disabled}
+        installation-burst-limit: ${BABY_TALK_PRACTICE_DISCOVERY_CUSTOM_SCENE_INSTALLATION_BURST_LIMIT:3}
+        installation-daily-limit: ${BABY_TALK_PRACTICE_DISCOVERY_CUSTOM_SCENE_INSTALLATION_DAILY_LIMIT:10}
+        account-burst-limit: ${BABY_TALK_PRACTICE_DISCOVERY_CUSTOM_SCENE_ACCOUNT_BURST_LIMIT:5}
+        account-daily-limit: ${BABY_TALK_PRACTICE_DISCOVERY_CUSTOM_SCENE_ACCOUNT_DAILY_LIMIT:20}
+        burst-window: ${BABY_TALK_PRACTICE_DISCOVERY_CUSTOM_SCENE_BURST_WINDOW:10m}
+        daily-window: ${BABY_TALK_PRACTICE_DISCOVERY_CUSTOM_SCENE_DAILY_WINDOW:1d}
 
 app:
   auth:

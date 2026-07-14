@@ -1,45 +1,12 @@
 import 'dart:async';
 
-import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/foundation.dart';
 import 'package:mobile/features/practice/data/repositories/practice_repository.dart';
 import 'package:mobile/features/practice/domain/models/interaction_event_payload.dart';
 import 'package:mobile/features/practice/domain/models/practice_phrase.dart';
+import 'package:mobile/features/practice/presentation/practice_audio_controller.dart';
 
-abstract class PracticeAudioController {
-  Stream<void> get completionStream;
-
-  Future<void> playAsset(String assetPath);
-
-  Future<void> stop();
-
-  Future<void> dispose();
-}
-
-class AudioplayersPracticeAudioController implements PracticeAudioController {
-  AudioplayersPracticeAudioController({AudioPlayer? player})
-    : _player = player ?? AudioPlayer();
-
-  final AudioPlayer _player;
-
-  @override
-  Stream<void> get completionStream => _player.onPlayerComplete;
-
-  @override
-  Future<void> playAsset(String assetPath) {
-    return _player.play(AssetSource(assetPath));
-  }
-
-  @override
-  Future<void> stop() {
-    return _player.stop();
-  }
-
-  @override
-  Future<void> dispose() {
-    return _player.dispose();
-  }
-}
+export 'package:mobile/features/practice/presentation/practice_audio_controller.dart';
 
 enum PracticePlaybackStatus { idle, playing, completed, error }
 
@@ -61,36 +28,42 @@ class PracticeReactionOption {
 
 const List<PracticeReactionOption> practiceReactionOptions = [
   PracticeReactionOption(
-    type: BabyReactionType.calm,
-    label: '安静听',
-    description: '宝宝停下来听你说。',
+    type: BabyReactionType.cooperating,
+    label: '配合',
+    description: '宝宝愿意配合这次练习。',
   ),
   PracticeReactionOption(
-    type: BabyReactionType.engaged,
-    label: '看着你',
-    description: '宝宝看向你或有眼神回应。',
+    type: BabyReactionType.hesitant,
+    label: '犹豫',
+    description: '宝宝有点犹豫，还在观察。',
   ),
   PracticeReactionOption(
-    type: BabyReactionType.imitated,
-    label: '跟着咿呀',
-    description: '宝宝出声、嘴型或动作回应。',
+    type: BabyReactionType.resisting,
+    label: '不想',
+    description: '宝宝现在不太想继续。',
+  ),
+  PracticeReactionOption(
+    type: BabyReactionType.noResponse,
+    label: '没反应',
+    description: '宝宝暂时没有明显反应。',
+  ),
+  PracticeReactionOption(
+    type: BabyReactionType.other,
+    label: '其他',
+    description: '这次反应不属于前面的几类。',
   ),
 ];
 
 /// Controls the lifecycle of a single practice phrase (V21).
 enum PhraseInteractionPhase {
-  ready,      // Waiting for user to say the phrase ("说完了")
-  saved,      // Phrase marked spoken; reaction chips visible
-  advancing,  // Reaction recorded; 1.35 s animation before next card
-  complete,   // All phrases done; completion view shown
+  ready, // Waiting for user to say the phrase ("说完了")
+  saved, // Phrase marked spoken; reaction chips visible
+  advancing, // Reaction recorded; 1.35 s animation before next card
+  complete, // All phrases done; completion view shown
 }
 
 /// Status of the "换一句" background load (V21).
-enum NextPhraseLoadStatus {
-  idle,
-  loading,
-  error,
-}
+enum NextPhraseLoadStatus { idle, loading, error }
 
 class PracticeSessionNotifier extends ChangeNotifier {
   PracticeSessionNotifier({
@@ -388,8 +361,10 @@ class PracticeSessionNotifier extends ChangeNotifier {
       // Advance index immediately so currentPhrase reflects next phrase.
       // phrasePhase stays "advancing" for 1.35 s (UI animation window).
       if (!isLastPhrase) {
-        _currentPhraseIndex = (_currentPhraseIndex + 1)
-            .clamp(0, snapshot.phrases.length - 1);
+        _currentPhraseIndex = (_currentPhraseIndex + 1).clamp(
+          0,
+          snapshot.phrases.length - 1,
+        );
       } else {
         _sessionCompleted = true;
       }
@@ -482,8 +457,7 @@ class PracticeSessionNotifier extends ChangeNotifier {
       );
 
       final currentSnapshot = _activitySnapshot!;
-      final updatedPhrases =
-          List<PracticePhrase>.from(currentSnapshot.phrases);
+      final updatedPhrases = List<PracticePhrase>.from(currentSnapshot.phrases);
       updatedPhrases[_currentPhraseIndex] = PracticePhrase(
         spaceId: newDynPhrase.spaceId,
         activityId: newDynPhrase.activityId,
@@ -525,14 +499,16 @@ class PracticeSessionNotifier extends ChangeNotifier {
 
   String labelForReaction(BabyReactionType reactionType) {
     switch (reactionType) {
-      case BabyReactionType.calm:
-        return '宝宝放松';
-      case BabyReactionType.engaged:
-        return '宝宝在看';
-      case BabyReactionType.imitated:
-        return '宝宝模仿';
-      case BabyReactionType.needsBreak:
-        return '先休息';
+      case BabyReactionType.cooperating:
+        return '配合';
+      case BabyReactionType.hesitant:
+        return '犹豫';
+      case BabyReactionType.resisting:
+        return '不想';
+      case BabyReactionType.noResponse:
+        return '没反应';
+      case BabyReactionType.other:
+        return '其他';
     }
   }
 

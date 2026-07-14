@@ -299,7 +299,9 @@ void main() {
         reason: 'phrase 1',
       );
       await _shot(tester, 'practice_phrase_1');
-      final r1 = find.byKey(const Key('reaction-bath_time_warm_water-engaged'));
+      final r1 = find.byKey(
+        const Key('reaction-bath_time_warm_water-cooperating'),
+      );
       await E2eTestHarness.scrollTo(tester, r1);
       await tester.tap(r1);
 
@@ -311,7 +313,7 @@ void main() {
       );
       await _shot(tester, 'practice_phrase_2');
       final r2 = find.byKey(
-        const Key('reaction-bath_time_splash_splash-imitated'),
+        const Key('reaction-bath_time_splash_splash-no_response'),
       );
       await E2eTestHarness.pumpUntilFound(tester, r2, reason: 'reaction 2');
       await tester.ensureVisible(r2);
@@ -325,7 +327,9 @@ void main() {
         reason: 'phrase 3',
       );
       await _shot(tester, 'practice_phrase_3');
-      final r3 = find.byKey(const Key('reaction-bath_time_all_clean-calm'));
+      final r3 = find.byKey(
+        const Key('reaction-bath_time_all_clean-cooperating'),
+      );
       await E2eTestHarness.pumpUntilFound(tester, r3, reason: 'reaction 3');
       await tester.ensureVisible(r3);
       await tester.pump(const Duration(milliseconds: 100));
@@ -478,16 +482,18 @@ void main() {
       await E2eTestHarness.pumpUntil(
         tester,
         () {
-          final hasResponse =
-              find.byKey(const Key('mentor-chat-response-card'))
-                  .evaluate()
-                  .isNotEmpty;
-          final hasBanner =
-              find.byKey(const Key('mentor-chat-banner')).evaluate().isNotEmpty;
-          final isLoading =
-              find.byKey(const Key('mentor-chat-loading-bar'))
-                  .evaluate()
-                  .isNotEmpty;
+          final hasResponse = find
+              .byKey(const Key('mentor-chat-response-card'))
+              .evaluate()
+              .isNotEmpty;
+          final hasBanner = find
+              .byKey(const Key('mentor-chat-banner'))
+              .evaluate()
+              .isNotEmpty;
+          final isLoading = find
+              .byKey(const Key('mentor-chat-loading-bar'))
+              .evaluate()
+              .isNotEmpty;
           return hasResponse || hasBanner || !isLoading;
         },
         timeout: const Duration(seconds: 120),
@@ -495,8 +501,10 @@ void main() {
         reason: 'mentor chat completion surface',
       );
 
-      final hasMentorResponse =
-          find.byKey(const Key('mentor-chat-response-card')).evaluate().isNotEmpty;
+      final hasMentorResponse = find
+          .byKey(const Key('mentor-chat-response-card'))
+          .evaluate()
+          .isNotEmpty;
       if (hasMentorResponse) {
         await _shot(tester, 'mentor_chat_response');
         expect(

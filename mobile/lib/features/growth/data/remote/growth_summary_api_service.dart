@@ -54,7 +54,7 @@ class GrowthSummaryPayload {
     required this.totalEvents,
     required this.uniquePhrases,
     required this.uniqueActivities,
-    required this.imitationCount,
+    required this.cooperatingCount,
     required this.practicedDays,
     this.firstEventAt,
     this.lastEventAt,
@@ -63,7 +63,7 @@ class GrowthSummaryPayload {
   final int totalEvents;
   final int uniquePhrases;
   final int uniqueActivities;
-  final int imitationCount;
+  final int cooperatingCount;
   final int practicedDays;
   final DateTime? firstEventAt;
   final DateTime? lastEventAt;
@@ -92,9 +92,11 @@ class GrowthSummaryApiService implements GrowthSummaryRemoteDataSource {
   Future<GrowthSummaryPayload> fetchSummary({
     required GrowthSummaryPeriod period,
   }) async {
-    final json = await _requestJson('GET', '/api/v1/growth/summary', query: {
-      'period': period.wireValue,
-    });
+    final json = await _requestJson(
+      'GET',
+      '/api/v1/growth/summary',
+      query: {'period': period.wireValue},
+    );
     return _readPayload(json);
   }
 
@@ -175,18 +177,17 @@ class GrowthSummaryApiService implements GrowthSummaryRemoteDataSource {
   GrowthSummaryPayload _readPayload(Map<String, dynamic> json) {
     final summary = _readSummaryMap(json);
     final hasCoreFields =
-        _hasIntValue(summary, 'totalEvents') || _hasIntValue(summary, 'eventCount');
+        _hasIntValue(summary, 'totalEvents') ||
+        _hasIntValue(summary, 'eventCount');
     if (!hasCoreFields) {
-      throw const GrowthSummaryApiException.malformed(
-        message: '缺少成长摘要关键字段。',
-      );
+      throw const GrowthSummaryApiException.malformed(message: '缺少成长摘要关键字段。');
     }
 
     return GrowthSummaryPayload(
       totalEvents: _readInt(summary, 'totalEvents', fallbackKey: 'eventCount'),
       uniquePhrases: _readInt(summary, 'uniquePhrases'),
       uniqueActivities: _readInt(summary, 'uniqueActivities'),
-      imitationCount: _readInt(summary, 'imitationCount'),
+      cooperatingCount: _readInt(summary, 'cooperatingCount'),
       practicedDays: _readInt(summary, 'practicedDays'),
       firstEventAt: _readDateTime(summary, 'firstEventAt'),
       lastEventAt: _readDateTime(summary, 'lastEventAt'),

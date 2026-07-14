@@ -216,8 +216,8 @@ class _GrowthInsightsPanelState extends ConsumerState<GrowthInsightsPanel> {
               theme: theme,
             ),
             _StatChip(
-              label: '宝宝模仿',
-              value: '${view.stats.imitationCount}',
+              label: '配合',
+              value: '${view.stats.cooperatingCount}',
               colors: colors,
               theme: theme,
             ),
@@ -308,7 +308,9 @@ class _GrowthInsightsPanelState extends ConsumerState<GrowthInsightsPanel> {
 
   /// Milestones from [widget.milestones] whose achievedAt falls inside the
   /// view's aggregation window, most recent first.
-  List<GrowthMilestoneSnapshot> _periodMilestones(GrowthInsightsViewState view) {
+  List<GrowthMilestoneSnapshot> _periodMilestones(
+    GrowthInsightsViewState view,
+  ) {
     final start = view.windowStart;
     final end = view.windowEnd;
     if (start == null || end == null) return const [];
@@ -584,9 +586,7 @@ class _TrendBarChart extends StatelessWidget {
                     top: Radius.circular(AppLayoutConstants.smallRadius),
                   ),
                   color: bars[i].count > 0
-                      ? (i == selectedIndex
-                            ? colors.accentDark
-                            : colors.accent)
+                      ? (i == selectedIndex ? colors.accentDark : colors.accent)
                       : colors.outlineSoft,
                 ),
               ],
@@ -687,9 +687,7 @@ class _SceneRow extends StatelessWidget {
         const SizedBox(width: AppLayoutConstants.spacingSm),
         Text(
           percentLabel,
-          style: theme.textTheme.labelSmall?.copyWith(
-            color: colors.textMuted,
-          ),
+          style: theme.textTheme.labelSmall?.copyWith(color: colors.textMuted),
         ),
       ],
     );
@@ -859,11 +857,7 @@ class _PeriodMilestones extends StatelessWidget {
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(
-                Icons.local_florist_rounded,
-                size: 18,
-                color: colors.accent,
-              ),
+              Icon(Icons.local_florist_rounded, size: 18, color: colors.accent),
               const SizedBox(width: AppLayoutConstants.spacingSm),
               Expanded(
                 child: Text(

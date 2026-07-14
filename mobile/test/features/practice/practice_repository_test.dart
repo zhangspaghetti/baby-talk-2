@@ -139,7 +139,7 @@ void main() {
         spaceId: 'daily_care',
         activityId: 'bath_time',
         phraseId: 'bath_time_warm_water',
-        reactionType: BabyReactionType.engaged,
+        reactionType: BabyReactionType.cooperating,
         clientTimestamp: DateTime.utc(2026, 4, 7, 12, 0),
         localEventId: 'evt_1',
       );
@@ -147,7 +147,7 @@ void main() {
         spaceId: 'daily_care',
         activityId: 'bath_time',
         phraseId: 'bath_time_splash_splash',
-        reactionType: BabyReactionType.imitated,
+        reactionType: BabyReactionType.cooperating,
         clientTimestamp: DateTime.utc(2026, 4, 7, 12, 1),
         localEventId: 'evt_2',
       );
@@ -196,7 +196,10 @@ void main() {
       expect(homeSummary.recentResult, isNotNull);
       expect(homeSummary.recentResult!.phraseId, 'bath_time_splash_splash');
       expect(homeSummary.recentResult!.phraseEnglish, 'Splash, splash!');
-      expect(homeSummary.recentResult!.reactionType, BabyReactionType.imitated);
+      expect(
+        homeSummary.recentResult!.reactionType,
+        BabyReactionType.cooperating,
+      );
 
       expect(resumeInfo.completedPhraseIds, [
         'bath_time_warm_water',
@@ -212,7 +215,7 @@ void main() {
         spaceId: 'family_rhythm',
         activityId: 'feeding_time',
         phraseId: 'feeding_time_open_wide',
-        reactionType: BabyReactionType.calm,
+        reactionType: BabyReactionType.cooperating,
         clientTimestamp: DateTime.utc(2026, 4, 7, 12, 10),
         localEventId: 'evt_recent_feed_1',
       );
@@ -220,7 +223,7 @@ void main() {
         spaceId: 'family_rhythm',
         activityId: 'feeding_time',
         phraseId: 'feeding_time_yummy_bite',
-        reactionType: BabyReactionType.imitated,
+        reactionType: BabyReactionType.cooperating,
         clientTimestamp: DateTime.utc(2026, 4, 7, 12, 11),
         localEventId: 'evt_recent_feed_2',
       );
@@ -268,7 +271,7 @@ void main() {
         spaceId: 'daily_care',
         activityId: 'bath_time',
         phraseId: 'bath_time_warm_water',
-        reactionType: BabyReactionType.engaged,
+        reactionType: BabyReactionType.cooperating,
         clientTimestamp: DateTime.utc(2026, 4, 7, 13, 0),
         localEventId: 'evt_catalog_bath',
       );
@@ -276,7 +279,7 @@ void main() {
         spaceId: 'family_rhythm',
         activityId: 'feeding_time',
         phraseId: 'feeding_time_open_wide',
-        reactionType: BabyReactionType.calm,
+        reactionType: BabyReactionType.cooperating,
         clientTimestamp: DateTime.utc(2026, 4, 7, 13, 1),
         localEventId: 'evt_catalog_feed',
       );
@@ -287,7 +290,7 @@ void main() {
           spaceId: 'daily_care',
           activityId: 'bath_time',
           phraseId: 'bath_time_unknown',
-          reactionType: BabyReactionType.needsBreak,
+          reactionType: BabyReactionType.resisting,
           clientTimestamp: DateTime.utc(2026, 4, 7, 13, 2),
         ),
       );
@@ -298,7 +301,7 @@ void main() {
           spaceId: 'family_rhythm',
           activityId: 'mystery_time',
           phraseId: 'mystery_phrase',
-          reactionType: BabyReactionType.engaged,
+          reactionType: BabyReactionType.cooperating,
           clientTimestamp: DateTime.utc(2026, 4, 7, 13, 3),
         ),
       );
@@ -379,7 +382,7 @@ void main() {
         spaceId: 'daily_care',
         activityId: 'bath_time',
         phraseId: 'bath_time_all_clean',
-        reactionType: BabyReactionType.calm,
+        reactionType: BabyReactionType.cooperating,
         clientTimestamp: DateTime.utc(2026, 4, 7, 12, 2),
         localEventId: 'evt_reopen',
       );
@@ -414,7 +417,10 @@ void main() {
       expect(homeSummary.totalEvents, 1);
       expect(homeSummary.recentResult, isNotNull);
       expect(homeSummary.recentResult!.phraseId, 'bath_time_all_clean');
-      expect(homeSummary.recentResult!.reactionType, BabyReactionType.calm);
+      expect(
+        homeSummary.recentResult!.reactionType,
+        BabyReactionType.cooperating,
+      );
       expect(resumeInfo.completedPhraseIds, ['bath_time_all_clean']);
       expect(resumeInfo.lastEventTime, DateTime.utc(2026, 4, 7, 12, 2));
     });
@@ -424,7 +430,7 @@ void main() {
         spaceId: 'daily_care',
         activityId: 'bath_time',
         phraseId: 'bath_time_warm_water',
-        reactionType: BabyReactionType.calm,
+        reactionType: BabyReactionType.cooperating,
         clientTimestamp: DateTime.utc(2026, 4, 7, 12, 3),
         localEventId: 'evt_fact_1',
       );
@@ -432,7 +438,7 @@ void main() {
         spaceId: 'daily_care',
         activityId: 'bath_time',
         phraseId: 'bath_time_splash_splash',
-        reactionType: BabyReactionType.engaged,
+        reactionType: BabyReactionType.cooperating,
         clientTimestamp: DateTime.utc(2026, 4, 7, 12, 4),
         localEventId: 'evt_fact_2',
       );
@@ -467,7 +473,7 @@ void main() {
           spaceId: 'daily_care',
           activityId: 'bath_time',
           phraseId: 'bath_time_all_clean',
-          reactionType: 'imitated',
+          reactionType: 'cooperating',
           clientTimestamp: DateTime.utc(2026, 4, 7, 12, 7),
           syncState: 'synced',
           lastSyncPhase: 'bootstrap_import',
@@ -539,7 +545,7 @@ void main() {
             spaceId: 'daily_care',
             activityId: 'bath_time',
             phraseId: '',
-            reactionType: BabyReactionType.calm,
+            reactionType: BabyReactionType.cooperating,
             clientTimestamp: DateTime.utc(2026, 4, 7, 12, 4),
           ),
           throwsFormatException,
@@ -553,7 +559,7 @@ void main() {
             spaceId: 'daily_care',
             activityId: 'bath_time',
             phraseId: 'bath_time_warm_water',
-            reactionType: 'calm',
+            reactionType: 'cooperating',
             clientTimestamp: DateTime.utc(2026, 4, 7, 12, 4),
           ),
           throwsFormatException,
@@ -563,7 +569,7 @@ void main() {
           spaceId: 'daily_care',
           activityId: 'bath_time',
           phraseId: 'bath_time_warm_water',
-          reactionType: BabyReactionType.calm,
+          reactionType: BabyReactionType.cooperating,
           clientTimestamp: DateTime.utc(2026, 4, 7, 12, 5),
           localEventId: 'evt_duplicate',
         );
@@ -573,7 +579,7 @@ void main() {
             spaceId: 'daily_care',
             activityId: 'bath_time',
             phraseId: 'bath_time_splash_splash',
-            reactionType: BabyReactionType.engaged,
+            reactionType: BabyReactionType.cooperating,
             clientTimestamp: DateTime.utc(2026, 4, 7, 12, 6),
             localEventId: 'evt_duplicate',
           ),

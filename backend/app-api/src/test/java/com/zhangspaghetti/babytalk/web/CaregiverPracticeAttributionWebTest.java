@@ -72,9 +72,9 @@ class CaregiverPracticeAttributionWebTest extends AbstractIntegrationTest {
     @Test
     void secondaryCaregiverPracticeRefreshesProjectionAndKeepsInteractionEventsAppendOnly() throws Exception {
         var primary = createAcceptedSession("13800138000", "install-primary");
-        syncEvent(primary.accessToken(), "install-primary", "evt_1", "daily_care", "bath_time", "bath_time_warm_water", "calm",
+        syncEvent(primary.accessToken(), "install-primary", "evt_1", "daily_care", "bath_time", "bath_time_warm_water", "cooperating",
                 "2026-04-09T02:00:00Z");
-        syncEvent(primary.accessToken(), "install-primary", "evt_2", "daily_care", "bath_time", "bath_time_splash_splash", "engaged",
+        syncEvent(primary.accessToken(), "install-primary", "evt_2", "daily_care", "bath_time", "bath_time_splash_splash", "cooperating",
                 "2026-04-09T02:01:00Z");
 
         var invite = createInvite(primary.accessToken(), "caregiver", "household_settings");
@@ -112,7 +112,7 @@ class CaregiverPracticeAttributionWebTest extends AbstractIntegrationTest {
                                       "spaceId":"sleep_support",
                                       "activityId":"bedtime_story",
                                       "phraseId":"bedtime_story_soft_voice",
-                                      "reactionType":"needs_break",
+                                      "reactionType":"resisting",
                                       "clientTimestamp":"2026-04-09T02:05:00Z"
                                     }
                                   ]
@@ -129,7 +129,7 @@ class CaregiverPracticeAttributionWebTest extends AbstractIntegrationTest {
                 .andExpect(jsonPath("$.snapshot.practice.activityId").value("bedtime_story"))
                 .andExpect(jsonPath("$.snapshot.actor.role").value("caregiver"))
                 .andExpect(jsonPath("$.snapshot.actor.source").value("sync_event"))
-                .andExpect(jsonPath("$.snapshot.actor.result").value("needs_break"))
+                .andExpect(jsonPath("$.snapshot.actor.result").value("resisting"))
                 .andExpect(jsonPath("$.snapshot.nextStep.spaceId").value("daily_care"))
                 .andExpect(jsonPath("$.snapshot.nextStep.activityId").value("bath_time"))
                 .andExpect(jsonPath("$.snapshot.nextStep.reason").value("top_activity"))
@@ -163,7 +163,7 @@ class CaregiverPracticeAttributionWebTest extends AbstractIntegrationTest {
         assertThat(projectionRow)
                 .containsEntry("latest_actor_role", "caregiver")
                 .containsEntry("latest_actor_source", "sync_event")
-                .containsEntry("latest_actor_result", "needs_break")
+                .containsEntry("latest_actor_result", "resisting")
                 .containsEntry("next_step_space_id", "daily_care")
                 .containsEntry("next_step_activity_id", "bath_time")
                 .containsEntry("next_step_reason", "top_activity");

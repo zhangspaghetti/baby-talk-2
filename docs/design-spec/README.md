@@ -1,5 +1,19 @@
 Baby Talk 2 – Final Design Brief
 
+## Active mobile strategic supersession
+
+As of 2026-06-29, the active mobile strategic supersession reference is:
+
+`docs/design-spec/BabyTalk_Mobile_Duolingo-like_Care_Path_Design_Contract.md`
+
+Engineering architecture for this supersession:
+
+`docs/design-spec/BabyTalk_Mobile_Care_Path_Engineering_Architecture.md`
+
+Future mobile page planning must read that contract before using the older page specs in this folder. It supersedes conflicting mobile / mobile_v2 / Practice / Discover / Garden / Growth / Ritual Room direction, including navigation, user-facing framing, the status of `mobile_v2 Ritual Room`, Garden/Growth semantics, and the next approved implementation slice.
+
+Older documents in `docs/design-spec/`, `DESIGN.md`, and mobile_v2 planning records remain useful as historical references and for non-conflicting details. When they conflict with the care path contract, the contract is the source of truth.
+
 Project overview
 Design a mobile app called “Baby Talk 2” — a warm, supportive companion that helps Chinese parents (age 25–40, can read English but struggle to speak) naturally say a few simple English phrases to their 0–3 year old baby during a specific care moment. The app does not teach English; it gives parents a small, manageable set of things they can say right now while feeding, bathing, changing or putting baby to sleep. The emotional promise: “You’re not learning English. You’re talking to your baby.”
 

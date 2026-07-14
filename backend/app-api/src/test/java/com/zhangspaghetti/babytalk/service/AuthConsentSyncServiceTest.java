@@ -55,7 +55,7 @@ class AuthConsentSyncServiceTest extends AbstractIntegrationTest {
                                 "daily_care",
                                 "bath_time",
                                 "bath_time_warm_water",
-                                "calm",
+                                "cooperating",
                                 Instant.parse("2026-04-09T02:00:00Z")
                         ),
                         new AuthConsentSyncService.SyncEventRequest(
@@ -65,7 +65,7 @@ class AuthConsentSyncServiceTest extends AbstractIntegrationTest {
                                 "daily_care",
                                 "bath_time",
                                 "bath_time_splash_splash",
-                                "engaged",
+                                "cooperating",
                                 Instant.parse("2026-04-09T02:01:00Z")
                         )
                 )
@@ -95,7 +95,7 @@ class AuthConsentSyncServiceTest extends AbstractIntegrationTest {
                                 "daily_care",
                                 "bath_time",
                                 "bath_time_warm_water",
-                                "calm",
+                                "cooperating",
                                 Instant.parse("2026-04-09T03:00:00Z")
                         )
                 )
@@ -197,28 +197,30 @@ class AuthConsentSyncServiceTest extends AbstractIntegrationTest {
             void ingestEventsRejectsInvalidReactionTypeBeforeAnyWrite() {
                 var session = createAcceptedSession("13800138000", "install-alpha");
 
-                assertThatThrownBy(() -> service.ingestEvents(
-                        session.sessionId(),
-                        "install-alpha",
-                        List.of(
-                                new AuthConsentSyncService.SyncEventRequest(
-                                        "install-alpha:evt_invalid_reaction",
-                                        "evt_invalid_reaction",
-                                        "install-alpha",
-                                        "daily_care",
-                                        "bath_time",
-                                        "bath_time_warm_water",
-                                        "surprised",
-                                        Instant.parse("2026-04-09T04:00:00Z")
-                                )
-                        )
-                ))
-                        .isInstanceOf(ContractException.class)
-                        .satisfies(error -> {
-                            var contract = (ContractException) error;
-                            assertThat(contract.status()).isEqualTo(HttpStatus.BAD_REQUEST);
-                            assertThat(contract.code()).isEqualTo("invalid_reaction_type");
-                        });
+                for (var reactionType : List.of("surprised", "calm", "engaged", "imitated", "needs_break")) {
+                    assertThatThrownBy(() -> service.ingestEvents(
+                            session.sessionId(),
+                            "install-alpha",
+                            List.of(
+                                    new AuthConsentSyncService.SyncEventRequest(
+                                            "install-alpha:evt_invalid_reaction_" + reactionType,
+                                            "evt_invalid_reaction_" + reactionType,
+                                            "install-alpha",
+                                            "daily_care",
+                                            "bath_time",
+                                            "bath_time_warm_water",
+                                            reactionType,
+                                            Instant.parse("2026-04-09T04:00:00Z")
+                                    )
+                            )
+                    ))
+                            .isInstanceOf(ContractException.class)
+                            .satisfies(error -> {
+                                var contract = (ContractException) error;
+                                assertThat(contract.status()).isEqualTo(HttpStatus.BAD_REQUEST);
+                                assertThat(contract.code()).isEqualTo("invalid_reaction_type");
+                            });
+                }
 
                 assertThat(service.countInteractionEvents(session.accountId(), "install-alpha")).isZero();
             }
@@ -238,7 +240,7 @@ class AuthConsentSyncServiceTest extends AbstractIntegrationTest {
                                         "daily_care",
                                         "bath_time",
                                         "bath_time_warm_water",
-                                        "calm",
+                                        "cooperating",
                                         null
                                 )
                         )

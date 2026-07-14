@@ -13,15 +13,15 @@ import 'package:mobile/features/practice/domain/models/practice_activity_catalog
 import 'package:mobile/features/practice/presentation/practice_route_args.dart';
 import 'package:mobile/l10n/app_localizations.dart';
 
-/// Discover screen — scene phrase library browsing entry point.
+/// Scene browsing entry point.
 ///
-/// Users can search phrases, filter by scene, and sort results.
-/// Each phrase card links directly to Practice.
+/// Users can search, filter by scene, and sort results.
+/// Each card opens the existing execution path through route args.
 typedef DiscoverCatalogLoader = Future<PracticeActivityCatalog> Function();
 typedef DiscoverPracticeOpener =
     Future<void> Function(BuildContext context, PracticeRouteArgs args);
 
-/// Sort modes for phrase list.
+/// Sort modes for the scene list.
 enum _SortMode { mostUsed, newest, all }
 
 /// Well-known scene categories (from design spec).
@@ -173,7 +173,7 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen>
                       },
                     )
                   else
-                    _DiscoverPhraseList(
+                    _DiscoverSceneList(
                       activities: filtered,
                       onOpenActivity: _openActivity,
                     ),
@@ -202,7 +202,7 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen>
           .toList();
     }
 
-    // Search filter (supports English phrase and Chinese)
+    // Search filter (supports English and Chinese scene text)
     if (_searchQuery.trim().isNotEmpty) {
       final query = _searchQuery.trim().toLowerCase();
       result = result.where((a) {
@@ -336,7 +336,7 @@ class _DiscoverHero extends StatelessWidget {
           ),
           const SizedBox(height: 6),
           Text(
-            '每天一句亲子英语',
+            '照护场景',
             style: theme.textTheme.bodyMedium?.copyWith(
               color: colors.textSecondary,
             ),
@@ -368,7 +368,7 @@ class _DiscoverSearchBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = context.appColors;
     return Semantics(
-      label: '搜索短语或场景',
+      label: '搜索场景或照护时刻',
       child: TextField(
         key: const Key('discover-search-field'),
         controller: controller,
@@ -376,10 +376,7 @@ class _DiscoverSearchBar extends StatelessWidget {
         textInputAction: TextInputAction.search,
         decoration: InputDecoration(
           hintText: hintText,
-          hintStyle: TextStyle(
-            fontSize: 15,
-            color: colors.textMuted,
-          ),
+          hintStyle: TextStyle(fontSize: 15, color: colors.textMuted),
           prefixIcon: Icon(
             Icons.search,
             size: AppLayoutConstants.iconSizeSm,
@@ -545,11 +542,7 @@ class _DiscoverSortDropdown extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(
-                _sortIcon(sortMode),
-                size: 16,
-                color: colors.textSecondary,
-              ),
+              Icon(_sortIcon(sortMode), size: 16, color: colors.textSecondary),
               const SizedBox(width: 4),
               Text(
                 _sortLabel(l, sortMode),
@@ -606,11 +599,11 @@ class _DiscoverSortDropdown extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────
-// Phrase List
+// Scene List
 // ─────────────────────────────────────────────────────────────
 
-class _DiscoverPhraseList extends StatelessWidget {
-  const _DiscoverPhraseList({
+class _DiscoverSceneList extends StatelessWidget {
+  const _DiscoverSceneList({
     required this.activities,
     required this.onOpenActivity,
   });
@@ -628,18 +621,15 @@ class _DiscoverPhraseList extends StatelessWidget {
         Padding(
           padding: const EdgeInsets.only(bottom: AppLayoutConstants.spacingXs),
           child: Text(
-            '${activities.length} 条短语',
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: context.appColors.textMuted,
-            ),
+            '${activities.length} 个场景',
+            style: Theme.of(
+              context,
+            ).textTheme.bodySmall?.copyWith(color: context.appColors.textMuted),
           ),
         ),
-        // Phrase cards
+        // Scene cards
         for (final activity in activities) ...[
-          _PhraseCard(
-            activity: activity,
-            onTap: () => onOpenActivity(activity),
-          ),
+          _SceneCard(activity: activity, onTap: () => onOpenActivity(activity)),
           const SizedBox(height: AppLayoutConstants.spacingXs),
         ],
       ],
@@ -648,14 +638,11 @@ class _DiscoverPhraseList extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────
-// Phrase Card
+// Scene Card
 // ─────────────────────────────────────────────────────────────
 
-class _PhraseCard extends StatelessWidget {
-  const _PhraseCard({
-    required this.activity,
-    required this.onTap,
-  });
+class _SceneCard extends StatelessWidget {
+  const _SceneCard({required this.activity, required this.onTap});
 
   final PracticeCatalogActivitySummary activity;
   final VoidCallback onTap;
@@ -666,6 +653,8 @@ class _PhraseCard extends StatelessWidget {
     final colors = context.appColors;
     final theme = Theme.of(context);
     final sceneLabel = _sceneTagLabel(activity.sceneTag);
+    final sceneSummary = _sceneCopy(activity.summary);
+    final coachTip = _sceneCopy(activity.coachTip.trim());
 
     return Semantics(
       label: '${activity.title}，场景$sceneLabel',
@@ -675,7 +664,7 @@ class _PhraseCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Scene tag + practice button row
+            // Scene tag + primary button row
             Row(
               children: [
                 // Scene tag pill
@@ -700,7 +689,6 @@ class _PhraseCard extends StatelessWidget {
                   ),
                 ),
                 const Spacer(),
-                // Practice button
                 Semantics(
                   button: true,
                   label: l.discoverPracticeThis,
@@ -735,20 +723,18 @@ class _PhraseCard extends StatelessWidget {
             ),
             const SizedBox(height: AppLayoutConstants.spacingSm),
 
-            // English phrase (most prominent text)
+            // Current care moment title
             AppEnglishPhrase(activity.title),
             const SizedBox(height: AppLayoutConstants.spacingXs),
 
-            // Chinese translation
             Text(
-              activity.summary,
+              sceneSummary,
               style: theme.textTheme.bodyMedium,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
             ),
 
-            // Usage hint
-            if (activity.coachTip.trim().isNotEmpty) ...[
+            if (coachTip.isNotEmpty) ...[
               const SizedBox(height: AppLayoutConstants.spacingXs),
               Row(
                 children: [
@@ -760,7 +746,7 @@ class _PhraseCard extends StatelessWidget {
                   const SizedBox(width: 4),
                   Expanded(
                     child: Text(
-                      activity.coachTip,
+                      coachTip,
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: colors.textMuted,
                         fontStyle: FontStyle.italic,
@@ -786,19 +772,33 @@ class _PhraseCard extends StatelessWidget {
     if (lower.contains('喝') || lower.contains('drink') || lower.contains('水')) {
       return '喝水';
     }
-    if (lower.contains('尿') || lower.contains('diaper') || lower.contains('换')) {
+    if (lower.contains('尿') ||
+        lower.contains('diaper') ||
+        lower.contains('换')) {
       return '换尿布';
     }
     if (lower.contains('洗') || lower.contains('bath') || lower.contains('澡')) {
       return '洗澡';
     }
-    if (lower.contains('睡') || lower.contains('bed') || lower.contains('night')) {
+    if (lower.contains('睡') ||
+        lower.contains('bed') ||
+        lower.contains('night')) {
       return '睡前';
     }
     if (lower.contains('出') || lower.contains('out') || lower.contains('门')) {
       return '出门';
     }
     return tag.isNotEmpty ? tag : '其他';
+  }
+
+  String _sceneCopy(String value) {
+    return value
+        .replaceAll('练习', '照护')
+        .replaceAll('课程', '场景')
+        .replaceAll('学习进度', '照护节奏')
+        .replaceAll('完成任务', '照护收尾')
+        .replaceAll('短语', '表达')
+        .replaceAll('1 of N', '当前节点');
   }
 }
 
@@ -942,9 +942,9 @@ class _DiscoverFilterEmptyState extends StatelessWidget {
           const SizedBox(height: AppLayoutConstants.spacingSm),
           Text(
             isSearch ? l.discoverSearchEmpty : l.discoverSceneEmpty,
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: colors.textSecondary,
-            ),
+            style: Theme.of(
+              context,
+            ).textTheme.bodyMedium?.copyWith(color: colors.textSecondary),
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: AppLayoutConstants.spacingMd),

@@ -31,11 +31,12 @@ void main() {
     expect(householdActorRoleLabel('unknown'), '家庭成员');
     expect(householdActorSourceLabel('sync_event'), '同步回流');
     expect(householdActorSourceLabel('manual'), '共享同步');
-    expect(householdActorResultLabel('calm'), '平静回应');
-    expect(householdActorResultLabel('engaged'), '愿意看着你');
-    expect(householdActorResultLabel('imitated'), '开始模仿');
-    expect(householdActorResultLabel('needs_break'), '需要先休息');
-    expect(householdActorResultLabel('other'), '已记录反馈');
+    expect(householdActorResultLabel('cooperating'), '配合');
+    expect(householdActorResultLabel('hesitant'), '犹豫');
+    expect(householdActorResultLabel('resisting'), '不想');
+    expect(householdActorResultLabel('no_response'), '没反应');
+    expect(householdActorResultLabel('other'), '其他');
+    expect(householdActorResultLabel('unknown'), '已记录反馈');
     expect(householdNextStepReasonLabel('latest_activity'), '继续刚完成的 activity');
     expect(householdNextStepReasonLabel('top_activity'), '先接上当前最该继续的 activity');
     expect(householdNextStepReasonLabel('other'), '共享下一步已整理好');
@@ -314,7 +315,7 @@ HouseholdSharedContext _sharedContext({HouseholdSharedNextStep? nextStep}) {
     actor: const HouseholdSharedActor(
       role: 'caregiver',
       source: 'sync_event',
-      result: 'imitated',
+      result: 'cooperating',
     ),
     nextStep:
         nextStep ??

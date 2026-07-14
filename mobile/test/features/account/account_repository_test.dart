@@ -43,7 +43,7 @@ void main() {
         spaceId: 'daily_care',
         activityId: 'bath_time',
         phraseId: 'bath_time_warm_water',
-        reactionType: BabyReactionType.engaged,
+        reactionType: BabyReactionType.cooperating,
         clientTimestamp: DateTime.utc(2026, 4, 9, 2, 0),
         localEventId: 'evt_local_1',
       );
@@ -54,7 +54,7 @@ void main() {
           spaceId: 'daily_care',
           activityId: 'bath_time',
           phraseId: 'bath_time_splash_splash',
-          reactionType: BabyReactionType.calm,
+          reactionType: BabyReactionType.cooperating,
           clientTimestamp: DateTime.utc(2026, 4, 9, 1, 59),
           syncState: InteractionSyncState.synced,
           lastSyncPhase: 'bootstrap_import',
@@ -122,7 +122,7 @@ void main() {
         spaceId: 'daily_care',
         activityId: 'bath_time',
         phraseId: 'bath_time_warm_water',
-        reactionType: BabyReactionType.engaged,
+        reactionType: BabyReactionType.cooperating,
         clientTimestamp: DateTime.utc(2026, 4, 9, 3),
         localEventId: 'evt_pending_offline',
       );
@@ -152,7 +152,7 @@ void main() {
         spaceId: 'daily_care',
         activityId: 'bath_time',
         phraseId: 'bath_time_all_clean',
-        reactionType: BabyReactionType.calm,
+        reactionType: BabyReactionType.cooperating,
         clientTimestamp: DateTime.utc(2026, 4, 9, 4),
         localEventId: 'evt_upgrade_required',
       );
@@ -186,7 +186,7 @@ void main() {
         spaceId: 'daily_care',
         activityId: 'bath_time',
         phraseId: 'bath_time_all_clean',
-        reactionType: BabyReactionType.calm,
+        reactionType: BabyReactionType.cooperating,
         clientTimestamp: DateTime.utc(2026, 4, 9, 4, 30),
         localEventId: 'evt_upgrade_missing_url',
       );
@@ -210,7 +210,7 @@ void main() {
         spaceId: 'daily_care',
         activityId: 'bath_time',
         phraseId: 'bath_time_all_clean',
-        reactionType: BabyReactionType.calm,
+        reactionType: BabyReactionType.cooperating,
         clientTimestamp: DateTime.utc(2026, 4, 9, 4, 45),
         localEventId: 'evt_upgrade_bad_url',
       );
@@ -303,7 +303,7 @@ void main() {
         spaceId: 'daily_care',
         activityId: 'bath_time',
         phraseId: 'bath_time_warm_water',
-        reactionType: BabyReactionType.engaged,
+        reactionType: BabyReactionType.cooperating,
         clientTimestamp: DateTime.utc(2026, 4, 10, 1),
         localEventId: 'evt_placeholder_pending',
       );
@@ -504,7 +504,7 @@ void main() {
         spaceId: 'daily_care',
         activityId: 'bath_time',
         phraseId: 'bath_time_warm_water',
-        reactionType: BabyReactionType.calm,
+        reactionType: BabyReactionType.cooperating,
         clientTimestamp: DateTime.utc(2026, 4, 10, 2),
         localEventId: 'evt_sync_server_error',
       );

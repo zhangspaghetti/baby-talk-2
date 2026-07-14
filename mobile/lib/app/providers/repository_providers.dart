@@ -14,6 +14,8 @@ import 'package:mobile/features/account/data/local/account_local_store.dart';
 import 'package:mobile/features/account/data/repositories/account_repository.dart';
 import 'package:mobile/features/account/data/services/account_api_service.dart';
 import 'package:mobile/features/account/data/services/authenticated_api_client.dart';
+import 'package:mobile/features/care_path/data/repositories/care_path_repository.dart';
+import 'package:mobile/features/care_path/presentation/care_path_notifier.dart';
 import 'package:mobile/features/household/data/local/household_local_store.dart';
 import 'package:mobile/features/household/data/repositories/household_repository.dart';
 import 'package:mobile/features/household/data/services/household_api_service.dart';
@@ -121,19 +123,21 @@ final growthSummaryApiServiceProvider = Provider<GrowthSummaryApiService>((
   return service;
 });
 
-final growthInsightsApiServiceProvider =
-    Provider<GrowthInsightsApiService>((ref) {
-      final service = GrowthInsightsApiService();
-      ref.onDispose(service.close);
-      return service;
-    });
+final growthInsightsApiServiceProvider = Provider<GrowthInsightsApiService>((
+  ref,
+) {
+  final service = GrowthInsightsApiService();
+  ref.onDispose(service.close);
+  return service;
+});
 
-final gardenSnapshotApiServiceProvider =
-    Provider<GardenSnapshotApiService>((ref) {
-      final service = GardenSnapshotApiService();
-      ref.onDispose(service.close);
-      return service;
-    });
+final gardenSnapshotApiServiceProvider = Provider<GardenSnapshotApiService>((
+  ref,
+) {
+  final service = GardenSnapshotApiService();
+  ref.onDispose(service.close);
+  return service;
+});
 
 // ---------------------------------------------------------------------------
 // Asset phrase service
@@ -272,11 +276,12 @@ final householdRepositoryProvider = FutureProvider<HouseholdRepository>((
 // ---------------------------------------------------------------------------
 
 /// Creates a [HouseholdNotifier] backed by the Riverpod provider graph.
-final householdNotifierProvider =
-    ChangeNotifierProvider<HouseholdNotifier>((ref) {
-      final repository = ref.watch(householdRepositoryProvider).requireValue;
-      return HouseholdNotifier(repository: repository)..initialize();
-    });
+final householdNotifierProvider = ChangeNotifierProvider<HouseholdNotifier>((
+  ref,
+) {
+  final repository = ref.watch(householdRepositoryProvider).requireValue;
+  return HouseholdNotifier(repository: repository)..initialize();
+});
 
 // ---------------------------------------------------------------------------
 // Onboarding repository
@@ -302,10 +307,10 @@ final scenePhraseServiceProvider = Provider<ScenePhraseService>((ref) {
 
 final onboardingSessionProvider =
     ChangeNotifierProvider<OnboardingSessionNotifier>((ref) {
-  return OnboardingSessionNotifier(
-    phraseService: ref.read(scenePhraseServiceProvider),
-  );
-});
+      return OnboardingSessionNotifier(
+        phraseService: ref.read(scenePhraseServiceProvider),
+      );
+    });
 
 // ---------------------------------------------------------------------------
 // Mentor repository
@@ -418,13 +423,33 @@ final gardenGrowthNotifierProvider =
       return GardenGrowthNotifier(repository: repository)..initialize();
     });
 
+// ---------------------------------------------------------------------------
+// Care path facade repository & notifier
+// ---------------------------------------------------------------------------
+
+final carePathRepositoryProvider = Provider<CarePathRepository>((ref) {
+  final practiceRepository = ref.watch(practiceRepositoryProvider).requireValue;
+  return CarePathRepository(
+    practiceRepository: practiceRepository,
+    gardenGrowthRepository: ref.watch(gardenGrowthRepositoryProvider),
+  );
+}, dependencies: [practiceRepositoryProvider, gardenGrowthRepositoryProvider]);
+
+final carePathNotifierProvider = ChangeNotifierProvider<CarePathNotifier>((
+  ref,
+) {
+  return CarePathNotifier(repository: ref.watch(carePathRepositoryProvider))
+    ..initialize();
+}, dependencies: [carePathRepositoryProvider]);
+
 /// Garden V2 fertilizer API service (remote data source for fertilizer state).
-final gardenFertilizerApiServiceProvider =
-    Provider<GardenFertilizerApiService>((ref) {
-      final service = GardenFertilizerApiService();
-      ref.onDispose(service.close);
-      return service;
-    });
+final gardenFertilizerApiServiceProvider = Provider<GardenFertilizerApiService>(
+  (ref) {
+    final service = GardenFertilizerApiService();
+    ref.onDispose(service.close);
+    return service;
+  },
+);
 
 /// Garden V2 fertilizer repository (own Isar instance, lazily opened).
 final gardenFertilizerRepositoryProvider =
@@ -513,8 +538,10 @@ class PracticeSessionProviderArgs {
   bool operator ==(Object other) {
     return other is PracticeSessionProviderArgs &&
         routeArgs.normalizedSpaceId == other.routeArgs.normalizedSpaceId &&
-      routeArgs.normalizedActivityId == other.routeArgs.normalizedActivityId &&
-      routeArgs.normalizedShareToken == other.routeArgs.normalizedShareToken &&
+        routeArgs.normalizedActivityId ==
+            other.routeArgs.normalizedActivityId &&
+        routeArgs.normalizedShareToken ==
+            other.routeArgs.normalizedShareToken &&
         routeArgs.entrySource == other.routeArgs.entrySource &&
         identical(audioControllerFactory, other.audioControllerFactory);
   }
@@ -530,24 +557,19 @@ class PracticeSessionProviderArgs {
 }
 
 /// Creates a per-route [PracticeSessionNotifier] backed by the Riverpod graph.
-final practiceSessionNotifierProvider =
-    ChangeNotifierProvider.autoDispose
-        .family<PracticeSessionNotifier, PracticeSessionProviderArgs>((
-          ref,
-          args,
-        ) {
-          final repository = ref.watch(practiceRepositoryProvider).requireValue;
-          final accountNotifier = ref.read(accountNotifierProvider);
-          final routeArgs = args.routeArgs;
-          return PracticeSessionNotifier(
-            repository: repository,
-            spaceId: routeArgs.spaceId,
-            activityId: routeArgs.activityId,
-            accessTokenLoader: () =>
-                accountNotifier.snapshot.session?.accessToken,
-            audioController: args.audioControllerFactory?.call(),
-          )..initialize();
-        });
+final practiceSessionNotifierProvider = ChangeNotifierProvider.autoDispose
+    .family<PracticeSessionNotifier, PracticeSessionProviderArgs>((ref, args) {
+      final repository = ref.watch(practiceRepositoryProvider).requireValue;
+      final accountNotifier = ref.read(accountNotifierProvider);
+      final routeArgs = args.routeArgs;
+      return PracticeSessionNotifier(
+        repository: repository,
+        spaceId: routeArgs.spaceId,
+        activityId: routeArgs.activityId,
+        accessTokenLoader: () => accountNotifier.snapshot.session?.accessToken,
+        audioController: args.audioControllerFactory?.call(),
+      )..initialize();
+    });
 
 // ---------------------------------------------------------------------------
 // Share notifier
@@ -572,7 +594,8 @@ final shareNotifierProvider = ChangeNotifierProvider.autoDispose<ShareNotifier>(
           ? continuityNotifier.snapshot
           : null,
       growthSnapshotLoader: () => gardenNotifier.snapshot,
-      continuitySnapshotLoader: () => continuityNotifier.hasResolvedRecommendation
+      continuitySnapshotLoader: () =>
+          continuityNotifier.hasResolvedRecommendation
           ? continuityNotifier.snapshot
           : null,
     );
@@ -580,7 +603,10 @@ final shareNotifierProvider = ChangeNotifierProvider.autoDispose<ShareNotifier>(
   // Declared so this provider can be re-created within nested ProviderScopes
   // that override the garden/continuity notifiers (e.g. the boot scope which
   // seeds the continuity notifier with a boot continuity snapshot).
-  dependencies: [gardenGrowthNotifierProvider, practiceContinuityNotifierProvider],
+  dependencies: [
+    gardenGrowthNotifierProvider,
+    practiceContinuityNotifierProvider,
+  ],
 );
 
 // ---------------------------------------------------------------------------
@@ -638,7 +664,9 @@ final settingsRepositoryProvider = FutureProvider<SettingsRepository>((
 ///
 /// Non-autoDispose because settings state is read by multiple screens (shell,
 /// home, practice) and must persist across tab switches.
-final settingsNotifierProvider = ChangeNotifierProvider<SettingsNotifier>((ref) {
+final settingsNotifierProvider = ChangeNotifierProvider<SettingsNotifier>((
+  ref,
+) {
   final repository = ref.watch(settingsRepositoryProvider).requireValue;
   return SettingsNotifier(repository: repository)..initialize();
 });

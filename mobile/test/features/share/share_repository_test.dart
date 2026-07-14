@@ -253,7 +253,7 @@ GardenGrowthSnapshot _buildGrowthSnapshot({
       activityTitle: '洗澡时间',
       phraseId: 'bath_time_warm_water',
       phraseTitle: 'Warm water.',
-      reactionType: BabyReactionType.imitated,
+      reactionType: BabyReactionType.cooperating,
       previousPatchStage: GardenPatchStage.tended,
       currentPatchStage: GardenPatchStage.rooted,
       previousFlowerStage: GardenFlowerStage.sprout,

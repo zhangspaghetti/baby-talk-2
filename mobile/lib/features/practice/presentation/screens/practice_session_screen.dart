@@ -1,15 +1,15 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:mobile/app/providers/repository_providers.dart';
-import 'package:mobile/app/widgets/app_haptics.dart';
 import 'package:mobile/app/theme/app_layout_constants.dart';
 import 'package:mobile/app/theme/app_theme.dart';
-import 'package:mobile/features/mentor/presentation/mentor_audio_controller.dart';
+import 'package:mobile/app/widgets/app_haptics.dart';
+import 'package:mobile/app/providers/repository_providers.dart';
+import 'package:mobile/features/care_path/domain/models/care_path_models.dart';
+import 'package:mobile/features/practice/presentation/practice_audio_controller.dart';
 import 'package:mobile/features/practice/presentation/practice_route_args.dart';
-import 'package:mobile/features/practice/presentation/practice_session_notifier.dart';
-import 'package:mobile/features/practice/presentation/widgets/phrase_card.dart';
-import 'package:mobile/features/practice/presentation/widgets/practice_bottom_action_bar.dart';
-import 'package:mobile/features/practice/presentation/widgets/practice_completion_view.dart';
+import 'package:mobile/features/practice/presentation/widgets/scene_reaction_chip_row.dart';
 import 'package:mobile/l10n/app_localizations.dart';
 
 class PracticeSessionScreen extends ConsumerWidget {
@@ -27,7 +27,9 @@ class PracticeSessionScreen extends ConsumerWidget {
     final l = AppLocalizations.of(context)!;
     if (!routeEntry.hasValidArgs) {
       return PracticeFallbackScaffold(
-        message: routeEntry.errorMessage ?? l.practiceInvalidParams,
+        message: _careTurnFallbackCopy(
+          routeEntry.errorMessage ?? l.practiceInvalidParams,
+        ),
       );
     }
 
@@ -37,16 +39,22 @@ class PracticeSessionScreen extends ConsumerWidget {
       data: (_) {
         return _PracticeSessionBody(
           routeArgs: args,
-          providerArgs: PracticeSessionProviderArgs(
-            routeArgs: args,
-            audioControllerFactory: audioControllerFactory,
-          ),
+          audioControllerFactory: audioControllerFactory,
         );
       },
       loading: () => const _PracticeLoadingScaffold(),
-      error: (error, stackTrace) =>
-          PracticeFallbackScaffold(message: l.homePracticeUnavailable),
+      error: (error, stackTrace) => PracticeFallbackScaffold(
+        message: _careTurnFallbackCopy(l.homePracticeUnavailable),
+      ),
     );
+  }
+
+  String _careTurnFallbackCopy(String message) {
+    return message
+        .replaceAll('练习', '照护')
+        .replaceAll('课程', '场景')
+        .replaceAll('进度', '节奏')
+        .replaceAll('完成', '收尾');
   }
 }
 
@@ -70,11 +78,11 @@ class _PracticeLoadingScaffold extends StatelessWidget {
 class _PracticeSessionBody extends ConsumerStatefulWidget {
   const _PracticeSessionBody({
     required this.routeArgs,
-    required this.providerArgs,
+    required this.audioControllerFactory,
   });
 
   final PracticeRouteArgs routeArgs;
-  final PracticeSessionProviderArgs providerArgs;
+  final PracticeAudioController Function()? audioControllerFactory;
 
   @override
   ConsumerState<_PracticeSessionBody> createState() =>
@@ -82,136 +90,185 @@ class _PracticeSessionBody extends ConsumerStatefulWidget {
 }
 
 class _PracticeSessionBodyState extends ConsumerState<_PracticeSessionBody> {
-  MentorAudioController? _ttsController;
-  bool _restoreBannerShown = false;
+  PracticeAudioController? _audioController;
+  StreamSubscription<void>? _audioCompletionSubscription;
+  String? _requestedMomentKey;
+  String? _completedMomentKey;
+  int _startGeneration = 0;
+  bool _isPlayingAudio = false;
+  String? _audioMessage;
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) {
-        return;
-      }
-      final notifier = ref.read(
-        practiceSessionNotifierProvider(widget.providerArgs),
-      );
-      if (notifier.isDynamic) {
-        _ttsController = FlutterTtsMentorAudioController();
-      }
-      if (notifier.hasPreparedSession) {
-        return;
-      }
-      notifier.ensureSessionReady();
-    });
+    _initializeAudioController();
+    _scheduleStartMoment();
+  }
+
+  @override
+  void didUpdateWidget(covariant _PracticeSessionBody oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (_routeScopeKey(oldWidget.routeArgs) ==
+        _routeScopeKey(widget.routeArgs)) {
+      return;
+    }
+    _scheduleStartMoment();
   }
 
   @override
   void dispose() {
-    _ttsController?.dispose();
+    _audioCompletionSubscription?.cancel();
+    unawaited(_audioController?.dispose());
     super.dispose();
   }
 
-  Future<void> _speakPhrase(String text) async {
-    final controller = _ttsController;
-    if (controller == null) {
-      throw StateError('tts unavailable');
-    }
-    await controller.speakText(text);
+  void _initializeAudioController() {
+    final factory =
+        widget.audioControllerFactory ??
+        AudioplayersPracticeAudioController.new;
+    _audioController = factory();
+    _audioCompletionSubscription = _audioController!.completionStream.listen((
+      _,
+    ) {
+      if (!mounted) {
+        return;
+      }
+      final l = AppLocalizations.of(context)!;
+      setState(() {
+        _isPlayingAudio = false;
+        _audioMessage = l.practiceAudioPlayedOnce;
+      });
+    });
   }
 
-  void _showCoachTip(BuildContext context, String tip) {
-    final colors = context.appColors;
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        content: Text(
-          tip,
-          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: colors.textPrimary,
-              ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: Text(
-              '知道了',
-              style: TextStyle(color: colors.textSecondary),
-            ),
-          ),
-        ],
-      ),
-    );
+  String _routeScopeKey(PracticeRouteArgs routeArgs) {
+    final normalized = routeArgs.normalized();
+    return '${normalized.normalizedSpaceId}/${normalized.normalizedActivityId}';
+  }
+
+  void _scheduleStartMoment() {
+    final normalized = widget.routeArgs.normalized();
+    final scopeKey = _routeScopeKey(widget.routeArgs);
+    if (_requestedMomentKey == scopeKey && _completedMomentKey == scopeKey) {
+      return;
+    }
+    _requestedMomentKey = scopeKey;
+    _completedMomentKey = null;
+    final generation = ++_startGeneration;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted ||
+          _requestedMomentKey != scopeKey ||
+          generation != _startGeneration) {
+        return;
+      }
+      final future = ref
+          .read(carePathNotifierProvider)
+          .startMoment(
+            spaceId: normalized.normalizedSpaceId,
+            activityId: normalized.normalizedActivityId,
+          );
+      unawaited(
+        future.whenComplete(() {
+          if (!mounted ||
+              _requestedMomentKey != scopeKey ||
+              generation != _startGeneration) {
+            return;
+          }
+          setState(() {
+            _completedMomentKey = scopeKey;
+          });
+        }),
+      );
+    });
+  }
+
+  Future<void> _playCurrentUtterance(CareUtterance utterance) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final l = AppLocalizations.of(context)!;
+    final controller = _audioController;
+    final asset = _audioPlayerAsset(utterance);
+    if (controller == null || asset == null || asset.isEmpty) {
+      setState(() {
+        _audioMessage = l.practiceAudioMissingInline;
+      });
+      messenger.showSnackBar(
+        SnackBar(content: Text(l.practiceAudioMissingSnack)),
+      );
+      return;
+    }
+
+    setState(() {
+      _isPlayingAudio = true;
+      _audioMessage = null;
+    });
+
+    try {
+      await controller.playAsset(asset);
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _isPlayingAudio = false;
+        _audioMessage = l.practiceAudioUnavailableInline;
+      });
+      messenger.showSnackBar(
+        SnackBar(content: Text(l.practiceAudioUnavailableSnack)),
+      );
+    }
+  }
+
+  String? _audioPlayerAsset(CareUtterance utterance) {
+    final asset = utterance.audioAsset?.trim();
+    if (asset == null || asset.isEmpty) {
+      return null;
+    }
+    return asset.startsWith('assets/') ? asset.substring(7) : asset;
   }
 
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
     final colors = context.appColors;
-    final notifier = ref.watch(
-      practiceSessionNotifierProvider(widget.providerArgs),
-    );
-    final activity = notifier.activitySnapshot;
+    final notifier = ref.watch(carePathNotifierProvider);
+    final snapshot = notifier.snapshot;
+    final normalizedArgs = widget.routeArgs.normalized();
+    final scopeKey = _routeScopeKey(widget.routeArgs);
+    final hasMatchingSnapshot =
+        snapshot?.moment.spaceId == normalizedArgs.normalizedSpaceId &&
+        snapshot?.moment.activityId == normalizedArgs.normalizedActivityId;
+    final effectiveMessage =
+        snapshot?.message ?? notifier.message ?? l.practiceContextMissing;
 
-    if (notifier.isSessionLoading && activity == null) {
-      return const Scaffold(
-        body: SafeArea(
-          child: Center(
-            child: CircularProgressIndicator(key: Key('practice-loading')),
-          ),
-        ),
-      );
+    if (!hasMatchingSnapshot ||
+        snapshot == null ||
+        _completedMomentKey != scopeKey ||
+        notifier.phase == CareTurnPhase.idle ||
+        notifier.phase == CareTurnPhase.loading) {
+      return const _PracticeLoadingScaffold();
+    }
+    if (notifier.phase == CareTurnPhase.error) {
+      return PracticeFallbackScaffold(message: effectiveMessage);
     }
 
-    if (activity == null) {
-      return PracticeFallbackScaffold(
-        message:
-            notifier.sessionErrorMessage ??
-            notifier.homeErrorMessage ??
-            l.practiceContextMissing,
-      );
+    final utterance = snapshot.currentUtterance;
+    if (utterance == null) {
+      return PracticeFallbackScaffold(message: effectiveMessage);
     }
 
-    // Show restore banner as SnackBar (once)
-    if (!_restoreBannerShown && notifier.restoreStatusMessage != null) {
-      _restoreBannerShown = true;
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(notifier.restoreStatusMessage!),
-            backgroundColor: notifier.hasRecoverableRestoreIssue
-                ? colors.warningSoft
-                : colors.infoSoft,
-            duration: const Duration(seconds: 3),
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
-      });
-    }
-
-    final phrases = activity.phrases;
-    final progressValue = phrases.isEmpty
-        ? 0.0
-        : ((notifier.currentPhraseIndex + 1) / phrases.length).clamp(0.0, 1.0);
-
-    final isComplete = notifier.phrasePhase == PhraseInteractionPhase.complete;
-    final phrase = notifier.currentPhrase;
-    // Only show reaction chips when explicitly in 'saved' phase.
-    // During 'advancing' the index already points to the NEW phrase — show it in 'ready'.
-    final cardPhase = notifier.phrasePhase == PhraseInteractionPhase.saved
-        ? PhraseCardPhase.saved
-        : PhraseCardPhase.ready;
+    final nextSupportUtterance = snapshot.nextSupportUtterance;
+    final latestImpact = snapshot.latestGardenImpact;
+    final canListen = !_isPlayingAudio;
 
     return Scaffold(
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         surfaceTintColor: Colors.transparent,
-        title: const Text('今日一句'),
+        title: Text(l.practiceOneTurnTitle),
       ),
       body: SafeArea(
         child: Semantics(
-          label:
-              '今日一句，${l.practiceProgress(notifier.currentPhraseIndex + 1, phrases.length)}',
+          label: l.practiceOneTurnTitle,
           explicitChildNodes: true,
           child: Align(
             alignment: Alignment.topCenter,
@@ -219,181 +276,266 @@ class _PracticeSessionBodyState extends ConsumerState<_PracticeSessionBody> {
               constraints: const BoxConstraints(
                 maxWidth: AppLayoutConstants.maxContentWidth,
               ),
-              child: Column(
-                children: [
-                  // ── Progress row (compact) ───────────────────────────────
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(
-                      AppLayoutConstants.spacingMd,
-                      AppLayoutConstants.spacingSm,
-                      AppLayoutConstants.spacingMd,
-                      0,
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Semantics(
-                          label: l.practiceProgress(
-                            notifier.currentPhraseIndex + 1,
-                            phrases.length,
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(
+                  AppLayoutConstants.spacingLg,
+                  AppLayoutConstants.spacingMd,
+                  AppLayoutConstants.spacingLg,
+                  AppLayoutConstants.spacingLg,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    _PracticePanel(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            snapshot.moment.title,
+                            style: Theme.of(context).textTheme.titleMedium
+                                ?.copyWith(
+                                  color: colors.textPrimary,
+                                  fontWeight: FontWeight.w700,
+                                ),
                           ),
-                          value: '${(progressValue * 100).round()}%',
-                          child: LinearProgressIndicator(
-                            key: const Key('session-progress'),
-                            value: progressValue,
-                            minHeight: 4,
-                            borderRadius: BorderRadius.circular(
-                              AppLayoutConstants.pillRadius,
-                            ),
-                            color: colors.textPrimary,
-                            backgroundColor: colors.outlineSoft,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Row(
-                          children: [
+                          if (snapshot.moment.careActionLabel
+                              .trim()
+                              .isNotEmpty) ...[
+                            const SizedBox(height: 6),
                             Text(
-                              l.practiceProgress(
-                                notifier.currentPhraseIndex + 1,
-                                phrases.length,
-                              ),
-                              key: const Key('practice-progress-text'),
-                              style: Theme.of(context).textTheme.labelSmall
-                                  ?.copyWith(
-                                color: colors.textSecondary,
-                              ),
-                            ),
-                            const Spacer(),
-                            GestureDetector(
-                              onTap: () {
-                                _showCoachTip(context, activity.coachTip);
-                              },
-                              child: Icon(
-                                Icons.info_outline_rounded,
-                                size: 16,
-                                color: colors.textSecondary,
-                              ),
+                              snapshot.moment.careActionLabel,
+                              style: Theme.of(context).textTheme.bodyMedium
+                                  ?.copyWith(color: colors.textSecondary),
                             ),
                           ],
-                        ),
-                      ],
-                    ),
-                  ),
-                  // ── Scrollable content ────────────────────────────────────
-                  Expanded(
-                    child: SingleChildScrollView(
-                      padding: const EdgeInsets.fromLTRB(
-                        AppLayoutConstants.spacingLg,
-                        AppLayoutConstants.spacingXs,
-                        AppLayoutConstants.spacingLg,
-                        AppLayoutConstants.spacingLg,
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          // ── Main card / completion view ───────────────────
-                          AnimatedSwitcher(
-                            duration: const Duration(milliseconds: 300),
-                            child: isComplete
-                                ? PracticeCompletionView(
-                                    key: const Key('practice-completion-view'),
-                                    spokenCount:
-                                        notifier.currentPhraseIndex + 1,
-                                    onRestart: () {
-                                      ref
-                                          .read(
-                                            practiceSessionNotifierProvider(
-                                                widget.providerArgs),
-                                          )
-                                          .ensureSessionReady();
-                                    },
-                                    onExit: () =>
-                                        Navigator.of(context).maybePop(),
-                                  )
-                                : phrase != null
-                                    ? PhraseCard(
-
-                                        phrase: phrase,
-                                        isActive: true,
-                                        isCompleted: notifier.isPhraseCompleted(
-                                            phrase.phraseId),
-                                        playbackStatus: notifier.playbackStatus,
-                                        saveStatus: notifier.saveStatus,
-                                        playbackMessage:
-                                            notifier.playbackMessage,
-                                        saveMessage: notifier.saveMessage,
-                                        canPlay: notifier.canPlayCurrentPhrase,
-                                        canSubmitReaction:
-                                            notifier.canSubmitReaction,
-                                        onPlay: notifier.playCurrentPhrase,
-                                        isTtsMode: notifier.isDynamic &&
-                                            phrase.audioAsset.isEmpty,
-                                        onTtsSpeak: (notifier.isDynamic &&
-                                                phrase.audioAsset.isEmpty)
-                                            ? () =>
-                                                notifier.speakCurrentPhrase(
-                                                    _speakPhrase)
-                                            : null,
-                                        phase: cardPhase,
-                                        sceneTag: notifier.sceneTag,
-                                        onReactionSelected:
-                                            (reactionType) async {
-                                          AppHaptics.lightTap();
-                                          await ref
-                                              .read(
-                                                practiceSessionNotifierProvider(
-                                                    widget.providerArgs),
-                                              )
-                                              .recordReaction(reactionType);
-                                        },
-                                      )
-                                    : const SizedBox.shrink(),
+                          const SizedBox(height: 12),
+                          Text(
+                            l.practiceWhenToSay,
+                            style: Theme.of(context).textTheme.labelLarge
+                                ?.copyWith(
+                                  color: colors.textSecondary,
+                                  fontWeight: FontWeight.w700,
+                                ),
                           ),
-                          const SizedBox(height: 60), // bottom bar clearance
+                          const SizedBox(height: 6),
+                          Text(
+                            utterance.whenToSay,
+                            style: Theme.of(context).textTheme.bodyMedium
+                                ?.copyWith(color: colors.textPrimary),
+                          ),
                         ],
                       ),
                     ),
-                  ),
-                  // ── Fixed bottom action bar ───────────────────────────────
-                  if (!isComplete)
-                    PracticeBottomActionBar(
-                      phase: notifier.phrasePhase,
-                      nextLoadStatus: notifier.nextPhraseLoadStatus,
-                      onSave: () {
-                        AppHaptics.lightTap();
-                        ref
-                            .read(practiceSessionNotifierProvider(
-                                widget.providerArgs))
-                            .saveCurrentPhrase();
-                      },
-                      onSkipPhrase: () {
-                        AppHaptics.lightTap();
-                        ref
-                            .read(practiceSessionNotifierProvider(
-                                widget.providerArgs))
-                            .skipCurrentPhrase();
-                      },
-                      onEnd: () {
-                        ref
-                            .read(practiceSessionNotifierProvider(
-                                widget.providerArgs))
-                            .endSession();
-                      },
-                      onSkipReaction: () {
-                        AppHaptics.lightTap();
-                        ref
-                            .read(practiceSessionNotifierProvider(
-                                widget.providerArgs))
-                            .skipToNextPhrase();
-                      },
-                      onRetryNextPhrase: () {
-                        ref
-                            .read(practiceSessionNotifierProvider(
-                                widget.providerArgs))
-                            .skipCurrentPhrase();
-                      },
+                    const SizedBox(height: AppLayoutConstants.spacingMd),
+                    _PracticePanel(
+                      key: const Key('practice-current-utterance'),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            utterance.english,
+                            style: Theme.of(context).textTheme.headlineSmall
+                                ?.copyWith(
+                                  color: colors.textPrimary,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                          ),
+                          const SizedBox(height: 10),
+                          Text(
+                            utterance.chinese,
+                            style: Theme.of(context).textTheme.titleMedium
+                                ?.copyWith(color: colors.textPrimary),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            utterance.pronunciation,
+                            style: Theme.of(context).textTheme.bodyMedium
+                                ?.copyWith(color: colors.textSecondary),
+                          ),
+                          if (_audioMessage != null) ...[
+                            const SizedBox(height: 12),
+                            Text(
+                              _audioMessage!,
+                              style: Theme.of(context).textTheme.bodySmall
+                                  ?.copyWith(color: colors.textSecondary),
+                            ),
+                          ],
+                        ],
+                      ),
                     ),
-                ],
+                    const SizedBox(height: AppLayoutConstants.spacingMd),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            key: const Key('practice-listen-once'),
+                            onPressed: canListen
+                                ? () => _playCurrentUtterance(utterance)
+                                : null,
+                            icon: Icon(
+                              _isPlayingAudio
+                                  ? Icons.equalizer_rounded
+                                  : Icons.volume_up_rounded,
+                            ),
+                            label: Text(l.practiceListenOnce),
+                          ),
+                        ),
+                        const SizedBox(width: AppLayoutConstants.spacingSm),
+                        Expanded(
+                          child: FilledButton.icon(
+                            key: const Key('practice-said-button'),
+                            onPressed:
+                                snapshot.phase == CareTurnPhase.utteranceReady
+                                ? () {
+                                    AppHaptics.lightTap();
+                                    ref
+                                        .read(carePathNotifierProvider)
+                                        .markSaid();
+                                  }
+                                : null,
+                            icon: const Icon(Icons.check_rounded),
+                            label: Text(l.practiceSaid),
+                          ),
+                        ),
+                      ],
+                    ),
+                    if (snapshot.phase == CareTurnPhase.savingTrace) ...[
+                      const SizedBox(height: AppLayoutConstants.spacingMd),
+                      Row(
+                        children: [
+                          const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          ),
+                          const SizedBox(width: 10),
+                          Text(
+                            l.practiceSavingTrace,
+                            style: Theme.of(context).textTheme.bodyMedium
+                                ?.copyWith(color: colors.textSecondary),
+                          ),
+                        ],
+                      ),
+                    ],
+                    if (snapshot.phase == CareTurnPhase.reactionPrompt) ...[
+                      const SizedBox(height: AppLayoutConstants.spacingMd),
+                      _PracticePanel(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              l.practiceReactionPrompt,
+                              style: Theme.of(context).textTheme.titleMedium
+                                  ?.copyWith(
+                                    color: colors.textPrimary,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                            ),
+                            const SizedBox(height: 12),
+                            SceneReactionChipRow(
+                              phraseId: utterance.phraseId,
+                              sceneTag: snapshot.moment.sceneTag,
+                              enabled: !notifier.isBusy,
+                              selectedType: snapshot.selectedReaction,
+                              onSelected: (reactionType) async {
+                                AppHaptics.lightTap();
+                                await ref
+                                    .read(carePathNotifierProvider)
+                                    .selectReaction(reactionType);
+                              },
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                    if (nextSupportUtterance != null &&
+                        snapshot.phase == CareTurnPhase.nextSupportReady) ...[
+                      const SizedBox(height: AppLayoutConstants.spacingMd),
+                      _PracticePanel(
+                        key: const Key('practice-next-support'),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              l.practiceNextSupportTitle,
+                              style: Theme.of(context).textTheme.titleMedium
+                                  ?.copyWith(
+                                    color: colors.textPrimary,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                            ),
+                            const SizedBox(height: 12),
+                            Text(
+                              nextSupportUtterance.english,
+                              style: Theme.of(context).textTheme.titleLarge
+                                  ?.copyWith(
+                                    color: colors.textPrimary,
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              nextSupportUtterance.chinese,
+                              style: Theme.of(context).textTheme.bodyLarge
+                                  ?.copyWith(color: colors.textPrimary),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              nextSupportUtterance.pronunciation,
+                              style: Theme.of(context).textTheme.bodyMedium
+                                  ?.copyWith(color: colors.textSecondary),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                    if (snapshot.phase == CareTurnPhase.heldWithFallback) ...[
+                      const SizedBox(height: AppLayoutConstants.spacingMd),
+                      _PracticePanel(
+                        key: const Key('practice-quiet-fallback'),
+                        child: Text(
+                          snapshot.message ?? l.practiceQuietFallback,
+                          style: Theme.of(context).textTheme.bodyMedium
+                              ?.copyWith(color: colors.textSecondary),
+                        ),
+                      ),
+                    ],
+                    if (latestImpact != null) ...[
+                      const SizedBox(height: AppLayoutConstants.spacingMd),
+                      _PracticePanel(
+                        key: const Key('practice-garden-trace'),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              l.practiceGardenTraceTitle,
+                              style: Theme.of(context).textTheme.titleMedium
+                                  ?.copyWith(
+                                    color: colors.textPrimary,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                            ),
+                            const SizedBox(height: 12),
+                            Text(
+                              latestImpact.headline,
+                              style: Theme.of(context).textTheme.bodyLarge
+                                  ?.copyWith(
+                                    color: colors.textPrimary,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                            ),
+                            const SizedBox(height: 6),
+                            Text(
+                              latestImpact.detail,
+                              style: Theme.of(context).textTheme.bodyMedium
+                                  ?.copyWith(color: colors.textSecondary),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
               ),
             ),
           ),
@@ -403,6 +545,26 @@ class _PracticeSessionBodyState extends ConsumerState<_PracticeSessionBody> {
   }
 }
 
+class _PracticePanel extends StatelessWidget {
+  const _PracticePanel({super.key, required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(AppLayoutConstants.spacingLg),
+      decoration: BoxDecoration(
+        color: colors.bgSurface,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: colors.outlineSoft),
+      ),
+      child: child,
+    );
+  }
+}
 
 class PracticeFallbackScaffold extends StatelessWidget {
   const PracticeFallbackScaffold({super.key, required this.message});

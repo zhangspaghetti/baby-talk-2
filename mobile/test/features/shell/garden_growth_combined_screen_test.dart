@@ -122,7 +122,7 @@ void main() {
     expect(find.text('有一小段练习记录暂时没整理好，花圃先保留可用结果。'), findsOneWidget);
     expect(find.textContaining('有 1 条记录'), findsNothing);
     expect(find.text('花圃醒来了'), findsOneWidget);
-    expect(find.text('宝宝模仿了 hello。'), findsOneWidget);
+    expect(find.text('配合了 hello。'), findsOneWidget);
     expect(
       find.byKey(const Key('growth-combined-diary-view-all')),
       findsOneWidget,
@@ -405,9 +405,7 @@ void main() {
     await _openGrowthTab(tester);
 
     expect(
-      find.byKey(
-        const Key('growth-combined-milestone-cumulative_10-date'),
-      ),
+      find.byKey(const Key('growth-combined-milestone-cumulative_10-date')),
       findsOneWidget,
     );
     expect(
@@ -455,8 +453,7 @@ class _StubApiService implements GrowthInsightsApiService {
 }
 
 class _GrowthInsightsNotifierStub extends GrowthInsightsNotifier {
-  _GrowthInsightsNotifierStub()
-    : super(apiService: _StubApiService());
+  _GrowthInsightsNotifierStub() : super(apiService: _StubApiService());
 
   @override
   Future<void> initialize() async {}
@@ -477,7 +474,7 @@ class _GrowthInsightsNotifierStub extends GrowthInsightsNotifier {
           totalEvents: 0,
           uniquePhrases: 0,
           uniqueActivities: 0,
-          imitationCount: 0,
+          cooperatingCount: 0,
           firstEventAt: null,
           lastEventAt: null,
           practicedDays: 0,
@@ -504,9 +501,8 @@ Future<_GardenGrowthNotifierHarness> _pumpScreen(
       overrides: [
         gardenGrowthNotifierProvider.overrideWith((ref) => notifier),
         gardenFertilizerNotifierProvider.overrideWith(
-          (ref) => _FertilizerNotifierStub(
-            ref.watch(gardenGrowthNotifierProvider),
-          ),
+          (ref) =>
+              _FertilizerNotifierStub(ref.watch(gardenGrowthNotifierProvider)),
         ),
         growthInsightsNotifierProvider.overrideWith(
           (ref) => _GrowthInsightsNotifierStub(),
@@ -517,9 +513,7 @@ Future<_GardenGrowthNotifierHarness> _pumpScreen(
         householdNotifierProvider.overrideWith(
           (ref) => _HouseholdNotifierStub(),
         ),
-        shareNotifierProvider.overrideWith(
-          (ref) => _ShareNotifierStub(),
-        ),
+        shareNotifierProvider.overrideWith((ref) => _ShareNotifierStub()),
       ],
       key: UniqueKey(),
       child: MaterialApp(
@@ -527,9 +521,7 @@ Future<_GardenGrowthNotifierHarness> _pumpScreen(
         localizationsDelegates: AppLocalizations.localizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
         theme: AppTheme.build(),
-        home: Scaffold(
-          body: GardenGrowthCombinedScreen(onGoHome: onGoHome),
-        ),
+        home: Scaffold(body: GardenGrowthCombinedScreen(onGoHome: onGoHome)),
       ),
     ),
   );
@@ -657,13 +649,13 @@ LatestPracticeImpact _latestImpact() {
     activityTitle: '唱一小段',
     phraseId: 'hello_wave',
     phraseTitle: 'hello',
-    reactionType: BabyReactionType.imitated,
+    reactionType: BabyReactionType.cooperating,
     previousPatchStage: GardenPatchStage.quiet,
     currentPatchStage: GardenPatchStage.tended,
     previousFlowerStage: GardenFlowerStage.seed,
     currentFlowerStage: GardenFlowerStage.sprout,
     headline: '花圃醒来了',
-    detail: '宝宝模仿了 hello。',
+    detail: '配合了 hello。',
   );
 }
 
@@ -711,7 +703,7 @@ class _GardenGrowthRepositoryFake implements GardenGrowthRepository {
 
 class _PracticeContinuityNotifierStub extends PracticeContinuityNotifier {
   _PracticeContinuityNotifierStub()
-      : super(repository: _PracticeRepositoryStub());
+    : super(repository: _PracticeRepositoryStub());
 
   @override
   bool get hasResolvedRecommendation => false;
@@ -723,8 +715,7 @@ class _PracticeContinuityNotifierStub extends PracticeContinuityNotifier {
   Future<void> refresh({String? reason}) async {}
 }
 
-class _PracticeRepositoryStub extends Fake
-    implements PracticeRepository {}
+class _PracticeRepositoryStub extends Fake implements PracticeRepository {}
 
 class _HouseholdNotifierStub extends HouseholdNotifier {
   _HouseholdNotifierStub() : super(repository: _HouseholdRepositoryStub());
@@ -736,8 +727,7 @@ class _HouseholdRepositoryStub extends Fake implements HouseholdRepository {
 }
 
 class _ShareNotifierStub extends ShareNotifier {
-  _ShareNotifierStub()
-      : super(repository: _ShareRepositoryStub());
+  _ShareNotifierStub() : super(repository: _ShareRepositoryStub());
 }
 
 class _ShareRepositoryStub extends Fake implements ShareRepository {

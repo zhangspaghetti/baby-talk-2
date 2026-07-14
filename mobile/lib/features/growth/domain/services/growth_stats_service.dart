@@ -71,7 +71,7 @@ class PeriodStats {
     required this.totalEvents,
     required this.uniquePhrases,
     required this.uniqueActivities,
-    required this.imitationCount,
+    required this.cooperatingCount,
     required this.firstEventAt,
     required this.lastEventAt,
     required this.practicedDays,
@@ -80,7 +80,7 @@ class PeriodStats {
   final int totalEvents;
   final int uniquePhrases;
   final int uniqueActivities;
-  final int imitationCount;
+  final int cooperatingCount;
   final DateTime? firstEventAt;
   final DateTime? lastEventAt;
   final int practicedDays;
@@ -133,7 +133,7 @@ class GrowthStatsService {
           totalEvents: remoteSummary.totalEvents,
           uniquePhrases: remoteSummary.uniquePhrases,
           uniqueActivities: remoteSummary.uniqueActivities,
-          imitationCount: remoteSummary.imitationCount,
+          cooperatingCount: remoteSummary.cooperatingCount,
           firstEventAt: remoteSummary.firstEventAt,
           lastEventAt: remoteSummary.lastEventAt,
           practicedDays: remoteSummary.practicedDays,
@@ -169,10 +169,9 @@ class GrowthStatsService {
     for (final event in events) {
       sceneEventCounts[event.spaceId] =
           (sceneEventCounts[event.spaceId] ?? 0) + 1;
-      sceneActivityCounts.putIfAbsent(
-        event.spaceId,
-        () => <String>{},
-      ).add(event.activityId);
+      sceneActivityCounts
+          .putIfAbsent(event.spaceId, () => <String>{})
+          .add(event.activityId);
     }
 
     final totalEvents = events.length;
@@ -181,13 +180,15 @@ class GrowthStatsService {
     for (final entry in sceneEventCounts.entries) {
       final spaceId = entry.key;
       final count = entry.value;
-      results.add(SceneDistribution(
-        sceneTag: spaceLabels[spaceId] ?? spaceId,
-        spaceId: spaceId,
-        eventCount: count,
-        activityCount: sceneActivityCounts[spaceId]?.length ?? 0,
-        percentage: totalEvents > 0 ? count / totalEvents : 0.0,
-      ));
+      results.add(
+        SceneDistribution(
+          sceneTag: spaceLabels[spaceId] ?? spaceId,
+          spaceId: spaceId,
+          eventCount: count,
+          activityCount: sceneActivityCounts[spaceId]?.length ?? 0,
+          percentage: totalEvents > 0 ? count / totalEvents : 0.0,
+        ),
+      );
     }
 
     results.sort((a, b) => b.eventCount.compareTo(a.eventCount));
@@ -222,8 +223,7 @@ class GrowthStatsService {
     }
 
     final sortedDays = practiceDays.toList()..sort();
-    final lastPracticedAt =
-        eventTimes.reduce((a, b) => a.isAfter(b) ? a : b);
+    final lastPracticedAt = eventTimes.reduce((a, b) => a.isAfter(b) ? a : b);
 
     final today = DateTime(now.year, now.month, now.day);
     final totalDaysPracticed = sortedDays.length;
@@ -299,7 +299,7 @@ class GrowthStatsService {
         totalEvents: 0,
         uniquePhrases: 0,
         uniqueActivities: 0,
-        imitationCount: 0,
+        cooperatingCount: 0,
         firstEventAt: null,
         lastEventAt: null,
         practicedDays: 0,
@@ -309,21 +309,22 @@ class GrowthStatsService {
     final phrases = <String>{};
     final activities = <String>{};
     final practiceDays = <DateTime>{};
-    var imitationCount = 0;
+    var cooperatingCount = 0;
     DateTime? firstEventAt;
     DateTime? lastEventAt;
 
     for (final event in filtered) {
       phrases.add(event.phraseId);
       activities.add(event.activityId);
-      if (event.reactionType == 'imitated') {
-        imitationCount += 1;
+      if (event.reactionType == 'cooperating') {
+        cooperatingCount += 1;
       }
 
       final local = event.clientTimestamp.toLocal();
       practiceDays.add(DateTime(local.year, local.month, local.day));
 
-      if (firstEventAt == null || event.clientTimestamp.isBefore(firstEventAt)) {
+      if (firstEventAt == null ||
+          event.clientTimestamp.isBefore(firstEventAt)) {
         firstEventAt = event.clientTimestamp;
       }
       if (lastEventAt == null || event.clientTimestamp.isAfter(lastEventAt)) {
@@ -335,7 +336,7 @@ class GrowthStatsService {
       totalEvents: filtered.length,
       uniquePhrases: phrases.length,
       uniqueActivities: activities.length,
-      imitationCount: imitationCount,
+      cooperatingCount: cooperatingCount,
       firstEventAt: firstEventAt,
       lastEventAt: lastEventAt,
       practicedDays: practiceDays.length,

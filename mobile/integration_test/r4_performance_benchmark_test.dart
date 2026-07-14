@@ -125,7 +125,7 @@ Future<void> _measurePracticeFlow(
 
   await _measure(measurements, 'practice_first_tap_to_next_ms', () async {
     final firstReaction = find.byKey(
-      const Key('reaction-bath_time_warm_water-engaged'),
+      const Key('reaction-bath_time_warm_water-cooperating'),
     );
     await FullChainTestHarness.pumpUntilFound(
       tester,
@@ -144,7 +144,7 @@ Future<void> _measurePracticeFlow(
   });
 
   final secondReaction = find.byKey(
-    const Key('reaction-bath_time_splash_splash-imitated'),
+    const Key('reaction-bath_time_splash_splash-no_response'),
   );
   await FullChainTestHarness.pumpUntilFound(
     tester,
@@ -163,7 +163,7 @@ Future<void> _measurePracticeFlow(
 
   await _measure(measurements, 'practice_final_tap_to_home_ms', () async {
     final thirdReaction = find.byKey(
-      const Key('reaction-bath_time_all_clean-calm'),
+      const Key('reaction-bath_time_all_clean-cooperating'),
     );
     await FullChainTestHarness.pumpUntilFound(
       tester,

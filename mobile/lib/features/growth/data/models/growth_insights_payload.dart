@@ -30,16 +30,30 @@ class GrowthInsightsPayload {
   factory GrowthInsightsPayload.fromJson(Map<String, dynamic> json) {
     return GrowthInsightsPayload(
       period: json['period'] as String? ?? '',
-      windowStart: _readDateTime(json, 'windowStart') ?? DateTime.fromMillisecondsSinceEpoch(0),
-      windowEnd: _readDateTime(json, 'windowEnd') ?? DateTime.fromMillisecondsSinceEpoch(0),
-      generatedAt: _readDateTime(json, 'generatedAt') ?? DateTime.fromMillisecondsSinceEpoch(0),
-      stats: InsightsStats.fromJson(json['stats'] as Map<String, dynamic>? ?? {}),
-      streak: InsightsStreak.fromJson(json['streak'] as Map<String, dynamic>? ?? {}),
-      bars: (json['bars'] as List<dynamic>?)
-              ?.map((e) => InsightsBarBucket.fromJson(e as Map<String, dynamic>))
+      windowStart:
+          _readDateTime(json, 'windowStart') ??
+          DateTime.fromMillisecondsSinceEpoch(0),
+      windowEnd:
+          _readDateTime(json, 'windowEnd') ??
+          DateTime.fromMillisecondsSinceEpoch(0),
+      generatedAt:
+          _readDateTime(json, 'generatedAt') ??
+          DateTime.fromMillisecondsSinceEpoch(0),
+      stats: InsightsStats.fromJson(
+        json['stats'] as Map<String, dynamic>? ?? {},
+      ),
+      streak: InsightsStreak.fromJson(
+        json['streak'] as Map<String, dynamic>? ?? {},
+      ),
+      bars:
+          (json['bars'] as List<dynamic>?)
+              ?.map(
+                (e) => InsightsBarBucket.fromJson(e as Map<String, dynamic>),
+              )
               .toList(growable: false) ??
           const [],
-      scenes: (json['scenes'] as List<dynamic>?)
+      scenes:
+          (json['scenes'] as List<dynamic>?)
               ?.map((e) => InsightsScene.fromJson(e as Map<String, dynamic>))
               .toList(growable: false) ??
           const [],
@@ -47,7 +61,9 @@ class GrowthInsightsPayload {
         json['recentActivity'] as Map<String, dynamic>? ?? {},
       ),
       suggestion: json['suggestion'] != null
-          ? InsightsSuggestion.fromJson(json['suggestion'] as Map<String, dynamic>)
+          ? InsightsSuggestion.fromJson(
+              json['suggestion'] as Map<String, dynamic>,
+            )
           : null,
     );
   }
@@ -58,7 +74,7 @@ class InsightsStats {
     required this.totalEvents,
     required this.uniquePhrases,
     required this.uniqueActivities,
-    required this.imitationCount,
+    required this.cooperatingCount,
     required this.practicedDays,
     this.firstEventAt,
     this.lastEventAt,
@@ -67,7 +83,7 @@ class InsightsStats {
   final int totalEvents;
   final int uniquePhrases;
   final int uniqueActivities;
-  final int imitationCount;
+  final int cooperatingCount;
   final int practicedDays;
   final DateTime? firstEventAt;
   final DateTime? lastEventAt;
@@ -77,7 +93,7 @@ class InsightsStats {
       totalEvents: _readInt(json, 'totalEvents'),
       uniquePhrases: _readInt(json, 'uniquePhrases'),
       uniqueActivities: _readInt(json, 'uniqueActivities'),
-      imitationCount: _readInt(json, 'imitationCount'),
+      cooperatingCount: _readInt(json, 'cooperatingCount'),
       practicedDays: _readInt(json, 'practicedDays'),
       firstEventAt: _readDateTime(json, 'firstEventAt'),
       lastEventAt: _readDateTime(json, 'lastEventAt'),
@@ -109,17 +125,16 @@ class InsightsStreak {
 }
 
 class InsightsBarBucket {
-  const InsightsBarBucket({
-    required this.bucketStart,
-    required this.count,
-  });
+  const InsightsBarBucket({required this.bucketStart, required this.count});
 
   final DateTime bucketStart;
   final int count;
 
   factory InsightsBarBucket.fromJson(Map<String, dynamic> json) {
     return InsightsBarBucket(
-      bucketStart: _readDateTime(json, 'bucketStart') ?? DateTime.fromMillisecondsSinceEpoch(0),
+      bucketStart:
+          _readDateTime(json, 'bucketStart') ??
+          DateTime.fromMillisecondsSinceEpoch(0),
       count: _readInt(json, 'count'),
     );
   }
@@ -214,4 +229,3 @@ DateTime? _readDateTime(Map<String, dynamic> json, String key) {
   if (value is! String || value.trim().isEmpty) return null;
   return DateTime.tryParse(value)?.toLocal();
 }
-

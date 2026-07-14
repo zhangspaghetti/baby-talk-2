@@ -7,12 +7,25 @@ environment:
   sdk: ^3.11.4
 
 dependencies:
+  crypto: ^3.0.7
   flutter:
     sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+  flutter_riverpod: ^3.3.0
+  intl: any
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
 
 flutter:
+  assets:
+    - assets/fixtures/ritual_rooms/
+    - assets/illustrations/rituals/shoes_on/
+  fonts:
+    - family: Noto Sans
+      fonts:
+        - asset: assets/fonts/NotoSans/NotoSans-Variable.ttf
+  generate: true
   uses-material-design: true
