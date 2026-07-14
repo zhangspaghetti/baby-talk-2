@@ -1,4 +1,4 @@
-FROM maven:3-eclipse-temurin-17 AS builder
+FROM maven:3-eclipse-temurin-21 AS builder
 
 ARG MODULE=app-api
 WORKDIR /app
@@ -16,7 +16,7 @@ COPY . .
 RUN mvn -pl ${MODULE} -am package -DskipTests -B \
  && find ${MODULE}/target -maxdepth 1 -type f -name '*.jar' ! -name '*.original' -exec cp {} /tmp/app.jar \;
 
-FROM eclipse-temurin:17-jre-alpine AS runtime
+FROM eclipse-temurin:21-jre-alpine AS runtime
 
 RUN addgroup -S appgroup && adduser -S appuser -G appgroup
 WORKDIR /app
