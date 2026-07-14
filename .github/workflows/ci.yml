@@ -18,6 +18,9 @@ jobs:
       - name: Test Spring AI 2 platform verifier
         run: python3 test/tool/verify_spring_ai_2_backend_platform_test.py
 
+      - name: Verify Spring AI 2 backend platform
+        run: python3 tool/verify_spring_ai_2_backend_platform.py
+
       - name: Set up JDK 21
         uses: actions/setup-java@v4
         with:

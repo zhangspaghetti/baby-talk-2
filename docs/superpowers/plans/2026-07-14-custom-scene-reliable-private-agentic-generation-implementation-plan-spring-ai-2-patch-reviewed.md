@@ -11,7 +11,7 @@
 ## Global Constraints
 
 - Preserve canonical endpoint `POST /api/v1/practice/discovery`.
-- Complete `docs/superpowers/plans/2026-07-14-spring-ai-2-backend-platform-upgrade-implementation-plan-patch-reviewed.md` and its final verification gate before starting Task 1 of this plan.
+- Before Task 1 starts, complete `docs/superpowers/plans/2026-07-14-spring-ai-2-backend-platform-upgrade-implementation-plan-patch-reviewed.md` and pass its final Task 8 platform gate: `python3 tool/verify_spring_ai_2_backend_platform.py` plus `cd backend && bash mvnw clean test`.
 - The custom-scene provider path uses stable Spring AI `2.0.0` only and must remain compatible with the repository baseline Spring Boot `4.0.7`; Spring AI 2.0 does not support the current Boot 3.4.x baseline.
 - One named-provider attempt must equal one outbound model request and one provider-call audit row: custom-scene models hard-code the Spring AI 2/OpenAI SDK `maxRetries` option to `0`, do not use Spring AI `validateSchema()` auto-repair, and do not add hidden advisor/retry loops.
 - Provider `temperature` is optional because reasoning models such as GPT-5 reject it; provider configuration may set exactly one of `maxTokens` or `maxCompletionTokens`, never both.

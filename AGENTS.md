@@ -24,7 +24,7 @@ Subagents must follow the same Caveman output mode unless the task explicitly re
 
 ## OVERVIEW
 
-BabyTalk 2 是一个三端应用（Flutter mobile + Spring Boot backend + React admin-web），采用 monorepo 结构。核心栈：Flutter/Riverpod、Spring Boot 3.4.4/Java 17、React 18/Vite 5/AntD 5。
+BabyTalk 2 是一个三端应用（Flutter mobile + Spring Boot backend + React admin-web），采用 monorepo 结构。核心栈：Flutter/Riverpod、Spring Boot 4.0.7（JDK 21 运行时 / Java 17 字节码）、Spring AI 2.0.0、React 18/Vite 5/AntD 5。
 
 ## STRUCTURE
 
@@ -67,7 +67,7 @@ baby-talk-2/
 
 ### 代码规范
 - **Flutter**：analysis_options.yaml（flutter_lints），Riverpod 代码生成
-- **Java**：Spring Boot 3.4.4，Java 17，MyBatis-Plus
+- **Java**：Spring Boot 4.0.7，JDK 21 运行时 / Java 17 字节码，Spring AI 2.0.0，MyBatis-Plus
 - **TypeScript**：Vite 5，React 18，AntD 5
 
 ### Backend database design
@@ -81,6 +81,10 @@ baby-talk-2/
 - Keep DTO, Entity, Mapper, Service, and XML responsibilities separate. Do not place mapper/entity/model types in a root `service` package.
 - Tests for schema changes must cover migration smoke, key constraints, idempotency, and cleanup paths touched by the migration.
 - IDE files (`.project`, `.classpath`, `.factorypath`) must not be committed.
+
+### Spring AI 2 platform gate
+- 自定义场景 Task 1 开始前，必须通过 `python3 tool/verify_spring_ai_2_backend_platform.py` 和 `cd backend && bash mvnw clean test`。
+- 生产 Java 代码使用 Jackson 3 `tools.jackson.*`；`com.fasterxml.jackson.annotation.*` 仍可用，禁止 `com.fasterxml.jackson.core.*` 与 `com.fasterxml.jackson.databind.*`。
 
 ## ANTI-PATTERNS (THIS PROJECT)
 
@@ -124,7 +128,7 @@ helm upgrade --install babytalk-app deploy/helm/babytalk-app -n babytalk -f depl
 2. **数据库**：PostgreSQL + Flyway 迁移
 3. **缓存**：Redis
 4. **对象存储**：MinIO
-5. **AI 集成**：Spring AI 1.1.4
+5. **AI 集成**：Spring AI 2.0.0
 6. **Flutter 状态管理**：Riverpod 2.6.1 + Freezed
-7. **Spring Boot 版本**：3.4.4 (Java 17)
+7. **Spring Boot 版本**：4.0.7（JDK 21 运行时，Java 17 字节码）
 8. **React 版本**：18.3.1 + Vite 5.4 + AntD 5.27

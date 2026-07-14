@@ -130,6 +130,12 @@ def verify_manual_model_configuration(root: pathlib.Path, errors: list[str]) -> 
     for path in production_java_sources(root):
         source = path.read_text(encoding="utf-8")
         relative_path = path.relative_to(root)
+        if re.search(
+            r"^\s*import\s+com\.fasterxml\.jackson\.(?:core|databind)\.",
+            source,
+            re.MULTILINE,
+        ):
+            errors.append(f"Production Jackson 2 core/databind import remains: {relative_path}")
         if re.search(r"\bnew\s+OpenAiApi\s*\(", source):
             errors.append(f"Production OpenAiApi construction remains: {relative_path}")
         for model, options in required_options.items():
@@ -164,7 +170,15 @@ def verify(root: pathlib.Path) -> list[str]:
                 "Expected Spring AI 2.0.0" if name == "spring-ai.version" else f"Expected {name}={value}", errors)
     require(parent, r"<java\.version>17</java\.version>", "Expected Java bytecode target 17", errors)
 
-    all_poms = "\n".join(path.read_text(encoding="utf-8") for path in (root / "backend").glob("*/pom.xml"))
+    all_poms = "\n".join((
+        parent,
+        *(path.read_text(encoding="utf-8") for path in (root / "backend").glob("*/pom.xml")),
+    ))
+    for version in sorted(set(re.findall(
+        r"<spring-ai\.version>\s*([^<\s]+)\s*</spring-ai\.version>", all_poms,
+    ))):
+        if version != REQUIRED["spring-ai.version"]:
+            errors.append(f"Non-stable Spring AI version: {version}")
     for forbidden in (
         "mybatis-plus-spring-boot3-starter",
         "druid-spring-boot-3-starter",
@@ -191,6 +205,18 @@ def verify(root: pathlib.Path) -> list[str]:
             re.search(r"^ {10}routes:", gateway_yml, re.MULTILINE),
     )):
         errors.append("Expected spring.cloud.gateway.server.webflux.routes")
+    platform_sources = [
+        *production_java_sources(root),
+        *(path for path in (root / "backend").glob("*/src/main/resources/**/*") if path.is_file()),
+    ]
+    for path in sorted(platform_sources):
+        if re.search(
+                r"\bspring\.cloud\.gateway\.routes\b",
+                path.read_text(encoding="utf-8"),
+        ):
+            errors.append(
+                f"Old spring.cloud.gateway.routes property remains: {path.relative_to(root)}"
+            )
     verify_manual_model_configuration(root, errors)
     return errors
 

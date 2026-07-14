@@ -69,6 +69,22 @@ class SpringAi2BackendPlatformVerifierTest(unittest.TestCase):
             self.assertIn("Spring Boot 4.0.7", result.stderr)
             self.assertIn("Spring AI 2.0.0", result.stderr)
 
+    def test_rejects_non_stable_spring_ai_version_alongside_stable_version(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = pathlib.Path(tmp)
+            write_valid_platform(repo)
+            pom = repo / "backend" / "pom.xml"
+            pom.write_text(
+                pom.read_text(encoding="utf-8")
+                + "<spring-ai.version>2.0.1</spring-ai.version>",
+                encoding="utf-8",
+            )
+
+            result = run_verifier(repo)
+
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("Non-stable Spring AI version: 2.0.1", result.stderr)
+
     def test_rejects_each_boot3_starter_and_old_gateway_prefix(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             repo = pathlib.Path(tmp)
@@ -144,6 +160,68 @@ class SpringAi2BackendPlatformVerifierTest(unittest.TestCase):
 
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("Production OpenAiApi construction", result.stderr)
+
+    def test_rejects_production_jackson2_core_and_databind_imports(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            source = write_valid_platform(pathlib.Path(tmp))
+            source.mkdir(parents=True)
+            (source / "LegacyJacksonConfiguration.java").write_text(
+                "import com.fasterxml.jackson.core.JsonProcessingException;\n"
+                "import com.fasterxml.jackson.databind.ObjectMapper;\n"
+                "class LegacyJacksonConfiguration {}\n",
+                encoding="utf-8",
+            )
+
+            result = run_verifier(source.parents[5])
+
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("Production Jackson 2 core/databind import remains", result.stderr)
+
+    def test_allows_production_jackson_annotation_import(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            source = write_valid_platform(pathlib.Path(tmp))
+            source.mkdir(parents=True)
+            (source / "JacksonAnnotationConfiguration.java").write_text(
+                "import com.fasterxml.jackson.annotation.JsonProperty;\n"
+                "class JacksonAnnotationConfiguration {}\n",
+                encoding="utf-8",
+            )
+
+            result = run_verifier(source.parents[5])
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+
+    def test_rejects_direct_spring_cloud_gateway_routes_property(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = pathlib.Path(tmp)
+            write_valid_platform(repo)
+            resources = repo / "backend" / "app-api" / "src" / "main" / "resources"
+            resources.mkdir(parents=True)
+            (resources / "application.yml").write_text(
+                "spring.cloud.gateway.routes: []\n",
+                encoding="utf-8",
+            )
+
+            result = run_verifier(repo)
+
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("Old spring.cloud.gateway.routes property remains", result.stderr)
+
+    def test_rejects_direct_spring_cloud_gateway_routes_property_in_java(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            source = write_valid_platform(pathlib.Path(tmp))
+            source.mkdir(parents=True)
+            (source / "LegacyGatewayConfiguration.java").write_text(
+                "class LegacyGatewayConfiguration {\n"
+                "    String property = \"spring.cloud.gateway.routes\";\n"
+                "}\n",
+                encoding="utf-8",
+            )
+
+            result = run_verifier(source.parents[5])
+
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("Old spring.cloud.gateway.routes property remains", result.stderr)
 
     def test_rejects_manual_model_without_explicit_provider_configuration(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
