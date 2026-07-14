@@ -263,6 +263,10 @@ class AuthConsentSyncWebTest extends AbstractIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.version").value(1));
         assertThat(babyProfileCount(reloginSession.accountId())).isEqualTo(1);
+        var profileId = babyProfileId(reloginSession.accountId());
+        insertGeneratedContent("gen_cleanup_account", "account", reloginSession.accountId(), null, "draft");
+        insertGeneratedContent("gen_cleanup_profile", "profile", reloginSession.accountId(), profileId, "active");
+        assertThat(generatedContentCount(reloginSession.accountId())).isEqualTo(2);
 
         mockMvc.perform(delete("/api/v1/account")
                         .header(ApiVersionInterceptor.VERSION_HEADER, "1.2.0")
@@ -274,6 +278,7 @@ class AuthConsentSyncWebTest extends AbstractIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.result").value("applied"));
         assertThat(babyProfileCount(reloginSession.accountId())).isZero();
+        assertThat(generatedContentCount(reloginSession.accountId())).isZero();
 
         mockMvc.perform(delete("/api/v1/account")
                         .header(ApiVersionInterceptor.VERSION_HEADER, "1.2.0")
@@ -372,6 +377,93 @@ class AuthConsentSyncWebTest extends AbstractIntegrationTest {
                 accountId
         );
         return count == null ? 0 : count;
+    }
+
+    private String babyProfileId(String accountId) {
+        return jdbcTemplate.queryForObject(
+                "select profile_id from baby_profiles where account_id = ?",
+                String.class,
+                accountId
+        );
+    }
+
+    private int generatedContentCount(String accountId) {
+        Integer count = jdbcTemplate.queryForObject(
+                "select count(*) from practice_generated_content where account_id = ?",
+                Integer.class,
+                accountId
+        );
+        return count == null ? 0 : count;
+    }
+
+    private void insertGeneratedContent(
+            String generatedContentId,
+            String ownerScope,
+            String accountId,
+            String profileId,
+            String status
+    ) {
+        var suffix = generatedContentId.replace("_", "-");
+        jdbcTemplate.update("""
+                        insert into practice_generated_content (
+                            generated_content_id,
+                            owner_scope,
+                            owner_key,
+                            owner_key_version,
+                            account_id,
+                            installation_ref_hash,
+                            profile_id,
+                            surface,
+                            mode,
+                            request_fingerprint,
+                            normalized_scene_text,
+                            age_range,
+                            parent_goal,
+                            locale,
+                            space_slug,
+                            activity_slug,
+                            phrase_slug,
+                            space_title_zh,
+                            activity_title_zh,
+                            scene_tag_en,
+                            coach_tip_zh,
+                            english_text,
+                            chinese_text,
+                            pronunciation_hint,
+                            difficulty,
+                            generation_source,
+                            status,
+                            prompt_version,
+                            strategy_version,
+                            policy_version,
+                            content_version,
+                            generation_started_at,
+                            generation_expires_at,
+                            created_at,
+                            updated_at
+                        ) values (
+                            ?, ?, ?, 'v1', ?, null, ?, 'onboarding', 'custom_scene', ?,
+                            case when ? = 'draft' then '刷牙洗脸' else null end, 'm7_11',
+                            'calmer_care', 'zh-CN', ?, ?, ?, '日常照护', '洗漱', 'wash up',
+                            '慢一点说，配合动作。', 'Let us wash your face.', '我们来洗脸。', 'let-us-wash',
+                            'easy', ?, ?, 'practice-discovery-custom-scene-v1', 'fake-custom-scene-v1', 'policy-v2',
+                            1, now(), case when ? = 'draft' then now() + interval '5 minutes' else null end, now(), now()
+                        )
+                        """,
+                generatedContentId,
+                ownerScope,
+                "owner_" + suffix,
+                accountId,
+                profileId,
+                "fp_" + suffix,
+                status,
+                "space_" + suffix,
+                "activity_" + suffix,
+                "phrase_" + suffix,
+                "agentic_search",
+                status,
+                status
+        );
     }
 
     private record TokenView(String accountId, String sessionId, String accessToken, String refreshToken) {

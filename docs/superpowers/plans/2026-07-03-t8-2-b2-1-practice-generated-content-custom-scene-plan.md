@@ -17,6 +17,31 @@ Generated content must first enter practice_generated_content with stable ids.
 Discovery response may only return persisted generated content.
 ```
 
+## Review Hardening: Approved Contracts
+
+Custom scene eligibility:
+- Deterministic sceneIntents are alignment hints, not an allow-list.
+- Safe unlisted care scenes may reach the typed provider boundary.
+- Fake fixtures return generation_unavailable for unsupported scenes and never return unrelated fallback content.
+
+Canonical text:
+- customSceneText is normalized with Unicode NFKC and Unicode whitespace collapse before validation, fingerprinting, persistence, and provider invocation.
+- Product grapheme limits and database code-point limits are both enforced.
+
+Fingerprint privacy:
+- request_fingerprint is an owner-scoped, domain-separated HMAC over canonical request material.
+- It must not be a plain hash that permits cross-owner equality comparison or dictionary recovery.
+
+Generated output privacy:
+- Output PII markers, phone/email/name patterns, prompt echo, physical column limits, and opaque provider metadata are validated before activation.
+
+Retention:
+- Current-key lookup and rate accounting remain version-bound.
+- Global stale-draft expiration and installation retention deletion operate across every owner-key version.
+
+Registry writes:
+- PracticeGeneratedContentMapper exposes only explicit state-machine/query operations and does not extend BaseMapper.
+
 ## 1. Scope
 
 B2.1 may plan:
@@ -633,6 +658,7 @@ generation_source:
   agentic_search
   rag_generation
   manual
+  fake
 
 status:
   draft
@@ -664,11 +690,15 @@ practice_generated_content.generation_source:
   agentic_search
   rag_generation
   manual
+  fake (test/dev provider only)
 
 Discovery response source must remain catalog/generated.
 Generated registry generation_source records how generated content was produced.
 Do not return generation_source as response source.
 Do not map generation_source into PracticeDiscoveryResponse.source.
+fake is explicit test/dev provenance and is only valid when provider-mode=fake.
+Production agentic/RAG adapters must return agentic_search or rag_generation and must never return fake.
+The generated-output validator must reject fake provenance outside the fake provider path.
 ```
 
 Shape constraints:
@@ -808,6 +838,11 @@ owner_key does not enter logs
 owner_key is only for idempotency unique index and cleanup lookup
 owner_key must be stable across retries
 owner_key secret rotation needs future migration plan, not B2.1
+owner_key_version and the HMAC secret are typed configuration
+current runtime supports exactly one active owner_key_version
+fingerprint lookup, active lookup, rate-limit counting, and retention cleanup bind that current version explicitly
+account privacy deletion is the deliberate exception and deletes account/profile rows across every historical owner_key_version
+owner_key_version is migration metadata only; B2.1 does not claim controlled rotation support
 ```
 
 Raw identifiers may still exist in columns for cleanup and FK behavior:
@@ -852,11 +887,28 @@ installation-scoped active rows:
   retained only until canonicalized, account-linked, or TTL expires
   recommended TTL 30 days if not linked to an account
 
+installation-scoped promoted rows:
+  forbidden by database constraint in B2.1
+
 global_candidate rows:
   only from explicit future promotion/review flow, not B2.1
 ```
 
 B2.1 does not need a full retention framework, but implementation must add enough metadata and tests so pre-auth installation-scoped content is not retained forever silently.
+
+Required retention hooks:
+
+```text
+retention_expires_at is explicit metadata
+installation rejected/expired defaults to 7 days
+installation active defaults to 30 days
+active/rejected/expired terminal rows clear normalized_scene_text
+batch stale-draft hook: generation_expires_at <= now -> expired, clear input, installation retention now+7d
+batch installation cleanup query/delete covers due active/rejected/expired rows
+request-path live lookup does not reuse installation active after retention_expires_at
+under the owner lock, a due active row is expired before replacement reservation
+no scheduler is required in B2.1
+```
 
 ## 13. Idempotency and Fingerprint
 
@@ -900,8 +952,8 @@ Fingerprint algorithm:
 Idempotency behavior:
 
 ```text
-same owner_key + surface + mode + fingerprint + prompt/strategy versions returns existing active/promoted content
-existing active/promoted content returns without AI call
+same owner_key + surface + mode + fingerprint + prompt/strategy/policy versions returns existing reusable active/promoted content
+existing active/promoted content returns without AI call only while its retention contract remains live
 existing draft content returns no AI call
 expired/rejected rows do not block retry
 unique conflict fetches existing row
@@ -912,12 +964,15 @@ unsafe generated output may store rejected row only for abuse diagnostics
 Concurrency behavior:
 
 ```text
-request A inserts draft reservation
-request B hits live_fingerprint unique conflict
-request B fetches existing row
+active/promoted may use an unlocked fast path, but the locked path always rechecks the live fingerprint
+one REQUIRES_NEW transaction acquires the owner advisory lock, rechecks live fingerprint, counts burst/daily attempts, handles stale/due rows, reserves draft, and commits
+the owner lock is never released between count and reserve
+request A inserts draft reservation and commits
+request B observes the committed live row under the same owner lock
 if row is active/promoted, B returns generated response or follows future promoted-to-curated redirect
 if row is draft and not expired, B waits briefly or returns 409 generation_in_progress
 if row is expired/rejected, B may retry by creating a new draft
+provider execution starts only after that reservation transaction has committed and released its owner lock
 ```
 
 Do not hold a DB transaction open across provider calls. Reserve draft, commit, generate outside transaction, then activate/reject/expire.
@@ -969,12 +1024,16 @@ provider disabled returns generation_unavailable
 provider disabled response is stable, not a server crash
 provider timeout has strict cap
 CI must not depend on real provider/network/key
+provider-mode accepts only disabled, fake, or agentic; unknown values fail startup binding
+disabled and not-yet-implemented agentic modes return a controlled non-retryable generation_unavailable before DB, rate limit, owner HMAC, or provider work
+agentic is an explicit unavailable placeholder in B2.1, not a real adapter
 ```
 
 Recommended config:
 
 ```text
 babytalk.practice.discovery.custom-scene.enabled=false|true
+babytalk.practice.discovery.custom-scene.provider-mode=disabled|fake|agentic
 babytalk.practice.discovery.custom-scene.timeout=5s
 babytalk.practice.discovery.custom-scene.prompt-version=custom_scene_v1
 babytalk.practice.discovery.custom-scene.strategy-version=rag_v1
@@ -1040,9 +1099,11 @@ Do not expose generation_source as response source.
 Testing decision:
 
 ```text
-B2.1 tests use fake CustomSceneGenerationService.
-Fake generator returns deterministic structured candidates.
-Fake generator can simulate timeout, disabled provider, malformed output, and unsafe output.
+B2.1 success-path tests use fake CustomSceneGenerationService.
+Fake generator returns deterministic successful structured candidates with generation_source=fake.
+Timeout, unavailable, malformed-output, and unsafe-output branches use a test-only mutable/mock provider; provider-mode is not a behavior simulator.
+provider-mode selects only disabled, fake, or a future agentic provider.
+In B2.1, agentic wires an explicit not-implemented provider boundary and fails requests with controlled non-retryable semantics; the real adapter remains a future slice.
 No test calls real provider, network, key, Spring AI, or public /api/v1/mentor/chat.
 ```
 
@@ -1062,9 +1123,13 @@ Provider failure handling:
 
 | failure | handling |
 | --- | --- |
-| feature disabled | expire/reject draft if reserved; return `503 generation_unavailable`, `retryable=false` |
+| feature/provider mode disabled | do not reserve; return `503 generation_unavailable`, `retryable=false` |
+| agentic placeholder | do not reserve; return `503 generation_unavailable`, `retryable=false` |
 | timeout | mark draft expired; return `504 generation_timeout`, `retryable=true` |
 | provider unavailable | mark draft expired; return `503 generation_unavailable`, `retryable=true` |
+| unexpected provider/validation/activation runtime failure | best-effort expire and clear draft input; return sanitized `503 generation_unavailable`, `retryable=true`; stale-draft hook is the second safety net |
+
+All provider and validator terminal cleanup is best-effort: cleanup failure is suppressed on the original typed failure and never replaces the stable client contract.
 | invalid JSON / malformed structure | mark rejected; return `502 generation_invalid_output` |
 | unsafe content | mark rejected; return `422 generated_content_rejected` |
 | too-long phrase | mark rejected; return `422 generated_content_rejected` |
@@ -1093,9 +1158,23 @@ Parent-speakable full sentence or short phrase
 Suitable for 0-3 family care moment
 Matches custom scene intent enough
 No phone number or obvious baby name leakage
+No email leakage
 No raw prompt-injection text echoed back
+dynamically generated DB varchar fields are checked before persistence: titles 120, pronunciation 120, provider/retrieval trace 128, model name 96
 difficulty in starter/easy/medium/hard, prefer starter
-generation_source in agentic_search/rag_generation/manual
+production generation_source in agentic_search/rag_generation/manual; fake is accepted only by the test/dev fake-provider validator path
+```
+
+Intent and policy configuration:
+
+```text
+classpath resource: backend/app-api/src/main/resources/config/practice-discovery-policy.yml
+request regexes, PII markers, injection markers, care orientation, output validator lists, and scene-intent markers live in that YAML
+PracticeDiscoveryPolicyProperties performs typed binding, validation, normalization, and pattern compilation only
+scene classification may match multiple intents; generated output must align with at least one classified intent
+every accepted care-orientation marker must belong to a scene-intent request marker; configuration fails fast on gaps, and validator context with no classification fails closed
+policy-version is part of the typed properties and persisted fingerprint contract
+editing the policy resource requires an explicit policy-version bump in the same change; automatic content-hash enforcement is deferred
 ```
 
 Validation pipeline:
@@ -1220,6 +1299,7 @@ Recommended minimal B2.1 rate-limit strategy:
 ```text
 Use practice_generated_content itself as accounting source.
 Count new draft/rejected/expired/active rows by owner_key + surface + mode + created_at window.
+Count promoted rows as attempts too.
 Do not count idempotent active hits.
 Do not depend on Redis.
 Do not couple PracticeDiscoveryService to MentorService.
@@ -1235,6 +1315,13 @@ installation scope:
 account/profile scope:
   burst: 5 new generations / 10 minutes
   daily: 20 new generations / day
+```
+
+Scope limit:
+
+```text
+installation rate limiting is an atomic per-owner soft limit, not strong abuse prevention, because installationId is client supplied and can be rotated
+IP/WAF limiting, device attestation, Redis buckets, and provider billing circuit breakers are future hardening and are not B2.1 scope
 ```
 
 Logging:
@@ -1329,6 +1416,11 @@ active/promoted lookup by generatedContentId
 active/promoted lookup by owner_key + surface + mode + requestFingerprint + versions
 draft reservation conflict returns existing row
 retention cleanup queries can find installation-scoped expired/rejected rows
+stale-draft batch hook expires rows and clears normalized_scene_text
+installation cleanup covers due active/rejected/expired rows
+installation promoted rows are rejected by constraint
+expired installation active rows are not reused and are lazily expired under owner lock
+account privacy deletion removes current and historical owner_key_version rows while retaining installation rows
 ```
 
 Service tests:
@@ -1338,6 +1430,9 @@ surface=onboarding mode=catalog keeps B2 catalog behavior
 surface=onboarding mode=custom_scene without JWT succeeds with installationId
 custom_scene with same fingerprint returns existing generated content without AI call
 custom_scene concurrent duplicate resolves to existing row or generation_in_progress without duplicate AI call
+same owner/different fingerprints cannot pass the atomic cap concurrently
+same expired-active fingerprint concurrently reserves at most one replacement and calls provider once
+provider starts only after the reservation transaction commits and unlocks the owner
 custom_scene persists before response
 response returns source=generated
 response includes generatedContentId and stable slugs
@@ -1349,6 +1444,8 @@ provider timeout returns generation_timeout retryable=true suggestCatalogFallbac
 no /api/v1/mentor/chat call
 draft response has no account private data
 authenticated profile custom_scene verifies ownership
+accepted account custom_scene without babyProfileId does not require installationId
+provided JWT consent_required/consent_revoked errors never fall back to installation scope
 rate limit / daily cap behavior
 catalog mode remains unchanged
 ```
@@ -1408,9 +1505,9 @@ PracticeDiscoveryService
     draft conflict                                                 [GAP -> concurrency test]
     expired/rejected retry                                         [GAP -> service test]
   generation
-    fake generator success                                         [GAP -> service test]
-    fake generator disabled                                        [GAP -> service test]
-    fake generator timeout                                         [GAP -> service test]
+    fake generator success                                         [GAP -> Spring wiring + service test]
+    test-only mutable/mock provider unavailable                     [GAP -> service test]
+    test-only mutable/mock provider timeout                         [GAP -> service test]
     invalid structured output                                      [GAP -> validator + service test]
   persistence
     active row before response                                     [GAP -> repository/service test]
@@ -1430,7 +1527,8 @@ PracticeGeneratedContentRepository
   cleanup lookup for installation-scope TTL                        [GAP -> repository test]
 
 LLM integration
-  real agentic/RAG implementation behind typed port                 [GAP] [EVAL] gated after fake generator tests pass
+  typed agentic boundary with explicit unavailable placeholder      [B2.1]
+  real agentic/RAG implementation behind typed port                 [DEFERRED] future slice
 
 USER FLOWS
   Parent cannot find catalog scene, enters custom scene             [GAP -> controller/service integration]
@@ -1459,12 +1557,12 @@ Do not start AI integration before schema/idempotency and fake-generator hydrati
 - [ ] **B2.1-03 validator + fake generator + response hydration (P1, human: ~1.5h / CC: ~40min)**
   - Work: add custom scene validation, generated output validator, fake `CustomSceneGenerationService`, draft reservation, activation, generated response hydration from active row.
   - Files: `CustomSceneGenerationService.java`, `CustomSceneGeneratedContentValidator.java`, `PracticeGeneratedContentService.java`, `PracticeDiscoveryService.java`, service/validator/controller tests.
-  - Verify: fake-generator success/unsafe/timeout/disabled tests; no real provider/network/key.
+  - Verify: fake-generator success wiring; test-only mutable/mock unsafe/timeout/disabled tests; no real provider/network/key.
 
-- [ ] **B2.1-04 internal agentic/RAG integration behind typed port (P2 after gates 01-03, human: ~1h / CC: ~30min)**
-  - Work: wire real provider implementation behind `CustomSceneGenerationService`, fixed timeout, provider disabled config, structured output parse.
-  - Files: provider adapter service/config/tests with fake provider only in CI.
-  - Verify: provider-disabled test; timeout test; no public `/api/v1/mentor/chat` call; optional local/manual real-provider smoke outside CI.
+- [ ] **B2.1-04 typed agentic boundary only (P1 after gates 01-03)**
+  - Work: keep `agentic` as an explicit not-implemented provider placeholder; do not add a real adapter in B2.1.
+  - Files: provider port, disabled/fake/agentic wiring, typed failure semantics, Spring wiring tests.
+  - Verify: disabled and agentic fail before reservation with non-retryable controlled errors; transient mock provider unavailable is retryable; no public `/api/v1/mentor/chat` call.
 
 - [ ] **B2.1-05 rate limit / abuse controls / regression pass (P1, human: ~1h / CC: ~25min)**
   - Work: count generation attempts by owner_key/surface/mode, daily/burst cap, installation TTL cleanup plan hooks, run catalog/mentor/practice regressions.
@@ -1509,7 +1607,10 @@ try {
   mvn test -pl app-api -Dtest=PracticeGeneratedContentRepositoryTest
   mvn test -pl app-api -Dtest=PracticeGeneratedContentServiceTest
   mvn test -pl app-api -Dtest=CustomSceneGeneratedContentValidatorTest
-  mvn test -pl app-api -Dtest=PracticeCatalogRepositoryTest
+  mvn test -pl app-api -Dtest=PracticeCatalogMapperTest,PracticeCatalogServiceTest
+  mvn test -pl app-api -Dtest=PracticeGeneratedContentConcurrencyTest
+  mvn test -pl app-api -Dtest=CustomSceneGenerationProviderWiringTest
+  mvn test -pl app-api -Dtest=PracticeDiscoveryPolicyPropertiesTest,PracticeDiscoveryCustomScenePropertiesTest,PracticeGeneratedContentOwnerPropertiesTest
   mvn test -pl app-api -Dtest=MentorServiceTest
   mvn test -pl app-api -Dtest=MentorWebTest
   mvn test -pl app-api -Dtest=PracticeGenerateControllerTest

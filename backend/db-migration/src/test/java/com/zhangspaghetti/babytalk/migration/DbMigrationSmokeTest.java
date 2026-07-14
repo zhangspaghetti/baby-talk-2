@@ -5,6 +5,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.sql.Timestamp;
 import java.time.Instant;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -74,10 +76,10 @@ class DbMigrationSmokeTest {
                 select count(*)
                 from flyway_schema_history
                 where success = true
-                  and version in ('3', '14', '15', '16', '17', '18', '19', '24')
+                  and version in ('3', '14', '15', '16', '17', '18', '19', '24', '25')
                 """,
                 Integer.class);
-        assertThat(trackedVersions).isEqualTo(8);
+        assertThat(trackedVersions).isEqualTo(9);
 
         assertThat(tableExists("accounts")).isTrue();
         assertThat(tableExists("spring_ai_chat_memory")).isTrue();
@@ -92,6 +94,7 @@ class DbMigrationSmokeTest {
         assertThat(tableExists("palace_projection_version")).isTrue();
         assertThat(tableExists("palace_query_traces")).isTrue();
         assertThat(tableExists("baby_profiles")).isTrue();
+        assertThat(tableExists("practice_generated_content")).isTrue();
 
         List<String> expectedPermissionCodes = List.of(
                 "users:read",
@@ -229,7 +232,7 @@ class DbMigrationSmokeTest {
                 "calmer_care",
                 null,
                 "completed",
-                Instant.parse("2026-07-03T02:00:00Z"),
+                dbTime("2026-07-03T02:00:00Z"),
                 1);
         assertBabyProfileRejected(
                 "profile_bad_version",
@@ -240,6 +243,133 @@ class DbMigrationSmokeTest {
                 "draft",
                 null,
                 0);
+    }
+
+    @Test
+    void createsPracticeGeneratedContentTableConstraintsAndIndexes() {
+        assertThat(columnNamesFor("practice_generated_content"))
+                .containsExactly(
+                        "generated_content_id",
+                        "owner_scope",
+                        "owner_key",
+                        "owner_key_version",
+                        "account_id",
+                        "installation_ref_hash",
+                        "profile_id",
+                        "surface",
+                        "mode",
+                        "request_fingerprint",
+                        "normalized_scene_text",
+                        "age_range",
+                        "parent_goal",
+                        "locale",
+                        "space_slug",
+                        "activity_slug",
+                        "phrase_slug",
+                        "space_title_zh",
+                        "activity_title_zh",
+                        "scene_tag_en",
+                        "coach_tip_zh",
+                        "english_text",
+                        "chinese_text",
+                        "pronunciation_hint",
+                        "difficulty",
+                        "generation_source",
+                        "status",
+                        "provider_trace_id",
+                        "retrieval_trace_id",
+                        "model_name",
+                        "prompt_version",
+                        "strategy_version",
+                        "policy_version",
+                        "content_version",
+                        "generation_error_code",
+                        "generation_started_at",
+                        "generation_expires_at",
+                        "retention_expires_at",
+                        "created_at",
+                        "updated_at");
+
+        assertThat(columnIsNullable("practice_generated_content", "normalized_scene_text")).isTrue();
+        assertThat(columnComment("practice_generated_content", "owner_key_version"))
+                .containsIgnoringCase("future migration metadata")
+                .containsIgnoringCase("one active key version")
+                .doesNotContain("controlled key rotation");
+
+        assertThat(indexExists("uq_practice_generated_content_live_fingerprint")).isTrue();
+        assertThat(indexExists("uq_practice_generated_content_active_space_slug")).isTrue();
+        assertThat(indexExists("uq_practice_generated_content_active_activity_slug")).isTrue();
+        assertThat(indexExists("uq_practice_generated_content_active_phrase_slug")).isTrue();
+        assertThat(indexExists("idx_practice_generated_content_owner_created")).isTrue();
+        assertThat(indexExists("idx_practice_generated_content_status_updated")).isTrue();
+        assertThat(indexExists("idx_practice_generated_content_generated_id_status")).isFalse();
+        assertThat(indexExists("idx_practice_generated_content_installation_cleanup")).isTrue();
+        assertThat(indexExists("idx_practice_generated_content_stale_draft_cleanup")).isTrue();
+        assertThat(indexExists("idx_practice_generated_content_account_cleanup")).isTrue();
+        assertThat(indexDefinition("idx_practice_generated_content_installation_cleanup"))
+                .containsIgnoringCase("(retention_expires_at, generated_content_id)")
+                .doesNotContainIgnoringCase("owner_key_version")
+                .containsIgnoringCase("owner_scope")
+                .containsIgnoringCase("'installation'")
+                .containsIgnoringCase("status")
+                .containsIgnoringCase("'active'")
+                .containsIgnoringCase("'expired'")
+                .containsIgnoringCase("'rejected'");
+        assertThat(indexDefinition("idx_practice_generated_content_stale_draft_cleanup"))
+                .containsIgnoringCase("(generation_expires_at, generated_content_id)")
+                .doesNotContainIgnoringCase("owner_key_version")
+                .containsIgnoringCase("status")
+                .containsIgnoringCase("'draft'");
+        assertThat(constraintExists("uq_baby_profiles_profile_account")).isTrue();
+        assertThat(constraintExists("fk_practice_generated_content_profile_owner")).isTrue();
+        assertThat(constraintExists("chk_practice_generated_content_draft_shape")).isTrue();
+        assertThat(constraintExists("chk_practice_generated_content_installation_retention")).isTrue();
+        assertThat(constraintExists("chk_practice_generated_content_installation_not_promoted")).isTrue();
+        assertThat(constraintExists("chk_practice_generated_content_success_error_clear")).isTrue();
+        assertThat(constraintExists("chk_practice_generated_content_content_version_positive")).isTrue();
+
+        insertGeneratedContent(generatedContentFixture("pgc_db_expired")
+                .status("expired")
+                .generationSource(null)
+                .build());
+        insertGeneratedContent(generatedContentFixture("pgc_db_fake")
+                .status("active")
+                .generationSource("fake")
+                .build());
+
+        assertPracticeGeneratedContentRejected(generatedContentFixture("pgc_db_bad_owner_scope")
+                .ownerScope("household")
+                .build());
+        assertPracticeGeneratedContentRejected(generatedContentFixture("pgc_db_bad_surface")
+                .surface("growth")
+                .build());
+        assertPracticeGeneratedContentRejected(generatedContentFixture("pgc_db_bad_mode")
+                .mode("catalog_scene")
+                .build());
+        assertPracticeGeneratedContentRejected(generatedContentFixture("pgc_db_bad_generation_source")
+                .generationSource("provider_direct")
+                .build());
+        assertPracticeGeneratedContentRejected(generatedContentFixture("pgc_db_bad_status")
+                .status("queued")
+                .build());
+        assertPracticeGeneratedContentRejected(generatedContentFixture("pgc_db_dirty_owner")
+                .ownerScope("installation")
+                .accountId("acct_pgc_dirty")
+                .installationRefHash("install_ref_pgc_dirty")
+                .build());
+        assertPracticeGeneratedContentRejected(generatedContentFixture("pgc_db_missing_profile")
+                .ownerScope("profile")
+                .accountId("acct_pgc_missing_profile")
+                .profileId("profile_pgc_missing")
+                .installationRefHash(null)
+                .build());
+        assertPracticeGeneratedContentRejected(generatedContentFixture("pgc_db_incomplete_active")
+                .status("active")
+                .withoutActiveResponseFields()
+                .build());
+        assertPracticeGeneratedContentRejected(generatedContentFixture("pgc_db_installation_promoted")
+                .status("promoted")
+                .build());
     }
 
     private boolean tableExists(String tableName) {
@@ -285,6 +415,47 @@ class DbMigrationSmokeTest {
         return Boolean.TRUE.equals(exists);
     }
 
+    private String indexDefinition(String indexName) {
+        return jdbcTemplate.queryForObject(
+                """
+                select indexdef
+                from pg_indexes
+                where schemaname = current_schema()
+                  and indexname = ?
+                """,
+                String.class,
+                indexName);
+    }
+
+    private boolean columnIsNullable(String tableName, String columnName) {
+        return "YES".equals(jdbcTemplate.queryForObject(
+                """
+                select is_nullable
+                from information_schema.columns
+                where table_schema = current_schema()
+                  and table_name = ?
+                  and column_name = ?
+                """,
+                String.class,
+                tableName,
+                columnName));
+    }
+
+    private String columnComment(String tableName, String columnName) {
+        return jdbcTemplate.queryForObject(
+                """
+                select col_description(format('%I.%I', current_schema(), ?)::regclass, ordinal_position)
+                from information_schema.columns
+                where table_schema = current_schema()
+                  and table_name = ?
+                  and column_name = ?
+                """,
+                String.class,
+                tableName,
+                tableName,
+                columnName);
+    }
+
     private boolean constraintExists(String constraintName) {
         Boolean exists = jdbcTemplate.queryForObject(
                 """
@@ -307,7 +478,7 @@ class DbMigrationSmokeTest {
             String parentGoal,
             Starter starter,
             String onboardingState,
-            Instant completedAt,
+            OffsetDateTime completedAt,
             int version
     ) {
         insertAccount(accountId);
@@ -337,7 +508,7 @@ class DbMigrationSmokeTest {
                 """,
                 accountId,
                 accountId + "_phone",
-                Timestamp.from(Instant.parse("2026-07-03T00:00:00Z")));
+                Timestamp.from(dbTime("2026-07-03T00:00:00Z").toInstant()));
     }
 
     private void insertBabyProfile(
@@ -347,10 +518,10 @@ class DbMigrationSmokeTest {
             String parentGoal,
             Starter starter,
             String onboardingState,
-            Instant completedAt,
+            OffsetDateTime completedAt,
             int version
     ) {
-        var now = Timestamp.from(Instant.parse("2026-07-03T00:00:00Z"));
+        var now = Timestamp.from(dbTime("2026-07-03T00:00:00Z").toInstant());
         jdbcTemplate.update(
                 """
                 insert into baby_profiles (
@@ -383,7 +554,7 @@ class DbMigrationSmokeTest {
                 starter == null ? null : starter.phraseId(),
                 starter == null ? null : starter.source(),
                 onboardingState,
-                completedAt == null ? null : Timestamp.from(completedAt),
+                completedAt == null ? null : Timestamp.from(completedAt.toInstant()),
                 version,
                 now,
                 now);
@@ -397,5 +568,265 @@ class DbMigrationSmokeTest {
             String phraseId,
             String source
     ) {
+    }
+
+    private OffsetDateTime dbTime(String instantText) {
+        return OffsetDateTime.ofInstant(Instant.parse(instantText), ZoneOffset.UTC);
+    }
+
+    private void assertPracticeGeneratedContentRejected(GeneratedContentFixture fixture) {
+        assertThatThrownBy(() -> insertGeneratedContent(fixture))
+                .isInstanceOf(DataIntegrityViolationException.class);
+    }
+
+    private void insertGeneratedContent(GeneratedContentFixture fixture) {
+        if (fixture.accountId() != null) {
+            insertAccount(fixture.accountId());
+        }
+        var now = Timestamp.from(dbTime("2026-07-03T03:00:00Z").toInstant());
+        var retentionExpiresAt = fixture.ownerScope().equals("installation")
+                ? Timestamp.from(dbTime("2026-08-02T03:00:00Z").toInstant())
+                : null;
+        var generationStartedAt = "draft".equals(fixture.status()) ? now : null;
+        var generationExpiresAt = "draft".equals(fixture.status())
+                ? Timestamp.from(dbTime("2026-07-03T03:05:00Z").toInstant())
+                : null;
+        jdbcTemplate.update(
+                """
+                insert into practice_generated_content (
+                    generated_content_id,
+                    owner_scope,
+                    owner_key,
+                    owner_key_version,
+                    account_id,
+                    installation_ref_hash,
+                    profile_id,
+                    surface,
+                    mode,
+                    request_fingerprint,
+                    normalized_scene_text,
+                    age_range,
+                    parent_goal,
+                    locale,
+                    space_slug,
+                    activity_slug,
+                    phrase_slug,
+                    space_title_zh,
+                    activity_title_zh,
+                    scene_tag_en,
+                    coach_tip_zh,
+                    english_text,
+                    chinese_text,
+                    pronunciation_hint,
+                    difficulty,
+                    generation_source,
+                    status,
+                    provider_trace_id,
+                    retrieval_trace_id,
+                    model_name,
+                    prompt_version,
+                    strategy_version,
+                    policy_version,
+                    content_version,
+                    generation_error_code,
+                    generation_started_at,
+                    generation_expires_at,
+                    retention_expires_at,
+                    created_at,
+                    updated_at
+                ) values (
+                    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+                )
+                """,
+                fixture.generatedContentId(),
+                fixture.ownerScope(),
+                fixture.ownerKey(),
+                "v1",
+                fixture.accountId(),
+                fixture.installationRefHash(),
+                fixture.profileId(),
+                fixture.surface(),
+                fixture.mode(),
+                fixture.requestFingerprint(),
+                "draft".equals(fixture.status()) ? "洗澡前宝宝有点紧张" : null,
+                "m7_11",
+                "calmer_care",
+                "zh-CN",
+                fixture.spaceSlug(),
+                fixture.activitySlug(),
+                fixture.phraseSlug(),
+                fixture.spaceTitleZh(),
+                fixture.activityTitleZh(),
+                fixture.sceneTagEn(),
+                fixture.coachTipZh(),
+                fixture.englishText(),
+                fixture.chineseText(),
+                fixture.pronunciationHint(),
+                fixture.difficulty(),
+                fixture.generationSource(),
+                fixture.status(),
+                null,
+                null,
+                null,
+                "practice-gen-v1",
+                "retrieval-v1",
+                "policy-v1",
+                1,
+                null,
+                generationStartedAt,
+                generationExpiresAt,
+                retentionExpiresAt,
+                now,
+                now);
+    }
+
+    private GeneratedContentFixture.Builder generatedContentFixture(String id) {
+        return new GeneratedContentFixture.Builder(id);
+    }
+
+    private record GeneratedContentFixture(
+            String generatedContentId,
+            String ownerScope,
+            String ownerKey,
+            String accountId,
+            String installationRefHash,
+            String profileId,
+            String surface,
+            String mode,
+            String requestFingerprint,
+            String spaceSlug,
+            String activitySlug,
+            String phraseSlug,
+            String spaceTitleZh,
+            String activityTitleZh,
+            String sceneTagEn,
+            String coachTipZh,
+            String englishText,
+            String chineseText,
+            String pronunciationHint,
+            String difficulty,
+            String generationSource,
+            String status
+    ) {
+        private static class Builder {
+            private final String generatedContentId;
+            private String ownerScope = "installation";
+            private String ownerKey = "hmac_test_owner_key";
+            private String accountId;
+            private String installationRefHash = "install_ref_pgc_fixture";
+            private String profileId;
+            private String surface = "onboarding";
+            private String mode = "custom_scene";
+            private String requestFingerprint;
+            private String spaceSlug;
+            private String activitySlug;
+            private String phraseSlug;
+            private String spaceTitleZh;
+            private String activityTitleZh;
+            private String sceneTagEn;
+            private String coachTipZh;
+            private String englishText;
+            private String chineseText;
+            private String pronunciationHint;
+            private String difficulty;
+            private String generationSource;
+            private String status = "draft";
+            private boolean fillActiveResponseFields = true;
+
+            Builder(String generatedContentId) {
+                this.generatedContentId = generatedContentId;
+                this.requestFingerprint = "fp_" + generatedContentId;
+            }
+
+            Builder ownerScope(String ownerScope) {
+                this.ownerScope = ownerScope;
+                return this;
+            }
+
+            Builder accountId(String accountId) {
+                this.accountId = accountId;
+                return this;
+            }
+
+            Builder profileId(String profileId) {
+                this.profileId = profileId;
+                return this;
+            }
+
+            Builder installationRefHash(String installationRefHash) {
+                this.installationRefHash = installationRefHash;
+                return this;
+            }
+
+            Builder surface(String surface) {
+                this.surface = surface;
+                return this;
+            }
+
+            Builder mode(String mode) {
+                this.mode = mode;
+                return this;
+            }
+
+            Builder generationSource(String generationSource) {
+                this.generationSource = generationSource;
+                return this;
+            }
+
+            Builder status(String status) {
+                this.status = status;
+                return this;
+            }
+
+            Builder spaceSlug(String spaceSlug) {
+                this.spaceSlug = spaceSlug;
+                return this;
+            }
+
+            Builder withoutActiveResponseFields() {
+                this.fillActiveResponseFields = false;
+                return this;
+            }
+
+            GeneratedContentFixture build() {
+                if (fillActiveResponseFields && ("active".equals(status) || "promoted".equals(status))) {
+                    spaceSlug = spaceSlug == null ? "space_" + generatedContentId : spaceSlug;
+                    activitySlug = activitySlug == null ? "activity_" + generatedContentId : activitySlug;
+                    phraseSlug = phraseSlug == null ? "phrase_" + generatedContentId : phraseSlug;
+                    spaceTitleZh = "日常照护";
+                    activityTitleZh = "洗澡时间";
+                    sceneTagEn = "Bath time";
+                    coachTipZh = "慢一点重复说。";
+                    englishText = "Warm water.";
+                    chineseText = "水暖暖的。";
+                    pronunciationHint = "warm water";
+                    difficulty = "starter";
+                    generationSource = generationSource == null ? "agentic_search" : generationSource;
+                }
+                return new GeneratedContentFixture(
+                        generatedContentId,
+                        ownerScope,
+                        ownerKey,
+                        accountId,
+                        installationRefHash,
+                        profileId,
+                        surface,
+                        mode,
+                        requestFingerprint,
+                        spaceSlug,
+                        activitySlug,
+                        phraseSlug,
+                        spaceTitleZh,
+                        activityTitleZh,
+                        sceneTagEn,
+                        coachTipZh,
+                        englishText,
+                        chineseText,
+                        pronunciationHint,
+                        difficulty,
+                        generationSource,
+                        status);
+            }
+        }
     }
 }

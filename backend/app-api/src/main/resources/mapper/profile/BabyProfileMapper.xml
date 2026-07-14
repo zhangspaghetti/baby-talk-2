@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.zhangspaghetti.babytalk.profile.BabyProfileMapper">
+
+    <resultMap id="profileRowMap" type="com.zhangspaghetti.babytalk.profile.model.BabyProfileRow">
+        <constructor>
+            <arg column="profile_id" javaType="java.lang.String"/>
+            <arg column="account_id" javaType="java.lang.String"/>
+            <arg column="baby_name" javaType="java.lang.String"/>
+            <arg column="age_range" javaType="java.lang.String"/>
+            <arg column="parent_goal" javaType="java.lang.String"/>
+            <arg column="starter_scene_id" javaType="java.lang.String"/>
+            <arg column="starter_moment_id" javaType="java.lang.String"/>
+            <arg column="starter_activity_id" javaType="java.lang.String"/>
+            <arg column="starter_utterance_id" javaType="java.lang.String"/>
+            <arg column="starter_phrase_id" javaType="java.lang.String"/>
+            <arg column="starter_source" javaType="java.lang.String"/>
+            <arg column="onboarding_state" javaType="java.lang.String"/>
+            <arg column="onboarding_completed_at" javaType="java.time.OffsetDateTime"/>
+            <arg column="version" javaType="_int"/>
+            <arg column="created_at" javaType="java.time.OffsetDateTime"/>
+            <arg column="updated_at" javaType="java.time.OffsetDateTime"/>
+        </constructor>
+    </resultMap>
+
+    <sql id="profileSelect">
+        select profile_id,
+               account_id,
+               baby_name,
+               age_range,
+               parent_goal,
+               starter_scene_id,
+               starter_moment_id,
+               starter_activity_id,
+               starter_utterance_id,
+               starter_phrase_id,
+               starter_source,
+               onboarding_state,
+               onboarding_completed_at,
+               version,
+               created_at,
+               updated_at
+        from baby_profiles
+    </sql>
+
+    <select id="findByAccountId" resultMap="profileRowMap">
+        <include refid="profileSelect"/>
+        where account_id = #{accountId}
+    </select>
+
+    <update id="updateIfVersionMatches">
+        update baby_profiles
+        set baby_name = #{patch.babyName},
+            age_range = #{patch.ageRange},
+            parent_goal = #{patch.parentGoal},
+            starter_scene_id = #{patch.starterSceneId},
+            starter_moment_id = #{patch.starterMomentId},
+            starter_activity_id = #{patch.starterActivityId},
+            starter_utterance_id = #{patch.starterUtteranceId},
+            starter_phrase_id = #{patch.starterPhraseId},
+            starter_source = #{patch.starterSource},
+            onboarding_state = #{patch.onboardingState},
+            onboarding_completed_at = #{patch.onboardingCompletedAt,typeHandler=org.apache.ibatis.type.OffsetDateTimeTypeHandler},
+            updated_at = #{updatedAt,typeHandler=org.apache.ibatis.type.OffsetDateTimeTypeHandler},
+            version = version + 1
+        where account_id = #{accountId}
+          and version = #{expectedVersion}
+    </update>
+
+    <select id="findVersionByAccountId" resultType="int">
+        select version
+        from baby_profiles
+        where account_id = #{accountId}
+    </select>
+
+    <delete id="deleteByAccountId">
+        delete from baby_profiles
+        where account_id = #{accountId}
+    </delete>
+</mapper>

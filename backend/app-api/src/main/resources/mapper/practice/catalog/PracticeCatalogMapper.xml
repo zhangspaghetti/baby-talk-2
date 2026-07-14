@@ -1,0 +1,241 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.zhangspaghetti.babytalk.practice.catalog.PracticeCatalogMapper">
+
+    <resultMap id="cachedActivityMap" type="com.zhangspaghetti.babytalk.practice.catalog.model.CachedActivity">
+        <constructor>
+            <arg column="id" javaType="_long"/>
+            <arg column="slug" javaType="java.lang.String"/>
+            <arg column="space_slug" javaType="java.lang.String"/>
+            <arg column="title_zh" javaType="java.lang.String"/>
+            <arg column="coach_tip" javaType="java.lang.String"/>
+        </constructor>
+    </resultMap>
+
+    <resultMap id="cachedPhraseMap" type="com.zhangspaghetti.babytalk.practice.catalog.model.CachedPhrase">
+        <constructor>
+            <arg column="id" javaType="_long"/>
+            <arg column="slug" javaType="java.lang.String"/>
+            <arg column="step" javaType="_int"/>
+            <arg column="english" javaType="java.lang.String"/>
+            <arg column="chinese" javaType="java.lang.String"/>
+            <arg column="pronunciation" javaType="java.lang.String"/>
+            <arg column="difficulty" javaType="java.lang.String"/>
+        </constructor>
+    </resultMap>
+
+    <resultMap id="practiceSpaceRowMap" type="com.zhangspaghetti.babytalk.practice.catalog.model.PracticeSpaceRow">
+        <constructor>
+            <arg column="id" javaType="_long"/>
+            <arg column="space_id" javaType="java.lang.String"/>
+            <arg column="title_zh" javaType="java.lang.String"/>
+            <arg column="description_zh" javaType="java.lang.String"/>
+            <arg column="sort_order" javaType="_int"/>
+        </constructor>
+    </resultMap>
+
+    <resultMap id="practiceActivityRowMap" type="com.zhangspaghetti.babytalk.practice.catalog.model.PracticeActivityRow">
+        <constructor>
+            <arg column="id" javaType="_long"/>
+            <arg column="activity_id" javaType="java.lang.String"/>
+            <arg column="space_id" javaType="java.lang.String"/>
+            <arg column="title_zh" javaType="java.lang.String"/>
+            <arg column="scene_tag_en" javaType="java.lang.String"/>
+            <arg column="coach_tip" javaType="java.lang.String"/>
+            <arg column="sort_order" javaType="_int"/>
+            <arg column="source" javaType="java.lang.String"/>
+        </constructor>
+    </resultMap>
+
+    <resultMap id="practicePhraseRowMap" type="com.zhangspaghetti.babytalk.practice.catalog.model.PracticePhraseRow">
+        <constructor>
+            <arg column="id" javaType="_long"/>
+            <arg column="phrase_id" javaType="java.lang.String"/>
+            <arg column="activity_id" javaType="java.lang.String"/>
+            <arg column="step" javaType="_int"/>
+            <arg column="english" javaType="java.lang.String"/>
+            <arg column="chinese" javaType="java.lang.String"/>
+            <arg column="pronunciation" javaType="java.lang.String"/>
+            <arg column="difficulty" javaType="java.lang.String"/>
+            <arg column="audio_asset" javaType="java.lang.String"/>
+            <arg column="source" javaType="java.lang.String"/>
+        </constructor>
+    </resultMap>
+
+    <select id="findActivityBySceneTagRow" resultMap="cachedActivityMap">
+        select a.id,
+               a.slug,
+               s.slug as space_slug,
+               a.title_zh,
+               a.coach_tip
+        from practice_activities a
+        join practice_spaces s on s.id = a.space_id
+        where a.scene_tag_en = #{sceneTagEn}
+        order by a.id asc
+        limit 1
+    </select>
+
+    <select id="findPhrasesByActivityId" resultMap="cachedPhraseMap">
+        select id,
+               slug,
+               step,
+               english,
+               chinese,
+               pronunciation,
+               difficulty
+        from practice_phrases
+        where activity_id = #{activityId}
+        order by step asc, id asc
+    </select>
+
+    <select id="findSpaceIdBySlugRow" resultType="java.lang.Long">
+        select id
+        from practice_spaces
+        where slug = #{slug}
+    </select>
+
+    <select id="findAllSpaceSlugs" resultType="java.lang.String">
+        select slug
+        from practice_spaces
+        order by sort_order asc, slug asc
+    </select>
+
+    <select id="insertSpaceReturningId" resultType="java.lang.Long" flushCache="true" useCache="false">
+        insert into practice_spaces (slug, title_zh)
+        values (#{slug}, #{titleZh})
+        on conflict (slug) do nothing
+        returning id
+    </select>
+
+    <select id="findActivityIdBySlug" resultType="java.lang.Long">
+        select id
+        from practice_activities
+        where slug = #{slug}
+    </select>
+
+    <select id="insertActivityReturningId" resultType="java.lang.Long" flushCache="true" useCache="false">
+        insert into practice_activities (slug, space_id, title_zh, scene_tag_en, coach_tip, source)
+        values (#{slug}, #{spaceId}, #{titleZh}, #{sceneTagEn}, #{coachTip}, 'llm')
+        on conflict (slug) do nothing
+        returning id
+    </select>
+
+    <select id="findPhraseIdBySlug" resultType="java.lang.Long">
+        select id
+        from practice_phrases
+        where slug = #{slug}
+    </select>
+
+    <select id="insertPhraseReturningId" resultType="java.lang.Long" flushCache="true" useCache="false">
+        insert into practice_phrases (
+            slug,
+            activity_id,
+            step,
+            english,
+            chinese,
+            pronunciation,
+            difficulty,
+            source
+        ) values (
+            #{slug},
+            #{activityId},
+            #{step},
+            #{english},
+            #{chinese},
+            #{pronunciation},
+            #{difficulty},
+            'llm'
+        )
+        on conflict (slug) do nothing
+        returning id
+    </select>
+
+    <select id="findSpaces" resultMap="practiceSpaceRowMap">
+        select id,
+               slug as space_id,
+               title_zh,
+               description_zh,
+               sort_order
+        from practice_spaces
+        order by sort_order asc, slug asc
+        limit #{limit}
+    </select>
+
+    <select id="findActivitiesBySpace" resultMap="practiceActivityRowMap">
+        select a.id,
+               a.slug as activity_id,
+               s.slug as space_id,
+               a.title_zh,
+               a.scene_tag_en,
+               a.coach_tip,
+               a.sort_order,
+               a.source
+        from practice_activities a
+        join practice_spaces s on s.id = a.space_id
+        where s.slug = #{spaceId}
+        order by a.sort_order asc, a.slug asc
+        limit #{limit}
+    </select>
+
+    <select id="findStarterPhraseRow" resultMap="practicePhraseRowMap">
+        select p.id,
+               p.slug as phrase_id,
+               a.slug as activity_id,
+               p.step,
+               p.english,
+               p.chinese,
+               p.pronunciation,
+               p.difficulty,
+               p.audio_asset,
+               p.source
+        from practice_phrases p
+        join practice_activities a on a.id = p.activity_id
+        where a.slug = #{activityId}
+        <if test="seedOnly">
+          and p.source = 'seed'
+        </if>
+        order by case when p.difficulty = 'starter' then 0 else 1 end,
+                 p.step asc,
+                 p.id asc
+        limit 1
+    </select>
+
+    <select id="findNextPhraseRow" resultMap="practicePhraseRowMap">
+        with current_phrase as (
+            select p.step
+            from practice_phrases p
+            join practice_activities a on a.id = p.activity_id
+            where a.slug = #{activityId}
+              and p.slug = #{currentPhraseId}
+            limit 1
+        )
+        select p.id,
+               p.slug as phrase_id,
+               a.slug as activity_id,
+               p.step,
+               p.english,
+               p.chinese,
+               p.pronunciation,
+               p.difficulty,
+               p.audio_asset,
+               p.source
+        from practice_phrases p
+        join practice_activities a on a.id = p.activity_id
+        where a.slug = #{activityId}
+          and p.step &gt; (select step from current_phrase)
+        order by p.step asc, p.id asc
+        limit 1
+    </select>
+
+    <select id="countSpaceActivityPhrasePath" resultType="int">
+        select count(*)
+        from practice_spaces s
+        join practice_activities a on a.space_id = s.id
+        join practice_phrases p on p.activity_id = a.id
+        where s.slug = #{spaceId}
+          and a.slug = #{activityId}
+          and p.slug = #{phraseId}
+    </select>
+</mapper>

@@ -3,6 +3,9 @@ package com.zhangspaghetti.babytalk.service;
 import com.zhangspaghetti.babytalk.config.MentorProperties;
 import com.zhangspaghetti.babytalk.palace.MemPalacePromptBuilder;
 import com.zhangspaghetti.babytalk.palace.PalaceSearchService;
+import com.zhangspaghetti.babytalk.practice.catalog.PracticeCatalogService;
+import com.zhangspaghetti.babytalk.practice.catalog.model.CachedActivity;
+import com.zhangspaghetti.babytalk.practice.catalog.model.CachedPhrase;
 import com.zhangspaghetti.babytalk.web.ContractException;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -40,7 +43,7 @@ public class MentorService {
     private final TransactionTemplate transactionTemplate;
     private final PalaceSearchService palaceSearchService;
     private final ObjectMapper objectMapper;
-    private final PracticeCatalogRepository catalogRepo;
+    private final PracticeCatalogService catalogService;
     private final Clock clock = Clock.systemUTC();
 
     public MentorService(
@@ -52,7 +55,7 @@ public class MentorService {
             PlatformTransactionManager txManager,
             PalaceSearchService palaceSearchService,
             ObjectMapper objectMapper,
-            PracticeCatalogRepository catalogRepo
+            PracticeCatalogService catalogService
     ) {
         this.repository = repository;
         this.authConsentSyncRepository = authConsentSyncRepository;
@@ -62,7 +65,7 @@ public class MentorService {
         this.transactionTemplate = new TransactionTemplate(txManager);
         this.palaceSearchService = palaceSearchService;
         this.objectMapper = objectMapper;
-        this.catalogRepo = catalogRepo;
+        this.catalogService = catalogService;
     }
 
     /**
@@ -469,10 +472,10 @@ public class MentorService {
 
         // ── Cache hit: skip LLM call if activity already in DB ──
         if (sceneTag != null) {
-            var cached = catalogRepo.findActivityBySceneTag(sceneTag);
+            var cached = catalogService.findActivityBySceneTag(sceneTag);
             if (cached.isPresent()) {
                 log.info("practice.generate: cache hit for sceneTag={}, activityId={}", sceneTag, cached.get().id());
-                var cachedPhrases = catalogRepo.findPhrasesByActivityId(cached.get().id());
+                var cachedPhrases = catalogService.findPhrasesByActivityId(cached.get().id());
                 return buildCachedResponse(cached.get(), cachedPhrases);
             }
         }
@@ -529,8 +532,8 @@ public class MentorService {
      * Build a PracticeGenerateResponse from cached DB records.
      */
     private PracticeGenerateResponse buildCachedResponse(
-            PracticeCatalogRepository.CachedActivity activity,
-            List<PracticeCatalogRepository.CachedPhrase> phrases) {
+            CachedActivity activity,
+            List<CachedPhrase> phrases) {
         var phraseDtos = phrases.stream()
                 .map(p -> new PhraseDto(p.id(), p.english(), p.chinese(), p.pronunciation(), p.difficulty()))
                 .toList();
@@ -553,11 +556,11 @@ public class MentorService {
         try {
             return transactionTemplate.execute(status -> {
                 var spaceSlug = classifySceneTagToSpaceSlug(sceneTag);
-                var spaceId = catalogRepo.insertSpace(spaceSlug, spaceSlug);
+                var spaceId = catalogService.insertSpace(spaceSlug, spaceSlug);
                 var activitySlug = "llm_" + sanitizeSlug(sceneTag) + "_" +
                         UUID.randomUUID().toString().replace("-", "").substring(0, 8);
 
-                var activityId = catalogRepo.insertActivity(
+                var activityId = catalogService.insertActivity(
                         activitySlug, spaceId, sceneTag, sceneTag, null);
 
                 var enrichedActivities = new ArrayList<ActivityDto>();
@@ -567,7 +570,7 @@ public class MentorService {
                     for (int j = 0; j < act.phrases().size(); j++) {
                         var phrase = act.phrases().get(j);
                         var phraseSlug = activitySlug + "_" + (j + 1);
-                        var phraseId = catalogRepo.insertPhrase(
+                        var phraseId = catalogService.insertPhrase(
                                 phraseSlug, activityId, j + 1,
                                 phrase.english(), phrase.chinese(),
                                 phrase.pronunciation(), phrase.difficulty());

@@ -1,0 +1,229 @@
+babytalk:
+  practice:
+    discovery:
+      owner:
+        key-version: ${BABY_TALK_PRACTICE_DISCOVERY_OWNER_KEY_VERSION:v1}
+        key-secret: ${BABY_TALK_PRACTICE_DISCOVERY_OWNER_KEY_SECRET:}
+      policy:
+        policy-version: ${BABY_TALK_PRACTICE_DISCOVERY_POLICY_VERSION:policy-v2}
+        baby-name-pattern: '(宝宝|宝贝|孩子|娃|baby)\s*(叫|名叫|名字是|名字|named|name is)\s*[\p{IsHan}A-Za-z]{1,16}'
+        phone-pattern: '(?<!\p{Nd})(?:\p{Nd}[\s-]?){10,}\p{Nd}(?!\p{Nd})'
+        email-pattern: '[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}'
+        pii-markers:
+          - 身份证
+          - 微信
+          - wechat
+          - qq
+          - 住址
+          - 地址
+          - phone
+          - 手机号
+          - 电话
+        validator-pii-markers:
+          - 身份证
+          - 微信
+          - wechat
+          - qq
+          - 住址
+          - 地址
+          - phone
+          - 手机号
+          - 电话
+        prompt-injection-markers:
+          - ignore previous
+          - system prompt
+          - developer message
+          - jailbreak
+          - 忽略之前
+          - 系统提示
+          - 开发者消息
+          - 越狱
+        unsupported-intents:
+          - chatgpt
+          - 聊天
+          - homework
+          - lesson
+          - quiz
+          - medical
+          - legal
+          - lawyer
+          - 作业
+          - 课程
+          - 测验
+          - 考试
+          - 医疗
+          - 诊断
+          - 吃药
+          - 法律
+          - 律师
+        care-context-markers:
+          - baby
+          - child
+          - toddler
+          - parent
+          - mom
+          - dad
+          - 宝宝
+          - 宝贝
+          - 孩子
+          - 娃
+          - 妈妈
+          - 爸爸
+          - 照护
+        generated-care-keywords:
+          - care
+          - bath
+          - diaper
+          - feed
+          - milk
+          - meal
+          - bedtime
+          - sleep
+          - nap
+          - soothe
+          - calm
+          - cuddle
+          - wash
+          - dress
+          - potty
+          - toilet
+          - 照护
+          - 洗澡
+          - 尿布
+          - 换尿布
+          - 喂奶
+          - 吃奶
+          - 吃饭
+          - 睡觉
+          - 哄睡
+          - 安抚
+          - 抱抱
+          - 刷牙
+          - 穿衣
+          - 如厕
+          - shoe
+          - shoes
+          - 穿鞋
+          - 出门
+        scene-intents:
+          bath:
+            request-markers: [bath, wash, 洗澡, 洗头]
+            output-markers: [bath, water, wash, 洗澡]
+          diaper:
+            request-markers: [diaper, 尿布, 换尿布]
+            output-markers: [diaper, 尿布, 换尿布]
+          sleep:
+            request-markers: [sleep, bedtime, nap, 睡觉, 哄睡]
+            output-markers: [sleep, bedtime, night, 睡觉, 晚安]
+          shoes_on:
+            request-markers: [shoe, shoes, 穿鞋, 出门]
+            output-markers: [shoe, shoes, 穿鞋]
+          generic_care:
+            request-markers: [care, 照护]
+            output-markers: [care, 照护]
+          feeding:
+            request-markers: [feed, milk, meal, 喂奶, 吃奶, 吃饭]
+            output-markers: [feed, feeding, milk, meal, bottle, 喂奶, 吃奶, 吃饭]
+          soothing:
+            request-markers: [soothe, calm, cuddle, 安抚, 抱抱, 哭闹]
+            output-markers: [soothe, calm, cuddle, 安抚, 抱抱]
+          dental_care:
+            request-markers: [刷牙]
+            output-markers: [brush, tooth, teeth, 刷牙]
+          dressing:
+            request-markers: [dress, 穿衣]
+            output-markers: [dress, clothes, shirt, 穿衣, 衣服]
+          toileting:
+            request-markers: [potty, toilet, 如厕]
+            output-markers: [potty, toilet, 如厕]
+        validator-blocked-framing:
+          - lesson
+          - quiz
+          - homework
+          - worksheet
+          - test
+          - task
+          - score
+          - grade
+          - correct
+          - wrong
+          - repeat after me
+          - 课程
+          - 测验
+          - 考试
+          - 作业
+          - 任务
+          - 打卡
+          - 训练
+          - 评分
+          - 打分
+          - 答对
+          - 答错
+          - 考核
+        validator-medical-legal:
+          - diagnose
+          - dosage
+          - medicine
+          - medication
+          - legal
+          - lawyer
+          - lawsuit
+          - 诊断
+          - 剂量
+          - 吃药
+          - 退烧
+          - 医疗
+          - 医生
+          - 处方
+          - 法律
+          - 律师
+          - 诉讼
+        validator-adult-violent-sexual:
+          - kill
+          - blood
+          - weapon
+          - gun
+          - knife
+          - sex
+          - sexual
+          - porn
+          - adult
+          - 杀死
+          - 流血
+          - 武器
+          - 枪支
+          - 刀具
+          - 性行为
+          - 色情内容
+          - 成人内容
+        validator-unsupported-claims:
+          - guarantee
+          - cure
+          - will make
+          - always works
+          - 保证
+          - 一定会
+          - 治愈
+          - 根治
+        validator-unsuitable-03:
+          - small parts
+          - honey
+          - screen time
+          - run alone
+          - jump from
+          - scissors
+          - 小零件
+          - 蜂蜜
+          - 看屏幕
+          - 独自跑
+          - 跳下
+          - 剪刀
+        validator-prompt-echo:
+          - ignore previous
+          - system prompt
+          - developer message
+          - jailbreak
+          - 忽略之前
+          - 系统提示
+          - 开发者消息
+          - 越狱

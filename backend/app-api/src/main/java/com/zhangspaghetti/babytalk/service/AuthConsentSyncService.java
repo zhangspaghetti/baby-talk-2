@@ -2,6 +2,8 @@ package com.zhangspaghetti.babytalk.service;
 
 import com.zhangspaghetti.babytalk.config.ApiContractProperties;
 import com.zhangspaghetti.babytalk.config.ConsumerAuthProperties;
+import com.zhangspaghetti.babytalk.practice.generated.PracticeGeneratedContentService;
+import com.zhangspaghetti.babytalk.profile.BabyProfileMapper;
 import com.zhangspaghetti.babytalk.security.JwtTokenService;
 import com.zhangspaghetti.babytalk.web.ContractException;
 import java.time.Clock;
@@ -28,7 +30,8 @@ public class AuthConsentSyncService {
             Set.of("cooperating", "hesitant", "resisting", "no_response", "other");
 
     private final AuthConsentSyncRepository repository;
-    private final OnboardingProfileRepository onboardingProfileRepository;
+    private final BabyProfileMapper babyProfileMapper;
+    private final PracticeGeneratedContentService practiceGeneratedContentService;
     private final SmsVerificationProvider smsVerificationProvider;
     private final HouseholdSharedContextProjector householdSharedContextProjector;
     private final ApiContractProperties contractProperties;
@@ -38,7 +41,8 @@ public class AuthConsentSyncService {
 
     public AuthConsentSyncService(
             AuthConsentSyncRepository repository,
-            OnboardingProfileRepository onboardingProfileRepository,
+            BabyProfileMapper babyProfileMapper,
+            PracticeGeneratedContentService practiceGeneratedContentService,
             SmsVerificationProvider smsVerificationProvider,
             HouseholdSharedContextProjector householdSharedContextProjector,
             ApiContractProperties contractProperties,
@@ -46,7 +50,8 @@ public class AuthConsentSyncService {
             JwtTokenService jwtTokenService
     ) {
         this.repository = repository;
-        this.onboardingProfileRepository = onboardingProfileRepository;
+        this.babyProfileMapper = babyProfileMapper;
+        this.practiceGeneratedContentService = practiceGeneratedContentService;
         this.smsVerificationProvider = smsVerificationProvider;
         this.householdSharedContextProjector = householdSharedContextProjector;
         this.contractProperties = contractProperties;
@@ -251,7 +256,8 @@ public class AuthConsentSyncService {
         }
 
         var deletedEvents = repository.deleteInteractionEvents(session.accountId());
-        onboardingProfileRepository.deleteByAccountId(session.accountId());
+        practiceGeneratedContentService.deleteAccountOwned(session.accountId());
+        babyProfileMapper.deleteByAccountId(session.accountId());
         repository.updateSessionsStatus(session.accountId(), "deleted", now);
         repository.tombstoneAccount(session.accountId(), "deleted:" + session.accountId(), now);
         repository.insertConsentAudit(audit(session, "delete", "applied", sanitizeReason(reason), now));

@@ -45,6 +45,7 @@ public abstract class AbstractIntegrationTest {
             "garden_fertilizer_claim_log",
             "garden_fertilizer_apply_log",
             "garden_fertilizer_state",
+            "practice_generated_content",
             "mentor_audit_logs",
             "mentor_turns",
             "baby_profiles",

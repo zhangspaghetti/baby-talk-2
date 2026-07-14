@@ -18,6 +18,9 @@ Thumbs.db
 .idea/
 .vscode/
 *.code-workspace
+**/.project
+**/.classpath
+**/.factorypath
 .env
 .env.*
 !.env.example
