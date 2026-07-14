@@ -168,6 +168,7 @@ app:
     ai-model: ${BABY_TALK_AI_MODEL:gpt-4o-mini}
     ai-temperature: ${BABY_TALK_AI_TEMPERATURE:0.7}
     ai-max-tokens: ${BABY_TALK_AI_MAX_TOKENS:300}
+    ai-max-attempts: ${BABY_TALK_AI_MAX_ATTEMPTS:10}
     rate-limit-max-requests: ${BABY_TALK_MENTOR_RATE_LIMIT_MAX_REQUESTS:3}
     rate-limit-window: ${BABY_TALK_MENTOR_RATE_LIMIT_WINDOW:PT10M}
     prompt-max-length: ${BABY_TALK_MENTOR_PROMPT_MAX_LENGTH:280}
