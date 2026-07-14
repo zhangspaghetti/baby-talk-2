@@ -12,9 +12,13 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.zhangspaghetti.babytalk.config.ApiVersionInterceptor;
 import com.zhangspaghetti.babytalk.config.MentorProperties;
 import com.zhangspaghetti.babytalk.palace.PalaceHybridRetrievalService;
+import com.zhangspaghetti.babytalk.palace.projection.PalaceQueryTrace;
+import com.zhangspaghetti.babytalk.palace.projection.PalaceQueryTraceRepository;
 import com.zhangspaghetti.babytalk.service.MentorProvider;
 import com.zhangspaghetti.babytalk.service.SpringAiMentorProvider;
 import io.minio.MinioClient;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.ai.chat.client.ChatClient;
@@ -26,6 +30,7 @@ import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -52,6 +57,12 @@ class MentorChatIntegrationTest extends AbstractIntegrationTest {
 
     @Autowired
     private PalaceHybridRetrievalService palaceHybridRetrievalService;
+
+    @Autowired
+    private ObjectMapper objectMapper;
+
+    @Autowired
+    private PalaceQueryTraceRepository palaceQueryTraceRepository;
 
     @MockitoBean
     private MentorProvider mentorProvider;
@@ -165,6 +176,48 @@ class MentorChatIntegrationTest extends AbstractIntegrationTest {
         assertThat(jdbcTemplate.queryForObject("select count(*) from mentor_turns", Integer.class)).isEqualTo(1);
     }
 
+    @Test
+    void mentorChatPersistsJsonbTraceWithNestedCandidateAndNullField() throws Exception {
+        int beforeCount = queryTraceCount();
+
+        mockMvc.perform(post("/api/v1/mentor/chat")
+                        .header(ApiVersionInterceptor.VERSION_HEADER, "1.2.0")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "installationId":"install-jsonb-trace",
+                                  "prompt":"How should I respond to babble?",
+                                  "surface":"home",
+                                  "mode":"single_turn",
+                                  "correlationId":"corr-jsonb-trace",
+                                  "childAgeMonths":6
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value("ok"));
+
+        assertThat(queryTraceCount()).isEqualTo(beforeCount + 1);
+
+        JsonNode entryRooms = objectMapper.readTree(lastTraceJson("entry_rooms"));
+        JsonNode candidates = objectMapper.readTree(lastTraceJson("candidates_json"));
+        JsonNode bridgeEdges = objectMapper.readTree(lastTraceJson("bridge_edges_crossed"));
+
+        assertThat(entryRooms.isArray()).isTrue();
+        assertThat(candidates.isArray()).isTrue();
+        assertThat(candidates.get(0).isObject()).isTrue();
+        assertThat(candidates.get(0).get("keywordScore").isNull()).isTrue();
+        assertThat(bridgeEdges.isArray()).isTrue();
+
+        PalaceQueryTrace trace = palaceQueryTraceRepository.findRecent(PageRequest.of(0, 1)).get(0);
+        assertThat(trace.getEntryRooms()).isNotNull();
+        assertThat(trace.getEntryRooms().isArray()).isTrue();
+        assertThat(trace.getCandidatesJson()).isNotNull();
+        assertThat(trace.getCandidatesJson().isArray()).isTrue();
+        assertThat(trace.getCandidatesJson().get(0).get("keywordScore").isNull()).isTrue();
+        assertThat(trace.getBridgeEdgesCrossed()).isNotNull();
+        assertThat(trace.getBridgeEdgesCrossed().isArray()).isTrue();
+    }
+
     private MentorProvider buildDelegatingProvider() {
         ChatClient chatClient = mock(ChatClient.class);
         ChatClientRequestSpec requestSpec = mock(ChatClientRequestSpec.class);
@@ -194,6 +247,12 @@ class MentorChatIntegrationTest extends AbstractIntegrationTest {
     private String lastCandidatesJson() {
         return jdbcTemplate.queryForObject(
                 "select candidates_json::text from palace_query_traces order by queried_at desc limit 1",
+                String.class);
+    }
+
+    private String lastTraceJson(String column) {
+        return jdbcTemplate.queryForObject(
+                "select %s::text from palace_query_traces order by queried_at desc limit 1".formatted(column),
                 String.class);
     }
 

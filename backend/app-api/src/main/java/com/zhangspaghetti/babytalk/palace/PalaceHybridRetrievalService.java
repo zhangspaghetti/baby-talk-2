@@ -487,7 +487,12 @@ public class PalaceHybridRetrievalService {
                             installationId);
             palaceQueryTraceRepository.save(entity);
         } catch (Exception e) {
-            log.warn("failed to persist palace query trace: {}", e.getMessage());
+            log.warn(
+                    "event=palace_trace_persistence_failed exceptionType={} candidateCount={} entryRoomCount={} bridgeEdgeCount={}",
+                    e.getClass().getSimpleName(),
+                    trace.candidates().size(),
+                    trace.entryRooms().size(),
+                    trace.bridgeEdgesCrossed().size());
         }
     }
 
