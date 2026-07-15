@@ -34,6 +34,15 @@ jobs:
           java -version 2>&1 | grep '21\.'
           grep -q '<java.version>17</java.version>' backend/pom.xml
 
+      - name: Verify resolved Spring AI dependency graph
+        shell: bash
+        run: |
+          set -euo pipefail
+          ./backend/mvnw -f backend/pom.xml -B -Dstyle.color=never dependency:tree \
+            '-Dincludes=org.springframework.ai:*' | tee spring-ai-dependency-tree.txt
+          python3 tool/verify_spring_ai_2_backend_platform.py \
+            --dependency-tree spring-ai-dependency-tree.txt
+
       - name: Set up Node.js 20
         uses: actions/setup-node@v4
         with:

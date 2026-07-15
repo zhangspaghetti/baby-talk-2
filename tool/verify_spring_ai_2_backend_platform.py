@@ -24,6 +24,63 @@ def production_java_sources(root: pathlib.Path) -> list[pathlib.Path]:
     return sorted((root / "backend").glob("*/src/main/**/*.java"))
 
 
+def backend_poms(root: pathlib.Path) -> list[pathlib.Path]:
+    return sorted((root / "backend").rglob("pom.xml"))
+
+
+def verify_explicit_spring_ai_dependency_versions(
+    root: pathlib.Path,
+    errors: list[str],
+) -> None:
+    allowed_versions = {REQUIRED["spring-ai.version"], "${spring-ai.version}"}
+    for path in backend_poms(root):
+        pom = path.read_text(encoding="utf-8")
+        for dependency in re.finditer(
+            r"<dependency\b[^>]*>(.*?)</dependency>",
+            pom,
+            re.DOTALL,
+        ):
+            body = dependency.group(1)
+            group_id = re.search(r"<groupId>\s*([^<]+?)\s*</groupId>", body)
+            if group_id is None or group_id.group(1) != "org.springframework.ai":
+                continue
+            version = re.search(r"<version>\s*([^<]+?)\s*</version>", body)
+            if version is None or version.group(1) in allowed_versions:
+                continue
+            artifact = re.search(r"<artifactId>\s*([^<]+?)\s*</artifactId>", body)
+            artifact_id = artifact.group(1) if artifact is not None else "unknown-artifact"
+            errors.append(
+                "Explicit Spring AI dependency version must be 2.0.0 or "
+                f"${{spring-ai.version}}: {path.relative_to(root).as_posix()} "
+                f"{artifact_id}={version.group(1)}"
+            )
+
+
+def verify_resolved_spring_ai_dependencies(
+    dependency_tree: pathlib.Path,
+    errors: list[str],
+) -> None:
+    tree = dependency_tree.read_text(encoding="utf-8")
+    resolved: list[tuple[str, str]] = []
+    scopes = {"compile", "provided", "runtime", "test", "system", "import"}
+    for match in re.finditer(r"org\.springframework\.ai:[^\s]+", tree):
+        coordinate = match.group(0).rstrip(",;)]}")
+        parts = coordinate.split(":")
+        if len(parts) < 5:
+            continue
+        version = parts[-2] if parts[-1] in scopes else parts[-1]
+        resolved.append((parts[1], version))
+    if not resolved:
+        errors.append("No resolved Spring AI dependencies found in dependency tree")
+        return
+    for artifact_id, version in sorted(set(resolved)):
+        if version != REQUIRED["spring-ai.version"]:
+            errors.append(
+                "Resolved Spring AI dependency must be 2.0.0: "
+                f"{artifact_id}={version}"
+            )
+
+
 def balanced_parentheses_end(source: str, opening_parenthesis: int) -> int | None:
     depth = 0
     quote: str | None = None
@@ -136,6 +193,8 @@ def verify_manual_model_configuration(root: pathlib.Path, errors: list[str]) -> 
             re.MULTILINE,
         ):
             errors.append(f"Production Jackson 2 core/databind import remains: {relative_path}")
+        if re.search(r"\bOpenAiApi\b", source):
+            errors.append(f"Production OpenAiApi reference remains: {relative_path}")
         if re.search(r"\bnew\s+OpenAiApi\s*\(", source):
             errors.append(f"Production OpenAiApi construction remains: {relative_path}")
         for model, options in required_options.items():
@@ -161,7 +220,10 @@ def verify_manual_model_configuration(root: pathlib.Path, errors: list[str]) -> 
                         )
 
 
-def verify(root: pathlib.Path) -> list[str]:
+def verify(
+    root: pathlib.Path,
+    dependency_tree: pathlib.Path | None = None,
+) -> list[str]:
     errors: list[str] = []
     parent = (root / "backend" / "pom.xml").read_text(encoding="utf-8")
     require(parent, r"<version>4\.0\.7</version>", "Expected Spring Boot 4.0.7", errors)
@@ -170,10 +232,9 @@ def verify(root: pathlib.Path) -> list[str]:
                 "Expected Spring AI 2.0.0" if name == "spring-ai.version" else f"Expected {name}={value}", errors)
     require(parent, r"<java\.version>17</java\.version>", "Expected Java bytecode target 17", errors)
 
-    all_poms = "\n".join((
-        parent,
-        *(path.read_text(encoding="utf-8") for path in (root / "backend").glob("*/pom.xml")),
-    ))
+    all_poms = "\n".join(
+        path.read_text(encoding="utf-8") for path in backend_poms(root)
+    )
     for version in sorted(set(re.findall(
         r"<spring-ai\.version>\s*([^<\s]+)\s*</spring-ai\.version>", all_poms,
     ))):
@@ -218,14 +279,22 @@ def verify(root: pathlib.Path) -> list[str]:
                 f"Old spring.cloud.gateway.routes property remains: {path.relative_to(root)}"
             )
     verify_manual_model_configuration(root, errors)
+    verify_explicit_spring_ai_dependency_versions(root, errors)
+    if dependency_tree is not None:
+        verify_resolved_spring_ai_dependencies(dependency_tree, errors)
     return errors
 
 
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--root", type=pathlib.Path, default=pathlib.Path(__file__).resolve().parents[1])
+    parser.add_argument(
+        "--dependency-tree",
+        type=pathlib.Path,
+        help="Maven dependency:tree output containing resolved org.springframework.ai artifacts",
+    )
     args = parser.parse_args()
-    errors = verify(args.root.resolve())
+    errors = verify(args.root.resolve(), args.dependency_tree)
     if errors:
         for error in errors:
             print(error, file=sys.stderr)

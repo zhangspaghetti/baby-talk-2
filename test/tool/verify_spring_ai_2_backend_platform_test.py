@@ -7,9 +7,15 @@ ROOT = pathlib.Path(__file__).resolve().parents[2]
 VERIFY = ROOT / "tool" / "verify_spring_ai_2_backend_platform.py"
 
 
-def run_verifier(repo: pathlib.Path) -> subprocess.CompletedProcess[str]:
+def run_verifier(
+    repo: pathlib.Path,
+    dependency_tree: pathlib.Path | None = None,
+) -> subprocess.CompletedProcess[str]:
+    command = ["python3", str(VERIFY), "--root", str(repo)]
+    if dependency_tree is not None:
+        command.extend(["--dependency-tree", str(dependency_tree)])
     return subprocess.run(
-        ["python3", str(VERIFY), "--root", str(repo)],
+        command,
         text=True,
         capture_output=True,
         check=False,
@@ -40,6 +46,13 @@ def write_valid_platform(repo: pathlib.Path) -> pathlib.Path:
 
 
 class SpringAi2BackendPlatformVerifierTest(unittest.TestCase):
+
+    def test_ci_verifies_resolved_spring_ai_dependency_tree(self) -> None:
+        workflow = (ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
+
+        self.assertIn("dependency:tree", workflow)
+        self.assertIn("-Dincludes=org.springframework.ai:*", workflow)
+        self.assertIn("--dependency-tree", workflow)
 
     def test_rejects_boot3_and_spring_ai1_versions(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -160,6 +173,111 @@ class SpringAi2BackendPlatformVerifierTest(unittest.TestCase):
 
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("Production OpenAiApi construction", result.stderr)
+
+    def test_rejects_production_open_ai_api_import_and_builder(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            source = write_valid_platform(pathlib.Path(tmp))
+            source.mkdir(parents=True)
+            (source / "LegacyConfiguration.java").write_text(
+                "import org.springframework.ai.openai.api.OpenAiApi;\n"
+                "class LegacyConfiguration {\n"
+                "    OpenAiApi api() { return OpenAiApi.builder().build(); }\n"
+                "}\n",
+                encoding="utf-8",
+            )
+
+            result = run_verifier(source.parents[5])
+
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("Production OpenAiApi reference", result.stderr)
+
+    def test_rejects_explicit_spring_ai_1x_version_in_child_pom(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = pathlib.Path(tmp)
+            write_valid_platform(repo)
+            child_pom = repo / "backend" / "app-api" / "pom.xml"
+            child_pom.parent.mkdir(parents=True)
+            child_pom.write_text(
+                "<project><dependencies><dependency>"
+                "<groupId>org.springframework.ai</groupId>"
+                "<artifactId>spring-ai-openai</artifactId>"
+                "<version>1.1.4</version>"
+                "</dependency></dependencies></project>",
+                encoding="utf-8",
+            )
+
+            result = run_verifier(repo)
+
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn(
+                "Explicit Spring AI dependency version must be 2.0.0 or ${spring-ai.version}",
+                result.stderr,
+            )
+            self.assertIn("backend/app-api/pom.xml", result.stderr)
+
+    def test_accepts_allowed_explicit_spring_ai_dependency_versions(self) -> None:
+        for allowed_version in ("2.0.0", "${spring-ai.version}"):
+            with self.subTest(version=allowed_version), tempfile.TemporaryDirectory() as tmp:
+                repo = pathlib.Path(tmp)
+                write_valid_platform(repo)
+                child_pom = repo / "backend" / "app-api" / "pom.xml"
+                child_pom.parent.mkdir(parents=True)
+                child_pom.write_text(
+                    "<project><dependencies><dependency>"
+                    "<groupId>org.springframework.ai</groupId>"
+                    "<artifactId>spring-ai-openai</artifactId>"
+                    f"<version>{allowed_version}</version>"
+                    "</dependency></dependencies></project>",
+                    encoding="utf-8",
+                )
+
+                result = run_verifier(repo)
+
+                self.assertEqual(result.returncode, 0, result.stderr)
+
+    def test_rejects_resolved_spring_ai_1x_dependency(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = pathlib.Path(tmp)
+            write_valid_platform(repo)
+            dependency_tree = repo / "spring-ai-dependency-tree.txt"
+            dependency_tree.write_text(
+                "[INFO] +- org.springframework.ai:spring-ai-core:jar:1.1.4:compile\n",
+                encoding="utf-8",
+            )
+
+            result = run_verifier(repo, dependency_tree)
+
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn(
+                "Resolved Spring AI dependency must be 2.0.0: spring-ai-core=1.1.4",
+                result.stderr,
+            )
+
+    def test_accepts_resolved_spring_ai_2_dependency(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = pathlib.Path(tmp)
+            write_valid_platform(repo)
+            dependency_tree = repo / "spring-ai-dependency-tree.txt"
+            dependency_tree.write_text(
+                "[INFO] +- org.springframework.ai:spring-ai-core:jar:2.0.0:compile\n",
+                encoding="utf-8",
+            )
+
+            result = run_verifier(repo, dependency_tree)
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+
+    def test_rejects_empty_resolved_spring_ai_dependency_tree(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = pathlib.Path(tmp)
+            write_valid_platform(repo)
+            dependency_tree = repo / "spring-ai-dependency-tree.txt"
+            dependency_tree.write_text("[INFO] BUILD SUCCESS\n", encoding="utf-8")
+
+            result = run_verifier(repo, dependency_tree)
+
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("No resolved Spring AI dependencies found", result.stderr)
 
     def test_rejects_production_jackson2_core_and_databind_imports(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
