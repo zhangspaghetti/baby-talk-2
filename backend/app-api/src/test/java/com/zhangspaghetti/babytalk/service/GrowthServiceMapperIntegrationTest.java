@@ -235,6 +235,38 @@ class GrowthServiceMapperIntegrationTest extends AbstractIntegrationTest {
     }
 
     @Test
+    void practiceDateExactly365DaysAgoIsIncludedAndPriorDateIsExcluded() {
+        var installationId = "growth-streak-365-day-boundary";
+        var session = createAcceptedSession("13800139106", installationId);
+        var boundaryTime = Instant.now(GROWTH_CLOCK).minus(365, ChronoUnit.DAYS);
+        insertPracticeEvent(
+                session,
+                installationId,
+                "boundary",
+                "daily_care",
+                "bath_time",
+                boundaryTime
+        );
+        insertPracticeEvent(
+                session,
+                installationId,
+                "outside-boundary",
+                "daily_care",
+                "bath_time",
+                practiceTime(366)
+        );
+
+        var streak = growthInsightsService().loadInsights(session.sessionId(), "week").streak();
+
+        assertThat(streak.currentStreak()).isZero();
+        assertThat(streak.longestStreak()).isEqualTo(1);
+        assertThat(streak.totalDaysPracticed()).isEqualTo(1);
+        assertThat(streak.lastPracticedAt()).isEqualTo(
+                boundaryTime.atZone(SHANGHAI).toLocalDate().atStartOfDay(SHANGHAI).toInstant()
+        );
+    }
+
+    @Test
     void scenePercentagesUseEventTotal() {
         var installationId = "growth-scene-percentages";
         var session = createAcceptedSession("13800139105", installationId);
