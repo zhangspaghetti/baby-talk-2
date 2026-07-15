@@ -93,7 +93,7 @@
                coalesce(ps.title_zh, ie.activity_id) as scene_tag,
                count(*) as event_count,
                count(distinct ie.activity_id) as activity_count,
-               count(*) over () as total
+               sum(count(*)) over () as total
         from interaction_events ie
         left join practice_activities pa on pa.slug = ie.activity_id
         left join practice_spaces ps on ps.id = pa.space_id

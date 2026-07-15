@@ -11,6 +11,7 @@ import com.zhangspaghetti.babytalk.growth.mapper.GrowthSummaryMapper;
 import com.zhangspaghetti.babytalk.web.ContractException;
 import java.time.Clock;
 import java.time.Instant;
+import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
@@ -26,6 +27,12 @@ import org.springframework.test.util.ReflectionTestUtils;
         "app.sms.dev-code=246810"
 })
 class GrowthServiceMapperIntegrationTest extends AbstractIntegrationTest {
+
+    private static final ZoneId SHANGHAI = ZoneId.of("Asia/Shanghai");
+    private static final Clock GROWTH_CLOCK = Clock.fixed(
+            Instant.parse("2026-07-24T12:00:00Z"),
+            ZoneOffset.UTC
+    );
 
     @Autowired
     private AuthConsentSyncService authConsentSyncService;
@@ -176,6 +183,76 @@ class GrowthServiceMapperIntegrationTest extends AbstractIntegrationTest {
                 );
     }
 
+    @Test
+    void todayAndYesterdayAreConsecutivePracticeDays() {
+        var installationId = "growth-streak-two-days";
+        var session = createAcceptedSession("13800139102", installationId);
+        insertPracticeEvent(session, installationId, "today", "daily_care", "bath_time", practiceTime(0));
+        insertPracticeEvent(session, installationId, "yesterday", "daily_care", "bath_time", practiceTime(1));
+
+        var streak = growthInsightsService().loadInsights(session.sessionId(), "week").streak();
+
+        assertThat(streak.currentStreak()).isEqualTo(2);
+        assertThat(streak.longestStreak()).isEqualTo(2);
+        assertThat(streak.totalDaysPracticed()).isEqualTo(2);
+    }
+
+    @Test
+    void currentStreakAndLongestStreakComeFromIndependentSegments() {
+        var installationId = "growth-streak-segments";
+        var session = createAcceptedSession("13800139103", installationId);
+        insertPracticeEvent(session, installationId, "today", "daily_care", "bath_time", practiceTime(0));
+        insertPracticeEvent(session, installationId, "yesterday", "daily_care", "bath_time", practiceTime(1));
+        for (int daysAgo = 10; daysAgo <= 14; daysAgo++) {
+            insertPracticeEvent(
+                    session,
+                    installationId,
+                    "older-" + daysAgo,
+                    "family_rhythm",
+                    "feeding_time",
+                    practiceTime(daysAgo)
+            );
+        }
+
+        var streak = growthInsightsService().loadInsights(session.sessionId(), "week").streak();
+
+        assertThat(streak.currentStreak()).isEqualTo(2);
+        assertThat(streak.longestStreak()).isEqualTo(5);
+        assertThat(streak.totalDaysPracticed()).isEqualTo(7);
+    }
+
+    @Test
+    void currentStreakIsZeroWhenNewestPracticeIsOlderThanYesterday() {
+        var installationId = "growth-streak-stale";
+        var session = createAcceptedSession("13800139104", installationId);
+        insertPracticeEvent(session, installationId, "two-days-ago", "daily_care", "bath_time", practiceTime(2));
+
+        var streak = growthInsightsService().loadInsights(session.sessionId(), "week").streak();
+
+        assertThat(streak.currentStreak()).isZero();
+        assertThat(streak.longestStreak()).isEqualTo(1);
+        assertThat(streak.totalDaysPracticed()).isEqualTo(1);
+    }
+
+    @Test
+    void scenePercentagesUseEventTotal() {
+        var installationId = "growth-scene-percentages";
+        var session = createAcceptedSession("13800139105", installationId);
+        insertPracticeEvent(session, installationId, "daily-1", "daily_care", "bath_time", practiceTime(0));
+        insertPracticeEvent(session, installationId, "daily-2", "daily_care", "bath_time", practiceTime(0));
+        insertPracticeEvent(session, installationId, "family-1", "family_rhythm", "feeding_time", practiceTime(0));
+        insertPracticeEvent(session, installationId, "family-2", "family_rhythm", "feeding_time", practiceTime(0));
+        insertPracticeEvent(session, installationId, "family-3", "family_rhythm", "feeding_time", practiceTime(0));
+
+        var scenes = growthInsightsService().loadInsights(session.sessionId(), "week").scenes();
+
+        assertThat(scenes).hasSize(2);
+        assertThat(scenes)
+                .allSatisfy(scene -> assertThat(scene.percentage()).isBetween(0.0, 100.0));
+        assertThat(scenes.stream().mapToDouble(GrowthInsightsService.SceneEntry::percentage).sum())
+                .isCloseTo(100.0, org.assertj.core.data.Offset.offset(0.000001));
+    }
+
     private void installPracticeScenes() {
         for (int index = 1; index <= 4; index++) {
             var spaceId = "growth_test_space_" + index;
@@ -240,6 +317,53 @@ class GrowthServiceMapperIntegrationTest extends AbstractIntegrationTest {
                     eventTime(windowStart, index).atOffset(ZoneOffset.UTC)
             );
         }
+    }
+
+    private GrowthInsightsService growthInsightsService() {
+        return new GrowthInsightsService(
+                growthInsightsMapper,
+                authConsentSyncService,
+                GROWTH_CLOCK
+        );
+    }
+
+    private Instant practiceTime(int daysAgo) {
+        return Instant.now(GROWTH_CLOCK)
+                .atZone(SHANGHAI)
+                .toLocalDate()
+                .minusDays(daysAgo)
+                .atTime(12, 0)
+                .atZone(SHANGHAI)
+                .toInstant();
+    }
+
+    private void insertPracticeEvent(
+            AuthConsentSyncService.SessionResponse session,
+            String installationId,
+            String localEventId,
+            String spaceId,
+            String activityId,
+            Instant timestamp
+    ) {
+        jdbcTemplate.update("""
+                insert into interaction_events (
+                    event_key, account_id, session_id, installation_id, local_event_id,
+                    space_id, activity_id, phrase_id, reaction_type,
+                    client_timestamp, received_at
+                )
+                values (?, ?, ?, ?, ?, ?, ?, ?, 'cooperating', ?, ?)
+                """,
+                installationId + ":" + localEventId,
+                session.accountId(),
+                session.sessionId(),
+                installationId,
+                localEventId,
+                spaceId,
+                activityId,
+                "phrase-" + localEventId,
+                timestamp.atOffset(ZoneOffset.UTC),
+                timestamp.atOffset(ZoneOffset.UTC)
+        );
     }
 
     private Scene sceneAt(int index) {

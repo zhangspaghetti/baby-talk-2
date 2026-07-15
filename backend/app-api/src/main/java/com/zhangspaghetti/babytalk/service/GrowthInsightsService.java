@@ -85,32 +85,37 @@ public class GrowthInsightsService {
     // ── streak ─────────────────────────────────────────────────────────────
     private Streak loadStreak(String accountId, Instant now) {
         var today = now.atZone(SHANGHAI).toLocalDate();
-        var dates = mapper.listPracticeDates(accountId, now);
+        var since = today.minusDays(365).atStartOfDay(SHANGHAI).toInstant();
+        var dates = mapper.listPracticeDates(accountId, since);
 
         int current = 0;
         int longest = 0;
-        int streak  = 0;
-        LocalDate prev = today;
+        int segment = 0;
+        int newestSegment = 0;
+        LocalDate prev = null;
         for (LocalDate d : dates) {
-            long gap = java.time.temporal.ChronoUnit.DAYS.between(d, prev);
-            if (gap <= 1) {
-                streak++;
-            } else {
-                if (streak > longest) {
-                    longest = streak;
+            if (prev != null) {
+                long gap = java.time.temporal.ChronoUnit.DAYS.between(d, prev);
+                if (gap != 1) {
+                    if (newestSegment == 0) {
+                        newestSegment = segment;
+                    }
+                    longest = Math.max(longest, segment);
+                    segment = 0;
                 }
-                streak = 1;
             }
+            segment++;
             prev = d;
-        }
-        if (streak > longest) {
-            longest = streak;
         }
 
         // "current streak" resets if no practice today or yesterday
         if (!dates.isEmpty()) {
+            if (newestSegment == 0) {
+                newestSegment = segment;
+            }
+            longest = Math.max(longest, segment);
             long gap = java.time.temporal.ChronoUnit.DAYS.between(dates.get(0), today);
-            current = (gap <= 1) ? streak : 0;
+            current = (gap <= 1) ? newestSegment : 0;
         }
 
         Instant lastPracticed = dates.isEmpty() ? null :
