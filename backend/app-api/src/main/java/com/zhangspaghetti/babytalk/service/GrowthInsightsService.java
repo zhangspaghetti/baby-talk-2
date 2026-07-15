@@ -132,12 +132,16 @@ public class GrowthInsightsService {
             if (gap <= 1) {
                 streak++;
             } else {
-                if (streak > longest) longest = streak;
+                if (streak > longest) {
+                    longest = streak;
+                }
                 streak = 1;
             }
             prev = d;
         }
-        if (streak > longest) longest = streak;
+        if (streak > longest) {
+            longest = streak;
+        }
 
         // "current streak" resets if no practice today or yesterday
         if (!dates.isEmpty()) {
@@ -269,7 +273,9 @@ public class GrowthInsightsService {
 
     // ── window / period ────────────────────────────────────────────────────
     private String normalizePeriod(String raw) {
-        if (raw == null || raw.isBlank()) return "week";
+        if (raw == null || raw.isBlank()) {
+            return "week";
+        }
         return switch (raw.trim().toLowerCase()) {
             case "month" -> "month";
             case "year"  -> "year";

@@ -112,7 +112,9 @@ public class GardenSnapshotService {
                 todayTimestamp
         );
 
-        if (rows.isEmpty()) return 0;
+        if (rows.isEmpty()) {
+            return 0;
+        }
 
         var dates = rows.stream()
                 .map(r -> ((java.sql.Date) r.get("practice_date")).toLocalDate())
@@ -120,7 +122,9 @@ public class GardenSnapshotService {
 
         // If last practice was > 1 day ago, streak is 0
         long gapFromToday = ChronoUnit.DAYS.between(dates.get(0), today);
-        if (gapFromToday > 1) return 0;
+        if (gapFromToday > 1) {
+            return 0;
+        }
 
         // Count consecutive days from most recent going backwards
         int streak = 1;
