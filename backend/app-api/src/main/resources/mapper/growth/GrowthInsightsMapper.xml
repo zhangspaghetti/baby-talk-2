@@ -1,0 +1,141 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.zhangspaghetti.babytalk.growth.mapper.GrowthInsightsMapper">
+
+    <resultMap id="statsRowMap"
+               type="com.zhangspaghetti.babytalk.growth.model.GrowthInsightsProjections$Stats">
+        <constructor>
+            <arg column="total_events" javaType="_long"/>
+            <arg column="unique_phrases" javaType="_int"/>
+            <arg column="unique_activities" javaType="_int"/>
+            <arg column="cooperating_count" javaType="_int"/>
+            <arg column="practiced_days" javaType="_int"/>
+            <arg column="first_event_at" javaType="java.time.Instant"/>
+            <arg column="last_event_at" javaType="java.time.Instant"/>
+        </constructor>
+    </resultMap>
+
+    <resultMap id="barBucketRowMap"
+               type="com.zhangspaghetti.babytalk.growth.model.GrowthInsightsProjections$BarBucket">
+        <constructor>
+            <arg column="bucket_start" javaType="java.time.Instant"/>
+            <arg column="count" javaType="_long"/>
+        </constructor>
+    </resultMap>
+
+    <resultMap id="sceneRowMap"
+               type="com.zhangspaghetti.babytalk.growth.model.GrowthInsightsProjections$Scene">
+        <constructor>
+            <arg column="space_id" javaType="java.lang.String"/>
+            <arg column="scene_tag" javaType="java.lang.String"/>
+            <arg column="event_count" javaType="_long"/>
+            <arg column="activity_count" javaType="_int"/>
+            <arg column="total" javaType="_long"/>
+        </constructor>
+    </resultMap>
+
+    <resultMap id="recentActivityRowMap"
+               type="com.zhangspaghetti.babytalk.growth.model.GrowthInsightsProjections$RecentActivity">
+        <constructor>
+            <arg column="this_week" javaType="_int"/>
+            <arg column="last_week" javaType="_int"/>
+        </constructor>
+    </resultMap>
+
+    <resultMap id="suggestionRowMap"
+               type="com.zhangspaghetti.babytalk.growth.model.GrowthInsightsProjections$Suggestion">
+        <constructor>
+            <arg column="space_id" javaType="java.lang.String"/>
+            <arg column="activity_id" javaType="java.lang.String"/>
+            <arg column="scene_label" javaType="java.lang.String"/>
+            <arg column="phrase_english" javaType="java.lang.String"/>
+        </constructor>
+    </resultMap>
+
+    <select id="loadStats" resultMap="statsRowMap">
+        select count(*) as total_events,
+               count(distinct phrase_id) as unique_phrases,
+               count(distinct activity_id) as unique_activities,
+               count(*) filter (where reaction_type = 'cooperating') as cooperating_count,
+               count(distinct date(client_timestamp at time zone 'Asia/Shanghai')) as practiced_days,
+               min(client_timestamp) as first_event_at,
+               max(client_timestamp) as last_event_at
+        from interaction_events
+        where account_id = #{accountId}
+          and client_timestamp >= #{windowStart}
+          and client_timestamp &lt; #{windowEnd}
+    </select>
+
+    <select id="listPracticeDates" resultType="java.time.LocalDate">
+        select distinct date(client_timestamp at time zone 'Asia/Shanghai') as practice_date
+        from interaction_events
+        where account_id = #{accountId}
+          and client_timestamp >= #{since}
+        order by practice_date desc
+        limit 366
+    </select>
+
+    <select id="listBars" resultMap="barBucketRowMap">
+        select date_trunc(#{truncUnit}, client_timestamp at time zone 'Asia/Shanghai') as bucket_start,
+               count(*) as count
+        from interaction_events
+        where account_id = #{accountId}
+          and client_timestamp >= #{windowStart}
+          and client_timestamp &lt; #{windowEnd}
+        group by bucket_start
+        order by bucket_start
+    </select>
+
+    <select id="listScenes" resultMap="sceneRowMap">
+        select coalesce(ps.slug, ie.activity_id) as space_id,
+               coalesce(ps.title_zh, ie.activity_id) as scene_tag,
+               count(*) as event_count,
+               count(distinct ie.activity_id) as activity_count,
+               count(*) over () as total
+        from interaction_events ie
+        left join practice_activities pa on pa.slug = ie.activity_id
+        left join practice_spaces ps on ps.id = pa.space_id
+        where ie.account_id = #{accountId}
+          and ie.client_timestamp >= #{windowStart}
+          and ie.client_timestamp &lt; #{windowEnd}
+        group by coalesce(ps.slug, ie.activity_id),
+                 coalesce(ps.title_zh, ie.activity_id)
+        order by event_count desc
+        limit 5
+    </select>
+
+    <select id="loadRecentActivity" resultMap="recentActivityRowMap">
+        select count(*) filter (
+                   where client_timestamp >= #{thisWeekStart}
+                     and client_timestamp &lt; #{now}
+               ) as this_week,
+               count(*) filter (
+                   where client_timestamp >= #{lastWeekStart}
+                     and client_timestamp &lt; #{thisWeekStart}
+               ) as last_week
+        from interaction_events
+        where account_id = #{accountId}
+    </select>
+
+    <select id="findSuggestion" resultMap="suggestionRowMap">
+        select pa.slug as activity_id,
+               ps.slug as space_id,
+               ps.title_zh as scene_label,
+               pp.english as phrase_english
+        from practice_activities pa
+        join practice_spaces ps on ps.id = pa.space_id
+        join practice_phrases pp on pp.activity_id = pa.id and pp.step = 1
+        where not exists (
+            select 1
+            from interaction_events ie
+            where ie.activity_id = pa.slug
+              and ie.account_id = #{accountId}
+              and ie.client_timestamp >= #{windowStart}
+              and ie.client_timestamp &lt; #{windowEnd}
+        )
+        order by ps.sort_order, pa.sort_order
+        limit 1
+    </select>
+</mapper>
