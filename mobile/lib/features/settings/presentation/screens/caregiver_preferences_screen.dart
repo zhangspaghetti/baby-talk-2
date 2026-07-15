@@ -80,12 +80,22 @@ class _CaregiverPreferencesScreenState
               _buildSection(
                 colors,
                 title: '偏好语言',
-                child: Column(
-                  children: [
-                    _languageTile('中文', 'zh', colors),
-                    _languageTile('English', 'en', colors),
-                    _languageTile('双语', 'bilingual', colors),
-                  ],
+                child: RadioGroup<String>(
+                  groupValue: _selectedLanguage,
+                  onChanged: (value) {
+                    if (value != null) {
+                      setState(() {
+                        _selectedLanguage = value;
+                      });
+                    }
+                  },
+                  child: Column(
+                    children: [
+                      _languageTile('中文', 'zh', colors),
+                      _languageTile('English', 'en', colors),
+                      _languageTile('双语', 'bilingual', colors),
+                    ],
+                  ),
                 ),
               ),
             ],
@@ -155,18 +165,7 @@ class _CaregiverPreferencesScreenState
         padding: const EdgeInsets.symmetric(vertical: 4),
         child: Row(
           children: [
-            Radio<String>(
-              value: code,
-              groupValue: _selectedLanguage,
-              onChanged: (value) {
-                if (value != null) {
-                  setState(() {
-                    _selectedLanguage = value;
-                  });
-                }
-              },
-              activeColor: colors.accent,
-            ),
+            Radio<String>(value: code, activeColor: colors.accent),
             const SizedBox(width: 4),
             Text(
               label,

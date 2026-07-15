@@ -1,5 +1,6 @@
+import 'dart:ui' show Tristate;
+
 import 'package:flutter/material.dart';
-import 'package:flutter/semantics.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mobile/features/practice/domain/models/interaction_event_payload.dart';
 import 'package:mobile/features/practice/presentation/widgets/scene_reaction_chip_row.dart';
@@ -77,6 +78,6 @@ void main() {
 
     expect(find.byIcon(Icons.check_rounded), findsOneWidget);
     final node = tester.getSemantics(find.text('配合'));
-    expect(node.hasFlag(SemanticsFlag.isSelected), isTrue);
+    expect(node.flagsCollection.isSelected, Tristate.isTrue);
   });
 }

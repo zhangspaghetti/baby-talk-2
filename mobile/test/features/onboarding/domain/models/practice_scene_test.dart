@@ -8,12 +8,12 @@ void main() {
     });
 
     test('label returns Chinese name for each scene', () {
-      expect(PracticeScene.feeding.label, '喂饭');
-      expect(PracticeScene.drinking.label, '喝水');
+      expect(PracticeScene.feeding.label, '吃饭时间');
+      expect(PracticeScene.drinking.label, '喝水时间');
       expect(PracticeScene.diaper.label, '换尿布');
-      expect(PracticeScene.bath.label, '洗澡');
-      expect(PracticeScene.bedtime.label, '睡前');
-      expect(PracticeScene.outing.label, '出门');
+      expect(PracticeScene.bath.label, '洗澡时间');
+      expect(PracticeScene.bedtime.label, '睡前时光');
+      expect(PracticeScene.outing.label, '出门时光');
     });
 
     test('mentorBubbleCopy returns copy for each scene', () {

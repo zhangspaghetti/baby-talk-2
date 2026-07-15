@@ -24,6 +24,7 @@ import 'package:mobile/features/onboarding/data/local/onboarding_snapshot_store.
 import 'package:mobile/features/onboarding/data/repositories/onboarding_repository.dart';
 import 'package:mobile/features/onboarding/domain/models/onboarding_snapshot.dart';
 import 'package:mobile/features/onboarding/domain/models/stage_match.dart';
+import 'package:mobile/features/onboarding/presentation/screens/onboarding_scene_screen.dart';
 import 'package:mobile/features/practice/data/local/practice_local_data_source.dart';
 import 'package:mobile/features/practice/data/repositories/practice_repository.dart';
 import 'package:mobile/features/practice/domain/models/interaction_event_payload.dart';
@@ -159,10 +160,7 @@ void main() {
 
     expect(find.byKey(const Key('boot-route-gate-ready')), findsOneWidget);
     expect(find.byKey(const Key('boot-route-onboarding')), findsOneWidget);
-    expect(
-      find.byKey(const Key('onboarding-local-only-banner')),
-      findsOneWidget,
-    );
+    expect(find.byType(OnboardingSceneScreen), findsOneWidget);
     expect(find.byKey(const Key('home-start-practice')), findsNothing);
 
     final content = harness.bootState.content!;

@@ -1,6 +1,6 @@
 import 'dart:io';
 
-import 'package:test/test.dart';
+import 'package:flutter_test/flutter_test.dart';
 
 import '../../tool/verify_activation_governor_contract.dart' as verifier;
 
@@ -550,9 +550,11 @@ void main() {
     });
 
     test('keeps contract fixtures typed in Dart without JSON or YAML paths', () {
-      final source = File(
-        'tool/verify_activation_governor_contract.dart',
-      ).readAsStringSync();
+      final rootSource = File('tool/verify_activation_governor_contract.dart');
+      final source = (rootSource.existsSync()
+            ? rootSource
+            : File('../tool/verify_activation_governor_contract.dart'))
+          .readAsStringSync();
 
       expect(source, isNot(contains('.json')));
       expect(source, isNot(contains('.yaml')));

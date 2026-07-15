@@ -348,14 +348,6 @@ Future<void> _pumpBriefly(
   await tester.pump(duration);
 }
 
-bool _finderExists(Finder finder) {
-  try {
-    return finder.evaluate().isNotEmpty;
-  } on StateError {
-    return false;
-  }
-}
-
 Future<PracticeRepository> _openRepository({
   required AssetPhraseService assetPhraseService,
   required Directory directory,

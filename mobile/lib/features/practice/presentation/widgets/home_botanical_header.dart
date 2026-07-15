@@ -186,7 +186,7 @@ class HomeBotanicalHeader extends StatelessWidget {
 class _BotanicalEmoji extends StatelessWidget {
   const _BotanicalEmoji({
     required this.emoji,
-    required this.key,
+    required super.key,
     this.top,
     this.bottom,
     this.left,
@@ -195,7 +195,6 @@ class _BotanicalEmoji extends StatelessWidget {
     this.opacity = 0.6,
   });
 
-  final Key key;
   final String emoji;
   final double? top;
   final double? bottom;
