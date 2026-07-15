@@ -5,7 +5,10 @@ import 'dart:io';
 const releaseClosureUsage =
     '''Usage: dart run tool/verify_m006_s14_release_closure.dart [--help]
 
-Runs the final M006 release-closure chain and fails fast at the first child gate:
+Legacy M006 S14 child chain is not runnable. Its dependencies include archived or removed active paths.
+Current executable CI front door: bash ci/k8s-smoke.sh
+
+Historical child order:
   1. S07 mentor + distribution closure
   2. S08 Helm release truth
   3. S12 control-plane freshness
@@ -25,7 +28,8 @@ const releaseClosureChildGates = <ChildGate>[
     successMarker:
         'All M006/S07 mentor + distribution verification steps passed.',
     timeout: Duration(minutes: 30),
-    runbookPath: 'docs/runbooks/m006-s07-mentor-distribution-closure.md',
+    runbookPath:
+        'docs/archived/runbooks/m006-s07-mentor-distribution-closure.md',
     artifactHint: 'admin-web/playwright-report/index.html',
   ),
   ChildGate(
@@ -45,7 +49,7 @@ const releaseClosureChildGates = <ChildGate>[
     successMarker:
         'All M006/S12 overview control-plane verification steps passed.',
     timeout: Duration(minutes: 25),
-    runbookPath: 'docs/runbooks/m006-s12-control-plane-freshness.md',
+    runbookPath: 'docs/archived/runbooks/m006-s12-control-plane-freshness.md',
     artifactHint: 'admin-web/playwright-report/index.html',
   ),
   ChildGate(
@@ -55,7 +59,7 @@ const releaseClosureChildGates = <ChildGate>[
     verifierArgs: [],
     successMarker: 'All M006/S13 demo-path verification steps passed.',
     timeout: Duration(minutes: 10),
-    runbookPath: 'docs/runbooks/m006-s13-demo-path.md',
+    runbookPath: 'docs/archived/runbooks/m006-s13-demo-path.md',
   ),
 ];
 
