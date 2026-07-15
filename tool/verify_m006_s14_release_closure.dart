@@ -19,6 +19,13 @@ const releaseClosureRunbookPath = 'docs/runbooks/m006-s14-release-closure.md';
 const releaseClosureSuccessMarker =
     'All M006/S14 release-closure verification steps passed.';
 
+const releaseClosureDisabledDiagnostic =
+    '''M006 S14 legacy release-closure execution is disabled.
+Current repository CI gates: .github/workflows/ci.yml
+Helm/release smoke front door only: bash ci/k8s-smoke.sh
+bash ci/k8s-smoke.sh is not complete repository CI.
+No legacy verifier was launched.''';
+
 const releaseClosureChildGates = <ChildGate>[
   ChildGate(
     gateId: 'S07',
@@ -76,19 +83,8 @@ Future<void> main(List<String> args) async {
     exit(64);
   }
 
-  try {
-    for (final gate in releaseClosureChildGates) {
-      await _runChildGate(gate);
-    }
-  } on StepFailure catch (error) {
-    stderr.writeln('Verification failed at step: ${error.stepLabel}');
-    stderr.writeln(error.message);
-    exit(error.exitCode);
-  }
-
-  stdout.writeln('');
-  stdout.writeln('release_closure_runbook=$releaseClosureRunbookPath');
-  stdout.writeln(releaseClosureSuccessMarker);
+  stderr.writeln(releaseClosureDisabledDiagnostic);
+  exit(64);
 }
 
 Future<void> _runChildGate(ChildGate gate) async {

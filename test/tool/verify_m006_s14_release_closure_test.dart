@@ -5,6 +5,87 @@ import 'package:flutter_test/flutter_test.dart';
 import '../../tool/verify_m006_s14_release_closure.dart' as s14;
 
 void main() {
+  group('M006 S14 executable fail-closed contract', () {
+    test(
+      'no arguments reject immediately without launching legacy children',
+      () async {
+        final fixture = await _legacyLaunchTrapFixture();
+        addTearDown(() => fixture.delete(recursive: true));
+
+        final result = await _runReleaseClosureCli(
+          const [],
+          workingDirectory: fixture.path,
+        );
+        final output = '${result.stdout}\n${result.stderr}';
+
+        expect(result.exitCode, isNonZero);
+        expect(
+          output,
+          contains('Current repository CI gates: .github/workflows/ci.yml'),
+        );
+        expect(
+          output,
+          contains('Helm/release smoke front door only: bash ci/k8s-smoke.sh'),
+        );
+        expect(output, contains('not complete repository CI'));
+        expect(output, isNot(contains('child_gate=')));
+        expect(output, isNot(contains('==> Release closure | S07')));
+        expect(
+          output,
+          isNot(
+            contains(
+              r'$ dart run tool/verify_m006_s07_mentor_distribution.dart',
+            ),
+          ),
+        );
+        expect(output, isNot(contains('drill_down_verifier=')));
+        expect(output, isNot(contains('LEGACY_CHILD_EXECUTED')));
+        expect(
+          File(
+            '${fixture.path}${Platform.pathSeparator}legacy-child-launched',
+          ).existsSync(),
+          isFalse,
+        );
+      },
+    );
+
+    test('--help and -h print usage and exit zero', () async {
+      final fixture = await Directory.systemTemp.createTemp('m006_s14_help_');
+      addTearDown(() => fixture.delete(recursive: true));
+
+      for (final args in const <List<String>>[
+        ['--help'],
+        ['-h'],
+      ]) {
+        final result = await _runReleaseClosureCli(
+          args,
+          workingDirectory: fixture.path,
+        );
+        final output = '${result.stdout}\n${result.stderr}';
+
+        expect(result.exitCode, 0, reason: 'args=$args\n$output');
+        expect(output, contains('Usage: dart run'));
+        expect(output, isNot(contains('child_gate=')));
+      }
+    });
+
+    test('unknown arguments remain non-zero', () async {
+      final fixture = await Directory.systemTemp.createTemp(
+        'm006_s14_unknown_',
+      );
+      addTearDown(() => fixture.delete(recursive: true));
+
+      final result = await _runReleaseClosureCli(const [
+        '--bogus',
+      ], workingDirectory: fixture.path);
+      final output = '${result.stdout}\n${result.stderr}';
+
+      expect(result.exitCode, isNonZero);
+      expect(output, contains('Unknown arguments: --bogus'));
+      expect(output, isNot(contains('child_gate=')));
+    });
+  });
+
   group('M006 S14 release closure contract', () {
     test('keeps historical child metadata and artifact hints', () {
       final gates = s14.releaseClosureChildGates;
@@ -530,4 +611,65 @@ String _readRootText(String relativePath) {
   return File(
     '$root${Platform.pathSeparator}$relativePath',
   ).readAsStringSync().replaceAll('\r\n', '\n');
+}
+
+Future<ProcessResult> _runReleaseClosureCli(
+  List<String> args, {
+  required String workingDirectory,
+}) {
+  final verifier = File(
+    '${_repoRootDirectory().path}${Platform.pathSeparator}tool${Platform.pathSeparator}verify_m006_s14_release_closure.dart',
+  );
+  return Process.run(
+    _dartExecutable(),
+    ['run', verifier.path, ...args],
+    workingDirectory: workingDirectory,
+    runInShell: false,
+  );
+}
+
+String _dartExecutable() {
+  final resolvedExecutable = File(Platform.resolvedExecutable);
+  if (resolvedExecutable.uri.pathSegments.last.startsWith('dart')) {
+    return resolvedExecutable.path;
+  }
+
+  var ancestor = resolvedExecutable.parent;
+  while (ancestor.parent.path != ancestor.path) {
+    final candidate = File(
+      '${ancestor.path}${Platform.pathSeparator}dart-sdk${Platform.pathSeparator}bin${Platform.pathSeparator}dart${Platform.isWindows ? '.exe' : ''}',
+    );
+    if (candidate.existsSync()) {
+      return candidate.path;
+    }
+    ancestor = ancestor.parent;
+  }
+
+  throw StateError(
+    'Unable to resolve Dart executable from ${Platform.resolvedExecutable}',
+  );
+}
+
+Future<Directory> _legacyLaunchTrapFixture() async {
+  final fixture = await Directory.systemTemp.createTemp('m006_s14_no_args_');
+  final verifier = File(
+    '${fixture.path}${Platform.pathSeparator}tool${Platform.pathSeparator}verify_m006_s07_mentor_distribution.dart',
+  );
+  await verifier.parent.create(recursive: true);
+  await verifier.writeAsString('''
+import 'dart:io';
+
+void main() {
+  File('legacy-child-launched').writeAsStringSync('S07');
+  print('LEGACY_CHILD_EXECUTED');
+  print('All M006/S07 mentor + distribution verification steps passed.');
+}
+''');
+
+  final runbook = File(
+    '${fixture.path}${Platform.pathSeparator}docs${Platform.pathSeparator}archived${Platform.pathSeparator}runbooks${Platform.pathSeparator}m006-s07-mentor-distribution-closure.md',
+  );
+  await runbook.parent.create(recursive: true);
+  await runbook.writeAsString('# legacy fixture\n');
+  return fixture;
 }
