@@ -14,6 +14,7 @@ GITATTRIBUTES = REPO_ROOT / ".gitattributes"
 CI_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "ci.yml"
 BACKEND_TEST_SCRIPT = REPO_ROOT / "ci" / "backend-test.sh"
 PACKAGE_JSON = REPO_ROOT / "package.json"
+PNPM_WORKSPACE = REPO_ROOT / "pnpm-workspace.yaml"
 MOBILE_TEST_ROOT = REPO_ROOT / "mobile" / "test"
 
 ISAR_TEST_LIBRARY_CONSUMERS = (
@@ -355,6 +356,16 @@ class WindowsActCopyCompatibilityContractTest(unittest.TestCase):
         workflow = CI_WORKFLOW.read_text(encoding="utf-8")
         self.assertIn("node-version: '22'", workflow)
         self.assertNotIn("node-version: '20'", workflow)
+
+    def test_pnpm_allows_only_the_reviewed_esbuild_script(self) -> None:
+        self.assertEqual(
+            PNPM_WORKSPACE.read_text(encoding="utf-8"),
+            "packages:\n"
+            "  - admin-web\n"
+            "\n"
+            "allowBuilds:\n"
+            "  esbuild@0.21.5: true\n",
+        )
 
     def test_backend_wrapper_is_invoked_through_bash(self) -> None:
         text = CI_WORKFLOW.read_text(encoding="utf-8")
