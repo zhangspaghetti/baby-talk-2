@@ -1,4 +1,5 @@
 import json
+import re
 import unittest
 from pathlib import Path
 
@@ -13,6 +14,26 @@ GITATTRIBUTES = REPO_ROOT / ".gitattributes"
 CI_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "ci.yml"
 BACKEND_TEST_SCRIPT = REPO_ROOT / "ci" / "backend-test.sh"
 PACKAGE_JSON = REPO_ROOT / "package.json"
+MOBILE_TEST_ROOT = REPO_ROOT / "mobile" / "test"
+
+ISAR_TEST_LIBRARY_CONSUMERS = (
+    "app/app_composition_characterization_test.dart",
+    "app/local_sensitive_data_clearance_registry_test.dart",
+    "features/account/account_repository_test.dart",
+    "features/garden/garden_fertilizer_notifier_test.dart",
+    "features/garden/garden_fertilizer_repository_test.dart",
+    "features/garden/presentation/garden_fertilizer_notifier_remote_test.dart",
+    "features/mentor/mentor_repository_test.dart",
+    "features/mentor/mentor_shell_panel_test.dart",
+    "features/onboarding/onboarding_repository_test.dart",
+    "features/practice/garden_growth_repository_test.dart",
+    "features/practice/practice_repository_characterization_harness.dart",
+    "features/practice/practice_repository_test.dart",
+    "features/practice/practice_session_notifier_test.dart",
+    "features/sync/sync_repository_test.dart",
+    "smoke/app_boot_test.dart",
+    "widget_test.dart",
+)
 
 RUNNER_IMAGE = (
     "ghcr.io/catthehacker/ubuntu:act-24.04@sha256:"
@@ -364,6 +385,38 @@ class WindowsActCopyCompatibilityContractTest(unittest.TestCase):
                 b"\r\n",
                 (REPO_ROOT / relative_path).read_bytes(),
                 f"{relative_path} must survive act's Windows workspace copy as LF",
+            )
+
+    def test_isar_test_library_resolution_is_shared_and_host_abi_aware(self) -> None:
+        consumers_with_calls = set()
+        windows_library_mentions = set()
+
+        for dart_file in MOBILE_TEST_ROOT.rglob("*.dart"):
+            relative_path = dart_file.relative_to(MOBILE_TEST_ROOT).as_posix()
+            text = dart_file.read_text(encoding="utf-8")
+            self.assertNotIn("_resolveBundledIsarLibraryPath", text)
+
+            if "resolveBundledIsarLibraryPath()" in text:
+                consumers_with_calls.add(relative_path)
+            if re.search(r"windows[\s\S]{0,100}isar\.dll", text):
+                windows_library_mentions.add(relative_path)
+
+        self.assertEqual(consumers_with_calls, set(ISAR_TEST_LIBRARY_CONSUMERS))
+        self.assertEqual(
+            windows_library_mentions,
+            {
+                "support/isar_test_library.dart",
+                "support/isar_test_library_test.dart",
+            },
+        )
+
+        for relative_path in ISAR_TEST_LIBRARY_CONSUMERS:
+            text = (MOBILE_TEST_ROOT / relative_path).read_text(encoding="utf-8")
+            self.assertEqual(text.count("isar_test_library.dart';"), 1, relative_path)
+            self.assertEqual(
+                text.count("resolveBundledIsarLibraryPath()"),
+                1,
+                relative_path,
             )
 
 
