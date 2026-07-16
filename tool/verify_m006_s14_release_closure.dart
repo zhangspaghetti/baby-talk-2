@@ -6,7 +6,9 @@ const releaseClosureUsage =
     '''Usage: dart run tool/verify_m006_s14_release_closure.dart [--help]
 
 Legacy M006 S14 child chain is not runnable. Its dependencies include archived or removed active paths.
-Current executable CI front door: bash ci/k8s-smoke.sh
+Repository CI authority: .github/workflows/ci.yml
+Helm/release smoke front door only: bash ci/k8s-smoke.sh
+This command is not full repository CI.
 
 Historical child order:
   1. S07 mentor + distribution closure

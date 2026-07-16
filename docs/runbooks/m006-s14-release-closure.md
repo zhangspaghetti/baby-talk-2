@@ -4,15 +4,21 @@
 
 M006 S14 verifier 与 child chain 仅保留为历史参考，不再是 CI 或仓库前门，当前不可运行。
 
-当前仓库已进入 M007 Helm-first release boundary。`.github/workflows/ci.yml` 不调用 S14；CI 分别执行 backend tests、Checkstyle 与 Helm dual-chart smoke，并在最后聚合结果。
+当前仓库已进入 M007 Helm-first release boundary。`.github/workflows/ci.yml` 不调用 S14。
 
-## Current CI-equivalent command
+## Current release smoke command
+
+Repository CI authority: `.github/workflows/ci.yml`
+
+当前 workflow 的 release job 执行 Spring AI 2 platform verifier 及其测试、resolved Spring AI dependency graph 检查、backend tests、Checkstyle 与 Helm smoke；mobile job 执行 mobile analysis 与 mobile R4 release gates。
+
+Helm/release smoke front door only: `bash ci/k8s-smoke.sh`
 
 ```bash
 bash ci/k8s-smoke.sh
 ```
 
-这是 README、CONTRIBUTING 与 CI 共同声明的唯一可执行 CI 前门。当前部署、回滚、`admin-api` internal-only 边界见 [Kubernetes split-stack deploy runbook](k8s-deploy.md)。
+`bash ci/k8s-smoke.sh` is not full repository CI and is not CI-equivalent by itself. 它是 Helm/release smoke 前门；仓库 CI 权威仍是 workflow。当前部署、回滚、`admin-api` internal-only 边界见 [Kubernetes split-stack deploy runbook](k8s-deploy.md)。
 
 ## Historical M006 reference (not runnable)
 
@@ -33,18 +39,19 @@ bash ci/k8s-smoke.sh
 
 S14 源码记录了当时的 fail-fast 设计：路径与 marker 必须存在，child non-zero、timeout 或缺 success marker 时停止。该设计说明仅供代码考古，不表示 legacy chain 当前可运行。
 
-需要当前 release 证据时，只执行 `bash ci/k8s-smoke.sh`。不要按历史输出拼接 `drill_down_verifier`，也不要修补 archived chain 后宣称当前 CI 通过。
+需要当前 Helm/release smoke 证据时，执行 `bash ci/k8s-smoke.sh`。不要按历史输出拼接 `drill_down_verifier`，也不要修补 archived chain 后宣称当前 CI 通过。
 
 ## CI handoff truth
 
-当前 `.github/workflows/ci.yml` 顺序：
+当前 `.github/workflows/ci.yml` release job 顺序：
 
-1. 启动 `localhost:2375` Docker relay。
-2. `bash ci/backend-test.sh`。
-3. Maven Checkstyle。
-4. 停止 relay。
-5. `bash ci/k8s-smoke.sh`。
-6. 始终上传 `admin-web/playwright-report` 与 `admin-web/test-results`。
-7. backend、Checkstyle、Helm 任一失败则最终 job 失败。
+1. 运行 Spring AI 2 platform verifier 测试与 verifier，并验证 resolved Spring AI dependency graph。
+2. 启动 `localhost:2375` Docker relay，运行 `bash ci/backend-test.sh`。
+3. 运行 Maven Checkstyle，停止 relay。
+4. 运行 Helm smoke：`bash ci/k8s-smoke.sh`。
+5. 始终上传 `admin-web/playwright-report` 与 `admin-web/test-results`。
+6. backend、Checkstyle、Helm 任一失败则最终 release job 失败。
 
-S14 不在该工作流内。M006 legacy verifier 的存在，不改变 `bash ci/k8s-smoke.sh` 是当前唯一可执行 CI 前门的事实。
+独立 mobile job 运行 mobile analysis 与 mobile R4 release gates；Helm smoke 不覆盖这些 gate。
+
+S14 不在该工作流内。M006 legacy verifier 与 Helm smoke 都不能替代 `.github/workflows/ci.yml` 的完整仓库 CI 结论。

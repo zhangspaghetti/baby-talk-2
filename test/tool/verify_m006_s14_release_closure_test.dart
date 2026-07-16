@@ -183,7 +183,7 @@ void main() {
     });
 
     test(
-      'help text rejects legacy execution and names current CI front door',
+      'help text rejects legacy execution and scopes Helm release smoke',
       () {
         expect(
           s14.releaseClosureUsage.trim(),
@@ -197,7 +197,17 @@ void main() {
         );
         expect(
           s14.releaseClosureUsage,
-          contains('Current executable CI front door: bash ci/k8s-smoke.sh'),
+          contains('Repository CI authority: .github/workflows/ci.yml'),
+        );
+        expect(
+          s14.releaseClosureUsage,
+          contains(
+            'Helm/release smoke front door only: bash ci/k8s-smoke.sh',
+          ),
+        );
+        expect(
+          s14.releaseClosureUsage,
+          isNot(contains('Current executable CI front door')),
         );
         expect(
           s14.releaseClosureUsage,
@@ -296,12 +306,17 @@ void main() {
       },
     );
 
-    test('repo-root docs keep current CI gate and non-runnable M006 history', () {
-      const ciEquivalentCommand = 'bash ci/k8s-smoke.sh';
+    test('repo-root docs distinguish repository CI from Helm release smoke', () {
+      const repositoryCiAuthority =
+          'Repository CI authority: `.github/workflows/ci.yml`';
+      const helmSmokeFrontDoor =
+          'Helm/release smoke front door only: `bash ci/k8s-smoke.sh`';
+      const notFullRepositoryCi =
+          '`bash ci/k8s-smoke.sh` is not full repository CI and is not CI-equivalent by itself.';
       const legacyM006Verifier = 'tool/verify_m006_s14_release_closure.dart';
 
       final readme = _readRootText('README.md');
-      expect(readme, contains('## Final release closure (CI smoke gate)'));
+      expect(readme, contains('## Repository CI and Helm/release smoke'));
       expect(
         readme,
         contains(
@@ -313,16 +328,6 @@ void main() {
       final contributing = _readRootText('CONTRIBUTING.md');
       expect(
         contributing,
-        contains('想跑 CI-equivalent gate：`bash ci/k8s-smoke.sh`'),
-      );
-      expect(
-        contributing,
-        contains(
-          '除 `bash ci/k8s-smoke.sh` 这条 CI-equivalent gate 之外，其余 repo-root verifier 都是 scoped drill-down；不要再拼 ad-hoc shell chain。',
-        ),
-      );
-      expect(
-        contributing,
         contains(
           '| `backend/admin-api` | admin auth + admin data contracts | repo-root gateway front door |',
         ),
@@ -331,12 +336,21 @@ void main() {
       final releaseRunbook = _readRootText(
         'docs/runbooks/m006-s14-release-closure.md',
       );
-      expect(releaseRunbook, contains('## Current CI-equivalent command'));
-      expect(releaseRunbook, contains(ciEquivalentCommand));
-      expect(
-        releaseRunbook,
-        contains('这是 README、CONTRIBUTING 与 CI 共同声明的唯一可执行 CI 前门。'),
-      );
+      expect(releaseRunbook, contains('## Current release smoke command'));
+
+      for (final doc in <String>[readme, contributing, releaseRunbook]) {
+        expect(doc, contains(repositoryCiAuthority));
+        expect(doc, contains(helmSmokeFrontDoor));
+        expect(doc, contains(notFullRepositoryCi));
+        expect(doc, contains('Spring AI 2 platform verifier'));
+        expect(doc, contains('resolved Spring AI dependency graph'));
+        expect(doc, contains('backend tests'));
+        expect(doc, contains('Checkstyle'));
+        expect(doc, contains('Helm smoke'));
+        expect(doc, contains('mobile analysis'));
+        expect(doc, contains('mobile R4 release gates'));
+      }
+
       expect(
         releaseRunbook,
         contains('## Historical M006 reference (not runnable)'),

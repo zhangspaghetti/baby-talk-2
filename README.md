@@ -209,19 +209,27 @@ scripts\dev-verify-helm-demo.cmd
 
 先读 wrapper stdout；如果还想看最近几次 run 的走势，再直接打开这份 telemetry 文件。
 
-## Final release closure (CI smoke gate)
+## Repository CI and Helm/release smoke
+
+Repository CI authority: `.github/workflows/ci.yml`
+
+该 workflow 的 `release-closure-gate` job 执行 Spring AI 2 platform verifier 及其测试、resolved Spring AI dependency graph 检查、backend tests、Checkstyle 与 Helm smoke；独立 `mobile-analyze` job 执行 mobile analysis 与 mobile R4 release gates。
+
+Helm/release smoke front door only: `bash ci/k8s-smoke.sh`
 
 ```bash
 bash ci/k8s-smoke.sh
 ```
 
-CI-equivalent gate 是 `bash ci/k8s-smoke.sh`。如果你想在本机直接跑同一套 Helm-first front-door verifier，可执行：
+`bash ci/k8s-smoke.sh` is not full repository CI and is not CI-equivalent by itself. 它只证明 Helm/release smoke 范围；完整仓库 CI 结果以 `.github/workflows/ci.yml` 两个 job 为准。
+
+如果你想在本机直接跑 scoped Helm baseline verifier，可执行：
 
 ```bash
 dart run tool/verify_m007_s01_helm_baseline.dart demo
 ```
 
-后续里程碑会把更完整的 M007 closure 继续向这条 Helm-first 路径收敛；在 S01 这里，不再把旧的 M006 release-closure verifier 当作仓库前门。
+旧的 M006 release-closure verifier 不是仓库 CI 前门。
 
 ## Split-stack 地图
 
