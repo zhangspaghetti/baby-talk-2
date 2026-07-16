@@ -8,9 +8,15 @@ M006 S14 verifier 与 child chain 仅保留为历史参考，不再是 CI 或仓
 
 ## Current release smoke command
 
-Repository CI authority: `.github/workflows/ci.yml`
+bash ci/full-ci.sh is the only complete local repository CI entrypoint.
 
-当前 workflow 的 release job 执行 Spring AI 2 platform verifier 及其测试、resolved Spring AI dependency graph 检查、backend tests、Checkstyle 与 Helm smoke；mobile job 执行 mobile analysis 与 mobile R4 release gates。
+.github/workflows/ci.yml is simulated locally with act.
+
+GitHub-hosted Actions are intentionally disabled.
+
+`bash ci/full-ci.sh` 执行完整本地仓库门禁；workflow 的 release/mobile job 仅供本地 act 重放。
+
+完整入口覆盖 Spring AI 2 platform verifier、resolved Spring AI dependency graph、backend tests、Checkstyle、Helm smoke、mobile analysis 与 mobile R4 release gates，并追加当前 release/docs/schema fixtures。
 
 Helm/release smoke front door only: `bash ci/k8s-smoke.sh`
 
@@ -18,7 +24,7 @@ Helm/release smoke front door only: `bash ci/k8s-smoke.sh`
 bash ci/k8s-smoke.sh
 ```
 
-`bash ci/k8s-smoke.sh` is not full repository CI and is not CI-equivalent by itself. 它是 Helm/release smoke 前门；仓库 CI 权威仍是 workflow。当前部署、回滚、`admin-api` internal-only 边界见 [Kubernetes split-stack deploy runbook](k8s-deploy.md)。
+`bash ci/k8s-smoke.sh` is not full repository CI and is not CI-equivalent by itself. 它是 Helm/release smoke 前门，不能替代 `bash ci/full-ci.sh`。当前部署、回滚、`admin-api` internal-only 边界见 [Kubernetes split-stack deploy runbook](k8s-deploy.md)。
 
 ## Historical M006 reference (not runnable)
 
@@ -43,7 +49,7 @@ S14 源码记录了当时的 fail-fast 设计：路径与 marker 必须存在，
 
 ## CI handoff truth
 
-当前 `.github/workflows/ci.yml` release job 顺序：
+本地 act 模拟的 `.github/workflows/ci.yml` release job 顺序：
 
 1. 运行 Spring AI 2 platform verifier 测试与 verifier，并验证 resolved Spring AI dependency graph。
 2. 启动 `localhost:2375` Docker relay，运行 `bash ci/backend-test.sh`。
@@ -54,4 +60,4 @@ S14 源码记录了当时的 fail-fast 设计：路径与 marker 必须存在，
 
 独立 mobile job 运行 mobile analysis 与 mobile R4 release gates；Helm smoke 不覆盖这些 gate。
 
-S14 不在该工作流内。M006 legacy verifier 与 Helm smoke 都不能替代 `.github/workflows/ci.yml` 的完整仓库 CI 结论。
+S14 不在该工作流内。M006 legacy verifier、Helm smoke 与 act 模拟都不能替代 `bash ci/full-ci.sh` 的完整本地仓库 CI 结论。

@@ -9,9 +9,13 @@
 - 想跑 Helm/release smoke：`bash ci/k8s-smoke.sh`
 - 想直接执行本地 Helm front-door verifier：`dart run tool/verify_m007_s01_helm_baseline.dart demo`
 
-Repository CI authority: `.github/workflows/ci.yml`
+bash ci/full-ci.sh is the only complete local repository CI entrypoint.
 
-该 workflow 执行 Spring AI 2 platform verifier 及其测试、resolved Spring AI dependency graph 检查、backend tests、Checkstyle、Helm smoke、mobile analysis 与 mobile R4 release gates。
+.github/workflows/ci.yml is simulated locally with act.
+
+GitHub-hosted Actions are intentionally disabled.
+
+提交 review 前，从干净工作树运行 `bash ci/full-ci.sh`。该入口执行 Spring AI 2 platform verifier 及其测试、resolved Spring AI dependency graph 检查、backend tests、focused PostgreSQL mapper test、Checkstyle、Helm smoke、mobile analysis、mobile R4 release gates 与当前 release/docs/schema fixtures。
 
 Helm/release smoke front door only: `bash ci/k8s-smoke.sh`
 

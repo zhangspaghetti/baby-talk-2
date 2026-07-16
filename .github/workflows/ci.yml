@@ -2,9 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [main, 'milestone/*']
+    branches: [Develop, 'milestone/*']
   pull_request:
-    branches: [main]
+    branches: [Develop]
 
 jobs:
   release-closure-gate:

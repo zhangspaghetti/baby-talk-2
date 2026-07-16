@@ -81,6 +81,7 @@ META-INF/
 
 # ── Local dev / tool artifacts ──
 .playwright-mcp/
+/.act-artifacts/
 /package-lock.json
 /design-*.png
 

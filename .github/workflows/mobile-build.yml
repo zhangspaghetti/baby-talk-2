@@ -2,7 +2,7 @@ name: Mobile Build
 
 on:
   push:
-    branches: [main]
+    branches: [Develop]
     paths:
       - 'mobile/**'
       - '.github/workflows/mobile-build.yml'

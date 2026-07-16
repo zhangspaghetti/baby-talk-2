@@ -211,9 +211,15 @@ scripts\dev-verify-helm-demo.cmd
 
 ## Repository CI and Helm/release smoke
 
-Repository CI authority: `.github/workflows/ci.yml`
+bash ci/full-ci.sh is the only complete local repository CI entrypoint.
 
-该 workflow 的 `release-closure-gate` job 执行 Spring AI 2 platform verifier 及其测试、resolved Spring AI dependency graph 检查、backend tests、Checkstyle 与 Helm smoke；独立 `mobile-analyze` job 执行 mobile analysis 与 mobile R4 release gates。
+.github/workflows/ci.yml is simulated locally with act.
+
+GitHub-hosted Actions are intentionally disabled.
+
+该 workflow 定义 `release-closure-gate` 与 `mobile-analyze` 两个 job，供本地 act 重放；完整本地仓库门禁仍以 `bash ci/full-ci.sh` 为唯一入口。
+
+完整入口覆盖 Spring AI 2 platform verifier、resolved Spring AI dependency graph、backend tests、Checkstyle、Helm smoke、mobile analysis 与 mobile R4 release gates，并追加当前 release/docs/schema fixtures。
 
 Helm/release smoke front door only: `bash ci/k8s-smoke.sh`
 
@@ -221,7 +227,7 @@ Helm/release smoke front door only: `bash ci/k8s-smoke.sh`
 bash ci/k8s-smoke.sh
 ```
 
-`bash ci/k8s-smoke.sh` is not full repository CI and is not CI-equivalent by itself. 它只证明 Helm/release smoke 范围；完整仓库 CI 结果以 `.github/workflows/ci.yml` 两个 job 为准。
+`bash ci/k8s-smoke.sh` is not full repository CI and is not CI-equivalent by itself. 它只证明 Helm/release smoke 范围；不能替代 `bash ci/full-ci.sh`。
 
 如果你想在本机直接跑 scoped Helm baseline verifier，可执行：
 

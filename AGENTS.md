@@ -132,3 +132,5 @@ helm upgrade --install babytalk-app deploy/helm/babytalk-app -n babytalk -f depl
 6. **Flutter 状态管理**：Riverpod 2.6.1 + Freezed
 7. **Spring Boot 版本**：4.0.7（JDK 21 运行时，Java 17 字节码）
 8. **React 版本**：18.3.1 + Vite 5.4 + AntD 5.27
+9. **本地 CI Docker**：Windows 开发机使用 Docker Desktop Linux containers；已缓存 `testcontainers/ryuk:0.14.0` 与 `pgvector/pgvector:pg17`，Testcontainers 不应因镜像已存在而禁用 Ryuk。
+10. **本地代理**：宿主机 HTTP/HTTPS 代理端口为 `7890`；宿主进程使用 `127.0.0.1:7890`，容器需要时使用 `host.docker.internal:7890`。不得把代理凭据、生产密钥或真实用户数据写入仓库。

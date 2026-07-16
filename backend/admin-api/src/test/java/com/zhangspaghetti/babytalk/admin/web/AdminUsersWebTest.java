@@ -48,7 +48,7 @@ class AdminUsersWebTest {
 
     @SuppressWarnings("resource")
     static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>(
-            DockerImageName.parse("pgvector/pgvector:pg16")
+            DockerImageName.parse("pgvector/pgvector:pg17")
                     .asCompatibleSubstituteFor("postgres"))
             .withDatabaseName("babytalk_admin_users_test")
             .withUsername("babytalk")

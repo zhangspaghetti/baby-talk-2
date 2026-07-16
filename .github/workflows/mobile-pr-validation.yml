@@ -2,7 +2,7 @@ name: Mobile PR Validation
 
 on:
   pull_request:
-    branches: [main, develop]
+    branches: [Develop]
     paths:
       - 'mobile/**'
       - '.github/workflows/mobile-pr-validation.yml'

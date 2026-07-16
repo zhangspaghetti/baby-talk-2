@@ -21,7 +21,9 @@ void main() {
         expect(result.exitCode, isNonZero);
         expect(
           output,
-          contains('Current repository CI gates: .github/workflows/ci.yml'),
+          contains(
+            'bash ci/full-ci.sh is the only complete local repository CI entrypoint.',
+          ),
         );
         expect(
           output,
@@ -182,61 +184,56 @@ void main() {
       expect(mixedOptions.usageError, 'Unknown arguments: --bogus');
     });
 
-    test(
-      'help text rejects legacy execution and scopes Helm release smoke',
-      () {
-        expect(
-          s14.releaseClosureUsage.trim(),
-          startsWith(
-            'Usage: dart run tool/verify_m006_s14_release_closure.dart [--help]',
-          ),
-        );
-        expect(
-          s14.releaseClosureUsage,
-          contains('Legacy M006 S14 child chain is not runnable.'),
-        );
-        expect(
-          s14.releaseClosureUsage,
-          contains('Repository CI authority: .github/workflows/ci.yml'),
-        );
-        expect(
-          s14.releaseClosureUsage,
-          contains(
-            'Helm/release smoke front door only: bash ci/k8s-smoke.sh',
-          ),
-        );
-        expect(
-          s14.releaseClosureUsage,
-          isNot(contains('Current executable CI front door')),
-        );
-        expect(
-          s14.releaseClosureUsage,
-          isNot(contains('Runs the final M006 release-closure chain')),
-        );
-        expect(
-          s14.releaseClosureUsage,
-          contains('1. S07 mentor + distribution closure'),
-        );
-        expect(s14.releaseClosureUsage, contains('2. S08 Helm release truth'));
-        expect(
-          s14.releaseClosureUsage,
-          contains('3. S12 control-plane freshness'),
-        );
-        expect(
-          s14.releaseClosureUsage,
-          contains('4. S13 repo front-door truth'),
-        );
-        expect(
-          s14.releaseClosureUsage,
-          isNot(contains('drill_down_verifier=')),
-        );
-        expect(s14.releaseClosureUsage, isNot(contains('child_gate=')));
-        expect(
-          s14.releaseClosureUsage,
-          isNot(contains(s14.releaseClosureSuccessMarker)),
-        );
-      },
-    );
+    test('help text rejects legacy execution and scopes Helm release smoke', () {
+      expect(
+        s14.releaseClosureUsage.trim(),
+        startsWith(
+          'Usage: dart run tool/verify_m006_s14_release_closure.dart [--help]',
+        ),
+      );
+      expect(
+        s14.releaseClosureUsage,
+        contains('Legacy M006 S14 child chain is not runnable.'),
+      );
+      expect(
+        s14.releaseClosureUsage,
+        contains(
+          'bash ci/full-ci.sh is the only complete local repository CI entrypoint.',
+        ),
+      );
+      expect(
+        s14.releaseClosureUsage,
+        contains('Helm/release smoke front door only: bash ci/k8s-smoke.sh'),
+      );
+      expect(
+        s14.releaseClosureUsage,
+        contains('.github/workflows/ci.yml is simulated locally with act.'),
+      );
+      expect(
+        s14.releaseClosureUsage,
+        contains('GitHub-hosted Actions are intentionally disabled.'),
+      );
+      expect(
+        s14.releaseClosureUsage,
+        isNot(contains('Runs the final M006 release-closure chain')),
+      );
+      expect(
+        s14.releaseClosureUsage,
+        contains('1. S07 mentor + distribution closure'),
+      );
+      expect(s14.releaseClosureUsage, contains('2. S08 Helm release truth'));
+      expect(
+        s14.releaseClosureUsage,
+        contains('3. S12 control-plane freshness'),
+      );
+      expect(s14.releaseClosureUsage, contains('4. S13 repo front-door truth'));
+      expect(s14.releaseClosureUsage, isNot(contains('drill_down_verifier=')));
+      expect(s14.releaseClosureUsage, isNot(contains('child_gate=')));
+      expect(
+        s14.releaseClosureUsage,
+        isNot(contains(s14.releaseClosureSuccessMarker)),
+      );
+    });
   });
 
   group('M006 S14 repo-root handoff surfaces', () {
@@ -308,7 +305,11 @@ void main() {
 
     test('repo-root docs distinguish repository CI from Helm release smoke', () {
       const repositoryCiAuthority =
-          'Repository CI authority: `.github/workflows/ci.yml`';
+          'bash ci/full-ci.sh is the only complete local repository CI entrypoint.';
+      const workflowSimulation =
+          '.github/workflows/ci.yml is simulated locally with act.';
+      const hostedActionsDisabled =
+          'GitHub-hosted Actions are intentionally disabled.';
       const helmSmokeFrontDoor =
           'Helm/release smoke front door only: `bash ci/k8s-smoke.sh`';
       const notFullRepositoryCi =
@@ -340,6 +341,8 @@ void main() {
 
       for (final doc in <String>[readme, contributing, releaseRunbook]) {
         expect(doc, contains(repositoryCiAuthority));
+        expect(doc, contains(workflowSimulation));
+        expect(doc, contains(hostedActionsDisabled));
         expect(doc, contains(helmSmokeFrontDoor));
         expect(doc, contains(notFullRepositoryCi));
         expect(doc, contains('Spring AI 2 platform verifier'));

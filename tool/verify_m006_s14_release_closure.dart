@@ -6,7 +6,9 @@ const releaseClosureUsage =
     '''Usage: dart run tool/verify_m006_s14_release_closure.dart [--help]
 
 Legacy M006 S14 child chain is not runnable. Its dependencies include archived or removed active paths.
-Repository CI authority: .github/workflows/ci.yml
+bash ci/full-ci.sh is the only complete local repository CI entrypoint.
+.github/workflows/ci.yml is simulated locally with act.
+GitHub-hosted Actions are intentionally disabled.
 Helm/release smoke front door only: bash ci/k8s-smoke.sh
 This command is not full repository CI.
 
@@ -23,7 +25,9 @@ const releaseClosureSuccessMarker =
 
 const releaseClosureDisabledDiagnostic =
     '''M006 S14 legacy release-closure execution is disabled.
-Current repository CI gates: .github/workflows/ci.yml
+bash ci/full-ci.sh is the only complete local repository CI entrypoint.
+.github/workflows/ci.yml is simulated locally with act.
+GitHub-hosted Actions are intentionally disabled.
 Helm/release smoke front door only: bash ci/k8s-smoke.sh
 bash ci/k8s-smoke.sh is not complete repository CI.
 No legacy verifier was launched.''';

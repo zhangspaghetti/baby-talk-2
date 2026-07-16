@@ -187,7 +187,7 @@ abstract class AppLocalizations {
   /// No description provided for @practiceEntryUnavailable.
   ///
   /// In zh, this message translates to:
-  /// **'练习入口暂时不可用。'**
+  /// **'照护入口暂时不可用。'**
   String get practiceEntryUnavailable;
 
   /// No description provided for @bootErrorUnknown.
@@ -247,7 +247,7 @@ abstract class AppLocalizations {
   /// No description provided for @homePracticeUnavailable.
   ///
   /// In zh, this message translates to:
-  /// **'暂时无法获取练习建议，请稍后重试。'**
+  /// **'暂时无法获取照护建议，请稍后重试。'**
   String get homePracticeUnavailable;
 
   /// No description provided for @homeReorganize.
@@ -307,13 +307,13 @@ abstract class AppLocalizations {
   /// No description provided for @homeStartPractice.
   ///
   /// In zh, this message translates to:
-  /// **'开始练习'**
+  /// **'开始照护'**
   String get homeStartPractice;
 
   /// No description provided for @homeContinuePractice.
   ///
   /// In zh, this message translates to:
-  /// **'继续练习'**
+  /// **'继续照护'**
   String get homeContinuePractice;
 
   /// No description provided for @homeTodaySceneSemantics.
@@ -367,7 +367,7 @@ abstract class AppLocalizations {
   /// No description provided for @homeContinuityUnavailable.
   ///
   /// In zh, this message translates to:
-  /// **'继续练习暂时不可用'**
+  /// **'继续照护暂时不可用'**
   String get homeContinuityUnavailable;
 
   /// No description provided for @homeContinuationRecent.
@@ -2085,7 +2085,7 @@ abstract class AppLocalizations {
   /// No description provided for @practiceInvalidParams.
   ///
   /// In zh, this message translates to:
-  /// **'当前练习入口缺少有效参数，请返回上一个页面重试。'**
+  /// **'当前照护入口缺少有效参数，请返回上一个页面重试。'**
   String get practiceInvalidParams;
 
   /// No description provided for @practiceContextMissing.
@@ -2127,7 +2127,7 @@ abstract class AppLocalizations {
   /// No description provided for @practiceUnavailable.
   ///
   /// In zh, this message translates to:
-  /// **'练习暂不可用'**
+  /// **'照护暂不可用'**
   String get practiceUnavailable;
 
   /// No description provided for @practiceBackHome.

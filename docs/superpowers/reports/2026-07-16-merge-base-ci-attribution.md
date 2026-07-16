@@ -2,7 +2,25 @@
 
 Date: 2026-07-16
 
-## Scope
+## Historical-context notice
+
+This report originally measured `origin/main` against evaluated HEAD `95b39d9598cf3f6cedfa188d0cc02678c1975d2d`. Those measurements, logs, counts, and conclusions are retained below as historical evidence only. They do not describe the current `Develop`-targeted branch state and have not been relabeled as current results.
+
+## Current `origin/Develop` attribution snapshot
+
+Recomputed on 2026-07-16 from the Task 1 input commit, without reusing the historical `origin/main` merge-base result:
+
+- Actual target branch: `Develop`
+- Task 1 input HEAD: `bbcaf84edc961c4aadee899b2c3b3e5cbe75ab3f`
+- Observed `origin/Develop`: `4f0b33462a0c7ca4b7f6f3ba0203ae776a9239cb`
+- Current merge base: `ad05936ea58283fced9db67a21f9cde2c63ea1c1`
+- Divergence from `origin/Develop`: 1 target-only commit, 21 branch-only commits
+- Current branch attribution range: `ad05936ea58283fced9db67a21f9cde2c63ea1c1..bbcaf84edc961c4aadee899b2c3b3e5cbe75ab3f`
+- Attributed tree delta: 136 files changed, 5,600 insertions, 1,124 deletions
+
+Therefore current attribution uses `origin/Develop` and merge base `ad05936e`. The historical Helm/mobile measurements against `10280f21` remain valid only for their original `origin/main` snapshot; this report makes no claim that those exact counts were rerun against current `origin/Develop`.
+
+## Historical scope (original measurement)
 
 - Target branch: `gsd/v0.1-milestone`
 - Merge target: `origin/main`
@@ -154,7 +172,7 @@ All commands below ran against the remediated branch content on 2026-07-16.
 
 Focused evidence also passed: the real-PostgreSQL mapper integration suite 2/2, M006 S14 fixture suite 9/9, Mentor shell suite 5/5, app boot suite 8/8, and the route/label/PhraseCard regressions. Separate reviewers approved the JDBC/MyBatis migration, the M006 truth update, and the mobile cleanup after their findings were corrected.
 
-## Final status classification
+## Historical final status classification (evaluated HEAD `95b39d95`)
 
 - **Backend platform/custom-scene prerequisite:** `APPROVED`.
 - **Current branch complete repository CI:** local equivalents are `GREEN` after repairing branch-introduced failures. `BLOCKED BY VERIFIED PRE-EXISTING ISSUES` is not supported by the merge-base evidence.
