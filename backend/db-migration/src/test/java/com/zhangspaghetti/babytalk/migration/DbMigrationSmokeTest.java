@@ -23,6 +23,7 @@ import org.testcontainers.utility.DockerImageName;
 class DbMigrationSmokeTest {
 
     private static final String V13_UPGRADE_SCHEMA = "flyway_v13_chat_memory_upgrade";
+    private static final String V22_1_REACTION_UPGRADE_SCHEMA = "flyway_v22_1_reaction_upgrade";
 
     @SuppressWarnings("resource")
     static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>(
@@ -196,6 +197,89 @@ class DbMigrationSmokeTest {
                 "INSERT INTO " + chatMemoryTable + " (conversation_id, content, type, \"timestamp\", sequence_id) VALUES (?, ?, ?, ?, ?)",
                 "legacy-conversation", "duplicate-sequence", "USER", second, 1L))
                 .isInstanceOf(DataIntegrityViolationException.class);
+    }
+
+    @Test
+    void flywayUpgradeFromV22_1PreservesAndRemapsReactionRowsToV23Contract() {
+        Flyway v22_1 = flywayFor(V22_1_REACTION_UPGRADE_SCHEMA, "22.1");
+        v22_1.migrate();
+        assertThat(v22_1.info().current().getVersion().getVersion()).isEqualTo("22.1");
+
+        String accountsTable = V22_1_REACTION_UPGRADE_SCHEMA + ".accounts";
+        String sessionsTable = V22_1_REACTION_UPGRADE_SCHEMA + ".account_sessions";
+        String eventsTable = V22_1_REACTION_UPGRADE_SCHEMA + ".interaction_events";
+        Timestamp now = Timestamp.from(Instant.parse("2026-07-03T04:00:00Z"));
+        jdbcTemplate.update(
+                "INSERT INTO " + accountsTable
+                        + " (account_id, phone_number, status, latest_consent_status, created_at)"
+                        + " VALUES (?, ?, 'active', 'accepted', ?)",
+                "acct_reaction_upgrade", "phone_reaction_upgrade", now);
+        jdbcTemplate.update(
+                "INSERT INTO " + sessionsTable
+                        + " (session_id, account_id, installation_id, status, created_at)"
+                        + " VALUES (?, ?, ?, 'active', ?)",
+                "session_reaction_upgrade", "acct_reaction_upgrade", "installation_reaction_upgrade", now);
+
+        List<String> legacyReactions = List.of("calm", "engaged", "imitated", "needs_break");
+        for (String reaction : legacyReactions) {
+            insertReactionEvent(eventsTable, "legacy_" + reaction, reaction, now);
+        }
+
+        Flyway v23 = flywayFor(V22_1_REACTION_UPGRADE_SCHEMA, "23");
+        v23.migrate();
+        assertThat(v23.info().current().getVersion().getVersion()).isEqualTo("23");
+
+        assertThat(jdbcTemplate.query(
+                "SELECT local_event_id, reaction_type FROM " + eventsTable + " ORDER BY local_event_id",
+                (resultSet, rowNumber) -> resultSet.getString("local_event_id")
+                        + "=" + resultSet.getString("reaction_type")))
+                .containsExactly(
+                        "legacy_calm=cooperating",
+                        "legacy_engaged=cooperating",
+                        "legacy_imitated=cooperating",
+                        "legacy_needs_break=resisting");
+
+        for (String reaction : legacyReactions) {
+            assertThatThrownBy(() -> insertReactionEvent(
+                    eventsTable, "rejected_" + reaction, reaction, now))
+                    .isInstanceOf(DataIntegrityViolationException.class)
+                    .hasMessageContaining("chk_interaction_events_reaction_type");
+        }
+
+        List<String> currentReactions = List.of(
+                "cooperating", "hesitant", "resisting", "no_response", "other");
+        for (String reaction : currentReactions) {
+            insertReactionEvent(eventsTable, "current_" + reaction, reaction, now);
+        }
+        assertThat(jdbcTemplate.queryForList(
+                "SELECT reaction_type FROM " + eventsTable
+                        + " WHERE local_event_id LIKE 'current_%' ORDER BY local_event_id",
+                String.class))
+                .containsExactly("cooperating", "hesitant", "no_response", "other", "resisting");
+    }
+
+    private void insertReactionEvent(
+            String eventsTable,
+            String eventId,
+            String reactionType,
+            Timestamp occurredAt
+    ) {
+        jdbcTemplate.update(
+                "INSERT INTO " + eventsTable + " ("
+                        + "event_key, account_id, session_id, installation_id, local_event_id, "
+                        + "space_id, activity_id, phrase_id, reaction_type, client_timestamp, received_at"
+                        + ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                "event_" + eventId,
+                "acct_reaction_upgrade",
+                "session_reaction_upgrade",
+                "installation_reaction_upgrade",
+                eventId,
+                "space_reaction_upgrade",
+                "activity_reaction_upgrade",
+                "phrase_reaction_upgrade",
+                reactionType,
+                occurredAt,
+                occurredAt);
     }
 
     private Flyway flywayFor(String schema, String target) {
