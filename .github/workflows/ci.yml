@@ -117,6 +117,8 @@ jobs:
 
       - name: Install Helm
         uses: azure/setup-helm@v4
+        with:
+          version: v4.1.4
 
       - name: Run Helm dual-chart smoke (babytalk-infra + babytalk-app)
         id: helm_smoke

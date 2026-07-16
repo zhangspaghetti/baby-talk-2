@@ -67,6 +67,8 @@ class ActConfigurationContractTest(unittest.TestCase):
                 "--artifact-server-path=.act/artifacts",
                 "--defaultbranch=Develop",
                 "--env=TESTCONTAINERS_RYUK_DISABLED=false",
+                "--env=TESTCONTAINERS_HOST_OVERRIDE=host.docker.internal",
+                "--env=PLAYWRIGHT_DOWNLOAD_CONNECTION_TIMEOUT=180000",
                 "--strict",
                 "--rm",
             ],
@@ -127,6 +129,17 @@ class ActConfigurationContractTest(unittest.TestCase):
         self.assertNotIn("/.act/", lines)
         self.assertNotIn(".act/", lines)
 
+    def test_surefire_forks_inherit_testcontainers_host_override(self) -> None:
+        for module in ("app-api", "admin-api", "db-migration"):
+            pom = (REPO_ROOT / "backend" / module / "pom.xml").read_text(
+                encoding="utf-8"
+            )
+            self.assertNotIn(
+                "<TESTCONTAINERS_HOST_OVERRIDE>",
+                pom,
+                f"{module} must inherit the host override selected by its runner",
+            )
+
     def test_exact_sha_reports_and_local_worktrees_are_ignored(self) -> None:
         lines = {
             line.strip()
@@ -176,6 +189,8 @@ class LocalCiDocumentationContractTest(unittest.TestCase):
         self.assertIn("http://host.docker.internal:7890", self.text)
         self.assertIn("Do not commit proxy credentials", self.text)
         self.assertIn("TESTCONTAINERS_RYUK_DISABLED", self.text)
+        self.assertIn("TESTCONTAINERS_HOST_OVERRIDE=host.docker.internal", self.text)
+        self.assertIn("PLAYWRIGHT_DOWNLOAD_CONNECTION_TIMEOUT=180000", self.text)
 
     def test_docs_clear_inherited_secrets_before_act_without_printing_values(self) -> None:
         for exact_name in (
@@ -373,6 +388,16 @@ class WindowsActCopyCompatibilityContractTest(unittest.TestCase):
             "- name: Install Playwright Chromium\n"
             "        timeout-minutes: 45\n"
             "        run: pnpm --dir admin-web exec playwright install chromium --with-deps",
+            workflow,
+        )
+
+    def test_workflow_pins_audited_helm_version(self) -> None:
+        workflow = CI_WORKFLOW.read_text(encoding="utf-8")
+        self.assertIn(
+            "- name: Install Helm\n"
+            "        uses: azure/setup-helm@v4\n"
+            "        with:\n"
+            "          version: v4.1.4",
             workflow,
         )
 

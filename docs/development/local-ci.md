@@ -55,8 +55,15 @@ checks remain not configured as stated above.
 and selects `linux/amd64`. It also uses host networking for the scoped Docker
 relay, enables the local artifact server at `.act/artifacts`, parses workflows
 strictly, removes job containers after each run, and uses `Develop` as the
-default branch. Do not add production secrets, tokens, database passwords, JWT
-keys, Kubernetes secrets, or real user data to act invocations or event files.
+default branch. Testcontainers resolves Docker-published ports through
+`TESTCONTAINERS_HOST_OVERRIDE=host.docker.internal`, while Ryuk remains enabled.
+`PLAYWRIGHT_DOWNLOAD_CONNECTION_TIMEOUT=180000` tolerates slow local browser
+downloads without skipping Playwright installation. Do not add production
+secrets, tokens, database passwords, JWT keys, Kubernetes secrets, or real user
+data to act invocations or event files.
+
+The CI workflow pins Helm `v4.1.4`, matching the audited local toolchain. Do not
+replace this with the setup action's floating latest resolution.
 
 The tracked event fixture describes draft PR #13 from
 `gsd/v0.1-milestone` into `Develop`. Its stable base SHA is the fetched

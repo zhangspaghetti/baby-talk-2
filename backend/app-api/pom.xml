@@ -144,7 +144,6 @@
                 <configuration>
                     <environmentVariables>
                         <DOCKER_HOST>tcp://localhost:2375</DOCKER_HOST>
-                        <TESTCONTAINERS_HOST_OVERRIDE>localhost</TESTCONTAINERS_HOST_OVERRIDE>
                         <HTTP_PROXY></HTTP_PROXY>
                         <HTTPS_PROXY></HTTPS_PROXY>
                         <NO_PROXY>localhost,127.0.0.1</NO_PROXY>

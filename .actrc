@@ -4,5 +4,7 @@
 --artifact-server-path=.act/artifacts
 --defaultbranch=Develop
 --env=TESTCONTAINERS_RYUK_DISABLED=false
+--env=TESTCONTAINERS_HOST_OVERRIDE=host.docker.internal
+--env=PLAYWRIGHT_DOWNLOAD_CONNECTION_TIMEOUT=180000
 --strict
 --rm
