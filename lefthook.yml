@@ -1,0 +1,5 @@
+pre-push:
+  commands:
+    full-local-ci:
+      run: bash ci/full-ci.sh
+      fail_text: "Full local CI failed; push blocked."

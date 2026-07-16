@@ -20,6 +20,31 @@ but does not prove GitHub queueing, branch protection, required checks, or hoste
 Its result must be reported as local evidence, never as
 a GitHub-hosted CI result.
 
+## Lefthook pre-push gate
+
+Lefthook is a local convenience gate. Install and validate the tracked hook:
+
+```powershell
+lefthook validate
+lefthook install
+lefthook check-install
+```
+
+Every normal push runs `bash ci/full-ci.sh` through the `pre-push` hook. There
+are no path, file, or skip filters, and a quick check cannot replace this full
+gate. Run the hook directly when collecting candidate evidence:
+
+```powershell
+lefthook run pre-push
+```
+
+`git push --no-verify` can bypass the pre-push hook.
+Any pre-push bypass must be disclosed in writing in the PR.
+Lefthook is not equivalent to server-side branch protection.
+Manual merge review must inspect the SHA-bound local CI report.
+GitHub-hosted Actions remain intentionally disabled, and server-side required
+checks remain not configured as stated above.
+
 ## Prerequisites
 
 - Docker Desktop using Linux containers

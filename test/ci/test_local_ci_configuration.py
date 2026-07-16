@@ -8,6 +8,7 @@ ACTRC = REPO_ROOT / ".actrc"
 EVENT_FIXTURE = REPO_ROOT / ".act" / "pull_request.json"
 GITIGNORE = REPO_ROOT / ".gitignore"
 LOCAL_CI_DOC = REPO_ROOT / "docs" / "development" / "local-ci.md"
+LEFTHOOK_CONFIG = REPO_ROOT / "lefthook.yml"
 
 RUNNER_IMAGE = (
     "ghcr.io/catthehacker/ubuntu:act-24.04@sha256:"
@@ -266,6 +267,42 @@ class LocalCiDocumentationContractTest(unittest.TestCase):
             "does not prove GitHub queueing, branch protection, required checks, or hosted-runner behavior",
         ):
             self.assertIn(statement, self.text)
+
+    def test_docs_record_lefthook_enforcement_and_bypass_limits(self) -> None:
+        for statement in (
+            "Lefthook is a local convenience gate.",
+            "`git push --no-verify` can bypass the pre-push hook.",
+            "Any pre-push bypass must be disclosed in writing in the PR.",
+            "Lefthook is not equivalent to server-side branch protection.",
+            "Manual merge review must inspect the SHA-bound local CI report.",
+            "GitHub-hosted Actions: **INTENTIONALLY DISABLED**",
+            "Server-side required checks: **NOT CONFIGURED**",
+        ):
+            self.assertIn(statement, self.text)
+
+
+class LefthookConfigurationContractTest(unittest.TestCase):
+    def test_pre_push_runs_only_full_local_ci_without_filters(self) -> None:
+        self.assertTrue(LEFTHOOK_CONFIG.is_file(), "lefthook.yml must exist")
+        self.assertEqual(
+            LEFTHOOK_CONFIG.read_text(encoding="utf-8"),
+            "pre-push:\n"
+            "  commands:\n"
+            "    full-local-ci:\n"
+            "      run: bash ci/full-ci.sh\n"
+            '      fail_text: "Full local CI failed; push blocked."\n',
+        )
+
+        lowered = LEFTHOOK_CONFIG.read_text(encoding="utf-8").lower()
+        for forbidden_key in (
+            "glob:",
+            "files:",
+            "skip:",
+            "exclude:",
+            "only:",
+            "root:",
+        ):
+            self.assertNotIn(forbidden_key, lowered)
 
 
 if __name__ == "__main__":
