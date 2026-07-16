@@ -187,7 +187,7 @@ main() {
   if ! docker --host tcp://localhost:2375 info >/dev/null 2>&1; then
     relay_name="babytalk-full-ci-relay-${$}-${RANDOM}"
     relay_container_id="$(
-      docker run -d --name "$relay_name" -p 2375:2375 \
+      MSYS_NO_PATHCONV=1 docker run -d --name "$relay_name" -p 2375:2375 \
         -v /var/run/docker.sock:/var/run/docker.sock \
         alpine/socat@sha256:d85531a29ef5ba99dfb4717485c239307e2902d522a1bc010992a2728c92cfad \
         TCP-LISTEN:2375,fork,reuseaddr UNIX-CONNECT:/var/run/docker.sock

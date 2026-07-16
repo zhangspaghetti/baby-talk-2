@@ -118,6 +118,11 @@ class FullCiScriptContractTest(unittest.TestCase):
         self.assertIn(".OSType", self.text)
         self.assertRegex(self.text, r"docker rm -f .*relay_container_id")
         self.assertNotIn("docker rm -f ci-docker-relay", self.text)
+        self.assertIn(
+            "MSYS_NO_PATHCONV=1 docker run -d",
+            self.text,
+            "Git Bash must not rewrite /var/run/docker.sock into a Windows path",
+        )
 
     def test_required_gates_never_use_or_true(self) -> None:
         required_markers = (
