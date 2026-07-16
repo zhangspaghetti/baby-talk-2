@@ -16,7 +16,7 @@ class KgConfigurationOptionsTest {
         var options = configuration.openAiOptions(properties(
                 "https://models.inference.ai.azure.com", "secret", "gpt-4o-mini", 600, 10), "secret");
 
-        assertThat(options.getBaseUrl()).isEqualTo("https://models.inference.ai.azure.com");
+        assertThat(options.getBaseUrl()).isEqualTo("https://models.inference.ai.azure.com/v1");
         assertThat(options.getApiKey()).isEqualTo("secret");
         assertThat(options.getModel()).isEqualTo("gpt-4o-mini");
         assertThat(options.getTemperature()).isEqualTo(0.2);
@@ -30,6 +30,14 @@ class KgConfigurationOptionsTest {
                 "https://models.inference.ai.azure.com", "secret", "gpt-4o-mini", 600, 1), "secret");
 
         assertThat(options.getMaxRetries()).isZero();
+    }
+
+    @Test
+    void keepsAlreadyVersionedBaseUrlStable() {
+        var options = configuration.openAiOptions(properties(
+                "https://router.example.com/api/v1/", "secret", "gpt-4o-mini", 600, 1), "secret");
+
+        assertThat(options.getBaseUrl()).isEqualTo("https://router.example.com/api/v1");
     }
 
     private static MentorProperties properties(

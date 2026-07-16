@@ -49,7 +49,7 @@ public class EmbeddingConfiguration {
 
         return OpenAiEmbeddingModel.builder()
                 .options(OpenAiEmbeddingOptions.builder()
-                        .baseUrl(properties.baseUrl())
+                        .baseUrl(OpenAiV1BaseUrl.fromProviderRoot(properties.baseUrl()))
                         .apiKey(properties.apiKey())
                         .model(properties.model())
                         .timeout(Duration.ofSeconds(60))

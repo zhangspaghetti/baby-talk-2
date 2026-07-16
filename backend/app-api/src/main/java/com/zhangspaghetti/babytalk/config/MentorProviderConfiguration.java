@@ -63,7 +63,7 @@ public class MentorProviderConfiguration {
 
     OpenAiChatOptions openAiOptions(MentorProperties properties) {
         var builder = OpenAiChatOptions.builder()
-                .baseUrl(resolveBaseUrl(properties))
+                .baseUrl(OpenAiV1BaseUrl.fromProviderRoot(resolveBaseUrl(properties)))
                 .apiKey(properties.aiApiKey())
                 .model(properties.aiModel())
                 .timeout(Duration.ofSeconds(60))

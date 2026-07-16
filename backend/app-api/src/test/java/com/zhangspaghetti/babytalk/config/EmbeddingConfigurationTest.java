@@ -33,11 +33,27 @@ class EmbeddingConfigurationTest {
             assertThat(embeddingModel).isInstanceOf(OpenAiEmbeddingModel.class);
             OpenAiEmbeddingModel nativeModel = (OpenAiEmbeddingModel) embeddingModel;
             assertThat(nativeModel.getOptions().getBaseUrl())
-                    .isEqualTo("https://models.inference.ai.azure.com");
+                    .isEqualTo("https://models.inference.ai.azure.com/v1");
             assertThat(nativeModel.getOptions().getApiKey()).isEqualTo("test-api-key");
             assertThat(nativeModel.getOptions().getModel()).isEqualTo("text-embedding-3-small");
             assertThat(nativeModel.getOptions().getTimeout()).isEqualTo(Duration.ofSeconds(60));
             assertThat(nativeModel.getOptions().getDimensions()).isEqualTo(1024);
+        });
+    }
+
+    @Test
+    void alreadyVersionedBaseUrlIsNotDuplicated() {
+        contextRunner.withPropertyValues(
+                "app.embedding.mode=openai",
+                "app.embedding.base-url=https://router.example.com/api/v1/",
+                "app.embedding.api-key=test-api-key",
+                "app.embedding.model=text-embedding-3-small",
+                "app.embedding.dimensions=1024"
+        ).run(context -> {
+            OpenAiEmbeddingModel model = context.getBean(OpenAiEmbeddingModel.class);
+
+            assertThat(model.getOptions().getBaseUrl())
+                    .isEqualTo("https://router.example.com/api/v1");
         });
     }
 

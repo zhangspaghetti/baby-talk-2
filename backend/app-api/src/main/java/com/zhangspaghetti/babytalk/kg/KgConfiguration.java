@@ -1,6 +1,7 @@
 package com.zhangspaghetti.babytalk.kg;
 
 import com.zhangspaghetti.babytalk.config.MentorProperties;
+import com.zhangspaghetti.babytalk.config.OpenAiV1BaseUrl;
 import java.time.Duration;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.openai.OpenAiChatModel;
@@ -45,7 +46,7 @@ public class KgConfiguration {
 
     OpenAiChatOptions openAiOptions(MentorProperties properties, String apiKey) {
         var builder = OpenAiChatOptions.builder()
-                .baseUrl(resolveBaseUrl(properties))
+                .baseUrl(OpenAiV1BaseUrl.fromProviderRoot(resolveBaseUrl(properties)))
                 .apiKey(apiKey.isBlank() ? "placeholder" : apiKey)
                 .model(properties.aiModel())
                 .timeout(Duration.ofSeconds(60))
