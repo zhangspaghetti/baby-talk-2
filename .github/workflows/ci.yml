@@ -38,7 +38,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          ./backend/mvnw -f backend/pom.xml -B -Dstyle.color=never dependency:tree \
+          bash backend/mvnw -f backend/pom.xml -B -Dstyle.color=never dependency:tree \
             '-Dincludes=org.springframework.ai:*' | tee spring-ai-dependency-tree.txt
           python3 tool/verify_spring_ai_2_backend_platform.py \
             --dependency-tree spring-ai-dependency-tree.txt
@@ -94,7 +94,7 @@ jobs:
         id: checkstyle
         continue-on-error: true
         timeout-minutes: 10
-        run: ./backend/mvnw -f backend/pom.xml -B checkstyle:check
+        run: bash backend/mvnw -f backend/pom.xml -B checkstyle:check
 
       - name: Upload JaCoCo coverage
         if: ${{ always() }}

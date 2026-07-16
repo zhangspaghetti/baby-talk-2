@@ -9,6 +9,9 @@ EVENT_FIXTURE = REPO_ROOT / ".act" / "pull_request.json"
 GITIGNORE = REPO_ROOT / ".gitignore"
 LOCAL_CI_DOC = REPO_ROOT / "docs" / "development" / "local-ci.md"
 LEFTHOOK_CONFIG = REPO_ROOT / "lefthook.yml"
+GITATTRIBUTES = REPO_ROOT / ".gitattributes"
+CI_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "ci.yml"
+BACKEND_TEST_SCRIPT = REPO_ROOT / "ci" / "backend-test.sh"
 
 RUNNER_IMAGE = (
     "ghcr.io/catthehacker/ubuntu:act-24.04@sha256:"
@@ -321,6 +324,39 @@ class LefthookConfigurationContractTest(unittest.TestCase):
             "root:",
         ):
             self.assertNotIn(forbidden_key, lowered)
+
+
+class WindowsActCopyCompatibilityContractTest(unittest.TestCase):
+    def test_backend_wrapper_is_invoked_through_bash(self) -> None:
+        text = CI_WORKFLOW.read_text(encoding="utf-8")
+        self.assertNotIn("./backend/mvnw", text)
+        self.assertEqual(text.count("bash backend/mvnw"), 2)
+        backend_test = BACKEND_TEST_SCRIPT.read_text(encoding="utf-8")
+        self.assertIn('bash "$BACKEND_DIR/mvnw"', backend_test)
+        self.assertNotIn('\n"$BACKEND_DIR/mvnw"', backend_test)
+
+    def test_shell_entrypoints_are_forced_to_lf(self) -> None:
+        self.assertTrue(GITATTRIBUTES.is_file(), ".gitattributes must exist")
+        lines = {
+            line.strip()
+            for line in GITATTRIBUTES.read_text(encoding="utf-8").splitlines()
+            if line.strip() and not line.lstrip().startswith("#")
+        }
+        self.assertIn("*.sh text eol=lf", lines)
+        self.assertIn("backend/mvnw text eol=lf", lines)
+
+        for relative_path in (
+            "ci/backend-test.sh",
+            "ci/k8s-smoke.sh",
+            "ci/mobile-analyze.sh",
+            "ci/mobile-r4-release-gates.sh",
+            "backend/mvnw",
+        ):
+            self.assertNotIn(
+                b"\r\n",
+                (REPO_ROOT / relative_path).read_bytes(),
+                f"{relative_path} must survive act's Windows workspace copy as LF",
+            )
 
 
 if __name__ == "__main__":
