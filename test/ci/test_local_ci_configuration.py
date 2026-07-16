@@ -12,6 +12,7 @@ LEFTHOOK_CONFIG = REPO_ROOT / "lefthook.yml"
 GITATTRIBUTES = REPO_ROOT / ".gitattributes"
 CI_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "ci.yml"
 BACKEND_TEST_SCRIPT = REPO_ROOT / "ci" / "backend-test.sh"
+PACKAGE_JSON = REPO_ROOT / "package.json"
 
 RUNNER_IMAGE = (
     "ghcr.io/catthehacker/ubuntu:act-24.04@sha256:"
@@ -327,6 +328,13 @@ class LefthookConfigurationContractTest(unittest.TestCase):
 
 
 class WindowsActCopyCompatibilityContractTest(unittest.TestCase):
+    def test_workflow_node_runtime_matches_pinned_pnpm(self) -> None:
+        package = json.loads(PACKAGE_JSON.read_text(encoding="utf-8"))
+        self.assertEqual(package["packageManager"], "pnpm@11.1.1")
+        workflow = CI_WORKFLOW.read_text(encoding="utf-8")
+        self.assertIn("node-version: '22'", workflow)
+        self.assertNotIn("node-version: '20'", workflow)
+
     def test_backend_wrapper_is_invoked_through_bash(self) -> None:
         text = CI_WORKFLOW.read_text(encoding="utf-8")
         self.assertNotIn("./backend/mvnw", text)

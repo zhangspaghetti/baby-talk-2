@@ -43,10 +43,10 @@ jobs:
           python3 tool/verify_spring_ai_2_backend_platform.py \
             --dependency-tree spring-ai-dependency-tree.txt
 
-      - name: Set up Node.js 20
+      - name: Set up Node.js 22
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
 
       - name: Enable pnpm
         run: corepack enable
