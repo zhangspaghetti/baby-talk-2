@@ -214,9 +214,9 @@ act pull_request `
   -e .act/pull_request.json
 ```
 
-If the candidate diff matches the paths in
-`.github/workflows/mobile-pr-validation.yml`, list and run that workflow with
-the same event fixture and record it separately:
+Determine every `pull_request` workflow whose path filters match the candidate
+diff. List and run each applicable workflow with the same event fixture, then
+record it separately. For mobile changes:
 
 ```powershell
 act -l pull_request `
@@ -227,6 +227,22 @@ act pull_request `
   -W .github/workflows/mobile-pr-validation.yml `
   -e .act/pull_request.json
 ```
+
+For admin-web changes, including root pnpm metadata such as
+`pnpm-workspace.yaml`:
+
+```powershell
+act -l pull_request `
+  -W .github/workflows/admin-web.yml `
+  -e .act/pull_request.json
+
+act pull_request `
+  -W .github/workflows/admin-web.yml `
+  -e .act/pull_request.json
+```
+
+The pinned pnpm 11 runtime requires Node 22. All pull-request workflows that
+invoke pnpm select Node 22 explicitly.
 
 `.github/workflows/mobile-build.yml` is a push workflow. Its
 `macos-latest` cannot run in Windows/Linux act containers and is not part of PR #13's

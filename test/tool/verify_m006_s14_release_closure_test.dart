@@ -237,6 +237,47 @@ void main() {
   });
 
   group('M006 S14 repo-root handoff surfaces', () {
+    test('pull request workflows using pnpm require Node 22', () {
+      final workflowDirectory = Directory(
+        '${_repoRootDirectory().path}${Platform.pathSeparator}.github${Platform.pathSeparator}workflows',
+      );
+      final pnpmPullRequestWorkflows = workflowDirectory
+          .listSync()
+          .whereType<File>()
+          .where((file) => file.path.endsWith('.yml'))
+          .map((file) => MapEntry(file.path, file.readAsStringSync()))
+          .where(
+            (entry) =>
+                entry.value.contains('pull_request:') &&
+                entry.value.contains('pnpm'),
+          )
+          .toList();
+
+      expect(pnpmPullRequestWorkflows, isNotEmpty);
+      for (final workflow in pnpmPullRequestWorkflows) {
+        final nodeVersions = RegExp(r'node-version:\s*([^\s]+)')
+            .allMatches(workflow.value)
+            .map(
+              (match) => match
+                  .group(1)!
+                  .replaceAll("'", '')
+                  .replaceAll('"', ''),
+            )
+            .toList();
+
+        expect(
+          nodeVersions,
+          isNotEmpty,
+          reason: '${workflow.key} uses pnpm without selecting Node',
+        );
+        expect(
+          nodeVersions,
+          everyElement('22'),
+          reason: '${workflow.key} must support the pinned pnpm version',
+        );
+      }
+    });
+
     test(
       'workflow scopes relay to backend tests, installs Helm smoke, and preserves artifacts',
       () {

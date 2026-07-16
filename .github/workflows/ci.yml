@@ -58,7 +58,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Install Playwright Chromium
-        timeout-minutes: 10
+        timeout-minutes: 45
         run: pnpm --dir admin-web exec playwright install chromium --with-deps
 
       - name: Start localhost:2375 Docker relay for Testcontainers

@@ -367,6 +367,15 @@ class WindowsActCopyCompatibilityContractTest(unittest.TestCase):
             "  esbuild@0.21.5: true\n",
         )
 
+    def test_playwright_install_timeout_covers_local_runner_downloads(self) -> None:
+        workflow = CI_WORKFLOW.read_text(encoding="utf-8")
+        self.assertIn(
+            "- name: Install Playwright Chromium\n"
+            "        timeout-minutes: 45\n"
+            "        run: pnpm --dir admin-web exec playwright install chromium --with-deps",
+            workflow,
+        )
+
     def test_backend_wrapper_is_invoked_through_bash(self) -> None:
         text = CI_WORKFLOW.read_text(encoding="utf-8")
         self.assertNotIn("./backend/mvnw", text)
