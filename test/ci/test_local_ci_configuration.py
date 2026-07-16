@@ -101,6 +101,15 @@ class ActConfigurationContractTest(unittest.TestCase):
         self.assertNotIn("/.act/", lines)
         self.assertNotIn(".act/", lines)
 
+    def test_exact_sha_reports_and_local_worktrees_are_ignored(self) -> None:
+        lines = {
+            line.strip()
+            for line in GITIGNORE.read_text(encoding="utf-8").splitlines()
+            if line.strip() and not line.lstrip().startswith("#")
+        }
+        self.assertIn("/docs/superpowers/reports/local-ci-*.md", lines)
+        self.assertIn("/.worktrees/", lines)
+
 
 class LocalCiDocumentationContractTest(unittest.TestCase):
     def setUp(self) -> None:
@@ -265,6 +274,15 @@ class LocalCiDocumentationContractTest(unittest.TestCase):
             "`macos-latest` cannot run in Windows/Linux act containers",
             "ACT_UNSUPPORTED_BUT_LOCAL_EQUIVALENT_VERIFIED",
             "does not prove GitHub queueing, branch protection, required checks, or hosted-runner behavior",
+        ):
+            self.assertIn(statement, self.text)
+
+    def test_docs_explain_ignored_exact_sha_evidence(self) -> None:
+        for statement in (
+            "`docs/superpowers/reports/local-ci-<full-head-sha>.md`",
+            "is intentionally ignored",
+            "committing the report would change the SHA it names",
+            "The full SHA-bound evidence must be copied into the draft PR description",
         ):
             self.assertIn(statement, self.text)
 

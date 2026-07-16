@@ -268,3 +268,11 @@ working-tree state. act artifacts are local output under `.act/artifacts/` and
 are ignored; inspect and remove them as appropriate before the cleanliness
 check. Manual merge review into `Develop` requires the SHA-bound local report
 plus the full gate output.
+
+Write candidate evidence to
+`docs/superpowers/reports/local-ci-<full-head-sha>.md`. This exact-SHA report
+is intentionally ignored: committing the report would change the SHA it names
+and make its own identity stale. The full SHA-bound evidence must be copied into the draft PR description
+so remote reviewers can audit the local result. The
+ignored report is supporting evidence only; it cannot replace command logs,
+exact exit codes, or the clean-worktree checks recorded for both environments.
