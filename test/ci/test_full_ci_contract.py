@@ -231,23 +231,40 @@ class FullCiScriptContractTest(unittest.TestCase):
 
 
 class ActiveCiTruthContractTest(unittest.TestCase):
-    def test_active_workflows_target_exact_develop(self) -> None:
-        workflow_paths = (
-            ".github/workflows/ci.yml",
-            ".github/workflows/mobile-pr-validation.yml",
-            ".github/workflows/mobile-build.yml",
+    def test_active_workflows_run_only_after_develop_merges_to_release_qa(self) -> None:
+        workflow_jobs = {
+            ".github/workflows/ci.yml": (
+                "release-closure-gate",
+                "mobile-analyze",
+            ),
+            ".github/workflows/admin-web.yml": (
+                "typecheck",
+                "lint",
+                "unit",
+                "e2e",
+                "build",
+            ),
+            ".github/workflows/mobile-pr-validation.yml": ("analyze",),
+            ".github/workflows/mobile-build.yml": ("test-full",),
+        }
+        release_merge_condition = (
+            "github.event.pull_request.merged == true && "
+            "github.event.pull_request.head.ref == 'Develop'"
         )
-        for relative_path in workflow_paths:
+        for relative_path, root_jobs in workflow_jobs.items():
             text = (REPO_ROOT / relative_path).read_text(encoding="utf-8")
-            branch_lists = re.findall(r"branches:\s*\[([^]]+)]", text)
-            self.assertTrue(branch_lists, relative_path)
-            for branch_list in branch_lists:
-                branches = {
-                    item.strip().strip("'\"") for item in branch_list.split(",")
-                }
-                self.assertIn("Develop", branches, relative_path)
-                self.assertNotIn("main", branches, relative_path)
-                self.assertNotIn("develop", branches, relative_path)
+            self.assertNotIn("  push:\n", text, relative_path)
+            self.assertIn(
+                "pull_request:\n    types: [closed]\n    branches: [Release_QA]",
+                text,
+                relative_path,
+            )
+            for job in root_jobs:
+                self.assertIn(
+                    f"  {job}:\n    if: {release_merge_condition}\n",
+                    text,
+                    relative_path,
+                )
 
     def test_current_authority_copy_names_full_ci(self) -> None:
         required_copy = (
