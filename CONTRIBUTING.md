@@ -6,10 +6,20 @@
 
 - 想把整套 Helm baseline 拉起来：`dev-up-helm-demo`
 - 想复用 live stack 跑最小 smoke：`dev-verify-helm-demo`
-- 想跑 CI-equivalent gate：`bash ci/k8s-smoke.sh`
+- 想跑 Helm/release smoke：`bash ci/k8s-smoke.sh`
 - 想直接执行本地 Helm front-door verifier：`dart run tool/verify_m007_s01_helm_baseline.dart demo`
 
-除 `bash ci/k8s-smoke.sh` 这条 CI-equivalent gate 之外，其余 repo-root verifier 都是 scoped drill-down；不要再拼 ad-hoc shell chain。
+bash ci/full-ci.sh is the only complete local repository CI entrypoint.
+
+.github/workflows/ci.yml is simulated locally with act.
+
+GitHub-hosted Actions are intentionally disabled.
+
+提交 review 前，从干净工作树运行 `bash ci/full-ci.sh`。该入口执行 Spring AI 2 platform verifier 及其测试、resolved Spring AI dependency graph 检查、backend tests、focused PostgreSQL mapper test、Checkstyle、Helm smoke、mobile analysis、mobile R4 release gates 与当前 release/docs/schema fixtures。
+
+Helm/release smoke front door only: `bash ci/k8s-smoke.sh`
+
+`bash ci/k8s-smoke.sh` is not full repository CI and is not CI-equivalent by itself. 其余 repo-root verifier 也是 scoped drill-down；不要拼 ad-hoc shell chain 后宣称仓库 CI 通过。
 
 QA 环境与 dev 环境隔离（namespace `babytalk-qa`，端口 8091/3001，PVC 持久化），详见 [README — QA 环境部署](README.md#qa-环境部署本地-kind-集群)。
 
@@ -91,7 +101,7 @@ flutter run
 2. **repo-root fast smoke**
    - `./scripts/dev-verify-helm-demo.sh`
    - `scripts\dev-verify-helm-demo.cmd`
-3. **CI-equivalent Helm smoke**
+3. **Helm/release smoke only**
    - `bash ci/k8s-smoke.sh`
 4. **direct verifier invocation**
    - `dart run tool/verify_m007_s01_helm_baseline.dart demo`

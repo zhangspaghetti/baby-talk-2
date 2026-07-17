@@ -77,7 +77,6 @@ flutter:
     - assets/images/plants/
     - assets/images/emotions/
     - assets/images/mentor/
-    - assets/images/garden/
   fonts:
     - family: Fraunces
       fonts:

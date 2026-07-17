@@ -9,8 +9,6 @@ import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.client.advisor.MessageChatMemoryAdvisor;
 import org.springframework.ai.openai.OpenAiChatModel;
 import org.springframework.ai.openai.OpenAiChatOptions;
-import org.springframework.ai.openai.api.OpenAiApi;
-import org.springframework.web.client.RestClient;
 import java.time.Duration;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.context.annotation.Bean;
@@ -48,34 +46,8 @@ public class MentorProviderConfiguration {
                             .formatted(properties.providerMode()));
         }
 
-        var restClient = RestClient.builder()
-                .defaultHeader("Authorization", "Bearer " + apiKey)
-                .build();
-        var openAiApi = OpenAiApi.builder()
-                .baseUrl(resolveBaseUrl(properties))
-                .apiKey(apiKey)
-                .restClientBuilder(RestClient.builder()
-                        .defaultHeader("Authorization", "Bearer " + apiKey)
-                        .requestFactory(new org.springframework.http.client.SimpleClientHttpRequestFactory() {{
-                            setConnectTimeout(Duration.ofSeconds(10).toMillisPart());
-                            setReadTimeout(Duration.ofSeconds(60).toMillisPart());
-                        }}))
-                .build();
-
-        var optionsBuilder = OpenAiChatOptions.builder();
-        if (properties.aiModel() != null && !properties.aiModel().isBlank()) {
-            optionsBuilder.model(properties.aiModel());
-        }
-        if (properties.aiTemperature() != null) {
-            optionsBuilder.temperature(properties.aiTemperature());
-        }
-        if (properties.aiMaxTokens() != null) {
-            optionsBuilder.maxTokens(properties.aiMaxTokens());
-        }
-
         var chatModel = OpenAiChatModel.builder()
-                .openAiApi(openAiApi)
-                .defaultOptions(optionsBuilder.build())
+                .options(openAiOptions(properties))
                 .build();
 
         // 使用 builder 模式而非 ChatClient.create()，便于后续扩展
@@ -87,6 +59,22 @@ public class MentorProviderConfiguration {
 
         return new SpringAiMentorProvider(chatClient, properties,
                 palaceToolProvider, palaceHybridRetrievalService);
+    }
+
+    OpenAiChatOptions openAiOptions(MentorProperties properties) {
+        var builder = OpenAiChatOptions.builder()
+                .baseUrl(OpenAiV1BaseUrl.fromProviderRoot(resolveBaseUrl(properties)))
+                .apiKey(properties.aiApiKey())
+                .model(properties.aiModel())
+                .timeout(Duration.ofSeconds(60))
+                .maxRetries(properties.aiMaxAttempts() - 1);
+        if (properties.aiTemperature() != null) {
+            builder.temperature(properties.aiTemperature());
+        }
+        if (properties.aiMaxTokens() != null) {
+            builder.maxTokens(properties.aiMaxTokens());
+        }
+        return builder.build();
     }
 
     private String resolveBaseUrl(MentorProperties properties) {

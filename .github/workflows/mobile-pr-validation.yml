@@ -1,8 +1,12 @@
 name: Mobile PR Validation
 
+env:
+  PUB_HOSTED_URL: https://pub.flutter-io.cn
+  FLUTTER_STORAGE_BASE_URL: https://storage.flutter-io.cn
+
 on:
   pull_request:
-    branches: [main, develop]
+    branches: [Develop]
     paths:
       - 'mobile/**'
       - '.github/workflows/mobile-pr-validation.yml'

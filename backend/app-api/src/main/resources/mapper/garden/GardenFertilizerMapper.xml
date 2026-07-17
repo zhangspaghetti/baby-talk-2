@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.zhangspaghetti.babytalk.garden.mapper.GardenFertilizerMapper">
+
+    <resultMap id="fertilizerStateRowMap"
+               type="com.zhangspaghetti.babytalk.garden.model.GardenFertilizerStateProjection">
+        <constructor>
+            <arg column="applied_count" javaType="_int"/>
+            <arg column="last_claimed_at" javaType="java.time.Instant"/>
+            <arg column="last_applied_at" javaType="java.time.Instant"/>
+            <arg column="version" javaType="_long"/>
+            <arg column="claim_count" javaType="_int"/>
+        </constructor>
+    </resultMap>
+
+    <insert id="ensureStateRow">
+        insert into garden_fertilizer_state(user_id)
+        values (#{userId})
+        on conflict (user_id) do nothing
+    </insert>
+
+    <select id="countClaimsByRequestId" resultType="_int">
+        select count(*)
+        from garden_fertilizer_claim_log
+        where user_id = #{userId}
+          and request_id = #{requestId}
+    </select>
+
+    <insert id="insertClaim">
+        insert into garden_fertilizer_claim_log(user_id, event_key, request_id, claimed_at)
+        values (#{userId}, #{eventKey}, #{requestId}, #{claimedAt})
+    </insert>
+
+    <update id="updateLastClaimed">
+        update garden_fertilizer_state
+        set last_claimed_at = #{claimedAt},
+            updated_at = now(),
+            version = version + 1
+        where user_id = #{userId}
+    </update>
+
+    <insert id="insertApply">
+        insert into garden_fertilizer_apply_log(user_id, request_id, delta, applied_at)
+        values (#{userId}, #{requestId}, 1, #{appliedAt})
+        on conflict do nothing
+    </insert>
+
+    <update id="applyOne">
+        update garden_fertilizer_state s
+        set applied_count = s.applied_count + 1,
+            last_applied_at = #{appliedAt},
+            updated_at = now(),
+            version = s.version + 1
+        where s.user_id = #{userId}
+          and ((select count(*)
+                from garden_fertilizer_claim_log c
+                where c.user_id = s.user_id) - s.applied_count) > 0
+    </update>
+
+    <select id="findState" resultMap="fertilizerStateRowMap">
+        select s.applied_count,
+               s.last_claimed_at,
+               s.last_applied_at,
+               s.version,
+               coalesce((select count(*)
+                         from garden_fertilizer_claim_log c
+                         where c.user_id = s.user_id), 0) as claim_count
+        from garden_fertilizer_state s
+        where s.user_id = #{userId}
+    </select>
+
+    <select id="countClaims" resultType="_int">
+        select count(*)
+        from garden_fertilizer_claim_log
+        where user_id = #{userId}
+    </select>
+</mapper>

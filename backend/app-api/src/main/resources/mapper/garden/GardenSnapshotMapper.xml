@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.zhangspaghetti.babytalk.garden.mapper.GardenSnapshotMapper">
+
+    <resultMap id="statsSnapshotMap"
+               type="com.zhangspaghetti.babytalk.garden.model.GardenSnapshotStatsProjection">
+        <constructor>
+            <arg column="known_events" javaType="_long"/>
+            <arg column="unique_phrases" javaType="_int"/>
+            <arg column="covered_space_count" javaType="_int"/>
+            <arg column="first_event_at" javaType="java.time.Instant"/>
+        </constructor>
+    </resultMap>
+
+    <select id="loadStats" resultMap="statsSnapshotMap">
+        select count(*) as known_events,
+               count(distinct ie.phrase_id) as unique_phrases,
+               count(distinct ps.slug) as covered_space_count,
+               min(client_timestamp) as first_event_at
+        from interaction_events ie
+        left join practice_activities pa on pa.slug = ie.activity_id
+        left join practice_spaces ps on ps.id = pa.space_id
+        where ie.account_id = #{accountId}
+    </select>
+
+    <select id="listPracticeDates" resultType="java.time.LocalDate">
+        select distinct date(client_timestamp at time zone 'Asia/Shanghai') as practice_date
+        from interaction_events
+        where account_id = #{accountId}
+          and client_timestamp >= cast(#{todayStart} as timestamp with time zone) - interval '365 days'
+        order by practice_date desc
+    </select>
+
+    <select id="findTenthPhraseAchievedAt" resultType="java.time.Instant">
+        select achieved_at
+        from (
+            select min(client_timestamp) as achieved_at,
+                   row_number() over (order by min(client_timestamp)) as rn
+            from interaction_events
+            where account_id = #{accountId}
+            group by phrase_id
+        ) sub
+        where rn = 10
+    </select>
+
+    <select id="findThirdSpaceAchievedAt" resultType="java.time.Instant">
+        select achieved_at
+        from (
+            select min(ie.client_timestamp) as achieved_at,
+                   row_number() over (order by min(ie.client_timestamp)) as rn
+            from interaction_events ie
+            join practice_activities pa on pa.slug = ie.activity_id
+            join practice_spaces ps on ps.id = pa.space_id
+            where ie.account_id = #{accountId}
+            group by ps.slug
+        ) sub
+        where rn = 3
+    </select>
+
+    <select id="findFiftiethEventAt" resultType="java.time.Instant">
+        select client_timestamp
+        from interaction_events
+        where account_id = #{accountId}
+        order by client_timestamp asc
+        offset 49 limit 1
+    </select>
+
+    <select id="listPendingEventKeys" resultType="java.lang.String">
+        select ie.event_key
+        from interaction_events ie
+        where ie.account_id = #{accountId}
+          and not exists (
+              select 1
+              from garden_fertilizer_claim_log gfcl
+              where gfcl.user_id = ie.account_id
+                and gfcl.event_key = ie.event_key
+          )
+        order by ie.client_timestamp desc
+        limit 20
+    </select>
+</mapper>

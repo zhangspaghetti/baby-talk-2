@@ -1,7 +1,7 @@
 package com.zhangspaghetti.babytalk.profile;
 
 import cn.hutool.core.util.StrUtil;
-import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.baomidou.mybatisplus.spring.service.impl.ServiceImpl;
 import com.zhangspaghetti.babytalk.profile.dto.BabyProfileResponse;
 import com.zhangspaghetti.babytalk.profile.dto.PutBabyProfileRequest;
 import com.zhangspaghetti.babytalk.profile.dto.StarterRequest;

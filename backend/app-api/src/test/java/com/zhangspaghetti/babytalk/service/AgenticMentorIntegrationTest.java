@@ -63,6 +63,7 @@ class AgenticMentorIntegrationTest {
                 "gpt-4o-mini",
                 0.7,
                 300,
+                10,
                 3,
                 Duration.ofMinutes(10),
                 280,

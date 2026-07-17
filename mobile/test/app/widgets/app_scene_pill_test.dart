@@ -1,5 +1,6 @@
+import 'dart:ui' show Tristate;
+
 import 'package:flutter/material.dart';
-import 'package:flutter/semantics.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mobile/app/theme/app_layout_constants.dart';
 import 'package:mobile/app/theme/app_theme.dart';
@@ -115,7 +116,7 @@ void main() {
     final semantics = tester.getSemantics(
       find.byKey(const Key('scene-pill-under-test')),
     );
-    expect(semantics.hasFlag(SemanticsFlag.isSelected), isTrue);
-    expect(semantics.hasFlag(SemanticsFlag.isButton), isTrue);
+    expect(semantics.flagsCollection.isSelected, Tristate.isTrue);
+    expect(semantics.flagsCollection.isButton, isTrue);
   });
 }

@@ -1,10 +1,10 @@
 package com.zhangspaghetti.babytalk.gateway;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.ObjectMapper;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
-import org.springframework.boot.web.reactive.error.ErrorWebExceptionHandler;
+import org.springframework.boot.webflux.error.ErrorWebExceptionHandler;
 import org.springframework.core.Ordered;
 import org.springframework.core.io.buffer.DataBuffer;
 import org.springframework.http.HttpStatus;
@@ -20,7 +20,11 @@ import reactor.core.publisher.Mono;
 @Component
 public class GatewayRateLimitErrorHandler implements ErrorWebExceptionHandler, Ordered {
 
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final ObjectMapper objectMapper;
+
+    public GatewayRateLimitErrorHandler(ObjectMapper objectMapper) {
+        this.objectMapper = objectMapper;
+    }
 
     @Override
     public int getOrder() {
@@ -44,7 +48,7 @@ public class GatewayRateLimitErrorHandler implements ErrorWebExceptionHandler, O
                 byte[] bytes = objectMapper.writeValueAsBytes(body);
                 DataBuffer buffer = exchange.getResponse().bufferFactory().wrap(bytes);
                 return exchange.getResponse().writeWith(Mono.just(buffer));
-            } catch (JsonProcessingException e) {
+            } catch (JacksonException e) {
                 byte[] fallback = "{\"code\":\"RATE_LIMITED\",\"message\":\"请求过于频繁。\"}"
                         .getBytes(StandardCharsets.UTF_8);
                 DataBuffer buffer = exchange.getResponse().bufferFactory().wrap(fallback);

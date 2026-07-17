@@ -19,6 +19,7 @@ public record MentorProperties(
         String aiModel,
         Double aiTemperature,
         Integer aiMaxTokens,
+        @Min(1) int aiMaxAttempts,
         @Min(1) int rateLimitMaxRequests,
         @NotNull Duration rateLimitWindow,
         @Min(1) int promptMaxLength,

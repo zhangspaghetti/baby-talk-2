@@ -1,6 +1,10 @@
 FROM node:20-alpine AS build
 WORKDIR /app
+ENV COREPACK_NPM_REGISTRY=https://mirrors.cloud.tencent.com/npm/ \
+    NPM_CONFIG_REGISTRY=https://mirrors.cloud.tencent.com/npm/ \
+    npm_config_registry=https://mirrors.cloud.tencent.com/npm/
 RUN corepack enable
+COPY .npmrc ./
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY admin-web/package.json admin-web/package.json
 RUN pnpm install --frozen-lockfile

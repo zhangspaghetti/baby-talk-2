@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.zhangspaghetti.babytalk.growth.mapper.GrowthSummaryMapper">
+
+    <resultMap id="summaryStatsMap"
+               type="com.zhangspaghetti.babytalk.growth.model.GrowthSummaryStatsProjection">
+        <constructor>
+            <arg column="total_events" javaType="_int"/>
+            <arg column="unique_phrases" javaType="_int"/>
+            <arg column="unique_activities" javaType="_int"/>
+            <arg column="cooperating_count" javaType="_int"/>
+            <arg column="first_event_at" javaType="java.time.Instant"/>
+            <arg column="last_event_at" javaType="java.time.Instant"/>
+            <arg column="practiced_days" javaType="_int"/>
+        </constructor>
+    </resultMap>
+
+    <select id="loadStats" resultMap="summaryStatsMap">
+        select count(*) as total_events,
+               count(distinct phrase_id) as unique_phrases,
+               count(distinct activity_id) as unique_activities,
+               count(*) filter (where reaction_type = 'cooperating') as cooperating_count,
+               min(client_timestamp) as first_event_at,
+               max(client_timestamp) as last_event_at,
+               count(distinct (client_timestamp at time zone 'UTC')::date) as practiced_days
+        from interaction_events
+        where account_id = #{accountId}
+          and client_timestamp >= #{windowStart}
+          and client_timestamp &lt; #{windowEnd}
+    </select>
+</mapper>

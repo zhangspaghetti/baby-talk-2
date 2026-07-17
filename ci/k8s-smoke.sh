@@ -99,17 +99,28 @@ assert_eq() {
 render_resource_keys() {
   local manifest="$1"
   awk '
-    BEGIN { kind = ""; in_metadata = 0 }
-    /^kind:[[:space:]]*/ { kind = $2; in_metadata = 0; next }
-    /^metadata:[[:space:]]*$/ { in_metadata = 1; next }
-    in_metadata && /^  name:[[:space:]]*/ {
-      name = $2
+    BEGIN { kind = ""; in_metadata = 0; escape = sprintf("%c", 27) }
+    {
+      line = $0
+      sub(/\r$/, "", line)
+      gsub(escape "\\[[0-9;]*m", "", line)
+    }
+    line ~ /^kind:[[:space:]]*/ {
+      sub(/^kind:[[:space:]]*/, "", line)
+      kind = line
+      in_metadata = 0
+      next
+    }
+    line ~ /^metadata:[[:space:]]*$/ { in_metadata = 1; next }
+    in_metadata && line ~ /^  name:[[:space:]]*/ {
+      sub(/^  name:[[:space:]]*/, "", line)
+      name = line
       gsub(/"/, "", name)
       print kind "/" name
       in_metadata = 0
       next
     }
-    /^---/ { kind = ""; in_metadata = 0 }
+    line ~ /^---/ { kind = ""; in_metadata = 0 }
   ' <<<"$manifest"
 }
 

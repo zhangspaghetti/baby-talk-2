@@ -12,13 +12,14 @@ import 'package:mobile/features/onboarding/domain/models/stage_match.dart';
 import 'package:mobile/features/practice/data/local/practice_local_data_source.dart';
 import 'package:mobile/features/practice/data/repositories/practice_repository.dart';
 import 'package:mobile/features/practice/data/services/asset_phrase_service.dart';
+import '../../support/isar_test_library.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   setUpAll(() async {
     await Isar.initializeIsarCore(
-      libraries: {Abi.current(): _resolveBundledIsarLibraryPath()},
+      libraries: {Abi.current(): resolveBundledIsarLibraryPath()},
     );
   });
 
@@ -241,41 +242,6 @@ Future<_PracticeRepositoryHarness> _createPracticeRepository({
   );
 }
 
-String _resolveBundledIsarLibraryPath() {
-  final pubCacheRoot = Platform.environment['PUB_CACHE'];
-  final localAppData = Platform.environment['LOCALAPPDATA'];
-  final candidateRoots = <Directory>[
-    if (pubCacheRoot != null) Directory(pubCacheRoot),
-    if (localAppData != null) Directory('$localAppData\\Pub\\Cache'),
-  ];
-
-  for (final root in candidateRoots) {
-    final hostedDirectory = Directory(
-      '${root.path}${Platform.pathSeparator}hosted',
-    );
-    if (!hostedDirectory.existsSync()) {
-      continue;
-    }
-
-    for (final host in hostedDirectory.listSync().whereType<Directory>()) {
-      for (final packageDir in host.listSync().whereType<Directory>()) {
-        final packageName = packageDir.path.split(RegExp(r'[\\/]')).last;
-        if (!packageName.startsWith('isar_flutter_libs-')) {
-          continue;
-        }
-
-        final dll = File(
-          '${packageDir.path}${Platform.pathSeparator}windows${Platform.pathSeparator}isar.dll',
-        );
-        if (dll.existsSync()) {
-          return dll.path;
-        }
-      }
-    }
-  }
-
-  throw StateError('未在 pub cache 中找到 isar_flutter_libs/windows/isar.dll');
-}
 
 class _FakeAssetBundle extends CachingAssetBundle {
   _FakeAssetBundle({required this.strings, required this.binaryAssets});

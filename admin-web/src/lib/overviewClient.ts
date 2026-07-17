@@ -1,6 +1,7 @@
 import {
   ApiError,
   clearStoredSession,
+  loadStoredSession,
   persistStoredSession,
   requestJson,
   toApiError,
@@ -391,8 +392,15 @@ async function refreshStreamSession(): Promise<void> {
     return inFlightStreamRefresh;
   }
 
-  inFlightStreamRefresh = authApi
-    .refresh()
+  const refreshToken = loadStoredSession()?.refreshToken;
+  if (!refreshToken) {
+    const apiError = new ApiError(401, 'admin_session_invalid', '管理员会话已失效，请重新登录。');
+    clearStoredSession(toSessionResetBanner(apiError));
+    throw apiError;
+  }
+
+  const refreshPromise = authApi
+    .refresh(refreshToken)
     .then((nextSession) => {
       persistStoredSession(nextSession);
     })
@@ -405,7 +413,8 @@ async function refreshStreamSession(): Promise<void> {
       inFlightStreamRefresh = null;
     });
 
-  return inFlightStreamRefresh ?? Promise.resolve();
+  inFlightStreamRefresh = refreshPromise;
+  return refreshPromise;
 }
 
 async function requestOverviewStreamResponse(input: {

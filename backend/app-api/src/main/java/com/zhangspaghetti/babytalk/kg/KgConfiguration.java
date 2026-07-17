@@ -1,10 +1,11 @@
 package com.zhangspaghetti.babytalk.kg;
 
 import com.zhangspaghetti.babytalk.config.MentorProperties;
+import com.zhangspaghetti.babytalk.config.OpenAiV1BaseUrl;
+import java.time.Duration;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.openai.OpenAiChatModel;
 import org.springframework.ai.openai.OpenAiChatOptions;
-import org.springframework.ai.openai.api.OpenAiApi;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -38,26 +39,24 @@ public class KgConfiguration {
     }
 
     private OpenAiChatModel buildChatModel(MentorProperties properties, String apiKey) {
-        var baseUrl = resolveBaseUrl(properties);
-        var openAiApi = OpenAiApi.builder()
-                .baseUrl(baseUrl)
-                .apiKey(apiKey.isBlank() ? "placeholder" : apiKey)
-                .build();
-
-        var optionsBuilder = OpenAiChatOptions.builder();
-        if (properties.aiModel() != null && !properties.aiModel().isBlank()) {
-            optionsBuilder.model(properties.aiModel());
-        }
-        // KG 审查使用低温度以获得更稳定的 JSON 输出
-        optionsBuilder.temperature(0.2);
-        if (properties.aiMaxTokens() != null) {
-            optionsBuilder.maxTokens(properties.aiMaxTokens());
-        }
-
         return OpenAiChatModel.builder()
-                .openAiApi(openAiApi)
-                .defaultOptions(optionsBuilder.build())
+                .options(openAiOptions(properties, apiKey))
                 .build();
+    }
+
+    OpenAiChatOptions openAiOptions(MentorProperties properties, String apiKey) {
+        var builder = OpenAiChatOptions.builder()
+                .baseUrl(OpenAiV1BaseUrl.fromProviderRoot(resolveBaseUrl(properties)))
+                .apiKey(apiKey.isBlank() ? "placeholder" : apiKey)
+                .model(properties.aiModel())
+                .timeout(Duration.ofSeconds(60))
+                .maxRetries(properties.aiMaxAttempts() - 1)
+                // KG 审查使用低温度以获得更稳定的 JSON 输出
+                .temperature(0.2);
+        if (properties.aiMaxTokens() != null) {
+            builder.maxTokens(properties.aiMaxTokens());
+        }
+        return builder.build();
     }
 
     private String resolveBaseUrl(MentorProperties properties) {

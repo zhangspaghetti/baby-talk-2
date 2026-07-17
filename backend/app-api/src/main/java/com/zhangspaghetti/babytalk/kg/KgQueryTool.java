@@ -1,7 +1,7 @@
 package com.zhangspaghetti.babytalk.kg;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.ObjectMapper;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -147,7 +147,7 @@ public class KgQueryTool {
     private String toJson(Object obj) {
         try {
             return objectMapper.writeValueAsString(obj);
-        } catch (JsonProcessingException e) {
+        } catch (JacksonException e) {
             log.error("JSON 序列化失败", e);
             return "{\"error\":\"JSON 序列化失败\"}";
         }

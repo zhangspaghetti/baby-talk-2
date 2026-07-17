@@ -3,6 +3,8 @@
 /// Stateless, no Flutter dependencies, no Repository dependencies.
 /// All methods are pure functions operating on their input data.
 
+library;
+
 // ---------------------------------------------------------------------------
 // Input / Output data classes
 // ---------------------------------------------------------------------------

@@ -5,7 +5,7 @@ void main() {
   group('GrowthStatsService', () {
     const service = GrowthStatsService();
 
-    PracticeEventRecord _event({
+    PracticeEventRecord event({
       required String eventKey,
       required String spaceId,
       required String activityId,
@@ -39,21 +39,21 @@ void main() {
 
       test('aggregates events by space', () {
         final events = [
-          _event(
+          event(
             eventKey: 'e1',
             spaceId: 'daily_care',
             activityId: 'bath',
             phraseId: 'p1',
             clientTimestamp: DateTime(2026, 5, 29, 10, 0),
           ),
-          _event(
+          event(
             eventKey: 'e2',
             spaceId: 'daily_care',
             activityId: 'bath',
             phraseId: 'p2',
             clientTimestamp: DateTime(2026, 5, 29, 10, 1),
           ),
-          _event(
+          event(
             eventKey: 'e3',
             spaceId: 'play',
             activityId: 'toy',
@@ -82,7 +82,7 @@ void main() {
 
       test('unknown space uses spaceId as label', () {
         final events = [
-          _event(
+          event(
             eventKey: 'e1',
             spaceId: 'unknown_space',
             activityId: 'a1',
@@ -228,21 +228,21 @@ void main() {
 
       test('filters events within time window', () {
         final events = [
-          _event(
+          event(
             eventKey: 'e1',
             spaceId: 's1',
             activityId: 'a1',
             phraseId: 'p1',
             clientTimestamp: DateTime(2026, 5, 15, 10, 0),
           ),
-          _event(
+          event(
             eventKey: 'e2',
             spaceId: 's1',
             activityId: 'a1',
             phraseId: 'p2',
             clientTimestamp: DateTime(2026, 5, 20, 10, 0),
           ),
-          _event(
+          event(
             eventKey: 'e3',
             spaceId: 's1',
             activityId: 'a2',
@@ -251,7 +251,7 @@ void main() {
             clientTimestamp: DateTime(2026, 5, 25, 10, 0),
           ),
           // Outside window.
-          _event(
+          event(
             eventKey: 'e4',
             spaceId: 's1',
             activityId: 'a1',
@@ -284,14 +284,14 @@ void main() {
       test('aggregates events from start of week', () {
         // 2026-05-29 is a Friday (weekday=5), week starts Monday 5/25.
         final events = [
-          _event(
+          event(
             eventKey: 'e1',
             spaceId: 's1',
             activityId: 'a1',
             phraseId: 'p1',
             clientTimestamp: DateTime(2026, 5, 25, 10, 0),
           ),
-          _event(
+          event(
             eventKey: 'e2',
             spaceId: 's1',
             activityId: 'a1',
@@ -299,7 +299,7 @@ void main() {
             clientTimestamp: DateTime(2026, 5, 29, 10, 0),
           ),
           // Last week, should be excluded.
-          _event(
+          event(
             eventKey: 'e3',
             spaceId: 's1',
             activityId: 'a1',
@@ -320,14 +320,14 @@ void main() {
     group('aggregateThisMonth', () {
       test('aggregates events from start of month', () {
         final events = [
-          _event(
+          event(
             eventKey: 'e1',
             spaceId: 's1',
             activityId: 'a1',
             phraseId: 'p1',
             clientTimestamp: DateTime(2026, 5, 1, 10, 0),
           ),
-          _event(
+          event(
             eventKey: 'e2',
             spaceId: 's1',
             activityId: 'a1',
@@ -335,7 +335,7 @@ void main() {
             clientTimestamp: DateTime(2026, 5, 29, 10, 0),
           ),
           // Last month, excluded.
-          _event(
+          event(
             eventKey: 'e3',
             spaceId: 's1',
             activityId: 'a1',
@@ -356,14 +356,14 @@ void main() {
     group('aggregateThisYear', () {
       test('aggregates events from start of year', () {
         final events = [
-          _event(
+          event(
             eventKey: 'e1',
             spaceId: 's1',
             activityId: 'a1',
             phraseId: 'p1',
             clientTimestamp: DateTime(2026, 1, 15, 10, 0),
           ),
-          _event(
+          event(
             eventKey: 'e2',
             spaceId: 's1',
             activityId: 'a1',
@@ -371,7 +371,7 @@ void main() {
             clientTimestamp: DateTime(2026, 5, 29, 10, 0),
           ),
           // Last year, excluded.
-          _event(
+          event(
             eventKey: 'e3',
             spaceId: 's1',
             activityId: 'a1',

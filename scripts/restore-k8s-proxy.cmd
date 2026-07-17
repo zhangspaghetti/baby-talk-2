@@ -7,12 +7,12 @@ REM
 REM Fixes applied:
 REM   1. hosts.toml bind-mount:  IPv6 literal for registry-mirror
 REM      (bypasses broken DNS for "registry-mirror" hostname)
-REM   2. proxy-relay:  TCP relay 0.0.0.0:7892 in k8s containerd
-REM      net ns -> host.docker.internal:7892 (Windows host proxy)
+REM   2. proxy-relay:  TCP relay 0.0.0.0:7890 in k8s containerd
+REM      net ns -> host.docker.internal:7890 (Windows host proxy)
 REM   3. /etc/hosts bind-mount: http.docker.internal -> 127.0.0.1
 REM      (redirects Docker daemon proxy to relay-3128)
 REM   4. proxy-relay-3128: TCP relay 127.0.0.1:3128 in Docker VM
-REM      main net ns -> 192.168.65.254:7892 (fixes docker build)
+REM      main net ns -> 192.168.65.254:7890 (fixes docker build)
 REM   5. kind-registry-mirror: ensure container has socket mount
 REM      and HTTPS_PROXY env (needed to reach Docker Hub)
 REM ============================================================
@@ -61,7 +61,7 @@ if errorlevel 1 (
     echo   Recreating kind-registry-mirror with socket mount...
     docker rm -f kind-registry-mirror 2>nul 1>nul
     set MSYS_NO_PATHCONV=1
-    docker run -d --name kind-registry-mirror --network kind --restart always -v /run/containerd/containerd.sock:/run/containerd/containerd.sock --env HTTPS_PROXY=http://host.docker.internal:7892 docker/desktop-containerd-registry-mirror:v0.0.3 >nul
+    docker run -d --name kind-registry-mirror --network kind --restart always -v /run/containerd/containerd.sock:/run/containerd/containerd.sock --env HTTPS_PROXY=http://host.docker.internal:7890 docker/desktop-containerd-registry-mirror:v0.0.3 >nul
     set MSYS_NO_PATHCONV=
     echo   kind-registry-mirror recreated
 ) else (

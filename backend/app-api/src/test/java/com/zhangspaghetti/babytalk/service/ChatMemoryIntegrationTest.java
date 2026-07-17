@@ -19,7 +19,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 /**
  * ChatMemory 端到端集成测试。
  * 验证多轮对话记忆、10 轮滑动窗口、30 分钟超时的端到端行为。
- * 依赖 Testcontainers PostgreSQL + Flyway V13 自动建表。
+ * 依赖 Testcontainers PostgreSQL + Flyway 自动建表。
  */
 class ChatMemoryIntegrationTest extends AbstractIntegrationTest {
 
@@ -44,15 +44,9 @@ class ChatMemoryIntegrationTest extends AbstractIntegrationTest {
         Timestamp now = Timestamp.from(Instant.now());
 
         // 插入 3 条消息模拟多轮对话
-        jdbcTemplate.update(
-                "INSERT INTO spring_ai_chat_memory (conversation_id, content, type, \"timestamp\") VALUES (?, ?, ?, ?)",
-                convId, "你好", "USER", now);
-        jdbcTemplate.update(
-                "INSERT INTO spring_ai_chat_memory (conversation_id, content, type, \"timestamp\") VALUES (?, ?, ?, ?)",
-                convId, "你好！有什么可以帮忙的吗？", "ASSISTANT", now);
-        jdbcTemplate.update(
-                "INSERT INTO spring_ai_chat_memory (conversation_id, content, type, \"timestamp\") VALUES (?, ?, ?, ?)",
-                convId, "讲个故事", "USER", now);
+        insertFixtureMessage(convId, "你好", "USER", now);
+        insertFixtureMessage(convId, "你好！有什么可以帮忙的吗？", "ASSISTANT", now);
+        insertFixtureMessage(convId, "讲个故事", "USER", now);
 
         String resolved = conversationSessionService.resolveConversationId(convId);
         assertThat(resolved).isEqualTo(convId);
@@ -73,16 +67,20 @@ class ChatMemoryIntegrationTest extends AbstractIntegrationTest {
 
         // 获取记忆 — 应该只保留最近 10 条，最早的 2 条被丢弃
         List<Message> messages = chatMemory.get(convId);
-        assertThat(messages).hasSizeLessThanOrEqualTo(10);
-
-        // 验证最早的消息（"用户消息 1" 和 "助手回复 2"）被丢弃
         List<String> contents = messages.stream()
                 .map(Message::getText)
                 .toList();
-        assertThat(contents).doesNotContain("用户消息 1");
-        assertThat(contents).doesNotContain("助手回复 2");
-        // 最新的消息应该还在
-        assertThat(contents).contains("助手回复 12");
+        assertThat(contents).containsExactly(
+                "用户消息 3",
+                "助手回复 4",
+                "用户消息 5",
+                "助手回复 6",
+                "用户消息 7",
+                "助手回复 8",
+                "用户消息 9",
+                "助手回复 10",
+                "用户消息 11",
+                "助手回复 12");
     }
 
     // 测试 3: 30 分钟超时 — 返回新的不同 conversationId
@@ -91,9 +89,7 @@ class ChatMemoryIntegrationTest extends AbstractIntegrationTest {
         String oldConvId = "conv-expired-test";
         Timestamp pastTimestamp = Timestamp.from(Instant.now().minus(31, ChronoUnit.MINUTES));
 
-        jdbcTemplate.update(
-                "INSERT INTO spring_ai_chat_memory (conversation_id, content, type, \"timestamp\") VALUES (?, ?, ?, ?)",
-                oldConvId, "旧消息", "USER", pastTimestamp);
+        insertFixtureMessage(oldConvId, "旧消息", "USER", pastTimestamp);
 
         String resolved = conversationSessionService.resolveConversationId(oldConvId);
         assertThat(resolved)
@@ -122,5 +118,31 @@ class ChatMemoryIntegrationTest extends AbstractIntegrationTest {
 
         String resolved = conversationSessionService.resolveConversationId(brandNewId);
         assertThat(resolved).isEqualTo(brandNewId);
+    }
+
+    @Test
+    void databaseGeneratedSequencePreservesSameTimestampMessageOrder() {
+        String convId = "conv-generated-sequence";
+        Timestamp sameTimestamp = Timestamp.from(Instant.parse("2026-07-14T00:00:00Z"));
+
+        insertFixtureMessage(convId, "第一句", "USER", sameTimestamp);
+        insertFixtureMessage(convId, "第二句", "ASSISTANT", sameTimestamp);
+        insertFixtureMessage(convId, "第三句", "USER", sameTimestamp);
+
+        assertThat(chatMemory.get(convId).stream().map(Message::getText).toList())
+                .containsExactly("第一句", "第二句", "第三句");
+        assertThat(jdbcTemplate.queryForList(
+                "SELECT sequence_id FROM spring_ai_chat_memory WHERE conversation_id = ? ORDER BY sequence_id",
+                Long.class,
+                convId)).hasSize(3).doesNotHaveDuplicates().isSorted();
+    }
+
+    private void insertFixtureMessage(String conversationId, String content, String type, Timestamp timestamp) {
+        jdbcTemplate.update(
+                "INSERT INTO spring_ai_chat_memory (conversation_id, content, type, \"timestamp\") VALUES (?, ?, ?, ?)",
+                conversationId,
+                content,
+                type,
+                timestamp);
     }
 }

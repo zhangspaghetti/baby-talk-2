@@ -1,7 +1,8 @@
 package com.zhangspaghetti.babytalk.palace.projection;
 
-import com.fasterxml.jackson.databind.JsonNode;
+import tools.jackson.databind.JsonNode;
 import jakarta.persistence.Column;
+import jakarta.persistence.Convert;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -21,6 +22,7 @@ public class PalaceQueryTrace {
     private UUID id;
 
     @JdbcTypeCode(SqlTypes.JSON)
+    @Convert(converter = ToolsJacksonJsonNodeConverter.class)
     @Column(name = "entry_rooms", nullable = false, columnDefinition = "jsonb")
     private JsonNode entryRooms;
 
@@ -28,10 +30,12 @@ public class PalaceQueryTrace {
     private String temporalRuleApplied;
 
     @JdbcTypeCode(SqlTypes.JSON)
+    @Convert(converter = ToolsJacksonJsonNodeConverter.class)
     @Column(name = "candidates_json", nullable = false, columnDefinition = "jsonb")
     private JsonNode candidatesJson;
 
     @JdbcTypeCode(SqlTypes.JSON)
+    @Convert(converter = ToolsJacksonJsonNodeConverter.class)
     @Column(name = "bridge_edges_crossed", nullable = false, columnDefinition = "jsonb")
     private JsonNode bridgeEdgesCrossed;
 

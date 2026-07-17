@@ -5,7 +5,14 @@ import 'dart:io';
 const releaseClosureUsage =
     '''Usage: dart run tool/verify_m006_s14_release_closure.dart [--help]
 
-Runs the final M006 release-closure chain and fails fast at the first child gate:
+Legacy M006 S14 child chain is not runnable. Its dependencies include archived or removed active paths.
+bash ci/full-ci.sh is the only complete local repository CI entrypoint.
+.github/workflows/ci.yml is simulated locally with act.
+GitHub-hosted Actions are intentionally disabled.
+Helm/release smoke front door only: bash ci/k8s-smoke.sh
+This command is not full repository CI.
+
+Historical child order:
   1. S07 mentor + distribution closure
   2. S08 Helm release truth
   3. S12 control-plane freshness
@@ -16,6 +23,15 @@ const releaseClosureRunbookPath = 'docs/runbooks/m006-s14-release-closure.md';
 const releaseClosureSuccessMarker =
     'All M006/S14 release-closure verification steps passed.';
 
+const releaseClosureDisabledDiagnostic =
+    '''M006 S14 legacy release-closure execution is disabled.
+bash ci/full-ci.sh is the only complete local repository CI entrypoint.
+.github/workflows/ci.yml is simulated locally with act.
+GitHub-hosted Actions are intentionally disabled.
+Helm/release smoke front door only: bash ci/k8s-smoke.sh
+bash ci/k8s-smoke.sh is not complete repository CI.
+No legacy verifier was launched.''';
+
 const releaseClosureChildGates = <ChildGate>[
   ChildGate(
     gateId: 'S07',
@@ -25,7 +41,8 @@ const releaseClosureChildGates = <ChildGate>[
     successMarker:
         'All M006/S07 mentor + distribution verification steps passed.',
     timeout: Duration(minutes: 30),
-    runbookPath: 'docs/runbooks/m006-s07-mentor-distribution-closure.md',
+    runbookPath:
+        'docs/archived/runbooks/m006-s07-mentor-distribution-closure.md',
     artifactHint: 'admin-web/playwright-report/index.html',
   ),
   ChildGate(
@@ -45,7 +62,7 @@ const releaseClosureChildGates = <ChildGate>[
     successMarker:
         'All M006/S12 overview control-plane verification steps passed.',
     timeout: Duration(minutes: 25),
-    runbookPath: 'docs/runbooks/m006-s12-control-plane-freshness.md',
+    runbookPath: 'docs/archived/runbooks/m006-s12-control-plane-freshness.md',
     artifactHint: 'admin-web/playwright-report/index.html',
   ),
   ChildGate(
@@ -55,7 +72,7 @@ const releaseClosureChildGates = <ChildGate>[
     verifierArgs: [],
     successMarker: 'All M006/S13 demo-path verification steps passed.',
     timeout: Duration(minutes: 10),
-    runbookPath: 'docs/runbooks/m006-s13-demo-path.md',
+    runbookPath: 'docs/archived/runbooks/m006-s13-demo-path.md',
   ),
 ];
 
@@ -72,19 +89,8 @@ Future<void> main(List<String> args) async {
     exit(64);
   }
 
-  try {
-    for (final gate in releaseClosureChildGates) {
-      await _runChildGate(gate);
-    }
-  } on StepFailure catch (error) {
-    stderr.writeln('Verification failed at step: ${error.stepLabel}');
-    stderr.writeln(error.message);
-    exit(error.exitCode);
-  }
-
-  stdout.writeln('');
-  stdout.writeln('release_closure_runbook=$releaseClosureRunbookPath');
-  stdout.writeln(releaseClosureSuccessMarker);
+  stderr.writeln(releaseClosureDisabledDiagnostic);
+  exit(64);
 }
 
 Future<void> _runChildGate(ChildGate gate) async {

@@ -4,7 +4,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
 import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.Instant;
@@ -37,7 +38,7 @@ class KgContradictionReviewServiceTest {
     @Mock private KgRelationshipRepository relationshipRepository;
 
     private KgContradictionReviewService reviewService;
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final ObjectMapper objectMapper = JsonMapper.builder().build();
 
     private static final KgProperties ENABLED_PROPS = new KgProperties(
             Duration.ofMinutes(5), true, 10);

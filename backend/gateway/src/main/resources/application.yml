@@ -10,57 +10,51 @@ spring:
       max-request-size: ${SPRING_SERVLET_MULTIPART_MAX_REQUEST_SIZE:100MB}
   cloud:
     gateway:
-      httpclient:
-        codec:
-          max-in-memory-size: ${SPRING_CLOUD_GATEWAY_HTTPCLIENT_CODEC_MAX_IN_MEMORY_SIZE:100MB}
-      globalcors:
-        cors-configurations:
-          '[/**]':
-            allowedOriginPatterns:
-              - "${BABY_TALK_ADMIN_WEB_ORIGIN:http://localhost:5173}"
-            allowedMethods:
-              - GET
-              - POST
-              - PUT
-              - PATCH
-              - DELETE
-              - OPTIONS
-            allowedHeaders: ["*"]
-            allowCredentials: true
-      default-filters:
-        - name: RequestRateLimiter
-          args:
-            redis-rate-limiter.replenishRate: 1
-            redis-rate-limiter.burstCapacity: 100
-            redis-rate-limiter.requestedTokens: 1
-            rate-limiter: "#{@defaultRateLimiter}"
-            key-resolver: "#{@userKeyResolver}"
-            deny-empty-key: false
-      routes:
-        - id: admin-api
-          uri: ${BABY_TALK_ADMIN_API_URI:http://localhost:8081}
-          predicates:
-            - Path=/api/admin/**
-        - id: app-api-consumer
-          uri: ${BABY_TALK_APP_API_URI:http://localhost:8080}
-          predicates:
-            - Path=/api/v1/**
-        - id: app-api-public
-          uri: ${BABY_TALK_APP_API_URI:http://localhost:8080}
-          predicates:
-            - Path=/download/**,/upgrade/**,/share/**,/invite/**
+      server:
+        webflux:
+          httpclient:
+            codec:
+              max-in-memory-size: ${SPRING_CLOUD_GATEWAY_HTTPCLIENT_CODEC_MAX_IN_MEMORY_SIZE:100MB}
+          globalcors:
+            cors-configurations:
+              '[/**]':
+                allowedOriginPatterns:
+                  - "${BABY_TALK_ADMIN_WEB_ORIGIN:http://localhost:5173}"
+                allowedMethods:
+                  - GET
+                  - POST
+                  - PUT
+                  - PATCH
+                  - DELETE
+                  - OPTIONS
+                allowedHeaders: ["*"]
+                allowCredentials: true
+          default-filters:
+            - name: RequestRateLimiter
+              args:
+                redis-rate-limiter.replenishRate: 1
+                redis-rate-limiter.burstCapacity: 100
+                redis-rate-limiter.requestedTokens: 1
+                rate-limiter: "#{@defaultRateLimiter}"
+                key-resolver: "#{@userKeyResolver}"
+                deny-empty-key: false
+          routes:
+            - id: admin-api
+              uri: ${BABY_TALK_ADMIN_API_URI:http://localhost:8081}
+              predicates:
+                - Path=/api/admin/**
+            - id: app-api-consumer
+              uri: ${BABY_TALK_APP_API_URI:http://localhost:8080}
+              predicates:
+                - Path=/api/v1/**
+            - id: app-api-public
+              uri: ${BABY_TALK_APP_API_URI:http://localhost:8080}
+              predicates:
+                - Path=/download/**,/upgrade/**,/share/**,/invite/**
   data:
     redis:
       host: ${BABY_TALK_REDIS_HOST:localhost}
       port: 6379
-  autoconfigure:
-    exclude:
-      - org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration
-      - org.springframework.boot.autoconfigure.jdbc.DataSourceTransactionManagerAutoConfiguration
-      - org.springframework.boot.autoconfigure.orm.jpa.HibernateJpaAutoConfiguration
-      - org.springframework.boot.autoconfigure.flyway.FlywayAutoConfiguration
-      - org.springframework.boot.autoconfigure.data.jpa.JpaRepositoriesAutoConfiguration
-
 management:
   endpoints:
     web:

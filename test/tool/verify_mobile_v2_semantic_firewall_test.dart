@@ -1,6 +1,6 @@
 import 'dart:io';
 
-import 'package:test/test.dart';
+import 'package:flutter_test/flutter_test.dart';
 
 import '../../tool/verify_mobile_v2_semantic_firewall.dart' as verifier;
 

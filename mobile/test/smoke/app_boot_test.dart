@@ -24,18 +24,20 @@ import 'package:mobile/features/onboarding/data/local/onboarding_snapshot_store.
 import 'package:mobile/features/onboarding/data/repositories/onboarding_repository.dart';
 import 'package:mobile/features/onboarding/domain/models/onboarding_snapshot.dart';
 import 'package:mobile/features/onboarding/domain/models/stage_match.dart';
+import 'package:mobile/features/onboarding/presentation/screens/onboarding_scene_screen.dart';
 import 'package:mobile/features/practice/data/local/practice_local_data_source.dart';
 import 'package:mobile/features/practice/data/repositories/practice_repository.dart';
 import 'package:mobile/features/practice/domain/models/interaction_event_payload.dart';
 import 'package:mobile/features/practice/domain/models/practice_continuity_snapshot.dart';
 import 'package:mobile/features/practice/presentation/practice_session_notifier.dart';
+import '../support/isar_test_library.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   setUpAll(() async {
     await Isar.initializeIsarCore(
-      libraries: {Abi.current(): _resolveBundledIsarLibraryPath()},
+      libraries: {Abi.current(): resolveBundledIsarLibraryPath()},
     );
 
     // app_links 插件在 shell 路由中订阅 EventChannel，单元测试环境需要 mock
@@ -159,10 +161,7 @@ void main() {
 
     expect(find.byKey(const Key('boot-route-gate-ready')), findsOneWidget);
     expect(find.byKey(const Key('boot-route-onboarding')), findsOneWidget);
-    expect(
-      find.byKey(const Key('onboarding-local-only-banner')),
-      findsOneWidget,
-    );
+    expect(find.byType(OnboardingSceneScreen), findsOneWidget);
     expect(find.byKey(const Key('home-start-practice')), findsNothing);
 
     final content = harness.bootState.content!;
@@ -775,40 +774,4 @@ class _MalformedSecureStorage extends FlutterSecureStorage {
   }) async {
     return '{"consentState":"accepted_pending_sync","session":null}';
   }
-}
-
-String _resolveBundledIsarLibraryPath() {
-  final pubCacheRoot = Platform.environment['PUB_CACHE'];
-  final localAppData = Platform.environment['LOCALAPPDATA'];
-  final candidateRoots = <Directory>[
-    if (pubCacheRoot != null) Directory(pubCacheRoot),
-    if (localAppData != null) Directory('$localAppData\\Pub\\Cache'),
-  ];
-
-  for (final root in candidateRoots) {
-    final hostedDirectory = Directory(
-      '${root.path}${Platform.pathSeparator}hosted',
-    );
-    if (!hostedDirectory.existsSync()) {
-      continue;
-    }
-
-    for (final host in hostedDirectory.listSync().whereType<Directory>()) {
-      for (final packageDir in host.listSync().whereType<Directory>()) {
-        final packageName = packageDir.path.split(RegExp(r'[\\/]')).last;
-        if (!packageName.startsWith('isar_flutter_libs-')) {
-          continue;
-        }
-
-        final dll = File(
-          '${packageDir.path}${Platform.pathSeparator}windows${Platform.pathSeparator}isar.dll',
-        );
-        if (dll.existsSync()) {
-          return dll.path;
-        }
-      }
-    }
-  }
-
-  throw StateError('未在 pub cache 中找到 isar_flutter_libs/windows/isar.dll');
 }

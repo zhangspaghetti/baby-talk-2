@@ -1,10 +1,18 @@
 name: CI
 
+env:
+  NPM_CONFIG_REGISTRY: https://mirrors.cloud.tencent.com/npm/
+  npm_config_registry: https://mirrors.cloud.tencent.com/npm/
+  COREPACK_NPM_REGISTRY: https://mirrors.cloud.tencent.com/npm/
+  PLAYWRIGHT_DOWNLOAD_HOST: https://npmmirror.com/mirrors/playwright
+  PUB_HOSTED_URL: https://pub.flutter-io.cn
+  FLUTTER_STORAGE_BASE_URL: https://storage.flutter-io.cn
+
 on:
   push:
-    branches: [main, 'milestone/*']
+    branches: [Develop, 'milestone/*']
   pull_request:
-    branches: [main]
+    branches: [Develop]
 
 jobs:
   release-closure-gate:
@@ -15,18 +23,38 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up JDK 17
+      - name: Test Spring AI 2 platform verifier
+        run: python3 test/tool/verify_spring_ai_2_backend_platform_test.py
+
+      - name: Verify Spring AI 2 backend platform
+        run: python3 tool/verify_spring_ai_2_backend_platform.py
+
+      - name: Set up JDK 21
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: '17'
+          java-version: '21'
           cache: maven
           cache-dependency-path: backend/pom.xml
 
-      - name: Set up Node.js 20
+      - name: Verify Java toolchain contract
+        run: |
+          java -version 2>&1 | grep '21\.'
+          grep -q '<java.version>17</java.version>' backend/pom.xml
+
+      - name: Verify resolved Spring AI dependency graph
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash ci/maven.sh -f backend/pom.xml -B -Dstyle.color=never dependency:tree \
+            '-Dincludes=org.springframework.ai:*' | tee spring-ai-dependency-tree.txt
+          python3 tool/verify_spring_ai_2_backend_platform.py \
+            --dependency-tree spring-ai-dependency-tree.txt
+
+      - name: Set up Node.js 22
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
 
       - name: Enable pnpm
         run: corepack enable
@@ -38,7 +66,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Install Playwright Chromium
-        timeout-minutes: 10
+        timeout-minutes: 45
         run: pnpm --dir admin-web exec playwright install chromium --with-deps
 
       - name: Start localhost:2375 Docker relay for Testcontainers
@@ -74,7 +102,7 @@ jobs:
         id: checkstyle
         continue-on-error: true
         timeout-minutes: 10
-        run: ./backend/mvnw -f backend/pom.xml -B checkstyle:check
+        run: bash ci/maven.sh -f backend/pom.xml -B checkstyle:check
 
       - name: Upload JaCoCo coverage
         if: ${{ always() }}
@@ -97,6 +125,8 @@ jobs:
 
       - name: Install Helm
         uses: azure/setup-helm@v4
+        with:
+          version: v4.1.4
 
       - name: Run Helm dual-chart smoke (babytalk-infra + babytalk-app)
         id: helm_smoke

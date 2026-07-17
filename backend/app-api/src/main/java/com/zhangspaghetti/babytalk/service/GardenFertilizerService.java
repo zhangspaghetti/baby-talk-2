@@ -1,25 +1,22 @@
 package com.zhangspaghetti.babytalk.service;
 
+import com.zhangspaghetti.babytalk.garden.mapper.GardenFertilizerMapper;
 import com.zhangspaghetti.babytalk.web.ContractException;
-import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.sql.Timestamp;
 import java.time.Instant;
-import java.util.List;
 import org.springframework.dao.DataAccessException;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class GardenFertilizerService {
 
-    private final JdbcTemplate jdbcTemplate;
+    private final GardenFertilizerMapper mapper;
 
-    public GardenFertilizerService(JdbcTemplate jdbcTemplate) {
-        this.jdbcTemplate = jdbcTemplate;
+    public GardenFertilizerService(GardenFertilizerMapper mapper) {
+        this.mapper = mapper;
     }
 
     @Transactional(readOnly = true)
@@ -45,27 +42,8 @@ public class GardenFertilizerService {
         }
 
         try {
-            jdbcTemplate.update(
-                    """
-                    insert into garden_fertilizer_claim_log(user_id, event_key, request_id, claimed_at)
-                    values (?, ?, ?, ?)
-                    """,
-                    userId,
-                    eventKey,
-                    requestId,
-                    Timestamp.from(claimedAt)
-            );
-            jdbcTemplate.update(
-                    """
-                    update garden_fertilizer_state
-                    set last_claimed_at = ?,
-                        updated_at = now(),
-                        version = version + 1
-                    where user_id = ?
-                    """,
-                    Timestamp.from(claimedAt),
-                    userId
-            );
+            mapper.insertClaim(userId, eventKey, requestId, claimedAt);
+            mapper.updateLastClaimed(userId, claimedAt);
         } catch (DataAccessException exception) {
             if (!isUniqueViolation(exception)) {
                 throw exception;
@@ -94,16 +72,7 @@ public class GardenFertilizerService {
         ensureStateRow(userId);
         var appliedAt = clientTime == null ? Instant.now() : clientTime;
 
-        int inserted = jdbcTemplate.update(
-                """
-                insert into garden_fertilizer_apply_log(user_id, request_id, delta, applied_at)
-                values (?, ?, 1, ?)
-                on conflict do nothing
-                """,
-                userId,
-                requestId,
-                Timestamp.from(appliedAt)
-        );
+        int inserted = mapper.insertApply(userId, requestId, appliedAt);
 
         if (inserted == 0) {
             var state = loadStateOrVirtual(userId);
@@ -117,19 +86,7 @@ public class GardenFertilizerService {
             );
         }
 
-        int updated = jdbcTemplate.update(
-                """
-                update garden_fertilizer_state s
-                set applied_count = s.applied_count + 1,
-                    last_applied_at = ?,
-                    updated_at = now(),
-                    version = s.version + 1
-                where s.user_id = ?
-                  and ((select count(*) from garden_fertilizer_claim_log c where c.user_id = s.user_id) - s.applied_count) > 0
-                """,
-                Timestamp.from(appliedAt),
-                userId
-        );
+        int updated = mapper.applyOne(userId, appliedAt);
 
         if (updated == 0) {
             throw new ContractException(
@@ -151,78 +108,26 @@ public class GardenFertilizerService {
     }
 
     private boolean existsClaimByRequestId(String userId, String requestId) {
-        Integer count = jdbcTemplate.queryForObject(
-                """
-                select count(*)
-                from garden_fertilizer_claim_log
-                where user_id = ? and request_id = ?
-                """,
-                Integer.class,
-                userId,
-                requestId
-        );
-        return count != null && count > 0;
+        return mapper.countClaimsByRequestId(userId, requestId) > 0;
     }
 
     private void ensureStateRow(String userId) {
-        jdbcTemplate.update(
-                """
-                insert into garden_fertilizer_state(user_id)
-                values (?)
-                on conflict (user_id) do nothing
-                """,
-                userId
-        );
+        mapper.ensureStateRow(userId);
     }
 
     private FertilizerStateResponse loadStateOrVirtual(String userId) {
-        List<FertilizerStateResponse> states = jdbcTemplate.query(
-                """
-                select s.applied_count,
-                       s.last_claimed_at,
-                       s.last_applied_at,
-                       s.version,
-                       coalesce((select count(*) from garden_fertilizer_claim_log c where c.user_id = s.user_id), 0) as claim_count
-                from garden_fertilizer_state s
-                where s.user_id = ?
-                """,
-                this::mapState,
-                userId
-        );
-        if (!states.isEmpty()) {
-            return states.get(0);
+        var state = mapper.findState(userId);
+        if (state != null) {
+            return new FertilizerStateResponse(
+                    Math.max(state.claimCount() - state.appliedCount(), 0),
+                    state.appliedCount(),
+                    state.lastClaimedAt(),
+                    state.lastAppliedAt(),
+                    state.version()
+            );
         }
 
-        Integer claimCount = jdbcTemplate.queryForObject(
-                """
-                select count(*)
-                from garden_fertilizer_claim_log
-                where user_id = ?
-                """,
-                Integer.class,
-                userId
-        );
-        int available = claimCount == null ? 0 : claimCount;
-        return new FertilizerStateResponse(available, 0, null, null, 0L);
-    }
-
-    private FertilizerStateResponse mapState(ResultSet rs, int rowNum) throws SQLException {
-        int appliedCount = rs.getInt("applied_count");
-        int claimCount = rs.getInt("claim_count");
-        var lastClaimedAt = toInstant(rs.getTimestamp("last_claimed_at"));
-        var lastAppliedAt = toInstant(rs.getTimestamp("last_applied_at"));
-        long version = rs.getLong("version");
-        return new FertilizerStateResponse(
-                Math.max(claimCount - appliedCount, 0),
-                appliedCount,
-                lastClaimedAt,
-                lastAppliedAt,
-                version
-        );
-    }
-
-    private Instant toInstant(Timestamp timestamp) {
-        return timestamp == null ? null : timestamp.toInstant();
+        return new FertilizerStateResponse(mapper.countClaims(userId), 0, null, null, 0L);
     }
 
     private boolean isUniqueViolation(DataAccessException exception) {

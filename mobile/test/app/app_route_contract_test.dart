@@ -13,18 +13,19 @@ void main() {
       expect(AppRouteNames.account, '/account');
       expect(AppRouteNames.meSettings, '/me/settings');
       expect(AppRouteNames.meGrowth, '/me/growth');
-      expect(
-        AppRouteNames.canonicalPaths,
-        containsAll(<String>[
-          AppRouteNames.shell,
-          AppRouteNames.onboarding,
-          AppRouteNames.practice,
-          AppRouteNames.account,
-          AppRouteNames.meSettings,
-          AppRouteNames.meGrowth,
-        ]),
-      );
-      expect(AppRouteNames.canonicalPaths.length, 6);
+      expect(AppRouteNames.canonicalPaths, <String>{
+        AppRouteNames.shell,
+        AppRouteNames.onboarding,
+        AppRouteNames.practice,
+        AppRouteNames.account,
+        AppRouteNames.meSettings,
+        AppRouteNames.meGrowth,
+        AppRouteNames.onboardingName,
+        AppRouteNames.onboardingScene,
+        AppRouteNames.onboardingPractice,
+        AppRouteNames.onboardingComplete,
+        AppRouteNames.onboardingGardenWelcome,
+      });
     });
 
     test(

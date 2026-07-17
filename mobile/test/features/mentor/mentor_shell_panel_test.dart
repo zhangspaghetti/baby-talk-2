@@ -43,13 +43,14 @@ import 'package:mobile/features/practice/presentation/practice_route_args.dart';
 import 'package:mobile/features/practice/presentation/practice_session_notifier.dart';
 import 'package:mobile/features/practice/presentation/screens/home_screen.dart';
 import 'package:mobile/features/shell/presentation/app_shell_screen.dart';
+import '../../support/isar_test_library.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   setUpAll(() async {
     await Isar.initializeIsarCore(
-      libraries: {Abi.current(): _resolveBundledIsarLibraryPath()},
+      libraries: {Abi.current(): resolveBundledIsarLibraryPath()},
     );
   });
 
@@ -87,7 +88,7 @@ void main() {
         ),
       ),
     ))!;
-    addTearDown(harness.dispose);
+    addTearDown(() => _disposeHarness(tester, harness));
 
     await tester.runAsync(() async {
       await Future.wait([
@@ -168,7 +169,7 @@ void main() {
         ),
       ),
     ))!;
-    addTearDown(harness.dispose);
+    addTearDown(() => _disposeHarness(tester, harness));
 
     await tester.runAsync(() async {
       await Future.wait([
@@ -222,7 +223,7 @@ void main() {
         ),
       ),
     ))!;
-    addTearDown(harness.dispose);
+    addTearDown(() => _disposeHarness(tester, harness));
 
     await tester.runAsync(() async {
       await Future.wait([
@@ -262,7 +263,7 @@ void main() {
         ),
       ),
     ))!;
-    addTearDown(harness.dispose);
+    addTearDown(() => _disposeHarness(tester, harness));
 
     await tester.runAsync(() async {
       await Future.wait([
@@ -327,7 +328,7 @@ void main() {
         ),
       ),
     ))!;
-    addTearDown(harness.dispose);
+    addTearDown(() => _disposeHarness(tester, harness));
 
     await tester.runAsync(() async {
       await Future.wait([
@@ -384,6 +385,22 @@ Future<void> _setTallSurface(WidgetTester tester) async {
   addTearDown(tester.view.resetDevicePixelRatio);
 }
 
+Future<void> _disposeHarness(WidgetTester tester, _Harness harness) async {
+  await tester.pumpWidget(const SizedBox.shrink());
+  await tester.pump();
+  await tester.pump(const Duration(seconds: 5));
+  // HomeScreen starts native Isar work from post-frame callbacks. Alternate
+  // the real and fake async queues so those transactions release the database
+  // before the fixture closes and deletes it.
+  for (var index = 0; index < 12; index++) {
+    await tester.runAsync(() async {
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+    });
+    await tester.pump();
+  }
+  await harness.dispose();
+}
+
 Future<void> _pumpBriefly(WidgetTester tester) async {
   await tester.pump(const Duration(milliseconds: 16));
   await tester.pump(const Duration(milliseconds: 80));
@@ -424,6 +441,7 @@ AccountSession _jwtSession() {
 class _Harness {
   _Harness({
     required this.tempDir,
+    required this.assetPhraseService,
     required this.practiceRepository,
     required this.accountNotifier,
     required this.mentorRepository,
@@ -434,6 +452,7 @@ class _Harness {
   });
 
   final Directory tempDir;
+  final AssetPhraseService assetPhraseService;
   final PracticeRepository practiceRepository;
   final AccountNotifier accountNotifier;
   final _RecordingMentorRepository mentorRepository;
@@ -453,13 +472,11 @@ class _Harness {
       directory: tempDir.path,
       name: 'practice_${DateTime.now().microsecondsSinceEpoch}',
     );
+    final assetPhraseService = AssetPhraseService(bundle: rootBundle);
     final practiceRepository = PracticeRepository(
-      assetPhraseService: AssetPhraseService(bundle: rootBundle),
+      assetPhraseService: assetPhraseService,
       localDataSource: practiceLocalDataSource,
-      installationIdService: InstallationIdService(
-        directoryResolver: () async => tempDir,
-        idGenerator: () => 'install_mentor_shell_test',
-      ),
+      installationIdService: _MemoryInstallationIdService(),
     );
     final accountNotifier = AccountNotifier(
       repository: _StaticAccountRepository(seedSnapshot: accountSeedSnapshot),
@@ -484,7 +501,7 @@ class _Harness {
     );
     final gardenGrowthRepo = GardenGrowthRepository(
       practiceRepository: practiceRepository,
-      assetPhraseService: AssetPhraseService(bundle: rootBundle),
+      assetPhraseService: assetPhraseService,
     );
     final gardenGrowthNotifier = GardenGrowthNotifier(
       repository: gardenGrowthRepo,
@@ -499,6 +516,7 @@ class _Harness {
 
     return _Harness(
       tempDir: tempDir,
+      assetPhraseService: assetPhraseService,
       practiceRepository: practiceRepository,
       accountNotifier: accountNotifier,
       mentorRepository: mentorRepository,
@@ -511,9 +529,8 @@ class _Harness {
 
   Widget buildShell() {
     final riverpodOverrides = <Override>[
-      practiceRepositoryProvider.overrideWith(
-        (ref) async => practiceRepository,
-      ),
+      assetPhraseServiceProvider.overrideWithValue(assetPhraseService),
+      practiceRepositoryProvider.overrideWith((ref) => practiceRepository),
       accountNotifierProvider.overrideWith((ref) => accountNotifier),
       mentorRepositoryProvider.overrideWith((ref) async => mentorRepository),
       mentorNotifierProvider.overrideWith((ref) => mentorNotifier),
@@ -567,9 +584,8 @@ class _Harness {
 
   Widget buildStandaloneHome() {
     final riverpodOverrides = <Override>[
-      practiceRepositoryProvider.overrideWith(
-        (ref) async => practiceRepository,
-      ),
+      assetPhraseServiceProvider.overrideWithValue(assetPhraseService),
+      practiceRepositoryProvider.overrideWith((ref) => practiceRepository),
       accountNotifierProvider.overrideWith((ref) => accountNotifier),
       mentorRepositoryProvider.overrideWith((ref) async => mentorRepository),
       mentorNotifierProvider.overrideWith((ref) => mentorNotifier),
@@ -613,8 +629,50 @@ class _Harness {
     // Riverpod / Provider automatically disposes the notifiers when the widget tree is torn down.
     // Calling dispose again will trigger debugAssertNotDisposed.
     await practiceRepository.close(deleteFromDisk: true);
+    await Future<void>.delayed(const Duration(milliseconds: 50));
     if (await tempDir.exists()) {
-      await tempDir.delete(recursive: true);
+      await _deleteDirectoryWithRetry(tempDir);
+    }
+  }
+}
+
+class _MemoryInstallationIdService extends InstallationIdService {
+  _MemoryInstallationIdService()
+    : super(directoryResolver: () async => Directory.systemTemp);
+
+  String? _installationId = 'install_mentor_shell_test';
+
+  @override
+  Future<String> getOrCreate() async {
+    return _installationId ??= 'install_mentor_shell_test';
+  }
+
+  @override
+  Future<String?> readExisting() async => _installationId;
+
+  @override
+  Future<void> deleteIfExists() async {
+    _installationId = null;
+  }
+}
+
+Future<void> _deleteDirectoryWithRetry(
+  Directory directory, {
+  int attempts = 50,
+  Duration delay = const Duration(milliseconds: 100),
+}) async {
+  for (var attempt = 0; attempt < attempts; attempt++) {
+    try {
+      if (!await directory.exists()) {
+        return;
+      }
+      await directory.delete(recursive: true);
+      return;
+    } on PathAccessException {
+      if (attempt == attempts - 1) {
+        rethrow;
+      }
+      await Future<void>.delayed(delay);
     }
   }
 }
@@ -912,40 +970,4 @@ class _StaticShareSheetLauncher implements ShareSheetLauncher {
   }) async {
     return const ShareSheetLaunchResult(status: ShareSheetLaunchStatus.success);
   }
-}
-
-String _resolveBundledIsarLibraryPath() {
-  final pubCacheRoot = Platform.environment['PUB_CACHE'];
-  final localAppData = Platform.environment['LOCALAPPDATA'];
-  final candidateRoots = <Directory>[
-    if (pubCacheRoot != null) Directory(pubCacheRoot),
-    if (localAppData != null) Directory('$localAppData\\Pub\\Cache'),
-  ];
-
-  for (final root in candidateRoots) {
-    final hostedDirectory = Directory(
-      '${root.path}${Platform.pathSeparator}hosted',
-    );
-    if (!hostedDirectory.existsSync()) {
-      continue;
-    }
-
-    for (final host in hostedDirectory.listSync().whereType<Directory>()) {
-      for (final packageDir in host.listSync().whereType<Directory>()) {
-        final packageName = packageDir.path.split(RegExp(r'[\\/]')).last;
-        if (!packageName.startsWith('isar_flutter_libs-')) {
-          continue;
-        }
-
-        final dll = File(
-          '${packageDir.path}${Platform.pathSeparator}windows${Platform.pathSeparator}isar.dll',
-        );
-        if (dll.existsSync()) {
-          return dll.path;
-        }
-      }
-    }
-  }
-
-  throw StateError('未在 pub cache 中找到 isar_flutter_libs/windows/isar.dll');
 }

@@ -11,8 +11,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.request;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
 import com.zhangspaghetti.babytalk.admin.auth.AdminAuthService;
 import com.zhangspaghetti.babytalk.admin.overview.AdminOverviewReadRepository;
 import com.zhangspaghetti.babytalk.admin.overview.AdminOverviewService;
@@ -30,9 +30,8 @@ import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 import org.springframework.ai.vectorstore.VectorStore;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.mock.mockito.SpyBean;
 import org.springframework.dao.QueryTimeoutException;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -41,6 +40,7 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
@@ -74,7 +74,7 @@ class AdminOverviewWebTest {
 
     @SuppressWarnings("resource")
     static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>(
-            DockerImageName.parse("pgvector/pgvector:pg16")
+            DockerImageName.parse("pgvector/pgvector:pg17")
                     .asCompatibleSubstituteFor("postgres"))
             .withDatabaseName("babytalk_admin_overview_test")
             .withUsername("babytalk")
@@ -113,7 +113,7 @@ class AdminOverviewWebTest {
     @Autowired
     private AdminOverviewStreamService adminOverviewStreamService;
 
-    @SpyBean
+    @MockitoSpyBean
     private AdminOverviewReadRepository adminOverviewReadRepository;
 
     @MockitoBean

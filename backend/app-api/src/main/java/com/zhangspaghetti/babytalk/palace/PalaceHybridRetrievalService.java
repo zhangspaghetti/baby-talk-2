@@ -1,6 +1,6 @@
 package com.zhangspaghetti.babytalk.palace;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
 import com.zhangspaghetti.babytalk.kg.KgEntity;
 import com.zhangspaghetti.babytalk.kg.KgEntityRepository;
 import com.zhangspaghetti.babytalk.palace.PalaceKeywordRepository.ChunkResult;
@@ -487,7 +487,12 @@ public class PalaceHybridRetrievalService {
                             installationId);
             palaceQueryTraceRepository.save(entity);
         } catch (Exception e) {
-            log.warn("failed to persist palace query trace: {}", e.getMessage());
+            log.warn(
+                    "event=palace_trace_persistence_failed exceptionType={} candidateCount={} entryRoomCount={} bridgeEdgeCount={}",
+                    e.getClass().getSimpleName(),
+                    trace.candidates().size(),
+                    trace.entryRooms().size(),
+                    trace.bridgeEdgesCrossed().size());
         }
     }
 

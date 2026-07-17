@@ -1,6 +1,6 @@
 package com.zhangspaghetti.babytalk.config;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -40,7 +40,7 @@ import org.springframework.security.oauth2.server.resource.web.authentication.Be
 import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.access.AccessDeniedHandler;
-import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
+import org.springframework.security.web.servlet.util.matcher.PathPatternRequestMatcher;
 import org.springframework.security.web.util.matcher.RequestMatcher;
 import org.springframework.web.filter.OncePerRequestFilter;
 import com.zhangspaghetti.babytalk.security.JwtTokenService;
@@ -54,17 +54,17 @@ public class AppSecurityConfig {
     private static final String FAILURE_CODE_ATTRIBUTE = "consumer.auth.failure.code";
     private static final String FAILURE_REASON_ATTRIBUTE = "consumer.auth.failure.reason";
     private static final List<RequestMatcher> AUTH_IGNORED_MATCHERS = List.of(
-            new AntPathRequestMatcher("/api/v1/auth/**"),
-            new AntPathRequestMatcher("/download"),
-            new AntPathRequestMatcher("/upgrade"),
-            new AntPathRequestMatcher("/download/redirect"),
-            new AntPathRequestMatcher("/upgrade/redirect"),
-            new AntPathRequestMatcher("/share/**"),
-            new AntPathRequestMatcher("/invite/**"),
-            new AntPathRequestMatcher("/actuator/health"),
-            new AntPathRequestMatcher("/actuator/info"),
-            new AntPathRequestMatcher("/error"),
-                new AntPathRequestMatcher("/api/v1/share-links")
+            PathPatternRequestMatcher.pathPattern("/api/v1/auth/**"),
+            PathPatternRequestMatcher.pathPattern("/download"),
+            PathPatternRequestMatcher.pathPattern("/upgrade"),
+            PathPatternRequestMatcher.pathPattern("/download/redirect"),
+            PathPatternRequestMatcher.pathPattern("/upgrade/redirect"),
+            PathPatternRequestMatcher.pathPattern("/share/**"),
+            PathPatternRequestMatcher.pathPattern("/invite/**"),
+            PathPatternRequestMatcher.pathPattern("/actuator/health"),
+            PathPatternRequestMatcher.pathPattern("/actuator/info"),
+            PathPatternRequestMatcher.pathPattern("/error"),
+            PathPatternRequestMatcher.pathPattern("/api/v1/share-links")
     );
 
     @Bean("consumerAccessTokenJwtDecoder")

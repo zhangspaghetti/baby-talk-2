@@ -1,0 +1,10 @@
+--container-architecture=linux/amd64
+--platform=ubuntu-latest=ghcr.io/catthehacker/ubuntu:act-24.04@sha256:5d6a17640b25694988b9db5a4145537b9918e5430116b2cf90d84e837609b382
+--network=host
+--artifact-server-path=.act/artifacts
+--defaultbranch=Develop
+--env=TESTCONTAINERS_RYUK_DISABLED=false
+--env=TESTCONTAINERS_HOST_OVERRIDE=host.docker.internal
+--env=PLAYWRIGHT_DOWNLOAD_CONNECTION_TIMEOUT=180000
+--strict
+--rm

@@ -5,8 +5,91 @@ import 'package:flutter_test/flutter_test.dart';
 import '../../tool/verify_m006_s14_release_closure.dart' as s14;
 
 void main() {
+  group('M006 S14 executable fail-closed contract', () {
+    test(
+      'no arguments reject immediately without launching legacy children',
+      () async {
+        final fixture = await _legacyLaunchTrapFixture();
+        addTearDown(() => fixture.delete(recursive: true));
+
+        final result = await _runReleaseClosureCli(
+          const [],
+          workingDirectory: fixture.path,
+        );
+        final output = '${result.stdout}\n${result.stderr}';
+
+        expect(result.exitCode, isNonZero);
+        expect(
+          output,
+          contains(
+            'bash ci/full-ci.sh is the only complete local repository CI entrypoint.',
+          ),
+        );
+        expect(
+          output,
+          contains('Helm/release smoke front door only: bash ci/k8s-smoke.sh'),
+        );
+        expect(output, contains('not complete repository CI'));
+        expect(output, isNot(contains('child_gate=')));
+        expect(output, isNot(contains('==> Release closure | S07')));
+        expect(
+          output,
+          isNot(
+            contains(
+              r'$ dart run tool/verify_m006_s07_mentor_distribution.dart',
+            ),
+          ),
+        );
+        expect(output, isNot(contains('drill_down_verifier=')));
+        expect(output, isNot(contains('LEGACY_CHILD_EXECUTED')));
+        expect(
+          File(
+            '${fixture.path}${Platform.pathSeparator}legacy-child-launched',
+          ).existsSync(),
+          isFalse,
+        );
+      },
+    );
+
+    test('--help and -h print usage and exit zero', () async {
+      final fixture = await Directory.systemTemp.createTemp('m006_s14_help_');
+      addTearDown(() => fixture.delete(recursive: true));
+
+      for (final args in const <List<String>>[
+        ['--help'],
+        ['-h'],
+      ]) {
+        final result = await _runReleaseClosureCli(
+          args,
+          workingDirectory: fixture.path,
+        );
+        final output = '${result.stdout}\n${result.stderr}';
+
+        expect(result.exitCode, 0, reason: 'args=$args\n$output');
+        expect(output, contains('Usage: dart run'));
+        expect(output, isNot(contains('child_gate=')));
+      }
+    });
+
+    test('unknown arguments remain non-zero', () async {
+      final fixture = await Directory.systemTemp.createTemp(
+        'm006_s14_unknown_',
+      );
+      addTearDown(() => fixture.delete(recursive: true));
+
+      final result = await _runReleaseClosureCli(const [
+        '--bogus',
+      ], workingDirectory: fixture.path);
+      final output = '${result.stdout}\n${result.stderr}';
+
+      expect(result.exitCode, isNonZero);
+      expect(output, contains('Unknown arguments: --bogus'));
+      expect(output, isNot(contains('child_gate=')));
+    });
+  });
+
   group('M006 S14 release closure contract', () {
-    test('keeps child order, labels, runbooks, and scoped artifact hints', () {
+    test('keeps historical child metadata and artifact hints', () {
       final gates = s14.releaseClosureChildGates;
 
       expect(gates.map((gate) => gate.gateId).toList(), <String>[
@@ -28,10 +111,10 @@ void main() {
         'tool/verify_m006_s13_demo_path.dart',
       ]);
       expect(gates.map((gate) => gate.runbookPath).toList(), <String>[
-        'docs/runbooks/m006-s07-mentor-distribution-closure.md',
+        'docs/archived/runbooks/m006-s07-mentor-distribution-closure.md',
         'docs/runbooks/k8s-deploy.md',
-        'docs/runbooks/m006-s12-control-plane-freshness.md',
-        'docs/runbooks/m006-s13-demo-path.md',
+        'docs/archived/runbooks/m006-s12-control-plane-freshness.md',
+        'docs/archived/runbooks/m006-s13-demo-path.md',
       ]);
       expect(gates.map((gate) => gate.successMarker).toList(), <String>[
         'All M006/S07 mentor + distribution verification steps passed.',
@@ -44,15 +127,12 @@ void main() {
         gates[1].rerunCommand,
         'dart run tool/verify_m006_s08_release.dart --helm',
       );
-      expect(
-        gates.map((gate) => gate.stepCommandLine).toList(),
-        <String>[
-          r'$ dart run tool/verify_m006_s07_mentor_distribution.dart',
-          r'$ dart run tool/verify_m006_s08_release.dart --helm',
-          r'$ dart run tool/verify_m006_s12_control_plane_freshness.dart',
-          r'$ dart run tool/verify_m006_s13_demo_path.dart',
-        ],
-      );
+      expect(gates.map((gate) => gate.stepCommandLine).toList(), <String>[
+        r'$ dart run tool/verify_m006_s07_mentor_distribution.dart',
+        r'$ dart run tool/verify_m006_s08_release.dart --helm',
+        r'$ dart run tool/verify_m006_s12_control_plane_freshness.dart',
+        r'$ dart run tool/verify_m006_s13_demo_path.dart',
+      ]);
       expect(
         gates
             .where((gate) => gate.artifactHint != null)
@@ -66,13 +146,13 @@ void main() {
       expect(gates[3].artifactHint, isNull);
     });
 
-    test('current child gates resolve to tracked verifier and runbook files', () {
+    test('historical child metadata resolves to tracked reference files', () {
       for (final gate in s14.releaseClosureChildGates) {
         expect(
           s14.validateChildGateContract(gate, pathExists: _rootRelativeExists),
           isNull,
           reason:
-              'Expected ${gate.gateId} contract to stay resolvable from repo root.',
+              'Expected ${gate.gateId} historical metadata to resolve from repo root.',
         );
       }
     });
@@ -104,12 +184,38 @@ void main() {
       expect(mixedOptions.usageError, 'Unknown arguments: --bogus');
     });
 
-    test('help text stays usage-only contract', () {
+    test('help text rejects legacy execution and scopes Helm release smoke', () {
       expect(
         s14.releaseClosureUsage.trim(),
         startsWith(
           'Usage: dart run tool/verify_m006_s14_release_closure.dart [--help]',
         ),
+      );
+      expect(
+        s14.releaseClosureUsage,
+        contains('Legacy M006 S14 child chain is not runnable.'),
+      );
+      expect(
+        s14.releaseClosureUsage,
+        contains(
+          'bash ci/full-ci.sh is the only complete local repository CI entrypoint.',
+        ),
+      );
+      expect(
+        s14.releaseClosureUsage,
+        contains('Helm/release smoke front door only: bash ci/k8s-smoke.sh'),
+      );
+      expect(
+        s14.releaseClosureUsage,
+        contains('.github/workflows/ci.yml is simulated locally with act.'),
+      );
+      expect(
+        s14.releaseClosureUsage,
+        contains('GitHub-hosted Actions are intentionally disabled.'),
+      );
+      expect(
+        s14.releaseClosureUsage,
+        isNot(contains('Runs the final M006 release-closure chain')),
       );
       expect(
         s14.releaseClosureUsage,
@@ -131,6 +237,47 @@ void main() {
   });
 
   group('M006 S14 repo-root handoff surfaces', () {
+    test('pull request workflows using pnpm require Node 22', () {
+      final workflowDirectory = Directory(
+        '${_repoRootDirectory().path}${Platform.pathSeparator}.github${Platform.pathSeparator}workflows',
+      );
+      final pnpmPullRequestWorkflows = workflowDirectory
+          .listSync()
+          .whereType<File>()
+          .where((file) => file.path.endsWith('.yml'))
+          .map((file) => MapEntry(file.path, file.readAsStringSync()))
+          .where(
+            (entry) =>
+                entry.value.contains('pull_request:') &&
+                entry.value.contains('pnpm'),
+          )
+          .toList();
+
+      expect(pnpmPullRequestWorkflows, isNotEmpty);
+      for (final workflow in pnpmPullRequestWorkflows) {
+        final nodeVersions = RegExp(r'node-version:\s*([^\s]+)')
+            .allMatches(workflow.value)
+            .map(
+              (match) => match
+                  .group(1)!
+                  .replaceAll("'", '')
+                  .replaceAll('"', ''),
+            )
+            .toList();
+
+        expect(
+          nodeVersions,
+          isNotEmpty,
+          reason: '${workflow.key} uses pnpm without selecting Node',
+        );
+        expect(
+          nodeVersions,
+          everyElement('22'),
+          reason: '${workflow.key} must support the pinned pnpm version',
+        );
+      }
+    });
+
     test(
       'workflow scopes relay to backend tests, installs Helm smoke, and preserves artifacts',
       () {
@@ -197,12 +344,21 @@ void main() {
       },
     );
 
-    test('repo-root docs keep canonical command and drill-down references', () {
-      const canonicalCommand =
-          'dart run tool/verify_m006_s14_release_closure.dart';
+    test('repo-root docs distinguish repository CI from Helm release smoke', () {
+      const repositoryCiAuthority =
+          'bash ci/full-ci.sh is the only complete local repository CI entrypoint.';
+      const workflowSimulation =
+          '.github/workflows/ci.yml is simulated locally with act.';
+      const hostedActionsDisabled =
+          'GitHub-hosted Actions are intentionally disabled.';
+      const helmSmokeFrontDoor =
+          'Helm/release smoke front door only: `bash ci/k8s-smoke.sh`';
+      const notFullRepositoryCi =
+          '`bash ci/k8s-smoke.sh` is not full repository CI and is not CI-equivalent by itself.';
+      const legacyM006Verifier = 'tool/verify_m006_s14_release_closure.dart';
 
       final readme = _readRootText('README.md');
-      expect(readme, contains('## Final release closure (CI smoke gate)'));
+      expect(readme, contains('## Repository CI and Helm/release smoke'));
       expect(
         readme,
         contains(
@@ -215,18 +371,6 @@ void main() {
       expect(
         contributing,
         contains(
-          '想跑 CI-equivalent gate：`bash ci/k8s-smoke.sh`',
-        ),
-      );
-      expect(
-        contributing,
-        contains(
-          '除 `bash ci/k8s-smoke.sh` 这条 CI-equivalent gate 之外，其余 repo-root verifier 都是 scoped drill-down；不要再拼 ad-hoc shell chain。',
-        ),
-      );
-      expect(
-        contributing,
-        contains(
           '| `backend/admin-api` | admin auth + admin data contracts | repo-root gateway front door |',
         ),
       );
@@ -234,33 +378,81 @@ void main() {
       final releaseRunbook = _readRootText(
         'docs/runbooks/m006-s14-release-closure.md',
       );
-      expect(releaseRunbook, contains('## Canonical command'));
-      expect(releaseRunbook, contains(canonicalCommand));
+      expect(releaseRunbook, contains('## Current release smoke command'));
+
+      for (final doc in <String>[readme, contributing, releaseRunbook]) {
+        expect(doc, contains(repositoryCiAuthority));
+        expect(doc, contains(workflowSimulation));
+        expect(doc, contains(hostedActionsDisabled));
+        expect(doc, contains(helmSmokeFrontDoor));
+        expect(doc, contains(notFullRepositoryCi));
+        expect(doc, contains('Spring AI 2 platform verifier'));
+        expect(doc, contains('resolved Spring AI dependency graph'));
+        expect(doc, contains('backend tests'));
+        expect(doc, contains('Checkstyle'));
+        expect(doc, contains('Helm smoke'));
+        expect(doc, contains('mobile analysis'));
+        expect(doc, contains('mobile R4 release gates'));
+      }
+
       expect(
         releaseRunbook,
-        contains('仓库根唯一 final release command 始终是这条 S14 gate。'),
+        contains('## Historical M006 reference (not runnable)'),
+      );
+      expect(releaseRunbook, contains(legacyM006Verifier));
+      expect(
+        releaseRunbook,
+        contains(
+          'M006 S14 verifier 与 child chain 仅保留为历史参考，不再是 CI 或仓库前门，当前不可运行。',
+        ),
       );
       expect(
         releaseRunbook,
-        contains('[S07 runbook](m006-s07-mentor-distribution-closure.md)'),
+        contains(
+          '不要运行该 verifier 或任一 legacy child chain；S13/S12 仍依赖已归档或移除的 active 路径，执行结果不能作为当前 release proof。',
+        ),
+      );
+      expect(
+        releaseRunbook,
+        contains(
+          '[S07 archived runbook](../archived/runbooks/m006-s07-mentor-distribution-closure.md)',
+        ),
       );
       expect(
         releaseRunbook,
         contains('[Kubernetes split-stack deploy runbook](k8s-deploy.md)'),
       );
+      expect(
+        releaseRunbook,
+        contains(
+          '[S12 archived runbook](../archived/runbooks/m006-s12-control-plane-freshness.md)',
+        ),
+      );
+      expect(
+        releaseRunbook,
+        contains(
+          '[S13 archived runbook](../archived/runbooks/m006-s13-demo-path.md)',
+        ),
+      );
+      expect(
+        releaseRunbook,
+        isNot(contains('dart run tool/verify_m006_s14_release_closure.dart')),
+      );
+      expect(releaseRunbook, isNot(contains('## Scoped M006 drill-down')));
+      expect(releaseRunbook, isNot(contains('才运行')));
 
       final k8sRunbook = _readRootText('docs/runbooks/k8s-deploy.md');
       expect(k8sRunbook, contains('admin-api'));
       expect(k8sRunbook, contains('internal-only'));
     });
 
-    test('documented drill-down files still resolve from repo root', () {
+    test('documented historical reference files resolve from repo root', () {
       for (final relativePath in const <String>[
         'docs/runbooks/m006-s14-release-closure.md',
         'docs/runbooks/k8s-deploy.md',
-        'docs/runbooks/m006-s07-mentor-distribution-closure.md',
-        'docs/runbooks/m006-s12-control-plane-freshness.md',
-        'docs/runbooks/m006-s13-demo-path.md',
+        'docs/archived/runbooks/m006-s07-mentor-distribution-closure.md',
+        'docs/archived/runbooks/m006-s12-control-plane-freshness.md',
+        'docs/archived/runbooks/m006-s13-demo-path.md',
       ]) {
         expect(
           _rootRelativeExists(relativePath),
@@ -474,7 +666,68 @@ bool _rootRelativeExists(String relativePath) {
 
 String _readRootText(String relativePath) {
   final root = _repoRootDirectory().path;
-  return File('$root${Platform.pathSeparator}$relativePath')
-      .readAsStringSync()
-      .replaceAll('\r\n', '\n');
+  return File(
+    '$root${Platform.pathSeparator}$relativePath',
+  ).readAsStringSync().replaceAll('\r\n', '\n');
+}
+
+Future<ProcessResult> _runReleaseClosureCli(
+  List<String> args, {
+  required String workingDirectory,
+}) {
+  final verifier = File(
+    '${_repoRootDirectory().path}${Platform.pathSeparator}tool${Platform.pathSeparator}verify_m006_s14_release_closure.dart',
+  );
+  return Process.run(
+    _dartExecutable(),
+    ['run', verifier.path, ...args],
+    workingDirectory: workingDirectory,
+    runInShell: false,
+  );
+}
+
+String _dartExecutable() {
+  final resolvedExecutable = File(Platform.resolvedExecutable);
+  if (resolvedExecutable.uri.pathSegments.last.startsWith('dart')) {
+    return resolvedExecutable.path;
+  }
+
+  var ancestor = resolvedExecutable.parent;
+  while (ancestor.parent.path != ancestor.path) {
+    final candidate = File(
+      '${ancestor.path}${Platform.pathSeparator}dart-sdk${Platform.pathSeparator}bin${Platform.pathSeparator}dart${Platform.isWindows ? '.exe' : ''}',
+    );
+    if (candidate.existsSync()) {
+      return candidate.path;
+    }
+    ancestor = ancestor.parent;
+  }
+
+  throw StateError(
+    'Unable to resolve Dart executable from ${Platform.resolvedExecutable}',
+  );
+}
+
+Future<Directory> _legacyLaunchTrapFixture() async {
+  final fixture = await Directory.systemTemp.createTemp('m006_s14_no_args_');
+  final verifier = File(
+    '${fixture.path}${Platform.pathSeparator}tool${Platform.pathSeparator}verify_m006_s07_mentor_distribution.dart',
+  );
+  await verifier.parent.create(recursive: true);
+  await verifier.writeAsString('''
+import 'dart:io';
+
+void main() {
+  File('legacy-child-launched').writeAsStringSync('S07');
+  print('LEGACY_CHILD_EXECUTED');
+  print('All M006/S07 mentor + distribution verification steps passed.');
+}
+''');
+
+  final runbook = File(
+    '${fixture.path}${Platform.pathSeparator}docs${Platform.pathSeparator}archived${Platform.pathSeparator}runbooks${Platform.pathSeparator}m006-s07-mentor-distribution-closure.md',
+  );
+  await runbook.parent.create(recursive: true);
+  await runbook.writeAsString('# legacy fixture\n');
+  return fixture;
 }

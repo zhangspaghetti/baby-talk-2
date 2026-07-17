@@ -1,0 +1,29 @@
+{
+  "action": "synchronize",
+  "number": 13,
+  "pull_request": {
+    "number": 13,
+    "draft": true,
+    "base": {
+      "ref": "Develop",
+      "sha": "4f0b33462a0c7ca4b7f6f3ba0203ae776a9239cb",
+      "repo": {
+        "full_name": "zhangspaghetti/baby-talk-2"
+      }
+    },
+    "head": {
+      "ref": "gsd/v0.1-milestone",
+      "repo": {
+        "full_name": "zhangspaghetti/baby-talk-2"
+      }
+    }
+  },
+  "repository": {
+    "name": "baby-talk-2",
+    "full_name": "zhangspaghetti/baby-talk-2",
+    "default_branch": "Develop",
+    "owner": {
+      "login": "zhangspaghetti"
+    }
+  }
+}

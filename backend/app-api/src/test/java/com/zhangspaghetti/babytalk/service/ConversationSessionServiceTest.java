@@ -32,6 +32,7 @@ class ConversationSessionServiceTest {
                 null,
                 null,
                 null,
+                10,
                 3,
                 Duration.ofMinutes(10),
                 280,

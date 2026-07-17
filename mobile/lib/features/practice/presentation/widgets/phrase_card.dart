@@ -137,6 +137,7 @@ class PhraseCard extends StatelessWidget {
     final l = AppLocalizations.of(context)!;
     final colors = context.appColors;
     return Column(
+      key: Key('phrase-action-stacked-${phrase.phraseId}'),
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         // ── Compact meta row: step + status ──────────────────────────────
@@ -144,9 +145,9 @@ class PhraseCard extends StatelessWidget {
           children: [
             Text(
               l.practicePhraseStep(phrase.step),
-              style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                    color: colors.textSecondary,
-                  ),
+              style: Theme.of(
+                context,
+              ).textTheme.labelSmall?.copyWith(color: colors.textSecondary),
             ),
             const Spacer(),
             _StatusPill(label: _playbackLabel(l, playbackStatus)),
@@ -162,10 +163,10 @@ class PhraseCard extends StatelessWidget {
             phrase.english,
             textAlign: TextAlign.center,
             style: Theme.of(context).textTheme.displayMedium?.copyWith(
-                  color: colors.english,
-                  fontSize: 36,
-                  fontWeight: FontWeight.w600,
-                ),
+              color: colors.english,
+              fontSize: 36,
+              fontWeight: FontWeight.w600,
+            ),
           ),
         ),
         const SizedBox(height: AppLayoutConstants.spacingSm),
@@ -182,9 +183,9 @@ class PhraseCard extends StatelessWidget {
         Text(
           phrase.chinese,
           textAlign: TextAlign.center,
-          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-            color: colors.textSecondary,
-          ),
+          style: Theme.of(
+            context,
+          ).textTheme.bodySmall?.copyWith(color: colors.textSecondary),
         ),
         const SizedBox(height: AppLayoutConstants.spacingMd),
         // ── Action: play button ──────────────────────────────────────────
@@ -208,15 +209,18 @@ class PhraseCard extends StatelessWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(Icons.check_circle_rounded,
-                    size: 14, color: colors.success),
+                Icon(
+                  Icons.check_circle_rounded,
+                  size: 14,
+                  color: colors.success,
+                ),
                 const SizedBox(width: 4),
                 Text(
                   '已保存',
                   style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                        color: colors.success,
-                        fontWeight: FontWeight.w600,
-                      ),
+                    color: colors.success,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ],
             ),
@@ -225,9 +229,9 @@ class PhraseCard extends StatelessWidget {
           Text(
             l.phraseReactionLabel,
             textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                  color: colors.textSecondary,
-                ),
+            style: Theme.of(
+              context,
+            ).textTheme.labelMedium?.copyWith(color: colors.textSecondary),
           ),
           const SizedBox(height: 6),
           SceneReactionChipRow(
