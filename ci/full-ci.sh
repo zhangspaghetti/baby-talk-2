@@ -252,8 +252,8 @@ main() {
   stage 'admin-web-browsers' 'pnpm --filter admin-web install:browsers'
   pnpm --filter admin-web install:browsers
 
-  stage 'admin-web-e2e' 'pnpm --filter admin-web test:e2e:p0 -- --reporter=list'
-  pnpm --filter admin-web test:e2e:p0 -- --reporter=list
+  stage 'admin-web-e2e' 'pnpm --filter admin-web test:e2e:p0 --reporter=list'
+  pnpm --filter admin-web test:e2e:p0 --reporter=list
 
   stage 'admin-web-build' 'pnpm --filter admin-web build'
   pnpm --filter admin-web build

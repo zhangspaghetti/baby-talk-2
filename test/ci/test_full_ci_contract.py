@@ -49,7 +49,7 @@ class FullCiScriptContractTest(unittest.TestCase):
             "pnpm --filter admin-web format",
             "pnpm --filter admin-web test:coverage",
             "pnpm --filter admin-web install:browsers",
-            "pnpm --filter admin-web test:e2e:p0 -- --reporter=list",
+            "pnpm --filter admin-web test:e2e:p0 --reporter=list",
             "pnpm --filter admin-web build",
             "bash ci/mobile-analyze.sh",
             "cd mobile && flutter test",
