@@ -1,5 +1,11 @@
 name: admin-web
 
+env:
+  NPM_CONFIG_REGISTRY: https://mirrors.cloud.tencent.com/npm/
+  npm_config_registry: https://mirrors.cloud.tencent.com/npm/
+  COREPACK_NPM_REGISTRY: https://mirrors.cloud.tencent.com/npm/
+  PLAYWRIGHT_DOWNLOAD_HOST: https://npmmirror.com/mirrors/playwright
+
 on:
   pull_request:
     paths:

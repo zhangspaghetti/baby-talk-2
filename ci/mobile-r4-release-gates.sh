@@ -2,6 +2,7 @@
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "$0")/.." && pwd)"
+source "$repo_root/ci/download-sources.sh"
 
 echo '=== Mobile R4 Release Gates ==='
 cd "$repo_root"

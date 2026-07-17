@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
-cd "$(dirname "$0")/../mobile"
+
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+source "$repo_root/ci/download-sources.sh"
+cd "$repo_root/mobile"
 echo '=== Mobile Analyze ==='
 flutter pub get
 flutter analyze

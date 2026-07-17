@@ -76,6 +76,13 @@ def main() -> None:
         if kubeconfig.is_file()
         else "",
         "ryuk_disabled": os.environ.get("TESTCONTAINERS_RYUK_DISABLED"),
+        "download_sources": {
+            "corepack": os.environ.get("COREPACK_NPM_REGISTRY"),
+            "flutter": os.environ.get("FLUTTER_STORAGE_BASE_URL"),
+            "npm": os.environ.get("NPM_CONFIG_REGISTRY"),
+            "playwright": os.environ.get("PLAYWRIGHT_DOWNLOAD_HOST"),
+            "pub": os.environ.get("PUB_HOSTED_URL"),
+        },
     }
     print(json.dumps(payload, sort_keys=True))
 

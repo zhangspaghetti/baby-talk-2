@@ -109,6 +109,16 @@ class FullCiEnvironmentProcessTest(unittest.TestCase):
             self.assertNotEqual(payload["kubeconfig"], str(hostile_kubeconfig))
             self.assertIn("apiVersion: v1", payload["kubeconfig_text"])
             self.assertIn("clusters: []", payload["kubeconfig_text"])
+            self.assertEqual(
+                payload["download_sources"],
+                {
+                    "corepack": "https://mirrors.cloud.tencent.com/npm/",
+                    "flutter": "https://storage.flutter-io.cn",
+                    "npm": "https://mirrors.cloud.tencent.com/npm/",
+                    "playwright": "https://npmmirror.com/mirrors/playwright",
+                    "pub": "https://pub.flutter-io.cn",
+                },
+            )
             self.assertFalse(Path(payload["kubeconfig"]).exists())
         self.assertEqual(_git_status(), status_before)
 

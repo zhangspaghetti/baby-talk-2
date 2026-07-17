@@ -1,5 +1,13 @@
 name: CI
 
+env:
+  NPM_CONFIG_REGISTRY: https://mirrors.cloud.tencent.com/npm/
+  npm_config_registry: https://mirrors.cloud.tencent.com/npm/
+  COREPACK_NPM_REGISTRY: https://mirrors.cloud.tencent.com/npm/
+  PLAYWRIGHT_DOWNLOAD_HOST: https://npmmirror.com/mirrors/playwright
+  PUB_HOSTED_URL: https://pub.flutter-io.cn
+  FLUTTER_STORAGE_BASE_URL: https://storage.flutter-io.cn
+
 on:
   push:
     branches: [Develop, 'milestone/*']
@@ -38,7 +46,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          bash backend/mvnw -f backend/pom.xml -B -Dstyle.color=never dependency:tree \
+          bash ci/maven.sh -f backend/pom.xml -B -Dstyle.color=never dependency:tree \
             '-Dincludes=org.springframework.ai:*' | tee spring-ai-dependency-tree.txt
           python3 tool/verify_spring_ai_2_backend_platform.py \
             --dependency-tree spring-ai-dependency-tree.txt
@@ -94,7 +102,7 @@ jobs:
         id: checkstyle
         continue-on-error: true
         timeout-minutes: 10
-        run: bash backend/mvnw -f backend/pom.xml -B checkstyle:check
+        run: bash ci/maven.sh -f backend/pom.xml -B checkstyle:check
 
       - name: Upload JaCoCo coverage
         if: ${{ always() }}

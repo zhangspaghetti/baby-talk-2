@@ -72,6 +72,28 @@ data to act invocations or event files.
 The CI workflow pins Helm `v4.1.4`, matching the audited local toolchain. Do not
 replace this with the setup action's floating latest resolution.
 
+## Package download sources
+
+The repository pins public China mirrors only for package ecosystems whose
+artifacts remain version-locked and integrity-checked by their native tools.
+`ci/download-sources.sh` is sourced by local full CI and mobile gates; workflow
+environment values make the same source selection when those definitions are
+simulated through act.
+
+| Layer | CI download | Source |
+| --- | --- | --- |
+| pnpm/npm and first Corepack pnpm resolution | `pnpm install --frozen-lockfile`, `corepack enable` | `.npmrc`, `NPM_CONFIG_REGISTRY`, and `COREPACK_NPM_REGISTRY` use `https://mirrors.cloud.tencent.com/npm/`. `pnpm-lock.yaml` keeps package integrity and no registry-specific tarball URL. |
+| Playwright | `playwright install chromium` | `PLAYWRIGHT_DOWNLOAD_HOST=https://npmmirror.com/mirrors/playwright`. Chromium and Chromium headless shell are separate required artifacts; full CI installs once, while isolated act jobs may each need their own cache. |
+| Maven | Maven Wrapper and dependency/plugin resolution | Wrapper distribution remains on Aliyun. `ci/maven.sh` and `backend/.mvn/settings.xml` mirror only Maven Central through `https://maven.aliyun.com/repository/central`; they do not redirect arbitrary repositories. |
+| Flutter/Dart Pub | `flutter pub get` and Flutter SDK assets | `PUB_HOSTED_URL=https://pub.flutter-io.cn` and `FLUTTER_STORAGE_BASE_URL=https://storage.flutter-io.cn`. Pub locks retain archive hashes. |
+| Android Gradle | Android build workflows | Gradle Wrapper already uses Tencent's Gradle mirror; Android repositories keep Aliyun first, then official fallbacks for artifacts unavailable from a mirror. |
+| Helm smoke | `bash ci/k8s-smoke.sh` | No chart download: Redis chart is vendored and smoke does not run `helm dependency update`. |
+
+Docker images, the act runner image, GitHub Actions source, and setup-action SDK downloads are not redirected to public mirrors.
+They stay on their pinned upstream/digest source or Docker Desktop configuration;
+replace them only with a trusted, digest-preserving internal mirror. Do not use a
+generic proxy URL in repository configuration, and do not commit proxy credentials.
+
 The tracked event fixture describes draft PR #13 from
 `gsd/v0.1-milestone` into `Develop`. Its stable base SHA is the fetched
 `origin/Develop` value at fixture creation. The tracked event fixture omits `pull_request.head.sha`

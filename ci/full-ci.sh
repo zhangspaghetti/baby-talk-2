@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-repo_root=''
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 ci_runtime_dir=''
 empty_kubeconfig=''
 dependency_tree=''
@@ -78,6 +78,11 @@ sanitize_environment() {
     MAVEN_EXT_CLASS_PATH \
     M2_HOME \
     CLASSPATH \
+    NPM_CONFIG_REGISTRY \
+    npm_config_registry \
+    COREPACK_NPM_REGISTRY \
+    PUB_HOSTED_URL \
+    FLUTTER_STORAGE_BASE_URL \
     KUBECONFIG \
     KUBE_TOKEN \
     KUBERNETES_SERVICE_HOST \
@@ -160,6 +165,7 @@ refresh_flutter_windows_generated_metadata() {
 
 initialize_ci_environment() {
   sanitize_environment
+  source "$repo_root/ci/download-sources.sh"
 
   ci_runtime_dir="$(mktemp -d "${TMPDIR:-/tmp}/babytalk-full-ci.XXXXXX")"
   empty_kubeconfig="${ci_runtime_dir}/kubeconfig"
@@ -183,7 +189,6 @@ initialize_ci_environment() {
 
 main() {
   initialize_ci_environment
-  repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
   cd "$repo_root"
 
   initial_status="$(git status --porcelain=v1 --untracked-files=all)"
@@ -227,8 +232,8 @@ main() {
   stage 'spring-ai-live' 'python3 tool/verify_spring_ai_2_backend_platform.py'
   python3 tool/verify_spring_ai_2_backend_platform.py
 
-  stage 'spring-ai-dependency-tree' 'backend/mvnw dependency:tree (Spring AI only)'
-  backend/mvnw -f backend/pom.xml -B -Dstyle.color=never \
+  stage 'spring-ai-dependency-tree' 'bash ci/maven.sh dependency:tree (Spring AI only)'
+  bash ci/maven.sh -f backend/pom.xml -B -Dstyle.color=never \
     dependency:tree '-Dincludes=org.springframework.ai:*' | tee "$dependency_tree"
 
   stage 'spring-ai-resolved' 'python3 tool/verify_spring_ai_2_backend_platform.py --dependency-tree <owned-temp>'
@@ -237,13 +242,13 @@ main() {
   stage 'backend-reactor' 'bash ci/backend-test.sh'
   bash ci/backend-test.sh
 
-  stage 'growth-mapper-postgres' 'backend/mvnw -pl app-api -am -Dtest=GrowthServiceMapperIntegrationTest test'
-  backend/mvnw -f backend/pom.xml -B -pl app-api -am \
+  stage 'growth-mapper-postgres' 'bash ci/maven.sh -pl app-api -am -Dtest=GrowthServiceMapperIntegrationTest test'
+  bash ci/maven.sh -f backend/pom.xml -B -pl app-api -am \
     -Dtest=GrowthServiceMapperIntegrationTest \
     '-Dsurefire.failIfNoSpecifiedTests=false' test
 
-  stage 'backend-checkstyle' 'backend/mvnw checkstyle:check'
-  backend/mvnw -f backend/pom.xml -B checkstyle:check
+  stage 'backend-checkstyle' 'bash ci/maven.sh checkstyle:check'
+  bash ci/maven.sh -f backend/pom.xml -B checkstyle:check
 
   stage 'helm-resource-parser' 'bash test/ci/test_k8s_smoke_resource_keys.sh'
   bash test/ci/test_k8s_smoke_resource_keys.sh

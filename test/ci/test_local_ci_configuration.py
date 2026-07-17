@@ -1,4 +1,5 @@
 import json
+import os
 import re
 import unittest
 from pathlib import Path
@@ -16,6 +17,10 @@ BACKEND_TEST_SCRIPT = REPO_ROOT / "ci" / "backend-test.sh"
 PACKAGE_JSON = REPO_ROOT / "package.json"
 PNPM_WORKSPACE = REPO_ROOT / "pnpm-workspace.yaml"
 MOBILE_TEST_ROOT = REPO_ROOT / "mobile" / "test"
+NPMRC = REPO_ROOT / ".npmrc"
+DOWNLOAD_SOURCES = REPO_ROOT / "ci" / "download-sources.sh"
+MAVEN_WRAPPER = REPO_ROOT / "ci" / "maven.sh"
+MAVEN_SETTINGS = REPO_ROOT / "backend" / ".mvn" / "settings.xml"
 
 ISAR_TEST_LIBRARY_CONSUMERS = (
     "app/app_composition_characterization_test.dart",
@@ -202,6 +207,18 @@ class LocalCiDocumentationContractTest(unittest.TestCase):
         self.assertIn("TESTCONTAINERS_RYUK_DISABLED", self.text)
         self.assertIn("TESTCONTAINERS_HOST_OVERRIDE=host.docker.internal", self.text)
         self.assertIn("PLAYWRIGHT_DOWNLOAD_CONNECTION_TIMEOUT=180000", self.text)
+
+    def test_docs_record_package_download_mirrors_and_non_mirrored_sources(self) -> None:
+        for statement in (
+            "https://mirrors.cloud.tencent.com/npm/",
+            "https://npmmirror.com/mirrors/playwright",
+            "https://maven.aliyun.com/repository/central",
+            "https://pub.flutter-io.cn",
+            "https://storage.flutter-io.cn",
+            "COREPACK_NPM_REGISTRY",
+            "Docker images, the act runner image, GitHub Actions source, and setup-action SDK downloads are not redirected to public mirrors.",
+        ):
+            self.assertIn(statement, self.text)
 
     def test_docs_clear_inherited_secrets_before_act_without_printing_values(self) -> None:
         for exact_name in (
@@ -412,12 +429,12 @@ class WindowsActCopyCompatibilityContractTest(unittest.TestCase):
             workflow,
         )
 
-    def test_backend_wrapper_is_invoked_through_bash(self) -> None:
+    def test_backend_mirror_wrapper_is_invoked_through_bash(self) -> None:
         text = CI_WORKFLOW.read_text(encoding="utf-8")
         self.assertNotIn("./backend/mvnw", text)
-        self.assertEqual(text.count("bash backend/mvnw"), 2)
+        self.assertEqual(text.count("bash ci/maven.sh"), 2)
         backend_test = BACKEND_TEST_SCRIPT.read_text(encoding="utf-8")
-        self.assertIn('bash "$BACKEND_DIR/mvnw"', backend_test)
+        self.assertIn('"$ROOT_DIR/ci/maven.sh"', backend_test)
         self.assertNotIn('\n"$BACKEND_DIR/mvnw"', backend_test)
 
     def test_shell_entrypoints_are_forced_to_lf(self) -> None:
@@ -474,6 +491,76 @@ class WindowsActCopyCompatibilityContractTest(unittest.TestCase):
                 1,
                 relative_path,
             )
+
+
+class DownloadSourceContractTest(unittest.TestCase):
+    def test_repository_ci_pins_verified_china_package_mirrors(self) -> None:
+        self.assertEqual(
+            NPMRC.read_text(encoding="utf-8"),
+            "registry=https://mirrors.cloud.tencent.com/npm/\n",
+        )
+
+        source_text = DOWNLOAD_SOURCES.read_text(encoding="utf-8")
+        self.assertIn(
+            "https://mirrors.cloud.tencent.com/npm/",
+            source_text,
+        )
+        self.assertIn("COREPACK_NPM_REGISTRY", source_text)
+        self.assertIn(
+            "https://npmmirror.com/mirrors/playwright",
+            source_text,
+        )
+        self.assertIn("https://pub.flutter-io.cn", source_text)
+        self.assertIn("https://storage.flutter-io.cn", source_text)
+
+        settings_text = MAVEN_SETTINGS.read_text(encoding="utf-8")
+        self.assertIn("<mirrorOf>central</mirrorOf>", settings_text)
+        self.assertIn("https://maven.aliyun.com/repository/central", settings_text)
+        self.assertNotIn("<mirrorOf>*</mirrorOf>", settings_text)
+
+        for workflow_name in ("ci.yml", "admin-web.yml"):
+            workflow_text = (
+                REPO_ROOT / ".github" / "workflows" / workflow_name
+            ).read_text(encoding="utf-8")
+            self.assertIn(
+                "PLAYWRIGHT_DOWNLOAD_HOST: https://npmmirror.com/mirrors/playwright",
+                workflow_text,
+            )
+            self.assertIn(
+                "COREPACK_NPM_REGISTRY: https://mirrors.cloud.tencent.com/npm/",
+                workflow_text,
+            )
+
+        admin_dockerfile = (REPO_ROOT / "admin-web" / "Dockerfile").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("COPY .npmrc ./", admin_dockerfile)
+        self.assertIn(
+            "COREPACK_NPM_REGISTRY=https://mirrors.cloud.tencent.com/npm/",
+            admin_dockerfile,
+        )
+
+    def test_full_ci_routes_maven_and_flutter_through_project_sources(self) -> None:
+        full_ci = (REPO_ROOT / "ci" / "full-ci.sh").read_text(encoding="utf-8")
+        backend_test = BACKEND_TEST_SCRIPT.read_text(encoding="utf-8")
+        mobile_analyze = (REPO_ROOT / "ci" / "mobile-analyze.sh").read_text(
+            encoding="utf-8"
+        )
+        mobile_r4 = (REPO_ROOT / "ci" / "mobile-r4-release-gates.sh").read_text(
+            encoding="utf-8"
+        )
+
+        self.assertIn('source "$repo_root/ci/download-sources.sh"', full_ci)
+        self.assertIn('bash ci/maven.sh', full_ci)
+        self.assertIn('"$ROOT_DIR/ci/maven.sh"', backend_test)
+        self.assertIn('download-sources.sh', mobile_analyze)
+        self.assertIn('download-sources.sh', mobile_r4)
+
+        self.assertTrue(MAVEN_WRAPPER.is_file())
+        self.assertTrue(os.access(MAVEN_WRAPPER, os.X_OK))
+        wrapper_text = MAVEN_WRAPPER.read_text(encoding="utf-8")
+        self.assertIn('backend/.mvn/settings.xml', wrapper_text)
+        self.assertIn('exec bash "$repo_root/backend/mvnw"', wrapper_text)
 
 
 if __name__ == "__main__":
