@@ -11,7 +11,8 @@ const composeCommandTimeoutMs = 120_000;
 export const adminApiBaseUrl = process.env['BABY_TALK_ADMIN_API_BASE_URL'] ?? 'http://127.0.0.1:8081';
 export const sessionStorageKey = 'babytalk.admin.session';
 const k8sNamespace = process.env['BABY_TALK_PLAYWRIGHT_K8S_NAMESPACE'] ?? 'babytalk-qa';
-const k8sPostgresDeployment = process.env['BABY_TALK_PLAYWRIGHT_K8S_POSTGRES_DEPLOYMENT'] ?? 'babytalk-qa-infra-postgres';
+const k8sPostgresDeployment =
+  process.env['BABY_TALK_PLAYWRIGHT_K8S_POSTGRES_DEPLOYMENT'] ?? 'babytalk-qa-infra-postgres';
 const postgresUser = process.env['BABY_TALK_PLAYWRIGHT_POSTGRES_USER'] ?? 'babytalk';
 const postgresDb = process.env['BABY_TALK_PLAYWRIGHT_POSTGRES_DB'] ?? 'babytalk';
 export const superAdminCredentials = {
@@ -363,7 +364,19 @@ function runComposePsql(sql: string, tuplesOnly: boolean, label: string): string
       timeout: composeCommandTimeoutMs,
     });
   } else {
-    const args = ['compose', 'exec', '-T', 'postgres', 'psql', '-U', postgresUser, '-d', postgresDb, '-v', 'ON_ERROR_STOP=1'];
+    const args = [
+      'compose',
+      'exec',
+      '-T',
+      'postgres',
+      'psql',
+      '-U',
+      postgresUser,
+      '-d',
+      postgresDb,
+      '-v',
+      'ON_ERROR_STOP=1',
+    ];
     if (tuplesOnly) {
       args.push('-At');
     }
@@ -376,7 +389,7 @@ function runComposePsql(sql: string, tuplesOnly: boolean, label: string): string
     });
   }
 
-  if (result.error?.code === 'ETIMEDOUT') {
+  if (isTimeoutSpawnError(result.error)) {
     throw new Error(
       `[admin-api seed] ${label} timed out after ${composeCommandTimeoutMs}ms\nstdout:\n${result.stdout}\nstderr:\n${result.stderr}`,
     );
@@ -389,6 +402,10 @@ function runComposePsql(sql: string, tuplesOnly: boolean, label: string): string
   }
 
   return result.stdout;
+}
+
+export function isTimeoutSpawnError(error: Error | undefined): error is NodeJS.ErrnoException {
+  return error != null && 'code' in error && error.code === 'ETIMEDOUT';
 }
 
 function sqlLiteral(value: string | null): string {
