@@ -9,13 +9,13 @@ env:
   FLUTTER_STORAGE_BASE_URL: https://storage.flutter-io.cn
 
 on:
-  push:
-    branches: [Develop, 'milestone/*']
   pull_request:
-    branches: [Develop]
+    types: [closed]
+    branches: [Release_QA]
 
 jobs:
   release-closure-gate:
+    if: github.event.pull_request.merged == true && github.event.pull_request.head.ref == 'Develop'
     runs-on: ubuntu-latest
     timeout-minutes: 60
     env:
@@ -161,6 +161,7 @@ jobs:
           exit 1
 
   mobile-analyze:
+    if: github.event.pull_request.merged == true && github.event.pull_request.head.ref == 'Develop'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
