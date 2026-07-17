@@ -16,6 +16,8 @@ import java.time.ZoneOffset;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -28,6 +30,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 })
 class GrowthServiceMapperIntegrationTest extends AbstractIntegrationTest {
 
+    private static final String GROWTH_TEST_PREFIX = "growth_test_";
     private static final ZoneId SHANGHAI = ZoneId.of("Asia/Shanghai");
     private static final Clock GROWTH_CLOCK = Clock.fixed(
             Instant.parse("2026-07-24T12:00:00Z"),
@@ -51,6 +54,16 @@ class GrowthServiceMapperIntegrationTest extends AbstractIntegrationTest {
 
     @Autowired
     private JdbcTemplate jdbcTemplate;
+
+    @BeforeEach
+    void cleanGrowthCatalogFixturesBeforeTest() {
+        cleanGrowthCatalogFixtures();
+    }
+
+    @AfterEach
+    void cleanGrowthCatalogFixturesAfterTest() {
+        cleanGrowthCatalogFixtures();
+    }
 
     @Test
     void fertilizerMapperPreservesTransactionAndIdempotencySemantics() {
@@ -319,6 +332,25 @@ class GrowthServiceMapperIntegrationTest extends AbstractIntegrationTest {
                     90 + index
             );
         }
+    }
+
+    private void cleanGrowthCatalogFixtures() {
+        var likePattern = GROWTH_TEST_PREFIX.replace("_", "!_") + "%";
+        jdbcTemplate.update(
+                "delete from interaction_events where space_id like ? escape '!' or activity_id like ? escape '!'",
+                likePattern,
+                likePattern
+        );
+        jdbcTemplate.update(
+                "delete from practice_phrases where activity_id in (select id from practice_activities where slug like ? escape '!')",
+                likePattern
+        );
+        jdbcTemplate.update(
+                "delete from practice_activities where slug like ? escape '!' or space_id in (select id from practice_spaces where slug like ? escape '!')",
+                likePattern,
+                likePattern
+        );
+        jdbcTemplate.update("delete from practice_spaces where slug like ? escape '!'", likePattern);
     }
 
     private void insertEventsInReverseOrder(

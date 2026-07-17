@@ -228,6 +228,9 @@ main() {
   stage 'backend-checkstyle' 'backend/mvnw checkstyle:check'
   backend/mvnw -f backend/pom.xml -B checkstyle:check
 
+  stage 'helm-resource-parser' 'bash test/ci/test_k8s_smoke_resource_keys.sh'
+  bash test/ci/test_k8s_smoke_resource_keys.sh
+
   stage 'helm-smoke' 'bash ci/k8s-smoke.sh'
   bash ci/k8s-smoke.sh
 
