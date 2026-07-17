@@ -141,6 +141,23 @@ cleanup() {
   exit "$status"
 }
 
+refresh_flutter_windows_generated_metadata() {
+  local generated_plugin_files=(
+    'mobile/windows/flutter/generated_plugin_registrant.cc'
+    'mobile/windows/flutter/generated_plugin_registrant.h'
+    'mobile/windows/flutter/generated_plugins.cmake'
+  )
+
+  # Flutter can touch these tracked Windows registrants without changing a byte.
+  # On Windows, Git may retain that stat-only change as .M until its index cache
+  # is refreshed. Never hide a substantive generator change or stage content.
+  git diff --quiet -- "${generated_plugin_files[@]}" || \
+    fail 'Flutter changed tracked Windows plugin registrant content'
+  git add -- "${generated_plugin_files[@]}"
+  git diff --cached --quiet -- "${generated_plugin_files[@]}" || \
+    fail 'Flutter Windows plugin registrant refresh staged content'
+}
+
 initialize_ci_environment() {
   sanitize_environment
 
@@ -281,6 +298,9 @@ main() {
 
   stage 'm007-s06' 'dart run tool/verify_m007_s06_docs_coherence.dart'
   dart run tool/verify_m007_s06_docs_coherence.dart
+
+  stage 'flutter-windows-generated-metadata' 'refresh identical Flutter Windows plugin registrant metadata'
+  refresh_flutter_windows_generated_metadata
 
   stage 'diff-check' 'git diff --check <merge-base>..<HEAD>'
   git diff --check "${MERGE_BASE_SHA}..${HEAD_SHA}"

@@ -60,6 +60,7 @@ class FullCiScriptContractTest(unittest.TestCase):
             "verify_m007_s01_helm_baseline_test.dart",
             "dart run tool/verify_m007_s02_release_boundaries.dart",
             "dart run tool/verify_m007_s06_docs_coherence.dart",
+            "refresh identical Flutter Windows plugin registrant metadata",
             "git diff --check",
         ]
         positions = [self.text.index(marker) for marker in ordered_markers]
@@ -187,12 +188,29 @@ class FullCiScriptContractTest(unittest.TestCase):
             "release-fixtures",
             "m007-s02",
             "m007-s06",
+            "flutter-windows-generated-metadata",
             "diff-check",
             "final-cleanliness",
         )
         positions = [self.text.index(f"stage '{gate_id}'") for gate_id in gate_ids]
         self.assertEqual(positions, sorted(positions))
         self.assertIn("gate=%s command=%s", self.text)
+
+    def test_flutter_windows_metadata_refresh_fails_closed_on_content_changes(self) -> None:
+        refresh = self.text.index(
+            "  refresh_flutter_windows_generated_metadata\n",
+            self.text.index("stage 'm007-s06'"),
+        )
+        final_diff_check = self.text.index("stage 'diff-check'")
+        self.assertLess(refresh, final_diff_check)
+        self.assertIn("mobile/windows/flutter/generated_plugin_registrant.cc", self.text)
+        self.assertIn("mobile/windows/flutter/generated_plugin_registrant.h", self.text)
+        self.assertIn("mobile/windows/flutter/generated_plugins.cmake", self.text)
+        self.assertIn('git diff --quiet -- "${generated_plugin_files[@]}"', self.text)
+        self.assertIn('git add -- "${generated_plugin_files[@]}"', self.text)
+        self.assertIn('git diff --cached --quiet -- "${generated_plugin_files[@]}"', self.text)
+        self.assertIn("Flutter changed tracked Windows plugin registrant content", self.text)
+        self.assertIn("Flutter Windows plugin registrant refresh staged content", self.text)
 
     def test_script_can_be_sourced_without_running_main(self) -> None:
         self.assertIn('[[ "${BASH_SOURCE[0]}" == "$0" ]]', self.text)
