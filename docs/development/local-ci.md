@@ -11,6 +11,13 @@ git fetch origin Develop
 bash ci/full-ci.sh
 ```
 
+The fixed gate order covers the Spring AI verifier fixtures, live verifier, and
+resolved dependency graph; the six-module backend reactor; Maven Checkstyle;
+the Helm smoke; admin-web typecheck, lint, format, unit coverage, P0 E2E, and build;
+mobile analyze, full test suite, and R4 release gates; release/docs/schema/M006
+gates; then diff and final-cleanliness checks. A gate that fails stops the run;
+an environment-specific skip is not a pass.
+
 GitHub-hosted Actions: **INTENTIONALLY DISABLED**
 
 Server-side required checks: **NOT CONFIGURED**

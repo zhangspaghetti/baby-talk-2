@@ -234,8 +234,38 @@ main() {
   stage 'helm-smoke' 'bash ci/k8s-smoke.sh'
   bash ci/k8s-smoke.sh
 
+  stage 'admin-web-install' 'pnpm install --frozen-lockfile'
+  pnpm install --frozen-lockfile
+
+  stage 'admin-web-typecheck' 'pnpm --filter admin-web typecheck'
+  pnpm --filter admin-web typecheck
+
+  stage 'admin-web-lint' 'pnpm --filter admin-web lint'
+  pnpm --filter admin-web lint
+
+  stage 'admin-web-format' 'pnpm --filter admin-web format'
+  pnpm --filter admin-web format
+
+  stage 'admin-web-unit' 'pnpm --filter admin-web test:coverage'
+  pnpm --filter admin-web test:coverage
+
+  stage 'admin-web-browsers' 'pnpm --filter admin-web install:browsers'
+  pnpm --filter admin-web install:browsers
+
+  stage 'admin-web-e2e' 'pnpm --filter admin-web test:e2e:p0 -- --reporter=list'
+  pnpm --filter admin-web test:e2e:p0 -- --reporter=list
+
+  stage 'admin-web-build' 'pnpm --filter admin-web build'
+  pnpm --filter admin-web build
+
   stage 'mobile-analyze' 'bash ci/mobile-analyze.sh'
   bash ci/mobile-analyze.sh
+
+  stage 'mobile-test' 'cd mobile && flutter test'
+  (
+    cd mobile
+    flutter test
+  )
 
   stage 'mobile-r4' 'bash ci/mobile-r4-release-gates.sh'
   bash ci/mobile-r4-release-gates.sh

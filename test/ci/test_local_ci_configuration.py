@@ -184,6 +184,17 @@ class LocalCiDocumentationContractTest(unittest.TestCase):
         self.assertIn("release-closure-gate", self.text)
         self.assertIn("mobile-analyze", self.text)
 
+    def test_docs_name_every_complete_local_ci_product_gate(self) -> None:
+        for statement in (
+            "six-module backend reactor",
+            "Maven Checkstyle",
+            "Helm smoke",
+            "admin-web typecheck, lint, format, unit coverage, P0 E2E, and build",
+            "mobile analyze, full test suite, and R4 release gates",
+            "release/docs/schema/M006",
+        ):
+            self.assertIn(statement, self.text)
+
     def test_docs_keep_proxy_contexts_separate(self) -> None:
         self.assertIn("http://127.0.0.1:7890", self.text)
         self.assertIn("http://host.docker.internal:7890", self.text)
