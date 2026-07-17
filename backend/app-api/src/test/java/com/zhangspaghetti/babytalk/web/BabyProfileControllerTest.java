@@ -12,7 +12,6 @@ import com.zhangspaghetti.babytalk.config.ApiVersionInterceptor;
 import com.zhangspaghetti.babytalk.service.AuthConsentSyncService;
 import java.time.Instant;
 import java.time.OffsetDateTime;
-import java.time.ZoneOffset;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
@@ -129,7 +128,7 @@ class BabyProfileControllerTest extends AbstractIntegrationTest {
     @Test
     void offsetDateTimeInputIsNormalizedToUtcIsoJson() throws Exception {
         var session = createAcceptedSession("13800138113", "install-onboarding-utc");
-        var completedAt = OffsetDateTime.now(ZoneOffset.ofHours(8)).minusMinutes(1).withNano(0);
+        var completedAt = OffsetDateTime.parse("2025-01-02T03:04:00+08:00");
 
         mockMvc.perform(put("/api/v1/onboarding/profile")
                         .header(ApiVersionInterceptor.VERSION_HEADER, "1.2.0")
@@ -137,8 +136,7 @@ class BabyProfileControllerTest extends AbstractIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(completedJson(null, "小满", completedAt.toString())))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.onboardingCompletedAt").value(
-                        completedAt.withOffsetSameInstant(ZoneOffset.UTC).toString()));
+                .andExpect(jsonPath("$.onboardingCompletedAt").value("2025-01-01T19:04:00Z"));
     }
 
     @Test
