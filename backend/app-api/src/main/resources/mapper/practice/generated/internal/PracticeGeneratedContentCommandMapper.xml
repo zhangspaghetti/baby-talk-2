@@ -84,7 +84,10 @@
             generation_error_code = null, generation_error_retryable = null,
             generation_expires_at = null, normalized_scene_text = null,
             retention_expires_at = case when owner_scope = 'installation'
-                then #{et.retentionExpiresAt,typeHandler=org.apache.ibatis.type.OffsetDateTimeTypeHandler}
+                then cast(
+                    #{et.retentionExpiresAt,typeHandler=org.apache.ibatis.type.OffsetDateTimeTypeHandler}
+                    as timestamp with time zone
+                )
                 else null end,
             updated_at = #{et.updatedAt,typeHandler=org.apache.ibatis.type.OffsetDateTimeTypeHandler}
         where generated_content_id = #{et.generatedContentId}

@@ -3,7 +3,6 @@ package com.zhangspaghetti.babytalk.practice.generated;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.zhangspaghetti.babytalk.AbstractIntegrationTest;
-import com.zhangspaghetti.babytalk.practice.discovery.CustomSceneGenerationService;
 import com.zhangspaghetti.babytalk.web.ContractException;
 import java.sql.Connection;
 import java.sql.SQLException;
@@ -54,7 +53,7 @@ class PracticeGeneratedContentConcurrencyTest extends AbstractIntegrationTest {
     private PracticeGeneratedContentKeyFactory keyFactory;
 
     @Autowired
-    private RecordingCustomSceneGenerationService provider;
+    private RecordingCustomSceneGenerator provider;
 
     @Autowired
     private JdbcTemplate jdbcTemplate;
@@ -303,12 +302,12 @@ class PracticeGeneratedContentConcurrencyTest extends AbstractIntegrationTest {
 
         @Bean
         @Primary
-        RecordingCustomSceneGenerationService recordingCustomSceneGenerationService(DataSource dataSource) {
-            return new RecordingCustomSceneGenerationService(dataSource);
+        RecordingCustomSceneGenerator recordingCustomSceneGenerator(DataSource dataSource) {
+            return new RecordingCustomSceneGenerator(dataSource);
         }
     }
 
-    static class RecordingCustomSceneGenerationService implements CustomSceneGenerationService {
+    static class RecordingCustomSceneGenerator implements CustomSceneGenerator {
 
         private final DataSource dataSource;
         private final AtomicInteger calls = new AtomicInteger();
@@ -317,7 +316,7 @@ class PracticeGeneratedContentConcurrencyTest extends AbstractIntegrationTest {
         private volatile CountDownLatch entered = new CountDownLatch(1);
         private volatile CountDownLatch release = new CountDownLatch(0);
 
-        RecordingCustomSceneGenerationService(DataSource dataSource) {
+        RecordingCustomSceneGenerator(DataSource dataSource) {
             this.dataSource = dataSource;
         }
 
@@ -330,7 +329,7 @@ class PracticeGeneratedContentConcurrencyTest extends AbstractIntegrationTest {
         }
 
         @Override
-        public GeneratedPracticeContentCandidate generateCustomSceneStarter(CustomSceneGenerationRequest request) {
+        public GeneratedPracticeContentCandidate generate(GeneratorRequest request) {
             calls.incrementAndGet();
             verifyReservationCommittedAndUnlocked(request.generatedContentId());
             entered.countDown();
@@ -342,11 +341,12 @@ class PracticeGeneratedContentConcurrencyTest extends AbstractIntegrationTest {
                 Thread.currentThread().interrupt();
                 throw new IllegalStateException("test provider interrupted", exception);
             }
-            if (request.canonicalSceneText().contains("鞋")) {
+            if (request.displayText().contains("鞋")) {
                 return candidate(
                         "出门穿鞋",
                         "Shoes on",
-                        "拿起鞋子，慢慢说一遍。",
+                        "拿起鞋子。",
+                        "慢慢说一遍。",
                         "Shoes on.",
                         "穿鞋啦。",
                         "shoes on");
@@ -354,7 +354,8 @@ class PracticeGeneratedContentConcurrencyTest extends AbstractIntegrationTest {
             return candidate(
                     "洗澡安抚",
                     "Bath care",
-                    "看着宝宝，慢慢说一遍。",
+                    "看着宝宝。",
+                    "慢慢说一遍。",
                     "Warm water.",
                     "水暖暖的。",
                     "warm water");
@@ -363,7 +364,8 @@ class PracticeGeneratedContentConcurrencyTest extends AbstractIntegrationTest {
         private GeneratedPracticeContentCandidate candidate(
                 String activityTitle,
                 String sceneTag,
-                String coachTip,
+                String tprAction,
+                String deliveryGuidance,
                 String englishText,
                 String chineseText,
                 String pronunciationHint
@@ -372,15 +374,13 @@ class PracticeGeneratedContentConcurrencyTest extends AbstractIntegrationTest {
                     "日常照护",
                     activityTitle,
                     sceneTag,
-                    coachTip,
+                    tprAction,
+                    deliveryGuidance,
                     englishText,
                     chineseText,
                     pronunciationHint,
                     "starter",
-                    "fake",
-                    "test_provider_trace",
-                    null,
-                    "test-recording-provider");
+                    "fake");
         }
 
         private void verifyReservationCommittedAndUnlocked(String generatedContentId) {

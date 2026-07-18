@@ -1,5 +1,6 @@
 package com.zhangspaghetti.babytalk.practice.discovery;
 
+import com.zhangspaghetti.babytalk.practice.generated.CustomSceneGenerator;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -22,7 +23,7 @@ class CustomSceneGeneratedContentValidatorTest {
     void parentSpeakableMixedCareContentAccepted() {
         var validated = validator.normalizeAndValidate(
                 candidate("日常照护", "换尿布安抚", "Diaper care", "先看着宝宝，再轻声重复。", "Fresh diaper.", "干净尿布。", "starter", "agentic_search"),
-                CustomSceneGenerationService.ContentConstraints.defaults()
+                CustomSceneGenerator.ContentConstraints.defaults()
         );
 
         assertThat(validated.englishText()).isEqualTo("Fresh diaper.");
@@ -35,12 +36,12 @@ class CustomSceneGeneratedContentValidatorTest {
     void englishStarterMustBeShort() {
         assertThatThrownBy(() -> validator.normalizeAndValidate(
                 candidate("日常照护", "洗澡安抚", "Bath care", "慢慢说。", "This has too many starter words now.", "水暖暖的。", "starter", "agentic_search"),
-                CustomSceneGenerationService.ContentConstraints.defaults()
+                CustomSceneGenerator.ContentConstraints.defaults()
         )).isInstanceOf(CustomSceneGeneratedContentValidator.InvalidGeneratedContentException.class);
 
         assertThatThrownBy(() -> validator.normalizeAndValidate(
                 candidate("日常照护", "洗澡安抚", "Bath care", "慢慢说。", "This starter phrase is definitely over forty chars.", "水暖暖的。", "starter", "agentic_search"),
-                CustomSceneGenerationService.ContentConstraints.defaults()
+                CustomSceneGenerator.ContentConstraints.defaults()
         )).isInstanceOf(CustomSceneGeneratedContentValidator.InvalidGeneratedContentException.class);
     }
 
@@ -48,12 +49,12 @@ class CustomSceneGeneratedContentValidatorTest {
     void chineseSupportAndTipsMustFit() {
         assertThatThrownBy(() -> validator.normalizeAndValidate(
                 candidate("日常照护", "洗澡安抚", "Bath care", "慢慢说。", "Warm water.", "这是一句很长很长很长很长很长很长很长的中文支持文本。", "starter", "agentic_search"),
-                CustomSceneGenerationService.ContentConstraints.defaults()
+                CustomSceneGenerator.ContentConstraints.defaults()
         )).isInstanceOf(CustomSceneGeneratedContentValidator.InvalidGeneratedContentException.class);
 
         assertThatThrownBy(() -> validator.normalizeAndValidate(
                 candidate("日常照护", "洗澡安抚", "Bath care", "慢慢说慢慢说慢慢说慢慢说慢慢说慢慢说慢慢说慢慢说慢慢说慢慢说慢慢说慢慢说慢慢说慢慢说慢慢说慢慢说慢慢说慢慢说慢慢说慢慢说慢慢说慢慢说慢慢说慢慢说慢慢说慢慢说慢慢说慢慢说慢慢说慢慢说。", "Warm water.", "水暖暖的。", "starter", "agentic_search"),
-                CustomSceneGenerationService.ContentConstraints.defaults()
+                CustomSceneGenerator.ContentConstraints.defaults()
         )).isInstanceOf(CustomSceneGeneratedContentValidator.InvalidGeneratedContentException.class);
     }
 
@@ -61,12 +62,12 @@ class CustomSceneGeneratedContentValidatorTest {
     void difficultyAndGenerationSourceMustBeAllowed() {
         assertThatThrownBy(() -> validator.normalizeAndValidate(
                 candidate("日常照护", "洗澡安抚", "Bath care", "慢慢说。", "Warm water.", "水暖暖的。", "advanced", "agentic_search"),
-                CustomSceneGenerationService.ContentConstraints.defaults()
+                CustomSceneGenerator.ContentConstraints.defaults()
         )).isInstanceOf(CustomSceneGeneratedContentValidator.InvalidGeneratedContentException.class);
 
         assertThatThrownBy(() -> validator.normalizeAndValidate(
                 candidate("日常照护", "洗澡安抚", "Bath care", "慢慢说。", "Warm water.", "水暖暖的。", "starter", "provider_direct"),
-                CustomSceneGenerationService.ContentConstraints.defaults()
+                CustomSceneGenerator.ContentConstraints.defaults()
         )).isInstanceOf(CustomSceneGeneratedContentValidator.InvalidGeneratedContentException.class);
     }
 
@@ -74,13 +75,13 @@ class CustomSceneGeneratedContentValidatorTest {
     void fakeProvenanceIsRejectedByProductionConstraints() {
         assertThatThrownBy(() -> validator.normalizeAndValidate(
                 candidate("日常照护", "洗澡安抚", "Bath care", "慢慢说。", "Warm water.", "水暖暖的。", "starter", "fake"),
-                CustomSceneGenerationService.ContentConstraints.defaults()
+                CustomSceneGenerator.ContentConstraints.defaults()
         )).isInstanceOf(CustomSceneGeneratedContentValidator.InvalidGeneratedContentException.class)
                 .hasMessage("generationSource");
 
         var validated = validator.normalizeAndValidate(
                 candidate("日常照护", "洗澡安抚", "Bath care", "慢慢说。", "Warm water.", "水暖暖的。", "starter", "fake"),
-                CustomSceneGenerationService.ContentConstraints.fakeProviderDefaults());
+                CustomSceneGenerator.ContentConstraints.fakeProviderDefaults());
         assertThat(validated.generationSource()).isEqualTo("fake");
     }
 
@@ -123,20 +124,10 @@ class CustomSceneGeneratedContentValidatorTest {
         var exception = assertThrows(CustomSceneGeneratedContentValidator.RejectedGeneratedContentException.class,
                 () -> validator.normalizeAndValidate(
                         candidateWithChineseText(chineseText),
-                        CustomSceneGenerationService.ContentConstraints.defaults(),
+                        CustomSceneGenerator.ContentConstraints.defaults(),
                         new CustomSceneGeneratedContentValidator.GeneratedOutputValidationContext("给宝宝穿鞋")));
 
         assertThat(exception.reason()).isEqualTo("output_pii_leakage");
-    }
-
-    @Test
-    void rejectsNaturalLanguageInProviderTraceMetadata() {
-        var exception = assertThrows(CustomSceneGeneratedContentValidator.InvalidGeneratedContentException.class,
-                () -> validator.normalizeAndValidate(
-                        candidateWithProviderTraceId("宝宝不肯穿鞋的原始输入"),
-                        CustomSceneGenerationService.ContentConstraints.defaults()));
-
-        assertThat(exception.fieldName()).isEqualTo("providerTraceId");
     }
 
     @Test
@@ -144,8 +135,8 @@ class CustomSceneGeneratedContentValidatorTest {
         var scene = "给宝宝剪指甲时总是乱动并且一直躲开";
         var exception = assertThrows(CustomSceneGeneratedContentValidator.RejectedGeneratedContentException.class,
                 () -> validator.normalizeAndValidate(
-                        candidateWithCoachTip(scene),
-                        CustomSceneGenerationService.ContentConstraints.defaults(),
+                        candidateWithTprAction(scene),
+                        CustomSceneGenerator.ContentConstraints.defaults(),
                         new CustomSceneGeneratedContentValidator.GeneratedOutputValidationContext(scene)));
 
         assertThat(exception.reason()).isEqualTo("custom_scene_prompt_echo");
@@ -156,19 +147,18 @@ class CustomSceneGeneratedContentValidatorTest {
         var candidate = candidateWithChineseText("👨‍👩‍👧‍👦".repeat(20));
 
         var exception = assertThrows(CustomSceneGeneratedContentValidator.InvalidGeneratedContentException.class,
-                () -> validator.normalizeAndValidate(candidate, CustomSceneGenerationService.ContentConstraints.defaults()));
+                () -> validator.normalizeAndValidate(candidate, CustomSceneGenerator.ContentConstraints.defaults()));
 
         assertThat(exception.fieldName()).isEqualTo("chineseText");
     }
 
     @Test
     void allProviderControlledDatabaseFieldsRespectVarcharLengths() {
-        assertInvalidField(persistedCandidate("照".repeat(121), "洗澡安抚", "warm water", "provider", "retrieval", "model"), "spaceTitleZh");
-        assertInvalidField(persistedCandidate("日常照护", "澡".repeat(121), "warm water", "provider", "retrieval", "model"), "activityTitleZh");
-        assertInvalidField(persistedCandidate("日常照护", "洗澡安抚", "p".repeat(121), "provider", "retrieval", "model"), "pronunciationHint");
-        assertInvalidField(persistedCandidate("日常照护", "洗澡安抚", "warm water", "p".repeat(129), "retrieval", "model"), "providerTraceId");
-        assertInvalidField(persistedCandidate("日常照护", "洗澡安抚", "warm water", "provider", "r".repeat(129), "model"), "retrievalTraceId");
-        assertInvalidField(persistedCandidate("日常照护", "洗澡安抚", "warm water", "provider", "retrieval", "m".repeat(97)), "modelName");
+        assertInvalidField(persistedCandidate("照".repeat(121), "洗澡安抚", "warm water", "拿起毛巾。", "慢慢说。"), "spaceTitleZh");
+        assertInvalidField(persistedCandidate("日常照护", "澡".repeat(121), "warm water", "拿起毛巾。", "慢慢说。"), "activityTitleZh");
+        assertInvalidField(persistedCandidate("日常照护", "洗澡安抚", "p".repeat(121), "拿起毛巾。", "慢慢说。"), "pronunciationHint");
+        assertInvalidField(persistedCandidate("日常照护", "洗澡安抚", "warm water", "拿".repeat(241), "慢慢说。"), "tprActionZh");
+        assertInvalidField(persistedCandidate("日常照护", "洗澡安抚", "warm water", "拿起毛巾。", "慢".repeat(241)), "deliveryGuidanceZh");
     }
 
     @Test
@@ -178,14 +168,14 @@ class CustomSceneGeneratedContentValidatorTest {
 
         assertThatThrownBy(() -> validator.normalizeAndValidate(
                 candidate("日常照护", "洗澡安抚", "Bath care", "慢慢说。", "Warm water.", "水暖暖的。", "starter", "agentic_search"),
-                CustomSceneGenerationService.ContentConstraints.defaults(),
+                CustomSceneGenerator.ContentConstraints.defaults(),
                 shoesContext
         )).isInstanceOf(CustomSceneGeneratedContentValidator.RejectedGeneratedContentException.class)
                 .hasMessage("scene_intent_mismatch");
 
         var aligned = validator.normalizeAndValidate(
                 candidate("出门准备", "穿鞋出门", "Shoes on", "拿起鞋子，慢慢说。", "Shoes on.", "穿鞋出门。", "starter", "agentic_search"),
-                CustomSceneGenerationService.ContentConstraints.defaults(),
+                CustomSceneGenerator.ContentConstraints.defaults(),
                 shoesContext);
         assertThat(aligned.activityTitleZh()).isEqualTo("穿鞋出门");
     }
@@ -197,7 +187,7 @@ class CustomSceneGeneratedContentValidatorTest {
 
         assertThatThrownBy(() -> validator.normalizeAndValidate(
                 candidate("日常照护", "洗澡安抚", "Bath care", "慢慢说。", "Warm water.", "水暖暖的。", "starter", "agentic_search"),
-                CustomSceneGenerationService.ContentConstraints.defaults(),
+                CustomSceneGenerator.ContentConstraints.defaults(),
                 feedingContext
         )).isInstanceOf(CustomSceneGeneratedContentValidator.RejectedGeneratedContentException.class)
                 .hasMessage("scene_intent_mismatch");
@@ -218,7 +208,7 @@ class CustomSceneGeneratedContentValidatorTest {
 
         assertThat(validator.normalizeAndValidate(
                 candidate,
-                CustomSceneGenerationService.ContentConstraints.defaults(),
+                CustomSceneGenerator.ContentConstraints.defaults(),
                 new CustomSceneGeneratedContentValidator.GeneratedOutputValidationContext("给宝宝涂防晒")))
                 .isEqualTo(candidate);
     }
@@ -229,121 +219,94 @@ class CustomSceneGeneratedContentValidatorTest {
                 CustomSceneGeneratedContentValidator.RejectedGeneratedContentException.class,
                 () -> validator.normalizeAndValidate(
                         candidate("日常照护", "洗澡安抚", "Bath care", "慢慢说。", "Warm water.", "水暖暖的。", "starter", "agentic_search"),
-                        CustomSceneGenerationService.ContentConstraints.defaults(),
+                        CustomSceneGenerator.ContentConstraints.defaults(),
                         new CustomSceneGeneratedContentValidator.GeneratedOutputValidationContext("给宝宝穿鞋")));
 
         assertThat(exception.reason()).isEqualTo("scene_intent_mismatch");
     }
 
-    private void assertRejected(CustomSceneGenerationService.GeneratedPracticeContentCandidate candidate) {
+    private void assertRejected(CustomSceneGenerator.GeneratedPracticeContentCandidate candidate) {
         assertThatThrownBy(() -> validator.normalizeAndValidate(
                 candidate,
-                CustomSceneGenerationService.ContentConstraints.defaults()
+                CustomSceneGenerator.ContentConstraints.defaults()
         )).isInstanceOf(CustomSceneGeneratedContentValidator.RejectedGeneratedContentException.class);
     }
 
     private void assertRejectedWithReason(
-            CustomSceneGenerationService.GeneratedPracticeContentCandidate candidate,
+            CustomSceneGenerator.GeneratedPracticeContentCandidate candidate,
             String reason
     ) {
         assertThatThrownBy(() -> validator.normalizeAndValidate(
                 candidate,
-                CustomSceneGenerationService.ContentConstraints.defaults()
+                CustomSceneGenerator.ContentConstraints.defaults()
         )).isInstanceOf(CustomSceneGeneratedContentValidator.RejectedGeneratedContentException.class)
                 .hasMessage(reason);
     }
 
     private void assertInvalidField(
-            CustomSceneGenerationService.GeneratedPracticeContentCandidate candidate,
+            CustomSceneGenerator.GeneratedPracticeContentCandidate candidate,
             String field
     ) {
         assertThatThrownBy(() -> validator.normalizeAndValidate(
                 candidate,
-                CustomSceneGenerationService.ContentConstraints.defaults()
+                CustomSceneGenerator.ContentConstraints.defaults()
         )).isInstanceOf(CustomSceneGeneratedContentValidator.InvalidGeneratedContentException.class)
                 .hasMessage(field);
     }
 
-    private CustomSceneGenerationService.GeneratedPracticeContentCandidate persistedCandidate(
+    private CustomSceneGenerator.GeneratedPracticeContentCandidate persistedCandidate(
             String spaceTitleZh,
             String activityTitleZh,
             String pronunciationHint,
-            String providerTraceId,
-            String retrievalTraceId,
-            String modelName
+            String tprActionZh,
+            String deliveryGuidanceZh
     ) {
-        return new CustomSceneGenerationService.GeneratedPracticeContentCandidate(
+        return new CustomSceneGenerator.GeneratedPracticeContentCandidate(
                 spaceTitleZh,
                 activityTitleZh,
                 "Bath care",
-                "慢慢说。",
+                tprActionZh,
+                deliveryGuidanceZh,
                 "Warm water.",
                 "水暖暖的。",
                 pronunciationHint,
                 "starter",
-                "agentic_search",
-                providerTraceId,
-                retrievalTraceId,
-                modelName
+                "agentic_search"
         );
     }
 
-    private CustomSceneGenerationService.GeneratedPracticeContentCandidate candidateWithChineseText(String chineseText) {
-        return new CustomSceneGenerationService.GeneratedPracticeContentCandidate(
+    private CustomSceneGenerator.GeneratedPracticeContentCandidate candidateWithChineseText(String chineseText) {
+        return new CustomSceneGenerator.GeneratedPracticeContentCandidate(
                 "日常照护",
                 "穿鞋出门",
                 "Shoes on",
-                "拿起鞋子，慢慢说一遍。",
+                "拿起鞋子。",
+                "慢慢说一遍。",
                 "Shoes on.",
                 chineseText,
                 "shoes on",
                 "starter",
-                "agentic_search",
-                "provider_trace_1",
-                null,
-                "model-v1"
+                "agentic_search"
         );
     }
 
-    private CustomSceneGenerationService.GeneratedPracticeContentCandidate candidateWithProviderTraceId(
-            String providerTraceId
-    ) {
-        var candidate = candidateWithChineseText("穿鞋出门。");
-        return new CustomSceneGenerationService.GeneratedPracticeContentCandidate(
-                candidate.spaceTitleZh(),
-                candidate.activityTitleZh(),
-                candidate.sceneTagEn(),
-                candidate.coachTipZh(),
-                candidate.englishText(),
-                candidate.chineseText(),
-                candidate.pronunciationHint(),
-                candidate.difficulty(),
-                candidate.generationSource(),
-                providerTraceId,
-                candidate.retrievalTraceId(),
-                candidate.modelName()
-        );
-    }
-
-    private CustomSceneGenerationService.GeneratedPracticeContentCandidate candidateWithCoachTip(String coachTipZh) {
+    private CustomSceneGenerator.GeneratedPracticeContentCandidate candidateWithTprAction(String tprActionZh) {
         var candidate = candidateWithChineseText("剪指甲时慢慢来。");
-        return new CustomSceneGenerationService.GeneratedPracticeContentCandidate(
+        return new CustomSceneGenerator.GeneratedPracticeContentCandidate(
                 candidate.spaceTitleZh(),
                 candidate.activityTitleZh(),
                 candidate.sceneTagEn(),
-                coachTipZh,
+                tprActionZh,
+                candidate.deliveryGuidanceZh(),
                 candidate.englishText(),
                 candidate.chineseText(),
                 candidate.pronunciationHint(),
                 candidate.difficulty(),
-                candidate.generationSource(),
-                candidate.providerTraceId(),
-                candidate.retrievalTraceId(),
-                candidate.modelName()
+                candidate.generationSource()
         );
     }
 
-    private CustomSceneGenerationService.GeneratedPracticeContentCandidate candidate(
+    private CustomSceneGenerator.GeneratedPracticeContentCandidate candidate(
             String spaceTitleZh,
             String activityTitleZh,
             String sceneTagEn,
@@ -353,19 +316,17 @@ class CustomSceneGeneratedContentValidatorTest {
             String difficulty,
             String generationSource
     ) {
-        return new CustomSceneGenerationService.GeneratedPracticeContentCandidate(
+        return new CustomSceneGenerator.GeneratedPracticeContentCandidate(
                 spaceTitleZh,
                 activityTitleZh,
                 sceneTagEn,
+                coachTipZh,
                 coachTipZh,
                 englishText,
                 chineseText,
                 englishText.toLowerCase().replaceAll("[^a-z ]", "").trim(),
                 difficulty,
-                generationSource,
-                "fake_provider_trace",
-                null,
-                "fake-custom-scene"
+                generationSource
         );
     }
 }

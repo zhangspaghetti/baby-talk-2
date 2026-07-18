@@ -6,7 +6,6 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.zhangspaghetti.babytalk.AbstractIntegrationTest;
 import com.zhangspaghetti.babytalk.practice.discovery.CustomSceneGeneratedContentValidator;
-import com.zhangspaghetti.babytalk.practice.discovery.CustomSceneGenerationService;
 import com.zhangspaghetti.babytalk.practice.discovery.PracticeDiscoveryCustomSceneProperties;
 import com.zhangspaghetti.babytalk.practice.discovery.PracticeDiscoveryPolicyTestFixture;
 import com.zhangspaghetti.babytalk.practice.generated.internal.PracticeGenerationAuditTestAccess;
@@ -371,7 +370,7 @@ class PracticeGeneratedContentMapperTest extends AbstractIntegrationTest {
         var retryingRepository = new PracticeGeneratedContentService(
                 queryMapper,
                 commandPort,
-                org.mockito.Mockito.mock(CustomSceneGenerationService.class),
+                org.mockito.Mockito.mock(CustomSceneGenerator.class),
                 validator(),
                 PracticeDiscoveryCustomSceneProperties.enabledForTest("fake"),
                 PracticeDiscoveryPolicyTestFixture.properties(),

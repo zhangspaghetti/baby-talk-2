@@ -2,15 +2,19 @@ package com.zhangspaghetti.babytalk.practice.discovery;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.zhangspaghetti.babytalk.practice.agentic.PracticeAiOperationRunner;
 import com.zhangspaghetti.babytalk.practice.agentic.PracticeAiCapability;
 import com.zhangspaghetti.babytalk.practice.agentic.PracticeAiChatClientFactory;
 import com.zhangspaghetti.babytalk.practice.agentic.PracticeAiOpenAiOptionsFactory;
 import com.zhangspaghetti.babytalk.practice.agentic.PracticeAiProviderConfiguration;
 import com.zhangspaghetti.babytalk.practice.agentic.PracticeAiProviderManager;
-import java.time.Duration;
+import com.zhangspaghetti.babytalk.practice.agentic.PracticeAiStructuredOutputCaller;
+import com.zhangspaghetti.babytalk.practice.generated.AgenticCustomSceneGenerator;
+import com.zhangspaghetti.babytalk.practice.generated.CustomSceneGenerator;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
+import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
 
@@ -30,12 +34,12 @@ class CustomSceneGenerationProviderWiringTest {
                         "spring.profiles.active=test",
                         "babytalk.practice.discovery.custom-scene.provider-mode=fake")
                 .run(context -> {
-                    assertThat(context).hasSingleBean(CustomSceneGenerationService.class);
-                    assertThat(context.getBean(CustomSceneGenerationService.class))
+                    assertThat(context).hasSingleBean(CustomSceneGenerator.class);
+                    assertThat(context.getBean(CustomSceneGenerator.class))
                             .isInstanceOf(FakeCustomSceneGenerationService.class);
 
-                    var candidate = context.getBean(CustomSceneGenerationService.class)
-                            .generateCustomSceneStarter(request("睡前哄宝宝"));
+                    var candidate = context.getBean(CustomSceneGenerator.class)
+                            .generate(request("睡前哄宝宝"));
 
                     assertThat(candidate.englishText()).isEqualTo("Sleepy baby.");
                     assertThat(candidate.generationSource()).isEqualTo("fake");
@@ -49,8 +53,8 @@ class CustomSceneGenerationProviderWiringTest {
                         "spring.profiles.active=test",
                         "babytalk.practice.discovery.custom-scene.provider-mode=fake")
                 .run(context -> {
-                    var candidate = context.getBean(CustomSceneGenerationService.class)
-                            .generateCustomSceneStarter(request("出门前宝宝不想穿鞋"));
+                    var candidate = context.getBean(CustomSceneGenerator.class)
+                            .generate(request("出门前宝宝不想穿鞋"));
 
                     assertThat(candidate.activityTitleZh()).contains("穿鞋");
                     assertThat(candidate.sceneTagEn()).containsIgnoringCase("shoe");
@@ -66,11 +70,11 @@ class CustomSceneGenerationProviderWiringTest {
                         "babytalk.practice.discovery.custom-scene.provider-mode=fake")
                 .run(context -> {
                     assertThat(org.assertj.core.api.Assertions.catchThrowable(() -> context
-                            .getBean(CustomSceneGenerationService.class)
-                            .generateCustomSceneStarter(request("给宝宝涂防晒"))))
-                            .isInstanceOf(CustomSceneGenerationService.GenerationUnavailableException.class)
+                            .getBean(CustomSceneGenerator.class)
+                            .generate(request("给宝宝涂防晒"))))
+                            .isInstanceOf(CustomSceneGenerator.GenerationUnavailableException.class)
                             .satisfies(error -> {
-                                var unavailable = (CustomSceneGenerationService.GenerationUnavailableException) error;
+                                var unavailable = (CustomSceneGenerator.GenerationUnavailableException) error;
                                 assertThat(unavailable.reason()).isEqualTo("fake_scene_not_supported");
                                 assertThat(unavailable.retryable()).isFalse();
                             });
@@ -82,7 +86,7 @@ class CustomSceneGenerationProviderWiringTest {
         contextRunner
                 .withPropertyValues("babytalk.practice.discovery.custom-scene.provider-mode=fake")
                 .run(context -> {
-                    assertThat(context).doesNotHaveBean(CustomSceneGenerationService.class);
+                    assertThat(context).doesNotHaveBean(CustomSceneGenerator.class);
                     assertThat(context).doesNotHaveBean(PracticeAiChatClientFactory.class);
                     assertThat(context).doesNotHaveBean(PracticeAiProviderManager.class);
                 });
@@ -93,8 +97,8 @@ class CustomSceneGenerationProviderWiringTest {
         contextRunner
                 .withPropertyValues("babytalk.practice.discovery.custom-scene.provider-mode=disabled")
                 .run(context -> {
-                    assertThat(context).hasSingleBean(CustomSceneGenerationService.class);
-                    assertThat(context.getBean(CustomSceneGenerationService.class))
+                    assertThat(context).hasSingleBean(CustomSceneGenerator.class);
+                    assertThat(context.getBean(CustomSceneGenerator.class))
                             .isInstanceOf(DisabledCustomSceneGenerationService.class);
                     assertThat(context).doesNotHaveBean(PracticeAiChatClientFactory.class);
                     assertThat(context).doesNotHaveBean(PracticeAiProviderManager.class);
@@ -102,7 +106,7 @@ class CustomSceneGenerationProviderWiringTest {
     }
 
     @Test
-    void agenticProviderModeBuildsAllMandatoryRoutesButKeepsPlaceholderUntilTaskTenServiceExists() {
+    void agenticProviderModeBuildsAllMandatoryRoutesAndWiresRealGenerator() {
         agenticContextRunner()
                 .withPropertyValues("TEST_AI_KEY=test-secret")
                 .run(context -> {
@@ -117,18 +121,9 @@ class CustomSceneGenerationProviderWiringTest {
                     assertThat(manager.route(PracticeAiCapability.CUSTOM_SCENE_REPAIR))
                             .extracting(provider -> provider.providerName())
                             .containsExactly("primary");
-                    assertThat(context).hasSingleBean(CustomSceneGenerationService.class);
-                    assertThat(context.getBean(CustomSceneGenerationService.class).getClass().getSimpleName())
-                            .isEqualTo("AgenticUnavailableCustomSceneGenerationService");
-                    assertThat(org.assertj.core.api.Assertions.catchThrowable(() -> context
-                            .getBean(CustomSceneGenerationService.class)
-                            .generateCustomSceneStarter(request("睡前哄宝宝"))))
-                            .isInstanceOf(CustomSceneGenerationService.GenerationUnavailableException.class)
-                            .satisfies(error -> {
-                                var unavailable = (CustomSceneGenerationService.GenerationUnavailableException) error;
-                                assertThat(unavailable.reason()).isEqualTo("agentic_not_implemented");
-                                assertThat(unavailable.retryable()).isFalse();
-                            });
+                    assertThat(context).hasSingleBean(CustomSceneGenerator.class);
+                    assertThat(context.getBean(CustomSceneGenerator.class))
+                            .isInstanceOf(AgenticCustomSceneGenerator.class);
                 });
     }
 
@@ -164,20 +159,17 @@ class CustomSceneGenerationProviderWiringTest {
                 });
     }
 
-    private CustomSceneGenerationService.CustomSceneGenerationRequest request(String normalizedSceneText) {
-        return new CustomSceneGenerationService.CustomSceneGenerationRequest(
+    private CustomSceneGenerator.GeneratorRequest request(String normalizedSceneText) {
+        return new CustomSceneGenerator.GeneratorRequest(
                 "pgc_wiring_test",
+                1,
                 normalizedSceneText,
-                PracticeDiscoverySurface.ONBOARDING,
-                PracticeDiscoveryMode.CUSTOM_SCENE,
                 "m7_11",
                 "calmer_care",
                 "zh-CN",
-                "trace_wiring_test",
-                Duration.ofSeconds(5),
-                CustomSceneGenerationService.ContentConstraints.defaults(),
-                "practice-custom-scene-v1",
-                "fake-generator-v1"
+                null,
+                null,
+                CustomSceneGenerator.ContentConstraints.defaults()
         );
     }
 
@@ -201,12 +193,28 @@ class CustomSceneGenerationProviderWiringTest {
     @Import({
             FakeCustomSceneGenerationService.class,
             DisabledCustomSceneGenerationService.class,
-            AgenticUnavailableCustomSceneGenerationService.class,
+            AgenticCustomSceneGenerator.class,
             PracticeAiOpenAiOptionsFactory.class,
             PracticeAiChatClientFactory.class,
             PracticeAiProviderManager.class,
             PracticeAiProviderConfiguration.class
     })
     static class ProviderConfiguration {
+
+        @Bean
+        PracticeAiOperationRunner practiceAiOperationRunner() {
+            return org.mockito.Mockito.mock(PracticeAiOperationRunner.class);
+        }
+
+        @Bean
+        PracticeAiStructuredOutputCaller practiceAiStructuredOutputCaller() {
+            return org.mockito.Mockito.mock(PracticeAiStructuredOutputCaller.class);
+        }
+
+        @Bean
+        com.zhangspaghetti.babytalk.practice.agentic.config.VersionedResourceRegistry versionedResourceRegistry() {
+            return org.mockito.Mockito.mock(
+                    com.zhangspaghetti.babytalk.practice.agentic.config.VersionedResourceRegistry.class);
+        }
     }
 }

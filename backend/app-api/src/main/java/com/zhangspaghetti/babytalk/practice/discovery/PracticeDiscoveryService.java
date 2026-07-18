@@ -638,7 +638,7 @@ public class PracticeDiscoveryService {
                         row.activitySlug(),
                         row.activityTitleZh(),
                         row.sceneTagEn(),
-                        row.deliveryGuidanceZh(),
+                        composeCoachTip(row.tprActionZh(), row.deliveryGuidanceZh()),
                         1,
                         List.of(utterance)
                 )),
@@ -670,6 +670,18 @@ public class PracticeDiscoveryService {
                 StrUtil.trimToNull(phrase.difficulty()) == null ? DIFFICULTY_STARTER : phrase.difficulty(),
                 SOURCE_CATALOG
         );
+    }
+
+    private String composeCoachTip(String tprActionZh, String deliveryGuidanceZh) {
+        var action = StrUtil.trimToNull(tprActionZh);
+        var guidance = StrUtil.trimToNull(deliveryGuidanceZh);
+        if (action == null) {
+            return guidance;
+        }
+        if (guidance == null || action.equals(guidance)) {
+            return action;
+        }
+        return action + " " + guidance;
     }
 
     private String searchable(CatalogCandidate candidate) {

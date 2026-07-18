@@ -4,12 +4,9 @@ import cn.hutool.core.util.StrUtil;
 import com.zhangspaghetti.babytalk.practice.discovery.CustomSceneGeneratedContentValidator;
 import com.zhangspaghetti.babytalk.practice.discovery.CustomSceneGeneratedContentValidator.InvalidGeneratedContentException;
 import com.zhangspaghetti.babytalk.practice.discovery.CustomSceneGeneratedContentValidator.RejectedGeneratedContentException;
-import com.zhangspaghetti.babytalk.practice.discovery.CustomSceneGenerationService;
 import com.zhangspaghetti.babytalk.practice.discovery.PolicyTextMatcher;
-import com.zhangspaghetti.babytalk.practice.discovery.PracticeDiscoveryMode;
 import com.zhangspaghetti.babytalk.practice.discovery.PracticeDiscoveryCustomSceneProperties;
 import com.zhangspaghetti.babytalk.practice.discovery.PracticeDiscoveryPolicyProperties;
-import com.zhangspaghetti.babytalk.practice.discovery.PracticeDiscoverySurface;
 import com.zhangspaghetti.babytalk.practice.discovery.SceneTextCanonicalizer;
 import com.zhangspaghetti.babytalk.practice.discovery.SceneTextSecurityConfiguration;
 import com.zhangspaghetti.babytalk.practice.discovery.SceneTextSecurityPolicy;
@@ -58,7 +55,7 @@ public class PracticeGeneratedContentService {
     private static final int MIN_CLEANUP_LIMIT = 1;
     private static final int MAX_CLEANUP_LIMIT = 100;
     private final PracticeGeneratedContentQueryMapper queryMapper;
-    private final CustomSceneGenerationService generationService;
+    private final CustomSceneGenerator generationService;
     private final CustomSceneGeneratedContentValidator generatedContentValidator;
     private final PracticeDiscoveryCustomSceneProperties customSceneProperties;
     private final PracticeDiscoveryPolicyProperties policyProperties;
@@ -74,7 +71,7 @@ public class PracticeGeneratedContentService {
     public PracticeGeneratedContentService(
             PracticeGeneratedContentQueryMapper queryMapper,
             PracticeGeneratedContentCommands commands,
-            CustomSceneGenerationService generationService,
+            CustomSceneGenerator generationService,
             CustomSceneGeneratedContentValidator generatedContentValidator,
             PracticeDiscoveryCustomSceneProperties customSceneProperties,
             PracticeDiscoveryPolicyProperties policyProperties,
@@ -92,7 +89,7 @@ public class PracticeGeneratedContentService {
     PracticeGeneratedContentService(
             PracticeGeneratedContentQueryMapper queryMapper,
             PracticeGeneratedContentCommands commands,
-            CustomSceneGenerationService generationService,
+            CustomSceneGenerator generationService,
             CustomSceneGeneratedContentValidator generatedContentValidator,
             PracticeDiscoveryCustomSceneProperties customSceneProperties,
             PracticeDiscoveryPolicyProperties policyProperties,
@@ -110,7 +107,7 @@ public class PracticeGeneratedContentService {
     private PracticeGeneratedContentService(
             PracticeGeneratedContentQueryMapper queryMapper,
             PracticeGeneratedContentCommands commands,
-            CustomSceneGenerationService generationService,
+            CustomSceneGenerator generationService,
             CustomSceneGeneratedContentValidator generatedContentValidator,
             PracticeDiscoveryCustomSceneProperties customSceneProperties,
             PracticeDiscoveryPolicyProperties policyProperties,
@@ -335,30 +332,27 @@ public class PracticeGeneratedContentService {
             throw generationInProgress(reserved.generatedContentId());
         }
 
-        CustomSceneGenerationService.GeneratedPracticeContentCandidate candidate;
+        CustomSceneGenerator.GeneratedPracticeContentCandidate candidate;
         try {
-            candidate = generationService.generateCustomSceneStarter(new CustomSceneGenerationService.CustomSceneGenerationRequest(
+            candidate = generationService.generate(new CustomSceneGenerator.GeneratorRequest(
                     reserved.generatedContentId(),
+                    1,
                     normalizedSceneText,
-                    PracticeDiscoverySurface.fromWireValue(request.surface()),
-                    PracticeDiscoveryMode.fromWireValue(request.mode()),
                     request.ageRange(),
                     request.parentGoal(),
                     request.locale(),
-                    "gen_trace_" + reserved.generatedContentId().substring(4),
-                    customSceneProperties.timeout(),
-                    contentConstraints(),
-                    promptVersion(),
-                    strategyVersion()
+                    null,
+                    null,
+                    contentConstraints()
             ));
-        } catch (CustomSceneGenerationService.GenerationUnavailableException exception) {
+        } catch (CustomSceneGenerator.GenerationUnavailableException exception) {
             if (exception.retryable()) {
                 bestEffortExpireDraft(reserved.generatedContentId(), exception.reason(), exception);
             } else {
                 bestEffortRejectDraft(reserved.generatedContentId(), exception.reason(), exception);
             }
             throw generationUnavailable(exception.reason(), exception.retryable(), exception);
-        } catch (CustomSceneGenerationService.GenerationTimeoutException exception) {
+        } catch (CustomSceneGenerator.GenerationTimeoutException exception) {
             bestEffortExpireDraft(reserved.generatedContentId(), ERROR_GENERATION_TIMEOUT, exception);
             throw generationTimeout(exception);
         } catch (RuntimeException exception) {
@@ -389,9 +383,9 @@ public class PracticeGeneratedContentService {
         }
     }
 
-    private CustomSceneGenerationService.GeneratedPracticeContentCandidate validateGeneratedOutput(
+    private CustomSceneGenerator.GeneratedPracticeContentCandidate validateGeneratedOutput(
             String generatedContentId,
-            CustomSceneGenerationService.GeneratedPracticeContentCandidate candidate,
+            CustomSceneGenerator.GeneratedPracticeContentCandidate candidate,
             String normalizedSceneText
     ) {
         try {
@@ -426,10 +420,10 @@ public class PracticeGeneratedContentService {
         }
     }
 
-    private CustomSceneGenerationService.ContentConstraints contentConstraints() {
+    private CustomSceneGenerator.ContentConstraints contentConstraints() {
         return customSceneProperties.fakeProvider()
-                ? CustomSceneGenerationService.ContentConstraints.fakeProviderDefaults()
-                : CustomSceneGenerationService.ContentConstraints.defaults();
+                ? CustomSceneGenerator.ContentConstraints.fakeProviderDefaults()
+                : CustomSceneGenerator.ContentConstraints.defaults();
     }
 
     private PracticeGeneratedContentEntity draftRow(
@@ -478,7 +472,7 @@ public class PracticeGeneratedContentService {
 
     private PracticeGeneratedContentEntity activeRow(
             PracticeGeneratedContentEntity draft,
-            CustomSceneGenerationService.GeneratedPracticeContentCandidate candidate,
+            CustomSceneGenerator.GeneratedPracticeContentCandidate candidate,
             String requestFingerprint
     ) {
         var slugHash = keyFactory.stableDigest(
@@ -505,8 +499,8 @@ public class PracticeGeneratedContentService {
         row.setSpaceTitleZh(candidate.spaceTitleZh());
         row.setActivityTitleZh(candidate.activityTitleZh());
         row.setSceneTagEn(candidate.sceneTagEn());
-        row.setTprActionZh(candidate.coachTipZh());
-        row.setDeliveryGuidanceZh(candidate.coachTipZh());
+        row.setTprActionZh(candidate.tprActionZh());
+        row.setDeliveryGuidanceZh(candidate.deliveryGuidanceZh());
         row.setEnglishText(candidate.englishText());
         row.setChineseText(candidate.chineseText());
         row.setPronunciationHint(candidate.pronunciationHint());

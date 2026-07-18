@@ -1,5 +1,7 @@
 package com.zhangspaghetti.babytalk.practice.discovery;
 
+import com.zhangspaghetti.babytalk.practice.generated.CustomSceneGenerator.ContentConstraints;
+import com.zhangspaghetti.babytalk.practice.generated.CustomSceneGenerator.GeneratedPracticeContentCandidate;
 import java.util.Locale;
 import java.util.regex.Pattern;
 import org.springframework.stereotype.Component;
@@ -8,11 +10,6 @@ import org.springframework.stereotype.Component;
 public class CustomSceneGeneratedContentValidator {
 
     private static final Pattern ENGLISH_WORD_PATTERN = Pattern.compile("[A-Za-z]+(?:'[A-Za-z]+)?");
-    private static final Pattern TRACE_ID_PATTERN =
-            Pattern.compile("[A-Za-z0-9][A-Za-z0-9._:/-]{0,127}");
-    private static final Pattern MODEL_NAME_PATTERN =
-            Pattern.compile("[A-Za-z0-9][A-Za-z0-9._:/-]{0,95}");
-
     private final PracticeDiscoveryPolicyProperties policyProperties;
     private final CustomSceneIntentClassifier intentClassifier;
     private final PolicyTextMatcher policyTextMatcher;
@@ -57,57 +54,49 @@ public class CustomSceneGeneratedContentValidator {
         this.canonicalizer = canonicalizer;
     }
 
-    public CustomSceneGenerationService.GeneratedPracticeContentCandidate normalizeAndValidate(
-            CustomSceneGenerationService.GeneratedPracticeContentCandidate candidate,
-            CustomSceneGenerationService.ContentConstraints constraints
+    public GeneratedPracticeContentCandidate normalizeAndValidate(
+            GeneratedPracticeContentCandidate candidate,
+            ContentConstraints constraints
     ) {
         return normalizeAndValidate(candidate, constraints, new GeneratedOutputValidationContext(null));
     }
 
-    public CustomSceneGenerationService.GeneratedPracticeContentCandidate normalizeAndValidate(
-            CustomSceneGenerationService.GeneratedPracticeContentCandidate candidate,
-            CustomSceneGenerationService.ContentConstraints constraints,
+    public GeneratedPracticeContentCandidate normalizeAndValidate(
+            GeneratedPracticeContentCandidate candidate,
+            ContentConstraints constraints,
             GeneratedOutputValidationContext context
     ) {
         if (candidate == null) {
             throw new InvalidGeneratedContentException("candidate_missing");
         }
 
-        var normalized = new CustomSceneGenerationService.GeneratedPracticeContentCandidate(
+        var normalized = new GeneratedPracticeContentCandidate(
                 required(candidate.spaceTitleZh(), "spaceTitleZh"),
                 required(candidate.activityTitleZh(), "activityTitleZh"),
                 required(candidate.sceneTagEn(), "sceneTagEn"),
-                required(candidate.coachTipZh(), "coachTipZh"),
+                required(candidate.tprActionZh(), "tprActionZh"),
+                required(candidate.deliveryGuidanceZh(), "deliveryGuidanceZh"),
                 required(candidate.englishText(), "englishText"),
                 required(candidate.chineseText(), "chineseText"),
                 trimToNull(candidate.pronunciationHint()),
                 required(candidate.difficulty(), "difficulty"),
-                required(candidate.generationSource(), "generationSource"),
-                trimToNull(candidate.providerTraceId()),
-                trimToNull(candidate.retrievalTraceId()),
-                trimToNull(candidate.modelName())
+                required(candidate.generationSource(), "generationSource")
         );
 
         validateDatabaseLength(normalized.spaceTitleZh(), 120, "spaceTitleZh");
         validateDatabaseLength(normalized.activityTitleZh(), 120, "activityTitleZh");
         validateDatabaseLength(normalized.sceneTagEn(), 120, "sceneTagEn");
-        validateDatabaseLength(normalized.coachTipZh(), 240, "coachTipZh");
+        validateDatabaseLength(normalized.tprActionZh(), 240, "tprActionZh");
+        validateDatabaseLength(normalized.deliveryGuidanceZh(), 240, "deliveryGuidanceZh");
         validateDatabaseLength(normalized.englishText(), 120, "englishText");
         validateDatabaseLength(normalized.chineseText(), 120, "chineseText");
         validateDatabaseLength(normalized.pronunciationHint(), 120, "pronunciationHint");
         validateDatabaseLength(normalized.difficulty(), 16, "difficulty");
         validateDatabaseLength(normalized.generationSource(), 32, "generationSource");
-        validateDatabaseLength(normalized.providerTraceId(), 128, "providerTraceId");
-        validateDatabaseLength(normalized.retrievalTraceId(), 128, "retrievalTraceId");
-        validateDatabaseLength(normalized.modelName(), 96, "modelName");
-
-        validateOpaqueMetadata(normalized.providerTraceId(), TRACE_ID_PATTERN, "providerTraceId");
-        validateOpaqueMetadata(normalized.retrievalTraceId(), TRACE_ID_PATTERN, "retrievalTraceId");
-        validateOpaqueMetadata(normalized.modelName(), MODEL_NAME_PATTERN, "modelName");
-
         validateEnglishStarter(normalized.englishText(), constraints);
         validateMaxLength(normalized.chineseText(), constraints.maxChineseChars(), "chineseText");
-        validateMaxLength(normalized.coachTipZh(), constraints.maxCoachTipChars(), "coachTipZh");
+        validateMaxLength(normalized.tprActionZh(), constraints.maxCoachTipChars(), "tprActionZh");
+        validateMaxLength(normalized.deliveryGuidanceZh(), constraints.maxCoachTipChars(), "deliveryGuidanceZh");
         validateMaxLength(normalized.sceneTagEn(), constraints.maxSceneTagChars(), "sceneTagEn");
 
         if (!constraints.allowedDifficulties().contains(normalized.difficulty())) {
@@ -148,7 +137,7 @@ public class CustomSceneGeneratedContentValidator {
 
     private void validateEnglishStarter(
             String englishText,
-            CustomSceneGenerationService.ContentConstraints constraints
+            ContentConstraints constraints
     ) {
         if (canonicalizer.graphemeLength(englishText) > constraints.maxEnglishChars()) {
             throw new InvalidGeneratedContentException("englishText");
@@ -175,12 +164,6 @@ public class CustomSceneGeneratedContentValidator {
         }
     }
 
-    private void validateOpaqueMetadata(String value, Pattern pattern, String fieldName) {
-        if (value != null && !pattern.matcher(value).matches()) {
-            throw new InvalidGeneratedContentException(fieldName);
-        }
-    }
-
     private String required(String value, String fieldName) {
         var normalized = canonicalizer.canonicalize(value);
         if (normalized == null) {
@@ -193,14 +176,16 @@ public class CustomSceneGeneratedContentValidator {
         return canonicalizer.canonicalize(value);
     }
 
-    private String combined(CustomSceneGenerationService.GeneratedPracticeContentCandidate candidate) {
+    private String combined(GeneratedPracticeContentCandidate candidate) {
         return (candidate.spaceTitleZh()
                 + " "
                 + candidate.activityTitleZh()
                 + " "
                 + candidate.sceneTagEn()
                 + " "
-                + candidate.coachTipZh()
+                + candidate.tprActionZh()
+                + " "
+                + candidate.deliveryGuidanceZh()
                 + " "
                 + candidate.englishText()
                 + " "
