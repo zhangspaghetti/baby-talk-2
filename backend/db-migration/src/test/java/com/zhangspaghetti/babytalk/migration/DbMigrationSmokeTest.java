@@ -8,6 +8,7 @@ import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
+import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.flywaydb.core.Flyway;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -99,6 +100,12 @@ class DbMigrationSmokeTest {
         assertThat(tableExists("palace_query_traces")).isTrue();
         assertThat(tableExists("baby_profiles")).isTrue();
         assertThat(tableExists("practice_generated_content")).isTrue();
+        assertThat(tableExists("practice_generated_content_attempts")).isTrue();
+        assertThat(tableExists("practice_ai_operation_runs")).isTrue();
+        assertThat(tableExists("practice_ai_provider_calls")).isTrue();
+        assertThat(tableExists("practice_generated_content_evidence_bundles")).isTrue();
+        assertThat(tableExists("practice_generated_content_evidence_items")).isTrue();
+        assertThat(tableExists("practice_generated_content_judge_results")).isTrue();
 
         List<String> expectedPermissionCodes = List.of(
                 "users:read",
@@ -433,28 +440,139 @@ class DbMigrationSmokeTest {
                         "space_title_zh",
                         "activity_title_zh",
                         "scene_tag_en",
-                        "coach_tip_zh",
+                        "tpr_action_zh",
+                        "delivery_guidance_zh",
                         "english_text",
                         "chinese_text",
                         "pronunciation_hint",
                         "difficulty",
                         "generation_source",
                         "status",
-                        "provider_trace_id",
-                        "retrieval_trace_id",
-                        "model_name",
-                        "prompt_version",
-                        "strategy_version",
-                        "policy_version",
+                        "generation_profile_version",
+                        "generation_profile_hash",
+                        "rubric_version",
+                        "rubric_content_hash",
+                        "evidence_policy_version",
+                        "evidence_policy_content_hash",
+                        "provider_routing_policy_version",
+                        "provider_routing_policy_hash",
+                        "generation_attempt_limit",
+                        "content_refresh_epoch",
                         "content_version",
                         "generation_error_code",
+                        "generation_error_retryable",
                         "generation_started_at",
                         "generation_expires_at",
                         "retention_expires_at",
                         "created_at",
                         "updated_at");
 
+        assertThat(columnNamesFor("practice_generated_content_attempts"))
+                .containsExactly(
+                        "attempt_id",
+                        "generated_content_id",
+                        "attempt_number",
+                        "attempt_type",
+                        "status",
+                        "outcome",
+                        "violation_codes",
+                        "started_at",
+                        "completed_at");
+        assertThat(columnNamesFor("practice_ai_operation_runs"))
+                .containsExactly(
+                        "operation_run_id",
+                        "operation_type",
+                        "subject_type",
+                        "subject_id",
+                        "generated_content_id",
+                        "attempt_number",
+                        "evidence_bundle_id",
+                        "capability_name",
+                        "prompt_version",
+                        "prompt_content_hash",
+                        "policy_version",
+                        "policy_content_hash",
+                        "status",
+                        "outcome",
+                        "started_at",
+                        "completed_at");
+        assertThat(columnNamesFor("practice_ai_provider_calls"))
+                .containsExactly(
+                        "provider_call_id",
+                        "operation_run_id",
+                        "provider_name",
+                        "provider_type",
+                        "model_name",
+                        "fallback_index",
+                        "attempt_trace_id",
+                        "provider_trace_id",
+                        "routing_policy_version",
+                        "routing_policy_hash",
+                        "outcome",
+                        "latency_ms",
+                        "started_at",
+                        "completed_at");
+        assertThat(columnNamesFor("practice_generated_content_evidence_bundles"))
+                .containsExactly(
+                        "evidence_bundle_id",
+                        "generated_content_id",
+                        "attempt_number",
+                        "derived_from_bundle_id",
+                        "retrieval_outcome",
+                        "retrieval_trace_id",
+                        "evidence_policy_version",
+                        "evidence_policy_content_hash",
+                        "sanitizer_version",
+                        "bundle_hash",
+                        "evidence_count",
+                        "created_at");
+        assertThat(columnNamesFor("practice_generated_content_evidence_items"))
+                .containsExactly(
+                        "evidence_bundle_id",
+                        "evidence_ordinal",
+                        "replay_mode",
+                        "evidence_id",
+                        "source_type",
+                        "source_version",
+                        "strategy_id",
+                        "claim_type",
+                        "sanitizer_version",
+                        "sanitized_summary_hash",
+                        "sanitized_summary_snapshot",
+                        "confidence",
+                        "created_at");
+        assertThat(columnNamesFor("practice_generated_content_judge_results"))
+                .containsExactly(
+                        "judge_result_id",
+                        "provider_call_id",
+                        "suggested_verdict",
+                        "effective_verdict",
+                        "verdict_consistency",
+                        "dimension_results",
+                        "violation_codes",
+                        "repair_directives",
+                        "evidence_gap_codes",
+                        "judge_confidence",
+                        "rubric_version",
+                        "rubric_content_hash",
+                        "created_at");
+
+        assertThat(columnNamesFor("practice_generated_content")).doesNotContain("coach_tip_zh");
         assertThat(columnIsNullable("practice_generated_content", "normalized_scene_text")).isTrue();
+        assertThat(columnDataType("practice_generated_content", "generation_started_at"))
+                .isEqualTo("timestamp with time zone");
+        assertThat(columnDataType("practice_generated_content_attempts", "started_at"))
+                .isEqualTo("timestamp with time zone");
+        assertThat(columnDataType("practice_ai_operation_runs", "started_at"))
+                .isEqualTo("timestamp with time zone");
+        assertThat(columnDataType("practice_ai_provider_calls", "started_at"))
+                .isEqualTo("timestamp with time zone");
+        assertThat(columnDataType("practice_generated_content_evidence_bundles", "created_at"))
+                .isEqualTo("timestamp with time zone");
+        assertThat(columnDataType("practice_generated_content_evidence_items", "created_at"))
+                .isEqualTo("timestamp with time zone");
+        assertThat(columnDataType("practice_generated_content_judge_results", "created_at"))
+                .isEqualTo("timestamp with time zone");
         assertThat(columnComment("practice_generated_content", "owner_key_version"))
                 .containsIgnoringCase("future migration metadata")
                 .containsIgnoringCase("one active key version")
@@ -470,6 +588,21 @@ class DbMigrationSmokeTest {
         assertThat(indexExists("idx_practice_generated_content_installation_cleanup")).isTrue();
         assertThat(indexExists("idx_practice_generated_content_stale_draft_cleanup")).isTrue();
         assertThat(indexExists("idx_practice_generated_content_account_cleanup")).isTrue();
+        assertThat(indexDefinition("uq_practice_generated_content_live_fingerprint"))
+                .containsIgnoringCase("owner_key_version")
+                .containsIgnoringCase("generation_profile_version")
+                .containsIgnoringCase("content_refresh_epoch")
+                .containsIgnoringCase("status")
+                .containsIgnoringCase("'draft'")
+                .containsIgnoringCase("'generating'")
+                .containsIgnoringCase("'active'")
+                .doesNotContainIgnoringCase("'rejected'")
+                .doesNotContainIgnoringCase("'expired'");
+        assertThat(indexDefinition("idx_practice_generated_content_owner_created"))
+                .containsIgnoringCase("owner_key_version")
+                .containsIgnoringCase("surface")
+                .containsIgnoringCase("mode")
+                .containsIgnoringCase("created_at");
         assertThat(indexDefinition("idx_practice_generated_content_installation_cleanup"))
                 .containsIgnoringCase("(retention_expires_at, generated_content_id)")
                 .doesNotContainIgnoringCase("owner_key_version")
@@ -483,23 +616,97 @@ class DbMigrationSmokeTest {
                 .containsIgnoringCase("(generation_expires_at, generated_content_id)")
                 .doesNotContainIgnoringCase("owner_key_version")
                 .containsIgnoringCase("status")
-                .containsIgnoringCase("'draft'");
-        assertThat(constraintExists("uq_baby_profiles_profile_account")).isTrue();
-        assertThat(constraintExists("fk_practice_generated_content_profile_owner")).isTrue();
-        assertThat(constraintExists("chk_practice_generated_content_draft_shape")).isTrue();
-        assertThat(constraintExists("chk_practice_generated_content_installation_retention")).isTrue();
-        assertThat(constraintExists("chk_practice_generated_content_installation_not_promoted")).isTrue();
-        assertThat(constraintExists("chk_practice_generated_content_success_error_clear")).isTrue();
-        assertThat(constraintExists("chk_practice_generated_content_content_version_positive")).isTrue();
+                .containsIgnoringCase("'draft'")
+                .containsIgnoringCase("'generating'");
+        assertThat(indexDefinition("idx_practice_generated_content_account_cleanup"))
+                .containsIgnoringCase("account_id")
+                .doesNotContainIgnoringCase("owner_key_version");
+        assertThat(List.of(
+                "uq_baby_profiles_profile_account",
+                "fk_practice_generated_content_account",
+                "fk_practice_generated_content_profile_owner",
+                "chk_practice_generated_content_status",
+                "chk_practice_generated_content_terminal_input_cleared",
+                "chk_practice_generated_content_draft_shape",
+                "chk_practice_generated_content_generating_shape",
+                "chk_practice_generated_content_installation_retention",
+                "chk_practice_generated_content_success_error_clear",
+                "chk_practice_generated_content_content_version_positive",
+                "chk_practice_generated_content_refresh_epoch_positive",
+                "chk_practice_generated_content_attempt_limit",
+                "chk_practice_generated_content_owner_shape",
+                "chk_practice_generated_content_response_shape",
+                "fk_practice_generated_content_attempts_content",
+                "uq_practice_generated_content_attempt_number",
+                "chk_practice_generated_content_attempt_number",
+                "fk_practice_operation_runs_attempt",
+                "fk_practice_operation_runs_evidence_bundle",
+                "chk_practice_operation_runs_subject_identity",
+                "fk_practice_provider_calls_operation_run",
+                "uq_practice_provider_calls_attempt_trace",
+                "uq_practice_provider_calls_operation_provider",
+                "fk_practice_evidence_bundles_attempt",
+                "uq_practice_evidence_bundles_attempt",
+                "chk_practice_evidence_bundles_retrieval_outcome",
+                "fk_practice_evidence_items_bundle",
+                "chk_practice_evidence_items_replay_shape",
+                "chk_practice_evidence_items_confidence",
+                "fk_practice_judge_results_provider_call",
+                "uq_practice_judge_results_provider_call",
+                "chk_practice_judge_results_dimensions",
+                "chk_practice_judge_results_confidence"))
+                .allSatisfy(constraintName -> assertThat(constraintExists(constraintName))
+                        .as(constraintName)
+                        .isTrue());
+        assertThat(triggerExists("trg_practice_generated_content_terminal_status")).isTrue();
+    }
 
+    @Test
+    void enforcesPracticeGeneratedContentStateAndLineageConstraints() {
         insertGeneratedContent(generatedContentFixture("pgc_db_expired")
                 .status("expired")
-                .generationSource(null)
                 .build());
         insertGeneratedContent(generatedContentFixture("pgc_db_fake")
                 .status("active")
                 .generationSource("fake")
                 .build());
+        insertGeneratedContent(generatedContentFixture("pgc_db_generating")
+                .status("generating")
+                .build());
+        insertGeneratedContent(generatedContentFixture("pgc_db_draft_state").build());
+
+        assertSqlRejected(
+                "update practice_generated_content set normalized_scene_text = null where generated_content_id = ?",
+                "pgc_db_generating");
+        assertSqlRejected(
+                "update practice_generated_content set generation_started_at = null where generated_content_id = ?",
+                "pgc_db_generating");
+        assertSqlRejected(
+                "update practice_generated_content set normalized_scene_text = null where generated_content_id = ?",
+                "pgc_db_draft_state");
+        assertSqlRejected(
+                "update practice_generated_content set generation_started_at = ? where generated_content_id = ?",
+                dbTime("2026-07-03T03:00:00Z"),
+                "pgc_db_draft_state");
+        assertSqlRejected(
+                "update practice_generated_content set generation_expires_at = null where generated_content_id = ?",
+                "pgc_db_draft_state");
+        assertSqlRejected(
+                """
+                update practice_generated_content
+                set generation_error_code = 'unexpected_error', generation_error_retryable = true
+                where generated_content_id = ?
+                """,
+                "pgc_db_fake");
+        assertSqlRejected(
+                "update practice_generated_content set generation_error_code = null where generated_content_id = ?",
+                "pgc_db_expired");
+        assertSqlRejected(
+                "update practice_generated_content set generation_error_retryable = null where generated_content_id = ?",
+                "pgc_db_expired");
+        assertSqlRejected(
+                "update practice_generated_content set retention_expires_at = null where generated_content_id = ?",
+                "pgc_db_expired");
 
         assertPracticeGeneratedContentRejected(generatedContentFixture("pgc_db_bad_owner_scope")
                 .ownerScope("household")
@@ -531,9 +738,155 @@ class DbMigrationSmokeTest {
                 .status("active")
                 .withoutActiveResponseFields()
                 .build());
-        assertPracticeGeneratedContentRejected(generatedContentFixture("pgc_db_installation_promoted")
+        assertPracticeGeneratedContentRejected(generatedContentFixture("pgc_db_missing_tpr_action")
+                .status("active")
+                .withoutTprAction()
+                .build());
+        assertPracticeGeneratedContentRejected(generatedContentFixture("pgc_db_missing_delivery_guidance")
+                .status("active")
+                .withoutDeliveryGuidance()
+                .build());
+        assertPracticeGeneratedContentRejected(generatedContentFixture("pgc_db_promoted_removed")
                 .status("promoted")
                 .build());
+        assertPracticeGeneratedContentRejected(generatedContentFixture("pgc_db_global_candidate_removed")
+                .ownerScope("global_candidate")
+                .installationRefHash(null)
+                .build());
+        assertPracticeGeneratedContentRejected(generatedContentFixture("pgc_db_attempt_limit_zero")
+                .generationAttemptLimit(0)
+                .build());
+        assertPracticeGeneratedContentRejected(generatedContentFixture("pgc_db_attempt_limit_six")
+                .generationAttemptLimit(6)
+                .build());
+
+        for (String terminalStatus : List.of("active", "rejected", "expired")) {
+            assertPracticeGeneratedContentRejected(generatedContentFixture("pgc_db_terminal_text_" + terminalStatus)
+                    .status(terminalStatus)
+                    .normalizedSceneText("terminal rows must clear display text")
+                    .build());
+        }
+
+        insertGeneratedContent(generatedContentFixture("pgc_db_rejected_retry")
+                .status("rejected")
+                .requestFingerprint("fp_retry_lineage")
+                .build());
+        insertGeneratedContent(generatedContentFixture("pgc_db_expired_retry")
+                .status("expired")
+                .requestFingerprint("fp_retry_lineage")
+                .build());
+        insertGeneratedContent(generatedContentFixture("pgc_db_new_retry")
+                .requestFingerprint("fp_retry_lineage")
+                .build());
+        assertPracticeGeneratedContentRejected(generatedContentFixture("pgc_db_duplicate_live")
+                .status("generating")
+                .requestFingerprint("fp_retry_lineage")
+                .build());
+
+        insertGeneratedContent(generatedContentFixture("pgc_db_active_slug")
+                .status("active")
+                .spaceSlug("shared-active-space")
+                .build());
+        assertPracticeGeneratedContentRejected(generatedContentFixture("pgc_db_duplicate_active_slug")
+                .status("active")
+                .spaceSlug("shared-active-space")
+                .build());
+    }
+
+    @Test
+    void preventsTerminalGeneratedContentFromReturningToNonTerminalStates() {
+        var now = dbTime("2026-07-03T03:00:00Z");
+        var expiresAt = dbTime("2026-07-03T03:05:00Z");
+
+        insertGeneratedContent(generatedContentFixture("pgc_db_live_transition").build());
+        assertThat(jdbcTemplate.update(
+                """
+                update practice_generated_content
+                set status = 'generating', generation_started_at = ?, updated_at = ?
+                where generated_content_id = 'pgc_db_live_transition'
+                """,
+                now,
+                now)).isEqualTo(1);
+
+        for (String terminalStatus : List.of("active", "rejected", "expired")) {
+            var generatedContentId = "pgc_db_terminal_transition_" + terminalStatus;
+            insertGeneratedContent(generatedContentFixture(generatedContentId)
+                    .status(terminalStatus)
+                    .build());
+            for (String targetStatus : List.of("draft", "generating")) {
+                assertThatThrownBy(() -> jdbcTemplate.update(
+                        """
+                        update practice_generated_content
+                        set status = ?,
+                            normalized_scene_text = 'must not revive',
+                            generation_error_code = null,
+                            generation_error_retryable = null,
+                            generation_started_at = ?,
+                            generation_expires_at = ?,
+                            updated_at = ?
+                        where generated_content_id = ?
+                        """,
+                        targetStatus,
+                        "generating".equals(targetStatus) ? now : null,
+                        expiresAt,
+                        now,
+                        generatedContentId))
+                        .isInstanceOf(DataIntegrityViolationException.class);
+            }
+        }
+    }
+
+    @Test
+    void enforcesEvidenceProviderAndJudgeAuditIntegrity() {
+        var generatedContentId = "pgc_db_audit";
+        var attemptId = UUID.fromString("00000000-0000-0000-0000-000000000101");
+        var bundleId = UUID.fromString("00000000-0000-0000-0000-000000000201");
+        var operationRunId = UUID.fromString("00000000-0000-0000-0000-000000000301");
+        var providerCallId = UUID.fromString("00000000-0000-0000-0000-000000000401");
+
+        insertGeneratedContent(generatedContentFixture(generatedContentId).build());
+        insertGenerationAttempt(attemptId, generatedContentId, 1);
+        assertThatThrownBy(() -> insertGenerationAttempt(UUID.randomUUID(), generatedContentId, 0))
+                .isInstanceOf(DataIntegrityViolationException.class);
+        assertThatThrownBy(() -> insertGenerationAttempt(UUID.randomUUID(), generatedContentId, 6))
+                .isInstanceOf(DataIntegrityViolationException.class);
+        insertEvidenceBundle(bundleId, generatedContentId, 1);
+
+        assertThatThrownBy(() -> insertEvidenceBundle(
+                UUID.fromString("00000000-0000-0000-0000-000000000202"),
+                generatedContentId,
+                1)).isInstanceOf(DataIntegrityViolationException.class);
+
+        assertEvidenceItemRejected(bundleId, 1, "reference", null, null);
+        assertEvidenceItemRejected(bundleId, 1, "reference", "source-v1", "forbidden snapshot");
+        assertEvidenceItemRejected(bundleId, 1, "snapshot", null, null);
+        assertEvidenceItemRejected(bundleId, 1, "snapshot", null, "");
+        assertEvidenceItemRejected(bundleId, 1, "snapshot", null, "x".repeat(321));
+        insertEvidenceItem(bundleId, 1, "reference", "source-v1", null);
+
+        assertThatThrownBy(() -> insertJudgeResult(
+                UUID.fromString("00000000-0000-0000-0000-000000000499")))
+                .isInstanceOf(DataIntegrityViolationException.class);
+
+        insertOperationRun(operationRunId, generatedContentId, 1, bundleId);
+        insertProviderCall(providerCallId, operationRunId);
+        assertThatThrownBy(() -> insertJudgeResult(providerCallId, "[]"))
+                .isInstanceOf(DataIntegrityViolationException.class);
+        insertJudgeResult(providerCallId, "{\"alignment\":\"pass\"}");
+
+        var otherGeneratedContentId = "pgc_db_audit_other";
+        var otherBundleId = UUID.fromString("00000000-0000-0000-0000-000000000203");
+        insertGeneratedContent(generatedContentFixture(otherGeneratedContentId).build());
+        insertGenerationAttempt(
+                UUID.fromString("00000000-0000-0000-0000-000000000102"),
+                otherGeneratedContentId,
+                1);
+        insertEvidenceBundle(otherBundleId, otherGeneratedContentId, 1);
+        assertThatThrownBy(() -> insertOperationRun(
+                UUID.fromString("00000000-0000-0000-0000-000000000302"),
+                generatedContentId,
+                1,
+                otherBundleId)).isInstanceOf(DataIntegrityViolationException.class);
     }
 
     private boolean tableExists(String tableName) {
@@ -562,6 +915,20 @@ class DbMigrationSmokeTest {
                 """,
                 String.class,
                 tableName);
+    }
+
+    private String columnDataType(String tableName, String columnName) {
+        return jdbcTemplate.queryForObject(
+                """
+                select data_type
+                from information_schema.columns
+                where table_schema = current_schema()
+                  and table_name = ?
+                  and column_name = ?
+                """,
+                String.class,
+                tableName,
+                columnName);
     }
 
     private boolean indexExists(String indexName) {
@@ -710,6 +1077,21 @@ class DbMigrationSmokeTest {
         return Boolean.TRUE.equals(exists);
     }
 
+    private boolean triggerExists(String triggerName) {
+        Boolean exists = jdbcTemplate.queryForObject(
+                """
+                select exists(
+                    select 1
+                    from information_schema.triggers
+                    where trigger_schema = current_schema()
+                      and trigger_name = ?
+                )
+                """,
+                Boolean.class,
+                triggerName);
+        return Boolean.TRUE.equals(exists);
+    }
+
     private void assertBabyProfileRejected(
             String profileId,
             String accountId,
@@ -818,18 +1200,15 @@ class DbMigrationSmokeTest {
                 .isInstanceOf(DataIntegrityViolationException.class);
     }
 
+    private void assertSqlRejected(String sql, Object... arguments) {
+        assertThatThrownBy(() -> jdbcTemplate.update(sql, arguments))
+                .isInstanceOf(DataIntegrityViolationException.class);
+    }
+
     private void insertGeneratedContent(GeneratedContentFixture fixture) {
         if (fixture.accountId() != null) {
             insertAccount(fixture.accountId());
         }
-        var now = Timestamp.from(dbTime("2026-07-03T03:00:00Z").toInstant());
-        var retentionExpiresAt = fixture.ownerScope().equals("installation")
-                ? Timestamp.from(dbTime("2026-08-02T03:00:00Z").toInstant())
-                : null;
-        var generationStartedAt = "draft".equals(fixture.status()) ? now : null;
-        var generationExpiresAt = "draft".equals(fixture.status())
-                ? Timestamp.from(dbTime("2026-07-03T03:05:00Z").toInstant())
-                : null;
         jdbcTemplate.update(
                 """
                 insert into practice_generated_content (
@@ -853,70 +1232,263 @@ class DbMigrationSmokeTest {
                     space_title_zh,
                     activity_title_zh,
                     scene_tag_en,
-                    coach_tip_zh,
+                    tpr_action_zh,
+                    delivery_guidance_zh,
                     english_text,
                     chinese_text,
                     pronunciation_hint,
                     difficulty,
                     generation_source,
                     status,
-                    provider_trace_id,
-                    retrieval_trace_id,
-                    model_name,
-                    prompt_version,
-                    strategy_version,
-                    policy_version,
+                    generation_profile_version,
+                    generation_profile_hash,
+                    rubric_version,
+                    rubric_content_hash,
+                    evidence_policy_version,
+                    evidence_policy_content_hash,
+                    provider_routing_policy_version,
+                    provider_routing_policy_hash,
+                    generation_attempt_limit,
+                    content_refresh_epoch,
                     content_version,
                     generation_error_code,
+                    generation_error_retryable,
                     generation_started_at,
                     generation_expires_at,
                     retention_expires_at,
                     created_at,
                     updated_at
                 ) values (
-                    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+                    ?, ?, ?, 'v1', ?, ?, ?, ?, ?, ?, ?,
+                    'm7_11', 'calmer_care', 'zh-CN',
+                    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+                    'generation-profile-v1', repeat('a', 64),
+                    'rubric-v1', repeat('b', 64),
+                    'evidence-policy-v1', repeat('c', 64),
+                    'routing-policy-v1', repeat('d', 64),
+                    ?, 1, 1, ?, ?, ?, ?, ?, ?, ?
                 )
                 """,
                 fixture.generatedContentId(),
                 fixture.ownerScope(),
                 fixture.ownerKey(),
-                "v1",
                 fixture.accountId(),
                 fixture.installationRefHash(),
                 fixture.profileId(),
                 fixture.surface(),
                 fixture.mode(),
                 fixture.requestFingerprint(),
-                "draft".equals(fixture.status()) ? "洗澡前宝宝有点紧张" : null,
-                "m7_11",
-                "calmer_care",
-                "zh-CN",
+                fixture.normalizedSceneText(),
                 fixture.spaceSlug(),
                 fixture.activitySlug(),
                 fixture.phraseSlug(),
                 fixture.spaceTitleZh(),
                 fixture.activityTitleZh(),
                 fixture.sceneTagEn(),
-                fixture.coachTipZh(),
+                fixture.tprActionZh(),
+                fixture.deliveryGuidanceZh(),
                 fixture.englishText(),
                 fixture.chineseText(),
                 fixture.pronunciationHint(),
                 fixture.difficulty(),
                 fixture.generationSource(),
                 fixture.status(),
-                null,
-                null,
-                null,
-                "practice-gen-v1",
-                "retrieval-v1",
-                "policy-v1",
-                1,
-                null,
-                generationStartedAt,
-                generationExpiresAt,
-                retentionExpiresAt,
-                now,
-                now);
+                fixture.generationAttemptLimit(),
+                fixture.generationErrorCode(),
+                fixture.generationErrorRetryable(),
+                fixture.generationStartedAt(),
+                fixture.generationExpiresAt(),
+                fixture.retentionExpiresAt(),
+                fixture.createdAt(),
+                fixture.createdAt());
+    }
+
+    private void insertGenerationAttempt(UUID attemptId, String generatedContentId, int attemptNumber) {
+        jdbcTemplate.update(
+                """
+                insert into practice_generated_content_attempts (
+                    attempt_id,
+                    generated_content_id,
+                    attempt_number,
+                    attempt_type,
+                    status,
+                    outcome,
+                    started_at,
+                    completed_at
+                ) values (?, ?, ?, 'generator', 'started', null, ?, null)
+                """,
+                attemptId,
+                generatedContentId,
+                attemptNumber,
+                dbTime("2026-07-03T03:00:00Z"));
+    }
+
+    private void insertEvidenceBundle(UUID bundleId, String generatedContentId, int attemptNumber) {
+        jdbcTemplate.update(
+                """
+                insert into practice_generated_content_evidence_bundles (
+                    evidence_bundle_id,
+                    generated_content_id,
+                    attempt_number,
+                    derived_from_bundle_id,
+                    retrieval_outcome,
+                    retrieval_trace_id,
+                    evidence_policy_version,
+                    evidence_policy_content_hash,
+                    sanitizer_version,
+                    bundle_hash,
+                    evidence_count,
+                    created_at
+                ) values (
+                    ?, ?, ?, null, 'initial', ?, 'evidence-policy-v1', repeat('c', 64),
+                    'sanitizer-v1', repeat('e', 64), 1, ?
+                )
+                """,
+                bundleId,
+                generatedContentId,
+                attemptNumber,
+                UUID.randomUUID(),
+                dbTime("2026-07-03T03:00:00Z"));
+    }
+
+    private void assertEvidenceItemRejected(
+            UUID bundleId,
+            int ordinal,
+            String replayMode,
+            String sourceVersion,
+            String snapshot
+    ) {
+        assertThatThrownBy(() -> insertEvidenceItem(bundleId, ordinal, replayMode, sourceVersion, snapshot))
+                .isInstanceOf(DataIntegrityViolationException.class);
+    }
+
+    private void insertEvidenceItem(
+            UUID bundleId,
+            int ordinal,
+            String replayMode,
+            String sourceVersion,
+            String snapshot
+    ) {
+        jdbcTemplate.update(
+                """
+                insert into practice_generated_content_evidence_items (
+                    evidence_bundle_id,
+                    evidence_ordinal,
+                    replay_mode,
+                    evidence_id,
+                    source_type,
+                    source_version,
+                    strategy_id,
+                    claim_type,
+                    sanitizer_version,
+                    sanitized_summary_hash,
+                    sanitized_summary_snapshot,
+                    confidence,
+                    created_at
+                ) values (?, ?, ?, 'evidence-1', 'curated_guidance', ?, 'strategy-v1', 'care_phrase',
+                    'sanitizer-v1', repeat('f', 64), ?, 0.9500, ?)
+                """,
+                bundleId,
+                ordinal,
+                replayMode,
+                sourceVersion,
+                snapshot,
+                dbTime("2026-07-03T03:00:00Z"));
+    }
+
+    private void insertOperationRun(
+            UUID operationRunId,
+            String generatedContentId,
+            int attemptNumber,
+            UUID evidenceBundleId
+    ) {
+        jdbcTemplate.update(
+                """
+                insert into practice_ai_operation_runs (
+                    operation_run_id,
+                    operation_type,
+                    subject_type,
+                    subject_id,
+                    generated_content_id,
+                    attempt_number,
+                    evidence_bundle_id,
+                    capability_name,
+                    prompt_version,
+                    prompt_content_hash,
+                    policy_version,
+                    policy_content_hash,
+                    status,
+                    outcome,
+                    started_at,
+                    completed_at
+                ) values (
+                    ?, 'quality_judge', 'generated_content', ?, ?, ?, ?, 'practice-quality-judge',
+                    'judge-prompt-v1', repeat('1', 64), 'judge-policy-v1', repeat('2', 64),
+                    'completed', 'success', ?, ?
+                )
+                """,
+                operationRunId,
+                generatedContentId,
+                generatedContentId,
+                attemptNumber,
+                evidenceBundleId,
+                dbTime("2026-07-03T03:00:00Z"),
+                dbTime("2026-07-03T03:00:01Z"));
+    }
+
+    private void insertProviderCall(UUID providerCallId, UUID operationRunId) {
+        jdbcTemplate.update(
+                """
+                insert into practice_ai_provider_calls (
+                    provider_call_id,
+                    operation_run_id,
+                    provider_name,
+                    provider_type,
+                    model_name,
+                    fallback_index,
+                    attempt_trace_id,
+                    provider_trace_id,
+                    routing_policy_version,
+                    routing_policy_hash,
+                    outcome,
+                    latency_ms,
+                    started_at,
+                    completed_at
+                ) values (?, ?, 'primary', 'openai', 'gpt-5', 0, ?, 'provider-trace-1',
+                    'routing-policy-v1', repeat('d', 64), 'success', 1000, ?, ?)
+                """,
+                providerCallId,
+                operationRunId,
+                UUID.randomUUID(),
+                dbTime("2026-07-03T03:00:00Z"),
+                dbTime("2026-07-03T03:00:01Z"));
+    }
+
+    private void insertJudgeResult(UUID providerCallId) {
+        insertJudgeResult(providerCallId, "{\"alignment\":\"pass\"}");
+    }
+
+    private void insertJudgeResult(UUID providerCallId, String dimensionResults) {
+        jdbcTemplate.update(
+                """
+                insert into practice_generated_content_judge_results (
+                    judge_result_id,
+                    provider_call_id,
+                    suggested_verdict,
+                    effective_verdict,
+                    verdict_consistency,
+                    dimension_results,
+                    judge_confidence,
+                    rubric_version,
+                    rubric_content_hash,
+                    created_at
+                ) values (?, ?, 'pass', 'pass', 'consistent', cast(? as jsonb), 0.9900,
+                    'rubric-v1', repeat('b', 64), ?)
+                """,
+                UUID.randomUUID(),
+                providerCallId,
+                dimensionResults,
+                dbTime("2026-07-03T03:00:01Z"));
     }
 
     private GeneratedContentFixture.Builder generatedContentFixture(String id) {
@@ -939,13 +1511,22 @@ class DbMigrationSmokeTest {
             String spaceTitleZh,
             String activityTitleZh,
             String sceneTagEn,
-            String coachTipZh,
+            String tprActionZh,
+            String deliveryGuidanceZh,
             String englishText,
             String chineseText,
             String pronunciationHint,
             String difficulty,
             String generationSource,
-            String status
+            String status,
+            String normalizedSceneText,
+            int generationAttemptLimit,
+            String generationErrorCode,
+            Boolean generationErrorRetryable,
+            OffsetDateTime generationStartedAt,
+            OffsetDateTime generationExpiresAt,
+            OffsetDateTime retentionExpiresAt,
+            OffsetDateTime createdAt
     ) {
         private static class Builder {
             private final String generatedContentId;
@@ -963,7 +1544,8 @@ class DbMigrationSmokeTest {
             private String spaceTitleZh;
             private String activityTitleZh;
             private String sceneTagEn;
-            private String coachTipZh;
+            private String tprActionZh;
+            private String deliveryGuidanceZh;
             private String englishText;
             private String chineseText;
             private String pronunciationHint;
@@ -971,6 +1553,11 @@ class DbMigrationSmokeTest {
             private String generationSource;
             private String status = "draft";
             private boolean fillActiveResponseFields = true;
+            private boolean fillTprAction = true;
+            private boolean fillDeliveryGuidance = true;
+            private String normalizedSceneText;
+            private boolean normalizedSceneTextSet;
+            private int generationAttemptLimit = 3;
 
             Builder(String generatedContentId) {
                 this.generatedContentId = generatedContentId;
@@ -1012,6 +1599,11 @@ class DbMigrationSmokeTest {
                 return this;
             }
 
+            Builder requestFingerprint(String requestFingerprint) {
+                this.requestFingerprint = requestFingerprint;
+                return this;
+            }
+
             Builder status(String status) {
                 this.status = status;
                 return this;
@@ -1027,15 +1619,39 @@ class DbMigrationSmokeTest {
                 return this;
             }
 
+            Builder withoutTprAction() {
+                this.fillTprAction = false;
+                return this;
+            }
+
+            Builder withoutDeliveryGuidance() {
+                this.fillDeliveryGuidance = false;
+                return this;
+            }
+
+            Builder normalizedSceneText(String normalizedSceneText) {
+                this.normalizedSceneText = normalizedSceneText;
+                this.normalizedSceneTextSet = true;
+                return this;
+            }
+
+            Builder generationAttemptLimit(int generationAttemptLimit) {
+                this.generationAttemptLimit = generationAttemptLimit;
+                return this;
+            }
+
             GeneratedContentFixture build() {
-                if (fillActiveResponseFields && ("active".equals(status) || "promoted".equals(status))) {
+                var now = dbTimeValue("2026-07-03T03:00:00Z");
+                var terminal = List.of("active", "rejected", "expired").contains(status);
+                if (fillActiveResponseFields && "active".equals(status)) {
                     spaceSlug = spaceSlug == null ? "space_" + generatedContentId : spaceSlug;
                     activitySlug = activitySlug == null ? "activity_" + generatedContentId : activitySlug;
                     phraseSlug = phraseSlug == null ? "phrase_" + generatedContentId : phraseSlug;
                     spaceTitleZh = "日常照护";
                     activityTitleZh = "洗澡时间";
                     sceneTagEn = "Bath time";
-                    coachTipZh = "慢一点重复说。";
+                    tprActionZh = fillTprAction ? "轻轻拍水。" : null;
+                    deliveryGuidanceZh = fillDeliveryGuidance ? "慢一点重复说。" : null;
                     englishText = "Warm water.";
                     chineseText = "水暖暖的。";
                     pronunciationHint = "warm water";
@@ -1058,13 +1674,36 @@ class DbMigrationSmokeTest {
                         spaceTitleZh,
                         activityTitleZh,
                         sceneTagEn,
-                        coachTipZh,
+                        tprActionZh,
+                        deliveryGuidanceZh,
                         englishText,
                         chineseText,
                         pronunciationHint,
                         difficulty,
                         generationSource,
-                        status);
+                        status,
+                        normalizedSceneTextSet
+                                ? normalizedSceneText
+                                : ("draft".equals(status) || "generating".equals(status)
+                                ? "洗澡前宝宝有点紧张"
+                                : null),
+                        generationAttemptLimit,
+                        "rejected".equals(status) || "expired".equals(status)
+                                ? "generation_failed"
+                                : null,
+                        "rejected".equals(status) || "expired".equals(status) ? Boolean.TRUE : null,
+                        "draft".equals(status) ? null : now,
+                        "draft".equals(status) || "generating".equals(status)
+                                ? dbTimeValue("2026-07-03T03:05:00Z")
+                                : null,
+                        "installation".equals(ownerScope) && terminal
+                                ? dbTimeValue("2026-08-02T03:00:00Z")
+                                : null,
+                        now);
+            }
+
+            private static OffsetDateTime dbTimeValue(String instantText) {
+                return OffsetDateTime.ofInstant(Instant.parse(instantText), ZoneOffset.UTC);
             }
         }
     }
