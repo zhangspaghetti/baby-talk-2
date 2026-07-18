@@ -34,7 +34,10 @@ class CompositeCustomSceneEvidenceRetrieverTest {
 
     @Test
     void springSelectsProductionConstructorsWhenTestConstructorsAlsoExist() {
-        assertThat(List.of(CompositeCustomSceneEvidenceRetriever.class, EvidenceBundleFactory.class))
+        assertThat(List.of(
+                CompositeCustomSceneEvidenceRetriever.class,
+                EvidenceBundleFactory.class,
+                EvidenceSanitizer.class))
                 .allSatisfy(type -> assertThat(List.of(type.getDeclaredConstructors()))
                         .filteredOn(constructor -> AnnotatedElementUtils.hasAnnotation(constructor, Autowired.class))
                         .hasSize(1));

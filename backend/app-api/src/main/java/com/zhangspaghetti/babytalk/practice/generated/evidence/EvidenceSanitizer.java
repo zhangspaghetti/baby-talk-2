@@ -1,10 +1,12 @@
 package com.zhangspaghetti.babytalk.practice.generated.evidence;
 
 import com.zhangspaghetti.babytalk.practice.discovery.PracticeDiscoveryPolicyProperties;
+import com.zhangspaghetti.babytalk.practice.discovery.PolicyTextMatcher;
 import com.zhangspaghetti.babytalk.practice.discovery.SceneTextCanonicalizer;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.util.List;
 import java.util.Optional;
 import java.util.regex.Pattern;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -40,6 +42,7 @@ public class EvidenceSanitizer {
                     + "system\\s+prompt|developer\\s+message)");
     private static final Pattern WHITESPACE = Pattern.compile("[\\p{Z}\\s]+", Pattern.UNICODE_CHARACTER_CLASS);
     private static final Pattern REMOVABLE_INVISIBLES = Pattern.compile("[\\u200B\\u200C\\u2060\\uFEFF]");
+    private static final Pattern SEMANTIC_SEPARATOR = Pattern.compile("[_\\p{Pd}*`~]+");
     private static final Pattern GRAPHEME = Pattern.compile("\\X");
     private static final Pattern SENTENCE_OR_PARAGRAPH_BOUNDARY = Pattern.compile("(?<=[。！？!?；;\\r\\n])");
 
@@ -47,49 +50,62 @@ public class EvidenceSanitizer {
     private final Pattern phonePattern;
     private final Pattern emailPattern;
     private final Pattern babyNamePattern;
+    private final List<String> piiMarkers;
+    private final List<String> promptInjectionMarkers;
+    private final PolicyTextMatcher policyTextMatcher;
 
     public EvidenceSanitizer() {
-        this(new SceneTextCanonicalizer(), DEFAULT_PHONE, DEFAULT_EMAIL, DEFAULT_BABY_NAME);
+        var fallbackCanonicalizer = new SceneTextCanonicalizer();
+        this.canonicalizer = fallbackCanonicalizer;
+        this.phonePattern = DEFAULT_PHONE;
+        this.emailPattern = DEFAULT_EMAIL;
+        this.babyNamePattern = DEFAULT_BABY_NAME;
+        this.piiMarkers = List.of(
+                "身份证", "微信", "wechat", "qq", "住址", "地址", "phone", "手机号", "电话");
+        this.promptInjectionMarkers = List.of(
+                "ignore previous", "system prompt", "developer message", "jailbreak",
+                "忽略之前", "系统提示", "开发者消息", "越狱");
+        this.policyTextMatcher = new PolicyTextMatcher(fallbackCanonicalizer);
+    }
+
+    public EvidenceSanitizer(
+            SceneTextCanonicalizer canonicalizer,
+            PracticeDiscoveryPolicyProperties policyProperties
+    ) {
+        this(canonicalizer, policyProperties, new PolicyTextMatcher(canonicalizer));
     }
 
     @Autowired
     public EvidenceSanitizer(
             SceneTextCanonicalizer canonicalizer,
-            PracticeDiscoveryPolicyProperties policyProperties
-    ) {
-        this(
-                canonicalizer,
-                policyProperties.compiledPhonePattern(),
-                policyProperties.compiledEmailPattern(),
-                policyProperties.compiledBabyNamePattern());
-    }
-
-    EvidenceSanitizer(
-            SceneTextCanonicalizer canonicalizer,
-            Pattern phonePattern,
-            Pattern emailPattern,
-            Pattern babyNamePattern
+            PracticeDiscoveryPolicyProperties policyProperties,
+            PolicyTextMatcher policyTextMatcher
     ) {
         this.canonicalizer = canonicalizer;
-        this.phonePattern = phonePattern;
-        this.emailPattern = emailPattern;
-        this.babyNamePattern = babyNamePattern;
+        this.phonePattern = policyProperties.compiledPhonePattern();
+        this.emailPattern = policyProperties.compiledEmailPattern();
+        this.babyNamePattern = policyProperties.compiledBabyNamePattern();
+        this.piiMarkers = List.copyOf(policyProperties.piiMarkers());
+        this.promptInjectionMarkers = List.copyOf(policyProperties.promptInjectionMarkers());
+        this.policyTextMatcher = policyTextMatcher;
     }
 
     public Optional<EvidenceSummary> sanitize(String rawSummary) {
         if (rawSummary == null || rawSummary.isBlank()) {
             return Optional.empty();
         }
-        var rawForms = canonicalizer.derive(detectionText(rawSummary));
+        var rawForms = canonicalizer.derive(HTML_TAG.matcher(rawSummary).replaceAll(""));
         if (rawForms.riskSignals().bidiControlPresent()
                 || rawForms.securityText() == null
-                || containsPii(rawForms.securityText())) {
+                || containsPii(rawSummary, rawForms.securityText())) {
             return Optional.empty();
         }
         var safeSegments = new StringBuilder();
         for (var segment : SENTENCE_OR_PARAGRAPH_BOUNDARY.split(rawSummary)) {
-            var segmentForms = canonicalizer.derive(detectionText(segment));
-            if (segmentForms.securityText() == null || INSTRUCTION.matcher(segmentForms.securityText()).find()) {
+            var segmentSecurityText = markerSecurityText(segment);
+            if (segmentSecurityText == null
+                    || INSTRUCTION.matcher(segmentSecurityText).find()
+                    || markerMatches(segment, promptInjectionMarkers)) {
                 continue;
             }
             var cleaned = cleanDisplaySegment(REMOVABLE_INVISIBLES.matcher(segment).replaceAll(""));
@@ -108,10 +124,16 @@ public class EvidenceSanitizer {
         return Optional.of(new EvidenceSummary(sanitized, sha256(sanitized)));
     }
 
-    private String detectionText(String value) {
-        var result = HTML_TAG.matcher(value).replaceAll("");
-        result = MARKDOWN_MARKER.matcher(result).replaceAll("");
-        return result;
+    private String markerSecurityText(String value) {
+        return canonicalizer.derive(markerDetectionText(value)).securityText();
+    }
+
+    private String markerDetectionText(String value) {
+        var result = MARKDOWN_LINK.matcher(value).replaceAll("$1");
+        result = HTML_TAG.matcher(result).replaceAll(" ");
+        result = LIST_MARKER.matcher(result).replaceAll(" ");
+        result = MARKDOWN_MARKER.matcher(result).replaceAll(" ");
+        return SEMANTIC_SEPARATOR.matcher(result).replaceAll(" ");
     }
 
     private String cleanDisplaySegment(String value) {
@@ -126,13 +148,40 @@ public class EvidenceSanitizer {
         return WHITESPACE.matcher(result).replaceAll(" ").trim();
     }
 
-    private boolean containsPii(String securityText) {
+    private boolean containsPii(String rawText, String securityText) {
         return emailPattern.matcher(securityText).find()
                 || phonePattern.matcher(securityText).find()
                 || babyNamePattern.matcher(securityText).find()
                 || NATIONAL_ID.matcher(securityText).find()
                 || CONTEXTUAL_PHONE.matcher(securityText).find()
-                || EXPLICIT_ACCOUNT.matcher(securityText).find();
+                || EXPLICIT_ACCOUNT.matcher(securityText).find()
+                || markerMatches(rawText, piiMarkers);
+    }
+
+    private boolean markerMatches(String value, List<String> markers) {
+        var semanticText = markerSecurityText(value);
+        if (semanticText == null) {
+            return false;
+        }
+        if (policyTextMatcher.containsAny(semanticText, markers)) {
+            return true;
+        }
+        var collapsedText = collapseTokens(semanticText);
+        return markers.stream()
+                .map(canonicalizer::derive)
+                .map(forms -> forms.securityText())
+                .filter(java.util.Objects::nonNull)
+                .map(this::collapseTokens)
+                .filter(marker -> !marker.isBlank())
+                .anyMatch(collapsedText::contains);
+    }
+
+    private String collapseTokens(String value) {
+        var collapsed = new StringBuilder(value.length());
+        value.codePoints()
+                .filter(Character::isLetterOrDigit)
+                .forEach(collapsed::appendCodePoint);
+        return collapsed.toString();
     }
 
     private String truncateGraphemeSafe(String value, int maximumCodePoints) {
