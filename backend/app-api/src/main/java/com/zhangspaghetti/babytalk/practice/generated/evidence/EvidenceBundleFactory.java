@@ -11,8 +11,12 @@ import java.security.NoSuchAlgorithmException;
 import java.time.Clock;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
+import java.util.TreeSet;
 import java.util.UUID;
 import java.util.function.Supplier;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -20,6 +24,13 @@ import org.springframework.stereotype.Component;
 
 @Component
 public class EvidenceBundleFactory {
+
+    private static final Comparator<EvidenceItem> ITEM_ORDER = Comparator
+            .comparing(EvidenceItem::claimType)
+            .thenComparing(EvidenceItem::confidence, Comparator.reverseOrder())
+            .thenComparing(EvidenceItem::evidenceId)
+            .thenComparing(item -> item.sourceVersion() == null ? "" : item.sourceVersion())
+            .thenComparing(EvidenceItem::sanitizedSummaryHash);
 
     private final EvidenceBundlePersistencePort persistence;
     private final CustomSceneEvidenceRetriever retriever;
@@ -68,12 +79,35 @@ public class EvidenceBundleFactory {
                 retrieval.items());
     }
 
+    /**
+     * Derives evidence only from the immediately preceding in-memory bundle in the same execution.
+     * Persisted-bundle reload and restart resume are intentionally outside this port.
+     */
     public FrozenEvidenceBundle deriveReused(
             String generatedContentId,
             int attemptNumber,
             FrozenEvidenceBundle previousBundle
     ) {
         Objects.requireNonNull(previousBundle, "previousBundle");
+        if (!previousBundle.generatedContentId().equals(generatedContentId)) {
+            throw new IllegalArgumentException("REUSED evidence requires same generatedContentId");
+        }
+        if (attemptNumber != previousBundle.attemptNumber() + 1 || attemptNumber > 5) {
+            throw new IllegalArgumentException("REUSED evidence requires next attempt number between 1 and 5");
+        }
+        if (previousBundle.items().isEmpty()) {
+            throw new IllegalArgumentException("REUSED evidence requires non-empty previous bundle");
+        }
+        if (!policy.version().equals(previousBundle.evidencePolicyVersion())
+                || !policy.contentHash().equals(previousBundle.evidencePolicyContentHash())
+                || !EvidenceSanitizer.VERSION.equals(previousBundle.sanitizerVersion())) {
+            throw new IllegalArgumentException(
+                    "REUSED evidence version changed; caller must use REFRESHED");
+        }
+        requireReusablePolicy(previousBundle.items());
+        if (!bundleHash(previousBundle.items()).equals(previousBundle.bundleHash())) {
+            throw new IllegalArgumentException("REUSED previous bundle hash does not match evidence items");
+        }
         return create(
                 generatedContentId,
                 attemptNumber,
@@ -88,7 +122,38 @@ public class EvidenceBundleFactory {
             int attemptNumber,
             EvidenceRetrievalRequest gapRequest
     ) {
-        var retrieval = retriever.retrieve(Objects.requireNonNull(gapRequest, "gapRequest"));
+        Objects.requireNonNull(gapRequest, "gapRequest");
+        if (gapRequest.requestedClaimTypes().isEmpty()) {
+            throw new IllegalArgumentException("REFRESHED evidence requires at least one gap claim");
+        }
+        if (!policy.requiredClaimCoverage().containsAll(gapRequest.requestedClaimTypes())) {
+            throw new IllegalArgumentException("REFRESHED evidence gap claim is not required by policy");
+        }
+        var merged = new LinkedHashMap<EvidenceDeduplicationKey, EvidenceItem>();
+        for (var gapClaim : new TreeSet<>(gapRequest.requestedClaimTypes())) {
+            var claimRequest = new EvidenceRetrievalRequest(
+                    gapRequest.displayText(),
+                    gapRequest.ageRange(),
+                    gapRequest.parentGoal(),
+                    Set.of(gapClaim),
+                    gapRequest.retrievalTraceId());
+            var claimRetrieval = retriever.retrieve(claimRequest);
+            validateSummaryHashes(claimRetrieval.items());
+            if (!coversClaim(claimRetrieval.items(), gapClaim)) {
+                throw new IllegalStateException(
+                        "minimum evidence policy gap claim " + gapClaim + " was not covered by refreshed retrieval");
+            }
+            for (var item : claimRetrieval.items()) {
+                merged.putIfAbsent(new EvidenceDeduplicationKey(
+                        item.evidenceId(),
+                        item.sourceVersion(),
+                        item.claimType(),
+                        item.sanitizedSummaryHash()), item);
+            }
+        }
+        var items = merged.values().stream().sorted(ITEM_ORDER).toList();
+        var retrieval = new EvidenceRetrievalResult(
+                items, gapRequest.retrievalTraceId(), RetrievalStatus.INITIAL);
         requireSufficient(retrieval);
         return create(
                 generatedContentId,
@@ -97,6 +162,12 @@ public class EvidenceBundleFactory {
                 RetrievalStatus.REFRESHED,
                 retrieval.retrievalTraceId(),
                 retrieval.items());
+    }
+
+    private boolean coversClaim(List<EvidenceItem> items, String claim) {
+        return items.stream().anyMatch(item -> claim.equals(item.claimType())
+                && item.confidence() >= policy.minimumConfidence()
+                && policy.trustedSourceTypes().contains(item.sourceType()));
     }
 
     private FrozenEvidenceBundle create(
@@ -111,6 +182,7 @@ public class EvidenceBundleFactory {
             throw new IllegalArgumentException("attemptNumber must be between 1 and 5");
         }
         var frozenItems = List.copyOf(items);
+        validateSummaryHashes(frozenItems);
         var bundle = new FrozenEvidenceBundle(
                 uuidSupplier.get(),
                 Objects.requireNonNull(generatedContentId, "generatedContentId"),
@@ -130,6 +202,7 @@ public class EvidenceBundleFactory {
 
     private void requireSufficient(EvidenceRetrievalResult retrieval) {
         Objects.requireNonNull(retrieval, "retrieval");
+        validateSummaryHashes(retrieval.items());
         var sufficient = retrieval.status() != RetrievalStatus.INSUFFICIENT
                 && policy.requiredClaimCoverage().stream().allMatch(claim -> retrieval.items().stream().anyMatch(item ->
                         claim.equals(item.claimType())
@@ -137,6 +210,27 @@ public class EvidenceBundleFactory {
                                 && policy.trustedSourceTypes().contains(item.sourceType())));
         if (!sufficient) {
             throw new IllegalStateException("minimum evidence policy is not satisfied");
+        }
+    }
+
+    private void requireReusablePolicy(List<EvidenceItem> items) {
+        validateSummaryHashes(items);
+        var sufficient = policy.requiredClaimCoverage().stream().allMatch(claim -> items.stream().anyMatch(item ->
+                claim.equals(item.claimType())
+                        && item.confidence() >= policy.minimumConfidence()
+                        && policy.trustedSourceTypes().contains(item.sourceType())));
+        if (!sufficient) {
+            throw new IllegalArgumentException("REUSED evidence does not satisfy minimum evidence policy");
+        }
+    }
+
+    private void validateSummaryHashes(List<EvidenceItem> items) {
+        for (var item : items) {
+            if (!item.sanitizedSummaryHash().matches("[0-9a-f]{64}")
+                    || !item.sanitizedSummaryHash().equals(EvidenceSanitizer.sha256(item.sanitizedSummary()))) {
+                throw new IllegalArgumentException(
+                        "sanitizedSummaryHash must be lowercase SHA-256 of sanitizedSummary");
+            }
         }
     }
 
@@ -203,5 +297,13 @@ public class EvidenceBundleFactory {
     private void append(StringBuilder target, String value) {
         var safe = value == null ? "" : value;
         target.append(safe.length()).append(':').append(safe).append(';');
+    }
+
+    private record EvidenceDeduplicationKey(
+            String evidenceId,
+            String sourceVersion,
+            String claimType,
+            String summaryHash
+    ) {
     }
 }

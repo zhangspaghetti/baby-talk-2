@@ -2,7 +2,6 @@ package com.zhangspaghetti.babytalk.practice.generated.evidence;
 
 import com.zhangspaghetti.babytalk.palace.PalaceHybridRetrievalService;
 import com.zhangspaghetti.babytalk.palace.RetrievalRequest;
-import java.util.Comparator;
 import java.util.Objects;
 import org.springframework.stereotype.Component;
 
@@ -25,7 +24,6 @@ public class PalaceCustomSceneEvidenceSource implements CustomSceneEvidenceRetri
     @Override
     public EvidenceRetrievalResult retrieve(EvidenceRetrievalRequest request) {
         Objects.requireNonNull(request, "request");
-        var claimType = requestedClaimType(request);
         var palaceResult = palaceRetrievalService.retrieve(new RetrievalRequest(
                 request.displayText(),
                 null,
@@ -42,7 +40,7 @@ public class PalaceCustomSceneEvidenceSource implements CustomSceneEvidenceRetri
                                 "approved_external_snapshot",
                                 null,
                                 null,
-                                claimType,
+                                "scene_support",
                                 summary.sanitizedSummary(),
                                 summary.sanitizedSummaryHash(),
                                 clamp(candidate.effectiveScore())))
@@ -50,16 +48,6 @@ public class PalaceCustomSceneEvidenceSource implements CustomSceneEvidenceRetri
                 .filter(Objects::nonNull)
                 .toList();
         return new EvidenceRetrievalResult(items, request.retrievalTraceId(), RetrievalStatus.INITIAL);
-    }
-
-    private String requestedClaimType(EvidenceRetrievalRequest request) {
-        if (request.requestedClaimTypes().contains("scene_support")) {
-            return "scene_support";
-        }
-        return request.requestedClaimTypes().stream()
-                .sorted(Comparator.naturalOrder())
-                .findFirst()
-                .orElse("scene_support");
     }
 
     private String snapshotEvidenceId(String chunkId) {

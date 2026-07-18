@@ -26,6 +26,11 @@ public record EvidenceItem(
         if (replayMode == ReplayMode.REFERENCE && (sourceVersion == null || sourceVersion.isBlank())) {
             throw new IllegalArgumentException("reference evidence requires sourceVersion");
         }
+        if (!sanitizedSummaryHash.matches("[0-9a-f]{64}")
+                || !sanitizedSummaryHash.equals(EvidenceSanitizer.sha256(sanitizedSummary))) {
+            throw new IllegalArgumentException(
+                    "sanitizedSummaryHash must be lowercase SHA-256 of sanitizedSummary");
+        }
         if (confidence < 0.0d || confidence > 1.0d || Double.isNaN(confidence)) {
             throw new IllegalArgumentException("confidence must be between 0 and 1");
         }
