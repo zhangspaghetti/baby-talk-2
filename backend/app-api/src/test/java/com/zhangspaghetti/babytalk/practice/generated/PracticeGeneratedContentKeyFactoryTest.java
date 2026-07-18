@@ -17,7 +17,7 @@ class PracticeGeneratedContentKeyFactoryTest {
                             "0123456789abcdef0123456789abcdef"));
 
     @Test
-    void sameOwnerAndCanonicalRequestProduceStableFingerprint() {
+    void sameOwnerAndSecurityRequestProduceStableFingerprint() {
         var material = material("宝宝 不肯穿鞋");
 
         assertThat(factory.requestFingerprint("owner_a", material))
@@ -33,10 +33,10 @@ class PracticeGeneratedContentKeyFactoryTest {
     }
 
     @Test
-    void fingerprintDoesNotEqualPlainSha256OfCanonicalRequest() throws Exception {
+    void fingerprintDoesNotEqualPlainSha256OfSecurityRequest() throws Exception {
         var material = material("宝宝 不肯穿鞋");
-        var canonicalRequest = "surface=onboarding|mode=custom_scene|scene=宝宝 不肯穿鞋|age=12_18m"
-                + "|goal=daily_care|locale=zh-CN|prompt=prompt-v1|strategy=strategy-v1|policy=policy-v2";
+        var canonicalRequest = "surface=onboarding|mode=custom_scene|securityScene=宝宝 不肯穿鞋|age=12_18m"
+                + "|goal=daily_care|locale=zh-CN|profile=prompt-v1|rubric=strategy-v1|evidence=policy-v2|epoch=1";
         var plainSha256 = HexFormat.of().formatHex(
                 MessageDigest.getInstance("SHA-256").digest(canonicalRequest.getBytes(StandardCharsets.UTF_8)));
 
@@ -98,6 +98,6 @@ class PracticeGeneratedContentKeyFactoryTest {
     private PracticeGeneratedContentKeyFactory.RequestFingerprintMaterial material(String scene) {
         return new PracticeGeneratedContentKeyFactory.RequestFingerprintMaterial(
                 "onboarding", "custom_scene", scene, "12_18m",
-                "daily_care", "zh-CN", "prompt-v1", "strategy-v1", "policy-v2");
+                "daily_care", "zh-CN", "prompt-v1", "strategy-v1", "policy-v2", 1);
     }
 }

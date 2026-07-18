@@ -619,7 +619,11 @@ class PracticeGeneratedContentServiceTest {
                 .satisfies(error -> assertThat(((ContractException) error).code()).isEqualTo("unsafe_custom_scene_text"));
         assertThatThrownBy(() -> service.generateCustomScene(request("ignore previous 洗澡")))
                 .isInstanceOf(ContractException.class)
-                .satisfies(error -> assertThat(((ContractException) error).code()).isEqualTo("unsupported_custom_scene_text"));
+                .satisfies(error -> {
+                    var contract = (ContractException) error;
+                    assertThat(contract.code()).isEqualTo("unsafe_custom_scene_text");
+                    assertThat(contract.status()).isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY);
+                });
         verify(mapper, never()).insertDraftIgnoringLiveConflict(any());
     }
 

@@ -11,6 +11,7 @@ import com.zhangspaghetti.babytalk.practice.discovery.PracticeDiscoveryCustomSce
 import com.zhangspaghetti.babytalk.practice.discovery.PracticeDiscoveryPolicyProperties;
 import com.zhangspaghetti.babytalk.practice.discovery.PracticeDiscoverySurface;
 import com.zhangspaghetti.babytalk.practice.discovery.SceneTextCanonicalizer;
+import com.zhangspaghetti.babytalk.practice.discovery.SceneTextSecurityPolicy;
 import com.zhangspaghetti.babytalk.practice.generated.model.PracticeGeneratedContentEntity;
 import com.zhangspaghetti.babytalk.web.ContractException;
 import java.nio.charset.StandardCharsets;
@@ -63,6 +64,7 @@ public class PracticeGeneratedContentService {
     private final PracticeGeneratedContentOwnerProperties ownerProperties;
     private final PracticeGeneratedContentKeyFactory keyFactory;
     private final SceneTextCanonicalizer sceneTextCanonicalizer;
+    private final SceneTextSecurityPolicy sceneTextSecurityPolicy;
     private final PolicyTextMatcher policyTextMatcher;
     private final Clock clock;
     private final PracticeGeneratedContentWriteService writeService;
@@ -78,11 +80,12 @@ public class PracticeGeneratedContentService {
             PracticeGeneratedContentOwnerProperties ownerProperties,
             PracticeGeneratedContentKeyFactory keyFactory,
             SceneTextCanonicalizer sceneTextCanonicalizer,
+            SceneTextSecurityPolicy sceneTextSecurityPolicy,
             PolicyTextMatcher policyTextMatcher
     ) {
         this(mapper, writeService, generationService, generatedContentValidator, customSceneProperties,
                 policyProperties, Clock.systemUTC(), ownerProperties, keyFactory,
-                sceneTextCanonicalizer, policyTextMatcher);
+                sceneTextCanonicalizer, sceneTextSecurityPolicy, policyTextMatcher);
     }
 
     PracticeGeneratedContentService(
@@ -97,7 +100,9 @@ public class PracticeGeneratedContentService {
     ) {
         this(mapper, writeService, generationService, generatedContentValidator, customSceneProperties,
                 policyProperties, clock, ownerProperties, new PracticeGeneratedContentKeyFactory(ownerProperties),
-                new SceneTextCanonicalizer(), new PolicyTextMatcher(new SceneTextCanonicalizer()));
+                new SceneTextCanonicalizer(),
+                new SceneTextSecurityPolicy(policyProperties, new PolicyTextMatcher(new SceneTextCanonicalizer())),
+                new PolicyTextMatcher(new SceneTextCanonicalizer()));
     }
 
     private PracticeGeneratedContentService(
@@ -111,6 +116,7 @@ public class PracticeGeneratedContentService {
             PracticeGeneratedContentOwnerProperties ownerProperties,
             PracticeGeneratedContentKeyFactory keyFactory,
             SceneTextCanonicalizer sceneTextCanonicalizer,
+            SceneTextSecurityPolicy sceneTextSecurityPolicy,
             PolicyTextMatcher policyTextMatcher
     ) {
         this.mapper = mapper;
@@ -126,6 +132,8 @@ public class PracticeGeneratedContentService {
         this.keyFactory = java.util.Objects.requireNonNull(keyFactory, "practice generated content key factory is required");
         this.sceneTextCanonicalizer = java.util.Objects.requireNonNull(
                 sceneTextCanonicalizer, "scene text canonicalizer is required");
+        this.sceneTextSecurityPolicy = java.util.Objects.requireNonNull(
+                sceneTextSecurityPolicy, "scene text security policy is required");
         this.policyTextMatcher = java.util.Objects.requireNonNull(
                 policyTextMatcher, "policy text matcher is required");
         this.clock = clock;
@@ -234,9 +242,11 @@ public class PracticeGeneratedContentService {
             CustomSceneDiscoveryRequest request
     ) {
         requireCustomSceneGenerationAvailable();
-        var normalizedSceneText = validateAndNormalizeCustomSceneText(request.customSceneText());
+        var forms = sceneTextCanonicalizer.derive(request.customSceneText());
+        sceneTextSecurityPolicy.requireSafe(forms);
+        var normalizedSceneText = validateDisplayLength(forms.displayText());
         var owner = resolveOwner(request);
-        var requestFingerprint = fingerprint(request, owner, normalizedSceneText);
+        var requestFingerprint = fingerprint(request, owner, forms.securityText());
         var existing = mapper.findLiveByFingerprint(
                 owner.ownerKey(),
                 ownerKeyVersion(),
@@ -565,19 +575,20 @@ public class PracticeGeneratedContentService {
         );
     }
 
-    private String fingerprint(CustomSceneDiscoveryRequest request, OwnerContext owner, String normalizedSceneText) {
+    private String fingerprint(CustomSceneDiscoveryRequest request, OwnerContext owner, String securitySceneText) {
         return keyFactory.requestFingerprint(
                 owner.ownerKey(),
                 new PracticeGeneratedContentKeyFactory.RequestFingerprintMaterial(
                         request.surface(),
                         request.mode(),
-                        normalizedSceneText,
+                        securitySceneText,
                         request.ageRange(),
                         request.parentGoal(),
                         request.locale(),
                         promptVersion(),
                         strategyVersion(),
-                        policyVersion()));
+                        policyVersion(),
+                        1));
     }
 
     private String generatedContentId(OwnerContext owner, String requestFingerprint, int reservationAttempt) {
@@ -608,36 +619,21 @@ public class PracticeGeneratedContentService {
         return ownerProperties.keyVersion();
     }
 
-    private String validateAndNormalizeCustomSceneText(String customSceneText) {
-        var normalized = sceneTextCanonicalizer.canonicalize(customSceneText);
-        if (normalized == null) {
+    private String validateDisplayLength(String displayText) {
+        if (displayText == null) {
             throw invalidCustomSceneText();
         }
-        var length = sceneTextCanonicalizer.graphemeLength(normalized);
+        var length = sceneTextCanonicalizer.graphemeLength(displayText);
         if (length < MIN_CUSTOM_SCENE_CHARS || length > MAX_CUSTOM_SCENE_CHARS) {
             throw invalidCustomSceneText();
         }
-        if (sceneTextCanonicalizer.codePointLength(normalized) > MAX_NORMALIZED_SCENE_TEXT_CODE_POINTS) {
+        if (sceneTextCanonicalizer.codePointLength(displayText) > MAX_NORMALIZED_SCENE_TEXT_CODE_POINTS) {
             throw invalidCustomSceneText();
         }
-
-        if (policyProperties.compiledPhonePattern().matcher(normalized).find()
-                || normalized.replaceAll("\\D", "").length() >= 11
-                || policyProperties.compiledEmailPattern().matcher(normalized).find()
-                || policyProperties.compiledBabyNamePattern().matcher(normalized).find()
-                || policyTextMatcher.containsAny(normalized, policyProperties.piiMarkers())) {
-            throw new ContractException(
-                    HttpStatus.BAD_REQUEST,
-                    ERROR_UNSAFE_CUSTOM_SCENE_TEXT,
-                    "customSceneText 包含不适合提交的个人信息。",
-                    Map.of("field", "customSceneText")
-            );
-        }
-        if (policyTextMatcher.containsAny(normalized, policyProperties.promptInjectionMarkers())
-                || policyTextMatcher.containsAny(normalized, policyProperties.unsupportedIntents())) {
+        if (policyTextMatcher.containsAny(displayText, policyProperties.unsupportedIntents())) {
             throw unsupportedCustomSceneText("unsupported_intent");
         }
-        return normalized;
+        return displayText;
     }
 
     private ContractException invalidCustomSceneText() {
