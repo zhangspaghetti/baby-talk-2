@@ -13,6 +13,7 @@ import org.springframework.stereotype.Component;
 @Component
 public class CustomSceneGeneratedContentValidator {
 
+    private static final int MAX_NEGATION_PREFIX_CODE_POINTS = 32;
     private static final Pattern ENGLISH_WORD_PATTERN = Pattern.compile("[A-Za-z]+(?:'[A-Za-z]+)?");
     private static final Pattern TRUSTED_SCENE_TAG_PATTERN = Pattern.compile("[A-Za-z0-9][A-Za-z0-9 _-]*");
     private static final Pattern MARKDOWN_OR_TEMPLATE_PATTERN = Pattern.compile(
@@ -25,6 +26,8 @@ public class CustomSceneGeneratedContentValidator {
     private final PolicyTextMatcher policyTextMatcher;
     private final SceneTextCanonicalizer canonicalizer;
     private final GeneratedCoachTipComposer coachTipComposer;
+    private final List<Pattern> dangerousMedicalCommandPatterns;
+    private final List<Pattern> dangerousMedicalNegationPatterns;
 
     public CustomSceneGeneratedContentValidator(
             PracticeDiscoveryPolicyProperties policyProperties,
@@ -82,6 +85,10 @@ public class CustomSceneGeneratedContentValidator {
         this.policyTextMatcher = policyTextMatcher;
         this.canonicalizer = canonicalizer;
         this.coachTipComposer = coachTipComposer;
+        this.dangerousMedicalCommandPatterns = compilePolicyPatterns(
+                policyProperties.validatorDangerousMedicalCommandPatterns());
+        this.dangerousMedicalNegationPatterns = compilePolicyPatterns(
+                policyProperties.validatorDangerousMedicalNegationPatterns());
     }
 
     public GeneratedOutputGateResult evaluate(
@@ -135,8 +142,7 @@ public class CustomSceneGeneratedContentValidator {
                 combined, policyProperties.validatorAdultViolentSexual())) {
             terminal.add(GeneratedOutputViolationCode.OUTPUT_ADULT_VIOLENT);
         }
-        if (policyTextMatcher.containsAny(
-                combined, policyProperties.validatorDangerousMedicalCommands())) {
+        if (containsDangerousMedicalCommand(normalized)) {
             terminal.add(GeneratedOutputViolationCode.OUTPUT_DANGEROUS_MEDICAL);
         }
 
@@ -279,6 +285,46 @@ public class CustomSceneGeneratedContentValidator {
                 || policyProperties.compiledEmailPattern().matcher(combined).find()
                 || policyProperties.compiledBabyNamePattern().matcher(combined).find()
                 || policyTextMatcher.containsAny(combined, policyProperties.validatorPiiMarkers());
+    }
+
+    private boolean containsDangerousMedicalCommand(GeneratedPracticeContentCandidate candidate) {
+        return candidateFields(candidate)
+                .filter(value -> value != null)
+                .anyMatch(this::containsUnnegatedDangerousMedicalCommand);
+    }
+
+    private boolean containsUnnegatedDangerousMedicalCommand(String text) {
+        var securityText = canonicalizer.derive(text).securityText();
+        if (securityText == null) {
+            return false;
+        }
+        for (var commandPattern : dangerousMedicalCommandPatterns) {
+            var matcher = commandPattern.matcher(securityText);
+            while (matcher.find()) {
+                if (!isLocallyNegated(securityText, matcher.start())) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    private boolean isLocallyNegated(String text, int commandStart) {
+        var prefixCodePoints = text.codePointCount(0, commandStart);
+        var prefixStart = text.offsetByCodePoints(
+                0, Math.max(0, prefixCodePoints - MAX_NEGATION_PREFIX_CODE_POINTS));
+        var localPrefix = text.substring(prefixStart, commandStart);
+        return dangerousMedicalNegationPatterns.stream()
+                .anyMatch(pattern -> pattern.matcher(localPrefix).find());
+    }
+
+    private static List<Pattern> compilePolicyPatterns(List<String> patterns) {
+        var flags = Pattern.CASE_INSENSITIVE
+                | Pattern.UNICODE_CASE
+                | Pattern.UNICODE_CHARACTER_CLASS;
+        return patterns.stream()
+                .map(pattern -> Pattern.compile(pattern, flags))
+                .toList();
     }
 
     private boolean containsMarkdownOrTemplate(GeneratedPracticeContentCandidate candidate) {
