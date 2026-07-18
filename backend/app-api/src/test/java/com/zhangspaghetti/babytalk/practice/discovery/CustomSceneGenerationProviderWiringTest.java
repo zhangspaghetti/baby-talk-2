@@ -10,7 +10,12 @@ import com.zhangspaghetti.babytalk.practice.agentic.PracticeAiProviderConfigurat
 import com.zhangspaghetti.babytalk.practice.agentic.PracticeAiProviderManager;
 import com.zhangspaghetti.babytalk.practice.agentic.PracticeAiStructuredOutputCaller;
 import com.zhangspaghetti.babytalk.practice.generated.AgenticCustomSceneGenerator;
+import com.zhangspaghetti.babytalk.practice.generated.AgenticCustomSceneQualityJudge;
 import com.zhangspaghetti.babytalk.practice.generated.CustomSceneGenerator;
+import com.zhangspaghetti.babytalk.practice.generated.CustomSceneQualityJudge;
+import com.zhangspaghetti.babytalk.practice.generated.FakeCustomSceneQualityJudge;
+import com.zhangspaghetti.babytalk.practice.generated.quality.JudgeResultAuditPort;
+import com.zhangspaghetti.babytalk.practice.generated.quality.JudgeVerdictCalculator;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
@@ -37,6 +42,9 @@ class CustomSceneGenerationProviderWiringTest {
                     assertThat(context).hasSingleBean(CustomSceneGenerator.class);
                     assertThat(context.getBean(CustomSceneGenerator.class))
                             .isInstanceOf(FakeCustomSceneGenerationService.class);
+                    assertThat(context).hasSingleBean(CustomSceneQualityJudge.class);
+                    assertThat(context.getBean(CustomSceneQualityJudge.class))
+                            .isInstanceOf(FakeCustomSceneQualityJudge.class);
 
                     var candidate = context.getBean(CustomSceneGenerator.class)
                             .generate(request("睡前哄宝宝"));
@@ -89,6 +97,7 @@ class CustomSceneGenerationProviderWiringTest {
                     assertThat(context).doesNotHaveBean(CustomSceneGenerator.class);
                     assertThat(context).doesNotHaveBean(PracticeAiChatClientFactory.class);
                     assertThat(context).doesNotHaveBean(PracticeAiProviderManager.class);
+                    assertThat(context).doesNotHaveBean(CustomSceneQualityJudge.class);
                 });
     }
 
@@ -102,6 +111,7 @@ class CustomSceneGenerationProviderWiringTest {
                             .isInstanceOf(DisabledCustomSceneGenerationService.class);
                     assertThat(context).doesNotHaveBean(PracticeAiChatClientFactory.class);
                     assertThat(context).doesNotHaveBean(PracticeAiProviderManager.class);
+                    assertThat(context).doesNotHaveBean(CustomSceneQualityJudge.class);
                 });
     }
 
@@ -124,6 +134,9 @@ class CustomSceneGenerationProviderWiringTest {
                     assertThat(context).hasSingleBean(CustomSceneGenerator.class);
                     assertThat(context.getBean(CustomSceneGenerator.class))
                             .isInstanceOf(AgenticCustomSceneGenerator.class);
+                    assertThat(context).hasSingleBean(CustomSceneQualityJudge.class);
+                    assertThat(context.getBean(CustomSceneQualityJudge.class))
+                            .isInstanceOf(AgenticCustomSceneQualityJudge.class);
                 });
     }
 
@@ -194,6 +207,9 @@ class CustomSceneGenerationProviderWiringTest {
             FakeCustomSceneGenerationService.class,
             DisabledCustomSceneGenerationService.class,
             AgenticCustomSceneGenerator.class,
+            AgenticCustomSceneQualityJudge.class,
+            FakeCustomSceneQualityJudge.class,
+            JudgeVerdictCalculator.class,
             PracticeAiOpenAiOptionsFactory.class,
             PracticeAiChatClientFactory.class,
             PracticeAiProviderManager.class,
@@ -209,6 +225,11 @@ class CustomSceneGenerationProviderWiringTest {
         @Bean
         PracticeAiStructuredOutputCaller practiceAiStructuredOutputCaller() {
             return org.mockito.Mockito.mock(PracticeAiStructuredOutputCaller.class);
+        }
+
+        @Bean
+        JudgeResultAuditPort judgeResultAuditPort() {
+            return org.mockito.Mockito.mock(JudgeResultAuditPort.class);
         }
 
         @Bean
