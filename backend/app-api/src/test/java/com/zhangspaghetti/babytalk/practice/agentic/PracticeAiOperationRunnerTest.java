@@ -97,6 +97,74 @@ class PracticeAiOperationRunnerTest {
     }
 
     @Test
+    void succeededProviderAuditFailurePropagatesWithoutFallbackOrFailureRewrite() {
+        var auditFailure = new IllegalStateException("provider success audit unavailable");
+        var audit = new FailingAuditPort(FailurePoint.SUCCEEDED_PROVIDER, auditFailure);
+        var invoked = new ArrayList<String>();
+        var runner = runner(List.of(provider("primary"), provider("secondary")), audit);
+
+        assertThatThrownBy(() -> runner.execute(request(
+                        PracticeAiCapability.CUSTOM_SCENE_GENERATOR,
+                        resolved -> {
+                            invoked.add(resolved.providerName());
+                            return new OperationRequest.ProviderInvocationResult<>("generated", null);
+                        })))
+                .isSameAs(auditFailure);
+
+        assertThat(invoked).containsExactly("primary");
+        assertThat(audit.completedCalls).isEmpty();
+        assertThat(audit.startedCalls)
+                .extracting(PracticeAiAuditPort.ProviderCallStarted::providerName)
+                .containsExactly("primary");
+    }
+
+    @Test
+    void succeededOperationAuditFailurePropagatesWithoutFallbackOrProviderFailureRewrite() {
+        var auditFailure = new IllegalStateException("operation success audit unavailable");
+        var audit = new FailingAuditPort(FailurePoint.SUCCEEDED_OPERATION, auditFailure);
+        var invoked = new ArrayList<String>();
+        var runner = runner(List.of(provider("primary"), provider("secondary")), audit);
+
+        assertThatThrownBy(() -> runner.execute(request(
+                        PracticeAiCapability.CUSTOM_SCENE_GENERATOR,
+                        resolved -> {
+                            invoked.add(resolved.providerName());
+                            return new OperationRequest.ProviderInvocationResult<>("generated", null);
+                        })))
+                .isSameAs(auditFailure);
+
+        assertThat(invoked).containsExactly("primary");
+        assertThat(audit.completedCalls)
+                .extracting(PracticeAiAuditPort.ProviderCallCompleted::outcome)
+                .containsExactly("succeeded");
+        assertThat(audit.startedCalls)
+                .extracting(PracticeAiAuditPort.ProviderCallStarted::providerName)
+                .containsExactly("primary");
+    }
+
+    @Test
+    void failedProviderAuditFailurePropagatesWithoutFallback() {
+        var auditFailure = new IllegalStateException("provider failure audit unavailable");
+        var audit = new FailingAuditPort(FailurePoint.FAILED_PROVIDER, auditFailure);
+        var invoked = new ArrayList<String>();
+        var runner = runner(List.of(provider("primary"), provider("secondary")), audit);
+
+        assertThatThrownBy(() -> runner.execute(request(
+                        PracticeAiCapability.CUSTOM_SCENE_GENERATOR,
+                        resolved -> {
+                            invoked.add(resolved.providerName());
+                            throw new PracticeAiStructuredOutputCaller.StructuredOutputInvalidException();
+                        })))
+                .isSameAs(auditFailure);
+
+        assertThat(invoked).containsExactly("primary");
+        assertThat(audit.completedCalls).isEmpty();
+        assertThat(audit.startedCalls)
+                .extracting(PracticeAiAuditPort.ProviderCallStarted::providerName)
+                .containsExactly("primary");
+    }
+
+    @Test
     void providerTraceIdIsPersistedOnlyWhenItMatchesTrustedPattern() {
         var invalidAudit = new CapturingAuditPort();
         var invalidResult = runner(List.of(provider("primary")), invalidAudit).execute(request(
@@ -212,11 +280,11 @@ class PracticeAiOperationRunnerTest {
         return new ResolvedProvider(name, "openai-compatible", name + "-model", mock(ChatClient.class));
     }
 
-    private static final class CapturingAuditPort implements PracticeAiAuditPort {
-        private final List<String> events = new ArrayList<>();
-        private final List<OperationRunStarted> startedOperations = new ArrayList<>();
-        private final List<ProviderCallStarted> startedCalls = new ArrayList<>();
-        private final List<ProviderCallCompleted> completedCalls = new ArrayList<>();
+    private static class CapturingAuditPort implements PracticeAiAuditPort {
+        final List<String> events = new ArrayList<>();
+        final List<OperationRunStarted> startedOperations = new ArrayList<>();
+        final List<ProviderCallStarted> startedCalls = new ArrayList<>();
+        final List<ProviderCallCompleted> completedCalls = new ArrayList<>();
 
         @Override
         public void insertOperationRun(OperationRunStarted operation) {
@@ -242,6 +310,40 @@ class PracticeAiOperationRunnerTest {
                     .filter(started -> started.providerCallId().equals(call.providerCallId()))
                     .findFirst().orElseThrow().providerName();
             events.add(providerName + ":" + call.outcome());
+        }
+    }
+
+    private enum FailurePoint {
+        SUCCEEDED_PROVIDER,
+        SUCCEEDED_OPERATION,
+        FAILED_PROVIDER
+    }
+
+    private static final class FailingAuditPort extends CapturingAuditPort {
+        private final FailurePoint failurePoint;
+        private final RuntimeException failure;
+
+        private FailingAuditPort(FailurePoint failurePoint, RuntimeException failure) {
+            this.failurePoint = failurePoint;
+            this.failure = failure;
+        }
+
+        @Override
+        public void completeOperationRun(OperationRunCompleted operation) {
+            if (failurePoint == FailurePoint.SUCCEEDED_OPERATION && operation.outcome().equals("succeeded")) {
+                throw failure;
+            }
+            super.completeOperationRun(operation);
+        }
+
+        @Override
+        public void completeProviderCall(ProviderCallCompleted call) {
+            boolean succeeded = call.outcome().equals("succeeded");
+            if ((failurePoint == FailurePoint.SUCCEEDED_PROVIDER && succeeded)
+                    || (failurePoint == FailurePoint.FAILED_PROVIDER && !succeeded)) {
+                throw failure;
+            }
+            super.completeProviderCall(call);
         }
     }
 }

@@ -83,21 +83,10 @@ public class PracticeAiOperationRunner {
                     providerManager.routingPolicyHash(),
                     now()));
             long startedNanos = System.nanoTime();
+            OperationRequest.ProviderInvocationResult<T> invocationResult;
             try {
-                var invocationResult = Objects.requireNonNull(
+                invocationResult = Objects.requireNonNull(
                         request.invocation().invoke(provider), "provider invocation result");
-                String providerTraceId = sanitizeProviderTrace(invocationResult.providerTraceId());
-                auditPort.completeProviderCall(new PracticeAiAuditPort.ProviderCallCompleted(
-                        providerCallId, "succeeded", providerTraceId, latencyMillis(startedNanos), now()));
-                auditPort.completeOperationRun(new PracticeAiAuditPort.OperationRunCompleted(
-                        operationRunId, "succeeded", now()));
-                return new OperationResult<>(
-                        invocationResult.value(),
-                        operationRunId,
-                        providerCallId,
-                        provider.providerName(),
-                        provider.modelName(),
-                        providerTraceId);
             } catch (RuntimeException failure) {
                 auditPort.completeProviderCall(new PracticeAiAuditPort.ProviderCallCompleted(
                         providerCallId,
@@ -105,7 +94,20 @@ public class PracticeAiOperationRunner {
                         null,
                         latencyMillis(startedNanos),
                         now()));
+                continue;
             }
+            String providerTraceId = sanitizeProviderTrace(invocationResult.providerTraceId());
+            auditPort.completeProviderCall(new PracticeAiAuditPort.ProviderCallCompleted(
+                    providerCallId, "succeeded", providerTraceId, latencyMillis(startedNanos), now()));
+            auditPort.completeOperationRun(new PracticeAiAuditPort.OperationRunCompleted(
+                    operationRunId, "succeeded", now()));
+            return new OperationResult<>(
+                    invocationResult.value(),
+                    operationRunId,
+                    providerCallId,
+                    provider.providerName(),
+                    provider.modelName(),
+                    providerTraceId);
         }
         auditPort.completeOperationRun(new PracticeAiAuditPort.OperationRunCompleted(
                 operationRunId, "providers_exhausted", now()));
