@@ -2,6 +2,11 @@ package com.zhangspaghetti.babytalk.practice.discovery;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.zhangspaghetti.babytalk.practice.agentic.PracticeAiCapability;
+import com.zhangspaghetti.babytalk.practice.agentic.PracticeAiChatClientFactory;
+import com.zhangspaghetti.babytalk.practice.agentic.PracticeAiOpenAiOptionsFactory;
+import com.zhangspaghetti.babytalk.practice.agentic.PracticeAiProviderConfiguration;
+import com.zhangspaghetti.babytalk.practice.agentic.PracticeAiProviderManager;
 import java.time.Duration;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -76,7 +81,11 @@ class CustomSceneGenerationProviderWiringTest {
     void fakeProviderIsNotAvailableOutsideDevOrTestProfiles() {
         contextRunner
                 .withPropertyValues("babytalk.practice.discovery.custom-scene.provider-mode=fake")
-                .run(context -> assertThat(context).doesNotHaveBean(CustomSceneGenerationService.class));
+                .run(context -> {
+                    assertThat(context).doesNotHaveBean(CustomSceneGenerationService.class);
+                    assertThat(context).doesNotHaveBean(PracticeAiChatClientFactory.class);
+                    assertThat(context).doesNotHaveBean(PracticeAiProviderManager.class);
+                });
     }
 
     @Test
@@ -87,14 +96,27 @@ class CustomSceneGenerationProviderWiringTest {
                     assertThat(context).hasSingleBean(CustomSceneGenerationService.class);
                     assertThat(context.getBean(CustomSceneGenerationService.class))
                             .isInstanceOf(DisabledCustomSceneGenerationService.class);
+                    assertThat(context).doesNotHaveBean(PracticeAiChatClientFactory.class);
+                    assertThat(context).doesNotHaveBean(PracticeAiProviderManager.class);
                 });
     }
 
     @Test
-    void agenticProviderModeWiresExplicitNotImplementedBean() {
-        contextRunner
-                .withPropertyValues("babytalk.practice.discovery.custom-scene.provider-mode=agentic")
+    void agenticProviderModeBuildsAllMandatoryRoutesButKeepsPlaceholderUntilTaskTenServiceExists() {
+        agenticContextRunner()
+                .withPropertyValues("TEST_AI_KEY=test-secret")
                 .run(context -> {
+                    assertThat(context).hasNotFailed();
+                    var manager = context.getBean(PracticeAiProviderManager.class);
+                    assertThat(manager.route(PracticeAiCapability.CUSTOM_SCENE_GENERATOR))
+                            .extracting(provider -> provider.providerName())
+                            .containsExactly("primary");
+                    assertThat(manager.route(PracticeAiCapability.CUSTOM_SCENE_QUALITY_JUDGE))
+                            .extracting(provider -> provider.providerName())
+                            .containsExactly("primary");
+                    assertThat(manager.route(PracticeAiCapability.CUSTOM_SCENE_REPAIR))
+                            .extracting(provider -> provider.providerName())
+                            .containsExactly("primary");
                     assertThat(context).hasSingleBean(CustomSceneGenerationService.class);
                     assertThat(context.getBean(CustomSceneGenerationService.class).getClass().getSimpleName())
                             .isEqualTo("AgenticUnavailableCustomSceneGenerationService");
@@ -107,6 +129,26 @@ class CustomSceneGenerationProviderWiringTest {
                                 assertThat(unavailable.reason()).isEqualTo("agentic_not_implemented");
                                 assertThat(unavailable.retryable()).isFalse();
                             });
+                });
+    }
+
+    @Test
+    void agenticProviderModeFailsStartupWhenNamedSecretIsMissing() {
+        agenticContextRunner().run(context -> {
+            assertThat(context).hasFailed();
+            assertThat(context.getStartupFailure()).hasRootCauseMessage(
+                    "Required key 'TEST_AI_KEY' not found");
+        });
+    }
+
+    @Test
+    void agenticProviderModeFailsStartupWhenNamedSecretIsBlank() {
+        agenticContextRunner()
+                .withPropertyValues("TEST_AI_KEY= ")
+                .run(context -> {
+                    assertThat(context).hasFailed();
+                    assertThat(context.getStartupFailure())
+                            .hasRootCauseMessage("AI provider secret must not be blank: primary");
                 });
     }
 
@@ -139,12 +181,31 @@ class CustomSceneGenerationProviderWiringTest {
         );
     }
 
+    private ApplicationContextRunner agenticContextRunner() {
+        return contextRunner.withPropertyValues(
+                "babytalk.practice.discovery.custom-scene.provider-mode=agentic",
+                "app.ai.routing-policy.version=custom-scene-routing-v1",
+                "app.ai.providers.primary.type=openai-compatible",
+                "app.ai.providers.primary.base-url=https://example.invalid/v1",
+                "app.ai.providers.primary.api-key-environment-variable=TEST_AI_KEY",
+                "app.ai.providers.primary.model=gpt-4o-mini",
+                "app.ai.providers.primary.timeout=2s",
+                "app.ai.providers.primary.max-tokens=128",
+                "app.ai.capabilities.custom-scene-generator.provider-names[0]=primary",
+                "app.ai.capabilities.custom-scene-quality-judge.provider-names[0]=primary",
+                "app.ai.capabilities.custom-scene-repair.provider-names[0]=primary");
+    }
+
     @Configuration(proxyBeanMethods = false)
     @EnableConfigurationProperties(PracticeDiscoveryCustomSceneProperties.class)
     @Import({
             FakeCustomSceneGenerationService.class,
             DisabledCustomSceneGenerationService.class,
-            AgenticUnavailableCustomSceneGenerationService.class
+            AgenticUnavailableCustomSceneGenerationService.class,
+            PracticeAiOpenAiOptionsFactory.class,
+            PracticeAiChatClientFactory.class,
+            PracticeAiProviderManager.class,
+            PracticeAiProviderConfiguration.class
     })
     static class ProviderConfiguration {
     }

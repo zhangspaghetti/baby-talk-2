@@ -153,6 +153,61 @@ def supplied_options_source(source: str, expression: str, options: str) -> str |
     return factory_body
 
 
+def delegated_practice_ai_options_source(
+    path: pathlib.Path,
+    source: str,
+    expression: str,
+    errors: list[str],
+) -> str | None:
+    """Resolve only the reviewed custom-scene factory-to-options-factory seam."""
+    if path.name != "PracticeAiChatClientFactory.java":
+        return None
+    if re.fullmatch(r"\s*options\s*", expression) is None:
+        return None
+    if re.search(
+        r"\bPracticeAiOpenAiOptionsFactory\s+optionsFactory\s*;",
+        source,
+    ) is None:
+        return None
+    if re.search(
+        r"\bOpenAiChatOptions\s+options\s*=\s*optionsFactory\s*\.\s*build\s*"
+        r"\(\s*provider\s*,\s*apiKey\s*\)\s*;",
+        source,
+    ) is None:
+        return None
+
+    options_path = path.with_name("PracticeAiOpenAiOptionsFactory.java")
+    if not options_path.is_file():
+        return None
+    options_source = options_path.read_text(encoding="utf-8")
+    if re.search(
+        r"\bOpenAiChatOptions\s+build\s*\(\s*"
+        r"(?:PracticeAiProperties\s*\.\s*)?ProviderDefinition\s+provider\s*,\s*"
+        r"String\s+apiKey\s*\)",
+        options_source,
+    ) is None:
+        return None
+    if re.search(r"\.n\s*\(\s*1\s*\)", options_source) is None:
+        errors.append("PracticeAiOpenAiOptionsFactory must hard-code n(1)")
+    if re.search(r"\.maxRetries\s*\(\s*0\s*\)", options_source) is None:
+        errors.append("PracticeAiOpenAiOptionsFactory must hard-code maxRetries(0)")
+    if not all(
+        re.search(pattern, options_source)
+        for pattern in (
+            r"if\s*\(\s*provider\.temperature\(\)\s*!=\s*null\s*\)",
+            r"\.temperature\s*\(\s*provider\.temperature\(\)\s*\)",
+            r"if\s*\(\s*provider\.maxTokens\(\)\s*!=\s*null\s*\)",
+            r"\.maxTokens\s*\(\s*provider\.maxTokens\(\)\s*\)",
+            r"if\s*\(\s*provider\.maxCompletionTokens\(\)\s*!=\s*null\s*\)",
+            r"\.maxCompletionTokens\s*\(\s*provider\.maxCompletionTokens\(\)\s*\)",
+        )
+    ):
+        errors.append(
+            "PracticeAiOpenAiOptionsFactory must preserve optional temperature and token-limit logic"
+        )
+    return options_source
+
+
 def balanced_brace_end(source: str, opening_brace: int) -> int | None:
     depth = 0
     quote: str | None = None
@@ -197,6 +252,8 @@ def verify_manual_model_configuration(root: pathlib.Path, errors: list[str]) -> 
             errors.append(f"Production OpenAiApi reference remains: {relative_path}")
         if re.search(r"\bnew\s+OpenAiApi\s*\(", source):
             errors.append(f"Production OpenAiApi construction remains: {relative_path}")
+        if re.search(r"\bvalidateSchema\s*\(", source):
+            errors.append(f"Production validateSchema auto-repair remains: {relative_path}")
         for model, options in required_options.items():
             for builder in re.finditer(
                 rf"\b{re.escape(model)}\s*\.\s*builder\s*\(\s*\)", source
@@ -208,6 +265,10 @@ def verify_manual_model_configuration(root: pathlib.Path, errors: list[str]) -> 
                     )
                     continue
                 option_source = supplied_options_source(source, expression, options)
+                if option_source is None and model == "OpenAiChatModel":
+                    option_source = delegated_practice_ai_options_source(
+                        path, source, expression, errors
+                    )
                 if option_source is None:
                     errors.append(
                         f"Manual {model} construction lacks {options} provider configuration: {relative_path}"
