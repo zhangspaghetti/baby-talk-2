@@ -15,13 +15,6 @@ public final class SceneTextSecurityPolicy {
 
     public SceneTextSecurityPolicy(
             PracticeDiscoveryPolicyProperties policyProperties,
-            PolicyTextMatcher policyTextMatcher
-    ) {
-        this(policyProperties, policyTextMatcher, new SpoofChecker.Builder().build());
-    }
-
-    SceneTextSecurityPolicy(
-            PracticeDiscoveryPolicyProperties policyProperties,
             PolicyTextMatcher policyTextMatcher,
             SpoofChecker spoofChecker
     ) {

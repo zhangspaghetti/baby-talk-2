@@ -4,16 +4,37 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.ibm.icu.text.SpoofChecker;
 import com.zhangspaghetti.babytalk.web.ContractException;
 import org.junit.jupiter.api.Test;
+import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 import org.springframework.http.HttpStatus;
+import org.springframework.test.util.ReflectionTestUtils;
 
 class SceneTextSecurityPolicyTest {
 
     private final SceneTextCanonicalizer canonicalizer = new SceneTextCanonicalizer();
     private final SceneTextSecurityPolicy policy = new SceneTextSecurityPolicy(
             PracticeDiscoveryPolicyTestFixture.properties(),
-            new PolicyTextMatcher(canonicalizer));
+            new PolicyTextMatcher(canonicalizer),
+            new SpoofChecker.Builder().build());
+
+    @Test
+    void springProductionWiringInjectsConfiguredSpoofChecker() {
+        try (var context = new AnnotationConfigApplicationContext()) {
+            context.register(SceneTextSecurityConfiguration.class, SceneTextCanonicalizer.class,
+                    PolicyTextMatcher.class, SceneTextSecurityPolicy.class);
+            context.registerBean(PracticeDiscoveryPolicyProperties.class,
+                    PracticeDiscoveryPolicyTestFixture::properties);
+            context.refresh();
+
+            var configuredSpoofChecker = context.getBean(SpoofChecker.class);
+            var wiredPolicy = context.getBean(SceneTextSecurityPolicy.class);
+
+            assertThat(ReflectionTestUtils.getField(wiredPolicy, "spoofChecker"))
+                    .isSameAs(configuredSpoofChecker);
+        }
+    }
 
     @Test
     void rejectsBidiControlsWithSafe422ContractDetails() {

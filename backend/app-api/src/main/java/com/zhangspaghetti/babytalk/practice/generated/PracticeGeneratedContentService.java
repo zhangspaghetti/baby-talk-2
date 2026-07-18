@@ -11,6 +11,7 @@ import com.zhangspaghetti.babytalk.practice.discovery.PracticeDiscoveryCustomSce
 import com.zhangspaghetti.babytalk.practice.discovery.PracticeDiscoveryPolicyProperties;
 import com.zhangspaghetti.babytalk.practice.discovery.PracticeDiscoverySurface;
 import com.zhangspaghetti.babytalk.practice.discovery.SceneTextCanonicalizer;
+import com.zhangspaghetti.babytalk.practice.discovery.SceneTextSecurityConfiguration;
 import com.zhangspaghetti.babytalk.practice.discovery.SceneTextSecurityPolicy;
 import com.zhangspaghetti.babytalk.practice.generated.model.PracticeGeneratedContentEntity;
 import com.zhangspaghetti.babytalk.web.ContractException;
@@ -101,7 +102,8 @@ public class PracticeGeneratedContentService {
         this(mapper, writeService, generationService, generatedContentValidator, customSceneProperties,
                 policyProperties, clock, ownerProperties, new PracticeGeneratedContentKeyFactory(ownerProperties),
                 new SceneTextCanonicalizer(),
-                new SceneTextSecurityPolicy(policyProperties, new PolicyTextMatcher(new SceneTextCanonicalizer())),
+                new SceneTextSecurityPolicy(policyProperties, new PolicyTextMatcher(new SceneTextCanonicalizer()),
+                        SceneTextSecurityConfiguration.configuredSpoofChecker()),
                 new PolicyTextMatcher(new SceneTextCanonicalizer()));
     }
 
