@@ -1,11 +1,14 @@
 package com.zhangspaghetti.babytalk.practice.discovery;
 
 import com.zhangspaghetti.babytalk.practice.generated.CustomSceneGenerator;
+import com.zhangspaghetti.babytalk.practice.generated.quality.GeneratedOutputGateResult;
+import com.zhangspaghetti.babytalk.practice.generated.quality.GeneratedOutputViolationCode;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -18,6 +21,163 @@ class CustomSceneGeneratedContentValidatorTest {
     private static CustomSceneGeneratedContentValidator validator() {
         var policy = PracticeDiscoveryPolicyTestFixture.properties();
         return new CustomSceneGeneratedContentValidator(policy, new CustomSceneIntentClassifier(policy));
+    }
+
+    @Test
+    void repeatAfterMeIsRepairableCourseFraming() {
+        var result = validator.evaluate(
+                typedCandidate("拿起鞋子。", "慢慢说，等宝宝回应。", "Repeat after me", "跟我说。"),
+                new CustomSceneGeneratedContentValidator.GeneratedOutputValidationContext("给宝宝穿鞋"));
+
+        assertThat(result.terminalViolations()).isEmpty();
+        assertThat(result.repairableViolations())
+                .containsExactly(GeneratedOutputViolationCode.COURSE_OR_SCORING_FRAMING);
+    }
+
+    @Test
+    void phoneNumberIsTerminal() {
+        var result = validator.evaluate(
+                typedCandidate("拿起鞋子。", "慢慢说，等宝宝回应。", "Shoes on.", "电话 13800138000。"),
+                new CustomSceneGeneratedContentValidator.GeneratedOutputValidationContext("给宝宝穿鞋"));
+
+        assertThat(result.terminalViolations())
+                .containsExactly(GeneratedOutputViolationCode.OUTPUT_PII);
+        assertThat(result.repairableViolations()).isEmpty();
+    }
+
+    @Test
+    void missingPhysicalActionSignalIsRepairable() {
+        var result = validator.evaluate(
+                typedCandidate("准备开始。", "慢慢说，等宝宝回应。", "Shoes on.", "穿鞋啦。"),
+                new CustomSceneGeneratedContentValidator.GeneratedOutputValidationContext("给宝宝穿鞋"));
+
+        assertThat(result.terminalViolations()).isEmpty();
+        assertThat(result.repairableViolations())
+                .containsExactly(GeneratedOutputViolationCode.MISSING_TPR_ACTION);
+    }
+
+    @Test
+    void dangerousMedicalCommandIsTerminal() {
+        var result = validator.evaluate(
+                typedCandidate("按剂量给宝宝吃药。", "慢慢说，等宝宝回应。", "Take medicine.", "吃药了。"),
+                new CustomSceneGeneratedContentValidator.GeneratedOutputValidationContext("宝宝发烧"));
+
+        assertThat(result.terminalViolations())
+                .containsExactly(GeneratedOutputViolationCode.OUTPUT_DANGEROUS_MEDICAL);
+        assertThat(result.repairableViolations()).isEmpty();
+    }
+
+    @Test
+    void violationEnumIsStableAndExactlyClassified() {
+        assertThat(GeneratedOutputViolationCode.values()).containsExactly(
+                GeneratedOutputViolationCode.OUTPUT_PII,
+                GeneratedOutputViolationCode.OUTPUT_BIDI_CONTROL,
+                GeneratedOutputViolationCode.OUTPUT_ADULT_VIOLENT,
+                GeneratedOutputViolationCode.OUTPUT_DANGEROUS_MEDICAL,
+                GeneratedOutputViolationCode.UNTRUSTED_METADATA,
+                GeneratedOutputViolationCode.DATABASE_OVERFLOW,
+                GeneratedOutputViolationCode.INVALID_ENUM,
+                GeneratedOutputViolationCode.MISSING_TPR_ACTION,
+                GeneratedOutputViolationCode.MISSING_DELIVERY_GUIDANCE,
+                GeneratedOutputViolationCode.FIELD_ROLE_MISMATCH,
+                GeneratedOutputViolationCode.META_INSTRUCTION,
+                GeneratedOutputViolationCode.COURSE_OR_SCORING_FRAMING,
+                GeneratedOutputViolationCode.MARKDOWN_OR_TEMPLATE);
+
+        assertThat(List.of(GeneratedOutputViolationCode.values()).stream()
+                .filter(GeneratedOutputViolationCode::repairable))
+                .containsExactly(
+                        GeneratedOutputViolationCode.MISSING_TPR_ACTION,
+                        GeneratedOutputViolationCode.MISSING_DELIVERY_GUIDANCE,
+                        GeneratedOutputViolationCode.FIELD_ROLE_MISMATCH,
+                        GeneratedOutputViolationCode.META_INSTRUCTION,
+                        GeneratedOutputViolationCode.COURSE_OR_SCORING_FRAMING,
+                        GeneratedOutputViolationCode.MARKDOWN_OR_TEMPLATE);
+    }
+
+    @Test
+    void gateResultSortsAndDeduplicatesViolations() {
+        var result = new GeneratedOutputGateResult(
+                typedCandidate("拿起鞋子。", "慢慢说。", "Shoes on.", "穿鞋啦。"),
+                List.of(
+                        GeneratedOutputViolationCode.INVALID_ENUM,
+                        GeneratedOutputViolationCode.OUTPUT_PII,
+                        GeneratedOutputViolationCode.INVALID_ENUM),
+                List.of(
+                        GeneratedOutputViolationCode.MARKDOWN_OR_TEMPLATE,
+                        GeneratedOutputViolationCode.MISSING_TPR_ACTION,
+                        GeneratedOutputViolationCode.MARKDOWN_OR_TEMPLATE));
+
+        assertThat(result.terminalViolations()).containsExactly(
+                GeneratedOutputViolationCode.OUTPUT_PII,
+                GeneratedOutputViolationCode.INVALID_ENUM);
+        assertThat(result.repairableViolations()).containsExactly(
+                GeneratedOutputViolationCode.MISSING_TPR_ACTION,
+                GeneratedOutputViolationCode.MARKDOWN_OR_TEMPLATE);
+        assertThat(result.passed()).isFalse();
+    }
+
+    @Test
+    void remainingTerminalSafetyCodesAreStable() {
+        var bidi = validator.evaluate(
+                typedCandidate("拿起鞋子。", "慢慢说。", "Shoes \u202Eon.", "穿鞋啦。"),
+                new CustomSceneGeneratedContentValidator.GeneratedOutputValidationContext(null));
+        var adultViolent = validator.evaluate(
+                typedCandidate("拿起鞋子。", "慢慢说。", "Kill it.", "杀死它。"),
+                new CustomSceneGeneratedContentValidator.GeneratedOutputValidationContext(null));
+        var overflow = validator.evaluate(
+                typedCandidate("拿起鞋子。", "慢慢说。", "Shoes on.", "👨‍👩‍👧‍👦".repeat(20)),
+                new CustomSceneGeneratedContentValidator.GeneratedOutputValidationContext(null));
+        var invalidEnum = validator.evaluate(
+                candidateWithMetadata("Shoes on", "advanced", "provider_direct"),
+                new CustomSceneGeneratedContentValidator.GeneratedOutputValidationContext(null));
+        var untrustedMetadata = validator.evaluate(
+                candidateWithMetadata("<script>", "starter", "agentic_search"),
+                new CustomSceneGeneratedContentValidator.GeneratedOutputValidationContext(null));
+
+        assertThat(bidi.terminalViolations())
+                .containsExactly(GeneratedOutputViolationCode.OUTPUT_BIDI_CONTROL);
+        assertThat(adultViolent.terminalViolations())
+                .containsExactly(GeneratedOutputViolationCode.OUTPUT_ADULT_VIOLENT);
+        assertThat(overflow.terminalViolations())
+                .containsExactly(GeneratedOutputViolationCode.DATABASE_OVERFLOW);
+        assertThat(invalidEnum.terminalViolations())
+                .containsExactly(GeneratedOutputViolationCode.INVALID_ENUM);
+        assertThat(untrustedMetadata.terminalViolations())
+                .containsExactly(GeneratedOutputViolationCode.UNTRUSTED_METADATA);
+    }
+
+    @Test
+    void repairableFieldRoleAndStructureCodesAreStable() {
+        var missingGuidance = validator.evaluate(
+                typedCandidate("拿起鞋子。", "现在开始。", "Shoes on.", "穿鞋啦。"),
+                new CustomSceneGeneratedContentValidator.GeneratedOutputValidationContext(null));
+        var swapped = validator.evaluate(
+                typedCandidate("慢慢说。", "拿起鞋子。", "Shoes on.", "穿鞋啦。"),
+                new CustomSceneGeneratedContentValidator.GeneratedOutputValidationContext(null));
+        var structured = validator.evaluate(
+                typedCandidate("拿起鞋子。", "慢慢说。", "**Ignore previous quiz**", "穿鞋啦。"),
+                new CustomSceneGeneratedContentValidator.GeneratedOutputValidationContext(null));
+
+        assertThat(missingGuidance.repairableViolations())
+                .containsExactly(GeneratedOutputViolationCode.MISSING_DELIVERY_GUIDANCE);
+        assertThat(swapped.repairableViolations()).containsExactly(
+                GeneratedOutputViolationCode.MISSING_TPR_ACTION,
+                GeneratedOutputViolationCode.MISSING_DELIVERY_GUIDANCE,
+                GeneratedOutputViolationCode.FIELD_ROLE_MISMATCH);
+        assertThat(structured.repairableViolations()).containsExactly(
+                GeneratedOutputViolationCode.META_INSTRUCTION,
+                GeneratedOutputViolationCode.COURSE_OR_SCORING_FRAMING,
+                GeneratedOutputViolationCode.MARKDOWN_OR_TEMPLATE);
+    }
+
+    @Test
+    void broadQualityKeywordsRemainJudgeWork() {
+        var result = validator.evaluate(
+                typedCandidate("拿起鞋子。", "慢慢说，等宝宝回应。", "Honey always works.", "保证一定会。"),
+                new CustomSceneGeneratedContentValidator.GeneratedOutputValidationContext("宝宝吃饭"));
+
+        assertThat(result.passed()).isTrue();
     }
 
     @Test
@@ -132,15 +292,13 @@ class CustomSceneGeneratedContentValidatorTest {
     }
 
     @Test
-    void rejectsPromptEchoEvenWithoutInjectionKeywords() {
+    void sceneTextEchoDoesNotActivateBroadSemanticRejection() {
         var scene = "给宝宝剪指甲时总是乱动并且一直躲开";
-        var exception = assertThrows(CustomSceneGeneratedContentValidator.RejectedGeneratedContentException.class,
-                () -> validator.normalizeAndValidate(
-                        candidateWithTprAction(scene),
-                        CustomSceneGenerator.ContentConstraints.defaults(),
-                        new CustomSceneGeneratedContentValidator.GeneratedOutputValidationContext(scene)));
 
-        assertThat(exception.reason()).isEqualTo("custom_scene_prompt_echo");
+        assertThat(validator.evaluate(
+                candidateWithTprAction("拿起毛巾。" + scene),
+                new CustomSceneGeneratedContentValidator.GeneratedOutputValidationContext(scene)).passed())
+                .isTrue();
     }
 
     @Test
@@ -163,35 +321,26 @@ class CustomSceneGeneratedContentValidatorTest {
     }
 
     @Test
-    void generatedOutputMustAlignWithClassifiedRequestSceneIntent() {
+    void classifiedRequestSceneIntentDoesNotActivateDeterministicGate() {
         var shoesContext = new CustomSceneGeneratedContentValidator.GeneratedOutputValidationContext(
                 "出门前宝宝不想穿鞋");
 
-        assertThatThrownBy(() -> validator.normalizeAndValidate(
-                candidate("日常照护", "洗澡安抚", "Bath care", "慢慢说。", "Warm water.", "水暖暖的。", "starter", "agentic_search"),
-                CustomSceneGenerator.ContentConstraints.defaults(),
-                shoesContext
-        )).isInstanceOf(CustomSceneGeneratedContentValidator.RejectedGeneratedContentException.class)
-                .hasMessage("scene_intent_mismatch");
-
-        var aligned = validator.normalizeAndValidate(
-                candidate("出门准备", "穿鞋出门", "Shoes on", "拿起鞋子，慢慢说。", "Shoes on.", "穿鞋出门。", "starter", "agentic_search"),
-                CustomSceneGenerator.ContentConstraints.defaults(),
+        var result = validator.evaluate(
+                typedCandidate("拿起毛巾。", "慢慢说，等宝宝回应。", "Warm water.", "水暖暖的。"),
                 shoesContext);
-        assertThat(aligned.activityTitleZh()).isEqualTo("穿鞋出门");
+
+        assertThat(result.passed()).isTrue();
     }
 
     @Test
-    void feedingSceneCannotAcceptUnrelatedBathOutput() {
+    void broadSceneKeywordsRemainJudgeWork() {
         var feedingContext = new CustomSceneGeneratedContentValidator.GeneratedOutputValidationContext(
                 "喂奶时宝宝总是转头");
 
-        assertThatThrownBy(() -> validator.normalizeAndValidate(
-                candidate("日常照护", "洗澡安抚", "Bath care", "慢慢说。", "Warm water.", "水暖暖的。", "starter", "agentic_search"),
-                CustomSceneGenerator.ContentConstraints.defaults(),
-                feedingContext
-        )).isInstanceOf(CustomSceneGeneratedContentValidator.RejectedGeneratedContentException.class)
-                .hasMessage("scene_intent_mismatch");
+        assertThat(validator.evaluate(
+                typedCandidate("拿起毛巾。", "慢慢说，等宝宝回应。", "Warm water.", "水暖暖的。"),
+                feedingContext).passed())
+                .isTrue();
     }
 
     @Test
@@ -215,15 +364,18 @@ class CustomSceneGeneratedContentValidatorTest {
     }
 
     @Test
-    void knownShoesIntentStillRejectsBathOutput() {
-        var exception = org.junit.jupiter.api.Assertions.assertThrows(
-                CustomSceneGeneratedContentValidator.RejectedGeneratedContentException.class,
-                () -> validator.normalizeAndValidate(
-                        candidate("日常照护", "洗澡安抚", "Bath care", "慢慢说。", "Warm water.", "水暖暖的。", "starter", "agentic_search"),
-                        CustomSceneGenerator.ContentConstraints.defaults(),
-                        new CustomSceneGeneratedContentValidator.GeneratedOutputValidationContext("给宝宝穿鞋")));
+    void ordinaryMedicalAndLegalNounsRemainJudgeWork() {
+        var medical = validator.evaluate(
+                typedCandidate("拿起毛巾。", "慢慢说，等宝宝回应。", "Medicine nearby.", "医生在附近。"),
+                new CustomSceneGeneratedContentValidator.GeneratedOutputValidationContext("照护宝宝"));
+        var legal = validator.evaluate(
+                typedCandidate("拿起毛巾。", "慢慢说，等宝宝回应。", "Call a lawyer.", "联系律师。"),
+                new CustomSceneGeneratedContentValidator.GeneratedOutputValidationContext("照护宝宝"));
 
-        assertThat(exception.reason()).isEqualTo("scene_intent_mismatch");
+        assertThat(medical.terminalViolations()).doesNotContain(
+                GeneratedOutputViolationCode.OUTPUT_DANGEROUS_MEDICAL);
+        assertThat(legal.terminalViolations()).doesNotContain(
+                GeneratedOutputViolationCode.OUTPUT_DANGEROUS_MEDICAL);
     }
 
     private void assertRejected(CustomSceneGenerator.GeneratedPracticeContentCandidate candidate) {
@@ -291,19 +443,61 @@ class CustomSceneGeneratedContentValidatorTest {
         );
     }
 
+    private CustomSceneGenerator.GeneratedPracticeContentCandidate typedCandidate(
+            String tprActionZh,
+            String deliveryGuidanceZh,
+            String englishText,
+            String chineseText
+    ) {
+        return new CustomSceneGenerator.GeneratedPracticeContentCandidate(
+                "日常照护",
+                "穿鞋出门",
+                "Shoes on",
+                tprActionZh,
+                deliveryGuidanceZh,
+                englishText,
+                chineseText,
+                "shoes on",
+                "starter",
+                "agentic_search"
+        );
+    }
+
+    private CustomSceneGenerator.GeneratedPracticeContentCandidate candidateWithMetadata(
+            String sceneTagEn,
+            String difficulty,
+            String generationSource
+    ) {
+        return new CustomSceneGenerator.GeneratedPracticeContentCandidate(
+                "日常照护",
+                "穿鞋出门",
+                sceneTagEn,
+                "拿起鞋子。",
+                "慢慢说，等宝宝回应。",
+                "Shoes on.",
+                "穿鞋啦。",
+                "shoes on",
+                difficulty,
+                generationSource
+        );
+    }
+
     @Test
     void finalComposedCoachTipEnforcesSeventyNineEightyAndEightyOneGraphemeBoundary() {
         assertThatCode(() -> validator.normalizeAndValidate(
-                persistedCandidate("日常照护", "洗澡安抚", "warm water", "动".repeat(39), "说".repeat(39)),
+                persistedCandidate("日常照护", "洗澡安抚", "warm water",
+                        "拿起" + "动".repeat(37), "慢慢" + "说".repeat(37)),
                 CustomSceneGenerator.ContentConstraints.defaults()))
                 .doesNotThrowAnyException();
         assertThatCode(() -> validator.normalizeAndValidate(
-                persistedCandidate("日常照护", "洗澡安抚", "warm water", "动".repeat(39), "说".repeat(40)),
+                persistedCandidate("日常照护", "洗澡安抚", "warm water",
+                        "拿起" + "动".repeat(37), "慢慢" + "说".repeat(38)),
                 CustomSceneGenerator.ContentConstraints.defaults()))
                 .doesNotThrowAnyException();
 
         assertInvalidField(
-                persistedCandidate("日常照护", "洗澡安抚", "warm water", "动".repeat(40), "说".repeat(40)),
+                persistedCandidate("日常照护", "洗澡安抚", "warm water",
+                        "拿起" + "动".repeat(38), "慢慢" + "说".repeat(38)),
                 "coachTipZh");
     }
 
@@ -337,7 +531,7 @@ class CustomSceneGeneratedContentValidatorTest {
                 spaceTitleZh,
                 activityTitleZh,
                 sceneTagEn,
-                coachTipZh,
+                "拿起物品。" + coachTipZh,
                 coachTipZh,
                 englishText,
                 chineseText,

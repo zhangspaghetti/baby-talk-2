@@ -25,10 +25,13 @@ public record PracticeDiscoveryPolicyProperties(
         List<String> generatedCareKeywords,
         List<String> validatorBlockedFraming,
         List<String> validatorMedicalLegal,
+        List<String> validatorDangerousMedicalCommands,
         List<String> validatorAdultViolentSexual,
         List<String> validatorUnsupportedClaims,
         List<String> validatorUnsuitable03,
         List<String> validatorPromptEcho,
+        List<String> validatorTprActionMarkers,
+        List<String> validatorDeliveryGuidanceMarkers,
         Map<String, SceneIntentPolicy> sceneIntents
 ) {
 
@@ -52,10 +55,16 @@ public record PracticeDiscoveryPolicyProperties(
         generatedCareKeywords = normalizedRequiredList(generatedCareKeywords, "generatedCareKeywords");
         validatorBlockedFraming = normalizedRequiredList(validatorBlockedFraming, "validatorBlockedFraming");
         validatorMedicalLegal = normalizedRequiredList(validatorMedicalLegal, "validatorMedicalLegal");
+        validatorDangerousMedicalCommands = normalizedRequiredList(
+                validatorDangerousMedicalCommands, "validatorDangerousMedicalCommands");
         validatorAdultViolentSexual = normalizedRequiredList(validatorAdultViolentSexual, "validatorAdultViolentSexual");
         validatorUnsupportedClaims = normalizedRequiredList(validatorUnsupportedClaims, "validatorUnsupportedClaims");
         validatorUnsuitable03 = normalizedRequiredList(validatorUnsuitable03, "validatorUnsuitable03");
         validatorPromptEcho = normalizedRequiredList(validatorPromptEcho, "validatorPromptEcho");
+        validatorTprActionMarkers = normalizedRequiredList(
+                validatorTprActionMarkers, "validatorTprActionMarkers");
+        validatorDeliveryGuidanceMarkers = normalizedRequiredList(
+                validatorDeliveryGuidanceMarkers, "validatorDeliveryGuidanceMarkers");
         sceneIntents = normalizedSceneIntents(sceneIntents);
     }
 
@@ -71,16 +80,21 @@ public record PracticeDiscoveryPolicyProperties(
             List<String> generatedCareKeywords,
             List<String> validatorBlockedFraming,
             List<String> validatorMedicalLegal,
+            List<String> validatorDangerousMedicalCommands,
             List<String> validatorAdultViolentSexual,
             List<String> validatorUnsupportedClaims,
             List<String> validatorUnsuitable03,
             List<String> validatorPromptEcho,
+            List<String> validatorTprActionMarkers,
+            List<String> validatorDeliveryGuidanceMarkers,
             Map<String, SceneIntentPolicy> sceneIntents
     ) {
         this(policyVersion, babyNamePattern, phonePattern, emailPattern, piiMarkers, piiMarkers,
                 promptInjectionMarkers, unsupportedIntents, careContextMarkers, generatedCareKeywords,
-                validatorBlockedFraming, validatorMedicalLegal, validatorAdultViolentSexual,
-                validatorUnsupportedClaims, validatorUnsuitable03, validatorPromptEcho, sceneIntents);
+                validatorBlockedFraming, validatorMedicalLegal, validatorDangerousMedicalCommands,
+                validatorAdultViolentSexual,
+                validatorUnsupportedClaims, validatorUnsuitable03, validatorPromptEcho,
+                validatorTprActionMarkers, validatorDeliveryGuidanceMarkers, sceneIntents);
     }
 
     public Pattern compiledBabyNamePattern() {
