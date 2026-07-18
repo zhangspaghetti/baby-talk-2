@@ -118,11 +118,11 @@ class PracticeGeneratedContentConcurrencyTest extends AbstractIntegrationTest {
 
             provider.release();
             var results = collect(futures);
-            assertThat(results).filteredOn(CallResult::succeeded).hasSize(1);
             assertThat(results)
                     .filteredOn(result -> result.error() != null)
                     .extracting(result -> result.error().code())
                     .containsExactly("generation_in_progress");
+            assertThat(results).filteredOn(CallResult::succeeded).hasSize(1);
         }
     }
 
@@ -154,15 +154,30 @@ class PracticeGeneratedContentConcurrencyTest extends AbstractIntegrationTest {
 
             provider.release();
             var results = collect(futures);
-            assertThat(results).filteredOn(CallResult::succeeded).hasSize(1);
             assertThat(results)
                     .filteredOn(result -> result.error() != null)
                     .extracting(result -> result.error().code())
                     .containsExactly("generation_in_progress");
-            assertThat(jdbcTemplate.queryForObject(
-                    "select status from practice_generated_content where generated_content_id = ?",
-                    String.class,
-                    expired.generatedContentId())).isEqualTo("expired");
+            assertThat(results).filteredOn(CallResult::succeeded).hasSize(1);
+            var replacementId = results.stream()
+                    .filter(CallResult::succeeded)
+                    .findFirst()
+                    .orElseThrow()
+                    .row()
+                    .generatedContentId();
+            assertThat(replacementId).isNotEqualTo(expired.generatedContentId());
+            assertThat(jdbcTemplate.query(
+                    """
+                    select generated_content_id, status
+                    from practice_generated_content
+                    where owner_key = ?
+                    order by generated_content_id
+                    """,
+                    (rows, rowNumber) -> new PersistedContentRow(rows.getString(1), rows.getString(2)),
+                    ownerKey))
+                    .containsExactlyInAnyOrder(
+                            new PersistedContentRow(expired.generatedContentId(), "active"),
+                            new PersistedContentRow(replacementId, "active"));
         }
     }
 
@@ -276,6 +291,9 @@ class PracticeGeneratedContentConcurrencyTest extends AbstractIntegrationTest {
         boolean succeeded() {
             return row != null;
         }
+    }
+
+    private record PersistedContentRow(String generatedContentId, String status) {
     }
 
     @TestConfiguration
