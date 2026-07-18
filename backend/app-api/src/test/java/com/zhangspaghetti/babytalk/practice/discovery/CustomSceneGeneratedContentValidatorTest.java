@@ -2,6 +2,7 @@ package com.zhangspaghetti.babytalk.practice.discovery;
 
 import com.zhangspaghetti.babytalk.practice.generated.CustomSceneGenerator;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
@@ -288,6 +289,22 @@ class CustomSceneGeneratedContentValidatorTest {
                 "starter",
                 "agentic_search"
         );
+    }
+
+    @Test
+    void finalComposedCoachTipEnforcesSeventyNineEightyAndEightyOneGraphemeBoundary() {
+        assertThatCode(() -> validator.normalizeAndValidate(
+                persistedCandidate("日常照护", "洗澡安抚", "warm water", "动".repeat(39), "说".repeat(39)),
+                CustomSceneGenerator.ContentConstraints.defaults()))
+                .doesNotThrowAnyException();
+        assertThatCode(() -> validator.normalizeAndValidate(
+                persistedCandidate("日常照护", "洗澡安抚", "warm water", "动".repeat(39), "说".repeat(40)),
+                CustomSceneGenerator.ContentConstraints.defaults()))
+                .doesNotThrowAnyException();
+
+        assertInvalidField(
+                persistedCandidate("日常照护", "洗澡安抚", "warm water", "动".repeat(40), "说".repeat(40)),
+                "coachTipZh");
     }
 
     private CustomSceneGenerator.GeneratedPracticeContentCandidate candidateWithTprAction(String tprActionZh) {

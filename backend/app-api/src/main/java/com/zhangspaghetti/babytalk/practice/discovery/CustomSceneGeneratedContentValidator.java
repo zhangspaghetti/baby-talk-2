@@ -14,6 +14,7 @@ public class CustomSceneGeneratedContentValidator {
     private final CustomSceneIntentClassifier intentClassifier;
     private final PolicyTextMatcher policyTextMatcher;
     private final SceneTextCanonicalizer canonicalizer;
+    private final GeneratedCoachTipComposer coachTipComposer;
 
     public CustomSceneGeneratedContentValidator(
             PracticeDiscoveryPolicyProperties policyProperties,
@@ -38,20 +39,40 @@ public class CustomSceneGeneratedContentValidator {
         this(policyProperties, intentClassifier, policyTextMatcher, new SceneTextCanonicalizer());
     }
 
-    @org.springframework.beans.factory.annotation.Autowired
     public CustomSceneGeneratedContentValidator(
             PracticeDiscoveryPolicyProperties policyProperties,
             CustomSceneIntentClassifier intentClassifier,
             PolicyTextMatcher policyTextMatcher,
             SceneTextCanonicalizer canonicalizer
     ) {
-        if (policyProperties == null || intentClassifier == null || policyTextMatcher == null || canonicalizer == null) {
+        this(
+                policyProperties,
+                intentClassifier,
+                policyTextMatcher,
+                canonicalizer,
+                new GeneratedCoachTipComposer());
+    }
+
+    @org.springframework.beans.factory.annotation.Autowired
+    public CustomSceneGeneratedContentValidator(
+            PracticeDiscoveryPolicyProperties policyProperties,
+            CustomSceneIntentClassifier intentClassifier,
+            PolicyTextMatcher policyTextMatcher,
+            SceneTextCanonicalizer canonicalizer,
+            GeneratedCoachTipComposer coachTipComposer
+    ) {
+        if (policyProperties == null
+                || intentClassifier == null
+                || policyTextMatcher == null
+                || canonicalizer == null
+                || coachTipComposer == null) {
             throw new IllegalArgumentException("practice discovery policy properties are required");
         }
         this.policyProperties = policyProperties;
         this.intentClassifier = intentClassifier;
         this.policyTextMatcher = policyTextMatcher;
         this.canonicalizer = canonicalizer;
+        this.coachTipComposer = coachTipComposer;
     }
 
     public GeneratedPracticeContentCandidate normalizeAndValidate(
@@ -95,8 +116,10 @@ public class CustomSceneGeneratedContentValidator {
         validateDatabaseLength(normalized.generationSource(), 32, "generationSource");
         validateEnglishStarter(normalized.englishText(), constraints);
         validateMaxLength(normalized.chineseText(), constraints.maxChineseChars(), "chineseText");
-        validateMaxLength(normalized.tprActionZh(), constraints.maxCoachTipChars(), "tprActionZh");
-        validateMaxLength(normalized.deliveryGuidanceZh(), constraints.maxCoachTipChars(), "deliveryGuidanceZh");
+        if (coachTipComposer.graphemeLength(
+                normalized.tprActionZh(), normalized.deliveryGuidanceZh()) > constraints.maxCoachTipChars()) {
+            throw new InvalidGeneratedContentException("coachTipZh");
+        }
         validateMaxLength(normalized.sceneTagEn(), constraints.maxSceneTagChars(), "sceneTagEn");
 
         if (!constraints.allowedDifficulties().contains(normalized.difficulty())) {

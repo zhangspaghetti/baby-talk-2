@@ -11,6 +11,8 @@ import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.mock.env.MockEnvironment;
 
 class PracticeAiSingleRequestContractTest {
@@ -25,10 +27,17 @@ class PracticeAiSingleRequestContractTest {
         assertSingleRequestForStatus(429);
     }
 
-    @Test
-    void malformedStructuredOutputFailsAfterOneRequestWithoutRepair() throws Exception {
+    @ParameterizedTest
+    @ValueSource(strings = {
+            "```json\n{\"answer\":\"ok\"}\n```",
+            "{\"answer\":\"ok\",\"extra\":true}",
+            "{}",
+            "{\"answer\":null}",
+            "{\"answer\":\"ok\""
+    })
+    void nonConformingStructuredOutputFailsAfterOneRequestWithoutRepair(String content) throws Exception {
         var requestCount = new AtomicInteger();
-        var server = server(requestCount, 200, openAiEnvelope("not-json"));
+        var server = server(requestCount, 200, openAiEnvelope(content));
         try {
             var provider = provider(server);
 
@@ -36,6 +45,22 @@ class PracticeAiSingleRequestContractTest {
                     provider, "system", "return JSON", Answer.class))
                     .isInstanceOf(PracticeAiStructuredOutputCaller.StructuredOutputInvalidException.class)
                     .hasMessage("structured_output_invalid");
+            assertThat(requestCount).hasValue(1);
+        } finally {
+            server.stop(0);
+        }
+    }
+
+    @Test
+    void conformingStructuredOutputSucceedsAfterOneRequest() throws Exception {
+        var requestCount = new AtomicInteger();
+        var server = server(requestCount, 200, openAiEnvelope("  \n{\"answer\":\"ok\"}\r\n  "));
+        try {
+            var provider = provider(server);
+
+            assertThat(new PracticeAiStructuredOutputCaller().call(
+                    provider, "system", "return JSON", Answer.class))
+                    .isEqualTo(new Answer("ok"));
             assertThat(requestCount).hasValue(1);
         } finally {
             server.stop(0);
@@ -92,13 +117,23 @@ class PracticeAiSingleRequestContractTest {
     }
 
     private String openAiEnvelope(String content) {
+        var escapedContent = content
+                .replace("\\", "\\\\")
+                .replace("\"", "\\\"")
+                .replace("\r", "\\r")
+                .replace("\n", "\\n");
         return """
                 {"id":"chatcmpl-test","object":"chat.completion","created":1,"model":"gpt-4o-mini",\
                 "choices":[{"index":0,"message":{"role":"assistant","content":"%s"},"finish_reason":"stop"}],\
                 "usage":{"prompt_tokens":1,"completion_tokens":1,"total_tokens":2}}
-                """.formatted(content);
+                """.formatted(escapedContent);
     }
 
     record Answer(String answer) {
+        Answer {
+            if (answer == null || answer.isBlank()) {
+                throw new IllegalArgumentException("answer is required");
+            }
+        }
     }
 }

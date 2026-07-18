@@ -547,34 +547,12 @@ class PracticeGeneratedContentServiceTest {
     }
 
     @Test
-    void timeoutCapIsPassedToTypedGeneratorRequest() {
+    void typedGeneratorTimeoutMapsToStableContractAndExpiresAttempt() {
         var generator = org.mockito.Mockito.mock(CustomSceneGenerator.class);
-        var properties = new PracticeDiscoveryCustomSceneProperties(
-                true,
-                Duration.ofSeconds(5),
-                null,
-                null,
-                "fake",
-                null,
-                null,
-                null,
-                null,
-                null,
-                null
-        );
-        var service = new PracticeGeneratedContentService(
-                queries,
-                commands,
-                generator,
-                validator(),
-                properties,
-                PracticeDiscoveryPolicyTestFixture.properties(),
-                CLOCK,
-                ownerProperties("test-owner-key-secret-test-owner-key")
-        );
+        var service = serviceWithGenerator(generator);
         stubReserveInserted();
         when(generator.generate(any()))
-                .thenThrow(new CustomSceneGenerator.GenerationTimeoutException(properties.timeout()));
+                .thenThrow(new CustomSceneGenerator.GenerationTimeoutException(Duration.ofSeconds(5)));
         assertThatThrownBy(() -> service.generateCustomScene(request("洗澡后哄睡")))
                 .isInstanceOf(ContractException.class)
                 .satisfies(error -> assertThat(((ContractException) error).code()).isEqualTo("generation_timeout"));

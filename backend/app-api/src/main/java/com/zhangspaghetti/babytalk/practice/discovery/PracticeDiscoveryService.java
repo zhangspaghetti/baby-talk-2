@@ -79,18 +79,35 @@ public class PracticeDiscoveryService {
     private final AuthConsentSyncService authConsentSyncService;
     private final BabyProfileMapper babyProfileMapper;
     private final PracticeGeneratedContentService generatedContentService;
+    private final GeneratedCoachTipComposer coachTipComposer;
 
-    @Autowired
     public PracticeDiscoveryService(
             PracticeCatalogService catalogService,
             AuthConsentSyncService authConsentSyncService,
             BabyProfileMapper babyProfileMapper,
             PracticeGeneratedContentService generatedContentService
     ) {
+        this(
+                catalogService,
+                authConsentSyncService,
+                babyProfileMapper,
+                generatedContentService,
+                new GeneratedCoachTipComposer());
+    }
+
+    @Autowired
+    public PracticeDiscoveryService(
+            PracticeCatalogService catalogService,
+            AuthConsentSyncService authConsentSyncService,
+            BabyProfileMapper babyProfileMapper,
+            PracticeGeneratedContentService generatedContentService,
+            GeneratedCoachTipComposer coachTipComposer
+    ) {
         this.catalogService = catalogService;
         this.authConsentSyncService = authConsentSyncService;
         this.babyProfileMapper = babyProfileMapper;
         this.generatedContentService = generatedContentService;
+        this.coachTipComposer = coachTipComposer;
     }
 
     public PracticeDiscoveryResponse discover(PracticeDiscoveryRequest request, String sessionId) {
@@ -638,7 +655,7 @@ public class PracticeDiscoveryService {
                         row.activitySlug(),
                         row.activityTitleZh(),
                         row.sceneTagEn(),
-                        composeCoachTip(row.tprActionZh(), row.deliveryGuidanceZh()),
+                        coachTipComposer.compose(row.tprActionZh(), row.deliveryGuidanceZh()),
                         1,
                         List.of(utterance)
                 )),
@@ -670,18 +687,6 @@ public class PracticeDiscoveryService {
                 StrUtil.trimToNull(phrase.difficulty()) == null ? DIFFICULTY_STARTER : phrase.difficulty(),
                 SOURCE_CATALOG
         );
-    }
-
-    private String composeCoachTip(String tprActionZh, String deliveryGuidanceZh) {
-        var action = StrUtil.trimToNull(tprActionZh);
-        var guidance = StrUtil.trimToNull(deliveryGuidanceZh);
-        if (action == null) {
-            return guidance;
-        }
-        if (guidance == null || action.equals(guidance)) {
-            return action;
-        }
-        return action + " " + guidance;
     }
 
     private String searchable(CatalogCandidate candidate) {

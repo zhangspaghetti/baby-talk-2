@@ -4,6 +4,7 @@ import com.zhangspaghetti.babytalk.practice.agentic.OperationRequest;
 import com.zhangspaghetti.babytalk.practice.agentic.PracticeAiCapability;
 import com.zhangspaghetti.babytalk.practice.agentic.PracticeAiOperationRunner;
 import com.zhangspaghetti.babytalk.practice.agentic.PracticeAiStructuredOutputCaller;
+import com.zhangspaghetti.babytalk.practice.agentic.config.GenerationProfile;
 import com.zhangspaghetti.babytalk.practice.agentic.config.VersionedResourceRegistry;
 import java.util.List;
 import java.util.Objects;
@@ -59,10 +60,21 @@ public class AgenticCustomSceneGenerator implements CustomSceneGenerator {
             throw new IllegalArgumentException("generator request and evidence bundle lineage must match");
         }
 
+        var currentProfile = Objects.requireNonNull(
+                resourceRegistry.currentGenerationProfile(), "currentGenerationProfile");
+        if (!currentProfile.equals(generationProfile)) {
+            throw new IllegalArgumentException(
+                    "generator request generation profile must match current registry profile");
+        }
+        var evidencePolicy = currentProfile.evidencePolicy();
+        if (!evidencePolicy.version().equals(evidenceBundle.evidencePolicyVersion())
+                || !evidencePolicy.contentHash().equals(evidenceBundle.evidencePolicyContentHash())) {
+            throw new IllegalArgumentException("generator evidence policy must match generation profile");
+        }
+
         var systemPrompt = resourceRegistry.promptText(VersionedResourceRegistry.PromptKind.GENERATOR);
-        var userPrompt = userPrompt(request);
-        var generatorPrompt = generationProfile.generatorPrompt();
-        var evidencePolicy = generationProfile.evidencePolicy();
+        var userPrompt = userPrompt(request, currentProfile);
+        var generatorPrompt = currentProfile.generatorPrompt();
         var result = operationRunner.execute(new OperationRequest<>(
                 PracticeAiCapability.CUSTOM_SCENE_GENERATOR,
                 SUBJECT_TYPE,
@@ -85,8 +97,7 @@ public class AgenticCustomSceneGenerator implements CustomSceneGenerator {
         return toCandidate(result.value());
     }
 
-    private String userPrompt(GeneratorRequest request) {
-        var profile = request.generationProfile();
+    private String userPrompt(GeneratorRequest request, GenerationProfile profile) {
         var constraints = request.constraints();
         var payload = new GeneratorPromptPayload(
                 request.generatedContentId(),

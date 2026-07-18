@@ -452,6 +452,18 @@ class PracticeDiscoveryServiceTest {
     }
 
     @Test
+    void customSceneCoachTipComposesHistoricalNullBlankAndEqualValues() {
+        assertThat(discoverGeneratedCoachTip(null, "慢慢说一遍。"))
+                .isEqualTo("慢慢说一遍。");
+        assertThat(discoverGeneratedCoachTip("   ", "慢慢说一遍。"))
+                .isEqualTo("慢慢说一遍。");
+        assertThat(discoverGeneratedCoachTip("看着宝宝。", null))
+                .isEqualTo("看着宝宝。");
+        assertThat(discoverGeneratedCoachTip("轻声说。", "轻声说。"))
+                .isEqualTo("轻声说。");
+    }
+
+    @Test
     void acceptedAuthenticatedCustomSceneUsesAccountOwnerWithoutBabyProfileIdOrInstallationId() {
         when(authConsentSyncService.requireAcceptedConsumerSession("sess_accepted", "生成自定义练习场景"))
                 .thenReturn(new AuthConsentSyncService.ConsumerSessionView(
@@ -722,6 +734,26 @@ class PracticeDiscoveryServiceTest {
         row.setCreatedAt(NOW_DB);
         row.setUpdatedAt(NOW_DB);
         return row;
+    }
+
+    private String discoverGeneratedCoachTip(String tprActionZh, String deliveryGuidanceZh) {
+        var row = generatedRow("pgc_service_generated_tip");
+        row.setTprActionZh(tprActionZh);
+        row.setDeliveryGuidanceZh(deliveryGuidanceZh);
+        when(generatedContentService.generateCustomScene(any())).thenReturn(row);
+        var response = service.discover(new PracticeDiscoveryRequest(
+                "onboarding",
+                "custom_scene",
+                "install_1",
+                null,
+                "m7_11",
+                "calmer_care",
+                "zh-CN",
+                6,
+                null,
+                "洗澡后哄睡"
+        ), null);
+        return response.moments().get(0).coachTip();
     }
 
     private PracticeSpaceRow space(String spaceId, int sortOrder) {

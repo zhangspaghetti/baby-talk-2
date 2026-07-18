@@ -137,16 +137,28 @@ class PracticeDiscoveryControllerTest extends AbstractIntegrationTest {
                 .doesNotContain("洗澡后哄睡")
                 .doesNotContain("normalizedSceneText");
         assertThat(scene.get("sceneId").asText()).isEqualTo(scene.get("spaceId").asText());
+        assertThat(scene.get("sceneId").asText()).startsWith("gen_scene_");
+        assertThat(scene.get("spaceId").asText()).startsWith("gen_scene_");
         assertThat(moment.get("momentId").asText()).isEqualTo(moment.get("activityId").asText());
+        assertThat(moment.get("momentId").asText()).startsWith("gen_activity_");
+        assertThat(moment.get("activityId").asText()).startsWith("gen_activity_");
         assertThat(moment.get("sceneId").asText()).isEqualTo(scene.get("sceneId").asText());
         assertThat(moment.get("spaceId").asText()).isEqualTo(scene.get("spaceId").asText());
         assertThat(utterance.get("utteranceId").asText()).isEqualTo(utterance.get("phraseId").asText());
+        assertThat(utterance.get("utteranceId").asText()).startsWith("gen_phrase_");
+        assertThat(utterance.get("phraseId").asText()).startsWith("gen_phrase_");
         assertThat(starter.get("sceneId").asText()).isEqualTo(scene.get("sceneId").asText());
         assertThat(starter.get("spaceId").asText()).isEqualTo(scene.get("spaceId").asText());
+        assertThat(starter.get("sceneId").asText()).startsWith("gen_scene_");
+        assertThat(starter.get("spaceId").asText()).startsWith("gen_scene_");
         assertThat(starter.get("momentId").asText()).isEqualTo(moment.get("momentId").asText());
         assertThat(starter.get("activityId").asText()).isEqualTo(moment.get("activityId").asText());
+        assertThat(starter.get("momentId").asText()).startsWith("gen_activity_");
+        assertThat(starter.get("activityId").asText()).startsWith("gen_activity_");
         assertThat(starter.get("utteranceId").asText()).isEqualTo(utterance.get("utteranceId").asText());
         assertThat(starter.get("phraseId").asText()).isEqualTo(utterance.get("phraseId").asText());
+        assertThat(starter.get("utteranceId").asText()).startsWith("gen_phrase_");
+        assertThat(starter.get("phraseId").asText()).startsWith("gen_phrase_");
         assertThat(moment.get("coachTip").asText()).isEqualTo("看着宝宝。 慢慢说一遍。");
     }
 

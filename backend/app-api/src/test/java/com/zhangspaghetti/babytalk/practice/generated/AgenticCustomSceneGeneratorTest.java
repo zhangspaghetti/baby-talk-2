@@ -6,6 +6,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.zhangspaghetti.babytalk.practice.agentic.OperationRequest;
@@ -99,6 +100,7 @@ class AgenticCustomSceneGeneratorTest {
         var runner = mock(PracticeAiOperationRunner.class);
         var structuredOutputCaller = mock(PracticeAiStructuredOutputCaller.class);
         var registry = mock(VersionedResourceRegistry.class);
+        when(registry.currentGenerationProfile()).thenReturn(generationProfile());
         when(registry.promptText(VersionedResourceRegistry.PromptKind.GENERATOR))
                 .thenReturn("GENERATOR SYSTEM PROMPT");
         var wire = wireResponse();
@@ -182,6 +184,7 @@ class AgenticCustomSceneGeneratorTest {
         var runner = mock(PracticeAiOperationRunner.class);
         var structuredOutputCaller = mock(PracticeAiStructuredOutputCaller.class);
         var registry = mock(VersionedResourceRegistry.class);
+        when(registry.currentGenerationProfile()).thenReturn(generationProfile());
         when(registry.promptText(VersionedResourceRegistry.PromptKind.GENERATOR))
                 .thenReturn("GENERATOR SYSTEM PROMPT");
         var operationCaptor = ArgumentCaptor.forClass(OperationRequest.class);
@@ -248,7 +251,68 @@ class AgenticCustomSceneGeneratorTest {
                 .hasMessage("deliveryGuidanceZh must be non-blank");
     }
 
+    @Test
+    void profileVersionMismatchFailsClosedBeforeOperationOrProviderCall() {
+        var runner = mock(PracticeAiOperationRunner.class);
+        var structuredOutputCaller = mock(PracticeAiStructuredOutputCaller.class);
+        var registry = mock(VersionedResourceRegistry.class);
+        when(registry.currentGenerationProfile()).thenReturn(generationProfile(
+                "profile-v2",
+                new VersionedRef("generator-v1", "a".repeat(64), "generator-v1.txt"),
+                new VersionedRef("evidence-v1", "e".repeat(64), "evidence-v1.yml")));
+        var generator = new AgenticCustomSceneGenerator(runner, structuredOutputCaller, registry);
+
+        assertThatThrownBy(() -> generator.generate(request()))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("generator request generation profile must match current registry profile");
+        verifyNoInteractions(runner, structuredOutputCaller);
+    }
+
+    @Test
+    void generatorPromptHashMismatchFailsClosedBeforeOperationOrProviderCall() {
+        var runner = mock(PracticeAiOperationRunner.class);
+        var structuredOutputCaller = mock(PracticeAiStructuredOutputCaller.class);
+        var registry = mock(VersionedResourceRegistry.class);
+        when(registry.currentGenerationProfile()).thenReturn(generationProfile(
+                "profile-v1",
+                new VersionedRef("generator-v1", "9".repeat(64), "generator-v1.txt"),
+                new VersionedRef("evidence-v1", "e".repeat(64), "evidence-v1.yml")));
+        var generator = new AgenticCustomSceneGenerator(runner, structuredOutputCaller, registry);
+
+        assertThatThrownBy(() -> generator.generate(request()))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("generator request generation profile must match current registry profile");
+        verifyNoInteractions(runner, structuredOutputCaller);
+    }
+
+    @Test
+    void evidencePolicyVersionMismatchFailsClosedBeforeOperationOrProviderCall() {
+        assertEvidencePolicyMismatchFailsClosed(evidenceBundle("evidence-v2", "e".repeat(64)));
+    }
+
+    @Test
+    void evidencePolicyHashMismatchFailsClosedBeforeOperationOrProviderCall() {
+        assertEvidencePolicyMismatchFailsClosed(evidenceBundle("evidence-v1", "9".repeat(64)));
+    }
+
+    private void assertEvidencePolicyMismatchFailsClosed(FrozenEvidenceBundle evidenceBundle) {
+        var runner = mock(PracticeAiOperationRunner.class);
+        var structuredOutputCaller = mock(PracticeAiStructuredOutputCaller.class);
+        var registry = mock(VersionedResourceRegistry.class);
+        when(registry.currentGenerationProfile()).thenReturn(generationProfile());
+        var generator = new AgenticCustomSceneGenerator(runner, structuredOutputCaller, registry);
+
+        assertThatThrownBy(() -> generator.generate(request(generationProfile(), evidenceBundle)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("generator evidence policy must match generation profile");
+        verifyNoInteractions(runner, structuredOutputCaller);
+    }
+
     private GeneratorRequest request() {
+        return request(generationProfile(), evidenceBundle());
+    }
+
+    private GeneratorRequest request(GenerationProfile generationProfile, FrozenEvidenceBundle evidenceBundle) {
         return new GeneratorRequest(
                 "pgc_generator_test",
                 2,
@@ -256,12 +320,16 @@ class AgenticCustomSceneGeneratorTest {
                 "m7_11",
                 "calmer_care",
                 "zh-CN",
-                evidenceBundle(),
-                generationProfile(),
+                evidenceBundle,
+                generationProfile,
                 ContentConstraints.defaults());
     }
 
     private FrozenEvidenceBundle evidenceBundle() {
+        return evidenceBundle("evidence-v1", "e".repeat(64));
+    }
+
+    private FrozenEvidenceBundle evidenceBundle(String policyVersion, String policyHash) {
         var firstSummary = "先轻声说。";
         var secondSummary = "再停下来观察。";
         return new FrozenEvidenceBundle(
@@ -271,8 +339,8 @@ class AgenticCustomSceneGeneratorTest {
                 UUID.fromString("10000000-0000-0000-0000-000000000002"),
                 RetrievalStatus.REUSED,
                 null,
-                "evidence-v1",
-                "e".repeat(64),
+                policyVersion,
+                policyHash,
                 EvidenceSanitizer.VERSION,
                 "b".repeat(64),
                 List.of(
@@ -295,14 +363,25 @@ class AgenticCustomSceneGeneratorTest {
     }
 
     private GenerationProfile generationProfile() {
-        return new GenerationProfile(
+        return generationProfile(
                 "profile-v1",
-                "f".repeat(64),
                 new VersionedRef("generator-v1", "a".repeat(64), "generator-v1.txt"),
+                new VersionedRef("evidence-v1", "e".repeat(64), "evidence-v1.yml"));
+    }
+
+    private GenerationProfile generationProfile(
+            String profileVersion,
+            VersionedRef generatorPrompt,
+            VersionedRef evidencePolicy
+    ) {
+        return new GenerationProfile(
+                profileVersion,
+                "f".repeat(64),
+                generatorPrompt,
                 new VersionedRef("judge-v1", "c".repeat(64), "judge-v1.txt"),
                 new VersionedRef("repair-v1", "d".repeat(64), "repair-v1.txt"),
                 new VersionedRef("rubric-v1", "r".repeat(64), "rubric-v1.yml"),
-                new VersionedRef("evidence-v1", "e".repeat(64), "evidence-v1.yml"),
+                evidencePolicy,
                 new VersionedRef("baseline-v1", "b".repeat(64), "baseline-v1.yml"),
                 "strategy-v1",
                 "safety-v1",
