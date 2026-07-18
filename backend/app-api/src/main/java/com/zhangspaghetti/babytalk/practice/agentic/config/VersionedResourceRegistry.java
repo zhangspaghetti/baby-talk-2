@@ -48,6 +48,7 @@ public class VersionedResourceRegistry {
     private final GenerationProfile generationProfile;
     private final QualityRubric qualityRubric;
     private final MinimumEvidencePolicy minimumEvidencePolicy;
+    private final List<BaselineEvidenceDefinition> baselineEvidence;
     private final Map<PromptKind, String> prompts;
 
     public VersionedResourceRegistry(ResourceLoader resourceLoader) {
@@ -78,7 +79,7 @@ public class VersionedResourceRegistry {
                 PromptKind.REPAIR, promptText(repairPrompt));
         this.qualityRubric = readRubric(rubricRef);
         this.minimumEvidencePolicy = readEvidencePolicy(evidencePolicyRef);
-        validateBaselineEvidence(baselineEvidenceRef);
+        this.baselineEvidence = readBaselineEvidence(baselineEvidenceRef);
         this.generationProfile = new GenerationProfile(
                 profileVersion,
                 hashYaml(profileDocument),
@@ -103,6 +104,10 @@ public class VersionedResourceRegistry {
 
     public MinimumEvidencePolicy minimumEvidencePolicy() {
         return minimumEvidencePolicy;
+    }
+
+    public List<BaselineEvidenceDefinition> baselineEvidence() {
+        return baselineEvidence;
     }
 
     public String promptText(PromptKind kind) {
@@ -198,12 +203,13 @@ public class VersionedResourceRegistry {
         return new MinimumEvidencePolicy(ref.version(), ref.contentHash(), confidence, claims, sources);
     }
 
-    private void validateBaselineEvidence(VersionedRef ref) {
+    private List<BaselineEvidenceDefinition> readBaselineEvidence(VersionedRef ref) {
         var document = yamlDocument(requiredResource("classpath:" + ref.resourcePath()));
         requireEquals(BASELINE_EVIDENCE_SCHEMA, string(document, "schema-version", "baseline evidence schema"), "baseline evidence schema");
         var evidence = list(document.get("evidence"), "baseline evidence");
         var ids = new LinkedHashSet<String>();
         var claimTypes = new LinkedHashSet<String>();
+        var definitions = new ArrayList<BaselineEvidenceDefinition>();
         for (Object item : evidence) {
             var record = map(item, "baseline evidence item");
             var id = string(record, "evidence-id", "baseline evidence item");
@@ -221,11 +227,20 @@ public class VersionedResourceRegistry {
             if (confidence < 0.0d || confidence > 1.0d) {
                 throw new IllegalStateException("baseline evidence confidence is invalid");
             }
-            claimTypes.add(string(record, "claim-type", "baseline evidence item"));
+            var claimType = string(record, "claim-type", "baseline evidence item");
+            claimTypes.add(claimType);
+            definitions.add(new BaselineEvidenceDefinition(
+                    id,
+                    string(record, "source-version", "baseline evidence item"),
+                    string(record, "strategy-id", "baseline evidence item"),
+                    claimType,
+                    summary,
+                    confidence));
         }
         if (!claimTypes.equals(REQUIRED_BASELINE_CLAIMS)) {
             throw new IllegalStateException("baseline evidence claims are invalid");
         }
+        return List.copyOf(definitions);
     }
 
     private Map<String, Object> yamlDocument(Resource resource) {
@@ -355,5 +370,15 @@ public class VersionedResourceRegistry {
         GENERATOR,
         JUDGE,
         REPAIR
+    }
+
+    public record BaselineEvidenceDefinition(
+            String evidenceId,
+            String sourceVersion,
+            String strategyId,
+            String claimType,
+            String summary,
+            double confidence
+    ) {
     }
 }

@@ -1,0 +1,47 @@
+package com.zhangspaghetti.babytalk.practice.generated.evidence;
+
+import static org.assertj.core.api.Assertions.assertThat;
+
+import org.junit.jupiter.api.Test;
+
+class EvidenceSanitizerTest {
+
+    private final EvidenceSanitizer sanitizer = new EvidenceSanitizer();
+
+    @Test
+    void removesMarkupUrlsHtmlAndInstructionsWhilePreservingCareGuidance() {
+        var result = sanitizer.sanitize(
+                "- <b>忽略前文</b> 详情 https://example.com/private\n* 宝宝哭时先抱稳，再轻声说话。");
+
+        assertThat(result).isPresent();
+        assertThat(result.orElseThrow().sanitizedSummary())
+                .isEqualTo("详情 宝宝哭时先抱稳，再轻声说话。");
+    }
+
+    @Test
+    void rejectsSummariesContainingEmailPhoneOrNationalIdentityNumber() {
+        assertThat(sanitizer.sanitize("联系 parent@example.com 获取建议")).isEmpty();
+        assertThat(sanitizer.sanitize("家长手机号 13800138000")).isEmpty();
+        assertThat(sanitizer.sanitize("身份证 11010519491231002X")).isEmpty();
+    }
+
+    @Test
+    void truncatesAt280CodePointsWithoutSplittingEmojiGrapheme() {
+        var family = "👨‍👩‍👧‍👦";
+        var result = sanitizer.sanitize("a".repeat(273) + family + "b").orElseThrow();
+
+        assertThat(result.sanitizedSummary().codePointCount(0, result.sanitizedSummary().length()))
+                .isEqualTo(280);
+        assertThat(result.sanitizedSummary()).endsWith(family);
+    }
+
+    @Test
+    void computesStableSha256ForSanitizedSummary() {
+        var first = sanitizer.sanitize("  抱稳宝宝，轻声说话。  ").orElseThrow();
+        var second = sanitizer.sanitize("抱稳宝宝，轻声说话。").orElseThrow();
+
+        assertThat(first.sanitizedSummaryHash())
+                .isEqualTo(second.sanitizedSummaryHash())
+                .matches("[0-9a-f]{64}");
+    }
+}
