@@ -118,7 +118,7 @@ class PracticeGeneratedContentServiceTest {
         });
         var service = serviceWithGenerator(generator);
         var active = new java.util.concurrent.atomic.AtomicReference<PracticeGeneratedContentEntity>();
-        when(queries.findLatestLiveByFingerprint(any(), any(), any(), any(), any(), any()))
+        when(queries.findLiveByFingerprint(any(), any(), any(), any(), any(), any(), anyInt()))
                 .thenAnswer(invocation -> active.get());
         when(commands.reserveDraft(any(), any()))
                 .thenAnswer(invocation -> new DraftReservation(invocation.getArgument(0), true));
@@ -132,6 +132,42 @@ class PracticeGeneratedContentServiceTest {
 
         assertThat(second.generatedContentId()).isEqualTo(first.generatedContentId());
         assertThat(generatorCalls.get()).isEqualTo(1);
+    }
+
+    @Test
+    void fingerprintAndDraftUseSameConfiguredContentRefreshEpoch() {
+        var service = serviceWithFakeProvider();
+        stubReserveInserted();
+        stubActivateDraft();
+        var draftCaptor = ArgumentCaptor.forClass(PracticeGeneratedContentEntity.class);
+
+        var row = service.generateCustomScene(request("洗澡后哄睡"));
+
+        assertThat(Arrays.stream(PracticeGeneratedContentQueryMapper.class.getDeclaredMethods())
+                .map(method -> method.getName()))
+                .doesNotContain("findLatestLiveByFingerprint");
+        verify(queries).findLiveByFingerprint(
+                any(), any(), any(), any(), any(), any(), org.mockito.ArgumentMatchers.eq(1));
+        verify(commands).reserveDraft(draftCaptor.capture(), any());
+        var draft = draftCaptor.getValue();
+        var ownerProperties = ownerProperties("test-owner-key-secret-test-owner-key");
+        var keyFactory = new PracticeGeneratedContentKeyFactory(ownerProperties);
+        var expectedFingerprint = keyFactory.requestFingerprint(
+                keyFactory.ownerKey("installation", "install_1"),
+                new PracticeGeneratedContentKeyFactory.RequestFingerprintMaterial(
+                        "onboarding",
+                        "custom_scene",
+                        "洗澡后哄睡",
+                        "m7_11",
+                        "calmer_care",
+                        "zh-CN",
+                        PracticeDiscoveryCustomSceneProperties.DEFAULT_PROMPT_VERSION,
+                        PracticeDiscoveryCustomSceneProperties.DEFAULT_STRATEGY_VERSION,
+                        PracticeDiscoveryPolicyTestFixture.properties().policyVersion(),
+                        1));
+        assertThat(draft.contentRefreshEpoch()).isEqualTo(1);
+        assertThat(draft.requestFingerprint()).isEqualTo(expectedFingerprint);
+        assertThat(row.requestFingerprint()).isEqualTo(expectedFingerprint);
     }
 
     @Test
@@ -798,7 +834,7 @@ class PracticeGeneratedContentServiceTest {
         var expired = expiredDraft(draftRow("pgc_expired_draft"));
         when(commands.reserveDraft(any(), any()))
                 .thenAnswer(invocation -> new DraftReservation(invocation.getArgument(0), true));
-        when(queries.findLatestLiveByFingerprint(any(), any(), any(), any(), any(), any()))
+        when(queries.findLiveByFingerprint(any(), any(), any(), any(), any(), any(), anyInt()))
                 .thenReturn(expired);
         stubActivateDraft();
 
@@ -813,7 +849,7 @@ class PracticeGeneratedContentServiceTest {
     void rateLimitedExpiredDraftDoesNotWriteCleanupBeforeRejection() {
         var generator = org.mockito.Mockito.mock(CustomSceneGenerationService.class);
         var service = serviceWithGenerator(generator);
-        when(queries.findLatestLiveByFingerprint(any(), any(), any(), any(), any(), any()))
+        when(queries.findLiveByFingerprint(any(), any(), any(), any(), any(), any(), anyInt()))
                 .thenReturn(expiredDraft(draftRow("pgc_expired_rate_limited")));
         when(commands.reserveDraft(any(), any()))
                 .thenThrow(new PracticeGenerationRateLimitExceededException("burst", 3));
@@ -1092,12 +1128,12 @@ class PracticeGeneratedContentServiceTest {
     }
 
     private void stubReserveExisting(PracticeGeneratedContentEntity existing) {
-        when(queries.findLatestLiveByFingerprint(any(), any(), any(), any(), any(), any()))
+        when(queries.findLiveByFingerprint(any(), any(), any(), any(), any(), any(), anyInt()))
                 .thenReturn(existing);
     }
 
     private void stubReserveExistingDraft() {
-        when(queries.findLatestLiveByFingerprint(any(), any(), any(), any(), any(), any()))
+        when(queries.findLiveByFingerprint(any(), any(), any(), any(), any(), any(), anyInt()))
                 .thenReturn(draftRow("pgc_existing_draft"));
     }
 

@@ -91,6 +91,15 @@
           and status = 'generating'
     </update>
 
+    <delete id="deleteDueInstallationActive">
+        delete from practice_generated_content
+        where generated_content_id = #{generatedContentId}
+          and owner_key_version = #{ownerKeyVersion}
+          and owner_scope = 'installation'
+          and status = 'active'
+          and retention_expires_at &lt;= #{dueAt,typeHandler=org.apache.ibatis.type.OffsetDateTimeTypeHandler}
+    </delete>
+
     <update id="rejectLive">
         update practice_generated_content
         set status = 'rejected', generation_error_code = #{errorCode},

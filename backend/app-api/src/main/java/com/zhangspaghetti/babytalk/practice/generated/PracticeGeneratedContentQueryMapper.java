@@ -21,14 +21,6 @@ public interface PracticeGeneratedContentQueryMapper {
             @Param("generationProfileVersion") String generationProfileVersion,
             @Param("contentRefreshEpoch") int contentRefreshEpoch);
 
-    PracticeGeneratedContentEntity findLatestLiveByFingerprint(
-            @Param("ownerKey") String ownerKey,
-            @Param("ownerKeyVersion") String ownerKeyVersion,
-            @Param("surface") String surface,
-            @Param("mode") String mode,
-            @Param("requestFingerprint") String requestFingerprint,
-            @Param("generationProfileVersion") String generationProfileVersion);
-
     PracticeGeneratedContentEntity findActiveByGeneratedContentId(
             @Param("generatedContentId") String generatedContentId,
             @Param("ownerKeyVersion") String ownerKeyVersion,
@@ -41,6 +33,7 @@ public interface PracticeGeneratedContentQueryMapper {
             @Param("mode") String mode,
             @Param("requestFingerprint") String requestFingerprint,
             @Param("generationProfileVersion") String generationProfileVersion,
+            @Param("contentRefreshEpoch") int contentRefreshEpoch,
             @Param("reusableAt") OffsetDateTime reusableAt);
 
     int countRecentDraftReservations(

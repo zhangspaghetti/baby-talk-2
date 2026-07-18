@@ -98,19 +98,26 @@
     </insert>
 
     <insert id="insertEvidenceItems">
-        insert into practice_generated_content_evidence_items (
-            evidence_bundle_id, evidence_ordinal, replay_mode, evidence_id, source_type,
-            source_version, strategy_id, claim_type, sanitizer_version, sanitized_summary_hash,
-            sanitized_summary_snapshot, confidence, created_at
-        ) values
-        <foreach collection="items" item="item" separator=",">
-            (#{item.evidenceBundleId,typeHandler=com.zhangspaghetti.babytalk.practice.generated.internal.UuidTypeHandler},
-             #{item.evidenceOrdinal}, #{item.replayMode},
-             #{item.evidenceId}, #{item.sourceType}, #{item.sourceVersion}, #{item.strategyId},
-             #{item.claimType}, #{item.sanitizerVersion}, #{item.sanitizedSummaryHash},
-             #{item.sanitizedSummarySnapshot}, #{item.confidence},
-             #{item.createdAt,typeHandler=org.apache.ibatis.type.OffsetDateTimeTypeHandler})
-        </foreach>
+        <choose>
+            <when test="items != null and !items.isEmpty()">
+                insert into practice_generated_content_evidence_items (
+                    evidence_bundle_id, evidence_ordinal, replay_mode, evidence_id, source_type,
+                    source_version, strategy_id, claim_type, sanitizer_version, sanitized_summary_hash,
+                    sanitized_summary_snapshot, confidence, created_at
+                ) values
+                <foreach collection="items" item="item" separator=",">
+                    (#{item.evidenceBundleId,typeHandler=com.zhangspaghetti.babytalk.practice.generated.internal.UuidTypeHandler},
+                     #{item.evidenceOrdinal}, #{item.replayMode},
+                     #{item.evidenceId}, #{item.sourceType}, #{item.sourceVersion}, #{item.strategyId},
+                     #{item.claimType}, #{item.sanitizerVersion}, #{item.sanitizedSummaryHash},
+                     #{item.sanitizedSummarySnapshot}, #{item.confidence},
+                     #{item.createdAt,typeHandler=org.apache.ibatis.type.OffsetDateTimeTypeHandler})
+                </foreach>
+            </when>
+            <otherwise>
+                do $$ begin null; end $$
+            </otherwise>
+        </choose>
     </insert>
 
     <insert id="insertJudgeResult">

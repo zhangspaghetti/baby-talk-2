@@ -150,7 +150,7 @@ class PracticeGeneratedContentConcurrencyTest extends AbstractIntegrationTest {
             assertThat(provider.awaitEntered()).isTrue();
             awaitCompletedCalls(futures, 1);
             assertThat(provider.callCount()).isEqualTo(1);
-            assertThat(countOwnerRows(ownerKey)).isEqualTo(2);
+            assertThat(countOwnerRows(ownerKey)).isEqualTo(1);
 
             provider.release();
             var results = collect(futures);
@@ -175,9 +175,11 @@ class PracticeGeneratedContentConcurrencyTest extends AbstractIntegrationTest {
                     """,
                     (rows, rowNumber) -> new PersistedContentRow(rows.getString(1), rows.getString(2)),
                     ownerKey))
-                    .containsExactlyInAnyOrder(
-                            new PersistedContentRow(expired.generatedContentId(), "active"),
-                            new PersistedContentRow(replacementId, "active"));
+                    .containsExactly(new PersistedContentRow(replacementId, "active"));
+            assertThat(jdbcTemplate.queryForObject(
+                    "select count(*) from practice_generated_content where generated_content_id = ?",
+                    Integer.class,
+                    expired.generatedContentId())).isZero();
         }
     }
 

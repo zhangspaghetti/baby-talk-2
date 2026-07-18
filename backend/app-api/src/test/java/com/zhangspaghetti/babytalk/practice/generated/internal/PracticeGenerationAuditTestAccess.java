@@ -3,6 +3,7 @@ package com.zhangspaghetti.babytalk.practice.generated.internal;
 import com.zhangspaghetti.babytalk.practice.generated.model.PracticeAiOperationRunEntity;
 import com.zhangspaghetti.babytalk.practice.generated.model.PracticeAiProviderCallEntity;
 import com.zhangspaghetti.babytalk.practice.generated.model.PracticeEvidenceBundleEntity;
+import com.zhangspaghetti.babytalk.practice.generated.model.PracticeEvidenceItemEntity;
 import com.zhangspaghetti.babytalk.practice.generated.model.PracticeGenerationAttemptEntity;
 import com.zhangspaghetti.babytalk.practice.generated.model.PracticeJudgeResultEntity;
 import java.time.OffsetDateTime;
@@ -47,6 +48,10 @@ public class PracticeGenerationAuditTestAccess {
 
     public void insertEvidenceBundle(PracticeEvidenceBundleEntity entity) {
         mapper.insertEvidenceBundle(entity);
+    }
+
+    public void insertEvidenceItems(List<PracticeEvidenceItemEntity> items) {
+        mapper.insertEvidenceItems(items);
     }
 
     public void insertJudgeResult(PracticeJudgeResultEntity entity) {

@@ -29,6 +29,11 @@ interface PracticeGeneratedContentCommandMapper {
 
     int activateGenerating(@Param(Constants.ENTITY) PracticeGeneratedContentEntity entity);
 
+    int deleteDueInstallationActive(
+            @Param("generatedContentId") String generatedContentId,
+            @Param("ownerKeyVersion") String ownerKeyVersion,
+            @Param("dueAt") OffsetDateTime dueAt);
+
     int rejectLive(
             @Param("generatedContentId") String generatedContentId,
             @Param("errorCode") String errorCode,

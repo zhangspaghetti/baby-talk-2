@@ -37,13 +37,36 @@ class PracticeGeneratedContentWriteService implements PracticeGeneratedContentCo
     ) {
         commandMapper.lockOwnerRateLimit(ownerLockKey(draft));
         var existing = findLive(draft);
-        if (existing != null) {
+        var staleDraft = isStaleDraft(existing, policy.now());
+        var dueInstallationActive = isDueInstallationActive(existing, policy.now());
+        if (existing != null && !staleDraft && !dueInstallationActive) {
             return new DraftReservation(existing, false);
         }
         var recent = queryMapper.countRecentDraftReservations(
                 draft.ownerKey(), draft.ownerKeyVersion(), draft.surface(), draft.mode(), policy.burstFrom());
         if (recent >= policy.burstLimit()) {
             throw new PracticeGenerationRateLimitExceededException("burst", policy.burstLimit());
+        }
+        if (dueInstallationActive
+                && existing.generatedContentId().equals(draft.generatedContentId())) {
+            throw new GeneratedContentIdConflictException(
+                    draft.generatedContentId(),
+                    new IllegalStateException("due installation content requires a replacement id"));
+        }
+        if (staleDraft) {
+            commandMapper.expireLive(
+                    existing.generatedContentId(),
+                    "draft_expired",
+                    true,
+                    policy.now(),
+                    policy.expiredRetentionExpiresAt());
+        } else if (dueInstallationActive) {
+            commandMapper.deleteDueInstallationActive(
+                    existing.generatedContentId(), draft.ownerKeyVersion(), policy.now());
+        }
+        var remaining = findLive(draft);
+        if (remaining != null) {
+            return new DraftReservation(remaining, false);
         }
         try {
             if (commandMapper.insertDraftIgnoringLiveConflict(draft) == 1) {
@@ -158,6 +181,21 @@ class PracticeGeneratedContentWriteService implements PracticeGeneratedContentCo
 
     private String ownerLockKey(PracticeGeneratedContentEntity draft) {
         return draft.ownerKeyVersion() + ":" + draft.ownerKey();
+    }
+
+    private boolean isStaleDraft(PracticeGeneratedContentEntity entity, OffsetDateTime now) {
+        return entity != null
+                && "draft".equals(entity.status())
+                && entity.generationExpiresAt() != null
+                && !entity.generationExpiresAt().isAfter(now);
+    }
+
+    private boolean isDueInstallationActive(PracticeGeneratedContentEntity entity, OffsetDateTime now) {
+        return entity != null
+                && "installation".equals(entity.ownerScope())
+                && "active".equals(entity.status())
+                && entity.retentionExpiresAt() != null
+                && !entity.retentionExpiresAt().isAfter(now);
     }
 
 }

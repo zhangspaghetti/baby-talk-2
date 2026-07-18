@@ -87,22 +87,6 @@
         limit 1
     </select>
 
-    <select id="findLatestLiveByFingerprint" resultMap="generatedContentEntityMap">
-        select <include refid="columns"/>
-        from practice_generated_content
-        where owner_key = #{ownerKey}
-          and owner_key_version = #{ownerKeyVersion}
-          and surface = #{surface}
-          and mode = #{mode}
-          and request_fingerprint = #{requestFingerprint}
-          and generation_profile_version = #{generationProfileVersion}
-          and status in ('draft', 'generating', 'active')
-        order by content_refresh_epoch desc,
-                 case status when 'active' then 0 when 'generating' then 1 else 2 end,
-                 updated_at desc, generated_content_id asc
-        limit 1
-    </select>
-
     <select id="findActiveByGeneratedContentId" resultMap="generatedContentEntityMap">
         select <include refid="columns"/>
         from practice_generated_content
@@ -122,10 +106,11 @@
           and mode = #{mode}
           and request_fingerprint = #{requestFingerprint}
           and generation_profile_version = #{generationProfileVersion}
+          and content_refresh_epoch = #{contentRefreshEpoch}
           and status = 'active'
           and (owner_scope &lt;&gt; 'installation'
                or retention_expires_at &gt; #{reusableAt,typeHandler=org.apache.ibatis.type.OffsetDateTimeTypeHandler})
-        order by content_refresh_epoch desc, updated_at desc, generated_content_id asc
+        order by updated_at desc, generated_content_id asc
         limit 1
     </select>
 

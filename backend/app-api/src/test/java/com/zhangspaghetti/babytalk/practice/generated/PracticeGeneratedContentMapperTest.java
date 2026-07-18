@@ -1,6 +1,7 @@
 package com.zhangspaghetti.babytalk.practice.generated;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatNoException;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.zhangspaghetti.babytalk.AbstractIntegrationTest;
@@ -654,45 +655,14 @@ class PracticeGeneratedContentMapperTest extends AbstractIntegrationTest {
     }
 
     @Test
-    void fingerprintLookupReturnsLatestReusableRefreshEpoch() {
-        var ownerKey = "hmac_test_repo_refresh_epoch";
-        var fingerprint = "fp_repo_refresh_epoch";
-        var old = row("pgc_repo_refresh_epoch_old")
-                .active()
-                .ownerKey(ownerKey)
-                .requestFingerprint(fingerprint)
-                .retentionExpiresAt(NOW_DB.minusMinutes(1))
-                .build();
-        var replacement = row("pgc_repo_refresh_epoch_new")
-                .active()
-                .ownerKey(ownerKey)
-                .requestFingerprint(fingerprint)
-                .retentionExpiresAt(NOW_DB.plusDays(30))
-                .build();
-        replacement.setContentRefreshEpoch(2);
-        insert(old);
-        insert(replacement);
-
-        assertThat(repository.findActiveOrPromotedByFingerprint(
-                ownerKey,
-                "onboarding",
-                "custom_scene",
-                fingerprint,
-                "practice-gen-v1",
-                "retrieval-v1"))
-                .get()
-                .extracting(PracticeGeneratedContentEntity::generatedContentId)
-                .isEqualTo("pgc_repo_refresh_epoch_new");
-    }
-
-    @Test
-    void reservationCreatesNewEpochWithoutChangingTerminalActiveRow() {
+    void reservationDeletesDueInstallationActiveAfterBurstCheckAndCreatesCurrentEpochDraft() {
         var ownerKey = "hmac_test_repo_lazy_active";
         var fingerprint = "fp_repo_lazy_active";
         insert(row("pgc_repo_lazy_active_old")
                 .active()
                 .ownerKey(ownerKey)
                 .requestFingerprint(fingerprint)
+                .createdAt(NOW_DB.minusHours(1))
                 .retentionExpiresAt(NOW_DB.minusMinutes(1))
                 .build());
         var draft = row("pgc_repo_lazy_active_new")
@@ -700,7 +670,6 @@ class PracticeGeneratedContentMapperTest extends AbstractIntegrationTest {
                 .requestFingerprint(fingerprint)
                 .generationWindow(NOW_DB, NOW_DB.plusMinutes(5))
                 .build();
-        draft.setContentRefreshEpoch(2);
 
         var reservation = commands.reserveDraft(
                 draft,
@@ -713,8 +682,131 @@ class PracticeGeneratedContentMapperTest extends AbstractIntegrationTest {
         assertThat(reservation.inserted()).isTrue();
         assertThat(reservation.row().generatedContentId()).isEqualTo("pgc_repo_lazy_active_new");
         assertThat(jdbcTemplate.queryForObject(
-                "select status from practice_generated_content where generated_content_id = 'pgc_repo_lazy_active_old'",
+                "select count(*) from practice_generated_content where generated_content_id = 'pgc_repo_lazy_active_old'",
+                Integer.class)).isZero();
+        assertThat(reservation.row().contentRefreshEpoch()).isEqualTo(1);
+        assertThat(reservation.row().requestFingerprint()).isEqualTo(fingerprint);
+    }
+
+    @Test
+    void dueInstallationActiveIsNotDeletedWhenBurstLimitRejectsReservation() {
+        var ownerKey = "hmac_test_repo_due_active_limit";
+        var fingerprint = "fp_repo_due_active_limit";
+        insert(row("pgc_repo_due_active_limit_old")
+                .active()
+                .ownerKey(ownerKey)
+                .requestFingerprint(fingerprint)
+                .createdAt(NOW_DB.minusMinutes(1))
+                .retentionExpiresAt(NOW_DB.minusMinutes(1))
+                .build());
+        var draft = row("pgc_repo_due_active_limit_new")
+                .ownerKey(ownerKey)
+                .requestFingerprint(fingerprint)
+                .generationWindow(NOW_DB, NOW_DB.plusMinutes(5))
+                .build();
+
+        assertThatThrownBy(() -> commands.reserveDraft(
+                draft,
+                new ReservationPolicy(NOW_DB, NOW_DB.minusMinutes(10), 1, NOW_DB.plusDays(7))))
+                .isInstanceOf(PracticeGenerationRateLimitExceededException.class);
+
+        assertThat(jdbcTemplate.queryForMap("""
+                select generated_content_id, status
+                from practice_generated_content
+                where owner_key = ?
+                """, ownerKey))
+                .containsEntry("generated_content_id", "pgc_repo_due_active_limit_old")
+                .containsEntry("status", "active");
+    }
+
+    @Test
+    void dueInstallationActiveSameIdRequiresSuffixRetryBeforeDeletion() {
+        var ownerKey = "hmac_test_repo_due_same_id";
+        var fingerprint = "fp_repo_due_same_id";
+        insert(row("pgc_repo_due_same_id")
+                .active()
+                .ownerKey(ownerKey)
+                .requestFingerprint(fingerprint)
+                .createdAt(NOW_DB.minusHours(1))
+                .retentionExpiresAt(NOW_DB.minusMinutes(1))
+                .build());
+        var sameIdDraft = row("pgc_repo_due_same_id")
+                .ownerKey(ownerKey)
+                .requestFingerprint(fingerprint)
+                .generationWindow(NOW_DB, NOW_DB.plusMinutes(5))
+                .build();
+        var policy = new ReservationPolicy(NOW_DB, NOW_DB.minusMinutes(10), 1, NOW_DB.plusDays(7));
+
+        assertThatThrownBy(() -> commands.reserveDraft(sameIdDraft, policy))
+                .isInstanceOf(GeneratedContentIdConflictException.class);
+        assertThat(jdbcTemplate.queryForObject(
+                "select status from practice_generated_content where generated_content_id = 'pgc_repo_due_same_id'",
                 String.class)).isEqualTo("active");
+
+        sameIdDraft.setGeneratedContentId("pgc_repo_due_same_id_suffix");
+        var replacement = commands.reserveDraft(sameIdDraft, policy);
+        assertThat(replacement.created()).isTrue();
+        assertThat(replacement.content().generatedContentId()).isEqualTo("pgc_repo_due_same_id_suffix");
+        assertThat(jdbcTemplate.queryForObject(
+                "select count(*) from practice_generated_content where generated_content_id = 'pgc_repo_due_same_id'",
+                Integer.class)).isZero();
+    }
+
+    @Test
+    void reservationExpiresStaleDraftAfterBurstCheckAndCreatesReplacement() {
+        var ownerKey = "hmac_test_repo_stale_allowed";
+        var fingerprint = "fp_repo_stale_allowed";
+        insert(row("pgc_repo_stale_allowed_old")
+                .ownerKey(ownerKey)
+                .requestFingerprint(fingerprint)
+                .createdAt(NOW_DB.minusHours(1))
+                .generationWindow(NOW_DB.minusHours(1), NOW_DB.minusMinutes(1))
+                .build());
+        var draft = row("pgc_repo_stale_allowed_new")
+                .ownerKey(ownerKey)
+                .requestFingerprint(fingerprint)
+                .generationWindow(NOW_DB, NOW_DB.plusMinutes(5))
+                .build();
+
+        var reservation = commands.reserveDraft(
+                draft,
+                new ReservationPolicy(NOW_DB, NOW_DB.minusMinutes(10), 1, NOW_DB.plusDays(7)));
+
+        assertThat(reservation.created()).isTrue();
+        assertThat(reservation.content().generatedContentId()).isEqualTo("pgc_repo_stale_allowed_new");
+        assertThat(jdbcTemplate.queryForObject(
+                "select status from practice_generated_content where generated_content_id = 'pgc_repo_stale_allowed_old'",
+                String.class)).isEqualTo("expired");
+    }
+
+    @Test
+    void staleDraftIsNotExpiredWhenBurstLimitRejectsReservation() {
+        var ownerKey = "hmac_test_repo_stale_limit";
+        var fingerprint = "fp_repo_stale_limit";
+        insert(row("pgc_repo_stale_limit_old")
+                .ownerKey(ownerKey)
+                .requestFingerprint(fingerprint)
+                .createdAt(NOW_DB.minusMinutes(1))
+                .generationWindow(NOW_DB.minusMinutes(6), NOW_DB.minusMinutes(1))
+                .build());
+        var draft = row("pgc_repo_stale_limit_new")
+                .ownerKey(ownerKey)
+                .requestFingerprint(fingerprint)
+                .generationWindow(NOW_DB, NOW_DB.plusMinutes(5))
+                .build();
+
+        assertThatThrownBy(() -> commands.reserveDraft(
+                draft,
+                new ReservationPolicy(NOW_DB, NOW_DB.minusMinutes(10), 1, NOW_DB.plusDays(7))))
+                .isInstanceOf(PracticeGenerationRateLimitExceededException.class);
+
+        assertThat(jdbcTemplate.queryForMap("""
+                select generated_content_id, status
+                from practice_generated_content
+                where owner_key = ?
+                """, ownerKey))
+                .containsEntry("generated_content_id", "pgc_repo_stale_limit_old")
+                .containsEntry("status", "draft");
     }
 
     @Test
@@ -845,6 +937,14 @@ class PracticeGeneratedContentMapperTest extends AbstractIntegrationTest {
                 .containsEntry("outcome", "first")
                 .containsEntry("provider_trace_id", "trace-first")
                 .containsEntry("latency_ms", 10L);
+    }
+
+    @Test
+    void auditEmptyEvidenceItemsAreANoOp() {
+        assertThatNoException().isThrownBy(() -> audit.insertEvidenceItems(List.of()));
+        assertThat(jdbcTemplate.queryForObject(
+                "select count(*) from practice_generated_content_evidence_items",
+                Integer.class)).isZero();
     }
 
     @Test

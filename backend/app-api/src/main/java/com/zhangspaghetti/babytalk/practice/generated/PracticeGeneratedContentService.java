@@ -51,6 +51,7 @@ public class PracticeGeneratedContentService {
     private static final int MAX_CUSTOM_SCENE_CHARS = 80;
     private static final int MAX_NORMALIZED_SCENE_TEXT_CODE_POINTS = 160;
     private static final int MAX_DRAFT_RESERVATION_ATTEMPTS = 5;
+    private static final int CONTENT_REFRESH_EPOCH = 1;
     private static final Duration DRAFT_TTL = Duration.ofMinutes(5);
     private static final Duration INSTALLATION_ACTIVE_RETENTION = Duration.ofDays(30);
     private static final Duration INSTALLATION_TERMINAL_RETENTION = Duration.ofDays(7);
@@ -192,6 +193,7 @@ public class PracticeGeneratedContentService {
                 mode,
                 requestFingerprint,
                 promptVersion,
+                CONTENT_REFRESH_EPOCH,
                 nowUtc()));
     }
 
@@ -247,28 +249,29 @@ public class PracticeGeneratedContentService {
         var normalizedSceneText = validateDisplayLength(forms.displayText());
         var owner = resolveOwner(request);
         var requestFingerprint = fingerprint(request, owner, forms.securityText());
-        var existing = queryMapper.findLatestLiveByFingerprint(
+        var existing = queryMapper.findLiveByFingerprint(
                 owner.ownerKey(),
                 ownerKeyVersion(),
                 request.surface(),
                 request.mode(),
                 requestFingerprint,
-                promptVersion());
-        var contentRefreshEpoch = existing == null ? 1 : existing.contentRefreshEpoch();
+                promptVersion(),
+                CONTENT_REFRESH_EPOCH);
+        var firstReservationAttempt = isDueInstallationActive(existing) ? 1 : 0;
         if (existing != null) {
             if (isActiveOrPromoted(existing)) {
                 if (isReusableActiveOrPromoted(existing)) {
                     return existing;
                 }
-                contentRefreshEpoch++;
             } else if (!isExpiredDraft(existing)) {
                 throw generationInProgress(existing.generatedContentId());
             }
         }
-        for (var reservationAttempt = 0; reservationAttempt < MAX_DRAFT_RESERVATION_ATTEMPTS; reservationAttempt++) {
+        for (var offset = 0; offset < MAX_DRAFT_RESERVATION_ATTEMPTS; offset++) {
+            var reservationAttempt = firstReservationAttempt + offset;
             var draft = draftRow(
                     request, owner, requestFingerprint, normalizedSceneText,
-                    reservationAttempt, contentRefreshEpoch);
+                    reservationAttempt);
             DraftReservation reservation;
             try {
                 reservation = reserveDraft(draft);
@@ -297,7 +300,7 @@ public class PracticeGeneratedContentService {
             return generateAndActivate(request, owner, requestFingerprint, normalizedSceneText, reserved);
         }
 
-        throw generationInProgress(generatedContentId(owner, requestFingerprint, 0));
+        throw generationInProgress(generatedContentId(owner, requestFingerprint, firstReservationAttempt));
     }
 
     private ReservationPolicy reservationPolicy(String ownerScope) {
@@ -434,8 +437,7 @@ public class PracticeGeneratedContentService {
             OwnerContext owner,
             String requestFingerprint,
             String normalizedSceneText,
-            int reservationAttempt,
-            int contentRefreshEpoch
+            int reservationAttempt
     ) {
         var now = nowUtc();
         var row = new PracticeGeneratedContentEntity();
@@ -463,7 +465,7 @@ public class PracticeGeneratedContentService {
         row.setProviderRoutingPolicyVersion("legacy-fake-routing-v1");
         row.setProviderRoutingPolicyHash(keyFactory.stableDigest("provider-routing|legacy-fake-routing-v1"));
         row.setGenerationAttemptLimit(3);
-        row.setContentRefreshEpoch(contentRefreshEpoch);
+        row.setContentRefreshEpoch(CONTENT_REFRESH_EPOCH);
         row.setContentVersion(1);
         row.setGenerationExpiresAt(now.plus(DRAFT_TTL));
         row.setRetentionExpiresAt(OWNER_INSTALLATION.equals(owner.ownerScope())
@@ -591,7 +593,7 @@ public class PracticeGeneratedContentService {
                         promptVersion(),
                         strategyVersion(),
                         policyVersion(),
-                        1));
+                        CONTENT_REFRESH_EPOCH));
     }
 
     private String generatedContentId(OwnerContext owner, String requestFingerprint, int reservationAttempt) {
@@ -767,6 +769,14 @@ public class PracticeGeneratedContentService {
         return STATUS_DRAFT.equals(row.status())
                 && row.generationExpiresAt() != null
                 && !row.generationExpiresAt().isAfter(nowUtc());
+    }
+
+    private boolean isDueInstallationActive(PracticeGeneratedContentEntity row) {
+        return row != null
+                && OWNER_INSTALLATION.equals(row.ownerScope())
+                && STATUS_ACTIVE.equals(row.status())
+                && row.retentionExpiresAt() != null
+                && !row.retentionExpiresAt().isAfter(nowUtc());
     }
 
     private String trimToNull(String value) {
