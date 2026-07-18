@@ -84,6 +84,9 @@ management:
 
 babytalk:
   practice:
+    agentic:
+      versioned-resources:
+        profile: ${BABY_TALK_PRACTICE_AI_PROFILE:classpath:config/practice-ai/profiles/custom-scene-generation-v1.yml}
     discovery:
       custom-scene:
         enabled: ${BABY_TALK_PRACTICE_DISCOVERY_CUSTOM_SCENE_ENABLED:false}

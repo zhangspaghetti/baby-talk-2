@@ -1,0 +1,11 @@
+version: custom-scene-quality-v1
+schema-version: judge-rubric-schema-v1
+dimensions:
+  - scene_alignment
+  - parent_speakability
+verdict-policy:
+  reject-on-fail:
+    - age_suitability
+  repair-on-fail:
+    - unknown_dimension
+  repair-on-abstain: true
