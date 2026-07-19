@@ -288,7 +288,7 @@ class PracticeGeneratedContentServiceTest {
     }
 
     @Test
-    void agenticPlaceholderReturnsNonRetryableBeforeReservation() {
+    void agenticModeIsAvailableForOrchestratedGeneration() {
         var generator = org.mockito.Mockito.mock(CustomSceneGenerator.class);
         var service = serviceWithPropertiesAndGenerator(properties(
                 PracticeDiscoveryCustomSceneProperties.DEFAULT_PROMPT_VERSION,
@@ -296,15 +296,7 @@ class PracticeGeneratedContentServiceTest {
                 "agentic"
         ), generator);
 
-        assertThatThrownBy(() -> service.generateCustomScene(request("洗澡后哄睡")))
-                .isInstanceOf(ContractException.class)
-                .satisfies(error -> {
-                    var contract = (ContractException) error;
-                    assertThat(contract.code()).isEqualTo("generation_unavailable");
-                    assertThat(contract.details())
-                            .containsEntry("retryable", false)
-                            .containsEntry("reason", "agentic_not_implemented");
-                });
+        service.requireCustomSceneGenerationAvailable();
         verifyNoInteractions(queries, commands, generator);
     }
 

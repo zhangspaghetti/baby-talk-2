@@ -10,6 +10,8 @@ import com.zhangspaghetti.babytalk.practice.discovery.PracticeDiscoveryPolicyPro
 import com.zhangspaghetti.babytalk.practice.discovery.SceneTextCanonicalizer;
 import com.zhangspaghetti.babytalk.practice.discovery.SceneTextSecurityConfiguration;
 import com.zhangspaghetti.babytalk.practice.discovery.SceneTextSecurityPolicy;
+import com.zhangspaghetti.babytalk.practice.agentic.PracticeAiProviderManager;
+import com.zhangspaghetti.babytalk.practice.agentic.config.VersionedResourceRegistry;
 import com.zhangspaghetti.babytalk.practice.generated.model.PracticeGeneratedContentEntity;
 import com.zhangspaghetti.babytalk.web.ContractException;
 import java.nio.charset.StandardCharsets;
@@ -66,13 +68,17 @@ public class PracticeGeneratedContentService {
     private final PolicyTextMatcher policyTextMatcher;
     private final Clock clock;
     private final PracticeGeneratedContentCommands commands;
+    private final CustomSceneGenerationOrchestrator orchestrator;
+    private final VersionedResourceRegistry resourceRegistry;
+    private final PracticeAiProviderManager providerManager;
 
     @Autowired
     public PracticeGeneratedContentService(
             PracticeGeneratedContentQueryMapper queryMapper,
             PracticeGeneratedContentCommands commands,
-            CustomSceneGenerator generationService,
-            CustomSceneGeneratedContentValidator generatedContentValidator,
+            CustomSceneGenerationOrchestrator orchestrator,
+            VersionedResourceRegistry resourceRegistry,
+            org.springframework.beans.factory.ObjectProvider<PracticeAiProviderManager> providerManager,
             PracticeDiscoveryCustomSceneProperties customSceneProperties,
             PracticeDiscoveryPolicyProperties policyProperties,
             PracticeGeneratedContentOwnerProperties ownerProperties,
@@ -81,7 +87,7 @@ public class PracticeGeneratedContentService {
             SceneTextSecurityPolicy sceneTextSecurityPolicy,
             PolicyTextMatcher policyTextMatcher
     ) {
-        this(queryMapper, commands, generationService, generatedContentValidator, customSceneProperties,
+        this(queryMapper, commands, null, null, orchestrator, resourceRegistry, providerManager.getIfAvailable(), customSceneProperties,
                 policyProperties, Clock.systemUTC(), ownerProperties, keyFactory,
                 sceneTextCanonicalizer, sceneTextSecurityPolicy, policyTextMatcher);
     }
@@ -96,7 +102,7 @@ public class PracticeGeneratedContentService {
             Clock clock,
             PracticeGeneratedContentOwnerProperties ownerProperties
     ) {
-        this(queryMapper, commands, generationService, generatedContentValidator, customSceneProperties,
+        this(queryMapper, commands, generationService, generatedContentValidator, null, null, null, customSceneProperties,
                 policyProperties, clock, ownerProperties, new PracticeGeneratedContentKeyFactory(ownerProperties),
                 new SceneTextCanonicalizer(),
                 new SceneTextSecurityPolicy(policyProperties, new PolicyTextMatcher(new SceneTextCanonicalizer()),
@@ -109,6 +115,9 @@ public class PracticeGeneratedContentService {
             PracticeGeneratedContentCommands commands,
             CustomSceneGenerator generationService,
             CustomSceneGeneratedContentValidator generatedContentValidator,
+            CustomSceneGenerationOrchestrator orchestrator,
+            VersionedResourceRegistry resourceRegistry,
+            PracticeAiProviderManager providerManager,
             PracticeDiscoveryCustomSceneProperties customSceneProperties,
             PracticeDiscoveryPolicyProperties policyProperties,
             Clock clock,
@@ -122,6 +131,9 @@ public class PracticeGeneratedContentService {
         this.commands = java.util.Objects.requireNonNull(commands, "practice generated content commands are required");
         this.generationService = generationService;
         this.generatedContentValidator = generatedContentValidator;
+        this.orchestrator = orchestrator;
+        this.resourceRegistry = resourceRegistry;
+        this.providerManager = providerManager;
         this.customSceneProperties = customSceneProperties;
         if (policyProperties == null || ownerProperties == null) {
             throw new IllegalArgumentException("practice generated content typed properties are required");
@@ -232,9 +244,6 @@ public class PracticeGeneratedContentService {
         if (!customSceneProperties.enabled() || customSceneProperties.providerDisabled()) {
             throw generationUnavailable("provider_disabled");
         }
-        if (customSceneProperties.agenticProvider()) {
-            throw generationUnavailable("agentic_not_implemented");
-        }
     }
 
     public PracticeGeneratedContentEntity generateCustomScene(
@@ -252,7 +261,7 @@ public class PracticeGeneratedContentService {
                 request.surface(),
                 request.mode(),
                 requestFingerprint,
-                promptVersion(),
+                generationProfileVersion(),
                 CONTENT_REFRESH_EPOCH);
         var firstReservationAttempt = isDueInstallationActive(existing) ? 1 : 0;
         if (existing != null) {
@@ -310,6 +319,36 @@ public class PracticeGeneratedContentService {
                 now.plus(INSTALLATION_TERMINAL_RETENTION));
     }
 
+    private PracticeGeneratedContentEntity executeOrchestratedGeneration(
+            PracticeGeneratedContentEntity reserved,
+            OwnerContext owner
+    ) {
+        var registry = java.util.Objects.requireNonNull(resourceRegistry, "versioned resource registry is required");
+        var profile = registry.currentGenerationProfile();
+        var caps = rateLimitCaps(owner.ownerScope());
+        try {
+            var result = orchestrator.execute(new CustomSceneGenerationOrchestrator.GenerationExecution(
+                    reserved,
+                    nowUtc().minus(customSceneProperties.dailyWindow()),
+                    caps.dailyLimit(),
+                    profile,
+                    registry.qualityRubric(),
+                    java.util.Set.copyOf(registry.minimumEvidencePolicy().requiredClaimCoverage()),
+                    contentConstraints()));
+            if (STATUS_ACTIVE.equals(result.status())) {
+                return result;
+            }
+            throw generationUnavailable(
+                    result.generationErrorCode() == null ? "generation_terminal" : result.generationErrorCode(),
+                    Boolean.TRUE.equals(result.generationErrorRetryable()),
+                    null);
+        } catch (PracticeGenerationRateLimitExceededException exception) {
+            throw rateLimited(owner.ownerScope(), caps.dailyLimit(), "daily", customSceneProperties.dailyWindow());
+        } catch (CustomSceneGenerationOrchestrator.GenerationExecutionException exception) {
+            throw generationUnavailable(exception.code(), exception.retryable(), exception);
+        }
+    }
+
     private PracticeGeneratedContentEntity generateAndActivate(
             CustomSceneDiscoveryRequest request,
             OwnerContext owner,
@@ -317,6 +356,10 @@ public class PracticeGeneratedContentService {
             String normalizedSceneText,
             PracticeGeneratedContentEntity reserved
     ) {
+
+        if (orchestrator != null) {
+            return executeOrchestratedGeneration(reserved, owner);
+        }
 
         var caps = rateLimitCaps(owner.ownerScope());
         var startDecision = commands.startGeneration(
@@ -450,15 +493,19 @@ public class PracticeGeneratedContentService {
         row.setParentGoal(request.parentGoal());
         row.setLocale(request.locale());
         row.setStatus(STATUS_DRAFT);
-        row.setGenerationProfileVersion(promptVersion());
-        row.setGenerationProfileHash(keyFactory.stableDigest("generation-profile|" + promptVersion()));
-        row.setRubricVersion(policyVersion());
-        row.setRubricContentHash(keyFactory.stableDigest("rubric|" + policyVersion()));
-        row.setEvidencePolicyVersion(strategyVersion());
-        row.setEvidencePolicyContentHash(keyFactory.stableDigest("evidence-policy|" + strategyVersion()));
-        row.setProviderRoutingPolicyVersion("legacy-fake-routing-v1");
-        row.setProviderRoutingPolicyHash(keyFactory.stableDigest("provider-routing|legacy-fake-routing-v1"));
-        row.setGenerationAttemptLimit(3);
+        row.setGenerationProfileVersion(generationProfileVersion());
+        row.setGenerationProfileHash(generationProfileHash());
+        row.setRubricVersion(rubricVersion());
+        row.setRubricContentHash(rubricContentHash());
+        row.setEvidencePolicyVersion(evidencePolicyVersion());
+        row.setEvidencePolicyContentHash(evidencePolicyContentHash());
+        var routingVersion = providerManager == null ? "legacy-fake-routing-v1" : providerManager.routingPolicyVersion();
+        var routingHash = providerManager == null
+                ? keyFactory.stableDigest("provider-routing|" + routingVersion)
+                : providerManager.routingPolicyHash();
+        row.setProviderRoutingPolicyVersion(routingVersion);
+        row.setProviderRoutingPolicyHash(routingHash);
+        row.setGenerationAttemptLimit(customSceneProperties.maxGenerationAttempts());
         row.setContentRefreshEpoch(CONTENT_REFRESH_EPOCH);
         row.setContentVersion(1);
         row.setGenerationExpiresAt(now.plus(DRAFT_TTL));
@@ -584,8 +631,8 @@ public class PracticeGeneratedContentService {
                         request.ageRange(),
                         request.parentGoal(),
                         request.locale(),
-                        promptVersion(),
-                        strategyVersion(),
+                        generationProfileVersion(),
+                        generationProfileStrategyVersion(),
                         policyVersion(),
                         CONTENT_REFRESH_EPOCH));
     }
@@ -593,8 +640,8 @@ public class PracticeGeneratedContentService {
     private String generatedContentId(OwnerContext owner, String requestFingerprint, int reservationAttempt) {
         var base = "pgc_" + keyFactory.stableDigest(owner.ownerKey()
                 + "|" + requestFingerprint
-                + "|" + promptVersion()
-                + "|" + strategyVersion()).substring(0, 32);
+                + "|" + generationProfileVersion()
+                + "|" + generationProfileStrategyVersion()).substring(0, 32);
         if (reservationAttempt == 0) {
             return base;
         }
@@ -604,6 +651,48 @@ public class PracticeGeneratedContentService {
 
     private String promptVersion() {
         return customSceneProperties.promptVersion();
+    }
+
+    private String generationProfileVersion() {
+        return resourceRegistry == null
+                ? promptVersion()
+                : resourceRegistry.currentGenerationProfile().version();
+    }
+
+    private String generationProfileHash() {
+        return resourceRegistry == null
+                ? keyFactory.stableDigest("generation-profile|" + promptVersion())
+                : resourceRegistry.currentGenerationProfile().contentHash();
+    }
+
+    private String generationProfileStrategyVersion() {
+        return resourceRegistry == null
+                ? strategyVersion()
+                : resourceRegistry.currentGenerationProfile().strategyVersion();
+    }
+
+    private String rubricVersion() {
+        return resourceRegistry == null
+                ? policyVersion()
+                : resourceRegistry.qualityRubric().version();
+    }
+
+    private String rubricContentHash() {
+        return resourceRegistry == null
+                ? keyFactory.stableDigest("rubric|" + policyVersion())
+                : resourceRegistry.qualityRubric().contentHash();
+    }
+
+    private String evidencePolicyVersion() {
+        return resourceRegistry == null
+                ? strategyVersion()
+                : resourceRegistry.minimumEvidencePolicy().version();
+    }
+
+    private String evidencePolicyContentHash() {
+        return resourceRegistry == null
+                ? keyFactory.stableDigest("evidence-policy|" + strategyVersion())
+                : resourceRegistry.minimumEvidencePolicy().contentHash();
     }
 
     private String strategyVersion() {

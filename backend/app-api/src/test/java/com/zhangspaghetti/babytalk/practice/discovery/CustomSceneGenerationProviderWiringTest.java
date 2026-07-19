@@ -11,8 +11,13 @@ import com.zhangspaghetti.babytalk.practice.agentic.PracticeAiProviderManager;
 import com.zhangspaghetti.babytalk.practice.agentic.PracticeAiStructuredOutputCaller;
 import com.zhangspaghetti.babytalk.practice.generated.AgenticCustomSceneGenerator;
 import com.zhangspaghetti.babytalk.practice.generated.AgenticCustomSceneQualityJudge;
+import com.zhangspaghetti.babytalk.practice.generated.AgenticCustomSceneRepairer;
 import com.zhangspaghetti.babytalk.practice.generated.CustomSceneGenerator;
 import com.zhangspaghetti.babytalk.practice.generated.CustomSceneQualityJudge;
+import com.zhangspaghetti.babytalk.practice.generated.CustomSceneRepairer;
+import com.zhangspaghetti.babytalk.practice.generated.DisabledCustomSceneQualityJudge;
+import com.zhangspaghetti.babytalk.practice.generated.DisabledCustomSceneRepairer;
+import com.zhangspaghetti.babytalk.practice.generated.FakeCustomSceneRepairer;
 import com.zhangspaghetti.babytalk.practice.generated.FakeCustomSceneQualityJudge;
 import com.zhangspaghetti.babytalk.practice.generated.quality.JudgeResultAuditPort;
 import com.zhangspaghetti.babytalk.practice.generated.quality.JudgeVerdictCalculator;
@@ -45,6 +50,9 @@ class CustomSceneGenerationProviderWiringTest {
                     assertThat(context).hasSingleBean(CustomSceneQualityJudge.class);
                     assertThat(context.getBean(CustomSceneQualityJudge.class))
                             .isInstanceOf(FakeCustomSceneQualityJudge.class);
+                    assertThat(context).hasSingleBean(CustomSceneRepairer.class);
+                    assertThat(context.getBean(CustomSceneRepairer.class))
+                            .isInstanceOf(FakeCustomSceneRepairer.class);
 
                     var candidate = context.getBean(CustomSceneGenerator.class)
                             .generate(request("睡前哄宝宝"));
@@ -98,6 +106,7 @@ class CustomSceneGenerationProviderWiringTest {
                     assertThat(context).doesNotHaveBean(PracticeAiChatClientFactory.class);
                     assertThat(context).doesNotHaveBean(PracticeAiProviderManager.class);
                     assertThat(context).doesNotHaveBean(CustomSceneQualityJudge.class);
+                    assertThat(context).doesNotHaveBean(CustomSceneRepairer.class);
                 });
     }
 
@@ -111,7 +120,12 @@ class CustomSceneGenerationProviderWiringTest {
                             .isInstanceOf(DisabledCustomSceneGenerationService.class);
                     assertThat(context).doesNotHaveBean(PracticeAiChatClientFactory.class);
                     assertThat(context).doesNotHaveBean(PracticeAiProviderManager.class);
-                    assertThat(context).doesNotHaveBean(CustomSceneQualityJudge.class);
+                    assertThat(context).hasSingleBean(CustomSceneQualityJudge.class);
+                    assertThat(context.getBean(CustomSceneQualityJudge.class))
+                            .isInstanceOf(DisabledCustomSceneQualityJudge.class);
+                    assertThat(context).hasSingleBean(CustomSceneRepairer.class);
+                    assertThat(context.getBean(CustomSceneRepairer.class))
+                            .isInstanceOf(DisabledCustomSceneRepairer.class);
                 });
     }
 
@@ -137,6 +151,9 @@ class CustomSceneGenerationProviderWiringTest {
                     assertThat(context).hasSingleBean(CustomSceneQualityJudge.class);
                     assertThat(context.getBean(CustomSceneQualityJudge.class))
                             .isInstanceOf(AgenticCustomSceneQualityJudge.class);
+                    assertThat(context).hasSingleBean(CustomSceneRepairer.class);
+                    assertThat(context.getBean(CustomSceneRepairer.class))
+                            .isInstanceOf(AgenticCustomSceneRepairer.class);
                 });
     }
 
@@ -208,6 +225,10 @@ class CustomSceneGenerationProviderWiringTest {
             DisabledCustomSceneGenerationService.class,
             AgenticCustomSceneGenerator.class,
             AgenticCustomSceneQualityJudge.class,
+            AgenticCustomSceneRepairer.class,
+            DisabledCustomSceneQualityJudge.class,
+            FakeCustomSceneRepairer.class,
+            DisabledCustomSceneRepairer.class,
             FakeCustomSceneQualityJudge.class,
             JudgeVerdictCalculator.class,
             PracticeAiOpenAiOptionsFactory.class,
