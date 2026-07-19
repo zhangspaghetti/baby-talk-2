@@ -56,6 +56,26 @@ dbMigration:
       cpu: 50m
       memory: 128Mi
 
+practiceAi:
+  providerMode: agentic
+  routingPolicyVersion: custom-scene-routing-v1
+  providers:
+    dashscope-qwen:
+      type: openai-compatible
+      baseUrl: https://dashscope.aliyuncs.com/compatible-mode/v1
+      apiKeyEnvironmentVariable: BABY_TALK_AI_PROVIDER_DASHSCOPE_QWEN_API_KEY
+      model: qwen3.6-flash
+      timeout: 20s
+      maxTokens: 600
+  capabilities:
+    custom-scene-generator: [dashscope-qwen]
+    custom-scene-quality-judge: [dashscope-qwen]
+    custom-scene-repair: [dashscope-qwen]
+  secret:
+    existingSecret: ""
+    values:
+      BABY_TALK_AI_PROVIDER_DASHSCOPE_QWEN_API_KEY: change-me-kind-qa-practice-ai-api-key
+
 config:
   BABY_TALK_REDIS_HOST: babytalk-qa-infra-redis-master
   BABY_TALK_ADMIN_WEB_ORIGIN: "http://127.0.0.1:3001"

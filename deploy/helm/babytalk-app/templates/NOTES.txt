@@ -36,3 +36,13 @@ Gateway（Spring Cloud Gateway）：
   - BABY_TALK_ADMIN_BOOTSTRAP_PASSWORD
   - BABY_TALK_AI_API_KEY / BABY_TALK_EMBEDDING_API_KEY
   - BABY_TALK_MINIO_ENDPOINT / BABY_TALK_MINIO_ACCESS_KEY / BABY_TALK_MINIO_SECRET_KEY
+
+{{- if .Values.practiceAi.secret.existingSecret }}
+
+Practice AI provider key（外部 Secret，不进入 shared Secret）：
+  kubectl --namespace {{ .Release.Namespace }} create secret generic {{ .Values.practiceAi.secret.existingSecret }} \
+{{- range $providerName, $provider := .Values.practiceAi.providers }}
+    --from-literal={{ $provider.apiKeyEnvironmentVariable }}='<provider-api-key>' \
+{{- end }}
+    --dry-run=client -o yaml | kubectl apply -f -
+{{- end }}

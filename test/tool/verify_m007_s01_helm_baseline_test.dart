@@ -39,6 +39,13 @@ void main() {
         r'scripts\dev-verify-helm-demo.cmd',
       );
     });
+
+    test('preflight invokes Practice AI Helm contract verifier', () {
+      final command = m007.practiceAiHelmVerifierCommand();
+
+      expect(command.command, 'dart');
+      expect(command.args, ['run', 'tool/verify_practice_ai_helm.dart']);
+    });
   });
 
   group('M007 S01 helm telemetry', () {
@@ -63,7 +70,14 @@ void main() {
             firstFailureStage: i.isEven ? 'none' : 'gateway',
             likelyCause: i.isEven ? 'none' : 'gateway_not_healthy',
             nextAction: './scripts/dev-verify-helm-demo.sh',
-            timestampIso8601: DateTime.utc(2026, 4, 26, 9, 0, i).toIso8601String(),
+            timestampIso8601: DateTime.utc(
+              2026,
+              4,
+              26,
+              9,
+              0,
+              i,
+            ).toIso8601String(),
           ),
           historyPath: historyPath,
           maxEntries: 50,

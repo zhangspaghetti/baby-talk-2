@@ -1,0 +1,121 @@
+{{- $practiceAi := .Values.practiceAi -}}
+{{- $providerMode := required "practiceAi.providerMode is required" $practiceAi.providerMode -}}
+{{- if not (has $providerMode (list "disabled" "fake" "agentic")) -}}
+{{- fail "practiceAi.providerMode must be disabled, fake, or agentic" -}}
+{{- end -}}
+{{- $providers := default dict $practiceAi.providers -}}
+{{- $capabilities := default dict $practiceAi.capabilities -}}
+{{- $requiredCapabilities := list "custom-scene-generator" "custom-scene-quality-judge" "custom-scene-repair" -}}
+{{- range $capabilityName, $_ := $capabilities -}}
+{{- if not (has $capabilityName $requiredCapabilities) -}}
+{{- fail (printf "practiceAi.capabilities has unknown route %s" $capabilityName) -}}
+{{- end -}}
+{{- end -}}
+{{- if ne $providerMode "agentic" -}}
+{{- if gt (len $providers) 0 -}}
+{{- fail "disabled and fake Practice AI modes must not configure network providers" -}}
+{{- end -}}
+{{- end -}}
+{{- if eq $providerMode "agentic" -}}
+{{- if eq (len $providers) 0 -}}
+{{- fail "agentic Practice AI mode requires at least one provider" -}}
+{{- end -}}
+{{- range $requiredCapability := $requiredCapabilities -}}
+{{- if not (hasKey $capabilities $requiredCapability) -}}
+{{- fail (printf "agentic Practice AI mode requires route %s" $requiredCapability) -}}
+{{- end -}}
+{{- if eq (len (index $capabilities $requiredCapability)) 0 -}}
+{{- fail (printf "agentic Practice AI route %s must not be empty" $requiredCapability) -}}
+{{- end -}}
+{{- end -}}
+{{- end -}}
+{{- $providerEnvironmentVariables := dict -}}
+{{- range $providerName, $provider := $providers -}}
+{{- $allowedFields := list "type" "baseUrl" "apiKeyEnvironmentVariable" "model" "timeout" "maxTokens" "maxCompletionTokens" "temperature" -}}
+{{- range $fieldName, $_ := $provider -}}
+{{- if not (has $fieldName $allowedFields) -}}
+{{- fail (printf "provider %s has unsupported field %s" $providerName $fieldName) -}}
+{{- end -}}
+{{- end -}}
+{{- if ne (required (printf "provider %s type is required" $providerName) $provider.type) "openai-compatible" -}}
+{{- fail (printf "provider %s type must be openai-compatible" $providerName) -}}
+{{- end -}}
+{{- required (printf "provider %s baseUrl is required" $providerName) $provider.baseUrl -}}
+{{- $environmentVariable := required (printf "provider %s apiKeyEnvironmentVariable is required" $providerName) $provider.apiKeyEnvironmentVariable -}}
+{{- if not (regexMatch "^BABY_TALK_AI_PROVIDER_[A-Z0-9_]+_API_KEY$" $environmentVariable) -}}
+{{- fail (printf "provider %s apiKeyEnvironmentVariable must be dedicated" $providerName) -}}
+{{- end -}}
+{{- if hasKey $providerEnvironmentVariables $environmentVariable -}}
+{{- fail (printf "duplicate provider apiKeyEnvironmentVariable %s" $environmentVariable) -}}
+{{- end -}}
+{{- $_ := set $providerEnvironmentVariables $environmentVariable true -}}
+{{- required (printf "provider %s model is required" $providerName) $provider.model -}}
+{{- $timeout := required (printf "provider %s timeout is required" $providerName) $provider.timeout -}}
+{{- if not (regexMatch "^[1-9][0-9]*(ms|s|m|h)$" (printf "%v" $timeout)) -}}
+{{- fail (printf "provider %s timeout must be positive" $providerName) -}}
+{{- end -}}
+{{- $hasMaxTokens := hasKey $provider "maxTokens" -}}
+{{- $hasMaxCompletionTokens := hasKey $provider "maxCompletionTokens" -}}
+{{- if or (and $hasMaxTokens $hasMaxCompletionTokens) (not (or $hasMaxTokens $hasMaxCompletionTokens)) -}}
+{{- fail (printf "provider %s must set exactly one token limit" $providerName) -}}
+{{- end -}}
+{{- $tokenValue := ternary $provider.maxTokens $provider.maxCompletionTokens $hasMaxTokens -}}
+{{- if not (regexMatch "^[1-9][0-9]*$" (printf "%v" $tokenValue)) -}}
+{{- fail (printf "provider %s token limit must be positive" $providerName) -}}
+{{- end -}}
+{{- end -}}
+{{- range $capabilityName, $route := $capabilities -}}
+{{- $seenProviders := dict -}}
+{{- range $providerName := $route -}}
+{{- if not (hasKey $providers $providerName) -}}
+{{- fail (printf "route %s references unknown provider %s" $capabilityName $providerName) -}}
+{{- end -}}
+{{- if hasKey $seenProviders $providerName -}}
+{{- fail (printf "route %s has duplicate provider %s" $capabilityName $providerName) -}}
+{{- end -}}
+{{- $_ := set $seenProviders $providerName true -}}
+{{- end -}}
+{{- end -}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "babytalk-app.practiceAiRuntimeConfigMapName" . }}
+  labels:
+    {{- include "babytalk-app.componentLabels" (dict "root" . "component" "app-api") | nindent 4 }}
+data:
+  practice-ai-runtime.yml: |
+    babytalk:
+      practice:
+        discovery:
+          custom-scene:
+            provider-mode: {{ $providerMode | quote }}
+    app:
+      ai:
+        routing-policy:
+          version: {{ required "practiceAi.routingPolicyVersion is required" $practiceAi.routingPolicyVersion | quote }}
+        providers:{{ if eq (len $providers) 0 }} {}{{ end }}
+        {{- range $providerName, $provider := $providers }}
+          {{ $providerName }}:
+            type: {{ $provider.type | quote }}
+            base-url: {{ $provider.baseUrl | quote }}
+            api-key-environment-variable: {{ $provider.apiKeyEnvironmentVariable | quote }}
+            model: {{ $provider.model | quote }}
+            timeout: {{ $provider.timeout | quote }}
+            {{- if hasKey $provider "maxTokens" }}
+            max-tokens: {{ $provider.maxTokens | quote }}
+            {{- end }}
+            {{- if hasKey $provider "maxCompletionTokens" }}
+            max-completion-tokens: {{ $provider.maxCompletionTokens | quote }}
+            {{- end }}
+            {{- if hasKey $provider "temperature" }}
+            temperature: {{ $provider.temperature | quote }}
+            {{- end }}
+        {{- end }}
+        capabilities:
+          {{- range $requiredCapability := $requiredCapabilities }}
+          {{ $requiredCapability }}:
+            provider-names:{{ if eq (len (default (list) (index $capabilities $requiredCapability))) 0 }} []{{ end }}
+            {{- range $providerName := default (list) (index $capabilities $requiredCapability) }}
+              - {{ $providerName | quote }}
+            {{- end }}
+          {{- end }}

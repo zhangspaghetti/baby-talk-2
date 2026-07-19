@@ -103,24 +103,6 @@ babytalk:
         max-generation-attempts: ${BABY_TALK_PRACTICE_DISCOVERY_CUSTOM_SCENE_MAX_GENERATION_ATTEMPTS:2}
 
 app:
-  ai:
-    routing-policy:
-      version: custom-scene-routing-v1
-    providers:
-      primary:
-        type: openai-compatible
-        base-url: ${BABY_TALK_AI_PROVIDER_PRIMARY_BASE_URL:https://example.invalid/v1}
-        api-key-environment-variable: ${BABY_TALK_AI_PROVIDER_PRIMARY_API_KEY_ENVIRONMENT_VARIABLE:BABY_TALK_AI_PROVIDER_PRIMARY_API_KEY}
-        model: ${BABY_TALK_AI_PROVIDER_PRIMARY_MODEL:gpt-4o-mini}
-        timeout: ${BABY_TALK_AI_PROVIDER_PRIMARY_TIMEOUT:20s}
-        max-tokens: ${BABY_TALK_AI_PROVIDER_PRIMARY_MAX_TOKENS:600}
-    capabilities:
-      custom-scene-generator:
-        provider-names: [primary]
-      custom-scene-quality-judge:
-        provider-names: [primary]
-      custom-scene-repair:
-        provider-names: [primary]
   auth:
     issuer: ${BABY_TALK_CONSUMER_JWT_ISSUER:babytalk-app-api}
     jwt-secret: ${BABY_TALK_CONSUMER_JWT_SECRET}
