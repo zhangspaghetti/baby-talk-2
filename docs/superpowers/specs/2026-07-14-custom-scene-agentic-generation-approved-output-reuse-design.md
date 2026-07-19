@@ -1609,3 +1609,14 @@ The final design resolves the following potential ambiguities:
 - **Deletion and provenance:** provenance is withdrawn and asset state/outbox is committed before the private source relation is physically removed.
 - **Content versus applicability:** exact content deduplication never grants a new scene, age, reaction, goal, or action-phase applicability.
 - **Evidence versus output reuse:** approved outputs are reusable answers, not authoritative knowledge evidence.
+
+## 31. First-scope implementation proof
+
+The private exact-reuse scope is evidenced by the following executable checks:
+
+- [Agentic endpoint lifecycle and negative paths](../../../backend/app-api/src/test/java/com/zhangspaghetti/babytalk/practice/generated/CustomSceneAgenticGenerationIntegrationTest.java): deterministic local provider/evidence stubs exercise `POST /api/v1/practice/discovery`, audit lineage, exact-hit zero-call reuse, bidi, evidence/quota/Judge failures, PII rejection, repair, and attempt exhaustion.
+- [Schema privacy boundary](../../../backend/app-api/src/test/java/com/zhangspaghetti/babytalk/practice/generated/PracticeGenerationAuditPrivacyTest.java): PostgreSQL schema assertions prove audit tables lack raw prompt/response/security fields and preserve only approved generated response metadata.
+- [PostgreSQL lineage and cleanup races](../../../backend/app-api/src/test/java/com/zhangspaghetti/babytalk/practice/generated/PracticeGeneratedContentConcurrencyTest.java): real database locks prove one exact live lineage, terminal retry freshness, and single-effect concurrent cleanup.
+- [Static privacy firewall](../../../tool/verify_practice_generation_privacy.py) and [its regression tests](../../../test/tool/verify_practice_generation_privacy_test.py): production custom-scene Java/DTOs, mapper XML, and V25 schema are checked for forbidden persistence, unsafe structured-output hooks/retries, and B2.1 key/cleanup boundaries.
+
+Owner-private semantic reuse, Scene Abstraction, global Match/Eligibility, public Approved Output Assets, and global indexing remain deferred as specified in the rollout plan.

@@ -10,6 +10,7 @@ import java.time.ZoneOffset;
 import java.util.LinkedHashMap;
 import java.util.Locale;
 import java.util.UUID;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
@@ -28,6 +29,7 @@ class JudgeResultAuditPersistenceAdapter implements JudgeResultAuditPort {
     private final Clock clock;
     private final ObjectMapper objectMapper;
 
+    @Autowired
     JudgeResultAuditPersistenceAdapter(PracticeGenerationAuditMapper auditMapper) {
         this(auditMapper, Clock.systemUTC());
     }
