@@ -51,6 +51,10 @@ public class CustomSceneGenerationOrchestrator {
     private static final Duration INSTALLATION_ACTIVE_RETENTION = Duration.ofDays(30);
     private static final Duration TERMINAL_RETENTION = Duration.ofDays(7);
     private static final String JUDGE_EVIDENCE_ACTION_INCONSISTENT = "judge_evidence_action_inconsistent";
+    private static final String ERROR_GENERATION_INVALID_OUTPUT = "generation_invalid_output";
+    private static final String ERROR_GENERATION_UNAVAILABLE = "generation_unavailable";
+    private static final String ERROR_GENERATION_TIMEOUT = "generation_timeout";
+    private static final String ERROR_INSUFFICIENT_EVIDENCE = "insufficient_evidence";
 
     private final PracticeGeneratedContentCommands commands;
     private final PracticeGeneratedContentQueryMapper queryMapper;
@@ -126,7 +130,7 @@ public class CustomSceneGenerationOrchestrator {
             } catch (RuntimeException exception) {
                 LOGGER.error("Unable to start generation attempt audit (attemptNumber={}, attemptType={}, errorType={})",
                         attemptNumber, attemptType, exception.getClass().getSimpleName());
-                return expire(reserved, "attempt_audit_start_failure", true);
+                return expire(reserved, ERROR_GENERATION_UNAVAILABLE, true);
             }
 
             var attemptCodes = new ArrayList<String>();
@@ -170,7 +174,7 @@ public class CustomSceneGenerationOrchestrator {
                 return insufficientEvidence(reserved, attemptId, attemptNumber, attemptCodes);
             } catch (RuntimeException exception) {
                 complete(attemptId, attemptNumber, "evidence_failure", attemptCodes);
-                return expire(reserved, "evidence_failure", true);
+                return expire(reserved, ERROR_INSUFFICIENT_EVIDENCE, true);
             }
 
             GeneratedPracticeContentCandidate candidate;
@@ -184,7 +188,7 @@ public class CustomSceneGenerationOrchestrator {
                             now());
                 } catch (RuntimeException exception) {
                     complete(attemptId, attemptNumber, "generation_start_failure", attemptCodes);
-                    return expire(reserved, "generation_start_failure", true);
+                    return expire(reserved, ERROR_GENERATION_UNAVAILABLE, true);
                 }
                 if (startDecision == GenerationStartDecision.DAILY_LIMIT_EXCEEDED) {
                     complete(attemptId, attemptNumber, "generation_rate_limited", attemptCodes);
@@ -228,18 +232,16 @@ public class CustomSceneGenerationOrchestrator {
                 }
             } catch (ProvidersExhaustedException exception) {
                 complete(attemptId, attemptNumber, "providers_exhausted", attemptCodes);
-                return expire(reserved, "providers_exhausted", true);
+                return expire(reserved, ERROR_GENERATION_UNAVAILABLE, true);
             } catch (CustomSceneGenerator.GenerationTimeoutException exception) {
-                complete(attemptId, attemptNumber, "generation_timeout", attemptCodes);
-                return expire(reserved, "generation_timeout", true);
+                complete(attemptId, attemptNumber, ERROR_GENERATION_TIMEOUT, attemptCodes);
+                return expire(reserved, ERROR_GENERATION_TIMEOUT, true);
             } catch (CustomSceneGenerator.GenerationUnavailableException exception) {
                 complete(attemptId, attemptNumber, exception.reason(), attemptCodes);
-                return exception.retryable()
-                        ? expire(reserved, exception.reason(), true)
-                        : reject(reserved, exception.reason(), false);
+                return expire(reserved, ERROR_GENERATION_UNAVAILABLE, exception.retryable());
             } catch (RuntimeException exception) {
                 complete(attemptId, attemptNumber, "provider_failure", attemptCodes);
-                return expire(reserved, "provider_failure", true);
+                return expire(reserved, ERROR_GENERATION_UNAVAILABLE, true);
             }
 
             GeneratedOutputGateResult gate;
@@ -251,22 +253,22 @@ public class CustomSceneGenerationOrchestrator {
                                 reserved.normalizedSceneText()));
             } catch (RuntimeException exception) {
                 complete(attemptId, attemptNumber, "validation_failure", attemptCodes);
-                return expire(reserved, "validation_failure", true);
+                return expire(reserved, ERROR_GENERATION_UNAVAILABLE, true);
             }
             if (!gate.terminalViolations().isEmpty()) {
                 var codes = combined(attemptCodes, violationCodes(gate.terminalViolations()));
                 complete(attemptId, attemptNumber, "terminal_violation", codes);
-                return reject(reserved, "terminal_output_violation", false);
+                return reject(reserved, ERROR_GENERATION_INVALID_OUTPUT, false);
             }
             if (!gate.repairableViolations().isEmpty()) {
                 var codes = combined(attemptCodes, violationCodes(gate.repairableViolations()));
                 repairContext = deterministicRepairContext(gate.normalizedCandidate(), gate.repairableViolations(), codes);
                 if (attemptNumber == reserved.generationAttemptLimit()) {
                     complete(attemptId, attemptNumber, "attempt_limit_exhausted", codes);
-                    return reject(reserved, "generation_attempts_exhausted", false);
+                    return reject(reserved, ERROR_GENERATION_INVALID_OUTPUT, false);
                 }
                 if (!complete(attemptId, attemptNumber, "repairable_violation", codes)) {
-                    return expire(reserved, "attempt_audit_completion_failure", true);
+                    return expire(reserved, ERROR_GENERATION_UNAVAILABLE, true);
                 }
                 previousBundle = bundle;
                 continue;
@@ -279,10 +281,13 @@ public class CustomSceneGenerationOrchestrator {
                 effective = verdictCalculator.calculate(suggested, execution.qualityRubric());
             } catch (ProvidersExhaustedException exception) {
                 complete(attemptId, attemptNumber, "providers_exhausted", attemptCodes);
-                return expire(reserved, "providers_exhausted", true);
+                return expire(reserved, ERROR_GENERATION_UNAVAILABLE, true);
+            } catch (CustomSceneGenerator.GenerationUnavailableException exception) {
+                complete(attemptId, attemptNumber, exception.reason(), attemptCodes);
+                return expire(reserved, ERROR_GENERATION_UNAVAILABLE, exception.retryable());
             } catch (RuntimeException exception) {
                 complete(attemptId, attemptNumber, "judge_failure", attemptCodes);
-                return expire(reserved, "judge_failure", true);
+                return expire(reserved, ERROR_GENERATION_UNAVAILABLE, true);
             }
             var judgeCodes = combined(attemptCodes, suggested.violationCodes());
             if (effective.effectiveVerdict() == JudgeVerdict.PASS) {
@@ -292,25 +297,25 @@ public class CustomSceneGenerationOrchestrator {
                     return activated;
                 } catch (RuntimeException exception) {
                     complete(attemptId, attemptNumber, "activation_failure", judgeCodes);
-                    return expire(reserved, "activation_failure", true);
+                    return expire(reserved, ERROR_GENERATION_UNAVAILABLE, true);
                 }
             }
             if (effective.effectiveVerdict() == JudgeVerdict.REJECT) {
                 complete(attemptId, attemptNumber, "judge_reject", judgeCodes);
-                return reject(reserved, "judge_rejected", false);
+                return reject(reserved, ERROR_GENERATION_INVALID_OUTPUT, false);
             }
 
             repairContext = judgeRepairContext(gate.normalizedCandidate(), suggested, effective.effectiveVerdict(), judgeCodes);
             if (attemptNumber == reserved.generationAttemptLimit()) {
                 complete(attemptId, attemptNumber, "attempt_limit_exhausted", judgeCodes);
-                return reject(reserved, "generation_attempts_exhausted", false);
+                return reject(reserved, ERROR_GENERATION_INVALID_OUTPUT, false);
             }
             if (!complete(
                     attemptId,
                     attemptNumber,
                     effective.effectiveVerdict() == JudgeVerdict.ABSTAIN ? "judge_abstain" : "judge_repair",
                     judgeCodes)) {
-                return expire(reserved, "attempt_audit_completion_failure", true);
+                return expire(reserved, ERROR_GENERATION_UNAVAILABLE, true);
             }
             previousBundle = bundle;
         }
@@ -324,7 +329,7 @@ public class CustomSceneGenerationOrchestrator {
             List<String> codes
     ) {
         complete(attemptId, attemptNumber, "insufficient_evidence", codes);
-        return expire(reserved, "insufficient_evidence", true);
+        return expire(reserved, ERROR_INSUFFICIENT_EVIDENCE, true);
     }
 
     private TypedRepairPackage repairPackage(

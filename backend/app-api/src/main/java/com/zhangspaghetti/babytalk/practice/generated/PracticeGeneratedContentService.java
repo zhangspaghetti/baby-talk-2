@@ -76,6 +76,8 @@ public class PracticeGeneratedContentService {
     public PracticeGeneratedContentService(
             PracticeGeneratedContentQueryMapper queryMapper,
             PracticeGeneratedContentCommands commands,
+            CustomSceneGenerator generationService,
+            CustomSceneGeneratedContentValidator generatedContentValidator,
             CustomSceneGenerationOrchestrator orchestrator,
             VersionedResourceRegistry resourceRegistry,
             org.springframework.beans.factory.ObjectProvider<PracticeAiProviderManager> providerManager,
@@ -87,7 +89,8 @@ public class PracticeGeneratedContentService {
             SceneTextSecurityPolicy sceneTextSecurityPolicy,
             PolicyTextMatcher policyTextMatcher
     ) {
-        this(queryMapper, commands, null, null, orchestrator, resourceRegistry, providerManager.getIfAvailable(), customSceneProperties,
+        this(queryMapper, commands, generationService, generatedContentValidator,
+                orchestrator, resourceRegistry, providerManager.getIfAvailable(), customSceneProperties,
                 policyProperties, Clock.systemUTC(), ownerProperties, keyFactory,
                 sceneTextCanonicalizer, sceneTextSecurityPolicy, policyTextMatcher);
     }
@@ -338,10 +341,7 @@ public class PracticeGeneratedContentService {
             if (STATUS_ACTIVE.equals(result.status())) {
                 return result;
             }
-            throw generationUnavailable(
-                    result.generationErrorCode() == null ? "generation_terminal" : result.generationErrorCode(),
-                    Boolean.TRUE.equals(result.generationErrorRetryable()),
-                    null);
+            throw terminalGenerationFailure(result);
         } catch (PracticeGenerationRateLimitExceededException exception) {
             throw rateLimited(owner.ownerScope(), caps.dailyLimit(), "daily", customSceneProperties.dailyWindow());
         } catch (CustomSceneGenerationOrchestrator.GenerationExecutionException exception) {
@@ -357,7 +357,7 @@ public class PracticeGeneratedContentService {
             PracticeGeneratedContentEntity reserved
     ) {
 
-        if (orchestrator != null) {
+        if (orchestrator != null && customSceneProperties.agenticProvider()) {
             return executeOrchestratedGeneration(reserved, owner);
         }
 
@@ -368,6 +368,7 @@ public class PracticeGeneratedContentService {
                 caps.dailyLimit(),
                 nowUtc());
         if (startDecision == GenerationStartDecision.DAILY_LIMIT_EXCEEDED) {
+            expireDraft(reserved.generatedContentId(), "generation_rate_limited");
             throw rateLimited(
                     owner.ownerScope(), caps.dailyLimit(), "daily", customSceneProperties.dailyWindow());
         }
@@ -411,7 +412,7 @@ public class PracticeGeneratedContentService {
                             request.surface(),
                             request.mode(),
                             requestFingerprint,
-                            promptVersion(),
+                            generationProfileVersion(),
                             strategyVersion()))
                     .orElseThrow(() -> generationInProgress(reserved.generatedContentId()));
             if (!isActiveOrPromoted(activated)) {
@@ -453,7 +454,7 @@ public class PracticeGeneratedContentService {
                     HttpStatus.BAD_GATEWAY,
                     ERROR_GENERATION_INVALID_OUTPUT,
                     "生成内容结构不合法。",
-                    Map.of("field", exception.fieldName(), "retryable", true)
+                    Map.of("field", exception.fieldName(), "retryable", false)
             );
             contract.initCause(exception);
             throw contract;
@@ -632,8 +633,8 @@ public class PracticeGeneratedContentService {
                         request.parentGoal(),
                         request.locale(),
                         generationProfileVersion(),
-                        generationProfileStrategyVersion(),
-                        policyVersion(),
+                        rubricVersion(),
+                        evidencePolicyVersion(),
                         CONTENT_REFRESH_EPOCH));
     }
 
@@ -780,6 +781,30 @@ public class PracticeGeneratedContentService {
         return contract;
     }
 
+    private ContractException terminalGenerationFailure(PracticeGeneratedContentEntity result) {
+        var reason = result.generationErrorCode() == null ? "generation_terminal" : result.generationErrorCode();
+        if ("rejected".equals(result.status()) && isInvalidOutputTerminal(reason)) {
+            return new ContractException(
+                    HttpStatus.BAD_GATEWAY,
+                    ERROR_GENERATION_INVALID_OUTPUT,
+                    "生成内容结构不合法。",
+                    Map.of("retryable", false, "suggestCatalogFallback", true)
+            );
+        }
+        if (ERROR_GENERATION_TIMEOUT.equals(reason)) {
+            return generationTimeout(null);
+        }
+        return generationUnavailable(reason, !Boolean.FALSE.equals(result.generationErrorRetryable()), null);
+    }
+
+    private boolean isInvalidOutputTerminal(String reason) {
+        return switch (reason) {
+            case ERROR_GENERATION_INVALID_OUTPUT,
+                    "terminal_output_violation", "generation_attempts_exhausted", "judge_rejected" -> true;
+            default -> false;
+        };
+    }
+
     private void bestEffortExpireDraft(String generatedContentId, String errorCode, RuntimeException originalFailure) {
         try {
             expireDraft(generatedContentId, errorCode);
@@ -803,7 +828,9 @@ public class PracticeGeneratedContentService {
                 "自定义场景生成超时。",
                 Map.of("retryable", true, "suggestCatalogFallback", true)
         );
-        contract.initCause(cause);
+        if (cause != null) {
+            contract.initCause(cause);
+        }
         return contract;
     }
 

@@ -452,15 +452,11 @@ class PracticeDiscoveryServiceTest {
     }
 
     @Test
-    void customSceneCoachTipComposesHistoricalNullBlankAndEqualValues() {
-        assertThat(discoverGeneratedCoachTip(null, "慢慢说一遍。"))
-                .isEqualTo("慢慢说一遍。");
-        assertThat(discoverGeneratedCoachTip("   ", "慢慢说一遍。"))
-                .isEqualTo("慢慢说一遍。");
-        assertThat(discoverGeneratedCoachTip("看着宝宝。", null))
-                .isEqualTo("看着宝宝。");
+    void customSceneCoachTipConcatenatesPersistedFieldsDirectly() {
+        assertThat(discoverGeneratedCoachTip("看着宝宝。", "慢慢说一遍。"))
+                .isEqualTo("看着宝宝。 慢慢说一遍。");
         assertThat(discoverGeneratedCoachTip("轻声说。", "轻声说。"))
-                .isEqualTo("轻声说。");
+                .isEqualTo("轻声说。 轻声说。");
     }
 
     @Test

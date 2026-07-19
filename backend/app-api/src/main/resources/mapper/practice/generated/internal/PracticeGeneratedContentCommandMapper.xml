@@ -129,47 +129,58 @@
     </update>
 
     <update id="interruptStartedProviderCalls">
+        with candidates as (
+            select generated_content_id
+            from practice_generated_content
+            where status in ('draft', 'generating')
+              and generation_expires_at &lt;= #{interruptedAt,typeHandler=org.apache.ibatis.type.OffsetDateTimeTypeHandler}
+            order by generation_expires_at, generated_content_id
+            limit #{limit}
+            for update skip locked
+        )
         update practice_ai_provider_calls calls
         set outcome = 'interrupted', completed_at = #{interruptedAt,typeHandler=org.apache.ibatis.type.OffsetDateTimeTypeHandler}
+        from practice_ai_operation_runs operations,
+             candidates
         where calls.completed_at is null
-          and calls.operation_run_id in (
-              select operations.operation_run_id
-              from practice_ai_operation_runs operations
-              join practice_generated_content content
-                on content.generated_content_id = operations.generated_content_id
-              where content.status = 'generating'
-                and content.generation_expires_at &lt;= #{interruptedAt,typeHandler=org.apache.ibatis.type.OffsetDateTimeTypeHandler}
-              order by content.generation_expires_at, content.generated_content_id
-              limit #{limit}
-          )
+          and calls.operation_run_id = operations.operation_run_id
+          and operations.generated_content_id = candidates.generated_content_id
     </update>
 
     <update id="interruptStartedOperations">
+        with candidates as (
+            select generated_content_id
+            from practice_generated_content
+            where status in ('draft', 'generating')
+              and generation_expires_at &lt;= #{interruptedAt,typeHandler=org.apache.ibatis.type.OffsetDateTimeTypeHandler}
+            order by generation_expires_at, generated_content_id
+            limit #{limit}
+            for update skip locked
+        )
         update practice_ai_operation_runs operations
         set status = 'interrupted', outcome = 'interrupted',
             completed_at = #{interruptedAt,typeHandler=org.apache.ibatis.type.OffsetDateTimeTypeHandler}
+        from candidates
         where operations.status = 'started'
-          and operations.generated_content_id in (
-              select generated_content_id from practice_generated_content
-              where status = 'generating'
-                and generation_expires_at &lt;= #{interruptedAt,typeHandler=org.apache.ibatis.type.OffsetDateTimeTypeHandler}
-              order by generation_expires_at, generated_content_id
-              limit #{limit}
-          )
+          and operations.generated_content_id = candidates.generated_content_id
     </update>
 
     <update id="interruptStartedAttempts">
+        with candidates as (
+            select generated_content_id
+            from practice_generated_content
+            where status in ('draft', 'generating')
+              and generation_expires_at &lt;= #{interruptedAt,typeHandler=org.apache.ibatis.type.OffsetDateTimeTypeHandler}
+            order by generation_expires_at, generated_content_id
+            limit #{limit}
+            for update skip locked
+        )
         update practice_generated_content_attempts attempts
         set status = 'interrupted', outcome = 'interrupted',
             completed_at = #{interruptedAt,typeHandler=org.apache.ibatis.type.OffsetDateTimeTypeHandler}
+        from candidates
         where attempts.status = 'started'
-          and attempts.generated_content_id in (
-              select generated_content_id from practice_generated_content
-              where status = 'generating'
-                and generation_expires_at &lt;= #{interruptedAt,typeHandler=org.apache.ibatis.type.OffsetDateTimeTypeHandler}
-              order by generation_expires_at, generated_content_id
-              limit #{limit}
-          )
+          and attempts.generated_content_id = candidates.generated_content_id
     </update>
 
     <update id="expireInterruptedGeneratedContent">
@@ -183,7 +194,7 @@
             for update skip locked
         )
         update practice_generated_content target
-        set status = 'expired', generation_error_code = 'execution_interrupted',
+        set status = 'expired', generation_error_code = 'generation_interrupted',
             generation_error_retryable = true, normalized_scene_text = null,
             retention_expires_at = case when target.owner_scope = 'installation'
                 then #{installationRetentionExpiresAt,typeHandler=org.apache.ibatis.type.OffsetDateTimeTypeHandler}

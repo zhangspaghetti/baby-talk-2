@@ -209,6 +209,16 @@ class PracticeDiscoveryControllerTest extends AbstractIntegrationTest {
     }
 
     @Test
+    void customSceneInvalidOutputIsNonRetryable() throws Exception {
+        customSceneGenerationService.mode("invalid");
+
+        mockMvc.perform(discovery(customSceneJson("洗澡后哄睡")))
+                .andExpect(status().isBadGateway())
+                .andExpect(jsonPath("$.code").value("generation_invalid_output"))
+                .andExpect(jsonPath("$.details.retryable").value(false));
+    }
+
+    @Test
     void customSceneRejectedRetryDoesNotPrimaryKeyCrash() throws Exception {
         customSceneGenerationService.mode("unsafe");
 
@@ -645,6 +655,9 @@ class PracticeDiscoveryControllerTest extends AbstractIntegrationTest {
         public GeneratedPracticeContentCandidate generate(GeneratorRequest request) {
             return switch (mode.get()) {
                 case "unsafe" -> candidate("学习任务", "答题打分", "Lesson quiz", "让孩子答对后再给分。", "答对后打分。", "Take the quiz.", "开始测验。");
+                case "invalid" -> new GeneratedPracticeContentCandidate(
+                        "日常照护", "洗澡安抚", "Bath care", "看着宝宝。", "慢慢说一遍。",
+                        "Warm water.", "水暖暖的。", "warm water", "advanced", "fake");
                 case "timeout" -> throw new GenerationTimeoutException();
                 case "unavailable" -> throw new GenerationUnavailableException(
                         GenerationUnavailableReason.PROVIDER_UNAVAILABLE);

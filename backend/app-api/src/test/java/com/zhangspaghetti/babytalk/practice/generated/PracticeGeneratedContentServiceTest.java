@@ -161,8 +161,8 @@ class PracticeGeneratedContentServiceTest {
                         "calmer_care",
                         "zh-CN",
                         PracticeDiscoveryCustomSceneProperties.DEFAULT_PROMPT_VERSION,
-                        PracticeDiscoveryCustomSceneProperties.DEFAULT_STRATEGY_VERSION,
                         PracticeDiscoveryPolicyTestFixture.properties().policyVersion(),
+                        PracticeDiscoveryCustomSceneProperties.DEFAULT_STRATEGY_VERSION,
                         1));
         assertThat(draft.contentRefreshEpoch()).isEqualTo(1);
         assertThat(draft.requestFingerprint()).isEqualTo(expectedFingerprint);
@@ -876,8 +876,43 @@ class PracticeGeneratedContentServiceTest {
                     assertThat(contract.details()).containsEntry("retryAfterSeconds", 86_400L);
                 });
         verify(commands).reserveDraft(any(), any());
-        verify(commands, never()).expire(any(), org.mockito.Mockito.eq("rate_limited"), org.mockito.ArgumentMatchers.anyBoolean(), any(), any());
+        var retentionCaptor = ArgumentCaptor.forClass(OffsetDateTime.class);
+        verify(commands).expire(any(), org.mockito.Mockito.eq("generation_rate_limited"),
+                org.mockito.Mockito.eq(true), org.mockito.Mockito.eq(NOW_DB), retentionCaptor.capture());
+        assertThat(retentionCaptor.getValue()).isEqualTo(NOW_DB.plusDays(7));
         verify(commands, never()).activate(any());
+    }
+
+    @Test
+    void legacyDailyRateLimitExpiresReservedDraftSoSameFingerprintCanRetry() {
+        var generator = org.mockito.Mockito.mock(CustomSceneGenerator.class);
+        when(generator.generate(any())).thenReturn(candidate());
+        var service = serviceWithGenerator(generator);
+        var reserved = new java.util.ArrayList<PracticeGeneratedContentEntity>();
+        when(commands.reserveDraft(any(), any())).thenAnswer(invocation -> {
+            var draft = invocation.getArgument(0, PracticeGeneratedContentEntity.class);
+            reserved.add(draft);
+            return new DraftReservation(draft, true);
+        });
+        when(commands.startGeneration(any(), any(), anyInt(), any()))
+                .thenReturn(GenerationStartDecision.DAILY_LIMIT_EXCEEDED, GenerationStartDecision.STARTED);
+        stubActivateDraft();
+
+        assertThatThrownBy(() -> service.generateCustomScene(request("洗澡后哄睡")))
+                .isInstanceOf(ContractException.class)
+                .satisfies(error -> assertThat(((ContractException) error).status()).isEqualTo(HttpStatus.TOO_MANY_REQUESTS));
+        var retry = service.generateCustomScene(request("洗澡后哄睡"));
+
+        assertThat(retry.status()).isEqualTo("active");
+        assertThat(reserved).hasSize(2);
+        assertThat(reserved.get(1).requestFingerprint()).isEqualTo(reserved.get(0).requestFingerprint());
+        verify(commands).expire(
+                org.mockito.Mockito.eq(reserved.get(0).generatedContentId()),
+                org.mockito.Mockito.eq("generation_rate_limited"),
+                org.mockito.Mockito.eq(true),
+                any(),
+                any());
+        verify(generator).generate(any());
     }
 
     @Test

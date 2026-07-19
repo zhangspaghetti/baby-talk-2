@@ -79,35 +79,18 @@ public class PracticeDiscoveryService {
     private final AuthConsentSyncService authConsentSyncService;
     private final BabyProfileMapper babyProfileMapper;
     private final PracticeGeneratedContentService generatedContentService;
-    private final GeneratedCoachTipComposer coachTipComposer;
-
-    public PracticeDiscoveryService(
-            PracticeCatalogService catalogService,
-            AuthConsentSyncService authConsentSyncService,
-            BabyProfileMapper babyProfileMapper,
-            PracticeGeneratedContentService generatedContentService
-    ) {
-        this(
-                catalogService,
-                authConsentSyncService,
-                babyProfileMapper,
-                generatedContentService,
-                new GeneratedCoachTipComposer());
-    }
 
     @Autowired
     public PracticeDiscoveryService(
             PracticeCatalogService catalogService,
             AuthConsentSyncService authConsentSyncService,
             BabyProfileMapper babyProfileMapper,
-            PracticeGeneratedContentService generatedContentService,
-            GeneratedCoachTipComposer coachTipComposer
+            PracticeGeneratedContentService generatedContentService
     ) {
         this.catalogService = catalogService;
         this.authConsentSyncService = authConsentSyncService;
         this.babyProfileMapper = babyProfileMapper;
         this.generatedContentService = generatedContentService;
-        this.coachTipComposer = coachTipComposer;
     }
 
     public PracticeDiscoveryResponse discover(PracticeDiscoveryRequest request, String sessionId) {
@@ -655,7 +638,7 @@ public class PracticeDiscoveryService {
                         row.activitySlug(),
                         row.activityTitleZh(),
                         row.sceneTagEn(),
-                        coachTipComposer.compose(row.tprActionZh(), row.deliveryGuidanceZh()),
+                        row.tprActionZh() + " " + row.deliveryGuidanceZh(),
                         1,
                         List.of(utterance)
                 )),

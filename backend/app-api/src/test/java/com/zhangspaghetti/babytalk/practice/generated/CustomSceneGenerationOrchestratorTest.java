@@ -86,11 +86,11 @@ class CustomSceneGenerationOrchestratorTest {
         var result = harness.execute();
 
         assertThat(result.status()).isEqualTo("expired");
-        assertThat(result.generationErrorCode()).isEqualTo("attempt_audit_start_failure");
+        assertThat(result.generationErrorCode()).isEqualTo("generation_unavailable");
         assertThat(harness.completedAttempts).isEmpty();
         assertThat(harness.events).containsExactly(
                 "attempt-start-failed:1:generator",
-                "expire:attempt_audit_start_failure:true");
+                "expire:generation_unavailable:true");
         assertThat(harness.generatorRequests).isEmpty();
         assertThat(harness.repairRequests).isEmpty();
     }
@@ -138,7 +138,7 @@ class CustomSceneGenerationOrchestratorTest {
         var result = harness.execute();
 
         assertThat(result.status()).isEqualTo("expired");
-        assertThat(result.generationErrorCode()).isEqualTo("attempt_audit_completion_failure");
+        assertThat(result.generationErrorCode()).isEqualTo("generation_unavailable");
         assertThat(harness.completedAttempts).isEmpty();
         assertThat(harness.events).containsExactly(
                 "attempt-started:1:generator",
@@ -148,7 +148,7 @@ class CustomSceneGenerationOrchestratorTest {
                 "generator:1",
                 "gate:1",
                 "attempt-completion-failed:1:repairable_violation",
-                "expire:attempt_audit_completion_failure:true");
+                "expire:generation_unavailable:true");
         assertThat(harness.repairRequests).isEmpty();
     }
 
@@ -198,7 +198,7 @@ class CustomSceneGenerationOrchestratorTest {
         var result = harness.execute();
 
         assertThat(result.status()).isEqualTo("expired");
-        assertThat(result.generationErrorCode()).isEqualTo("attempt_audit_completion_failure");
+        assertThat(result.generationErrorCode()).isEqualTo("generation_unavailable");
         assertThat(harness.completedAttempts).isEmpty();
         assertThat(harness.events).containsExactly(
                 "attempt-started:1:generator",
@@ -209,7 +209,7 @@ class CustomSceneGenerationOrchestratorTest {
                 "gate:1",
                 "judge:1",
                 "attempt-completion-failed:1:judge_repair",
-                "expire:attempt_audit_completion_failure:true");
+                "expire:generation_unavailable:true");
         assertThat(harness.repairRequests).isEmpty();
     }
 
@@ -253,7 +253,8 @@ class CustomSceneGenerationOrchestratorTest {
         var result = harness.execute();
 
         assertThat(result.status()).isEqualTo("rejected");
-        assertThat(result.generationErrorCode()).isEqualTo("terminal_output_violation");
+        assertThat(result.generationErrorCode()).isEqualTo("generation_invalid_output");
+        assertThat(result.generationErrorRetryable()).isFalse();
         assertThat(harness.events).containsExactly(
                 "attempt-started:1:generator",
                 "retrieve:initial",
@@ -262,7 +263,7 @@ class CustomSceneGenerationOrchestratorTest {
                 "generator:1",
                 "gate:1",
                 "attempt-completed:1:terminal_violation",
-                "reject:terminal_output_violation:false");
+                "reject:generation_invalid_output:false");
         assertThat(harness.judgeRequests).isEmpty();
         assertThat(harness.repairRequests).isEmpty();
     }
@@ -276,7 +277,8 @@ class CustomSceneGenerationOrchestratorTest {
         var result = harness.execute();
 
         assertThat(result.status()).isEqualTo("rejected");
-        assertThat(result.generationErrorCode()).isEqualTo("judge_rejected");
+        assertThat(result.generationErrorCode()).isEqualTo("generation_invalid_output");
+        assertThat(result.generationErrorRetryable()).isFalse();
         assertThat(harness.events).containsExactly(
                 "attempt-started:1:generator",
                 "retrieve:initial",
@@ -286,7 +288,7 @@ class CustomSceneGenerationOrchestratorTest {
                 "gate:1",
                 "judge:1",
                 "attempt-completed:1:judge_reject",
-                "reject:judge_rejected:false");
+                "reject:generation_invalid_output:false");
         assertThat(harness.repairRequests).isEmpty();
     }
 
@@ -298,7 +300,8 @@ class CustomSceneGenerationOrchestratorTest {
         var result = harness.execute();
 
         assertThat(result.status()).isEqualTo("expired");
-        assertThat(result.generationErrorCode()).isEqualTo("providers_exhausted");
+        assertThat(result.generationErrorCode()).isEqualTo("generation_unavailable");
+        assertThat(result.generationErrorRetryable()).isTrue();
         assertThat(harness.events).containsExactly(
                 "attempt-started:1:generator",
                 "retrieve:initial",
@@ -306,7 +309,7 @@ class CustomSceneGenerationOrchestratorTest {
                 "quota:start",
                 "generator:1",
                 "attempt-completed:1:providers_exhausted",
-                "expire:providers_exhausted:true");
+                "expire:generation_unavailable:true");
         assertThat(harness.judgeRequests).isEmpty();
         assertThat(harness.repairRequests).isEmpty();
     }
@@ -320,7 +323,7 @@ class CustomSceneGenerationOrchestratorTest {
         var result = harness.execute();
 
         assertThat(result.status()).isEqualTo("expired");
-        assertThat(result.generationErrorCode()).isEqualTo("providers_exhausted");
+        assertThat(result.generationErrorCode()).isEqualTo("generation_unavailable");
         assertThat(harness.completedAttempts).isEmpty();
         assertThat(harness.events).containsExactly(
                 "attempt-started:1:generator",
@@ -329,7 +332,7 @@ class CustomSceneGenerationOrchestratorTest {
                 "quota:start",
                 "generator:1",
                 "attempt-completion-failed:1:providers_exhausted",
-                "expire:providers_exhausted:true");
+                "expire:generation_unavailable:true");
     }
 
     @Test
@@ -341,6 +344,8 @@ class CustomSceneGenerationOrchestratorTest {
         var result = harness.execute();
 
         assertThat(result.status()).isEqualTo("expired");
+        assertThat(result.generationErrorCode()).isEqualTo("generation_unavailable");
+        assertThat(result.generationErrorRetryable()).isTrue();
         assertThat(harness.events).containsExactly(
                 "attempt-started:1:generator",
                 "retrieve:initial",
@@ -350,8 +355,23 @@ class CustomSceneGenerationOrchestratorTest {
                 "gate:1",
                 "judge:1",
                 "attempt-completed:1:providers_exhausted",
-                "expire:providers_exhausted:true");
+                "expire:generation_unavailable:true");
         assertThat(harness.repairRequests).isEmpty();
+    }
+
+    @Test
+    void disabledJudgePersistsUnavailableCodeAndRetainsProviderDetailInAudit() {
+        var harness = new Harness(2);
+        harness.gates.add(GateSpec.pass());
+        harness.judgeUnavailableReason = CustomSceneGenerator.GenerationUnavailableReason.PROVIDER_DISABLED;
+
+        var result = harness.execute();
+
+        assertThat(result.status()).isEqualTo("expired");
+        assertThat(result.generationErrorCode()).isEqualTo("generation_unavailable");
+        assertThat(result.generationErrorRetryable()).isFalse();
+        assertThat(harness.completedAttempts).singleElement().satisfies(completed ->
+                assertThat(completed.outcome()).isEqualTo("provider_disabled"));
     }
 
     @Test
@@ -375,7 +395,22 @@ class CustomSceneGenerationOrchestratorTest {
                 "bundle:reused:2",
                 "repair:2",
                 "attempt-completed:2:providers_exhausted",
-                "expire:providers_exhausted:true");
+                "expire:generation_unavailable:true");
+        assertThat(harness.judgeRequests).isEmpty();
+    }
+
+    @Test
+    void generatorTimeoutPersistsTimeoutCodeWhileKeepingAuditOutcome() {
+        var harness = new Harness(2);
+        harness.generatorTimeout = true;
+
+        var result = harness.execute();
+
+        assertThat(result.status()).isEqualTo("expired");
+        assertThat(result.generationErrorCode()).isEqualTo("generation_timeout");
+        assertThat(result.generationErrorRetryable()).isTrue();
+        assertThat(harness.completedAttempts).singleElement().satisfies(completed ->
+                assertThat(completed.outcome()).isEqualTo("generation_timeout"));
         assertThat(harness.judgeRequests).isEmpty();
     }
 
@@ -388,7 +423,8 @@ class CustomSceneGenerationOrchestratorTest {
         var result = harness.execute();
 
         assertThat(result.status()).isEqualTo("rejected");
-        assertThat(result.generationErrorCode()).isEqualTo("generation_attempts_exhausted");
+        assertThat(result.generationErrorCode()).isEqualTo("generation_invalid_output");
+        assertThat(result.generationErrorRetryable()).isFalse();
         assertThat(harness.events).containsExactly(
                 "attempt-started:1:generator",
                 "retrieve:initial",
@@ -402,7 +438,7 @@ class CustomSceneGenerationOrchestratorTest {
                 "repair:2",
                 "gate:2",
                 "attempt-completed:2:attempt_limit_exhausted",
-                "reject:generation_attempts_exhausted:false");
+                "reject:generation_invalid_output:false");
         assertThat(harness.judgeRequests).isEmpty();
     }
 
@@ -438,6 +474,7 @@ class CustomSceneGenerationOrchestratorTest {
 
         assertThat(result.status()).isEqualTo("expired");
         assertThat(result.generationErrorCode()).isEqualTo("insufficient_evidence");
+        assertThat(result.generationErrorRetryable()).isTrue();
         assertThat(harness.events).containsExactly(
                 "attempt-started:1:generator",
                 "retrieve:initial",
@@ -493,7 +530,8 @@ class CustomSceneGenerationOrchestratorTest {
         var result = harness.execute();
 
         assertThat(result.status()).isEqualTo("expired");
-        assertThat(result.generationErrorCode()).isEqualTo("evidence_failure");
+        assertThat(result.generationErrorCode()).isEqualTo("insufficient_evidence");
+        assertThat(result.generationErrorRetryable()).isTrue();
         assertThat(harness.completedAttempts).singleElement().satisfies(completed ->
                 assertThat(completed.outcome()).isEqualTo("evidence_failure"));
     }
@@ -590,7 +628,8 @@ class CustomSceneGenerationOrchestratorTest {
         var result = harness.execute();
 
         assertThat(result.status()).isEqualTo("expired");
-        assertThat(result.generationErrorCode()).isEqualTo("validation_failure");
+        assertThat(result.generationErrorCode()).isEqualTo("generation_unavailable");
+        assertThat(result.generationErrorRetryable()).isTrue();
         assertThat(harness.completedAttempts).singleElement().satisfies(completed ->
                 assertThat(completed.outcome()).isEqualTo("validation_failure"));
     }
@@ -605,7 +644,8 @@ class CustomSceneGenerationOrchestratorTest {
         var result = harness.execute();
 
         assertThat(result.status()).isEqualTo("expired");
-        assertThat(result.generationErrorCode()).isEqualTo("activation_failure");
+        assertThat(result.generationErrorCode()).isEqualTo("generation_unavailable");
+        assertThat(result.generationErrorRetryable()).isTrue();
         assertThat(harness.completedAttempts).singleElement().satisfies(completed ->
                 assertThat(completed.outcome()).isEqualTo("activation_failure"));
     }
@@ -715,7 +755,9 @@ class CustomSceneGenerationOrchestratorTest {
         private final CustomSceneGenerationOrchestrator.GenerationExecution execution;
         private int gateNumber;
         private boolean generatorExhausted;
+        private boolean generatorTimeout;
         private boolean judgeExhausted;
+        private CustomSceneGenerator.GenerationUnavailableReason judgeUnavailableReason;
         private boolean repairExhausted;
         private boolean generatorFallback;
         private boolean initialEvidenceInsufficient;
@@ -818,6 +860,9 @@ class CustomSceneGenerationOrchestratorTest {
                 if (generatorExhausted) {
                     throw new ProvidersExhaustedException(UUID.randomUUID());
                 }
+                if (generatorTimeout) {
+                    throw new CustomSceneGenerator.GenerationTimeoutException();
+                }
                 return candidate();
             });
             when(repairer.repair(any())).thenAnswer(invocation -> {
@@ -845,6 +890,9 @@ class CustomSceneGenerationOrchestratorTest {
                 events.add("judge:" + request.attemptNumber());
                 if (judgeExhausted) {
                     throw new ProvidersExhaustedException(UUID.randomUUID());
+                }
+                if (judgeUnavailableReason != null) {
+                    throw new CustomSceneGenerator.GenerationUnavailableException(judgeUnavailableReason);
                 }
                 return judges.removeFirst();
             });

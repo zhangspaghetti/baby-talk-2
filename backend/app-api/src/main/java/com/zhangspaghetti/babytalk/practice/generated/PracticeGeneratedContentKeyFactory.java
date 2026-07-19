@@ -37,16 +37,16 @@ public final class PracticeGeneratedContentKeyFactory {
 
     public String requestFingerprint(String ownerKey, RequestFingerprintMaterial material) {
         var canonicalRequest = String.join("|",
-                "surface=" + material.surface(),
-                "mode=" + material.mode(),
-                "securityScene=" + material.securitySceneText(),
-                "age=" + material.ageRange(),
-                "goal=" + material.parentGoal(),
-                "locale=" + material.locale(),
-                "profile=" + material.generationProfileVersion(),
-                "rubric=" + material.rubricVersion(),
-                "evidence=" + material.evidencePolicyVersion(),
-                "epoch=" + material.contentRefreshEpoch());
+                material.surface(),
+                material.mode(),
+                material.securitySceneText(),
+                material.ageRange(),
+                material.parentGoal(),
+                material.locale(),
+                material.generationProfileVersion(),
+                material.rubricVersion(),
+                material.evidencePolicyVersion(),
+                Integer.toString(material.contentRefreshEpoch()));
         return "fp_" + hmacHex(
                 "practice-request-fingerprint:v1|" + keyVersion + "|" + ownerKey + "|" + canonicalRequest);
     }
