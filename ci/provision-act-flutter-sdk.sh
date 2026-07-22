@@ -54,7 +54,7 @@ main() {
   metadata_parent="$(dirname "$sdk_dir")"
   mkdir -p "$metadata_parent"
   work_dir="$(mktemp -d "$metadata_parent/.flutter-download.XXXXXX")"
-  trap 'rm -rf -- "$work_dir"' EXIT
+  trap 'rm -rf -- "${work_dir:-}"' EXIT
   releases="$work_dir/releases_linux.json"
   archive="$work_dir/flutter_linux_${flutter_version}_stable.tar.xz"
 
@@ -71,7 +71,7 @@ match = next((entry for entry in releases if entry.get("version") == sys.argv[2]
 if match is None:
     raise SystemExit(f"Flutter {sys.argv[2]} is absent from releases_linux.json")
 print(match["archive"])
-print(match["hash"])
+print(match["sha256"])
 PY
 )
   [[ "${#release_fields[@]}" -eq 2 ]] || fail 'could not resolve the pinned Flutter archive'
