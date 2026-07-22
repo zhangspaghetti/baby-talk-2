@@ -4,6 +4,7 @@ set -euo pipefail
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 event_template="$repo_root/.act/pull_request.json"
 event_file=''
+event_file_for_act=''
 act_log=''
 act_flutter_sdk=''
 act_flutter_mount=''
@@ -69,6 +70,11 @@ main() {
   [[ -n "$head_ref" ]] || head_ref="local/${head_sha:0:12}"
 
   event_file="$(mktemp "${TMPDIR:-/tmp}/babytalk-act-pr-event.XXXXXX.json")"
+  if command -v cygpath >/dev/null 2>&1; then
+    event_file_for_act="$(cygpath -w "$event_file")"
+  else
+    event_file_for_act="$event_file"
+  fi
   act_log="$(mktemp "${TMPDIR:-/tmp}/babytalk-act-pr-log.XXXXXX")"
   trap cleanup EXIT
 
@@ -91,7 +97,7 @@ PY
   local act_args=(
     -b
     -W .act/workflows/local-act-pr.yml
-    -e "$event_file"
+    -e "$event_file_for_act"
     --container-options "--mount type=bind,source=$act_flutter_mount,target=/opt/babytalk/flutter-source,readonly"
   )
   MSYS_NO_PATHCONV=1 act "${act_args[@]}" -l pull_request "$@" 2>&1 | tee "$act_log"

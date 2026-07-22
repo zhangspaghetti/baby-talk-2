@@ -155,6 +155,7 @@ class ActConfigurationContractTest(unittest.TestCase):
         self.assertIn("git merge-base", runner)
         self.assertIn('event["pull_request"]["base"]["sha"] = origin_develop_sha', runner)
         self.assertIn('event["pull_request"]["head"]["sha"] = head_sha', runner)
+        self.assertIn('event_file_for_act="$(cygpath -w "$event_file")"', runner)
         self.assertIn("fixture does not select local-pr-full-ci", runner)
         self.assertIn("local-pr-full-ci was skipped", runner)
         self.assertIn("did not report success", runner)
