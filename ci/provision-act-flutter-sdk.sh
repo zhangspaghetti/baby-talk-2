@@ -75,7 +75,6 @@ print(match["archive"])
 print(match["sha256"])
 PY
 )
-)
   [[ "${#release_fields[@]}" -eq 2 ]] || fail 'could not resolve the pinned Flutter archive'
   archive_path="${release_fields[0]}"
   archive_sha256="${release_fields[1]}"
