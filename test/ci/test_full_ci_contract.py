@@ -113,6 +113,8 @@ class FullCiScriptContractTest(unittest.TestCase):
             self.assertIn(variable, self.text)
         self.assertIn('unset "$env_name"', self.text)
         self.assertIn("initialize_ci_environment", self.text)
+        self.assertIn("capture_safe_testcontainers_host_override", self.text)
+        self.assertIn("host.docker.internal", self.text)
         self.assertNotIn("CI_ENV=(", self.text)
 
     def test_owned_kubeconfig_and_ryuk_defaults_are_exported_and_cleaned(self) -> None:

@@ -58,7 +58,6 @@ SENSITIVE_NAMES = (
     "HELM_KUBEAPISERVER",
     "DOCKER_HOST",
     "DOCKER_CONTEXT",
-    "TESTCONTAINERS_HOST_OVERRIDE",
     "GITHUB_TOKEN",
     "GH_TOKEN",
     "NPM_TOKEN",
@@ -76,6 +75,9 @@ def main() -> None:
         if kubeconfig.is_file()
         else "",
         "ryuk_disabled": os.environ.get("TESTCONTAINERS_RYUK_DISABLED"),
+        "testcontainers_host_override": os.environ.get(
+            "TESTCONTAINERS_HOST_OVERRIDE"
+        ),
         "download_sources": {
             "corepack": os.environ.get("COREPACK_NPM_REGISTRY"),
             "flutter": os.environ.get("FLUTTER_STORAGE_BASE_URL"),

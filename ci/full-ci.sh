@@ -7,6 +7,7 @@ empty_kubeconfig=''
 dependency_tree=''
 base_version_lock=''
 relay_container_id=''
+testcontainers_host_override=''
 
 fail() {
   printf 'full-ci: %s\n' "$*" >&2
@@ -115,6 +116,17 @@ sanitize_environment() {
   export TESTCONTAINERS_RYUK_DISABLED=false
 }
 
+capture_safe_testcontainers_host_override() {
+  case "${TESTCONTAINERS_HOST_OVERRIDE:-}" in
+    host.docker.internal)
+      testcontainers_host_override='host.docker.internal'
+      ;;
+    *)
+      testcontainers_host_override=''
+      ;;
+  esac
+}
+
 cleanup() {
   local status=$?
   local cleanup_failed=0
@@ -169,7 +181,11 @@ refresh_flutter_windows_generated_metadata() {
 }
 
 initialize_ci_environment() {
+  capture_safe_testcontainers_host_override
   sanitize_environment
+  if [[ -n "$testcontainers_host_override" ]]; then
+    export TESTCONTAINERS_HOST_OVERRIDE="$testcontainers_host_override"
+  fi
   source "$repo_root/ci/download-sources.sh"
 
   ci_runtime_dir="$(mktemp -d "${TMPDIR:-/tmp}/babytalk-full-ci.XXXXXX")"

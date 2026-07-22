@@ -64,6 +64,8 @@ relay, enables the local artifact server at `.act/artifacts`, parses workflows
 strictly, removes job containers after each run, and uses `Develop` as the
 default branch. Testcontainers resolves Docker-published ports through
 `TESTCONTAINERS_HOST_OVERRIDE=host.docker.internal`, while Ryuk remains enabled.
+`ci/full-ci.sh` preserves only that exact local-act value after sanitizing its
+environment; every other host override is discarded.
 `PLAYWRIGHT_DOWNLOAD_CONNECTION_TIMEOUT=180000` tolerates slow local browser
 downloads without skipping Playwright installation. Do not add production
 secrets, tokens, database passwords, JWT keys, Kubernetes secrets, or real user
