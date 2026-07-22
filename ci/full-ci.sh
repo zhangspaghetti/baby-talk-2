@@ -127,6 +127,16 @@ capture_safe_testcontainers_host_override() {
   esac
 }
 
+configure_local_act_apt_mirror() {
+  local sources_file='/etc/apt/sources.list.d/ubuntu.sources'
+
+  [[ -f "$sources_file" ]] || fail 'local act runner is missing Ubuntu apt sources'
+  sed -i \
+    -e 's|http://archive.ubuntu.com/ubuntu/|https://mirrors.aliyun.com/ubuntu/|g' \
+    -e 's|http://security.ubuntu.com/ubuntu/|https://mirrors.aliyun.com/ubuntu/|g' \
+    "$sources_file"
+}
+
 cleanup() {
   local status=$?
   local cleanup_failed=0
@@ -322,6 +332,9 @@ main() {
   pnpm --filter admin-web test:coverage
 
   if [[ "${LOCAL_ACT_INSTALL_PLAYWRIGHT_DEPS:-}" == 'true' ]]; then
+    # The compact act image lacks Chromium libraries. This changes only the
+    # disposable runner's apt sources before the browser prerequisite installs.
+    configure_local_act_apt_mirror
     stage 'admin-web-browser-system-deps' 'pnpm --dir admin-web exec playwright install-deps chromium'
     pnpm --dir admin-web exec playwright install-deps chromium
   fi

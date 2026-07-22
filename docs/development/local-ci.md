@@ -99,6 +99,9 @@ simulated through act.
 | Android Gradle | Android build workflows | Gradle Wrapper already uses Tencent's Gradle mirror; Android repositories keep Aliyun first, then official fallbacks for artifacts unavailable from a mirror. |
 | Helm smoke | `bash ci/k8s-smoke.sh` | No chart download: Redis chart is vendored and smoke does not run `helm dependency update`. |
 
+For local `act` only, Chromium's system-library prerequisite rewrites the disposable
+Ubuntu runner to `https://mirrors.aliyun.com/ubuntu/`. It never changes host apt sources.
+
 Docker images, the act runner image, GitHub Actions source, and setup-action SDK downloads are not redirected to public mirrors.
 They stay on their pinned upstream/digest source or Docker Desktop configuration;
 replace them only with a trusted, digest-preserving internal mirror. Do not use a
