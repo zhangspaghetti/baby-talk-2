@@ -1,0 +1,30 @@
+name: Local act PR validation
+
+on:
+  pull_request:
+    branches: [Develop]
+
+jobs:
+  local-pr-full-ci:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      EXPECTED_HEAD_SHA: ${{ github.event.local_act.head_sha }}
+    defaults:
+      run:
+        working-directory: ${{ github.workspace }}
+    steps:
+      - name: Verify bound repository is the recorded commit
+        shell: bash
+        run: |
+          test -d .git || {
+            echo 'act must bind-mount the checked-out repository including .git' >&2
+            exit 1
+          }
+          actual_head_sha="$(git rev-parse --verify 'HEAD^{commit}')"
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD_SHA" || {
+            printf 'expected HEAD %s, got %s\n' "$EXPECTED_HEAD_SHA" "$actual_head_sha" >&2
+            exit 1
+          }
+      - name: Run the authoritative complete local CI entrypoint
+        run: bash ci/full-ci.sh

@@ -237,17 +237,20 @@ calling `act` with that template directly:
 bash ci/run-act-pr.sh
 ```
 
-The wrapper fetches `origin/Develop`, resolves the checked-out HEAD and actual
-merge-base, writes a private temporary event, lists `local-pr-full-ci`, then
-executes it. `local-pr-full-ci` calls `bash ci/full-ci.sh`, the authoritative
-complete local repository CI entrypoint. The wrapper fails if the selected job
-is skipped or does not report success; a listed job alone is not evidence.
+The wrapper rejects a dirty worktree before fetching `origin/Develop`, resolves
+the checked-out HEAD and actual merge-base, writes a private temporary event,
+lists `local-pr-full-ci`, then executes it with act's bind mount. The job
+requires the bound `.git` directory and verifies its `HEAD` equals the event's
+recorded full SHA before it calls `bash ci/full-ci.sh`, the authoritative
+complete local repository CI entrypoint. The wrapper captures stdout and
+stderr, and fails if the selected job is skipped or does not report success; a
+listed job alone is not evidence.
 
 `.github/workflows/ci.yml` and `admin-web.yml` are `Develop -> Release_QA`
 post-merge workflows. They are not PR #13 pre-merge simulation and must not be
 used as its act evidence. The dedicated
-`.github/workflows/local-act-pr.yml` is a `pull_request -> Develop` workflow
-that reuses the same full-CI script.
+`.act/workflows/local-act-pr.yml` is local-only (not discoverable by GitHub
+Actions), models `pull_request -> Develop`, and reuses the same full-CI script.
 
 The pinned pnpm 11 runtime requires Node 22. All workflows that invoke pnpm
 select Node 22 explicitly.

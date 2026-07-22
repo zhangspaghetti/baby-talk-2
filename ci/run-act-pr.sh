@@ -22,6 +22,8 @@ cleanup() {
 main() {
   cd "$repo_root"
   command -v act >/dev/null 2>&1 || fail 'act is required'
+  [[ -z "$(git status --porcelain=v1 --untracked-files=all)" ]] \
+    || fail 'worktree must be clean so act validates the recorded HEAD exactly'
   git fetch --no-tags origin Develop
 
   local head_sha origin_develop_sha merge_base_sha head_ref
@@ -51,11 +53,11 @@ event["local_act"] = {"head_sha": head_sha, "origin_develop_sha": origin_develop
 output.write_text(json.dumps(event, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 PY
 
-  act -l pull_request -W .github/workflows/local-act-pr.yml -e "$event_file" "$@" | tee "$act_log"
+  act -b -l pull_request -W .act/workflows/local-act-pr.yml -e "$event_file" "$@" 2>&1 | tee "$act_log"
   grep -Fq 'local-pr-full-ci' "$act_log" || fail 'fixture does not select local-pr-full-ci'
   : >"$act_log"
-  act pull_request -W .github/workflows/local-act-pr.yml -e "$event_file" -j local-pr-full-ci "$@" \
-    | tee "$act_log"
+  act -b pull_request -W .act/workflows/local-act-pr.yml -e "$event_file" -j local-pr-full-ci "$@" \
+    2>&1 | tee "$act_log"
   if grep -Eqi 'skipp(ing|ed).*job|job.*skipp(ing|ed)' "$act_log"; then
     fail 'local-pr-full-ci was skipped'
   fi

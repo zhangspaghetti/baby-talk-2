@@ -82,10 +82,10 @@ class DbMigrationSmokeTest {
                 select count(*)
                 from flyway_schema_history
                 where success = true
-                  and version in ('3', '14', '15', '16', '17', '18', '19', '24', '25', '26', '27')
+                  and version in ('3', '14', '15', '16', '17', '18', '19', '24', '25', '26', '27', '28')
                 """,
                 Integer.class);
-        assertThat(trackedVersions).isEqualTo(11);
+        assertThat(trackedVersions).isEqualTo(12);
 
         assertThat(tableExists("accounts")).isTrue();
         assertThat(tableExists("spring_ai_chat_memory")).isTrue();
@@ -288,7 +288,8 @@ class DbMigrationSmokeTest {
                     generation_started_at, generation_expires_at, retention_expires_at, created_at, updated_at
                 ) values (?, 'installation', ?, 'v1', null, ?, null, 'onboarding', 'custom_scene', ?,
                     null, 'm7_11', 'calmer_care', 'zh-CN', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'starter',
-                    'fake', 'active', null, null, null, 'legacy-prompt', 'legacy-strategy', 'legacy-policy',
+                    'fake', 'active', 'legacy-provider-trace', 'legacy-retrieval-trace', 'legacy-model',
+                    'legacy-prompt', 'legacy-strategy', 'legacy-policy',
                     1, null, ?, ?, ?, ?, ?)
                 """.formatted(contentTable),
                 "legacy_active", "hmac_legacy_active", "install_legacy_active", "fp_legacy_active",
@@ -309,15 +310,52 @@ class DbMigrationSmokeTest {
                 "legacy_rejected", "hmac_legacy_rejected", "install_legacy_rejected", "fp_legacy_rejected",
                 later, now, now);
 
-        Flyway v27 = flywayFor(V26_GENERATED_CONTENT_UPGRADE_SCHEMA, "27");
-        v27.migrate();
-        assertThat(v27.info().current().getVersion().getVersion()).isEqualTo("27");
+        jdbcTemplate.update(
+                """
+                insert into %s (
+                    generated_content_id, owner_scope, owner_key, owner_key_version, account_id,
+                    installation_ref_hash, profile_id, surface, mode, request_fingerprint,
+                    normalized_scene_text, age_range, parent_goal, locale, space_slug, activity_slug,
+                    phrase_slug, space_title_zh, activity_title_zh, scene_tag_en, coach_tip_zh,
+                    english_text, chinese_text, pronunciation_hint, difficulty, generation_source,
+                    status, provider_trace_id, retrieval_trace_id, model_name, prompt_version,
+                    strategy_version, policy_version, content_version, generation_error_code,
+                    generation_started_at, generation_expires_at, retention_expires_at, created_at, updated_at
+                ) values (?, 'global_candidate', ?, 'v1', null, null, null, 'onboarding', 'custom_scene', ?,
+                    null, 'm7_11', 'calmer_care', 'zh-CN', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'starter',
+                    'fake', 'promoted', null, null, null, 'legacy-prompt', 'legacy-strategy', 'legacy-policy',
+                    1, null, ?, ?, null, ?, ?)
+                """.formatted(contentTable),
+                "legacy_promoted", "hmac_legacy_promoted", "fp_legacy_promoted",
+                "promoted_space", "promoted_activity", "promoted_phrase", "旧晋升空间", "旧晋升活动", "Promoted scene",
+                "旧晋升提示", "Promoted sentence.", "旧晋升句子。", "promoted sentence", now, later, now, now);
+        jdbcTemplate.update(
+                """
+                insert into %s (
+                    generated_content_id, owner_scope, owner_key, owner_key_version, installation_ref_hash,
+                    surface, mode, request_fingerprint, normalized_scene_text, age_range, parent_goal, locale,
+                    status, prompt_version, strategy_version, policy_version, content_version,
+                    generation_started_at, generation_expires_at, created_at, updated_at
+                ) values (?, 'installation', ?, 'v1', ?, 'onboarding', 'custom_scene', ?, ?,
+                    'm7_11', 'calmer_care', 'zh-CN', 'draft', 'legacy-prompt', 'legacy-strategy',
+                    'legacy-policy', 1, ?, ?, ?, ?)
+                """.formatted(contentTable),
+                "legacy_draft", "hmac_legacy_draft", "install_legacy_draft", "fp_legacy_draft",
+                "宝宝出门前有点紧张", now, later, now, now);
+
+        Flyway v28 = flywayFor(V26_GENERATED_CONTENT_UPGRADE_SCHEMA, "28");
+        v28.migrate();
+        assertThat(v28.info().current().getVersion().getVersion()).isEqualTo("28");
 
         assertThat(jdbcTemplate.queryForObject(
-                "select count(*) from " + contentTable, Integer.class)).isEqualTo(2);
+                "select count(*) from " + contentTable, Integer.class)).isEqualTo(4);
         assertThat(jdbcTemplate.queryForList(
                 "select generated_content_id || ':' || status from " + contentTable + " order by generated_content_id",
-                String.class)).containsExactly("legacy_active:active", "legacy_rejected:rejected");
+                String.class)).containsExactly(
+                        "legacy_active:active",
+                        "legacy_draft:generating",
+                        "legacy_promoted:active",
+                        "legacy_rejected:rejected");
         assertThat(jdbcTemplate.queryForObject(
                 "select tpr_action_zh from " + contentTable + " where generated_content_id = 'legacy_active'",
                 String.class)).isEqualTo("旧提示");
@@ -330,6 +368,33 @@ class DbMigrationSmokeTest {
         assertThat(jdbcTemplate.queryForObject(
                 "select generation_error_retryable from " + contentTable + " where generated_content_id = 'legacy_rejected'",
                 Boolean.class)).isFalse();
+        assertThat(jdbcTemplate.queryForObject(
+                "select normalized_scene_text from " + contentTable + " where generated_content_id = 'legacy_draft'",
+                String.class)).isEqualTo("宝宝出门前有点紧张");
+        assertThat(jdbcTemplate.queryForObject(
+                "select generation_started_at from " + contentTable + " where generated_content_id = 'legacy_draft'",
+                Timestamp.class)).isEqualTo(now);
+        assertThat(jdbcTemplate.queryForObject(
+                "select owner_scope from " + contentTable + " where generated_content_id = 'legacy_promoted'",
+                String.class)).isEqualTo("installation");
+        assertThat(jdbcTemplate.queryForObject(
+                "select installation_ref_hash from " + contentTable + " where generated_content_id = 'legacy_promoted'",
+                String.class)).isEqualTo("legacy:hmac_legacy_promoted");
+        assertThat(jdbcTemplate.queryForObject(
+                "select retention_expires_at from " + contentTable + " where generated_content_id = 'legacy_promoted'",
+                Timestamp.class)).isEqualTo(later);
+        assertThat(jdbcTemplate.queryForObject(
+                "select provider_trace_id from " + contentTable + " where generated_content_id = 'legacy_active'",
+                String.class)).isEqualTo("legacy-provider-trace");
+        assertThatThrownBy(() -> jdbcTemplate.update(
+                "update " + contentTable + " set space_slug = (select space_slug from " + contentTable
+                        + " where generated_content_id = 'legacy_promoted') where generated_content_id = 'legacy_active'"))
+                .isInstanceOf(DataIntegrityViolationException.class);
+        assertThatThrownBy(() -> jdbcTemplate.update(
+                "update " + contentTable + " set owner_key = (select owner_key from " + contentTable
+                        + " where generated_content_id = 'legacy_active'), request_fingerprint = (select request_fingerprint from "
+                        + contentTable + " where generated_content_id = 'legacy_active') where generated_content_id = 'legacy_draft'"))
+                .isInstanceOf(DataIntegrityViolationException.class);
         assertThat(tableExists(V26_GENERATED_CONTENT_UPGRADE_SCHEMA, "practice_generated_content_attempts")).isTrue();
         assertThat(tableExists(V26_GENERATED_CONTENT_UPGRADE_SCHEMA, "practice_generated_content_judge_results")).isTrue();
         assertThat(indexExists(V26_GENERATED_CONTENT_UPGRADE_SCHEMA,
@@ -651,6 +716,15 @@ class DbMigrationSmokeTest {
                 .containsIgnoringCase("future migration metadata")
                 .containsIgnoringCase("one active key version")
                 .doesNotContain("controlled key rotation");
+        assertThat(columnComment("practice_generated_content", "provider_trace_id"))
+                .containsIgnoringCase("legacy V25 read-only")
+                .containsIgnoringCase("practice_ai_provider_calls");
+        assertThat(columnComment("practice_generated_content", "retrieval_trace_id"))
+                .containsIgnoringCase("legacy V25 read-only")
+                .containsIgnoringCase("practice_generated_content_evidence_bundles");
+        assertThat(columnComment("practice_generated_content", "model_name"))
+                .containsIgnoringCase("legacy V25 read-only")
+                .containsIgnoringCase("practice_ai_provider_calls");
 
         assertThat(indexExists("uq_practice_generated_content_live_fingerprint")).isTrue();
         assertThat(indexExists("uq_practice_generated_content_active_space_slug")).isTrue();

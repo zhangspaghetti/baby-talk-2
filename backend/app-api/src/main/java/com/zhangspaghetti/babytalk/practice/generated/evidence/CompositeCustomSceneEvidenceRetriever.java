@@ -3,6 +3,7 @@ package com.zhangspaghetti.babytalk.practice.generated.evidence;
 import com.zhangspaghetti.babytalk.practice.agentic.config.MinimumEvidencePolicy;
 import com.zhangspaghetti.babytalk.practice.agentic.config.VersionedResourceRegistry;
 import com.zhangspaghetti.babytalk.practice.discovery.PracticeDiscoveryCustomSceneProperties;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -68,17 +69,23 @@ public class CompositeCustomSceneEvidenceRetriever implements CustomSceneEvidenc
     public EvidenceRetrievalResult retrieve(EvidenceRetrievalRequest request) {
         Objects.requireNonNull(request, "request");
         if (fakeProvider) {
-            return deterministicFakeResult(request);
+            return toResult(request, deterministicFakeItems(request));
         }
+        var sourceItems = new ArrayList<EvidenceItem>();
+        sourceItems.addAll(baselineSource.retrieve(request).items());
+        sourceItems.addAll(palaceSource.retrieve(request).items());
+        return toResult(request, sourceItems);
+    }
+
+    private EvidenceRetrievalResult toResult(EvidenceRetrievalRequest request, List<EvidenceItem> sourceItems) {
         var deduplicated = new LinkedHashMap<DeduplicationKey, EvidenceItem>();
-        add(deduplicated, baselineSource.retrieve(request).items());
-        add(deduplicated, palaceSource.retrieve(request).items());
+        add(deduplicated, sourceItems);
         var items = deduplicated.values().stream().sorted(ORDER).toList();
         var status = satisfiesPolicy(items) ? RetrievalStatus.INITIAL : RetrievalStatus.INSUFFICIENT;
         return new EvidenceRetrievalResult(items, request.retrievalTraceId(), status);
     }
 
-    private EvidenceRetrievalResult deterministicFakeResult(EvidenceRetrievalRequest request) {
+    private List<EvidenceItem> deterministicFakeItems(EvidenceRetrievalRequest request) {
         var summary = "Use one calm, familiar phrase during an ordinary care moment without pressure.";
         var summaryHash = EvidenceSanitizer.sha256(summary);
         var items = request.requestedClaimTypes().stream()
@@ -94,7 +101,7 @@ public class CompositeCustomSceneEvidenceRetriever implements CustomSceneEvidenc
                         summaryHash,
                         1.0d))
                 .toList();
-        return new EvidenceRetrievalResult(items, request.retrievalTraceId(), RetrievalStatus.INITIAL);
+        return items;
     }
 
     private void add(LinkedHashMap<DeduplicationKey, EvidenceItem> target, List<EvidenceItem> items) {

@@ -2,7 +2,6 @@ package com.zhangspaghetti.babytalk.practice.agentic;
 
 import com.openai.errors.OpenAIIoException;
 import com.openai.errors.OpenAIServiceException;
-import java.io.IOException;
 import java.net.ConnectException;
 import java.net.SocketTimeoutException;
 import java.net.UnknownHostException;
@@ -42,8 +41,7 @@ public class PracticeAiCallFailureClassifier {
         for (Throwable current = failure; current != null; current = current.getCause()) {
             if (current instanceof OpenAIIoException
                     || current instanceof ConnectException
-                    || current instanceof UnknownHostException
-                    || current instanceof IOException) {
+                    || current instanceof UnknownHostException) {
                 return Optional.of("connection_error");
             }
         }

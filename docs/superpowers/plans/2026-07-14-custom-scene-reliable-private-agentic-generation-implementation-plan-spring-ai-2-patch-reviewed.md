@@ -6,7 +6,7 @@
 
 **Architecture:** Keep `PracticeDiscoveryService` as the HTTP/domain entry point and turn `PracticeGeneratedContentService` into a small public facade over a dedicated generation orchestrator. Split query and mutation persistence, represent semantic attempts separately from real provider calls, freeze one immutable evidence bundle per attempt, and route typed Spring AI capabilities through a provider manager whose provider selection is configured in Helm/YAML. This plan implements only the approved first private-generation scope; semantic reuse, Scene Abstraction, Reuse Match, Reuse Eligibility, public Approved Output Assets, and global indexing remain separate follow-on plans.
 
-**Tech Stack:** JDK 21 runtime/toolchain with Java 17 source and bytecode, Spring Boot 4.0.7, Spring AI 2.0.0, Spring Cloud 2025.1.2, ICU4J 76.1, MyBatis-Plus 3.5.17 Boot 4 starter, Druid 1.2.28 Boot 4 starter, Jackson 3, PostgreSQL, Flyway V25/V26/V27, JUnit 5, Mockito, Testcontainers, Helm.
+**Tech Stack:** JDK 21 runtime/toolchain with Java 17 source and bytecode, Spring Boot 4.0.7, Spring AI 2.0.0, Spring Cloud 2025.1.2, ICU4J 76.1, MyBatis-Plus 3.5.17 Boot 4 starter, Druid 1.2.28 Boot 4 starter, Jackson 3, PostgreSQL, Flyway V25/V26/V27/V28, JUnit 5, Mockito, Testcontainers, Helm.
 
 ## Global Constraints
 
@@ -773,6 +773,13 @@ generation_started_at timestamp with time zone null,
 generation_expires_at timestamp with time zone null,
 retention_expires_at timestamp with time zone null
 ```
+
+`provider_trace_id`, `retrieval_trace_id`, and `model_name` remain on the
+parent only as read-only V25 legacy metadata so historical rows are preserved.
+No V27+ runtime writer reads or writes them: canonical provider/model lineage is
+in `practice_ai_provider_calls`, and canonical retrieval lineage is in
+`practice_generated_content_evidence_bundles`. V28 documents this boundary with
+database column comments; it does not drop or mutate legacy values.
 
 Statuses are exactly:
 
@@ -2192,9 +2199,17 @@ Do not include Routing Policy. Preserve the existing owner-key HMAC domain separ
 Use these terminal mappings:
 
 ```text
-content quality failure / attempts exhausted / Judge REJECT
+course/scoring framing deterministic violation or its repair-attempt exhaustion
+→ status=rejected
+→ error_code=generated_content_rejected
+→ HTTP 422 (the existing B2.1 public contract)
+→ retryable=false
+→ suggestCatalogFallback=true
+
+other terminal deterministic output violation / Judge REJECT
 → status=rejected
 → error_code=generation_invalid_output
+→ HTTP 502
 → retryable=false
 → suggestCatalogFallback=true
 

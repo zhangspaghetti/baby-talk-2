@@ -64,6 +64,27 @@ class CompositeCustomSceneEvidenceRetrieverTest {
     }
 
     @Test
+    void fakeProviderUsesTheSameMinimumEvidencePolicyAsProductionSources() {
+        CustomSceneEvidenceRetriever mustNotBeCalled = ignored -> {
+            throw new AssertionError("fake evidence must not delegate to a real source");
+        };
+        var fake = new CompositeCustomSceneEvidenceRetriever(
+                mustNotBeCalled, mustNotBeCalled, POLICY, true);
+        var missingClaim = new EvidenceRetrievalRequest(
+                "宝宝哭闹时怎么说",
+                "0-2",
+                "日常表达",
+                Set.of("parent_speakability", "age_guidance", "low_pressure_delivery"),
+                TRACE_ID);
+        var emptyClaimSet = new EvidenceRetrievalRequest(
+                "宝宝哭闹时怎么说", "0-2", "日常表达", Set.of(), TRACE_ID);
+
+        assertThat(fake.retrieve(missingClaim).status()).isEqualTo(RetrievalStatus.INSUFFICIENT);
+        assertThat(fake.retrieve(emptyClaimSet).status()).isEqualTo(RetrievalStatus.INSUFFICIENT);
+        assertThat(fake.retrieve(request()).status()).isEqualTo(RetrievalStatus.INITIAL);
+    }
+
+    @Test
     void mergesDeduplicatesAndSortsByClaimThenConfidenceDescending() {
         var duplicate = item("dup", "scene_support", 0.75);
         var result = new CompositeCustomSceneEvidenceRetriever(

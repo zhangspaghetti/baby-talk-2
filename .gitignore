@@ -3,6 +3,7 @@
 workflows/
 !.github/workflows/
 !.github/workflows/admin-web.yml
+!.act/workflows/
 .sisyphus/
 .codex/
 

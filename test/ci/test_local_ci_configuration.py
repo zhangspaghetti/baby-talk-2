@@ -8,7 +8,8 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[2]
 ACTRC = REPO_ROOT / ".actrc"
 EVENT_FIXTURE = REPO_ROOT / ".act" / "pull_request.json"
-LOCAL_ACT_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "local-act-pr.yml"
+LOCAL_ACT_WORKFLOW = REPO_ROOT / ".act" / "workflows" / "local-act-pr.yml"
+GITHUB_LOCAL_ACT_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "local-act-pr.yml"
 LOCAL_ACT_RUNNER = REPO_ROOT / "ci" / "run-act-pr.sh"
 GITIGNORE = REPO_ROOT / ".gitignore"
 LOCAL_CI_DOC = REPO_ROOT / "docs" / "development" / "local-ci.md"
@@ -113,6 +114,7 @@ class ActConfigurationContractTest(unittest.TestCase):
 
     def test_runtime_act_workflow_is_a_real_develop_pr_job_not_a_release_closure_replay(self) -> None:
         self.assertTrue(LOCAL_ACT_WORKFLOW.is_file())
+        self.assertFalse(GITHUB_LOCAL_ACT_WORKFLOW.exists())
         self.assertTrue(LOCAL_ACT_RUNNER.is_file())
         workflow = LOCAL_ACT_WORKFLOW.read_text(encoding="utf-8")
         runner = LOCAL_ACT_RUNNER.read_text(encoding="utf-8")
@@ -121,6 +123,13 @@ class ActConfigurationContractTest(unittest.TestCase):
         self.assertIn("local-pr-full-ci:", workflow)
         self.assertNotIn("if:", workflow)
         self.assertIn("run: bash ci/full-ci.sh", workflow)
+        self.assertNotIn("actions/checkout", workflow)
+        self.assertNotIn("git init", workflow)
+        self.assertNotIn("act workspace snapshot", workflow)
+        self.assertIn("EXPECTED_HEAD_SHA: ${{ github.event.local_act.head_sha }}", workflow)
+        self.assertIn("test -d .git", workflow)
+        self.assertIn('test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD_SHA"', workflow)
+        self.assertIn("git status --porcelain=v1 --untracked-files=all", runner)
         self.assertIn("git fetch --no-tags origin Develop", runner)
         self.assertIn("git merge-base", runner)
         self.assertIn('event["pull_request"]["base"]["sha"] = origin_develop_sha', runner)
@@ -128,6 +137,8 @@ class ActConfigurationContractTest(unittest.TestCase):
         self.assertIn("fixture does not select local-pr-full-ci", runner)
         self.assertIn("local-pr-full-ci was skipped", runner)
         self.assertIn("did not report success", runner)
+        self.assertEqual(runner.count("act -b"), 2)
+        self.assertEqual(runner.count("2>&1 | tee \"$act_log\""), 2)
 
     def test_pull_request_fixture_contains_no_credentials(self) -> None:
         event = json.loads(EVENT_FIXTURE.read_text(encoding="utf-8"))
@@ -201,6 +212,9 @@ class LocalCiDocumentationContractTest(unittest.TestCase):
         self.assertIn("calls `bash ci/full-ci.sh`", self.text)
         self.assertIn("not PR #13 pre-merge simulation", self.text)
         self.assertIn("fixed base or head SHA", self.text)
+        self.assertIn("rejects a dirty worktree", self.text)
+        self.assertIn("verifies its `HEAD` equals", self.text)
+        self.assertIn("`.act/workflows/local-act-pr.yml`", self.text)
 
     def test_docs_name_every_complete_local_ci_product_gate(self) -> None:
         for statement in (

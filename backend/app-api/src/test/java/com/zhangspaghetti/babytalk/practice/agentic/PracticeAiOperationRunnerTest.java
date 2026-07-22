@@ -7,6 +7,7 @@ import static org.mockito.Mockito.when;
 
 import com.openai.errors.OpenAIIoException;
 import com.openai.errors.OpenAIServiceException;
+import java.io.IOException;
 import java.net.SocketTimeoutException;
 import java.time.Clock;
 import java.time.Instant;
@@ -84,6 +85,26 @@ class PracticeAiOperationRunnerTest {
         var audit = new CapturingAuditPort();
         var invoked = new ArrayList<String>();
         var failure = new IllegalStateException("programming failure");
+        var runner = runner(List.of(provider("primary"), provider("secondary")), audit);
+
+        assertThatThrownBy(() -> runner.execute(request(PracticeAiCapability.CUSTOM_SCENE_GENERATOR, resolved -> {
+            invoked.add(resolved.providerName());
+            throw failure;
+        }))).isSameAs(failure);
+
+        assertThat(invoked).containsExactly("primary");
+        assertThat(audit.events).containsExactly(
+                "operation:started",
+                "primary:started",
+                "primary:internal_error",
+                "operation:internal_error");
+    }
+
+    @Test
+    void localIoFailureIsInternalAndDoesNotFallBack() {
+        var audit = new CapturingAuditPort();
+        var invoked = new ArrayList<String>();
+        var failure = new RuntimeException(new IOException("local read failure"));
         var runner = runner(List.of(provider("primary"), provider("secondary")), audit);
 
         assertThatThrownBy(() -> runner.execute(request(PracticeAiCapability.CUSTOM_SCENE_GENERATOR, resolved -> {
@@ -218,6 +239,7 @@ class PracticeAiOperationRunnerTest {
         assertThat(classifier.classify(new PracticeAiStructuredOutputCaller.StructuredOutputInvalidException()))
                 .hasValue("structured_output_invalid");
         assertThat(classifier.classify(new IllegalStateException("programming failure"))).isEmpty();
+        assertThat(classifier.classify(new RuntimeException(new IOException("local read failure")))).isEmpty();
     }
 
     @Test
