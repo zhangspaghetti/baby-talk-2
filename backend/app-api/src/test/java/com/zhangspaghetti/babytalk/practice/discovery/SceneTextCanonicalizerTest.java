@@ -41,4 +41,30 @@ class SceneTextCanonicalizerTest {
     void treatsEmojiZwjSequenceAsOneExtendedGrapheme() {
         assertThat(canonicalizer.graphemeLength("👨‍👩‍👧‍👦")).isEqualTo(1);
     }
+
+    @Test
+    void derivesReadableDisplayAndNfkcCasefoldSecurityText() {
+        var forms = canonicalizer.derive("  ＷｅＣｈａｔ\uFEFF  宝宝  ");
+
+        assertThat(forms.displayText()).isEqualTo("WeChat 宝宝");
+        assertThat(forms.securityText()).isEqualTo("wechat 宝宝");
+        assertThat(forms.riskSignals().removedInvisible()).isTrue();
+    }
+
+    @Test
+    void preservesEmojiZwjButRejectsBidiOverrideAndIsolateSignals() {
+        var emoji = canonicalizer.derive("爸爸👨‍👩‍👧‍👦抱抱宝宝");
+        assertThat(emoji.displayText()).contains("👨‍👩‍👧‍👦");
+        assertThat(emoji.riskSignals().bidiControlPresent()).isFalse();
+
+        assertThat(canonicalizer.derive("宝宝\u202Eabc").riskSignals().bidiControlPresent()).isTrue();
+        assertThat(canonicalizer.derive("宝宝\u2066abc\u2069").riskSignals().bidiControlPresent()).isTrue();
+    }
+
+    @Test
+    void reportsMixedDigitSystemsOnlyWhenTheyFormOneSensitiveRun() {
+        assertThat(canonicalizer.derive("第２次洗澡").riskSignals().mixedDigitSystems()).isFalse();
+        assertThat(canonicalizer.derive("电话１２345678901").riskSignals().mixedDigitSystems()).isTrue();
+        assertThat(canonicalizer.derive("电话１２345678901").riskSignals().longDigitRun()).isTrue();
+    }
 }

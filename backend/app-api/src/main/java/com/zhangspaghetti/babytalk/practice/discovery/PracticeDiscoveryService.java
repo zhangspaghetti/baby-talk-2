@@ -638,7 +638,7 @@ public class PracticeDiscoveryService {
                         row.activitySlug(),
                         row.activityTitleZh(),
                         row.sceneTagEn(),
-                        row.coachTipZh(),
+                        row.tprActionZh() + " " + row.deliveryGuidanceZh(),
                         1,
                         List.of(utterance)
                 )),

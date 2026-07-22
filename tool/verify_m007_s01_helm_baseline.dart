@@ -10,8 +10,10 @@ const appReleaseName = 'babytalk-app';
 const gatewayServiceName = '$appReleaseName-gateway';
 const gatewayLocalPort = 8090;
 const gatewayUrl = 'http://127.0.0.1:$gatewayLocalPort/';
+const practiceAiHelmVerifierPath = 'tool/verify_practice_ai_helm.dart';
 
-const _usage = '''Usage: dart run tool/verify_m007_s01_helm_baseline.dart <demo|smoke> [--help]
+const _usage =
+    '''Usage: dart run tool/verify_m007_s01_helm_baseline.dart <demo|smoke> [--help]
 
 Modes:
   demo    Install infra + app charts into the active kubectl context, then verify gateway.
@@ -96,6 +98,30 @@ Future<void> _runPreflight() async {
     'dart',
     const CommandSpec(command: 'dart', args: ['--version']),
   );
+  await _runPracticeAiHelmVerifier();
+}
+
+CommandSpec practiceAiHelmVerifierCommand() => const CommandSpec(
+  command: 'dart',
+  args: ['run', practiceAiHelmVerifierPath],
+);
+
+Future<void> _runPracticeAiHelmVerifier() async {
+  final result = await _runCommand(
+    practiceAiHelmVerifierCommand(),
+    timeout: const Duration(minutes: 2),
+  );
+  if (result.exitCode != 0) {
+    throw StepFailure(
+      stageKey: 'practice_ai_helm',
+      exitCode: result.exitCode == 0 ? 1 : result.exitCode,
+      likelyCause: 'practice_ai_helm_contract_failed',
+      nextAction:
+          'Run `dart run $practiceAiHelmVerifierPath` and fix the first reported provider, route, or credential-isolation violation.',
+      detail:
+          '`dart run $practiceAiHelmVerifierPath` failed.\n${_trimmedOutput(result.combinedOutput)}',
+    );
+  }
 }
 
 Future<void> _runClusterStage() async {
@@ -474,10 +500,7 @@ Future<HelmTelemetrySummary> appendHelmTelemetry(
 
   await file.parent.create(recursive: true);
   await file.writeAsString(
-    bounded
-            .map((item) => jsonEncode(item))
-            .join('\n') +
-        '\n',
+    bounded.map((item) => jsonEncode(item)).join('\n') + '\n',
     flush: true,
   );
 
@@ -487,7 +510,10 @@ Future<HelmTelemetrySummary> appendHelmTelemetry(
   );
 }
 
-String currentFrontDoorShell({Map<String, String>? environment, bool? isWindows}) {
+String currentFrontDoorShell({
+  Map<String, String>? environment,
+  bool? isWindows,
+}) {
   final effectiveEnvironment = environment ?? Platform.environment;
   final configured = effectiveEnvironment['BABY_TALK_FRONT_DOOR_SHELL']?.trim();
   if (configured != null && configured.isNotEmpty) {
@@ -536,9 +562,7 @@ String _trimmedOutput(String output) {
   if (trimmed.isEmpty) {
     return '(no output)';
   }
-  return trimmed.length <= 1200
-      ? trimmed
-      : '${trimmed.substring(0, 1200)}...';
+  return trimmed.length <= 1200 ? trimmed : '${trimmed.substring(0, 1200)}...';
 }
 
 class CliOptions {
@@ -653,7 +677,8 @@ class PortForwardSession {
 
   bool get hasExited => _exitCode != null;
   int? get exitCode => _exitCode;
-  String get combinedOutput => '${stdoutBuffer.toString()}\n${stderrBuffer.toString()}';
+  String get combinedOutput =>
+      '${stdoutBuffer.toString()}\n${stderrBuffer.toString()}';
 
   Future<void> stop() async {
     if (_exitCode != null) {

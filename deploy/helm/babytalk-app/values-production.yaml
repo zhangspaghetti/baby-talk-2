@@ -99,6 +99,29 @@ gateway:
       cpu: 1000m
       memory: 512Mi
 
+# Production credentials come from this externally managed dedicated Secret.
+# Do not add Practice AI keys to the shared `secret` block below.
+practiceAi:
+  providerMode: agentic
+  routingPolicyVersion: custom-scene-routing-v1
+  providers:
+    dashscope-qwen:
+      type: openai-compatible
+      baseUrl: https://dashscope.aliyuncs.com/compatible-mode/v1
+      apiKeyEnvironmentVariable: BABY_TALK_AI_PROVIDER_DASHSCOPE_QWEN_API_KEY
+      model: qwen3.6-flash
+      timeout: 20s
+      maxTokens: 600
+  capabilities:
+    custom-scene-generator: [dashscope-qwen]
+    custom-scene-quality-judge: [dashscope-qwen]
+    custom-scene-repair: [dashscope-qwen]
+  secret:
+    existingSecret: babytalk-practice-ai
+    # Operators must increment this marker whenever the external Secret rotates.
+    rolloutVersion: "1"
+    values: {}
+
 config:
   BABY_TALK_UPGRADE_URL: "https://babytalk.example.com/upgrade?channel=stable&source=version_gate"
   BABY_TALK_ANDROID_STABLE_URL: "https://download.babytalk.example.com/android/stable/babytalk.apk"

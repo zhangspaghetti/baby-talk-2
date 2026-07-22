@@ -1,25 +1,24 @@
-package com.zhangspaghetti.babytalk.practice.discovery;
+package com.zhangspaghetti.babytalk.practice.generated;
 
+import com.zhangspaghetti.babytalk.practice.agentic.config.GenerationProfile;
+import com.zhangspaghetti.babytalk.practice.generated.evidence.FrozenEvidenceBundle;
 import java.time.Duration;
 import java.util.Set;
 
-public interface CustomSceneGenerationService {
+public interface CustomSceneGenerator {
 
-    GeneratedPracticeContentCandidate generateCustomSceneStarter(CustomSceneGenerationRequest request);
+    GeneratedPracticeContentCandidate generate(GeneratorRequest request);
 
-    record CustomSceneGenerationRequest(
+    record GeneratorRequest(
             String generatedContentId,
-            String canonicalSceneText,
-            PracticeDiscoverySurface surface,
-            PracticeDiscoveryMode mode,
+            int attemptNumber,
+            String displayText,
             String ageRange,
             String parentGoal,
             String locale,
-            String traceId,
-            Duration timeout,
-            ContentConstraints constraints,
-            String promptVersion,
-            String strategyVersion
+            FrozenEvidenceBundle evidenceBundle,
+            GenerationProfile generationProfile,
+            ContentConstraints constraints
     ) {
     }
 
@@ -62,22 +61,19 @@ public interface CustomSceneGenerationService {
             String spaceTitleZh,
             String activityTitleZh,
             String sceneTagEn,
-            String coachTipZh,
+            String tprActionZh,
+            String deliveryGuidanceZh,
             String englishText,
             String chineseText,
             String pronunciationHint,
             String difficulty,
-            String generationSource,
-            String providerTraceId,
-            String retrievalTraceId,
-            String modelName
+            String generationSource
     ) {
     }
 
     enum GenerationUnavailableReason {
         PROVIDER_DISABLED("provider_disabled", false),
         PROVIDER_UNAVAILABLE("provider_unavailable", true),
-        AGENTIC_NOT_IMPLEMENTED("agentic_not_implemented", false),
         FAKE_SCENE_NOT_SUPPORTED("fake_scene_not_supported", false);
 
         private final String code;

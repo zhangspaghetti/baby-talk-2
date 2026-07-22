@@ -1,0 +1,23 @@
+schema-version: practice-ai-version-lock-schema-v1
+resources:
+- version: custom-scene-evidence-v1
+  resource-path: config/practice-ai/policies/custom-scene-evidence-v1.yml
+  content-hash: 138744b2fe31dcdec63c9f26c962a25a87d0c3a3e0c1a176d027642699b9c075
+- version: custom-scene-generation-v1
+  resource-path: config/practice-ai/profiles/custom-scene-generation-v1.yml
+  content-hash: 29ee8b6aa8cb1def664668a935ad5e2a3b7276e5e99a82409e473fac5fac21e5
+- version: custom-scene-generator-v1
+  resource-path: config/practice-ai/prompts/custom-scene-generator-v1.txt
+  content-hash: f6ed4f6e4fe6f68ac1fbfbd012de6d7532333cb234be90001c521cf250087169
+- version: custom-scene-quality-judge-v1
+  resource-path: config/practice-ai/prompts/custom-scene-quality-judge-v1.txt
+  content-hash: 6f420cf7dab26531b65b78bea785dcad0aa1aef9d61f3e913b11c5e960802b84
+- version: custom-scene-quality-v1
+  resource-path: config/practice-ai/rubrics/custom-scene-quality-v1.yml
+  content-hash: 7faa028bba2ce95bcd0c96b1768cf8f564d99746f51b6e0f35a35164aa534410
+- version: custom-scene-repair-v1
+  resource-path: config/practice-ai/prompts/custom-scene-repair-v1.txt
+  content-hash: df9882cac261315fc00f6f5bf708b03c6324c555f773438fa75567cd4fa29fe8
+- version: family-english-baseline-v1
+  resource-path: config/practice-ai/evidence/family-english-baseline-v1.yml
+  content-hash: 6e49982f2461ce9233651c5fd9cb23e27f8ecc09943f4426374d4222ec92fa25

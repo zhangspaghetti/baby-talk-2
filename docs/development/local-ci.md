@@ -94,12 +94,10 @@ They stay on their pinned upstream/digest source or Docker Desktop configuration
 replace them only with a trusted, digest-preserving internal mirror. Do not use a
 generic proxy URL in repository configuration, and do not commit proxy credentials.
 
-The tracked event fixture describes draft PR #13 from
-`gsd/v0.1-milestone` into `Develop`. Its stable base SHA is the fetched
-`origin/Develop` value at fixture creation. The tracked event fixture omits `pull_request.head.sha`
-because committing that SHA inside its own fixture would
-make it stale. SHA-bound runtime evidence records the exact checked-out HEAD SHA,
-`origin/Develop` SHA, and merge-base SHA before each candidate run.
+The tracked event fixture is a draft PR #13 template for `Develop`. It omits
+both `pull_request.base.sha` and `pull_request.head.sha`; the wrapper resolves
+fresh `origin/Develop`, checked-out HEAD, and merge-base SHAs before every run.
+SHA-bound runtime evidence records all three values.
 
 ## Sanitize inherited credentials
 
@@ -229,56 +227,30 @@ Expected `OSType=linux`. On Windows, act's startup diagnostic must name the
 local `npipe:////./pipe/docker_engine` host. Stop if it resolves to a TCP or
 remote daemon.
 
-## List and run the PR workflow
+## Run the pre-merge PR simulation
 
-List jobs without executing them:
-
-```powershell
-act -l pull_request `
-  -W .github/workflows/ci.yml `
-  -e .act/pull_request.json
-```
-
-Expected job IDs are `release-closure-gate` and `mobile-analyze`. Listing proves
-only that act parsed and selected these jobs; it is not execution evidence.
-
-Execute both jobs:
+`.act/pull_request.json` is a credential-free template, not a reusable event:
+it deliberately contains no fixed base or head SHA. Run the wrapper instead of
+calling `act` with that template directly:
 
 ```powershell
-act pull_request `
-  -W .github/workflows/ci.yml `
-  -e .act/pull_request.json
+bash ci/run-act-pr.sh
 ```
 
-Determine every `pull_request` workflow whose path filters match the candidate
-diff. List and run each applicable workflow with the same event fixture, then
-record it separately. For mobile changes:
+The wrapper fetches `origin/Develop`, resolves the checked-out HEAD and actual
+merge-base, writes a private temporary event, lists `local-pr-full-ci`, then
+executes it. `local-pr-full-ci` calls `bash ci/full-ci.sh`, the authoritative
+complete local repository CI entrypoint. The wrapper fails if the selected job
+is skipped or does not report success; a listed job alone is not evidence.
 
-```powershell
-act -l pull_request `
-  -W .github/workflows/mobile-pr-validation.yml `
-  -e .act/pull_request.json
+`.github/workflows/ci.yml` and `admin-web.yml` are `Develop -> Release_QA`
+post-merge workflows. They are not PR #13 pre-merge simulation and must not be
+used as its act evidence. The dedicated
+`.github/workflows/local-act-pr.yml` is a `pull_request -> Develop` workflow
+that reuses the same full-CI script.
 
-act pull_request `
-  -W .github/workflows/mobile-pr-validation.yml `
-  -e .act/pull_request.json
-```
-
-For admin-web changes, including root pnpm metadata such as
-`pnpm-workspace.yaml`:
-
-```powershell
-act -l pull_request `
-  -W .github/workflows/admin-web.yml `
-  -e .act/pull_request.json
-
-act pull_request `
-  -W .github/workflows/admin-web.yml `
-  -e .act/pull_request.json
-```
-
-The pinned pnpm 11 runtime requires Node 22. All pull-request workflows that
-invoke pnpm select Node 22 explicitly.
+The pinned pnpm 11 runtime requires Node 22. All workflows that invoke pnpm
+select Node 22 explicitly.
 
 `.github/workflows/mobile-build.yml` is a push workflow. Its
 `macos-latest` cannot run in Windows/Linux act containers and is not part of PR #13's
@@ -299,9 +271,7 @@ the event fixture. The host act process reaches it through
 ```powershell
 $env:HTTP_PROXY = 'http://127.0.0.1:7890'
 $env:HTTPS_PROXY = 'http://127.0.0.1:7890'
-act pull_request `
-  -W .github/workflows/ci.yml `
-  -e .act/pull_request.json `
+bash ci/run-act-pr.sh `
   --env HTTP_PROXY=http://host.docker.internal:7890 `
   --env HTTPS_PROXY=http://host.docker.internal:7890 `
   --env NO_PROXY=localhost,127.0.0.1,::1,host.docker.internal

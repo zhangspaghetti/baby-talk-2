@@ -50,6 +50,10 @@ dbMigration:
       cpu: 50m
       memory: 128Mi
 
+practiceAi:
+  providerMode: fake
+  springProfilesActive: dev
+
 config:
   BABY_TALK_REDIS_HOST: babytalk-infra-redis-master
 

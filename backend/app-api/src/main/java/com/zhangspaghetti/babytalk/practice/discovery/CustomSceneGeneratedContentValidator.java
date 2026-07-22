@@ -1,22 +1,33 @@
 package com.zhangspaghetti.babytalk.practice.discovery;
 
-import java.util.Locale;
+import com.zhangspaghetti.babytalk.practice.generated.CustomSceneGenerator.ContentConstraints;
+import com.zhangspaghetti.babytalk.practice.generated.CustomSceneGenerator.GeneratedPracticeContentCandidate;
+import com.zhangspaghetti.babytalk.practice.generated.quality.GeneratedOutputGateResult;
+import com.zhangspaghetti.babytalk.practice.generated.quality.GeneratedOutputViolationCode;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.regex.Pattern;
+import java.util.stream.Stream;
 import org.springframework.stereotype.Component;
 
 @Component
 public class CustomSceneGeneratedContentValidator {
 
+    private static final int MAX_NEGATION_PREFIX_CODE_POINTS = 32;
     private static final Pattern ENGLISH_WORD_PATTERN = Pattern.compile("[A-Za-z]+(?:'[A-Za-z]+)?");
-    private static final Pattern TRACE_ID_PATTERN =
-            Pattern.compile("[A-Za-z0-9][A-Za-z0-9._:/-]{0,127}");
-    private static final Pattern MODEL_NAME_PATTERN =
-            Pattern.compile("[A-Za-z0-9][A-Za-z0-9._:/-]{0,95}");
+    private static final Pattern TRUSTED_SCENE_TAG_PATTERN = Pattern.compile("[A-Za-z0-9][A-Za-z0-9 _-]*");
+    private static final Pattern MARKDOWN_OR_TEMPLATE_PATTERN = Pattern.compile(
+            "(?m)(?:```|~~~|\\{\\{|\\}\\}|\\$\\{|</?[A-Za-z][^>]*>|"
+                    + "(?:^|\\R)\\s{0,3}(?:#{1,6}\\s|[-*+]\\s|\\d+[.)]\\s)|"
+                    + "\\*\\*|__|`[^`]+`|\\[[^]]+]\\([^)]+\\)|"
+                    + "\"[A-Za-z][A-Za-z0-9_]*\"\\s*:)");
 
     private final PracticeDiscoveryPolicyProperties policyProperties;
-    private final CustomSceneIntentClassifier intentClassifier;
     private final PolicyTextMatcher policyTextMatcher;
     private final SceneTextCanonicalizer canonicalizer;
+    private final GeneratedCoachTipComposer coachTipComposer;
+    private final List<Pattern> dangerousMedicalCommandPatterns;
+    private final List<Pattern> dangerousMedicalNegationPatterns;
 
     public CustomSceneGeneratedContentValidator(
             PracticeDiscoveryPolicyProperties policyProperties,
@@ -41,124 +52,355 @@ public class CustomSceneGeneratedContentValidator {
         this(policyProperties, intentClassifier, policyTextMatcher, new SceneTextCanonicalizer());
     }
 
-    @org.springframework.beans.factory.annotation.Autowired
     public CustomSceneGeneratedContentValidator(
             PracticeDiscoveryPolicyProperties policyProperties,
             CustomSceneIntentClassifier intentClassifier,
             PolicyTextMatcher policyTextMatcher,
             SceneTextCanonicalizer canonicalizer
     ) {
-        if (policyProperties == null || intentClassifier == null || policyTextMatcher == null || canonicalizer == null) {
+        this(
+                policyProperties,
+                intentClassifier,
+                policyTextMatcher,
+                canonicalizer,
+                new GeneratedCoachTipComposer());
+    }
+
+    @org.springframework.beans.factory.annotation.Autowired
+    public CustomSceneGeneratedContentValidator(
+            PracticeDiscoveryPolicyProperties policyProperties,
+            CustomSceneIntentClassifier intentClassifier,
+            PolicyTextMatcher policyTextMatcher,
+            SceneTextCanonicalizer canonicalizer,
+            GeneratedCoachTipComposer coachTipComposer
+    ) {
+        if (policyProperties == null
+                || intentClassifier == null
+                || policyTextMatcher == null
+                || canonicalizer == null
+                || coachTipComposer == null) {
             throw new IllegalArgumentException("practice discovery policy properties are required");
         }
         this.policyProperties = policyProperties;
-        this.intentClassifier = intentClassifier;
         this.policyTextMatcher = policyTextMatcher;
         this.canonicalizer = canonicalizer;
+        this.coachTipComposer = coachTipComposer;
+        this.dangerousMedicalCommandPatterns = compilePolicyPatterns(
+                policyProperties.validatorDangerousMedicalCommandPatterns());
+        this.dangerousMedicalNegationPatterns = compilePolicyPatterns(
+                policyProperties.validatorDangerousMedicalNegationPatterns());
     }
 
-    public CustomSceneGenerationService.GeneratedPracticeContentCandidate normalizeAndValidate(
-            CustomSceneGenerationService.GeneratedPracticeContentCandidate candidate,
-            CustomSceneGenerationService.ContentConstraints constraints
+    public GeneratedOutputGateResult evaluate(
+            GeneratedPracticeContentCandidate candidate,
+            GeneratedOutputValidationContext context
+    ) {
+        return evaluate(candidate, ContentConstraints.defaults(), context);
+    }
+
+    public GeneratedOutputGateResult evaluate(
+            GeneratedPracticeContentCandidate candidate,
+            ContentConstraints constraints,
+            GeneratedOutputValidationContext context
+    ) {
+        if (candidate == null) {
+            return new GeneratedOutputGateResult(
+                    null,
+                    List.of(GeneratedOutputViolationCode.UNTRUSTED_METADATA),
+                    List.of());
+        }
+        if (constraints == null) {
+            throw new IllegalArgumentException("content constraints are required");
+        }
+
+        var normalized = normalize(candidate);
+        var terminal = new ArrayList<GeneratedOutputViolationCode>();
+        var repairable = new ArrayList<GeneratedOutputViolationCode>();
+
+        if (containsBidiControl(candidate)) {
+            terminal.add(GeneratedOutputViolationCode.OUTPUT_BIDI_CONTROL);
+        }
+        if (hasMissingCoreContent(normalized)
+                || !isTrustedSceneTag(normalized.sceneTagEn())) {
+            terminal.add(GeneratedOutputViolationCode.UNTRUSTED_METADATA);
+        }
+        if (exceedsStorageOrSchemaLimits(normalized, constraints)) {
+            terminal.add(GeneratedOutputViolationCode.DATABASE_OVERFLOW);
+        }
+        if ((normalized.difficulty() != null
+                && !constraints.allowedDifficulties().contains(normalized.difficulty()))
+                || (normalized.generationSource() != null
+                && !constraints.allowedGenerationSources().contains(normalized.generationSource()))) {
+            terminal.add(GeneratedOutputViolationCode.INVALID_ENUM);
+        }
+
+        var combined = combined(normalized);
+        if (containsPii(combined)) {
+            terminal.add(GeneratedOutputViolationCode.OUTPUT_PII);
+        }
+        if (policyTextMatcher.containsAny(
+                combined, policyProperties.validatorAdultViolentSexual())) {
+            terminal.add(GeneratedOutputViolationCode.OUTPUT_ADULT_VIOLENT);
+        }
+        if (containsDangerousMedicalCommand(normalized)) {
+            terminal.add(GeneratedOutputViolationCode.OUTPUT_DANGEROUS_MEDICAL);
+        }
+
+        if (terminal.isEmpty()) {
+            var hasActionSignal = policyTextMatcher.containsAny(
+                    normalized.tprActionZh(), policyProperties.validatorTprActionMarkers());
+            var hasDeliverySignal = policyTextMatcher.containsAny(
+                    normalized.deliveryGuidanceZh(), policyProperties.validatorDeliveryGuidanceMarkers());
+            if (!hasActionSignal) {
+                repairable.add(GeneratedOutputViolationCode.MISSING_TPR_ACTION);
+            }
+            if (!hasDeliverySignal) {
+                repairable.add(GeneratedOutputViolationCode.MISSING_DELIVERY_GUIDANCE);
+            }
+            if (!hasActionSignal
+                    && !hasDeliverySignal
+                    && policyTextMatcher.containsAny(
+                            normalized.tprActionZh(), policyProperties.validatorDeliveryGuidanceMarkers())
+                    && policyTextMatcher.containsAny(
+                            normalized.deliveryGuidanceZh(), policyProperties.validatorTprActionMarkers())) {
+                repairable.add(GeneratedOutputViolationCode.FIELD_ROLE_MISMATCH);
+            }
+            if (policyTextMatcher.containsAny(combined, policyProperties.validatorPromptEcho())) {
+                repairable.add(GeneratedOutputViolationCode.META_INSTRUCTION);
+            }
+            if (policyTextMatcher.containsAny(combined, policyProperties.validatorBlockedFraming())) {
+                repairable.add(GeneratedOutputViolationCode.COURSE_OR_SCORING_FRAMING);
+            }
+            if (containsMarkdownOrTemplate(normalized)) {
+                repairable.add(GeneratedOutputViolationCode.MARKDOWN_OR_TEMPLATE);
+            }
+        }
+
+        return new GeneratedOutputGateResult(normalized, terminal, repairable);
+    }
+
+    public GeneratedPracticeContentCandidate normalizeAndValidate(
+            GeneratedPracticeContentCandidate candidate,
+            ContentConstraints constraints
     ) {
         return normalizeAndValidate(candidate, constraints, new GeneratedOutputValidationContext(null));
     }
 
-    public CustomSceneGenerationService.GeneratedPracticeContentCandidate normalizeAndValidate(
-            CustomSceneGenerationService.GeneratedPracticeContentCandidate candidate,
-            CustomSceneGenerationService.ContentConstraints constraints,
+    public GeneratedPracticeContentCandidate normalizeAndValidate(
+            GeneratedPracticeContentCandidate candidate,
+            ContentConstraints constraints,
             GeneratedOutputValidationContext context
     ) {
-        if (candidate == null) {
-            throw new InvalidGeneratedContentException("candidate_missing");
+        var result = evaluate(candidate, constraints, context);
+        validateLegacyStructure(candidate, result.normalizedCandidate(), constraints);
+        if (!result.terminalViolations().isEmpty()) {
+            throw legacyException(result.terminalViolations().get(0));
         }
-
-        var normalized = new CustomSceneGenerationService.GeneratedPracticeContentCandidate(
-                required(candidate.spaceTitleZh(), "spaceTitleZh"),
-                required(candidate.activityTitleZh(), "activityTitleZh"),
-                required(candidate.sceneTagEn(), "sceneTagEn"),
-                required(candidate.coachTipZh(), "coachTipZh"),
-                required(candidate.englishText(), "englishText"),
-                required(candidate.chineseText(), "chineseText"),
-                trimToNull(candidate.pronunciationHint()),
-                required(candidate.difficulty(), "difficulty"),
-                required(candidate.generationSource(), "generationSource"),
-                trimToNull(candidate.providerTraceId()),
-                trimToNull(candidate.retrievalTraceId()),
-                trimToNull(candidate.modelName())
-        );
-
-        validateDatabaseLength(normalized.spaceTitleZh(), 120, "spaceTitleZh");
-        validateDatabaseLength(normalized.activityTitleZh(), 120, "activityTitleZh");
-        validateDatabaseLength(normalized.sceneTagEn(), 120, "sceneTagEn");
-        validateDatabaseLength(normalized.coachTipZh(), 240, "coachTipZh");
-        validateDatabaseLength(normalized.englishText(), 120, "englishText");
-        validateDatabaseLength(normalized.chineseText(), 120, "chineseText");
-        validateDatabaseLength(normalized.pronunciationHint(), 120, "pronunciationHint");
-        validateDatabaseLength(normalized.difficulty(), 16, "difficulty");
-        validateDatabaseLength(normalized.generationSource(), 32, "generationSource");
-        validateDatabaseLength(normalized.providerTraceId(), 128, "providerTraceId");
-        validateDatabaseLength(normalized.retrievalTraceId(), 128, "retrievalTraceId");
-        validateDatabaseLength(normalized.modelName(), 96, "modelName");
-
-        validateOpaqueMetadata(normalized.providerTraceId(), TRACE_ID_PATTERN, "providerTraceId");
-        validateOpaqueMetadata(normalized.retrievalTraceId(), TRACE_ID_PATTERN, "retrievalTraceId");
-        validateOpaqueMetadata(normalized.modelName(), MODEL_NAME_PATTERN, "modelName");
-
-        validateEnglishStarter(normalized.englishText(), constraints);
-        validateMaxLength(normalized.chineseText(), constraints.maxChineseChars(), "chineseText");
-        validateMaxLength(normalized.coachTipZh(), constraints.maxCoachTipChars(), "coachTipZh");
-        validateMaxLength(normalized.sceneTagEn(), constraints.maxSceneTagChars(), "sceneTagEn");
-
-        if (!constraints.allowedDifficulties().contains(normalized.difficulty())) {
-            throw new InvalidGeneratedContentException("difficulty");
+        if (!result.repairableViolations().isEmpty()) {
+            throw legacyException(result.repairableViolations().get(0));
         }
-        if (!constraints.allowedGenerationSources().contains(normalized.generationSource())) {
-            throw new InvalidGeneratedContentException("generationSource");
-        }
-
-        var combined = combined(normalized);
-        if (policyProperties.compiledPhonePattern().matcher(combined).find()
-                || policyProperties.compiledEmailPattern().matcher(combined).find()
-                || policyProperties.compiledBabyNamePattern().matcher(combined).find()
-                || policyTextMatcher.containsAny(combined, policyProperties.validatorPiiMarkers())) {
-            throw new RejectedGeneratedContentException("output_pii_leakage");
-        }
-        if (containsPromptEcho(context == null ? null : context.normalizedSceneText(), combined)) {
-            throw new RejectedGeneratedContentException("custom_scene_prompt_echo");
-        }
-        rejectIfContains(combined, policyProperties.validatorPromptEcho(), "prompt_injection_echo");
-        rejectIfContains(combined, policyProperties.validatorBlockedFraming(), "unsupported_learning_framing");
-        rejectIfContains(combined, policyProperties.validatorMedicalLegal(), "unsafe_medical_legal");
-        rejectIfContains(combined, policyProperties.validatorAdultViolentSexual(), "unsafe_adult_violent_sexual");
-        rejectIfContains(combined, policyProperties.validatorUnsupportedClaims(), "unsupported_claim");
-        rejectIfContains(combined, policyProperties.validatorUnsuitable03(), "unsuitable_0_3_content");
-        var classifiedIntents = intentClassifier.classifyAll(
-                context == null ? null : context.normalizedSceneText());
-        if (!classifiedIntents.isEmpty()
-                && classifiedIntents.stream().noneMatch(intent -> intentClassifier.matchesOutput(intent, combined))) {
-            throw new RejectedGeneratedContentException("scene_intent_mismatch");
-        }
-
-        return normalized;
+        return result.normalizedCandidate();
     }
 
     public record GeneratedOutputValidationContext(String normalizedSceneText) {
     }
 
-    private void validateEnglishStarter(
-            String englishText,
-            CustomSceneGenerationService.ContentConstraints constraints
+    private GeneratedPracticeContentCandidate normalize(GeneratedPracticeContentCandidate candidate) {
+        return new GeneratedPracticeContentCandidate(
+                canonicalizer.canonicalize(candidate.spaceTitleZh()),
+                canonicalizer.canonicalize(candidate.activityTitleZh()),
+                canonicalizer.canonicalize(candidate.sceneTagEn()),
+                canonicalizer.canonicalize(candidate.tprActionZh()),
+                canonicalizer.canonicalize(candidate.deliveryGuidanceZh()),
+                canonicalizer.canonicalize(candidate.englishText()),
+                canonicalizer.canonicalize(candidate.chineseText()),
+                canonicalizer.canonicalize(candidate.pronunciationHint()),
+                canonicalizer.canonicalize(candidate.difficulty()),
+                canonicalizer.canonicalize(candidate.generationSource()));
+    }
+
+    private boolean containsBidiControl(GeneratedPracticeContentCandidate candidate) {
+        return candidateFields(candidate)
+                .filter(value -> value != null)
+                .map(canonicalizer::derive)
+                .anyMatch(forms -> forms.riskSignals().bidiControlPresent());
+    }
+
+    private boolean hasMissingCoreContent(GeneratedPracticeContentCandidate candidate) {
+        return candidate.spaceTitleZh() == null
+                || candidate.activityTitleZh() == null
+                || candidate.sceneTagEn() == null
+                || candidate.englishText() == null
+                || candidate.chineseText() == null
+                || candidate.difficulty() == null
+                || candidate.generationSource() == null;
+    }
+
+    private boolean isTrustedSceneTag(String sceneTagEn) {
+        return sceneTagEn == null || TRUSTED_SCENE_TAG_PATTERN.matcher(sceneTagEn).matches();
+    }
+
+    private boolean exceedsStorageOrSchemaLimits(
+            GeneratedPracticeContentCandidate candidate,
+            ContentConstraints constraints
     ) {
-        if (canonicalizer.graphemeLength(englishText) > constraints.maxEnglishChars()) {
-            throw new InvalidGeneratedContentException("englishText");
+        return exceedsCodePoints(candidate.spaceTitleZh(), 120)
+                || exceedsCodePoints(candidate.activityTitleZh(), 120)
+                || exceedsCodePoints(candidate.sceneTagEn(), 120)
+                || exceedsCodePoints(candidate.tprActionZh(), 240)
+                || exceedsCodePoints(candidate.deliveryGuidanceZh(), 240)
+                || exceedsCodePoints(candidate.englishText(), 120)
+                || exceedsCodePoints(candidate.chineseText(), 120)
+                || exceedsCodePoints(candidate.pronunciationHint(), 120)
+                || exceedsCodePoints(candidate.difficulty(), 16)
+                || exceedsCodePoints(candidate.generationSource(), 32)
+                || canonicalizer.graphemeLength(candidate.englishText()) > constraints.maxEnglishChars()
+                || (candidate.englishText() != null
+                && (englishWordCount(candidate.englishText()) < 1
+                || englishWordCount(candidate.englishText()) > constraints.maxEnglishWords()))
+                || canonicalizer.graphemeLength(candidate.chineseText()) > constraints.maxChineseChars()
+                || coachTipComposer.graphemeLength(
+                        candidate.tprActionZh(), candidate.deliveryGuidanceZh()) > constraints.maxCoachTipChars()
+                || canonicalizer.graphemeLength(candidate.sceneTagEn()) > constraints.maxSceneTagChars();
+    }
+
+    private boolean exceedsCodePoints(String value, int maxCodePoints) {
+        return value != null && canonicalizer.codePointLength(value) > maxCodePoints;
+    }
+
+    private int englishWordCount(String englishText) {
+        if (englishText == null) {
+            return 0;
         }
         var matcher = ENGLISH_WORD_PATTERN.matcher(englishText);
         var words = 0;
         while (matcher.find()) {
             words++;
         }
-        if (words < 1 || words > constraints.maxEnglishWords()) {
+        return words;
+    }
+
+    private boolean containsPii(String combined) {
+        return policyProperties.compiledPhonePattern().matcher(combined).find()
+                || policyProperties.compiledEmailPattern().matcher(combined).find()
+                || policyProperties.compiledBabyNamePattern().matcher(combined).find()
+                || policyTextMatcher.containsAny(combined, policyProperties.validatorPiiMarkers());
+    }
+
+    private boolean containsDangerousMedicalCommand(GeneratedPracticeContentCandidate candidate) {
+        return candidateFields(candidate)
+                .filter(value -> value != null)
+                .anyMatch(this::containsUnnegatedDangerousMedicalCommand);
+    }
+
+    private boolean containsUnnegatedDangerousMedicalCommand(String text) {
+        var securityText = canonicalizer.derive(text).securityText();
+        if (securityText == null) {
+            return false;
+        }
+        for (var commandPattern : dangerousMedicalCommandPatterns) {
+            var matcher = commandPattern.matcher(securityText);
+            while (matcher.find()) {
+                if (!isLocallyNegated(securityText, matcher.start())) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    private boolean isLocallyNegated(String text, int commandStart) {
+        var prefixCodePoints = text.codePointCount(0, commandStart);
+        var prefixStart = text.offsetByCodePoints(
+                0, Math.max(0, prefixCodePoints - MAX_NEGATION_PREFIX_CODE_POINTS));
+        var localPrefix = text.substring(prefixStart, commandStart);
+        return dangerousMedicalNegationPatterns.stream()
+                .anyMatch(pattern -> pattern.matcher(localPrefix).find());
+    }
+
+    private static List<Pattern> compilePolicyPatterns(List<String> patterns) {
+        var flags = Pattern.CASE_INSENSITIVE
+                | Pattern.UNICODE_CASE
+                | Pattern.UNICODE_CHARACTER_CLASS;
+        return patterns.stream()
+                .map(pattern -> Pattern.compile(pattern, flags))
+                .toList();
+    }
+
+    private boolean containsMarkdownOrTemplate(GeneratedPracticeContentCandidate candidate) {
+        return candidateFields(candidate)
+                .filter(value -> value != null)
+                .anyMatch(value -> MARKDOWN_OR_TEMPLATE_PATTERN.matcher(value).find());
+    }
+
+    private Stream<String> candidateFields(GeneratedPracticeContentCandidate candidate) {
+        return Stream.of(
+                candidate.spaceTitleZh(),
+                candidate.activityTitleZh(),
+                candidate.sceneTagEn(),
+                candidate.tprActionZh(),
+                candidate.deliveryGuidanceZh(),
+                candidate.englishText(),
+                candidate.chineseText(),
+                candidate.pronunciationHint(),
+                candidate.difficulty(),
+                candidate.generationSource());
+    }
+
+    private String combined(GeneratedPracticeContentCandidate candidate) {
+        return String.join(" ", candidateFields(candidate)
+                .map(this::nullToEmpty)
+                .toList());
+    }
+
+    private void validateLegacyStructure(
+            GeneratedPracticeContentCandidate original,
+            GeneratedPracticeContentCandidate normalized,
+            ContentConstraints constraints
+    ) {
+        if (original == null) {
+            throw new InvalidGeneratedContentException("candidate_missing");
+        }
+        require(normalized.spaceTitleZh(), "spaceTitleZh");
+        require(normalized.activityTitleZh(), "activityTitleZh");
+        require(normalized.sceneTagEn(), "sceneTagEn");
+        require(normalized.tprActionZh(), "tprActionZh");
+        require(normalized.deliveryGuidanceZh(), "deliveryGuidanceZh");
+        require(normalized.englishText(), "englishText");
+        require(normalized.chineseText(), "chineseText");
+        require(normalized.difficulty(), "difficulty");
+        require(normalized.generationSource(), "generationSource");
+
+        validateDatabaseLength(normalized.spaceTitleZh(), 120, "spaceTitleZh");
+        validateDatabaseLength(normalized.activityTitleZh(), 120, "activityTitleZh");
+        validateDatabaseLength(normalized.sceneTagEn(), 120, "sceneTagEn");
+        validateDatabaseLength(normalized.tprActionZh(), 240, "tprActionZh");
+        validateDatabaseLength(normalized.deliveryGuidanceZh(), 240, "deliveryGuidanceZh");
+        validateDatabaseLength(normalized.englishText(), 120, "englishText");
+        validateDatabaseLength(normalized.chineseText(), 120, "chineseText");
+        validateDatabaseLength(normalized.pronunciationHint(), 120, "pronunciationHint");
+        validateDatabaseLength(normalized.difficulty(), 16, "difficulty");
+        validateDatabaseLength(normalized.generationSource(), 32, "generationSource");
+
+        validateEnglishStarter(normalized.englishText(), constraints);
+        validateMaxLength(normalized.chineseText(), constraints.maxChineseChars(), "chineseText");
+        if (coachTipComposer.graphemeLength(
+                normalized.tprActionZh(), normalized.deliveryGuidanceZh()) > constraints.maxCoachTipChars()) {
+            throw new InvalidGeneratedContentException("coachTipZh");
+        }
+        validateMaxLength(normalized.sceneTagEn(), constraints.maxSceneTagChars(), "sceneTagEn");
+        if (!constraints.allowedDifficulties().contains(normalized.difficulty())) {
+            throw new InvalidGeneratedContentException("difficulty");
+        }
+        if (!constraints.allowedGenerationSources().contains(normalized.generationSource())) {
+            throw new InvalidGeneratedContentException("generationSource");
+        }
+    }
+
+    private void validateEnglishStarter(String englishText, ContentConstraints constraints) {
+        if (canonicalizer.graphemeLength(englishText) > constraints.maxEnglishChars()
+                || englishWordCount(englishText) < 1
+                || englishWordCount(englishText) > constraints.maxEnglishWords()) {
             throw new InvalidGeneratedContentException("englishText");
         }
     }
@@ -170,73 +412,37 @@ public class CustomSceneGeneratedContentValidator {
     }
 
     private void validateDatabaseLength(String value, int maxCodePoints, String fieldName) {
-        if (value != null && canonicalizer.codePointLength(value) > maxCodePoints) {
+        if (exceedsCodePoints(value, maxCodePoints)) {
             throw new InvalidGeneratedContentException(fieldName);
         }
     }
 
-    private void validateOpaqueMetadata(String value, Pattern pattern, String fieldName) {
-        if (value != null && !pattern.matcher(value).matches()) {
+    private void require(String value, String fieldName) {
+        if (value == null) {
             throw new InvalidGeneratedContentException(fieldName);
         }
     }
 
-    private String required(String value, String fieldName) {
-        var normalized = canonicalizer.canonicalize(value);
-        if (normalized == null) {
-            throw new InvalidGeneratedContentException(fieldName);
-        }
-        return normalized;
-    }
-
-    private String trimToNull(String value) {
-        return canonicalizer.canonicalize(value);
-    }
-
-    private String combined(CustomSceneGenerationService.GeneratedPracticeContentCandidate candidate) {
-        return (candidate.spaceTitleZh()
-                + " "
-                + candidate.activityTitleZh()
-                + " "
-                + candidate.sceneTagEn()
-                + " "
-                + candidate.coachTipZh()
-                + " "
-                + candidate.englishText()
-                + " "
-                + candidate.chineseText()
-                + " "
-                + nullToEmpty(candidate.pronunciationHint()))
-                .toLowerCase(Locale.ROOT);
-    }
-
-    private boolean containsPromptEcho(String sceneText, String outputText) {
-        var scene = canonicalizer.canonicalize(sceneText);
-        var output = canonicalizer.canonicalize(outputText);
-        if (scene == null || output == null) {
-            return false;
-        }
-        var searchableOutput = output.toLowerCase(Locale.ROOT);
-        var searchableScene = scene.toLowerCase(Locale.ROOT);
-        if (canonicalizer.codePointLength(searchableScene) >= 8
-                && searchableOutput.contains(searchableScene)) {
-            return true;
-        }
-        var codePoints = searchableScene.codePoints().toArray();
-        var windowSize = 16;
-        for (var start = 0; start + windowSize <= codePoints.length; start++) {
-            var window = new String(codePoints, start, windowSize);
-            if (searchableOutput.contains(window)) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    private void rejectIfContains(String text, java.util.Collection<String> needles, String reason) {
-        if (policyTextMatcher.containsAny(text, needles)) {
-            throw new RejectedGeneratedContentException(reason);
-        }
+    private RuntimeException legacyException(GeneratedOutputViolationCode violation) {
+        return switch (violation) {
+            case OUTPUT_PII -> new RejectedGeneratedContentException("output_pii_leakage");
+            case OUTPUT_BIDI_CONTROL -> new RejectedGeneratedContentException("output_bidi_control");
+            case OUTPUT_ADULT_VIOLENT ->
+                    new RejectedGeneratedContentException("unsafe_adult_violent_sexual");
+            case OUTPUT_DANGEROUS_MEDICAL ->
+                    new RejectedGeneratedContentException("unsafe_medical_legal");
+            case UNTRUSTED_METADATA -> new RejectedGeneratedContentException("untrusted_metadata");
+            case DATABASE_OVERFLOW -> new InvalidGeneratedContentException("database_overflow");
+            case INVALID_ENUM -> new InvalidGeneratedContentException("invalid_enum");
+            case MISSING_TPR_ACTION -> new RejectedGeneratedContentException("missing_tpr_action");
+            case MISSING_DELIVERY_GUIDANCE ->
+                    new RejectedGeneratedContentException("missing_delivery_guidance");
+            case FIELD_ROLE_MISMATCH -> new RejectedGeneratedContentException("field_role_mismatch");
+            case META_INSTRUCTION -> new RejectedGeneratedContentException("prompt_injection_echo");
+            case COURSE_OR_SCORING_FRAMING ->
+                    new RejectedGeneratedContentException("unsupported_learning_framing");
+            case MARKDOWN_OR_TEMPLATE -> new RejectedGeneratedContentException("markdown_or_template");
+        };
     }
 
     private String nullToEmpty(String value) {

@@ -1,5 +1,6 @@
 package com.zhangspaghetti.babytalk.practice.discovery;
 
+import com.zhangspaghetti.babytalk.practice.generated.CustomSceneGenerator;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.handler;
@@ -20,9 +21,11 @@ import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Primary;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.MockMvc;
 
 @SpringBootTest(properties = {
@@ -47,7 +50,13 @@ class PracticeDiscoveryControllerTest extends AbstractIntegrationTest {
     private AuthConsentSyncService authConsentSyncService;
 
     @Autowired
-    private MutableCustomSceneGenerationService customSceneGenerationService;
+    private MutableCustomSceneGenerator customSceneGenerationService;
+
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
+
+    @Autowired
+    private ApplicationContext applicationContext;
 
     @BeforeEach
     void resetCustomSceneGenerator() {
@@ -124,12 +133,66 @@ class PracticeDiscoveryControllerTest extends AbstractIntegrationTest {
                 .andReturn();
 
         var body = result.getResponse().getContentAsString();
+        var response = objectMapper.readTree(body);
+        var scene = response.get("scenes").get(0);
+        var moment = response.get("moments").get(0);
+        var utterance = moment.get("starterUtterances").get(0);
+        var starter = response.get("starter");
         assertThat(body)
                 .contains("gen_scene_")
                 .contains("gen_activity_")
                 .contains("gen_phrase_")
                 .doesNotContain("洗澡后哄睡")
                 .doesNotContain("normalizedSceneText");
+        assertThat(scene.get("sceneId").asText()).isEqualTo(scene.get("spaceId").asText());
+        assertThat(scene.get("sceneId").asText()).startsWith("gen_scene_");
+        assertThat(scene.get("spaceId").asText()).startsWith("gen_scene_");
+        assertThat(moment.get("momentId").asText()).isEqualTo(moment.get("activityId").asText());
+        assertThat(moment.get("momentId").asText()).startsWith("gen_activity_");
+        assertThat(moment.get("activityId").asText()).startsWith("gen_activity_");
+        assertThat(moment.get("sceneId").asText()).isEqualTo(scene.get("sceneId").asText());
+        assertThat(moment.get("spaceId").asText()).isEqualTo(scene.get("spaceId").asText());
+        assertThat(utterance.get("utteranceId").asText()).isEqualTo(utterance.get("phraseId").asText());
+        assertThat(utterance.get("utteranceId").asText()).startsWith("gen_phrase_");
+        assertThat(utterance.get("phraseId").asText()).startsWith("gen_phrase_");
+        assertThat(starter.get("sceneId").asText()).isEqualTo(scene.get("sceneId").asText());
+        assertThat(starter.get("spaceId").asText()).isEqualTo(scene.get("spaceId").asText());
+        assertThat(starter.get("sceneId").asText()).startsWith("gen_scene_");
+        assertThat(starter.get("spaceId").asText()).startsWith("gen_scene_");
+        assertThat(starter.get("momentId").asText()).isEqualTo(moment.get("momentId").asText());
+        assertThat(starter.get("activityId").asText()).isEqualTo(moment.get("activityId").asText());
+        assertThat(starter.get("momentId").asText()).startsWith("gen_activity_");
+        assertThat(starter.get("activityId").asText()).startsWith("gen_activity_");
+        assertThat(starter.get("utteranceId").asText()).isEqualTo(utterance.get("utteranceId").asText());
+        assertThat(starter.get("phraseId").asText()).isEqualTo(utterance.get("phraseId").asText());
+        assertThat(starter.get("utteranceId").asText()).startsWith("gen_phrase_");
+        assertThat(starter.get("phraseId").asText()).startsWith("gen_phrase_");
+        assertThat(moment.get("coachTip").asText()).isEqualTo("看着宝宝。 慢慢说一遍。");
+    }
+
+    @Test
+    void fakeModeRunsTheTypedOrchestratorAndPersistsAttemptBundleAndJudgeBeforeActivation() throws Exception {
+        customSceneGenerationService.mode("repairable");
+
+        mockMvc.perform(discovery(customSceneJson("洗澡后哄睡")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.source").value("generated"));
+
+        assertThat(jdbcTemplate.queryForObject(
+                "select status from practice_generated_content", String.class)).isEqualTo("active");
+        assertThat(jdbcTemplate.queryForObject(
+                "select count(*) from practice_generated_content_attempts where status = 'completed'",
+                Integer.class)).isEqualTo(2);
+        assertThat(jdbcTemplate.queryForObject(
+                "select count(*) from practice_generated_content_evidence_bundles", Integer.class)).isEqualTo(2);
+        assertThat(jdbcTemplate.queryForObject(
+                "select count(*) from practice_generated_content_judge_results", Integer.class)).isEqualTo(1);
+        assertThat(applicationContext.getBeansOfType(
+                com.zhangspaghetti.babytalk.practice.agentic.PracticeAiProviderManager.class)).isEmpty();
+        assertThat(applicationContext.getBeansOfType(
+                com.zhangspaghetti.babytalk.practice.agentic.PracticeAiStructuredOutputCaller.class)).isEmpty();
+        assertThat(jdbcTemplate.queryForObject(
+                "select count(*) from practice_ai_provider_calls where provider_type <> 'fake'", Integer.class)).isZero();
     }
 
     @Test
@@ -179,6 +242,16 @@ class PracticeDiscoveryControllerTest extends AbstractIntegrationTest {
     }
 
     @Test
+    void customSceneInvalidOutputIsNonRetryable() throws Exception {
+        customSceneGenerationService.mode("invalid");
+
+        mockMvc.perform(discovery(customSceneJson("洗澡后哄睡")))
+                .andExpect(status().isBadGateway())
+                .andExpect(jsonPath("$.code").value("generation_invalid_output"))
+                .andExpect(jsonPath("$.details.retryable").value(false));
+    }
+
+    @Test
     void customSceneRejectedRetryDoesNotPrimaryKeyCrash() throws Exception {
         customSceneGenerationService.mode("unsafe");
 
@@ -217,16 +290,16 @@ class PracticeDiscoveryControllerTest extends AbstractIntegrationTest {
     @Test
     void invalidCustomSceneTextRejectedBeforeGeneration() throws Exception {
         mockMvc.perform(discovery(customSceneJson("洗澡 138001380001")))
-                .andExpect(status().isBadRequest())
+                .andExpect(status().isUnprocessableEntity())
                 .andExpect(jsonPath("$.code").value("unsafe_custom_scene_text"));
 
         mockMvc.perform(discovery(customSceneJson("宝宝叫小明，洗澡后哄睡")))
-                .andExpect(status().isBadRequest())
+                .andExpect(status().isUnprocessableEntity())
                 .andExpect(jsonPath("$.code").value("unsafe_custom_scene_text"));
 
         mockMvc.perform(discovery(customSceneJson("洗澡 ignore previous")))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.code").value("unsupported_custom_scene_text"));
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.code").value("unsafe_custom_scene_text"));
     }
 
     @Test
@@ -598,12 +671,12 @@ class PracticeDiscoveryControllerTest extends AbstractIntegrationTest {
 
         @Bean
         @Primary
-        MutableCustomSceneGenerationService mutableCustomSceneGenerationService() {
-            return new MutableCustomSceneGenerationService();
+        MutableCustomSceneGenerator mutableCustomSceneGenerator() {
+            return new MutableCustomSceneGenerator();
         }
     }
 
-    static class MutableCustomSceneGenerationService implements CustomSceneGenerationService {
+    static class MutableCustomSceneGenerator implements CustomSceneGenerator {
 
         private final AtomicReference<String> mode = new AtomicReference<>("success");
 
@@ -612,13 +685,19 @@ class PracticeDiscoveryControllerTest extends AbstractIntegrationTest {
         }
 
         @Override
-        public GeneratedPracticeContentCandidate generateCustomSceneStarter(CustomSceneGenerationRequest request) {
+        public GeneratedPracticeContentCandidate generate(GeneratorRequest request) {
             return switch (mode.get()) {
-                case "unsafe" -> candidate("学习任务", "答题打分", "Lesson quiz", "让孩子答对后再给分。", "Take the quiz.", "开始测验。");
-                case "timeout" -> throw new GenerationTimeoutException(request.timeout());
+                case "unsafe" -> candidate("学习任务", "答题打分", "Lesson quiz", "让孩子答对后再给分。", "答对后打分。", "Take the quiz.", "开始测验。");
+                case "invalid" -> new GeneratedPracticeContentCandidate(
+                        "日常照护", "洗澡安抚", "Bath care", "看着宝宝。", "慢慢说一遍。",
+                        "Warm water.", "水暖暖的。", "warm water", "advanced", "fake");
+                case "repairable" -> new GeneratedPracticeContentCandidate(
+                        "日常照护", "洗澡安抚", "Bath care", "", "慢慢说一遍。",
+                        "Warm water.", "水暖暖的。", "warm water", "starter", "fake");
+                case "timeout" -> throw new GenerationTimeoutException();
                 case "unavailable" -> throw new GenerationUnavailableException(
                         GenerationUnavailableReason.PROVIDER_UNAVAILABLE);
-                default -> candidate("日常照护", "洗澡安抚", "Bath care", "看着宝宝，慢慢说一遍。", "Warm water.", "水暖暖的。");
+                default -> candidate("日常照护", "洗澡安抚", "Bath care", "看着宝宝。", "慢慢说一遍。", "Warm water.", "水暖暖的。");
             };
         }
 
@@ -626,7 +705,8 @@ class PracticeDiscoveryControllerTest extends AbstractIntegrationTest {
                 String spaceTitleZh,
                 String activityTitleZh,
                 String sceneTagEn,
-                String coachTipZh,
+                String tprActionZh,
+                String deliveryGuidanceZh,
                 String englishText,
                 String chineseText
         ) {
@@ -634,15 +714,13 @@ class PracticeDiscoveryControllerTest extends AbstractIntegrationTest {
                     spaceTitleZh,
                     activityTitleZh,
                     sceneTagEn,
-                    coachTipZh,
+                    tprActionZh,
+                    deliveryGuidanceZh,
                     englishText,
                     chineseText,
                     englishText.toLowerCase().replaceAll("[^a-z ]", "").trim(),
                     "starter",
-                    "fake",
-                    "test_provider_trace",
-                    null,
-                    "test-custom-scene"
+                    "fake"
             );
         }
     }

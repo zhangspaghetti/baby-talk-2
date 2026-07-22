@@ -1,26 +1,36 @@
 package com.zhangspaghetti.babytalk.practice.generated;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatNoException;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.zhangspaghetti.babytalk.AbstractIntegrationTest;
 import com.zhangspaghetti.babytalk.practice.discovery.CustomSceneGeneratedContentValidator;
-import com.zhangspaghetti.babytalk.practice.discovery.CustomSceneGenerationService;
 import com.zhangspaghetti.babytalk.practice.discovery.PracticeDiscoveryCustomSceneProperties;
 import com.zhangspaghetti.babytalk.practice.discovery.PracticeDiscoveryPolicyTestFixture;
+import com.zhangspaghetti.babytalk.practice.generated.internal.PracticeGenerationAuditTestAccess;
+import com.zhangspaghetti.babytalk.practice.generated.model.PracticeAiOperationRunEntity;
+import com.zhangspaghetti.babytalk.practice.generated.model.PracticeAiProviderCallEntity;
+import com.zhangspaghetti.babytalk.practice.generated.model.PracticeEvidenceBundleEntity;
+import com.zhangspaghetti.babytalk.practice.generated.model.PracticeGenerationAttemptEntity;
 import com.zhangspaghetti.babytalk.practice.generated.model.PracticeGeneratedContentEntity;
+import com.zhangspaghetti.babytalk.practice.generated.model.PracticeJudgeResultEntity;
+import java.math.BigDecimal;
 import java.sql.Timestamp;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
+import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.namedparam.BeanPropertySqlParameterSource;
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 
 class PracticeGeneratedContentMapperTest extends AbstractIntegrationTest {
 
@@ -31,13 +41,18 @@ class PracticeGeneratedContentMapperTest extends AbstractIntegrationTest {
     private PracticeGeneratedContentService repository;
 
     @Autowired
-    private PracticeGeneratedContentMapper mapper;
+    private PracticeGeneratedContentQueryMapper queries;
 
     @Autowired
-    private PracticeGeneratedContentWriteService writeService;
+    private PracticeGeneratedContentCommands commands;
+
+    @Autowired
+    private PracticeGenerationAuditTestAccess audit;
 
     @Autowired
     private JdbcTemplate jdbcTemplate;
+
+    private static final String HASH = "a".repeat(64);
 
     @BeforeEach
     void cleanGeneratedContentFixturesBeforeTest() {
@@ -70,6 +85,7 @@ class PracticeGeneratedContentMapperTest extends AbstractIntegrationTest {
                 .generationWindow(NOW_DB, NOW_DB.plusMinutes(5))
                 .build());
         assertRejected(row("pgc_repo_bad_draft_start")
+                .status("generating")
                 .generationWindow(null, NOW_DB.plusMinutes(5))
                 .build());
         assertRejected(row("pgc_repo_bad_draft_expiry")
@@ -80,7 +96,7 @@ class PracticeGeneratedContentMapperTest extends AbstractIntegrationTest {
                 .withoutAutomaticRetention()
                 .build());
         assertRejected(row("pgc_repo_bad_installation_promoted")
-                .promoted()
+                .status("promoted")
                 .build());
         assertRejected(row("pgc_repo_bad_active_error")
                 .active()
@@ -139,7 +155,7 @@ class PracticeGeneratedContentMapperTest extends AbstractIntegrationTest {
                 .build();
         insertAccount(row.accountId());
 
-        assertThatThrownBy(() -> mapper.insertRow(row))
+        assertThatThrownBy(() -> insertRaw(row))
                 .isInstanceOf(DataIntegrityViolationException.class);
     }
 
@@ -150,7 +166,6 @@ class PracticeGeneratedContentMapperTest extends AbstractIntegrationTest {
                 .withoutResponseFields()
                 .build());
         assertRejected(row("pgc_repo_incomplete_promoted")
-                .globalCandidate()
                 .promoted()
                 .withoutResponseFields()
                 .build());
@@ -159,13 +174,11 @@ class PracticeGeneratedContentMapperTest extends AbstractIntegrationTest {
     @Test
     void nullableOwnerIdsAreStillUniqueByNonNullOwnerKey() {
         insert(row("pgc_repo_global_draft_1")
-                .globalCandidate()
                 .ownerKey("hmac_test_repo_global_live")
                 .requestFingerprint("fp_repo_nullable_owner")
                 .build());
 
         assertRejected(row("pgc_repo_global_draft_2")
-                .globalCandidate()
                 .ownerKey("hmac_test_repo_global_live")
                 .requestFingerprint("fp_repo_nullable_owner")
                 .build());
@@ -174,14 +187,12 @@ class PracticeGeneratedContentMapperTest extends AbstractIntegrationTest {
     @Test
     void promotedBlocksDuplicateActiveForSameLiveFingerprint() {
         insert(row("pgc_repo_promoted_live")
-                .globalCandidate()
                 .promoted()
                 .ownerKey("hmac_test_repo_promoted_blocks")
                 .requestFingerprint("fp_repo_promoted_blocks")
                 .build());
 
         assertRejected(row("pgc_repo_active_live_conflict")
-                .globalCandidate()
                 .active()
                 .ownerKey("hmac_test_repo_promoted_blocks")
                 .requestFingerprint("fp_repo_promoted_blocks")
@@ -245,21 +256,18 @@ class PracticeGeneratedContentMapperTest extends AbstractIntegrationTest {
                 .build());
 
         assertRejected(row("pgc_repo_slug_promoted_space")
-                .globalCandidate()
                 .promoted()
                 .ownerKey("hmac_test_repo_slug_space")
                 .requestFingerprint("fp_repo_slug_space")
                 .slugs("space_repo_slug", "activity_repo_slug_2", "phrase_repo_slug_2")
                 .build());
         assertRejected(row("pgc_repo_slug_promoted_activity")
-                .globalCandidate()
                 .promoted()
                 .ownerKey("hmac_test_repo_slug_activity")
                 .requestFingerprint("fp_repo_slug_activity")
                 .slugs("space_repo_slug_2", "activity_repo_slug", "phrase_repo_slug_3")
                 .build());
         assertRejected(row("pgc_repo_slug_promoted_phrase")
-                .globalCandidate()
                 .promoted()
                 .ownerKey("hmac_test_repo_slug_phrase")
                 .requestFingerprint("fp_repo_slug_phrase")
@@ -271,7 +279,7 @@ class PracticeGeneratedContentMapperTest extends AbstractIntegrationTest {
     void findsActiveOrPromotedRowsByGeneratedContentId() {
         insert(row("pgc_repo_lookup_draft").build());
         insert(row("pgc_repo_lookup_active").active().build());
-        insert(row("pgc_repo_lookup_promoted").globalCandidate().promoted().build());
+        insert(row("pgc_repo_lookup_promoted").promoted().build());
 
         var active = repository.findActiveOrPromotedByGeneratedContentId("pgc_repo_lookup_active");
         var promoted = repository.findActiveOrPromotedByGeneratedContentId("pgc_repo_lookup_promoted");
@@ -298,14 +306,13 @@ class PracticeGeneratedContentMapperTest extends AbstractIntegrationTest {
                 active.surface(),
                 active.mode(),
                 active.requestFingerprint(),
-                active.promptVersion(),
-                active.strategyVersion());
+                active.generationProfileVersion(),
+                active.evidencePolicyVersion());
 
         assertThat(found).isPresent();
         assertThat(found.get().generatedContentId()).isEqualTo(active.generatedContentId());
 
         var promoted = row("pgc_repo_lookup_promoted_fingerprint")
-                .globalCandidate()
                 .promoted()
                 .ownerKey("hmac_test_repo_lookup_promoted_fingerprint")
                 .requestFingerprint("fp_repo_lookup_promoted_fingerprint")
@@ -317,8 +324,8 @@ class PracticeGeneratedContentMapperTest extends AbstractIntegrationTest {
                 promoted.surface(),
                 promoted.mode(),
                 promoted.requestFingerprint(),
-                promoted.promptVersion(),
-                promoted.strategyVersion());
+                promoted.generationProfileVersion(),
+                promoted.evidencePolicyVersion());
 
         assertThat(promotedFound).isPresent();
         assertThat(promotedFound.get().generatedContentId()).isEqualTo(promoted.generatedContentId());
@@ -358,45 +365,28 @@ class PracticeGeneratedContentMapperTest extends AbstractIntegrationTest {
     @Test
     void draftReservationFailsClosedWhenConflictLeavesNoVisibleLiveRow() {
         var row = row("pgc_repo_reserve_retry").build();
-        var mapper = org.mockito.Mockito.mock(PracticeGeneratedContentMapper.class);
+        var queryMapper = org.mockito.Mockito.mock(PracticeGeneratedContentQueryMapper.class);
+        var commandPort = org.mockito.Mockito.mock(PracticeGeneratedContentCommands.class);
         var retryingRepository = new PracticeGeneratedContentService(
-                mapper,
-                new PracticeGeneratedContentWriteService(mapper),
-                org.mockito.Mockito.mock(CustomSceneGenerationService.class),
+                queryMapper,
+                commandPort,
+                org.mockito.Mockito.mock(CustomSceneGenerator.class),
                 validator(),
                 PracticeDiscoveryCustomSceneProperties.enabledForTest("fake"),
                 PracticeDiscoveryPolicyTestFixture.properties(),
                 Clock.fixed(NOW, ZoneOffset.UTC),
                 new PracticeGeneratedContentOwnerProperties(
                         "v1", "test-owner-key-secret-test-owner-key"));
-        org.mockito.Mockito.when(mapper.insertDraftIgnoringLiveConflict(org.mockito.ArgumentMatchers.any()))
-                .thenReturn(null);
-        org.mockito.Mockito.when(mapper.findLiveByFingerprint(
-                org.mockito.ArgumentMatchers.any(),
-                org.mockito.ArgumentMatchers.any(),
-                org.mockito.ArgumentMatchers.any(),
-                org.mockito.ArgumentMatchers.any(),
-                org.mockito.ArgumentMatchers.any(),
-                org.mockito.ArgumentMatchers.any(),
-                org.mockito.ArgumentMatchers.any(),
-                org.mockito.ArgumentMatchers.any()))
-                .thenReturn(null);
+        org.mockito.Mockito.when(commandPort.reserveDraft(
+                        org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any()))
+                .thenThrow(new IllegalStateException(
+                        "practice generated content reservation conflict could not be loaded"));
 
         assertThatThrownBy(() -> retryingRepository.reserveDraft(row))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessage("practice generated content reservation conflict could not be loaded");
-        org.mockito.Mockito.verify(mapper)
-                .insertDraftIgnoringLiveConflict(org.mockito.ArgumentMatchers.any());
-        org.mockito.Mockito.verify(mapper, org.mockito.Mockito.times(2))
-                .findLiveByFingerprint(
-                        org.mockito.ArgumentMatchers.any(),
-                        org.mockito.ArgumentMatchers.any(),
-                        org.mockito.ArgumentMatchers.any(),
-                        org.mockito.ArgumentMatchers.any(),
-                        org.mockito.ArgumentMatchers.any(),
-                        org.mockito.ArgumentMatchers.any(),
-                        org.mockito.ArgumentMatchers.any(),
-                        org.mockito.ArgumentMatchers.any());
+        org.mockito.Mockito.verify(commandPort).reserveDraft(
+                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
     }
 
     @Test
@@ -413,7 +403,7 @@ class PracticeGeneratedContentMapperTest extends AbstractIntegrationTest {
                 .build();
 
         assertThatThrownBy(() -> repository.reserveDraft(retry))
-                .isInstanceOf(PracticeGeneratedContentService.GeneratedContentIdConflictException.class);
+                .isInstanceOf(GeneratedContentIdConflictException.class);
     }
 
     @Test
@@ -472,6 +462,9 @@ class PracticeGeneratedContentMapperTest extends AbstractIntegrationTest {
                 .active()
                 .retentionExpiresAt(NOW_DB.plusDays(30))
                 .build();
+        assertThat(commands.startGeneration(
+                "pgc_repo_transition_active", NOW_DB.minusDays(1), 100, NOW_DB))
+                .isEqualTo(GenerationStartDecision.STARTED);
         assertThat(repository.activateDraft(active)).isPresent();
         repository.rejectDraft("pgc_repo_transition_rejected", "unsafe", NOW_DB);
         repository.expireDraft("pgc_repo_transition_expired", "timeout", NOW_DB);
@@ -508,7 +501,6 @@ class PracticeGeneratedContentMapperTest extends AbstractIntegrationTest {
                 .createdAt(NOW_DB.minusSeconds(240))
                 .build());
         insert(row("pgc_repo_count_promoted")
-                .globalCandidate()
                 .promoted()
                 .ownerKey(ownerKey)
                 .requestFingerprint("fp_repo_count_promoted")
@@ -662,13 +654,14 @@ class PracticeGeneratedContentMapperTest extends AbstractIntegrationTest {
     }
 
     @Test
-    void reservationLazilyExpiresDueInstallationActiveBeforeInsert() {
+    void reservationDeletesDueInstallationActiveAfterBurstCheckAndCreatesCurrentEpochDraft() {
         var ownerKey = "hmac_test_repo_lazy_active";
         var fingerprint = "fp_repo_lazy_active";
         insert(row("pgc_repo_lazy_active_old")
                 .active()
                 .ownerKey(ownerKey)
                 .requestFingerprint(fingerprint)
+                .createdAt(NOW_DB.minusHours(1))
                 .retentionExpiresAt(NOW_DB.minusMinutes(1))
                 .build());
         var draft = row("pgc_repo_lazy_active_new")
@@ -677,24 +670,142 @@ class PracticeGeneratedContentMapperTest extends AbstractIntegrationTest {
                 .generationWindow(NOW_DB, NOW_DB.plusMinutes(5))
                 .build();
 
-        var reservation = writeService.reserveDraft(
+        var reservation = commands.reserveDraft(
                 draft,
-                new PracticeGeneratedContentWriteService.ReservationPolicy(
+                new ReservationPolicy(
                         NOW_DB,
                         NOW_DB.minusMinutes(10),
                         3,
-                        NOW_DB.minusDays(1),
-                        10,
                         NOW_DB.plusDays(7)));
 
         assertThat(reservation.inserted()).isTrue();
         assertThat(reservation.row().generatedContentId()).isEqualTo("pgc_repo_lazy_active_new");
         assertThat(jdbcTemplate.queryForObject(
-                "select status from practice_generated_content where generated_content_id = 'pgc_repo_lazy_active_old'",
-                String.class)).isEqualTo("expired");
+                "select count(*) from practice_generated_content where generated_content_id = 'pgc_repo_lazy_active_old'",
+                Integer.class)).isZero();
+        assertThat(reservation.row().contentRefreshEpoch()).isEqualTo(1);
+        assertThat(reservation.row().requestFingerprint()).isEqualTo(fingerprint);
+    }
+
+    @Test
+    void dueInstallationActiveIsNotDeletedWhenBurstLimitRejectsReservation() {
+        var ownerKey = "hmac_test_repo_due_active_limit";
+        var fingerprint = "fp_repo_due_active_limit";
+        insert(row("pgc_repo_due_active_limit_old")
+                .active()
+                .ownerKey(ownerKey)
+                .requestFingerprint(fingerprint)
+                .createdAt(NOW_DB.minusMinutes(1))
+                .retentionExpiresAt(NOW_DB.minusMinutes(1))
+                .build());
+        var draft = row("pgc_repo_due_active_limit_new")
+                .ownerKey(ownerKey)
+                .requestFingerprint(fingerprint)
+                .generationWindow(NOW_DB, NOW_DB.plusMinutes(5))
+                .build();
+
+        assertThatThrownBy(() -> commands.reserveDraft(
+                draft,
+                new ReservationPolicy(NOW_DB, NOW_DB.minusMinutes(10), 1, NOW_DB.plusDays(7))))
+                .isInstanceOf(PracticeGenerationRateLimitExceededException.class);
+
+        assertThat(jdbcTemplate.queryForMap("""
+                select generated_content_id, status
+                from practice_generated_content
+                where owner_key = ?
+                """, ownerKey))
+                .containsEntry("generated_content_id", "pgc_repo_due_active_limit_old")
+                .containsEntry("status", "active");
+    }
+
+    @Test
+    void dueInstallationActiveSameIdRequiresSuffixRetryBeforeDeletion() {
+        var ownerKey = "hmac_test_repo_due_same_id";
+        var fingerprint = "fp_repo_due_same_id";
+        insert(row("pgc_repo_due_same_id")
+                .active()
+                .ownerKey(ownerKey)
+                .requestFingerprint(fingerprint)
+                .createdAt(NOW_DB.minusHours(1))
+                .retentionExpiresAt(NOW_DB.minusMinutes(1))
+                .build());
+        var sameIdDraft = row("pgc_repo_due_same_id")
+                .ownerKey(ownerKey)
+                .requestFingerprint(fingerprint)
+                .generationWindow(NOW_DB, NOW_DB.plusMinutes(5))
+                .build();
+        var policy = new ReservationPolicy(NOW_DB, NOW_DB.minusMinutes(10), 1, NOW_DB.plusDays(7));
+
+        assertThatThrownBy(() -> commands.reserveDraft(sameIdDraft, policy))
+                .isInstanceOf(GeneratedContentIdConflictException.class);
         assertThat(jdbcTemplate.queryForObject(
-                "select generation_error_code from practice_generated_content where generated_content_id = 'pgc_repo_lazy_active_old'",
-                String.class)).isEqualTo("retention_expired");
+                "select status from practice_generated_content where generated_content_id = 'pgc_repo_due_same_id'",
+                String.class)).isEqualTo("active");
+
+        sameIdDraft.setGeneratedContentId("pgc_repo_due_same_id_suffix");
+        var replacement = commands.reserveDraft(sameIdDraft, policy);
+        assertThat(replacement.created()).isTrue();
+        assertThat(replacement.content().generatedContentId()).isEqualTo("pgc_repo_due_same_id_suffix");
+        assertThat(jdbcTemplate.queryForObject(
+                "select count(*) from practice_generated_content where generated_content_id = 'pgc_repo_due_same_id'",
+                Integer.class)).isZero();
+    }
+
+    @Test
+    void reservationExpiresStaleDraftAfterBurstCheckAndCreatesReplacement() {
+        var ownerKey = "hmac_test_repo_stale_allowed";
+        var fingerprint = "fp_repo_stale_allowed";
+        insert(row("pgc_repo_stale_allowed_old")
+                .ownerKey(ownerKey)
+                .requestFingerprint(fingerprint)
+                .createdAt(NOW_DB.minusHours(1))
+                .generationWindow(NOW_DB.minusHours(1), NOW_DB.minusMinutes(1))
+                .build());
+        var draft = row("pgc_repo_stale_allowed_new")
+                .ownerKey(ownerKey)
+                .requestFingerprint(fingerprint)
+                .generationWindow(NOW_DB, NOW_DB.plusMinutes(5))
+                .build();
+
+        var reservation = commands.reserveDraft(
+                draft,
+                new ReservationPolicy(NOW_DB, NOW_DB.minusMinutes(10), 1, NOW_DB.plusDays(7)));
+
+        assertThat(reservation.created()).isTrue();
+        assertThat(reservation.content().generatedContentId()).isEqualTo("pgc_repo_stale_allowed_new");
+        assertThat(jdbcTemplate.queryForObject(
+                "select status from practice_generated_content where generated_content_id = 'pgc_repo_stale_allowed_old'",
+                String.class)).isEqualTo("expired");
+    }
+
+    @Test
+    void staleDraftIsNotExpiredWhenBurstLimitRejectsReservation() {
+        var ownerKey = "hmac_test_repo_stale_limit";
+        var fingerprint = "fp_repo_stale_limit";
+        insert(row("pgc_repo_stale_limit_old")
+                .ownerKey(ownerKey)
+                .requestFingerprint(fingerprint)
+                .createdAt(NOW_DB.minusMinutes(1))
+                .generationWindow(NOW_DB.minusMinutes(6), NOW_DB.minusMinutes(1))
+                .build());
+        var draft = row("pgc_repo_stale_limit_new")
+                .ownerKey(ownerKey)
+                .requestFingerprint(fingerprint)
+                .generationWindow(NOW_DB, NOW_DB.plusMinutes(5))
+                .build();
+
+        assertThatThrownBy(() -> commands.reserveDraft(
+                draft,
+                new ReservationPolicy(NOW_DB, NOW_DB.minusMinutes(10), 1, NOW_DB.plusDays(7))))
+                .isInstanceOf(PracticeGenerationRateLimitExceededException.class);
+
+        assertThat(jdbcTemplate.queryForMap("""
+                select generated_content_id, status
+                from practice_generated_content
+                where owner_key = ?
+                """, ownerKey))
+                .containsEntry("generated_content_id", "pgc_repo_stale_limit_old")
+                .containsEntry("status", "draft");
     }
 
     @Test
@@ -772,6 +883,130 @@ class PracticeGeneratedContentMapperTest extends AbstractIntegrationTest {
                 Integer.class)).isEqualTo(1);
     }
 
+    @Test
+    void auditEvidenceBundleCannotBeAttachedToAnotherContentAttempt() {
+        insert(row("pgc_repo_audit_a").active().build());
+        insert(row("pgc_repo_audit_b").active().build());
+        var attemptA = UUID.randomUUID();
+        var attemptB = UUID.randomUUID();
+        audit.insertAttempt(attempt(attemptA, "pgc_repo_audit_a", 1));
+        audit.insertAttempt(attempt(attemptB, "pgc_repo_audit_b", 1));
+
+        var bundleId = UUID.randomUUID();
+        audit.insertEvidenceBundle(new PracticeEvidenceBundleEntity(
+                bundleId, "pgc_repo_audit_a", 1, null, "initial", UUID.randomUUID(),
+                "evidence-v1", HASH, "sanitizer-v1", HASH, 0, NOW_DB));
+
+        assertThatThrownBy(() -> audit.insertOperationRun(operation(
+                UUID.randomUUID(), "generator", "pgc_repo_audit_b", 1, bundleId)))
+                .isInstanceOf(DataIntegrityViolationException.class);
+    }
+
+    @Test
+    void auditCompletionIsGuardedAndListValuesAreStable() {
+        insert(row("pgc_repo_audit_completion").active().build());
+        var attemptId = UUID.randomUUID();
+        var operationId = UUID.randomUUID();
+        var providerCallId = UUID.randomUUID();
+        audit.insertAttempt(attempt(attemptId, "pgc_repo_audit_completion", 1));
+        audit.insertOperationRun(operation(
+                operationId, "generator", "pgc_repo_audit_completion", 1, null));
+        audit.insertProviderCall(providerCall(providerCallId, operationId, "provider-a"));
+
+        audit.completeAttempt(attemptId, "first", List.of("z", "a", "z"), NOW_DB.plusSeconds(1));
+        audit.completeAttempt(attemptId, "second", List.of("b"), NOW_DB.plusSeconds(2));
+        audit.completeOperationRun(operationId, "first", NOW_DB.plusSeconds(1));
+        audit.completeOperationRun(operationId, "second", NOW_DB.plusSeconds(2));
+        audit.completeProviderCall(providerCallId, "first", "trace-first", 10L, NOW_DB.plusSeconds(1));
+        audit.completeProviderCall(providerCallId, "second", "trace-second", 20L, NOW_DB.plusSeconds(2));
+
+        assertThat(jdbcTemplate.queryForMap("""
+                select outcome, array_to_string(violation_codes, ',') as violations
+                from practice_generated_content_attempts where attempt_id = ?
+                """, attemptId))
+                .containsEntry("outcome", "first")
+                .containsEntry("violations", "a,z");
+        assertThat(jdbcTemplate.queryForObject(
+                "select outcome from practice_ai_operation_runs where operation_run_id = ?",
+                String.class, operationId)).isEqualTo("first");
+        assertThat(jdbcTemplate.queryForMap("""
+                select outcome, provider_trace_id, latency_ms
+                from practice_ai_provider_calls where provider_call_id = ?
+                """, providerCallId))
+                .containsEntry("outcome", "first")
+                .containsEntry("provider_trace_id", "trace-first")
+                .containsEntry("latency_ms", 10L);
+    }
+
+    @Test
+    void auditEmptyEvidenceItemsAreANoOp() {
+        assertThatNoException().isThrownBy(() -> audit.insertEvidenceItems(List.of()));
+        assertThat(jdbcTemplate.queryForObject(
+                "select count(*) from practice_generated_content_evidence_items",
+                Integer.class)).isZero();
+    }
+
+    @Test
+    void judgeResultOnlyAcceptsQualityJudgeProviderCallsAndNormalizesLists() {
+        insert(row("pgc_repo_audit_judge").active().build());
+        var attemptId = UUID.randomUUID();
+        audit.insertAttempt(attempt(attemptId, "pgc_repo_audit_judge", 1));
+        var generatorOperation = UUID.randomUUID();
+        var judgeOperation = UUID.randomUUID();
+        audit.insertOperationRun(operation(
+                generatorOperation, "generator", "pgc_repo_audit_judge", 1, null));
+        audit.insertOperationRun(operation(
+                judgeOperation, "quality_judge", "pgc_repo_audit_judge", 1, null));
+        var generatorCall = UUID.randomUUID();
+        var judgeCall = UUID.randomUUID();
+        audit.insertProviderCall(providerCall(generatorCall, generatorOperation, "provider-generator"));
+        audit.insertProviderCall(providerCall(judgeCall, judgeOperation, "provider-judge"));
+
+        audit.insertJudgeResult(judgeResult(UUID.randomUUID(), generatorCall));
+        assertThat(jdbcTemplate.queryForObject(
+                "select count(*) from practice_generated_content_judge_results",
+                Integer.class)).isZero();
+
+        audit.insertJudgeResult(judgeResult(UUID.randomUUID(), judgeCall));
+        assertThat(jdbcTemplate.queryForMap("""
+                select array_to_string(violation_codes, ',') as violations,
+                       array_to_string(repair_directives, ',') as repairs,
+                       array_to_string(evidence_gap_codes, ',') as gaps
+                from practice_generated_content_judge_results where provider_call_id = ?
+                """, judgeCall))
+                .containsEntry("violations", "a,z")
+                .containsEntry("repairs", "fix-a,fix-z")
+                .containsEntry("gaps", "gap-a,gap-z");
+    }
+
+    private PracticeGenerationAttemptEntity attempt(UUID id, String contentId, int number) {
+        return new PracticeGenerationAttemptEntity(
+                id, contentId, number, "generator", "started", null, List.of("initial"), NOW_DB, null);
+    }
+
+    private PracticeAiOperationRunEntity operation(
+            UUID id, String type, String contentId, int attemptNumber, UUID evidenceBundleId
+    ) {
+        return new PracticeAiOperationRunEntity(
+                id, type, "generated_content", contentId, contentId, attemptNumber, evidenceBundleId,
+                "practice-generate", "prompt-v1", HASH, "policy-v1", HASH,
+                "started", null, NOW_DB, null);
+    }
+
+    private PracticeAiProviderCallEntity providerCall(UUID id, UUID operationId, String providerName) {
+        return new PracticeAiProviderCallEntity(
+                id, operationId, providerName, "chat", "model-v1", 0, UUID.randomUUID(),
+                null, "routing-v1", HASH, "started", null, NOW_DB, null);
+    }
+
+    private PracticeJudgeResultEntity judgeResult(UUID id, UUID providerCallId) {
+        return new PracticeJudgeResultEntity(
+                id, providerCallId, "repair", "repair", "consistent", "{}",
+                List.of("z", "a", "z"), List.of("fix-z", "fix-a", "fix-z"),
+                List.of("gap-z", "gap-a", "gap-z"), BigDecimal.valueOf(0.75),
+                "rubric-v1", HASH, NOW_DB);
+    }
+
     private void insert(PracticeGeneratedContentEntity row) {
         if (row.accountId() != null) {
             insertAccount(row.accountId());
@@ -779,7 +1014,41 @@ class PracticeGeneratedContentMapperTest extends AbstractIntegrationTest {
         if (row.profileId() != null) {
             insertProfile(row.accountId(), row.profileId());
         }
-        mapper.insertRow(row);
+        insertRaw(row);
+    }
+
+    private void insertRaw(PracticeGeneratedContentEntity row) {
+        new NamedParameterJdbcTemplate(jdbcTemplate).update(
+                """
+                insert into practice_generated_content (
+                    generated_content_id, owner_scope, owner_key, owner_key_version,
+                    account_id, installation_ref_hash, profile_id, surface, mode,
+                    request_fingerprint, normalized_scene_text, age_range, parent_goal, locale,
+                    space_slug, activity_slug, phrase_slug, space_title_zh, activity_title_zh,
+                    scene_tag_en, tpr_action_zh, delivery_guidance_zh, english_text, chinese_text,
+                    pronunciation_hint, difficulty, generation_source, status,
+                    generation_profile_version, generation_profile_hash, rubric_version,
+                    rubric_content_hash, evidence_policy_version, evidence_policy_content_hash,
+                    provider_routing_policy_version, provider_routing_policy_hash,
+                    generation_attempt_limit, content_refresh_epoch, content_version,
+                    generation_error_code, generation_error_retryable, generation_started_at,
+                    generation_expires_at, retention_expires_at, created_at, updated_at
+                ) values (
+                    :generatedContentId, :ownerScope, :ownerKey, :ownerKeyVersion,
+                    :accountId, :installationRefHash, :profileId, :surface, :mode,
+                    :requestFingerprint, :normalizedSceneText, :ageRange, :parentGoal, :locale,
+                    :spaceSlug, :activitySlug, :phraseSlug, :spaceTitleZh, :activityTitleZh,
+                    :sceneTagEn, :tprActionZh, :deliveryGuidanceZh, :englishText, :chineseText,
+                    :pronunciationHint, :difficulty, :generationSource, :status,
+                    :generationProfileVersion, :generationProfileHash, :rubricVersion,
+                    :rubricContentHash, :evidencePolicyVersion, :evidencePolicyContentHash,
+                    :providerRoutingPolicyVersion, :providerRoutingPolicyHash,
+                    :generationAttemptLimit, :contentRefreshEpoch, :contentVersion,
+                    :generationErrorCode, :generationErrorRetryable, :generationStartedAt,
+                    :generationExpiresAt, :retentionExpiresAt, :createdAt, :updatedAt
+                )
+                """,
+                new BeanPropertySqlParameterSource(row));
     }
 
     private CustomSceneGeneratedContentValidator validator() {
@@ -895,21 +1164,18 @@ class PracticeGeneratedContentMapperTest extends AbstractIntegrationTest {
         private String spaceTitleZh;
         private String activityTitleZh;
         private String sceneTagEn;
-        private String coachTipZh;
+        private String tprActionZh;
+        private String deliveryGuidanceZh;
         private String englishText;
         private String chineseText;
         private String pronunciationHint;
         private String difficulty;
         private String generationSource;
         private String status = "draft";
-        private String providerTraceId;
-        private String retrievalTraceId;
-        private String modelName;
-        private String promptVersion = "practice-gen-v1";
-        private String strategyVersion = "retrieval-v1";
+        private String generationProfileVersion = "practice-gen-v1";
         private int contentVersion = 1;
         private String generationErrorCode;
-        private OffsetDateTime generationStartedAt = NOW_DB;
+        private OffsetDateTime generationStartedAt;
         private OffsetDateTime generationExpiresAt = NOW_DB.plusMinutes(5);
         private OffsetDateTime retentionExpiresAt;
         private OffsetDateTime createdAt = NOW_DB;
@@ -993,7 +1259,7 @@ class PracticeGeneratedContentMapperTest extends AbstractIntegrationTest {
         }
 
         RowBuilder promoted() {
-            this.status = "promoted";
+            this.status = "active";
             return this;
         }
 
@@ -1036,7 +1302,7 @@ class PracticeGeneratedContentMapperTest extends AbstractIntegrationTest {
         }
 
         RowBuilder generationWindow(OffsetDateTime generationStartedAt, OffsetDateTime generationExpiresAt) {
-            this.generationStartedAt = generationStartedAt;
+            this.generationStartedAt = "generating".equals(status) ? generationStartedAt : null;
             this.generationExpiresAt = generationExpiresAt;
             return this;
         }
@@ -1075,7 +1341,8 @@ class PracticeGeneratedContentMapperTest extends AbstractIntegrationTest {
                 spaceTitleZh = "日常照护";
                 activityTitleZh = "洗澡时间";
                 sceneTagEn = "Bath time";
-                coachTipZh = "慢一点重复说。";
+                tprActionZh = "指向物品。";
+                deliveryGuidanceZh = "慢一点重复说。";
                 englishText = "Warm water.";
                 chineseText = "水暖暖的。";
                 pronunciationHint = "warm water";
@@ -1085,51 +1352,68 @@ class PracticeGeneratedContentMapperTest extends AbstractIntegrationTest {
             if (!"draft".equals(status)) {
                 normalizedSceneText = null;
             }
+            if (("rejected".equals(status) || "expired".equals(status))
+                    && generationErrorCode == null) {
+                generationErrorCode = "test_terminal";
+            }
             if (fillInstallationRetention && "installation".equals(ownerScope) && retentionExpiresAt == null) {
                 retentionExpiresAt = NOW_DB.plusDays(
                         "active".equals(status) || "promoted".equals(status) ? 30 : 7);
             }
-            var row = new PracticeGeneratedContentEntity(
-                    generatedContentId,
-                    ownerScope,
-                    ownerKey,
-                    accountId,
-                    installationRefHash,
-                    profileId,
-                    surface,
-                    mode,
-                    requestFingerprint,
-                    normalizedSceneText,
-                    ageRange,
-                    parentGoal,
-                    locale,
-                    spaceSlug,
-                    activitySlug,
-                    phraseSlug,
-                    spaceTitleZh,
-                    activityTitleZh,
-                    sceneTagEn,
-                    coachTipZh,
-                    englishText,
-                    chineseText,
-                    pronunciationHint,
-                    difficulty,
-                    generationSource,
-                    status,
-                    providerTraceId,
-                    retrievalTraceId,
-                    modelName,
-                    promptVersion,
-                    strategyVersion,
-                    contentVersion,
-                    generationErrorCode,
-                    generationStartedAt,
-                    generationExpiresAt,
-                    createdAt,
-                    updatedAt);
+            if ("generating".equals(status) && generationStartedAt == null) {
+                generationStartedAt = NOW_DB;
+            }
+            if ("active".equals(status) && generationStartedAt == null) {
+                generationStartedAt = NOW_DB;
+            }
+            var row = new PracticeGeneratedContentEntity();
+            row.setGeneratedContentId(generatedContentId);
+            row.setOwnerScope(ownerScope);
+            row.setOwnerKey(ownerKey);
             row.setOwnerKeyVersion(ownerKeyVersion);
-            row.setPolicyVersion("policy-v2");
+            row.setAccountId(accountId);
+            row.setInstallationRefHash(installationRefHash);
+            row.setProfileId(profileId);
+            row.setSurface(surface);
+            row.setMode(mode);
+            row.setRequestFingerprint(requestFingerprint);
+            row.setNormalizedSceneText(normalizedSceneText);
+            row.setAgeRange(ageRange);
+            row.setParentGoal(parentGoal);
+            row.setLocale(locale);
+            row.setSpaceSlug(spaceSlug);
+            row.setActivitySlug(activitySlug);
+            row.setPhraseSlug(phraseSlug);
+            row.setSpaceTitleZh(spaceTitleZh);
+            row.setActivityTitleZh(activityTitleZh);
+            row.setSceneTagEn(sceneTagEn);
+            row.setTprActionZh(tprActionZh);
+            row.setDeliveryGuidanceZh(deliveryGuidanceZh);
+            row.setEnglishText(englishText);
+            row.setChineseText(chineseText);
+            row.setPronunciationHint(pronunciationHint);
+            row.setDifficulty(difficulty);
+            row.setGenerationSource(generationSource);
+            row.setStatus(status);
+            row.setGenerationProfileVersion(generationProfileVersion);
+            row.setGenerationProfileHash("a".repeat(64));
+            row.setRubricVersion("rubric-v1");
+            row.setRubricContentHash("b".repeat(64));
+            row.setEvidencePolicyVersion("evidence-v1");
+            row.setEvidencePolicyContentHash("c".repeat(64));
+            row.setProviderRoutingPolicyVersion("routing-v1");
+            row.setProviderRoutingPolicyHash("d".repeat(64));
+            row.setGenerationAttemptLimit(3);
+            row.setContentRefreshEpoch(1);
+            row.setContentVersion(contentVersion);
+            row.setGenerationErrorCode(generationErrorCode);
+            row.setGenerationErrorRetryable(
+                    "rejected".equals(status) || "expired".equals(status) ? Boolean.TRUE : null);
+            row.setGenerationStartedAt(generationStartedAt);
+            row.setGenerationExpiresAt(generationExpiresAt);
             row.setRetentionExpiresAt(retentionExpiresAt);
+            row.setCreatedAt(createdAt);
+            row.setUpdatedAt(updatedAt);
             return row;
         }
     }

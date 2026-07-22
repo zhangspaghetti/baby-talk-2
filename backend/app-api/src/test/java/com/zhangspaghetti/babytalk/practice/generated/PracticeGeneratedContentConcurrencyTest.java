@@ -1,15 +1,19 @@
 package com.zhangspaghetti.babytalk.practice.generated;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.zhangspaghetti.babytalk.AbstractIntegrationTest;
-import com.zhangspaghetti.babytalk.practice.discovery.CustomSceneGenerationService;
+import com.zhangspaghetti.babytalk.practice.generated.model.PracticeGeneratedContentEntity;
 import com.zhangspaghetti.babytalk.web.ContractException;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.time.Duration;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.ExecutorService;
@@ -46,15 +50,20 @@ class PracticeGeneratedContentConcurrencyTest extends AbstractIntegrationTest {
 
     private static final String OWNER_KEY_SECRET = "integration-owner-key-secret-at-least-32-bytes";
     private static final String INSTALLATION_ID = "install_generated_content_concurrency";
+    private static final String HASH = "a".repeat(64);
+    private static final String STALE_CLEANUP_CONTENT_ID = "pgc_concurrent_stale_cleanup";
 
     @Autowired
     private PracticeGeneratedContentService service;
 
     @Autowired
+    private PracticeGeneratedContentCommands commands;
+
+    @Autowired
     private PracticeGeneratedContentKeyFactory keyFactory;
 
     @Autowired
-    private RecordingCustomSceneGenerationService provider;
+    private RecordingCustomSceneGenerator provider;
 
     @Autowired
     private JdbcTemplate jdbcTemplate;
@@ -118,11 +127,11 @@ class PracticeGeneratedContentConcurrencyTest extends AbstractIntegrationTest {
 
             provider.release();
             var results = collect(futures);
-            assertThat(results).filteredOn(CallResult::succeeded).hasSize(1);
             assertThat(results)
                     .filteredOn(result -> result.error() != null)
                     .extracting(result -> result.error().code())
                     .containsExactly("generation_in_progress");
+            assertThat(results).filteredOn(CallResult::succeeded).hasSize(1);
         }
     }
 
@@ -150,20 +159,118 @@ class PracticeGeneratedContentConcurrencyTest extends AbstractIntegrationTest {
             assertThat(provider.awaitEntered()).isTrue();
             awaitCompletedCalls(futures, 1);
             assertThat(provider.callCount()).isEqualTo(1);
-            assertThat(countOwnerRows(ownerKey)).isEqualTo(2);
+            assertThat(countOwnerRows(ownerKey)).isEqualTo(1);
 
             provider.release();
             var results = collect(futures);
-            assertThat(results).filteredOn(CallResult::succeeded).hasSize(1);
             assertThat(results)
                     .filteredOn(result -> result.error() != null)
                     .extracting(result -> result.error().code())
                     .containsExactly("generation_in_progress");
+            assertThat(results).filteredOn(CallResult::succeeded).hasSize(1);
+            var replacementId = results.stream()
+                    .filter(CallResult::succeeded)
+                    .findFirst()
+                    .orElseThrow()
+                    .row()
+                    .generatedContentId();
+            assertThat(replacementId).isNotEqualTo(expired.generatedContentId());
+            assertThat(jdbcTemplate.query(
+                    """
+                    select generated_content_id, status
+                    from practice_generated_content
+                    where owner_key = ?
+                    order by generated_content_id
+                    """,
+                    (rows, rowNumber) -> new PersistedContentRow(rows.getString(1), rows.getString(2)),
+                    ownerKey))
+                    .containsExactly(new PersistedContentRow(replacementId, "active"));
             assertThat(jdbcTemplate.queryForObject(
-                    "select status from practice_generated_content where generated_content_id = ?",
-                    String.class,
-                    expired.generatedContentId())).isEqualTo("expired");
+                    "select count(*) from practice_generated_content where generated_content_id = ?",
+                    Integer.class,
+                    expired.generatedContentId())).isZero();
         }
+    }
+
+    @Test
+    void terminalRowIsNeverReusedAndSameFingerprintCreatesFreshActiveContent() {
+        var request = request("洗澡前宝宝有点紧张");
+        var terminalId = createExpiredTerminal(request);
+        moveTerminalOutsideBurstWindow(terminalId);
+        provider.reset(false);
+
+        var replacement = service.generateCustomScene(request);
+
+        assertThat(replacement.generatedContentId()).isNotEqualTo(terminalId);
+        assertThat(replacement.status()).isEqualTo("active");
+        assertThat(provider.callCount()).isEqualTo(1);
+        assertThat(jdbcTemplate.query(
+                "select status from practice_generated_content where owner_key = ? order by created_at",
+                (rows, rowNumber) -> rows.getString(1),
+                ownerKey(INSTALLATION_ID)))
+                .containsExactly("expired", "active");
+    }
+
+    @Test
+    void concurrentInstallationCleanupDeletesExpiredTerminalRowOnce() throws Exception {
+        var terminalId = createExpiredTerminal(request("洗澡前宝宝有点紧张"));
+        expireTerminalForCleanup(terminalId);
+        var barrier = new CyclicBarrier(2);
+        var executor = Executors.newFixedThreadPool(2);
+        executors.add(executor);
+
+        var first = executor.submit(() -> cleanupAfterBarrier(barrier));
+        var second = executor.submit(() -> cleanupAfterBarrier(barrier));
+
+        assertThat(first.get(5, TimeUnit.SECONDS) + second.get(5, TimeUnit.SECONDS)).isEqualTo(1);
+        assertThat(jdbcTemplate.queryForObject(
+                "select count(*) from practice_generated_content where generated_content_id = ?",
+                Integer.class,
+                terminalId)).isZero();
+    }
+
+    @Test
+    void concurrentStaleCleanupCompletesStartedProviderCallOnce() throws Exception {
+        var cleanupAt = OffsetDateTime.now(ZoneOffset.UTC);
+        var stale = reserveStaleGeneratingContent(cleanupAt);
+        var attemptId = UUID.randomUUID();
+        var operationId = UUID.randomUUID();
+        var providerCallId = UUID.randomUUID();
+        insertStartedAttempt(attemptId, stale.generatedContentId(), cleanupAt.minusMinutes(2));
+        insertStartedOperation(operationId, stale.generatedContentId(), cleanupAt.minusMinutes(2));
+        insertStartedProviderCall(providerCallId, operationId, cleanupAt.minusMinutes(2));
+        var barrier = new CyclicBarrier(2);
+        var executor = Executors.newFixedThreadPool(2);
+        executors.add(executor);
+
+        var first = executor.submit(() -> expireStaleAfterBarrier(barrier, cleanupAt));
+        var second = executor.submit(() -> expireStaleAfterBarrier(barrier, cleanupAt));
+
+        assertThat(first.get(5, TimeUnit.SECONDS) + second.get(5, TimeUnit.SECONDS)).isEqualTo(1);
+        assertThat(jdbcTemplate.queryForMap("""
+                select status, normalized_scene_text
+                from practice_generated_content where generated_content_id = ?
+                """, stale.generatedContentId()))
+                .containsEntry("status", "expired")
+                .containsEntry("normalized_scene_text", null);
+        assertThat(jdbcTemplate.queryForMap("""
+                select status, outcome from practice_generated_content_attempts where attempt_id = ?
+                """, attemptId))
+                .containsEntry("status", "interrupted")
+                .containsEntry("outcome", "interrupted");
+        assertThat(jdbcTemplate.queryForMap("""
+                select status, outcome from practice_ai_operation_runs where operation_run_id = ?
+                """, operationId))
+                .containsEntry("status", "interrupted")
+                .containsEntry("outcome", "interrupted");
+        assertThat(jdbcTemplate.queryForMap("""
+                select outcome from practice_ai_provider_calls where provider_call_id = ?
+                """, providerCallId))
+                .containsEntry("outcome", "interrupted");
+        assertThat(jdbcTemplate.queryForObject("""
+                select count(*) from practice_ai_provider_calls
+                where provider_call_id = ? and outcome = 'interrupted' and completed_at is not null
+                """, Integer.class, providerCallId)).isEqualTo(1);
     }
 
     @Test
@@ -269,6 +376,117 @@ class PracticeGeneratedContentConcurrencyTest extends AbstractIntegrationTest {
         return keyFactory.ownerKey("installation", installationId);
     }
 
+    private String createExpiredTerminal(PracticeGeneratedContentService.CustomSceneDiscoveryRequest request) {
+        provider.failNext();
+        assertThatThrownBy(() -> service.generateCustomScene(request))
+                .isInstanceOf(ContractException.class);
+        return jdbcTemplate.queryForObject(
+                "select generated_content_id from practice_generated_content where owner_key = ? and status = 'expired'",
+                String.class,
+                ownerKey(INSTALLATION_ID));
+    }
+
+    private void expireTerminalForCleanup(String generatedContentId) {
+        jdbcTemplate.update(
+                """
+                update practice_generated_content
+                set retention_expires_at = now() - interval '1 minute',
+                    updated_at = now()
+                where generated_content_id = ?
+                """,
+                generatedContentId);
+    }
+
+    private void moveTerminalOutsideBurstWindow(String generatedContentId) {
+        jdbcTemplate.update(
+                """
+                update practice_generated_content
+                set created_at = now() - interval '11 minutes',
+                    updated_at = now()
+                where generated_content_id = ?
+                """,
+                generatedContentId);
+    }
+
+    private int cleanupAfterBarrier(CyclicBarrier barrier) throws Exception {
+        barrier.await(5, TimeUnit.SECONDS);
+        return service.deleteExpiredInstallationRows(java.time.OffsetDateTime.now(java.time.ZoneOffset.UTC), 10);
+    }
+
+    private int expireStaleAfterBarrier(CyclicBarrier barrier, OffsetDateTime cleanupAt) throws Exception {
+        barrier.await(5, TimeUnit.SECONDS);
+        return service.expireStaleDrafts(cleanupAt, 10);
+    }
+
+    private PracticeGeneratedContentEntity reserveStaleGeneratingContent(OffsetDateTime cleanupAt) {
+        var draft = new PracticeGeneratedContentEntity();
+        draft.setGeneratedContentId(STALE_CLEANUP_CONTENT_ID);
+        draft.setOwnerScope("installation");
+        draft.setOwnerKey(ownerKey(INSTALLATION_ID));
+        draft.setOwnerKeyVersion("v1");
+        draft.setInstallationRefHash("installation-concurrent-cleanup");
+        draft.setSurface("onboarding");
+        draft.setMode("custom_scene");
+        draft.setRequestFingerprint("fingerprint-concurrent-stale-cleanup");
+        draft.setNormalizedSceneText("宝宝不肯穿鞋");
+        draft.setAgeRange("m7_11");
+        draft.setParentGoal("calmer_care");
+        draft.setLocale("zh-CN");
+        draft.setStatus("draft");
+        draft.setGenerationProfileVersion("profile-v1");
+        draft.setGenerationProfileHash(HASH);
+        draft.setRubricVersion("rubric-v1");
+        draft.setRubricContentHash(HASH);
+        draft.setEvidencePolicyVersion("evidence-v1");
+        draft.setEvidencePolicyContentHash(HASH);
+        draft.setProviderRoutingPolicyVersion("routing-v1");
+        draft.setProviderRoutingPolicyHash(HASH);
+        draft.setGenerationAttemptLimit(3);
+        draft.setContentRefreshEpoch(1);
+        draft.setContentVersion(1);
+        draft.setGenerationExpiresAt(cleanupAt.minusMinutes(1));
+        draft.setCreatedAt(cleanupAt.minusMinutes(10));
+        draft.setUpdatedAt(cleanupAt.minusMinutes(10));
+        var reserved = commands.reserveDraft(
+                draft,
+                new ReservationPolicy(cleanupAt, cleanupAt.minusMinutes(20), 10, cleanupAt.plusDays(7)));
+        assertThat(commands.startGeneration(
+                STALE_CLEANUP_CONTENT_ID, cleanupAt.minusDays(1), 10, cleanupAt.minusMinutes(2)))
+                .isEqualTo(GenerationStartDecision.STARTED);
+        return reserved.content();
+    }
+
+    private void insertStartedAttempt(UUID attemptId, String generatedContentId, OffsetDateTime startedAt) {
+        jdbcTemplate.update("""
+                insert into practice_generated_content_attempts (
+                    attempt_id, generated_content_id, attempt_number, attempt_type, status, outcome,
+                    violation_codes, started_at, completed_at
+                ) values (?, ?, 1, 'generator', 'started', null, '{}', ?, null)
+                """, attemptId, generatedContentId, startedAt);
+    }
+
+    private void insertStartedOperation(UUID operationId, String generatedContentId, OffsetDateTime startedAt) {
+        jdbcTemplate.update("""
+                insert into practice_ai_operation_runs (
+                    operation_run_id, operation_type, subject_type, subject_id, generated_content_id,
+                    attempt_number, evidence_bundle_id, capability_name, prompt_version, prompt_content_hash,
+                    policy_version, policy_content_hash, status, outcome, started_at, completed_at
+                ) values (?, 'generator', 'generated_content', ?, ?, 1, null, 'generation', 'profile-v1', ?,
+                    null, null, 'started', null, ?, null)
+                """, operationId, generatedContentId, generatedContentId, HASH, startedAt);
+    }
+
+    private void insertStartedProviderCall(UUID providerCallId, UUID operationId, OffsetDateTime startedAt) {
+        jdbcTemplate.update("""
+                insert into practice_ai_provider_calls (
+                    provider_call_id, operation_run_id, provider_name, provider_type, model_name,
+                    fallback_index, attempt_trace_id, provider_trace_id, routing_policy_version,
+                    routing_policy_hash, outcome, latency_ms, started_at, completed_at
+                ) values (?, ?, 'fake', 'fake', 'fake-model', 0, ?, null, 'routing-v1', ?,
+                    'started', null, ?, null)
+                """, providerCallId, operationId, UUID.randomUUID(), HASH, startedAt);
+    }
+
     private record CallResult(
             com.zhangspaghetti.babytalk.practice.generated.model.PracticeGeneratedContentEntity row,
             ContractException error
@@ -278,26 +496,30 @@ class PracticeGeneratedContentConcurrencyTest extends AbstractIntegrationTest {
         }
     }
 
+    private record PersistedContentRow(String generatedContentId, String status) {
+    }
+
     @TestConfiguration
     static class ProviderTestConfiguration {
 
         @Bean
         @Primary
-        RecordingCustomSceneGenerationService recordingCustomSceneGenerationService(DataSource dataSource) {
-            return new RecordingCustomSceneGenerationService(dataSource);
+        RecordingCustomSceneGenerator recordingCustomSceneGenerator(DataSource dataSource) {
+            return new RecordingCustomSceneGenerator(dataSource);
         }
     }
 
-    static class RecordingCustomSceneGenerationService implements CustomSceneGenerationService {
+    static class RecordingCustomSceneGenerator implements CustomSceneGenerator {
 
         private final DataSource dataSource;
         private final AtomicInteger calls = new AtomicInteger();
         private final AtomicBoolean allRowsVisible = new AtomicBoolean(true);
         private final AtomicBoolean allOwnerLocksAvailable = new AtomicBoolean(true);
+        private final AtomicBoolean failNext = new AtomicBoolean();
         private volatile CountDownLatch entered = new CountDownLatch(1);
         private volatile CountDownLatch release = new CountDownLatch(0);
 
-        RecordingCustomSceneGenerationService(DataSource dataSource) {
+        RecordingCustomSceneGenerator(DataSource dataSource) {
             this.dataSource = dataSource;
         }
 
@@ -305,12 +527,13 @@ class PracticeGeneratedContentConcurrencyTest extends AbstractIntegrationTest {
             calls.set(0);
             allRowsVisible.set(true);
             allOwnerLocksAvailable.set(true);
+            failNext.set(false);
             entered = new CountDownLatch(1);
             release = new CountDownLatch(blockProvider ? 1 : 0);
         }
 
         @Override
-        public GeneratedPracticeContentCandidate generateCustomSceneStarter(CustomSceneGenerationRequest request) {
+        public GeneratedPracticeContentCandidate generate(GeneratorRequest request) {
             calls.incrementAndGet();
             verifyReservationCommittedAndUnlocked(request.generatedContentId());
             entered.countDown();
@@ -322,11 +545,16 @@ class PracticeGeneratedContentConcurrencyTest extends AbstractIntegrationTest {
                 Thread.currentThread().interrupt();
                 throw new IllegalStateException("test provider interrupted", exception);
             }
-            if (request.canonicalSceneText().contains("鞋")) {
+            if (failNext.getAndSet(false)) {
+                throw new CustomSceneGenerator.GenerationUnavailableException(
+                        CustomSceneGenerator.GenerationUnavailableReason.PROVIDER_UNAVAILABLE);
+            }
+            if (request.displayText().contains("鞋")) {
                 return candidate(
                         "出门穿鞋",
                         "Shoes on",
-                        "拿起鞋子，慢慢说一遍。",
+                        "拿起鞋子。",
+                        "慢慢说一遍。",
                         "Shoes on.",
                         "穿鞋啦。",
                         "shoes on");
@@ -334,7 +562,8 @@ class PracticeGeneratedContentConcurrencyTest extends AbstractIntegrationTest {
             return candidate(
                     "洗澡安抚",
                     "Bath care",
-                    "看着宝宝，慢慢说一遍。",
+                    "看着宝宝。",
+                    "慢慢说一遍。",
                     "Warm water.",
                     "水暖暖的。",
                     "warm water");
@@ -343,7 +572,8 @@ class PracticeGeneratedContentConcurrencyTest extends AbstractIntegrationTest {
         private GeneratedPracticeContentCandidate candidate(
                 String activityTitle,
                 String sceneTag,
-                String coachTip,
+                String tprAction,
+                String deliveryGuidance,
                 String englishText,
                 String chineseText,
                 String pronunciationHint
@@ -352,15 +582,13 @@ class PracticeGeneratedContentConcurrencyTest extends AbstractIntegrationTest {
                     "日常照护",
                     activityTitle,
                     sceneTag,
-                    coachTip,
+                    tprAction,
+                    deliveryGuidance,
                     englishText,
                     chineseText,
                     pronunciationHint,
                     "starter",
-                    "fake",
-                    "test_provider_trace",
-                    null,
-                    "test-recording-provider");
+                    "fake");
         }
 
         private void verifyReservationCommittedAndUnlocked(String generatedContentId) {
@@ -397,6 +625,10 @@ class PracticeGeneratedContentConcurrencyTest extends AbstractIntegrationTest {
 
         boolean awaitEntered() throws InterruptedException {
             return entered.await(5, TimeUnit.SECONDS);
+        }
+
+        void failNext() {
+            failNext.set(true);
         }
 
         void release() {

@@ -14,6 +14,14 @@ spec:
       annotations:
         checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
         checksum/secret: {{ include (print $.Template.BasePath "/secret.yaml") . | sha256sum }}
+        checksum/practice-ai-runtime: {{ include (print $.Template.BasePath "/practice-ai-configmap.yaml") . | sha256sum }}
+        {{ if eq .Values.practiceAi.providerMode "agentic" }}
+        {{ if .Values.practiceAi.secret.existingSecret }}
+        rollout/practice-ai-secret: {{ required "practiceAi.secret.rolloutVersion is required when existingSecret is set" .Values.practiceAi.secret.rolloutVersion | quote }}
+        {{ else }}
+        checksum/practice-ai-secret: {{ include (print $.Template.BasePath "/practice-ai-secret.yaml") . | sha256sum }}
+        {{ end }}
+        {{ end }}
       labels:
         {{- include "babytalk-app.componentLabels" (dict "root" . "component" "app-api") | nindent 8 }}
     spec:
@@ -37,6 +45,22 @@ spec:
           env:
             - name: SERVER_PORT
               value: {{ .Values.appApi.service.port | quote }}
+            - name: SPRING_CONFIG_ADDITIONAL_LOCATION
+              value: /config/practice-ai-runtime.yml
+            {{- if .Values.practiceAi.springProfilesActive }}
+            - name: SPRING_PROFILES_ACTIVE
+              value: {{ .Values.practiceAi.springProfilesActive | quote }}
+            {{- end }}
+            {{- if eq .Values.practiceAi.providerMode "agentic" }}
+            {{- $practiceAiSecretName := default (include "babytalk-app.practiceAiSecretName" .) .Values.practiceAi.secret.existingSecret }}
+            {{- range $providerName, $provider := .Values.practiceAi.providers }}
+            - name: {{ required (printf "provider %s apiKeyEnvironmentVariable is required" $providerName) $provider.apiKeyEnvironmentVariable }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $practiceAiSecretName }}
+                  key: {{ $provider.apiKeyEnvironmentVariable }}
+            {{- end }}
+            {{- end }}
           envFrom:
             - configMapRef:
                 name: {{ include "babytalk-app.configMapName" . }}
@@ -54,6 +78,15 @@ spec:
             {{- toYaml .Values.appApi.startupProbe | nindent 12 }}
           resources:
             {{- toYaml .Values.appApi.resources | nindent 12 }}
+          volumeMounts:
+            - name: practice-ai-runtime
+              mountPath: /config/practice-ai-runtime.yml
+              subPath: practice-ai-runtime.yml
+              readOnly: true
+      volumes:
+        - name: practice-ai-runtime
+          configMap:
+            name: {{ include "babytalk-app.practiceAiRuntimeConfigMapName" . }}
       {{- with .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}

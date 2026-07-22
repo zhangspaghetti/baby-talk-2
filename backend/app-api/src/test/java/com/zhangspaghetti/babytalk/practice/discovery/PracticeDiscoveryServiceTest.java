@@ -452,6 +452,14 @@ class PracticeDiscoveryServiceTest {
     }
 
     @Test
+    void customSceneCoachTipConcatenatesPersistedFieldsDirectly() {
+        assertThat(discoverGeneratedCoachTip("看着宝宝。", "慢慢说一遍。"))
+                .isEqualTo("看着宝宝。 慢慢说一遍。");
+        assertThat(discoverGeneratedCoachTip("轻声说。", "轻声说。"))
+                .isEqualTo("轻声说。 轻声说。");
+    }
+
+    @Test
     void acceptedAuthenticatedCustomSceneUsesAccountOwnerWithoutBabyProfileIdOrInstallationId() {
         when(authConsentSyncService.requireAcceptedConsumerSession("sess_accepted", "生成自定义练习场景"))
                 .thenReturn(new AuthConsentSyncService.ConsumerSessionView(
@@ -691,45 +699,57 @@ class PracticeDiscoveryServiceTest {
     }
 
     private PracticeGeneratedContentEntity generatedRow(String generatedContentId) {
-        return new PracticeGeneratedContentEntity(
-                generatedContentId,
-                "installation",
-                "owner_service_generated",
-                null,
-                "install_1",
-                null,
+        var row = new PracticeGeneratedContentEntity();
+        row.setGeneratedContentId(generatedContentId);
+        row.setOwnerScope("installation");
+        row.setOwnerKey("owner_service_generated");
+        row.setOwnerKeyVersion("v1");
+        row.setInstallationRefHash("install_1");
+        row.setSurface("onboarding");
+        row.setMode("custom_scene");
+        row.setRequestFingerprint("fp_service_generated");
+        row.setAgeRange("m7_11");
+        row.setParentGoal("calmer_care");
+        row.setLocale("zh-CN");
+        row.setSpaceSlug("gen_scene_abc1234567890");
+        row.setActivitySlug("gen_activity_abc1234567890");
+        row.setPhraseSlug("gen_phrase_abc1234567890");
+        row.setSpaceTitleZh("日常照护");
+        row.setActivityTitleZh("洗澡安抚");
+        row.setSceneTagEn("Bath care");
+        row.setTprActionZh("看着宝宝");
+        row.setDeliveryGuidanceZh("慢慢说一遍。");
+        row.setEnglishText("Warm water.");
+        row.setChineseText("水暖暖的。");
+        row.setPronunciationHint("warm water");
+        row.setDifficulty("starter");
+        row.setGenerationSource("agentic_search");
+        row.setStatus("active");
+        row.setContentVersion(1);
+        row.setGenerationStartedAt(NOW_DB);
+        row.setCreatedAt(NOW_DB);
+        row.setUpdatedAt(NOW_DB);
+        return row;
+    }
+
+    private String discoverGeneratedCoachTip(String tprActionZh, String deliveryGuidanceZh) {
+        var row = generatedRow("pgc_service_generated_tip");
+        row.setTprActionZh(tprActionZh);
+        row.setDeliveryGuidanceZh(deliveryGuidanceZh);
+        when(generatedContentService.generateCustomScene(any())).thenReturn(row);
+        var response = service.discover(new PracticeDiscoveryRequest(
                 "onboarding",
                 "custom_scene",
-                "fp_service_generated",
-                "洗澡后哄睡",
+                "install_1",
+                null,
                 "m7_11",
                 "calmer_care",
                 "zh-CN",
-                "gen_scene_abc1234567890",
-                "gen_activity_abc1234567890",
-                "gen_phrase_abc1234567890",
-                "日常照护",
-                "洗澡安抚",
-                "Bath care",
-                "看着宝宝，慢慢说一遍。",
-                "Warm water.",
-                "水暖暖的。",
-                "warm water",
-                "starter",
-                "agentic_search",
-                "active",
-                "fake_provider_trace",
+                6,
                 null,
-                "fake-custom-scene",
-                PracticeDiscoveryCustomSceneProperties.DEFAULT_PROMPT_VERSION,
-                PracticeDiscoveryCustomSceneProperties.DEFAULT_STRATEGY_VERSION,
-                1,
-                null,
-                NOW_DB,
-                null,
-                NOW_DB,
-                NOW_DB
-        );
+                "洗澡后哄睡"
+        ), null);
+        return response.moments().get(0).coachTip();
     }
 
     private PracticeSpaceRow space(String spaceId, int sortOrder) {

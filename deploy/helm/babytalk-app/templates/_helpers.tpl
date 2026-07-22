@@ -89,6 +89,16 @@ Create the name of the shared Secret.
 {{- printf "%s-shared-secret" (include "babytalk-app.fullname" .) | trunc 63 | trimSuffix "-" -}}
 {{- end }}
 
+{{/* Create the name of the dedicated Practice AI runtime ConfigMap. */}}
+{{- define "babytalk-app.practiceAiRuntimeConfigMapName" -}}
+{{- printf "%s-practice-ai-runtime" (include "babytalk-app.fullname" .) | trunc 63 | trimSuffix "-" -}}
+{{- end }}
+
+{{/* Create the name of the dedicated Practice AI Secret. */}}
+{{- define "babytalk-app.practiceAiSecretName" -}}
+{{- printf "%s-practice-ai-secret" (include "babytalk-app.fullname" .) | trunc 63 | trimSuffix "-" -}}
+{{- end }}
+
 {{/*
 Create the name of the admin-web proxy ConfigMap.
 */}}

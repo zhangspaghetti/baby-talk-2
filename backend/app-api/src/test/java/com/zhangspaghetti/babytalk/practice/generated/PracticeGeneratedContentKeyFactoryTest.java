@@ -6,6 +6,8 @@ import static org.assertj.core.api.Assertions.assertThatIllegalStateException;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.util.HexFormat;
+import javax.crypto.Mac;
+import javax.crypto.spec.SecretKeySpec;
 import org.junit.jupiter.api.Test;
 
 class PracticeGeneratedContentKeyFactoryTest {
@@ -17,7 +19,7 @@ class PracticeGeneratedContentKeyFactoryTest {
                             "0123456789abcdef0123456789abcdef"));
 
     @Test
-    void sameOwnerAndCanonicalRequestProduceStableFingerprint() {
+    void sameOwnerAndSecurityRequestProduceStableFingerprint() {
         var material = material("宝宝 不肯穿鞋");
 
         assertThat(factory.requestFingerprint("owner_a", material))
@@ -33,10 +35,10 @@ class PracticeGeneratedContentKeyFactoryTest {
     }
 
     @Test
-    void fingerprintDoesNotEqualPlainSha256OfCanonicalRequest() throws Exception {
+    void fingerprintDoesNotEqualPlainSha256OfSecurityRequest() throws Exception {
         var material = material("宝宝 不肯穿鞋");
-        var canonicalRequest = "surface=onboarding|mode=custom_scene|scene=宝宝 不肯穿鞋|age=12_18m"
-                + "|goal=daily_care|locale=zh-CN|prompt=prompt-v1|strategy=strategy-v1|policy=policy-v2";
+        var canonicalRequest = "onboarding|custom_scene|宝宝 不肯穿鞋|12_18m"
+                + "|daily_care|zh-CN|prompt-v1|strategy-v1|policy-v2|1";
         var plainSha256 = HexFormat.of().formatHex(
                 MessageDigest.getInstance("SHA-256").digest(canonicalRequest.getBytes(StandardCharsets.UTF_8)));
 
@@ -44,6 +46,17 @@ class PracticeGeneratedContentKeyFactoryTest {
                 .startsWith("fp_")
                 .doesNotContain("宝宝")
                 .isNotEqualTo("fp_" + plainSha256);
+    }
+
+    @Test
+    void fingerprintUsesExactVersionedPayloadWithoutRoutingFields() throws Exception {
+        var material = material("宝宝 不肯穿鞋");
+        var payload = "onboarding|custom_scene|宝宝 不肯穿鞋|12_18m"
+                + "|daily_care|zh-CN|prompt-v1|strategy-v1|policy-v2|1";
+
+        assertThat(factory.requestFingerprint("owner_a", material))
+                .isEqualTo("fp_" + hmacHex(
+                        "practice-request-fingerprint:v1|v1|owner_a|" + payload));
     }
 
     @Test
@@ -98,6 +111,14 @@ class PracticeGeneratedContentKeyFactoryTest {
     private PracticeGeneratedContentKeyFactory.RequestFingerprintMaterial material(String scene) {
         return new PracticeGeneratedContentKeyFactory.RequestFingerprintMaterial(
                 "onboarding", "custom_scene", scene, "12_18m",
-                "daily_care", "zh-CN", "prompt-v1", "strategy-v1", "policy-v2");
+                "daily_care", "zh-CN", "prompt-v1", "strategy-v1", "policy-v2", 1);
+    }
+
+    private String hmacHex(String value) throws Exception {
+        var mac = Mac.getInstance("HmacSHA256");
+        mac.init(new SecretKeySpec(
+                "0123456789abcdef0123456789abcdef".getBytes(StandardCharsets.UTF_8),
+                "HmacSHA256"));
+        return HexFormat.of().formatHex(mac.doFinal(value.getBytes(StandardCharsets.UTF_8)));
     }
 }

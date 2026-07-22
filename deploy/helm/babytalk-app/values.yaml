@@ -14,6 +14,24 @@ nodeSelector: {}
 tolerations: []
 affinity: {}
 
+# Custom-scene agentic provider registry. Runtime YAML is mounted only into app-api.
+# Provider credentials belong in the dedicated practiceAi.secret source, never shared secret.
+practiceAi:
+  providerMode: disabled
+  springProfilesActive: ""
+  routingPolicyVersion: custom-scene-routing-v1
+  providers: {}
+  capabilities:
+    custom-scene-generator: []
+    custom-scene-quality-judge: []
+    custom-scene-repair: []
+  secret:
+    # Set this to an externally managed Secret name in production.
+    existingSecret: ""
+    # Bump whenever an externally managed Secret rotates; triggers app-api rollout.
+    rolloutVersion: ""
+    values: {}
+
 appApi:
   replicaCount: 1
   image:
