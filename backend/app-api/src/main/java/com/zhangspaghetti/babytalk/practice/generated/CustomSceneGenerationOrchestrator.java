@@ -8,6 +8,7 @@ import com.zhangspaghetti.babytalk.practice.generated.CustomSceneGenerator.Conte
 import com.zhangspaghetti.babytalk.practice.generated.CustomSceneGenerator.GeneratedPracticeContentCandidate;
 import com.zhangspaghetti.babytalk.practice.generated.CustomSceneGenerator.GeneratorRequest;
 import com.zhangspaghetti.babytalk.practice.generated.CustomSceneQualityJudge.JudgeRequest;
+import com.zhangspaghetti.babytalk.practice.generated.evidence.CompositeCustomSceneEvidenceRetriever;
 import com.zhangspaghetti.babytalk.practice.generated.evidence.CustomSceneEvidenceRetriever;
 import com.zhangspaghetti.babytalk.practice.generated.evidence.EvidenceBundleFactory;
 import com.zhangspaghetti.babytalk.practice.generated.evidence.EvidenceRetrievalRequest;
@@ -78,7 +79,7 @@ public class CustomSceneGenerationOrchestrator {
             CustomSceneGeneratedContentValidator validator,
             CustomSceneQualityJudge judge,
             JudgeVerdictCalculator verdictCalculator,
-            CustomSceneEvidenceRetriever retriever,
+            CompositeCustomSceneEvidenceRetriever retriever,
             EvidenceBundleFactory bundleFactory,
             GenerationAttemptAuditPort attemptAudit,
             PracticeGeneratedContentKeyFactory keyFactory
