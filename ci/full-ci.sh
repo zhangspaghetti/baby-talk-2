@@ -280,6 +280,9 @@ main() {
   stage 'practice-generation-privacy' 'python3 tool/verify_practice_generation_privacy.py'
   python3 tool/verify_practice_generation_privacy.py
 
+  stage 'root-dart-dependencies' 'flutter pub get'
+  flutter pub get
+
   stage 'practice-ai-helm-fixture' 'dart test test/tool/verify_practice_ai_helm_test.dart'
   dart test test/tool/verify_practice_ai_helm_test.dart
 

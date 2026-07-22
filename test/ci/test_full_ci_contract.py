@@ -43,6 +43,7 @@ class FullCiScriptContractTest(unittest.TestCase):
             "verify_practice_ai_version_lock.py --verify --base-lock",
             "verify_practice_generation_privacy_test.py",
             "verify_practice_generation_privacy.py",
+            "stage 'root-dart-dependencies' 'flutter pub get'",
             "dart test test/tool/verify_practice_ai_helm_test.dart",
             "dart run tool/verify_practice_ai_helm.dart",
             "bash ci/backend-test.sh",
@@ -177,6 +178,8 @@ class FullCiScriptContractTest(unittest.TestCase):
         self.assertIn("verify_practice_ai_version_lock.py --verify --base-lock \"$base_version_lock\"", self.text)
         self.assertIn("python3 test/tool/verify_practice_generation_privacy_test.py", self.text)
         self.assertIn("python3 tool/verify_practice_generation_privacy.py", self.text)
+        root_dart_dependencies = self.text.index("stage 'root-dart-dependencies' 'flutter pub get'")
+        self.assertLess(root_dart_dependencies, self.text.index("dart test test/tool/verify_practice_ai_helm_test.dart"))
         self.assertIn("dart test test/tool/verify_practice_ai_helm_test.dart", self.text)
         self.assertIn("dart run tool/verify_practice_ai_helm.dart", self.text)
         self.assertNotIn("stage 'mobile-test'", self.text)
@@ -194,6 +197,7 @@ class FullCiScriptContractTest(unittest.TestCase):
             "practice-ai-version-lock",
             "practice-generation-privacy-fixture",
             "practice-generation-privacy",
+            "root-dart-dependencies",
             "practice-ai-helm-fixture",
             "practice-ai-helm",
             "backend-reactor",
