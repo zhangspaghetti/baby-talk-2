@@ -138,6 +138,7 @@ class ActConfigurationContractTest(unittest.TestCase):
         self.assertIn("GIT_CONFIG_KEY_0: core.autocrlf", workflow)
         self.assertIn("VITEST_MIN_THREADS: '1'", workflow)
         self.assertIn("VITEST_MAX_THREADS: '1'", workflow)
+        self.assertIn("LOCAL_ACT_INSTALL_PLAYWRIGHT_DEPS: 'true'", workflow)
         self.assertIn("actions/setup-java@v4", workflow)
         self.assertIn("actions/setup-python@v5", workflow)
         self.assertIn("pip install --disable-pip-version-check PyYAML", workflow)

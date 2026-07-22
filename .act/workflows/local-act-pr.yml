@@ -76,4 +76,6 @@ jobs:
           # neighbouring tests. Keep this local act simulation deterministic.
           VITEST_MIN_THREADS: '1'
           VITEST_MAX_THREADS: '1'
+          # The compact act runner intentionally omits Chromium system libraries.
+          LOCAL_ACT_INSTALL_PLAYWRIGHT_DEPS: 'true'
         run: bash ci/full-ci.sh

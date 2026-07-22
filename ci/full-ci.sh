@@ -321,6 +321,11 @@ main() {
   stage 'admin-web-unit' 'pnpm --filter admin-web test:coverage'
   pnpm --filter admin-web test:coverage
 
+  if [[ "${LOCAL_ACT_INSTALL_PLAYWRIGHT_DEPS:-}" == 'true' ]]; then
+    stage 'admin-web-browser-system-deps' 'pnpm --dir admin-web exec playwright install-deps chromium'
+    pnpm --dir admin-web exec playwright install-deps chromium
+  fi
+
   stage 'admin-web-browsers' 'pnpm --filter admin-web install:browsers'
   pnpm --filter admin-web install:browsers
 
