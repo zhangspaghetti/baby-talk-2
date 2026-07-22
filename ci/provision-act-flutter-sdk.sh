@@ -84,7 +84,15 @@ PY
     -o "$archive"
   printf '%s  %s\n' "$archive_sha256" "$archive" | sha256sum --check --status \
     || fail 'Flutter archive checksum mismatch'
-  tar -xJf "$archive" -C "$work_dir"
+  python3 - "$archive" "$work_dir/flutter.tar" <<'PY'
+import lzma
+import shutil
+import sys
+
+with lzma.open(sys.argv[1], "rb") as source, open(sys.argv[2], "wb") as target:
+    shutil.copyfileobj(source, target, length=1024 * 1024)
+PY
+  tar -xf "$work_dir/flutter.tar" -C "$work_dir"
   [[ -x "$work_dir/flutter/bin/flutter" ]] || fail 'downloaded archive did not contain a Linux Flutter SDK'
 
   python3 - "$work_dir/flutter/.babytalk-act-flutter.json" "$flutter_version" "$archive_sha256" <<'PY'

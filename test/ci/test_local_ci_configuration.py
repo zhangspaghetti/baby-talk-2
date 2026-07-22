@@ -161,6 +161,7 @@ class ActConfigurationContractTest(unittest.TestCase):
         self.assertIn("flutter_version='3.41.6'", provisioner)
         self.assertIn("releases_linux.json", provisioner)
         self.assertIn("sha256sum --check --status", provisioner)
+        self.assertIn("import lzma", provisioner)
 
     def test_pull_request_fixture_contains_no_credentials(self) -> None:
         event = json.loads(EVENT_FIXTURE.read_text(encoding="utf-8"))
