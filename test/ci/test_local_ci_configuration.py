@@ -25,6 +25,7 @@ NPMRC = REPO_ROOT / ".npmrc"
 DOWNLOAD_SOURCES = REPO_ROOT / "ci" / "download-sources.sh"
 MAVEN_WRAPPER = REPO_ROOT / "ci" / "maven.sh"
 MAVEN_SETTINGS = REPO_ROOT / "backend" / ".mvn" / "settings.xml"
+P0_PLAYWRIGHT_CONFIG = REPO_ROOT / "admin-web" / "playwright.p0.config.ts"
 
 ISAR_TEST_LIBRARY_CONSUMERS = (
     "app/app_composition_characterization_test.dart",
@@ -451,6 +452,12 @@ class LefthookConfigurationContractTest(unittest.TestCase):
 
 
 class WindowsActCopyCompatibilityContractTest(unittest.TestCase):
+    def test_p0_playwright_uses_the_built_preview_not_vite_dev(self) -> None:
+        config = P0_PLAYWRIGHT_CONFIG.read_text(encoding="utf-8")
+
+        self.assertIn("command: 'pnpm run preview'", config)
+        self.assertNotIn("command: 'pnpm run dev'", config)
+
     def test_workflow_node_runtime_matches_pinned_pnpm(self) -> None:
         package = json.loads(PACKAGE_JSON.read_text(encoding="utf-8"))
         self.assertEqual(package["packageManager"], "pnpm@11.1.1")

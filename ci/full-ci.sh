@@ -331,6 +331,9 @@ main() {
   stage 'admin-web-unit' 'pnpm --filter admin-web test:coverage'
   pnpm --filter admin-web test:coverage
 
+  stage 'admin-web-build' 'pnpm --filter admin-web build'
+  pnpm --filter admin-web build
+
   if [[ "${LOCAL_ACT_INSTALL_PLAYWRIGHT_DEPS:-}" == 'true' ]]; then
     # The compact act image lacks Chromium libraries. This changes only the
     # disposable runner's apt sources before the browser prerequisite installs.
@@ -344,9 +347,6 @@ main() {
 
   stage 'admin-web-e2e' 'pnpm --filter admin-web test:e2e:p0 --reporter=list'
   pnpm --filter admin-web test:e2e:p0 --reporter=list
-
-  stage 'admin-web-build' 'pnpm --filter admin-web build'
-  pnpm --filter admin-web build
 
   stage 'mobile-analyze' 'bash ci/mobile-analyze.sh'
   bash ci/mobile-analyze.sh
