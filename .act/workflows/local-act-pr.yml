@@ -10,7 +10,7 @@ jobs:
     timeout-minutes: 90
     env:
       EXPECTED_HEAD_SHA: ${{ github.event.local_act.head_sha }}
-      FLUTTER_STORAGE_BASE_URL: https://storage.flutter-io.cn
+      ACT_FLUTTER_ROOT: /opt/babytalk/flutter
     defaults:
       run:
         working-directory: ${{ github.workspace }}
@@ -53,11 +53,15 @@ jobs:
         uses: azure/setup-helm@v4
         with:
           version: v4.1.4
-      - name: Set up Flutter
-        uses: subosito/flutter-action@v2
-        with:
-          flutter-version: '3.41.6'
-          cache: true
+      - name: Use host-provisioned Flutter SDK
+        run: |
+          test -x "$ACT_FLUTTER_ROOT/bin/flutter" || {
+            echo 'act must mount the host-provisioned Linux Flutter SDK' >&2
+            exit 1
+          }
+          "$ACT_FLUTTER_ROOT/bin/flutter" --version
+          printf '%s/bin\n' "$ACT_FLUTTER_ROOT" >> "$GITHUB_PATH"
+          printf 'FLUTTER_ROOT=%s\n' "$ACT_FLUTTER_ROOT" >> "$GITHUB_ENV"
       - name: Run the authoritative complete local CI entrypoint
         env:
           GIT_CONFIG_COUNT: '1'

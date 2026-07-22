@@ -5,6 +5,8 @@ repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 event_template="$repo_root/.act/pull_request.json"
 event_file=''
 act_log=''
+act_flutter_sdk=''
+act_flutter_mount=''
 
 fail() {
   printf 'run-act-pr: %s\n' "$*" >&2
@@ -19,9 +21,42 @@ cleanup() {
   exit "$status"
 }
 
+default_act_flutter_sdk() {
+  if command -v cygpath >/dev/null 2>&1 && [[ -n "${LOCALAPPDATA:-}" ]]; then
+    printf '%s/BabyTalk/act/flutter/flutter-3.41.6-linux/flutter\n' \
+      "$(cygpath -u "$LOCALAPPDATA")"
+  else
+    printf '%s/babytalk/act/flutter/flutter-3.41.6-linux/flutter\n' \
+      "${XDG_CACHE_HOME:-$HOME/.cache}"
+  fi
+}
+
+resolve_act_flutter_mount() {
+  local metadata
+  act_flutter_sdk="${ACT_FLUTTER_LINUX_SDK:-$(default_act_flutter_sdk)}"
+  metadata="$act_flutter_sdk/.babytalk-act-flutter.json"
+  [[ -x "$act_flutter_sdk/bin/flutter" ]] \
+    || fail "Linux Flutter SDK is missing; run bash ci/provision-act-flutter-sdk.sh first"
+  python3 - "$metadata" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+metadata = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+if metadata.get("platform") != "linux-x64" or metadata.get("version") != "3.41.6":
+    raise SystemExit("invalid local act Flutter SDK metadata")
+PY
+  if command -v cygpath >/dev/null 2>&1; then
+    act_flutter_mount="$(cygpath -w "$act_flutter_sdk")"
+  else
+    act_flutter_mount="$act_flutter_sdk"
+  fi
+}
+
 main() {
   cd "$repo_root"
   command -v act >/dev/null 2>&1 || fail 'act is required'
+  resolve_act_flutter_mount
   [[ -z "$(git status --porcelain=v1 --untracked-files=all)" ]] \
     || fail 'worktree must be clean so act validates the recorded HEAD exactly'
   git fetch --no-tags origin Develop
@@ -53,10 +88,16 @@ event["local_act"] = {"head_sha": head_sha, "origin_develop_sha": origin_develop
 output.write_text(json.dumps(event, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 PY
 
-  act -b -l pull_request -W .act/workflows/local-act-pr.yml -e "$event_file" "$@" 2>&1 | tee "$act_log"
+  local act_args=(
+    -b
+    -W .act/workflows/local-act-pr.yml
+    -e "$event_file"
+    --container-options "--mount type=bind,source=$act_flutter_mount,target=/opt/babytalk/flutter,readonly"
+  )
+  MSYS_NO_PATHCONV=1 act "${act_args[@]}" -l pull_request "$@" 2>&1 | tee "$act_log"
   grep -Fq 'local-pr-full-ci' "$act_log" || fail 'fixture does not select local-pr-full-ci'
   : >"$act_log"
-  act -b pull_request -W .act/workflows/local-act-pr.yml -e "$event_file" -j local-pr-full-ci "$@" \
+  MSYS_NO_PATHCONV=1 act "${act_args[@]}" pull_request -j local-pr-full-ci "$@" \
     2>&1 | tee "$act_log"
   if grep -Eqi 'skipp(ing|ed).*job|job.*skipp(ing|ed)' "$act_log"; then
     fail 'local-pr-full-ci was skipped'

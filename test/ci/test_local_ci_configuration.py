@@ -11,6 +11,7 @@ EVENT_FIXTURE = REPO_ROOT / ".act" / "pull_request.json"
 LOCAL_ACT_WORKFLOW = REPO_ROOT / ".act" / "workflows" / "local-act-pr.yml"
 GITHUB_LOCAL_ACT_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "local-act-pr.yml"
 LOCAL_ACT_RUNNER = REPO_ROOT / "ci" / "run-act-pr.sh"
+ACT_FLUTTER_PROVISIONER = REPO_ROOT / "ci" / "provision-act-flutter-sdk.sh"
 GITIGNORE = REPO_ROOT / ".gitignore"
 LOCAL_CI_DOC = REPO_ROOT / "docs" / "development" / "local-ci.md"
 LEFTHOOK_CONFIG = REPO_ROOT / "lefthook.yml"
@@ -116,8 +117,11 @@ class ActConfigurationContractTest(unittest.TestCase):
         self.assertTrue(LOCAL_ACT_WORKFLOW.is_file())
         self.assertFalse(GITHUB_LOCAL_ACT_WORKFLOW.exists())
         self.assertTrue(LOCAL_ACT_RUNNER.is_file())
+        self.assertTrue(ACT_FLUTTER_PROVISIONER.is_file())
+        self.assertTrue(os.access(ACT_FLUTTER_PROVISIONER, os.X_OK))
         workflow = LOCAL_ACT_WORKFLOW.read_text(encoding="utf-8")
         runner = LOCAL_ACT_RUNNER.read_text(encoding="utf-8")
+        provisioner = ACT_FLUTTER_PROVISIONER.read_text(encoding="utf-8")
 
         self.assertIn("pull_request:\n    branches: [Develop]", workflow)
         self.assertIn("local-pr-full-ci:", workflow)
@@ -137,9 +141,13 @@ class ActConfigurationContractTest(unittest.TestCase):
         self.assertIn("pip install --disable-pip-version-check PyYAML", workflow)
         self.assertIn("actions/setup-node@v4", workflow)
         self.assertIn("azure/setup-helm@v4", workflow)
-        self.assertIn("subosito/flutter-action@v2", workflow)
-        self.assertIn("flutter-version: '3.41.6'", workflow)
-        self.assertIn("FLUTTER_STORAGE_BASE_URL: https://storage.flutter-io.cn", workflow)
+        self.assertIn("Use host-provisioned Flutter SDK", workflow)
+        self.assertIn("ACT_FLUTTER_ROOT: /opt/babytalk/flutter", workflow)
+        self.assertIn('"$ACT_FLUTTER_ROOT/bin/flutter" --version', workflow)
+        self.assertNotIn("subosito/flutter-action@v2", workflow)
+        self.assertIn("provision-act-flutter-sdk.sh", runner)
+        self.assertIn("--container-options", runner)
+        self.assertIn("target=/opt/babytalk/flutter,readonly", runner)
         self.assertIn("git status --porcelain=v1 --untracked-files=all", runner)
         self.assertIn("git fetch --no-tags origin Develop", runner)
         self.assertIn("git merge-base", runner)
@@ -148,8 +156,11 @@ class ActConfigurationContractTest(unittest.TestCase):
         self.assertIn("fixture does not select local-pr-full-ci", runner)
         self.assertIn("local-pr-full-ci was skipped", runner)
         self.assertIn("did not report success", runner)
-        self.assertEqual(runner.count("act -b"), 2)
+        self.assertEqual(runner.count('act "${act_args[@]}"'), 2)
         self.assertEqual(runner.count("2>&1 | tee \"$act_log\""), 2)
+        self.assertIn("flutter_version='3.41.6'", provisioner)
+        self.assertIn("releases_linux.json", provisioner)
+        self.assertIn("sha256sum --check --status", provisioner)
 
     def test_pull_request_fixture_contains_no_credentials(self) -> None:
         event = json.loads(EVENT_FIXTURE.read_text(encoding="utf-8"))
