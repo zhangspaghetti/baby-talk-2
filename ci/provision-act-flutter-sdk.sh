@@ -3,6 +3,7 @@ set -euo pipefail
 
 flutter_version='3.41.6'
 flutter_storage_base_url="${FLUTTER_STORAGE_BASE_URL:-https://storage.flutter-io.cn}"
+work_dir=''
 
 fail() {
   printf 'provision-act-flutter-sdk: %s\n' "$*" >&2
@@ -42,7 +43,7 @@ PY
 }
 
 main() {
-  local sdk_dir metadata_parent work_dir releases archive archive_path archive_sha256
+  local sdk_dir metadata_parent releases archive archive_path archive_sha256
   sdk_dir="${ACT_FLUTTER_LINUX_SDK:-$(default_sdk_dir)}"
 
   if validate_sdk "$sdk_dir"; then
@@ -61,7 +62,7 @@ main() {
   curl --fail --location --retry 5 --connect-timeout 15 \
     "$flutter_storage_base_url/flutter_infra_release/releases/releases_linux.json" \
     -o "$releases"
-  readarray -t release_fields < <(python3 - "$releases" "$flutter_version" <<'PY'
+  readarray -t release_fields < <(python3 - "$releases" "$flutter_version" <<'PY' | tr -d '\r'
 import json
 import sys
 from pathlib import Path
@@ -73,6 +74,7 @@ if match is None:
 print(match["archive"])
 print(match["sha256"])
 PY
+)
 )
   [[ "${#release_fields[@]}" -eq 2 ]] || fail 'could not resolve the pinned Flutter archive'
   archive_path="${release_fields[0]}"
