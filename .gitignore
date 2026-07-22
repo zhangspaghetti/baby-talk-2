@@ -27,6 +27,7 @@ Thumbs.db
 .env.*
 !.env.example
 node_modules/
+/.pnpm-store/
 /.dart_tool/
 /.flutter-plugins
 /.flutter-plugins-dependencies

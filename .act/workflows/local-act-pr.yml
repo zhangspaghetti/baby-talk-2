@@ -71,4 +71,9 @@ jobs:
           GIT_CONFIG_COUNT: '1'
           GIT_CONFIG_KEY_0: core.autocrlf
           GIT_CONFIG_VALUE_0: 'true'
+          # The Windows bind mount and Docker Desktop's 4 GB runner can make
+          # parallel jsdom workers contend for I/O and leak timed-out work into
+          # neighbouring tests. Keep this local act simulation deterministic.
+          VITEST_MIN_THREADS: '1'
+          VITEST_MAX_THREADS: '1'
         run: bash ci/full-ci.sh
