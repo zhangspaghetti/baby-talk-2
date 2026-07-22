@@ -138,6 +138,7 @@ class ActConfigurationContractTest(unittest.TestCase):
         self.assertIn("actions/setup-node@v4", workflow)
         self.assertIn("azure/setup-helm@v4", workflow)
         self.assertIn("subosito/flutter-action@v2", workflow)
+        self.assertIn("flutter-version: '3.41.6'", workflow)
         self.assertIn("FLUTTER_STORAGE_BASE_URL: https://storage.flutter-io.cn", workflow)
         self.assertIn("git status --porcelain=v1 --untracked-files=all", runner)
         self.assertIn("git fetch --no-tags origin Develop", runner)
