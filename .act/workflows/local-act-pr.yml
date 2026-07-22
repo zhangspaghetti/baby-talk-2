@@ -31,6 +31,26 @@ jobs:
             printf 'act bind mount became dirty before full CI:\n%s\n' "$worktree_status" >&2
             exit 1
           }
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Set up Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Enable Corepack
+        run: corepack enable
+      - name: Install Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: v4.1.4
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
       - name: Run the authoritative complete local CI entrypoint
         run: |
           export GIT_CONFIG_COUNT=1

@@ -249,7 +249,9 @@ listed job alone is not evidence.
 On Windows, the bind job applies `core.autocrlf=true` only to its Git commands,
 matching the checked-out file representation without changing `.git/config`.
 The repository ignores local `.gstack/` state explicitly, so both host and
-container enforce the same clean-worktree contract.
+container enforce the same clean-worktree contract. The local-only workflow
+installs the same JDK 21, Node 22, Helm 4.1.4, and stable Flutter runtimes that
+the applicable repository workflows require before calling the shared script.
 
 `.github/workflows/ci.yml` and `admin-web.yml` are `Develop -> Release_QA`
 post-merge workflows. They are not PR #13 pre-merge simulation and must not be
