@@ -129,6 +129,7 @@ class ActConfigurationContractTest(unittest.TestCase):
         self.assertIn("EXPECTED_HEAD_SHA: ${{ github.event.local_act.head_sha }}", workflow)
         self.assertIn("test -d .git", workflow)
         self.assertIn('test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD_SHA"', workflow)
+        self.assertIn("act bind mount became dirty before full CI", workflow)
         self.assertIn("git status --porcelain=v1 --untracked-files=all", runner)
         self.assertIn("git fetch --no-tags origin Develop", runner)
         self.assertIn("git merge-base", runner)
