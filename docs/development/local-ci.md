@@ -73,10 +73,11 @@ data to act invocations or event files.
 
 Before the first act run, provision the reviewed Linux Flutter `3.41.6` SDK on
 the host with `bash ci/provision-act-flutter-sdk.sh`. `ci/run-act-pr.sh` then
-read-only mounts that host cache at `/opt/babytalk/flutter`; the workflow never
-downloads a Flutter SDK in its job container. Set `ACT_FLUTTER_LINUX_SDK` only
-when the cache is intentionally stored elsewhere. A Windows Flutter SDK cannot
-be mounted as a substitute because the act job needs Linux binaries.
+read-only mounts that host cache and the job copies it into its own temporary
+filesystem before running Flutter; the workflow never downloads a Flutter SDK
+in its job container. Set `ACT_FLUTTER_LINUX_SDK` only when the cache is
+intentionally stored elsewhere. A Windows Flutter SDK cannot be mounted as a
+substitute because the act job needs Linux binaries.
 
 The CI workflow pins Helm `v4.1.4`, matching the audited local toolchain. Do not
 replace this with the setup action's floating latest resolution.

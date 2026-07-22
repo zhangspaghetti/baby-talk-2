@@ -92,7 +92,7 @@ PY
     -b
     -W .act/workflows/local-act-pr.yml
     -e "$event_file"
-    --container-options "--mount type=bind,source=$act_flutter_mount,target=/opt/babytalk/flutter,readonly"
+    --container-options "--mount type=bind,source=$act_flutter_mount,target=/opt/babytalk/flutter-source,readonly"
   )
   MSYS_NO_PATHCONV=1 act "${act_args[@]}" -l pull_request "$@" 2>&1 | tee "$act_log"
   grep -Fq 'local-pr-full-ci' "$act_log" || fail 'fixture does not select local-pr-full-ci'

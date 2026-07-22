@@ -10,7 +10,8 @@ jobs:
     timeout-minutes: 90
     env:
       EXPECTED_HEAD_SHA: ${{ github.event.local_act.head_sha }}
-      ACT_FLUTTER_ROOT: /opt/babytalk/flutter
+      ACT_FLUTTER_SOURCE: /opt/babytalk/flutter-source
+      ACT_FLUTTER_ROOT: /tmp/babytalk-flutter
     defaults:
       run:
         working-directory: ${{ github.workspace }}
@@ -55,10 +56,13 @@ jobs:
           version: v4.1.4
       - name: Use host-provisioned Flutter SDK
         run: |
-          test -x "$ACT_FLUTTER_ROOT/bin/flutter" || {
+          test -x "$ACT_FLUTTER_SOURCE/bin/flutter" || {
             echo 'act must mount the host-provisioned Linux Flutter SDK' >&2
             exit 1
           }
+          rm -rf "$ACT_FLUTTER_ROOT"
+          mkdir -p "$ACT_FLUTTER_ROOT"
+          cp -a "$ACT_FLUTTER_SOURCE/." "$ACT_FLUTTER_ROOT/"
           "$ACT_FLUTTER_ROOT/bin/flutter" --version
           printf '%s/bin\n' "$ACT_FLUTTER_ROOT" >> "$GITHUB_PATH"
           printf 'FLUTTER_ROOT=%s\n' "$ACT_FLUTTER_ROOT" >> "$GITHUB_ENV"
