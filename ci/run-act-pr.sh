@@ -48,7 +48,7 @@ if metadata.get("platform") != "linux-x64" or metadata.get("version") != "3.41.6
     raise SystemExit("invalid local act Flutter SDK metadata")
 PY
   if command -v cygpath >/dev/null 2>&1; then
-    act_flutter_mount="$(cygpath -w "$act_flutter_sdk")"
+    act_flutter_mount="$(cygpath -m "$act_flutter_sdk")"
   else
     act_flutter_mount="$act_flutter_sdk"
   fi

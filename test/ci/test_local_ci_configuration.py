@@ -148,6 +148,7 @@ class ActConfigurationContractTest(unittest.TestCase):
         self.assertIn('"$ACT_FLUTTER_ROOT/bin/flutter" --version', workflow)
         self.assertNotIn("subosito/flutter-action@v2", workflow)
         self.assertIn("provision-act-flutter-sdk.sh", runner)
+        self.assertIn('act_flutter_mount="$(cygpath -m "$act_flutter_sdk")"', runner)
         self.assertIn("--container-options", runner)
         self.assertIn("target=/opt/babytalk/flutter-source,readonly", runner)
         self.assertIn("git status --porcelain=v1 --untracked-files=all", runner)
