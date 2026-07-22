@@ -259,14 +259,14 @@ public class CustomSceneGenerationOrchestrator {
             if (!gate.terminalViolations().isEmpty()) {
                 var codes = combined(attemptCodes, violationCodes(gate.terminalViolations()));
                 complete(attemptId, attemptNumber, "terminal_violation", codes);
-                return reject(reserved, terminalViolationErrorCode(gate.terminalViolations()), false);
+                return reject(reserved, ERROR_GENERATION_INVALID_OUTPUT, false);
             }
             if (!gate.repairableViolations().isEmpty()) {
                 var codes = combined(attemptCodes, violationCodes(gate.repairableViolations()));
                 repairContext = deterministicRepairContext(gate.normalizedCandidate(), gate.repairableViolations(), codes);
                 if (attemptNumber == reserved.generationAttemptLimit()) {
                     complete(attemptId, attemptNumber, "attempt_limit_exhausted", codes);
-                    return reject(reserved, ERROR_GENERATED_CONTENT_REJECTED, false);
+                    return reject(reserved, repairableViolationErrorCode(gate.repairableViolations()), false);
                 }
                 if (!complete(attemptId, attemptNumber, "repairable_violation", codes)) {
                     return expire(reserved, ERROR_GENERATION_UNAVAILABLE, true);
@@ -335,11 +335,10 @@ public class CustomSceneGenerationOrchestrator {
         return expire(reserved, ERROR_INSUFFICIENT_EVIDENCE, true);
     }
 
-    private String terminalViolationErrorCode(List<GeneratedOutputViolationCode> violations) {
-        return violations.stream().anyMatch(violation -> violation == GeneratedOutputViolationCode.DATABASE_OVERFLOW
-                || violation == GeneratedOutputViolationCode.INVALID_ENUM)
-                ? ERROR_GENERATION_INVALID_OUTPUT
-                : ERROR_GENERATED_CONTENT_REJECTED;
+    private String repairableViolationErrorCode(List<GeneratedOutputViolationCode> violations) {
+        return violations.contains(GeneratedOutputViolationCode.COURSE_OR_SCORING_FRAMING)
+                ? ERROR_GENERATED_CONTENT_REJECTED
+                : ERROR_GENERATION_INVALID_OUTPUT;
     }
 
     private TypedRepairPackage repairPackage(
