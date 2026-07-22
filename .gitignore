@@ -6,7 +6,7 @@ workflows/
 !.act/workflows/
 .sisyphus/
 .codex/
-.gstack/
+.gstack
 
 # ── GSD baseline (auto-generated) ──
 .bg-shell/

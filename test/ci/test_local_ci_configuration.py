@@ -163,6 +163,7 @@ class ActConfigurationContractTest(unittest.TestCase):
             if line.strip() and not line.lstrip().startswith("#")
         }
         self.assertIn("/.act/artifacts/", lines)
+        self.assertIn(".gstack", lines)
         self.assertNotIn("/.act/", lines)
         self.assertNotIn(".act/", lines)
 
