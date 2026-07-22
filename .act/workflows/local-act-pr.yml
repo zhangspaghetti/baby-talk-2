@@ -37,6 +37,12 @@ jobs:
         with:
           distribution: temurin
           java-version: '21'
+      - name: Set up Python 3
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install Python CI dependencies
+        run: python3 -m pip install --disable-pip-version-check PyYAML
       - name: Set up Node.js 22
         uses: actions/setup-node@v4
         with:
@@ -53,8 +59,8 @@ jobs:
           channel: stable
           cache: true
       - name: Run the authoritative complete local CI entrypoint
-        run: |
-          export GIT_CONFIG_COUNT=1
-          export GIT_CONFIG_KEY_0=core.autocrlf
-          export GIT_CONFIG_VALUE_0=true
-          bash ci/full-ci.sh
+        env:
+          GIT_CONFIG_COUNT: '1'
+          GIT_CONFIG_KEY_0: core.autocrlf
+          GIT_CONFIG_VALUE_0: 'true'
+        run: bash ci/full-ci.sh
