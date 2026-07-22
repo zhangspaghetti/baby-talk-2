@@ -3,6 +3,7 @@ package com.zhangspaghetti.babytalk.practice.generated.internal;
 import com.zhangspaghetti.babytalk.practice.generated.DraftReservation;
 import com.zhangspaghetti.babytalk.practice.generated.GeneratedContentIdConflictException;
 import com.zhangspaghetti.babytalk.practice.generated.GenerationStartDecision;
+import com.zhangspaghetti.babytalk.practice.generated.GenerationAttemptAuditPort;
 import com.zhangspaghetti.babytalk.practice.generated.PracticeGeneratedContentCommands;
 import com.zhangspaghetti.babytalk.practice.generated.PracticeGeneratedContentQueryMapper;
 import com.zhangspaghetti.babytalk.practice.generated.PracticeGenerationRateLimitExceededException;
@@ -20,13 +21,16 @@ class PracticeGeneratedContentWriteService implements PracticeGeneratedContentCo
 
     private final PracticeGeneratedContentCommandMapper commandMapper;
     private final PracticeGeneratedContentQueryMapper queryMapper;
+    private final PracticeGenerationAuditMapper auditMapper;
 
     PracticeGeneratedContentWriteService(
             PracticeGeneratedContentCommandMapper commandMapper,
-            PracticeGeneratedContentQueryMapper queryMapper
+            PracticeGeneratedContentQueryMapper queryMapper,
+            PracticeGenerationAuditMapper auditMapper
     ) {
         this.commandMapper = commandMapper;
         this.queryMapper = queryMapper;
+        this.auditMapper = auditMapper;
     }
 
     @Override
@@ -116,6 +120,29 @@ class PracticeGeneratedContentWriteService implements PracticeGeneratedContentCo
         return commandMapper.activateGenerating(active) == 1
                 ? Optional.ofNullable(queryMapper.findByGeneratedContentId(active.generatedContentId()))
                 : Optional.empty();
+    }
+
+    @Override
+    @Transactional
+    public Optional<PracticeGeneratedContentEntity> activateWithCompletedAttempt(
+            PracticeGeneratedContentEntity active,
+            GenerationAttemptAuditPort.AttemptCompleted completedAttempt
+    ) {
+        if (auditMapper.completeAttempt(
+                completedAttempt.attemptId(),
+                completedAttempt.outcome(),
+                completedAttempt.violationCodes(),
+                completedAttempt.completedAt()) != 1) {
+            throw new IllegalStateException("generation attempt was not started");
+        }
+        if (commandMapper.activateGenerating(active) != 1) {
+            throw new IllegalStateException("generated content was not generating");
+        }
+        var activated = queryMapper.findByGeneratedContentId(active.generatedContentId());
+        if (activated == null || !"active".equals(activated.status())) {
+            throw new IllegalStateException("activated generated content could not be loaded");
+        }
+        return Optional.of(activated);
     }
 
     @Override

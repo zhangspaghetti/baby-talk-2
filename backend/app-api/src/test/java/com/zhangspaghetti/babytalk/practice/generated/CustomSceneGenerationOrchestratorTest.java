@@ -66,7 +66,7 @@ class CustomSceneGenerationOrchestratorTest {
                 "generator:1",
                 "gate:1",
                 "judge:1",
-                "activate",
+                "activate-with-completed-attempt",
                 "attempt-completed:1:passed");
         assertThat(harness.generatorRequests).singleElement().satisfies(request -> {
             assertThat(request.attemptNumber()).isEqualTo(1);
@@ -118,7 +118,7 @@ class CustomSceneGenerationOrchestratorTest {
                 "repair:2",
                 "gate:2",
                 "judge:2",
-                "activate",
+                "activate-with-completed-attempt",
                 "attempt-completed:2:passed");
         assertThat(harness.repairRequests).singleElement().satisfies(request -> {
             assertThat(request.attemptNumber()).isEqualTo(2);
@@ -177,7 +177,7 @@ class CustomSceneGenerationOrchestratorTest {
                 "repair:2",
                 "gate:2",
                 "judge:2",
-                "activate",
+                "activate-with-completed-attempt",
                 "attempt-completed:2:passed");
         assertThat(harness.judgeRequests).extracting(JudgeRequest::attemptNumber).containsExactly(1, 2);
         assertThat(harness.judgeRequests).extracting(JudgeRequest::evidenceBundleId)
@@ -238,7 +238,7 @@ class CustomSceneGenerationOrchestratorTest {
                 "repair:2",
                 "gate:2",
                 "judge:2",
-                "activate",
+                "activate-with-completed-attempt",
                 "attempt-completed:2:passed");
         assertThat(harness.repairRequests).singleElement().satisfies(request ->
                 assertThat(request.repairPackage().effectiveVerdict()).isEqualTo(JudgeVerdict.ABSTAIN));
@@ -651,7 +651,7 @@ class CustomSceneGenerationOrchestratorTest {
     }
 
     @Test
-    void activationRemainsActiveWhenAttemptCompletionAuditFails() {
+    void attemptCompletionFailurePreventsActivation() {
         var harness = new Harness(2);
         harness.gates.add(GateSpec.pass());
         harness.judges.add(pass());
@@ -659,8 +659,8 @@ class CustomSceneGenerationOrchestratorTest {
 
         var result = harness.execute();
 
-        assertThat(result.status()).isEqualTo("active");
-        assertThat(result.generationErrorCode()).isNull();
+        assertThat(result.status()).isEqualTo("expired");
+        assertThat(result.generationErrorCode()).isEqualTo("generation_unavailable");
         assertThat(harness.completedAttempts).isEmpty();
         assertThat(harness.events).containsExactly(
                 "attempt-started:1:generator",
@@ -670,8 +670,9 @@ class CustomSceneGenerationOrchestratorTest {
                 "generator:1",
                 "gate:1",
                 "judge:1",
-                "activate",
-                "attempt-completion-failed:1:passed");
+                "activate-with-completed-attempt",
+                "attempt-completion-failed:1:activation_failure",
+                "expire:generation_unavailable:true");
     }
 
     private static SuggestedJudgeResult pass() {
@@ -896,11 +897,17 @@ class CustomSceneGenerationOrchestratorTest {
                 }
                 return judges.removeFirst();
             });
-            when(commands.activate(any())).thenAnswer(invocation -> {
-                events.add("activate");
+            when(commands.activateWithCompletedAttempt(any(), any())).thenAnswer(invocation -> {
+                events.add("activate-with-completed-attempt");
                 if (activationFailure != null) {
                     throw activationFailure;
                 }
+                if (attemptCompletionFailure != null) {
+                    throw attemptCompletionFailure;
+                }
+                var completed = invocation.getArgument(1, GenerationAttemptAuditPort.AttemptCompleted.class);
+                completedAttempts.add(completed);
+                events.add("attempt-completed:" + completed.attemptNumber() + ":" + completed.outcome());
                 return Optional.of(invocation.getArgument(0, PracticeGeneratedContentEntity.class));
             });
             doAnswer(invocation -> {

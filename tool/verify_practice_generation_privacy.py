@@ -40,6 +40,7 @@ SECURITY_TEXT_APPROVED = {
     "EvidenceSanitizer.java",
     "CustomSceneGeneratedContentValidator.java",
 }
+CURRENT_GENERATED_CONTENT_MIGRATION = "V27__upgrade_practice_generated_content_agentic_contract.sql"
 
 
 def files_under(root: Path, relative: str, suffixes: tuple[str, ...]) -> list[Path]:
@@ -93,7 +94,7 @@ def find_forbidden_fields(paths: list[Path]) -> list[str]:
 def collect_violations(root: Path) -> list[str]:
     java_root = "backend/app-api/src/main/java/com/zhangspaghetti/babytalk/practice"
     mapper_root = "backend/app-api/src/main/resources/mapper/practice"
-    migration = root / "backend/db-migration/src/main/resources/db/migration/V25__create_practice_generated_content.sql"
+    migration = root / "backend/db-migration/src/main/resources/db/migration" / CURRENT_GENERATED_CONTENT_MIGRATION
     generated_mapper = root / "backend/app-api/src/main/resources/mapper/practice/generated"
     query_mapper = generated_mapper / "PracticeGeneratedContentQueryMapper.xml"
     command_mapper = generated_mapper / "internal/PracticeGeneratedContentCommandMapper.xml"
@@ -106,7 +107,7 @@ def collect_violations(root: Path) -> list[str]:
         production_paths.append(migration)
     failures.extend(find_forbidden_fields(production_paths))
 
-    for path in (migration, *files_under(root, mapper_root, (".xml",))):
+    for path in files_under(root, mapper_root, (".xml",)):
         if path.exists() and re.search(r"\bcoach_tip_zh\b", text(path), re.IGNORECASE):
             failures.append(f"{path}: coach_tip_zh must be composed at response time, never persisted")
 
@@ -129,7 +130,7 @@ def collect_violations(root: Path) -> list[str]:
     if options_factory.exists() and ".maxRetries(0)" not in text(options_factory):
         failures.append(f"{options_factory}: missing hard-coded maxRetries(0)")
 
-    private_runtime_paths = [migration, query_mapper, command_mapper]
+    private_runtime_paths = [query_mapper, command_mapper]
     for path in private_runtime_paths:
         if path.exists() and re.search(r"\b(promoted|global_candidate)\b", text(path)):
             failures.append(f"{path}: private-generation scope must not contain promoted/global_candidate state")
@@ -139,8 +140,14 @@ def collect_violations(root: Path) -> list[str]:
         for column in REQUIRED_RESPONSE_COLUMNS:
             if column not in migration_text:
                 failures.append(f"{migration}: required generated response column missing: {column}")
+        if "drop column coach_tip_zh" not in migration_text:
+            failures.append(f"{migration}: current generated-content contract must remove coach_tip_zh")
+        if "check (owner_scope in ('installation', 'account', 'profile'))" not in migration_text:
+            failures.append(f"{migration}: current generated-content owner scope must exclude global_candidate")
+        if "check (status in ('draft', 'generating', 'active', 'rejected', 'expired'))" not in migration_text:
+            failures.append(f"{migration}: current generated-content status must exclude promoted")
     else:
-        failures.append(f"missing migration: {migration}")
+        failures.append(f"missing current generated-content migration: {migration}")
 
     if query_mapper.exists():
         mapper_text = text(query_mapper)

@@ -52,10 +52,10 @@ class PracticeGenerationPrivacyVerifierTest(unittest.TestCase):
         self.assertTrue(any("securityText use outside approved" in failure for failure in failures))
         self.assertTrue(any("riskSignals use outside approved" in failure for failure in failures))
 
-    def test_security_and_risk_snake_case_are_rejected_in_v25_and_mapper_xml(self) -> None:
+    def test_security_and_risk_snake_case_are_rejected_in_current_migration_and_mapper_xml(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
-            migration = root / "backend/db-migration/src/main/resources/db/migration/V25__create_practice_generated_content.sql"
+            migration = root / "backend/db-migration/src/main/resources/db/migration" / VERIFIER.CURRENT_GENERATED_CONTENT_MIGRATION
             mapper = root / "backend/app-api/src/main/resources/mapper/practice/generated/PracticeAuditMapper.xml"
             migration.parent.mkdir(parents=True)
             mapper.parent.mkdir(parents=True)
@@ -63,7 +63,7 @@ class PracticeGenerationPrivacyVerifierTest(unittest.TestCase):
             mapper.write_text("<result column=\"risk_signals\"/>\n", encoding="utf-8")
             failures = VERIFIER.collect_violations(root)
 
-        self.assertTrue(any("V25__create_practice_generated_content.sql" in failure and "security_text" in failure
+        self.assertTrue(any(VERIFIER.CURRENT_GENERATED_CONTENT_MIGRATION in failure and "security_text" in failure
                             for failure in failures))
         self.assertTrue(any("PracticeAuditMapper.xml" in failure and "risk_signals" in failure
                             for failure in failures))

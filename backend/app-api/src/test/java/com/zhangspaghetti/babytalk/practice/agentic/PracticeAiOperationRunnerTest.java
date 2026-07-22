@@ -79,6 +79,26 @@ class PracticeAiOperationRunnerTest {
         assertThat(audit.events.get(audit.events.size() - 1)).isEqualTo("operation:providers_exhausted");
     }
 
+    @Test
+    void unclassifiedRuntimeFailureStopsAtPrimaryAndPropagatesOriginalFailure() {
+        var audit = new CapturingAuditPort();
+        var invoked = new ArrayList<String>();
+        var failure = new IllegalStateException("programming failure");
+        var runner = runner(List.of(provider("primary"), provider("secondary")), audit);
+
+        assertThatThrownBy(() -> runner.execute(request(PracticeAiCapability.CUSTOM_SCENE_GENERATOR, resolved -> {
+            invoked.add(resolved.providerName());
+            throw failure;
+        }))).isSameAs(failure);
+
+        assertThat(invoked).containsExactly("primary");
+        assertThat(audit.events).containsExactly(
+                "operation:started",
+                "primary:started",
+                "primary:internal_error",
+                "operation:internal_error");
+    }
+
     @ParameterizedTest
     @ValueSource(strings = {"REJECT", "REPAIR"})
     void successfulJudgeVerdictDoesNotFallBack(String verdict) {
@@ -191,12 +211,13 @@ class PracticeAiOperationRunnerTest {
         when(serverError.statusCode()).thenReturn(503);
 
         assertThat(classifier.classify(new OpenAIIoException("timeout", new SocketTimeoutException())))
-                .isEqualTo("timeout");
-        assertThat(classifier.classify(rateLimit)).isEqualTo("rate_limited");
-        assertThat(classifier.classify(serverError)).isEqualTo("server_error");
-        assertThat(classifier.classify(new OpenAIIoException("connection"))).isEqualTo("connection_error");
+                .hasValue("timeout");
+        assertThat(classifier.classify(rateLimit)).hasValue("rate_limited");
+        assertThat(classifier.classify(serverError)).hasValue("server_error");
+        assertThat(classifier.classify(new OpenAIIoException("connection"))).hasValue("connection_error");
         assertThat(classifier.classify(new PracticeAiStructuredOutputCaller.StructuredOutputInvalidException()))
-                .isEqualTo("structured_output_invalid");
+                .hasValue("structured_output_invalid");
+        assertThat(classifier.classify(new IllegalStateException("programming failure"))).isEmpty();
     }
 
     @Test

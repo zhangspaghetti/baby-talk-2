@@ -21,9 +21,11 @@ import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Primary;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.MockMvc;
 
 @SpringBootTest(properties = {
@@ -49,6 +51,12 @@ class PracticeDiscoveryControllerTest extends AbstractIntegrationTest {
 
     @Autowired
     private MutableCustomSceneGenerator customSceneGenerationService;
+
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
+
+    @Autowired
+    private ApplicationContext applicationContext;
 
     @BeforeEach
     void resetCustomSceneGenerator() {
@@ -160,6 +168,31 @@ class PracticeDiscoveryControllerTest extends AbstractIntegrationTest {
         assertThat(starter.get("utteranceId").asText()).startsWith("gen_phrase_");
         assertThat(starter.get("phraseId").asText()).startsWith("gen_phrase_");
         assertThat(moment.get("coachTip").asText()).isEqualTo("看着宝宝。 慢慢说一遍。");
+    }
+
+    @Test
+    void fakeModeRunsTheTypedOrchestratorAndPersistsAttemptBundleAndJudgeBeforeActivation() throws Exception {
+        customSceneGenerationService.mode("repairable");
+
+        mockMvc.perform(discovery(customSceneJson("洗澡后哄睡")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.source").value("generated"));
+
+        assertThat(jdbcTemplate.queryForObject(
+                "select status from practice_generated_content", String.class)).isEqualTo("active");
+        assertThat(jdbcTemplate.queryForObject(
+                "select count(*) from practice_generated_content_attempts where status = 'completed'",
+                Integer.class)).isEqualTo(2);
+        assertThat(jdbcTemplate.queryForObject(
+                "select count(*) from practice_generated_content_evidence_bundles", Integer.class)).isEqualTo(2);
+        assertThat(jdbcTemplate.queryForObject(
+                "select count(*) from practice_generated_content_judge_results", Integer.class)).isEqualTo(1);
+        assertThat(applicationContext.getBeansOfType(
+                com.zhangspaghetti.babytalk.practice.agentic.PracticeAiProviderManager.class)).isEmpty();
+        assertThat(applicationContext.getBeansOfType(
+                com.zhangspaghetti.babytalk.practice.agentic.PracticeAiStructuredOutputCaller.class)).isEmpty();
+        assertThat(jdbcTemplate.queryForObject(
+                "select count(*) from practice_ai_provider_calls where provider_type <> 'fake'", Integer.class)).isZero();
     }
 
     @Test
@@ -658,6 +691,9 @@ class PracticeDiscoveryControllerTest extends AbstractIntegrationTest {
                 case "invalid" -> new GeneratedPracticeContentCandidate(
                         "日常照护", "洗澡安抚", "Bath care", "看着宝宝。", "慢慢说一遍。",
                         "Warm water.", "水暖暖的。", "warm water", "advanced", "fake");
+                case "repairable" -> new GeneratedPracticeContentCandidate(
+                        "日常照护", "洗澡安抚", "Bath care", "", "慢慢说一遍。",
+                        "Warm water.", "水暖暖的。", "warm water", "starter", "fake");
                 case "timeout" -> throw new GenerationTimeoutException();
                 case "unavailable" -> throw new GenerationUnavailableException(
                         GenerationUnavailableReason.PROVIDER_UNAVAILABLE);

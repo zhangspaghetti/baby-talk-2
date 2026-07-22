@@ -11,18 +11,12 @@ import java.util.LinkedHashMap;
 import java.util.Locale;
 import java.util.UUID;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import tools.jackson.databind.ObjectMapper;
 
 @Service
-@ConditionalOnProperty(
-        prefix = "babytalk.practice.discovery.custom-scene",
-        name = "provider-mode",
-        havingValue = "agentic"
-)
 class JudgeResultAuditPersistenceAdapter implements JudgeResultAuditPort {
 
     private final PracticeGenerationAuditMapper auditMapper;

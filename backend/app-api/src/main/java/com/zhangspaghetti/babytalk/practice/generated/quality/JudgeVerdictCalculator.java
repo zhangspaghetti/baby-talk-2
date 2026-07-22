@@ -16,12 +16,12 @@ public final class JudgeVerdictCalculator {
         validate(suggested, rubric);
 
         JudgeVerdict effectiveVerdict;
-        if (suggested.dimensionResults().containsValue(DimensionResult.ABSTAIN)) {
-            effectiveVerdict = JudgeVerdict.ABSTAIN;
-        } else if (hasResultInPolicy(suggested, rubric.rejectOnFail(), DimensionResult.FAIL)) {
+        if (hasResultInPolicy(suggested, rubric.rejectOnFail(), DimensionResult.FAIL)) {
             effectiveVerdict = JudgeVerdict.REJECT;
         } else if (hasResultInPolicy(suggested, rubric.repairOnFail(), DimensionResult.FAIL)) {
             effectiveVerdict = JudgeVerdict.REPAIR;
+        } else if (suggested.dimensionResults().containsValue(DimensionResult.ABSTAIN)) {
+            effectiveVerdict = JudgeVerdict.ABSTAIN;
         } else {
             effectiveVerdict = JudgeVerdict.PASS;
         }

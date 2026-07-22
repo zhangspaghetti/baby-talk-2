@@ -17,7 +17,7 @@ interface PracticeGenerationAuditMapper {
 
     void insertAttempt(PracticeGenerationAttemptEntity entity);
 
-    void completeAttempt(
+    int completeAttempt(
             @Param("attemptId") UUID attemptId,
             @Param("outcome") String outcome,
             @Param("violationCodes") List<String> violationCodes,

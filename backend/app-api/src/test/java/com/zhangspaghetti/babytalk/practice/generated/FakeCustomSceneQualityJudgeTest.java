@@ -1,13 +1,16 @@
 package com.zhangspaghetti.babytalk.practice.generated;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 
 import com.zhangspaghetti.babytalk.practice.generated.CustomSceneGenerator.GeneratedPracticeContentCandidate;
 import com.zhangspaghetti.babytalk.practice.generated.CustomSceneQualityJudge.JudgeRequest;
 import com.zhangspaghetti.babytalk.practice.generated.quality.DimensionResult;
 import com.zhangspaghetti.babytalk.practice.generated.quality.JudgeDimension;
 import com.zhangspaghetti.babytalk.practice.generated.quality.JudgeVerdict;
-import java.lang.reflect.Modifier;
 import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
@@ -15,11 +18,13 @@ import org.junit.jupiter.api.Test;
 class FakeCustomSceneQualityJudgeTest {
 
     @Test
-    void deterministicFakePassHasNoRunnerAuditOrNetworkDependencies() {
-        assertThat(FakeCustomSceneQualityJudge.class.getDeclaredFields())
-                .filteredOn(field -> !Modifier.isStatic(field.getModifiers()))
-                .isEmpty();
-        var judge = new FakeCustomSceneQualityJudge();
+    void deterministicFakePassPersistsLocalJudgeAuditWithoutProviderManager() {
+        var operationAudit = mock(com.zhangspaghetti.babytalk.practice.agentic.PracticeAiAuditPort.class);
+        var judgeAudit = mock(com.zhangspaghetti.babytalk.practice.generated.quality.JudgeResultAuditPort.class);
+        var judge = new FakeCustomSceneQualityJudge(
+                operationAudit,
+                judgeAudit,
+                new com.zhangspaghetti.babytalk.practice.generated.quality.JudgeVerdictCalculator());
 
         var first = judge.judge(request());
         var second = judge.judge(request());
@@ -32,6 +37,11 @@ class FakeCustomSceneQualityJudgeTest {
         assertThat(first.violationCodes()).isEmpty();
         assertThat(first.repairDirectives()).isEmpty();
         assertThat(first.evidenceGapCodes()).isEmpty();
+        verify(operationAudit, times(2)).insertOperationRun(any());
+        verify(operationAudit, times(2)).insertProviderCall(any());
+        verify(operationAudit, times(2)).completeProviderCall(any());
+        verify(operationAudit, times(2)).completeOperationRun(any());
+        verify(judgeAudit, times(2)).persist(any());
     }
 
     private JudgeRequest request() {

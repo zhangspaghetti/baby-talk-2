@@ -292,9 +292,11 @@ public class CustomSceneGenerationOrchestrator {
             var judgeCodes = combined(attemptCodes, suggested.violationCodes());
             if (effective.effectiveVerdict() == JudgeVerdict.PASS) {
                 try {
-                    var activated = activate(reserved, gate.normalizedCandidate());
-                    complete(attemptId, attemptNumber, "passed", judgeCodes);
-                    return activated;
+                    return commands.activateWithCompletedAttempt(
+                            activeRow(reserved, gate.normalizedCandidate()),
+                            new GenerationAttemptAuditPort.AttemptCompleted(
+                                    attemptId, attemptNumber, "passed", stableCodes(judgeCodes), now()))
+                            .orElseThrow(() -> new GenerationExecutionException("activation_failure", true));
                 } catch (RuntimeException exception) {
                     complete(attemptId, attemptNumber, "activation_failure", judgeCodes);
                     return expire(reserved, ERROR_GENERATION_UNAVAILABLE, true);

@@ -8,6 +8,8 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[2]
 ACTRC = REPO_ROOT / ".actrc"
 EVENT_FIXTURE = REPO_ROOT / ".act" / "pull_request.json"
+LOCAL_ACT_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "local-act-pr.yml"
+LOCAL_ACT_RUNNER = REPO_ROOT / "ci" / "run-act-pr.sh"
 GITIGNORE = REPO_ROOT / ".gitignore"
 LOCAL_CI_DOC = REPO_ROOT / "docs" / "development" / "local-ci.md"
 LEFTHOOK_CONFIG = REPO_ROOT / "lefthook.yml"
@@ -45,9 +47,6 @@ RUNNER_IMAGE = (
     "ghcr.io/catthehacker/ubuntu:act-24.04@sha256:"
     "5d6a17640b25694988b9db5a4145537b9918e5430116b2cf90d84e837609b382"
 )
-ORIGIN_DEVELOP_SHA = "4f0b33462a0c7ca4b7f6f3ba0203ae776a9239cb"
-
-
 def _walk_json(value, path="root"):
     if isinstance(value, dict):
         for key, child in value.items():
@@ -83,8 +82,8 @@ class ActConfigurationContractTest(unittest.TestCase):
             self.assertNotIn(forbidden, joined)
         self.assertNotIn("7890", joined)
 
-    def test_pull_request_fixture_matches_pr_13(self) -> None:
-        self.assertTrue(EVENT_FIXTURE.is_file(), ".act/pull_request.json must exist")
+    def test_pull_request_fixture_is_a_sha_free_runtime_template(self) -> None:
+        self.assertTrue(EVENT_FIXTURE.is_file(), ".act/pull_request.json template must exist")
         event = json.loads(EVENT_FIXTURE.read_text(encoding="utf-8"))
 
         self.assertEqual(event["action"], "synchronize")
@@ -92,13 +91,14 @@ class ActConfigurationContractTest(unittest.TestCase):
         pull_request = event["pull_request"]
         self.assertEqual(pull_request["number"], 13)
         self.assertTrue(pull_request["draft"])
+        self.assertFalse(pull_request["merged"])
         self.assertEqual(pull_request["base"]["ref"], "Develop")
-        self.assertEqual(pull_request["base"]["sha"], ORIGIN_DEVELOP_SHA)
+        self.assertNotIn("sha", pull_request["base"])
         self.assertEqual(
             pull_request["base"]["repo"]["full_name"],
             "zhangspaghetti/baby-talk-2",
         )
-        self.assertEqual(pull_request["head"]["ref"], "gsd/v0.1-milestone")
+        self.assertNotIn("ref", pull_request["head"])
         self.assertNotIn("sha", pull_request["head"])
         self.assertEqual(
             pull_request["head"]["repo"]["full_name"],
@@ -110,6 +110,24 @@ class ActConfigurationContractTest(unittest.TestCase):
         self.assertEqual(repository["full_name"], "zhangspaghetti/baby-talk-2")
         self.assertEqual(repository["default_branch"], "Develop")
         self.assertEqual(repository["owner"]["login"], "zhangspaghetti")
+
+    def test_runtime_act_workflow_is_a_real_develop_pr_job_not_a_release_closure_replay(self) -> None:
+        self.assertTrue(LOCAL_ACT_WORKFLOW.is_file())
+        self.assertTrue(LOCAL_ACT_RUNNER.is_file())
+        workflow = LOCAL_ACT_WORKFLOW.read_text(encoding="utf-8")
+        runner = LOCAL_ACT_RUNNER.read_text(encoding="utf-8")
+
+        self.assertIn("pull_request:\n    branches: [Develop]", workflow)
+        self.assertIn("local-pr-full-ci:", workflow)
+        self.assertNotIn("if:", workflow)
+        self.assertIn("run: bash ci/full-ci.sh", workflow)
+        self.assertIn("git fetch --no-tags origin Develop", runner)
+        self.assertIn("git merge-base", runner)
+        self.assertIn('event["pull_request"]["base"]["sha"] = origin_develop_sha', runner)
+        self.assertIn('event["pull_request"]["head"]["sha"] = head_sha', runner)
+        self.assertIn("fixture does not select local-pr-full-ci", runner)
+        self.assertIn("local-pr-full-ci was skipped", runner)
+        self.assertIn("did not report success", runner)
 
     def test_pull_request_fixture_contains_no_credentials(self) -> None:
         event = json.loads(EVENT_FIXTURE.read_text(encoding="utf-8"))
@@ -177,17 +195,12 @@ class LocalCiDocumentationContractTest(unittest.TestCase):
         ):
             self.assertNotIn(false_claim, self.text)
 
-    def test_docs_give_exact_listing_and_execution_commands(self) -> None:
-        self.assertIn(
-            "act -l pull_request `\n  -W .github/workflows/ci.yml `\n  -e .act/pull_request.json",
-            self.text,
-        )
-        self.assertIn(
-            "act pull_request `\n  -W .github/workflows/ci.yml `\n  -e .act/pull_request.json",
-            self.text,
-        )
-        self.assertIn("release-closure-gate", self.text)
-        self.assertIn("mobile-analyze", self.text)
+    def test_docs_give_the_runtime_template_wrapper_command(self) -> None:
+        self.assertIn("bash ci/run-act-pr.sh", self.text)
+        self.assertIn("local-pr-full-ci", self.text)
+        self.assertIn("calls `bash ci/full-ci.sh`", self.text)
+        self.assertIn("not PR #13 pre-merge simulation", self.text)
+        self.assertIn("fixed base or head SHA", self.text)
 
     def test_docs_name_every_complete_local_ci_product_gate(self) -> None:
         for statement in (
@@ -314,8 +327,8 @@ class LocalCiDocumentationContractTest(unittest.TestCase):
         self.assertIn("Get-ChildItem Env:", self.text)
         self.assertIn('Remove-Item -LiteralPath "Env:$($entry.Name)"', self.text)
         sanitizer = self.text.index("$unsafeEnvironmentNames")
-        first_act = self.text.index("act -l pull_request")
-        self.assertLess(sanitizer, first_act)
+        wrapper = self.text.index("bash ci/run-act-pr.sh")
+        self.assertLess(sanitizer, wrapper)
         self.assertIn("does not print removed values", self.text)
 
     def test_docs_clear_proxy_before_setting_safe_proxy_and_force_ryuk(self) -> None:
@@ -338,8 +351,8 @@ class LocalCiDocumentationContractTest(unittest.TestCase):
 
     def test_docs_record_act_boundaries_and_sha_strategy(self) -> None:
         for statement in (
-            "The tracked event fixture omits `pull_request.head.sha`",
-            "runtime evidence records the exact checked-out HEAD SHA",
+            "omits\nboth `pull_request.base.sha` and `pull_request.head.sha`",
+            "SHA-bound runtime evidence records all three values",
             "`macos-latest` cannot run in Windows/Linux act containers",
             "ACT_UNSUPPORTED_BUT_LOCAL_EQUIVALENT_VERIFIED",
             "does not prove GitHub queueing, branch protection, required checks, or hosted-runner behavior",

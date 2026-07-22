@@ -254,6 +254,12 @@ class CustomSceneGenerationProviderWiringTest {
         }
 
         @Bean
+        com.zhangspaghetti.babytalk.practice.agentic.PracticeAiAuditPort practiceAiAuditPort() {
+            return org.mockito.Mockito.mock(
+                    com.zhangspaghetti.babytalk.practice.agentic.PracticeAiAuditPort.class);
+        }
+
+        @Bean
         com.zhangspaghetti.babytalk.practice.agentic.config.VersionedResourceRegistry versionedResourceRegistry() {
             return org.mockito.Mockito.mock(
                     com.zhangspaghetti.babytalk.practice.agentic.config.VersionedResourceRegistry.class);

@@ -85,6 +85,25 @@ class PracticeGeneratedContentServiceOrchestrationTest {
 
     @Test
     @SuppressWarnings("unchecked")
+    void fakeModeDelegatesNewDraftToTheSameBoundedOrchestratorWithoutProviderManager() {
+        var queries = mock(PracticeGeneratedContentQueryMapper.class);
+        var commands = mock(PracticeGeneratedContentCommands.class);
+        var orchestrator = mock(CustomSceneGenerationOrchestrator.class);
+        when(commands.reserveDraft(any(), any())).thenAnswer(invocation ->
+                new DraftReservation(invocation.getArgument(0, PracticeGeneratedContentEntity.class), true));
+        var active = new PracticeGeneratedContentEntity();
+        active.setStatus("active");
+        when(orchestrator.execute(any())).thenReturn(active);
+
+        var service = orchestratedService(queries, commands, orchestrator, "fake");
+
+        assertThat(service.generateCustomScene(request())).isSameAs(active);
+        verify(orchestrator).execute(any());
+        verify(commands, never()).startGeneration(any(), any(), anyInt(), any());
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
     void activeResultWithSameOwnerFingerprintProfileAndEpochReusesWithoutOrchestratorExecution() {
         var queries = mock(PracticeGeneratedContentQueryMapper.class);
         var commands = mock(PracticeGeneratedContentCommands.class);
@@ -255,6 +274,16 @@ class PracticeGeneratedContentServiceOrchestrationTest {
             PracticeGeneratedContentCommands commands,
             CustomSceneGenerationOrchestrator orchestrator
     ) {
+        return orchestratedService(queries, commands, orchestrator, "agentic");
+    }
+
+    @SuppressWarnings("unchecked")
+    private PracticeGeneratedContentService orchestratedService(
+            PracticeGeneratedContentQueryMapper queries,
+            PracticeGeneratedContentCommands commands,
+            CustomSceneGenerationOrchestrator orchestrator,
+            String providerMode
+    ) {
         var registry = new VersionedResourceRegistry(new DefaultResourceLoader());
         var providerManager = mock(ObjectProvider.class);
         when(providerManager.getIfAvailable()).thenReturn(null);
@@ -270,7 +299,7 @@ class PracticeGeneratedContentServiceOrchestrationTest {
                 registry,
                 providerManager,
                 new PracticeDiscoveryCustomSceneProperties(
-                        true, Duration.ofSeconds(5), "legacy-prompt", "legacy-strategy", "agentic",
+                        true, Duration.ofSeconds(5), "legacy-prompt", "legacy-strategy", providerMode,
                         null, null, null, null, null, null, 3),
                 policy,
                 owner,

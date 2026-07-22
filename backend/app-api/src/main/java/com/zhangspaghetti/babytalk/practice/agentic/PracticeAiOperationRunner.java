@@ -88,9 +88,17 @@ public class PracticeAiOperationRunner {
                 invocationResult = Objects.requireNonNull(
                         request.invocation().invoke(provider), "provider invocation result");
             } catch (RuntimeException failure) {
+                var fallbackOutcome = failureClassifier.classify(failure);
+                if (fallbackOutcome.isEmpty()) {
+                    auditPort.completeProviderCall(new PracticeAiAuditPort.ProviderCallCompleted(
+                            providerCallId, "internal_error", null, latencyMillis(startedNanos), now()));
+                    auditPort.completeOperationRun(new PracticeAiAuditPort.OperationRunCompleted(
+                            operationRunId, "internal_error", now()));
+                    throw failure;
+                }
                 auditPort.completeProviderCall(new PracticeAiAuditPort.ProviderCallCompleted(
                         providerCallId,
-                        failureClassifier.classify(failure),
+                        fallbackOutcome.orElseThrow(),
                         null,
                         latencyMillis(startedNanos),
                         now()));

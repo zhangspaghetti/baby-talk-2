@@ -357,7 +357,7 @@ public class PracticeGeneratedContentService {
             PracticeGeneratedContentEntity reserved
     ) {
 
-        if (orchestrator != null && customSceneProperties.agenticProvider()) {
+        if (orchestrator != null) {
             return executeOrchestratedGeneration(reserved, owner);
         }
 

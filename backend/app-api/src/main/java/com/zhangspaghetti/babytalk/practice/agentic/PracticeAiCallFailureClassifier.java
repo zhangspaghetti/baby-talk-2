@@ -7,6 +7,7 @@ import java.net.ConnectException;
 import java.net.SocketTimeoutException;
 import java.net.UnknownHostException;
 import java.net.http.HttpTimeoutException;
+import java.util.Optional;
 import java.util.concurrent.TimeoutException;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
@@ -19,22 +20,22 @@ import org.springframework.stereotype.Component;
 )
 public class PracticeAiCallFailureClassifier {
 
-    public String classify(Throwable failure) {
+    public Optional<String> classify(Throwable failure) {
         for (Throwable current = failure; current != null; current = current.getCause()) {
             if (current instanceof PracticeAiStructuredOutputCaller.StructuredOutputInvalidException) {
-                return "structured_output_invalid";
+                return Optional.of("structured_output_invalid");
             }
             if (current instanceof SocketTimeoutException
                     || current instanceof HttpTimeoutException
                     || current instanceof TimeoutException) {
-                return "timeout";
+                return Optional.of("timeout");
             }
             if (current instanceof OpenAIServiceException serviceException) {
                 if (serviceException.statusCode() == 429) {
-                    return "rate_limited";
+                    return Optional.of("rate_limited");
                 }
                 if (serviceException.statusCode() >= 500) {
-                    return "server_error";
+                    return Optional.of("server_error");
                 }
             }
         }
@@ -43,9 +44,9 @@ public class PracticeAiCallFailureClassifier {
                     || current instanceof ConnectException
                     || current instanceof UnknownHostException
                     || current instanceof IOException) {
-                return "connection_error";
+                return Optional.of("connection_error");
             }
         }
-        return "server_error";
+        return Optional.empty();
     }
 }

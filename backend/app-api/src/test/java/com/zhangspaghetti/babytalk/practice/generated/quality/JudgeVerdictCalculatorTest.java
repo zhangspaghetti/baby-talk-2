@@ -83,6 +83,20 @@ class JudgeVerdictCalculatorTest {
     }
 
     @Test
+    void rejectOnFailDimensionBeatsAnUnrelatedAbstain() {
+        var effective = calculator.calculate(suggested(
+                JudgeVerdict.ABSTAIN,
+                results(
+                        JudgeDimension.AGE_SUITABILITY, DimensionResult.FAIL,
+                        JudgeDimension.TPR_QUALITY, DimensionResult.ABSTAIN),
+                List.of("AGE_SUITABILITY_FAILED"),
+                0.99d), rubric);
+
+        assertThat(effective.effectiveVerdict()).isEqualTo(JudgeVerdict.REJECT);
+        assertThat(effective.repairable()).isFalse();
+    }
+
+    @Test
     void suggestedPassWithFailedDimensionIsInconsistentAndConservative() {
         var effective = calculator.calculate(suggested(
                 JudgeVerdict.PASS,

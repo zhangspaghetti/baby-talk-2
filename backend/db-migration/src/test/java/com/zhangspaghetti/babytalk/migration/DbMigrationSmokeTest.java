@@ -25,6 +25,7 @@ class DbMigrationSmokeTest {
 
     private static final String V13_UPGRADE_SCHEMA = "flyway_v13_chat_memory_upgrade";
     private static final String V22_1_REACTION_UPGRADE_SCHEMA = "flyway_v22_1_reaction_upgrade";
+    private static final String V26_GENERATED_CONTENT_UPGRADE_SCHEMA = "flyway_v26_generated_content_upgrade";
 
     @SuppressWarnings("resource")
     static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>(
@@ -81,10 +82,10 @@ class DbMigrationSmokeTest {
                 select count(*)
                 from flyway_schema_history
                 where success = true
-                  and version in ('3', '14', '15', '16', '17', '18', '19', '24', '25', '26')
+                  and version in ('3', '14', '15', '16', '17', '18', '19', '24', '25', '26', '27')
                 """,
                 Integer.class);
-        assertThat(trackedVersions).isEqualTo(10);
+        assertThat(trackedVersions).isEqualTo(11);
 
         assertThat(tableExists("accounts")).isTrue();
         assertThat(tableExists("spring_ai_chat_memory")).isTrue();
@@ -263,6 +264,76 @@ class DbMigrationSmokeTest {
                         + " WHERE local_event_id LIKE 'current_%' ORDER BY local_event_id",
                 String.class))
                 .containsExactly("cooperating", "hesitant", "no_response", "other", "resisting");
+    }
+
+    @Test
+    void flywayUpgradeFromV25AndV26PreservesGeneratedContentAndAddsAgenticContract() {
+        Flyway v26 = flywayFor(V26_GENERATED_CONTENT_UPGRADE_SCHEMA, "26");
+        v26.migrate();
+        assertThat(v26.info().current().getVersion().getVersion()).isEqualTo("26");
+
+        String contentTable = V26_GENERATED_CONTENT_UPGRADE_SCHEMA + ".practice_generated_content";
+        Timestamp now = Timestamp.from(Instant.parse("2026-07-22T01:00:00Z"));
+        Timestamp later = Timestamp.from(Instant.parse("2026-08-21T01:00:00Z"));
+        jdbcTemplate.update(
+                """
+                insert into %s (
+                    generated_content_id, owner_scope, owner_key, owner_key_version, account_id,
+                    installation_ref_hash, profile_id, surface, mode, request_fingerprint,
+                    normalized_scene_text, age_range, parent_goal, locale, space_slug, activity_slug,
+                    phrase_slug, space_title_zh, activity_title_zh, scene_tag_en, coach_tip_zh,
+                    english_text, chinese_text, pronunciation_hint, difficulty, generation_source,
+                    status, provider_trace_id, retrieval_trace_id, model_name, prompt_version,
+                    strategy_version, policy_version, content_version, generation_error_code,
+                    generation_started_at, generation_expires_at, retention_expires_at, created_at, updated_at
+                ) values (?, 'installation', ?, 'v1', null, ?, null, 'onboarding', 'custom_scene', ?,
+                    null, 'm7_11', 'calmer_care', 'zh-CN', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'starter',
+                    'fake', 'active', null, null, null, 'legacy-prompt', 'legacy-strategy', 'legacy-policy',
+                    1, null, ?, ?, ?, ?, ?)
+                """.formatted(contentTable),
+                "legacy_active", "hmac_legacy_active", "install_legacy_active", "fp_legacy_active",
+                "legacy_space", "legacy_activity", "legacy_phrase", "旧空间", "旧活动", "Legacy scene",
+                "旧提示", "Legacy sentence.", "旧句子。", "legacy sentence", now, later, later, now, now);
+        jdbcTemplate.update(
+                """
+                insert into %s (
+                    generated_content_id, owner_scope, owner_key, owner_key_version, account_id,
+                    installation_ref_hash, profile_id, surface, mode, request_fingerprint,
+                    normalized_scene_text, age_range, parent_goal, locale, status, prompt_version,
+                    strategy_version, policy_version, content_version, generation_error_code,
+                    generation_started_at, generation_expires_at, retention_expires_at, created_at, updated_at
+                ) values (?, 'installation', ?, 'v1', null, ?, null, 'onboarding', 'custom_scene', ?,
+                    null, 'm7_11', 'calmer_care', 'zh-CN', 'rejected', 'legacy-prompt', 'legacy-strategy',
+                    'legacy-policy', 1, 'legacy_rejected', null, null, ?, ?, ?)
+                """.formatted(contentTable),
+                "legacy_rejected", "hmac_legacy_rejected", "install_legacy_rejected", "fp_legacy_rejected",
+                later, now, now);
+
+        Flyway v27 = flywayFor(V26_GENERATED_CONTENT_UPGRADE_SCHEMA, "27");
+        v27.migrate();
+        assertThat(v27.info().current().getVersion().getVersion()).isEqualTo("27");
+
+        assertThat(jdbcTemplate.queryForObject(
+                "select count(*) from " + contentTable, Integer.class)).isEqualTo(2);
+        assertThat(jdbcTemplate.queryForList(
+                "select generated_content_id || ':' || status from " + contentTable + " order by generated_content_id",
+                String.class)).containsExactly("legacy_active:active", "legacy_rejected:rejected");
+        assertThat(jdbcTemplate.queryForObject(
+                "select tpr_action_zh from " + contentTable + " where generated_content_id = 'legacy_active'",
+                String.class)).isEqualTo("旧提示");
+        assertThat(jdbcTemplate.queryForObject(
+                "select generation_profile_version from " + contentTable + " where generated_content_id = 'legacy_active'",
+                String.class)).startsWith("legacy-v25-");
+        assertThat(jdbcTemplate.queryForObject(
+                "select generation_attempt_limit from " + contentTable + " where generated_content_id = 'legacy_active'",
+                Integer.class)).isEqualTo(1);
+        assertThat(jdbcTemplate.queryForObject(
+                "select generation_error_retryable from " + contentTable + " where generated_content_id = 'legacy_rejected'",
+                Boolean.class)).isFalse();
+        assertThat(tableExists(V26_GENERATED_CONTENT_UPGRADE_SCHEMA, "practice_generated_content_attempts")).isTrue();
+        assertThat(tableExists(V26_GENERATED_CONTENT_UPGRADE_SCHEMA, "practice_generated_content_judge_results")).isTrue();
+        assertThat(indexExists(V26_GENERATED_CONTENT_UPGRADE_SCHEMA,
+                "uq_practice_generated_content_live_fingerprint")).isTrue();
     }
 
     private void insertReactionEvent(
@@ -890,16 +961,21 @@ class DbMigrationSmokeTest {
     }
 
     private boolean tableExists(String tableName) {
+        return tableExists(currentSchema(), tableName);
+    }
+
+    private boolean tableExists(String schemaName, String tableName) {
         Boolean exists = jdbcTemplate.queryForObject(
                 """
                 select exists(
                     select 1
                     from information_schema.tables
-                    where table_schema = current_schema()
+                    where table_schema = ?
                       and table_name = ?
                 )
                 """,
                 Boolean.class,
+                schemaName,
                 tableName);
         return Boolean.TRUE.equals(exists);
     }
@@ -932,18 +1008,27 @@ class DbMigrationSmokeTest {
     }
 
     private boolean indexExists(String indexName) {
+        return indexExists(currentSchema(), indexName);
+    }
+
+    private boolean indexExists(String schemaName, String indexName) {
         Boolean exists = jdbcTemplate.queryForObject(
                 """
                 select exists(
                     select 1
                     from pg_indexes
-                    where schemaname = current_schema()
+                    where schemaname = ?
                       and indexname = ?
                 )
                 """,
                 Boolean.class,
+                schemaName,
                 indexName);
         return Boolean.TRUE.equals(exists);
+    }
+
+    private String currentSchema() {
+        return jdbcTemplate.queryForObject("select current_schema()", String.class);
     }
 
     private boolean indexIsUnique(String indexName) {

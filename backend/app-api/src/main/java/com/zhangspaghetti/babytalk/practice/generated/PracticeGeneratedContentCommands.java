@@ -16,6 +16,10 @@ public interface PracticeGeneratedContentCommands {
 
     Optional<PracticeGeneratedContentEntity> activate(PracticeGeneratedContentEntity active);
 
+    Optional<PracticeGeneratedContentEntity> activateWithCompletedAttempt(
+            PracticeGeneratedContentEntity active,
+            GenerationAttemptAuditPort.AttemptCompleted completedAttempt);
+
     void reject(
             String generatedContentId,
             String errorCode,

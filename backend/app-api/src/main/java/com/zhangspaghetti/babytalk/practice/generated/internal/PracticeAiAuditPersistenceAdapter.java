@@ -3,17 +3,11 @@ package com.zhangspaghetti.babytalk.practice.generated.internal;
 import com.zhangspaghetti.babytalk.practice.agentic.PracticeAiAuditPort;
 import com.zhangspaghetti.babytalk.practice.generated.model.PracticeAiOperationRunEntity;
 import com.zhangspaghetti.babytalk.practice.generated.model.PracticeAiProviderCallEntity;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
-@ConditionalOnProperty(
-        prefix = "babytalk.practice.discovery.custom-scene",
-        name = "provider-mode",
-        havingValue = "agentic"
-)
 class PracticeAiAuditPersistenceAdapter implements PracticeAiAuditPort {
 
     private final PracticeGenerationAuditMapper auditMapper;
