@@ -246,6 +246,11 @@ complete local repository CI entrypoint. The wrapper captures stdout and
 stderr, and fails if the selected job is skipped or does not report success; a
 listed job alone is not evidence.
 
+On Windows, the bind job applies `core.autocrlf=true` only to its Git commands,
+matching the checked-out file representation without changing `.git/config`.
+The repository ignores local `.gstack/` state explicitly, so both host and
+container enforce the same clean-worktree contract.
+
 `.github/workflows/ci.yml` and `admin-web.yml` are `Develop -> Release_QA`
 post-merge workflows. They are not PR #13 pre-merge simulation and must not be
 used as its act evidence. The dedicated
