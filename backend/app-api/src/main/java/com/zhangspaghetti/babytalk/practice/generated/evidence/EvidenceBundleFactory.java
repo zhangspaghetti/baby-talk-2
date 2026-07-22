@@ -41,7 +41,7 @@ public class EvidenceBundleFactory {
     @Autowired
     public EvidenceBundleFactory(
             EvidenceBundlePersistencePort persistence,
-            CompositeCustomSceneEvidenceRetriever retriever,
+            CustomSceneEvidenceRetriever retriever,
             VersionedResourceRegistry registry
     ) {
         this(persistence, retriever, registry.minimumEvidencePolicy(), Clock.systemUTC(), UUID::randomUUID);

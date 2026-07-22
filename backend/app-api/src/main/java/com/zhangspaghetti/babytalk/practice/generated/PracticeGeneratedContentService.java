@@ -783,6 +783,14 @@ public class PracticeGeneratedContentService {
 
     private ContractException terminalGenerationFailure(PracticeGeneratedContentEntity result) {
         var reason = result.generationErrorCode() == null ? "generation_terminal" : result.generationErrorCode();
+        if ("rejected".equals(result.status()) && ERROR_GENERATED_CONTENT_REJECTED.equals(reason)) {
+            return new ContractException(
+                    HttpStatus.UNPROCESSABLE_ENTITY,
+                    ERROR_GENERATED_CONTENT_REJECTED,
+                    "生成内容不适合展示。",
+                    Map.of("retryable", false, "suggestCatalogFallback", true)
+            );
+        }
         if ("rejected".equals(result.status()) && isInvalidOutputTerminal(reason)) {
             return new ContractException(
                     HttpStatus.BAD_GATEWAY,

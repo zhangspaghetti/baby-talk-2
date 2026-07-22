@@ -8,7 +8,6 @@ import com.zhangspaghetti.babytalk.practice.generated.CustomSceneGenerator.Conte
 import com.zhangspaghetti.babytalk.practice.generated.CustomSceneGenerator.GeneratedPracticeContentCandidate;
 import com.zhangspaghetti.babytalk.practice.generated.CustomSceneGenerator.GeneratorRequest;
 import com.zhangspaghetti.babytalk.practice.generated.CustomSceneQualityJudge.JudgeRequest;
-import com.zhangspaghetti.babytalk.practice.generated.evidence.CompositeCustomSceneEvidenceRetriever;
 import com.zhangspaghetti.babytalk.practice.generated.evidence.CustomSceneEvidenceRetriever;
 import com.zhangspaghetti.babytalk.practice.generated.evidence.EvidenceBundleFactory;
 import com.zhangspaghetti.babytalk.practice.generated.evidence.EvidenceRetrievalRequest;
@@ -52,6 +51,7 @@ public class CustomSceneGenerationOrchestrator {
     private static final Duration TERMINAL_RETENTION = Duration.ofDays(7);
     private static final String JUDGE_EVIDENCE_ACTION_INCONSISTENT = "judge_evidence_action_inconsistent";
     private static final String ERROR_GENERATION_INVALID_OUTPUT = "generation_invalid_output";
+    private static final String ERROR_GENERATED_CONTENT_REJECTED = "generated_content_rejected";
     private static final String ERROR_GENERATION_UNAVAILABLE = "generation_unavailable";
     private static final String ERROR_GENERATION_TIMEOUT = "generation_timeout";
     private static final String ERROR_INSUFFICIENT_EVIDENCE = "insufficient_evidence";
@@ -78,7 +78,7 @@ public class CustomSceneGenerationOrchestrator {
             CustomSceneGeneratedContentValidator validator,
             CustomSceneQualityJudge judge,
             JudgeVerdictCalculator verdictCalculator,
-            CompositeCustomSceneEvidenceRetriever retriever,
+            CustomSceneEvidenceRetriever retriever,
             EvidenceBundleFactory bundleFactory,
             GenerationAttemptAuditPort attemptAudit,
             PracticeGeneratedContentKeyFactory keyFactory
@@ -238,7 +238,7 @@ public class CustomSceneGenerationOrchestrator {
                 return expire(reserved, ERROR_GENERATION_TIMEOUT, true);
             } catch (CustomSceneGenerator.GenerationUnavailableException exception) {
                 complete(attemptId, attemptNumber, exception.reason(), attemptCodes);
-                return expire(reserved, ERROR_GENERATION_UNAVAILABLE, exception.retryable());
+                return expire(reserved, exception.reason(), exception.retryable());
             } catch (RuntimeException exception) {
                 complete(attemptId, attemptNumber, "provider_failure", attemptCodes);
                 return expire(reserved, ERROR_GENERATION_UNAVAILABLE, true);
@@ -258,14 +258,14 @@ public class CustomSceneGenerationOrchestrator {
             if (!gate.terminalViolations().isEmpty()) {
                 var codes = combined(attemptCodes, violationCodes(gate.terminalViolations()));
                 complete(attemptId, attemptNumber, "terminal_violation", codes);
-                return reject(reserved, ERROR_GENERATION_INVALID_OUTPUT, false);
+                return reject(reserved, terminalViolationErrorCode(gate.terminalViolations()), false);
             }
             if (!gate.repairableViolations().isEmpty()) {
                 var codes = combined(attemptCodes, violationCodes(gate.repairableViolations()));
                 repairContext = deterministicRepairContext(gate.normalizedCandidate(), gate.repairableViolations(), codes);
                 if (attemptNumber == reserved.generationAttemptLimit()) {
                     complete(attemptId, attemptNumber, "attempt_limit_exhausted", codes);
-                    return reject(reserved, ERROR_GENERATION_INVALID_OUTPUT, false);
+                    return reject(reserved, ERROR_GENERATED_CONTENT_REJECTED, false);
                 }
                 if (!complete(attemptId, attemptNumber, "repairable_violation", codes)) {
                     return expire(reserved, ERROR_GENERATION_UNAVAILABLE, true);
@@ -332,6 +332,13 @@ public class CustomSceneGenerationOrchestrator {
     ) {
         complete(attemptId, attemptNumber, "insufficient_evidence", codes);
         return expire(reserved, ERROR_INSUFFICIENT_EVIDENCE, true);
+    }
+
+    private String terminalViolationErrorCode(List<GeneratedOutputViolationCode> violations) {
+        return violations.stream().anyMatch(violation -> violation == GeneratedOutputViolationCode.DATABASE_OVERFLOW
+                || violation == GeneratedOutputViolationCode.INVALID_ENUM)
+                ? ERROR_GENERATION_INVALID_OUTPUT
+                : ERROR_GENERATED_CONTENT_REJECTED;
     }
 
     private TypedRepairPackage repairPackage(
