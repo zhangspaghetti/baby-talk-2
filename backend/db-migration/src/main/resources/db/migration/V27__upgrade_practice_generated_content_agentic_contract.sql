@@ -30,6 +30,12 @@ alter table practice_generated_content
     drop constraint chk_practice_generated_content_owner_shape,
     drop constraint chk_practice_generated_content_response_shape;
 
+-- V25's inline account reference used PostgreSQL's generated constraint name.
+-- Keep the original foreign key while giving the V27 contract a stable name.
+alter table practice_generated_content
+    rename constraint practice_generated_content_account_id_fkey
+        to fk_practice_generated_content_account;
+
 drop index uq_practice_generated_content_live_fingerprint;
 drop index uq_practice_generated_content_active_space_slug;
 drop index uq_practice_generated_content_active_activity_slug;
