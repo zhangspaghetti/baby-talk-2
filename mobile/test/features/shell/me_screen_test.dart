@@ -61,9 +61,7 @@ void main() {
       expect(find.text('2 个花圃正在成长'), findsOneWidget);
     });
 
-    testWidgets('renders growth data block with correct stats', (
-      tester,
-    ) async {
+    testWidgets('renders growth data block with correct stats', (tester) async {
       final gardenSnapshot = _gardenSnapshot(
         spaceCount: 6,
         knownEvents: 47,
@@ -115,10 +113,7 @@ void main() {
       tester,
     ) async {
       var gardenTaps = 0;
-      await _pumpMeScreen(
-        tester,
-        onOpenGarden: () => gardenTaps++,
-      );
+      await _pumpMeScreen(tester, onOpenGarden: () => gardenTaps++);
 
       await tester.tap(find.byKey(const Key('me-garden-status')));
       await tester.pumpAndSettle();
@@ -130,10 +125,7 @@ void main() {
       tester,
     ) async {
       var growthTaps = 0;
-      await _pumpMeScreen(
-        tester,
-        onOpenGrowth: () => growthTaps++,
-      );
+      await _pumpMeScreen(tester, onOpenGrowth: () => growthTaps++);
 
       await tester.tap(find.byKey(const Key('me-growth-data')));
       await tester.pumpAndSettle();
@@ -152,10 +144,7 @@ void main() {
     testWidgets('shows masked phone and no syncing indicator when signed in', (
       tester,
     ) async {
-      await _pumpMeScreen(
-        tester,
-        accountSnapshot: _signedInAccountSnapshot(),
-      );
+      await _pumpMeScreen(tester, accountSnapshot: _signedInAccountSnapshot());
 
       expect(find.text('138****8000'), findsOneWidget);
       expect(find.text('登录后同步数据'), findsNothing);
@@ -237,11 +226,11 @@ AccountLocalSnapshot _signedInAccountSnapshot({int pendingSyncCount = 0}) {
 
 OnboardingSnapshot _onboardingSnapshot() {
   final stageMatch = StageMatchCatalog.forAgeBucket(
-    OnboardingAgeBucket.sixToTwelve,
+    OnboardingAgeBucket.sevenToTwelve,
   );
   return OnboardingSnapshot(
     childDisplayName: '米米',
-    ageBucket: OnboardingAgeBucket.sixToTwelve,
+    ageBucket: OnboardingAgeBucket.sevenToTwelve,
     approxMonths: stageMatch.approxMonths,
     currentStage: stageMatch.stageId,
     starterSpaceId: 'daily_care',
@@ -323,7 +312,7 @@ GardenGrowthSnapshot _gardenSnapshot({
 class _StubGardenGrowthNotifier extends ChangeNotifier
     implements GardenGrowthNotifier {
   _StubGardenGrowthNotifier({required GardenGrowthSnapshot snapshot})
-      : _snapshot = snapshot;
+    : _snapshot = snapshot;
 
   GardenGrowthSnapshot _snapshot;
 

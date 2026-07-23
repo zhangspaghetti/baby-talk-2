@@ -335,7 +335,7 @@ class _LifecycleHarness {
 OnboardingSnapshot _completedSnapshot() {
   return OnboardingSnapshot(
     childDisplayName: '米米',
-    ageBucket: OnboardingAgeBucket.twelveToEighteen,
+    ageBucket: OnboardingAgeBucket.oneToTwo,
     approxMonths: 15,
     currentStage: 'gesture_plus_words',
     starterSpaceId: 'daily_care',
@@ -345,7 +345,6 @@ OnboardingSnapshot _completedSnapshot() {
     completedAt: DateTime.utc(2026, 5, 20, 10),
   );
 }
-
 
 class _InMemorySecureStorage extends FlutterSecureStorage {
   _InMemorySecureStorage();

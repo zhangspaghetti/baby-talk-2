@@ -52,7 +52,7 @@ class E2eTestHarness {
 
   static Future<E2eTestHarness> create({
     String childDisplayName = '小明',
-    OnboardingAgeBucket ageBucket = OnboardingAgeBucket.twelveToEighteen,
+    OnboardingAgeBucket ageBucket = OnboardingAgeBucket.oneToTwo,
     String practiceDbName = 'e2e_smoke',
     String backendUrl = defaultAccountApiBaseUrl,
   }) async {

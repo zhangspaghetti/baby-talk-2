@@ -207,6 +207,12 @@ void main() {
       completedSnapshot = await onboardingRepository.completeOnboarding(
         childDisplayName: '米米',
         ageBucket: OnboardingAgeBucket.zeroToSix,
+        selectedSceneIds: const ['bath_time'],
+        supportGoal: OnboardingSupportGoal.firstWords,
+        starterSpaceId: 'daily_care',
+        starterActivityId: 'bath_time',
+        starterPhraseId: 'bath_time_warm_water',
+        firstTraceEventKey: 'install_smoke_test:evt_onboarding_first',
         completedAt: DateTime.utc(2026, 4, 8, 8),
       );
       return created;
@@ -309,6 +315,12 @@ void main() {
         completedSnapshot = await onboardingRepository.completeOnboarding(
           childDisplayName: '米米',
           ageBucket: OnboardingAgeBucket.zeroToSix,
+          selectedSceneIds: const ['bath_time'],
+          supportGoal: OnboardingSupportGoal.firstWords,
+          starterSpaceId: 'daily_care',
+          starterActivityId: 'bath_time',
+          starterPhraseId: 'bath_time_warm_water',
+          firstTraceEventKey: 'install_smoke_test:evt_onboarding_first',
           completedAt: DateTime.utc(2026, 4, 8, 8),
         );
         return created;
@@ -451,6 +463,12 @@ void main() {
       completedSnapshot = await onboardingRepository.completeOnboarding(
         childDisplayName: '米米',
         ageBucket: OnboardingAgeBucket.zeroToSix,
+        selectedSceneIds: const ['bath_time'],
+        supportGoal: OnboardingSupportGoal.firstWords,
+        starterSpaceId: 'daily_care',
+        starterActivityId: 'bath_time',
+        starterPhraseId: 'bath_time_warm_water',
+        firstTraceEventKey: 'install_smoke_test:evt_onboarding_first',
         completedAt: DateTime.utc(2026, 4, 8, 8),
       );
       final accountRepository = AccountRepository(

@@ -1,59 +1,47 @@
-enum OnboardingAgeBucket {
-  zeroToSix,
-  sixToTwelve,
-  twelveToEighteen,
-  eighteenToTwentyFour,
-  twentyFourToThirtySix,
-}
+enum OnboardingAgeBucket { zeroToSix, sevenToTwelve, oneToTwo, twoToThree }
+
+enum OnboardingSupportGoal { firstWords, moreNatural, dailyHabit }
 
 extension OnboardingAgeBucketWire on OnboardingAgeBucket {
-  String get wireValue {
-    switch (this) {
-      case OnboardingAgeBucket.zeroToSix:
-        return '0-6';
-      case OnboardingAgeBucket.sixToTwelve:
-        return '6-12';
-      case OnboardingAgeBucket.twelveToEighteen:
-        return '12-18';
-      case OnboardingAgeBucket.eighteenToTwentyFour:
-        return '18-24';
-      case OnboardingAgeBucket.twentyFourToThirtySix:
-        return '24-36';
-    }
-  }
+  String get wireValue => switch (this) {
+    OnboardingAgeBucket.zeroToSix => '0-6',
+    OnboardingAgeBucket.sevenToTwelve => '7-12',
+    OnboardingAgeBucket.oneToTwo => '12-24',
+    OnboardingAgeBucket.twoToThree => '24-36',
+  };
 
-  String get label {
-    switch (this) {
-      case OnboardingAgeBucket.zeroToSix:
-        return '0-6个月 🌱';
-      case OnboardingAgeBucket.sixToTwelve:
-        return '7-12个月 🌿';
-      case OnboardingAgeBucket.twelveToEighteen:
-        return '1岁 🌳';
-      case OnboardingAgeBucket.eighteenToTwentyFour:
-        return '2岁 🌳';
-      case OnboardingAgeBucket.twentyFourToThirtySix:
-        return '3岁 🌳';
-    }
-  }
+  String get label => switch (this) {
+    OnboardingAgeBucket.zeroToSix => '0–6 个月',
+    OnboardingAgeBucket.sevenToTwelve => '7–12 个月',
+    OnboardingAgeBucket.oneToTwo => '1–2 岁',
+    OnboardingAgeBucket.twoToThree => '2–3 岁',
+  };
 }
 
-OnboardingAgeBucket parseOnboardingAgeBucket(String value) {
-  switch (value.trim()) {
-    case '0-6':
-      return OnboardingAgeBucket.zeroToSix;
-    case '6-12':
-      return OnboardingAgeBucket.sixToTwelve;
-    case '12-18':
-      return OnboardingAgeBucket.twelveToEighteen;
-    case '18-24':
-      return OnboardingAgeBucket.eighteenToTwentyFour;
-    case '24-36':
-      return OnboardingAgeBucket.twentyFourToThirtySix;
-    default:
-      throw FormatException('未知月龄档: $value');
-  }
+OnboardingAgeBucket parseOnboardingAgeBucket(String value) =>
+    switch (value.trim()) {
+      '0-6' => OnboardingAgeBucket.zeroToSix,
+      '7-12' || '6-12' => OnboardingAgeBucket.sevenToTwelve,
+      '12-24' || '12-18' || '18-24' => OnboardingAgeBucket.oneToTwo,
+      '24-36' => OnboardingAgeBucket.twoToThree,
+      final unknown => throw FormatException('未知月龄档: $unknown'),
+    };
+
+extension OnboardingSupportGoalWire on OnboardingSupportGoal {
+  String get wireValue => switch (this) {
+    OnboardingSupportGoal.firstWords => 'first_words',
+    OnboardingSupportGoal.moreNatural => 'more_natural',
+    OnboardingSupportGoal.dailyHabit => 'daily_habit',
+  };
 }
+
+OnboardingSupportGoal parseOnboardingSupportGoal(String value) => switch (value
+    .trim()) {
+  'first_words' => OnboardingSupportGoal.firstWords,
+  'more_natural' => OnboardingSupportGoal.moreNatural,
+  'daily_habit' => OnboardingSupportGoal.dailyHabit,
+  final unknown => throw FormatException('未知 onboarding supportGoal: $unknown'),
+};
 
 class StageMatch {
   const StageMatch({
@@ -81,28 +69,21 @@ class StageMatchCatalog {
       approxMonths: 3,
     ),
     StageMatch(
-      ageBucket: OnboardingAgeBucket.sixToTwelve,
+      ageBucket: OnboardingAgeBucket.sevenToTwelve,
       stageId: 'sound_turn_taking',
       title: '声音轮流回应期',
       summary: '宝宝开始追声音和节奏，适合用短句做一来一回的小互动。',
       approxMonths: 9,
     ),
     StageMatch(
-      ageBucket: OnboardingAgeBucket.twelveToEighteen,
+      ageBucket: OnboardingAgeBucket.oneToTwo,
       stageId: 'gesture_plus_words',
       title: '动作带词连接期',
       summary: '把动作、表情和关键词绑在一起，帮助宝宝把英文放进熟悉场景。',
-      approxMonths: 15,
+      approxMonths: 18,
     ),
     StageMatch(
-      ageBucket: OnboardingAgeBucket.eighteenToTwentyFour,
-      stageId: 'mini_scene_imitation',
-      title: '场景模仿萌芽期',
-      summary: '宝宝开始模仿完整片段，适合练一两句可重复的小场景英文。',
-      approxMonths: 21,
-    ),
-    StageMatch(
-      ageBucket: OnboardingAgeBucket.twentyFourToThirtySix,
+      ageBucket: OnboardingAgeBucket.twoToThree,
       stageId: 'everyday_phrase_expansion',
       title: '日常短句扩展期',
       summary: '可以把同一场景里的句子慢慢串起来，形成家庭里的稳定英语节奏。',
@@ -121,6 +102,9 @@ class StageMatchCatalog {
 
   static StageMatch? maybeForStageId(String stageId) {
     final normalized = stageId.trim();
+    if (normalized == 'mini_scene_imitation') {
+      return forAgeBucket(OnboardingAgeBucket.oneToTwo);
+    }
     for (final match in all) {
       if (match.stageId == normalized) {
         return match;

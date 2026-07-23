@@ -747,11 +747,11 @@ void main() {
     final gardenSnapshot = _gardenSnapshot(spaces: [_gardenPatch()]);
     final continuitySnapshot = _continuitySnapshot();
     final stageMatch = StageMatchCatalog.forAgeBucket(
-      OnboardingAgeBucket.sixToTwelve,
+      OnboardingAgeBucket.sevenToTwelve,
     );
     final onboardingSnapshot = OnboardingSnapshot(
       childDisplayName: '米米',
-      ageBucket: OnboardingAgeBucket.sixToTwelve,
+      ageBucket: OnboardingAgeBucket.sevenToTwelve,
       approxMonths: stageMatch.approxMonths,
       currentStage: stageMatch.stageId,
       starterSpaceId: 'home',
@@ -1340,7 +1340,7 @@ void main() {
       AppShellScreen(
         onboardingSnapshot: OnboardingSnapshot(
           childDisplayName: '米米',
-          ageBucket: OnboardingAgeBucket.twelveToEighteen,
+          ageBucket: OnboardingAgeBucket.oneToTwo,
           approxMonths: 15,
           currentStage: 'gesture_plus_words',
           starterSpaceId: 'home',

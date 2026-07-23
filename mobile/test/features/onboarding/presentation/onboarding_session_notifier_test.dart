@@ -74,8 +74,8 @@ void main() {
     });
 
     test('selectAgeBucket updates session', () {
-      notifier.selectAgeBucket(OnboardingAgeBucket.sixToTwelve);
-      expect(notifier.session.ageBucket, OnboardingAgeBucket.sixToTwelve);
+      notifier.selectAgeBucket(OnboardingAgeBucket.sevenToTwelve);
+      expect(notifier.session.ageBucket, OnboardingAgeBucket.sevenToTwelve);
     });
   });
 }

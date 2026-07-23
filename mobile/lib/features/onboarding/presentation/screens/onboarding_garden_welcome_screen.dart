@@ -139,7 +139,7 @@ class OnboardingGardenWelcomeScreen extends ConsumerWidget {
     final session = ref.read(onboardingSessionProvider).session;
     final childName = session.childName?.trim() ?? '';
     final repository = ref.read(onboardingRepositoryProvider).requireValue;
-    final snapshot = await repository.completeOnboarding(
+    final snapshot = await repository.completeLegacyOnboarding(
       childDisplayName: childName.isEmpty ? '宝宝' : childName,
       ageBucket: session.ageBucket ?? OnboardingAgeBucket.zeroToSix,
     );

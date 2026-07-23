@@ -193,14 +193,12 @@ class _AgeCard extends StatelessWidget {
     switch (bucket) {
       case OnboardingAgeBucket.zeroToSix:
         return '0-6 个月';
-      case OnboardingAgeBucket.sixToTwelve:
+      case OnboardingAgeBucket.sevenToTwelve:
         return '7-12 个月';
-      case OnboardingAgeBucket.twelveToEighteen:
-        return '1 岁';
-      case OnboardingAgeBucket.eighteenToTwentyFour:
-        return '2 岁';
-      case OnboardingAgeBucket.twentyFourToThirtySix:
-        return '3 岁';
+      case OnboardingAgeBucket.oneToTwo:
+        return '1-2 岁';
+      case OnboardingAgeBucket.twoToThree:
+        return '2-3 岁';
     }
   }
 }

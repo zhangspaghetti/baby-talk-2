@@ -631,7 +631,7 @@ Future<void> _setWideViewport(WidgetTester tester) async {
 OnboardingSnapshot _buildSnapshot() {
   return OnboardingSnapshot(
     childDisplayName: '米米',
-    ageBucket: OnboardingAgeBucket.twelveToEighteen,
+    ageBucket: OnboardingAgeBucket.oneToTwo,
     approxMonths: 15,
     currentStage: 'gesture_plus_words',
     starterSpaceId: 'daily_care',

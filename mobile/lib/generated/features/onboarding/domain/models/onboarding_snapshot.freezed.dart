@@ -16,6 +16,7 @@ final _privateConstructorUsedError = UnsupportedError(
 
 /// @nodoc
 mixin _$OnboardingSnapshot {
+  int get schemaVersion => throw _privateConstructorUsedError;
   String get childDisplayName => throw _privateConstructorUsedError;
   OnboardingAgeBucket get ageBucket => throw _privateConstructorUsedError;
   int get approxMonths => throw _privateConstructorUsedError;
@@ -23,6 +24,9 @@ mixin _$OnboardingSnapshot {
   String get starterSpaceId => throw _privateConstructorUsedError;
   String get starterActivityId => throw _privateConstructorUsedError;
   String get starterPhraseId => throw _privateConstructorUsedError;
+  List<String> get selectedSceneIds => throw _privateConstructorUsedError;
+  OnboardingSupportGoal get supportGoal => throw _privateConstructorUsedError;
+  String? get firstTraceEventKey => throw _privateConstructorUsedError;
   OnboardingConsentState get consentState => throw _privateConstructorUsedError;
   DateTime? get birthDate => throw _privateConstructorUsedError;
   DateTime? get completedAt => throw _privateConstructorUsedError;
@@ -39,13 +43,17 @@ abstract class $OnboardingSnapshotCopyWith<$Res> {
       _$OnboardingSnapshotCopyWithImpl<$Res, OnboardingSnapshot>;
   @useResult
   $Res call(
-      {String childDisplayName,
+      {int schemaVersion,
+      String childDisplayName,
       OnboardingAgeBucket ageBucket,
       int approxMonths,
       String currentStage,
       String starterSpaceId,
       String starterActivityId,
       String starterPhraseId,
+      List<String> selectedSceneIds,
+      OnboardingSupportGoal supportGoal,
+      String? firstTraceEventKey,
       OnboardingConsentState consentState,
       DateTime? birthDate,
       DateTime? completedAt});
@@ -64,6 +72,7 @@ class _$OnboardingSnapshotCopyWithImpl<$Res, $Val extends OnboardingSnapshot>
   @pragma('vm:prefer-inline')
   @override
   $Res call({
+    Object? schemaVersion = null,
     Object? childDisplayName = null,
     Object? ageBucket = null,
     Object? approxMonths = null,
@@ -71,11 +80,18 @@ class _$OnboardingSnapshotCopyWithImpl<$Res, $Val extends OnboardingSnapshot>
     Object? starterSpaceId = null,
     Object? starterActivityId = null,
     Object? starterPhraseId = null,
+    Object? selectedSceneIds = null,
+    Object? supportGoal = null,
+    Object? firstTraceEventKey = freezed,
     Object? consentState = null,
     Object? birthDate = freezed,
     Object? completedAt = freezed,
   }) {
     return _then(_value.copyWith(
+      schemaVersion: null == schemaVersion
+          ? _value.schemaVersion
+          : schemaVersion // ignore: cast_nullable_to_non_nullable
+              as int,
       childDisplayName: null == childDisplayName
           ? _value.childDisplayName
           : childDisplayName // ignore: cast_nullable_to_non_nullable
@@ -104,6 +120,18 @@ class _$OnboardingSnapshotCopyWithImpl<$Res, $Val extends OnboardingSnapshot>
           ? _value.starterPhraseId
           : starterPhraseId // ignore: cast_nullable_to_non_nullable
               as String,
+      selectedSceneIds: null == selectedSceneIds
+          ? _value.selectedSceneIds
+          : selectedSceneIds // ignore: cast_nullable_to_non_nullable
+              as List<String>,
+      supportGoal: null == supportGoal
+          ? _value.supportGoal
+          : supportGoal // ignore: cast_nullable_to_non_nullable
+              as OnboardingSupportGoal,
+      firstTraceEventKey: freezed == firstTraceEventKey
+          ? _value.firstTraceEventKey
+          : firstTraceEventKey // ignore: cast_nullable_to_non_nullable
+              as String?,
       consentState: null == consentState
           ? _value.consentState
           : consentState // ignore: cast_nullable_to_non_nullable
@@ -129,13 +157,17 @@ abstract class _$$OnboardingSnapshotImplCopyWith<$Res>
   @override
   @useResult
   $Res call(
-      {String childDisplayName,
+      {int schemaVersion,
+      String childDisplayName,
       OnboardingAgeBucket ageBucket,
       int approxMonths,
       String currentStage,
       String starterSpaceId,
       String starterActivityId,
       String starterPhraseId,
+      List<String> selectedSceneIds,
+      OnboardingSupportGoal supportGoal,
+      String? firstTraceEventKey,
       OnboardingConsentState consentState,
       DateTime? birthDate,
       DateTime? completedAt});
@@ -152,6 +184,7 @@ class __$$OnboardingSnapshotImplCopyWithImpl<$Res>
   @pragma('vm:prefer-inline')
   @override
   $Res call({
+    Object? schemaVersion = null,
     Object? childDisplayName = null,
     Object? ageBucket = null,
     Object? approxMonths = null,
@@ -159,11 +192,18 @@ class __$$OnboardingSnapshotImplCopyWithImpl<$Res>
     Object? starterSpaceId = null,
     Object? starterActivityId = null,
     Object? starterPhraseId = null,
+    Object? selectedSceneIds = null,
+    Object? supportGoal = null,
+    Object? firstTraceEventKey = freezed,
     Object? consentState = null,
     Object? birthDate = freezed,
     Object? completedAt = freezed,
   }) {
     return _then(_$OnboardingSnapshotImpl(
+      schemaVersion: null == schemaVersion
+          ? _value.schemaVersion
+          : schemaVersion // ignore: cast_nullable_to_non_nullable
+              as int,
       childDisplayName: null == childDisplayName
           ? _value.childDisplayName
           : childDisplayName // ignore: cast_nullable_to_non_nullable
@@ -192,6 +232,18 @@ class __$$OnboardingSnapshotImplCopyWithImpl<$Res>
           ? _value.starterPhraseId
           : starterPhraseId // ignore: cast_nullable_to_non_nullable
               as String,
+      selectedSceneIds: null == selectedSceneIds
+          ? _value._selectedSceneIds
+          : selectedSceneIds // ignore: cast_nullable_to_non_nullable
+              as List<String>,
+      supportGoal: null == supportGoal
+          ? _value.supportGoal
+          : supportGoal // ignore: cast_nullable_to_non_nullable
+              as OnboardingSupportGoal,
+      firstTraceEventKey: freezed == firstTraceEventKey
+          ? _value.firstTraceEventKey
+          : firstTraceEventKey // ignore: cast_nullable_to_non_nullable
+              as String?,
       consentState: null == consentState
           ? _value.consentState
           : consentState // ignore: cast_nullable_to_non_nullable
@@ -212,18 +264,26 @@ class __$$OnboardingSnapshotImplCopyWithImpl<$Res>
 
 class _$OnboardingSnapshotImpl extends _OnboardingSnapshot {
   const _$OnboardingSnapshotImpl(
-      {required this.childDisplayName,
+      {this.schemaVersion = 1,
+      required this.childDisplayName,
       required this.ageBucket,
       required this.approxMonths,
       required this.currentStage,
       required this.starterSpaceId,
       required this.starterActivityId,
       required this.starterPhraseId,
+      final List<String> selectedSceneIds = const <String>[],
+      this.supportGoal = OnboardingSupportGoal.firstWords,
+      this.firstTraceEventKey,
       required this.consentState,
       this.birthDate,
       this.completedAt})
-      : super._();
+      : _selectedSceneIds = selectedSceneIds,
+        super._();
 
+  @override
+  @JsonKey()
+  final int schemaVersion;
   @override
   final String childDisplayName;
   @override
@@ -238,6 +298,21 @@ class _$OnboardingSnapshotImpl extends _OnboardingSnapshot {
   final String starterActivityId;
   @override
   final String starterPhraseId;
+  final List<String> _selectedSceneIds;
+  @override
+  @JsonKey()
+  List<String> get selectedSceneIds {
+    if (_selectedSceneIds is EqualUnmodifiableListView)
+      return _selectedSceneIds;
+    // ignore: implicit_dynamic_type
+    return EqualUnmodifiableListView(_selectedSceneIds);
+  }
+
+  @override
+  @JsonKey()
+  final OnboardingSupportGoal supportGoal;
+  @override
+  final String? firstTraceEventKey;
   @override
   final OnboardingConsentState consentState;
   @override
@@ -247,7 +322,7 @@ class _$OnboardingSnapshotImpl extends _OnboardingSnapshot {
 
   @override
   String toString() {
-    return 'OnboardingSnapshot(childDisplayName: $childDisplayName, ageBucket: $ageBucket, approxMonths: $approxMonths, currentStage: $currentStage, starterSpaceId: $starterSpaceId, starterActivityId: $starterActivityId, starterPhraseId: $starterPhraseId, consentState: $consentState, birthDate: $birthDate, completedAt: $completedAt)';
+    return 'OnboardingSnapshot(schemaVersion: $schemaVersion, childDisplayName: $childDisplayName, ageBucket: $ageBucket, approxMonths: $approxMonths, currentStage: $currentStage, starterSpaceId: $starterSpaceId, starterActivityId: $starterActivityId, starterPhraseId: $starterPhraseId, selectedSceneIds: $selectedSceneIds, supportGoal: $supportGoal, firstTraceEventKey: $firstTraceEventKey, consentState: $consentState, birthDate: $birthDate, completedAt: $completedAt)';
   }
 
   @override
@@ -255,6 +330,8 @@ class _$OnboardingSnapshotImpl extends _OnboardingSnapshot {
     return identical(this, other) ||
         (other.runtimeType == runtimeType &&
             other is _$OnboardingSnapshotImpl &&
+            (identical(other.schemaVersion, schemaVersion) ||
+                other.schemaVersion == schemaVersion) &&
             (identical(other.childDisplayName, childDisplayName) ||
                 other.childDisplayName == childDisplayName) &&
             (identical(other.ageBucket, ageBucket) ||
@@ -269,6 +346,12 @@ class _$OnboardingSnapshotImpl extends _OnboardingSnapshot {
                 other.starterActivityId == starterActivityId) &&
             (identical(other.starterPhraseId, starterPhraseId) ||
                 other.starterPhraseId == starterPhraseId) &&
+            const DeepCollectionEquality()
+                .equals(other._selectedSceneIds, _selectedSceneIds) &&
+            (identical(other.supportGoal, supportGoal) ||
+                other.supportGoal == supportGoal) &&
+            (identical(other.firstTraceEventKey, firstTraceEventKey) ||
+                other.firstTraceEventKey == firstTraceEventKey) &&
             (identical(other.consentState, consentState) ||
                 other.consentState == consentState) &&
             (identical(other.birthDate, birthDate) ||
@@ -280,6 +363,7 @@ class _$OnboardingSnapshotImpl extends _OnboardingSnapshot {
   @override
   int get hashCode => Object.hash(
       runtimeType,
+      schemaVersion,
       childDisplayName,
       ageBucket,
       approxMonths,
@@ -287,6 +371,9 @@ class _$OnboardingSnapshotImpl extends _OnboardingSnapshot {
       starterSpaceId,
       starterActivityId,
       starterPhraseId,
+      const DeepCollectionEquality().hash(_selectedSceneIds),
+      supportGoal,
+      firstTraceEventKey,
       consentState,
       birthDate,
       completedAt);
@@ -301,18 +388,24 @@ class _$OnboardingSnapshotImpl extends _OnboardingSnapshot {
 
 abstract class _OnboardingSnapshot extends OnboardingSnapshot {
   const factory _OnboardingSnapshot(
-      {required final String childDisplayName,
+      {final int schemaVersion,
+      required final String childDisplayName,
       required final OnboardingAgeBucket ageBucket,
       required final int approxMonths,
       required final String currentStage,
       required final String starterSpaceId,
       required final String starterActivityId,
       required final String starterPhraseId,
+      final List<String> selectedSceneIds,
+      final OnboardingSupportGoal supportGoal,
+      final String? firstTraceEventKey,
       required final OnboardingConsentState consentState,
       final DateTime? birthDate,
       final DateTime? completedAt}) = _$OnboardingSnapshotImpl;
   const _OnboardingSnapshot._() : super._();
 
+  @override
+  int get schemaVersion;
   @override
   String get childDisplayName;
   @override
@@ -327,6 +420,12 @@ abstract class _OnboardingSnapshot extends OnboardingSnapshot {
   String get starterActivityId;
   @override
   String get starterPhraseId;
+  @override
+  List<String> get selectedSceneIds;
+  @override
+  OnboardingSupportGoal get supportGoal;
+  @override
+  String? get firstTraceEventKey;
   @override
   OnboardingConsentState get consentState;
   @override

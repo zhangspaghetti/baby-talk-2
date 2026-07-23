@@ -28,6 +28,7 @@ class OnboardingSnapshot with _$OnboardingSnapshot {
   const OnboardingSnapshot._();
 
   const factory OnboardingSnapshot({
+    @Default(1) int schemaVersion,
     required String childDisplayName,
     required OnboardingAgeBucket ageBucket,
     required int approxMonths,
@@ -35,6 +36,10 @@ class OnboardingSnapshot with _$OnboardingSnapshot {
     required String starterSpaceId,
     required String starterActivityId,
     required String starterPhraseId,
+    @Default(<String>[]) List<String> selectedSceneIds,
+    @Default(OnboardingSupportGoal.firstWords)
+    OnboardingSupportGoal supportGoal,
+    String? firstTraceEventKey,
     required OnboardingConsentState consentState,
     DateTime? birthDate,
     DateTime? completedAt,
@@ -44,6 +49,7 @@ class OnboardingSnapshot with _$OnboardingSnapshot {
   /// deserialization with full validation (checks StageMatch, approxMonths > 0).
   factory OnboardingSnapshot.fromJson(Map<String, dynamic> json) {
     return OnboardingSnapshot(
+      schemaVersion: _readOptionalInt(json, 'schemaVersion') ?? 1,
       childDisplayName: json['childDisplayName'] as String,
       ageBucket: parseOnboardingAgeBucket(json['ageBucket'] as String),
       approxMonths: json['approxMonths'] as int,
@@ -51,6 +57,9 @@ class OnboardingSnapshot with _$OnboardingSnapshot {
       starterSpaceId: json['starterSpaceId'] as String,
       starterActivityId: json['starterActivityId'] as String,
       starterPhraseId: json['starterPhraseId'] as String,
+      selectedSceneIds: _readOptionalStringList(json, 'selectedSceneIds'),
+      supportGoal: _readOptionalSupportGoal(json),
+      firstTraceEventKey: _readOptionalString(json, 'firstTraceEventKey'),
       consentState: parseOnboardingConsentState(json['consentState'] as String),
       birthDate: _readOptionalDateTime(json, 'birthDate'),
       completedAt: _readOptionalDateTime(json, 'completedAt'),
@@ -74,6 +83,7 @@ class OnboardingSnapshot with _$OnboardingSnapshot {
     }
 
     return OnboardingSnapshot(
+      schemaVersion: _readOptionalInt(json, 'schemaVersion') ?? 1,
       childDisplayName: _readRequiredString(json, 'childDisplayName'),
       ageBucket: ageBucket,
       approxMonths: approxMonths,
@@ -81,6 +91,9 @@ class OnboardingSnapshot with _$OnboardingSnapshot {
       starterSpaceId: _readRequiredString(json, 'starterSpaceId'),
       starterActivityId: _readRequiredString(json, 'starterActivityId'),
       starterPhraseId: _readRequiredString(json, 'starterPhraseId'),
+      selectedSceneIds: _readOptionalStringList(json, 'selectedSceneIds'),
+      supportGoal: _readOptionalSupportGoal(json),
+      firstTraceEventKey: _readOptionalString(json, 'firstTraceEventKey'),
       consentState: parseOnboardingConsentState(
         _readRequiredString(json, 'consentState'),
       ),
@@ -95,16 +108,21 @@ class OnboardingSnapshot with _$OnboardingSnapshot {
   }
 
   bool get isCompleted {
-    return childDisplayName.trim().isNotEmpty &&
+    final legacyCoreComplete =
+        childDisplayName.trim().isNotEmpty &&
         currentStage.trim().isNotEmpty &&
         starterSpaceId.trim().isNotEmpty &&
         starterActivityId.trim().isNotEmpty &&
         starterPhraseId.trim().isNotEmpty &&
         completedAt != null;
+    if (!legacyCoreComplete) return false;
+    if (schemaVersion < 2) return true;
+    return firstTraceEventKey?.trim().isNotEmpty ?? false;
   }
 
   Map<String, Object?> toJsonMap() {
     return {
+      'schemaVersion': schemaVersion,
       'childDisplayName': childDisplayName,
       'ageBucket': ageBucket.wireValue,
       'approxMonths': approxMonths,
@@ -112,6 +130,9 @@ class OnboardingSnapshot with _$OnboardingSnapshot {
       'starterSpaceId': starterSpaceId,
       'starterActivityId': starterActivityId,
       'starterPhraseId': starterPhraseId,
+      'selectedSceneIds': selectedSceneIds,
+      'supportGoal': supportGoal.wireValue,
+      'firstTraceEventKey': firstTraceEventKey,
       'completedAt': completedAt?.toUtc().toIso8601String(),
       'consentState': consentState.wireValue,
       'birthDate': birthDate?.toUtc().toIso8601String(),
@@ -143,6 +164,43 @@ class OnboardingSnapshot with _$OnboardingSnapshot {
       }
     }
     throw FormatException('字段 `$key` 缺失或不是整数。');
+  }
+
+  static int? _readOptionalInt(Map<String, dynamic> json, String key) {
+    if (!json.containsKey(key) || json[key] == null) return null;
+    return _readRequiredInt(json, key);
+  }
+
+  static String? _readOptionalString(Map<String, dynamic> json, String key) {
+    final value = json[key];
+    if (value == null) return null;
+    if (value is! String) {
+      throw FormatException('字段 `$key` 不是字符串。');
+    }
+    return value;
+  }
+
+  static List<String> _readOptionalStringList(
+    Map<String, dynamic> json,
+    String key,
+  ) {
+    final value = json[key];
+    if (value == null) return const <String>[];
+    if (value is! List || value.any((item) => item is! String)) {
+      throw FormatException('字段 `$key` 不是字符串列表。');
+    }
+    return List<String>.unmodifiable(value.cast<String>());
+  }
+
+  static OnboardingSupportGoal _readOptionalSupportGoal(
+    Map<String, dynamic> json,
+  ) {
+    final value = json['supportGoal'];
+    if (value == null) return OnboardingSupportGoal.firstWords;
+    if (value is! String) {
+      throw const FormatException('字段 `supportGoal` 缺失或不是字符串。');
+    }
+    return parseOnboardingSupportGoal(value);
   }
 
   static DateTime? _readOptionalDateTime(

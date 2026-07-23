@@ -52,7 +52,7 @@ class FullChainTestHarness {
     String practiceDbName = 's06_full_chain_release',
     String installationId = 'install_s06_full_chain_test',
     String childDisplayName = '米米',
-    OnboardingAgeBucket ageBucket = OnboardingAgeBucket.twelveToEighteen,
+    OnboardingAgeBucket ageBucket = OnboardingAgeBucket.oneToTwo,
     String minSupportedVersion = defaultAccountApiVersion,
     Duration simulatedSlowResponse = const Duration(milliseconds: 250),
     int mentorRateLimit = 2,
