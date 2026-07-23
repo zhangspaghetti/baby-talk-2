@@ -171,11 +171,14 @@ class ActConfigurationContractTest(unittest.TestCase):
         for cache_environment in (
             "PUB_CACHE: /opt/babytalk/act-cache/pub-cache",
             "PLAYWRIGHT_BROWSERS_PATH: /opt/babytalk/act-cache/playwright",
-            "NPM_CONFIG_STORE_DIR: /opt/babytalk/act-cache/pnpm-store",
+            "PNPM_STORE_DIR: /opt/babytalk/act-cache/pnpm-store",
             "PNPM_HOME: /opt/babytalk/act-cache/pnpm-home",
             "COREPACK_HOME: /opt/babytalk/act-cache/corepack",
         ):
             self.assertIn(cache_environment, workflow)
+        self.assertIn("Configure host-provisioned pnpm store", workflow)
+        self.assertIn('pnpm config set store-dir "$PNPM_STORE_DIR" --location=global', workflow)
+        self.assertIn('test "$(pnpm config get store-dir)" = "$PNPM_STORE_DIR"', workflow)
         self.assertIn("provision-act-flutter-sdk.sh", runner)
         self.assertIn("provision-act-caches.sh", runner)
         self.assertIn("provision-act-runner-image.sh", runner)

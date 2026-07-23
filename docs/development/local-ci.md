@@ -90,6 +90,10 @@ under `%LOCALAPPDATA%/BabyTalk/act/cache-v1` (or
 image. Maven, Pub, Playwright, pnpm, and Corepack use subdirectories of that
 cache; Maven is mounted at `/root/.m2`, and the other Linux caches are mounted
 at `/opt/babytalk/act-cache`. These are writable caches, not versioned inputs.
+The Job sets pnpm's `store-dir` with `pnpm config set --location=global` after
+Corepack is enabled; pnpm does not honor a generic npm store environment
+variable for this setting. That global configuration exists only in the
+disposable Job container, while its store remains on the mounted host cache.
 Windows host package caches must not be copied into the Linux act job: Windows
 Flutter, Windows Playwright browsers, and Windows `node_modules` contain
 platform-specific executables. The first Linux act run may fill an empty

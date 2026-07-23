@@ -14,7 +14,7 @@ jobs:
       ACT_FLUTTER_ROOT: /tmp/babytalk-flutter
       PUB_CACHE: /opt/babytalk/act-cache/pub-cache
       PLAYWRIGHT_BROWSERS_PATH: /opt/babytalk/act-cache/playwright
-      NPM_CONFIG_STORE_DIR: /opt/babytalk/act-cache/pnpm-store
+      PNPM_STORE_DIR: /opt/babytalk/act-cache/pnpm-store
       PNPM_HOME: /opt/babytalk/act-cache/pnpm-home
       COREPACK_HOME: /opt/babytalk/act-cache/corepack
     defaults:
@@ -45,7 +45,7 @@ jobs:
             echo 'act must mount the dedicated Maven cache at /root/.m2' >&2
             exit 1
           }
-          for cache_directory in "$PUB_CACHE" "$PLAYWRIGHT_BROWSERS_PATH" "$NPM_CONFIG_STORE_DIR" "$PNPM_HOME" "$COREPACK_HOME"; do
+          for cache_directory in "$PUB_CACHE" "$PLAYWRIGHT_BROWSERS_PATH" "$PNPM_STORE_DIR" "$PNPM_HOME" "$COREPACK_HOME"; do
             test -d "$cache_directory" && test -w "$cache_directory" || {
               printf 'act cache is unavailable or not writable: %s\n' "$cache_directory" >&2
               exit 1
@@ -68,6 +68,10 @@ jobs:
           node-version: '22'
       - name: Enable Corepack
         run: corepack enable
+      - name: Configure host-provisioned pnpm store
+        run: |
+          pnpm config set store-dir "$PNPM_STORE_DIR" --location=global
+          test "$(pnpm config get store-dir)" = "$PNPM_STORE_DIR"
       - name: Install Helm
         uses: azure/setup-helm@v4
         with:
