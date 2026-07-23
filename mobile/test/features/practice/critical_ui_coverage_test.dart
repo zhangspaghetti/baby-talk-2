@@ -181,10 +181,7 @@ void main() {
       expect(find.byKey(const Key('practice-progress-text')), findsNothing);
       expect(find.byKey(const Key('practice-completion-view')), findsNothing);
       expect(find.text('第 1 / 3 句'), findsNothing);
-      expect(
-        find.byKey(const Key('reaction-bath_time_warm_water-cooperating')),
-        findsNothing,
-      );
+      expect(find.byKey(const Key('care-reaction-cooperating')), findsNothing);
 
       await tester.tap(find.text('听一下'));
       await tester.pump();
@@ -199,13 +196,11 @@ void main() {
       await tester.tap(find.text('我说了'));
       await tester.pump();
       expect(
-        find.byKey(const Key('reaction-bath_time_warm_water-cooperating')),
+        find.byKey(const Key('care-reaction-cooperating')),
         findsOneWidget,
       );
 
-      await tester.tap(
-        find.byKey(const Key('reaction-bath_time_warm_water-cooperating')),
-      );
+      await tester.tap(find.byKey(const Key('care-reaction-cooperating')));
       await _pumpFrames(tester, count: 8);
 
       expect(repository.recordedEvents, hasLength(1));
@@ -254,27 +249,27 @@ void main() {
 
         _expectNoFlutterException(tester);
         await tester.ensureVisible(
-          find.byKey(const Key('practice-current-utterance')),
+          find.byKey(const Key('care-turn-current-utterance')),
         );
         await tester.ensureVisible(
-          find.byKey(const Key('practice-listen-once')),
+          find.byKey(const Key('care-turn-listen-once')),
         );
         await tester.ensureVisible(
-          find.byKey(const Key('practice-said-button')),
+          find.byKey(const Key('care-turn-said-button')),
         );
-        _expectMinTouchTarget(tester, const Key('practice-listen-once'));
-        _expectMinTouchTarget(tester, const Key('practice-said-button'));
+        _expectMinTouchTarget(tester, const Key('care-turn-listen-once'));
+        _expectMinTouchTarget(tester, const Key('care-turn-said-button'));
 
-        await tester.tap(find.byKey(const Key('practice-said-button')));
+        await tester.tap(find.byKey(const Key('care-turn-said-button')));
         await tester.pump();
         _expectNoFlutterException(tester);
 
         const reactionKeys = [
-          Key('reaction-bath_time_warm_water-cooperating'),
-          Key('reaction-bath_time_warm_water-hesitant'),
-          Key('reaction-bath_time_warm_water-resisting'),
-          Key('reaction-bath_time_warm_water-no_response'),
-          Key('reaction-bath_time_warm_water-other'),
+          Key('care-reaction-cooperating'),
+          Key('care-reaction-hesitant'),
+          Key('care-reaction-resisting'),
+          Key('care-reaction-no_response'),
+          Key('care-reaction-other'),
         ];
         for (final key in reactionKeys) {
           await tester.ensureVisible(find.byKey(key));
@@ -286,10 +281,10 @@ void main() {
         _expectNoFlutterException(tester);
 
         await tester.ensureVisible(
-          find.byKey(const Key('practice-next-support')),
+          find.byKey(const Key('care-turn-next-support')),
         );
         await tester.ensureVisible(
-          find.byKey(const Key('practice-garden-trace')),
+          find.byKey(const Key('care-turn-garden-trace')),
         );
 
         expect(find.text('Warm water.'), findsOneWidget);
@@ -336,7 +331,7 @@ void main() {
       expect(find.bySemanticsLabel('听一下'), findsOneWidget);
       expect(find.bySemanticsLabel('我说了'), findsOneWidget);
 
-      await tester.tap(find.byKey(const Key('practice-said-button')));
+      await tester.tap(find.byKey(const Key('care-turn-said-button')));
       await tester.pump();
 
       expect(find.bySemanticsLabel('宝宝刚刚是什么反应？'), findsOneWidget);
@@ -359,9 +354,7 @@ void main() {
         expect(find.bySemanticsLabel(blocked), findsNothing);
       }
 
-      await tester.tap(
-        find.byKey(const Key('reaction-bath_time_warm_water-cooperating')),
-      );
+      await tester.tap(find.byKey(const Key('care-reaction-cooperating')));
       await _pumpFrames(tester, count: 8);
 
       expect(find.bySemanticsLabel('下一句照护支持'), findsOneWidget);
@@ -443,7 +436,7 @@ void main() {
       await tester.pump();
 
       expect(
-        find.byKey(const Key('reaction-bath_time_warm_water-cooperating')),
+        find.byKey(const Key('care-reaction-cooperating')),
         findsOneWidget,
       );
     },
@@ -572,7 +565,7 @@ void main() {
       await tester.tap(find.text('我说了'));
       await tester.pump();
       expect(
-        find.byKey(const Key('reaction-bath_time_warm_water-cooperating')),
+        find.byKey(const Key('care-reaction-cooperating')),
         findsOneWidget,
       );
 
@@ -590,10 +583,7 @@ void main() {
         find.byKey(const Key('practice-repository-loading')),
         findsOneWidget,
       );
-      expect(
-        find.byKey(const Key('reaction-bath_time_warm_water-cooperating')),
-        findsNothing,
-      );
+      expect(find.byKey(const Key('care-reaction-cooperating')), findsNothing);
       await _pumpFrames(tester, count: 8);
 
       expect(notifier.startMomentCalls, [
@@ -602,10 +592,7 @@ void main() {
       ]);
       expect(find.text('Warm water.'), findsOneWidget);
       expect(find.text('我说了'), findsOneWidget);
-      expect(
-        find.byKey(const Key('reaction-bath_time_warm_water-cooperating')),
-        findsNothing,
-      );
+      expect(find.byKey(const Key('care-reaction-cooperating')), findsNothing);
     },
   );
 
@@ -875,7 +862,10 @@ void main() {
     await tester.tap(find.byKey(const Key('home-today-primary-cta')));
     await tester.pumpAndSettle();
 
-    expect(find.byKey(const Key('practice-current-utterance')), findsOneWidget);
+    expect(
+      find.byKey(const Key('care-turn-current-utterance')),
+      findsOneWidget,
+    );
     expect(find.text('听一下'), findsOneWidget);
     expect(find.text('我说了'), findsOneWidget);
     expect(openedArgs?.spaceId, 'home');
@@ -934,7 +924,10 @@ void main() {
     await tester.tap(find.text('现在说一句').first);
     await tester.pumpAndSettle();
 
-    expect(find.byKey(const Key('practice-current-utterance')), findsOneWidget);
+    expect(
+      find.byKey(const Key('care-turn-current-utterance')),
+      findsOneWidget,
+    );
     expect(find.text('Warm water.'), findsOneWidget);
     expect(find.text('温温的水。'), findsOneWidget);
     expect(find.text('听一下'), findsOneWidget);
@@ -1005,17 +998,12 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Warm water.'), findsOneWidget);
 
-    await tester.tap(find.byKey(const Key('practice-said-button')));
+    await tester.tap(find.byKey(const Key('care-turn-said-button')));
     await tester.pump();
-    expect(
-      find.byKey(const Key('reaction-bath_time_warm_water-cooperating')),
-      findsOneWidget,
-    );
-    await tester.tap(
-      find.byKey(const Key('reaction-bath_time_warm_water-cooperating')),
-    );
+    expect(find.byKey(const Key('care-reaction-cooperating')), findsOneWidget);
+    await tester.tap(find.byKey(const Key('care-reaction-cooperating')));
     await _pumpFrames(tester, count: 8);
-    expect(find.byKey(const Key('practice-next-support')), findsOneWidget);
+    expect(find.byKey(const Key('care-turn-next-support')), findsOneWidget);
 
     router.pop();
     await tester.pumpAndSettle();
@@ -1028,11 +1016,8 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Splash splash.'), findsOneWidget);
-    expect(find.byKey(const Key('practice-next-support')), findsNothing);
-    expect(
-      find.byKey(const Key('reaction-bath_time_warm_water-cooperating')),
-      findsNothing,
-    );
+    expect(find.byKey(const Key('care-turn-next-support')), findsNothing);
+    expect(find.byKey(const Key('care-reaction-cooperating')), findsNothing);
     expect(find.byKey(const Key('practice-completion-view')), findsNothing);
     expect(find.text('完成总结'), findsNothing);
   });
