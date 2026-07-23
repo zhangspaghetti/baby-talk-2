@@ -11,6 +11,7 @@ import 'package:isar/isar.dart';
 import 'package:mobile/app/app.dart';
 import 'package:mobile/app/providers/repository_providers.dart';
 import 'package:mobile/core/device/installation_id_service.dart';
+import 'package:mobile/features/onboarding/data/local/onboarding_flow_store.dart';
 import 'package:mobile/features/onboarding/data/local/onboarding_snapshot_store.dart';
 import 'package:mobile/features/onboarding/data/repositories/onboarding_repository.dart';
 import 'package:mobile/features/account/data/local/account_local_store.dart';
@@ -53,9 +54,7 @@ void main() {
             harness.bootState.assetPhraseService!,
           ),
           appDirectoryProvider.overrideWith((ref) => harness.tempDir),
-          practiceRepositoryProvider.overrideWith(
-            (ref) => harness.repository,
-          ),
+          practiceRepositoryProvider.overrideWith((ref) => harness.repository),
           accountRepositoryProvider.overrideWith(
             (ref) => AccountRepository(
               localStore: AccountLocalStore(),
@@ -63,8 +62,9 @@ void main() {
             ),
           ),
           householdRepositoryProvider.overrideWith((ref) {
-            final accountRepo =
-                ref.read(accountRepositoryProvider).requireValue;
+            final accountRepo = ref
+                .read(accountRepositoryProvider)
+                .requireValue;
             return HouseholdRepository(
               localStore: HouseholdLocalStore(
                 directoryResolver: () async => harness.tempDir,
@@ -75,10 +75,14 @@ void main() {
             );
           }),
           onboardingRepositoryProvider.overrideWith((ref) {
-            final practiceRepo =
-                ref.read(practiceRepositoryProvider).requireValue;
+            final practiceRepo = ref
+                .read(practiceRepositoryProvider)
+                .requireValue;
             return OnboardingRepository(
               snapshotStore: OnboardingSnapshotStore(
+                directoryResolver: () async => harness.tempDir,
+              ),
+              flowStore: OnboardingFlowStore(
                 directoryResolver: () async => harness.tempDir,
               ),
               practiceRepository: practiceRepo,

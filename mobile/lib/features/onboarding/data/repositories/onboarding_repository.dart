@@ -1,4 +1,6 @@
+import 'package:mobile/features/onboarding/data/local/onboarding_flow_store.dart';
 import 'package:mobile/features/onboarding/data/local/onboarding_snapshot_store.dart';
+import 'package:mobile/features/onboarding/domain/models/onboarding_flow_models.dart';
 import 'package:mobile/features/onboarding/domain/models/onboarding_snapshot.dart';
 import 'package:mobile/features/onboarding/domain/models/stage_match.dart';
 import 'package:mobile/features/practice/data/repositories/practice_repository.dart';
@@ -27,13 +29,16 @@ class OnboardingStarterSeed {
 class OnboardingRepository {
   OnboardingRepository({
     required OnboardingSnapshotStore snapshotStore,
+    required OnboardingFlowStore flowStore,
     required PracticeRepository practiceRepository,
     required this.starterSpaceId,
     required this.starterActivityId,
   }) : _snapshotStore = snapshotStore,
+       _flowStore = flowStore,
        _practiceRepository = practiceRepository;
 
   final OnboardingSnapshotStore _snapshotStore;
+  final OnboardingFlowStore _flowStore;
   final PracticeRepository _practiceRepository;
   final String starterSpaceId;
   final String starterActivityId;
@@ -53,6 +58,29 @@ class OnboardingRepository {
       return null;
     }
     return snapshot;
+  }
+
+  Future<OnboardingFlowSnapshot?> readFlowSnapshot() async {
+    try {
+      return await _flowStore.read();
+    } on FormatException {
+      await _flowStore.deleteIfExists();
+      return null;
+    }
+  }
+
+  Future<OnboardingFlowSnapshot> saveFlowSnapshot(
+    OnboardingFlowSnapshot snapshot,
+  ) async {
+    await _flowStore.write(snapshot);
+    return snapshot;
+  }
+
+  Future<void> clearFlowSnapshot() => _flowStore.deleteIfExists();
+
+  Future<void> clearAllLocalState() async {
+    await _flowStore.deleteIfExists();
+    await _snapshotStore.deleteIfExists();
   }
 
   Future<OnboardingStarterSeed> resolveStarterSeed() async {

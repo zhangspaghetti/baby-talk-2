@@ -39,8 +39,8 @@ List<LocalSensitiveDataClearanceStep> createLocalSensitiveDataClearanceSteps({
     ),
     LocalSensitiveDataClearanceStep(
       target: LocalSensitiveDataTarget.onboardingSnapshot,
-      primitiveName: 'OnboardingRepository.clearSnapshot',
-      clear: onboardingRepository.clearSnapshot,
+      primitiveName: 'OnboardingRepository.clearAllLocalState',
+      clear: onboardingRepository.clearAllLocalState,
     ),
     LocalSensitiveDataClearanceStep(
       target: LocalSensitiveDataTarget.householdSnapshot,

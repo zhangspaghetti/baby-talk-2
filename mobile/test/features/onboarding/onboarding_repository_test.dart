@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:isar/isar.dart';
 import 'package:mobile/core/device/installation_id_service.dart';
+import 'package:mobile/features/onboarding/data/local/onboarding_flow_store.dart';
 import 'package:mobile/features/onboarding/data/local/onboarding_snapshot_store.dart';
 import 'package:mobile/features/onboarding/data/repositories/onboarding_repository.dart';
 import 'package:mobile/features/onboarding/domain/models/onboarding_snapshot.dart';
@@ -28,6 +29,7 @@ void main() {
     late String dbName;
     late PracticeLocalDataSource localDataSource;
     late PracticeRepository practiceRepository;
+    late OnboardingFlowStore flowStore;
     late OnboardingSnapshotStore snapshotStore;
     late OnboardingRepository onboardingRepository;
 
@@ -51,8 +53,10 @@ void main() {
       snapshotStore = OnboardingSnapshotStore(
         directoryResolver: () async => tempDir,
       );
+      flowStore = OnboardingFlowStore(directoryResolver: () async => tempDir);
       onboardingRepository = OnboardingRepository(
         snapshotStore: snapshotStore,
+        flowStore: flowStore,
         practiceRepository: practiceRepository,
         starterSpaceId: 'daily_care',
         starterActivityId: 'bath_time',
@@ -262,6 +266,7 @@ void main() {
         addTearDown(() => invalidBundleRepository.close(deleteFromDisk: true));
         final repository = OnboardingRepository(
           snapshotStore: snapshotStore,
+          flowStore: flowStore,
           practiceRepository: invalidBundleRepository.repository,
           starterSpaceId: 'daily_care',
           starterActivityId: 'bath_time',
@@ -288,6 +293,7 @@ void main() {
       );
       final repository = OnboardingRepository(
         snapshotStore: brokenStore,
+        flowStore: flowStore,
         practiceRepository: practiceRepository,
         starterSpaceId: 'daily_care',
         starterActivityId: 'bath_time',

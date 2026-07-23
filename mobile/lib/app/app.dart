@@ -16,6 +16,7 @@ import 'package:mobile/features/auth/presentation/screens/auth_screen.dart';
 import 'package:mobile/features/household/data/repositories/household_repository.dart';
 import 'package:mobile/features/household/presentation/household_notifier.dart';
 import 'package:mobile/features/mentor/data/repositories/mentor_repository.dart';
+import 'package:mobile/features/onboarding/data/local/onboarding_flow_store.dart';
 import 'package:mobile/features/onboarding/data/local/onboarding_snapshot_store.dart';
 import 'package:mobile/features/onboarding/data/repositories/onboarding_repository.dart';
 import 'package:mobile/features/onboarding/domain/models/onboarding_snapshot.dart';
@@ -489,8 +490,12 @@ class _BabyTalkAppState extends ConsumerState<BabyTalkApp> {
     final onboardingStore = OnboardingSnapshotStore(
       directoryResolver: () async => directory,
     );
+    final onboardingFlowStore = OnboardingFlowStore(
+      directoryResolver: () async => directory,
+    );
     final onboardingRepository = OnboardingRepository(
       snapshotStore: onboardingStore,
+      flowStore: onboardingFlowStore,
       practiceRepository: practiceRepository,
       starterSpaceId: widget.bootState.primarySpaceId!,
       starterActivityId: widget.bootState.primaryActivityId!,

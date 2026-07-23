@@ -26,6 +26,7 @@ import 'package:mobile/features/household/data/repositories/household_repository
 import 'package:mobile/features/household/data/services/household_api_service.dart';
 import 'package:mobile/features/mentor/data/local/mentor_local_data_source.dart';
 import 'package:mobile/features/mentor/data/repositories/mentor_repository.dart';
+import 'package:mobile/features/onboarding/data/local/onboarding_flow_store.dart';
 import 'package:mobile/features/onboarding/data/local/onboarding_snapshot_store.dart';
 import 'package:mobile/features/onboarding/data/repositories/onboarding_repository.dart';
 import 'package:mobile/features/onboarding/domain/models/onboarding_snapshot.dart';
@@ -76,6 +77,9 @@ void main() {
         final created = await _createHarness();
         final onboardingRepository = OnboardingRepository(
           snapshotStore: OnboardingSnapshotStore(
+            directoryResolver: () async => created.tempDir,
+          ),
+          flowStore: OnboardingFlowStore(
             directoryResolver: () async => created.tempDir,
           ),
           practiceRepository: created.repository,
@@ -136,6 +140,9 @@ void main() {
                   .requireValue;
               return OnboardingRepository(
                 snapshotStore: OnboardingSnapshotStore(
+                  directoryResolver: () async => harness.tempDir,
+                ),
+                flowStore: OnboardingFlowStore(
                   directoryResolver: () async => harness.tempDir,
                 ),
                 practiceRepository: practiceRepo,
