@@ -85,6 +85,7 @@ class ActConfigurationContractTest(unittest.TestCase):
                 "--strict",
                 "--rm",
                 "--pull=false",
+                "--action-offline-mode",
             ],
         )
         joined = "\n".join(lines).lower()

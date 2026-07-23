@@ -66,6 +66,10 @@ artifact server at `.act/artifacts`, parses workflows strictly, removes job
 containers after each run, uses `Develop` as the default branch, and sets
 `--pull=false`: the wrapper verifies or builds the local image before act starts
 instead of resolving the private local tag from a registry.
+`--action-offline-mode` likewise reuses the existing host action cache at
+`%USERPROFILE%/.cache/act` for reviewed setup actions; a missing action is still
+fetched on first use, but an existing cached action is not refreshed inside a
+validation run.
 Testcontainers resolves Docker-published ports through
 `TESTCONTAINERS_HOST_OVERRIDE=host.docker.internal`, while Ryuk remains enabled.
 `ci/full-ci.sh` preserves only that exact local-act value after sanitizing its
