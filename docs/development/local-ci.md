@@ -63,7 +63,9 @@ checks remain not configured as stated above.
 recipe checksum, so a changed base or dependency list rebuilds the image. It
 also uses host networking for the scoped Docker relay, enables the local
 artifact server at `.act/artifacts`, parses workflows strictly, removes job
-containers after each run, and uses `Develop` as the default branch.
+containers after each run, uses `Develop` as the default branch, and sets
+`--pull=false`: the wrapper verifies or builds the local image before act starts
+instead of resolving the private local tag from a registry.
 Testcontainers resolves Docker-published ports through
 `TESTCONTAINERS_HOST_OVERRIDE=host.docker.internal`, while Ryuk remains enabled.
 `ci/full-ci.sh` preserves only that exact local-act value after sanitizing its

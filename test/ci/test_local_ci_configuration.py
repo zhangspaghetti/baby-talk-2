@@ -84,6 +84,7 @@ class ActConfigurationContractTest(unittest.TestCase):
                 "--env=PLAYWRIGHT_DOWNLOAD_CONNECTION_TIMEOUT=180000",
                 "--strict",
                 "--rm",
+                "--pull=false",
             ],
         )
         joined = "\n".join(lines).lower()
