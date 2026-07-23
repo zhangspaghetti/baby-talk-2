@@ -64,6 +64,58 @@ void main() {
       expect(traceReadyCount, 1);
     },
   );
+
+  testWidgets(
+    'late trace callback receives an already-ready trace exactly once',
+    (tester) async {
+      var traceReadyCount = 0;
+      await tester.pumpWidget(_surfaceTestApp(notifier: notifier));
+
+      await notifier.startMoment(
+        spaceId: 'daily_care',
+        activityId: 'bath_time',
+      );
+      await tester.pump();
+      await tester.tap(find.byKey(const Key('care-turn-said-button')));
+      await tester.pump();
+      await tester.tap(find.byKey(const Key('care-reaction-hesitant')));
+      for (var index = 0; index < 8; index += 1) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+      expect(notifier.snapshot?.traceEventKey, isNotEmpty);
+      expect(traceReadyCount, 0);
+
+      await tester.pumpWidget(
+        _surfaceTestApp(
+          notifier: notifier,
+          onTraceReady: (_) => traceReadyCount += 1,
+        ),
+      );
+      await tester.pump();
+      expect(traceReadyCount, 1);
+
+      await tester.pump();
+      expect(traceReadyCount, 1);
+    },
+  );
+}
+
+Widget _surfaceTestApp({
+  required CarePathNotifier notifier,
+  CareTurnTraceReady? onTraceReady,
+}) {
+  return MaterialApp(
+    localizationsDelegates: AppLocalizations.localizationsDelegates,
+    supportedLocales: AppLocalizations.supportedLocales,
+    home: Scaffold(
+      body: CareTurnSurface(
+        notifier: notifier,
+        audioControllerFactory: _SilentPracticeAudioController.new,
+        onTraceReady: onTraceReady,
+        onQuietExit: () {},
+      ),
+    ),
+  );
 }
 
 class _SilentPracticeAudioController implements PracticeAudioController {

@@ -51,12 +51,14 @@ class _CareTurnSurfaceState extends State<CareTurnSurface> {
   @override
   void didUpdateWidget(covariant CareTurnSurface oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (identical(oldWidget.notifier, widget.notifier)) {
-      return;
+    final notifierChanged = !identical(oldWidget.notifier, widget.notifier);
+    if (notifierChanged) {
+      oldWidget.notifier.removeListener(_onNotifierChanged);
+      widget.notifier.addListener(_onNotifierChanged);
     }
-    oldWidget.notifier.removeListener(_onNotifierChanged);
-    widget.notifier.addListener(_onNotifierChanged);
-    _notifyTraceIfReady();
+    if (notifierChanged || oldWidget.onTraceReady != widget.onTraceReady) {
+      _notifyTraceIfReady();
+    }
   }
 
   @override
@@ -95,6 +97,10 @@ class _CareTurnSurfaceState extends State<CareTurnSurface> {
   }
 
   void _notifyTraceIfReady() {
+    final callback = widget.onTraceReady;
+    if (callback == null) {
+      return;
+    }
     final snapshot = widget.notifier.snapshot;
     final traceEventKey = snapshot?.traceEventKey?.trim();
     if (snapshot == null || traceEventKey == null || traceEventKey.isEmpty) {
@@ -106,7 +112,7 @@ class _CareTurnSurfaceState extends State<CareTurnSurface> {
     _lastNotifiedTraceEventKey = traceEventKey;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
-        widget.onTraceReady?.call(snapshot);
+        callback(snapshot);
       }
     });
   }
