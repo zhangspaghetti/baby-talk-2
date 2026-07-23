@@ -123,6 +123,29 @@ void main() {
       },
     );
 
+    test('recordReaction retry with the same event id returns next support '
+        'without duplicate trace', () async {
+      final turn = await repository.startMoment(
+        spaceId: 'daily_care',
+        activityId: 'bath_time',
+      );
+      final first = await repository.recordReaction(
+        turn: turn,
+        reactionType: BabyReactionType.hesitant,
+        localEventId: 'evt_care_path_reconcile',
+      );
+      final retry = await repository.recordReaction(
+        turn: turn,
+        reactionType: BabyReactionType.hesitant,
+        localEventId: 'evt_care_path_reconcile',
+      );
+
+      expect(retry.traceEventKey, first.traceEventKey);
+      expect(retry.phase, CareTurnPhase.nextSupportReady);
+      expect(retry.nextSupportUtterance, isNotNull);
+      expect(await harness.repository.listEventHistory(), hasLength(1));
+    });
+
     test(
       'records BabyReactionType.other canonically after mark-said state handoff',
       () async {
@@ -185,6 +208,36 @@ void main() {
           BabyReactionType.cooperating,
         );
         expect(saved.latestGardenImpact?.phraseTitle, 'Warm water.');
+      },
+    );
+
+    test(
+      'keeps confirmed trace and next support when Garden snapshot fails',
+      () async {
+        final repository = CarePathRepository(
+          practiceRepository: harness.repository,
+          gardenGrowthRepository: _FailingGardenGrowthRepository(),
+        );
+        final turn = await repository.startMoment(
+          spaceId: 'daily_care',
+          activityId: 'bath_time',
+        );
+
+        final saved = await repository.recordReaction(
+          turn: turn,
+          reactionType: BabyReactionType.cooperating,
+          localEventId: 'evt_care_path_garden_failure',
+        );
+
+        expect(saved.phase, CareTurnPhase.nextSupportReady);
+        expect(
+          saved.traceEventKey,
+          '$practiceCharacterizationInstallationId:'
+          'evt_care_path_garden_failure',
+        );
+        expect(saved.nextSupportUtterance, isNotNull);
+        expect(saved.latestGardenImpact, isNull);
+        expect(await harness.repository.listEventHistory(), hasLength(1));
       },
     );
 
@@ -440,6 +493,16 @@ class _StubGardenGrowthRepository implements GardenGrowthRepository {
       skippedMalformedEvents: 0,
       skippedUnknownContentEvents: 0,
     );
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class _FailingGardenGrowthRepository implements GardenGrowthRepository {
+  @override
+  Future<GardenGrowthSnapshot> buildSnapshot() {
+    throw StateError('simulated Garden snapshot failure');
   }
 
   @override

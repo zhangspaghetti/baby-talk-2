@@ -80,6 +80,19 @@ class PracticeLocalDataSource {
     });
   }
 
+  Future<InteractionEventPayload?> getInteractionEventByLocalEventId(
+    String localEventId,
+  ) async {
+    final normalized = localEventId.trim();
+    if (normalized.isEmpty) {
+      return null;
+    }
+    final entity = await _isar
+        .collection<InteractionEventEntity>()
+        .getByLocalEventId(normalized);
+    return entity == null ? null : payloadFromEntity(entity);
+  }
+
   Future<int> countInteractionEvents({
     String? spaceId,
     String? activityId,
