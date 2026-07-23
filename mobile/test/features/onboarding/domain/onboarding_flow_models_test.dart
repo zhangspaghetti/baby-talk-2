@@ -46,4 +46,65 @@ void main() {
       throwsFormatException,
     );
   });
+
+  test('flow snapshot defensively freezes selected scene IDs', () {
+    final constructorInput = <String>['bath_time'];
+    final snapshot = OnboardingFlowSnapshot(
+      selectedSceneIds: constructorInput,
+      updatedAt: DateTime.utc(2026, 7, 23, 12),
+    );
+    constructorInput.add('bedtime');
+
+    expect(snapshot.selectedSceneIds, <String>['bath_time']);
+    expect(
+      () => snapshot.selectedSceneIds.add('meal_time'),
+      throwsUnsupportedError,
+    );
+
+    final copyInput = <String>['bedtime'];
+    final copied = snapshot.copyWith(selectedSceneIds: copyInput);
+    copyInput.add('meal_time');
+
+    expect(copied.selectedSceneIds, <String>['bedtime']);
+    expect(
+      () => copied.selectedSceneIds.add('bath_time'),
+      throwsUnsupportedError,
+    );
+
+    final serialized = snapshot.toJsonMap();
+    final serializedSceneIds = serialized['selectedSceneIds'] as List<String>;
+    expect(() => serializedSceneIds.add('meal_time'), throwsUnsupportedError);
+    expect(snapshot.selectedSceneIds, <String>['bath_time']);
+
+    final jsonSceneIds = List<String>.from(
+      serialized['selectedSceneIds'] as List<String>,
+    );
+    final json = <String, dynamic>{
+      ...serialized,
+      'selectedSceneIds': jsonSceneIds,
+    };
+    final restored = OnboardingFlowSnapshot.fromJsonMap(json);
+    jsonSceneIds.add('meal_time');
+
+    expect(restored.selectedSceneIds, <String>['bath_time']);
+    expect(
+      () => restored.selectedSceneIds.add('bedtime'),
+      throwsUnsupportedError,
+    );
+  });
+
+  test('unsupported flow schema versions fail closed', () {
+    final snapshot = OnboardingFlowSnapshot.initial(
+      DateTime.utc(2026, 7, 23, 12),
+    );
+
+    for (final schemaVersion in <int>[0, -1, 2]) {
+      final json = snapshot.toJsonMap()..['schemaVersion'] = schemaVersion;
+
+      expect(
+        () => OnboardingFlowSnapshot.fromJsonMap(json),
+        throwsFormatException,
+      );
+    }
+  });
 }

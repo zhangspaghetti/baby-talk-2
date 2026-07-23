@@ -101,5 +101,39 @@ void main() {
         );
       },
     );
+
+    test('write failure removes its temporary flow file', () async {
+      await Directory('${tempDir.path}/onboarding_flow_snapshot.json').create();
+
+      await expectLater(
+        store.write(OnboardingFlowSnapshot.initial(DateTime.utc(2026, 7, 23))),
+        throwsA(isA<OnboardingFlowPersistenceException>()),
+      );
+
+      expect(
+        File('${tempDir.path}/onboarding_flow_snapshot.json.tmp').existsSync(),
+        isFalse,
+      );
+    });
+
+    test('delete removes both saved flow and orphan temporary file', () async {
+      await store.write(
+        OnboardingFlowSnapshot.initial(DateTime.utc(2026, 7, 23)),
+      );
+      await File(
+        '${tempDir.path}/onboarding_flow_snapshot.json.tmp',
+      ).writeAsString('orphan');
+
+      await store.deleteIfExists();
+
+      expect(
+        File('${tempDir.path}/onboarding_flow_snapshot.json').existsSync(),
+        isFalse,
+      );
+      expect(
+        File('${tempDir.path}/onboarding_flow_snapshot.json.tmp').existsSync(),
+        isFalse,
+      );
+    });
   });
 }

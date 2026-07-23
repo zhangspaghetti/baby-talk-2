@@ -59,11 +59,13 @@ class OnboardingMomentChoice {
 }
 
 class OnboardingFlowSnapshot {
-  const OnboardingFlowSnapshot({
-    this.schemaVersion = 1,
+  static const int currentSchemaVersion = 1;
+
+  OnboardingFlowSnapshot({
+    int schemaVersion = currentSchemaVersion,
     this.step = OnboardingFlowStep.welcome,
     this.ageBucket,
-    this.selectedSceneIds = const <String>[],
+    List<String> selectedSceneIds = const <String>[],
     this.supportGoal,
     this.selectedSpaceId,
     this.selectedActivityId,
@@ -72,7 +74,8 @@ class OnboardingFlowSnapshot {
     this.selectedReaction,
     this.traceEventKey,
     required this.updatedAt,
-  });
+  }) : schemaVersion = _validateSchemaVersion(schemaVersion),
+       selectedSceneIds = List<String>.unmodifiable(selectedSceneIds);
 
   final int schemaVersion;
   final OnboardingFlowStep step;
@@ -97,6 +100,13 @@ class OnboardingFlowSnapshot {
       OnboardingFlowSnapshot(updatedAt: now.toUtc());
 
   static const Object _notProvided = Object();
+
+  static int _validateSchemaVersion(int value) {
+    if (value != currentSchemaVersion) {
+      throw FormatException('不支持的 onboarding flow schemaVersion: $value');
+    }
+    return value;
+  }
 
   OnboardingFlowSnapshot copyWith({
     int? schemaVersion,
@@ -149,7 +159,7 @@ class OnboardingFlowSnapshot {
       'schemaVersion': schemaVersion,
       'step': step.wireValue,
       'ageBucket': ageBucket?.wireValue,
-      'selectedSceneIds': selectedSceneIds,
+      'selectedSceneIds': List<String>.unmodifiable(selectedSceneIds),
       'supportGoal': supportGoal?.wireValue,
       'selectedSpaceId': selectedSpaceId,
       'selectedActivityId': selectedActivityId,

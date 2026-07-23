@@ -102,6 +102,12 @@ void main() {
         expect(await harness.accountSnapshotIsStored(), isTrue);
         expect(await harness.onboardingSnapshotStore.read(), isNotNull);
         expect(await harness.onboardingFlowStore.read(), isNotNull);
+        expect(
+          File(
+            '${harness.tempDir.path}/onboarding_flow_snapshot.json.tmp',
+          ).existsSync(),
+          isTrue,
+        );
         expect((await harness.householdLocalStore.read()).householdId, 'hh_1');
         expect(
           (await harness.practiceRepository.inspectEventLog()).storedEventCount,
@@ -157,6 +163,12 @@ void main() {
         expect(await harness.accountSnapshotIsStored(), isFalse);
         expect(await harness.onboardingSnapshotStore.read(), isNull);
         expect(await harness.onboardingFlowStore.read(), isNull);
+        expect(
+          File(
+            '${harness.tempDir.path}/onboarding_flow_snapshot.json.tmp',
+          ).existsSync(),
+          isFalse,
+        );
         expect(
           await harness.householdLocalStore.read(),
           HouseholdLocalSnapshot.empty,
@@ -284,6 +296,9 @@ class _LifecycleHarness {
     await onboardingFlowStore.write(
       OnboardingFlowSnapshot.initial(DateTime.utc(2026, 5, 20, 10)),
     );
+    await File(
+      '${tempDir.path}/onboarding_flow_snapshot.json.tmp',
+    ).writeAsString('orphan');
     await householdLocalStore.write(
       const HouseholdLocalSnapshot(
         householdId: 'hh_1',

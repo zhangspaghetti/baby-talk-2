@@ -51,10 +51,12 @@ class OnboardingFlowStore {
   }
 
   Future<void> write(OnboardingFlowSnapshot snapshot) async {
+    File? temporaryFile;
     try {
       final file = await _resolveFile();
-      final temporaryFile = File('${file.path}.tmp');
+      temporaryFile = File('${file.path}.tmp');
       await file.parent.create(recursive: true);
+      await _deleteFileIfExists(temporaryFile);
       await temporaryFile.writeAsString(
         jsonEncode(snapshot.toJsonMap()),
         flush: true,
@@ -64,6 +66,11 @@ class OnboardingFlowStore {
       }
       await temporaryFile.rename(file.path);
     } catch (error) {
+      if (temporaryFile != null) {
+        try {
+          await _deleteFileIfExists(temporaryFile);
+        } catch (_) {}
+      }
       throw OnboardingFlowPersistenceException(
         '写入 onboarding flow snapshot 失败：$error',
       );
@@ -71,10 +78,19 @@ class OnboardingFlowStore {
   }
 
   Future<void> deleteIfExists() async {
+    Object? firstError;
     try {
       final file = await _resolveFile();
-      if (await file.exists()) {
-        await file.delete();
+      final files = <File>[file, File('${file.path}.tmp')];
+      for (final candidate in files) {
+        try {
+          await _deleteFileIfExists(candidate);
+        } catch (error) {
+          firstError ??= error;
+        }
+      }
+      if (firstError != null) {
+        throw firstError;
       }
     } catch (error) {
       throw OnboardingFlowPersistenceException(
@@ -86,5 +102,11 @@ class OnboardingFlowStore {
   Future<File> _resolveFile() async {
     final directory = await _directoryResolver();
     return File('${directory.path}${Platform.pathSeparator}$fileName');
+  }
+
+  Future<void> _deleteFileIfExists(File file) async {
+    if (await file.exists()) {
+      await file.delete();
+    }
   }
 }
