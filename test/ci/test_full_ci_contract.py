@@ -172,15 +172,12 @@ class FullCiScriptContractTest(unittest.TestCase):
             if any(marker in line for marker in required_markers):
                 self.assertNotIn("|| true", line)
 
-    def test_local_act_browser_system_dependencies_use_the_pinned_public_apt_mirror(self) -> None:
-        self.assertIn("configure_local_act_apt_mirror", self.text)
-        self.assertIn("/etc/apt/sources.list.d/ubuntu.sources", self.text)
-        self.assertIn("https://mirrors.aliyun.com/ubuntu/", self.text)
-        self.assertIn('"${LOCAL_ACT_INSTALL_PLAYWRIGHT_DEPS:-}" == \'true\'', self.text)
-        self.assertLess(
-            self.text.index("configure_local_act_apt_mirror"),
-            self.text.index("pnpm --dir admin-web exec playwright install-deps chromium"),
-        )
+    def test_local_act_browser_system_dependencies_are_preinstalled(self) -> None:
+        self.assertIn("verify_local_act_playwright_system_deps", self.text)
+        self.assertIn('"${LOCAL_ACT_RUNNER_IMAGE:-}" == \'true\'', self.text)
+        self.assertIn("preinstalled local act runner image", self.text)
+        self.assertNotIn("configure_local_act_apt_mirror", self.text)
+        self.assertNotIn("playwright install-deps chromium", self.text)
 
     def test_custom_scene_verifiers_use_the_fresh_develop_lock_and_are_not_skippable(self) -> None:
         self.assertIn("git cat-file -e", self.text)

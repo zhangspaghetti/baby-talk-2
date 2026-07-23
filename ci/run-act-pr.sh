@@ -8,6 +8,8 @@ event_file_for_act=''
 act_log=''
 act_flutter_sdk=''
 act_flutter_mount=''
+act_cache_root=''
+act_cache_mount=''
 
 fail() {
   printf 'run-act-pr: %s\n' "$*" >&2
@@ -32,10 +34,19 @@ default_act_flutter_sdk() {
   fi
 }
 
+default_act_cache_root() {
+  if command -v cygpath >/dev/null 2>&1 && [[ -n "${LOCALAPPDATA:-}" ]]; then
+    printf '%s/BabyTalk/act/cache-v1\n' "$(cygpath -u "$LOCALAPPDATA")"
+  else
+    printf '%s/babytalk/act/cache-v1\n' "${XDG_CACHE_HOME:-$HOME/.cache}"
+  fi
+}
+
 resolve_act_flutter_mount() {
   local metadata
   act_flutter_sdk="${ACT_FLUTTER_LINUX_SDK:-$(default_act_flutter_sdk)}"
   metadata="$act_flutter_sdk/.babytalk-act-flutter.json"
+  bash "$repo_root/ci/provision-act-flutter-sdk.sh"
   [[ -x "$act_flutter_sdk/bin/flutter" ]] \
     || fail "Linux Flutter SDK is missing; run bash ci/provision-act-flutter-sdk.sh first"
   python3 - "$metadata" <<'PY'
@@ -54,12 +65,25 @@ PY
   fi
 }
 
+resolve_act_cache_mount() {
+  act_cache_root="${ACT_LOCAL_CACHE_ROOT:-$(default_act_cache_root)}"
+  bash "$repo_root/ci/provision-act-caches.sh"
+  [[ -d "$act_cache_root/m2" ]] || fail 'dedicated Maven cache is missing after provisioning'
+  if command -v cygpath >/dev/null 2>&1; then
+    act_cache_mount="$(cygpath -m "$act_cache_root")"
+  else
+    act_cache_mount="$act_cache_root"
+  fi
+}
+
 main() {
   cd "$repo_root"
   command -v act >/dev/null 2>&1 || fail 'act is required'
-  resolve_act_flutter_mount
   [[ -z "$(git status --porcelain=v1 --untracked-files=all)" ]] \
     || fail 'worktree must be clean so act validates the recorded HEAD exactly'
+  resolve_act_flutter_mount
+  resolve_act_cache_mount
+  bash "$repo_root/ci/provision-act-runner-image.sh"
   git fetch --no-tags origin Develop
 
   local head_sha origin_develop_sha merge_base_sha head_ref
@@ -98,7 +122,7 @@ PY
     -b
     -W .act/workflows/local-act-pr.yml
     -e "$event_file_for_act"
-    --container-options "--mount type=bind,source=$act_flutter_mount,target=/opt/babytalk/flutter-source,readonly"
+    --container-options "--mount type=bind,source=$act_flutter_mount,target=/opt/babytalk/flutter-source,readonly --mount type=bind,source=$act_cache_mount/m2,target=/root/.m2 --mount type=bind,source=$act_cache_mount,target=/opt/babytalk/act-cache"
   )
   MSYS_NO_PATHCONV=1 act "${act_args[@]}" -l pull_request "$@" 2>&1 | tee "$act_log"
   grep -Fq 'local-pr-full-ci' "$act_log" || fail 'fixture does not select local-pr-full-ci'

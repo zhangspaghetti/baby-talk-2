@@ -127,14 +127,15 @@ capture_safe_testcontainers_host_override() {
   esac
 }
 
-configure_local_act_apt_mirror() {
-  local sources_file='/etc/apt/sources.list.d/ubuntu.sources'
+verify_local_act_playwright_system_deps() {
+  local soname
 
-  [[ -f "$sources_file" ]] || fail 'local act runner is missing Ubuntu apt sources'
-  sed -i \
-    -e 's|http://archive.ubuntu.com/ubuntu/|https://mirrors.aliyun.com/ubuntu/|g' \
-    -e 's|http://security.ubuntu.com/ubuntu/|https://mirrors.aliyun.com/ubuntu/|g' \
-    "$sources_file"
+  command -v ldconfig >/dev/null 2>&1 \
+    || fail 'preinstalled local act runner image is missing ldconfig'
+  for soname in libasound.so.2 libatk-1.0.so.0 libnss3.so libxkbcommon.so.0; do
+    ldconfig -p | grep -Fq "$soname" \
+      || fail "preinstalled local act runner image is missing $soname"
+  done
 }
 
 cleanup() {
@@ -334,12 +335,9 @@ main() {
   stage 'admin-web-build' 'pnpm --filter admin-web build'
   pnpm --filter admin-web build
 
-  if [[ "${LOCAL_ACT_INSTALL_PLAYWRIGHT_DEPS:-}" == 'true' ]]; then
-    # The compact act image lacks Chromium libraries. This changes only the
-    # disposable runner's apt sources before the browser prerequisite installs.
-    configure_local_act_apt_mirror
-    stage 'admin-web-browser-system-deps' 'pnpm --dir admin-web exec playwright install-deps chromium'
-    pnpm --dir admin-web exec playwright install-deps chromium
+  if [[ "${LOCAL_ACT_RUNNER_IMAGE:-}" == 'true' ]]; then
+    stage 'admin-web-browser-system-deps' 'verify preinstalled local act runner image'
+    verify_local_act_playwright_system_deps
   fi
 
   stage 'admin-web-browsers' 'pnpm --filter admin-web install:browsers'

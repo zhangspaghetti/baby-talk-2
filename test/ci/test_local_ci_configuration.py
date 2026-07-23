@@ -12,6 +12,9 @@ LOCAL_ACT_WORKFLOW = REPO_ROOT / ".act" / "workflows" / "local-act-pr.yml"
 GITHUB_LOCAL_ACT_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "local-act-pr.yml"
 LOCAL_ACT_RUNNER = REPO_ROOT / "ci" / "run-act-pr.sh"
 ACT_FLUTTER_PROVISIONER = REPO_ROOT / "ci" / "provision-act-flutter-sdk.sh"
+ACT_CACHE_PROVISIONER = REPO_ROOT / "ci" / "provision-act-caches.sh"
+ACT_RUNNER_PROVISIONER = REPO_ROOT / "ci" / "provision-act-runner-image.sh"
+ACT_RUNNER_DOCKERFILE = REPO_ROOT / "ci" / "act-runner" / "Dockerfile"
 GITIGNORE = REPO_ROOT / ".gitignore"
 LOCAL_CI_DOC = REPO_ROOT / "docs" / "development" / "local-ci.md"
 LEFTHOOK_CONFIG = REPO_ROOT / "lefthook.yml"
@@ -47,6 +50,9 @@ ISAR_TEST_LIBRARY_CONSUMERS = (
 )
 
 RUNNER_IMAGE = (
+    "babytalk/act-runner:ubuntu-24.04-playwright-1"
+)
+RUNNER_BASE_IMAGE = (
     "ghcr.io/catthehacker/ubuntu:act-24.04@sha256:"
     "5d6a17640b25694988b9db5a4145537b9918e5430116b2cf90d84e837609b382"
 )
@@ -120,9 +126,17 @@ class ActConfigurationContractTest(unittest.TestCase):
         self.assertTrue(LOCAL_ACT_RUNNER.is_file())
         self.assertTrue(ACT_FLUTTER_PROVISIONER.is_file())
         self.assertTrue(os.access(ACT_FLUTTER_PROVISIONER, os.X_OK))
+        self.assertTrue(ACT_CACHE_PROVISIONER.is_file())
+        self.assertTrue(os.access(ACT_CACHE_PROVISIONER, os.X_OK))
+        self.assertTrue(ACT_RUNNER_PROVISIONER.is_file())
+        self.assertTrue(os.access(ACT_RUNNER_PROVISIONER, os.X_OK))
+        self.assertTrue(ACT_RUNNER_DOCKERFILE.is_file())
         workflow = LOCAL_ACT_WORKFLOW.read_text(encoding="utf-8")
         runner = LOCAL_ACT_RUNNER.read_text(encoding="utf-8")
         provisioner = ACT_FLUTTER_PROVISIONER.read_text(encoding="utf-8")
+        cache_provisioner = ACT_CACHE_PROVISIONER.read_text(encoding="utf-8")
+        image_provisioner = ACT_RUNNER_PROVISIONER.read_text(encoding="utf-8")
+        dockerfile = ACT_RUNNER_DOCKERFILE.read_text(encoding="utf-8")
 
         self.assertIn("pull_request:\n    branches: [Develop]", workflow)
         self.assertIn("local-pr-full-ci:", workflow)
@@ -139,7 +153,8 @@ class ActConfigurationContractTest(unittest.TestCase):
         self.assertIn("GIT_CONFIG_KEY_0: core.autocrlf", workflow)
         self.assertIn("VITEST_MIN_THREADS: '1'", workflow)
         self.assertIn("VITEST_MAX_THREADS: '1'", workflow)
-        self.assertIn("LOCAL_ACT_INSTALL_PLAYWRIGHT_DEPS: 'true'", workflow)
+        self.assertIn("LOCAL_ACT_RUNNER_IMAGE: 'true'", workflow)
+        self.assertNotIn("LOCAL_ACT_INSTALL_PLAYWRIGHT_DEPS", workflow)
         self.assertIn("actions/setup-java@v4", workflow)
         self.assertIn("actions/setup-python@v5", workflow)
         self.assertIn("pip install --disable-pip-version-check PyYAML", workflow)
@@ -151,10 +166,24 @@ class ActConfigurationContractTest(unittest.TestCase):
         self.assertIn('cp -a "$ACT_FLUTTER_SOURCE/." "$ACT_FLUTTER_ROOT/"', workflow)
         self.assertIn('"$ACT_FLUTTER_ROOT/bin/flutter" --version', workflow)
         self.assertNotIn("subosito/flutter-action@v2", workflow)
+        self.assertIn("Verify host-provisioned act caches", workflow)
+        for cache_environment in (
+            "PUB_CACHE: /opt/babytalk/act-cache/pub-cache",
+            "PLAYWRIGHT_BROWSERS_PATH: /opt/babytalk/act-cache/playwright",
+            "NPM_CONFIG_STORE_DIR: /opt/babytalk/act-cache/pnpm-store",
+            "PNPM_HOME: /opt/babytalk/act-cache/pnpm-home",
+            "COREPACK_HOME: /opt/babytalk/act-cache/corepack",
+        ):
+            self.assertIn(cache_environment, workflow)
         self.assertIn("provision-act-flutter-sdk.sh", runner)
+        self.assertIn("provision-act-caches.sh", runner)
+        self.assertIn("provision-act-runner-image.sh", runner)
         self.assertIn('act_flutter_mount="$(cygpath -m "$act_flutter_sdk")"', runner)
+        self.assertIn('act_cache_mount="$(cygpath -m "$act_cache_root")"', runner)
         self.assertIn("--container-options", runner)
         self.assertIn("target=/opt/babytalk/flutter-source,readonly", runner)
+        self.assertIn("target=/root/.m2", runner)
+        self.assertIn("target=/opt/babytalk/act-cache", runner)
         self.assertIn("git status --porcelain=v1 --untracked-files=all", runner)
         self.assertIn("git fetch --no-tags origin Develop", runner)
         self.assertIn("git merge-base", runner)
@@ -170,6 +199,25 @@ class ActConfigurationContractTest(unittest.TestCase):
         self.assertIn("releases_linux.json", provisioner)
         self.assertIn("sha256sum --check --status", provisioner)
         self.assertIn("import lzma", provisioner)
+        for cache_directory in (
+            "m2",
+            "pub-cache",
+            "playwright",
+            "pnpm-store",
+            "pnpm-home",
+            "corepack",
+        ):
+            self.assertIn(cache_directory, cache_provisioner)
+        self.assertIn(".babytalk-act-cache.json", cache_provisioner)
+        self.assertIn(RUNNER_IMAGE, image_provisioner)
+        self.assertIn(RUNNER_BASE_IMAGE, image_provisioner)
+        self.assertIn("docker build", image_provisioner)
+        self.assertIn("\\${db:Status-Status}", image_provisioner)
+        self.assertIn(RUNNER_BASE_IMAGE, dockerfile)
+        self.assertIn("libasound2t64", dockerfile)
+        self.assertIn("libnss3", dockerfile)
+        self.assertIn("fonts-noto-color-emoji", dockerfile)
+        self.assertIn("https://mirrors.aliyun.com/ubuntu/", dockerfile)
 
     def test_pull_request_fixture_contains_no_credentials(self) -> None:
         event = json.loads(EVENT_FIXTURE.read_text(encoding="utf-8"))
@@ -247,6 +295,17 @@ class LocalCiDocumentationContractTest(unittest.TestCase):
         self.assertIn("rejects a dirty worktree", self.text)
         self.assertIn("verifies its `HEAD` equals", self.text)
         self.assertIn("`.act/workflows/local-act-pr.yml`", self.text)
+
+    def test_docs_explain_dedicated_linux_act_caches_and_runner_image(self) -> None:
+        for statement in (
+            "dedicated host cache",
+            "Maven, Pub, Playwright, pnpm, and Corepack",
+            "Windows host package caches must not be copied into the Linux act job",
+            "prebuilt local act runner image",
+            "ci/provision-act-caches.sh",
+            "ci/provision-act-runner-image.sh",
+        ):
+            self.assertIn(statement, self.text)
 
     def test_docs_name_every_complete_local_ci_product_gate(self) -> None:
         for statement in (
