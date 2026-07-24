@@ -12,7 +12,7 @@ import 'package:mobile/app/share_reentry_coordinator.dart';
 import 'package:mobile/app/theme/app_layout_constants.dart';
 import 'package:mobile/app/theme/app_theme.dart';
 import 'package:mobile/features/account/data/repositories/account_repository.dart';
-import 'package:mobile/features/auth/presentation/screens/auth_screen.dart';
+import 'package:mobile/features/account/presentation/screens/account_entry_screen.dart';
 import 'package:mobile/features/household/data/repositories/household_repository.dart';
 import 'package:mobile/features/household/presentation/household_notifier.dart';
 import 'package:mobile/features/mentor/data/repositories/mentor_repository.dart';
@@ -20,11 +20,7 @@ import 'package:mobile/features/onboarding/data/local/onboarding_flow_store.dart
 import 'package:mobile/features/onboarding/data/local/onboarding_snapshot_store.dart';
 import 'package:mobile/features/onboarding/data/repositories/onboarding_repository.dart';
 import 'package:mobile/features/onboarding/domain/models/onboarding_snapshot.dart';
-import 'package:mobile/features/onboarding/presentation/screens/onboarding_name_screen.dart';
-import 'package:mobile/features/onboarding/presentation/screens/onboarding_scene_screen.dart';
-import 'package:mobile/features/onboarding/presentation/screens/onboarding_practice_screen.dart';
-import 'package:mobile/features/onboarding/presentation/screens/onboarding_complete_screen.dart';
-import 'package:mobile/features/onboarding/presentation/screens/onboarding_garden_welcome_screen.dart';
+import 'package:mobile/features/onboarding/presentation/screens/onboarding_flow_screen.dart';
 import 'package:mobile/features/practice/data/repositories/practice_repository.dart';
 import 'package:mobile/features/practice/data/services/asset_phrase_service.dart';
 import 'package:mobile/features/practice/presentation/garden_growth_notifier.dart';
@@ -385,34 +381,18 @@ class _BabyTalkAppState extends ConsumerState<BabyTalkApp> {
         ),
         GoRoute(
           path: AppRouteNames.onboarding,
-          builder: (context, state) => const _BootRouteMarker(
+          builder: (context, state) => _BootRouteMarker(
             routeKey: Key('boot-route-onboarding'),
-            child: OnboardingSceneScreen(),
+            child: OnboardingFlowScreen(
+              audioControllerFactory: widget.audioControllerFactory,
+            ),
           ),
-          routes: [
-            GoRoute(
-              path: 'name',
-              builder: (context, state) => const OnboardingNameScreen(),
-            ),
-            GoRoute(
-              path: 'scene',
-              builder: (context, state) => const OnboardingSceneScreen(),
-            ),
-            GoRoute(
-              path: 'practice',
-              builder: (context, state) => const OnboardingPracticeScreen(),
-            ),
-            GoRoute(
-              path: 'complete',
-              builder: (context, state) => const OnboardingCompleteScreen(),
-            ),
-            GoRoute(
-              path: 'garden-welcome',
-              builder: (context, state) =>
-                  const OnboardingGardenWelcomeScreen(),
-            ),
-          ],
         ),
+        for (final path in AppRouteNames.legacyOnboardingPaths)
+          GoRoute(
+            path: path,
+            redirect: (context, state) => AppRouteNames.onboarding,
+          ),
         GoRoute(
           path: AppRouteNames.practice,
           builder: (context, state) {
@@ -425,7 +405,7 @@ class _BabyTalkAppState extends ConsumerState<BabyTalkApp> {
         ),
         GoRoute(
           path: AppRouteNames.account,
-          builder: (context, state) => const AuthScreen(),
+          builder: (context, state) => const AccountEntryScreen(),
         ),
         GoRoute(
           path: '/me/settings',
