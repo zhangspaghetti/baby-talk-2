@@ -1,6 +1,8 @@
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:mobile/app/providers/repository_providers.dart';
 import 'package:mobile/features/account/data/local/account_local_store.dart';
 import 'package:mobile/features/account/data/local/auth_continuation_store.dart';
 import 'package:mobile/features/account/data/repositories/account_repository_contract.dart';
@@ -16,6 +18,7 @@ import 'package:mobile/features/onboarding/domain/models/onboarding_flow_models.
 import 'package:mobile/features/onboarding/domain/models/stage_match.dart';
 import 'package:mobile/features/onboarding/presentation/onboarding_flow_notifier.dart';
 import 'package:mobile/features/practice/domain/models/interaction_event_payload.dart';
+import 'package:mobile/features/practice/domain/models/garden_growth_snapshot.dart';
 
 import '../../practice/practice_repository_characterization_harness.dart';
 
@@ -61,15 +64,34 @@ CareTurnSnapshot _starterSnapshot() => const CareTurnSnapshot(
   message: null,
 );
 
-CareTurnSnapshot _nextSupportSnapshot() => const CareTurnSnapshot(
-  moment: _bedtimeMoment,
-  currentUtterance: _starterUtterance,
-  selectedReaction: BabyReactionType.hesitant,
-  nextSupportUtterance: _supportUtterance,
-  phase: CareTurnPhase.nextSupportReady,
-  traceEventKey: 'trace_onboarding_1',
-  latestGardenImpact: null,
-  message: null,
+CareTurnSnapshot _nextSupportSnapshot({LatestPracticeImpact? gardenImpact}) =>
+    CareTurnSnapshot(
+      moment: _bedtimeMoment,
+      currentUtterance: _starterUtterance,
+      selectedReaction: BabyReactionType.hesitant,
+      nextSupportUtterance: _supportUtterance,
+      phase: CareTurnPhase.nextSupportReady,
+      traceEventKey: 'trace_onboarding_1',
+      latestGardenImpact: gardenImpact,
+      message: null,
+    );
+
+final _gardenImpact = LatestPracticeImpact(
+  eventKey: 'trace_onboarding_1',
+  occurredAt: DateTime.utc(2026, 7, 24, 12),
+  spaceId: 'family_rhythm',
+  spaceTitle: '家庭节奏',
+  activityId: 'bedtime',
+  activityTitle: '睡前时间',
+  phraseId: 'bedtime_dim_the_lights',
+  phraseTitle: 'Let’s dim the lights.',
+  reactionType: BabyReactionType.hesitant,
+  previousPatchStage: GardenPatchStage.quiet,
+  currentPatchStage: GardenPatchStage.tended,
+  previousFlowerStage: GardenFlowerStage.seed,
+  currentFlowerStage: GardenFlowerStage.sprout,
+  headline: '照护记录已保存。',
+  detail: '花园有了新的变化。',
 );
 
 void main() {
@@ -186,6 +208,101 @@ void main() {
       expect(notifier.flowSnapshot.traceEventKey, isNotEmpty);
       expect(notifier.gardenTraceDegraded, isTrue);
     });
+
+    test(
+      'concurrent reaction requests share one persisted event write',
+      () async {
+        await _advanceToCareTurn(notifier);
+        notifier.markSaid();
+
+        await Future.wait(<Future<void>>[
+          notifier.selectReaction(BabyReactionType.hesitant),
+          notifier.selectReaction(BabyReactionType.hesitant),
+        ]);
+
+        expect(scriptedCarePathRepository.receivedLocalEventIds, <String?>[
+          'evt_onboarding_fixed',
+        ]);
+      },
+    );
+
+    test('normal Garden trace state survives a restart', () async {
+      await _advanceToCareTurn(notifier);
+      notifier.markSaid();
+      scriptedCarePathRepository.nextSnapshot = _nextSupportSnapshot(
+        gardenImpact: _gardenImpact,
+      );
+      await notifier.selectReaction(BabyReactionType.hesitant);
+
+      expect(notifier.gardenTraceDegraded, isFalse);
+
+      final resumedCarePathNotifier = CarePathNotifier(
+        repository: scriptedCarePathRepository,
+      );
+      final resumedNotifier = OnboardingFlowNotifier(
+        onboardingRepository: onboardingRepository,
+        practiceRepository: practiceHarness.repository,
+        carePathNotifier: resumedCarePathNotifier,
+        accountNotifier: AccountNotifier(repository: _FakeAccountRepository()),
+        authContinuationCoordinator: AuthContinuationCoordinator(
+          store: AuthContinuationStore(directoryResolver: () async => tempDir),
+        ),
+        clock: () => DateTime.utc(2026, 7, 24, 12),
+        localEventIdGenerator: () => 'evt_onboarding_fixed',
+      );
+      addTearDown(resumedNotifier.dispose);
+      addTearDown(resumedCarePathNotifier.dispose);
+
+      await resumedNotifier.initialize();
+
+      expect(resumedNotifier.step, OnboardingFlowStep.trace);
+      expect(resumedNotifier.gardenTraceDegraded, isFalse);
+    });
+
+    test(
+      'provider keeps the same flow while Care Path emits trace updates',
+      () async {
+        final providerCarePathNotifier = CarePathNotifier(
+          repository: scriptedCarePathRepository,
+        );
+        final accountNotifier = AccountNotifier(
+          repository: _FakeAccountRepository(),
+        );
+        final coordinator = AuthContinuationCoordinator(
+          store: AuthContinuationStore(directoryResolver: () async => tempDir),
+        );
+        final container = ProviderContainer(
+          overrides: <Override>[
+            onboardingRepositoryProvider.overrideWith(
+              (ref) async => onboardingRepository,
+            ),
+            practiceRepositoryProvider.overrideWith(
+              (ref) async => practiceHarness.repository,
+            ),
+            carePathNotifierProvider.overrideWith(
+              (ref) => providerCarePathNotifier,
+            ),
+            accountNotifierProvider.overrideWith((ref) => accountNotifier),
+            authContinuationCoordinatorProvider.overrideWithValue(coordinator),
+          ],
+        );
+        addTearDown(container.dispose);
+
+        await container.read(onboardingRepositoryProvider.future);
+        await container.read(practiceRepositoryProvider.future);
+        final flow = container.read(onboardingFlowNotifierProvider);
+        await flow.initialize();
+        await _advanceToCareTurn(flow);
+        final original = container.read(onboardingFlowNotifierProvider);
+        original.markSaid();
+
+        await original.selectReaction(BabyReactionType.hesitant);
+
+        expect(container.read(onboardingFlowNotifierProvider), same(original));
+        expect(original.step, OnboardingFlowStep.trace);
+        expect(scriptedCarePathRepository.receivedLocalEventIds, hasLength(1));
+      },
+    );
 
     test(
       'local completion writes actual starter and clears flow state',

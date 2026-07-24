@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:connectivity_plus/connectivity_plus.dart';
@@ -480,13 +481,18 @@ final onboardingFlowNotifierProvider =
           practiceRepository: ref
               .watch(practiceRepositoryProvider)
               .requireValue,
-          carePathNotifier: ref.watch(carePathNotifierProvider),
-          accountNotifier: ref.watch(accountNotifierProvider),
+          carePathNotifier: ref.read(carePathNotifierProvider),
+          accountNotifier: ref.read(accountNotifierProvider),
           authContinuationCoordinator: ref.watch(
             authContinuationCoordinatorProvider,
           ),
         );
-        notifier.initialize();
+        ref.listen<AccountNotifier>(accountNotifierProvider, (previous, next) {
+          if (next.isSignedIn && previous?.isSignedIn != true) {
+            unawaited(notifier.recoverSignedInContinuation());
+          }
+        });
+        unawaited(notifier.initialize());
         return notifier;
       },
       dependencies: [

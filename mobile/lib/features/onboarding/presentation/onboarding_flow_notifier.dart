@@ -49,9 +49,9 @@ class OnboardingFlowNotifier extends ChangeNotifier {
   List<OnboardingMomentChoice> _availableMoments =
       const <OnboardingMomentChoice>[];
   Future<void>? _initializeFuture;
+  Future<void>? _reactionFuture;
   Future<void>? _tracePromotionFuture;
   bool _isBusy = false;
-  bool _gardenTraceDegraded = false;
   bool _disposed = false;
   String? _message;
 
@@ -72,7 +72,7 @@ class OnboardingFlowNotifier extends ChangeNotifier {
 
   String? get message => _message;
   bool get isBusy => _isBusy;
-  bool get gardenTraceDegraded => _gardenTraceDegraded;
+  bool get gardenTraceDegraded => _flowSnapshot.gardenTraceDegraded;
 
   Future<void> initialize() {
     if (_disposed) {
@@ -115,12 +115,7 @@ class OnboardingFlowNotifier extends ChangeNotifier {
         }
       }
 
-      if (_flowSnapshot.hasConfirmedTrace) {
-        final turn = _carePathNotifier.snapshot;
-        _gardenTraceDegraded = turn?.latestGardenImpact == null;
-      }
-
-      await _completeSignedInContinuationIfReady();
+      await recoverSignedInContinuation();
     } catch (error) {
       _message = 'onboarding 状态读取失败：$error';
     } finally {
@@ -213,6 +208,7 @@ class OnboardingFlowNotifier extends ChangeNotifier {
         pendingLocalEventId: null,
         selectedReaction: null,
         traceEventKey: null,
+        gardenTraceDegraded: false,
       ),
     );
     await _carePathNotifier.startMoment(
@@ -230,7 +226,21 @@ class OnboardingFlowNotifier extends ChangeNotifier {
 
   void markSaid() => _carePathNotifier.markSaid();
 
-  Future<void> selectReaction(BabyReactionType reaction) async {
+  Future<void> selectReaction(BabyReactionType reaction) {
+    final running = _reactionFuture;
+    if (running != null) {
+      return running;
+    }
+    final future = _selectReactionInternal(reaction);
+    _reactionFuture = future;
+    return future.whenComplete(() {
+      if (identical(_reactionFuture, future)) {
+        _reactionFuture = null;
+      }
+    });
+  }
+
+  Future<void> _selectReactionInternal(BabyReactionType reaction) async {
     var turn = _carePathNotifier.snapshot;
     if (_carePathNotifier.phase == CareTurnPhase.error &&
         _flowSnapshot.pendingLocalEventId != null &&
@@ -308,7 +318,7 @@ class OnboardingFlowNotifier extends ChangeNotifier {
     return _completeFromPersistedTrace();
   }
 
-  Future<void> _completeSignedInContinuationIfReady() async {
+  Future<void> recoverSignedInContinuation() async {
     if (!_flowSnapshot.hasConfirmedTrace || !_accountNotifier.isSignedIn) {
       return;
     }
@@ -374,8 +384,8 @@ class OnboardingFlowNotifier extends ChangeNotifier {
         pendingLocalEventId: null,
         selectedReaction: confirmedTurn.selectedReaction,
         traceEventKey: confirmedTurn.traceEventKey,
+        gardenTraceDegraded: confirmedTurn.latestGardenImpact == null,
       ),
-      gardenTraceDegraded: confirmedTurn.latestGardenImpact == null,
     );
     _tracePromotionFuture = future;
     return future.whenComplete(() {
@@ -407,10 +417,7 @@ class OnboardingFlowNotifier extends ChangeNotifier {
     );
   }
 
-  Future<void> _saveTransition(
-    OnboardingFlowSnapshot next, {
-    bool? gardenTraceDegraded,
-  }) async {
+  Future<void> _saveTransition(OnboardingFlowSnapshot next) async {
     final persisted = next.copyWith(updatedAt: _now());
     await _onboardingRepository.saveFlowSnapshot(persisted);
     if (_disposed) {
@@ -418,9 +425,6 @@ class OnboardingFlowNotifier extends ChangeNotifier {
     }
     _flowSnapshot = persisted;
     _message = null;
-    if (gardenTraceDegraded != null) {
-      _gardenTraceDegraded = gardenTraceDegraded;
-    }
     notifyListeners();
   }
 

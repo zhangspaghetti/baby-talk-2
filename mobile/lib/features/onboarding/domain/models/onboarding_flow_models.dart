@@ -73,6 +73,7 @@ class OnboardingFlowSnapshot {
     this.pendingLocalEventId,
     this.selectedReaction,
     this.traceEventKey,
+    this.gardenTraceDegraded = false,
     required this.updatedAt,
   }) : schemaVersion = _validateSchemaVersion(schemaVersion),
        selectedSceneIds = List<String>.unmodifiable(selectedSceneIds);
@@ -88,6 +89,7 @@ class OnboardingFlowSnapshot {
   final String? pendingLocalEventId;
   final BabyReactionType? selectedReaction;
   final String? traceEventKey;
+  final bool gardenTraceDegraded;
   final DateTime updatedAt;
 
   bool get hasSelectedMoment =>
@@ -120,6 +122,7 @@ class OnboardingFlowSnapshot {
     Object? pendingLocalEventId = _notProvided,
     Object? selectedReaction = _notProvided,
     Object? traceEventKey = _notProvided,
+    bool? gardenTraceDegraded,
     DateTime? updatedAt,
   }) {
     return OnboardingFlowSnapshot(
@@ -150,6 +153,7 @@ class OnboardingFlowSnapshot {
       traceEventKey: identical(traceEventKey, _notProvided)
           ? this.traceEventKey
           : traceEventKey as String?,
+      gardenTraceDegraded: gardenTraceDegraded ?? this.gardenTraceDegraded,
       updatedAt: (updatedAt ?? this.updatedAt).toUtc(),
     );
   }
@@ -167,6 +171,7 @@ class OnboardingFlowSnapshot {
       'pendingLocalEventId': pendingLocalEventId,
       'selectedReaction': selectedReaction?.wireValue,
       'traceEventKey': traceEventKey,
+      'gardenTraceDegraded': gardenTraceDegraded,
       'updatedAt': updatedAt.toUtc().toIso8601String(),
     };
   }
@@ -191,6 +196,8 @@ class OnboardingFlowSnapshot {
           ? null
           : parseBabyReactionType(selectedReaction),
       traceEventKey: _readOptionalString(json, 'traceEventKey'),
+      gardenTraceDegraded:
+          _readOptionalBool(json, 'gardenTraceDegraded') ?? false,
       updatedAt: _readRequiredDateTime(json, 'updatedAt'),
     );
   }
@@ -209,6 +216,7 @@ class OnboardingFlowSnapshot {
         other.pendingLocalEventId == pendingLocalEventId &&
         other.selectedReaction == selectedReaction &&
         other.traceEventKey == traceEventKey &&
+        other.gardenTraceDegraded == gardenTraceDegraded &&
         other.updatedAt == updatedAt;
   }
 
@@ -225,6 +233,7 @@ class OnboardingFlowSnapshot {
     pendingLocalEventId,
     selectedReaction,
     traceEventKey,
+    gardenTraceDegraded,
     updatedAt,
   ]);
 }
@@ -260,6 +269,13 @@ int? _readOptionalInt(Map<String, dynamic> json, String key) {
   if (value == null) return null;
   if (value is int) return value;
   throw FormatException('字段 `$key` 不是整数。');
+}
+
+bool? _readOptionalBool(Map<String, dynamic> json, String key) {
+  final value = json[key];
+  if (value == null) return null;
+  if (value is bool) return value;
+  throw FormatException('字段 `$key` 不是布尔值。');
 }
 
 DateTime _readRequiredDateTime(Map<String, dynamic> json, String key) {

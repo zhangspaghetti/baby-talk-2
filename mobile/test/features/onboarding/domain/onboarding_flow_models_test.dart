@@ -18,6 +18,7 @@ void main() {
         pendingLocalEventId: 'evt_onboarding_fixed',
         selectedReaction: BabyReactionType.hesitant,
         traceEventKey: null,
+        gardenTraceDegraded: true,
         updatedAt: DateTime.utc(2026, 7, 23, 12),
       );
 
@@ -26,6 +27,18 @@ void main() {
       expect(snapshot.toJsonMap().values, isNot(contains('Dim the lights.')));
     },
   );
+
+  test('missing Garden degradation flag restores as available', () {
+    final snapshot = OnboardingFlowSnapshot.initial(
+      DateTime.utc(2026, 7, 23, 12),
+    );
+    final json = snapshot.toJsonMap()..remove('gardenTraceDegraded');
+
+    expect(
+      OnboardingFlowSnapshot.fromJsonMap(json).gardenTraceDegraded,
+      isFalse,
+    );
+  });
 
   test('invalid flow wire reaction fails closed', () {
     final json = OnboardingFlowSnapshot(
