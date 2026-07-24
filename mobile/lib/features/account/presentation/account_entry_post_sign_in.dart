@@ -1,11 +1,13 @@
-import 'package:mobile/features/account/presentation/auth_continuation_coordinator.dart';
+import 'package:mobile/features/account/domain/models/auth_continuation.dart';
 
 enum AccountEntryPostSignInAction { showSuccessToast, returnSignedInResult }
 
+typedef AuthContinuationLoader = Future<AuthContinuation?> Function();
+
 Future<AccountEntryPostSignInAction> resolveAccountEntryPostSignInAction(
-  AuthContinuationCoordinator coordinator,
+  AuthContinuationLoader loadPending,
 ) async {
-  final pending = await coordinator.readPending();
+  final pending = await loadPending();
   return pending == null
       ? AccountEntryPostSignInAction.showSuccessToast
       : AccountEntryPostSignInAction.returnSignedInResult;

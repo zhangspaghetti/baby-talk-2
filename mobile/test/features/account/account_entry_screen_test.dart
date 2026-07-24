@@ -518,6 +518,9 @@ Future<void> _pumpEntryScreen(
       key: UniqueKey(),
       overrides: [
         accountNotifierProvider.overrideWith((ref) => notifier),
+        authContinuationPendingLoaderProvider.overrideWith(
+          (ref) => () async => null,
+        ),
         householdNotifierProvider.overrideWith(
           (ref) => HouseholdNotifier(repository: _FakeHouseholdRepository()),
         ),

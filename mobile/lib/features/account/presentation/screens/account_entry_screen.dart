@@ -744,14 +744,10 @@ class AccountEntryScreen extends HookConsumerWidget {
                                                 !succeeded) {
                                               return;
                                             }
-                                            showAppToast(
-                                              context,
-                                              l.accountEntrySubmitMessage,
-                                            );
                                             final action =
                                                 await resolveAccountEntryPostSignInAction(
                                                   ref.read(
-                                                    authContinuationCoordinatorProvider,
+                                                    authContinuationPendingLoaderProvider,
                                                   ),
                                                 );
                                             if (!context.mounted) {
@@ -765,6 +761,10 @@ class AccountEntryScreen extends HookConsumerWidget {
                                               );
                                               return;
                                             }
+                                            showAppToast(
+                                              context,
+                                              l.accountEntrySubmitMessage,
+                                            );
                                           },
                                     child: Text(
                                       notifier.isBusy

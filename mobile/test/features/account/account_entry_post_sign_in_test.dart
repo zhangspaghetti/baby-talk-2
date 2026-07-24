@@ -1,49 +1,32 @@
-import 'dart:io';
-
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mobile/features/account/data/local/auth_continuation_store.dart';
+import 'package:mobile/features/account/domain/models/auth_continuation.dart';
 import 'package:mobile/features/account/presentation/account_entry_post_sign_in.dart';
-import 'package:mobile/features/account/presentation/auth_continuation_coordinator.dart';
 
 void main() {
-  group('resolveAccountEntryPostSignInAction', () {
-    late Directory tempDir;
+  test('pending loader returns signed-in result action once', () async {
+    var loads = 0;
+    final pending = AuthContinuation(
+      schemaVersion: 1,
+      intent: AuthContinuationIntent.saveOnboardingMemory,
+      correlationId: 'account_entry_post_sign_in',
+      createdAt: DateTime.utc(2026, 7, 23, 12),
+      expiresAt: DateTime.utc(2026, 7, 23, 12, 15),
+    );
 
-    setUp(() async {
-      tempDir = await Directory.systemTemp.createTemp('account_entry_action_');
-    });
+    expect(
+      await resolveAccountEntryPostSignInAction(() async {
+        loads += 1;
+        return pending;
+      }),
+      AccountEntryPostSignInAction.returnSignedInResult,
+    );
+    expect(loads, 1);
+  });
 
-    tearDown(() async {
-      if (await tempDir.exists()) {
-        await tempDir.delete(recursive: true);
-      }
-    });
-
-    test('returns signed-in result action without consuming pending intent', () async {
-      final coordinator = AuthContinuationCoordinator(
-        store: AuthContinuationStore(directoryResolver: () async => tempDir),
-        clock: () => DateTime.utc(2026, 7, 23, 12),
-        correlationIdGenerator: () => 'account_entry_post_sign_in',
-      );
-      await coordinator.beginSaveOnboardingMemory();
-
-      expect(
-        await resolveAccountEntryPostSignInAction(coordinator),
-        AccountEntryPostSignInAction.returnSignedInResult,
-      );
-      expect(await coordinator.readPending(), isNotNull);
-    });
-
-    test('keeps account entry open when no continuation is pending', () async {
-      final coordinator = AuthContinuationCoordinator(
-        store: AuthContinuationStore(directoryResolver: () async => tempDir),
-        clock: () => DateTime.utc(2026, 7, 23, 12),
-      );
-
-      expect(
-        await resolveAccountEntryPostSignInAction(coordinator),
-        AccountEntryPostSignInAction.showSuccessToast,
-      );
-    });
+  test('empty loader keeps account entry open for success toast', () async {
+    expect(
+      await resolveAccountEntryPostSignInAction(() async => null),
+      AccountEntryPostSignInAction.showSuccessToast,
+    );
   });
 }
