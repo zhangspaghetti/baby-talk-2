@@ -68,9 +68,6 @@ class OnboardingFlowScreenHarness {
     final onboardingRepository = OnboardingRepository(
       snapshotStore: snapshotStore,
       flowStore: flowStore,
-      practiceRepository: practiceRepository,
-      starterSpaceId: 'daily_care',
-      starterActivityId: 'bath_time',
     );
     final notifier = OnboardingFlowNotifier(
       onboardingRepository: onboardingRepository,

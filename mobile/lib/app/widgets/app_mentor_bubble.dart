@@ -88,14 +88,14 @@ class AppMentorBubble extends StatelessWidget {
     final l = AppLocalizations.of(context)!;
     return Semantics(
       container: true,
-      label: l.onboardingMentorMessageSemantics(message),
+      label: l.mentorBubbleMessageSemantics(message),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           ExcludeSemantics(
             child: _avatar(
               child: Text(
-                l.onboardingMentorCaption,
+                l.mentorBubbleCaption,
                 style: theme.textTheme.labelMedium?.copyWith(
                   color: colors.accentDark,
                   fontWeight: FontWeight.w700,

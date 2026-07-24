@@ -17,7 +17,7 @@ class OnboardingAgeSelection extends StatelessWidget {
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
     return _SelectionColumn(
-      title: l.onboardingAgeTitle,
+      title: l.onboardingAgeSelectionTitle,
       children: OnboardingAgeBucket.values
           .map(
             (value) => _SelectionCard(

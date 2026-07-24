@@ -122,9 +122,6 @@ void main() {
           directoryResolver: () async => tempDir,
         ),
         flowStore: OnboardingFlowStore(directoryResolver: () async => tempDir),
-        practiceRepository: practiceHarness.repository,
-        starterSpaceId: _bedtimeMoment.spaceId,
-        starterActivityId: _bedtimeMoment.activityId,
       );
       notifier = OnboardingFlowNotifier(
         onboardingRepository: onboardingRepository,

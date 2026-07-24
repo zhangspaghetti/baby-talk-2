@@ -260,9 +260,6 @@ class _LifecycleHarness {
     final onboardingRepository = OnboardingRepository(
       snapshotStore: onboardingSnapshotStore,
       flowStore: onboardingFlowStore,
-      practiceRepository: practiceRepository,
-      starterSpaceId: 'daily_care',
-      starterActivityId: 'bath_time',
     );
     final secureStorage = _InMemorySecureStorage();
     final accountLocalStore = AccountLocalStore(

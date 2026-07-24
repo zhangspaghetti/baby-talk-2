@@ -348,9 +348,6 @@ void main() {
         flowStore: OnboardingFlowStore(
           directoryResolver: () async => created.tempDir,
         ),
-        practiceRepository: created.repository,
-        starterSpaceId: created.bootState.primarySpaceId!,
-        starterActivityId: created.bootState.primaryActivityId!,
       );
       completedSnapshot = await onboardingRepository.completeOnboarding(
         childDisplayName: '米米',
@@ -401,9 +398,6 @@ void main() {
             );
           }),
           onboardingRepositoryProvider.overrideWith((ref) {
-            final practiceRepo = ref
-                .read(practiceRepositoryProvider)
-                .requireValue;
             return OnboardingRepository(
               snapshotStore: OnboardingSnapshotStore(
                 directoryResolver: () async => harness.tempDir,
@@ -411,9 +405,6 @@ void main() {
               flowStore: OnboardingFlowStore(
                 directoryResolver: () async => harness.tempDir,
               ),
-              practiceRepository: practiceRepo,
-              starterSpaceId: harness.bootState.primarySpaceId!,
-              starterActivityId: harness.bootState.primaryActivityId!,
             );
           }),
         ],
@@ -511,9 +502,6 @@ void main() {
           flowStore: OnboardingFlowStore(
             directoryResolver: () async => created.tempDir,
           ),
-          practiceRepository: created.repository,
-          starterSpaceId: created.bootState.primarySpaceId!,
-          starterActivityId: created.bootState.primaryActivityId!,
         );
         completedSnapshot = await onboardingRepository.completeOnboarding(
           childDisplayName: '米米',
@@ -566,9 +554,6 @@ void main() {
               );
             }),
             onboardingRepositoryProvider.overrideWith((ref) {
-              final practiceRepo = ref
-                  .read(practiceRepositoryProvider)
-                  .requireValue;
               return OnboardingRepository(
                 snapshotStore: OnboardingSnapshotStore(
                   directoryResolver: () async => harness.tempDir,
@@ -576,9 +561,6 @@ void main() {
                 flowStore: OnboardingFlowStore(
                   directoryResolver: () async => harness.tempDir,
                 ),
-                practiceRepository: practiceRepo,
-                starterSpaceId: harness.bootState.primarySpaceId!,
-                starterActivityId: harness.bootState.primaryActivityId!,
               );
             }),
           ],
@@ -665,9 +647,6 @@ void main() {
         flowStore: OnboardingFlowStore(
           directoryResolver: () async => created.tempDir,
         ),
-        practiceRepository: created.repository,
-        starterSpaceId: created.bootState.primarySpaceId!,
-        starterActivityId: created.bootState.primaryActivityId!,
       );
       completedSnapshot = await onboardingRepository.completeOnboarding(
         childDisplayName: '米米',
@@ -728,9 +707,6 @@ void main() {
             );
           }),
           onboardingRepositoryProvider.overrideWith((ref) {
-            final practiceRepo = ref
-                .read(practiceRepositoryProvider)
-                .requireValue;
             return OnboardingRepository(
               snapshotStore: OnboardingSnapshotStore(
                 directoryResolver: () async => harness.tempDir,
@@ -738,9 +714,6 @@ void main() {
               flowStore: OnboardingFlowStore(
                 directoryResolver: () async => harness.tempDir,
               ),
-              practiceRepository: practiceRepo,
-              starterSpaceId: harness.bootState.primarySpaceId!,
-              starterActivityId: harness.bootState.primaryActivityId!,
             );
           }),
         ],
@@ -889,9 +862,6 @@ OnboardingRepository _onboardingRepositoryFor(_AppBootHarness harness) {
     flowStore: OnboardingFlowStore(
       directoryResolver: () async => harness.tempDir,
     ),
-    practiceRepository: harness.repository,
-    starterSpaceId: harness.bootState.primarySpaceId!,
-    starterActivityId: harness.bootState.primaryActivityId!,
   );
 }
 

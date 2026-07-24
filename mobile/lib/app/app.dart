@@ -476,9 +476,6 @@ class _BabyTalkAppState extends ConsumerState<BabyTalkApp> {
     final onboardingRepository = OnboardingRepository(
       snapshotStore: onboardingStore,
       flowStore: onboardingFlowStore,
-      practiceRepository: practiceRepository,
-      starterSpaceId: widget.bootState.primarySpaceId!,
-      starterActivityId: widget.bootState.primaryActivityId!,
     );
 
     // 3. AuthState: 读取认证状态

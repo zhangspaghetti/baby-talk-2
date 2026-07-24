@@ -35,8 +35,6 @@ import 'package:mobile/features/mentor/data/services/mentor_api_service.dart';
 import 'package:mobile/features/onboarding/data/local/onboarding_snapshot_store.dart';
 import 'package:mobile/features/onboarding/data/repositories/onboarding_repository.dart';
 import 'package:mobile/features/onboarding/presentation/onboarding_flow_notifier.dart';
-import 'package:mobile/features/onboarding/data/services/scene_phrase_service.dart';
-import 'package:mobile/features/onboarding/presentation/onboarding_session_notifier.dart';
 import 'package:mobile/features/practice/data/local/practice_local_data_source.dart';
 import 'package:mobile/features/practice/data/repositories/garden_growth_repository.dart';
 import 'package:mobile/features/practice/data/repositories/practice_repository.dart';
@@ -320,21 +318,6 @@ final onboardingRepositoryProvider = FutureProvider<OnboardingRepository>((
     'starterSpaceId and starterActivityId from AppBootState.',
   );
 });
-
-// ---------------------------------------------------------------------------
-// V21 Onboarding session notifier
-// ---------------------------------------------------------------------------
-
-final scenePhraseServiceProvider = Provider<ScenePhraseService>((ref) {
-  return ScenePhraseService();
-});
-
-final onboardingSessionProvider =
-    ChangeNotifierProvider<OnboardingSessionNotifier>((ref) {
-      return OnboardingSessionNotifier(
-        phraseService: ref.read(scenePhraseServiceProvider),
-      );
-    });
 
 // ---------------------------------------------------------------------------
 // Mentor repository
