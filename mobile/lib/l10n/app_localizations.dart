@@ -653,7 +653,7 @@ abstract class AppLocalizations {
   /// No description provided for @onboardingAgeTitle.
   ///
   /// In zh, this message translates to:
-  /// **'月龄快选'**
+  /// **'宝宝现在多大？'**
   String get onboardingAgeTitle;
 
   /// No description provided for @onboardingAgeHelp.
@@ -3931,6 +3931,138 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'花园留痕'**
   String get practiceGardenTraceTitle;
+
+  /// No description provided for @onboardingWelcomeTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'宝宝正在做什么？'**
+  String get onboardingWelcomeTitle;
+
+  /// No description provided for @onboardingWelcomeBody.
+  ///
+  /// In zh, this message translates to:
+  /// **'我们给你一句现在就能说的英语。'**
+  String get onboardingWelcomeBody;
+
+  /// No description provided for @onboardingStart.
+  ///
+  /// In zh, this message translates to:
+  /// **'开始'**
+  String get onboardingStart;
+
+  /// No description provided for @onboardingAgeRequired.
+  ///
+  /// In zh, this message translates to:
+  /// **'先选一个适合宝宝的年龄范围。'**
+  String get onboardingAgeRequired;
+
+  /// No description provided for @onboardingScenesTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'哪些照护时刻最常出现？'**
+  String get onboardingScenesTitle;
+
+  /// No description provided for @onboardingScenesBody.
+  ///
+  /// In zh, this message translates to:
+  /// **'可以多选，之后仍能随时看看其他场景。'**
+  String get onboardingScenesBody;
+
+  /// No description provided for @onboardingScenesRequired.
+  ///
+  /// In zh, this message translates to:
+  /// **'至少选一个常见照护时刻。'**
+  String get onboardingScenesRequired;
+
+  /// No description provided for @onboardingGoalTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'你希望我们怎么帮你？'**
+  String get onboardingGoalTitle;
+
+  /// No description provided for @onboardingGoalFirstWords.
+  ///
+  /// In zh, this message translates to:
+  /// **'我不知道该怎么说'**
+  String get onboardingGoalFirstWords;
+
+  /// No description provided for @onboardingGoalNatural.
+  ///
+  /// In zh, this message translates to:
+  /// **'我会一点，想说得更自然'**
+  String get onboardingGoalNatural;
+
+  /// No description provided for @onboardingGoalHabit.
+  ///
+  /// In zh, this message translates to:
+  /// **'我想把英语放进日常照护'**
+  String get onboardingGoalHabit;
+
+  /// No description provided for @onboardingMomentTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'现在正在发生什么？'**
+  String get onboardingMomentTitle;
+
+  /// No description provided for @onboardingCareTurnTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'现在就能说'**
+  String get onboardingCareTurnTitle;
+
+  /// No description provided for @onboardingTraceTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'刚才这句话，已经留在你们的花园里。'**
+  String get onboardingTraceTitle;
+
+  /// No description provided for @onboardingTraceDegraded.
+  ///
+  /// In zh, this message translates to:
+  /// **'刚才的照护时刻已经记下，花园会稍后整理出来。'**
+  String get onboardingTraceDegraded;
+
+  /// No description provided for @onboardingTraceContinue.
+  ///
+  /// In zh, this message translates to:
+  /// **'继续'**
+  String get onboardingTraceContinue;
+
+  /// No description provided for @onboardingAccountTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'把这些照护时刻保存到账号'**
+  String get onboardingAccountTitle;
+
+  /// No description provided for @onboardingAccountBody.
+  ///
+  /// In zh, this message translates to:
+  /// **'换手机后，也能继续看到刚才留下的痕迹。'**
+  String get onboardingAccountBody;
+
+  /// No description provided for @onboardingSaveAccount.
+  ///
+  /// In zh, this message translates to:
+  /// **'保存并继续'**
+  String get onboardingSaveAccount;
+
+  /// No description provided for @onboardingContinueLocal.
+  ///
+  /// In zh, this message translates to:
+  /// **'暂时不用'**
+  String get onboardingContinueLocal;
+
+  /// No description provided for @onboardingRetry.
+  ///
+  /// In zh, this message translates to:
+  /// **'再试一次'**
+  String get onboardingRetry;
+
+  /// No description provided for @onboardingSafeMomentFallback.
+  ///
+  /// In zh, this message translates to:
+  /// **'刚才没有准备好，换一个场景试试。'**
+  String get onboardingSafeMomentFallback;
 }
 
 class _AppLocalizationsDelegate

@@ -12,6 +12,8 @@ import 'package:mobile/features/practice/domain/models/interaction_event_payload
 import 'package:mobile/l10n/app_localizations.dart';
 
 typedef CareTurnTraceReady = void Function(CareTurnSnapshot snapshot);
+typedef CareTurnReactionSelected =
+    Future<void> Function(BabyReactionType reaction);
 
 class CareTurnSurface extends StatefulWidget {
   const CareTurnSurface({
@@ -19,15 +21,19 @@ class CareTurnSurface extends StatefulWidget {
     required this.notifier,
     this.audioControllerFactory,
     this.onTraceReady,
+    this.onReactionSelected,
     this.onQuietExit,
     this.showQuietExit = true,
+    this.title,
   });
 
   final CarePathNotifier notifier;
   final PracticeAudioController Function()? audioControllerFactory;
   final CareTurnTraceReady? onTraceReady;
+  final CareTurnReactionSelected? onReactionSelected;
   final VoidCallback? onQuietExit;
   final bool showQuietExit;
+  final String? title;
 
   @override
   State<CareTurnSurface> createState() => _CareTurnSurfaceState();
@@ -166,6 +172,7 @@ class _CareTurnSurfaceState extends State<CareTurnSurface> {
     final colors = context.appColors;
     final notifier = widget.notifier;
     final snapshot = notifier.snapshot;
+    final surfaceTitle = widget.title ?? l.practiceOneTurnTitle;
 
     if (snapshot == null ||
         notifier.phase == CareTurnPhase.idle ||
@@ -194,11 +201,11 @@ class _CareTurnSurfaceState extends State<CareTurnSurface> {
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         surfaceTintColor: Colors.transparent,
-        title: Text(l.practiceOneTurnTitle),
+        title: Text(surfaceTitle),
       ),
       body: SafeArea(
         child: Semantics(
-          label: l.practiceOneTurnTitle,
+          label: surfaceTitle,
           explicitChildNodes: true,
           child: Align(
             alignment: Alignment.topCenter,
@@ -285,6 +292,7 @@ class _CareTurnSurfaceState extends State<CareTurnSurface> {
                           if (_audioMessage != null) ...[
                             const SizedBox(height: 12),
                             Text(
+                              key: const Key('care-turn-audio-error'),
                               _audioMessage!,
                               style: Theme.of(context).textTheme.bodySmall
                                   ?.copyWith(color: colors.textSecondary),
@@ -369,6 +377,12 @@ class _CareTurnSurfaceState extends State<CareTurnSurface> {
                                   Key('care-reaction-${type.wireValue}'),
                               onSelected: (reactionType) async {
                                 AppHaptics.lightTap();
+                                final onReactionSelected =
+                                    widget.onReactionSelected;
+                                if (onReactionSelected != null) {
+                                  await onReactionSelected(reactionType);
+                                  return;
+                                }
                                 await notifier.selectReaction(reactionType);
                               },
                             ),

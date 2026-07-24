@@ -98,6 +98,36 @@ void main() {
       expect(traceReadyCount, 1);
     },
   );
+
+  testWidgets('optional reaction callback receives the canonical selection', (
+    tester,
+  ) async {
+    final selections = <BabyReactionType>[];
+    await tester.pumpWidget(
+      MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: Scaffold(
+          body: CareTurnSurface(
+            notifier: notifier,
+            audioControllerFactory: _SilentPracticeAudioController.new,
+            onReactionSelected: (reaction) async {
+              selections.add(reaction);
+            },
+          ),
+        ),
+      ),
+    );
+
+    await notifier.startMoment(spaceId: 'daily_care', activityId: 'bath_time');
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('care-turn-said-button')));
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('care-reaction-hesitant')));
+    await tester.pump();
+
+    expect(selections, <BabyReactionType>[BabyReactionType.hesitant]);
+  });
 }
 
 Widget _surfaceTestApp({

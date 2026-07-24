@@ -305,7 +305,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get onboardingContinue => '继续';
 
   @override
-  String get onboardingAgeTitle => '月龄快选';
+  String get onboardingAgeTitle => '宝宝现在多大？';
 
   @override
   String get onboardingAgeHelp => '不需要精确到哪一天，先选最接近的一档就可以。';
@@ -2099,4 +2099,70 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get practiceGardenTraceTitle => '花园留痕';
+
+  @override
+  String get onboardingWelcomeTitle => '宝宝正在做什么？';
+
+  @override
+  String get onboardingWelcomeBody => '我们给你一句现在就能说的英语。';
+
+  @override
+  String get onboardingStart => '开始';
+
+  @override
+  String get onboardingAgeRequired => '先选一个适合宝宝的年龄范围。';
+
+  @override
+  String get onboardingScenesTitle => '哪些照护时刻最常出现？';
+
+  @override
+  String get onboardingScenesBody => '可以多选，之后仍能随时看看其他场景。';
+
+  @override
+  String get onboardingScenesRequired => '至少选一个常见照护时刻。';
+
+  @override
+  String get onboardingGoalTitle => '你希望我们怎么帮你？';
+
+  @override
+  String get onboardingGoalFirstWords => '我不知道该怎么说';
+
+  @override
+  String get onboardingGoalNatural => '我会一点，想说得更自然';
+
+  @override
+  String get onboardingGoalHabit => '我想把英语放进日常照护';
+
+  @override
+  String get onboardingMomentTitle => '现在正在发生什么？';
+
+  @override
+  String get onboardingCareTurnTitle => '现在就能说';
+
+  @override
+  String get onboardingTraceTitle => '刚才这句话，已经留在你们的花园里。';
+
+  @override
+  String get onboardingTraceDegraded => '刚才的照护时刻已经记下，花园会稍后整理出来。';
+
+  @override
+  String get onboardingTraceContinue => '继续';
+
+  @override
+  String get onboardingAccountTitle => '把这些照护时刻保存到账号';
+
+  @override
+  String get onboardingAccountBody => '换手机后，也能继续看到刚才留下的痕迹。';
+
+  @override
+  String get onboardingSaveAccount => '保存并继续';
+
+  @override
+  String get onboardingContinueLocal => '暂时不用';
+
+  @override
+  String get onboardingRetry => '再试一次';
+
+  @override
+  String get onboardingSafeMomentFallback => '刚才没有准备好，换一个场景试试。';
 }
