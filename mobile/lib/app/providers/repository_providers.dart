@@ -33,6 +33,7 @@ import 'package:mobile/features/mentor/data/repositories/mentor_repository.dart'
 import 'package:mobile/features/mentor/data/services/mentor_api_service.dart';
 import 'package:mobile/features/onboarding/data/local/onboarding_snapshot_store.dart';
 import 'package:mobile/features/onboarding/data/repositories/onboarding_repository.dart';
+import 'package:mobile/features/onboarding/presentation/onboarding_flow_notifier.dart';
 import 'package:mobile/features/onboarding/data/services/scene_phrase_service.dart';
 import 'package:mobile/features/onboarding/presentation/onboarding_session_notifier.dart';
 import 'package:mobile/features/practice/data/local/practice_local_data_source.dart';
@@ -467,6 +468,35 @@ final carePathNotifierProvider = ChangeNotifierProvider<CarePathNotifier>((
   return CarePathNotifier(repository: ref.watch(carePathRepositoryProvider))
     ..initialize();
 }, dependencies: [carePathRepositoryProvider]);
+
+/// Keeps the resumable first care turn alive across onboarding route changes.
+final onboardingFlowNotifierProvider =
+    ChangeNotifierProvider<OnboardingFlowNotifier>(
+      (ref) {
+        final notifier = OnboardingFlowNotifier(
+          onboardingRepository: ref
+              .watch(onboardingRepositoryProvider)
+              .requireValue,
+          practiceRepository: ref
+              .watch(practiceRepositoryProvider)
+              .requireValue,
+          carePathNotifier: ref.watch(carePathNotifierProvider),
+          accountNotifier: ref.watch(accountNotifierProvider),
+          authContinuationCoordinator: ref.watch(
+            authContinuationCoordinatorProvider,
+          ),
+        );
+        notifier.initialize();
+        return notifier;
+      },
+      dependencies: [
+        onboardingRepositoryProvider,
+        practiceRepositoryProvider,
+        carePathNotifierProvider,
+        accountNotifierProvider,
+        authContinuationCoordinatorProvider,
+      ],
+    );
 
 /// Garden V2 fertilizer API service (remote data source for fertilizer state).
 final gardenFertilizerApiServiceProvider = Provider<GardenFertilizerApiService>(
