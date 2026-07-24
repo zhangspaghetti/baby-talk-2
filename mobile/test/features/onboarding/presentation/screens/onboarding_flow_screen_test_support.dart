@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -11,6 +10,7 @@ import 'package:mobile/features/account/data/local/account_local_store.dart';
 import 'package:mobile/features/account/data/local/auth_continuation_store.dart';
 import 'package:mobile/features/account/data/repositories/account_repository_contract.dart';
 import 'package:mobile/features/account/domain/models/account_consent_state.dart';
+import 'package:mobile/features/account/domain/models/auth_continuation.dart';
 import 'package:mobile/features/account/domain/models/account_session.dart';
 import 'package:mobile/features/account/presentation/account_notifier.dart';
 import 'package:mobile/features/account/presentation/auth_continuation_coordinator.dart';
@@ -21,6 +21,7 @@ import 'package:mobile/features/onboarding/data/local/onboarding_flow_store.dart
 import 'package:mobile/features/onboarding/data/local/onboarding_snapshot_store.dart';
 import 'package:mobile/features/onboarding/data/repositories/onboarding_repository.dart';
 import 'package:mobile/features/onboarding/domain/models/onboarding_flow_models.dart';
+import 'package:mobile/features/onboarding/domain/models/onboarding_snapshot.dart';
 import 'package:mobile/features/onboarding/domain/models/stage_match.dart';
 import 'package:mobile/features/onboarding/presentation/onboarding_flow_notifier.dart';
 import 'package:mobile/features/onboarding/presentation/screens/onboarding_flow_screen.dart';
@@ -33,13 +34,11 @@ import 'package:mobile/l10n/app_localizations.dart';
 
 class OnboardingFlowScreenHarness {
   OnboardingFlowScreenHarness._({
-    required this.tempDir,
     required this.carePathNotifier,
     required this.accountNotifier,
     required this.notifier,
   });
 
-  final Directory tempDir;
   final CarePathNotifier carePathNotifier;
   final AccountNotifier accountNotifier;
   final OnboardingFlowNotifier notifier;
@@ -55,8 +54,10 @@ class OnboardingFlowScreenHarness {
   int get shellNavigationCount => _shellNavigationCount;
 
   static Future<OnboardingFlowScreenHarness> create() async {
-    final tempDir = await Directory.systemTemp.createTemp('onboarding_ui_');
     final practiceRepository = _MemoryPracticeRepository();
+    final flowStore = _MemoryOnboardingFlowStore();
+    final snapshotStore = _MemoryOnboardingSnapshotStore();
+    final authContinuationStore = _MemoryAuthContinuationStore();
     final carePathNotifier = CarePathNotifier(
       repository: CarePathRepository(practiceRepository: practiceRepository),
     );
@@ -65,10 +66,8 @@ class OnboardingFlowScreenHarness {
     );
     await accountNotifier.initialize();
     final onboardingRepository = OnboardingRepository(
-      snapshotStore: OnboardingSnapshotStore(
-        directoryResolver: () async => tempDir,
-      ),
-      flowStore: OnboardingFlowStore(directoryResolver: () async => tempDir),
+      snapshotStore: snapshotStore,
+      flowStore: flowStore,
       practiceRepository: practiceRepository,
       starterSpaceId: 'daily_care',
       starterActivityId: 'bath_time',
@@ -79,13 +78,12 @@ class OnboardingFlowScreenHarness {
       carePathNotifier: carePathNotifier,
       accountNotifier: accountNotifier,
       authContinuationCoordinator: AuthContinuationCoordinator(
-        store: AuthContinuationStore(directoryResolver: () async => tempDir),
+        store: authContinuationStore,
       ),
       clock: () => DateTime.utc(2026, 7, 24, 12),
       localEventIdGenerator: () => 'evt_onboarding_screen',
     );
     return OnboardingFlowScreenHarness._(
-      tempDir: tempDir,
       carePathNotifier: carePathNotifier,
       accountNotifier: accountNotifier,
       notifier: notifier,
@@ -195,10 +193,6 @@ class OnboardingFlowScreenHarness {
       carePathNotifier.dispose();
     }
     accountNotifier.dispose();
-    await audioController.dispose();
-    if (await tempDir.exists()) {
-      await tempDir.delete(recursive: true);
-    }
   }
 }
 
@@ -305,6 +299,73 @@ AccountLocalSnapshot _signedInSnapshot() => AccountLocalSnapshot(
   ),
   lastSyncPhase: 'synced',
 );
+
+class _MemoryOnboardingFlowStore extends OnboardingFlowStore {
+  _MemoryOnboardingFlowStore() : super();
+
+  OnboardingFlowSnapshot? _snapshot;
+
+  @override
+  Future<OnboardingFlowSnapshot?> read() async => _snapshot;
+
+  @override
+  Future<void> write(OnboardingFlowSnapshot snapshot) async {
+    _snapshot = snapshot;
+  }
+
+  @override
+  Future<void> deleteIfExists() async {
+    _snapshot = null;
+  }
+}
+
+class _MemoryOnboardingSnapshotStore extends OnboardingSnapshotStore {
+  _MemoryOnboardingSnapshotStore() : super();
+
+  OnboardingSnapshot? _snapshot;
+
+  @override
+  Future<OnboardingSnapshot?> read() async => _snapshot;
+
+  @override
+  Future<void> write(OnboardingSnapshot snapshot) async {
+    _snapshot = snapshot;
+  }
+
+  @override
+  Future<void> deleteIfExists() async {
+    _snapshot = null;
+  }
+}
+
+class _MemoryAuthContinuationStore extends AuthContinuationStore {
+  _MemoryAuthContinuationStore() : super();
+
+  AuthContinuation? _continuation;
+
+  @override
+  Future<AuthContinuation?> read({required DateTime now}) async {
+    final continuation = _continuation;
+    if (continuation == null) {
+      return null;
+    }
+    if (!continuation.expiresAt.isAfter(now.toUtc())) {
+      _continuation = null;
+      return null;
+    }
+    return continuation;
+  }
+
+  @override
+  Future<void> write(AuthContinuation continuation) async {
+    _continuation = continuation;
+  }
+
+  @override
+  Future<void> deleteIfExists() async {
+    _continuation = null;
+  }
+}
 
 class _MemoryPracticeRepository implements PracticeRepository {
   final List<InteractionEventPayload> _events = <InteractionEventPayload>[];

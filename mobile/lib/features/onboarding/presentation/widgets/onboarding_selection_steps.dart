@@ -21,7 +21,7 @@ class OnboardingAgeSelection extends StatelessWidget {
       children: OnboardingAgeBucket.values
           .map(
             (value) => _SelectionCard(
-              key: Key('onboarding-age-${_ageKeySuffix(value)}'),
+              buttonKey: Key('onboarding-age-${_ageKeySuffix(value)}'),
               label: value.label,
               selected: selected == value,
               onPressed: () => onSelected(value),
@@ -53,7 +53,7 @@ class OnboardingSceneSelection extends StatelessWidget {
       children: moments
           .map(
             (moment) => _SelectionCard(
-              key: Key('onboarding-scene-${moment.activityId}'),
+              buttonKey: Key('onboarding-scene-${moment.activityId}'),
               label: moment.title,
               detail: moment.summary,
               selected: selectedIds.contains(moment.activityId),
@@ -96,7 +96,7 @@ class OnboardingGoalSelection extends StatelessWidget {
       children: options
           .map(
             (option) => _SelectionCard(
-              key: Key('onboarding-goal-${option.$2}'),
+              buttonKey: Key('onboarding-goal-${option.$2}'),
               label: option.$3,
               selected: selected == option.$1,
               onPressed: () => onSelected(option.$1),
@@ -125,7 +125,7 @@ class OnboardingMomentSelection extends StatelessWidget {
       children: moments
           .map(
             (moment) => _SelectionCard(
-              key: Key(
+              buttonKey: Key(
                 'onboarding-moment-${moment.spaceId}-${moment.activityId}',
               ),
               label: moment.title,
@@ -169,13 +169,14 @@ class _SelectionColumn extends StatelessWidget {
 
 class _SelectionCard extends StatelessWidget {
   const _SelectionCard({
-    super.key,
+    required this.buttonKey,
     required this.label,
     required this.selected,
     required this.onPressed,
     this.detail,
   });
 
+  final Key buttonKey;
   final String label;
   final String? detail;
   final bool selected;
@@ -190,7 +191,7 @@ class _SelectionCard extends StatelessWidget {
         selected: selected,
         label: label,
         child: OutlinedButton(
-          key: key,
+          key: buttonKey,
           style: OutlinedButton.styleFrom(
             alignment: Alignment.centerLeft,
             backgroundColor: selected
