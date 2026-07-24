@@ -9,7 +9,9 @@ import 'package:mobile/app/local_sensitive_data_clearance_registry.dart';
 import 'package:mobile/core/device/installation_id_service.dart';
 import 'package:mobile/core/local_data_lifecycle/local_sensitive_data_clearance.dart';
 import 'package:mobile/features/account/data/local/account_local_store.dart';
+import 'package:mobile/features/account/data/local/auth_continuation_store.dart';
 import 'package:mobile/features/account/data/repositories/account_repository.dart';
+import 'package:mobile/features/account/presentation/auth_continuation_coordinator.dart';
 import 'package:mobile/features/household/data/local/household_local_store.dart';
 import 'package:mobile/features/household/data/repositories/household_repository.dart';
 import 'package:mobile/features/household/data/services/household_api_service.dart';
@@ -59,6 +61,7 @@ void main() {
           householdRepository: harness.householdRepository,
           practiceRepository: harness.practiceRepository,
           mentorRepository: harness.mentorRepository,
+          authContinuationCoordinator: harness.authContinuationCoordinator,
         );
 
         expect(
@@ -81,6 +84,7 @@ void main() {
           householdRepository: harness.householdRepository,
           practiceRepository: harness.practiceRepository,
           mentorRepository: harness.mentorRepository,
+          authContinuationCoordinator: harness.authContinuationCoordinator,
         );
 
         final report = await orchestrator.clear(
@@ -133,6 +137,7 @@ void main() {
           householdRepository: harness.householdRepository,
           practiceRepository: harness.practiceRepository,
           mentorRepository: harness.mentorRepository,
+          authContinuationCoordinator: harness.authContinuationCoordinator,
         );
 
         final report = await orchestrator.clear(
@@ -164,6 +169,10 @@ void main() {
         expect(await harness.onboardingSnapshotStore.read(), isNull);
         expect(await harness.onboardingFlowStore.read(), isNull);
         expect(
+          File('${harness.tempDir.path}/auth_continuation.json').existsSync(),
+          isFalse,
+        );
+        expect(
           File(
             '${harness.tempDir.path}/onboarding_flow_snapshot.json.tmp',
           ).existsSync(),
@@ -190,6 +199,7 @@ class _LifecycleHarness {
     required this.accountLocalStore,
     required this.onboardingSnapshotStore,
     required this.onboardingFlowStore,
+    required this.authContinuationCoordinator,
     required this.householdLocalStore,
     required this.installationIdService,
     required this.practiceRepository,
@@ -206,6 +216,7 @@ class _LifecycleHarness {
   final AccountLocalStore accountLocalStore;
   final OnboardingSnapshotStore onboardingSnapshotStore;
   final OnboardingFlowStore onboardingFlowStore;
+  final AuthContinuationCoordinator authContinuationCoordinator;
   final HouseholdLocalStore householdLocalStore;
   final InstallationIdService installationIdService;
   final PracticeRepository practiceRepository;
@@ -237,6 +248,14 @@ class _LifecycleHarness {
     );
     final onboardingFlowStore = OnboardingFlowStore(
       directoryResolver: () async => tempDir,
+    );
+    final authContinuationStore = AuthContinuationStore(
+      directoryResolver: () async => tempDir,
+    );
+    final authContinuationCoordinator = AuthContinuationCoordinator(
+      store: authContinuationStore,
+      clock: () => DateTime.utc(2026, 5, 20, 10),
+      correlationIdGenerator: () => 'lifecycle_auth_continuation',
     );
     final onboardingRepository = OnboardingRepository(
       snapshotStore: onboardingSnapshotStore,
@@ -280,6 +299,7 @@ class _LifecycleHarness {
       accountLocalStore: accountLocalStore,
       onboardingSnapshotStore: onboardingSnapshotStore,
       onboardingFlowStore: onboardingFlowStore,
+      authContinuationCoordinator: authContinuationCoordinator,
       householdLocalStore: householdLocalStore,
       installationIdService: installationIdService,
       practiceRepository: practiceRepository,
@@ -296,6 +316,7 @@ class _LifecycleHarness {
     await onboardingFlowStore.write(
       OnboardingFlowSnapshot.initial(DateTime.utc(2026, 5, 20, 10)),
     );
+    await authContinuationCoordinator.beginSaveOnboardingMemory();
     await File(
       '${tempDir.path}/onboarding_flow_snapshot.json.tmp',
     ).writeAsString('orphan');

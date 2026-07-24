@@ -9,12 +9,15 @@ import 'package:mobile/app/theme/app_theme.dart';
 import 'package:mobile/app/widgets/app_haptics.dart';
 import 'package:mobile/app/widgets/app_toast.dart';
 import 'package:mobile/features/account/data/repositories/account_repository.dart';
+import 'package:mobile/features/account/presentation/account_entry_post_sign_in.dart';
 import 'package:mobile/features/account/presentation/account_notifier.dart';
 import 'package:mobile/features/account/presentation/account_surface_phase.dart';
 import 'package:mobile/features/household/presentation/widgets/household_invite_card.dart';
 import 'package:mobile/features/household/presentation/widgets/household_shared_context_card.dart';
 import 'package:mobile/features/onboarding/domain/models/onboarding_snapshot.dart';
 import 'package:mobile/l10n/app_localizations.dart';
+
+enum AccountEntryResult { signedIn }
 
 Future<void> openAccountEntryScreen(BuildContext context) {
   return GoRouter.of(context).push('/account');
@@ -739,6 +742,23 @@ class AccountEntryScreen extends HookConsumerWidget {
                                                 .submitSignIn();
                                             if (!context.mounted ||
                                                 !succeeded) {
+                                              return;
+                                            }
+                                            final action =
+                                                await resolveAccountEntryPostSignInAction(
+                                                  ref.read(
+                                                    authContinuationCoordinatorProvider,
+                                                  ),
+                                                );
+                                            if (!context.mounted) {
+                                              return;
+                                            }
+                                            if (action ==
+                                                AccountEntryPostSignInAction
+                                                    .returnSignedInResult) {
+                                              context.pop(
+                                                AccountEntryResult.signedIn,
+                                              );
                                               return;
                                             }
                                             showAppToast(

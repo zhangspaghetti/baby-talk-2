@@ -98,7 +98,7 @@ void main() {
           report.overallStatus,
           LocalSensitiveDataClearanceOverallStatus.rejectedByGovernance,
         );
-        expect(report.results, hasLength(6));
+        expect(report.results, hasLength(LocalSensitiveDataTarget.values.length));
         expect(
           report.results.map((result) => result.status).toSet(),
           <LocalSensitiveDataTargetStatus>{
@@ -126,6 +126,7 @@ void main() {
 
       expect(calls, <LocalSensitiveDataTarget>[
         LocalSensitiveDataTarget.accountLocalSnapshot,
+        LocalSensitiveDataTarget.authContinuation,
       ]);
       expect(
         report.overallStatus,
@@ -146,7 +147,8 @@ void main() {
             .where(
               (result) =>
                   result.target !=
-                  LocalSensitiveDataTarget.accountLocalSnapshot,
+                      LocalSensitiveDataTarget.accountLocalSnapshot &&
+                  result.target != LocalSensitiveDataTarget.authContinuation,
             )
             .map((result) => result.status)
             .toSet(),

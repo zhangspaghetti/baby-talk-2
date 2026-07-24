@@ -11,6 +11,7 @@ import 'package:mobile/core/device/installation_id_service.dart';
 import 'package:mobile/core/local_data_lifecycle/local_sensitive_data_clearance.dart';
 import 'package:mobile/core/local_data_lifecycle/local_sensitive_data_backup_protection.dart';
 import 'package:mobile/features/account/data/local/account_local_store.dart';
+import 'package:mobile/features/account/data/local/auth_continuation_store.dart';
 import 'package:mobile/features/account/data/repositories/account_repository.dart';
 import 'package:mobile/features/account/data/services/account_api_service.dart';
 import 'package:mobile/features/account/data/services/authenticated_api_client.dart';
@@ -47,6 +48,7 @@ import 'package:mobile/features/share/data/repositories/share_repository.dart';
 import 'package:mobile/features/share/data/services/share_api_service.dart';
 import 'package:mobile/features/share/data/services/share_sheet_launcher.dart';
 import 'package:mobile/features/account/presentation/account_notifier.dart';
+import 'package:mobile/features/account/presentation/auth_continuation_coordinator.dart';
 import 'package:mobile/features/household/presentation/household_notifier.dart';
 import 'package:mobile/features/mentor/presentation/mentor_notifier.dart';
 import 'package:mobile/features/settings/data/local/settings_local_data_source.dart';
@@ -183,6 +185,19 @@ final practiceRepositoryProvider = FutureProvider<PracticeRepository>((
 // ---------------------------------------------------------------------------
 // Account repository
 // ---------------------------------------------------------------------------
+
+final authContinuationStoreProvider = Provider<AuthContinuationStore>((ref) {
+  return AuthContinuationStore(
+    directoryResolver: () => ref.read(appDirectoryProvider.future),
+  );
+});
+
+final authContinuationCoordinatorProvider =
+    Provider<AuthContinuationCoordinator>((ref) {
+      return AuthContinuationCoordinator(
+        store: ref.watch(authContinuationStoreProvider),
+      );
+    });
 
 final accountRepositoryProvider = FutureProvider<AccountRepository>((
   ref,
@@ -367,6 +382,9 @@ final localSensitiveDataClearanceOrchestratorProvider =
         practiceRepositoryProvider.future,
       );
       final mentorRepository = await ref.watch(mentorRepositoryProvider.future);
+      final authContinuationCoordinator = ref.watch(
+        authContinuationCoordinatorProvider,
+      );
 
       return createLocalSensitiveDataClearanceOrchestrator(
         accountRepository: accountRepository,
@@ -374,6 +392,7 @@ final localSensitiveDataClearanceOrchestratorProvider =
         householdRepository: householdRepository,
         practiceRepository: practiceRepository,
         mentorRepository: mentorRepository,
+        authContinuationCoordinator: authContinuationCoordinator,
       );
     });
 
