@@ -744,6 +744,10 @@ class AccountEntryScreen extends HookConsumerWidget {
                                                 !succeeded) {
                                               return;
                                             }
+                                            showAppToast(
+                                              context,
+                                              l.accountEntrySubmitMessage,
+                                            );
                                             final action =
                                                 await resolveAccountEntryPostSignInAction(
                                                   ref.read(
@@ -761,10 +765,6 @@ class AccountEntryScreen extends HookConsumerWidget {
                                               );
                                               return;
                                             }
-                                            showAppToast(
-                                              context,
-                                              l.accountEntrySubmitMessage,
-                                            );
                                           },
                                     child: Text(
                                       notifier.isBusy
