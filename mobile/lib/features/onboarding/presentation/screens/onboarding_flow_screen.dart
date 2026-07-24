@@ -5,7 +5,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:mobile/app/providers/repository_providers.dart';
 import 'package:mobile/app/router/app_route_contract.dart';
-import 'package:mobile/features/account/presentation/screens/account_entry_screen.dart';
 import 'package:mobile/features/care_path/presentation/widgets/care_turn_surface.dart';
 import 'package:mobile/features/onboarding/domain/models/onboarding_flow_models.dart';
 import 'package:mobile/features/onboarding/presentation/onboarding_flow_notifier.dart';
@@ -31,6 +30,8 @@ class OnboardingFlowScreen extends ConsumerWidget {
         audioControllerFactory: audioControllerFactory,
         showQuietExit: false,
         title: l.onboardingCareTurnTitle,
+        onTraceContinue: () => unawaited(notifier.continueFromCareTurn()),
+        traceContinueLabel: l.onboardingTraceContinue,
         onReactionSelected: notifier.selectReaction,
         onTraceReady: (_) {},
       );
@@ -147,9 +148,7 @@ class OnboardingFlowScreen extends ConsumerWidget {
     if (!context.mounted) {
       return;
     }
-    final result = await context.push<AccountEntryResult>(
-      AppRouteNames.account,
-    );
+    final result = await context.push<Object?>(AppRouteNames.account);
     if (!context.mounted) {
       return;
     }

@@ -50,7 +50,7 @@ class OnboardingFlowNotifier extends ChangeNotifier {
       const <OnboardingMomentChoice>[];
   Future<void>? _initializeFuture;
   Future<void>? _reactionFuture;
-  Future<void>? _tracePromotionFuture;
+  Future<void>? _confirmedTurnPersistenceFuture;
   bool _isBusy = false;
   bool _disposed = false;
   String? _message;
@@ -101,6 +101,13 @@ class OnboardingFlowNotifier extends ChangeNotifier {
           await _onboardingRepository.readFlowSnapshot() ??
           OnboardingFlowSnapshot.initial(_now());
       _message = null;
+
+      if (_flowSnapshot.step == OnboardingFlowStep.careTurn &&
+          _flowSnapshot.hasConfirmedTrace) {
+        await _saveTransition(
+          _flowSnapshot.copyWith(step: OnboardingFlowStep.trace),
+        );
+      }
 
       if (_flowSnapshot.hasSelectedMoment &&
           _requiresCarePathRecovery(_flowSnapshot.step)) {
@@ -271,7 +278,7 @@ class OnboardingFlowNotifier extends ChangeNotifier {
       reaction,
       localEventId: localEventId,
     );
-    await _advanceFromConfirmedCareTurn();
+    await _persistConfirmedCareTurn();
   }
 
   Future<void> _restoreReactionPromptForRetry() async {
@@ -297,6 +304,16 @@ class OnboardingFlowNotifier extends ChangeNotifier {
     );
   }
 
+  Future<void> continueFromCareTurn() {
+    if (step != OnboardingFlowStep.careTurn ||
+        !_flowSnapshot.hasConfirmedTrace) {
+      return Future.value();
+    }
+    return _saveTransition(
+      _flowSnapshot.copyWith(step: OnboardingFlowStep.trace),
+    );
+  }
+
   Future<void> beginAccountSave() async {
     if (step != OnboardingFlowStep.accountInvitation ||
         !_flowSnapshot.hasConfirmedTrace) {
@@ -305,9 +322,7 @@ class OnboardingFlowNotifier extends ChangeNotifier {
     await _authContinuationCoordinator.beginSaveOnboardingMemory();
   }
 
-  Future<OnboardingSnapshot?> handleAccountReturn(
-    AccountEntryResult? result,
-  ) async {
+  Future<OnboardingSnapshot?> handleAccountReturn(Object? result) async {
     if (result != AccountEntryResult.signedIn || !_accountNotifier.isSignedIn) {
       return null;
     }
@@ -366,31 +381,32 @@ class OnboardingFlowNotifier extends ChangeNotifier {
     }
   }
 
-  Future<void> _advanceFromConfirmedCareTurn() {
+  Future<void> _persistConfirmedCareTurn() {
     final turn = _carePathNotifier.snapshot;
     if (turn == null ||
         step != OnboardingFlowStep.careTurn ||
         !_hasConfirmedCareTrace(turn)) {
       return Future.value();
     }
-    final confirmedTurn = turn;
-    final running = _tracePromotionFuture;
+    if (_flowSnapshot.hasConfirmedTrace) {
+      return Future.value();
+    }
+    final running = _confirmedTurnPersistenceFuture;
     if (running != null) {
       return running;
     }
     final future = _saveTransition(
       _flowSnapshot.copyWith(
-        step: OnboardingFlowStep.trace,
         pendingLocalEventId: null,
-        selectedReaction: confirmedTurn.selectedReaction,
-        traceEventKey: confirmedTurn.traceEventKey,
-        gardenTraceDegraded: confirmedTurn.latestGardenImpact == null,
+        selectedReaction: turn.selectedReaction,
+        traceEventKey: turn.traceEventKey,
+        gardenTraceDegraded: turn.latestGardenImpact == null,
       ),
     );
-    _tracePromotionFuture = future;
+    _confirmedTurnPersistenceFuture = future;
     return future.whenComplete(() {
-      if (identical(_tracePromotionFuture, future)) {
-        _tracePromotionFuture = null;
+      if (identical(_confirmedTurnPersistenceFuture, future)) {
+        _confirmedTurnPersistenceFuture = null;
       }
     });
   }
@@ -445,7 +461,7 @@ class OnboardingFlowNotifier extends ChangeNotifier {
   }
 
   void _onCarePathChanged() {
-    unawaited(_advanceFromConfirmedCareTurn());
+    unawaited(_persistConfirmedCareTurn());
   }
 
   DateTime _now() => _clock().toUtc();

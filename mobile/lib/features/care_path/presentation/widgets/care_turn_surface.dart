@@ -21,6 +21,8 @@ class CareTurnSurface extends StatefulWidget {
     required this.notifier,
     this.audioControllerFactory,
     this.onTraceReady,
+    this.onTraceContinue,
+    this.traceContinueLabel,
     this.onReactionSelected,
     this.onQuietExit,
     this.showQuietExit = true,
@@ -30,6 +32,8 @@ class CareTurnSurface extends StatefulWidget {
   final CarePathNotifier notifier;
   final PracticeAudioController Function()? audioControllerFactory;
   final CareTurnTraceReady? onTraceReady;
+  final VoidCallback? onTraceContinue;
+  final String? traceContinueLabel;
   final CareTurnReactionSelected? onReactionSelected;
   final VoidCallback? onQuietExit;
   final bool showQuietExit;
@@ -474,6 +478,18 @@ class _CareTurnSurfaceState extends State<CareTurnSurface> {
                             ),
                           ],
                         ),
+                      ),
+                    ],
+                    if (nextSupportUtterance != null &&
+                        snapshot.phase == CareTurnPhase.nextSupportReady &&
+                        widget.onTraceContinue != null &&
+                        widget.traceContinueLabel?.trim().isNotEmpty ==
+                            true) ...[
+                      const SizedBox(height: AppLayoutConstants.spacingMd),
+                      FilledButton(
+                        key: const Key('care-turn-trace-continue'),
+                        onPressed: widget.onTraceContinue,
+                        child: Text(widget.traceContinueLabel!),
                       ),
                     ],
                     if (widget.showQuietExit) ...[

@@ -295,6 +295,47 @@ void main() {
   });
 
   testWidgets(
+    'confirmed next support resumes at trace without writing a duplicate event',
+    (WidgetTester tester) async {
+      late String traceEventKey;
+      final harness = (await tester.runAsync<_AppBootHarness>(() async {
+        final created = await _createHarness();
+        final event = await created.repository.recordReaction(
+          spaceId: 'daily_care',
+          activityId: 'bath_time',
+          phraseId: 'bath_time_warm_water',
+          reactionType: BabyReactionType.hesitant,
+          clientTimestamp: DateTime.utc(2026, 7, 24, 12),
+          localEventId: 'evt_boot_next_support_resume',
+        );
+        traceEventKey = event.eventKey;
+        await _onboardingRepositoryFor(created).saveFlowSnapshot(
+          _resumableFlow(
+            step: OnboardingFlowStep.careTurn,
+            traceEventKey: traceEventKey,
+          ),
+        );
+        return created;
+      }))!;
+      addTearDown(harness.close);
+      addTearDown(() async {
+        await _disposeWidgetTree(tester);
+      });
+
+      await tester.pumpWidget(
+        _bootApp(harness, completedSnapshotLoader: () async => null),
+      );
+      await _pumpUntilFound(tester, find.text('刚才这句话，已经留在你们的花园里。'));
+
+      final events = (await tester.runAsync(
+        harness.repository.listEventHistory,
+      ))!;
+      expect(events, hasLength(1));
+      expect(events.single.eventKey, traceEventKey);
+    },
+  );
+
+  testWidgets(
     'persisted account invitation resumes without writing a duplicate event',
     (WidgetTester tester) async {
       late String traceEventKey;

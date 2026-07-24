@@ -206,17 +206,23 @@ void main() {
       },
     );
 
-    test('confirmed event plus unavailable Garden advances to trace', () async {
-      await _advanceToCareTurn(notifier);
-      notifier.markSaid();
-      scriptedCarePathRepository.nextSnapshot = _nextSupportSnapshot();
+    test(
+      'confirmed event plus unavailable Garden waits for next-support acknowledgement',
+      () async {
+        await _advanceToCareTurn(notifier);
+        notifier.markSaid();
+        scriptedCarePathRepository.nextSnapshot = _nextSupportSnapshot();
 
-      await notifier.selectReaction(BabyReactionType.noResponse);
+        await notifier.selectReaction(BabyReactionType.noResponse);
 
-      expect(notifier.step, OnboardingFlowStep.trace);
-      expect(notifier.flowSnapshot.traceEventKey, isNotEmpty);
-      expect(notifier.gardenTraceDegraded, isTrue);
-    });
+        expect(notifier.step, OnboardingFlowStep.careTurn);
+        expect(notifier.flowSnapshot.traceEventKey, isNotEmpty);
+        expect(notifier.gardenTraceDegraded, isTrue);
+        await notifier.continueFromCareTurn();
+
+        expect(notifier.step, OnboardingFlowStep.trace);
+      },
+    );
 
     test(
       'concurrent reaction requests share one persisted event write',
@@ -235,38 +241,45 @@ void main() {
       },
     );
 
-    test('normal Garden trace state survives a restart', () async {
-      await _advanceToCareTurn(notifier);
-      notifier.markSaid();
-      scriptedCarePathRepository.nextSnapshot = _nextSupportSnapshot(
-        gardenImpact: _gardenImpact,
-      );
-      await notifier.selectReaction(BabyReactionType.hesitant);
+    test(
+      'confirmed next-support state promotes its Garden trace after restart',
+      () async {
+        await _advanceToCareTurn(notifier);
+        notifier.markSaid();
+        scriptedCarePathRepository.nextSnapshot = _nextSupportSnapshot(
+          gardenImpact: _gardenImpact,
+        );
+        await notifier.selectReaction(BabyReactionType.hesitant);
 
-      expect(notifier.gardenTraceDegraded, isFalse);
+        expect(notifier.gardenTraceDegraded, isFalse);
 
-      final resumedCarePathNotifier = CarePathNotifier(
-        repository: scriptedCarePathRepository,
-      );
-      final resumedNotifier = OnboardingFlowNotifier(
-        onboardingRepository: onboardingRepository,
-        practiceRepository: practiceHarness.repository,
-        carePathNotifier: resumedCarePathNotifier,
-        accountNotifier: AccountNotifier(repository: _FakeAccountRepository()),
-        authContinuationCoordinator: AuthContinuationCoordinator(
-          store: AuthContinuationStore(directoryResolver: () async => tempDir),
-        ),
-        clock: () => DateTime.utc(2026, 7, 24, 12),
-        localEventIdGenerator: () => 'evt_onboarding_fixed',
-      );
-      addTearDown(resumedNotifier.dispose);
-      addTearDown(resumedCarePathNotifier.dispose);
+        final resumedCarePathNotifier = CarePathNotifier(
+          repository: scriptedCarePathRepository,
+        );
+        final resumedNotifier = OnboardingFlowNotifier(
+          onboardingRepository: onboardingRepository,
+          practiceRepository: practiceHarness.repository,
+          carePathNotifier: resumedCarePathNotifier,
+          accountNotifier: AccountNotifier(
+            repository: _FakeAccountRepository(),
+          ),
+          authContinuationCoordinator: AuthContinuationCoordinator(
+            store: AuthContinuationStore(
+              directoryResolver: () async => tempDir,
+            ),
+          ),
+          clock: () => DateTime.utc(2026, 7, 24, 12),
+          localEventIdGenerator: () => 'evt_onboarding_fixed',
+        );
+        addTearDown(resumedNotifier.dispose);
+        addTearDown(resumedCarePathNotifier.dispose);
 
-      await resumedNotifier.initialize();
+        await resumedNotifier.initialize();
 
-      expect(resumedNotifier.step, OnboardingFlowStep.trace);
-      expect(resumedNotifier.gardenTraceDegraded, isFalse);
-    });
+        expect(resumedNotifier.step, OnboardingFlowStep.trace);
+        expect(resumedNotifier.gardenTraceDegraded, isFalse);
+      },
+    );
 
     test(
       'provider keeps the same flow while Care Path emits trace updates',
@@ -306,6 +319,7 @@ void main() {
         original.markSaid();
 
         await original.selectReaction(BabyReactionType.hesitant);
+        await original.continueFromCareTurn();
 
         expect(container.read(onboardingFlowNotifierProvider), same(original));
         expect(original.step, OnboardingFlowStep.trace);
@@ -319,6 +333,7 @@ void main() {
         await _advanceToCareTurn(notifier);
         notifier.markSaid();
         await notifier.selectReaction(BabyReactionType.hesitant);
+        await notifier.continueFromCareTurn();
         await notifier.continueFromTrace();
 
         final completed = await notifier.chooseLocalOnly();

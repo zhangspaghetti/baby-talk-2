@@ -91,6 +91,7 @@ class OnboardingFlowScreenHarness {
     WidgetTester tester,
     OnboardingFlowStep step, {
     TextScaler textScaler = TextScaler.noScaling,
+    bool disableAnimations = false,
   }) async {
     await notifier.initialize();
     await _advanceTo(step);
@@ -134,7 +135,10 @@ class OnboardingFlowScreenHarness {
           supportedLocales: AppLocalizations.supportedLocales,
           routerConfig: router,
           builder: (context, child) => MediaQuery(
-            data: MediaQuery.of(context).copyWith(textScaler: textScaler),
+            data: MediaQuery.of(context).copyWith(
+              textScaler: textScaler,
+              disableAnimations: disableAnimations,
+            ),
             child: child!,
           ),
         ),
@@ -174,6 +178,7 @@ class OnboardingFlowScreenHarness {
     }
     notifier.markSaid();
     await notifier.selectReaction(BabyReactionType.hesitant);
+    await notifier.continueFromCareTurn();
     if (target == OnboardingFlowStep.trace) {
       return;
     }
