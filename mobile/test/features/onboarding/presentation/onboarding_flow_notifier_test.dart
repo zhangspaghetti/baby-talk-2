@@ -163,6 +163,18 @@ void main() {
       },
     );
 
+    test('scene CTA uses the approved required-selection copy', () async {
+      await notifier.initialize();
+      await notifier.continueFromWelcome();
+      await notifier.selectAgeBucket(OnboardingAgeBucket.oneToTwo);
+      await notifier.continueFromAge();
+
+      await notifier.continueFromScenePreferences();
+
+      expect(notifier.step, OnboardingFlowStep.scenePreferences);
+      expect(notifier.message, '至少选一个常见照护时刻。');
+    });
+
     test(
       'selected moment starts the formal Care Path and stores phrase id',
       () async {

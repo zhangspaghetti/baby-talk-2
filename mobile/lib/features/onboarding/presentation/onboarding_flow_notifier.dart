@@ -168,7 +168,7 @@ class OnboardingFlowNotifier extends ChangeNotifier {
       return Future.value();
     }
     if (_flowSnapshot.selectedSceneIds.isEmpty) {
-      return _setMessage('先选一个常见的照护场景。');
+      return _setMessage('至少选一个常见照护时刻。');
     }
     return _saveTransition(
       _flowSnapshot.copyWith(step: OnboardingFlowStep.supportGoal),

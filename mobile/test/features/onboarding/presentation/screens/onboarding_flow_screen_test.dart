@@ -24,16 +24,15 @@ import 'package:mobile/features/onboarding/domain/models/onboarding_flow_models.
 import 'package:mobile/features/onboarding/domain/models/stage_match.dart';
 import 'package:mobile/features/onboarding/presentation/onboarding_flow_notifier.dart';
 import 'package:mobile/features/onboarding/presentation/screens/onboarding_flow_screen.dart';
+import 'package:mobile/features/practice/data/repositories/practice_repository.dart';
+import 'package:mobile/features/practice/domain/models/practice_activity_catalog.dart';
 import 'package:mobile/features/practice/presentation/practice_audio_controller.dart';
 import 'package:mobile/features/practice/domain/models/interaction_event_payload.dart';
+import 'package:mobile/features/practice/domain/models/practice_phrase.dart';
 import 'package:mobile/l10n/app_localizations.dart';
-
-import '../../../practice/practice_repository_characterization_harness.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
-
-  setUpAll(ensurePracticeRepositoryHarnessIsarInitialized);
 
   late _OnboardingFlowScreenHarness harness;
 
@@ -61,6 +60,17 @@ void main() {
       expect(harness.notifier.step, OnboardingFlowStep.scenePreferences);
     },
   );
+
+  testWidgets('scene CTA shows the approved required-selection copy', (
+    tester,
+  ) async {
+    await harness.pumpAtStep(tester, OnboardingFlowStep.scenePreferences);
+
+    await tester.tap(find.byKey(const Key('onboarding-primary-action')));
+    await tester.pump();
+
+    expect(find.text('至少选一个常见照护时刻。'), findsOneWidget);
+  });
 
   testWidgets('care turn uses formal reaction keys and reaches a real trace', (
     tester,
@@ -162,14 +172,12 @@ abstract interface class _OnboardingFlowScreenTestHarness {
 class _OnboardingFlowScreenHarness implements _OnboardingFlowScreenTestHarness {
   _OnboardingFlowScreenHarness._({
     required this.tempDir,
-    required this.practiceHarness,
     required this.carePathNotifier,
     required this.accountNotifier,
     required this.notifier,
   });
 
   final Directory tempDir;
-  final PracticeRepositoryCharacterizationHarness practiceHarness;
   final CarePathNotifier carePathNotifier;
   final AccountNotifier accountNotifier;
   @override
@@ -190,12 +198,9 @@ class _OnboardingFlowScreenHarness implements _OnboardingFlowScreenTestHarness {
 
   static Future<_OnboardingFlowScreenHarness> create() async {
     final tempDir = await Directory.systemTemp.createTemp('onboarding_ui_');
-    final practiceHarness =
-        await PracticeRepositoryCharacterizationHarness.create();
+    final practiceRepository = _MemoryPracticeRepository();
     final carePathNotifier = CarePathNotifier(
-      repository: CarePathRepository(
-        practiceRepository: practiceHarness.repository,
-      ),
+      repository: CarePathRepository(practiceRepository: practiceRepository),
     );
     final accountNotifier = AccountNotifier(
       repository: _SignedInAccountRepository(),
@@ -206,13 +211,13 @@ class _OnboardingFlowScreenHarness implements _OnboardingFlowScreenTestHarness {
         directoryResolver: () async => tempDir,
       ),
       flowStore: OnboardingFlowStore(directoryResolver: () async => tempDir),
-      practiceRepository: practiceHarness.repository,
+      practiceRepository: practiceRepository,
       starterSpaceId: 'daily_care',
       starterActivityId: 'bath_time',
     );
     final notifier = OnboardingFlowNotifier(
       onboardingRepository: onboardingRepository,
-      practiceRepository: practiceHarness.repository,
+      practiceRepository: practiceRepository,
       carePathNotifier: carePathNotifier,
       accountNotifier: accountNotifier,
       authContinuationCoordinator: AuthContinuationCoordinator(
@@ -223,7 +228,6 @@ class _OnboardingFlowScreenHarness implements _OnboardingFlowScreenTestHarness {
     );
     return _OnboardingFlowScreenHarness._(
       tempDir: tempDir,
-      practiceHarness: practiceHarness,
       carePathNotifier: carePathNotifier,
       accountNotifier: accountNotifier,
       notifier: notifier,
@@ -340,7 +344,6 @@ class _OnboardingFlowScreenHarness implements _OnboardingFlowScreenTestHarness {
     }
     accountNotifier.dispose();
     await audioController.dispose();
-    await practiceHarness.dispose();
     if (await tempDir.exists()) {
       await tempDir.delete(recursive: true);
     }
@@ -450,3 +453,130 @@ AccountLocalSnapshot _signedInSnapshot() => AccountLocalSnapshot(
   ),
   lastSyncPhase: 'synced',
 );
+
+class _MemoryPracticeRepository implements PracticeRepository {
+  final List<InteractionEventPayload> _events = <InteractionEventPayload>[];
+
+  static const _activity = PracticeActivitySnapshot(
+    spaceId: 'daily_care',
+    activityId: 'bath_time',
+    title: '洗澡时间',
+    summary: '温温的水。',
+    sceneTag: 'Bath time',
+    coachTip: '先说动作，再慢慢等待宝宝回应。',
+    phrases: <PracticePhrase>[
+      PracticePhrase(
+        spaceId: 'daily_care',
+        activityId: 'bath_time',
+        phraseId: 'bath_time_warm_water',
+        step: 1,
+        english: 'Warm water.',
+        chinese: '温温的水。',
+        pronunciation: 'wɔːrm ˈwɔːtər',
+        difficulty: 'easy',
+        audioAsset: 'assets/audio/phrases/bath_time_warm_water.mp3',
+      ),
+      PracticePhrase(
+        spaceId: 'daily_care',
+        activityId: 'bath_time',
+        phraseId: 'bath_time_splash_splash',
+        step: 2,
+        english: 'Splash splash.',
+        chinese: '扑通扑通。',
+        pronunciation: 'splæʃ splæʃ',
+        difficulty: 'easy',
+        audioAsset: 'assets/audio/phrases/bath_time_splash_splash.mp3',
+      ),
+    ],
+  );
+
+  @override
+  Future<PracticeActivityCatalog> getActivityCatalog() async {
+    final completedPhraseIds = _events.map((event) => event.phraseId).toList();
+    final nextPhrase = _nextPhrase(completedPhraseIds);
+    return PracticeActivityCatalog(
+      installationId: 'memory_onboarding_screen_test',
+      spaces: const <PracticeCatalogSpaceSummary>[],
+      activities: <PracticeCatalogActivitySummary>[
+        PracticeCatalogActivitySummary(
+          spaceId: _activity.spaceId,
+          spaceTitle: '日常照护',
+          activityId: _activity.activityId,
+          title: _activity.title,
+          summary: _activity.summary,
+          sceneTag: _activity.sceneTag,
+          coachTip: _activity.coachTip,
+          totalPhraseCount: _activity.phrases.length,
+          completedPhraseCount: completedPhraseIds.length,
+          completedPhraseIds: completedPhraseIds,
+          nextPhraseId: nextPhrase?.phraseId,
+          nextPhraseEnglish: nextPhrase?.english,
+          totalEvents: _events.length,
+          skippedUnknownPhraseCount: 0,
+          skippedMalformedEventCount: 0,
+        ),
+      ],
+      totalStoredEvents: _events.length,
+      validEvents: _events.length,
+      knownEvents: _events.length,
+      skippedMalformedEvents: 0,
+      skippedUnknownContentEvents: 0,
+    );
+  }
+
+  @override
+  Future<PracticeActivitySnapshot> getActivitySnapshot({
+    required String spaceId,
+    required String activityId,
+  }) async => _activity;
+
+  @override
+  Future<PracticeResumeInfo> getResumeInfo({
+    required String spaceId,
+    required String activityId,
+  }) async {
+    final completedPhraseIds = _events.map((event) => event.phraseId).toList();
+    final nextPhrase = _nextPhrase(completedPhraseIds);
+    return PracticeResumeInfo(
+      activityId: activityId,
+      totalPhrases: _activity.phrases.length,
+      completedPhraseIds: completedPhraseIds,
+      nextPhraseId: nextPhrase?.phraseId,
+      lastEventTime: _events.isEmpty ? null : _events.last.clientTimestamp,
+    );
+  }
+
+  @override
+  Future<InteractionEventPayload> recordReaction({
+    required String spaceId,
+    required String activityId,
+    required String phraseId,
+    required BabyReactionType reactionType,
+    DateTime? clientTimestamp,
+    String? localEventId,
+  }) async {
+    final event = InteractionEventPayload(
+      localEventId: localEventId ?? 'memory_event_${_events.length + 1}',
+      installationId: 'memory_onboarding_screen_test',
+      spaceId: spaceId,
+      activityId: activityId,
+      phraseId: phraseId,
+      reactionType: reactionType,
+      clientTimestamp: clientTimestamp ?? DateTime.utc(2026, 7, 24),
+    );
+    _events.add(event);
+    return event;
+  }
+
+  PracticePhrase? _nextPhrase(List<String> completedPhraseIds) {
+    for (final phrase in _activity.phrases) {
+      if (!completedPhraseIds.contains(phrase.phraseId)) {
+        return phrase;
+      }
+    }
+    return null;
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
