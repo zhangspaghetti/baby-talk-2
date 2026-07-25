@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -5,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import 'package:mobile/app/providers/repository_providers.dart';
 import 'package:mobile/core/local_data_lifecycle/local_sensitive_data_clearance.dart';
 import 'package:mobile/features/account/data/local/account_local_store.dart';
+import 'package:mobile/features/account/data/local/auth_continuation_store.dart';
 import 'package:mobile/features/account/data/repositories/account_repository.dart';
 import 'package:mobile/features/account/data/services/account_external_link_opener.dart';
 import 'package:mobile/features/account/domain/models/account_consent_state.dart';
@@ -241,6 +244,50 @@ void main() {
     expect(find.text('登录已完成；你现在可以返回首页查看最近恢复结果，待同步记录也会继续尝试上传。'), findsOneWidget);
     expect(find.text('仍有 3 条练习记录待同步，打开应用、回到首页或手动重试时会继续尝试。'), findsOneWidget);
     expect(find.textContaining('待同步事件'), findsNothing);
+  });
+
+  testWidgets('onboarding 来源在 continuation I/O 失败后仍只返回一次 signed-in 结果', (
+    WidgetTester tester,
+  ) async {
+    final repository = FakeAccountRepository(
+      currentSnapshot: AccountLocalSnapshot.localOnly,
+    );
+    final continuationStore = AuthContinuationStore(
+      directoryResolver: () async {
+        throw const FileSystemException('continuation unavailable');
+      },
+    );
+
+    await _pumpAccountOriginRouter(
+      tester,
+      repository: repository,
+      continuationStore: continuationStore,
+    );
+    await tester.tap(find.byKey(const Key('onboarding-account-launch')));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const Key('account-phone-field')),
+      '13800138000',
+    );
+    await tester.enterText(
+      find.byKey(const Key('account-code-field')),
+      '123456',
+    );
+    final submitButton = find.byKey(const Key('account-submit-button'));
+    await tester.dragUntilVisible(
+      submitButton,
+      find.byType(ListView),
+      const Offset(0, -200),
+    );
+    await tester.tap(submitButton);
+    await tester.pumpAndSettle();
+
+    expect(repository.saveCalls, 1);
+    expect(
+      find.byKey(const Key('onboarding-account-returned')),
+      findsOneWidget,
+    );
+    expect(find.byKey(const Key('account-entry-surface')), findsNothing);
   });
 
   testWidgets('账号状态读取失败时暴露 error 态，并允许重试恢复', (WidgetTester tester) async {
@@ -518,9 +565,6 @@ Future<void> _pumpEntryScreen(
       key: UniqueKey(),
       overrides: [
         accountNotifierProvider.overrideWith((ref) => notifier),
-        authContinuationPendingLoaderProvider.overrideWith(
-          (ref) => () async => null,
-        ),
         householdNotifierProvider.overrideWith(
           (ref) => HouseholdNotifier(repository: _FakeHouseholdRepository()),
         ),
@@ -543,6 +587,91 @@ Future<void> _pumpEntryScreen(
 
   await notifier.initialize();
   await _settleAccountNotifier(tester, notifier);
+}
+
+Future<void> _pumpAccountOriginRouter(
+  WidgetTester tester, {
+  required FakeAccountRepository repository,
+  required AuthContinuationStore continuationStore,
+}) async {
+  await _setTallViewport(tester);
+  final notifier = AccountNotifier(repository: repository);
+  final router = GoRouter(
+    initialLocation: '/launcher',
+    routes: <RouteBase>[
+      GoRoute(
+        path: '/launcher',
+        builder: (context, state) => const _OnboardingAccountLauncher(),
+      ),
+      GoRoute(
+        path: '/account',
+        builder: (context, state) => AccountEntryScreen(
+          origin:
+              state.extra as AccountEntryOrigin? ?? AccountEntryOrigin.settings,
+        ),
+      ),
+    ],
+  );
+  addTearDown(router.dispose);
+
+  await tester.pumpWidget(
+    ProviderScope(
+      key: UniqueKey(),
+      overrides: <Override>[
+        accountNotifierProvider.overrideWith((ref) => notifier),
+        authContinuationStoreProvider.overrideWithValue(continuationStore),
+        householdNotifierProvider.overrideWith(
+          (ref) => HouseholdNotifier(repository: _FakeHouseholdRepository()),
+        ),
+      ],
+      child: MaterialApp.router(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        routerConfig: router,
+      ),
+    ),
+  );
+  await notifier.initialize();
+  await _settleAccountNotifier(tester, notifier);
+}
+
+class _OnboardingAccountLauncher extends StatefulWidget {
+  const _OnboardingAccountLauncher();
+
+  @override
+  State<_OnboardingAccountLauncher> createState() =>
+      _OnboardingAccountLauncherState();
+}
+
+class _OnboardingAccountLauncherState
+    extends State<_OnboardingAccountLauncher> {
+  Object? _result;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: FilledButton(
+        key: _result == AccountEntryResult.signedIn
+            ? const Key('onboarding-account-returned')
+            : const Key('onboarding-account-launch'),
+        onPressed: () async {
+          final result = await context.push<Object?>(
+            '/account',
+            extra: AccountEntryOrigin.onboardingContinuation,
+          );
+          if (!mounted) {
+            return;
+          }
+          setState(() {
+            _result = result;
+          });
+        },
+        child: _result == AccountEntryResult.signedIn
+            ? const Text('onboarding signed-in returned')
+            : const Text('open account'),
+      ),
+    );
+  }
 }
 
 Future<void> _pumpStatusCard(

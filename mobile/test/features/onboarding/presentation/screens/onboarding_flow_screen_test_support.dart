@@ -16,6 +16,7 @@ import 'package:mobile/features/account/presentation/account_notifier.dart';
 import 'package:mobile/features/account/presentation/auth_continuation_coordinator.dart';
 import 'package:mobile/features/account/presentation/screens/account_entry_screen.dart';
 import 'package:mobile/features/care_path/data/repositories/care_path_repository.dart';
+import 'package:mobile/features/care_path/domain/models/care_path_models.dart';
 import 'package:mobile/features/care_path/presentation/care_path_notifier.dart';
 import 'package:mobile/features/onboarding/data/local/onboarding_flow_store.dart';
 import 'package:mobile/features/onboarding/data/local/onboarding_snapshot_store.dart';
@@ -35,34 +36,72 @@ import 'package:mobile/l10n/app_localizations.dart';
 class OnboardingFlowScreenHarness {
   OnboardingFlowScreenHarness._({
     required this.carePathNotifier,
+    required _ControllableCarePathRepository carePathRepository,
+    required _MemoryOnboardingFlowStore flowStore,
+    required _MemoryAuthContinuationStore authContinuationStore,
     required this.accountNotifier,
     required this.notifier,
-  });
+  }) : _carePathRepository = carePathRepository,
+       _flowStore = flowStore,
+       _authContinuationStore = authContinuationStore;
 
   final CarePathNotifier carePathNotifier;
+  final _ControllableCarePathRepository _carePathRepository;
+  final _MemoryOnboardingFlowStore _flowStore;
+  final _MemoryAuthContinuationStore _authContinuationStore;
   final AccountNotifier accountNotifier;
   final OnboardingFlowNotifier notifier;
   final ControllablePracticeAudioController audioController =
       ControllablePracticeAudioController();
 
   Completer<AccountEntryResult>? _accountResult;
+  AccountEntryOrigin? _accountEntryOrigin;
   var _providerScopeOwnsNotifiers = false;
   int _accountRoutePushCount = 0;
   int _shellNavigationCount = 0;
 
   int get accountRoutePushCount => _accountRoutePushCount;
+  AccountEntryOrigin? get accountEntryOrigin => _accountEntryOrigin;
   int get shellNavigationCount => _shellNavigationCount;
+  int get continuationWriteCount => _authContinuationStore.writeCount;
+  List<String?> get receivedReactionLocalEventIds =>
+      List<String?>.unmodifiable(_carePathRepository.receivedLocalEventIds);
 
-  static Future<OnboardingFlowScreenHarness> create() async {
+  void failNextReactionWrite() {
+    _carePathRepository.failNextReactionWrite = true;
+  }
+
+  void failNextMomentLoad() {
+    _carePathRepository.failNextMomentLoad = true;
+  }
+
+  void failNextConfirmedTracePersistence() {
+    _flowStore.failOnWrite = _flowStore.writeCount + 2;
+  }
+
+  void failNextStarterPhrasePersistence() {
+    _flowStore.failOnWrite = _flowStore.writeCount + 2;
+  }
+
+  Completer<void> holdNextContinuationWrite() {
+    final gate = Completer<void>();
+    _authContinuationStore.writeGate = gate;
+    return gate;
+  }
+
+  static Future<OnboardingFlowScreenHarness> create({
+    bool signedIn = true,
+  }) async {
     final practiceRepository = _MemoryPracticeRepository();
     final flowStore = _MemoryOnboardingFlowStore();
     final snapshotStore = _MemoryOnboardingSnapshotStore();
     final authContinuationStore = _MemoryAuthContinuationStore();
-    final carePathNotifier = CarePathNotifier(
-      repository: CarePathRepository(practiceRepository: practiceRepository),
+    final carePathRepository = _ControllableCarePathRepository(
+      practiceRepository: practiceRepository,
     );
+    final carePathNotifier = CarePathNotifier(repository: carePathRepository);
     final accountNotifier = AccountNotifier(
-      repository: _SignedInAccountRepository(),
+      repository: _SignedInAccountRepository(signedIn: signedIn),
     );
     await accountNotifier.initialize();
     final onboardingRepository = OnboardingRepository(
@@ -82,6 +121,9 @@ class OnboardingFlowScreenHarness {
     );
     return OnboardingFlowScreenHarness._(
       carePathNotifier: carePathNotifier,
+      carePathRepository: carePathRepository,
+      flowStore: flowStore,
+      authContinuationStore: authContinuationStore,
       accountNotifier: accountNotifier,
       notifier: notifier,
     );
@@ -108,6 +150,7 @@ class OnboardingFlowScreenHarness {
           path: AppRouteNames.account,
           builder: (context, state) {
             _accountRoutePushCount += 1;
+            _accountEntryOrigin = state.extra as AccountEntryOrigin?;
             final result = Completer<AccountEntryResult>();
             _accountResult = result;
             return _AccountResultRoute(result: result.future);
@@ -249,7 +292,12 @@ class _AccountResultRouteState extends State<_AccountResultRoute> {
 }
 
 class _SignedInAccountRepository implements AccountRepositoryContract {
-  AccountLocalSnapshot _snapshot = _signedInSnapshot();
+  _SignedInAccountRepository({bool signedIn = true})
+    : _snapshot = signedIn
+          ? _signedInSnapshot()
+          : AccountLocalSnapshot.localOnly;
+
+  AccountLocalSnapshot _snapshot;
 
   @override
   Future<void> close() async {}
@@ -306,12 +354,18 @@ class _MemoryOnboardingFlowStore extends OnboardingFlowStore {
   _MemoryOnboardingFlowStore() : super();
 
   OnboardingFlowSnapshot? _snapshot;
+  int writeCount = 0;
+  int? failOnWrite;
 
   @override
   Future<OnboardingFlowSnapshot?> read() async => _snapshot;
 
   @override
   Future<void> write(OnboardingFlowSnapshot snapshot) async {
+    writeCount += 1;
+    if (writeCount == failOnWrite) {
+      throw StateError('disk unavailable');
+    }
     _snapshot = snapshot;
   }
 
@@ -344,6 +398,8 @@ class _MemoryAuthContinuationStore extends AuthContinuationStore {
   _MemoryAuthContinuationStore() : super();
 
   AuthContinuation? _continuation;
+  int writeCount = 0;
+  Completer<void>? writeGate;
 
   @override
   Future<AuthContinuation?> read({required DateTime now}) async {
@@ -359,13 +415,87 @@ class _MemoryAuthContinuationStore extends AuthContinuationStore {
   }
 
   @override
+  Future<AuthContinuationReadResult> readResult({required DateTime now}) async {
+    final continuation = await read(now: now);
+    return AuthContinuationReadResult(
+      status: continuation == null
+          ? AuthContinuationReadStatus.notFound
+          : AuthContinuationReadStatus.available,
+      continuation: continuation,
+    );
+  }
+
+  @override
   Future<void> write(AuthContinuation continuation) async {
+    writeCount += 1;
+    final gate = writeGate;
+    if (gate != null) {
+      await gate.future;
+    }
     _continuation = continuation;
   }
 
   @override
   Future<void> deleteIfExists() async {
     _continuation = null;
+  }
+}
+
+class _ControllableCarePathRepository extends CarePathRepository {
+  _ControllableCarePathRepository({required super.practiceRepository});
+
+  bool failNextReactionWrite = false;
+  bool failNextMomentLoad = false;
+  final List<String?> receivedLocalEventIds = <String?>[];
+
+  @override
+  Future<CareTurnSnapshot> startMoment({
+    required String spaceId,
+    required String activityId,
+  }) async {
+    if (failNextMomentLoad) {
+      failNextMomentLoad = false;
+      return CareTurnSnapshot(
+        moment: CareMoment(
+          spaceId: spaceId,
+          activityId: activityId,
+          spaceTitle: '日常照护',
+          title: '暂时不可用',
+          sceneTag: '',
+          careActionLabel: '',
+          coachTip: '',
+          nodeState: CarePathNodeState.unavailable,
+        ),
+        currentUtterance: null,
+        selectedReaction: null,
+        nextSupportUtterance: null,
+        phase: CareTurnPhase.error,
+        traceEventKey: null,
+        latestGardenImpact: null,
+        message: '当前照护内容暂时无法加载。',
+      );
+    }
+    return super.startMoment(spaceId: spaceId, activityId: activityId);
+  }
+
+  @override
+  Future<CareTurnSnapshot> recordReaction({
+    required CareTurnSnapshot turn,
+    required BabyReactionType reactionType,
+    DateTime? clientTimestamp,
+    String? localEventId,
+  }) {
+    receivedLocalEventIds.add(localEventId);
+    if (failNextReactionWrite) {
+      failNextReactionWrite = false;
+      return Future<CareTurnSnapshot>.error(StateError('reaction unavailable'));
+    }
+    return super.recordReaction(
+      turn: turn,
+      reactionType: reactionType,
+      clientTimestamp: clientTimestamp,
+      localEventId: localEventId,
+    );
   }
 }
 
@@ -444,6 +574,18 @@ class _MemoryPracticeRepository implements PracticeRepository {
     required String spaceId,
     required String activityId,
   }) async => _activity;
+
+  @override
+  Future<InteractionEventPayload?> findEventByLocalEventId(
+    String localEventId,
+  ) async {
+    for (final event in _events) {
+      if (event.localEventId == localEventId) {
+        return event;
+      }
+    }
+    return null;
+  }
 
   @override
   Future<PracticeResumeInfo> getResumeInfo({

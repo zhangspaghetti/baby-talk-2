@@ -23,6 +23,7 @@ class OnboardingFlowStore {
 
   final OnboardingFlowDirectoryResolver _directoryResolver;
   final String fileName;
+  Future<void> _mutationTail = Future<void>.value();
 
   Future<OnboardingFlowSnapshot?> read() async {
     try {
@@ -50,7 +51,11 @@ class OnboardingFlowStore {
     }
   }
 
-  Future<void> write(OnboardingFlowSnapshot snapshot) async {
+  Future<void> write(OnboardingFlowSnapshot snapshot) {
+    return _enqueueMutation(() => _writeInternal(snapshot));
+  }
+
+  Future<void> _writeInternal(OnboardingFlowSnapshot snapshot) async {
     File? temporaryFile;
     try {
       final file = await _resolveFile();
@@ -77,7 +82,11 @@ class OnboardingFlowStore {
     }
   }
 
-  Future<void> deleteIfExists() async {
+  Future<void> deleteIfExists() {
+    return _enqueueMutation(_deleteIfExistsInternal);
+  }
+
+  Future<void> _deleteIfExistsInternal() async {
     Object? firstError;
     try {
       final file = await _resolveFile();
@@ -108,5 +117,11 @@ class OnboardingFlowStore {
     if (await file.exists()) {
       await file.delete();
     }
+  }
+
+  Future<T> _enqueueMutation<T>(Future<T> Function() mutation) {
+    final running = _mutationTail.then((_) => mutation());
+    _mutationTail = running.then<void>((_) {}, onError: (_) {});
+    return running;
   }
 }

@@ -55,6 +55,30 @@ void main() {
     );
 
     test(
+      'concurrent mutations serialize their shared temporary file',
+      () async {
+        final first = OnboardingFlowSnapshot.initial(DateTime.utc(2026, 7, 23));
+        final second = first.copyWith(
+          step: OnboardingFlowStep.age,
+          updatedAt: DateTime.utc(2026, 7, 24),
+        );
+
+        await Future.wait(<Future<void>>[
+          store.write(first),
+          store.write(second),
+        ]);
+
+        expect(await store.read(), second);
+        expect(
+          File(
+            '${tempDir.path}/onboarding_flow_snapshot.json.tmp',
+          ).existsSync(),
+          isFalse,
+        );
+      },
+    );
+
+    test(
       'corrupt flow file is deleted by repository and restarts safely',
       () async {
         await File(

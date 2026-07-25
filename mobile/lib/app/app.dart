@@ -405,7 +405,9 @@ class _BabyTalkAppState extends ConsumerState<BabyTalkApp> {
         ),
         GoRoute(
           path: AppRouteNames.account,
-          builder: (context, state) => const AccountEntryScreen(),
+          builder: (context, state) => AccountEntryScreen(
+            origin: accountEntryOriginFromRouteExtra(state.extra),
+          ),
         ),
         GoRoute(
           path: '/me/settings',

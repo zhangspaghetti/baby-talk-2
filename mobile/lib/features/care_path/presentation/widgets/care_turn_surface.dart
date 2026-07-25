@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart';
 import 'package:mobile/app/theme/app_layout_constants.dart';
 import 'package:mobile/app/theme/app_theme.dart';
 import 'package:mobile/app/widgets/app_haptics.dart';
@@ -14,6 +15,9 @@ import 'package:mobile/l10n/app_localizations.dart';
 typedef CareTurnTraceReady = void Function(CareTurnSnapshot snapshot);
 typedef CareTurnReactionSelected =
     Future<void> Function(BabyReactionType reaction);
+typedef CareTurnRetryReaction = Future<void> Function();
+typedef CareTurnRetryTracePersistence = Future<void> Function();
+typedef CareTurnRetryStarterPhrasePersistence = Future<void> Function();
 
 class CareTurnSurface extends StatefulWidget {
   const CareTurnSurface({
@@ -24,6 +28,11 @@ class CareTurnSurface extends StatefulWidget {
     this.onTraceContinue,
     this.traceContinueLabel,
     this.onReactionSelected,
+    this.onRetryReaction,
+    this.onRetryTracePersistence,
+    this.onRetryStarterPhrasePersistence,
+    this.onChooseAnotherMoment,
+    this.flowMessage,
     this.onQuietExit,
     this.showQuietExit = true,
     this.title,
@@ -35,6 +44,11 @@ class CareTurnSurface extends StatefulWidget {
   final VoidCallback? onTraceContinue;
   final String? traceContinueLabel;
   final CareTurnReactionSelected? onReactionSelected;
+  final CareTurnRetryReaction? onRetryReaction;
+  final CareTurnRetryTracePersistence? onRetryTracePersistence;
+  final CareTurnRetryStarterPhrasePersistence? onRetryStarterPhrasePersistence;
+  final VoidCallback? onChooseAnotherMoment;
+  final String? flowMessage;
   final VoidCallback? onQuietExit;
   final bool showQuietExit;
   final String? title;
@@ -194,12 +208,26 @@ class _CareTurnSurfaceState extends State<CareTurnSurface> {
         snapshot.message ?? notifier.message ?? l.practiceContextMissing;
     if (notifier.phase == CareTurnPhase.error ||
         snapshot.currentUtterance == null) {
-      return _CareTurnFallbackScaffold(message: message);
+      return _CareTurnFallbackScaffold(
+        message: widget.flowMessage?.trim().isNotEmpty == true
+            ? widget.flowMessage!
+            : message,
+        onRetryReaction: snapshot.selectedReaction == null
+            ? null
+            : widget.onRetryReaction,
+        onChooseAnotherMoment: widget.onChooseAnotherMoment,
+      );
     }
 
     final utterance = snapshot.currentUtterance!;
     final nextSupportUtterance = snapshot.nextSupportUtterance;
     final latestImpact = snapshot.latestGardenImpact;
+    final hasConfirmedTrace =
+        snapshot.traceEventKey?.trim().isNotEmpty == true &&
+        (snapshot.phase == CareTurnPhase.nextSupportReady ||
+            snapshot.phase == CareTurnPhase.heldWithFallback);
+    final hasPendingStarterPhrasePersistence =
+        widget.onRetryStarterPhrasePersistence != null;
 
     return Scaffold(
       appBar: AppBar(
@@ -227,117 +255,140 @@ class _CareTurnSurfaceState extends State<CareTurnSurface> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    _CareTurnPanel(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            snapshot.moment.title,
-                            style: Theme.of(context).textTheme.titleMedium
-                                ?.copyWith(
-                                  color: colors.textPrimary,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                          ),
-                          if (snapshot.moment.careActionLabel
-                              .trim()
-                              .isNotEmpty) ...[
-                            const SizedBox(height: 6),
-                            Text(
-                              snapshot.moment.careActionLabel,
-                              style: Theme.of(context).textTheme.bodyMedium
-                                  ?.copyWith(color: colors.textSecondary),
+                    Semantics(
+                      key: const Key('care-turn-semantics-timing'),
+                      container: true,
+                      sortKey: OrdinalSortKey(3),
+                      child: _CareTurnPanel(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            ExcludeSemantics(
+                              child: Text(
+                                snapshot.moment.title,
+                                style: Theme.of(context).textTheme.titleMedium
+                                    ?.copyWith(
+                                      color: colors.textPrimary,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                              ),
                             ),
-                          ],
-                          const SizedBox(height: 12),
-                          Text(
-                            l.practiceWhenToSay,
-                            style: Theme.of(context).textTheme.labelLarge
-                                ?.copyWith(
-                                  color: colors.textSecondary,
-                                  fontWeight: FontWeight.w700,
+                            if (snapshot.moment.careActionLabel
+                                .trim()
+                                .isNotEmpty) ...[
+                              const SizedBox(height: 6),
+                              ExcludeSemantics(
+                                child: Text(
+                                  snapshot.moment.careActionLabel,
+                                  style: Theme.of(context).textTheme.bodyMedium
+                                      ?.copyWith(color: colors.textSecondary),
                                 ),
-                          ),
-                          const SizedBox(height: 6),
-                          Text(
-                            utterance.whenToSay,
-                            style: Theme.of(context).textTheme.bodyMedium
-                                ?.copyWith(color: colors.textPrimary),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: AppLayoutConstants.spacingMd),
-                    _CareTurnPanel(
-                      key: const Key('care-turn-current-utterance'),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            utterance.english,
-                            style: Theme.of(context).textTheme.headlineSmall
-                                ?.copyWith(
-                                  color: colors.textPrimary,
-                                  fontWeight: FontWeight.w800,
-                                ),
-                          ),
-                          const SizedBox(height: 10),
-                          Text(
-                            utterance.chinese,
-                            style: Theme.of(context).textTheme.titleMedium
-                                ?.copyWith(color: colors.textPrimary),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            utterance.pronunciation,
-                            style: Theme.of(context).textTheme.bodyMedium
-                                ?.copyWith(color: colors.textSecondary),
-                          ),
-                          if (_audioMessage != null) ...[
+                              ),
+                            ],
                             const SizedBox(height: 12),
                             Text(
-                              key: const Key('care-turn-audio-error'),
-                              _audioMessage!,
-                              style: Theme.of(context).textTheme.bodySmall
-                                  ?.copyWith(color: colors.textSecondary),
+                              l.practiceWhenToSay,
+                              style: Theme.of(context).textTheme.labelLarge
+                                  ?.copyWith(
+                                    color: colors.textSecondary,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                            ),
+                            const SizedBox(height: 6),
+                            Text(
+                              utterance.whenToSay,
+                              style: Theme.of(context).textTheme.bodyMedium
+                                  ?.copyWith(color: colors.textPrimary),
                             ),
                           ],
-                        ],
+                        ),
                       ),
                     ),
                     const SizedBox(height: AppLayoutConstants.spacingMd),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: OutlinedButton.icon(
-                            key: const Key('care-turn-listen-once'),
-                            onPressed: _isPlayingAudio
-                                ? null
-                                : () => _playCurrentUtterance(utterance),
-                            icon: Icon(
-                              _isPlayingAudio
-                                  ? Icons.equalizer_rounded
-                                  : Icons.volume_up_rounded,
+                    Semantics(
+                      key: const Key('care-turn-semantics-phrase'),
+                      container: true,
+                      sortKey: OrdinalSortKey(1),
+                      child: _CareTurnPanel(
+                        key: const Key('care-turn-current-utterance'),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              utterance.english,
+                              style: Theme.of(context).textTheme.headlineSmall
+                                  ?.copyWith(
+                                    color: colors.textPrimary,
+                                    fontWeight: FontWeight.w800,
+                                  ),
                             ),
-                            label: Text(l.practiceListenOnce),
-                          ),
+                            const SizedBox(height: 10),
+                            Text(
+                              utterance.chinese,
+                              style: Theme.of(context).textTheme.titleMedium
+                                  ?.copyWith(color: colors.textPrimary),
+                            ),
+                            const SizedBox(height: 8),
+                            ExcludeSemantics(
+                              child: Text(
+                                utterance.pronunciation,
+                                style: Theme.of(context).textTheme.bodyMedium
+                                    ?.copyWith(color: colors.textSecondary),
+                              ),
+                            ),
+                            if (_audioMessage != null) ...[
+                              const SizedBox(height: 12),
+                              Text(
+                                key: const Key('care-turn-audio-error'),
+                                _audioMessage!,
+                                style: Theme.of(context).textTheme.bodySmall
+                                    ?.copyWith(color: colors.textSecondary),
+                              ),
+                            ],
+                          ],
                         ),
-                        const SizedBox(width: AppLayoutConstants.spacingSm),
-                        Expanded(
-                          child: FilledButton.icon(
-                            key: const Key('care-turn-said-button'),
-                            onPressed:
-                                snapshot.phase == CareTurnPhase.utteranceReady
-                                ? () {
-                                    AppHaptics.lightTap();
-                                    notifier.markSaid();
-                                  }
-                                : null,
-                            icon: const Icon(Icons.check_rounded),
-                            label: Text(l.practiceSaid),
+                      ),
+                    ),
+                    const SizedBox(height: AppLayoutConstants.spacingMd),
+                    Semantics(
+                      key: const Key('care-turn-semantics-actions'),
+                      container: true,
+                      sortKey: OrdinalSortKey(4),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: OutlinedButton.icon(
+                              key: const Key('care-turn-listen-once'),
+                              onPressed: _isPlayingAudio
+                                  ? null
+                                  : () => _playCurrentUtterance(utterance),
+                              icon: Icon(
+                                _isPlayingAudio
+                                    ? Icons.equalizer_rounded
+                                    : Icons.volume_up_rounded,
+                              ),
+                              label: Text(l.practiceListenOnce),
+                            ),
                           ),
-                        ),
-                      ],
+                          const SizedBox(width: AppLayoutConstants.spacingSm),
+                          Expanded(
+                            child: FilledButton.icon(
+                              key: const Key('care-turn-said-button'),
+                              onPressed:
+                                  snapshot.phase ==
+                                          CareTurnPhase.utteranceReady &&
+                                      !hasPendingStarterPhrasePersistence
+                                  ? () {
+                                      AppHaptics.lightTap();
+                                      notifier.markSaid();
+                                    }
+                                  : null,
+                              icon: const Icon(Icons.check_rounded),
+                              label: Text(l.practiceSaid),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                     if (snapshot.phase == CareTurnPhase.savingTrace) ...[
                       const SizedBox(height: AppLayoutConstants.spacingMd),
@@ -357,39 +408,91 @@ class _CareTurnSurfaceState extends State<CareTurnSurface> {
                         ],
                       ),
                     ],
-                    if (snapshot.phase == CareTurnPhase.reactionPrompt) ...[
+                    if (snapshot.phase == CareTurnPhase.reactionPrompt &&
+                        !hasPendingStarterPhrasePersistence) ...[
+                      const SizedBox(height: AppLayoutConstants.spacingMd),
+                      Semantics(
+                        key: const Key('care-turn-semantics-reaction'),
+                        container: true,
+                        sortKey: OrdinalSortKey(5),
+                        child: _CareTurnPanel(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                l.practiceReactionPrompt,
+                                style: Theme.of(context).textTheme.titleMedium
+                                    ?.copyWith(
+                                      color: colors.textPrimary,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                              ),
+                              const SizedBox(height: 12),
+                              SceneReactionChipRow(
+                                phraseId: utterance.phraseId,
+                                sceneTag: snapshot.moment.sceneTag,
+                                enabled: !notifier.isBusy,
+                                selectedType: snapshot.selectedReaction,
+                                reactionKeyBuilder: (type) =>
+                                    Key('care-reaction-${type.wireValue}'),
+                                onSelected: (reactionType) async {
+                                  AppHaptics.lightTap();
+                                  final onReactionSelected =
+                                      widget.onReactionSelected;
+                                  if (onReactionSelected != null) {
+                                    await onReactionSelected(reactionType);
+                                    return;
+                                  }
+                                  await notifier.selectReaction(reactionType);
+                                },
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                    if (widget.flowMessage?.trim().isNotEmpty == true) ...[
+                      const SizedBox(height: AppLayoutConstants.spacingMd),
+                      Text(
+                        widget.flowMessage!,
+                        key: const Key('care-turn-flow-message'),
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: colors.textSecondary,
+                        ),
+                      ),
+                    ],
+                    if (hasPendingStarterPhrasePersistence) ...[
                       const SizedBox(height: AppLayoutConstants.spacingMd),
                       _CareTurnPanel(
+                        key: const Key(
+                          'care-turn-starter-phrase-persistence-recovery',
+                        ),
                         child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
                             Text(
-                              l.practiceReactionPrompt,
-                              style: Theme.of(context).textTheme.titleMedium
-                                  ?.copyWith(
-                                    color: colors.textPrimary,
-                                    fontWeight: FontWeight.w700,
-                                  ),
+                              '刚才这句话还没有保存好。',
+                              style: Theme.of(context).textTheme.bodyMedium
+                                  ?.copyWith(color: colors.textSecondary),
                             ),
                             const SizedBox(height: 12),
-                            SceneReactionChipRow(
-                              phraseId: utterance.phraseId,
-                              sceneTag: snapshot.moment.sceneTag,
-                              enabled: !notifier.isBusy,
-                              selectedType: snapshot.selectedReaction,
-                              reactionKeyBuilder: (type) =>
-                                  Key('care-reaction-${type.wireValue}'),
-                              onSelected: (reactionType) async {
-                                AppHaptics.lightTap();
-                                final onReactionSelected =
-                                    widget.onReactionSelected;
-                                if (onReactionSelected != null) {
-                                  await onReactionSelected(reactionType);
-                                  return;
-                                }
-                                await notifier.selectReaction(reactionType);
-                              },
+                            FilledButton(
+                              key: const Key(
+                                'care-turn-retry-starter-phrase-persistence',
+                              ),
+                              onPressed: widget.onRetryStarterPhrasePersistence,
+                              child: const Text('重新保存并继续'),
                             ),
+                            if (widget.onChooseAnotherMoment != null) ...[
+                              const SizedBox(height: 8),
+                              OutlinedButton(
+                                key: const Key(
+                                  'care-turn-choose-another-moment',
+                                ),
+                                onPressed: widget.onChooseAnotherMoment,
+                                child: const Text('换个场景'),
+                              ),
+                            ],
                           ],
                         ),
                       ),
@@ -480,8 +583,15 @@ class _CareTurnSurfaceState extends State<CareTurnSurface> {
                         ),
                       ),
                     ],
-                    if (nextSupportUtterance != null &&
-                        snapshot.phase == CareTurnPhase.nextSupportReady &&
+                    if (hasConfirmedTrace &&
+                        widget.onRetryTracePersistence != null) ...[
+                      const SizedBox(height: AppLayoutConstants.spacingMd),
+                      FilledButton(
+                        key: const Key('care-turn-retry-trace-persistence'),
+                        onPressed: widget.onRetryTracePersistence,
+                        child: const Text('重新保存记录'),
+                      ),
+                    ] else if (hasConfirmedTrace &&
                         widget.onTraceContinue != null &&
                         widget.traceContinueLabel?.trim().isNotEmpty ==
                             true) ...[
@@ -494,12 +604,17 @@ class _CareTurnSurfaceState extends State<CareTurnSurface> {
                     ],
                     if (widget.showQuietExit) ...[
                       const SizedBox(height: AppLayoutConstants.spacingMd),
-                      Align(
-                        alignment: Alignment.center,
-                        child: TextButton(
-                          key: const Key('care-turn-quiet-exit'),
-                          onPressed: widget.onQuietExit,
-                          child: const Text('先这样就好'),
+                      Semantics(
+                        key: const Key('care-turn-semantics-quiet-exit'),
+                        container: true,
+                        sortKey: OrdinalSortKey(6),
+                        child: Align(
+                          alignment: Alignment.center,
+                          child: TextButton(
+                            key: const Key('care-turn-quiet-exit'),
+                            onPressed: widget.onQuietExit,
+                            child: const Text('先这样就好'),
+                          ),
                         ),
                       ),
                     ],
@@ -536,9 +651,15 @@ class _CareTurnPanel extends StatelessWidget {
 }
 
 class _CareTurnFallbackScaffold extends StatelessWidget {
-  const _CareTurnFallbackScaffold({required this.message});
+  const _CareTurnFallbackScaffold({
+    required this.message,
+    this.onRetryReaction,
+    this.onChooseAnotherMoment,
+  });
 
   final String message;
+  final CareTurnRetryReaction? onRetryReaction;
+  final VoidCallback? onChooseAnotherMoment;
 
   @override
   Widget build(BuildContext context) {
@@ -559,12 +680,34 @@ class _CareTurnFallbackScaffold extends StatelessWidget {
               color: colors.errorSoft,
               borderRadius: BorderRadius.circular(16),
             ),
-            child: Text(
-              message,
-              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                color: colors.error,
-                fontWeight: FontWeight.w700,
-              ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  message,
+                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                    color: colors.error,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                if (onRetryReaction != null) ...[
+                  const SizedBox(height: 16),
+                  FilledButton(
+                    key: const Key('care-turn-retry-reaction'),
+                    onPressed: onRetryReaction,
+                    child: const Text('再试一次'),
+                  ),
+                ],
+                if (onChooseAnotherMoment != null) ...[
+                  const SizedBox(height: 8),
+                  OutlinedButton(
+                    key: const Key('care-turn-choose-another-moment'),
+                    onPressed: onChooseAnotherMoment,
+                    child: const Text('换个场景'),
+                  ),
+                ],
+              ],
             ),
           ),
         ),

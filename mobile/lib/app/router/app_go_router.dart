@@ -18,8 +18,6 @@ GoRouter createAppRouter({
 }) {
   final resolvedOnboardingBuilder =
       onboardingBuilder ?? (context) => const OnboardingFlowScreen();
-  final resolvedAccountBuilder =
-      accountBuilder ?? (context) => const AccountEntryScreen();
 
   return GoRouter(
     navigatorKey: _rootNavigatorKey,
@@ -47,7 +45,11 @@ GoRouter createAppRouter({
       ),
       GoRoute(
         path: AppRouteNames.account,
-        builder: (context, state) => resolvedAccountBuilder(context),
+        builder: (context, state) =>
+            accountBuilder?.call(context) ??
+            AccountEntryScreen(
+              origin: accountEntryOriginFromRouteExtra(state.extra),
+            ),
       ),
     ],
     redirect: (context, state) {

@@ -9,7 +9,6 @@ import 'package:mobile/app/theme/app_theme.dart';
 import 'package:mobile/app/widgets/app_haptics.dart';
 import 'package:mobile/app/widgets/app_toast.dart';
 import 'package:mobile/features/account/data/repositories/account_repository.dart';
-import 'package:mobile/features/account/presentation/account_entry_post_sign_in.dart';
 import 'package:mobile/features/account/presentation/account_notifier.dart';
 import 'package:mobile/features/account/presentation/account_surface_phase.dart';
 import 'package:mobile/features/household/presentation/widgets/household_invite_card.dart';
@@ -19,8 +18,17 @@ import 'package:mobile/l10n/app_localizations.dart';
 
 enum AccountEntryResult { signedIn }
 
-Future<void> openAccountEntryScreen(BuildContext context) {
-  return GoRouter.of(context).push('/account');
+enum AccountEntryOrigin { settings, onboardingContinuation }
+
+AccountEntryOrigin accountEntryOriginFromRouteExtra(Object? value) {
+  return value is AccountEntryOrigin ? value : AccountEntryOrigin.settings;
+}
+
+Future<void> openAccountEntryScreen(
+  BuildContext context, {
+  AccountEntryOrigin origin = AccountEntryOrigin.settings,
+}) {
+  return GoRouter.of(context).push('/account', extra: origin);
 }
 
 String _accountBodyForPhase(
@@ -531,7 +539,12 @@ class _AccountEntrySection extends StatelessWidget {
 }
 
 class AccountEntryScreen extends HookConsumerWidget {
-  const AccountEntryScreen({super.key});
+  const AccountEntryScreen({
+    super.key,
+    this.origin = AccountEntryOrigin.settings,
+  });
+
+  final AccountEntryOrigin origin;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -744,18 +757,12 @@ class AccountEntryScreen extends HookConsumerWidget {
                                                 !succeeded) {
                                               return;
                                             }
-                                            final action =
-                                                await resolveAccountEntryPostSignInAction(
-                                                  ref.read(
-                                                    authContinuationPendingLoaderProvider,
-                                                  ),
-                                                );
                                             if (!context.mounted) {
                                               return;
                                             }
-                                            if (action ==
-                                                AccountEntryPostSignInAction
-                                                    .returnSignedInResult) {
+                                            if (origin ==
+                                                AccountEntryOrigin
+                                                    .onboardingContinuation) {
                                               context.pop(
                                                 AccountEntryResult.signedIn,
                                               );

@@ -97,6 +97,118 @@ void main() {
     );
   });
 
+  testWidgets('reaction retry reuses the original local event ID', (
+    tester,
+  ) async {
+    await harness.pumpAtStep(tester, OnboardingFlowStep.careTurn);
+    harness.failNextReactionWrite();
+
+    await tester.tap(find.byKey(const Key('care-turn-said-button')));
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('care-reaction-hesitant')));
+    await tester.pump();
+
+    expect(find.byKey(const Key('care-turn-retry-reaction')), findsOneWidget);
+    await tester.tap(find.byKey(const Key('care-turn-retry-reaction')));
+    await tester.pumpAndSettle();
+
+    expect(harness.receivedReactionLocalEventIds, <String?>[
+      'evt_onboarding_screen',
+      'evt_onboarding_screen',
+    ]);
+  });
+
+  testWidgets(
+    'trace persistence failure exposes a save retry instead of continue',
+    (tester) async {
+      await harness.pumpAtStep(tester, OnboardingFlowStep.careTurn);
+      harness.failNextConfirmedTracePersistence();
+
+      await tester.tap(find.byKey(const Key('care-turn-said-button')));
+      await tester.pump();
+      await tester.tap(find.byKey(const Key('care-reaction-hesitant')));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const Key('care-turn-retry-trace-persistence')),
+        findsOneWidget,
+      );
+      expect(find.byKey(const Key('care-turn-trace-continue')), findsNothing);
+
+      final retryFinder = find.byKey(
+        const Key('care-turn-retry-trace-persistence'),
+      );
+      await tester.ensureVisible(retryFinder);
+      await tester.tap(retryFinder);
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('care-turn-trace-continue')), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'starter phrase persistence failure recovers without restarting onboarding',
+    (tester) async {
+      await harness.pumpAtStep(tester, OnboardingFlowStep.currentMoment);
+      harness.failNextStarterPhrasePersistence();
+      final moment = harness.notifier.availableMoments.first;
+
+      await tester.tap(
+        find.byKey(
+          Key('onboarding-moment-${moment.spaceId}-${moment.activityId}'),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const Key('care-turn-retry-starter-phrase-persistence')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('care-turn-choose-another-moment')),
+        findsOneWidget,
+      );
+      expect(find.byKey(const Key('care-reaction-hesitant')), findsNothing);
+
+      await tester.tap(
+        find.byKey(const Key('care-turn-retry-starter-phrase-persistence')),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('care-turn-said-button')));
+      await tester.pump();
+      await tester.tap(find.byKey(const Key('care-reaction-hesitant')));
+      await tester.pumpAndSettle();
+
+      expect(harness.receivedReactionLocalEventIds, <String?>[
+        'evt_onboarding_screen',
+      ]);
+    },
+  );
+
+  testWidgets('unavailable moment can return to moment selection', (
+    tester,
+  ) async {
+    await harness.pumpAtStep(tester, OnboardingFlowStep.currentMoment);
+    harness.failNextMomentLoad();
+    final moment = harness.notifier.availableMoments.first;
+
+    await tester.tap(
+      find.byKey(
+        Key('onboarding-moment-${moment.spaceId}-${moment.activityId}'),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const Key('care-turn-choose-another-moment')),
+      findsOneWidget,
+    );
+    await tester.tap(find.byKey(const Key('care-turn-choose-another-moment')));
+    await tester.pumpAndSettle();
+
+    expect(harness.notifier.step, OnboardingFlowStep.currentMoment);
+  });
+
   testWidgets('all M1 actions expose named semantic buttons in flow order', (
     tester,
   ) async {
@@ -208,22 +320,17 @@ void main() {
     semantics.dispose();
   });
 
-  testWidgets(
-    'account save returns from typed account route and enters shell',
-    (tester) async {
-      await harness.pumpAtStep(tester, OnboardingFlowStep.accountInvitation);
+  testWidgets('signed-in account save completes without opening account', (
+    tester,
+  ) async {
+    await harness.pumpAtStep(tester, OnboardingFlowStep.accountInvitation);
 
-      await tester.tap(find.byKey(const Key('onboarding-primary-action')));
-      await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('onboarding-primary-action')));
+    await tester.pumpAndSettle();
 
-      expect(harness.accountRoutePushCount, 1);
-
-      harness.completeAccountRoute(AccountEntryResult.signedIn);
-      await tester.pumpAndSettle();
-
-      expect(harness.shellNavigationCount, 1);
-    },
-  );
+    expect(harness.accountRoutePushCount, 0);
+    expect(harness.shellNavigationCount, 1);
+  });
 
   testWidgets('temporary local choice completes without opening account', (
     tester,
@@ -236,6 +343,48 @@ void main() {
     expect(harness.accountRoutePushCount, 0);
     expect(harness.shellNavigationCount, 1);
   });
+
+  testWidgets(
+    'pending account save disables both exits and opens one account route',
+    (tester) async {
+      await harness.dispose();
+      harness = await OnboardingFlowScreenHarness.create(signedIn: false);
+      await harness.pumpAtStep(tester, OnboardingFlowStep.accountInvitation);
+      final writeGate = harness.holdNextContinuationWrite();
+
+      await tester.tap(find.byKey(const Key('onboarding-primary-action')));
+      await tester.tap(find.byKey(const Key('onboarding-primary-action')));
+      await tester.pump();
+
+      expect(
+        tester
+            .widget<FilledButton>(
+              find.byKey(const Key('onboarding-primary-action')),
+            )
+            .onPressed,
+        isNull,
+      );
+      expect(
+        tester
+            .widget<TextButton>(
+              find.byKey(const Key('onboarding-secondary-action')),
+            )
+            .onPressed,
+        isNull,
+      );
+      expect(harness.continuationWriteCount, 1);
+
+      writeGate.complete();
+      await tester.pumpAndSettle();
+
+      expect(harness.accountRoutePushCount, 1);
+      expect(
+        harness.accountEntryOrigin,
+        AccountEntryOrigin.onboardingContinuation,
+      );
+      expect(harness.shellNavigationCount, 0);
+    },
+  );
 
   testWidgets('1.3 text scale remains scrollable at 390 by 844', (
     tester,

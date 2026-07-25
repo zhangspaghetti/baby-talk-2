@@ -200,11 +200,7 @@ class AppMentorBubble extends StatelessWidget {
               ),
               if (onTap != null) ...[
                 const SizedBox(width: 8),
-                Icon(
-                  Icons.chevron_right,
-                  size: 18,
-                  color: colors.textMuted,
-                ),
+                Icon(Icons.chevron_right, size: 18, color: colors.textMuted),
               ],
             ],
           ),

@@ -98,7 +98,10 @@ void main() {
           report.overallStatus,
           LocalSensitiveDataClearanceOverallStatus.rejectedByGovernance,
         );
-        expect(report.results, hasLength(LocalSensitiveDataTarget.values.length));
+        expect(
+          report.results,
+          hasLength(LocalSensitiveDataTarget.values.length),
+        );
         expect(
           report.results.map((result) => result.status).toSet(),
           <LocalSensitiveDataTargetStatus>{

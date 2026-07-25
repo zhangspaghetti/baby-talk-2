@@ -319,7 +319,8 @@ void main() {
         expect(snapshot.phase, CareTurnPhase.error);
         expect(snapshot.moment.nodeState, CarePathNodeState.unavailable);
         expect(snapshot.currentUtterance, isNull);
-        expect(snapshot.message, isNotNull);
+        expect(snapshot.message, '当前照护内容暂时不可用。');
+        expect(snapshot.message, isNot(contains('care path')));
       },
     );
   });

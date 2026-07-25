@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:mobile/app/providers/repository_providers.dart';
 import 'package:mobile/app/router/app_route_contract.dart';
+import 'package:mobile/features/account/presentation/screens/account_entry_screen.dart';
 import 'package:mobile/features/care_path/presentation/widgets/care_turn_surface.dart';
 import 'package:mobile/features/onboarding/domain/models/onboarding_flow_models.dart';
 import 'package:mobile/features/onboarding/presentation/onboarding_flow_notifier.dart';
@@ -23,6 +24,16 @@ class OnboardingFlowScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final notifier = ref.watch(onboardingFlowNotifierProvider);
     final l = AppLocalizations.of(context)!;
+    final recoveredCompletion = notifier.takeRecoveredCompletion();
+
+    if (recoveredCompletion != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (context.mounted) {
+          context.go(AppRouteNames.shell, extra: recoveredCompletion);
+        }
+      });
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
 
     if (notifier.step == OnboardingFlowStep.careTurn) {
       return CareTurnSurface(
@@ -30,9 +41,21 @@ class OnboardingFlowScreen extends ConsumerWidget {
         audioControllerFactory: audioControllerFactory,
         showQuietExit: false,
         title: l.onboardingCareTurnTitle,
-        onTraceContinue: () => unawaited(notifier.continueFromCareTurn()),
+        onTraceContinue: notifier.flowSnapshot.hasConfirmedTrace
+            ? () => unawaited(notifier.continueFromCareTurn())
+            : null,
         traceContinueLabel: l.onboardingTraceContinue,
         onReactionSelected: notifier.selectReaction,
+        onRetryReaction: notifier.retryReaction,
+        onRetryTracePersistence: notifier.hasPendingTracePersistence
+            ? notifier.retryPersistConfirmedCareTurn
+            : null,
+        onRetryStarterPhrasePersistence:
+            notifier.hasPendingStarterPhrasePersistence
+            ? notifier.retryPersistStarterPhrase
+            : null,
+        onChooseAnotherMoment: () => unawaited(notifier.chooseAnotherMoment()),
+        flowMessage: notifier.message,
         onTraceReady: (_) {},
       );
     }
@@ -53,19 +76,23 @@ class OnboardingFlowScreen extends ConsumerWidget {
       ),
       OnboardingFlowStep.age => OnboardingAgeSelection(
         selected: notifier.flowSnapshot.ageBucket,
+        enabled: !notifier.isTransitioning,
         onSelected: (value) => unawaited(notifier.selectAgeBucket(value)),
       ),
       OnboardingFlowStep.scenePreferences => OnboardingSceneSelection(
         selectedIds: notifier.flowSnapshot.selectedSceneIds,
         moments: notifier.availableMoments,
+        enabled: !notifier.isTransitioning,
         onToggled: (value) => unawaited(notifier.toggleScenePreference(value)),
       ),
       OnboardingFlowStep.supportGoal => OnboardingGoalSelection(
         selected: notifier.flowSnapshot.supportGoal,
+        enabled: !notifier.isTransitioning,
         onSelected: (value) => unawaited(notifier.selectSupportGoal(value)),
       ),
       OnboardingFlowStep.currentMoment => OnboardingMomentSelection(
         moments: notifier.availableMoments,
+        enabled: !notifier.isTransitioning,
         onSelected: (value) => unawaited(notifier.selectCurrentMoment(value)),
       ),
       OnboardingFlowStep.trace => OnboardingTraceStep(
@@ -144,16 +171,28 @@ class OnboardingFlowScreen extends ConsumerWidget {
     BuildContext context,
     OnboardingFlowNotifier notifier,
   ) async {
-    await notifier.beginAccountSave();
+    final alreadyCompleted = await notifier.beginAccountSave();
     if (!context.mounted) {
       return;
     }
-    final result = await context.push<Object?>(AppRouteNames.account);
+    if (alreadyCompleted != null && notifier.takeShellNavigation()) {
+      context.go(AppRouteNames.shell, extra: alreadyCompleted);
+      return;
+    }
+    if (!notifier.takeAccountEntryNavigation()) {
+      return;
+    }
+    final result = await context.push<Object?>(
+      AppRouteNames.account,
+      extra: AccountEntryOrigin.onboardingContinuation,
+    );
     if (!context.mounted) {
       return;
     }
     final completed = await notifier.handleAccountReturn(result);
-    if (completed != null && context.mounted) {
+    if (completed != null &&
+        notifier.takeShellNavigation() &&
+        context.mounted) {
       context.go(AppRouteNames.shell, extra: completed);
     }
   }
@@ -163,7 +202,9 @@ class OnboardingFlowScreen extends ConsumerWidget {
     OnboardingFlowNotifier notifier,
   ) async {
     final completed = await notifier.chooseLocalOnly();
-    if (context.mounted) {
+    if (completed != null &&
+        notifier.takeShellNavigation() &&
+        context.mounted) {
       context.go(AppRouteNames.shell, extra: completed);
     }
   }

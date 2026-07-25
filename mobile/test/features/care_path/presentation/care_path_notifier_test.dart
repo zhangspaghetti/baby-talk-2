@@ -202,7 +202,7 @@ void main() {
 
       expect(notifier.phase, CareTurnPhase.heldWithFallback);
       expect(notifier.viewModel.snapshot, isNull);
-      expect(notifier.message, contains('还没有加载完成'));
+      expect(notifier.message, contains('当前照护内容还没准备好'));
     });
 
     test('reset returns state to idle', () async {

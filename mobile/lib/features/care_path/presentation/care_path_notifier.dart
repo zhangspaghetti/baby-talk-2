@@ -69,7 +69,7 @@ class CarePathNotifier extends ChangeNotifier {
     if (turn == null) {
       _viewModel = _viewModel.copyWith(
         phase: CareTurnPhase.heldWithFallback,
-        message: '当前节点还没有加载完成，无法记录回应。',
+        message: '当前照护内容还没准备好，请稍后再试。',
       );
       notifyListeners();
       return Future.value();
@@ -79,15 +79,16 @@ class CarePathNotifier extends ChangeNotifier {
         turn.copyWith(
           phase: CareTurnPhase.heldWithFallback,
           selectedReaction: reactionType,
-          message: '当前节点没有可记录的 utterance，已保留在安全状态。',
+          message: '当前照护内容暂时无法记录回应。',
+          failureKind: CareTurnFailureKind.reactionRejected,
         ),
       );
       return Future.value();
     }
     if (turn.phase != CareTurnPhase.reactionPrompt) {
       final message = turn.phase == CareTurnPhase.utteranceReady
-          ? '请先说完当前 utterance，再记录回应。'
-          : '当前 turn 已经完成，请加载下一句后再记录回应。';
+          ? '请先说完这句，再记录宝宝的回应。'
+          : '这一句已经完成，请先继续下一句。';
       _applySnapshot(turn.copyWith(message: message));
       return Future.value();
     }
@@ -140,6 +141,32 @@ class CarePathNotifier extends ChangeNotifier {
     );
   }
 
+  Future<void> restorePendingReaction({
+    required String spaceId,
+    required String activityId,
+    required String phraseId,
+    required BabyReactionType reactionType,
+  }) {
+    return _runSnapshotOperation(
+      busyPhase: CareTurnPhase.loading,
+      replaceRunning: true,
+      loader: () => _repository.restorePendingReaction(
+        spaceId: spaceId,
+        activityId: activityId,
+        phraseId: phraseId,
+        reactionType: reactionType,
+      ),
+    );
+  }
+
+  Future<void> restoreConfirmedReaction(InteractionEventPayload event) {
+    return _runSnapshotOperation(
+      busyPhase: CareTurnPhase.loading,
+      replaceRunning: true,
+      loader: () => _repository.restoreConfirmedReaction(event),
+    );
+  }
+
   void resetToSafeEmpty() {
     _operationGeneration += 1;
     _operationFuture = null;
@@ -188,14 +215,21 @@ class CarePathNotifier extends ChangeNotifier {
         return;
       }
       _applySnapshot(nextSnapshot);
-    } catch (error) {
+    } catch (_) {
       if (_disposed || generation != _operationGeneration) {
         return;
       }
-      _viewModel = _viewModel.copyWith(
+      final failedSnapshot = _viewModel.snapshot?.copyWith(
         phase: CareTurnPhase.error,
-        message: 'care path 状态更新失败：$error',
+        message: '暂时无法完成这次回应，请再试一次。',
+        failureKind: CareTurnFailureKind.localStateUnavailable,
       );
+      _viewModel = failedSnapshot == null
+          ? _viewModel.copyWith(
+              phase: CareTurnPhase.error,
+              message: '当前照护内容暂时无法加载。',
+            )
+          : CarePathViewModel.fromSnapshot(failedSnapshot);
       notifyListeners();
     }
   }

@@ -1,8 +1,10 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mobile/features/care_path/data/repositories/care_path_repository.dart';
+import 'package:mobile/features/care_path/domain/models/care_path_models.dart';
 import 'package:mobile/features/care_path/presentation/care_path_notifier.dart';
 import 'package:mobile/features/care_path/presentation/widgets/care_turn_surface.dart';
 import 'package:mobile/features/practice/data/repositories/practice_repository.dart';
@@ -128,11 +130,105 @@ void main() {
 
     expect(selections, <BabyReactionType>[BabyReactionType.hesitant]);
   });
+
+  testWidgets('reaction write failure exposes a retry action', (tester) async {
+    var retried = 0;
+    final errorNotifier = CarePathNotifier(
+      repository: _FailingReactionCarePathRepository(
+        practiceRepository: _MemoryPracticeRepository(),
+      ),
+    );
+    addTearDown(errorNotifier.dispose);
+    await tester.pumpWidget(
+      _surfaceTestApp(
+        notifier: errorNotifier,
+        onRetryReaction: () async => retried += 1,
+      ),
+    );
+
+    await errorNotifier.startMoment(
+      spaceId: 'daily_care',
+      activityId: 'bath_time',
+    );
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('care-turn-said-button')));
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('care-reaction-hesitant')));
+    await tester.pump();
+
+    expect(find.byKey(const Key('care-turn-retry-reaction')), findsOneWidget);
+    expect(find.text('暂时无法完成这次回应，请再试一次。'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('care-turn-retry-reaction')));
+    expect(retried, 1);
+  });
+
+  testWidgets('confirmed fallback trace remains continuable', (tester) async {
+    var continued = 0;
+    final fallbackNotifier = CarePathNotifier(
+      repository: _HeldReactionCarePathRepository(
+        practiceRepository: _MemoryPracticeRepository(),
+      ),
+    );
+    addTearDown(fallbackNotifier.dispose);
+    await tester.pumpWidget(
+      MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: Scaffold(
+          body: CareTurnSurface(
+            notifier: fallbackNotifier,
+            audioControllerFactory: _SilentPracticeAudioController.new,
+            onTraceContinue: () => continued += 1,
+            traceContinueLabel: '继续',
+          ),
+        ),
+      ),
+    );
+
+    await fallbackNotifier.startMoment(
+      spaceId: 'daily_care',
+      activityId: 'bath_time',
+    );
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('care-turn-said-button')));
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('care-reaction-hesitant')));
+    await tester.pump();
+
+    await tester.tap(find.byKey(const Key('care-turn-trace-continue')));
+    expect(continued, 1);
+  });
+
+  testWidgets(
+    'semantic sort order follows the care-turn accessibility contract',
+    (tester) async {
+      await tester.pumpWidget(_surfaceTestApp(notifier: notifier));
+      await notifier.startMoment(
+        spaceId: 'daily_care',
+        activityId: 'bath_time',
+      );
+      await tester.pump();
+      await tester.tap(find.byKey(const Key('care-turn-said-button')));
+      await tester.pump();
+
+      expect(_ordinalSortOrder(tester, 'care-turn-semantics-phrase'), 1);
+      expect(_ordinalSortOrder(tester, 'care-turn-semantics-timing'), 3);
+      expect(_ordinalSortOrder(tester, 'care-turn-semantics-actions'), 4);
+      expect(_ordinalSortOrder(tester, 'care-turn-semantics-reaction'), 5);
+      expect(_ordinalSortOrder(tester, 'care-turn-semantics-quiet-exit'), 6);
+    },
+  );
+}
+
+double _ordinalSortOrder(WidgetTester tester, String key) {
+  final semantics = tester.widget<Semantics>(find.byKey(Key(key)));
+  return (semantics.properties.sortKey! as OrdinalSortKey).order;
 }
 
 Widget _surfaceTestApp({
   required CarePathNotifier notifier,
   CareTurnTraceReady? onTraceReady,
+  CareTurnRetryReaction? onRetryReaction,
 }) {
   return MaterialApp(
     localizationsDelegates: AppLocalizations.localizationsDelegates,
@@ -142,6 +238,7 @@ Widget _surfaceTestApp({
         notifier: notifier,
         audioControllerFactory: _SilentPracticeAudioController.new,
         onTraceReady: onTraceReady,
+        onRetryReaction: onRetryReaction,
         onQuietExit: () {},
       ),
     ),
@@ -162,6 +259,35 @@ class _SilentPracticeAudioController implements PracticeAudioController {
 
   @override
   Future<void> dispose() => _completion.close();
+}
+
+class _FailingReactionCarePathRepository extends CarePathRepository {
+  _FailingReactionCarePathRepository({required super.practiceRepository});
+
+  @override
+  Future<CareTurnSnapshot> recordReaction({
+    required CareTurnSnapshot turn,
+    required BabyReactionType reactionType,
+    DateTime? clientTimestamp,
+    String? localEventId,
+  }) => Future<CareTurnSnapshot>.error(StateError('write failed'));
+}
+
+class _HeldReactionCarePathRepository extends CarePathRepository {
+  _HeldReactionCarePathRepository({required super.practiceRepository});
+
+  @override
+  Future<CareTurnSnapshot> recordReaction({
+    required CareTurnSnapshot turn,
+    required BabyReactionType reactionType,
+    DateTime? clientTimestamp,
+    String? localEventId,
+  }) async => turn.copyWith(
+    phase: CareTurnPhase.heldWithFallback,
+    selectedReaction: reactionType,
+    traceEventKey: 'trace_held_fallback',
+    message: '刚才这句话已经记下了。下一句暂时没有准备好，先这样就好。',
+  );
 }
 
 class _MemoryPracticeRepository implements PracticeRepository {

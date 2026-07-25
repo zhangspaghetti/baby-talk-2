@@ -326,8 +326,10 @@ void main() {
       );
       await _pumpFrames(tester, count: 8);
 
-      expect(find.bySemanticsLabel('Warm water.'), findsOneWidget);
-      expect(find.bySemanticsLabel('温温的水。'), findsOneWidget);
+      expect(
+        find.bySemanticsLabel(RegExp(r'Warm water\.\s*温温的水。', dotAll: true)),
+        findsOneWidget,
+      );
       expect(find.bySemanticsLabel('听一下'), findsOneWidget);
       expect(find.bySemanticsLabel('我说了'), findsOneWidget);
 

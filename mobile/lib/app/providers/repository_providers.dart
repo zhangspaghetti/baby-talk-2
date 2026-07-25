@@ -48,7 +48,6 @@ import 'package:mobile/features/share/data/repositories/share_repository.dart';
 import 'package:mobile/features/share/data/services/share_api_service.dart';
 import 'package:mobile/features/share/data/services/share_sheet_launcher.dart';
 import 'package:mobile/features/account/presentation/account_notifier.dart';
-import 'package:mobile/features/account/presentation/account_entry_post_sign_in.dart';
 import 'package:mobile/features/account/presentation/auth_continuation_coordinator.dart';
 import 'package:mobile/features/household/presentation/household_notifier.dart';
 import 'package:mobile/features/mentor/presentation/mentor_notifier.dart';
@@ -198,12 +197,6 @@ final authContinuationCoordinatorProvider =
       return AuthContinuationCoordinator(
         store: ref.watch(authContinuationStoreProvider),
       );
-    });
-
-final authContinuationPendingLoaderProvider =
-    Provider<AuthContinuationLoader>((ref) {
-      final coordinator = ref.watch(authContinuationCoordinatorProvider);
-      return coordinator.readPending;
     });
 
 final accountRepositoryProvider = FutureProvider<AccountRepository>((
@@ -470,11 +463,6 @@ final onboardingFlowNotifierProvider =
             authContinuationCoordinatorProvider,
           ),
         );
-        ref.listen<AccountNotifier>(accountNotifierProvider, (previous, next) {
-          if (next.isSignedIn && previous?.isSignedIn != true) {
-            unawaited(notifier.recoverSignedInContinuation());
-          }
-        });
         unawaited(notifier.initialize());
         return notifier;
       },

@@ -8,10 +8,12 @@ class OnboardingAgeSelection extends StatelessWidget {
     super.key,
     required this.selected,
     required this.onSelected,
+    this.enabled = true,
   });
 
   final OnboardingAgeBucket? selected;
   final ValueChanged<OnboardingAgeBucket> onSelected;
+  final bool enabled;
 
   @override
   Widget build(BuildContext context) {
@@ -24,7 +26,7 @@ class OnboardingAgeSelection extends StatelessWidget {
               buttonKey: Key('onboarding-age-${_ageKeySuffix(value)}'),
               label: value.label,
               selected: selected == value,
-              onPressed: () => onSelected(value),
+              onPressed: enabled ? () => onSelected(value) : null,
             ),
           )
           .toList(growable: false),
@@ -38,11 +40,13 @@ class OnboardingSceneSelection extends StatelessWidget {
     required this.selectedIds,
     required this.moments,
     required this.onToggled,
+    this.enabled = true,
   });
 
   final List<String> selectedIds;
   final List<OnboardingMomentChoice> moments;
   final ValueChanged<String> onToggled;
+  final bool enabled;
 
   @override
   Widget build(BuildContext context) {
@@ -57,7 +61,7 @@ class OnboardingSceneSelection extends StatelessWidget {
               label: moment.title,
               detail: moment.summary,
               selected: selectedIds.contains(moment.activityId),
-              onPressed: () => onToggled(moment.activityId),
+              onPressed: enabled ? () => onToggled(moment.activityId) : null,
             ),
           )
           .toList(growable: false),
@@ -70,10 +74,12 @@ class OnboardingGoalSelection extends StatelessWidget {
     super.key,
     required this.selected,
     required this.onSelected,
+    this.enabled = true,
   });
 
   final OnboardingSupportGoal? selected;
   final ValueChanged<OnboardingSupportGoal> onSelected;
+  final bool enabled;
 
   @override
   Widget build(BuildContext context) {
@@ -99,7 +105,7 @@ class OnboardingGoalSelection extends StatelessWidget {
               buttonKey: Key('onboarding-goal-${option.$2}'),
               label: option.$3,
               selected: selected == option.$1,
-              onPressed: () => onSelected(option.$1),
+              onPressed: enabled ? () => onSelected(option.$1) : null,
             ),
           )
           .toList(growable: false),
@@ -112,10 +118,12 @@ class OnboardingMomentSelection extends StatelessWidget {
     super.key,
     required this.moments,
     required this.onSelected,
+    this.enabled = true,
   });
 
   final List<OnboardingMomentChoice> moments;
   final ValueChanged<OnboardingMomentChoice> onSelected;
+  final bool enabled;
 
   @override
   Widget build(BuildContext context) {
@@ -131,7 +139,7 @@ class OnboardingMomentSelection extends StatelessWidget {
               label: moment.title,
               detail: moment.summary,
               selected: false,
-              onPressed: () => onSelected(moment),
+              onPressed: enabled ? () => onSelected(moment) : null,
             ),
           )
           .toList(growable: false),
@@ -180,7 +188,7 @@ class _SelectionCard extends StatelessWidget {
   final String label;
   final String? detail;
   final bool selected;
-  final VoidCallback onPressed;
+  final VoidCallback? onPressed;
 
   @override
   Widget build(BuildContext context) {

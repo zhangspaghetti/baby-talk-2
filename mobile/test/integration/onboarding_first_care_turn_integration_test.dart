@@ -78,7 +78,7 @@ void main() {
         await harness.flow.continueFromCareTurn();
         expect(harness.flow.step, OnboardingFlowStep.trace);
         await harness.flow.continueFromTrace();
-        final completed = await harness.flow.chooseLocalOnly();
+        final completed = (await harness.flow.chooseLocalOnly())!;
 
         final events = await harness.practiceRepository.listEventHistory();
         expect(events, hasLength(1));

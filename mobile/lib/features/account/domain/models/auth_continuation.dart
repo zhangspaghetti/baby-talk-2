@@ -32,13 +32,17 @@ final class AuthContinuation {
   factory AuthContinuation.fromJsonMap(Map<String, dynamic> json) {
     final schemaVersion = _requiredInt(json, 'schemaVersion');
     if (schemaVersion != currentSchemaVersion) {
-      throw FormatException('Unsupported auth continuation schema: $schemaVersion');
+      throw FormatException(
+        'Unsupported auth continuation schema: $schemaVersion',
+      );
     }
     final createdAt = _requiredDateTime(json, 'createdAt');
     final expiresAt = _requiredDateTime(json, 'expiresAt');
     final correlationId = _requiredString(json, 'correlationId');
     if (!expiresAt.isAfter(createdAt)) {
-      throw const FormatException('Auth continuation expiry must be after creation.');
+      throw const FormatException(
+        'Auth continuation expiry must be after creation.',
+      );
     }
     return AuthContinuation(
       schemaVersion: schemaVersion,
@@ -60,13 +64,8 @@ final class AuthContinuation {
   }
 
   @override
-  int get hashCode => Object.hash(
-    schemaVersion,
-    intent,
-    correlationId,
-    createdAt,
-    expiresAt,
-  );
+  int get hashCode =>
+      Object.hash(schemaVersion, intent, correlationId, createdAt, expiresAt);
 }
 
 String _intentToWireValue(AuthContinuationIntent intent) {
@@ -85,7 +84,9 @@ AuthContinuationIntent _intentFromWireValue(String value) {
 String _requiredString(Map<String, dynamic> json, String key) {
   final value = json[key];
   if (value is! String || value.trim().isEmpty) {
-    throw FormatException('Auth continuation `$key` must be a non-empty string.');
+    throw FormatException(
+      'Auth continuation `$key` must be a non-empty string.',
+    );
   }
   return value;
 }

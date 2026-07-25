@@ -7,6 +7,7 @@
 - **Baseline commit:** `f8fa0ec70191bc00dd3eed3f6059a87bcd5a8648`
 - **Source bundle:** `Develop-20260723.bundle`
 - **Milestones:** M1 First Care-turn Onboarding, M2 Custom Scene Mobile Loop, M3 Care Path Visual Cohesion
+- **M1 implementation proof:** [verification record](../verification/2026-07-23-m1-first-care-turn-onboarding-verification.md) — automated regressions updated; release gate remains pending formatter, CI, and Android UAT evidence.
 
 ## 1. Purpose
 

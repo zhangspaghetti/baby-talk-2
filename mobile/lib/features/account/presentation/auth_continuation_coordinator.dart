@@ -33,6 +33,10 @@ class AuthContinuationCoordinator {
     return _store.read(now: _clock().toUtc());
   }
 
+  Future<AuthContinuationReadResult> readPendingResult() {
+    return _store.readResult(now: _clock().toUtc());
+  }
+
   Future<void> clear() => _store.deleteIfExists();
 
   static String _defaultId() {
