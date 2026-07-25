@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:mobile/app/router/account_entry_route_contract.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobile/app/providers/repository_providers.dart';
 import 'package:mobile/features/account/data/local/account_local_store.dart';
@@ -12,7 +13,6 @@ import 'package:mobile/features/account/domain/models/auth_continuation.dart';
 import 'package:mobile/features/account/domain/models/account_session.dart';
 import 'package:mobile/features/account/presentation/account_notifier.dart';
 import 'package:mobile/features/account/presentation/auth_continuation_coordinator.dart';
-import 'package:mobile/features/account/presentation/screens/account_entry_screen.dart';
 import 'package:mobile/features/care_path/data/repositories/care_path_repository.dart';
 import 'package:mobile/features/care_path/domain/models/care_path_models.dart';
 import 'package:mobile/features/care_path/presentation/care_path_notifier.dart';

@@ -4,6 +4,7 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:mobile/app/providers/repository_providers.dart';
+import 'package:mobile/app/router/account_entry_route_contract.dart';
 import 'package:mobile/app/theme/app_layout_constants.dart';
 import 'package:mobile/app/theme/app_theme.dart';
 import 'package:mobile/app/widgets/app_haptics.dart';
@@ -15,14 +16,6 @@ import 'package:mobile/features/household/presentation/widgets/household_invite_
 import 'package:mobile/features/household/presentation/widgets/household_shared_context_card.dart';
 import 'package:mobile/features/onboarding/domain/models/onboarding_snapshot.dart';
 import 'package:mobile/l10n/app_localizations.dart';
-
-enum AccountEntryResult { signedIn }
-
-enum AccountEntryOrigin { settings, onboardingContinuation }
-
-AccountEntryOrigin accountEntryOriginFromRouteExtra(Object? value) {
-  return value is AccountEntryOrigin ? value : AccountEntryOrigin.settings;
-}
 
 Future<void> openAccountEntryScreen(
   BuildContext context, {

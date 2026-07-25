@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:mobile/app/router/account_entry_route_contract.dart';
 import 'package:mobile/app/router/app_route_contract.dart';
 
 import 'package:mobile/features/account/presentation/screens/account_entry_screen.dart';

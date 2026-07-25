@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mobile/features/account/presentation/screens/account_entry_screen.dart';
+import 'package:mobile/app/router/account_entry_route_contract.dart';
 import 'package:mobile/features/onboarding/domain/models/onboarding_flow_models.dart';
 
 import 'onboarding_flow_screen_test_support.dart';

@@ -2,11 +2,11 @@ import 'dart:async';
 import 'dart:math';
 
 import 'package:flutter/foundation.dart';
+import 'package:mobile/app/router/account_entry_route_contract.dart';
 import 'package:mobile/features/account/data/local/auth_continuation_store.dart';
 import 'package:mobile/features/account/domain/models/auth_continuation.dart';
 import 'package:mobile/features/account/presentation/account_notifier.dart';
 import 'package:mobile/features/account/presentation/auth_continuation_coordinator.dart';
-import 'package:mobile/features/account/presentation/screens/account_entry_screen.dart';
 import 'package:mobile/features/care_path/domain/models/care_path_models.dart';
 import 'package:mobile/features/care_path/presentation/care_path_notifier.dart';
 import 'package:mobile/features/onboarding/data/repositories/onboarding_repository.dart';

@@ -7,6 +7,7 @@ import 'package:mobile/app/auth_state.dart';
 import 'package:mobile/app/feature_gates.dart';
 import 'package:mobile/l10n/app_localizations.dart';
 import 'package:mobile/app/invite_reentry_coordinator.dart';
+import 'package:mobile/app/router/account_entry_route_contract.dart';
 import 'package:mobile/app/router/app_route_contract.dart';
 import 'package:mobile/app/share_reentry_coordinator.dart';
 import 'package:mobile/app/theme/app_layout_constants.dart';
