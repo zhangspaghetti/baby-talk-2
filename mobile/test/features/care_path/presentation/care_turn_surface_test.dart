@@ -282,6 +282,28 @@ void main() {
       semanticsHandle.dispose();
     },
   );
+
+  testWidgets('care-turn title is visual only, not an extra TalkBack stop', (
+    tester,
+  ) async {
+    final semanticsHandle = tester.ensureSemantics();
+    await tester.pumpWidget(_surfaceTestApp(notifier: notifier));
+    await notifier.startMoment(
+      spaceId: 'daily_care',
+      activityId: 'bath_time',
+    );
+    await tester.pump();
+
+    final rootSemantics = tester.widget<Semantics>(
+      find.byKey(const Key('care-turn-semantics-root')),
+    );
+    expect(rootSemantics.properties.label, isNull);
+    expect(
+      find.byKey(const Key('care-turn-appbar-title-exclude')),
+      findsOneWidget,
+    );
+    semanticsHandle.dispose();
+  });
 }
 
 double _ordinalSortOrder(WidgetTester tester, String key) {

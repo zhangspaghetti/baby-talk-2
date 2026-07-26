@@ -240,11 +240,14 @@ class _CareTurnSurfaceState extends State<CareTurnSurface> {
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         surfaceTintColor: Colors.transparent,
-        title: Text(surfaceTitle),
+        title: ExcludeSemantics(
+          key: const Key('care-turn-appbar-title-exclude'),
+          child: Text(surfaceTitle),
+        ),
       ),
       body: SafeArea(
         child: Semantics(
-          label: surfaceTitle,
+          key: const Key('care-turn-semantics-root'),
           explicitChildNodes: true,
           child: Align(
             alignment: Alignment.topCenter,
