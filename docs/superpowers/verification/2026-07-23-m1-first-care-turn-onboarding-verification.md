@@ -1,10 +1,11 @@
 # M1 First Care-turn Onboarding Verification
 
 - Baseline: `c40c446d0e0bf2b4071233d314c863f0e9c12856` (`origin/Develop` merge base).
-- Implementation commits: `9e205f34`, `da366368`, `deddafe9`, `a91c92dd`, `b08b6210`, `a05db2fa`, route-contract remediation `a92d32f5`, and starter-persistence remediation `88600e7`.
+- Verified code SHA: `eb7aa6d8c517ab9085b32a5f5972f0a2331a8b78`.
+- Implementation commits include route-contract remediation `a92d32f5`, starter-persistence remediation `88600e7`, deterministic unknown-outcome UAT `48c43dc5`, and Care Turn accessibility remediations through `eb7aa6d8`.
 - Review remediation: `88600e7` replaces the derived starter-persistence flag with explicit `idle` / `saving` / `failed` / `saved` state, adds delayed-success and true-failure regressions, and emits debug-only, redacted persistence diagnostics, 2026-07-26.
 - Flutter version: Flutter 3.44.0 / Dart 3.12.0.
-- Android build: debug APK from `88600e7` installed on the `Pixel_9_Pro` Android emulator (API device `emulator-5554`, Android 15), 2026-07-26.
+- Android UAT device: `emulator-5554`, Android 15, system image model `sdk_gphone64_x86_64`; TalkBack `15.0.0.639625893`, 2026-07-26. The original AVD is named Pixel 9 Pro.
 
 References: [approved roadmap spec](../specs/2026-07-23-duolingo-like-care-path-three-milestone-roadmap-design.md), [M1 implementation plan](../plans/2026-07-23-m1-first-care-turn-onboarding.md), and [first-care-turn integration test](../../../mobile/test/integration/onboarding_first_care_turn_integration_test.dart).
 
@@ -26,9 +27,18 @@ References: [approved roadmap spec](../specs/2026-07-23-duolingo-like-care-path-
 | Local repository CI | `bash ci/full-ci.sh` | Pass | Clean code SHA `88600e7` completed backend, admin, mobile, formatter, R4, diff-check, and final-cleanliness gates. The first run exposed an unrelated flaky admin overview-client test; its isolated retry passed, and the clean full rerun passed. |
 | Review remediation regressions | account entry, notifier, continuation store, and onboarding screen suites | Pass (56) | Fresh 2026-07-25 run covers real Account router return after a continuation I/O failure, expired-return completion, origin forwarding, account-exit exclusivity, write/delete serialization, typed read recovery, disabled invitation actions, and prior recovery regressions. |
 
+## Final clean-SHA automated evidence
+
+| Gate | Command | Result |
+| --- | --- | --- |
+| Static analysis | `flutter analyze` | Pass: clean code SHA `eb7aa6d8`, 0 issues. |
+| Whole mobile suite | `flutter test --concurrency=1 --reporter compact` | Pass: 701 tests, 0 failures. |
+| Repository CI | `bash ci/full-ci.sh` | Pass: exit 0; R4 forbidden candidates `30`; changed Dart files format-clean; historical baseline `69`; final-cleanliness passed. |
+| Diff / tree | `git diff --check`; `git status --short` | Pass before this evidence-document update: both commands had no output. |
+
 ## Starter-persistence diagnosis
 
-The Android happy-path panel was not a filesystem failure. The old derived condition treated the normal interval between the first `careTurn` snapshot write and the second `starterPhraseId` write as a failure. On the affected run, the final durable snapshot contained `starterPhraseId: bedtime_dim_the_lights` and there was no `.tmp` file.
+The Android happy-path panel was not a filesystem failure. The old derived condition treated the normal interval between the first `careTurn` snapshot write and the second `starterPhraseId` write as a failure. On the affected run, the final durable snapshot contained the expected starter phrase ID and there was no `.tmp` file.
 
 `88600e7` models that interval explicitly: `idle → saving → saved`, with `failed` entered only when the second write throws. During the delayed-success regression and fresh Android run, the UI presents the neutral `正在保存这句话…` state and disables `我说了`; it automatically enables the control after `saved`. A genuine write failure alone exposes `重新保存并继续`.
 
@@ -66,13 +76,13 @@ Debug builds emit redacted stages only: `transition_saved`, `care_turn_started`,
 | Expired onboarding continuation does not strand a signed-in user | `handleAccountReturn` completes a flow with a confirmed trace for `expired` or `notFound`; cold-start recovery still requires an available save intent | Pass |
 | Continuation file mutations are serialized | `AuthContinuationStore._enqueueMutation`; concurrent write/delete regression leaves no shared temporary file | Pass |
 | Formatter baseline only shrinks | `mobile-format-changed.sh` requires `actual debt == current baseline` and `current baseline ⊆ merge-base baseline`; `full-ci.sh` injects `MERGE_BASE_SHA` | Pass in script regression |
-| TalkBack traversal contract | `care_turn_surface_test.dart` asserts `CareTurnSurface` semantic sort keys for main phrase → Chinese → timing → listen → reaction → quiet exit | Pass in widget and Android hierarchy; actual spoken traversal remains incomplete |
+| TalkBack traversal structure | `care_turn_surface_test.dart` asserts separate English and Chinese focus nodes, semantic sort keys, and no duplicate Care Turn title focus | Pass in widget and Android hierarchy; actual spoken traversal remains incomplete |
 
 ## Device UAT
 
 | Device/state | Result | Evidence |
 | --- | --- | --- |
-| Pixel 9 Pro emulator | Pass — starter happy path | After clearing app data and installing `88600e7`, fresh onboarding reached `Dim the lights.` with no recovery panel; the durable flow snapshot contained `starterPhraseId`, no starter `.tmp` file remained, and debug logs recorded `transition_saved → care_turn_started → starter_save_started → starter_save_succeeded`. |
+| Pixel 9 Pro emulator | Pass — starter happy path | After clearing app data and installing `88600e7`, fresh onboarding reached the starter phrase with no recovery panel; the durable flow snapshot contained `starterPhraseId`, no starter `.tmp` file remained, and debug logs recorded `transition_saved → care_turn_started → starter_save_started → starter_save_succeeded`. |
 | Fresh Case A: save account → sign in → Today | Pass | A new user completed Care Turn, saved to account, signed in with the local UAT account, popped once back through onboarding, and reached Today. No stuck Account page or white screen occurred. |
 | Fresh Case B: local-only → Today | Pass | `暂时不用` reached Today with the flow and continuation files absent and the completed onboarding snapshot present. |
 | Fresh Case C: double-tap account save | Pass — device smoke | Rapid double tap opened one Account page and produced one continuation file; notifier/screen regressions separately prove the single write/navigation invariant. |
@@ -83,12 +93,12 @@ Debug builds emit redacted stages only: `transition_saved`, `care_turn_started`,
 | Seed audio | Pass | `听一下` acquired Android audio focus, completed, restored its enabled state, and exposed `已听过一次`. |
 | Care Turn accessibility hierarchy | Pass — hierarchy evidence | Android accessibility tree exposes ordered phrase+Chinese, timing, `听一下`, `我说了`, then reaction entry. Actual TalkBack speech navigation remains pending. |
 | Reaction and Garden trace | Pass | A canonical reaction produced next support and a real Garden trace before entering trace and Today. |
-| Pending unknown-outcome kill/recovery | Partial — pre-write interruption observed | A timed force-stop left an onboarding-flow `.tmp` containing the pending identity while the durable snapshot remained unchanged. Inspecting copied local Isar found zero interaction events, proving the process died before reaction write. This did not reach the required "event written, response lost" window; automated real-Isar recovery remains the evidence for that exact case. |
-| Reaction write failure and same-ID retry | Not run on device | Deterministic repository/notifier/widget tests cover it; no device fault injection was introduced. |
+| Deterministic unknown-outcome / same-ID retry | Pass — Android debug UAT | Fresh local onboarding used `BABY_TALK_UAT=true` and `M1_UAT_REACTION_RESPONSE_MODE=response_lost_once`. The formal repository chain wrote the real event before the harness discarded only the first response. The page showed safe unknown-outcome copy, preserved the selected canonical reaction, and exposed retry. Redacted diagnostics before retry: pending local event ID stable; interaction event count `1`. After retry: count `1`; resolved event ID equals pending ID `true`; immutable facts match `true`; Garden trace produced `true`; trace persisted `true`. |
 
 ## Known limitations
 
-- Full release UAT remains outstanding: narrow/large viewport matrix, 1.3× device text, reduced motion, actual TalkBack speech navigation and return focus, Bluetooth/audio-focus interruptions, generated TTS, and the device-level "event written, response lost" unknown-outcome/same-ID-retry injection.
+- The sole M1 release blocker is actual human TalkBack listening and touch-exploration evidence for Care Turn traversal, Account return focus, and unknown-outcome retry focus. It cannot be inferred from UIAutomator or widget semantics.
+- Deferred to M2/M3: generated TTS; Bluetooth and complete audio-focus interruption matrix; 390×844 / 427×952 full visual matrix; 1.3× full-page matrix; reduced-motion full-page matrix; and product-wide TalkBack traversal.
 - The release-verification run deliberately cleared emulator app data. UIAutomator was intermittently unable to return a root node immediately after launch, so coordinate input was used only to advance the fresh flow; semantic hierarchy and persisted-file checks were captured once the view was available. This is not a substitute for TalkBack or full end-to-end UAT.
 - The whole-repository Dart formatter still reports 69 historical files. `ci/mobile-format-changed.sh` requires the baseline to exactly equal that debt and only shrink relative to the full-CI merge base; this stage passed in the clean-SHA full-CI run. R4 release policy also passed and is not a remaining blocker.
-- Clean code SHA `88600e7` full CI is green. R4 is passing at the hard budget of 30 and is not a blocker. M1 remains not release-ready until the remaining actual-TalkBack and exact unknown-outcome/same-ID-retry device evidence is complete.
+- Clean code SHA `eb7aa6d8` full CI is green. R4 is passing at the hard budget of 30 and is not a blocker. M1 remains **NOT RELEASE READY** until the remaining actual-TalkBack evidence is recorded by a human listener.
