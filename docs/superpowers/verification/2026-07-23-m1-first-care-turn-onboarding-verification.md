@@ -2,6 +2,7 @@
 
 - Baseline: `c40c446d0e0bf2b4071233d314c863f0e9c12856` (`origin/Develop` merge base).
 - Verified code SHA: `eb7aa6d8c517ab9085b32a5f5972f0a2331a8b78`.
+- Verification-document evidence base SHA: `3a952e0ebdad743ae75ceb12202c3815aad1a0ba` (the post-code evidence commit).
 - Implementation commits include route-contract remediation `a92d32f5`, starter-persistence remediation `88600e7`, deterministic unknown-outcome UAT `48c43dc5`, and Care Turn accessibility remediations through `eb7aa6d8`.
 - Review remediation: `88600e7` replaces the derived starter-persistence flag with explicit `idle` / `saving` / `failed` / `saved` state, adds delayed-success and true-failure regressions, and emits debug-only, redacted persistence diagnostics, 2026-07-26.
 - Flutter version: Flutter 3.44.0 / Dart 3.12.0.
