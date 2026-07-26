@@ -8,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
 
 import 'package:mobile/app/local_sensitive_data_clearance_registry.dart';
+import 'package:mobile/app/uat/m1_onboarding_response_loss_harness.dart';
 import 'package:mobile/core/device/installation_id_service.dart';
 import 'package:mobile/core/local_data_lifecycle/local_sensitive_data_clearance.dart';
 import 'package:mobile/core/local_data_lifecycle/local_sensitive_data_backup_protection.dart';
@@ -433,9 +434,13 @@ final gardenGrowthNotifierProvider =
 
 final carePathRepositoryProvider = Provider<CarePathRepository>((ref) {
   final practiceRepository = ref.watch(practiceRepositoryProvider).requireValue;
+  final responseLossHarness = M1OnboardingResponseLossHarness.fromDartDefines(
+    practiceRepository: practiceRepository,
+  );
   return CarePathRepository(
     practiceRepository: practiceRepository,
     gardenGrowthRepository: ref.watch(gardenGrowthRepositoryProvider),
+    onReactionRecorded: responseLossHarness?.afterReactionRecorded,
   );
 }, dependencies: [practiceRepositoryProvider, gardenGrowthRepositoryProvider]);
 

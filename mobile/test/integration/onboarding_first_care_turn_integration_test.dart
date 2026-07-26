@@ -126,6 +126,97 @@ void main() {
       expect(events.single.reactionType, BabyReactionType.hesitant);
       expect(retry.traceEventKey, first.traceEventKey);
     });
+
+    test(
+      'a written reaction whose response is lost reconciles after notifier recreation',
+      () async {
+        var responseLossCalls = 0;
+        final harness = await _M1FirstCareTurnHarness.create(
+          suffix: 'response_lost_recovery',
+          localEventId: 'evt_m1_response_lost',
+          onReactionRecorded: (_) async {
+            responseLossCalls += 1;
+            if (responseLossCalls == 1) {
+              throw const CarePathResponseLostException();
+            }
+          },
+        );
+        addTearDown(harness.dispose);
+
+        await harness.flow.initialize();
+        await harness.flow.continueFromWelcome();
+        await harness.flow.selectAgeBucket(OnboardingAgeBucket.oneToTwo);
+        await harness.flow.continueFromAge();
+        await harness.flow.toggleScenePreference('bedtime');
+        await harness.flow.continueFromScenePreferences();
+        await harness.flow.selectSupportGoal(OnboardingSupportGoal.moreNatural);
+        await harness.flow.continueFromSupportGoal();
+        final bedtimeChoice = harness.flow.availableMoments.singleWhere(
+          (moment) => moment.activityId == 'bedtime',
+        );
+        await harness.flow.selectCurrentMoment(bedtimeChoice);
+        harness.flow.markSaid();
+        await harness.flow.selectReaction(BabyReactionType.hesitant);
+
+        expect(harness.carePathNotifier.phase, CareTurnPhase.error);
+        expect(harness.flow.careTurn?.message, '刚才的回应可能已经保存，正在确认。请再试一次。');
+        expect(
+          harness.flow.flowSnapshot.pendingLocalEventId,
+          'evt_m1_response_lost',
+        );
+        expect(
+          harness.flow.flowSnapshot.selectedReaction,
+          BabyReactionType.hesitant,
+        );
+        final beforeRestart = await harness.practiceRepository
+            .listEventHistory();
+        expect(beforeRestart, hasLength(1));
+        expect(beforeRestart.single.localEventId, 'evt_m1_response_lost');
+
+        harness.disposeOriginalNotifiers();
+        final recoveredCarePathNotifier = CarePathNotifier(
+          repository: CarePathRepository(
+            practiceRepository: harness.practiceRepository,
+            gardenGrowthRepository: GardenGrowthRepository(
+              practiceRepository: harness.practiceRepository,
+              assetPhraseService: harness.assetPhraseService,
+            ),
+          ),
+        );
+        final recoveredFlow = OnboardingFlowNotifier(
+          onboardingRepository: harness.onboardingRepository,
+          practiceRepository: harness.practiceRepository,
+          carePathNotifier: recoveredCarePathNotifier,
+          accountNotifier: harness.accountNotifier,
+          authContinuationCoordinator: AuthContinuationCoordinator(
+            store: AuthContinuationStore(
+              directoryResolver: () async => harness.tempDirectory,
+            ),
+          ),
+          clock: () => DateTime.utc(2026, 7, 24, 12),
+          localEventIdGenerator: () => 'evt_m1_response_lost',
+        );
+        addTearDown(() {
+          recoveredFlow.dispose();
+          recoveredCarePathNotifier.dispose();
+        });
+
+        await recoveredFlow.initialize();
+
+        final afterRestart = await harness.practiceRepository
+            .listEventHistory();
+        expect(afterRestart, hasLength(1));
+        expect(afterRestart.single.localEventId, 'evt_m1_response_lost');
+        expect(recoveredFlow.flowSnapshot.pendingLocalEventId, isNull);
+        expect(
+          recoveredFlow.flowSnapshot.traceEventKey,
+          afterRestart.single.eventKey,
+        );
+        expect(recoveredFlow.careTurn?.phase, CareTurnPhase.nextSupportReady);
+        expect(recoveredFlow.careTurn?.nextSupportUtterance, isNotNull);
+        expect(recoveredFlow.careTurn?.latestGardenImpact, isNotNull);
+      },
+    );
   });
 }
 
@@ -133,6 +224,8 @@ class _M1FirstCareTurnHarness {
   _M1FirstCareTurnHarness({
     required this.tempDirectory,
     required this.practiceRepository,
+    required this.assetPhraseService,
+    required this.onboardingRepository,
     required this.carePathRepository,
     required this.carePathNotifier,
     required this.accountNotifier,
@@ -141,14 +234,27 @@ class _M1FirstCareTurnHarness {
 
   final Directory tempDirectory;
   final PracticeRepository practiceRepository;
+  final AssetPhraseService assetPhraseService;
+  final OnboardingRepository onboardingRepository;
   final CarePathRepository carePathRepository;
   final CarePathNotifier carePathNotifier;
   final AccountNotifier accountNotifier;
   final OnboardingFlowNotifier flow;
+  var _originalNotifiersDisposed = false;
+
+  void disposeOriginalNotifiers() {
+    if (_originalNotifiersDisposed) {
+      return;
+    }
+    _originalNotifiersDisposed = true;
+    flow.dispose();
+    carePathNotifier.dispose();
+  }
 
   static Future<_M1FirstCareTurnHarness> create({
     required String suffix,
     required String localEventId,
+    CarePathReactionRecordedHook? onReactionRecorded,
   }) async {
     final tempDirectory = await Directory.systemTemp.createTemp(
       'm1_first_care_turn_$suffix',
@@ -172,6 +278,7 @@ class _M1FirstCareTurnHarness {
     final carePathRepository = CarePathRepository(
       practiceRepository: practiceRepository,
       gardenGrowthRepository: gardenGrowthRepository,
+      onReactionRecorded: onReactionRecorded,
     );
     final carePathNotifier = CarePathNotifier(repository: carePathRepository);
     final onboardingRepository = OnboardingRepository(
@@ -204,6 +311,8 @@ class _M1FirstCareTurnHarness {
     return _M1FirstCareTurnHarness(
       tempDirectory: tempDirectory,
       practiceRepository: practiceRepository,
+      assetPhraseService: assetPhraseService,
+      onboardingRepository: onboardingRepository,
       carePathRepository: carePathRepository,
       carePathNotifier: carePathNotifier,
       accountNotifier: accountNotifier,
@@ -212,8 +321,7 @@ class _M1FirstCareTurnHarness {
   }
 
   Future<void> dispose() async {
-    flow.dispose();
-    carePathNotifier.dispose();
+    disposeOriginalNotifiers();
     accountNotifier.dispose();
     await practiceRepository.close(deleteFromDisk: true);
     if (await tempDirectory.exists()) {

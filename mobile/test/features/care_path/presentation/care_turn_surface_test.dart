@@ -162,6 +162,44 @@ void main() {
     expect(retried, 1);
   });
 
+  testWidgets(
+    'response-lost outcome preserves the phrase and selected reaction for retry',
+    (tester) async {
+      var retried = 0;
+      final responseLostNotifier = CarePathNotifier(
+        repository: CarePathRepository(
+          practiceRepository: _MemoryPracticeRepository(),
+          onReactionRecorded: (_) async {
+            throw const CarePathResponseLostException();
+          },
+        ),
+      );
+      addTearDown(responseLostNotifier.dispose);
+      await tester.pumpWidget(
+        _surfaceTestApp(
+          notifier: responseLostNotifier,
+          onRetryReaction: () async => retried += 1,
+        ),
+      );
+
+      await responseLostNotifier.startMoment(
+        spaceId: 'daily_care',
+        activityId: 'bath_time',
+      );
+      await tester.pump();
+      await tester.tap(find.byKey(const Key('care-turn-said-button')));
+      await tester.pump();
+      await tester.tap(find.byKey(const Key('care-reaction-hesitant')));
+      await tester.pump();
+
+      expect(find.text('刚才的回应可能已经保存，正在确认。请再试一次。'), findsOneWidget);
+      expect(find.text('Warm water.'), findsOneWidget);
+      expect(find.text('已选：犹豫'), findsOneWidget);
+      await tester.tap(find.byKey(const Key('care-turn-retry-reaction')));
+      expect(retried, 1);
+    },
+  );
+
   testWidgets('confirmed fallback trace remains continuable', (tester) async {
     var continued = 0;
     final fallbackNotifier = CarePathNotifier(

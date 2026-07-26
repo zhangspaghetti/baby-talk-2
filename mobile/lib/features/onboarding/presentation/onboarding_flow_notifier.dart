@@ -364,12 +364,20 @@ class OnboardingFlowNotifier extends ChangeNotifier {
       localEventId!,
     );
     if (existing != null) {
-      if (!_matchesPendingCareTurn(existing)) {
+      final immutableFactsMatch = _matchesPendingCareTurn(existing);
+      if (!immutableFactsMatch) {
         await _setMessage('这次回应与已保存记录不一致，请换一个场景再试。');
         return;
       }
+      final resolvedEventMatchesPending = existing.localEventId == localEventId;
       await _carePathNotifier.restoreConfirmedReaction(existing);
-      await _persistConfirmedCareTurn();
+      final tracePersisted = await _persistConfirmedCareTurn();
+      await _recordUnknownOutcomeReconciliation(
+        event: existing,
+        tracePersisted: tracePersisted,
+        resolvedEventMatchesPending: resolvedEventMatchesPending,
+        immutableFactsMatch: immutableFactsMatch,
+      );
       return;
     }
 
@@ -386,6 +394,41 @@ class OnboardingFlowNotifier extends ChangeNotifier {
         event.activityId == _flowSnapshot.selectedActivityId &&
         event.phraseId == _flowSnapshot.starterPhraseId &&
         event.reactionType == _flowSnapshot.selectedReaction;
+  }
+
+  Future<void> _recordUnknownOutcomeReconciliation({
+    required InteractionEventPayload event,
+    required bool tracePersisted,
+    required bool resolvedEventMatchesPending,
+    required bool immutableFactsMatch,
+  }) async {
+    if (!kDebugMode && !kProfileMode) {
+      return;
+    }
+    try {
+      final inspection = await _practiceRepository.inspectEventLog(
+        spaceId: event.spaceId,
+        activityId: event.activityId,
+      );
+      final traceProduced =
+          _carePathNotifier.snapshot?.traceEventKey?.trim().isNotEmpty == true;
+      debugPrint(
+        'm1_uat_unknown_outcome '
+        'stage=reconciled '
+        'pendingLocalEventId=stable '
+        'interactionEventCount=${inspection.validEvents.length} '
+        'resolvedEventIdEqualsPending=$resolvedEventMatchesPending '
+        'immutableFactsMatch=$immutableFactsMatch '
+        'gardenTraceProduced=$traceProduced '
+        'tracePersisted=$tracePersisted',
+      );
+    } catch (error) {
+      debugPrint(
+        'm1_uat_unknown_outcome '
+        'stage=reconciliation_diagnostics_failed '
+        'failureType=${error.runtimeType}',
+      );
+    }
   }
 
   Future<bool> _persistStarterPhraseFromCareTurn() async {

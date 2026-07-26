@@ -6,15 +6,29 @@ import 'package:mobile/features/practice/domain/models/interaction_event_payload
 import 'package:mobile/features/practice/domain/models/practice_activity_catalog.dart';
 import 'package:mobile/features/practice/domain/models/practice_phrase.dart';
 
+typedef CarePathReactionRecordedHook =
+    Future<void> Function(InteractionEventPayload event);
+
+/// Signals a response which was durably recorded but deliberately withheld.
+///
+/// The only caller is the debug/profile UAT harness. Production repository
+/// behavior never creates this exception.
+class CarePathResponseLostException implements Exception {
+  const CarePathResponseLostException();
+}
+
 class CarePathRepository {
   CarePathRepository({
     required PracticeRepository practiceRepository,
     GardenGrowthRepository? gardenGrowthRepository,
+    CarePathReactionRecordedHook? onReactionRecorded,
   }) : _practiceRepository = practiceRepository,
-       _gardenGrowthRepository = gardenGrowthRepository;
+       _gardenGrowthRepository = gardenGrowthRepository,
+       _onReactionRecorded = onReactionRecorded;
 
   final PracticeRepository _practiceRepository;
   final GardenGrowthRepository? _gardenGrowthRepository;
+  final CarePathReactionRecordedHook? _onReactionRecorded;
 
   Future<CareTurnSnapshot> loadCurrentTurn({
     String? starterSpaceId,
@@ -126,6 +140,7 @@ class CarePathRepository {
         clientTimestamp: clientTimestamp,
         localEventId: localEventId,
       );
+      await _onReactionRecorded?.call(event);
       final nextTurn = await startMoment(
         spaceId: turn.moment.spaceId,
         activityId: turn.moment.activityId,
@@ -149,6 +164,13 @@ class CarePathRepository {
         traceEventKey: event.eventKey,
         latestGardenImpact: latestGardenImpact,
         message: nextTurn.message,
+      );
+    } on CarePathResponseLostException {
+      return turn.copyWith(
+        phase: CareTurnPhase.error,
+        selectedReaction: reactionType,
+        message: '刚才的回应可能已经保存，正在确认。请再试一次。',
+        failureKind: CareTurnFailureKind.reactionUnknownOutcome,
       );
     } catch (_) {
       return turn.copyWith(

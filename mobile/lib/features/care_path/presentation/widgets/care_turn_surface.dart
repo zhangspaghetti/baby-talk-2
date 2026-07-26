@@ -214,6 +214,8 @@ class _CareTurnSurfaceState extends State<CareTurnSurface> {
         message: widget.flowMessage?.trim().isNotEmpty == true
             ? widget.flowMessage!
             : message,
+        utterance: snapshot.currentUtterance,
+        selectedReaction: snapshot.selectedReaction,
         onRetryReaction: snapshot.selectedReaction == null
             ? null
             : widget.onRetryReaction,
@@ -681,17 +683,26 @@ class _CareTurnPanel extends StatelessWidget {
 class _CareTurnFallbackScaffold extends StatelessWidget {
   const _CareTurnFallbackScaffold({
     required this.message,
+    this.utterance,
+    this.selectedReaction,
     this.onRetryReaction,
     this.onChooseAnotherMoment,
   });
 
   final String message;
+  final CareUtterance? utterance;
+  final BabyReactionType? selectedReaction;
   final CareTurnRetryReaction? onRetryReaction;
   final VoidCallback? onChooseAnotherMoment;
 
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
+    final selectedReactionLabel = selectedReaction == null
+        ? null
+        : sceneReactionOptions(
+            null,
+          ).firstWhere((option) => option.type == selectedReaction).label;
     return Scaffold(
       appBar: AppBar(
         backgroundColor: Colors.transparent,
@@ -712,13 +723,63 @@ class _CareTurnFallbackScaffold extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(
-                  message,
-                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                    color: colors.error,
-                    fontWeight: FontWeight.w700,
+                Semantics(
+                  liveRegion: true,
+                  label: message,
+                  child: ExcludeSemantics(
+                    child: Text(
+                      message,
+                      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                        color: colors.error,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
                   ),
                 ),
+                if (utterance != null) ...[
+                  const SizedBox(height: 16),
+                  Container(
+                    key: const Key('care-turn-response-lost-context'),
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: colors.bgSurface,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          utterance!.english,
+                          style: Theme.of(context).textTheme.titleMedium
+                              ?.copyWith(
+                                color: colors.textPrimary,
+                                fontWeight: FontWeight.w700,
+                              ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          utterance!.chinese,
+                          style: Theme.of(context).textTheme.bodyMedium
+                              ?.copyWith(color: colors.textSecondary),
+                        ),
+                        if (selectedReactionLabel != null) ...[
+                          const SizedBox(height: 8),
+                          Semantics(
+                            label: '已选回应：$selectedReactionLabel',
+                            child: Text(
+                              '已选：$selectedReactionLabel',
+                              style: Theme.of(context).textTheme.bodyMedium
+                                  ?.copyWith(
+                                    color: colors.textPrimary,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ],
                 if (onRetryReaction != null) ...[
                   const SizedBox(height: 16),
                   FilledButton(
