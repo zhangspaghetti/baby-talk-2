@@ -288,10 +288,7 @@ void main() {
   ) async {
     final semanticsHandle = tester.ensureSemantics();
     await tester.pumpWidget(_surfaceTestApp(notifier: notifier));
-    await notifier.startMoment(
-      spaceId: 'daily_care',
-      activityId: 'bath_time',
-    );
+    await notifier.startMoment(spaceId: 'daily_care', activityId: 'bath_time');
     await tester.pump();
 
     final rootSemantics = tester.widget<Semantics>(

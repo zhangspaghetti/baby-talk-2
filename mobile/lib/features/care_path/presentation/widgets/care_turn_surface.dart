@@ -352,9 +352,7 @@ class _CareTurnSurfaceState extends State<CareTurnSurface> {
                               child: ExcludeSemantics(
                                 child: Text(
                                   utterance.chinese,
-                                  style: Theme.of(context)
-                                      .textTheme
-                                      .titleMedium
+                                  style: Theme.of(context).textTheme.titleMedium
                                       ?.copyWith(color: colors.textPrimary),
                                 ),
                               ),
