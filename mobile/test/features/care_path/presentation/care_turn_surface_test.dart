@@ -256,6 +256,32 @@ void main() {
       expect(_ordinalSortOrder(tester, 'care-turn-semantics-quiet-exit'), 6);
     },
   );
+
+  testWidgets(
+    'English and Chinese starter copy remain separate TalkBack focus nodes',
+    (tester) async {
+      final semanticsHandle = tester.ensureSemantics();
+      await tester.pumpWidget(_surfaceTestApp(notifier: notifier));
+      await notifier.startMoment(
+        spaceId: 'daily_care',
+        activityId: 'bath_time',
+      );
+      await tester.pump();
+
+      final englishNode = tester.getSemantics(
+        find.byKey(const Key('care-turn-semantics-english')),
+      );
+      final chineseNode = tester.getSemantics(
+        find.byKey(const Key('care-turn-semantics-chinese')),
+      );
+
+      expect(englishNode.label, 'Warm water.');
+      expect(chineseNode.label, '温温的水。');
+      expect(_ordinalSortOrder(tester, 'care-turn-semantics-english'), 1);
+      expect(_ordinalSortOrder(tester, 'care-turn-semantics-chinese'), 2);
+      semanticsHandle.dispose();
+    },
+  );
 }
 
 double _ordinalSortOrder(WidgetTester tester, String key) {

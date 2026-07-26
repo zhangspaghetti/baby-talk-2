@@ -315,25 +315,46 @@ class _CareTurnSurfaceState extends State<CareTurnSurface> {
                     Semantics(
                       key: const Key('care-turn-semantics-phrase'),
                       container: true,
+                      explicitChildNodes: true,
                       sortKey: OrdinalSortKey(1),
                       child: _CareTurnPanel(
                         key: const Key('care-turn-current-utterance'),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
-                              utterance.english,
-                              style: Theme.of(context).textTheme.headlineSmall
-                                  ?.copyWith(
-                                    color: colors.textPrimary,
-                                    fontWeight: FontWeight.w800,
-                                  ),
+                            Semantics(
+                              key: const Key('care-turn-semantics-english'),
+                              container: true,
+                              sortKey: OrdinalSortKey(1),
+                              label: utterance.english,
+                              child: ExcludeSemantics(
+                                child: Text(
+                                  utterance.english,
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .headlineSmall
+                                      ?.copyWith(
+                                        color: colors.textPrimary,
+                                        fontWeight: FontWeight.w800,
+                                      ),
+                                ),
+                              ),
                             ),
                             const SizedBox(height: 10),
-                            Text(
-                              utterance.chinese,
-                              style: Theme.of(context).textTheme.titleMedium
-                                  ?.copyWith(color: colors.textPrimary),
+                            Semantics(
+                              key: const Key('care-turn-semantics-chinese'),
+                              container: true,
+                              sortKey: OrdinalSortKey(2),
+                              label: utterance.chinese,
+                              child: ExcludeSemantics(
+                                child: Text(
+                                  utterance.chinese,
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .titleMedium
+                                      ?.copyWith(color: colors.textPrimary),
+                                ),
+                              ),
                             ),
                             const SizedBox(height: 8),
                             ExcludeSemantics(
