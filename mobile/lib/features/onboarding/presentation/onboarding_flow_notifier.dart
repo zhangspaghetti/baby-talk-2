@@ -16,6 +16,8 @@ import 'package:mobile/features/onboarding/domain/models/stage_match.dart';
 import 'package:mobile/features/practice/data/repositories/practice_repository.dart';
 import 'package:mobile/features/practice/domain/models/interaction_event_payload.dart';
 
+enum StarterPhrasePersistenceState { idle, saving, failed, saved }
+
 enum _OnboardingExitNavigation { accountEntry, shell }
 
 class OnboardingFlowNotifier extends ChangeNotifier {
@@ -61,6 +63,8 @@ class OnboardingFlowNotifier extends ChangeNotifier {
   bool _isBusy = false;
   bool _disposed = false;
   String? _message;
+  StarterPhrasePersistenceState _starterPhrasePersistenceState =
+      StarterPhrasePersistenceState.idle;
   OnboardingSnapshot? _recoveredCompletion;
   _OnboardingExitNavigation? _pendingExitNavigation;
 
@@ -86,12 +90,8 @@ class OnboardingFlowNotifier extends ChangeNotifier {
   bool get canOpenAccountEntry =>
       _pendingExitNavigation == _OnboardingExitNavigation.accountEntry;
   bool get gardenTraceDegraded => _flowSnapshot.gardenTraceDegraded;
-  bool get hasPendingStarterPhrasePersistence {
-    final phraseId = _carePathNotifier.snapshot?.currentUtterance?.phraseId;
-    return step == OnboardingFlowStep.careTurn &&
-        _flowSnapshot.starterPhraseId?.trim().isEmpty != false &&
-        phraseId?.trim().isEmpty == false;
-  }
+  StarterPhrasePersistenceState get starterPhrasePersistenceState =>
+      _starterPhrasePersistenceState;
 
   bool get hasPendingTracePersistence =>
       step == OnboardingFlowStep.careTurn &&
@@ -137,6 +137,7 @@ class OnboardingFlowNotifier extends ChangeNotifier {
           await _onboardingRepository.readFlowSnapshot() ??
           OnboardingFlowSnapshot.initial(_now());
       _message = null;
+      _setStarterPhrasePersistenceState(StarterPhrasePersistenceState.idle);
 
       if (_flowSnapshot.step == OnboardingFlowStep.careTurn &&
           _flowSnapshot.hasConfirmedTrace) {
@@ -159,6 +160,10 @@ class OnboardingFlowNotifier extends ChangeNotifier {
           if (_flowSnapshot.step == OnboardingFlowStep.careTurn &&
               _flowSnapshot.starterPhraseId?.trim().isEmpty != false) {
             await _persistStarterPhraseFromCareTurn();
+          } else if (_flowSnapshot.step == OnboardingFlowStep.careTurn) {
+            _setStarterPhrasePersistenceState(
+              StarterPhrasePersistenceState.saved,
+            );
           }
         }
       }
@@ -268,10 +273,13 @@ class OnboardingFlowNotifier extends ChangeNotifier {
         if (!transitionSaved) {
           return;
         }
+        _setStarterPhrasePersistenceState(StarterPhrasePersistenceState.idle);
+        _recordStarterPhrasePersistence(stage: 'transition_saved');
         await _carePathNotifier.startMoment(
           spaceId: value.spaceId,
           activityId: value.activityId,
         );
+        _recordStarterPhrasePersistence(stage: 'care_turn_started');
         await _persistStarterPhraseFromCareTurn();
       });
 
@@ -384,17 +392,36 @@ class OnboardingFlowNotifier extends ChangeNotifier {
     final turn = _carePathNotifier.snapshot;
     final phraseId = turn?.currentUtterance?.phraseId;
     if (phraseId == null || phraseId.trim().isEmpty) {
+      _setStarterPhrasePersistenceState(StarterPhrasePersistenceState.idle);
       await _setMessage(turn?.message ?? '当前照护节点暂时不可用。');
       return false;
     }
     if (_flowSnapshot.starterPhraseId == phraseId) {
+      _setStarterPhrasePersistenceState(StarterPhrasePersistenceState.saved);
       return true;
     }
-    return _saveTransition(_flowSnapshot.copyWith(starterPhraseId: phraseId));
+    _setStarterPhrasePersistenceState(StarterPhrasePersistenceState.saving);
+    _recordStarterPhrasePersistence(stage: 'starter_save_started');
+    Object? failure;
+    final saved = await _saveTransition(
+      _flowSnapshot.copyWith(starterPhraseId: phraseId),
+      onFailure: (error) => failure = error,
+    );
+    _setStarterPhrasePersistenceState(
+      saved
+          ? StarterPhrasePersistenceState.saved
+          : StarterPhrasePersistenceState.failed,
+    );
+    _recordStarterPhrasePersistence(
+      stage: saved ? 'starter_save_succeeded' : 'starter_save_failed',
+      failure: failure,
+    );
+    return saved;
   }
 
   Future<void> retryPersistStarterPhrase() => _enqueueFlowMutation(() async {
-    if (!hasPendingStarterPhrasePersistence) {
+    if (_starterPhrasePersistenceState !=
+        StarterPhrasePersistenceState.failed) {
       return;
     }
     await _persistStarterPhraseFromCareTurn();
@@ -428,6 +455,7 @@ class OnboardingFlowNotifier extends ChangeNotifier {
       ),
     );
     if (saved) {
+      _setStarterPhrasePersistenceState(StarterPhrasePersistenceState.idle);
       _carePathNotifier.resetToSafeEmpty();
     }
   });
@@ -721,11 +749,15 @@ class OnboardingFlowNotifier extends ChangeNotifier {
     );
   }
 
-  Future<bool> _saveTransition(OnboardingFlowSnapshot next) async {
+  Future<bool> _saveTransition(
+    OnboardingFlowSnapshot next, {
+    void Function(Object error)? onFailure,
+  }) async {
     final persisted = next.copyWith(updatedAt: _now());
     try {
       await _onboardingRepository.saveFlowSnapshot(persisted);
-    } catch (_) {
+    } catch (error) {
+      onFailure?.call(error);
       await _setMessage('暂时无法保存引导进度，请再试一次。');
       return false;
     }
@@ -736,6 +768,38 @@ class OnboardingFlowNotifier extends ChangeNotifier {
     _message = null;
     notifyListeners();
     return true;
+  }
+
+  void _setStarterPhrasePersistenceState(StarterPhrasePersistenceState value) {
+    if (_disposed || _starterPhrasePersistenceState == value) {
+      return;
+    }
+    _starterPhrasePersistenceState = value;
+    notifyListeners();
+  }
+
+  void _recordStarterPhrasePersistence({
+    required String stage,
+    Object? failure,
+  }) {
+    if (!kDebugMode) {
+      return;
+    }
+    final flowHasStarter =
+        _flowSnapshot.starterPhraseId?.trim().isNotEmpty == true;
+    final careTurnHasStarter =
+        _carePathNotifier.snapshot?.currentUtterance?.phraseId
+            .trim()
+            .isNotEmpty ==
+        true;
+    debugPrint(
+      'onboarding_starter_persistence '
+      'stage=$stage '
+      'state=${_starterPhrasePersistenceState.name} '
+      'flowHasStarter=$flowHasStarter '
+      'careTurnHasStarter=$careTurnHasStarter '
+      'failureType=${failure?.runtimeType ?? 'none'}',
+    );
   }
 
   Future<void> _enqueueFlowMutation(Future<void> Function() mutation) {

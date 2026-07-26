@@ -30,6 +30,7 @@ class CareTurnSurface extends StatefulWidget {
     this.onReactionSelected,
     this.onRetryReaction,
     this.onRetryTracePersistence,
+    this.isStarterPhrasePersistenceSaving = false,
     this.onRetryStarterPhrasePersistence,
     this.onChooseAnotherMoment,
     this.flowMessage,
@@ -46,6 +47,7 @@ class CareTurnSurface extends StatefulWidget {
   final CareTurnReactionSelected? onReactionSelected;
   final CareTurnRetryReaction? onRetryReaction;
   final CareTurnRetryTracePersistence? onRetryTracePersistence;
+  final bool isStarterPhrasePersistenceSaving;
   final CareTurnRetryStarterPhrasePersistence? onRetryStarterPhrasePersistence;
   final VoidCallback? onChooseAnotherMoment;
   final String? flowMessage;
@@ -226,8 +228,11 @@ class _CareTurnSurfaceState extends State<CareTurnSurface> {
         snapshot.traceEventKey?.trim().isNotEmpty == true &&
         (snapshot.phase == CareTurnPhase.nextSupportReady ||
             snapshot.phase == CareTurnPhase.heldWithFallback);
-    final hasPendingStarterPhrasePersistence =
+    final hasFailedStarterPhrasePersistence =
         widget.onRetryStarterPhrasePersistence != null;
+    final blocksStarterPhraseActions =
+        widget.isStarterPhrasePersistenceSaving ||
+        hasFailedStarterPhrasePersistence;
 
     return Scaffold(
       appBar: AppBar(
@@ -377,7 +382,7 @@ class _CareTurnSurfaceState extends State<CareTurnSurface> {
                               onPressed:
                                   snapshot.phase ==
                                           CareTurnPhase.utteranceReady &&
-                                      !hasPendingStarterPhrasePersistence
+                                      !blocksStarterPhraseActions
                                   ? () {
                                       AppHaptics.lightTap();
                                       notifier.markSaid();
@@ -409,7 +414,7 @@ class _CareTurnSurfaceState extends State<CareTurnSurface> {
                       ),
                     ],
                     if (snapshot.phase == CareTurnPhase.reactionPrompt &&
-                        !hasPendingStarterPhrasePersistence) ...[
+                        !blocksStarterPhraseActions) ...[
                       const SizedBox(height: AppLayoutConstants.spacingMd),
                       Semantics(
                         key: const Key('care-turn-semantics-reaction'),
@@ -461,7 +466,30 @@ class _CareTurnSurfaceState extends State<CareTurnSurface> {
                         ),
                       ),
                     ],
-                    if (hasPendingStarterPhrasePersistence) ...[
+                    if (widget.isStarterPhrasePersistenceSaving) ...[
+                      const SizedBox(height: AppLayoutConstants.spacingMd),
+                      _CareTurnPanel(
+                        key: const Key(
+                          'care-turn-starter-phrase-persistence-saving',
+                        ),
+                        child: Row(
+                          children: [
+                            const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            ),
+                            const SizedBox(width: 10),
+                            Text(
+                              '正在保存这句话…',
+                              style: Theme.of(context).textTheme.bodyMedium
+                                  ?.copyWith(color: colors.textSecondary),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                    if (hasFailedStarterPhrasePersistence) ...[
                       const SizedBox(height: AppLayoutConstants.spacingMd),
                       _CareTurnPanel(
                         key: const Key(

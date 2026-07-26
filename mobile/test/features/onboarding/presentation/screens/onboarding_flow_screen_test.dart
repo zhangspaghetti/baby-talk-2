@@ -147,6 +147,60 @@ void main() {
   );
 
   testWidgets(
+    'delayed starter phrase persistence shows saving before enabling said',
+    (tester) async {
+      await harness.pumpAtStep(tester, OnboardingFlowStep.currentMoment);
+      final writeGate = harness.holdNextStarterPhrasePersistence();
+      final moment = harness.notifier.availableMoments.first;
+
+      await tester.tap(
+        find.byKey(
+          Key('onboarding-moment-${moment.spaceId}-${moment.activityId}'),
+        ),
+      );
+      await tester.pump();
+      await tester.pump();
+
+      expect(
+        find.byKey(const Key('care-turn-starter-phrase-persistence-saving')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('care-turn-retry-starter-phrase-persistence')),
+        findsNothing,
+      );
+      expect(
+        tester
+            .widget<FilledButton>(
+              find.byKey(const Key('care-turn-said-button')),
+            )
+            .onPressed,
+        isNull,
+      );
+
+      writeGate.complete();
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const Key('care-turn-starter-phrase-persistence-saving')),
+        findsNothing,
+      );
+      expect(
+        find.byKey(const Key('care-turn-retry-starter-phrase-persistence')),
+        findsNothing,
+      );
+      expect(
+        tester
+            .widget<FilledButton>(
+              find.byKey(const Key('care-turn-said-button')),
+            )
+            .onPressed,
+        isNotNull,
+      );
+    },
+  );
+
+  testWidgets(
     'starter phrase persistence failure recovers without restarting onboarding',
     (tester) async {
       await harness.pumpAtStep(tester, OnboardingFlowStep.currentMoment);

@@ -93,19 +93,30 @@ void main() {
       },
     );
 
-    test('write failure removes its temporary flow file', () async {
-      await Directory('${tempDir.path}/onboarding_flow_snapshot.json').create();
+    test(
+      'starter phrase write failure leaves no durable snapshot or temp file',
+      () async {
+        await Directory(
+          '${tempDir.path}/onboarding_flow_snapshot.json',
+        ).create();
+        final starterSnapshot = OnboardingFlowSnapshot.initial(
+          DateTime.utc(2026, 7, 23),
+        ).copyWith(starterPhraseId: 'bedtime_dim_the_lights');
 
-      await expectLater(
-        store.write(OnboardingFlowSnapshot.initial(DateTime.utc(2026, 7, 23))),
-        throwsA(isA<OnboardingFlowPersistenceException>()),
-      );
+        await expectLater(
+          store.write(starterSnapshot),
+          throwsA(isA<OnboardingFlowPersistenceException>()),
+        );
 
-      expect(
-        File('${tempDir.path}/onboarding_flow_snapshot.json.tmp').existsSync(),
-        isFalse,
-      );
-    });
+        expect(await store.read(), isNull);
+        expect(
+          File(
+            '${tempDir.path}/onboarding_flow_snapshot.json.tmp',
+          ).existsSync(),
+          isFalse,
+        );
+      },
+    );
 
     test('delete removes both saved flow and orphan temporary file', () async {
       await store.write(

@@ -83,6 +83,15 @@ class OnboardingFlowScreenHarness {
     _flowStore.failOnWrite = _flowStore.writeCount + 2;
   }
 
+  Completer<void> holdNextStarterPhrasePersistence() {
+    final writeStarted = Completer<void>();
+    final writeGate = Completer<void>();
+    _flowStore.holdOnWrite = _flowStore.writeCount + 2;
+    _flowStore.writeStarted = writeStarted;
+    _flowStore.writeGate = writeGate;
+    return writeGate;
+  }
+
   Completer<void> holdNextContinuationWrite() {
     final gate = Completer<void>();
     _authContinuationStore.writeGate = gate;
@@ -356,6 +365,9 @@ class _MemoryOnboardingFlowStore extends OnboardingFlowStore {
   OnboardingFlowSnapshot? _snapshot;
   int writeCount = 0;
   int? failOnWrite;
+  int? holdOnWrite;
+  Completer<void>? writeStarted;
+  Completer<void>? writeGate;
 
   @override
   Future<OnboardingFlowSnapshot?> read() async => _snapshot;
@@ -363,6 +375,13 @@ class _MemoryOnboardingFlowStore extends OnboardingFlowStore {
   @override
   Future<void> write(OnboardingFlowSnapshot snapshot) async {
     writeCount += 1;
+    if (writeCount == holdOnWrite) {
+      writeStarted?.complete();
+      final gate = writeGate;
+      if (gate != null) {
+        await gate.future;
+      }
+    }
     if (writeCount == failOnWrite) {
       throw StateError('disk unavailable');
     }

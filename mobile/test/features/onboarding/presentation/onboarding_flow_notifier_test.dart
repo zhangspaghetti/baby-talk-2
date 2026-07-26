@@ -229,6 +229,45 @@ void main() {
     );
 
     test(
+      'delayed starter phrase persistence stays neutral until it succeeds',
+      () async {
+        await _advanceToCurrentMoment(notifier);
+        expect(
+          notifier.starterPhrasePersistenceState,
+          StarterPhrasePersistenceState.idle,
+        );
+        final writeStarted = Completer<void>();
+        final writeGate = Completer<void>();
+        flowStore.holdOnWrite = flowStore.writeCount + 2;
+        flowStore.writeStarted = writeStarted;
+        flowStore.writeGate = writeGate;
+
+        final selection = notifier.selectCurrentMoment(_bedtimeChoice);
+        await writeStarted.future;
+
+        expect(notifier.step, OnboardingFlowStep.careTurn);
+        expect(notifier.flowSnapshot.starterPhraseId, isNull);
+        expect(notifier.careTurn?.currentUtterance, _starterUtterance);
+        expect(
+          notifier.starterPhrasePersistenceState,
+          StarterPhrasePersistenceState.saving,
+        );
+
+        writeGate.complete();
+        await selection;
+
+        expect(
+          notifier.starterPhrasePersistenceState,
+          StarterPhrasePersistenceState.saved,
+        );
+        expect(
+          notifier.flowSnapshot.starterPhraseId,
+          _starterUtterance.phraseId,
+        );
+      },
+    );
+
+    test(
       'moment transition persistence failure does not start the Care Path',
       () async {
         await _advanceToCurrentMoment(notifier);
@@ -253,7 +292,10 @@ void main() {
         expect(notifier.step, OnboardingFlowStep.careTurn);
         expect(notifier.flowSnapshot.starterPhraseId, isNull);
         expect(notifier.careTurn?.currentUtterance, _starterUtterance);
-        expect(notifier.hasPendingStarterPhrasePersistence, isTrue);
+        expect(
+          notifier.starterPhrasePersistenceState,
+          StarterPhrasePersistenceState.failed,
+        );
 
         notifier.markSaid();
         await notifier.selectReaction(BabyReactionType.hesitant);
@@ -267,7 +309,10 @@ void main() {
           notifier.flowSnapshot.starterPhraseId,
           _starterUtterance.phraseId,
         );
-        expect(notifier.hasPendingStarterPhrasePersistence, isFalse);
+        expect(
+          notifier.starterPhrasePersistenceState,
+          StarterPhrasePersistenceState.saved,
+        );
 
         await notifier.selectReaction(BabyReactionType.hesitant);
 
@@ -1006,6 +1051,9 @@ class _ControllableOnboardingFlowStore extends OnboardingFlowStore {
   OnboardingFlowSnapshot? _snapshot;
   int writeCount = 0;
   int? failOnWrite;
+  int? holdOnWrite;
+  Completer<void>? writeStarted;
+  Completer<void>? writeGate;
   bool failDelete = false;
 
   @override
@@ -1014,6 +1062,13 @@ class _ControllableOnboardingFlowStore extends OnboardingFlowStore {
   @override
   Future<void> write(OnboardingFlowSnapshot snapshot) async {
     writeCount += 1;
+    if (writeCount == holdOnWrite) {
+      writeStarted?.complete();
+      final gate = writeGate;
+      if (gate != null) {
+        await gate.future;
+      }
+    }
     if (writeCount == failOnWrite) {
       throw StateError('disk unavailable');
     }

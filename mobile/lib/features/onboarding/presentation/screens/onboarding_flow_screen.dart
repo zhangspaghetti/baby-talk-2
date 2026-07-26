@@ -50,8 +50,12 @@ class OnboardingFlowScreen extends ConsumerWidget {
         onRetryTracePersistence: notifier.hasPendingTracePersistence
             ? notifier.retryPersistConfirmedCareTurn
             : null,
+        isStarterPhrasePersistenceSaving:
+            notifier.starterPhrasePersistenceState ==
+            StarterPhrasePersistenceState.saving,
         onRetryStarterPhrasePersistence:
-            notifier.hasPendingStarterPhrasePersistence
+            notifier.starterPhrasePersistenceState ==
+                StarterPhrasePersistenceState.failed
             ? notifier.retryPersistStarterPhrase
             : null,
         onChooseAnotherMoment: () => unawaited(notifier.chooseAnotherMoment()),

@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:mobile/features/onboarding/domain/models/onboarding_flow_models.dart';
 import 'package:path_provider/path_provider.dart';
 
@@ -56,21 +57,28 @@ class OnboardingFlowStore {
   }
 
   Future<void> _writeInternal(OnboardingFlowSnapshot snapshot) async {
+    File? flowFile;
     File? temporaryFile;
     try {
-      final file = await _resolveFile();
-      temporaryFile = File('${file.path}.tmp');
-      await file.parent.create(recursive: true);
+      flowFile = await _resolveFile();
+      temporaryFile = File('${flowFile.path}.tmp');
+      await flowFile.parent.create(recursive: true);
       await _deleteFileIfExists(temporaryFile);
       await temporaryFile.writeAsString(
         jsonEncode(snapshot.toJsonMap()),
         flush: true,
       );
-      if (Platform.isWindows && await file.exists()) {
-        await file.delete();
+      if (Platform.isWindows && await flowFile.exists()) {
+        await flowFile.delete();
       }
-      await temporaryFile.rename(file.path);
+      await temporaryFile.rename(flowFile.path);
     } catch (error) {
+      await _recordWriteFailure(
+        flowFile: flowFile,
+        temporaryFile: temporaryFile,
+        requestedSnapshot: snapshot,
+        error: error,
+      );
       if (temporaryFile != null) {
         try {
           await _deleteFileIfExists(temporaryFile);
@@ -80,6 +88,48 @@ class OnboardingFlowStore {
         '写入 onboarding flow snapshot 失败：$error',
       );
     }
+  }
+
+  Future<void> _recordWriteFailure({
+    required File? flowFile,
+    required File? temporaryFile,
+    required OnboardingFlowSnapshot requestedSnapshot,
+    required Object error,
+  }) async {
+    if (!kDebugMode) {
+      return;
+    }
+    var flowExists = false;
+    var temporaryExists = false;
+    String persistedStarter = 'unavailable';
+    try {
+      if (flowFile case final file?) {
+        flowExists = await file.exists();
+      }
+      if (temporaryFile case final file?) {
+        temporaryExists = await file.exists();
+      }
+      if (flowFile case final file? when flowExists) {
+        final decoded = jsonDecode(await file.readAsString());
+        if (decoded is Map<String, dynamic>) {
+          final phraseId = decoded['starterPhraseId']?.toString().trim();
+          persistedStarter = phraseId?.isNotEmpty == true
+              ? 'present'
+              : 'absent';
+        }
+      }
+    } catch (_) {}
+    final requestedStarter =
+        requestedSnapshot.starterPhraseId?.trim().isNotEmpty == true;
+    debugPrint(
+      'onboarding_flow_write '
+      'stage=failed '
+      'flowExists=$flowExists '
+      'temporaryExists=$temporaryExists '
+      'persistedStarter=$persistedStarter '
+      'requestedStarter=$requestedStarter '
+      'failureType=${error.runtimeType}',
+    );
   }
 
   Future<void> deleteIfExists() {
