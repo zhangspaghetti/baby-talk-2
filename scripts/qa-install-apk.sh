@@ -8,7 +8,7 @@ REPO_ROOT="$(dirname "$SCRIPT_DIR")"
 MOBILE_DIR="$REPO_ROOT/mobile"
 APK_PATH="$MOBILE_DIR/build/app/outputs/flutter-apk/app-debug.apk"
 
-GATEWAY_PORT=8091
+GATEWAY_PORT=19091
 SKIP_BUILD=0
 AVD_NAME=""
 DEVICE_SERIAL=""
@@ -19,7 +19,7 @@ Usage:
   ./scripts/qa-install-apk.sh [options]
 
 Options:
-  --gateway-port <port>   Gateway port injected into BABY_TALK_API_BASE_URL (default: 8091)
+  --gateway-port <port>   Gateway port injected into BABY_TALK_API_BASE_URL (default: 19091)
   --skip-build            Skip flutter build and install existing APK only
   --avd <name>            Start this Android AVD if no --device is provided
   --device <serial>       Install to a specific adb device serial

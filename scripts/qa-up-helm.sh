@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # One-shot QA environment bootstrap.
 #   - Deploys babytalk-qa-infra and babytalk-qa-app to the 'babytalk-qa' namespace
-#   - Port-forwards: gateway → 127.0.0.1:8091, admin-web → 127.0.0.1:3001
+#   - Port-forwards: gateway → 127.0.0.1:19091, admin-web → 127.0.0.1:3001
 #   - Builds Flutter debug APK; installs to a connected Android emulator if found
 #
 # Usage: ./scripts/qa-up-helm.sh
@@ -21,8 +21,10 @@ INFRA_RELEASE=babytalk-qa-infra
 APP_RELEASE=babytalk-qa-app
 GATEWAY_SVC="${APP_RELEASE}-gateway"
 ADMIN_WEB_SVC="${APP_RELEASE}-admin-web"
-GATEWAY_LOCAL_PORT=8091
-ADMIN_WEB_LOCAL_PORT=3001
+# 8091 is commonly reserved by Windows Hyper-V/Docker port exclusions.
+# Callers may override either port when their host requires a different value.
+GATEWAY_LOCAL_PORT="${QA_GATEWAY_LOCAL_PORT:-19091}"
+ADMIN_WEB_LOCAL_PORT="${QA_ADMIN_WEB_LOCAL_PORT:-3001}"
 
 INFRA_VALUES="${REPO_ROOT}/deploy/helm/babytalk-infra/values-kind-qa.yaml"
 APP_VALUES="${REPO_ROOT}/deploy/helm/babytalk-app/values-kind-qa.yaml"
@@ -127,11 +129,23 @@ sleep 3
 
 # ── Gateway smoke ──────────────────────────────────────────────────────────────
 echo "==> [smoke] gateway health check..."
-if curl -sf "http://127.0.0.1:${GATEWAY_LOCAL_PORT}/actuator/health" >/dev/null 2>&1; then
-  echo "    gateway: healthy"
-else
-  echo "    WARNING: gateway health check not yet responding (give it a few more seconds)"
+GATEWAY_HEALTHY=false
+for _ in {1..10}; do
+  if curl -fsS "http://127.0.0.1:${GATEWAY_LOCAL_PORT}/actuator/health" >/dev/null 2>&1; then
+    GATEWAY_HEALTHY=true
+    break
+  fi
+  sleep 2
+done
+
+if [[ "$GATEWAY_HEALTHY" != "true" ]]; then
+  echo "ERROR: gateway port-forward or health check failed on 127.0.0.1:${GATEWAY_LOCAL_PORT}."
+  echo "  Gateway port-forward log: /tmp/qa-pf-gateway.log"
+  tail -n 20 /tmp/qa-pf-gateway.log 2>/dev/null || true
+  exit 1
 fi
+
+echo "    gateway: healthy"
 
 # ── APK build ─────────────────────────────────────────────────────────────────
 echo "==> [apk] building Flutter debug APK (gateway=${GATEWAY_LOCAL_PORT})..."

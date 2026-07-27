@@ -21,7 +21,7 @@ Helm/release smoke front door only: `bash ci/k8s-smoke.sh`
 
 `bash ci/k8s-smoke.sh` is not full repository CI and is not CI-equivalent by itself. 其余 repo-root verifier 也是 scoped drill-down；不要拼 ad-hoc shell chain 后宣称仓库 CI 通过。
 
-QA 环境与 dev 环境隔离（namespace `babytalk-qa`，端口 8091/3001，PVC 持久化），详见 [README — QA 环境部署](README.md#qa-环境部署本地-kind-集群)。
+QA 环境与 dev 环境隔离（namespace `babytalk-qa`，端口 19091/3001，PVC 持久化），详见 [README — QA 环境部署](README.md#qa-环境部署本地-kind-集群)。
 
 这些入口会围绕 `tmp/m007-s01-helm-metrics.jsonl` 提供 bounded local history。wrapper 或 smoke 失败时，先看 stdout 里的 `first_failure_stage` / `likely_cause` / `next_action`，再决定要不要继续下钻更重的 gate。
 

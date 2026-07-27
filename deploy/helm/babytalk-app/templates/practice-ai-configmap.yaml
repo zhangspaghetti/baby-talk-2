@@ -40,7 +40,7 @@
 {{- if ne (required (printf "provider %s type is required" $providerName) $provider.type) "openai-compatible" -}}
 {{- fail (printf "provider %s type must be openai-compatible" $providerName) -}}
 {{- end -}}
-{{- required (printf "provider %s baseUrl is required" $providerName) $provider.baseUrl -}}
+{{- $baseUrl := required (printf "provider %s baseUrl is required" $providerName) $provider.baseUrl -}}
 {{- $environmentVariable := required (printf "provider %s apiKeyEnvironmentVariable is required" $providerName) $provider.apiKeyEnvironmentVariable -}}
 {{- if not (regexMatch "^BABY_TALK_AI_PROVIDER_[A-Z0-9_]+_API_KEY$" $environmentVariable) -}}
 {{- fail (printf "provider %s apiKeyEnvironmentVariable must be dedicated" $providerName) -}}
@@ -49,7 +49,7 @@
 {{- fail (printf "duplicate provider apiKeyEnvironmentVariable %s" $environmentVariable) -}}
 {{- end -}}
 {{- $_ := set $providerEnvironmentVariables $environmentVariable true -}}
-{{- required (printf "provider %s model is required" $providerName) $provider.model -}}
+{{- $model := required (printf "provider %s model is required" $providerName) $provider.model -}}
 {{- $timeout := required (printf "provider %s timeout is required" $providerName) $provider.timeout -}}
 {{- if not (regexMatch "^[1-9][0-9]*(ms|s|m|h)$" (printf "%v" $timeout)) -}}
 {{- fail (printf "provider %s timeout must be positive" $providerName) -}}
