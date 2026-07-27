@@ -6,15 +6,29 @@ import 'package:mobile/features/practice/domain/models/interaction_event_payload
 import 'package:mobile/features/practice/domain/models/practice_activity_catalog.dart';
 import 'package:mobile/features/practice/domain/models/practice_phrase.dart';
 
+typedef CarePathReactionRecordedHook =
+    Future<void> Function(InteractionEventPayload event);
+
+/// Signals a response which was durably recorded but deliberately withheld.
+///
+/// The only caller is the debug/profile UAT harness. Production repository
+/// behavior never creates this exception.
+class CarePathResponseLostException implements Exception {
+  const CarePathResponseLostException();
+}
+
 class CarePathRepository {
   CarePathRepository({
     required PracticeRepository practiceRepository,
     GardenGrowthRepository? gardenGrowthRepository,
+    CarePathReactionRecordedHook? onReactionRecorded,
   }) : _practiceRepository = practiceRepository,
-       _gardenGrowthRepository = gardenGrowthRepository;
+       _gardenGrowthRepository = gardenGrowthRepository,
+       _onReactionRecorded = onReactionRecorded;
 
   final PracticeRepository _practiceRepository;
   final GardenGrowthRepository? _gardenGrowthRepository;
+  final CarePathReactionRecordedHook? _onReactionRecorded;
 
   Future<CareTurnSnapshot> loadCurrentTurn({
     String? starterSpaceId,
@@ -45,11 +59,11 @@ class CarePathRepository {
         warningMessage: continuity.warningMessage,
       );
       return snapshot;
-    } catch (error) {
+    } catch (_) {
       return _unavailableSnapshot(
         spaceId: starterSpaceId,
         activityId: starterActivityId,
-        message: 'care path 暂时无法读取当前节点：$error',
+        message: '当前照护内容暂时不可用。',
       );
     }
   }
@@ -92,11 +106,11 @@ class CarePathRepository {
         traceEventKey: null,
         latestGardenImpact: null,
       );
-    } catch (error) {
+    } catch (_) {
       return _unavailableSnapshot(
         spaceId: spaceId,
         activityId: activityId,
-        message: 'care path 暂时无法开始这个节点：$error',
+        message: '当前照护内容暂时不可用。',
       );
     }
   }
@@ -112,7 +126,8 @@ class CarePathRepository {
       return turn.copyWith(
         phase: CareTurnPhase.heldWithFallback,
         selectedReaction: reactionType,
-        message: '当前节点没有可记录的 utterance，已保留在安全状态。',
+        message: '当前照护内容暂时无法记录回应。',
+        failureKind: CareTurnFailureKind.reactionRejected,
       );
     }
 
@@ -125,6 +140,7 @@ class CarePathRepository {
         clientTimestamp: clientTimestamp,
         localEventId: localEventId,
       );
+      await _onReactionRecorded?.call(event);
       final nextTurn = await startMoment(
         spaceId: turn.moment.spaceId,
         activityId: turn.moment.activityId,
@@ -149,11 +165,129 @@ class CarePathRepository {
         latestGardenImpact: latestGardenImpact,
         message: nextTurn.message,
       );
-    } catch (error) {
+    } on CarePathResponseLostException {
       return turn.copyWith(
         phase: CareTurnPhase.error,
         selectedReaction: reactionType,
-        message: 'care path 暂时无法记录这次回应：$error',
+        message: '刚才的回应可能已经保存，正在确认。请再试一次。',
+        failureKind: CareTurnFailureKind.reactionUnknownOutcome,
+      );
+    } catch (_) {
+      return turn.copyWith(
+        phase: CareTurnPhase.error,
+        selectedReaction: reactionType,
+        message: '暂时无法完成这次回应，请再试一次。',
+        failureKind: CareTurnFailureKind.reactionUnknownOutcome,
+      );
+    }
+  }
+
+  Future<CareTurnSnapshot> restorePendingReaction({
+    required String spaceId,
+    required String activityId,
+    required String phraseId,
+    required BabyReactionType reactionType,
+  }) async {
+    try {
+      final catalog = await _practiceRepository.getActivityCatalog();
+      final summary = catalog.findActivity(
+        spaceId: spaceId,
+        activityId: activityId,
+      );
+      final activity = await _practiceRepository.getActivitySnapshot(
+        spaceId: spaceId,
+        activityId: activityId,
+      );
+      final utterance = _utteranceForPhrase(
+        phrases: activity.phrases,
+        phraseId: phraseId,
+        coachTip: activity.coachTip,
+      );
+      if (utterance == null) {
+        return _unavailableSnapshot(
+          spaceId: spaceId,
+          activityId: activityId,
+          message: '当前照护内容暂时无法恢复。',
+        );
+      }
+
+      return CareTurnSnapshot(
+        moment: _buildMoment(
+          activity: activity,
+          summary: summary,
+          nodeState: CarePathNodeState.current,
+        ),
+        currentUtterance: utterance,
+        selectedReaction: reactionType,
+        nextSupportUtterance: null,
+        phase: CareTurnPhase.reactionPrompt,
+        traceEventKey: null,
+        latestGardenImpact: null,
+        message: null,
+      );
+    } catch (_) {
+      return _unavailableSnapshot(
+        spaceId: spaceId,
+        activityId: activityId,
+        message: '当前照护内容暂时无法恢复。',
+      );
+    }
+  }
+
+  Future<CareTurnSnapshot> restoreConfirmedReaction(
+    InteractionEventPayload event,
+  ) async {
+    try {
+      final catalog = await _practiceRepository.getActivityCatalog();
+      final summary = catalog.findActivity(
+        spaceId: event.spaceId,
+        activityId: event.activityId,
+      );
+      final activity = await _practiceRepository.getActivitySnapshot(
+        spaceId: event.spaceId,
+        activityId: event.activityId,
+      );
+      final utterance = _utteranceForPhrase(
+        phrases: activity.phrases,
+        phraseId: event.phraseId,
+        coachTip: activity.coachTip,
+      );
+      if (utterance == null) {
+        return _unavailableSnapshot(
+          spaceId: event.spaceId,
+          activityId: event.activityId,
+          message: '刚才的照护记录已保存，但内容暂时无法恢复。',
+        );
+      }
+
+      final nextTurn = await startMoment(
+        spaceId: event.spaceId,
+        activityId: event.activityId,
+      );
+      final latestGardenImpact = await _loadLatestGardenImpact();
+      return CareTurnSnapshot(
+        moment: _buildMoment(
+          activity: activity,
+          summary: summary,
+          nodeState: CarePathNodeState.current,
+        ),
+        currentUtterance: utterance,
+        selectedReaction: event.reactionType,
+        nextSupportUtterance: nextTurn.currentUtterance,
+        phase: nextTurn.currentUtterance == null
+            ? CareTurnPhase.heldWithFallback
+            : CareTurnPhase.nextSupportReady,
+        traceEventKey: event.eventKey,
+        latestGardenImpact: latestGardenImpact,
+        message: nextTurn.currentUtterance == null
+            ? '刚才这句话已经记下了。下一句暂时没有准备好，先这样就好。'
+            : nextTurn.message,
+      );
+    } catch (_) {
+      return _unavailableSnapshot(
+        spaceId: event.spaceId,
+        activityId: event.activityId,
+        message: '刚才的照护记录已保存，但暂时无法恢复。',
       );
     }
   }
@@ -194,7 +328,7 @@ class CarePathRepository {
     final messageParts = <String>[
       if (warningMessage != null && warningMessage.trim().isNotEmpty)
         warningMessage.trim(),
-      if (activity.phrases.isEmpty) '当前节点没有可用 utterance，已保留在安全状态。',
+      if (activity.phrases.isEmpty) '当前照护内容暂时不可用。',
       if (activity.phrases.isNotEmpty &&
           nodeState == CarePathNodeState.doneToday &&
           nextPhraseId == null)
@@ -267,10 +401,34 @@ class CarePathRepository {
     );
   }
 
+  CareUtterance? _utteranceForPhrase({
+    required List<PracticePhrase> phrases,
+    required String phraseId,
+    required String coachTip,
+  }) {
+    for (final phrase in phrases) {
+      if (phrase.phraseId == phraseId) {
+        return CareUtterance(
+          phraseId: phrase.phraseId,
+          english: phrase.english,
+          chinese: phrase.chinese,
+          pronunciation: phrase.pronunciation,
+          audioAsset: phrase.audioAsset.trim().isEmpty
+              ? null
+              : phrase.audioAsset,
+          whenToSay: coachTip,
+          isFallback: false,
+        );
+      }
+    }
+    return null;
+  }
+
   CareTurnSnapshot _unavailableSnapshot({
     required String? spaceId,
     required String? activityId,
     required String message,
+    CareTurnFailureKind failureKind = CareTurnFailureKind.momentUnavailable,
   }) {
     final effectiveSpaceId = _cleanIdentifier(spaceId) ?? 'unavailable_space';
     final effectiveActivityId =
@@ -294,6 +452,7 @@ class CarePathRepository {
       traceEventKey: null,
       latestGardenImpact: null,
       message: message,
+      failureKind: failureKind,
     );
   }
 

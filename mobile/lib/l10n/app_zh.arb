@@ -88,56 +88,6 @@
   "homeRecentResultDetail": "{totalEvents} 条本地记录 · 最近一次 {time}",
   "@homeRecentResultDetail": {"placeholders": {"totalEvents": {}, "time": {}}},
 
-  "onboardingTitle": "先拿一句今天能和宝宝说的英文",
-  "onboardingSubtitle": "只要昵称和大概月龄，小禾老师会先在本机准备第一句。",
-  "onboardingLocalOnly": "同意前仅保存在这台设备，不需要精确生日。",
-  "onboardingMentorGreeting": "你好，我会先帮你把英语放进今天就能开口的照护节奏里。",
-  "onboardingAskName": "我先怎么称呼宝宝？先用一个你最顺口的小昵称就好。",
-  "onboardingAskAge": "现在大概几个月？我会用月龄档给你匹配阶段，不会要求精确生日。",
-  "onboardingStagePreview": "{childName} 现在更适合从这一类短句开始，先用一句真实照护里的英文试试看。",
-  "@onboardingStagePreview": {"placeholders": {"childName": {}}},
-  "onboardingWelcomeInfo": "先准备两条信息：宝宝昵称 + 月龄档。",
-  "onboardingWelcomeDetail": "完成后会看到第一句英文、什么时候说，以及怎么接住宝宝反应。",
-  "onboardingStartButton": "先开始",
-  "onboardingNameLabel": "宝宝昵称",
-  "onboardingNameHint": "例如：米米、果果",
-  "onboardingNameHelp": "先用一个顺口的小名就够了，之后还可以再改。",
-  "onboardingBack": "上一步",
-  "onboardingContinue": "继续",
-  "onboardingAgeTitle": "月龄快选",
-  "onboardingAgeHelp": "不需要精确到哪一天，先选最接近的一档就可以。",
-  "onboardingAgeMonths": "{months}月左右",
-  "@onboardingAgeMonths": {"placeholders": {"months": {}}},
-  "onboardingContentLoading": "正在准备第一句…",
-  "onboardingContentRetry": "重新准备",
-  "onboardingAgeContinue": "准备第一句",
-  "onboardingPreviewConfirm": "先播放一下，再说一次；我会把这次开始保存在本机。",
-  "onboardingPreviewRetryHint": "说完可以点“我说了”，不用等宝宝立刻回应。",
-  "onboardingPreviewSeedLabel": "第一句可以先这样说",
-  "onboardingMiniSceneActionHint": "洗澡、换衣或抱起宝宝时，都可以先轻轻说这一句。",
-  "onboardingMiniScenePlay": "播放一下",
-  "onboardingMiniScenePlaying": "播放中",
-  "onboardingMiniSceneSaid": "我说了",
-  "onboardingMiniSceneRecording": "记录中",
-  "onboardingMiniSceneRecorded": "已在本机种下第一颗种子，首页会接着这句继续。",
-  "onboardingSayFirstBeforeHome": "先说一次",
-  "onboardingPreviewBack": "返回调整",
-  "onboardingSaving": "正在保存到本地",
-  "onboardingEnterHome": "进入首页继续",
-  "onboardingStageMatch": "现在适合这样开始",
-  "onboardingMentorCaption": "禾",
-  "onboardingFirstSeed": "第一颗种子",
-  "onboardingMentorMessageSemantics": "小禾老师引导消息：{message}",
-  "@onboardingMentorMessageSemantics": {"placeholders": {"message": {}}},
-  "onboardingMiniSeedCardSemantics": "第一颗种子：{phrase}",
-  "@onboardingMiniSeedCardSemantics": {"placeholders": {"phrase": {}}},
-  "onboardingStageMatchSemantics": "现在适合这样开始：{stageTitle}。{summary}",
-  "@onboardingStageMatchSemantics": {"placeholders": {"stageTitle": {}, "summary": {}}},
-  "onboardingFirstPhraseActionErrorSemantics": "第一句记录失败：{message}",
-  "@onboardingFirstPhraseActionErrorSemantics": {"placeholders": {"message": {}}},
-  "onboardingSaveErrorSemantics": "保存失败：{message}",
-  "@onboardingSaveErrorSemantics": {"placeholders": {"message": {}}},
-
   "shellDrawerTooltip": "打开家庭抽屉",
   "shellHome": "今天",
   "shellDiscover": "场景",
@@ -702,74 +652,9 @@
   "settingsLanguageZh": "中文",
   "settingsLanguageEn": "English",
 
-  "@onboardingV21MentorGreeting": { "description": "Mentor bubble on name input screen" },
-  "onboardingV21MentorGreeting": "小禾想帮你记录这段珍贵的成长，可以告诉我一些关于宝宝的小信息吗？",
-
-  "@onboardingV21NameLabel": { "description": "Name input label" },
-  "onboardingV21NameLabel": "宝宝昵称（可选）",
-
-  "@onboardingV21NameHint": { "description": "Name input hint" },
-  "onboardingV21NameHint": "比如：小宝、小明...",
-
-  "@onboardingV21AgeTitle": { "description": "Age selection title" },
-  "onboardingV21AgeTitle": "宝宝月龄",
-
-  "@onboardingV21SaveButton": { "description": "Save button on name screen" },
-  "onboardingV21SaveButton": "保存",
-
-  "@onboardingV21SkipButton": { "description": "Skip button" },
-  "onboardingV21SkipButton": "稍后再说",
-
-  "@onboardingV21NextButton": { "description": "Next button on name screen (deprecated)" },
-  "onboardingV21NextButton": "下一步",
-
-  "@onboardingV21SceneTitle": { "description": "Scene selection title" },
-  "onboardingV21SceneTitle": "今天先说一句",
-
-  "@onboardingV21SceneHint": { "description": "Scene selection hint" },
-  "onboardingV21SceneHint": "选个正在发生的场景",
-
-  "@onboardingV21DirectPhrase": { "description": "Skip scene selection button" },
-  "onboardingV21DirectPhrase": "直接给一句",
-
-  "@onboardingV21AgeEntry": { "description": "Age entry button" },
-  "onboardingV21AgeEntry": "宝宝多大？可稍后补",
-
-  "@onboardingV21AgeSkip": { "description": "Skip age selection" },
-  "onboardingV21AgeSkip": "先跳过",
-
-  "@onboardingV21PracticeSubtitle": { "description": "Practice screen subtitle" },
-  "onboardingV21PracticeSubtitle": "一句就够",
-
-  "@onboardingV21SaidButton": { "description": "Said button on practice screen" },
-  "onboardingV21SaidButton": "说完了",
-
-  "@onboardingV21SwapButton": { "description": "Swap phrase button" },
-  "onboardingV21SwapButton": "换一句",
-
-  "@onboardingV21EndButton": { "description": "End practice button" },
-  "onboardingV21EndButton": "结束",
-
-  "@onboardingV21Saved": { "description": "Saved confirmation" },
-  "onboardingV21Saved": "已保存本句",
-
-  "@onboardingV21SkipReaction": { "description": "Skip reaction button" },
-  "onboardingV21SkipReaction": "跳过，下一句",
-
-  "@onboardingV21PhrasesExhausted": { "description": "All phrases used" },
-  "onboardingV21PhrasesExhausted": "句子都试过了",
-
-  "@onboardingV21CompleteTitle": { "description": "Completion screen title" },
-  "onboardingV21CompleteTitle": "小禾老师 / 今天已完成",
-
-  "@onboardingV21AgainButton": { "description": "Practice again button" },
-  "onboardingV21AgainButton": "再来一句",
-
-  "@onboardingV21DoneButton": { "description": "Done button" },
-  "onboardingV21DoneButton": "先到这里",
-
-  "@onboardingV21NextTime": { "description": "Next time copy" },
-  "onboardingV21NextTime": "下次打开，小禾会给你新的一句。",
+  "mentorBubbleCaption": "禾",
+  "mentorBubbleMessageSemantics": "小禾老师引导消息：{message}",
+  "@mentorBubbleMessageSemantics": {"placeholders": {"message": {}}},
 
   "@practiceOneTurnTitle": { "description": "T4 one-turn practice screen title" },
   "practiceOneTurnTitle": "今日一句",
@@ -811,5 +696,29 @@
   "practiceQuietFallback": "先停在这里，等下一次再继续。",
 
   "@practiceGardenTraceTitle": { "description": "T4 one-turn garden trace section title" },
-  "practiceGardenTraceTitle": "花园留痕"
+  "practiceGardenTraceTitle": "花园留痕",
+
+  "onboardingWelcomeTitle": "宝宝正在做什么？",
+  "onboardingWelcomeBody": "我们给你一句现在就能说的英语。",
+  "onboardingStart": "开始",
+  "onboardingAgeSelectionTitle": "宝宝现在多大？",
+  "onboardingAgeRequired": "先选一个适合宝宝的年龄范围。",
+  "onboardingScenesTitle": "哪些照护时刻最常出现？",
+  "onboardingScenesBody": "可以多选，之后仍能随时看看其他场景。",
+  "onboardingScenesRequired": "至少选一个常见照护时刻。",
+  "onboardingGoalTitle": "你希望我们怎么帮你？",
+  "onboardingGoalFirstWords": "我不知道该怎么说",
+  "onboardingGoalNatural": "我会一点，想说得更自然",
+  "onboardingGoalHabit": "我想把英语放进日常照护",
+  "onboardingMomentTitle": "现在正在发生什么？",
+  "onboardingCareTurnTitle": "现在就能说",
+  "onboardingTraceTitle": "刚才这句话，已经留在你们的花园里。",
+  "onboardingTraceDegraded": "刚才的照护时刻已经记下，花园会稍后整理出来。",
+  "onboardingTraceContinue": "继续",
+  "onboardingAccountTitle": "把这些照护时刻保存到账号",
+  "onboardingAccountBody": "换手机后，也能继续看到刚才留下的痕迹。",
+  "onboardingSaveAccount": "保存并继续",
+  "onboardingContinueLocal": "暂时不用",
+  "onboardingRetry": "再试一次",
+  "onboardingSafeMomentFallback": "刚才没有准备好，换一个场景试试。"
 }

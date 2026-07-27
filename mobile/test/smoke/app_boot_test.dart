@@ -8,9 +8,11 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart'
     hide ChangeNotifierProvider, Provider;
+import 'package:go_router/go_router.dart';
 import 'package:isar/isar.dart';
 import 'package:mobile/app/app.dart';
 import 'package:mobile/app/providers/repository_providers.dart';
+import 'package:mobile/app/router/app_route_contract.dart';
 import 'package:mobile/core/device/installation_id_service.dart';
 import 'package:mobile/features/account/data/local/account_local_store.dart';
 import 'package:mobile/features/account/data/repositories/account_repository.dart';
@@ -20,11 +22,13 @@ import 'package:mobile/features/household/data/repositories/household_repository
 import 'package:mobile/features/household/data/services/household_api_service.dart';
 import 'package:mobile/features/mentor/data/local/mentor_local_data_source.dart';
 import 'package:mobile/features/mentor/data/repositories/mentor_repository.dart';
+import 'package:mobile/features/onboarding/data/local/onboarding_flow_store.dart';
 import 'package:mobile/features/onboarding/data/local/onboarding_snapshot_store.dart';
 import 'package:mobile/features/onboarding/data/repositories/onboarding_repository.dart';
+import 'package:mobile/features/onboarding/domain/models/onboarding_flow_models.dart';
 import 'package:mobile/features/onboarding/domain/models/onboarding_snapshot.dart';
 import 'package:mobile/features/onboarding/domain/models/stage_match.dart';
-import 'package:mobile/features/onboarding/presentation/screens/onboarding_scene_screen.dart';
+import 'package:mobile/features/onboarding/presentation/screens/onboarding_flow_screen.dart';
 import 'package:mobile/features/practice/data/local/practice_local_data_source.dart';
 import 'package:mobile/features/practice/data/repositories/practice_repository.dart';
 import 'package:mobile/features/practice/domain/models/interaction_event_payload.dart';
@@ -161,7 +165,8 @@ void main() {
 
     expect(find.byKey(const Key('boot-route-gate-ready')), findsOneWidget);
     expect(find.byKey(const Key('boot-route-onboarding')), findsOneWidget);
-    expect(find.byType(OnboardingSceneScreen), findsOneWidget);
+    expect(find.byType(OnboardingFlowScreen), findsOneWidget);
+    expect(find.text('宝宝正在做什么？'), findsOneWidget);
     expect(find.byKey(const Key('home-start-practice')), findsNothing);
 
     final content = harness.bootState.content!;
@@ -190,6 +195,187 @@ void main() {
     }
   });
 
+  testWidgets('account route renders the AccountNotifier-backed entry screen', (
+    WidgetTester tester,
+  ) async {
+    final harness = (await tester.runAsync<_AppBootHarness>(_createHarness))!;
+    addTearDown(harness.close);
+    addTearDown(() async {
+      await _disposeWidgetTree(tester);
+    });
+
+    await tester.pumpWidget(
+      _bootApp(harness, completedSnapshotLoader: () async => null),
+    );
+    await _pumpUntilFound(
+      tester,
+      find.byKey(const Key('boot-route-onboarding')),
+    );
+
+    GoRouter.of(
+      tester.element(find.byKey(const Key('boot-route-onboarding'))),
+    ).go(AppRouteNames.account);
+    await _pumpUntilFound(
+      tester,
+      find.byKey(const Key('account-entry-surface')),
+    );
+
+    expect(find.byKey(const Key('account-entry-surface')), findsOneWidget);
+  });
+
+  testWidgets(
+    'persisted care turn resumes the selected moment without writing an event',
+    (WidgetTester tester) async {
+      final harness = (await tester.runAsync<_AppBootHarness>(() async {
+        final created = await _createHarness();
+        await _onboardingRepositoryFor(
+          created,
+        ).saveFlowSnapshot(_resumableFlow(step: OnboardingFlowStep.careTurn));
+        return created;
+      }))!;
+      addTearDown(harness.close);
+      addTearDown(() async {
+        await _disposeWidgetTree(tester);
+      });
+
+      await tester.pumpWidget(
+        _bootApp(harness, completedSnapshotLoader: () async => null),
+      );
+      await _pumpUntilFound(
+        tester,
+        find.byKey(const Key('care-turn-said-button')),
+      );
+
+      expect(find.byKey(const Key('boot-route-onboarding')), findsOneWidget);
+      expect(
+        await tester.runAsync(harness.repository.listEventHistory),
+        isEmpty,
+      );
+    },
+  );
+
+  testWidgets('persisted trace resumes without writing a duplicate event', (
+    WidgetTester tester,
+  ) async {
+    late String traceEventKey;
+    final harness = (await tester.runAsync<_AppBootHarness>(() async {
+      final created = await _createHarness();
+      final event = await created.repository.recordReaction(
+        spaceId: 'daily_care',
+        activityId: 'bath_time',
+        phraseId: 'bath_time_warm_water',
+        reactionType: BabyReactionType.hesitant,
+        clientTimestamp: DateTime.utc(2026, 7, 24, 12),
+        localEventId: 'evt_boot_trace_resume',
+      );
+      traceEventKey = event.eventKey;
+      await _onboardingRepositoryFor(created).saveFlowSnapshot(
+        _resumableFlow(
+          step: OnboardingFlowStep.trace,
+          traceEventKey: traceEventKey,
+        ),
+      );
+      return created;
+    }))!;
+    addTearDown(harness.close);
+    addTearDown(() async {
+      await _disposeWidgetTree(tester);
+    });
+
+    await tester.pumpWidget(
+      _bootApp(harness, completedSnapshotLoader: () async => null),
+    );
+    await _pumpUntilFound(tester, find.text('刚才这句话，已经留在你们的花园里。'));
+
+    final events = (await tester.runAsync(
+      harness.repository.listEventHistory,
+    ))!;
+    expect(events, hasLength(1));
+    expect(events.single.eventKey, traceEventKey);
+  });
+
+  testWidgets(
+    'confirmed next support resumes at trace without writing a duplicate event',
+    (WidgetTester tester) async {
+      late String traceEventKey;
+      final harness = (await tester.runAsync<_AppBootHarness>(() async {
+        final created = await _createHarness();
+        final event = await created.repository.recordReaction(
+          spaceId: 'daily_care',
+          activityId: 'bath_time',
+          phraseId: 'bath_time_warm_water',
+          reactionType: BabyReactionType.hesitant,
+          clientTimestamp: DateTime.utc(2026, 7, 24, 12),
+          localEventId: 'evt_boot_next_support_resume',
+        );
+        traceEventKey = event.eventKey;
+        await _onboardingRepositoryFor(created).saveFlowSnapshot(
+          _resumableFlow(
+            step: OnboardingFlowStep.careTurn,
+            traceEventKey: traceEventKey,
+          ),
+        );
+        return created;
+      }))!;
+      addTearDown(harness.close);
+      addTearDown(() async {
+        await _disposeWidgetTree(tester);
+      });
+
+      await tester.pumpWidget(
+        _bootApp(harness, completedSnapshotLoader: () async => null),
+      );
+      await _pumpUntilFound(tester, find.text('刚才这句话，已经留在你们的花园里。'));
+
+      final events = (await tester.runAsync(
+        harness.repository.listEventHistory,
+      ))!;
+      expect(events, hasLength(1));
+      expect(events.single.eventKey, traceEventKey);
+    },
+  );
+
+  testWidgets(
+    'persisted account invitation resumes without writing a duplicate event',
+    (WidgetTester tester) async {
+      late String traceEventKey;
+      final harness = (await tester.runAsync<_AppBootHarness>(() async {
+        final created = await _createHarness();
+        final event = await created.repository.recordReaction(
+          spaceId: 'daily_care',
+          activityId: 'bath_time',
+          phraseId: 'bath_time_warm_water',
+          reactionType: BabyReactionType.hesitant,
+          clientTimestamp: DateTime.utc(2026, 7, 24, 12),
+          localEventId: 'evt_boot_account_resume',
+        );
+        traceEventKey = event.eventKey;
+        await _onboardingRepositoryFor(created).saveFlowSnapshot(
+          _resumableFlow(
+            step: OnboardingFlowStep.accountInvitation,
+            traceEventKey: traceEventKey,
+          ),
+        );
+        return created;
+      }))!;
+      addTearDown(harness.close);
+      addTearDown(() async {
+        await _disposeWidgetTree(tester);
+      });
+
+      await tester.pumpWidget(
+        _bootApp(harness, completedSnapshotLoader: () async => null),
+      );
+      await _pumpUntilFound(tester, find.text('把这些照护时刻保存到账号'));
+
+      final events = (await tester.runAsync(
+        harness.repository.listEventHistory,
+      ))!;
+      expect(events, hasLength(1));
+      expect(events.single.eventKey, traceEventKey);
+    },
+  );
+
   testWidgets('存在 completed snapshot 时冷启动直接进入 shell home', (
     WidgetTester tester,
   ) async {
@@ -200,13 +386,19 @@ void main() {
         snapshotStore: OnboardingSnapshotStore(
           directoryResolver: () async => created.tempDir,
         ),
-        practiceRepository: created.repository,
-        starterSpaceId: created.bootState.primarySpaceId!,
-        starterActivityId: created.bootState.primaryActivityId!,
+        flowStore: OnboardingFlowStore(
+          directoryResolver: () async => created.tempDir,
+        ),
       );
       completedSnapshot = await onboardingRepository.completeOnboarding(
         childDisplayName: '米米',
         ageBucket: OnboardingAgeBucket.zeroToSix,
+        selectedSceneIds: const ['bedtime'],
+        supportGoal: OnboardingSupportGoal.firstWords,
+        starterSpaceId: 'family_rhythm',
+        starterActivityId: 'bedtime',
+        starterPhraseId: 'bedtime_dim_the_lights',
+        firstTraceEventKey: 'install_smoke_test:evt_onboarding_first',
         completedAt: DateTime.utc(2026, 4, 8, 8),
       );
       return created;
@@ -247,16 +439,13 @@ void main() {
             );
           }),
           onboardingRepositoryProvider.overrideWith((ref) {
-            final practiceRepo = ref
-                .read(practiceRepositoryProvider)
-                .requireValue;
             return OnboardingRepository(
               snapshotStore: OnboardingSnapshotStore(
                 directoryResolver: () async => harness.tempDir,
               ),
-              practiceRepository: practiceRepo,
-              starterSpaceId: harness.bootState.primarySpaceId!,
-              starterActivityId: harness.bootState.primaryActivityId!,
+              flowStore: OnboardingFlowStore(
+                directoryResolver: () async => harness.tempDir,
+              ),
             );
           }),
         ],
@@ -274,6 +463,55 @@ void main() {
     expect(find.byKey(const Key('boot-route-gate-ready')), findsOneWidget);
     expect(find.byKey(const Key('boot-route-shell')), findsOneWidget);
     expect(find.byKey(const Key('boot-route-onboarding')), findsNothing);
+    await _pumpUntilFound(tester, find.byKey(const Key('shell-ready')));
+    final container = ProviderScope.containerOf(
+      tester.element(find.byKey(const Key('shell-ready'))),
+    );
+    final defaultArgs = container.read(defaultPracticeRouteArgsProvider);
+    expect(defaultArgs.spaceId, 'family_rhythm');
+    expect(defaultArgs.activityId, 'bedtime');
+  });
+
+  testWidgets('legacy completed snapshot remains shell compatible', (
+    WidgetTester tester,
+  ) async {
+    final harness = (await tester.runAsync<_AppBootHarness>(() async {
+      final created = await _createHarness();
+      final match = StageMatchCatalog.forAgeBucket(
+        OnboardingAgeBucket.zeroToSix,
+      );
+      await _onboardingRepositoryFor(created).saveSnapshot(
+        OnboardingSnapshot(
+          schemaVersion: 1,
+          childDisplayName: '米米',
+          ageBucket: match.ageBucket,
+          approxMonths: match.approxMonths,
+          currentStage: match.stageId,
+          starterSpaceId: 'daily_care',
+          starterActivityId: 'bath_time',
+          starterPhraseId: 'bath_time_warm_water',
+          consentState: OnboardingConsentState.localOnly,
+          completedAt: DateTime.utc(2026, 7, 24, 12),
+        ),
+      );
+      return created;
+    }))!;
+    addTearDown(harness.close);
+    addTearDown(() async {
+      await _disposeWidgetTree(tester);
+    });
+
+    await tester.pumpWidget(_bootApp(harness));
+    await _pumpUntilFound(tester, find.byKey(const Key('boot-route-shell')));
+
+    expect(find.byKey(const Key('boot-route-onboarding')), findsNothing);
+    final container = ProviderScope.containerOf(
+      tester.element(find.byKey(const Key('shell-ready'))),
+    );
+    expect(
+      container.read(defaultPracticeRouteArgsProvider).activityId,
+      'bath_time',
+    );
   });
 
   testWidgets(
@@ -302,13 +540,19 @@ void main() {
           snapshotStore: OnboardingSnapshotStore(
             directoryResolver: () async => created.tempDir,
           ),
-          practiceRepository: created.repository,
-          starterSpaceId: created.bootState.primarySpaceId!,
-          starterActivityId: created.bootState.primaryActivityId!,
+          flowStore: OnboardingFlowStore(
+            directoryResolver: () async => created.tempDir,
+          ),
         );
         completedSnapshot = await onboardingRepository.completeOnboarding(
           childDisplayName: '米米',
           ageBucket: OnboardingAgeBucket.zeroToSix,
+          selectedSceneIds: const ['bath_time'],
+          supportGoal: OnboardingSupportGoal.firstWords,
+          starterSpaceId: 'daily_care',
+          starterActivityId: 'bath_time',
+          starterPhraseId: 'bath_time_warm_water',
+          firstTraceEventKey: 'install_smoke_test:evt_onboarding_first',
           completedAt: DateTime.utc(2026, 4, 8, 8),
         );
         return created;
@@ -351,16 +595,13 @@ void main() {
               );
             }),
             onboardingRepositoryProvider.overrideWith((ref) {
-              final practiceRepo = ref
-                  .read(practiceRepositoryProvider)
-                  .requireValue;
               return OnboardingRepository(
                 snapshotStore: OnboardingSnapshotStore(
                   directoryResolver: () async => harness.tempDir,
                 ),
-                practiceRepository: practiceRepo,
-                starterSpaceId: harness.bootState.primarySpaceId!,
-                starterActivityId: harness.bootState.primaryActivityId!,
+                flowStore: OnboardingFlowStore(
+                  directoryResolver: () async => harness.tempDir,
+                ),
               );
             }),
           ],
@@ -444,13 +685,19 @@ void main() {
         snapshotStore: OnboardingSnapshotStore(
           directoryResolver: () async => created.tempDir,
         ),
-        practiceRepository: created.repository,
-        starterSpaceId: created.bootState.primarySpaceId!,
-        starterActivityId: created.bootState.primaryActivityId!,
+        flowStore: OnboardingFlowStore(
+          directoryResolver: () async => created.tempDir,
+        ),
       );
       completedSnapshot = await onboardingRepository.completeOnboarding(
         childDisplayName: '米米',
         ageBucket: OnboardingAgeBucket.zeroToSix,
+        selectedSceneIds: const ['bath_time'],
+        supportGoal: OnboardingSupportGoal.firstWords,
+        starterSpaceId: 'daily_care',
+        starterActivityId: 'bath_time',
+        starterPhraseId: 'bath_time_warm_water',
+        firstTraceEventKey: 'install_smoke_test:evt_onboarding_first',
         completedAt: DateTime.utc(2026, 4, 8, 8),
       );
       final accountRepository = AccountRepository(
@@ -501,16 +748,13 @@ void main() {
             );
           }),
           onboardingRepositoryProvider.overrideWith((ref) {
-            final practiceRepo = ref
-                .read(practiceRepositoryProvider)
-                .requireValue;
             return OnboardingRepository(
               snapshotStore: OnboardingSnapshotStore(
                 directoryResolver: () async => harness.tempDir,
               ),
-              practiceRepository: practiceRepo,
-              starterSpaceId: harness.bootState.primarySpaceId!,
-              starterActivityId: harness.bootState.primaryActivityId!,
+              flowStore: OnboardingFlowStore(
+                directoryResolver: () async => harness.tempDir,
+              ),
             );
           }),
         ],
@@ -649,6 +893,83 @@ class _SilentPracticeAudioController implements PracticeAudioController {
   Future<void> dispose() async {
     await _controller.close();
   }
+}
+
+OnboardingRepository _onboardingRepositoryFor(_AppBootHarness harness) {
+  return OnboardingRepository(
+    snapshotStore: OnboardingSnapshotStore(
+      directoryResolver: () async => harness.tempDir,
+    ),
+    flowStore: OnboardingFlowStore(
+      directoryResolver: () async => harness.tempDir,
+    ),
+  );
+}
+
+Widget _bootApp(
+  _AppBootHarness harness, {
+  Future<OnboardingSnapshot?> Function()? completedSnapshotLoader,
+}) {
+  return ProviderScope(
+    overrides: [
+      assetPhraseServiceProvider.overrideWithValue(
+        harness.bootState.assetPhraseService!,
+      ),
+      appDirectoryProvider.overrideWith((ref) => harness.tempDir),
+      mentorRepositoryProvider.overrideWith(
+        (ref) async => harness.mentorRepository,
+      ),
+      practiceRepositoryProvider.overrideWith((ref) => harness.repository),
+      accountRepositoryProvider.overrideWith(
+        (ref) => AccountRepository(
+          localStore: AccountLocalStore(),
+          practiceRepository: harness.repository,
+        ),
+      ),
+      householdRepositoryProvider.overrideWith((ref) {
+        final accountRepository = ref
+            .read(accountRepositoryProvider)
+            .requireValue;
+        return HouseholdRepository(
+          localStore: HouseholdLocalStore(
+            directoryResolver: () async => harness.tempDir,
+          ),
+          apiService: HouseholdApiService(),
+          accountSnapshotLoader: accountRepository.loadSnapshot,
+          persistRefreshedSession: accountRepository.persistRefreshedSession,
+        );
+      }),
+      onboardingRepositoryProvider.overrideWith(
+        (ref) => _onboardingRepositoryFor(harness),
+      ),
+    ],
+    child: BabyTalkApp(
+      bootState: harness.bootState,
+      audioControllerFactory: _SilentPracticeAudioController.new,
+      completedSnapshotLoader: completedSnapshotLoader,
+      practiceContinuityRefreshTimeout: Duration.zero,
+      gardenGrowthRefreshTimeout: Duration.zero,
+    ),
+  );
+}
+
+OnboardingFlowSnapshot _resumableFlow({
+  required OnboardingFlowStep step,
+  String? traceEventKey,
+}) {
+  final hasTrace = traceEventKey?.trim().isNotEmpty == true;
+  return OnboardingFlowSnapshot(
+    step: step,
+    ageBucket: OnboardingAgeBucket.oneToTwo,
+    selectedSceneIds: const ['bath_time'],
+    supportGoal: OnboardingSupportGoal.moreNatural,
+    selectedSpaceId: 'daily_care',
+    selectedActivityId: 'bath_time',
+    starterPhraseId: 'bath_time_warm_water',
+    selectedReaction: hasTrace ? BabyReactionType.hesitant : null,
+    traceEventKey: traceEventKey,
+    updatedAt: DateTime.utc(2026, 7, 24, 12),
+  );
 }
 
 Future<_AppBootHarness> _createHarness() async {

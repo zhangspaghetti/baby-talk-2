@@ -7,7 +7,9 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 APP_CHART_DIR="$PROJECT_ROOT/deploy/helm/babytalk-app"
 APP_PROD_VALUES="$APP_CHART_DIR/values-production.yaml"
+APP_QA_VALUES="$APP_CHART_DIR/values-kind-qa.yaml"
 APP_RELEASE_NAME="babytalk-app"
+APP_QA_RELEASE_NAME="babytalk-qa-app"
 INFRA_CHART_DIR="$PROJECT_ROOT/deploy/helm/babytalk-infra"
 INFRA_KIND_VALUES="$INFRA_CHART_DIR/values-kind.yaml"
 INFRA_RELEASE_NAME="babytalk-infra"
@@ -471,6 +473,29 @@ if step_failed; then
 fi
 echo ""
 
+# ── Step 6b: helm template app QA truth ──────────────────────
+echo "--- Step 6b: helm template app QA truth (kind QA values) ---"
+TEMPLATE_QA=""
+step_begin
+if [[ -f "$APP_QA_VALUES" ]]; then
+  if TEMPLATE_QA=$("$HELM_CMD" template "$APP_QA_RELEASE_NAME" "$APP_CHART_DIR" -f "$APP_QA_VALUES" 2>&1); then
+    assert_contains "$TEMPLATE_QA" "name: ${APP_QA_RELEASE_NAME}-practice-ai-runtime" "QA render includes Practice AI runtime ConfigMap"
+    assert_contains "$TEMPLATE_QA" 'provider-mode: "agentic"' "QA render keeps agentic Practice AI provider mode"
+    assert_contains "$TEMPLATE_QA" 'base-url: "https://dashscope.aliyuncs.com/compatible-mode/v1"' "QA render keeps provider base URL in runtime configuration"
+  else
+    log_fail "helm template QA — render failed"
+  fi
+else
+  log_skip "helm template QA — values-kind-qa.yaml not found"
+fi
+if step_failed; then
+  record_first_failure \
+    "app" \
+    "babytalk-app QA overrides no longer render the Practice AI runtime configuration" \
+    "Fix deploy/helm/babytalk-app templates/values and rerun helm template babytalk-app deploy/helm/babytalk-app -f deploy/helm/babytalk-app/values-kind-qa.yaml"
+fi
+echo ""
+
 # ── Step 7: kubectl dry-run ──────────────────────────────────
 echo "--- Step 7: kubectl dry-run validation ---"
 KUBECTL_REACHABLE=false
@@ -514,6 +539,25 @@ if step_failed; then
     "cluster" \
     "kubectl client-side dry-run rejected the production babytalk-app manifest" \
     "Inspect kubectl validation output with a reachable cluster and rerun bash ci/k8s-smoke.sh"
+fi
+
+step_begin
+if [[ "$KUBECTL_REACHABLE" == "true" ]] && [[ -n "$TEMPLATE_QA" ]]; then
+  if echo "$TEMPLATE_QA" | "$KUBECTL_CMD" apply --dry-run=client -f - &>/dev/null; then
+    log_pass "kubectl dry-run (app QA values)"
+  else
+    log_fail "kubectl dry-run (app QA values)"
+  fi
+elif [[ "$KUBECTL_REACHABLE" != "true" ]]; then
+  log_skip "kubectl dry-run (app QA) — no reachable cluster"
+else
+  log_skip "kubectl dry-run (app QA) — QA render failed or values-kind-qa.yaml not found"
+fi
+if step_failed; then
+  record_first_failure \
+    "cluster" \
+    "kubectl client-side dry-run rejected the QA babytalk-app manifest" \
+    "Inspect the QA render with kubectl validation and rerun bash ci/k8s-smoke.sh"
 fi
 echo ""
 

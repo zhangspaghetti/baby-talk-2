@@ -30,7 +30,7 @@ QA 环境与 dev 环境**隔离**运行，互不影响：
 | Kubernetes namespace | `babytalk` | `babytalk-qa` |
 | Infra release | `babytalk-infra` | `babytalk-qa-infra` |
 | App release | `babytalk-app` | `babytalk-qa-app` |
-| Gateway 本地端口 | 8090 | **8091** |
+| Gateway 本地端口 | 8090 | **19091** |
 | Admin-web 本地端口 | 3000 | **3001** |
 | Infra 持久化存储 | emptyDir（重启丢失） | **PVC（hostpath，持久化）** |
 
@@ -55,7 +55,7 @@ cp deploy/helm/babytalk-app/values-kind-qa-secrets.example.yaml \
 2. **Infra** — 部署 `babytalk-qa-infra`（Postgres + Redis + MinIO，全部启用 PVC 持久化）到 `babytalk-qa` namespace
 3. **App** — 部署 `babytalk-qa-app`（gateway + app-api + admin-api + admin-web + db-migration）到 `babytalk-qa` namespace
 4. **Rollout 验证** — 等待所有 Deployment 就绪
-5. **Port-forward（后台）** — gateway → `127.0.0.1:8091`，admin-web → `127.0.0.1:3001`
+5. **Port-forward（后台）** — gateway → `127.0.0.1:19091`，admin-web → `127.0.0.1:3001`
 6. **Gateway smoke** — curl 健康检查
 7. **APK 构建** — `flutter build apk --debug`
 8. **APK 安装** — 检测 `adb devices`；有模拟器/真机则自动 `adb install`，否则输出 APK 路径
@@ -65,7 +65,7 @@ cp deploy/helm/babytalk-app/values-kind-qa-secrets.example.yaml \
 ```
 qa_status=ok
 namespace=babytalk-qa
-gateway_url=http://127.0.0.1:8091/
+gateway_url=http://127.0.0.1:19091/
 admin_web_url=http://127.0.0.1:3001
 apk_path=mobile/build/app/outputs/flutter-apk/app-debug.apk
 ```
@@ -113,7 +113,7 @@ adb install -r mobile/build/app/outputs/flutter-apk/app-debug.apk
 
 ```bash
 # 指定 QA gateway 端口并自动拉起指定模拟器
-./scripts/qa-install-apk.sh --gateway-port 8091 --avd <avd_name>
+./scripts/qa-install-apk.sh --gateway-port 19091 --avd <avd_name>
 
 # 跳过构建，直接安装已有 APK 到指定设备
 ./scripts/qa-install-apk.sh --skip-build --device <serial>

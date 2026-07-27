@@ -9,12 +9,6 @@ class AppRouteNames {
   static const meSettings = '/me/settings';
   static const meGrowth = '/me/growth';
 
-  static const onboardingName = '/onboarding/name';
-  static const onboardingScene = '/onboarding/scene';
-  static const onboardingPractice = '/onboarding/practice';
-  static const onboardingComplete = '/onboarding/complete';
-  static const onboardingGardenWelcome = '/onboarding/garden-welcome';
-
   static const canonicalPaths = <String>{
     shell,
     onboarding,
@@ -22,10 +16,13 @@ class AppRouteNames {
     account,
     meSettings,
     meGrowth,
-    onboardingName,
-    onboardingScene,
-    onboardingPractice,
-    onboardingComplete,
-    onboardingGardenWelcome,
+  };
+
+  static const legacyOnboardingPaths = <String>{
+    '/onboarding/name',
+    '/onboarding/scene',
+    '/onboarding/practice',
+    '/onboarding/complete',
+    '/onboarding/garden-welcome',
   };
 }

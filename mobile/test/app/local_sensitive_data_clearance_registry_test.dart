@@ -9,7 +9,9 @@ import 'package:mobile/app/local_sensitive_data_clearance_registry.dart';
 import 'package:mobile/core/device/installation_id_service.dart';
 import 'package:mobile/core/local_data_lifecycle/local_sensitive_data_clearance.dart';
 import 'package:mobile/features/account/data/local/account_local_store.dart';
+import 'package:mobile/features/account/data/local/auth_continuation_store.dart';
 import 'package:mobile/features/account/data/repositories/account_repository.dart';
+import 'package:mobile/features/account/presentation/auth_continuation_coordinator.dart';
 import 'package:mobile/features/household/data/local/household_local_store.dart';
 import 'package:mobile/features/household/data/repositories/household_repository.dart';
 import 'package:mobile/features/household/data/services/household_api_service.dart';
@@ -18,7 +20,9 @@ import 'package:mobile/features/mentor/data/local/mentor_local_data_source.dart'
 import 'package:mobile/features/mentor/data/repositories/mentor_repository.dart';
 import 'package:mobile/features/mentor/domain/models/mentor_fact_event.dart';
 import 'package:mobile/features/onboarding/data/local/onboarding_snapshot_store.dart';
+import 'package:mobile/features/onboarding/data/local/onboarding_flow_store.dart';
 import 'package:mobile/features/onboarding/data/repositories/onboarding_repository.dart';
+import 'package:mobile/features/onboarding/domain/models/onboarding_flow_models.dart';
 import 'package:mobile/features/onboarding/domain/models/onboarding_snapshot.dart';
 import 'package:mobile/features/onboarding/domain/models/stage_match.dart';
 import 'package:mobile/features/practice/data/local/practice_local_data_source.dart';
@@ -57,6 +61,7 @@ void main() {
           householdRepository: harness.householdRepository,
           practiceRepository: harness.practiceRepository,
           mentorRepository: harness.mentorRepository,
+          authContinuationCoordinator: harness.authContinuationCoordinator,
         );
 
         expect(
@@ -79,6 +84,7 @@ void main() {
           householdRepository: harness.householdRepository,
           practiceRepository: harness.practiceRepository,
           mentorRepository: harness.mentorRepository,
+          authContinuationCoordinator: harness.authContinuationCoordinator,
         );
 
         final report = await orchestrator.clear(
@@ -99,6 +105,13 @@ void main() {
         );
         expect(await harness.accountSnapshotIsStored(), isTrue);
         expect(await harness.onboardingSnapshotStore.read(), isNotNull);
+        expect(await harness.onboardingFlowStore.read(), isNotNull);
+        expect(
+          File(
+            '${harness.tempDir.path}/onboarding_flow_snapshot.json.tmp',
+          ).existsSync(),
+          isTrue,
+        );
         expect((await harness.householdLocalStore.read()).householdId, 'hh_1');
         expect(
           (await harness.practiceRepository.inspectEventLog()).storedEventCount,
@@ -124,6 +137,7 @@ void main() {
           householdRepository: harness.householdRepository,
           practiceRepository: harness.practiceRepository,
           mentorRepository: harness.mentorRepository,
+          authContinuationCoordinator: harness.authContinuationCoordinator,
         );
 
         final report = await orchestrator.clear(
@@ -153,6 +167,17 @@ void main() {
         );
         expect(await harness.accountSnapshotIsStored(), isFalse);
         expect(await harness.onboardingSnapshotStore.read(), isNull);
+        expect(await harness.onboardingFlowStore.read(), isNull);
+        expect(
+          File('${harness.tempDir.path}/auth_continuation.json').existsSync(),
+          isFalse,
+        );
+        expect(
+          File(
+            '${harness.tempDir.path}/onboarding_flow_snapshot.json.tmp',
+          ).existsSync(),
+          isFalse,
+        );
         expect(
           await harness.householdLocalStore.read(),
           HouseholdLocalSnapshot.empty,
@@ -173,6 +198,8 @@ class _LifecycleHarness {
     required this.secureStorage,
     required this.accountLocalStore,
     required this.onboardingSnapshotStore,
+    required this.onboardingFlowStore,
+    required this.authContinuationCoordinator,
     required this.householdLocalStore,
     required this.installationIdService,
     required this.practiceRepository,
@@ -188,6 +215,8 @@ class _LifecycleHarness {
   final _InMemorySecureStorage secureStorage;
   final AccountLocalStore accountLocalStore;
   final OnboardingSnapshotStore onboardingSnapshotStore;
+  final OnboardingFlowStore onboardingFlowStore;
+  final AuthContinuationCoordinator authContinuationCoordinator;
   final HouseholdLocalStore householdLocalStore;
   final InstallationIdService installationIdService;
   final PracticeRepository practiceRepository;
@@ -217,11 +246,20 @@ class _LifecycleHarness {
     final onboardingSnapshotStore = OnboardingSnapshotStore(
       directoryResolver: () async => tempDir,
     );
+    final onboardingFlowStore = OnboardingFlowStore(
+      directoryResolver: () async => tempDir,
+    );
+    final authContinuationStore = AuthContinuationStore(
+      directoryResolver: () async => tempDir,
+    );
+    final authContinuationCoordinator = AuthContinuationCoordinator(
+      store: authContinuationStore,
+      clock: () => DateTime.utc(2026, 5, 20, 10),
+      correlationIdGenerator: () => 'lifecycle_auth_continuation',
+    );
     final onboardingRepository = OnboardingRepository(
       snapshotStore: onboardingSnapshotStore,
-      practiceRepository: practiceRepository,
-      starterSpaceId: 'daily_care',
-      starterActivityId: 'bath_time',
+      flowStore: onboardingFlowStore,
     );
     final secureStorage = _InMemorySecureStorage();
     final accountLocalStore = AccountLocalStore(
@@ -257,6 +295,8 @@ class _LifecycleHarness {
       secureStorage: secureStorage,
       accountLocalStore: accountLocalStore,
       onboardingSnapshotStore: onboardingSnapshotStore,
+      onboardingFlowStore: onboardingFlowStore,
+      authContinuationCoordinator: authContinuationCoordinator,
       householdLocalStore: householdLocalStore,
       installationIdService: installationIdService,
       practiceRepository: practiceRepository,
@@ -270,6 +310,13 @@ class _LifecycleHarness {
   Future<void> seedSensitiveData() async {
     await accountLocalStore.write(AccountLocalSnapshot.localOnly);
     await onboardingSnapshotStore.write(_completedSnapshot());
+    await onboardingFlowStore.write(
+      OnboardingFlowSnapshot.initial(DateTime.utc(2026, 5, 20, 10)),
+    );
+    await authContinuationCoordinator.beginSaveOnboardingMemory();
+    await File(
+      '${tempDir.path}/onboarding_flow_snapshot.json.tmp',
+    ).writeAsString('orphan');
     await householdLocalStore.write(
       const HouseholdLocalSnapshot(
         householdId: 'hh_1',
@@ -335,7 +382,7 @@ class _LifecycleHarness {
 OnboardingSnapshot _completedSnapshot() {
   return OnboardingSnapshot(
     childDisplayName: '米米',
-    ageBucket: OnboardingAgeBucket.twelveToEighteen,
+    ageBucket: OnboardingAgeBucket.oneToTwo,
     approxMonths: 15,
     currentStage: 'gesture_plus_words',
     starterSpaceId: 'daily_care',
@@ -345,7 +392,6 @@ OnboardingSnapshot _completedSnapshot() {
     completedAt: DateTime.utc(2026, 5, 20, 10),
   );
 }
-
 
 class _InMemorySecureStorage extends FlutterSecureStorage {
   _InMemorySecureStorage();

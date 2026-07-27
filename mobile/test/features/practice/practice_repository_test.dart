@@ -378,6 +378,91 @@ void main() {
       expect(catalog.spaces.last.totalEvents, 1);
     });
 
+    test(
+      'same localEventId and same immutable facts reconcile to one event',
+      () async {
+        final first = await repository.recordReaction(
+          spaceId: 'daily_care',
+          activityId: 'bath_time',
+          phraseId: 'bath_time_warm_water',
+          reactionType: BabyReactionType.hesitant,
+          localEventId: 'evt_reconcile_same',
+          clientTimestamp: DateTime.utc(2026, 7, 23, 12),
+        );
+        final second = await repository.recordReaction(
+          spaceId: 'daily_care',
+          activityId: 'bath_time',
+          phraseId: 'bath_time_warm_water',
+          reactionType: BabyReactionType.hesitant,
+          localEventId: 'evt_reconcile_same',
+          clientTimestamp: DateTime.utc(2026, 7, 23, 12, 1),
+        );
+
+        expect(second.eventKey, first.eventKey);
+        expect(await repository.listEventHistory(), hasLength(1));
+      },
+    );
+
+    test('same localEventId with different facts fails closed', () async {
+      await repository.recordReaction(
+        spaceId: 'daily_care',
+        activityId: 'bath_time',
+        phraseId: 'bath_time_warm_water',
+        reactionType: BabyReactionType.hesitant,
+        localEventId: 'evt_reconcile_conflict',
+      );
+      await expectLater(
+        repository.recordReaction(
+          spaceId: 'daily_care',
+          activityId: 'bath_time',
+          phraseId: 'bath_time_warm_water',
+          reactionType: BabyReactionType.resisting,
+          localEventId: 'evt_reconcile_conflict',
+        ),
+        throwsA(
+          isA<FormatException>().having(
+            (error) => error.message,
+            'message',
+            contains('localEventId 已绑定不同事件事实'),
+          ),
+        ),
+      );
+    });
+
+    test(
+      'write success with lost response reconciles the stored event',
+      () async {
+        final writeThenThrowDataSource = _WriteThenThrowLocalDataSource(
+          isar: localDataSource.isar,
+        );
+        final unknownOutcomeRepository = PracticeRepository(
+          assetPhraseService: AssetPhraseService(bundle: rootBundle),
+          localDataSource: writeThenThrowDataSource,
+          installationIdService: InstallationIdService(
+            directoryResolver: () async => tempDir,
+            idGenerator: () => 'install_test',
+          ),
+        );
+
+        final reconciled = await unknownOutcomeRepository.recordReaction(
+          spaceId: 'daily_care',
+          activityId: 'bath_time',
+          phraseId: 'bath_time_warm_water',
+          reactionType: BabyReactionType.hesitant,
+          localEventId: 'evt_unknown_outcome',
+        );
+
+        expect(reconciled.localEventId, 'evt_unknown_outcome');
+        expect(
+          await unknownOutcomeRepository.findEventByLocalEventId(
+            'evt_unknown_outcome',
+          ),
+          reconciled,
+        );
+        expect(await unknownOutcomeRepository.listEventHistory(), hasLength(1));
+      },
+    );
+
     test('重开 Isar 后仍能从 append-only 事件重建最近结果', () async {
       await repository.recordReaction(
         spaceId: 'daily_care',
@@ -652,6 +737,15 @@ void main() {
   });
 }
 
+class _WriteThenThrowLocalDataSource extends PracticeLocalDataSource {
+  _WriteThenThrowLocalDataSource({required super.isar});
+
+  @override
+  Future<void> appendInteractionEvent(InteractionEventPayload payload) async {
+    await super.appendInteractionEvent(payload);
+    throw StateError('simulated lost response after local commit');
+  }
+}
 
 class _FakeAssetBundle extends CachingAssetBundle {
   _FakeAssetBundle({required this.strings, required this.binaryAssets});

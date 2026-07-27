@@ -349,6 +349,12 @@ main() {
   stage 'mobile-analyze' 'bash ci/mobile-analyze.sh'
   bash ci/mobile-analyze.sh
 
+  stage 'mobile-format-baseline-regression' 'bash test/tool/mobile_format_changed_test.sh'
+  bash test/tool/mobile_format_changed_test.sh
+
+  stage 'mobile-format-baseline' 'MOBILE_FORMAT_BASE_REF=<merge-base> bash ci/mobile-format-changed.sh'
+  MOBILE_FORMAT_BASE_REF="$MERGE_BASE_SHA" bash ci/mobile-format-changed.sh
+
   stage 'mobile-r4' 'bash ci/mobile-r4-release-gates.sh'
   bash ci/mobile-r4-release-gates.sh
 

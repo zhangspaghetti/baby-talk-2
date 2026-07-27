@@ -4,6 +4,7 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:mobile/app/providers/repository_providers.dart';
+import 'package:mobile/app/router/account_entry_route_contract.dart';
 import 'package:mobile/app/theme/app_layout_constants.dart';
 import 'package:mobile/app/theme/app_theme.dart';
 import 'package:mobile/app/widgets/app_haptics.dart';
@@ -16,8 +17,11 @@ import 'package:mobile/features/household/presentation/widgets/household_shared_
 import 'package:mobile/features/onboarding/domain/models/onboarding_snapshot.dart';
 import 'package:mobile/l10n/app_localizations.dart';
 
-Future<void> openAccountEntryScreen(BuildContext context) {
-  return GoRouter.of(context).push('/account');
+Future<void> openAccountEntryScreen(
+  BuildContext context, {
+  AccountEntryOrigin origin = AccountEntryOrigin.settings,
+}) {
+  return GoRouter.of(context).push('/account', extra: origin);
 }
 
 String _accountBodyForPhase(
@@ -528,7 +532,12 @@ class _AccountEntrySection extends StatelessWidget {
 }
 
 class AccountEntryScreen extends HookConsumerWidget {
-  const AccountEntryScreen({super.key});
+  const AccountEntryScreen({
+    super.key,
+    this.origin = AccountEntryOrigin.settings,
+  });
+
+  final AccountEntryOrigin origin;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -739,6 +748,17 @@ class AccountEntryScreen extends HookConsumerWidget {
                                                 .submitSignIn();
                                             if (!context.mounted ||
                                                 !succeeded) {
+                                              return;
+                                            }
+                                            if (!context.mounted) {
+                                              return;
+                                            }
+                                            if (origin ==
+                                                AccountEntryOrigin
+                                                    .onboardingContinuation) {
+                                              context.pop(
+                                                AccountEntryResult.signedIn,
+                                              );
                                               return;
                                             }
                                             showAppToast(

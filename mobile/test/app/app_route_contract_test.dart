@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:mobile/app/router/app_go_router.dart';
 import 'package:mobile/app/router/app_router.dart';
 import 'package:mobile/features/practice/presentation/practice_route_args.dart';
 
@@ -20,11 +21,13 @@ void main() {
         AppRouteNames.account,
         AppRouteNames.meSettings,
         AppRouteNames.meGrowth,
-        AppRouteNames.onboardingName,
-        AppRouteNames.onboardingScene,
-        AppRouteNames.onboardingPractice,
-        AppRouteNames.onboardingComplete,
-        AppRouteNames.onboardingGardenWelcome,
+      });
+      expect(AppRouteNames.legacyOnboardingPaths, <String>{
+        '/onboarding/name',
+        '/onboarding/scene',
+        '/onboarding/practice',
+        '/onboarding/complete',
+        '/onboarding/garden-welcome',
       });
     });
 
@@ -61,6 +64,35 @@ void main() {
           const RouteSettings(name: '/unknown-route'),
         );
         expect(unknownRoute?.settings.name, AppRouteNames.shell);
+      },
+    );
+
+    testWidgets(
+      'legacy onboarding paths redirect to the canonical onboarding flow',
+      (tester) async {
+        final legacyPaths = AppRouteNames.legacyOnboardingPaths.toList();
+        final router = createAppRouter(
+          initialLocation: legacyPaths.first,
+          onboardingBuilder: (_) =>
+              const SizedBox(key: Key('onboarding-flow-route')),
+        );
+        addTearDown(router.dispose);
+
+        await tester.pumpWidget(MaterialApp.router(routerConfig: router));
+        await tester.pumpAndSettle();
+
+        for (final path in legacyPaths) {
+          router.go(path);
+          await tester.pumpAndSettle();
+          expect(
+            router.routeInformationProvider.value.uri.path,
+            AppRouteNames.onboarding,
+          );
+          expect(
+            find.byKey(const Key('onboarding-flow-route')),
+            findsOneWidget,
+          );
+        }
       },
     );
   });

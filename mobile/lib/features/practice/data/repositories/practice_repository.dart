@@ -580,6 +580,12 @@ class PracticeRepository {
     return _installationIdService.readExisting();
   }
 
+  Future<InteractionEventPayload?> findEventByLocalEventId(
+    String localEventId,
+  ) {
+    return _localDataSource.getInteractionEventByLocalEventId(localEventId);
+  }
+
   Future<InteractionEventPayload> recordReaction({
     required String spaceId,
     required String activityId,
@@ -599,8 +605,12 @@ class PracticeRepository {
       throw FormatException('未知 phraseId: $spaceId/$activityId/$phraseId');
     }
 
+    final normalizedLocalEventId = localEventId?.trim();
     final payload = InteractionEventPayload(
-      localEventId: localEventId ?? _generateLocalEventId(),
+      localEventId:
+          normalizedLocalEventId == null || normalizedLocalEventId.isEmpty
+          ? _generateLocalEventId()
+          : normalizedLocalEventId,
       installationId: await _installationIdService.getOrCreate(),
       spaceId: spaceId,
       activityId: activityId,
@@ -608,8 +618,46 @@ class PracticeRepository {
       reactionType: reactionType,
       clientTimestamp: clientTimestamp ?? DateTime.now().toUtc(),
     );
-    await _localDataSource.appendInteractionEvent(payload);
-    return payload;
+    if (normalizedLocalEventId != null && normalizedLocalEventId.isNotEmpty) {
+      final existing = await findEventByLocalEventId(normalizedLocalEventId);
+      if (existing != null) {
+        return _reconcileOrThrow(existing, payload);
+      }
+    }
+
+    try {
+      await _localDataSource.appendInteractionEvent(payload);
+      return payload;
+    } catch (_) {
+      if (normalizedLocalEventId == null || normalizedLocalEventId.isEmpty) {
+        rethrow;
+      }
+      final existing = await findEventByLocalEventId(normalizedLocalEventId);
+      if (existing == null) {
+        rethrow;
+      }
+      return _reconcileOrThrow(existing, payload);
+    }
+  }
+
+  bool _sameImmutableEventFacts(
+    InteractionEventPayload existing,
+    InteractionEventPayload requested,
+  ) {
+    return existing.spaceId == requested.spaceId &&
+        existing.activityId == requested.activityId &&
+        existing.phraseId == requested.phraseId &&
+        existing.reactionType == requested.reactionType;
+  }
+
+  InteractionEventPayload _reconcileOrThrow(
+    InteractionEventPayload existing,
+    InteractionEventPayload requested,
+  ) {
+    if (!_sameImmutableEventFacts(existing, requested)) {
+      throw const FormatException('localEventId 已绑定不同事件事实。');
+    }
+    return existing;
   }
 
   Future<PracticeRestoreSnapshot> restorePracticeState({

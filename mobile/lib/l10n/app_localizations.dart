@@ -560,258 +560,6 @@ abstract class AppLocalizations {
   /// **'{totalEvents} 条本地记录 · 最近一次 {time}'**
   String homeRecentResultDetail(Object totalEvents, Object time);
 
-  /// No description provided for @onboardingTitle.
-  ///
-  /// In zh, this message translates to:
-  /// **'先拿一句今天能和宝宝说的英文'**
-  String get onboardingTitle;
-
-  /// No description provided for @onboardingSubtitle.
-  ///
-  /// In zh, this message translates to:
-  /// **'只要昵称和大概月龄，小禾老师会先在本机准备第一句。'**
-  String get onboardingSubtitle;
-
-  /// No description provided for @onboardingLocalOnly.
-  ///
-  /// In zh, this message translates to:
-  /// **'同意前仅保存在这台设备，不需要精确生日。'**
-  String get onboardingLocalOnly;
-
-  /// No description provided for @onboardingMentorGreeting.
-  ///
-  /// In zh, this message translates to:
-  /// **'你好，我会先帮你把英语放进今天就能开口的照护节奏里。'**
-  String get onboardingMentorGreeting;
-
-  /// No description provided for @onboardingAskName.
-  ///
-  /// In zh, this message translates to:
-  /// **'我先怎么称呼宝宝？先用一个你最顺口的小昵称就好。'**
-  String get onboardingAskName;
-
-  /// No description provided for @onboardingAskAge.
-  ///
-  /// In zh, this message translates to:
-  /// **'现在大概几个月？我会用月龄档给你匹配阶段，不会要求精确生日。'**
-  String get onboardingAskAge;
-
-  /// No description provided for @onboardingStagePreview.
-  ///
-  /// In zh, this message translates to:
-  /// **'{childName} 现在更适合从这一类短句开始，先用一句真实照护里的英文试试看。'**
-  String onboardingStagePreview(Object childName);
-
-  /// No description provided for @onboardingWelcomeInfo.
-  ///
-  /// In zh, this message translates to:
-  /// **'先准备两条信息：宝宝昵称 + 月龄档。'**
-  String get onboardingWelcomeInfo;
-
-  /// No description provided for @onboardingWelcomeDetail.
-  ///
-  /// In zh, this message translates to:
-  /// **'完成后会看到第一句英文、什么时候说，以及怎么接住宝宝反应。'**
-  String get onboardingWelcomeDetail;
-
-  /// No description provided for @onboardingStartButton.
-  ///
-  /// In zh, this message translates to:
-  /// **'先开始'**
-  String get onboardingStartButton;
-
-  /// No description provided for @onboardingNameLabel.
-  ///
-  /// In zh, this message translates to:
-  /// **'宝宝昵称'**
-  String get onboardingNameLabel;
-
-  /// No description provided for @onboardingNameHint.
-  ///
-  /// In zh, this message translates to:
-  /// **'例如：米米、果果'**
-  String get onboardingNameHint;
-
-  /// No description provided for @onboardingNameHelp.
-  ///
-  /// In zh, this message translates to:
-  /// **'先用一个顺口的小名就够了，之后还可以再改。'**
-  String get onboardingNameHelp;
-
-  /// No description provided for @onboardingBack.
-  ///
-  /// In zh, this message translates to:
-  /// **'上一步'**
-  String get onboardingBack;
-
-  /// No description provided for @onboardingContinue.
-  ///
-  /// In zh, this message translates to:
-  /// **'继续'**
-  String get onboardingContinue;
-
-  /// No description provided for @onboardingAgeTitle.
-  ///
-  /// In zh, this message translates to:
-  /// **'月龄快选'**
-  String get onboardingAgeTitle;
-
-  /// No description provided for @onboardingAgeHelp.
-  ///
-  /// In zh, this message translates to:
-  /// **'不需要精确到哪一天，先选最接近的一档就可以。'**
-  String get onboardingAgeHelp;
-
-  /// No description provided for @onboardingAgeMonths.
-  ///
-  /// In zh, this message translates to:
-  /// **'{months}月左右'**
-  String onboardingAgeMonths(Object months);
-
-  /// No description provided for @onboardingContentLoading.
-  ///
-  /// In zh, this message translates to:
-  /// **'正在准备第一句…'**
-  String get onboardingContentLoading;
-
-  /// No description provided for @onboardingContentRetry.
-  ///
-  /// In zh, this message translates to:
-  /// **'重新准备'**
-  String get onboardingContentRetry;
-
-  /// No description provided for @onboardingAgeContinue.
-  ///
-  /// In zh, this message translates to:
-  /// **'准备第一句'**
-  String get onboardingAgeContinue;
-
-  /// No description provided for @onboardingPreviewConfirm.
-  ///
-  /// In zh, this message translates to:
-  /// **'先播放一下，再说一次；我会把这次开始保存在本机。'**
-  String get onboardingPreviewConfirm;
-
-  /// No description provided for @onboardingPreviewRetryHint.
-  ///
-  /// In zh, this message translates to:
-  /// **'说完可以点“我说了”，不用等宝宝立刻回应。'**
-  String get onboardingPreviewRetryHint;
-
-  /// No description provided for @onboardingPreviewSeedLabel.
-  ///
-  /// In zh, this message translates to:
-  /// **'第一句可以先这样说'**
-  String get onboardingPreviewSeedLabel;
-
-  /// No description provided for @onboardingMiniSceneActionHint.
-  ///
-  /// In zh, this message translates to:
-  /// **'洗澡、换衣或抱起宝宝时，都可以先轻轻说这一句。'**
-  String get onboardingMiniSceneActionHint;
-
-  /// No description provided for @onboardingMiniScenePlay.
-  ///
-  /// In zh, this message translates to:
-  /// **'播放一下'**
-  String get onboardingMiniScenePlay;
-
-  /// No description provided for @onboardingMiniScenePlaying.
-  ///
-  /// In zh, this message translates to:
-  /// **'播放中'**
-  String get onboardingMiniScenePlaying;
-
-  /// No description provided for @onboardingMiniSceneSaid.
-  ///
-  /// In zh, this message translates to:
-  /// **'我说了'**
-  String get onboardingMiniSceneSaid;
-
-  /// No description provided for @onboardingMiniSceneRecording.
-  ///
-  /// In zh, this message translates to:
-  /// **'记录中'**
-  String get onboardingMiniSceneRecording;
-
-  /// No description provided for @onboardingMiniSceneRecorded.
-  ///
-  /// In zh, this message translates to:
-  /// **'已在本机种下第一颗种子，首页会接着这句继续。'**
-  String get onboardingMiniSceneRecorded;
-
-  /// No description provided for @onboardingSayFirstBeforeHome.
-  ///
-  /// In zh, this message translates to:
-  /// **'先说一次'**
-  String get onboardingSayFirstBeforeHome;
-
-  /// No description provided for @onboardingPreviewBack.
-  ///
-  /// In zh, this message translates to:
-  /// **'返回调整'**
-  String get onboardingPreviewBack;
-
-  /// No description provided for @onboardingSaving.
-  ///
-  /// In zh, this message translates to:
-  /// **'正在保存到本地'**
-  String get onboardingSaving;
-
-  /// No description provided for @onboardingEnterHome.
-  ///
-  /// In zh, this message translates to:
-  /// **'进入首页继续'**
-  String get onboardingEnterHome;
-
-  /// No description provided for @onboardingStageMatch.
-  ///
-  /// In zh, this message translates to:
-  /// **'现在适合这样开始'**
-  String get onboardingStageMatch;
-
-  /// No description provided for @onboardingMentorCaption.
-  ///
-  /// In zh, this message translates to:
-  /// **'禾'**
-  String get onboardingMentorCaption;
-
-  /// No description provided for @onboardingFirstSeed.
-  ///
-  /// In zh, this message translates to:
-  /// **'第一颗种子'**
-  String get onboardingFirstSeed;
-
-  /// No description provided for @onboardingMentorMessageSemantics.
-  ///
-  /// In zh, this message translates to:
-  /// **'小禾老师引导消息：{message}'**
-  String onboardingMentorMessageSemantics(Object message);
-
-  /// No description provided for @onboardingMiniSeedCardSemantics.
-  ///
-  /// In zh, this message translates to:
-  /// **'第一颗种子：{phrase}'**
-  String onboardingMiniSeedCardSemantics(Object phrase);
-
-  /// No description provided for @onboardingStageMatchSemantics.
-  ///
-  /// In zh, this message translates to:
-  /// **'现在适合这样开始：{stageTitle}。{summary}'**
-  String onboardingStageMatchSemantics(Object stageTitle, Object summary);
-
-  /// No description provided for @onboardingFirstPhraseActionErrorSemantics.
-  ///
-  /// In zh, this message translates to:
-  /// **'第一句记录失败：{message}'**
-  String onboardingFirstPhraseActionErrorSemantics(Object message);
-
-  /// No description provided for @onboardingSaveErrorSemantics.
-  ///
-  /// In zh, this message translates to:
-  /// **'保存失败：{message}'**
-  String onboardingSaveErrorSemantics(Object message);
-
   /// No description provided for @shellDrawerTooltip.
   ///
   /// In zh, this message translates to:
@@ -3710,143 +3458,17 @@ abstract class AppLocalizations {
   /// **'English'**
   String get settingsLanguageEn;
 
-  /// Mentor bubble on name input screen
+  /// No description provided for @mentorBubbleCaption.
   ///
   /// In zh, this message translates to:
-  /// **'小禾想帮你记录这段珍贵的成长，可以告诉我一些关于宝宝的小信息吗？'**
-  String get onboardingV21MentorGreeting;
+  /// **'禾'**
+  String get mentorBubbleCaption;
 
-  /// Name input label
+  /// No description provided for @mentorBubbleMessageSemantics.
   ///
   /// In zh, this message translates to:
-  /// **'宝宝昵称（可选）'**
-  String get onboardingV21NameLabel;
-
-  /// Name input hint
-  ///
-  /// In zh, this message translates to:
-  /// **'比如：小宝、小明...'**
-  String get onboardingV21NameHint;
-
-  /// Age selection title
-  ///
-  /// In zh, this message translates to:
-  /// **'宝宝月龄'**
-  String get onboardingV21AgeTitle;
-
-  /// Save button on name screen
-  ///
-  /// In zh, this message translates to:
-  /// **'保存'**
-  String get onboardingV21SaveButton;
-
-  /// Skip button
-  ///
-  /// In zh, this message translates to:
-  /// **'稍后再说'**
-  String get onboardingV21SkipButton;
-
-  /// Next button on name screen (deprecated)
-  ///
-  /// In zh, this message translates to:
-  /// **'下一步'**
-  String get onboardingV21NextButton;
-
-  /// Scene selection title
-  ///
-  /// In zh, this message translates to:
-  /// **'今天先说一句'**
-  String get onboardingV21SceneTitle;
-
-  /// Scene selection hint
-  ///
-  /// In zh, this message translates to:
-  /// **'选个正在发生的场景'**
-  String get onboardingV21SceneHint;
-
-  /// Skip scene selection button
-  ///
-  /// In zh, this message translates to:
-  /// **'直接给一句'**
-  String get onboardingV21DirectPhrase;
-
-  /// Age entry button
-  ///
-  /// In zh, this message translates to:
-  /// **'宝宝多大？可稍后补'**
-  String get onboardingV21AgeEntry;
-
-  /// Skip age selection
-  ///
-  /// In zh, this message translates to:
-  /// **'先跳过'**
-  String get onboardingV21AgeSkip;
-
-  /// Practice screen subtitle
-  ///
-  /// In zh, this message translates to:
-  /// **'一句就够'**
-  String get onboardingV21PracticeSubtitle;
-
-  /// Said button on practice screen
-  ///
-  /// In zh, this message translates to:
-  /// **'说完了'**
-  String get onboardingV21SaidButton;
-
-  /// Swap phrase button
-  ///
-  /// In zh, this message translates to:
-  /// **'换一句'**
-  String get onboardingV21SwapButton;
-
-  /// End practice button
-  ///
-  /// In zh, this message translates to:
-  /// **'结束'**
-  String get onboardingV21EndButton;
-
-  /// Saved confirmation
-  ///
-  /// In zh, this message translates to:
-  /// **'已保存本句'**
-  String get onboardingV21Saved;
-
-  /// Skip reaction button
-  ///
-  /// In zh, this message translates to:
-  /// **'跳过，下一句'**
-  String get onboardingV21SkipReaction;
-
-  /// All phrases used
-  ///
-  /// In zh, this message translates to:
-  /// **'句子都试过了'**
-  String get onboardingV21PhrasesExhausted;
-
-  /// Completion screen title
-  ///
-  /// In zh, this message translates to:
-  /// **'小禾老师 / 今天已完成'**
-  String get onboardingV21CompleteTitle;
-
-  /// Practice again button
-  ///
-  /// In zh, this message translates to:
-  /// **'再来一句'**
-  String get onboardingV21AgainButton;
-
-  /// Done button
-  ///
-  /// In zh, this message translates to:
-  /// **'先到这里'**
-  String get onboardingV21DoneButton;
-
-  /// Next time copy
-  ///
-  /// In zh, this message translates to:
-  /// **'下次打开，小禾会给你新的一句。'**
-  String get onboardingV21NextTime;
+  /// **'小禾老师引导消息：{message}'**
+  String mentorBubbleMessageSemantics(Object message);
 
   /// T4 one-turn practice screen title
   ///
@@ -3931,6 +3553,144 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'花园留痕'**
   String get practiceGardenTraceTitle;
+
+  /// No description provided for @onboardingWelcomeTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'宝宝正在做什么？'**
+  String get onboardingWelcomeTitle;
+
+  /// No description provided for @onboardingWelcomeBody.
+  ///
+  /// In zh, this message translates to:
+  /// **'我们给你一句现在就能说的英语。'**
+  String get onboardingWelcomeBody;
+
+  /// No description provided for @onboardingStart.
+  ///
+  /// In zh, this message translates to:
+  /// **'开始'**
+  String get onboardingStart;
+
+  /// No description provided for @onboardingAgeSelectionTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'宝宝现在多大？'**
+  String get onboardingAgeSelectionTitle;
+
+  /// No description provided for @onboardingAgeRequired.
+  ///
+  /// In zh, this message translates to:
+  /// **'先选一个适合宝宝的年龄范围。'**
+  String get onboardingAgeRequired;
+
+  /// No description provided for @onboardingScenesTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'哪些照护时刻最常出现？'**
+  String get onboardingScenesTitle;
+
+  /// No description provided for @onboardingScenesBody.
+  ///
+  /// In zh, this message translates to:
+  /// **'可以多选，之后仍能随时看看其他场景。'**
+  String get onboardingScenesBody;
+
+  /// No description provided for @onboardingScenesRequired.
+  ///
+  /// In zh, this message translates to:
+  /// **'至少选一个常见照护时刻。'**
+  String get onboardingScenesRequired;
+
+  /// No description provided for @onboardingGoalTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'你希望我们怎么帮你？'**
+  String get onboardingGoalTitle;
+
+  /// No description provided for @onboardingGoalFirstWords.
+  ///
+  /// In zh, this message translates to:
+  /// **'我不知道该怎么说'**
+  String get onboardingGoalFirstWords;
+
+  /// No description provided for @onboardingGoalNatural.
+  ///
+  /// In zh, this message translates to:
+  /// **'我会一点，想说得更自然'**
+  String get onboardingGoalNatural;
+
+  /// No description provided for @onboardingGoalHabit.
+  ///
+  /// In zh, this message translates to:
+  /// **'我想把英语放进日常照护'**
+  String get onboardingGoalHabit;
+
+  /// No description provided for @onboardingMomentTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'现在正在发生什么？'**
+  String get onboardingMomentTitle;
+
+  /// No description provided for @onboardingCareTurnTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'现在就能说'**
+  String get onboardingCareTurnTitle;
+
+  /// No description provided for @onboardingTraceTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'刚才这句话，已经留在你们的花园里。'**
+  String get onboardingTraceTitle;
+
+  /// No description provided for @onboardingTraceDegraded.
+  ///
+  /// In zh, this message translates to:
+  /// **'刚才的照护时刻已经记下，花园会稍后整理出来。'**
+  String get onboardingTraceDegraded;
+
+  /// No description provided for @onboardingTraceContinue.
+  ///
+  /// In zh, this message translates to:
+  /// **'继续'**
+  String get onboardingTraceContinue;
+
+  /// No description provided for @onboardingAccountTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'把这些照护时刻保存到账号'**
+  String get onboardingAccountTitle;
+
+  /// No description provided for @onboardingAccountBody.
+  ///
+  /// In zh, this message translates to:
+  /// **'换手机后，也能继续看到刚才留下的痕迹。'**
+  String get onboardingAccountBody;
+
+  /// No description provided for @onboardingSaveAccount.
+  ///
+  /// In zh, this message translates to:
+  /// **'保存并继续'**
+  String get onboardingSaveAccount;
+
+  /// No description provided for @onboardingContinueLocal.
+  ///
+  /// In zh, this message translates to:
+  /// **'暂时不用'**
+  String get onboardingContinueLocal;
+
+  /// No description provided for @onboardingRetry.
+  ///
+  /// In zh, this message translates to:
+  /// **'再试一次'**
+  String get onboardingRetry;
+
+  /// No description provided for @onboardingSafeMomentFallback.
+  ///
+  /// In zh, this message translates to:
+  /// **'刚才没有准备好，换一个场景试试。'**
+  String get onboardingSafeMomentFallback;
 }
 
 class _AppLocalizationsDelegate

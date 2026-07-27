@@ -14,6 +14,13 @@ enum CareTurnPhase {
   error,
 }
 
+enum CareTurnFailureKind {
+  momentUnavailable,
+  reactionUnknownOutcome,
+  reactionRejected,
+  localStateUnavailable,
+}
+
 class CareMoment {
   const CareMoment({
     required this.spaceId,
@@ -160,6 +167,7 @@ class CareTurnSnapshot {
     required this.traceEventKey,
     required this.latestGardenImpact,
     required this.message,
+    this.failureKind,
   });
 
   final CareMoment moment;
@@ -170,6 +178,7 @@ class CareTurnSnapshot {
   final String? traceEventKey;
   final LatestPracticeImpact? latestGardenImpact;
   final String? message;
+  final CareTurnFailureKind? failureKind;
 
   CareTurnSnapshot copyWith({
     CareMoment? moment,
@@ -180,6 +189,7 @@ class CareTurnSnapshot {
     Object? traceEventKey = _unset,
     Object? latestGardenImpact = _unset,
     Object? message = _unset,
+    Object? failureKind = _unset,
   }) {
     return CareTurnSnapshot(
       moment: moment ?? this.moment,
@@ -200,6 +210,9 @@ class CareTurnSnapshot {
           ? this.latestGardenImpact
           : latestGardenImpact as LatestPracticeImpact?,
       message: identical(message, _unset) ? this.message : message as String?,
+      failureKind: identical(failureKind, _unset)
+          ? this.failureKind
+          : failureKind as CareTurnFailureKind?,
     );
   }
 
@@ -214,7 +227,8 @@ class CareTurnSnapshot {
             other.phase == phase &&
             other.traceEventKey == traceEventKey &&
             other.latestGardenImpact == latestGardenImpact &&
-            other.message == message;
+            other.message == message &&
+            other.failureKind == failureKind;
   }
 
   @override
@@ -227,6 +241,7 @@ class CareTurnSnapshot {
     traceEventKey,
     latestGardenImpact,
     message,
+    failureKind,
   );
 }
 

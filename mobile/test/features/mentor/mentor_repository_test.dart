@@ -178,7 +178,7 @@ void main() {
         await onboardingSnapshotStore.write(
           OnboardingSnapshot(
             childDisplayName: '小满',
-            ageBucket: OnboardingAgeBucket.sixToTwelve,
+            ageBucket: OnboardingAgeBucket.sevenToTwelve,
             approxMonths: 9,
             currentStage: 'sound_turn_taking',
             starterSpaceId: 'daily_care',
@@ -318,7 +318,7 @@ void main() {
         await onboardingSnapshotStore.write(
           OnboardingSnapshot(
             childDisplayName: '小满',
-            ageBucket: OnboardingAgeBucket.sixToTwelve,
+            ageBucket: OnboardingAgeBucket.sevenToTwelve,
             approxMonths: 9,
             currentStage: 'sound_turn_taking',
             starterSpaceId: 'daily_care',
@@ -504,7 +504,7 @@ void main() {
       await onboardingSnapshotStore.write(
         OnboardingSnapshot(
           childDisplayName: '小满',
-          ageBucket: OnboardingAgeBucket.sixToTwelve,
+          ageBucket: OnboardingAgeBucket.sevenToTwelve,
           approxMonths: 9,
           currentStage: 'sound_turn_taking',
           starterSpaceId: 'daily_care',
@@ -555,7 +555,7 @@ void main() {
       await onboardingSnapshotStore.write(
         OnboardingSnapshot(
           childDisplayName: '小满',
-          ageBucket: OnboardingAgeBucket.sixToTwelve,
+          ageBucket: OnboardingAgeBucket.sevenToTwelve,
           approxMonths: 9,
           currentStage: 'sound_turn_taking',
           starterSpaceId: 'daily_care',
@@ -609,7 +609,7 @@ void main() {
       await onboardingSnapshotStore.write(
         OnboardingSnapshot(
           childDisplayName: '小满',
-          ageBucket: OnboardingAgeBucket.sixToTwelve,
+          ageBucket: OnboardingAgeBucket.sevenToTwelve,
           approxMonths: 9,
           currentStage: 'sound_turn_taking',
           starterSpaceId: 'daily_care',
@@ -651,7 +651,7 @@ void main() {
       await onboardingSnapshotStore.write(
         OnboardingSnapshot(
           childDisplayName: '小满',
-          ageBucket: OnboardingAgeBucket.sixToTwelve,
+          ageBucket: OnboardingAgeBucket.sevenToTwelve,
           approxMonths: 9,
           currentStage: 'sound_turn_taking',
           starterSpaceId: 'daily_care',
@@ -707,7 +707,7 @@ void main() {
       await onboardingSnapshotStore.write(
         OnboardingSnapshot(
           childDisplayName: '小满',
-          ageBucket: OnboardingAgeBucket.sixToTwelve,
+          ageBucket: OnboardingAgeBucket.sevenToTwelve,
           approxMonths: 9,
           currentStage: 'sound_turn_taking',
           starterSpaceId: 'daily_care',

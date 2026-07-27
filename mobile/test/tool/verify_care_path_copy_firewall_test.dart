@@ -122,6 +122,88 @@ void main() {
           'streak/task framing.',
     );
   });
+
+  test('M1 onboarding removes the legacy phrase loop and blocked copy', () {
+    final onboardingRoot = Directory('lib/features/onboarding');
+    expect(onboardingRoot.existsSync(), isTrue);
+
+    final sourceFiles = <File>[
+      ...onboardingRoot
+          .listSync(recursive: true)
+          .whereType<File>()
+          .where((file) => file.path.endsWith('.dart')),
+      File('lib/app/app.dart'),
+      File('lib/app/router/app_go_router.dart'),
+      File('lib/app/router/app_route_contract.dart'),
+    ]..sort((left, right) => left.path.compareTo(right.path));
+    expect(sourceFiles.every((file) => file.existsSync()), isTrue);
+
+    const blockedLegacySymbols = <String>[
+      'OnboardingSessionNotifier',
+      'ScenePhraseService',
+      'BabyReaction.responded',
+      'BabyReaction.noResponse',
+      'PracticeRecord',
+      'OnboardingNameScreen',
+      'OnboardingSceneScreen',
+      'OnboardingPracticeScreen',
+      'OnboardingCompleteScreen',
+      'OnboardingGardenWelcomeScreen',
+      "context.push('/onboarding/",
+    ];
+    final sourceViolations = <String>[];
+    for (final file in sourceFiles) {
+      final source = file.readAsStringSync();
+      for (final symbol in blockedLegacySymbols) {
+        if (source.contains(symbol)) {
+          sourceViolations.add('${file.path}: $symbol');
+        }
+      }
+    }
+    expect(
+      sourceViolations,
+      isEmpty,
+      reason: 'M1 must expose one onboarding runtime and route surface.',
+    );
+
+    final arbFile = File('lib/l10n/app_zh.arb');
+    expect(arbFile.existsSync(), isTrue);
+    final arb = jsonDecode(arbFile.readAsStringSync()) as Map<String, dynamic>;
+    const blockedOnboardingCopy = <String>[
+      '练习',
+      '课程',
+      '任务',
+      '完成',
+      '正确',
+      '错误',
+      '积分',
+      '金币',
+      '排行榜',
+      'XP',
+      'streak',
+      'lesson',
+      'exercise',
+      'progress',
+      '1 of 3',
+    ];
+    final copyViolations = <String>[];
+    for (final entry in arb.entries) {
+      if (!entry.key.startsWith('onboarding') || entry.value is! String) {
+        continue;
+      }
+      final text = entry.value! as String;
+      for (final term in blockedOnboardingCopy) {
+        if (_containsVisibleTerm(text, term)) {
+          copyViolations.add('${entry.key}: "$text" contains $term');
+        }
+      }
+    }
+    expect(
+      copyViolations,
+      isEmpty,
+      reason: 'M1 onboarding copy must avoid lesson, task, and reward framing.',
+    );
+  });
 }
 
 const _blockedVisibleTerms = [
@@ -164,4 +246,14 @@ Iterable<String> _blockedTermsIn(String text) sync* {
 
 bool _isAsciiTerm(String term) {
   return RegExp(r'^[A-Za-z0-9_]+$').hasMatch(term);
+}
+
+bool _containsVisibleTerm(String text, String term) {
+  if (_isAsciiTerm(term) || term == '1 of 3') {
+    return RegExp(
+      '(?<![A-Za-z0-9_])${RegExp.escape(term)}(?![A-Za-z0-9_])',
+      caseSensitive: false,
+    ).hasMatch(text);
+  }
+  return text.contains(term);
 }

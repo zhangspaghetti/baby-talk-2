@@ -51,7 +51,7 @@ void main() {
     const dbName = 's03_account_sync_restore';
     final completedSnapshot = OnboardingSnapshot(
       childDisplayName: '米米',
-      ageBucket: OnboardingAgeBucket.twelveToEighteen,
+      ageBucket: OnboardingAgeBucket.oneToTwo,
       approxMonths: 15,
       currentStage: 'gesture_plus_words',
       starterSpaceId: 'daily_care',

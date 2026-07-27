@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:connectivity_plus/connectivity_plus.dart';
@@ -7,10 +8,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
 
 import 'package:mobile/app/local_sensitive_data_clearance_registry.dart';
+import 'package:mobile/app/uat/m1_onboarding_response_loss_harness.dart';
 import 'package:mobile/core/device/installation_id_service.dart';
 import 'package:mobile/core/local_data_lifecycle/local_sensitive_data_clearance.dart';
 import 'package:mobile/core/local_data_lifecycle/local_sensitive_data_backup_protection.dart';
 import 'package:mobile/features/account/data/local/account_local_store.dart';
+import 'package:mobile/features/account/data/local/auth_continuation_store.dart';
 import 'package:mobile/features/account/data/repositories/account_repository.dart';
 import 'package:mobile/features/account/data/services/account_api_service.dart';
 import 'package:mobile/features/account/data/services/authenticated_api_client.dart';
@@ -32,8 +35,7 @@ import 'package:mobile/features/mentor/data/repositories/mentor_repository.dart'
 import 'package:mobile/features/mentor/data/services/mentor_api_service.dart';
 import 'package:mobile/features/onboarding/data/local/onboarding_snapshot_store.dart';
 import 'package:mobile/features/onboarding/data/repositories/onboarding_repository.dart';
-import 'package:mobile/features/onboarding/data/services/scene_phrase_service.dart';
-import 'package:mobile/features/onboarding/presentation/onboarding_session_notifier.dart';
+import 'package:mobile/features/onboarding/presentation/onboarding_flow_notifier.dart';
 import 'package:mobile/features/practice/data/local/practice_local_data_source.dart';
 import 'package:mobile/features/practice/data/repositories/garden_growth_repository.dart';
 import 'package:mobile/features/practice/data/repositories/practice_repository.dart';
@@ -47,6 +49,7 @@ import 'package:mobile/features/share/data/repositories/share_repository.dart';
 import 'package:mobile/features/share/data/services/share_api_service.dart';
 import 'package:mobile/features/share/data/services/share_sheet_launcher.dart';
 import 'package:mobile/features/account/presentation/account_notifier.dart';
+import 'package:mobile/features/account/presentation/auth_continuation_coordinator.dart';
 import 'package:mobile/features/household/presentation/household_notifier.dart';
 import 'package:mobile/features/mentor/presentation/mentor_notifier.dart';
 import 'package:mobile/features/settings/data/local/settings_local_data_source.dart';
@@ -184,6 +187,19 @@ final practiceRepositoryProvider = FutureProvider<PracticeRepository>((
 // Account repository
 // ---------------------------------------------------------------------------
 
+final authContinuationStoreProvider = Provider<AuthContinuationStore>((ref) {
+  return AuthContinuationStore(
+    directoryResolver: () => ref.read(appDirectoryProvider.future),
+  );
+});
+
+final authContinuationCoordinatorProvider =
+    Provider<AuthContinuationCoordinator>((ref) {
+      return AuthContinuationCoordinator(
+        store: ref.watch(authContinuationStoreProvider),
+      );
+    });
+
 final accountRepositoryProvider = FutureProvider<AccountRepository>((
   ref,
 ) async {
@@ -298,21 +314,6 @@ final onboardingRepositoryProvider = FutureProvider<OnboardingRepository>((
 });
 
 // ---------------------------------------------------------------------------
-// V21 Onboarding session notifier
-// ---------------------------------------------------------------------------
-
-final scenePhraseServiceProvider = Provider<ScenePhraseService>((ref) {
-  return ScenePhraseService();
-});
-
-final onboardingSessionProvider =
-    ChangeNotifierProvider<OnboardingSessionNotifier>((ref) {
-      return OnboardingSessionNotifier(
-        phraseService: ref.read(scenePhraseServiceProvider),
-      );
-    });
-
-// ---------------------------------------------------------------------------
 // Mentor repository
 // ---------------------------------------------------------------------------
 
@@ -367,6 +368,9 @@ final localSensitiveDataClearanceOrchestratorProvider =
         practiceRepositoryProvider.future,
       );
       final mentorRepository = await ref.watch(mentorRepositoryProvider.future);
+      final authContinuationCoordinator = ref.watch(
+        authContinuationCoordinatorProvider,
+      );
 
       return createLocalSensitiveDataClearanceOrchestrator(
         accountRepository: accountRepository,
@@ -374,6 +378,7 @@ final localSensitiveDataClearanceOrchestratorProvider =
         householdRepository: householdRepository,
         practiceRepository: practiceRepository,
         mentorRepository: mentorRepository,
+        authContinuationCoordinator: authContinuationCoordinator,
       );
     });
 
@@ -429,9 +434,13 @@ final gardenGrowthNotifierProvider =
 
 final carePathRepositoryProvider = Provider<CarePathRepository>((ref) {
   final practiceRepository = ref.watch(practiceRepositoryProvider).requireValue;
+  final responseLossHarness = M1OnboardingResponseLossHarness.fromDartDefines(
+    practiceRepository: practiceRepository,
+  );
   return CarePathRepository(
     practiceRepository: practiceRepository,
     gardenGrowthRepository: ref.watch(gardenGrowthRepositoryProvider),
+    onReactionRecorded: responseLossHarness?.afterReactionRecorded,
   );
 }, dependencies: [practiceRepositoryProvider, gardenGrowthRepositoryProvider]);
 
@@ -441,6 +450,35 @@ final carePathNotifierProvider = ChangeNotifierProvider<CarePathNotifier>((
   return CarePathNotifier(repository: ref.watch(carePathRepositoryProvider))
     ..initialize();
 }, dependencies: [carePathRepositoryProvider]);
+
+/// Keeps the resumable first care turn alive across onboarding route changes.
+final onboardingFlowNotifierProvider =
+    ChangeNotifierProvider<OnboardingFlowNotifier>(
+      (ref) {
+        final notifier = OnboardingFlowNotifier(
+          onboardingRepository: ref
+              .watch(onboardingRepositoryProvider)
+              .requireValue,
+          practiceRepository: ref
+              .watch(practiceRepositoryProvider)
+              .requireValue,
+          carePathNotifier: ref.read(carePathNotifierProvider),
+          accountNotifier: ref.read(accountNotifierProvider),
+          authContinuationCoordinator: ref.watch(
+            authContinuationCoordinatorProvider,
+          ),
+        );
+        unawaited(notifier.initialize());
+        return notifier;
+      },
+      dependencies: [
+        onboardingRepositoryProvider,
+        practiceRepositoryProvider,
+        carePathNotifierProvider,
+        accountNotifierProvider,
+        authContinuationCoordinatorProvider,
+      ],
+    );
 
 /// Garden V2 fertilizer API service (remote data source for fertilizer state).
 final gardenFertilizerApiServiceProvider = Provider<GardenFertilizerApiService>(

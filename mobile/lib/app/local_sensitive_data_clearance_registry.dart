@@ -1,5 +1,6 @@
 import 'package:mobile/core/local_data_lifecycle/local_sensitive_data_clearance.dart';
 import 'package:mobile/features/account/data/repositories/account_repository.dart';
+import 'package:mobile/features/account/presentation/auth_continuation_coordinator.dart';
 import 'package:mobile/features/household/data/repositories/household_repository.dart';
 import 'package:mobile/features/mentor/data/repositories/mentor_repository.dart';
 import 'package:mobile/features/onboarding/data/repositories/onboarding_repository.dart';
@@ -12,6 +13,7 @@ createLocalSensitiveDataClearanceOrchestrator({
   required HouseholdRepository householdRepository,
   required PracticeRepository practiceRepository,
   required MentorRepository mentorRepository,
+  required AuthContinuationCoordinator authContinuationCoordinator,
 }) {
   return RegistryLocalSensitiveDataClearanceOrchestrator(
     steps: createLocalSensitiveDataClearanceSteps(
@@ -20,6 +22,7 @@ createLocalSensitiveDataClearanceOrchestrator({
       householdRepository: householdRepository,
       practiceRepository: practiceRepository,
       mentorRepository: mentorRepository,
+      authContinuationCoordinator: authContinuationCoordinator,
     ),
   );
 }
@@ -30,6 +33,7 @@ List<LocalSensitiveDataClearanceStep> createLocalSensitiveDataClearanceSteps({
   required HouseholdRepository householdRepository,
   required PracticeRepository practiceRepository,
   required MentorRepository mentorRepository,
+  required AuthContinuationCoordinator authContinuationCoordinator,
 }) {
   return <LocalSensitiveDataClearanceStep>[
     LocalSensitiveDataClearanceStep(
@@ -38,9 +42,14 @@ List<LocalSensitiveDataClearanceStep> createLocalSensitiveDataClearanceSteps({
       clear: accountRepository.deleteLocalSnapshotForLifecycle,
     ),
     LocalSensitiveDataClearanceStep(
+      target: LocalSensitiveDataTarget.authContinuation,
+      primitiveName: 'AuthContinuationCoordinator.clear',
+      clear: authContinuationCoordinator.clear,
+    ),
+    LocalSensitiveDataClearanceStep(
       target: LocalSensitiveDataTarget.onboardingSnapshot,
-      primitiveName: 'OnboardingRepository.clearSnapshot',
-      clear: onboardingRepository.clearSnapshot,
+      primitiveName: 'OnboardingRepository.clearAllLocalState',
+      clear: onboardingRepository.clearAllLocalState,
     ),
     LocalSensitiveDataClearanceStep(
       target: LocalSensitiveDataTarget.householdSnapshot,
