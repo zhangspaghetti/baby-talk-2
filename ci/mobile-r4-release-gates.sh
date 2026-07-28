@@ -8,6 +8,8 @@ echo '=== Mobile R4 Release Gates ==='
 cd "$repo_root"
 dart tool/verify_refactor_011_feature_boundaries.dart
 dart tool/verify_refactor_013_sensitive_lifecycle.dart
+dart tool/verify_m2_11_custom_scene_gates.dart
+flutter test test/tool/verify_m2_11_custom_scene_gates_test.dart
 
 cd "$repo_root/mobile"
 flutter pub get

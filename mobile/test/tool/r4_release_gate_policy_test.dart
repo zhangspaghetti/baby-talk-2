@@ -7,6 +7,7 @@ import '../../../tool/verify_refactor_011_feature_boundaries.dart'
     as feature_boundary;
 import '../../../tool/verify_refactor_013_sensitive_lifecycle.dart'
     as sensitive_lifecycle;
+import '../../../tool/verify_m2_11_custom_scene_gates.dart' as m2_11;
 
 void main() {
   group('R4 release gate policy', () {
@@ -66,6 +67,17 @@ void main() {
       );
     });
 
+    test('M2-11 custom-scene privacy and architecture gates pass', () {
+      final report = m2_11.scanM211CustomSceneGates(
+        projectRoot: _repoRootPath(),
+      );
+      expect(
+        report.violations,
+        isEmpty,
+        reason: m2_11.renderM211CustomSceneGateReport(report),
+      );
+    });
+
     test('destructive product-flow wiring stays within HDR-R4-003 scope', () {
       final offenders = _findOutOfScopeDestructiveProductFlowWiring(
         _repoRootPath(),
@@ -75,8 +87,9 @@ void main() {
         offenders,
         isEmpty,
         reason:
-            'HDR-R4-003 only approves the account deletion product-flow entry; '
-            'additional destructive local-data wiring needs a new approval.\n'
+            'HDR-R4-003 approves only account deletion and consent-withdrawal '
+            'product-flow entries; additional destructive local-data wiring needs '
+            'a new approval.\n'
             '${offenders.join('\n')}',
       );
     });
@@ -130,18 +143,19 @@ List<String> _findOutOfScopeDestructiveProductFlowWiring(String repoRoot) {
     return const <String>[];
   }
 
-  const approvedAccountDeletionPath =
+  const approvedAccountLifecyclePath =
       'mobile/lib/features/account/presentation/account_notifier.dart';
   const destructiveMarkers = <_DestructiveMarker>[
     _DestructiveMarker(
       text: 'LocalSensitiveDataClearanceTrigger.accountDeletionConfirmed',
-      allowedPaths: <String>{approvedAccountDeletionPath},
+      allowedPaths: <String>{approvedAccountLifecyclePath},
     ),
     _DestructiveMarker(
       text: 'LocalSensitiveDataClearanceTrigger.deviceEraseConfirmed',
     ),
     _DestructiveMarker(
       text: 'LocalSensitiveDataClearanceTrigger.consentWithdrawalConfirmed',
+      allowedPaths: <String>{approvedAccountLifecyclePath},
     ),
     _DestructiveMarker(text: 'LocalSensitiveDataClearanceRequest('),
     _DestructiveMarker(text: 'createLocalSensitiveDataClearanceOrchestrator('),

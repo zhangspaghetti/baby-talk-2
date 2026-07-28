@@ -422,8 +422,12 @@ class AccountNotifier extends ChangeNotifier with WidgetsBindingObserver {
 
     try {
       _snapshot = await _repository.revokeConsent();
+      final clearanceReport =
+          await _clearLocalSensitiveDataForConsentWithdrawal();
       _bumpRuntimeToken();
-      _submissionMessage = '已撤回同意；后续需重新登录并再次同意。';
+      _submissionMessage = clearanceReport?.hasFailures == true
+          ? '已撤回同意，但部分本机敏感数据清理失败。'
+          : '已撤回同意；后续需重新登录并再次同意。';
     } catch (error) {
       _submissionMessage = '撤回同意失败：$error';
     } finally {
@@ -506,6 +510,21 @@ class AccountNotifier extends ChangeNotifier with WidgetsBindingObserver {
     return runner(
       trigger: LocalSensitiveDataClearanceTrigger.logoutSessionOnly,
       correlationId: 'account-logout-${requestedAt.microsecondsSinceEpoch}',
+      requestedAt: requestedAt,
+    );
+  }
+
+  Future<LocalSensitiveDataClearanceReport?>
+  _clearLocalSensitiveDataForConsentWithdrawal() {
+    final runner = _localDataClearanceRunner;
+    if (runner == null) {
+      return Future<LocalSensitiveDataClearanceReport?>.value();
+    }
+    final requestedAt = _clearanceClock().toUtc();
+    return runner(
+      trigger: LocalSensitiveDataClearanceTrigger.consentWithdrawalConfirmed,
+      correlationId:
+          'account-consent-withdrawal-${requestedAt.microsecondsSinceEpoch}',
       requestedAt: requestedAt,
     );
   }

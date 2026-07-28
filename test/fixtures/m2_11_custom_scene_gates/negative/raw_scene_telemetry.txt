@@ -1,0 +1,1 @@
+analytics.track('custom_scene', {'text': draft.text});

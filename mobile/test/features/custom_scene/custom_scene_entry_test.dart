@@ -83,6 +83,31 @@ void main() {
     await tester.pump();
     expect(opened, <CustomSceneEntrySource>[CustomSceneEntrySource.scene]);
   });
+
+  testWidgets('preset catalog stays usable when custom scene is disabled', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.build(),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: Scaffold(
+          body: DiscoverScreen(
+            customSceneEnabled: false,
+            catalogLoader: () async => _catalog(),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const Key('discover-phrase-card-bath_time')),
+      findsOneWidget,
+    );
+    expect(find.byKey(const Key('custom-scene-entry-scene')), findsNothing);
+  });
 }
 
 PracticeActivityCatalog _catalog() {

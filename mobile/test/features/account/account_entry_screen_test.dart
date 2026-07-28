@@ -370,7 +370,32 @@ void main() {
     final revokeRepository = FakeAccountRepository(
       currentSnapshot: _signedInSnapshot(),
     );
-    await _pumpEntryScreen(tester, repository: revokeRepository);
+    final revokeClearanceRequests = <LocalSensitiveDataClearanceTrigger>[];
+    await _pumpEntryScreen(
+      tester,
+      repository: revokeRepository,
+      localDataClearanceRunner:
+          ({
+            required trigger,
+            required correlationId,
+            required requestedAt,
+          }) async {
+            revokeClearanceRequests.add(trigger);
+            return LocalSensitiveDataClearanceReport(
+              correlationId: correlationId,
+              trigger: trigger,
+              requestedAt: requestedAt,
+              startedAt: requestedAt,
+              finishedAt: requestedAt,
+              overallStatus: LocalSensitiveDataClearanceOverallStatus.completed,
+              authorizationEvidence:
+                  LocalSensitiveDataAuthorizationEvidence.from(
+                    const ReportOnlyAuthorization(reason: 'widget test'),
+                  ),
+              results: const <LocalSensitiveDataTargetResult>[],
+            );
+          },
+    );
     await _pressButton(tester, find.byKey(const Key('account-revoke-button')));
     expect(
       find.byKey(const Key('account-revoke-confirm-dialog')),
@@ -390,6 +415,9 @@ void main() {
     await tester.tap(find.byKey(const Key('account-revoke-confirm-button')));
     await tester.pumpAndSettle();
     expect(revokeRepository.revokeCalls, 1);
+    expect(revokeClearanceRequests, [
+      LocalSensitiveDataClearanceTrigger.consentWithdrawalConfirmed,
+    ]);
     expect(
       find.byKey(const Key('account-status-consent-revoked')),
       findsOneWidget,
