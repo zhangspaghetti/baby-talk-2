@@ -23,16 +23,16 @@ import org.springframework.test.web.servlet.MockMvc;
 /**
  * LLM 集成测试 — 验证通过 SSY (胜算云) 中转站的真实 LLM / Embedding 调用链路。
  *
- * <p>仅当 {@code SSY_API_KEY} 环境变量存在时运行，否则自动跳过。
+ * <p>仅在 {@code live-llm-it} Maven profile 与 {@code SSY_API_KEY} 同时存在时运行。
  * Token 消耗极小（prompt ≤ 10 tokens，max_tokens=80，embedding ≤ 3 tokens）。
  *
  * <p>本地运行：
  * <pre>
  *   $env:SSY_API_KEY="sk-xxx"
- *   .\bash.cmd -lc "cd backend && ./mvnw test -Dgroups='llm-it'"
+ *   .\bash.cmd -lc "cd backend && ./mvnw -pl app-api -Plive-llm-it test"
  * </pre>
  *
- * <p>CI 中默认不执行（需显式设置 {@code SSY_API_KEY} 并加 {@code -Dgroups=llm-it}）。
+ * <p>CI 中默认不执行（需显式设置 {@code SSY_API_KEY} 并启用 {@code live-llm-it} profile）。
  */
 @SpringBootTest(properties = {
         "app.contract.min-supported-version=1.2.0",

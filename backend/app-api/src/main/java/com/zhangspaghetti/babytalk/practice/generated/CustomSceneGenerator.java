@@ -9,6 +9,15 @@ public interface CustomSceneGenerator {
 
     GeneratedPracticeContentCandidate generate(GeneratorRequest request);
 
+    /**
+     * Generates a closed six-utterance moment in one provider request. Existing providers that
+     * only return a starter remain compatible while the feature is disabled; their bounded
+     * supports are derived before any approval transition.
+     */
+    default GeneratedCareMomentBundle generateCareMoment(GeneratorRequest request) {
+        return GeneratedCareMomentBundle.fromStarter(generate(request));
+    }
+
     record GeneratorRequest(
             String generatedContentId,
             int attemptNumber,

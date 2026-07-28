@@ -18,6 +18,7 @@ public interface CustomSceneQualityJudge {
             String ageRange,
             String parentGoal,
             GeneratedPracticeContentCandidate candidate,
+            GeneratedCareMomentBundle careMoment,
             List<String> strategyIds,
             List<String> communicationPrimitiveIds,
             List<String> ageGuidanceTags,
@@ -36,6 +37,7 @@ public interface CustomSceneQualityJudge {
             requireNonBlank(ageRange, "ageRange");
             requireNonBlank(parentGoal, "parentGoal");
             Objects.requireNonNull(candidate, "candidate");
+            Objects.requireNonNull(careMoment, "careMoment");
             strategyIds = requiredList(strategyIds, "strategyIds");
             communicationPrimitiveIds = requiredList(communicationPrimitiveIds, "communicationPrimitiveIds");
             ageGuidanceTags = requiredList(ageGuidanceTags, "ageGuidanceTags");
@@ -44,6 +46,40 @@ public interface CustomSceneQualityJudge {
                     orderedSanitizedEvidenceSummaries, "orderedSanitizedEvidenceSummaries");
             requireNonBlank(rubricVersion, "rubricVersion");
             requireNonBlank(rubricContentHash, "rubricContentHash");
+        }
+
+        public JudgeRequest(
+                String generatedContentId,
+                int attemptNumber,
+                UUID evidenceBundleId,
+                String displayText,
+                String ageRange,
+                String parentGoal,
+                GeneratedPracticeContentCandidate candidate,
+                List<String> strategyIds,
+                List<String> communicationPrimitiveIds,
+                List<String> ageGuidanceTags,
+                List<String> safetyConstraintTags,
+                List<String> orderedSanitizedEvidenceSummaries,
+                String rubricVersion,
+                String rubricContentHash
+        ) {
+            this(
+                    generatedContentId,
+                    attemptNumber,
+                    evidenceBundleId,
+                    displayText,
+                    ageRange,
+                    parentGoal,
+                    candidate,
+                    GeneratedCareMomentBundle.fromStarter(candidate),
+                    strategyIds,
+                    communicationPrimitiveIds,
+                    ageGuidanceTags,
+                    safetyConstraintTags,
+                    orderedSanitizedEvidenceSummaries,
+                    rubricVersion,
+                    rubricContentHash);
         }
 
         private static List<String> requiredList(List<String> values, String field) {

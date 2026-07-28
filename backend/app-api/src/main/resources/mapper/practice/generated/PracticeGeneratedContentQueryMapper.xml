@@ -14,6 +14,8 @@
         <result property="surface" column="surface"/>
         <result property="mode" column="mode"/>
         <result property="requestFingerprint" column="request_fingerprint"/>
+        <result property="clientRequestId" column="client_request_id"/>
+        <result property="clientRequestFingerprint" column="client_request_fingerprint"/>
         <result property="normalizedSceneText" column="normalized_scene_text"/>
         <result property="ageRange" column="age_range"/>
         <result property="parentGoal" column="parent_goal"/>
@@ -54,7 +56,8 @@
 
     <sql id="columns">
         generated_content_id, owner_scope, owner_key, owner_key_version, account_id,
-        installation_ref_hash, profile_id, surface, mode, request_fingerprint,
+        installation_ref_hash, profile_id, surface, mode, request_fingerprint, client_request_id,
+        client_request_fingerprint,
         normalized_scene_text, age_range, parent_goal, locale, space_slug, activity_slug,
         phrase_slug, space_title_zh, activity_title_zh, scene_tag_en, tpr_action_zh,
         delivery_guidance_zh, english_text, chinese_text, pronunciation_hint, difficulty,
@@ -69,6 +72,44 @@
         select <include refid="columns"/>
         from practice_generated_content
         where generated_content_id = #{generatedContentId}
+    </select>
+
+    <resultMap id="generatedContentUtteranceEntityMap"
+               type="com.zhangspaghetti.babytalk.practice.generated.model.PracticeGeneratedContentUtteranceEntity">
+        <id property="utteranceId" column="utterance_id"/>
+        <result property="generatedContentId" column="generated_content_id"/>
+        <result property="role" column="role"/>
+        <result property="reactionType" column="reaction_type"/>
+        <result property="englishText" column="english_text"/>
+        <result property="chineseText" column="chinese_text"/>
+        <result property="pronunciationHint" column="pronunciation_hint"/>
+        <result property="tprActionZh" column="tpr_action_zh"/>
+        <result property="deliveryGuidanceZh" column="delivery_guidance_zh"/>
+        <result property="difficulty" column="difficulty"/>
+        <result property="displayOrder" column="display_order"/>
+        <result property="approvalStatus" column="approval_status"/>
+        <result property="approvedContentVersion" column="approved_content_version"/>
+        <result property="createdAt" column="created_at"/>
+    </resultMap>
+
+    <select id="findApprovedUtterances" resultMap="generatedContentUtteranceEntityMap">
+        select utterance_id, generated_content_id, role, reaction_type, english_text, chinese_text,
+               pronunciation_hint, tpr_action_zh, delivery_guidance_zh, difficulty, display_order,
+               approval_status, approved_content_version, created_at
+        from practice_generated_content_utterances
+        where generated_content_id = #{generatedContentId}
+          and approval_status = 'approved'
+        order by display_order asc, utterance_id asc
+    </select>
+
+    <select id="findByClientRequestId" resultMap="generatedContentEntityMap">
+        select <include refid="columns"/>
+        from practice_generated_content
+        where owner_scope = #{ownerScope}
+          and owner_key = #{ownerKey}
+          and owner_key_version = #{ownerKeyVersion}
+          and client_request_id = #{clientRequestId}
+        limit 1
     </select>
 
     <select id="findLiveByFingerprint" resultMap="generatedContentEntityMap">

@@ -82,12 +82,13 @@ class DbMigrationSmokeTest {
                 select count(*)
                 from flyway_schema_history
                 where success = true
-                  and version in ('3', '14', '15', '16', '17', '18', '19', '24', '25', '26', '27', '28')
+                  and version in ('3', '14', '15', '16', '17', '18', '19', '24', '25', '26', '27', '28', '29', '30')
                 """,
                 Integer.class);
-        assertThat(trackedVersions).isEqualTo(12);
+        assertThat(trackedVersions).isEqualTo(14);
 
         assertThat(tableExists("accounts")).isTrue();
+        assertThat(tableExists("practice_generated_content_utterances")).isTrue();
         assertThat(tableExists("spring_ai_chat_memory")).isTrue();
         assertThat(tableExists("kg_entities")).isTrue();
         assertThat(tableExists("admin_principals")).isTrue();
@@ -604,7 +605,9 @@ class DbMigrationSmokeTest {
                         "provider_routing_policy_hash",
                         "generation_attempt_limit",
                         "content_refresh_epoch",
-                        "generation_error_retryable");
+                        "generation_error_retryable",
+                        "client_request_id",
+                        "client_request_fingerprint");
 
         assertThat(columnNamesFor("practice_generated_content_attempts"))
                 .containsExactly(
@@ -727,6 +730,7 @@ class DbMigrationSmokeTest {
                 .containsIgnoringCase("practice_ai_provider_calls");
 
         assertThat(indexExists("uq_practice_generated_content_live_fingerprint")).isTrue();
+        assertThat(indexExists("uq_practice_generated_content_owner_client_request")).isTrue();
         assertThat(indexExists("uq_practice_generated_content_active_space_slug")).isTrue();
         assertThat(indexExists("uq_practice_generated_content_active_activity_slug")).isTrue();
         assertThat(indexExists("uq_practice_generated_content_active_phrase_slug")).isTrue();
@@ -746,6 +750,12 @@ class DbMigrationSmokeTest {
                 .containsIgnoringCase("'active'")
                 .doesNotContainIgnoringCase("'rejected'")
                 .doesNotContainIgnoringCase("'expired'");
+        assertThat(indexDefinition("uq_practice_generated_content_owner_client_request"))
+                .containsIgnoringCase("owner_scope")
+                .containsIgnoringCase("owner_key")
+                .containsIgnoringCase("owner_key_version")
+                .containsIgnoringCase("client_request_id")
+                .containsIgnoringCase("client_request_id is not null");
         assertThat(indexDefinition("idx_practice_generated_content_owner_created"))
                 .containsIgnoringCase("owner_key_version")
                 .containsIgnoringCase("surface")
@@ -774,6 +784,8 @@ class DbMigrationSmokeTest {
                 "fk_practice_generated_content_account",
                 "fk_practice_generated_content_profile_owner",
                 "chk_practice_generated_content_status",
+                "chk_practice_generated_content_client_request_id",
+                "chk_practice_generated_content_client_request_fingerprint",
                 "chk_practice_generated_content_terminal_input_cleared",
                 "chk_practice_generated_content_draft_shape",
                 "chk_practice_generated_content_generating_shape",

@@ -31,6 +31,8 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.namedparam.BeanPropertySqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 
 class PracticeGeneratedContentMapperTest extends AbstractIntegrationTest {
 
@@ -51,6 +53,9 @@ class PracticeGeneratedContentMapperTest extends AbstractIntegrationTest {
 
     @Autowired
     private JdbcTemplate jdbcTemplate;
+
+    @Autowired
+    private PlatformTransactionManager transactionManager;
 
     private static final String HASH = "a".repeat(64);
 
@@ -172,6 +177,53 @@ class PracticeGeneratedContentMapperTest extends AbstractIntegrationTest {
     }
 
     @Test
+    void carePathActivationFailsClosedWithoutExactApprovedSixUtteranceBundle() {
+        var missing = generatingCarePathRow("pgc_repo_care_path_missing");
+        insert(missing);
+
+        assertThatThrownBy(() -> transaction().executeWithoutResult(status -> jdbcTemplate.update(
+                """
+                update practice_generated_content
+                set status = 'active', normalized_scene_text = null
+                where generated_content_id = ?
+                """,
+                missing.generatedContentId())))
+                .isInstanceOf(RuntimeException.class);
+
+        var complete = generatingCarePathRow("pgc_repo_care_path_complete");
+        insert(complete);
+        transaction().executeWithoutResult(status -> {
+            insertCarePathStarter(complete.generatedContentId(), complete.phraseSlug());
+            insertCarePathSupport(complete.generatedContentId(), "cooperating", 2);
+            insertCarePathSupport(complete.generatedContentId(), "hesitant", 3);
+            insertCarePathSupport(complete.generatedContentId(), "resisting", 4);
+            insertCarePathSupport(complete.generatedContentId(), "no_response", 5);
+            insertCarePathSupport(complete.generatedContentId(), "other", 6);
+            jdbcTemplate.update(
+                    """
+                    update practice_generated_content
+                    set status = 'active', normalized_scene_text = null
+                    where generated_content_id = ?
+                    """,
+                    complete.generatedContentId());
+        });
+
+        assertThat(queries.findApprovedUtterances(complete.generatedContentId()))
+                .extracting(value -> value.utteranceId())
+                .containsExactly(
+                        complete.phraseSlug(),
+                        "utt_cooperating_" + complete.generatedContentId(),
+                        "utt_hesitant_" + complete.generatedContentId(),
+                        "utt_resisting_" + complete.generatedContentId(),
+                        "utt_no_response_" + complete.generatedContentId(),
+                        "utt_other_" + complete.generatedContentId());
+
+        assertThatThrownBy(() -> transaction().executeWithoutResult(status ->
+                insertCarePathSupport(complete.generatedContentId(), "other", 6)))
+                .isInstanceOf(RuntimeException.class);
+    }
+
+    @Test
     void nullableOwnerIdsAreStillUniqueByNonNullOwnerKey() {
         insert(row("pgc_repo_global_draft_1")
                 .ownerKey("hmac_test_repo_global_live")
@@ -218,6 +270,34 @@ class PracticeGeneratedContentMapperTest extends AbstractIntegrationTest {
                 """,
                 Integer.class);
         assertThat(count).isEqualTo(2);
+    }
+
+    @Test
+    void clientRequestIdIsUniquePerOwnerAcrossTerminalRowsAndFindableForReconciliation() {
+        var ownerKey = "hmac_test_repo_request_owner";
+        var clientRequestId = "request_reconcile_001";
+        var terminal = row("pgc_repo_request_terminal")
+                .expired()
+                .ownerKey(ownerKey)
+                .requestFingerprint("fp_repo_request_terminal")
+                .clientRequestId(clientRequestId)
+                .build();
+        insert(terminal);
+
+        assertThat(queries.findByClientRequestId("installation", ownerKey, "v1", clientRequestId))
+                .extracting(PracticeGeneratedContentEntity::generatedContentId)
+                .isEqualTo(terminal.generatedContentId());
+        assertRejected(row("pgc_repo_request_duplicate")
+                .ownerKey(ownerKey)
+                .requestFingerprint("fp_repo_request_conflict")
+                .clientRequestId(clientRequestId)
+                .build());
+
+        insert(row("pgc_repo_request_other_owner")
+                .ownerKey("hmac_test_repo_request_other_owner")
+                .requestFingerprint("fp_repo_request_other_owner")
+                .clientRequestId(clientRequestId)
+                .build());
     }
 
     @Test
@@ -1007,6 +1087,56 @@ class PracticeGeneratedContentMapperTest extends AbstractIntegrationTest {
                 "rubric-v1", HASH, NOW_DB);
     }
 
+    private PracticeGeneratedContentEntity generatingCarePathRow(String generatedContentId) {
+        var row = row(generatedContentId).surface("care_path").active().build();
+        row.setStatus("generating");
+        row.setNormalizedSceneText("洗澡前宝宝有点紧张");
+        row.setGenerationStartedAt(NOW_DB);
+        row.setGenerationExpiresAt(NOW_DB.plusMinutes(5));
+        return row;
+    }
+
+    private TransactionTemplate transaction() {
+        return new TransactionTemplate(transactionManager);
+    }
+
+    private void insertCarePathStarter(String generatedContentId, String utteranceId) {
+        insertCarePathUtterance(generatedContentId, utteranceId, "starter", null, 1);
+    }
+
+    private void insertCarePathSupport(String generatedContentId, String reactionType, int displayOrder) {
+        insertCarePathUtterance(
+                generatedContentId,
+                "utt_" + reactionType + "_" + generatedContentId,
+                "reaction_support",
+                reactionType,
+                displayOrder);
+    }
+
+    private void insertCarePathUtterance(
+            String generatedContentId,
+            String utteranceId,
+            String role,
+            String reactionType,
+            int displayOrder
+    ) {
+        jdbcTemplate.update(
+                """
+                insert into practice_generated_content_utterances (
+                    utterance_id, generated_content_id, role, reaction_type, english_text, chinese_text,
+                    pronunciation_hint, tpr_action_zh, delivery_guidance_zh, difficulty, display_order,
+                    approval_status, approved_content_version, created_at
+                ) values (?, ?, ?, ?, 'Warm water.', '水暖暖的。', 'warm water', '指向水。', '慢一点说。',
+                          'starter', ?, 'approved', 1, ?)
+                """,
+                utteranceId,
+                generatedContentId,
+                role,
+                reactionType,
+                displayOrder,
+                Timestamp.from(NOW));
+    }
+
     private void insert(PracticeGeneratedContentEntity row) {
         if (row.accountId() != null) {
             insertAccount(row.accountId());
@@ -1023,7 +1153,8 @@ class PracticeGeneratedContentMapperTest extends AbstractIntegrationTest {
                 insert into practice_generated_content (
                     generated_content_id, owner_scope, owner_key, owner_key_version,
                     account_id, installation_ref_hash, profile_id, surface, mode,
-                    request_fingerprint, normalized_scene_text, age_range, parent_goal, locale,
+                    request_fingerprint, client_request_id, client_request_fingerprint,
+                    normalized_scene_text, age_range, parent_goal, locale,
                     space_slug, activity_slug, phrase_slug, space_title_zh, activity_title_zh,
                     scene_tag_en, tpr_action_zh, delivery_guidance_zh, english_text, chinese_text,
                     pronunciation_hint, difficulty, generation_source, status,
@@ -1036,7 +1167,8 @@ class PracticeGeneratedContentMapperTest extends AbstractIntegrationTest {
                 ) values (
                     :generatedContentId, :ownerScope, :ownerKey, :ownerKeyVersion,
                     :accountId, :installationRefHash, :profileId, :surface, :mode,
-                    :requestFingerprint, :normalizedSceneText, :ageRange, :parentGoal, :locale,
+                    :requestFingerprint, :clientRequestId, :clientRequestFingerprint,
+                    :normalizedSceneText, :ageRange, :parentGoal, :locale,
                     :spaceSlug, :activitySlug, :phraseSlug, :spaceTitleZh, :activityTitleZh,
                     :sceneTagEn, :tprActionZh, :deliveryGuidanceZh, :englishText, :chineseText,
                     :pronunciationHint, :difficulty, :generationSource, :status,
@@ -1154,6 +1286,8 @@ class PracticeGeneratedContentMapperTest extends AbstractIntegrationTest {
         private String surface = "onboarding";
         private String mode = "custom_scene";
         private String requestFingerprint;
+        private String clientRequestId;
+        private String clientRequestFingerprint;
         private String normalizedSceneText = "洗澡前宝宝有点紧张";
         private String ageRange = "m7_11";
         private String parentGoal = "calmer_care";
@@ -1250,6 +1384,12 @@ class PracticeGeneratedContentMapperTest extends AbstractIntegrationTest {
 
         RowBuilder requestFingerprint(String requestFingerprint) {
             this.requestFingerprint = requestFingerprint;
+            return this;
+        }
+
+        RowBuilder clientRequestId(String clientRequestId) {
+            this.clientRequestId = clientRequestId;
+            this.clientRequestFingerprint = clientRequestId == null ? null : "crf_" + "a".repeat(64);
             return this;
         }
 
@@ -1377,6 +1517,8 @@ class PracticeGeneratedContentMapperTest extends AbstractIntegrationTest {
             row.setSurface(surface);
             row.setMode(mode);
             row.setRequestFingerprint(requestFingerprint);
+            row.setClientRequestId(clientRequestId);
+            row.setClientRequestFingerprint(clientRequestFingerprint);
             row.setNormalizedSceneText(normalizedSceneText);
             row.setAgeRange(ageRange);
             row.setParentGoal(parentGoal);

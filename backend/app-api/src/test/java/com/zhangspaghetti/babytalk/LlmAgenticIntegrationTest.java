@@ -35,12 +35,12 @@ import org.springframework.test.web.servlet.MockMvc;
  *   <li>验证返回 200，phase=response_delivered</li>
  * </ol>
  *
- * <p>仅当 {@code SSY_API_KEY} 环境变量存在时运行。
+ * <p>仅在 {@code live-llm-it} Maven profile 与 {@code SSY_API_KEY} 同时存在时运行。
  *
  * <p>运行方式：
  * <pre>
  *   $env:SSY_API_KEY="sk-xxx"
- *   .\bash.cmd -lc "cd backend && ./mvnw test -Dgroups='llm-it'"
+ *   .\bash.cmd -lc "cd backend && ./mvnw -pl app-api -Plive-llm-it test"
  * </pre>
  */
 @SpringBootTest(properties = {

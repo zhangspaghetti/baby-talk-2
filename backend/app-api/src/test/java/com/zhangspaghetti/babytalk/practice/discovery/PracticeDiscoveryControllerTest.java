@@ -138,6 +138,7 @@ class PracticeDiscoveryControllerTest extends AbstractIntegrationTest {
         var moment = response.get("moments").get(0);
         var utterance = moment.get("starterUtterances").get(0);
         var starter = response.get("starter");
+        var reactionSupports = response.get("reactionSupports");
         assertThat(body)
                 .contains("gen_scene_")
                 .contains("gen_activity_")
@@ -168,6 +169,16 @@ class PracticeDiscoveryControllerTest extends AbstractIntegrationTest {
         assertThat(starter.get("utteranceId").asText()).startsWith("gen_phrase_");
         assertThat(starter.get("phraseId").asText()).startsWith("gen_phrase_");
         assertThat(moment.get("coachTip").asText()).isEqualTo("看着宝宝。 慢慢说一遍。");
+        assertThat(reactionSupports.size()).isEqualTo(5);
+        assertThat(reactionSupports.get(0).get("reactionType").asText()).isEqualTo("cooperating");
+        assertThat(reactionSupports.get(4).get("reactionType").asText()).isEqualTo("other");
+        for (var support : reactionSupports) {
+            assertThat(support.get("utteranceId").asText()).startsWith("gen_utt_");
+            assertThat(support.get("english").asText()).isNotBlank();
+            assertThat(support.get("chinese").asText()).isNotBlank();
+        }
+        assertThat(jdbcTemplate.queryForObject(
+                "select count(*) from practice_generated_content_utterances", Integer.class)).isEqualTo(6);
     }
 
     @Test
@@ -193,6 +204,98 @@ class PracticeDiscoveryControllerTest extends AbstractIntegrationTest {
                 com.zhangspaghetti.babytalk.practice.agentic.PracticeAiStructuredOutputCaller.class)).isEmpty();
         assertThat(jdbcTemplate.queryForObject(
                 "select count(*) from practice_ai_provider_calls where provider_type <> 'fake'", Integer.class)).isZero();
+    }
+
+    @Test
+    void exactReuseRehydratesSameBoundedUtteranceIdsWithoutAnotherBundle() throws Exception {
+        var first = mockMvc.perform(discovery(customSceneJson("洗澡后哄睡")))
+                .andExpect(status().isOk())
+                .andReturn();
+        var second = mockMvc.perform(discovery(customSceneJson("洗澡后哄睡")))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        var firstResponse = objectMapper.readTree(first.getResponse().getContentAsString());
+        var secondResponse = objectMapper.readTree(second.getResponse().getContentAsString());
+        assertThat(secondResponse.get("generatedContentId").asText())
+                .isEqualTo(firstResponse.get("generatedContentId").asText());
+        assertThat(secondResponse.get("starter").get("utteranceId").asText())
+                .isEqualTo(firstResponse.get("starter").get("utteranceId").asText());
+        var firstSupportIds = java.util.stream.StreamSupport.stream(
+                        firstResponse.get("reactionSupports").spliterator(), false)
+                .map(support -> support.get("utteranceId").asText())
+                .toList();
+        var secondSupportIds = java.util.stream.StreamSupport.stream(
+                        secondResponse.get("reactionSupports").spliterator(), false)
+                .map(support -> support.get("utteranceId").asText())
+                .toList();
+        assertThat(secondSupportIds).containsExactlyElementsOf(firstSupportIds);
+        assertThat(jdbcTemplate.queryForObject(
+                "select count(*) from practice_generated_content", Integer.class)).isEqualTo(1);
+        assertThat(jdbcTemplate.queryForObject(
+                "select count(*) from practice_generated_content_utterances", Integer.class)).isEqualTo(6);
+    }
+
+    @Test
+    void carePathClientRequestIdReconcilesLostResponseWithoutClientTraceParticipation() throws Exception {
+        var first = mockMvc.perform(discovery(carePathCustomSceneJson(
+                        "洗澡后哄睡", "request_http_reconcile_001", "trace_first")))
+                .andExpect(status().isOk())
+                .andReturn();
+        var second = mockMvc.perform(discovery(carePathCustomSceneJson(
+                        "洗澡后哄睡", "request_http_reconcile_001", "trace_second")))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        var firstResponse = objectMapper.readTree(first.getResponse().getContentAsString());
+        var secondResponse = objectMapper.readTree(second.getResponse().getContentAsString());
+        assertThat(secondResponse.get("generatedContentId").asText())
+                .isEqualTo(firstResponse.get("generatedContentId").asText());
+        assertThat(jdbcTemplate.queryForObject(
+                "select client_request_id from practice_generated_content",
+                String.class)).isEqualTo("request_http_reconcile_001");
+        assertThat(jdbcTemplate.queryForObject(
+                "select count(*) from practice_generated_content",
+                Integer.class)).isEqualTo(1);
+    }
+
+    @Test
+    void carePathClientRequestIdRejectsChangedFacts() throws Exception {
+        mockMvc.perform(discovery(carePathCustomSceneJson(
+                        "洗澡后哄睡", "request_http_conflict_001", "trace_first")))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(discovery(carePathCustomSceneJson(
+                        "出门前穿鞋", "request_http_conflict_001", "trace_second")))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("client_request_id_conflict"));
+    }
+
+    @Test
+    void carePathClientRequestIdDoesNotCrossAccountOwners() throws Exception {
+        var firstAccount = createAcceptedSession("13800138213", "install-care-path-owner-a");
+        var secondAccount = createAcceptedSession("13800138214", "install-care-path-owner-b");
+        var clientRequestId = "request_account_scope_001";
+
+        var first = mockMvc.perform(discovery(carePathCustomSceneJson(
+                        "洗澡后哄睡", clientRequestId, "trace_account_a", "install-care-path-owner-a"))
+                        .header(HttpHeaders.AUTHORIZATION, bearer(firstAccount.accessToken())))
+                .andExpect(status().isOk())
+                .andReturn();
+        var second = mockMvc.perform(discovery(carePathCustomSceneJson(
+                        "洗澡后哄睡", clientRequestId, "trace_account_b", "install-care-path-owner-b"))
+                        .header(HttpHeaders.AUTHORIZATION, bearer(secondAccount.accessToken())))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        assertThat(objectMapper.readTree(first.getResponse().getContentAsString())
+                .get("generatedContentId").asText())
+                .isNotEqualTo(objectMapper.readTree(second.getResponse().getContentAsString())
+                        .get("generatedContentId").asText());
+        assertThat(jdbcTemplate.queryForObject(
+                "select count(*) from practice_generated_content where client_request_id = ?",
+                Integer.class,
+                clientRequestId)).isEqualTo(2);
     }
 
     @Test
@@ -597,6 +700,33 @@ class PracticeDiscoveryControllerTest extends AbstractIntegrationTest {
         root.put("parentGoal", "calmer_care");
         root.put("locale", "zh-CN");
         root.put("customSceneText", customSceneText);
+        return objectMapper.writeValueAsString(root);
+    }
+
+    private String carePathCustomSceneJson(
+            String customSceneText,
+            String clientRequestId,
+            String clientTraceId
+    ) throws Exception {
+        return carePathCustomSceneJson(customSceneText, clientRequestId, clientTraceId, "install_1");
+    }
+
+    private String carePathCustomSceneJson(
+            String customSceneText,
+            String clientRequestId,
+            String clientTraceId,
+            String installationId
+    ) throws Exception {
+        var root = objectMapper.createObjectNode();
+        root.put("surface", "care_path");
+        root.put("mode", "custom_scene");
+        root.put("installationId", installationId);
+        root.put("ageRange", "m7_11");
+        root.put("parentGoal", "calmer_care");
+        root.put("locale", "zh-CN");
+        root.put("customSceneText", customSceneText);
+        root.put("clientRequestId", clientRequestId);
+        root.put("clientTraceId", clientTraceId);
         return objectMapper.writeValueAsString(root);
     }
 

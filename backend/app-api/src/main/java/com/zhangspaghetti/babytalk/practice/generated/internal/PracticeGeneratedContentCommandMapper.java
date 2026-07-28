@@ -2,7 +2,9 @@ package com.zhangspaghetti.babytalk.practice.generated.internal;
 
 import com.baomidou.mybatisplus.core.toolkit.Constants;
 import com.zhangspaghetti.babytalk.practice.generated.model.PracticeGeneratedContentEntity;
+import com.zhangspaghetti.babytalk.practice.generated.model.PracticeGeneratedContentUtteranceEntity;
 import java.time.OffsetDateTime;
+import java.util.List;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
@@ -28,6 +30,8 @@ interface PracticeGeneratedContentCommandMapper {
             @Param("updatedAt") OffsetDateTime updatedAt);
 
     int activateGenerating(@Param(Constants.ENTITY) PracticeGeneratedContentEntity entity);
+
+    int insertApprovedUtterances(@Param("utterances") List<PracticeGeneratedContentUtteranceEntity> utterances);
 
     int deleteDueInstallationActive(
             @Param("generatedContentId") String generatedContentId,

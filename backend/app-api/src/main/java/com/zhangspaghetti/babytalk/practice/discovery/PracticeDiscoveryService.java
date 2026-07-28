@@ -37,6 +37,7 @@ import org.springframework.stereotype.Service;
 public class PracticeDiscoveryService {
 
     private static final String SURFACE_ONBOARDING = "onboarding";
+    private static final String SURFACE_CARE_PATH = "care_path";
     private static final String MODE_CATALOG = "catalog";
     private static final String MODE_CUSTOM_SCENE = "custom_scene";
     private static final String SUPPORTED_LOCALE = "zh-CN";
@@ -102,7 +103,7 @@ public class PracticeDiscoveryService {
         if (mode == PracticeDiscoveryMode.CUSTOM_SCENE) {
             generatedContentService.requireCustomSceneGenerationAvailable();
         }
-        validateModeSpecificFields(request, mode);
+        validateModeSpecificFields(request, surface, mode);
         validateLocale(request.locale());
         var limit = normalizeLimit(request.limit());
         validateClientTraceId(request.clientTraceId());
@@ -122,7 +123,8 @@ public class PracticeDiscoveryService {
                     generatedContext.ageRange(),
                     generatedContext.parentGoal(),
                     SUPPORTED_LOCALE,
-                    request.customSceneText()
+                    request.customSceneText(),
+                    request.clientRequestId()
             ));
             return toGeneratedResponse(generatedContext, generated, surface, mode);
         }
@@ -149,7 +151,7 @@ public class PracticeDiscoveryService {
         if (parsed == null) {
             throw invalidDiscoverySurface();
         }
-        if (parsed != PracticeDiscoverySurface.ONBOARDING) {
+        if (parsed != PracticeDiscoverySurface.ONBOARDING && parsed != PracticeDiscoverySurface.CARE_PATH) {
             throw unsupportedSurfaceMode();
         }
         return parsed;
@@ -159,8 +161,8 @@ public class PracticeDiscoveryService {
         return new ContractException(
                 HttpStatus.BAD_REQUEST,
                 ERROR_INVALID_DISCOVERY_SURFACE,
-                "surface 仅支持 onboarding。",
-                Map.of("supportedSurfaces", List.of(SURFACE_ONBOARDING))
+                "surface 仅支持 onboarding 或 care_path。",
+                Map.of("supportedSurfaces", List.of(SURFACE_ONBOARDING, SURFACE_CARE_PATH))
         );
     }
 
@@ -184,11 +186,19 @@ public class PracticeDiscoveryService {
                 "surface/mode 组合暂不支持。",
                 Map.of("supportedPairs", List.of(
                         SupportedPair.onboardingCatalog(),
-                        SupportedPair.onboardingCustomScene()))
+                        SupportedPair.onboardingCustomScene(),
+                        SupportedPair.carePathCustomScene()))
         );
     }
 
-    private void validateModeSpecificFields(PracticeDiscoveryRequest request, PracticeDiscoveryMode mode) {
+    private void validateModeSpecificFields(
+            PracticeDiscoveryRequest request,
+            PracticeDiscoverySurface surface,
+            PracticeDiscoveryMode mode
+    ) {
+        if (surface == PracticeDiscoverySurface.CARE_PATH && mode != PracticeDiscoveryMode.CUSTOM_SCENE) {
+            throw unsupportedSurfaceMode();
+        }
         if (mode == PracticeDiscoveryMode.CATALOG && StrUtil.trimToNull(request.customSceneText()) != null) {
             throw new ContractException(
                     HttpStatus.BAD_REQUEST,
@@ -608,15 +618,38 @@ public class PracticeDiscoveryService {
             PracticeDiscoverySurface surface,
             PracticeDiscoveryMode mode
     ) {
+        var approvedUtterances = generatedContentService.findApprovedUtterances(row.generatedContentId());
+        if ("care_path".equals(row.surface()) && approvedUtterances.size() != 6) {
+            throw new IllegalStateException("active care_path generated content is missing its approved utterance bundle");
+        }
+        var starterRow = approvedUtterances.stream()
+                .filter(value -> "starter".equals(value.role()))
+                .findFirst()
+                .orElse(null);
+        var starterUtteranceId = row.phraseSlug();
         var utterance = new StarterUtteranceResponse(
+                starterUtteranceId,
                 row.phraseSlug(),
-                row.phraseSlug(),
-                row.englishText(),
-                row.chineseText(),
-                row.pronunciationHint(),
-                row.difficulty(),
+                starterRow == null ? row.englishText() : starterRow.englishText(),
+                starterRow == null ? row.chineseText() : starterRow.chineseText(),
+                starterRow == null ? row.pronunciationHint() : starterRow.pronunciationHint(),
+                starterRow == null ? row.difficulty() : starterRow.difficulty(),
                 SOURCE_GENERATED
         );
+        var reactionSupports = approvedUtterances.stream()
+                .filter(value -> "reaction_support".equals(value.role()))
+                .map(value -> new PracticeDiscoveryResponse.ReactionSupportResponse(
+                        value.reactionType(),
+                        value.utteranceId(),
+                        value.utteranceId(),
+                        value.englishText(),
+                        value.chineseText(),
+                        value.pronunciationHint(),
+                        value.tprActionZh(),
+                        value.deliveryGuidanceZh(),
+                        value.difficulty(),
+                        SOURCE_GENERATED))
+                .toList();
         return new PracticeDiscoveryResponse(
                 "disc_" + UUID.randomUUID().toString().replace("-", ""),
                 surface.wireValue(),
@@ -647,10 +680,11 @@ public class PracticeDiscoveryService {
                         row.spaceSlug(),
                         row.activitySlug(),
                         row.activitySlug(),
-                        row.phraseSlug(),
+                        starterUtteranceId,
                         row.phraseSlug(),
                         SOURCE_GENERATED
                 ),
+                reactionSupports,
                 new TraceResponse(
                         TRACE_STRATEGY_CUSTOM_SCENE_GENERATED,
                         null,
@@ -745,6 +779,10 @@ public class PracticeDiscoveryService {
 
         public static SupportedPair onboardingCustomScene() {
             return new SupportedPair(SURFACE_ONBOARDING, MODE_CUSTOM_SCENE);
+        }
+
+        public static SupportedPair carePathCustomScene() {
+            return new SupportedPair(SURFACE_CARE_PATH, MODE_CUSTOM_SCENE);
         }
     }
 

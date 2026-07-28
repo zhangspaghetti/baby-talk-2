@@ -19,6 +19,7 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -46,9 +47,13 @@ public class PracticeGeneratedContentService {
     private static final String ERROR_UNSAFE_CUSTOM_SCENE_TEXT = "unsafe_custom_scene_text";
     private static final String ERROR_UNSUPPORTED_CUSTOM_SCENE_TEXT = "unsupported_custom_scene_text";
     private static final String ERROR_CUSTOM_SCENE_RATE_LIMITED = "custom_scene_rate_limited";
+    private static final String ERROR_INVALID_CLIENT_REQUEST_ID = "invalid_client_request_id";
+    private static final String ERROR_CLIENT_REQUEST_ID_CONFLICT = "client_request_id_conflict";
+    private static final String ERROR_CLIENT_REQUEST_TERMINAL = "client_request_terminal";
     private static final int MIN_CUSTOM_SCENE_CHARS = 4;
     private static final int MAX_CUSTOM_SCENE_CHARS = 80;
     private static final int MAX_NORMALIZED_SCENE_TEXT_CODE_POINTS = 160;
+    private static final int MAX_CLIENT_REQUEST_ID_CHARS = 96;
     private static final int MAX_DRAFT_RESERVATION_ATTEMPTS = 5;
     private static final int CONTENT_REFRESH_EPOCH = 1;
     private static final Duration DRAFT_TTL = Duration.ofMinutes(5);
@@ -56,6 +61,8 @@ public class PracticeGeneratedContentService {
     private static final Duration INSTALLATION_TERMINAL_RETENTION = Duration.ofDays(7);
     private static final int MIN_CLEANUP_LIMIT = 1;
     private static final int MAX_CLEANUP_LIMIT = 100;
+    private static final Pattern SAFE_CLIENT_REQUEST_ID_PATTERN = Pattern.compile("^[A-Za-z0-9][A-Za-z0-9_-]{0,95}$");
+    private static final Pattern PHONE_LIKE_PATTERN = Pattern.compile("\\d{11,}");
     private final PracticeGeneratedContentQueryMapper queryMapper;
     private final CustomSceneGenerator generationService;
     private final CustomSceneGeneratedContentValidator generatedContentValidator;
@@ -190,6 +197,39 @@ public class PracticeGeneratedContentService {
                 generatedContentId, ownerKeyVersion(), nowUtc()));
     }
 
+    public List<com.zhangspaghetti.babytalk.practice.generated.model.PracticeGeneratedContentUtteranceEntity>
+    findApprovedUtterances(String generatedContentId) {
+        var utterances = queryMapper.findApprovedUtterances(generatedContentId);
+        return utterances == null ? List.of() : List.copyOf(utterances);
+    }
+
+    private PracticeGeneratedContentEntity findByClientRequestId(OwnerContext owner, String clientRequestId) {
+        if (clientRequestId == null) {
+            return null;
+        }
+        return queryMapper.findByClientRequestId(
+                owner.ownerScope(), owner.ownerKey(), ownerKeyVersion(), clientRequestId);
+    }
+
+    private PracticeGeneratedContentEntity reconcileClientRequest(
+            PracticeGeneratedContentEntity existing,
+            String clientRequestFingerprint
+    ) {
+        if (!clientRequestFingerprint.equals(existing.clientRequestFingerprint())) {
+            throw clientRequestConflict(existing.generatedContentId());
+        }
+        if (isActiveOrPromoted(existing)) {
+            if (isReusableActiveOrPromoted(existing)) {
+                return existing;
+            }
+            throw terminalClientRequest(existing);
+        }
+        if (isTerminal(existing)) {
+            throw terminalClientRequest(existing);
+        }
+        throw generationInProgress(existing.generatedContentId());
+    }
+
     public Optional<PracticeGeneratedContentEntity> findActiveOrPromotedByFingerprint(
             String ownerKey,
             String surface,
@@ -258,6 +298,14 @@ public class PracticeGeneratedContentService {
         var normalizedSceneText = validateDisplayLength(forms.displayText());
         var owner = resolveOwner(request);
         var requestFingerprint = fingerprint(request, owner, forms.securityText());
+        var clientRequestId = validateClientRequestId(request);
+        var clientRequestFingerprint = clientRequestId == null
+                ? null
+                : clientRequestFingerprint(request, owner, forms.securityText());
+        var requestReservation = findByClientRequestId(owner, clientRequestId);
+        if (requestReservation != null) {
+            return reconcileClientRequest(requestReservation, clientRequestFingerprint);
+        }
         var existing = queryMapper.findLiveByFingerprint(
                 owner.ownerKey(),
                 ownerKeyVersion(),
@@ -280,7 +328,7 @@ public class PracticeGeneratedContentService {
             var reservationAttempt = firstReservationAttempt + offset;
             var draft = draftRow(
                     request, owner, requestFingerprint, normalizedSceneText,
-                    reservationAttempt);
+                    reservationAttempt, clientRequestId, clientRequestFingerprint);
             DraftReservation reservation;
             try {
                 reservation = reserveDraft(draft);
@@ -293,8 +341,17 @@ public class PracticeGeneratedContentService {
             }
 
             var reserved = reservation.content();
+            if (clientRequestId != null && !clientRequestFingerprint.equals(reserved.clientRequestFingerprint())) {
+                throw clientRequestConflict(reserved.generatedContentId());
+            }
             if (isActiveOrPromoted(reserved)) {
+                if (clientRequestId != null && !isReusableActiveOrPromoted(reserved)) {
+                    throw terminalClientRequest(reserved);
+                }
                 return reserved;
+            }
+            if (isTerminal(reserved)) {
+                throw terminalClientRequest(reserved);
             }
             if (!STATUS_DRAFT.equals(reserved.status())) {
                 throw generationInProgress(reserved.generatedContentId());
@@ -475,7 +532,9 @@ public class PracticeGeneratedContentService {
             OwnerContext owner,
             String requestFingerprint,
             String normalizedSceneText,
-            int reservationAttempt
+            int reservationAttempt,
+            String clientRequestId,
+            String clientRequestFingerprint
     ) {
         var now = nowUtc();
         var row = new PracticeGeneratedContentEntity();
@@ -489,6 +548,8 @@ public class PracticeGeneratedContentService {
         row.setSurface(request.surface());
         row.setMode(request.mode());
         row.setRequestFingerprint(requestFingerprint);
+        row.setClientRequestId(clientRequestId);
+        row.setClientRequestFingerprint(clientRequestFingerprint);
         row.setNormalizedSceneText(normalizedSceneText);
         row.setAgeRange(request.ageRange());
         row.setParentGoal(request.parentGoal());
@@ -538,6 +599,8 @@ public class PracticeGeneratedContentService {
         row.setSurface(draft.surface());
         row.setMode(draft.mode());
         row.setRequestFingerprint(draft.requestFingerprint());
+        row.setClientRequestId(draft.clientRequestId());
+        row.setClientRequestFingerprint(draft.clientRequestFingerprint());
         row.setAgeRange(draft.ageRange());
         row.setParentGoal(draft.parentGoal());
         row.setLocale(draft.locale());
@@ -571,6 +634,49 @@ public class PracticeGeneratedContentService {
                 : null);
         row.setCreatedAt(draft.createdAt());
         row.setUpdatedAt(now);
+        row.setApprovedUtterances(toApprovedUtterances(row, GeneratedCareMomentBundle.fromStarter(candidate)));
+        return row;
+    }
+
+    private List<com.zhangspaghetti.babytalk.practice.generated.model.PracticeGeneratedContentUtteranceEntity>
+    toApprovedUtterances(PracticeGeneratedContentEntity active, GeneratedCareMomentBundle careMoment) {
+        var rows = new ArrayList<com.zhangspaghetti.babytalk.practice.generated.model.PracticeGeneratedContentUtteranceEntity>();
+        rows.add(utterance(active, "starter", null, 1, new GeneratedCareUtterance(
+                careMoment.starter().englishText(), careMoment.starter().chineseText(),
+                careMoment.starter().pronunciationHint(), careMoment.starter().tprActionZh(),
+                careMoment.starter().deliveryGuidanceZh(), careMoment.starter().difficulty())));
+        for (var reaction : GeneratedCareMomentBundle.ReactionType.values()) {
+            rows.add(utterance(active, "reaction_support", reaction.wireValue(), reaction.ordinal() + 2,
+                    careMoment.reactionSupports().get(reaction)));
+        }
+        return List.copyOf(rows);
+    }
+
+    private com.zhangspaghetti.babytalk.practice.generated.model.PracticeGeneratedContentUtteranceEntity utterance(
+            PracticeGeneratedContentEntity active,
+            String role,
+            String reactionType,
+            int displayOrder,
+            GeneratedCareUtterance content
+    ) {
+        var row = new com.zhangspaghetti.babytalk.practice.generated.model.PracticeGeneratedContentUtteranceEntity();
+        var identity = active.generatedContentId() + "|" + role + "|" + (reactionType == null ? "starter" : reactionType);
+        row.setUtteranceId("starter".equals(role)
+                ? active.phraseSlug()
+                : "gen_utt_" + keyFactory.stableDigest(identity).substring(0, 48));
+        row.setGeneratedContentId(active.generatedContentId());
+        row.setRole(role);
+        row.setReactionType(reactionType);
+        row.setEnglishText(content.englishText());
+        row.setChineseText(content.chineseText());
+        row.setPronunciationHint(content.pronunciationHint());
+        row.setTprActionZh(content.tprActionZh());
+        row.setDeliveryGuidanceZh(content.deliveryGuidanceZh());
+        row.setDifficulty(content.difficulty());
+        row.setDisplayOrder(displayOrder);
+        row.setApprovalStatus("approved");
+        row.setApprovedContentVersion(active.contentVersion());
+        row.setCreatedAt(active.updatedAt());
         return row;
     }
 
@@ -725,6 +831,49 @@ public class PracticeGeneratedContentService {
         return displayText;
     }
 
+    private String clientRequestFingerprint(
+            CustomSceneDiscoveryRequest request,
+            OwnerContext owner,
+            String securitySceneText
+    ) {
+        return keyFactory.clientRequestFingerprint(
+                owner.ownerKey(),
+                new PracticeGeneratedContentKeyFactory.ClientRequestFingerprintMaterial(
+                        request.surface(),
+                        request.mode(),
+                        securitySceneText,
+                        request.ageRange(),
+                        request.parentGoal(),
+                        request.locale()));
+    }
+
+    private String validateClientRequestId(CustomSceneDiscoveryRequest request) {
+        var raw = request.clientRequestId();
+        var normalized = trimToNull(raw);
+        if (normalized == null) {
+            if ("care_path".equals(request.surface())) {
+                throw invalidClientRequestId();
+            }
+            return null;
+        }
+        if (!normalized.equals(raw)
+                || normalized.length() > MAX_CLIENT_REQUEST_ID_CHARS
+                || !SAFE_CLIENT_REQUEST_ID_PATTERN.matcher(normalized).matches()
+                || PHONE_LIKE_PATTERN.matcher(normalized).find()) {
+            throw invalidClientRequestId();
+        }
+        return normalized;
+    }
+
+    private ContractException invalidClientRequestId() {
+        return new ContractException(
+                HttpStatus.BAD_REQUEST,
+                ERROR_INVALID_CLIENT_REQUEST_ID,
+                "clientRequestId 不合法。",
+                Map.of("field", "clientRequestId")
+        );
+    }
+
     private ContractException invalidCustomSceneText() {
         return new ContractException(
                 HttpStatus.BAD_REQUEST,
@@ -757,6 +906,27 @@ public class PracticeGeneratedContentService {
                 ERROR_GENERATION_IN_PROGRESS,
                 "该自定义场景正在生成。",
                 Map.of("generatedContentId", generatedContentId, "retryable", true)
+        );
+    }
+
+    private ContractException clientRequestConflict(String generatedContentId) {
+        return new ContractException(
+                HttpStatus.CONFLICT,
+                ERROR_CLIENT_REQUEST_ID_CONFLICT,
+                "clientRequestId 已绑定到不同请求。",
+                Map.of("generatedContentId", generatedContentId)
+        );
+    }
+
+    private ContractException terminalClientRequest(PracticeGeneratedContentEntity row) {
+        return new ContractException(
+                HttpStatus.CONFLICT,
+                ERROR_CLIENT_REQUEST_TERMINAL,
+                "该请求已结束；重试请使用新的 clientRequestId。",
+                Map.of(
+                        "generatedContentId", row.generatedContentId(),
+                        "requiresNewClientRequestId", true,
+                        "retryable", Boolean.TRUE.equals(row.generationErrorRetryable()))
         );
     }
 
@@ -889,6 +1059,10 @@ public class PracticeGeneratedContentService {
                 && !row.generationExpiresAt().isAfter(nowUtc());
     }
 
+    private boolean isTerminal(PracticeGeneratedContentEntity row) {
+        return "rejected".equals(row.status()) || "expired".equals(row.status());
+    }
+
     private boolean isDueInstallationActive(PracticeGeneratedContentEntity row) {
         return row != null
                 && OWNER_INSTALLATION.equals(row.ownerScope())
@@ -914,8 +1088,23 @@ public class PracticeGeneratedContentService {
             String ageRange,
             String parentGoal,
             String locale,
-            String customSceneText
+            String customSceneText,
+            String clientRequestId
     ) {
+        public CustomSceneDiscoveryRequest(
+                String surface,
+                String mode,
+                String installationId,
+                String accountId,
+                String profileId,
+                String ageRange,
+                String parentGoal,
+                String locale,
+                String customSceneText
+        ) {
+            this(surface, mode, installationId, accountId, profileId, ageRange, parentGoal, locale,
+                    customSceneText, null);
+        }
     }
 
     private record OwnerContext(

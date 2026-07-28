@@ -56,6 +56,7 @@ class AgenticCustomSceneQualityJudgeTest {
                         "ageRange",
                         "parentGoal",
                         "candidate",
+                        "careMoment",
                         "strategyIds",
                         "communicationPrimitiveIds",
                         "ageGuidanceTags",
@@ -153,6 +154,7 @@ class AgenticCustomSceneQualityJudgeTest {
                 "ageRange",
                 "parentGoal",
                 "candidate",
+                "reactionSupports",
                 "strategyIds",
                 "communicationPrimitiveIds",
                 "ageGuidanceTags",
@@ -162,6 +164,9 @@ class AgenticCustomSceneQualityJudgeTest {
                 "rubricContentHash");
         assertThat((java.util.Map<String, Object>) payload.get("candidate"))
                 .containsKey("generationSource");
+        var reactionSupports = (java.util.List<java.util.Map<String, Object>>) payload.get("reactionSupports");
+        assertThat(reactionSupports).hasSize(5);
+        assertThat(reactionSupports.get(0).get("reactionType")).isEqualTo("cooperating");
 
         var auditCaptor = ArgumentCaptor.forClass(JudgeResultAuditPort.JudgeAuditRecord.class);
         verify(auditPort).persist(auditCaptor.capture());

@@ -6,6 +6,7 @@ import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 import java.time.OffsetDateTime;
+import java.util.List;
 
 @TableName("practice_generated_content")
 public class PracticeGeneratedContentEntity {
@@ -21,6 +22,8 @@ public class PracticeGeneratedContentEntity {
     private String surface;
     private String mode;
     private String requestFingerprint;
+    private String clientRequestId;
+    private String clientRequestFingerprint;
     private String normalizedSceneText;
     private String ageRange;
     private String parentGoal;
@@ -59,6 +62,8 @@ public class PracticeGeneratedContentEntity {
     private OffsetDateTime createdAt;
     @TableField(fill = FieldFill.INSERT_UPDATE)
     private OffsetDateTime updatedAt;
+    @TableField(exist = false)
+    private List<PracticeGeneratedContentUtteranceEntity> approvedUtterances = List.of();
 
     public PracticeGeneratedContentEntity() {
     }
@@ -150,8 +155,26 @@ public String requestFingerprint() {
 public String getRequestFingerprint() {
         return requestFingerprint;
     }
-public void setRequestFingerprint(String requestFingerprint) {
+    public void setRequestFingerprint(String requestFingerprint) {
         this.requestFingerprint = requestFingerprint;
+    }
+public String clientRequestId() {
+        return clientRequestId;
+    }
+public String getClientRequestId() {
+        return clientRequestId;
+    }
+public void setClientRequestId(String clientRequestId) {
+        this.clientRequestId = clientRequestId;
+    }
+public String clientRequestFingerprint() {
+        return clientRequestFingerprint;
+    }
+public String getClientRequestFingerprint() {
+        return clientRequestFingerprint;
+    }
+public void setClientRequestFingerprint(String clientRequestFingerprint) {
+        this.clientRequestFingerprint = clientRequestFingerprint;
     }
 public String normalizedSceneText() {
         return normalizedSceneText;
@@ -476,5 +499,14 @@ public OffsetDateTime getUpdatedAt() {
     }
 public void setUpdatedAt(OffsetDateTime updatedAt) {
         this.updatedAt = updatedAt;
+    }
+public List<PracticeGeneratedContentUtteranceEntity> approvedUtterances() {
+        return approvedUtterances;
+    }
+public List<PracticeGeneratedContentUtteranceEntity> getApprovedUtterances() {
+        return approvedUtterances;
+    }
+public void setApprovedUtterances(List<PracticeGeneratedContentUtteranceEntity> approvedUtterances) {
+        this.approvedUtterances = approvedUtterances == null ? List.of() : List.copyOf(approvedUtterances);
     }
 }

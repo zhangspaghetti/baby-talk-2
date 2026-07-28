@@ -60,6 +60,17 @@ class PracticeGeneratedContentKeyFactoryTest {
     }
 
     @Test
+    void clientRequestFingerprintBindsOnlyImmutableRequestFacts() throws Exception {
+        var material = new PracticeGeneratedContentKeyFactory.ClientRequestFingerprintMaterial(
+                "care_path", "custom_scene", "宝宝 不肯穿鞋", "12_18m", "daily_care", "zh-CN");
+        var payload = "care_path|custom_scene|宝宝 不肯穿鞋|12_18m|daily_care|zh-CN";
+
+        assertThat(factory.clientRequestFingerprint("owner_a", material))
+                .isEqualTo("crf_" + hmacHex(
+                        "practice-client-request-fingerprint:v1|v1|owner_a|" + payload));
+    }
+
+    @Test
     void ownerAndInstallationReferencesUseSeparateDomains() {
         assertThat(factory.ownerKey("installation", "install-a"))
                 .startsWith("owner_")
@@ -98,6 +109,11 @@ class PracticeGeneratedContentKeyFactoryTest {
                 .withMessage("HmacSHA256 key secret is unavailable");
         assertThatIllegalStateException()
                 .isThrownBy(() -> factory.requestFingerprint("owner_a", material("宝宝 不肯穿鞋")))
+                .withMessage("HmacSHA256 key secret is unavailable");
+        assertThatIllegalStateException()
+                .isThrownBy(() -> factory.clientRequestFingerprint("owner_a",
+                        new PracticeGeneratedContentKeyFactory.ClientRequestFingerprintMaterial(
+                                "care_path", "custom_scene", "宝宝 不肯穿鞋", "12_18m", "daily_care", "zh-CN")))
                 .withMessage("HmacSHA256 key secret is unavailable");
     }
 

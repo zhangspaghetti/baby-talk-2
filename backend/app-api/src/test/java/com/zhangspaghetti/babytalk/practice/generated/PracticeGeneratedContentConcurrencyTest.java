@@ -50,6 +50,7 @@ class PracticeGeneratedContentConcurrencyTest extends AbstractIntegrationTest {
 
     private static final String OWNER_KEY_SECRET = "integration-owner-key-secret-at-least-32-bytes";
     private static final String INSTALLATION_ID = "install_generated_content_concurrency";
+    private static final String OTHER_INSTALLATION_ID = "install_generated_content_other_owner";
     private static final String HASH = "a".repeat(64);
     private static final String STALE_CLEANUP_CONTENT_ID = "pgc_concurrent_stale_cleanup";
 
@@ -78,6 +79,9 @@ class PracticeGeneratedContentConcurrencyTest extends AbstractIntegrationTest {
         jdbcTemplate.update(
                 "delete from practice_generated_content where owner_key = ?",
                 ownerKey(INSTALLATION_ID));
+        jdbcTemplate.update(
+                "delete from practice_generated_content where owner_key = ?",
+                ownerKey(OTHER_INSTALLATION_ID));
         provider.reset(false);
     }
 
@@ -133,6 +137,80 @@ class PracticeGeneratedContentConcurrencyTest extends AbstractIntegrationTest {
                     .containsExactly("generation_in_progress");
             assertThat(results).filteredOn(CallResult::succeeded).hasSize(1);
         }
+    }
+
+    @Test
+    void sameClientRequestIdConcurrentCallsRunProviderOnceAndReconcilePersistedActiveContent() throws Exception {
+        provider.reset(true);
+        var request = carePathRequest(INSTALLATION_ID, "request_concurrent_001", "洗澡前宝宝有点紧张");
+        var futures = startConcurrentCalls(request, request);
+
+        assertThat(provider.awaitEntered()).isTrue();
+        awaitCompletedCalls(futures, 1);
+        assertThat(provider.callCount()).isEqualTo(1);
+
+        provider.release();
+        var results = collect(futures);
+        var active = results.stream().filter(CallResult::succeeded).findFirst().orElseThrow().row();
+        assertThat(results)
+                .filteredOn(result -> result.error() != null)
+                .extracting(result -> result.error().code())
+                .containsExactly("generation_in_progress");
+        assertThat(service.generateCustomScene(request).generatedContentId()).isEqualTo(active.generatedContentId());
+        assertThat(provider.callCount()).isEqualTo(1);
+        assertThat(jdbcTemplate.queryForObject(
+                "select count(*) from practice_generated_content where client_request_id = ?",
+                Integer.class,
+                "request_concurrent_001")).isEqualTo(1);
+    }
+
+    @Test
+    void clientRequestIdConflictsOnChangedFactsButIsolatedOwnersMayReuseIt() {
+        var clientRequestId = "request_owner_scope_001";
+        var first = service.generateCustomScene(
+                carePathRequest(INSTALLATION_ID, clientRequestId, "洗澡前宝宝有点紧张"));
+
+        assertThatThrownBy(() -> service.generateCustomScene(
+                carePathRequest(INSTALLATION_ID, clientRequestId, "出门前宝宝不想穿鞋")))
+                .isInstanceOfSatisfying(ContractException.class, error -> {
+                    assertThat(error.status()).isEqualTo(org.springframework.http.HttpStatus.CONFLICT);
+                    assertThat(error.code()).isEqualTo("client_request_id_conflict");
+                });
+        assertThat(provider.callCount()).isEqualTo(1);
+
+        var otherOwner = service.generateCustomScene(
+                carePathRequest(OTHER_INSTALLATION_ID, clientRequestId, "出门前宝宝不想穿鞋"));
+        assertThat(otherOwner.generatedContentId()).isNotEqualTo(first.generatedContentId());
+        assertThat(provider.callCount()).isEqualTo(2);
+    }
+
+    @Test
+    void terminalClientRequestRequiresNewIdBeforeRetryingGeneration() {
+        var firstRequest = carePathRequest(INSTALLATION_ID, "request_terminal_001", "洗澡前宝宝有点紧张");
+        provider.failNext();
+
+        assertThatThrownBy(() -> service.generateCustomScene(firstRequest))
+                .isInstanceOfSatisfying(ContractException.class, error ->
+                        assertThat(error.code()).isEqualTo("generation_unavailable"));
+        assertThat(provider.callCount()).isEqualTo(1);
+
+        assertThatThrownBy(() -> service.generateCustomScene(firstRequest))
+                .isInstanceOfSatisfying(ContractException.class, error -> {
+                    assertThat(error.status()).isEqualTo(org.springframework.http.HttpStatus.CONFLICT);
+                    assertThat(error.code()).isEqualTo("client_request_terminal");
+                    assertThat(error.details()).containsEntry("requiresNewClientRequestId", true);
+                });
+        assertThat(provider.callCount()).isEqualTo(1);
+
+        var terminalId = jdbcTemplate.queryForObject(
+                "select generated_content_id from practice_generated_content where client_request_id = ?",
+                String.class,
+                "request_terminal_001");
+        moveTerminalOutsideBurstWindow(terminalId);
+        var retry = service.generateCustomScene(
+                carePathRequest(INSTALLATION_ID, "request_terminal_002", "洗澡前宝宝有点紧张"));
+        assertThat(retry.status()).isEqualTo("active");
+        assertThat(provider.callCount()).isEqualTo(2);
     }
 
     @Test
@@ -370,6 +448,24 @@ class PracticeGeneratedContentConcurrencyTest extends AbstractIntegrationTest {
                 "calmer_care",
                 "zh-CN",
                 sceneText);
+    }
+
+    private PracticeGeneratedContentService.CustomSceneDiscoveryRequest carePathRequest(
+            String installationId,
+            String clientRequestId,
+            String sceneText
+    ) {
+        return new PracticeGeneratedContentService.CustomSceneDiscoveryRequest(
+                "care_path",
+                "custom_scene",
+                installationId,
+                null,
+                null,
+                "m7_11",
+                "calmer_care",
+                "zh-CN",
+                sceneText,
+                clientRequestId);
     }
 
     private String ownerKey(String installationId) {

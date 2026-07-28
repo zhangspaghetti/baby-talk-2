@@ -40,6 +40,10 @@ class PracticeGeneratedContentWriteService implements PracticeGeneratedContentCo
             ReservationPolicy policy
     ) {
         commandMapper.lockOwnerRateLimit(ownerLockKey(draft));
+        var clientRequestMatch = findByClientRequestId(draft);
+        if (clientRequestMatch != null) {
+            return new DraftReservation(clientRequestMatch, false);
+        }
         var existing = findLive(draft);
         var staleDraft = isStaleDraft(existing, policy.now());
         var dueInstallationActive = isDueInstallationActive(existing, policy.now());
@@ -117,6 +121,7 @@ class PracticeGeneratedContentWriteService implements PracticeGeneratedContentCo
     @Override
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public Optional<PracticeGeneratedContentEntity> activate(PracticeGeneratedContentEntity active) {
+        insertApprovedUtterances(active);
         return commandMapper.activateGenerating(active) == 1
                 ? Optional.ofNullable(queryMapper.findByGeneratedContentId(active.generatedContentId()))
                 : Optional.empty();
@@ -135,6 +140,7 @@ class PracticeGeneratedContentWriteService implements PracticeGeneratedContentCo
                 completedAttempt.completedAt()) != 1) {
             throw new IllegalStateException("generation attempt was not started");
         }
+        insertApprovedUtterances(active);
         if (commandMapper.activateGenerating(active) != 1) {
             throw new IllegalStateException("generated content was not generating");
         }
@@ -204,6 +210,27 @@ class PracticeGeneratedContentWriteService implements PracticeGeneratedContentCo
                 draft.requestFingerprint(),
                 draft.generationProfileVersion(),
                 draft.contentRefreshEpoch());
+    }
+
+    private PracticeGeneratedContentEntity findByClientRequestId(PracticeGeneratedContentEntity draft) {
+        if (draft.clientRequestId() == null) {
+            return null;
+        }
+        return queryMapper.findByClientRequestId(
+                draft.ownerScope(),
+                draft.ownerKey(),
+                draft.ownerKeyVersion(),
+                draft.clientRequestId());
+    }
+
+    private void insertApprovedUtterances(PracticeGeneratedContentEntity active) {
+        var utterances = active.approvedUtterances();
+        if (utterances.isEmpty()) {
+            return;
+        }
+        if (commandMapper.insertApprovedUtterances(utterances) != utterances.size()) {
+            throw new IllegalStateException("approved generated utterances could not be persisted");
+        }
     }
 
     private String ownerLockKey(PracticeGeneratedContentEntity draft) {

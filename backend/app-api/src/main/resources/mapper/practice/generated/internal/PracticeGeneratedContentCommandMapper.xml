@@ -4,7 +4,8 @@
 
     <sql id="columns">
         generated_content_id, owner_scope, owner_key, owner_key_version, account_id,
-        installation_ref_hash, profile_id, surface, mode, request_fingerprint,
+        installation_ref_hash, profile_id, surface, mode, request_fingerprint, client_request_id,
+        client_request_fingerprint,
         normalized_scene_text, age_range, parent_goal, locale, space_slug, activity_slug,
         phrase_slug, space_title_zh, activity_title_zh, scene_tag_en, tpr_action_zh,
         delivery_guidance_zh, english_text, chinese_text, pronunciation_hint, difficulty,
@@ -21,7 +22,8 @@
         ) values (
             #{et.generatedContentId}, #{et.ownerScope}, #{et.ownerKey}, #{et.ownerKeyVersion},
             #{et.accountId}, #{et.installationRefHash}, #{et.profileId}, #{et.surface}, #{et.mode},
-            #{et.requestFingerprint}, #{et.normalizedSceneText}, #{et.ageRange}, #{et.parentGoal},
+            #{et.requestFingerprint}, #{et.clientRequestId}, #{et.clientRequestFingerprint},
+            #{et.normalizedSceneText}, #{et.ageRange}, #{et.parentGoal},
             #{et.locale}, null, null, null, null, null, null, null, null, null, null, null, null,
             null, 'draft', #{et.generationProfileVersion}, #{et.generationProfileHash},
             #{et.rubricVersion}, #{et.rubricContentHash}, #{et.evidencePolicyVersion},
@@ -93,6 +95,24 @@
         where generated_content_id = #{et.generatedContentId}
           and status = 'generating'
     </update>
+
+    <insert id="insertApprovedUtterances">
+        insert into practice_generated_content_utterances (
+            utterance_id, generated_content_id, role, reaction_type, english_text, chinese_text,
+            pronunciation_hint, tpr_action_zh, delivery_guidance_zh, difficulty, display_order,
+            approval_status, approved_content_version, created_at
+        ) values
+        <foreach collection="utterances" item="utterance" separator=",">
+            (
+                #{utterance.utteranceId}, #{utterance.generatedContentId}, #{utterance.role},
+                #{utterance.reactionType}, #{utterance.englishText}, #{utterance.chineseText},
+                #{utterance.pronunciationHint}, #{utterance.tprActionZh}, #{utterance.deliveryGuidanceZh},
+                #{utterance.difficulty}, #{utterance.displayOrder}, #{utterance.approvalStatus},
+                #{utterance.approvedContentVersion},
+                #{utterance.createdAt,typeHandler=org.apache.ibatis.type.OffsetDateTimeTypeHandler}
+            )
+        </foreach>
+    </insert>
 
     <delete id="deleteDueInstallationActive">
         delete from practice_generated_content

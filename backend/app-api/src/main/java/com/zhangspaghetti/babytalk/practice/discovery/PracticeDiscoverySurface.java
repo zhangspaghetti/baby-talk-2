@@ -4,6 +4,7 @@ import cn.hutool.core.util.StrUtil;
 
 public enum PracticeDiscoverySurface {
     ONBOARDING("onboarding"),
+    CARE_PATH("care_path"),
     SCENE_SEARCH("scene_search"),
     CARE_TURN_SUPPORT("care_turn_support"),
     MENTOR_GENERATION("mentor_generation");

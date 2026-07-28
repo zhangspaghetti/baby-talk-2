@@ -1,6 +1,7 @@
 package com.zhangspaghetti.babytalk.practice.generated;
 
 import com.zhangspaghetti.babytalk.practice.generated.model.PracticeGeneratedContentEntity;
+import com.zhangspaghetti.babytalk.practice.generated.model.PracticeGeneratedContentUtteranceEntity;
 import java.time.OffsetDateTime;
 import java.util.List;
 import org.apache.ibatis.annotations.Mapper;
@@ -11,6 +12,15 @@ public interface PracticeGeneratedContentQueryMapper {
 
     PracticeGeneratedContentEntity findByGeneratedContentId(
             @Param("generatedContentId") String generatedContentId);
+
+    List<PracticeGeneratedContentUtteranceEntity> findApprovedUtterances(
+            @Param("generatedContentId") String generatedContentId);
+
+    PracticeGeneratedContentEntity findByClientRequestId(
+            @Param("ownerScope") String ownerScope,
+            @Param("ownerKey") String ownerKey,
+            @Param("ownerKeyVersion") String ownerKeyVersion,
+            @Param("clientRequestId") String clientRequestId);
 
     PracticeGeneratedContentEntity findLiveByFingerprint(
             @Param("ownerKey") String ownerKey,

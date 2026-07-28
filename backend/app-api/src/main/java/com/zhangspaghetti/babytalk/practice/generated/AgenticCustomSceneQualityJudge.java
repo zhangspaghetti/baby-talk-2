@@ -125,6 +125,17 @@ public class AgenticCustomSceneQualityJudge implements CustomSceneQualityJudge {
                         candidate.pronunciationHint(),
                         candidate.difficulty(),
                         candidate.generationSource()),
+                request.careMoment().reactionSupports().entrySet().stream()
+                        .sorted(java.util.Comparator.comparingInt(entry -> entry.getKey().ordinal()))
+                        .map(entry -> new ReactionSupportPayload(
+                                entry.getKey().wireValue(),
+                                entry.getValue().englishText(),
+                                entry.getValue().chineseText(),
+                                entry.getValue().pronunciationHint(),
+                                entry.getValue().tprActionZh(),
+                                entry.getValue().deliveryGuidanceZh(),
+                                entry.getValue().difficulty()))
+                        .toList(),
                 request.strategyIds(),
                 request.communicationPrimitiveIds(),
                 request.ageGuidanceTags(),
@@ -139,6 +150,7 @@ public class AgenticCustomSceneQualityJudge implements CustomSceneQualityJudge {
             String ageRange,
             String parentGoal,
             CandidatePayload candidate,
+            List<ReactionSupportPayload> reactionSupports,
             List<String> strategyIds,
             List<String> communicationPrimitiveIds,
             List<String> ageGuidanceTags,
@@ -146,6 +158,17 @@ public class AgenticCustomSceneQualityJudge implements CustomSceneQualityJudge {
             List<String> orderedSanitizedEvidenceSummaries,
             String rubricVersion,
             String rubricContentHash
+    ) {
+    }
+
+    private record ReactionSupportPayload(
+            String reactionType,
+            String englishText,
+            String chineseText,
+            String pronunciationHint,
+            String tprActionZh,
+            String deliveryGuidanceZh,
+            String difficulty
     ) {
     }
 

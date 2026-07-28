@@ -51,6 +51,18 @@ public final class PracticeGeneratedContentKeyFactory {
                 "practice-request-fingerprint:v1|" + keyVersion + "|" + ownerKey + "|" + canonicalRequest);
     }
 
+    public String clientRequestFingerprint(String ownerKey, ClientRequestFingerprintMaterial material) {
+        var immutableFacts = String.join("|",
+                material.surface(),
+                material.mode(),
+                material.securitySceneText(),
+                material.ageRange(),
+                material.parentGoal(),
+                material.locale());
+        return "crf_" + hmacHex(
+                "practice-client-request-fingerprint:v1|" + keyVersion + "|" + ownerKey + "|" + immutableFacts);
+    }
+
     public String stableDigest(String value) {
         try {
             var digest = MessageDigest.getInstance("SHA-256");
@@ -84,6 +96,16 @@ public final class PracticeGeneratedContentKeyFactory {
             String rubricVersion,
             String evidencePolicyVersion,
             int contentRefreshEpoch
+    ) {
+    }
+
+    public record ClientRequestFingerprintMaterial(
+            String surface,
+            String mode,
+            String securitySceneText,
+            String ageRange,
+            String parentGoal,
+            String locale
     ) {
     }
 }

@@ -12,8 +12,35 @@ public record PracticeDiscoveryResponse(
         List<SceneResponse> scenes,
         List<MomentResponse> moments,
         StarterResponse starter,
+        List<ReactionSupportResponse> reactionSupports,
         TraceResponse trace
 ) {
+    public PracticeDiscoveryResponse(
+            String discoveryTraceId,
+            String surface,
+            String mode,
+            String profileMode,
+            String source,
+            String generatedContentId,
+            List<SceneResponse> scenes,
+            List<MomentResponse> moments,
+            StarterResponse starter,
+            TraceResponse trace
+    ) {
+        this(
+                discoveryTraceId,
+                surface,
+                mode,
+                profileMode,
+                source,
+                generatedContentId,
+                scenes,
+                moments,
+                starter,
+                List.of(),
+                trace);
+    }
+
     public record SceneResponse(String sceneId, String spaceId, String title, int rank, String reasonCode) {
     }
 
@@ -48,6 +75,20 @@ public record PracticeDiscoveryResponse(
             String activityId,
             String utteranceId,
             String phraseId,
+            String source
+    ) {
+    }
+
+    public record ReactionSupportResponse(
+            String reactionType,
+            String utteranceId,
+            String phraseId,
+            String english,
+            String chinese,
+            String pronunciation,
+            String tprActionZh,
+            String deliveryGuidanceZh,
+            String difficulty,
             String source
     ) {
     }

@@ -178,7 +178,7 @@ public class CustomSceneGenerationOrchestrator {
                 return expire(reserved, ERROR_INSUFFICIENT_EVIDENCE, true);
             }
 
-            GeneratedPracticeContentCandidate candidate;
+            GeneratedCareMomentBundle careMoment;
             if (attemptNumber == 1) {
                 GenerationStartDecision startDecision;
                 try {
@@ -213,7 +213,7 @@ public class CustomSceneGenerationOrchestrator {
             }
             try {
                 if (attemptNumber == 1) {
-                    candidate = generator.generate(new GeneratorRequest(
+                    var generatorRequest = new GeneratorRequest(
                             reserved.generatedContentId(),
                             attemptNumber,
                             reserved.normalizedSceneText(),
@@ -222,14 +222,18 @@ public class CustomSceneGenerationOrchestrator {
                             reserved.locale(),
                             bundle,
                             execution.generationProfile(),
-                            execution.contentConstraints()));
+                            execution.contentConstraints());
+                    careMoment = generator.generateCareMoment(generatorRequest);
+                    if (careMoment == null) {
+                        careMoment = GeneratedCareMomentBundle.fromStarter(generator.generate(generatorRequest));
+                    }
                 } else {
-                    candidate = repairer.repair(new CustomSceneRepairer.RepairRequest(
+                    careMoment = GeneratedCareMomentBundle.fromStarter(repairer.repair(new CustomSceneRepairer.RepairRequest(
                             reserved.generatedContentId(),
                             attemptNumber,
                             bundle.evidenceBundleId(),
                             reserved.locale(),
-                            repairPackage(execution, repairContext, bundle, repairInputCodes)));
+                            repairPackage(execution, repairContext, bundle, repairInputCodes))));
                 }
             } catch (ProvidersExhaustedException exception) {
                 complete(attemptId, attemptNumber, "providers_exhausted", attemptCodes);
@@ -245,10 +249,17 @@ public class CustomSceneGenerationOrchestrator {
                 return expire(reserved, ERROR_GENERATION_UNAVAILABLE, true);
             }
 
+            var bundleViolations = careMoment.deterministicViolationCodes(execution.contentConstraints());
+            if (!bundleViolations.isEmpty()) {
+                var codes = combined(attemptCodes, bundleViolations);
+                complete(attemptId, attemptNumber, "terminal_violation", codes);
+                return reject(reserved, ERROR_GENERATION_INVALID_OUTPUT, false);
+            }
+
             GeneratedOutputGateResult gate;
             try {
                 gate = validator.evaluate(
-                        candidate,
+                        careMoment.starter(),
                         execution.contentConstraints(),
                         new CustomSceneGeneratedContentValidator.GeneratedOutputValidationContext(
                                 reserved.normalizedSceneText()));
@@ -275,10 +286,12 @@ public class CustomSceneGenerationOrchestrator {
                 continue;
             }
 
+            careMoment = careMoment.withStarter(gate.normalizedCandidate());
+
             SuggestedJudgeResult suggested;
             com.zhangspaghetti.babytalk.practice.generated.quality.EffectiveJudgeResult effective;
             try {
-                suggested = judge.judge(judgeRequest(execution, attemptNumber, bundle, gate.normalizedCandidate()));
+                suggested = judge.judge(judgeRequest(execution, attemptNumber, bundle, careMoment));
                 effective = verdictCalculator.calculate(suggested, execution.qualityRubric());
             } catch (ProvidersExhaustedException exception) {
                 complete(attemptId, attemptNumber, "providers_exhausted", attemptCodes);
@@ -294,7 +307,7 @@ public class CustomSceneGenerationOrchestrator {
             if (effective.effectiveVerdict() == JudgeVerdict.PASS) {
                 try {
                     return commands.activateWithCompletedAttempt(
-                            activeRow(reserved, gate.normalizedCandidate()),
+                            activeRow(reserved, careMoment),
                             new GenerationAttemptAuditPort.AttemptCompleted(
                                     attemptId, attemptNumber, "passed", stableCodes(judgeCodes), now()))
                             .orElseThrow(() -> new GenerationExecutionException("activation_failure", true));
@@ -366,7 +379,7 @@ public class CustomSceneGenerationOrchestrator {
             GenerationExecution execution,
             int attemptNumber,
             FrozenEvidenceBundle bundle,
-            GeneratedPracticeContentCandidate candidate
+            GeneratedCareMomentBundle careMoment
     ) {
         var reserved = execution.reservedContent();
         var strategies = bundle.items().stream()
@@ -386,7 +399,8 @@ public class CustomSceneGenerationOrchestrator {
                 reserved.normalizedSceneText(),
                 reserved.ageRange(),
                 reserved.parentGoal(),
-                candidate,
+                careMoment.starter(),
+                careMoment,
                 strategies,
                 List.of(),
                 List.of(),
@@ -479,7 +493,7 @@ public class CustomSceneGenerationOrchestrator {
             PracticeGeneratedContentEntity reserved,
             GeneratedPracticeContentCandidate candidate
     ) {
-        return commands.activate(activeRow(reserved, candidate))
+        return commands.activate(activeRow(reserved, GeneratedCareMomentBundle.fromStarter(candidate)))
                 .orElseGet(() -> {
                     var winner = queryMapper.findActiveByFingerprint(
                             reserved.ownerKey(),
@@ -499,8 +513,9 @@ public class CustomSceneGenerationOrchestrator {
 
     private PracticeGeneratedContentEntity activeRow(
             PracticeGeneratedContentEntity draft,
-            GeneratedPracticeContentCandidate candidate
+            GeneratedCareMomentBundle careMoment
     ) {
+        var candidate = careMoment.starter();
         var slugHash = keyFactory.stableDigest(
                 draft.ownerKey() + "|" + draft.requestFingerprint() + "|"
                         + draft.generationProfileVersion() + "|" + draft.evidencePolicyVersion() + "|"
@@ -549,7 +564,50 @@ public class CustomSceneGenerationOrchestrator {
                 : null);
         active.setCreatedAt(draft.createdAt());
         active.setUpdatedAt(now());
+        active.setApprovedUtterances(toApprovedUtterances(active, careMoment));
         return active;
+    }
+
+    private List<com.zhangspaghetti.babytalk.practice.generated.model.PracticeGeneratedContentUtteranceEntity>
+    toApprovedUtterances(PracticeGeneratedContentEntity active, GeneratedCareMomentBundle careMoment) {
+        var rows = new ArrayList<com.zhangspaghetti.babytalk.practice.generated.model.PracticeGeneratedContentUtteranceEntity>();
+        rows.add(utterance(active, "starter", null, 1, new GeneratedCareUtterance(
+                careMoment.starter().englishText(), careMoment.starter().chineseText(),
+                careMoment.starter().pronunciationHint(), careMoment.starter().tprActionZh(),
+                careMoment.starter().deliveryGuidanceZh(), careMoment.starter().difficulty())));
+        for (var reaction : GeneratedCareMomentBundle.ReactionType.values()) {
+            rows.add(utterance(active, "reaction_support", reaction.wireValue(), reaction.ordinal() + 2,
+                    careMoment.reactionSupports().get(reaction)));
+        }
+        return List.copyOf(rows);
+    }
+
+    private com.zhangspaghetti.babytalk.practice.generated.model.PracticeGeneratedContentUtteranceEntity utterance(
+            PracticeGeneratedContentEntity active,
+            String role,
+            String reactionType,
+            int displayOrder,
+            GeneratedCareUtterance content
+    ) {
+        var row = new com.zhangspaghetti.babytalk.practice.generated.model.PracticeGeneratedContentUtteranceEntity();
+        var identity = active.generatedContentId() + "|" + role + "|" + (reactionType == null ? "starter" : reactionType);
+        row.setUtteranceId("starter".equals(role)
+                ? active.phraseSlug()
+                : "gen_utt_" + keyFactory.stableDigest(identity).substring(0, 48));
+        row.setGeneratedContentId(active.generatedContentId());
+        row.setRole(role);
+        row.setReactionType(reactionType);
+        row.setEnglishText(content.englishText());
+        row.setChineseText(content.chineseText());
+        row.setPronunciationHint(content.pronunciationHint());
+        row.setTprActionZh(content.tprActionZh());
+        row.setDeliveryGuidanceZh(content.deliveryGuidanceZh());
+        row.setDifficulty(content.difficulty());
+        row.setDisplayOrder(displayOrder);
+        row.setApprovalStatus("approved");
+        row.setApprovedContentVersion(active.contentVersion());
+        row.setCreatedAt(active.updatedAt());
+        return row;
     }
 
     private PracticeGeneratedContentEntity reject(
