@@ -132,6 +132,7 @@ void main() {
         LocalSensitiveDataTarget.authContinuation,
         LocalSensitiveDataTarget.customSceneDraft,
         LocalSensitiveDataTarget.generatedCareMoments,
+        LocalSensitiveDataTarget.generatedAudioMemory,
       ]);
       expect(
         report.overallStatus,
@@ -156,7 +157,9 @@ void main() {
                   result.target != LocalSensitiveDataTarget.authContinuation &&
                   result.target != LocalSensitiveDataTarget.customSceneDraft &&
                   result.target !=
-                      LocalSensitiveDataTarget.generatedCareMoments,
+                      LocalSensitiveDataTarget.generatedCareMoments &&
+                  result.target !=
+                      LocalSensitiveDataTarget.generatedAudioMemory,
             )
             .map((result) => result.status)
             .toSet(),
