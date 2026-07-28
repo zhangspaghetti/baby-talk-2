@@ -9,6 +9,7 @@ import 'package:mobile/features/care_path/presentation/care_audio_playback_contr
 import 'package:mobile/features/care_path/presentation/widgets/care_turn_surface.dart';
 import 'package:mobile/features/practice/presentation/practice_audio_controller.dart';
 import 'package:mobile/features/practice/presentation/practice_route_args.dart';
+import 'package:mobile/features/practice/domain/models/practice_content_source.dart';
 import 'package:mobile/l10n/app_localizations.dart';
 
 class PracticeSessionScreen extends ConsumerWidget {
@@ -189,8 +190,7 @@ class _PracticeSessionBodyState extends ConsumerState<_PracticeSessionBody> {
     }
 
     if (generatedContentId != null &&
-        notifier.phase == CareTurnPhase.utteranceReady &&
-        snapshot?.currentUtterance != null) {
+        _isInteractiveGeneratedStarterReady(generatedContentId)) {
       _scheduleHandoffConfirmation(generatedContentId);
     }
 
@@ -214,15 +214,62 @@ class _PracticeSessionBodyState extends ConsumerState<_PracticeSessionBody> {
     }
     _confirmedGeneratedContentId = generatedContentId;
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || _confirmedGeneratedContentId != generatedContentId) {
+      if (!mounted ||
+          _confirmedGeneratedContentId != generatedContentId ||
+          !_isInteractiveGeneratedStarterReady(generatedContentId)) {
+        if (_confirmedGeneratedContentId == generatedContentId) {
+          _confirmedGeneratedContentId = null;
+        }
         return;
       }
+      // The post-frame boundary means CareTurnSurface has rendered its starter
+      // and active controls. Route initiation/return are never confirmation.
       unawaited(
         ref
             .read(customSceneHandoffConfirmationCoordinatorProvider)
             .confirm(generatedContentId: generatedContentId),
       );
     });
+  }
+
+  bool _isInteractiveGeneratedStarterReady(String generatedContentId) {
+    final routeContentId = widget.routeEntry.generatedArgs?.generatedContentId;
+    final scopeKey = _routeScopeKey(widget.routeEntry);
+    final notifier = ref.read(carePathNotifierProvider);
+    return GeneratedCareTurnHandoffReadiness.isReady(
+      routeContentId: routeContentId,
+      completedMomentKey: _completedMomentKey,
+      routeScopeKey: scopeKey,
+      phase: notifier.phase,
+      snapshot: notifier.snapshot,
+    );
+  }
+}
+
+/// Destination gate for durable custom-scene handoff confirmation. A route
+/// transition alone cannot satisfy it; CareTurnSurface is confirmed next frame.
+class GeneratedCareTurnHandoffReadiness {
+  const GeneratedCareTurnHandoffReadiness._();
+
+  static bool isReady({
+    required String? routeContentId,
+    required String? completedMomentKey,
+    required String routeScopeKey,
+    required CareTurnPhase phase,
+    required CareTurnSnapshot? snapshot,
+  }) {
+    final starter = snapshot?.currentUtterance;
+    return routeContentId != null &&
+        routeContentId.isNotEmpty &&
+        completedMomentKey == routeScopeKey &&
+        phase == CareTurnPhase.utteranceReady &&
+        snapshot?.moment.generatedContentId == routeContentId &&
+        snapshot?.moment.contentSource == PracticeContentSource.generated &&
+        starter != null &&
+        !starter.isFallback &&
+        snapshot?.selectedReaction == null &&
+        snapshot?.nextSupportUtterance == null &&
+        snapshot?.traceEventKey == null;
   }
 }
 
