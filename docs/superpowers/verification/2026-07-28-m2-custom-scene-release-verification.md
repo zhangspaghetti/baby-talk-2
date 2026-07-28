@@ -18,7 +18,7 @@ Scope: #28 / M2-12 only. Evidence below is from current workspace after #27 (`9a
 | Mobile format check | `cd mobile && dart format --output=none --set-exit-if-changed lib test integration_test` | BLOCKED — current baseline needs formatting; do not apply formatter in shared release worktree without owner approval |
 | Mobile R4 policy | `cd mobile && flutter test test/tool/r4_release_gate_policy_test.dart` | PASS — 5 tests |
 | Mobile full Flutter test | `cd mobile && flutter test` | PASS — 739 tests, 03:02 |
-| Android UAT | `adb devices -l` | BLOCKED — no online ADB device attached |
+| Android UAT | `adb devices -l` | PARTIAL — emulator attached; current APK cannot install because device storage is insufficient |
 
 ## Coverage mapping
 
@@ -28,10 +28,20 @@ Mobile target tests cover DTO/mapper/repository; draft and auth continuation; su
 
 The first full Flutter run found one stale lifecycle expectation: logout now clears `generatedAudioMemory` under #27, while `local_sensitive_data_clearance_orchestrator_test.dart` still expected it skipped. The M2-12 test update asserts the required clearing behavior. Focused lifecycle/R4 tests then passed (8 tests); final full run passed 739 tests.
 
+## Android risk evidence — 2026-07-28
+
+Device: `emulator-5554`, `sdk_gphone64_x86_64`, Android 15 / API 35.
+
+`cd mobile && flutter build apk --debug` produced `build/app/outputs/flutter-apk/app-debug.apk` (221,868,078 bytes). `adb install -r build/app/outputs/flutter-apk/app-debug.apk` failed with `INSTALL_FAILED_INSUFFICIENT_STORAGE`; `/data/user/0` had 583 MB free. No device data was deleted to make space.
+
+The emulator already contains `com.babytalk.mobile` version `1.0.0`, last updated 2026-07-26. It launched to `MainActivity` and exposed an account-save screen in the Android hierarchy without a captured fatal exception. That installed package predates this verification and cannot prove current-source behavior.
+
+Closest executable generated-audio evidence is local, not Android playback: `flutter test test/features/practice/generated/generated_audio_memory_cache_test.dart test/features/practice/generated/generated_audio_api_test.dart test/features/care_path/presentation/care_audio_playback_controller_test.dart` passed 7 tests. It covers authenticated bytes route validation, empty/wrong-MIME/oversize rejection, TTL/LRU bounds, lifecycle late-response clearing, and cancellation preventing late playback. It does **not** prove on-device generated-byte audio playback.
+
 ## Release decision
 
 **NOT RELEASE READY.** No release-ready statement is permitted while Android risk UAT and actual TalkBack evidence are absent.
 
 Explicit M3 deferred evidence: human listener must perform actual TalkBack spoken-order, touch-exploration, and return-focus checks. UI/widget semantics and hierarchy cannot replace that evidence.
 
-Android risk UAT still requires a visible device/emulator and execution of: Today signed-in generated Care Turn; Scene draft/login exactly-once resume; response-loss reconciliation; force-stop during login/submission; reaction response-loss exactly-one event; starter/five-support playback; TTS failure fallback; page-leave cancellation; logout/account-switch clearing; and AI/TTS-disabled preset regression. #26 Android bytes-playback UAT is therefore still unverified.
+Android risk UAT still requires installation of current source on a visible device/emulator and execution of: Today signed-in generated Care Turn; Scene draft/login exactly-once resume; response-loss reconciliation; force-stop during login/submission; reaction response-loss exactly-one event; starter/five-support playback; TTS failure fallback; page-leave cancellation; logout/account-switch clearing; and AI/TTS-disabled preset regression. #26 Android bytes-playback UAT is therefore still unverified.
