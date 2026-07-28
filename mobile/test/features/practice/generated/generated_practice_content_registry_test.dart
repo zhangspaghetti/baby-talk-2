@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:ffi' show Abi;
 import 'dart:io';
 
@@ -121,6 +122,224 @@ void main() {
         expect(await store.readAll(), isEmpty);
       },
     );
+
+    test(
+      'quarantines legacy data before any registry consumer can resolve it',
+      () async {
+        final legacyFile = File(
+          '${tempDir.path}${Platform.pathSeparator}'
+          '${store.fileName}',
+        );
+        await legacyFile.writeAsString(
+          jsonEncode(<String, Object?>{
+            'schemaVersion': 1,
+            'records': <Object?>[
+              <String, Object?>{'accountContext': accountContext},
+            ],
+          }),
+        );
+
+        expect(
+          await registry.resolveGeneratedContent(
+            generatedContentId: 'legacy_generated_content',
+          ),
+          isNull,
+        );
+        expect(await store.readAll(), isEmpty);
+
+        final diagnostics = await store.readQuarantineDiagnostics();
+        expect(diagnostics, hasLength(1));
+        expect(diagnostics.single.reasonCode, 'unsupported_store_schema');
+        expect(diagnostics.single.schemaVersion, '1');
+        expect(diagnostics.single.recordCount, 1);
+        expect(diagnostics.single.irreversibleFingerprint, isNotEmpty);
+        expect(
+          await legacyFile.readAsString(),
+          isNot(contains(accountContext)),
+        );
+
+        await store.purgeQuarantinedForAccount(accountContext);
+        await store.purgeQuarantinedForAccount(accountContext);
+        expect(await store.readQuarantineDiagnostics(), isEmpty);
+      },
+    );
+
+    test(
+      'quarantines malformed current bundle and removes its text before read',
+      () async {
+        final moment = _moment('invalid_current');
+        await registry.register(accountContext: accountContext, moment: moment);
+        final file = File(
+          '${tempDir.path}${Platform.pathSeparator}${store.fileName}',
+        );
+        final root =
+            jsonDecode(await file.readAsString()) as Map<String, dynamic>;
+        final records = root['records'] as List<dynamic>;
+        final record = records.single as Map<String, dynamic>;
+        final supports = record['reactionSupports'] as Map<String, dynamic>;
+        final cooperating = supports['cooperating'] as Map<String, dynamic>;
+        cooperating['role'] = 'starter';
+        await file.writeAsString(jsonEncode(root));
+
+        expect(
+          await registry.resolveGeneratedContent(
+            generatedContentId: moment.generatedContentId,
+          ),
+          isNull,
+        );
+        expect(await store.readAll(), isEmpty);
+        final diagnostics = await store.readQuarantineDiagnostics();
+        expect(diagnostics.single.reasonCode, 'invalid_generated_bundle');
+        expect(
+          await file.readAsString(),
+          allOf(
+            isNot(contains(moment.starter.english)),
+            isNot(contains(accountContext)),
+          ),
+        );
+      },
+    );
+
+    test(
+      'quarantines persisted utterance sources outside generated before resolve',
+      () async {
+        final moment = _moment('invalid_utterance_source');
+        await registry.register(accountContext: accountContext, moment: moment);
+        final file = File(
+          '${tempDir.path}${Platform.pathSeparator}${store.fileName}',
+        );
+        final root =
+            jsonDecode(await file.readAsString()) as Map<String, dynamic>;
+        final records = root['records'] as List<dynamic>;
+        final record = records.single as Map<String, dynamic>;
+        final starter = record['starter'] as Map<String, dynamic>;
+        starter['source'] = 'legacy';
+        await file.writeAsString(jsonEncode(root));
+
+        expect(
+          await registry.resolveGeneratedContent(
+            generatedContentId: moment.generatedContentId,
+          ),
+          isNull,
+        );
+        expect(await store.readAll(), isEmpty);
+        expect(await store.readQuarantineDiagnostics(), hasLength(1));
+        expect(
+          await file.readAsString(),
+          allOf(
+            isNot(contains(moment.starter.english)),
+            isNot(contains(accountContext)),
+          ),
+        );
+      },
+    );
+
+    test(
+      'quarantines persisted top-level sources outside generated before resolve',
+      () async {
+        final moment = _moment('invalid_top_level_source');
+        await registry.register(accountContext: accountContext, moment: moment);
+        final file = File(
+          '${tempDir.path}${Platform.pathSeparator}${store.fileName}',
+        );
+        final root =
+            jsonDecode(await file.readAsString()) as Map<String, dynamic>;
+        final records = root['records'] as List<dynamic>;
+        final record = records.single as Map<String, dynamic>;
+        record['source'] = 'legacy';
+        await file.writeAsString(jsonEncode(root));
+
+        expect(
+          await registry.resolveGeneratedContent(
+            generatedContentId: moment.generatedContentId,
+          ),
+          isNull,
+        );
+        expect(await store.readAll(), isEmpty);
+        expect(await store.readQuarantineDiagnostics(), hasLength(1));
+        expect(
+          await file.readAsString(),
+          allOf(
+            isNot(contains(moment.starter.english)),
+            isNot(contains(accountContext)),
+          ),
+        );
+      },
+    );
+
+    test(
+      'registration runs account-scoped quarantine metadata maintenance',
+      () async {
+        final legacyFile = File(
+          '${tempDir.path}${Platform.pathSeparator}${store.fileName}',
+        );
+        await legacyFile.writeAsString(
+          jsonEncode(<String, Object?>{
+            'schemaVersion': 1,
+            'records': <Object?>[
+              <String, Object?>{'accountContext': accountContext},
+            ],
+          }),
+        );
+        expect(await store.readAll(), isEmpty);
+        expect(await store.readQuarantineDiagnostics(), hasLength(1));
+
+        final moment = _moment('post_quarantine_registration');
+        await registry.register(accountContext: accountContext, moment: moment);
+
+        expect(await store.readQuarantineDiagnostics(), isEmpty);
+        expect(
+          await registry.resolveGeneratedContent(
+            generatedContentId: moment.generatedContentId,
+          ),
+          isNotNull,
+        );
+      },
+    );
+
+    test('quarantine purge is account-scoped and idempotent', () async {
+      final accountAMoment = _moment('account_a_invalid');
+      await registry.register(
+        accountContext: accountContext,
+        moment: accountAMoment,
+      );
+      accountContext = 'account_b';
+      final accountBMoment = _moment('account_b_valid');
+      await registry.register(
+        accountContext: accountContext,
+        moment: accountBMoment,
+      );
+
+      final file = File(
+        '${tempDir.path}${Platform.pathSeparator}${store.fileName}',
+      );
+      final root =
+          jsonDecode(await file.readAsString()) as Map<String, dynamic>;
+      final records = root['records'] as List<dynamic>;
+      final firstRecord = records.first as Map<String, dynamic>;
+      final starter = firstRecord['starter'] as Map<String, dynamic>;
+      starter['reaction'] = 'cooperating';
+      await file.writeAsString(jsonEncode(root));
+
+      expect(
+        await registry.resolveGeneratedContent(
+          generatedContentId: accountBMoment.generatedContentId,
+        ),
+        isNotNull,
+      );
+      expect(await store.readQuarantineDiagnostics(), hasLength(1));
+
+      await store.purgeQuarantinedForAccount('account_a');
+      await store.purgeQuarantinedForAccount('account_a');
+
+      expect(await store.readQuarantineDiagnostics(), isEmpty);
+      expect(
+        await registry.resolveGeneratedContent(
+          generatedContentId: accountBMoment.generatedContentId,
+        ),
+        isNotNull,
+      );
+    });
 
     test(
       'PracticeRepository validates generated phrase through formal event path',
@@ -361,19 +580,36 @@ void main() {
 }
 
 GeneratedCareMoment _moment(String generatedContentId) {
-  GeneratedCareUtterance utterance(String suffix) {
+  GeneratedCareUtterance utterance(
+    String suffix, {
+    required GeneratedCareUtteranceRole role,
+    required BabyReactionType? reaction,
+    required int displayOrder,
+  }) {
     return GeneratedCareUtterance(
       utteranceId: 'utterance_$suffix',
       phraseId: 'phrase_$suffix',
       english: 'Warm water',
       chinese: '温水来了',
       pronunciation: 'wɔːm',
+      tprActionZh: '靠近宝宝',
+      deliveryGuidanceZh: '慢慢说',
       difficulty: 'starter',
       source: 'generated',
+      role: role,
+      reaction: reaction,
+      displayOrder: displayOrder,
+      providerProvenance: GeneratedCareProviderProvenance(
+        origin: GeneratedCareProviderOrigin.providerGenerated,
+        providerName: 'provider',
+        modelName: 'model',
+        attemptNumber: 1,
+      ),
     );
   }
 
   return GeneratedCareMoment(
+    schemaVersion: generatedCareMomentSchemaVersion,
     generatedContentId: generatedContentId,
     sceneId: 'scene_$generatedContentId',
     spaceId: 'space_$generatedContentId',
@@ -383,11 +619,21 @@ GeneratedCareMoment _moment(String generatedContentId) {
     sceneTag: 'bath',
     coachTip: '慢慢来',
     source: 'generated',
-    starter: utterance('starter'),
+    starter: utterance(
+      'starter',
+      role: GeneratedCareUtteranceRole.starter,
+      reaction: null,
+      displayOrder: 1,
+    ),
     reactionSupports:
         GeneratedReactionSupportMap(<BabyReactionType, GeneratedCareUtterance>{
           for (final reaction in BabyReactionType.values)
-            reaction: utterance(reaction.name),
+            reaction: utterance(
+              reaction.name,
+              role: GeneratedCareUtteranceRole.reactionSupport,
+              reaction: reaction,
+              displayOrder: BabyReactionType.values.indexOf(reaction) + 2,
+            ),
         }),
   );
 }

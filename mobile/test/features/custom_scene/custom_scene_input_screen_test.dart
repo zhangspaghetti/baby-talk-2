@@ -214,19 +214,36 @@ class _FakeHandoffSink implements CustomSceneCareTurnHandoffSink {
 }
 
 GeneratedCareMoment _moment() {
-  GeneratedCareUtterance utterance(String suffix) {
+  GeneratedCareUtterance utterance(
+    String suffix, {
+    required GeneratedCareUtteranceRole role,
+    required BabyReactionType? reaction,
+    required int displayOrder,
+  }) {
     return GeneratedCareUtterance(
       utteranceId: 'utterance_$suffix',
       phraseId: 'phrase_$suffix',
       english: 'Warm water',
       chinese: '温水来了',
       pronunciation: 'wɔːm',
+      tprActionZh: '靠近宝宝',
+      deliveryGuidanceZh: '慢慢说',
       difficulty: 'starter',
       source: 'generated',
+      role: role,
+      reaction: reaction,
+      displayOrder: displayOrder,
+      providerProvenance: GeneratedCareProviderProvenance(
+        origin: GeneratedCareProviderOrigin.providerGenerated,
+        providerName: 'provider',
+        modelName: 'model',
+        attemptNumber: 1,
+      ),
     );
   }
 
   return GeneratedCareMoment(
+    schemaVersion: generatedCareMomentSchemaVersion,
     generatedContentId: 'generated_1',
     sceneId: 'scene_1',
     spaceId: 'space_1',
@@ -236,11 +253,21 @@ GeneratedCareMoment _moment() {
     sceneTag: 'bath',
     coachTip: '慢慢来',
     source: 'generated',
-    starter: utterance('starter'),
+    starter: utterance(
+      'starter',
+      role: GeneratedCareUtteranceRole.starter,
+      reaction: null,
+      displayOrder: 1,
+    ),
     reactionSupports:
         GeneratedReactionSupportMap(<BabyReactionType, GeneratedCareUtterance>{
           for (final reaction in BabyReactionType.values)
-            reaction: utterance(reaction.name),
+            reaction: utterance(
+              reaction.name,
+              role: GeneratedCareUtteranceRole.reactionSupport,
+              reaction: reaction,
+              displayOrder: BabyReactionType.values.indexOf(reaction) + 2,
+            ),
         }),
   );
 }

@@ -37,6 +37,7 @@ class CustomSceneDiscoveryResponseDto {
     required this.mode,
     required this.profileMode,
     required this.source,
+    required this.bundleSchemaVersion,
     required this.generatedContentId,
     required this.scenes,
     required this.moments,
@@ -52,6 +53,7 @@ class CustomSceneDiscoveryResponseDto {
       'mode',
       'profileMode',
       'source',
+      'bundleSchemaVersion',
       'generatedContentId',
       'scenes',
       'moments',
@@ -65,6 +67,7 @@ class CustomSceneDiscoveryResponseDto {
       mode: _requiredString(json, 'mode'),
       profileMode: _requiredString(json, 'profileMode'),
       source: _requiredString(json, 'source'),
+      bundleSchemaVersion: _requiredString(json, 'bundleSchemaVersion'),
       generatedContentId: _requiredString(json, 'generatedContentId'),
       scenes: _requiredList(json, 'scenes')
           .map((value) => CustomSceneSceneDto.fromJson(_asMap(value, 'scenes')))
@@ -91,6 +94,7 @@ class CustomSceneDiscoveryResponseDto {
   final String mode;
   final String profileMode;
   final String source;
+  final String bundleSchemaVersion;
   final String generatedContentId;
   final List<CustomSceneSceneDto> scenes;
   final List<CustomSceneMomentDto> moments;
@@ -196,6 +200,12 @@ class CustomSceneStarterUtteranceDto {
     required this.pronunciation,
     required this.difficulty,
     required this.source,
+    required this.role,
+    required this.reaction,
+    required this.tprActionZh,
+    required this.deliveryGuidanceZh,
+    required this.displayOrder,
+    required this.providerProvenance,
   });
 
   factory CustomSceneStarterUtteranceDto.fromJson(Map<String, dynamic> json) {
@@ -207,6 +217,12 @@ class CustomSceneStarterUtteranceDto {
       'pronunciation',
       'difficulty',
       'source',
+      'role',
+      'reaction',
+      'tprActionZh',
+      'deliveryGuidanceZh',
+      'displayOrder',
+      'providerProvenance',
     });
     return CustomSceneStarterUtteranceDto(
       utteranceId: _requiredString(json, 'utteranceId'),
@@ -216,6 +232,14 @@ class CustomSceneStarterUtteranceDto {
       pronunciation: _requiredString(json, 'pronunciation'),
       difficulty: _requiredString(json, 'difficulty'),
       source: _requiredString(json, 'source'),
+      role: _requiredString(json, 'role'),
+      reaction: _optionalString(json, 'reaction'),
+      tprActionZh: _requiredString(json, 'tprActionZh'),
+      deliveryGuidanceZh: _requiredString(json, 'deliveryGuidanceZh'),
+      displayOrder: _requiredInt(json, 'displayOrder'),
+      providerProvenance: CustomSceneProviderProvenanceDto.fromJson(
+        _requiredMap(json, 'providerProvenance'),
+      ),
     );
   }
 
@@ -226,6 +250,12 @@ class CustomSceneStarterUtteranceDto {
   final String pronunciation;
   final String difficulty;
   final String source;
+  final String role;
+  final String? reaction;
+  final String tprActionZh;
+  final String deliveryGuidanceZh;
+  final int displayOrder;
+  final CustomSceneProviderProvenanceDto providerProvenance;
 }
 
 class CustomSceneStarterDto {
@@ -271,7 +301,7 @@ class CustomSceneStarterDto {
 
 class CustomSceneReactionSupportDto {
   CustomSceneReactionSupportDto({
-    required this.reactionType,
+    required this.reaction,
     required this.utteranceId,
     required this.phraseId,
     required this.english,
@@ -281,11 +311,14 @@ class CustomSceneReactionSupportDto {
     required this.deliveryGuidanceZh,
     required this.difficulty,
     required this.source,
+    required this.role,
+    required this.displayOrder,
+    required this.providerProvenance,
   });
 
   factory CustomSceneReactionSupportDto.fromJson(Map<String, dynamic> json) {
     _requireExactKeys(json, const <String>{
-      'reactionType',
+      'reaction',
       'utteranceId',
       'phraseId',
       'english',
@@ -295,9 +328,12 @@ class CustomSceneReactionSupportDto {
       'deliveryGuidanceZh',
       'difficulty',
       'source',
+      'role',
+      'displayOrder',
+      'providerProvenance',
     });
     return CustomSceneReactionSupportDto(
-      reactionType: _requiredString(json, 'reactionType'),
+      reaction: _requiredString(json, 'reaction'),
       utteranceId: _requiredString(json, 'utteranceId'),
       phraseId: _requiredString(json, 'phraseId'),
       english: _requiredString(json, 'english'),
@@ -307,10 +343,15 @@ class CustomSceneReactionSupportDto {
       deliveryGuidanceZh: _requiredString(json, 'deliveryGuidanceZh'),
       difficulty: _requiredString(json, 'difficulty'),
       source: _requiredString(json, 'source'),
+      role: _requiredString(json, 'role'),
+      displayOrder: _requiredInt(json, 'displayOrder'),
+      providerProvenance: CustomSceneProviderProvenanceDto.fromJson(
+        _requiredMap(json, 'providerProvenance'),
+      ),
     );
   }
 
-  final String reactionType;
+  final String reaction;
   final String utteranceId;
   final String phraseId;
   final String english;
@@ -320,6 +361,38 @@ class CustomSceneReactionSupportDto {
   final String deliveryGuidanceZh;
   final String difficulty;
   final String source;
+  final String role;
+  final int displayOrder;
+  final CustomSceneProviderProvenanceDto providerProvenance;
+}
+
+class CustomSceneProviderProvenanceDto {
+  CustomSceneProviderProvenanceDto({
+    required this.origin,
+    required this.providerName,
+    required this.modelName,
+    required this.attemptNumber,
+  });
+
+  factory CustomSceneProviderProvenanceDto.fromJson(Map<String, dynamic> json) {
+    _requireExactKeys(json, const <String>{
+      'origin',
+      'providerName',
+      'modelName',
+      'attemptNumber',
+    });
+    return CustomSceneProviderProvenanceDto(
+      origin: _requiredString(json, 'origin'),
+      providerName: _requiredString(json, 'providerName'),
+      modelName: _requiredString(json, 'modelName'),
+      attemptNumber: _requiredInt(json, 'attemptNumber'),
+    );
+  }
+
+  final String origin;
+  final String providerName;
+  final String modelName;
+  final int attemptNumber;
 }
 
 class CustomSceneTraceDto {

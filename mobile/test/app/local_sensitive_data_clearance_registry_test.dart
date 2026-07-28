@@ -493,17 +493,34 @@ class _LifecycleHarness {
 }
 
 GeneratedCareMoment _generatedLifecycleMoment() {
-  GeneratedCareUtterance utterance(String suffix) => GeneratedCareUtterance(
+  GeneratedCareUtterance utterance(
+    String suffix, {
+    required GeneratedCareUtteranceRole role,
+    required BabyReactionType? reaction,
+    required int displayOrder,
+  }) => GeneratedCareUtterance(
     utteranceId: 'lifecycle_utterance_$suffix',
     phraseId: 'lifecycle_phrase_$suffix',
     english: 'Warm water',
     chinese: '温水来了',
     pronunciation: 'wɔːm',
+    tprActionZh: '靠近宝宝',
+    deliveryGuidanceZh: '慢慢说',
     difficulty: 'starter',
     source: 'generated',
+    role: role,
+    reaction: reaction,
+    displayOrder: displayOrder,
+    providerProvenance: GeneratedCareProviderProvenance(
+      origin: GeneratedCareProviderOrigin.providerGenerated,
+      providerName: 'provider',
+      modelName: 'model',
+      attemptNumber: 1,
+    ),
   );
 
   return GeneratedCareMoment(
+    schemaVersion: generatedCareMomentSchemaVersion,
     generatedContentId: 'lifecycle_generated_content',
     sceneId: 'lifecycle_scene',
     spaceId: 'lifecycle_space',
@@ -513,11 +530,21 @@ GeneratedCareMoment _generatedLifecycleMoment() {
     sceneTag: 'bath',
     coachTip: '慢慢来',
     source: 'generated',
-    starter: utterance('starter'),
+    starter: utterance(
+      'starter',
+      role: GeneratedCareUtteranceRole.starter,
+      reaction: null,
+      displayOrder: 1,
+    ),
     reactionSupports:
         GeneratedReactionSupportMap(<BabyReactionType, GeneratedCareUtterance>{
           for (final reaction in BabyReactionType.values)
-            reaction: utterance(reaction.name),
+            reaction: utterance(
+              reaction.name,
+              role: GeneratedCareUtteranceRole.reactionSupport,
+              reaction: reaction,
+              displayOrder: BabyReactionType.values.indexOf(reaction) + 2,
+            ),
         }),
   );
 }

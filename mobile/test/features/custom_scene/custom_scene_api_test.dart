@@ -6,6 +6,7 @@ import 'package:mobile/features/account/data/services/authenticated_api_client.d
 import 'package:mobile/features/account/domain/models/account_session.dart';
 import 'package:mobile/features/custom_scene/data/custom_scene_api.dart';
 import 'package:mobile/features/custom_scene/data/custom_scene_dtos.dart';
+import 'package:mobile/features/custom_scene/domain/generated_care_moment.dart';
 
 void main() {
   group('CustomSceneApi', () {
@@ -184,6 +185,7 @@ Map<String, dynamic> _validResponse() {
     'mode': 'custom_scene',
     'profileMode': 'authenticated_request',
     'source': 'generated',
+    'bundleSchemaVersion': generatedCareMomentSchemaVersion,
     'generatedContentId': 'gcn_1',
     'scenes': <Map<String, Object?>>[
       <String, Object?>{
@@ -213,6 +215,12 @@ Map<String, dynamic> _validResponse() {
             'pronunciation': 'wɔːm ˈwɔːtər',
             'difficulty': 'starter',
             'source': 'generated',
+            'role': 'starter',
+            'reaction': null,
+            'tprActionZh': '靠近宝宝',
+            'deliveryGuidanceZh': '慢慢说',
+            'displayOrder': 1,
+            'providerProvenance': _provenance(),
           },
         ],
       },
@@ -244,7 +252,7 @@ Map<String, dynamic> _validResponse() {
 
 Map<String, Object?> _support(String reactionType) {
   return <String, Object?>{
-    'reactionType': reactionType,
+    'reaction': reactionType,
     'utteranceId': 'support_$reactionType',
     'phraseId': 'support_$reactionType',
     'english': 'I am here.',
@@ -254,5 +262,21 @@ Map<String, Object?> _support(String reactionType) {
     'deliveryGuidanceZh': '慢慢说',
     'difficulty': 'starter',
     'source': 'generated',
+    'role': 'reaction_support',
+    'displayOrder': const <String, int>{
+      'cooperating': 2,
+      'hesitant': 3,
+      'resisting': 4,
+      'no_response': 5,
+      'other': 6,
+    }[reactionType],
+    'providerProvenance': _provenance(),
   };
 }
+
+Map<String, Object?> _provenance() => <String, Object?>{
+  'origin': 'provider_generated',
+  'providerName': 'provider',
+  'modelName': 'model',
+  'attemptNumber': 1,
+};

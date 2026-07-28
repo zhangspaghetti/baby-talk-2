@@ -45,6 +45,13 @@ class GeneratedPracticeContentRegistry
         moment: moment,
       ),
     );
+    // Low-priority metadata maintenance must not turn a successful registration
+    // into a failure. Quarantined display text was already removed atomically.
+    try {
+      await _store.purgeQuarantinedForAccount(normalizedAccountContext);
+    } on Object {
+      // The approved bundle remains available; a later registration retries it.
+    }
   }
 
   @override
@@ -198,16 +205,42 @@ class GeneratedPracticeContentRegistry
   }
 
   void _validateMoment(GeneratedCareMoment moment) {
-    if (moment.source.trim().isEmpty ||
+    if (moment.schemaVersion != generatedCareMomentSchemaVersion ||
+        moment.source != 'generated' ||
         moment.generatedContentId.trim().isEmpty ||
         moment.spaceId.trim().isEmpty ||
         moment.activityId.trim().isEmpty) {
       throw const FormatException('invalid approved generated care moment');
     }
+    final branches = <GeneratedCareUtterance>[
+      moment.starter,
+      for (final reaction in BabyReactionType.values)
+        moment.reactionSupports[reaction],
+    ];
+    if (branches.length != 6 ||
+        branches.any((branch) => branch.source != 'generated') ||
+        branches.map((branch) => branch.phraseId).toSet().length != 6 ||
+        branches.map((branch) => branch.utteranceId).toSet().length != 6) {
+      throw const FormatException('generated utterance identity is not unique');
+    }
+    final starter = moment.starter;
+    if (starter.source != 'generated' ||
+        starter.role != GeneratedCareUtteranceRole.starter ||
+        starter.reaction != null ||
+        starter.displayOrder != 1) {
+      throw const FormatException('invalid generated starter contract');
+    }
     for (final reaction in BabyReactionType.values) {
       final support = moment.reactionSupports[reaction];
-      if (support.phraseId.trim().isEmpty ||
-          support.utteranceId.trim().isEmpty) {
+      if (support.source != 'generated' ||
+          support.phraseId.trim().isEmpty ||
+          support.utteranceId.trim().isEmpty ||
+          support.role != GeneratedCareUtteranceRole.reactionSupport ||
+          support.reaction != reaction ||
+          support.displayOrder !=
+              BabyReactionType.values.indexOf(reaction) + 2 ||
+          support.providerProvenance.providerName.trim().isEmpty ||
+          support.providerProvenance.modelName.trim().isEmpty) {
         throw const FormatException('invalid generated reaction support');
       }
     }

@@ -39,6 +39,7 @@ class CustomSceneMapper {
           starter.momentId == moment.momentId &&
           starter.activityId == moment.activityId &&
           starter.source == 'generated' &&
+          response.bundleSchemaVersion == generatedCareMomentSchemaVersion &&
           moment.starterUtterances.length == 1,
     );
 
@@ -46,7 +47,10 @@ class CustomSceneMapper {
     _require(
       starterDto.source == 'generated' &&
           starterDto.utteranceId == starter.utteranceId &&
-          starterDto.phraseId == starter.phraseId,
+          starterDto.phraseId == starter.phraseId &&
+          starterDto.role == GeneratedCareUtteranceRole.starter.wireValue &&
+          starterDto.reaction == null &&
+          starterDto.displayOrder == 1,
     );
     final generatedStarter = GeneratedCareUtterance(
       utteranceId: starterDto.utteranceId,
@@ -54,15 +58,25 @@ class CustomSceneMapper {
       english: starterDto.english,
       chinese: starterDto.chinese,
       pronunciation: starterDto.pronunciation,
+      tprActionZh: starterDto.tprActionZh,
+      deliveryGuidanceZh: starterDto.deliveryGuidanceZh,
       difficulty: starterDto.difficulty,
       source: starterDto.source,
+      role: _parseRole(starterDto.role),
+      reaction: _parseNullableReaction(starterDto.reaction),
+      displayOrder: starterDto.displayOrder,
+      providerProvenance: _provenance(starterDto.providerProvenance),
     );
 
     final supports = <BabyReactionType, GeneratedCareUtterance>{};
     for (final support in response.reactionSupports) {
       _require(support.source == 'generated');
-      final reaction = _parseReaction(support.reactionType);
-      if (supports.containsKey(reaction)) {
+      final reaction = _parseReaction(support.reaction);
+      if (supports.containsKey(reaction) ||
+          support.role !=
+              GeneratedCareUtteranceRole.reactionSupport.wireValue ||
+          support.displayOrder !=
+              BabyReactionType.values.indexOf(reaction) + 2) {
         throw const CustomSceneMappingException();
       }
       supports[reaction] = GeneratedCareUtterance(
@@ -75,6 +89,10 @@ class CustomSceneMapper {
         deliveryGuidanceZh: support.deliveryGuidanceZh,
         difficulty: support.difficulty,
         source: support.source,
+        role: _parseRole(support.role),
+        reaction: reaction,
+        displayOrder: support.displayOrder,
+        providerProvenance: _provenance(support.providerProvenance),
       );
     }
     final GeneratedReactionSupportMap supportMap;
@@ -90,6 +108,7 @@ class CustomSceneMapper {
     _require(utteranceIds.length == 6);
 
     return GeneratedCareMoment(
+      schemaVersion: response.bundleSchemaVersion,
       generatedContentId: response.generatedContentId,
       sceneId: scene.sceneId,
       spaceId: scene.spaceId,
@@ -107,6 +126,38 @@ class CustomSceneMapper {
   BabyReactionType _parseReaction(String wireValue) {
     try {
       return parseBabyReactionType(wireValue);
+    } on FormatException {
+      throw const CustomSceneMappingException();
+    }
+  }
+
+  BabyReactionType? _parseNullableReaction(String? wireValue) {
+    if (wireValue == null) {
+      return null;
+    }
+    return _parseReaction(wireValue);
+  }
+
+  GeneratedCareUtteranceRole _parseRole(String wireValue) {
+    try {
+      return GeneratedCareUtteranceRole.parse(wireValue);
+    } on FormatException {
+      throw const CustomSceneMappingException();
+    }
+  }
+
+  GeneratedCareProviderProvenance _provenance(
+    CustomSceneProviderProvenanceDto dto,
+  ) {
+    try {
+      return GeneratedCareProviderProvenance(
+        origin: GeneratedCareProviderOrigin.parse(dto.origin),
+        providerName: dto.providerName,
+        modelName: dto.modelName,
+        attemptNumber: dto.attemptNumber,
+      );
+    } on ArgumentError {
+      throw const CustomSceneMappingException();
     } on FormatException {
       throw const CustomSceneMappingException();
     }
