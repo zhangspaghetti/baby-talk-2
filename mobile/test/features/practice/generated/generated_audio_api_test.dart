@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
@@ -26,7 +27,7 @@ void main() {
             options.headers[authorizationHeaderName],
             'Bearer access-live',
           );
-          expect(options.headers['Accept'], 'audio/mpeg');
+          expect(options.headers['Accept'], 'audio/mpeg, application/json');
           return _response(
             options,
             Uint8List.fromList(<int>[1, 2, 3]),
@@ -49,6 +50,54 @@ void main() {
 
       expect(result.bytes, <int>[1, 2, 3]);
       expect(result.mimeType, 'audio/mpeg');
+    },
+  );
+
+  test(
+    'uses real HTTP bytes wire format with the controlled endpoint',
+    () async {
+      final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      addTearDown(() async {
+        await server.close(force: true);
+      });
+      final api = GeneratedAudioApi(
+        authenticatedApiClient: AuthenticatedApiClient(
+          apiService: _NoRefreshAccountApiService(),
+        ),
+        baseUrl: 'http://${server.address.address}:${server.port}',
+      );
+      addTearDown(api.close);
+
+      final request = server.first;
+      final fetch = api.fetch(
+        session: _session(),
+        persistRefreshedSession: (session) async => session,
+        generatedContentId: 'pgc_1',
+        utteranceId: 'utt_1',
+        expectedVoiceVersion: 'generated-tts-v1',
+        expectedFormat: 'mp3',
+      );
+      final inbound = await request;
+      expect(
+        inbound.uri.path,
+        '/api/v1/practice/generated-content/pgc_1/utterances/utt_1/audio',
+      );
+      expect(
+        inbound.headers.value(authorizationHeaderName),
+        'Bearer access-live',
+      );
+      expect(inbound.headers.value('accept'), 'audio/mpeg, application/json');
+      inbound.response.headers.contentType = ContentType('audio', 'mpeg');
+      inbound.response.headers.set(
+        'x-generated-audio-voice-version',
+        'generated-tts-v1',
+      );
+      inbound.response.add(<int>[1, 2, 3]);
+      await inbound.response.close();
+
+      final payload = await fetch;
+      expect(payload.bytes, <int>[1, 2, 3]);
+      expect(payload.mimeType, 'audio/mpeg');
     },
   );
 

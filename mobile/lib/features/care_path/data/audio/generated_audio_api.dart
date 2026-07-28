@@ -124,7 +124,7 @@ class GeneratedAudioApi implements GeneratedAudioGateway {
         options: Options(
           responseType: ResponseType.bytes,
           headers: <String, String>{
-            'Accept': 'audio/mpeg',
+            'Accept': 'audio/mpeg, application/json',
             'X-App-Version': appVersion,
             authorizationHeaderName: authorization,
           },

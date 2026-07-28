@@ -33,6 +33,11 @@ const m212RequiredEvidence = <M212EvidenceSpec>[
     'backend/app-api/src/test/java/com/zhangspaghetti/babytalk/practice/generated/audio/GeneratedUtteranceAudioServiceTest.java',
   ),
   M212EvidenceSpec(
+    'backend_generated_tts_http',
+    'Backend authenticated generated-audio HTTP endpoint E2E',
+    'backend/app-api/src/test/java/com/zhangspaghetti/babytalk/web/GeneratedUtteranceAudioHttpIntegrationTest.java',
+  ),
+  M212EvidenceSpec(
     'backend_audio_no_persistence',
     'Backend generated audio no-persistence verifier',
     'tool/verify_practice_generation_privacy.py',
