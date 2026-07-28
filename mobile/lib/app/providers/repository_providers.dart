@@ -8,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
 
 import 'package:mobile/app/local_sensitive_data_clearance_registry.dart';
+import 'package:mobile/app/router/custom_scene_care_turn_handoff.dart';
 import 'package:mobile/app/uat/m1_onboarding_response_loss_harness.dart';
 import 'package:mobile/core/device/installation_id_service.dart';
 import 'package:mobile/core/local_data_lifecycle/local_sensitive_data_clearance.dart';
@@ -26,6 +27,7 @@ import 'package:mobile/features/custom_scene/data/custom_scene_profile_context_r
 import 'package:mobile/features/custom_scene/data/custom_scene_repository_impl.dart';
 import 'package:mobile/features/custom_scene/domain/custom_scene_repository.dart';
 import 'package:mobile/features/custom_scene/application/custom_scene_draft_continuation_coordinator.dart';
+import 'package:mobile/features/custom_scene/application/custom_scene_submission_controller.dart';
 import 'package:mobile/features/household/data/local/household_local_store.dart';
 import 'package:mobile/features/household/data/repositories/household_repository.dart';
 import 'package:mobile/features/household/data/services/household_api_service.dart';
@@ -44,6 +46,8 @@ import 'package:mobile/features/onboarding/data/local/onboarding_snapshot_store.
 import 'package:mobile/features/onboarding/data/repositories/onboarding_repository.dart';
 import 'package:mobile/features/onboarding/presentation/onboarding_flow_notifier.dart';
 import 'package:mobile/features/practice/data/local/practice_local_data_source.dart';
+import 'package:mobile/features/practice/data/generated/generated_care_moment_local_store.dart';
+import 'package:mobile/features/practice/data/generated/generated_practice_content_registry.dart';
 import 'package:mobile/features/practice/data/repositories/garden_growth_repository.dart';
 import 'package:mobile/features/practice/data/repositories/practice_repository.dart';
 import 'package:mobile/features/practice/data/services/asset_phrase_service.dart';
@@ -172,6 +176,28 @@ final assetPhraseServiceProvider = Provider<AssetPhraseService>((ref) {
   );
 });
 
+final generatedCareMomentLocalStoreProvider =
+    Provider<GeneratedCareMomentLocalStore>((ref) {
+      return GeneratedCareMomentLocalStore(
+        directoryResolver: () => ref.read(appDirectoryProvider.future),
+      );
+    });
+
+final generatedPracticeContentRegistryProvider =
+    Provider<GeneratedPracticeContentRegistry>((ref) {
+      return GeneratedPracticeContentRegistry(
+        store: ref.watch(generatedCareMomentLocalStoreProvider),
+        accountContextLoader: () async {
+          try {
+            final snapshot = await AccountLocalStore().read();
+            return snapshot.session?.accountId;
+          } on Object {
+            return null;
+          }
+        },
+      );
+    });
+
 // ---------------------------------------------------------------------------
 // Practice repository
 // ---------------------------------------------------------------------------
@@ -192,6 +218,7 @@ final practiceRepositoryProvider = FutureProvider<PracticeRepository>((
     assetPhraseService: assetPhraseService,
     localDataSource: localDataSource,
     dynamicPracticeApiService: dynamicPracticeApiService,
+    contentResolver: ref.watch(generatedPracticeContentRegistryProvider),
     installationIdService: InstallationIdService(
       directoryResolver: () async => directory,
     ),
@@ -288,6 +315,26 @@ final customSceneRepositoryProvider = FutureProvider<CustomSceneRepository>((
     installationIdLoader: practiceRepository.ensureInstallationId,
   );
 });
+
+final customSceneSubmissionControllerProvider =
+    FutureProvider<CustomSceneSubmissionController>((ref) async {
+      final controller = CustomSceneSubmissionController(
+        repository: await ref.watch(customSceneRepositoryProvider.future),
+        draftStore: ref.watch(customSceneDraftStoreProvider),
+        draftContinuationCoordinator: ref.watch(
+          customSceneDraftContinuationCoordinatorProvider,
+        ),
+        approvedContentRegistrar: ref.watch(
+          generatedPracticeContentRegistryProvider,
+        ),
+        handoffSink: const AppCustomSceneCareTurnHandoffSink(),
+        accountContextLoader: ref
+            .watch(generatedPracticeContentRegistryProvider)
+            .loadCurrentAccountContext,
+      );
+      ref.onDispose(controller.dispose);
+      return controller;
+    });
 
 // ---------------------------------------------------------------------------
 // Account notifier
@@ -431,6 +478,9 @@ final localSensitiveDataClearanceOrchestratorProvider =
       final customSceneDraftContinuationCoordinator = ref.watch(
         customSceneDraftContinuationCoordinatorProvider,
       );
+      final generatedPracticeContentRegistry = ref.watch(
+        generatedPracticeContentRegistryProvider,
+      );
 
       return createLocalSensitiveDataClearanceOrchestrator(
         accountRepository: accountRepository,
@@ -441,6 +491,7 @@ final localSensitiveDataClearanceOrchestratorProvider =
         authContinuationCoordinator: authContinuationCoordinator,
         customSceneDraftContinuationCoordinator:
             customSceneDraftContinuationCoordinator,
+        generatedPracticeContentRegistry: generatedPracticeContentRegistry,
       );
     });
 

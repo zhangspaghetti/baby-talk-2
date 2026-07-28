@@ -130,6 +130,8 @@ void main() {
       expect(calls, <LocalSensitiveDataTarget>[
         LocalSensitiveDataTarget.accountLocalSnapshot,
         LocalSensitiveDataTarget.authContinuation,
+        LocalSensitiveDataTarget.customSceneDraft,
+        LocalSensitiveDataTarget.generatedCareMoments,
       ]);
       expect(
         report.overallStatus,
@@ -151,7 +153,10 @@ void main() {
               (result) =>
                   result.target !=
                       LocalSensitiveDataTarget.accountLocalSnapshot &&
-                  result.target != LocalSensitiveDataTarget.authContinuation,
+                  result.target != LocalSensitiveDataTarget.authContinuation &&
+                  result.target != LocalSensitiveDataTarget.customSceneDraft &&
+                  result.target !=
+                      LocalSensitiveDataTarget.generatedCareMoments,
             )
             .map((result) => result.status)
             .toSet(),

@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:mobile/app/providers/repository_providers.dart';
 import 'package:mobile/app/router/account_entry_route_contract.dart';
 import 'package:mobile/app/router/app_route_contract.dart';
+import 'package:mobile/app/router/root_navigator_key.dart';
 
 import 'package:mobile/features/account/presentation/screens/account_entry_screen.dart';
 import 'package:mobile/features/custom_scene/domain/custom_scene_draft.dart';
@@ -13,8 +15,6 @@ import 'package:mobile/features/shell/presentation/app_shell_screen.dart';
 import 'package:mobile/features/practice/presentation/screens/practice_session_screen.dart';
 import 'package:mobile/features/practice/presentation/practice_route_args.dart';
 
-final GlobalKey<NavigatorState> _rootNavigatorKey = GlobalKey<NavigatorState>();
-
 GoRouter createAppRouter({
   String initialLocation = AppRouteNames.shell,
   WidgetBuilder? onboardingBuilder,
@@ -24,7 +24,7 @@ GoRouter createAppRouter({
       onboardingBuilder ?? (context) => const OnboardingFlowScreen();
 
   return GoRouter(
-    navigatorKey: _rootNavigatorKey,
+    navigatorKey: appRootNavigatorKey,
     initialLocation: initialLocation,
     routes: [
       GoRoute(
@@ -55,7 +55,17 @@ GoRouter createAppRouter({
               const CustomSceneRouteArgs(
                 entrySource: CustomSceneEntrySource.scene,
               );
-          return CustomSceneInputScreen(routeArgs: args);
+          return Consumer(
+            builder: (context, ref, _) {
+              final controller = ref.watch(
+                customSceneSubmissionControllerProvider,
+              );
+              return CustomSceneInputScreen(
+                routeArgs: args,
+                controller: controller.valueOrNull,
+              );
+            },
+          );
         },
       ),
       GoRoute(

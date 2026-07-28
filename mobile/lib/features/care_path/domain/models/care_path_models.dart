@@ -1,5 +1,6 @@
 import 'package:mobile/features/practice/domain/models/garden_growth_snapshot.dart';
 import 'package:mobile/features/practice/domain/models/interaction_event_payload.dart';
+import 'package:mobile/features/practice/domain/models/practice_content_source.dart';
 
 enum CarePathNodeState { current, nearby, doneToday, unavailable }
 
@@ -21,6 +22,44 @@ enum CareTurnFailureKind {
   localStateUnavailable,
 }
 
+sealed class CareAudioSource {
+  const CareAudioSource();
+}
+
+class CareAssetAudioSource extends CareAudioSource {
+  const CareAssetAudioSource({required this.assetPath});
+
+  final String assetPath;
+
+  @override
+  bool operator ==(Object other) {
+    return other is CareAssetAudioSource && other.assetPath == assetPath;
+  }
+
+  @override
+  int get hashCode => assetPath.hashCode;
+}
+
+class GeneratedCareAudioSource extends CareAudioSource {
+  const GeneratedCareAudioSource({
+    required this.generatedContentId,
+    required this.utteranceId,
+  });
+
+  final String generatedContentId;
+  final String utteranceId;
+
+  @override
+  bool operator ==(Object other) {
+    return other is GeneratedCareAudioSource &&
+        other.generatedContentId == generatedContentId &&
+        other.utteranceId == utteranceId;
+  }
+
+  @override
+  int get hashCode => Object.hash(generatedContentId, utteranceId);
+}
+
 class CareMoment {
   const CareMoment({
     required this.spaceId,
@@ -31,6 +70,8 @@ class CareMoment {
     required this.careActionLabel,
     required this.coachTip,
     required this.nodeState,
+    this.contentSource = PracticeContentSource.seed,
+    this.generatedContentId,
   });
 
   final String spaceId;
@@ -41,6 +82,8 @@ class CareMoment {
   final String careActionLabel;
   final String coachTip;
   final CarePathNodeState nodeState;
+  final PracticeContentSource contentSource;
+  final String? generatedContentId;
 
   CareMoment copyWith({
     String? spaceId,
@@ -51,6 +94,8 @@ class CareMoment {
     String? careActionLabel,
     String? coachTip,
     CarePathNodeState? nodeState,
+    PracticeContentSource? contentSource,
+    Object? generatedContentId = _unset,
   }) {
     return CareMoment(
       spaceId: spaceId ?? this.spaceId,
@@ -61,6 +106,10 @@ class CareMoment {
       careActionLabel: careActionLabel ?? this.careActionLabel,
       coachTip: coachTip ?? this.coachTip,
       nodeState: nodeState ?? this.nodeState,
+      contentSource: contentSource ?? this.contentSource,
+      generatedContentId: identical(generatedContentId, _unset)
+          ? this.generatedContentId
+          : generatedContentId as String?,
     );
   }
 
@@ -75,7 +124,9 @@ class CareMoment {
             other.sceneTag == sceneTag &&
             other.careActionLabel == careActionLabel &&
             other.coachTip == coachTip &&
-            other.nodeState == nodeState;
+            other.nodeState == nodeState &&
+            other.contentSource == contentSource &&
+            other.generatedContentId == generatedContentId;
   }
 
   @override
@@ -88,6 +139,8 @@ class CareMoment {
     careActionLabel,
     coachTip,
     nodeState,
+    contentSource,
+    generatedContentId,
   );
 }
 
@@ -100,6 +153,7 @@ class CareUtterance {
     required this.audioAsset,
     required this.whenToSay,
     required this.isFallback,
+    this.audioSource,
   });
 
   final String phraseId;
@@ -109,6 +163,7 @@ class CareUtterance {
   final String? audioAsset;
   final String whenToSay;
   final bool isFallback;
+  final CareAudioSource? audioSource;
 
   CareUtterance copyWith({
     String? phraseId,
@@ -118,6 +173,7 @@ class CareUtterance {
     Object? audioAsset = _unset,
     String? whenToSay,
     bool? isFallback,
+    Object? audioSource = _unset,
   }) {
     return CareUtterance(
       phraseId: phraseId ?? this.phraseId,
@@ -129,6 +185,9 @@ class CareUtterance {
           : audioAsset as String?,
       whenToSay: whenToSay ?? this.whenToSay,
       isFallback: isFallback ?? this.isFallback,
+      audioSource: identical(audioSource, _unset)
+          ? this.audioSource
+          : audioSource as CareAudioSource?,
     );
   }
 
@@ -142,7 +201,8 @@ class CareUtterance {
             other.pronunciation == pronunciation &&
             other.audioAsset == audioAsset &&
             other.whenToSay == whenToSay &&
-            other.isFallback == isFallback;
+            other.isFallback == isFallback &&
+            other.audioSource == audioSource;
   }
 
   @override
@@ -154,6 +214,7 @@ class CareUtterance {
     audioAsset,
     whenToSay,
     isFallback,
+    audioSource,
   );
 }
 

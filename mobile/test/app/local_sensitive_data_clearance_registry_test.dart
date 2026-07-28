@@ -16,6 +16,7 @@ import 'package:mobile/features/custom_scene/application/custom_scene_draft_cont
 import 'package:mobile/features/custom_scene/data/custom_scene_draft_store.dart';
 import 'package:mobile/features/custom_scene/domain/custom_scene_draft.dart';
 import 'package:mobile/features/custom_scene/domain/custom_scene_stored_draft.dart';
+import 'package:mobile/features/custom_scene/domain/generated_care_moment.dart';
 import 'package:mobile/features/household/data/local/household_local_store.dart';
 import 'package:mobile/features/household/data/repositories/household_repository.dart';
 import 'package:mobile/features/household/data/services/household_api_service.dart';
@@ -30,6 +31,8 @@ import 'package:mobile/features/onboarding/domain/models/onboarding_flow_models.
 import 'package:mobile/features/onboarding/domain/models/onboarding_snapshot.dart';
 import 'package:mobile/features/onboarding/domain/models/stage_match.dart';
 import 'package:mobile/features/practice/data/local/practice_local_data_source.dart';
+import 'package:mobile/features/practice/data/generated/generated_care_moment_local_store.dart';
+import 'package:mobile/features/practice/data/generated/generated_practice_content_registry.dart';
 import 'package:mobile/features/practice/data/repositories/practice_repository.dart';
 import 'package:mobile/features/practice/data/services/asset_phrase_service.dart';
 import 'package:mobile/features/practice/domain/models/interaction_event_payload.dart';
@@ -68,6 +71,8 @@ void main() {
           authContinuationCoordinator: harness.authContinuationCoordinator,
           customSceneDraftContinuationCoordinator:
               harness.customSceneDraftContinuationCoordinator,
+          generatedPracticeContentRegistry:
+              harness.generatedPracticeContentRegistry,
         );
 
         expect(
@@ -93,6 +98,8 @@ void main() {
           authContinuationCoordinator: harness.authContinuationCoordinator,
           customSceneDraftContinuationCoordinator:
               harness.customSceneDraftContinuationCoordinator,
+          generatedPracticeContentRegistry:
+              harness.generatedPracticeContentRegistry,
         );
 
         final report = await orchestrator.clear(
@@ -139,6 +146,13 @@ void main() {
           ),
           isNotNull,
         );
+        expect(
+          await harness.generatedPracticeContentRegistry
+              .resolveGeneratedContent(
+                generatedContentId: 'lifecycle_generated_content',
+              ),
+          isNotNull,
+        );
       },
     );
 
@@ -154,6 +168,8 @@ void main() {
           authContinuationCoordinator: harness.authContinuationCoordinator,
           customSceneDraftContinuationCoordinator:
               harness.customSceneDraftContinuationCoordinator,
+          generatedPracticeContentRegistry:
+              harness.generatedPracticeContentRegistry,
         );
 
         final report = await orchestrator.clear(
@@ -195,6 +211,13 @@ void main() {
           isNull,
         );
         expect(
+          await harness.generatedPracticeContentRegistry
+              .resolveGeneratedContent(
+                generatedContentId: 'lifecycle_generated_content',
+              ),
+          isNull,
+        );
+        expect(
           File(
             '${harness.tempDir.path}/onboarding_flow_snapshot.json.tmp',
           ).existsSync(),
@@ -224,6 +247,7 @@ class _LifecycleHarness {
     required this.authContinuationCoordinator,
     required this.customSceneDraftStore,
     required this.customSceneDraftContinuationCoordinator,
+    required this.generatedPracticeContentRegistry,
     required this.householdLocalStore,
     required this.installationIdService,
     required this.practiceRepository,
@@ -244,6 +268,7 @@ class _LifecycleHarness {
   final CustomSceneDraftStore customSceneDraftStore;
   final CustomSceneDraftContinuationCoordinator
   customSceneDraftContinuationCoordinator;
+  final GeneratedPracticeContentRegistry generatedPracticeContentRegistry;
   final HouseholdLocalStore householdLocalStore;
   final InstallationIdService installationIdService;
   final PracticeRepository practiceRepository;
@@ -294,6 +319,12 @@ class _LifecycleHarness {
           clock: () => DateTime.utc(2026, 5, 20, 10),
           draftIdGenerator: () => 'lifecycle_custom_scene_draft',
         );
+    final generatedPracticeContentRegistry = GeneratedPracticeContentRegistry(
+      store: GeneratedCareMomentLocalStore(
+        directoryResolver: () async => tempDir,
+      ),
+      accountContextLoader: () async => 'lifecycle_account',
+    );
     final onboardingRepository = OnboardingRepository(
       snapshotStore: onboardingSnapshotStore,
       flowStore: onboardingFlowStore,
@@ -337,6 +368,7 @@ class _LifecycleHarness {
       customSceneDraftStore: customSceneDraftStore,
       customSceneDraftContinuationCoordinator:
           customSceneDraftContinuationCoordinator,
+      generatedPracticeContentRegistry: generatedPracticeContentRegistry,
       householdLocalStore: householdLocalStore,
       installationIdService: installationIdService,
       practiceRepository: practiceRepository,
@@ -366,6 +398,10 @@ class _LifecycleHarness {
         createdAt: DateTime.utc(2026, 5, 20, 10),
         expiresAt: DateTime.utc(2026, 5, 20, 10, 15),
       ),
+    );
+    await generatedPracticeContentRegistry.register(
+      accountContext: 'lifecycle_account',
+      moment: _generatedLifecycleMoment(),
     );
     await File(
       '${tempDir.path}/onboarding_flow_snapshot.json.tmp',
@@ -430,6 +466,36 @@ class _LifecycleHarness {
       await tempDir.delete(recursive: true);
     }
   }
+}
+
+GeneratedCareMoment _generatedLifecycleMoment() {
+  GeneratedCareUtterance utterance(String suffix) => GeneratedCareUtterance(
+    utteranceId: 'lifecycle_utterance_$suffix',
+    phraseId: 'lifecycle_phrase_$suffix',
+    english: 'Warm water',
+    chinese: '温水来了',
+    pronunciation: 'wɔːm',
+    difficulty: 'starter',
+    source: 'generated',
+  );
+
+  return GeneratedCareMoment(
+    generatedContentId: 'lifecycle_generated_content',
+    sceneId: 'lifecycle_scene',
+    spaceId: 'lifecycle_space',
+    momentId: 'lifecycle_moment',
+    activityId: 'lifecycle_activity',
+    title: '洗澡',
+    sceneTag: 'bath',
+    coachTip: '慢慢来',
+    source: 'generated',
+    starter: utterance('starter'),
+    reactionSupports:
+        GeneratedReactionSupportMap(<BabyReactionType, GeneratedCareUtterance>{
+          for (final reaction in BabyReactionType.values)
+            reaction: utterance(reaction.name),
+        }),
+  );
 }
 
 OnboardingSnapshot _completedSnapshot() {

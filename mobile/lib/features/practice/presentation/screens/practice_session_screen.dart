@@ -34,7 +34,7 @@ class PracticeSessionScreen extends ConsumerWidget {
     final repositoryValue = ref.watch(practiceRepositoryProvider);
     return repositoryValue.when(
       data: (_) => _PracticeSessionBody(
-        routeArgs: routeEntry.args!,
+        routeEntry: routeEntry,
         audioControllerFactory: audioControllerFactory,
       ),
       loading: () => const _PracticeLoadingScaffold(),
@@ -72,11 +72,11 @@ class _PracticeLoadingScaffold extends StatelessWidget {
 
 class _PracticeSessionBody extends ConsumerStatefulWidget {
   const _PracticeSessionBody({
-    required this.routeArgs,
+    required this.routeEntry,
     required this.audioControllerFactory,
   });
 
-  final PracticeRouteArgs routeArgs;
+  final PracticeRouteEntry routeEntry;
   final PracticeAudioController Function()? audioControllerFactory;
 
   @override
@@ -98,20 +98,26 @@ class _PracticeSessionBodyState extends ConsumerState<_PracticeSessionBody> {
   @override
   void didUpdateWidget(covariant _PracticeSessionBody oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (_routeScopeKey(oldWidget.routeArgs) !=
-        _routeScopeKey(widget.routeArgs)) {
+    if (_routeScopeKey(oldWidget.routeEntry) !=
+        _routeScopeKey(widget.routeEntry)) {
       _scheduleStartMoment();
     }
   }
 
-  String _routeScopeKey(PracticeRouteArgs routeArgs) {
-    final normalized = routeArgs.normalized();
+  String _routeScopeKey(PracticeRouteEntry routeEntry) {
+    final generatedContentId = routeEntry.generatedArgs?.generatedContentId;
+    if (generatedContentId != null) {
+      return 'generated:$generatedContentId';
+    }
+    final normalized = routeEntry.args!.normalized();
     return '${normalized.normalizedSpaceId}/${normalized.normalizedActivityId}';
   }
 
   void _scheduleStartMoment() {
-    final normalized = widget.routeArgs.normalized();
-    final scopeKey = _routeScopeKey(widget.routeArgs);
+    final generatedContentId =
+        widget.routeEntry.generatedArgs?.generatedContentId;
+    final normalized = widget.routeEntry.args?.normalized();
+    final scopeKey = _routeScopeKey(widget.routeEntry);
     if (_requestedMomentKey == scopeKey && _completedMomentKey == scopeKey) {
       return;
     }
@@ -124,12 +130,20 @@ class _PracticeSessionBodyState extends ConsumerState<_PracticeSessionBody> {
           generation != _startGeneration) {
         return;
       }
-      final future = ref
-          .read(carePathNotifierProvider)
-          .startMoment(
-            spaceId: normalized.normalizedSpaceId,
-            activityId: normalized.normalizedActivityId,
-          );
+      final notifier = ref.read(carePathNotifierProvider);
+      final Future<void> future;
+      if (generatedContentId != null) {
+        future = notifier.startGeneratedMoment(
+          generatedContentId: generatedContentId,
+        );
+      } else if (normalized != null) {
+        future = notifier.startMoment(
+          spaceId: normalized.normalizedSpaceId,
+          activityId: normalized.normalizedActivityId,
+        );
+      } else {
+        return;
+      }
       unawaited(
         future.whenComplete(() {
           if (!mounted ||
@@ -149,11 +163,21 @@ class _PracticeSessionBodyState extends ConsumerState<_PracticeSessionBody> {
   Widget build(BuildContext context) {
     final notifier = ref.watch(carePathNotifierProvider);
     final snapshot = notifier.snapshot;
-    final normalizedArgs = widget.routeArgs.normalized();
-    final scopeKey = _routeScopeKey(widget.routeArgs);
-    final hasMatchingSnapshot =
-        snapshot?.moment.spaceId == normalizedArgs.normalizedSpaceId &&
-        snapshot?.moment.activityId == normalizedArgs.normalizedActivityId;
+    final generatedContentId =
+        widget.routeEntry.generatedArgs?.generatedContentId;
+    final normalizedArgs = widget.routeEntry.args?.normalized();
+    final scopeKey = _routeScopeKey(widget.routeEntry);
+    final bool hasMatchingSnapshot;
+    if (generatedContentId != null) {
+      hasMatchingSnapshot =
+          snapshot?.moment.generatedContentId == generatedContentId;
+    } else if (normalizedArgs != null) {
+      hasMatchingSnapshot =
+          snapshot?.moment.spaceId == normalizedArgs.normalizedSpaceId &&
+          snapshot?.moment.activityId == normalizedArgs.normalizedActivityId;
+    } else {
+      hasMatchingSnapshot = false;
+    }
 
     if (!hasMatchingSnapshot ||
         _completedMomentKey != scopeKey ||

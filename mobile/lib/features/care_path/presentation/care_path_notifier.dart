@@ -60,6 +60,16 @@ class CarePathNotifier extends ChangeNotifier {
     );
   }
 
+  Future<void> startGeneratedMoment({required String generatedContentId}) {
+    return _runSnapshotOperation(
+      busyPhase: CareTurnPhase.loading,
+      replaceRunning: true,
+      loader: () => _repository.startGeneratedMoment(
+        generatedContentId: generatedContentId,
+      ),
+    );
+  }
+
   Future<void> selectReaction(
     BabyReactionType reactionType, {
     DateTime? clientTimestamp,

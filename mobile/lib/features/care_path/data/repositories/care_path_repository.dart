@@ -4,6 +4,7 @@ import 'package:mobile/features/practice/data/repositories/practice_repository.d
 import 'package:mobile/features/practice/domain/models/garden_growth_snapshot.dart';
 import 'package:mobile/features/practice/domain/models/interaction_event_payload.dart';
 import 'package:mobile/features/practice/domain/models/practice_activity_catalog.dart';
+import 'package:mobile/features/practice/domain/models/practice_content_source.dart';
 import 'package:mobile/features/practice/domain/models/practice_phrase.dart';
 
 typedef CarePathReactionRecordedHook =
@@ -115,6 +116,43 @@ class CarePathRepository {
     }
   }
 
+  Future<CareTurnSnapshot> startGeneratedMoment({
+    required String generatedContentId,
+  }) async {
+    try {
+      final activity = await _practiceRepository.getGeneratedActivitySnapshot(
+        generatedContentId: generatedContentId,
+      );
+      final resumeInfo = await _practiceRepository.getResumeInfo(
+        spaceId: activity.spaceId,
+        activityId: activity.activityId,
+      );
+      final snapshot = _buildTurnSnapshot(
+        activity: activity,
+        summary: null,
+        nextPhraseId: resumeInfo.nextPhraseId,
+        nodeState: CarePathNodeState.current,
+      );
+      if (snapshot.currentUtterance == null) {
+        return snapshot;
+      }
+      return snapshot.copyWith(
+        phase: CareTurnPhase.utteranceReady,
+        selectedReaction: null,
+        nextSupportUtterance: null,
+        traceEventKey: null,
+        latestGardenImpact: null,
+      );
+    } catch (_) {
+      return _unavailableSnapshot(
+        spaceId: null,
+        activityId: null,
+        message: '当前照护内容暂时不可用。',
+        generatedContentId: generatedContentId,
+      );
+    }
+  }
+
   Future<CareTurnSnapshot> recordReaction({
     required CareTurnSnapshot turn,
     required BabyReactionType reactionType,
@@ -199,7 +237,7 @@ class CarePathRepository {
         activityId: activityId,
       );
       final utterance = _utteranceForPhrase(
-        phrases: activity.phrases,
+        activity: activity,
         phraseId: phraseId,
         coachTip: activity.coachTip,
       );
@@ -248,7 +286,7 @@ class CarePathRepository {
         activityId: event.activityId,
       );
       final utterance = _utteranceForPhrase(
-        phrases: activity.phrases,
+        activity: activity,
         phraseId: event.phraseId,
         coachTip: activity.coachTip,
       );
@@ -317,7 +355,7 @@ class CarePathRepository {
         nodeState == CarePathNodeState.doneToday && nextPhraseId == null
         ? null
         : _selectUtterance(
-            phrases: activity.phrases,
+            activity: activity,
             nextPhraseId: nextPhraseId,
             coachTip: activity.coachTip,
           );
@@ -367,14 +405,17 @@ class CarePathRepository {
       careActionLabel: activity.summary,
       coachTip: activity.coachTip,
       nodeState: nodeState,
+      contentSource: activity.contentSource,
+      generatedContentId: activity.generatedContentId,
     );
   }
 
   CareUtterance? _selectUtterance({
-    required List<PracticePhrase> phrases,
+    required PracticeActivitySnapshot activity,
     required String? nextPhraseId,
     required String coachTip,
   }) {
+    final phrases = activity.phrases;
     if (phrases.isEmpty) {
       return null;
     }
@@ -388,40 +429,56 @@ class CarePathRepository {
       }
     }
 
-    return CareUtterance(
-      phraseId: selectedPhrase.phraseId,
-      english: selectedPhrase.english,
-      chinese: selectedPhrase.chinese,
-      pronunciation: selectedPhrase.pronunciation,
-      audioAsset: selectedPhrase.audioAsset.trim().isEmpty
-          ? null
-          : selectedPhrase.audioAsset,
-      whenToSay: coachTip,
-      isFallback: false,
+    return _toCareUtterance(
+      activity: activity,
+      phrase: selectedPhrase,
+      coachTip: coachTip,
     );
   }
 
   CareUtterance? _utteranceForPhrase({
-    required List<PracticePhrase> phrases,
+    required PracticeActivitySnapshot activity,
     required String phraseId,
     required String coachTip,
   }) {
+    final phrases = activity.phrases;
     for (final phrase in phrases) {
       if (phrase.phraseId == phraseId) {
-        return CareUtterance(
-          phraseId: phrase.phraseId,
-          english: phrase.english,
-          chinese: phrase.chinese,
-          pronunciation: phrase.pronunciation,
-          audioAsset: phrase.audioAsset.trim().isEmpty
-              ? null
-              : phrase.audioAsset,
-          whenToSay: coachTip,
-          isFallback: false,
+        return _toCareUtterance(
+          activity: activity,
+          phrase: phrase,
+          coachTip: coachTip,
         );
       }
     }
     return null;
+  }
+
+  CareUtterance _toCareUtterance({
+    required PracticeActivitySnapshot? activity,
+    required PracticePhrase phrase,
+    required String coachTip,
+  }) {
+    final generatedContentId = activity?.generatedContentId;
+    final utteranceId = activity?.utteranceIdForPhrase(phrase.phraseId);
+    return CareUtterance(
+      phraseId: phrase.phraseId,
+      english: phrase.english,
+      chinese: phrase.chinese,
+      pronunciation: phrase.pronunciation,
+      audioAsset: phrase.audioAsset.trim().isEmpty ? null : phrase.audioAsset,
+      whenToSay: coachTip,
+      isFallback: false,
+      audioSource:
+          activity?.contentSource == PracticeContentSource.generated &&
+              generatedContentId != null &&
+              utteranceId != null
+          ? GeneratedCareAudioSource(
+              generatedContentId: generatedContentId,
+              utteranceId: utteranceId,
+            )
+          : null,
+    );
   }
 
   CareTurnSnapshot _unavailableSnapshot({
@@ -429,6 +486,7 @@ class CarePathRepository {
     required String? activityId,
     required String message,
     CareTurnFailureKind failureKind = CareTurnFailureKind.momentUnavailable,
+    String? generatedContentId,
   }) {
     final effectiveSpaceId = _cleanIdentifier(spaceId) ?? 'unavailable_space';
     final effectiveActivityId =
@@ -444,6 +502,10 @@ class CarePathRepository {
         careActionLabel: '',
         coachTip: '',
         nodeState: CarePathNodeState.unavailable,
+        contentSource: generatedContentId == null
+            ? PracticeContentSource.seed
+            : PracticeContentSource.generated,
+        generatedContentId: generatedContentId,
       ),
       currentUtterance: null,
       selectedReaction: null,

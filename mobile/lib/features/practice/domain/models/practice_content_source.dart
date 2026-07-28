@@ -1,0 +1,1 @@
+enum PracticeContentSource { seed, generated }

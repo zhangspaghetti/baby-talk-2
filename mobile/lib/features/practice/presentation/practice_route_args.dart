@@ -91,18 +91,56 @@ class PracticeRouteArgs {
   }
 }
 
+/// The generated Care Turn route carries only durable approved-content
+/// identity. The formal Practice resolver supplies all display content.
+class GeneratedCareTurnRouteArgs {
+  GeneratedCareTurnRouteArgs({required String generatedContentId})
+    : generatedContentId = _required(generatedContentId);
+
+  final String generatedContentId;
+
+  static GeneratedCareTurnRouteArgs? maybeFromObject(Object? raw) {
+    return raw is GeneratedCareTurnRouteArgs ? raw : null;
+  }
+
+  Future<T?> push<T>(BuildContext context) {
+    return GoRouter.of(context).push<T>(AppRouteNames.practice, extra: this);
+  }
+
+  static String _required(String value) {
+    final normalized = value.trim();
+    if (normalized.isEmpty) {
+      throw ArgumentError.value(value, 'generatedContentId', '不能为空。');
+    }
+    return normalized;
+  }
+}
+
 class PracticeRouteEntry {
-  const PracticeRouteEntry._({this.args, this.errorMessage});
+  const PracticeRouteEntry._({
+    this.args,
+    this.generatedArgs,
+    this.errorMessage,
+  });
 
   final PracticeRouteArgs? args;
+  final GeneratedCareTurnRouteArgs? generatedArgs;
   final String? errorMessage;
 
-  bool get hasValidArgs => args != null && errorMessage == null;
+  bool get hasValidArgs =>
+      (args != null || generatedArgs != null) && errorMessage == null;
+
+  bool get isGeneratedCareTurn => generatedArgs != null;
 
   static PracticeRouteEntry fromObject(Object? raw) {
     final resolvedArgs = PracticeRouteArgs.maybeFromObject(raw);
     if (resolvedArgs != null) {
       return PracticeRouteEntry._(args: resolvedArgs);
+    }
+
+    final generatedArgs = GeneratedCareTurnRouteArgs.maybeFromObject(raw);
+    if (generatedArgs != null) {
+      return PracticeRouteEntry._(generatedArgs: generatedArgs);
     }
 
     return const PracticeRouteEntry._(

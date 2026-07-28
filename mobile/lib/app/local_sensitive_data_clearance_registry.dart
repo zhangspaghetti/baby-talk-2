@@ -2,6 +2,7 @@ import 'package:mobile/core/local_data_lifecycle/local_sensitive_data_clearance.
 import 'package:mobile/features/account/data/repositories/account_repository.dart';
 import 'package:mobile/features/account/presentation/auth_continuation_coordinator.dart';
 import 'package:mobile/features/custom_scene/application/custom_scene_draft_continuation_coordinator.dart';
+import 'package:mobile/features/practice/data/generated/generated_practice_content_registry.dart';
 import 'package:mobile/features/household/data/repositories/household_repository.dart';
 import 'package:mobile/features/mentor/data/repositories/mentor_repository.dart';
 import 'package:mobile/features/onboarding/data/repositories/onboarding_repository.dart';
@@ -17,6 +18,7 @@ createLocalSensitiveDataClearanceOrchestrator({
   required AuthContinuationCoordinator authContinuationCoordinator,
   required CustomSceneDraftContinuationCoordinator
   customSceneDraftContinuationCoordinator,
+  required GeneratedPracticeContentRegistry generatedPracticeContentRegistry,
 }) {
   return RegistryLocalSensitiveDataClearanceOrchestrator(
     steps: createLocalSensitiveDataClearanceSteps(
@@ -28,6 +30,7 @@ createLocalSensitiveDataClearanceOrchestrator({
       authContinuationCoordinator: authContinuationCoordinator,
       customSceneDraftContinuationCoordinator:
           customSceneDraftContinuationCoordinator,
+      generatedPracticeContentRegistry: generatedPracticeContentRegistry,
     ),
   );
 }
@@ -41,6 +44,7 @@ List<LocalSensitiveDataClearanceStep> createLocalSensitiveDataClearanceSteps({
   required AuthContinuationCoordinator authContinuationCoordinator,
   required CustomSceneDraftContinuationCoordinator
   customSceneDraftContinuationCoordinator,
+  required GeneratedPracticeContentRegistry generatedPracticeContentRegistry,
 }) {
   return <LocalSensitiveDataClearanceStep>[
     LocalSensitiveDataClearanceStep(
@@ -58,6 +62,11 @@ List<LocalSensitiveDataClearanceStep> createLocalSensitiveDataClearanceSteps({
       primitiveName:
           'CustomSceneDraftContinuationCoordinator.clearForLifecycle',
       clear: customSceneDraftContinuationCoordinator.clearForLifecycle,
+    ),
+    LocalSensitiveDataClearanceStep(
+      target: LocalSensitiveDataTarget.generatedCareMoments,
+      primitiveName: 'GeneratedPracticeContentRegistry.clearForLifecycle',
+      clear: generatedPracticeContentRegistry.clearForLifecycle,
     ),
     LocalSensitiveDataClearanceStep(
       target: LocalSensitiveDataTarget.onboardingSnapshot,

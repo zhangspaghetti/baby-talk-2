@@ -8,6 +8,7 @@ import 'package:mobile/features/practice/data/services/asset_phrase_service.dart
 import 'package:mobile/features/practice/data/services/dynamic_practice_api_service.dart';
 import 'package:mobile/features/practice/domain/models/interaction_event_payload.dart';
 import 'package:mobile/features/practice/domain/models/practice_activity_catalog.dart';
+import 'package:mobile/features/practice/domain/models/practice_content_source.dart';
 import 'package:mobile/features/practice/domain/models/practice_continuity_snapshot.dart';
 import 'package:mobile/features/practice/domain/models/practice_phrase.dart';
 
@@ -20,6 +21,9 @@ class PracticeActivitySnapshot {
     required this.sceneTag,
     required this.coachTip,
     required this.phrases,
+    this.contentSource = PracticeContentSource.seed,
+    this.generatedContentId,
+    this.utteranceIdsByPhraseId = const <String, String>{},
   });
 
   final String spaceId;
@@ -29,6 +33,29 @@ class PracticeActivitySnapshot {
   final String sceneTag;
   final String coachTip;
   final List<PracticePhrase> phrases;
+  final PracticeContentSource contentSource;
+  final String? generatedContentId;
+  final Map<String, String> utteranceIdsByPhraseId;
+
+  String? utteranceIdForPhrase(String phraseId) {
+    return utteranceIdsByPhraseId[phraseId];
+  }
+}
+
+/// Resolves durable non-seed content before the seed bundle is consulted.
+/// A missing generated record deliberately falls through to no result, never
+/// to an unrelated seed activity.
+abstract interface class PracticeContentResolver {
+  Future<PracticeActivitySnapshot?> resolveActivity({
+    required String spaceId,
+    required String activityId,
+  });
+
+  Future<PracticeActivitySnapshot?> resolveGeneratedContent({
+    required String generatedContentId,
+  });
+
+  Future<void> clearForLifecycle();
 }
 
 class PracticeRecentResultSummary {
@@ -242,17 +269,20 @@ class PracticeRepository {
     required PracticeLocalDataSource localDataSource,
     required InstallationIdService installationIdService,
     DynamicPracticeApiService? dynamicPracticeApiService,
+    PracticeContentResolver? contentResolver,
     Random? random,
   }) : _assetPhraseService = assetPhraseService,
        _localDataSource = localDataSource,
        _installationIdService = installationIdService,
        _dynamicPracticeApiService = dynamicPracticeApiService,
+       _contentResolver = contentResolver,
        _random = random ?? Random();
 
   final AssetPhraseService _assetPhraseService;
   final PracticeLocalDataSource _localDataSource;
   final InstallationIdService _installationIdService;
   final DynamicPracticeApiService? _dynamicPracticeApiService;
+  final PracticeContentResolver? _contentResolver;
   final Random _random;
   bool _isClosed = false;
 
@@ -476,6 +506,13 @@ class PracticeRepository {
     required String spaceId,
     required String activityId,
   }) async {
+    final generated = await _contentResolver?.resolveActivity(
+      spaceId: spaceId,
+      activityId: activityId,
+    );
+    if (generated != null) {
+      return generated;
+    }
     final activity = await _assetPhraseService.loadActivity(
       spaceId: spaceId,
       activityId: activityId,
@@ -495,7 +532,30 @@ class PracticeRepository {
     );
   }
 
-  /// 从后端 API 动态生成练习内容，失败时 fallback 到首个 seed_content.json activity
+  Future<PracticeActivitySnapshot> getGeneratedActivitySnapshot({
+    required String generatedContentId,
+  }) async {
+    final normalized = generatedContentId.trim();
+    if (normalized.isEmpty) {
+      throw const FormatException('generatedContentId 不能为空。');
+    }
+    final snapshot = await _contentResolver?.resolveGeneratedContent(
+      generatedContentId: normalized,
+    );
+    if (snapshot == null ||
+        snapshot.contentSource != PracticeContentSource.generated) {
+      throw FormatException('未知 generatedContentId: $normalized');
+    }
+    return snapshot;
+  }
+
+  /// Legacy non-formal preview path for the old dynamic-practice surface.
+  ///
+  /// It deliberately uses ephemeral IDs and its caller never records reaction
+  /// events. M2 Custom Scene must instead resolve a registered approved bundle
+  /// through [getGeneratedActivitySnapshot] and [PracticeContentResolver].
+  ///
+  /// 从后端 API 动态生成练习内容，失败时 fallback 到首个 seed_content.json activity。
   ///
   /// [babyAgeMonths] 宝宝月龄
   /// [sceneTag] 可选场景标签
@@ -852,7 +912,13 @@ class PracticeRepository {
       return;
     }
     _isClosed = true;
-    await _localDataSource.close(deleteFromDisk: deleteFromDisk);
+    try {
+      await _localDataSource.close(deleteFromDisk: deleteFromDisk);
+    } finally {
+      if (deleteFromDisk) {
+        await _contentResolver?.clearForLifecycle();
+      }
+    }
   }
 
   Future<void> deleteInstallationIdForLifecycle() {
