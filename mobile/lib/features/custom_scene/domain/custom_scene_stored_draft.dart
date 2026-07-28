@@ -4,6 +4,10 @@ enum CustomSceneStoredDraftState {
   editing,
   awaitingAuthentication,
   authenticationResolved,
+  submitting,
+  unknownOutcome,
+  approvedPendingRegistration,
+  readyForHandoff,
 }
 
 class CustomSceneStoredDraft {
@@ -16,13 +20,23 @@ class CustomSceneStoredDraft {
     required DateTime createdAt,
     required DateTime expiresAt,
     String? expectedAccountContext,
+    String? registeredContentId,
   }) : draftId = _required(draftId, 'draftId'),
        text = _required(text, 'text'),
        createdAt = createdAt.toUtc(),
        expiresAt = expiresAt.toUtc(),
-       expectedAccountContext = _optional(expectedAccountContext) {
+       expectedAccountContext = _optional(expectedAccountContext),
+       registeredContentId = _optional(registeredContentId) {
     if (!this.expiresAt.isAfter(this.createdAt)) {
       throw ArgumentError.value(expiresAt, 'expiresAt', '必须晚于 createdAt。');
+    }
+    if (state == CustomSceneStoredDraftState.readyForHandoff &&
+        this.registeredContentId == null) {
+      throw ArgumentError.value(
+        registeredContentId,
+        'registeredContentId',
+        'readyForHandoff 必须保存 generated content identity。',
+      );
     }
   }
 
@@ -34,6 +48,7 @@ class CustomSceneStoredDraft {
   final DateTime createdAt;
   final DateTime expiresAt;
   final String? expectedAccountContext;
+  final String? registeredContentId;
 
   CustomSceneDraft toDraft() {
     return CustomSceneDraft(
@@ -47,6 +62,8 @@ class CustomSceneStoredDraft {
     CustomSceneStoredDraftState? state,
     String? expectedAccountContext,
     bool clearExpectedAccountContext = false,
+    String? registeredContentId,
+    bool clearRegisteredContentId = false,
   }) {
     return CustomSceneStoredDraft(
       draftId: draftId,
@@ -59,6 +76,9 @@ class CustomSceneStoredDraft {
       expectedAccountContext: clearExpectedAccountContext
           ? null
           : (expectedAccountContext ?? this.expectedAccountContext),
+      registeredContentId: clearRegisteredContentId
+          ? null
+          : (registeredContentId ?? this.registeredContentId),
     );
   }
 }

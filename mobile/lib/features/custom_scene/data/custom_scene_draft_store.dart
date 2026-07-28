@@ -178,6 +178,7 @@ Map<String, Object?> _encodeStoredDraft(CustomSceneStoredDraft draft) {
     'clientRequestId': draft.requestIdentity.clientRequestId,
     'state': _stateToWire(draft.state),
     'expectedAccountContext': draft.expectedAccountContext,
+    'registeredContentId': draft.registeredContentId,
     'createdAt': draft.createdAt.toUtc().toIso8601String(),
     'expiresAt': draft.expiresAt.toUtc().toIso8601String(),
   };
@@ -192,6 +193,7 @@ CustomSceneStoredDraft _decodeStoredDraft(Map<String, dynamic> json) {
     'clientRequestId',
     'state',
     'expectedAccountContext',
+    'registeredContentId',
     'createdAt',
     'expiresAt',
   });
@@ -209,6 +211,7 @@ CustomSceneStoredDraft _decodeStoredDraft(Map<String, dynamic> json) {
     ),
     state: _stateFromWire(_requiredString(json, 'state')),
     expectedAccountContext: _optionalString(json, 'expectedAccountContext'),
+    registeredContentId: _optionalString(json, 'registeredContentId'),
     createdAt: _requiredDateTime(json, 'createdAt'),
     expiresAt: _requiredDateTime(json, 'expiresAt'),
   );
@@ -220,6 +223,11 @@ String _stateToWire(CustomSceneStoredDraftState state) => switch (state) {
     'awaiting_authentication',
   CustomSceneStoredDraftState.authenticationResolved =>
     'authentication_resolved',
+  CustomSceneStoredDraftState.submitting => 'submitting',
+  CustomSceneStoredDraftState.unknownOutcome => 'unknown_outcome',
+  CustomSceneStoredDraftState.approvedPendingRegistration =>
+    'approved_pending_registration',
+  CustomSceneStoredDraftState.readyForHandoff => 'ready_for_handoff',
 };
 
 CustomSceneStoredDraftState _stateFromWire(String value) => switch (value) {
@@ -228,6 +236,11 @@ CustomSceneStoredDraftState _stateFromWire(String value) => switch (value) {
     CustomSceneStoredDraftState.awaitingAuthentication,
   'authentication_resolved' =>
     CustomSceneStoredDraftState.authenticationResolved,
+  'submitting' => CustomSceneStoredDraftState.submitting,
+  'unknown_outcome' => CustomSceneStoredDraftState.unknownOutcome,
+  'approved_pending_registration' =>
+    CustomSceneStoredDraftState.approvedPendingRegistration,
+  'ready_for_handoff' => CustomSceneStoredDraftState.readyForHandoff,
   _ => throw const FormatException('unknown custom scene draft state'),
 };
 
