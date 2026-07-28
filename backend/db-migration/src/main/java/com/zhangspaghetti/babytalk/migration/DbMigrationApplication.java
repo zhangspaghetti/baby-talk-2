@@ -15,8 +15,8 @@ import org.springframework.context.annotation.Bean;
 @SpringBootApplication
 public class DbMigrationApplication {
 
-    static final String EXPECTED_CURRENT_VERSION = "30";
-    static final int EXPECTED_APPLIED_MIGRATION_COUNT = 29;
+    static final String EXPECTED_CURRENT_VERSION = "31";
+    static final int EXPECTED_APPLIED_MIGRATION_COUNT = 30;
 
     private static final Logger log = LoggerFactory.getLogger(DbMigrationApplication.class);
 

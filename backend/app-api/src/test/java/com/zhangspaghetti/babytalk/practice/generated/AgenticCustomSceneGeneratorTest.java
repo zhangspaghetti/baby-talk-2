@@ -25,18 +25,23 @@ import com.zhangspaghetti.babytalk.practice.generated.evidence.EvidenceSanitizer
 import com.zhangspaghetti.babytalk.practice.generated.evidence.FrozenEvidenceBundle;
 import com.zhangspaghetti.babytalk.practice.generated.evidence.ReplayMode;
 import com.zhangspaghetti.babytalk.practice.generated.evidence.RetrievalStatus;
+import com.zhangspaghetti.babytalk.practice.generated.contract.CompleteGeneratedBundle;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.OffsetDateTime;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.ai.chat.client.ChatClient;
+import tools.jackson.databind.json.JsonMapper;
 
 class AgenticCustomSceneGeneratorTest {
+
+    private static final JsonMapper JSON_MAPPER = new JsonMapper();
 
     @Test
     void candidateContainsOnlyTheTenApprovedContentFields() throws Exception {
@@ -114,7 +119,7 @@ class AgenticCustomSceneGeneratorTest {
                 "provider-trace"));
         var generator = new AgenticCustomSceneGenerator(runner, structuredOutputCaller, registry);
 
-        var candidate = generator.generate(request());
+        var candidate = generator.generateCareMoment(request()).starter();
 
         assertThat(candidate).isEqualTo(new CustomSceneGenerator.GeneratedPracticeContentCandidate(
                 "日常照护",
@@ -127,7 +132,7 @@ class AgenticCustomSceneGeneratorTest {
                 "shoes on",
                 "starter",
                 "agentic_search"));
-        var operation = (OperationRequest<AgenticCustomSceneGenerator.GeneratorWireResponse>) operationCaptor.getValue();
+        var operation = (OperationRequest<CompleteGeneratedBundle.ProviderResponse>) operationCaptor.getValue();
         assertThat(operation.capability()).isEqualTo(PracticeAiCapability.CUSTOM_SCENE_GENERATOR);
         assertThat(operation.subjectType()).isEqualTo("generated_content");
         assertThat(operation.subjectId()).isEqualTo("pgc_generator_test");
@@ -142,23 +147,23 @@ class AgenticCustomSceneGeneratorTest {
 
         var provider = new ResolvedProvider(
                 "primary", "openai-compatible", "gpt-test", mock(ChatClient.class));
-        when(structuredOutputCaller.call(
+        when(structuredOutputCaller.callRaw(
                 eq(provider),
                 eq("GENERATOR SYSTEM PROMPT"),
                 any(String.class),
-                eq(AgenticCustomSceneGenerator.GeneratorWireResponse.class)))
-                .thenReturn(wire);
+                eq(CompleteGeneratedBundle.ProviderResponse.class)))
+                .thenReturn(wireJson());
 
         var invocationResult = operation.invocation().invoke(provider);
 
         assertThat(invocationResult.value()).isEqualTo(wire);
         assertThat(invocationResult.providerTraceId()).isNull();
         var userPromptCaptor = ArgumentCaptor.forClass(String.class);
-        verify(structuredOutputCaller).call(
+        verify(structuredOutputCaller).callRaw(
                 eq(provider),
                 eq("GENERATOR SYSTEM PROMPT"),
                 userPromptCaptor.capture(),
-                eq(AgenticCustomSceneGenerator.GeneratorWireResponse.class));
+                eq(CompleteGeneratedBundle.ProviderResponse.class));
         var userPrompt = userPromptCaptor.getValue();
         assertThat(userPrompt)
                 .contains("pgc_generator_test", "给宝宝穿鞋", "m7_11", "calmer_care", "zh-CN")
@@ -196,16 +201,16 @@ class AgenticCustomSceneGeneratorTest {
                 "gpt-test",
                 null));
         var generator = new AgenticCustomSceneGenerator(runner, structuredOutputCaller, registry);
-        generator.generate(request());
-        var operation = (OperationRequest<AgenticCustomSceneGenerator.GeneratorWireResponse>) operationCaptor.getValue();
+        generator.generateCareMoment(request());
+        var operation = (OperationRequest<CompleteGeneratedBundle.ProviderResponse>) operationCaptor.getValue();
         var provider = new ResolvedProvider(
                 "primary", "openai-compatible", "gpt-test", mock(ChatClient.class));
         var failure = new PracticeAiStructuredOutputCaller.StructuredOutputInvalidException();
-        when(structuredOutputCaller.call(
+        when(structuredOutputCaller.callRaw(
                 eq(provider),
                 eq("GENERATOR SYSTEM PROMPT"),
                 any(String.class),
-                eq(AgenticCustomSceneGenerator.GeneratorWireResponse.class)))
+                eq(CompleteGeneratedBundle.ProviderResponse.class)))
                 .thenThrow(failure);
 
         assertThatThrownBy(() -> operation.invocation().invoke(provider))
@@ -215,19 +220,13 @@ class AgenticCustomSceneGeneratorTest {
 
     @Test
     void wireResponseCannotCarryTrustedGenerationSourceOrProviderMetadata() {
-        assertThat(Arrays.stream(AgenticCustomSceneGenerator.GeneratorWireResponse.class.getRecordComponents())
+        assertThat(Arrays.stream(CompleteGeneratedBundle.ProviderResponse.class.getRecordComponents())
                 .map(component -> component.getName())
                 .toList())
                 .containsExactly(
-                        "spaceTitleZh",
-                        "activityTitleZh",
-                        "sceneTagEn",
-                        "tprActionZh",
-                        "deliveryGuidanceZh",
-                        "englishText",
-                        "chineseText",
-                        "pronunciationHint",
-                        "difficulty")
+                        "schemaVersion",
+                        "scene",
+                        "utterances")
                 .doesNotContain(
                         "generationSource",
                         "providerTraceId",
@@ -237,18 +236,12 @@ class AgenticCustomSceneGeneratorTest {
 
     @Test
     void wireResponseRejectsMissingRequiredSchemaField() {
-        assertThatThrownBy(() -> new AgenticCustomSceneGenerator.GeneratorWireResponse(
-                "日常照护",
-                "穿鞋出门",
-                "Shoes on",
-                "拿起鞋子。",
-                null,
-                "Shoes on.",
-                "穿鞋出门。",
-                null,
-                "starter"))
+        assertThatThrownBy(() -> new CompleteGeneratedBundle.ProviderResponse(
+                CompleteGeneratedBundle.CURRENT_SCHEMA_VERSION,
+                new CompleteGeneratedBundle.SceneMetadata("日常照护", "穿鞋出门", "Shoes on"),
+                Map.of()))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessage("deliveryGuidanceZh must be non-blank");
+                .hasMessageContaining("branch keys");
     }
 
     @Test
@@ -262,7 +255,7 @@ class AgenticCustomSceneGeneratorTest {
                 new VersionedRef("evidence-v1", "e".repeat(64), "evidence-v1.yml")));
         var generator = new AgenticCustomSceneGenerator(runner, structuredOutputCaller, registry);
 
-        assertThatThrownBy(() -> generator.generate(request()))
+        assertThatThrownBy(() -> generator.generateCareMoment(request()))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("generator request generation profile must match current registry profile");
         verifyNoInteractions(runner, structuredOutputCaller);
@@ -279,7 +272,7 @@ class AgenticCustomSceneGeneratorTest {
                 new VersionedRef("evidence-v1", "e".repeat(64), "evidence-v1.yml")));
         var generator = new AgenticCustomSceneGenerator(runner, structuredOutputCaller, registry);
 
-        assertThatThrownBy(() -> generator.generate(request()))
+        assertThatThrownBy(() -> generator.generateCareMoment(request()))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("generator request generation profile must match current registry profile");
         verifyNoInteractions(runner, structuredOutputCaller);
@@ -302,7 +295,7 @@ class AgenticCustomSceneGeneratorTest {
         when(registry.currentGenerationProfile()).thenReturn(generationProfile());
         var generator = new AgenticCustomSceneGenerator(runner, structuredOutputCaller, registry);
 
-        assertThatThrownBy(() -> generator.generate(request(generationProfile(), evidenceBundle)))
+        assertThatThrownBy(() -> generator.generateCareMoment(request(generationProfile(), evidenceBundle)))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("generator evidence policy must match generation profile");
         verifyNoInteractions(runner, structuredOutputCaller);
@@ -388,17 +381,31 @@ class AgenticCustomSceneGeneratorTest {
                 "schema-v1");
     }
 
-    private AgenticCustomSceneGenerator.GeneratorWireResponse wireResponse() {
-        return new AgenticCustomSceneGenerator.GeneratorWireResponse(
-                "日常照护",
-                "穿鞋出门",
-                "Shoes on",
-                "拿起鞋子。",
-                "慢慢说，等宝宝看过来。",
-                "Shoes on.",
-                "穿鞋出门。",
-                "shoes on",
-                "starter");
+    private CompleteGeneratedBundle.ProviderResponse wireResponse() {
+        var utterances = new java.util.LinkedHashMap<String, CompleteGeneratedBundle.ProviderUtterance>();
+        utterances.put("starter", wireUtterance(CompleteGeneratedBundle.UtteranceRole.STARTER, null, 1));
+        for (var reaction : CompleteGeneratedBundle.Reaction.values()) {
+            utterances.put(reaction.wireValue(), wireUtterance(
+                    CompleteGeneratedBundle.UtteranceRole.REACTION_SUPPORT, reaction, reaction.ordinal() + 2));
+        }
+        return new CompleteGeneratedBundle.ProviderResponse(
+                CompleteGeneratedBundle.CURRENT_SCHEMA_VERSION,
+                new CompleteGeneratedBundle.SceneMetadata("日常照护", "穿鞋出门", "Shoes on"),
+                utterances);
+    }
+
+    private String wireJson() {
+        return JSON_MAPPER.writeValueAsString(wireResponse());
+    }
+
+    private CompleteGeneratedBundle.ProviderUtterance wireUtterance(
+            CompleteGeneratedBundle.UtteranceRole role,
+            CompleteGeneratedBundle.Reaction reaction,
+            int displayOrder
+    ) {
+        return new CompleteGeneratedBundle.ProviderUtterance(
+                role, reaction, "Shoes on.", "穿鞋出门。", "shoes on", "拿起鞋子。",
+                "慢慢说，等宝宝看过来。", "starter", displayOrder);
     }
 
     private String sha256(String value) {

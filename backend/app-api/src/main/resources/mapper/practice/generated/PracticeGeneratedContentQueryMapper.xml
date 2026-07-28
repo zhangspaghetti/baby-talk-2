@@ -89,16 +89,27 @@
         <result property="displayOrder" column="display_order"/>
         <result property="approvalStatus" column="approval_status"/>
         <result property="approvedContentVersion" column="approved_content_version"/>
+        <result property="bundleSchemaVersion" column="bundle_schema_version"/>
+        <result property="providerOrigin" column="provider_origin"/>
+        <result property="providerName" column="provider_name"/>
+        <result property="providerModelName" column="provider_model_name"/>
+        <result property="providerAttemptNumber" column="provider_attempt_number"/>
         <result property="createdAt" column="created_at"/>
     </resultMap>
 
     <select id="findApprovedUtterances" resultMap="generatedContentUtteranceEntityMap">
         select utterance_id, generated_content_id, role, reaction_type, english_text, chinese_text,
                pronunciation_hint, tpr_action_zh, delivery_guidance_zh, difficulty, display_order,
-               approval_status, approved_content_version, created_at
+               approval_status, approved_content_version, bundle_schema_version, provider_origin,
+               provider_name, provider_model_name, provider_attempt_number, created_at
         from practice_generated_content_utterances
         where generated_content_id = #{generatedContentId}
           and approval_status = 'approved'
+          and bundle_schema_version = 'custom-scene-generated-output-v1'
+          and provider_origin in ('provider_generated', 'provider_repaired')
+          and nullif(btrim(provider_name), '') is not null
+          and nullif(btrim(provider_model_name), '') is not null
+          and provider_attempt_number between 1 and 5
         order by display_order asc, utterance_id asc
     </select>
 
@@ -113,7 +124,8 @@
     <select id="findPlayableApprovedUtterance" resultMap="generatedContentUtteranceEntityMap">
         select utterance_id, generated_content_id, role, reaction_type, english_text, chinese_text,
                pronunciation_hint, tpr_action_zh, delivery_guidance_zh, difficulty, display_order,
-               approval_status, approved_content_version, created_at
+               approval_status, approved_content_version, bundle_schema_version, provider_origin,
+               provider_name, provider_model_name, provider_attempt_number, created_at
         from practice_generated_content_utterances
         where generated_content_id = #{generatedContentId}
           and utterance_id = #{utteranceId}
@@ -121,6 +133,11 @@
           and role in ('starter', 'reaction_support')
           and english_text is not null
           and btrim(english_text) &lt;&gt; ''
+          and bundle_schema_version = 'custom-scene-generated-output-v1'
+          and provider_origin in ('provider_generated', 'provider_repaired')
+          and nullif(btrim(provider_name), '') is not null
+          and nullif(btrim(provider_model_name), '') is not null
+          and provider_attempt_number between 1 and 5
     </select>
 
     <select id="findByClientRequestId" resultMap="generatedContentEntityMap">

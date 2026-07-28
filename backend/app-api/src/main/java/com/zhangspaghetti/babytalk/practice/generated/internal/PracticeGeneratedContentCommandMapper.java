@@ -52,6 +52,11 @@ interface PracticeGeneratedContentCommandMapper {
             @Param("updatedAt") OffsetDateTime updatedAt,
             @Param("retentionExpiresAt") OffsetDateTime retentionExpiresAt);
 
+    int quarantineUnsupportedActive(
+            @Param("generatedContentId") String generatedContentId,
+            @Param("updatedAt") OffsetDateTime updatedAt,
+            @Param("retentionExpiresAt") OffsetDateTime retentionExpiresAt);
+
     int interruptStartedAttempts(
             @Param("interruptedAt") OffsetDateTime interruptedAt,
             @Param("limit") int limit);

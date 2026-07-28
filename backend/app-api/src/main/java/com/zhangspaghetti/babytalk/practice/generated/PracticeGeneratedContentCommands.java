@@ -34,6 +34,12 @@ public interface PracticeGeneratedContentCommands {
             OffsetDateTime now,
             OffsetDateTime retentionExpiresAt);
 
+    /** Atomically makes an unsupported pre-V31 active row terminal; it is never repaired in place. */
+    boolean quarantineUnsupportedActive(
+            String generatedContentId,
+            OffsetDateTime now,
+            OffsetDateTime retentionExpiresAt);
+
     int interruptStaleExecutions(
             OffsetDateTime interruptedAt,
             OffsetDateTime installationRetentionExpiresAt,

@@ -12,6 +12,7 @@ import static org.mockito.Mockito.when;
 
 import com.zhangspaghetti.babytalk.practice.generated.PracticeGeneratedContentService;
 import com.zhangspaghetti.babytalk.practice.generated.model.PracticeGeneratedContentEntity;
+import com.zhangspaghetti.babytalk.practice.generated.model.PracticeGeneratedContentUtteranceEntity;
 import com.zhangspaghetti.babytalk.practice.discovery.dto.PracticeDiscoveryRequest;
 import com.zhangspaghetti.babytalk.practice.discovery.dto.PracticeDiscoveryResponse.MomentResponse;
 import com.zhangspaghetti.babytalk.practice.discovery.dto.PracticeDiscoveryResponse.SceneResponse;
@@ -425,8 +426,10 @@ class PracticeDiscoveryServiceTest {
 
     @Test
     void customSceneModeHydratesGeneratedRow() {
+        var generated = generatedRow("pgc_service_generated");
+        stubApprovedBundle(generated);
         when(generatedContentService.generateCustomScene(any()))
-                .thenReturn(generatedRow("pgc_service_generated"));
+                .thenReturn(generated);
 
         var response = service.discover(new PracticeDiscoveryRequest(
                 "onboarding",
@@ -468,8 +471,10 @@ class PracticeDiscoveryServiceTest {
                         "install_1",
                         "accepted"
                 ));
+        var generated = generatedRow("pgc_service_generated_account");
+        stubApprovedBundle(generated);
         when(generatedContentService.generateCustomScene(any()))
-                .thenReturn(generatedRow("pgc_service_generated_account"));
+                .thenReturn(generated);
         var captor = ArgumentCaptor.forClass(PracticeGeneratedContentService.CustomSceneDiscoveryRequest.class);
 
         var response = service.discover(new PracticeDiscoveryRequest(
@@ -736,6 +741,7 @@ class PracticeDiscoveryServiceTest {
         var row = generatedRow("pgc_service_generated_tip");
         row.setTprActionZh(tprActionZh);
         row.setDeliveryGuidanceZh(deliveryGuidanceZh);
+        stubApprovedBundle(row);
         when(generatedContentService.generateCustomScene(any())).thenReturn(row);
         var response = service.discover(new PracticeDiscoveryRequest(
                 "onboarding",
@@ -750,6 +756,63 @@ class PracticeDiscoveryServiceTest {
                 "洗澡后哄睡"
         ), null);
         return response.moments().get(0).coachTip();
+    }
+
+    private void stubApprovedBundle(PracticeGeneratedContentEntity row) {
+        when(generatedContentService.findApprovedUtterances(row.generatedContentId()))
+                .thenReturn(List.of(
+                        approvedUtterance(row, "starter", null, 1,
+                                row.englishText(), row.chineseText(), row.pronunciationHint(),
+                                row.tprActionZh(), row.deliveryGuidanceZh()),
+                        approvedUtterance(row, "reaction_support", "cooperating", 2,
+                                "We can do this together.", "我们一起做。", "we can do this together",
+                                "一起做动作。", "轻声邀请。"),
+                        approvedUtterance(row, "reaction_support", "hesitant", 3,
+                                "You can try slowly.", "你可以慢慢试。", "you can try slowly",
+                                "把物品放近。", "留出等待。"),
+                        approvedUtterance(row, "reaction_support", "resisting", 4,
+                                "It is okay to pause.", "可以先停一下。", "it is okay to pause",
+                                "手掌向外停一停。", "接住拒绝。"),
+                        approvedUtterance(row, "reaction_support", "no_response", 5,
+                                "I will wait with you.", "我陪你等一等。", "i will wait with you",
+                                "安静停留。", "不重复追问。"),
+                        approvedUtterance(row, "reaction_support", "other", 6,
+                                "We can take a pause.", "我们先停一会儿。", "we can take a pause",
+                                "做深呼吸动作。", "平静收束。")));
+    }
+
+    private PracticeGeneratedContentUtteranceEntity approvedUtterance(
+            PracticeGeneratedContentEntity row,
+            String role,
+            String reaction,
+            int displayOrder,
+            String englishText,
+            String chineseText,
+            String pronunciationHint,
+            String tprActionZh,
+            String deliveryGuidanceZh
+    ) {
+        var utterance = new PracticeGeneratedContentUtteranceEntity();
+        utterance.setUtteranceId(row.generatedContentId() + "_" + displayOrder);
+        utterance.setGeneratedContentId(row.generatedContentId());
+        utterance.setRole(role);
+        utterance.setReactionType(reaction);
+        utterance.setEnglishText(englishText);
+        utterance.setChineseText(chineseText);
+        utterance.setPronunciationHint(pronunciationHint);
+        utterance.setTprActionZh(tprActionZh);
+        utterance.setDeliveryGuidanceZh(deliveryGuidanceZh);
+        utterance.setDifficulty("starter");
+        utterance.setDisplayOrder(displayOrder);
+        utterance.setApprovalStatus("approved");
+        utterance.setApprovedContentVersion(row.contentVersion());
+        utterance.setBundleSchemaVersion("custom-scene-generated-output-v1");
+        utterance.setProviderOrigin("provider_generated");
+        utterance.setProviderName("test-provider");
+        utterance.setProviderModelName("test-model");
+        utterance.setProviderAttemptNumber(1);
+        utterance.setCreatedAt(NOW_DB);
+        return utterance;
     }
 
     private PracticeSpaceRow space(String spaceId, int sortOrder) {

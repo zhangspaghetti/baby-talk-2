@@ -629,7 +629,7 @@ class PracticeGeneratedContentConcurrencyTest extends AbstractIntegrationTest {
         }
 
         @Override
-        public GeneratedPracticeContentCandidate generate(GeneratorRequest request) {
+        public GeneratedCareMomentBundle generateCareMoment(GeneratorRequest request) {
             calls.incrementAndGet();
             verifyReservationCommittedAndUnlocked(request.generatedContentId());
             entered.countDown();
@@ -646,23 +646,23 @@ class PracticeGeneratedContentConcurrencyTest extends AbstractIntegrationTest {
                         CustomSceneGenerator.GenerationUnavailableReason.PROVIDER_UNAVAILABLE);
             }
             if (request.displayText().contains("鞋")) {
-                return candidate(
+                return GeneratedCareMomentBundle.fakeFixture(candidate(
                         "出门穿鞋",
                         "Shoes on",
                         "拿起鞋子。",
                         "慢慢说一遍。",
                         "Shoes on.",
                         "穿鞋啦。",
-                        "shoes on");
+                        "shoes on"));
             }
-            return candidate(
+            return GeneratedCareMomentBundle.fakeFixture(candidate(
                     "洗澡安抚",
                     "Bath care",
                     "看着宝宝。",
                     "慢慢说一遍。",
                     "Warm water.",
                     "水暖暖的。",
-                    "warm water");
+                    "warm water"));
         }
 
         private GeneratedPracticeContentCandidate candidate(

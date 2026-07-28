@@ -13,7 +13,7 @@ import org.springframework.stereotype.Service;
 public class DisabledCustomSceneRepairer implements CustomSceneRepairer {
 
     @Override
-    public CustomSceneGenerator.GeneratedPracticeContentCandidate repair(RepairRequest request) {
+    public GeneratedCareMomentBundle repairCareMoment(RepairRequest request) {
         throw new CustomSceneGenerator.GenerationUnavailableException(
                 CustomSceneGenerator.GenerationUnavailableReason.PROVIDER_DISABLED);
     }

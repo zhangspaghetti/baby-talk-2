@@ -1,7 +1,7 @@
 package com.zhangspaghetti.babytalk.practice.generated.quality;
 
 import com.zhangspaghetti.babytalk.practice.agentic.config.GenerationProfile;
-import com.zhangspaghetti.babytalk.practice.generated.CustomSceneGenerator.GeneratedPracticeContentCandidate;
+import com.zhangspaghetti.babytalk.practice.generated.contract.CompleteGeneratedBundle;
 import com.zhangspaghetti.babytalk.practice.generated.evidence.EvidenceSummary;
 import java.util.List;
 import java.util.Objects;
@@ -10,7 +10,7 @@ public record TypedRepairPackage(
         String displayText,
         String ageRange,
         String parentGoal,
-        GeneratedPracticeContentCandidate previousCandidate,
+        CompleteGeneratedBundle previousBundle,
         JudgeVerdict effectiveVerdict,
         List<JudgeDimension> failedDimensions,
         List<String> violationCodes,
@@ -22,7 +22,7 @@ public record TypedRepairPackage(
         Objects.requireNonNull(displayText, "displayText");
         Objects.requireNonNull(ageRange, "ageRange");
         Objects.requireNonNull(parentGoal, "parentGoal");
-        Objects.requireNonNull(previousCandidate, "previousCandidate");
+        Objects.requireNonNull(previousBundle, "previousBundle");
         Objects.requireNonNull(effectiveVerdict, "effectiveVerdict");
         failedDimensions = List.copyOf(Objects.requireNonNull(failedDimensions, "failedDimensions"));
         violationCodes = List.copyOf(Objects.requireNonNull(violationCodes, "violationCodes"));

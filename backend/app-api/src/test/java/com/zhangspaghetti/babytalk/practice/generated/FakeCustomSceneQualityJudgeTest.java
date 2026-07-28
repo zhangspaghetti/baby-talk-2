@@ -45,6 +45,9 @@ class FakeCustomSceneQualityJudgeTest {
     }
 
     private JudgeRequest request() {
+        var candidate = new GeneratedPracticeContentCandidate(
+                "日常照护", "穿鞋出门", "Shoes on", "拿起鞋子。", "慢慢说。",
+                "Shoes on.", "穿鞋出门。", "shoes on", "starter", "fake");
         return new JudgeRequest(
                 "pgc_fake_judge",
                 1,
@@ -52,9 +55,8 @@ class FakeCustomSceneQualityJudgeTest {
                 "给宝宝穿鞋",
                 "m7_11",
                 "calmer_care",
-                new GeneratedPracticeContentCandidate(
-                        "日常照护", "穿鞋出门", "Shoes on", "拿起鞋子。", "慢慢说。",
-                        "Shoes on.", "穿鞋出门。", "shoes on", "starter", "fake"),
+                candidate,
+                GeneratedCareMomentBundle.fakeFixture(candidate),
                 List.of("fake-strategy-v1"),
                 List.of("joint_attention"),
                 List.of("m7_11_short_phrase"),

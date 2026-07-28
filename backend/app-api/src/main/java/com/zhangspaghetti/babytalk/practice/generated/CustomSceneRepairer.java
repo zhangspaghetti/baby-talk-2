@@ -1,13 +1,13 @@
 package com.zhangspaghetti.babytalk.practice.generated;
 
-import com.zhangspaghetti.babytalk.practice.generated.CustomSceneGenerator.GeneratedPracticeContentCandidate;
 import com.zhangspaghetti.babytalk.practice.generated.quality.TypedRepairPackage;
 import java.util.Objects;
 import java.util.UUID;
 
 public interface CustomSceneRepairer {
 
-    GeneratedPracticeContentCandidate repair(RepairRequest request);
+    /** Repairs and returns all six canonical branches in one provider response. */
+    GeneratedCareMomentBundle repairCareMoment(RepairRequest request);
 
     record RepairRequest(
             String generatedContentId,

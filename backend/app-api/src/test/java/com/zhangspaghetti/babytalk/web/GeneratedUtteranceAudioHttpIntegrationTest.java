@@ -208,9 +208,11 @@ class GeneratedUtteranceAudioHttpIntegrationTest extends AbstractIntegrationTest
                 insert into practice_generated_content_utterances (
                     utterance_id, generated_content_id, role, reaction_type, english_text, chinese_text,
                     pronunciation_hint, tpr_action_zh, delivery_guidance_zh, difficulty, display_order,
-                    approval_status, approved_content_version, created_at
+                    approval_status, approved_content_version, bundle_schema_version, provider_origin,
+                    provider_name, provider_model_name, provider_attempt_number, created_at
                 ) values (?, ?, ?, ?, 'Warm water.', '水暖暖的。', 'warm water', '指向水。', '慢一点说。',
-                          'starter', ?, 'approved', 1, ?)
+                          'starter', ?, 'approved', 1, 'custom-scene-generated-output-v1',
+                          'provider_generated', 'test-provider', 'test-model', 1, ?)
                 """, utteranceId, CONTENT_ID, role, reactionType, displayOrder, Timestamp.from(Instant.now()));
     }
 

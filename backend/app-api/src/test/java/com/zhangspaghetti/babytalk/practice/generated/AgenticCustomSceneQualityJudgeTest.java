@@ -310,6 +310,9 @@ class AgenticCustomSceneQualityJudgeTest {
     }
 
     private JudgeRequest request() {
+        var candidate = new GeneratedPracticeContentCandidate(
+                "日常照护", "穿鞋出门", "Shoes on", "拿起鞋子。", "慢慢说。",
+                "Shoes on.", "穿鞋出门。", "shoes on", "starter", "agentic_search");
         return new JudgeRequest(
                 "pgc_judge_test",
                 2,
@@ -317,9 +320,8 @@ class AgenticCustomSceneQualityJudgeTest {
                 "给宝宝穿鞋",
                 "m7_11",
                 "calmer_care",
-                new GeneratedPracticeContentCandidate(
-                        "日常照护", "穿鞋出门", "Shoes on", "拿起鞋子。", "慢慢说。",
-                        "Shoes on.", "穿鞋出门。", "shoes on", "starter", "agentic_search"),
+                candidate,
+                GeneratedCareMomentBundle.fakeFixture(candidate),
                 List.of("family-english-strategy-v1"),
                 List.of("joint_attention"),
                 List.of("m7_11_short_phrase"),

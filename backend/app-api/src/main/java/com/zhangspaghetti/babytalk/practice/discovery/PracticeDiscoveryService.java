@@ -619,22 +619,26 @@ public class PracticeDiscoveryService {
             PracticeDiscoveryMode mode
     ) {
         var approvedUtterances = generatedContentService.findApprovedUtterances(row.generatedContentId());
-        if ("care_path".equals(row.surface()) && approvedUtterances.size() != 6) {
-            throw new IllegalStateException("active care_path generated content is missing its approved utterance bundle");
-        }
+        requireCompleteGeneratedBundle(approvedUtterances);
         var starterRow = approvedUtterances.stream()
-                .filter(value -> "starter".equals(value.role()))
+                .filter(value -> "starter".equals(value.role()) && value.reactionType() == null)
                 .findFirst()
-                .orElse(null);
+                .orElseThrow(() -> new IllegalStateException("complete generated bundle is missing starter"));
         var starterUtteranceId = row.phraseSlug();
         var utterance = new StarterUtteranceResponse(
                 starterUtteranceId,
                 row.phraseSlug(),
-                starterRow == null ? row.englishText() : starterRow.englishText(),
-                starterRow == null ? row.chineseText() : starterRow.chineseText(),
-                starterRow == null ? row.pronunciationHint() : starterRow.pronunciationHint(),
-                starterRow == null ? row.difficulty() : starterRow.difficulty(),
-                SOURCE_GENERATED
+                starterRow.englishText(),
+                starterRow.chineseText(),
+                starterRow.pronunciationHint(),
+                starterRow.difficulty(),
+                SOURCE_GENERATED,
+                starterRow.role(),
+                null,
+                starterRow.tprActionZh(),
+                starterRow.deliveryGuidanceZh(),
+                starterRow.displayOrder(),
+                provenance(starterRow)
         );
         var reactionSupports = approvedUtterances.stream()
                 .filter(value -> "reaction_support".equals(value.role()))
@@ -648,7 +652,10 @@ public class PracticeDiscoveryService {
                         value.tprActionZh(),
                         value.deliveryGuidanceZh(),
                         value.difficulty(),
-                        SOURCE_GENERATED))
+                        SOURCE_GENERATED,
+                        value.role(),
+                        value.displayOrder(),
+                        provenance(value)))
                 .toList();
         return new PracticeDiscoveryResponse(
                 "disc_" + UUID.randomUUID().toString().replace("-", ""),
@@ -657,6 +664,7 @@ public class PracticeDiscoveryService {
                 context.profileMode(),
                 SOURCE_GENERATED,
                 row.generatedContentId(),
+                starterRow.bundleSchemaVersion(),
                 List.of(new SceneResponse(
                         row.spaceSlug(),
                         row.spaceSlug(),
@@ -692,6 +700,44 @@ public class PracticeDiscoveryService {
                         1
                 )
         );
+    }
+
+    private void requireCompleteGeneratedBundle(
+            List<com.zhangspaghetti.babytalk.practice.generated.model.PracticeGeneratedContentUtteranceEntity> utterances
+    ) {
+        var reactions = utterances.stream()
+                .filter(value -> "reaction_support".equals(value.role()))
+                .map(value -> value.reactionType())
+                .collect(java.util.stream.Collectors.toSet());
+        var canonical = Set.of("cooperating", "hesitant", "resisting", "no_response", "other");
+        if (utterances.size() != 6
+                || utterances.stream().filter(value -> "starter".equals(value.role())
+                        && value.reactionType() == null && value.displayOrder() == 1).count() != 1
+                || reactions.size() != 5
+                || !reactions.equals(canonical)
+                || utterances.stream().anyMatch(value ->
+                        !"custom-scene-generated-output-v1".equals(value.bundleSchemaVersion())
+                                || value.providerOrigin() == null
+                                || !("provider_generated".equals(value.providerOrigin())
+                                || "provider_repaired".equals(value.providerOrigin()))
+                                || value.providerName() == null
+                                || value.providerName().isBlank()
+                                || value.providerModelName() == null
+                                || value.providerModelName().isBlank()
+                                || value.providerAttemptNumber() < 1
+                                || value.providerAttemptNumber() > 5)) {
+            throw new IllegalStateException("active generated content lacks complete bundle contract or provenance");
+        }
+    }
+
+    private PracticeDiscoveryResponse.ProviderProvenanceResponse provenance(
+            com.zhangspaghetti.babytalk.practice.generated.model.PracticeGeneratedContentUtteranceEntity utterance
+    ) {
+        return new PracticeDiscoveryResponse.ProviderProvenanceResponse(
+                utterance.providerOrigin(),
+                utterance.providerName(),
+                utterance.providerModelName(),
+                utterance.providerAttemptNumber());
     }
 
     private StarterUtteranceResponse toUtterance(PracticePhraseRow phrase) {

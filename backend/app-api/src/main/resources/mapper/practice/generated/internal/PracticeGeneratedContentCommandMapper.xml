@@ -100,7 +100,8 @@
         insert into practice_generated_content_utterances (
             utterance_id, generated_content_id, role, reaction_type, english_text, chinese_text,
             pronunciation_hint, tpr_action_zh, delivery_guidance_zh, difficulty, display_order,
-            approval_status, approved_content_version, created_at
+            approval_status, approved_content_version, bundle_schema_version, provider_origin,
+            provider_name, provider_model_name, provider_attempt_number, created_at
         ) values
         <foreach collection="utterances" item="utterance" separator=",">
             (
@@ -108,7 +109,9 @@
                 #{utterance.reactionType}, #{utterance.englishText}, #{utterance.chineseText},
                 #{utterance.pronunciationHint}, #{utterance.tprActionZh}, #{utterance.deliveryGuidanceZh},
                 #{utterance.difficulty}, #{utterance.displayOrder}, #{utterance.approvalStatus},
-                #{utterance.approvedContentVersion},
+                #{utterance.approvedContentVersion}, #{utterance.bundleSchemaVersion},
+                #{utterance.providerOrigin}, #{utterance.providerName}, #{utterance.providerModelName},
+                #{utterance.providerAttemptNumber},
                 #{utterance.createdAt,typeHandler=org.apache.ibatis.type.OffsetDateTimeTypeHandler}
             )
         </foreach>
@@ -146,6 +149,19 @@
             updated_at = #{updatedAt,typeHandler=org.apache.ibatis.type.OffsetDateTimeTypeHandler}
         where generated_content_id = #{generatedContentId}
           and status in ('draft', 'generating')
+    </update>
+
+    <update id="quarantineUnsupportedActive">
+        update practice_generated_content
+        set status = 'expired', generation_error_code = 'legacy_active_bundle_unsupported',
+            generation_error_retryable = true, normalized_scene_text = null,
+            generation_expires_at = #{updatedAt,typeHandler=org.apache.ibatis.type.OffsetDateTimeTypeHandler},
+            retention_expires_at = case when owner_scope = 'installation'
+                then #{retentionExpiresAt,typeHandler=org.apache.ibatis.type.OffsetDateTimeTypeHandler}
+                else null end,
+            updated_at = #{updatedAt,typeHandler=org.apache.ibatis.type.OffsetDateTimeTypeHandler}
+        where generated_content_id = #{generatedContentId}
+          and status = 'active'
     </update>
 
     <update id="interruptStartedProviderCalls">

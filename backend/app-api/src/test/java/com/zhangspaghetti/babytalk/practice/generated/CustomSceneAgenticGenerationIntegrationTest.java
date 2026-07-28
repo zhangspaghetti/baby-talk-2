@@ -22,6 +22,7 @@ import com.zhangspaghetti.babytalk.practice.generated.evidence.RetrievalStatus;
 import com.zhangspaghetti.babytalk.practice.generated.quality.DimensionResult;
 import com.zhangspaghetti.babytalk.practice.generated.quality.JudgeDimension;
 import com.zhangspaghetti.babytalk.practice.generated.quality.JudgeVerdict;
+import com.zhangspaghetti.babytalk.practice.generated.contract.CompleteGeneratedBundle;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -84,6 +85,9 @@ class CustomSceneAgenticGenerationIntegrationTest extends AbstractIntegrationTes
     void resetStub() {
         caller.mode(StubMode.PASS);
         evidenceRetriever.mode(EvidenceMode.SUFFICIENT);
+        doAnswer(invocation -> caller.callRaw((Class<?>) invocation.getArgument(3)))
+                .when(structuredOutputCaller)
+                .callRaw(any(), anyString(), anyString(), any());
         doAnswer(invocation -> caller.call((Class<?>) invocation.getArgument(3)))
                 .when(structuredOutputCaller)
                 .call(any(), anyString(), anyString(), any());
@@ -193,6 +197,36 @@ class CustomSceneAgenticGenerationIntegrationTest extends AbstractIntegrationTes
     }
 
     @Test
+    void duplicateProviderKeysExpireWithoutActivationOrJudge() throws Exception {
+        caller.mode(StubMode.DUPLICATE_KEY);
+
+        mockMvc.perform(discovery("install_agentic_duplicate", "出门前宝宝不想穿鞋"))
+                .andExpect(status().isServiceUnavailable())
+                .andExpect(jsonPath("$.code").value("generation_unavailable"));
+
+        assertThat(jdbcTemplate.queryForObject("select status from practice_generated_content", String.class))
+                .isEqualTo("expired");
+        assertThat(count("practice_generated_content_judge_results")).isZero();
+        assertThat(jdbcTemplate.queryForObject(
+                "select count(*) from practice_generated_content where status = 'active'", Integer.class)).isZero();
+    }
+
+    @Test
+    void trailingProviderTokensExpireWithoutActivationOrJudge() throws Exception {
+        caller.mode(StubMode.TRAILING_TOKENS);
+
+        mockMvc.perform(discovery("install_agentic_trailing", "出门前宝宝不想穿鞋"))
+                .andExpect(status().isServiceUnavailable())
+                .andExpect(jsonPath("$.code").value("generation_unavailable"));
+
+        assertThat(jdbcTemplate.queryForObject("select status from practice_generated_content", String.class))
+                .isEqualTo("expired");
+        assertThat(count("practice_generated_content_judge_results")).isZero();
+        assertThat(jdbcTemplate.queryForObject(
+                "select count(*) from practice_generated_content where status = 'active'", Integer.class)).isZero();
+    }
+
+    @Test
     void repairThenPassCreatesFreshAttemptAndEvidenceBundle() throws Exception {
         caller.mode(StubMode.REPAIR_THEN_PASS);
 
@@ -254,7 +288,9 @@ class CustomSceneAgenticGenerationIntegrationTest extends AbstractIntegrationTes
         PII,
         JUDGE_EXHAUSTED,
         REPAIR_THEN_PASS,
-        ATTEMPT_EXHAUSTED
+        ATTEMPT_EXHAUSTED,
+        DUPLICATE_KEY,
+        TRAILING_TOKENS
     }
 
     enum EvidenceMode {
@@ -326,10 +362,12 @@ class CustomSceneAgenticGenerationIntegrationTest extends AbstractIntegrationTes
 
         private final AtomicReference<StubMode> mode = new AtomicReference<>(StubMode.PASS);
         private int calls;
+        private int completeBundleCalls;
 
         synchronized void mode(StubMode value) {
             mode.set(value);
             calls = 0;
+            completeBundleCalls = 0;
         }
 
         synchronized int calls() {
@@ -338,11 +376,8 @@ class CustomSceneAgenticGenerationIntegrationTest extends AbstractIntegrationTes
 
         synchronized Object call(Class<?> responseType) {
             calls++;
-            if (responseType == AgenticCustomSceneGenerator.GeneratorWireResponse.class) {
-                return generatorResponse();
-            }
-            if (responseType == AgenticCustomSceneRepairer.RepairWireResponse.class) {
-                return repairResponse();
+            if (responseType == CompleteGeneratedBundle.ProviderResponse.class) {
+                return completeBundleCalls++ == 0 ? generatorResponse() : repairResponse();
             }
             if (responseType == AgenticCustomSceneQualityJudge.JudgeWireResponse.class) {
                 if (mode.get() == StubMode.JUDGE_EXHAUSTED) {
@@ -353,7 +388,21 @@ class CustomSceneAgenticGenerationIntegrationTest extends AbstractIntegrationTes
             throw new AssertionError("unexpected response type " + responseType.getName());
         }
 
-        private AgenticCustomSceneGenerator.GeneratorWireResponse generatorResponse() {
+        synchronized String callRaw(Class<?> responseType) {
+            if (responseType != CompleteGeneratedBundle.ProviderResponse.class) {
+                throw new AssertionError("unexpected raw response type " + responseType.getName());
+            }
+            calls++;
+            var json = new tools.jackson.databind.ObjectMapper().writeValueAsString(
+                    completeBundleCalls++ == 0 ? generatorResponse() : repairResponse());
+            return switch (mode.get()) {
+                case DUPLICATE_KEY -> "{\"schemaVersion\":\"wrong\"," + json.substring(1);
+                case TRAILING_TOKENS -> json + " {}";
+                default -> json;
+            };
+        }
+
+        private CompleteGeneratedBundle.ProviderResponse generatorResponse() {
             return switch (mode.get()) {
                 case PII -> generator("宝宝叫小明，出门穿鞋。", "拿起鞋子。", "慢慢说一遍。");
                 case REPAIR_THEN_PASS, ATTEMPT_EXHAUSTED -> generator("穿鞋出门。", "慢慢说一遍。", "慢慢说一遍。");
@@ -361,27 +410,59 @@ class CustomSceneAgenticGenerationIntegrationTest extends AbstractIntegrationTes
             };
         }
 
-        private AgenticCustomSceneRepairer.RepairWireResponse repairResponse() {
+        private CompleteGeneratedBundle.ProviderResponse repairResponse() {
             return switch (mode.get()) {
                 case ATTEMPT_EXHAUSTED -> repair("慢慢说一遍。", "慢慢说一遍。");
                 default -> repair("拿起鞋子。", "慢慢说一遍。");
             };
         }
 
-        private AgenticCustomSceneGenerator.GeneratorWireResponse generator(
+        private CompleteGeneratedBundle.ProviderResponse generator(
                 String chineseText,
                 String tprAction,
                 String deliveryGuidance
         ) {
-            return new AgenticCustomSceneGenerator.GeneratorWireResponse(
-                    "日常照护", "穿鞋出门", "Shoes on", tprAction, deliveryGuidance,
-                    "Shoes on.", chineseText, "shoes on", "starter");
+            return bundle(chineseText, tprAction, deliveryGuidance);
         }
 
-        private AgenticCustomSceneRepairer.RepairWireResponse repair(String tprAction, String deliveryGuidance) {
-            return new AgenticCustomSceneRepairer.RepairWireResponse(
-                    "日常照护", "穿鞋出门", "Shoes on", tprAction, deliveryGuidance,
-                    "Shoes on.", "穿鞋出门。", "shoes on", "starter");
+        private CompleteGeneratedBundle.ProviderResponse repair(String tprAction, String deliveryGuidance) {
+            return bundle("穿鞋出门。", tprAction, deliveryGuidance);
+        }
+
+        private CompleteGeneratedBundle.ProviderResponse bundle(
+                String chineseText,
+                String tprAction,
+                String deliveryGuidance
+        ) {
+            var utterances = new java.util.LinkedHashMap<String, CompleteGeneratedBundle.ProviderUtterance>();
+            utterances.put("starter", utterance(CompleteGeneratedBundle.UtteranceRole.STARTER, null, 1,
+                    chineseText, tprAction, deliveryGuidance));
+            for (var reaction : CompleteGeneratedBundle.Reaction.values()) {
+                utterances.put(reaction.wireValue(), utterance(
+                        CompleteGeneratedBundle.UtteranceRole.REACTION_SUPPORT,
+                        reaction,
+                        reaction.ordinal() + 2,
+                        chineseText,
+                        tprAction,
+                        deliveryGuidance));
+            }
+            return new CompleteGeneratedBundle.ProviderResponse(
+                    CompleteGeneratedBundle.CURRENT_SCHEMA_VERSION,
+                    new CompleteGeneratedBundle.SceneMetadata("日常照护", "穿鞋出门", "Shoes on"),
+                    utterances);
+        }
+
+        private CompleteGeneratedBundle.ProviderUtterance utterance(
+                CompleteGeneratedBundle.UtteranceRole role,
+                CompleteGeneratedBundle.Reaction reaction,
+                int displayOrder,
+                String chineseText,
+                String tprAction,
+                String deliveryGuidance
+        ) {
+            return new CompleteGeneratedBundle.ProviderUtterance(
+                    role, reaction, "Shoes on.", chineseText, "shoes on", tprAction, deliveryGuidance,
+                    "starter", displayOrder);
         }
 
         private AgenticCustomSceneQualityJudge.JudgeWireResponse passJudgeResponse() {

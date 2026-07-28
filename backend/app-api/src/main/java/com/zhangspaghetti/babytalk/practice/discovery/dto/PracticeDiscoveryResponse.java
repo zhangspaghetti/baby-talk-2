@@ -9,6 +9,7 @@ public record PracticeDiscoveryResponse(
         String profileMode,
         String source,
         String generatedContentId,
+        String bundleSchemaVersion,
         List<SceneResponse> scenes,
         List<MomentResponse> moments,
         StarterResponse starter,
@@ -34,6 +35,7 @@ public record PracticeDiscoveryResponse(
                 profileMode,
                 source,
                 generatedContentId,
+                null,
                 scenes,
                 moments,
                 starter,
@@ -64,8 +66,26 @@ public record PracticeDiscoveryResponse(
             String chinese,
             String pronunciation,
             String difficulty,
-            String source
+            String source,
+            String role,
+            String reaction,
+            String tprActionZh,
+            String deliveryGuidanceZh,
+            int displayOrder,
+            ProviderProvenanceResponse providerProvenance
     ) {
+        public StarterUtteranceResponse(
+                String utteranceId,
+                String phraseId,
+                String english,
+                String chinese,
+                String pronunciation,
+                String difficulty,
+                String source
+        ) {
+            this(utteranceId, phraseId, english, chinese, pronunciation, difficulty, source,
+                    "starter", null, null, null, 1, null);
+        }
     }
 
     public record StarterResponse(
@@ -80,7 +100,7 @@ public record PracticeDiscoveryResponse(
     }
 
     public record ReactionSupportResponse(
-            String reactionType,
+            String reaction,
             String utteranceId,
             String phraseId,
             String english,
@@ -89,7 +109,18 @@ public record PracticeDiscoveryResponse(
             String tprActionZh,
             String deliveryGuidanceZh,
             String difficulty,
-            String source
+            String source,
+            String role,
+            int displayOrder,
+            ProviderProvenanceResponse providerProvenance
+    ) {
+    }
+
+    public record ProviderProvenanceResponse(
+            String origin,
+            String providerName,
+            String modelName,
+            int attemptNumber
     ) {
     }
 

@@ -6,6 +6,7 @@ import com.zhangspaghetti.babytalk.practice.agentic.PracticeAiOperationRunner;
 import com.zhangspaghetti.babytalk.practice.agentic.PracticeAiStructuredOutputCaller;
 import com.zhangspaghetti.babytalk.practice.agentic.config.GenerationProfile;
 import com.zhangspaghetti.babytalk.practice.agentic.config.VersionedResourceRegistry;
+import com.zhangspaghetti.babytalk.practice.generated.contract.CompleteGeneratedBundle;
 import java.util.List;
 import java.util.Objects;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -21,7 +22,6 @@ import tools.jackson.databind.ObjectMapper;
 public class AgenticCustomSceneGenerator implements CustomSceneGenerator {
 
     private static final String SUBJECT_TYPE = "generated_content";
-    private static final String TRUSTED_GENERATION_SOURCE = "agentic_search";
 
     private final PracticeAiOperationRunner operationRunner;
     private final PracticeAiStructuredOutputCaller structuredOutputCaller;
@@ -50,7 +50,7 @@ public class AgenticCustomSceneGenerator implements CustomSceneGenerator {
     }
 
     @Override
-    public GeneratedPracticeContentCandidate generate(GeneratorRequest request) {
+    public GeneratedCareMomentBundle generateCareMoment(GeneratorRequest request) {
         Objects.requireNonNull(request, "request");
         var evidenceBundle = Objects.requireNonNull(request.evidenceBundle(), "evidenceBundle");
         var generationProfile = Objects.requireNonNull(request.generationProfile(), "generationProfile");
@@ -87,14 +87,19 @@ public class AgenticCustomSceneGenerator implements CustomSceneGenerator {
                 evidencePolicy.version(),
                 evidencePolicy.contentHash(),
                 provider -> {
-                    var wire = structuredOutputCaller.call(
+                    var wire = CompleteGeneratedBundle.ProviderResponse.parse(structuredOutputCaller.callRaw(
                             provider,
                             systemPrompt,
                             userPrompt,
-                            GeneratorWireResponse.class);
+                            CompleteGeneratedBundle.ProviderResponse.class));
                     return new OperationRequest.ProviderInvocationResult<>(wire, null);
                 }));
-        return toCandidate(result.value());
+        return GeneratedCareMomentBundle.fromCompleteBundle(result.value().toCompleteBundle(
+                new CompleteGeneratedBundle.ProviderProvenance(
+                        CompleteGeneratedBundle.ProviderOrigin.PROVIDER_GENERATED,
+                        result.providerName(),
+                        result.modelName(),
+                        request.attemptNumber())));
     }
 
     private String userPrompt(GeneratorRequest request, GenerationProfile profile) {
@@ -124,20 +129,6 @@ public class AgenticCustomSceneGenerator implements CustomSceneGenerator {
                         .map(item -> item.sanitizedSummary())
                         .toList());
         return objectMapper.writeValueAsString(payload);
-    }
-
-    private GeneratedPracticeContentCandidate toCandidate(GeneratorWireResponse wire) {
-        return new GeneratedPracticeContentCandidate(
-                wire.spaceTitleZh(),
-                wire.activityTitleZh(),
-                wire.sceneTagEn(),
-                wire.tprActionZh(),
-                wire.deliveryGuidanceZh(),
-                wire.englishText(),
-                wire.chineseText(),
-                wire.pronunciationHint(),
-                wire.difficulty(),
-                TRUSTED_GENERATION_SOURCE);
     }
 
     private record GeneratorPromptPayload(
@@ -171,34 +162,5 @@ public class AgenticCustomSceneGenerator implements CustomSceneGenerator {
             List<String> allowedDifficulties,
             List<String> allowedGenerationSources
     ) {
-    }
-
-    public record GeneratorWireResponse(
-            String spaceTitleZh,
-            String activityTitleZh,
-            String sceneTagEn,
-            String tprActionZh,
-            String deliveryGuidanceZh,
-            String englishText,
-            String chineseText,
-            String pronunciationHint,
-            String difficulty
-    ) {
-        public GeneratorWireResponse {
-            requireNonBlank(spaceTitleZh, "spaceTitleZh");
-            requireNonBlank(activityTitleZh, "activityTitleZh");
-            requireNonBlank(sceneTagEn, "sceneTagEn");
-            requireNonBlank(tprActionZh, "tprActionZh");
-            requireNonBlank(deliveryGuidanceZh, "deliveryGuidanceZh");
-            requireNonBlank(englishText, "englishText");
-            requireNonBlank(chineseText, "chineseText");
-            requireNonBlank(difficulty, "difficulty");
-        }
-
-        private static void requireNonBlank(String value, String field) {
-            if (value == null || value.isBlank()) {
-                throw new IllegalArgumentException(field + " must be non-blank");
-            }
-        }
     }
 }

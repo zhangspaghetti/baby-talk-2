@@ -1,6 +1,7 @@
 package com.zhangspaghetti.babytalk.practice.discovery;
 
 import com.zhangspaghetti.babytalk.practice.generated.CustomSceneGenerator;
+import com.zhangspaghetti.babytalk.practice.generated.GeneratedCareMomentBundle;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.handler;
@@ -170,8 +171,8 @@ class PracticeDiscoveryControllerTest extends AbstractIntegrationTest {
         assertThat(starter.get("phraseId").asText()).startsWith("gen_phrase_");
         assertThat(moment.get("coachTip").asText()).isEqualTo("看着宝宝。 慢慢说一遍。");
         assertThat(reactionSupports.size()).isEqualTo(5);
-        assertThat(reactionSupports.get(0).get("reactionType").asText()).isEqualTo("cooperating");
-        assertThat(reactionSupports.get(4).get("reactionType").asText()).isEqualTo("other");
+        assertThat(reactionSupports.get(0).get("reaction").asText()).isEqualTo("cooperating");
+        assertThat(reactionSupports.get(4).get("reaction").asText()).isEqualTo("other");
         for (var support : reactionSupports) {
             assertThat(support.get("utteranceId").asText()).startsWith("gen_utt_");
             assertThat(support.get("english").asText()).isNotBlank();
@@ -182,8 +183,8 @@ class PracticeDiscoveryControllerTest extends AbstractIntegrationTest {
     }
 
     @Test
-    void fakeModeRunsTheTypedOrchestratorAndPersistsAttemptBundleAndJudgeBeforeActivation() throws Exception {
-        customSceneGenerationService.mode("repairable");
+    void fakeModeRunsTheTypedOrchestratorAndPersistsCompleteBundleAndJudgeBeforeActivation() throws Exception {
+        customSceneGenerationService.mode("success");
 
         mockMvc.perform(discovery(customSceneJson("洗澡后哄睡")))
                 .andExpect(status().isOk())
@@ -193,9 +194,9 @@ class PracticeDiscoveryControllerTest extends AbstractIntegrationTest {
                 "select status from practice_generated_content", String.class)).isEqualTo("active");
         assertThat(jdbcTemplate.queryForObject(
                 "select count(*) from practice_generated_content_attempts where status = 'completed'",
-                Integer.class)).isEqualTo(2);
+                Integer.class)).isEqualTo(1);
         assertThat(jdbcTemplate.queryForObject(
-                "select count(*) from practice_generated_content_evidence_bundles", Integer.class)).isEqualTo(2);
+                "select count(*) from practice_generated_content_evidence_bundles", Integer.class)).isEqualTo(1);
         assertThat(jdbcTemplate.queryForObject(
                 "select count(*) from practice_generated_content_judge_results", Integer.class)).isEqualTo(1);
         assertThat(applicationContext.getBeansOfType(
@@ -815,20 +816,18 @@ class PracticeDiscoveryControllerTest extends AbstractIntegrationTest {
         }
 
         @Override
-        public GeneratedPracticeContentCandidate generate(GeneratorRequest request) {
-            return switch (mode.get()) {
+        public GeneratedCareMomentBundle generateCareMoment(GeneratorRequest request) {
+            var starter = switch (mode.get()) {
                 case "unsafe" -> candidate("学习任务", "答题打分", "Lesson quiz", "让孩子答对后再给分。", "答对后打分。", "Take the quiz.", "开始测验。");
                 case "invalid" -> new GeneratedPracticeContentCandidate(
                         "日常照护", "洗澡安抚", "Bath care", "看着宝宝。", "慢慢说一遍。",
                         "Warm water.", "水暖暖的。", "warm water", "advanced", "fake");
-                case "repairable" -> new GeneratedPracticeContentCandidate(
-                        "日常照护", "洗澡安抚", "Bath care", "", "慢慢说一遍。",
-                        "Warm water.", "水暖暖的。", "warm water", "starter", "fake");
                 case "timeout" -> throw new GenerationTimeoutException();
                 case "unavailable" -> throw new GenerationUnavailableException(
                         GenerationUnavailableReason.PROVIDER_UNAVAILABLE);
                 default -> candidate("日常照护", "洗澡安抚", "Bath care", "看着宝宝。", "慢慢说一遍。", "Warm water.", "水暖暖的。");
             };
+            return GeneratedCareMomentBundle.fakeFixture(starter);
         }
 
         private GeneratedPracticeContentCandidate candidate(

@@ -20,7 +20,10 @@ import com.zhangspaghetti.babytalk.practice.discovery.SceneTextCanonicalizer;
 import com.zhangspaghetti.babytalk.practice.discovery.SceneTextSecurityConfiguration;
 import com.zhangspaghetti.babytalk.practice.discovery.SceneTextSecurityPolicy;
 import com.zhangspaghetti.babytalk.practice.generated.model.PracticeGeneratedContentEntity;
+import com.zhangspaghetti.babytalk.practice.generated.model.PracticeGeneratedContentUtteranceEntity;
 import java.time.Duration;
+import java.util.ArrayList;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.ObjectProvider;
@@ -109,10 +112,13 @@ class PracticeGeneratedContentServiceOrchestrationTest {
         var commands = mock(PracticeGeneratedContentCommands.class);
         var orchestrator = mock(CustomSceneGenerationOrchestrator.class);
         var active = new PracticeGeneratedContentEntity();
+        active.setGeneratedContentId("pgc_supported_active");
         active.setStatus("active");
         active.setOwnerScope("account");
         when(queries.findLiveByFingerprint(any(), any(), any(), any(), any(), any(), anyInt()))
                 .thenReturn(active);
+        when(queries.findApprovedUtterances("pgc_supported_active"))
+                .thenReturn(completeApprovedUtterances("pgc_supported_active"));
 
         var service = orchestratedService(queries, commands, orchestrator);
 
@@ -130,6 +136,50 @@ class PracticeGeneratedContentServiceOrchestrationTest {
                 eq("custom-scene-generation-v1"), eq(1));
         verify(orchestrator, never()).execute(any());
         verify(commands, never()).reserveDraft(any(), any());
+    }
+
+    @Test
+    void unsupportedLegacyActiveIsQuarantinedBeforeFingerprintReuse() {
+        var queries = mock(PracticeGeneratedContentQueryMapper.class);
+        var commands = mock(PracticeGeneratedContentCommands.class);
+        var orchestrator = mock(CustomSceneGenerationOrchestrator.class);
+        var legacy = active("pgc_legacy_reuse");
+        when(queries.findLiveByFingerprint(any(), any(), any(), any(), any(), any(), anyInt()))
+                .thenReturn(legacy);
+        when(queries.findApprovedUtterances("pgc_legacy_reuse")).thenReturn(List.of());
+        var service = orchestratedService(queries, commands, orchestrator);
+
+        assertThatThrownBy(() -> service.generateCustomScene(request()))
+                .isInstanceOf(com.zhangspaghetti.babytalk.web.ContractException.class)
+                .satisfies(error -> {
+                    var contract = (com.zhangspaghetti.babytalk.web.ContractException) error;
+                    assertThat(contract.status()).isEqualTo(HttpStatus.SERVICE_UNAVAILABLE);
+                    assertThat(contract.code()).isEqualTo("generation_unavailable");
+                    assertThat(contract.details())
+                            .containsEntry("reason", "legacy_active_bundle_unsupported")
+                            .containsEntry("retryable", true);
+                });
+        verify(commands).quarantineUnsupportedActive(eq("pgc_legacy_reuse"), any(), any());
+        verify(orchestrator, never()).execute(any());
+    }
+
+    @Test
+    void unsupportedLegacyActiveIsQuarantinedBeforeDirectRead() {
+        var queries = mock(PracticeGeneratedContentQueryMapper.class);
+        var commands = mock(PracticeGeneratedContentCommands.class);
+        var legacy = active("pgc_legacy_read");
+        when(queries.findActiveByGeneratedContentId(eq("pgc_legacy_read"), any(), any())).thenReturn(legacy);
+        when(queries.findApprovedUtterances("pgc_legacy_read")).thenReturn(List.of());
+        var service = orchestratedService(queries, commands, mock(CustomSceneGenerationOrchestrator.class));
+
+        assertThatThrownBy(() -> service.findActiveOrPromotedByGeneratedContentId("pgc_legacy_read"))
+                .isInstanceOf(com.zhangspaghetti.babytalk.web.ContractException.class)
+                .satisfies(error -> {
+                    var contract = (com.zhangspaghetti.babytalk.web.ContractException) error;
+                    assertThat(contract.status()).isEqualTo(HttpStatus.SERVICE_UNAVAILABLE);
+                    assertThat(contract.details()).containsEntry("reason", "legacy_active_bundle_unsupported");
+                });
+        verify(commands).quarantineUnsupportedActive(eq("pgc_legacy_read"), any(), any());
     }
 
     @Test
@@ -173,14 +223,17 @@ class PracticeGeneratedContentServiceOrchestrationTest {
         var candidate = new CustomSceneGenerator.GeneratedPracticeContentCandidate(
                 "日常照护", "穿鞋出门", "Shoes on", "拿起鞋子。", "慢慢说。",
                 "Shoes on.", "穿鞋出门。", "shoes on", "starter", "fake");
-        when(generator.generate(any())).thenReturn(candidate);
+        when(generator.generateCareMoment(any())).thenReturn(GeneratedCareMomentBundle.fakeFixture(candidate));
         when(validator.normalizeAndValidate(any(), any(), any())).thenReturn(candidate);
         when(commands.activate(any())).thenReturn(java.util.Optional.empty());
         var winner = new PracticeGeneratedContentEntity();
+        winner.setGeneratedContentId("pgc_activation_winner");
         winner.setStatus("active");
         winner.setGenerationProfileVersion(registry.currentGenerationProfile().version());
         when(queries.findActiveByFingerprint(any(), any(), any(), any(), any(), any(), anyInt(), any()))
                 .thenReturn(winner);
+        when(queries.findApprovedUtterances("pgc_activation_winner"))
+                .thenReturn(completeApprovedUtterances("pgc_activation_winner"));
 
         var policy = PracticeDiscoveryPolicyTestFixture.properties();
         var canonicalizer = new SceneTextCanonicalizer();
@@ -324,5 +377,48 @@ class PracticeGeneratedContentServiceOrchestrationTest {
         result.setGenerationErrorCode(code);
         result.setGenerationErrorRetryable(retryable);
         return result;
+    }
+
+    private PracticeGeneratedContentEntity active(String generatedContentId) {
+        var active = new PracticeGeneratedContentEntity();
+        active.setGeneratedContentId(generatedContentId);
+        active.setStatus("active");
+        active.setOwnerScope("account");
+        return active;
+    }
+
+    private List<PracticeGeneratedContentUtteranceEntity> completeApprovedUtterances(String generatedContentId) {
+        var rows = new ArrayList<PracticeGeneratedContentUtteranceEntity>();
+        rows.add(utterance(generatedContentId, "starter", null, 1));
+        rows.add(utterance(generatedContentId, "reaction_support", "cooperating", 2));
+        rows.add(utterance(generatedContentId, "reaction_support", "hesitant", 3));
+        rows.add(utterance(generatedContentId, "reaction_support", "resisting", 4));
+        rows.add(utterance(generatedContentId, "reaction_support", "no_response", 5));
+        rows.add(utterance(generatedContentId, "reaction_support", "other", 6));
+        return List.copyOf(rows);
+    }
+
+    private PracticeGeneratedContentUtteranceEntity utterance(
+            String generatedContentId,
+            String role,
+            String reaction,
+            int displayOrder
+    ) {
+        var row = new PracticeGeneratedContentUtteranceEntity();
+        row.setGeneratedContentId(generatedContentId);
+        row.setRole(role);
+        row.setReactionType(reaction);
+        row.setEnglishText("Shoes on.");
+        row.setChineseText("穿鞋出门。");
+        row.setPronunciationHint("shoes on");
+        row.setTprActionZh("拿起鞋子。 ");
+        row.setDeliveryGuidanceZh("慢慢说，等宝宝回应。 ");
+        row.setDifficulty("starter");
+        row.setDisplayOrder(displayOrder);
+        row.setProviderOrigin("provider_generated");
+        row.setProviderName("primary");
+        row.setProviderModelName("gpt-test");
+        row.setProviderAttemptNumber(1);
+        return row;
     }
 }

@@ -7,6 +7,7 @@ import org.springframework.ai.openai.OpenAiChatOptions;
 import org.springframework.ai.util.JacksonUtils;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
+import tools.jackson.core.StreamReadFeature;
 import tools.jackson.databind.DeserializationFeature;
 import tools.jackson.databind.json.JsonMapper;
 
@@ -21,6 +22,8 @@ public class PracticeAiStructuredOutputCaller {
     private static final JsonMapper STRICT_JSON_MAPPER = JsonMapper.builder()
             .addModules(JacksonUtils.instantiateAvailableModules())
             .enable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
+            .enable(DeserializationFeature.FAIL_ON_TRAILING_TOKENS)
+            .enable(StreamReadFeature.STRICT_DUPLICATE_DETECTION)
             .build();
     private static final ResponseTextCleaner IDENTITY_TEXT_CLEANER = content -> content;
 
@@ -43,6 +46,34 @@ public class PracticeAiStructuredOutputCaller {
                 .call()
                 .content();
         return convertOnce(content, converter);
+    }
+
+    /**
+     * Gets one schema-constrained provider payload without converting it. Callers with a stricter
+     * domain parser must use this path so no generic DTO conversion can weaken that contract.
+     */
+    public String callRaw(
+            ResolvedProvider provider,
+            String systemPrompt,
+            String userPrompt,
+            Class<?> responseType
+    ) {
+        var converter = strictConverter(responseType);
+        var options = OpenAiChatOptions.builder()
+                .responseFormat(OpenAiChatModel.ResponseFormat.builder()
+                        .jsonSchema(converter.getJsonSchema())
+                        .build());
+        var content = provider.chatClient()
+                .prompt()
+                .options(options)
+                .system(systemPrompt)
+                .user(userPrompt)
+                .call()
+                .content();
+        if (content == null || content.isBlank()) {
+            throw new StructuredOutputInvalidException();
+        }
+        return content;
     }
 
     <T> T convertOnce(String content, Class<T> responseType) {

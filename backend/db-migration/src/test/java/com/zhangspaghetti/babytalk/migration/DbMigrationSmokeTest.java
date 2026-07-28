@@ -17,6 +17,10 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.utility.DockerImageName;
 
@@ -53,6 +57,9 @@ class DbMigrationSmokeTest {
     @Autowired
     private JdbcTemplate jdbcTemplate;
 
+    @Autowired
+    private PlatformTransactionManager transactionManager;
+
     @Test
     void appliesAllSqlMigrationsToFreshDatabase() {
         Integer appliedCount = jdbcTemplate.queryForObject(
@@ -82,13 +89,20 @@ class DbMigrationSmokeTest {
                 select count(*)
                 from flyway_schema_history
                 where success = true
-                  and version in ('3', '14', '15', '16', '17', '18', '19', '24', '25', '26', '27', '28', '29', '30')
+                  and version in ('3', '14', '15', '16', '17', '18', '19', '24', '25', '26', '27', '28', '29', '30', '31')
                 """,
                 Integer.class);
-        assertThat(trackedVersions).isEqualTo(14);
+        assertThat(trackedVersions).isEqualTo(15);
 
         assertThat(tableExists("accounts")).isTrue();
         assertThat(tableExists("practice_generated_content_utterances")).isTrue();
+        assertThat(columnNamesFor("practice_generated_content_utterances"))
+                .contains(
+                        "bundle_schema_version",
+                        "provider_origin",
+                        "provider_name",
+                        "provider_model_name",
+                        "provider_attempt_number");
         assertThat(tableExists("spring_ai_chat_memory")).isTrue();
         assertThat(tableExists("kg_entities")).isTrue();
         assertThat(tableExists("admin_principals")).isTrue();
@@ -787,6 +801,7 @@ class DbMigrationSmokeTest {
                 "chk_practice_generated_content_client_request_id",
                 "chk_practice_generated_content_client_request_fingerprint",
                 "chk_practice_generated_content_terminal_input_cleared",
+                "chk_practice_generated_content_utterances_provenance",
                 "chk_practice_generated_content_draft_shape",
                 "chk_practice_generated_content_generating_shape",
                 "chk_practice_generated_content_installation_retention",
@@ -951,6 +966,45 @@ class DbMigrationSmokeTest {
                 .status("active")
                 .spaceSlug("shared-active-space")
                 .build());
+    }
+
+    @Test
+    @Transactional
+    void v31RejectsPartialProvenanceAndNonCanonicalReactionDisplayMapping() {
+        var partialId = "pgc_db_v31_partial_provenance";
+        insertGeneratedContent(generatedContentFixture(partialId).build());
+        var nested = new TransactionTemplate(transactionManager);
+        nested.setPropagationBehavior(TransactionDefinition.PROPAGATION_NESTED);
+        assertThatThrownBy(() -> nested.executeWithoutResult(status -> jdbcTemplate.update(
+                        """
+                        insert into practice_generated_content_utterances (
+                            utterance_id, generated_content_id, role, reaction_type, english_text, chinese_text,
+                            pronunciation_hint, tpr_action_zh, delivery_guidance_zh, difficulty, display_order,
+                            approval_status, approved_content_version, bundle_schema_version, provider_origin,
+                            provider_name, provider_model_name, provider_attempt_number, created_at
+                        ) values (?, ?, 'starter', null, 'Warm water.', '水暖暖的。', 'warm water',
+                            '拿起玩具。', '慢慢说，等宝宝回应。', 'starter', 1, 'approved', 1,
+                            'custom-scene-generated-output-v1', 'provider_generated', null, 'model-v1', 1, now())
+                        """,
+                        "utt_v31_partial", partialId)))
+                .isInstanceOf(DataIntegrityViolationException.class)
+                .hasMessageContaining("chk_practice_generated_content_utterances_provenance");
+
+        var mappedId = "pgc_db_v31_wrong_mapping";
+        insertGeneratedContent(generatedContentFixture(mappedId).status("active").build());
+        insertProvenanceUtterance(mappedId, "starter", null, 1);
+        insertProvenanceUtterance(mappedId, "reaction_support", "cooperating", 3);
+        insertProvenanceUtterance(mappedId, "reaction_support", "hesitant", 2);
+        insertProvenanceUtterance(mappedId, "reaction_support", "resisting", 4);
+        insertProvenanceUtterance(mappedId, "reaction_support", "no_response", 5);
+        insertProvenanceUtterance(mappedId, "reaction_support", "other", 6);
+
+        assertThatThrownBy(() -> {
+            jdbcTemplate.update(
+                    "update practice_generated_content set surface = 'care_path' where generated_content_id = ?",
+                    mappedId);
+            jdbcTemplate.execute("set constraints trg_practice_generated_content_care_path_bundle_parent immediate");
+        }).isInstanceOf(DataIntegrityViolationException.class);
     }
 
     @Test
@@ -1475,6 +1529,30 @@ class DbMigrationSmokeTest {
                 fixture.retentionExpiresAt(),
                 fixture.createdAt(),
                 fixture.createdAt());
+    }
+
+    private void insertProvenanceUtterance(
+            String generatedContentId,
+            String role,
+            String reactionType,
+            int displayOrder
+    ) {
+        jdbcTemplate.update(
+                """
+                insert into practice_generated_content_utterances (
+                    utterance_id, generated_content_id, role, reaction_type, english_text, chinese_text,
+                    pronunciation_hint, tpr_action_zh, delivery_guidance_zh, difficulty, display_order,
+                    approval_status, approved_content_version, bundle_schema_version, provider_origin,
+                    provider_name, provider_model_name, provider_attempt_number, created_at
+                ) values (?, ?, ?, ?, 'Warm water.', '水暖暖的。', 'warm water',
+                    '拿起玩具。', '慢慢说，等宝宝回应。', 'starter', ?, 'approved', 1,
+                    'custom-scene-generated-output-v1', 'provider_generated', 'provider-v1', 'model-v1', 1, now())
+                """,
+                "utt_" + generatedContentId + "_" + displayOrder,
+                generatedContentId,
+                role,
+                reactionType,
+                displayOrder);
     }
 
     private void insertGenerationAttempt(UUID attemptId, String generatedContentId, int attemptNumber) {

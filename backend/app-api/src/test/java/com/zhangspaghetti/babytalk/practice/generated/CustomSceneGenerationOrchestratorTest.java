@@ -850,7 +850,7 @@ class CustomSceneGenerationOrchestratorTest {
                 }
                 return startDecision;
             });
-            when(generator.generate(any())).thenAnswer(invocation -> {
+            when(generator.generateCareMoment(any())).thenAnswer(invocation -> {
                 var request = invocation.getArgument(0, GeneratorRequest.class);
                 generatorRequests.add(request);
                 if (generatorFallback) {
@@ -864,25 +864,31 @@ class CustomSceneGenerationOrchestratorTest {
                 if (generatorTimeout) {
                     throw new CustomSceneGenerator.GenerationTimeoutException();
                 }
-                return candidate();
+                return moment();
             });
-            when(repairer.repair(any())).thenAnswer(invocation -> {
+            when(repairer.repairCareMoment(any())).thenAnswer(invocation -> {
                 var request = invocation.getArgument(0, CustomSceneRepairer.RepairRequest.class);
                 repairRequests.add(request);
                 events.add("repair:" + request.attemptNumber());
                 if (repairExhausted) {
                     throw new ProvidersExhaustedException(UUID.randomUUID());
                 }
-                return candidate();
+                return moment();
             });
             when(validator.evaluate(any(), any(CustomSceneGenerator.ContentConstraints.class),
                     any(CustomSceneGeneratedContentValidator.GeneratedOutputValidationContext.class)))
                     .thenAnswer(invocation -> {
-                        events.add("gate:" + (++gateNumber));
+                        gateNumber++;
+                        if ((gateNumber - 1) % GeneratedCareMomentBundle.UTTERANCE_COUNT == 0) {
+                            events.add("gate:" + ((gateNumber - 1) / GeneratedCareMomentBundle.UTTERANCE_COUNT + 1));
+                        }
                         if (validatorFailure != null) {
                             throw validatorFailure;
                         }
-                        var spec = gates.removeFirst();
+                        var spec = gates.element();
+                        if (gateNumber % GeneratedCareMomentBundle.UTTERANCE_COUNT == 0) {
+                            gates.removeFirst();
+                        }
                         return new GeneratedOutputGateResult(invocation.getArgument(0), spec.terminal(), spec.repairable());
                     });
             when(judge.judge(any())).thenAnswer(invocation -> {
@@ -1011,6 +1017,10 @@ class CustomSceneGenerationOrchestratorTest {
             return new GeneratedPracticeContentCandidate(
                     "日常照护", "穿鞋出门", "Shoes on", "拿起鞋子。", "慢慢说。",
                     "Shoes on.", "穿鞋出门。", "shoes on", "starter", "agentic_search");
+        }
+
+        private static GeneratedCareMomentBundle moment() {
+            return GeneratedCareMomentBundle.fakeFixture(candidate());
         }
 
         private static void transition(

@@ -55,7 +55,8 @@ class CustomSceneGenerationProviderWiringTest {
                             .isInstanceOf(FakeCustomSceneRepairer.class);
 
                     var candidate = context.getBean(CustomSceneGenerator.class)
-                            .generate(request("睡前哄宝宝"));
+                            .generateCareMoment(request("睡前哄宝宝"))
+                            .starter();
 
                     assertThat(candidate.englishText()).isEqualTo("Sleepy baby.");
                     assertThat(candidate.generationSource()).isEqualTo("fake");
@@ -70,7 +71,8 @@ class CustomSceneGenerationProviderWiringTest {
                         "babytalk.practice.discovery.custom-scene.provider-mode=fake")
                 .run(context -> {
                     var candidate = context.getBean(CustomSceneGenerator.class)
-                            .generate(request("出门前宝宝不想穿鞋"));
+                            .generateCareMoment(request("出门前宝宝不想穿鞋"))
+                            .starter();
 
                     assertThat(candidate.activityTitleZh()).contains("穿鞋");
                     assertThat(candidate.sceneTagEn()).containsIgnoringCase("shoe");
@@ -87,7 +89,7 @@ class CustomSceneGenerationProviderWiringTest {
                 .run(context -> {
                     assertThat(org.assertj.core.api.Assertions.catchThrowable(() -> context
                             .getBean(CustomSceneGenerator.class)
-                            .generate(request("给宝宝涂防晒"))))
+                            .generateCareMoment(request("给宝宝涂防晒"))))
                             .isInstanceOf(CustomSceneGenerator.GenerationUnavailableException.class)
                             .satisfies(error -> {
                                 var unavailable = (CustomSceneGenerator.GenerationUnavailableException) error;

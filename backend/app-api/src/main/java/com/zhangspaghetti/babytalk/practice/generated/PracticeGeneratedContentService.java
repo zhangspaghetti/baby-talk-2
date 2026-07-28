@@ -43,6 +43,7 @@ public class PracticeGeneratedContentService {
     private static final String ERROR_GENERATION_TIMEOUT = "generation_timeout";
     private static final String ERROR_GENERATED_CONTENT_REJECTED = "generated_content_rejected";
     private static final String ERROR_GENERATION_INVALID_OUTPUT = "generation_invalid_output";
+    private static final String ERROR_LEGACY_ACTIVE_BUNDLE_UNSUPPORTED = "legacy_active_bundle_unsupported";
     private static final String ERROR_INVALID_CUSTOM_SCENE_TEXT = "invalid_custom_scene_text";
     private static final String ERROR_UNSAFE_CUSTOM_SCENE_TEXT = "unsafe_custom_scene_text";
     private static final String ERROR_UNSUPPORTED_CUSTOM_SCENE_TEXT = "unsupported_custom_scene_text";
@@ -193,8 +194,8 @@ public class PracticeGeneratedContentService {
     }
 
     public Optional<PracticeGeneratedContentEntity> findActiveOrPromotedByGeneratedContentId(String generatedContentId) {
-        return Optional.ofNullable(queryMapper.findActiveByGeneratedContentId(
-                generatedContentId, ownerKeyVersion(), nowUtc()));
+        return Optional.ofNullable(requireSupportedActive(queryMapper.findActiveByGeneratedContentId(
+                generatedContentId, ownerKeyVersion(), nowUtc())));
     }
 
     public List<com.zhangspaghetti.babytalk.practice.generated.model.PracticeGeneratedContentUtteranceEntity>
@@ -219,6 +220,7 @@ public class PracticeGeneratedContentService {
             throw clientRequestConflict(existing.generatedContentId());
         }
         if (isActiveOrPromoted(existing)) {
+            requireSupportedActive(existing);
             if (isReusableActiveOrPromoted(existing)) {
                 return existing;
             }
@@ -238,7 +240,7 @@ public class PracticeGeneratedContentService {
             String promptVersion,
             String strategyVersion
     ) {
-        return Optional.ofNullable(queryMapper.findActiveByFingerprint(
+        return Optional.ofNullable(requireSupportedActive(queryMapper.findActiveByFingerprint(
                 ownerKey,
                 ownerKeyVersion(),
                 surface,
@@ -246,7 +248,7 @@ public class PracticeGeneratedContentService {
                 requestFingerprint,
                 promptVersion,
                 CONTENT_REFRESH_EPOCH,
-                nowUtc()));
+                nowUtc())));
     }
 
     public int countRecentGenerationAttempts(String ownerKey, String surface, String mode, OffsetDateTime createdAtFrom) {
@@ -314,6 +316,7 @@ public class PracticeGeneratedContentService {
                 requestFingerprint,
                 generationProfileVersion(),
                 CONTENT_REFRESH_EPOCH);
+        requireSupportedActive(existing);
         var firstReservationAttempt = isDueInstallationActive(existing) ? 1 : 0;
         if (existing != null) {
             if (isActiveOrPromoted(existing)) {
@@ -345,6 +348,7 @@ public class PracticeGeneratedContentService {
                 throw clientRequestConflict(reserved.generatedContentId());
             }
             if (isActiveOrPromoted(reserved)) {
+                requireSupportedActive(reserved);
                 if (clientRequestId != null && !isReusableActiveOrPromoted(reserved)) {
                     throw terminalClientRequest(reserved);
                 }
@@ -433,9 +437,9 @@ public class PracticeGeneratedContentService {
             throw generationInProgress(reserved.generatedContentId());
         }
 
-        CustomSceneGenerator.GeneratedPracticeContentCandidate candidate;
+        GeneratedCareMomentBundle careMoment;
         try {
-            candidate = generationService.generate(new CustomSceneGenerator.GeneratorRequest(
+            careMoment = generationService.generateCareMoment(new CustomSceneGenerator.GeneratorRequest(
                     reserved.generatedContentId(),
                     1,
                     normalizedSceneText,
@@ -461,7 +465,13 @@ public class PracticeGeneratedContentService {
             throw generationUnavailable("provider_failure", true, exception);
         }
 
-        var validated = validateGeneratedOutput(reserved.generatedContentId(), candidate, normalizedSceneText);
+        if (careMoment == null) {
+            bestEffortRejectDraft(reserved.generatedContentId(), ERROR_GENERATION_INVALID_OUTPUT,
+                    new IllegalStateException("complete bundle is required"));
+            throw generationUnavailable(ERROR_GENERATION_INVALID_OUTPUT, false,
+                    new IllegalStateException("complete bundle is required"));
+        }
+        var validated = validateGeneratedBundle(reserved.generatedContentId(), careMoment, normalizedSceneText);
         try {
             var activated = activateDraft(activeRow(reserved, validated, requestFingerprint))
                     .or(() -> findActiveOrPromotedByFingerprint(
@@ -484,17 +494,15 @@ public class PracticeGeneratedContentService {
         }
     }
 
-    private CustomSceneGenerator.GeneratedPracticeContentCandidate validateGeneratedOutput(
+    private GeneratedCareMomentBundle validateGeneratedBundle(
             String generatedContentId,
-            CustomSceneGenerator.GeneratedPracticeContentCandidate candidate,
+            GeneratedCareMomentBundle bundle,
             String normalizedSceneText
     ) {
         try {
-            return generatedContentValidator.normalizeAndValidate(
-                    candidate,
-                    contentConstraints(),
-                    new CustomSceneGeneratedContentValidator.GeneratedOutputValidationContext(normalizedSceneText)
-            );
+            return bundle.mapCandidates(candidate -> generatedContentValidator.normalizeAndValidate(
+                    candidate, contentConstraints(),
+                    new CustomSceneGeneratedContentValidator.GeneratedOutputValidationContext(normalizedSceneText)));
         } catch (RejectedGeneratedContentException exception) {
             bestEffortRejectDraft(generatedContentId, ERROR_GENERATED_CONTENT_REJECTED, exception);
             var contract = new ContractException(
@@ -581,9 +589,10 @@ public class PracticeGeneratedContentService {
 
     private PracticeGeneratedContentEntity activeRow(
             PracticeGeneratedContentEntity draft,
-            CustomSceneGenerator.GeneratedPracticeContentCandidate candidate,
+            GeneratedCareMomentBundle careMoment,
             String requestFingerprint
     ) {
+        var candidate = careMoment.starter();
         var slugHash = keyFactory.stableDigest(
                 draft.ownerKey() + "|" + requestFingerprint + "|" + promptVersion() + "|"
                         + strategyVersion() + "|" + draft.generatedContentId());
@@ -634,17 +643,14 @@ public class PracticeGeneratedContentService {
                 : null);
         row.setCreatedAt(draft.createdAt());
         row.setUpdatedAt(now);
-        row.setApprovedUtterances(toApprovedUtterances(row, GeneratedCareMomentBundle.fromStarter(candidate)));
+        row.setApprovedUtterances(toApprovedUtterances(row, careMoment));
         return row;
     }
 
     private List<com.zhangspaghetti.babytalk.practice.generated.model.PracticeGeneratedContentUtteranceEntity>
     toApprovedUtterances(PracticeGeneratedContentEntity active, GeneratedCareMomentBundle careMoment) {
         var rows = new ArrayList<com.zhangspaghetti.babytalk.practice.generated.model.PracticeGeneratedContentUtteranceEntity>();
-        rows.add(utterance(active, "starter", null, 1, new GeneratedCareUtterance(
-                careMoment.starter().englishText(), careMoment.starter().chineseText(),
-                careMoment.starter().pronunciationHint(), careMoment.starter().tprActionZh(),
-                careMoment.starter().deliveryGuidanceZh(), careMoment.starter().difficulty())));
+        rows.add(utterance(active, "starter", null, 1, careMoment.starterUtterance()));
         for (var reaction : GeneratedCareMomentBundle.ReactionType.values()) {
             rows.add(utterance(active, "reaction_support", reaction.wireValue(), reaction.ordinal() + 2,
                     careMoment.reactionSupports().get(reaction)));
@@ -676,6 +682,12 @@ public class PracticeGeneratedContentService {
         row.setDisplayOrder(displayOrder);
         row.setApprovalStatus("approved");
         row.setApprovedContentVersion(active.contentVersion());
+        row.setBundleSchemaVersion(
+                com.zhangspaghetti.babytalk.practice.generated.contract.CompleteGeneratedBundle.CURRENT_SCHEMA_VERSION);
+        row.setProviderOrigin(content.providerProvenance().origin().wireValue());
+        row.setProviderName(content.providerProvenance().providerName());
+        row.setProviderModelName(content.providerProvenance().modelName());
+        row.setProviderAttemptNumber(content.providerProvenance().attemptNumber());
         row.setCreatedAt(active.updatedAt());
         return row;
     }
@@ -1051,6 +1063,54 @@ public class PracticeGeneratedContentService {
         return isActiveOrPromoted(row)
                 && (!"installation".equals(row.ownerScope())
                 || (row.retentionExpiresAt() != null && row.retentionExpiresAt().isAfter(nowUtc())));
+    }
+
+    /**
+     * V29/V30 rows can be active but have no V31 provenance-bearing bundle. Quarantine them before
+     * any reuse or discovery response; never infer missing branches or provenance.
+     */
+    private PracticeGeneratedContentEntity requireSupportedActive(PracticeGeneratedContentEntity row) {
+        if (row == null || !STATUS_ACTIVE.equals(row.status())) {
+            return row;
+        }
+        if (hasCompleteSupportedBundle(queryMapper.findApprovedUtterances(row.generatedContentId()))) {
+            return row;
+        }
+        var now = nowUtc();
+        commands.quarantineUnsupportedActive(
+                row.generatedContentId(), now, now.plus(INSTALLATION_TERMINAL_RETENTION));
+        throw generationUnavailable(ERROR_LEGACY_ACTIVE_BUNDLE_UNSUPPORTED, true, null);
+    }
+
+    private boolean hasCompleteSupportedBundle(
+            List<com.zhangspaghetti.babytalk.practice.generated.model.PracticeGeneratedContentUtteranceEntity> rows
+    ) {
+        if (rows == null || rows.size() != GeneratedCareMomentBundle.UTTERANCE_COUNT) {
+            return false;
+        }
+        try {
+            var utterances = rows.stream().map(row -> new com.zhangspaghetti.babytalk.practice.generated.contract.CompleteGeneratedBundle.Utterance(
+                    com.zhangspaghetti.babytalk.practice.generated.contract.CompleteGeneratedBundle.UtteranceRole
+                            .fromWireValue(row.role()),
+                    row.reactionType() == null ? null
+                            : com.zhangspaghetti.babytalk.practice.generated.contract.CompleteGeneratedBundle.Reaction
+                                    .fromWireValue(row.reactionType()),
+                    row.englishText(), row.chineseText(), row.pronunciationHint(), row.tprActionZh(),
+                    row.deliveryGuidanceZh(), row.difficulty(), row.displayOrder(),
+                    new com.zhangspaghetti.babytalk.practice.generated.contract.CompleteGeneratedBundle.ProviderProvenance(
+                            com.zhangspaghetti.babytalk.practice.generated.contract.CompleteGeneratedBundle.ProviderOrigin
+                                    .fromWireValue(row.providerOrigin()),
+                            row.providerName(), row.providerModelName(), row.providerAttemptNumber())))
+                    .toList();
+            new com.zhangspaghetti.babytalk.practice.generated.contract.CompleteGeneratedBundle(
+                    com.zhangspaghetti.babytalk.practice.generated.contract.CompleteGeneratedBundle.CURRENT_SCHEMA_VERSION,
+                    new com.zhangspaghetti.babytalk.practice.generated.contract.CompleteGeneratedBundle.SceneMetadata(
+                            "verified", "verified", "verified"),
+                    utterances);
+            return true;
+        } catch (RuntimeException exception) {
+            return false;
+        }
     }
 
     private boolean isExpiredDraft(PracticeGeneratedContentEntity row) {

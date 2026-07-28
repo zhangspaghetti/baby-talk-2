@@ -23,16 +23,20 @@ import com.zhangspaghetti.babytalk.practice.generated.quality.JudgeVerdict;
 import com.zhangspaghetti.babytalk.practice.generated.quality.RepairDirective;
 import com.zhangspaghetti.babytalk.practice.generated.quality.TypedRepairPackage;
 import com.zhangspaghetti.babytalk.practice.generated.evidence.EvidenceSummary;
+import com.zhangspaghetti.babytalk.practice.generated.contract.CompleteGeneratedBundle;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.ai.chat.client.ChatClient;
+import tools.jackson.databind.json.JsonMapper;
 
 class AgenticCustomSceneRepairerTest {
 
     private static final UUID EVIDENCE_BUNDLE_ID = UUID.fromString("10000000-0000-0000-0000-000000000001");
+    private static final JsonMapper JSON_MAPPER = new JsonMapper();
 
     @Test
     void typedRepairPackageExcludesRawPrivateAndProviderFields() {
@@ -43,7 +47,7 @@ class AgenticCustomSceneRepairerTest {
                         "displayText",
                         "ageRange",
                         "parentGoal",
-                        "previousCandidate",
+                        "previousBundle",
                         "effectiveVerdict",
                         "failedDimensions",
                         "violationCodes",
@@ -81,12 +85,12 @@ class AgenticCustomSceneRepairerTest {
                 null));
         var repairer = new AgenticCustomSceneRepairer(runner, caller, registry);
 
-        var candidate = repairer.repair(request());
+        var candidate = repairer.repairCareMoment(request()).starter();
 
         assertThat(candidate).isEqualTo(new CustomSceneGenerator.GeneratedPracticeContentCandidate(
                 "日常照护", "穿鞋出门", "Shoes on", "拿起鞋子。", "慢慢说。", "Shoes on.", "穿鞋出门。",
                 "shoes on", "starter", "agentic_search"));
-        var operation = (OperationRequest<AgenticCustomSceneRepairer.RepairWireResponse>) operationCaptor.getValue();
+        var operation = (OperationRequest<CompleteGeneratedBundle.ProviderResponse>) operationCaptor.getValue();
         assertThat(operation.capability()).isEqualTo(PracticeAiCapability.CUSTOM_SCENE_REPAIR);
         assertThat(operation.subjectType()).isEqualTo("generated_content");
         assertThat(operation.generatedContentId()).isEqualTo("pgc_repair_test");
@@ -98,14 +102,14 @@ class AgenticCustomSceneRepairerTest {
         assertThat(operation.policyHash()).isEqualTo("e".repeat(64));
 
         var provider = new ResolvedProvider("primary", "openai-compatible", "gpt-test", mock(ChatClient.class));
-        when(caller.call(eq(provider), eq("REPAIR SYSTEM PROMPT"), any(String.class),
-                eq(AgenticCustomSceneRepairer.RepairWireResponse.class))).thenReturn(wire);
+        when(caller.callRaw(eq(provider), eq("REPAIR SYSTEM PROMPT"), any(String.class),
+                eq(CompleteGeneratedBundle.ProviderResponse.class))).thenReturn(wireJson());
         var callbackResult = operation.invocation().invoke(provider);
 
         assertThat(callbackResult.value()).isEqualTo(wire);
         var promptCaptor = ArgumentCaptor.forClass(String.class);
-        verify(caller).call(eq(provider), eq("REPAIR SYSTEM PROMPT"), promptCaptor.capture(),
-                eq(AgenticCustomSceneRepairer.RepairWireResponse.class));
+        verify(caller).callRaw(eq(provider), eq("REPAIR SYSTEM PROMPT"), promptCaptor.capture(),
+                eq(CompleteGeneratedBundle.ProviderResponse.class));
         assertThat(promptCaptor.getValue())
                 .contains("给宝宝穿鞋", "m7_11", "calmer_care", "Shoes on.", "MISSING_TPR_ACTION", "先轻声说。")
                 .doesNotContain(
@@ -116,7 +120,6 @@ class AgenticCustomSceneRepairerTest {
                         "accountId",
                         "profileId",
                         "providerTraceId",
-                        "modelName",
                         "reasoning");
     }
 
@@ -132,12 +135,12 @@ class AgenticCustomSceneRepairerTest {
         when(runner.execute(operationCaptor.capture())).thenReturn(new OperationResult<>(
                 wire(), UUID.randomUUID(), UUID.randomUUID(), "primary", "gpt-test", null));
         var repairer = new AgenticCustomSceneRepairer(runner, caller, registry);
-        repairer.repair(request());
-        var operation = (OperationRequest<AgenticCustomSceneRepairer.RepairWireResponse>) operationCaptor.getValue();
+        repairer.repairCareMoment(request());
+        var operation = (OperationRequest<CompleteGeneratedBundle.ProviderResponse>) operationCaptor.getValue();
         var provider = new ResolvedProvider("primary", "openai-compatible", "gpt-test", mock(ChatClient.class));
         var failure = new PracticeAiStructuredOutputCaller.StructuredOutputInvalidException();
-        when(caller.call(eq(provider), eq("REPAIR SYSTEM PROMPT"), any(String.class),
-                eq(AgenticCustomSceneRepairer.RepairWireResponse.class))).thenThrow(failure);
+        when(caller.callRaw(eq(provider), eq("REPAIR SYSTEM PROMPT"), any(String.class),
+                eq(CompleteGeneratedBundle.ProviderResponse.class))).thenThrow(failure);
 
         assertThatThrownBy(() -> operation.invocation().invoke(provider))
                 .isSameAs(failure)
@@ -155,7 +158,7 @@ class AgenticCustomSceneRepairerTest {
                 "strategy-v1", "safety-v1", "schema-v1"));
         var repairer = new AgenticCustomSceneRepairer(runner, caller, registry);
 
-        assertThatThrownBy(() -> repairer.repair(request()))
+        assertThatThrownBy(() -> repairer.repairCareMoment(request()))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("repair request generation profile must match current registry profile");
         verifyNoInteractions(runner, caller);
@@ -167,9 +170,7 @@ class AgenticCustomSceneRepairerTest {
                         "给宝宝穿鞋",
                         "m7_11",
                         "calmer_care",
-                        new CustomSceneGenerator.GeneratedPracticeContentCandidate(
-                                "日常照护", "穿鞋出门", "Shoes on", "", "慢慢说。", "Shoes on.", "穿鞋出门。",
-                                "shoes on", "starter", "agentic_search"),
+                        previousBundle(),
                         JudgeVerdict.REPAIR,
                         List.of(JudgeDimension.TPR_QUALITY),
                         List.of("MISSING_TPR_ACTION"),
@@ -178,10 +179,36 @@ class AgenticCustomSceneRepairerTest {
                         profile()));
     }
 
-    private static AgenticCustomSceneRepairer.RepairWireResponse wire() {
-        return new AgenticCustomSceneRepairer.RepairWireResponse(
+    private static CompleteGeneratedBundle.ProviderResponse wire() {
+        var utterances = new java.util.LinkedHashMap<String, CompleteGeneratedBundle.ProviderUtterance>();
+        utterances.put("starter", utterance(CompleteGeneratedBundle.UtteranceRole.STARTER, null, 1));
+        for (var reaction : CompleteGeneratedBundle.Reaction.values()) {
+            utterances.put(reaction.wireValue(), utterance(
+                    CompleteGeneratedBundle.UtteranceRole.REACTION_SUPPORT, reaction, reaction.ordinal() + 2));
+        }
+        return new CompleteGeneratedBundle.ProviderResponse(
+                CompleteGeneratedBundle.CURRENT_SCHEMA_VERSION,
+                new CompleteGeneratedBundle.SceneMetadata("日常照护", "穿鞋出门", "Shoes on"), utterances);
+    }
+
+    private static String wireJson() {
+        return JSON_MAPPER.writeValueAsString(wire());
+    }
+
+    private static CompleteGeneratedBundle previousBundle() {
+        return GeneratedCareMomentBundle.fakeFixture(new CustomSceneGenerator.GeneratedPracticeContentCandidate(
                 "日常照护", "穿鞋出门", "Shoes on", "拿起鞋子。", "慢慢说。", "Shoes on.", "穿鞋出门。",
-                "shoes on", "starter");
+                "shoes on", "starter", "provider_generated")).completeBundle();
+    }
+
+    private static CompleteGeneratedBundle.ProviderUtterance utterance(
+            CompleteGeneratedBundle.UtteranceRole role,
+            CompleteGeneratedBundle.Reaction reaction,
+            int displayOrder
+    ) {
+        return new CompleteGeneratedBundle.ProviderUtterance(
+                role, reaction, "Shoes on.", "穿鞋出门。", "shoes on", "拿起鞋子。", "慢慢说。",
+                "starter", displayOrder);
     }
 
     private static GenerationProfile profile() {

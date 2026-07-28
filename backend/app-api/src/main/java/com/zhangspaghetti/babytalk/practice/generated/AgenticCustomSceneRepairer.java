@@ -4,10 +4,9 @@ import com.zhangspaghetti.babytalk.practice.agentic.OperationRequest;
 import com.zhangspaghetti.babytalk.practice.agentic.PracticeAiCapability;
 import com.zhangspaghetti.babytalk.practice.agentic.PracticeAiOperationRunner;
 import com.zhangspaghetti.babytalk.practice.agentic.PracticeAiStructuredOutputCaller;
-import com.zhangspaghetti.babytalk.practice.agentic.PracticeAiStructuredOutputCaller.StructuredOutputInvalidException;
 import com.zhangspaghetti.babytalk.practice.agentic.config.GenerationProfile;
 import com.zhangspaghetti.babytalk.practice.agentic.config.VersionedResourceRegistry;
-import com.zhangspaghetti.babytalk.practice.generated.CustomSceneGenerator.GeneratedPracticeContentCandidate;
+import com.zhangspaghetti.babytalk.practice.generated.contract.CompleteGeneratedBundle;
 import com.zhangspaghetti.babytalk.practice.generated.evidence.EvidenceSummary;
 import com.zhangspaghetti.babytalk.practice.generated.quality.TypedRepairPackage;
 import java.util.List;
@@ -25,7 +24,6 @@ import tools.jackson.databind.ObjectMapper;
 public class AgenticCustomSceneRepairer implements CustomSceneRepairer {
 
     private static final String SUBJECT_TYPE = "generated_content";
-    private static final String TRUSTED_GENERATION_SOURCE = "agentic_search";
 
     private final PracticeAiOperationRunner operationRunner;
     private final PracticeAiStructuredOutputCaller structuredOutputCaller;
@@ -54,7 +52,7 @@ public class AgenticCustomSceneRepairer implements CustomSceneRepairer {
     }
 
     @Override
-    public GeneratedPracticeContentCandidate repair(RepairRequest request) {
+    public GeneratedCareMomentBundle repairCareMoment(RepairRequest request) {
         Objects.requireNonNull(request, "request");
         var repairPackage = request.repairPackage();
         var currentProfile = Objects.requireNonNull(
@@ -71,7 +69,7 @@ public class AgenticCustomSceneRepairer implements CustomSceneRepairer {
                 repairPackage.displayText(),
                 repairPackage.ageRange(),
                 repairPackage.parentGoal(),
-                candidatePayload(repairPackage.previousCandidate()),
+                repairPackage.previousBundle(),
                 repairPackage.effectiveVerdict().name(),
                 repairPackage.failedDimensions().stream().map(Enum::name).toList(),
                 repairPackage.violationCodes(),
@@ -90,26 +88,18 @@ public class AgenticCustomSceneRepairer implements CustomSceneRepairer {
                 currentProfile.evidencePolicy().version(),
                 currentProfile.evidencePolicy().contentHash(),
                 provider -> new OperationRequest.ProviderInvocationResult<>(
-                        structuredOutputCaller.call(
+                        CompleteGeneratedBundle.ProviderResponse.parse(structuredOutputCaller.callRaw(
                                 provider,
                                 systemPrompt,
                                 userPrompt,
-                                RepairWireResponse.class),
+                                CompleteGeneratedBundle.ProviderResponse.class)),
                         null)));
-        return result.value().toCandidate();
-    }
-
-    private CandidatePayload candidatePayload(GeneratedPracticeContentCandidate candidate) {
-        return new CandidatePayload(
-                candidate.spaceTitleZh(),
-                candidate.activityTitleZh(),
-                candidate.sceneTagEn(),
-                candidate.tprActionZh(),
-                candidate.deliveryGuidanceZh(),
-                candidate.englishText(),
-                candidate.chineseText(),
-                candidate.pronunciationHint(),
-                candidate.difficulty());
+        return GeneratedCareMomentBundle.fromCompleteBundle(result.value().toCompleteBundle(
+                new CompleteGeneratedBundle.ProviderProvenance(
+                        CompleteGeneratedBundle.ProviderOrigin.PROVIDER_REPAIRED,
+                        result.providerName(),
+                        result.modelName(),
+                        request.attemptNumber())));
     }
 
     private GenerationProfilePayload generationProfilePayload(GenerationProfile profile) {
@@ -127,26 +117,13 @@ public class AgenticCustomSceneRepairer implements CustomSceneRepairer {
             String displayText,
             String ageRange,
             String parentGoal,
-            CandidatePayload previousCandidate,
+            CompleteGeneratedBundle previousBundle,
             String effectiveVerdict,
             List<String> failedDimensions,
             List<String> violationCodes,
             List<String> repairDirectives,
             List<String> orderedSanitizedEvidenceSummaries,
             GenerationProfilePayload generationProfile
-    ) {
-    }
-
-    private record CandidatePayload(
-            String spaceTitleZh,
-            String activityTitleZh,
-            String sceneTagEn,
-            String tprActionZh,
-            String deliveryGuidanceZh,
-            String englishText,
-            String chineseText,
-            String pronunciationHint,
-            String difficulty
     ) {
     }
 
@@ -157,54 +134,5 @@ public class AgenticCustomSceneRepairer implements CustomSceneRepairer {
             String contentSafetyPolicyVersion,
             String generatedOutputSchemaVersion
     ) {
-    }
-
-    public record RepairWireResponse(
-            String spaceTitleZh,
-            String activityTitleZh,
-            String sceneTagEn,
-            String tprActionZh,
-            String deliveryGuidanceZh,
-            String englishText,
-            String chineseText,
-            String pronunciationHint,
-            String difficulty
-    ) {
-        public RepairWireResponse {
-            try {
-                requireNonBlank(spaceTitleZh, "spaceTitleZh");
-                requireNonBlank(activityTitleZh, "activityTitleZh");
-                requireNonBlank(sceneTagEn, "sceneTagEn");
-                requireNonBlank(tprActionZh, "tprActionZh");
-                requireNonBlank(deliveryGuidanceZh, "deliveryGuidanceZh");
-                requireNonBlank(englishText, "englishText");
-                requireNonBlank(chineseText, "chineseText");
-                requireNonBlank(difficulty, "difficulty");
-            } catch (StructuredOutputInvalidException exception) {
-                throw exception;
-            } catch (RuntimeException exception) {
-                throw new StructuredOutputInvalidException();
-            }
-        }
-
-        GeneratedPracticeContentCandidate toCandidate() {
-            return new GeneratedPracticeContentCandidate(
-                    spaceTitleZh,
-                    activityTitleZh,
-                    sceneTagEn,
-                    tprActionZh,
-                    deliveryGuidanceZh,
-                    englishText,
-                    chineseText,
-                    pronunciationHint,
-                    difficulty,
-                    TRUSTED_GENERATION_SOURCE);
-        }
-
-        private static void requireNonBlank(String value, String field) {
-            if (value == null || value.isBlank()) {
-                throw new StructuredOutputInvalidException();
-            }
-        }
     }
 }

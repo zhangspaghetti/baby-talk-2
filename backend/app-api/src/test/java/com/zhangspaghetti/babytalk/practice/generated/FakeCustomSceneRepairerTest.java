@@ -15,25 +15,30 @@ import org.junit.jupiter.api.Test;
 class FakeCustomSceneRepairerTest {
 
     @Test
-    void fillsOnlyMissingRepairableFieldsAndUsesTrustedFakeSource() {
+    void preservesCompleteBundleAndRecordsFakeRepairProvenance() {
         var previous = new CustomSceneGenerator.GeneratedPracticeContentCandidate(
-                "日常照护", "穿鞋出门", "Shoes on", "", "", "Shoes on.", "穿鞋出门。",
+                "日常照护", "穿鞋出门", "Shoes on", "拿起鞋子。", "慢慢说一遍。", "Shoes on.", "穿鞋出门。",
                 "shoes on", "starter", "agentic_search");
+        var previousBundle = GeneratedCareMomentBundle.fakeFixture(previous).completeBundle();
         var request = new CustomSceneRepairer.RepairRequest(
                 "pgc_fake_repair", 2, UUID.randomUUID(), "zh-CN", new TypedRepairPackage(
-                        "给宝宝穿鞋", "m7_11", "calmer_care", previous, JudgeVerdict.REPAIR,
+                        "给宝宝穿鞋", "m7_11", "calmer_care", previousBundle, JudgeVerdict.REPAIR,
                         List.of(JudgeDimension.TPR_QUALITY, JudgeDimension.DELIVERY_GUIDANCE_QUALITY),
                         List.of("MISSING_TPR_ACTION", "MISSING_DELIVERY_GUIDANCE"),
                         List.of(RepairDirective.REPAIR_TPR_QUALITY, RepairDirective.REPAIR_DELIVERY_GUIDANCE_QUALITY),
                         List.of(), profile()));
 
-        var repaired = new FakeCustomSceneRepairer().repair(request);
+        var repairedBundle = new FakeCustomSceneRepairer().repairCareMoment(request);
+        var repaired = repairedBundle.starter();
+        var repairedStarter = repairedBundle.starterUtterance();
 
         assertThat(repaired.spaceTitleZh()).isEqualTo(previous.spaceTitleZh());
         assertThat(repaired.englishText()).isEqualTo(previous.englishText());
         assertThat(repaired.tprActionZh()).isNotBlank();
         assertThat(repaired.deliveryGuidanceZh()).isNotBlank();
         assertThat(repaired.generationSource()).isEqualTo("fake");
+        assertThat(repairedStarter.providerProvenance().origin().wireValue()).isEqualTo("provider_repaired");
+        assertThat(repairedStarter.providerProvenance().providerName()).isEqualTo("fake");
     }
 
     private static GenerationProfile profile() {

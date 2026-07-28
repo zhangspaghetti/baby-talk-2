@@ -176,6 +176,16 @@ class PracticeGeneratedContentWriteService implements PracticeGeneratedContentCo
     }
 
     @Override
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public boolean quarantineUnsupportedActive(
+            String generatedContentId,
+            OffsetDateTime now,
+            OffsetDateTime retentionExpiresAt
+    ) {
+        return commandMapper.quarantineUnsupportedActive(generatedContentId, now, retentionExpiresAt) == 1;
+    }
+
+    @Override
     @Transactional
     public int interruptStaleExecutions(
             OffsetDateTime interruptedAt,

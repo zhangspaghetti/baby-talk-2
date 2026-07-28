@@ -371,8 +371,8 @@ class PracticeGeneratedContentMapperTest extends AbstractIntegrationTest {
     @Test
     void findsActiveOrPromotedRowsByGeneratedContentId() {
         insert(row("pgc_repo_lookup_draft").build());
-        insert(row("pgc_repo_lookup_active").active().build());
-        insert(row("pgc_repo_lookup_promoted").promoted().build());
+        insertCompleteCarePathBundle(row("pgc_repo_lookup_active").active().build());
+        insertCompleteCarePathBundle(row("pgc_repo_lookup_promoted").promoted().build());
 
         var active = repository.findActiveOrPromotedByGeneratedContentId("pgc_repo_lookup_active");
         var promoted = repository.findActiveOrPromotedByGeneratedContentId("pgc_repo_lookup_promoted");
@@ -392,7 +392,7 @@ class PracticeGeneratedContentMapperTest extends AbstractIntegrationTest {
                 .ownerKey("hmac_test_repo_lookup_fingerprint")
                 .requestFingerprint("fp_repo_lookup_fingerprint")
                 .build();
-        insert(active);
+        insertCompleteCarePathBundle(active);
 
         var found = repository.findActiveOrPromotedByFingerprint(
                 active.ownerKey(),
@@ -410,7 +410,7 @@ class PracticeGeneratedContentMapperTest extends AbstractIntegrationTest {
                 .ownerKey("hmac_test_repo_lookup_promoted_fingerprint")
                 .requestFingerprint("fp_repo_lookup_promoted_fingerprint")
                 .build();
-        insert(promoted);
+        insertCompleteCarePathBundle(promoted);
 
         var promotedFound = repository.findActiveOrPromotedByFingerprint(
                 promoted.ownerKey(),
@@ -910,7 +910,7 @@ class PracticeGeneratedContentMapperTest extends AbstractIntegrationTest {
         assertThat(repository.findActiveOrPromotedByGeneratedContentId("pgc_repo_v2_active")).isEmpty();
 
         var lookupOwner = "hmac_test_repo_version_lookup";
-        insert(row("pgc_repo_v1_lookup")
+        insertCompleteCarePathBundle(row("pgc_repo_v1_lookup")
                 .active()
                 .ownerKey(lookupOwner)
                 .ownerKeyVersion("v1")
@@ -1113,6 +1113,18 @@ class PracticeGeneratedContentMapperTest extends AbstractIntegrationTest {
         return new TransactionTemplate(transactionManager);
     }
 
+    private void insertCompleteCarePathBundle(PracticeGeneratedContentEntity row) {
+        insert(row);
+        transaction().executeWithoutResult(status -> {
+            insertCarePathStarter(row.generatedContentId(), row.phraseSlug());
+            insertCarePathSupport(row.generatedContentId(), "cooperating", 2);
+            insertCarePathSupport(row.generatedContentId(), "hesitant", 3);
+            insertCarePathSupport(row.generatedContentId(), "resisting", 4);
+            insertCarePathSupport(row.generatedContentId(), "no_response", 5);
+            insertCarePathSupport(row.generatedContentId(), "other", 6);
+        });
+    }
+
     private void insertCarePathStarter(String generatedContentId, String utteranceId) {
         insertCarePathUtterance(generatedContentId, utteranceId, "starter", null, 1);
     }
@@ -1138,9 +1150,11 @@ class PracticeGeneratedContentMapperTest extends AbstractIntegrationTest {
                 insert into practice_generated_content_utterances (
                     utterance_id, generated_content_id, role, reaction_type, english_text, chinese_text,
                     pronunciation_hint, tpr_action_zh, delivery_guidance_zh, difficulty, display_order,
-                    approval_status, approved_content_version, created_at
+                    approval_status, approved_content_version, bundle_schema_version, provider_origin,
+                    provider_name, provider_model_name, provider_attempt_number, created_at
                 ) values (?, ?, ?, ?, 'Warm water.', '水暖暖的。', 'warm water', '指向水。', '慢一点说。',
-                          'starter', ?, 'approved', 1, ?)
+                          'starter', ?, 'approved', 1, 'custom-scene-generated-output-v1',
+                          'provider_generated', 'test-provider', 'test-model', 1, ?)
                 """,
                 utteranceId,
                 generatedContentId,

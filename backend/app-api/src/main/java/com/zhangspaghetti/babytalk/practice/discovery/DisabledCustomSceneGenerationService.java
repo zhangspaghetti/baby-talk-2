@@ -14,7 +14,9 @@ import org.springframework.stereotype.Service;
 public class DisabledCustomSceneGenerationService implements CustomSceneGenerator {
 
     @Override
-    public GeneratedPracticeContentCandidate generate(GeneratorRequest request) {
+    public com.zhangspaghetti.babytalk.practice.generated.GeneratedCareMomentBundle generateCareMoment(
+            GeneratorRequest request
+    ) {
         throw new GenerationUnavailableException(GenerationUnavailableReason.PROVIDER_DISABLED);
     }
 }

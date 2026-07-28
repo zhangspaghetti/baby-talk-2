@@ -1,6 +1,7 @@
 package com.zhangspaghetti.babytalk.practice.discovery;
 
 import com.zhangspaghetti.babytalk.practice.generated.CustomSceneGenerator;
+import com.zhangspaghetti.babytalk.practice.generated.GeneratedCareMomentBundle;
 import java.util.Locale;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Profile;
@@ -17,12 +18,16 @@ public class FakeCustomSceneGenerationService implements CustomSceneGenerator {
         this.properties = properties;
     }
 
-    @Override
-    public GeneratedPracticeContentCandidate generate(GeneratorRequest request) {
+    private GeneratedPracticeContentCandidate fakeFixtureStarter(GeneratorRequest request) {
         if (!properties.enabled()) {
             throw new GenerationUnavailableException(GenerationUnavailableReason.PROVIDER_DISABLED);
         }
         return successCandidate(request);
+    }
+
+    @Override
+    public GeneratedCareMomentBundle generateCareMoment(GeneratorRequest request) {
+        return GeneratedCareMomentBundle.fakeFixture(fakeFixtureStarter(request));
     }
 
     private GeneratedPracticeContentCandidate successCandidate(GeneratorRequest request) {
