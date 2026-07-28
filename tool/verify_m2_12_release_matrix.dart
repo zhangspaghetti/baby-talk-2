@@ -73,6 +73,11 @@ const m212RequiredEvidence = <M212EvidenceSpec>[
     'mobile/test/features/care_path/presentation/care_audio_playback_controller_test.dart',
   ),
   M212EvidenceSpec(
+    'mobile_audio_android_network_output',
+    'Android controlled generated-audio HTTP to BytesSource output',
+    'mobile/integration_test/m2_generated_audio_bytes_playback_test.dart',
+  ),
+  M212EvidenceSpec(
     'mobile_audio_lifecycle',
     'Generated audio lifecycle clearing',
     'mobile/test/app/local_sensitive_data_clearance_registry_test.dart',
