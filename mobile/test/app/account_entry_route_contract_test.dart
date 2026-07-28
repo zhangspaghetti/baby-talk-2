@@ -12,6 +12,15 @@ void main() {
       );
     });
 
+    test('parses custom-scene continuation route extra', () {
+      expect(
+        accountEntryOriginFromRouteExtra(
+          AccountEntryOrigin.customSceneContinuation,
+        ),
+        AccountEntryOrigin.customSceneContinuation,
+      );
+    });
+
     test('defaults unknown route extras to settings', () {
       expect(
         accountEntryOriginFromRouteExtra(const <String, String>{'origin': 'x'}),

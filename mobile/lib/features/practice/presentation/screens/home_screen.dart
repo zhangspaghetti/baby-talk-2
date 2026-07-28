@@ -15,6 +15,10 @@ import 'package:mobile/app/theme/app_theme.dart';
 import 'package:mobile/features/account/presentation/account_notifier.dart';
 import 'package:mobile/features/care_path/domain/models/care_path_models.dart';
 import 'package:mobile/features/care_path/presentation/care_path_view_model.dart';
+import 'package:mobile/features/custom_scene/application/custom_scene_feature_flag.dart';
+import 'package:mobile/features/custom_scene/domain/custom_scene_draft.dart';
+import 'package:mobile/features/custom_scene/presentation/custom_scene_entry.dart';
+import 'package:mobile/features/custom_scene/presentation/custom_scene_route_args.dart';
 import 'package:mobile/features/onboarding/domain/models/onboarding_snapshot.dart';
 import 'package:mobile/features/practice/presentation/practice_continuity_notifier.dart'
     show PracticeContinuityLoadStatusLabel;
@@ -26,10 +30,12 @@ class HomeScreen extends ConsumerStatefulWidget {
     super.key,
     this.onboardingSnapshot,
     this.embeddedInShell = false,
+    this.customSceneEntryOpener,
   });
 
   final OnboardingSnapshot? onboardingSnapshot;
   final bool embeddedInShell;
+  final CustomSceneEntryOpener? customSceneEntryOpener;
 
   @override
   ConsumerState<HomeScreen> createState() => _HomeScreenState();
@@ -175,6 +181,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with RouteAware {
     final continuityNotifier = ref.watch(practiceContinuityNotifierProvider);
     final carePathNotifier = ref.watch(carePathNotifierProvider);
     final carePathViewModel = carePathNotifier.viewModel;
+    final customSceneEnabled = ref.watch(customSceneFeatureEnabledProvider);
     final isInitialCarePathLoading =
         carePathViewModel.isLoading && carePathViewModel.moment == null;
 
@@ -218,6 +225,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with RouteAware {
                               viewModel: carePathViewModel,
                               navigationError: _todayNavigationError,
                               onStart: _openCurrentCareMoment,
+                              showCustomSceneEntry:
+                                  customSceneEnabled &&
+                                  _shouldOfferCustomSceneToday(
+                                    carePathViewModel,
+                                  ),
+                              onOpenCustomScene: () =>
+                                  (widget.customSceneEntryOpener ??
+                                  _openCustomScene)(
+                                    context,
+                                    CustomSceneEntrySource.today,
+                                  ),
                             ),
 
                             const SizedBox(height: 24),
@@ -323,6 +341,30 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with RouteAware {
     }
   }
 
+  bool _shouldOfferCustomSceneToday(CarePathViewModel viewModel) {
+    final moment = viewModel.moment;
+    final hasOpenableMoment =
+        moment != null &&
+        moment.nodeState != CarePathNodeState.unavailable &&
+        moment.spaceId.trim().isNotEmpty &&
+        moment.activityId.trim().isNotEmpty;
+    return shouldOfferCustomSceneFromToday(
+      CustomSceneTodayEntryContext(
+        currentRecommendationMatches:
+            hasOpenableMoment && !viewModel.isHeldWithFallback,
+        userSkippedRecommendation: false,
+        hasOpenableMoment: hasOpenableMoment,
+      ),
+    );
+  }
+
+  Future<void> _openCustomScene(
+    BuildContext context,
+    CustomSceneEntrySource source,
+  ) {
+    return CustomSceneRouteArgs(entrySource: source).push<void>(context);
+  }
+
   PracticeRouteArgs? _resolveStarterArgs() {
     final snapshotArgs = PracticeRouteArgs.maybeCreate(
       spaceId: widget.onboardingSnapshot?.starterSpaceId,
@@ -344,11 +386,15 @@ class _HomeTodayCareNodeCard extends StatelessWidget {
     required this.viewModel,
     required this.navigationError,
     required this.onStart,
+    required this.showCustomSceneEntry,
+    required this.onOpenCustomScene,
   });
 
   final CarePathViewModel viewModel;
   final String? navigationError;
   final VoidCallback onStart;
+  final bool showCustomSceneEntry;
+  final VoidCallback onOpenCustomScene;
 
   @override
   Widget build(BuildContext context) {
@@ -498,6 +544,13 @@ class _HomeTodayCareNodeCard extends StatelessWidget {
               child: Text(ctaLabel),
             ),
           ),
+          if (showCustomSceneEntry) ...[
+            const SizedBox(height: AppLayoutConstants.spacingXs),
+            CustomSceneEntryLink(
+              source: CustomSceneEntrySource.today,
+              onOpen: (_, _) async => onOpenCustomScene(),
+            ),
+          ],
         ],
       ),
     );

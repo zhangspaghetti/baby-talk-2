@@ -5,6 +5,9 @@ import 'package:mobile/app/router/account_entry_route_contract.dart';
 import 'package:mobile/app/router/app_route_contract.dart';
 
 import 'package:mobile/features/account/presentation/screens/account_entry_screen.dart';
+import 'package:mobile/features/custom_scene/domain/custom_scene_draft.dart';
+import 'package:mobile/features/custom_scene/presentation/custom_scene_input_screen.dart';
+import 'package:mobile/features/custom_scene/presentation/custom_scene_route_args.dart';
 import 'package:mobile/features/onboarding/presentation/screens/onboarding_flow_screen.dart';
 import 'package:mobile/features/shell/presentation/app_shell_screen.dart';
 import 'package:mobile/features/practice/presentation/screens/practice_session_screen.dart';
@@ -42,6 +45,17 @@ GoRouter createAppRouter({
         builder: (context, state) {
           final routeEntry = PracticeRouteEntry.fromObject(state.extra);
           return PracticeSessionScreen(routeEntry: routeEntry);
+        },
+      ),
+      GoRoute(
+        path: AppRouteNames.customScene,
+        builder: (context, state) {
+          final args =
+              CustomSceneRouteArgs.maybeFromObject(state.extra) ??
+              const CustomSceneRouteArgs(
+                entrySource: CustomSceneEntrySource.scene,
+              );
+          return CustomSceneInputScreen(routeArgs: args);
         },
       ),
       GoRoute(

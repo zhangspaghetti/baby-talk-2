@@ -176,6 +176,20 @@ class CustomSceneSubmissionController extends ChangeNotifier {
     });
   }
 
+  Future<void> resumeAfterCurrentAuthentication() async {
+    final accountContext = await _loadAccountContext();
+    if (accountContext == null) {
+      _setState(
+        const CustomSceneSubmissionState(
+          phase: CustomSceneSubmissionPhase.needsAuthentication,
+          message: '请先登录后再生成。',
+        ),
+      );
+      return;
+    }
+    return resumeAfterAuthentication(accountContext: accountContext);
+  }
+
   /// Restores only durable work. Unknown outcomes require an explicit retry,
   /// which reuses the same request identity for server reconciliation.
   Future<void> restore({required String accountContext}) {

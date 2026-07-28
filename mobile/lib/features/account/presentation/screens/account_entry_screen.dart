@@ -754,8 +754,11 @@ class AccountEntryScreen extends HookConsumerWidget {
                                               return;
                                             }
                                             if (origin ==
-                                                AccountEntryOrigin
-                                                    .onboardingContinuation) {
+                                                    AccountEntryOrigin
+                                                        .onboardingContinuation ||
+                                                origin ==
+                                                    AccountEntryOrigin
+                                                        .customSceneContinuation) {
                                               context.pop(
                                                 AccountEntryResult.signedIn,
                                               );

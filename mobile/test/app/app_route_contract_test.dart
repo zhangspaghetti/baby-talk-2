@@ -11,6 +11,7 @@ void main() {
       expect(AppRouteNames.home, AppRouteNames.shell);
       expect(AppRouteNames.onboarding, '/onboarding');
       expect(AppRouteNames.practice, '/practice');
+      expect(AppRouteNames.customScene, '/custom-scene');
       expect(AppRouteNames.account, '/account');
       expect(AppRouteNames.meSettings, '/me/settings');
       expect(AppRouteNames.meGrowth, '/me/growth');
@@ -18,6 +19,7 @@ void main() {
         AppRouteNames.shell,
         AppRouteNames.onboarding,
         AppRouteNames.practice,
+        AppRouteNames.customScene,
         AppRouteNames.account,
         AppRouteNames.meSettings,
         AppRouteNames.meGrowth,

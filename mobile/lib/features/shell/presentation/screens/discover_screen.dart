@@ -9,6 +9,10 @@ import 'package:mobile/app/widgets/app_english_phrase.dart';
 import 'package:mobile/app/widgets/app_scene_pill.dart';
 import 'package:mobile/app/widgets/app_shimmer.dart';
 import 'package:mobile/app/widgets/app_surface_card.dart';
+import 'package:mobile/features/custom_scene/application/custom_scene_feature_flag.dart';
+import 'package:mobile/features/custom_scene/domain/custom_scene_draft.dart';
+import 'package:mobile/features/custom_scene/presentation/custom_scene_entry.dart';
+import 'package:mobile/features/custom_scene/presentation/custom_scene_route_args.dart';
 import 'package:mobile/features/practice/domain/models/practice_activity_catalog.dart';
 import 'package:mobile/features/practice/presentation/practice_route_args.dart';
 import 'package:mobile/l10n/app_localizations.dart';
@@ -36,10 +40,18 @@ const _sceneCategories = [
 ];
 
 class DiscoverScreen extends ConsumerStatefulWidget {
-  const DiscoverScreen({super.key, this.catalogLoader, this.practiceOpener});
+  const DiscoverScreen({
+    super.key,
+    this.catalogLoader,
+    this.practiceOpener,
+    this.customSceneEntryOpener,
+    this.customSceneEnabled = customSceneFeatureEnabledByDefault,
+  });
 
   final DiscoverCatalogLoader? catalogLoader;
   final DiscoverPracticeOpener? practiceOpener;
+  final CustomSceneEntryOpener? customSceneEntryOpener;
+  final bool customSceneEnabled;
 
   @override
   ConsumerState<DiscoverScreen> createState() => _DiscoverScreenState();
@@ -176,6 +188,8 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen>
                     _DiscoverSceneList(
                       activities: filtered,
                       onOpenActivity: _openActivity,
+                      showCustomSceneEntry: widget.customSceneEnabled,
+                      onOpenCustomScene: _openCustomScene,
                     ),
                 ],
               );
@@ -300,6 +314,16 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen>
         _navigationError = l.discoverOpenActivityError(activity.title, '请稍后重试');
       });
     }
+  }
+
+  Future<void> _openCustomScene() {
+    final opener = widget.customSceneEntryOpener;
+    if (opener != null) {
+      return opener(context, CustomSceneEntrySource.scene);
+    }
+    return CustomSceneRouteArgs(
+      entrySource: CustomSceneEntrySource.scene,
+    ).push<void>(context);
   }
 }
 
@@ -606,10 +630,14 @@ class _DiscoverSceneList extends StatelessWidget {
   const _DiscoverSceneList({
     required this.activities,
     required this.onOpenActivity,
+    required this.showCustomSceneEntry,
+    required this.onOpenCustomScene,
   });
 
   final List<PracticeCatalogActivitySummary> activities;
   final ValueChanged<PracticeCatalogActivitySummary> onOpenActivity;
+  final bool showCustomSceneEntry;
+  final Future<void> Function() onOpenCustomScene;
 
   @override
   Widget build(BuildContext context) {
@@ -631,6 +659,13 @@ class _DiscoverSceneList extends StatelessWidget {
         for (final activity in activities) ...[
           _SceneCard(activity: activity, onTap: () => onOpenActivity(activity)),
           const SizedBox(height: AppLayoutConstants.spacingXs),
+        ],
+        if (showCustomSceneEntry) ...[
+          const SizedBox(height: AppLayoutConstants.spacingSm),
+          CustomSceneEntryLink(
+            source: CustomSceneEntrySource.scene,
+            onOpen: (_, _) => onOpenCustomScene(),
+          ),
         ],
       ],
     );
