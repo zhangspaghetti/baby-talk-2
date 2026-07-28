@@ -88,6 +88,7 @@ class _PracticeSessionBody extends ConsumerStatefulWidget {
 class _PracticeSessionBodyState extends ConsumerState<_PracticeSessionBody> {
   String? _requestedMomentKey;
   String? _completedMomentKey;
+  String? _confirmedGeneratedContentId;
   int _startGeneration = 0;
 
   @override
@@ -187,6 +188,12 @@ class _PracticeSessionBodyState extends ConsumerState<_PracticeSessionBody> {
       return const _PracticeLoadingScaffold();
     }
 
+    if (generatedContentId != null &&
+        notifier.phase == CareTurnPhase.utteranceReady &&
+        snapshot?.currentUtterance != null) {
+      _scheduleHandoffConfirmation(generatedContentId);
+    }
+
     return CareTurnSurface(
       notifier: notifier,
       audioControllerFactory: widget.audioControllerFactory,
@@ -199,6 +206,23 @@ class _PracticeSessionBodyState extends ConsumerState<_PracticeSessionBody> {
           : null,
       onQuietExit: () => Navigator.of(context).maybePop(),
     );
+  }
+
+  void _scheduleHandoffConfirmation(String generatedContentId) {
+    if (_confirmedGeneratedContentId == generatedContentId) {
+      return;
+    }
+    _confirmedGeneratedContentId = generatedContentId;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || _confirmedGeneratedContentId != generatedContentId) {
+        return;
+      }
+      unawaited(
+        ref
+            .read(customSceneHandoffConfirmationCoordinatorProvider)
+            .confirm(generatedContentId: generatedContentId),
+      );
+    });
   }
 }
 

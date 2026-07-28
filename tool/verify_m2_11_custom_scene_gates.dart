@@ -100,7 +100,7 @@ void _scanPrivacySinks(String root, List<M211CustomSceneGateViolation> out) {
       r'customSceneText|draft\.text|\btext\s*:',
     ).hasMatch(runtimeSource);
     final hasTelemetrySink = RegExp(
-      r'analytics|telemetry|crash|captureException|log\s*\(',
+      r'\banalytics\b|\btelemetry\b|\bcrash\b|\bcaptureException\b|\blog\s*\(',
       caseSensitive: false,
     ).hasMatch(runtimeSource);
     if (hasSensitiveValue && hasTelemetrySink) {

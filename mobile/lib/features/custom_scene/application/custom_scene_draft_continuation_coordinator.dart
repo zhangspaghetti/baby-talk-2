@@ -318,6 +318,80 @@ class CustomSceneDraftContinuationCoordinator {
 
   Future<void> cancel() => _enqueue(_clear);
 
+  /// Authentication continuation is disposable once registration has produced
+  /// a durable handoff intent. It must never delete that intent.
+  Future<void> clearAuthenticationContinuation({required String draftId}) {
+    return _enqueue(
+      () => _clearGenerateCustomSceneAuthenticationContinuation(draftId),
+    );
+  }
+
+  /// A Care Turn acknowledgement is accepted only for the current account and
+  /// exact durable ready intent. Stale, duplicate, and cross-account signals
+  /// are intentionally harmless.
+  Future<bool> completeHandoff({
+    required String generatedContentId,
+    required String accountContext,
+  }) {
+    return _enqueue(
+      () => _completeHandoff(
+        generatedContentId: generatedContentId,
+        accountContext: accountContext,
+      ),
+    );
+  }
+
+  Future<bool> _completeHandoff({
+    required String generatedContentId,
+    required String accountContext,
+  }) async {
+    final normalizedContentId = generatedContentId.trim();
+    final normalizedAccountContext = accountContext.trim();
+    if (normalizedContentId.isEmpty || normalizedAccountContext.isEmpty) {
+      return false;
+    }
+    final result = await _draftStore.readResult(now: _clock().toUtc());
+    if (result.status != CustomSceneDraftReadStatus.available ||
+        result.draft == null) {
+      return false;
+    }
+    final draft = result.draft!;
+    if (draft.state != CustomSceneStoredDraftState.readyForHandoff ||
+        draft.registeredContentId != normalizedContentId ||
+        draft.expectedAccountContext != normalizedAccountContext) {
+      return false;
+    }
+    try {
+      await _draftStore.deleteIfExists();
+      try {
+        await _clearGenerateCustomSceneAuthenticationContinuation(
+          draft.draftId,
+        );
+      } on Object {
+        // Draft deletion is success. Only the matching authentication record
+        // is eligible for best-effort cleanup.
+      }
+      return true;
+    } on Object {
+      return false;
+    }
+  }
+
+  Future<void> _clearGenerateCustomSceneAuthenticationContinuation(
+    String draftId,
+  ) async {
+    final result = await _authContinuationCoordinator.readPendingResult();
+    if (result.status != AuthContinuationReadStatus.available) {
+      return;
+    }
+    final continuation = result.continuation;
+    if (continuation?.intent != AuthContinuationIntent.generateCustomScene ||
+        continuation?.customScene?.draftId != draftId) {
+      return;
+    }
+    await _authContinuationCoordinator.clear();
+  }
+
   /// The continuation has its own clearance target. This target owns raw text.
   Future<void> clearForLifecycle() => _enqueue(_draftStore.deleteIfExists);
 

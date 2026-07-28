@@ -60,9 +60,14 @@ GoRouter createAppRouter({
               final controller = ref.watch(
                 customSceneSubmissionControllerProvider,
               );
+              final recoveryCoordinator = ref.watch(
+                customSceneRecoveryCoordinatorProvider,
+              );
               return CustomSceneInputScreen(
                 routeArgs: args,
                 controller: controller.valueOrNull,
+                onOpenPreparedContent:
+                    recoveryCoordinator.valueOrNull?.openPreparedContent,
               );
             },
           );

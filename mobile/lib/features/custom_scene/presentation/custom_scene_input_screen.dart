@@ -13,6 +13,7 @@ typedef CustomSceneAccountEntryOpener =
     Future<AccountEntryResult?> Function(BuildContext context);
 
 typedef CustomScenePresetFallback = Future<void> Function();
+typedef CustomScenePreparedContentOpener = Future<void> Function();
 
 enum CustomSceneInputExit { presetFallback }
 
@@ -23,6 +24,7 @@ class CustomSceneInputScreen extends StatefulWidget {
     this.controller,
     this.accountEntryOpener,
     this.onPresetFallback,
+    this.onOpenPreparedContent,
     this.clientRequestIdGenerator,
   });
 
@@ -30,6 +32,7 @@ class CustomSceneInputScreen extends StatefulWidget {
   final CustomSceneSubmissionController? controller;
   final CustomSceneAccountEntryOpener? accountEntryOpener;
   final CustomScenePresetFallback? onPresetFallback;
+  final CustomScenePreparedContentOpener? onOpenPreparedContent;
   final String Function()? clientRequestIdGenerator;
 
   @override
@@ -41,7 +44,6 @@ class _CustomSceneInputScreenState extends State<CustomSceneInputScreen> {
   final _fieldFocusNode = FocusNode();
   String? _inputError;
   bool _authPrompted = false;
-  bool _handoffRequested = false;
   bool _canPop = false;
 
   CustomSceneSubmissionController? get _controller => widget.controller;
@@ -76,6 +78,7 @@ class _CustomSceneInputScreenState extends State<CustomSceneInputScreen> {
     final busy = state?.isBusy ?? false;
     final message = _inputError ?? state?.message;
     final isAvailable = controller != null;
+    final canOpenPreparedContent = state?.canOpenPreparedContent ?? false;
 
     return PopScope<Object?>(
       canPop: _canPop,
@@ -175,9 +178,17 @@ class _CustomSceneInputScreenState extends State<CustomSceneInputScreen> {
                           key: const Key('custom-scene-submit-button'),
                           onPressed: !isAvailable || busy
                               ? null
+                              : canOpenPreparedContent
+                              ? (widget.onOpenPreparedContent == null
+                                    ? null
+                                    : () => unawaited(
+                                        widget.onOpenPreparedContent!(),
+                                      ))
                               : _submitOrContinueAuthentication,
                           child: Text(
-                            busy
+                            canOpenPreparedContent
+                                ? '打开已准备内容'
+                                : busy
                                 ? '正在准备…'
                                 : state?.phase ==
                                       CustomSceneSubmissionPhase
@@ -187,6 +198,16 @@ class _CustomSceneInputScreenState extends State<CustomSceneInputScreen> {
                           ),
                         ),
                       ),
+                      if (canOpenPreparedContent) ...[
+                        const SizedBox(height: AppLayoutConstants.spacingSm),
+                        Center(
+                          child: TextButton(
+                            key: const Key('custom-scene-abandon-prepared'),
+                            onPressed: busy ? null : _confirmAbandonPrepared,
+                            child: const Text('放弃这条内容'),
+                          ),
+                        ),
+                      ],
                       const SizedBox(height: AppLayoutConstants.spacingSm),
                       Center(
                         child: TextButton(
@@ -226,6 +247,9 @@ class _CustomSceneInputScreenState extends State<CustomSceneInputScreen> {
       await _openAuthentication();
       return;
     }
+    if (controller.state.canOpenPreparedContent) {
+      return;
+    }
     final text = _textController.text.trim();
     if (text.isEmpty) {
       setState(() => _inputError = '请先描述一下此刻。');
@@ -256,11 +280,6 @@ class _CustomSceneInputScreenState extends State<CustomSceneInputScreen> {
       _authPrompted = true;
       unawaited(_openAuthentication());
     }
-    if (state?.phase == CustomSceneSubmissionPhase.readyForHandoff &&
-        !_handoffRequested) {
-      _handoffRequested = true;
-      unawaited(_controller!.handoffToCareTurn());
-    }
   }
 
   Future<void> _openAuthentication() async {
@@ -274,7 +293,7 @@ class _CustomSceneInputScreenState extends State<CustomSceneInputScreen> {
     if (!mounted || result != AccountEntryResult.signedIn) {
       return;
     }
-    await controller.resumeAfterCurrentAuthentication();
+    // Account-stable recovery is app-owned. This page only resumes rendering.
   }
 
   Future<AccountEntryResult?> _defaultAccountOpener(BuildContext context) {
@@ -294,6 +313,34 @@ class _CustomSceneInputScreenState extends State<CustomSceneInputScreen> {
       return;
     }
     Navigator.of(context).pop(CustomSceneInputExit.presetFallback);
+  }
+
+  Future<void> _confirmAbandonPrepared() async {
+    final controller = _controller;
+    if (controller == null || !controller.state.canOpenPreparedContent) {
+      return;
+    }
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('放弃已准备内容？'),
+        content: const Text('放弃后需要重新描述，才会准备新内容。'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('继续保留'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('确认放弃'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) {
+      return;
+    }
+    await controller.abandonPreparedContent();
   }
 
   String _defaultRequestId() {

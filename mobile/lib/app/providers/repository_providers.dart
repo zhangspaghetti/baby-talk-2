@@ -8,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
 
 import 'package:mobile/app/local_sensitive_data_clearance_registry.dart';
+import 'package:mobile/app/custom_scene_recovery_coordinator.dart';
 import 'package:mobile/app/router/custom_scene_care_turn_handoff.dart';
 import 'package:mobile/app/uat/m1_onboarding_response_loss_harness.dart';
 import 'package:mobile/core/device/installation_id_service.dart';
@@ -27,6 +28,7 @@ import 'package:mobile/features/custom_scene/data/custom_scene_profile_context_r
 import 'package:mobile/features/custom_scene/data/custom_scene_repository_impl.dart';
 import 'package:mobile/features/custom_scene/domain/custom_scene_repository.dart';
 import 'package:mobile/features/custom_scene/application/custom_scene_draft_continuation_coordinator.dart';
+import 'package:mobile/features/custom_scene/application/custom_scene_handoff_confirmation_coordinator.dart';
 import 'package:mobile/features/custom_scene/application/custom_scene_submission_controller.dart';
 import 'package:mobile/features/household/data/local/household_local_store.dart';
 import 'package:mobile/features/household/data/repositories/household_repository.dart';
@@ -292,6 +294,18 @@ final customSceneDraftContinuationCoordinatorProvider =
       );
     });
 
+final customSceneHandoffConfirmationCoordinatorProvider =
+    Provider<CustomSceneHandoffConfirmationCoordinator>((ref) {
+      return CustomSceneHandoffConfirmationCoordinator(
+        draftContinuationCoordinator: ref.watch(
+          customSceneDraftContinuationCoordinatorProvider,
+        ),
+        accountContextLoader: ref
+            .watch(generatedPracticeContentRegistryProvider)
+            .loadCurrentAccountContext,
+      );
+    });
+
 final accountRepositoryProvider = FutureProvider<AccountRepository>((
   ref,
 ) async {
@@ -361,13 +375,24 @@ final customSceneSubmissionControllerProvider =
         approvedContentRegistrar: ref.watch(
           generatedPracticeContentRegistryProvider,
         ),
-        handoffSink: const AppCustomSceneCareTurnHandoffSink(),
         accountContextLoader: ref
             .watch(generatedPracticeContentRegistryProvider)
             .loadCurrentAccountContext,
       );
       ref.onDispose(controller.dispose);
       return controller;
+    });
+
+final customSceneRecoveryCoordinatorProvider =
+    FutureProvider<CustomSceneRecoveryCoordinator>((ref) async {
+      final coordinator = CustomSceneRecoveryCoordinator(
+        controller: await ref.watch(
+          customSceneSubmissionControllerProvider.future,
+        ),
+        handoffSink: const AppCustomSceneCareTurnHandoffSink(),
+      );
+      ref.onDispose(coordinator.dispose);
+      return coordinator;
     });
 
 // ---------------------------------------------------------------------------

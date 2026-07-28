@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:go_router/go_router.dart';
 import 'package:mobile/app/router/app_route_contract.dart';
 import 'package:mobile/app/router/root_navigator_key.dart';
@@ -15,11 +17,16 @@ class AppCustomSceneCareTurnHandoffSink
     if (context == null) {
       throw StateError('Care Turn navigator is unavailable.');
     }
-    return GoRouter.of(context).push<void>(
-      AppRouteNames.practice,
-      extra: GeneratedCareTurnRouteArgs(
-        generatedContentId: handoff.generatedContentId,
+    unawaited(
+      GoRouter.of(context).push<void>(
+        AppRouteNames.practice,
+        extra: GeneratedCareTurnRouteArgs(
+          generatedContentId: handoff.generatedContentId,
+        ),
       ),
     );
+    // `push` completes only after destination exit. Starting navigation is
+    // deliberately not a durable-handoff acknowledgement.
+    return Future<void>.value();
   }
 }

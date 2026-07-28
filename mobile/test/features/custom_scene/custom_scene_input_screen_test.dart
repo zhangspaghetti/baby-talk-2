@@ -64,40 +64,42 @@ void main() {
     },
   );
 
-  testWidgets('input submits one editable draft and hands off once', (
-    tester,
-  ) async {
-    final controller = _ImmediateSubmissionController();
-    await _pump(
-      tester,
-      CustomSceneInputScreen(
-        routeArgs: const CustomSceneRouteArgs(
-          entrySource: CustomSceneEntrySource.scene,
+  testWidgets(
+    'input submits one editable draft then only renders prepared state',
+    (tester) async {
+      final controller = _ImmediateSubmissionController();
+      await _pump(
+        tester,
+        CustomSceneInputScreen(
+          routeArgs: const CustomSceneRouteArgs(
+            entrySource: CustomSceneEntrySource.scene,
+          ),
+          controller: controller,
+          clientRequestIdGenerator: () => 'scene_request_1',
         ),
-        controller: controller,
-        clientRequestIdGenerator: () => 'scene_request_1',
-      ),
-    );
+      );
 
-    await tester.enterText(
-      find.byKey(const Key('custom-scene-text-field')),
-      '洗澡时宝宝不想碰水。',
-    );
-    await tester.tap(find.byKey(const Key('custom-scene-submit-button')));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 50));
-    await tester.pump();
+      await tester.enterText(
+        find.byKey(const Key('custom-scene-text-field')),
+        '洗澡时宝宝不想碰水。',
+      );
+      await tester.tap(find.byKey(const Key('custom-scene-submit-button')));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 50));
+      await tester.pump();
 
-    expect(controller.handoffIds, <String>['generated_1']);
-    expect(controller.submitted.single.text, '洗澡时宝宝不想碰水。');
-    expect(
-      tester
-          .widget<TextField>(find.byKey(const Key('custom-scene-text-field')))
-          .controller
-          ?.text,
-      '洗澡时宝宝不想碰水。',
-    );
-  });
+      expect(controller.handoffIds, isEmpty);
+      expect(find.text('打开已准备内容'), findsOneWidget);
+      expect(controller.submitted.single.text, '洗澡时宝宝不想碰水。');
+      expect(
+        tester
+            .widget<TextField>(find.byKey(const Key('custom-scene-text-field')))
+            .controller
+            ?.text,
+        '洗澡时宝宝不想碰水。',
+      );
+    },
+  );
 
   testWidgets('input fits phone viewport at 1.3 text scale', (tester) async {
     tester.view.devicePixelRatio = 1;
@@ -159,7 +161,6 @@ class _ImmediateSubmissionController extends CustomSceneSubmissionController {
           ),
         ),
         approvedContentRegistrar: _FakeRegistrar(),
-        handoffSink: _FakeHandoffSink(),
         accountContextLoader: () async => 'account_1',
       );
 
@@ -181,7 +182,6 @@ class _ImmediateSubmissionController extends CustomSceneSubmissionController {
     notifyListeners();
   }
 
-  @override
   Future<void> handoffToCareTurn() async {
     handoffIds.add(_testState.generatedContentId!);
     _testState = const CustomSceneSubmissionState.editing();
@@ -202,15 +202,6 @@ class _FakeRegistrar implements CustomSceneApprovedContentRegistrar {
     required String accountContext,
     required GeneratedCareMoment moment,
   }) async {}
-}
-
-class _FakeHandoffSink implements CustomSceneCareTurnHandoffSink {
-  final List<String> ids = <String>[];
-
-  @override
-  Future<void> handoff(CustomSceneCareTurnHandoff handoff) async {
-    ids.add(handoff.generatedContentId);
-  }
 }
 
 GeneratedCareMoment _moment() {

@@ -50,6 +50,8 @@ enum CustomSceneSubmissionPhase {
   generated,
   registeringCareMoment,
   readyForHandoff,
+  handoffFailed,
+  handoffTimedOut,
   recoverableError,
 }
 
@@ -77,6 +79,15 @@ class CustomSceneSubmissionState {
     CustomSceneSubmissionPhase.registeringCareMoment => true,
     _ => false,
   };
+
+  bool get canOpenPreparedContent {
+    final id = generatedContentId?.trim();
+    return id != null &&
+        id.isNotEmpty &&
+        (phase == CustomSceneSubmissionPhase.readyForHandoff ||
+            phase == CustomSceneSubmissionPhase.handoffFailed ||
+            phase == CustomSceneSubmissionPhase.handoffTimedOut);
+  }
 }
 
 /// Serializes every network/disk mutation around a durable request identity.
@@ -88,7 +99,6 @@ class CustomSceneSubmissionController extends ChangeNotifier {
     required CustomSceneDraftContinuationCoordinator
     draftContinuationCoordinator,
     required CustomSceneApprovedContentRegistrar approvedContentRegistrar,
-    required CustomSceneCareTurnHandoffSink handoffSink,
     required CustomSceneAccountContextLoader accountContextLoader,
     DateTime Function()? clock,
     String Function()? draftIdGenerator,
@@ -96,7 +106,6 @@ class CustomSceneSubmissionController extends ChangeNotifier {
        _draftStore = draftStore,
        _draftContinuationCoordinator = draftContinuationCoordinator,
        _approvedContentRegistrar = approvedContentRegistrar,
-       _handoffSink = handoffSink,
        _accountContextLoader = accountContextLoader,
        _clock = clock ?? DateTime.now,
        _draftIdGenerator = draftIdGenerator ?? _defaultDraftId;
@@ -105,7 +114,6 @@ class CustomSceneSubmissionController extends ChangeNotifier {
   final CustomSceneDraftStore _draftStore;
   final CustomSceneDraftContinuationCoordinator _draftContinuationCoordinator;
   final CustomSceneApprovedContentRegistrar _approvedContentRegistrar;
-  final CustomSceneCareTurnHandoffSink _handoffSink;
   final CustomSceneAccountContextLoader _accountContextLoader;
   final DateTime Function() _clock;
   final String Function() _draftIdGenerator;
@@ -216,12 +224,10 @@ class CustomSceneSubmissionController extends ChangeNotifier {
       }
       final draft = result.draft!;
       if (!_matchesAccount(draft, accountContext)) {
-        await _draftContinuationCoordinator.cancel();
         _setState(_recoverable('账号已切换，请重新填写描述。'));
         return;
       }
       if (draft.state == CustomSceneStoredDraftState.readyForHandoff) {
-        await _draftContinuationCoordinator.cancel();
         _setState(
           CustomSceneSubmissionState(
             phase: CustomSceneSubmissionPhase.readyForHandoff,
@@ -280,7 +286,6 @@ class CustomSceneSubmissionController extends ChangeNotifier {
       }
       final draft = result.draft!;
       if (!_matchesAccount(draft, accountContext)) {
-        await _draftContinuationCoordinator.cancel();
         _setState(_recoverable('账号已切换，请重新填写描述。'));
         return;
       }
@@ -299,6 +304,7 @@ class CustomSceneSubmissionController extends ChangeNotifier {
         await _registerApprovedMoment(
           accountContext: accountContext,
           moment: _approvedMomentPendingRegistration!,
+          draft: draft,
           operationEpoch: _operationEpoch,
         );
         return;
@@ -313,27 +319,31 @@ class CustomSceneSubmissionController extends ChangeNotifier {
     });
   }
 
-  Future<void> handoffToCareTurn() {
+  /// App-level recovery owns navigation. It reports a failed route attempt
+  /// here without changing the durable intent.
+  void markHandoffRouteFailed() {
+    final generatedContentId = _state.generatedContentId;
+    if (!_state.canOpenPreparedContent || generatedContentId == null) {
+      return;
+    }
+    _setState(
+      CustomSceneSubmissionState(
+        phase: CustomSceneSubmissionPhase.handoffFailed,
+        message: '暂时无法打开照护内容，请再试一次。',
+        generatedContentId: generatedContentId,
+      ),
+    );
+  }
+
+  /// Explicit abandonment is distinct from successful Care Turn confirmation.
+  Future<void> abandonPreparedContent() {
     return _enqueue(() async {
-      final generatedContentId = _state.generatedContentId;
-      if (_state.phase != CustomSceneSubmissionPhase.readyForHandoff ||
-          generatedContentId == null) {
+      if (!_state.canOpenPreparedContent) {
         return;
       }
-      try {
-        await _handoffSink.handoff(
-          CustomSceneCareTurnHandoff(generatedContentId: generatedContentId),
-        );
-        _setState(const CustomSceneSubmissionState.editing());
-      } on Object {
-        _setState(
-          CustomSceneSubmissionState(
-            phase: CustomSceneSubmissionPhase.readyForHandoff,
-            message: '暂时无法打开照护内容，请再试一次。',
-            generatedContentId: generatedContentId,
-          ),
-        );
-      }
+      await _draftContinuationCoordinator.cancel();
+      _approvedMomentPendingRegistration = null;
+      _setState(const CustomSceneSubmissionState.editing());
     });
   }
 
@@ -386,7 +396,6 @@ class CustomSceneSubmissionController extends ChangeNotifier {
       return;
     }
     if (!_matchesAccount(draft, accountContext)) {
-      await _draftContinuationCoordinator.cancel();
       _setState(_recoverable('账号已切换，请重新填写描述。'));
       return;
     }
@@ -418,6 +427,7 @@ class CustomSceneSubmissionController extends ChangeNotifier {
       final moment = await _repository.generate(submitting.toDraft());
       final pendingRegistration = submitting.copyWith(
         state: CustomSceneStoredDraftState.approvedPendingRegistration,
+        registeredContentId: moment.generatedContentId,
       );
       await _draftStore.write(pendingRegistration);
       _approvedMomentPendingRegistration = moment;
@@ -433,6 +443,7 @@ class CustomSceneSubmissionController extends ChangeNotifier {
       await _registerApprovedMoment(
         accountContext: accountContext,
         moment: moment,
+        draft: pendingRegistration,
         operationEpoch: operationEpoch,
       );
     } on CustomSceneFailure catch (failure) {
@@ -452,6 +463,7 @@ class CustomSceneSubmissionController extends ChangeNotifier {
   Future<void> _registerApprovedMoment({
     required String accountContext,
     required GeneratedCareMoment moment,
+    required CustomSceneStoredDraft draft,
     required int operationEpoch,
   }) async {
     _setState(
@@ -464,7 +476,20 @@ class CustomSceneSubmissionController extends ChangeNotifier {
         accountContext: accountContext,
         moment: moment,
       );
-      await _draftContinuationCoordinator.cancel();
+      final readyForHandoff = draft.copyWith(
+        state: CustomSceneStoredDraftState.readyForHandoff,
+        expectedAccountContext: accountContext,
+        registeredContentId: moment.generatedContentId,
+      );
+      await _draftStore.write(readyForHandoff);
+      try {
+        await _draftContinuationCoordinator.clearAuthenticationContinuation(
+          draftId: readyForHandoff.draftId,
+        );
+      } on Object {
+        // Ready intent is committed. A stale authentication continuation is
+        // removed by confirmation or lifecycle cleanup.
+      }
       _approvedMomentPendingRegistration = null;
       if (!_isOperationCurrent(operationEpoch)) {
         return;
@@ -552,7 +577,6 @@ class CustomSceneSubmissionController extends ChangeNotifier {
         }
         if (accountContext != null &&
             !_matchesAccount(stored, accountContext)) {
-          await _draftContinuationCoordinator.cancel();
           throw const CustomSceneSubmissionException();
         }
         return stored;

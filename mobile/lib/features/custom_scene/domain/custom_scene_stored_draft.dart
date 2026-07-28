@@ -31,11 +31,12 @@ class CustomSceneStoredDraft {
       throw ArgumentError.value(expiresAt, 'expiresAt', '必须晚于 createdAt。');
     }
     if (state == CustomSceneStoredDraftState.readyForHandoff &&
-        this.registeredContentId == null) {
+        (this.registeredContentId == null ||
+            this.expectedAccountContext == null)) {
       throw ArgumentError.value(
         registeredContentId,
         'registeredContentId',
-        'readyForHandoff 必须保存 generated content identity。',
+        'readyForHandoff 必须保存 generated content identity 和账号上下文。',
       );
     }
   }

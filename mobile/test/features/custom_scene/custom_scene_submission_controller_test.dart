@@ -30,56 +30,70 @@ void main() {
       }
     });
 
-    test('serializes submit and emits exactly one Care Turn handoff', () async {
-      final gate = Completer<void>();
-      final requestStarted = Completer<void>();
-      final repository = _FakeRepository((draft) async {
-        requestStarted.complete();
-        await gate.future;
-        return _moment();
-      });
-      final registrar = _FakeRegistrar();
-      final handoff = _FakeHandoffSink();
-      final harness = _harness(
-        tempDir: tempDir,
-        clock: () => now,
-        repository: repository,
-        registrar: registrar,
-        handoff: handoff,
-      );
-      final draft = _draft();
+    test(
+      'persists ready handoff before any route and restores same content',
+      () async {
+        final gate = Completer<void>();
+        final requestStarted = Completer<void>();
+        final repository = _FakeRepository((draft) async {
+          requestStarted.complete();
+          await gate.future;
+          return _moment();
+        });
+        final registrar = _FakeRegistrar();
+        final harness = _harness(
+          tempDir: tempDir,
+          clock: () => now,
+          repository: repository,
+          registrar: registrar,
+          handoff: _FakeHandoffSink(),
+        );
+        final draft = _draft();
 
-      final first = harness.controller.submit(draft);
-      final second = harness.controller.submit(draft);
-      await requestStarted.future;
-      expect(repository.received, hasLength(1));
-      expect(
-        repository.received.single.requestIdentity.clientRequestId,
-        'request_1',
-      );
-      gate.complete();
-      await Future.wait(<Future<void>>[first, second]);
+        final first = harness.controller.submit(draft);
+        final second = harness.controller.submit(draft);
+        await requestStarted.future;
+        expect(repository.received, hasLength(1));
+        expect(
+          repository.received.single.requestIdentity.clientRequestId,
+          'request_1',
+        );
+        gate.complete();
+        await Future.wait(<Future<void>>[first, second]);
 
-      expect(registrar.moments, hasLength(1));
-      expect(
-        harness.controller.state.phase,
-        CustomSceneSubmissionPhase.readyForHandoff,
-      );
-      expect(
-        (await harness.draftStore.readResult(now: now)).status,
-        CustomSceneDraftReadStatus.notFound,
-      );
+        expect(registrar.moments, hasLength(1));
+        expect(
+          harness.controller.state.phase,
+          CustomSceneSubmissionPhase.readyForHandoff,
+        );
+        expect(
+          (await harness.draftStore.readResult(now: now)).draft?.state,
+          CustomSceneStoredDraftState.readyForHandoff,
+        );
+        expect(
+          (await harness.draftStore.readResult(
+            now: now,
+          )).draft?.registeredContentId,
+          'generated_1',
+        );
 
-      await Future.wait(<Future<void>>[
-        harness.controller.handoffToCareTurn(),
-        harness.controller.handoffToCareTurn(),
-      ]);
-      expect(handoff.generatedContentIds, <String>['generated_1']);
-      expect(
-        harness.controller.state.phase,
-        CustomSceneSubmissionPhase.editing,
-      );
-    });
+        final restartedRepository = _FakeRepository((_) async => _moment());
+        final restarted = _harness(
+          tempDir: tempDir,
+          clock: () => now,
+          repository: restartedRepository,
+          registrar: _FakeRegistrar(),
+          handoff: _FakeHandoffSink(),
+        );
+        await restarted.controller.restore(accountContext: 'account_a');
+        expect(
+          restarted.controller.state.phase,
+          CustomSceneSubmissionPhase.readyForHandoff,
+        );
+        expect(restarted.controller.state.generatedContentId, 'generated_1');
+        expect(restartedRepository.received, isEmpty);
+      },
+    );
 
     test(
       'unknown outcome retries with the original client request identity',
@@ -208,6 +222,12 @@ void main() {
           harness.controller.state.phase,
           CustomSceneSubmissionPhase.readyForHandoff,
         );
+        expect(
+          (await harness.continuation.readForAuthenticatedResume(
+            accountContext: 'account_a',
+          )).status,
+          CustomSceneDraftContinuationStatus.notFound,
+        );
       },
     );
 
@@ -285,7 +305,6 @@ _Harness _harness({
       draftStore: draftStore,
       draftContinuationCoordinator: continuation,
       approvedContentRegistrar: registrar,
-      handoffSink: handoff,
       accountContextLoader: () async => 'account_a',
       clock: clock,
       draftIdGenerator: () => 'draft_1',
