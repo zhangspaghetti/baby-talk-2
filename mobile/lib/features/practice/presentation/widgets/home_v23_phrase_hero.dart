@@ -71,7 +71,7 @@ class _HomeV23PhraseHeroState extends State<HomeV23PhraseHero> {
 
   Future<void> _playRealAudio() async {
     if (_playbackState == _PlaybackState.playing) return;
-    
+
     final assetPath = widget.starterPhrase?.audioPlayerAsset;
     if (assetPath == null || assetPath.isEmpty) {
       if (mounted) {
@@ -174,7 +174,11 @@ class _HomeV23PhraseHeroState extends State<HomeV23PhraseHero> {
                       ),
                     ),
                     const SizedBox(width: 4),
-                    Icon(Icons.arrow_forward_ios, size: 12, color: colors.accentDark),
+                    Icon(
+                      Icons.arrow_forward_ios,
+                      size: 12,
+                      color: colors.accentDark,
+                    ),
                   ],
                 ),
               ),
@@ -196,7 +200,11 @@ class _HomeV23PhraseHeroState extends State<HomeV23PhraseHero> {
                       ),
                     ),
                     const SizedBox(width: 4),
-                    Icon(Icons.auto_awesome, size: 14, color: colors.accentDark),
+                    Icon(
+                      Icons.auto_awesome,
+                      size: 14,
+                      color: colors.accentDark,
+                    ),
                   ],
                 ),
               ),
@@ -204,7 +212,7 @@ class _HomeV23PhraseHeroState extends State<HomeV23PhraseHero> {
           ],
         ),
         const SizedBox(height: 24),
-        
+
         // Phrase Hero Card
         Container(
           width: double.infinity,
@@ -254,7 +262,7 @@ class _HomeV23PhraseHeroState extends State<HomeV23PhraseHero> {
                 ),
               ),
               const SizedBox(height: 32),
-              
+
               // Playback Status Text
               Semantics(
                 label: '播放状态: $_playbackStatusText',
@@ -266,7 +274,7 @@ class _HomeV23PhraseHeroState extends State<HomeV23PhraseHero> {
                 ),
               ),
               const SizedBox(height: 12),
-              
+
               // Actions
               Row(
                 children: [
@@ -282,8 +290,8 @@ class _HomeV23PhraseHeroState extends State<HomeV23PhraseHero> {
                         _playbackState == _PlaybackState.playing
                             ? '播放中'
                             : _playbackState == _PlaybackState.played
-                                ? '再听一次'
-                                : '读一下',
+                            ? '再听一次'
+                            : '读一下',
                       ),
                       style: OutlinedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 16),

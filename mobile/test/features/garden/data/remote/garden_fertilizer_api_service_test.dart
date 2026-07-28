@@ -197,15 +197,14 @@ void main() {
 
     test('malformed when key fields are both unavailable', () async {
       await expectMalformedForData({
-        'state': {
-          'appliedCount': 'not-a-number',
-          'claimedEventKeys': 1,
-        },
+        'state': {'appliedCount': 'not-a-number', 'claimedEventKeys': 1},
       });
     });
 
     test('malformed when key fields are both missing', () async {
-      await expectMalformedForData({'state': {'lastAppliedAt': '2026-05-30T10:01:00Z'}});
+      await expectMalformedForData({
+        'state': {'lastAppliedAt': '2026-05-30T10:01:00Z'},
+      });
     });
   });
 }

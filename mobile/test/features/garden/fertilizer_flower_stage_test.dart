@@ -60,10 +60,7 @@ void main() {
     });
 
     test('never goes negative when applied exceeds claimed', () {
-      const state = FertilizerState(
-        appliedCount: 5,
-        claimedEventKeys: {'a'},
-      );
+      const state = FertilizerState(appliedCount: 5, claimedEventKeys: {'a'});
       expect(state.backpackCount, 0);
     });
 

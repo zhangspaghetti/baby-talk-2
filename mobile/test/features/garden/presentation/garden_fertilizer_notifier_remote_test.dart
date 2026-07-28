@@ -109,14 +109,8 @@ void main() {
 
       expect(merged.appliedCount, 2);
       expect(merged.claimedEventKeys, {'evt-1', 'evt-2', 'evt-3'});
-      expect(
-        merged.lastClaimedAt,
-        DateTime(2026, 5, 30, 12, 0),
-      );
-      expect(
-        merged.lastAppliedAt,
-        DateTime(2026, 5, 30, 12, 1),
-      );
+      expect(merged.lastClaimedAt, DateTime(2026, 5, 30, 12, 0));
+      expect(merged.lastAppliedAt, DateTime(2026, 5, 30, 12, 1));
     });
   });
 }

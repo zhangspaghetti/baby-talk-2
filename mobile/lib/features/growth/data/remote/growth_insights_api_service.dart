@@ -17,13 +17,13 @@ class GrowthInsightsApiException implements Exception {
   });
 
   const GrowthInsightsApiException.network({required String message})
-      : this(kind: GrowthInsightsApiFailureKind.network, message: message);
+    : this(kind: GrowthInsightsApiFailureKind.network, message: message);
 
   const GrowthInsightsApiException.timeout({required String message})
-      : this(kind: GrowthInsightsApiFailureKind.timeout, message: message);
+    : this(kind: GrowthInsightsApiFailureKind.timeout, message: message);
 
   const GrowthInsightsApiException.malformed({required String message})
-      : this(kind: GrowthInsightsApiFailureKind.malformed, message: message);
+    : this(kind: GrowthInsightsApiFailureKind.malformed, message: message);
 
   final GrowthInsightsApiFailureKind kind;
   final String message;
@@ -40,9 +40,9 @@ class GrowthInsightsApiService {
     Dio? dio,
     String? baseUrl,
     this.appVersion = defaultAccountApiVersion,
-  })  : _dio =
-            dio ?? AppDio.create(baseUrl: baseUrl ?? defaultAccountApiBaseUrl),
-        _ownsDio = dio == null;
+  }) : _dio =
+           dio ?? AppDio.create(baseUrl: baseUrl ?? defaultAccountApiBaseUrl),
+       _ownsDio = dio == null;
 
   final Dio _dio;
   final bool _ownsDio;
@@ -50,9 +50,11 @@ class GrowthInsightsApiService {
 
   /// Fetches growth insights for the given [period] (e.g. `'week'`, `'month'`, `'year'`).
   Future<GrowthInsightsPayload> fetchInsights(String period) async {
-    final json = await _requestJson('GET', '/api/v1/growth/insights', query: {
-      'period': period,
-    });
+    final json = await _requestJson(
+      'GET',
+      '/api/v1/growth/insights',
+      query: {'period': period},
+    );
     return GrowthInsightsPayload.fromJson(json);
   }
 

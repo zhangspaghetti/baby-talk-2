@@ -15,10 +15,7 @@ import 'package:mobile/app/theme/app_theme.dart';
 /// 4. CTA: "帮我一句"
 /// 5. Response: main phrase + up to 2 alternatives
 class HomeBTemporarySceneSheet extends ConsumerStatefulWidget {
-  const HomeBTemporarySceneSheet({
-    super.key,
-    this.initialScene,
-  });
+  const HomeBTemporarySceneSheet({super.key, this.initialScene});
 
   final String? initialScene;
 
@@ -111,14 +108,8 @@ class _HomeBTemporarySceneSheetState
         mainChinese: '穿鞋啦',
         tip: '指着鞋子说，给一个明确的下一步。',
         alternatives: [
-          _AlternativePhrase(
-            english: "Let's go!",
-            chinese: '走吧！',
-          ),
-          _AlternativePhrase(
-            english: 'Ready?',
-            chinese: '准备好了吗？',
-          ),
+          _AlternativePhrase(english: "Let's go!", chinese: '走吧！'),
+          _AlternativePhrase(english: 'Ready?', chinese: '准备好了吗？'),
         ],
       );
     }
@@ -142,9 +133,7 @@ class _HomeBTemporarySceneSheetState
         alignment: Alignment.bottomCenter,
         child: Container(
           key: const Key('home-b-temporary-scene-sheet'),
-          constraints: BoxConstraints(
-            maxHeight: mediaQuery.size.height * 0.85,
-          ),
+          constraints: BoxConstraints(maxHeight: mediaQuery.size.height * 0.85),
           decoration: BoxDecoration(
             color: colors.bgSurface,
             borderRadius: const BorderRadius.vertical(
@@ -207,8 +196,9 @@ class _HomeBTemporarySceneSheetState
                             ? colors.accentDark
                             : colors.bgSunken,
                         side: BorderSide(
-                          color:
-                              isSelected ? colors.accentDark : colors.outlineSoft,
+                          color: isSelected
+                              ? colors.accentDark
+                              : colors.outlineSoft,
                         ),
                         labelStyle: TextStyle(
                           color: isSelected ? Colors.white : colors.textPrimary,
@@ -259,7 +249,8 @@ class _HomeBTemporarySceneSheetState
                   width: double.infinity,
                   child: FilledButton(
                     key: const Key('home-b-temporary-cta'),
-                    onPressed: (_selectedScene != null ||
+                    onPressed:
+                        (_selectedScene != null ||
                             _inputController.text.trim().isNotEmpty)
                         ? _generateSuggestion
                         : null,
@@ -304,7 +295,9 @@ class _HomeBTemporarySceneSheetState
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
             color: colors.englishSoft,
-            borderRadius: BorderRadius.circular(AppLayoutConstants.mediumRadius),
+            borderRadius: BorderRadius.circular(
+              AppLayoutConstants.mediumRadius,
+            ),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -451,10 +444,7 @@ class _SceneResponse {
 }
 
 class _AlternativePhrase {
-  const _AlternativePhrase({
-    required this.english,
-    required this.chinese,
-  });
+  const _AlternativePhrase({required this.english, required this.chinese});
 
   final String english;
   final String chinese;

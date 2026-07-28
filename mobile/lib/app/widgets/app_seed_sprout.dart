@@ -7,11 +7,7 @@ import 'package:mobile/app/theme/app_theme.dart';
 /// and warm brown seed. Respects prefers-reduced-motion by showing
 /// the final state immediately.
 class AppSeedSprout extends StatefulWidget {
-  const AppSeedSprout({
-    super.key,
-    this.onAnimationComplete,
-    this.size = 120,
-  });
+  const AppSeedSprout({super.key, this.onAnimationComplete, this.size = 120});
 
   final VoidCallback? onAnimationComplete;
   final double size;

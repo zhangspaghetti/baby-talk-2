@@ -5,9 +5,7 @@ import 'package:mobile/features/settings/presentation/settings_notifier.dart';
 void main() {
   group('SettingsNotifier', () {
     test('initializes with idle state and default snapshot', () async {
-      final notifier = SettingsNotifier(
-        repository: _FakeSettingsRepository(),
-      );
+      final notifier = SettingsNotifier(repository: _FakeSettingsRepository());
 
       expect(notifier.loadStatus, SettingsLoadStatus.idle);
       expect(notifier.saveStatus, SettingsSaveStatus.idle);
@@ -53,9 +51,7 @@ void main() {
     });
 
     test('initialize handles load error gracefully', () async {
-      final repository = _FakeSettingsRepository(
-        shouldFailOnRead: true,
-      );
+      final repository = _FakeSettingsRepository(shouldFailOnRead: true);
       final notifier = SettingsNotifier(repository: repository);
 
       await notifier.initialize();
@@ -75,9 +71,7 @@ void main() {
       expect(notifier.snapshot.childName, '第一次');
 
       // Simulate external change
-      repository.updateDirectly(
-        const SettingsSnapshot(childName: '第二次'),
-      );
+      repository.updateDirectly(const SettingsSnapshot(childName: '第二次'));
 
       await notifier.refresh();
       expect(notifier.snapshot.childName, '第二次');
@@ -121,10 +115,7 @@ void main() {
 
       await notifier.initialize();
 
-      await notifier.updateCaregiverPreferences(
-        role: '妈妈',
-        language: 'en',
-      );
+      await notifier.updateCaregiverPreferences(role: '妈妈', language: 'en');
 
       expect(notifier.caregiverRole, '妈妈');
       expect(notifier.preferredLanguage, 'en');
@@ -136,10 +127,7 @@ void main() {
 
       await notifier.initialize();
 
-      await notifier.updatePlaybackPreferences(
-        autoPlay: false,
-        speed: 1.5,
-      );
+      await notifier.updatePlaybackPreferences(autoPlay: false, speed: 1.5);
 
       expect(notifier.autoPlayEnabled, isFalse);
       expect(notifier.audioSpeed, 1.5);
@@ -198,10 +186,7 @@ void main() {
       // (only one write to the repository)
       expect(repository.writeCount, lessThanOrEqualTo(2));
       // At least one of the updates should have taken effect
-      expect(
-        notifier.reminderEnabled || notifier.childName == '米米',
-        isTrue,
-      );
+      expect(notifier.reminderEnabled || notifier.childName == '米米', isTrue);
     });
 
     test('notifier exposes convenience getters from snapshot', () async {
@@ -253,9 +238,7 @@ void main() {
     });
 
     test('dispose prevents late listener notifications', () async {
-      final repository = _FakeSettingsRepository(
-        shouldFailOnRead: true,
-      );
+      final repository = _FakeSettingsRepository(shouldFailOnRead: true);
       final notifier = SettingsNotifier(repository: repository);
 
       await notifier.initialize();
@@ -301,9 +284,7 @@ class _FakeSettingsRepository extends Fake implements SettingsRepository {
     if (shouldFailOnWrite) {
       throw StateError('磁盘写入失败。');
     }
-    final updated = snapshot.copyWith(
-      lastModifiedAt: DateTime.now().toUtc(),
-    );
+    final updated = snapshot.copyWith(lastModifiedAt: DateTime.now().toUtc());
     _currentSnapshot = updated;
     return updated;
   }
@@ -316,9 +297,9 @@ class _FakeSettingsRepository extends Fake implements SettingsRepository {
     if (shouldFailOnWrite) {
       throw StateError('磁盘写入失败。');
     }
-    final updated = updater(_currentSnapshot).copyWith(
-      lastModifiedAt: DateTime.now().toUtc(),
-    );
+    final updated = updater(
+      _currentSnapshot,
+    ).copyWith(lastModifiedAt: DateTime.now().toUtc());
     _currentSnapshot = updated;
     return updated;
   }

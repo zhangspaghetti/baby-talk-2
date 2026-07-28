@@ -26,8 +26,8 @@ class HomeBCareMomentTitle extends StatelessWidget {
     final timeWord = hour < 12
         ? '早上'
         : hour < 18
-            ? '下午'
-            : '今晚';
+        ? '下午'
+        : '今晚';
 
     return Column(
       key: const Key('home-b-care-moment-title'),
@@ -56,7 +56,9 @@ class HomeBCareMomentTitle extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
           decoration: BoxDecoration(
             color: colors.bgAccentSoft,
-            borderRadius: BorderRadius.circular(AppLayoutConstants.mediumRadius),
+            borderRadius: BorderRadius.circular(
+              AppLayoutConstants.mediumRadius,
+            ),
           ),
           child: Text(
             sceneTag,

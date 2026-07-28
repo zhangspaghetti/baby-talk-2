@@ -46,10 +46,7 @@ class SceneButton extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(
-              emoji,
-              style: const TextStyle(fontSize: 32),
-            ),
+            Text(emoji, style: const TextStyle(fontSize: 32)),
             const SizedBox(height: 8),
             Text(
               label,

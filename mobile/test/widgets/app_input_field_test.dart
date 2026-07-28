@@ -27,9 +27,7 @@ void main() {
 
   group('AppInputField 形态契约（收敛目标态）', () {
     testWidgets('standard 变体：r8 圆角、bgSurface 背景、12/16 内边距', (tester) async {
-      await tester.pumpWidget(
-        buildApp(const AppInputField(hintText: '请输入')),
-      );
+      await tester.pumpWidget(buildApp(const AppInputField(hintText: '请输入')));
 
       final decoration = decorationOf(tester);
       final border = decoration.enabledBorder as OutlineInputBorder;
@@ -50,9 +48,7 @@ void main() {
     });
 
     testWidgets('standard 变体使用 bgSurface 填充色', (tester) async {
-      await tester.pumpWidget(
-        buildApp(const AppInputField(hintText: '请输入')),
-      );
+      await tester.pumpWidget(buildApp(const AppInputField(hintText: '请输入')));
 
       final context = tester.element(find.byType(AppInputField));
       expect(decorationOf(tester).fillColor, context.appColors.bgSurface);
@@ -134,12 +130,7 @@ void main() {
 
     testWidgets('提供 semanticsLabel 时包裹 Semantics(textField)', (tester) async {
       await tester.pumpWidget(
-        buildApp(
-          const AppInputField(
-            hintText: '请输入',
-            semanticsLabel: '手机号',
-          ),
-        ),
+        buildApp(const AppInputField(hintText: '请输入', semanticsLabel: '手机号')),
       );
 
       expect(

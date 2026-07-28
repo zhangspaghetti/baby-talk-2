@@ -78,7 +78,8 @@ void main() {
       await repository.claim('evt-2');
       await repository.apply();
 
-      final dbName = 'fertilizer_persist_${DateTime.now().microsecondsSinceEpoch}';
+      final dbName =
+          'fertilizer_persist_${DateTime.now().microsecondsSinceEpoch}';
       final ds1 = await GardenFertilizerLocalDataSource.open(
         directory: tempDir.path,
         name: dbName,

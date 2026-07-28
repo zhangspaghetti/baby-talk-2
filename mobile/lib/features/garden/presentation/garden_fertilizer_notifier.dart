@@ -92,10 +92,11 @@ class GardenFertilizerNotifier extends ChangeNotifier {
       return;
     }
 
-    final entries = _growthNotifier.snapshot.diaryEntries
-        .where((e) => e.kind == GrowthDiaryEntryKind.practice)
-        .toList()
-      ..sort((a, b) => b.occurredAt.compareTo(a.occurredAt));
+    final entries =
+        _growthNotifier.snapshot.diaryEntries
+            .where((e) => e.kind == GrowthDiaryEntryKind.practice)
+            .toList()
+          ..sort((a, b) => b.occurredAt.compareTo(a.occurredAt));
 
     final pending = <FertilizerPack>[];
     final claimed = <FertilizerPack>[];

@@ -10,11 +10,7 @@ import 'package:mobile/app/widgets/app_mentor_bubble.dart';
 /// 步骤 2 结构统一后，本组件为 [AppMentorBubble] 的薄包装，
 /// 委托至 [AppMentorBubbleVariant.home] 形态，视觉与行为保持不变。
 class HomeBMentorBubble extends StatelessWidget {
-  const HomeBMentorBubble({
-    super.key,
-    required this.message,
-    this.onTap,
-  });
+  const HomeBMentorBubble({super.key, required this.message, this.onTap});
 
   final String message;
   final VoidCallback? onTap;

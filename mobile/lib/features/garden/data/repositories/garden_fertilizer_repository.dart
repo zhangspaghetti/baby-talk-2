@@ -113,8 +113,14 @@ class GardenFertilizerRepository {
         ...localState.claimedEventKeys,
         ...remoteState.claimedEventKeys,
       },
-      lastClaimedAt: _newerOf(localState.lastClaimedAt, remoteState.lastClaimedAt),
-      lastAppliedAt: _newerOf(localState.lastAppliedAt, remoteState.lastAppliedAt),
+      lastClaimedAt: _newerOf(
+        localState.lastClaimedAt,
+        remoteState.lastClaimedAt,
+      ),
+      lastAppliedAt: _newerOf(
+        localState.lastAppliedAt,
+        remoteState.lastAppliedAt,
+      ),
     );
   }
 }

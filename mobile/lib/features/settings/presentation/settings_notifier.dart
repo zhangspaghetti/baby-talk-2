@@ -16,7 +16,7 @@ enum SettingsSaveStatus { idle, saving, success, error }
 
 class SettingsNotifier extends ChangeNotifier {
   SettingsNotifier({required SettingsRepository repository})
-      : _repository = repository;
+    : _repository = repository;
 
   final SettingsRepository _repository;
 
@@ -70,11 +70,13 @@ class SettingsNotifier extends ChangeNotifier {
     required int hour,
     required int minute,
   }) async {
-    await _update((s) => s.copyWith(
-          reminderEnabled: enabled,
-          reminderHour: hour,
-          reminderMinute: minute,
-        ));
+    await _update(
+      (s) => s.copyWith(
+        reminderEnabled: enabled,
+        reminderHour: hour,
+        reminderMinute: minute,
+      ),
+    );
   }
 
   /// Updates baby profile fields.
@@ -85,13 +87,15 @@ class SettingsNotifier extends ChangeNotifier {
     int? ageMonths,
     String? stage,
   }) async {
-    await _update((s) => s.copyWith(
-          childName: name,
-          childBirthDate: birthDate,
-          clearChildBirthDate: clearBirthDate,
-          childAgeMonths: ageMonths,
-          childStage: stage,
-        ));
+    await _update(
+      (s) => s.copyWith(
+        childName: name,
+        childBirthDate: birthDate,
+        clearChildBirthDate: clearBirthDate,
+        childAgeMonths: ageMonths,
+        childStage: stage,
+      ),
+    );
   }
 
   /// Updates caregiver preferences.
@@ -99,10 +103,9 @@ class SettingsNotifier extends ChangeNotifier {
     String? role,
     String? language,
   }) async {
-    await _update((s) => s.copyWith(
-          caregiverRole: role,
-          preferredLanguage: language,
-        ));
+    await _update(
+      (s) => s.copyWith(caregiverRole: role, preferredLanguage: language),
+    );
   }
 
   /// Updates playback preferences.
@@ -110,10 +113,9 @@ class SettingsNotifier extends ChangeNotifier {
     bool? autoPlay,
     double? speed,
   }) async {
-    await _update((s) => s.copyWith(
-          autoPlayEnabled: autoPlay,
-          audioSpeed: speed,
-        ));
+    await _update(
+      (s) => s.copyWith(autoPlayEnabled: autoPlay, audioSpeed: speed),
+    );
   }
 
   /// Resets all settings to factory defaults.

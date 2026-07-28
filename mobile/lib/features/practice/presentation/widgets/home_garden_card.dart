@@ -57,9 +57,9 @@ class HomeGardenCard extends StatelessWidget {
           Text(
             'New words planted this week: $wordsPlanted',
             key: const Key('home-garden-card-subtitle'),
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: colors.textSecondary,
-            ),
+            style: Theme.of(
+              context,
+            ).textTheme.bodyMedium?.copyWith(color: colors.textSecondary),
           ),
           const SizedBox(height: AppLayoutConstants.spacingSm),
           Divider(color: colors.outlineSoft, height: 1),

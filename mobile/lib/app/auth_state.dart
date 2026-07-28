@@ -8,10 +8,7 @@ import 'package:mobile/features/onboarding/domain/models/onboarding_snapshot.dar
 /// - 判断用户是否已完成 onboarding
 /// - 提供 account session 状态
 class AuthState {
-  const AuthState({
-    required this.completedSnapshot,
-    required this.isOnboarded,
-  });
+  const AuthState({required this.completedSnapshot, required this.isOnboarded});
 
   final OnboardingSnapshot? completedSnapshot;
   final bool isOnboarded;
@@ -32,4 +29,5 @@ class AuthState {
   }
 }
 
-typedef OnboardingCompletedSnapshotLoader = Future<OnboardingSnapshot?> Function();
+typedef OnboardingCompletedSnapshotLoader =
+    Future<OnboardingSnapshot?> Function();

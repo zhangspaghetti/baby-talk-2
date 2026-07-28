@@ -49,21 +49,23 @@ void main() {
       }
     });
 
-    test('celebrationStage is set only when an apply crosses a threshold',
-        () async {
-      await notifier.claim('a');
-      await notifier.claim('b');
-      await notifier.claim('c');
-      expect(notifier.celebrationStage, isNull);
+    test(
+      'celebrationStage is set only when an apply crosses a threshold',
+      () async {
+        await notifier.claim('a');
+        await notifier.claim('b');
+        await notifier.claim('c');
+        expect(notifier.celebrationStage, isNull);
 
-      await notifier.apply(); // applied 1 → still seed
-      expect(notifier.celebrationStage, isNull);
-      await notifier.apply(); // applied 2 → still seed
-      expect(notifier.celebrationStage, isNull);
+        await notifier.apply(); // applied 1 → still seed
+        expect(notifier.celebrationStage, isNull);
+        await notifier.apply(); // applied 2 → still seed
+        expect(notifier.celebrationStage, isNull);
 
-      await notifier.apply(); // applied 3 → sprout
-      expect(notifier.celebrationStage, FertilizerFlowerStage.sprout);
-    });
+        await notifier.apply(); // applied 3 → sprout
+        expect(notifier.celebrationStage, FertilizerFlowerStage.sprout);
+      },
+    );
 
     test('consumeCelebration clears the pending celebration', () async {
       await notifier.claim('a');

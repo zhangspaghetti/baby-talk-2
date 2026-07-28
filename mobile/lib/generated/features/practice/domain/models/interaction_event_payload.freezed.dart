@@ -12,7 +12,8 @@ part of '../../../../../features/practice/domain/models/interaction_event_payloa
 T _$identity<T>(T value) => value;
 
 final _privateConstructorUsedError = UnsupportedError(
-    'It seems like you constructed your class using `MyClass._()`. This constructor is only meant to be used by freezed and you are not supposed to need it nor use it.\nPlease check the documentation here for more information: https://github.com/rrousselGit/freezed#adding-getters-and-methods-to-our-models');
+  'It seems like you constructed your class using `MyClass._()`. This constructor is only meant to be used by freezed and you are not supposed to need it nor use it.\nPlease check the documentation here for more information: https://github.com/rrousselGit/freezed#adding-getters-and-methods-to-our-models',
+);
 
 /// @nodoc
 mixin _$InteractionEventUploadRecord {
@@ -27,31 +28,37 @@ mixin _$InteractionEventUploadRecord {
 
   @JsonKey(ignore: true)
   $InteractionEventUploadRecordCopyWith<InteractionEventUploadRecord>
-      get copyWith => throw _privateConstructorUsedError;
+  get copyWith => throw _privateConstructorUsedError;
 }
 
 /// @nodoc
 abstract class $InteractionEventUploadRecordCopyWith<$Res> {
   factory $InteractionEventUploadRecordCopyWith(
-          InteractionEventUploadRecord value,
-          $Res Function(InteractionEventUploadRecord) then) =
-      _$InteractionEventUploadRecordCopyWithImpl<$Res,
-          InteractionEventUploadRecord>;
+    InteractionEventUploadRecord value,
+    $Res Function(InteractionEventUploadRecord) then,
+  ) =
+      _$InteractionEventUploadRecordCopyWithImpl<
+        $Res,
+        InteractionEventUploadRecord
+      >;
   @useResult
-  $Res call(
-      {String eventKey,
-      String localEventId,
-      String installationId,
-      String spaceId,
-      String activityId,
-      String phraseId,
-      BabyReactionType reactionType,
-      DateTime clientTimestamp});
+  $Res call({
+    String eventKey,
+    String localEventId,
+    String installationId,
+    String spaceId,
+    String activityId,
+    String phraseId,
+    BabyReactionType reactionType,
+    DateTime clientTimestamp,
+  });
 }
 
 /// @nodoc
-class _$InteractionEventUploadRecordCopyWithImpl<$Res,
-        $Val extends InteractionEventUploadRecord>
+class _$InteractionEventUploadRecordCopyWithImpl<
+  $Res,
+  $Val extends InteractionEventUploadRecord
+>
     implements $InteractionEventUploadRecordCopyWith<$Res> {
   _$InteractionEventUploadRecordCopyWithImpl(this._value, this._then);
 
@@ -72,40 +79,43 @@ class _$InteractionEventUploadRecordCopyWithImpl<$Res,
     Object? reactionType = null,
     Object? clientTimestamp = null,
   }) {
-    return _then(_value.copyWith(
-      eventKey: null == eventKey
-          ? _value.eventKey
-          : eventKey // ignore: cast_nullable_to_non_nullable
-              as String,
-      localEventId: null == localEventId
-          ? _value.localEventId
-          : localEventId // ignore: cast_nullable_to_non_nullable
-              as String,
-      installationId: null == installationId
-          ? _value.installationId
-          : installationId // ignore: cast_nullable_to_non_nullable
-              as String,
-      spaceId: null == spaceId
-          ? _value.spaceId
-          : spaceId // ignore: cast_nullable_to_non_nullable
-              as String,
-      activityId: null == activityId
-          ? _value.activityId
-          : activityId // ignore: cast_nullable_to_non_nullable
-              as String,
-      phraseId: null == phraseId
-          ? _value.phraseId
-          : phraseId // ignore: cast_nullable_to_non_nullable
-              as String,
-      reactionType: null == reactionType
-          ? _value.reactionType
-          : reactionType // ignore: cast_nullable_to_non_nullable
-              as BabyReactionType,
-      clientTimestamp: null == clientTimestamp
-          ? _value.clientTimestamp
-          : clientTimestamp // ignore: cast_nullable_to_non_nullable
-              as DateTime,
-    ) as $Val);
+    return _then(
+      _value.copyWith(
+            eventKey: null == eventKey
+                ? _value.eventKey
+                : eventKey // ignore: cast_nullable_to_non_nullable
+                      as String,
+            localEventId: null == localEventId
+                ? _value.localEventId
+                : localEventId // ignore: cast_nullable_to_non_nullable
+                      as String,
+            installationId: null == installationId
+                ? _value.installationId
+                : installationId // ignore: cast_nullable_to_non_nullable
+                      as String,
+            spaceId: null == spaceId
+                ? _value.spaceId
+                : spaceId // ignore: cast_nullable_to_non_nullable
+                      as String,
+            activityId: null == activityId
+                ? _value.activityId
+                : activityId // ignore: cast_nullable_to_non_nullable
+                      as String,
+            phraseId: null == phraseId
+                ? _value.phraseId
+                : phraseId // ignore: cast_nullable_to_non_nullable
+                      as String,
+            reactionType: null == reactionType
+                ? _value.reactionType
+                : reactionType // ignore: cast_nullable_to_non_nullable
+                      as BabyReactionType,
+            clientTimestamp: null == clientTimestamp
+                ? _value.clientTimestamp
+                : clientTimestamp // ignore: cast_nullable_to_non_nullable
+                      as DateTime,
+          )
+          as $Val,
+    );
   }
 }
 
@@ -113,31 +123,35 @@ class _$InteractionEventUploadRecordCopyWithImpl<$Res,
 abstract class _$$InteractionEventUploadRecordImplCopyWith<$Res>
     implements $InteractionEventUploadRecordCopyWith<$Res> {
   factory _$$InteractionEventUploadRecordImplCopyWith(
-          _$InteractionEventUploadRecordImpl value,
-          $Res Function(_$InteractionEventUploadRecordImpl) then) =
-      __$$InteractionEventUploadRecordImplCopyWithImpl<$Res>;
+    _$InteractionEventUploadRecordImpl value,
+    $Res Function(_$InteractionEventUploadRecordImpl) then,
+  ) = __$$InteractionEventUploadRecordImplCopyWithImpl<$Res>;
   @override
   @useResult
-  $Res call(
-      {String eventKey,
-      String localEventId,
-      String installationId,
-      String spaceId,
-      String activityId,
-      String phraseId,
-      BabyReactionType reactionType,
-      DateTime clientTimestamp});
+  $Res call({
+    String eventKey,
+    String localEventId,
+    String installationId,
+    String spaceId,
+    String activityId,
+    String phraseId,
+    BabyReactionType reactionType,
+    DateTime clientTimestamp,
+  });
 }
 
 /// @nodoc
 class __$$InteractionEventUploadRecordImplCopyWithImpl<$Res>
-    extends _$InteractionEventUploadRecordCopyWithImpl<$Res,
-        _$InteractionEventUploadRecordImpl>
+    extends
+        _$InteractionEventUploadRecordCopyWithImpl<
+          $Res,
+          _$InteractionEventUploadRecordImpl
+        >
     implements _$$InteractionEventUploadRecordImplCopyWith<$Res> {
   __$$InteractionEventUploadRecordImplCopyWithImpl(
-      _$InteractionEventUploadRecordImpl _value,
-      $Res Function(_$InteractionEventUploadRecordImpl) _then)
-      : super(_value, _then);
+    _$InteractionEventUploadRecordImpl _value,
+    $Res Function(_$InteractionEventUploadRecordImpl) _then,
+  ) : super(_value, _then);
 
   @pragma('vm:prefer-inline')
   @override
@@ -151,56 +165,58 @@ class __$$InteractionEventUploadRecordImplCopyWithImpl<$Res>
     Object? reactionType = null,
     Object? clientTimestamp = null,
   }) {
-    return _then(_$InteractionEventUploadRecordImpl(
-      eventKey: null == eventKey
-          ? _value.eventKey
-          : eventKey // ignore: cast_nullable_to_non_nullable
-              as String,
-      localEventId: null == localEventId
-          ? _value.localEventId
-          : localEventId // ignore: cast_nullable_to_non_nullable
-              as String,
-      installationId: null == installationId
-          ? _value.installationId
-          : installationId // ignore: cast_nullable_to_non_nullable
-              as String,
-      spaceId: null == spaceId
-          ? _value.spaceId
-          : spaceId // ignore: cast_nullable_to_non_nullable
-              as String,
-      activityId: null == activityId
-          ? _value.activityId
-          : activityId // ignore: cast_nullable_to_non_nullable
-              as String,
-      phraseId: null == phraseId
-          ? _value.phraseId
-          : phraseId // ignore: cast_nullable_to_non_nullable
-              as String,
-      reactionType: null == reactionType
-          ? _value.reactionType
-          : reactionType // ignore: cast_nullable_to_non_nullable
-              as BabyReactionType,
-      clientTimestamp: null == clientTimestamp
-          ? _value.clientTimestamp
-          : clientTimestamp // ignore: cast_nullable_to_non_nullable
-              as DateTime,
-    ));
+    return _then(
+      _$InteractionEventUploadRecordImpl(
+        eventKey: null == eventKey
+            ? _value.eventKey
+            : eventKey // ignore: cast_nullable_to_non_nullable
+                  as String,
+        localEventId: null == localEventId
+            ? _value.localEventId
+            : localEventId // ignore: cast_nullable_to_non_nullable
+                  as String,
+        installationId: null == installationId
+            ? _value.installationId
+            : installationId // ignore: cast_nullable_to_non_nullable
+                  as String,
+        spaceId: null == spaceId
+            ? _value.spaceId
+            : spaceId // ignore: cast_nullable_to_non_nullable
+                  as String,
+        activityId: null == activityId
+            ? _value.activityId
+            : activityId // ignore: cast_nullable_to_non_nullable
+                  as String,
+        phraseId: null == phraseId
+            ? _value.phraseId
+            : phraseId // ignore: cast_nullable_to_non_nullable
+                  as String,
+        reactionType: null == reactionType
+            ? _value.reactionType
+            : reactionType // ignore: cast_nullable_to_non_nullable
+                  as BabyReactionType,
+        clientTimestamp: null == clientTimestamp
+            ? _value.clientTimestamp
+            : clientTimestamp // ignore: cast_nullable_to_non_nullable
+                  as DateTime,
+      ),
+    );
   }
 }
 
 /// @nodoc
 
 class _$InteractionEventUploadRecordImpl extends _InteractionEventUploadRecord {
-  const _$InteractionEventUploadRecordImpl(
-      {required this.eventKey,
-      required this.localEventId,
-      required this.installationId,
-      required this.spaceId,
-      required this.activityId,
-      required this.phraseId,
-      required this.reactionType,
-      required this.clientTimestamp})
-      : super._();
+  const _$InteractionEventUploadRecordImpl({
+    required this.eventKey,
+    required this.localEventId,
+    required this.installationId,
+    required this.spaceId,
+    required this.activityId,
+    required this.phraseId,
+    required this.reactionType,
+    required this.clientTimestamp,
+  }) : super._();
 
   @override
   final String eventKey;
@@ -248,37 +264,41 @@ class _$InteractionEventUploadRecordImpl extends _InteractionEventUploadRecord {
 
   @override
   int get hashCode => Object.hash(
-      runtimeType,
-      eventKey,
-      localEventId,
-      installationId,
-      spaceId,
-      activityId,
-      phraseId,
-      reactionType,
-      clientTimestamp);
+    runtimeType,
+    eventKey,
+    localEventId,
+    installationId,
+    spaceId,
+    activityId,
+    phraseId,
+    reactionType,
+    clientTimestamp,
+  );
 
   @JsonKey(ignore: true)
   @override
   @pragma('vm:prefer-inline')
   _$$InteractionEventUploadRecordImplCopyWith<
-          _$InteractionEventUploadRecordImpl>
-      get copyWith => __$$InteractionEventUploadRecordImplCopyWithImpl<
-          _$InteractionEventUploadRecordImpl>(this, _$identity);
+    _$InteractionEventUploadRecordImpl
+  >
+  get copyWith =>
+      __$$InteractionEventUploadRecordImplCopyWithImpl<
+        _$InteractionEventUploadRecordImpl
+      >(this, _$identity);
 }
 
 abstract class _InteractionEventUploadRecord
     extends InteractionEventUploadRecord {
-  const factory _InteractionEventUploadRecord(
-          {required final String eventKey,
-          required final String localEventId,
-          required final String installationId,
-          required final String spaceId,
-          required final String activityId,
-          required final String phraseId,
-          required final BabyReactionType reactionType,
-          required final DateTime clientTimestamp}) =
-      _$InteractionEventUploadRecordImpl;
+  const factory _InteractionEventUploadRecord({
+    required final String eventKey,
+    required final String localEventId,
+    required final String installationId,
+    required final String spaceId,
+    required final String activityId,
+    required final String phraseId,
+    required final BabyReactionType reactionType,
+    required final DateTime clientTimestamp,
+  }) = _$InteractionEventUploadRecordImpl;
   const _InteractionEventUploadRecord._() : super._();
 
   @override
@@ -300,8 +320,9 @@ abstract class _InteractionEventUploadRecord
   @override
   @JsonKey(ignore: true)
   _$$InteractionEventUploadRecordImplCopyWith<
-          _$InteractionEventUploadRecordImpl>
-      get copyWith => throw _privateConstructorUsedError;
+    _$InteractionEventUploadRecordImpl
+  >
+  get copyWith => throw _privateConstructorUsedError;
 }
 
 /// @nodoc
@@ -325,27 +346,31 @@ mixin _$InteractionEventPayload {
 
 /// @nodoc
 abstract class $InteractionEventPayloadCopyWith<$Res> {
-  factory $InteractionEventPayloadCopyWith(InteractionEventPayload value,
-          $Res Function(InteractionEventPayload) then) =
-      _$InteractionEventPayloadCopyWithImpl<$Res, InteractionEventPayload>;
+  factory $InteractionEventPayloadCopyWith(
+    InteractionEventPayload value,
+    $Res Function(InteractionEventPayload) then,
+  ) = _$InteractionEventPayloadCopyWithImpl<$Res, InteractionEventPayload>;
   @useResult
-  $Res call(
-      {String localEventId,
-      String installationId,
-      String spaceId,
-      String activityId,
-      String phraseId,
-      BabyReactionType reactionType,
-      DateTime clientTimestamp,
-      InteractionSyncState syncState,
-      String? lastSyncPhase,
-      String? lastSyncError,
-      DateTime? lastSyncAt});
+  $Res call({
+    String localEventId,
+    String installationId,
+    String spaceId,
+    String activityId,
+    String phraseId,
+    BabyReactionType reactionType,
+    DateTime clientTimestamp,
+    InteractionSyncState syncState,
+    String? lastSyncPhase,
+    String? lastSyncError,
+    DateTime? lastSyncAt,
+  });
 }
 
 /// @nodoc
-class _$InteractionEventPayloadCopyWithImpl<$Res,
-        $Val extends InteractionEventPayload>
+class _$InteractionEventPayloadCopyWithImpl<
+  $Res,
+  $Val extends InteractionEventPayload
+>
     implements $InteractionEventPayloadCopyWith<$Res> {
   _$InteractionEventPayloadCopyWithImpl(this._value, this._then);
 
@@ -369,52 +394,55 @@ class _$InteractionEventPayloadCopyWithImpl<$Res,
     Object? lastSyncError = freezed,
     Object? lastSyncAt = freezed,
   }) {
-    return _then(_value.copyWith(
-      localEventId: null == localEventId
-          ? _value.localEventId
-          : localEventId // ignore: cast_nullable_to_non_nullable
-              as String,
-      installationId: null == installationId
-          ? _value.installationId
-          : installationId // ignore: cast_nullable_to_non_nullable
-              as String,
-      spaceId: null == spaceId
-          ? _value.spaceId
-          : spaceId // ignore: cast_nullable_to_non_nullable
-              as String,
-      activityId: null == activityId
-          ? _value.activityId
-          : activityId // ignore: cast_nullable_to_non_nullable
-              as String,
-      phraseId: null == phraseId
-          ? _value.phraseId
-          : phraseId // ignore: cast_nullable_to_non_nullable
-              as String,
-      reactionType: null == reactionType
-          ? _value.reactionType
-          : reactionType // ignore: cast_nullable_to_non_nullable
-              as BabyReactionType,
-      clientTimestamp: null == clientTimestamp
-          ? _value.clientTimestamp
-          : clientTimestamp // ignore: cast_nullable_to_non_nullable
-              as DateTime,
-      syncState: null == syncState
-          ? _value.syncState
-          : syncState // ignore: cast_nullable_to_non_nullable
-              as InteractionSyncState,
-      lastSyncPhase: freezed == lastSyncPhase
-          ? _value.lastSyncPhase
-          : lastSyncPhase // ignore: cast_nullable_to_non_nullable
-              as String?,
-      lastSyncError: freezed == lastSyncError
-          ? _value.lastSyncError
-          : lastSyncError // ignore: cast_nullable_to_non_nullable
-              as String?,
-      lastSyncAt: freezed == lastSyncAt
-          ? _value.lastSyncAt
-          : lastSyncAt // ignore: cast_nullable_to_non_nullable
-              as DateTime?,
-    ) as $Val);
+    return _then(
+      _value.copyWith(
+            localEventId: null == localEventId
+                ? _value.localEventId
+                : localEventId // ignore: cast_nullable_to_non_nullable
+                      as String,
+            installationId: null == installationId
+                ? _value.installationId
+                : installationId // ignore: cast_nullable_to_non_nullable
+                      as String,
+            spaceId: null == spaceId
+                ? _value.spaceId
+                : spaceId // ignore: cast_nullable_to_non_nullable
+                      as String,
+            activityId: null == activityId
+                ? _value.activityId
+                : activityId // ignore: cast_nullable_to_non_nullable
+                      as String,
+            phraseId: null == phraseId
+                ? _value.phraseId
+                : phraseId // ignore: cast_nullable_to_non_nullable
+                      as String,
+            reactionType: null == reactionType
+                ? _value.reactionType
+                : reactionType // ignore: cast_nullable_to_non_nullable
+                      as BabyReactionType,
+            clientTimestamp: null == clientTimestamp
+                ? _value.clientTimestamp
+                : clientTimestamp // ignore: cast_nullable_to_non_nullable
+                      as DateTime,
+            syncState: null == syncState
+                ? _value.syncState
+                : syncState // ignore: cast_nullable_to_non_nullable
+                      as InteractionSyncState,
+            lastSyncPhase: freezed == lastSyncPhase
+                ? _value.lastSyncPhase
+                : lastSyncPhase // ignore: cast_nullable_to_non_nullable
+                      as String?,
+            lastSyncError: freezed == lastSyncError
+                ? _value.lastSyncError
+                : lastSyncError // ignore: cast_nullable_to_non_nullable
+                      as String?,
+            lastSyncAt: freezed == lastSyncAt
+                ? _value.lastSyncAt
+                : lastSyncAt // ignore: cast_nullable_to_non_nullable
+                      as DateTime?,
+          )
+          as $Val,
+    );
   }
 }
 
@@ -422,34 +450,38 @@ class _$InteractionEventPayloadCopyWithImpl<$Res,
 abstract class _$$InteractionEventPayloadImplCopyWith<$Res>
     implements $InteractionEventPayloadCopyWith<$Res> {
   factory _$$InteractionEventPayloadImplCopyWith(
-          _$InteractionEventPayloadImpl value,
-          $Res Function(_$InteractionEventPayloadImpl) then) =
-      __$$InteractionEventPayloadImplCopyWithImpl<$Res>;
+    _$InteractionEventPayloadImpl value,
+    $Res Function(_$InteractionEventPayloadImpl) then,
+  ) = __$$InteractionEventPayloadImplCopyWithImpl<$Res>;
   @override
   @useResult
-  $Res call(
-      {String localEventId,
-      String installationId,
-      String spaceId,
-      String activityId,
-      String phraseId,
-      BabyReactionType reactionType,
-      DateTime clientTimestamp,
-      InteractionSyncState syncState,
-      String? lastSyncPhase,
-      String? lastSyncError,
-      DateTime? lastSyncAt});
+  $Res call({
+    String localEventId,
+    String installationId,
+    String spaceId,
+    String activityId,
+    String phraseId,
+    BabyReactionType reactionType,
+    DateTime clientTimestamp,
+    InteractionSyncState syncState,
+    String? lastSyncPhase,
+    String? lastSyncError,
+    DateTime? lastSyncAt,
+  });
 }
 
 /// @nodoc
 class __$$InteractionEventPayloadImplCopyWithImpl<$Res>
-    extends _$InteractionEventPayloadCopyWithImpl<$Res,
-        _$InteractionEventPayloadImpl>
+    extends
+        _$InteractionEventPayloadCopyWithImpl<
+          $Res,
+          _$InteractionEventPayloadImpl
+        >
     implements _$$InteractionEventPayloadImplCopyWith<$Res> {
   __$$InteractionEventPayloadImplCopyWithImpl(
-      _$InteractionEventPayloadImpl _value,
-      $Res Function(_$InteractionEventPayloadImpl) _then)
-      : super(_value, _then);
+    _$InteractionEventPayloadImpl _value,
+    $Res Function(_$InteractionEventPayloadImpl) _then,
+  ) : super(_value, _then);
 
   @pragma('vm:prefer-inline')
   @override
@@ -466,71 +498,73 @@ class __$$InteractionEventPayloadImplCopyWithImpl<$Res>
     Object? lastSyncError = freezed,
     Object? lastSyncAt = freezed,
   }) {
-    return _then(_$InteractionEventPayloadImpl(
-      localEventId: null == localEventId
-          ? _value.localEventId
-          : localEventId // ignore: cast_nullable_to_non_nullable
-              as String,
-      installationId: null == installationId
-          ? _value.installationId
-          : installationId // ignore: cast_nullable_to_non_nullable
-              as String,
-      spaceId: null == spaceId
-          ? _value.spaceId
-          : spaceId // ignore: cast_nullable_to_non_nullable
-              as String,
-      activityId: null == activityId
-          ? _value.activityId
-          : activityId // ignore: cast_nullable_to_non_nullable
-              as String,
-      phraseId: null == phraseId
-          ? _value.phraseId
-          : phraseId // ignore: cast_nullable_to_non_nullable
-              as String,
-      reactionType: null == reactionType
-          ? _value.reactionType
-          : reactionType // ignore: cast_nullable_to_non_nullable
-              as BabyReactionType,
-      clientTimestamp: null == clientTimestamp
-          ? _value.clientTimestamp
-          : clientTimestamp // ignore: cast_nullable_to_non_nullable
-              as DateTime,
-      syncState: null == syncState
-          ? _value.syncState
-          : syncState // ignore: cast_nullable_to_non_nullable
-              as InteractionSyncState,
-      lastSyncPhase: freezed == lastSyncPhase
-          ? _value.lastSyncPhase
-          : lastSyncPhase // ignore: cast_nullable_to_non_nullable
-              as String?,
-      lastSyncError: freezed == lastSyncError
-          ? _value.lastSyncError
-          : lastSyncError // ignore: cast_nullable_to_non_nullable
-              as String?,
-      lastSyncAt: freezed == lastSyncAt
-          ? _value.lastSyncAt
-          : lastSyncAt // ignore: cast_nullable_to_non_nullable
-              as DateTime?,
-    ));
+    return _then(
+      _$InteractionEventPayloadImpl(
+        localEventId: null == localEventId
+            ? _value.localEventId
+            : localEventId // ignore: cast_nullable_to_non_nullable
+                  as String,
+        installationId: null == installationId
+            ? _value.installationId
+            : installationId // ignore: cast_nullable_to_non_nullable
+                  as String,
+        spaceId: null == spaceId
+            ? _value.spaceId
+            : spaceId // ignore: cast_nullable_to_non_nullable
+                  as String,
+        activityId: null == activityId
+            ? _value.activityId
+            : activityId // ignore: cast_nullable_to_non_nullable
+                  as String,
+        phraseId: null == phraseId
+            ? _value.phraseId
+            : phraseId // ignore: cast_nullable_to_non_nullable
+                  as String,
+        reactionType: null == reactionType
+            ? _value.reactionType
+            : reactionType // ignore: cast_nullable_to_non_nullable
+                  as BabyReactionType,
+        clientTimestamp: null == clientTimestamp
+            ? _value.clientTimestamp
+            : clientTimestamp // ignore: cast_nullable_to_non_nullable
+                  as DateTime,
+        syncState: null == syncState
+            ? _value.syncState
+            : syncState // ignore: cast_nullable_to_non_nullable
+                  as InteractionSyncState,
+        lastSyncPhase: freezed == lastSyncPhase
+            ? _value.lastSyncPhase
+            : lastSyncPhase // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        lastSyncError: freezed == lastSyncError
+            ? _value.lastSyncError
+            : lastSyncError // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        lastSyncAt: freezed == lastSyncAt
+            ? _value.lastSyncAt
+            : lastSyncAt // ignore: cast_nullable_to_non_nullable
+                  as DateTime?,
+      ),
+    );
   }
 }
 
 /// @nodoc
 
 class _$InteractionEventPayloadImpl extends _InteractionEventPayload {
-  _$InteractionEventPayloadImpl(
-      {required this.localEventId,
-      required this.installationId,
-      required this.spaceId,
-      required this.activityId,
-      required this.phraseId,
-      required this.reactionType,
-      required this.clientTimestamp,
-      this.syncState = InteractionSyncState.pending,
-      this.lastSyncPhase,
-      this.lastSyncError,
-      this.lastSyncAt})
-      : super._();
+  _$InteractionEventPayloadImpl({
+    required this.localEventId,
+    required this.installationId,
+    required this.spaceId,
+    required this.activityId,
+    required this.phraseId,
+    required this.reactionType,
+    required this.clientTimestamp,
+    this.syncState = InteractionSyncState.pending,
+    this.lastSyncPhase,
+    this.lastSyncError,
+    this.lastSyncAt,
+  }) : super._();
 
   @override
   final String localEventId;
@@ -591,40 +625,44 @@ class _$InteractionEventPayloadImpl extends _InteractionEventPayload {
 
   @override
   int get hashCode => Object.hash(
-      runtimeType,
-      localEventId,
-      installationId,
-      spaceId,
-      activityId,
-      phraseId,
-      reactionType,
-      clientTimestamp,
-      syncState,
-      lastSyncPhase,
-      lastSyncError,
-      lastSyncAt);
+    runtimeType,
+    localEventId,
+    installationId,
+    spaceId,
+    activityId,
+    phraseId,
+    reactionType,
+    clientTimestamp,
+    syncState,
+    lastSyncPhase,
+    lastSyncError,
+    lastSyncAt,
+  );
 
   @JsonKey(ignore: true)
   @override
   @pragma('vm:prefer-inline')
   _$$InteractionEventPayloadImplCopyWith<_$InteractionEventPayloadImpl>
-      get copyWith => __$$InteractionEventPayloadImplCopyWithImpl<
-          _$InteractionEventPayloadImpl>(this, _$identity);
+  get copyWith =>
+      __$$InteractionEventPayloadImplCopyWithImpl<
+        _$InteractionEventPayloadImpl
+      >(this, _$identity);
 }
 
 abstract class _InteractionEventPayload extends InteractionEventPayload {
-  factory _InteractionEventPayload(
-      {required final String localEventId,
-      required final String installationId,
-      required final String spaceId,
-      required final String activityId,
-      required final String phraseId,
-      required final BabyReactionType reactionType,
-      required final DateTime clientTimestamp,
-      final InteractionSyncState syncState,
-      final String? lastSyncPhase,
-      final String? lastSyncError,
-      final DateTime? lastSyncAt}) = _$InteractionEventPayloadImpl;
+  factory _InteractionEventPayload({
+    required final String localEventId,
+    required final String installationId,
+    required final String spaceId,
+    required final String activityId,
+    required final String phraseId,
+    required final BabyReactionType reactionType,
+    required final DateTime clientTimestamp,
+    final InteractionSyncState syncState,
+    final String? lastSyncPhase,
+    final String? lastSyncError,
+    final DateTime? lastSyncAt,
+  }) = _$InteractionEventPayloadImpl;
   _InteractionEventPayload._() : super._();
 
   @override
@@ -652,5 +690,5 @@ abstract class _InteractionEventPayload extends InteractionEventPayload {
   @override
   @JsonKey(ignore: true)
   _$$InteractionEventPayloadImplCopyWith<_$InteractionEventPayloadImpl>
-      get copyWith => throw _privateConstructorUsedError;
+  get copyWith => throw _privateConstructorUsedError;
 }

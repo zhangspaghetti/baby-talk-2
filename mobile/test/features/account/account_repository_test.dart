@@ -848,7 +848,6 @@ class _FakeAccountApiService extends AccountApiService {
   }
 }
 
-
 class _InMemorySecureStorage extends FlutterSecureStorage {
   _InMemorySecureStorage();
 

@@ -10,9 +10,7 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         theme: AppTheme.build(),
-        home: const Scaffold(
-          body: AppEnglishPhrase('One more bite.'),
-        ),
+        home: const Scaffold(body: AppEnglishPhrase('One more bite.')),
       ),
     );
 

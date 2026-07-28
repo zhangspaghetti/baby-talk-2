@@ -40,7 +40,9 @@ class AppScenePill extends StatelessWidget {
               vertical: AppLayoutConstants.spacingXs,
             ),
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(AppLayoutConstants.pillRadius),
+              borderRadius: BorderRadius.circular(
+                AppLayoutConstants.pillRadius,
+              ),
               border: isSelected
                   ? Border.all(color: colors.accentDark, width: 1.5)
                   : null,

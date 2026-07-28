@@ -12,7 +12,8 @@ part of '../../../../../features/mentor/domain/models/local_mentor_suggestion.da
 T _$identity<T>(T value) => value;
 
 final _privateConstructorUsedError = UnsupportedError(
-    'It seems like you constructed your class using `MyClass._()`. This constructor is only meant to be used by freezed and you are not supposed to need it nor use it.\nPlease check the documentation here for more information: https://github.com/rrousselGit/freezed#adding-getters-and-methods-to-our-models');
+  'It seems like you constructed your class using `MyClass._()`. This constructor is only meant to be used by freezed and you are not supposed to need it nor use it.\nPlease check the documentation here for more information: https://github.com/rrousselGit/freezed#adding-getters-and-methods-to-our-models',
+);
 
 /// @nodoc
 mixin _$LocalMentorSuggestion {
@@ -36,28 +37,32 @@ mixin _$LocalMentorSuggestion {
 
 /// @nodoc
 abstract class $LocalMentorSuggestionCopyWith<$Res> {
-  factory $LocalMentorSuggestionCopyWith(LocalMentorSuggestion value,
-          $Res Function(LocalMentorSuggestion) then) =
-      _$LocalMentorSuggestionCopyWithImpl<$Res, LocalMentorSuggestion>;
+  factory $LocalMentorSuggestionCopyWith(
+    LocalMentorSuggestion value,
+    $Res Function(LocalMentorSuggestion) then,
+  ) = _$LocalMentorSuggestionCopyWithImpl<$Res, LocalMentorSuggestion>;
   @useResult
-  $Res call(
-      {String suggestionId,
-      LocalMentorSuggestionOrigin origin,
-      String title,
-      String body,
-      String? phraseEnglish,
-      String? phraseChinese,
-      String? stageId,
-      String? spaceId,
-      String? activityId,
-      String? phraseId,
-      String? reasonCode,
-      String? redactedContextSummary});
+  $Res call({
+    String suggestionId,
+    LocalMentorSuggestionOrigin origin,
+    String title,
+    String body,
+    String? phraseEnglish,
+    String? phraseChinese,
+    String? stageId,
+    String? spaceId,
+    String? activityId,
+    String? phraseId,
+    String? reasonCode,
+    String? redactedContextSummary,
+  });
 }
 
 /// @nodoc
-class _$LocalMentorSuggestionCopyWithImpl<$Res,
-        $Val extends LocalMentorSuggestion>
+class _$LocalMentorSuggestionCopyWithImpl<
+  $Res,
+  $Val extends LocalMentorSuggestion
+>
     implements $LocalMentorSuggestionCopyWith<$Res> {
   _$LocalMentorSuggestionCopyWithImpl(this._value, this._then);
 
@@ -82,56 +87,59 @@ class _$LocalMentorSuggestionCopyWithImpl<$Res,
     Object? reasonCode = freezed,
     Object? redactedContextSummary = freezed,
   }) {
-    return _then(_value.copyWith(
-      suggestionId: null == suggestionId
-          ? _value.suggestionId
-          : suggestionId // ignore: cast_nullable_to_non_nullable
-              as String,
-      origin: null == origin
-          ? _value.origin
-          : origin // ignore: cast_nullable_to_non_nullable
-              as LocalMentorSuggestionOrigin,
-      title: null == title
-          ? _value.title
-          : title // ignore: cast_nullable_to_non_nullable
-              as String,
-      body: null == body
-          ? _value.body
-          : body // ignore: cast_nullable_to_non_nullable
-              as String,
-      phraseEnglish: freezed == phraseEnglish
-          ? _value.phraseEnglish
-          : phraseEnglish // ignore: cast_nullable_to_non_nullable
-              as String?,
-      phraseChinese: freezed == phraseChinese
-          ? _value.phraseChinese
-          : phraseChinese // ignore: cast_nullable_to_non_nullable
-              as String?,
-      stageId: freezed == stageId
-          ? _value.stageId
-          : stageId // ignore: cast_nullable_to_non_nullable
-              as String?,
-      spaceId: freezed == spaceId
-          ? _value.spaceId
-          : spaceId // ignore: cast_nullable_to_non_nullable
-              as String?,
-      activityId: freezed == activityId
-          ? _value.activityId
-          : activityId // ignore: cast_nullable_to_non_nullable
-              as String?,
-      phraseId: freezed == phraseId
-          ? _value.phraseId
-          : phraseId // ignore: cast_nullable_to_non_nullable
-              as String?,
-      reasonCode: freezed == reasonCode
-          ? _value.reasonCode
-          : reasonCode // ignore: cast_nullable_to_non_nullable
-              as String?,
-      redactedContextSummary: freezed == redactedContextSummary
-          ? _value.redactedContextSummary
-          : redactedContextSummary // ignore: cast_nullable_to_non_nullable
-              as String?,
-    ) as $Val);
+    return _then(
+      _value.copyWith(
+            suggestionId: null == suggestionId
+                ? _value.suggestionId
+                : suggestionId // ignore: cast_nullable_to_non_nullable
+                      as String,
+            origin: null == origin
+                ? _value.origin
+                : origin // ignore: cast_nullable_to_non_nullable
+                      as LocalMentorSuggestionOrigin,
+            title: null == title
+                ? _value.title
+                : title // ignore: cast_nullable_to_non_nullable
+                      as String,
+            body: null == body
+                ? _value.body
+                : body // ignore: cast_nullable_to_non_nullable
+                      as String,
+            phraseEnglish: freezed == phraseEnglish
+                ? _value.phraseEnglish
+                : phraseEnglish // ignore: cast_nullable_to_non_nullable
+                      as String?,
+            phraseChinese: freezed == phraseChinese
+                ? _value.phraseChinese
+                : phraseChinese // ignore: cast_nullable_to_non_nullable
+                      as String?,
+            stageId: freezed == stageId
+                ? _value.stageId
+                : stageId // ignore: cast_nullable_to_non_nullable
+                      as String?,
+            spaceId: freezed == spaceId
+                ? _value.spaceId
+                : spaceId // ignore: cast_nullable_to_non_nullable
+                      as String?,
+            activityId: freezed == activityId
+                ? _value.activityId
+                : activityId // ignore: cast_nullable_to_non_nullable
+                      as String?,
+            phraseId: freezed == phraseId
+                ? _value.phraseId
+                : phraseId // ignore: cast_nullable_to_non_nullable
+                      as String?,
+            reasonCode: freezed == reasonCode
+                ? _value.reasonCode
+                : reasonCode // ignore: cast_nullable_to_non_nullable
+                      as String?,
+            redactedContextSummary: freezed == redactedContextSummary
+                ? _value.redactedContextSummary
+                : redactedContextSummary // ignore: cast_nullable_to_non_nullable
+                      as String?,
+          )
+          as $Val,
+    );
   }
 }
 
@@ -139,34 +147,36 @@ class _$LocalMentorSuggestionCopyWithImpl<$Res,
 abstract class _$$LocalMentorSuggestionImplCopyWith<$Res>
     implements $LocalMentorSuggestionCopyWith<$Res> {
   factory _$$LocalMentorSuggestionImplCopyWith(
-          _$LocalMentorSuggestionImpl value,
-          $Res Function(_$LocalMentorSuggestionImpl) then) =
-      __$$LocalMentorSuggestionImplCopyWithImpl<$Res>;
+    _$LocalMentorSuggestionImpl value,
+    $Res Function(_$LocalMentorSuggestionImpl) then,
+  ) = __$$LocalMentorSuggestionImplCopyWithImpl<$Res>;
   @override
   @useResult
-  $Res call(
-      {String suggestionId,
-      LocalMentorSuggestionOrigin origin,
-      String title,
-      String body,
-      String? phraseEnglish,
-      String? phraseChinese,
-      String? stageId,
-      String? spaceId,
-      String? activityId,
-      String? phraseId,
-      String? reasonCode,
-      String? redactedContextSummary});
+  $Res call({
+    String suggestionId,
+    LocalMentorSuggestionOrigin origin,
+    String title,
+    String body,
+    String? phraseEnglish,
+    String? phraseChinese,
+    String? stageId,
+    String? spaceId,
+    String? activityId,
+    String? phraseId,
+    String? reasonCode,
+    String? redactedContextSummary,
+  });
 }
 
 /// @nodoc
 class __$$LocalMentorSuggestionImplCopyWithImpl<$Res>
-    extends _$LocalMentorSuggestionCopyWithImpl<$Res,
-        _$LocalMentorSuggestionImpl>
+    extends
+        _$LocalMentorSuggestionCopyWithImpl<$Res, _$LocalMentorSuggestionImpl>
     implements _$$LocalMentorSuggestionImplCopyWith<$Res> {
-  __$$LocalMentorSuggestionImplCopyWithImpl(_$LocalMentorSuggestionImpl _value,
-      $Res Function(_$LocalMentorSuggestionImpl) _then)
-      : super(_value, _then);
+  __$$LocalMentorSuggestionImplCopyWithImpl(
+    _$LocalMentorSuggestionImpl _value,
+    $Res Function(_$LocalMentorSuggestionImpl) _then,
+  ) : super(_value, _then);
 
   @pragma('vm:prefer-inline')
   @override
@@ -184,76 +194,78 @@ class __$$LocalMentorSuggestionImplCopyWithImpl<$Res>
     Object? reasonCode = freezed,
     Object? redactedContextSummary = freezed,
   }) {
-    return _then(_$LocalMentorSuggestionImpl(
-      suggestionId: null == suggestionId
-          ? _value.suggestionId
-          : suggestionId // ignore: cast_nullable_to_non_nullable
-              as String,
-      origin: null == origin
-          ? _value.origin
-          : origin // ignore: cast_nullable_to_non_nullable
-              as LocalMentorSuggestionOrigin,
-      title: null == title
-          ? _value.title
-          : title // ignore: cast_nullable_to_non_nullable
-              as String,
-      body: null == body
-          ? _value.body
-          : body // ignore: cast_nullable_to_non_nullable
-              as String,
-      phraseEnglish: freezed == phraseEnglish
-          ? _value.phraseEnglish
-          : phraseEnglish // ignore: cast_nullable_to_non_nullable
-              as String?,
-      phraseChinese: freezed == phraseChinese
-          ? _value.phraseChinese
-          : phraseChinese // ignore: cast_nullable_to_non_nullable
-              as String?,
-      stageId: freezed == stageId
-          ? _value.stageId
-          : stageId // ignore: cast_nullable_to_non_nullable
-              as String?,
-      spaceId: freezed == spaceId
-          ? _value.spaceId
-          : spaceId // ignore: cast_nullable_to_non_nullable
-              as String?,
-      activityId: freezed == activityId
-          ? _value.activityId
-          : activityId // ignore: cast_nullable_to_non_nullable
-              as String?,
-      phraseId: freezed == phraseId
-          ? _value.phraseId
-          : phraseId // ignore: cast_nullable_to_non_nullable
-              as String?,
-      reasonCode: freezed == reasonCode
-          ? _value.reasonCode
-          : reasonCode // ignore: cast_nullable_to_non_nullable
-              as String?,
-      redactedContextSummary: freezed == redactedContextSummary
-          ? _value.redactedContextSummary
-          : redactedContextSummary // ignore: cast_nullable_to_non_nullable
-              as String?,
-    ));
+    return _then(
+      _$LocalMentorSuggestionImpl(
+        suggestionId: null == suggestionId
+            ? _value.suggestionId
+            : suggestionId // ignore: cast_nullable_to_non_nullable
+                  as String,
+        origin: null == origin
+            ? _value.origin
+            : origin // ignore: cast_nullable_to_non_nullable
+                  as LocalMentorSuggestionOrigin,
+        title: null == title
+            ? _value.title
+            : title // ignore: cast_nullable_to_non_nullable
+                  as String,
+        body: null == body
+            ? _value.body
+            : body // ignore: cast_nullable_to_non_nullable
+                  as String,
+        phraseEnglish: freezed == phraseEnglish
+            ? _value.phraseEnglish
+            : phraseEnglish // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        phraseChinese: freezed == phraseChinese
+            ? _value.phraseChinese
+            : phraseChinese // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        stageId: freezed == stageId
+            ? _value.stageId
+            : stageId // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        spaceId: freezed == spaceId
+            ? _value.spaceId
+            : spaceId // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        activityId: freezed == activityId
+            ? _value.activityId
+            : activityId // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        phraseId: freezed == phraseId
+            ? _value.phraseId
+            : phraseId // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        reasonCode: freezed == reasonCode
+            ? _value.reasonCode
+            : reasonCode // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        redactedContextSummary: freezed == redactedContextSummary
+            ? _value.redactedContextSummary
+            : redactedContextSummary // ignore: cast_nullable_to_non_nullable
+                  as String?,
+      ),
+    );
   }
 }
 
 /// @nodoc
 
 class _$LocalMentorSuggestionImpl extends _LocalMentorSuggestion {
-  const _$LocalMentorSuggestionImpl(
-      {required this.suggestionId,
-      required this.origin,
-      required this.title,
-      required this.body,
-      this.phraseEnglish,
-      this.phraseChinese,
-      this.stageId,
-      this.spaceId,
-      this.activityId,
-      this.phraseId,
-      this.reasonCode,
-      this.redactedContextSummary})
-      : super._();
+  const _$LocalMentorSuggestionImpl({
+    required this.suggestionId,
+    required this.origin,
+    required this.title,
+    required this.body,
+    this.phraseEnglish,
+    this.phraseChinese,
+    this.stageId,
+    this.spaceId,
+    this.activityId,
+    this.phraseId,
+    this.reasonCode,
+    this.redactedContextSummary,
+  }) : super._();
 
   @override
   final String suggestionId;
@@ -313,42 +325,47 @@ class _$LocalMentorSuggestionImpl extends _LocalMentorSuggestion {
 
   @override
   int get hashCode => Object.hash(
-      runtimeType,
-      suggestionId,
-      origin,
-      title,
-      body,
-      phraseEnglish,
-      phraseChinese,
-      stageId,
-      spaceId,
-      activityId,
-      phraseId,
-      reasonCode,
-      redactedContextSummary);
+    runtimeType,
+    suggestionId,
+    origin,
+    title,
+    body,
+    phraseEnglish,
+    phraseChinese,
+    stageId,
+    spaceId,
+    activityId,
+    phraseId,
+    reasonCode,
+    redactedContextSummary,
+  );
 
   @JsonKey(ignore: true)
   @override
   @pragma('vm:prefer-inline')
   _$$LocalMentorSuggestionImplCopyWith<_$LocalMentorSuggestionImpl>
-      get copyWith => __$$LocalMentorSuggestionImplCopyWithImpl<
-          _$LocalMentorSuggestionImpl>(this, _$identity);
+  get copyWith =>
+      __$$LocalMentorSuggestionImplCopyWithImpl<_$LocalMentorSuggestionImpl>(
+        this,
+        _$identity,
+      );
 }
 
 abstract class _LocalMentorSuggestion extends LocalMentorSuggestion {
-  const factory _LocalMentorSuggestion(
-      {required final String suggestionId,
-      required final LocalMentorSuggestionOrigin origin,
-      required final String title,
-      required final String body,
-      final String? phraseEnglish,
-      final String? phraseChinese,
-      final String? stageId,
-      final String? spaceId,
-      final String? activityId,
-      final String? phraseId,
-      final String? reasonCode,
-      final String? redactedContextSummary}) = _$LocalMentorSuggestionImpl;
+  const factory _LocalMentorSuggestion({
+    required final String suggestionId,
+    required final LocalMentorSuggestionOrigin origin,
+    required final String title,
+    required final String body,
+    final String? phraseEnglish,
+    final String? phraseChinese,
+    final String? stageId,
+    final String? spaceId,
+    final String? activityId,
+    final String? phraseId,
+    final String? reasonCode,
+    final String? redactedContextSummary,
+  }) = _$LocalMentorSuggestionImpl;
   const _LocalMentorSuggestion._() : super._();
 
   @override
@@ -378,5 +395,5 @@ abstract class _LocalMentorSuggestion extends LocalMentorSuggestion {
   @override
   @JsonKey(ignore: true)
   _$$LocalMentorSuggestionImplCopyWith<_$LocalMentorSuggestionImpl>
-      get copyWith => throw _privateConstructorUsedError;
+  get copyWith => throw _privateConstructorUsedError;
 }

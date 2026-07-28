@@ -21,8 +21,10 @@ class FertilizerState {
   final DateTime? lastAppliedAt;
 
   /// Packs claimed into the backpack but not yet applied.
-  int get backpackCount =>
-      (claimedEventKeys.length - appliedCount).clamp(0, claimedEventKeys.length);
+  int get backpackCount => (claimedEventKeys.length - appliedCount).clamp(
+    0,
+    claimedEventKeys.length,
+  );
 }
 
 /// A single fertilizer pack derived from a practice trace (痕迹).

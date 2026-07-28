@@ -114,8 +114,9 @@ class SettingsSnapshot {
       reminderHour: reminderHour ?? this.reminderHour,
       reminderMinute: reminderMinute ?? this.reminderMinute,
       childName: childName ?? this.childName,
-      childBirthDate:
-          clearChildBirthDate ? null : (childBirthDate ?? this.childBirthDate),
+      childBirthDate: clearChildBirthDate
+          ? null
+          : (childBirthDate ?? this.childBirthDate),
       childAgeMonths: childAgeMonths ?? this.childAgeMonths,
       childStage: childStage ?? this.childStage,
       caregiverRole: caregiverRole ?? this.caregiverRole,
@@ -144,7 +145,7 @@ class SettingsSnapshot {
 
 class SettingsRepository {
   SettingsRepository({required SettingsLocalDataSource localDataSource})
-      : _localDataSource = localDataSource;
+    : _localDataSource = localDataSource;
 
   final SettingsLocalDataSource _localDataSource;
 

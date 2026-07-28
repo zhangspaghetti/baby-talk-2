@@ -80,7 +80,8 @@ class AuthScreen extends HookConsumerWidget {
       errorMessage.value = null;
       infoMessage.value = null;
       if (!_isValidContact(contactController.text, mode.value)) {
-        errorMessage.value = mode.value == AuthMode.passwordLogin ||
+        errorMessage.value =
+            mode.value == AuthMode.passwordLogin ||
                 mode.value == AuthMode.resetPassword
             ? '请输入正确的手机号或邮箱。'
             : '请输入 11 位手机号。';
@@ -322,9 +323,8 @@ class AuthScreen extends HookConsumerWidget {
                         label: l.discoverPrivacyNote,
                         child: Text(
                           l.discoverPrivacyNote,
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: colors.textMuted,
-                          ),
+                          style: Theme.of(context).textTheme.bodySmall
+                              ?.copyWith(color: colors.textMuted),
                           textAlign: TextAlign.center,
                         ),
                       ),
@@ -392,7 +392,9 @@ class AuthScreen extends HookConsumerWidget {
   }
 
   static TextInputType _keyboardTypeForMode(AuthMode mode) {
-    return _usesPhoneOnly(mode) ? TextInputType.phone : TextInputType.emailAddress;
+    return _usesPhoneOnly(mode)
+        ? TextInputType.phone
+        : TextInputType.emailAddress;
   }
 
   static List<String> _autofillHintsForMode(AuthMode mode) {
@@ -681,10 +683,7 @@ class _BrandHeader extends StatelessWidget {
               gradient: LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
-                colors: [
-                  colors.accent,
-                  colors.accent.withValues(alpha: 0.8),
-                ],
+                colors: [colors.accent, colors.accent.withValues(alpha: 0.8)],
               ),
               borderRadius: BorderRadius.circular(24),
               boxShadow: [
@@ -695,11 +694,7 @@ class _BrandHeader extends StatelessWidget {
                 ),
               ],
             ),
-            child: const Icon(
-              Icons.child_care,
-              size: 40,
-              color: Colors.white,
-            ),
+            child: const Icon(Icons.child_care, size: 40, color: Colors.white),
           ),
           const SizedBox(height: AppLayoutConstants.spacingXl),
 
@@ -736,16 +731,14 @@ class _BrandHeader extends StatelessWidget {
             ),
             decoration: BoxDecoration(
               color: colors.bgAccentSoft,
-              borderRadius: BorderRadius.circular(AppLayoutConstants.pillRadius),
+              borderRadius: BorderRadius.circular(
+                AppLayoutConstants.pillRadius,
+              ),
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(
-                  Icons.shield_outlined,
-                  size: 14,
-                  color: colors.accent,
-                ),
+                Icon(Icons.shield_outlined, size: 14, color: colors.accent),
                 const SizedBox(width: 6),
                 Text(
                   l.discoverTrustPrivacy,
@@ -808,26 +801,13 @@ class _WarmTextField extends StatelessWidget {
         textInputAction: textInputAction,
         inputFormatters: inputFormatters,
         onChanged: onChanged,
-        style: TextStyle(
-          fontSize: 16,
-          color: colors.textPrimary,
-        ),
+        style: TextStyle(fontSize: 16, color: colors.textPrimary),
         decoration: InputDecoration(
           labelText: labelText,
           hintText: hintText,
-          labelStyle: TextStyle(
-            color: colors.textSecondary,
-            fontSize: 14,
-          ),
-          hintStyle: TextStyle(
-            color: colors.textMuted,
-            fontSize: 14,
-          ),
-          prefixIcon: Icon(
-            prefixIcon,
-            size: 20,
-            color: colors.textMuted,
-          ),
+          labelStyle: TextStyle(color: colors.textSecondary, fontSize: 14),
+          hintStyle: TextStyle(color: colors.textMuted, fontSize: 14),
+          prefixIcon: Icon(prefixIcon, size: 20, color: colors.textMuted),
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(AppLayoutConstants.cardRadius),
             borderSide: BorderSide.none,
@@ -857,10 +837,7 @@ class _WarmTextField extends StatelessWidget {
 // ─────────────────────────────────────────────────────────────
 
 class _AuthModeSelector extends StatelessWidget {
-  const _AuthModeSelector({
-    required this.mode,
-    required this.onChanged,
-  });
+  const _AuthModeSelector({required this.mode, required this.onChanged});
 
   final AuthMode mode;
   final ValueChanged<AuthMode> onChanged;
@@ -1042,7 +1019,9 @@ class _VerificationCodeStep extends StatelessWidget {
         // Status line
         Semantics(
           liveRegion: true,
-          label: captchaPassed ? l.discoverVerificationPassed : l.discoverVerificationPending,
+          label: captchaPassed
+              ? l.discoverVerificationPassed
+              : l.discoverVerificationPending,
           child: Text(
             captchaPassed ? l.discoverVerificationPassed : '等待验证码发送。',
             style: Theme.of(context).textTheme.bodySmall,
@@ -1053,10 +1032,9 @@ class _VerificationCodeStep extends StatelessWidget {
         // Field label
         Text(
           l.discoverCodeLabel,
-          style: Theme.of(context)
-              .textTheme
-              .bodySmall
-              ?.copyWith(color: colors.textSecondary),
+          style: Theme.of(
+            context,
+          ).textTheme.bodySmall?.copyWith(color: colors.textSecondary),
         ),
         const SizedBox(height: AppLayoutConstants.spacingXs),
 
@@ -1086,10 +1064,9 @@ class _VerificationCodeStep extends StatelessWidget {
             Expanded(
               child: Text(
                 l.discoverCodeAutoHint,
-                style: Theme.of(context)
-                    .textTheme
-                    .bodySmall
-                    ?.copyWith(color: colors.textMuted),
+                style: Theme.of(
+                  context,
+                ).textTheme.bodySmall?.copyWith(color: colors.textMuted),
               ),
             ),
             Semantics(
@@ -1104,8 +1081,9 @@ class _VerificationCodeStep extends StatelessWidget {
                       ? l.discoverResendCode
                       : '${resendSeconds}s',
                   style: TextStyle(
-                    color:
-                        resendSeconds == 0 ? colors.accent : colors.textMuted,
+                    color: resendSeconds == 0
+                        ? colors.accent
+                        : colors.textMuted,
                   ),
                 ),
               ),
@@ -1184,31 +1162,28 @@ class _PasswordField extends StatelessWidget {
           obscureText: !visible,
           autofillHints: const [AutofillHints.password],
           textInputAction: textInputAction,
-          style: TextStyle(
-            fontSize: 16,
-            color: colors.textPrimary,
-          ),
+          style: TextStyle(fontSize: 16, color: colors.textPrimary),
           decoration: InputDecoration(
             labelText: labelText,
             helperText: '至少 8 位，建议包含字母和数字',
-            labelStyle: TextStyle(
-              color: colors.textSecondary,
-              fontSize: 14,
-            ),
-            helperStyle: TextStyle(
-              color: colors.textMuted,
-              fontSize: 12,
-            ),
+            labelStyle: TextStyle(color: colors.textSecondary, fontSize: 14),
+            helperStyle: TextStyle(color: colors.textMuted, fontSize: 12),
             border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(AppLayoutConstants.cardRadius),
+              borderRadius: BorderRadius.circular(
+                AppLayoutConstants.cardRadius,
+              ),
               borderSide: BorderSide.none,
             ),
             enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(AppLayoutConstants.cardRadius),
+              borderRadius: BorderRadius.circular(
+                AppLayoutConstants.cardRadius,
+              ),
               borderSide: BorderSide(color: colors.outlineSoft),
             ),
             focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(AppLayoutConstants.cardRadius),
+              borderRadius: BorderRadius.circular(
+                AppLayoutConstants.cardRadius,
+              ),
               borderSide: BorderSide(color: colors.accent, width: 2),
             ),
             filled: true,

@@ -108,9 +108,7 @@ class _GardenFertilizerPanelState extends ConsumerState<GardenFertilizerPanel> {
           if (view.isEmpty)
             Padding(
               key: const Key('garden-fertilizer-empty'),
-              padding: const EdgeInsets.only(
-                top: AppLayoutConstants.spacingMd,
-              ),
+              padding: const EdgeInsets.only(top: AppLayoutConstants.spacingMd),
               child: Text(
                 '还没有肥料，去说一句英文吧。',
                 style: TextStyle(color: colors.textMuted, fontSize: 14),

@@ -88,7 +88,8 @@ class AppInputField extends StatelessWidget {
       );
     }
 
-    final effectivePrefix = prefixIcon ??
+    final effectivePrefix =
+        prefixIcon ??
         (_isSearch
             ? Icon(
                 Icons.search,
@@ -99,48 +100,48 @@ class AppInputField extends StatelessWidget {
 
     Widget buildField(Widget? effectiveSuffix) {
       return TextField(
-      key: fieldKey,
-      controller: controller,
-      focusNode: focusNode,
-      enabled: enabled,
-      autofocus: autofocus,
-      obscureText: obscureText,
-      maxLines: obscureText ? 1 : maxLines,
-      keyboardType: keyboardType,
-      textInputAction: textInputAction,
-      inputFormatters: inputFormatters,
-      onChanged: onChanged,
-      onSubmitted: onSubmitted,
-      style: TextStyle(
-        fontSize: 16,
-        fontWeight: FontWeight.w400,
-        color: colors.textPrimary,
-      ),
-      decoration: InputDecoration(
-        hintText: hintText,
-        labelText: labelText,
-        errorText: errorText,
-        hintStyle: TextStyle(
+        key: fieldKey,
+        controller: controller,
+        focusNode: focusNode,
+        enabled: enabled,
+        autofocus: autofocus,
+        obscureText: obscureText,
+        maxLines: obscureText ? 1 : maxLines,
+        keyboardType: keyboardType,
+        textInputAction: textInputAction,
+        inputFormatters: inputFormatters,
+        onChanged: onChanged,
+        onSubmitted: onSubmitted,
+        style: TextStyle(
           fontSize: 16,
           fontWeight: FontWeight.w400,
-          color: colors.textMuted,
+          color: colors.textPrimary,
         ),
-        prefixIcon: effectivePrefix,
-        suffixIcon: effectiveSuffix,
-        filled: true,
-        fillColor: fillColor,
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: AppLayoutConstants.spacingMd,
-          vertical: AppLayoutConstants.spacingSm,
+        decoration: InputDecoration(
+          hintText: hintText,
+          labelText: labelText,
+          errorText: errorText,
+          hintStyle: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w400,
+            color: colors.textMuted,
+          ),
+          prefixIcon: effectivePrefix,
+          suffixIcon: effectiveSuffix,
+          filled: true,
+          fillColor: fillColor,
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: AppLayoutConstants.spacingMd,
+            vertical: AppLayoutConstants.spacingSm,
+          ),
+          border: borderWith(colors.outlineSoft),
+          enabledBorder: borderWith(colors.outlineSoft),
+          focusedBorder: borderWith(colors.accent, width: 1.4),
+          errorBorder: borderWith(colors.error),
+          focusedErrorBorder: borderWith(colors.error, width: 1.4),
+          disabledBorder: borderWith(colors.outlineSoft),
         ),
-        border: borderWith(colors.outlineSoft),
-        enabledBorder: borderWith(colors.outlineSoft),
-        focusedBorder: borderWith(colors.accent, width: 1.4),
-        errorBorder: borderWith(colors.error),
-        focusedErrorBorder: borderWith(colors.error, width: 1.4),
-        disabledBorder: borderWith(colors.outlineSoft),
-      ),
-    );
+      );
     }
 
     Widget? buildSuffixWithText(String text) {
@@ -170,10 +171,6 @@ class AppInputField extends StatelessWidget {
     if (semanticsLabel == null) {
       return field;
     }
-    return Semantics(
-      label: semanticsLabel,
-      textField: true,
-      child: field,
-    );
+    return Semantics(label: semanticsLabel, textField: true, child: field);
   }
 }

@@ -396,8 +396,7 @@ class MentorNotifier extends ChangeNotifier {
       eventType: MentorFactType.chatRequested,
       phase: 'chat_requested',
       correlationId: correlationId,
-        redactedSummary:
-          'surface:$_lastSurface;len:${prompt.length};auth:bearer',
+      redactedSummary: 'surface:$_lastSurface;len:${prompt.length};auth:bearer',
       visibleStatus: 'chat-requested',
       visibleDetail: '正在请求一次受控回应',
     );

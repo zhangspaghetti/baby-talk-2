@@ -53,7 +53,9 @@ void main() {
     expect(text.style?.fontWeight, FontWeight.w500);
   });
 
-  testWidgets('选中态：bgSurface 底、warmShadowSm 阴影、textPrimary、w700', (tester) async {
+  testWidgets('选中态：bgSurface 底、warmShadowSm 阴影、textPrimary、w700', (
+    tester,
+  ) async {
     await pumpTab(tester, isSelected: true, onTap: () {});
     final colors = BabyTalkColors.light();
 
@@ -87,10 +89,7 @@ void main() {
         matching: find.byType(AnimatedContainer),
       ),
     );
-    expect(
-      container.constraints?.minHeight,
-      AppLayoutConstants.minTouchTarget,
-    );
+    expect(container.constraints?.minHeight, AppLayoutConstants.minTouchTarget);
   });
 
   testWidgets('携带 button + selected 语义', (tester) async {

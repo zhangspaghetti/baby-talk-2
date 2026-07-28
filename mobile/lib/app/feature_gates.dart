@@ -1,4 +1,5 @@
-import 'package:mobile/app/app_reentry_orchestrator.dart' show AppLaunchDestination;
+import 'package:mobile/app/app_reentry_orchestrator.dart'
+    show AppLaunchDestination;
 import 'package:mobile/features/onboarding/domain/models/onboarding_snapshot.dart';
 import 'package:mobile/features/practice/data/repositories/practice_repository.dart';
 import 'package:mobile/features/practice/domain/models/practice_continuity_snapshot.dart';
@@ -41,7 +42,8 @@ class FeatureGates {
       activityId: primaryActivityId,
     );
 
-    final starterArgs = PracticeRouteArgs.maybeCreate(
+    final starterArgs =
+        PracticeRouteArgs.maybeCreate(
           spaceId: completedSnapshot?.starterSpaceId,
           activityId: completedSnapshot?.starterActivityId,
         ) ??
@@ -77,7 +79,8 @@ class FeatureGates {
             recommendedArgs: recommendedArgs,
             status: PracticeContinuityLoadStatus.ready,
             warningMessage: continuitySnapshot.warningMessage,
-            lastRefreshReason: 'boot_seed_${continuitySnapshot.recommendation.reason.wireValue}',
+            lastRefreshReason:
+                'boot_seed_${continuitySnapshot.recommendation.reason.wireValue}',
           );
         }
       } catch (_) {

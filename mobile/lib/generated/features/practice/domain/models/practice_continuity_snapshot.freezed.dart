@@ -12,7 +12,8 @@ part of '../../../../../features/practice/domain/models/practice_continuity_snap
 T _$identity<T>(T value) => value;
 
 final _privateConstructorUsedError = UnsupportedError(
-    'It seems like you constructed your class using `MyClass._()`. This constructor is only meant to be used by freezed and you are not supposed to need it nor use it.\nPlease check the documentation here for more information: https://github.com/rrousselGit/freezed#adding-getters-and-methods-to-our-models');
+  'It seems like you constructed your class using `MyClass._()`. This constructor is only meant to be used by freezed and you are not supposed to need it nor use it.\nPlease check the documentation here for more information: https://github.com/rrousselGit/freezed#adding-getters-and-methods-to-our-models',
+);
 
 /// @nodoc
 mixin _$PracticeContinuityRecommendation {
@@ -25,29 +26,35 @@ mixin _$PracticeContinuityRecommendation {
 
   @JsonKey(ignore: true)
   $PracticeContinuityRecommendationCopyWith<PracticeContinuityRecommendation>
-      get copyWith => throw _privateConstructorUsedError;
+  get copyWith => throw _privateConstructorUsedError;
 }
 
 /// @nodoc
 abstract class $PracticeContinuityRecommendationCopyWith<$Res> {
   factory $PracticeContinuityRecommendationCopyWith(
-          PracticeContinuityRecommendation value,
-          $Res Function(PracticeContinuityRecommendation) then) =
-      _$PracticeContinuityRecommendationCopyWithImpl<$Res,
-          PracticeContinuityRecommendation>;
+    PracticeContinuityRecommendation value,
+    $Res Function(PracticeContinuityRecommendation) then,
+  ) =
+      _$PracticeContinuityRecommendationCopyWithImpl<
+        $Res,
+        PracticeContinuityRecommendation
+      >;
   @useResult
-  $Res call(
-      {String spaceId,
-      String activityId,
-      String activityTitle,
-      PracticeContinuityReason reason,
-      String reasonLabel,
-      String? fallbackReason});
+  $Res call({
+    String spaceId,
+    String activityId,
+    String activityTitle,
+    PracticeContinuityReason reason,
+    String reasonLabel,
+    String? fallbackReason,
+  });
 }
 
 /// @nodoc
-class _$PracticeContinuityRecommendationCopyWithImpl<$Res,
-        $Val extends PracticeContinuityRecommendation>
+class _$PracticeContinuityRecommendationCopyWithImpl<
+  $Res,
+  $Val extends PracticeContinuityRecommendation
+>
     implements $PracticeContinuityRecommendationCopyWith<$Res> {
   _$PracticeContinuityRecommendationCopyWithImpl(this._value, this._then);
 
@@ -66,32 +73,35 @@ class _$PracticeContinuityRecommendationCopyWithImpl<$Res,
     Object? reasonLabel = null,
     Object? fallbackReason = freezed,
   }) {
-    return _then(_value.copyWith(
-      spaceId: null == spaceId
-          ? _value.spaceId
-          : spaceId // ignore: cast_nullable_to_non_nullable
-              as String,
-      activityId: null == activityId
-          ? _value.activityId
-          : activityId // ignore: cast_nullable_to_non_nullable
-              as String,
-      activityTitle: null == activityTitle
-          ? _value.activityTitle
-          : activityTitle // ignore: cast_nullable_to_non_nullable
-              as String,
-      reason: null == reason
-          ? _value.reason
-          : reason // ignore: cast_nullable_to_non_nullable
-              as PracticeContinuityReason,
-      reasonLabel: null == reasonLabel
-          ? _value.reasonLabel
-          : reasonLabel // ignore: cast_nullable_to_non_nullable
-              as String,
-      fallbackReason: freezed == fallbackReason
-          ? _value.fallbackReason
-          : fallbackReason // ignore: cast_nullable_to_non_nullable
-              as String?,
-    ) as $Val);
+    return _then(
+      _value.copyWith(
+            spaceId: null == spaceId
+                ? _value.spaceId
+                : spaceId // ignore: cast_nullable_to_non_nullable
+                      as String,
+            activityId: null == activityId
+                ? _value.activityId
+                : activityId // ignore: cast_nullable_to_non_nullable
+                      as String,
+            activityTitle: null == activityTitle
+                ? _value.activityTitle
+                : activityTitle // ignore: cast_nullable_to_non_nullable
+                      as String,
+            reason: null == reason
+                ? _value.reason
+                : reason // ignore: cast_nullable_to_non_nullable
+                      as PracticeContinuityReason,
+            reasonLabel: null == reasonLabel
+                ? _value.reasonLabel
+                : reasonLabel // ignore: cast_nullable_to_non_nullable
+                      as String,
+            fallbackReason: freezed == fallbackReason
+                ? _value.fallbackReason
+                : fallbackReason // ignore: cast_nullable_to_non_nullable
+                      as String?,
+          )
+          as $Val,
+    );
   }
 }
 
@@ -99,29 +109,33 @@ class _$PracticeContinuityRecommendationCopyWithImpl<$Res,
 abstract class _$$PracticeContinuityRecommendationImplCopyWith<$Res>
     implements $PracticeContinuityRecommendationCopyWith<$Res> {
   factory _$$PracticeContinuityRecommendationImplCopyWith(
-          _$PracticeContinuityRecommendationImpl value,
-          $Res Function(_$PracticeContinuityRecommendationImpl) then) =
-      __$$PracticeContinuityRecommendationImplCopyWithImpl<$Res>;
+    _$PracticeContinuityRecommendationImpl value,
+    $Res Function(_$PracticeContinuityRecommendationImpl) then,
+  ) = __$$PracticeContinuityRecommendationImplCopyWithImpl<$Res>;
   @override
   @useResult
-  $Res call(
-      {String spaceId,
-      String activityId,
-      String activityTitle,
-      PracticeContinuityReason reason,
-      String reasonLabel,
-      String? fallbackReason});
+  $Res call({
+    String spaceId,
+    String activityId,
+    String activityTitle,
+    PracticeContinuityReason reason,
+    String reasonLabel,
+    String? fallbackReason,
+  });
 }
 
 /// @nodoc
 class __$$PracticeContinuityRecommendationImplCopyWithImpl<$Res>
-    extends _$PracticeContinuityRecommendationCopyWithImpl<$Res,
-        _$PracticeContinuityRecommendationImpl>
+    extends
+        _$PracticeContinuityRecommendationCopyWithImpl<
+          $Res,
+          _$PracticeContinuityRecommendationImpl
+        >
     implements _$$PracticeContinuityRecommendationImplCopyWith<$Res> {
   __$$PracticeContinuityRecommendationImplCopyWithImpl(
-      _$PracticeContinuityRecommendationImpl _value,
-      $Res Function(_$PracticeContinuityRecommendationImpl) _then)
-      : super(_value, _then);
+    _$PracticeContinuityRecommendationImpl _value,
+    $Res Function(_$PracticeContinuityRecommendationImpl) _then,
+  ) : super(_value, _then);
 
   @pragma('vm:prefer-inline')
   @override
@@ -133,32 +147,34 @@ class __$$PracticeContinuityRecommendationImplCopyWithImpl<$Res>
     Object? reasonLabel = null,
     Object? fallbackReason = freezed,
   }) {
-    return _then(_$PracticeContinuityRecommendationImpl(
-      spaceId: null == spaceId
-          ? _value.spaceId
-          : spaceId // ignore: cast_nullable_to_non_nullable
-              as String,
-      activityId: null == activityId
-          ? _value.activityId
-          : activityId // ignore: cast_nullable_to_non_nullable
-              as String,
-      activityTitle: null == activityTitle
-          ? _value.activityTitle
-          : activityTitle // ignore: cast_nullable_to_non_nullable
-              as String,
-      reason: null == reason
-          ? _value.reason
-          : reason // ignore: cast_nullable_to_non_nullable
-              as PracticeContinuityReason,
-      reasonLabel: null == reasonLabel
-          ? _value.reasonLabel
-          : reasonLabel // ignore: cast_nullable_to_non_nullable
-              as String,
-      fallbackReason: freezed == fallbackReason
-          ? _value.fallbackReason
-          : fallbackReason // ignore: cast_nullable_to_non_nullable
-              as String?,
-    ));
+    return _then(
+      _$PracticeContinuityRecommendationImpl(
+        spaceId: null == spaceId
+            ? _value.spaceId
+            : spaceId // ignore: cast_nullable_to_non_nullable
+                  as String,
+        activityId: null == activityId
+            ? _value.activityId
+            : activityId // ignore: cast_nullable_to_non_nullable
+                  as String,
+        activityTitle: null == activityTitle
+            ? _value.activityTitle
+            : activityTitle // ignore: cast_nullable_to_non_nullable
+                  as String,
+        reason: null == reason
+            ? _value.reason
+            : reason // ignore: cast_nullable_to_non_nullable
+                  as PracticeContinuityReason,
+        reasonLabel: null == reasonLabel
+            ? _value.reasonLabel
+            : reasonLabel // ignore: cast_nullable_to_non_nullable
+                  as String,
+        fallbackReason: freezed == fallbackReason
+            ? _value.fallbackReason
+            : fallbackReason // ignore: cast_nullable_to_non_nullable
+                  as String?,
+      ),
+    );
   }
 }
 
@@ -166,13 +182,14 @@ class __$$PracticeContinuityRecommendationImplCopyWithImpl<$Res>
 
 class _$PracticeContinuityRecommendationImpl
     implements _PracticeContinuityRecommendation {
-  const _$PracticeContinuityRecommendationImpl(
-      {required this.spaceId,
-      required this.activityId,
-      required this.activityTitle,
-      required this.reason,
-      required this.reasonLabel,
-      this.fallbackReason});
+  const _$PracticeContinuityRecommendationImpl({
+    required this.spaceId,
+    required this.activityId,
+    required this.activityTitle,
+    required this.reason,
+    required this.reasonLabel,
+    this.fallbackReason,
+  });
 
   @override
   final String spaceId;
@@ -210,27 +227,38 @@ class _$PracticeContinuityRecommendationImpl
   }
 
   @override
-  int get hashCode => Object.hash(runtimeType, spaceId, activityId,
-      activityTitle, reason, reasonLabel, fallbackReason);
+  int get hashCode => Object.hash(
+    runtimeType,
+    spaceId,
+    activityId,
+    activityTitle,
+    reason,
+    reasonLabel,
+    fallbackReason,
+  );
 
   @JsonKey(ignore: true)
   @override
   @pragma('vm:prefer-inline')
   _$$PracticeContinuityRecommendationImplCopyWith<
-          _$PracticeContinuityRecommendationImpl>
-      get copyWith => __$$PracticeContinuityRecommendationImplCopyWithImpl<
-          _$PracticeContinuityRecommendationImpl>(this, _$identity);
+    _$PracticeContinuityRecommendationImpl
+  >
+  get copyWith =>
+      __$$PracticeContinuityRecommendationImplCopyWithImpl<
+        _$PracticeContinuityRecommendationImpl
+      >(this, _$identity);
 }
 
 abstract class _PracticeContinuityRecommendation
     implements PracticeContinuityRecommendation {
-  const factory _PracticeContinuityRecommendation(
-      {required final String spaceId,
-      required final String activityId,
-      required final String activityTitle,
-      required final PracticeContinuityReason reason,
-      required final String reasonLabel,
-      final String? fallbackReason}) = _$PracticeContinuityRecommendationImpl;
+  const factory _PracticeContinuityRecommendation({
+    required final String spaceId,
+    required final String activityId,
+    required final String activityTitle,
+    required final PracticeContinuityReason reason,
+    required final String reasonLabel,
+    final String? fallbackReason,
+  }) = _$PracticeContinuityRecommendationImpl;
 
   @override
   String get spaceId;
@@ -247,8 +275,9 @@ abstract class _PracticeContinuityRecommendation
   @override
   @JsonKey(ignore: true)
   _$$PracticeContinuityRecommendationImplCopyWith<
-          _$PracticeContinuityRecommendationImpl>
-      get copyWith => throw _privateConstructorUsedError;
+    _$PracticeContinuityRecommendationImpl
+  >
+  get copyWith => throw _privateConstructorUsedError;
 }
 
 /// @nodoc
@@ -261,28 +290,34 @@ mixin _$PracticeContinuityCadenceSummary {
 
   @JsonKey(ignore: true)
   $PracticeContinuityCadenceSummaryCopyWith<PracticeContinuityCadenceSummary>
-      get copyWith => throw _privateConstructorUsedError;
+  get copyWith => throw _privateConstructorUsedError;
 }
 
 /// @nodoc
 abstract class $PracticeContinuityCadenceSummaryCopyWith<$Res> {
   factory $PracticeContinuityCadenceSummaryCopyWith(
-          PracticeContinuityCadenceSummary value,
-          $Res Function(PracticeContinuityCadenceSummary) then) =
-      _$PracticeContinuityCadenceSummaryCopyWithImpl<$Res,
-          PracticeContinuityCadenceSummary>;
+    PracticeContinuityCadenceSummary value,
+    $Res Function(PracticeContinuityCadenceSummary) then,
+  ) =
+      _$PracticeContinuityCadenceSummaryCopyWithImpl<
+        $Res,
+        PracticeContinuityCadenceSummary
+      >;
   @useResult
-  $Res call(
-      {int totalKnownEvents,
-      int startedActivityCount,
-      DateTime? lastEventTime,
-      String headline,
-      String detail});
+  $Res call({
+    int totalKnownEvents,
+    int startedActivityCount,
+    DateTime? lastEventTime,
+    String headline,
+    String detail,
+  });
 }
 
 /// @nodoc
-class _$PracticeContinuityCadenceSummaryCopyWithImpl<$Res,
-        $Val extends PracticeContinuityCadenceSummary>
+class _$PracticeContinuityCadenceSummaryCopyWithImpl<
+  $Res,
+  $Val extends PracticeContinuityCadenceSummary
+>
     implements $PracticeContinuityCadenceSummaryCopyWith<$Res> {
   _$PracticeContinuityCadenceSummaryCopyWithImpl(this._value, this._then);
 
@@ -300,28 +335,31 @@ class _$PracticeContinuityCadenceSummaryCopyWithImpl<$Res,
     Object? headline = null,
     Object? detail = null,
   }) {
-    return _then(_value.copyWith(
-      totalKnownEvents: null == totalKnownEvents
-          ? _value.totalKnownEvents
-          : totalKnownEvents // ignore: cast_nullable_to_non_nullable
-              as int,
-      startedActivityCount: null == startedActivityCount
-          ? _value.startedActivityCount
-          : startedActivityCount // ignore: cast_nullable_to_non_nullable
-              as int,
-      lastEventTime: freezed == lastEventTime
-          ? _value.lastEventTime
-          : lastEventTime // ignore: cast_nullable_to_non_nullable
-              as DateTime?,
-      headline: null == headline
-          ? _value.headline
-          : headline // ignore: cast_nullable_to_non_nullable
-              as String,
-      detail: null == detail
-          ? _value.detail
-          : detail // ignore: cast_nullable_to_non_nullable
-              as String,
-    ) as $Val);
+    return _then(
+      _value.copyWith(
+            totalKnownEvents: null == totalKnownEvents
+                ? _value.totalKnownEvents
+                : totalKnownEvents // ignore: cast_nullable_to_non_nullable
+                      as int,
+            startedActivityCount: null == startedActivityCount
+                ? _value.startedActivityCount
+                : startedActivityCount // ignore: cast_nullable_to_non_nullable
+                      as int,
+            lastEventTime: freezed == lastEventTime
+                ? _value.lastEventTime
+                : lastEventTime // ignore: cast_nullable_to_non_nullable
+                      as DateTime?,
+            headline: null == headline
+                ? _value.headline
+                : headline // ignore: cast_nullable_to_non_nullable
+                      as String,
+            detail: null == detail
+                ? _value.detail
+                : detail // ignore: cast_nullable_to_non_nullable
+                      as String,
+          )
+          as $Val,
+    );
   }
 }
 
@@ -329,28 +367,32 @@ class _$PracticeContinuityCadenceSummaryCopyWithImpl<$Res,
 abstract class _$$PracticeContinuityCadenceSummaryImplCopyWith<$Res>
     implements $PracticeContinuityCadenceSummaryCopyWith<$Res> {
   factory _$$PracticeContinuityCadenceSummaryImplCopyWith(
-          _$PracticeContinuityCadenceSummaryImpl value,
-          $Res Function(_$PracticeContinuityCadenceSummaryImpl) then) =
-      __$$PracticeContinuityCadenceSummaryImplCopyWithImpl<$Res>;
+    _$PracticeContinuityCadenceSummaryImpl value,
+    $Res Function(_$PracticeContinuityCadenceSummaryImpl) then,
+  ) = __$$PracticeContinuityCadenceSummaryImplCopyWithImpl<$Res>;
   @override
   @useResult
-  $Res call(
-      {int totalKnownEvents,
-      int startedActivityCount,
-      DateTime? lastEventTime,
-      String headline,
-      String detail});
+  $Res call({
+    int totalKnownEvents,
+    int startedActivityCount,
+    DateTime? lastEventTime,
+    String headline,
+    String detail,
+  });
 }
 
 /// @nodoc
 class __$$PracticeContinuityCadenceSummaryImplCopyWithImpl<$Res>
-    extends _$PracticeContinuityCadenceSummaryCopyWithImpl<$Res,
-        _$PracticeContinuityCadenceSummaryImpl>
+    extends
+        _$PracticeContinuityCadenceSummaryCopyWithImpl<
+          $Res,
+          _$PracticeContinuityCadenceSummaryImpl
+        >
     implements _$$PracticeContinuityCadenceSummaryImplCopyWith<$Res> {
   __$$PracticeContinuityCadenceSummaryImplCopyWithImpl(
-      _$PracticeContinuityCadenceSummaryImpl _value,
-      $Res Function(_$PracticeContinuityCadenceSummaryImpl) _then)
-      : super(_value, _then);
+    _$PracticeContinuityCadenceSummaryImpl _value,
+    $Res Function(_$PracticeContinuityCadenceSummaryImpl) _then,
+  ) : super(_value, _then);
 
   @pragma('vm:prefer-inline')
   @override
@@ -361,28 +403,30 @@ class __$$PracticeContinuityCadenceSummaryImplCopyWithImpl<$Res>
     Object? headline = null,
     Object? detail = null,
   }) {
-    return _then(_$PracticeContinuityCadenceSummaryImpl(
-      totalKnownEvents: null == totalKnownEvents
-          ? _value.totalKnownEvents
-          : totalKnownEvents // ignore: cast_nullable_to_non_nullable
-              as int,
-      startedActivityCount: null == startedActivityCount
-          ? _value.startedActivityCount
-          : startedActivityCount // ignore: cast_nullable_to_non_nullable
-              as int,
-      lastEventTime: freezed == lastEventTime
-          ? _value.lastEventTime
-          : lastEventTime // ignore: cast_nullable_to_non_nullable
-              as DateTime?,
-      headline: null == headline
-          ? _value.headline
-          : headline // ignore: cast_nullable_to_non_nullable
-              as String,
-      detail: null == detail
-          ? _value.detail
-          : detail // ignore: cast_nullable_to_non_nullable
-              as String,
-    ));
+    return _then(
+      _$PracticeContinuityCadenceSummaryImpl(
+        totalKnownEvents: null == totalKnownEvents
+            ? _value.totalKnownEvents
+            : totalKnownEvents // ignore: cast_nullable_to_non_nullable
+                  as int,
+        startedActivityCount: null == startedActivityCount
+            ? _value.startedActivityCount
+            : startedActivityCount // ignore: cast_nullable_to_non_nullable
+                  as int,
+        lastEventTime: freezed == lastEventTime
+            ? _value.lastEventTime
+            : lastEventTime // ignore: cast_nullable_to_non_nullable
+                  as DateTime?,
+        headline: null == headline
+            ? _value.headline
+            : headline // ignore: cast_nullable_to_non_nullable
+                  as String,
+        detail: null == detail
+            ? _value.detail
+            : detail // ignore: cast_nullable_to_non_nullable
+                  as String,
+      ),
+    );
   }
 }
 
@@ -390,13 +434,13 @@ class __$$PracticeContinuityCadenceSummaryImplCopyWithImpl<$Res>
 
 class _$PracticeContinuityCadenceSummaryImpl
     extends _PracticeContinuityCadenceSummary {
-  const _$PracticeContinuityCadenceSummaryImpl(
-      {required this.totalKnownEvents,
-      required this.startedActivityCount,
-      required this.lastEventTime,
-      required this.headline,
-      required this.detail})
-      : super._();
+  const _$PracticeContinuityCadenceSummaryImpl({
+    required this.totalKnownEvents,
+    required this.startedActivityCount,
+    required this.lastEventTime,
+    required this.headline,
+    required this.detail,
+  }) : super._();
 
   @override
   final int totalKnownEvents;
@@ -431,26 +475,36 @@ class _$PracticeContinuityCadenceSummaryImpl
   }
 
   @override
-  int get hashCode => Object.hash(runtimeType, totalKnownEvents,
-      startedActivityCount, lastEventTime, headline, detail);
+  int get hashCode => Object.hash(
+    runtimeType,
+    totalKnownEvents,
+    startedActivityCount,
+    lastEventTime,
+    headline,
+    detail,
+  );
 
   @JsonKey(ignore: true)
   @override
   @pragma('vm:prefer-inline')
   _$$PracticeContinuityCadenceSummaryImplCopyWith<
-          _$PracticeContinuityCadenceSummaryImpl>
-      get copyWith => __$$PracticeContinuityCadenceSummaryImplCopyWithImpl<
-          _$PracticeContinuityCadenceSummaryImpl>(this, _$identity);
+    _$PracticeContinuityCadenceSummaryImpl
+  >
+  get copyWith =>
+      __$$PracticeContinuityCadenceSummaryImplCopyWithImpl<
+        _$PracticeContinuityCadenceSummaryImpl
+      >(this, _$identity);
 }
 
 abstract class _PracticeContinuityCadenceSummary
     extends PracticeContinuityCadenceSummary {
-  const factory _PracticeContinuityCadenceSummary(
-      {required final int totalKnownEvents,
-      required final int startedActivityCount,
-      required final DateTime? lastEventTime,
-      required final String headline,
-      required final String detail}) = _$PracticeContinuityCadenceSummaryImpl;
+  const factory _PracticeContinuityCadenceSummary({
+    required final int totalKnownEvents,
+    required final int startedActivityCount,
+    required final DateTime? lastEventTime,
+    required final String headline,
+    required final String detail,
+  }) = _$PracticeContinuityCadenceSummaryImpl;
   const _PracticeContinuityCadenceSummary._() : super._();
 
   @override
@@ -466,8 +520,9 @@ abstract class _PracticeContinuityCadenceSummary
   @override
   @JsonKey(ignore: true)
   _$$PracticeContinuityCadenceSummaryImplCopyWith<
-          _$PracticeContinuityCadenceSummaryImpl>
-      get copyWith => throw _privateConstructorUsedError;
+    _$PracticeContinuityCadenceSummaryImpl
+  >
+  get copyWith => throw _privateConstructorUsedError;
 }
 
 /// @nodoc
@@ -489,25 +544,30 @@ mixin _$PracticeContinuitySnapshot {
 
   @JsonKey(ignore: true)
   $PracticeContinuitySnapshotCopyWith<PracticeContinuitySnapshot>
-      get copyWith => throw _privateConstructorUsedError;
+  get copyWith => throw _privateConstructorUsedError;
 }
 
 /// @nodoc
 abstract class $PracticeContinuitySnapshotCopyWith<$Res> {
-  factory $PracticeContinuitySnapshotCopyWith(PracticeContinuitySnapshot value,
-          $Res Function(PracticeContinuitySnapshot) then) =
-      _$PracticeContinuitySnapshotCopyWithImpl<$Res,
-          PracticeContinuitySnapshot>;
+  factory $PracticeContinuitySnapshotCopyWith(
+    PracticeContinuitySnapshot value,
+    $Res Function(PracticeContinuitySnapshot) then,
+  ) =
+      _$PracticeContinuitySnapshotCopyWithImpl<
+        $Res,
+        PracticeContinuitySnapshot
+      >;
   @useResult
-  $Res call(
-      {PracticeActivityCatalog catalog,
-      PracticeCatalogActivitySummary recommendedActivity,
-      PracticeCatalogActivitySummary? recentActivity,
-      PracticeCatalogActivitySummary? nextIncompleteActivity,
-      PracticeCatalogActivitySummary? starterActivity,
-      PracticeContinuityRecommendation recommendation,
-      PracticeContinuityCadenceSummary cadence,
-      String? warningMessage});
+  $Res call({
+    PracticeActivityCatalog catalog,
+    PracticeCatalogActivitySummary recommendedActivity,
+    PracticeCatalogActivitySummary? recentActivity,
+    PracticeCatalogActivitySummary? nextIncompleteActivity,
+    PracticeCatalogActivitySummary? starterActivity,
+    PracticeContinuityRecommendation recommendation,
+    PracticeContinuityCadenceSummary cadence,
+    String? warningMessage,
+  });
 
   $PracticeActivityCatalogCopyWith<$Res> get catalog;
   $PracticeCatalogActivitySummaryCopyWith<$Res> get recommendedActivity;
@@ -519,8 +579,10 @@ abstract class $PracticeContinuitySnapshotCopyWith<$Res> {
 }
 
 /// @nodoc
-class _$PracticeContinuitySnapshotCopyWithImpl<$Res,
-        $Val extends PracticeContinuitySnapshot>
+class _$PracticeContinuitySnapshotCopyWithImpl<
+  $Res,
+  $Val extends PracticeContinuitySnapshot
+>
     implements $PracticeContinuitySnapshotCopyWith<$Res> {
   _$PracticeContinuitySnapshotCopyWithImpl(this._value, this._then);
 
@@ -541,40 +603,43 @@ class _$PracticeContinuitySnapshotCopyWithImpl<$Res,
     Object? cadence = null,
     Object? warningMessage = freezed,
   }) {
-    return _then(_value.copyWith(
-      catalog: null == catalog
-          ? _value.catalog
-          : catalog // ignore: cast_nullable_to_non_nullable
-              as PracticeActivityCatalog,
-      recommendedActivity: null == recommendedActivity
-          ? _value.recommendedActivity
-          : recommendedActivity // ignore: cast_nullable_to_non_nullable
-              as PracticeCatalogActivitySummary,
-      recentActivity: freezed == recentActivity
-          ? _value.recentActivity
-          : recentActivity // ignore: cast_nullable_to_non_nullable
-              as PracticeCatalogActivitySummary?,
-      nextIncompleteActivity: freezed == nextIncompleteActivity
-          ? _value.nextIncompleteActivity
-          : nextIncompleteActivity // ignore: cast_nullable_to_non_nullable
-              as PracticeCatalogActivitySummary?,
-      starterActivity: freezed == starterActivity
-          ? _value.starterActivity
-          : starterActivity // ignore: cast_nullable_to_non_nullable
-              as PracticeCatalogActivitySummary?,
-      recommendation: null == recommendation
-          ? _value.recommendation
-          : recommendation // ignore: cast_nullable_to_non_nullable
-              as PracticeContinuityRecommendation,
-      cadence: null == cadence
-          ? _value.cadence
-          : cadence // ignore: cast_nullable_to_non_nullable
-              as PracticeContinuityCadenceSummary,
-      warningMessage: freezed == warningMessage
-          ? _value.warningMessage
-          : warningMessage // ignore: cast_nullable_to_non_nullable
-              as String?,
-    ) as $Val);
+    return _then(
+      _value.copyWith(
+            catalog: null == catalog
+                ? _value.catalog
+                : catalog // ignore: cast_nullable_to_non_nullable
+                      as PracticeActivityCatalog,
+            recommendedActivity: null == recommendedActivity
+                ? _value.recommendedActivity
+                : recommendedActivity // ignore: cast_nullable_to_non_nullable
+                      as PracticeCatalogActivitySummary,
+            recentActivity: freezed == recentActivity
+                ? _value.recentActivity
+                : recentActivity // ignore: cast_nullable_to_non_nullable
+                      as PracticeCatalogActivitySummary?,
+            nextIncompleteActivity: freezed == nextIncompleteActivity
+                ? _value.nextIncompleteActivity
+                : nextIncompleteActivity // ignore: cast_nullable_to_non_nullable
+                      as PracticeCatalogActivitySummary?,
+            starterActivity: freezed == starterActivity
+                ? _value.starterActivity
+                : starterActivity // ignore: cast_nullable_to_non_nullable
+                      as PracticeCatalogActivitySummary?,
+            recommendation: null == recommendation
+                ? _value.recommendation
+                : recommendation // ignore: cast_nullable_to_non_nullable
+                      as PracticeContinuityRecommendation,
+            cadence: null == cadence
+                ? _value.cadence
+                : cadence // ignore: cast_nullable_to_non_nullable
+                      as PracticeContinuityCadenceSummary,
+            warningMessage: freezed == warningMessage
+                ? _value.warningMessage
+                : warningMessage // ignore: cast_nullable_to_non_nullable
+                      as String?,
+          )
+          as $Val,
+    );
   }
 
   @override
@@ -589,9 +654,11 @@ class _$PracticeContinuitySnapshotCopyWithImpl<$Res,
   @pragma('vm:prefer-inline')
   $PracticeCatalogActivitySummaryCopyWith<$Res> get recommendedActivity {
     return $PracticeCatalogActivitySummaryCopyWith<$Res>(
-        _value.recommendedActivity, (value) {
-      return _then(_value.copyWith(recommendedActivity: value) as $Val);
-    });
+      _value.recommendedActivity,
+      (value) {
+        return _then(_value.copyWith(recommendedActivity: value) as $Val);
+      },
+    );
   }
 
   @override
@@ -601,10 +668,12 @@ class _$PracticeContinuitySnapshotCopyWithImpl<$Res,
       return null;
     }
 
-    return $PracticeCatalogActivitySummaryCopyWith<$Res>(_value.recentActivity!,
-        (value) {
-      return _then(_value.copyWith(recentActivity: value) as $Val);
-    });
+    return $PracticeCatalogActivitySummaryCopyWith<$Res>(
+      _value.recentActivity!,
+      (value) {
+        return _then(_value.copyWith(recentActivity: value) as $Val);
+      },
+    );
   }
 
   @override
@@ -615,9 +684,11 @@ class _$PracticeContinuitySnapshotCopyWithImpl<$Res,
     }
 
     return $PracticeCatalogActivitySummaryCopyWith<$Res>(
-        _value.nextIncompleteActivity!, (value) {
-      return _then(_value.copyWith(nextIncompleteActivity: value) as $Val);
-    });
+      _value.nextIncompleteActivity!,
+      (value) {
+        return _then(_value.copyWith(nextIncompleteActivity: value) as $Val);
+      },
+    );
   }
 
   @override
@@ -628,25 +699,30 @@ class _$PracticeContinuitySnapshotCopyWithImpl<$Res,
     }
 
     return $PracticeCatalogActivitySummaryCopyWith<$Res>(
-        _value.starterActivity!, (value) {
-      return _then(_value.copyWith(starterActivity: value) as $Val);
-    });
+      _value.starterActivity!,
+      (value) {
+        return _then(_value.copyWith(starterActivity: value) as $Val);
+      },
+    );
   }
 
   @override
   @pragma('vm:prefer-inline')
   $PracticeContinuityRecommendationCopyWith<$Res> get recommendation {
     return $PracticeContinuityRecommendationCopyWith<$Res>(
-        _value.recommendation, (value) {
-      return _then(_value.copyWith(recommendation: value) as $Val);
-    });
+      _value.recommendation,
+      (value) {
+        return _then(_value.copyWith(recommendation: value) as $Val);
+      },
+    );
   }
 
   @override
   @pragma('vm:prefer-inline')
   $PracticeContinuityCadenceSummaryCopyWith<$Res> get cadence {
-    return $PracticeContinuityCadenceSummaryCopyWith<$Res>(_value.cadence,
-        (value) {
+    return $PracticeContinuityCadenceSummaryCopyWith<$Res>(_value.cadence, (
+      value,
+    ) {
       return _then(_value.copyWith(cadence: value) as $Val);
     });
   }
@@ -656,20 +732,21 @@ class _$PracticeContinuitySnapshotCopyWithImpl<$Res,
 abstract class _$$PracticeContinuitySnapshotImplCopyWith<$Res>
     implements $PracticeContinuitySnapshotCopyWith<$Res> {
   factory _$$PracticeContinuitySnapshotImplCopyWith(
-          _$PracticeContinuitySnapshotImpl value,
-          $Res Function(_$PracticeContinuitySnapshotImpl) then) =
-      __$$PracticeContinuitySnapshotImplCopyWithImpl<$Res>;
+    _$PracticeContinuitySnapshotImpl value,
+    $Res Function(_$PracticeContinuitySnapshotImpl) then,
+  ) = __$$PracticeContinuitySnapshotImplCopyWithImpl<$Res>;
   @override
   @useResult
-  $Res call(
-      {PracticeActivityCatalog catalog,
-      PracticeCatalogActivitySummary recommendedActivity,
-      PracticeCatalogActivitySummary? recentActivity,
-      PracticeCatalogActivitySummary? nextIncompleteActivity,
-      PracticeCatalogActivitySummary? starterActivity,
-      PracticeContinuityRecommendation recommendation,
-      PracticeContinuityCadenceSummary cadence,
-      String? warningMessage});
+  $Res call({
+    PracticeActivityCatalog catalog,
+    PracticeCatalogActivitySummary recommendedActivity,
+    PracticeCatalogActivitySummary? recentActivity,
+    PracticeCatalogActivitySummary? nextIncompleteActivity,
+    PracticeCatalogActivitySummary? starterActivity,
+    PracticeContinuityRecommendation recommendation,
+    PracticeContinuityCadenceSummary cadence,
+    String? warningMessage,
+  });
 
   @override
   $PracticeActivityCatalogCopyWith<$Res> get catalog;
@@ -689,13 +766,16 @@ abstract class _$$PracticeContinuitySnapshotImplCopyWith<$Res>
 
 /// @nodoc
 class __$$PracticeContinuitySnapshotImplCopyWithImpl<$Res>
-    extends _$PracticeContinuitySnapshotCopyWithImpl<$Res,
-        _$PracticeContinuitySnapshotImpl>
+    extends
+        _$PracticeContinuitySnapshotCopyWithImpl<
+          $Res,
+          _$PracticeContinuitySnapshotImpl
+        >
     implements _$$PracticeContinuitySnapshotImplCopyWith<$Res> {
   __$$PracticeContinuitySnapshotImplCopyWithImpl(
-      _$PracticeContinuitySnapshotImpl _value,
-      $Res Function(_$PracticeContinuitySnapshotImpl) _then)
-      : super(_value, _then);
+    _$PracticeContinuitySnapshotImpl _value,
+    $Res Function(_$PracticeContinuitySnapshotImpl) _then,
+  ) : super(_value, _then);
 
   @pragma('vm:prefer-inline')
   @override
@@ -709,56 +789,58 @@ class __$$PracticeContinuitySnapshotImplCopyWithImpl<$Res>
     Object? cadence = null,
     Object? warningMessage = freezed,
   }) {
-    return _then(_$PracticeContinuitySnapshotImpl(
-      catalog: null == catalog
-          ? _value.catalog
-          : catalog // ignore: cast_nullable_to_non_nullable
-              as PracticeActivityCatalog,
-      recommendedActivity: null == recommendedActivity
-          ? _value.recommendedActivity
-          : recommendedActivity // ignore: cast_nullable_to_non_nullable
-              as PracticeCatalogActivitySummary,
-      recentActivity: freezed == recentActivity
-          ? _value.recentActivity
-          : recentActivity // ignore: cast_nullable_to_non_nullable
-              as PracticeCatalogActivitySummary?,
-      nextIncompleteActivity: freezed == nextIncompleteActivity
-          ? _value.nextIncompleteActivity
-          : nextIncompleteActivity // ignore: cast_nullable_to_non_nullable
-              as PracticeCatalogActivitySummary?,
-      starterActivity: freezed == starterActivity
-          ? _value.starterActivity
-          : starterActivity // ignore: cast_nullable_to_non_nullable
-              as PracticeCatalogActivitySummary?,
-      recommendation: null == recommendation
-          ? _value.recommendation
-          : recommendation // ignore: cast_nullable_to_non_nullable
-              as PracticeContinuityRecommendation,
-      cadence: null == cadence
-          ? _value.cadence
-          : cadence // ignore: cast_nullable_to_non_nullable
-              as PracticeContinuityCadenceSummary,
-      warningMessage: freezed == warningMessage
-          ? _value.warningMessage
-          : warningMessage // ignore: cast_nullable_to_non_nullable
-              as String?,
-    ));
+    return _then(
+      _$PracticeContinuitySnapshotImpl(
+        catalog: null == catalog
+            ? _value.catalog
+            : catalog // ignore: cast_nullable_to_non_nullable
+                  as PracticeActivityCatalog,
+        recommendedActivity: null == recommendedActivity
+            ? _value.recommendedActivity
+            : recommendedActivity // ignore: cast_nullable_to_non_nullable
+                  as PracticeCatalogActivitySummary,
+        recentActivity: freezed == recentActivity
+            ? _value.recentActivity
+            : recentActivity // ignore: cast_nullable_to_non_nullable
+                  as PracticeCatalogActivitySummary?,
+        nextIncompleteActivity: freezed == nextIncompleteActivity
+            ? _value.nextIncompleteActivity
+            : nextIncompleteActivity // ignore: cast_nullable_to_non_nullable
+                  as PracticeCatalogActivitySummary?,
+        starterActivity: freezed == starterActivity
+            ? _value.starterActivity
+            : starterActivity // ignore: cast_nullable_to_non_nullable
+                  as PracticeCatalogActivitySummary?,
+        recommendation: null == recommendation
+            ? _value.recommendation
+            : recommendation // ignore: cast_nullable_to_non_nullable
+                  as PracticeContinuityRecommendation,
+        cadence: null == cadence
+            ? _value.cadence
+            : cadence // ignore: cast_nullable_to_non_nullable
+                  as PracticeContinuityCadenceSummary,
+        warningMessage: freezed == warningMessage
+            ? _value.warningMessage
+            : warningMessage // ignore: cast_nullable_to_non_nullable
+                  as String?,
+      ),
+    );
   }
 }
 
 /// @nodoc
 
 class _$PracticeContinuitySnapshotImpl extends _PracticeContinuitySnapshot {
-  const _$PracticeContinuitySnapshotImpl(
-      {required this.catalog,
-      required this.recommendedActivity,
-      required this.recentActivity,
-      required this.nextIncompleteActivity,
-      required this.starterActivity,
-      required this.recommendation,
-      required this.cadence,
-      this.warningMessage})
-      : super._();
+  const _$PracticeContinuitySnapshotImpl({
+    required this.catalog,
+    required this.recommendedActivity,
+    required this.recentActivity,
+    required this.nextIncompleteActivity,
+    required this.starterActivity,
+    required this.recommendation,
+    required this.cadence,
+    this.warningMessage,
+  }) : super._();
 
   @override
   final PracticeActivityCatalog catalog;
@@ -805,34 +887,38 @@ class _$PracticeContinuitySnapshotImpl extends _PracticeContinuitySnapshot {
 
   @override
   int get hashCode => Object.hash(
-      runtimeType,
-      catalog,
-      recommendedActivity,
-      recentActivity,
-      nextIncompleteActivity,
-      starterActivity,
-      recommendation,
-      cadence,
-      warningMessage);
+    runtimeType,
+    catalog,
+    recommendedActivity,
+    recentActivity,
+    nextIncompleteActivity,
+    starterActivity,
+    recommendation,
+    cadence,
+    warningMessage,
+  );
 
   @JsonKey(ignore: true)
   @override
   @pragma('vm:prefer-inline')
   _$$PracticeContinuitySnapshotImplCopyWith<_$PracticeContinuitySnapshotImpl>
-      get copyWith => __$$PracticeContinuitySnapshotImplCopyWithImpl<
-          _$PracticeContinuitySnapshotImpl>(this, _$identity);
+  get copyWith =>
+      __$$PracticeContinuitySnapshotImplCopyWithImpl<
+        _$PracticeContinuitySnapshotImpl
+      >(this, _$identity);
 }
 
 abstract class _PracticeContinuitySnapshot extends PracticeContinuitySnapshot {
-  const factory _PracticeContinuitySnapshot(
-      {required final PracticeActivityCatalog catalog,
-      required final PracticeCatalogActivitySummary recommendedActivity,
-      required final PracticeCatalogActivitySummary? recentActivity,
-      required final PracticeCatalogActivitySummary? nextIncompleteActivity,
-      required final PracticeCatalogActivitySummary? starterActivity,
-      required final PracticeContinuityRecommendation recommendation,
-      required final PracticeContinuityCadenceSummary cadence,
-      final String? warningMessage}) = _$PracticeContinuitySnapshotImpl;
+  const factory _PracticeContinuitySnapshot({
+    required final PracticeActivityCatalog catalog,
+    required final PracticeCatalogActivitySummary recommendedActivity,
+    required final PracticeCatalogActivitySummary? recentActivity,
+    required final PracticeCatalogActivitySummary? nextIncompleteActivity,
+    required final PracticeCatalogActivitySummary? starterActivity,
+    required final PracticeContinuityRecommendation recommendation,
+    required final PracticeContinuityCadenceSummary cadence,
+    final String? warningMessage,
+  }) = _$PracticeContinuitySnapshotImpl;
   const _PracticeContinuitySnapshot._() : super._();
 
   @override
@@ -854,5 +940,5 @@ abstract class _PracticeContinuitySnapshot extends PracticeContinuitySnapshot {
   @override
   @JsonKey(ignore: true)
   _$$PracticeContinuitySnapshotImplCopyWith<_$PracticeContinuitySnapshotImpl>
-      get copyWith => throw _privateConstructorUsedError;
+  get copyWith => throw _privateConstructorUsedError;
 }

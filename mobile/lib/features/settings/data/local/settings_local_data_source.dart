@@ -58,9 +58,7 @@ class SettingsLocalDataSource {
   /// written yet.
   Future<String?> readSnapshotJson() async {
     final collection = _isar.collection<SettingsEntity>();
-    final entity = await _isar.txn(
-      () async => collection.get(_singletonId),
-    );
+    final entity = await _isar.txn(() async => collection.get(_singletonId));
     return entity?.snapshotJson;
   }
 
@@ -68,9 +66,7 @@ class SettingsLocalDataSource {
   /// written yet.
   Future<int?> readVersion() async {
     final collection = _isar.collection<SettingsEntity>();
-    final entity = await _isar.txn(
-      () async => collection.get(_singletonId),
-    );
+    final entity = await _isar.txn(() async => collection.get(_singletonId));
     return entity?.version;
   }
 

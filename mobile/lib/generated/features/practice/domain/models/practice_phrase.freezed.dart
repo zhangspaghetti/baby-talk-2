@@ -12,7 +12,8 @@ part of '../../../../../features/practice/domain/models/practice_phrase.dart';
 T _$identity<T>(T value) => value;
 
 final _privateConstructorUsedError = UnsupportedError(
-    'It seems like you constructed your class using `MyClass._()`. This constructor is only meant to be used by freezed and you are not supposed to need it nor use it.\nPlease check the documentation here for more information: https://github.com/rrousselGit/freezed#adding-getters-and-methods-to-our-models');
+  'It seems like you constructed your class using `MyClass._()`. This constructor is only meant to be used by freezed and you are not supposed to need it nor use it.\nPlease check the documentation here for more information: https://github.com/rrousselGit/freezed#adding-getters-and-methods-to-our-models',
+);
 
 /// @nodoc
 mixin _$PracticePhrase {
@@ -34,19 +35,21 @@ mixin _$PracticePhrase {
 /// @nodoc
 abstract class $PracticePhraseCopyWith<$Res> {
   factory $PracticePhraseCopyWith(
-          PracticePhrase value, $Res Function(PracticePhrase) then) =
-      _$PracticePhraseCopyWithImpl<$Res, PracticePhrase>;
+    PracticePhrase value,
+    $Res Function(PracticePhrase) then,
+  ) = _$PracticePhraseCopyWithImpl<$Res, PracticePhrase>;
   @useResult
-  $Res call(
-      {String spaceId,
-      String activityId,
-      String phraseId,
-      int step,
-      String english,
-      String chinese,
-      String pronunciation,
-      String difficulty,
-      String audioAsset});
+  $Res call({
+    String spaceId,
+    String activityId,
+    String phraseId,
+    int step,
+    String english,
+    String chinese,
+    String pronunciation,
+    String difficulty,
+    String audioAsset,
+  });
 }
 
 /// @nodoc
@@ -72,65 +75,70 @@ class _$PracticePhraseCopyWithImpl<$Res, $Val extends PracticePhrase>
     Object? difficulty = null,
     Object? audioAsset = null,
   }) {
-    return _then(_value.copyWith(
-      spaceId: null == spaceId
-          ? _value.spaceId
-          : spaceId // ignore: cast_nullable_to_non_nullable
-              as String,
-      activityId: null == activityId
-          ? _value.activityId
-          : activityId // ignore: cast_nullable_to_non_nullable
-              as String,
-      phraseId: null == phraseId
-          ? _value.phraseId
-          : phraseId // ignore: cast_nullable_to_non_nullable
-              as String,
-      step: null == step
-          ? _value.step
-          : step // ignore: cast_nullable_to_non_nullable
-              as int,
-      english: null == english
-          ? _value.english
-          : english // ignore: cast_nullable_to_non_nullable
-              as String,
-      chinese: null == chinese
-          ? _value.chinese
-          : chinese // ignore: cast_nullable_to_non_nullable
-              as String,
-      pronunciation: null == pronunciation
-          ? _value.pronunciation
-          : pronunciation // ignore: cast_nullable_to_non_nullable
-              as String,
-      difficulty: null == difficulty
-          ? _value.difficulty
-          : difficulty // ignore: cast_nullable_to_non_nullable
-              as String,
-      audioAsset: null == audioAsset
-          ? _value.audioAsset
-          : audioAsset // ignore: cast_nullable_to_non_nullable
-              as String,
-    ) as $Val);
+    return _then(
+      _value.copyWith(
+            spaceId: null == spaceId
+                ? _value.spaceId
+                : spaceId // ignore: cast_nullable_to_non_nullable
+                      as String,
+            activityId: null == activityId
+                ? _value.activityId
+                : activityId // ignore: cast_nullable_to_non_nullable
+                      as String,
+            phraseId: null == phraseId
+                ? _value.phraseId
+                : phraseId // ignore: cast_nullable_to_non_nullable
+                      as String,
+            step: null == step
+                ? _value.step
+                : step // ignore: cast_nullable_to_non_nullable
+                      as int,
+            english: null == english
+                ? _value.english
+                : english // ignore: cast_nullable_to_non_nullable
+                      as String,
+            chinese: null == chinese
+                ? _value.chinese
+                : chinese // ignore: cast_nullable_to_non_nullable
+                      as String,
+            pronunciation: null == pronunciation
+                ? _value.pronunciation
+                : pronunciation // ignore: cast_nullable_to_non_nullable
+                      as String,
+            difficulty: null == difficulty
+                ? _value.difficulty
+                : difficulty // ignore: cast_nullable_to_non_nullable
+                      as String,
+            audioAsset: null == audioAsset
+                ? _value.audioAsset
+                : audioAsset // ignore: cast_nullable_to_non_nullable
+                      as String,
+          )
+          as $Val,
+    );
   }
 }
 
 /// @nodoc
 abstract class _$$PracticePhraseImplCopyWith<$Res>
     implements $PracticePhraseCopyWith<$Res> {
-  factory _$$PracticePhraseImplCopyWith(_$PracticePhraseImpl value,
-          $Res Function(_$PracticePhraseImpl) then) =
-      __$$PracticePhraseImplCopyWithImpl<$Res>;
+  factory _$$PracticePhraseImplCopyWith(
+    _$PracticePhraseImpl value,
+    $Res Function(_$PracticePhraseImpl) then,
+  ) = __$$PracticePhraseImplCopyWithImpl<$Res>;
   @override
   @useResult
-  $Res call(
-      {String spaceId,
-      String activityId,
-      String phraseId,
-      int step,
-      String english,
-      String chinese,
-      String pronunciation,
-      String difficulty,
-      String audioAsset});
+  $Res call({
+    String spaceId,
+    String activityId,
+    String phraseId,
+    int step,
+    String english,
+    String chinese,
+    String pronunciation,
+    String difficulty,
+    String audioAsset,
+  });
 }
 
 /// @nodoc
@@ -138,8 +146,9 @@ class __$$PracticePhraseImplCopyWithImpl<$Res>
     extends _$PracticePhraseCopyWithImpl<$Res, _$PracticePhraseImpl>
     implements _$$PracticePhraseImplCopyWith<$Res> {
   __$$PracticePhraseImplCopyWithImpl(
-      _$PracticePhraseImpl _value, $Res Function(_$PracticePhraseImpl) _then)
-      : super(_value, _then);
+    _$PracticePhraseImpl _value,
+    $Res Function(_$PracticePhraseImpl) _then,
+  ) : super(_value, _then);
 
   @pragma('vm:prefer-inline')
   @override
@@ -154,61 +163,63 @@ class __$$PracticePhraseImplCopyWithImpl<$Res>
     Object? difficulty = null,
     Object? audioAsset = null,
   }) {
-    return _then(_$PracticePhraseImpl(
-      spaceId: null == spaceId
-          ? _value.spaceId
-          : spaceId // ignore: cast_nullable_to_non_nullable
-              as String,
-      activityId: null == activityId
-          ? _value.activityId
-          : activityId // ignore: cast_nullable_to_non_nullable
-              as String,
-      phraseId: null == phraseId
-          ? _value.phraseId
-          : phraseId // ignore: cast_nullable_to_non_nullable
-              as String,
-      step: null == step
-          ? _value.step
-          : step // ignore: cast_nullable_to_non_nullable
-              as int,
-      english: null == english
-          ? _value.english
-          : english // ignore: cast_nullable_to_non_nullable
-              as String,
-      chinese: null == chinese
-          ? _value.chinese
-          : chinese // ignore: cast_nullable_to_non_nullable
-              as String,
-      pronunciation: null == pronunciation
-          ? _value.pronunciation
-          : pronunciation // ignore: cast_nullable_to_non_nullable
-              as String,
-      difficulty: null == difficulty
-          ? _value.difficulty
-          : difficulty // ignore: cast_nullable_to_non_nullable
-              as String,
-      audioAsset: null == audioAsset
-          ? _value.audioAsset
-          : audioAsset // ignore: cast_nullable_to_non_nullable
-              as String,
-    ));
+    return _then(
+      _$PracticePhraseImpl(
+        spaceId: null == spaceId
+            ? _value.spaceId
+            : spaceId // ignore: cast_nullable_to_non_nullable
+                  as String,
+        activityId: null == activityId
+            ? _value.activityId
+            : activityId // ignore: cast_nullable_to_non_nullable
+                  as String,
+        phraseId: null == phraseId
+            ? _value.phraseId
+            : phraseId // ignore: cast_nullable_to_non_nullable
+                  as String,
+        step: null == step
+            ? _value.step
+            : step // ignore: cast_nullable_to_non_nullable
+                  as int,
+        english: null == english
+            ? _value.english
+            : english // ignore: cast_nullable_to_non_nullable
+                  as String,
+        chinese: null == chinese
+            ? _value.chinese
+            : chinese // ignore: cast_nullable_to_non_nullable
+                  as String,
+        pronunciation: null == pronunciation
+            ? _value.pronunciation
+            : pronunciation // ignore: cast_nullable_to_non_nullable
+                  as String,
+        difficulty: null == difficulty
+            ? _value.difficulty
+            : difficulty // ignore: cast_nullable_to_non_nullable
+                  as String,
+        audioAsset: null == audioAsset
+            ? _value.audioAsset
+            : audioAsset // ignore: cast_nullable_to_non_nullable
+                  as String,
+      ),
+    );
   }
 }
 
 /// @nodoc
 
 class _$PracticePhraseImpl extends _PracticePhrase {
-  const _$PracticePhraseImpl(
-      {required this.spaceId,
-      required this.activityId,
-      required this.phraseId,
-      required this.step,
-      required this.english,
-      required this.chinese,
-      required this.pronunciation,
-      required this.difficulty,
-      required this.audioAsset})
-      : super._();
+  const _$PracticePhraseImpl({
+    required this.spaceId,
+    required this.activityId,
+    required this.phraseId,
+    required this.step,
+    required this.english,
+    required this.chinese,
+    required this.pronunciation,
+    required this.difficulty,
+    required this.audioAsset,
+  }) : super._();
 
   @override
   final String spaceId;
@@ -256,28 +267,41 @@ class _$PracticePhraseImpl extends _PracticePhrase {
   }
 
   @override
-  int get hashCode => Object.hash(runtimeType, spaceId, activityId, phraseId,
-      step, english, chinese, pronunciation, difficulty, audioAsset);
+  int get hashCode => Object.hash(
+    runtimeType,
+    spaceId,
+    activityId,
+    phraseId,
+    step,
+    english,
+    chinese,
+    pronunciation,
+    difficulty,
+    audioAsset,
+  );
 
   @JsonKey(ignore: true)
   @override
   @pragma('vm:prefer-inline')
   _$$PracticePhraseImplCopyWith<_$PracticePhraseImpl> get copyWith =>
       __$$PracticePhraseImplCopyWithImpl<_$PracticePhraseImpl>(
-          this, _$identity);
+        this,
+        _$identity,
+      );
 }
 
 abstract class _PracticePhrase extends PracticePhrase {
-  const factory _PracticePhrase(
-      {required final String spaceId,
-      required final String activityId,
-      required final String phraseId,
-      required final int step,
-      required final String english,
-      required final String chinese,
-      required final String pronunciation,
-      required final String difficulty,
-      required final String audioAsset}) = _$PracticePhraseImpl;
+  const factory _PracticePhrase({
+    required final String spaceId,
+    required final String activityId,
+    required final String phraseId,
+    required final int step,
+    required final String english,
+    required final String chinese,
+    required final String pronunciation,
+    required final String difficulty,
+    required final String audioAsset,
+  }) = _$PracticePhraseImpl;
   const _PracticePhrase._() : super._();
 
   @override

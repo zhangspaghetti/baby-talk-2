@@ -143,9 +143,7 @@ class GardenFertilizerApiService implements GardenFertilizerRemoteDataSource {
     }
     if (data is String) {
       if (data.trim().isEmpty) {
-        throw const GardenFertilizerApiException.malformed(
-          message: '响应体为空。',
-        );
+        throw const GardenFertilizerApiException.malformed(message: '响应体为空。');
       }
       try {
         final decoded = jsonDecode(data);
@@ -163,15 +161,16 @@ class GardenFertilizerApiService implements GardenFertilizerRemoteDataSource {
         );
       }
     }
-    throw const GardenFertilizerApiException.malformed(
-      message: '响应体不是对象。',
-    );
+    throw const GardenFertilizerApiException.malformed(message: '响应体不是对象。');
   }
 
   FertilizerState _readFertilizerState(Map<String, dynamic> json) {
     final stateJson = _readStateMap(json);
     final hasAppliedCount = _hasIntValue(stateJson, 'appliedCount');
-    final hasClaimedEventKeys = _hasStringListValue(stateJson, 'claimedEventKeys');
+    final hasClaimedEventKeys = _hasStringListValue(
+      stateJson,
+      'claimedEventKeys',
+    );
 
     if (!hasAppliedCount && !hasClaimedEventKeys) {
       throw const GardenFertilizerApiException.malformed(
