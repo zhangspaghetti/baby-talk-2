@@ -1,6 +1,8 @@
 [CmdletBinding()]
 param(
-    [switch]$IncludeAndroidUat
+    [switch]$IncludeAndroidUat,
+    [switch]$UatOnly,
+    [string]$UatRecordsPath = 'docs/uat/m2/records'
 )
 
 Set-StrictMode -Version Latest
@@ -23,9 +25,14 @@ function Invoke-M2Gate {
 
 Push-Location $repoRoot
 try {
+    Invoke-M2Gate 'M2-12 UAT closure matrix' { dart tool/verify_m2_12_release_matrix.dart --records $UatRecordsPath }
+
+    if ($UatOnly) {
+        return
+    }
+
     Invoke-M2Gate 'Spring AI 2 platform' { python tool/verify_spring_ai_2_backend_platform.py }
     Invoke-M2Gate 'M2-11 privacy and lifecycle' { dart tool/verify_m2_11_custom_scene_gates.dart }
-    Invoke-M2Gate 'M2-12 automatable matrix' { dart tool/verify_m2_12_release_matrix.dart }
 
     Push-Location 'backend'
     try {

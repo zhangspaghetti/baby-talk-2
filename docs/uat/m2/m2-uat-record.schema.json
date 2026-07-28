@@ -1,0 +1,183 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "m2-uat-record.schema.json",
+  "title": "M2 Android UAT record",
+  "description": "Privacy-safe, human-executed M2 UAT record. The release verifier applies stricter closure rules than this shape schema.",
+  "oneOf": [
+    {"$ref": "#/$defs/record"},
+    {
+      "type": "array",
+      "minItems": 1,
+      "items": {"$ref": "#/$defs/record"}
+    }
+  ],
+  "$defs": {
+    "record": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "record_id",
+        "case_id",
+        "canonical_scene",
+        "executor",
+        "executed_at",
+        "timezone",
+        "candidate",
+        "device",
+        "authenticity",
+        "prerequisites",
+        "steps",
+        "status",
+        "verdict",
+        "evidence_location",
+        "defects",
+        "retest_outcome",
+        "privacy",
+        "branch_reviews"
+      ],
+      "properties": {
+        "schema_version": {"const": "m2_android_uat_v1"},
+        "record_id": {"pattern": "^[a-z][a-z0-9_]{2,100}$"},
+        "case_id": {
+          "enum": [
+            "android_generated_flow",
+            "response_loss_reconciliation",
+            "force_stop_recovery",
+            "all_reaction_audio_branches",
+            "talkback_human_accessibility"
+          ]
+        },
+        "canonical_scene": {"enum": ["shoes", "bath", "water", "teeth", "tidying"]},
+        "executor": {"pattern": "^role:[a-z][a-z0-9_-]{2,63}$"},
+        "executed_at": {"format": "date-time"},
+        "timezone": {"pattern": "^[A-Za-z]+/[A-Za-z_]+$"},
+        "candidate": {"$ref": "#/$defs/candidate"},
+        "device": {"$ref": "#/$defs/device"},
+        "authenticity": {"$ref": "#/$defs/authenticity"},
+        "prerequisites": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/prerequisite"}},
+        "steps": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/step"}},
+        "status": {"enum": ["DRAFT", "IN_PROGRESS", "FINAL"]},
+        "verdict": {"enum": ["PASS", "FAIL", "BLOCKED", "NOT_RUN"]},
+        "evidence_location": {"pattern": "^reviewed://[a-z0-9][a-z0-9_/-]{2,160}$"},
+        "defects": {"type": "array", "items": {"$ref": "#/$defs/defect"}},
+        "retest_outcome": {"enum": ["PASS", "FAIL", "BLOCKED", "NOT_RUN", "NOT_REQUIRED"]},
+        "privacy": {"$ref": "#/$defs/privacy"},
+        "branch_reviews": {"type": "array", "items": {"$ref": "#/$defs/branchReview"}},
+        "accessibility": {"$ref": "#/$defs/accessibility"}
+      }
+    },
+    "candidate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "mobile_source_sha",
+        "mobile_apk_sha256",
+        "backend_source_sha",
+        "backend_artifact_identity",
+        "environment_identity",
+        "provider_mode",
+        "provider_profile",
+        "provider_model_identity",
+        "configuration_fingerprint"
+      ],
+      "properties": {
+        "mobile_source_sha": {"pattern": "^[a-f0-9]{40}([a-f0-9]{24})?$"},
+        "mobile_apk_sha256": {"pattern": "^[a-f0-9]{64}$"},
+        "backend_source_sha": {"pattern": "^[a-f0-9]{40}([a-f0-9]{24})?$"},
+        "backend_artifact_identity": {"pattern": "^(image|build)_sha256:[a-f0-9]{64}$"},
+        "environment_identity": {"pattern": "^sanitized-[a-z0-9][a-z0-9-]{2,100}$"},
+        "provider_mode": {"enum": ["REAL", "FAKE", "MOCK", "DISABLED"]},
+        "provider_profile": {"pattern": "^[a-z][a-z0-9-]{2,100}$"},
+        "provider_model_identity": {"pattern": "^model_sha256:[a-f0-9]{64}$"},
+        "configuration_fingerprint": {"pattern": "^sha256:[a-f0-9]{64}$"}
+      }
+    },
+    "device": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["device_class", "android_version", "talkback_version"],
+      "properties": {
+        "device_class": {"pattern": "^[a-z][a-z0-9_-]{1,100}$"},
+        "android_version": {"pattern": "^\\d+(\\.\\d+){0,2}$"},
+        "talkback_version": {"pattern": "^(NOT_APPLICABLE|\\d+(\\.\\d+){0,2})$"}
+      }
+    },
+    "authenticity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["execution", "provider_path", "llm_provider", "tts_provider"],
+      "properties": {
+        "execution": {"enum": ["HUMAN_ANDROID", "AUTOMATED"]},
+        "provider_path": {"enum": ["FORMAL_PRODUCTION", "FIXTURE", "LOOPBACK"]},
+        "llm_provider": {"enum": ["REAL", "FAKE", "MOCK"]},
+        "tts_provider": {"enum": ["REAL", "FAKE", "MOCK"]}
+      }
+    },
+    "privacy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["raw_content_stored", "raw_evidence_stored", "sensitive_identifiers_stored", "sanitized"],
+      "properties": {
+        "raw_content_stored": {"type": "boolean"},
+        "raw_evidence_stored": {"type": "boolean"},
+        "sensitive_identifiers_stored": {"type": "boolean"},
+        "sanitized": {"type": "boolean"}
+      }
+    },
+    "prerequisite": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "status"],
+      "properties": {
+        "id": {"pattern": "^[a-z][a-z0-9_]{1,100}$"},
+        "status": {"enum": ["PASS", "FAIL", "BLOCKED", "NOT_RUN"]}
+      }
+    },
+    "step": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["index", "action", "expected", "actual", "status"],
+      "properties": {
+        "index": {"type": "integer", "minimum": 1},
+        "action": {"pattern": "^[a-z][a-z0-9_]{1,100}$"},
+        "expected": {"pattern": "^[a-z][a-z0-9_]{1,100}$"},
+        "actual": {"pattern": "^[a-z][a-z0-9_]{1,100}$"},
+        "status": {"enum": ["PASS", "FAIL", "BLOCKED", "NOT_RUN"]}
+      }
+    },
+    "defect": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "status", "retest_outcome"],
+      "properties": {
+        "id": {"pattern": "^DEF-[0-9]+$"},
+        "status": {"enum": ["OPEN", "CLOSED"]},
+        "retest_outcome": {"enum": ["PASS", "FAIL", "BLOCKED", "NOT_RUN"]}
+      }
+    },
+    "branchReview": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["branch", "scene_match", "reaction_match", "low_pressure_language", "directly_speakable", "audio_matches_displayed_branch", "reviewer_verdict"],
+      "properties": {
+        "branch": {"enum": ["starter", "cooperating", "hesitant", "resisting", "no_response", "other"]},
+        "scene_match": {"enum": ["PASS", "FAIL"]},
+        "reaction_match": {"enum": ["PASS", "FAIL"]},
+        "low_pressure_language": {"enum": ["PASS", "FAIL"]},
+        "directly_speakable": {"enum": ["PASS", "FAIL"]},
+        "audio_matches_displayed_branch": {"enum": ["PASS", "FAIL"]},
+        "reviewer_verdict": {"enum": ["PASS", "FAIL"]}
+      }
+    },
+    "accessibility": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["method", "observations"],
+      "properties": {
+        "method": {"enum": ["HUMAN_HEARD_TOUCH_EXPLORATION", "ADB_HIERARCHY", "SEMANTICS"]},
+        "observations": {"type": "array", "items": {"type": "string"}}
+      }
+    }
+  }
+}
