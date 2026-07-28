@@ -38,6 +38,8 @@ The installed `com.babytalk.mobile` version `1.0.0` has `lastUpdateTime=2026-07-
 
 Closest executable generated-audio evidence is local, not Android playback: `flutter test test/features/practice/generated/generated_audio_memory_cache_test.dart test/features/practice/generated/generated_audio_api_test.dart test/features/care_path/presentation/care_audio_playback_controller_test.dart` passed 7 tests. It covers authenticated bytes route validation, empty/wrong-MIME/oversize rejection, TTL/LRU bounds, lifecycle late-response clearing, and cancellation preventing late playback. No authenticated local backend, active generated content, or generated-audio byte response was provisioned during this device run. It therefore does **not** prove on-device generated-byte audio playback.
 
+Android output-layer evidence now exists: `flutter test integration_test/m2_generated_audio_bytes_playback_test.dart -d emulator-5554` built, installed, and passed on the recreated API35 emulator. The integration test loads a known MP3 into memory and invokes production `AudioplayersCareAudioOutput.playBytes`, which uses `BytesSource`; it completed in 8 seconds. This proves current Android byte-source playback without a temporary file. The MP3 is a controlled test payload, not a backend response: owner authentication, active-content lookup, generated endpoint retrieval, six generated clips, and TTS-failure behavior remain unproven on device.
+
 ## Release decision
 
 **NOT RELEASE READY.** No release-ready statement is permitted while Android risk UAT and actual TalkBack evidence are absent.
