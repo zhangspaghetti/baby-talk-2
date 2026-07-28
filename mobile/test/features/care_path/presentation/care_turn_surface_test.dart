@@ -5,6 +5,7 @@ import 'package:flutter/semantics.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mobile/features/care_path/data/repositories/care_path_repository.dart';
 import 'package:mobile/features/care_path/domain/models/care_path_models.dart';
+import 'package:mobile/features/care_path/presentation/care_audio_playback_controller.dart';
 import 'package:mobile/features/care_path/presentation/care_path_notifier.dart';
 import 'package:mobile/features/care_path/presentation/widgets/care_turn_surface.dart';
 import 'package:mobile/features/practice/data/repositories/practice_repository.dart';
@@ -160,6 +161,41 @@ void main() {
     expect(find.text('暂时无法完成这次回应，请再试一次。'), findsOneWidget);
     await tester.tap(find.byKey(const Key('care-turn-retry-reaction')));
     expect(retried, 1);
+  });
+
+  testWidgets('audio failure restores Listen Once and exposes fallback', (
+    tester,
+  ) async {
+    final audio = _FailingCareAudioPlaybackController();
+    await tester.pumpWidget(
+      MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: Scaffold(
+          body: CareTurnSurface(
+            notifier: notifier,
+            careAudioControllerFactory: () => audio,
+          ),
+        ),
+      ),
+    );
+
+    await notifier.startMoment(spaceId: 'daily_care', activityId: 'bath_time');
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('care-turn-listen-once')));
+    await tester.pump();
+
+    expect(audio.playCalls, 1);
+    expect(find.byKey(const Key('care-turn-audio-error')), findsOneWidget);
+    expect(find.text('音频暂时不可用'), findsOneWidget);
+    expect(
+      tester
+          .widget<OutlinedButton>(
+            find.byKey(const Key('care-turn-listen-once')),
+          )
+          .onPressed,
+      isNotNull,
+    );
   });
 
   testWidgets(
@@ -342,6 +378,27 @@ class _SilentPracticeAudioController implements PracticeAudioController {
 
   @override
   Future<void> dispose() => _completion.close();
+}
+
+class _FailingCareAudioPlaybackController
+    implements CareAudioPlaybackController {
+  final StreamController<void> _completion = StreamController<void>.broadcast();
+  int playCalls = 0;
+
+  @override
+  Stream<void> get completionStream => _completion.stream;
+
+  @override
+  Future<void> dispose() => _completion.close();
+
+  @override
+  Future<void> play(CareAudioSource source) {
+    playCalls += 1;
+    return Future<void>.error(StateError('generated audio unavailable'));
+  }
+
+  @override
+  Future<void> stop() async {}
 }
 
 class _FailingReactionCarePathRepository extends CarePathRepository {

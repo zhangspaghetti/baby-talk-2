@@ -1,5 +1,6 @@
 import 'dart:ffi' show Abi;
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:flutter/services.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -156,6 +157,7 @@ void main() {
               ),
           isNotNull,
         );
+        expect(harness.generatedAudioMemoryCache.entryCount, 1);
       },
     );
 
@@ -221,6 +223,7 @@ void main() {
               ),
           isNull,
         );
+        expect(harness.generatedAudioMemoryCache.entryCount, 0);
         expect(
           File(
             '${harness.tempDir.path}/onboarding_flow_snapshot.json.tmp',
@@ -410,6 +413,20 @@ class _LifecycleHarness {
     await generatedPracticeContentRegistry.register(
       accountContext: 'lifecycle_account',
       moment: _generatedLifecycleMoment(),
+    );
+    await generatedAudioMemoryCache.getOrLoad(
+      GeneratedAudioCacheKey(
+        accountId: 'lifecycle_account',
+        generatedContentId: 'lifecycle_generated_content',
+        utteranceId: 'lifecycle_utterance_starter',
+        voiceVersion: 'generated-tts-v1',
+        format: 'mp3',
+      ),
+      () async => GeneratedAudioPayload(
+        bytes: Uint8List.fromList(<int>[1]),
+        mimeType: 'audio/mpeg',
+        voiceVersion: 'generated-tts-v1',
+      ),
     );
     await File(
       '${tempDir.path}/onboarding_flow_snapshot.json.tmp',
