@@ -1873,6 +1873,12 @@ class AppLocalizationsZh extends AppLocalizations {
   String get practiceAudioPlayedOnce => '已听过一次';
 
   @override
+  String get practiceAudioLoadingInline => '正在准备音频…';
+
+  @override
+  String get practiceAudioPlayingInline => '正在播放音频…';
+
+  @override
   String get practiceAudioMissingInline => '这句暂时没有音频，可以直接说。';
 
   @override

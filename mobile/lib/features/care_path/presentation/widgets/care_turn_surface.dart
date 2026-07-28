@@ -64,16 +64,22 @@ class CareTurnSurface extends StatefulWidget {
 
 class _CareTurnSurfaceState extends State<CareTurnSurface> {
   CareAudioPlaybackController? _audioController;
-  StreamSubscription<void>? _audioCompletionSubscription;
+  StreamSubscription<CareAudioPlaybackCompletion>? _audioCompletionSubscription;
   bool _isPlayingAudio = false;
   String? _audioMessage;
   String? _lastNotifiedTraceEventKey;
   String? _activeAudioKey;
+  String? _pendingAudioKey;
+  int? _playbackIntent;
   int _audioIntent = 0;
+  Future<bool>? _audioStopBarrier;
+  bool _isAudioStopping = false;
+  bool _audioStopFailed = false;
 
   @override
   void initState() {
     super.initState();
+    _activeAudioKey = _audioKey(widget.notifier.snapshot?.currentUtterance);
     _initializeAudioController();
     widget.notifier.addListener(_onNotifierChanged);
     _notifyTraceIfReady();
@@ -85,7 +91,9 @@ class _CareTurnSurfaceState extends State<CareTurnSurface> {
     final notifierChanged = !identical(oldWidget.notifier, widget.notifier);
     if (notifierChanged) {
       oldWidget.notifier.removeListener(_onNotifierChanged);
+      _cancelAudioForSourceChange();
       widget.notifier.addListener(_onNotifierChanged);
+      _activeAudioKey = _audioKey(widget.notifier.snapshot?.currentUtterance);
     }
     if (notifierChanged || oldWidget.onTraceReady != widget.onTraceReady) {
       _notifyTraceIfReady();
@@ -95,6 +103,8 @@ class _CareTurnSurfaceState extends State<CareTurnSurface> {
   @override
   void dispose() {
     _audioIntent += 1;
+    _pendingAudioKey = null;
+    _playbackIntent = null;
     widget.notifier.removeListener(_onNotifierChanged);
     _audioCompletionSubscription?.cancel();
     unawaited(_audioController?.dispose());
@@ -112,15 +122,24 @@ class _CareTurnSurfaceState extends State<CareTurnSurface> {
       _audioController = LegacyPracticeCareAudioPlaybackController(factory());
     }
     _audioCompletionSubscription = _audioController!.completionStream.listen((
-      _,
+      completion,
     ) {
-      if (!mounted) {
+      final playbackIntent = _playbackIntent;
+      if (!mounted ||
+          _isAudioStopping ||
+          playbackIntent == null ||
+          completion.sessionId != playbackIntent ||
+          playbackIntent != _audioIntent ||
+          _pendingAudioKey == null ||
+          _pendingAudioKey != _activeAudioKey) {
         return;
       }
       final l = AppLocalizations.of(context)!;
       setState(() {
         _isPlayingAudio = false;
         _audioMessage = l.practiceAudioPlayedOnce;
+        _pendingAudioKey = null;
+        _playbackIntent = null;
       });
     });
   }
@@ -130,14 +149,56 @@ class _CareTurnSurfaceState extends State<CareTurnSurface> {
       return;
     }
     final nextAudioKey = _audioKey(widget.notifier.snapshot?.currentUtterance);
-    if (_activeAudioKey != null && _activeAudioKey != nextAudioKey) {
-      _audioIntent += 1;
-      unawaited(_audioController?.stop());
-      _isPlayingAudio = false;
+    if (_activeAudioKey != nextAudioKey) {
+      _cancelAudioForSourceChange();
     }
     _activeAudioKey = nextAudioKey;
     _notifyTraceIfReady();
     setState(() {});
+  }
+
+  void _cancelAudioForSourceChange() {
+    _audioIntent += 1;
+    _pendingAudioKey = null;
+    _playbackIntent = null;
+    _isPlayingAudio = false;
+    _audioMessage = null;
+    _isAudioStopping = true;
+    _audioStopFailed = false;
+    final previousBarrier = _audioStopBarrier;
+    late final Future<bool> barrier;
+    barrier = () async {
+      if (previousBarrier != null) {
+        final previousStopped = await previousBarrier;
+        if (!previousStopped) {
+          return false;
+        }
+      }
+      try {
+        await _audioController?.stop();
+        return true;
+      } on Object {
+        return false;
+      }
+    }();
+    _audioStopBarrier = barrier;
+    unawaited(
+      barrier.then((stopped) {
+        if (!mounted || !identical(_audioStopBarrier, barrier)) {
+          return;
+        }
+        _audioStopBarrier = null;
+        setState(() {
+          _isAudioStopping = false;
+          _audioStopFailed = !stopped;
+          if (!stopped) {
+            _audioMessage = AppLocalizations.of(
+              context,
+            )!.practiceAudioUnavailableInline;
+          }
+        });
+      }),
+    );
   }
 
   void _notifyTraceIfReady() {
@@ -175,14 +236,51 @@ class _CareTurnSurfaceState extends State<CareTurnSurface> {
       );
       return;
     }
+    final audioKey = _audioKey(utterance);
 
+    final intent = ++_audioIntent;
+    _pendingAudioKey = audioKey;
+    _playbackIntent = null;
     setState(() {
       _isPlayingAudio = true;
-      _audioMessage = null;
+      _audioMessage = l.practiceAudioLoadingInline;
     });
-    final intent = ++_audioIntent;
     try {
-      await controller.play(source);
+      final stopBarrier = _audioStopBarrier;
+      if (stopBarrier != null) {
+        final stopped = await stopBarrier;
+        if (!stopped) {
+          if (!mounted || intent != _audioIntent) {
+            return;
+          }
+          setState(() {
+            _isPlayingAudio = false;
+            _audioStopFailed = true;
+            _audioMessage = l.practiceAudioUnavailableInline;
+          });
+          return;
+        }
+      }
+      if (!mounted ||
+          intent != _audioIntent ||
+          _pendingAudioKey != audioKey ||
+          _activeAudioKey != audioKey) {
+        return;
+      }
+      await controller.play(
+        CareAudioPlaybackRequest(source: source, sessionId: intent),
+      );
+      if (!mounted ||
+          intent != _audioIntent ||
+          !_isPlayingAudio ||
+          _pendingAudioKey != audioKey ||
+          _activeAudioKey != audioKey) {
+        return;
+      }
+      setState(() {
+        _audioMessage = l.practiceAudioPlayingInline;
+        _playbackIntent = intent;
+      });
     } catch (_) {
       if (!mounted || intent != _audioIntent) {
         return;
@@ -190,6 +288,8 @@ class _CareTurnSurfaceState extends State<CareTurnSurface> {
       setState(() {
         _isPlayingAudio = false;
         _audioMessage = l.practiceAudioUnavailableInline;
+        _pendingAudioKey = null;
+        _playbackIntent = null;
       });
       messenger?.showSnackBar(
         SnackBar(content: Text(l.practiceAudioUnavailableSnack)),
@@ -403,11 +503,21 @@ class _CareTurnSurfaceState extends State<CareTurnSurface> {
                             ),
                             if (_audioMessage != null) ...[
                               const SizedBox(height: 12),
-                              Text(
+                              // This status is intentionally a live region, not a
+                              // focus request. TalkBack keeps the reader's current
+                              // position while it hears the short update.
+                              Semantics(
                                 key: const Key('care-turn-audio-error'),
-                                _audioMessage!,
-                                style: Theme.of(context).textTheme.bodySmall
-                                    ?.copyWith(color: colors.textSecondary),
+                                container: true,
+                                liveRegion: true,
+                                label: _audioMessage!,
+                                child: ExcludeSemantics(
+                                  child: Text(
+                                    _audioMessage!,
+                                    style: Theme.of(context).textTheme.bodySmall
+                                        ?.copyWith(color: colors.textSecondary),
+                                  ),
+                                ),
                               ),
                             ],
                           ],
@@ -424,7 +534,10 @@ class _CareTurnSurfaceState extends State<CareTurnSurface> {
                           Expanded(
                             child: OutlinedButton.icon(
                               key: const Key('care-turn-listen-once'),
-                              onPressed: _isPlayingAudio
+                              onPressed:
+                                  _isPlayingAudio ||
+                                      _isAudioStopping ||
+                                      _audioStopFailed
                                   ? null
                                   : () => _playCurrentUtterance(utterance),
                               icon: Icon(

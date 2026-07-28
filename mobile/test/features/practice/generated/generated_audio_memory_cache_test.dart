@@ -82,4 +82,30 @@ void main() {
       expect(cache.totalBytes, 0);
     },
   );
+
+  test('lifecycle clear makes a same-key caller start a new request', () async {
+    final cache = GeneratedAudioMemoryCache();
+    final oldGate = Completer<GeneratedAudioPayload>();
+    final freshGate = Completer<GeneratedAudioPayload>();
+    var loads = 0;
+
+    final oldRequest = cache.getOrLoad(key('one'), () {
+      loads += 1;
+      return oldGate.future;
+    });
+    cache.clear();
+    final freshRequest = cache.getOrLoad(key('one'), () {
+      loads += 1;
+      return freshGate.future;
+    });
+
+    expect(loads, 2);
+    freshGate.complete(payload(2));
+    expect((await freshRequest).byteLength, 2);
+
+    oldGate.complete(payload(1));
+    await oldRequest;
+    expect(cache.entryCount, 1);
+    expect(cache.totalBytes, 2);
+  });
 }

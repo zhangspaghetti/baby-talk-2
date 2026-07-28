@@ -79,6 +79,14 @@ void main() {
           snapshot.utteranceIdForPhrase(moment.starter.phraseId),
           moment.starter.utteranceId,
         );
+        for (final reaction in BabyReactionType.values) {
+          final support = moment.reactionSupports[reaction];
+          expect(snapshot.reactionSupportPhraseId(reaction), support.phraseId);
+          expect(
+            snapshot.utteranceIdForPhrase(support.phraseId),
+            support.utteranceId,
+          );
+        }
 
         accountContext = 'account_b';
         expect(
@@ -478,6 +486,20 @@ void main() {
           expect(
             reconciled.nextSupportUtterance?.phraseId,
             moment.reactionSupports[reaction].phraseId,
+          );
+          expect(
+            recorded.nextSupportUtterance?.audioSource,
+            GeneratedCareAudioSource(
+              generatedContentId: moment.generatedContentId,
+              utteranceId: moment.reactionSupports[reaction].utteranceId,
+            ),
+          );
+          expect(
+            reconciled.nextSupportUtterance?.audioSource,
+            GeneratedCareAudioSource(
+              generatedContentId: moment.generatedContentId,
+              utteranceId: moment.reactionSupports[reaction].utteranceId,
+            ),
           );
           expect(
             await repository.listEventHistory(

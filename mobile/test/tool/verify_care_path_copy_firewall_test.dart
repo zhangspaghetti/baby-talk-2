@@ -94,6 +94,8 @@ void main() {
       'practiceListenOnce',
       'practiceSaid',
       'practiceAudioPlayedOnce',
+      'practiceAudioLoadingInline',
+      'practiceAudioPlayingInline',
       'practiceAudioMissingInline',
       'practiceAudioMissingSnack',
       'practiceAudioUnavailableInline',

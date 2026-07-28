@@ -138,6 +138,7 @@ class _ReactionChip extends StatelessWidget {
       excludeSemantics: true,
       selected: isSelected,
       label: option.label,
+      hint: option.description,
       child: Material(
         color: Colors.transparent,
         child: InkWell(

@@ -81,8 +81,8 @@ class GeneratedAudioMemoryCache {
   final DateTime Function() _now;
   final LinkedHashMap<GeneratedAudioCacheKey, _CacheEntry> _entries =
       LinkedHashMap<GeneratedAudioCacheKey, _CacheEntry>();
-  final Map<GeneratedAudioCacheKey, Future<GeneratedAudioPayload>> _inFlight =
-      <GeneratedAudioCacheKey, Future<GeneratedAudioPayload>>{};
+  final Map<GeneratedAudioCacheKey, _InFlightAudioLoad> _inFlight =
+      <GeneratedAudioCacheKey, _InFlightAudioLoad>{};
   int _totalBytes = 0;
   int _generation = 0;
 
@@ -98,11 +98,12 @@ class GeneratedAudioMemoryCache {
       return Future<GeneratedAudioPayload>.value(cached);
     }
     final active = _inFlight[key];
-    if (active != null) {
-      return active;
+    if (active != null && active.generation == _generation) {
+      return active.future;
     }
 
     final generation = _generation;
+    late final _InFlightAudioLoad load;
     late final Future<GeneratedAudioPayload> future;
     future = Future<GeneratedAudioPayload>.sync(loader)
         .then((payload) {
@@ -112,17 +113,19 @@ class GeneratedAudioMemoryCache {
           return payload;
         })
         .whenComplete(() {
-          if (identical(_inFlight[key], future)) {
+          if (identical(_inFlight[key], load)) {
             _inFlight.remove(key);
           }
         });
-    _inFlight[key] = future;
+    load = _InFlightAudioLoad(generation: generation, future: future);
+    _inFlight[key] = load;
     return future;
   }
 
   void clear() {
     _generation += 1;
     _entries.clear();
+    _inFlight.clear();
     _totalBytes = 0;
   }
 
@@ -162,6 +165,13 @@ class _CacheEntry {
 
   final GeneratedAudioPayload payload;
   final DateTime cachedAt;
+}
+
+class _InFlightAudioLoad {
+  const _InFlightAudioLoad({required this.generation, required this.future});
+
+  final int generation;
+  final Future<GeneratedAudioPayload> future;
 }
 
 String _required(String value, String name) {

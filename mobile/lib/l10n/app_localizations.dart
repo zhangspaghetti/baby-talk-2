@@ -3500,6 +3500,18 @@ abstract class AppLocalizations {
   /// **'已听过一次'**
   String get practiceAudioPlayedOnce;
 
+  /// T4 one-turn audio loading announcement
+  ///
+  /// In zh, this message translates to:
+  /// **'正在准备音频…'**
+  String get practiceAudioLoadingInline;
+
+  /// T4 one-turn audio playback announcement
+  ///
+  /// In zh, this message translates to:
+  /// **'正在播放音频…'**
+  String get practiceAudioPlayingInline;
+
   /// T4 one-turn inline copy when current utterance has no audio asset
   ///
   /// In zh, this message translates to:
