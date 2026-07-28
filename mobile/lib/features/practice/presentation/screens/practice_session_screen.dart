@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobile/app/providers/repository_providers.dart';
 import 'package:mobile/app/theme/app_theme.dart';
 import 'package:mobile/features/care_path/domain/models/care_path_models.dart';
+import 'package:mobile/features/care_path/presentation/care_audio_playback_controller.dart';
 import 'package:mobile/features/care_path/presentation/widgets/care_turn_surface.dart';
 import 'package:mobile/features/practice/presentation/practice_audio_controller.dart';
 import 'package:mobile/features/practice/presentation/practice_route_args.dart';
@@ -189,6 +190,13 @@ class _PracticeSessionBodyState extends ConsumerState<_PracticeSessionBody> {
     return CareTurnSurface(
       notifier: notifier,
       audioControllerFactory: widget.audioControllerFactory,
+      careAudioControllerFactory: widget.audioControllerFactory == null
+          ? () => SourceNeutralCareAudioPlaybackController(
+              generatedAudioRepository: ref.read(
+                generatedAudioRepositoryProvider,
+              ),
+            )
+          : null,
       onQuietExit: () => Navigator.of(context).maybePop(),
     );
   }

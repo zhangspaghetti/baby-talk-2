@@ -512,7 +512,9 @@ class CarePathRepository {
               generatedContentId: generatedContentId,
               utteranceId: utteranceId,
             )
-          : null,
+          : phrase.audioAsset.trim().isEmpty
+          ? null
+          : CareAssetAudioSource(assetPath: phrase.audioAsset),
     );
   }
 

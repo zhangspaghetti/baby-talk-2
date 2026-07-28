@@ -14,6 +14,7 @@ enum LocalSensitiveDataTarget {
   authContinuation,
   customSceneDraft,
   generatedCareMoments,
+  generatedAudioMemory,
   onboardingSnapshot,
   householdSnapshot,
   practiceInteractionEvents,
@@ -334,6 +335,7 @@ final class RegistryLocalSensitiveDataClearanceOrchestrator
           LocalSensitiveDataTarget.authContinuation,
           LocalSensitiveDataTarget.customSceneDraft,
           LocalSensitiveDataTarget.generatedCareMoments,
+          LocalSensitiveDataTarget.generatedAudioMemory,
         },
       LocalSensitiveDataClearanceTrigger.consentWithdrawalConfirmed =>
         const <LocalSensitiveDataTarget>{
@@ -341,6 +343,7 @@ final class RegistryLocalSensitiveDataClearanceOrchestrator
           LocalSensitiveDataTarget.authContinuation,
           LocalSensitiveDataTarget.customSceneDraft,
           LocalSensitiveDataTarget.generatedCareMoments,
+          LocalSensitiveDataTarget.generatedAudioMemory,
           LocalSensitiveDataTarget.householdSnapshot,
           LocalSensitiveDataTarget.mentorFactEvents,
         },

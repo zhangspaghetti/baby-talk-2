@@ -47,6 +47,9 @@ import 'package:mobile/features/onboarding/data/repositories/onboarding_reposito
 import 'package:mobile/features/onboarding/presentation/onboarding_flow_notifier.dart';
 import 'package:mobile/features/practice/data/local/practice_local_data_source.dart';
 import 'package:mobile/features/practice/data/generated/generated_care_moment_local_store.dart';
+import 'package:mobile/features/care_path/data/audio/generated_audio_api.dart';
+import 'package:mobile/features/care_path/data/audio/generated_audio_memory_cache.dart';
+import 'package:mobile/features/care_path/data/audio/generated_audio_repository.dart';
 import 'package:mobile/features/practice/data/generated/generated_practice_content_registry.dart';
 import 'package:mobile/features/practice/data/repositories/garden_growth_repository.dart';
 import 'package:mobile/features/practice/data/repositories/practice_repository.dart';
@@ -131,6 +134,14 @@ final mentorApiServiceProvider = Provider<MentorApiService>((ref) {
 
 final customSceneApiProvider = Provider<CustomSceneApi>((ref) {
   final service = CustomSceneApi(
+    authenticatedApiClient: ref.watch(authenticatedApiClientProvider),
+  );
+  ref.onDispose(service.close);
+  return service;
+});
+
+final generatedAudioApiProvider = Provider<GeneratedAudioApi>((ref) {
+  final service = GeneratedAudioApi(
     authenticatedApiClient: ref.watch(authenticatedApiClientProvider),
   );
   ref.onDispose(service.close);
@@ -222,6 +233,29 @@ final practiceRepositoryProvider = FutureProvider<PracticeRepository>((
     installationIdService: InstallationIdService(
       directoryResolver: () async => directory,
     ),
+  );
+});
+
+final generatedAudioMemoryCacheProvider = Provider<GeneratedAudioMemoryCache>((
+  ref,
+) {
+  return GeneratedAudioMemoryCache();
+});
+
+final generatedAudioRepositoryProvider = Provider<GeneratedAudioRepository>((
+  ref,
+) {
+  return GeneratedAudioRepository(
+    api: ref.watch(generatedAudioApiProvider),
+    cache: ref.watch(generatedAudioMemoryCacheProvider),
+    accountSnapshotLoader: () async {
+      final repository = await ref.read(accountRepositoryProvider.future);
+      return repository.loadSnapshot();
+    },
+    persistRefreshedSession: (session) async {
+      final repository = await ref.read(accountRepositoryProvider.future);
+      return repository.persistRefreshedSession(session);
+    },
   );
 });
 
@@ -481,6 +515,9 @@ final localSensitiveDataClearanceOrchestratorProvider =
       final generatedPracticeContentRegistry = ref.watch(
         generatedPracticeContentRegistryProvider,
       );
+      final generatedAudioMemoryCache = ref.watch(
+        generatedAudioMemoryCacheProvider,
+      );
 
       return createLocalSensitiveDataClearanceOrchestrator(
         accountRepository: accountRepository,
@@ -492,6 +529,7 @@ final localSensitiveDataClearanceOrchestratorProvider =
         customSceneDraftContinuationCoordinator:
             customSceneDraftContinuationCoordinator,
         generatedPracticeContentRegistry: generatedPracticeContentRegistry,
+        generatedAudioMemoryCache: generatedAudioMemoryCache,
       );
     });
 

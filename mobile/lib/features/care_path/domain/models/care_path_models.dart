@@ -44,20 +44,27 @@ class GeneratedCareAudioSource extends CareAudioSource {
   const GeneratedCareAudioSource({
     required this.generatedContentId,
     required this.utteranceId,
+    this.voiceVersion = 'generated-tts-v1',
+    this.format = 'mp3',
   });
 
   final String generatedContentId;
   final String utteranceId;
+  final String voiceVersion;
+  final String format;
 
   @override
   bool operator ==(Object other) {
     return other is GeneratedCareAudioSource &&
         other.generatedContentId == generatedContentId &&
-        other.utteranceId == utteranceId;
+        other.utteranceId == utteranceId &&
+        other.voiceVersion == voiceVersion &&
+        other.format == format;
   }
 
   @override
-  int get hashCode => Object.hash(generatedContentId, utteranceId);
+  int get hashCode =>
+      Object.hash(generatedContentId, utteranceId, voiceVersion, format);
 }
 
 class CareMoment {

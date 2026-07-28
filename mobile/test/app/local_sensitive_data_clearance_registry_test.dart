@@ -32,6 +32,7 @@ import 'package:mobile/features/onboarding/domain/models/onboarding_snapshot.dar
 import 'package:mobile/features/onboarding/domain/models/stage_match.dart';
 import 'package:mobile/features/practice/data/local/practice_local_data_source.dart';
 import 'package:mobile/features/practice/data/generated/generated_care_moment_local_store.dart';
+import 'package:mobile/features/care_path/data/audio/generated_audio_memory_cache.dart';
 import 'package:mobile/features/practice/data/generated/generated_practice_content_registry.dart';
 import 'package:mobile/features/practice/data/repositories/practice_repository.dart';
 import 'package:mobile/features/practice/data/services/asset_phrase_service.dart';
@@ -73,6 +74,7 @@ void main() {
               harness.customSceneDraftContinuationCoordinator,
           generatedPracticeContentRegistry:
               harness.generatedPracticeContentRegistry,
+          generatedAudioMemoryCache: harness.generatedAudioMemoryCache,
         );
 
         expect(
@@ -100,6 +102,7 @@ void main() {
               harness.customSceneDraftContinuationCoordinator,
           generatedPracticeContentRegistry:
               harness.generatedPracticeContentRegistry,
+          generatedAudioMemoryCache: harness.generatedAudioMemoryCache,
         );
 
         final report = await orchestrator.clear(
@@ -170,6 +173,7 @@ void main() {
               harness.customSceneDraftContinuationCoordinator,
           generatedPracticeContentRegistry:
               harness.generatedPracticeContentRegistry,
+          generatedAudioMemoryCache: harness.generatedAudioMemoryCache,
         );
 
         final report = await orchestrator.clear(
@@ -248,6 +252,7 @@ class _LifecycleHarness {
     required this.customSceneDraftStore,
     required this.customSceneDraftContinuationCoordinator,
     required this.generatedPracticeContentRegistry,
+    required this.generatedAudioMemoryCache,
     required this.householdLocalStore,
     required this.installationIdService,
     required this.practiceRepository,
@@ -269,6 +274,7 @@ class _LifecycleHarness {
   final CustomSceneDraftContinuationCoordinator
   customSceneDraftContinuationCoordinator;
   final GeneratedPracticeContentRegistry generatedPracticeContentRegistry;
+  final GeneratedAudioMemoryCache generatedAudioMemoryCache;
   final HouseholdLocalStore householdLocalStore;
   final InstallationIdService installationIdService;
   final PracticeRepository practiceRepository;
@@ -325,6 +331,7 @@ class _LifecycleHarness {
       ),
       accountContextLoader: () async => 'lifecycle_account',
     );
+    final generatedAudioMemoryCache = GeneratedAudioMemoryCache();
     final onboardingRepository = OnboardingRepository(
       snapshotStore: onboardingSnapshotStore,
       flowStore: onboardingFlowStore,
@@ -369,6 +376,7 @@ class _LifecycleHarness {
       customSceneDraftContinuationCoordinator:
           customSceneDraftContinuationCoordinator,
       generatedPracticeContentRegistry: generatedPracticeContentRegistry,
+      generatedAudioMemoryCache: generatedAudioMemoryCache,
       householdLocalStore: householdLocalStore,
       installationIdService: installationIdService,
       practiceRepository: practiceRepository,

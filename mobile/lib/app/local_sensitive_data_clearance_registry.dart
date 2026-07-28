@@ -3,6 +3,7 @@ import 'package:mobile/features/account/data/repositories/account_repository.dar
 import 'package:mobile/features/account/presentation/auth_continuation_coordinator.dart';
 import 'package:mobile/features/custom_scene/application/custom_scene_draft_continuation_coordinator.dart';
 import 'package:mobile/features/practice/data/generated/generated_practice_content_registry.dart';
+import 'package:mobile/features/care_path/data/audio/generated_audio_memory_cache.dart';
 import 'package:mobile/features/household/data/repositories/household_repository.dart';
 import 'package:mobile/features/mentor/data/repositories/mentor_repository.dart';
 import 'package:mobile/features/onboarding/data/repositories/onboarding_repository.dart';
@@ -19,6 +20,7 @@ createLocalSensitiveDataClearanceOrchestrator({
   required CustomSceneDraftContinuationCoordinator
   customSceneDraftContinuationCoordinator,
   required GeneratedPracticeContentRegistry generatedPracticeContentRegistry,
+  required GeneratedAudioMemoryCache generatedAudioMemoryCache,
 }) {
   return RegistryLocalSensitiveDataClearanceOrchestrator(
     steps: createLocalSensitiveDataClearanceSteps(
@@ -31,6 +33,7 @@ createLocalSensitiveDataClearanceOrchestrator({
       customSceneDraftContinuationCoordinator:
           customSceneDraftContinuationCoordinator,
       generatedPracticeContentRegistry: generatedPracticeContentRegistry,
+      generatedAudioMemoryCache: generatedAudioMemoryCache,
     ),
   );
 }
@@ -45,6 +48,7 @@ List<LocalSensitiveDataClearanceStep> createLocalSensitiveDataClearanceSteps({
   required CustomSceneDraftContinuationCoordinator
   customSceneDraftContinuationCoordinator,
   required GeneratedPracticeContentRegistry generatedPracticeContentRegistry,
+  required GeneratedAudioMemoryCache generatedAudioMemoryCache,
 }) {
   return <LocalSensitiveDataClearanceStep>[
     LocalSensitiveDataClearanceStep(
@@ -67,6 +71,11 @@ List<LocalSensitiveDataClearanceStep> createLocalSensitiveDataClearanceSteps({
       target: LocalSensitiveDataTarget.generatedCareMoments,
       primitiveName: 'GeneratedPracticeContentRegistry.clearForLifecycle',
       clear: generatedPracticeContentRegistry.clearForLifecycle,
+    ),
+    LocalSensitiveDataClearanceStep(
+      target: LocalSensitiveDataTarget.generatedAudioMemory,
+      primitiveName: 'GeneratedAudioMemoryCache.clear',
+      clear: () async => generatedAudioMemoryCache.clear(),
     ),
     LocalSensitiveDataClearanceStep(
       target: LocalSensitiveDataTarget.onboardingSnapshot,

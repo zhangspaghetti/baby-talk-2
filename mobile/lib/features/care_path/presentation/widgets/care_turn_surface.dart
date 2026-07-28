@@ -6,6 +6,7 @@ import 'package:mobile/app/theme/app_layout_constants.dart';
 import 'package:mobile/app/theme/app_theme.dart';
 import 'package:mobile/app/widgets/app_haptics.dart';
 import 'package:mobile/features/care_path/domain/models/care_path_models.dart';
+import 'package:mobile/features/care_path/presentation/care_audio_playback_controller.dart';
 import 'package:mobile/features/care_path/presentation/care_path_notifier.dart';
 import 'package:mobile/features/practice/presentation/practice_audio_controller.dart';
 import 'package:mobile/features/practice/presentation/widgets/scene_reaction_chip_row.dart';
@@ -24,6 +25,7 @@ class CareTurnSurface extends StatefulWidget {
     super.key,
     required this.notifier,
     this.audioControllerFactory,
+    this.careAudioControllerFactory,
     this.onTraceReady,
     this.onTraceContinue,
     this.traceContinueLabel,
@@ -41,6 +43,7 @@ class CareTurnSurface extends StatefulWidget {
 
   final CarePathNotifier notifier;
   final PracticeAudioController Function()? audioControllerFactory;
+  final CareAudioPlaybackController Function()? careAudioControllerFactory;
   final CareTurnTraceReady? onTraceReady;
   final VoidCallback? onTraceContinue;
   final String? traceContinueLabel;
@@ -60,11 +63,13 @@ class CareTurnSurface extends StatefulWidget {
 }
 
 class _CareTurnSurfaceState extends State<CareTurnSurface> {
-  PracticeAudioController? _audioController;
+  CareAudioPlaybackController? _audioController;
   StreamSubscription<void>? _audioCompletionSubscription;
   bool _isPlayingAudio = false;
   String? _audioMessage;
   String? _lastNotifiedTraceEventKey;
+  String? _activeAudioKey;
+  int _audioIntent = 0;
 
   @override
   void initState() {
@@ -89,6 +94,7 @@ class _CareTurnSurfaceState extends State<CareTurnSurface> {
 
   @override
   void dispose() {
+    _audioIntent += 1;
     widget.notifier.removeListener(_onNotifierChanged);
     _audioCompletionSubscription?.cancel();
     unawaited(_audioController?.dispose());
@@ -96,10 +102,15 @@ class _CareTurnSurfaceState extends State<CareTurnSurface> {
   }
 
   void _initializeAudioController() {
-    final factory =
-        widget.audioControllerFactory ??
-        AudioplayersPracticeAudioController.new;
-    _audioController = factory();
+    final careFactory = widget.careAudioControllerFactory;
+    if (careFactory != null) {
+      _audioController = careFactory();
+    } else {
+      final factory =
+          widget.audioControllerFactory ??
+          AudioplayersPracticeAudioController.new;
+      _audioController = LegacyPracticeCareAudioPlaybackController(factory());
+    }
     _audioCompletionSubscription = _audioController!.completionStream.listen((
       _,
     ) {
@@ -118,6 +129,13 @@ class _CareTurnSurfaceState extends State<CareTurnSurface> {
     if (!mounted) {
       return;
     }
+    final nextAudioKey = _audioKey(widget.notifier.snapshot?.currentUtterance);
+    if (_activeAudioKey != null && _activeAudioKey != nextAudioKey) {
+      _audioIntent += 1;
+      unawaited(_audioController?.stop());
+      _isPlayingAudio = false;
+    }
+    _activeAudioKey = nextAudioKey;
     _notifyTraceIfReady();
     setState(() {});
   }
@@ -147,8 +165,8 @@ class _CareTurnSurfaceState extends State<CareTurnSurface> {
     final messenger = ScaffoldMessenger.maybeOf(context);
     final l = AppLocalizations.of(context)!;
     final controller = _audioController;
-    final asset = _audioPlayerAsset(utterance);
-    if (controller == null || asset == null || asset.isEmpty) {
+    final source = _audioSource(utterance);
+    if (controller == null || source == null) {
       setState(() {
         _audioMessage = l.practiceAudioMissingInline;
       });
@@ -162,10 +180,11 @@ class _CareTurnSurfaceState extends State<CareTurnSurface> {
       _isPlayingAudio = true;
       _audioMessage = null;
     });
+    final intent = ++_audioIntent;
     try {
-      await controller.playAsset(asset);
+      await controller.play(source);
     } catch (_) {
-      if (!mounted) {
+      if (!mounted || intent != _audioIntent) {
         return;
       }
       setState(() {
@@ -184,6 +203,23 @@ class _CareTurnSurfaceState extends State<CareTurnSurface> {
       return null;
     }
     return asset.startsWith('assets/') ? asset.substring(7) : asset;
+  }
+
+  CareAudioSource? _audioSource(CareUtterance utterance) {
+    final source = utterance.audioSource;
+    if (source != null) {
+      return source;
+    }
+    final asset = _audioPlayerAsset(utterance);
+    return asset == null ? null : CareAssetAudioSource(assetPath: asset);
+  }
+
+  String? _audioKey(CareUtterance? utterance) {
+    if (utterance == null) {
+      return null;
+    }
+    final source = _audioSource(utterance);
+    return '${utterance.phraseId}:${source?.hashCode}';
   }
 
   @override
