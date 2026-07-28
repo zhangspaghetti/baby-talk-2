@@ -282,7 +282,7 @@ helm upgrade --install babytalk-app deploy/helm/babytalk-app -f deploy/helm/baby
 模块级验证继续使用：
 
 ```bash
-./backend/mvnw -f backend/pom.xml test -DexcludedGroups=llm-it
+./backend/mvnw -f backend/pom.xml test
 bash ci/backend-test.sh
 ```
 

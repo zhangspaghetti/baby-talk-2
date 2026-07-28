@@ -38,3 +38,17 @@
     kubectl -n babytalk-qa rollout status deployment/babytalk-qa-app-app-api --timeout=120s
 - Health check: kubectl -n babytalk-qa get pods
 
+## Agent skills
+
+### Issue tracker
+
+Issues live in this repository's GitHub Issues. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Uses the five default canonical triage labels. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Multi-context: `CONTEXT-MAP.md` maps each app context; shared decisions live in `docs/adr/`. See `docs/agents/domain.md`.
+
