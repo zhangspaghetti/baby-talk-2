@@ -140,6 +140,67 @@
           and provider_attempt_number between 1 and 5
     </select>
 
+    <select id="findPlayableOwnedActiveBundleUtterance" resultMap="generatedContentUtteranceEntityMap">
+        select u.utterance_id, u.generated_content_id, u.role, u.reaction_type, u.english_text, u.chinese_text,
+               u.pronunciation_hint, u.tpr_action_zh, u.delivery_guidance_zh, u.difficulty, u.display_order,
+               u.approval_status, u.approved_content_version, u.bundle_schema_version, u.provider_origin,
+               u.provider_name, u.provider_model_name, u.provider_attempt_number, u.created_at
+        from practice_generated_content_utterances u
+        join practice_generated_content c on c.generated_content_id = u.generated_content_id
+        where c.generated_content_id = #{generatedContentId}
+          and c.account_id = #{accountId}
+          and c.status = 'active'
+          and c.surface = 'care_path'
+          and u.utterance_id = #{utteranceId}
+          and u.approval_status = 'approved'
+          and u.approved_content_version = c.content_version
+          and u.english_text is not null
+          and btrim(u.english_text) &lt;&gt; ''
+          and u.bundle_schema_version = 'custom-scene-generated-output-v1'
+          and u.provider_origin in ('provider_generated', 'provider_repaired')
+          and nullif(btrim(u.provider_name), '') is not null
+          and nullif(btrim(u.provider_model_name), '') is not null
+          and u.provider_attempt_number between 1 and 5
+          and (
+              (u.role = 'starter' and u.reaction_type is null and u.display_order = 1)
+              or (u.role = 'reaction_support' and u.reaction_type = 'cooperating' and u.display_order = 2)
+              or (u.role = 'reaction_support' and u.reaction_type = 'hesitant' and u.display_order = 3)
+              or (u.role = 'reaction_support' and u.reaction_type = 'resisting' and u.display_order = 4)
+              or (u.role = 'reaction_support' and u.reaction_type = 'no_response' and u.display_order = 5)
+              or (u.role = 'reaction_support' and u.reaction_type = 'other' and u.display_order = 6)
+          )
+          and (
+              select count(*) = 6
+                     and count(*) filter (where b.approval_status = 'approved'
+                                           and b.approved_content_version = c.content_version
+                                           and b.bundle_schema_version = 'custom-scene-generated-output-v1'
+                                           and b.provider_origin in ('provider_generated', 'provider_repaired')
+                                           and nullif(btrim(b.provider_name), '') is not null
+                                           and nullif(btrim(b.provider_model_name), '') is not null
+                                           and b.provider_attempt_number between 1 and 5) = 6
+                     and count(*) filter (where b.role = 'starter'
+                                           and b.reaction_type is null
+                                           and b.display_order = 1) = 1
+                     and count(*) filter (where b.role = 'reaction_support'
+                                           and b.reaction_type = 'cooperating'
+                                           and b.display_order = 2) = 1
+                     and count(*) filter (where b.role = 'reaction_support'
+                                           and b.reaction_type = 'hesitant'
+                                           and b.display_order = 3) = 1
+                     and count(*) filter (where b.role = 'reaction_support'
+                                           and b.reaction_type = 'resisting'
+                                           and b.display_order = 4) = 1
+                     and count(*) filter (where b.role = 'reaction_support'
+                                           and b.reaction_type = 'no_response'
+                                           and b.display_order = 5) = 1
+                     and count(*) filter (where b.role = 'reaction_support'
+                                           and b.reaction_type = 'other'
+                                           and b.display_order = 6) = 1
+              from practice_generated_content_utterances b
+              where b.generated_content_id = c.generated_content_id
+          )
+    </select>
+
     <select id="findByClientRequestId" resultMap="generatedContentEntityMap">
         select <include refid="columns"/>
         from practice_generated_content

@@ -5,7 +5,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.zhangspaghetti.babytalk.practice.generated.audio.GeneratedAudioResponse;
+import com.zhangspaghetti.babytalk.practice.generated.audio.GeneratedSpeechConfigurationIdentity;
+import com.zhangspaghetti.babytalk.practice.generated.audio.GeneratedUtteranceAudio;
 import com.zhangspaghetti.babytalk.practice.generated.audio.GeneratedUtteranceAudioService;
 import java.time.Instant;
 import java.util.Map;
@@ -21,7 +22,7 @@ class GeneratedUtteranceAudioControllerTest {
     void returnsPrivateNoStoreAudioWithTheConfiguredMimeAndVoiceVersion() {
         var service = Mockito.mock(GeneratedUtteranceAudioService.class);
         when(service.synthesize("pgc_1", "utt_1", "session_1"))
-                .thenReturn(new GeneratedAudioResponse(new byte[] {3, 2, 1}, "audio/mpeg", "generated-tts-v1"));
+                .thenReturn(audio());
         var controller = new GeneratedUtteranceAudioController(service);
 
         var response = controller.audio(authentication("session_1"), "pgc_1", "utt_1");
@@ -34,6 +35,12 @@ class GeneratedUtteranceAudioControllerTest {
         assertThat(response.getHeaders().getFirst(HttpHeaders.VARY)).isEqualTo(HttpHeaders.AUTHORIZATION);
         assertThat(response.getHeaders().getFirst("X-Generated-Audio-Voice-Version"))
                 .isEqualTo("generated-tts-v1");
+        assertThat(response.getHeaders().getFirst("X-Generated-Audio-Provider")).isEqualTo("openai");
+        assertThat(response.getHeaders().getFirst("X-Generated-Audio-Model")).isEqualTo("gpt-4o-mini-tts");
+        assertThat(response.getHeaders().getFirst("X-Generated-Audio-Profile")).isEqualTo("uat-v1");
+        assertThat(response.getHeaders().getFirst("X-Generated-Audio-Configuration-Fingerprint"))
+                .isEqualTo("a".repeat(64))
+                .doesNotContain("test-provider-secret");
         assertThat(response.getBody()).containsExactly(3, 2, 1);
         verify(service).synthesize("pgc_1", "utt_1", "session_1");
     }
@@ -66,5 +73,14 @@ class GeneratedUtteranceAudioControllerTest {
                 Map.of("sid", sessionId)
         );
         return new JwtAuthenticationToken(jwt);
+    }
+
+    private GeneratedUtteranceAudio audio() {
+        return new GeneratedUtteranceAudio(
+                new byte[] {3, 2, 1},
+                "audio/mpeg",
+                "generated-tts-v1",
+                new GeneratedSpeechConfigurationIdentity("openai", "gpt-4o-mini-tts", "uat-v1", "a".repeat(64))
+        );
     }
 }

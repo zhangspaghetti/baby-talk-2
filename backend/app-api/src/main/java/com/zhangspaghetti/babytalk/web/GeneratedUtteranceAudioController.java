@@ -32,13 +32,19 @@ public class GeneratedUtteranceAudioController {
                 utteranceId,
                 sessionId(authentication)
         );
+        var bytes = audio.bytes();
         return ResponseEntity.ok()
                 .cacheControl(CacheControl.noStore().cachePrivate())
                 .header(HttpHeaders.VARY, HttpHeaders.AUTHORIZATION)
                 .header("X-Generated-Audio-Voice-Version", audio.voiceVersion())
+                .header("X-Generated-Audio-Provider", audio.configurationIdentity().provider())
+                .header("X-Generated-Audio-Model", audio.configurationIdentity().model())
+                .header("X-Generated-Audio-Profile", audio.configurationIdentity().profile())
+                .header("X-Generated-Audio-Configuration-Fingerprint",
+                        audio.configurationIdentity().configurationFingerprint())
                 .contentType(MediaType.parseMediaType(audio.mimeType()))
-                .contentLength(audio.bytes().length)
-                .body(audio.bytes());
+                .contentLength(bytes.length)
+                .body(bytes);
     }
 
     private String sessionId(JwtAuthenticationToken authentication) {

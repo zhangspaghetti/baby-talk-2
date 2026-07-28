@@ -58,6 +58,22 @@ class GeneratedSpeechSynthesisConfigurationTest {
                         .hasMessageContaining("TEST_GENERATED_AUDIO_KEY"));
     }
 
+    @Test
+    void configuredModeBuildsTheRealProviderAdapterWithoutCallingTheNetwork() {
+        contextRunner.withSystemProperties("TEST_GENERATED_AUDIO_KEY=test-only-key")
+                .withPropertyValues(
+                        "babytalk.practice.generated-audio.enabled=true",
+                        "babytalk.practice.generated-audio.provider-mode=openai",
+                        "babytalk.practice.generated-audio.base-url=https://provider.example.com/v1",
+                        "babytalk.practice.generated-audio.api-key-environment-variable=TEST_GENERATED_AUDIO_KEY",
+                        "babytalk.practice.generated-audio.model=gpt-4o-mini-tts",
+                        "babytalk.practice.generated-audio.voice=alloy",
+                        "babytalk.practice.generated-audio.provider-profile=uat-v1"
+                )
+                .run(context -> assertThat(context.getBean(GeneratedSpeechSynthesisPort.class))
+                        .isInstanceOf(ConfiguredGeneratedSpeechProvider.class));
+    }
+
     private String[] commonProperties() {
         return new String[] {
                 "babytalk.practice.generated-audio.enabled=false",

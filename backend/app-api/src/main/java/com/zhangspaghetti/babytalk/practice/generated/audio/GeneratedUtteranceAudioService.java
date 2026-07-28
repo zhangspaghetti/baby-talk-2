@@ -32,21 +32,21 @@ public class GeneratedUtteranceAudioService {
     }
 
     @Transactional(readOnly = true)
-    public GeneratedAudioResponse synthesize(String generatedContentId, String utteranceId, String sessionId) {
+    public GeneratedUtteranceAudio synthesize(String generatedContentId, String utteranceId, String sessionId) {
         var session = authConsentSyncService.requireAcceptedConsumerSession(sessionId, "播放已批准的自定义场景语音");
         var contentId = requireSafeId(generatedContentId);
         var approvedUtteranceId = requireSafeId(utteranceId);
-        var content = queryMapper.findActiveOwnedByAccountId(contentId, session.accountId());
-        if (content == null) {
-            throw audioNotFound();
-        }
-        var utterance = queryMapper.findPlayableApprovedUtterance(contentId, approvedUtteranceId);
+        var utterance = queryMapper.findPlayableOwnedActiveBundleUtterance(
+                contentId, approvedUtteranceId, session.accountId());
         if (utterance == null) {
             throw audioNotFound();
         }
         try {
-            return validateResponse(speechSynthesisPort.synthesize(
-                    new GeneratedSpeechSynthesisPort.GeneratedSpeechRequest(utterance.englishText())));
+            var response = validateResponse(speechSynthesisPort.synthesize(
+                    new GeneratedSpeechSynthesisPort.GeneratedSpeechRequest(
+                            contentId, approvedUtteranceId, utterance.englishText())));
+            return new GeneratedUtteranceAudio(
+                    response.bytes(), response.mimeType(), response.voiceVersion(), properties.configurationIdentity());
         } catch (ContractException exception) {
             throw exception;
         } catch (GeneratedSpeechSynthesisException exception) {

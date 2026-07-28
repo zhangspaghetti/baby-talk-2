@@ -5,11 +5,11 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.zhangspaghetti.babytalk.practice.generated.PracticeGeneratedContentQueryMapper;
-import com.zhangspaghetti.babytalk.practice.generated.model.PracticeGeneratedContentEntity;
 import com.zhangspaghetti.babytalk.practice.generated.model.PracticeGeneratedContentUtteranceEntity;
 import com.zhangspaghetti.babytalk.service.AuthConsentSyncService;
 import com.zhangspaghetti.babytalk.web.ContractException;
@@ -53,9 +53,7 @@ class GeneratedUtteranceAudioServiceTest {
 
     @Test
     void synthesizesOnlyTheStoredApprovedEnglishForTheCurrentOwner() {
-        when(queryMapper.findActiveOwnedByAccountId("pgc_1", "acct_owner"))
-                .thenReturn(new PracticeGeneratedContentEntity());
-        when(queryMapper.findPlayableApprovedUtterance("pgc_1", "utt_1"))
+        when(queryMapper.findPlayableOwnedActiveBundleUtterance("pgc_1", "utt_1", "acct_owner"))
                 .thenReturn(utterance("Look at the bubbles."));
         when(speechSynthesisPort.synthesize(any()))
                 .thenReturn(new GeneratedAudioResponse(new byte[] {1, 2, 3}, "audio/mpeg", "generated-tts-v1"));
@@ -65,12 +63,17 @@ class GeneratedUtteranceAudioServiceTest {
         assertThat(audio.bytes()).containsExactly(1, 2, 3);
         var request = ArgumentCaptor.forClass(GeneratedSpeechSynthesisPort.GeneratedSpeechRequest.class);
         verify(speechSynthesisPort).synthesize(request.capture());
+        assertThat(request.getValue().generatedContentId()).isEqualTo("pgc_1");
+        assertThat(request.getValue().utteranceId()).isEqualTo("utt_1");
         assertThat(request.getValue().approvedEnglishText()).isEqualTo("Look at the bubbles.");
+        verify(queryMapper).findPlayableOwnedActiveBundleUtterance("pgc_1", "utt_1", "acct_owner");
+        verifyNoMoreInteractions(queryMapper);
     }
 
     @Test
     void crossAccountOrInactiveContentIsIndistinguishableAndNeverCallsTheProvider() {
-        when(queryMapper.findActiveOwnedByAccountId("pgc_other", "acct_owner")).thenReturn(null);
+        when(queryMapper.findPlayableOwnedActiveBundleUtterance("pgc_other", "utt_1", "acct_owner"))
+                .thenReturn(null);
 
         assertThatThrownBy(() -> service.synthesize("pgc_other", "utt_1", "session_owner"))
                 .isInstanceOf(ContractException.class)
@@ -85,9 +88,8 @@ class GeneratedUtteranceAudioServiceTest {
 
     @Test
     void utteranceMustBelongToTheActiveContentAndBeApprovedPlayable() {
-        when(queryMapper.findActiveOwnedByAccountId("pgc_1", "acct_owner"))
-                .thenReturn(new PracticeGeneratedContentEntity());
-        when(queryMapper.findPlayableApprovedUtterance("pgc_1", "utt_other")).thenReturn(null);
+        when(queryMapper.findPlayableOwnedActiveBundleUtterance("pgc_1", "utt_other", "acct_owner"))
+                .thenReturn(null);
 
         assertThatThrownBy(() -> service.synthesize("pgc_1", "utt_other", "session_owner"))
                 .isInstanceOf(ContractException.class)
@@ -99,9 +101,7 @@ class GeneratedUtteranceAudioServiceTest {
     @ParameterizedTest
     @MethodSource("invalidProviderResponses")
     void rejectsEmptyOversizedOrWrongMimeProviderOutput(GeneratedAudioResponse invalidResponse) {
-        when(queryMapper.findActiveOwnedByAccountId("pgc_1", "acct_owner"))
-                .thenReturn(new PracticeGeneratedContentEntity());
-        when(queryMapper.findPlayableApprovedUtterance("pgc_1", "utt_1"))
+        when(queryMapper.findPlayableOwnedActiveBundleUtterance("pgc_1", "utt_1", "acct_owner"))
                 .thenReturn(utterance("Time for a cuddle."));
         when(speechSynthesisPort.synthesize(any()))
                 .thenReturn(invalidResponse);
@@ -122,9 +122,7 @@ class GeneratedUtteranceAudioServiceTest {
 
     @Test
     void providerTimeoutLeavesGeneratedContentUntouched() {
-        when(queryMapper.findActiveOwnedByAccountId("pgc_1", "acct_owner"))
-                .thenReturn(new PracticeGeneratedContentEntity());
-        when(queryMapper.findPlayableApprovedUtterance("pgc_1", "utt_1"))
+        when(queryMapper.findPlayableOwnedActiveBundleUtterance("pgc_1", "utt_1", "acct_owner"))
                 .thenReturn(utterance("Gentle hands."));
         when(speechSynthesisPort.synthesize(any()))
                 .thenThrow(GeneratedSpeechSynthesisException.timeout(new RuntimeException("timeout")));
@@ -138,7 +136,28 @@ class GeneratedUtteranceAudioServiceTest {
                     assertThat(contract.details()).containsEntry("retryable", true);
                 });
 
-        verify(queryMapper, never()).findByGeneratedContentId(any());
+        verify(queryMapper).findPlayableOwnedActiveBundleUtterance("pgc_1", "utt_1", "acct_owner");
+        verifyNoMoreInteractions(queryMapper);
+    }
+
+    @Test
+    void providerUnavailableLeavesGeneratedContentUntouched() {
+        when(queryMapper.findPlayableOwnedActiveBundleUtterance("pgc_1", "utt_1", "acct_owner"))
+                .thenReturn(utterance("Gentle hands."));
+        when(speechSynthesisPort.synthesize(any()))
+                .thenThrow(GeneratedSpeechSynthesisException.unavailable(new RuntimeException("provider unavailable")));
+
+        assertThatThrownBy(() -> service.synthesize("pgc_1", "utt_1", "session_owner"))
+                .isInstanceOf(ContractException.class)
+                .satisfies(error -> {
+                    var contract = (ContractException) error;
+                    assertThat(contract.status().value()).isEqualTo(503);
+                    assertThat(contract.code()).isEqualTo("generated_audio_unavailable");
+                    assertThat(contract.details()).containsEntry("retryable", true);
+                });
+
+        verify(queryMapper).findPlayableOwnedActiveBundleUtterance("pgc_1", "utt_1", "acct_owner");
+        verifyNoMoreInteractions(queryMapper);
     }
 
     private PracticeGeneratedContentUtteranceEntity utterance(String englishText) {
@@ -158,7 +177,8 @@ class GeneratedUtteranceAudioServiceTest {
                 null,
                 null,
                 null,
-                null
+                null,
+                "default"
         );
     }
 }

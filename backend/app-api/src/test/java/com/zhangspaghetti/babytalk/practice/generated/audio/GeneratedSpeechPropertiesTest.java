@@ -36,9 +36,35 @@ class GeneratedSpeechPropertiesTest {
                 "ftp://provider.example.com",
                 "TEST_GENERATED_AUDIO_KEY",
                 "gpt-4o-mini-tts",
-                "alloy"
+                "alloy",
+                "default"
         )).isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("HTTP or HTTPS");
+    }
+
+    @Test
+    void configurationIdentityIsStableAndExcludesTheProviderSecret() {
+        var properties = new GeneratedSpeechProperties(
+                true,
+                "openai",
+                Duration.ofSeconds(5),
+                512,
+                "generated-tts-v1",
+                "mp3",
+                "https://provider.example.com/v1",
+                "TEST_GENERATED_AUDIO_KEY",
+                "gpt-4o-mini-tts",
+                "alloy",
+                "uat-v1"
+        );
+
+        var identity = properties.configurationIdentity();
+
+        assertThat(identity.provider()).isEqualTo("openai");
+        assertThat(identity.model()).isEqualTo("gpt-4o-mini-tts");
+        assertThat(identity.profile()).isEqualTo("uat-v1");
+        assertThat(identity.configurationFingerprint()).matches("[a-f0-9]{64}");
+        assertThat(identity.configurationFingerprint()).doesNotContain("TEST_GENERATED_AUDIO_KEY");
     }
 
     private GeneratedSpeechProperties properties(
@@ -57,7 +83,8 @@ class GeneratedSpeechPropertiesTest {
                 null,
                 null,
                 null,
-                null
+                null,
+                "default"
         );
     }
 }

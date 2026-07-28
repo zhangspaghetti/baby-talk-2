@@ -49,6 +49,14 @@ class GeneratedUtteranceAudioHttpIntegrationTest extends AbstractIntegrationTest
 
     private static final String CONTENT_ID = "pgc_audio_http_1";
     private static final String STARTER_UTTERANCE_ID = "utt_audio_starter_1";
+    private static final List<String> BUNDLE_UTTERANCE_IDS = List.of(
+            STARTER_UTTERANCE_ID,
+            "utt_audio_cooperating_1",
+            "utt_audio_hesitant_1",
+            "utt_audio_resisting_1",
+            "utt_audio_no_response_1",
+            "utt_audio_other_1"
+    );
     private static final byte[] FAKE_MP3_BYTES = {0x49, 0x44, 0x33, 0x04, 0x00, 0x00};
 
     @Autowired
@@ -82,6 +90,11 @@ class GeneratedUtteranceAudioHttpIntegrationTest extends AbstractIntegrationTest
 
         acceptConsent(owner.accessToken());
 
+        var beforeAudio = jdbcTemplate.queryForMap("""
+                select status, content_version, updated_at
+                from practice_generated_content
+                where generated_content_id = ?
+                """, CONTENT_ID);
         var audio = getAudio(owner.accessToken(), CONTENT_ID, STARTER_UTTERANCE_ID);
         assertThat(audio.statusCode()).isEqualTo(200);
         assertThat(audio.headers().firstValue("content-type")).contains("audio/mpeg");
@@ -91,7 +104,22 @@ class GeneratedUtteranceAudioHttpIntegrationTest extends AbstractIntegrationTest
         assertThat(audio.headers().firstValue("vary")).hasValue("Authorization");
         assertThat(audio.headers().firstValue("x-generated-audio-voice-version"))
                 .hasValue("generated-tts-v1");
+        assertThat(audio.headers().firstValue("x-generated-audio-provider")).hasValue("fake");
+        assertThat(audio.headers().firstValue("x-generated-audio-model")).hasValue("fake");
+        assertThat(audio.headers().firstValue("x-generated-audio-profile")).hasValue("default");
+        assertThat(audio.headers().firstValue("x-generated-audio-configuration-fingerprint"))
+                .hasValueSatisfying(value -> assertThat(value).matches("[a-f0-9]{64}"));
         assertThat(audio.body()).containsExactly(FAKE_MP3_BYTES);
+        for (var utteranceId : BUNDLE_UTTERANCE_IDS) {
+            var branchAudio = getAudio(owner.accessToken(), CONTENT_ID, utteranceId);
+            assertThat(branchAudio.statusCode()).isEqualTo(200);
+            assertThat(branchAudio.body()).containsExactly(FAKE_MP3_BYTES);
+        }
+        assertThat(jdbcTemplate.queryForMap("""
+                select status, content_version, updated_at
+                from practice_generated_content
+                where generated_content_id = ?
+                """, CONTENT_ID)).isEqualTo(beforeAudio);
 
         var otherOwner = authenticate("13800138022", "generated-audio-other");
         acceptConsent(otherOwner.accessToken());

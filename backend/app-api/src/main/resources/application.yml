@@ -95,6 +95,7 @@ babytalk:
       api-key-environment-variable: ${BABY_TALK_GENERATED_AUDIO_API_KEY_ENVIRONMENT_VARIABLE:}
       model: ${BABY_TALK_GENERATED_AUDIO_MODEL:}
       voice: ${BABY_TALK_GENERATED_AUDIO_VOICE:}
+      provider-profile: ${BABY_TALK_GENERATED_AUDIO_PROVIDER_PROFILE:default}
     agentic:
       versioned-resources:
         profile: ${BABY_TALK_PRACTICE_AI_PROFILE:classpath:config/practice-ai/profiles/custom-scene-generation-v1.yml}

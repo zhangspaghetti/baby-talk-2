@@ -5,14 +5,19 @@ import org.springframework.ai.openai.OpenAiAudioSpeechOptions;
 
 final class ConfiguredGeneratedSpeechProvider implements GeneratedSpeechSynthesisPort {
 
-    private final OpenAiAudioSpeechModel speechModel;
+    private final GeneratedSpeechClient speechClient;
     private final GeneratedSpeechProperties properties;
 
     ConfiguredGeneratedSpeechProvider(GeneratedSpeechProperties properties, String apiKey) {
-        if (apiKey == null || apiKey.isBlank()) {
-            throw new IllegalArgumentException("generated speech provider secret must not be blank");
-        }
+        this(properties, createSpeechClient(properties, requireApiKey(apiKey)));
+    }
+
+    ConfiguredGeneratedSpeechProvider(GeneratedSpeechProperties properties, GeneratedSpeechClient speechClient) {
         this.properties = properties;
+        this.speechClient = speechClient;
+    }
+
+    private static GeneratedSpeechClient createSpeechClient(GeneratedSpeechProperties properties, String apiKey) {
         var options = OpenAiAudioSpeechOptions.builder()
                 .baseUrl(properties.baseUrl())
                 .apiKey(apiKey.trim())
@@ -22,13 +27,21 @@ final class ConfiguredGeneratedSpeechProvider implements GeneratedSpeechSynthesi
                 .timeout(properties.timeout())
                 .maxRetries(0)
                 .build();
-        this.speechModel = OpenAiAudioSpeechModel.builder().options(options).build();
+        var speechModel = OpenAiAudioSpeechModel.builder().options(options).build();
+        return speechModel::call;
+    }
+
+    private static String requireApiKey(String apiKey) {
+        if (apiKey == null || apiKey.isBlank()) {
+            throw new IllegalArgumentException("generated speech provider secret must not be blank");
+        }
+        return apiKey.trim();
     }
 
     @Override
     public GeneratedAudioResponse synthesize(GeneratedSpeechRequest request) {
         try {
-            var response = speechModel.call(request.approvedEnglishText());
+            var response = speechClient.synthesize(request.approvedEnglishText());
             return new GeneratedAudioResponse(response, properties.mimeType(), properties.voiceVersion());
         } catch (RuntimeException exception) {
             if (isTimeout(exception)) {
@@ -39,7 +52,16 @@ final class ConfiguredGeneratedSpeechProvider implements GeneratedSpeechSynthesi
     }
 
     private boolean isTimeout(RuntimeException exception) {
-        var message = exception.getMessage();
-        return message != null && message.toLowerCase(java.util.Locale.ROOT).contains("timeout");
+        for (Throwable cause = exception; cause != null; cause = cause.getCause()) {
+            if (cause instanceof java.util.concurrent.TimeoutException) {
+                return true;
+            }
+            var message = cause.getMessage();
+            if (message != null && (message.toLowerCase(java.util.Locale.ROOT).contains("timeout")
+                    || message.toLowerCase(java.util.Locale.ROOT).contains("timed out"))) {
+                return true;
+            }
+        }
+        return false;
     }
 }
