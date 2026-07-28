@@ -41,6 +41,18 @@ SECURITY_TEXT_APPROVED = {
     "CustomSceneGeneratedContentValidator.java",
 }
 CURRENT_GENERATED_CONTENT_MIGRATION = "V27__upgrade_practice_generated_content_agentic_contract.sql"
+GENERATED_AUDIO_JAVA_ROOT = "backend/app-api/src/main/java/com/zhangspaghetti/babytalk/practice/generated/audio"
+GENERATED_AUDIO_PERSISTENCE_MARKERS = (
+    "PracticeGeneratedContentCommands",
+    "PracticeGeneratedContentCommandMapper",
+    "insert(",
+    "update(",
+    "delete(",
+    "java.io.File",
+    "java.nio.file",
+    "Minio",
+    "ObjectStorage",
+)
 
 
 def files_under(root: Path, relative: str, suffixes: tuple[str, ...]) -> list[Path]:
@@ -106,6 +118,13 @@ def collect_violations(root: Path) -> list[str]:
     if migration.exists():
         production_paths.append(migration)
     failures.extend(find_forbidden_fields(production_paths))
+
+    generated_audio_paths = files_under(root, GENERATED_AUDIO_JAVA_ROOT, (".java",))
+    for path in generated_audio_paths:
+        source = text(path)
+        for marker in GENERATED_AUDIO_PERSISTENCE_MARKERS:
+            if marker in source:
+                failures.append(f"{path}: generated audio must not persist through {marker}")
 
     for path in files_under(root, mapper_root, (".xml",)):
         if path.exists() and re.search(r"\bcoach_tip_zh\b", text(path), re.IGNORECASE):

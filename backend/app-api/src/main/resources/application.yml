@@ -84,6 +84,17 @@ management:
 
 babytalk:
   practice:
+    generated-audio:
+      enabled: ${BABY_TALK_GENERATED_AUDIO_ENABLED:false}
+      provider-mode: ${BABY_TALK_GENERATED_AUDIO_PROVIDER_MODE:disabled}
+      timeout: ${BABY_TALK_GENERATED_AUDIO_TIMEOUT:5s}
+      max-bytes: ${BABY_TALK_GENERATED_AUDIO_MAX_BYTES:524288}
+      voice-version: ${BABY_TALK_GENERATED_AUDIO_VOICE_VERSION:generated-tts-v1}
+      format: ${BABY_TALK_GENERATED_AUDIO_FORMAT:mp3}
+      base-url: ${BABY_TALK_GENERATED_AUDIO_BASE_URL:}
+      api-key-environment-variable: ${BABY_TALK_GENERATED_AUDIO_API_KEY_ENVIRONMENT_VARIABLE:}
+      model: ${BABY_TALK_GENERATED_AUDIO_MODEL:}
+      voice: ${BABY_TALK_GENERATED_AUDIO_VOICE:}
     agentic:
       versioned-resources:
         profile: ${BABY_TALK_PRACTICE_AI_PROFILE:classpath:config/practice-ai/profiles/custom-scene-generation-v1.yml}

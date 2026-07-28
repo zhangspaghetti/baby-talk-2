@@ -102,6 +102,27 @@
         order by display_order asc, utterance_id asc
     </select>
 
+    <select id="findActiveOwnedByAccountId" resultMap="generatedContentEntityMap">
+        select <include refid="columns"/>
+        from practice_generated_content
+        where generated_content_id = #{generatedContentId}
+          and account_id = #{accountId}
+          and status = 'active'
+    </select>
+
+    <select id="findPlayableApprovedUtterance" resultMap="generatedContentUtteranceEntityMap">
+        select utterance_id, generated_content_id, role, reaction_type, english_text, chinese_text,
+               pronunciation_hint, tpr_action_zh, delivery_guidance_zh, difficulty, display_order,
+               approval_status, approved_content_version, created_at
+        from practice_generated_content_utterances
+        where generated_content_id = #{generatedContentId}
+          and utterance_id = #{utteranceId}
+          and approval_status = 'approved'
+          and role in ('starter', 'reaction_support')
+          and english_text is not null
+          and btrim(english_text) &lt;&gt; ''
+    </select>
+
     <select id="findByClientRequestId" resultMap="generatedContentEntityMap">
         select <include refid="columns"/>
         from practice_generated_content

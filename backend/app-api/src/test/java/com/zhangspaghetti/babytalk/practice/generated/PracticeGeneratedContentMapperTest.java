@@ -191,6 +191,9 @@ class PracticeGeneratedContentMapperTest extends AbstractIntegrationTest {
                 .isInstanceOf(RuntimeException.class);
 
         var complete = generatingCarePathRow("pgc_repo_care_path_complete");
+        complete.setOwnerScope("account");
+        complete.setAccountId("acct_pgc_repo_care_path_complete");
+        complete.setInstallationRefHash(null);
         insert(complete);
         transaction().executeWithoutResult(status -> {
             insertCarePathStarter(complete.generatedContentId(), complete.phraseSlug());
@@ -217,6 +220,16 @@ class PracticeGeneratedContentMapperTest extends AbstractIntegrationTest {
                         "utt_resisting_" + complete.generatedContentId(),
                         "utt_no_response_" + complete.generatedContentId(),
                         "utt_other_" + complete.generatedContentId());
+        assertThat(queries.findActiveOwnedByAccountId(
+                complete.generatedContentId(), complete.accountId())).isNotNull();
+        assertThat(queries.findActiveOwnedByAccountId(
+                complete.generatedContentId(), "acct_pgc_repo_other")).isNull();
+        assertThat(queries.findPlayableApprovedUtterance(
+                complete.generatedContentId(), complete.phraseSlug()))
+                .extracting(value -> value.englishText())
+                .isEqualTo("Warm water.");
+        assertThat(queries.findPlayableApprovedUtterance(
+                complete.generatedContentId(), "utt_missing")).isNull();
 
         assertThatThrownBy(() -> transaction().executeWithoutResult(status ->
                 insertCarePathSupport(complete.generatedContentId(), "other", 6)))

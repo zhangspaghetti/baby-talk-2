@@ -16,6 +16,14 @@ public interface PracticeGeneratedContentQueryMapper {
     List<PracticeGeneratedContentUtteranceEntity> findApprovedUtterances(
             @Param("generatedContentId") String generatedContentId);
 
+    PracticeGeneratedContentEntity findActiveOwnedByAccountId(
+            @Param("generatedContentId") String generatedContentId,
+            @Param("accountId") String accountId);
+
+    PracticeGeneratedContentUtteranceEntity findPlayableApprovedUtterance(
+            @Param("generatedContentId") String generatedContentId,
+            @Param("utteranceId") String utteranceId);
+
     PracticeGeneratedContentEntity findByClientRequestId(
             @Param("ownerScope") String ownerScope,
             @Param("ownerKey") String ownerKey,

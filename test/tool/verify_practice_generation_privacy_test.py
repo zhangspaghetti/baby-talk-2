@@ -72,6 +72,16 @@ class PracticeGenerationPrivacyVerifierTest(unittest.TestCase):
         self.assertIsNone(VERIFIER.re.search(r"\.maxRetries\((?!0\))", ".maxRetries(0)"))
         self.assertIsNotNone(VERIFIER.re.search(r"\.maxRetries\((?!0\))", ".maxRetries(1)"))
 
+    def test_generated_audio_persistence_marker_is_reported(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / (VERIFIER.GENERATED_AUDIO_JAVA_ROOT + "/UnsafeAudioStore.java")
+            source.parent.mkdir(parents=True)
+            source.write_text("import java.nio.file.Files;\n", encoding="utf-8")
+            failures = VERIFIER.collect_violations(root)
+
+        self.assertTrue(any("generated audio must not persist" in failure for failure in failures))
+
 
 if __name__ == "__main__":
     unittest.main()
