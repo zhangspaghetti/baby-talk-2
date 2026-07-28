@@ -387,11 +387,21 @@ class AccountNotifier extends ChangeNotifier with WidgetsBindingObserver {
     notifyListeners();
 
     try {
+      LocalSensitiveDataClearanceReport? clearanceReport;
+      var clearanceFailed = false;
+      try {
+        clearanceReport = await _clearLocalSensitiveDataForLogout();
+      } catch (_) {
+        clearanceFailed = true;
+      }
       _snapshot = await _repository.clearPlaceholderSession(
         revertToLocalOnly: revertToLocalOnly,
       );
       _bumpRuntimeToken();
-      _submissionMessage = revertToLocalOnly
+      _submissionMessage =
+          clearanceFailed || clearanceReport?.hasFailures == true
+          ? '已退出账号，但部分本机敏感数据清理失败。'
+          : revertToLocalOnly
           ? '已回到本机档案模式。'
           : '已退出账号；本机练习记录仍保留。';
     } catch (error) {
@@ -482,6 +492,20 @@ class AccountNotifier extends ChangeNotifier with WidgetsBindingObserver {
     return runner(
       trigger: LocalSensitiveDataClearanceTrigger.accountDeletionConfirmed,
       correlationId: 'account-delete-${requestedAt.microsecondsSinceEpoch}',
+      requestedAt: requestedAt,
+    );
+  }
+
+  Future<LocalSensitiveDataClearanceReport?>
+  _clearLocalSensitiveDataForLogout() {
+    final runner = _localDataClearanceRunner;
+    if (runner == null) {
+      return Future<LocalSensitiveDataClearanceReport?>.value();
+    }
+    final requestedAt = _clearanceClock().toUtc();
+    return runner(
+      trigger: LocalSensitiveDataClearanceTrigger.logoutSessionOnly,
+      correlationId: 'account-logout-${requestedAt.microsecondsSinceEpoch}',
       requestedAt: requestedAt,
     );
   }

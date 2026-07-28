@@ -1,5 +1,20 @@
 enum CustomSceneEntrySource { today, scene }
 
+extension CustomSceneEntrySourceWire on CustomSceneEntrySource {
+  String get wireValue => switch (this) {
+    CustomSceneEntrySource.today => 'today',
+    CustomSceneEntrySource.scene => 'scene',
+  };
+}
+
+CustomSceneEntrySource parseCustomSceneEntrySource(String value) {
+  return switch (value.trim()) {
+    'today' => CustomSceneEntrySource.today,
+    'scene' => CustomSceneEntrySource.scene,
+    _ => throw FormatException('未知 custom scene entry source。'),
+  };
+}
+
 class CustomSceneRequestIdentity {
   CustomSceneRequestIdentity({required String clientRequestId})
     : clientRequestId = _required(clientRequestId, 'clientRequestId');

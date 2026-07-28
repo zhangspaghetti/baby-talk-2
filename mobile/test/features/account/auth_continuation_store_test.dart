@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:mobile/features/custom_scene/domain/custom_scene_draft.dart';
 import 'package:mobile/features/account/data/local/auth_continuation_store.dart';
 import 'package:mobile/features/account/domain/models/auth_continuation.dart';
 import 'package:mobile/features/account/presentation/auth_continuation_coordinator.dart';
@@ -140,6 +141,38 @@ void main() {
         expect(
           (await store.readResult(now: DateTime.utc(2026, 7, 23, 12))).status,
           AuthContinuationReadStatus.notFound,
+        );
+      },
+    );
+
+    test(
+      'custom-scene continuation keeps only stable resume identifiers',
+      () async {
+        final store = AuthContinuationStore(
+          directoryResolver: () async => tempDir,
+        );
+        final coordinator = AuthContinuationCoordinator(
+          store: store,
+          clock: () => DateTime.utc(2026, 7, 28, 12),
+          correlationIdGenerator: () => 'auth_custom_1',
+        );
+
+        final pending = await coordinator.beginGenerateCustomScene(
+          payload: AuthContinuationCustomScenePayload(
+            draftId: 'draft_1',
+            entrySource: CustomSceneEntrySource.today,
+            clientRequestId: 'request_1',
+          ),
+        );
+
+        expect(pending.intent, AuthContinuationIntent.generateCustomScene);
+        expect(pending.customScene?.draftId, 'draft_1');
+        expect(pending.customScene?.entrySource, CustomSceneEntrySource.today);
+        expect(pending.customScene?.clientRequestId, 'request_1');
+        expect(await coordinator.readPending(), pending);
+        expect(
+          await File('${tempDir.path}/auth_continuation.json').readAsString(),
+          isNot(contains('宝宝洗澡时一直躲水。')),
         );
       },
     );

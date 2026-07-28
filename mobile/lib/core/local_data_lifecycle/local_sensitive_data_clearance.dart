@@ -12,6 +12,7 @@ enum LocalSensitiveDataClearanceTrigger {
 enum LocalSensitiveDataTarget {
   accountLocalSnapshot,
   authContinuation,
+  customSceneDraft,
   onboardingSnapshot,
   householdSnapshot,
   practiceInteractionEvents,
@@ -330,11 +331,13 @@ final class RegistryLocalSensitiveDataClearanceOrchestrator
         const <LocalSensitiveDataTarget>{
           LocalSensitiveDataTarget.accountLocalSnapshot,
           LocalSensitiveDataTarget.authContinuation,
+          LocalSensitiveDataTarget.customSceneDraft,
         },
       LocalSensitiveDataClearanceTrigger.consentWithdrawalConfirmed =>
         const <LocalSensitiveDataTarget>{
           LocalSensitiveDataTarget.accountLocalSnapshot,
           LocalSensitiveDataTarget.authContinuation,
+          LocalSensitiveDataTarget.customSceneDraft,
           LocalSensitiveDataTarget.householdSnapshot,
           LocalSensitiveDataTarget.mentorFactEvents,
         },

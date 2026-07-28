@@ -12,6 +12,10 @@ import 'package:mobile/features/account/data/local/account_local_store.dart';
 import 'package:mobile/features/account/data/local/auth_continuation_store.dart';
 import 'package:mobile/features/account/data/repositories/account_repository.dart';
 import 'package:mobile/features/account/presentation/auth_continuation_coordinator.dart';
+import 'package:mobile/features/custom_scene/application/custom_scene_draft_continuation_coordinator.dart';
+import 'package:mobile/features/custom_scene/data/custom_scene_draft_store.dart';
+import 'package:mobile/features/custom_scene/domain/custom_scene_draft.dart';
+import 'package:mobile/features/custom_scene/domain/custom_scene_stored_draft.dart';
 import 'package:mobile/features/household/data/local/household_local_store.dart';
 import 'package:mobile/features/household/data/repositories/household_repository.dart';
 import 'package:mobile/features/household/data/services/household_api_service.dart';
@@ -62,6 +66,8 @@ void main() {
           practiceRepository: harness.practiceRepository,
           mentorRepository: harness.mentorRepository,
           authContinuationCoordinator: harness.authContinuationCoordinator,
+          customSceneDraftContinuationCoordinator:
+              harness.customSceneDraftContinuationCoordinator,
         );
 
         expect(
@@ -85,6 +91,8 @@ void main() {
           practiceRepository: harness.practiceRepository,
           mentorRepository: harness.mentorRepository,
           authContinuationCoordinator: harness.authContinuationCoordinator,
+          customSceneDraftContinuationCoordinator:
+              harness.customSceneDraftContinuationCoordinator,
         );
 
         final report = await orchestrator.clear(
@@ -125,6 +133,12 @@ void main() {
           await harness.installationIdService.readExisting(),
           'install_lifecycle',
         );
+        expect(
+          await harness.customSceneDraftStore.read(
+            now: DateTime.utc(2026, 5, 20, 10),
+          ),
+          isNotNull,
+        );
       },
     );
 
@@ -138,6 +152,8 @@ void main() {
           practiceRepository: harness.practiceRepository,
           mentorRepository: harness.mentorRepository,
           authContinuationCoordinator: harness.authContinuationCoordinator,
+          customSceneDraftContinuationCoordinator:
+              harness.customSceneDraftContinuationCoordinator,
         );
 
         final report = await orchestrator.clear(
@@ -173,6 +189,12 @@ void main() {
           isFalse,
         );
         expect(
+          await harness.customSceneDraftStore.read(
+            now: DateTime.utc(2026, 5, 20, 10),
+          ),
+          isNull,
+        );
+        expect(
           File(
             '${harness.tempDir.path}/onboarding_flow_snapshot.json.tmp',
           ).existsSync(),
@@ -200,6 +222,8 @@ class _LifecycleHarness {
     required this.onboardingSnapshotStore,
     required this.onboardingFlowStore,
     required this.authContinuationCoordinator,
+    required this.customSceneDraftStore,
+    required this.customSceneDraftContinuationCoordinator,
     required this.householdLocalStore,
     required this.installationIdService,
     required this.practiceRepository,
@@ -217,6 +241,9 @@ class _LifecycleHarness {
   final OnboardingSnapshotStore onboardingSnapshotStore;
   final OnboardingFlowStore onboardingFlowStore;
   final AuthContinuationCoordinator authContinuationCoordinator;
+  final CustomSceneDraftStore customSceneDraftStore;
+  final CustomSceneDraftContinuationCoordinator
+  customSceneDraftContinuationCoordinator;
   final HouseholdLocalStore householdLocalStore;
   final InstallationIdService installationIdService;
   final PracticeRepository practiceRepository;
@@ -257,6 +284,16 @@ class _LifecycleHarness {
       clock: () => DateTime.utc(2026, 5, 20, 10),
       correlationIdGenerator: () => 'lifecycle_auth_continuation',
     );
+    final customSceneDraftStore = CustomSceneDraftStore(
+      directoryResolver: () async => tempDir,
+    );
+    final customSceneDraftContinuationCoordinator =
+        CustomSceneDraftContinuationCoordinator(
+          draftStore: customSceneDraftStore,
+          authContinuationCoordinator: authContinuationCoordinator,
+          clock: () => DateTime.utc(2026, 5, 20, 10),
+          draftIdGenerator: () => 'lifecycle_custom_scene_draft',
+        );
     final onboardingRepository = OnboardingRepository(
       snapshotStore: onboardingSnapshotStore,
       flowStore: onboardingFlowStore,
@@ -297,6 +334,9 @@ class _LifecycleHarness {
       onboardingSnapshotStore: onboardingSnapshotStore,
       onboardingFlowStore: onboardingFlowStore,
       authContinuationCoordinator: authContinuationCoordinator,
+      customSceneDraftStore: customSceneDraftStore,
+      customSceneDraftContinuationCoordinator:
+          customSceneDraftContinuationCoordinator,
       householdLocalStore: householdLocalStore,
       installationIdService: installationIdService,
       practiceRepository: practiceRepository,
@@ -314,6 +354,19 @@ class _LifecycleHarness {
       OnboardingFlowSnapshot.initial(DateTime.utc(2026, 5, 20, 10)),
     );
     await authContinuationCoordinator.beginSaveOnboardingMemory();
+    await customSceneDraftStore.write(
+      CustomSceneStoredDraft(
+        draftId: 'lifecycle_custom_scene_draft',
+        text: '晚饭后读绘本',
+        entrySource: CustomSceneEntrySource.today,
+        requestIdentity: CustomSceneRequestIdentity(
+          clientRequestId: 'lifecycle_custom_scene_request',
+        ),
+        state: CustomSceneStoredDraftState.editing,
+        createdAt: DateTime.utc(2026, 5, 20, 10),
+        expiresAt: DateTime.utc(2026, 5, 20, 10, 15),
+      ),
+    );
     await File(
       '${tempDir.path}/onboarding_flow_snapshot.json.tmp',
     ).writeAsString('orphan');

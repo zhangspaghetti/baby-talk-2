@@ -20,10 +20,12 @@ import 'package:mobile/features/account/data/services/authenticated_api_client.d
 import 'package:mobile/features/care_path/data/repositories/care_path_repository.dart';
 import 'package:mobile/features/care_path/presentation/care_path_notifier.dart';
 import 'package:mobile/features/custom_scene/data/custom_scene_api.dart';
+import 'package:mobile/features/custom_scene/data/custom_scene_draft_store.dart';
 import 'package:mobile/features/custom_scene/data/custom_scene_mapper.dart';
 import 'package:mobile/features/custom_scene/data/custom_scene_profile_context_resolver.dart';
 import 'package:mobile/features/custom_scene/data/custom_scene_repository_impl.dart';
 import 'package:mobile/features/custom_scene/domain/custom_scene_repository.dart';
+import 'package:mobile/features/custom_scene/application/custom_scene_draft_continuation_coordinator.dart';
 import 'package:mobile/features/household/data/local/household_local_store.dart';
 import 'package:mobile/features/household/data/repositories/household_repository.dart';
 import 'package:mobile/features/household/data/services/household_api_service.dart';
@@ -210,6 +212,22 @@ final authContinuationCoordinatorProvider =
     Provider<AuthContinuationCoordinator>((ref) {
       return AuthContinuationCoordinator(
         store: ref.watch(authContinuationStoreProvider),
+      );
+    });
+
+final customSceneDraftStoreProvider = Provider<CustomSceneDraftStore>((ref) {
+  return CustomSceneDraftStore(
+    directoryResolver: () => ref.read(appDirectoryProvider.future),
+  );
+});
+
+final customSceneDraftContinuationCoordinatorProvider =
+    Provider<CustomSceneDraftContinuationCoordinator>((ref) {
+      return CustomSceneDraftContinuationCoordinator(
+        draftStore: ref.watch(customSceneDraftStoreProvider),
+        authContinuationCoordinator: ref.watch(
+          authContinuationCoordinatorProvider,
+        ),
       );
     });
 
@@ -410,6 +428,9 @@ final localSensitiveDataClearanceOrchestratorProvider =
       final authContinuationCoordinator = ref.watch(
         authContinuationCoordinatorProvider,
       );
+      final customSceneDraftContinuationCoordinator = ref.watch(
+        customSceneDraftContinuationCoordinatorProvider,
+      );
 
       return createLocalSensitiveDataClearanceOrchestrator(
         accountRepository: accountRepository,
@@ -418,6 +439,8 @@ final localSensitiveDataClearanceOrchestratorProvider =
         practiceRepository: practiceRepository,
         mentorRepository: mentorRepository,
         authContinuationCoordinator: authContinuationCoordinator,
+        customSceneDraftContinuationCoordinator:
+            customSceneDraftContinuationCoordinator,
       );
     });
 

@@ -17,13 +17,56 @@ class AuthContinuationCoordinator {
   final Duration ttl;
 
   Future<AuthContinuation> beginSaveOnboardingMemory() async {
+    return _begin(intent: AuthContinuationIntent.saveOnboardingMemory);
+  }
+
+  Future<AuthContinuation> beginGenerateCustomScene({
+    required AuthContinuationCustomScenePayload payload,
+  }) async {
+    return _begin(
+      intent: AuthContinuationIntent.generateCustomScene,
+      customScene: payload,
+    );
+  }
+
+  Future<AuthContinuation> bindGenerateCustomSceneAccount({
+    required AuthContinuation continuation,
+    required String expectedAccountContext,
+  }) async {
+    if (continuation.intent != AuthContinuationIntent.generateCustomScene ||
+        continuation.customScene == null) {
+      throw ArgumentError.value(
+        continuation,
+        'continuation',
+        '不是 custom scene continuation。',
+      );
+    }
+    final updated = AuthContinuation(
+      schemaVersion: continuation.schemaVersion,
+      intent: continuation.intent,
+      correlationId: continuation.correlationId,
+      createdAt: continuation.createdAt,
+      expiresAt: continuation.expiresAt,
+      customScene: continuation.customScene!.copyWith(
+        expectedAccountContext: expectedAccountContext,
+      ),
+    );
+    await _store.write(updated);
+    return updated;
+  }
+
+  Future<AuthContinuation> _begin({
+    required AuthContinuationIntent intent,
+    AuthContinuationCustomScenePayload? customScene,
+  }) async {
     final createdAt = _clock().toUtc();
     final continuation = AuthContinuation(
       schemaVersion: AuthContinuation.currentSchemaVersion,
-      intent: AuthContinuationIntent.saveOnboardingMemory,
+      intent: intent,
       correlationId: _correlationIdGenerator(),
       createdAt: createdAt,
       expiresAt: createdAt.add(ttl),
+      customScene: customScene,
     );
     await _store.write(continuation);
     return continuation;

@@ -1,6 +1,7 @@
 import 'package:mobile/core/local_data_lifecycle/local_sensitive_data_clearance.dart';
 import 'package:mobile/features/account/data/repositories/account_repository.dart';
 import 'package:mobile/features/account/presentation/auth_continuation_coordinator.dart';
+import 'package:mobile/features/custom_scene/application/custom_scene_draft_continuation_coordinator.dart';
 import 'package:mobile/features/household/data/repositories/household_repository.dart';
 import 'package:mobile/features/mentor/data/repositories/mentor_repository.dart';
 import 'package:mobile/features/onboarding/data/repositories/onboarding_repository.dart';
@@ -14,6 +15,8 @@ createLocalSensitiveDataClearanceOrchestrator({
   required PracticeRepository practiceRepository,
   required MentorRepository mentorRepository,
   required AuthContinuationCoordinator authContinuationCoordinator,
+  required CustomSceneDraftContinuationCoordinator
+  customSceneDraftContinuationCoordinator,
 }) {
   return RegistryLocalSensitiveDataClearanceOrchestrator(
     steps: createLocalSensitiveDataClearanceSteps(
@@ -23,6 +26,8 @@ createLocalSensitiveDataClearanceOrchestrator({
       practiceRepository: practiceRepository,
       mentorRepository: mentorRepository,
       authContinuationCoordinator: authContinuationCoordinator,
+      customSceneDraftContinuationCoordinator:
+          customSceneDraftContinuationCoordinator,
     ),
   );
 }
@@ -34,6 +39,8 @@ List<LocalSensitiveDataClearanceStep> createLocalSensitiveDataClearanceSteps({
   required PracticeRepository practiceRepository,
   required MentorRepository mentorRepository,
   required AuthContinuationCoordinator authContinuationCoordinator,
+  required CustomSceneDraftContinuationCoordinator
+  customSceneDraftContinuationCoordinator,
 }) {
   return <LocalSensitiveDataClearanceStep>[
     LocalSensitiveDataClearanceStep(
@@ -45,6 +52,12 @@ List<LocalSensitiveDataClearanceStep> createLocalSensitiveDataClearanceSteps({
       target: LocalSensitiveDataTarget.authContinuation,
       primitiveName: 'AuthContinuationCoordinator.clear',
       clear: authContinuationCoordinator.clear,
+    ),
+    LocalSensitiveDataClearanceStep(
+      target: LocalSensitiveDataTarget.customSceneDraft,
+      primitiveName:
+          'CustomSceneDraftContinuationCoordinator.clearForLifecycle',
+      clear: customSceneDraftContinuationCoordinator.clearForLifecycle,
     ),
     LocalSensitiveDataClearanceStep(
       target: LocalSensitiveDataTarget.onboardingSnapshot,
