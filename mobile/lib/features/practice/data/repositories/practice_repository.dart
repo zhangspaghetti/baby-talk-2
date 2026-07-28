@@ -24,6 +24,7 @@ class PracticeActivitySnapshot {
     this.contentSource = PracticeContentSource.seed,
     this.generatedContentId,
     this.utteranceIdsByPhraseId = const <String, String>{},
+    this.reactionSupportPhraseIds = const <BabyReactionType, String>{},
   });
 
   final String spaceId;
@@ -36,9 +37,14 @@ class PracticeActivitySnapshot {
   final PracticeContentSource contentSource;
   final String? generatedContentId;
   final Map<String, String> utteranceIdsByPhraseId;
+  final Map<BabyReactionType, String> reactionSupportPhraseIds;
 
   String? utteranceIdForPhrase(String phraseId) {
     return utteranceIdsByPhraseId[phraseId];
+  }
+
+  String? reactionSupportPhraseId(BabyReactionType reactionType) {
+    return reactionSupportPhraseIds[reactionType];
   }
 }
 
@@ -54,6 +60,8 @@ abstract interface class PracticeContentResolver {
   Future<PracticeActivitySnapshot?> resolveGeneratedContent({
     required String generatedContentId,
   });
+
+  Future<List<PracticeActivitySnapshot>> listGeneratedActivities();
 
   Future<void> clearForLifecycle();
 }
@@ -289,6 +297,21 @@ class PracticeRepository {
   Future<PracticeActivityCatalog> getActivityCatalog() async {
     final content = await _assetPhraseService.loadSeedContent();
     final installationId = await _safeEnsureInstallationId();
+    final generatedActivities = await getGeneratedActivitySnapshots();
+    final generatedActivityGroups =
+        <_CatalogActivityKey, List<PracticeActivitySnapshot>>{};
+    for (final activity in generatedActivities) {
+      generatedActivityGroups
+          .putIfAbsent(
+            _CatalogActivityKey(activity.spaceId, activity.activityId),
+            () => <PracticeActivitySnapshot>[],
+          )
+          .add(activity);
+    }
+    final generatedByActivity = <_CatalogActivityKey, PracticeActivitySnapshot>{
+      for (final entry in generatedActivityGroups.entries)
+        if (entry.value.length == 1) entry.key: entry.value.single,
+    };
 
     List<InteractionEventEntity> rawEntities;
     String? scanErrorMessage;
@@ -307,6 +330,7 @@ class PracticeRepository {
     };
 
     var validEvents = 0;
+    var knownGeneratedEvents = 0;
     var skippedMalformedEvents = 0;
     var skippedUnknownContentEvents = 0;
     String? lastIssueMessage = scanErrorMessage;
@@ -322,6 +346,18 @@ class PracticeRepository {
         validEvents += 1;
 
         if (activityState == null) {
+          final generated =
+              generatedByActivity[_CatalogActivityKey(
+                event.spaceId,
+                event.activityId,
+              )];
+          if (generated != null &&
+              generated.phrases.any(
+                (phrase) => phrase.phraseId == event.phraseId,
+              )) {
+            knownGeneratedEvents += 1;
+            continue;
+          }
           skippedUnknownContentEvents += 1;
           lastIssueMessage =
               '跳过未知 activity 事件：${event.spaceId}/${event.activityId}/${event.phraseId}';
@@ -391,10 +427,9 @@ class PracticeRepository {
       );
     }
 
-    final knownEvents = activities.fold<int>(
-      0,
-      (sum, activity) => sum + activity.totalEvents,
-    );
+    final knownEvents =
+        activities.fold<int>(0, (sum, activity) => sum + activity.totalEvents) +
+        knownGeneratedEvents;
 
     return PracticeActivityCatalog(
       installationId: installationId,
@@ -445,14 +480,38 @@ class PracticeRepository {
       starterWarning = 'starter activity 参数不完整；已忽略原始入口。';
     }
 
-    final recentActivity = catalog.mostRecentActivity;
+    final generatedRecentActivities =
+        await _loadGeneratedContinuityActivities();
+    final recentCandidates =
+        <PracticeCatalogActivitySummary>[
+          ...catalog.activities,
+          ...generatedRecentActivities,
+        ]..sort((left, right) {
+          final leftTime = left.lastEventTime;
+          final rightTime = right.lastEventTime;
+          if (leftTime == null && rightTime == null) {
+            return left.activityId.compareTo(right.activityId);
+          }
+          if (leftTime == null) {
+            return 1;
+          }
+          if (rightTime == null) {
+            return -1;
+          }
+          return rightTime.compareTo(leftTime);
+        });
+    final recentActivity = recentCandidates.firstWhere(
+      (activity) => activity.lastEventTime != null,
+      orElse: () => catalog.mostRecentActivity ?? catalog.activities.first,
+    );
+    final hasRecentActivity = recentActivity.lastEventTime != null;
     final nextIncompleteActivity = catalog.firstIncompleteActivity;
 
     late final PracticeCatalogActivitySummary recommendedActivity;
     late final PracticeContinuityReason recommendationReason;
     late final String? fallbackReason;
 
-    if (recentActivity != null) {
+    if (hasRecentActivity) {
       recommendedActivity = recentActivity;
       recommendationReason = PracticeContinuityReason.recentActivity;
       fallbackReason = null;
@@ -483,7 +542,7 @@ class PracticeRepository {
     return PracticeContinuitySnapshot(
       catalog: catalog,
       recommendedActivity: recommendedActivity,
-      recentActivity: recentActivity,
+      recentActivity: hasRecentActivity ? recentActivity : null,
       nextIncompleteActivity: nextIncompleteActivity,
       starterActivity: starterActivity,
       recommendation: PracticeContinuityRecommendation(
@@ -500,6 +559,91 @@ class PracticeRepository {
       ),
       warningMessage: warningParts.isEmpty ? null : warningParts.join('；'),
     );
+  }
+
+  Future<List<PracticeCatalogActivitySummary>>
+  _loadGeneratedContinuityActivities() async {
+    final snapshots = await getGeneratedActivitySnapshots();
+    if (snapshots.isEmpty) {
+      return const <PracticeCatalogActivitySummary>[];
+    }
+    final inspection = await inspectEventLog();
+    final activityCounts = <_CatalogActivityKey, int>{};
+    for (final snapshot in snapshots) {
+      final key = _CatalogActivityKey(snapshot.spaceId, snapshot.activityId);
+      activityCounts[key] = (activityCounts[key] ?? 0) + 1;
+    }
+    final summaries = <PracticeCatalogActivitySummary>[];
+    for (final snapshot in snapshots) {
+      if (activityCounts[_CatalogActivityKey(
+            snapshot.spaceId,
+            snapshot.activityId,
+          )] !=
+          1) {
+        continue;
+      }
+      final phraseIds = snapshot.phrases
+          .map((phrase) => phrase.phraseId)
+          .toSet();
+      final events =
+          inspection.validEvents
+              .where(
+                (event) =>
+                    event.spaceId == snapshot.spaceId &&
+                    event.activityId == snapshot.activityId &&
+                    phraseIds.contains(event.phraseId),
+              )
+              .toList(growable: false)
+            ..sort(
+              (left, right) =>
+                  left.clientTimestamp.compareTo(right.clientTimestamp),
+            );
+      if (events.isEmpty) {
+        continue;
+      }
+      final resume = _buildResumeInfo(snapshot: snapshot, events: events);
+      final home = _buildHomeSummary(snapshot: snapshot, events: events);
+      final nextPhraseId = resume.nextPhraseId;
+      PracticePhrase? nextPhrase;
+      if (nextPhraseId != null) {
+        for (final phrase in snapshot.phrases) {
+          if (phrase.phraseId == nextPhraseId) {
+            nextPhrase = phrase;
+            break;
+          }
+        }
+      }
+      summaries.add(
+        PracticeCatalogActivitySummary(
+          spaceId: snapshot.spaceId,
+          spaceTitle: '此刻照护',
+          activityId: snapshot.activityId,
+          title: snapshot.title,
+          summary: snapshot.summary,
+          sceneTag: snapshot.sceneTag,
+          coachTip: snapshot.coachTip,
+          totalPhraseCount: snapshot.phrases.length,
+          completedPhraseCount: resume.completedCount,
+          completedPhraseIds: resume.completedPhraseIds,
+          nextPhraseId: nextPhraseId,
+          nextPhraseEnglish: nextPhrase?.english,
+          totalEvents: home.totalEvents,
+          skippedUnknownPhraseCount: 0,
+          skippedMalformedEventCount: 0,
+          lastEventTime: home.lastEventTime,
+          recentResult: home.recentResult == null
+              ? null
+              : PracticeCatalogRecentResultSummary(
+                  phraseId: home.recentResult!.phraseId,
+                  phraseEnglish: home.recentResult!.phraseEnglish,
+                  reactionType: home.recentResult!.reactionType,
+                  eventTime: home.recentResult!.eventTime,
+                  totalEvents: home.recentResult!.totalEvents,
+                ),
+        ),
+      );
+    }
+    return List<PracticeCatalogActivitySummary>.unmodifiable(summaries);
   }
 
   Future<PracticeActivitySnapshot> getActivitySnapshot({
@@ -547,6 +691,21 @@ class PracticeRepository {
       throw FormatException('未知 generatedContentId: $normalized');
     }
     return snapshot;
+  }
+
+  /// Current-account generated content for private projections such as Today
+  /// and Garden. It is deliberately not added to the preset activity catalog.
+  Future<List<PracticeActivitySnapshot>> getGeneratedActivitySnapshots() async {
+    final snapshots =
+        await _contentResolver?.listGeneratedActivities() ??
+        const <PracticeActivitySnapshot>[];
+    return List<PracticeActivitySnapshot>.unmodifiable(
+      snapshots.where(
+        (snapshot) =>
+            snapshot.contentSource == PracticeContentSource.generated &&
+            snapshot.generatedContentId != null,
+      ),
+    );
   }
 
   /// Legacy non-formal preview path for the old dynamic-practice surface.
@@ -1028,15 +1187,22 @@ class PracticeRepository {
     }
 
     String? nextPhraseId;
-    for (final phrase in snapshot.phrases) {
-      if (!completedPhraseIds.contains(phrase.phraseId)) {
-        nextPhraseId = phrase.phraseId;
-        break;
+    if (snapshot.contentSource == PracticeContentSource.generated) {
+      final latestReaction = events.isEmpty ? null : events.last.reactionType;
+      nextPhraseId = latestReaction == null
+          ? (snapshot.phrases.isEmpty ? null : snapshot.phrases.first.phraseId)
+          : snapshot.reactionSupportPhraseId(latestReaction);
+    } else {
+      for (final phrase in snapshot.phrases) {
+        if (!completedPhraseIds.contains(phrase.phraseId)) {
+          nextPhraseId = phrase.phraseId;
+          break;
+        }
       }
+      nextPhraseId ??= snapshot.phrases.isEmpty
+          ? null
+          : snapshot.phrases.last.phraseId;
     }
-    nextPhraseId ??= snapshot.phrases.isEmpty
-        ? null
-        : snapshot.phrases.last.phraseId;
 
     return PracticeResumeInfo(
       activityId: snapshot.activityId,

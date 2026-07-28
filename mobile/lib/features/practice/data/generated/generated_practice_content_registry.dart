@@ -96,6 +96,29 @@ class GeneratedPracticeContentRegistry
   }
 
   @override
+  Future<List<PracticeActivitySnapshot>> listGeneratedActivities() async {
+    final accountContext = await _loadCurrentAccountContext();
+    if (accountContext == null) {
+      return const <PracticeActivitySnapshot>[];
+    }
+    try {
+      final records =
+          (await _store.readAll())
+              .where((candidate) => candidate.accountContext == accountContext)
+              .map((candidate) => _toSnapshot(candidate.moment))
+              .toList(growable: false)
+            ..sort(
+              (left, right) => (left.generatedContentId ?? '').compareTo(
+                right.generatedContentId ?? '',
+              ),
+            );
+      return List<PracticeActivitySnapshot>.unmodifiable(records);
+    } on Object {
+      return const <PracticeActivitySnapshot>[];
+    }
+  }
+
+  @override
   Future<void> clearForLifecycle() => _store.clearForLifecycle();
 
   Future<void> clearForAccount(String accountContext) {
@@ -138,6 +161,10 @@ class GeneratedPracticeContentRegistry
       utteranceIdsByPhraseId: <String, String>{
         for (final utterance in utterances)
           utterance.phraseId: utterance.utteranceId,
+      },
+      reactionSupportPhraseIds: <BabyReactionType, String>{
+        for (final reaction in BabyReactionType.values)
+          reaction: moment.reactionSupports[reaction].phraseId,
       },
       phrases: List<PracticePhrase>.unmodifiable(<PracticePhrase>[
         for (var index = 0; index < utterances.length; index++)

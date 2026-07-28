@@ -179,29 +179,42 @@ class CarePathRepository {
         localEventId: localEventId,
       );
       await _onReactionRecorded?.call(event);
-      final nextTurn = await startMoment(
-        spaceId: turn.moment.spaceId,
-        activityId: turn.moment.activityId,
-      );
+      final isGenerated =
+          turn.moment.contentSource == PracticeContentSource.generated;
+      late final CareUtterance? nextSupport;
+      String? nextMessage;
+      if (isGenerated) {
+        nextSupport = await _loadGeneratedReactionSupport(
+          turn: turn,
+          reactionType: reactionType,
+        );
+      } else {
+        final nextTurn = await startMoment(
+          spaceId: turn.moment.spaceId,
+          activityId: turn.moment.activityId,
+        );
+        nextSupport = nextTurn.currentUtterance;
+        nextMessage = nextTurn.message;
+      }
       final latestGardenImpact = await _loadLatestGardenImpact();
-      if (nextTurn.currentUtterance == null) {
+      if (nextSupport == null) {
         return turn.copyWith(
           selectedReaction: reactionType,
           nextSupportUtterance: null,
           phase: CareTurnPhase.heldWithFallback,
           traceEventKey: event.eventKey,
           latestGardenImpact: latestGardenImpact,
-          message: nextTurn.message,
+          message: isGenerated ? '刚才这句话已经记下了。下一句暂时没有准备好，先这样就好。' : nextMessage,
         );
       }
 
       return turn.copyWith(
         selectedReaction: reactionType,
-        nextSupportUtterance: nextTurn.currentUtterance,
+        nextSupportUtterance: nextSupport,
         phase: CareTurnPhase.nextSupportReady,
         traceEventKey: event.eventKey,
         latestGardenImpact: latestGardenImpact,
-        message: nextTurn.message,
+        message: nextMessage,
       );
     } on CarePathResponseLostException {
       return turn.copyWith(
@@ -342,6 +355,28 @@ class CarePathRepository {
     } catch (_) {
       return null;
     }
+  }
+
+  Future<CareUtterance?> _loadGeneratedReactionSupport({
+    required CareTurnSnapshot turn,
+    required BabyReactionType reactionType,
+  }) async {
+    final generatedContentId = turn.moment.generatedContentId;
+    if (generatedContentId == null) {
+      return null;
+    }
+    final activity = await _practiceRepository.getGeneratedActivitySnapshot(
+      generatedContentId: generatedContentId,
+    );
+    final phraseId = activity.reactionSupportPhraseId(reactionType);
+    if (phraseId == null) {
+      return null;
+    }
+    return _utteranceForPhrase(
+      activity: activity,
+      phraseId: phraseId,
+      coachTip: activity.coachTip,
+    );
   }
 
   CareTurnSnapshot _buildTurnSnapshot({

@@ -240,40 +240,311 @@ class GardenGrowthRepository {
       );
     }
 
+    final generatedProjection = await _buildGeneratedProjection(
+      inspection.validEvents,
+    );
+    final totalKnownEvents = knownEvents + generatedProjection.knownEvents;
+    final remainingUnknownContentEvents =
+        skippedUnknownContentEvents - generatedProjection.knownEvents;
+    final totalSkippedUnknownContentEvents = remainingUnknownContentEvents < 0
+        ? 0
+        : remainingUnknownContentEvents;
+    if (knownEvents == 0 && generatedProjection.firstEventTime != null) {
+      milestoneTimes['first_opening'] = generatedProjection.firstEventTime!;
+    }
+    if (!sawCooperatingReaction &&
+        generatedProjection.firstCooperatingEventTime != null) {
+      milestoneTimes['first_cooperating'] =
+          generatedProjection.firstCooperatingEventTime!;
+    }
+
     final milestones = _buildMilestones(
       content: content,
       milestoneTimes: milestoneTimes,
-      knownEvents: knownEvents,
+      knownEvents: totalKnownEvents,
       coveredSpaceCount: coveredSpaceIds.length,
       currentStreakDays: streakRun,
     );
 
-    diaryEntries.sort((left, right) {
-      final byTime = right.occurredAt.compareTo(left.occurredAt);
-      if (byTime != 0) {
-        return byTime;
-      }
-      return left.entryId.compareTo(right.entryId);
-    });
+    final combinedDiaryEntries =
+        <GrowthDiaryEntry>[...diaryEntries, ...generatedProjection.diaryEntries]
+          ..sort((left, right) {
+            final byTime = right.occurredAt.compareTo(left.occurredAt);
+            if (byTime != 0) {
+              return byTime;
+            }
+            return left.entryId.compareTo(right.entryId);
+          });
 
     return GardenGrowthSnapshot(
       installationId: inspection.installationId,
-      spaces: List.unmodifiable(spaces),
-      diaryEntries: List.unmodifiable(diaryEntries),
+      spaces: List.unmodifiable(<GardenPatchSnapshot>[
+        ...spaces,
+        ...generatedProjection.spaces,
+      ]),
+      diaryEntries: List.unmodifiable(combinedDiaryEntries),
       milestones: List.unmodifiable(milestones),
-      latestImpact: latestImpact,
+      latestImpact: _latestImpact(
+        seedImpact: latestImpact,
+        generatedImpact: generatedProjection.latestImpact,
+      ),
       totalStoredEvents: inspection.storedEventCount,
       validEvents: inspection.validEventCount,
-      knownEvents: knownEvents,
+      knownEvents: totalKnownEvents,
       skippedMalformedEvents: inspection.skippedEventCount,
-      skippedUnknownContentEvents: skippedUnknownContentEvents,
+      skippedUnknownContentEvents: totalSkippedUnknownContentEvents,
       currentStreakDays: streakRun,
       lastIssueMessage: inspection.lastIssue?.message,
       projectionWarning: _buildProjectionWarning(
         skippedMalformedEvents: inspection.skippedEventCount,
-        skippedUnknownContentEvents: skippedUnknownContentEvents,
+        skippedUnknownContentEvents: totalSkippedUnknownContentEvents,
       ),
     );
+  }
+
+  Future<_GeneratedGardenProjection> _buildGeneratedProjection(
+    List<InteractionEventPayload> events,
+  ) async {
+    final snapshots = await _practiceRepository.getGeneratedActivitySnapshots();
+    final activityCounts = <_ActivityKey, int>{};
+    for (final snapshot in snapshots) {
+      final key = _ActivityKey(snapshot.spaceId, snapshot.activityId);
+      activityCounts[key] = (activityCounts[key] ?? 0) + 1;
+    }
+
+    final spaces = <GardenPatchSnapshot>[];
+    final diaryEntries = <GrowthDiaryEntry>[];
+    var knownEvents = 0;
+    DateTime? firstEventTime;
+    DateTime? firstCooperatingEventTime;
+    LatestPracticeImpact? latestImpact;
+
+    for (final snapshot in snapshots) {
+      final activityKey = _ActivityKey(snapshot.spaceId, snapshot.activityId);
+      if (activityCounts[activityKey] != 1) {
+        continue;
+      }
+      final phraseById = <String, String>{
+        for (final phrase in snapshot.phrases) phrase.phraseId: phrase.english,
+      };
+      final matchingEvents =
+          events
+              .where(
+                (event) =>
+                    event.spaceId == snapshot.spaceId &&
+                    event.activityId == snapshot.activityId &&
+                    phraseById.containsKey(event.phraseId),
+              )
+              .toList(growable: false)
+            ..sort(
+              (left, right) =>
+                  left.clientTimestamp.compareTo(right.clientTimestamp),
+            );
+      if (matchingEvents.isEmpty) {
+        continue;
+      }
+
+      var totalEvents = 0;
+      final completedPhraseIds = <String>{};
+      var hasCooperatingReaction = false;
+      DateTime? lastEventTime;
+      for (final event in matchingEvents) {
+        final previousFlowerStage = _deriveGeneratedFlowerStage(
+          totalEvents: totalEvents,
+          completedPhraseCount: completedPhraseIds.length,
+          totalPhraseCount: snapshot.phrases.length,
+          hasCooperatingReaction: hasCooperatingReaction,
+        );
+        final previousPatchStage = _deriveGeneratedPatchStage(
+          totalEvents: totalEvents,
+          isComplete:
+              snapshot.phrases.isNotEmpty &&
+              completedPhraseIds.length >= snapshot.phrases.length,
+        );
+        totalEvents += 1;
+        completedPhraseIds.add(event.phraseId);
+        hasCooperatingReaction =
+            hasCooperatingReaction ||
+            event.reactionType == BabyReactionType.cooperating;
+        lastEventTime = event.clientTimestamp;
+        knownEvents += 1;
+        firstEventTime ??= event.clientTimestamp;
+        if (event.reactionType == BabyReactionType.cooperating) {
+          firstCooperatingEventTime ??= event.clientTimestamp;
+        }
+        final currentFlowerStage = _deriveGeneratedFlowerStage(
+          totalEvents: totalEvents,
+          completedPhraseCount: completedPhraseIds.length,
+          totalPhraseCount: snapshot.phrases.length,
+          hasCooperatingReaction: hasCooperatingReaction,
+        );
+        final currentPatchStage = _deriveGeneratedPatchStage(
+          totalEvents: totalEvents,
+          isComplete:
+              snapshot.phrases.isNotEmpty &&
+              completedPhraseIds.length >= snapshot.phrases.length,
+        );
+        final phraseTitle = phraseById[event.phraseId]!;
+        final impact = LatestPracticeImpact(
+          eventKey: event.eventKey,
+          occurredAt: event.clientTimestamp,
+          spaceId: snapshot.spaceId,
+          spaceTitle: '此刻照护',
+          activityId: snapshot.activityId,
+          activityTitle: snapshot.title,
+          phraseId: event.phraseId,
+          phraseTitle: phraseTitle,
+          reactionType: event.reactionType,
+          previousPatchStage: previousPatchStage,
+          currentPatchStage: currentPatchStage,
+          previousFlowerStage: previousFlowerStage,
+          currentFlowerStage: currentFlowerStage,
+          headline: _buildImpactHeadline(
+            phraseTitle: phraseTitle,
+            activityTitle: snapshot.title,
+            previousFlowerStage: previousFlowerStage,
+            currentFlowerStage: currentFlowerStage,
+          ),
+          detail: _buildImpactDetail(
+            spaceTitle: '此刻照护',
+            previousPatchStage: previousPatchStage,
+            currentPatchStage: currentPatchStage,
+            reactionType: event.reactionType,
+          ),
+        );
+        latestImpact = _latestImpact(
+          seedImpact: latestImpact,
+          generatedImpact: impact,
+        );
+        diaryEntries.add(
+          GrowthDiaryEntry(
+            entryId: event.eventKey,
+            kind: GrowthDiaryEntryKind.practice,
+            occurredAt: event.clientTimestamp,
+            title: snapshot.title,
+            body: _buildPracticeDiaryBody(
+              phraseTitle: phraseTitle,
+              reactionType: event.reactionType,
+              flowerStage: currentFlowerStage,
+            ),
+            spaceId: snapshot.spaceId,
+            activityId: snapshot.activityId,
+          ),
+        );
+      }
+
+      final flowerStage = _deriveGeneratedFlowerStage(
+        totalEvents: totalEvents,
+        completedPhraseCount: completedPhraseIds.length,
+        totalPhraseCount: snapshot.phrases.length,
+        hasCooperatingReaction: hasCooperatingReaction,
+      );
+      final patchStage = _deriveGeneratedPatchStage(
+        totalEvents: totalEvents,
+        isComplete:
+            snapshot.phrases.isNotEmpty &&
+            completedPhraseIds.length >= snapshot.phrases.length,
+      );
+      spaces.add(
+        GardenPatchSnapshot(
+          spaceId: 'generated_${snapshot.generatedContentId}',
+          title: '此刻照护',
+          description: '仅当前账号可见的照护时刻。',
+          stage: patchStage,
+          totalKnownEvents: totalEvents,
+          startedActivityCount: 1,
+          completedActivityCount:
+              completedPhraseIds.length >= snapshot.phrases.length ? 1 : 0,
+          totalActivityCount: 1,
+          activities: <GardenFlowerSnapshot>[
+            GardenFlowerSnapshot(
+              spaceId: snapshot.spaceId,
+              activityId: snapshot.activityId,
+              title: snapshot.title,
+              sceneTag: snapshot.sceneTag,
+              summary: snapshot.summary,
+              stage: flowerStage,
+              totalEvents: totalEvents,
+              completedPhraseCount: completedPhraseIds.length,
+              totalPhraseCount: snapshot.phrases.length,
+              completedPhraseIds: List.unmodifiable(
+                completedPhraseIds.toList(growable: false),
+              ),
+              careNote: flowerStage.warmSummary,
+              lastPracticedAt: lastEventTime,
+            ),
+          ],
+          careNote: patchStage.warmSummary,
+          lastPracticedAt: lastEventTime,
+        ),
+      );
+    }
+
+    return _GeneratedGardenProjection(
+      spaces: List.unmodifiable(spaces),
+      diaryEntries: List.unmodifiable(diaryEntries),
+      knownEvents: knownEvents,
+      firstEventTime: firstEventTime,
+      firstCooperatingEventTime: firstCooperatingEventTime,
+      latestImpact: latestImpact,
+    );
+  }
+
+  GardenFlowerStage _deriveGeneratedFlowerStage({
+    required int totalEvents,
+    required int completedPhraseCount,
+    required int totalPhraseCount,
+    required bool hasCooperatingReaction,
+  }) {
+    if (totalEvents == 0) {
+      return GardenFlowerStage.seed;
+    }
+    final isComplete =
+        totalPhraseCount > 0 && completedPhraseCount >= totalPhraseCount;
+    if (isComplete) {
+      return hasCooperatingReaction || totalEvents > totalPhraseCount
+          ? GardenFlowerStage.fullBloom
+          : GardenFlowerStage.blooming;
+    }
+    if (completedPhraseCount >= 2 || totalEvents >= 2) {
+      return GardenFlowerStage.growing;
+    }
+    return GardenFlowerStage.sprout;
+  }
+
+  GardenPatchStage _deriveGeneratedPatchStage({
+    required int totalEvents,
+    required bool isComplete,
+  }) {
+    if (totalEvents == 0) {
+      return GardenPatchStage.quiet;
+    }
+    if (isComplete) {
+      return GardenPatchStage.glowing;
+    }
+    if (totalEvents >= 2) {
+      return GardenPatchStage.rooted;
+    }
+    return GardenPatchStage.tended;
+  }
+
+  LatestPracticeImpact? _latestImpact({
+    required LatestPracticeImpact? seedImpact,
+    required LatestPracticeImpact? generatedImpact,
+  }) {
+    if (seedImpact == null) {
+      return generatedImpact;
+    }
+    if (generatedImpact == null) {
+      return seedImpact;
+    }
+    final byTime = generatedImpact.occurredAt.compareTo(seedImpact.occurredAt);
+    if (byTime > 0 ||
+        (byTime == 0 &&
+            generatedImpact.eventKey.compareTo(seedImpact.eventKey) > 0)) {
+      return generatedImpact;
+    }
+    return seedImpact;
   }
 
   List<GrowthMilestoneSnapshot> _buildMilestones({
@@ -581,6 +852,24 @@ class _PhraseReference {
   final SeedSpace space;
   final SeedActivity activity;
   final SeedPhrase phrase;
+}
+
+class _GeneratedGardenProjection {
+  const _GeneratedGardenProjection({
+    required this.spaces,
+    required this.diaryEntries,
+    required this.knownEvents,
+    required this.firstEventTime,
+    required this.firstCooperatingEventTime,
+    required this.latestImpact,
+  });
+
+  final List<GardenPatchSnapshot> spaces;
+  final List<GrowthDiaryEntry> diaryEntries;
+  final int knownEvents;
+  final DateTime? firstEventTime;
+  final DateTime? firstCooperatingEventTime;
+  final LatestPracticeImpact? latestImpact;
 }
 
 const List<int> _cumulativeThresholds = <int>[10, 25, 50, 100];
