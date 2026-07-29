@@ -18,6 +18,26 @@ void main() {
       },
     );
 
+    test('requires agentic runtime to enable custom-scene discovery', () {
+      final missingEnabled = agenticManifest.replaceFirst(
+        '            enabled: true\n',
+        '',
+      );
+
+      for (final invalidManifest in <String>[
+        missingEnabled,
+        agenticManifest.replaceFirst('enabled: true', 'enabled: false'),
+      ]) {
+        expect(
+          () => practiceAi.verifyRenderedPracticeAiManifest(
+            invalidManifest,
+            profile: practiceAi.PracticeAiHelmProfile.agenticQa,
+          ),
+          throwsA(isA<practiceAi.PracticeAiHelmVerificationException>()),
+        );
+      }
+    });
+
     test('rejects provider routes that are duplicate or unknown', () {
       expect(
         () => practiceAi.verifyRenderedPracticeAiManifest(
@@ -261,6 +281,7 @@ data:
       practice:
         discovery:
           custom-scene:
+            enabled: true
             provider-mode: agentic
     app:
       ai:

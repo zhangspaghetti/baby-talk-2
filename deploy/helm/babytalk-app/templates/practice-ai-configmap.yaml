@@ -88,6 +88,7 @@ data:
       practice:
         discovery:
           custom-scene:
+            enabled: {{ eq $providerMode "agentic" }}
             provider-mode: {{ $providerMode | quote }}
     app:
       ai:

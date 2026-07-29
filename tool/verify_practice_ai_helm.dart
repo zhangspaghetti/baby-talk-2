@@ -524,6 +524,25 @@ void _verifyCustomSceneProviderMode(
       'to ${profile.providerMode}.',
     );
   }
+  if (!profile.needsAgenticRoutes) {
+    return;
+  }
+
+  final agenticRuntime = RegExp(
+    r'^babytalk:\s*$\r?\n'
+    r'^  practice:\s*$\r?\n'
+    r'^    discovery:\s*$\r?\n'
+    r'^      custom-scene:\s*$\r?\n'
+    r'^        enabled: "?true"?\s*$\r?\n'
+    r'^        provider-mode: "?agentic"?\s*$',
+    multiLine: true,
+  );
+  if (!agenticRuntime.hasMatch(runtimeYaml)) {
+    _fail(
+      'Agentic practice-ai-runtime.yml must enable custom-scene discovery '
+      'at babytalk.practice.discovery.custom-scene.',
+    );
+  }
 }
 
 void _verifyRuntime(
