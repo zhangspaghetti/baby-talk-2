@@ -43,6 +43,22 @@ cp deploy/helm/babytalk-app/values-kind-qa-secrets.example.yaml \
 # 编辑 values-kind-qa-secrets.yaml，设置 JWT secret 和 admin 密码
 ```
 
+### Agentic Practice AI owner-key
+
+QA 使用 `practiceAi.providerMode: agentic` 时，还必须在本机 QA secrets
+overlay 中设置 `BABY_TALK_PRACTICE_DISCOVERY_OWNER_KEY_SECRET`。它是 app-api
+用于派生 owner 与请求 HMAC 指纹的稳定服务端密钥，**不是** LLM API key。
+
+```bash
+# 只在本机终端生成；不要把输出提交、粘贴到工单或日志
+python tool/generate_practice_discovery_owner_key.py --yaml
+```
+
+将输出的 `secret:` 段粘入
+`deploy/helm/babytalk-app/values-kind-qa-secrets.yaml`。默认生成 32-byte、64 位
+hex 随机值。不要复用 LLM API key、JWT secret 或数据库密码；同一 QA 环境应保持
+该值稳定，轮换会改变已有生成内容的 owner/幂等匹配。
+
 ### 一键拉起 QA 环境 + 打包 APK
 
 ```bash
