@@ -249,19 +249,11 @@ class GardenGrowthRepository {
     final totalSkippedUnknownContentEvents = remainingUnknownContentEvents < 0
         ? 0
         : remainingUnknownContentEvents;
-    if (knownEvents == 0 && generatedProjection.firstEventTime != null) {
-      milestoneTimes['first_opening'] = generatedProjection.firstEventTime!;
-    }
-    if (!sawCooperatingReaction &&
-        generatedProjection.firstCooperatingEventTime != null) {
-      milestoneTimes['first_cooperating'] =
-          generatedProjection.firstCooperatingEventTime!;
-    }
 
     final milestones = _buildMilestones(
       content: content,
       milestoneTimes: milestoneTimes,
-      knownEvents: totalKnownEvents,
+      knownEvents: knownEvents,
       coveredSpaceCount: coveredSpaceIds.length,
       currentStreakDays: streakRun,
     );
@@ -306,34 +298,32 @@ class GardenGrowthRepository {
     List<InteractionEventPayload> events,
   ) async {
     final snapshots = await _practiceRepository.getGeneratedActivitySnapshots();
-    final activityCounts = <_ActivityKey, int>{};
-    for (final snapshot in snapshots) {
-      final key = _ActivityKey(snapshot.spaceId, snapshot.activityId);
-      activityCounts[key] = (activityCounts[key] ?? 0) + 1;
-    }
 
     final spaces = <GardenPatchSnapshot>[];
     final diaryEntries = <GrowthDiaryEntry>[];
     var knownEvents = 0;
-    DateTime? firstEventTime;
-    DateTime? firstCooperatingEventTime;
     LatestPracticeImpact? latestImpact;
 
     for (final snapshot in snapshots) {
-      final activityKey = _ActivityKey(snapshot.spaceId, snapshot.activityId);
-      if (activityCounts[activityKey] != 1) {
+      final generatedContentId = snapshot.generatedContentId;
+      if (generatedContentId == null) {
         continue;
       }
       final phraseById = <String, String>{
         for (final phrase in snapshot.phrases) phrase.phraseId: phrase.english,
       };
+      final utteranceByPhraseId = <String, String>{
+        for (final phrase in snapshot.phrases)
+          phrase.phraseId: snapshot.utteranceIdForPhrase(phrase.phraseId)!,
+      };
       final matchingEvents =
           events
               .where(
                 (event) =>
+                    event.generatedContentId == generatedContentId &&
                     event.spaceId == snapshot.spaceId &&
                     event.activityId == snapshot.activityId &&
-                    phraseById.containsKey(event.phraseId),
+                    event.utteranceId == utteranceByPhraseId[event.phraseId],
               )
               .toList(growable: false)
             ..sort(
@@ -345,45 +335,11 @@ class GardenGrowthRepository {
       }
 
       var totalEvents = 0;
-      final completedPhraseIds = <String>{};
-      var hasCooperatingReaction = false;
       DateTime? lastEventTime;
       for (final event in matchingEvents) {
-        final previousFlowerStage = _deriveGeneratedFlowerStage(
-          totalEvents: totalEvents,
-          completedPhraseCount: completedPhraseIds.length,
-          totalPhraseCount: snapshot.phrases.length,
-          hasCooperatingReaction: hasCooperatingReaction,
-        );
-        final previousPatchStage = _deriveGeneratedPatchStage(
-          totalEvents: totalEvents,
-          isComplete:
-              snapshot.phrases.isNotEmpty &&
-              completedPhraseIds.length >= snapshot.phrases.length,
-        );
         totalEvents += 1;
-        completedPhraseIds.add(event.phraseId);
-        hasCooperatingReaction =
-            hasCooperatingReaction ||
-            event.reactionType == BabyReactionType.cooperating;
         lastEventTime = event.clientTimestamp;
         knownEvents += 1;
-        firstEventTime ??= event.clientTimestamp;
-        if (event.reactionType == BabyReactionType.cooperating) {
-          firstCooperatingEventTime ??= event.clientTimestamp;
-        }
-        final currentFlowerStage = _deriveGeneratedFlowerStage(
-          totalEvents: totalEvents,
-          completedPhraseCount: completedPhraseIds.length,
-          totalPhraseCount: snapshot.phrases.length,
-          hasCooperatingReaction: hasCooperatingReaction,
-        );
-        final currentPatchStage = _deriveGeneratedPatchStage(
-          totalEvents: totalEvents,
-          isComplete:
-              snapshot.phrases.isNotEmpty &&
-              completedPhraseIds.length >= snapshot.phrases.length,
-        );
         final phraseTitle = phraseById[event.phraseId]!;
         final impact = LatestPracticeImpact(
           eventKey: event.eventKey,
@@ -395,22 +351,12 @@ class GardenGrowthRepository {
           phraseId: event.phraseId,
           phraseTitle: phraseTitle,
           reactionType: event.reactionType,
-          previousPatchStage: previousPatchStage,
-          currentPatchStage: currentPatchStage,
-          previousFlowerStage: previousFlowerStage,
-          currentFlowerStage: currentFlowerStage,
-          headline: _buildImpactHeadline(
-            phraseTitle: phraseTitle,
-            activityTitle: snapshot.title,
-            previousFlowerStage: previousFlowerStage,
-            currentFlowerStage: currentFlowerStage,
-          ),
-          detail: _buildImpactDetail(
-            spaceTitle: '此刻照护',
-            previousPatchStage: previousPatchStage,
-            currentPatchStage: currentPatchStage,
-            reactionType: event.reactionType,
-          ),
+          previousPatchStage: GardenPatchStage.tended,
+          currentPatchStage: GardenPatchStage.tended,
+          previousFlowerStage: GardenFlowerStage.sprout,
+          currentFlowerStage: GardenFlowerStage.sprout,
+          headline: '已记下这次照护回应。',
+          detail: '这条照护记录会保留在当前时刻，稍后可从同一内容继续。',
         );
         latestImpact = _latestImpact(
           seedImpact: latestImpact,
@@ -422,39 +368,22 @@ class GardenGrowthRepository {
             kind: GrowthDiaryEntryKind.practice,
             occurredAt: event.clientTimestamp,
             title: snapshot.title,
-            body: _buildPracticeDiaryBody(
-              phraseTitle: phraseTitle,
-              reactionType: event.reactionType,
-              flowerStage: currentFlowerStage,
-            ),
+            body: _buildGeneratedTraceBody(event.reactionType),
             spaceId: snapshot.spaceId,
             activityId: snapshot.activityId,
           ),
         );
       }
 
-      final flowerStage = _deriveGeneratedFlowerStage(
-        totalEvents: totalEvents,
-        completedPhraseCount: completedPhraseIds.length,
-        totalPhraseCount: snapshot.phrases.length,
-        hasCooperatingReaction: hasCooperatingReaction,
-      );
-      final patchStage = _deriveGeneratedPatchStage(
-        totalEvents: totalEvents,
-        isComplete:
-            snapshot.phrases.isNotEmpty &&
-            completedPhraseIds.length >= snapshot.phrases.length,
-      );
       spaces.add(
         GardenPatchSnapshot(
           spaceId: 'generated_${snapshot.generatedContentId}',
           title: '此刻照护',
           description: '仅当前账号可见的照护时刻。',
-          stage: patchStage,
+          stage: GardenPatchStage.tended,
           totalKnownEvents: totalEvents,
           startedActivityCount: 1,
-          completedActivityCount:
-              completedPhraseIds.length >= snapshot.phrases.length ? 1 : 0,
+          completedActivityCount: 0,
           totalActivityCount: 1,
           activities: <GardenFlowerSnapshot>[
             GardenFlowerSnapshot(
@@ -463,18 +392,16 @@ class GardenGrowthRepository {
               title: snapshot.title,
               sceneTag: snapshot.sceneTag,
               summary: snapshot.summary,
-              stage: flowerStage,
+              stage: GardenFlowerStage.sprout,
               totalEvents: totalEvents,
-              completedPhraseCount: completedPhraseIds.length,
+              completedPhraseCount: 0,
               totalPhraseCount: snapshot.phrases.length,
-              completedPhraseIds: List.unmodifiable(
-                completedPhraseIds.toList(growable: false),
-              ),
-              careNote: flowerStage.warmSummary,
+              completedPhraseIds: const <String>[],
+              careNote: '已保留这次照护记录。',
               lastPracticedAt: lastEventTime,
             ),
           ],
-          careNote: patchStage.warmSummary,
+          careNote: '已保留这次照护记录。',
           lastPracticedAt: lastEventTime,
         ),
       );
@@ -484,48 +411,8 @@ class GardenGrowthRepository {
       spaces: List.unmodifiable(spaces),
       diaryEntries: List.unmodifiable(diaryEntries),
       knownEvents: knownEvents,
-      firstEventTime: firstEventTime,
-      firstCooperatingEventTime: firstCooperatingEventTime,
       latestImpact: latestImpact,
     );
-  }
-
-  GardenFlowerStage _deriveGeneratedFlowerStage({
-    required int totalEvents,
-    required int completedPhraseCount,
-    required int totalPhraseCount,
-    required bool hasCooperatingReaction,
-  }) {
-    if (totalEvents == 0) {
-      return GardenFlowerStage.seed;
-    }
-    final isComplete =
-        totalPhraseCount > 0 && completedPhraseCount >= totalPhraseCount;
-    if (isComplete) {
-      return hasCooperatingReaction || totalEvents > totalPhraseCount
-          ? GardenFlowerStage.fullBloom
-          : GardenFlowerStage.blooming;
-    }
-    if (completedPhraseCount >= 2 || totalEvents >= 2) {
-      return GardenFlowerStage.growing;
-    }
-    return GardenFlowerStage.sprout;
-  }
-
-  GardenPatchStage _deriveGeneratedPatchStage({
-    required int totalEvents,
-    required bool isComplete,
-  }) {
-    if (totalEvents == 0) {
-      return GardenPatchStage.quiet;
-    }
-    if (isComplete) {
-      return GardenPatchStage.glowing;
-    }
-    if (totalEvents >= 2) {
-      return GardenPatchStage.rooted;
-    }
-    return GardenPatchStage.tended;
   }
 
   LatestPracticeImpact? _latestImpact({
@@ -758,6 +645,10 @@ class GardenGrowthRepository {
     return '你说了“$phraseTitle”，宝宝表现为“${_labelForReaction(reactionType)}”，花朵停在“${flowerStage.label}”。';
   }
 
+  String _buildGeneratedTraceBody(BabyReactionType reactionType) {
+    return '已记录本次照护回应：${_labelForReaction(reactionType)}。';
+  }
+
   String _labelForReaction(BabyReactionType reactionType) {
     switch (reactionType) {
       case BabyReactionType.cooperating:
@@ -859,16 +750,12 @@ class _GeneratedGardenProjection {
     required this.spaces,
     required this.diaryEntries,
     required this.knownEvents,
-    required this.firstEventTime,
-    required this.firstCooperatingEventTime,
     required this.latestImpact,
   });
 
   final List<GardenPatchSnapshot> spaces;
   final List<GrowthDiaryEntry> diaryEntries;
   final int knownEvents;
-  final DateTime? firstEventTime;
-  final DateTime? firstCooperatingEventTime;
   final LatestPracticeImpact? latestImpact;
 }
 

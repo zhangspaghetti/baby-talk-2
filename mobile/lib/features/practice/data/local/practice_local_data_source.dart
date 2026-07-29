@@ -60,6 +60,8 @@ class PracticeLocalDataSource {
       phraseId: entity.phraseId,
       reactionType: entity.reactionType,
       clientTimestamp: entity.clientTimestamp,
+      generatedContentId: entity.generatedContentId,
+      utteranceId: entity.utteranceId,
       syncState: entity.syncState,
       lastSyncPhase: entity.lastSyncPhase,
       lastSyncError: entity.lastSyncError,

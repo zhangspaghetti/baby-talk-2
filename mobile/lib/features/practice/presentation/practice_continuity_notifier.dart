@@ -15,6 +15,10 @@ typedef PracticeActivitySnapshotLoader =
       required String spaceId,
       required String activityId,
     });
+typedef GeneratedPracticeActivitySnapshotLoader =
+    Future<PracticeActivitySnapshot> Function({
+      required String generatedContentId,
+    });
 
 enum PracticeContinuityLoadStatus { idle, loading, ready, error }
 
@@ -39,6 +43,7 @@ class PracticeContinuitySeedState {
     this.snapshot,
     this.activitySnapshot,
     this.recommendedArgs,
+    this.generatedRecommendedArgs,
     this.status = PracticeContinuityLoadStatus.idle,
     this.warningMessage,
     this.disabledReason,
@@ -49,6 +54,7 @@ class PracticeContinuitySeedState {
   final PracticeContinuitySnapshot? snapshot;
   final PracticeActivitySnapshot? activitySnapshot;
   final PracticeRouteArgs? recommendedArgs;
+  final GeneratedCareTurnRouteArgs? generatedRecommendedArgs;
   final PracticeContinuityLoadStatus status;
   final String? warningMessage;
   final String? disabledReason;
@@ -60,6 +66,7 @@ class PracticeContinuityNotifier extends ChangeNotifier {
     PracticeRepository? repository,
     PracticeContinuitySnapshotLoader? continuitySnapshotLoader,
     PracticeActivitySnapshotLoader? activitySnapshotLoader,
+    GeneratedPracticeActivitySnapshotLoader? generatedActivitySnapshotLoader,
     PracticeRouteArgs? initialStarterArgs,
     PracticeContinuitySeedState? seedState,
     this.refreshTimeout = const Duration(seconds: 4),
@@ -73,12 +80,18 @@ class PracticeContinuityNotifier extends ChangeNotifier {
            continuitySnapshotLoader ?? repository!.getContinuitySnapshot,
        _activitySnapshotLoader =
            activitySnapshotLoader ?? repository!.getActivitySnapshot,
+       _generatedActivitySnapshotLoader =
+           generatedActivitySnapshotLoader ??
+           repository?.getGeneratedActivitySnapshot,
        _starterArgs = _normalizeArgs(
          seedState?.starterArgs ?? initialStarterArgs,
        ),
        _snapshot = seedState?.snapshot,
        _activitySnapshot = seedState?.activitySnapshot,
        _recommendedArgs = _normalizeArgs(seedState?.recommendedArgs),
+       _generatedRecommendedArgs = _normalizeGeneratedArgs(
+         seedState?.generatedRecommendedArgs,
+       ),
        _status = seedState?.status ?? PracticeContinuityLoadStatus.idle,
        _warningMessage = _cleanMessage(
          seedState?.warningMessage ?? seedState?.snapshot?.warningMessage,
@@ -88,12 +101,15 @@ class PracticeContinuityNotifier extends ChangeNotifier {
 
   final PracticeContinuitySnapshotLoader _continuitySnapshotLoader;
   final PracticeActivitySnapshotLoader _activitySnapshotLoader;
+  final GeneratedPracticeActivitySnapshotLoader?
+  _generatedActivitySnapshotLoader;
   final Duration refreshTimeout;
 
   PracticeRouteArgs? _starterArgs;
   PracticeContinuitySnapshot? _snapshot;
   PracticeActivitySnapshot? _activitySnapshot;
   PracticeRouteArgs? _recommendedArgs;
+  GeneratedCareTurnRouteArgs? _generatedRecommendedArgs;
   PracticeContinuityLoadStatus _status;
   bool _isRefreshing = false;
   String? _warningMessage;
@@ -108,6 +124,10 @@ class PracticeContinuityNotifier extends ChangeNotifier {
   PracticeContinuitySnapshot? get snapshot => _snapshot;
   PracticeActivitySnapshot? get activitySnapshot => _activitySnapshot;
   PracticeRouteArgs? get recommendedArgs => _recommendedArgs;
+  GeneratedCareTurnRouteArgs? get generatedRecommendedArgs =>
+      _generatedRecommendedArgs;
+  PracticeRouteTarget? get recommendedRoute =>
+      _generatedRecommendedArgs ?? _recommendedArgs;
   PracticeContinuityLoadStatus get status => _status;
   bool get isRefreshing => _isRefreshing;
   String? get warningMessage => _warningMessage;
@@ -115,7 +135,7 @@ class PracticeContinuityNotifier extends ChangeNotifier {
   String? get lastRefreshReason => _lastRefreshReason;
 
   bool get hasResolvedRecommendation =>
-      _activitySnapshot != null && _recommendedArgs != null;
+      _activitySnapshot != null && recommendedRoute != null;
 
   bool get isInitialLoading =>
       (_status == PracticeContinuityLoadStatus.idle ||
@@ -123,7 +143,7 @@ class PracticeContinuityNotifier extends ChangeNotifier {
       !hasResolvedRecommendation;
 
   bool get isActionDisabled =>
-      _recommendedArgs == null || (_disabledReason?.trim().isNotEmpty ?? false);
+      recommendedRoute == null || (_disabledReason?.trim().isNotEmpty ?? false);
 
   Future<void> initialize({String reason = 'initial_load'}) {
     if (_status != PracticeContinuityLoadStatus.idle || _isRefreshing) {
@@ -185,21 +205,32 @@ class PracticeContinuityNotifier extends ChangeNotifier {
       if (_disposed) {
         return;
       }
-      final recommendedArgs = PracticeRouteArgs.maybeCreate(
-        spaceId: nextSnapshot.recommendedActivity.spaceId,
-        activityId: nextSnapshot.recommendedActivity.activityId,
-      );
-      if (recommendedArgs == null) {
+      final generatedContentId =
+          nextSnapshot.recommendedActivity.generatedContentId;
+      final recommendedArgs = generatedContentId == null
+          ? PracticeRouteArgs.maybeCreate(
+              spaceId: nextSnapshot.recommendedActivity.spaceId,
+              activityId: nextSnapshot.recommendedActivity.activityId,
+            )
+          : null;
+      final generatedRecommendedArgs = generatedContentId == null
+          ? null
+          : GeneratedCareTurnRouteArgs(generatedContentId: generatedContentId);
+      if (recommendedArgs == null && generatedRecommendedArgs == null) {
         _applyMalformedSnapshot(nextSnapshot);
         return;
       }
 
-      final nextActivitySnapshot = await _runWithTimeout(
-        _activitySnapshotLoader(
-          spaceId: recommendedArgs.spaceId,
-          activityId: recommendedArgs.activityId,
-        ),
-      );
+      final nextActivitySnapshot = generatedRecommendedArgs == null
+          ? await _runWithTimeout(
+              _activitySnapshotLoader(
+                spaceId: recommendedArgs!.spaceId,
+                activityId: recommendedArgs.activityId,
+              ),
+            )
+          : await _runWithTimeout(
+              _loadGeneratedActivitySnapshot(generatedRecommendedArgs),
+            );
       if (_disposed) {
         return;
       }
@@ -207,6 +238,7 @@ class PracticeContinuityNotifier extends ChangeNotifier {
       _snapshot = nextSnapshot;
       _activitySnapshot = nextActivitySnapshot;
       _recommendedArgs = recommendedArgs;
+      _generatedRecommendedArgs = generatedRecommendedArgs;
       _status = PracticeContinuityLoadStatus.ready;
       _warningMessage = _cleanMessage(nextSnapshot.warningMessage);
       _disabledReason = null;
@@ -283,6 +315,16 @@ class PracticeContinuityNotifier extends ChangeNotifier {
     });
   }
 
+  Future<PracticeActivitySnapshot> _loadGeneratedActivitySnapshot(
+    GeneratedCareTurnRouteArgs args,
+  ) {
+    final loader = _generatedActivitySnapshotLoader;
+    if (loader == null) {
+      throw const FormatException('generated continuity resolver 不可用。');
+    }
+    return loader(generatedContentId: args.generatedContentId);
+  }
+
   @override
   void notifyListeners() {
     if (_disposed) {
@@ -302,6 +344,7 @@ class PracticeContinuityNotifier extends ChangeNotifier {
     _snapshot = null;
     _activitySnapshot = null;
     _recommendedArgs = null;
+    _generatedRecommendedArgs = null;
     _status = PracticeContinuityLoadStatus.idle;
     _warningMessage = null;
     _disabledReason = null;
@@ -321,6 +364,7 @@ class PracticeContinuityNotifier extends ChangeNotifier {
     _snapshot = snapshot;
     _activitySnapshot = null;
     _recommendedArgs = null;
+    _generatedRecommendedArgs = null;
     _status = PracticeContinuityLoadStatus.error;
     _warningMessage = _mergeMessages(
       snapshot.warningMessage,
@@ -334,6 +378,12 @@ class PracticeContinuityNotifier extends ChangeNotifier {
       return null;
     }
     return args.normalized();
+  }
+
+  static GeneratedCareTurnRouteArgs? _normalizeGeneratedArgs(
+    GeneratedCareTurnRouteArgs? args,
+  ) {
+    return args;
   }
 
   static bool _sameArgs(PracticeRouteArgs? left, PracticeRouteArgs? right) {

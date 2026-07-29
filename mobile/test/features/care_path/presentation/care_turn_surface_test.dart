@@ -943,6 +943,8 @@ class _MemoryPracticeRepository implements PracticeRepository {
     required String activityId,
     required String phraseId,
     required BabyReactionType reactionType,
+    String? generatedContentId,
+    String? utteranceId,
     DateTime? clientTimestamp,
     String? localEventId,
   }) async {

@@ -46,6 +46,7 @@ class PracticeContinuityRecommendation with _$PracticeContinuityRecommendation {
     required String activityTitle,
     required PracticeContinuityReason reason,
     required String reasonLabel,
+    String? generatedContentId,
     String? fallbackReason,
   }) = _PracticeContinuityRecommendation;
 }

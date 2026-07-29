@@ -5,7 +5,13 @@ import 'package:mobile/features/practice/data/services/asset_phrase_service.dart
 
 enum PracticeRouteEntrySource { inApp, shareReentry, inviteReentry }
 
-class PracticeRouteArgs {
+abstract interface class PracticeRouteTarget {
+  String get scopeLabel;
+
+  Future<T?> push<T>(BuildContext context);
+}
+
+class PracticeRouteArgs implements PracticeRouteTarget {
   const PracticeRouteArgs({
     required this.spaceId,
     required this.activityId,
@@ -22,6 +28,7 @@ class PracticeRouteArgs {
   String get normalizedActivityId => activityId.trim();
   String? get normalizedShareToken => _trimToNull(shareToken);
   String? get reentryToken => normalizedShareToken;
+  @override
   String get scopeLabel => '$normalizedSpaceId/$normalizedActivityId';
 
   bool get isValid =>
@@ -76,6 +83,7 @@ class PracticeRouteArgs {
     return null;
   }
 
+  @override
   Future<T?> push<T>(BuildContext context) {
     return GoRouter.of(
       context,
@@ -93,16 +101,20 @@ class PracticeRouteArgs {
 
 /// The generated Care Turn route carries only durable approved-content
 /// identity. The formal Practice resolver supplies all display content.
-class GeneratedCareTurnRouteArgs {
+class GeneratedCareTurnRouteArgs implements PracticeRouteTarget {
   GeneratedCareTurnRouteArgs({required String generatedContentId})
     : generatedContentId = _required(generatedContentId);
 
   final String generatedContentId;
 
+  @override
+  String get scopeLabel => 'generated:$generatedContentId';
+
   static GeneratedCareTurnRouteArgs? maybeFromObject(Object? raw) {
     return raw is GeneratedCareTurnRouteArgs ? raw : null;
   }
 
+  @override
   Future<T?> push<T>(BuildContext context) {
     return GoRouter.of(context).push<T>(AppRouteNames.practice, extra: this);
   }

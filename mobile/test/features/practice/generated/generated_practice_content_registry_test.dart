@@ -17,6 +17,7 @@ import 'package:mobile/features/practice/data/repositories/practice_repository.d
 import 'package:mobile/features/practice/data/services/asset_phrase_service.dart';
 import 'package:mobile/features/practice/domain/models/interaction_event_payload.dart';
 import 'package:mobile/features/practice/domain/models/practice_content_source.dart';
+import 'package:mobile/features/practice/presentation/practice_continuity_notifier.dart';
 import 'package:mobile/features/practice/presentation/practice_route_args.dart';
 
 import '../../../support/isar_test_library.dart';
@@ -380,7 +381,18 @@ void main() {
           activityId: snapshot.activityId,
           phraseId: moment.starter.phraseId,
           reactionType: BabyReactionType.cooperating,
+          generatedContentId: moment.generatedContentId,
+          utteranceId: moment.starter.utteranceId,
           localEventId: 'generated_event_1',
+        );
+        final replayedWithDifferentLocalId = await repository.recordReaction(
+          spaceId: snapshot.spaceId,
+          activityId: snapshot.activityId,
+          phraseId: moment.starter.phraseId,
+          reactionType: BabyReactionType.cooperating,
+          generatedContentId: moment.generatedContentId,
+          utteranceId: moment.starter.utteranceId,
+          localEventId: 'generated_event_replay',
         );
 
         expect(event.phraseId, moment.starter.phraseId);
@@ -395,8 +407,16 @@ void main() {
           ),
         );
         expect(
-          await repository.findEventByLocalEventId('generated_event_1'),
+          await repository.findEventByLocalEventId(event.localEventId),
           event,
+        );
+        expect(replayedWithDifferentLocalId, event);
+        expect(
+          await repository.listEventHistory(
+            spaceId: snapshot.spaceId,
+            activityId: snapshot.activityId,
+          ),
+          hasLength(1),
         );
         await expectLater(
           repository.getGeneratedActivitySnapshot(
@@ -598,10 +618,166 @@ void main() {
         );
       },
     );
+
+    test(
+      'generated tuple isolates exact-once trace, Garden, and Today continuity',
+      () async {
+        final localDataSource = await PracticeLocalDataSource.open(
+          directory: tempDir.path,
+          name: 'generated_identity_${DateTime.now().microsecondsSinceEpoch}',
+        );
+        final repository = PracticeRepository(
+          assetPhraseService: AssetPhraseService(bundle: rootBundle),
+          localDataSource: localDataSource,
+          installationIdService: InstallationIdService(
+            directoryResolver: () async => tempDir,
+            idGenerator: () => 'generated_identity_installation',
+          ),
+          contentResolver: registry,
+        );
+        addTearDown(() => repository.close(deleteFromDisk: true));
+        final garden = GardenGrowthRepository(
+          practiceRepository: repository,
+          assetPhraseService: AssetPhraseService(bundle: rootBundle),
+        );
+        final carePath = CarePathRepository(
+          practiceRepository: repository,
+          gardenGrowthRepository: garden,
+        );
+        final first = _moment(
+          'generated_identity_a',
+          spaceId: 'daily_care',
+          activityId: 'bath_time',
+        );
+        final second = _moment(
+          'generated_identity_b',
+          spaceId: first.spaceId,
+          activityId: first.activityId,
+        );
+        await registry.register(accountContext: accountContext, moment: first);
+        await registry.register(accountContext: accountContext, moment: second);
+
+        final turn = await carePath.startGeneratedMoment(
+          generatedContentId: first.generatedContentId,
+        );
+        final recorded = await carePath.recordReaction(
+          turn: turn,
+          reactionType: BabyReactionType.hesitant,
+          clientTimestamp: DateTime.utc(2026, 7, 29, 10),
+        );
+        final replayed = await carePath.recordReaction(
+          turn: turn,
+          reactionType: BabyReactionType.hesitant,
+          clientTimestamp: DateTime.utc(2026, 7, 29, 10, 1),
+        );
+
+        expect(
+          recorded.phase,
+          CareTurnPhase.nextSupportReady,
+          reason: recorded.message,
+        );
+        expect(replayed.traceEventKey, recorded.traceEventKey);
+        final events = await repository.listEventHistory(
+          spaceId: first.spaceId,
+          activityId: first.activityId,
+        );
+        expect(events, hasLength(1));
+        expect(events.single.generatedContentId, first.generatedContentId);
+        expect(events.single.utteranceId, first.starter.utteranceId);
+        expect(events.single.reactionType, BabyReactionType.hesitant);
+
+        final restored = await carePath.restoreConfirmedReaction(events.single);
+        expect(restored.phase, CareTurnPhase.nextSupportReady);
+        expect(restored.moment.generatedContentId, first.generatedContentId);
+        expect(restored.currentUtterance?.phraseId, first.starter.phraseId);
+        expect(
+          restored.nextSupportUtterance?.phraseId,
+          first.reactionSupports[BabyReactionType.hesitant].phraseId,
+        );
+        final mismatchedUtterance = await carePath.restoreConfirmedReaction(
+          events.single.copyWith(utteranceId: 'wrong_utterance_id'),
+        );
+        expect(mismatchedUtterance.phase, CareTurnPhase.error);
+        expect(mismatchedUtterance.currentUtterance, isNull);
+
+        final catalog = await repository.getActivityCatalog();
+        expect(catalog.knownEvents, 1);
+        expect(catalog.skippedUnknownContentEvents, 0);
+
+        final gardenSnapshot = await garden.buildSnapshot();
+        expect(
+          gardenSnapshot.spaces.map((space) => space.spaceId),
+          contains('generated_${first.generatedContentId}'),
+        );
+        expect(
+          gardenSnapshot.spaces.map((space) => space.spaceId),
+          isNot(contains('generated_${second.generatedContentId}')),
+        );
+        final trace = gardenSnapshot.diaryEntries.single;
+        expect(trace.entryId, events.single.eventKey);
+        expect(trace.body, '已记录本次照护回应：犹豫。');
+        expect(gardenSnapshot.latestImpact?.headline, '已记下这次照护回应。');
+        final generatedGardenPatch = gardenSnapshot.spaces.firstWhere(
+          (space) => space.spaceId == 'generated_${first.generatedContentId}',
+        );
+        expect(generatedGardenPatch.completedActivityCount, 0);
+        expect(
+          generatedGardenPatch.activities.single.completedPhraseCount,
+          0,
+        );
+        expect(
+          gardenSnapshot.milestones.where((milestone) => milestone.isAchieved),
+          isEmpty,
+        );
+
+        final continuity = await repository.getContinuitySnapshot();
+        expect(
+          continuity.recommendedActivity.generatedContentId,
+          first.generatedContentId,
+        );
+        expect(
+          continuity.recommendation.generatedContentId,
+          first.generatedContentId,
+        );
+        expect(continuity.recommendedActivity.completedPhraseCount, 0);
+        expect(continuity.recommendedActivity.completedPhraseIds, isEmpty);
+        final generatedResume = await repository.getGeneratedResumeInfo(
+          generatedContentId: first.generatedContentId,
+        );
+        expect(generatedResume.completedCount, 0);
+        expect(generatedResume.completedPhraseIds, isEmpty);
+        expect(
+          generatedResume.nextPhraseId,
+          first.reactionSupports[BabyReactionType.hesitant].phraseId,
+        );
+        final continuityNotifier = PracticeContinuityNotifier(
+          repository: repository,
+        );
+        await continuityNotifier.initialize();
+        expect(
+          continuityNotifier.generatedRecommendedArgs?.generatedContentId,
+          first.generatedContentId,
+        );
+        expect(
+          continuityNotifier.recommendedRoute?.scopeLabel,
+          'generated:${first.generatedContentId}',
+        );
+        final resumed = await carePath.loadCurrentTurn();
+        expect(resumed.moment.generatedContentId, first.generatedContentId);
+        expect(
+          resumed.currentUtterance?.phraseId,
+          first.reactionSupports[BabyReactionType.hesitant].phraseId,
+        );
+      },
+    );
   });
 }
 
-GeneratedCareMoment _moment(String generatedContentId) {
+GeneratedCareMoment _moment(
+  String generatedContentId, {
+  String? spaceId,
+  String? activityId,
+}) {
   GeneratedCareUtterance utterance(
     String suffix, {
     required GeneratedCareUtteranceRole role,
@@ -634,9 +810,9 @@ GeneratedCareMoment _moment(String generatedContentId) {
     schemaVersion: generatedCareMomentSchemaVersion,
     generatedContentId: generatedContentId,
     sceneId: 'scene_$generatedContentId',
-    spaceId: 'space_$generatedContentId',
+    spaceId: spaceId ?? 'space_$generatedContentId',
     momentId: 'moment_$generatedContentId',
-    activityId: 'activity_$generatedContentId',
+    activityId: activityId ?? 'activity_$generatedContentId',
     title: '洗澡',
     sceneTag: 'bath',
     coachTip: '慢慢来',

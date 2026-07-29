@@ -61,22 +61,39 @@ class FeatureGates {
             )
             .timeout(continuitySeedTimeout);
 
-        final recommendedArgs = PracticeRouteArgs.maybeCreate(
-          spaceId: continuitySnapshot.recommendedActivity.spaceId,
-          activityId: continuitySnapshot.recommendedActivity.activityId,
-        );
-        if (recommendedArgs != null) {
-          final activitySnapshot = await practiceRepository
-              .getActivitySnapshot(
-                spaceId: recommendedArgs.spaceId,
-                activityId: recommendedArgs.activityId,
+        final generatedContentId =
+            continuitySnapshot.recommendedActivity.generatedContentId;
+        final recommendedArgs = generatedContentId == null
+            ? PracticeRouteArgs.maybeCreate(
+                spaceId: continuitySnapshot.recommendedActivity.spaceId,
+                activityId: continuitySnapshot.recommendedActivity.activityId,
               )
-              .timeout(continuitySeedTimeout);
+            : null;
+        final generatedRecommendedArgs = generatedContentId == null
+            ? null
+            : GeneratedCareTurnRouteArgs(
+                generatedContentId: generatedContentId,
+              );
+        if (recommendedArgs != null || generatedRecommendedArgs != null) {
+          final activitySnapshot = generatedRecommendedArgs == null
+              ? await practiceRepository
+                    .getActivitySnapshot(
+                      spaceId: recommendedArgs!.spaceId,
+                      activityId: recommendedArgs.activityId,
+                    )
+                    .timeout(continuitySeedTimeout)
+              : await practiceRepository
+                    .getGeneratedActivitySnapshot(
+                      generatedContentId:
+                          generatedRecommendedArgs.generatedContentId,
+                    )
+                    .timeout(continuitySeedTimeout);
           continuitySeed = PracticeContinuitySeedState(
             starterArgs: starterArgs,
             snapshot: continuitySnapshot,
             activitySnapshot: activitySnapshot,
             recommendedArgs: recommendedArgs,
+            generatedRecommendedArgs: generatedRecommendedArgs,
             status: PracticeContinuityLoadStatus.ready,
             warningMessage: continuitySnapshot.warningMessage,
             lastRefreshReason:

@@ -12,8 +12,7 @@ part of '../../../../../features/practice/domain/models/practice_activity_catalo
 T _$identity<T>(T value) => value;
 
 final _privateConstructorUsedError = UnsupportedError(
-  'It seems like you constructed your class using `MyClass._()`. This constructor is only meant to be used by freezed and you are not supposed to need it nor use it.\nPlease check the documentation here for more information: https://github.com/rrousselGit/freezed#adding-getters-and-methods-to-our-models',
-);
+    'It seems like you constructed your class using `MyClass._()`. This constructor is only meant to be used by freezed and you are not supposed to need it nor use it.\nPlease check the documentation here for more information: https://github.com/rrousselGit/freezed#adding-getters-and-methods-to-our-models');
 
 /// @nodoc
 mixin _$PracticeCatalogRecentResultSummary {
@@ -25,36 +24,29 @@ mixin _$PracticeCatalogRecentResultSummary {
 
   @JsonKey(ignore: true)
   $PracticeCatalogRecentResultSummaryCopyWith<
-    PracticeCatalogRecentResultSummary
-  >
-  get copyWith => throw _privateConstructorUsedError;
+          PracticeCatalogRecentResultSummary>
+      get copyWith => throw _privateConstructorUsedError;
 }
 
 /// @nodoc
 abstract class $PracticeCatalogRecentResultSummaryCopyWith<$Res> {
   factory $PracticeCatalogRecentResultSummaryCopyWith(
-    PracticeCatalogRecentResultSummary value,
-    $Res Function(PracticeCatalogRecentResultSummary) then,
-  ) =
-      _$PracticeCatalogRecentResultSummaryCopyWithImpl<
-        $Res,
-        PracticeCatalogRecentResultSummary
-      >;
+          PracticeCatalogRecentResultSummary value,
+          $Res Function(PracticeCatalogRecentResultSummary) then) =
+      _$PracticeCatalogRecentResultSummaryCopyWithImpl<$Res,
+          PracticeCatalogRecentResultSummary>;
   @useResult
-  $Res call({
-    String phraseId,
-    String phraseEnglish,
-    BabyReactionType reactionType,
-    DateTime eventTime,
-    int totalEvents,
-  });
+  $Res call(
+      {String phraseId,
+      String phraseEnglish,
+      BabyReactionType reactionType,
+      DateTime eventTime,
+      int totalEvents});
 }
 
 /// @nodoc
-class _$PracticeCatalogRecentResultSummaryCopyWithImpl<
-  $Res,
-  $Val extends PracticeCatalogRecentResultSummary
->
+class _$PracticeCatalogRecentResultSummaryCopyWithImpl<$Res,
+        $Val extends PracticeCatalogRecentResultSummary>
     implements $PracticeCatalogRecentResultSummaryCopyWith<$Res> {
   _$PracticeCatalogRecentResultSummaryCopyWithImpl(this._value, this._then);
 
@@ -72,31 +64,28 @@ class _$PracticeCatalogRecentResultSummaryCopyWithImpl<
     Object? eventTime = null,
     Object? totalEvents = null,
   }) {
-    return _then(
-      _value.copyWith(
-            phraseId: null == phraseId
-                ? _value.phraseId
-                : phraseId // ignore: cast_nullable_to_non_nullable
-                      as String,
-            phraseEnglish: null == phraseEnglish
-                ? _value.phraseEnglish
-                : phraseEnglish // ignore: cast_nullable_to_non_nullable
-                      as String,
-            reactionType: null == reactionType
-                ? _value.reactionType
-                : reactionType // ignore: cast_nullable_to_non_nullable
-                      as BabyReactionType,
-            eventTime: null == eventTime
-                ? _value.eventTime
-                : eventTime // ignore: cast_nullable_to_non_nullable
-                      as DateTime,
-            totalEvents: null == totalEvents
-                ? _value.totalEvents
-                : totalEvents // ignore: cast_nullable_to_non_nullable
-                      as int,
-          )
-          as $Val,
-    );
+    return _then(_value.copyWith(
+      phraseId: null == phraseId
+          ? _value.phraseId
+          : phraseId // ignore: cast_nullable_to_non_nullable
+              as String,
+      phraseEnglish: null == phraseEnglish
+          ? _value.phraseEnglish
+          : phraseEnglish // ignore: cast_nullable_to_non_nullable
+              as String,
+      reactionType: null == reactionType
+          ? _value.reactionType
+          : reactionType // ignore: cast_nullable_to_non_nullable
+              as BabyReactionType,
+      eventTime: null == eventTime
+          ? _value.eventTime
+          : eventTime // ignore: cast_nullable_to_non_nullable
+              as DateTime,
+      totalEvents: null == totalEvents
+          ? _value.totalEvents
+          : totalEvents // ignore: cast_nullable_to_non_nullable
+              as int,
+    ) as $Val);
   }
 }
 
@@ -104,32 +93,28 @@ class _$PracticeCatalogRecentResultSummaryCopyWithImpl<
 abstract class _$$PracticeCatalogRecentResultSummaryImplCopyWith<$Res>
     implements $PracticeCatalogRecentResultSummaryCopyWith<$Res> {
   factory _$$PracticeCatalogRecentResultSummaryImplCopyWith(
-    _$PracticeCatalogRecentResultSummaryImpl value,
-    $Res Function(_$PracticeCatalogRecentResultSummaryImpl) then,
-  ) = __$$PracticeCatalogRecentResultSummaryImplCopyWithImpl<$Res>;
+          _$PracticeCatalogRecentResultSummaryImpl value,
+          $Res Function(_$PracticeCatalogRecentResultSummaryImpl) then) =
+      __$$PracticeCatalogRecentResultSummaryImplCopyWithImpl<$Res>;
   @override
   @useResult
-  $Res call({
-    String phraseId,
-    String phraseEnglish,
-    BabyReactionType reactionType,
-    DateTime eventTime,
-    int totalEvents,
-  });
+  $Res call(
+      {String phraseId,
+      String phraseEnglish,
+      BabyReactionType reactionType,
+      DateTime eventTime,
+      int totalEvents});
 }
 
 /// @nodoc
 class __$$PracticeCatalogRecentResultSummaryImplCopyWithImpl<$Res>
-    extends
-        _$PracticeCatalogRecentResultSummaryCopyWithImpl<
-          $Res,
-          _$PracticeCatalogRecentResultSummaryImpl
-        >
+    extends _$PracticeCatalogRecentResultSummaryCopyWithImpl<$Res,
+        _$PracticeCatalogRecentResultSummaryImpl>
     implements _$$PracticeCatalogRecentResultSummaryImplCopyWith<$Res> {
   __$$PracticeCatalogRecentResultSummaryImplCopyWithImpl(
-    _$PracticeCatalogRecentResultSummaryImpl _value,
-    $Res Function(_$PracticeCatalogRecentResultSummaryImpl) _then,
-  ) : super(_value, _then);
+      _$PracticeCatalogRecentResultSummaryImpl _value,
+      $Res Function(_$PracticeCatalogRecentResultSummaryImpl) _then)
+      : super(_value, _then);
 
   @pragma('vm:prefer-inline')
   @override
@@ -140,30 +125,28 @@ class __$$PracticeCatalogRecentResultSummaryImplCopyWithImpl<$Res>
     Object? eventTime = null,
     Object? totalEvents = null,
   }) {
-    return _then(
-      _$PracticeCatalogRecentResultSummaryImpl(
-        phraseId: null == phraseId
-            ? _value.phraseId
-            : phraseId // ignore: cast_nullable_to_non_nullable
-                  as String,
-        phraseEnglish: null == phraseEnglish
-            ? _value.phraseEnglish
-            : phraseEnglish // ignore: cast_nullable_to_non_nullable
-                  as String,
-        reactionType: null == reactionType
-            ? _value.reactionType
-            : reactionType // ignore: cast_nullable_to_non_nullable
-                  as BabyReactionType,
-        eventTime: null == eventTime
-            ? _value.eventTime
-            : eventTime // ignore: cast_nullable_to_non_nullable
-                  as DateTime,
-        totalEvents: null == totalEvents
-            ? _value.totalEvents
-            : totalEvents // ignore: cast_nullable_to_non_nullable
-                  as int,
-      ),
-    );
+    return _then(_$PracticeCatalogRecentResultSummaryImpl(
+      phraseId: null == phraseId
+          ? _value.phraseId
+          : phraseId // ignore: cast_nullable_to_non_nullable
+              as String,
+      phraseEnglish: null == phraseEnglish
+          ? _value.phraseEnglish
+          : phraseEnglish // ignore: cast_nullable_to_non_nullable
+              as String,
+      reactionType: null == reactionType
+          ? _value.reactionType
+          : reactionType // ignore: cast_nullable_to_non_nullable
+              as BabyReactionType,
+      eventTime: null == eventTime
+          ? _value.eventTime
+          : eventTime // ignore: cast_nullable_to_non_nullable
+              as DateTime,
+      totalEvents: null == totalEvents
+          ? _value.totalEvents
+          : totalEvents // ignore: cast_nullable_to_non_nullable
+              as int,
+    ));
   }
 }
 
@@ -171,13 +154,12 @@ class __$$PracticeCatalogRecentResultSummaryImplCopyWithImpl<$Res>
 
 class _$PracticeCatalogRecentResultSummaryImpl
     implements _PracticeCatalogRecentResultSummary {
-  const _$PracticeCatalogRecentResultSummaryImpl({
-    required this.phraseId,
-    required this.phraseEnglish,
-    required this.reactionType,
-    required this.eventTime,
-    required this.totalEvents,
-  });
+  const _$PracticeCatalogRecentResultSummaryImpl(
+      {required this.phraseId,
+      required this.phraseEnglish,
+      required this.reactionType,
+      required this.eventTime,
+      required this.totalEvents});
 
   @override
   final String phraseId;
@@ -213,36 +195,27 @@ class _$PracticeCatalogRecentResultSummaryImpl
   }
 
   @override
-  int get hashCode => Object.hash(
-    runtimeType,
-    phraseId,
-    phraseEnglish,
-    reactionType,
-    eventTime,
-    totalEvents,
-  );
+  int get hashCode => Object.hash(runtimeType, phraseId, phraseEnglish,
+      reactionType, eventTime, totalEvents);
 
   @JsonKey(ignore: true)
   @override
   @pragma('vm:prefer-inline')
   _$$PracticeCatalogRecentResultSummaryImplCopyWith<
-    _$PracticeCatalogRecentResultSummaryImpl
-  >
-  get copyWith =>
-      __$$PracticeCatalogRecentResultSummaryImplCopyWithImpl<
-        _$PracticeCatalogRecentResultSummaryImpl
-      >(this, _$identity);
+          _$PracticeCatalogRecentResultSummaryImpl>
+      get copyWith => __$$PracticeCatalogRecentResultSummaryImplCopyWithImpl<
+          _$PracticeCatalogRecentResultSummaryImpl>(this, _$identity);
 }
 
 abstract class _PracticeCatalogRecentResultSummary
     implements PracticeCatalogRecentResultSummary {
-  const factory _PracticeCatalogRecentResultSummary({
-    required final String phraseId,
-    required final String phraseEnglish,
-    required final BabyReactionType reactionType,
-    required final DateTime eventTime,
-    required final int totalEvents,
-  }) = _$PracticeCatalogRecentResultSummaryImpl;
+  const factory _PracticeCatalogRecentResultSummary(
+          {required final String phraseId,
+          required final String phraseEnglish,
+          required final BabyReactionType reactionType,
+          required final DateTime eventTime,
+          required final int totalEvents}) =
+      _$PracticeCatalogRecentResultSummaryImpl;
 
   @override
   String get phraseId;
@@ -257,9 +230,8 @@ abstract class _PracticeCatalogRecentResultSummary
   @override
   @JsonKey(ignore: true)
   _$$PracticeCatalogRecentResultSummaryImplCopyWith<
-    _$PracticeCatalogRecentResultSummaryImpl
-  >
-  get copyWith => throw _privateConstructorUsedError;
+          _$PracticeCatalogRecentResultSummaryImpl>
+      get copyWith => throw _privateConstructorUsedError;
 }
 
 /// @nodoc
@@ -279,6 +251,7 @@ mixin _$PracticeCatalogActivitySummary {
   int get totalEvents => throw _privateConstructorUsedError;
   int get skippedUnknownPhraseCount => throw _privateConstructorUsedError;
   int get skippedMalformedEventCount => throw _privateConstructorUsedError;
+  String? get generatedContentId => throw _privateConstructorUsedError;
   DateTime? get lastEventTime => throw _privateConstructorUsedError;
   PracticeCatalogRecentResultSummary? get recentResult =>
       throw _privateConstructorUsedError;
@@ -286,49 +259,44 @@ mixin _$PracticeCatalogActivitySummary {
 
   @JsonKey(ignore: true)
   $PracticeCatalogActivitySummaryCopyWith<PracticeCatalogActivitySummary>
-  get copyWith => throw _privateConstructorUsedError;
+      get copyWith => throw _privateConstructorUsedError;
 }
 
 /// @nodoc
 abstract class $PracticeCatalogActivitySummaryCopyWith<$Res> {
   factory $PracticeCatalogActivitySummaryCopyWith(
-    PracticeCatalogActivitySummary value,
-    $Res Function(PracticeCatalogActivitySummary) then,
-  ) =
-      _$PracticeCatalogActivitySummaryCopyWithImpl<
-        $Res,
-        PracticeCatalogActivitySummary
-      >;
+          PracticeCatalogActivitySummary value,
+          $Res Function(PracticeCatalogActivitySummary) then) =
+      _$PracticeCatalogActivitySummaryCopyWithImpl<$Res,
+          PracticeCatalogActivitySummary>;
   @useResult
-  $Res call({
-    String spaceId,
-    String spaceTitle,
-    String activityId,
-    String title,
-    String summary,
-    String sceneTag,
-    String coachTip,
-    int totalPhraseCount,
-    int completedPhraseCount,
-    List<String> completedPhraseIds,
-    String? nextPhraseId,
-    String? nextPhraseEnglish,
-    int totalEvents,
-    int skippedUnknownPhraseCount,
-    int skippedMalformedEventCount,
-    DateTime? lastEventTime,
-    PracticeCatalogRecentResultSummary? recentResult,
-    String? warningMessage,
-  });
+  $Res call(
+      {String spaceId,
+      String spaceTitle,
+      String activityId,
+      String title,
+      String summary,
+      String sceneTag,
+      String coachTip,
+      int totalPhraseCount,
+      int completedPhraseCount,
+      List<String> completedPhraseIds,
+      String? nextPhraseId,
+      String? nextPhraseEnglish,
+      int totalEvents,
+      int skippedUnknownPhraseCount,
+      int skippedMalformedEventCount,
+      String? generatedContentId,
+      DateTime? lastEventTime,
+      PracticeCatalogRecentResultSummary? recentResult,
+      String? warningMessage});
 
   $PracticeCatalogRecentResultSummaryCopyWith<$Res>? get recentResult;
 }
 
 /// @nodoc
-class _$PracticeCatalogActivitySummaryCopyWithImpl<
-  $Res,
-  $Val extends PracticeCatalogActivitySummary
->
+class _$PracticeCatalogActivitySummaryCopyWithImpl<$Res,
+        $Val extends PracticeCatalogActivitySummary>
     implements $PracticeCatalogActivitySummaryCopyWith<$Res> {
   _$PracticeCatalogActivitySummaryCopyWithImpl(this._value, this._then);
 
@@ -355,87 +323,89 @@ class _$PracticeCatalogActivitySummaryCopyWithImpl<
     Object? totalEvents = null,
     Object? skippedUnknownPhraseCount = null,
     Object? skippedMalformedEventCount = null,
+    Object? generatedContentId = freezed,
     Object? lastEventTime = freezed,
     Object? recentResult = freezed,
     Object? warningMessage = freezed,
   }) {
-    return _then(
-      _value.copyWith(
-            spaceId: null == spaceId
-                ? _value.spaceId
-                : spaceId // ignore: cast_nullable_to_non_nullable
-                      as String,
-            spaceTitle: null == spaceTitle
-                ? _value.spaceTitle
-                : spaceTitle // ignore: cast_nullable_to_non_nullable
-                      as String,
-            activityId: null == activityId
-                ? _value.activityId
-                : activityId // ignore: cast_nullable_to_non_nullable
-                      as String,
-            title: null == title
-                ? _value.title
-                : title // ignore: cast_nullable_to_non_nullable
-                      as String,
-            summary: null == summary
-                ? _value.summary
-                : summary // ignore: cast_nullable_to_non_nullable
-                      as String,
-            sceneTag: null == sceneTag
-                ? _value.sceneTag
-                : sceneTag // ignore: cast_nullable_to_non_nullable
-                      as String,
-            coachTip: null == coachTip
-                ? _value.coachTip
-                : coachTip // ignore: cast_nullable_to_non_nullable
-                      as String,
-            totalPhraseCount: null == totalPhraseCount
-                ? _value.totalPhraseCount
-                : totalPhraseCount // ignore: cast_nullable_to_non_nullable
-                      as int,
-            completedPhraseCount: null == completedPhraseCount
-                ? _value.completedPhraseCount
-                : completedPhraseCount // ignore: cast_nullable_to_non_nullable
-                      as int,
-            completedPhraseIds: null == completedPhraseIds
-                ? _value.completedPhraseIds
-                : completedPhraseIds // ignore: cast_nullable_to_non_nullable
-                      as List<String>,
-            nextPhraseId: freezed == nextPhraseId
-                ? _value.nextPhraseId
-                : nextPhraseId // ignore: cast_nullable_to_non_nullable
-                      as String?,
-            nextPhraseEnglish: freezed == nextPhraseEnglish
-                ? _value.nextPhraseEnglish
-                : nextPhraseEnglish // ignore: cast_nullable_to_non_nullable
-                      as String?,
-            totalEvents: null == totalEvents
-                ? _value.totalEvents
-                : totalEvents // ignore: cast_nullable_to_non_nullable
-                      as int,
-            skippedUnknownPhraseCount: null == skippedUnknownPhraseCount
-                ? _value.skippedUnknownPhraseCount
-                : skippedUnknownPhraseCount // ignore: cast_nullable_to_non_nullable
-                      as int,
-            skippedMalformedEventCount: null == skippedMalformedEventCount
-                ? _value.skippedMalformedEventCount
-                : skippedMalformedEventCount // ignore: cast_nullable_to_non_nullable
-                      as int,
-            lastEventTime: freezed == lastEventTime
-                ? _value.lastEventTime
-                : lastEventTime // ignore: cast_nullable_to_non_nullable
-                      as DateTime?,
-            recentResult: freezed == recentResult
-                ? _value.recentResult
-                : recentResult // ignore: cast_nullable_to_non_nullable
-                      as PracticeCatalogRecentResultSummary?,
-            warningMessage: freezed == warningMessage
-                ? _value.warningMessage
-                : warningMessage // ignore: cast_nullable_to_non_nullable
-                      as String?,
-          )
-          as $Val,
-    );
+    return _then(_value.copyWith(
+      spaceId: null == spaceId
+          ? _value.spaceId
+          : spaceId // ignore: cast_nullable_to_non_nullable
+              as String,
+      spaceTitle: null == spaceTitle
+          ? _value.spaceTitle
+          : spaceTitle // ignore: cast_nullable_to_non_nullable
+              as String,
+      activityId: null == activityId
+          ? _value.activityId
+          : activityId // ignore: cast_nullable_to_non_nullable
+              as String,
+      title: null == title
+          ? _value.title
+          : title // ignore: cast_nullable_to_non_nullable
+              as String,
+      summary: null == summary
+          ? _value.summary
+          : summary // ignore: cast_nullable_to_non_nullable
+              as String,
+      sceneTag: null == sceneTag
+          ? _value.sceneTag
+          : sceneTag // ignore: cast_nullable_to_non_nullable
+              as String,
+      coachTip: null == coachTip
+          ? _value.coachTip
+          : coachTip // ignore: cast_nullable_to_non_nullable
+              as String,
+      totalPhraseCount: null == totalPhraseCount
+          ? _value.totalPhraseCount
+          : totalPhraseCount // ignore: cast_nullable_to_non_nullable
+              as int,
+      completedPhraseCount: null == completedPhraseCount
+          ? _value.completedPhraseCount
+          : completedPhraseCount // ignore: cast_nullable_to_non_nullable
+              as int,
+      completedPhraseIds: null == completedPhraseIds
+          ? _value.completedPhraseIds
+          : completedPhraseIds // ignore: cast_nullable_to_non_nullable
+              as List<String>,
+      nextPhraseId: freezed == nextPhraseId
+          ? _value.nextPhraseId
+          : nextPhraseId // ignore: cast_nullable_to_non_nullable
+              as String?,
+      nextPhraseEnglish: freezed == nextPhraseEnglish
+          ? _value.nextPhraseEnglish
+          : nextPhraseEnglish // ignore: cast_nullable_to_non_nullable
+              as String?,
+      totalEvents: null == totalEvents
+          ? _value.totalEvents
+          : totalEvents // ignore: cast_nullable_to_non_nullable
+              as int,
+      skippedUnknownPhraseCount: null == skippedUnknownPhraseCount
+          ? _value.skippedUnknownPhraseCount
+          : skippedUnknownPhraseCount // ignore: cast_nullable_to_non_nullable
+              as int,
+      skippedMalformedEventCount: null == skippedMalformedEventCount
+          ? _value.skippedMalformedEventCount
+          : skippedMalformedEventCount // ignore: cast_nullable_to_non_nullable
+              as int,
+      generatedContentId: freezed == generatedContentId
+          ? _value.generatedContentId
+          : generatedContentId // ignore: cast_nullable_to_non_nullable
+              as String?,
+      lastEventTime: freezed == lastEventTime
+          ? _value.lastEventTime
+          : lastEventTime // ignore: cast_nullable_to_non_nullable
+              as DateTime?,
+      recentResult: freezed == recentResult
+          ? _value.recentResult
+          : recentResult // ignore: cast_nullable_to_non_nullable
+              as PracticeCatalogRecentResultSummary?,
+      warningMessage: freezed == warningMessage
+          ? _value.warningMessage
+          : warningMessage // ignore: cast_nullable_to_non_nullable
+              as String?,
+    ) as $Val);
   }
 
   @override
@@ -446,11 +416,9 @@ class _$PracticeCatalogActivitySummaryCopyWithImpl<
     }
 
     return $PracticeCatalogRecentResultSummaryCopyWith<$Res>(
-      _value.recentResult!,
-      (value) {
-        return _then(_value.copyWith(recentResult: value) as $Val);
-      },
-    );
+        _value.recentResult!, (value) {
+      return _then(_value.copyWith(recentResult: value) as $Val);
+    });
   }
 }
 
@@ -458,31 +426,31 @@ class _$PracticeCatalogActivitySummaryCopyWithImpl<
 abstract class _$$PracticeCatalogActivitySummaryImplCopyWith<$Res>
     implements $PracticeCatalogActivitySummaryCopyWith<$Res> {
   factory _$$PracticeCatalogActivitySummaryImplCopyWith(
-    _$PracticeCatalogActivitySummaryImpl value,
-    $Res Function(_$PracticeCatalogActivitySummaryImpl) then,
-  ) = __$$PracticeCatalogActivitySummaryImplCopyWithImpl<$Res>;
+          _$PracticeCatalogActivitySummaryImpl value,
+          $Res Function(_$PracticeCatalogActivitySummaryImpl) then) =
+      __$$PracticeCatalogActivitySummaryImplCopyWithImpl<$Res>;
   @override
   @useResult
-  $Res call({
-    String spaceId,
-    String spaceTitle,
-    String activityId,
-    String title,
-    String summary,
-    String sceneTag,
-    String coachTip,
-    int totalPhraseCount,
-    int completedPhraseCount,
-    List<String> completedPhraseIds,
-    String? nextPhraseId,
-    String? nextPhraseEnglish,
-    int totalEvents,
-    int skippedUnknownPhraseCount,
-    int skippedMalformedEventCount,
-    DateTime? lastEventTime,
-    PracticeCatalogRecentResultSummary? recentResult,
-    String? warningMessage,
-  });
+  $Res call(
+      {String spaceId,
+      String spaceTitle,
+      String activityId,
+      String title,
+      String summary,
+      String sceneTag,
+      String coachTip,
+      int totalPhraseCount,
+      int completedPhraseCount,
+      List<String> completedPhraseIds,
+      String? nextPhraseId,
+      String? nextPhraseEnglish,
+      int totalEvents,
+      int skippedUnknownPhraseCount,
+      int skippedMalformedEventCount,
+      String? generatedContentId,
+      DateTime? lastEventTime,
+      PracticeCatalogRecentResultSummary? recentResult,
+      String? warningMessage});
 
   @override
   $PracticeCatalogRecentResultSummaryCopyWith<$Res>? get recentResult;
@@ -490,16 +458,13 @@ abstract class _$$PracticeCatalogActivitySummaryImplCopyWith<$Res>
 
 /// @nodoc
 class __$$PracticeCatalogActivitySummaryImplCopyWithImpl<$Res>
-    extends
-        _$PracticeCatalogActivitySummaryCopyWithImpl<
-          $Res,
-          _$PracticeCatalogActivitySummaryImpl
-        >
+    extends _$PracticeCatalogActivitySummaryCopyWithImpl<$Res,
+        _$PracticeCatalogActivitySummaryImpl>
     implements _$$PracticeCatalogActivitySummaryImplCopyWith<$Res> {
   __$$PracticeCatalogActivitySummaryImplCopyWithImpl(
-    _$PracticeCatalogActivitySummaryImpl _value,
-    $Res Function(_$PracticeCatalogActivitySummaryImpl) _then,
-  ) : super(_value, _then);
+      _$PracticeCatalogActivitySummaryImpl _value,
+      $Res Function(_$PracticeCatalogActivitySummaryImpl) _then)
+      : super(_value, _then);
 
   @pragma('vm:prefer-inline')
   @override
@@ -519,86 +484,89 @@ class __$$PracticeCatalogActivitySummaryImplCopyWithImpl<$Res>
     Object? totalEvents = null,
     Object? skippedUnknownPhraseCount = null,
     Object? skippedMalformedEventCount = null,
+    Object? generatedContentId = freezed,
     Object? lastEventTime = freezed,
     Object? recentResult = freezed,
     Object? warningMessage = freezed,
   }) {
-    return _then(
-      _$PracticeCatalogActivitySummaryImpl(
-        spaceId: null == spaceId
-            ? _value.spaceId
-            : spaceId // ignore: cast_nullable_to_non_nullable
-                  as String,
-        spaceTitle: null == spaceTitle
-            ? _value.spaceTitle
-            : spaceTitle // ignore: cast_nullable_to_non_nullable
-                  as String,
-        activityId: null == activityId
-            ? _value.activityId
-            : activityId // ignore: cast_nullable_to_non_nullable
-                  as String,
-        title: null == title
-            ? _value.title
-            : title // ignore: cast_nullable_to_non_nullable
-                  as String,
-        summary: null == summary
-            ? _value.summary
-            : summary // ignore: cast_nullable_to_non_nullable
-                  as String,
-        sceneTag: null == sceneTag
-            ? _value.sceneTag
-            : sceneTag // ignore: cast_nullable_to_non_nullable
-                  as String,
-        coachTip: null == coachTip
-            ? _value.coachTip
-            : coachTip // ignore: cast_nullable_to_non_nullable
-                  as String,
-        totalPhraseCount: null == totalPhraseCount
-            ? _value.totalPhraseCount
-            : totalPhraseCount // ignore: cast_nullable_to_non_nullable
-                  as int,
-        completedPhraseCount: null == completedPhraseCount
-            ? _value.completedPhraseCount
-            : completedPhraseCount // ignore: cast_nullable_to_non_nullable
-                  as int,
-        completedPhraseIds: null == completedPhraseIds
-            ? _value._completedPhraseIds
-            : completedPhraseIds // ignore: cast_nullable_to_non_nullable
-                  as List<String>,
-        nextPhraseId: freezed == nextPhraseId
-            ? _value.nextPhraseId
-            : nextPhraseId // ignore: cast_nullable_to_non_nullable
-                  as String?,
-        nextPhraseEnglish: freezed == nextPhraseEnglish
-            ? _value.nextPhraseEnglish
-            : nextPhraseEnglish // ignore: cast_nullable_to_non_nullable
-                  as String?,
-        totalEvents: null == totalEvents
-            ? _value.totalEvents
-            : totalEvents // ignore: cast_nullable_to_non_nullable
-                  as int,
-        skippedUnknownPhraseCount: null == skippedUnknownPhraseCount
-            ? _value.skippedUnknownPhraseCount
-            : skippedUnknownPhraseCount // ignore: cast_nullable_to_non_nullable
-                  as int,
-        skippedMalformedEventCount: null == skippedMalformedEventCount
-            ? _value.skippedMalformedEventCount
-            : skippedMalformedEventCount // ignore: cast_nullable_to_non_nullable
-                  as int,
-        lastEventTime: freezed == lastEventTime
-            ? _value.lastEventTime
-            : lastEventTime // ignore: cast_nullable_to_non_nullable
-                  as DateTime?,
-        recentResult: freezed == recentResult
-            ? _value.recentResult
-            : recentResult // ignore: cast_nullable_to_non_nullable
-                  as PracticeCatalogRecentResultSummary?,
-        warningMessage: freezed == warningMessage
-            ? _value.warningMessage
-            : warningMessage // ignore: cast_nullable_to_non_nullable
-                  as String?,
-      ),
-    );
+    return _then(_$PracticeCatalogActivitySummaryImpl(
+      spaceId: null == spaceId
+          ? _value.spaceId
+          : spaceId // ignore: cast_nullable_to_non_nullable
+              as String,
+      spaceTitle: null == spaceTitle
+          ? _value.spaceTitle
+          : spaceTitle // ignore: cast_nullable_to_non_nullable
+              as String,
+      activityId: null == activityId
+          ? _value.activityId
+          : activityId // ignore: cast_nullable_to_non_nullable
+              as String,
+      title: null == title
+          ? _value.title
+          : title // ignore: cast_nullable_to_non_nullable
+              as String,
+      summary: null == summary
+          ? _value.summary
+          : summary // ignore: cast_nullable_to_non_nullable
+              as String,
+      sceneTag: null == sceneTag
+          ? _value.sceneTag
+          : sceneTag // ignore: cast_nullable_to_non_nullable
+              as String,
+      coachTip: null == coachTip
+          ? _value.coachTip
+          : coachTip // ignore: cast_nullable_to_non_nullable
+              as String,
+      totalPhraseCount: null == totalPhraseCount
+          ? _value.totalPhraseCount
+          : totalPhraseCount // ignore: cast_nullable_to_non_nullable
+              as int,
+      completedPhraseCount: null == completedPhraseCount
+          ? _value.completedPhraseCount
+          : completedPhraseCount // ignore: cast_nullable_to_non_nullable
+              as int,
+      completedPhraseIds: null == completedPhraseIds
+          ? _value._completedPhraseIds
+          : completedPhraseIds // ignore: cast_nullable_to_non_nullable
+              as List<String>,
+      nextPhraseId: freezed == nextPhraseId
+          ? _value.nextPhraseId
+          : nextPhraseId // ignore: cast_nullable_to_non_nullable
+              as String?,
+      nextPhraseEnglish: freezed == nextPhraseEnglish
+          ? _value.nextPhraseEnglish
+          : nextPhraseEnglish // ignore: cast_nullable_to_non_nullable
+              as String?,
+      totalEvents: null == totalEvents
+          ? _value.totalEvents
+          : totalEvents // ignore: cast_nullable_to_non_nullable
+              as int,
+      skippedUnknownPhraseCount: null == skippedUnknownPhraseCount
+          ? _value.skippedUnknownPhraseCount
+          : skippedUnknownPhraseCount // ignore: cast_nullable_to_non_nullable
+              as int,
+      skippedMalformedEventCount: null == skippedMalformedEventCount
+          ? _value.skippedMalformedEventCount
+          : skippedMalformedEventCount // ignore: cast_nullable_to_non_nullable
+              as int,
+      generatedContentId: freezed == generatedContentId
+          ? _value.generatedContentId
+          : generatedContentId // ignore: cast_nullable_to_non_nullable
+              as String?,
+      lastEventTime: freezed == lastEventTime
+          ? _value.lastEventTime
+          : lastEventTime // ignore: cast_nullable_to_non_nullable
+              as DateTime?,
+      recentResult: freezed == recentResult
+          ? _value.recentResult
+          : recentResult // ignore: cast_nullable_to_non_nullable
+              as PracticeCatalogRecentResultSummary?,
+      warningMessage: freezed == warningMessage
+          ? _value.warningMessage
+          : warningMessage // ignore: cast_nullable_to_non_nullable
+              as String?,
+    ));
   }
 }
 
@@ -606,27 +574,28 @@ class __$$PracticeCatalogActivitySummaryImplCopyWithImpl<$Res>
 
 class _$PracticeCatalogActivitySummaryImpl
     extends _PracticeCatalogActivitySummary {
-  const _$PracticeCatalogActivitySummaryImpl({
-    required this.spaceId,
-    required this.spaceTitle,
-    required this.activityId,
-    required this.title,
-    required this.summary,
-    required this.sceneTag,
-    required this.coachTip,
-    required this.totalPhraseCount,
-    required this.completedPhraseCount,
-    required final List<String> completedPhraseIds,
-    required this.nextPhraseId,
-    required this.nextPhraseEnglish,
-    required this.totalEvents,
-    required this.skippedUnknownPhraseCount,
-    required this.skippedMalformedEventCount,
-    this.lastEventTime,
-    this.recentResult,
-    this.warningMessage,
-  }) : _completedPhraseIds = completedPhraseIds,
-       super._();
+  const _$PracticeCatalogActivitySummaryImpl(
+      {required this.spaceId,
+      required this.spaceTitle,
+      required this.activityId,
+      required this.title,
+      required this.summary,
+      required this.sceneTag,
+      required this.coachTip,
+      required this.totalPhraseCount,
+      required this.completedPhraseCount,
+      required final List<String> completedPhraseIds,
+      required this.nextPhraseId,
+      required this.nextPhraseEnglish,
+      required this.totalEvents,
+      required this.skippedUnknownPhraseCount,
+      required this.skippedMalformedEventCount,
+      this.generatedContentId,
+      this.lastEventTime,
+      this.recentResult,
+      this.warningMessage})
+      : _completedPhraseIds = completedPhraseIds,
+        super._();
 
   @override
   final String spaceId;
@@ -666,6 +635,8 @@ class _$PracticeCatalogActivitySummaryImpl
   @override
   final int skippedMalformedEventCount;
   @override
+  final String? generatedContentId;
+  @override
   final DateTime? lastEventTime;
   @override
   final PracticeCatalogRecentResultSummary? recentResult;
@@ -674,7 +645,7 @@ class _$PracticeCatalogActivitySummaryImpl
 
   @override
   String toString() {
-    return 'PracticeCatalogActivitySummary(spaceId: $spaceId, spaceTitle: $spaceTitle, activityId: $activityId, title: $title, summary: $summary, sceneTag: $sceneTag, coachTip: $coachTip, totalPhraseCount: $totalPhraseCount, completedPhraseCount: $completedPhraseCount, completedPhraseIds: $completedPhraseIds, nextPhraseId: $nextPhraseId, nextPhraseEnglish: $nextPhraseEnglish, totalEvents: $totalEvents, skippedUnknownPhraseCount: $skippedUnknownPhraseCount, skippedMalformedEventCount: $skippedMalformedEventCount, lastEventTime: $lastEventTime, recentResult: $recentResult, warningMessage: $warningMessage)';
+    return 'PracticeCatalogActivitySummary(spaceId: $spaceId, spaceTitle: $spaceTitle, activityId: $activityId, title: $title, summary: $summary, sceneTag: $sceneTag, coachTip: $coachTip, totalPhraseCount: $totalPhraseCount, completedPhraseCount: $completedPhraseCount, completedPhraseIds: $completedPhraseIds, nextPhraseId: $nextPhraseId, nextPhraseEnglish: $nextPhraseEnglish, totalEvents: $totalEvents, skippedUnknownPhraseCount: $skippedUnknownPhraseCount, skippedMalformedEventCount: $skippedMalformedEventCount, generatedContentId: $generatedContentId, lastEventTime: $lastEventTime, recentResult: $recentResult, warningMessage: $warningMessage)';
   }
 
   @override
@@ -697,27 +668,23 @@ class _$PracticeCatalogActivitySummaryImpl
                 other.totalPhraseCount == totalPhraseCount) &&
             (identical(other.completedPhraseCount, completedPhraseCount) ||
                 other.completedPhraseCount == completedPhraseCount) &&
-            const DeepCollectionEquality().equals(
-              other._completedPhraseIds,
-              _completedPhraseIds,
-            ) &&
+            const DeepCollectionEquality()
+                .equals(other._completedPhraseIds, _completedPhraseIds) &&
             (identical(other.nextPhraseId, nextPhraseId) ||
                 other.nextPhraseId == nextPhraseId) &&
             (identical(other.nextPhraseEnglish, nextPhraseEnglish) ||
                 other.nextPhraseEnglish == nextPhraseEnglish) &&
             (identical(other.totalEvents, totalEvents) ||
                 other.totalEvents == totalEvents) &&
-            (identical(
-                  other.skippedUnknownPhraseCount,
-                  skippedUnknownPhraseCount,
-                ) ||
+            (identical(other.skippedUnknownPhraseCount,
+                    skippedUnknownPhraseCount) ||
                 other.skippedUnknownPhraseCount == skippedUnknownPhraseCount) &&
-            (identical(
-                  other.skippedMalformedEventCount,
-                  skippedMalformedEventCount,
-                ) ||
+            (identical(other.skippedMalformedEventCount,
+                    skippedMalformedEventCount) ||
                 other.skippedMalformedEventCount ==
                     skippedMalformedEventCount) &&
+            (identical(other.generatedContentId, generatedContentId) ||
+                other.generatedContentId == generatedContentId) &&
             (identical(other.lastEventTime, lastEventTime) ||
                 other.lastEventTime == lastEventTime) &&
             (identical(other.recentResult, recentResult) ||
@@ -727,62 +694,60 @@ class _$PracticeCatalogActivitySummaryImpl
   }
 
   @override
-  int get hashCode => Object.hash(
-    runtimeType,
-    spaceId,
-    spaceTitle,
-    activityId,
-    title,
-    summary,
-    sceneTag,
-    coachTip,
-    totalPhraseCount,
-    completedPhraseCount,
-    const DeepCollectionEquality().hash(_completedPhraseIds),
-    nextPhraseId,
-    nextPhraseEnglish,
-    totalEvents,
-    skippedUnknownPhraseCount,
-    skippedMalformedEventCount,
-    lastEventTime,
-    recentResult,
-    warningMessage,
-  );
+  int get hashCode => Object.hashAll([
+        runtimeType,
+        spaceId,
+        spaceTitle,
+        activityId,
+        title,
+        summary,
+        sceneTag,
+        coachTip,
+        totalPhraseCount,
+        completedPhraseCount,
+        const DeepCollectionEquality().hash(_completedPhraseIds),
+        nextPhraseId,
+        nextPhraseEnglish,
+        totalEvents,
+        skippedUnknownPhraseCount,
+        skippedMalformedEventCount,
+        generatedContentId,
+        lastEventTime,
+        recentResult,
+        warningMessage
+      ]);
 
   @JsonKey(ignore: true)
   @override
   @pragma('vm:prefer-inline')
   _$$PracticeCatalogActivitySummaryImplCopyWith<
-    _$PracticeCatalogActivitySummaryImpl
-  >
-  get copyWith =>
-      __$$PracticeCatalogActivitySummaryImplCopyWithImpl<
-        _$PracticeCatalogActivitySummaryImpl
-      >(this, _$identity);
+          _$PracticeCatalogActivitySummaryImpl>
+      get copyWith => __$$PracticeCatalogActivitySummaryImplCopyWithImpl<
+          _$PracticeCatalogActivitySummaryImpl>(this, _$identity);
 }
 
 abstract class _PracticeCatalogActivitySummary
     extends PracticeCatalogActivitySummary {
-  const factory _PracticeCatalogActivitySummary({
-    required final String spaceId,
-    required final String spaceTitle,
-    required final String activityId,
-    required final String title,
-    required final String summary,
-    required final String sceneTag,
-    required final String coachTip,
-    required final int totalPhraseCount,
-    required final int completedPhraseCount,
-    required final List<String> completedPhraseIds,
-    required final String? nextPhraseId,
-    required final String? nextPhraseEnglish,
-    required final int totalEvents,
-    required final int skippedUnknownPhraseCount,
-    required final int skippedMalformedEventCount,
-    final DateTime? lastEventTime,
-    final PracticeCatalogRecentResultSummary? recentResult,
-    final String? warningMessage,
-  }) = _$PracticeCatalogActivitySummaryImpl;
+  const factory _PracticeCatalogActivitySummary(
+      {required final String spaceId,
+      required final String spaceTitle,
+      required final String activityId,
+      required final String title,
+      required final String summary,
+      required final String sceneTag,
+      required final String coachTip,
+      required final int totalPhraseCount,
+      required final int completedPhraseCount,
+      required final List<String> completedPhraseIds,
+      required final String? nextPhraseId,
+      required final String? nextPhraseEnglish,
+      required final int totalEvents,
+      required final int skippedUnknownPhraseCount,
+      required final int skippedMalformedEventCount,
+      final String? generatedContentId,
+      final DateTime? lastEventTime,
+      final PracticeCatalogRecentResultSummary? recentResult,
+      final String? warningMessage}) = _$PracticeCatalogActivitySummaryImpl;
   const _PracticeCatalogActivitySummary._() : super._();
 
   @override
@@ -816,6 +781,8 @@ abstract class _PracticeCatalogActivitySummary
   @override
   int get skippedMalformedEventCount;
   @override
+  String? get generatedContentId;
+  @override
   DateTime? get lastEventTime;
   @override
   PracticeCatalogRecentResultSummary? get recentResult;
@@ -824,9 +791,8 @@ abstract class _PracticeCatalogActivitySummary
   @override
   @JsonKey(ignore: true)
   _$$PracticeCatalogActivitySummaryImplCopyWith<
-    _$PracticeCatalogActivitySummaryImpl
-  >
-  get copyWith => throw _privateConstructorUsedError;
+          _$PracticeCatalogActivitySummaryImpl>
+      get copyWith => throw _privateConstructorUsedError;
 }
 
 /// @nodoc
@@ -843,37 +809,31 @@ mixin _$PracticeCatalogSpaceSummary {
 
   @JsonKey(ignore: true)
   $PracticeCatalogSpaceSummaryCopyWith<PracticeCatalogSpaceSummary>
-  get copyWith => throw _privateConstructorUsedError;
+      get copyWith => throw _privateConstructorUsedError;
 }
 
 /// @nodoc
 abstract class $PracticeCatalogSpaceSummaryCopyWith<$Res> {
   factory $PracticeCatalogSpaceSummaryCopyWith(
-    PracticeCatalogSpaceSummary value,
-    $Res Function(PracticeCatalogSpaceSummary) then,
-  ) =
-      _$PracticeCatalogSpaceSummaryCopyWithImpl<
-        $Res,
-        PracticeCatalogSpaceSummary
-      >;
+          PracticeCatalogSpaceSummary value,
+          $Res Function(PracticeCatalogSpaceSummary) then) =
+      _$PracticeCatalogSpaceSummaryCopyWithImpl<$Res,
+          PracticeCatalogSpaceSummary>;
   @useResult
-  $Res call({
-    String spaceId,
-    String title,
-    String description,
-    List<PracticeCatalogActivitySummary> activities,
-    int totalEvents,
-    int startedActivityCount,
-    int completedActivityCount,
-    DateTime? lastEventTime,
-  });
+  $Res call(
+      {String spaceId,
+      String title,
+      String description,
+      List<PracticeCatalogActivitySummary> activities,
+      int totalEvents,
+      int startedActivityCount,
+      int completedActivityCount,
+      DateTime? lastEventTime});
 }
 
 /// @nodoc
-class _$PracticeCatalogSpaceSummaryCopyWithImpl<
-  $Res,
-  $Val extends PracticeCatalogSpaceSummary
->
+class _$PracticeCatalogSpaceSummaryCopyWithImpl<$Res,
+        $Val extends PracticeCatalogSpaceSummary>
     implements $PracticeCatalogSpaceSummaryCopyWith<$Res> {
   _$PracticeCatalogSpaceSummaryCopyWithImpl(this._value, this._then);
 
@@ -894,43 +854,40 @@ class _$PracticeCatalogSpaceSummaryCopyWithImpl<
     Object? completedActivityCount = null,
     Object? lastEventTime = freezed,
   }) {
-    return _then(
-      _value.copyWith(
-            spaceId: null == spaceId
-                ? _value.spaceId
-                : spaceId // ignore: cast_nullable_to_non_nullable
-                      as String,
-            title: null == title
-                ? _value.title
-                : title // ignore: cast_nullable_to_non_nullable
-                      as String,
-            description: null == description
-                ? _value.description
-                : description // ignore: cast_nullable_to_non_nullable
-                      as String,
-            activities: null == activities
-                ? _value.activities
-                : activities // ignore: cast_nullable_to_non_nullable
-                      as List<PracticeCatalogActivitySummary>,
-            totalEvents: null == totalEvents
-                ? _value.totalEvents
-                : totalEvents // ignore: cast_nullable_to_non_nullable
-                      as int,
-            startedActivityCount: null == startedActivityCount
-                ? _value.startedActivityCount
-                : startedActivityCount // ignore: cast_nullable_to_non_nullable
-                      as int,
-            completedActivityCount: null == completedActivityCount
-                ? _value.completedActivityCount
-                : completedActivityCount // ignore: cast_nullable_to_non_nullable
-                      as int,
-            lastEventTime: freezed == lastEventTime
-                ? _value.lastEventTime
-                : lastEventTime // ignore: cast_nullable_to_non_nullable
-                      as DateTime?,
-          )
-          as $Val,
-    );
+    return _then(_value.copyWith(
+      spaceId: null == spaceId
+          ? _value.spaceId
+          : spaceId // ignore: cast_nullable_to_non_nullable
+              as String,
+      title: null == title
+          ? _value.title
+          : title // ignore: cast_nullable_to_non_nullable
+              as String,
+      description: null == description
+          ? _value.description
+          : description // ignore: cast_nullable_to_non_nullable
+              as String,
+      activities: null == activities
+          ? _value.activities
+          : activities // ignore: cast_nullable_to_non_nullable
+              as List<PracticeCatalogActivitySummary>,
+      totalEvents: null == totalEvents
+          ? _value.totalEvents
+          : totalEvents // ignore: cast_nullable_to_non_nullable
+              as int,
+      startedActivityCount: null == startedActivityCount
+          ? _value.startedActivityCount
+          : startedActivityCount // ignore: cast_nullable_to_non_nullable
+              as int,
+      completedActivityCount: null == completedActivityCount
+          ? _value.completedActivityCount
+          : completedActivityCount // ignore: cast_nullable_to_non_nullable
+              as int,
+      lastEventTime: freezed == lastEventTime
+          ? _value.lastEventTime
+          : lastEventTime // ignore: cast_nullable_to_non_nullable
+              as DateTime?,
+    ) as $Val);
   }
 }
 
@@ -938,35 +895,31 @@ class _$PracticeCatalogSpaceSummaryCopyWithImpl<
 abstract class _$$PracticeCatalogSpaceSummaryImplCopyWith<$Res>
     implements $PracticeCatalogSpaceSummaryCopyWith<$Res> {
   factory _$$PracticeCatalogSpaceSummaryImplCopyWith(
-    _$PracticeCatalogSpaceSummaryImpl value,
-    $Res Function(_$PracticeCatalogSpaceSummaryImpl) then,
-  ) = __$$PracticeCatalogSpaceSummaryImplCopyWithImpl<$Res>;
+          _$PracticeCatalogSpaceSummaryImpl value,
+          $Res Function(_$PracticeCatalogSpaceSummaryImpl) then) =
+      __$$PracticeCatalogSpaceSummaryImplCopyWithImpl<$Res>;
   @override
   @useResult
-  $Res call({
-    String spaceId,
-    String title,
-    String description,
-    List<PracticeCatalogActivitySummary> activities,
-    int totalEvents,
-    int startedActivityCount,
-    int completedActivityCount,
-    DateTime? lastEventTime,
-  });
+  $Res call(
+      {String spaceId,
+      String title,
+      String description,
+      List<PracticeCatalogActivitySummary> activities,
+      int totalEvents,
+      int startedActivityCount,
+      int completedActivityCount,
+      DateTime? lastEventTime});
 }
 
 /// @nodoc
 class __$$PracticeCatalogSpaceSummaryImplCopyWithImpl<$Res>
-    extends
-        _$PracticeCatalogSpaceSummaryCopyWithImpl<
-          $Res,
-          _$PracticeCatalogSpaceSummaryImpl
-        >
+    extends _$PracticeCatalogSpaceSummaryCopyWithImpl<$Res,
+        _$PracticeCatalogSpaceSummaryImpl>
     implements _$$PracticeCatalogSpaceSummaryImplCopyWith<$Res> {
   __$$PracticeCatalogSpaceSummaryImplCopyWithImpl(
-    _$PracticeCatalogSpaceSummaryImpl _value,
-    $Res Function(_$PracticeCatalogSpaceSummaryImpl) _then,
-  ) : super(_value, _then);
+      _$PracticeCatalogSpaceSummaryImpl _value,
+      $Res Function(_$PracticeCatalogSpaceSummaryImpl) _then)
+      : super(_value, _then);
 
   @pragma('vm:prefer-inline')
   @override
@@ -980,59 +933,57 @@ class __$$PracticeCatalogSpaceSummaryImplCopyWithImpl<$Res>
     Object? completedActivityCount = null,
     Object? lastEventTime = freezed,
   }) {
-    return _then(
-      _$PracticeCatalogSpaceSummaryImpl(
-        spaceId: null == spaceId
-            ? _value.spaceId
-            : spaceId // ignore: cast_nullable_to_non_nullable
-                  as String,
-        title: null == title
-            ? _value.title
-            : title // ignore: cast_nullable_to_non_nullable
-                  as String,
-        description: null == description
-            ? _value.description
-            : description // ignore: cast_nullable_to_non_nullable
-                  as String,
-        activities: null == activities
-            ? _value._activities
-            : activities // ignore: cast_nullable_to_non_nullable
-                  as List<PracticeCatalogActivitySummary>,
-        totalEvents: null == totalEvents
-            ? _value.totalEvents
-            : totalEvents // ignore: cast_nullable_to_non_nullable
-                  as int,
-        startedActivityCount: null == startedActivityCount
-            ? _value.startedActivityCount
-            : startedActivityCount // ignore: cast_nullable_to_non_nullable
-                  as int,
-        completedActivityCount: null == completedActivityCount
-            ? _value.completedActivityCount
-            : completedActivityCount // ignore: cast_nullable_to_non_nullable
-                  as int,
-        lastEventTime: freezed == lastEventTime
-            ? _value.lastEventTime
-            : lastEventTime // ignore: cast_nullable_to_non_nullable
-                  as DateTime?,
-      ),
-    );
+    return _then(_$PracticeCatalogSpaceSummaryImpl(
+      spaceId: null == spaceId
+          ? _value.spaceId
+          : spaceId // ignore: cast_nullable_to_non_nullable
+              as String,
+      title: null == title
+          ? _value.title
+          : title // ignore: cast_nullable_to_non_nullable
+              as String,
+      description: null == description
+          ? _value.description
+          : description // ignore: cast_nullable_to_non_nullable
+              as String,
+      activities: null == activities
+          ? _value._activities
+          : activities // ignore: cast_nullable_to_non_nullable
+              as List<PracticeCatalogActivitySummary>,
+      totalEvents: null == totalEvents
+          ? _value.totalEvents
+          : totalEvents // ignore: cast_nullable_to_non_nullable
+              as int,
+      startedActivityCount: null == startedActivityCount
+          ? _value.startedActivityCount
+          : startedActivityCount // ignore: cast_nullable_to_non_nullable
+              as int,
+      completedActivityCount: null == completedActivityCount
+          ? _value.completedActivityCount
+          : completedActivityCount // ignore: cast_nullable_to_non_nullable
+              as int,
+      lastEventTime: freezed == lastEventTime
+          ? _value.lastEventTime
+          : lastEventTime // ignore: cast_nullable_to_non_nullable
+              as DateTime?,
+    ));
   }
 }
 
 /// @nodoc
 
 class _$PracticeCatalogSpaceSummaryImpl extends _PracticeCatalogSpaceSummary {
-  const _$PracticeCatalogSpaceSummaryImpl({
-    required this.spaceId,
-    required this.title,
-    required this.description,
-    required final List<PracticeCatalogActivitySummary> activities,
-    required this.totalEvents,
-    required this.startedActivityCount,
-    required this.completedActivityCount,
-    this.lastEventTime,
-  }) : _activities = activities,
-       super._();
+  const _$PracticeCatalogSpaceSummaryImpl(
+      {required this.spaceId,
+      required this.title,
+      required this.description,
+      required final List<PracticeCatalogActivitySummary> activities,
+      required this.totalEvents,
+      required this.startedActivityCount,
+      required this.completedActivityCount,
+      this.lastEventTime})
+      : _activities = activities,
+        super._();
 
   @override
   final String spaceId;
@@ -1071,10 +1022,8 @@ class _$PracticeCatalogSpaceSummaryImpl extends _PracticeCatalogSpaceSummary {
             (identical(other.title, title) || other.title == title) &&
             (identical(other.description, description) ||
                 other.description == description) &&
-            const DeepCollectionEquality().equals(
-              other._activities,
-              _activities,
-            ) &&
+            const DeepCollectionEquality()
+                .equals(other._activities, _activities) &&
             (identical(other.totalEvents, totalEvents) ||
                 other.totalEvents == totalEvents) &&
             (identical(other.startedActivityCount, startedActivityCount) ||
@@ -1087,39 +1036,35 @@ class _$PracticeCatalogSpaceSummaryImpl extends _PracticeCatalogSpaceSummary {
 
   @override
   int get hashCode => Object.hash(
-    runtimeType,
-    spaceId,
-    title,
-    description,
-    const DeepCollectionEquality().hash(_activities),
-    totalEvents,
-    startedActivityCount,
-    completedActivityCount,
-    lastEventTime,
-  );
+      runtimeType,
+      spaceId,
+      title,
+      description,
+      const DeepCollectionEquality().hash(_activities),
+      totalEvents,
+      startedActivityCount,
+      completedActivityCount,
+      lastEventTime);
 
   @JsonKey(ignore: true)
   @override
   @pragma('vm:prefer-inline')
   _$$PracticeCatalogSpaceSummaryImplCopyWith<_$PracticeCatalogSpaceSummaryImpl>
-  get copyWith =>
-      __$$PracticeCatalogSpaceSummaryImplCopyWithImpl<
-        _$PracticeCatalogSpaceSummaryImpl
-      >(this, _$identity);
+      get copyWith => __$$PracticeCatalogSpaceSummaryImplCopyWithImpl<
+          _$PracticeCatalogSpaceSummaryImpl>(this, _$identity);
 }
 
 abstract class _PracticeCatalogSpaceSummary
     extends PracticeCatalogSpaceSummary {
-  const factory _PracticeCatalogSpaceSummary({
-    required final String spaceId,
-    required final String title,
-    required final String description,
-    required final List<PracticeCatalogActivitySummary> activities,
-    required final int totalEvents,
-    required final int startedActivityCount,
-    required final int completedActivityCount,
-    final DateTime? lastEventTime,
-  }) = _$PracticeCatalogSpaceSummaryImpl;
+  const factory _PracticeCatalogSpaceSummary(
+      {required final String spaceId,
+      required final String title,
+      required final String description,
+      required final List<PracticeCatalogActivitySummary> activities,
+      required final int totalEvents,
+      required final int startedActivityCount,
+      required final int completedActivityCount,
+      final DateTime? lastEventTime}) = _$PracticeCatalogSpaceSummaryImpl;
   const _PracticeCatalogSpaceSummary._() : super._();
 
   @override
@@ -1141,7 +1086,7 @@ abstract class _PracticeCatalogSpaceSummary
   @override
   @JsonKey(ignore: true)
   _$$PracticeCatalogSpaceSummaryImplCopyWith<_$PracticeCatalogSpaceSummaryImpl>
-  get copyWith => throw _privateConstructorUsedError;
+      get copyWith => throw _privateConstructorUsedError;
 }
 
 /// @nodoc
@@ -1166,30 +1111,26 @@ mixin _$PracticeActivityCatalog {
 
 /// @nodoc
 abstract class $PracticeActivityCatalogCopyWith<$Res> {
-  factory $PracticeActivityCatalogCopyWith(
-    PracticeActivityCatalog value,
-    $Res Function(PracticeActivityCatalog) then,
-  ) = _$PracticeActivityCatalogCopyWithImpl<$Res, PracticeActivityCatalog>;
+  factory $PracticeActivityCatalogCopyWith(PracticeActivityCatalog value,
+          $Res Function(PracticeActivityCatalog) then) =
+      _$PracticeActivityCatalogCopyWithImpl<$Res, PracticeActivityCatalog>;
   @useResult
-  $Res call({
-    String? installationId,
-    List<PracticeCatalogSpaceSummary> spaces,
-    List<PracticeCatalogActivitySummary> activities,
-    int totalStoredEvents,
-    int validEvents,
-    int knownEvents,
-    int skippedMalformedEvents,
-    int skippedUnknownContentEvents,
-    String? lastIssueMessage,
-    String? catalogWarning,
-  });
+  $Res call(
+      {String? installationId,
+      List<PracticeCatalogSpaceSummary> spaces,
+      List<PracticeCatalogActivitySummary> activities,
+      int totalStoredEvents,
+      int validEvents,
+      int knownEvents,
+      int skippedMalformedEvents,
+      int skippedUnknownContentEvents,
+      String? lastIssueMessage,
+      String? catalogWarning});
 }
 
 /// @nodoc
-class _$PracticeActivityCatalogCopyWithImpl<
-  $Res,
-  $Val extends PracticeActivityCatalog
->
+class _$PracticeActivityCatalogCopyWithImpl<$Res,
+        $Val extends PracticeActivityCatalog>
     implements $PracticeActivityCatalogCopyWith<$Res> {
   _$PracticeActivityCatalogCopyWithImpl(this._value, this._then);
 
@@ -1212,51 +1153,48 @@ class _$PracticeActivityCatalogCopyWithImpl<
     Object? lastIssueMessage = freezed,
     Object? catalogWarning = freezed,
   }) {
-    return _then(
-      _value.copyWith(
-            installationId: freezed == installationId
-                ? _value.installationId
-                : installationId // ignore: cast_nullable_to_non_nullable
-                      as String?,
-            spaces: null == spaces
-                ? _value.spaces
-                : spaces // ignore: cast_nullable_to_non_nullable
-                      as List<PracticeCatalogSpaceSummary>,
-            activities: null == activities
-                ? _value.activities
-                : activities // ignore: cast_nullable_to_non_nullable
-                      as List<PracticeCatalogActivitySummary>,
-            totalStoredEvents: null == totalStoredEvents
-                ? _value.totalStoredEvents
-                : totalStoredEvents // ignore: cast_nullable_to_non_nullable
-                      as int,
-            validEvents: null == validEvents
-                ? _value.validEvents
-                : validEvents // ignore: cast_nullable_to_non_nullable
-                      as int,
-            knownEvents: null == knownEvents
-                ? _value.knownEvents
-                : knownEvents // ignore: cast_nullable_to_non_nullable
-                      as int,
-            skippedMalformedEvents: null == skippedMalformedEvents
-                ? _value.skippedMalformedEvents
-                : skippedMalformedEvents // ignore: cast_nullable_to_non_nullable
-                      as int,
-            skippedUnknownContentEvents: null == skippedUnknownContentEvents
-                ? _value.skippedUnknownContentEvents
-                : skippedUnknownContentEvents // ignore: cast_nullable_to_non_nullable
-                      as int,
-            lastIssueMessage: freezed == lastIssueMessage
-                ? _value.lastIssueMessage
-                : lastIssueMessage // ignore: cast_nullable_to_non_nullable
-                      as String?,
-            catalogWarning: freezed == catalogWarning
-                ? _value.catalogWarning
-                : catalogWarning // ignore: cast_nullable_to_non_nullable
-                      as String?,
-          )
-          as $Val,
-    );
+    return _then(_value.copyWith(
+      installationId: freezed == installationId
+          ? _value.installationId
+          : installationId // ignore: cast_nullable_to_non_nullable
+              as String?,
+      spaces: null == spaces
+          ? _value.spaces
+          : spaces // ignore: cast_nullable_to_non_nullable
+              as List<PracticeCatalogSpaceSummary>,
+      activities: null == activities
+          ? _value.activities
+          : activities // ignore: cast_nullable_to_non_nullable
+              as List<PracticeCatalogActivitySummary>,
+      totalStoredEvents: null == totalStoredEvents
+          ? _value.totalStoredEvents
+          : totalStoredEvents // ignore: cast_nullable_to_non_nullable
+              as int,
+      validEvents: null == validEvents
+          ? _value.validEvents
+          : validEvents // ignore: cast_nullable_to_non_nullable
+              as int,
+      knownEvents: null == knownEvents
+          ? _value.knownEvents
+          : knownEvents // ignore: cast_nullable_to_non_nullable
+              as int,
+      skippedMalformedEvents: null == skippedMalformedEvents
+          ? _value.skippedMalformedEvents
+          : skippedMalformedEvents // ignore: cast_nullable_to_non_nullable
+              as int,
+      skippedUnknownContentEvents: null == skippedUnknownContentEvents
+          ? _value.skippedUnknownContentEvents
+          : skippedUnknownContentEvents // ignore: cast_nullable_to_non_nullable
+              as int,
+      lastIssueMessage: freezed == lastIssueMessage
+          ? _value.lastIssueMessage
+          : lastIssueMessage // ignore: cast_nullable_to_non_nullable
+              as String?,
+      catalogWarning: freezed == catalogWarning
+          ? _value.catalogWarning
+          : catalogWarning // ignore: cast_nullable_to_non_nullable
+              as String?,
+    ) as $Val);
   }
 }
 
@@ -1264,37 +1202,33 @@ class _$PracticeActivityCatalogCopyWithImpl<
 abstract class _$$PracticeActivityCatalogImplCopyWith<$Res>
     implements $PracticeActivityCatalogCopyWith<$Res> {
   factory _$$PracticeActivityCatalogImplCopyWith(
-    _$PracticeActivityCatalogImpl value,
-    $Res Function(_$PracticeActivityCatalogImpl) then,
-  ) = __$$PracticeActivityCatalogImplCopyWithImpl<$Res>;
+          _$PracticeActivityCatalogImpl value,
+          $Res Function(_$PracticeActivityCatalogImpl) then) =
+      __$$PracticeActivityCatalogImplCopyWithImpl<$Res>;
   @override
   @useResult
-  $Res call({
-    String? installationId,
-    List<PracticeCatalogSpaceSummary> spaces,
-    List<PracticeCatalogActivitySummary> activities,
-    int totalStoredEvents,
-    int validEvents,
-    int knownEvents,
-    int skippedMalformedEvents,
-    int skippedUnknownContentEvents,
-    String? lastIssueMessage,
-    String? catalogWarning,
-  });
+  $Res call(
+      {String? installationId,
+      List<PracticeCatalogSpaceSummary> spaces,
+      List<PracticeCatalogActivitySummary> activities,
+      int totalStoredEvents,
+      int validEvents,
+      int knownEvents,
+      int skippedMalformedEvents,
+      int skippedUnknownContentEvents,
+      String? lastIssueMessage,
+      String? catalogWarning});
 }
 
 /// @nodoc
 class __$$PracticeActivityCatalogImplCopyWithImpl<$Res>
-    extends
-        _$PracticeActivityCatalogCopyWithImpl<
-          $Res,
-          _$PracticeActivityCatalogImpl
-        >
+    extends _$PracticeActivityCatalogCopyWithImpl<$Res,
+        _$PracticeActivityCatalogImpl>
     implements _$$PracticeActivityCatalogImplCopyWith<$Res> {
   __$$PracticeActivityCatalogImplCopyWithImpl(
-    _$PracticeActivityCatalogImpl _value,
-    $Res Function(_$PracticeActivityCatalogImpl) _then,
-  ) : super(_value, _then);
+      _$PracticeActivityCatalogImpl _value,
+      $Res Function(_$PracticeActivityCatalogImpl) _then)
+      : super(_value, _then);
 
   @pragma('vm:prefer-inline')
   @override
@@ -1310,70 +1244,68 @@ class __$$PracticeActivityCatalogImplCopyWithImpl<$Res>
     Object? lastIssueMessage = freezed,
     Object? catalogWarning = freezed,
   }) {
-    return _then(
-      _$PracticeActivityCatalogImpl(
-        installationId: freezed == installationId
-            ? _value.installationId
-            : installationId // ignore: cast_nullable_to_non_nullable
-                  as String?,
-        spaces: null == spaces
-            ? _value._spaces
-            : spaces // ignore: cast_nullable_to_non_nullable
-                  as List<PracticeCatalogSpaceSummary>,
-        activities: null == activities
-            ? _value._activities
-            : activities // ignore: cast_nullable_to_non_nullable
-                  as List<PracticeCatalogActivitySummary>,
-        totalStoredEvents: null == totalStoredEvents
-            ? _value.totalStoredEvents
-            : totalStoredEvents // ignore: cast_nullable_to_non_nullable
-                  as int,
-        validEvents: null == validEvents
-            ? _value.validEvents
-            : validEvents // ignore: cast_nullable_to_non_nullable
-                  as int,
-        knownEvents: null == knownEvents
-            ? _value.knownEvents
-            : knownEvents // ignore: cast_nullable_to_non_nullable
-                  as int,
-        skippedMalformedEvents: null == skippedMalformedEvents
-            ? _value.skippedMalformedEvents
-            : skippedMalformedEvents // ignore: cast_nullable_to_non_nullable
-                  as int,
-        skippedUnknownContentEvents: null == skippedUnknownContentEvents
-            ? _value.skippedUnknownContentEvents
-            : skippedUnknownContentEvents // ignore: cast_nullable_to_non_nullable
-                  as int,
-        lastIssueMessage: freezed == lastIssueMessage
-            ? _value.lastIssueMessage
-            : lastIssueMessage // ignore: cast_nullable_to_non_nullable
-                  as String?,
-        catalogWarning: freezed == catalogWarning
-            ? _value.catalogWarning
-            : catalogWarning // ignore: cast_nullable_to_non_nullable
-                  as String?,
-      ),
-    );
+    return _then(_$PracticeActivityCatalogImpl(
+      installationId: freezed == installationId
+          ? _value.installationId
+          : installationId // ignore: cast_nullable_to_non_nullable
+              as String?,
+      spaces: null == spaces
+          ? _value._spaces
+          : spaces // ignore: cast_nullable_to_non_nullable
+              as List<PracticeCatalogSpaceSummary>,
+      activities: null == activities
+          ? _value._activities
+          : activities // ignore: cast_nullable_to_non_nullable
+              as List<PracticeCatalogActivitySummary>,
+      totalStoredEvents: null == totalStoredEvents
+          ? _value.totalStoredEvents
+          : totalStoredEvents // ignore: cast_nullable_to_non_nullable
+              as int,
+      validEvents: null == validEvents
+          ? _value.validEvents
+          : validEvents // ignore: cast_nullable_to_non_nullable
+              as int,
+      knownEvents: null == knownEvents
+          ? _value.knownEvents
+          : knownEvents // ignore: cast_nullable_to_non_nullable
+              as int,
+      skippedMalformedEvents: null == skippedMalformedEvents
+          ? _value.skippedMalformedEvents
+          : skippedMalformedEvents // ignore: cast_nullable_to_non_nullable
+              as int,
+      skippedUnknownContentEvents: null == skippedUnknownContentEvents
+          ? _value.skippedUnknownContentEvents
+          : skippedUnknownContentEvents // ignore: cast_nullable_to_non_nullable
+              as int,
+      lastIssueMessage: freezed == lastIssueMessage
+          ? _value.lastIssueMessage
+          : lastIssueMessage // ignore: cast_nullable_to_non_nullable
+              as String?,
+      catalogWarning: freezed == catalogWarning
+          ? _value.catalogWarning
+          : catalogWarning // ignore: cast_nullable_to_non_nullable
+              as String?,
+    ));
   }
 }
 
 /// @nodoc
 
 class _$PracticeActivityCatalogImpl extends _PracticeActivityCatalog {
-  const _$PracticeActivityCatalogImpl({
-    required this.installationId,
-    required final List<PracticeCatalogSpaceSummary> spaces,
-    required final List<PracticeCatalogActivitySummary> activities,
-    required this.totalStoredEvents,
-    required this.validEvents,
-    required this.knownEvents,
-    required this.skippedMalformedEvents,
-    required this.skippedUnknownContentEvents,
-    this.lastIssueMessage,
-    this.catalogWarning,
-  }) : _spaces = spaces,
-       _activities = activities,
-       super._();
+  const _$PracticeActivityCatalogImpl(
+      {required this.installationId,
+      required final List<PracticeCatalogSpaceSummary> spaces,
+      required final List<PracticeCatalogActivitySummary> activities,
+      required this.totalStoredEvents,
+      required this.validEvents,
+      required this.knownEvents,
+      required this.skippedMalformedEvents,
+      required this.skippedUnknownContentEvents,
+      this.lastIssueMessage,
+      this.catalogWarning})
+      : _spaces = spaces,
+        _activities = activities,
+        super._();
 
   @override
   final String? installationId;
@@ -1421,10 +1353,8 @@ class _$PracticeActivityCatalogImpl extends _PracticeActivityCatalog {
             (identical(other.installationId, installationId) ||
                 other.installationId == installationId) &&
             const DeepCollectionEquality().equals(other._spaces, _spaces) &&
-            const DeepCollectionEquality().equals(
-              other._activities,
-              _activities,
-            ) &&
+            const DeepCollectionEquality()
+                .equals(other._activities, _activities) &&
             (identical(other.totalStoredEvents, totalStoredEvents) ||
                 other.totalStoredEvents == totalStoredEvents) &&
             (identical(other.validEvents, validEvents) ||
@@ -1433,10 +1363,8 @@ class _$PracticeActivityCatalogImpl extends _PracticeActivityCatalog {
                 other.knownEvents == knownEvents) &&
             (identical(other.skippedMalformedEvents, skippedMalformedEvents) ||
                 other.skippedMalformedEvents == skippedMalformedEvents) &&
-            (identical(
-                  other.skippedUnknownContentEvents,
-                  skippedUnknownContentEvents,
-                ) ||
+            (identical(other.skippedUnknownContentEvents,
+                    skippedUnknownContentEvents) ||
                 other.skippedUnknownContentEvents ==
                     skippedUnknownContentEvents) &&
             (identical(other.lastIssueMessage, lastIssueMessage) ||
@@ -1447,42 +1375,38 @@ class _$PracticeActivityCatalogImpl extends _PracticeActivityCatalog {
 
   @override
   int get hashCode => Object.hash(
-    runtimeType,
-    installationId,
-    const DeepCollectionEquality().hash(_spaces),
-    const DeepCollectionEquality().hash(_activities),
-    totalStoredEvents,
-    validEvents,
-    knownEvents,
-    skippedMalformedEvents,
-    skippedUnknownContentEvents,
-    lastIssueMessage,
-    catalogWarning,
-  );
+      runtimeType,
+      installationId,
+      const DeepCollectionEquality().hash(_spaces),
+      const DeepCollectionEquality().hash(_activities),
+      totalStoredEvents,
+      validEvents,
+      knownEvents,
+      skippedMalformedEvents,
+      skippedUnknownContentEvents,
+      lastIssueMessage,
+      catalogWarning);
 
   @JsonKey(ignore: true)
   @override
   @pragma('vm:prefer-inline')
   _$$PracticeActivityCatalogImplCopyWith<_$PracticeActivityCatalogImpl>
-  get copyWith =>
-      __$$PracticeActivityCatalogImplCopyWithImpl<
-        _$PracticeActivityCatalogImpl
-      >(this, _$identity);
+      get copyWith => __$$PracticeActivityCatalogImplCopyWithImpl<
+          _$PracticeActivityCatalogImpl>(this, _$identity);
 }
 
 abstract class _PracticeActivityCatalog extends PracticeActivityCatalog {
-  const factory _PracticeActivityCatalog({
-    required final String? installationId,
-    required final List<PracticeCatalogSpaceSummary> spaces,
-    required final List<PracticeCatalogActivitySummary> activities,
-    required final int totalStoredEvents,
-    required final int validEvents,
-    required final int knownEvents,
-    required final int skippedMalformedEvents,
-    required final int skippedUnknownContentEvents,
-    final String? lastIssueMessage,
-    final String? catalogWarning,
-  }) = _$PracticeActivityCatalogImpl;
+  const factory _PracticeActivityCatalog(
+      {required final String? installationId,
+      required final List<PracticeCatalogSpaceSummary> spaces,
+      required final List<PracticeCatalogActivitySummary> activities,
+      required final int totalStoredEvents,
+      required final int validEvents,
+      required final int knownEvents,
+      required final int skippedMalformedEvents,
+      required final int skippedUnknownContentEvents,
+      final String? lastIssueMessage,
+      final String? catalogWarning}) = _$PracticeActivityCatalogImpl;
   const _PracticeActivityCatalog._() : super._();
 
   @override
@@ -1508,5 +1432,5 @@ abstract class _PracticeActivityCatalog extends PracticeActivityCatalog {
   @override
   @JsonKey(ignore: true)
   _$$PracticeActivityCatalogImplCopyWith<_$PracticeActivityCatalogImpl>
-  get copyWith => throw _privateConstructorUsedError;
+      get copyWith => throw _privateConstructorUsedError;
 }

@@ -41,14 +41,22 @@ class CarePathRepository {
         starterActivityId: starterActivityId,
       );
       final activitySummary = continuity.recommendedActivity;
-      final activity = await _practiceRepository.getActivitySnapshot(
-        spaceId: activitySummary.spaceId,
-        activityId: activitySummary.activityId,
-      );
-      final resumeInfo = await _practiceRepository.getResumeInfo(
-        spaceId: activitySummary.spaceId,
-        activityId: activitySummary.activityId,
-      );
+      final activity = activitySummary.generatedContentId == null
+          ? await _practiceRepository.getActivitySnapshot(
+              spaceId: activitySummary.spaceId,
+              activityId: activitySummary.activityId,
+            )
+          : await _practiceRepository.getGeneratedActivitySnapshot(
+              generatedContentId: activitySummary.generatedContentId!,
+            );
+      final resumeInfo = activitySummary.generatedContentId == null
+          ? await _practiceRepository.getResumeInfo(
+              spaceId: activitySummary.spaceId,
+              activityId: activitySummary.activityId,
+            )
+          : await _practiceRepository.getGeneratedResumeInfo(
+              generatedContentId: activitySummary.generatedContentId!,
+            );
 
       final snapshot = _buildTurnSnapshot(
         activity: activity,
@@ -123,9 +131,8 @@ class CarePathRepository {
       final activity = await _practiceRepository.getGeneratedActivitySnapshot(
         generatedContentId: generatedContentId,
       );
-      final resumeInfo = await _practiceRepository.getResumeInfo(
-        spaceId: activity.spaceId,
-        activityId: activity.activityId,
+      final resumeInfo = await _practiceRepository.getGeneratedResumeInfo(
+        generatedContentId: generatedContentId,
       );
       final snapshot = _buildTurnSnapshot(
         activity: activity,
@@ -168,6 +175,19 @@ class CarePathRepository {
         failureKind: CareTurnFailureKind.reactionRejected,
       );
     }
+    final isGenerated =
+        turn.moment.contentSource == PracticeContentSource.generated;
+    final generatedAudio = utterance.audioSource;
+    if (isGenerated &&
+        (turn.moment.generatedContentId == null ||
+            generatedAudio is! GeneratedCareAudioSource)) {
+      return turn.copyWith(
+        phase: CareTurnPhase.heldWithFallback,
+        selectedReaction: reactionType,
+        message: '当前照护内容缺少可核验 identity，未写入回应。',
+        failureKind: CareTurnFailureKind.reactionRejected,
+      );
+    }
 
     try {
       final event = await _practiceRepository.recordReaction(
@@ -175,12 +195,14 @@ class CarePathRepository {
         activityId: turn.moment.activityId,
         phraseId: utterance.phraseId,
         reactionType: reactionType,
+        generatedContentId: isGenerated ? turn.moment.generatedContentId : null,
+        utteranceId: isGenerated
+            ? (generatedAudio as GeneratedCareAudioSource).utteranceId
+            : null,
         clientTimestamp: clientTimestamp,
         localEventId: localEventId,
       );
       await _onReactionRecorded?.call(event);
-      final isGenerated =
-          turn.moment.contentSource == PracticeContentSource.generated;
       late final CareUtterance? nextSupport;
       String? nextMessage;
       if (isGenerated) {
@@ -289,15 +311,34 @@ class CarePathRepository {
     InteractionEventPayload event,
   ) async {
     try {
-      final catalog = await _practiceRepository.getActivityCatalog();
-      final summary = catalog.findActivity(
-        spaceId: event.spaceId,
-        activityId: event.activityId,
-      );
-      final activity = await _practiceRepository.getActivitySnapshot(
-        spaceId: event.spaceId,
-        activityId: event.activityId,
-      );
+      final isGenerated = event.generatedContentId != null;
+      final summary = isGenerated
+          ? null
+          : (await _practiceRepository.getActivityCatalog()).findActivity(
+              spaceId: event.spaceId,
+              activityId: event.activityId,
+            );
+      final activity = isGenerated
+          ? await _practiceRepository.getGeneratedActivitySnapshot(
+              generatedContentId: event.generatedContentId!,
+            )
+          : await _practiceRepository.getActivitySnapshot(
+              spaceId: event.spaceId,
+              activityId: event.activityId,
+            );
+      if (isGenerated &&
+          (activity.spaceId != event.spaceId ||
+              activity.activityId != event.activityId ||
+              activity.generatedContentId != event.generatedContentId ||
+              activity.utteranceIdForPhrase(event.phraseId) !=
+                  event.utteranceId)) {
+        return _unavailableSnapshot(
+          spaceId: event.spaceId,
+          activityId: event.activityId,
+          generatedContentId: event.generatedContentId,
+          message: '刚才的照护记录已保存，但内容 identity 无法核验。',
+        );
+      }
       final utterance = _utteranceForPhrase(
         activity: activity,
         phraseId: event.phraseId,
@@ -311,10 +352,29 @@ class CarePathRepository {
         );
       }
 
-      final nextTurn = await startMoment(
-        spaceId: event.spaceId,
-        activityId: event.activityId,
+      final generatedTurn = CareTurnSnapshot(
+        moment: _buildMoment(
+          activity: activity,
+          summary: summary,
+          nodeState: CarePathNodeState.current,
+        ),
+        currentUtterance: utterance,
+        selectedReaction: event.reactionType,
+        nextSupportUtterance: null,
+        phase: CareTurnPhase.reactionPrompt,
+        traceEventKey: event.eventKey,
+        latestGardenImpact: null,
+        message: null,
       );
+      final nextSupport = isGenerated
+          ? await _loadGeneratedReactionSupport(
+              turn: generatedTurn,
+              reactionType: event.reactionType,
+            )
+          : (await startMoment(
+              spaceId: event.spaceId,
+              activityId: event.activityId,
+            )).currentUtterance;
       final latestGardenImpact = await _loadLatestGardenImpact();
       return CareTurnSnapshot(
         moment: _buildMoment(
@@ -324,15 +384,13 @@ class CarePathRepository {
         ),
         currentUtterance: utterance,
         selectedReaction: event.reactionType,
-        nextSupportUtterance: nextTurn.currentUtterance,
-        phase: nextTurn.currentUtterance == null
+        nextSupportUtterance: nextSupport,
+        phase: nextSupport == null
             ? CareTurnPhase.heldWithFallback
             : CareTurnPhase.nextSupportReady,
         traceEventKey: event.eventKey,
         latestGardenImpact: latestGardenImpact,
-        message: nextTurn.currentUtterance == null
-            ? '刚才这句话已经记下了。下一句暂时没有准备好，先这样就好。'
-            : nextTurn.message,
+        message: nextSupport == null ? '刚才这句话已经记下了。下一句暂时没有准备好，先这样就好。' : null,
       );
     } catch (_) {
       return _unavailableSnapshot(

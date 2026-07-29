@@ -35,6 +35,7 @@ class PracticeCatalogActivitySummary with _$PracticeCatalogActivitySummary {
     required int totalEvents,
     required int skippedUnknownPhraseCount,
     required int skippedMalformedEventCount,
+    String? generatedContentId,
     DateTime? lastEventTime,
     PracticeCatalogRecentResultSummary? recentResult,
     String? warningMessage,

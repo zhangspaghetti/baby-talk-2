@@ -16,7 +16,7 @@ class GardenContinueCard extends StatelessWidget {
     required this.continuityActivity,
   });
 
-  final PracticeRouteArgs? practiceArgs;
+  final PracticeRouteTarget? practiceArgs;
   final PracticeContinuityNotifier? continuityNotifier;
   final PracticeContinuitySnapshot? continuitySnapshot;
   final PracticeActivitySnapshot? continuityActivity;

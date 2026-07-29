@@ -78,7 +78,7 @@ class _GardenGrowthCombinedScreenState
     final shareNotifier = ref.watch(shareNotifierProvider);
     final continuitySnapshot = continuityNotifier.snapshot;
     final continuityActivity = continuityNotifier.activitySnapshot;
-    final practiceArgs = continuityNotifier.recommendedArgs;
+    final practiceArgs = continuityNotifier.recommendedRoute;
 
     // Shared context
     final sharedContext = householdNotifier.snapshot.sharedContext;

@@ -34,5 +34,38 @@ void main() {
         );
       }
     });
+
+    test('generated interaction identity is complete and immutable', () {
+      expect(
+        () => InteractionEventPayload.validated(
+          localEventId: 'evt_generated_incomplete',
+          installationId: 'install_test',
+          spaceId: 'generated_space',
+          activityId: 'generated_activity',
+          phraseId: 'phrase_starter',
+          reactionType: BabyReactionType.hesitant,
+          clientTimestamp: DateTime.utc(2026, 7, 29),
+          generatedContentId: 'generated_1',
+        ),
+        throwsFormatException,
+      );
+
+      final payload = InteractionEventPayload.validated(
+        localEventId: 'evt_generated_complete',
+        installationId: 'install_test',
+        spaceId: 'generated_space',
+        activityId: 'generated_activity',
+        phraseId: 'phrase_starter',
+        reactionType: BabyReactionType.hesitant,
+        clientTimestamp: DateTime.utc(2026, 7, 29),
+        generatedContentId: 'generated_1',
+        utteranceId: 'utterance_starter',
+      );
+
+      expect(payload.generatedContentId, 'generated_1');
+      expect(payload.utteranceId, 'utterance_starter');
+      expect(payload.reactionType.wireValue, 'hesitant');
+      expect(payload.toFactMap()['generatedContentId'], 'generated_1');
+    });
   });
 }
