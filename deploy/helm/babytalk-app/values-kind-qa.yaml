@@ -83,7 +83,7 @@ config:
   BABY_TALK_MENTOR_PROVIDER_MODE: "openai"
   BABY_TALK_MENTOR_PROVIDER_TIMEOUT: "PT20S"
   BABY_TALK_AI_BASE_URL: "https://dashscope.aliyuncs.com/compatible-mode"
-  BABY_TALK_AI_MODEL: "qwen3.6-flash"
+  BABY_TALK_AI_MODEL: "glm-5.2"
   BABY_TALK_AI_TEMPERATURE: "0.5"
   BABY_TALK_AI_MAX_TOKENS: "65536"
 
