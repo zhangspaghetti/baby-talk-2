@@ -25,7 +25,9 @@ void main() {
       final output = AudioplayersCareAudioOutput();
 
       try {
+        var sessionId = 0;
         for (final assetPath in _controlledMp3Assets) {
+          final expectedSessionId = ++sessionId;
           final asset = await rootBundle.load(assetPath);
           final bytes = Uint8List.view(
             asset.buffer,
@@ -36,8 +38,12 @@ void main() {
             const Duration(seconds: 15),
           );
 
-          await output.playBytes(bytes, 'audio/mpeg');
-          await completed;
+          await output.playBytes(
+            bytes,
+            'audio/mpeg',
+            sessionId: expectedSessionId,
+          );
+          expect((await completed).sessionId, expectedSessionId);
         }
       } finally {
         await output.dispose();
@@ -72,9 +78,12 @@ void main() {
             const Duration(seconds: 15),
           );
           final playing = controller.play(
-            const GeneratedCareAudioSource(
-              generatedContentId: 'pgc_controlled_network_1',
-              utteranceId: 'utt_controlled_network_1',
+            const CareAudioPlaybackRequest(
+              source: GeneratedCareAudioSource(
+                generatedContentId: 'pgc_controlled_network_1',
+                utteranceId: 'utt_controlled_network_1',
+              ),
+              sessionId: 1,
             ),
           );
           final inbound = await inboundRequest;
@@ -106,7 +115,7 @@ void main() {
           await inbound.response.close();
 
           await playing;
-          await completed;
+          expect((await completed).sessionId, 1);
         } finally {
           await controller.dispose();
           api.close();
