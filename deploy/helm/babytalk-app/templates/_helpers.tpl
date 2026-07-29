@@ -89,6 +89,11 @@ Create the name of the shared Secret.
 {{- printf "%s-shared-secret" (include "babytalk-app.fullname" .) | trunc 63 | trimSuffix "-" -}}
 {{- end }}
 
+{{/* Create the dedicated Practice discovery owner-key Secret name. */}}
+{{- define "babytalk-app.practiceDiscoveryOwnerKeySecretName" -}}
+{{- printf "%s-practice-discovery-owner-key" (include "babytalk-app.fullname" .) | trunc 63 | trimSuffix "-" -}}
+{{- end }}
+
 {{/* Create the name of the dedicated Practice AI runtime ConfigMap. */}}
 {{- define "babytalk-app.practiceAiRuntimeConfigMapName" -}}
 {{- printf "%s-practice-ai-runtime" (include "babytalk-app.fullname" .) | trunc 63 | trimSuffix "-" -}}

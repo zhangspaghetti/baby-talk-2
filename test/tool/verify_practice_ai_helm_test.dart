@@ -38,7 +38,7 @@ void main() {
       }
     });
 
-    test('requires agentic runtime shared owner-key secret only', () {
+    test('requires an agentic runtime dedicated owner-key Secret only', () {
       final missingOwnerKey = agenticManifest.replaceFirst(
         '  BABY_TALK_PRACTICE_DISCOVERY_OWNER_KEY_SECRET: '
             '"dGVzdC1vd25lci1rZXktc2VjcmV0LXRlc3Qtb3duZXIta2V5"\n',
@@ -54,16 +54,59 @@ void main() {
       );
       expect(
         () => practiceAi.verifyRenderedPracticeAiManifest(
-          fakeManifest.replaceFirst(
-            '          env:\n            - name: SPRING_CONFIG_ADDITIONAL_LOCATION',
-            '          env:\n'
-                '            - name: SPRING_PROFILES_ACTIVE\n'
-                '              value: dev\n'
-                '            - name: SPRING_CONFIG_ADDITIONAL_LOCATION',
-          ),
+          fakeManifest,
           profile: practiceAi.PracticeAiHelmProfile.kindFake,
         ),
         returnsNormally,
+      );
+    });
+
+    test('rejects an owner-key Secret from a non-agentic manifest', () {
+      final nonAgenticOwnerKey = fakeManifest.replaceFirst(
+        '---\napiVersion: apps/v1\nkind: Deployment',
+        '---\napiVersion: v1\nkind: Secret\nmetadata:\n'
+            '  name: practice-discovery-owner-key\n'
+            'type: Opaque\n'
+            'data:\n'
+            '  BABY_TALK_PRACTICE_DISCOVERY_OWNER_KEY_SECRET: '
+            '"dGVzdC1vd25lci1rZXktc2VjcmV0LXRlc3Qtb3duZXIta2V5"\n'
+            '---\napiVersion: apps/v1\nkind: Deployment',
+      );
+
+      expect(
+        () => practiceAi.verifyRenderedPracticeAiManifest(
+          nonAgenticOwnerKey,
+          profile: practiceAi.PracticeAiHelmProfile.kindFake,
+        ),
+        throwsA(isA<practiceAi.PracticeAiHelmVerificationException>()),
+      );
+    });
+
+    test('rejects owner-key Secret references outside app-api', () {
+      final nonAppApiReference = agenticManifest.replaceFirst(
+        '---\napiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: app-api',
+        '---\napiVersion: apps/v1\nkind: Deployment\nmetadata:\n'
+            '  name: gateway\n'
+            '  labels:\n'
+            '    app.kubernetes.io/component: gateway\n'
+            'spec:\n'
+            '  template:\n'
+            '    spec:\n'
+            '      containers:\n'
+            '        - name: gateway\n'
+            '          envFrom:\n'
+            '            - secretRef:\n'
+            '                name: practice-discovery-owner-key\n'
+            '---\napiVersion: apps/v1\nkind: Deployment\nmetadata:\n'
+            '  name: app-api',
+      );
+
+      expect(
+        () => practiceAi.verifyRenderedPracticeAiManifest(
+          nonAppApiReference,
+          profile: practiceAi.PracticeAiHelmProfile.agenticQa,
+        ),
+        throwsA(isA<practiceAi.PracticeAiHelmVerificationException>()),
       );
     });
 
@@ -338,7 +381,7 @@ data:
 apiVersion: v1
 kind: Secret
 metadata:
-  name: shared-secret
+  name: practice-discovery-owner-key
 type: Opaque
 data:
   BABY_TALK_PRACTICE_DISCOVERY_OWNER_KEY_SECRET: "dGVzdC1vd25lci1rZXktc2VjcmV0LXRlc3Qtb3duZXIta2V5"
@@ -374,9 +417,11 @@ spec:
                 secretKeyRef:
                   name: practice-ai-secret
                   key: BABY_TALK_AI_PROVIDER_DASHSCOPE_QWEN_API_KEY
-          envFrom:
-            - secretRef:
-                name: shared-secret
+            - name: BABY_TALK_PRACTICE_DISCOVERY_OWNER_KEY_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: practice-discovery-owner-key
+                  key: BABY_TALK_PRACTICE_DISCOVERY_OWNER_KEY_SECRET
           volumeMounts:
             - name: practice-ai-runtime
               mountPath: /config/practice-ai-runtime.yml
@@ -427,6 +472,8 @@ spec:
       containers:
         - name: app-api
           env:
+            - name: SPRING_PROFILES_ACTIVE
+              value: dev
             - name: SPRING_CONFIG_ADDITIONAL_LOCATION
               value: /config/practice-ai-runtime.yml
           volumeMounts:

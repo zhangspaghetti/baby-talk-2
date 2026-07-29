@@ -519,48 +519,70 @@ void _verifyAgenticOwnerKeySecret(
   PracticeAiHelmProfile profile,
 ) {
   if (!profile.needsAgenticRoutes) {
+    if (documents.any(
+      (document) => document.contains(_ownerKeySecretEnvironmentVariable),
+    )) {
+      _fail(
+        'Non-agentic manifests must not render $_ownerKeySecretEnvironmentVariable.',
+      );
+    }
     return;
   }
 
-  final sharedSecretReferences = RegExp(
-    r'^\s*- secretRef:\s*\r?\n\s*name: ([^\s#]+)\s*$',
+  final ownerKeyReferences = RegExp(
+    '^\\s*- name: ${RegExp.escape(_ownerKeySecretEnvironmentVariable)}\\s*\\r?\\n'
+    r'\s*valueFrom:\s*\r?\n'
+    r'\s*secretKeyRef:\s*\r?\n'
+    r'\s*name: ([^\s#]+)\s*\r?\n'
+    '^\\s*key: ${RegExp.escape(_ownerKeySecretEnvironmentVariable)}\\s*\$',
     multiLine: true,
   ).allMatches(appApi).toList(growable: false);
-  if (sharedSecretReferences.length != 1) {
+  if (ownerKeyReferences.length != 1) {
     _fail(
-      'Agentic app-api must reference exactly one shared Secret via envFrom.',
+      'Agentic app-api must map $_ownerKeySecretEnvironmentVariable from one dedicated Secret.',
     );
   }
-  final sharedSecretName = sharedSecretReferences.single.group(1)!;
-  final sharedSecretDocuments = documents
+  final ownerKeySecretName = ownerKeyReferences.single.group(1)!;
+  if (RegExp(
+    '^\\s*- secretRef:\s*\\r?\\n\\s*name: ${RegExp.escape(ownerKeySecretName)}\\s*\$',
+    multiLine: true,
+  ).hasMatch(appApi)) {
+    _fail(
+      'Agentic app-api must not use envFrom for $_ownerKeySecretEnvironmentVariable.',
+    );
+  }
+  final ownerKeySecretDocuments = documents
       .where(
         (document) =>
             _kindOf(document) == 'Secret' &&
-            _metadataName(document) == sharedSecretName,
+            _metadataName(document) == ownerKeySecretName,
       )
       .toList(growable: false);
-  if (sharedSecretDocuments.length != 1) {
-    _fail('Agentic shared Secret $sharedSecretName must render exactly once.');
+  if (ownerKeySecretDocuments.length != 1) {
+    _fail(
+      'Agentic owner-key Secret $ownerKeySecretName must render exactly once.',
+    );
   }
-  final sharedSecret = sharedSecretDocuments.single;
+  final ownerKeySecret = ownerKeySecretDocuments.single;
   if (!RegExp(
     '^  ${RegExp.escape(_ownerKeySecretEnvironmentVariable)}: '
     '(?:[A-Za-z0-9+/]+={0,2}|"[A-Za-z0-9+/]+={0,2}")\\s*\$',
     multiLine: true,
-  ).hasMatch(sharedSecret)) {
+  ).hasMatch(ownerKeySecret)) {
     _fail(
-      'Agentic shared Secret must render $_ownerKeySecretEnvironmentVariable.',
+      'Agentic owner-key Secret must render $_ownerKeySecretEnvironmentVariable.',
     );
   }
   for (final document in documents.where(
-    (document) => document != sharedSecret,
+    (document) => document != appApi && document != ownerKeySecret,
   )) {
-    if (document.contains(_ownerKeySecretEnvironmentVariable)) {
+    if (document.contains(_ownerKeySecretEnvironmentVariable) ||
+        document.contains(ownerKeySecretName)) {
       final kind = _kindOf(document) ?? 'unknown';
       final name = _metadataName(document) ?? 'unnamed';
       _fail(
         '$_ownerKeySecretEnvironmentVariable must not appear outside '
-        'Secret/$sharedSecretName; found on $kind/$name.',
+        'app-api and Secret/$ownerKeySecretName; found on $kind/$name.',
       );
     }
   }

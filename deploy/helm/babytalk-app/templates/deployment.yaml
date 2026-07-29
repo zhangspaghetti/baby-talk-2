@@ -53,6 +53,11 @@ spec:
             {{- end }}
             {{- if eq .Values.practiceAi.providerMode "agentic" }}
             {{- $practiceAiSecretName := default (include "babytalk-app.practiceAiSecretName" .) .Values.practiceAi.secret.existingSecret }}
+            - name: BABY_TALK_PRACTICE_DISCOVERY_OWNER_KEY_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "babytalk-app.practiceDiscoveryOwnerKeySecretName" . }}
+                  key: BABY_TALK_PRACTICE_DISCOVERY_OWNER_KEY_SECRET
             {{- range $providerName, $provider := .Values.practiceAi.providers }}
             - name: {{ required (printf "provider %s apiKeyEnvironmentVariable is required" $providerName) $provider.apiKeyEnvironmentVariable }}
               valueFrom:
