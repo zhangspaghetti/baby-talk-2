@@ -13,15 +13,19 @@ One scene-specific care-content unit containing one starter and five reaction-ma
 _Avoid_: starter bundle, fixed support bundle
 
 **Bundle Activation**:
-State in which a Complete Generated Bundle is eligible for registration and use because each of its six utterances passed deterministic safety validation. A terminal violation in any utterance prevents activation of the entire bundle.
+State in which all six utterances passed final deterministic validation, the complete bundle received an application-computed passing Judge verdict, and valid activation provenance was recorded. A terminal violation rejects the bundle without Repair or Judge; a repairable violation requires complete-bundle Repair and revalidation before activation remains possible.
 _Avoid_: starter-only validation, partial activation
+
+**Generated Output Violation Policy**:
+Approved classification of deterministic output violations into terminal and repairable outcomes. Terminal codes reject without Repair or Judge; repairable codes require complete-bundle Repair, final validation, complete-bundle Judge, and an application-computed effective PASS before activation.
+_Avoid_: test-defined safety semantics, implicit repairability
 
 **Custom-scene Recovery Coordinator**:
 App-level owner that discovers and restores durable custom-scene work after authentication is stable, including routing an approved handoff. Input screens render recovered state and text but do not independently initiate restoration.
 _Avoid_: page-owned restore, multiple recovery owners
 
 **Handoff Confirmation**:
-Matching acknowledgement emitted only after a Care Turn destination resolves registered content and makes its starter utterance interactive. It is the sole event that permits a Custom-scene Recovery Coordinator to complete and remove a ready-for-handoff intent.
+Matching acknowledgement emitted only after a Care Turn destination resolves registered content and makes its starter utterance interactive. It is the sole successful-completion signal that permits a Custom-scene Recovery Coordinator to complete and remove a ready-for-handoff intent; before it, explicit user abandonment with a second confirmation can cancel the pending intent without treating handoff as successful.
 _Avoid_: navigation started, `GoRouter.push()` completion, page return
 
 **Ready-for-Handoff UI**:
