@@ -38,6 +38,35 @@ void main() {
       }
     });
 
+    test('requires agentic runtime shared owner-key secret only', () {
+      final missingOwnerKey = agenticManifest.replaceFirst(
+        '  BABY_TALK_PRACTICE_DISCOVERY_OWNER_KEY_SECRET: '
+            '"dGVzdC1vd25lci1rZXktc2VjcmV0LXRlc3Qtb3duZXIta2V5"\n',
+        '',
+      );
+
+      expect(
+        () => practiceAi.verifyRenderedPracticeAiManifest(
+          missingOwnerKey,
+          profile: practiceAi.PracticeAiHelmProfile.agenticQa,
+        ),
+        throwsA(isA<practiceAi.PracticeAiHelmVerificationException>()),
+      );
+      expect(
+        () => practiceAi.verifyRenderedPracticeAiManifest(
+          fakeManifest.replaceFirst(
+            '          env:\n            - name: SPRING_CONFIG_ADDITIONAL_LOCATION',
+            '          env:\n'
+                '            - name: SPRING_PROFILES_ACTIVE\n'
+                '              value: dev\n'
+                '            - name: SPRING_CONFIG_ADDITIONAL_LOCATION',
+          ),
+          profile: practiceAi.PracticeAiHelmProfile.kindFake,
+        ),
+        returnsNormally,
+      );
+    });
+
     test('rejects provider routes that are duplicate or unknown', () {
       expect(
         () => practiceAi.verifyRenderedPracticeAiManifest(
@@ -309,6 +338,14 @@ data:
 apiVersion: v1
 kind: Secret
 metadata:
+  name: shared-secret
+type: Opaque
+data:
+  BABY_TALK_PRACTICE_DISCOVERY_OWNER_KEY_SECRET: "dGVzdC1vd25lci1rZXktc2VjcmV0LXRlc3Qtb3duZXIta2V5"
+---
+apiVersion: v1
+kind: Secret
+metadata:
   name: practice-ai-secret
 type: Opaque
 data:
@@ -337,6 +374,9 @@ spec:
                 secretKeyRef:
                   name: practice-ai-secret
                   key: BABY_TALK_AI_PROVIDER_DASHSCOPE_QWEN_API_KEY
+          envFrom:
+            - secretRef:
+                name: shared-secret
           volumeMounts:
             - name: practice-ai-runtime
               mountPath: /config/practice-ai-runtime.yml

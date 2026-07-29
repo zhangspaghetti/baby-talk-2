@@ -7,6 +7,8 @@ const _requiredCapabilities = <String>{
   'custom-scene-quality-judge',
   'custom-scene-repair',
 };
+const _ownerKeySecretEnvironmentVariable =
+    'BABY_TALK_PRACTICE_DISCOVERY_OWNER_KEY_SECRET';
 
 enum PracticeAiHelmProfile { disabledDefault, kindFake, agenticQa, production }
 
@@ -498,6 +500,7 @@ void verifyRenderedPracticeAiManifest(
   }
   final appApi = appApiDocuments.single;
   _verifyRuntimeMount(appApi, runtimeConfigMapName, profile);
+  _verifyAgenticOwnerKeySecret(documents, appApi, profile);
 
   _verifyCredentialIsolation(
     documents,
@@ -508,6 +511,59 @@ void verifyRenderedPracticeAiManifest(
     profile: profile,
   );
   _verifyNoPlaintextCredentialLeak(documents, forbiddenCredentialValues);
+}
+
+void _verifyAgenticOwnerKeySecret(
+  List<String> documents,
+  String appApi,
+  PracticeAiHelmProfile profile,
+) {
+  if (!profile.needsAgenticRoutes) {
+    return;
+  }
+
+  final sharedSecretReferences = RegExp(
+    r'^\s*- secretRef:\s*\r?\n\s*name: ([^\s#]+)\s*$',
+    multiLine: true,
+  ).allMatches(appApi).toList(growable: false);
+  if (sharedSecretReferences.length != 1) {
+    _fail(
+      'Agentic app-api must reference exactly one shared Secret via envFrom.',
+    );
+  }
+  final sharedSecretName = sharedSecretReferences.single.group(1)!;
+  final sharedSecretDocuments = documents
+      .where(
+        (document) =>
+            _kindOf(document) == 'Secret' &&
+            _metadataName(document) == sharedSecretName,
+      )
+      .toList(growable: false);
+  if (sharedSecretDocuments.length != 1) {
+    _fail('Agentic shared Secret $sharedSecretName must render exactly once.');
+  }
+  final sharedSecret = sharedSecretDocuments.single;
+  if (!RegExp(
+    '^  ${RegExp.escape(_ownerKeySecretEnvironmentVariable)}: '
+    '(?:[A-Za-z0-9+/]+={0,2}|"[A-Za-z0-9+/]+={0,2}")\\s*\$',
+    multiLine: true,
+  ).hasMatch(sharedSecret)) {
+    _fail(
+      'Agentic shared Secret must render $_ownerKeySecretEnvironmentVariable.',
+    );
+  }
+  for (final document in documents.where(
+    (document) => document != sharedSecret,
+  )) {
+    if (document.contains(_ownerKeySecretEnvironmentVariable)) {
+      final kind = _kindOf(document) ?? 'unknown';
+      final name = _metadataName(document) ?? 'unnamed';
+      _fail(
+        '$_ownerKeySecretEnvironmentVariable must not appear outside '
+        'Secret/$sharedSecretName; found on $kind/$name.',
+      );
+    }
+  }
 }
 
 void _verifyCustomSceneProviderMode(
