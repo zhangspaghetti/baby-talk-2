@@ -721,10 +721,7 @@ void main() {
           (space) => space.spaceId == 'generated_${first.generatedContentId}',
         );
         expect(generatedGardenPatch.completedActivityCount, 0);
-        expect(
-          generatedGardenPatch.activities.single.completedPhraseCount,
-          0,
-        );
+        expect(generatedGardenPatch.activities.single.completedPhraseCount, 0);
         expect(
           gardenSnapshot.milestones.where((milestone) => milestone.isAchieved),
           isEmpty,

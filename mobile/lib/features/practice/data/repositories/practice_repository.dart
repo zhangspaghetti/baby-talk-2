@@ -369,15 +369,12 @@ class PracticeRepository {
       } catch (error) {
         skippedMalformedEvents += 1;
         lastIssueMessage = '$error';
-        activityStates[_CatalogActivityKey(
-              entity.spaceId,
-              entity.activityId,
-            )]
+        activityStates[_CatalogActivityKey(entity.spaceId, entity.activityId)]
             ?.recordMalformed(
-          localEventId: entity.localEventId,
-          clientTimestamp: entity.clientTimestamp,
-          message: '$error',
-        );
+              localEventId: entity.localEventId,
+              clientTimestamp: entity.clientTimestamp,
+              message: '$error',
+            );
       }
     }
 
