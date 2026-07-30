@@ -41,8 +41,8 @@ main() {
     if ((${#mobile_relative_paths[@]} > 0)); then
       (
         cd mobile
-        dart format --output=none --set-exit-if-changed \
-          "${mobile_relative_paths[@]}"
+        printf '%s\0' "${mobile_relative_paths[@]}" |
+          xargs -0 -n 50 dart format --output=none --set-exit-if-changed
       ) || fail 'Dart files changed since the M1 base are not format-clean'
     fi
   fi
