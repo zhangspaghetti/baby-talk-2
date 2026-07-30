@@ -1,9 +1,21 @@
+import 'dart:io';
+
 import 'package:test/test.dart';
 
 import '../../tool/verify_practice_ai_helm.dart' as practiceAi;
 
+const _publicAgenticOwnerKeyPlaceholder =
+    'm2-public-agentic-owner-key-placeholder-0123456789';
+
 void main() {
   group('Practice AI Helm verifier', () {
+    test(
+      'renders every profile with a public agentic owner-key placeholder without private overlay',
+      () async {
+        await practiceAi.verifyPracticeAiHelmRepository(Directory.current.path);
+      },
+    );
+
     test(
       'accepts agentic DashScope runtime with isolated app-api credential',
       () {
@@ -186,6 +198,42 @@ void main() {
         ),
         throwsA(isA<practiceAi.PracticeAiHelmVerificationException>()),
       );
+    });
+
+    test('rejects public agentic owner-key placeholders outside Secrets', () {
+      final configMapLeak = agenticManifest.replaceFirst(
+        'data:\n  practice-ai-runtime.yml: |',
+        'data:\n  review-owner-key: $_publicAgenticOwnerKeyPlaceholder\n'
+            '  practice-ai-runtime.yml: |',
+      );
+      final annotationLeak = agenticManifest.replaceFirst(
+        '        checksum/practice-ai-runtime: abc123\n',
+        '        checksum/practice-ai-runtime: abc123\n'
+            '        review-owner-key: $_publicAgenticOwnerKeyPlaceholder\n',
+      );
+      final environmentLeak = agenticManifest.replaceFirst(
+        '          env:\n',
+        '          env:\n'
+            '            - name: REVIEW_OWNER_KEY\n'
+            '              value: $_publicAgenticOwnerKeyPlaceholder\n',
+      );
+
+      for (final leakedManifest in <String>[
+        configMapLeak,
+        annotationLeak,
+        environmentLeak,
+      ]) {
+        expect(
+          () => practiceAi.verifyRenderedPracticeAiManifest(
+            leakedManifest,
+            profile: practiceAi.PracticeAiHelmProfile.agenticQa,
+            forbiddenCredentialValues: const {
+              _publicAgenticOwnerKeyPlaceholder,
+            },
+          ),
+          throwsA(isA<practiceAi.PracticeAiHelmVerificationException>()),
+        );
+      }
     });
 
     test(

@@ -9,6 +9,8 @@ const _requiredCapabilities = <String>{
 };
 const _ownerKeySecretEnvironmentVariable =
     'BABY_TALK_PRACTICE_DISCOVERY_OWNER_KEY_SECRET';
+const _agenticRenderOwnerKeyPlaceholder =
+    'm2-public-agentic-owner-key-placeholder-0123456789';
 
 enum PracticeAiHelmProfile { disabledDefault, kindFake, agenticQa, production }
 
@@ -103,29 +105,54 @@ Future<void> verifyPracticeAiHelmRepository(String repositoryRoot) async {
       ];
 
   for (final render in renders) {
-    final result = await Process.run(
-      'helm',
-      <String>[
-        'template',
-        'practice-ai-verify',
-        chart,
-        ...render.values.expand((path) => <String>['-f', path]),
-      ],
-      workingDirectory: root.path,
-      runInShell: false,
-    );
-    if (result.exitCode != 0) {
-      _fail(
-        'helm template for ${render.profile.name} failed: '
-        '${_trimOutput('${result.stdout}\n${result.stderr}')}',
-      );
-    }
-    verifyRenderedPracticeAiManifest(
-      result.stdout as String,
+    await _verifyPracticeAiHelmRender(
+      root: root,
+      chart: chart,
       profile: render.profile,
+      values: render.values,
       forbiddenCredentialValues: render.forbidden,
     );
   }
+}
+
+Future<void> _verifyPracticeAiHelmRender({
+  required Directory root,
+  required String chart,
+  required PracticeAiHelmProfile profile,
+  required List<String> values,
+  required Set<String> forbiddenCredentialValues,
+}) async {
+  final result = await Process.run(
+    'helm',
+    <String>[
+      'template',
+      'practice-ai-verify',
+      chart,
+      ...values.expand((path) => <String>['-f', path]),
+      if (profile.needsAgenticRoutes) ...<String>[
+        '--set-string',
+        'secret.$_ownerKeySecretEnvironmentVariable='
+            '$_agenticRenderOwnerKeyPlaceholder',
+      ],
+    ],
+    workingDirectory: root.path,
+    runInShell: false,
+  );
+  if (result.exitCode != 0) {
+    _fail(
+      'helm template for ${profile.name} failed: '
+      '${_trimOutput('${result.stdout}\n${result.stderr}')}',
+    );
+  }
+  final renderedForbiddenCredentialValues = <String>{
+    ...forbiddenCredentialValues,
+    if (profile.needsAgenticRoutes) _agenticRenderOwnerKeyPlaceholder,
+  };
+  verifyRenderedPracticeAiManifest(
+    result.stdout as String,
+    profile: profile,
+    forbiddenCredentialValues: renderedForbiddenCredentialValues,
+  );
 }
 
 void verifyBundledApplicationYaml(String yaml) {
