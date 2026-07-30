@@ -17,6 +17,8 @@ RUNBOOK="$PROJECT_ROOT/docs/runbooks/k8s-deploy.md"
 SCHEMA_MATRIX="$PROJECT_ROOT/docs/schema-compatibility-matrix.md"
 TELEMETRY_PATH="$PROJECT_ROOT/tmp/m007-s01-helm-metrics.jsonl"
 START_TS="$(date +%s)"
+AGENTIC_OWNER_KEY_PLACEHOLDER="ci-public-agentic-owner-key-placeholder-0123456789"
+AGENTIC_OWNER_KEY_HELM_SET="secret.BABY_TALK_PRACTICE_DISCOVERY_OWNER_KEY_SECRET=${AGENTIC_OWNER_KEY_PLACEHOLDER}"
 
 # ── 颜色输出 ──────────────────────────────────────────────────
 RED='\033[0;31m'
@@ -84,6 +86,34 @@ assert_not_contains() {
   else
     log_pass "$label"
   fi
+}
+
+assert_placeholder_not_in_non_secret_documents() {
+  local manifest="$1"
+  local placeholder="$2"
+  local label="$3"
+  local encoded_placeholder
+
+  encoded_placeholder="$(printf '%s' "$placeholder" | base64 | tr -d '\r\n')"
+
+  if awk -v placeholder="$placeholder" -v encoded_placeholder="$encoded_placeholder" '
+    BEGIN { in_secret = 0; leaked = 0 }
+    /^---[[:space:]]*$/ { in_secret = 0; next }
+    /^kind:[[:space:]]*Secret[[:space:]]*$/ { in_secret = 1 }
+    !in_secret && (index($0, placeholder) > 0 || index($0, encoded_placeholder) > 0) { leaked = 1 }
+    END { exit leaked }
+  ' <<<"$manifest"; then
+    log_pass "$label"
+  else
+    log_fail "$label — placeholder leaked outside Secret document"
+  fi
+}
+
+extract_helm_debug_manifest() {
+  awk '
+    /^MANIFEST:$/ { capture = 1; next }
+    capture { print }
+  ' <<<"$1"
 }
 
 assert_eq() {
@@ -346,7 +376,7 @@ echo ""
 echo "--- Step 3: helm lint (app chart, production values) ---"
 step_begin
 if [[ -f "$APP_PROD_VALUES" ]]; then
-  if "$HELM_CMD" lint "$APP_CHART_DIR" -f "$APP_PROD_VALUES" 2>&1; then
+  if "$HELM_CMD" lint "$APP_CHART_DIR" -f "$APP_PROD_VALUES" --set-string "$AGENTIC_OWNER_KEY_HELM_SET" 2>&1; then
     log_pass "helm lint (app chart, production values)"
   else
     log_fail "helm lint (app chart, production values)"
@@ -440,7 +470,7 @@ TEMPLATE_PROD=""
 RESOURCE_KEYS_PROD=""
 step_begin
 if [[ -f "$APP_PROD_VALUES" ]]; then
-  if TEMPLATE_PROD=$("$HELM_CMD" template "$APP_RELEASE_NAME" "$APP_CHART_DIR" -f "$APP_PROD_VALUES" 2>&1); then
+  if TEMPLATE_PROD=$("$HELM_CMD" template "$APP_RELEASE_NAME" "$APP_CHART_DIR" -f "$APP_PROD_VALUES" --set-string "$AGENTIC_OWNER_KEY_HELM_SET" 2>&1); then
     RESOURCE_KEYS_PROD="$(render_resource_keys "$TEMPLATE_PROD")"
 
     assert_resource_present "$RESOURCE_KEYS_PROD" "Service/${APP_RELEASE_NAME}-app-api" "production render includes Service/${APP_RELEASE_NAME}-app-api"
@@ -459,6 +489,7 @@ if [[ -f "$APP_PROD_VALUES" ]]; then
     assert_resource_absent "$RESOURCE_KEYS_PROD" "Deployment/${APP_RELEASE_NAME}" "production render rejects legacy single Deployment/${APP_RELEASE_NAME}"
     assert_resource_absent "$RESOURCE_KEYS_PROD" "Service/${APP_RELEASE_NAME}" "production render rejects legacy single Service/${APP_RELEASE_NAME}"
     assert_contains "$TEMPLATE_PROD" '"helm.sh/hook": pre-install,pre-upgrade' "production render keeps db-migration pre-install/pre-upgrade hook"
+    assert_placeholder_not_in_non_secret_documents "$TEMPLATE_PROD" "$AGENTIC_OWNER_KEY_PLACEHOLDER" "production render keeps owner-key placeholder inside Secret documents"
   else
     log_fail "helm template production — render failed"
   fi
@@ -478,10 +509,11 @@ echo "--- Step 6b: helm template app QA truth (kind QA values) ---"
 TEMPLATE_QA=""
 step_begin
 if [[ -f "$APP_QA_VALUES" ]]; then
-  if TEMPLATE_QA=$("$HELM_CMD" template "$APP_QA_RELEASE_NAME" "$APP_CHART_DIR" -f "$APP_QA_VALUES" 2>&1); then
+  if TEMPLATE_QA=$("$HELM_CMD" template "$APP_QA_RELEASE_NAME" "$APP_CHART_DIR" -f "$APP_QA_VALUES" --set-string "$AGENTIC_OWNER_KEY_HELM_SET" 2>&1); then
     assert_contains "$TEMPLATE_QA" "name: ${APP_QA_RELEASE_NAME}-practice-ai-runtime" "QA render includes Practice AI runtime ConfigMap"
     assert_contains "$TEMPLATE_QA" 'provider-mode: "agentic"' "QA render keeps agentic Practice AI provider mode"
     assert_contains "$TEMPLATE_QA" 'base-url: "https://dashscope.aliyuncs.com/compatible-mode/v1"' "QA render keeps provider base URL in runtime configuration"
+    assert_placeholder_not_in_non_secret_documents "$TEMPLATE_QA" "$AGENTIC_OWNER_KEY_PLACEHOLDER" "QA render keeps owner-key placeholder inside Secret documents"
   else
     log_fail "helm template QA — render failed"
   fi
@@ -586,7 +618,7 @@ fi
 RELEASE_NOTES_OUTPUT=""
 step_begin
 if [[ -f "$APP_PROD_VALUES" ]]; then
-  if RELEASE_NOTES_OUTPUT=$("$HELM_CMD" install "$APP_RELEASE_NAME" "$APP_CHART_DIR" -f "$APP_PROD_VALUES" --dry-run --debug 2>&1); then
+  if RELEASE_NOTES_OUTPUT=$("$HELM_CMD" install "$APP_RELEASE_NAME" "$APP_CHART_DIR" -f "$APP_PROD_VALUES" --set-string "$AGENTIC_OWNER_KEY_HELM_SET" --dry-run --debug 2>&1); then
     assert_contains "$RELEASE_NOTES_OUTPUT" "https://api.babytalk.example.com" "release notes expose consumer API via gateway"
     assert_contains "$RELEASE_NOTES_OUTPUT" "https://admin.babytalk.example.com" "release notes expose admin-web public surface"
     assert_contains "$RELEASE_NOTES_OUTPUT" "svc/${APP_RELEASE_NAME}-gateway:8090" "release notes expose gateway Spring Cloud Gateway service truth"
@@ -594,6 +626,12 @@ if [[ -f "$APP_PROD_VALUES" ]]; then
     assert_contains "$RELEASE_NOTES_OUTPUT" "svc/${APP_RELEASE_NAME}-admin-api:8081" "release notes mark admin-api as internal service truth"
     assert_contains "$RELEASE_NOTES_OUTPUT" "svc/${APP_RELEASE_NAME}-app-api:8080" "release notes mark app-api as internal service (consumer routes via gateway)"
     assert_contains "$RELEASE_NOTES_OUTPUT" "pre-install / pre-upgrade hook job ${APP_RELEASE_NAME}-db-migration" "release notes point to db-migration hook job"
+    RELEASE_MANIFEST="$(extract_helm_debug_manifest "$RELEASE_NOTES_OUTPUT")"
+    if [[ -n "$RELEASE_MANIFEST" ]]; then
+      assert_placeholder_not_in_non_secret_documents "$RELEASE_MANIFEST" "$AGENTIC_OWNER_KEY_PLACEHOLDER" "production dry-run keeps owner-key placeholder inside Secret documents"
+    else
+      log_fail "production dry-run manifest is missing for owner-key placeholder isolation"
+    fi
   else
     log_fail "helm install --dry-run --debug (production values) failed to render NOTES"
   fi
