@@ -119,6 +119,69 @@ void main() {
     expect(result.failedGate, 'clean_worktree');
     expect(invoked, ['clean_worktree']);
   });
+
+  test('Windows bash gates use the repository wrapper', () async {
+    final root = await Directory.systemTemp.createTemp(
+      'm2_13_closure_windows_wrapper_',
+    );
+    addTearDown(() => root.delete(recursive: true));
+    final wrapper = File('${root.path}${Platform.pathSeparator}bash.cmd');
+    await wrapper.writeAsString('@echo off\r\n');
+    const command = verifier.ClosureCommand('bash', [
+      'mvnw',
+      'test',
+    ], 'backend');
+
+    final execution = verifier.resolveM213ClosureCommandExecution(
+      command: command,
+      projectRoot: root.path,
+      isWindows: true,
+    );
+
+    expect(execution.executable, wrapper.path);
+    expect(execution.runInShell, isTrue);
+    expect(command.arguments, ['mvnw', 'test']);
+    expect(command.workingDirectory, 'backend');
+  });
+
+  test('bash gates retain bare executable without a Windows wrapper', () async {
+    final root = await Directory.systemTemp.createTemp(
+      'm2_13_closure_bash_fallback_',
+    );
+    addTearDown(() => root.delete(recursive: true));
+    const command = verifier.ClosureCommand('bash', ['ci/full-ci.sh'], '.');
+    const nonBashCommand = verifier.ClosureCommand(
+      'git',
+      ['status', '--porcelain'],
+      '.',
+    );
+
+    final missingWrapper = verifier.resolveM213ClosureCommandExecution(
+      command: command,
+      projectRoot: root.path,
+      isWindows: true,
+    );
+    await File(
+      '${root.path}${Platform.pathSeparator}bash.cmd',
+    ).writeAsString('@echo off\r\n');
+    final nonWindows = verifier.resolveM213ClosureCommandExecution(
+      command: command,
+      projectRoot: root.path,
+      isWindows: false,
+    );
+    final nonBash = verifier.resolveM213ClosureCommandExecution(
+      command: nonBashCommand,
+      projectRoot: root.path,
+      isWindows: true,
+    );
+
+    expect(missingWrapper.executable, 'bash');
+    expect(missingWrapper.runInShell, isFalse);
+    expect(nonWindows.executable, 'bash');
+    expect(nonWindows.runInShell, isFalse);
+    expect(nonBash.executable, 'git');
+    expect(nonBash.runInShell, isFalse);
+  });
 }
 
 String _fixturePath() =>

@@ -456,6 +456,16 @@ class ClosureCommandResult {
   final String stderr;
 }
 
+class ClosureCommandExecution {
+  const ClosureCommandExecution({
+    required this.executable,
+    required this.runInShell,
+  });
+
+  final String executable;
+  final bool runInShell;
+}
+
 typedef ClosureCommandExecutor =
     Future<ClosureCommandResult> Function(
       M213ClosureGate gate,
@@ -514,18 +524,47 @@ String _nonzeroCommandDiagnostic(
       'stderr_sha256=${sha256.convert(stderrBytes)}';
 }
 
+ClosureCommandExecution resolveM213ClosureCommandExecution({
+  required ClosureCommand command,
+  required String projectRoot,
+  bool? isWindows,
+}) {
+  final useWindowsWrapper = isWindows ?? Platform.isWindows;
+  if (command.executable != 'bash' || !useWindowsWrapper) {
+    return ClosureCommandExecution(
+      executable: command.executable,
+      runInShell: false,
+    );
+  }
+
+  final wrapper = File(
+    '${Directory(projectRoot).path}${Platform.pathSeparator}bash.cmd',
+  );
+  if (!wrapper.existsSync()) {
+    return ClosureCommandExecution(
+      executable: command.executable,
+      runInShell: false,
+    );
+  }
+  return ClosureCommandExecution(executable: wrapper.path, runInShell: true);
+}
+
 Future<ClosureCommandResult> _runProcess(
   M213ClosureGate gate,
   ClosureCommand command,
   String projectRoot,
 ) async {
+  final execution = resolveM213ClosureCommandExecution(
+    command: command,
+    projectRoot: projectRoot,
+  );
   final result = await Process.run(
-    command.executable,
+    execution.executable,
     command.arguments,
     workingDirectory: Directory(
       '$projectRoot/${command.workingDirectory}',
     ).path,
-    runInShell: false,
+    runInShell: execution.runInShell,
   );
   return ClosureCommandResult(
     result.exitCode,
