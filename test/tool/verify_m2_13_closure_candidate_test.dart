@@ -189,6 +189,7 @@ void main() {
       'm2_13_closure_flutter_path_',
     );
     addTearDown(() => root.delete(recursive: true));
+    final missing = Directory('${root.path}${Platform.pathSeparator}missing');
     final first = Directory('${root.path}${Platform.pathSeparator}first');
     final second = Directory('${root.path}${Platform.pathSeparator}second');
     await first.create();
@@ -211,7 +212,7 @@ void main() {
       command: command,
       projectRoot: root.path,
       isWindows: true,
-      windowsPath: '${first.path};${second.path}',
+      windowsPath: '"${missing.path}";"${first.path}";${second.path}',
     );
 
     expect(execution.executable, firstFlutter.absolute.path);
@@ -237,6 +238,63 @@ void main() {
 
     expect(execution.executable, 'flutter');
     expect(execution.runInShell, isFalse);
+  });
+
+  test('Windows dart gates use the first real dart.bat on PATH', () async {
+    final root = await Directory.systemTemp.createTemp(
+      'm2_13_closure_dart_path_',
+    );
+    addTearDown(() => root.delete(recursive: true));
+    final missing = Directory('${root.path}${Platform.pathSeparator}missing');
+    final first = Directory('${root.path}${Platform.pathSeparator}first');
+    final second = Directory('${root.path}${Platform.pathSeparator}second');
+    await first.create();
+    await second.create();
+    final firstDart = File('${first.path}${Platform.pathSeparator}dart.bat');
+    final secondDart = File(
+      '${second.path}${Platform.pathSeparator}dart.bat',
+    );
+    await firstDart.writeAsString('@echo off\r\n');
+    await secondDart.writeAsString('@echo off\r\n');
+    const command = verifier.ClosureCommand(
+      'dart',
+      ['tool/verify_m2_generated_reaction_contract.dart'],
+      '.',
+    );
+
+    final execution = verifier.resolveM213ClosureCommandExecution(
+      command: command,
+      projectRoot: root.path,
+      isWindows: true,
+      windowsPath: '"${missing.path}";"${first.path}";${second.path}',
+    );
+
+    expect(execution.executable, firstDart.absolute.path);
+    expect(execution.runInShell, isTrue);
+    expect(command.arguments, [
+      'tool/verify_m2_generated_reaction_contract.dart',
+    ]);
+    expect(command.workingDirectory, '.');
+  });
+
+  test('Windows dart gates retain bare executable without PATH bat',
+      () async {
+    final root = await Directory.systemTemp.createTemp(
+      'm2_13_closure_dart_fallback_',
+    );
+    addTearDown(() => root.delete(recursive: true));
+    const command = verifier.ClosureCommand('dart', ['tool/check.dart'], '.');
+
+    final execution = verifier.resolveM213ClosureCommandExecution(
+      command: command,
+      projectRoot: root.path,
+      isWindows: true,
+      windowsPath: root.path,
+    );
+
+    expect(execution.executable, 'dart');
+    expect(execution.runInShell, isFalse);
+    expect(command.workingDirectory, '.');
   });
 
   test('spawn failures become anonymous closure gate diagnostics', () async {

@@ -68,6 +68,7 @@ final _rfc3339 = RegExp(
   r'^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:Z|[+-]\d{2}:\d{2})$',
 );
 final _evidenceRef = RegExp(r'^reviewed://closure/[a-z0-9_-]{3,100}$');
+const _windowsPathBatchExecutables = <String>{'flutter', 'dart'};
 
 class M213ClosureCandidateViolation {
   const M213ClosureCandidateViolation(this.code, this.detail);
@@ -550,12 +551,16 @@ ClosureCommandExecution resolveM213ClosureCommandExecution({
     }
   }
 
-  if (command.executable == 'flutter') {
-    final flutterBat = _firstWindowsFlutterBat(
+  if (_windowsPathBatchExecutables.contains(command.executable)) {
+    final executableBat = _firstWindowsPathBat(
+      command.executable,
       windowsPath ?? Platform.environment['PATH'],
     );
-    if (flutterBat != null) {
-      return ClosureCommandExecution(executable: flutterBat, runInShell: true);
+    if (executableBat != null) {
+      return ClosureCommandExecution(
+        executable: executableBat,
+        runInShell: true,
+      );
     }
   }
 
@@ -565,7 +570,7 @@ ClosureCommandExecution resolveM213ClosureCommandExecution({
   );
 }
 
-String? _firstWindowsFlutterBat(String? windowsPath) {
+String? _firstWindowsPathBat(String executable, String? windowsPath) {
   if (windowsPath == null) return null;
   for (final rawDirectory in windowsPath.split(';')) {
     final directory = rawDirectory.trim();
@@ -575,10 +580,10 @@ String? _firstWindowsFlutterBat(String? windowsPath) {
             directory.endsWith('"')
         ? directory.substring(1, directory.length - 1)
         : directory;
-    final flutterBat = File(
-      '$unquotedDirectory${Platform.pathSeparator}flutter.bat',
+    final executableBat = File(
+      '$unquotedDirectory${Platform.pathSeparator}$executable.bat',
     );
-    if (flutterBat.existsSync()) return flutterBat.absolute.path;
+    if (executableBat.existsSync()) return executableBat.absolute.path;
   }
   return null;
 }
