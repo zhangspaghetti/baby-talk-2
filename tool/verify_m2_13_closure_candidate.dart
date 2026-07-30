@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:crypto/crypto.dart';
+
 const m213ClosureCandidateSuccessMarker =
     'M2-13 final candidate is frozen for UAT.';
 
@@ -475,12 +477,15 @@ Future<M213ClosureGateRunReport> runM213ClosureGates({
 }) async {
   final run = commandExecutor ?? _runProcess;
   for (final gate in m213ClosureGates) {
-    for (final command in gate.commands) {
+    for (var commandIndex = 0;
+        commandIndex < gate.commands.length;
+        commandIndex += 1) {
+      final command = gate.commands[commandIndex];
       final result = await run(gate, command, projectRoot);
       if (result.exitCode != 0) {
         return M213ClosureGateRunReport(
           gate.id,
-          'command exited ${result.exitCode}',
+          _nonzeroCommandDiagnostic(gate.id, commandIndex, result),
         );
       }
       if (command.requireEmptyStdout && result.stdout.trim().isNotEmpty) {
@@ -492,6 +497,21 @@ Future<M213ClosureGateRunReport> runM213ClosureGates({
     }
   }
   return const M213ClosureGateRunReport(null, null);
+}
+
+String _nonzeroCommandDiagnostic(
+  String gateId,
+  int commandIndex,
+  ClosureCommandResult result,
+) {
+  final stdoutBytes = utf8.encode(result.stdout);
+  final stderrBytes = utf8.encode(result.stderr);
+  return 'command_identity=$gateId:${commandIndex + 1} '
+      'exit_code=${result.exitCode} '
+      'stdout_bytes=${stdoutBytes.length} '
+      'stdout_sha256=${sha256.convert(stdoutBytes)} '
+      'stderr_bytes=${stderrBytes.length} '
+      'stderr_sha256=${sha256.convert(stderrBytes)}';
 }
 
 Future<ClosureCommandResult> _runProcess(

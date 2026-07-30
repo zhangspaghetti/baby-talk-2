@@ -68,6 +68,40 @@ void main() {
     expect(invoked.toSet(), unorderedEquals(verifier.closureGateIds));
   });
 
+  test('failed command reports stable output fingerprints without raw output',
+      () async {
+    final invoked = <String>[];
+    final result = await verifier.runM213ClosureGates(
+      projectRoot: _repoRootPath(),
+      commandExecutor: (gate, command, root) async {
+        invoked.add(gate.id);
+        if (gate.id == 'complete_bundle') {
+          return const verifier.ClosureCommandResult(
+            23,
+            'closure-stdout-fixture',
+            'closure-stderr-fixture',
+          );
+        }
+        return const verifier.ClosureCommandResult(0, '', '');
+      },
+    );
+
+    expect(result.passes, isFalse);
+    expect(result.failedGate, 'complete_bundle');
+    expect(
+      result.detail,
+      'command_identity=complete_bundle:1 '
+      'exit_code=23 '
+      'stdout_bytes=22 '
+      'stdout_sha256=3c33ab1258b6a844e6c3a113fb8e25245c39a19ca8005cb44bf0823e84ded227 '
+      'stderr_bytes=22 '
+      'stderr_sha256=0532325e737bfa8e9d3b20cb0292de36439de5ba672623f4b2cfb7fd13b38aa6',
+    );
+    expect(result.detail, isNot(contains('closure-stdout-fixture')));
+    expect(result.detail, isNot(contains('closure-stderr-fixture')));
+    expect(invoked, ['clean_worktree', 'complete_bundle']);
+  });
+
   test('dirty clean-worktree command cannot pass', () async {
     final invoked = <String>[];
     final result = await verifier.runM213ClosureGates(
