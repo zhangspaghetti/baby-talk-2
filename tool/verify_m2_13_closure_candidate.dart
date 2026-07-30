@@ -528,25 +528,63 @@ ClosureCommandExecution resolveM213ClosureCommandExecution({
   required ClosureCommand command,
   required String projectRoot,
   bool? isWindows,
+  String? windowsPath,
 }) {
   final useWindowsWrapper = isWindows ?? Platform.isWindows;
-  if (command.executable != 'bash' || !useWindowsWrapper) {
+  if (!useWindowsWrapper) {
     return ClosureCommandExecution(
       executable: command.executable,
       runInShell: false,
     );
   }
 
-  final wrapper = File(
-    '${Directory(projectRoot).path}${Platform.pathSeparator}bash.cmd',
-  );
-  if (!wrapper.existsSync()) {
-    return ClosureCommandExecution(
-      executable: command.executable,
-      runInShell: false,
+  if (command.executable == 'bash') {
+    final wrapper = File(
+      '${Directory(projectRoot).path}${Platform.pathSeparator}bash.cmd',
     );
+    if (wrapper.existsSync()) {
+      return ClosureCommandExecution(
+        executable: wrapper.absolute.path,
+        runInShell: true,
+      );
+    }
   }
-  return ClosureCommandExecution(executable: wrapper.path, runInShell: true);
+
+  if (command.executable == 'flutter') {
+    final flutterBat = _firstWindowsFlutterBat(
+      windowsPath ?? Platform.environment['PATH'],
+    );
+    if (flutterBat != null) {
+      return ClosureCommandExecution(executable: flutterBat, runInShell: true);
+    }
+  }
+
+  return ClosureCommandExecution(
+    executable: command.executable,
+    runInShell: false,
+  );
+}
+
+String? _firstWindowsFlutterBat(String? windowsPath) {
+  if (windowsPath == null) return null;
+  for (final rawDirectory in windowsPath.split(';')) {
+    final directory = rawDirectory.trim();
+    if (directory.isEmpty) continue;
+    final unquotedDirectory = directory.length >= 2 &&
+            directory.startsWith('"') &&
+            directory.endsWith('"')
+        ? directory.substring(1, directory.length - 1)
+        : directory;
+    final flutterBat = File(
+      '$unquotedDirectory${Platform.pathSeparator}flutter.bat',
+    );
+    if (flutterBat.existsSync()) return flutterBat.absolute.path;
+  }
+  return null;
+}
+
+ClosureCommandResult normalizeM213ProcessException(ProcessException error) {
+  return ClosureCommandResult(127, '', error.message);
 }
 
 Future<ClosureCommandResult> _runProcess(
@@ -558,19 +596,23 @@ Future<ClosureCommandResult> _runProcess(
     command: command,
     projectRoot: projectRoot,
   );
-  final result = await Process.run(
-    execution.executable,
-    command.arguments,
-    workingDirectory: Directory(
-      '$projectRoot/${command.workingDirectory}',
-    ).path,
-    runInShell: execution.runInShell,
-  );
-  return ClosureCommandResult(
-    result.exitCode,
-    '${result.stdout}',
-    '${result.stderr}',
-  );
+  try {
+    final result = await Process.run(
+      execution.executable,
+      command.arguments,
+      workingDirectory: Directory(
+        '$projectRoot/${command.workingDirectory}',
+      ).path,
+      runInShell: execution.runInShell,
+    );
+    return ClosureCommandResult(
+      result.exitCode,
+      '${result.stdout}',
+      '${result.stderr}',
+    );
+  } on ProcessException catch (error) {
+    return normalizeM213ProcessException(error);
+  }
 }
 
 Future<List<M213ClosureCandidateViolation>> verifyM213CurrentCandidate(

@@ -182,6 +182,97 @@ void main() {
     expect(nonBash.executable, 'git');
     expect(nonBash.runInShell, isFalse);
   });
+
+  test('Windows flutter gates use the first real flutter.bat on PATH',
+      () async {
+    final root = await Directory.systemTemp.createTemp(
+      'm2_13_closure_flutter_path_',
+    );
+    addTearDown(() => root.delete(recursive: true));
+    final first = Directory('${root.path}${Platform.pathSeparator}first');
+    final second = Directory('${root.path}${Platform.pathSeparator}second');
+    await first.create();
+    await second.create();
+    final firstFlutter = File(
+      '${first.path}${Platform.pathSeparator}flutter.bat',
+    );
+    final secondFlutter = File(
+      '${second.path}${Platform.pathSeparator}flutter.bat',
+    );
+    await firstFlutter.writeAsString('@echo off\r\n');
+    await secondFlutter.writeAsString('@echo off\r\n');
+    const command = verifier.ClosureCommand(
+      'flutter',
+      ['test', 'test/tool/fixture_test.dart'],
+      '.',
+    );
+
+    final execution = verifier.resolveM213ClosureCommandExecution(
+      command: command,
+      projectRoot: root.path,
+      isWindows: true,
+      windowsPath: '${first.path};${second.path}',
+    );
+
+    expect(execution.executable, firstFlutter.absolute.path);
+    expect(execution.runInShell, isTrue);
+    expect(command.arguments, ['test', 'test/tool/fixture_test.dart']);
+    expect(command.workingDirectory, '.');
+  });
+
+  test('Windows flutter gates retain bare executable without PATH bat',
+      () async {
+    final root = await Directory.systemTemp.createTemp(
+      'm2_13_closure_flutter_fallback_',
+    );
+    addTearDown(() => root.delete(recursive: true));
+    const command = verifier.ClosureCommand('flutter', ['test'], 'mobile');
+
+    final execution = verifier.resolveM213ClosureCommandExecution(
+      command: command,
+      projectRoot: root.path,
+      isWindows: true,
+      windowsPath: root.path,
+    );
+
+    expect(execution.executable, 'flutter');
+    expect(execution.runInShell, isFalse);
+  });
+
+  test('spawn failures become anonymous closure gate diagnostics', () async {
+    final normalized = verifier.normalizeM213ProcessException(
+      ProcessException(
+        'flutter',
+        const ['test', 'private-fixture.dart'],
+        'spawn-message-fixture',
+        2,
+      ),
+    );
+    final result = await verifier.runM213ClosureGates(
+      projectRoot: _repoRootPath(),
+      commandExecutor: (gate, command, root) async {
+        if (gate.id == 'legacy_quarantine') return normalized;
+        return const verifier.ClosureCommandResult(0, '', '');
+      },
+    );
+
+    expect(normalized.exitCode, 127);
+    expect(normalized.stdout, isEmpty);
+    expect(normalized.stderr, 'spawn-message-fixture');
+    expect(result.failedGate, 'legacy_quarantine');
+    expect(
+      result.detail,
+      matches(
+        RegExp(
+          r'^command_identity=legacy_quarantine:1 exit_code=127 '
+          r'stdout_bytes=0 stdout_sha256=[a-f0-9]{64} '
+          r'stderr_bytes=21 stderr_sha256=[a-f0-9]{64}$',
+        ),
+      ),
+    );
+    expect(result.detail, isNot(contains('spawn-message-fixture')));
+    expect(result.detail, isNot(contains('private-fixture.dart')));
+  });
 }
 
 String _fixturePath() =>
