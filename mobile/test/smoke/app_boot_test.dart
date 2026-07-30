@@ -17,6 +17,7 @@ import 'package:mobile/core/device/installation_id_service.dart';
 import 'package:mobile/features/account/data/local/account_local_store.dart';
 import 'package:mobile/features/account/data/repositories/account_repository.dart';
 import 'package:mobile/features/account/domain/models/account_consent_state.dart';
+import 'package:mobile/features/custom_scene/presentation/custom_scene_input_screen.dart';
 import 'package:mobile/features/household/data/local/household_local_store.dart';
 import 'package:mobile/features/household/data/repositories/household_repository.dart';
 import 'package:mobile/features/household/data/services/household_api_service.dart';
@@ -221,6 +222,31 @@ void main() {
     );
 
     expect(find.byKey(const Key('account-entry-surface')), findsOneWidget);
+  });
+
+  testWidgets('runtime router opens the custom scene input screen', (
+    WidgetTester tester,
+  ) async {
+    final harness = (await tester.runAsync<_AppBootHarness>(_createHarness))!;
+    addTearDown(harness.close);
+    addTearDown(() async {
+      await _disposeWidgetTree(tester);
+    });
+
+    await tester.pumpWidget(
+      _bootApp(harness, completedSnapshotLoader: () async => null),
+    );
+    await _pumpUntilFound(
+      tester,
+      find.byKey(const Key('boot-route-onboarding')),
+    );
+
+    GoRouter.of(
+      tester.element(find.byKey(const Key('boot-route-onboarding'))),
+    ).go(AppRouteNames.customScene);
+    await _pumpUntilFound(tester, find.byType(CustomSceneInputScreen));
+
+    expect(find.byType(CustomSceneInputScreen), findsOneWidget);
   });
 
   testWidgets(

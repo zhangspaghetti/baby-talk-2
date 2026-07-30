@@ -362,7 +362,7 @@ final customSceneRepositoryProvider = FutureProvider<CustomSceneRepository>((
     persistRefreshedSession: accountRepository.persistRefreshedSession,
     installationIdLoader: practiceRepository.ensureInstallationId,
   );
-});
+}, dependencies: [onboardingRepositoryProvider]);
 
 final customSceneSubmissionControllerProvider =
     FutureProvider<CustomSceneSubmissionController>((ref) async {
@@ -381,7 +381,7 @@ final customSceneSubmissionControllerProvider =
       );
       ref.onDispose(controller.dispose);
       return controller;
-    });
+    }, dependencies: [customSceneRepositoryProvider]);
 
 final customSceneRecoveryCoordinatorProvider =
     FutureProvider<CustomSceneRecoveryCoordinator>((ref) async {
@@ -393,7 +393,7 @@ final customSceneRecoveryCoordinatorProvider =
       );
       ref.onDispose(coordinator.dispose);
       return coordinator;
-    });
+    }, dependencies: [customSceneSubmissionControllerProvider]);
 
 // ---------------------------------------------------------------------------
 // Account notifier

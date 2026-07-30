@@ -15,6 +15,10 @@ import 'package:mobile/app/theme/app_layout_constants.dart';
 import 'package:mobile/app/theme/app_theme.dart';
 import 'package:mobile/features/account/data/repositories/account_repository.dart';
 import 'package:mobile/features/account/presentation/screens/account_entry_screen.dart';
+import 'package:mobile/features/custom_scene/application/custom_scene_submission_controller.dart';
+import 'package:mobile/features/custom_scene/domain/custom_scene_draft.dart';
+import 'package:mobile/features/custom_scene/presentation/custom_scene_input_screen.dart';
+import 'package:mobile/features/custom_scene/presentation/custom_scene_route_args.dart';
 import 'package:mobile/features/household/data/repositories/household_repository.dart';
 import 'package:mobile/features/household/presentation/household_notifier.dart';
 import 'package:mobile/features/mentor/data/repositories/mentor_repository.dart';
@@ -33,6 +37,7 @@ import 'package:mobile/features/practice/presentation/screens/practice_session_s
 import 'package:flutter_riverpod/flutter_riverpod.dart'
     show
         AsyncData,
+        Consumer,
         ConsumerState,
         ConsumerStatefulWidget,
         ConsumerWidget,
@@ -405,6 +410,41 @@ class _BabyTalkAppState extends ConsumerState<BabyTalkApp> {
             return PracticeSessionScreen(
               routeEntry: routeEntry,
               audioControllerFactory: widget.audioControllerFactory,
+            );
+          },
+        ),
+        GoRoute(
+          path: AppRouteNames.customScene,
+          builder: (context, state) {
+            final args =
+                CustomSceneRouteArgs.maybeFromObject(state.extra) ??
+                const CustomSceneRouteArgs(
+                  entrySource: CustomSceneEntrySource.scene,
+                );
+            return Consumer(
+              builder: (context, ref, _) {
+                final controller = ref.watch(
+                  customSceneSubmissionControllerProvider,
+                );
+                final recoveryCoordinator = ref.watch(
+                  customSceneRecoveryCoordinatorProvider,
+                );
+                final resolvedController =
+                    controller is AsyncData<CustomSceneSubmissionController>
+                    ? controller.value
+                    : null;
+                final resolvedRecoveryCoordinator =
+                    recoveryCoordinator
+                        is AsyncData<CustomSceneRecoveryCoordinator>
+                    ? recoveryCoordinator.value
+                    : null;
+                return CustomSceneInputScreen(
+                  routeArgs: args,
+                  controller: resolvedController,
+                  onOpenPreparedContent:
+                      resolvedRecoveryCoordinator?.openPreparedContent,
+                );
+              },
             );
           },
         ),
