@@ -51,4 +51,3 @@ Uses the five default canonical triage labels. See `docs/agents/triage-labels.md
 ### Domain docs
 
 Multi-context: `CONTEXT-MAP.md` maps each app context; shared decisions live in `docs/adr/`. See `docs/agents/domain.md`.
-

@@ -301,7 +301,7 @@ M1 RELEASE READY
 
 ## M2-00 — Contract Freeze and Baseline Gate
 
-**Priority:** P0  
+**Priority:** P0
 **Type:** architecture / contract / verification
 
 ### Goal
@@ -332,7 +332,7 @@ M1 RELEASE READY
 
 ## M2-01 — Backend Bounded Generated Care Moment
 
-**Priority:** P0  
+**Priority:** P0
 **Depends on:** M2-00
 
 ### Goal
@@ -376,7 +376,7 @@ backend/db-migration/.../V27__add_generated_care_moment_utterances.sql
 
 ## M2-02 — Explicit Request Idempotency and Unknown-result Reconciliation
 
-**Priority:** P0  
+**Priority:** P0
 **Depends on:** M2-00
 
 ### Goal
@@ -406,7 +406,7 @@ backend/db-migration/.../V27__add_generated_care_moment_utterances.sql
 
 ## M2-03 — Mobile `custom_scene` Domain and Data Boundary
 
-**Priority:** P0  
+**Priority:** P0
 **Depends on:** M2-01, M2-02
 
 ### Goal
@@ -465,7 +465,7 @@ CustomSceneFailureKind
 
 ## M2-04 — Draft Persistence and Reusable Authentication Continuation
 
-**Priority:** P0  
+**Priority:** P0
 **Depends on:** M2-03, M1 auth continuation foundation
 
 ### Goal
@@ -516,7 +516,7 @@ Raw text 存在独立 `CustomSceneDraftStore`。
 
 ## M2-05 — Custom Scene Application State Machine
 
-**Priority:** P0  
+**Priority:** P0
 **Depends on:** M2-03, M2-04
 
 ### Goal
@@ -560,7 +560,7 @@ recoverableError
 
 ## M2-06 — Today and Scene Entry + Input Surface
 
-**Priority:** P1  
+**Priority:** P1
 **Depends on:** M2-05
 
 ### Goal
@@ -614,7 +614,7 @@ recoverableError
 
 ## M2-07 — Approved Generated Content Registry and Formal Care-turn Adapter
 
-**Priority:** P0  
+**Priority:** P0
 **Depends on:** M2-01, M2-03
 
 ### Goal
@@ -656,7 +656,7 @@ Cross-feature handoff 通过 app-level port/route contract；`custom_scene` 不�
 
 ## M2-08 — Canonical Reaction, Garden, and Today Continuity
 
-**Priority:** P0  
+**Priority:** P0
 **Depends on:** M2-07
 
 ### Goal
@@ -694,7 +694,7 @@ Custom Scene
 
 ## M2-09 — Backend Real-time TTS
 
-**Priority:** P0  
+**Priority:** P0
 **Depends on:** M2-01
 
 ### Goal
@@ -737,7 +737,7 @@ GeneratedAudioResponse
 
 ## M2-10 — Source-neutral Mobile Audio + Memory Cache
 
-**Priority:** P0  
+**Priority:** P0
 **Depends on:** M2-09, M2-07
 
 ### Goal
@@ -788,7 +788,7 @@ GeneratedAudioCacheKey
 
 ## M2-11 — Privacy, Lifecycle, Semantic Firewall, and Architecture Gates
 
-**Priority:** P0  
+**Priority:** P0
 **Depends on:** M2-03 through M2-10
 
 ### Goal
@@ -817,7 +817,7 @@ GeneratedAudioCacheKey
 
 ## M2-12 — End-to-end and Release Verification
 
-**Priority:** P0  
+**Priority:** P0
 **Depends on:** all prior tasks
 
 ### Automated matrix
