@@ -141,6 +141,8 @@ List<Map<String, Object?>> _expectedFactMaps() {
       'phraseId': 'bath_time_warm_water',
       'reactionType': 'cooperating',
       'clientTimestamp': '2026-04-10T09:00:00.000Z',
+      'generatedContentId': null,
+      'utteranceId': null,
     },
     {
       'eventKey': 'install_practice_characterize:evt_harness_splash',
@@ -151,6 +153,8 @@ List<Map<String, Object?>> _expectedFactMaps() {
       'phraseId': 'bath_time_splash_splash',
       'reactionType': 'cooperating',
       'clientTimestamp': '2026-04-10T09:01:00.000Z',
+      'generatedContentId': null,
+      'utteranceId': null,
     },
   ];
 }
