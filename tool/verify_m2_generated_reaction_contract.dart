@@ -63,7 +63,7 @@ void main() {
           'mobile/test/features/practice/generated/generated_practice_content_registry_test.dart',
       requiredMarkers: const [
         'generated tuple isolates exact-once trace, Garden, and Today continuity',
-        'completedPhraseCount,\n          0',
+        'expect(generatedGardenPatch.activities.single.completedPhraseCount, 0);',
         'generatedContentId, first.generatedContentId',
       ],
     ),
