@@ -1,5 +1,5 @@
 {
-  "schema_version": "M2_FINAL_CANDIDATE_V1",
+  "schema_version": "M2_FINAL_CANDIDATE_V2",
   "candidate_id": "m2-final-closure-001",
   "frozen_at": "2026-07-29T10:00:00Z",
   "candidate": {
@@ -11,7 +11,9 @@
     "provider_mode": "real",
     "provider_profile": "qa-provider",
     "provider_model_identity": "model_sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
-    "configuration_fingerprint": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+    "configuration_fingerprint": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+    "mobile_release_dart_defines_fingerprint": "sha256:2d12a9228dd28dfdb659e00cfc9336605acabc772bd2d30eea40a5aefee8b364",
+    "mobile_custom_scene_entry_enabled": "true"
   },
   "closure_matrix": [
     {"gate_id":"complete_bundle","status":"PASS","evidence_ref":"reviewed://closure/complete_bundle"},
@@ -30,7 +32,7 @@
   ],
   "final_uat_input": {
     "only_allowed_input": true,
-    "schema_version": "M2_FINAL_CANDIDATE_V1"
+    "schema_version": "M2_FINAL_CANDIDATE_V2"
   },
   "privacy": {
     "raw_content_stored": false,

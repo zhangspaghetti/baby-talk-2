@@ -6,7 +6,7 @@ import 'package:crypto/crypto.dart';
 const m213ClosureCandidateSuccessMarker =
     'M2-13 final candidate is frozen for UAT.';
 
-const m213ClosureCandidateSchemaVersion = 'M2_FINAL_CANDIDATE_V1';
+const m213ClosureCandidateSchemaVersion = 'M2_FINAL_CANDIDATE_V2';
 
 const m213ClosureCandidateUsage =
     '''Usage: dart tool/verify_m2_13_closure_candidate.dart --manifest <path> [--help]
@@ -26,6 +26,8 @@ const _candidateKeys = <String>{
   'provider_profile',
   'provider_model_identity',
   'configuration_fingerprint',
+  'mobile_release_dart_defines_fingerprint',
+  'mobile_custom_scene_entry_enabled',
 };
 
 const _requiredTopLevelKeys = <String>{
@@ -63,6 +65,8 @@ final _environmentIdentity = RegExp(r'^sanitized-[a-z0-9][a-z0-9-]{2,100}$');
 final _providerProfile = RegExp(r'^[a-z][a-z0-9-]{2,100}$');
 final _modelIdentity = RegExp(r'^model_sha256:[a-f0-9]{64}$');
 final _configurationFingerprint = RegExp(r'^sha256:[a-f0-9]{64}$');
+final _mobileReleaseDartDefinesFingerprint =
+    'sha256:${sha256.convert(utf8.encode('BABY_TALK_CUSTOM_SCENE_ENABLED=true'))}';
 final _candidateId = RegExp(r'^m2-final-[a-z0-9-]{3,100}$');
 final _rfc3339 = RegExp(
   r'^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:Z|[+-]\d{2}:\d{2})$',
@@ -225,6 +229,21 @@ Map<String, String>? _validateCandidate(
     fields['configuration_fingerprint']!,
   )) {
     _add(violations, 'candidate', 'configuration_fingerprint must be SHA-256');
+  }
+  if (fields['mobile_release_dart_defines_fingerprint'] !=
+      _mobileReleaseDartDefinesFingerprint) {
+    _add(
+      violations,
+      'candidate',
+      'mobile_release_dart_defines_fingerprint must identify BABY_TALK_CUSTOM_SCENE_ENABLED=true',
+    );
+  }
+  if (fields['mobile_custom_scene_entry_enabled'] != 'true') {
+    _add(
+      violations,
+      'candidate',
+      'mobile_custom_scene_entry_enabled must be true',
+    );
   }
   return fields;
 }
@@ -488,9 +507,11 @@ Future<M213ClosureGateRunReport> runM213ClosureGates({
 }) async {
   final run = commandExecutor ?? _runProcess;
   for (final gate in m213ClosureGates) {
-    for (var commandIndex = 0;
-        commandIndex < gate.commands.length;
-        commandIndex += 1) {
+    for (
+      var commandIndex = 0;
+      commandIndex < gate.commands.length;
+      commandIndex += 1
+    ) {
       final command = gate.commands[commandIndex];
       final result = await run(gate, command, projectRoot);
       if (result.exitCode != 0) {
@@ -575,7 +596,8 @@ String? _firstWindowsPathBat(String executable, String? windowsPath) {
   for (final rawDirectory in windowsPath.split(';')) {
     final directory = rawDirectory.trim();
     if (directory.isEmpty) continue;
-    final unquotedDirectory = directory.length >= 2 &&
+    final unquotedDirectory =
+        directory.length >= 2 &&
             directory.startsWith('"') &&
             directory.endsWith('"')
         ? directory.substring(1, directory.length - 1)

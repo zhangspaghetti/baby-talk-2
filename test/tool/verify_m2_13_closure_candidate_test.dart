@@ -54,6 +54,43 @@ void main() {
     );
   });
 
+  test('manifest requires enabled custom-scene release evidence', () async {
+    final path = await _mutatedFixture((manifest) {
+      manifest['candidate']['mobile_custom_scene_entry_enabled'] = 'false';
+    });
+    addTearDown(() => path.parent.delete(recursive: true));
+
+    final report = verifier.scanM213ClosureCandidate(manifestPath: path.path);
+
+    expect(report.passes, isFalse);
+    expect(
+      verifier.renderM213ClosureCandidateReport(report),
+      contains('mobile_custom_scene_entry_enabled must be true'),
+    );
+  });
+
+  test(
+    'manifest binds release evidence to the enabled custom-scene define',
+    () async {
+      final path = await _mutatedFixture((manifest) {
+        manifest['candidate']['mobile_release_dart_defines_fingerprint'] =
+            'sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff';
+      });
+      addTearDown(() => path.parent.delete(recursive: true));
+
+      final report = verifier.scanM213ClosureCandidate(manifestPath: path.path);
+
+      expect(report.passes, isFalse);
+      expect(
+        verifier.renderM213ClosureCandidateReport(report),
+        contains(
+          'mobile_release_dart_defines_fingerprint must identify '
+          'BABY_TALK_CUSTOM_SCENE_ENABLED=true',
+        ),
+      );
+    },
+  );
+
   test('entrypoint gate matrix invokes every fixed upstream gate', () async {
     final invoked = <String>[];
     final result = await verifier.runM213ClosureGates(
@@ -68,39 +105,41 @@ void main() {
     expect(invoked.toSet(), unorderedEquals(verifier.closureGateIds));
   });
 
-  test('failed command reports stable output fingerprints without raw output',
-      () async {
-    final invoked = <String>[];
-    final result = await verifier.runM213ClosureGates(
-      projectRoot: _repoRootPath(),
-      commandExecutor: (gate, command, root) async {
-        invoked.add(gate.id);
-        if (gate.id == 'complete_bundle') {
-          return const verifier.ClosureCommandResult(
-            23,
-            'closure-stdout-fixture',
-            'closure-stderr-fixture',
-          );
-        }
-        return const verifier.ClosureCommandResult(0, '', '');
-      },
-    );
+  test(
+    'failed command reports stable output fingerprints without raw output',
+    () async {
+      final invoked = <String>[];
+      final result = await verifier.runM213ClosureGates(
+        projectRoot: _repoRootPath(),
+        commandExecutor: (gate, command, root) async {
+          invoked.add(gate.id);
+          if (gate.id == 'complete_bundle') {
+            return const verifier.ClosureCommandResult(
+              23,
+              'closure-stdout-fixture',
+              'closure-stderr-fixture',
+            );
+          }
+          return const verifier.ClosureCommandResult(0, '', '');
+        },
+      );
 
-    expect(result.passes, isFalse);
-    expect(result.failedGate, 'complete_bundle');
-    expect(
-      result.detail,
-      'command_identity=complete_bundle:1 '
-      'exit_code=23 '
-      'stdout_bytes=22 '
-      'stdout_sha256=3c33ab1258b6a844e6c3a113fb8e25245c39a19ca8005cb44bf0823e84ded227 '
-      'stderr_bytes=22 '
-      'stderr_sha256=0532325e737bfa8e9d3b20cb0292de36439de5ba672623f4b2cfb7fd13b38aa6',
-    );
-    expect(result.detail, isNot(contains('closure-stdout-fixture')));
-    expect(result.detail, isNot(contains('closure-stderr-fixture')));
-    expect(invoked, ['clean_worktree', 'complete_bundle']);
-  });
+      expect(result.passes, isFalse);
+      expect(result.failedGate, 'complete_bundle');
+      expect(
+        result.detail,
+        'command_identity=complete_bundle:1 '
+        'exit_code=23 '
+        'stdout_bytes=22 '
+        'stdout_sha256=3c33ab1258b6a844e6c3a113fb8e25245c39a19ca8005cb44bf0823e84ded227 '
+        'stderr_bytes=22 '
+        'stderr_sha256=0532325e737bfa8e9d3b20cb0292de36439de5ba672623f4b2cfb7fd13b38aa6',
+      );
+      expect(result.detail, isNot(contains('closure-stdout-fixture')));
+      expect(result.detail, isNot(contains('closure-stderr-fixture')));
+      expect(invoked, ['clean_worktree', 'complete_bundle']);
+    },
+  );
 
   test('dirty clean-worktree command cannot pass', () async {
     final invoked = <String>[];
@@ -150,11 +189,10 @@ void main() {
     );
     addTearDown(() => root.delete(recursive: true));
     const command = verifier.ClosureCommand('bash', ['ci/full-ci.sh'], '.');
-    const nonBashCommand = verifier.ClosureCommand(
-      'git',
-      ['status', '--porcelain'],
-      '.',
-    );
+    const nonBashCommand = verifier.ClosureCommand('git', [
+      'status',
+      '--porcelain',
+    ], '.');
 
     final missingWrapper = verifier.resolveM213ClosureCommandExecution(
       command: command,
@@ -183,62 +221,65 @@ void main() {
     expect(nonBash.runInShell, isFalse);
   });
 
-  test('Windows flutter gates use the first real flutter.bat on PATH',
-      () async {
-    final root = await Directory.systemTemp.createTemp(
-      'm2_13_closure_flutter_path_',
-    );
-    addTearDown(() => root.delete(recursive: true));
-    final missing = Directory('${root.path}${Platform.pathSeparator}missing');
-    final first = Directory('${root.path}${Platform.pathSeparator}first');
-    final second = Directory('${root.path}${Platform.pathSeparator}second');
-    await first.create();
-    await second.create();
-    final firstFlutter = File(
-      '${first.path}${Platform.pathSeparator}flutter.bat',
-    );
-    final secondFlutter = File(
-      '${second.path}${Platform.pathSeparator}flutter.bat',
-    );
-    await firstFlutter.writeAsString('@echo off\r\n');
-    await secondFlutter.writeAsString('@echo off\r\n');
-    const command = verifier.ClosureCommand(
-      'flutter',
-      ['test', 'test/tool/fixture_test.dart'],
-      '.',
-    );
+  test(
+    'Windows flutter gates use the first real flutter.bat on PATH',
+    () async {
+      final root = await Directory.systemTemp.createTemp(
+        'm2_13_closure_flutter_path_',
+      );
+      addTearDown(() => root.delete(recursive: true));
+      final missing = Directory('${root.path}${Platform.pathSeparator}missing');
+      final first = Directory('${root.path}${Platform.pathSeparator}first');
+      final second = Directory('${root.path}${Platform.pathSeparator}second');
+      await first.create();
+      await second.create();
+      final firstFlutter = File(
+        '${first.path}${Platform.pathSeparator}flutter.bat',
+      );
+      final secondFlutter = File(
+        '${second.path}${Platform.pathSeparator}flutter.bat',
+      );
+      await firstFlutter.writeAsString('@echo off\r\n');
+      await secondFlutter.writeAsString('@echo off\r\n');
+      const command = verifier.ClosureCommand('flutter', [
+        'test',
+        'test/tool/fixture_test.dart',
+      ], '.');
 
-    final execution = verifier.resolveM213ClosureCommandExecution(
-      command: command,
-      projectRoot: root.path,
-      isWindows: true,
-      windowsPath: '"${missing.path}";"${first.path}";${second.path}',
-    );
+      final execution = verifier.resolveM213ClosureCommandExecution(
+        command: command,
+        projectRoot: root.path,
+        isWindows: true,
+        windowsPath: '"${missing.path}";"${first.path}";${second.path}',
+      );
 
-    expect(execution.executable, firstFlutter.absolute.path);
-    expect(execution.runInShell, isTrue);
-    expect(command.arguments, ['test', 'test/tool/fixture_test.dart']);
-    expect(command.workingDirectory, '.');
-  });
+      expect(execution.executable, firstFlutter.absolute.path);
+      expect(execution.runInShell, isTrue);
+      expect(command.arguments, ['test', 'test/tool/fixture_test.dart']);
+      expect(command.workingDirectory, '.');
+    },
+  );
 
-  test('Windows flutter gates retain bare executable without PATH bat',
-      () async {
-    final root = await Directory.systemTemp.createTemp(
-      'm2_13_closure_flutter_fallback_',
-    );
-    addTearDown(() => root.delete(recursive: true));
-    const command = verifier.ClosureCommand('flutter', ['test'], 'mobile');
+  test(
+    'Windows flutter gates retain bare executable without PATH bat',
+    () async {
+      final root = await Directory.systemTemp.createTemp(
+        'm2_13_closure_flutter_fallback_',
+      );
+      addTearDown(() => root.delete(recursive: true));
+      const command = verifier.ClosureCommand('flutter', ['test'], 'mobile');
 
-    final execution = verifier.resolveM213ClosureCommandExecution(
-      command: command,
-      projectRoot: root.path,
-      isWindows: true,
-      windowsPath: root.path,
-    );
+      final execution = verifier.resolveM213ClosureCommandExecution(
+        command: command,
+        projectRoot: root.path,
+        isWindows: true,
+        windowsPath: root.path,
+      );
 
-    expect(execution.executable, 'flutter');
-    expect(execution.runInShell, isFalse);
-  });
+      expect(execution.executable, 'flutter');
+      expect(execution.runInShell, isFalse);
+    },
+  );
 
   test('Windows dart gates use the first real dart.bat on PATH', () async {
     final root = await Directory.systemTemp.createTemp(
@@ -251,16 +292,12 @@ void main() {
     await first.create();
     await second.create();
     final firstDart = File('${first.path}${Platform.pathSeparator}dart.bat');
-    final secondDart = File(
-      '${second.path}${Platform.pathSeparator}dart.bat',
-    );
+    final secondDart = File('${second.path}${Platform.pathSeparator}dart.bat');
     await firstDart.writeAsString('@echo off\r\n');
     await secondDart.writeAsString('@echo off\r\n');
-    const command = verifier.ClosureCommand(
-      'dart',
-      ['tool/verify_m2_generated_reaction_contract.dart'],
-      '.',
-    );
+    const command = verifier.ClosureCommand('dart', [
+      'tool/verify_m2_generated_reaction_contract.dart',
+    ], '.');
 
     final execution = verifier.resolveM213ClosureCommandExecution(
       command: command,
@@ -277,8 +314,7 @@ void main() {
     expect(command.workingDirectory, '.');
   });
 
-  test('Windows dart gates retain bare executable without PATH bat',
-      () async {
+  test('Windows dart gates retain bare executable without PATH bat', () async {
     final root = await Directory.systemTemp.createTemp(
       'm2_13_closure_dart_fallback_',
     );

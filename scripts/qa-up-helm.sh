@@ -150,7 +150,9 @@ echo "    gateway: healthy"
 # ── APK build ─────────────────────────────────────────────────────────────────
 echo "==> [apk] building Flutter debug APK (gateway=${GATEWAY_LOCAL_PORT})..."
 cd "$REPO_ROOT/mobile"
-flutter build apk --debug   --dart-define=BABY_TALK_API_BASE_URL="http://127.0.0.1:${GATEWAY_LOCAL_PORT}"
+flutter build apk --debug \
+  --dart-define=BABY_TALK_API_BASE_URL="http://127.0.0.1:${GATEWAY_LOCAL_PORT}" \
+  --dart-define=BABY_TALK_CUSTOM_SCENE_ENABLED=true
 
 APK_PATH="${REPO_ROOT}/mobile/build/app/outputs/flutter-apk/app-debug.apk"
 echo "    APK built: $APK_PATH"

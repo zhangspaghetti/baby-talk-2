@@ -12,6 +12,8 @@ GATEWAY_PORT=19091
 SKIP_BUILD=0
 AVD_NAME=""
 DEVICE_SERIAL=""
+QA_CUSTOM_SCENE_ENABLED=true
+CUSTOM_SCENE_ENTRY_EVIDENCE=unverified
 
 print_usage() {
   cat <<'USAGE'
@@ -76,7 +78,9 @@ if [ "$SKIP_BUILD" -eq 0 ]; then
 
   echo "==> [apk] building debug APK (gateway=${GATEWAY_PORT})..."
   flutter build apk --debug \
-    --dart-define=BABY_TALK_API_BASE_URL="http://127.0.0.1:${GATEWAY_PORT}"
+    --dart-define=BABY_TALK_API_BASE_URL="http://127.0.0.1:${GATEWAY_PORT}" \
+    --dart-define=BABY_TALK_CUSTOM_SCENE_ENABLED="$QA_CUSTOM_SCENE_ENABLED"
+  CUSTOM_SCENE_ENTRY_EVIDENCE="$QA_CUSTOM_SCENE_ENABLED"
 else
   echo "==> [apk] skip build enabled"
 fi
@@ -129,3 +133,4 @@ echo "install_status=ok"
 echo "apk_path=$APK_PATH"
 echo "target_device=$TARGET_DEVICE"
 echo "gateway_port=$GATEWAY_PORT"
+echo "custom_scene_entry_enabled=$CUSTOM_SCENE_ENTRY_EVIDENCE"
