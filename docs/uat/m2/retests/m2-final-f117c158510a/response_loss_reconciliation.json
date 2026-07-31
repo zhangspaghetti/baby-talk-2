@@ -1,0 +1,72 @@
+{
+  "schema_version": "m2_android_uat_v1",
+  "record_id": "uat_response_loss_f117c158_20260731",
+  "case_id": "response_loss_reconciliation",
+  "canonical_scene": "bath",
+  "executor": "role:codex_qa_operator",
+  "executed_at": "2026-07-31T11:32:00+08:00",
+  "timezone": "Asia/Shanghai",
+  "candidate": {
+    "mobile_source_sha": "f117c158510a5a1f08c61d6bdb41170231a9f6e9",
+    "mobile_apk_sha256": "552137ade14ac852db502b1f1c67ec38975243d59dc58d75ff22a8ffe5bbba7c",
+    "backend_source_sha": "f117c158510a5a1f08c61d6bdb41170231a9f6e9",
+    "backend_artifact_identity": "image_sha256:7347b976f0820a10537c68b3b13f2ef516c68fa346d0f9bbbc42171d6b0e4c03",
+    "environment_identity": "sanitized-qa-kind-rev8",
+    "provider_mode": "REAL",
+    "provider_profile": "qa-dashscope-qwen",
+    "provider_model_identity": "model_sha256:cc7090d9aea273746c3cc6656434891482bf1cf1464e663bc6d222b4d7dcfae3",
+    "configuration_fingerprint": "sha256:529ed61acb73794fff504d7d4037fd8ad9ff5130b768f618c912ef7db1185054"
+  },
+  "device": {
+    "device_class": "pixel_9_pro_emulator",
+    "android_version": "15",
+    "talkback_version": "NOT_APPLICABLE"
+  },
+  "authenticity": {
+    "execution": "AUTOMATED",
+    "provider_path": "FORMAL_PRODUCTION",
+    "llm_provider": "REAL",
+    "tts_provider": "REAL"
+  },
+  "prerequisites": [
+    {"id": "candidate_installed", "status": "PASS"},
+    {"id": "generated_request_identity_available", "status": "BLOCKED"}
+  ],
+  "steps": [
+    {
+      "index": 1,
+      "action": "start_generated_request",
+      "expected": "durable_request_identity_created",
+      "actual": "blocked_by_installation_identity_defect",
+      "status": "BLOCKED"
+    },
+    {
+      "index": 2,
+      "action": "interrupt_response_delivery",
+      "expected": "response_loss_window_created",
+      "actual": "not_run",
+      "status": "NOT_RUN"
+    },
+    {
+      "index": 3,
+      "action": "reconcile_prepared_content",
+      "expected": "same_request_and_content_identity_recovered",
+      "actual": "not_run",
+      "status": "NOT_RUN"
+    }
+  ],
+  "status": "FINAL",
+  "verdict": "BLOCKED",
+  "evidence_location": "reviewed://m2_28/m2_final_f117c158510a/response_loss_reconciliation",
+  "defects": [
+    {"id": "DEF-32", "status": "OPEN", "retest_outcome": "BLOCKED"}
+  ],
+  "retest_outcome": "BLOCKED",
+  "privacy": {
+    "raw_content_stored": false,
+    "raw_evidence_stored": false,
+    "sensitive_identifiers_stored": false,
+    "sanitized": true
+  },
+  "branch_reviews": []
+}
