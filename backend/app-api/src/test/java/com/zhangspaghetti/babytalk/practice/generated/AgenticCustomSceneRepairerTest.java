@@ -102,13 +102,13 @@ class AgenticCustomSceneRepairerTest {
 
         var provider = new ResolvedProvider("primary", "openai-compatible", "gpt-test", mock(ChatClient.class));
         when(caller.callRaw(eq(provider), eq("REPAIR SYSTEM PROMPT"), any(String.class),
-                eq(CompleteGeneratedBundle.ProviderResponse.class))).thenReturn(wireJson());
+                eq(CompleteGeneratedBundle.ProviderResponse.class), eq(8192))).thenReturn(wireJson());
         var callbackResult = operation.invocation().invoke(provider);
 
         assertThat(callbackResult.value()).isEqualTo(wire);
         var promptCaptor = ArgumentCaptor.forClass(String.class);
         verify(caller).callRaw(eq(provider), eq("REPAIR SYSTEM PROMPT"), promptCaptor.capture(),
-                eq(CompleteGeneratedBundle.ProviderResponse.class));
+                eq(CompleteGeneratedBundle.ProviderResponse.class), eq(8192));
         assertThat(promptCaptor.getValue())
                 .contains("给宝宝穿鞋", "m7_11", "calmer_care", "Shoes on.", "MISSING_TPR_ACTION", "先轻声说。")
                 .doesNotContain(
@@ -139,7 +139,7 @@ class AgenticCustomSceneRepairerTest {
         var provider = new ResolvedProvider("primary", "openai-compatible", "gpt-test", mock(ChatClient.class));
         var failure = new PracticeAiStructuredOutputCaller.StructuredOutputInvalidException();
         when(caller.callRaw(eq(provider), eq("REPAIR SYSTEM PROMPT"), any(String.class),
-                eq(CompleteGeneratedBundle.ProviderResponse.class))).thenThrow(failure);
+                eq(CompleteGeneratedBundle.ProviderResponse.class), eq(8192))).thenThrow(failure);
 
         assertThatThrownBy(() -> operation.invocation().invoke(provider))
                 .isSameAs(failure)

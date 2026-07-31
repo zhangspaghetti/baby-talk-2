@@ -71,7 +71,9 @@ practiceAi:
       apiKeyEnvironmentVariable: BABY_TALK_AI_PROVIDER_DASHSCOPE_QWEN_API_KEY
       model: glm-5.2
       timeout: 20s
-      maxTokens: 600
+      # Safe maximum floor for the versioned six-sentence complete-bundle contract.
+      # This limit does not imply that each request consumes this many tokens.
+      maxTokens: 8192
   capabilities:
     custom-scene-generator: [dashscope-qwen]
     custom-scene-quality-judge: [dashscope-qwen]

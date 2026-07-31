@@ -91,7 +91,11 @@ public class VersionedResourceRegistry {
                 baselineEvidenceRef,
                 string(profileDocument, "strategy-version", "profile"),
                 string(profileDocument, "content-safety-policy-version", "profile"),
-                string(profileDocument, "generated-output-schema-version", "profile"));
+                string(profileDocument, "generated-output-schema-version", "profile"),
+                positiveInteger(
+                        profileDocument,
+                        "minimum-complete-bundle-output-tokens",
+                        "profile"));
     }
 
     public GenerationProfile currentGenerationProfile() {
@@ -364,6 +368,17 @@ public class VersionedResourceRegistry {
             throw new IllegalStateException(context + " must be numeric");
         }
         return number.doubleValue();
+    }
+
+    private static int positiveInteger(Map<String, Object> document, String key, String context) {
+        var value = document.get(key);
+        if (!(value instanceof Number number)
+                || number.longValue() <= 0
+                || number.longValue() > Integer.MAX_VALUE
+                || number.doubleValue() != number.longValue()) {
+            throw new IllegalStateException(context + " requires a positive integer " + key);
+        }
+        return number.intValue();
     }
 
     public enum PromptKind {

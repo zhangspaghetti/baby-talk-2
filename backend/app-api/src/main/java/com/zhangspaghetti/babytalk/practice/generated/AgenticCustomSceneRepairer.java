@@ -92,7 +92,8 @@ public class AgenticCustomSceneRepairer implements CustomSceneRepairer {
                                 provider,
                                 systemPrompt,
                                 userPrompt,
-                                CompleteGeneratedBundle.ProviderResponse.class)),
+                                CompleteGeneratedBundle.ProviderResponse.class,
+                                currentProfile.minimumCompleteBundleOutputTokens())),
                         null)));
         return GeneratedCareMomentBundle.fromCompleteBundle(result.value().toCompleteBundle(
                 new CompleteGeneratedBundle.ProviderProvenance(

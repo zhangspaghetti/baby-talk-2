@@ -2,6 +2,7 @@ package com.zhangspaghetti.babytalk.practice.generated;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doAnswer;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -87,7 +88,7 @@ class CustomSceneAgenticGenerationIntegrationTest extends AbstractIntegrationTes
         evidenceRetriever.mode(EvidenceMode.SUFFICIENT);
         doAnswer(invocation -> caller.callRaw((Class<?>) invocation.getArgument(3)))
                 .when(structuredOutputCaller)
-                .callRaw(any(), anyString(), anyString(), any());
+                .callRaw(any(), anyString(), anyString(), any(), anyInt());
         doAnswer(invocation -> caller.call((Class<?>) invocation.getArgument(3)))
                 .when(structuredOutputCaller)
                 .call(any(), anyString(), anyString(), any());

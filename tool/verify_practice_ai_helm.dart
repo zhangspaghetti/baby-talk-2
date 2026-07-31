@@ -11,6 +11,7 @@ const _ownerKeySecretEnvironmentVariable =
     'BABY_TALK_PRACTICE_DISCOVERY_OWNER_KEY_SECRET';
 const _agenticRenderOwnerKeyPlaceholder =
     'm2-public-agentic-owner-key-placeholder-0123456789';
+const _safeMinimumCompleteBundleOutputTokens = 8192;
 
 enum PracticeAiHelmProfile { disabledDefault, kindFake, agenticQa, production }
 
@@ -702,6 +703,13 @@ void _verifyRuntime(
     if (tokenValue == null || !RegExp(r'^[1-9][0-9]*$').hasMatch(tokenValue)) {
       _fail('Provider ${provider.name} token limit must be positive.');
     }
+    if (profile.needsAgenticRoutes &&
+        int.parse(tokenValue!) < _safeMinimumCompleteBundleOutputTokens) {
+      _fail(
+        'Provider ${provider.name} token limit must satisfy the safe '
+        'complete-bundle minimum of $_safeMinimumCompleteBundleOutputTokens.',
+      );
+    }
     for (final field in provider.values.keys) {
       if (RegExp(
         r'(retry|attempt|backoff)',
@@ -740,7 +748,7 @@ void _verifyRuntime(
         _fail('${profile.name} must configure route $capability.');
       }
     }
-    _verifyDashscopeQwenRuntime(runtime);
+    _verifyDashscopeQwenRuntime(runtime, profile);
   } else {
     for (final route in runtime.routes.entries) {
       if (route.value.isNotEmpty) {
@@ -752,20 +760,24 @@ void _verifyRuntime(
   }
 }
 
-void _verifyDashscopeQwenRuntime(_RuntimeConfiguration runtime) {
+void _verifyDashscopeQwenRuntime(
+  _RuntimeConfiguration runtime,
+  PracticeAiHelmProfile profile,
+) {
   if (runtime.providers.length != 1 ||
       !runtime.providers.containsKey('dashscope-qwen')) {
     _fail('Agentic environments must use only named provider dashscope-qwen.');
   }
   final provider = runtime.providers['dashscope-qwen']!;
-  const expected = <String, String>{
+  final expected = <String, String>{
     'type': 'openai-compatible',
     'base-url': 'https://dashscope.aliyuncs.com/compatible-mode/v1',
     'api-key-environment-variable':
         'BABY_TALK_AI_PROVIDER_DASHSCOPE_QWEN_API_KEY',
-    'model': 'qwen3.6-flash',
+    'model': profile == PracticeAiHelmProfile.agenticQa
+        ? 'glm-5.2'
+        : 'qwen3.6-flash',
     'timeout': '20s',
-    'max-tokens': '600',
   };
   for (final entry in expected.entries) {
     if (provider.values[entry.key] != entry.value) {

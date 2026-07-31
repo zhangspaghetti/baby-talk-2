@@ -91,7 +91,8 @@ public class AgenticCustomSceneGenerator implements CustomSceneGenerator {
                             provider,
                             systemPrompt,
                             userPrompt,
-                            CompleteGeneratedBundle.ProviderResponse.class));
+                            CompleteGeneratedBundle.ProviderResponse.class,
+                            currentProfile.minimumCompleteBundleOutputTokens()));
                     return new OperationRequest.ProviderInvocationResult<>(wire, null);
                 }));
         return GeneratedCareMomentBundle.fromCompleteBundle(result.value().toCompleteBundle(

@@ -67,6 +67,60 @@ class PracticeAiSingleRequestContractTest {
         }
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {"", "{\"answer\":\"partial\"}"})
+    void structuredOutputStoppedByLengthIsClassifiedAsTruncatedAfterOneRequest(String content) throws Exception {
+        var requestCount = new AtomicInteger();
+        var server = server(requestCount, 200, openAiEnvelope(content, "length", 100, 600));
+        try {
+            var provider = provider(server);
+
+            var exception = org.assertj.core.api.Assertions.catchThrowableOfType(
+                    () -> new PracticeAiStructuredOutputCaller().callRaw(
+                            provider, "system", "return JSON", Answer.class),
+                    PracticeAiStructuredOutputCaller.StructuredOutputInvalidException.class);
+
+            assertThat(exception)
+                    .isInstanceOf(PracticeAiStructuredOutputCaller.StructuredOutputInvalidException.class)
+                    .hasMessage("output_truncated");
+            assertThat(exception.providerResponseMetadata()).isEqualTo(
+                    new PracticeAiStructuredOutputCaller.ProviderResponseMetadata(
+                            PracticeAiStructuredOutputCaller.FinishReason.LENGTH,
+                            100,
+                            600,
+                            700));
+            assertThat(new PracticeAiCallFailureClassifier().classify(exception))
+                    .hasValue("output_truncated");
+            assertThat(requestCount).hasValue(1);
+        } finally {
+            server.stop(0);
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"maxTokens", "maxCompletionTokens"})
+    void completeBundleBudgetBelowSafeMinimumFailsBeforeOutboundRequest(String tokenLimitField) throws Exception {
+        var requestCount = new AtomicInteger();
+        var server = server(requestCount, 200, openAiEnvelope("{\"answer\":\"ok\"}"));
+        try {
+            var provider = provider(server, tokenLimitField);
+
+            var exception = org.assertj.core.api.Assertions.catchThrowableOfType(
+                    () -> new PracticeAiStructuredOutputCaller().callRaw(
+                            provider, "system", "return JSON", Answer.class, 8192),
+                    PracticeAiStructuredOutputCaller.OutputBudgetTooSmallException.class);
+
+            assertThat(exception).hasMessage("output_budget_too_small");
+            assertThat(exception.configuredLimit()).isEqualTo(600);
+            assertThat(exception.safeMinimum()).isEqualTo(8192);
+            assertThat(new PracticeAiCallFailureClassifier().classify(exception))
+                    .hasValue("output_budget_too_small");
+            assertThat(requestCount).hasValue(0);
+        } finally {
+            server.stop(0);
+        }
+    }
+
     private void assertSingleRequestForStatus(int status) throws Exception {
         var requestCount = new AtomicInteger();
         var server = server(requestCount, status, "{}");
@@ -101,6 +155,14 @@ class PracticeAiSingleRequestContractTest {
     }
 
     private ResolvedProvider provider(HttpServer server) {
+        return provider(server, "maxTokens", 128);
+    }
+
+    private ResolvedProvider provider(HttpServer server, String tokenLimitField) {
+        return provider(server, tokenLimitField, 600);
+    }
+
+    private ResolvedProvider provider(HttpServer server, String tokenLimitField, int tokenLimit) {
         var environment = new MockEnvironment().withProperty("TEST_AI_KEY", "test-key");
         var factory = new PracticeAiChatClientFactory(environment, new PracticeAiOpenAiOptionsFactory());
         return factory.create(
@@ -112,11 +174,15 @@ class PracticeAiSingleRequestContractTest {
                         "gpt-4o-mini",
                         Duration.ofSeconds(2),
                         null,
-                        128,
-                        null));
+                        "maxTokens".equals(tokenLimitField) ? tokenLimit : null,
+                        "maxCompletionTokens".equals(tokenLimitField) ? tokenLimit : null));
     }
 
     private String openAiEnvelope(String content) {
+        return openAiEnvelope(content, "stop", 1, 1);
+    }
+
+    private String openAiEnvelope(String content, String finishReason, int promptTokens, int completionTokens) {
         var escapedContent = content
                 .replace("\\", "\\\\")
                 .replace("\"", "\\\"")
@@ -124,9 +190,14 @@ class PracticeAiSingleRequestContractTest {
                 .replace("\n", "\\n");
         return """
                 {"id":"chatcmpl-test","object":"chat.completion","created":1,"model":"gpt-4o-mini",\
-                "choices":[{"index":0,"message":{"role":"assistant","content":"%s"},"finish_reason":"stop"}],\
-                "usage":{"prompt_tokens":1,"completion_tokens":1,"total_tokens":2}}
-                """.formatted(escapedContent);
+                "choices":[{"index":0,"message":{"role":"assistant","content":"%s"},"finish_reason":"%s"}],\
+                "usage":{"prompt_tokens":%d,"completion_tokens":%d,"total_tokens":%d}}
+                """.formatted(
+                        escapedContent,
+                        finishReason,
+                        promptTokens,
+                        completionTokens,
+                        promptTokens + completionTokens);
     }
 
     record Answer(String answer) {

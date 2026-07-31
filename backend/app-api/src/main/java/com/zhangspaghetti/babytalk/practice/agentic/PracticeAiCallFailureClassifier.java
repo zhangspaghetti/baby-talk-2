@@ -21,8 +21,11 @@ public class PracticeAiCallFailureClassifier {
 
     public Optional<String> classify(Throwable failure) {
         for (Throwable current = failure; current != null; current = current.getCause()) {
-            if (current instanceof PracticeAiStructuredOutputCaller.StructuredOutputInvalidException) {
-                return Optional.of("structured_output_invalid");
+            if (current instanceof PracticeAiStructuredOutputCaller.OutputBudgetTooSmallException) {
+                return Optional.of("output_budget_too_small");
+            }
+            if (current instanceof PracticeAiStructuredOutputCaller.StructuredOutputInvalidException exception) {
+                return Optional.of(exception.failureCode());
             }
             if (current instanceof SocketTimeoutException
                     || current instanceof HttpTimeoutException

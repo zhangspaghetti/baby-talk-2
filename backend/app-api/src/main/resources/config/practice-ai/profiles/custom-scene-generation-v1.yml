@@ -21,3 +21,4 @@ baseline-evidence:
 strategy-version: family-english-strategy-v1
 content-safety-policy-version: policy-v2
 generated-output-schema-version: custom-scene-generated-output-v1
+minimum-complete-bundle-output-tokens: 8192

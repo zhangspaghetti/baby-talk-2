@@ -15,9 +15,11 @@ class VersionedResourceRegistryTest {
         var profile = registry.currentGenerationProfile();
 
         assertThat(profile.version()).isEqualTo("custom-scene-generation-v1");
-        assertThat(profile.contentHash()).matches("[0-9a-f]{64}");
+        assertThat(profile.contentHash())
+                .isEqualTo("d2925047c7851334034be7153a91580b96c2243f21de85a003e1d82239a1ea14");
         assertThat(profile.rubricVersion()).isEqualTo("custom-scene-quality-v1");
         assertThat(profile.evidencePolicyVersion()).isEqualTo("custom-scene-evidence-v1");
+        assertThat(profile.minimumCompleteBundleOutputTokens()).isEqualTo(8192);
         assertThat(registry.promptText(VersionedResourceRegistry.PromptKind.GENERATOR)).contains("strict JSON");
     }
 

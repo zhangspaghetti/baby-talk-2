@@ -34,6 +34,7 @@ public class PracticeAiChatClientFactory {
                 providerName,
                 provider.type(),
                 provider.model(),
-                ChatClient.builder(chatModel).build());
+                ChatClient.builder(chatModel).build(),
+                provider.maxTokens() != null ? provider.maxTokens() : provider.maxCompletionTokens());
     }
 }

@@ -151,7 +151,7 @@ void main() {
         for (final invalidRuntimeLine in <String>[
           '            retry-attempts: 2\n',
           '            timeout: 0s\n',
-          '            max-completion-tokens: 600\n',
+          '            max-completion-tokens: 8192\n',
         ]) {
           final manifest = invalidRuntimeLine == '            timeout: 0s\n'
               ? agenticManifest.replaceFirst(
@@ -159,8 +159,8 @@ void main() {
                   invalidRuntimeLine,
                 )
               : agenticManifest.replaceFirst(
-                  '            max-tokens: 600\n',
-                  '            max-tokens: 600\n$invalidRuntimeLine',
+                  '            max-tokens: 8192\n',
+                  '            max-tokens: 8192\n$invalidRuntimeLine',
                 );
           expect(
             () => practiceAi.verifyRenderedPracticeAiManifest(
@@ -170,6 +170,22 @@ void main() {
             throwsA(isA<practiceAi.PracticeAiHelmVerificationException>()),
           );
         }
+      },
+    );
+
+    test(
+      'rejects an agentic output-token limit below the safe bundle minimum',
+      () {
+        expect(
+          () => practiceAi.verifyRenderedPracticeAiManifest(
+            agenticManifest.replaceFirst(
+              '            max-tokens: 8192\n',
+              '            max-completion-tokens: 600\n',
+            ),
+            profile: practiceAi.PracticeAiHelmProfile.agenticQa,
+          ),
+          throwsA(isA<practiceAi.PracticeAiHelmVerificationException>()),
+        );
       },
     );
 
@@ -376,6 +392,10 @@ const _checksumA =
 String _productionManifest(String rolloutVersion) {
   return agenticManifest
       .replaceFirst(
+        '            model: glm-5.2\n',
+        '            model: qwen3.6-flash\n',
+      )
+      .replaceFirst(
         RegExp(
           r'---\napiVersion: v1\nkind: Secret\nmetadata:\n'
           r'  name: practice-ai-secret\n.*?(?=---\napiVersion: apps/v1)',
@@ -412,9 +432,9 @@ data:
             type: openai-compatible
             base-url: https://dashscope.aliyuncs.com/compatible-mode/v1
             api-key-environment-variable: BABY_TALK_AI_PROVIDER_DASHSCOPE_QWEN_API_KEY
-            model: qwen3.6-flash
+            model: glm-5.2
             timeout: 20s
-            max-tokens: 600
+            max-tokens: 8192
         capabilities:
           custom-scene-generator:
             provider-names:

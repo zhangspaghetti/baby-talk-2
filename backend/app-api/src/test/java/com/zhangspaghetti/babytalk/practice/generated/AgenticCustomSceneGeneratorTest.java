@@ -150,7 +150,8 @@ class AgenticCustomSceneGeneratorTest {
                 eq(provider),
                 eq("GENERATOR SYSTEM PROMPT"),
                 any(String.class),
-                eq(CompleteGeneratedBundle.ProviderResponse.class)))
+                eq(CompleteGeneratedBundle.ProviderResponse.class),
+                eq(8192)))
                 .thenReturn(wireJson());
 
         var invocationResult = operation.invocation().invoke(provider);
@@ -162,7 +163,8 @@ class AgenticCustomSceneGeneratorTest {
                 eq(provider),
                 eq("GENERATOR SYSTEM PROMPT"),
                 userPromptCaptor.capture(),
-                eq(CompleteGeneratedBundle.ProviderResponse.class));
+                eq(CompleteGeneratedBundle.ProviderResponse.class),
+                eq(8192));
         var userPrompt = userPromptCaptor.getValue();
         assertThat(userPrompt)
                 .contains("pgc_generator_test", "给宝宝穿鞋", "m7_11", "calmer_care", "zh-CN")
@@ -209,7 +211,8 @@ class AgenticCustomSceneGeneratorTest {
                 eq(provider),
                 eq("GENERATOR SYSTEM PROMPT"),
                 any(String.class),
-                eq(CompleteGeneratedBundle.ProviderResponse.class)))
+                eq(CompleteGeneratedBundle.ProviderResponse.class),
+                eq(8192)))
                 .thenThrow(failure);
 
         assertThatThrownBy(() -> operation.invocation().invoke(provider))
