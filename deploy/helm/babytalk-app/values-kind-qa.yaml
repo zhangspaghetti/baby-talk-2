@@ -10,6 +10,7 @@ fullnameOverride: babytalk-qa-app
 
 appApi:
   image:
+    tag: m2-0877167d2af7
     pullPolicy: IfNotPresent
   resources:
     requests:
@@ -18,6 +19,7 @@ appApi:
 
 adminApi:
   image:
+    tag: m2-0877167d2af7
     pullPolicy: IfNotPresent
   resources:
     requests:
@@ -28,6 +30,7 @@ adminApi:
 
 adminWeb:
   image:
+    tag: m2-0877167d2af7
     pullPolicy: IfNotPresent
   ingress:
     enabled: false
@@ -39,6 +42,7 @@ adminWeb:
 gateway:
   enabled: true
   image:
+    tag: m2-0877167d2af7
     pullPolicy: IfNotPresent
   service:
     type: ClusterIP
@@ -50,6 +54,7 @@ gateway:
 
 dbMigration:
   image:
+    tag: m2-0877167d2af7
     pullPolicy: IfNotPresent
   resources:
     requests:
@@ -64,7 +69,7 @@ practiceAi:
       type: openai-compatible
       baseUrl: https://dashscope.aliyuncs.com/compatible-mode/v1
       apiKeyEnvironmentVariable: BABY_TALK_AI_PROVIDER_DASHSCOPE_QWEN_API_KEY
-      model: qwen3.6-flash
+      model: glm-5.2
       timeout: 20s
       maxTokens: 600
   capabilities:
@@ -95,7 +100,7 @@ config:
 
   BABY_TALK_EMBEDDING_MODE: "openai"
   BABY_TALK_EMBEDDING_BASE_URL: "https://dashscope.aliyuncs.com/compatible-mode"
-  BABY_TALK_EMBEDDING_MODEL: "text-embedding-v4"
+  BABY_TALK_EMBEDDING_MODEL: "qwen3.7-text-embedding"
   BABY_TALK_EMBEDDING_DIMENSIONS: "1536"
 
   # Multipart upload limits
