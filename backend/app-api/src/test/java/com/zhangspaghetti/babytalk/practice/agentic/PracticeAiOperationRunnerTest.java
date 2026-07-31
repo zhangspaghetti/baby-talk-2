@@ -5,7 +5,11 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
 import com.openai.errors.OpenAIIoException;
+import com.openai.errors.OpenAIInvalidDataException;
 import com.openai.errors.OpenAIServiceException;
 import java.io.IOException;
 import java.net.SocketTimeoutException;
@@ -18,9 +22,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.slf4j.LoggerFactory;
 import org.springframework.ai.chat.client.ChatClient;
 
 class PracticeAiOperationRunnerTest {
@@ -84,7 +92,50 @@ class PracticeAiOperationRunnerTest {
     void unclassifiedRuntimeFailureStopsAtPrimaryAndPropagatesOriginalFailure() {
         var audit = new CapturingAuditPort();
         var invoked = new ArrayList<String>();
-        var failure = new IllegalStateException("programming failure");
+        var failure = new IllegalStateException(
+                "sensitive request body prompt completion endpoint header token secret trace-id");
+        var runner = runner(List.of(provider("primary"), provider("secondary")), audit);
+        var logger = (Logger) LoggerFactory.getLogger(PracticeAiOperationRunner.class);
+        var appender = new ListAppender<ILoggingEvent>();
+        appender.start();
+        logger.addAppender(appender);
+
+        try {
+            assertThatThrownBy(() -> runner.execute(request(
+                    PracticeAiCapability.CUSTOM_SCENE_GENERATOR,
+                    resolved -> {
+                        invoked.add(resolved.providerName());
+                        throw failure;
+                    }))).isSameAs(failure);
+        } finally {
+            logger.detachAppender(appender);
+            appender.stop();
+        }
+
+        assertThat(invoked).containsExactly("primary");
+        assertThat(audit.events).containsExactly(
+                "operation:started",
+                "primary:started",
+                "primary:internal_error",
+                "operation:internal_error");
+        assertThat(appender.list).singleElement().satisfies(event -> {
+            assertThat(event.getLevel()).isEqualTo(ch.qos.logback.classic.Level.ERROR);
+            assertThat(event.getMessage()).isEqualTo(
+                    "Practice AI unclassified provider failure: capability={}, fallbackIndex={}, errorType={}");
+            assertThat(event.getArgumentArray())
+                    .containsExactly("custom-scene-generator", 0, "UNKNOWN");
+            assertThat(event.getFormattedMessage()).isEqualTo(
+                    "Practice AI unclassified provider failure: capability=custom-scene-generator, "
+                            + "fallbackIndex=0, errorType=UNKNOWN");
+            assertThat(event.getThrowableProxy()).isNull();
+        });
+    }
+
+    @Test
+    void localIoFailureIsInternalAndDoesNotFallBack() {
+        var audit = new CapturingAuditPort();
+        var invoked = new ArrayList<String>();
+        var failure = new RuntimeException(new IOException("local read failure"));
         var runner = runner(List.of(provider("primary"), provider("secondary")), audit);
 
         assertThatThrownBy(() -> runner.execute(request(PracticeAiCapability.CUSTOM_SCENE_GENERATOR, resolved -> {
@@ -100,18 +151,81 @@ class PracticeAiOperationRunnerTest {
                 "operation:internal_error");
     }
 
-    @Test
-    void localIoFailureIsInternalAndDoesNotFallBack() {
+    @ParameterizedTest
+    @MethodSource("allowlistedDiagnosticFailures")
+    void unclassifiedRuntimeFailureUsesOnlyAllowlistedDiagnosticErrorType(
+            RuntimeException failure,
+            String expectedErrorType
+    ) {
         var audit = new CapturingAuditPort();
         var invoked = new ArrayList<String>();
-        var failure = new RuntimeException(new IOException("local read failure"));
         var runner = runner(List.of(provider("primary"), provider("secondary")), audit);
+        var logger = (Logger) LoggerFactory.getLogger(PracticeAiOperationRunner.class);
+        var appender = new ListAppender<ILoggingEvent>();
+        appender.start();
+        logger.addAppender(appender);
 
-        assertThatThrownBy(() -> runner.execute(request(PracticeAiCapability.CUSTOM_SCENE_GENERATOR, resolved -> {
-            invoked.add(resolved.providerName());
-            throw failure;
-        }))).isSameAs(failure);
+        try {
+            assertThatThrownBy(() -> runner.execute(request(
+                    PracticeAiCapability.CUSTOM_SCENE_REPAIR,
+                    resolved -> {
+                        invoked.add(resolved.providerName());
+                        throw failure;
+                    }))).isSameAs(failure);
+        } finally {
+            logger.detachAppender(appender);
+            appender.stop();
+        }
 
+        assertThat(appender.list).singleElement().satisfies(event -> {
+            assertThat(event.getArgumentArray())
+                    .containsExactly("custom-scene-repair", 0, expectedErrorType);
+            assertThat(event.getFormattedMessage()).isEqualTo(
+                    "Practice AI unclassified provider failure: capability=custom-scene-repair, "
+                            + "fallbackIndex=0, errorType=" + expectedErrorType);
+            assertThat(event.getThrowableProxy()).isNull();
+        });
+        assertThat(audit.events).containsExactly(
+                "operation:started",
+                "primary:started",
+                "primary:internal_error",
+                "operation:internal_error");
+        assertThat(invoked).containsExactly("primary");
+    }
+
+    @ParameterizedTest
+    @MethodSource("unsafeDiagnosticCauseFailures")
+    void diagnosticCauseInspectionCannotReplaceOriginalFailure(RuntimeException failure) {
+        var audit = new CapturingAuditPort();
+        var invoked = new ArrayList<String>();
+        var classifier = mock(PracticeAiCallFailureClassifier.class);
+        when(classifier.classify(failure)).thenReturn(java.util.Optional.empty());
+        var runner = runner(
+                List.of(provider("primary"), provider("secondary")),
+                audit,
+                classifier);
+        var logger = (Logger) LoggerFactory.getLogger(PracticeAiOperationRunner.class);
+        var appender = new ListAppender<ILoggingEvent>();
+        appender.start();
+        logger.addAppender(appender);
+
+        try {
+            assertThatThrownBy(() -> runner.execute(request(
+                    PracticeAiCapability.CUSTOM_SCENE_GENERATOR,
+                    resolved -> {
+                        invoked.add(resolved.providerName());
+                        throw failure;
+                    }))).isSameAs(failure);
+        } finally {
+            logger.detachAppender(appender);
+            appender.stop();
+        }
+
+        assertThat(appender.list).singleElement().satisfies(event -> {
+            assertThat(event.getArgumentArray())
+                    .containsExactly("custom-scene-generator", 0, "UNKNOWN");
+            assertThat(event.getThrowableProxy()).isNull();
+        });
         assertThat(invoked).containsExactly("primary");
         assertThat(audit.events).containsExactly(
                 "operation:started",
@@ -293,12 +407,53 @@ class PracticeAiOperationRunnerTest {
                 .collect(java.util.stream.Collectors.toSet());
     }
 
+    private static Stream<Arguments> allowlistedDiagnosticFailures() {
+        return Stream.of(
+                Arguments.of(
+                        new RuntimeException(
+                                "sensitive wrapper",
+                                new OpenAIInvalidDataException("sensitive provider metadata")),
+                        "OPENAI_INVALID_DATA"),
+                Arguments.of(malformedJsonFailure(), "JACKSON"),
+                Arguments.of(
+                        new IllegalArgumentException(
+                                "sensitive wrapper",
+                                new OpenAIInvalidDataException("sensitive provider metadata")),
+                        "OPENAI_INVALID_DATA"),
+                Arguments.of(new IllegalArgumentException("sensitive argument"), "ILLEGAL_ARGUMENT"),
+                Arguments.of(new NullPointerException("sensitive null"), "NULL_POINTER"),
+                Arguments.of(new ClassCastException("sensitive type"), "CLASS_CAST"));
+    }
+
+    private static Stream<Arguments> unsafeDiagnosticCauseFailures() {
+        return Stream.of(
+                Arguments.of(new ThrowingCauseException()),
+                Arguments.of(new CyclicCauseException()));
+    }
+
+    private static RuntimeException malformedJsonFailure() {
+        try {
+            tools.jackson.databind.json.JsonMapper.builder().build().readTree("{");
+            throw new AssertionError("malformed JSON must fail");
+        } catch (tools.jackson.core.JacksonException exception) {
+            return exception;
+        }
+    }
+
     private PracticeAiOperationRunner runner(List<ResolvedProvider> providers, PracticeAiAuditPort audit) {
+        return runner(providers, audit, new PracticeAiCallFailureClassifier());
+    }
+
+    private PracticeAiOperationRunner runner(
+            List<ResolvedProvider> providers,
+            PracticeAiAuditPort audit,
+            PracticeAiCallFailureClassifier classifier
+    ) {
         var manager = mock(PracticeAiProviderManager.class);
         when(manager.route(org.mockito.ArgumentMatchers.any())).thenReturn(providers);
         when(manager.routingPolicyVersion()).thenReturn("custom-scene-routing-v1");
         when(manager.routingPolicyHash()).thenReturn(HASH);
-        return new PracticeAiOperationRunner(manager, audit, new PracticeAiCallFailureClassifier(), CLOCK);
+        return new PracticeAiOperationRunner(manager, audit, classifier, CLOCK);
     }
 
     private OperationRequest<String> request(
@@ -387,6 +542,26 @@ class PracticeAiOperationRunnerTest {
                 throw failure;
             }
             super.completeProviderCall(call);
+        }
+    }
+
+    private static final class ThrowingCauseException extends RuntimeException {
+        @Override
+        public synchronized Throwable getCause() {
+            throw new IllegalStateException("sensitive diagnostic failure");
+        }
+    }
+
+    private static final class CyclicCauseException extends RuntimeException {
+        private int causeReads;
+
+        @Override
+        public synchronized Throwable getCause() {
+            causeReads++;
+            if (causeReads > 1_000) {
+                throw new IllegalStateException("sensitive cause cycle");
+            }
+            return this;
         }
     }
 }

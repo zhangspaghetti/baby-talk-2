@@ -1,15 +1,22 @@
 package com.zhangspaghetti.babytalk.practice.agentic;
 
+import com.openai.errors.OpenAIInvalidDataException;
 import java.time.Clock;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
+import java.util.Collections;
+import java.util.EnumSet;
+import java.util.IdentityHashMap;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
+import tools.jackson.core.JacksonException;
 
 @Component
 @ConditionalOnProperty(
@@ -19,6 +26,8 @@ import org.springframework.stereotype.Component;
 )
 public class PracticeAiOperationRunner {
 
+    private static final Logger LOGGER = LoggerFactory.getLogger(PracticeAiOperationRunner.class);
+    private static final int MAX_DIAGNOSTIC_CAUSE_DEPTH = 32;
     private static final Pattern PROVIDER_TRACE_PATTERN =
             Pattern.compile("[A-Za-z0-9][A-Za-z0-9._:/-]{0,127}");
 
@@ -90,6 +99,12 @@ public class PracticeAiOperationRunner {
             } catch (RuntimeException failure) {
                 var fallbackOutcome = failureClassifier.classify(failure);
                 if (fallbackOutcome.isEmpty()) {
+                    LOGGER.error(
+                            "Practice AI unclassified provider failure: capability={}, "
+                                    + "fallbackIndex={}, errorType={}",
+                            request.capability().propertyKey(),
+                            fallbackIndex,
+                            DiagnosticErrorType.from(failure).name());
                     auditPort.completeProviderCall(new PracticeAiAuditPort.ProviderCallCompleted(
                             providerCallId, "internal_error", null, latencyMillis(startedNanos), now()));
                     auditPort.completeOperationRun(new PracticeAiAuditPort.OperationRunCompleted(
@@ -142,6 +157,60 @@ public class PracticeAiOperationRunner {
             case CUSTOM_SCENE_QUALITY_JUDGE -> "quality_judge";
             case CUSTOM_SCENE_REPAIR -> "repair";
         };
+    }
+
+    private enum DiagnosticErrorType {
+        OPENAI_INVALID_DATA,
+        JACKSON,
+        ILLEGAL_ARGUMENT,
+        NULL_POINTER,
+        CLASS_CAST,
+        UNKNOWN;
+
+        private static DiagnosticErrorType from(Throwable failure) {
+            var observed = EnumSet.noneOf(DiagnosticErrorType.class);
+            var visited = Collections.newSetFromMap(new IdentityHashMap<Throwable, Boolean>());
+            Throwable current = failure;
+            for (int depth = 0; current != null; depth++) {
+                if (depth >= MAX_DIAGNOSTIC_CAUSE_DEPTH || !visited.add(current)) {
+                    return UNKNOWN;
+                }
+                var currentType = directType(current);
+                if (currentType != UNKNOWN) {
+                    observed.add(currentType);
+                }
+                try {
+                    current = current.getCause();
+                } catch (RuntimeException diagnosticFailure) {
+                    return UNKNOWN;
+                }
+            }
+            for (var errorType : values()) {
+                if (observed.contains(errorType)) {
+                    return errorType;
+                }
+            }
+            return UNKNOWN;
+        }
+
+        private static DiagnosticErrorType directType(Throwable failure) {
+            if (failure instanceof OpenAIInvalidDataException) {
+                return OPENAI_INVALID_DATA;
+            }
+            if (failure instanceof JacksonException) {
+                return JACKSON;
+            }
+            if (failure instanceof IllegalArgumentException) {
+                return ILLEGAL_ARGUMENT;
+            }
+            if (failure instanceof NullPointerException) {
+                return NULL_POINTER;
+            }
+            if (failure instanceof ClassCastException) {
+                return CLASS_CAST;
+            }
+            return UNKNOWN;
+        }
     }
 
     public static final class ProvidersExhaustedException extends RuntimeException {
