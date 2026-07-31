@@ -110,7 +110,9 @@ practiceAi:
       baseUrl: https://dashscope.aliyuncs.com/compatible-mode/v1
       apiKeyEnvironmentVariable: BABY_TALK_AI_PROVIDER_DASHSCOPE_QWEN_API_KEY
       model: qwen3.6-flash
-      timeout: 20s
+      # Complete-bundle reasoning gets a 120s provider deadline floor.
+      # This is a maximum deadline, not expected request latency.
+      timeout: 120s
       # Safe maximum floor for the versioned six-sentence complete-bundle contract.
       # This limit does not imply that each request consumes this many tokens.
       maxTokens: 8192

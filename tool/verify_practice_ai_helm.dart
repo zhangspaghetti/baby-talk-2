@@ -12,6 +12,7 @@ const _ownerKeySecretEnvironmentVariable =
 const _agenticRenderOwnerKeyPlaceholder =
     'm2-public-agentic-owner-key-placeholder-0123456789';
 const _safeMinimumCompleteBundleOutputTokens = 8192;
+const _minimumCompleteBundleProviderTimeout = Duration(seconds: 120);
 
 enum PracticeAiHelmProfile { disabledDefault, kindFake, agenticQa, production }
 
@@ -685,9 +686,16 @@ void _verifyRuntime(
     if (provider.model == null || provider.model!.isEmpty) {
       _fail('Provider ${provider.name} has no model.');
     }
-    if (provider.timeout == null ||
-        !RegExp(r'^[1-9][0-9]*(ms|s|m|h)$').hasMatch(provider.timeout!)) {
+    final providerTimeout = _parsePositiveProviderTimeout(provider.timeout);
+    if (providerTimeout == null) {
       _fail('Provider ${provider.name} timeout must be positive.');
+    }
+    if (profile.needsAgenticRoutes &&
+        providerTimeout! < _minimumCompleteBundleProviderTimeout) {
+      _fail(
+        'Provider ${provider.name} timeout must satisfy the complete-bundle '
+        'minimum of ${_minimumCompleteBundleProviderTimeout.inSeconds}s.',
+      );
     }
     final tokenFields = <String>[
       if (provider.values.containsKey('max-tokens')) 'max-tokens',
@@ -777,7 +785,6 @@ void _verifyDashscopeQwenRuntime(
     'model': profile == PracticeAiHelmProfile.agenticQa
         ? 'glm-5.2'
         : 'qwen3.6-flash',
-    'timeout': '20s',
   };
   for (final entry in expected.entries) {
     if (provider.values[entry.key] != entry.value) {
@@ -793,6 +800,23 @@ void _verifyDashscopeQwenRuntime(
       _fail('$capability must route only to dashscope-qwen in order.');
     }
   }
+}
+
+Duration? _parsePositiveProviderTimeout(String? value) {
+  final match = value == null
+      ? null
+      : RegExp(r'^([1-9][0-9]*)(ms|s|m|h)$').firstMatch(value);
+  if (match == null) {
+    return null;
+  }
+  final amount = int.parse(match.group(1)!);
+  return switch (match.group(2)!) {
+    'ms' => Duration(milliseconds: amount),
+    's' => Duration(seconds: amount),
+    'm' => Duration(minutes: amount),
+    'h' => Duration(hours: amount),
+    _ => null,
+  };
 }
 
 void _verifyRuntimeMount(

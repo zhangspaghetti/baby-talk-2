@@ -155,7 +155,7 @@ void main() {
         ]) {
           final manifest = invalidRuntimeLine == '            timeout: 0s\n'
               ? agenticManifest.replaceFirst(
-                  '            timeout: 20s\n',
+                  '            timeout: 120s\n',
                   invalidRuntimeLine,
                 )
               : agenticManifest.replaceFirst(
@@ -185,6 +185,34 @@ void main() {
             profile: practiceAi.PracticeAiHelmProfile.agenticQa,
           ),
           throwsA(isA<practiceAi.PracticeAiHelmVerificationException>()),
+        );
+      },
+    );
+
+    test(
+      'rejects an agentic provider timeout below the complete-bundle minimum',
+      () {
+        for (final timeout in <String>['119s', '119999ms']) {
+          expect(
+            () => practiceAi.verifyRenderedPracticeAiManifest(
+              agenticManifest.replaceFirst(
+                '            timeout: 120s\n',
+                '            timeout: $timeout\n',
+              ),
+              profile: practiceAi.PracticeAiHelmProfile.agenticQa,
+            ),
+            throwsA(isA<practiceAi.PracticeAiHelmVerificationException>()),
+          );
+        }
+        expect(
+          () => practiceAi.verifyRenderedPracticeAiManifest(
+            agenticManifest.replaceFirst(
+              '            timeout: 120s\n',
+              '            timeout: 2m\n',
+            ),
+            profile: practiceAi.PracticeAiHelmProfile.agenticQa,
+          ),
+          returnsNormally,
         );
       },
     );
@@ -433,7 +461,7 @@ data:
             base-url: https://dashscope.aliyuncs.com/compatible-mode/v1
             api-key-environment-variable: BABY_TALK_AI_PROVIDER_DASHSCOPE_QWEN_API_KEY
             model: glm-5.2
-            timeout: 20s
+            timeout: 120s
             max-tokens: 8192
         capabilities:
           custom-scene-generator:
