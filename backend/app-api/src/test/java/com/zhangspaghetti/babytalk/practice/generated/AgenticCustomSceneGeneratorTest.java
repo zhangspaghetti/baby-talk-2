@@ -32,7 +32,6 @@ import java.security.NoSuchAlgorithmException;
 import java.time.OffsetDateTime;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -235,13 +234,20 @@ class AgenticCustomSceneGeneratorTest {
     }
 
     @Test
-    void wireResponseRejectsMissingRequiredSchemaField() {
-        assertThatThrownBy(() -> new CompleteGeneratedBundle.ProviderResponse(
-                CompleteGeneratedBundle.CURRENT_SCHEMA_VERSION,
-                new CompleteGeneratedBundle.SceneMetadata("日常照护", "穿鞋出门", "Shoes on"),
-                Map.of()))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("branch keys");
+    void wireResponseRejectsMissingRequiredBranch() {
+        assertThatThrownBy(() -> new CompleteGeneratedBundle.ProviderUtterances(
+                wireUtterance(CompleteGeneratedBundle.UtteranceRole.STARTER, null, 1),
+                wireUtterance(CompleteGeneratedBundle.UtteranceRole.REACTION_SUPPORT,
+                        CompleteGeneratedBundle.Reaction.COOPERATING, 2),
+                wireUtterance(CompleteGeneratedBundle.UtteranceRole.REACTION_SUPPORT,
+                        CompleteGeneratedBundle.Reaction.HESITANT, 3),
+                wireUtterance(CompleteGeneratedBundle.UtteranceRole.REACTION_SUPPORT,
+                        CompleteGeneratedBundle.Reaction.RESISTING, 4),
+                wireUtterance(CompleteGeneratedBundle.UtteranceRole.REACTION_SUPPORT,
+                        CompleteGeneratedBundle.Reaction.NO_RESPONSE, 5),
+                null))
+                .isInstanceOf(NullPointerException.class)
+                .hasMessage("other");
     }
 
     @Test
@@ -382,16 +388,21 @@ class AgenticCustomSceneGeneratorTest {
     }
 
     private CompleteGeneratedBundle.ProviderResponse wireResponse() {
-        var utterances = new java.util.LinkedHashMap<String, CompleteGeneratedBundle.ProviderUtterance>();
-        utterances.put("starter", wireUtterance(CompleteGeneratedBundle.UtteranceRole.STARTER, null, 1));
-        for (var reaction : CompleteGeneratedBundle.Reaction.values()) {
-            utterances.put(reaction.wireValue(), wireUtterance(
-                    CompleteGeneratedBundle.UtteranceRole.REACTION_SUPPORT, reaction, reaction.ordinal() + 2));
-        }
         return new CompleteGeneratedBundle.ProviderResponse(
                 CompleteGeneratedBundle.CURRENT_SCHEMA_VERSION,
                 new CompleteGeneratedBundle.SceneMetadata("日常照护", "穿鞋出门", "Shoes on"),
-                utterances);
+                new CompleteGeneratedBundle.ProviderUtterances(
+                        wireUtterance(CompleteGeneratedBundle.UtteranceRole.STARTER, null, 1),
+                        wireUtterance(CompleteGeneratedBundle.UtteranceRole.REACTION_SUPPORT,
+                                CompleteGeneratedBundle.Reaction.COOPERATING, 2),
+                        wireUtterance(CompleteGeneratedBundle.UtteranceRole.REACTION_SUPPORT,
+                                CompleteGeneratedBundle.Reaction.HESITANT, 3),
+                        wireUtterance(CompleteGeneratedBundle.UtteranceRole.REACTION_SUPPORT,
+                                CompleteGeneratedBundle.Reaction.RESISTING, 4),
+                        wireUtterance(CompleteGeneratedBundle.UtteranceRole.REACTION_SUPPORT,
+                                CompleteGeneratedBundle.Reaction.NO_RESPONSE, 5),
+                        wireUtterance(CompleteGeneratedBundle.UtteranceRole.REACTION_SUPPORT,
+                                CompleteGeneratedBundle.Reaction.OTHER, 6)));
     }
 
     private String wireJson() {

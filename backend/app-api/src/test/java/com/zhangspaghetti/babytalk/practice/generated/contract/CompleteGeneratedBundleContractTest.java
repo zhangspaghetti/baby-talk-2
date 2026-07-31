@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import org.junit.jupiter.api.Test;
+import org.springframework.ai.converter.BeanOutputConverter;
 import tools.jackson.databind.ObjectMapper;
 
 class CompleteGeneratedBundleContractTest {
@@ -36,6 +37,31 @@ class CompleteGeneratedBundleContractTest {
         assertThat(bundle.utterances())
                 .extracting(CompleteGeneratedBundle.Utterance::providerProvenance)
                 .containsOnly(generatedProvenance());
+    }
+
+    @Test
+    void providerSchemaRequiresEveryCanonicalBranchForStructuredOutputModels() throws Exception {
+        var schema = new ObjectMapper().readTree(new BeanOutputConverter<>(
+                CompleteGeneratedBundle.ProviderResponse.class).getJsonSchema());
+        var utterancesSchema = schema.get("properties").get("utterances");
+        var branchProperties = utterancesSchema.get("properties");
+
+        assertThat(branchProperties).isNotNull();
+        assertThat(branchProperties.has("starter")).isTrue();
+        assertThat(branchProperties.has("cooperating")).isTrue();
+        assertThat(branchProperties.has("hesitant")).isTrue();
+        assertThat(branchProperties.has("resisting")).isTrue();
+        assertThat(branchProperties.has("no_response")).isTrue();
+        assertThat(branchProperties.has("other")).isTrue();
+        assertThat(utterancesSchema.get("required").toString())
+                .contains(
+                        "\"starter\"",
+                        "\"cooperating\"",
+                        "\"hesitant\"",
+                        "\"resisting\"",
+                        "\"no_response\"",
+                        "\"other\"");
+        assertThat(utterancesSchema.get("additionalProperties").booleanValue()).isFalse();
     }
 
     @Test

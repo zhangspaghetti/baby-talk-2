@@ -2,10 +2,8 @@ package com.zhangspaghetti.babytalk.practice.generated.contract;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
-import java.util.Arrays;
 import java.util.EnumSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import tools.jackson.core.StreamReadFeature;
 import tools.jackson.databind.DeserializationFeature;
@@ -204,13 +202,12 @@ public record CompleteGeneratedBundle(
     public record ProviderResponse(
             String schemaVersion,
             SceneMetadata scene,
-            Map<String, ProviderUtterance> utterances
+            ProviderUtterances utterances
     ) {
         public ProviderResponse {
             requireSupportedSchemaVersion(schemaVersion);
             Objects.requireNonNull(scene, "scene");
-            utterances = Map.copyOf(Objects.requireNonNull(utterances, "utterances"));
-            validateProviderKeysAndShape(utterances);
+            Objects.requireNonNull(utterances, "utterances");
         }
 
         public static ProviderResponse parse(String json) {
@@ -226,37 +223,48 @@ public record CompleteGeneratedBundle(
 
         public CompleteGeneratedBundle toCompleteBundle(ProviderProvenance provenance) {
             Objects.requireNonNull(provenance, "provenance");
-            var ordered = java.util.stream.Stream.concat(
-                            java.util.stream.Stream.of("starter"),
-                            Arrays.stream(Reaction.values()).map(Reaction::wireValue))
-                    .map(key -> utterances.get(key).toUtterance(provenance))
+            var ordered = utterances.ordered().stream()
+                    .map(branch -> branch.toUtterance(provenance))
                     .toList();
             return new CompleteGeneratedBundle(schemaVersion, scene, ordered);
         }
+    }
 
-        private static void validateProviderKeysAndShape(Map<String, ProviderUtterance> utterances) {
-            var expectedKeys = new java.util.LinkedHashSet<String>();
-            expectedKeys.add("starter");
-            for (var reaction : Reaction.values()) {
-                expectedKeys.add(reaction.wireValue());
-            }
-            if (!utterances.keySet().equals(expectedKeys)) {
-                throw new IllegalArgumentException("complete generated bundle branch keys are missing, duplicated, or unknown");
-            }
-            var ordered = new java.util.ArrayList<ProviderUtterance>(6);
-            var starter = utterances.get("starter");
+    /** Fixed provider-facing branch object so JSON Schema requires all six canonical keys. */
+    public record ProviderUtterances(
+            ProviderUtterance starter,
+            ProviderUtterance cooperating,
+            ProviderUtterance hesitant,
+            ProviderUtterance resisting,
+            ProviderUtterance no_response,
+            ProviderUtterance other
+    ) {
+        public ProviderUtterances {
+            Objects.requireNonNull(starter, "starter");
+            Objects.requireNonNull(cooperating, "cooperating");
+            Objects.requireNonNull(hesitant, "hesitant");
+            Objects.requireNonNull(resisting, "resisting");
+            Objects.requireNonNull(no_response, "no_response");
+            Objects.requireNonNull(other, "other");
             if (starter.role() != UtteranceRole.STARTER || starter.reaction() != null) {
                 throw new IllegalArgumentException("starter branch role and reaction do not match its key");
             }
-            ordered.add(starter);
-            for (var reaction : Reaction.values()) {
-                var support = utterances.get(reaction.wireValue());
-                if (support.role() != UtteranceRole.REACTION_SUPPORT || support.reaction() != reaction) {
-                    throw new IllegalArgumentException("reaction support role and reaction do not match its key");
-                }
-                ordered.add(support);
+            validateSupport(cooperating, Reaction.COOPERATING);
+            validateSupport(hesitant, Reaction.HESITANT);
+            validateSupport(resisting, Reaction.RESISTING);
+            validateSupport(no_response, Reaction.NO_RESPONSE);
+            validateSupport(other, Reaction.OTHER);
+            validateCompleteShape(List.of(starter, cooperating, hesitant, resisting, no_response, other));
+        }
+
+        private List<ProviderUtterance> ordered() {
+            return List.of(starter, cooperating, hesitant, resisting, no_response, other);
+        }
+
+        private static void validateSupport(ProviderUtterance support, Reaction reaction) {
+            if (support.role() != UtteranceRole.REACTION_SUPPORT || support.reaction() != reaction) {
+                throw new IllegalArgumentException("reaction support role and reaction do not match its key");
             }
-            validateCompleteShape(ordered);
         }
     }
 

@@ -26,7 +26,6 @@ import com.zhangspaghetti.babytalk.practice.generated.evidence.EvidenceSummary;
 import com.zhangspaghetti.babytalk.practice.generated.contract.CompleteGeneratedBundle;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -180,15 +179,21 @@ class AgenticCustomSceneRepairerTest {
     }
 
     private static CompleteGeneratedBundle.ProviderResponse wire() {
-        var utterances = new java.util.LinkedHashMap<String, CompleteGeneratedBundle.ProviderUtterance>();
-        utterances.put("starter", utterance(CompleteGeneratedBundle.UtteranceRole.STARTER, null, 1));
-        for (var reaction : CompleteGeneratedBundle.Reaction.values()) {
-            utterances.put(reaction.wireValue(), utterance(
-                    CompleteGeneratedBundle.UtteranceRole.REACTION_SUPPORT, reaction, reaction.ordinal() + 2));
-        }
         return new CompleteGeneratedBundle.ProviderResponse(
                 CompleteGeneratedBundle.CURRENT_SCHEMA_VERSION,
-                new CompleteGeneratedBundle.SceneMetadata("日常照护", "穿鞋出门", "Shoes on"), utterances);
+                new CompleteGeneratedBundle.SceneMetadata("日常照护", "穿鞋出门", "Shoes on"),
+                new CompleteGeneratedBundle.ProviderUtterances(
+                        utterance(CompleteGeneratedBundle.UtteranceRole.STARTER, null, 1),
+                        utterance(CompleteGeneratedBundle.UtteranceRole.REACTION_SUPPORT,
+                                CompleteGeneratedBundle.Reaction.COOPERATING, 2),
+                        utterance(CompleteGeneratedBundle.UtteranceRole.REACTION_SUPPORT,
+                                CompleteGeneratedBundle.Reaction.HESITANT, 3),
+                        utterance(CompleteGeneratedBundle.UtteranceRole.REACTION_SUPPORT,
+                                CompleteGeneratedBundle.Reaction.RESISTING, 4),
+                        utterance(CompleteGeneratedBundle.UtteranceRole.REACTION_SUPPORT,
+                                CompleteGeneratedBundle.Reaction.NO_RESPONSE, 5),
+                        utterance(CompleteGeneratedBundle.UtteranceRole.REACTION_SUPPORT,
+                                CompleteGeneratedBundle.Reaction.OTHER, 6)));
     }
 
     private static String wireJson() {

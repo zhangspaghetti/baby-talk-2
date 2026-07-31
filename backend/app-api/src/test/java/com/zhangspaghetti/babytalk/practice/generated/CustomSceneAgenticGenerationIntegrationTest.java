@@ -434,22 +434,27 @@ class CustomSceneAgenticGenerationIntegrationTest extends AbstractIntegrationTes
                 String tprAction,
                 String deliveryGuidance
         ) {
-            var utterances = new java.util.LinkedHashMap<String, CompleteGeneratedBundle.ProviderUtterance>();
-            utterances.put("starter", utterance(CompleteGeneratedBundle.UtteranceRole.STARTER, null, 1,
-                    chineseText, tprAction, deliveryGuidance));
-            for (var reaction : CompleteGeneratedBundle.Reaction.values()) {
-                utterances.put(reaction.wireValue(), utterance(
-                        CompleteGeneratedBundle.UtteranceRole.REACTION_SUPPORT,
-                        reaction,
-                        reaction.ordinal() + 2,
-                        chineseText,
-                        tprAction,
-                        deliveryGuidance));
-            }
             return new CompleteGeneratedBundle.ProviderResponse(
                     CompleteGeneratedBundle.CURRENT_SCHEMA_VERSION,
                     new CompleteGeneratedBundle.SceneMetadata("日常照护", "穿鞋出门", "Shoes on"),
-                    utterances);
+                    new CompleteGeneratedBundle.ProviderUtterances(
+                            utterance(CompleteGeneratedBundle.UtteranceRole.STARTER, null, 1,
+                                    chineseText, tprAction, deliveryGuidance),
+                            utterance(CompleteGeneratedBundle.UtteranceRole.REACTION_SUPPORT,
+                                    CompleteGeneratedBundle.Reaction.COOPERATING, 2,
+                                    chineseText, tprAction, deliveryGuidance),
+                            utterance(CompleteGeneratedBundle.UtteranceRole.REACTION_SUPPORT,
+                                    CompleteGeneratedBundle.Reaction.HESITANT, 3,
+                                    chineseText, tprAction, deliveryGuidance),
+                            utterance(CompleteGeneratedBundle.UtteranceRole.REACTION_SUPPORT,
+                                    CompleteGeneratedBundle.Reaction.RESISTING, 4,
+                                    chineseText, tprAction, deliveryGuidance),
+                            utterance(CompleteGeneratedBundle.UtteranceRole.REACTION_SUPPORT,
+                                    CompleteGeneratedBundle.Reaction.NO_RESPONSE, 5,
+                                    chineseText, tprAction, deliveryGuidance),
+                            utterance(CompleteGeneratedBundle.UtteranceRole.REACTION_SUPPORT,
+                                    CompleteGeneratedBundle.Reaction.OTHER, 6,
+                                    chineseText, tprAction, deliveryGuidance)));
         }
 
         private CompleteGeneratedBundle.ProviderUtterance utterance(
