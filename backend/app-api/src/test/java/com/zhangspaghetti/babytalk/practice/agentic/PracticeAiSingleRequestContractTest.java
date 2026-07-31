@@ -97,6 +97,124 @@ class PracticeAiSingleRequestContractTest {
         }
     }
 
+    @Test
+    void conformingStructuredOutputSucceedsAfterOneRequestWhenUsageIsOmitted() throws Exception {
+        var requestCount = new AtomicInteger();
+        var server = server(requestCount, 200, openAiEnvelopeWithoutUsage("{\"answer\":\"ok\"}", "stop"));
+        try {
+            var provider = provider(server);
+
+            assertThat(new PracticeAiStructuredOutputCaller().call(
+                    provider, "system", "return JSON", Answer.class))
+                    .isEqualTo(new Answer("ok"));
+            assertThat(requestCount).hasValue(1);
+        } finally {
+            server.stop(0);
+        }
+    }
+
+    @Test
+    void conformingStructuredOutputSucceedsAfterOneRequestForUnknownFinishReason() throws Exception {
+        var requestCount = new AtomicInteger();
+        var server = server(requestCount, 200, openAiEnvelopeWithoutUsage(
+                "{\"answer\":\"ok\"}", "provider_specific"));
+        try {
+            var provider = provider(server);
+
+            assertThat(new PracticeAiStructuredOutputCaller().call(
+                    provider, "system", "return JSON", Answer.class))
+                    .isEqualTo(new Answer("ok"));
+            assertThat(requestCount).hasValue(1);
+        } finally {
+            server.stop(0);
+        }
+    }
+
+    @Test
+    void conformingStructuredOutputSucceedsAfterOneRequestWhenFinishReasonIsNull() throws Exception {
+        var requestCount = new AtomicInteger();
+        var server = server(requestCount, 200, openAiEnvelopeWithRawMetadata(
+                "{\"answer\":\"ok\"}",
+                "null",
+                "{\"prompt_tokens\":1,\"completion_tokens\":1,\"total_tokens\":2}"));
+        try {
+            var provider = provider(server);
+
+            assertThat(new PracticeAiStructuredOutputCaller().call(
+                    provider, "system", "return JSON", Answer.class))
+                    .isEqualTo(new Answer("ok"));
+            assertThat(requestCount).hasValue(1);
+        } finally {
+            server.stop(0);
+        }
+    }
+
+    @Test
+    void conformingStructuredOutputSucceedsAfterOneRequestWhenUsageCountersAreNull() throws Exception {
+        var requestCount = new AtomicInteger();
+        var server = server(requestCount, 200, openAiEnvelopeWithRawUsage(
+                "{\"answer\":\"温暖\\n回应\"}",
+                "stop",
+                "{\"prompt_tokens\":null,\"completion_tokens\":null,\"total_tokens\":null}"));
+        try {
+            var provider = provider(server);
+
+            assertThat(new PracticeAiStructuredOutputCaller().call(
+                    provider, "system", "return JSON", Answer.class))
+                    .isEqualTo(new Answer("温暖\n回应"));
+            assertThat(requestCount).hasValue(1);
+        } finally {
+            server.stop(0);
+        }
+    }
+
+    @Test
+    void conformingStructuredOutputSucceedsAfterOneRequestWhenUsageCountersArePartial() throws Exception {
+        var requestCount = new AtomicInteger();
+        var server = server(requestCount, 200, openAiEnvelopeWithRawUsage(
+                "{\"answer\":\"ok\"}", "stop", "{\"prompt_tokens\":7}"));
+        try {
+            var provider = provider(server);
+
+            assertThat(new PracticeAiStructuredOutputCaller().call(
+                    provider, "system", "return JSON", Answer.class))
+                    .isEqualTo(new Answer("ok"));
+            assertThat(requestCount).hasValue(1);
+        } finally {
+            server.stop(0);
+        }
+    }
+
+    @Test
+    void nullableUsageNormalizationDoesNotBypassStrictStructuredOutputParsing() throws Exception {
+        var requestCount = new AtomicInteger();
+        var server = server(requestCount, 200, openAiEnvelopeWithRawUsage(
+                "{\"answer\":\"ok\",\"extra\":true}",
+                "stop",
+                "{\"prompt_tokens\":null,\"completion_tokens\":null,\"total_tokens\":null}"));
+        try {
+            var provider = provider(server);
+
+            var exception = org.assertj.core.api.Assertions.catchThrowableOfType(
+                    () -> new PracticeAiStructuredOutputCaller().call(
+                            provider, "system", "return JSON", Answer.class),
+                    PracticeAiStructuredOutputCaller.StructuredOutputInvalidException.class);
+
+            assertThat(exception)
+                    .isInstanceOf(PracticeAiStructuredOutputCaller.StructuredOutputInvalidException.class)
+                    .hasMessage("structured_output_invalid");
+            assertThat(exception.providerResponseMetadata()).isEqualTo(
+                    new PracticeAiStructuredOutputCaller.ProviderResponseMetadata(
+                            PracticeAiStructuredOutputCaller.FinishReason.STOP,
+                            0,
+                            0,
+                            0));
+            assertThat(requestCount).hasValue(1);
+        } finally {
+            server.stop(0);
+        }
+    }
+
     @ParameterizedTest
     @ValueSource(strings = {"maxTokens", "maxCompletionTokens"})
     void completeBundleBudgetBelowSafeMinimumFailsBeforeOutboundRequest(String tokenLimitField) throws Exception {
@@ -183,21 +301,38 @@ class PracticeAiSingleRequestContractTest {
     }
 
     private String openAiEnvelope(String content, String finishReason, int promptTokens, int completionTokens) {
+        return openAiEnvelopeWithRawUsage(
+                content,
+                finishReason,
+                "{\"prompt_tokens\":%d,\"completion_tokens\":%d,\"total_tokens\":%d}"
+                        .formatted(promptTokens, completionTokens, promptTokens + completionTokens));
+    }
+
+    private String openAiEnvelopeWithoutUsage(String content, String finishReason) {
+        return openAiEnvelopeWithRawUsage(content, finishReason, null);
+    }
+
+    private String openAiEnvelopeWithRawUsage(String content, String finishReason, String usage) {
+        var escapedFinishReason = finishReason
+                .replace("\\", "\\\\")
+                .replace("\"", "\\\"");
+        return openAiEnvelopeWithRawMetadata(content, "\"" + escapedFinishReason + "\"", usage);
+    }
+
+    private String openAiEnvelopeWithRawMetadata(String content, String rawFinishReason, String usage) {
         var escapedContent = content
                 .replace("\\", "\\\\")
                 .replace("\"", "\\\"")
                 .replace("\r", "\\r")
                 .replace("\n", "\\n");
-        return """
+        var envelope = """
                 {"id":"chatcmpl-test","object":"chat.completion","created":1,"model":"gpt-4o-mini",\
-                "choices":[{"index":0,"message":{"role":"assistant","content":"%s"},"finish_reason":"%s"}],\
-                "usage":{"prompt_tokens":%d,"completion_tokens":%d,"total_tokens":%d}}
+                "choices":[{"index":0,"message":{"role":"assistant","content":"%s"},"finish_reason":%s}]%s}
                 """.formatted(
                         escapedContent,
-                        finishReason,
-                        promptTokens,
-                        completionTokens,
-                        promptTokens + completionTokens);
+                        rawFinishReason,
+                        usage == null ? "" : ",\"usage\":" + usage);
+        return envelope;
     }
 
     record Answer(String answer) {

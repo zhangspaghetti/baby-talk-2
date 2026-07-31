@@ -1,5 +1,6 @@
 package com.zhangspaghetti.babytalk.practice.agentic;
 
+import com.zhangspaghetti.babytalk.config.ai.OpenAiCompatibleResponseMetadataInterceptor;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.openai.OpenAiChatModel;
 import org.springframework.ai.openai.OpenAiChatOptions;
@@ -29,7 +30,11 @@ public class PracticeAiChatClientFactory {
             throw new IllegalArgumentException("AI provider secret must not be blank: " + providerName);
         }
         OpenAiChatOptions options = optionsFactory.build(provider, apiKey);
-        var chatModel = OpenAiChatModel.builder().options(options).build();
+        var chatModel = OpenAiChatModel.builder()
+                .options(options)
+                .httpClientBuilderCustomizer(builder ->
+                        builder.interceptor(new OpenAiCompatibleResponseMetadataInterceptor()))
+                .build();
         return new ResolvedProvider(
                 providerName,
                 provider.type(),
