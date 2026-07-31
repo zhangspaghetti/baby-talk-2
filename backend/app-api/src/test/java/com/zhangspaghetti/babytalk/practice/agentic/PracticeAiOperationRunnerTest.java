@@ -305,6 +305,49 @@ class PracticeAiOperationRunnerTest {
     }
 
     @ParameterizedTest
+    @MethodSource("strictParserDiagnosticFailures")
+    void strictParserDiagnosticUsesOnlyAllowlistedCategory(
+            RuntimeException originalFailure,
+            String expectedCategory
+    ) {
+        var audit = new CapturingAuditPort();
+        var runner = runner(List.of(provider("primary")), audit);
+        var logger = (Logger) LoggerFactory.getLogger(PracticeAiOperationRunner.class);
+        var appender = new ListAppender<ILoggingEvent>();
+        appender.start();
+        logger.addAppender(appender);
+
+        try {
+            assertThatThrownBy(() -> runner.execute(request(
+                    PracticeAiCapability.CUSTOM_SCENE_GENERATOR,
+                    resolved -> OperationRequest.atFailureStage(
+                            OperationRequest.ProviderFailureStage.CONTENT_STRICT_PARSER,
+                            () -> {
+                                throw originalFailure;
+                            }))))
+                    .isInstanceOf(PracticeAiOperationRunner.ProvidersExhaustedException.class);
+        } finally {
+            logger.detachAppender(appender);
+            appender.stop();
+        }
+
+        assertThat(appender.list).singleElement().satisfies(event -> {
+            assertThat(event.getLevel()).isEqualTo(ch.qos.logback.classic.Level.WARN);
+            assertThat(event.getMessage()).isEqualTo(
+                    "Practice AI strict parser rejected provider output: capability={}, "
+                            + "fallbackIndex={}, parserFailureCategory={}");
+            assertThat(event.getArgumentArray())
+                    .containsExactly("custom-scene-generator", 0, expectedCategory);
+            assertThat(event.getThrowableProxy()).isNull();
+        });
+        assertThat(audit.events).containsExactly(
+                "operation:started",
+                "primary:started",
+                "primary:structured_output_invalid",
+                "operation:providers_exhausted");
+    }
+
+    @ParameterizedTest
     @ValueSource(strings = {"REJECT", "REPAIR"})
     void successfulJudgeVerdictDoesNotFallBack(String verdict) {
         var audit = new CapturingAuditPort();
@@ -506,6 +549,24 @@ class PracticeAiOperationRunnerTest {
                 Arguments.of(new CyclicCauseException()));
     }
 
+    private static Stream<Arguments> strictParserDiagnosticFailures() {
+        return Stream.of(
+                Arguments.of(strictProviderParseFailure("{"), "JSON_SYNTAX"),
+                Arguments.of(strictProviderParseFailure("[]"), "DTO_BINDING"),
+                Arguments.of(strictProviderParseFailure("""
+                        {
+                          "schemaVersion": "custom-scene-generated-output-v1",
+                          "scene": {
+                            "spaceTitleZh": "x",
+                            "activityTitleZh": "x",
+                            "sceneTagEn": "x"
+                          },
+                          "utterances": {}
+                        }
+                        """), "CONTRACT_VALIDATION"),
+                Arguments.of(new CompleteGeneratedBundle.InvalidProviderResponseException(), "UNKNOWN"));
+    }
+
     private static RuntimeException malformedJsonFailure() {
         try {
             tools.jackson.databind.json.JsonMapper.builder().build().readTree("{");
@@ -515,10 +576,32 @@ class PracticeAiOperationRunnerTest {
         }
     }
 
+    @Test
+    void diagnosticInspectionCannotConsumeOneShotTimeoutCauseBeforeClassification() {
+        var audit = new CapturingAuditPort();
+        var runner = runner(List.of(provider("primary"), provider("secondary")), audit);
+
+        var result = runner.execute(request(PracticeAiCapability.CUSTOM_SCENE_GENERATOR, resolved -> {
+            if (resolved.providerName().equals("primary")) {
+                throw new OneShotTimeoutCauseException();
+            }
+            return new OperationRequest.ProviderInvocationResult<>("ok", null);
+        }));
+
+        assertThat(result.providerName()).isEqualTo("secondary");
+        assertThat(audit.completedCalls)
+                .extracting(PracticeAiAuditPort.ProviderCallCompleted::outcome)
+                .containsExactly("timeout", "succeeded");
+    }
+
     private static RuntimeException strictProviderParseFailure() {
+        return strictProviderParseFailure("{");
+    }
+
+    private static RuntimeException strictProviderParseFailure(String payload) {
         try {
-            CompleteGeneratedBundle.ProviderResponse.parse("{");
-            throw new AssertionError("malformed provider response must fail");
+            CompleteGeneratedBundle.ProviderResponse.parse(payload);
+            throw new AssertionError("invalid provider response must fail");
         } catch (CompleteGeneratedBundle.InvalidProviderResponseException exception) {
             return exception;
         }
@@ -653,6 +736,19 @@ class PracticeAiOperationRunnerTest {
                 throw new IllegalStateException("sensitive cause cycle");
             }
             return this;
+        }
+    }
+
+    private static final class OneShotTimeoutCauseException extends RuntimeException {
+        private boolean causeRead;
+
+        @Override
+        public synchronized Throwable getCause() {
+            if (causeRead) {
+                return null;
+            }
+            causeRead = true;
+            return new SocketTimeoutException();
         }
     }
 }

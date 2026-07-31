@@ -17,6 +17,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 import tools.jackson.core.JacksonException;
+import tools.jackson.core.exc.StreamReadException;
+import tools.jackson.databind.DatabindException;
+import tools.jackson.databind.exc.ValueInstantiationException;
 
 @Component
 @ConditionalOnProperty(
@@ -113,6 +116,17 @@ public class PracticeAiOperationRunner {
                             operationRunId, "internal_error", now()));
                     throw originalFailure(failure);
                 }
+                if (failure instanceof OperationRequest.StagedProviderFailure stagedFailure
+                        && stagedFailure.failureStage()
+                                == OperationRequest.ProviderFailureStage.CONTENT_STRICT_PARSER) {
+                    var diagnostic = DiagnosticFailure.from(failure);
+                    LOGGER.warn(
+                            "Practice AI strict parser rejected provider output: capability={}, "
+                                    + "fallbackIndex={}, parserFailureCategory={}",
+                            request.capability().propertyKey(),
+                            fallbackIndex,
+                            diagnostic.parserFailureCategory().name());
+                }
                 auditPort.completeProviderCall(new PracticeAiAuditPort.ProviderCallCompleted(
                         providerCallId,
                         fallbackOutcome.orElseThrow(),
@@ -204,12 +218,43 @@ public class PracticeAiOperationRunner {
         }
     }
 
+    private enum ParserFailureCategory {
+        JSON_SYNTAX,
+        CONTRACT_VALIDATION,
+        DTO_BINDING,
+        UNKNOWN;
+
+        private static ParserFailureCategory select(EnumSet<ParserFailureCategory> observed) {
+            for (var category : values()) {
+                if (observed.contains(category)) {
+                    return category;
+                }
+            }
+            return UNKNOWN;
+        }
+
+        private static ParserFailureCategory directType(Throwable failure) {
+            if (failure instanceof StreamReadException) {
+                return JSON_SYNTAX;
+            }
+            if (failure instanceof ValueInstantiationException) {
+                return CONTRACT_VALIDATION;
+            }
+            if (failure instanceof DatabindException) {
+                return DTO_BINDING;
+            }
+            return UNKNOWN;
+        }
+    }
+
     private record DiagnosticFailure(
             DiagnosticErrorType errorType,
-            OperationRequest.ProviderFailureStage failureStage
+            OperationRequest.ProviderFailureStage failureStage,
+            ParserFailureCategory parserFailureCategory
     ) {
         private static DiagnosticFailure from(Throwable failure) {
             var observed = EnumSet.noneOf(DiagnosticErrorType.class);
+            var observedParserCategories = EnumSet.noneOf(ParserFailureCategory.class);
             var visited = Collections.newSetFromMap(new IdentityHashMap<Throwable, Boolean>());
             var failureStage = failure instanceof OperationRequest.StagedProviderFailure stagedFailure
                     ? stagedFailure.failureStage()
@@ -223,6 +268,10 @@ public class PracticeAiOperationRunner {
                 if (currentType != DiagnosticErrorType.UNKNOWN) {
                     observed.add(currentType);
                 }
+                var parserCategory = ParserFailureCategory.directType(current);
+                if (parserCategory != ParserFailureCategory.UNKNOWN) {
+                    observedParserCategories.add(parserCategory);
+                }
                 try {
                     current = current.getCause();
                 } catch (Throwable diagnosticFailure) {
@@ -230,11 +279,18 @@ public class PracticeAiOperationRunner {
                 }
             }
             var errorType = DiagnosticErrorType.select(observed);
-            return new DiagnosticFailure(errorType, failureStage);
+            var parserFailureCategory = failureStage
+                    == OperationRequest.ProviderFailureStage.CONTENT_STRICT_PARSER
+                    ? ParserFailureCategory.select(observedParserCategories)
+                    : ParserFailureCategory.UNKNOWN;
+            return new DiagnosticFailure(errorType, failureStage, parserFailureCategory);
         }
 
         private static DiagnosticFailure unknown(OperationRequest.ProviderFailureStage failureStage) {
-            return new DiagnosticFailure(DiagnosticErrorType.UNKNOWN, failureStage);
+            return new DiagnosticFailure(
+                    DiagnosticErrorType.UNKNOWN,
+                    failureStage,
+                    ParserFailureCategory.UNKNOWN);
         }
     }
 
