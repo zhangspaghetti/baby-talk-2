@@ -26,6 +26,9 @@ ADMIN_WEB_SVC="${APP_RELEASE}-admin-web"
 # Callers may override either port when their host requires a different value.
 GATEWAY_LOCAL_PORT="${QA_GATEWAY_LOCAL_PORT:-19091}"
 ADMIN_WEB_LOCAL_PORT="${QA_ADMIN_WEB_LOCAL_PORT:-3001}"
+APP_RUNTIME_ARGS=(
+  --set-string "config.BABY_TALK_ADMIN_WEB_ORIGIN=http://127.0.0.1:${ADMIN_WEB_LOCAL_PORT}"
+)
 # Set this for a frozen candidate so every application workload, including
 # admin-web and the pre-upgrade Flyway hook, resolves the same Kind image tag.
 QA_IMAGE_TAG="${QA_IMAGE_TAG:-}"
@@ -77,6 +80,7 @@ if ! rendered_app_manifest="$(
     -n "$QA_NS" \
     -f "$APP_VALUES" \
     -f "$APP_SECRETS" \
+    "${APP_RUNTIME_ARGS[@]}" \
     "${APP_IMAGE_TAG_ARGS[@]}"
 )"; then
   echo "ERROR: failed to render the QA application chart."
@@ -217,6 +221,7 @@ helm upgrade --install "$APP_RELEASE" deploy/helm/babytalk-app \
   -n "$QA_NS" \
   -f "$APP_VALUES" \
   -f "$APP_SECRETS" \
+  "${APP_RUNTIME_ARGS[@]}" \
   "${APP_IMAGE_TAG_ARGS[@]}" \
   --wait \
   --timeout 180s
