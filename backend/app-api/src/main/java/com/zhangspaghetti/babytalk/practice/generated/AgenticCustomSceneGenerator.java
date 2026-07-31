@@ -87,12 +87,17 @@ public class AgenticCustomSceneGenerator implements CustomSceneGenerator {
                 evidencePolicy.version(),
                 evidencePolicy.contentHash(),
                 provider -> {
-                    var wire = CompleteGeneratedBundle.ProviderResponse.parse(structuredOutputCaller.callRaw(
+                    var content = OperationRequest.atFailureStage(
+                            OperationRequest.ProviderFailureStage.PROVIDER_RESPONSE_BINDING,
+                            () -> structuredOutputCaller.callRaw(
                             provider,
                             systemPrompt,
                             userPrompt,
                             CompleteGeneratedBundle.ProviderResponse.class,
                             currentProfile.minimumCompleteBundleOutputTokens()));
+                    var wire = OperationRequest.atFailureStage(
+                            OperationRequest.ProviderFailureStage.CONTENT_STRICT_PARSER,
+                            () -> CompleteGeneratedBundle.ProviderResponse.parse(content));
                     return new OperationRequest.ProviderInvocationResult<>(wire, null);
                 }));
         return GeneratedCareMomentBundle.fromCompleteBundle(result.value().toCompleteBundle(

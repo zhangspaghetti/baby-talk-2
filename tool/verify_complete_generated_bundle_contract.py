@@ -44,12 +44,18 @@ GENERATED_SOURCE_ROOT = (
 def verify_no_production_fallback() -> bool:
     adapter_contracts = {
         "AgenticCustomSceneGenerator.java": (
-            "CompleteGeneratedBundle.ProviderResponse.parse(structuredOutputCaller.callRaw(",
+            "OperationRequest.ProviderFailureStage.PROVIDER_RESPONSE_BINDING",
+            "OperationRequest.ProviderFailureStage.CONTENT_STRICT_PARSER",
+            "structuredOutputCaller.callRaw(",
+            "CompleteGeneratedBundle.ProviderResponse.parse(content)",
             "GeneratedCareMomentBundle.fromCompleteBundle(result.value().toCompleteBundle(",
             "currentProfile.minimumCompleteBundleOutputTokens()",
         ),
         "AgenticCustomSceneRepairer.java": (
-            "CompleteGeneratedBundle.ProviderResponse.parse(structuredOutputCaller.callRaw(",
+            "OperationRequest.ProviderFailureStage.PROVIDER_RESPONSE_BINDING",
+            "OperationRequest.ProviderFailureStage.CONTENT_STRICT_PARSER",
+            "structuredOutputCaller.callRaw(",
+            "CompleteGeneratedBundle.ProviderResponse.parse(content)",
             "GeneratedCareMomentBundle.fromCompleteBundle(result.value().toCompleteBundle(",
             "currentProfile.minimumCompleteBundleOutputTokens()",
         ),

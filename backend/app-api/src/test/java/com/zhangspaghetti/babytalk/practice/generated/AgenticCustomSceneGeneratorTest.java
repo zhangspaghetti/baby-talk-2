@@ -216,8 +216,8 @@ class AgenticCustomSceneGeneratorTest {
                 .thenThrow(failure);
 
         assertThatThrownBy(() -> operation.invocation().invoke(provider))
-                .isSameAs(failure)
-                .hasMessage("structured_output_invalid");
+                .hasMessage("staged_provider_failure")
+                .satisfies(error -> assertThat(error.getCause()).isSameAs(failure));
     }
 
     @Test

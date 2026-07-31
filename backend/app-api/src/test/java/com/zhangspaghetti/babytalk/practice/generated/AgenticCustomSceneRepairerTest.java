@@ -142,8 +142,8 @@ class AgenticCustomSceneRepairerTest {
                 eq(CompleteGeneratedBundle.ProviderResponse.class), eq(8192))).thenThrow(failure);
 
         assertThatThrownBy(() -> operation.invocation().invoke(provider))
-                .isSameAs(failure)
-                .hasMessage("structured_output_invalid");
+                .hasMessage("staged_provider_failure")
+                .satisfies(error -> assertThat(error.getCause()).isSameAs(failure));
     }
 
     @Test

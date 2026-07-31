@@ -6,6 +6,10 @@ import java.net.ConnectException;
 import java.net.SocketTimeoutException;
 import java.net.UnknownHostException;
 import java.net.http.HttpTimeoutException;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.IdentityHashMap;
+import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.TimeoutException;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -19,8 +23,11 @@ import org.springframework.stereotype.Component;
 )
 public class PracticeAiCallFailureClassifier {
 
+    private static final int MAX_CAUSE_DEPTH = 32;
+
     public Optional<String> classify(Throwable failure) {
-        for (Throwable current = failure; current != null; current = current.getCause()) {
+        var causes = safeCauseChain(failure);
+        for (var current : causes) {
             if (current instanceof PracticeAiStructuredOutputCaller.OutputBudgetTooSmallException) {
                 return Optional.of("output_budget_too_small");
             }
@@ -41,7 +48,7 @@ public class PracticeAiCallFailureClassifier {
                 }
             }
         }
-        for (Throwable current = failure; current != null; current = current.getCause()) {
+        for (var current : causes) {
             if (current instanceof OpenAIIoException
                     || current instanceof ConnectException
                     || current instanceof UnknownHostException) {
@@ -49,5 +56,23 @@ public class PracticeAiCallFailureClassifier {
             }
         }
         return Optional.empty();
+    }
+
+    private List<Throwable> safeCauseChain(Throwable failure) {
+        var causes = new ArrayList<Throwable>();
+        var visited = Collections.newSetFromMap(new IdentityHashMap<Throwable, Boolean>());
+        Throwable current = failure;
+        for (int depth = 0; current != null; depth++) {
+            if (depth >= MAX_CAUSE_DEPTH || !visited.add(current)) {
+                return List.of();
+            }
+            causes.add(current);
+            try {
+                current = current.getCause();
+            } catch (Throwable causeInspectionFailure) {
+                return List.of();
+            }
+        }
+        return List.copyOf(causes);
     }
 }

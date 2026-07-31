@@ -11,6 +11,7 @@ import ch.qos.logback.core.read.ListAppender;
 import com.openai.errors.OpenAIIoException;
 import com.openai.errors.OpenAIInvalidDataException;
 import com.openai.errors.OpenAIServiceException;
+import com.zhangspaghetti.babytalk.practice.generated.contract.CompleteGeneratedBundle;
 import java.io.IOException;
 import java.net.SocketTimeoutException;
 import java.time.Clock;
@@ -121,12 +122,13 @@ class PracticeAiOperationRunnerTest {
         assertThat(appender.list).singleElement().satisfies(event -> {
             assertThat(event.getLevel()).isEqualTo(ch.qos.logback.classic.Level.ERROR);
             assertThat(event.getMessage()).isEqualTo(
-                    "Practice AI unclassified provider failure: capability={}, fallbackIndex={}, errorType={}");
+                    "Practice AI unclassified provider failure: capability={}, fallbackIndex={}, "
+                            + "errorType={}, failureStage={}");
             assertThat(event.getArgumentArray())
-                    .containsExactly("custom-scene-generator", 0, "UNKNOWN");
+                    .containsExactly("custom-scene-generator", 0, "UNKNOWN", "UNKNOWN");
             assertThat(event.getFormattedMessage()).isEqualTo(
                     "Practice AI unclassified provider failure: capability=custom-scene-generator, "
-                            + "fallbackIndex=0, errorType=UNKNOWN");
+                            + "fallbackIndex=0, errorType=UNKNOWN, failureStage=UNKNOWN");
             assertThat(event.getThrowableProxy()).isNull();
         });
     }
@@ -155,7 +157,8 @@ class PracticeAiOperationRunnerTest {
     @MethodSource("allowlistedDiagnosticFailures")
     void unclassifiedRuntimeFailureUsesOnlyAllowlistedDiagnosticErrorType(
             RuntimeException failure,
-            String expectedErrorType
+            String expectedErrorType,
+            String expectedFailureStage
     ) {
         var audit = new CapturingAuditPort();
         var invoked = new ArrayList<String>();
@@ -179,10 +182,11 @@ class PracticeAiOperationRunnerTest {
 
         assertThat(appender.list).singleElement().satisfies(event -> {
             assertThat(event.getArgumentArray())
-                    .containsExactly("custom-scene-repair", 0, expectedErrorType);
+                    .containsExactly("custom-scene-repair", 0, expectedErrorType, expectedFailureStage);
             assertThat(event.getFormattedMessage()).isEqualTo(
                     "Practice AI unclassified provider failure: capability=custom-scene-repair, "
-                            + "fallbackIndex=0, errorType=" + expectedErrorType);
+                            + "fallbackIndex=0, errorType=" + expectedErrorType
+                            + ", failureStage=" + expectedFailureStage);
             assertThat(event.getThrowableProxy()).isNull();
         });
         assertThat(audit.events).containsExactly(
@@ -198,12 +202,7 @@ class PracticeAiOperationRunnerTest {
     void diagnosticCauseInspectionCannotReplaceOriginalFailure(RuntimeException failure) {
         var audit = new CapturingAuditPort();
         var invoked = new ArrayList<String>();
-        var classifier = mock(PracticeAiCallFailureClassifier.class);
-        when(classifier.classify(failure)).thenReturn(java.util.Optional.empty());
-        var runner = runner(
-                List.of(provider("primary"), provider("secondary")),
-                audit,
-                classifier);
+        var runner = runner(List.of(provider("primary"), provider("secondary")), audit);
         var logger = (Logger) LoggerFactory.getLogger(PracticeAiOperationRunner.class);
         var appender = new ListAppender<ILoggingEvent>();
         appender.start();
@@ -223,7 +222,48 @@ class PracticeAiOperationRunnerTest {
 
         assertThat(appender.list).singleElement().satisfies(event -> {
             assertThat(event.getArgumentArray())
-                    .containsExactly("custom-scene-generator", 0, "UNKNOWN");
+                    .containsExactly("custom-scene-generator", 0, "UNKNOWN", "UNKNOWN");
+            assertThat(event.getThrowableProxy()).isNull();
+        });
+        assertThat(invoked).containsExactly("primary");
+        assertThat(audit.events).containsExactly(
+                "operation:started",
+                "primary:started",
+                "primary:internal_error",
+                "operation:internal_error");
+    }
+
+    @ParameterizedTest
+    @MethodSource("explicitDiagnosticStages")
+    void explicitDiagnosticStageIsLoggedAndOriginalFailureIdentityIsPropagated(
+            OperationRequest.ProviderFailureStage failureStage,
+            RuntimeException originalFailure,
+            String expectedErrorType
+    ) {
+        var audit = new CapturingAuditPort();
+        var invoked = new ArrayList<String>();
+        var runner = runner(List.of(provider("primary"), provider("secondary")), audit);
+        var logger = (Logger) LoggerFactory.getLogger(PracticeAiOperationRunner.class);
+        var appender = new ListAppender<ILoggingEvent>();
+        appender.start();
+        logger.addAppender(appender);
+
+        try {
+            assertThatThrownBy(() -> runner.execute(request(
+                    PracticeAiCapability.CUSTOM_SCENE_GENERATOR,
+                    resolved -> OperationRequest.atFailureStage(failureStage, () -> {
+                        invoked.add(resolved.providerName());
+                        throw originalFailure;
+                    })))).isSameAs(originalFailure);
+        } finally {
+            logger.detachAppender(appender);
+            appender.stop();
+        }
+
+        assertThat(appender.list).singleElement().satisfies(event -> {
+            assertThat(event.getArgumentArray())
+                    .containsExactly(
+                            "custom-scene-generator", 0, expectedErrorType, failureStage.name());
             assertThat(event.getThrowableProxy()).isNull();
         });
         assertThat(invoked).containsExactly("primary");
@@ -413,22 +453,39 @@ class PracticeAiOperationRunnerTest {
                         new RuntimeException(
                                 "sensitive wrapper",
                                 new OpenAIInvalidDataException("sensitive provider metadata")),
-                        "OPENAI_INVALID_DATA"),
-                Arguments.of(malformedJsonFailure(), "JACKSON"),
+                        "OPENAI_INVALID_DATA",
+                        "UNKNOWN"),
+                Arguments.of(malformedJsonFailure(), "JACKSON", "UNKNOWN"),
+                Arguments.of(strictProviderParseFailure(), "JACKSON", "UNKNOWN"),
                 Arguments.of(
                         new IllegalArgumentException(
                                 "sensitive wrapper",
                                 new OpenAIInvalidDataException("sensitive provider metadata")),
-                        "OPENAI_INVALID_DATA"),
-                Arguments.of(new IllegalArgumentException("sensitive argument"), "ILLEGAL_ARGUMENT"),
-                Arguments.of(new NullPointerException("sensitive null"), "NULL_POINTER"),
-                Arguments.of(new ClassCastException("sensitive type"), "CLASS_CAST"));
+                        "OPENAI_INVALID_DATA",
+                        "UNKNOWN"),
+                Arguments.of(
+                        new IllegalArgumentException("sensitive argument"), "ILLEGAL_ARGUMENT", "UNKNOWN"),
+                Arguments.of(new NullPointerException("sensitive null"), "NULL_POINTER", "UNKNOWN"),
+                Arguments.of(new ClassCastException("sensitive type"), "CLASS_CAST", "UNKNOWN"));
     }
 
     private static Stream<Arguments> unsafeDiagnosticCauseFailures() {
         return Stream.of(
                 Arguments.of(new ThrowingCauseException()),
+                Arguments.of(new ThrowingErrorCauseException()),
                 Arguments.of(new CyclicCauseException()));
+    }
+
+    private static Stream<Arguments> explicitDiagnosticStages() {
+        return Stream.of(
+                Arguments.of(
+                        OperationRequest.ProviderFailureStage.PROVIDER_RESPONSE_BINDING,
+                        malformedJsonFailure(),
+                        "JACKSON"),
+                Arguments.of(
+                        OperationRequest.ProviderFailureStage.CONTENT_STRICT_PARSER,
+                        strictProviderParseFailure(),
+                        "JACKSON"));
     }
 
     private static RuntimeException malformedJsonFailure() {
@@ -436,6 +493,15 @@ class PracticeAiOperationRunnerTest {
             tools.jackson.databind.json.JsonMapper.builder().build().readTree("{");
             throw new AssertionError("malformed JSON must fail");
         } catch (tools.jackson.core.JacksonException exception) {
+            return exception;
+        }
+    }
+
+    private static RuntimeException strictProviderParseFailure() {
+        try {
+            CompleteGeneratedBundle.ProviderResponse.parse("{");
+            throw new AssertionError("malformed provider response must fail");
+        } catch (CompleteGeneratedBundle.InvalidProviderResponseException exception) {
             return exception;
         }
     }
@@ -549,6 +615,13 @@ class PracticeAiOperationRunnerTest {
         @Override
         public synchronized Throwable getCause() {
             throw new IllegalStateException("sensitive diagnostic failure");
+        }
+    }
+
+    private static final class ThrowingErrorCauseException extends RuntimeException {
+        @Override
+        public synchronized Throwable getCause() {
+            throw new AssertionError("sensitive diagnostic error");
         }
     }
 

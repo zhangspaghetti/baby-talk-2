@@ -99,17 +99,19 @@ public class PracticeAiOperationRunner {
             } catch (RuntimeException failure) {
                 var fallbackOutcome = failureClassifier.classify(failure);
                 if (fallbackOutcome.isEmpty()) {
+                    var diagnostic = DiagnosticFailure.from(failure);
                     LOGGER.error(
                             "Practice AI unclassified provider failure: capability={}, "
-                                    + "fallbackIndex={}, errorType={}",
+                                    + "fallbackIndex={}, errorType={}, failureStage={}",
                             request.capability().propertyKey(),
                             fallbackIndex,
-                            DiagnosticErrorType.from(failure).name());
+                            diagnostic.errorType().name(),
+                            diagnostic.failureStage().name());
                     auditPort.completeProviderCall(new PracticeAiAuditPort.ProviderCallCompleted(
                             providerCallId, "internal_error", null, latencyMillis(startedNanos), now()));
                     auditPort.completeOperationRun(new PracticeAiAuditPort.OperationRunCompleted(
                             operationRunId, "internal_error", now()));
-                    throw failure;
+                    throw originalFailure(failure);
                 }
                 auditPort.completeProviderCall(new PracticeAiAuditPort.ProviderCallCompleted(
                         providerCallId,
@@ -143,6 +145,12 @@ public class PracticeAiOperationRunner {
                 : null;
     }
 
+    private RuntimeException originalFailure(RuntimeException failure) {
+        return failure instanceof OperationRequest.StagedProviderFailure stagedFailure
+                ? stagedFailure.originalFailure()
+                : failure;
+    }
+
     private long latencyMillis(long startedNanos) {
         return Math.max(0L, TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startedNanos));
     }
@@ -167,24 +175,7 @@ public class PracticeAiOperationRunner {
         CLASS_CAST,
         UNKNOWN;
 
-        private static DiagnosticErrorType from(Throwable failure) {
-            var observed = EnumSet.noneOf(DiagnosticErrorType.class);
-            var visited = Collections.newSetFromMap(new IdentityHashMap<Throwable, Boolean>());
-            Throwable current = failure;
-            for (int depth = 0; current != null; depth++) {
-                if (depth >= MAX_DIAGNOSTIC_CAUSE_DEPTH || !visited.add(current)) {
-                    return UNKNOWN;
-                }
-                var currentType = directType(current);
-                if (currentType != UNKNOWN) {
-                    observed.add(currentType);
-                }
-                try {
-                    current = current.getCause();
-                } catch (RuntimeException diagnosticFailure) {
-                    return UNKNOWN;
-                }
-            }
+        private static DiagnosticErrorType select(EnumSet<DiagnosticErrorType> observed) {
             for (var errorType : values()) {
                 if (observed.contains(errorType)) {
                     return errorType;
@@ -210,6 +201,40 @@ public class PracticeAiOperationRunner {
                 return CLASS_CAST;
             }
             return UNKNOWN;
+        }
+    }
+
+    private record DiagnosticFailure(
+            DiagnosticErrorType errorType,
+            OperationRequest.ProviderFailureStage failureStage
+    ) {
+        private static DiagnosticFailure from(Throwable failure) {
+            var observed = EnumSet.noneOf(DiagnosticErrorType.class);
+            var visited = Collections.newSetFromMap(new IdentityHashMap<Throwable, Boolean>());
+            var failureStage = failure instanceof OperationRequest.StagedProviderFailure stagedFailure
+                    ? stagedFailure.failureStage()
+                    : OperationRequest.ProviderFailureStage.UNKNOWN;
+            Throwable current = failure;
+            for (int depth = 0; current != null; depth++) {
+                if (depth >= MAX_DIAGNOSTIC_CAUSE_DEPTH || !visited.add(current)) {
+                    return unknown(failureStage);
+                }
+                var currentType = DiagnosticErrorType.directType(current);
+                if (currentType != DiagnosticErrorType.UNKNOWN) {
+                    observed.add(currentType);
+                }
+                try {
+                    current = current.getCause();
+                } catch (Throwable diagnosticFailure) {
+                    return unknown(failureStage);
+                }
+            }
+            var errorType = DiagnosticErrorType.select(observed);
+            return new DiagnosticFailure(errorType, failureStage);
+        }
+
+        private static DiagnosticFailure unknown(OperationRequest.ProviderFailureStage failureStage) {
+            return new DiagnosticFailure(DiagnosticErrorType.UNKNOWN, failureStage);
         }
     }
 

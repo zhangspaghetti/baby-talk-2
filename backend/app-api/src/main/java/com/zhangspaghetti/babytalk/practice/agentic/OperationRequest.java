@@ -2,6 +2,7 @@ package com.zhangspaghetti.babytalk.practice.agentic;
 
 import java.util.Objects;
 import java.util.UUID;
+import java.util.function.Supplier;
 
 public record OperationRequest<T>(
         PracticeAiCapability capability,
@@ -48,6 +49,49 @@ public record OperationRequest<T>(
     private static void requireHash(String value, String name) {
         if (value == null || !value.matches("[0-9a-f]{64}")) {
             throw new IllegalArgumentException(name + " must be a lowercase SHA-256 hash");
+        }
+    }
+
+    public static <T> T atFailureStage(ProviderFailureStage failureStage, Supplier<T> operation) {
+        Objects.requireNonNull(failureStage, "failureStage");
+        Objects.requireNonNull(operation, "operation");
+        if (failureStage == ProviderFailureStage.UNKNOWN) {
+            throw new IllegalArgumentException("explicit provider failure stage must not be unknown");
+        }
+        try {
+            return operation.get();
+        } catch (StagedProviderFailure failure) {
+            throw failure;
+        } catch (RuntimeException failure) {
+            throw new StagedProviderFailure(failureStage, failure);
+        }
+    }
+
+    public enum ProviderFailureStage {
+        PROVIDER_RESPONSE_BINDING,
+        CONTENT_STRICT_PARSER,
+        UNKNOWN
+    }
+
+    static final class StagedProviderFailure extends RuntimeException {
+        private final ProviderFailureStage failureStage;
+        private final RuntimeException originalFailure;
+
+        private StagedProviderFailure(
+                ProviderFailureStage failureStage,
+                RuntimeException originalFailure
+        ) {
+            super("staged_provider_failure", originalFailure, false, false);
+            this.failureStage = failureStage;
+            this.originalFailure = originalFailure;
+        }
+
+        ProviderFailureStage failureStage() {
+            return failureStage;
+        }
+
+        RuntimeException originalFailure() {
+            return originalFailure;
         }
     }
 
