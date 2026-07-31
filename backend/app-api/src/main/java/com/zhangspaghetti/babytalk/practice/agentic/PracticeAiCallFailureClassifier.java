@@ -26,6 +26,11 @@ public class PracticeAiCallFailureClassifier {
     private static final int MAX_CAUSE_DEPTH = 32;
 
     public Optional<String> classify(Throwable failure) {
+        if (failure instanceof OperationRequest.StagedProviderFailure stagedFailure
+                && stagedFailure.failureStage()
+                        == OperationRequest.ProviderFailureStage.CONTENT_STRICT_PARSER) {
+            return Optional.of("structured_output_invalid");
+        }
         var causes = safeCauseChain(failure);
         for (var current : causes) {
             if (current instanceof PracticeAiStructuredOutputCaller.OutputBudgetTooSmallException) {

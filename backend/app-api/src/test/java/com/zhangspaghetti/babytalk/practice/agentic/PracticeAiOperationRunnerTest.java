@@ -233,15 +233,12 @@ class PracticeAiOperationRunnerTest {
                 "operation:internal_error");
     }
 
-    @ParameterizedTest
-    @MethodSource("explicitDiagnosticStages")
-    void explicitDiagnosticStageIsLoggedAndOriginalFailureIdentityIsPropagated(
-            OperationRequest.ProviderFailureStage failureStage,
-            RuntimeException originalFailure,
-            String expectedErrorType
-    ) {
+    @Test
+    void providerResponseBindingStageIsLoggedAndOriginalFailureIdentityIsPropagated() {
         var audit = new CapturingAuditPort();
         var invoked = new ArrayList<String>();
+        var failureStage = OperationRequest.ProviderFailureStage.PROVIDER_RESPONSE_BINDING;
+        var originalFailure = malformedJsonFailure();
         var runner = runner(List.of(provider("primary"), provider("secondary")), audit);
         var logger = (Logger) LoggerFactory.getLogger(PracticeAiOperationRunner.class);
         var appender = new ListAppender<ILoggingEvent>();
@@ -263,7 +260,7 @@ class PracticeAiOperationRunnerTest {
         assertThat(appender.list).singleElement().satisfies(event -> {
             assertThat(event.getArgumentArray())
                     .containsExactly(
-                            "custom-scene-generator", 0, expectedErrorType, failureStage.name());
+                            "custom-scene-generator", 0, "JACKSON", failureStage.name());
             assertThat(event.getThrowableProxy()).isNull();
         });
         assertThat(invoked).containsExactly("primary");
@@ -272,6 +269,39 @@ class PracticeAiOperationRunnerTest {
                 "primary:started",
                 "primary:internal_error",
                 "operation:internal_error");
+    }
+
+    @Test
+    void strictParserFailureIsStructuredOutputInvalidAndFallsBackToNextProvider() {
+        var audit = new CapturingAuditPort();
+        var invoked = new ArrayList<String>();
+        var originalFailure = strictProviderParseFailure();
+        var runner = runner(List.of(provider("primary"), provider("secondary")), audit);
+
+        var result = runner.execute(request(
+                PracticeAiCapability.CUSTOM_SCENE_GENERATOR,
+                resolved -> {
+                    invoked.add(resolved.providerName());
+                    if (resolved.providerName().equals("primary")) {
+                        return OperationRequest.atFailureStage(
+                                OperationRequest.ProviderFailureStage.CONTENT_STRICT_PARSER,
+                                () -> {
+                                    throw originalFailure;
+                                });
+                    }
+                    return new OperationRequest.ProviderInvocationResult<>("generated", null);
+                }));
+
+        assertThat(result.value()).isEqualTo("generated");
+        assertThat(result.providerName()).isEqualTo("secondary");
+        assertThat(invoked).containsExactly("primary", "secondary");
+        assertThat(audit.events).containsExactly(
+                "operation:started",
+                "primary:started",
+                "primary:structured_output_invalid",
+                "secondary:started",
+                "secondary:succeeded",
+                "operation:succeeded");
     }
 
     @ParameterizedTest
@@ -474,18 +504,6 @@ class PracticeAiOperationRunnerTest {
                 Arguments.of(new ThrowingCauseException()),
                 Arguments.of(new ThrowingErrorCauseException()),
                 Arguments.of(new CyclicCauseException()));
-    }
-
-    private static Stream<Arguments> explicitDiagnosticStages() {
-        return Stream.of(
-                Arguments.of(
-                        OperationRequest.ProviderFailureStage.PROVIDER_RESPONSE_BINDING,
-                        malformedJsonFailure(),
-                        "JACKSON"),
-                Arguments.of(
-                        OperationRequest.ProviderFailureStage.CONTENT_STRICT_PARSER,
-                        strictProviderParseFailure(),
-                        "JACKSON"));
     }
 
     private static RuntimeException malformedJsonFailure() {
