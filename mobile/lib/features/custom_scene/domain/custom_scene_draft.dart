@@ -19,6 +19,21 @@ class CustomSceneRequestIdentity {
   CustomSceneRequestIdentity({required String clientRequestId})
     : clientRequestId = _required(clientRequestId, 'clientRequestId');
 
+  factory CustomSceneRequestIdentity.create({DateTime? now}) {
+    final encodedEpoch = (now ?? DateTime.now())
+        .toUtc()
+        .microsecondsSinceEpoch
+        .toRadixString(36);
+    final splitAt = encodedEpoch.length > 8 ? encodedEpoch.length - 8 : 0;
+    final safeEpoch = splitAt == 0
+        ? encodedEpoch
+        : '${encodedEpoch.substring(0, splitAt)}_'
+              '${encodedEpoch.substring(splitAt)}';
+    return CustomSceneRequestIdentity(
+      clientRequestId: 'custom_scene_$safeEpoch',
+    );
+  }
+
   final String clientRequestId;
 
   static String _required(String value, String fieldName) {

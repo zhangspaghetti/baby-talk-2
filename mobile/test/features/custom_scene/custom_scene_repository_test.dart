@@ -12,6 +12,63 @@ import 'package:mobile/features/custom_scene/domain/custom_scene_draft.dart';
 import 'package:mobile/features/custom_scene/domain/custom_scene_failure.dart';
 
 void main() {
+  test(
+    'production request identity reaches gateway without exposing long digits',
+    () async {
+      final gateway = _RecordingGateway();
+      final repository = _repository(gateway: gateway);
+      final requestIdentity = CustomSceneRequestIdentity.create(
+        now: DateTime.utc(2026, 7, 31, 2),
+      );
+
+      await expectLater(
+        repository.generate(
+          CustomSceneDraft(
+            text: '宝宝洗澡时一直躲水。',
+            entrySource: CustomSceneEntrySource.today,
+            requestIdentity: requestIdentity,
+          ),
+        ),
+        throwsA(isA<StateError>()),
+      );
+
+      expect(gateway.callCount, 1);
+      expect(gateway.request?.clientRequestId, requestIdentity.clientRequestId);
+      expect(
+        RegExp(r'[0-9]{11,}').hasMatch(requestIdentity.clientRequestId),
+        isFalse,
+      );
+    },
+  );
+
+  test(
+    'rejects phone-like request identity before network side effect',
+    () async {
+      final gateway = _RecordingGateway();
+      final repository = _repository(gateway: gateway);
+
+      await expectLater(
+        repository.generate(
+          CustomSceneDraft(
+            text: '宝宝洗澡时一直躲水。',
+            entrySource: CustomSceneEntrySource.today,
+            requestIdentity: CustomSceneRequestIdentity(
+              clientRequestId: 'custom_scene_13800138000',
+            ),
+          ),
+        ),
+        throwsA(
+          isA<CustomSceneFailure>().having(
+            (failure) => failure.kind,
+            'kind',
+            CustomSceneFailureKind.invalidDraft,
+          ),
+        ),
+      );
+      expect(gateway.callCount, 0);
+    },
+  );
+
   test('uses account/profile sources and maps terminal retry safely', () async {
     final gateway = _RecordingGateway(
       error: const CustomSceneApiException(

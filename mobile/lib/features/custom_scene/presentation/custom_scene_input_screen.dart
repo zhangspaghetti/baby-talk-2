@@ -261,10 +261,11 @@ class _CustomSceneInputScreenState extends State<CustomSceneInputScreen> {
       CustomSceneDraft(
         text: text,
         entrySource: widget.routeArgs.entrySource,
-        requestIdentity: CustomSceneRequestIdentity(
-          clientRequestId:
-              widget.clientRequestIdGenerator?.call() ?? _defaultRequestId(),
-        ),
+        requestIdentity: widget.clientRequestIdGenerator == null
+            ? CustomSceneRequestIdentity.create()
+            : CustomSceneRequestIdentity(
+                clientRequestId: widget.clientRequestIdGenerator!.call(),
+              ),
       ),
     );
   }
@@ -341,9 +342,5 @@ class _CustomSceneInputScreenState extends State<CustomSceneInputScreen> {
       return;
     }
     await controller.abandonPreparedContent();
-  }
-
-  String _defaultRequestId() {
-    return 'custom_scene_${DateTime.now().toUtc().microsecondsSinceEpoch}';
   }
 }
