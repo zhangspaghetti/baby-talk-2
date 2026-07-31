@@ -5,6 +5,7 @@
 #   - Builds Flutter debug APK; installs to a connected Android emulator if found
 #
 # Usage: ./scripts/qa-up-helm.sh
+# Frozen candidate: QA_IMAGE_TAG=m2-<commit> ./scripts/qa-up-helm.sh
 #
 # Prerequisites:
 #   helm ≥ 3.14, kubectl ≥ 1.28, flutter ≥ 3.11.4
@@ -25,19 +26,33 @@ ADMIN_WEB_SVC="${APP_RELEASE}-admin-web"
 # Callers may override either port when their host requires a different value.
 GATEWAY_LOCAL_PORT="${QA_GATEWAY_LOCAL_PORT:-19091}"
 ADMIN_WEB_LOCAL_PORT="${QA_ADMIN_WEB_LOCAL_PORT:-3001}"
-# Set this for a frozen candidate so every backend workload, including the
-# pre-upgrade Flyway hook, resolves the same imported Kind image tag.
+# Set this for a frozen candidate so every application workload, including
+# admin-web and the pre-upgrade Flyway hook, resolves the same Kind image tag.
 QA_IMAGE_TAG="${QA_IMAGE_TAG:-}"
 
 INFRA_VALUES="${REPO_ROOT}/deploy/helm/babytalk-infra/values-kind-qa.yaml"
 APP_VALUES="${REPO_ROOT}/deploy/helm/babytalk-app/values-kind-qa.yaml"
 APP_SECRETS="${REPO_ROOT}/deploy/helm/babytalk-app/values-kind-qa-secrets.yaml"
+CANDIDATE_IMAGES=(
+  "app-api=appApi"
+  "admin-api=adminApi"
+  "admin-web=adminWeb"
+  "gateway=gateway"
+  "db-migration=dbMigration"
+)
+APP_IMAGE_TAG_ARGS=()
+if [[ -n "$QA_IMAGE_TAG" ]]; then
+  for image_mapping in "${CANDIDATE_IMAGES[@]}"; do
+    value_key="${image_mapping#*=}"
+    APP_IMAGE_TAG_ARGS+=(--set-string "${value_key}.image.tag=$QA_IMAGE_TAG")
+  done
+fi
 
 cd "$REPO_ROOT"
 
 # ── Preflight ──────────────────────────────────────────────────────────────────
 echo "==> [preflight] checking dependencies..."
-for cmd in helm kubectl flutter; do
+for cmd in helm kubectl flutter docker; do
   if ! command -v "$cmd" >/dev/null 2>&1; then
     echo "ERROR: '$cmd' not found. Install it and retry."
     exit 1
@@ -54,23 +69,129 @@ fi
 
 echo "    deps: ok"
 
+# Resolve the effective images from Helm's merged values. This supports both
+# QA_IMAGE_TAG overrides and tags written directly in values-kind-qa.yaml.
+echo "==> [images] resolving effective application images..."
+if ! rendered_app_manifest="$(
+  helm template "$APP_RELEASE" deploy/helm/babytalk-app \
+    -n "$QA_NS" \
+    -f "$APP_VALUES" \
+    -f "$APP_SECRETS" \
+    "${APP_IMAGE_TAG_ARGS[@]}"
+)"; then
+  echo "ERROR: failed to render the QA application chart."
+  exit 1
+fi
+
+if ! rendered_image_refs="$(
+  awk '$1 == "image:" {
+    gsub(/"/, "", $2)
+    if ($2 ~ /^babytalk\//) {
+      print $2
+    }
+  }' <<< "$rendered_app_manifest"
+)"; then
+  echo "ERROR: failed to extract application images from rendered Helm manifests."
+  exit 1
+fi
+unset rendered_app_manifest
+
+CANDIDATE_IMAGE_REFS=()
+for image_mapping in "${CANDIDATE_IMAGES[@]}"; do
+  component="${image_mapping%%=*}"
+  component_image_ref=""
+  component_match_count=0
+
+  while IFS= read -r image_ref; do
+    [[ "$image_ref" == "babytalk/${component}:"* ]] || continue
+    if [[ "$image_ref" != "$component_image_ref" ]]; then
+      component_image_ref="$image_ref"
+      component_match_count=$((component_match_count + 1))
+    fi
+  done <<< "$rendered_image_refs"
+
+  if [[ "$component_match_count" -ne 1 ]]; then
+    echo "ERROR: expected one rendered image for babytalk/$component, found $component_match_count."
+    exit 1
+  fi
+  CANDIDATE_IMAGE_REFS+=("$component_image_ref")
+  echo "    resolved: $component_image_ref"
+done
+unset rendered_image_refs
+
 # ── Pre-load images that the local registry mirror may not serve ───────────────
 # The kind cluster node uses containerd; if registry-mirror is unhealthy,
-# bitnami/redis will fail to pull. Pre-seed it from the Docker daemon cache.
+# remote and local-only images may fail to pull. Pre-seed from Docker when needed.
 echo "==> [images] pre-seeding bitnami/redis into kind node containerd..."
 KIND_NODE="desktop-control-plane"
 if docker inspect "$KIND_NODE" >/dev/null 2>&1; then
-  if ! docker exec "$KIND_NODE" ctr -n k8s.io images check \
-       "registry-1.docker.io/bitnami/redis:latest" >/dev/null 2>&1; then
-    docker save bitnami/redis:latest \
-      | docker exec -i "$KIND_NODE" ctr -n k8s.io images import - >/dev/null 2>&1 && \
-    docker exec "$KIND_NODE" ctr -n k8s.io images tag \
-      docker.io/bitnami/redis:latest \
-      registry-1.docker.io/bitnami/redis:latest >/dev/null 2>&1 || true
-    echo "    seeded: registry-1.docker.io/bitnami/redis:latest"
-  else
-    echo "    already cached: registry-1.docker.io/bitnami/redis:latest"
+  if ! kind_image_refs_before_seed="$(
+    docker exec "$KIND_NODE" ctr -n k8s.io images ls -q
+  )"; then
+    echo "ERROR: failed to enumerate images in kind before pre-seeding."
+    exit 1
   fi
+
+  redis_image_ref="registry-1.docker.io/bitnami/redis:latest"
+  redis_is_cached=false
+  while IFS= read -r existing_image_ref; do
+    if [[ "$existing_image_ref" == "$redis_image_ref" ]]; then
+      redis_is_cached=true
+      break
+    fi
+  done <<< "$kind_image_refs_before_seed"
+
+  if [[ "$redis_is_cached" != "true" ]]; then
+    if ! docker save bitnami/redis:latest \
+         | docker exec -i "$KIND_NODE" ctr -n k8s.io images import - \
+           >/dev/null 2>&1; then
+      echo "ERROR: failed to import bitnami/redis:latest into kind."
+      exit 1
+    fi
+    if ! docker exec "$KIND_NODE" ctr -n k8s.io images tag \
+         docker.io/bitnami/redis:latest \
+         "$redis_image_ref" >/dev/null 2>&1; then
+      echo "ERROR: failed to tag Redis image in kind: $redis_image_ref"
+      exit 1
+    fi
+    kind_image_refs_before_seed+=$'\n'"$redis_image_ref"
+    echo "    seeded: $redis_image_ref"
+  else
+    echo "    already cached: $redis_image_ref"
+  fi
+
+  echo "==> [images] ensuring candidate images exist in kind..."
+  for image_ref in "${CANDIDATE_IMAGE_REFS[@]}"; do
+    kind_image_ref="docker.io/${image_ref}"
+    image_is_cached=false
+    while IFS= read -r existing_image_ref; do
+      if [[ "$existing_image_ref" == "$kind_image_ref" ]]; then
+        image_is_cached=true
+        break
+      fi
+    done <<< "$kind_image_refs_before_seed"
+
+    if [[ "$image_is_cached" == "true" ]]; then
+      echo "    already cached: $image_ref"
+      continue
+    fi
+
+    if ! docker image inspect "$image_ref" >/dev/null 2>&1; then
+      echo "ERROR: candidate image unavailable in Docker and kind: $image_ref"
+      echo "  Build the exact rendered tag, then retry."
+      exit 1
+    fi
+
+    if ! docker save "$image_ref" \
+         | docker exec -i "$KIND_NODE" ctr -n k8s.io images import - \
+           >/dev/null 2>&1; then
+      echo "ERROR: failed to import candidate image into kind: $image_ref"
+      exit 1
+    fi
+    kind_image_refs_before_seed+=$'\n'"$kind_image_ref"
+    echo "    seeded: $image_ref"
+  done
+  unset kind_image_refs_before_seed
 else
   echo "    WARNING: kind node '$KIND_NODE' not found — skipping image pre-seed"
 fi
@@ -88,14 +209,7 @@ echo "    infra: ok"
 
 # ── App ────────────────────────────────────────────────────────────────────────
 echo "==> [app] deploying $APP_RELEASE to namespace $QA_NS..."
-APP_IMAGE_TAG_ARGS=()
 if [[ -n "$QA_IMAGE_TAG" ]]; then
-  APP_IMAGE_TAG_ARGS=(
-    --set-string "appApi.image.tag=$QA_IMAGE_TAG"
-    --set-string "adminApi.image.tag=$QA_IMAGE_TAG"
-    --set-string "gateway.image.tag=$QA_IMAGE_TAG"
-    --set-string "dbMigration.image.tag=$QA_IMAGE_TAG"
-  )
   echo "    candidate image tag: $QA_IMAGE_TAG"
 fi
 
@@ -116,6 +230,37 @@ for dep in gateway admin-api admin-web app-api; do
 done
 
 echo "    rollout: ok"
+
+# Remove only superseded BabyTalk refs after the replacement pods are healthy.
+# Keep the active immutable tag; containerd garbage-collects unreferenced content.
+if docker inspect "$KIND_NODE" >/dev/null 2>&1; then
+  echo "==> [images] removing superseded candidate images from kind..."
+  if ! kind_image_refs="$(
+    docker exec "$KIND_NODE" ctr -n k8s.io images ls -q
+  )"; then
+    echo "ERROR: failed to enumerate images in kind before cleanup."
+    exit 1
+  fi
+
+  for candidate_image_ref in "${CANDIDATE_IMAGE_REFS[@]}"; do
+    component="${candidate_image_ref#babytalk/}"
+    component="${component%%:*}"
+    current_image_ref="docker.io/${candidate_image_ref}"
+    while IFS= read -r image_ref; do
+      [[ -z "$image_ref" ]] && continue
+      [[ "$image_ref" == "$current_image_ref" ]] && continue
+
+      case "$image_ref" in
+        "docker.io/babytalk/${component}:"*|"docker.io/babytalk/${component}@"*)
+          docker exec "$KIND_NODE" ctr -n k8s.io images rm "$image_ref" \
+            >/dev/null
+          echo "    removed: $image_ref"
+          ;;
+      esac
+    done <<< "$kind_image_refs"
+  done
+  unset kind_image_refs
+fi
 
 # ── Port-forward ───────────────────────────────────────────────────────────────
 echo "==> [port-forward] starting background port-forwards..."
