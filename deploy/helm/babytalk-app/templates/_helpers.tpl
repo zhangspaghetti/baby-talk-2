@@ -129,6 +129,7 @@ Render the admin-web nginx proxy config from chart truth.
 server {
     listen 80;
     server_name _;
+    client_max_body_size {{ required "adminWeb.nginx.clientMaxBodySize is required" .Values.adminWeb.nginx.clientMaxBodySize }};
 
     root /usr/share/nginx/html;
     index index.html;

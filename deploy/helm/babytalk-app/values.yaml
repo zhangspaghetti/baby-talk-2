@@ -138,6 +138,8 @@ adminApi:
 
 adminWeb:
   replicaCount: 1
+  nginx:
+    clientMaxBodySize: 100m
   image:
     repository: babytalk/admin-web
     tag: "1.0.0"
