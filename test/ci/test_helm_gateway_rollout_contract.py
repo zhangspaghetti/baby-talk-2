@@ -10,6 +10,34 @@ CHART = REPO_ROOT / "deploy" / "helm" / "babytalk-app"
 
 
 class HelmGatewayRolloutContractTest(unittest.TestCase):
+    def test_gateway_uses_availability_health_groups(self) -> None:
+        gateway = self._render_gateway("http://127.0.0.1:3001")
+        container = self._gateway_container(gateway)
+
+        self.assertEqual(
+            "/actuator/health/liveness",
+            container["livenessProbe"]["httpGet"]["path"],
+        )
+        self.assertEqual(
+            "/actuator/health/readiness",
+            container["readinessProbe"]["httpGet"]["path"],
+        )
+
+    def test_gateway_startup_probe_covers_slow_boot(self) -> None:
+        gateway = self._render_gateway("http://127.0.0.1:3001")
+        startup_probe = self._gateway_container(gateway)["startupProbe"]
+
+        self.assertEqual(
+            "/actuator/health/liveness",
+            startup_probe["httpGet"]["path"],
+        )
+        self.assertEqual(3, startup_probe["timeoutSeconds"])
+        self.assertEqual(5, startup_probe["periodSeconds"])
+        startup_budget_seconds = (
+            startup_probe["periodSeconds"] * startup_probe["failureThreshold"]
+        )
+        self.assertGreaterEqual(startup_budget_seconds, 120)
+
     def test_gateway_rolls_when_shared_config_changes(self) -> None:
         first = self._render_gateway("http://127.0.0.1:3001")
         second = self._render_gateway("http://127.0.0.1:3003")
@@ -58,6 +86,15 @@ class HelmGatewayRolloutContractTest(unittest.TestCase):
         ]
         self.assertEqual(1, len(deployments))
         return deployments[0]
+
+    def _gateway_container(self, gateway: dict) -> dict:
+        containers = [
+            container
+            for container in gateway["spec"]["template"]["spec"]["containers"]
+            if container["name"] == "gateway"
+        ]
+        self.assertEqual(1, len(containers))
+        return containers[0]
 
 
 if __name__ == "__main__":

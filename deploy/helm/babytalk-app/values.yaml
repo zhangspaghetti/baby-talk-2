@@ -206,7 +206,7 @@ gateway:
     readOnlyRootFilesystem: false
   livenessProbe:
     httpGet:
-      path: /actuator/health
+      path: /actuator/health/liveness
       port: http
     initialDelaySeconds: 5
     periodSeconds: 10
@@ -214,12 +214,20 @@ gateway:
     failureThreshold: 3
   readinessProbe:
     httpGet:
-      path: /actuator/health
+      path: /actuator/health/readiness
       port: http
     initialDelaySeconds: 2
     periodSeconds: 5
     timeoutSeconds: 3
     failureThreshold: 2
+  startupProbe:
+    httpGet:
+      path: /actuator/health/liveness
+      port: http
+    initialDelaySeconds: 5
+    periodSeconds: 5
+    timeoutSeconds: 3
+    failureThreshold: 30
   resources:
     requests:
       cpu: 50m
