@@ -142,11 +142,12 @@ class CompositeCustomSceneEvidenceRetrieverTest {
                     null,
                     1.0,
                     "rank",
-                    "book"));
+                    "book",
+                    true));
         }
         when(palace.retrieve(any())).thenReturn(new RetrievalResult(
                 candidates,
-                new QueryTrace(List.of(), List.of(), List.of(), "skipped", candidates, null)));
+                new QueryTrace(List.of(), List.of(), List.of(), "skipped", candidates, "1")));
 
         var result = new PalaceCustomSceneEvidenceSource(palace, new EvidenceSanitizer()).retrieve(request());
 
@@ -162,6 +163,123 @@ class CompositeCustomSceneEvidenceRetrieverTest {
     }
 
     @Test
+    void currentProjectionSnapshotKeepsRetrievalRelevanceSeparateFromClaimConfidence() {
+        var palace = mock(PalaceHybridRetrievalService.class);
+        var candidate = new HybridCandidate(
+                "current-projection-chunk",
+                "宝宝哭时先抱稳",
+                0.644650467116775,
+                null,
+                0.644650467116775,
+                null,
+                1.0,
+                "vector-only, age-skipped",
+                "approved-book",
+                true);
+        when(palace.retrieve(any())).thenReturn(new RetrievalResult(
+                List.of(candidate),
+                new QueryTrace(List.of(), List.of(), List.of(), "skipped", List.of(candidate), "1")));
+        var baseline = new BaselineFamilyEnglishEvidenceSource(
+                new VersionedResourceRegistry(new DefaultResourceLoader()), new EvidenceSanitizer());
+        var palaceSource = new PalaceCustomSceneEvidenceSource(palace, new EvidenceSanitizer());
+
+        var result = new CompositeCustomSceneEvidenceRetriever(baseline, palaceSource, POLICY)
+                .retrieve(request());
+
+        assertThat(result.status()).isEqualTo(RetrievalStatus.INITIAL);
+        assertThat(result.items())
+                .filteredOn(item -> item.claimType().equals("scene_support"))
+                .singleElement()
+                .satisfies(item -> assertThat(item.confidence()).isGreaterThanOrEqualTo(POLICY.minimumConfidence()));
+    }
+
+    @Test
+    void palaceRejectsLowRelevanceAndNonCurrentProjectionCandidates() {
+        var palace = mock(PalaceHybridRetrievalService.class);
+        var lowRelevance = new HybridCandidate(
+                "low-relevance",
+                "宝宝哭时先抱稳",
+                0.59,
+                null,
+                0.59,
+                null,
+                1.0,
+                "vector-only, age-skipped",
+                "approved-book",
+                true);
+        var staleProjection = new HybridCandidate(
+                "stale-projection",
+                "宝宝哭时先抱稳",
+                0.90,
+                null,
+                0.90,
+                null,
+                1.0,
+                "vector-only, age-skipped",
+                "approved-book",
+                false);
+        when(palace.retrieve(any())).thenReturn(new RetrievalResult(
+                List.of(lowRelevance, staleProjection),
+                new QueryTrace(
+                        List.of(), List.of(), List.of(), "skipped",
+                        List.of(lowRelevance, staleProjection), "1")));
+
+        var result = new PalaceCustomSceneEvidenceSource(palace, new EvidenceSanitizer()).retrieve(request());
+
+        assertThat(result.status()).isEqualTo(RetrievalStatus.INSUFFICIENT);
+        assertThat(result.items()).isEmpty();
+    }
+
+    @Test
+    void palaceAcceptsCurrentProjectionCandidateAtRelevanceBoundary() {
+        var palace = mock(PalaceHybridRetrievalService.class);
+        var candidate = new HybridCandidate(
+                "relevance-boundary",
+                "宝宝哭时先抱稳",
+                0.60,
+                null,
+                0.60,
+                null,
+                1.0,
+                "vector-only, age-skipped",
+                "approved-book",
+                true);
+        when(palace.retrieve(any())).thenReturn(new RetrievalResult(
+                List.of(candidate),
+                new QueryTrace(List.of(), List.of(), List.of(), "skipped", List.of(candidate), "1")));
+
+        var result = new PalaceCustomSceneEvidenceSource(palace, new EvidenceSanitizer()).retrieve(request());
+
+        assertThat(result.status()).isEqualTo(RetrievalStatus.INITIAL);
+        assertThat(result.items()).singleElement()
+                .satisfies(item -> assertThat(item.confidence()).isEqualTo(0.75));
+    }
+
+    @Test
+    void palaceRejectsCandidateWhenCurrentProjectionTraceIsUnavailable() {
+        var palace = mock(PalaceHybridRetrievalService.class);
+        var candidate = new HybridCandidate(
+                "unversioned-projection",
+                "宝宝哭时先抱稳",
+                0.90,
+                null,
+                0.90,
+                null,
+                1.0,
+                "vector-only, age-skipped",
+                "approved-book",
+                true);
+        when(palace.retrieve(any())).thenReturn(new RetrievalResult(
+                List.of(candidate),
+                new QueryTrace(List.of(), List.of(), List.of(), "skipped", List.of(candidate), "not-ready")));
+
+        var result = new PalaceCustomSceneEvidenceSource(palace, new EvidenceSanitizer()).retrieve(request());
+
+        assertThat(result.status()).isEqualTo(RetrievalStatus.INSUFFICIENT);
+        assertThat(result.items()).isEmpty();
+    }
+
+    @Test
     void palaceSnapshotWithoutTrustedMetadataIsNeverRelabeledAsRequestedPolicyClaim() {
         var palace = mock(PalaceHybridRetrievalService.class);
         var candidate = new HybridCandidate(
@@ -173,10 +291,11 @@ class CompositeCustomSceneEvidenceRetrieverTest {
                 null,
                 1.0,
                 "rank",
-                "book");
+                "book",
+                true);
         when(palace.retrieve(any())).thenReturn(new RetrievalResult(
                 List.of(candidate),
-                new QueryTrace(List.of(), List.of(), List.of(), "skipped", List.of(candidate), null)));
+                new QueryTrace(List.of(), List.of(), List.of(), "skipped", List.of(candidate), "1")));
         var request = new EvidenceRetrievalRequest(
                 "宝宝哭闹时怎么说", "0-2", "日常表达", Set.of("age_guidance"), TRACE_ID);
 

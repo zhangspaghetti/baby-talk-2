@@ -148,6 +148,7 @@ public class PalaceHybridRetrievalService {
                 vectorCandidates,
                 keywordCandidates,
                 traversal.extraTraversedRoomKeys(),
+                traversal.currentProjectionRoomKeys(),
                 kgAgeWindow);
 
         QueryTrace trace = new QueryTrace(
@@ -179,6 +180,7 @@ public class PalaceHybridRetrievalService {
                     palaceSearchService.search(request.query(), request.wingHint(), request.roomHint(), request.maxResults()),
                     List.of(),
                     Set.of(),
+                    Set.of(),
                     null);
             candidates = rankingOutcome.candidates();
         } catch (Exception vectorFailure) {
@@ -206,6 +208,7 @@ public class PalaceHybridRetrievalService {
             List<Document> vectorCandidates,
             List<ChunkResult> keywordCandidates,
             Set<String> traversedRoomKeys,
+            Set<String> currentProjectionRoomKeys,
             AgeWindow kgAgeWindow) {
         Map<String, CandidateAccumulator> merged = new LinkedHashMap<>();
         addVectorCandidates(merged, vectorCandidates);
@@ -218,7 +221,10 @@ public class PalaceHybridRetrievalService {
         }
 
         List<HybridCandidate> rankedWithDefaultFloor = buildRankedCandidates(
-                merged.values(), request.childAgeMonths(), DEFAULT_AGE_FLOOR, traversedRoomKeys, kgAgeWindow, false);
+                merged.values(), request.childAgeMonths(), DEFAULT_AGE_FLOOR, traversedRoomKeys,
+                currentProjectionRoomKeys, kgAgeWindow, false);
+        rankedWithDefaultFloor = restrictToCurrentProjection(
+                rankedWithDefaultFloor, currentProjectionRoomKeys);
 
         long countAboveDefaultFloor = rankedWithDefaultFloor.stream()
                 .filter(candidate -> candidate.ageBoostApplied() > DEFAULT_AGE_FLOOR)
@@ -229,8 +235,10 @@ public class PalaceHybridRetrievalService {
                 && !rankedWithDefaultFloor.isEmpty();
 
         List<HybridCandidate> finalCandidates = fallbackApplied
-                ? buildRankedCandidates(merged.values(), request.childAgeMonths(), WIDENED_AGE_FLOOR, traversedRoomKeys, kgAgeWindow, true)
+                ? buildRankedCandidates(merged.values(), request.childAgeMonths(), WIDENED_AGE_FLOOR,
+                        traversedRoomKeys, currentProjectionRoomKeys, kgAgeWindow, true)
                 : rankedWithDefaultFloor;
+        finalCandidates = restrictToCurrentProjection(finalCandidates, currentProjectionRoomKeys);
 
         finalCandidates = finalCandidates.stream()
                 .sorted(Comparator
@@ -244,11 +252,23 @@ public class PalaceHybridRetrievalService {
         return new RankingOutcome(finalCandidates, temporalRuleApplied);
     }
 
+    private List<HybridCandidate> restrictToCurrentProjection(
+            List<HybridCandidate> candidates,
+            Set<String> currentProjectionRoomKeys) {
+        if (currentProjectionRoomKeys.isEmpty()) {
+            return candidates;
+        }
+        return candidates.stream()
+                .filter(HybridCandidate::currentProjectionMember)
+                .toList();
+    }
+
     private List<HybridCandidate> buildRankedCandidates(
             Collection<CandidateAccumulator> accumulators,
             Integer childAgeMonths,
             double ageFloor,
             Set<String> traversedRoomKeys,
+            Set<String> currentProjectionRoomKeys,
             AgeWindow kgAgeWindow,
             boolean fallbackApplied) {
         List<HybridCandidate> ranked = new ArrayList<>();
@@ -263,6 +283,7 @@ public class PalaceHybridRetrievalService {
             }
 
             String roomKey = roomKey(accumulator.metadata());
+            boolean currentProjectionMember = currentProjectionRoomKeys.contains(roomKey);
             double traversedRoomFactor = traversedRoomKeys.contains(roomKey) ? TRAVERSED_ROOM_MULTIPLIER : 1.0d;
             double mergedScore = accumulator.hybridScore() * traversedRoomFactor;
             AgeBoost ageBoost = computeAgeBoost(childAgeMonths, effectiveAgeWindow, ageFloor);
@@ -273,6 +294,9 @@ public class PalaceHybridRetrievalService {
                     : accumulator.vectorScore() != null ? "vector-only" : "keyword-only");
             if (traversedRoomFactor > 1.0d) {
                 reasons.add("projection-room-match");
+            }
+            if (currentProjectionMember) {
+                reasons.add("current-projection-member");
             }
             if (usedKgHint) {
                 reasons.add("kg-age-hint");
@@ -296,7 +320,8 @@ public class PalaceHybridRetrievalService {
                     candidateAgeRangeRaw,
                     ageBoost.factor(),
                     String.join(", ", reasons),
-                    extractString(accumulator.metadata(), "source_book")));
+                    extractString(accumulator.metadata(), "source_book"),
+                    currentProjectionMember));
         }
         return ranked;
     }
@@ -335,6 +360,7 @@ public class PalaceHybridRetrievalService {
                     List.of(),
                     List.of(),
                     Set.of(),
+                    Set.of(),
                     "not-ready");
         }
 
@@ -343,12 +369,18 @@ public class PalaceHybridRetrievalService {
                 .orElse(null);
 
         List<PalaceRoom> entryRooms = resolveEntryRooms(request);
+        Set<String> currentProjectionRoomKeys = projectionVersion == null
+                ? Set.of()
+                : palaceRoomRepository.findAll().stream()
+                        .map(this::roomKey)
+                        .collect(LinkedHashSet::new, Set::add, Set::addAll);
         if (entryRooms.isEmpty()) {
             return new ProjectionTraversal(
                     List.of(),
                     List.of(),
                     List.of(),
                     Set.of(),
+                    currentProjectionRoomKeys,
                     projectionVersion == null ? null : projectionVersion.toString());
         }
 
@@ -398,6 +430,7 @@ public class PalaceHybridRetrievalService {
                 visitedRoomLabels,
                 bridgeEdgeLabels,
                 extraTraversedRooms,
+                currentProjectionRoomKeys,
                 projectionVersion == null ? null : projectionVersion.toString());
     }
 
@@ -647,6 +680,7 @@ public class PalaceHybridRetrievalService {
             List<String> roomsTraversed,
             List<String> bridgeEdgesCrossed,
             Set<String> extraTraversedRoomKeys,
+            Set<String> currentProjectionRoomKeys,
             String projectionVersionUsed) {
     }
 
