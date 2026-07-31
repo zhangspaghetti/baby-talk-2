@@ -25,6 +25,9 @@ ADMIN_WEB_SVC="${APP_RELEASE}-admin-web"
 # Callers may override either port when their host requires a different value.
 GATEWAY_LOCAL_PORT="${QA_GATEWAY_LOCAL_PORT:-19091}"
 ADMIN_WEB_LOCAL_PORT="${QA_ADMIN_WEB_LOCAL_PORT:-3001}"
+# Set this for a frozen candidate so every backend workload, including the
+# pre-upgrade Flyway hook, resolves the same imported Kind image tag.
+QA_IMAGE_TAG="${QA_IMAGE_TAG:-}"
 
 INFRA_VALUES="${REPO_ROOT}/deploy/helm/babytalk-infra/values-kind-qa.yaml"
 APP_VALUES="${REPO_ROOT}/deploy/helm/babytalk-app/values-kind-qa.yaml"
@@ -85,10 +88,22 @@ echo "    infra: ok"
 
 # ── App ────────────────────────────────────────────────────────────────────────
 echo "==> [app] deploying $APP_RELEASE to namespace $QA_NS..."
+APP_IMAGE_TAG_ARGS=()
+if [[ -n "$QA_IMAGE_TAG" ]]; then
+  APP_IMAGE_TAG_ARGS=(
+    --set-string "appApi.image.tag=$QA_IMAGE_TAG"
+    --set-string "adminApi.image.tag=$QA_IMAGE_TAG"
+    --set-string "gateway.image.tag=$QA_IMAGE_TAG"
+    --set-string "dbMigration.image.tag=$QA_IMAGE_TAG"
+  )
+  echo "    candidate image tag: $QA_IMAGE_TAG"
+fi
+
 helm upgrade --install "$APP_RELEASE" deploy/helm/babytalk-app \
   -n "$QA_NS" \
   -f "$APP_VALUES" \
   -f "$APP_SECRETS" \
+  "${APP_IMAGE_TAG_ARGS[@]}" \
   --wait \
   --timeout 180s
 
