@@ -69,6 +69,70 @@ void main() {
     },
   );
 
+  test(
+    'rejects phone-like installation identity before network side effect',
+    () async {
+      final gateway = _RecordingGateway();
+      final repository = _repository(
+        gateway: gateway,
+        installationIdLoader: () async => 'install_1722391920000000_dead_beef',
+      );
+
+      await expectLater(
+        repository.generate(
+          CustomSceneDraft(
+            text: '宝宝洗澡时一直躲水。',
+            entrySource: CustomSceneEntrySource.today,
+            requestIdentity: CustomSceneRequestIdentity(
+              clientRequestId: 'custom_scene_3',
+            ),
+          ),
+        ),
+        throwsA(
+          isA<CustomSceneFailure>().having(
+            (failure) => failure.kind,
+            'kind',
+            CustomSceneFailureKind.invalidDraft,
+          ),
+        ),
+      );
+      expect(gateway.callCount, 0);
+    },
+  );
+
+  test('maps backend invalid installation ID to invalid draft', () async {
+    final gateway = _RecordingGateway(
+      error: const CustomSceneApiException(
+        kind: CustomSceneApiFailureKind.http,
+        statusCode: 400,
+        code: 'invalid_installation_id',
+      ),
+    );
+    final repository = _repository(gateway: gateway);
+
+    await expectLater(
+      repository.generate(
+        CustomSceneDraft(
+          text: '宝宝洗澡时一直躲水。',
+          entrySource: CustomSceneEntrySource.today,
+          requestIdentity: CustomSceneRequestIdentity(
+            clientRequestId: 'custom_scene_4',
+          ),
+        ),
+      ),
+      throwsA(
+        isA<CustomSceneFailure>()
+            .having(
+              (failure) => failure.kind,
+              'kind',
+              CustomSceneFailureKind.invalidDraft,
+            )
+            .having((failure) => failure.retryable, 'retryable', isFalse),
+      ),
+    );
+    expect(gateway.callCount, 1);
+  });
+
   test('uses account/profile sources and maps terminal retry safely', () async {
     final gateway = _RecordingGateway(
       error: const CustomSceneApiException(
@@ -152,7 +216,10 @@ void main() {
   );
 }
 
-CustomSceneRepositoryImpl _repository({required _RecordingGateway gateway}) {
+CustomSceneRepositoryImpl _repository({
+  required _RecordingGateway gateway,
+  Future<String> Function()? installationIdLoader,
+}) {
   return CustomSceneRepositoryImpl(
     api: gateway,
     mapper: const CustomSceneMapper(),
@@ -162,7 +229,7 @@ CustomSceneRepositoryImpl _repository({required _RecordingGateway gateway}) {
       session: _session(),
     ),
     persistRefreshedSession: (session) async => session,
-    installationIdLoader: () async => 'install_1',
+    installationIdLoader: installationIdLoader ?? () async => 'install_1',
   );
 }
 

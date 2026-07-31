@@ -1,3 +1,4 @@
+import 'package:mobile/core/device/installation_id_service.dart';
 import 'package:mobile/features/account/data/local/account_local_store.dart';
 import 'package:mobile/features/account/data/services/authenticated_api_client.dart';
 import 'package:mobile/features/account/domain/models/account_consent_state.dart';
@@ -114,10 +115,15 @@ class CustomSceneRepositoryImpl implements CustomSceneRepository {
   Future<String> _loadInstallationId() async {
     try {
       final installationId = (await _installationIdLoader()).trim();
-      if (installationId.isEmpty) {
-        throw StateError('empty installation id');
+      if (!isBackendCompatibleInstallationId(installationId)) {
+        throw const CustomSceneFailure(
+          kind: CustomSceneFailureKind.invalidDraft,
+          retryable: false,
+        );
       }
       return installationId;
+    } on CustomSceneFailure {
+      rethrow;
     } on Object {
       throw const CustomSceneFailure(
         kind: CustomSceneFailureKind.unexpected,
@@ -215,6 +221,7 @@ class CustomSceneRepositoryImpl implements CustomSceneRepository {
           retryable: false,
         );
       case 'invalid_client_request_id':
+      case 'invalid_installation_id':
       case 'invalid_custom_scene_text':
       case 'invalid_age_range':
       case 'invalid_parent_goal':
