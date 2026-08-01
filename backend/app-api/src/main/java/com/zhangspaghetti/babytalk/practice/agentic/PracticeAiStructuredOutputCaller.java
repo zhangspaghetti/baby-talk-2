@@ -12,6 +12,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import tools.jackson.core.StreamReadFeature;
 import tools.jackson.databind.DeserializationFeature;
+import tools.jackson.databind.MapperFeature;
+import tools.jackson.databind.cfg.EnumFeature;
 import tools.jackson.databind.json.JsonMapper;
 
 @Component
@@ -27,6 +29,8 @@ public class PracticeAiStructuredOutputCaller {
             .addModules(JacksonUtils.instantiateAvailableModules())
             .enable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
             .enable(DeserializationFeature.FAIL_ON_TRAILING_TOKENS)
+            .enable(EnumFeature.FAIL_ON_NUMBERS_FOR_ENUMS)
+            .disable(MapperFeature.ALLOW_COERCION_OF_SCALARS)
             .enable(StreamReadFeature.STRICT_DUPLICATE_DETECTION)
             .build();
     private static final ResponseTextCleaner IDENTITY_TEXT_CLEANER = content -> content;

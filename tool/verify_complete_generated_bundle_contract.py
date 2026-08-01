@@ -14,7 +14,10 @@ FOCUSED_TESTS = ",".join(
     (
         "CompleteGeneratedBundleContractTest",
         "AgenticCustomSceneGeneratorTest",
+        "AgenticCustomSceneQualityJudgeTest",
         "AgenticCustomSceneRepairerTest",
+        "JudgeWireResponseStrictOutputTest",
+        "PracticeAiOperationRunnerTest",
         "PracticeAiStructuredOutputCallerTest",
         "PracticeAiSingleRequestContractTest",
         "VersionedResourceRegistryTest",
@@ -122,6 +125,91 @@ def verify_no_production_fallback() -> bool:
         for marker in markers:
             if marker not in source:
                 violations.append(f"{source_name}: missing typed branch repair marker: {marker}")
+
+    judge = (GENERATED_SOURCE_ROOT / "AgenticCustomSceneQualityJudge.java").read_text(
+        encoding="utf-8"
+    )
+    judge_contract_test = (
+        BACKEND_ROOT
+        / "app-api"
+        / "src"
+        / "test"
+        / "java"
+        / "com"
+        / "zhangspaghetti"
+        / "babytalk"
+        / "practice"
+        / "agentic"
+        / "JudgeWireResponseStrictOutputTest.java"
+    ).read_text(encoding="utf-8")
+    for source_name, source, markers in (
+        (
+            "AgenticCustomSceneQualityJudge.java",
+            judge,
+            (
+                "@PracticeAiJsonSchemaPublisher.RefinedBy(JudgeWireResponseSchemaRefiner.class)",
+                "List<String> DIMENSION_KEYS",
+                "List<String> ALLOWED_JUDGE_VIOLATION_CODES",
+                'dimensions.put("additionalProperties", false)',
+                'confidence.put("minimum", 0.0d)',
+                'confidence.put("maximum", 1.0d)',
+                "requireExactKeywords",
+                "custom_scene_quality_judge_provider_schema_invalid",
+            ),
+        ),
+        (
+            "JudgeWireResponseStrictOutputTest.java",
+            judge_contract_test,
+            (
+                "publishedJudgeSchemaMatchesStrictConverterContract",
+                "judgeSchemaRefinerRejectsDimensionMapBaseSchemaDrift",
+                "judgeSchemaRefinerRejectsTopLevelPropertyAndRequiredDrift",
+                "judgeSchemaRefinerRejectsBrokenLocalEnumReference",
+                "judgeSchemaRefinerRejectsConfidenceBaseSchemaDrift",
+                "judgeSchemaRefinerRejectsUnknownBaseSchemaKeywords",
+                'Arguments.of("unknown violation code"',
+                "publishedJudgeSchemaStaysInsidePublisherSafetyBudget",
+            ),
+        ),
+    ):
+        for marker in markers:
+            if marker not in source:
+                violations.append(f"{source_name}: missing strict Judge schema marker: {marker}")
+
+    structured_caller = (
+        GENERATED_SOURCE_ROOT.parent / "agentic" / "PracticeAiStructuredOutputCaller.java"
+    ).read_text(encoding="utf-8")
+    structured_caller_test = (
+        BACKEND_ROOT
+        / "app-api"
+        / "src"
+        / "test"
+        / "java"
+        / "com"
+        / "zhangspaghetti"
+        / "babytalk"
+        / "practice"
+        / "agentic"
+        / "PracticeAiStructuredOutputCallerTest.java"
+    ).read_text(encoding="utf-8")
+    for source_name, source, markers in (
+        (
+            "PracticeAiStructuredOutputCaller.java",
+            structured_caller,
+            (
+                "EnumFeature.FAIL_ON_NUMBERS_FOR_ENUMS",
+                "MapperFeature.ALLOW_COERCION_OF_SCALARS",
+            ),
+        ),
+        (
+            "PracticeAiStructuredOutputCallerTest.java",
+            structured_caller_test,
+            ("strictConversionRejectsStringToNumberAndBooleanCoercion",),
+        ),
+    ):
+        for marker in markers:
+            if marker not in source:
+                violations.append(f"{source_name}: missing strict scalar coercion marker: {marker}")
 
     fake_fixture_allowlist = {
         str(Path("generated") / "GeneratedCareMomentBundle.java"),

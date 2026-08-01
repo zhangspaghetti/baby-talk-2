@@ -268,45 +268,19 @@ class AgenticCustomSceneQualityJudgeTest {
     }
 
     @Test
-    void unknownViolationCodeFailsClosedInsideProviderCallback() {
+    void unknownViolationCodeFailsClosedAtWireBoundary() {
         var failed = allPass();
         failed.put(JudgeDimension.SCENE_ALIGNMENT, DimensionResult.FAIL);
 
-        assertWireRejected(new AgenticCustomSceneQualityJudge.JudgeWireResponse(
+        assertThatThrownBy(() -> new AgenticCustomSceneQualityJudge.JudgeWireResponse(
                 JudgeVerdict.REPAIR,
                 failed,
                 List.of("MODEL_FREE_TEXT"),
                 List.of(),
                 List.of(),
-                0.8d));
-    }
-
-    @SuppressWarnings({"unchecked", "rawtypes"})
-    private void assertWireRejected(AgenticCustomSceneQualityJudge.JudgeWireResponse wire) {
-        var runner = mock(PracticeAiOperationRunner.class);
-        var caller = mock(PracticeAiStructuredOutputCaller.class);
-        var registry = mock(VersionedResourceRegistry.class);
-        var auditPort = mock(JudgeResultAuditPort.class);
-        var provider = new ResolvedProvider("primary", "openai-compatible", "gpt-test", mock(ChatClient.class));
-        when(registry.currentGenerationProfile()).thenReturn(profile());
-        when(registry.qualityRubric()).thenReturn(rubric());
-        when(registry.promptText(VersionedResourceRegistry.PromptKind.JUDGE)).thenReturn("JUDGE SYSTEM PROMPT");
-        when(caller.call(eq(provider), eq("JUDGE SYSTEM PROMPT"), any(String.class),
-                eq(AgenticCustomSceneQualityJudge.JudgeWireResponse.class))).thenReturn(wire);
-        when(runner.execute(any())).thenAnswer(invocation -> {
-            var operation = (OperationRequest) invocation.getArgument(0);
-            return operation.invocation().invoke(provider);
-        });
-        var judge = new AgenticCustomSceneQualityJudge(
-                runner, caller, registry, new JudgeVerdictCalculator(), auditPort);
-
-        assertThatThrownBy(() -> judge.judge(request()))
+                0.8d))
                 .isInstanceOf(PracticeAiStructuredOutputCaller.StructuredOutputInvalidException.class)
                 .hasMessage("structured_output_invalid");
-        verify(caller, times(1)).call(
-                eq(provider), eq("JUDGE SYSTEM PROMPT"), any(String.class),
-                eq(AgenticCustomSceneQualityJudge.JudgeWireResponse.class));
-        verifyNoInteractions(auditPort);
     }
 
     private JudgeRequest request() {

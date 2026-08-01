@@ -141,6 +141,23 @@ class PracticeAiStructuredOutputCallerTest {
                 .isEqualTo(new Answer("ok"));
     }
 
+    @Test
+    void strictConversionRejectsStringToNumberAndBooleanCoercion() {
+        var caller = new PracticeAiStructuredOutputCaller();
+
+        assertThat(caller.convertOnce(
+                "{\"displayOrder\":1,\"active\":true}", TypedScalars.class))
+                .isEqualTo(new TypedScalars(1, true));
+        assertThatThrownBy(() -> caller.convertOnce(
+                "{\"displayOrder\":\"1\",\"active\":true}", TypedScalars.class))
+                .isInstanceOf(PracticeAiStructuredOutputCaller.StructuredOutputInvalidException.class)
+                .hasMessage("structured_output_invalid");
+        assertThatThrownBy(() -> caller.convertOnce(
+                "{\"displayOrder\":1,\"active\":\"true\"}", TypedScalars.class))
+                .isInstanceOf(PracticeAiStructuredOutputCaller.StructuredOutputInvalidException.class)
+                .hasMessage("structured_output_invalid");
+    }
+
     @ParameterizedTest(name = "{0}")
     @MethodSource("invalidStrictPayloads")
     void strictConversionRejectsNonConformingPayload(String description, String payload) {
@@ -185,6 +202,9 @@ class PracticeAiStructuredOutputCallerTest {
                 throw new IllegalArgumentException("answer is required");
             }
         }
+    }
+
+    record TypedScalars(int displayOrder, boolean active) {
     }
 
     @PracticeAiJsonSchemaPublisher.RefinedBy(OverBudgetRefiner.class)

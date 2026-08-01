@@ -2,6 +2,7 @@ package com.zhangspaghetti.babytalk.practice.generated;
 
 import com.zhangspaghetti.babytalk.practice.agentic.OperationRequest;
 import com.zhangspaghetti.babytalk.practice.agentic.PracticeAiCapability;
+import com.zhangspaghetti.babytalk.practice.agentic.PracticeAiJsonSchemaPublisher;
 import com.zhangspaghetti.babytalk.practice.agentic.PracticeAiOperationRunner;
 import com.zhangspaghetti.babytalk.practice.agentic.PracticeAiStructuredOutputCaller;
 import com.zhangspaghetti.babytalk.practice.agentic.PracticeAiStructuredOutputCaller.StructuredOutputInvalidException;
@@ -16,13 +17,18 @@ import com.zhangspaghetti.babytalk.practice.generated.quality.JudgeVerdict;
 import com.zhangspaghetti.babytalk.practice.generated.quality.JudgeVerdictCalculator;
 import com.zhangspaghetti.babytalk.practice.generated.quality.RepairDirective;
 import com.zhangspaghetti.babytalk.practice.generated.quality.SuggestedJudgeResult;
+import java.util.ArrayList;
+import java.util.EnumSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.EnumSet;
 import java.util.Objects;
+import java.util.Set;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;
+import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.node.ObjectNode;
 
 @Service
 @ConditionalOnProperty(
@@ -33,6 +39,10 @@ import tools.jackson.databind.ObjectMapper;
 public class AgenticCustomSceneQualityJudge implements CustomSceneQualityJudge {
 
     private static final String SUBJECT_TYPE = "generated_content";
+    private static final List<String> ALLOWED_JUDGE_VIOLATION_CODES = java.util.Arrays.stream(
+                    JudgeDimension.values())
+            .map(JudgeDimension::violationCode)
+            .toList();
 
     private final PracticeAiOperationRunner operationRunner;
     private final PracticeAiStructuredOutputCaller structuredOutputCaller;
@@ -192,6 +202,7 @@ public class AgenticCustomSceneQualityJudge implements CustomSceneQualityJudge {
     ) {
     }
 
+    @PracticeAiJsonSchemaPublisher.RefinedBy(JudgeWireResponseSchemaRefiner.class)
     public record JudgeWireResponse(
             JudgeVerdict suggestedVerdict,
             Map<JudgeDimension, DimensionResult> dimensionResults,
@@ -208,6 +219,7 @@ public class AgenticCustomSceneQualityJudge implements CustomSceneQualityJudge {
                 repairDirectives = List.copyOf(Objects.requireNonNull(repairDirectives, "repairDirectives"));
                 evidenceGapCodes = List.copyOf(Objects.requireNonNull(evidenceGapCodes, "evidenceGapCodes"));
                 if (!dimensionResults.keySet().equals(EnumSet.allOf(JudgeDimension.class))
+                        || !ALLOWED_JUDGE_VIOLATION_CODES.containsAll(violationCodes)
                         || confidence == null
                         || !Double.isFinite(confidence)
                         || confidence < 0.0d
@@ -229,6 +241,274 @@ public class AgenticCustomSceneQualityJudge implements CustomSceneQualityJudge {
                     repairDirectives,
                     evidenceGapCodes,
                     confidence);
+        }
+    }
+
+    /** Publishes every constraint enforced after Judge DTO conversion. */
+    public static final class JudgeWireResponseSchemaRefiner
+            implements PracticeAiJsonSchemaPublisher.SchemaRefiner {
+
+        private static final String INVALID_SCHEMA = "custom_scene_quality_judge_provider_schema_invalid";
+        private static final String JSON_SCHEMA_DRAFT = "https://json-schema.org/draft/2020-12/schema";
+        private static final List<String> RESPONSE_FIELDS = List.of(
+                "suggestedVerdict",
+                "dimensionResults",
+                "violationCodes",
+                "repairDirectives",
+                "evidenceGapCodes",
+                "confidence");
+        private static final List<String> DIMENSION_KEYS = java.util.Arrays.stream(JudgeDimension.values())
+                .map(Enum::name)
+                .toList();
+        private static final List<String> DIMENSION_RESULTS = java.util.Arrays.stream(DimensionResult.values())
+                .map(Enum::name)
+                .toList();
+        private static final List<String> VERDICTS = java.util.Arrays.stream(JudgeVerdict.values())
+                .map(Enum::name)
+                .toList();
+        private static final List<String> REPAIR_DIRECTIVES = java.util.Arrays.stream(RepairDirective.values())
+                .map(Enum::name)
+                .toList();
+        private static final List<String> EVIDENCE_GAP_CODES = java.util.Arrays.stream(EvidenceGapCode.values())
+                .map(Enum::name)
+                .toList();
+
+        @Override
+        public void refine(ObjectNode schema) {
+            requireExactKeywords(
+                    schema, "$schema", "type", "properties", "required", "additionalProperties");
+            requireText(schema.get("$schema"), JSON_SCHEMA_DRAFT);
+            requireType(schema, Set.of("object"));
+            requireFalse(schema.get("additionalProperties"));
+            requireRequiredFields(schema.get("required"), RESPONSE_FIELDS);
+
+            var properties = requiredObject(schema, "properties");
+            requireObjectFields(properties, RESPONSE_FIELDS);
+            requireTextEnum(schema, requiredObject(properties, "suggestedVerdict"), VERDICTS);
+            refineDimensions(requiredObject(properties, "dimensionResults"));
+            refineViolations(requiredObject(properties, "violationCodes"));
+            requireArrayEnum(
+                    schema, requiredObject(properties, "repairDirectives"), REPAIR_DIRECTIVES);
+            requireArrayEnum(
+                    schema, requiredObject(properties, "evidenceGapCodes"), EVIDENCE_GAP_CODES);
+            refineConfidence(requiredObject(properties, "confidence"));
+        }
+
+        private static void refineDimensions(ObjectNode dimensions) {
+            requireExactKeywords(dimensions, "type");
+            requireType(dimensions, Set.of("object"));
+
+            var properties = dimensions.objectNode();
+            for (var dimension : DIMENSION_KEYS) {
+                properties.set(dimension, flatTextEnum(dimensions, DIMENSION_RESULTS));
+            }
+            dimensions.set("properties", properties);
+            dimensions.set("required", textArray(dimensions, DIMENSION_KEYS));
+            dimensions.put("additionalProperties", false);
+        }
+
+        private static void refineViolations(ObjectNode violations) {
+            requireExactKeywords(violations, "type", "items");
+            requireType(violations, Set.of("array"));
+            var sourceItems = requiredObject(violations, "items");
+            requireExactKeywords(sourceItems, "type");
+            requireType(sourceItems, Set.of("string"));
+            violations.set("items", flatTextEnum(violations, ALLOWED_JUDGE_VIOLATION_CODES));
+        }
+
+        private static void refineConfidence(ObjectNode confidence) {
+            requireExactKeywords(confidence, "type", "format");
+            requireType(confidence, Set.of("number"));
+            requireText(confidence.get("format"), "double");
+            confidence.put("type", "number");
+            confidence.put("minimum", 0.0d);
+            confidence.put("maximum", 1.0d);
+        }
+
+        private static void requireArrayEnum(
+                ObjectNode root,
+                ObjectNode arraySchema,
+                List<String> expected
+        ) {
+            requireExactKeywords(arraySchema, "type", "items");
+            requireType(arraySchema, Set.of("array"));
+            requireTextEnum(root, arraySchema.get("items"), expected);
+        }
+
+        private static void requireTextEnum(
+                ObjectNode root,
+                JsonNode candidate,
+                List<String> expected
+        ) {
+            var resolved = resolveLocalSchema(root, candidate);
+            requireExactKeywords(resolved, "type", "enum");
+            requireType(resolved, Set.of("string"));
+            rejectCombinators(resolved);
+            requireTextValues(resolved.get("enum"), expected);
+        }
+
+        private static ObjectNode resolveLocalSchema(ObjectNode root, JsonNode candidate) {
+            if (!(candidate instanceof ObjectNode objectCandidate)) {
+                throw invalidSchema();
+            }
+            if (!objectCandidate.has("$ref")) {
+                return objectCandidate;
+            }
+            if (objectCandidate.size() != 1 || !objectCandidate.get("$ref").isTextual()) {
+                throw invalidSchema();
+            }
+            var reference = objectCandidate.get("$ref").textValue();
+            if (!reference.startsWith("#/")) {
+                throw invalidSchema();
+            }
+            JsonNode resolved = root;
+            for (var segment : reference.substring(2).split("/", -1)) {
+                resolved = resolved.get(decodePointerSegment(segment));
+                if (resolved == null) {
+                    throw invalidSchema();
+                }
+            }
+            if (!(resolved instanceof ObjectNode resolvedObject)) {
+                throw invalidSchema();
+            }
+            return resolvedObject;
+        }
+
+        private static String decodePointerSegment(String encoded) {
+            var decoded = new StringBuilder(encoded.length());
+            for (var index = 0; index < encoded.length(); index++) {
+                var character = encoded.charAt(index);
+                if (character != '~') {
+                    decoded.append(character);
+                    continue;
+                }
+                if (++index >= encoded.length()) {
+                    throw invalidSchema();
+                }
+                var escaped = encoded.charAt(index);
+                if (escaped == '0') {
+                    decoded.append('~');
+                } else if (escaped == '1') {
+                    decoded.append('/');
+                } else {
+                    throw invalidSchema();
+                }
+            }
+            return decoded.toString();
+        }
+
+        private static ObjectNode requiredObject(JsonNode root, String... path) {
+            JsonNode current = root;
+            for (var segment : path) {
+                current = current == null ? null : current.get(segment);
+                if (!(current instanceof ObjectNode)) {
+                    throw invalidSchema();
+                }
+            }
+            return (ObjectNode) current;
+        }
+
+        private static void requireType(ObjectNode schema, Set<String> expected) {
+            if (!typeNames(schema.get("type")).equals(expected)) {
+                throw invalidSchema();
+            }
+            rejectCombinators(schema);
+        }
+
+        private static Set<String> typeNames(JsonNode type) {
+            var names = new LinkedHashSet<String>();
+            if (type == null) {
+                throw invalidSchema();
+            }
+            if (type.isTextual()) {
+                names.add(type.textValue());
+            } else if (type.isArray()) {
+                for (var value : type) {
+                    if (!value.isTextual() || !names.add(value.textValue())) {
+                        throw invalidSchema();
+                    }
+                }
+            } else {
+                throw invalidSchema();
+            }
+            return Set.copyOf(names);
+        }
+
+        private static void requireFalse(JsonNode value) {
+            if (value == null || !value.isBoolean() || value.booleanValue()) {
+                throw invalidSchema();
+            }
+        }
+
+        private static void requireText(JsonNode value, String expected) {
+            if (value == null || !value.isTextual() || !expected.equals(value.textValue())) {
+                throw invalidSchema();
+            }
+        }
+
+        private static void requireRequiredFields(JsonNode values, List<String> expected) {
+            requireTextValues(values, expected);
+        }
+
+        private static void requireObjectFields(ObjectNode properties, List<String> expected) {
+            var actual = properties.properties().stream()
+                    .map(java.util.Map.Entry::getKey)
+                    .collect(java.util.stream.Collectors.toCollection(LinkedHashSet::new));
+            if (!actual.equals(new LinkedHashSet<>(expected))) {
+                throw invalidSchema();
+            }
+        }
+
+        private static void requireExactKeywords(ObjectNode schema, String... expected) {
+            var actual = schema.properties().stream()
+                    .map(java.util.Map.Entry::getKey)
+                    .collect(java.util.stream.Collectors.toCollection(LinkedHashSet::new));
+            if (!actual.equals(Set.of(expected))) {
+                throw invalidSchema();
+            }
+        }
+
+        private static void requireTextValues(JsonNode values, List<String> expected) {
+            if (values == null || !values.isArray()) {
+                throw invalidSchema();
+            }
+            var actual = new ArrayList<String>();
+            for (var value : values) {
+                if (!value.isTextual()) {
+                    throw invalidSchema();
+                }
+                actual.add(value.textValue());
+            }
+            if (actual.size() != new LinkedHashSet<>(actual).size()
+                    || !new LinkedHashSet<>(actual).equals(new LinkedHashSet<>(expected))) {
+                throw invalidSchema();
+            }
+        }
+
+        private static ObjectNode flatTextEnum(ObjectNode owner, List<String> values) {
+            var schema = owner.objectNode();
+            schema.put("type", "string");
+            schema.set("enum", textArray(owner, values));
+            return schema;
+        }
+
+        private static tools.jackson.databind.node.ArrayNode textArray(
+                ObjectNode owner,
+                List<String> values
+        ) {
+            var array = owner.arrayNode();
+            values.forEach(array::add);
+            return array;
+        }
+
+        private static void rejectCombinators(ObjectNode schema) {
+            if (schema.has("oneOf") || schema.has("anyOf") || schema.has("allOf")) {
+                throw invalidSchema();
+            }
+        }
+
+        private static IllegalStateException invalidSchema() {
+            return new IllegalStateException(INVALID_SCHEMA);
         }
     }
 }
