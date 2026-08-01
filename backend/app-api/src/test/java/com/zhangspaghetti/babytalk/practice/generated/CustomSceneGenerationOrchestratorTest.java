@@ -43,6 +43,8 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.springframework.core.io.DefaultResourceLoader;
 
 class CustomSceneGenerationOrchestratorTest {
@@ -123,10 +125,43 @@ class CustomSceneGenerationOrchestratorTest {
         assertThat(harness.repairRequests).singleElement().satisfies(request -> {
             assertThat(request.attemptNumber()).isEqualTo(2);
             assertThat(request.evidenceBundleId()).isEqualTo(harness.bundle(2).evidenceBundleId());
-            assertThat(request.repairPackage().violationCodes()).containsExactly("MISSING_TPR_ACTION");
+            assertThat(request.repairPackage().violationCodes()).containsExactly(
+                    "MISSING_TPR_ACTION",
+                    "starter:MISSING_TPR_ACTION");
         });
         assertThat(harness.judgeRequests).singleElement().satisfies(request ->
                 assertThat(request.attemptNumber()).isEqualTo(2));
+    }
+
+    @ParameterizedTest
+    @CsvSource({
+        "1, starter",
+        "2, cooperating",
+        "3, hesitant",
+        "4, resisting",
+        "5, no_response",
+        "6, other"
+    })
+    void repairableGatePublishesBoundedBranchViolationDiagnosticsToAuditAndRepair(
+            int displayOrder,
+            String branch
+    ) {
+        var harness = new Harness(2);
+        harness.gates.add(GateSpec.repairableAt(
+                displayOrder, GeneratedOutputViolationCode.MISSING_TPR_ACTION));
+        harness.gates.add(GateSpec.pass());
+        harness.judges.add(pass());
+
+        var result = harness.execute();
+
+        assertThat(result.status()).isEqualTo("active");
+        assertThat(harness.completedAttempts.get(0).violationCodes()).containsExactly(
+                "MISSING_TPR_ACTION",
+                branch + ":MISSING_TPR_ACTION");
+        assertThat(harness.repairRequests).singleElement().satisfies(request ->
+                assertThat(request.repairPackage().violationCodes()).containsExactly(
+                        "MISSING_TPR_ACTION",
+                        branch + ":MISSING_TPR_ACTION"));
     }
 
     @Test
@@ -560,10 +595,14 @@ class CustomSceneGenerationOrchestratorTest {
         harness.execute();
 
         assertThat(harness.completedAttempts).hasSize(2);
-        assertThat(harness.completedAttempts.get(0).violationCodes()).containsExactly("MISSING_TPR_ACTION");
+        assertThat(harness.completedAttempts.get(0).violationCodes()).containsExactly(
+                "MISSING_TPR_ACTION",
+                "starter:MISSING_TPR_ACTION");
         assertThat(harness.completedAttempts.get(1).violationCodes()).isEmpty();
         assertThat(harness.repairRequests).singleElement().satisfies(request ->
-                assertThat(request.repairPackage().violationCodes()).containsExactly("MISSING_TPR_ACTION"));
+                assertThat(request.repairPackage().violationCodes()).containsExactly(
+                        "MISSING_TPR_ACTION",
+                        "starter:MISSING_TPR_ACTION"));
     }
 
     @Test
@@ -728,17 +767,25 @@ class CustomSceneGenerationOrchestratorTest {
         return dimensions;
     }
 
-    private record GateSpec(List<GeneratedOutputViolationCode> terminal, List<GeneratedOutputViolationCode> repairable) {
+    private record GateSpec(
+            List<GeneratedOutputViolationCode> terminal,
+            List<GeneratedOutputViolationCode> repairable,
+            Set<Integer> displayOrders
+    ) {
         private static GateSpec pass() {
-            return new GateSpec(List.of(), List.of());
+            return new GateSpec(List.of(), List.of(), Set.of());
         }
 
         private static GateSpec repairable(GeneratedOutputViolationCode code) {
-            return new GateSpec(List.of(), List.of(code));
+            return new GateSpec(List.of(), List.of(code), Set.of(1));
+        }
+
+        private static GateSpec repairableAt(int displayOrder, GeneratedOutputViolationCode code) {
+            return new GateSpec(List.of(), List.of(code), Set.of(displayOrder));
         }
 
         private static GateSpec terminal(GeneratedOutputViolationCode code) {
-            return new GateSpec(List.of(code), List.of());
+            return new GateSpec(List.of(code), List.of(), Set.of(1));
         }
     }
 
@@ -886,10 +933,14 @@ class CustomSceneGenerationOrchestratorTest {
                             throw validatorFailure;
                         }
                         var spec = gates.element();
+                        var displayOrder = (gateNumber - 1) % GeneratedCareMomentBundle.UTTERANCE_COUNT + 1;
                         if (gateNumber % GeneratedCareMomentBundle.UTTERANCE_COUNT == 0) {
                             gates.removeFirst();
                         }
-                        return new GeneratedOutputGateResult(invocation.getArgument(0), spec.terminal(), spec.repairable());
+                        return spec.displayOrders().contains(displayOrder)
+                                ? new GeneratedOutputGateResult(
+                                        invocation.getArgument(0), spec.terminal(), spec.repairable())
+                                : new GeneratedOutputGateResult(invocation.getArgument(0), List.of(), List.of());
                     });
             when(judge.judge(any())).thenAnswer(invocation -> {
                 var request = invocation.getArgument(0, JudgeRequest.class);

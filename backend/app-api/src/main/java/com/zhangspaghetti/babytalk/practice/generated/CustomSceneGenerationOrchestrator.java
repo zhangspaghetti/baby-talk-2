@@ -8,6 +8,7 @@ import com.zhangspaghetti.babytalk.practice.generated.CustomSceneGenerator.Conte
 import com.zhangspaghetti.babytalk.practice.generated.CustomSceneGenerator.GeneratedPracticeContentCandidate;
 import com.zhangspaghetti.babytalk.practice.generated.CustomSceneGenerator.GeneratorRequest;
 import com.zhangspaghetti.babytalk.practice.generated.CustomSceneQualityJudge.JudgeRequest;
+import com.zhangspaghetti.babytalk.practice.generated.contract.CompleteGeneratedBundle;
 import com.zhangspaghetti.babytalk.practice.generated.evidence.CompositeCustomSceneEvidenceRetriever;
 import com.zhangspaghetti.babytalk.practice.generated.evidence.CustomSceneEvidenceRetriever;
 import com.zhangspaghetti.babytalk.practice.generated.evidence.EvidenceBundleFactory;
@@ -56,6 +57,7 @@ public class CustomSceneGenerationOrchestrator {
     private static final String ERROR_GENERATION_UNAVAILABLE = "generation_unavailable";
     private static final String ERROR_GENERATION_TIMEOUT = "generation_timeout";
     private static final String ERROR_INSUFFICIENT_EVIDENCE = "insufficient_evidence";
+    private static final int MAX_BRANCH_VIOLATION_DIAGNOSTICS = 78;
 
     private final PracticeGeneratedContentCommands commands;
     private final PracticeGeneratedContentQueryMapper queryMapper;
@@ -260,12 +262,20 @@ public class CustomSceneGenerationOrchestrator {
                 return expire(reserved, ERROR_GENERATION_UNAVAILABLE, true);
             }
             if (!gate.terminalViolations().isEmpty()) {
-                var codes = combined(attemptCodes, violationCodes(gate.terminalViolations()));
+                var codes = combined(
+                        attemptCodes,
+                        combined(
+                                violationCodes(gate.terminalViolations()),
+                                gate.terminalViolationDiagnostics()));
                 complete(attemptId, attemptNumber, "terminal_violation", codes);
                 return reject(reserved, ERROR_GENERATION_INVALID_OUTPUT, false);
             }
             if (!gate.repairableViolations().isEmpty()) {
-                var codes = combined(attemptCodes, violationCodes(gate.repairableViolations()));
+                var codes = combined(
+                        attemptCodes,
+                        combined(
+                                violationCodes(gate.repairableViolations()),
+                                gate.repairableViolationDiagnostics()));
                 repairContext = deterministicRepairContext(gate.normalizedBundle(), gate.repairableViolations(), codes);
                 if (attemptNumber == reserved.generationAttemptLimit()) {
                     complete(attemptId, attemptNumber, "attempt_limit_exhausted", codes);
@@ -409,19 +419,74 @@ public class CustomSceneGenerationOrchestrator {
     ) {
         var terminal = new ArrayList<GeneratedOutputViolationCode>();
         var repairable = new ArrayList<GeneratedOutputViolationCode>();
+        var terminalDiagnostics = new ArrayList<String>();
+        var repairableDiagnostics = new ArrayList<String>();
+        var branches = bundle.completeBundle().utterances().stream()
+                .map(this::safeBranchName)
+                .iterator();
         var normalized = bundle.mapCandidates(candidate -> {
+            if (!branches.hasNext()) {
+                throw new IllegalStateException("bundle validation exceeded canonical branch count");
+            }
+            var branch = branches.next();
             var result = validator.evaluate(
                     candidate,
                     constraints,
                     new CustomSceneGeneratedContentValidator.GeneratedOutputValidationContext(normalizedSceneText));
             terminal.addAll(result.terminalViolations());
             repairable.addAll(result.repairableViolations());
+            terminalDiagnostics.addAll(branchDiagnostics(branch, result.terminalViolations()));
+            repairableDiagnostics.addAll(branchDiagnostics(branch, result.repairableViolations()));
             return result.normalizedCandidate();
         });
+        if (branches.hasNext()) {
+            throw new IllegalStateException("bundle validation did not consume every canonical branch");
+        }
         return new BundleGateResult(
                 normalized,
                 terminal.stream().distinct().sorted().toList(),
-                repairable.stream().distinct().sorted().toList());
+                repairable.stream().distinct().sorted().toList(),
+                boundedDiagnostics(terminalDiagnostics),
+                boundedDiagnostics(repairableDiagnostics));
+    }
+
+    private List<String> branchDiagnostics(
+            String branch,
+            List<GeneratedOutputViolationCode> violations
+    ) {
+        return violations.stream()
+                .map(this::safeViolationCode)
+                .distinct()
+                .sorted()
+                .map(code -> branch + ":" + code)
+                .toList();
+    }
+
+    private List<String> boundedDiagnostics(List<String> diagnostics) {
+        var stable = stableCodes(diagnostics);
+        if (stable.size() > MAX_BRANCH_VIOLATION_DIAGNOSTICS) {
+            throw new IllegalStateException("bundle validation diagnostics exceeded fixed bound");
+        }
+        return stable;
+    }
+
+    private String safeBranchName(CompleteGeneratedBundle.Utterance utterance) {
+        return switch (utterance.role()) {
+            case STARTER -> {
+                if (utterance.reaction() != null) {
+                    throw new IllegalStateException("starter branch cannot have a reaction");
+                }
+                yield "starter";
+            }
+            case REACTION_SUPPORT -> switch (Objects.requireNonNull(
+                    utterance.reaction(), "reaction support branch reaction")) {
+                case COOPERATING -> "cooperating";
+                case HESITANT -> "hesitant";
+                case RESISTING -> "resisting";
+                case NO_RESPONSE -> "no_response";
+                case OTHER -> "other";
+            };
+        };
     }
 
     private RepairContext deterministicRepairContext(
@@ -646,7 +711,26 @@ public class CustomSceneGenerationOrchestrator {
     }
 
     private List<String> violationCodes(List<GeneratedOutputViolationCode> violations) {
-        return violations.stream().map(Enum::name).toList();
+        return violations.stream().map(this::safeViolationCode).toList();
+    }
+
+    private String safeViolationCode(GeneratedOutputViolationCode violation) {
+        Objects.requireNonNull(violation, "generated output violation");
+        return switch (violation) {
+            case OUTPUT_PII,
+                    OUTPUT_BIDI_CONTROL,
+                    OUTPUT_ADULT_VIOLENT,
+                    OUTPUT_DANGEROUS_MEDICAL,
+                    UNTRUSTED_METADATA,
+                    DATABASE_OVERFLOW,
+                    INVALID_ENUM,
+                    MISSING_TPR_ACTION,
+                    MISSING_DELIVERY_GUIDANCE,
+                    FIELD_ROLE_MISMATCH,
+                    META_INSTRUCTION,
+                    COURSE_OR_SCORING_FRAMING,
+                    MARKDOWN_OR_TEMPLATE -> violation.name();
+        };
     }
 
     private List<String> combined(List<String> first, List<String> second) {
@@ -741,7 +825,9 @@ public class CustomSceneGenerationOrchestrator {
     private record BundleGateResult(
             GeneratedCareMomentBundle normalizedBundle,
             List<GeneratedOutputViolationCode> terminalViolations,
-            List<GeneratedOutputViolationCode> repairableViolations
+            List<GeneratedOutputViolationCode> repairableViolations,
+            List<String> terminalViolationDiagnostics,
+            List<String> repairableViolationDiagnostics
     ) {
     }
 

@@ -83,6 +83,18 @@ def verify_no_production_fallback() -> bool:
     orchestrator = (GENERATED_SOURCE_ROOT / "CustomSceneGenerationOrchestrator.java").read_text(
         encoding="utf-8"
     )
+    required_orchestrator_markers = (
+        "MAX_BRANCH_VIOLATION_DIAGNOSTICS = 78",
+        "safeBranchName(",
+        "safeViolationCode(",
+        "gate.repairableViolationDiagnostics()",
+        "gate.terminalViolationDiagnostics()",
+    )
+    for marker in required_orchestrator_markers:
+        if marker not in orchestrator:
+            violations.append(
+                f"CustomSceneGenerationOrchestrator.java: missing bounded safe diagnostic marker: {marker}"
+            )
     for marker in ("fakeFixture(", "fakeSupport", "fixedSupport", "genericSupport", "starterOnly"):
         if marker in orchestrator:
             violations.append(f"CustomSceneGenerationOrchestrator.java: forbidden fallback marker: {marker}")
