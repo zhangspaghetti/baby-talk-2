@@ -9,12 +9,14 @@ import com.zhangspaghetti.babytalk.practice.agentic.diagnostics.PracticeAiContra
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 import org.junit.jupiter.api.Test;
 import org.springframework.ai.converter.BeanOutputConverter;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.node.ObjectNode;
 
 class CompleteGeneratedBundleContractTest {
 
@@ -83,15 +85,27 @@ class CompleteGeneratedBundleContractTest {
     @Test
     void providerSchemaEnumTokensMatchStrictParserWireTokens() throws Exception {
         var schema = providerSchema();
-        var starterSchema = resolveLocalSchema(
-                schema,
-                schema.get("properties").get("utterances").get("properties").get("starter"));
-        var roleSchema = starterSchema.get("properties").get("role");
-        var reactionSchema = starterSchema.get("properties").get("reaction");
-        assertFlatStringEnumSchema(roleSchema);
-        assertFlatStringEnumSchema(reactionSchema);
-        var roleSchemaTokens = enumTextValues(roleSchema);
-        var reactionSchemaTokens = enumTextValues(reactionSchema);
+        var branchProperties = schema.get("properties").get("utterances").get("properties");
+        var roleSchemaTokens = new LinkedHashSet<String>();
+        var reactionSchemaTokens = new LinkedHashSet<String>();
+        for (var constraint : canonicalBranchConstraints()) {
+            var branchSchema = resolveLocalSchema(schema, branchProperties.get(constraint.key()));
+            var roleSchema = branchSchema.get("properties").get("role");
+            var reactionSchema = branchSchema.get("properties").get("reaction");
+            assertFlatStringEnumSchema(roleSchema);
+            assertFlatStringEnumSchema(reactionSchema);
+            roleSchemaTokens.addAll(enumTextValues(roleSchema));
+            reactionSchemaTokens.addAll(enumTextValues(reactionSchema));
+            assertThat(typeNames(roleSchema)).containsExactly("string");
+            assertThat(nullEnumValueCount(roleSchema)).isZero();
+            if (constraint.reaction() == null) {
+                assertThat(typeNames(reactionSchema)).containsExactlyInAnyOrder("string", "null");
+                assertThat(nullEnumValueCount(reactionSchema)).isOne();
+            } else {
+                assertThat(typeNames(reactionSchema)).containsExactly("string");
+                assertThat(nullEnumValueCount(reactionSchema)).isZero();
+            }
+        }
         var roleParserTokens = Arrays.stream(CompleteGeneratedBundle.UtteranceRole.values())
                 .map(CompleteGeneratedBundle.UtteranceRole::wireValue)
                 .collect(Collectors.toSet());
@@ -102,13 +116,116 @@ class CompleteGeneratedBundleContractTest {
         assertSoftly(softly -> {
             softly.assertThat(roleSchemaTokens).containsExactlyInAnyOrderElementsOf(roleParserTokens);
             softly.assertThat(reactionSchemaTokens).containsExactlyInAnyOrderElementsOf(reactionParserTokens);
-            softly.assertThat(typeNames(roleSchema)).containsExactly("string");
-            softly.assertThat(typeNames(reactionSchema)).containsExactlyInAnyOrder("string", "null");
-            softly.assertThat(nullEnumValueCount(roleSchema)).isZero();
-            softly.assertThat(nullEnumValueCount(reactionSchema)).isOne();
         });
         roleSchemaTokens.forEach(CompleteGeneratedBundle.UtteranceRole::fromWireValue);
         reactionSchemaTokens.forEach(CompleteGeneratedBundle.Reaction::fromWireValue);
+    }
+
+    @Test
+    void providerSchemaBranchConstraintsMatchStrictValidatorCanonicalMapping() throws Exception {
+        var schema = providerSchema();
+        var branchProperties = schema.get("properties").get("utterances").get("properties");
+
+        for (var constraint : canonicalBranchConstraints()) {
+            var branchSchema = resolveLocalSchema(schema, branchProperties.get(constraint.key()));
+            var properties = branchSchema.get("properties");
+
+            assertSingleIntegerEnum(properties.get("displayOrder"), constraint.displayOrder());
+            assertSingleTextEnum(properties.get("role"), constraint.role().wireValue());
+            if (constraint.reaction() == null) {
+                assertSingleNullEnum(properties.get("reaction"));
+            } else {
+                assertSingleTextEnum(properties.get("reaction"), constraint.reaction().wireValue());
+            }
+        }
+    }
+
+    @Test
+    void strictValidatorRejectsDisplayOrderMismatchForEveryCanonicalBranch() {
+        for (var constraint : canonicalBranchConstraints()) {
+            var wrongOrder = constraint.displayOrder() == 6 ? 5 : constraint.displayOrder() + 1;
+            assertViolationCategory(
+                    () -> providerUtterancesWithDisplayOrder(constraint.key(), wrongOrder),
+                    Category.DISPLAY_ORDER);
+        }
+    }
+
+    @Test
+    void providerSchemaRefinerRejectsMalformedExternalAndSiblingReferences() {
+        var nonTextReference = new ObjectMapper().createObjectNode();
+        nonTextReference.put("$ref", 42);
+        var externalReference = new ObjectMapper().createObjectNode();
+        externalReference.put("$ref", "https://example.invalid/schema");
+        var malformedPointer = new ObjectMapper().createObjectNode();
+        malformedPointer.put("$ref", "#/$defs/Bad~2Pointer");
+        var siblingReference = new ObjectMapper().createObjectNode();
+        siblingReference.put("$ref", "#/$defs/ProviderUtterance");
+        siblingReference.put("description", "sibling constraint");
+
+        assertSchemaRefinerInvalid(schemaWithStarterCandidate(nonTextReference));
+
+        var externalSchema = schemaWithStarterCandidate(externalReference);
+        externalSchema.putObject("tps:")
+                .putObject("")
+                .putObject("example.invalid")
+                .set("schema", normalizedBaseBranchSchema());
+        assertSchemaRefinerInvalid(externalSchema);
+
+        var malformedPointerSchema = schemaWithStarterCandidate(malformedPointer);
+        ((ObjectNode) malformedPointerSchema.get("$defs"))
+                .set("Bad~2Pointer", normalizedBaseBranchSchema());
+        assertSchemaRefinerInvalid(malformedPointerSchema);
+
+        assertSchemaRefinerInvalid(schemaWithStarterCandidate(siblingReference));
+    }
+
+    @Test
+    void providerSchemaRefinerRejectsMissingOrIncompatibleSourceConstraints() {
+        var wrongRoleType = normalizedBaseBranchSchema();
+        ((ObjectNode) wrongRoleType.get("properties").get("role")).put("type", "integer");
+
+        var missingDisplayOrder = normalizedBaseBranchSchema();
+        ((ObjectNode) missingDisplayOrder.get("properties")).remove("displayOrder");
+
+        var incompatibleDisplayOrderEnum = normalizedBaseBranchSchema();
+        ((ObjectNode) incompatibleDisplayOrderEnum.get("properties").get("displayOrder"))
+                .putArray("enum")
+                .add(2);
+
+        var missingStarterReaction = normalizedBaseBranchSchema();
+        ((ObjectNode) missingStarterReaction.get("properties").get("reaction"))
+                .putArray("enum")
+                .add("cooperating");
+
+        var incompatibleConstant = normalizedBaseBranchSchema();
+        ((ObjectNode) incompatibleConstant.get("properties").get("displayOrder"))
+                .put("const", 2);
+
+        for (var candidate : List.of(
+                wrongRoleType,
+                missingDisplayOrder,
+                incompatibleDisplayOrderEnum,
+                missingStarterReaction,
+                incompatibleConstant)) {
+            assertSchemaRefinerInvalid(schemaWithStarterCandidate(candidate));
+        }
+    }
+
+    @Test
+    void providerSchemaRefinerAcceptsCompleteCompatibleSourceSchema() {
+        var schema = completeNormalizedProviderSchema();
+
+        new CompleteGeneratedBundle.ProviderResponseSchemaRefiner().refine(schema);
+
+        var branchProperties = schema.get("properties").get("utterances").get("properties");
+        for (var constraint : canonicalBranchConstraints()) {
+            var displayOrder = branchProperties.get(constraint.key())
+                    .get("properties")
+                    .get("displayOrder")
+                    .get("enum");
+            assertThat(displayOrder).hasSize(1);
+            assertThat(displayOrder.get(0).intValue()).isEqualTo(constraint.displayOrder());
+        }
     }
 
     @Test
@@ -286,6 +403,42 @@ class CompleteGeneratedBundleContractTest {
                 support(CompleteGeneratedBundle.Reaction.OTHER));
     }
 
+    private CompleteGeneratedBundle.ProviderUtterances providerUtterancesWithDisplayOrder(
+            String branchKey,
+            int displayOrder
+    ) {
+        return new CompleteGeneratedBundle.ProviderUtterances(
+                utterance(
+                        CompleteGeneratedBundle.UtteranceRole.STARTER,
+                        null,
+                        "starter".equals(branchKey) ? displayOrder : 1),
+                supportWithDisplayOrder(
+                        CompleteGeneratedBundle.Reaction.COOPERATING,
+                        "cooperating".equals(branchKey) ? displayOrder : 2),
+                supportWithDisplayOrder(
+                        CompleteGeneratedBundle.Reaction.HESITANT,
+                        "hesitant".equals(branchKey) ? displayOrder : 3),
+                supportWithDisplayOrder(
+                        CompleteGeneratedBundle.Reaction.RESISTING,
+                        "resisting".equals(branchKey) ? displayOrder : 4),
+                supportWithDisplayOrder(
+                        CompleteGeneratedBundle.Reaction.NO_RESPONSE,
+                        "no_response".equals(branchKey) ? displayOrder : 5),
+                supportWithDisplayOrder(
+                        CompleteGeneratedBundle.Reaction.OTHER,
+                        "other".equals(branchKey) ? displayOrder : 6));
+    }
+
+    private CompleteGeneratedBundle.ProviderUtterance supportWithDisplayOrder(
+            CompleteGeneratedBundle.Reaction reaction,
+            int displayOrder
+    ) {
+        return utterance(
+                CompleteGeneratedBundle.UtteranceRole.REACTION_SUPPORT,
+                reaction,
+                displayOrder);
+    }
+
     private CompleteGeneratedBundle.ProviderUtterance support(CompleteGeneratedBundle.Reaction reaction) {
         return utterance(
                 CompleteGeneratedBundle.UtteranceRole.REACTION_SUPPORT,
@@ -321,6 +474,55 @@ class CompleteGeneratedBundleContractTest {
                         .isEqualTo(expectedCategory));
     }
 
+    private void assertSchemaRefinerInvalid(ObjectNode schema) {
+        assertThatThrownBy(() -> new CompleteGeneratedBundle.ProviderResponseSchemaRefiner()
+                        .refine(schema))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("complete_generated_bundle_provider_schema_invalid");
+    }
+
+    private ObjectNode schemaWithStarterCandidate(ObjectNode starterCandidate) {
+        var schema = completeNormalizedProviderSchema();
+        ((ObjectNode) schema.get("properties").get("utterances").get("properties"))
+                .set("starter", starterCandidate);
+        return schema;
+    }
+
+    private ObjectNode completeNormalizedProviderSchema() {
+        var schema = new ObjectMapper().createObjectNode();
+        var branchProperties = schema.putObject("properties")
+                .putObject("utterances")
+                .putObject("properties");
+        for (var constraint : canonicalBranchConstraints()) {
+            branchProperties.set(constraint.key(), normalizedBaseBranchSchema());
+        }
+        schema.putObject("$defs").set("ProviderUtterance", normalizedBaseBranchSchema());
+        return schema;
+    }
+
+    private ObjectNode normalizedBaseBranchSchema() {
+        var branch = new ObjectMapper().createObjectNode();
+        var properties = branch.putObject("properties");
+        properties.putObject("role")
+                .put("type", "string")
+                .putArray("enum")
+                .add("starter")
+                .add("reaction_support");
+        var reaction = properties.putObject("reaction");
+        reaction.putArray("type")
+                .add("string")
+                .add("null");
+        reaction.putArray("enum")
+                .add("cooperating")
+                .add("hesitant")
+                .add("resisting")
+                .add("no_response")
+                .add("other")
+                .addNull();
+        properties.putObject("displayOrder").put("type", "integer");
+        return branch;
+    }
+
     private Category contractViolationCategory(Throwable failure) {
         var current = failure;
         while (current != null) {
@@ -346,7 +548,8 @@ class CompleteGeneratedBundleContractTest {
 
     private JsonNode providerSchema() throws Exception {
         var converter = new BeanOutputConverter<>(CompleteGeneratedBundle.ProviderResponse.class);
-        return new ObjectMapper().readTree(PracticeAiJsonSchemaPublisher.publish(converter));
+        return new ObjectMapper().readTree(PracticeAiJsonSchemaPublisher.publish(
+                converter, CompleteGeneratedBundle.ProviderResponse.class));
     }
 
     private void assertFlatStringEnumSchema(JsonNode candidate) {
@@ -357,6 +560,29 @@ class CompleteGeneratedBundleContractTest {
         assertThat(candidate.has("allOf")).isFalse();
         assertThat(candidate.get("enum")).isNotNull();
         assertThat(candidate.get("enum").isArray()).isTrue();
+    }
+
+    private void assertSingleTextEnum(JsonNode candidate, String expected) {
+        assertFlatStringEnumSchema(candidate);
+        assertThat(candidate.get("enum")).hasSize(1);
+        assertThat(candidate.get("enum").get(0).textValue()).isEqualTo(expected);
+    }
+
+    private void assertSingleNullEnum(JsonNode candidate) {
+        assertFlatStringEnumSchema(candidate);
+        assertThat(candidate.get("enum")).hasSize(1);
+        assertThat(candidate.get("enum").get(0).isNull()).isTrue();
+    }
+
+    private void assertSingleIntegerEnum(JsonNode candidate, int expected) {
+        assertThat(candidate).isNotNull();
+        assertThat(candidate.has("$ref")).isFalse();
+        assertThat(candidate.has("oneOf")).isFalse();
+        assertThat(candidate.has("anyOf")).isFalse();
+        assertThat(candidate.has("allOf")).isFalse();
+        assertThat(typeNames(candidate)).containsExactly("integer");
+        assertThat(candidate.get("enum")).hasSize(1);
+        assertThat(candidate.get("enum").get(0).intValue()).isEqualTo(expected);
     }
 
     private Set<String> enumTextValues(JsonNode candidate) {
@@ -392,6 +618,45 @@ class CompleteGeneratedBundleContractTest {
         return java.util.stream.StreamSupport.stream(enumValues.spliterator(), false)
                 .filter(JsonNode::isNull)
                 .count();
+    }
+
+    private List<BranchConstraint> canonicalBranchConstraints() {
+        return List.of(
+                new BranchConstraint(
+                        "starter", CompleteGeneratedBundle.UtteranceRole.STARTER, null, 1),
+                new BranchConstraint(
+                        "cooperating",
+                        CompleteGeneratedBundle.UtteranceRole.REACTION_SUPPORT,
+                        CompleteGeneratedBundle.Reaction.COOPERATING,
+                        2),
+                new BranchConstraint(
+                        "hesitant",
+                        CompleteGeneratedBundle.UtteranceRole.REACTION_SUPPORT,
+                        CompleteGeneratedBundle.Reaction.HESITANT,
+                        3),
+                new BranchConstraint(
+                        "resisting",
+                        CompleteGeneratedBundle.UtteranceRole.REACTION_SUPPORT,
+                        CompleteGeneratedBundle.Reaction.RESISTING,
+                        4),
+                new BranchConstraint(
+                        "no_response",
+                        CompleteGeneratedBundle.UtteranceRole.REACTION_SUPPORT,
+                        CompleteGeneratedBundle.Reaction.NO_RESPONSE,
+                        5),
+                new BranchConstraint(
+                        "other",
+                        CompleteGeneratedBundle.UtteranceRole.REACTION_SUPPORT,
+                        CompleteGeneratedBundle.Reaction.OTHER,
+                        6));
+    }
+
+    private record BranchConstraint(
+            String key,
+            CompleteGeneratedBundle.UtteranceRole role,
+            CompleteGeneratedBundle.Reaction reaction,
+            int displayOrder
+    ) {
     }
 
     private String canonicalResponse() {

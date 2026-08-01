@@ -40,7 +40,7 @@ public class PracticeAiStructuredOutputCaller {
         var converter = strictConverter(responseType);
         var options = OpenAiChatOptions.builder()
                 .responseFormat(OpenAiChatModel.ResponseFormat.builder()
-                        .jsonSchema(PracticeAiJsonSchemaPublisher.publish(converter))
+                        .jsonSchema(PracticeAiJsonSchemaPublisher.publish(converter, responseType))
                         .build());
         var response = provider.chatClient()
                 .prompt()
@@ -60,16 +60,16 @@ public class PracticeAiStructuredOutputCaller {
      * Gets one schema-constrained provider payload without converting it. Callers with a stricter
      * domain parser must use this path so no generic DTO conversion can weaken that contract.
      */
-    public String callRaw(
+    public <T> String callRaw(
             ResolvedProvider provider,
             String systemPrompt,
             String userPrompt,
-            Class<?> responseType
+            Class<T> responseType
     ) {
         var converter = strictConverter(responseType);
         var options = OpenAiChatOptions.builder()
                 .responseFormat(OpenAiChatModel.ResponseFormat.builder()
-                        .jsonSchema(PracticeAiJsonSchemaPublisher.publish(converter))
+                        .jsonSchema(PracticeAiJsonSchemaPublisher.publish(converter, responseType))
                         .build());
         var response = provider.chatClient()
                 .prompt()
@@ -90,11 +90,11 @@ public class PracticeAiStructuredOutputCaller {
      * Gets one complete schema-constrained payload after enforcing a versioned safe output-budget
      * floor. The configured maximum remains a limit and does not imply actual token consumption.
      */
-    public String callRaw(
+    public <T> String callRaw(
             ResolvedProvider provider,
             String systemPrompt,
             String userPrompt,
-            Class<?> responseType,
+            Class<T> responseType,
             int minimumOutputTokens
     ) {
         if (minimumOutputTokens <= 0) {
