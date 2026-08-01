@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
 import com.zhangspaghetti.babytalk.practice.agentic.diagnostics.PracticeAiContractViolation;
 import com.zhangspaghetti.babytalk.practice.agentic.diagnostics.PracticeAiContractViolation.Category;
+import io.swagger.v3.oas.annotations.media.Schema;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Objects;
@@ -316,7 +317,13 @@ public record CompleteGeneratedBundle(
     }
 
     public record ProviderUtterance(
+            @Schema(
+                    implementation = String.class,
+                    allowableValues = {"starter", "reaction_support"})
             UtteranceRole role,
+            @Schema(implementation = String.class, nullable = true, allowableValues = {
+                    "cooperating", "hesitant", "resisting", "no_response", "other"
+            })
             Reaction reaction,
             String englishText,
             String chineseText,

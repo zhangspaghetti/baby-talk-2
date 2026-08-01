@@ -19,13 +19,37 @@ class PracticeAiStructuredOutputCallerTest {
     @Test
     void springAiTwoJsonSchemaCompileContractSelectsJsonSchemaMode() {
         var converter = new BeanOutputConverter<>(Answer.class);
+        var publishedSchema = PracticeAiJsonSchemaPublisher.publish(converter);
         var responseFormat = OpenAiChatModel.ResponseFormat.builder()
-                .jsonSchema(converter.getJsonSchema())
+                .jsonSchema(publishedSchema)
                 .build();
         var options = OpenAiChatOptions.builder().responseFormat(responseFormat).build();
 
-        assertThat(options.getResponseFormat().getJsonSchema()).isEqualTo(converter.getJsonSchema());
+        assertThat(options.getResponseFormat().getJsonSchema()).isEqualTo(publishedSchema);
         assertThat(options.getResponseFormat().getType().name()).isEqualTo("JSON_SCHEMA");
+    }
+
+    @Test
+    void schemaPublisherAcceptsMaximumTraversalDepth() {
+        assertThat(PracticeAiJsonSchemaPublisher.publish(
+                        nestedSchema(PracticeAiJsonSchemaPublisher.MAX_SCHEMA_DEPTH)))
+                .isNotBlank();
+    }
+
+    @Test
+    void schemaPublisherRejectsTraversalBeyondMaximumDepth() {
+        assertThatThrownBy(() -> PracticeAiJsonSchemaPublisher.publish(
+                        nestedSchema(PracticeAiJsonSchemaPublisher.MAX_SCHEMA_DEPTH + 1)))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("practice_ai_json_schema_too_complex");
+    }
+
+    @Test
+    void schemaPublisherRejectsTraversalBeyondMaximumNodeCount() {
+        assertThatThrownBy(() -> PracticeAiJsonSchemaPublisher.publish(
+                        wideSchema(PracticeAiJsonSchemaPublisher.MAX_SCHEMA_NODES)))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("practice_ai_json_schema_too_complex");
     }
 
     @Test
@@ -62,6 +86,25 @@ class PracticeAiStructuredOutputCallerTest {
                 Arguments.of("missing required field", "{}"),
                 Arguments.of("explicit null", "{\"answer\":null}"),
                 Arguments.of("malformed JSON", "{\"answer\":\"ok\""));
+    }
+
+    private static String nestedSchema(int depth) {
+        var schema = "{}";
+        for (var index = 0; index < depth; index++) {
+            schema = "{\"items\":" + schema + "}";
+        }
+        return schema;
+    }
+
+    private static String wideSchema(int childCount) {
+        var schema = new StringBuilder("{\"anyOf\":[");
+        for (var index = 0; index < childCount; index++) {
+            if (index > 0) {
+                schema.append(',');
+            }
+            schema.append("{}");
+        }
+        return schema.append("]}").toString();
     }
 
     record Answer(String answer) {

@@ -40,7 +40,7 @@ public class PracticeAiStructuredOutputCaller {
         var converter = strictConverter(responseType);
         var options = OpenAiChatOptions.builder()
                 .responseFormat(OpenAiChatModel.ResponseFormat.builder()
-                        .jsonSchema(converter.getJsonSchema())
+                        .jsonSchema(PracticeAiJsonSchemaPublisher.publish(converter))
                         .build());
         var response = provider.chatClient()
                 .prompt()
@@ -69,7 +69,7 @@ public class PracticeAiStructuredOutputCaller {
         var converter = strictConverter(responseType);
         var options = OpenAiChatOptions.builder()
                 .responseFormat(OpenAiChatModel.ResponseFormat.builder()
-                        .jsonSchema(converter.getJsonSchema())
+                        .jsonSchema(PracticeAiJsonSchemaPublisher.publish(converter))
                         .build());
         var response = provider.chatClient()
                 .prompt()

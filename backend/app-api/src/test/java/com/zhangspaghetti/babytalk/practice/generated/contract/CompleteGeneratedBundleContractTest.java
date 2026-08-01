@@ -2,9 +2,15 @@ package com.zhangspaghetti.babytalk.practice.generated.contract;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.SoftAssertions.assertSoftly;
 
+import com.zhangspaghetti.babytalk.practice.agentic.PracticeAiJsonSchemaPublisher;
 import com.zhangspaghetti.babytalk.practice.agentic.diagnostics.PracticeAiContractViolation.Category;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.LinkedHashSet;
+import java.util.Set;
+import java.util.stream.Collectors;
 import org.junit.jupiter.api.Test;
 import org.springframework.ai.converter.BeanOutputConverter;
 import tools.jackson.databind.JsonNode;
@@ -44,8 +50,7 @@ class CompleteGeneratedBundleContractTest {
 
     @Test
     void providerSchemaRequiresEveryCanonicalBranchForStructuredOutputModels() throws Exception {
-        var schema = new ObjectMapper().readTree(new BeanOutputConverter<>(
-                CompleteGeneratedBundle.ProviderResponse.class).getJsonSchema());
+        var schema = providerSchema();
         var utterancesSchema = schema.get("properties").get("utterances");
         var branchProperties = utterancesSchema.get("properties");
 
@@ -73,6 +78,53 @@ class CompleteGeneratedBundleContractTest {
         assertThat(starterSchema.get("required").toString())
                 .contains("\"role\"", "\"reaction\"", "\"displayOrder\"");
         assertThat(starterSchema.get("additionalProperties").booleanValue()).isFalse();
+    }
+
+    @Test
+    void providerSchemaEnumTokensMatchStrictParserWireTokens() throws Exception {
+        var schema = providerSchema();
+        var starterSchema = resolveLocalSchema(
+                schema,
+                schema.get("properties").get("utterances").get("properties").get("starter"));
+        var roleSchema = starterSchema.get("properties").get("role");
+        var reactionSchema = starterSchema.get("properties").get("reaction");
+        assertFlatStringEnumSchema(roleSchema);
+        assertFlatStringEnumSchema(reactionSchema);
+        var roleSchemaTokens = enumTextValues(roleSchema);
+        var reactionSchemaTokens = enumTextValues(reactionSchema);
+        var roleParserTokens = Arrays.stream(CompleteGeneratedBundle.UtteranceRole.values())
+                .map(CompleteGeneratedBundle.UtteranceRole::wireValue)
+                .collect(Collectors.toSet());
+        var reactionParserTokens = Arrays.stream(CompleteGeneratedBundle.Reaction.values())
+                .map(CompleteGeneratedBundle.Reaction::wireValue)
+                .collect(Collectors.toSet());
+
+        assertSoftly(softly -> {
+            softly.assertThat(roleSchemaTokens).containsExactlyInAnyOrderElementsOf(roleParserTokens);
+            softly.assertThat(reactionSchemaTokens).containsExactlyInAnyOrderElementsOf(reactionParserTokens);
+            softly.assertThat(typeNames(roleSchema)).containsExactly("string");
+            softly.assertThat(typeNames(reactionSchema)).containsExactlyInAnyOrder("string", "null");
+            softly.assertThat(nullEnumValueCount(roleSchema)).isZero();
+            softly.assertThat(nullEnumValueCount(reactionSchema)).isOne();
+        });
+        roleSchemaTokens.forEach(CompleteGeneratedBundle.UtteranceRole::fromWireValue);
+        reactionSchemaTokens.forEach(CompleteGeneratedBundle.Reaction::fromWireValue);
+    }
+
+    @Test
+    void strictParserRejectsJavaEnumNamesAndCaseAliases() {
+        assertViolationCategory(
+                () -> CompleteGeneratedBundle.UtteranceRole.fromWireValue("STARTER"),
+                Category.ENUM_VALUE);
+        assertViolationCategory(
+                () -> CompleteGeneratedBundle.UtteranceRole.fromWireValue("Starter"),
+                Category.ENUM_VALUE);
+        assertViolationCategory(
+                () -> CompleteGeneratedBundle.Reaction.fromWireValue("COOPERATING"),
+                Category.ENUM_VALUE);
+        assertViolationCategory(
+                () -> CompleteGeneratedBundle.Reaction.fromWireValue("Cooperating"),
+                Category.ENUM_VALUE);
     }
 
     @Test
@@ -290,6 +342,56 @@ class CompleteGeneratedBundleContractTest {
             resolved = resolved.get(segment.replace("~1", "/").replace("~0", "~"));
         }
         return resolved;
+    }
+
+    private JsonNode providerSchema() throws Exception {
+        var converter = new BeanOutputConverter<>(CompleteGeneratedBundle.ProviderResponse.class);
+        return new ObjectMapper().readTree(PracticeAiJsonSchemaPublisher.publish(converter));
+    }
+
+    private void assertFlatStringEnumSchema(JsonNode candidate) {
+        assertThat(candidate).isNotNull();
+        assertThat(candidate.has("$ref")).isFalse();
+        assertThat(candidate.has("oneOf")).isFalse();
+        assertThat(candidate.has("anyOf")).isFalse();
+        assertThat(candidate.has("allOf")).isFalse();
+        assertThat(candidate.get("enum")).isNotNull();
+        assertThat(candidate.get("enum").isArray()).isTrue();
+    }
+
+    private Set<String> enumTextValues(JsonNode candidate) {
+        var values = new LinkedHashSet<String>();
+        var enumValues = candidate.get("enum");
+        for (var value : enumValues) {
+            assertThat(value.isTextual() || value.isNull()).isTrue();
+            if (value.isTextual()) {
+                values.add(value.textValue());
+            }
+        }
+        return values;
+    }
+
+    private Set<String> typeNames(JsonNode candidate) {
+        var values = new LinkedHashSet<String>();
+        var type = candidate.get("type");
+        assertThat(type).isNotNull();
+        if (type.isTextual()) {
+            values.add(type.textValue());
+        } else {
+            assertThat(type.isArray()).isTrue();
+            for (var value : type) {
+                assertThat(value.isTextual()).isTrue();
+                values.add(value.textValue());
+            }
+        }
+        return values;
+    }
+
+    private long nullEnumValueCount(JsonNode candidate) {
+        var enumValues = candidate.get("enum");
+        return java.util.stream.StreamSupport.stream(enumValues.spliterator(), false)
+                .filter(JsonNode::isNull)
+                .count();
     }
 
     private String canonicalResponse() {
