@@ -22,6 +22,9 @@ import com.zhangspaghetti.babytalk.practice.generated.quality.JudgeDimension;
 import com.zhangspaghetti.babytalk.practice.generated.quality.JudgeVerdict;
 import com.zhangspaghetti.babytalk.practice.generated.quality.RepairDirective;
 import com.zhangspaghetti.babytalk.practice.generated.quality.TypedRepairPackage;
+import com.zhangspaghetti.babytalk.practice.generated.quality.TypedRepairPackage.Branch;
+import com.zhangspaghetti.babytalk.practice.generated.quality.TypedRepairPackage.BranchRequirement;
+import com.zhangspaghetti.babytalk.practice.generated.quality.GeneratedOutputViolationCode;
 import com.zhangspaghetti.babytalk.practice.generated.evidence.EvidenceSummary;
 import com.zhangspaghetti.babytalk.practice.generated.contract.CompleteGeneratedBundle;
 import java.util.Arrays;
@@ -50,6 +53,7 @@ class AgenticCustomSceneRepairerTest {
                         "effectiveVerdict",
                         "failedDimensions",
                         "violationCodes",
+                        "branchRequirements",
                         "repairDirectives",
                         "evidenceSummaries",
                         "generationProfile")
@@ -63,6 +67,33 @@ class AgenticCustomSceneRepairerTest {
                         "providerResponse",
                         "providerPrompt",
                         "reasoning");
+    }
+
+    @Test
+    void typedBranchRequirementsAreCanonicalBoundedAndRepairable() {
+        var starter = requirement(
+                Branch.STARTER,
+                GeneratedOutputViolationCode.MISSING_DELIVERY_GUIDANCE,
+                GeneratedOutputViolationCode.MISSING_TPR_ACTION,
+                GeneratedOutputViolationCode.MISSING_TPR_ACTION);
+        assertThat(starter.violationCodes()).containsExactly(
+                GeneratedOutputViolationCode.MISSING_TPR_ACTION,
+                GeneratedOutputViolationCode.MISSING_DELIVERY_GUIDANCE);
+
+        var repairPackage = repairPackage(List.of(
+                requirement(Branch.OTHER, GeneratedOutputViolationCode.MISSING_TPR_ACTION),
+                starter));
+        assertThat(repairPackage.branchRequirements())
+                .extracting(BranchRequirement::branch)
+                .containsExactly(Branch.STARTER, Branch.OTHER);
+
+        assertThatThrownBy(() -> new BranchRequirement(
+                Branch.STARTER, List.of(GeneratedOutputViolationCode.OUTPUT_PII)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("branch requirements must contain bounded repairable violations");
+        assertThatThrownBy(() -> repairPackage(List.of(starter, starter)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("repair branch requirements must be unique and bounded");
     }
 
     @Test
@@ -110,7 +141,18 @@ class AgenticCustomSceneRepairerTest {
         verify(caller).callRaw(eq(provider), eq("REPAIR SYSTEM PROMPT"), promptCaptor.capture(),
                 eq(CompleteGeneratedBundle.ProviderResponse.class), eq(8192));
         assertThat(promptCaptor.getValue())
-                .contains("给宝宝穿鞋", "m7_11", "calmer_care", "Shoes on.", "MISSING_TPR_ACTION", "先轻声说。")
+                .contains(
+                        "给宝宝穿鞋",
+                        "m7_11",
+                        "calmer_care",
+                        "Shoes on.",
+                        "MISSING_TPR_ACTION",
+                        "先轻声说。",
+                        "\"branchRequirements\":[",
+                        "\"branch\":\"starter\"",
+                        "\"violationCodes\":[\"MISSING_TPR_ACTION\",\"MISSING_DELIVERY_GUIDANCE\"]",
+                        "\"branch\":\"no_response\"",
+                        "\"branch\":\"other\"")
                 .doesNotContain(
                         "pgc_repair_test",
                         "securityText",
@@ -165,17 +207,44 @@ class AgenticCustomSceneRepairerTest {
 
     private static CustomSceneRepairer.RepairRequest request() {
         return new CustomSceneRepairer.RepairRequest("pgc_repair_test", 2, EVIDENCE_BUNDLE_ID, "zh-CN",
-                new TypedRepairPackage(
-                        "给宝宝穿鞋",
-                        "m7_11",
-                        "calmer_care",
-                        previousBundle(),
-                        JudgeVerdict.REPAIR,
-                        List.of(JudgeDimension.TPR_QUALITY),
-                        List.of("MISSING_TPR_ACTION"),
-                        List.of(RepairDirective.REPAIR_TPR_QUALITY),
-                        List.of(new EvidenceSummary("先轻声说。", "a".repeat(64))),
-                        profile()));
+                repairPackage(List.of(
+                                requirement(
+                                        Branch.STARTER,
+                                        GeneratedOutputViolationCode.MISSING_TPR_ACTION,
+                                        GeneratedOutputViolationCode.MISSING_DELIVERY_GUIDANCE),
+                                requirement(Branch.COOPERATING, GeneratedOutputViolationCode.MISSING_TPR_ACTION),
+                                requirement(Branch.HESITANT, GeneratedOutputViolationCode.MISSING_TPR_ACTION),
+                                requirement(Branch.RESISTING, GeneratedOutputViolationCode.MISSING_TPR_ACTION),
+                                requirement(
+                                        Branch.NO_RESPONSE,
+                                        GeneratedOutputViolationCode.MISSING_TPR_ACTION,
+                                        GeneratedOutputViolationCode.MISSING_DELIVERY_GUIDANCE),
+                                requirement(
+                                        Branch.OTHER,
+                                        GeneratedOutputViolationCode.MISSING_TPR_ACTION,
+                                        GeneratedOutputViolationCode.MISSING_DELIVERY_GUIDANCE))));
+    }
+
+    private static TypedRepairPackage repairPackage(List<BranchRequirement> branchRequirements) {
+        return new TypedRepairPackage(
+                "给宝宝穿鞋",
+                "m7_11",
+                "calmer_care",
+                previousBundle(),
+                JudgeVerdict.REPAIR,
+                List.of(JudgeDimension.TPR_QUALITY),
+                List.of("MISSING_TPR_ACTION"),
+                branchRequirements,
+                List.of(RepairDirective.REPAIR_TPR_QUALITY),
+                List.of(new EvidenceSummary("先轻声说。", "a".repeat(64))),
+                profile());
+    }
+
+    private static BranchRequirement requirement(
+            Branch branch,
+            GeneratedOutputViolationCode... violations
+    ) {
+        return new BranchRequirement(branch, List.of(violations));
     }
 
     private static CompleteGeneratedBundle.ProviderResponse wire() {

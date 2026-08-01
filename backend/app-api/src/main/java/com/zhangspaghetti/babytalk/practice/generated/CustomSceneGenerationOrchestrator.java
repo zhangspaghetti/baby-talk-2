@@ -27,6 +27,8 @@ import com.zhangspaghetti.babytalk.practice.generated.quality.JudgeVerdictCalcul
 import com.zhangspaghetti.babytalk.practice.generated.quality.RepairDirective;
 import com.zhangspaghetti.babytalk.practice.generated.quality.SuggestedJudgeResult;
 import com.zhangspaghetti.babytalk.practice.generated.quality.TypedRepairPackage;
+import com.zhangspaghetti.babytalk.practice.generated.quality.TypedRepairPackage.Branch;
+import com.zhangspaghetti.babytalk.practice.generated.quality.TypedRepairPackage.BranchRequirement;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.OffsetDateTime;
@@ -276,7 +278,11 @@ public class CustomSceneGenerationOrchestrator {
                         combined(
                                 violationCodes(gate.repairableViolations()),
                                 gate.repairableViolationDiagnostics()));
-                repairContext = deterministicRepairContext(gate.normalizedBundle(), gate.repairableViolations(), codes);
+                repairContext = deterministicRepairContext(
+                        gate.normalizedBundle(),
+                        gate.repairableViolations(),
+                        gate.branchRequirements(),
+                        codes);
                 if (attemptNumber == reserved.generationAttemptLimit()) {
                     complete(attemptId, attemptNumber, "attempt_limit_exhausted", codes);
                     return reject(reserved, repairableViolationErrorCode(gate.repairableViolations()), false);
@@ -370,6 +376,7 @@ public class CustomSceneGenerationOrchestrator {
                 context.effectiveVerdict(),
                 context.failedDimensions(),
                 stableCodes(repairInputCodes),
+                context.branchRequirements(),
                 context.repairDirectives(),
                 bundle.items().stream()
                         .map(item -> new EvidenceSummary(item.sanitizedSummary(), item.sanitizedSummaryHash()))
@@ -421,6 +428,7 @@ public class CustomSceneGenerationOrchestrator {
         var repairable = new ArrayList<GeneratedOutputViolationCode>();
         var terminalDiagnostics = new ArrayList<String>();
         var repairableDiagnostics = new ArrayList<String>();
+        var branchRequirements = new ArrayList<BranchRequirement>();
         var branches = bundle.completeBundle().utterances().stream()
                 .map(this::safeBranchName)
                 .iterator();
@@ -437,6 +445,9 @@ public class CustomSceneGenerationOrchestrator {
             repairable.addAll(result.repairableViolations());
             terminalDiagnostics.addAll(branchDiagnostics(branch, result.terminalViolations()));
             repairableDiagnostics.addAll(branchDiagnostics(branch, result.repairableViolations()));
+            if (!result.repairableViolations().isEmpty()) {
+                branchRequirements.add(new BranchRequirement(branch, result.repairableViolations()));
+            }
             return result.normalizedCandidate();
         });
         if (branches.hasNext()) {
@@ -447,18 +458,19 @@ public class CustomSceneGenerationOrchestrator {
                 terminal.stream().distinct().sorted().toList(),
                 repairable.stream().distinct().sorted().toList(),
                 boundedDiagnostics(terminalDiagnostics),
-                boundedDiagnostics(repairableDiagnostics));
+                boundedDiagnostics(repairableDiagnostics),
+                List.copyOf(branchRequirements));
     }
 
     private List<String> branchDiagnostics(
-            String branch,
+            Branch branch,
             List<GeneratedOutputViolationCode> violations
     ) {
         return violations.stream()
                 .map(this::safeViolationCode)
                 .distinct()
                 .sorted()
-                .map(code -> branch + ":" + code)
+                .map(code -> branch.wireValue() + ":" + code)
                 .toList();
     }
 
@@ -470,21 +482,21 @@ public class CustomSceneGenerationOrchestrator {
         return stable;
     }
 
-    private String safeBranchName(CompleteGeneratedBundle.Utterance utterance) {
+    private Branch safeBranchName(CompleteGeneratedBundle.Utterance utterance) {
         return switch (utterance.role()) {
             case STARTER -> {
                 if (utterance.reaction() != null) {
                     throw new IllegalStateException("starter branch cannot have a reaction");
                 }
-                yield "starter";
+                yield Branch.STARTER;
             }
             case REACTION_SUPPORT -> switch (Objects.requireNonNull(
                     utterance.reaction(), "reaction support branch reaction")) {
-                case COOPERATING -> "cooperating";
-                case HESITANT -> "hesitant";
-                case RESISTING -> "resisting";
-                case NO_RESPONSE -> "no_response";
-                case OTHER -> "other";
+                case COOPERATING -> Branch.COOPERATING;
+                case HESITANT -> Branch.HESITANT;
+                case RESISTING -> Branch.RESISTING;
+                case NO_RESPONSE -> Branch.NO_RESPONSE;
+                case OTHER -> Branch.OTHER;
             };
         };
     }
@@ -492,6 +504,7 @@ public class CustomSceneGenerationOrchestrator {
     private RepairContext deterministicRepairContext(
             GeneratedCareMomentBundle bundle,
             List<GeneratedOutputViolationCode> violations,
+            List<BranchRequirement> branchRequirements,
             List<String> codes
     ) {
         var dimensions = EnumSet.noneOf(JudgeDimension.class);
@@ -524,6 +537,7 @@ public class CustomSceneGenerationOrchestrator {
                 JudgeVerdict.REPAIR,
                 List.copyOf(dimensions),
                 codes,
+                branchRequirements,
                 List.copyOf(directives),
                 List.of());
     }
@@ -544,6 +558,7 @@ public class CustomSceneGenerationOrchestrator {
                 effectiveVerdict,
                 failed,
                 codes,
+                List.of(),
                 suggested.repairDirectives(),
                 suggested.evidenceGapCodes());
     }
@@ -817,6 +832,7 @@ public class CustomSceneGenerationOrchestrator {
             JudgeVerdict effectiveVerdict,
             List<JudgeDimension> failedDimensions,
             List<String> violationCodes,
+            List<BranchRequirement> branchRequirements,
             List<RepairDirective> repairDirectives,
             List<EvidenceGapCode> evidenceGapCodes
     ) {
@@ -827,7 +843,8 @@ public class CustomSceneGenerationOrchestrator {
             List<GeneratedOutputViolationCode> terminalViolations,
             List<GeneratedOutputViolationCode> repairableViolations,
             List<String> terminalViolationDiagnostics,
-            List<String> repairableViolationDiagnostics
+            List<String> repairableViolationDiagnostics,
+            List<BranchRequirement> branchRequirements
     ) {
     }
 

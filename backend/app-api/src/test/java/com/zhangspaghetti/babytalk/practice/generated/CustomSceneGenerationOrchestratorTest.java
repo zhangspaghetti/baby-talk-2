@@ -39,6 +39,7 @@ import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -158,10 +159,105 @@ class CustomSceneGenerationOrchestratorTest {
         assertThat(harness.completedAttempts.get(0).violationCodes()).containsExactly(
                 "MISSING_TPR_ACTION",
                 branch + ":MISSING_TPR_ACTION");
-        assertThat(harness.repairRequests).singleElement().satisfies(request ->
-                assertThat(request.repairPackage().violationCodes()).containsExactly(
-                        "MISSING_TPR_ACTION",
-                        branch + ":MISSING_TPR_ACTION"));
+        assertThat(harness.repairRequests).singleElement().satisfies(request -> {
+            assertThat(request.repairPackage().violationCodes()).containsExactly(
+                    "MISSING_TPR_ACTION",
+                    branch + ":MISSING_TPR_ACTION");
+            assertThat(request.repairPackage().branchRequirements()).singleElement()
+                    .satisfies(requirement -> {
+                        assertThat(requirement.branch().wireValue()).isEqualTo(branch);
+                        assertThat(requirement.violationCodes())
+                                .containsExactly(GeneratedOutputViolationCode.MISSING_TPR_ACTION);
+                    });
+        });
+    }
+
+    @Test
+    void rev36RepairKeepsExactRemainingBranchRequirementsAndExhaustsAttemptLimit() {
+        var harness = new Harness(2);
+        harness.gates.add(new GateSpec(
+                Map.of(),
+                Map.of(
+                        1, List.of(
+                                GeneratedOutputViolationCode.MISSING_TPR_ACTION,
+                                GeneratedOutputViolationCode.MISSING_DELIVERY_GUIDANCE),
+                        2, List.of(GeneratedOutputViolationCode.MISSING_TPR_ACTION),
+                        3, List.of(GeneratedOutputViolationCode.MISSING_TPR_ACTION),
+                        4, List.of(GeneratedOutputViolationCode.MISSING_TPR_ACTION),
+                        5, List.of(
+                                GeneratedOutputViolationCode.MISSING_TPR_ACTION,
+                                GeneratedOutputViolationCode.MISSING_DELIVERY_GUIDANCE),
+                        6, List.of(
+                                GeneratedOutputViolationCode.MISSING_TPR_ACTION,
+                                GeneratedOutputViolationCode.MISSING_DELIVERY_GUIDANCE))));
+        harness.gates.add(new GateSpec(
+                Map.of(),
+                Map.of(
+                        1, List.of(
+                                GeneratedOutputViolationCode.MISSING_TPR_ACTION,
+                                GeneratedOutputViolationCode.MISSING_DELIVERY_GUIDANCE),
+                        2, List.of(GeneratedOutputViolationCode.MISSING_TPR_ACTION),
+                        3, List.of(GeneratedOutputViolationCode.MISSING_TPR_ACTION),
+                        4, List.of(GeneratedOutputViolationCode.MISSING_TPR_ACTION),
+                        5, List.of(GeneratedOutputViolationCode.MISSING_TPR_ACTION),
+                        6, List.of(
+                                GeneratedOutputViolationCode.MISSING_TPR_ACTION,
+                                GeneratedOutputViolationCode.MISSING_DELIVERY_GUIDANCE))));
+
+        var result = harness.execute();
+
+        assertThat(result.status()).isEqualTo("rejected");
+        assertThat(result.generationErrorCode()).isEqualTo("generation_invalid_output");
+        assertThat(harness.completedAttempts)
+                .extracting(GenerationAttemptAuditPort.AttemptCompleted::outcome)
+                .containsExactly("repairable_violation", "attempt_limit_exhausted");
+
+        var generatorBranchCodes = harness.completedAttempts.get(0).violationCodes().stream()
+                .filter(code -> code.contains(":"))
+                .toList();
+        assertThat(generatorBranchCodes).containsExactly(
+                "cooperating:MISSING_TPR_ACTION",
+                "hesitant:MISSING_TPR_ACTION",
+                "no_response:MISSING_DELIVERY_GUIDANCE",
+                "no_response:MISSING_TPR_ACTION",
+                "other:MISSING_DELIVERY_GUIDANCE",
+                "other:MISSING_TPR_ACTION",
+                "resisting:MISSING_TPR_ACTION",
+                "starter:MISSING_DELIVERY_GUIDANCE",
+                "starter:MISSING_TPR_ACTION");
+
+        assertThat(harness.repairRequests).singleElement().satisfies(request -> {
+            var requestedBranchCodes = request.repairPackage().branchRequirements().stream()
+                    .flatMap(requirement -> requirement.violationCodes().stream()
+                            .map(code -> requirement.branch().wireValue() + ":" + code.name()))
+                    .toList();
+            assertThat(requestedBranchCodes).containsExactlyInAnyOrder(
+                    "starter:MISSING_TPR_ACTION",
+                    "starter:MISSING_DELIVERY_GUIDANCE",
+                    "cooperating:MISSING_TPR_ACTION",
+                    "hesitant:MISSING_TPR_ACTION",
+                    "resisting:MISSING_TPR_ACTION",
+                    "no_response:MISSING_TPR_ACTION",
+                    "no_response:MISSING_DELIVERY_GUIDANCE",
+                    "other:MISSING_TPR_ACTION",
+                    "other:MISSING_DELIVERY_GUIDANCE");
+        });
+
+        var repairBranchCodes = harness.completedAttempts.get(1).violationCodes().stream()
+                .filter(code -> code.contains(":"))
+                .toList();
+        assertThat(repairBranchCodes).containsExactly(
+                "cooperating:MISSING_TPR_ACTION",
+                "hesitant:MISSING_TPR_ACTION",
+                "no_response:MISSING_TPR_ACTION",
+                "other:MISSING_DELIVERY_GUIDANCE",
+                "other:MISSING_TPR_ACTION",
+                "resisting:MISSING_TPR_ACTION",
+                "starter:MISSING_DELIVERY_GUIDANCE",
+                "starter:MISSING_TPR_ACTION");
+        assertThat(generatorBranchCodes).contains("no_response:MISSING_DELIVERY_GUIDANCE");
+        assertThat(repairBranchCodes).doesNotContain("no_response:MISSING_DELIVERY_GUIDANCE");
+        assertThat(harness.judgeRequests).isEmpty();
     }
 
     @Test
@@ -768,24 +864,31 @@ class CustomSceneGenerationOrchestratorTest {
     }
 
     private record GateSpec(
-            List<GeneratedOutputViolationCode> terminal,
-            List<GeneratedOutputViolationCode> repairable,
-            Set<Integer> displayOrders
+            Map<Integer, List<GeneratedOutputViolationCode>> terminalByDisplayOrder,
+            Map<Integer, List<GeneratedOutputViolationCode>> repairableByDisplayOrder
     ) {
         private static GateSpec pass() {
-            return new GateSpec(List.of(), List.of(), Set.of());
+            return new GateSpec(Map.of(), Map.of());
         }
 
         private static GateSpec repairable(GeneratedOutputViolationCode code) {
-            return new GateSpec(List.of(), List.of(code), Set.of(1));
+            return new GateSpec(Map.of(), Map.of(1, List.of(code)));
         }
 
         private static GateSpec repairableAt(int displayOrder, GeneratedOutputViolationCode code) {
-            return new GateSpec(List.of(), List.of(code), Set.of(displayOrder));
+            return new GateSpec(Map.of(), Map.of(displayOrder, List.of(code)));
         }
 
         private static GateSpec terminal(GeneratedOutputViolationCode code) {
-            return new GateSpec(List.of(code), List.of(), Set.of(1));
+            return new GateSpec(Map.of(1, List.of(code)), Map.of());
+        }
+
+        private List<GeneratedOutputViolationCode> terminalAt(int displayOrder) {
+            return terminalByDisplayOrder.getOrDefault(displayOrder, List.of());
+        }
+
+        private List<GeneratedOutputViolationCode> repairableAt(int displayOrder) {
+            return repairableByDisplayOrder.getOrDefault(displayOrder, List.of());
         }
     }
 
@@ -937,10 +1040,10 @@ class CustomSceneGenerationOrchestratorTest {
                         if (gateNumber % GeneratedCareMomentBundle.UTTERANCE_COUNT == 0) {
                             gates.removeFirst();
                         }
-                        return spec.displayOrders().contains(displayOrder)
-                                ? new GeneratedOutputGateResult(
-                                        invocation.getArgument(0), spec.terminal(), spec.repairable())
-                                : new GeneratedOutputGateResult(invocation.getArgument(0), List.of(), List.of());
+                        return new GeneratedOutputGateResult(
+                                invocation.getArgument(0),
+                                spec.terminalAt(displayOrder),
+                                spec.repairableAt(displayOrder));
                     });
             when(judge.judge(any())).thenAnswer(invocation -> {
                 var request = invocation.getArgument(0, JudgeRequest.class);

@@ -73,6 +73,11 @@ public class AgenticCustomSceneRepairer implements CustomSceneRepairer {
                 repairPackage.effectiveVerdict().name(),
                 repairPackage.failedDimensions().stream().map(Enum::name).toList(),
                 repairPackage.violationCodes(),
+                repairPackage.branchRequirements().stream()
+                        .map(requirement -> new BranchRequirementPayload(
+                                requirement.branch().wireValue(),
+                                requirement.violationCodes().stream().map(Enum::name).toList()))
+                        .toList(),
                 repairPackage.repairDirectives().stream().map(Enum::name).toList(),
                 repairPackage.evidenceSummaries().stream().map(EvidenceSummary::sanitizedSummary).toList(),
                 generationProfilePayload(currentProfile)));
@@ -128,9 +133,16 @@ public class AgenticCustomSceneRepairer implements CustomSceneRepairer {
             String effectiveVerdict,
             List<String> failedDimensions,
             List<String> violationCodes,
+            List<BranchRequirementPayload> branchRequirements,
             List<String> repairDirectives,
             List<String> orderedSanitizedEvidenceSummaries,
             GenerationProfilePayload generationProfile
+    ) {
+    }
+
+    private record BranchRequirementPayload(
+            String branch,
+            List<String> violationCodes
     ) {
     }
 

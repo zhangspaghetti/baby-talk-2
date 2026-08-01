@@ -87,6 +87,8 @@ def verify_no_production_fallback() -> bool:
         "MAX_BRANCH_VIOLATION_DIAGNOSTICS = 78",
         "safeBranchName(",
         "safeViolationCode(",
+        "gate.branchRequirements()",
+        "context.branchRequirements()",
         "gate.repairableViolationDiagnostics()",
         "gate.terminalViolationDiagnostics()",
     )
@@ -98,6 +100,28 @@ def verify_no_production_fallback() -> bool:
     for marker in ("fakeFixture(", "fakeSupport", "fixedSupport", "genericSupport", "starterOnly"):
         if marker in orchestrator:
             violations.append(f"CustomSceneGenerationOrchestrator.java: forbidden fallback marker: {marker}")
+
+    repairer = (GENERATED_SOURCE_ROOT / "AgenticCustomSceneRepairer.java").read_text(
+        encoding="utf-8"
+    )
+    typed_repair_package = (
+        GENERATED_SOURCE_ROOT / "quality" / "TypedRepairPackage.java"
+    ).read_text(encoding="utf-8")
+    for source_name, source, markers in (
+        (
+            "AgenticCustomSceneRepairer.java",
+            repairer,
+            ("repairPackage.branchRequirements()", "BranchRequirementPayload"),
+        ),
+        (
+            "TypedRepairPackage.java",
+            typed_repair_package,
+            ("List<BranchRequirement> branchRequirements", "public enum Branch"),
+        ),
+    ):
+        for marker in markers:
+            if marker not in source:
+                violations.append(f"{source_name}: missing typed branch repair marker: {marker}")
 
     fake_fixture_allowlist = {
         str(Path("generated") / "GeneratedCareMomentBundle.java"),
@@ -128,7 +152,7 @@ def verify_versioned_output_budget() -> bool:
         / "config"
         / "practice-ai"
         / "profiles"
-        / "custom-scene-generation-v1.yml"
+        / "custom-scene-generation-v2.yml"
     )
     profile = profile_path.read_text(encoding="utf-8")
     profile_match = re.search(
@@ -158,6 +182,24 @@ def verify_versioned_output_budget() -> bool:
             violations.append(
                 f"{relative_path}: Practice AI output-token limit is below the versioned profile budget"
             )
+
+    prompt_contracts = {
+        Path("backend/app-api/src/main/resources/config/practice-ai/prompts/custom-scene-generator-v2.txt"): (
+            "all six canonical branches",
+            "For every branch, tprActionZh",
+            "For every branch, deliveryGuidanceZh",
+        ),
+        Path("backend/app-api/src/main/resources/config/practice-ai/prompts/custom-scene-repair-v2.txt"): (
+            "Apply every structured branchRequirements item",
+            "MISSING_TPR_ACTION",
+            "MISSING_DELIVERY_GUIDANCE",
+        ),
+    }
+    for relative_path, markers in prompt_contracts.items():
+        prompt = (REPOSITORY_ROOT / relative_path).read_text(encoding="utf-8")
+        for marker in markers:
+            if marker not in prompt:
+                violations.append(f"{relative_path}: missing branch field requirement marker: {marker}")
 
     for violation in violations:
         print(violation, file=sys.stderr)

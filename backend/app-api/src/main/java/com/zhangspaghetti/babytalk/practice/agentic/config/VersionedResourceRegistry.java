@@ -25,7 +25,7 @@ import tools.jackson.dataformat.yaml.YAMLFactory;
 public class VersionedResourceRegistry {
 
     private static final String RESOURCE_PREFIX = "config/practice-ai/";
-    private static final String DEFAULT_PROFILE = "classpath:config/practice-ai/profiles/custom-scene-generation-v1.yml";
+    private static final String DEFAULT_PROFILE = "classpath:config/practice-ai/profiles/custom-scene-generation-v2.yml";
     private static final String PROFILE_SCHEMA = "generation-profile-schema-v1";
     private static final String RUBRIC_SCHEMA = "judge-rubric-schema-v1";
     private static final String EVIDENCE_POLICY_SCHEMA = "evidence-policy-schema-v1";

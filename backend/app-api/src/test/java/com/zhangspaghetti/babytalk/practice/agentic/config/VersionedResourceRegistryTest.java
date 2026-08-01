@@ -14,13 +14,32 @@ class VersionedResourceRegistryTest {
     void loadsProfileAndComputesStableCanonicalHashes() {
         var profile = registry.currentGenerationProfile();
 
-        assertThat(profile.version()).isEqualTo("custom-scene-generation-v1");
+        assertThat(profile.version()).isEqualTo("custom-scene-generation-v2");
         assertThat(profile.contentHash())
-                .isEqualTo("d2925047c7851334034be7153a91580b96c2243f21de85a003e1d82239a1ea14");
+                .isEqualTo("21691398948fe5dc41a20282f4f26d446bc6e6e2e4fd5105be2942e1cf51ca07");
+        assertThat(profile.generatorPrompt().version()).isEqualTo("custom-scene-generator-v2");
+        assertThat(profile.repairPrompt().version()).isEqualTo("custom-scene-repair-v2");
         assertThat(profile.rubricVersion()).isEqualTo("custom-scene-quality-v1");
         assertThat(profile.evidencePolicyVersion()).isEqualTo("custom-scene-evidence-v1");
         assertThat(profile.minimumCompleteBundleOutputTokens()).isEqualTo(8192);
         assertThat(registry.promptText(VersionedResourceRegistry.PromptKind.GENERATOR)).contains("strict JSON");
+    }
+
+    @Test
+    void currentPromptsDefineValidatorRecognizableRequirementsForEveryBranch() {
+        assertThat(registry.promptText(VersionedResourceRegistry.PromptKind.GENERATOR))
+                .contains(
+                        "For every branch, tprActionZh",
+                        "For every branch, deliveryGuidanceZh",
+                        "拿起",
+                        "等宝宝");
+        assertThat(registry.promptText(VersionedResourceRegistry.PromptKind.REPAIR))
+                .contains(
+                        "Apply every structured branchRequirements item",
+                        "MISSING_TPR_ACTION",
+                        "MISSING_DELIVERY_GUIDANCE",
+                        "拿起",
+                        "等宝宝");
     }
 
     @Test
