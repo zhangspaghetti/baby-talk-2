@@ -9,6 +9,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
+import com.zhangspaghetti.babytalk.practice.agentic.diagnostics.PracticeAiContractViolation.Category;
 import com.zhangspaghetti.babytalk.practice.agentic.OperationRequest;
 import com.zhangspaghetti.babytalk.practice.agentic.OperationResult;
 import com.zhangspaghetti.babytalk.practice.agentic.PracticeAiCapability;
@@ -249,8 +250,10 @@ class AgenticCustomSceneGeneratorTest {
                 wireUtterance(CompleteGeneratedBundle.UtteranceRole.REACTION_SUPPORT,
                         CompleteGeneratedBundle.Reaction.NO_RESPONSE, 5),
                 null))
-                .isInstanceOf(NullPointerException.class)
-                .hasMessage("other");
+                .isInstanceOf(CompleteGeneratedBundle.ContractViolationException.class)
+                .satisfies(failure -> assertThat(
+                        ((CompleteGeneratedBundle.ContractViolationException) failure).category())
+                        .isEqualTo(Category.BRANCH_COMPLETENESS));
     }
 
     @Test

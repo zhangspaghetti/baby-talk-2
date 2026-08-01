@@ -2,6 +2,8 @@ package com.zhangspaghetti.babytalk.practice.generated.contract;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
+import com.zhangspaghetti.babytalk.practice.agentic.diagnostics.PracticeAiContractViolation;
+import com.zhangspaghetti.babytalk.practice.agentic.diagnostics.PracticeAiContractViolation.Category;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Objects;
@@ -30,42 +32,69 @@ public record CompleteGeneratedBundle(
 
     public CompleteGeneratedBundle {
         requireSupportedSchemaVersion(schemaVersion);
-        Objects.requireNonNull(scene, "scene");
-        utterances = List.copyOf(Objects.requireNonNull(utterances, "utterances"));
+        scene = requireComponent(scene, Category.REQUIRED_COMPONENT, "scene");
+        utterances = requireComponent(
+                utterances,
+                Category.BRANCH_COMPLETENESS,
+                "utterances");
         validateCompleteShape(utterances);
+        utterances = List.copyOf(utterances);
     }
 
     public static String requireSupportedSchemaVersion(String schemaVersion) {
         if (!CURRENT_SCHEMA_VERSION.equals(schemaVersion)) {
-            throw new IllegalArgumentException("unsupported complete generated bundle schema version");
+            throw violation(
+                    Category.SCHEMA_VERSION,
+                    "unsupported complete generated bundle schema version");
         }
         return schemaVersion;
     }
 
     private static void validateCompleteShape(List<? extends BranchUtterance> branches) {
         if (branches.size() != 6) {
-            throw new IllegalArgumentException("complete generated bundle must contain exactly six utterances");
+            throw violation(
+                    Category.BRANCH_COMPLETENESS,
+                    "complete generated bundle must contain exactly six utterances");
         }
         var starterCount = 0;
         var reactions = EnumSet.noneOf(Reaction.class);
         for (var branch : branches) {
-            Objects.requireNonNull(branch, "utterance");
+            requireComponent(branch, Category.BRANCH_COMPLETENESS, "utterance");
             if (branch.role() == UtteranceRole.STARTER) {
                 starterCount++;
-                if (branch.reaction() != null || branch.displayOrder() != 1) {
-                    throw new IllegalArgumentException("starter must have null reaction and displayOrder 1");
+                if (branch.reaction() != null) {
+                    throw violation(
+                            Category.ROLE_REACTION_MAPPING,
+                            "starter must have null reaction");
+                }
+                if (branch.displayOrder() != 1) {
+                    throw violation(
+                            Category.DISPLAY_ORDER,
+                            "starter must have displayOrder 1");
                 }
                 continue;
             }
             if (branch.role() != UtteranceRole.REACTION_SUPPORT
-                    || branch.reaction() == null
-                    || branch.displayOrder() != branch.reaction().ordinal() + 2
-                    || !reactions.add(branch.reaction())) {
-                throw new IllegalArgumentException("reaction supports must use each canonical reaction exactly once");
+                    || branch.reaction() == null) {
+                throw violation(
+                        Category.ROLE_REACTION_MAPPING,
+                        "reaction support role and reaction are required");
+            }
+            if (branch.displayOrder() != branch.reaction().ordinal() + 2) {
+                throw violation(
+                        Category.DISPLAY_ORDER,
+                        "reaction support displayOrder must match reaction");
+            }
+            if (!reactions.add(branch.reaction())) {
+                throw violation(
+                        Category.BRANCH_COMPLETENESS,
+                        "reaction supports must use each canonical reaction exactly once");
             }
         }
         if (starterCount != 1 || !reactions.equals(EnumSet.allOf(Reaction.class))) {
-            throw new IllegalArgumentException("complete generated bundle branches are missing or duplicated");
+            throw violation(
+                    Category.BRANCH_COMPLETENESS,
+                    "complete generated bundle branches are missing or duplicated");
         }
     }
 
@@ -102,7 +131,7 @@ public record CompleteGeneratedBundle(
             ProviderProvenance providerProvenance
     ) implements BranchUtterance {
         public Utterance {
-            Objects.requireNonNull(role, "role");
+            role = requireComponent(role, Category.REQUIRED_COMPONENT, "role");
             requireText(englishText, "englishText", 120);
             requireText(chineseText, "chineseText", 120);
             requireText(pronunciationHint, "pronunciationHint", 120);
@@ -110,9 +139,14 @@ public record CompleteGeneratedBundle(
             requireText(deliveryGuidanceZh, "deliveryGuidanceZh", 240);
             requireText(difficulty, "difficulty", 16);
             if (displayOrder < 1 || displayOrder > 6) {
-                throw new IllegalArgumentException("displayOrder must be between 1 and 6");
+                throw violation(
+                        Category.DISPLAY_ORDER,
+                        "displayOrder must be between 1 and 6");
             }
-            Objects.requireNonNull(providerProvenance, "providerProvenance");
+            providerProvenance = requireComponent(
+                    providerProvenance,
+                    Category.REQUIRED_COMPONENT,
+                    "providerProvenance");
         }
     }
 
@@ -123,11 +157,11 @@ public record CompleteGeneratedBundle(
             int attemptNumber
     ) {
         public ProviderProvenance {
-            Objects.requireNonNull(origin, "origin");
+            origin = requireComponent(origin, Category.REQUIRED_COMPONENT, "origin");
             requireText(providerName, "providerName", 120);
             requireText(modelName, "modelName", 120);
             if (attemptNumber < 1 || attemptNumber > 5) {
-                throw new IllegalArgumentException("attemptNumber must be between 1 and 5");
+                throw violation(Category.PROVENANCE, "attemptNumber must be between 1 and 5");
             }
         }
     }
@@ -206,8 +240,11 @@ public record CompleteGeneratedBundle(
     ) {
         public ProviderResponse {
             requireSupportedSchemaVersion(schemaVersion);
-            Objects.requireNonNull(scene, "scene");
-            Objects.requireNonNull(utterances, "utterances");
+            scene = requireComponent(scene, Category.REQUIRED_COMPONENT, "scene");
+            utterances = requireComponent(
+                    utterances,
+                    Category.BRANCH_COMPLETENESS,
+                    "utterances");
         }
 
         public static ProviderResponse parse(String json) {
@@ -222,7 +259,7 @@ public record CompleteGeneratedBundle(
         }
 
         public CompleteGeneratedBundle toCompleteBundle(ProviderProvenance provenance) {
-            Objects.requireNonNull(provenance, "provenance");
+            requireComponent(provenance, Category.REQUIRED_COMPONENT, "provenance");
             var ordered = utterances.ordered().stream()
                     .map(branch -> branch.toUtterance(provenance))
                     .toList();
@@ -240,14 +277,22 @@ public record CompleteGeneratedBundle(
             ProviderUtterance other
     ) {
         public ProviderUtterances {
-            Objects.requireNonNull(starter, "starter");
-            Objects.requireNonNull(cooperating, "cooperating");
-            Objects.requireNonNull(hesitant, "hesitant");
-            Objects.requireNonNull(resisting, "resisting");
-            Objects.requireNonNull(no_response, "no_response");
-            Objects.requireNonNull(other, "other");
+            starter = requireComponent(
+                    starter, Category.BRANCH_COMPLETENESS, "starter");
+            cooperating = requireComponent(
+                    cooperating, Category.BRANCH_COMPLETENESS, "cooperating");
+            hesitant = requireComponent(
+                    hesitant, Category.BRANCH_COMPLETENESS, "hesitant");
+            resisting = requireComponent(
+                    resisting, Category.BRANCH_COMPLETENESS, "resisting");
+            no_response = requireComponent(
+                    no_response, Category.BRANCH_COMPLETENESS, "no_response");
+            other = requireComponent(
+                    other, Category.BRANCH_COMPLETENESS, "other");
             if (starter.role() != UtteranceRole.STARTER || starter.reaction() != null) {
-                throw new IllegalArgumentException("starter branch role and reaction do not match its key");
+                throw violation(
+                        Category.ROLE_REACTION_MAPPING,
+                        "starter branch role and reaction do not match its key");
             }
             validateSupport(cooperating, Reaction.COOPERATING);
             validateSupport(hesitant, Reaction.HESITANT);
@@ -263,7 +308,9 @@ public record CompleteGeneratedBundle(
 
         private static void validateSupport(ProviderUtterance support, Reaction reaction) {
             if (support.role() != UtteranceRole.REACTION_SUPPORT || support.reaction() != reaction) {
-                throw new IllegalArgumentException("reaction support role and reaction do not match its key");
+                throw violation(
+                        Category.ROLE_REACTION_MAPPING,
+                        "reaction support role and reaction do not match its key");
             }
         }
     }
@@ -280,7 +327,7 @@ public record CompleteGeneratedBundle(
             int displayOrder
     ) implements BranchUtterance {
         public ProviderUtterance {
-            Objects.requireNonNull(role, "role");
+            role = requireComponent(role, Category.REQUIRED_COMPONENT, "role");
             requireText(englishText, "englishText", 120);
             requireText(chineseText, "chineseText", 120);
             requireText(pronunciationHint, "pronunciationHint", 120);
@@ -288,7 +335,9 @@ public record CompleteGeneratedBundle(
             requireText(deliveryGuidanceZh, "deliveryGuidanceZh", 240);
             requireText(difficulty, "difficulty", 16);
             if (displayOrder < 1 || displayOrder > 6) {
-                throw new IllegalArgumentException("displayOrder must be between 1 and 6");
+                throw violation(
+                        Category.DISPLAY_ORDER,
+                        "displayOrder must be between 1 and 6");
             }
         }
 
@@ -317,10 +366,44 @@ public record CompleteGeneratedBundle(
         }
     }
 
+    public static final class ContractViolationException extends IllegalArgumentException
+            implements PracticeAiContractViolation {
+        private final Category category;
+
+        private ContractViolationException(Category category, String message) {
+            super(message);
+            this.category = Objects.requireNonNull(category, "category");
+        }
+
+        public Category category() {
+            return category;
+        }
+    }
+
     private static void requireText(String value, String field, int maxChars) {
         if (value == null || value.isBlank() || value.codePointCount(0, value.length()) > maxChars) {
-            throw new IllegalArgumentException(field + " must be non-blank and within its storage bound");
+            throw violation(
+                    Category.TEXT_CONSTRAINT,
+                    field + " must be non-blank and within its storage bound");
         }
+    }
+
+    private static <T> T requireComponent(
+            T value,
+            Category category,
+            String componentName
+    ) {
+        if (value == null) {
+            throw violation(category, componentName + " is required");
+        }
+        return value;
+    }
+
+    private static ContractViolationException violation(
+            Category category,
+            String message
+    ) {
+        return new ContractViolationException(category, message);
     }
 
     private static <E extends Enum<E>> E enumForWireValue(Class<E> type, String wireValue) {
@@ -331,7 +414,9 @@ public record CompleteGeneratedBundle(
                 }
             }
         }
-        throw new IllegalArgumentException("unsupported " + type.getSimpleName() + " wire value");
+        throw violation(
+                Category.ENUM_VALUE,
+                "unsupported " + type.getSimpleName() + " wire value");
     }
 
     private interface WireValue {

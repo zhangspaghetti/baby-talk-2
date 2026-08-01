@@ -1,6 +1,8 @@
 package com.zhangspaghetti.babytalk.practice.agentic;
 
 import com.openai.errors.OpenAIInvalidDataException;
+import com.zhangspaghetti.babytalk.practice.agentic.diagnostics.PracticeAiContractViolation;
+import com.zhangspaghetti.babytalk.practice.agentic.diagnostics.PracticeAiContractViolation.Category;
 import java.time.Clock;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
@@ -122,10 +124,12 @@ public class PracticeAiOperationRunner {
                     var diagnostic = DiagnosticFailure.from(failure);
                     LOGGER.warn(
                             "Practice AI strict parser rejected provider output: capability={}, "
-                                    + "fallbackIndex={}, parserFailureCategory={}",
+                                    + "fallbackIndex={}, parserFailureCategory={}, "
+                                    + "contractViolationCategory={}",
                             request.capability().propertyKey(),
                             fallbackIndex,
-                            diagnostic.parserFailureCategory().name());
+                            diagnostic.parserFailureCategory().name(),
+                            diagnostic.contractViolationCategory().name());
                 }
                 auditPort.completeProviderCall(new PracticeAiAuditPort.ProviderCallCompleted(
                         providerCallId,
@@ -250,11 +254,13 @@ public class PracticeAiOperationRunner {
     private record DiagnosticFailure(
             DiagnosticErrorType errorType,
             OperationRequest.ProviderFailureStage failureStage,
-            ParserFailureCategory parserFailureCategory
+            ParserFailureCategory parserFailureCategory,
+            Category contractViolationCategory
     ) {
         private static DiagnosticFailure from(Throwable failure) {
             var observed = EnumSet.noneOf(DiagnosticErrorType.class);
             var observedParserCategories = EnumSet.noneOf(ParserFailureCategory.class);
+            var observedContractCategories = EnumSet.noneOf(Category.class);
             var visited = Collections.newSetFromMap(new IdentityHashMap<Throwable, Boolean>());
             var failureStage = failure instanceof OperationRequest.StagedProviderFailure stagedFailure
                     ? stagedFailure.failureStage()
@@ -272,6 +278,17 @@ public class PracticeAiOperationRunner {
                 if (parserCategory != ParserFailureCategory.UNKNOWN) {
                     observedParserCategories.add(parserCategory);
                 }
+                if (current instanceof PracticeAiContractViolation violation) {
+                    try {
+                        var category = violation.category();
+                        if (category == null) {
+                            return unknown(failureStage);
+                        }
+                        observedContractCategories.add(category);
+                    } catch (Throwable diagnosticFailure) {
+                        return unknown(failureStage);
+                    }
+                }
                 try {
                     current = current.getCause();
                 } catch (Throwable diagnosticFailure) {
@@ -283,14 +300,25 @@ public class PracticeAiOperationRunner {
                     == OperationRequest.ProviderFailureStage.CONTENT_STRICT_PARSER
                     ? ParserFailureCategory.select(observedParserCategories)
                     : ParserFailureCategory.UNKNOWN;
-            return new DiagnosticFailure(errorType, failureStage, parserFailureCategory);
+            var contractViolationCategory = failureStage
+                    == OperationRequest.ProviderFailureStage.CONTENT_STRICT_PARSER
+                    ? observedContractCategories.stream()
+                            .findFirst()
+                            .orElse(Category.UNKNOWN)
+                    : Category.UNKNOWN;
+            return new DiagnosticFailure(
+                    errorType,
+                    failureStage,
+                    parserFailureCategory,
+                    contractViolationCategory);
         }
 
         private static DiagnosticFailure unknown(OperationRequest.ProviderFailureStage failureStage) {
             return new DiagnosticFailure(
                     DiagnosticErrorType.UNKNOWN,
                     failureStage,
-                    ParserFailureCategory.UNKNOWN);
+                    ParserFailureCategory.UNKNOWN,
+                    Category.UNKNOWN);
         }
     }
 

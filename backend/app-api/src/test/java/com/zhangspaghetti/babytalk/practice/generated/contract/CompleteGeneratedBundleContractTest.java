@@ -3,8 +3,11 @@ package com.zhangspaghetti.babytalk.practice.generated.contract;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.zhangspaghetti.babytalk.practice.agentic.diagnostics.PracticeAiContractViolation.Category;
+import java.util.ArrayList;
 import org.junit.jupiter.api.Test;
 import org.springframework.ai.converter.BeanOutputConverter;
+import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
 class CompleteGeneratedBundleContractTest {
@@ -62,6 +65,93 @@ class CompleteGeneratedBundleContractTest {
                         "\"no_response\"",
                         "\"other\"");
         assertThat(utterancesSchema.get("additionalProperties").booleanValue()).isFalse();
+        var starterSchema = resolveLocalSchema(schema, branchProperties.get("starter"));
+        var starterProperties = starterSchema.get("properties");
+        assertThat(starterProperties.has("role")).isTrue();
+        assertThat(starterProperties.has("reaction")).isTrue();
+        assertThat(starterProperties.has("providerProvenance")).isFalse();
+        assertThat(starterSchema.get("required").toString())
+                .contains("\"role\"", "\"reaction\"", "\"displayOrder\"");
+        assertThat(starterSchema.get("additionalProperties").booleanValue()).isFalse();
+    }
+
+    @Test
+    void typedValidationEmitsStableContractViolationCategories() {
+        assertViolationCategory(
+                () -> CompleteGeneratedBundle.requireSupportedSchemaVersion("unsupported-v2"),
+                Category.SCHEMA_VERSION);
+        assertViolationCategory(
+                () -> new CompleteGeneratedBundle.ProviderResponse(
+                        CompleteGeneratedBundle.CURRENT_SCHEMA_VERSION,
+                        null,
+                        canonicalProviderUtterances()),
+                Category.REQUIRED_COMPONENT);
+        assertViolationCategory(
+                () -> new CompleteGeneratedBundle.SceneMetadata("", "activity", "scene"),
+                Category.TEXT_CONSTRAINT);
+        assertViolationCategory(
+                () -> CompleteGeneratedBundle.Reaction.fromWireValue("unsupported"),
+                Category.ENUM_VALUE);
+        assertViolationCategory(
+                () -> new CompleteGeneratedBundle.ProviderUtterances(
+                        null,
+                        support(CompleteGeneratedBundle.Reaction.COOPERATING),
+                        support(CompleteGeneratedBundle.Reaction.HESITANT),
+                        support(CompleteGeneratedBundle.Reaction.RESISTING),
+                        support(CompleteGeneratedBundle.Reaction.NO_RESPONSE),
+                        support(CompleteGeneratedBundle.Reaction.OTHER)),
+                Category.BRANCH_COMPLETENESS);
+        assertViolationCategory(
+                () -> new CompleteGeneratedBundle.ProviderUtterances(
+                        utterance(
+                                CompleteGeneratedBundle.UtteranceRole.REACTION_SUPPORT,
+                                null,
+                                1),
+                        support(CompleteGeneratedBundle.Reaction.COOPERATING),
+                        support(CompleteGeneratedBundle.Reaction.HESITANT),
+                        support(CompleteGeneratedBundle.Reaction.RESISTING),
+                        support(CompleteGeneratedBundle.Reaction.NO_RESPONSE),
+                        support(CompleteGeneratedBundle.Reaction.OTHER)),
+                Category.ROLE_REACTION_MAPPING);
+        assertViolationCategory(
+                () -> utterance(CompleteGeneratedBundle.UtteranceRole.STARTER, null, 0),
+                Category.DISPLAY_ORDER);
+    }
+
+    @Test
+    void completeBundleRejectsNullUtteranceWithTypedCategory() {
+        var canonicalBundle = CompleteGeneratedBundle.ProviderResponse.parse(canonicalResponse())
+                .toCompleteBundle(generatedProvenance());
+        var utterances = new ArrayList<>(canonicalBundle.utterances());
+        utterances.set(2, null);
+
+        assertViolationCategory(
+                () -> new CompleteGeneratedBundle(
+                        CompleteGeneratedBundle.CURRENT_SCHEMA_VERSION,
+                        canonicalBundle.scene(),
+                        utterances),
+                Category.BRANCH_COMPLETENESS);
+    }
+
+    @Test
+    void providerProvenanceRejectsInvalidAttemptWithTypedViolation() {
+        assertViolationCategory(
+                () -> new CompleteGeneratedBundle.ProviderProvenance(
+                        CompleteGeneratedBundle.ProviderOrigin.PROVIDER_GENERATED,
+                        "primary",
+                        "gpt-test",
+                        0),
+                Category.PROVENANCE);
+    }
+
+    @Test
+    void publicProviderParserPreservesTypedViolationIdentityWithoutMessageParsing() {
+        assertThatThrownBy(() -> CompleteGeneratedBundle.ProviderResponse.parse("""
+                {"schemaVersion":"custom-scene-generated-output-v1","scene":{"spaceTitleZh":"scene","activityTitleZh":"activity","sceneTagEn":"tag"},"utterances":{}}
+                """))
+                .isInstanceOf(CompleteGeneratedBundle.InvalidProviderResponseException.class)
+                .satisfies(failure -> assertThat(contractViolationCategory(failure))
+                        .isEqualTo(Category.BRANCH_COMPLETENESS));
     }
 
     @Test
@@ -132,6 +222,74 @@ class CompleteGeneratedBundleContractTest {
                 "primary",
                 "gpt-test",
                 1);
+    }
+
+    private CompleteGeneratedBundle.ProviderUtterances canonicalProviderUtterances() {
+        return new CompleteGeneratedBundle.ProviderUtterances(
+                utterance(CompleteGeneratedBundle.UtteranceRole.STARTER, null, 1),
+                support(CompleteGeneratedBundle.Reaction.COOPERATING),
+                support(CompleteGeneratedBundle.Reaction.HESITANT),
+                support(CompleteGeneratedBundle.Reaction.RESISTING),
+                support(CompleteGeneratedBundle.Reaction.NO_RESPONSE),
+                support(CompleteGeneratedBundle.Reaction.OTHER));
+    }
+
+    private CompleteGeneratedBundle.ProviderUtterance support(CompleteGeneratedBundle.Reaction reaction) {
+        return utterance(
+                CompleteGeneratedBundle.UtteranceRole.REACTION_SUPPORT,
+                reaction,
+                reaction.ordinal() + 2);
+    }
+
+    private CompleteGeneratedBundle.ProviderUtterance utterance(
+            CompleteGeneratedBundle.UtteranceRole role,
+            CompleteGeneratedBundle.Reaction reaction,
+            int displayOrder
+    ) {
+        return new CompleteGeneratedBundle.ProviderUtterance(
+                role,
+                reaction,
+                "English",
+                "中文",
+                "pronunciation",
+                "动作",
+                "引导",
+                "easy",
+                displayOrder);
+    }
+
+    private void assertViolationCategory(
+            Runnable invocation,
+            Category expectedCategory
+    ) {
+        assertThatThrownBy(invocation::run)
+                .isInstanceOf(CompleteGeneratedBundle.ContractViolationException.class)
+                .satisfies(failure -> assertThat(
+                        ((CompleteGeneratedBundle.ContractViolationException) failure).category())
+                        .isEqualTo(expectedCategory));
+    }
+
+    private Category contractViolationCategory(Throwable failure) {
+        var current = failure;
+        while (current != null) {
+            if (current instanceof CompleteGeneratedBundle.ContractViolationException violation) {
+                return violation.category();
+            }
+            current = current.getCause();
+        }
+        return Category.UNKNOWN;
+    }
+
+    private JsonNode resolveLocalSchema(JsonNode root, JsonNode candidate) {
+        var reference = candidate.path("$ref").asText(null);
+        if (reference == null || !reference.startsWith("#/")) {
+            return candidate;
+        }
+        var resolved = root;
+        for (var segment : reference.substring(2).split("/")) {
+            resolved = resolved.get(segment.replace("~1", "/").replace("~0", "~"));
+        }
+        return resolved;
     }
 
     private String canonicalResponse() {

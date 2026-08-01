@@ -11,6 +11,8 @@ import ch.qos.logback.core.read.ListAppender;
 import com.openai.errors.OpenAIIoException;
 import com.openai.errors.OpenAIInvalidDataException;
 import com.openai.errors.OpenAIServiceException;
+import com.zhangspaghetti.babytalk.practice.agentic.diagnostics.PracticeAiContractViolation;
+import com.zhangspaghetti.babytalk.practice.agentic.diagnostics.PracticeAiContractViolation.Category;
 import com.zhangspaghetti.babytalk.practice.generated.contract.CompleteGeneratedBundle;
 import java.io.IOException;
 import java.net.SocketTimeoutException;
@@ -308,7 +310,8 @@ class PracticeAiOperationRunnerTest {
     @MethodSource("strictParserDiagnosticFailures")
     void strictParserDiagnosticUsesOnlyAllowlistedCategory(
             RuntimeException originalFailure,
-            String expectedCategory
+            String expectedParserCategory,
+            String expectedContractCategory
     ) {
         var audit = new CapturingAuditPort();
         var runner = runner(List.of(provider("primary")), audit);
@@ -335,9 +338,13 @@ class PracticeAiOperationRunnerTest {
             assertThat(event.getLevel()).isEqualTo(ch.qos.logback.classic.Level.WARN);
             assertThat(event.getMessage()).isEqualTo(
                     "Practice AI strict parser rejected provider output: capability={}, "
-                            + "fallbackIndex={}, parserFailureCategory={}");
+                            + "fallbackIndex={}, parserFailureCategory={}, contractViolationCategory={}");
             assertThat(event.getArgumentArray())
-                    .containsExactly("custom-scene-generator", 0, expectedCategory);
+                    .containsExactly(
+                            "custom-scene-generator",
+                            0,
+                            expectedParserCategory,
+                            expectedContractCategory);
             assertThat(event.getThrowableProxy()).isNull();
         });
         assertThat(audit.events).containsExactly(
@@ -551,8 +558,8 @@ class PracticeAiOperationRunnerTest {
 
     private static Stream<Arguments> strictParserDiagnosticFailures() {
         return Stream.of(
-                Arguments.of(strictProviderParseFailure("{"), "JSON_SYNTAX"),
-                Arguments.of(strictProviderParseFailure("[]"), "DTO_BINDING"),
+                Arguments.of(strictProviderParseFailure("{"), "JSON_SYNTAX", "UNKNOWN"),
+                Arguments.of(strictProviderParseFailure("[]"), "DTO_BINDING", "UNKNOWN"),
                 Arguments.of(strictProviderParseFailure("""
                         {
                           "schemaVersion": "custom-scene-generated-output-v1",
@@ -563,8 +570,13 @@ class PracticeAiOperationRunnerTest {
                           },
                           "utterances": {}
                         }
-                        """), "CONTRACT_VALIDATION"),
-                Arguments.of(new CompleteGeneratedBundle.InvalidProviderResponseException(), "UNKNOWN"));
+                        """), "CONTRACT_VALIDATION", "BRANCH_COMPLETENESS"),
+                Arguments.of(
+                        new CompleteGeneratedBundle.InvalidProviderResponseException(),
+                        "UNKNOWN",
+                        "UNKNOWN"),
+                Arguments.of(new NullContractCategoryException(), "UNKNOWN", "UNKNOWN"),
+                Arguments.of(new ThrowingContractCategoryException(), "UNKNOWN", "UNKNOWN"));
     }
 
     private static RuntimeException malformedJsonFailure() {
@@ -723,6 +735,22 @@ class PracticeAiOperationRunnerTest {
         @Override
         public synchronized Throwable getCause() {
             throw new AssertionError("sensitive diagnostic error");
+        }
+    }
+
+    private static final class NullContractCategoryException extends RuntimeException
+            implements PracticeAiContractViolation {
+        @Override
+        public Category category() {
+            return null;
+        }
+    }
+
+    private static final class ThrowingContractCategoryException extends RuntimeException
+            implements PracticeAiContractViolation {
+        @Override
+        public Category category() {
+            throw new AssertionError("sensitive diagnostic category error");
         }
     }
 
