@@ -101,6 +101,32 @@ void main() {
     },
   );
 
+  testWidgets(
+    'response loss after restart reconciles once with original request identity',
+    (tester) async {
+      final controller = _ImmediateSubmissionController()
+        ..publishUnknownOutcome();
+      await _pump(
+        tester,
+        CustomSceneInputScreen(
+          routeArgs: const CustomSceneRouteArgs(
+            entrySource: CustomSceneEntrySource.scene,
+          ),
+          controller: controller,
+          clientRequestIdGenerator: () =>
+              throw StateError('reconciliation must reuse durable identity'),
+        ),
+      );
+
+      expect(find.text('继续确认结果'), findsOneWidget);
+      await tester.tap(find.byKey(const Key('custom-scene-submit-button')));
+      await tester.pump();
+
+      expect(controller.retryCalls, 1);
+      expect(controller.submitted, isEmpty);
+    },
+  );
+
   testWidgets('input fits phone viewport at 1.3 text scale', (tester) async {
     tester.view.devicePixelRatio = 1;
     tester.view.physicalSize = const Size(390, 844);
@@ -168,6 +194,7 @@ class _ImmediateSubmissionController extends CustomSceneSubmissionController {
       const CustomSceneSubmissionState.editing();
   final List<CustomSceneDraft> submitted = <CustomSceneDraft>[];
   final List<String> handoffIds = <String>[];
+  int retryCalls = 0;
 
   @override
   CustomSceneSubmissionState get state => _testState;
@@ -180,6 +207,18 @@ class _ImmediateSubmissionController extends CustomSceneSubmissionController {
       generatedContentId: 'generated_1',
     );
     notifyListeners();
+  }
+
+  void publishUnknownOutcome() {
+    _testState = const CustomSceneSubmissionState(
+      phase: CustomSceneSubmissionPhase.unknownOutcome,
+      message: '结果尚未确认，请重试以继续。',
+    );
+  }
+
+  @override
+  Future<void> retry() async {
+    retryCalls += 1;
   }
 
   Future<void> handoffToCareTurn() async {

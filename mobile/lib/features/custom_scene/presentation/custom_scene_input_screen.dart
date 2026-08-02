@@ -194,6 +194,9 @@ class _CustomSceneInputScreenState extends State<CustomSceneInputScreen> {
                                       CustomSceneSubmissionPhase
                                           .needsAuthentication
                                 ? '登录后继续'
+                                : state?.phase ==
+                                      CustomSceneSubmissionPhase.unknownOutcome
+                                ? '继续确认结果'
                                 : '帮我准备一句',
                           ),
                         ),
@@ -245,6 +248,10 @@ class _CustomSceneInputScreenState extends State<CustomSceneInputScreen> {
     if (controller.state.phase ==
         CustomSceneSubmissionPhase.needsAuthentication) {
       await _openAuthentication();
+      return;
+    }
+    if (controller.state.phase == CustomSceneSubmissionPhase.unknownOutcome) {
+      await controller.retry();
       return;
     }
     if (controller.state.canOpenPreparedContent) {
