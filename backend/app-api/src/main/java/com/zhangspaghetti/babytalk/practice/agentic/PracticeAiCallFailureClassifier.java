@@ -2,6 +2,7 @@ package com.zhangspaghetti.babytalk.practice.agentic;
 
 import com.openai.errors.OpenAIIoException;
 import com.openai.errors.OpenAIServiceException;
+import java.io.InterruptedIOException;
 import java.net.ConnectException;
 import java.net.SocketTimeoutException;
 import java.net.UnknownHostException;
@@ -44,6 +45,10 @@ public class PracticeAiCallFailureClassifier {
                     || current instanceof TimeoutException) {
                 return Optional.of("timeout");
             }
+            if (current instanceof InterruptedIOException interruptedIOException
+                    && hasKnownTimeoutMessage(interruptedIOException)) {
+                return Optional.of("timeout");
+            }
             if (current instanceof OpenAIServiceException serviceException) {
                 if (serviceException.statusCode() == 429) {
                     return Optional.of("rate_limited");
@@ -63,6 +68,19 @@ public class PracticeAiCallFailureClassifier {
         return Optional.empty();
     }
 
+    private boolean hasKnownTimeoutMessage(InterruptedIOException failure) {
+        try {
+            var message = failure.getMessage();
+            if (message == null) {
+                return false;
+            }
+            var normalized = message.trim().toLowerCase(java.util.Locale.ROOT);
+            return normalized.equals("timeout") || normalized.equals("timed out");
+        } catch (RuntimeException messageInspectionFailure) {
+            return false;
+        }
+    }
+
     private List<Throwable> safeCauseChain(Throwable failure) {
         var causes = new ArrayList<Throwable>();
         var visited = Collections.newSetFromMap(new IdentityHashMap<Throwable, Boolean>());
@@ -74,7 +92,7 @@ public class PracticeAiCallFailureClassifier {
             causes.add(current);
             try {
                 current = current.getCause();
-            } catch (Throwable causeInspectionFailure) {
+            } catch (RuntimeException causeInspectionFailure) {
                 return List.of();
             }
         }

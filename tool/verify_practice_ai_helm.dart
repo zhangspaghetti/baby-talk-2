@@ -13,6 +13,8 @@ const _agenticRenderOwnerKeyPlaceholder =
     'm2-public-agentic-owner-key-placeholder-0123456789';
 const _safeMinimumCompleteBundleOutputTokens = 8192;
 const _minimumCompleteBundleProviderTimeout = Duration(seconds: 120);
+const _minimumQaCompleteBundleProviderTimeout = Duration(seconds: 180);
+const _generationLeaseOperationOverhead = Duration(minutes: 3);
 
 enum PracticeAiHelmProfile { disabledDefault, kindFake, agenticQa, production }
 
@@ -690,11 +692,14 @@ void _verifyRuntime(
     if (providerTimeout == null) {
       _fail('Provider ${provider.name} timeout must be positive.');
     }
+    final minimumProviderTimeout = profile == PracticeAiHelmProfile.agenticQa
+        ? _minimumQaCompleteBundleProviderTimeout
+        : _minimumCompleteBundleProviderTimeout;
     if (profile.needsAgenticRoutes &&
-        providerTimeout! < _minimumCompleteBundleProviderTimeout) {
+        providerTimeout! < minimumProviderTimeout) {
       _fail(
         'Provider ${provider.name} timeout must satisfy the complete-bundle '
-        'minimum of ${_minimumCompleteBundleProviderTimeout.inSeconds}s.',
+        'minimum of ${minimumProviderTimeout.inSeconds}s.',
       );
     }
     final tokenFields = <String>[
@@ -756,6 +761,9 @@ void _verifyRuntime(
         _fail('${profile.name} must configure route $capability.');
       }
     }
+    if (profile == PracticeAiHelmProfile.agenticQa) {
+      _verifyQaGenerationLeaseBudget(runtime);
+    }
     _verifyDashscopeQwenRuntime(runtime, profile);
   } else {
     for (final route in runtime.routes.entries) {
@@ -767,6 +775,55 @@ void _verifyRuntime(
     }
   }
 }
+
+void _verifyQaGenerationLeaseBudget(_RuntimeConfiguration runtime) {
+  final maxAttemptsValue = runtime.customSceneValues['max-generation-attempts'];
+  if (maxAttemptsValue == null ||
+      !RegExp(r'^[1-5]$').hasMatch(maxAttemptsValue)) {
+    _fail('Agentic QA must configure max-generation-attempts between 1 and 5.');
+  }
+  final generationLease = _parsePositiveProviderTimeout(
+    runtime.customSceneValues['generation-lease'],
+  );
+  if (generationLease == null) {
+    _fail('Agentic QA must configure a positive generation-lease.');
+  }
+
+  final maxAttempts = int.parse(maxAttemptsValue);
+  final initialAttempt =
+      _routeTimeoutBudget(runtime, 'custom-scene-generator') +
+      _routeTimeoutBudget(runtime, 'custom-scene-quality-judge');
+  final repairAttempt =
+      _routeTimeoutBudget(runtime, 'custom-scene-repair') +
+      _routeTimeoutBudget(runtime, 'custom-scene-quality-judge');
+  final boundedOperationChain =
+      initialAttempt +
+      _scaledDuration(repairAttempt, maxAttempts - 1) +
+      _generationLeaseOperationOverhead;
+  if (boundedOperationChain > generationLease) {
+    _fail(
+      'Agentic QA generation-lease must cover the bounded operation chain: '
+      '${boundedOperationChain.inSeconds}s required for $maxAttempts attempts, '
+      'ordered provider fallbacks, and '
+      '${_generationLeaseOperationOverhead.inSeconds}s overhead; '
+      '${generationLease.inSeconds}s configured.',
+    );
+  }
+}
+
+Duration _routeTimeoutBudget(_RuntimeConfiguration runtime, String capability) {
+  return runtime.routes[capability]!.fold(
+    Duration.zero,
+    (total, providerName) =>
+        total +
+        _parsePositiveProviderTimeout(
+          runtime.providers[providerName]!.timeout,
+        )!,
+  );
+}
+
+Duration _scaledDuration(Duration value, int multiplier) =>
+    Duration(microseconds: value.inMicroseconds * multiplier);
 
 void _verifyDashscopeQwenRuntime(
   _RuntimeConfiguration runtime,
@@ -999,6 +1056,7 @@ void _verifyNoPlaintextCredentialLeak(
 _RuntimeConfiguration _parseRuntimeConfiguration(String runtimeYaml) {
   final providers = <String, _ProviderConfiguration>{};
   final routes = <String, List<String>>{};
+  final customSceneValues = _parseCustomSceneValues(runtimeYaml);
   String? section;
   String? providerName;
   String? routeName;
@@ -1075,7 +1133,39 @@ _RuntimeConfiguration _parseRuntimeConfiguration(String runtimeYaml) {
     }
   }
 
-  return _RuntimeConfiguration(providers: providers, routes: routes);
+  return _RuntimeConfiguration(
+    providers: providers,
+    routes: routes,
+    customSceneValues: customSceneValues,
+  );
+}
+
+Map<String, String> _parseCustomSceneValues(String runtimeYaml) {
+  final values = <String, String>{};
+  var inCustomScene = false;
+  for (final rawLine in runtimeYaml.split(RegExp(r'\r?\n'))) {
+    final indent = rawLine.length - rawLine.trimLeft().length;
+    final line = rawLine.trim();
+    if (indent == 6 && line == 'custom-scene:') {
+      inCustomScene = true;
+      continue;
+    }
+    if (!inCustomScene) {
+      continue;
+    }
+    if (indent <= 6) {
+      break;
+    }
+    if (indent != 8 || line.isEmpty || line.startsWith('#')) {
+      continue;
+    }
+    final property = _keyValue(line);
+    if (property == null || values.containsKey(property.$1)) {
+      _fail('Invalid or duplicate custom-scene property $line.');
+    }
+    values[property.$1] = property.$2;
+  }
+  return Map.unmodifiable(values);
 }
 
 String _runtimeYaml(String document) {
@@ -1137,10 +1227,15 @@ Never _fail(String message) =>
     throw PracticeAiHelmVerificationException(message);
 
 class _RuntimeConfiguration {
-  _RuntimeConfiguration({required this.providers, required this.routes});
+  _RuntimeConfiguration({
+    required this.providers,
+    required this.routes,
+    required this.customSceneValues,
+  });
 
   final Map<String, _ProviderConfiguration> providers;
   final Map<String, List<String>> routes;
+  final Map<String, String> customSceneValues;
 }
 
 class _ProviderConfiguration {

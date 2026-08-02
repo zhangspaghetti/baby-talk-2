@@ -15,6 +15,7 @@ import com.zhangspaghetti.babytalk.practice.agentic.diagnostics.PracticeAiContra
 import com.zhangspaghetti.babytalk.practice.agentic.diagnostics.PracticeAiContractViolation.Category;
 import com.zhangspaghetti.babytalk.practice.generated.contract.CompleteGeneratedBundle;
 import java.io.IOException;
+import java.io.InterruptedIOException;
 import java.net.SocketTimeoutException;
 import java.time.Clock;
 import java.time.Instant;
@@ -477,6 +478,43 @@ class PracticeAiOperationRunnerTest {
     }
 
     @Test
+    void classifierRecognizesTheInstalledSdkTimeoutWrapperShape() {
+        var classifier = new PracticeAiCallFailureClassifier();
+
+        assertThat(classifier.classify(new OpenAIIoException(
+                "Request failed",
+                new InterruptedIOException("timeout"))))
+                .hasValue("timeout");
+    }
+
+    @Test
+    void classifierDoesNotGuessTimeoutFromGenericOrNegatedSdkMessages() {
+        var classifier = new PracticeAiCallFailureClassifier();
+
+        assertThat(classifier.classify(new OpenAIIoException("Request failed")))
+                .hasValue("connection_error");
+        assertThat(classifier.classify(new OpenAIIoException("not a timeout")))
+                .hasValue("connection_error");
+        assertThat(classifier.classify(new OpenAIIoException(
+                "Request failed",
+                new InterruptedIOException("not a timeout"))))
+                .hasValue("connection_error");
+        assertThat(classifier.classify(new OpenAIIoException(
+                "Request failed",
+                new InterruptedIOException("config-invalid"))))
+                .hasValue("connection_error");
+    }
+
+    @Test
+    void classifierDoesNotSwallowFatalCauseInspectionErrors() {
+        var classifier = new PracticeAiCallFailureClassifier();
+
+        assertThatThrownBy(() -> classifier.classify(new ThrowingErrorCauseException()))
+                .isInstanceOf(AssertionError.class)
+                .hasMessage("sensitive diagnostic error");
+    }
+
+    @Test
     void everyClassifiedInfrastructureFailureFallsBackToNextProvider() {
         var rateLimit = mock(OpenAIServiceException.class);
         var serverError = mock(OpenAIServiceException.class);
@@ -484,12 +522,14 @@ class PracticeAiOperationRunnerTest {
         when(serverError.statusCode()).thenReturn(503);
         var failures = List.<RuntimeException>of(
                 new OpenAIIoException("timeout", new SocketTimeoutException()),
+                new OpenAIIoException("Request failed", new InterruptedIOException("timeout")),
                 rateLimit,
                 serverError,
                 new OpenAIIoException("connection"),
                 new PracticeAiStructuredOutputCaller.StructuredOutputInvalidException());
         var expectedOutcomes = List.of(
-                "timeout", "rate_limited", "server_error", "connection_error", "structured_output_invalid");
+                "timeout", "timeout", "rate_limited", "server_error", "connection_error",
+                "structured_output_invalid");
 
         for (int index = 0; index < failures.size(); index++) {
             var audit = new CapturingAuditPort();
@@ -552,7 +592,6 @@ class PracticeAiOperationRunnerTest {
     private static Stream<Arguments> unsafeDiagnosticCauseFailures() {
         return Stream.of(
                 Arguments.of(new ThrowingCauseException()),
-                Arguments.of(new ThrowingErrorCauseException()),
                 Arguments.of(new CyclicCauseException()));
     }
 

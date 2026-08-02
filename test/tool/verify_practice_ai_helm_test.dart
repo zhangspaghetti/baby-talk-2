@@ -155,7 +155,7 @@ void main() {
         ]) {
           final manifest = invalidRuntimeLine == '            timeout: 0s\n'
               ? agenticManifest.replaceFirst(
-                  '            timeout: 120s\n',
+                  '            timeout: 180s\n',
                   invalidRuntimeLine,
                 )
               : agenticManifest.replaceFirst(
@@ -192,11 +192,11 @@ void main() {
     test(
       'rejects an agentic provider timeout below the complete-bundle minimum',
       () {
-        for (final timeout in <String>['119s', '119999ms']) {
+        for (final timeout in <String>['179s', '179999ms']) {
           expect(
             () => practiceAi.verifyRenderedPracticeAiManifest(
               agenticManifest.replaceFirst(
-                '            timeout: 120s\n',
+                '            timeout: 180s\n',
                 '            timeout: $timeout\n',
               ),
               profile: practiceAi.PracticeAiHelmProfile.agenticQa,
@@ -207,8 +207,8 @@ void main() {
         expect(
           () => practiceAi.verifyRenderedPracticeAiManifest(
             agenticManifest.replaceFirst(
-              '            timeout: 120s\n',
-              '            timeout: 2m\n',
+              '            timeout: 180s\n',
+              '            timeout: 3m\n',
             ),
             profile: practiceAi.PracticeAiHelmProfile.agenticQa,
           ),
@@ -216,6 +216,94 @@ void main() {
         );
       },
     );
+
+    test('rejects the UAT-proven insufficient QA provider deadline', () {
+      expect(
+        () => practiceAi.verifyRenderedPracticeAiManifest(
+          agenticManifest.replaceFirst(
+            '            timeout: 180s\n',
+            '            timeout: 120s\n',
+          ),
+          profile: practiceAi.PracticeAiHelmProfile.agenticQa,
+        ),
+        throwsA(isA<practiceAi.PracticeAiHelmVerificationException>()),
+      );
+    });
+
+    test(
+      'enforces the bounded QA operation chain within its generation lease',
+      () {
+        expect(
+          () => practiceAi.verifyRenderedPracticeAiManifest(
+            agenticManifest,
+            profile: practiceAi.PracticeAiHelmProfile.agenticQa,
+          ),
+          returnsNormally,
+        );
+        expect(
+          () => practiceAi.verifyRenderedPracticeAiManifest(
+            agenticManifest.replaceFirst(
+              '            generation-lease: 15m\n',
+              '            generation-lease: 4m\n',
+            ),
+            profile: practiceAi.PracticeAiHelmProfile.agenticQa,
+          ),
+          throwsA(
+            isA<practiceAi.PracticeAiHelmVerificationException>().having(
+              (error) => error.message,
+              'message',
+              contains('bounded operation chain'),
+            ),
+          ),
+        );
+      },
+    );
+
+    test('counts every configured provider fallback in the QA lease budget', () {
+      final manifestWithFallback = agenticManifest
+          .replaceFirst(
+            '            max-tokens: 8192\n',
+            '            max-tokens: 8192\n'
+                '          fallback-provider:\n'
+                '            type: openai-compatible\n'
+                '            base-url: https://dashscope.aliyuncs.com/compatible-mode/v1\n'
+                '            api-key-environment-variable: BABY_TALK_AI_PROVIDER_FALLBACK_API_KEY\n'
+                '            model: glm-5.2\n'
+                '            timeout: 180s\n'
+                '            max-tokens: 8192\n',
+          )
+          .replaceAll(
+            '              - dashscope-qwen\n',
+            '              - dashscope-qwen\n              - fallback-provider\n',
+          );
+
+      expect(
+        () => practiceAi.verifyRenderedPracticeAiManifest(
+          manifestWithFallback,
+          profile: practiceAi.PracticeAiHelmProfile.agenticQa,
+        ),
+        throwsA(
+          isA<practiceAi.PracticeAiHelmVerificationException>().having(
+            (error) => error.message,
+            'message',
+            contains('bounded operation chain'),
+          ),
+        ),
+      );
+    });
+
+    test('accepts the production 120 second provider boundary', () {
+      expect(
+        () => practiceAi.verifyRenderedPracticeAiManifest(
+          _productionManifest('rotation-1').replaceFirst(
+            '            timeout: 180s\n',
+            '            timeout: 120s\n',
+          ),
+          profile: practiceAi.PracticeAiHelmProfile.production,
+        ),
+        returnsNormally,
+      );
+    });
 
     test('rejects provider credentials outside dedicated secret or app-api', () {
       final leakedCredential = agenticManifest.replaceFirst(
@@ -451,6 +539,8 @@ data:
           custom-scene:
             enabled: true
             provider-mode: agentic
+            max-generation-attempts: 2
+            generation-lease: 15m
     app:
       ai:
         routing-policy:
@@ -461,7 +551,7 @@ data:
             base-url: https://dashscope.aliyuncs.com/compatible-mode/v1
             api-key-environment-variable: BABY_TALK_AI_PROVIDER_DASHSCOPE_QWEN_API_KEY
             model: glm-5.2
-            timeout: 120s
+            timeout: 180s
             max-tokens: 8192
         capabilities:
           custom-scene-generator:

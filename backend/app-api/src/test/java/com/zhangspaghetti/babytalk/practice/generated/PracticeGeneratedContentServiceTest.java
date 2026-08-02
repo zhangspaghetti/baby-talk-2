@@ -94,6 +94,38 @@ class PracticeGeneratedContentServiceTest {
     }
 
     @Test
+    void defaultGenerationLeaseRemainsFiveMinutes() {
+        var service = serviceWithFakeProvider();
+        stubReserveInserted();
+        stubActivateDraft();
+        var draftCaptor = ArgumentCaptor.forClass(PracticeGeneratedContentEntity.class);
+
+        service.generateCustomScene(request("洗澡后哄睡"));
+
+        verify(commands).reserveDraft(draftCaptor.capture(), any());
+        assertThat(draftCaptor.getValue().generationExpiresAt())
+                .isEqualTo(NOW_DB.plusMinutes(5));
+    }
+
+    @Test
+    void configuredQaGenerationLeaseIsFifteenMinutes() {
+        var service = serviceWithProperties(properties(
+                PracticeDiscoveryCustomSceneProperties.DEFAULT_PROMPT_VERSION,
+                PracticeDiscoveryCustomSceneProperties.DEFAULT_STRATEGY_VERSION,
+                "fake",
+                Duration.ofMinutes(15)));
+        stubReserveInserted();
+        stubActivateDraft();
+        var draftCaptor = ArgumentCaptor.forClass(PracticeGeneratedContentEntity.class);
+
+        service.generateCustomScene(request("洗澡后哄睡"));
+
+        verify(commands).reserveDraft(draftCaptor.capture(), any());
+        assertThat(draftCaptor.getValue().generationExpiresAt())
+                .isEqualTo(NOW_DB.plusMinutes(15));
+    }
+
+    @Test
     void providerReceivesOnlyDisplayTextAndNoSecurityText() {
         var generator = org.mockito.Mockito.mock(CustomSceneGenerator.class);
         when(generator.generateCareMoment(any())).thenReturn(bundle(shoesCandidate()));
@@ -1061,6 +1093,15 @@ class PracticeGeneratedContentServiceTest {
             String strategyVersion,
             String fakeMode
     ) {
+        return properties(promptVersion, strategyVersion, fakeMode, null);
+    }
+
+    private PracticeDiscoveryCustomSceneProperties properties(
+            String promptVersion,
+            String strategyVersion,
+            String fakeMode,
+            Duration generationLease
+    ) {
         return new PracticeDiscoveryCustomSceneProperties(
                 true,
                 Duration.ofSeconds(5),
@@ -1072,7 +1113,9 @@ class PracticeGeneratedContentServiceTest {
                 null,
                 null,
                 null,
-                null
+                null,
+                null,
+                generationLease
         );
     }
 

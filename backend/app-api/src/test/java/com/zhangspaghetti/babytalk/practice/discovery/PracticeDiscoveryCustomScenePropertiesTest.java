@@ -25,6 +25,25 @@ class PracticeDiscoveryCustomScenePropertiesTest {
         assertThat(properties("prompt-v1", "strategy-v1", null).maxGenerationAttempts()).isEqualTo(2);
     }
 
+    @Test
+    void generationLeaseDefaultsToFiveMinutes() {
+        assertThat(properties("prompt-v1", "strategy-v1", null).generationLease())
+                .isEqualTo(Duration.ofMinutes(5));
+    }
+
+    @Test
+    void acceptsAProfileScopedGenerationLease() {
+        assertThat(properties("prompt-v1", "strategy-v1", 2, Duration.ofMinutes(15)).generationLease())
+                .isEqualTo(Duration.ofMinutes(15));
+    }
+
+    @Test
+    void rejectsANonPositiveGenerationLease() {
+        assertThatThrownBy(() -> properties("prompt-v1", "strategy-v1", 2, Duration.ZERO))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("generation lease");
+    }
+
     @ParameterizedTest
     @ValueSource(ints = {1, 2, 5})
     void acceptsBoundedMaxGenerationAttempts(int maxGenerationAttempts) {
@@ -45,6 +64,15 @@ class PracticeDiscoveryCustomScenePropertiesTest {
             String strategyVersion,
             Integer maxGenerationAttempts
     ) {
+        return properties(promptVersion, strategyVersion, maxGenerationAttempts, null);
+    }
+
+    private PracticeDiscoveryCustomSceneProperties properties(
+            String promptVersion,
+            String strategyVersion,
+            Integer maxGenerationAttempts,
+            Duration generationLease
+    ) {
         return new PracticeDiscoveryCustomSceneProperties(
                 true,
                 Duration.ofSeconds(5),
@@ -57,6 +85,7 @@ class PracticeDiscoveryCustomScenePropertiesTest {
                 null,
                 null,
                 null,
-                maxGenerationAttempts);
+                maxGenerationAttempts,
+                generationLease);
     }
 }

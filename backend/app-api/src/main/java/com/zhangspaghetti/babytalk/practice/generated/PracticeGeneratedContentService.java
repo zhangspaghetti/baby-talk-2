@@ -57,7 +57,6 @@ public class PracticeGeneratedContentService {
     private static final int MAX_CLIENT_REQUEST_ID_CHARS = 96;
     private static final int MAX_DRAFT_RESERVATION_ATTEMPTS = 5;
     private static final int CONTENT_REFRESH_EPOCH = 1;
-    private static final Duration DRAFT_TTL = Duration.ofMinutes(5);
     private static final Duration INSTALLATION_ACTIVE_RETENTION = Duration.ofDays(30);
     private static final Duration INSTALLATION_TERMINAL_RETENTION = Duration.ofDays(7);
     private static final int MIN_CLEANUP_LIMIT = 1;
@@ -578,7 +577,7 @@ public class PracticeGeneratedContentService {
         row.setGenerationAttemptLimit(customSceneProperties.maxGenerationAttempts());
         row.setContentRefreshEpoch(CONTENT_REFRESH_EPOCH);
         row.setContentVersion(1);
-        row.setGenerationExpiresAt(now.plus(DRAFT_TTL));
+        row.setGenerationExpiresAt(now.plus(customSceneProperties.generationLease()));
         row.setRetentionExpiresAt(OWNER_INSTALLATION.equals(owner.ownerScope())
                 ? now.plus(INSTALLATION_ACTIVE_RETENTION)
                 : null);

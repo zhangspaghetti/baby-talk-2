@@ -90,6 +90,12 @@ data:
           custom-scene:
             enabled: {{ eq $providerMode "agentic" }}
             provider-mode: {{ $providerMode | quote }}
+            {{ if hasKey $practiceAi "maxGenerationAttempts" }}
+            max-generation-attempts: {{ $practiceAi.maxGenerationAttempts }}
+            {{ end }}
+            {{ if hasKey $practiceAi "generationLease" }}
+            generation-lease: {{ $practiceAi.generationLease | quote }}
+            {{ end }}
     app:
       ai:
         routing-policy:
