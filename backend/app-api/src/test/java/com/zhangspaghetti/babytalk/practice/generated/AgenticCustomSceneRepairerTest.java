@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -31,6 +32,8 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.mockito.ArgumentCaptor;
 import org.springframework.ai.chat.client.ChatClient;
 import tools.jackson.databind.json.JsonMapper;
@@ -131,15 +134,17 @@ class AgenticCustomSceneRepairerTest {
         assertThat(operation.policyVersion()).isEqualTo("evidence-v1");
         assertThat(operation.policyHash()).isEqualTo("e".repeat(64));
 
-        var provider = new ResolvedProvider("primary", "openai-compatible", "gpt-test", mock(ChatClient.class));
+        var provider = new ResolvedProvider("primary", "openai-compatible", "glm-5.2", mock(ChatClient.class));
         when(caller.callRaw(eq(provider), eq("REPAIR SYSTEM PROMPT"), any(String.class),
-                eq(CompleteGeneratedBundle.ProviderResponse.class), eq(8192))).thenReturn(wireJson());
+                eq(CompleteGeneratedBundle.ProviderResponse.class), eq(8192),
+                eq(PracticeAiStructuredOutputCaller.ReasoningEffort.NONE))).thenReturn(wireJson());
         var callbackResult = operation.invocation().invoke(provider);
 
         assertThat(callbackResult.value()).isEqualTo(wire);
         var promptCaptor = ArgumentCaptor.forClass(String.class);
         verify(caller).callRaw(eq(provider), eq("REPAIR SYSTEM PROMPT"), promptCaptor.capture(),
-                eq(CompleteGeneratedBundle.ProviderResponse.class), eq(8192));
+                eq(CompleteGeneratedBundle.ProviderResponse.class), eq(8192),
+                eq(PracticeAiStructuredOutputCaller.ReasoningEffort.NONE));
         assertThat(promptCaptor.getValue())
                 .contains(
                         "给宝宝穿鞋",
@@ -180,6 +185,42 @@ class AgenticCustomSceneRepairerTest {
                         "profileId",
                         "providerTraceId",
                         "reasoning");
+    }
+
+    @ParameterizedTest
+    @CsvSource({
+            "openai-compatible, other-model",
+            "other-compatible, glm-5.2"
+    })
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    void nonAllowlistedRepairProviderKeepsDefaultInferenceOptions(
+            String providerType,
+            String modelName
+    ) {
+        var runner = mock(PracticeAiOperationRunner.class);
+        var caller = mock(PracticeAiStructuredOutputCaller.class);
+        var registry = mock(VersionedResourceRegistry.class);
+        when(registry.currentGenerationProfile()).thenReturn(profile());
+        when(registry.promptText(VersionedResourceRegistry.PromptKind.REPAIR))
+                .thenReturn("REPAIR SYSTEM PROMPT");
+        var operationCaptor = ArgumentCaptor.forClass(OperationRequest.class);
+        when(runner.execute(operationCaptor.capture())).thenReturn(new OperationResult<>(
+                wire(), UUID.randomUUID(), UUID.randomUUID(), "secondary", modelName, null));
+        var repairer = new AgenticCustomSceneRepairer(runner, caller, registry);
+        repairer.repairCareMoment(request());
+        var operation = (OperationRequest<CompleteGeneratedBundle.ProviderResponse>) operationCaptor.getValue();
+        var provider = new ResolvedProvider(
+                "secondary", providerType, modelName, mock(ChatClient.class));
+        when(caller.callRaw(eq(provider), eq("REPAIR SYSTEM PROMPT"), any(String.class),
+                eq(CompleteGeneratedBundle.ProviderResponse.class), eq(8192))).thenReturn(wireJson());
+
+        assertThat(operation.invocation().invoke(provider).value()).isEqualTo(wire());
+
+        verify(caller).callRaw(eq(provider), eq("REPAIR SYSTEM PROMPT"), any(String.class),
+                eq(CompleteGeneratedBundle.ProviderResponse.class), eq(8192));
+        verify(caller, never()).callRaw(eq(provider), eq("REPAIR SYSTEM PROMPT"), any(String.class),
+                eq(CompleteGeneratedBundle.ProviderResponse.class), eq(8192),
+                any(PracticeAiStructuredOutputCaller.ReasoningEffort.class));
     }
 
     @Test
@@ -340,6 +381,12 @@ class AgenticCustomSceneRepairerTest {
                 new VersionedRef("baseline-v1", "b".repeat(64), "baseline.yml"),
                 "strategy-v1",
                 "safety-v1",
-                "schema-v1");
+                "schema-v1",
+                8192,
+                0,
+                new GenerationProfile.RepairInferencePolicy(
+                        "openai-compatible",
+                        List.of("glm-5.2"),
+                        "none"));
     }
 }

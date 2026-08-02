@@ -10,6 +10,7 @@ import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -257,6 +258,104 @@ class PracticeAiSingleRequestContractTest {
             assertThat(exception.safeMinimum()).isEqualTo(8192);
             assertThat(new PracticeAiCallFailureClassifier().classify(exception))
                     .hasValue("output_budget_too_small");
+            assertThat(requestCount).hasValue(0);
+        } finally {
+            server.stop(0);
+        }
+    }
+
+    @Test
+    void structuredOutputRequestCarriesConfiguredOutputBudget() throws Exception {
+        var requestCount = new AtomicInteger();
+        var requestBody = new AtomicReference<String>();
+        var server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+        server.createContext("/v1/chat/completions", exchange -> {
+            requestCount.incrementAndGet();
+            requestBody.set(new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8));
+            var bytes = openAiEnvelope("{\"answer\":\"ok\"}").getBytes(StandardCharsets.UTF_8);
+            exchange.getResponseHeaders().set("Content-Type", "application/json");
+            exchange.sendResponseHeaders(200, bytes.length);
+            try (var body = exchange.getResponseBody()) {
+                body.write(bytes);
+            }
+        });
+        server.start();
+        try {
+            var provider = provider(server, "maxTokens", 8192);
+
+            assertThat(new PracticeAiStructuredOutputCaller().callRaw(
+                    provider, "system", "return JSON", Answer.class, 8192))
+                    .isEqualTo("{\"answer\":\"ok\"}");
+            assertThat(requestCount).hasValue(1);
+            assertThat(requestBody.get())
+                    .contains("\"max_tokens\":8192")
+                    .contains("\"response_format\"")
+                    .contains("\"json_schema\"")
+                    .doesNotContain("reasoning_effort");
+        } finally {
+            server.stop(0);
+        }
+    }
+
+    @Test
+    void boundedNonReasoningRepairRequestAvoidsTruncatedCompletionInOneOutboundCall() throws Exception {
+        var requestCount = new AtomicInteger();
+        var requestBody = new AtomicReference<String>();
+        var server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+        server.createContext("/v1/chat/completions", exchange -> {
+            requestCount.incrementAndGet();
+            var body = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
+            requestBody.set(body);
+            var compatible = body.contains("\"reasoning_effort\":\"none\"");
+            var response = compatible
+                    ? openAiEnvelope("{\"answer\":\"complete\"}")
+                    : openAiEnvelope("{\"answer\":\"partial", "length", 100, 8192);
+            var bytes = response.getBytes(StandardCharsets.UTF_8);
+            exchange.getResponseHeaders().set("Content-Type", "application/json");
+            exchange.sendResponseHeaders(200, bytes.length);
+            try (var responseBody = exchange.getResponseBody()) {
+                responseBody.write(bytes);
+            }
+        });
+        server.start();
+        try {
+            var provider = provider(server, "maxTokens", 8192);
+
+            assertThat(new PracticeAiStructuredOutputCaller().callRaw(
+                    provider,
+                    "system",
+                    "return JSON",
+                    Answer.class,
+                    8192,
+                    PracticeAiStructuredOutputCaller.ReasoningEffort.NONE))
+                    .isEqualTo("{\"answer\":\"complete\"}");
+            assertThat(requestCount).hasValue(1);
+            assertThat(requestBody.get())
+                    .contains("\"max_tokens\":8192")
+                    .contains("\"response_format\"")
+                    .contains("\"json_schema\"")
+                    .contains("\"reasoning_effort\":\"none\"");
+        } finally {
+            server.stop(0);
+        }
+    }
+
+    @Test
+    void boundedNonReasoningRepairRequestStillRejectsLowBudgetBeforeOutboundCall() throws Exception {
+        var requestCount = new AtomicInteger();
+        var server = server(requestCount, 200, openAiEnvelope("{\"answer\":\"ok\"}"));
+        try {
+            var provider = provider(server, "maxTokens", 600);
+
+            assertThatThrownBy(() -> new PracticeAiStructuredOutputCaller().callRaw(
+                    provider,
+                    "system",
+                    "return JSON",
+                    Answer.class,
+                    8192,
+                    PracticeAiStructuredOutputCaller.ReasoningEffort.NONE))
+                    .isInstanceOf(PracticeAiStructuredOutputCaller.OutputBudgetTooSmallException.class)
+                    .hasMessage("output_budget_too_small");
             assertThat(requestCount).hasValue(0);
         } finally {
             server.stop(0);

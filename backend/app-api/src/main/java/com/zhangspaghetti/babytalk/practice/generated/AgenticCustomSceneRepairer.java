@@ -4,6 +4,7 @@ import com.zhangspaghetti.babytalk.practice.agentic.OperationRequest;
 import com.zhangspaghetti.babytalk.practice.agentic.PracticeAiCapability;
 import com.zhangspaghetti.babytalk.practice.agentic.PracticeAiOperationRunner;
 import com.zhangspaghetti.babytalk.practice.agentic.PracticeAiStructuredOutputCaller;
+import com.zhangspaghetti.babytalk.practice.agentic.ResolvedProvider;
 import com.zhangspaghetti.babytalk.practice.agentic.config.GenerationProfile;
 import com.zhangspaghetti.babytalk.practice.agentic.config.VersionedResourceRegistry;
 import com.zhangspaghetti.babytalk.practice.generated.contract.CompleteGeneratedBundle;
@@ -98,12 +99,7 @@ public class AgenticCustomSceneRepairer implements CustomSceneRepairer {
                 provider -> {
                     var content = OperationRequest.atFailureStage(
                             OperationRequest.ProviderFailureStage.PROVIDER_RESPONSE_BINDING,
-                            () -> structuredOutputCaller.callRaw(
-                                provider,
-                                systemPrompt,
-                                userPrompt,
-                                CompleteGeneratedBundle.ProviderResponse.class,
-                                currentProfile.minimumCompleteBundleOutputTokens()));
+                            () -> callRepairProvider(provider, systemPrompt, userPrompt, currentProfile));
                     var wire = OperationRequest.atFailureStage(
                             OperationRequest.ProviderFailureStage.CONTENT_STRICT_PARSER,
                             () -> CompleteGeneratedBundle.ProviderResponse.parse(content));
@@ -124,6 +120,31 @@ public class AgenticCustomSceneRepairer implements CustomSceneRepairer {
                 profile.strategyVersion(),
                 profile.contentSafetyPolicyVersion(),
                 profile.generatedOutputSchemaVersion());
+    }
+
+    private String callRepairProvider(
+            ResolvedProvider provider,
+            String systemPrompt,
+            String userPrompt,
+            GenerationProfile profile
+    ) {
+        var inferencePolicy = profile.repairInferencePolicy();
+        if (inferencePolicy != null
+                && inferencePolicy.matches(provider.providerType(), provider.modelName())) {
+            return structuredOutputCaller.callRaw(
+                    provider,
+                    systemPrompt,
+                    userPrompt,
+                    CompleteGeneratedBundle.ProviderResponse.class,
+                    profile.minimumCompleteBundleOutputTokens(),
+                    PracticeAiStructuredOutputCaller.ReasoningEffort.NONE);
+        }
+        return structuredOutputCaller.callRaw(
+                provider,
+                systemPrompt,
+                userPrompt,
+                CompleteGeneratedBundle.ProviderResponse.class,
+                profile.minimumCompleteBundleOutputTokens());
     }
 
     private ContentConstraintsPayload contentConstraintsPayload(

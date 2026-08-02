@@ -25,9 +25,10 @@ import tools.jackson.dataformat.yaml.YAMLFactory;
 public class VersionedResourceRegistry {
 
     private static final String RESOURCE_PREFIX = "config/practice-ai/";
-    private static final String DEFAULT_PROFILE = "classpath:config/practice-ai/profiles/custom-scene-generation-v4.yml";
+    private static final String DEFAULT_PROFILE = "classpath:config/practice-ai/profiles/custom-scene-generation-v5.yml";
     private static final String PROFILE_SCHEMA_V1 = "generation-profile-schema-v1";
     private static final String PROFILE_SCHEMA_V2 = "generation-profile-schema-v2";
+    private static final String PROFILE_SCHEMA_V3 = "generation-profile-schema-v3";
     private static final String RUBRIC_SCHEMA = "judge-rubric-schema-v1";
     private static final String EVIDENCE_POLICY_SCHEMA = "evidence-policy-schema-v1";
     private static final String BASELINE_EVIDENCE_SCHEMA = "baseline-evidence-schema-v1";
@@ -65,7 +66,7 @@ public class VersionedResourceRegistry {
         var profileResource = requiredResource(profilePath);
         var profileDocument = yamlDocument(profileResource);
         var profileSchema = string(profileDocument, "schema-version", "profile schema");
-        if (!Set.of(PROFILE_SCHEMA_V1, PROFILE_SCHEMA_V2).contains(profileSchema)) {
+        if (!Set.of(PROFILE_SCHEMA_V1, PROFILE_SCHEMA_V2, PROFILE_SCHEMA_V3).contains(profileSchema)) {
             throw new IllegalStateException("profile schema version mismatch");
         }
         var profileVersion = string(profileDocument, "version", "profile");
@@ -100,12 +101,15 @@ public class VersionedResourceRegistry {
                         profileDocument,
                         "minimum-complete-bundle-output-tokens",
                         "profile"),
-                PROFILE_SCHEMA_V2.equals(profileSchema)
+                !PROFILE_SCHEMA_V1.equals(profileSchema)
                         ? positiveInteger(
                                 profileDocument,
                                 "minimum-quality-judge-output-tokens",
                                 "profile")
-                        : 0);
+                        : 0,
+                PROFILE_SCHEMA_V3.equals(profileSchema)
+                        ? repairInferencePolicy(profileDocument)
+                        : null);
     }
 
     public GenerationProfile currentGenerationProfile() {
@@ -378,6 +382,24 @@ public class VersionedResourceRegistry {
             throw new IllegalStateException(context + " must be numeric");
         }
         return number.doubleValue();
+    }
+
+    private GenerationProfile.RepairInferencePolicy repairInferencePolicy(Map<String, Object> profile) {
+        var context = "profile repair-inference-policy";
+        var policy = map(profile.get("repair-inference-policy"), context);
+        if (!Set.of("provider-type", "model-names", "reasoning-effort").equals(policy.keySet())) {
+            throw new IllegalStateException(context + " keys are invalid");
+        }
+        var providerType = string(policy, "provider-type", context);
+        var modelNames = strings(policy.get("model-names"), context + " model-names");
+        if (modelNames.size() > 8 || hasDuplicates(modelNames)) {
+            throw new IllegalStateException(context + " model-names are invalid");
+        }
+        var reasoningEffort = string(policy, "reasoning-effort", context);
+        if (!"none".equals(reasoningEffort)) {
+            throw new IllegalStateException(context + " reasoning-effort is invalid");
+        }
+        return new GenerationProfile.RepairInferencePolicy(providerType, modelNames, reasoningEffort);
     }
 
     private static int positiveInteger(Map<String, Object> document, String key, String context) {

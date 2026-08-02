@@ -14,9 +14,9 @@ class VersionedResourceRegistryTest {
     void loadsProfileAndComputesStableCanonicalHashes() {
         var profile = registry.currentGenerationProfile();
 
-        assertThat(profile.version()).isEqualTo("custom-scene-generation-v4");
+        assertThat(profile.version()).isEqualTo("custom-scene-generation-v5");
         assertThat(profile.contentHash())
-                .isEqualTo("fe96ac339eda8bfcd653d90d83bd981e2aa296141ad5e066990c83e8ccc2110d");
+                .isEqualTo("aef5649cd454d6fa8f4704b8b4eacec7f421cda8f2ca30dd5e7aeec750eeef31");
         assertThat(profile.generatorPrompt().version()).isEqualTo("custom-scene-generator-v3");
         assertThat(profile.judgePrompt().version()).isEqualTo("custom-scene-quality-judge-v3");
         assertThat(profile.repairPrompt().version()).isEqualTo("custom-scene-repair-v3");
@@ -24,6 +24,11 @@ class VersionedResourceRegistryTest {
         assertThat(profile.evidencePolicyVersion()).isEqualTo("custom-scene-evidence-v1");
         assertThat(profile.minimumCompleteBundleOutputTokens()).isEqualTo(8192);
         assertThat(profile.minimumQualityJudgeOutputTokens()).isEqualTo(8192);
+        assertThat(profile.repairInferencePolicy()).isEqualTo(
+                new GenerationProfile.RepairInferencePolicy(
+                        "openai-compatible",
+                        java.util.List.of("glm-5.2"),
+                        "none"));
         assertThat(registry.promptText(VersionedResourceRegistry.PromptKind.GENERATOR)).contains("strict JSON");
     }
 
@@ -34,6 +39,32 @@ class VersionedResourceRegistryTest {
 
         assertThat(legacy.version()).isEqualTo("custom-scene-generation-v3");
         assertThat(legacy.minimumQualityJudgeOutputTokens()).isZero();
+        assertThat(legacy.repairInferencePolicy()).isNull();
+    }
+
+    @Test
+    void v4ProfileRemainsImmutableAndHasNoRepairInferenceOverride() {
+        var legacy = registryFor("profiles/custom-scene-generation-v4.yml")
+                .currentGenerationProfile();
+
+        assertThat(legacy.version()).isEqualTo("custom-scene-generation-v4");
+        assertThat(legacy.contentHash())
+                .isEqualTo("fe96ac339eda8bfcd653d90d83bd981e2aa296141ad5e066990c83e8ccc2110d");
+        assertThat(legacy.repairInferencePolicy()).isNull();
+    }
+
+    @Test
+    void v3ProfileSchemaRequiresCompleteRepairInferencePolicy() {
+        assertThatThrownBy(() -> registryFor("fixtures/profile-repair-inference-missing.yml"))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("profile repair-inference-policy must be a mapping");
+    }
+
+    @Test
+    void v3ProfileSchemaRejectsUnsupportedRepairReasoningEffort() {
+        assertThatThrownBy(() -> registryFor("fixtures/profile-repair-inference-invalid.yml"))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("profile repair-inference-policy reasoning-effort is invalid");
     }
 
     @Test

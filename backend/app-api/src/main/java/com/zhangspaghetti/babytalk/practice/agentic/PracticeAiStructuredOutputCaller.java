@@ -83,11 +83,24 @@ public class PracticeAiStructuredOutputCaller {
             String userPrompt,
             Class<T> responseType
     ) {
+        return callRaw(provider, systemPrompt, userPrompt, responseType, null);
+    }
+
+    private <T> String callRaw(
+            ResolvedProvider provider,
+            String systemPrompt,
+            String userPrompt,
+            Class<T> responseType,
+            ReasoningEffort reasoningEffort
+    ) {
         var converter = strictConverter(responseType);
         var options = OpenAiChatOptions.builder()
                 .responseFormat(OpenAiChatModel.ResponseFormat.builder()
                         .jsonSchema(PracticeAiJsonSchemaPublisher.publish(converter, responseType))
                         .build());
+        if (reasoningEffort != null) {
+            options.reasoningEffort(reasoningEffort.wireValue());
+        }
         var response = provider.chatClient()
                 .prompt()
                 .options(options)
@@ -116,6 +129,27 @@ public class PracticeAiStructuredOutputCaller {
     ) {
         requireOutputBudget(provider, minimumOutputTokens);
         return callRaw(provider, systemPrompt, userPrompt, responseType);
+    }
+
+    /**
+     * Gets one complete schema-constrained payload with a bounded explicit reasoning control.
+     * Callers must apply provider/model compatibility policy before selecting this overload.
+     */
+    public <T> String callRaw(
+            ResolvedProvider provider,
+            String systemPrompt,
+            String userPrompt,
+            Class<T> responseType,
+            int minimumOutputTokens,
+            ReasoningEffort reasoningEffort
+    ) {
+        requireOutputBudget(provider, minimumOutputTokens);
+        return callRaw(
+                provider,
+                systemPrompt,
+                userPrompt,
+                responseType,
+                Objects.requireNonNull(reasoningEffort, "reasoningEffort"));
     }
 
     private void requireOutputBudget(ResolvedProvider provider, int minimumOutputTokens) {
@@ -199,6 +233,20 @@ public class PracticeAiStructuredOutputCaller {
                 case "tool_calls", "function_call" -> TOOL_CALLS;
                 default -> OTHER;
             };
+        }
+    }
+
+    public enum ReasoningEffort {
+        NONE("none");
+
+        private final String wireValue;
+
+        ReasoningEffort(String wireValue) {
+            this.wireValue = wireValue;
+        }
+
+        private String wireValue() {
+            return wireValue;
         }
     }
 

@@ -100,6 +100,12 @@ class CustomSceneAgenticGenerationIntegrationTest extends AbstractIntegrationTes
                 (Class<?>) invocation.getArgument(3)))
                 .when(structuredOutputCaller)
                 .call(any(), anyString(), anyString(), any());
+        doAnswer(invocation -> caller.call(
+                invocation.getArgument(1, String.class),
+                invocation.getArgument(2, String.class),
+                (Class<?>) invocation.getArgument(3)))
+                .when(structuredOutputCaller)
+                .call(any(), anyString(), anyString(), any(), anyInt());
     }
 
     @Test
