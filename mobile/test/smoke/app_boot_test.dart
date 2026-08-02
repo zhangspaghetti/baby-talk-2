@@ -13,10 +13,12 @@ import 'package:isar/isar.dart';
 import 'package:mobile/app/app.dart';
 import 'package:mobile/app/providers/repository_providers.dart';
 import 'package:mobile/app/router/app_route_contract.dart';
+import 'package:mobile/app/router/custom_scene_care_turn_handoff.dart';
 import 'package:mobile/core/device/installation_id_service.dart';
 import 'package:mobile/features/account/data/local/account_local_store.dart';
 import 'package:mobile/features/account/data/repositories/account_repository.dart';
 import 'package:mobile/features/account/domain/models/account_consent_state.dart';
+import 'package:mobile/features/custom_scene/application/custom_scene_submission_controller.dart';
 import 'package:mobile/features/custom_scene/presentation/custom_scene_input_screen.dart';
 import 'package:mobile/features/household/data/local/household_local_store.dart';
 import 'package:mobile/features/household/data/repositories/household_repository.dart';
@@ -35,6 +37,7 @@ import 'package:mobile/features/practice/data/repositories/practice_repository.d
 import 'package:mobile/features/practice/domain/models/interaction_event_payload.dart';
 import 'package:mobile/features/practice/domain/models/practice_continuity_snapshot.dart';
 import 'package:mobile/features/practice/presentation/practice_session_notifier.dart';
+import 'package:mobile/features/practice/presentation/screens/practice_session_screen.dart';
 import '../support/isar_test_library.dart';
 
 void main() {
@@ -538,6 +541,63 @@ void main() {
       'bath_time',
     );
   });
+
+  testWidgets(
+    'production router opens the same generated Care Turn for automatic and retry handoff',
+    (WidgetTester tester) async {
+      late OnboardingSnapshot completedSnapshot;
+      final harness = (await tester.runAsync<_AppBootHarness>(() async {
+        final created = await _createHarness();
+        completedSnapshot = await _onboardingRepositoryFor(created)
+            .completeOnboarding(
+              childDisplayName: '米米',
+              ageBucket: OnboardingAgeBucket.zeroToSix,
+              selectedSceneIds: const ['bedtime'],
+              supportGoal: OnboardingSupportGoal.firstWords,
+              starterSpaceId: 'family_rhythm',
+              starterActivityId: 'bedtime',
+              starterPhraseId: 'bedtime_dim_the_lights',
+              firstTraceEventKey: 'install_handoff_test:evt_onboarding_first',
+              completedAt: DateTime.utc(2026, 8, 2, 8),
+            );
+        return created;
+      }))!;
+      addTearDown(harness.close);
+      addTearDown(() async {
+        await _disposeWidgetTree(tester);
+      });
+
+      await tester.pumpWidget(
+        _bootApp(
+          harness,
+          completedSnapshotLoader: () async => completedSnapshot,
+        ),
+      );
+      await _pumpUntilFound(tester, find.byKey(const Key('shell-ready')));
+
+      const sink = AppCustomSceneCareTurnHandoffSink();
+      final handoff = CustomSceneCareTurnHandoff(
+        generatedContentId: 'generated_reconciled',
+      );
+
+      Future<void> expectGeneratedHandoff() async {
+        await sink.handoff(handoff);
+        await _pumpUntilFound(tester, find.byType(PracticeSessionScreen));
+        final screen = tester.widget<PracticeSessionScreen>(
+          find.byType(PracticeSessionScreen),
+        );
+        expect(
+          screen.routeEntry.generatedArgs?.generatedContentId,
+          'generated_reconciled',
+        );
+      }
+
+      await expectGeneratedHandoff();
+      Navigator.of(tester.element(find.byType(PracticeSessionScreen))).pop();
+      await _pumpUntilFound(tester, find.byKey(const Key('shell-ready')));
+      await expectGeneratedHandoff();
+    },
+  );
 
   testWidgets(
     '存在 completed snapshot 与 recent activity 时冷启动会 seed continuity recommendation',

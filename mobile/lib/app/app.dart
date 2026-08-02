@@ -10,6 +10,7 @@ import 'package:mobile/l10n/app_localizations.dart';
 import 'package:mobile/app/invite_reentry_coordinator.dart';
 import 'package:mobile/app/router/account_route_builder.dart';
 import 'package:mobile/app/router/app_route_contract.dart';
+import 'package:mobile/app/router/root_navigator_key.dart';
 import 'package:mobile/app/share_reentry_coordinator.dart';
 import 'package:mobile/app/theme/app_layout_constants.dart';
 import 'package:mobile/app/theme/app_theme.dart';
@@ -171,7 +172,6 @@ class _BabyTalkAppState extends ConsumerState<BabyTalkApp> {
   late final bool _ownsShareReentryCoordinator;
   late final bool _ownsInviteReentryCoordinator;
   late final AppReentryOrchestrator _reentryOrchestrator;
-  final GlobalKey<NavigatorState> _navigatorKey = GlobalKey<NavigatorState>();
   GoRouter? _currentRouter;
   _AppLaunchState? _resolvedLaunchState;
 
@@ -346,7 +346,7 @@ class _BabyTalkAppState extends ConsumerState<BabyTalkApp> {
   }
 
   T? _lookupNotifier<T>() {
-    final context = _navigatorKey.currentContext;
+    final context = appRootNavigatorKey.currentContext;
     if (context == null) {
       return null;
     }
@@ -373,7 +373,7 @@ class _BabyTalkAppState extends ConsumerState<BabyTalkApp> {
     required OnboardingRepository onboardingRepository,
   }) {
     _currentRouter = GoRouter(
-      navigatorKey: _navigatorKey,
+      navigatorKey: appRootNavigatorKey,
       initialLocation: launchState.initialRoute,
       routes: [
         GoRoute(
