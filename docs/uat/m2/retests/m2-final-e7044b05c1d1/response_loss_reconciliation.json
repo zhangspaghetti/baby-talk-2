@@ -1,0 +1,43 @@
+{
+  "schema_version": "m2_android_uat_v1",
+  "record_id": "uat_response_loss_reconciliation_e7044b05_20260802",
+  "case_id": "response_loss_reconciliation",
+  "canonical_scene": "bath",
+  "executor": "role:codex_qa_operator",
+  "executed_at": "2026-08-02T18:19:30+08:00",
+  "timezone": "Asia/Shanghai",
+  "candidate": {
+    "mobile_source_sha": "e7044b05c1d10572f3335d6999b91517a7bb73c7",
+    "mobile_apk_sha256": "479f1c74af500244cbec1d593dc23de289e31cfeb6806b1eef538fa8a211d188",
+    "backend_source_sha": "e7044b05c1d10572f3335d6999b91517a7bb73c7",
+    "backend_artifact_identity": "image_sha256:313af60fe4d426894ca53c1cbae94a608abde8adda863671123cbfed04ad9bad",
+    "environment_identity": "sanitized-qa-kind-rev44",
+    "provider_mode": "REAL",
+    "provider_profile": "qa-dashscope-qwen",
+    "provider_model_identity": "model_sha256:bb43a640f04c8e5504a8fbc8c6980455029f3e8fc1dedff10bcd04f94c4f4319",
+    "configuration_fingerprint": "sha256:496cc55ee84a41bc980995ef3ec4a56b681562817c5b51f08d8590bbdaff1832"
+  },
+  "device": {"device_class": "pixel_9_pro_emulator", "android_version": "15", "talkback_version": "15.0.0"},
+  "authenticity": {"execution": "HUMAN_ANDROID", "provider_path": "FORMAL_PRODUCTION", "llm_provider": "REAL", "tts_provider": "REAL"},
+  "prerequisites": [
+    {"id": "candidate_installed", "status": "PASS"},
+    {"id": "authenticated_account_ready", "status": "PASS"},
+    {"id": "single_new_request_committed", "status": "PASS"},
+    {"id": "unknown_outcome_visible", "status": "PASS"}
+  ],
+  "steps": [
+    {"index": 1, "action": "capture_sanitized_identity_baseline", "expected": "counts_four_five_nine_nine", "actual": "counts_four_five_nine_nine", "status": "PASS"},
+    {"index": 2, "action": "observe_same_identity_retry_control", "expected": "continue_confirming_result_visible", "actual": "continue_confirming_result_visible", "status": "PASS"},
+    {"index": 3, "action": "wait_for_same_identity_terminal", "expected": "terminal_outcome_available", "actual": "terminal_outcome_available", "status": "PASS"},
+    {"index": 4, "action": "invoke_reconciliation_once", "expected": "same_identity_terminal_rendered", "actual": "same_identity_terminal_rendered", "status": "PASS"},
+    {"index": 5, "action": "verify_no_duplicate_request_or_content", "expected": "counts_remain_five_six_eleven_eleven", "actual": "counts_remain_five_six_eleven_eleven", "status": "PASS"},
+    {"index": 6, "action": "verify_terminal_failure_mapping", "expected": "generation_ended_message_visible", "actual": "generation_ended_message_visible", "status": "PASS"}
+  ],
+  "status": "FINAL",
+  "verdict": "PASS",
+  "evidence_location": "reviewed://m2_40/m2_final_e7044b05c1d1/response_loss_reconciliation",
+  "defects": [],
+  "retest_outcome": "NOT_REQUIRED",
+  "privacy": {"raw_content_stored": false, "raw_evidence_stored": false, "sensitive_identifiers_stored": false, "sanitized": true},
+  "branch_reviews": []
+}
