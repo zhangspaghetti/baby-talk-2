@@ -1,5 +1,6 @@
 package com.zhangspaghetti.babytalk.practice.agentic;
 
+import com.zhangspaghetti.babytalk.practice.agentic.config.PracticeAiReasoningEffort;
 import java.util.Objects;
 import org.springframework.ai.converter.BeanOutputConverter;
 import org.springframework.ai.converter.ResponseTextCleaner;
@@ -91,7 +92,7 @@ public class PracticeAiStructuredOutputCaller {
             String systemPrompt,
             String userPrompt,
             Class<T> responseType,
-            ReasoningEffort reasoningEffort
+            PracticeAiReasoningEffort reasoningEffort
     ) {
         var converter = strictConverter(responseType);
         var options = OpenAiChatOptions.builder()
@@ -141,7 +142,7 @@ public class PracticeAiStructuredOutputCaller {
             String userPrompt,
             Class<T> responseType,
             int minimumOutputTokens,
-            ReasoningEffort reasoningEffort
+            PracticeAiReasoningEffort reasoningEffort
     ) {
         requireOutputBudget(provider, minimumOutputTokens);
         return callRaw(
@@ -233,20 +234,6 @@ public class PracticeAiStructuredOutputCaller {
                 case "tool_calls", "function_call" -> TOOL_CALLS;
                 default -> OTHER;
             };
-        }
-    }
-
-    public enum ReasoningEffort {
-        NONE("none");
-
-        private final String wireValue;
-
-        ReasoningEffort(String wireValue) {
-            this.wireValue = wireValue;
-        }
-
-        private String wireValue() {
-            return wireValue;
         }
     }
 

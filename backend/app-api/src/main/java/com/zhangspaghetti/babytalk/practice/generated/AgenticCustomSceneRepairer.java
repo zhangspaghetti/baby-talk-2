@@ -137,7 +137,7 @@ public class AgenticCustomSceneRepairer implements CustomSceneRepairer {
                     userPrompt,
                     CompleteGeneratedBundle.ProviderResponse.class,
                     profile.minimumCompleteBundleOutputTokens(),
-                    PracticeAiStructuredOutputCaller.ReasoningEffort.NONE);
+                    inferencePolicy.reasoningEffort());
         }
         return structuredOutputCaller.callRaw(
                 provider,

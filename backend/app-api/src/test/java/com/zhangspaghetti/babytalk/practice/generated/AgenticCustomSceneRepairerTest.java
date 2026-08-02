@@ -17,6 +17,7 @@ import com.zhangspaghetti.babytalk.practice.agentic.PracticeAiOperationRunner;
 import com.zhangspaghetti.babytalk.practice.agentic.PracticeAiStructuredOutputCaller;
 import com.zhangspaghetti.babytalk.practice.agentic.ResolvedProvider;
 import com.zhangspaghetti.babytalk.practice.agentic.config.GenerationProfile;
+import com.zhangspaghetti.babytalk.practice.agentic.config.PracticeAiReasoningEffort;
 import com.zhangspaghetti.babytalk.practice.agentic.config.VersionedRef;
 import com.zhangspaghetti.babytalk.practice.agentic.config.VersionedResourceRegistry;
 import com.zhangspaghetti.babytalk.practice.generated.quality.JudgeDimension;
@@ -137,14 +138,14 @@ class AgenticCustomSceneRepairerTest {
         var provider = new ResolvedProvider("primary", "openai-compatible", "glm-5.2", mock(ChatClient.class));
         when(caller.callRaw(eq(provider), eq("REPAIR SYSTEM PROMPT"), any(String.class),
                 eq(CompleteGeneratedBundle.ProviderResponse.class), eq(8192),
-                eq(PracticeAiStructuredOutputCaller.ReasoningEffort.NONE))).thenReturn(wireJson());
+                eq(PracticeAiReasoningEffort.NONE))).thenReturn(wireJson());
         var callbackResult = operation.invocation().invoke(provider);
 
         assertThat(callbackResult.value()).isEqualTo(wire);
         var promptCaptor = ArgumentCaptor.forClass(String.class);
         verify(caller).callRaw(eq(provider), eq("REPAIR SYSTEM PROMPT"), promptCaptor.capture(),
                 eq(CompleteGeneratedBundle.ProviderResponse.class), eq(8192),
-                eq(PracticeAiStructuredOutputCaller.ReasoningEffort.NONE));
+                eq(PracticeAiReasoningEffort.NONE));
         assertThat(promptCaptor.getValue())
                 .contains(
                         "给宝宝穿鞋",
@@ -220,7 +221,7 @@ class AgenticCustomSceneRepairerTest {
                 eq(CompleteGeneratedBundle.ProviderResponse.class), eq(8192));
         verify(caller, never()).callRaw(eq(provider), eq("REPAIR SYSTEM PROMPT"), any(String.class),
                 eq(CompleteGeneratedBundle.ProviderResponse.class), eq(8192),
-                any(PracticeAiStructuredOutputCaller.ReasoningEffort.class));
+                any(PracticeAiReasoningEffort.class));
     }
 
     @Test
@@ -387,6 +388,6 @@ class AgenticCustomSceneRepairerTest {
                 new GenerationProfile.RepairInferencePolicy(
                         "openai-compatible",
                         List.of("glm-5.2"),
-                        "none"));
+                        PracticeAiReasoningEffort.NONE));
     }
 }

@@ -3,6 +3,9 @@ package com.zhangspaghetti.babytalk.practice.agentic;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.zhangspaghetti.babytalk.practice.generated.contract.CompleteGeneratedBundle;
+import com.zhangspaghetti.babytalk.practice.agentic.config.PracticeAiReasoningEffort;
+import com.zhangspaghetti.babytalk.practice.agentic.config.VersionedResourceRegistry;
 import com.sun.net.httpserver.HttpServer;
 import java.io.IOException;
 import java.net.InetSocketAddress;
@@ -11,10 +14,13 @@ import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.CopyOnWriteArrayList;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.springframework.core.io.DefaultResourceLoader;
 import org.springframework.mock.env.MockEnvironment;
+import tools.jackson.databind.json.JsonMapper;
 
 class PracticeAiSingleRequestContractTest {
 
@@ -298,18 +304,18 @@ class PracticeAiSingleRequestContractTest {
     }
 
     @Test
-    void boundedNonReasoningRepairRequestAvoidsTruncatedCompletionInOneOutboundCall() throws Exception {
+    void formalRepairBundleTruncatesWithoutCompatibilityAndCompletesWithBoundedControl() throws Exception {
         var requestCount = new AtomicInteger();
-        var requestBody = new AtomicReference<String>();
+        var requestBodies = new CopyOnWriteArrayList<String>();
         var server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
         server.createContext("/v1/chat/completions", exchange -> {
             requestCount.incrementAndGet();
             var body = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
-            requestBody.set(body);
+            requestBodies.add(body);
             var compatible = body.contains("\"reasoning_effort\":\"none\"");
             var response = compatible
-                    ? openAiEnvelope("{\"answer\":\"complete\"}")
-                    : openAiEnvelope("{\"answer\":\"partial", "length", 100, 8192);
+                    ? openAiEnvelope(completeBundleJson())
+                    : openAiEnvelope("{\"schemaVersion\":\"complete-generated-bundle-v1\"", "length", 100, 8192);
             var bytes = response.getBytes(StandardCharsets.UTF_8);
             exchange.getResponseHeaders().set("Content-Type", "application/json");
             exchange.sendResponseHeaders(200, bytes.length);
@@ -319,18 +325,45 @@ class PracticeAiSingleRequestContractTest {
         });
         server.start();
         try {
-            var provider = provider(server, "maxTokens", 8192);
+            var provider = provider(server, "maxTokens", 8192, "glm-5.2");
+            var caller = new PracticeAiStructuredOutputCaller();
+            var profile = new VersionedResourceRegistry(new DefaultResourceLoader())
+                    .currentGenerationProfile();
+            var repairInferencePolicy = profile.repairInferencePolicy();
 
-            assertThat(new PracticeAiStructuredOutputCaller().callRaw(
-                    provider,
-                    "system",
-                    "return JSON",
-                    Answer.class,
-                    8192,
-                    PracticeAiStructuredOutputCaller.ReasoningEffort.NONE))
-                    .isEqualTo("{\"answer\":\"complete\"}");
+            assertThat(profile.version()).isEqualTo("custom-scene-generation-v5");
+            assertThat(repairInferencePolicy.matches(provider.providerType(), provider.modelName()))
+                    .isTrue();
+
+            var truncated = org.assertj.core.api.Assertions.catchThrowableOfType(
+                    () -> caller.callRaw(
+                            provider,
+                            "REPAIR SYSTEM PROMPT",
+                            "formal repair payload",
+                            CompleteGeneratedBundle.ProviderResponse.class,
+                            8192),
+                    PracticeAiStructuredOutputCaller.StructuredOutputInvalidException.class);
+
+            assertThat(truncated).hasMessage("output_truncated");
             assertThat(requestCount).hasValue(1);
-            assertThat(requestBody.get())
+            assertThat(requestBodies.get(0))
+                    .contains("\"max_tokens\":8192")
+                    .contains("\"response_format\"")
+                    .contains("\"json_schema\"")
+                    .doesNotContain("reasoning_effort");
+
+            var completed = caller.callRaw(
+                    provider,
+                    "REPAIR SYSTEM PROMPT",
+                    "formal repair payload",
+                    CompleteGeneratedBundle.ProviderResponse.class,
+                    8192,
+                    repairInferencePolicy.reasoningEffort());
+
+            assertThat(CompleteGeneratedBundle.ProviderResponse.parse(completed))
+                    .isEqualTo(completeBundleWire());
+            assertThat(requestCount).hasValue(2);
+            assertThat(requestBodies.get(1))
                     .contains("\"max_tokens\":8192")
                     .contains("\"response_format\"")
                     .contains("\"json_schema\"")
@@ -349,11 +382,11 @@ class PracticeAiSingleRequestContractTest {
 
             assertThatThrownBy(() -> new PracticeAiStructuredOutputCaller().callRaw(
                     provider,
-                    "system",
-                    "return JSON",
-                    Answer.class,
+                    "REPAIR SYSTEM PROMPT",
+                    "formal repair payload",
+                    CompleteGeneratedBundle.ProviderResponse.class,
                     8192,
-                    PracticeAiStructuredOutputCaller.ReasoningEffort.NONE))
+                    PracticeAiReasoningEffort.NONE))
                     .isInstanceOf(PracticeAiStructuredOutputCaller.OutputBudgetTooSmallException.class)
                     .hasMessage("output_budget_too_small");
             assertThat(requestCount).hasValue(0);
@@ -404,6 +437,15 @@ class PracticeAiSingleRequestContractTest {
     }
 
     private ResolvedProvider provider(HttpServer server, String tokenLimitField, int tokenLimit) {
+        return provider(server, tokenLimitField, tokenLimit, "gpt-4o-mini");
+    }
+
+    private ResolvedProvider provider(
+            HttpServer server,
+            String tokenLimitField,
+            int tokenLimit,
+            String modelName
+    ) {
         var environment = new MockEnvironment().withProperty("TEST_AI_KEY", "test-key");
         var factory = new PracticeAiChatClientFactory(environment, new PracticeAiOpenAiOptionsFactory());
         return factory.create(
@@ -412,7 +454,7 @@ class PracticeAiSingleRequestContractTest {
                         "openai-compatible",
                         URI.create("http://127.0.0.1:" + server.getAddress().getPort() + "/v1"),
                         "TEST_AI_KEY",
-                        "gpt-4o-mini",
+                        modelName,
                         Duration.ofSeconds(2),
                         null,
                         "maxTokens".equals(tokenLimitField) ? tokenLimit : null,
@@ -456,6 +498,55 @@ class PracticeAiSingleRequestContractTest {
                         rawFinishReason,
                         usage == null ? "" : ",\"usage\":" + usage);
         return envelope;
+    }
+
+    private String completeBundleJson() {
+        return new JsonMapper().writeValueAsString(completeBundleWire());
+    }
+
+    private CompleteGeneratedBundle.ProviderResponse completeBundleWire() {
+        return new CompleteGeneratedBundle.ProviderResponse(
+                CompleteGeneratedBundle.CURRENT_SCHEMA_VERSION,
+                new CompleteGeneratedBundle.SceneMetadata("日常照护", "穿鞋出门", "Shoes on"),
+                new CompleteGeneratedBundle.ProviderUtterances(
+                        utterance(CompleteGeneratedBundle.UtteranceRole.STARTER, null, 1),
+                        utterance(
+                                CompleteGeneratedBundle.UtteranceRole.REACTION_SUPPORT,
+                                CompleteGeneratedBundle.Reaction.COOPERATING,
+                                2),
+                        utterance(
+                                CompleteGeneratedBundle.UtteranceRole.REACTION_SUPPORT,
+                                CompleteGeneratedBundle.Reaction.HESITANT,
+                                3),
+                        utterance(
+                                CompleteGeneratedBundle.UtteranceRole.REACTION_SUPPORT,
+                                CompleteGeneratedBundle.Reaction.RESISTING,
+                                4),
+                        utterance(
+                                CompleteGeneratedBundle.UtteranceRole.REACTION_SUPPORT,
+                                CompleteGeneratedBundle.Reaction.NO_RESPONSE,
+                                5),
+                        utterance(
+                                CompleteGeneratedBundle.UtteranceRole.REACTION_SUPPORT,
+                                CompleteGeneratedBundle.Reaction.OTHER,
+                                6)));
+    }
+
+    private CompleteGeneratedBundle.ProviderUtterance utterance(
+            CompleteGeneratedBundle.UtteranceRole role,
+            CompleteGeneratedBundle.Reaction reaction,
+            int displayOrder
+    ) {
+        return new CompleteGeneratedBundle.ProviderUtterance(
+                role,
+                reaction,
+                "Shoes on.",
+                "穿鞋出门。",
+                "shoes on",
+                "拿起鞋子。",
+                "慢慢说。",
+                "starter",
+                displayOrder);
     }
 
     record Answer(String answer) {

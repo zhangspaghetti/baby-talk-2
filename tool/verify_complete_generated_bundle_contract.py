@@ -67,7 +67,7 @@ def verify_no_production_fallback() -> bool:
             "contentConstraintsPayload(request.contentConstraints())",
             "CompleteGeneratedBundle.persistenceCodePointLimits()",
             "profile.repairInferencePolicy()",
-            "PracticeAiStructuredOutputCaller.ReasoningEffort.NONE",
+            "inferencePolicy.reasoningEffort()",
         ),
         "AgenticCustomSceneQualityJudge.java": (
             "profile.minimumQualityJudgeOutputTokens()",

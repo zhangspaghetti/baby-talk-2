@@ -28,7 +28,7 @@ class VersionedResourceRegistryTest {
                 new GenerationProfile.RepairInferencePolicy(
                         "openai-compatible",
                         java.util.List.of("glm-5.2"),
-                        "none"));
+                        PracticeAiReasoningEffort.NONE));
         assertThat(registry.promptText(VersionedResourceRegistry.PromptKind.GENERATOR)).contains("strict JSON");
     }
 

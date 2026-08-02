@@ -396,10 +396,13 @@ public class VersionedResourceRegistry {
             throw new IllegalStateException(context + " model-names are invalid");
         }
         var reasoningEffort = string(policy, "reasoning-effort", context);
-        if (!"none".equals(reasoningEffort)) {
+        PracticeAiReasoningEffort typedReasoningEffort;
+        try {
+            typedReasoningEffort = PracticeAiReasoningEffort.fromWireValue(reasoningEffort);
+        } catch (IllegalArgumentException exception) {
             throw new IllegalStateException(context + " reasoning-effort is invalid");
         }
-        return new GenerationProfile.RepairInferencePolicy(providerType, modelNames, reasoningEffort);
+        return new GenerationProfile.RepairInferencePolicy(providerType, modelNames, typedReasoningEffort);
     }
 
     private static int positiveInteger(Map<String, Object> document, String key, String context) {

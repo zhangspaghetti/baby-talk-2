@@ -2,6 +2,7 @@ package com.zhangspaghetti.babytalk.practice.agentic.config;
 
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Objects;
 
 public record GenerationProfile(
         String version,
@@ -139,7 +140,7 @@ public record GenerationProfile(
     public record RepairInferencePolicy(
             String providerType,
             List<String> modelNames,
-            String reasoningEffort
+            PracticeAiReasoningEffort reasoningEffort
     ) {
         private static final int MAX_MODEL_NAMES = 8;
 
@@ -154,9 +155,7 @@ public record GenerationProfile(
                     || modelNames.stream().anyMatch(model -> model == null || model.isBlank())) {
                 throw new IllegalArgumentException("repair inference model names are invalid");
             }
-            if (!"none".equals(reasoningEffort)) {
-                throw new IllegalArgumentException("repair inference reasoning effort is invalid");
-            }
+            Objects.requireNonNull(reasoningEffort, "repair inference reasoning effort is required");
         }
 
         public boolean matches(String candidateProviderType, String candidateModelName) {
