@@ -1,0 +1,47 @@
+{
+  "schema_version": "m2_android_uat_v1",
+  "record_id": "uat_talkback_human_accessibility_30b8dd48_20260802",
+  "case_id": "talkback_human_accessibility",
+  "canonical_scene": "bath",
+  "executor": "role:codex_qa_operator",
+  "executed_at": "2026-08-02T19:45:28+08:00",
+  "timezone": "Asia/Shanghai",
+  "candidate": {
+    "mobile_source_sha": "30b8dd48961c4108ce60978eab664f949480aa4a",
+    "mobile_apk_sha256": "479f1c74af500244cbec1d593dc23de289e31cfeb6806b1eef538fa8a211d188",
+    "backend_source_sha": "30b8dd48961c4108ce60978eab664f949480aa4a",
+    "backend_artifact_identity": "image_sha256:efcba6728be94b7b39a9f3e4f557d8e1c0f70d6b1959125a74608c88b4ce3f73",
+    "environment_identity": "sanitized-qa-kind-rev46",
+    "provider_mode": "REAL",
+    "provider_profile": "qa-dashscope-qwen",
+    "provider_model_identity": "model_sha256:bb43a640f04c8e5504a8fbc8c6980455029f3e8fc1dedff10bcd04f94c4f4319",
+    "configuration_fingerprint": "sha256:ff471111f93500f8b888fc3ba06ff7fb3bb642c88904a989fa94b9e363e971f4"
+  },
+  "device": {"device_class": "pixel_9_pro_emulator", "android_version": "15", "talkback_version": "15.0.0"},
+  "authenticity": {"execution": "HUMAN_ANDROID", "provider_path": "FORMAL_PRODUCTION", "llm_provider": "REAL", "tts_provider": "REAL"},
+  "prerequisites": [
+    {"id": "candidate_installed", "status": "PASS"},
+    {"id": "generated_flow_controls_visible", "status": "BLOCKED"},
+    {"id": "human_hearing_available", "status": "BLOCKED"}
+  ],
+  "steps": [
+    {"index": 1, "action": "reach_generated_flow_for_talkback", "expected": "generated_controls_visible", "actual": "repair_output_truncated_prevented_controls", "status": "BLOCKED"},
+    {"index": 2, "action": "enable_talkback_for_generated_flow", "expected": "talkback_service_active", "actual": "not_run", "status": "NOT_RUN"},
+    {"index": 3, "action": "review_spoken_order_and_announcements", "expected": "human_heard_accessibility_observations", "actual": "not_run", "status": "NOT_RUN"}
+  ],
+  "status": "FINAL",
+  "verdict": "BLOCKED",
+  "evidence_location": "reviewed://m2_40/m2_final_30b8dd48961c/talkback_human_accessibility",
+  "defects": [],
+  "retest_outcome": "NOT_REQUIRED",
+  "privacy": {"raw_content_stored": false, "raw_evidence_stored": false, "sensitive_identifiers_stored": false, "sanitized": true},
+  "branch_reviews": [],
+  "accessibility": {
+    "method": "SEMANTICS",
+    "observations": [
+      "generated_controls_blocked_by_repair_output_truncated",
+      "talkback_not_enabled",
+      "human_hearing_not_performed"
+    ]
+  }
+}
