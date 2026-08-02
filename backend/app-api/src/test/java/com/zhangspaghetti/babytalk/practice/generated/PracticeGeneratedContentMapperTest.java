@@ -38,6 +38,8 @@ class PracticeGeneratedContentMapperTest extends AbstractIntegrationTest {
 
     private static final Instant NOW = Instant.parse("2026-07-03T04:00:00Z");
     private static final OffsetDateTime NOW_DB = OffsetDateTime.ofInstant(NOW, ZoneOffset.UTC);
+    private static final OffsetDateTime WALL_CLOCK_NOW_DB = OffsetDateTime.now(ZoneOffset.UTC);
+    private static final OffsetDateTime ACTIVE_RETENTION_EXPIRES_AT = WALL_CLOCK_NOW_DB.plusDays(30);
 
     @Autowired
     private PracticeGeneratedContentService repository;
@@ -733,7 +735,7 @@ class PracticeGeneratedContentMapperTest extends AbstractIntegrationTest {
                 .active()
                 .ownerKey(ownerKey)
                 .requestFingerprint("fp_repo_expired_active")
-                .retentionExpiresAt(OffsetDateTime.now(ZoneOffset.UTC).minusMinutes(1))
+                .retentionExpiresAt(WALL_CLOCK_NOW_DB.minusMinutes(1))
                 .build());
 
         assertThat(repository.findActiveOrPromotedByGeneratedContentId("pgc_repo_expired_active")).isEmpty();
@@ -1524,8 +1526,9 @@ class PracticeGeneratedContentMapperTest extends AbstractIntegrationTest {
                 generationErrorCode = "test_terminal";
             }
             if (fillInstallationRetention && "installation".equals(ownerScope) && retentionExpiresAt == null) {
-                retentionExpiresAt = NOW_DB.plusDays(
-                        "active".equals(status) || "promoted".equals(status) ? 30 : 7);
+                retentionExpiresAt = "active".equals(status) || "promoted".equals(status)
+                        ? ACTIVE_RETENTION_EXPIRES_AT
+                        : NOW_DB.plusDays(7);
             }
             if ("generating".equals(status) && generationStartedAt == null) {
                 generationStartedAt = NOW_DB;
