@@ -1,0 +1,58 @@
+{
+  "schema_version": "m2_android_uat_v1",
+  "record_id": "uat_android_generated_flow_57a8f05c_20260802",
+  "case_id": "android_generated_flow",
+  "canonical_scene": "bath",
+  "executor": "role:codex_qa_operator",
+  "executed_at": "2026-08-02T10:54:05+08:00",
+  "timezone": "Asia/Shanghai",
+  "candidate": {
+    "mobile_source_sha": "57a8f05c199fa7384a191a292ddc88a2b158ea69",
+    "mobile_apk_sha256": "479f1c74af500244cbec1d593dc23de289e31cfeb6806b1eef538fa8a211d188",
+    "backend_source_sha": "57a8f05c199fa7384a191a292ddc88a2b158ea69",
+    "backend_artifact_identity": "image_sha256:19b56bf40b3ce5f9e907171f4f41a31a1e7835110b645c7d221d6761893e4cf6",
+    "environment_identity": "sanitized-qa-kind-rev41",
+    "provider_mode": "REAL",
+    "provider_profile": "qa-dashscope-qwen",
+    "provider_model_identity": "model_sha256:bb43a640f04c8e5504a8fbc8c6980455029f3e8fc1dedff10bcd04f94c4f4319",
+    "configuration_fingerprint": "sha256:7b84949e6a6731e72a40c2b82ccad6d63d19488f521629102d2b963b1a540df8"
+  },
+  "device": {
+    "device_class": "pixel_9_pro_emulator",
+    "android_version": "15",
+    "talkback_version": "15.0.0"
+  },
+  "authenticity": {
+    "execution": "HUMAN_ANDROID",
+    "provider_path": "FORMAL_PRODUCTION",
+    "llm_provider": "REAL",
+    "tts_provider": "REAL"
+  },
+  "prerequisites": [
+    {"id": "candidate_installed", "status": "PASS"},
+    {"id": "candidate_hash_matched", "status": "PASS"},
+    {"id": "qa_revision_forty_one_healthy", "status": "PASS"},
+    {"id": "authenticated_account_ready", "status": "PASS"},
+    {"id": "formal_backend_reachable", "status": "PASS"}
+  ],
+  "steps": [
+    {"index": 1, "action": "cold_launch_authenticated_application", "expected": "authenticated_home_visible", "actual": "authenticated_home_visible", "status": "PASS"},
+    {"index": 2, "action": "verify_old_pending_and_catalog", "expected": "old_bundle_or_pending_recoverable", "actual": "old_pending_expired_and_bundle_not_visible", "status": "FAIL"},
+    {"index": 3, "action": "submit_one_new_synthetic_bath_scene", "expected": "single_formal_generation_started", "actual": "single_formal_generation_started", "status": "PASS"},
+    {"index": 4, "action": "observe_android_generation_boundary", "expected": "typed_bundle_or_reconciliation_control", "actual": "same_identity_reconciliation_control_visible", "status": "PASS"},
+    {"index": 5, "action": "inspect_sanitized_provider_terminal", "expected": "complete_bundle_ready", "actual": "providers_exhausted_generation_unavailable", "status": "FAIL"},
+    {"index": 6, "action": "observe_android_terminal_result", "expected": "typed_bundle_visible", "actual": "generation_ended_terminal_visible", "status": "FAIL"}
+  ],
+  "status": "FINAL",
+  "verdict": "FAIL",
+  "evidence_location": "reviewed://m2_40/m2_final_57a8f05c199f/android_generated_flow",
+  "defects": [],
+  "retest_outcome": "NOT_REQUIRED",
+  "privacy": {
+    "raw_content_stored": false,
+    "raw_evidence_stored": false,
+    "sensitive_identifiers_stored": false,
+    "sanitized": true
+  },
+  "branch_reviews": []
+}
