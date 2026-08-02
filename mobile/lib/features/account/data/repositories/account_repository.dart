@@ -6,7 +6,9 @@ import 'package:mobile/features/account/data/services/account_api_service.dart';
 import 'package:mobile/features/account/data/services/account_external_link_opener.dart';
 import 'package:mobile/features/account/data/services/authenticated_api_client.dart';
 import 'package:mobile/features/account/domain/models/account_consent_state.dart';
+import 'package:mobile/features/account/domain/models/account_sign_in_challenge.dart';
 import 'package:mobile/features/account/domain/models/account_session.dart';
+import 'package:mobile/features/account/domain/repositories/account_challenge_repository_contract.dart';
 import 'package:mobile/features/practice/data/repositories/practice_repository.dart';
 
 export 'package:mobile/features/account/data/repositories/account_repository_contract.dart'
@@ -14,6 +16,7 @@ export 'package:mobile/features/account/data/repositories/account_repository_con
         AccountRepositoryContract,
         AccountRuntimeTrigger,
         AccountRuntimeTriggerWire;
+export 'package:mobile/features/account/domain/models/account_sign_in_challenge.dart';
 
 typedef AccountConnectivityChecker = Future<bool> Function();
 
@@ -56,12 +59,67 @@ class AccountRepository implements AccountRepositoryContract {
     required String phoneNumber,
     required String verificationCode,
   }) async {
+    try {
+      final challenge = await _requestSignInChallenge(
+        phoneNumber: phoneNumber,
+        purpose: AccountChallengePurpose.login,
+      );
+      await _completeSignIn(
+        phoneNumber: phoneNumber,
+        verificationCode: verificationCode,
+        challenge: challenge,
+      );
+      return loadSnapshot();
+    } on AccountApiException catch (error) {
+      final snapshot = await _handleApiFailure(
+        currentSnapshot: await _readSnapshotSafely(),
+        error: error,
+        phasePrefix: 'login_failed',
+        preserveSession: true,
+      );
+      await _localStore.write(snapshot);
+      return snapshot;
+    }
+  }
+
+  Future<AccountSignInChallenge> _requestSignInChallenge({
+    required String phoneNumber,
+    required AccountChallengePurpose purpose,
+  }) async {
     final api = _apiService;
     if (api == null) {
-      return savePlaceholderSession(
+      final now = DateTime.now().toUtc();
+      return AccountSignInChallenge(
+        challengeId: 'local-${now.microsecondsSinceEpoch}',
+        maskedPhoneNumber: _maskPhoneNumber(phoneNumber),
+        codeLength: 6,
+        purpose: purpose,
+        expiresAt: now.add(const Duration(minutes: 5)),
+      );
+    }
+
+    final response = await api.createChallenge(phoneNumber: phoneNumber);
+    return AccountSignInChallenge(
+      challengeId: response.challengeId,
+      maskedPhoneNumber: response.maskedPhoneNumber,
+      codeLength: response.codeLength,
+      purpose: purpose,
+      expiresAt: response.expiresAt,
+    );
+  }
+
+  Future<AccountSignInCompletion> _completeSignIn({
+    required String phoneNumber,
+    required String verificationCode,
+    required AccountSignInChallenge challenge,
+  }) async {
+    final api = _apiService;
+    if (api == null) {
+      await savePlaceholderSession(
         phoneNumber: phoneNumber,
         verificationCode: verificationCode,
       );
+      return const AccountSignInCompletion.authenticated();
     }
 
     final installationId =
@@ -70,7 +128,6 @@ class AccountRepository implements AccountRepositoryContract {
     final now = DateTime.now().toUtc();
 
     try {
-      final challenge = await api.createChallenge(phoneNumber: phoneNumber);
       final verified = await api.verifyChallenge(
         challengeId: challenge.challengeId,
         verificationCode: verificationCode,
@@ -109,11 +166,12 @@ class AccountRepository implements AccountRepositoryContract {
       );
       await _localStore.write(snapshot);
 
-      return refreshRuntimeState(
+      await refreshRuntimeState(
         trigger: AccountRuntimeTrigger.loginSuccess,
         seedSnapshot: snapshot,
         forceBootstrap: true,
       );
+      return const AccountSignInCompletion.authenticated();
     } on AuthenticatedApiClientException catch (error) {
       final snapshot = await _handleAuthenticatedFailure(
         currentSnapshot: await _readSnapshotSafely(),
@@ -121,7 +179,9 @@ class AccountRepository implements AccountRepositoryContract {
         phasePrefix: 'login_failed',
       );
       await _localStore.write(snapshot);
-      return snapshot;
+      return const AccountSignInCompletion.rejected(
+        userMessage: '登录后同步失败，请稍后重试。',
+      );
     } on AccountApiException catch (error) {
       final snapshot = await _handleApiFailure(
         currentSnapshot: await _readSnapshotSafely(),
@@ -130,7 +190,9 @@ class AccountRepository implements AccountRepositoryContract {
         preserveSession: true,
       );
       await _localStore.write(snapshot);
-      return snapshot;
+      return AccountSignInCompletion.rejected(
+        userMessage: _signInFailureMessage(error),
+      );
     }
   }
 
@@ -884,6 +946,23 @@ class AccountRepository implements AccountRepositoryContract {
     return _sanitizeVisibleError(error.message);
   }
 
+  String _signInFailureMessage(AccountApiException error) {
+    if (error.isUnauthorized) {
+      return '验证码错误或已过期，请重新获取。';
+    }
+    if (error.isVersionBlocked) {
+      return '应用版本过低，请更新后重试。';
+    }
+    if (error.isAccountDeleted) {
+      return '该账号已注销。';
+    }
+    if (error.kind == AccountApiFailureKind.network ||
+        error.kind == AccountApiFailureKind.timeout) {
+      return '网络连接失败，请稍后重试。';
+    }
+    return '验证失败，请稍后重试。';
+  }
+
   String _sanitizeVisibleError(String value) {
     var sanitized = value;
     sanitized = sanitized.replaceAll(RegExp(r'1\d{10}'), '***手机号***');
@@ -907,6 +986,43 @@ class AccountRepository implements AccountRepositoryContract {
     final prefix = digits.substring(0, 3);
     final suffix = digits.substring(digits.length - 4);
     return '$prefix****$suffix';
+  }
+}
+
+AccountChallengeRepositoryContract createAccountChallengeRepository(
+  AccountRepository repository,
+) {
+  return _AccountChallengeRepositoryAdapter(repository);
+}
+
+class _AccountChallengeRepositoryAdapter
+    implements AccountChallengeRepositoryContract {
+  const _AccountChallengeRepositoryAdapter(this._repository);
+
+  final AccountRepository _repository;
+
+  @override
+  Future<AccountSignInChallenge> requestSignInChallenge({
+    required String phoneNumber,
+    required AccountChallengePurpose purpose,
+  }) {
+    return _repository._requestSignInChallenge(
+      phoneNumber: phoneNumber,
+      purpose: purpose,
+    );
+  }
+
+  @override
+  Future<AccountSignInCompletion> completeSignIn({
+    required String phoneNumber,
+    required String verificationCode,
+    required AccountSignInChallenge challenge,
+  }) {
+    return _repository._completeSignIn(
+      phoneNumber: phoneNumber,
+      verificationCode: verificationCode,
+      challenge: challenge,
+    );
   }
 }
 

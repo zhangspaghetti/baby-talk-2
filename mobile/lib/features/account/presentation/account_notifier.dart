@@ -6,6 +6,8 @@ import 'package:mobile/features/account/data/local/account_local_store.dart';
 import 'package:mobile/features/account/data/repositories/account_repository_contract.dart';
 import 'package:mobile/features/account/data/services/account_external_link_opener.dart';
 import 'package:mobile/features/account/domain/models/account_consent_state.dart';
+import 'package:mobile/features/account/domain/models/account_sign_in_challenge.dart';
+import 'package:mobile/features/account/domain/repositories/account_challenge_repository_contract.dart';
 
 const _localOnlyPhoneHint = '先离线练习也没关系，登录后会补同步最近记录。';
 const _signedOutPhoneHint = '请输入手机号与验证码，完成登录并同意同步。';
@@ -21,21 +23,24 @@ class AccountNotifier extends ChangeNotifier with WidgetsBindingObserver {
   AccountNotifier({
     required AccountRepositoryContract repository,
     AccountExternalLinkOpener? linkOpener,
+    AccountChallengeRepositoryContract? challengeRepository,
     AccountLocalSensitiveDataClearanceRunner? localDataClearanceRunner,
     LocalSensitiveDataClock? clearanceClock,
   }) : _repository = repository,
        _linkOpener = linkOpener ?? const UrlLauncherAccountExternalLinkOpener(),
+       _challengeRepository = challengeRepository,
        _localDataClearanceRunner = localDataClearanceRunner,
        _clearanceClock = clearanceClock ?? DateTime.now;
 
   final AccountRepositoryContract _repository;
   final AccountExternalLinkOpener _linkOpener;
+  final AccountChallengeRepositoryContract? _challengeRepository;
   final AccountLocalSensitiveDataClearanceRunner? _localDataClearanceRunner;
   final LocalSensitiveDataClock _clearanceClock;
 
   bool _isLoading = false;
   bool _hasLoaded = false;
-  bool _isBusy = false;
+  bool _isGlobalOperationBusy = false;
   bool _observerAttached = false;
   bool _disposed = false;
   int _runtimeChangeToken = 0;
@@ -48,10 +53,17 @@ class AccountNotifier extends ChangeNotifier with WidgetsBindingObserver {
   String _verificationCode = '';
   String? _phoneError;
   String? _verificationCodeError;
+  AccountSignInChallenge? _signInChallenge;
+  String? _challengePhoneNumber;
+  int _challengeOperationEpoch = 0;
+  int? _activeChallengeOperationEpoch;
 
   bool get isLoading => _isLoading;
   bool get hasLoaded => _hasLoaded;
-  bool get isBusy => _isBusy;
+  bool get _isChallengeOperationBusy =>
+      _activeChallengeOperationEpoch != null &&
+      _activeChallengeOperationEpoch == _challengeOperationEpoch;
+  bool get isBusy => _isGlobalOperationBusy || _isChallengeOperationBusy;
   int get runtimeChangeToken => _runtimeChangeToken;
   AccountLocalSnapshot get snapshot => _snapshot;
   String? get loadErrorMessage => _loadErrorMessage;
@@ -60,6 +72,8 @@ class AccountNotifier extends ChangeNotifier with WidgetsBindingObserver {
   String get verificationCode => _verificationCode;
   String? get phoneError => _phoneError;
   String? get verificationCodeError => _verificationCodeError;
+  AccountSignInChallenge? get signInChallenge => _signInChallenge;
+  bool get hasSignInChallenge => _signInChallenge != null;
 
   bool get isSignedIn =>
       _snapshot.session != null &&
@@ -91,7 +105,7 @@ class AccountNotifier extends ChangeNotifier with WidgetsBindingObserver {
   bool get showUpgradeAction => isVersionBlocked;
 
   bool get canOpenUpgradePage {
-    if (!showUpgradeAction || _isBusy) {
+    if (!showUpgradeAction || isBusy) {
       return false;
     }
     return validateAccountUpgradeUrl(_snapshot.upgradeUrl).isValid;
@@ -216,9 +230,28 @@ class AccountNotifier extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   void updatePhoneNumber(String value) {
+    final previousNormalized = _normalizePhone(_phoneNumber);
     _phoneNumber = value;
+    final normalized = _normalizePhone(value);
+    var shouldNotify = false;
+    if (normalized != previousNormalized &&
+        (_signInChallenge != null ||
+            _challengePhoneNumber != null ||
+            _isChallengeOperationBusy)) {
+      _challengeOperationEpoch += 1;
+      _activeChallengeOperationEpoch = null;
+      _signInChallenge = null;
+      _challengePhoneNumber = null;
+      _verificationCode = '';
+      _verificationCodeError = null;
+      _submissionMessage = null;
+      shouldNotify = true;
+    }
     if (_phoneError != null) {
       _phoneError = null;
+      shouldNotify = true;
+    }
+    if (shouldNotify) {
       notifyListeners();
     }
   }
@@ -227,6 +260,176 @@ class AccountNotifier extends ChangeNotifier with WidgetsBindingObserver {
     _verificationCode = value;
     if (_verificationCodeError != null) {
       _verificationCodeError = null;
+      notifyListeners();
+    }
+  }
+
+  Future<bool> requestSignInChallenge({
+    required AccountChallengePurpose purpose,
+    bool forceRefresh = false,
+  }) async {
+    final normalizedPhone = _normalizePhone(_phoneNumber);
+    if (!_isValidPhone(normalizedPhone)) {
+      _phoneError = '请输入 11 位手机号。';
+      _submissionMessage = '手机号格式不正确，未发送验证码。';
+      notifyListeners();
+      return false;
+    }
+    if (isBusy) {
+      return false;
+    }
+    final existing = _signInChallenge;
+    if (!forceRefresh &&
+        existing != null &&
+        _challengePhoneNumber == normalizedPhone &&
+        existing.purpose == purpose &&
+        existing.expiresAt.isAfter(DateTime.now().toUtc())) {
+      return true;
+    }
+
+    final operationEpoch = ++_challengeOperationEpoch;
+    _activeChallengeOperationEpoch = operationEpoch;
+    _phoneError = null;
+    _submissionMessage = '正在发送验证码…';
+    notifyListeners();
+    try {
+      final challengeRepository = _challengeRepository;
+      if (challengeRepository == null) {
+        throw UnsupportedError('当前账号仓库不支持验证码发送。');
+      }
+      final challenge = await challengeRepository.requestSignInChallenge(
+        phoneNumber: normalizedPhone,
+        purpose: purpose,
+      );
+      if (_disposed || operationEpoch != _challengeOperationEpoch) {
+        return false;
+      }
+      _signInChallenge = challenge;
+      _challengePhoneNumber = normalizedPhone;
+      _phoneNumber = normalizedPhone;
+      _submissionMessage = '验证码已发送至 ${_signInChallenge!.maskedPhoneNumber}';
+      return true;
+    } catch (_) {
+      if (_disposed || operationEpoch != _challengeOperationEpoch) {
+        return false;
+      }
+      _signInChallenge = null;
+      _challengePhoneNumber = null;
+      _submissionMessage = '发送验证码失败，请稍后重试。';
+      return false;
+    } finally {
+      if (!_disposed &&
+          operationEpoch == _challengeOperationEpoch &&
+          _activeChallengeOperationEpoch == operationEpoch) {
+        _activeChallengeOperationEpoch = null;
+        notifyListeners();
+      }
+    }
+  }
+
+  Future<bool> submitChallengeSignIn({
+    required AccountChallengePurpose purpose,
+  }) async {
+    final normalizedPhone = _normalizePhone(_phoneNumber);
+    final normalizedCode = _verificationCode.trim();
+    final challenge = _signInChallenge;
+    var hasError = false;
+    if (!_isValidPhone(normalizedPhone)) {
+      _phoneError = '请输入 11 位手机号。';
+      hasError = true;
+    } else {
+      _phoneError = null;
+    }
+    if (challenge == null ||
+        _challengePhoneNumber != normalizedPhone ||
+        challenge.purpose != purpose) {
+      _verificationCodeError = '请先发送验证码。';
+      hasError = true;
+    } else if (challenge.isExpired) {
+      _verificationCodeError = '验证码已过期，请重新发送。';
+      _submissionMessage = '验证码已过期，请重新发送。';
+      hasError = true;
+    } else if (!_isValidCode(normalizedCode)) {
+      _verificationCodeError = '请输入 6 位验证码。';
+      hasError = true;
+    } else {
+      _verificationCodeError = null;
+    }
+    if (hasError) {
+      if (_verificationCodeError != '验证码已过期，请重新发送。') {
+        _submissionMessage = '手机号或验证码格式不正确，未发起真实登录。';
+      }
+      notifyListeners();
+      return false;
+    }
+    if (isBusy) {
+      return false;
+    }
+
+    final operationEpoch = ++_challengeOperationEpoch;
+    _activeChallengeOperationEpoch = operationEpoch;
+    _submissionMessage = '正在登录、同意并同步最近结果…';
+    notifyListeners();
+    try {
+      final challengeRepository = _challengeRepository;
+      if (challengeRepository == null) {
+        throw UnsupportedError('当前账号仓库不支持验证码登录。');
+      }
+      final completion = await challengeRepository.completeSignIn(
+        phoneNumber: normalizedPhone,
+        verificationCode: normalizedCode,
+        challenge: challenge!,
+      );
+      if (_disposed || operationEpoch != _challengeOperationEpoch) {
+        return false;
+      }
+      if (!completion.isAuthenticated) {
+        _submissionMessage = completion.userMessage ?? '验证失败，请稍后重试。';
+        return false;
+      }
+      final nextSnapshot = await _repository.loadSnapshot();
+      if (_disposed || operationEpoch != _challengeOperationEpoch) {
+        return false;
+      }
+      _snapshot = nextSnapshot;
+      _phoneError = null;
+      _verificationCodeError = null;
+      _verificationCode = '';
+      _signInChallenge = null;
+      _challengePhoneNumber = null;
+      _bumpRuntimeToken();
+      _submissionMessage = _buildActionMessage('登录已完成');
+      return _snapshot.session != null;
+    } catch (_) {
+      if (_disposed || operationEpoch != _challengeOperationEpoch) {
+        return false;
+      }
+      _submissionMessage = '验证失败，请稍后重试。';
+      return false;
+    } finally {
+      if (!_disposed &&
+          operationEpoch == _challengeOperationEpoch &&
+          _activeChallengeOperationEpoch == operationEpoch) {
+        _activeChallengeOperationEpoch = null;
+        notifyListeners();
+      }
+    }
+  }
+
+  void clearSignInChallenge() {
+    final shouldNotify =
+        _signInChallenge != null ||
+        _challengePhoneNumber != null ||
+        _isChallengeOperationBusy ||
+        _verificationCode.isNotEmpty;
+    _challengeOperationEpoch += 1;
+    _activeChallengeOperationEpoch = null;
+    _signInChallenge = null;
+    _challengePhoneNumber = null;
+    _verificationCode = '';
+    _verificationCodeError = null;
+    _submissionMessage = null;
+    if (shouldNotify) {
       notifyListeners();
     }
   }
@@ -256,11 +459,11 @@ class AccountNotifier extends ChangeNotifier with WidgetsBindingObserver {
       return false;
     }
 
-    if (_isBusy) {
+    if (isBusy) {
       return false;
     }
 
-    _isBusy = true;
+    _isGlobalOperationBusy = true;
     _submissionMessage = '正在登录、同意并同步最近结果…';
     notifyListeners();
 
@@ -280,7 +483,7 @@ class AccountNotifier extends ChangeNotifier with WidgetsBindingObserver {
       _submissionMessage = '登录失败：$error';
       return false;
     } finally {
-      _isBusy = false;
+      _isGlobalOperationBusy = false;
       notifyListeners();
     }
   }
@@ -292,7 +495,7 @@ class AccountNotifier extends ChangeNotifier with WidgetsBindingObserver {
     if (_disposed) {
       return Future.value();
     }
-    if (_isBusy) {
+    if (isBusy) {
       return _runtimeRefreshFuture ?? Future.value();
     }
 
@@ -312,7 +515,7 @@ class AccountNotifier extends ChangeNotifier with WidgetsBindingObserver {
     required AccountRuntimeTrigger trigger,
     required bool announceIdleNoop,
   }) async {
-    _isBusy = true;
+    _isGlobalOperationBusy = true;
     if (announceIdleNoop) {
       _submissionMessage = _messageForTrigger(trigger);
       notifyListeners();
@@ -336,7 +539,7 @@ class AccountNotifier extends ChangeNotifier with WidgetsBindingObserver {
       }
       _submissionMessage = '刷新同步状态失败：$error';
     } finally {
-      _isBusy = false;
+      _isGlobalOperationBusy = false;
       notifyListeners();
     }
   }
@@ -345,7 +548,7 @@ class AccountNotifier extends ChangeNotifier with WidgetsBindingObserver {
     if (!showUpgradeAction) {
       return false;
     }
-    if (_isBusy) {
+    if (isBusy) {
       return false;
     }
 
@@ -358,7 +561,7 @@ class AccountNotifier extends ChangeNotifier with WidgetsBindingObserver {
       return false;
     }
 
-    _isBusy = true;
+    _isGlobalOperationBusy = true;
     _submissionMessage = '正在打开升级页面…';
     notifyListeners();
 
@@ -373,16 +576,16 @@ class AccountNotifier extends ChangeNotifier with WidgetsBindingObserver {
       _submissionMessage = '打开升级页面失败：$error';
       return false;
     } finally {
-      _isBusy = false;
+      _isGlobalOperationBusy = false;
       notifyListeners();
     }
   }
 
   Future<void> clearSession({bool revertToLocalOnly = false}) async {
-    if (_isBusy) {
+    if (isBusy) {
       return;
     }
-    _isBusy = true;
+    _isGlobalOperationBusy = true;
     _submissionMessage = revertToLocalOnly ? '正在回到本机档案…' : '正在退出账号…';
     notifyListeners();
 
@@ -407,16 +610,16 @@ class AccountNotifier extends ChangeNotifier with WidgetsBindingObserver {
     } catch (error) {
       _submissionMessage = '清理账号状态失败：$error';
     } finally {
-      _isBusy = false;
+      _isGlobalOperationBusy = false;
       notifyListeners();
     }
   }
 
   Future<void> revokeConsent() async {
-    if (_isBusy) {
+    if (isBusy) {
       return;
     }
-    _isBusy = true;
+    _isGlobalOperationBusy = true;
     _submissionMessage = '正在撤回同意…';
     notifyListeners();
 
@@ -431,16 +634,16 @@ class AccountNotifier extends ChangeNotifier with WidgetsBindingObserver {
     } catch (error) {
       _submissionMessage = '撤回同意失败：$error';
     } finally {
-      _isBusy = false;
+      _isGlobalOperationBusy = false;
       notifyListeners();
     }
   }
 
   Future<void> deleteAccount() async {
-    if (_isBusy) {
+    if (isBusy) {
       return;
     }
-    _isBusy = true;
+    _isGlobalOperationBusy = true;
     _submissionMessage = '正在删除账号…';
     notifyListeners();
 
@@ -459,7 +662,7 @@ class AccountNotifier extends ChangeNotifier with WidgetsBindingObserver {
     } catch (error) {
       _submissionMessage = '删除账号失败：$error';
     } finally {
-      _isBusy = false;
+      _isGlobalOperationBusy = false;
       notifyListeners();
     }
   }

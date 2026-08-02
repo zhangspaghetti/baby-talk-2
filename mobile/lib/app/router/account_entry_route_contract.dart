@@ -3,9 +3,13 @@ enum AccountEntryResult { signedIn }
 enum AccountEntryOrigin {
   settings,
   onboardingContinuation,
-  customSceneContinuation,
+  customSceneContinuation;
+
+  static AccountEntryOrigin fromRouteExtra(Object? value) {
+    return value is AccountEntryOrigin ? value : AccountEntryOrigin.settings;
+  }
 }
 
 AccountEntryOrigin accountEntryOriginFromRouteExtra(Object? value) {
-  return value is AccountEntryOrigin ? value : AccountEntryOrigin.settings;
+  return AccountEntryOrigin.fromRouteExtra(value);
 }

@@ -408,6 +408,7 @@ final accountNotifierProvider = ChangeNotifierProvider<AccountNotifier>((ref) {
   final repository = ref.watch(accountRepositoryProvider).requireValue;
   return AccountNotifier(
     repository: repository,
+    challengeRepository: createAccountChallengeRepository(repository),
     localDataClearanceRunner:
         ({
           required trigger,

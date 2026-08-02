@@ -8,13 +8,12 @@ import 'package:mobile/app/auth_state.dart';
 import 'package:mobile/app/feature_gates.dart';
 import 'package:mobile/l10n/app_localizations.dart';
 import 'package:mobile/app/invite_reentry_coordinator.dart';
-import 'package:mobile/app/router/account_entry_route_contract.dart';
+import 'package:mobile/app/router/account_route_builder.dart';
 import 'package:mobile/app/router/app_route_contract.dart';
 import 'package:mobile/app/share_reentry_coordinator.dart';
 import 'package:mobile/app/theme/app_layout_constants.dart';
 import 'package:mobile/app/theme/app_theme.dart';
 import 'package:mobile/features/account/data/repositories/account_repository.dart';
-import 'package:mobile/features/account/presentation/screens/account_entry_screen.dart';
 import 'package:mobile/features/custom_scene/application/custom_scene_submission_controller.dart';
 import 'package:mobile/features/custom_scene/domain/custom_scene_draft.dart';
 import 'package:mobile/features/custom_scene/presentation/custom_scene_input_screen.dart';
@@ -450,9 +449,7 @@ class _BabyTalkAppState extends ConsumerState<BabyTalkApp> {
         ),
         GoRoute(
           path: AppRouteNames.account,
-          builder: (context, state) => AccountEntryScreen(
-            origin: accountEntryOriginFromRouteExtra(state.extra),
-          ),
+          builder: (context, state) => buildAccountRoute(state.extra),
         ),
         GoRoute(
           path: '/me/settings',
