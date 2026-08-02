@@ -23,10 +23,12 @@ import com.zhangspaghetti.babytalk.practice.generated.evidence.RetrievalStatus;
 import com.zhangspaghetti.babytalk.practice.generated.quality.DimensionResult;
 import com.zhangspaghetti.babytalk.practice.generated.quality.JudgeDimension;
 import com.zhangspaghetti.babytalk.practice.generated.quality.JudgeVerdict;
+import com.zhangspaghetti.babytalk.practice.generated.quality.RepairDirective;
 import com.zhangspaghetti.babytalk.practice.generated.contract.CompleteGeneratedBundle;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
@@ -86,10 +88,16 @@ class CustomSceneAgenticGenerationIntegrationTest extends AbstractIntegrationTes
     void resetStub() {
         caller.mode(StubMode.PASS);
         evidenceRetriever.mode(EvidenceMode.SUFFICIENT);
-        doAnswer(invocation -> caller.callRaw((Class<?>) invocation.getArgument(3)))
+        doAnswer(invocation -> caller.callRaw(
+                invocation.getArgument(1, String.class),
+                invocation.getArgument(2, String.class),
+                (Class<?>) invocation.getArgument(3)))
                 .when(structuredOutputCaller)
                 .callRaw(any(), anyString(), anyString(), any(), anyInt());
-        doAnswer(invocation -> caller.call((Class<?>) invocation.getArgument(3)))
+        doAnswer(invocation -> caller.call(
+                invocation.getArgument(1, String.class),
+                invocation.getArgument(2, String.class),
+                (Class<?>) invocation.getArgument(3)))
                 .when(structuredOutputCaller)
                 .call(any(), anyString(), anyString(), any());
     }
@@ -241,6 +249,41 @@ class CustomSceneAgenticGenerationIntegrationTest extends AbstractIntegrationTes
     }
 
     @Test
+    void judgeTprFailureRepairsWithEvidenceActionContractThenFreshJudgeActivates() throws Exception {
+        caller.mode(StubMode.JUDGE_TPR_REPAIR_THEN_PASS);
+
+        mockMvc.perform(discovery("install_agentic_tpr_repair", "出门前宝宝不想穿鞋"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.source").value("generated"));
+
+        assertThat(count("practice_generated_content_attempts")).isEqualTo(2);
+        assertThat(count("practice_ai_provider_calls")).isEqualTo(4);
+        assertThat(count("practice_generated_content_judge_results")).isEqualTo(2);
+        assertThat(jdbcTemplate.queryForObject(
+                "select status from practice_generated_content", String.class)).isEqualTo("active");
+        assertThat(caller.repairSystemPrompt())
+                .contains(
+                        "TPR_QUALITY_FAILED",
+                        "judge_evidence_action_inconsistent",
+                        "evidenceActionConsistencyPolicy.groundingSources");
+        assertThat(caller.repairUserPrompt())
+                .contains(
+                        "\"violationCodes\":[\"TPR_QUALITY_FAILED\"]",
+                        "\"evidenceActionConsistencyPolicy\":{",
+                        "\"requireEachTprActionSupportedByGrounding\":true",
+                        "\"forbidUnmentionedObjectsOrBodyActions\":true");
+        assertThat(caller.judgeSystemPrompts()).hasSize(2).allSatisfy(prompt ->
+                assertThat(prompt).contains(
+                        "semantic triangle",
+                        "Do not emit TPR_QUALITY_EVIDENCE_MISSING only because",
+                        "Do not relax any rubric dimension"));
+        assertThat(caller.judgeUserPrompts().get(0)).contains("看着毛巾。");
+        assertThat(caller.judgeUserPrompts().get(1))
+                .contains("拿起鞋子。")
+                .doesNotContain("看着毛巾。");
+    }
+
+    @Test
     void attemptsExhaustedRejectsTerminalRow() throws Exception {
         caller.mode(StubMode.ATTEMPT_EXHAUSTED);
 
@@ -289,6 +332,7 @@ class CustomSceneAgenticGenerationIntegrationTest extends AbstractIntegrationTes
         PII,
         JUDGE_EXHAUSTED,
         REPAIR_THEN_PASS,
+        JUDGE_TPR_REPAIR_THEN_PASS,
         ATTEMPT_EXHAUSTED,
         DUPLICATE_KEY,
         TRAILING_TOKENS
@@ -364,38 +408,74 @@ class CustomSceneAgenticGenerationIntegrationTest extends AbstractIntegrationTes
         private final AtomicReference<StubMode> mode = new AtomicReference<>(StubMode.PASS);
         private int calls;
         private int completeBundleCalls;
+        private int judgeCalls;
+        private String repairSystemPrompt;
+        private String repairUserPrompt;
+        private final ArrayList<String> judgeSystemPrompts = new ArrayList<>();
+        private final ArrayList<String> judgeUserPrompts = new ArrayList<>();
 
         synchronized void mode(StubMode value) {
             mode.set(value);
             calls = 0;
             completeBundleCalls = 0;
+            judgeCalls = 0;
+            repairSystemPrompt = null;
+            repairUserPrompt = null;
+            judgeSystemPrompts.clear();
+            judgeUserPrompts.clear();
         }
 
         synchronized int calls() {
             return calls;
         }
 
-        synchronized Object call(Class<?> responseType) {
+        synchronized String repairSystemPrompt() {
+            return repairSystemPrompt;
+        }
+
+        synchronized String repairUserPrompt() {
+            return repairUserPrompt;
+        }
+
+        synchronized List<String> judgeSystemPrompts() {
+            return List.copyOf(judgeSystemPrompts);
+        }
+
+        synchronized List<String> judgeUserPrompts() {
+            return List.copyOf(judgeUserPrompts);
+        }
+
+        synchronized Object call(String systemPrompt, String userPrompt, Class<?> responseType) {
             calls++;
             if (responseType == CompleteGeneratedBundle.ProviderResponse.class) {
                 return completeBundleCalls++ == 0 ? generatorResponse() : repairResponse();
             }
             if (responseType == AgenticCustomSceneQualityJudge.JudgeWireResponse.class) {
+                judgeSystemPrompts.add(systemPrompt);
+                judgeUserPrompts.add(userPrompt);
                 if (mode.get() == StubMode.JUDGE_EXHAUSTED) {
                     throw new PracticeAiStructuredOutputCaller.StructuredOutputInvalidException();
+                }
+                if (mode.get() == StubMode.JUDGE_TPR_REPAIR_THEN_PASS && judgeCalls++ == 0) {
+                    return tprRepairJudgeResponse();
                 }
                 return passJudgeResponse();
             }
             throw new AssertionError("unexpected response type " + responseType.getName());
         }
 
-        synchronized String callRaw(Class<?> responseType) {
+        synchronized String callRaw(String systemPrompt, String userPrompt, Class<?> responseType) {
             if (responseType != CompleteGeneratedBundle.ProviderResponse.class) {
                 throw new AssertionError("unexpected raw response type " + responseType.getName());
             }
             calls++;
+            var currentBundleCall = completeBundleCalls++;
+            if (currentBundleCall > 0) {
+                repairSystemPrompt = systemPrompt;
+                repairUserPrompt = userPrompt;
+            }
             var json = new tools.jackson.databind.ObjectMapper().writeValueAsString(
-                    completeBundleCalls++ == 0 ? generatorResponse() : repairResponse());
+                    currentBundleCall == 0 ? generatorResponse() : repairResponse());
             return switch (mode.get()) {
                 case DUPLICATE_KEY -> "{\"schemaVersion\":\"wrong\"," + json.substring(1);
                 case TRAILING_TOKENS -> json + " {}";
@@ -407,6 +487,7 @@ class CustomSceneAgenticGenerationIntegrationTest extends AbstractIntegrationTes
             return switch (mode.get()) {
                 case PII -> generator("宝宝叫小明，出门穿鞋。", "拿起鞋子。", "慢慢说一遍。");
                 case REPAIR_THEN_PASS, ATTEMPT_EXHAUSTED -> generator("穿鞋出门。", "慢慢说一遍。", "慢慢说一遍。");
+                case JUDGE_TPR_REPAIR_THEN_PASS -> generator("穿鞋出门。", "看着毛巾。", "慢慢说一遍。");
                 default -> generator("穿鞋出门。", "拿起鞋子。", "慢慢说一遍。");
             };
         }
@@ -478,6 +559,21 @@ class CustomSceneAgenticGenerationIntegrationTest extends AbstractIntegrationTes
             }
             return new AgenticCustomSceneQualityJudge.JudgeWireResponse(
                     JudgeVerdict.PASS, dimensions, List.of(), List.of(), List.of(), 1.0d);
+        }
+
+        private AgenticCustomSceneQualityJudge.JudgeWireResponse tprRepairJudgeResponse() {
+            var dimensions = new EnumMap<JudgeDimension, DimensionResult>(JudgeDimension.class);
+            for (var dimension : JudgeDimension.values()) {
+                dimensions.put(dimension, DimensionResult.PASS);
+            }
+            dimensions.put(JudgeDimension.TPR_QUALITY, DimensionResult.FAIL);
+            return new AgenticCustomSceneQualityJudge.JudgeWireResponse(
+                    JudgeVerdict.REPAIR,
+                    dimensions,
+                    List.of("TPR_QUALITY_FAILED"),
+                    List.of(RepairDirective.REPAIR_TPR_QUALITY),
+                    List.of(),
+                    0.9d);
         }
     }
 }

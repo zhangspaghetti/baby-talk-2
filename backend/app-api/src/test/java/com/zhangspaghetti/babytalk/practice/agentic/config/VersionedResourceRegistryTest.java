@@ -14,11 +14,12 @@ class VersionedResourceRegistryTest {
     void loadsProfileAndComputesStableCanonicalHashes() {
         var profile = registry.currentGenerationProfile();
 
-        assertThat(profile.version()).isEqualTo("custom-scene-generation-v2");
+        assertThat(profile.version()).isEqualTo("custom-scene-generation-v3");
         assertThat(profile.contentHash())
-                .isEqualTo("21691398948fe5dc41a20282f4f26d446bc6e6e2e4fd5105be2942e1cf51ca07");
-        assertThat(profile.generatorPrompt().version()).isEqualTo("custom-scene-generator-v2");
-        assertThat(profile.repairPrompt().version()).isEqualTo("custom-scene-repair-v2");
+                .isEqualTo("a207f125c7beb7e80d5aad104f9339ff280972b77326b6c9d97fd96d171ef66b");
+        assertThat(profile.generatorPrompt().version()).isEqualTo("custom-scene-generator-v3");
+        assertThat(profile.judgePrompt().version()).isEqualTo("custom-scene-quality-judge-v2");
+        assertThat(profile.repairPrompt().version()).isEqualTo("custom-scene-repair-v3");
         assertThat(profile.rubricVersion()).isEqualTo("custom-scene-quality-v1");
         assertThat(profile.evidencePolicyVersion()).isEqualTo("custom-scene-evidence-v1");
         assertThat(profile.minimumCompleteBundleOutputTokens()).isEqualTo(8192);
@@ -38,8 +39,15 @@ class VersionedResourceRegistryTest {
                         "Apply every structured branchRequirements item",
                         "MISSING_TPR_ACTION",
                         "MISSING_DELIVERY_GUIDANCE",
+                        "judge_evidence_action_inconsistent",
+                        "evidenceActionConsistencyPolicy.groundingSources",
                         "拿起",
                         "等宝宝");
+        assertThat(registry.promptText(VersionedResourceRegistry.PromptKind.JUDGE))
+                .contains(
+                        "semantic triangle",
+                        "Do not emit TPR_QUALITY_EVIDENCE_MISSING only because",
+                        "Do not relax any rubric dimension");
     }
 
     @Test

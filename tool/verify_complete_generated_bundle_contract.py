@@ -277,7 +277,15 @@ def verify_no_production_fallback() -> bool:
         (
             "AgenticCustomSceneRepairer.java",
             repairer,
-            ("repairPackage.branchRequirements()", "BranchRequirementPayload"),
+            (
+                "repairPackage.branchRequirements()",
+                "BranchRequirementPayload",
+                "EvidenceActionConsistencyPolicyPayload.strict()",
+                "orderedSanitizedEvidenceSummaries",
+                "requireEachTprActionSupportedByGrounding",
+                "forbidUnmentionedObjectsOrBodyActions",
+                "repairAllTprBranchesWhenJudgeReportsInconsistency",
+            ),
         ),
         (
             "TypedRepairPackage.java",
@@ -338,6 +346,33 @@ def verify_no_production_fallback() -> bool:
         for marker in markers:
             if marker not in source:
                 violations.append(f"{source_name}: missing strict Judge schema marker: {marker}")
+
+    agentic_integration_test = (
+        BACKEND_ROOT
+        / "app-api"
+        / "src"
+        / "test"
+        / "java"
+        / "com"
+        / "zhangspaghetti"
+        / "babytalk"
+        / "practice"
+        / "generated"
+        / "CustomSceneAgenticGenerationIntegrationTest.java"
+    ).read_text(encoding="utf-8")
+    for marker in (
+        "judgeTprFailureRepairsWithEvidenceActionContractThenFreshJudgeActivates",
+        'List.of("TPR_QUALITY_FAILED")',
+        '"judge_evidence_action_inconsistent"',
+        "evidenceActionConsistencyPolicy",
+        '"select status from practice_generated_content"',
+        'isEqualTo("active")',
+    ):
+        if marker not in agentic_integration_test:
+            violations.append(
+                "CustomSceneAgenticGenerationIntegrationTest.java: "
+                f"missing TPR repair consistency coverage: {marker}"
+            )
 
     structured_caller = (
         GENERATED_SOURCE_ROOT.parent / "agentic" / "PracticeAiStructuredOutputCaller.java"
@@ -403,7 +438,7 @@ def verify_versioned_output_budget() -> bool:
         / "config"
         / "practice-ai"
         / "profiles"
-        / "custom-scene-generation-v2.yml"
+        / "custom-scene-generation-v3.yml"
     )
     profile = profile_path.read_text(encoding="utf-8")
     profile_match = re.search(
@@ -435,15 +470,23 @@ def verify_versioned_output_budget() -> bool:
             )
 
     prompt_contracts = {
-        Path("backend/app-api/src/main/resources/config/practice-ai/prompts/custom-scene-generator-v2.txt"): (
+        Path("backend/app-api/src/main/resources/config/practice-ai/prompts/custom-scene-generator-v3.txt"): (
             "all six canonical branches",
             "For every branch, tprActionZh",
             "For every branch, deliveryGuidanceZh",
+            "Each tprActionZh must directly enact its own branch English and Chinese utterance",
         ),
-        Path("backend/app-api/src/main/resources/config/practice-ai/prompts/custom-scene-repair-v2.txt"): (
+        Path("backend/app-api/src/main/resources/config/practice-ai/prompts/custom-scene-repair-v3.txt"): (
             "Apply every structured branchRequirements item",
             "MISSING_TPR_ACTION",
             "MISSING_DELIVERY_GUIDANCE",
+            "judge_evidence_action_inconsistent",
+            "evidenceActionConsistencyPolicy.groundingSources",
+        ),
+        Path("backend/app-api/src/main/resources/config/practice-ai/prompts/custom-scene-quality-judge-v2.txt"): (
+            "semantic triangle",
+            "Do not emit TPR_QUALITY_EVIDENCE_MISSING only because",
+            "Do not relax any rubric dimension",
         ),
     }
     for relative_path, markers in prompt_contracts.items():

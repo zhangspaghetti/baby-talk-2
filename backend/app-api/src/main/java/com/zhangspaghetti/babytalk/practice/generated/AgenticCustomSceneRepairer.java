@@ -81,6 +81,7 @@ public class AgenticCustomSceneRepairer implements CustomSceneRepairer {
                 repairPackage.repairDirectives().stream().map(Enum::name).toList(),
                 contentConstraintsPayload(request.contentConstraints()),
                 CompleteGeneratedBundle.persistenceCodePointLimits(),
+                EvidenceActionConsistencyPolicyPayload.strict(),
                 repairPackage.evidenceSummaries().stream().map(EvidenceSummary::sanitizedSummary).toList(),
                 generationProfilePayload(currentProfile)));
         var result = operationRunner.execute(new OperationRequest<>(
@@ -152,6 +153,7 @@ public class AgenticCustomSceneRepairer implements CustomSceneRepairer {
             List<String> repairDirectives,
             ContentConstraintsPayload contentConstraints,
             CompleteGeneratedBundle.PersistenceCodePointLimits persistenceCodePointLimits,
+            EvidenceActionConsistencyPolicyPayload evidenceActionConsistencyPolicy,
             List<String> orderedSanitizedEvidenceSummaries,
             GenerationProfilePayload generationProfile
     ) {
@@ -172,6 +174,27 @@ public class AgenticCustomSceneRepairer implements CustomSceneRepairer {
             List<String> allowedDifficulties,
             List<String> allowedGenerationSources
     ) {
+    }
+
+    private record EvidenceActionConsistencyPolicyPayload(
+            List<String> groundingSources,
+            boolean requireEachTprActionSupportedByGrounding,
+            boolean forbidUnmentionedObjectsOrBodyActions,
+            boolean repairAllTprBranchesWhenJudgeReportsInconsistency
+    ) {
+
+        private static EvidenceActionConsistencyPolicyPayload strict() {
+            return new EvidenceActionConsistencyPolicyPayload(
+                    List.of(
+                            "displayText",
+                            "parentGoal",
+                            "utteranceEnglishText",
+                            "utteranceChineseText",
+                            "orderedSanitizedEvidenceSummaries"),
+                    true,
+                    true,
+                    true);
+        }
     }
 
     private record GenerationProfilePayload(

@@ -12,7 +12,7 @@ import yaml
 
 ROOT = Path(__file__).resolve().parent.parent
 RESOURCE_ROOT = ROOT / "backend/app-api/src/main/resources/config/practice-ai"
-PROFILE_PATH = RESOURCE_ROOT / "profiles/custom-scene-generation-v2.yml"
+PROFILE_PATH = RESOURCE_ROOT / "profiles/custom-scene-generation-v3.yml"
 LOCK_PATH = RESOURCE_ROOT / "version-lock.yml"
 PROFILE_REFERENCE_KEYS = (
     "generator-prompt",

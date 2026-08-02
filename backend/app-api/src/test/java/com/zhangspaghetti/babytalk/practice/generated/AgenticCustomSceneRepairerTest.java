@@ -165,7 +165,12 @@ class AgenticCustomSceneRepairerTest {
                         "\"pronunciationHint\":120",
                         "\"tprActionZh\":240",
                         "\"deliveryGuidanceZh\":240",
-                        "\"difficulty\":16")
+                        "\"difficulty\":16",
+                        "\"evidenceActionConsistencyPolicy\":{",
+                        "\"groundingSources\":[\"displayText\",\"parentGoal\",\"utteranceEnglishText\",\"utteranceChineseText\",\"orderedSanitizedEvidenceSummaries\"]",
+                        "\"requireEachTprActionSupportedByGrounding\":true",
+                        "\"forbidUnmentionedObjectsOrBodyActions\":true",
+                        "\"repairAllTprBranchesWhenJudgeReportsInconsistency\":true")
                 .doesNotContain(
                         "pgc_repair_test",
                         "securityText",
