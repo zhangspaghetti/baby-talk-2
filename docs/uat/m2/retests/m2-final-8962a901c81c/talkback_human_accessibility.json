@@ -1,0 +1,49 @@
+{
+  "schema_version": "m2_android_uat_v1",
+  "record_id": "uat_talkback_human_accessibility_8962a901_20260801",
+  "case_id": "talkback_human_accessibility",
+  "canonical_scene": "bath",
+  "executor": "role:codex_qa_operator",
+  "executed_at": "2026-08-02T00:03:32+08:00",
+  "timezone": "Asia/Shanghai",
+  "candidate": {
+    "mobile_source_sha": "8962a901c81c3c6f046afdd887d87a6e9a454193",
+    "mobile_apk_sha256": "e06a6a26a8502a03fccb885956bc8dd33a37db51014942a92909e1678f6f386d",
+    "backend_source_sha": "8962a901c81c3c6f046afdd887d87a6e9a454193",
+    "backend_artifact_identity": "image_sha256:19b56bf40b3ce5f9e907171f4f41a31a1e7835110b645c7d221d6761893e4cf6",
+    "environment_identity": "sanitized-qa-kind-rev38",
+    "provider_mode": "REAL",
+    "provider_profile": "qa-dashscope-qwen",
+    "provider_model_identity": "model_sha256:cc7090d9aea273746c3cc6656434891482bf1cf1464e663bc6d222b4d7dcfae3",
+    "configuration_fingerprint": "sha256:ae9784549626bdeb164de102fd835ace029d5475bec267b5b50713f47c3a5f2a"
+  },
+  "device": {"device_class": "pixel_9_pro_emulator", "android_version": "15", "talkback_version": "15.0.0"},
+  "authenticity": {"execution": "HUMAN_ANDROID", "provider_path": "FORMAL_PRODUCTION", "llm_provider": "REAL", "tts_provider": "REAL"},
+  "prerequisites": [
+    {"id": "candidate_installed", "status": "PASS"},
+    {"id": "authenticated_account_ready", "status": "FAIL"},
+    {"id": "generated_flow_available", "status": "BLOCKED"},
+    {"id": "human_hearing_available", "status": "BLOCKED"},
+    {"id": "account_state_rechecked_after_user_script", "status": "FAIL"}
+  ],
+  "steps": [
+    {"index": 1, "action": "reach_generated_flow_for_talkback", "expected": "generated_controls_visible", "actual": "authenticated_account_required", "status": "BLOCKED"},
+    {"index": 2, "action": "enable_talkback_for_generated_flow", "expected": "talkback_service_active", "actual": "not_run", "status": "NOT_RUN"},
+    {"index": 3, "action": "review_focus_order_and_announcements", "expected": "human_heard_accessibility_observations", "actual": "not_run", "status": "NOT_RUN"}
+  ],
+  "status": "FINAL",
+  "verdict": "BLOCKED",
+  "evidence_location": "reviewed://m2_40/m2_final_8962a901c81c/talkback_human_accessibility",
+  "defects": [],
+  "retest_outcome": "BLOCKED",
+  "privacy": {"raw_content_stored": false, "raw_evidence_stored": false, "sensitive_identifiers_stored": false, "sanitized": true},
+  "branch_reviews": [],
+  "accessibility": {
+    "method": "SEMANTICS",
+    "observations": [
+      "generated_flow_blocked_by_authenticated_account_required",
+      "talkback_not_enabled",
+      "human_hearing_not_performed"
+    ]
+  }
+}
