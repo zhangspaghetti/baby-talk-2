@@ -89,7 +89,8 @@ class AgenticCustomSceneQualityJudgeTest {
         when(registry.qualityRubric()).thenReturn(rubric());
         when(registry.promptText(VersionedResourceRegistry.PromptKind.JUDGE)).thenReturn("JUDGE SYSTEM PROMPT");
         when(caller.call(eq(provider), eq("JUDGE SYSTEM PROMPT"), any(String.class),
-                eq(AgenticCustomSceneQualityJudge.JudgeWireResponse.class))).thenReturn(passWire());
+                eq(AgenticCustomSceneQualityJudge.JudgeWireResponse.class),
+                eq(profile().minimumQualityJudgeOutputTokens()))).thenReturn(passWire());
         when(runner.execute(operationCaptor.capture())).thenAnswer(invocation -> {
             var operation = (OperationRequest) invocation.getArgument(0);
             var invoked = operation.invocation().invoke(provider);
@@ -118,7 +119,8 @@ class AgenticCustomSceneQualityJudgeTest {
         var promptCaptor = ArgumentCaptor.forClass(String.class);
         verify(caller).call(
                 eq(provider), eq("JUDGE SYSTEM PROMPT"), promptCaptor.capture(),
-                eq(AgenticCustomSceneQualityJudge.JudgeWireResponse.class));
+                eq(AgenticCustomSceneQualityJudge.JudgeWireResponse.class),
+                eq(profile().minimumQualityJudgeOutputTokens()));
         var prompt = promptCaptor.getValue();
         assertThat(prompt)
                 .contains(
@@ -189,7 +191,8 @@ class AgenticCustomSceneQualityJudgeTest {
         when(registry.promptText(VersionedResourceRegistry.PromptKind.JUDGE)).thenReturn("JUDGE SYSTEM PROMPT");
         var failure = new PracticeAiStructuredOutputCaller.StructuredOutputInvalidException();
         when(caller.call(eq(provider), eq("JUDGE SYSTEM PROMPT"), any(String.class),
-                eq(AgenticCustomSceneQualityJudge.JudgeWireResponse.class))).thenThrow(failure);
+                eq(AgenticCustomSceneQualityJudge.JudgeWireResponse.class),
+                eq(profile().minimumQualityJudgeOutputTokens()))).thenThrow(failure);
         when(runner.execute(any())).thenAnswer(invocation -> {
             var operation = (OperationRequest) invocation.getArgument(0);
             return operation.invocation().invoke(provider);
@@ -202,7 +205,8 @@ class AgenticCustomSceneQualityJudgeTest {
                 .hasMessage("structured_output_invalid");
         verify(caller, times(1)).call(
                 eq(provider), eq("JUDGE SYSTEM PROMPT"), any(String.class),
-                eq(AgenticCustomSceneQualityJudge.JudgeWireResponse.class));
+                eq(AgenticCustomSceneQualityJudge.JudgeWireResponse.class),
+                eq(profile().minimumQualityJudgeOutputTokens()));
         verifyNoInteractions(auditPort);
     }
 
@@ -237,7 +241,8 @@ class AgenticCustomSceneQualityJudgeTest {
         when(registry.qualityRubric()).thenReturn(rubric());
         when(registry.promptText(VersionedResourceRegistry.PromptKind.JUDGE)).thenReturn("JUDGE SYSTEM PROMPT");
         when(caller.call(eq(provider), eq("JUDGE SYSTEM PROMPT"), any(String.class),
-                eq(AgenticCustomSceneQualityJudge.JudgeWireResponse.class))).thenReturn(passWire());
+                eq(AgenticCustomSceneQualityJudge.JudgeWireResponse.class),
+                eq(profile().minimumQualityJudgeOutputTokens()))).thenReturn(passWire());
         when(runner.execute(any())).thenAnswer(invocation -> {
             var operation = (OperationRequest) invocation.getArgument(0);
             var invoked = operation.invocation().invoke(provider);
@@ -252,7 +257,8 @@ class AgenticCustomSceneQualityJudgeTest {
         assertThatThrownBy(() -> judge.judge(request())).isSameAs(failure);
         verify(caller, times(1)).call(
                 eq(provider), eq("JUDGE SYSTEM PROMPT"), any(String.class),
-                eq(AgenticCustomSceneQualityJudge.JudgeWireResponse.class));
+                eq(AgenticCustomSceneQualityJudge.JudgeWireResponse.class),
+                eq(profile().minimumQualityJudgeOutputTokens()));
         verify(auditPort, times(1)).persist(any());
     }
 
@@ -347,6 +353,8 @@ class AgenticCustomSceneQualityJudgeTest {
                 new VersionedRef("baseline-v1", "b".repeat(64), "baseline-v1.yml"),
                 "strategy-v1",
                 "safety-v1",
-                "schema-v1");
+                "schema-v1",
+                GenerationProfile.SAFE_MINIMUM_COMPLETE_BUNDLE_OUTPUT_TOKENS,
+                GenerationProfile.SAFE_MINIMUM_QUALITY_JUDGE_OUTPUT_TOKENS);
     }
 }

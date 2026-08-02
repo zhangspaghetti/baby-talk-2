@@ -3,18 +3,45 @@ resources:
 - version: custom-scene-evidence-v1
   resource-path: config/practice-ai/policies/custom-scene-evidence-v1.yml
   content-hash: 138744b2fe31dcdec63c9f26c962a25a87d0c3a3e0c1a176d027642699b9c075
+- version: custom-scene-generation-v1
+  resource-path: config/practice-ai/profiles/custom-scene-generation-v1.yml
+  content-hash: d2925047c7851334034be7153a91580b96c2243f21de85a003e1d82239a1ea14
+- version: custom-scene-generation-v2
+  resource-path: config/practice-ai/profiles/custom-scene-generation-v2.yml
+  content-hash: 21691398948fe5dc41a20282f4f26d446bc6e6e2e4fd5105be2942e1cf51ca07
 - version: custom-scene-generation-v3
   resource-path: config/practice-ai/profiles/custom-scene-generation-v3.yml
   content-hash: a207f125c7beb7e80d5aad104f9339ff280972b77326b6c9d97fd96d171ef66b
+- version: custom-scene-generation-v4
+  resource-path: config/practice-ai/profiles/custom-scene-generation-v4.yml
+  content-hash: fe96ac339eda8bfcd653d90d83bd981e2aa296141ad5e066990c83e8ccc2110d
+- version: custom-scene-generator-v1
+  resource-path: config/practice-ai/prompts/custom-scene-generator-v1.txt
+  content-hash: f6ed4f6e4fe6f68ac1fbfbd012de6d7532333cb234be90001c521cf250087169
+- version: custom-scene-generator-v2
+  resource-path: config/practice-ai/prompts/custom-scene-generator-v2.txt
+  content-hash: 69c747fcef2ac0b5f1a7e6ec457c13da2df78d39aac4331c1e295da73e686297
 - version: custom-scene-generator-v3
   resource-path: config/practice-ai/prompts/custom-scene-generator-v3.txt
   content-hash: af10a55c7d01d37733f5141664e009c302b050f12aa3a269a4106ad2d2a2bd4d
+- version: custom-scene-quality-judge-v1
+  resource-path: config/practice-ai/prompts/custom-scene-quality-judge-v1.txt
+  content-hash: 6f420cf7dab26531b65b78bea785dcad0aa1aef9d61f3e913b11c5e960802b84
 - version: custom-scene-quality-judge-v2
   resource-path: config/practice-ai/prompts/custom-scene-quality-judge-v2.txt
   content-hash: 6e1888d5c5de30dcba529c3a4bb7453e95796b03f3b0aabede8a03361dc4215e
+- version: custom-scene-quality-judge-v3
+  resource-path: config/practice-ai/prompts/custom-scene-quality-judge-v3.txt
+  content-hash: 8e85c96d27bdd753d43b40a8cc3bf93b42f4328b506abf370e2bafd5d5dcd202
 - version: custom-scene-quality-v1
   resource-path: config/practice-ai/rubrics/custom-scene-quality-v1.yml
   content-hash: 7faa028bba2ce95bcd0c96b1768cf8f564d99746f51b6e0f35a35164aa534410
+- version: custom-scene-repair-v1
+  resource-path: config/practice-ai/prompts/custom-scene-repair-v1.txt
+  content-hash: df9882cac261315fc00f6f5bf708b03c6324c555f773438fa75567cd4fa29fe8
+- version: custom-scene-repair-v2
+  resource-path: config/practice-ai/prompts/custom-scene-repair-v2.txt
+  content-hash: 341189f95500bab2dc8e40030ecd316c8a55375ce02598c2912785e561362b91
 - version: custom-scene-repair-v3
   resource-path: config/practice-ai/prompts/custom-scene-repair-v3.txt
   content-hash: e8c8c84cdabb15792bea2064fbd82942109e96828f13550f6c0c3a51b02c9ad5

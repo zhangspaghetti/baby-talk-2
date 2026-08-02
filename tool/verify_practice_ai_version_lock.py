@@ -12,7 +12,7 @@ import yaml
 
 ROOT = Path(__file__).resolve().parent.parent
 RESOURCE_ROOT = ROOT / "backend/app-api/src/main/resources/config/practice-ai"
-PROFILE_PATH = RESOURCE_ROOT / "profiles/custom-scene-generation-v3.yml"
+PROFILE_ROOT = RESOURCE_ROOT / "profiles"
 LOCK_PATH = RESOURCE_ROOT / "version-lock.yml"
 PROFILE_REFERENCE_KEYS = (
     "generator-prompt",
@@ -58,29 +58,44 @@ def required_string(mapping: dict, key: str, context: str) -> str:
 
 
 def scanned_resources() -> list[dict]:
-    profile = load_yaml(PROFILE_PATH)
-    resources = [{
-        "version": required_string(profile, "version", "profile"),
-        "resource-path": "config/practice-ai/" + PROFILE_PATH.relative_to(RESOURCE_ROOT).as_posix(),
-        "content-hash": resource_hash(PROFILE_PATH),
-    }]
-    for key in PROFILE_REFERENCE_KEYS:
-        reference = profile.get(key)
-        if not isinstance(reference, dict):
-            fail(f"profile requires {key}")
-        version = required_string(reference, "version", f"profile {key}")
-        resource_path = required_string(reference, "resource-path", f"profile {key}")
-        resolved = RESOURCE_ROOT / resource_path.removeprefix("config/practice-ai/")
-        document = load_yaml(resolved) if resolved.suffix == ".yml" else None
-        if document is not None and required_string(document, "version", resource_path) != version:
-            fail(f"version mismatch for {key}")
-        if resolved.suffix == ".txt" and resolved.stem != version:
-            fail(f"version mismatch for {key}")
-        resources.append({
+    resources_by_path: dict[str, dict] = {}
+
+    def add_resource(version: str, resource_path: str, resolved: Path) -> None:
+        entry = {
             "version": version,
             "resource-path": resource_path,
             "content-hash": resource_hash(resolved),
-        })
+        }
+        existing = resources_by_path.get(resource_path)
+        if existing is not None and existing != entry:
+            fail(f"resource path resolves inconsistently: {resource_path}")
+        resources_by_path[resource_path] = entry
+
+    profile_paths = sorted(PROFILE_ROOT.glob("custom-scene-generation-v*.yml"))
+    if not profile_paths:
+        fail("missing custom-scene generation profiles")
+    for profile_path in profile_paths:
+        profile = load_yaml(profile_path)
+        add_resource(
+            required_string(profile, "version", "profile"),
+            "config/practice-ai/" + profile_path.relative_to(RESOURCE_ROOT).as_posix(),
+            profile_path,
+        )
+        for key in PROFILE_REFERENCE_KEYS:
+            reference = profile.get(key)
+            if not isinstance(reference, dict):
+                fail(f"profile requires {key}")
+            version = required_string(reference, "version", f"profile {key}")
+            resource_path = required_string(reference, "resource-path", f"profile {key}")
+            resolved = RESOURCE_ROOT / resource_path.removeprefix("config/practice-ai/")
+            document = load_yaml(resolved) if resolved.suffix == ".yml" else None
+            if document is not None and required_string(document, "version", resource_path) != version:
+                fail(f"version mismatch for {key}")
+            if resolved.suffix == ".txt" and resolved.stem != version:
+                fail(f"version mismatch for {key}")
+            add_resource(version, resource_path, resolved)
+
+    resources = list(resources_by_path.values())
     resources.sort(key=lambda item: (item["version"], item["resource-path"]))
     hashes_by_version: dict[str, set[str]] = {}
     for resource in resources:
@@ -109,7 +124,9 @@ def compare_base_lock(base_lock: Path, current: list[dict]) -> None:
     current_by_version = {entry["version"]: entry["content-hash"] for entry in current}
     for entry in base_entries:
         version = entry["version"]
-        if version in current_by_version and current_by_version[version] != entry["content-hash"]:
+        if version not in current_by_version:
+            fail(f"existing version disappeared: {version}")
+        if current_by_version[version] != entry["content-hash"]:
             fail(f"existing version hash changed: {version}")
 
 

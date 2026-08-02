@@ -80,6 +80,9 @@ class JudgeWireResponseStrictOutputTest {
                         "AGE_SUITABILITY_EVIDENCE_MISSING",
                         "BILINGUAL_CONSISTENCY_EVIDENCE_MISSING",
                         "LOW_PRESSURE_SUPPORT_EVIDENCE_MISSING");
+        assertFiniteEnumArray(properties.path("violationCodes"), 8);
+        assertFiniteEnumArray(properties.path("repairDirectives"), 8);
+        assertFiniteEnumArray(properties.path("evidenceGapCodes"), 8);
         assertThat(properties.path("confidence").path("type").asText()).isEqualTo("number");
         assertThat(properties.path("confidence").path("minimum").doubleValue()).isZero();
         assertThat(properties.path("confidence").path("maximum").doubleValue()).isEqualTo(1.0d);
@@ -186,8 +189,14 @@ class JudgeWireResponseStrictOutputTest {
                 Arguments.of("unknown violation code", validPayload().replace(
                         "\"violationCodes\":[]",
                         "\"violationCodes\":[\"FREE_FORM_VIOLATION\"]")),
+                Arguments.of("duplicate violation code", validPayload().replace(
+                        "\"violationCodes\":[]",
+                        "\"violationCodes\":[\"TPR_QUALITY_FAILED\",\"TPR_QUALITY_FAILED\"]")),
                 Arguments.of("numeric repair directive", validPayload().replace(
                         "\"repairDirectives\":[]", "\"repairDirectives\":[0]")),
+                Arguments.of("duplicate repair directive", validPayload().replace(
+                        "\"repairDirectives\":[]",
+                        "\"repairDirectives\":[\"REPAIR_TPR_QUALITY\",\"REPAIR_TPR_QUALITY\"]")),
                 Arguments.of("unknown repair directive", validPayload().replace(
                         "\"repairDirectives\":[]",
                         "\"repairDirectives\":[\"FREE_FORM_REPAIR\"]")),
@@ -196,6 +205,10 @@ class JudgeWireResponseStrictOutputTest {
                 Arguments.of("unknown evidence gap", validPayload().replace(
                         "\"evidenceGapCodes\":[]",
                         "\"evidenceGapCodes\":[\"FREE_FORM_GAP\"]")),
+                Arguments.of("duplicate evidence gap", validPayload().replace(
+                        "\"evidenceGapCodes\":[]",
+                        "\"evidenceGapCodes\":[\"TPR_QUALITY_EVIDENCE_MISSING\","
+                                + "\"TPR_QUALITY_EVIDENCE_MISSING\"]")),
                 Arguments.of("string confidence", validPayload().replace(
                         "\"confidence\":0.9", "\"confidence\":\"0.9\"")));
     }
@@ -215,6 +228,10 @@ class JudgeWireResponseStrictOutputTest {
         return java.util.stream.StreamSupport.stream(values.spliterator(), false)
                 .map(JsonNode::asText)
                 .toList();
+    }
+
+    private static void assertFiniteEnumArray(JsonNode schema, int maximumItems) {
+        assertThat(schema.path("maxItems").intValue()).isEqualTo(maximumItems);
     }
 
     private static ObjectNode publishedSchema() {

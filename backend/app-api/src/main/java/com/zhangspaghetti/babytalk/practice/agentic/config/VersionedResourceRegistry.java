@@ -25,8 +25,9 @@ import tools.jackson.dataformat.yaml.YAMLFactory;
 public class VersionedResourceRegistry {
 
     private static final String RESOURCE_PREFIX = "config/practice-ai/";
-    private static final String DEFAULT_PROFILE = "classpath:config/practice-ai/profiles/custom-scene-generation-v3.yml";
-    private static final String PROFILE_SCHEMA = "generation-profile-schema-v1";
+    private static final String DEFAULT_PROFILE = "classpath:config/practice-ai/profiles/custom-scene-generation-v4.yml";
+    private static final String PROFILE_SCHEMA_V1 = "generation-profile-schema-v1";
+    private static final String PROFILE_SCHEMA_V2 = "generation-profile-schema-v2";
     private static final String RUBRIC_SCHEMA = "judge-rubric-schema-v1";
     private static final String EVIDENCE_POLICY_SCHEMA = "evidence-policy-schema-v1";
     private static final String BASELINE_EVIDENCE_SCHEMA = "baseline-evidence-schema-v1";
@@ -63,7 +64,10 @@ public class VersionedResourceRegistry {
         this.resourceLoader = Objects.requireNonNull(resourceLoader, "resourceLoader");
         var profileResource = requiredResource(profilePath);
         var profileDocument = yamlDocument(profileResource);
-        requireEquals(PROFILE_SCHEMA, string(profileDocument, "schema-version", "profile schema"), "profile schema");
+        var profileSchema = string(profileDocument, "schema-version", "profile schema");
+        if (!Set.of(PROFILE_SCHEMA_V1, PROFILE_SCHEMA_V2).contains(profileSchema)) {
+            throw new IllegalStateException("profile schema version mismatch");
+        }
         var profileVersion = string(profileDocument, "version", "profile");
 
         var generatorPrompt = promptRef(profileDocument, "generator-prompt");
@@ -95,7 +99,13 @@ public class VersionedResourceRegistry {
                 positiveInteger(
                         profileDocument,
                         "minimum-complete-bundle-output-tokens",
-                        "profile"));
+                        "profile"),
+                PROFILE_SCHEMA_V2.equals(profileSchema)
+                        ? positiveInteger(
+                                profileDocument,
+                                "minimum-quality-judge-output-tokens",
+                                "profile")
+                        : 0);
     }
 
     public GenerationProfile currentGenerationProfile() {

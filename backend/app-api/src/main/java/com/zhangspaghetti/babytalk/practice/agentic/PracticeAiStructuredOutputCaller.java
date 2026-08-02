@@ -1,5 +1,6 @@
 package com.zhangspaghetti.babytalk.practice.agentic;
 
+import java.util.Objects;
 import org.springframework.ai.converter.BeanOutputConverter;
 import org.springframework.ai.converter.ResponseTextCleaner;
 import org.springframework.ai.chat.model.ChatResponse;
@@ -60,6 +61,18 @@ public class PracticeAiStructuredOutputCaller {
         return convertOnce(content(response), converter, metadata);
     }
 
+    /** Calls one typed structured-output request after enforcing its versioned safe budget floor. */
+    public <T> T call(
+            ResolvedProvider provider,
+            String systemPrompt,
+            String userPrompt,
+            Class<T> responseType,
+            int minimumOutputTokens
+    ) {
+        requireOutputBudget(provider, minimumOutputTokens);
+        return call(provider, systemPrompt, userPrompt, responseType);
+    }
+
     /**
      * Gets one schema-constrained provider payload without converting it. Callers with a stricter
      * domain parser must use this path so no generic DTO conversion can weaken that contract.
@@ -101,17 +114,22 @@ public class PracticeAiStructuredOutputCaller {
             Class<T> responseType,
             int minimumOutputTokens
     ) {
+        requireOutputBudget(provider, minimumOutputTokens);
+        return callRaw(provider, systemPrompt, userPrompt, responseType);
+    }
+
+    private void requireOutputBudget(ResolvedProvider provider, int minimumOutputTokens) {
+        Objects.requireNonNull(provider, "provider");
         if (minimumOutputTokens <= 0) {
             throw new IllegalArgumentException("minimumOutputTokens must be positive");
         }
         if (provider.outputTokenLimit() < minimumOutputTokens) {
             LOGGER.warn(
-                    "Practice AI complete output budget rejected before request: configuredLimit={}, safeMinimum={}",
+                    "Practice AI output budget rejected before request: configuredLimit={}, safeMinimum={}",
                     provider.outputTokenLimit(),
                     minimumOutputTokens);
             throw new OutputBudgetTooSmallException(provider.outputTokenLimit(), minimumOutputTokens);
         }
-        return callRaw(provider, systemPrompt, userPrompt, responseType);
     }
 
     <T> T convertOnce(String content, Class<T> responseType) {

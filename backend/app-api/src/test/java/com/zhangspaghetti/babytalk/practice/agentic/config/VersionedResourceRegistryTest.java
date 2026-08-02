@@ -14,16 +14,26 @@ class VersionedResourceRegistryTest {
     void loadsProfileAndComputesStableCanonicalHashes() {
         var profile = registry.currentGenerationProfile();
 
-        assertThat(profile.version()).isEqualTo("custom-scene-generation-v3");
+        assertThat(profile.version()).isEqualTo("custom-scene-generation-v4");
         assertThat(profile.contentHash())
-                .isEqualTo("a207f125c7beb7e80d5aad104f9339ff280972b77326b6c9d97fd96d171ef66b");
+                .isEqualTo("fe96ac339eda8bfcd653d90d83bd981e2aa296141ad5e066990c83e8ccc2110d");
         assertThat(profile.generatorPrompt().version()).isEqualTo("custom-scene-generator-v3");
-        assertThat(profile.judgePrompt().version()).isEqualTo("custom-scene-quality-judge-v2");
+        assertThat(profile.judgePrompt().version()).isEqualTo("custom-scene-quality-judge-v3");
         assertThat(profile.repairPrompt().version()).isEqualTo("custom-scene-repair-v3");
         assertThat(profile.rubricVersion()).isEqualTo("custom-scene-quality-v1");
         assertThat(profile.evidencePolicyVersion()).isEqualTo("custom-scene-evidence-v1");
         assertThat(profile.minimumCompleteBundleOutputTokens()).isEqualTo(8192);
+        assertThat(profile.minimumQualityJudgeOutputTokens()).isEqualTo(8192);
         assertThat(registry.promptText(VersionedResourceRegistry.PromptKind.GENERATOR)).contains("strict JSON");
+    }
+
+    @Test
+    void legacyProfileKeepsJudgeBudgetBehaviorUnchanged() {
+        var legacy = registryFor("profiles/custom-scene-generation-v3.yml")
+                .currentGenerationProfile();
+
+        assertThat(legacy.version()).isEqualTo("custom-scene-generation-v3");
+        assertThat(legacy.minimumQualityJudgeOutputTokens()).isZero();
     }
 
     @Test
@@ -47,7 +57,9 @@ class VersionedResourceRegistryTest {
                 .contains(
                         "semantic triangle",
                         "Do not emit TPR_QUALITY_EVIDENCE_MISSING only because",
-                        "Do not relax any rubric dimension");
+                        "Do not relax any rubric dimension",
+                        "Each enum array must contain unique items only",
+                        "Never repeat an enum item");
     }
 
     @Test

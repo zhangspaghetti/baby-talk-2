@@ -106,8 +106,15 @@ public class AgenticCustomSceneQualityJudge implements CustomSceneQualityJudge {
                 rubric.version(),
                 rubric.contentHash(),
                 provider -> {
-                    var wire = structuredOutputCaller.call(
-                            provider, systemPrompt, userPrompt, JudgeWireResponse.class);
+                    var wire = profile.minimumQualityJudgeOutputTokens() == 0
+                            ? structuredOutputCaller.call(
+                                    provider, systemPrompt, userPrompt, JudgeWireResponse.class)
+                            : structuredOutputCaller.call(
+                                    provider,
+                                    systemPrompt,
+                                    userPrompt,
+                                    JudgeWireResponse.class,
+                                    profile.minimumQualityJudgeOutputTokens());
                     var suggested = wire.toSuggested();
                     var effective = verdictCalculator.calculate(suggested, rubric);
                     return new OperationRequest.ProviderInvocationResult<>(
@@ -220,6 +227,9 @@ public class AgenticCustomSceneQualityJudge implements CustomSceneQualityJudge {
                 evidenceGapCodes = List.copyOf(Objects.requireNonNull(evidenceGapCodes, "evidenceGapCodes"));
                 if (!dimensionResults.keySet().equals(EnumSet.allOf(JudgeDimension.class))
                         || !ALLOWED_JUDGE_VIOLATION_CODES.containsAll(violationCodes)
+                        || hasDuplicates(violationCodes)
+                        || hasDuplicates(repairDirectives)
+                        || hasDuplicates(evidenceGapCodes)
                         || confidence == null
                         || !Double.isFinite(confidence)
                         || confidence < 0.0d
@@ -231,6 +241,10 @@ public class AgenticCustomSceneQualityJudge implements CustomSceneQualityJudge {
             } catch (RuntimeException exception) {
                 throw new StructuredOutputInvalidException();
             }
+        }
+
+        private static boolean hasDuplicates(List<?> values) {
+            return new LinkedHashSet<>(values).size() != values.size();
         }
 
         public SuggestedJudgeResult toSuggested() {
@@ -314,6 +328,7 @@ public class AgenticCustomSceneQualityJudge implements CustomSceneQualityJudge {
             requireExactKeywords(sourceItems, "type");
             requireType(sourceItems, Set.of("string"));
             violations.set("items", flatTextEnum(violations, ALLOWED_JUDGE_VIOLATION_CODES));
+            violations.put("maxItems", ALLOWED_JUDGE_VIOLATION_CODES.size());
         }
 
         private static void refineConfidence(ObjectNode confidence) {
@@ -333,6 +348,7 @@ public class AgenticCustomSceneQualityJudge implements CustomSceneQualityJudge {
             requireExactKeywords(arraySchema, "type", "items");
             requireType(arraySchema, Set.of("array"));
             requireTextEnum(root, arraySchema.get("items"), expected);
+            arraySchema.put("maxItems", expected.size());
         }
 
         private static void requireTextEnum(

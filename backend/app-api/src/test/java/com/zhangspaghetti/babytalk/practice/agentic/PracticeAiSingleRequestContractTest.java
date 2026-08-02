@@ -239,6 +239,30 @@ class PracticeAiSingleRequestContractTest {
         }
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {"maxTokens", "maxCompletionTokens"})
+    void typedJudgeBudgetBelowSafeMinimumFailsBeforeOutboundRequest(String tokenLimitField) throws Exception {
+        var requestCount = new AtomicInteger();
+        var server = server(requestCount, 200, openAiEnvelope("{\"answer\":\"ok\"}"));
+        try {
+            var provider = provider(server, tokenLimitField);
+
+            var exception = org.assertj.core.api.Assertions.catchThrowableOfType(
+                    () -> new PracticeAiStructuredOutputCaller().call(
+                            provider, "system", "return JSON", Answer.class, 8192),
+                    PracticeAiStructuredOutputCaller.OutputBudgetTooSmallException.class);
+
+            assertThat(exception).hasMessage("output_budget_too_small");
+            assertThat(exception.configuredLimit()).isEqualTo(600);
+            assertThat(exception.safeMinimum()).isEqualTo(8192);
+            assertThat(new PracticeAiCallFailureClassifier().classify(exception))
+                    .hasValue("output_budget_too_small");
+            assertThat(requestCount).hasValue(0);
+        } finally {
+            server.stop(0);
+        }
+    }
+
     private void assertSingleRequestForStatus(int status) throws Exception {
         var requestCount = new AtomicInteger();
         var server = server(requestCount, status, "{}");
