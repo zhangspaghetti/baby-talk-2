@@ -21,7 +21,9 @@ class FakeCustomSceneRepairerTest {
                 "shoes on", "starter", "agentic_search");
         var previousBundle = GeneratedCareMomentBundle.fakeFixture(previous).completeBundle();
         var request = new CustomSceneRepairer.RepairRequest(
-                "pgc_fake_repair", 2, UUID.randomUUID(), "zh-CN", new TypedRepairPackage(
+                "pgc_fake_repair", 2, UUID.randomUUID(), "zh-CN",
+                CustomSceneGenerator.ContentConstraints.fakeProviderDefaults(),
+                new TypedRepairPackage(
                         "给宝宝穿鞋", "m7_11", "calmer_care", previousBundle, JudgeVerdict.REPAIR,
                         List.of(JudgeDimension.TPR_QUALITY, JudgeDimension.DELIVERY_GUIDANCE_QUALITY),
                         List.of("MISSING_TPR_ACTION", "MISSING_DELIVERY_GUIDANCE"),

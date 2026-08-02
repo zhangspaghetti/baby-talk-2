@@ -32,6 +32,7 @@ public record PracticeAiProperties(
             if (isBlank(entry.getKey()) || entry.getValue() == null) {
                 throw new IllegalArgumentException("named providers must have non-blank names and definitions");
             }
+            PracticeAiProviderIdentity.requireProviderName(entry.getKey());
         }
         for (var capability : PracticeAiCapability.values()) {
             var route = capabilities.get(capability.propertyKey());
@@ -124,6 +125,7 @@ public record PracticeAiProperties(
             if (isBlank(model)) {
                 throw new IllegalArgumentException("provider model must be non-blank");
             }
+            model = PracticeAiProviderIdentity.requireModelName(model.trim());
             if (timeout == null || timeout.isZero() || timeout.isNegative()) {
                 throw new IllegalArgumentException("provider timeout must be positive");
             }
@@ -139,7 +141,6 @@ public record PracticeAiProperties(
             }
             type = type.trim();
             apiKeyEnvironmentVariable = apiKeyEnvironmentVariable.trim();
-            model = model.trim();
             Objects.requireNonNull(baseUrl, "baseUrl");
         }
     }

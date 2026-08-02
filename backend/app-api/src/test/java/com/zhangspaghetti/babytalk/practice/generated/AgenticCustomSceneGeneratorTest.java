@@ -170,6 +170,17 @@ class AgenticCustomSceneGeneratorTest {
         assertThat(userPrompt)
                 .contains("pgc_generator_test", "给宝宝穿鞋", "m7_11", "calmer_care", "zh-CN")
                 .contains("先轻声说。", "再停下来观察。")
+                .contains(
+                        "\"persistenceCodePointLimits\":{",
+                        "\"spaceTitleZh\":120",
+                        "\"activityTitleZh\":120",
+                        "\"sceneTagEn\":120",
+                        "\"englishText\":120",
+                        "\"chineseText\":120",
+                        "\"pronunciationHint\":120",
+                        "\"tprActionZh\":240",
+                        "\"deliveryGuidanceZh\":240",
+                        "\"difficulty\":16")
                 .doesNotContain(
                         "securityText",
                         "ownerKey",
@@ -183,6 +194,30 @@ class AgenticCustomSceneGeneratorTest {
                         "modelName");
         assertThat(userPrompt.indexOf("先轻声说。"))
                 .isLessThan(userPrompt.indexOf("再停下来观察。"));
+    }
+
+    @Test
+    void overlongTrustedProvenanceLeavesGeneratorForDeterministicGate() {
+        var runner = mock(PracticeAiOperationRunner.class);
+        var caller = mock(PracticeAiStructuredOutputCaller.class);
+        var registry = mock(VersionedResourceRegistry.class);
+        when(registry.currentGenerationProfile()).thenReturn(generationProfile());
+        when(registry.promptText(VersionedResourceRegistry.PromptKind.GENERATOR))
+                .thenReturn("GENERATOR SYSTEM PROMPT");
+        when(runner.execute(any())).thenReturn(new OperationResult<>(
+                wireResponse(),
+                UUID.randomUUID(),
+                UUID.randomUUID(),
+                "p".repeat(CompleteGeneratedBundle.PROVIDER_NAME_MAX_CODE_POINTS + 1),
+                "m".repeat(CompleteGeneratedBundle.MODEL_NAME_MAX_CODE_POINTS + 1),
+                null));
+        var generator = new AgenticCustomSceneGenerator(runner, caller, registry);
+
+        var provenance = generator.generateCareMoment(request())
+                .completeBundle().utterances().get(0).providerProvenance();
+
+        assertThat(provenance.providerName()).hasSize(65);
+        assertThat(provenance.modelName()).hasSize(97);
     }
 
     @Test

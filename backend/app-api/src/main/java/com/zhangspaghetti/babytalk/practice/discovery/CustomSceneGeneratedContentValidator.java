@@ -3,7 +3,11 @@ package com.zhangspaghetti.babytalk.practice.discovery;
 import com.zhangspaghetti.babytalk.practice.generated.CustomSceneGenerator.ContentConstraints;
 import com.zhangspaghetti.babytalk.practice.generated.CustomSceneGenerator.GeneratedPracticeContentCandidate;
 import com.zhangspaghetti.babytalk.practice.generated.quality.GeneratedOutputGateResult;
+import com.zhangspaghetti.babytalk.practice.generated.quality.GeneratedOutputViolationDiagnostic;
+import com.zhangspaghetti.babytalk.practice.generated.quality.GeneratedOutputViolationDiagnostic.FieldPath;
+import com.zhangspaghetti.babytalk.practice.generated.quality.GeneratedOutputViolationDiagnostic.LengthUnit;
 import com.zhangspaghetti.babytalk.practice.generated.quality.GeneratedOutputViolationCode;
+import com.zhangspaghetti.babytalk.practice.generated.contract.CompleteGeneratedBundle;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Pattern;
@@ -14,6 +18,7 @@ import org.springframework.stereotype.Component;
 public class CustomSceneGeneratedContentValidator {
 
     private static final int MAX_NEGATION_PREFIX_CODE_POINTS = 32;
+    private static final int GENERATION_SOURCE_MAX_CODE_POINTS = 32;
     private static final Pattern ENGLISH_WORD_PATTERN = Pattern.compile("[A-Za-z]+(?:'[A-Za-z]+)?");
     private static final Pattern TRUSTED_SCENE_TAG_PATTERN = Pattern.compile("[A-Za-z0-9][A-Za-z0-9 _-]*");
     private static final Pattern MARKDOWN_OR_TEMPLATE_PATTERN = Pattern.compile(
@@ -107,6 +112,8 @@ public class CustomSceneGeneratedContentValidator {
             return new GeneratedOutputGateResult(
                     null,
                     List.of(GeneratedOutputViolationCode.UNTRUSTED_METADATA),
+                    List.of(),
+                    List.of(),
                     List.of());
         }
         if (constraints == null) {
@@ -116,6 +123,8 @@ public class CustomSceneGeneratedContentValidator {
         var normalized = normalize(candidate);
         var terminal = new ArrayList<GeneratedOutputViolationCode>();
         var repairable = new ArrayList<GeneratedOutputViolationCode>();
+        var terminalDiagnostics = new ArrayList<GeneratedOutputViolationDiagnostic>();
+        var repairableDiagnostics = new ArrayList<GeneratedOutputViolationDiagnostic>();
 
         if (containsBidiControl(candidate)) {
             terminal.add(GeneratedOutputViolationCode.OUTPUT_BIDI_CONTROL);
@@ -124,8 +133,14 @@ public class CustomSceneGeneratedContentValidator {
                 || !isTrustedSceneTag(normalized.sceneTagEn())) {
             terminal.add(GeneratedOutputViolationCode.UNTRUSTED_METADATA);
         }
-        if (exceedsStorageOrSchemaLimits(normalized, constraints)) {
+        var applicationOverflow = lengthOverflow(
+                GeneratedOutputViolationCode.DATABASE_OVERFLOW,
+                FieldPath.GENERATION_SOURCE,
+                normalized.generationSource(),
+                GENERATION_SOURCE_MAX_CODE_POINTS);
+        if (applicationOverflow != null) {
             terminal.add(GeneratedOutputViolationCode.DATABASE_OVERFLOW);
+            terminalDiagnostics.add(applicationOverflow);
         }
         if ((normalized.difficulty() != null
                 && !constraints.allowedDifficulties().contains(normalized.difficulty()))
@@ -147,6 +162,11 @@ public class CustomSceneGeneratedContentValidator {
         }
 
         if (terminal.isEmpty()) {
+            var providerOverflows = providerContentOverflows(normalized, constraints);
+            if (providerOverflows.overflow()) {
+                repairable.add(GeneratedOutputViolationCode.PROVIDER_CONTENT_OVERFLOW);
+                repairableDiagnostics.addAll(providerOverflows.lengthDiagnostics());
+            }
             var hasActionSignal = policyTextMatcher.containsAny(
                     normalized.tprActionZh(), policyProperties.validatorTprActionMarkers());
             var hasDeliverySignal = policyTextMatcher.containsAny(
@@ -176,7 +196,36 @@ public class CustomSceneGeneratedContentValidator {
             }
         }
 
-        return new GeneratedOutputGateResult(normalized, terminal, repairable);
+        return new GeneratedOutputGateResult(
+                normalized,
+                terminal,
+                repairable,
+                terminalDiagnostics,
+                repairableDiagnostics);
+    }
+
+    public ProvenanceValidationResult evaluateProvenance(
+            CompleteGeneratedBundle.ProviderProvenance provenance
+    ) {
+        if (provenance == null) {
+            throw new IllegalArgumentException("provider provenance is required");
+        }
+        var diagnostics = new ArrayList<GeneratedOutputViolationDiagnostic>();
+        addProvenanceOverflow(
+                diagnostics,
+                FieldPath.PROVIDER_NAME,
+                provenance.providerName(),
+                CompleteGeneratedBundle.PROVIDER_NAME_MAX_CODE_POINTS);
+        addProvenanceOverflow(
+                diagnostics,
+                FieldPath.MODEL_NAME,
+                provenance.modelName(),
+                CompleteGeneratedBundle.MODEL_NAME_MAX_CODE_POINTS);
+        return new ProvenanceValidationResult(
+                diagnostics.isEmpty()
+                        ? List.of()
+                        : List.of(GeneratedOutputViolationCode.DATABASE_OVERFLOW),
+                List.copyOf(diagnostics));
     }
 
     public GeneratedPracticeContentCandidate normalizeAndValidate(
@@ -240,28 +289,113 @@ public class CustomSceneGeneratedContentValidator {
         return sceneTagEn == null || TRUSTED_SCENE_TAG_PATTERN.matcher(sceneTagEn).matches();
     }
 
-    private boolean exceedsStorageOrSchemaLimits(
+    private ProviderContentOverflowResult providerContentOverflows(
             GeneratedPracticeContentCandidate candidate,
             ContentConstraints constraints
     ) {
-        return exceedsCodePoints(candidate.spaceTitleZh(), 120)
-                || exceedsCodePoints(candidate.activityTitleZh(), 120)
-                || exceedsCodePoints(candidate.sceneTagEn(), 120)
-                || exceedsCodePoints(candidate.tprActionZh(), 240)
-                || exceedsCodePoints(candidate.deliveryGuidanceZh(), 240)
-                || exceedsCodePoints(candidate.englishText(), 120)
-                || exceedsCodePoints(candidate.chineseText(), 120)
-                || exceedsCodePoints(candidate.pronunciationHint(), 120)
-                || exceedsCodePoints(candidate.difficulty(), 16)
-                || exceedsCodePoints(candidate.generationSource(), 32)
-                || canonicalizer.graphemeLength(candidate.englishText()) > constraints.maxEnglishChars()
-                || (candidate.englishText() != null
-                && (englishWordCount(candidate.englishText()) < 1
-                || englishWordCount(candidate.englishText()) > constraints.maxEnglishWords()))
-                || canonicalizer.graphemeLength(candidate.chineseText()) > constraints.maxChineseChars()
-                || coachTipComposer.graphemeLength(
-                        candidate.tprActionZh(), candidate.deliveryGuidanceZh()) > constraints.maxCoachTipChars()
-                || canonicalizer.graphemeLength(candidate.sceneTagEn()) > constraints.maxSceneTagChars();
+        var diagnostics = new ArrayList<GeneratedOutputViolationDiagnostic>();
+        addLengthOverflow(diagnostics, FieldPath.SPACE_TITLE_ZH, candidate.spaceTitleZh(),
+                CompleteGeneratedBundle.SPACE_TITLE_ZH_MAX_CODE_POINTS);
+        addLengthOverflow(diagnostics, FieldPath.ACTIVITY_TITLE_ZH, candidate.activityTitleZh(),
+                CompleteGeneratedBundle.ACTIVITY_TITLE_ZH_MAX_CODE_POINTS);
+        addLengthOverflow(diagnostics, FieldPath.SCENE_TAG_EN, candidate.sceneTagEn(),
+                CompleteGeneratedBundle.SCENE_TAG_EN_MAX_CODE_POINTS);
+        addLengthOverflow(diagnostics, FieldPath.TPR_ACTION_ZH, candidate.tprActionZh(),
+                CompleteGeneratedBundle.TPR_ACTION_ZH_MAX_CODE_POINTS);
+        addLengthOverflow(diagnostics, FieldPath.DELIVERY_GUIDANCE_ZH, candidate.deliveryGuidanceZh(),
+                CompleteGeneratedBundle.DELIVERY_GUIDANCE_ZH_MAX_CODE_POINTS);
+        addLengthOverflow(diagnostics, FieldPath.ENGLISH_TEXT, candidate.englishText(),
+                CompleteGeneratedBundle.ENGLISH_TEXT_MAX_CODE_POINTS);
+        addLengthOverflow(diagnostics, FieldPath.CHINESE_TEXT, candidate.chineseText(),
+                CompleteGeneratedBundle.CHINESE_TEXT_MAX_CODE_POINTS);
+        addLengthOverflow(diagnostics, FieldPath.PRONUNCIATION_HINT, candidate.pronunciationHint(),
+                CompleteGeneratedBundle.PRONUNCIATION_HINT_MAX_CODE_POINTS);
+        addLengthOverflow(diagnostics, FieldPath.DIFFICULTY, candidate.difficulty(),
+                CompleteGeneratedBundle.DIFFICULTY_MAX_CODE_POINTS);
+
+        addConstraintOverflow(diagnostics, FieldPath.ENGLISH_TEXT, candidate.englishText(),
+                canonicalizer.graphemeLength(candidate.englishText()), constraints.maxEnglishChars());
+        addConstraintOverflow(diagnostics, FieldPath.CHINESE_TEXT, candidate.chineseText(),
+                canonicalizer.graphemeLength(candidate.chineseText()), constraints.maxChineseChars());
+        addConstraintOverflow(diagnostics, FieldPath.SCENE_TAG_EN, candidate.sceneTagEn(),
+                canonicalizer.graphemeLength(candidate.sceneTagEn()), constraints.maxSceneTagChars());
+        var coachTipGraphemes = coachTipComposer.graphemeLength(
+                candidate.tprActionZh(), candidate.deliveryGuidanceZh());
+        var coachTip = coachTipComposer.compose(candidate.tprActionZh(), candidate.deliveryGuidanceZh());
+        addConstraintOverflow(
+                diagnostics, FieldPath.COACH_TIP_ZH, coachTip, coachTipGraphemes, constraints.maxCoachTipChars());
+        var englishWords = englishWordCount(candidate.englishText());
+        var wordConstraintOverflow = candidate.englishText() != null
+                && (englishWords < 1 || englishWords > constraints.maxEnglishWords());
+        return new ProviderContentOverflowResult(
+                wordConstraintOverflow || !diagnostics.isEmpty(),
+                List.copyOf(diagnostics));
+    }
+
+    private void addLengthOverflow(
+            List<GeneratedOutputViolationDiagnostic> diagnostics,
+            FieldPath field,
+            String value,
+            int limit
+    ) {
+        var diagnostic = lengthOverflow(
+                GeneratedOutputViolationCode.PROVIDER_CONTENT_OVERFLOW,
+                field,
+                value,
+                limit);
+        if (diagnostic != null) {
+            diagnostics.add(diagnostic);
+        }
+    }
+
+    private void addProvenanceOverflow(
+            List<GeneratedOutputViolationDiagnostic> diagnostics,
+            FieldPath field,
+            String value,
+            int limit
+    ) {
+        var diagnostic = lengthOverflow(
+                GeneratedOutputViolationCode.DATABASE_OVERFLOW,
+                field,
+                value,
+                limit);
+        if (diagnostic != null) {
+            diagnostics.add(diagnostic);
+        }
+    }
+
+    private void addConstraintOverflow(
+            List<GeneratedOutputViolationDiagnostic> diagnostics,
+            FieldPath field,
+            String value,
+            int measuredLength,
+            int limit
+    ) {
+        if (value != null && measuredLength > limit) {
+            diagnostics.add(new GeneratedOutputViolationDiagnostic(
+                    GeneratedOutputViolationCode.PROVIDER_CONTENT_OVERFLOW,
+                    field,
+                    LengthUnit.GRAPHEME,
+                    measuredLength,
+                    limit));
+        }
+    }
+
+    private GeneratedOutputViolationDiagnostic lengthOverflow(
+            GeneratedOutputViolationCode code,
+            FieldPath field,
+            String value,
+            int limit
+    ) {
+        if (!exceedsCodePoints(value, limit)) {
+            return null;
+        }
+        return new GeneratedOutputViolationDiagnostic(
+                code,
+                field,
+                LengthUnit.CODE_POINT,
+                canonicalizer.codePointLength(value),
+                limit);
     }
 
     private boolean exceedsCodePoints(String value, int maxCodePoints) {
@@ -371,16 +505,26 @@ public class CustomSceneGeneratedContentValidator {
         require(normalized.difficulty(), "difficulty");
         require(normalized.generationSource(), "generationSource");
 
-        validateDatabaseLength(normalized.spaceTitleZh(), 120, "spaceTitleZh");
-        validateDatabaseLength(normalized.activityTitleZh(), 120, "activityTitleZh");
-        validateDatabaseLength(normalized.sceneTagEn(), 120, "sceneTagEn");
-        validateDatabaseLength(normalized.tprActionZh(), 240, "tprActionZh");
-        validateDatabaseLength(normalized.deliveryGuidanceZh(), 240, "deliveryGuidanceZh");
-        validateDatabaseLength(normalized.englishText(), 120, "englishText");
-        validateDatabaseLength(normalized.chineseText(), 120, "chineseText");
-        validateDatabaseLength(normalized.pronunciationHint(), 120, "pronunciationHint");
-        validateDatabaseLength(normalized.difficulty(), 16, "difficulty");
-        validateDatabaseLength(normalized.generationSource(), 32, "generationSource");
+        validateDatabaseLength(normalized.spaceTitleZh(),
+                CompleteGeneratedBundle.SPACE_TITLE_ZH_MAX_CODE_POINTS, "spaceTitleZh");
+        validateDatabaseLength(normalized.activityTitleZh(),
+                CompleteGeneratedBundle.ACTIVITY_TITLE_ZH_MAX_CODE_POINTS, "activityTitleZh");
+        validateDatabaseLength(normalized.sceneTagEn(),
+                CompleteGeneratedBundle.SCENE_TAG_EN_MAX_CODE_POINTS, "sceneTagEn");
+        validateDatabaseLength(normalized.tprActionZh(),
+                CompleteGeneratedBundle.TPR_ACTION_ZH_MAX_CODE_POINTS, "tprActionZh");
+        validateDatabaseLength(normalized.deliveryGuidanceZh(),
+                CompleteGeneratedBundle.DELIVERY_GUIDANCE_ZH_MAX_CODE_POINTS, "deliveryGuidanceZh");
+        validateDatabaseLength(normalized.englishText(),
+                CompleteGeneratedBundle.ENGLISH_TEXT_MAX_CODE_POINTS, "englishText");
+        validateDatabaseLength(normalized.chineseText(),
+                CompleteGeneratedBundle.CHINESE_TEXT_MAX_CODE_POINTS, "chineseText");
+        validateDatabaseLength(normalized.pronunciationHint(),
+                CompleteGeneratedBundle.PRONUNCIATION_HINT_MAX_CODE_POINTS, "pronunciationHint");
+        validateDatabaseLength(normalized.difficulty(),
+                CompleteGeneratedBundle.DIFFICULTY_MAX_CODE_POINTS, "difficulty");
+        validateDatabaseLength(normalized.generationSource(),
+                GENERATION_SOURCE_MAX_CODE_POINTS, "generationSource");
 
         validateEnglishStarter(normalized.englishText(), constraints);
         validateMaxLength(normalized.chineseText(), constraints.maxChineseChars(), "chineseText");
@@ -433,6 +577,7 @@ public class CustomSceneGeneratedContentValidator {
                     new RejectedGeneratedContentException("unsafe_medical_legal");
             case UNTRUSTED_METADATA -> new RejectedGeneratedContentException("untrusted_metadata");
             case DATABASE_OVERFLOW -> new InvalidGeneratedContentException("database_overflow");
+            case PROVIDER_CONTENT_OVERFLOW -> new InvalidGeneratedContentException("provider_content_overflow");
             case INVALID_ENUM -> new InvalidGeneratedContentException("invalid_enum");
             case MISSING_TPR_ACTION -> new RejectedGeneratedContentException("missing_tpr_action");
             case MISSING_DELIVERY_GUIDANCE ->
@@ -447,6 +592,22 @@ public class CustomSceneGeneratedContentValidator {
 
     private String nullToEmpty(String value) {
         return value == null ? "" : value;
+    }
+
+    private record ProviderContentOverflowResult(
+            boolean overflow,
+            List<GeneratedOutputViolationDiagnostic> lengthDiagnostics
+    ) {
+    }
+
+    public record ProvenanceValidationResult(
+            List<GeneratedOutputViolationCode> terminalViolations,
+            List<GeneratedOutputViolationDiagnostic> terminalViolationDiagnostics
+    ) {
+        public ProvenanceValidationResult {
+            terminalViolations = List.copyOf(terminalViolations);
+            terminalViolationDiagnostics = List.copyOf(terminalViolationDiagnostics);
+        }
     }
 
     public static class RejectedGeneratedContentException extends RuntimeException {

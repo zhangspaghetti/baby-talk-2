@@ -131,6 +131,7 @@ public class AgenticCustomSceneGenerator implements CustomSceneGenerator {
                         constraints.maxSceneTagChars(),
                         constraints.allowedDifficulties().stream().sorted().toList(),
                         constraints.allowedGenerationSources().stream().sorted().toList()),
+                CompleteGeneratedBundle.persistenceCodePointLimits(),
                 request.evidenceBundle().items().stream()
                         .map(item -> item.sanitizedSummary())
                         .toList());
@@ -146,6 +147,7 @@ public class AgenticCustomSceneGenerator implements CustomSceneGenerator {
             String locale,
             GenerationProfilePayload generationProfile,
             ContentConstraintsPayload constraints,
+            CompleteGeneratedBundle.PersistenceCodePointLimits persistenceCodePointLimits,
             List<String> orderedSanitizedEvidenceSummaries
     ) {
     }

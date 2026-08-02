@@ -21,6 +21,7 @@ import com.zhangspaghetti.babytalk.practice.generated.quality.DimensionResult;
 import com.zhangspaghetti.babytalk.practice.generated.quality.EvidenceGapCode;
 import com.zhangspaghetti.babytalk.practice.generated.quality.GeneratedOutputGateResult;
 import com.zhangspaghetti.babytalk.practice.generated.quality.GeneratedOutputViolationCode;
+import com.zhangspaghetti.babytalk.practice.generated.quality.GeneratedOutputViolationDiagnostic;
 import com.zhangspaghetti.babytalk.practice.generated.quality.JudgeDimension;
 import com.zhangspaghetti.babytalk.practice.generated.quality.JudgeVerdict;
 import com.zhangspaghetti.babytalk.practice.generated.quality.JudgeVerdictCalculator;
@@ -59,7 +60,7 @@ public class CustomSceneGenerationOrchestrator {
     private static final String ERROR_GENERATION_UNAVAILABLE = "generation_unavailable";
     private static final String ERROR_GENERATION_TIMEOUT = "generation_timeout";
     private static final String ERROR_INSUFFICIENT_EVIDENCE = "insufficient_evidence";
-    private static final int MAX_BRANCH_VIOLATION_DIAGNOSTICS = 78;
+    private static final int MAX_BRANCH_VIOLATION_DIAGNOSTICS = 174;
 
     private final PracticeGeneratedContentCommands commands;
     private final PracticeGeneratedContentQueryMapper queryMapper;
@@ -237,6 +238,7 @@ public class CustomSceneGenerationOrchestrator {
                             attemptNumber,
                             bundle.evidenceBundleId(),
                             reserved.locale(),
+                            execution.contentConstraints(),
                             repairPackage(execution, repairContext, bundle, repairInputCodes)));
                     if (careMoment == null) {
                         throw new GenerationExecutionException("complete_bundle_missing", false);
@@ -429,28 +431,34 @@ public class CustomSceneGenerationOrchestrator {
         var terminalDiagnostics = new ArrayList<String>();
         var repairableDiagnostics = new ArrayList<String>();
         var branchRequirements = new ArrayList<BranchRequirement>();
-        var branches = bundle.completeBundle().utterances().stream()
-                .map(this::safeBranchName)
-                .iterator();
+        var utterances = bundle.completeBundle().utterances().iterator();
         var normalized = bundle.mapCandidates(candidate -> {
-            if (!branches.hasNext()) {
+            if (!utterances.hasNext()) {
                 throw new IllegalStateException("bundle validation exceeded canonical branch count");
             }
-            var branch = branches.next();
+            var utterance = utterances.next();
+            var branch = safeBranchName(utterance);
             var result = validator.evaluate(
                     candidate,
                     constraints,
                     new CustomSceneGeneratedContentValidator.GeneratedOutputValidationContext(normalizedSceneText));
+            var provenanceResult = validator.evaluateProvenance(utterance.providerProvenance());
             terminal.addAll(result.terminalViolations());
+            terminal.addAll(provenanceResult.terminalViolations());
             repairable.addAll(result.repairableViolations());
             terminalDiagnostics.addAll(branchDiagnostics(branch, result.terminalViolations()));
+            terminalDiagnostics.addAll(branchDiagnostics(branch, provenanceResult.terminalViolations()));
             repairableDiagnostics.addAll(branchDiagnostics(branch, result.repairableViolations()));
+            terminalDiagnostics.addAll(branchLengthDiagnostics(branch, result.terminalViolationDiagnostics()));
+            terminalDiagnostics.addAll(branchLengthDiagnostics(
+                    branch, provenanceResult.terminalViolationDiagnostics()));
+            repairableDiagnostics.addAll(branchLengthDiagnostics(branch, result.repairableViolationDiagnostics()));
             if (!result.repairableViolations().isEmpty()) {
                 branchRequirements.add(new BranchRequirement(branch, result.repairableViolations()));
             }
             return result.normalizedCandidate();
         });
-        if (branches.hasNext()) {
+        if (utterances.hasNext()) {
             throw new IllegalStateException("bundle validation did not consume every canonical branch");
         }
         return new BundleGateResult(
@@ -468,6 +476,18 @@ public class CustomSceneGenerationOrchestrator {
     ) {
         return violations.stream()
                 .map(this::safeViolationCode)
+                .distinct()
+                .sorted()
+                .map(code -> branch.wireValue() + ":" + code)
+                .toList();
+    }
+
+    private List<String> branchLengthDiagnostics(
+            Branch branch,
+            List<GeneratedOutputViolationDiagnostic> diagnostics
+    ) {
+        return diagnostics.stream()
+                .map(GeneratedOutputViolationDiagnostic::auditCode)
                 .distinct()
                 .sorted()
                 .map(code -> branch.wireValue() + ":" + code)
@@ -528,6 +548,10 @@ public class CustomSceneGenerationOrchestrator {
                 case META_INSTRUCTION, COURSE_OR_SCORING_FRAMING, MARKDOWN_OR_TEMPLATE -> {
                     dimensions.add(JudgeDimension.NON_COURSE_FRAMING);
                     directives.add(RepairDirective.REPAIR_NON_COURSE_FRAMING);
+                }
+                case PROVIDER_CONTENT_OVERFLOW -> {
+                    dimensions.add(JudgeDimension.PARENT_SPEAKABILITY);
+                    directives.add(RepairDirective.REPAIR_PARENT_SPEAKABILITY);
                 }
                 default -> throw new IllegalArgumentException("terminal violation cannot create repair context");
             }
@@ -738,6 +762,7 @@ public class CustomSceneGenerationOrchestrator {
                     OUTPUT_DANGEROUS_MEDICAL,
                     UNTRUSTED_METADATA,
                     DATABASE_OVERFLOW,
+                    PROVIDER_CONTENT_OVERFLOW,
                     INVALID_ENUM,
                     MISSING_TPR_ACTION,
                     MISSING_DELIVERY_GUIDANCE,

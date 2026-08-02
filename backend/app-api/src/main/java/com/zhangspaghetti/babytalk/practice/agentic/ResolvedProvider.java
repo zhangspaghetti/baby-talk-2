@@ -15,9 +15,9 @@ public record ResolvedProvider(
     }
 
     public ResolvedProvider {
-        Objects.requireNonNull(providerName, "providerName");
+        providerName = PracticeAiProviderIdentity.requireProviderName(providerName);
         Objects.requireNonNull(providerType, "providerType");
-        Objects.requireNonNull(modelName, "modelName");
+        modelName = PracticeAiProviderIdentity.requireModelName(modelName);
         Objects.requireNonNull(chatClient, "chatClient");
         if (outputTokenLimit <= 0) {
             throw new IllegalArgumentException("outputTokenLimit must be positive");

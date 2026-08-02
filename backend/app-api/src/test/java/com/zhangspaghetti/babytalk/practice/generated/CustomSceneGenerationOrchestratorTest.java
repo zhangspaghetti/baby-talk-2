@@ -6,13 +6,24 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import com.zhangspaghetti.babytalk.practice.agentic.config.VersionedResourceRegistry;
+import com.zhangspaghetti.babytalk.practice.agentic.OperationRequest;
+import com.zhangspaghetti.babytalk.practice.agentic.OperationResult;
+import com.zhangspaghetti.babytalk.practice.agentic.PracticeAiOperationRunner;
 import com.zhangspaghetti.babytalk.practice.agentic.PracticeAiOperationRunner.ProvidersExhaustedException;
+import com.zhangspaghetti.babytalk.practice.agentic.PracticeAiStructuredOutputCaller;
+import com.zhangspaghetti.babytalk.practice.agentic.ResolvedProvider;
 import com.zhangspaghetti.babytalk.practice.discovery.CustomSceneGeneratedContentValidator;
+import com.zhangspaghetti.babytalk.practice.discovery.CustomSceneIntentClassifier;
+import com.zhangspaghetti.babytalk.practice.discovery.PracticeDiscoveryPolicyTestFixture;
+import com.zhangspaghetti.babytalk.practice.generated.contract.CompleteGeneratedBundle;
+import com.zhangspaghetti.babytalk.practice.generated.contract.CompleteGeneratedBundle.ProviderOrigin;
+import com.zhangspaghetti.babytalk.practice.generated.contract.CompleteGeneratedBundle.ProviderProvenance;
 import com.zhangspaghetti.babytalk.practice.generated.CustomSceneGenerator.GeneratedPracticeContentCandidate;
 import com.zhangspaghetti.babytalk.practice.generated.CustomSceneGenerator.GeneratorRequest;
 import com.zhangspaghetti.babytalk.practice.generated.CustomSceneQualityJudge.JudgeRequest;
@@ -25,6 +36,8 @@ import com.zhangspaghetti.babytalk.practice.generated.model.PracticeGeneratedCon
 import com.zhangspaghetti.babytalk.practice.generated.quality.DimensionResult;
 import com.zhangspaghetti.babytalk.practice.generated.quality.EvidenceGapCode;
 import com.zhangspaghetti.babytalk.practice.generated.quality.GeneratedOutputGateResult;
+import com.zhangspaghetti.babytalk.practice.generated.quality.GeneratedOutputViolationDiagnostic;
+import com.zhangspaghetti.babytalk.practice.generated.quality.GeneratedOutputViolationDiagnostic.FieldPath;
 import com.zhangspaghetti.babytalk.practice.generated.quality.GeneratedOutputViolationCode;
 import com.zhangspaghetti.babytalk.practice.generated.quality.JudgeDimension;
 import com.zhangspaghetti.babytalk.practice.generated.quality.JudgeVerdict;
@@ -46,7 +59,9 @@ import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
+import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.core.io.DefaultResourceLoader;
+import tools.jackson.databind.json.JsonMapper;
 
 class CustomSceneGenerationOrchestratorTest {
 
@@ -132,6 +147,132 @@ class CustomSceneGenerationOrchestratorTest {
         });
         assertThat(harness.judgeRequests).singleElement().satisfies(request ->
                 assertThat(request.attemptNumber()).isEqualTo(2));
+    }
+
+    @Test
+    void providerContentOverflowRepairsWholeBundleAndPreservesCanonicalIdentity() {
+        var harness = new Harness(2);
+        harness.gates.add(GateSpec.repairable(GeneratedOutputViolationCode.PROVIDER_CONTENT_OVERFLOW));
+        harness.repairableDiagnosticsByGateNumber.put(1, List.of(
+                new GeneratedOutputViolationDiagnostic(
+                        GeneratedOutputViolationCode.PROVIDER_CONTENT_OVERFLOW,
+                        FieldPath.ENGLISH_TEXT,
+                        41,
+                        40)));
+        harness.gates.add(GateSpec.pass());
+        harness.judges.add(pass());
+
+        var result = harness.execute();
+
+        assertThat(result.status()).isEqualTo("active");
+        assertThat(harness.gateNumber).isEqualTo(12);
+        assertThat(harness.completedAttempts.get(0).violationCodes()).containsExactly(
+                "PROVIDER_CONTENT_OVERFLOW",
+                "starter:PROVIDER_CONTENT_OVERFLOW",
+                "starter:PROVIDER_CONTENT_OVERFLOW:fieldPath=englishText:lengthUnit=code_point:actualLength=41:limit=40");
+        assertThat(harness.events).containsSubsequence(
+                "generator:1",
+                "gate:1",
+                "attempt-completed:1:repairable_violation",
+                "repair:2",
+                "gate:2",
+                "judge:2",
+                "activate-with-completed-attempt");
+        assertThat(harness.repairRequests).singleElement().satisfies(request -> {
+            assertThat(request.contentConstraints()).isEqualTo(harness.execution.contentConstraints());
+            assertThat(request.repairPackage().branchRequirements()).singleElement()
+                    .satisfies(requirement -> {
+                        assertThat(requirement.branch()).isEqualTo(
+                                com.zhangspaghetti.babytalk.practice.generated.quality.TypedRepairPackage.Branch.STARTER);
+                        assertThat(requirement.violationCodes())
+                                .containsExactly(GeneratedOutputViolationCode.PROVIDER_CONTENT_OVERFLOW);
+                    });
+            assertThat(request.repairPackage().failedDimensions())
+                    .containsExactly(JudgeDimension.PARENT_SPEAKABILITY);
+            assertThat(request.repairPackage().repairDirectives())
+                    .containsExactly(RepairDirective.REPAIR_PARENT_SPEAKABILITY);
+            assertThat(request.repairPackage().previousBundle().utterances())
+                    .extracting(
+                            com.zhangspaghetti.babytalk.practice.generated.contract.CompleteGeneratedBundle.Utterance::role,
+                            com.zhangspaghetti.babytalk.practice.generated.contract.CompleteGeneratedBundle.Utterance::reaction,
+                            com.zhangspaghetti.babytalk.practice.generated.contract.CompleteGeneratedBundle.Utterance::displayOrder)
+                    .containsExactlyElementsOf(harness.moment().completeBundle().utterances().stream()
+                            .map(utterance -> org.assertj.core.groups.Tuple.tuple(
+                                    utterance.role(), utterance.reaction(), utterance.displayOrder()))
+                            .toList());
+        });
+        assertThat(harness.judgeRequests).singleElement()
+                .satisfies(request -> assertThat(request.careMoment().completeBundle().utterances()).hasSize(6));
+    }
+
+    @Test
+    void rawWireOverflowFlowsThroughGeneratorGateAndWholeBundleRepair() {
+        var harness = new Harness(2, true);
+        harness.generatedMoment = agenticMomentFromRawWire(
+                harness,
+                "空".repeat(121),
+                "a".repeat(121),
+                "汉".repeat(121));
+        harness.repairedMoment = Harness.momentWithProvenance(new ProviderProvenance(
+                ProviderOrigin.PROVIDER_REPAIRED,
+                "primary",
+                "gpt-test",
+                2));
+        harness.judges.add(pass());
+        var policy = PracticeDiscoveryPolicyTestFixture.properties();
+        var gateValidator = new CustomSceneGeneratedContentValidator(
+                policy,
+                new CustomSceneIntentClassifier(policy));
+        var starterGate = gateValidator.evaluate(
+                harness.generatedMoment.starter(),
+                harness.execution.contentConstraints(),
+                new CustomSceneGeneratedContentValidator.GeneratedOutputValidationContext("给宝宝穿鞋"));
+        assertThat(starterGate.repairableViolations())
+                .contains(GeneratedOutputViolationCode.PROVIDER_CONTENT_OVERFLOW);
+        harness.generatedMoment.mapCandidates(candidate -> gateValidator.evaluate(
+                candidate,
+                harness.execution.contentConstraints(),
+                new CustomSceneGeneratedContentValidator.GeneratedOutputValidationContext("给宝宝穿鞋"))
+                .normalizedCandidate());
+
+        var result = harness.execute();
+
+        assertThat(result.status()).as(harness.events.toString()).isEqualTo("active");
+        assertThat(harness.repairRequests).singleElement().satisfies(request -> {
+            assertThat(request.attemptNumber()).isEqualTo(2);
+            assertThat(request.repairPackage().previousBundle().utterances())
+                    .extracting(
+                            CompleteGeneratedBundle.Utterance::role,
+                            CompleteGeneratedBundle.Utterance::reaction,
+                            CompleteGeneratedBundle.Utterance::displayOrder)
+                    .containsExactlyElementsOf(harness.generatedMoment.completeBundle().utterances().stream()
+                            .map(utterance -> org.assertj.core.groups.Tuple.tuple(
+                                    utterance.role(), utterance.reaction(), utterance.displayOrder()))
+                            .toList());
+            assertThat(request.repairPackage().previousBundle().utterances().get(0).englishText())
+                    .hasSize(121);
+            assertThat(request.repairPackage().previousBundle().scene().spaceTitleZh())
+                    .hasSize(121);
+            assertThat(request.repairPackage().previousBundle().utterances().get(0).chineseText())
+                    .hasSize(121);
+            assertThat(request.repairPackage().violationCodes())
+                    .contains(GeneratedOutputViolationCode.PROVIDER_CONTENT_OVERFLOW.name());
+        });
+        assertThat(harness.completedAttempts).hasSize(2);
+        assertThat(harness.completedAttempts.get(0).violationCodes())
+                .contains(
+                        "PROVIDER_CONTENT_OVERFLOW",
+                        "starter:PROVIDER_CONTENT_OVERFLOW",
+                        "starter:PROVIDER_CONTENT_OVERFLOW:fieldPath=spaceTitleZh:lengthUnit=code_point:actualLength=121:limit=120",
+                        "starter:PROVIDER_CONTENT_OVERFLOW:fieldPath=englishText:lengthUnit=code_point:actualLength=121:limit=120",
+                        "starter:PROVIDER_CONTENT_OVERFLOW:fieldPath=englishText:lengthUnit=grapheme:actualLength=121:limit=40",
+                        "starter:PROVIDER_CONTENT_OVERFLOW:fieldPath=chineseText:lengthUnit=code_point:actualLength=121:limit=120",
+                        "starter:PROVIDER_CONTENT_OVERFLOW:fieldPath=chineseText:lengthUnit=grapheme:actualLength=121:limit=24",
+                        "cooperating:PROVIDER_CONTENT_OVERFLOW:fieldPath=spaceTitleZh:lengthUnit=code_point:actualLength=121:limit=120");
+        assertThat(harness.judgeRequests).singleElement().satisfies(request -> {
+            assertThat(request.careMoment().completeBundle().utterances()).hasSize(6);
+            assertThat(request.careMoment().starter().englishText()).isEqualTo("Shoes on.");
+        });
     }
 
     @ParameterizedTest
@@ -397,6 +538,73 @@ class CustomSceneGenerationOrchestratorTest {
                 "reject:generation_invalid_output:false");
         assertThat(harness.judgeRequests).isEmpty();
         assertThat(harness.repairRequests).isEmpty();
+    }
+
+    @Test
+    void applicationOverflowPublishesSanitizedDiagnosticButNeverRepairs() {
+        var harness = new Harness(2);
+        harness.gates.add(GateSpec.terminal(GeneratedOutputViolationCode.DATABASE_OVERFLOW));
+        harness.terminalDiagnosticsByGateNumber.put(1, List.of(
+                new GeneratedOutputViolationDiagnostic(
+                        GeneratedOutputViolationCode.DATABASE_OVERFLOW,
+                        FieldPath.GENERATION_SOURCE,
+                        33,
+                        32)));
+
+        var result = harness.execute();
+
+        assertThat(result.status()).isEqualTo("rejected");
+        assertThat(harness.completedAttempts.get(0).violationCodes()).containsExactly(
+                "DATABASE_OVERFLOW",
+                "starter:DATABASE_OVERFLOW",
+                "starter:DATABASE_OVERFLOW:fieldPath=generationSource:lengthUnit=code_point:actualLength=33:limit=32");
+        assertThat(harness.repairRequests).isEmpty();
+        assertThat(harness.judgeRequests).isEmpty();
+    }
+
+    @Test
+    void generatorProvenanceOverflowIsTerminalAndNeverRepairs() {
+        var harness = new Harness(2);
+        harness.gates.add(GateSpec.pass());
+        harness.generatedMoment = Harness.momentWithProvenance(new ProviderProvenance(
+                ProviderOrigin.PROVIDER_GENERATED,
+                "p".repeat(CompleteGeneratedBundle.PROVIDER_NAME_MAX_CODE_POINTS + 1),
+                "model",
+                1));
+
+        var result = harness.execute();
+
+        assertThat(result.status()).isEqualTo("rejected");
+        assertThat(harness.completedAttempts).singleElement().satisfies(attempt ->
+                assertThat(attempt.violationCodes()).contains(
+                        "DATABASE_OVERFLOW",
+                        "starter:DATABASE_OVERFLOW",
+                        "starter:DATABASE_OVERFLOW:fieldPath=providerProvenance.providerName:lengthUnit=code_point:actualLength=65:limit=64"));
+        assertThat(harness.repairRequests).isEmpty();
+        assertThat(harness.judgeRequests).isEmpty();
+    }
+
+    @Test
+    void repairedProvenanceOverflowIsTerminalAndCannotReachJudgeOrActivation() {
+        var harness = new Harness(2);
+        harness.gates.add(GateSpec.repairable(GeneratedOutputViolationCode.MISSING_TPR_ACTION));
+        harness.gates.add(GateSpec.pass());
+        harness.repairedMoment = Harness.momentWithProvenance(new ProviderProvenance(
+                ProviderOrigin.PROVIDER_REPAIRED,
+                "provider",
+                "m".repeat(CompleteGeneratedBundle.MODEL_NAME_MAX_CODE_POINTS + 1),
+                2));
+
+        var result = harness.execute();
+
+        assertThat(result.status()).isEqualTo("rejected");
+        assertThat(harness.repairRequests).hasSize(1);
+        assertThat(harness.completedAttempts).hasSize(2);
+        assertThat(harness.completedAttempts.get(1).violationCodes()).contains(
+                "DATABASE_OVERFLOW",
+                "starter:DATABASE_OVERFLOW:fieldPath=providerProvenance.modelName:lengthUnit=code_point:actualLength=97:limit=96");
+        assertThat(harness.judgeRequests).isEmpty();
+        assertThat(harness.events).doesNotContain("activate-with-completed-attempt");
     }
 
     @Test
@@ -810,6 +1018,118 @@ class CustomSceneGenerationOrchestratorTest {
                 "expire:generation_unavailable:true");
     }
 
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    private static GeneratedCareMomentBundle agenticMomentFromRawWire(
+            Harness harness,
+            String spaceTitleZh,
+            String starterEnglish,
+            String starterChinese
+    ) {
+        var runner = mock(PracticeAiOperationRunner.class);
+        var caller = mock(PracticeAiStructuredOutputCaller.class);
+        var registry = mock(VersionedResourceRegistry.class);
+        var profile = harness.execution.generationProfile();
+        when(registry.currentGenerationProfile()).thenReturn(profile);
+        when(registry.promptText(VersionedResourceRegistry.PromptKind.GENERATOR))
+                .thenReturn("GENERATOR SYSTEM PROMPT");
+        var provider = new ResolvedProvider(
+                "primary", "openai-compatible", "gpt-test", mock(ChatClient.class));
+        when(caller.callRaw(
+                eq(provider),
+                eq("GENERATOR SYSTEM PROMPT"),
+                anyString(),
+                eq(CompleteGeneratedBundle.ProviderResponse.class),
+                anyInt()))
+                .thenReturn(wireJsonWithOverflows(spaceTitleZh, starterEnglish, starterChinese));
+        when(runner.execute(any())).thenAnswer(invocation -> {
+            var operation = (OperationRequest<CompleteGeneratedBundle.ProviderResponse>) invocation.getArgument(0);
+            var providerResult = operation.invocation().invoke(provider);
+            return new OperationResult<>(
+                    providerResult.value(),
+                    UUID.fromString("20000000-0000-0000-0000-000000000001"),
+                    UUID.fromString("20000000-0000-0000-0000-000000000002"),
+                    "primary",
+                    "gpt-test",
+                    providerResult.providerTraceId());
+        });
+        var generator = new AgenticCustomSceneGenerator(runner, caller, registry);
+        var sourceBundle = harness.bundle(1);
+        var matchedBundle = new FrozenEvidenceBundle(
+                sourceBundle.evidenceBundleId(),
+                sourceBundle.generatedContentId(),
+                sourceBundle.attemptNumber(),
+                sourceBundle.derivedFromBundleId(),
+                sourceBundle.status(),
+                sourceBundle.retrievalTraceId(),
+                profile.evidencePolicy().version(),
+                profile.evidencePolicy().contentHash(),
+                sourceBundle.sanitizerVersion(),
+                sourceBundle.bundleHash(),
+                sourceBundle.items(),
+                sourceBundle.createdAt());
+        return generator.generateCareMoment(new GeneratorRequest(
+                "pgc_orchestrator_test",
+                1,
+                "给宝宝穿鞋",
+                "m7_11",
+                "calmer_care",
+                "zh-CN",
+                matchedBundle,
+                profile,
+                CustomSceneGenerator.ContentConstraints.defaults()));
+    }
+
+    private static String wireJsonWithOverflows(
+            String spaceTitleZh,
+            String starterEnglish,
+            String starterChinese
+    ) {
+        var starter = wireUtterance(
+                CompleteGeneratedBundle.UtteranceRole.STARTER,
+                null,
+                starterEnglish,
+                starterChinese,
+                1);
+        var supports = java.util.Arrays.stream(CompleteGeneratedBundle.Reaction.values())
+                .map(reaction -> wireUtterance(
+                        CompleteGeneratedBundle.UtteranceRole.REACTION_SUPPORT,
+                        reaction,
+                        "Shoes on.",
+                        "穿鞋出门。",
+                        reaction.ordinal() + 2))
+                .toList();
+        var wire = new CompleteGeneratedBundle.ProviderResponse(
+                CompleteGeneratedBundle.CURRENT_SCHEMA_VERSION,
+                new CompleteGeneratedBundle.SceneMetadata(spaceTitleZh, "穿鞋出门", "Shoes on"),
+                new CompleteGeneratedBundle.ProviderUtterances(
+                        starter,
+                        supports.get(0),
+                        supports.get(1),
+                        supports.get(2),
+                        supports.get(3),
+                        supports.get(4)));
+        return new JsonMapper().writeValueAsString(wire);
+    }
+
+    private static CompleteGeneratedBundle.ProviderUtterance wireUtterance(
+            CompleteGeneratedBundle.UtteranceRole role,
+            CompleteGeneratedBundle.Reaction reaction,
+            String englishText,
+            String chineseText,
+            int displayOrder
+    ) {
+        return new CompleteGeneratedBundle.ProviderUtterance(
+                role,
+                reaction,
+                englishText,
+                chineseText,
+                "shoes on",
+                "拿起鞋子。",
+                "慢慢说，等宝宝看过来。",
+                "starter",
+                displayOrder);
+    }
+
     private static SuggestedJudgeResult pass() {
         return new SuggestedJudgeResult(
                 JudgeVerdict.PASS, dimensions(), List.of(), List.of(), List.of(), 0.95d);
@@ -895,6 +1215,10 @@ class CustomSceneGenerationOrchestratorTest {
     private static final class Harness {
         private final List<String> events = new ArrayList<>();
         private final ArrayDeque<GateSpec> gates = new ArrayDeque<>();
+        private final Map<Integer, List<GeneratedOutputViolationDiagnostic>> terminalDiagnosticsByGateNumber =
+                new java.util.HashMap<>();
+        private final Map<Integer, List<GeneratedOutputViolationDiagnostic>> repairableDiagnosticsByGateNumber =
+                new java.util.HashMap<>();
         private final ArrayDeque<SuggestedJudgeResult> judges = new ArrayDeque<>();
         private final List<GeneratorRequest> generatorRequests = new ArrayList<>();
         private final List<CustomSceneRepairer.RepairRequest> repairRequests = new ArrayList<>();
@@ -911,6 +1235,8 @@ class CustomSceneGenerationOrchestratorTest {
         private CustomSceneGenerator.GenerationUnavailableReason judgeUnavailableReason;
         private boolean repairExhausted;
         private boolean generatorFallback;
+        private GeneratedCareMomentBundle generatedMoment = moment();
+        private GeneratedCareMomentBundle repairedMoment = moment();
         private boolean initialEvidenceInsufficient;
         private RuntimeException retrieverFailure;
         private RuntimeException reusedBundleFailure;
@@ -923,11 +1249,21 @@ class CustomSceneGenerationOrchestratorTest {
         private String notLiveReloadStatus;
 
         private Harness(int attemptLimit) {
+            this(attemptLimit, false);
+        }
+
+        private Harness(int attemptLimit, boolean useRealGate) {
             var commands = mock(PracticeGeneratedContentCommands.class);
             var queryMapper = mock(PracticeGeneratedContentQueryMapper.class);
             var generator = mock(CustomSceneGenerator.class);
             var repairer = mock(CustomSceneRepairer.class);
-            var validator = mock(CustomSceneGeneratedContentValidator.class);
+            var policy = PracticeDiscoveryPolicyTestFixture.properties();
+            var realValidator = new CustomSceneGeneratedContentValidator(
+                    policy,
+                    new CustomSceneIntentClassifier(policy));
+            var validator = useRealGate
+                    ? realValidator
+                    : mock(CustomSceneGeneratedContentValidator.class);
             var judge = mock(CustomSceneQualityJudge.class);
             var retriever = mock(CustomSceneEvidenceRetriever.class);
             var bundleFactory = mock(EvidenceBundleFactory.class);
@@ -1014,7 +1350,7 @@ class CustomSceneGenerationOrchestratorTest {
                 if (generatorTimeout) {
                     throw new CustomSceneGenerator.GenerationTimeoutException();
                 }
-                return moment();
+                return generatedMoment;
             });
             when(repairer.repairCareMoment(any())).thenAnswer(invocation -> {
                 var request = invocation.getArgument(0, CustomSceneRepairer.RepairRequest.class);
@@ -1023,11 +1359,12 @@ class CustomSceneGenerationOrchestratorTest {
                 if (repairExhausted) {
                     throw new ProvidersExhaustedException(UUID.randomUUID());
                 }
-                return moment();
+                return repairedMoment;
             });
-            when(validator.evaluate(any(), any(CustomSceneGenerator.ContentConstraints.class),
-                    any(CustomSceneGeneratedContentValidator.GeneratedOutputValidationContext.class)))
-                    .thenAnswer(invocation -> {
+            if (!useRealGate) {
+                when(validator.evaluate(any(), any(CustomSceneGenerator.ContentConstraints.class),
+                        any(CustomSceneGeneratedContentValidator.GeneratedOutputValidationContext.class)))
+                        .thenAnswer(invocation -> {
                         gateNumber++;
                         if ((gateNumber - 1) % GeneratedCareMomentBundle.UTTERANCE_COUNT == 0) {
                             events.add("gate:" + ((gateNumber - 1) / GeneratedCareMomentBundle.UTTERANCE_COUNT + 1));
@@ -1043,8 +1380,13 @@ class CustomSceneGenerationOrchestratorTest {
                         return new GeneratedOutputGateResult(
                                 invocation.getArgument(0),
                                 spec.terminalAt(displayOrder),
-                                spec.repairableAt(displayOrder));
-                    });
+                                spec.repairableAt(displayOrder),
+                                terminalDiagnosticsByGateNumber.getOrDefault(gateNumber, List.of()),
+                                repairableDiagnosticsByGateNumber.getOrDefault(gateNumber, List.of()));
+                        });
+                when(validator.evaluateProvenance(any())).thenAnswer(invocation ->
+                        realValidator.evaluateProvenance(invocation.getArgument(0)));
+            }
             when(judge.judge(any())).thenAnswer(invocation -> {
                 var request = invocation.getArgument(0, JudgeRequest.class);
                 judgeRequests.add(request);
@@ -1175,6 +1517,26 @@ class CustomSceneGenerationOrchestratorTest {
 
         private static GeneratedCareMomentBundle moment() {
             return GeneratedCareMomentBundle.fakeFixture(candidate());
+        }
+
+        private static GeneratedCareMomentBundle momentWithProvenance(ProviderProvenance provenance) {
+            var original = moment().completeBundle();
+            return GeneratedCareMomentBundle.fromCompleteBundle(new CompleteGeneratedBundle(
+                    original.schemaVersion(),
+                    original.scene(),
+                    original.utterances().stream()
+                            .map(utterance -> new CompleteGeneratedBundle.Utterance(
+                                    utterance.role(),
+                                    utterance.reaction(),
+                                    utterance.englishText(),
+                                    utterance.chineseText(),
+                                    utterance.pronunciationHint(),
+                                    utterance.tprActionZh(),
+                                    utterance.deliveryGuidanceZh(),
+                                    utterance.difficulty(),
+                                    utterance.displayOrder(),
+                                    provenance))
+                            .toList()));
         }
 
         private static void transition(

@@ -42,6 +42,32 @@ class PracticeAiPropertiesTest {
     }
 
     @Test
+    void startupBindingAcceptsProviderIdentityAtAuditColumnBounds() {
+        var providerName = "p".repeat(64);
+        var modelName = "m".repeat(96);
+
+        var properties = new PracticeAiProviderConfiguration()
+                .practiceAiProperties(environment(providerName, modelName));
+
+        assertThat(properties.providers()).containsOnlyKeys(providerName);
+        assertThat(properties.providers().get(providerName).model()).isEqualTo(modelName);
+    }
+
+    @Test
+    void startupBindingRejectsProviderNameBeforeProviderManagerAndAudit() {
+        assertThatThrownBy(() -> new PracticeAiProviderConfiguration()
+                .practiceAiProperties(environment("p".repeat(65), "model")))
+                .hasRootCauseMessage("providerName must not exceed 64 code points");
+    }
+
+    @Test
+    void startupBindingRejectsModelNameBeforeProviderManagerAndAudit() {
+        assertThatThrownBy(() -> new PracticeAiProviderConfiguration()
+                .practiceAiProperties(environment("provider", "m".repeat(97))))
+                .hasRootCauseMessage("modelName must not exceed 96 code points");
+    }
+
+    @Test
     void rejectsUnknownProviderInRoute() {
         assertThatThrownBy(() -> properties(
                 provider(null, 600, null),
@@ -124,5 +150,19 @@ class PracticeAiPropertiesTest {
                 temperature,
                 maxTokens,
                 maxCompletionTokens);
+    }
+
+    private MockEnvironment environment(String providerName, String modelName) {
+        return new MockEnvironment()
+                .withProperty("app.ai.routing-policy.version", "custom-scene-routing-v1")
+                .withProperty("app.ai.providers." + providerName + ".type", "openai-compatible")
+                .withProperty("app.ai.providers." + providerName + ".base-url", "https://example.invalid/v1")
+                .withProperty("app.ai.providers." + providerName + ".api-key-environment-variable", "TEST_AI_KEY")
+                .withProperty("app.ai.providers." + providerName + ".model", modelName)
+                .withProperty("app.ai.providers." + providerName + ".timeout", "20s")
+                .withProperty("app.ai.providers." + providerName + ".max-tokens", "600")
+                .withProperty("app.ai.capabilities.custom-scene-generator.provider-names[0]", providerName)
+                .withProperty("app.ai.capabilities.custom-scene-quality-judge.provider-names[0]", providerName)
+                .withProperty("app.ai.capabilities.custom-scene-repair.provider-names[0]", providerName);
     }
 }

@@ -152,7 +152,20 @@ class AgenticCustomSceneRepairerTest {
                         "\"branch\":\"starter\"",
                         "\"violationCodes\":[\"MISSING_TPR_ACTION\",\"MISSING_DELIVERY_GUIDANCE\"]",
                         "\"branch\":\"no_response\"",
-                        "\"branch\":\"other\"")
+                        "\"branch\":\"other\"",
+                        "\"contentConstraints\":{",
+                        "\"maxEnglishWords\":6",
+                        "\"maxEnglishChars\":40",
+                        "\"persistenceCodePointLimits\":{",
+                        "\"spaceTitleZh\":120",
+                        "\"activityTitleZh\":120",
+                        "\"sceneTagEn\":120",
+                        "\"englishText\":120",
+                        "\"chineseText\":120",
+                        "\"pronunciationHint\":120",
+                        "\"tprActionZh\":240",
+                        "\"deliveryGuidanceZh\":240",
+                        "\"difficulty\":16")
                 .doesNotContain(
                         "pgc_repair_test",
                         "securityText",
@@ -162,6 +175,30 @@ class AgenticCustomSceneRepairerTest {
                         "profileId",
                         "providerTraceId",
                         "reasoning");
+    }
+
+    @Test
+    void overlongTrustedProvenanceLeavesRepairerForDeterministicGate() {
+        var runner = mock(PracticeAiOperationRunner.class);
+        var caller = mock(PracticeAiStructuredOutputCaller.class);
+        var registry = mock(VersionedResourceRegistry.class);
+        when(registry.currentGenerationProfile()).thenReturn(profile());
+        when(registry.promptText(VersionedResourceRegistry.PromptKind.REPAIR))
+                .thenReturn("REPAIR SYSTEM PROMPT");
+        when(runner.execute(any())).thenReturn(new OperationResult<>(
+                wire(),
+                UUID.randomUUID(),
+                UUID.randomUUID(),
+                "p".repeat(CompleteGeneratedBundle.PROVIDER_NAME_MAX_CODE_POINTS + 1),
+                "m".repeat(CompleteGeneratedBundle.MODEL_NAME_MAX_CODE_POINTS + 1),
+                null));
+        var repairer = new AgenticCustomSceneRepairer(runner, caller, registry);
+
+        var provenance = repairer.repairCareMoment(request())
+                .completeBundle().utterances().get(0).providerProvenance();
+
+        assertThat(provenance.providerName()).hasSize(65);
+        assertThat(provenance.modelName()).hasSize(97);
     }
 
     @Test
@@ -207,6 +244,7 @@ class AgenticCustomSceneRepairerTest {
 
     private static CustomSceneRepairer.RepairRequest request() {
         return new CustomSceneRepairer.RepairRequest("pgc_repair_test", 2, EVIDENCE_BUNDLE_ID, "zh-CN",
+                CustomSceneGenerator.ContentConstraints.defaults(),
                 repairPackage(List.of(
                                 requirement(
                                         Branch.STARTER,

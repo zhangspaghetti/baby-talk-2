@@ -18,6 +18,7 @@ FOCUSED_TESTS = ",".join(
         "AgenticCustomSceneRepairerTest",
         "JudgeWireResponseStrictOutputTest",
         "PracticeAiOperationRunnerTest",
+        "PracticeAiPropertiesTest",
         "PracticeAiStructuredOutputCallerTest",
         "PracticeAiSingleRequestContractTest",
         "VersionedResourceRegistryTest",
@@ -53,6 +54,7 @@ def verify_no_production_fallback() -> bool:
             "CompleteGeneratedBundle.ProviderResponse.parse(content)",
             "GeneratedCareMomentBundle.fromCompleteBundle(result.value().toCompleteBundle(",
             "currentProfile.minimumCompleteBundleOutputTokens()",
+            "CompleteGeneratedBundle.persistenceCodePointLimits()",
         ),
         "AgenticCustomSceneRepairer.java": (
             "OperationRequest.ProviderFailureStage.PROVIDER_RESPONSE_BINDING",
@@ -61,6 +63,8 @@ def verify_no_production_fallback() -> bool:
             "CompleteGeneratedBundle.ProviderResponse.parse(content)",
             "GeneratedCareMomentBundle.fromCompleteBundle(result.value().toCompleteBundle(",
             "currentProfile.minimumCompleteBundleOutputTokens()",
+            "contentConstraintsPayload(request.contentConstraints())",
+            "CompleteGeneratedBundle.persistenceCodePointLimits()",
         ),
     }
     forbidden_adapter_markers = (
@@ -87,13 +91,15 @@ def verify_no_production_fallback() -> bool:
         encoding="utf-8"
     )
     required_orchestrator_markers = (
-        "MAX_BRANCH_VIOLATION_DIAGNOSTICS = 78",
+        "MAX_BRANCH_VIOLATION_DIAGNOSTICS = 174",
         "safeBranchName(",
         "safeViolationCode(",
         "gate.branchRequirements()",
         "context.branchRequirements()",
         "gate.repairableViolationDiagnostics()",
         "gate.terminalViolationDiagnostics()",
+        "branchLengthDiagnostics(",
+        "case PROVIDER_CONTENT_OVERFLOW",
     )
     for marker in required_orchestrator_markers:
         if marker not in orchestrator:
@@ -103,6 +109,163 @@ def verify_no_production_fallback() -> bool:
     for marker in ("fakeFixture(", "fakeSupport", "fixedSupport", "genericSupport", "starterOnly"):
         if marker in orchestrator:
             violations.append(f"CustomSceneGenerationOrchestrator.java: forbidden fallback marker: {marker}")
+
+    validator = (
+        GENERATED_SOURCE_ROOT.parent / "discovery" / "CustomSceneGeneratedContentValidator.java"
+    ).read_text(encoding="utf-8")
+    diagnostic = (
+        GENERATED_SOURCE_ROOT / "quality" / "GeneratedOutputViolationDiagnostic.java"
+    ).read_text(encoding="utf-8")
+    complete_bundle = (
+        GENERATED_SOURCE_ROOT / "contract" / "CompleteGeneratedBundle.java"
+    ).read_text(encoding="utf-8")
+    generated_utterance = (
+        GENERATED_SOURCE_ROOT / "GeneratedCareUtterance.java"
+    ).read_text(encoding="utf-8")
+    provider_identity = (
+        GENERATED_SOURCE_ROOT.parent / "agentic" / "PracticeAiProviderIdentity.java"
+    ).read_text(encoding="utf-8")
+    provider_properties = (
+        GENERATED_SOURCE_ROOT.parent / "agentic" / "PracticeAiProperties.java"
+    ).read_text(encoding="utf-8")
+    operation_runner = (
+        GENERATED_SOURCE_ROOT.parent / "agentic" / "PracticeAiOperationRunner.java"
+    ).read_text(encoding="utf-8")
+    for source_name, source, markers in (
+        (
+            "CustomSceneGeneratedContentValidator.java",
+            validator,
+            (
+                "providerContentOverflows(",
+                "PROVIDER_CONTENT_OVERFLOW",
+                "FieldPath.GENERATION_SOURCE",
+                "evaluateProvenance(",
+                "LengthUnit.GRAPHEME",
+                "GeneratedOutputViolationCode.DATABASE_OVERFLOW",
+            ),
+        ),
+        (
+            "GeneratedOutputViolationDiagnostic.java",
+            diagnostic,
+            (
+                "enum FieldPath",
+                "fromWireValue(",
+                "enum LengthUnit",
+                'CODE_POINT("code_point")',
+                'GRAPHEME("grapheme")',
+                "actualLength",
+                "limit",
+                "auditCode()",
+            ),
+        ),
+        (
+            "CompleteGeneratedBundle.java",
+            complete_bundle,
+            (
+                "PersistenceCodePointLimits",
+                "@Schema(maxLength = SPACE_TITLE_ZH_MAX_CODE_POINTS)",
+                "@Schema(maxLength = ENGLISH_TEXT_MAX_CODE_POINTS)",
+                "@Schema(maxLength = DELIVERY_GUIDANCE_ZH_MAX_CODE_POINTS)",
+                "PROVIDER_NAME_MAX_CODE_POINTS",
+                "MODEL_NAME_MAX_CODE_POINTS",
+            ),
+        ),
+        (
+            "GeneratedCareUtterance.java",
+            generated_utterance,
+            ('requireText(englishText, "englishText")',),
+        ),
+        (
+            "PracticeAiProviderIdentity.java",
+            provider_identity,
+            (
+                "PROVIDER_NAME_MAX_CODE_POINTS = 64",
+                "MODEL_NAME_MAX_CODE_POINTS = 96",
+                "requireProviderName(",
+                "requireModelName(",
+            ),
+        ),
+        (
+            "PracticeAiProperties.java",
+            provider_properties,
+            (
+                "requireProviderName(entry.getKey())",
+                "requireModelName(model.trim())",
+            ),
+        ),
+    ):
+        for marker in markers:
+            if marker not in source:
+                violations.append(f"{source_name}: missing overflow contract marker: {marker}")
+
+    provider_authored_fields = (
+        "spaceTitleZh",
+        "activityTitleZh",
+        "sceneTagEn",
+        "englishText",
+        "chineseText",
+        "pronunciationHint",
+        "tprActionZh",
+        "deliveryGuidanceZh",
+        "difficulty",
+    )
+    for field_name in provider_authored_fields:
+        pre_gate_bound = re.compile(
+            rf'requireText\s*\(\s*{field_name}\s*,\s*"{field_name}"\s*,'
+        )
+        if pre_gate_bound.search(complete_bundle):
+            violations.append(
+                "CompleteGeneratedBundle.java: provider-authored persistence bound "
+                f"for {field_name} must be enforced by Gate"
+            )
+        if field_name not in {"spaceTitleZh", "activityTitleZh", "sceneTagEn"} \
+                and pre_gate_bound.search(generated_utterance):
+            violations.append(
+                "GeneratedCareUtterance.java: provider-authored persistence bound "
+                f"for {field_name} must be enforced by Gate"
+            )
+
+    for marker in (
+        "PracticeAiProviderIdentity.requireProviderName(provider.providerName())",
+        "PracticeAiProviderIdentity.requireModelName(provider.modelName())",
+    ):
+        if marker not in operation_runner:
+            violations.append(
+                f"PracticeAiOperationRunner.java: missing pre-audit provider identity guard: {marker}"
+            )
+    identity_guard = operation_runner.find(
+        "PracticeAiProviderIdentity.requireProviderName(provider.providerName())"
+    )
+    audit_write = operation_runner.find("auditPort.insertOperationRun(")
+    if identity_guard < 0 or audit_write < 0 or identity_guard > audit_write:
+        violations.append(
+            "PracticeAiOperationRunner.java: provider identity guard must precede audit writes"
+        )
+
+    orchestrator_contract_test = (
+        BACKEND_ROOT
+        / "app-api"
+        / "src"
+        / "test"
+        / "java"
+        / "com"
+        / "zhangspaghetti"
+        / "babytalk"
+        / "practice"
+        / "generated"
+        / "CustomSceneGenerationOrchestratorTest.java"
+    ).read_text(encoding="utf-8")
+    for marker in (
+        "rawWireOverflowFlowsThroughGeneratorGateAndWholeBundleRepair",
+        '"空".repeat(121)',
+        '"汉".repeat(121)',
+        "fieldPath=spaceTitleZh",
+        "fieldPath=chineseText",
+    ):
+        if marker not in orchestrator_contract_test:
+            violations.append(
+                f"CustomSceneGenerationOrchestratorTest.java: missing raw overflow coverage: {marker}"
+            )
 
     repairer = (GENERATED_SOURCE_ROOT / "AgenticCustomSceneRepairer.java").read_text(
         encoding="utf-8"

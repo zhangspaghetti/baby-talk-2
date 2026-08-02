@@ -3,6 +3,7 @@ package com.zhangspaghetti.babytalk.practice.generated.contract;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
 import com.zhangspaghetti.babytalk.practice.agentic.PracticeAiJsonSchemaPublisher;
+import com.zhangspaghetti.babytalk.practice.agentic.PracticeAiProviderIdentity;
 import com.zhangspaghetti.babytalk.practice.agentic.diagnostics.PracticeAiContractViolation;
 import com.zhangspaghetti.babytalk.practice.agentic.diagnostics.PracticeAiContractViolation.Category;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -30,6 +31,19 @@ public record CompleteGeneratedBundle(
         List<Utterance> utterances
 ) {
     public static final String CURRENT_SCHEMA_VERSION = "custom-scene-generated-output-v1";
+    public static final int SPACE_TITLE_ZH_MAX_CODE_POINTS = 120;
+    public static final int ACTIVITY_TITLE_ZH_MAX_CODE_POINTS = 120;
+    public static final int SCENE_TAG_EN_MAX_CODE_POINTS = 120;
+    public static final int ENGLISH_TEXT_MAX_CODE_POINTS = 120;
+    public static final int CHINESE_TEXT_MAX_CODE_POINTS = 120;
+    public static final int PRONUNCIATION_HINT_MAX_CODE_POINTS = 120;
+    public static final int TPR_ACTION_ZH_MAX_CODE_POINTS = 240;
+    public static final int DELIVERY_GUIDANCE_ZH_MAX_CODE_POINTS = 240;
+    public static final int DIFFICULTY_MAX_CODE_POINTS = 16;
+    public static final int PROVIDER_NAME_MAX_CODE_POINTS =
+            PracticeAiProviderIdentity.PROVIDER_NAME_MAX_CODE_POINTS;
+    public static final int MODEL_NAME_MAX_CODE_POINTS =
+            PracticeAiProviderIdentity.MODEL_NAME_MAX_CODE_POINTS;
     private static final int STARTER_DISPLAY_ORDER = 1;
 
     private static final ObjectMapper STRICT_PROVIDER_MAPPER = JsonMapper.builder()
@@ -56,6 +70,32 @@ public record CompleteGeneratedBundle(
                     "unsupported complete generated bundle schema version");
         }
         return schemaVersion;
+    }
+
+    public static PersistenceCodePointLimits persistenceCodePointLimits() {
+        return new PersistenceCodePointLimits(
+                SPACE_TITLE_ZH_MAX_CODE_POINTS,
+                ACTIVITY_TITLE_ZH_MAX_CODE_POINTS,
+                SCENE_TAG_EN_MAX_CODE_POINTS,
+                ENGLISH_TEXT_MAX_CODE_POINTS,
+                CHINESE_TEXT_MAX_CODE_POINTS,
+                PRONUNCIATION_HINT_MAX_CODE_POINTS,
+                TPR_ACTION_ZH_MAX_CODE_POINTS,
+                DELIVERY_GUIDANCE_ZH_MAX_CODE_POINTS,
+                DIFFICULTY_MAX_CODE_POINTS);
+    }
+
+    public record PersistenceCodePointLimits(
+            int spaceTitleZh,
+            int activityTitleZh,
+            int sceneTagEn,
+            int englishText,
+            int chineseText,
+            int pronunciationHint,
+            int tprActionZh,
+            int deliveryGuidanceZh,
+            int difficulty
+    ) {
     }
 
     private static void validateCompleteShape(List<? extends BranchUtterance> branches) {
@@ -115,37 +155,37 @@ public record CompleteGeneratedBundle(
     }
 
     public record SceneMetadata(
-            String spaceTitleZh,
-            String activityTitleZh,
-            String sceneTagEn
+            @Schema(maxLength = SPACE_TITLE_ZH_MAX_CODE_POINTS) String spaceTitleZh,
+            @Schema(maxLength = ACTIVITY_TITLE_ZH_MAX_CODE_POINTS) String activityTitleZh,
+            @Schema(maxLength = SCENE_TAG_EN_MAX_CODE_POINTS) String sceneTagEn
     ) {
         public SceneMetadata {
-            requireText(spaceTitleZh, "spaceTitleZh", 120);
-            requireText(activityTitleZh, "activityTitleZh", 120);
-            requireText(sceneTagEn, "sceneTagEn", 120);
+            requireText(spaceTitleZh, "spaceTitleZh");
+            requireText(activityTitleZh, "activityTitleZh");
+            requireText(sceneTagEn, "sceneTagEn");
         }
     }
 
     public record Utterance(
             UtteranceRole role,
             Reaction reaction,
-            String englishText,
-            String chineseText,
-            String pronunciationHint,
-            String tprActionZh,
-            String deliveryGuidanceZh,
-            String difficulty,
+            @Schema(maxLength = ENGLISH_TEXT_MAX_CODE_POINTS) String englishText,
+            @Schema(maxLength = CHINESE_TEXT_MAX_CODE_POINTS) String chineseText,
+            @Schema(maxLength = PRONUNCIATION_HINT_MAX_CODE_POINTS) String pronunciationHint,
+            @Schema(maxLength = TPR_ACTION_ZH_MAX_CODE_POINTS) String tprActionZh,
+            @Schema(maxLength = DELIVERY_GUIDANCE_ZH_MAX_CODE_POINTS) String deliveryGuidanceZh,
+            @Schema(maxLength = DIFFICULTY_MAX_CODE_POINTS) String difficulty,
             int displayOrder,
             ProviderProvenance providerProvenance
     ) implements BranchUtterance {
         public Utterance {
             role = requireComponent(role, Category.REQUIRED_COMPONENT, "role");
-            requireText(englishText, "englishText", 120);
-            requireText(chineseText, "chineseText", 120);
-            requireText(pronunciationHint, "pronunciationHint", 120);
-            requireText(tprActionZh, "tprActionZh", 240);
-            requireText(deliveryGuidanceZh, "deliveryGuidanceZh", 240);
-            requireText(difficulty, "difficulty", 16);
+            requireText(englishText, "englishText");
+            requireText(chineseText, "chineseText");
+            requireText(pronunciationHint, "pronunciationHint");
+            requireText(tprActionZh, "tprActionZh");
+            requireText(deliveryGuidanceZh, "deliveryGuidanceZh");
+            requireText(difficulty, "difficulty");
             if (displayOrder < 1 || displayOrder > 6) {
                 throw violation(
                         Category.DISPLAY_ORDER,
@@ -166,8 +206,8 @@ public record CompleteGeneratedBundle(
     ) {
         public ProviderProvenance {
             origin = requireComponent(origin, Category.REQUIRED_COMPONENT, "origin");
-            requireText(providerName, "providerName", 120);
-            requireText(modelName, "modelName", 120);
+            requireText(providerName, "providerName");
+            requireText(modelName, "modelName");
             if (attemptNumber < 1 || attemptNumber > 5) {
                 throw violation(Category.PROVENANCE, "attemptNumber must be between 1 and 5");
             }
@@ -564,22 +604,22 @@ public record CompleteGeneratedBundle(
                     "cooperating", "hesitant", "resisting", "no_response", "other"
             })
             Reaction reaction,
-            String englishText,
-            String chineseText,
-            String pronunciationHint,
-            String tprActionZh,
-            String deliveryGuidanceZh,
-            String difficulty,
+            @Schema(maxLength = ENGLISH_TEXT_MAX_CODE_POINTS) String englishText,
+            @Schema(maxLength = CHINESE_TEXT_MAX_CODE_POINTS) String chineseText,
+            @Schema(maxLength = PRONUNCIATION_HINT_MAX_CODE_POINTS) String pronunciationHint,
+            @Schema(maxLength = TPR_ACTION_ZH_MAX_CODE_POINTS) String tprActionZh,
+            @Schema(maxLength = DELIVERY_GUIDANCE_ZH_MAX_CODE_POINTS) String deliveryGuidanceZh,
+            @Schema(maxLength = DIFFICULTY_MAX_CODE_POINTS) String difficulty,
             int displayOrder
     ) implements BranchUtterance {
         public ProviderUtterance {
             role = requireComponent(role, Category.REQUIRED_COMPONENT, "role");
-            requireText(englishText, "englishText", 120);
-            requireText(chineseText, "chineseText", 120);
-            requireText(pronunciationHint, "pronunciationHint", 120);
-            requireText(tprActionZh, "tprActionZh", 240);
-            requireText(deliveryGuidanceZh, "deliveryGuidanceZh", 240);
-            requireText(difficulty, "difficulty", 16);
+            requireText(englishText, "englishText");
+            requireText(chineseText, "chineseText");
+            requireText(pronunciationHint, "pronunciationHint");
+            requireText(tprActionZh, "tprActionZh");
+            requireText(deliveryGuidanceZh, "deliveryGuidanceZh");
+            requireText(difficulty, "difficulty");
             if (displayOrder < 1 || displayOrder > 6) {
                 throw violation(
                         Category.DISPLAY_ORDER,
@@ -626,11 +666,11 @@ public record CompleteGeneratedBundle(
         }
     }
 
-    private static void requireText(String value, String field, int maxChars) {
-        if (value == null || value.isBlank() || value.codePointCount(0, value.length()) > maxChars) {
+    private static void requireText(String value, String field) {
+        if (value == null || value.isBlank()) {
             throw violation(
                     Category.TEXT_CONSTRAINT,
-                    field + " must be non-blank and within its storage bound");
+                    field + " must be non-blank");
         }
     }
 

@@ -1,7 +1,13 @@
 package com.zhangspaghetti.babytalk.practice.discovery;
 
 import com.zhangspaghetti.babytalk.practice.generated.CustomSceneGenerator;
+import com.zhangspaghetti.babytalk.practice.generated.contract.CompleteGeneratedBundle;
+import com.zhangspaghetti.babytalk.practice.generated.contract.CompleteGeneratedBundle.ProviderOrigin;
+import com.zhangspaghetti.babytalk.practice.generated.contract.CompleteGeneratedBundle.ProviderProvenance;
 import com.zhangspaghetti.babytalk.practice.generated.quality.GeneratedOutputGateResult;
+import com.zhangspaghetti.babytalk.practice.generated.quality.GeneratedOutputViolationDiagnostic;
+import com.zhangspaghetti.babytalk.practice.generated.quality.GeneratedOutputViolationDiagnostic.FieldPath;
+import com.zhangspaghetti.babytalk.practice.generated.quality.GeneratedOutputViolationDiagnostic.LengthUnit;
 import com.zhangspaghetti.babytalk.practice.generated.quality.GeneratedOutputViolationCode;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
@@ -144,6 +150,7 @@ class CustomSceneGeneratedContentValidatorTest {
                 GeneratedOutputViolationCode.OUTPUT_DANGEROUS_MEDICAL,
                 GeneratedOutputViolationCode.UNTRUSTED_METADATA,
                 GeneratedOutputViolationCode.DATABASE_OVERFLOW,
+                GeneratedOutputViolationCode.PROVIDER_CONTENT_OVERFLOW,
                 GeneratedOutputViolationCode.INVALID_ENUM,
                 GeneratedOutputViolationCode.MISSING_TPR_ACTION,
                 GeneratedOutputViolationCode.MISSING_DELIVERY_GUIDANCE,
@@ -155,6 +162,7 @@ class CustomSceneGeneratedContentValidatorTest {
         assertThat(List.of(GeneratedOutputViolationCode.values()).stream()
                 .filter(GeneratedOutputViolationCode::repairable))
                 .containsExactly(
+                        GeneratedOutputViolationCode.PROVIDER_CONTENT_OVERFLOW,
                         GeneratedOutputViolationCode.MISSING_TPR_ACTION,
                         GeneratedOutputViolationCode.MISSING_DELIVERY_GUIDANCE,
                         GeneratedOutputViolationCode.FIELD_ROLE_MISMATCH,
@@ -186,6 +194,41 @@ class CustomSceneGeneratedContentValidatorTest {
     }
 
     @Test
+    void lengthDiagnosticsRejectRawPathsAndMismatchedClassification() {
+        assertThatThrownBy(() -> GeneratedOutputViolationDiagnostic.forFieldPath(
+                GeneratedOutputViolationCode.PROVIDER_CONTENT_OVERFLOW,
+                "englishText=user supplied text",
+                LengthUnit.CODE_POINT,
+                41,
+                40))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("diagnostic fieldPath must be application-owned");
+        assertThatThrownBy(() -> GeneratedOutputViolationDiagnostic.forFieldPath(
+                GeneratedOutputViolationCode.PROVIDER_CONTENT_OVERFLOW,
+                "secretValue",
+                LengthUnit.CODE_POINT,
+                41,
+                40))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("diagnostic fieldPath must be application-owned");
+
+        var diagnostic = new GeneratedOutputViolationDiagnostic(
+                GeneratedOutputViolationCode.PROVIDER_CONTENT_OVERFLOW,
+                FieldPath.ENGLISH_TEXT,
+                LengthUnit.GRAPHEME,
+                41,
+                40);
+        assertThatThrownBy(() -> new GeneratedOutputGateResult(
+                typedCandidate("拿起鞋子。", "慢慢说。", "Shoes on.", "穿鞋啦。"),
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of(diagnostic)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("repairable diagnostic must match a repairable violation");
+    }
+
+    @Test
     void remainingTerminalSafetyCodesAreStable() {
         var bidi = validator.evaluate(
                 typedCandidate("拿起鞋子。", "慢慢说。", "Shoes \u202Eon.", "穿鞋啦。"),
@@ -207,12 +250,133 @@ class CustomSceneGeneratedContentValidatorTest {
                 .containsExactly(GeneratedOutputViolationCode.OUTPUT_BIDI_CONTROL);
         assertThat(adultViolent.terminalViolations())
                 .containsExactly(GeneratedOutputViolationCode.OUTPUT_ADULT_VIOLENT);
-        assertThat(overflow.terminalViolations())
-                .containsExactly(GeneratedOutputViolationCode.DATABASE_OVERFLOW);
+        assertThat(overflow.terminalViolations()).isEmpty();
+        assertThat(overflow.repairableViolations())
+                .containsExactly(GeneratedOutputViolationCode.PROVIDER_CONTENT_OVERFLOW);
         assertThat(invalidEnum.terminalViolations())
                 .containsExactly(GeneratedOutputViolationCode.INVALID_ENUM);
         assertThat(untrustedMetadata.terminalViolations())
                 .containsExactly(GeneratedOutputViolationCode.UNTRUSTED_METADATA);
+    }
+
+    @Test
+    void providerContentOverflowIsRepairableWithPrivacySafeLengthDiagnostic() {
+        var overlongEnglish = "a".repeat(41);
+
+        var result = validator.evaluate(
+                typedCandidate("拿起鞋子。", "慢慢说。", overlongEnglish, "穿鞋啦。"),
+                CustomSceneGenerator.ContentConstraints.defaults(),
+                new CustomSceneGeneratedContentValidator.GeneratedOutputValidationContext(null));
+
+        assertThat(result.terminalViolations()).isEmpty();
+        assertThat(result.repairableViolations())
+                .containsExactly(GeneratedOutputViolationCode.PROVIDER_CONTENT_OVERFLOW);
+        assertThat(result.repairableViolationDiagnostics()).singleElement().satisfies(diagnostic -> {
+            assertThat(diagnostic.code()).isEqualTo(GeneratedOutputViolationCode.PROVIDER_CONTENT_OVERFLOW);
+            assertThat(diagnostic.fieldPath()).isEqualTo("englishText");
+            assertThat(diagnostic.lengthUnit()).isEqualTo(LengthUnit.GRAPHEME);
+            assertThat(diagnostic.actualLength()).isEqualTo(41);
+            assertThat(diagnostic.limit()).isEqualTo(40);
+            assertThat(diagnostic.auditCode())
+                    .isEqualTo("PROVIDER_CONTENT_OVERFLOW:fieldPath=englishText:lengthUnit=grapheme:actualLength=41:limit=40")
+                    .doesNotContain(overlongEnglish);
+        });
+    }
+
+    @Test
+    void dynamicAndPersistenceDiagnosticsUseTheirConfiguredLengthUnits() {
+        var dynamic = validator.evaluate(
+                typedCandidate("拿起鞋子。", "慢慢说。", "Shoes on.", "汉\uFE0F".repeat(25)),
+                CustomSceneGenerator.ContentConstraints.defaults(),
+                new CustomSceneGeneratedContentValidator.GeneratedOutputValidationContext(null));
+        var persistence = validator.evaluate(
+                new CustomSceneGenerator.GeneratedPracticeContentCandidate(
+                        "日常照护",
+                        "穿鞋出门",
+                        "Shoes on",
+                        "拿起鞋子。",
+                        "慢慢说。",
+                        "Shoes on.",
+                        "穿鞋啦。",
+                        "p".repeat(121),
+                        "starter",
+                        "agentic_search"),
+                CustomSceneGenerator.ContentConstraints.defaults(),
+                new CustomSceneGeneratedContentValidator.GeneratedOutputValidationContext(null));
+
+        assertThat(dynamic.repairableViolationDiagnostics()).singleElement().satisfies(diagnostic -> {
+            assertThat(diagnostic.fieldPath()).isEqualTo("chineseText");
+            assertThat(diagnostic.lengthUnit()).isEqualTo(LengthUnit.GRAPHEME);
+            assertThat(diagnostic.actualLength()).isEqualTo(25);
+            assertThat(diagnostic.limit()).isEqualTo(24);
+        });
+        assertThat(persistence.repairableViolationDiagnostics()).singleElement().satisfies(diagnostic -> {
+            assertThat(diagnostic.fieldPath()).isEqualTo("pronunciationHint");
+            assertThat(diagnostic.lengthUnit()).isEqualTo(LengthUnit.CODE_POINT);
+            assertThat(diagnostic.actualLength()).isEqualTo(121);
+            assertThat(diagnostic.limit()).isEqualTo(120);
+        });
+    }
+
+    @Test
+    void providerEnglishWordConstraintRemainsRepairableWithoutFakeLengthDiagnostic() {
+        for (var englishText : List.of("!!!", "one two three four five six seven")) {
+            var result = validator.evaluate(
+                    typedCandidate("拿起鞋子。", "慢慢说。", englishText, "穿鞋啦。"),
+                    CustomSceneGenerator.ContentConstraints.defaults(),
+                    new CustomSceneGeneratedContentValidator.GeneratedOutputValidationContext(null));
+
+            assertThat(result.terminalViolations()).isEmpty();
+            assertThat(result.repairableViolations())
+                    .containsExactly(GeneratedOutputViolationCode.PROVIDER_CONTENT_OVERFLOW);
+            assertThat(result.repairableViolationDiagnostics()).isEmpty();
+        }
+    }
+
+    @Test
+    void applicationOwnedOverflowRemainsTerminalAndCannotEnterRepair() {
+        var result = validator.evaluate(
+                candidateWithMetadata("Shoes on", "starter", "a".repeat(33)),
+                CustomSceneGenerator.ContentConstraints.defaults(),
+                new CustomSceneGeneratedContentValidator.GeneratedOutputValidationContext(null));
+
+        assertThat(result.terminalViolations())
+                .contains(GeneratedOutputViolationCode.DATABASE_OVERFLOW);
+        assertThat(result.repairableViolations()).isEmpty();
+        assertThat(result.terminalViolationDiagnostics()).singleElement().satisfies(diagnostic -> {
+            assertThat(diagnostic.fieldPath()).isEqualTo("generationSource");
+            assertThat(diagnostic.actualLength()).isEqualTo(33);
+            assertThat(diagnostic.limit()).isEqualTo(32);
+        });
+    }
+
+    @Test
+    void providerProvenanceOverflowIsTerminalCodePointEvidence() {
+        var result = validator.evaluateProvenance(new ProviderProvenance(
+                ProviderOrigin.PROVIDER_GENERATED,
+                "p".repeat(CompleteGeneratedBundle.PROVIDER_NAME_MAX_CODE_POINTS + 1),
+                "m".repeat(CompleteGeneratedBundle.MODEL_NAME_MAX_CODE_POINTS + 2),
+                1));
+
+        assertThat(result.terminalViolations())
+                .containsExactly(GeneratedOutputViolationCode.DATABASE_OVERFLOW);
+        assertThat(result.terminalViolationDiagnostics())
+                .extracting(
+                        GeneratedOutputViolationDiagnostic::fieldPath,
+                        GeneratedOutputViolationDiagnostic::lengthUnit,
+                        GeneratedOutputViolationDiagnostic::actualLength,
+                        GeneratedOutputViolationDiagnostic::limit)
+                .containsExactly(
+                        org.assertj.core.groups.Tuple.tuple(
+                                "providerProvenance.providerName",
+                                LengthUnit.CODE_POINT,
+                                65,
+                                64),
+                        org.assertj.core.groups.Tuple.tuple(
+                                "providerProvenance.modelName",
+                                LengthUnit.CODE_POINT,
+                                98,
+                                96));
     }
 
     @Test

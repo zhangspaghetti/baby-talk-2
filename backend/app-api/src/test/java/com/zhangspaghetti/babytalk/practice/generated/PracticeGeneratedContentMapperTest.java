@@ -1034,6 +1034,29 @@ class PracticeGeneratedContentMapperTest extends AbstractIntegrationTest {
     }
 
     @Test
+    void providerAuditAcceptsIdentityAtExactDatabaseBounds() {
+        insert(row("pgc_repo_audit_identity_bounds").active().build());
+        audit.insertAttempt(attempt(UUID.randomUUID(), "pgc_repo_audit_identity_bounds", 1));
+        var operationId = UUID.randomUUID();
+        audit.insertOperationRun(operation(
+                operationId, "generator", "pgc_repo_audit_identity_bounds", 1, null));
+        var providerName = "p".repeat(64);
+        var modelName = "m".repeat(96);
+
+        audit.insertProviderCall(providerCall(
+                UUID.randomUUID(), operationId, providerName, modelName));
+
+        assertThat(jdbcTemplate.queryForMap("""
+                select char_length(provider_name) as provider_name_length,
+                       char_length(model_name) as model_name_length
+                from practice_ai_provider_calls
+                where operation_run_id = ?
+                """, operationId))
+                .containsEntry("provider_name_length", 64)
+                .containsEntry("model_name_length", 96);
+    }
+
+    @Test
     void auditEmptyEvidenceItemsAreANoOp() {
         assertThatNoException().isThrownBy(() -> audit.insertEvidenceItems(List.of()));
         assertThat(jdbcTemplate.queryForObject(
@@ -1089,8 +1112,17 @@ class PracticeGeneratedContentMapperTest extends AbstractIntegrationTest {
     }
 
     private PracticeAiProviderCallEntity providerCall(UUID id, UUID operationId, String providerName) {
+        return providerCall(id, operationId, providerName, "model-v1");
+    }
+
+    private PracticeAiProviderCallEntity providerCall(
+            UUID id,
+            UUID operationId,
+            String providerName,
+            String modelName
+    ) {
         return new PracticeAiProviderCallEntity(
-                id, operationId, providerName, "chat", "model-v1", 0, UUID.randomUUID(),
+                id, operationId, providerName, "chat", modelName, 0, UUID.randomUUID(),
                 null, "routing-v1", HASH, "started", null, NOW_DB, null);
     }
 

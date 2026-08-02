@@ -21,21 +21,21 @@ public record GeneratedCareUtterance(
         if ((role == CompleteGeneratedBundle.UtteranceRole.STARTER) != (reaction == null)) {
             throw new IllegalArgumentException("utterance role and reaction must use the canonical matrix");
         }
-        requireText(englishText, "englishText", 120);
-        requireText(chineseText, "chineseText", 120);
-        requireText(pronunciationHint, "pronunciationHint", 120);
-        requireText(tprActionZh, "tprActionZh", 240);
-        requireText(deliveryGuidanceZh, "deliveryGuidanceZh", 240);
-        requireText(difficulty, "difficulty", 16);
+        requireText(englishText, "englishText");
+        requireText(chineseText, "chineseText");
+        requireText(pronunciationHint, "pronunciationHint");
+        requireText(tprActionZh, "tprActionZh");
+        requireText(deliveryGuidanceZh, "deliveryGuidanceZh");
+        requireText(difficulty, "difficulty");
         if (displayOrder < 1 || displayOrder > GeneratedCareMomentBundle.UTTERANCE_COUNT) {
             throw new IllegalArgumentException("displayOrder must be between 1 and 6");
         }
         Objects.requireNonNull(providerProvenance, "providerProvenance");
     }
 
-    private static void requireText(String value, String field, int maxChars) {
-        if (value == null || value.isBlank() || value.codePointCount(0, value.length()) > maxChars) {
-            throw new IllegalArgumentException(field + " must be non-blank and within its storage bound");
+    private static void requireText(String value, String field) {
+        if (value == null || value.isBlank()) {
+            throw new IllegalArgumentException(field + " must be non-blank");
         }
     }
 }

@@ -1,5 +1,6 @@
 package com.zhangspaghetti.babytalk.practice.generated;
 
+import com.zhangspaghetti.babytalk.practice.generated.CustomSceneGenerator.ContentConstraints;
 import com.zhangspaghetti.babytalk.practice.generated.quality.TypedRepairPackage;
 import java.util.Objects;
 import java.util.UUID;
@@ -14,6 +15,7 @@ public interface CustomSceneRepairer {
             int attemptNumber,
             UUID evidenceBundleId,
             String locale,
+            ContentConstraints contentConstraints,
             TypedRepairPackage repairPackage
     ) {
         public RepairRequest {
@@ -25,6 +27,7 @@ public interface CustomSceneRepairer {
             }
             Objects.requireNonNull(evidenceBundleId, "evidenceBundleId");
             Objects.requireNonNull(locale, "locale");
+            Objects.requireNonNull(contentConstraints, "contentConstraints");
             Objects.requireNonNull(repairPackage, "repairPackage");
         }
     }

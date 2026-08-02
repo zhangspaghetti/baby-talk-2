@@ -72,6 +72,54 @@ class PracticeAiOperationRunnerTest {
     }
 
     @Test
+    void invalidDynamicProviderIdentityFailsBeforeInvocationAndAnyAuditWrite() {
+        var invalid = mock(ResolvedProvider.class);
+        when(invalid.providerName()).thenReturn("p".repeat(65));
+        when(invalid.modelName()).thenReturn("m".repeat(97));
+        var audit = new CapturingAuditPort();
+        var invoked = new ArrayList<String>();
+        var runner = runner(List.of(invalid), audit);
+
+        assertThatThrownBy(() -> runner.execute(request(
+                PracticeAiCapability.CUSTOM_SCENE_GENERATOR,
+                resolved -> {
+                    invoked.add("invoked");
+                    return new OperationRequest.ProviderInvocationResult<>("generated", null);
+                })))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("providerName must not exceed 64 code points");
+
+        assertThat(invoked).isEmpty();
+        assertThat(audit.events).isEmpty();
+        assertThat(audit.startedOperations).isEmpty();
+        assertThat(audit.startedCalls).isEmpty();
+    }
+
+    @Test
+    void invalidDynamicModelIdentityFailsBeforeInvocationAndAnyAuditWrite() {
+        var invalid = mock(ResolvedProvider.class);
+        when(invalid.providerName()).thenReturn("provider");
+        when(invalid.modelName()).thenReturn("m".repeat(97));
+        var audit = new CapturingAuditPort();
+        var invoked = new ArrayList<String>();
+        var runner = runner(List.of(invalid), audit);
+
+        assertThatThrownBy(() -> runner.execute(request(
+                PracticeAiCapability.CUSTOM_SCENE_GENERATOR,
+                resolved -> {
+                    invoked.add("invoked");
+                    return new OperationRequest.ProviderInvocationResult<>("generated", null);
+                })))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("modelName must not exceed 96 code points");
+
+        assertThat(invoked).isEmpty();
+        assertThat(audit.events).isEmpty();
+        assertThat(audit.startedOperations).isEmpty();
+        assertThat(audit.startedCalls).isEmpty();
+    }
+
+    @Test
     void allProviderExhaustionIsTypedAndAttemptsEachProviderAtMostOnce() {
         var audit = new CapturingAuditPort();
         var callCount = new HashMap<String, Integer>();

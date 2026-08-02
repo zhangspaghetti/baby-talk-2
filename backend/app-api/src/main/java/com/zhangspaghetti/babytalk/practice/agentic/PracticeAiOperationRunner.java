@@ -64,6 +64,14 @@ public class PracticeAiOperationRunner {
 
     public <T> OperationResult<T> execute(OperationRequest<T> request) {
         Objects.requireNonNull(request, "request");
+        var providers = Objects.requireNonNull(
+                providerManager.route(request.capability()),
+                "provider route");
+        for (var provider : providers) {
+            Objects.requireNonNull(provider, "resolved provider");
+            PracticeAiProviderIdentity.requireProviderName(provider.providerName());
+            PracticeAiProviderIdentity.requireModelName(provider.modelName());
+        }
         UUID operationRunId = UUID.randomUUID();
         auditPort.insertOperationRun(new PracticeAiAuditPort.OperationRunStarted(
                 operationRunId,
@@ -80,7 +88,6 @@ public class PracticeAiOperationRunner {
                 request.policyHash(),
                 now()));
 
-        var providers = providerManager.route(request.capability());
         for (int fallbackIndex = 0; fallbackIndex < providers.size(); fallbackIndex++) {
             var provider = providers.get(fallbackIndex);
             UUID providerCallId = UUID.randomUUID();

@@ -51,6 +51,40 @@ class CompleteGeneratedBundleContractTest {
     }
 
     @Test
+    void providerAuthoredLengthOverflowSurvivesWireParsingForDeterministicGate() {
+        var overlongEnglish = "a".repeat(CompleteGeneratedBundle.ENGLISH_TEXT_MAX_CODE_POINTS + 1);
+        var response = CompleteGeneratedBundle.ProviderResponse.parse(
+                canonicalResponse().replace("\"Shoes on.\"", "\"" + overlongEnglish + "\""));
+
+        var bundle = response.toCompleteBundle(generatedProvenance());
+
+        assertThat(bundle.utterances()).hasSize(6);
+        assertThat(bundle.utterances().get(0).englishText()).isEqualTo(overlongEnglish);
+        assertThat(bundle.utterances())
+                .extracting(CompleteGeneratedBundle.Utterance::displayOrder)
+                .containsExactly(1, 2, 3, 4, 5, 6);
+    }
+
+    @Test
+    void provenanceLengthOverflowSurvivesConstructionForTerminalDeterministicGate() {
+        var providerName = "p".repeat(CompleteGeneratedBundle.PROVIDER_NAME_MAX_CODE_POINTS + 1);
+        var modelName = "m".repeat(CompleteGeneratedBundle.MODEL_NAME_MAX_CODE_POINTS + 1);
+        var provenance = new CompleteGeneratedBundle.ProviderProvenance(
+                CompleteGeneratedBundle.ProviderOrigin.PROVIDER_GENERATED,
+                providerName,
+                modelName,
+                1);
+
+        var bundle = CompleteGeneratedBundle.ProviderResponse.parse(canonicalResponse())
+                .toCompleteBundle(provenance);
+
+        assertThat(bundle.utterances()).allSatisfy(utterance -> {
+            assertThat(utterance.providerProvenance().providerName()).isEqualTo(providerName);
+            assertThat(utterance.providerProvenance().modelName()).isEqualTo(modelName);
+        });
+    }
+
+    @Test
     void providerSchemaRequiresEveryCanonicalBranchForStructuredOutputModels() throws Exception {
         var schema = providerSchema();
         var utterancesSchema = schema.get("properties").get("utterances");
@@ -80,6 +114,28 @@ class CompleteGeneratedBundleContractTest {
         assertThat(starterSchema.get("required").toString())
                 .contains("\"role\"", "\"reaction\"", "\"displayOrder\"");
         assertThat(starterSchema.get("additionalProperties").booleanValue()).isFalse();
+    }
+
+    @Test
+    void providerSchemaPublishesEveryPersistenceCodePointBound() throws Exception {
+        var schema = providerSchema();
+        var sceneProperties = schema.path("properties").path("scene").path("properties");
+
+        assertMaxLength(sceneProperties, "spaceTitleZh", 120);
+        assertMaxLength(sceneProperties, "activityTitleZh", 120);
+        assertMaxLength(sceneProperties, "sceneTagEn", 120);
+
+        var branchProperties = schema.path("properties").path("utterances").path("properties");
+        for (var constraint : canonicalBranchConstraints()) {
+            var utteranceProperties = resolveLocalSchema(schema, branchProperties.path(constraint.key()))
+                    .path("properties");
+            assertMaxLength(utteranceProperties, "englishText", 120);
+            assertMaxLength(utteranceProperties, "chineseText", 120);
+            assertMaxLength(utteranceProperties, "pronunciationHint", 120);
+            assertMaxLength(utteranceProperties, "tprActionZh", 240);
+            assertMaxLength(utteranceProperties, "deliveryGuidanceZh", 240);
+            assertMaxLength(utteranceProperties, "difficulty", 16);
+        }
     }
 
     @Test
@@ -544,6 +600,12 @@ class CompleteGeneratedBundleContractTest {
             resolved = resolved.get(segment.replace("~1", "/").replace("~0", "~"));
         }
         return resolved;
+    }
+
+    private void assertMaxLength(JsonNode properties, String field, int expected) {
+        assertThat(properties.path(field).path("maxLength").intValue())
+                .as(field + " persistence maxLength")
+                .isEqualTo(expected);
     }
 
     private JsonNode providerSchema() throws Exception {

@@ -79,6 +79,8 @@ public class AgenticCustomSceneRepairer implements CustomSceneRepairer {
                                 requirement.violationCodes().stream().map(Enum::name).toList()))
                         .toList(),
                 repairPackage.repairDirectives().stream().map(Enum::name).toList(),
+                contentConstraintsPayload(request.contentConstraints()),
+                CompleteGeneratedBundle.persistenceCodePointLimits(),
                 repairPackage.evidenceSummaries().stream().map(EvidenceSummary::sanitizedSummary).toList(),
                 generationProfilePayload(currentProfile)));
         var result = operationRunner.execute(new OperationRequest<>(
@@ -123,6 +125,19 @@ public class AgenticCustomSceneRepairer implements CustomSceneRepairer {
                 profile.generatedOutputSchemaVersion());
     }
 
+    private ContentConstraintsPayload contentConstraintsPayload(
+            CustomSceneGenerator.ContentConstraints constraints
+    ) {
+        return new ContentConstraintsPayload(
+                constraints.maxEnglishWords(),
+                constraints.maxEnglishChars(),
+                constraints.maxChineseChars(),
+                constraints.maxCoachTipChars(),
+                constraints.maxSceneTagChars(),
+                constraints.allowedDifficulties().stream().sorted().toList(),
+                constraints.allowedGenerationSources().stream().sorted().toList());
+    }
+
     private record RepairPromptPayload(
             int attemptNumber,
             String locale,
@@ -135,6 +150,8 @@ public class AgenticCustomSceneRepairer implements CustomSceneRepairer {
             List<String> violationCodes,
             List<BranchRequirementPayload> branchRequirements,
             List<String> repairDirectives,
+            ContentConstraintsPayload contentConstraints,
+            CompleteGeneratedBundle.PersistenceCodePointLimits persistenceCodePointLimits,
             List<String> orderedSanitizedEvidenceSummaries,
             GenerationProfilePayload generationProfile
     ) {
@@ -143,6 +160,17 @@ public class AgenticCustomSceneRepairer implements CustomSceneRepairer {
     private record BranchRequirementPayload(
             String branch,
             List<String> violationCodes
+    ) {
+    }
+
+    private record ContentConstraintsPayload(
+            int maxEnglishWords,
+            int maxEnglishChars,
+            int maxChineseChars,
+            int maxCoachTipChars,
+            int maxSceneTagChars,
+            List<String> allowedDifficulties,
+            List<String> allowedGenerationSources
     ) {
     }
 

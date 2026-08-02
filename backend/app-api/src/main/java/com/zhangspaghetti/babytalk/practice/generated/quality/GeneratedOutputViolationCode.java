@@ -7,6 +7,7 @@ public enum GeneratedOutputViolationCode {
     OUTPUT_DANGEROUS_MEDICAL(false),
     UNTRUSTED_METADATA(false),
     DATABASE_OVERFLOW(false),
+    PROVIDER_CONTENT_OVERFLOW(true),
     INVALID_ENUM(false),
     MISSING_TPR_ACTION(true),
     MISSING_DELIVERY_GUIDANCE(true),
