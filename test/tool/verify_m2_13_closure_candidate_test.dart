@@ -91,6 +91,78 @@ void main() {
     },
   );
 
+  test(
+    'current candidate accepts frozen mobile with deployed backend',
+    () async {
+      final violations = await verifier.verifyM213CurrentCandidate(
+        _candidateManifest(
+          mobileSha: 'ad2c9ceeefff1b8eca8358d6c423268cbff2d55c',
+          backendSha: '98dd07528c768e4b88e0d259a5915e33a5e89715',
+        ),
+        _repoRootPath(),
+      );
+
+      expect(violations, isEmpty);
+    },
+  );
+
+  test('current candidate rejects unknown backend commit', () async {
+    final violations = await verifier.verifyM213CurrentCandidate(
+      _candidateManifest(
+        mobileSha: 'ad2c9ceeefff1b8eca8358d6c423268cbff2d55c',
+        backendSha: 'ffffffffffffffffffffffffffffffffffffffff',
+      ),
+      _repoRootPath(),
+    );
+
+    expect(violations, hasLength(1));
+    expect(violations.single.code, 'candidate_identity_mismatch');
+    expect(violations.single.detail, contains('backend'));
+    expect(violations.single.detail, contains('repository commit'));
+  });
+
+  test(
+    'current candidate rejects backend commit outside mobile history',
+    () async {
+      final repository = await _createSplitGitRepository();
+      addTearDown(() => repository.root.delete(recursive: true));
+
+      final violations = await verifier.verifyM213CurrentCandidate(
+        _candidateManifest(
+          mobileSha: repository.mobileSha,
+          backendSha: repository.unrelatedSha,
+        ),
+        repository.root.path,
+      );
+
+      expect(violations, hasLength(1));
+      expect(violations.single.code, 'candidate_identity_mismatch');
+      expect(violations.single.detail, contains('backend'));
+      expect(violations.single.detail, contains('ancestor of mobile'));
+    },
+  );
+
+  test(
+    'current candidate binds mobile commit to checked-out history',
+    () async {
+      final repository = await _createSplitGitRepository();
+      addTearDown(() => repository.root.delete(recursive: true));
+
+      final violations = await verifier.verifyM213CurrentCandidate(
+        _candidateManifest(
+          mobileSha: repository.unrelatedSha,
+          backendSha: repository.unrelatedSha,
+        ),
+        repository.root.path,
+      );
+
+      expect(violations, hasLength(1));
+      expect(violations.single.code, 'candidate_identity_mismatch');
+      expect(violations.single.detail, contains('mobile'));
+      expect(violations.single.detail, contains('checked-out HEAD'));
+    },
+  );
+
   test('entrypoint gate matrix invokes every fixed upstream gate', () async {
     final invoked = <String>[];
     final result = await verifier.runM213ClosureGates(
@@ -385,6 +457,63 @@ Future<File> _mutatedFixture(void Function(Map<String, dynamic>) mutate) async {
     const JsonEncoder.withIndent('  ').convert(manifest),
   );
   return file;
+}
+
+verifier.M213ClosureCandidateManifest _candidateManifest({
+  required String mobileSha,
+  required String backendSha,
+}) => verifier.M213ClosureCandidateManifest(
+  candidate: {'mobile_source_sha': mobileSha, 'backend_source_sha': backendSha},
+  gateIds: const {},
+);
+
+final class _SplitGitRepository {
+  const _SplitGitRepository({
+    required this.root,
+    required this.mobileSha,
+    required this.unrelatedSha,
+  });
+
+  final Directory root;
+  final String mobileSha;
+  final String unrelatedSha;
+}
+
+Future<_SplitGitRepository> _createSplitGitRepository() async {
+  final root = await Directory.systemTemp.createTemp('m2_13_split_identity_');
+  await _git(root, ['init']);
+  await _git(root, ['config', 'user.name', 'M2-13 verifier test']);
+  await _git(root, ['config', 'user.email', 'm2-13@example.invalid']);
+  final branch = await _git(root, ['branch', '--show-current']);
+  await _git(root, ['commit', '--allow-empty', '-m', 'backend']);
+  await _git(root, ['commit', '--allow-empty', '-m', 'mobile']);
+  final mobileSha = await _git(root, ['rev-parse', 'HEAD']);
+  await _git(root, ['commit', '--allow-empty', '-m', 'evidence']);
+  await _git(root, ['switch', '--orphan', 'unrelated']);
+  await _git(root, ['commit', '--allow-empty', '-m', 'unrelated']);
+  final unrelatedSha = await _git(root, ['rev-parse', 'HEAD']);
+  await _git(root, ['switch', branch]);
+  return _SplitGitRepository(
+    root: root,
+    mobileSha: mobileSha,
+    unrelatedSha: unrelatedSha,
+  );
+}
+
+Future<String> _git(Directory root, List<String> arguments) async {
+  final result = await Process.run(
+    'git',
+    arguments,
+    workingDirectory: root.path,
+    runInShell: false,
+  );
+  if (result.exitCode != 0) {
+    throw StateError(
+      'git ${arguments.join(' ')} failed (${result.exitCode}): '
+      '${result.stderr}',
+    );
+  }
+  return '${result.stdout}'.trim();
 }
 
 String _repoRootPath() {

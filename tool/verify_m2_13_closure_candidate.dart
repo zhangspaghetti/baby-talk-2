@@ -11,8 +11,9 @@ const m213ClosureCandidateSchemaVersion = 'M2_FINAL_CANDIDATE_V2';
 const m213ClosureCandidateUsage =
     '''Usage: dart tool/verify_m2_13_closure_candidate.dart --manifest <path> [--help]
 
-Validates one frozen final-candidate manifest, confirms its source tuple is the
-checked-out clean candidate, then runs every upstream #30-#38 closure gate.
+Validates one frozen final-candidate manifest, confirms its mobile source is in
+checked-out history and its backend source is in mobile history, then runs every
+upstream #30-#38 closure gate.
 The accepted manifest is the only input contract for final UAT.
 ''';
 
@@ -646,13 +647,8 @@ Future<List<M213ClosureCandidateViolation>> verifyM213CurrentCandidate(
   M213ClosureCandidateManifest manifest,
   String projectRoot,
 ) async {
-  final result = await Process.run(
-    'git',
-    ['rev-parse', 'HEAD'],
-    workingDirectory: projectRoot,
-    runInShell: false,
-  );
-  if (result.exitCode != 0) {
+  final head = await _resolveM213Commit(projectRoot, 'HEAD');
+  if (head == null) {
     return const [
       M213ClosureCandidateViolation(
         'git_head',
@@ -660,17 +656,78 @@ Future<List<M213ClosureCandidateViolation>> verifyM213CurrentCandidate(
       ),
     ];
   }
-  final head = '${result.stdout}'.trim();
-  if (manifest.candidate['mobile_source_sha'] != head ||
-      manifest.candidate['backend_source_sha'] != head) {
+
+  final mobileSha = manifest.candidate['mobile_source_sha'];
+  final mobileCommit = mobileSha == null
+      ? null
+      : await _resolveM213Commit(projectRoot, mobileSha);
+  if (mobileSha == null || mobileCommit != mobileSha) {
     return const [
       M213ClosureCandidateViolation(
         'candidate_identity_mismatch',
-        'manifest mobile/backend SHA must equal checked-out HEAD',
+        'manifest mobile SHA must resolve to an immutable repository commit',
       ),
     ];
   }
+
+  if (!await _isM213Ancestor(projectRoot, mobileCommit!, head)) {
+    return const [
+      M213ClosureCandidateViolation(
+        'candidate_identity_mismatch',
+        'manifest mobile SHA must be an ancestor of checked-out HEAD',
+      ),
+    ];
+  }
+
+  final backendSha = manifest.candidate['backend_source_sha'];
+  final backendCommit = backendSha == null
+      ? null
+      : await _resolveM213Commit(projectRoot, backendSha);
+  if (backendSha == null || backendCommit != backendSha) {
+    return const [
+      M213ClosureCandidateViolation(
+        'candidate_identity_mismatch',
+        'manifest backend SHA must resolve to an immutable repository commit',
+      ),
+    ];
+  }
+
+  if (!await _isM213Ancestor(projectRoot, backendCommit!, mobileCommit)) {
+    return const [
+      M213ClosureCandidateViolation(
+        'candidate_identity_mismatch',
+        'manifest backend SHA must be an ancestor of mobile SHA',
+      ),
+    ];
+  }
+
   return const [];
+}
+
+Future<String?> _resolveM213Commit(String projectRoot, String revision) async {
+  final result = await Process.run(
+    'git',
+    ['rev-parse', '--verify', '$revision^{commit}'],
+    workingDirectory: projectRoot,
+    runInShell: false,
+  );
+  if (result.exitCode != 0) return null;
+  final resolved = '${result.stdout}'.trim();
+  return _gitSha.hasMatch(resolved) ? resolved : null;
+}
+
+Future<bool> _isM213Ancestor(
+  String projectRoot,
+  String ancestor,
+  String descendant,
+) async {
+  final result = await Process.run(
+    'git',
+    ['merge-base', '--is-ancestor', ancestor, descendant],
+    workingDirectory: projectRoot,
+    runInShell: false,
+  );
+  return result.exitCode == 0;
 }
 
 Object? _readJson(File file, List<M213ClosureCandidateViolation> violations) {
