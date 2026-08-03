@@ -36,12 +36,14 @@ void main() {
 
       await coordinator.recoverForAuthenticatedAccount(
         accountContext: 'account_a',
+        resumableGeneratedContentId: 'generated_stale',
       );
       expect(handoff.ids, <String>['generated_1']);
       expect(controller.state.generatedContentId, 'generated_1');
 
       await coordinator.recoverForAuthenticatedAccount(
         accountContext: 'account_a',
+        resumableGeneratedContentId: 'generated_stale',
       );
       expect(handoff.ids, <String>['generated_1']);
     },
@@ -123,6 +125,41 @@ void main() {
       await coordinator.openPreparedContent();
       expect(handoff.ids, <String>['generated_1', 'generated_1']);
       expect(controller.state.canOpenPreparedContent, isTrue);
+    },
+  );
+
+  test(
+    'cold start resumes generated continuity after handoff intent is cleared',
+    () async {
+      final tempDir = await Directory.systemTemp.createTemp('custom_recovery_');
+      addTearDown(() => tempDir.delete(recursive: true));
+      final now = DateTime.utc(2026, 7, 29, 9);
+      final store = CustomSceneDraftStore(
+        directoryResolver: () async => tempDir,
+      );
+      final controller = _controller(store: store, now: now);
+      final handoff = _HandoffSink();
+      final coordinator = CustomSceneRecoveryCoordinator(
+        controller: controller,
+        handoffSink: handoff,
+      );
+      addTearDown(() {
+        coordinator.dispose();
+        controller.dispose();
+      });
+
+      await coordinator.recoverForAuthenticatedAccount(
+        accountContext: 'account_a',
+        resumableGeneratedContentId: 'generated_1',
+      );
+
+      expect(handoff.ids, <String>['generated_1']);
+
+      await coordinator.recoverForAuthenticatedAccount(
+        accountContext: 'account_a',
+        resumableGeneratedContentId: 'generated_1',
+      );
+      expect(handoff.ids, <String>['generated_1']);
     },
   );
 }

@@ -645,6 +645,7 @@ class _CustomSceneRecoveryBootstrap extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final account = ref.watch(accountNotifierProvider);
     final recovery = ref.watch(customSceneRecoveryCoordinatorProvider);
+    final continuity = ref.watch(practiceContinuityNotifierProvider);
     final coordinator = recovery is AsyncData<CustomSceneRecoveryCoordinator>
         ? recovery.value
         : null;
@@ -660,6 +661,8 @@ class _CustomSceneRecoveryBootstrap extends ConsumerWidget {
         unawaited(
           coordinator.recoverForAuthenticatedAccount(
             accountContext: accountContext,
+            resumableGeneratedContentId:
+                continuity.generatedRecommendedArgs?.generatedContentId,
           ),
         );
       });

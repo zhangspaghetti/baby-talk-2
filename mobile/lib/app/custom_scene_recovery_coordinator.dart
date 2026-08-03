@@ -24,7 +24,10 @@ class CustomSceneRecoveryCoordinator {
 
   /// Call only after account state has finished settling. A missing account
   /// suspends recovery; it never consumes another account's durable intent.
-  Future<void> recoverForAuthenticatedAccount({String? accountContext}) {
+  Future<void> recoverForAuthenticatedAccount({
+    String? accountContext,
+    String? resumableGeneratedContentId,
+  }) {
     return _enqueue(() async {
       final normalizedAccountContext = accountContext?.trim();
       if (normalizedAccountContext == null ||
@@ -40,6 +43,9 @@ class CustomSceneRecoveryCoordinator {
       _stableAccountContext = normalizedAccountContext;
       if (_recoveredAccountContext == normalizedAccountContext) {
         await _routePreparedContentIfReady();
+        await _routeResumableGeneratedContentIfIdle(
+          resumableGeneratedContentId,
+        );
         return;
       }
       try {
@@ -49,6 +55,7 @@ class CustomSceneRecoveryCoordinator {
       }
       _recoveredAccountContext = normalizedAccountContext;
       await _routePreparedContentIfReady();
+      await _routeResumableGeneratedContentIfIdle(resumableGeneratedContentId);
     });
   }
 
@@ -84,6 +91,27 @@ class CustomSceneRecoveryCoordinator {
     } on Object {
       _routedContentId = null;
       _controller.markHandoffRouteFailed();
+    }
+  }
+
+  Future<void> _routeResumableGeneratedContentIfIdle(
+    String? generatedContentId,
+  ) async {
+    final normalizedContentId = generatedContentId?.trim();
+    if (_stableAccountContext == null ||
+        _controller.state.canOpenPreparedContent ||
+        normalizedContentId == null ||
+        normalizedContentId.isEmpty ||
+        _routedContentId == normalizedContentId) {
+      return;
+    }
+    _routedContentId = normalizedContentId;
+    try {
+      await _handoffSink.handoff(
+        CustomSceneCareTurnHandoff(generatedContentId: normalizedContentId),
+      );
+    } on Object {
+      _routedContentId = null;
     }
   }
 
