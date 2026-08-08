@@ -1,0 +1,39 @@
+command=dart tool/verify_m2_13_closure_candidate.dart --manifest artifacts/m2-final-b89c8433c47d-20260808.json
+m2_13_closure_candidate_status=pass
+violations=0
+M2-13 final candidate is frozen for UAT.
+exit_code=0
+elapsed_seconds=978.4
+interpretation=final candidate frozen for UAT; all fixed upstream machine gates passed on a clean worktree
+
+candidate_id=m2-final-b89c8433c47d
+candidate_manifest_sha256=0875041e8b068f51a558b7122105546cd2dc557963a2cdb1c685f790452da987
+mobile_source_sha=b89c8433c47dc257d94ff362b02ce2a7ca23102e
+mobile_apk_sha256=334084116a6d5abef4916bf2cb285c45763fd70fa4846eb00783969dad35188a
+backend_source_sha=98dd07528c768e4b88e0d259a5915e33a5e89715
+backend_artifact_identity=image_sha256:e23debc98efc9d5f79dd9005b692876c1152d28ce992f9a768a5e8402e27fc0d
+environment_identity=sanitized-qa-kind-rev1
+provider_profile=qa-dashscope-qwen
+provider_model_identity=model_sha256:bb43a640f04c8e5504a8fbc8c6980455029f3e8fc1dedff10bcd04f94c4f4319
+configuration_fingerprint=sha256:9cd438e1c5a003a1636a6ddcd711a2ce67f309e47831d55aa379090b2e91fd42
+identity_rule=backend_ancestor_of_mobile_ancestor_of_verification_head
+
+complete_bundle=PASS
+activation_safety_repair=PASS
+legacy_quarantine=PASS
+recovery_coordinator=PASS
+handoff_confirmation=PASS
+backend_real_tts=PASS
+mobile_formal_audio=PASS
+garden_today_continuity=PASS
+privacy=PASS
+static_source=PASS
+release_evidence_schema=PASS
+clean_worktree=PASS
+full_ci=PASS
+
+issue_38=CLOSED
+issue_39=READY_TO_CLOSE
+issue_40=OPEN_NOT_RUN
+human_android_pass_claimed=false
+release_closure=NOT_COMPLETE
