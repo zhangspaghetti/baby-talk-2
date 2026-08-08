@@ -40,13 +40,13 @@ Algorithm: encode the exact pipe-delimited string as UTF-8 with no leading/trail
 - #48 handoff, retry, force-stop recovery, and formal six-utterance rendering: PASS and closed.
 - Flutter full suite: `795/795`; `flutter analyze`: PASS.
 - QA aggregate counts: content/attempts/operations/provider calls `8/11/19/19`; latest content ACTIVE with six approved utterances.
-- Candidate worktree/CI evidence: final clean-worktree rerun pending after the #38 split-source verifier correction.
+- Candidate worktree/CI evidence: PASS. The formal M2-13 closure-candidate verifier completed on a clean worktree after the #38 split-source correction.
 
 All manifest Gate receipts remain `PASS`; no `FAIL`, `BLOCKED`, or `NOT RUN` result is reinterpreted.
 
 ## Verifier boundary
 
-Manifest structural validation passes with zero violations. The #38 split-source verifier defect was corrected in `488084ea`: both source SHAs must resolve to immutable commits, mobile must be an ancestor of checked-out HEAD, and backend must be an ancestor of mobile. The formal #39 Gate rerun is pending on a clean worktree.
+Manifest structural validation passes with zero violations. The #38 split-source verifier defect was corrected in `488084ea`: both source SHAs must resolve to immutable commits, mobile must be an ancestor of checked-out HEAD, and backend must be an ancestor of mobile. The formal #39 Gate rerun completed with `m2_13_closure_candidate_status=pass` and zero violations.
 
 #40 remains independently incomplete. The #38 release-matrix verifier correctly fails for this candidate until five privacy-safe, same-tuple, final `PASS` `HUMAN_ANDROID` records exist, including actual TalkBack observations. Candidate freeze success does not claim release closure.
 

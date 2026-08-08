@@ -1,0 +1,17 @@
+command=dart tool/verify_m2_13_closure_candidate.dart --manifest artifacts/m2-final-ad2c9ceeefff-20260803.json
+m2_13_closure_candidate_status=pass
+violations=0
+exit_code=0
+interpretation=final candidate frozen for UAT; all fixed upstream gates passed on a clean worktree
+
+candidate_id=m2-final-ad2c9ceeefff
+candidate_manifest_sha256=362dd2de2d91e5b049b4849620ede23f26edf21c9424d8634c8306f7fd0bac86
+mobile_source_sha=ad2c9ceeefff1b8eca8358d6c423268cbff2d55c
+backend_source_sha=98dd07528c768e4b88e0d259a5915e33a5e89715
+configuration_fingerprint=sha256:9cd438e1c5a003a1636a6ddcd711a2ce67f309e47831d55aa379090b2e91fd42
+identity_rule=backend_ancestor_of_mobile_ancestor_of_verification_head
+
+issue_38=CLOSED
+issue_39=READY_TO_CLOSE
+issue_40=OPEN
+release_closure=NOT_COMPLETE
