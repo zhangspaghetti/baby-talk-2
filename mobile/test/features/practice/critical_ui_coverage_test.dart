@@ -1380,6 +1380,7 @@ void main() {
   testWidgets('Shell labels use Today/Scene and Garden remains index 2', (
     tester,
   ) async {
+    final practiceRepository = _CarePathScreenPracticeRepository();
     final gardenSnapshot = _gardenSnapshot(spaces: [_gardenPatch()]);
     final continuitySnapshot = _continuitySnapshot();
     final householdNotifier = HouseholdNotifier(
@@ -1393,9 +1394,12 @@ void main() {
 
     await _pumpApp(
       tester,
-      const AppShellScreen(),
+      const AppShellScreen(customSceneEnabled: true),
       scaffold: false,
       overrides: [
+        practiceRepositoryProvider.overrideWith(
+          (ref) async => practiceRepository,
+        ),
         accountNotifierProvider.overrideWith((ref) {
           return AccountNotifier(repository: _ScreenAccountRepository());
         }),
@@ -1456,6 +1460,67 @@ void main() {
     expect(find.text('场景'), findsWidgets);
     expect(find.byKey(const Key('shell-mentor-fab')), findsOneWidget);
     expect(find.byKey(const Key('shell-settings-gear')), findsNothing);
+
+    final semantics = tester.ensureSemantics();
+    try {
+      final entryFinder = find.byKey(const Key('custom-scene-entry-scene'));
+      await tester.ensureVisible(entryFinder);
+      await tester.pumpAndSettle();
+      final finalCardAction = tester.getSemantics(
+        find.descendant(
+          of: find.byKey(const Key('discover-phrase-card-song_time')),
+          matching: find.byType(InkWell),
+        ),
+      );
+      final entry = tester.getSemantics(entryFinder);
+      final mentorFab = tester.getSemantics(
+        find.byKey(const Key('shell-mentor-fab')),
+      );
+      final todayNavigation = tester.getSemantics(
+        find.byKey(const Key('shell-nav-home')),
+      );
+      final traversal = tester.semantics
+          .simulatedAccessibilityTraversal()
+          .toList(growable: false);
+      final finalCardIndex = traversal.indexWhere(
+        (node) => node.id == finalCardAction.id,
+      );
+      final entryIndex = traversal.indexWhere((node) => node.id == entry.id);
+      final todayIndex = traversal.indexWhere(
+        (node) => node.id == todayNavigation.id,
+      );
+      final mentorFabIndex = traversal.indexWhere(
+        (node) => node.id == mentorFab.id,
+      );
+
+      expect(
+        <int>[
+          finalCardIndex,
+          entryIndex,
+          todayIndex,
+          mentorFabIndex,
+        ].every((index) => index >= 0),
+        isTrue,
+      );
+      expect(entryIndex, finalCardIndex + 1);
+      expect(todayIndex, entryIndex + 1);
+      expect(mentorFabIndex, greaterThan(todayIndex));
+
+      final reverse = traversal.reversed.toList(growable: false);
+      final reverseTodayIndex = reverse.indexWhere(
+        (node) => node.id == todayNavigation.id,
+      );
+      final reverseEntryIndex = reverse.indexWhere(
+        (node) => node.id == entry.id,
+      );
+      final reverseFinalCardIndex = reverse.indexWhere(
+        (node) => node.id == finalCardAction.id,
+      );
+      expect(reverseEntryIndex, reverseTodayIndex + 1);
+      expect(reverseFinalCardIndex, reverseEntryIndex + 1);
+    } finally {
+      semantics.dispose();
+    }
 
     // §5 规则2：花园 Tab 隐藏全局 FAB（花园有自己的施肥交互）。
     tester

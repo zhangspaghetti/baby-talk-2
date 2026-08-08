@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:mobile/app/providers/repository_providers.dart';
@@ -13,6 +14,7 @@ import 'package:mobile/features/household/domain/models/household_role.dart';
 import 'package:mobile/features/household/presentation/widgets/household_invite_card.dart';
 import 'package:mobile/features/household/presentation/widgets/household_shared_context_card.dart';
 import 'package:mobile/app/widgets/xiaohe_fab.dart';
+import 'package:mobile/features/custom_scene/application/custom_scene_feature_flag.dart';
 import 'package:mobile/features/onboarding/domain/models/onboarding_snapshot.dart';
 import 'package:mobile/features/onboarding/domain/models/stage_match.dart';
 import 'package:mobile/features/practice/presentation/garden_growth_notifier.dart'
@@ -24,9 +26,14 @@ import 'package:mobile/features/shell/presentation/screens/me_screen.dart';
 import 'package:mobile/l10n/app_localizations.dart';
 
 class AppShellScreen extends ConsumerStatefulWidget {
-  const AppShellScreen({super.key, this.onboardingSnapshot});
+  const AppShellScreen({
+    super.key,
+    this.onboardingSnapshot,
+    this.customSceneEnabled = customSceneFeatureEnabledByDefault,
+  });
 
   final OnboardingSnapshot? onboardingSnapshot;
+  final bool customSceneEnabled;
 
   @override
   ConsumerState<AppShellScreen> createState() => _AppShellScreenState();
@@ -101,80 +108,94 @@ class _AppShellScreenState extends ConsumerState<AppShellScreen> {
       // 其余页面（今天/场景/我）固定显示。
       floatingActionButton: _selectedIndex == 2
           ? null
-          : XiaoheFab(
-              key: const Key('shell-mentor-fab'),
-              launcher: 'shell_fab',
-              surface: _surfaceForIndex(_selectedIndex),
+          : Semantics(
+              container: true,
+              sortKey: const OrdinalSortKey(3.0),
+              child: XiaoheFab(
+                key: const Key('shell-mentor-fab'),
+                launcher: 'shell_fab',
+                surface: _surfaceForIndex(_selectedIndex),
+              ),
             ),
-      body: AnimatedSwitcher(
-        duration: const Duration(milliseconds: 200),
-        child: IndexedStack(
-          key: ValueKey(_selectedIndex),
-          index: _selectedIndex,
-          children: [
-            HomeScreen(
-              onboardingSnapshot: widget.onboardingSnapshot,
-              embeddedInShell: true,
+      body: Semantics(
+        container: true,
+        sortKey: const OrdinalSortKey(1.0),
+        child: AnimatedSwitcher(
+          duration: const Duration(milliseconds: 200),
+          child: IndexedStack(
+            key: ValueKey(_selectedIndex),
+            index: _selectedIndex,
+            children: [
+              HomeScreen(
+                onboardingSnapshot: widget.onboardingSnapshot,
+                embeddedInShell: true,
+              ),
+              DiscoverScreen(customSceneEnabled: widget.customSceneEnabled),
+              GardenGrowthCombinedScreen(
+                initialTab: _gardenInitialTab,
+                onGoHome: () => setState(() => _selectedIndex = 0),
+              ),
+              MeScreen(
+                onboardingSnapshot: widget.onboardingSnapshot,
+                onOpenGarden: () => _openGardenTab(GrowthTab.garden),
+                onOpenGrowth: () => _openGardenTab(GrowthTab.growth),
+              ),
+            ],
+          ),
+        ),
+      ),
+      bottomNavigationBar: Semantics(
+        container: true,
+        sortKey: const OrdinalSortKey(2.0),
+        child: NavigationBar(
+          selectedIndex: _selectedIndex,
+          onDestinationSelected: (index) {
+            if (index == 2) {
+              final gardenGrowthNotifier = ref.read(
+                gardenGrowthNotifierProvider,
+              );
+              if (gardenGrowthNotifier.status == GardenGrowthLoadStatus.idle) {
+                unawaited(gardenGrowthNotifier.initialize());
+              }
+            }
+            setState(() {
+              _selectedIndex = index;
+            });
+          },
+          destinations: [
+            NavigationDestination(
+              key: const Key('shell-nav-home'),
+              icon: const Icon(Icons.home_outlined),
+              selectedIcon: const Icon(Icons.home_rounded),
+              label: l.shellHome,
             ),
-            const DiscoverScreen(),
-            GardenGrowthCombinedScreen(
-              initialTab: _gardenInitialTab,
-              onGoHome: () => setState(() => _selectedIndex = 0),
+            NavigationDestination(
+              key: const Key('shell-nav-discover'),
+              icon: const Icon(Icons.explore_outlined),
+              selectedIcon: const Icon(Icons.explore_rounded),
+              label: l.shellDiscover,
             ),
-            MeScreen(
-              onboardingSnapshot: widget.onboardingSnapshot,
-              onOpenGarden: () => _openGardenTab(GrowthTab.garden),
-              onOpenGrowth: () => _openGardenTab(GrowthTab.growth),
+            NavigationDestination(
+              key: const Key('shell-nav-garden'),
+              icon: Badge(
+                key: const Key('shell-nav-garden-badge'),
+                isLabelVisible: hasPendingFertilizer,
+                child: const Icon(Icons.local_florist_outlined),
+              ),
+              selectedIcon: Badge(
+                isLabelVisible: hasPendingFertilizer,
+                child: const Icon(Icons.local_florist_rounded),
+              ),
+              label: l.shellGarden,
+            ),
+            NavigationDestination(
+              key: const Key('shell-nav-me'),
+              icon: const Icon(Icons.person_outlined),
+              selectedIcon: const Icon(Icons.person_rounded),
+              label: l.shellMe,
             ),
           ],
         ),
-      ),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _selectedIndex,
-        onDestinationSelected: (index) {
-          if (index == 2) {
-            final gardenGrowthNotifier = ref.read(gardenGrowthNotifierProvider);
-            if (gardenGrowthNotifier.status == GardenGrowthLoadStatus.idle) {
-              unawaited(gardenGrowthNotifier.initialize());
-            }
-          }
-          setState(() {
-            _selectedIndex = index;
-          });
-        },
-        destinations: [
-          NavigationDestination(
-            key: const Key('shell-nav-home'),
-            icon: const Icon(Icons.home_outlined),
-            selectedIcon: const Icon(Icons.home_rounded),
-            label: l.shellHome,
-          ),
-          NavigationDestination(
-            key: const Key('shell-nav-discover'),
-            icon: const Icon(Icons.explore_outlined),
-            selectedIcon: const Icon(Icons.explore_rounded),
-            label: l.shellDiscover,
-          ),
-          NavigationDestination(
-            key: const Key('shell-nav-garden'),
-            icon: Badge(
-              key: const Key('shell-nav-garden-badge'),
-              isLabelVisible: hasPendingFertilizer,
-              child: const Icon(Icons.local_florist_outlined),
-            ),
-            selectedIcon: Badge(
-              isLabelVisible: hasPendingFertilizer,
-              child: const Icon(Icons.local_florist_rounded),
-            ),
-            label: l.shellGarden,
-          ),
-          NavigationDestination(
-            key: const Key('shell-nav-me'),
-            icon: const Icon(Icons.person_outlined),
-            selectedIcon: const Icon(Icons.person_rounded),
-            label: l.shellMe,
-          ),
-        ],
       ),
     );
   }
