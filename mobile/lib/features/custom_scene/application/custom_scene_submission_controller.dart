@@ -61,16 +61,19 @@ class CustomSceneSubmissionState {
     required this.phase,
     this.message,
     this.generatedContentId,
+    this.canCancelRetainedDraft = false,
   });
 
   const CustomSceneSubmissionState.editing()
     : phase = CustomSceneSubmissionPhase.editing,
       message = null,
-      generatedContentId = null;
+      generatedContentId = null,
+      canCancelRetainedDraft = false;
 
   final CustomSceneSubmissionPhase phase;
   final String? message;
   final String? generatedContentId;
+  final bool canCancelRetainedDraft;
 
   bool get isBusy => switch (phase) {
     CustomSceneSubmissionPhase.restoring ||
@@ -519,7 +522,13 @@ class CustomSceneSubmissionController extends ChangeNotifier {
       await _markUnknownOutcome(submitting);
       return;
     }
-    _setState(_recoverable(failure.presentationMessage));
+    _setState(
+      _recoverable(
+        failure.presentationMessage,
+        canCancelRetainedDraft:
+            failure.kind == CustomSceneFailureKind.requestTerminal,
+      ),
+    );
   }
 
   Future<void> _beginAuthentication(CustomSceneStoredDraft stored) async {
@@ -655,10 +664,14 @@ class CustomSceneSubmissionController extends ChangeNotifier {
     };
   }
 
-  CustomSceneSubmissionState _recoverable(String message) {
+  CustomSceneSubmissionState _recoverable(
+    String message, {
+    bool canCancelRetainedDraft = false,
+  }) {
     return CustomSceneSubmissionState(
       phase: CustomSceneSubmissionPhase.recoverableError,
       message: message,
+      canCancelRetainedDraft: canCancelRetainedDraft,
     );
   }
 

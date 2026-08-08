@@ -90,6 +90,14 @@ void main() {
 
       expect(controller.handoffIds, isEmpty);
       expect(find.text('打开已准备内容'), findsOneWidget);
+      expect(
+        find.byKey(const Key('custom-scene-abandon-prepared')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('custom-scene-cancel-retained-draft')),
+        findsNothing,
+      );
       expect(controller.submitted.single.text, '洗澡时宝宝不想碰水。');
       expect(
         tester
@@ -119,6 +127,10 @@ void main() {
       );
 
       expect(find.text('继续确认结果'), findsOneWidget);
+      expect(
+        find.byKey(const Key('custom-scene-cancel-retained-draft')),
+        findsNothing,
+      );
       await tester.tap(find.byKey(const Key('custom-scene-submit-button')));
       await tester.pump();
 
@@ -126,6 +138,54 @@ void main() {
       expect(controller.submitted, isEmpty);
     },
   );
+
+  testWidgets('terminal retained draft cancellation requires confirmation', (
+    tester,
+  ) async {
+    final controller = _ImmediateSubmissionController()
+      ..publishTerminalFailure();
+    await _pump(
+      tester,
+      CustomSceneInputScreen(
+        routeArgs: const CustomSceneRouteArgs(
+          entrySource: CustomSceneEntrySource.scene,
+        ),
+        controller: controller,
+      ),
+    );
+    await tester.enterText(
+      find.byKey(const Key('custom-scene-text-field')),
+      '宝宝洗澡后不愿意穿衣服。',
+    );
+
+    final cancelAction = find.byKey(
+      const Key('custom-scene-cancel-retained-draft'),
+    );
+    expect(cancelAction, findsOneWidget);
+    await tester.tap(cancelAction);
+    await tester.pumpAndSettle();
+    expect(find.text('取消这次描述？'), findsOneWidget);
+
+    await tester.tap(find.text('继续保留'));
+    await tester.pumpAndSettle();
+    expect(controller.cancelCalls, 0);
+    expect(controller.state.canCancelRetainedDraft, isTrue);
+
+    await tester.tap(cancelAction);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('确认取消'));
+    await tester.pumpAndSettle();
+
+    expect(controller.cancelCalls, 1);
+    expect(controller.state.phase, CustomSceneSubmissionPhase.editing);
+    expect(
+      tester
+          .widget<TextField>(find.byKey(const Key('custom-scene-text-field')))
+          .controller
+          ?.text,
+      isEmpty,
+    );
+  });
 
   testWidgets('input fits phone viewport at 1.3 text scale', (tester) async {
     tester.view.devicePixelRatio = 1;
@@ -195,6 +255,7 @@ class _ImmediateSubmissionController extends CustomSceneSubmissionController {
   final List<CustomSceneDraft> submitted = <CustomSceneDraft>[];
   final List<String> handoffIds = <String>[];
   int retryCalls = 0;
+  int cancelCalls = 0;
 
   @override
   CustomSceneSubmissionState get state => _testState;
@@ -216,9 +277,24 @@ class _ImmediateSubmissionController extends CustomSceneSubmissionController {
     );
   }
 
+  void publishTerminalFailure() {
+    _testState = const CustomSceneSubmissionState(
+      phase: CustomSceneSubmissionPhase.recoverableError,
+      message: '这次生成已结束，请重新生成。',
+      canCancelRetainedDraft: true,
+    );
+  }
+
   @override
   Future<void> retry() async {
     retryCalls += 1;
+  }
+
+  @override
+  Future<void> cancel() async {
+    cancelCalls += 1;
+    _testState = const CustomSceneSubmissionState.editing();
+    notifyListeners();
   }
 
   Future<void> handoffToCareTurn() async {

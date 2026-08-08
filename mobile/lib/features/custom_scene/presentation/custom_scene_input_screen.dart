@@ -79,6 +79,7 @@ class _CustomSceneInputScreenState extends State<CustomSceneInputScreen> {
     final message = _inputError ?? state?.message;
     final isAvailable = controller != null;
     final canOpenPreparedContent = state?.canOpenPreparedContent ?? false;
+    final canCancelRetainedDraft = state?.canCancelRetainedDraft ?? false;
 
     return PopScope<Object?>(
       canPop: _canPop,
@@ -201,6 +202,20 @@ class _CustomSceneInputScreenState extends State<CustomSceneInputScreen> {
                           ),
                         ),
                       ),
+                      if (canCancelRetainedDraft) ...[
+                        const SizedBox(height: AppLayoutConstants.spacingSm),
+                        Center(
+                          child: TextButton(
+                            key: const Key(
+                              'custom-scene-cancel-retained-draft',
+                            ),
+                            onPressed: busy
+                                ? null
+                                : _confirmCancelRetainedDraft,
+                            child: const Text('取消并重新开始'),
+                          ),
+                        ),
+                      ],
                       if (canOpenPreparedContent) ...[
                         const SizedBox(height: AppLayoutConstants.spacingSm),
                         Center(
@@ -349,5 +364,40 @@ class _CustomSceneInputScreenState extends State<CustomSceneInputScreen> {
       return;
     }
     await controller.abandonPreparedContent();
+  }
+
+  Future<void> _confirmCancelRetainedDraft() async {
+    final controller = _controller;
+    if (controller == null || !controller.state.canCancelRetainedDraft) {
+      return;
+    }
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('取消这次描述？'),
+        content: const Text('取消后需要重新描述，才会准备新内容。'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('继续保留'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('确认取消'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) {
+      return;
+    }
+    await controller.cancel();
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _textController.clear();
+      _inputError = null;
+    });
   }
 }

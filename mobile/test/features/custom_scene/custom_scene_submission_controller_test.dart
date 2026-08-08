@@ -117,6 +117,7 @@ void main() {
           harness.controller.state.phase,
           CustomSceneSubmissionPhase.unknownOutcome,
         );
+        expect(harness.controller.state.canCancelRetainedDraft, isFalse);
         expect(
           (await harness.draftStore.readResult(now: now)).draft?.state,
           CustomSceneStoredDraftState.unknownOutcome,
@@ -146,6 +147,72 @@ void main() {
         expect(
           restarted.controller.state.phase,
           CustomSceneSubmissionPhase.readyForHandoff,
+        );
+      },
+    );
+
+    test(
+      'terminal request failure exposes retained draft cancellation',
+      () async {
+        var attempts = 0;
+        final repository = _FakeRepository((_) async {
+          attempts += 1;
+          if (attempts == 1) {
+            throw const CustomSceneFailure(
+              kind: CustomSceneFailureKind.requestTerminal,
+              retryable: false,
+              requiresNewClientRequestId: true,
+            );
+          }
+          return _moment();
+        });
+        final harness = _harness(
+          tempDir: tempDir,
+          clock: () => now,
+          repository: repository,
+          registrar: _FakeRegistrar(),
+          handoff: _FakeHandoffSink(),
+        );
+
+        await harness.controller.submit(_draft());
+
+        expect(
+          harness.controller.state.phase,
+          CustomSceneSubmissionPhase.recoverableError,
+        );
+        expect(harness.controller.state.canCancelRetainedDraft, isTrue);
+        expect(
+          (await harness.draftStore.readResult(
+            now: now,
+          )).draft?.requestIdentity.clientRequestId,
+          'request_1',
+        );
+
+        await harness.controller.cancel();
+        expect(
+          (await harness.draftStore.readResult(now: now)).status,
+          CustomSceneDraftReadStatus.notFound,
+        );
+
+        await harness.controller.submit(
+          CustomSceneDraft(
+            text: '宝宝穿衣服时不愿意伸手。',
+            entrySource: CustomSceneEntrySource.today,
+            requestIdentity: CustomSceneRequestIdentity(
+              clientRequestId: 'request_2',
+            ),
+          ),
+        );
+
+        expect(
+          harness.controller.state.phase,
+          CustomSceneSubmissionPhase.readyForHandoff,
+        );
+        expect(
+          repository.received.map(
+            (draft) => draft.requestIdentity.clientRequestId,
+          ),
+          <String>['request_1', 'request_2'],
         );
       },
     );
