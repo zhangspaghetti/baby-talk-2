@@ -42,7 +42,11 @@ class CustomSceneEntryLink extends StatelessWidget {
     final prompt = isToday ? '不是正在发生的事？' : '没找到正在发生的场景？';
     return Semantics(
       container: true,
-      label: '$prompt 描述一下此刻',
+      excludeSemantics: true,
+      label: '$prompt描述一下此刻',
+      button: true,
+      enabled: true,
+      onTap: () => onOpen(context, source),
       child: Align(
         alignment: Alignment.centerLeft,
         child: TextButton(

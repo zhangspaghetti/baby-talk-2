@@ -84,9 +84,151 @@ void main() {
     expect(opened, <CustomSceneEntrySource>[CustomSceneEntrySource.scene]);
   });
 
+  testWidgets('Scene entry is one actionable semantics leaf and opens once', (
+    tester,
+  ) async {
+    final semantics = tester.ensureSemantics();
+    final opened = <CustomSceneEntrySource>[];
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.build(),
+        home: Scaffold(
+          body: CustomSceneEntryLink(
+            source: CustomSceneEntrySource.scene,
+            onOpen: (_, source) async => opened.add(source),
+          ),
+        ),
+      ),
+    );
+
+    final entry = find.byKey(const Key('custom-scene-entry-scene'));
+    final node = tester.getSemantics(entry);
+    expect(
+      node,
+      matchesSemantics(
+        label: '没找到正在发生的场景？描述一下此刻',
+        isButton: true,
+        hasEnabledState: true,
+        isEnabled: true,
+        hasTapAction: true,
+        children: <Matcher>[],
+      ),
+    );
+    final semanticsEntry = find.semantics.byLabel('没找到正在发生的场景？描述一下此刻');
+    expect(semanticsEntry, findsOne);
+
+    tester.semantics.tap(semanticsEntry);
+    await tester.pump();
+    expect(opened, <CustomSceneEntrySource>[CustomSceneEntrySource.scene]);
+    semantics.dispose();
+  });
+
+  testWidgets('Today entry is one actionable semantics leaf and opens once', (
+    tester,
+  ) async {
+    final semantics = tester.ensureSemantics();
+    final opened = <CustomSceneEntrySource>[];
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.build(),
+        home: Scaffold(
+          body: CustomSceneEntryLink(
+            source: CustomSceneEntrySource.today,
+            onOpen: (_, source) async => opened.add(source),
+          ),
+        ),
+      ),
+    );
+
+    final entry = find.byKey(const Key('custom-scene-entry-today'));
+    final node = tester.getSemantics(entry);
+    expect(
+      node,
+      matchesSemantics(
+        label: '不是正在发生的事？描述一下此刻',
+        isButton: true,
+        hasEnabledState: true,
+        isEnabled: true,
+        hasTapAction: true,
+        children: <Matcher>[],
+      ),
+    );
+    final semanticsEntry = find.semantics.byLabel('不是正在发生的事？描述一下此刻');
+    expect(semanticsEntry, findsOne);
+
+    tester.semantics.tap(semanticsEntry);
+    await tester.pump();
+    expect(opened, <CustomSceneEntrySource>[CustomSceneEntrySource.today]);
+    semantics.dispose();
+  });
+
+  testWidgets(
+    'Discover traversal keeps final card, custom entry, then bottom navigation',
+    (tester) async {
+      final semantics = tester.ensureSemantics();
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.build(),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: Scaffold(
+            body: DiscoverScreen(
+              customSceneEnabled: true,
+              catalogLoader: () async => _catalog(),
+              customSceneEntryOpener: (_, _) async {},
+            ),
+            bottomNavigationBar: Semantics(
+              key: const Key('test-bottom-navigation'),
+              container: true,
+              button: true,
+              label: '底部导航',
+              child: const SizedBox(height: 56),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final entryFinder = find.byKey(const Key('custom-scene-entry-scene'));
+      await tester.ensureVisible(entryFinder);
+      await tester.pumpAndSettle();
+      final finalCardAction = tester.getSemantics(
+        find.descendant(
+          of: find.byKey(const Key('discover-phrase-card-bath_time')),
+          matching: find.byType(InkWell),
+        ),
+      );
+      final entry = tester.getSemantics(entryFinder);
+      final bottomNavigation = tester.getSemantics(
+        find.byKey(const Key('test-bottom-navigation')),
+      );
+      final traversal = tester.semantics
+          .simulatedAccessibilityTraversal()
+          .toList(growable: false);
+      final forward = <int>[
+        traversal.indexWhere((node) => node.id == finalCardAction.id),
+        traversal.indexWhere((node) => node.id == entry.id),
+        traversal.indexWhere((node) => node.id == bottomNavigation.id),
+      ];
+
+      expect(forward.every((index) => index >= 0), isTrue);
+      expect(forward, orderedEquals(forward.toList()..sort()));
+      final reversedTraversal = traversal.reversed.toList(growable: false);
+      final reverse = <int>[
+        reversedTraversal.indexWhere((node) => node.id == bottomNavigation.id),
+        reversedTraversal.indexWhere((node) => node.id == entry.id),
+        reversedTraversal.indexWhere((node) => node.id == finalCardAction.id),
+      ];
+      expect(reverse, orderedEquals(reverse.toList()..sort()));
+      expect(traversal.where((node) => node.id == entry.id), hasLength(1));
+      semantics.dispose();
+    },
+  );
+
   testWidgets('preset catalog stays usable when custom scene is disabled', (
     tester,
   ) async {
+    final semantics = tester.ensureSemantics();
     await tester.pumpWidget(
       MaterialApp(
         theme: AppTheme.build(),
@@ -107,6 +249,8 @@ void main() {
       findsOneWidget,
     );
     expect(find.byKey(const Key('custom-scene-entry-scene')), findsNothing);
+    expect(find.semantics.byLabel('没找到正在发生的场景？描述一下此刻'), findsNothing);
+    semantics.dispose();
   });
 }
 
