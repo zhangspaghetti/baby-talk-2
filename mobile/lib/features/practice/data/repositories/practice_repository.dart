@@ -13,6 +13,7 @@ import 'package:mobile/features/practice/domain/models/practice_activity_catalog
 import 'package:mobile/features/practice/domain/models/practice_content_source.dart';
 import 'package:mobile/features/practice/domain/models/practice_continuity_snapshot.dart';
 import 'package:mobile/features/practice/domain/models/practice_phrase.dart';
+import 'package:mobile/features/practice/domain/generated_care_turn_resume.dart';
 
 class PracticeActivitySnapshot {
   const PracticeActivitySnapshot({
@@ -64,6 +65,12 @@ abstract interface class PracticeContentResolver {
   });
 
   Future<List<PracticeActivitySnapshot>> listGeneratedActivities();
+
+  Future<GeneratedCareTurnResumeMarker?> loadGeneratedCareTurnResumeMarker();
+
+  Future<void> completeGeneratedCareTurnResume({
+    required String generatedContentId,
+  });
 
   Future<void> clearForLifecycle();
 }
@@ -475,8 +482,11 @@ class PracticeRepository {
       starterWarning = 'starter activity 参数不完整；已忽略原始入口。';
     }
 
-    final generatedRecentActivities =
-        await _loadGeneratedContinuityActivities();
+    final generatedResumeMarker = await _contentResolver
+        ?.loadGeneratedCareTurnResumeMarker();
+    final generatedRecentActivities = await _loadGeneratedContinuityActivities(
+      resumableGeneratedContentId: generatedResumeMarker?.generatedContentId,
+    );
     final recentCandidates =
         <PracticeCatalogActivitySummary>[
           ...catalog.activities,
@@ -500,13 +510,45 @@ class PracticeRepository {
       orElse: () => catalog.mostRecentActivity ?? catalog.activities.first,
     );
     final hasRecentActivity = recentActivity.lastEventTime != null;
+    PracticeCatalogActivitySummary? resumableGeneratedActivity;
+    if (generatedResumeMarker != null) {
+      for (final activity in generatedRecentActivities) {
+        if (activity.generatedContentId ==
+            generatedResumeMarker.generatedContentId) {
+          resumableGeneratedActivity = activity;
+          break;
+        }
+      }
+    }
+    final resumeMarkerIsNewer =
+        resumableGeneratedActivity != null &&
+        (recentActivity.lastEventTime == null ||
+            generatedResumeMarker!.confirmedAt.isAfter(
+              recentActivity.lastEventTime!,
+            ));
+    if (generatedResumeMarker != null &&
+        resumableGeneratedActivity != null &&
+        !resumeMarkerIsNewer) {
+      try {
+        await _contentResolver?.completeGeneratedCareTurnResume(
+          generatedContentId: generatedResumeMarker.generatedContentId,
+        );
+      } on Object {
+        // Event continuity already owns recovery. Marker cleanup is retried by
+        // the next reaction or continuity read.
+      }
+    }
     final nextIncompleteActivity = catalog.firstIncompleteActivity;
 
     late final PracticeCatalogActivitySummary recommendedActivity;
     late final PracticeContinuityReason recommendationReason;
     late final String? fallbackReason;
 
-    if (hasRecentActivity) {
+    if (resumeMarkerIsNewer) {
+      recommendedActivity = resumableGeneratedActivity;
+      recommendationReason = PracticeContinuityReason.recentActivity;
+      fallbackReason = null;
+    } else if (hasRecentActivity) {
       recommendedActivity = recentActivity;
       recommendationReason = PracticeContinuityReason.recentActivity;
       fallbackReason = null;
@@ -558,7 +600,9 @@ class PracticeRepository {
   }
 
   Future<List<PracticeCatalogActivitySummary>>
-  _loadGeneratedContinuityActivities() async {
+  _loadGeneratedContinuityActivities({
+    String? resumableGeneratedContentId,
+  }) async {
     final snapshots = await getGeneratedActivitySnapshots();
     if (snapshots.isEmpty) {
       return const <PracticeCatalogActivitySummary>[];
@@ -577,7 +621,8 @@ class PracticeRepository {
               (left, right) =>
                   left.clientTimestamp.compareTo(right.clientTimestamp),
             );
-      if (events.isEmpty) {
+      if (events.isEmpty &&
+          snapshot.generatedContentId != resumableGeneratedContentId) {
         continue;
       }
       final resume = _buildResumeInfo(snapshot: snapshot, events: events);
@@ -854,13 +899,15 @@ class PracticeRepository {
         normalizedLocalEventId != null && normalizedLocalEventId.isNotEmpty) {
       final existing = await findEventByLocalEventId(resolvedLocalEventId);
       if (existing != null) {
-        return _reconcileOrThrow(existing, payload);
+        return _completeGeneratedResumeAfterEvent(
+          _reconcileOrThrow(existing, payload),
+        );
       }
     }
 
     try {
       await _localDataSource.appendInteractionEvent(payload);
-      return payload;
+      return _completeGeneratedResumeAfterEvent(payload);
     } catch (_) {
       final reconciliationId =
           isGeneratedReaction ||
@@ -872,8 +919,27 @@ class PracticeRepository {
       if (existing == null) {
         rethrow;
       }
-      return _reconcileOrThrow(existing, payload);
+      return _completeGeneratedResumeAfterEvent(
+        _reconcileOrThrow(existing, payload),
+      );
     }
+  }
+
+  Future<InteractionEventPayload> _completeGeneratedResumeAfterEvent(
+    InteractionEventPayload event,
+  ) async {
+    final generatedContentId = event.generatedContentId;
+    if (generatedContentId != null) {
+      try {
+        await _contentResolver?.completeGeneratedCareTurnResume(
+          generatedContentId: generatedContentId,
+        );
+      } on Object {
+        // Event is durable and authoritative. Cleanup remains best-effort so a
+        // marker I/O failure cannot turn a recorded reaction into a false error.
+      }
+    }
+    return event;
   }
 
   bool _sameImmutableEventFacts(

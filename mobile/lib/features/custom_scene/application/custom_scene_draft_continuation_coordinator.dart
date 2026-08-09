@@ -332,11 +332,13 @@ class CustomSceneDraftContinuationCoordinator {
   Future<bool> completeHandoff({
     required String generatedContentId,
     required String accountContext,
+    Future<void> Function()? beforeIntentCleanup,
   }) {
     return _enqueue(
       () => _completeHandoff(
         generatedContentId: generatedContentId,
         accountContext: accountContext,
+        beforeIntentCleanup: beforeIntentCleanup,
       ),
     );
   }
@@ -344,6 +346,7 @@ class CustomSceneDraftContinuationCoordinator {
   Future<bool> _completeHandoff({
     required String generatedContentId,
     required String accountContext,
+    required Future<void> Function()? beforeIntentCleanup,
   }) async {
     final normalizedContentId = generatedContentId.trim();
     final normalizedAccountContext = accountContext.trim();
@@ -362,6 +365,7 @@ class CustomSceneDraftContinuationCoordinator {
       return false;
     }
     try {
+      await beforeIntentCleanup?.call();
       await _draftStore.deleteIfExists();
       try {
         await _clearGenerateCustomSceneAuthenticationContinuation(

@@ -8,6 +8,7 @@ import 'package:mobile/features/custom_scene/application/custom_scene_handoff_co
 import 'package:mobile/features/custom_scene/data/custom_scene_draft_store.dart';
 import 'package:mobile/features/custom_scene/domain/custom_scene_draft.dart';
 import 'package:mobile/features/custom_scene/domain/custom_scene_stored_draft.dart';
+import 'package:mobile/features/practice/data/generated/generated_care_turn_resume_marker_store.dart';
 
 void main() {
   test('matching confirmation alone clears ready handoff intent', () async {
@@ -40,13 +41,36 @@ void main() {
       ),
       clock: () => now,
     );
+    final resumeStore = GeneratedCareTurnResumeMarkerStore(
+      directoryResolver: () async => tempDir,
+    );
 
     final wrongAccount = CustomSceneHandoffConfirmationCoordinator(
       draftContinuationCoordinator: continuation,
       accountContextLoader: () async => 'account_b',
+      generatedCareTurnResumeStore: resumeStore,
+      clock: () => now,
     );
     expect(
       await wrongAccount.confirm(generatedContentId: 'generated_1'),
+      isFalse,
+    );
+    expect(
+      (await draftStore.readResult(now: now)).draft?.registeredContentId,
+      'generated_1',
+    );
+    expect(await resumeStore.readForAccount('account_b'), isNull);
+
+    final unavailablePersistence = CustomSceneHandoffConfirmationCoordinator(
+      draftContinuationCoordinator: continuation,
+      accountContextLoader: () async => 'account_a',
+      generatedCareTurnResumeStore: GeneratedCareTurnResumeMarkerStore(
+        directoryResolver: () async => throw StateError('disk unavailable'),
+      ),
+      clock: () => now,
+    );
+    expect(
+      await unavailablePersistence.confirm(generatedContentId: 'generated_1'),
       isFalse,
     );
     expect(
@@ -57,6 +81,8 @@ void main() {
     final matchingAccount = CustomSceneHandoffConfirmationCoordinator(
       draftContinuationCoordinator: continuation,
       accountContextLoader: () async => 'account_a',
+      generatedCareTurnResumeStore: resumeStore,
+      clock: () => now,
     );
     expect(
       await matchingAccount.confirm(generatedContentId: 'generated_1'),
@@ -66,6 +92,9 @@ void main() {
       (await draftStore.readResult(now: now)).status,
       CustomSceneDraftReadStatus.notFound,
     );
+    final resumeMarker = await resumeStore.readForAccount('account_a');
+    expect(resumeMarker?.generatedContentId, 'generated_1');
+    expect(resumeMarker?.confirmedAt, now);
     expect(
       await matchingAccount.confirm(generatedContentId: 'generated_1'),
       isFalse,

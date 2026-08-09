@@ -49,6 +49,7 @@ import 'package:mobile/features/onboarding/data/repositories/onboarding_reposito
 import 'package:mobile/features/onboarding/presentation/onboarding_flow_notifier.dart';
 import 'package:mobile/features/practice/data/local/practice_local_data_source.dart';
 import 'package:mobile/features/practice/data/generated/generated_care_moment_local_store.dart';
+import 'package:mobile/features/practice/data/generated/generated_care_turn_resume_marker_store.dart';
 import 'package:mobile/features/care_path/data/audio/generated_audio_api.dart';
 import 'package:mobile/features/care_path/data/audio/generated_audio_memory_cache.dart';
 import 'package:mobile/features/care_path/data/audio/generated_audio_repository.dart';
@@ -196,10 +197,18 @@ final generatedCareMomentLocalStoreProvider =
       );
     });
 
+final generatedCareTurnResumeMarkerStoreProvider =
+    Provider<GeneratedCareTurnResumeMarkerStore>((ref) {
+      return GeneratedCareTurnResumeMarkerStore(
+        directoryResolver: () => ref.read(appDirectoryProvider.future),
+      );
+    });
+
 final generatedPracticeContentRegistryProvider =
     Provider<GeneratedPracticeContentRegistry>((ref) {
       return GeneratedPracticeContentRegistry(
         store: ref.watch(generatedCareMomentLocalStoreProvider),
+        resumeStore: ref.watch(generatedCareTurnResumeMarkerStoreProvider),
         accountContextLoader: () async {
           try {
             final snapshot = await AccountLocalStore().read();
@@ -303,6 +312,9 @@ final customSceneHandoffConfirmationCoordinatorProvider =
         accountContextLoader: ref
             .watch(generatedPracticeContentRegistryProvider)
             .loadCurrentAccountContext,
+        generatedCareTurnResumeStore: ref.watch(
+          generatedCareTurnResumeMarkerStoreProvider,
+        ),
       );
     });
 

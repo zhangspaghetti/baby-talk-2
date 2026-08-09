@@ -32,6 +32,7 @@ import 'package:mobile/features/onboarding/domain/models/onboarding_snapshot.dar
 import 'package:mobile/features/onboarding/domain/models/stage_match.dart';
 import 'package:mobile/features/practice/data/local/practice_local_data_source.dart';
 import 'package:mobile/features/practice/data/generated/generated_care_moment_local_store.dart';
+import 'package:mobile/features/practice/data/generated/generated_care_turn_resume_marker_store.dart';
 import 'package:mobile/features/care_path/data/audio/generated_audio_memory_cache.dart';
 import 'package:mobile/features/practice/data/generated/generated_practice_content_registry.dart';
 import 'package:mobile/features/practice/data/repositories/practice_repository.dart';
@@ -156,6 +157,12 @@ void main() {
               ),
           isNotNull,
         );
+        expect(
+          await harness.generatedCareTurnResumeMarkerStore.readForAccount(
+            'lifecycle_account',
+          ),
+          isNotNull,
+        );
         expect(harness.generatedAudioMemoryCache.entryCount, 1);
       },
     );
@@ -222,6 +229,12 @@ void main() {
               ),
           isNull,
         );
+        expect(
+          await harness.generatedCareTurnResumeMarkerStore.readForAccount(
+            'lifecycle_account',
+          ),
+          isNull,
+        );
         expect(harness.generatedAudioMemoryCache.entryCount, 0);
         expect(
           File(
@@ -254,6 +267,7 @@ class _LifecycleHarness {
     required this.customSceneDraftStore,
     required this.customSceneDraftContinuationCoordinator,
     required this.generatedPracticeContentRegistry,
+    required this.generatedCareTurnResumeMarkerStore,
     required this.generatedAudioMemoryCache,
     required this.householdLocalStore,
     required this.installationIdService,
@@ -276,6 +290,7 @@ class _LifecycleHarness {
   final CustomSceneDraftContinuationCoordinator
   customSceneDraftContinuationCoordinator;
   final GeneratedPracticeContentRegistry generatedPracticeContentRegistry;
+  final GeneratedCareTurnResumeMarkerStore generatedCareTurnResumeMarkerStore;
   final GeneratedAudioMemoryCache generatedAudioMemoryCache;
   final HouseholdLocalStore householdLocalStore;
   final InstallationIdService installationIdService;
@@ -327,10 +342,15 @@ class _LifecycleHarness {
           clock: () => DateTime.utc(2026, 5, 20, 10),
           draftIdGenerator: () => 'lifecycle_custom_scene_draft',
         );
+    final generatedCareTurnResumeMarkerStore =
+        GeneratedCareTurnResumeMarkerStore(
+          directoryResolver: () async => tempDir,
+        );
     final generatedPracticeContentRegistry = GeneratedPracticeContentRegistry(
       store: GeneratedCareMomentLocalStore(
         directoryResolver: () async => tempDir,
       ),
+      resumeStore: generatedCareTurnResumeMarkerStore,
       accountContextLoader: () async => 'lifecycle_account',
     );
     final generatedAudioMemoryCache = GeneratedAudioMemoryCache();
@@ -378,6 +398,7 @@ class _LifecycleHarness {
       customSceneDraftContinuationCoordinator:
           customSceneDraftContinuationCoordinator,
       generatedPracticeContentRegistry: generatedPracticeContentRegistry,
+      generatedCareTurnResumeMarkerStore: generatedCareTurnResumeMarkerStore,
       generatedAudioMemoryCache: generatedAudioMemoryCache,
       householdLocalStore: householdLocalStore,
       installationIdService: installationIdService,
@@ -412,6 +433,11 @@ class _LifecycleHarness {
     await generatedPracticeContentRegistry.register(
       accountContext: 'lifecycle_account',
       moment: _generatedLifecycleMoment(),
+    );
+    await generatedCareTurnResumeMarkerStore.write(
+      accountContext: 'lifecycle_account',
+      generatedContentId: 'lifecycle_generated_content',
+      confirmedAt: DateTime.utc(2026, 5, 20, 10),
     );
     await generatedAudioMemoryCache.getOrLoad(
       GeneratedAudioCacheKey(

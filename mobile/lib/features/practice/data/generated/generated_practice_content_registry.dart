@@ -2,11 +2,23 @@ import 'package:mobile/features/custom_scene/application/custom_scene_submission
 import 'package:mobile/features/custom_scene/domain/generated_care_moment.dart';
 import 'package:mobile/features/practice/data/generated/generated_care_moment_local_store.dart';
 import 'package:mobile/features/practice/data/repositories/practice_repository.dart';
+import 'package:mobile/features/practice/domain/generated_care_turn_resume.dart';
 import 'package:mobile/features/practice/domain/models/interaction_event_payload.dart';
 import 'package:mobile/features/practice/domain/models/practice_content_source.dart';
 import 'package:mobile/features/practice/domain/models/practice_phrase.dart';
 
 typedef GeneratedPracticeAccountContextLoader = Future<String?> Function();
+
+class GeneratedPracticeContentClearanceException implements Exception {
+  GeneratedPracticeContentClearanceException(Iterable<String> failedTargets)
+    : failedTargets = List<String>.unmodifiable(failedTargets);
+
+  final List<String> failedTargets;
+
+  @override
+  String toString() =>
+      'Generated practice content clearance failed: ${failedTargets.join(', ')}';
+}
 
 /// The only bridge from an approved custom-scene bundle into formal Practice
 /// content. It never exposes raw scene input and only resolves current-account
@@ -15,11 +27,14 @@ class GeneratedPracticeContentRegistry
     implements CustomSceneApprovedContentRegistrar, PracticeContentResolver {
   GeneratedPracticeContentRegistry({
     required GeneratedCareMomentLocalStore store,
+    required GeneratedCareTurnResumeStore resumeStore,
     required GeneratedPracticeAccountContextLoader accountContextLoader,
   }) : _store = store,
+       _resumeStore = resumeStore,
        _accountContextLoader = accountContextLoader;
 
   final GeneratedCareMomentLocalStore _store;
+  final GeneratedCareTurnResumeStore _resumeStore;
   final GeneratedPracticeAccountContextLoader _accountContextLoader;
 
   Future<String?> loadCurrentAccountContext() => _loadCurrentAccountContext();
@@ -88,15 +103,10 @@ class GeneratedPracticeContentRegistry
       return null;
     }
     try {
-      final record = (await _store.readAll()).where(
-        (candidate) =>
-            candidate.accountContext == accountContext &&
-            candidate.moment.generatedContentId == generatedContentId.trim(),
+      return _resolveGeneratedContentForAccount(
+        accountContext: accountContext,
+        generatedContentId: generatedContentId,
       );
-      if (record.length != 1) {
-        return null;
-      }
-      return _toSnapshot(record.single.moment);
     } on Object {
       return null;
     }
@@ -126,10 +136,96 @@ class GeneratedPracticeContentRegistry
   }
 
   @override
-  Future<void> clearForLifecycle() => _store.clearForLifecycle();
+  Future<GeneratedCareTurnResumeMarker?>
+  loadGeneratedCareTurnResumeMarker() async {
+    final accountContext = await _loadCurrentAccountContext();
+    if (accountContext == null) {
+      return null;
+    }
+    try {
+      final marker = await _resumeStore.readForAccount(accountContext);
+      if (marker == null) {
+        return null;
+      }
+      final content = await _resolveGeneratedContentForAccount(
+        accountContext: accountContext,
+        generatedContentId: marker.generatedContentId,
+      );
+      if (content != null) {
+        return marker;
+      }
+      await _resumeStore.clearMatching(
+        accountContext: accountContext,
+        generatedContentId: marker.generatedContentId,
+      );
+      return null;
+    } on Object {
+      return null;
+    }
+  }
+
+  @override
+  Future<void> completeGeneratedCareTurnResume({
+    required String generatedContentId,
+  }) async {
+    final accountContext = await _loadCurrentAccountContext();
+    if (accountContext == null) {
+      return;
+    }
+    await _resumeStore.clearMatching(
+      accountContext: accountContext,
+      generatedContentId: generatedContentId,
+    );
+  }
+
+  @override
+  Future<void> clearForLifecycle() {
+    return _clearBoth(
+      clearGeneratedCareMoments: _store.clearForLifecycle,
+      clearResumeMarkers: _resumeStore.clearForLifecycle,
+    );
+  }
 
   Future<void> clearForAccount(String accountContext) {
-    return _store.clearForAccount(accountContext);
+    return _clearBoth(
+      clearGeneratedCareMoments: () => _store.clearForAccount(accountContext),
+      clearResumeMarkers: () => _resumeStore.clearForAccount(accountContext),
+    );
+  }
+
+  Future<void> _clearBoth({
+    required Future<void> Function() clearGeneratedCareMoments,
+    required Future<void> Function() clearResumeMarkers,
+  }) async {
+    final failedTargets = <String>[];
+    try {
+      await clearGeneratedCareMoments();
+    } on Object {
+      failedTargets.add('generated_care_moments');
+    }
+    try {
+      await clearResumeMarkers();
+    } on Object {
+      failedTargets.add('generated_care_turn_resume');
+    }
+    if (failedTargets.isNotEmpty) {
+      throw GeneratedPracticeContentClearanceException(failedTargets);
+    }
+  }
+
+  Future<PracticeActivitySnapshot?> _resolveGeneratedContentForAccount({
+    required String accountContext,
+    required String generatedContentId,
+  }) async {
+    final records = (await _store.readAll()).where(
+      (candidate) =>
+          candidate.accountContext == accountContext &&
+          candidate.moment.generatedContentId == generatedContentId.trim(),
+    );
+    if (records.length != 1) {
+      return null;
+    }
+    return _toSnapshot(records.single.moment);
   }
 
   Future<String?> _loadCurrentAccountContext() async {

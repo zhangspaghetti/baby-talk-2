@@ -5,15 +5,29 @@ import 'dart:io';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:isar/isar.dart';
+import 'package:mobile/app/custom_scene_recovery_coordinator.dart';
+import 'package:mobile/app/feature_gates.dart';
 import 'package:mobile/core/device/installation_id_service.dart';
+import 'package:mobile/features/account/data/local/auth_continuation_store.dart';
+import 'package:mobile/features/account/presentation/auth_continuation_coordinator.dart';
 import 'package:mobile/features/care_path/data/repositories/care_path_repository.dart';
 import 'package:mobile/features/care_path/domain/models/care_path_models.dart';
+import 'package:mobile/features/custom_scene/application/custom_scene_draft_continuation_coordinator.dart';
+import 'package:mobile/features/custom_scene/application/custom_scene_handoff_confirmation_coordinator.dart';
+import 'package:mobile/features/custom_scene/application/custom_scene_submission_controller.dart';
+import 'package:mobile/features/custom_scene/data/custom_scene_draft_store.dart';
+import 'package:mobile/features/custom_scene/domain/custom_scene_draft.dart';
+import 'package:mobile/features/custom_scene/domain/custom_scene_repository.dart';
 import 'package:mobile/features/custom_scene/domain/generated_care_moment.dart';
+import 'package:mobile/features/onboarding/domain/models/onboarding_snapshot.dart';
+import 'package:mobile/features/onboarding/domain/models/stage_match.dart';
 import 'package:mobile/features/practice/data/generated/generated_care_moment_local_store.dart';
+import 'package:mobile/features/practice/data/generated/generated_care_turn_resume_marker_store.dart';
 import 'package:mobile/features/practice/data/generated/generated_practice_content_registry.dart';
 import 'package:mobile/features/practice/data/local/practice_local_data_source.dart';
 import 'package:mobile/features/practice/data/repositories/garden_growth_repository.dart';
 import 'package:mobile/features/practice/data/repositories/practice_repository.dart';
+import 'package:mobile/features/practice/domain/generated_care_turn_resume.dart';
 import 'package:mobile/features/practice/data/services/asset_phrase_service.dart';
 import 'package:mobile/features/practice/domain/models/interaction_event_payload.dart';
 import 'package:mobile/features/practice/domain/models/practice_content_source.dart';
@@ -35,6 +49,7 @@ void main() {
     late Directory tempDir;
     late String accountContext;
     late GeneratedCareMomentLocalStore store;
+    late GeneratedCareTurnResumeMarkerStore resumeStore;
     late GeneratedPracticeContentRegistry registry;
 
     setUp(() async {
@@ -43,8 +58,12 @@ void main() {
       store = GeneratedCareMomentLocalStore(
         directoryResolver: () async => tempDir,
       );
+      resumeStore = GeneratedCareTurnResumeMarkerStore(
+        directoryResolver: () async => tempDir,
+      );
       registry = GeneratedPracticeContentRegistry(
         store: store,
+        resumeStore: resumeStore,
         accountContextLoader: () async => accountContext,
       );
     });
@@ -63,6 +82,9 @@ void main() {
 
         final restartedRegistry = GeneratedPracticeContentRegistry(
           store: GeneratedCareMomentLocalStore(
+            directoryResolver: () async => tempDir,
+          ),
+          resumeStore: GeneratedCareTurnResumeMarkerStore(
             directoryResolver: () async => tempDir,
           ),
           accountContextLoader: () async => accountContext,
@@ -118,6 +140,11 @@ void main() {
 
         accountContext = 'account_a';
         await registry.register(accountContext: accountContext, moment: moment);
+        await resumeStore.write(
+          accountContext: accountContext,
+          generatedContentId: moment.generatedContentId,
+          confirmedAt: DateTime.utc(2026, 8, 9),
+        );
         await registry.clearForAccount(accountContext);
         expect(
           await registry.resolveGeneratedContent(
@@ -125,10 +152,122 @@ void main() {
           ),
           isNull,
         );
+        expect(await resumeStore.readForAccount(accountContext), isNull);
 
         await registry.register(accountContext: accountContext, moment: moment);
+        await resumeStore.write(
+          accountContext: accountContext,
+          generatedContentId: moment.generatedContentId,
+          confirmedAt: DateTime.utc(2026, 8, 9),
+        );
         await registry.clearForLifecycle();
         expect(await store.readAll(), isEmpty);
+        expect(await resumeStore.readForAccount(accountContext), isNull);
+      },
+    );
+
+    test(
+      'resume marker is account isolated and invalid content removes it',
+      () async {
+        final moment = _moment('generated_isolated_resume');
+        await registry.register(accountContext: accountContext, moment: moment);
+        await resumeStore.write(
+          accountContext: accountContext,
+          generatedContentId: moment.generatedContentId,
+          confirmedAt: DateTime.utc(2026, 8, 9),
+        );
+        final markerFile = File(
+          '${tempDir.path}${Platform.pathSeparator}${resumeStore.fileName}',
+        );
+        final persisted = await markerFile.readAsString();
+        expect(persisted, isNot(contains(accountContext)));
+        final transientReadFailure = GeneratedCareTurnResumeMarkerStore(
+          directoryResolver: () async => tempDir,
+          fileReader: (_) async =>
+              throw const FileSystemException('transient read failure'),
+        );
+        await expectLater(
+          transientReadFailure.readForAccount(accountContext),
+          throwsA(isA<FileSystemException>()),
+        );
+        expect(
+          (await resumeStore.readForAccount(
+            accountContext,
+          ))?.generatedContentId,
+          moment.generatedContentId,
+        );
+
+        accountContext = 'account_b';
+        expect(await registry.loadGeneratedCareTurnResumeMarker(), isNull);
+        accountContext = 'account_a';
+        expect(
+          (await registry.loadGeneratedCareTurnResumeMarker())
+              ?.generatedContentId,
+          moment.generatedContentId,
+        );
+        final transientContentRead = GeneratedPracticeContentRegistry(
+          store: _FailingReadGeneratedCareMomentLocalStore(tempDir),
+          resumeStore: resumeStore,
+          accountContextLoader: () async => accountContext,
+        );
+        expect(
+          await transientContentRead.loadGeneratedCareTurnResumeMarker(),
+          isNull,
+        );
+        expect(
+          (await resumeStore.readForAccount(
+            accountContext,
+          ))?.generatedContentId,
+          moment.generatedContentId,
+        );
+
+        await store.clearForAccount(accountContext);
+        expect(await registry.loadGeneratedCareTurnResumeMarker(), isNull);
+        expect(await resumeStore.readForAccount(accountContext), isNull);
+      },
+    );
+
+    test(
+      'lifecycle cleanup attempts both stores and aggregates failed targets',
+      () async {
+        await resumeStore.write(
+          accountContext: accountContext,
+          generatedContentId: 'generated_cleanup',
+          confirmedAt: DateTime.utc(2026, 8, 9),
+        );
+        final contentFailure = GeneratedPracticeContentRegistry(
+          store: _FailingGeneratedCareMomentLocalStore(tempDir),
+          resumeStore: resumeStore,
+          accountContextLoader: () async => accountContext,
+        );
+
+        await expectLater(
+          contentFailure.clearForLifecycle(),
+          throwsA(
+            isA<GeneratedPracticeContentClearanceException>().having(
+              (error) => error.failedTargets,
+              'failedTargets',
+              <String>['generated_care_moments'],
+            ),
+          ),
+        );
+        expect(await resumeStore.readForAccount(accountContext), isNull);
+
+        final bothFail = GeneratedPracticeContentRegistry(
+          store: _FailingGeneratedCareMomentLocalStore(tempDir),
+          resumeStore: _FailingGeneratedCareTurnResumeStore(),
+          accountContextLoader: () async => accountContext,
+        );
+        await expectLater(
+          bothFail.clearForLifecycle(),
+          throwsA(
+            isA<GeneratedPracticeContentClearanceException>().having(
+              (error) => error.failedTargets,
+              'failedTargets',
+              <String>['generated_care_moments', 'generated_care_turn_resume'],
+            ),
+          ),
+        );
       },
     );
 
@@ -349,6 +488,208 @@ void main() {
         isNotNull,
       );
     });
+
+    test(
+      'producer handoff survives draft cleanup and rebuilt boot without regenerating',
+      () async {
+        final now = DateTime.utc(2026, 8, 9, 10);
+        final moment = _moment('generated_force_stop');
+        final generator = _GeneratedMomentRepository(moment);
+        final draftStore = CustomSceneDraftStore(
+          directoryResolver: () async => tempDir,
+        );
+        final continuation = _draftContinuation(
+          draftStore: draftStore,
+          tempDir: tempDir,
+          now: now,
+        );
+        final producer = CustomSceneSubmissionController(
+          repository: generator,
+          draftStore: draftStore,
+          draftContinuationCoordinator: continuation,
+          approvedContentRegistrar: registry,
+          accountContextLoader: () async => accountContext,
+          clock: () => now,
+          draftIdGenerator: () => 'draft_force_stop',
+        );
+        addTearDown(producer.dispose);
+
+        await producer.submit(
+          CustomSceneDraft(
+            text: '出门前宝宝不想穿鞋。',
+            entrySource: CustomSceneEntrySource.scene,
+            requestIdentity: CustomSceneRequestIdentity(
+              clientRequestId: 'request_force_stop',
+            ),
+          ),
+        );
+        expect(producer.state.generatedContentId, moment.generatedContentId);
+        expect(generator.calls, 1);
+
+        final confirmation = CustomSceneHandoffConfirmationCoordinator(
+          draftContinuationCoordinator: continuation,
+          accountContextLoader: () async => accountContext,
+          generatedCareTurnResumeStore: resumeStore,
+          clock: () => now,
+        );
+        expect(
+          await confirmation.confirm(
+            generatedContentId: moment.generatedContentId,
+          ),
+          isTrue,
+        );
+        expect(
+          (await draftStore.readResult(now: now)).status,
+          CustomSceneDraftReadStatus.notFound,
+        );
+
+        final localDataSource = await PracticeLocalDataSource.open(
+          directory: tempDir.path,
+          name: 'force_stop_${DateTime.now().microsecondsSinceEpoch}',
+        );
+        expect(await localDataSource.listRawEntities(), isEmpty);
+        final restartedRegistry = GeneratedPracticeContentRegistry(
+          store: GeneratedCareMomentLocalStore(
+            directoryResolver: () async => tempDir,
+          ),
+          resumeStore: GeneratedCareTurnResumeMarkerStore(
+            directoryResolver: () async => tempDir,
+          ),
+          accountContextLoader: () async => accountContext,
+        );
+        final restartedRepository = PracticeRepository(
+          assetPhraseService: AssetPhraseService(bundle: rootBundle),
+          localDataSource: localDataSource,
+          installationIdService: InstallationIdService(
+            directoryResolver: () async => tempDir,
+            idGenerator: () => 'force_stop_installation',
+          ),
+          contentResolver: restartedRegistry,
+        );
+        addTearDown(() => restartedRepository.close(deleteFromDisk: true));
+        final gates = await FeatureGates.resolve(
+          practiceRepository: restartedRepository,
+          completedSnapshot: _completedOnboarding(now),
+          primarySpaceId: 'daily_care',
+          primaryActivityId: 'bath_time',
+        );
+        expect(
+          gates.continuitySeed?.generatedRecommendedArgs?.generatedContentId,
+          moment.generatedContentId,
+        );
+
+        final restartedDraftStore = CustomSceneDraftStore(
+          directoryResolver: () async => tempDir,
+        );
+        final restartedController = CustomSceneSubmissionController(
+          repository: generator,
+          draftStore: restartedDraftStore,
+          draftContinuationCoordinator: _draftContinuation(
+            draftStore: restartedDraftStore,
+            tempDir: tempDir,
+            now: now,
+          ),
+          approvedContentRegistrar: restartedRegistry,
+          accountContextLoader: () async => accountContext,
+          clock: () => now,
+        );
+        final handoff = _RecordingHandoffSink();
+        final recovery = CustomSceneRecoveryCoordinator(
+          controller: restartedController,
+          handoffSink: handoff,
+        );
+        addTearDown(() {
+          recovery.dispose();
+          restartedController.dispose();
+        });
+        await recovery.recoverForAuthenticatedAccount(
+          accountContext: accountContext,
+          resumableGeneratedContentId: gates
+              .continuitySeed
+              ?.generatedRecommendedArgs
+              ?.generatedContentId,
+        );
+
+        expect(handoff.ids, <String>[moment.generatedContentId]);
+        expect(generator.calls, 1);
+      },
+    );
+
+    test(
+      'confirmed zero-event generated turn survives restart until first reaction',
+      () async {
+        final localDataSource = await PracticeLocalDataSource.open(
+          directory: tempDir.path,
+          name: 'generated_resume_${DateTime.now().microsecondsSinceEpoch}',
+        );
+        final repository = PracticeRepository(
+          assetPhraseService: AssetPhraseService(bundle: rootBundle),
+          localDataSource: localDataSource,
+          installationIdService: InstallationIdService(
+            directoryResolver: () async => tempDir,
+            idGenerator: () => 'generated_resume_installation',
+          ),
+          contentResolver: registry,
+        );
+        addTearDown(() => repository.close(deleteFromDisk: true));
+        final moment = _moment('generated_resume');
+        final confirmedAt = DateTime.utc(2026, 8, 9, 9);
+        await registry.register(accountContext: accountContext, moment: moment);
+        await resumeStore.write(
+          accountContext: accountContext,
+          generatedContentId: moment.generatedContentId,
+          confirmedAt: confirmedAt,
+        );
+
+        final restartedRegistry = GeneratedPracticeContentRegistry(
+          store: GeneratedCareMomentLocalStore(
+            directoryResolver: () async => tempDir,
+          ),
+          resumeStore: GeneratedCareTurnResumeMarkerStore(
+            directoryResolver: () async => tempDir,
+          ),
+          accountContextLoader: () async => accountContext,
+        );
+        final restartedRepository = PracticeRepository(
+          assetPhraseService: AssetPhraseService(bundle: rootBundle),
+          localDataSource: localDataSource,
+          installationIdService: InstallationIdService(
+            directoryResolver: () async => tempDir,
+            idGenerator: () => 'generated_resume_installation',
+          ),
+          contentResolver: restartedRegistry,
+        );
+
+        final recovered = await restartedRepository.getContinuitySnapshot();
+        expect(
+          recovered.recommendedActivity.generatedContentId,
+          moment.generatedContentId,
+        );
+        expect(recovered.cadence.totalKnownEvents, 0);
+
+        final snapshot = await restartedRepository.getGeneratedActivitySnapshot(
+          generatedContentId: moment.generatedContentId,
+        );
+        await restartedRepository.recordReaction(
+          spaceId: snapshot.spaceId,
+          activityId: snapshot.activityId,
+          phraseId: moment.starter.phraseId,
+          reactionType: BabyReactionType.cooperating,
+          generatedContentId: moment.generatedContentId,
+          utteranceId: moment.starter.utteranceId,
+          clientTimestamp: confirmedAt.add(const Duration(seconds: 1)),
+        );
+
+        expect(await resumeStore.readForAccount(accountContext), isNull);
+        final eventContinuity = await restartedRepository
+            .getContinuitySnapshot();
+        expect(
+          eventContinuity.recommendedActivity.generatedContentId,
+          moment.generatedContentId,
+        );
+        expect(eventContinuity.cadence.totalKnownEvents, 1);
+      },
+    );
 
     test(
       'PracticeRepository validates generated phrase through formal event path',
@@ -831,4 +1172,110 @@ GeneratedCareMoment _moment(
             ),
         }),
   );
+}
+
+CustomSceneDraftContinuationCoordinator _draftContinuation({
+  required CustomSceneDraftStore draftStore,
+  required Directory tempDir,
+  required DateTime now,
+}) {
+  return CustomSceneDraftContinuationCoordinator(
+    draftStore: draftStore,
+    authContinuationCoordinator: AuthContinuationCoordinator(
+      store: AuthContinuationStore(directoryResolver: () async => tempDir),
+      clock: () => now,
+      correlationIdGenerator: () => 'force_stop_auth_continuation',
+    ),
+    clock: () => now,
+    draftIdGenerator: () => 'draft_force_stop',
+  );
+}
+
+OnboardingSnapshot _completedOnboarding(DateTime now) {
+  return OnboardingSnapshot(
+    childDisplayName: '宝宝',
+    ageBucket: OnboardingAgeBucket.oneToTwo,
+    approxMonths: 18,
+    currentStage: 'first_words',
+    starterSpaceId: 'daily_care',
+    starterActivityId: 'bath_time',
+    starterPhraseId: 'bath_time_warm_water',
+    consentState: OnboardingConsentState.localOnly,
+    completedAt: now,
+  );
+}
+
+class _GeneratedMomentRepository implements CustomSceneRepository {
+  _GeneratedMomentRepository(this.moment);
+
+  final GeneratedCareMoment moment;
+  int calls = 0;
+
+  @override
+  Future<GeneratedCareMoment> generate(CustomSceneDraft draft) async {
+    calls += 1;
+    return moment;
+  }
+}
+
+class _RecordingHandoffSink implements CustomSceneCareTurnHandoffSink {
+  final List<String> ids = <String>[];
+
+  @override
+  Future<void> handoff(CustomSceneCareTurnHandoff handoff) async {
+    ids.add(handoff.generatedContentId);
+  }
+}
+
+class _FailingGeneratedCareMomentLocalStore
+    extends GeneratedCareMomentLocalStore {
+  _FailingGeneratedCareMomentLocalStore(Directory directory)
+    : super(directoryResolver: () async => directory);
+
+  @override
+  Future<void> clearForLifecycle() async {
+    throw StateError('generated content clear failed');
+  }
+}
+
+class _FailingReadGeneratedCareMomentLocalStore
+    extends GeneratedCareMomentLocalStore {
+  _FailingReadGeneratedCareMomentLocalStore(Directory directory)
+    : super(directoryResolver: () async => directory);
+
+  @override
+  Future<List<StoredGeneratedCareMoment>> readAll() async {
+    throw const GeneratedCareMomentLocalStoreException();
+  }
+}
+
+class _FailingGeneratedCareTurnResumeStore
+    implements GeneratedCareTurnResumeStore {
+  @override
+  Future<void> clearForAccount(String accountContext) async {
+    throw StateError('resume clear failed');
+  }
+
+  @override
+  Future<void> clearForLifecycle() async {
+    throw StateError('resume clear failed');
+  }
+
+  @override
+  Future<void> clearMatching({
+    required String accountContext,
+    required String generatedContentId,
+  }) async {}
+
+  @override
+  Future<GeneratedCareTurnResumeMarker?> readForAccount(
+    String accountContext,
+  ) async => null;
+
+  @override
+  Future<void> write({
+    required String accountContext,
+    required String generatedContentId,
+    required DateTime confirmedAt,
+  }) async {}
 }

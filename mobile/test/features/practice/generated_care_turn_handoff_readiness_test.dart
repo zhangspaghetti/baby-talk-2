@@ -13,6 +13,7 @@ import 'package:mobile/features/custom_scene/application/custom_scene_draft_cont
 import 'package:mobile/features/custom_scene/application/custom_scene_handoff_confirmation_coordinator.dart';
 import 'package:mobile/features/custom_scene/data/custom_scene_draft_store.dart';
 import 'package:mobile/features/practice/data/repositories/practice_repository.dart';
+import 'package:mobile/features/practice/data/generated/generated_care_turn_resume_marker_store.dart';
 import 'package:mobile/features/practice/domain/models/practice_content_source.dart';
 import 'package:mobile/features/practice/presentation/practice_audio_controller.dart';
 import 'package:mobile/features/practice/presentation/practice_route_args.dart';
@@ -220,6 +221,9 @@ class _TrackingHandoffConfirmationCoordinator
           ),
         ),
         accountContextLoader: () async => 'account_a',
+        generatedCareTurnResumeStore: GeneratedCareTurnResumeMarkerStore(
+          directoryResolver: () async => Directory.systemTemp,
+        ),
       );
 
   final bool _confirmationResult;
