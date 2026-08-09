@@ -17,6 +17,7 @@ import com.zhangspaghetti.babytalk.practice.agentic.PracticeAiOperationRunner;
 import com.zhangspaghetti.babytalk.practice.agentic.PracticeAiStructuredOutputCaller;
 import com.zhangspaghetti.babytalk.practice.agentic.ResolvedProvider;
 import com.zhangspaghetti.babytalk.practice.agentic.config.GenerationProfile;
+import com.zhangspaghetti.babytalk.practice.agentic.config.PracticeAiReasoningEffort;
 import com.zhangspaghetti.babytalk.practice.agentic.config.VersionedRef;
 import com.zhangspaghetti.babytalk.practice.agentic.config.VersionedResourceRegistry;
 import com.zhangspaghetti.babytalk.practice.generated.CustomSceneGenerator.ContentConstraints;
@@ -35,6 +36,8 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.mockito.ArgumentCaptor;
 import org.springframework.ai.chat.client.ChatClient;
 import tools.jackson.databind.json.JsonMapper;
@@ -194,6 +197,96 @@ class AgenticCustomSceneGeneratorTest {
                         "modelName");
         assertThat(userPrompt.indexOf("先轻声说。"))
                 .isLessThan(userPrompt.indexOf("再停下来观察。"));
+    }
+
+    @Test
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    void matchingGeneratorInferencePolicyUsesBoundedReasoningControl() {
+        var runner = mock(PracticeAiOperationRunner.class);
+        var structuredOutputCaller = mock(PracticeAiStructuredOutputCaller.class);
+        var registry = mock(VersionedResourceRegistry.class);
+        var profile = generationProfileWithGeneratorInferencePolicy();
+        when(registry.currentGenerationProfile()).thenReturn(profile);
+        when(registry.promptText(VersionedResourceRegistry.PromptKind.GENERATOR))
+                .thenReturn("GENERATOR SYSTEM PROMPT");
+        var operationCaptor = ArgumentCaptor.forClass(OperationRequest.class);
+        when(runner.execute(operationCaptor.capture())).thenReturn(new OperationResult<>(
+                wireResponse(),
+                UUID.randomUUID(),
+                UUID.randomUUID(),
+                "primary",
+                "glm-5.2",
+                null));
+        var generator = new AgenticCustomSceneGenerator(runner, structuredOutputCaller, registry);
+
+        generator.generateCareMoment(request(profile, evidenceBundle()));
+        var operation = (OperationRequest<CompleteGeneratedBundle.ProviderResponse>) operationCaptor.getValue();
+        var provider = new ResolvedProvider(
+                "primary", "openai-compatible", "glm-5.2", mock(ChatClient.class));
+        when(structuredOutputCaller.callRaw(
+                eq(provider),
+                eq("GENERATOR SYSTEM PROMPT"),
+                any(String.class),
+                eq(CompleteGeneratedBundle.ProviderResponse.class),
+                eq(8192),
+                eq(PracticeAiReasoningEffort.NONE)))
+                .thenReturn(wireJson());
+
+        assertThat(operation.invocation().invoke(provider).value()).isEqualTo(wireResponse());
+        verify(structuredOutputCaller).callRaw(
+                eq(provider),
+                eq("GENERATOR SYSTEM PROMPT"),
+                any(String.class),
+                eq(CompleteGeneratedBundle.ProviderResponse.class),
+                eq(8192),
+                eq(PracticeAiReasoningEffort.NONE));
+    }
+
+    @ParameterizedTest
+    @CsvSource({
+            "native-openai, glm-5.2",
+            "openai-compatible, glm-5.2-mini"
+    })
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    void nonMatchingGeneratorInferencePolicyKeepsDefaultProviderRequest(
+            String providerType,
+            String modelName
+    ) {
+        var runner = mock(PracticeAiOperationRunner.class);
+        var structuredOutputCaller = mock(PracticeAiStructuredOutputCaller.class);
+        var registry = mock(VersionedResourceRegistry.class);
+        var profile = generationProfileWithGeneratorInferencePolicy();
+        when(registry.currentGenerationProfile()).thenReturn(profile);
+        when(registry.promptText(VersionedResourceRegistry.PromptKind.GENERATOR))
+                .thenReturn("GENERATOR SYSTEM PROMPT");
+        var operationCaptor = ArgumentCaptor.forClass(OperationRequest.class);
+        when(runner.execute(operationCaptor.capture())).thenReturn(new OperationResult<>(
+                wireResponse(),
+                UUID.randomUUID(),
+                UUID.randomUUID(),
+                "primary",
+                modelName,
+                null));
+        var generator = new AgenticCustomSceneGenerator(runner, structuredOutputCaller, registry);
+
+        generator.generateCareMoment(request(profile, evidenceBundle()));
+        var operation = (OperationRequest<CompleteGeneratedBundle.ProviderResponse>) operationCaptor.getValue();
+        var provider = new ResolvedProvider("primary", providerType, modelName, mock(ChatClient.class));
+        when(structuredOutputCaller.callRaw(
+                eq(provider),
+                eq("GENERATOR SYSTEM PROMPT"),
+                any(String.class),
+                eq(CompleteGeneratedBundle.ProviderResponse.class),
+                eq(8192)))
+                .thenReturn(wireJson());
+
+        assertThat(operation.invocation().invoke(provider).value()).isEqualTo(wireResponse());
+        verify(structuredOutputCaller).callRaw(
+                eq(provider),
+                eq("GENERATOR SYSTEM PROMPT"),
+                any(String.class),
+                eq(CompleteGeneratedBundle.ProviderResponse.class),
+                eq(8192));
     }
 
     @Test
@@ -444,6 +537,29 @@ class AgenticCustomSceneGeneratorTest {
                                 CompleteGeneratedBundle.Reaction.NO_RESPONSE, 5),
                         wireUtterance(CompleteGeneratedBundle.UtteranceRole.REACTION_SUPPORT,
                                 CompleteGeneratedBundle.Reaction.OTHER, 6)));
+    }
+
+    private GenerationProfile generationProfileWithGeneratorInferencePolicy() {
+        var profile = generationProfile();
+        return new GenerationProfile(
+                profile.version(),
+                profile.contentHash(),
+                profile.generatorPrompt(),
+                profile.judgePrompt(),
+                profile.repairPrompt(),
+                profile.rubric(),
+                profile.evidencePolicy(),
+                profile.baselineEvidence(),
+                profile.strategyVersion(),
+                profile.contentSafetyPolicyVersion(),
+                profile.generatedOutputSchemaVersion(),
+                profile.minimumCompleteBundleOutputTokens(),
+                profile.minimumQualityJudgeOutputTokens(),
+                profile.repairInferencePolicy(),
+                new GenerationProfile.GeneratorInferencePolicy(
+                        "openai-compatible",
+                        List.of("glm-5.2"),
+                        PracticeAiReasoningEffort.NONE));
     }
 
     private String wireJson() {

@@ -14,9 +14,9 @@ class VersionedResourceRegistryTest {
     void loadsProfileAndComputesStableCanonicalHashes() {
         var profile = registry.currentGenerationProfile();
 
-        assertThat(profile.version()).isEqualTo("custom-scene-generation-v5");
+        assertThat(profile.version()).isEqualTo("custom-scene-generation-v6");
         assertThat(profile.contentHash())
-                .isEqualTo("aef5649cd454d6fa8f4704b8b4eacec7f421cda8f2ca30dd5e7aeec750eeef31");
+                .isEqualTo("da4bbe0e608725f2bd94e8131560158259f0dbe29698b1cf9ae41f423afed8d7");
         assertThat(profile.generatorPrompt().version()).isEqualTo("custom-scene-generator-v3");
         assertThat(profile.judgePrompt().version()).isEqualTo("custom-scene-quality-judge-v3");
         assertThat(profile.repairPrompt().version()).isEqualTo("custom-scene-repair-v3");
@@ -29,7 +29,23 @@ class VersionedResourceRegistryTest {
                         "openai-compatible",
                         java.util.List.of("glm-5.2"),
                         PracticeAiReasoningEffort.NONE));
+        assertThat(profile.generatorInferencePolicy()).isEqualTo(
+                new GenerationProfile.GeneratorInferencePolicy(
+                        "openai-compatible",
+                        java.util.List.of("glm-5.2"),
+                        PracticeAiReasoningEffort.NONE));
         assertThat(registry.promptText(VersionedResourceRegistry.PromptKind.GENERATOR)).contains("strict JSON");
+    }
+
+    @Test
+    void v5ProfileRemainsImmutableAndHasNoGeneratorInferenceOverride() {
+        var legacy = registryFor("profiles/custom-scene-generation-v5.yml")
+                .currentGenerationProfile();
+
+        assertThat(legacy.version()).isEqualTo("custom-scene-generation-v5");
+        assertThat(legacy.contentHash())
+                .isEqualTo("aef5649cd454d6fa8f4704b8b4eacec7f421cda8f2ca30dd5e7aeec750eeef31");
+        assertThat(legacy.generatorInferencePolicy()).isNull();
     }
 
     @Test
@@ -65,6 +81,20 @@ class VersionedResourceRegistryTest {
         assertThatThrownBy(() -> registryFor("fixtures/profile-repair-inference-invalid.yml"))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessage("profile repair-inference-policy reasoning-effort is invalid");
+    }
+
+    @Test
+    void v4ProfileSchemaRequiresCompleteGeneratorInferencePolicy() {
+        assertThatThrownBy(() -> registryFor("fixtures/profile-generator-inference-missing.yml"))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("profile generator-inference-policy must be a mapping");
+    }
+
+    @Test
+    void v4ProfileSchemaRejectsUnsupportedGeneratorReasoningEffort() {
+        assertThatThrownBy(() -> registryFor("fixtures/profile-generator-inference-invalid.yml"))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("profile generator-inference-policy reasoning-effort is invalid");
     }
 
     @Test

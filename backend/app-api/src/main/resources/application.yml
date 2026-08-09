@@ -98,7 +98,7 @@ babytalk:
       provider-profile: ${BABY_TALK_GENERATED_AUDIO_PROVIDER_PROFILE:default}
     agentic:
       versioned-resources:
-        profile: ${BABY_TALK_PRACTICE_AI_PROFILE:classpath:config/practice-ai/profiles/custom-scene-generation-v5.yml}
+        profile: ${BABY_TALK_PRACTICE_AI_PROFILE:classpath:config/practice-ai/profiles/custom-scene-generation-v6.yml}
     discovery:
       custom-scene:
         enabled: ${BABY_TALK_PRACTICE_DISCOVERY_CUSTOM_SCENE_ENABLED:false}

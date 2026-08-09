@@ -327,7 +327,9 @@ class PracticeAiSingleRequestContractTest {
         try {
             var provider = provider(server, "maxTokens", 8192, "glm-5.2");
             var caller = new PracticeAiStructuredOutputCaller();
-            var profile = new VersionedResourceRegistry(new DefaultResourceLoader())
+            var profile = new VersionedResourceRegistry(
+                    new DefaultResourceLoader(),
+                    "classpath:config/practice-ai/profiles/custom-scene-generation-v5.yml")
                     .currentGenerationProfile();
             var repairInferencePolicy = profile.repairInferencePolicy();
 
@@ -367,6 +369,79 @@ class PracticeAiSingleRequestContractTest {
                     .contains("\"max_tokens\":8192")
                     .contains("\"response_format\"")
                     .contains("\"json_schema\"")
+                    .contains("\"reasoning_effort\":\"none\"");
+        } finally {
+            server.stop(0);
+        }
+    }
+
+    @Test
+    void formalGeneratorBundleTruncatesWithoutCompatibilityAndCompletesWithMatchingPolicy() throws Exception {
+        var requestCount = new AtomicInteger();
+        var requestBodies = new CopyOnWriteArrayList<String>();
+        var server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+        server.createContext("/v1/chat/completions", exchange -> {
+            requestCount.incrementAndGet();
+            var body = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
+            requestBodies.add(body);
+            var compatible = body.contains("\"reasoning_effort\":\"none\"");
+            var response = compatible
+                    ? openAiEnvelope(completeBundleJson())
+                    : openAiEnvelope("{\"schemaVersion\":\"complete-generated-bundle-v1\"", "length", 100, 8192);
+            var bytes = response.getBytes(StandardCharsets.UTF_8);
+            exchange.getResponseHeaders().set("Content-Type", "application/json");
+            exchange.sendResponseHeaders(200, bytes.length);
+            try (var responseBody = exchange.getResponseBody()) {
+                responseBody.write(bytes);
+            }
+        });
+        server.start();
+        try {
+            var provider = provider(server, "maxTokens", 8192, "glm-5.2");
+            var caller = new PracticeAiStructuredOutputCaller();
+            var profile = new VersionedResourceRegistry(new DefaultResourceLoader())
+                    .currentGenerationProfile();
+            var generatorInferencePolicy = profile.generatorInferencePolicy();
+
+            assertThat(profile.version()).isEqualTo("custom-scene-generation-v6");
+            assertThat(generatorInferencePolicy.matches(provider.providerType(), provider.modelName()))
+                    .isTrue();
+
+            assertThatThrownBy(() -> caller.callRaw(
+                    provider,
+                    "GENERATOR SYSTEM PROMPT",
+                    "formal generator payload",
+                    CompleteGeneratedBundle.ProviderResponse.class,
+                    profile.minimumCompleteBundleOutputTokens()))
+                    .isInstanceOf(PracticeAiStructuredOutputCaller.StructuredOutputInvalidException.class)
+                    .hasMessage("output_truncated");
+
+            assertThat(requestCount).hasValue(1);
+            assertThat(requestBodies.get(0))
+                    .contains("\"max_tokens\":8192")
+                    .contains("\"n\":1")
+                    .contains("\"response_format\"")
+                    .contains("\"json_schema\"")
+                    .contains("\"strict\":true")
+                    .doesNotContain("reasoning_effort");
+
+            var completed = caller.callRaw(
+                    provider,
+                    "GENERATOR SYSTEM PROMPT",
+                    "formal generator payload",
+                    CompleteGeneratedBundle.ProviderResponse.class,
+                    profile.minimumCompleteBundleOutputTokens(),
+                    generatorInferencePolicy.reasoningEffort());
+
+            assertThat(CompleteGeneratedBundle.ProviderResponse.parse(completed))
+                    .isEqualTo(completeBundleWire());
+            assertThat(requestCount).hasValue(2);
+            assertThat(requestBodies.get(1))
+                    .contains("\"max_tokens\":8192")
+                    .contains("\"n\":1")
+                    .contains("\"response_format\"")
+                    .contains("\"json_schema\"")
+                    .contains("\"strict\":true")
                     .contains("\"reasoning_effort\":\"none\"");
         } finally {
             server.stop(0);

@@ -54,8 +54,10 @@ def verify_no_production_fallback() -> bool:
             "structuredOutputCaller.callRaw(",
             "CompleteGeneratedBundle.ProviderResponse.parse(content)",
             "GeneratedCareMomentBundle.fromCompleteBundle(result.value().toCompleteBundle(",
-            "currentProfile.minimumCompleteBundleOutputTokens()",
+            "profile.minimumCompleteBundleOutputTokens()",
             "CompleteGeneratedBundle.persistenceCodePointLimits()",
+            "profile.generatorInferencePolicy()",
+            "inferencePolicy.reasoningEffort()",
         ),
         "AgenticCustomSceneRepairer.java": (
             "OperationRequest.ProviderFailureStage.PROVIDER_RESPONSE_BINDING",
@@ -447,7 +449,7 @@ def verify_versioned_output_budget() -> bool:
         / "config"
         / "practice-ai"
         / "profiles"
-        / "custom-scene-generation-v5.yml"
+        / "custom-scene-generation-v6.yml"
     )
     profile = profile_path.read_text(encoding="utf-8")
     profile_match = re.search(
@@ -472,17 +474,21 @@ def verify_versioned_output_budget() -> bool:
         if judge_budget < SAFE_MINIMUM_QUALITY_JUDGE_OUTPUT_TOKENS:
             violations.append(f"{profile_path.name}: Quality Judge output budget is below safe minimum")
 
-    repair_inference_markers = (
-        "schema-version: generation-profile-schema-v3",
-        "repair-inference-policy:",
-        "provider-type: openai-compatible",
-        "model-names: [glm-5.2]",
-        "reasoning-effort: none",
+    inference_markers = (
+        "schema-version: generation-profile-schema-v4",
+        "repair-inference-policy:\n"
+        "  provider-type: openai-compatible\n"
+        "  model-names: [glm-5.2]\n"
+        "  reasoning-effort: none",
+        "generator-inference-policy:\n"
+        "  provider-type: openai-compatible\n"
+        "  model-names: [glm-5.2]\n"
+        "  reasoning-effort: none",
     )
-    for marker in repair_inference_markers:
+    for marker in inference_markers:
         if marker not in profile:
             violations.append(
-                f"{profile_path.name}: missing bounded Repair inference compatibility marker: {marker}"
+                f"{profile_path.name}: missing bounded inference compatibility marker: {marker}"
             )
 
     for relative_path in (
