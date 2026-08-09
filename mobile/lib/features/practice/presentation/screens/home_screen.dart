@@ -47,6 +47,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with RouteAware {
   ModalRoute<dynamic>? _subscribedRoute;
   String? _lastResolvedScopeLabel;
   AccountNotifier? _cachedAccountNotifier;
+  String? _lastReadyAccountContext;
   String? _todayNavigationError;
 
   @override
@@ -58,6 +59,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with RouteAware {
       }
       final accountNotifier = ref.read(accountNotifierProvider);
       _cachedAccountNotifier = accountNotifier;
+      _lastReadyAccountContext = accountNotifier.stableAccountContext;
       unawaited(accountNotifier.initialize());
       accountNotifier.addListener(_handleAccountRuntimeChange);
       final gardenGrowthNotifier = ref.read(gardenGrowthNotifierProvider);
@@ -163,16 +165,23 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with RouteAware {
         ref.read(gardenGrowthNotifierProvider).resetToSafeEmpty();
         ref.read(householdNotifierProvider).resetToSafeEmpty();
       }
+      _lastReadyAccountContext = null;
       return;
     }
     if (accountNotifier.isLocalOnly) {
       // localOnly user's account state is stable; boot seed is up-to-date
       return;
     }
-    unawaited(_refreshContinuity(reason: 'account_runtime_change'));
-    unawaited(_refreshCarePath());
-    final gardenGrowthNotifier = ref.read(gardenGrowthNotifierProvider);
-    unawaited(gardenGrowthNotifier.refresh());
+    final accountContext = accountNotifier.stableAccountContext;
+    if (accountContext == null) {
+      return;
+    }
+    if (_lastReadyAccountContext != accountContext) {
+      _lastReadyAccountContext = accountContext;
+      unawaited(_refreshCarePath());
+      return;
+    }
+    unawaited(_refreshTodaySurface(reason: 'account_runtime_changed'));
   }
 
   @override

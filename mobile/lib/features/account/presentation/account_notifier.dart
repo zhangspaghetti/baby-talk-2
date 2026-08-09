@@ -80,6 +80,25 @@ class AccountNotifier extends ChangeNotifier with WidgetsBindingObserver {
       _snapshot.consentState != AccountConsentState.signedOut &&
       _snapshot.consentState != AccountConsentState.deleted;
 
+  /// Persisted identity usable by account-scoped projections and recovery.
+  /// Busy/loading snapshots are deliberately not considered ready.
+  String? get stableAccountContext {
+    if (!hasLoaded || isLoading || isBusy || !isSignedIn) {
+      return null;
+    }
+    return scopedAccountContext;
+  }
+
+  /// Current in-memory scope identity, including busy transitions. Callers use
+  /// this only to invalidate stale account-scoped work; never persist or log it.
+  String? get scopedAccountContext {
+    if (isSignedOut || isRevoked || isDeleted) {
+      return null;
+    }
+    final value = _snapshot.session?.accountId.trim();
+    return value == null || value.isEmpty ? null : value;
+  }
+
   bool get hasPendingSync => _snapshot.pendingSyncCount > 0;
   bool get hasSyncFailure =>
       (_snapshot.lastVisibleError?.trim().isNotEmpty ?? false) &&

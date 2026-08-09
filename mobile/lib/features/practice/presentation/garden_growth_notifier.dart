@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:mobile/features/practice/data/repositories/garden_growth_repository.dart';
 import 'package:mobile/features/practice/domain/models/garden_growth_snapshot.dart';
+import 'package:mobile/features/practice/presentation/account_scoped_refresh_guard.dart';
 
 enum GardenGrowthLoadStatus { idle, loading, ready, empty, error }
 
@@ -23,6 +24,7 @@ class GardenGrowthNotifier extends ChangeNotifier {
   Future<void>? _refreshFuture;
   bool _refreshQueued = false;
   Timer? _refreshTimeoutTimer;
+  final AccountScopedRefreshGuard _refreshGuard = AccountScopedRefreshGuard();
 
   GardenGrowthSnapshot get snapshot => _snapshot;
   GardenGrowthLoadStatus get status => _status;
@@ -49,7 +51,8 @@ class GardenGrowthNotifier extends ChangeNotifier {
       return _refreshFuture ?? Future.value();
     }
 
-    final future = _refreshInternal();
+    final refreshToken = _refreshGuard.beginRefresh();
+    final future = _refreshInternal(refreshToken: refreshToken);
     _refreshFuture = future;
     return future.whenComplete(() {
       if (identical(_refreshFuture, future)) {
@@ -58,7 +61,13 @@ class GardenGrowthNotifier extends ChangeNotifier {
     });
   }
 
-  Future<void> _refreshInternal() async {
+  Future<void> refreshForAccountProjection() {
+    return refresh();
+  }
+
+  Future<void> _refreshInternal({
+    required AccountScopedRefreshToken refreshToken,
+  }) async {
     _isRefreshing = true;
     if (_status == GardenGrowthLoadStatus.idle) {
       _status = GardenGrowthLoadStatus.loading;
@@ -67,7 +76,7 @@ class GardenGrowthNotifier extends ChangeNotifier {
 
     try {
       final nextSnapshot = await _runWithTimeout(_repository.buildSnapshot());
-      if (_disposed) {
+      if (!_ownsRefresh(refreshToken)) {
         return;
       }
       _snapshot = nextSnapshot;
@@ -76,25 +85,39 @@ class GardenGrowthNotifier extends ChangeNotifier {
           : GardenGrowthLoadStatus.ready;
       _message = nextSnapshot.projectionWarning;
     } on TimeoutException {
-      if (_disposed) {
+      if (!_ownsRefresh(refreshToken)) {
         return;
       }
       _status = GardenGrowthLoadStatus.error;
       _message = '成长更新超时，先保留上一次稳定结果。';
     } catch (error) {
-      if (_disposed) {
+      if (!_ownsRefresh(refreshToken)) {
         return;
       }
       _status = GardenGrowthLoadStatus.error;
       _message = '成长更新暂时不可用，请稍后重试。';
     } finally {
-      _isRefreshing = false;
-      notifyListeners();
-      final shouldRunQueuedRefresh = _refreshQueued;
-      _refreshQueued = false;
-      if (!_disposed && shouldRunQueuedRefresh) {
-        unawaited(refresh());
+      if (_ownsRefresh(refreshToken)) {
+        _isRefreshing = false;
+        notifyListeners();
+        final shouldRunQueuedRefresh = _refreshQueued;
+        _refreshQueued = false;
+        if (!_disposed && shouldRunQueuedRefresh) {
+          unawaited(refresh());
+        }
       }
+    }
+  }
+
+  /// Changes the in-memory owner scope and invalidates any in-flight result.
+  /// No account identifier is persisted or logged.
+  void bindAccountContext(String? accountContext, {bool notify = true}) {
+    if (!_refreshGuard.bindAccountContext(accountContext)) {
+      return;
+    }
+    _invalidateRefreshAndClearProjection();
+    if (notify) {
+      notifyListeners();
     }
   }
 
@@ -150,6 +173,15 @@ class GardenGrowthNotifier extends ChangeNotifier {
 
   /// 会话重置时调用，清除所有内存状态回到安全空态。
   void resetToSafeEmpty() {
+    _refreshGuard.invalidate(clearAccountContext: true);
+    _invalidateRefreshAndClearProjection();
+    notifyListeners();
+  }
+
+  bool _ownsRefresh(AccountScopedRefreshToken token) =>
+      !_disposed && _refreshGuard.owns(token);
+
+  void _invalidateRefreshAndClearProjection() {
     _refreshTimeoutTimer?.cancel();
     _refreshTimeoutTimer = null;
     _refreshFuture = null;
@@ -158,7 +190,6 @@ class GardenGrowthNotifier extends ChangeNotifier {
     _snapshot = GardenGrowthSnapshot.empty();
     _status = GardenGrowthLoadStatus.idle;
     _message = null;
-    notifyListeners();
   }
 
   @override

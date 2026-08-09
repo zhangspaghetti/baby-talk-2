@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:mobile/features/practice/data/repositories/practice_repository.dart';
 import 'package:mobile/features/practice/domain/models/practice_continuity_snapshot.dart';
+import 'package:mobile/features/practice/presentation/account_scoped_refresh_guard.dart';
 import 'package:mobile/features/practice/presentation/practice_route_args.dart';
 
 typedef PracticeContinuitySnapshotLoader =
@@ -119,6 +120,7 @@ class PracticeContinuityNotifier extends ChangeNotifier {
   Future<void>? _refreshFuture;
   String? _queuedRefreshReason;
   Timer? _refreshTimeoutTimer;
+  final AccountScopedRefreshGuard _refreshGuard = AccountScopedRefreshGuard();
 
   PracticeRouteArgs? get starterArgs => _starterArgs;
   PracticeContinuitySnapshot? get snapshot => _snapshot;
@@ -177,7 +179,8 @@ class PracticeContinuityNotifier extends ChangeNotifier {
       return _refreshFuture ?? Future.value();
     }
 
-    final future = _refreshInternal(reason: reason);
+    final refreshToken = _refreshGuard.beginRefresh();
+    final future = _refreshInternal(reason: reason, refreshToken: refreshToken);
     _refreshFuture = future;
     return future.whenComplete(() {
       if (identical(_refreshFuture, future)) {
@@ -186,7 +189,10 @@ class PracticeContinuityNotifier extends ChangeNotifier {
     });
   }
 
-  Future<void> _refreshInternal({required String reason}) async {
+  Future<void> _refreshInternal({
+    required String reason,
+    required AccountScopedRefreshToken refreshToken,
+  }) async {
     final starterArgs = _starterArgs;
     _isRefreshing = true;
     _lastRefreshReason = reason;
@@ -202,7 +208,7 @@ class PracticeContinuityNotifier extends ChangeNotifier {
           starterActivityId: starterArgs?.activityId,
         ),
       );
-      if (_disposed) {
+      if (!_ownsRefresh(refreshToken)) {
         return;
       }
       final generatedContentId =
@@ -231,7 +237,7 @@ class PracticeContinuityNotifier extends ChangeNotifier {
           : await _runWithTimeout(
               _loadGeneratedActivitySnapshot(generatedRecommendedArgs),
             );
-      if (_disposed) {
+      if (!_ownsRefresh(refreshToken)) {
         return;
       }
 
@@ -243,7 +249,7 @@ class PracticeContinuityNotifier extends ChangeNotifier {
       _warningMessage = _cleanMessage(nextSnapshot.warningMessage);
       _disabledReason = null;
     } on TimeoutException {
-      if (_disposed) {
+      if (!_ownsRefresh(refreshToken)) {
         return;
       }
       _status = PracticeContinuityLoadStatus.error;
@@ -253,7 +259,7 @@ class PracticeContinuityNotifier extends ChangeNotifier {
       );
       _disabledReason = 'continuity 刷新超时，请重新整理后再继续练习。';
     } catch (error) {
-      if (_disposed) {
+      if (!_ownsRefresh(refreshToken)) {
         return;
       }
       _status = PracticeContinuityLoadStatus.error;
@@ -263,13 +269,27 @@ class PracticeContinuityNotifier extends ChangeNotifier {
       );
       _disabledReason = 'continuity 刷新失败，请稍后重试。';
     } finally {
-      _isRefreshing = false;
-      notifyListeners();
-      final queuedRefreshReason = _queuedRefreshReason;
-      _queuedRefreshReason = null;
-      if (!_disposed && queuedRefreshReason != null) {
-        unawaited(refresh(reason: queuedRefreshReason));
+      if (_ownsRefresh(refreshToken)) {
+        _isRefreshing = false;
+        notifyListeners();
+        final queuedRefreshReason = _queuedRefreshReason;
+        _queuedRefreshReason = null;
+        if (!_disposed && queuedRefreshReason != null) {
+          unawaited(refresh(reason: queuedRefreshReason));
+        }
       }
+    }
+  }
+
+  /// Changes the in-memory owner scope and invalidates any in-flight result.
+  /// No account identifier is persisted or logged.
+  void bindAccountContext(String? accountContext, {bool notify = true}) {
+    if (!_refreshGuard.bindAccountContext(accountContext)) {
+      return;
+    }
+    _invalidateRefreshAndClearProjection();
+    if (notify) {
+      notifyListeners();
     }
   }
 
@@ -336,6 +356,15 @@ class PracticeContinuityNotifier extends ChangeNotifier {
   /// 会话重置时调用，清除所有内存状态回到安全空态。
   /// logout/delete/revoke 场景下由 home_screen 触发。
   void resetToSafeEmpty() {
+    _refreshGuard.invalidate(clearAccountContext: true);
+    _invalidateRefreshAndClearProjection();
+    notifyListeners();
+  }
+
+  bool _ownsRefresh(AccountScopedRefreshToken token) =>
+      !_disposed && _refreshGuard.owns(token);
+
+  void _invalidateRefreshAndClearProjection() {
     _refreshTimeoutTimer?.cancel();
     _refreshTimeoutTimer = null;
     _refreshFuture = null;
@@ -349,7 +378,6 @@ class PracticeContinuityNotifier extends ChangeNotifier {
     _warningMessage = null;
     _disabledReason = null;
     _lastRefreshReason = null;
-    notifyListeners();
   }
 
   @override

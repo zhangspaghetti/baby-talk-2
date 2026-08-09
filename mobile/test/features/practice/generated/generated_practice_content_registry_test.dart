@@ -35,6 +35,7 @@ import 'package:mobile/features/practice/presentation/practice_continuity_notifi
 import 'package:mobile/features/practice/presentation/practice_route_args.dart';
 
 import '../../../support/isar_test_library.dart';
+import '../../../support/generated_care_moment_fixture.dart';
 
 const _expectedSupportIdentities =
     <BabyReactionType, ({String phraseId, String utteranceId})>{
@@ -148,6 +149,67 @@ void main() {
             activityId: moment.activityId,
           ),
           isNull,
+        );
+      },
+    );
+
+    test(
+      'generated projection distinguishes unavailable account from empty',
+      () async {
+        final unavailableRegistry = GeneratedPracticeContentRegistry(
+          store: store,
+          resumeStore: resumeStore,
+          accountContextLoader: () async => null,
+        );
+
+        await expectLater(
+          unavailableRegistry.listGeneratedActivities(),
+          throwsA(
+            isA<GeneratedPracticeProjectionUnavailableException>().having(
+              (error) => error.reason,
+              'reason',
+              GeneratedPracticeProjectionUnavailableReason.accountUnavailable,
+            ),
+          ),
+        );
+        expect(await registry.listGeneratedActivities(), isEmpty);
+      },
+    );
+
+    test(
+      'generated projection distinguishes account and content read errors',
+      () async {
+        final accountFailure = GeneratedPracticeContentRegistry(
+          store: store,
+          resumeStore: resumeStore,
+          accountContextLoader: () async =>
+              throw StateError('secure read failed'),
+        );
+        final contentFailure = GeneratedPracticeContentRegistry(
+          store: _FailingReadGeneratedCareMomentLocalStore(tempDir),
+          resumeStore: resumeStore,
+          accountContextLoader: () async => accountContext,
+        );
+
+        await expectLater(
+          accountFailure.listGeneratedActivities(),
+          throwsA(
+            isA<GeneratedPracticeProjectionUnavailableException>().having(
+              (error) => error.reason,
+              'reason',
+              GeneratedPracticeProjectionUnavailableReason.accountLoadFailed,
+            ),
+          ),
+        );
+        await expectLater(
+          contentFailure.listGeneratedActivities(),
+          throwsA(
+            isA<GeneratedPracticeProjectionUnavailableException>().having(
+              (error) => error.reason,
+              'reason',
+              GeneratedPracticeProjectionUnavailableReason.contentLoadFailed,
+            ),
+          ),
         );
       },
     );
@@ -1158,61 +1220,10 @@ GeneratedCareMoment _moment(
   String? spaceId,
   String? activityId,
 }) {
-  GeneratedCareUtterance utterance(
-    String suffix, {
-    required GeneratedCareUtteranceRole role,
-    required BabyReactionType? reaction,
-    required int displayOrder,
-  }) {
-    return GeneratedCareUtterance(
-      utteranceId: 'utterance_$suffix',
-      phraseId: 'phrase_$suffix',
-      english: 'Warm water',
-      chinese: '温水来了',
-      pronunciation: 'wɔːm',
-      tprActionZh: '靠近宝宝',
-      deliveryGuidanceZh: '慢慢说',
-      difficulty: 'starter',
-      source: 'generated',
-      role: role,
-      reaction: reaction,
-      displayOrder: displayOrder,
-      providerProvenance: GeneratedCareProviderProvenance(
-        origin: GeneratedCareProviderOrigin.providerGenerated,
-        providerName: 'provider',
-        modelName: 'model',
-        attemptNumber: 1,
-      ),
-    );
-  }
-
-  return GeneratedCareMoment(
-    schemaVersion: generatedCareMomentSchemaVersion,
+  return generatedCareMomentFixture(
     generatedContentId: generatedContentId,
-    sceneId: 'scene_$generatedContentId',
-    spaceId: spaceId ?? 'space_$generatedContentId',
-    momentId: 'moment_$generatedContentId',
-    activityId: activityId ?? 'activity_$generatedContentId',
-    title: '洗澡',
-    sceneTag: 'bath',
-    coachTip: '慢慢来',
-    source: 'generated',
-    starter: utterance(
-      'starter',
-      role: GeneratedCareUtteranceRole.starter,
-      reaction: null,
-      displayOrder: 1,
-    ),
-    reactionSupports:
-        GeneratedReactionSupportMap(<BabyReactionType, GeneratedCareUtterance>{
-          for (final reaction in BabyReactionType.values)
-            reaction: utterance(
-              reaction.name,
-              role: GeneratedCareUtteranceRole.reactionSupport,
-              reaction: reaction,
-              displayOrder: BabyReactionType.values.indexOf(reaction) + 2,
-            ),
-        }),
+    spaceId: spaceId,
+    activityId: activityId,
   );
 }
 

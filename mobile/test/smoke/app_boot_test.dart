@@ -18,8 +18,14 @@ import 'package:mobile/core/device/installation_id_service.dart';
 import 'package:mobile/features/account/data/local/account_local_store.dart';
 import 'package:mobile/features/account/data/repositories/account_repository.dart';
 import 'package:mobile/features/account/domain/models/account_consent_state.dart';
+import 'package:mobile/features/account/domain/models/account_session.dart';
 import 'package:mobile/features/custom_scene/application/custom_scene_submission_controller.dart';
+import 'package:mobile/features/custom_scene/domain/generated_care_moment.dart';
 import 'package:mobile/features/custom_scene/presentation/custom_scene_input_screen.dart';
+import 'package:mobile/features/garden/data/repositories/garden_fertilizer_repository.dart';
+import 'package:mobile/features/garden/domain/models/fertilizer_flower_stage.dart';
+import 'package:mobile/features/garden/domain/models/fertilizer_state.dart';
+import 'package:mobile/features/garden/presentation/garden_fertilizer_notifier.dart';
 import 'package:mobile/features/household/data/local/household_local_store.dart';
 import 'package:mobile/features/household/data/repositories/household_repository.dart';
 import 'package:mobile/features/household/data/services/household_api_service.dart';
@@ -33,12 +39,18 @@ import 'package:mobile/features/onboarding/domain/models/onboarding_snapshot.dar
 import 'package:mobile/features/onboarding/domain/models/stage_match.dart';
 import 'package:mobile/features/onboarding/presentation/screens/onboarding_flow_screen.dart';
 import 'package:mobile/features/practice/data/local/practice_local_data_source.dart';
+import 'package:mobile/features/practice/data/generated/generated_care_moment_local_store.dart';
+import 'package:mobile/features/practice/data/generated/generated_care_turn_resume_marker_store.dart';
+import 'package:mobile/features/practice/data/generated/generated_practice_content_registry.dart';
 import 'package:mobile/features/practice/data/repositories/practice_repository.dart';
 import 'package:mobile/features/practice/domain/models/interaction_event_payload.dart';
 import 'package:mobile/features/practice/domain/models/practice_continuity_snapshot.dart';
+import 'package:mobile/features/practice/presentation/practice_continuity_notifier.dart';
+import 'package:mobile/features/practice/presentation/garden_growth_notifier.dart';
 import 'package:mobile/features/practice/presentation/practice_session_notifier.dart';
 import 'package:mobile/features/practice/presentation/screens/practice_session_screen.dart';
 import '../support/isar_test_library.dart';
+import '../support/generated_care_moment_fixture.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -120,7 +132,6 @@ void main() {
     addTearDown(() async {
       await _disposeWidgetTree(tester);
     });
-
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
@@ -759,6 +770,193 @@ void main() {
     },
   );
 
+  testWidgets('account projection 首次不可用后会自动刷新 generated Today 与 Garden', (
+    WidgetTester tester,
+  ) async {
+    late OnboardingSnapshot completedSnapshot;
+    late PracticeRepository generatedRepository;
+    late _ReadTrackingSecureStorage accountStorage;
+    final harness = (await tester.runAsync<_AppBootHarness>(() async {
+      final generatedHarness = await _createGeneratedProjectionHarness();
+      final created = generatedHarness.harness;
+      generatedRepository = created.repository;
+      accountStorage = generatedHarness.accountStorage;
+      completedSnapshot = await _onboardingRepositoryFor(created)
+          .completeOnboarding(
+            childDisplayName: '米米',
+            ageBucket: OnboardingAgeBucket.zeroToSix,
+            selectedSceneIds: const ['bath_time'],
+            supportGoal: OnboardingSupportGoal.firstWords,
+            starterSpaceId: 'daily_care',
+            starterActivityId: 'bath_time',
+            starterPhraseId: 'bath_time_warm_water',
+            firstTraceEventKey: 'install_projection_boot:evt_onboarding_first',
+            completedAt: DateTime.utc(2026, 8, 9, 8),
+          );
+
+      return created;
+    }))!;
+    addTearDown(() async {
+      await harness.mentorRepository.close(deleteFromDisk: true);
+      await harness.repository.close();
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+      if (await harness.tempDir.exists()) {
+        await _deleteDirectoryWithRetry(harness.tempDir);
+      }
+    });
+    addTearDown(() async {
+      await _disposeWidgetTree(tester);
+    });
+    addTearDown(accountStorage.releaseRead);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          assetPhraseServiceProvider.overrideWithValue(
+            harness.bootState.assetPhraseService!,
+          ),
+          appDirectoryProvider.overrideWith((ref) => harness.tempDir),
+          mentorRepositoryProvider.overrideWith(
+            (ref) async => harness.mentorRepository,
+          ),
+          practiceRepositoryProvider.overrideWith((ref) => generatedRepository),
+          accountRepositoryProvider.overrideWith(
+            (ref) => AccountRepository(
+              localStore: AccountLocalStore(secureStorage: accountStorage),
+              practiceRepository: generatedRepository,
+              connectivityChecker: () async => false,
+            ),
+          ),
+          householdRepositoryProvider.overrideWith((ref) {
+            final accountRepository = ref
+                .read(accountRepositoryProvider)
+                .requireValue;
+            return HouseholdRepository(
+              localStore: HouseholdLocalStore(
+                directoryResolver: () async => harness.tempDir,
+              ),
+              apiService: HouseholdApiService(),
+              accountSnapshotLoader: accountRepository.loadSnapshot,
+              persistRefreshedSession:
+                  accountRepository.persistRefreshedSession,
+            );
+          }),
+          onboardingRepositoryProvider.overrideWith(
+            (ref) => _onboardingRepositoryFor(harness),
+          ),
+          gardenFertilizerNotifierProvider.overrideWith(
+            (ref) => _FertilizerNotifierStub(
+              ref.watch(gardenGrowthNotifierProvider),
+            ),
+          ),
+        ],
+        child: BabyTalkApp(
+          bootState: harness.bootState,
+          audioControllerFactory: _SilentPracticeAudioController.new,
+          completedSnapshotLoader: () async => completedSnapshot,
+          practiceContinuityRefreshTimeout: Duration.zero,
+          gardenGrowthRefreshTimeout: Duration.zero,
+        ),
+      ),
+    );
+    await _pumpUntilFound(tester, find.byKey(const Key('shell-ready')));
+    final projectionContainer = ProviderScope.containerOf(
+      tester.element(find.byKey(const Key('shell-ready'))),
+    );
+    final observedContinuity = projectionContainer.read(
+      practiceContinuityNotifierProvider,
+    );
+    final observedGarden = projectionContainer.read(
+      gardenGrowthNotifierProvider,
+    );
+    for (var index = 0; index < 120; index++) {
+      await tester.pump();
+      await tester.runAsync(() => Future<void>.delayed(Duration.zero));
+      await tester.pump();
+      if (accountStorage.wasRead &&
+          !observedContinuity.isRefreshing &&
+          !observedGarden.isRefreshing) {
+        break;
+      }
+    }
+    var continuityRefreshStarts = 0;
+    var gardenRefreshStarts = 0;
+    var continuityWasRefreshing = observedContinuity.isRefreshing;
+    var gardenWasRefreshing = observedGarden.isRefreshing;
+    void countContinuityRefresh() {
+      if (!continuityWasRefreshing &&
+          observedContinuity.isRefreshing &&
+          observedContinuity.lastRefreshReason == 'account_projection_ready') {
+        continuityRefreshStarts += 1;
+      }
+      continuityWasRefreshing = observedContinuity.isRefreshing;
+    }
+
+    void countGardenRefresh() {
+      if (!gardenWasRefreshing && observedGarden.isRefreshing) {
+        gardenRefreshStarts += 1;
+      }
+      gardenWasRefreshing = observedGarden.isRefreshing;
+    }
+
+    observedContinuity.addListener(countContinuityRefresh);
+    observedGarden.addListener(countGardenRefresh);
+    addTearDown(() {
+      observedContinuity.removeListener(countContinuityRefresh);
+      observedGarden.removeListener(countGardenRefresh);
+    });
+    accountStorage.releaseRead();
+    for (var index = 0; index < 120; index++) {
+      await tester.pump();
+      await tester.runAsync(() => Future<void>.delayed(Duration.zero));
+      await tester.pump();
+      final continuity = projectionContainer.read(
+        practiceContinuityNotifierProvider,
+      );
+      final garden = projectionContainer.read(gardenGrowthNotifierProvider);
+      if (continuity.lastRefreshReason == 'account_projection_ready' &&
+          continuity.status == PracticeContinuityLoadStatus.ready &&
+          !continuity.isRefreshing &&
+          !garden.isRefreshing) {
+        break;
+      }
+    }
+
+    final container = projectionContainer;
+    final continuity = container.read(practiceContinuityNotifierProvider);
+    final garden = container.read(gardenGrowthNotifierProvider);
+    final account = container.read(accountNotifierProvider);
+    expect(accountStorage.wasRead, isTrue);
+    expect(
+      continuity.lastRefreshReason,
+      'account_projection_ready',
+      reason:
+          'status=${continuity.status.name}; accountLoaded=${account.hasLoaded}; '
+          'accountBusy=${account.isBusy}; accountSignedIn=${account.isSignedIn}; '
+          'gardenStatus=${garden.status.name}',
+    );
+    expect(
+      continuity.generatedRecommendedArgs?.generatedContentId,
+      'fixture_generated_cold_boot',
+    );
+    expect(continuityRefreshStarts, 1);
+    expect(gardenRefreshStarts, 1);
+    expect(
+      tester
+          .widget<Text>(find.byKey(const Key('home-today-care-moment-title')))
+          .data,
+      '测试照护时刻',
+    );
+    expect(
+      garden.snapshot.spaces.any(
+        (space) => space.activities.any(
+          (activity) => activity.activityId == 'fixture_generated_activity',
+        ),
+      ),
+      isTrue,
+    );
+  });
+
   testWidgets('malformed account snapshot 只会退回未登录，不会破坏 shell route gate', (
     WidgetTester tester,
   ) async {
@@ -980,6 +1178,26 @@ class _SilentPracticeAudioController implements PracticeAudioController {
   }
 }
 
+class _FertilizerNotifierStub extends GardenFertilizerNotifier {
+  _FertilizerNotifierStub(GardenGrowthNotifier growth)
+    : super(
+        repositoryFuture: Completer<GardenFertilizerRepository>().future,
+        growthNotifier: growth,
+      );
+
+  @override
+  GardenFertilizerViewState get view => GardenFertilizerViewState(
+    isLoading: false,
+    pendingPacks: const [],
+    claimedPacks: const [],
+    backpackCount: 0,
+    stageInfo: resolveFertilizerStage(0),
+  );
+
+  @override
+  Future<void> initialize() async {}
+}
+
 OnboardingRepository _onboardingRepositoryFor(_AppBootHarness harness) {
   return OnboardingRepository(
     snapshotStore: OnboardingSnapshotStore(
@@ -1095,6 +1313,92 @@ Future<_AppBootHarness> _createHarness() async {
   );
 }
 
+Future<({_AppBootHarness harness, _ReadTrackingSecureStorage accountStorage})>
+_createGeneratedProjectionHarness() async {
+  const accountContext = 'fixture_projection_account';
+  final bootState = await AppBootState.load(rootBundle);
+  final tempDir = Directory(
+    '${Directory.systemTemp.path}${Platform.pathSeparator}generated_app_boot_test_${DateTime.now().microsecondsSinceEpoch}',
+  );
+  await tempDir.create(recursive: true);
+  final projectionGate = _GeneratedProjectionAccountGate(accountContext);
+  final accountStorage = _ReadTrackingSecureStorage(
+    onRead: projectionGate.release,
+  );
+  await AccountLocalStore(secureStorage: accountStorage).write(
+    AccountLocalSnapshot(
+      consentState: AccountConsentState.acceptedPendingSync,
+      session: AccountSession.validated(
+        accountId: accountContext,
+        sessionId: 'fixture_projection_session',
+        maskedPhoneNumber: '***',
+        createdAt: DateTime.utc(2026, 8, 9, 8),
+      ),
+    ),
+  );
+  final generatedStore = GeneratedCareMomentLocalStore(
+    directoryResolver: () async => tempDir,
+  );
+  final generatedMoment = _generatedColdBootMoment();
+  await generatedStore.upsert(
+    StoredGeneratedCareMoment(
+      accountContext: accountContext,
+      moment: generatedMoment,
+    ),
+  );
+  final localDataSource = await PracticeLocalDataSource.open(
+    directory: tempDir.path,
+    name: 'generated_app_boot_test_${DateTime.now().microsecondsSinceEpoch}',
+  );
+  final repository = PracticeRepository(
+    assetPhraseService: bootState.assetPhraseService!,
+    localDataSource: localDataSource,
+    contentResolver: GeneratedPracticeContentRegistry(
+      store: generatedStore,
+      resumeStore: GeneratedCareTurnResumeMarkerStore(
+        directoryResolver: () async => tempDir,
+      ),
+      accountContextLoader: projectionGate.load,
+    ),
+    installationIdService: InstallationIdService(
+      directoryResolver: () async => tempDir,
+      idGenerator: () => 'install_projection_boot_test',
+    ),
+  );
+  await repository.recordReaction(
+    spaceId: generatedMoment.spaceId,
+    activityId: generatedMoment.activityId,
+    phraseId: generatedMoment.starter.phraseId,
+    reactionType: BabyReactionType.cooperating,
+    generatedContentId: generatedMoment.generatedContentId,
+    utteranceId: generatedMoment.starter.utteranceId,
+    clientTimestamp: DateTime.utc(2026, 8, 9, 8, 5),
+  );
+  projectionGate.armColdBoot();
+  final mentorLocalDataSource = await MentorLocalDataSource.open(
+    directory: tempDir.path,
+    name:
+        'mentor_generated_app_boot_test_${DateTime.now().microsecondsSinceEpoch}',
+  );
+  final mentorRepository = MentorRepository(
+    localDataSource: mentorLocalDataSource,
+    practiceRepository: repository,
+    onboardingSnapshotStore: OnboardingSnapshotStore(
+      directoryResolver: () async => tempDir,
+    ),
+  );
+  return (
+    harness: _AppBootHarness(
+      bootState: bootState,
+      tempDir: tempDir,
+      localDataSource: localDataSource,
+      repository: repository,
+      mentorRepository: mentorRepository,
+    ),
+    accountStorage: accountStorage,
+  );
+}
+
 Future<void> _deleteDirectoryWithRetry(
   Directory directory, {
   int attempts = 20,
@@ -1180,4 +1484,105 @@ class _MalformedSecureStorage extends FlutterSecureStorage {
   }) async {
     return '{"consentState":"accepted_pending_sync","session":null}';
   }
+}
+
+class _GeneratedProjectionAccountGate {
+  _GeneratedProjectionAccountGate(this.accountContext);
+
+  final String accountContext;
+  bool _available = true;
+
+  Future<String?> load() async => _available ? accountContext : null;
+
+  void armColdBoot() {
+    _available = false;
+  }
+
+  void release() {
+    _available = true;
+  }
+}
+
+class _ReadTrackingSecureStorage extends FlutterSecureStorage {
+  _ReadTrackingSecureStorage({required this.onRead});
+
+  final VoidCallback onRead;
+  final Map<String, String> _values = <String, String>{};
+  final Completer<void> _readGate = Completer<void>();
+  bool wasRead = false;
+
+  void releaseRead() {
+    if (!_readGate.isCompleted) {
+      _readGate.complete();
+    }
+  }
+
+  @override
+  Future<String?> read({
+    required String key,
+    IOSOptions? iOptions,
+    AndroidOptions? aOptions,
+    LinuxOptions? lOptions,
+    WebOptions? webOptions,
+    MacOsOptions? mOptions,
+    WindowsOptions? wOptions,
+  }) async {
+    wasRead = true;
+    await _readGate.future;
+    onRead();
+    return _values[key];
+  }
+
+  @override
+  Future<void> write({
+    required String key,
+    required String? value,
+    IOSOptions? iOptions,
+    AndroidOptions? aOptions,
+    LinuxOptions? lOptions,
+    WebOptions? webOptions,
+    MacOsOptions? mOptions,
+    WindowsOptions? wOptions,
+  }) async {
+    if (value == null) {
+      _values.remove(key);
+    } else {
+      _values[key] = value;
+    }
+  }
+
+  @override
+  Future<void> delete({
+    required String key,
+    IOSOptions? iOptions,
+    AndroidOptions? aOptions,
+    LinuxOptions? lOptions,
+    WebOptions? webOptions,
+    MacOsOptions? mOptions,
+    WindowsOptions? wOptions,
+  }) async {
+    _values.remove(key);
+  }
+}
+
+GeneratedCareMoment _generatedColdBootMoment() {
+  return generatedCareMomentFixture(
+    generatedContentId: 'fixture_generated_cold_boot',
+    sceneId: 'fixture_scene',
+    spaceId: 'fixture_generated_space',
+    momentId: 'fixture_moment',
+    activityId: 'fixture_generated_activity',
+    title: '测试照护时刻',
+    sceneTag: 'fixture',
+    coachTip: '慢慢回应',
+    utteranceIdPrefix: 'fixture_utterance',
+    phraseIdPrefix: 'fixture_phrase',
+    englishForSuffix: (suffix) => 'A calm fixture phrase $suffix.',
+    chinese: '测试照护短句',
+    pronunciation: 'fixture',
+    tprActionZh: '轻轻靠近',
+    deliveryGuidanceZh: '放慢语速',
+    providerName: 'fixture_provider',
+    modelName: 'fixture_model',
+  );
 }

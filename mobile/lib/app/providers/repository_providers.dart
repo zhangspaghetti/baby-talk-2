@@ -210,12 +210,8 @@ final generatedPracticeContentRegistryProvider =
         store: ref.watch(generatedCareMomentLocalStoreProvider),
         resumeStore: ref.watch(generatedCareTurnResumeMarkerStoreProvider),
         accountContextLoader: () async {
-          try {
-            final snapshot = await AccountLocalStore().read();
-            return snapshot.session?.accountId;
-          } on Object {
-            return null;
-          }
+          final snapshot = await AccountLocalStore().read();
+          return snapshot.session?.accountId;
         },
       );
     });

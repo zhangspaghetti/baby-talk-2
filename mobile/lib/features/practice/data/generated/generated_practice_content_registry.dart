@@ -9,6 +9,22 @@ import 'package:mobile/features/practice/domain/models/practice_phrase.dart';
 
 typedef GeneratedPracticeAccountContextLoader = Future<String?> Function();
 
+enum GeneratedPracticeProjectionUnavailableReason {
+  accountUnavailable,
+  accountLoadFailed,
+  contentLoadFailed,
+}
+
+class GeneratedPracticeProjectionUnavailableException implements Exception {
+  const GeneratedPracticeProjectionUnavailableException(this.reason);
+
+  final GeneratedPracticeProjectionUnavailableReason reason;
+
+  @override
+  String toString() =>
+      'Generated practice projection unavailable: ${reason.name}';
+}
+
 class GeneratedPracticeContentClearanceException implements Exception {
   GeneratedPracticeContentClearanceException(Iterable<String> failedTargets)
     : failedTargets = List<String>.unmodifiable(failedTargets);
@@ -114,10 +130,7 @@ class GeneratedPracticeContentRegistry
 
   @override
   Future<List<PracticeActivitySnapshot>> listGeneratedActivities() async {
-    final accountContext = await _loadCurrentAccountContext();
-    if (accountContext == null) {
-      return const <PracticeActivitySnapshot>[];
-    }
+    final accountContext = await _requireCurrentAccountContextForProjection();
     try {
       final records =
           (await _store.readAll())
@@ -131,7 +144,9 @@ class GeneratedPracticeContentRegistry
             );
       return List<PracticeActivitySnapshot>.unmodifiable(records);
     } on Object {
-      return const <PracticeActivitySnapshot>[];
+      throw const GeneratedPracticeProjectionUnavailableException(
+        GeneratedPracticeProjectionUnavailableReason.contentLoadFailed,
+      );
     }
   }
 
@@ -235,6 +250,23 @@ class GeneratedPracticeContentRegistry
     } on Object {
       return null;
     }
+  }
+
+  Future<String> _requireCurrentAccountContextForProjection() async {
+    final String? value;
+    try {
+      value = (await _accountContextLoader())?.trim();
+    } on Object {
+      throw const GeneratedPracticeProjectionUnavailableException(
+        GeneratedPracticeProjectionUnavailableReason.accountLoadFailed,
+      );
+    }
+    if (value == null || value.isEmpty) {
+      throw const GeneratedPracticeProjectionUnavailableException(
+        GeneratedPracticeProjectionUnavailableReason.accountUnavailable,
+      );
+    }
+    return value;
   }
 
   PracticeActivitySnapshot _toSnapshot(GeneratedCareMoment moment) {

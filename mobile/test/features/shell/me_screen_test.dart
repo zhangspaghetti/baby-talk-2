@@ -347,6 +347,12 @@ class _StubGardenGrowthNotifier extends ChangeNotifier
   Future<void> refresh() async {}
 
   @override
+  Future<void> refreshForAccountProjection() async {}
+
+  @override
+  void bindAccountContext(String? accountContext, {bool notify = true}) {}
+
+  @override
   void resetToSafeEmpty() {
     _snapshot = GardenGrowthSnapshot.empty();
     notifyListeners();

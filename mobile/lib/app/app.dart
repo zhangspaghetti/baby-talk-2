@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:mobile/app/account_readiness_bootstrap.dart';
 import 'package:mobile/app/app_reentry_orchestrator.dart';
 import 'package:mobile/app/custom_scene_recovery_coordinator.dart';
 import 'package:mobile/app/auth_state.dart';
@@ -291,9 +292,8 @@ class _BabyTalkAppState extends ConsumerState<BabyTalkApp> {
               launchState: launchState,
               onboardingRepository: onboardingRepository,
             ),
-            builder: (context, child) => _CustomSceneRecoveryBootstrap(
-              child: _ReentryOverlay(child: child),
-            ),
+            builder: (context, child) =>
+                AccountReadinessBootstrap(child: _ReentryOverlay(child: child)),
             debugShowCheckedModeBanner: false,
             title: 'Baby Talk 2',
             localizationsDelegates: AppLocalizations.localizationsDelegates,
@@ -631,43 +631,6 @@ class _BootRouteMarker extends StatelessWidget {
       key: const Key('boot-route-gate-ready'),
       child: KeyedSubtree(key: routeKey, child: child),
     );
-  }
-}
-
-/// Starts custom-scene restore only after the account snapshot is stable.
-/// Route work remains inside [CustomSceneRecoveryCoordinator].
-class _CustomSceneRecoveryBootstrap extends ConsumerWidget {
-  const _CustomSceneRecoveryBootstrap({this.child});
-
-  final Widget? child;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final account = ref.watch(accountNotifierProvider);
-    final recovery = ref.watch(customSceneRecoveryCoordinatorProvider);
-    final continuity = ref.watch(practiceContinuityNotifierProvider);
-    final coordinator = recovery is AsyncData<CustomSceneRecoveryCoordinator>
-        ? recovery.value
-        : null;
-    if (coordinator != null) {
-      final accountContext =
-          account.hasLoaded &&
-              !account.isLoading &&
-              !account.isBusy &&
-              account.isSignedIn
-          ? account.snapshot.session?.accountId
-          : null;
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        unawaited(
-          coordinator.recoverForAuthenticatedAccount(
-            accountContext: accountContext,
-            resumableGeneratedContentId:
-                continuity.generatedRecommendedArgs?.generatedContentId,
-          ),
-        );
-      });
-    }
-    return child ?? const SizedBox.shrink();
   }
 }
 
