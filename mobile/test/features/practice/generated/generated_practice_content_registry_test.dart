@@ -1275,8 +1275,13 @@ class _RecordingHandoffSink implements CustomSceneCareTurnHandoffSink {
   final List<String> ids = <String>[];
 
   @override
-  Future<void> handoff(CustomSceneCareTurnHandoff handoff) async {
+  Future<CustomSceneCareTurnRouteAttempt> handoff(
+    CustomSceneCareTurnHandoff handoff,
+  ) async {
     ids.add(handoff.generatedContentId);
+    return CustomSceneCareTurnRouteAttempt(
+      routeCompletion: Future<void>.value(),
+    );
   }
 }
 

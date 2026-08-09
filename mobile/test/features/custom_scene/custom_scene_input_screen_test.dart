@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -108,6 +109,49 @@ void main() {
       );
     },
   );
+
+  testWidgets('prepared content tap and semantic tap use the same opener', (
+    tester,
+  ) async {
+    final semantics = tester.ensureSemantics();
+    final controller = _ImmediateSubmissionController();
+    var openCalls = 0;
+    await _pump(
+      tester,
+      CustomSceneInputScreen(
+        routeArgs: const CustomSceneRouteArgs(
+          entrySource: CustomSceneEntrySource.scene,
+        ),
+        controller: controller,
+        onOpenPreparedContent: () async => openCalls += 1,
+        clientRequestIdGenerator: () => 'scene_request_1',
+      ),
+    );
+    await tester.enterText(
+      find.byKey(const Key('custom-scene-text-field')),
+      '洗澡时宝宝不想碰水。',
+    );
+    final action = find.byKey(const Key('custom-scene-submit-button'));
+    await tester.tap(action);
+    await tester.pump();
+
+    await tester.tap(action);
+    await tester.pump();
+    expect(openCalls, 1);
+
+    final semanticsNode = tester.getSemantics(action);
+    tester.binding.performSemanticsAction(
+      ui.SemanticsActionEvent(
+        nodeId: semanticsNode.id,
+        type: ui.SemanticsAction.tap,
+        viewId: tester.view.viewId,
+      ),
+    );
+    await tester.pump();
+
+    expect(openCalls, 2);
+    semantics.dispose();
+  });
 
   testWidgets(
     'response loss after restart reconciles once with original request identity',

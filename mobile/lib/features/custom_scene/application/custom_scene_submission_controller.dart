@@ -35,8 +35,18 @@ class CustomSceneCareTurnHandoff {
   }
 }
 
+/// One started Care Turn route. Completion means only that the destination
+/// exited; it never confirms an interactive handoff or cleans durable intent.
+class CustomSceneCareTurnRouteAttempt {
+  const CustomSceneCareTurnRouteAttempt({required this.routeCompletion});
+
+  final Future<void> routeCompletion;
+}
+
 abstract interface class CustomSceneCareTurnHandoffSink {
-  Future<void> handoff(CustomSceneCareTurnHandoff handoff);
+  Future<CustomSceneCareTurnRouteAttempt> handoff(
+    CustomSceneCareTurnHandoff handoff,
+  );
 }
 
 typedef CustomSceneAccountContextLoader = Future<String?> Function();

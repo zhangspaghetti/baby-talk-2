@@ -17,9 +17,13 @@ class CustomSceneRecoveryCoordinator {
   final CustomSceneSubmissionController _controller;
   final CustomSceneCareTurnHandoffSink _handoffSink;
   Future<void> _mutationTail = Future<void>.value();
+  Future<void>? _activePreparedContentOpenStart;
   String? _stableAccountContext;
   String? _recoveredAccountContext;
   String? _routedContentId;
+  String? _activeRouteAccountContext;
+  String? _activeRouteContentId;
+  Future<void>? _activeRouteCompletion;
   bool _disposed = false;
 
   /// Call only after account state has finished settling. A missing account
@@ -61,9 +65,21 @@ class CustomSceneRecoveryCoordinator {
 
   /// UI invokes this command, but routing remains in this coordinator.
   Future<void> openPreparedContent() {
-    return _enqueue(
-      () => _routePreparedContentIfReady(allowRecoveredRetry: true),
-    );
+    final activeStart = _activePreparedContentOpenStart;
+    if (activeStart != null) {
+      return activeStart;
+    }
+    late final Future<void> operation;
+    operation =
+        _enqueue(
+          () => _routePreparedContentIfReady(allowRecoveredRetry: true),
+        ).whenComplete(() {
+          if (identical(_activePreparedContentOpenStart, operation)) {
+            _activePreparedContentOpenStart = null;
+          }
+        });
+    _activePreparedContentOpenStart = operation;
+    return operation;
   }
 
   Future<void> _routePreparedContentIfReady({
@@ -80,13 +96,24 @@ class CustomSceneRecoveryCoordinator {
         generatedContentId.isEmpty) {
       return;
     }
-    if (_routedContentId == generatedContentId) {
+    if (_isRouteActive(
+      accountContext: accountContext,
+      generatedContentId: generatedContentId,
+    )) {
+      return;
+    }
+    if (!allowRecoveredRetry && _routedContentId == generatedContentId) {
       return;
     }
     _routedContentId = generatedContentId;
     try {
-      await _handoffSink.handoff(
+      final routeAttempt = await _handoffSink.handoff(
         CustomSceneCareTurnHandoff(generatedContentId: generatedContentId),
+      );
+      _trackRouteAttempt(
+        accountContext: accountContext,
+        generatedContentId: generatedContentId,
+        routeAttempt: routeAttempt,
       );
     } on Object {
       _routedContentId = null;
@@ -97,22 +124,67 @@ class CustomSceneRecoveryCoordinator {
   Future<void> _routeResumableGeneratedContentIfIdle(
     String? generatedContentId,
   ) async {
+    final accountContext = _stableAccountContext;
     final normalizedContentId = generatedContentId?.trim();
-    if (_stableAccountContext == null ||
+    if (accountContext == null ||
         _controller.state.canOpenPreparedContent ||
         normalizedContentId == null ||
         normalizedContentId.isEmpty ||
+        _isRouteActive(
+          accountContext: accountContext,
+          generatedContentId: normalizedContentId,
+        ) ||
         _routedContentId == normalizedContentId) {
       return;
     }
     _routedContentId = normalizedContentId;
     try {
-      await _handoffSink.handoff(
+      final routeAttempt = await _handoffSink.handoff(
         CustomSceneCareTurnHandoff(generatedContentId: normalizedContentId),
+      );
+      _trackRouteAttempt(
+        accountContext: accountContext,
+        generatedContentId: normalizedContentId,
+        routeAttempt: routeAttempt,
       );
     } on Object {
       _routedContentId = null;
     }
+  }
+
+  bool _isRouteActive({
+    required String accountContext,
+    required String generatedContentId,
+  }) {
+    return _activeRouteAccountContext == accountContext &&
+        _activeRouteContentId == generatedContentId &&
+        _activeRouteCompletion != null;
+  }
+
+  void _trackRouteAttempt({
+    required String accountContext,
+    required String generatedContentId,
+    required CustomSceneCareTurnRouteAttempt routeAttempt,
+  }) {
+    final completion = routeAttempt.routeCompletion;
+    _activeRouteAccountContext = accountContext;
+    _activeRouteContentId = generatedContentId;
+    _activeRouteCompletion = completion;
+    unawaited(
+      completion.then<void>(
+        (_) => _clearRouteAttempt(completion),
+        onError: (_, _) => _clearRouteAttempt(completion),
+      ),
+    );
+  }
+
+  void _clearRouteAttempt(Future<void> completion) {
+    if (!identical(_activeRouteCompletion, completion)) {
+      return;
+    }
+    _activeRouteAccountContext = null;
+    _activeRouteContentId = null;
+    _activeRouteCompletion = null;
   }
 
   void _onSubmissionStateChanged() {

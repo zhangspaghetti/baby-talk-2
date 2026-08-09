@@ -416,8 +416,13 @@ class _FakeHandoffSink implements CustomSceneCareTurnHandoffSink {
   final List<String> generatedContentIds = <String>[];
 
   @override
-  Future<void> handoff(CustomSceneCareTurnHandoff handoff) async {
+  Future<CustomSceneCareTurnRouteAttempt> handoff(
+    CustomSceneCareTurnHandoff handoff,
+  ) async {
     generatedContentIds.add(handoff.generatedContentId);
+    return CustomSceneCareTurnRouteAttempt(
+      routeCompletion: Future<void>.value(),
+    );
   }
 }
 

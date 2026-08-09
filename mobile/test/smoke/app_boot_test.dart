@@ -592,7 +592,13 @@ void main() {
       );
 
       Future<void> expectGeneratedHandoff() async {
-        await sink.handoff(handoff);
+        var routeAttemptCompleted = false;
+        final routeAttempt = await sink.handoff(handoff);
+        unawaited(
+          routeAttempt.routeCompletion.then((_) {
+            routeAttemptCompleted = true;
+          }),
+        );
         await _pumpUntilFound(tester, find.byType(PracticeSessionScreen));
         final screen = tester.widget<PracticeSessionScreen>(
           find.byType(PracticeSessionScreen),
@@ -601,11 +607,16 @@ void main() {
           screen.routeEntry.generatedArgs?.generatedContentId,
           'generated_reconciled',
         );
+        await tester.pump();
+        expect(routeAttemptCompleted, isFalse);
+
+        Navigator.of(tester.element(find.byType(PracticeSessionScreen))).pop();
+        await routeAttempt.routeCompletion;
+        expect(routeAttemptCompleted, isTrue);
+        await _pumpUntilFound(tester, find.byKey(const Key('shell-ready')));
       }
 
       await expectGeneratedHandoff();
-      Navigator.of(tester.element(find.byType(PracticeSessionScreen))).pop();
-      await _pumpUntilFound(tester, find.byKey(const Key('shell-ready')));
       await expectGeneratedHandoff();
     },
   );
