@@ -73,6 +73,9 @@ def verify_no_production_fallback() -> bool:
         ),
         "AgenticCustomSceneQualityJudge.java": (
             "profile.minimumQualityJudgeOutputTokens()",
+            "profile.qualityJudgeInferencePolicy()",
+            "inferencePolicy.matches(provider.providerType(), provider.modelName())",
+            "inferencePolicy.reasoningEffort()",
             "structuredOutputCaller.call(",
             'violations.put("maxItems", ALLOWED_JUDGE_VIOLATION_CODES.size())',
             'arraySchema.put("maxItems", expected.size())',
@@ -449,7 +452,7 @@ def verify_versioned_output_budget() -> bool:
         / "config"
         / "practice-ai"
         / "profiles"
-        / "custom-scene-generation-v6.yml"
+        / "custom-scene-generation-v7.yml"
     )
     profile = profile_path.read_text(encoding="utf-8")
     profile_match = re.search(
@@ -475,12 +478,16 @@ def verify_versioned_output_budget() -> bool:
             violations.append(f"{profile_path.name}: Quality Judge output budget is below safe minimum")
 
     inference_markers = (
-        "schema-version: generation-profile-schema-v4",
+        "schema-version: generation-profile-schema-v5",
         "repair-inference-policy:\n"
         "  provider-type: openai-compatible\n"
         "  model-names: [glm-5.2]\n"
         "  reasoning-effort: none",
         "generator-inference-policy:\n"
+        "  provider-type: openai-compatible\n"
+        "  model-names: [glm-5.2]\n"
+        "  reasoning-effort: none",
+        "quality-judge-inference-policy:\n"
         "  provider-type: openai-compatible\n"
         "  model-names: [glm-5.2]\n"
         "  reasoning-effort: none",

@@ -21,6 +21,9 @@ resources:
 - version: custom-scene-generation-v6
   resource-path: config/practice-ai/profiles/custom-scene-generation-v6.yml
   content-hash: da4bbe0e608725f2bd94e8131560158259f0dbe29698b1cf9ae41f423afed8d7
+- version: custom-scene-generation-v7
+  resource-path: config/practice-ai/profiles/custom-scene-generation-v7.yml
+  content-hash: d946c7d8bb7207215b7b730b2c7ca06e4b641226362e8333f20d5f79fa97b741
 - version: custom-scene-generator-v1
   resource-path: config/practice-ai/prompts/custom-scene-generator-v1.txt
   content-hash: f6ed4f6e4fe6f68ac1fbfbd012de6d7532333cb234be90001c521cf250087169

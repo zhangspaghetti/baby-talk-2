@@ -6,6 +6,8 @@ import com.zhangspaghetti.babytalk.practice.agentic.PracticeAiJsonSchemaPublishe
 import com.zhangspaghetti.babytalk.practice.agentic.PracticeAiOperationRunner;
 import com.zhangspaghetti.babytalk.practice.agentic.PracticeAiStructuredOutputCaller;
 import com.zhangspaghetti.babytalk.practice.agentic.PracticeAiStructuredOutputCaller.StructuredOutputInvalidException;
+import com.zhangspaghetti.babytalk.practice.agentic.ResolvedProvider;
+import com.zhangspaghetti.babytalk.practice.agentic.config.GenerationProfile;
 import com.zhangspaghetti.babytalk.practice.agentic.config.QualityRubric;
 import com.zhangspaghetti.babytalk.practice.agentic.config.VersionedResourceRegistry;
 import com.zhangspaghetti.babytalk.practice.generated.quality.DimensionResult;
@@ -106,15 +108,7 @@ public class AgenticCustomSceneQualityJudge implements CustomSceneQualityJudge {
                 rubric.version(),
                 rubric.contentHash(),
                 provider -> {
-                    var wire = profile.minimumQualityJudgeOutputTokens() == 0
-                            ? structuredOutputCaller.call(
-                                    provider, systemPrompt, userPrompt, JudgeWireResponse.class)
-                            : structuredOutputCaller.call(
-                                    provider,
-                                    systemPrompt,
-                                    userPrompt,
-                                    JudgeWireResponse.class,
-                                    profile.minimumQualityJudgeOutputTokens());
+                    var wire = callJudgeProvider(provider, systemPrompt, userPrompt, profile);
                     var suggested = wire.toSuggested();
                     var effective = verdictCalculator.calculate(suggested, rubric);
                     return new OperationRequest.ProviderInvocationResult<>(
@@ -123,6 +117,35 @@ public class AgenticCustomSceneQualityJudge implements CustomSceneQualityJudge {
         auditPort.persist(new JudgeResultAuditPort.JudgeAuditRecord(
                 result.providerCallId(), result.value().suggested(), result.value().effective(), rubric));
         return result.value().suggested();
+    }
+
+    private JudgeWireResponse callJudgeProvider(
+            ResolvedProvider provider,
+            String systemPrompt,
+            String userPrompt,
+            GenerationProfile profile
+    ) {
+        if (profile.minimumQualityJudgeOutputTokens() == 0) {
+            return structuredOutputCaller.call(
+                    provider, systemPrompt, userPrompt, JudgeWireResponse.class);
+        }
+        var inferencePolicy = profile.qualityJudgeInferencePolicy();
+        if (inferencePolicy != null
+                && inferencePolicy.matches(provider.providerType(), provider.modelName())) {
+            return structuredOutputCaller.call(
+                    provider,
+                    systemPrompt,
+                    userPrompt,
+                    JudgeWireResponse.class,
+                    profile.minimumQualityJudgeOutputTokens(),
+                    inferencePolicy.reasoningEffort());
+        }
+        return structuredOutputCaller.call(
+                provider,
+                systemPrompt,
+                userPrompt,
+                JudgeWireResponse.class,
+                profile.minimumQualityJudgeOutputTokens());
     }
 
     private String userPrompt(JudgeRequest request) {

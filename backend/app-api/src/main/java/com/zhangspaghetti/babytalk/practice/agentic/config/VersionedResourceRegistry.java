@@ -25,11 +25,7 @@ import tools.jackson.dataformat.yaml.YAMLFactory;
 public class VersionedResourceRegistry {
 
     private static final String RESOURCE_PREFIX = "config/practice-ai/";
-    private static final String DEFAULT_PROFILE = "classpath:config/practice-ai/profiles/custom-scene-generation-v6.yml";
-    private static final String PROFILE_SCHEMA_V1 = "generation-profile-schema-v1";
-    private static final String PROFILE_SCHEMA_V2 = "generation-profile-schema-v2";
-    private static final String PROFILE_SCHEMA_V3 = "generation-profile-schema-v3";
-    private static final String PROFILE_SCHEMA_V4 = "generation-profile-schema-v4";
+    private static final String DEFAULT_PROFILE = "classpath:config/practice-ai/profiles/custom-scene-generation-v7.yml";
     private static final String RUBRIC_SCHEMA = "judge-rubric-schema-v1";
     private static final String EVIDENCE_POLICY_SCHEMA = "evidence-policy-schema-v1";
     private static final String BASELINE_EVIDENCE_SCHEMA = "baseline-evidence-schema-v1";
@@ -66,11 +62,8 @@ public class VersionedResourceRegistry {
         this.resourceLoader = Objects.requireNonNull(resourceLoader, "resourceLoader");
         var profileResource = requiredResource(profilePath);
         var profileDocument = yamlDocument(profileResource);
-        var profileSchema = string(profileDocument, "schema-version", "profile schema");
-        if (!Set.of(PROFILE_SCHEMA_V1, PROFILE_SCHEMA_V2, PROFILE_SCHEMA_V3, PROFILE_SCHEMA_V4)
-                .contains(profileSchema)) {
-            throw new IllegalStateException("profile schema version mismatch");
-        }
+        var profileSchema = ProfileSchema.fromWireValue(
+                string(profileDocument, "schema-version", "profile schema"));
         var profileVersion = string(profileDocument, "version", "profile");
 
         var generatorPrompt = promptRef(profileDocument, "generator-prompt");
@@ -103,17 +96,20 @@ public class VersionedResourceRegistry {
                         profileDocument,
                         "minimum-complete-bundle-output-tokens",
                         "profile"),
-                !PROFILE_SCHEMA_V1.equals(profileSchema)
+                profileSchema.hasQualityJudgeOutputBudget()
                         ? positiveInteger(
                                 profileDocument,
                                 "minimum-quality-judge-output-tokens",
                                 "profile")
                         : 0,
-                Set.of(PROFILE_SCHEMA_V3, PROFILE_SCHEMA_V4).contains(profileSchema)
-                        ? repairInferencePolicy(profileDocument)
+                profileSchema.hasRepairInferencePolicy()
+                        ? inferencePolicy(profileDocument, "repair-inference-policy")
                         : null,
-                PROFILE_SCHEMA_V4.equals(profileSchema)
-                        ? generatorInferencePolicy(profileDocument)
+                profileSchema.hasGeneratorInferencePolicy()
+                        ? inferencePolicy(profileDocument, "generator-inference-policy")
+                        : null,
+                profileSchema.hasQualityJudgeInferencePolicy()
+                        ? inferencePolicy(profileDocument, "quality-judge-inference-policy")
                         : null);
     }
 
@@ -389,30 +385,12 @@ public class VersionedResourceRegistry {
         return number.doubleValue();
     }
 
-    private GenerationProfile.RepairInferencePolicy repairInferencePolicy(Map<String, Object> profile) {
-        var context = "profile repair-inference-policy";
-        var policy = map(profile.get("repair-inference-policy"), context);
-        if (!Set.of("provider-type", "model-names", "reasoning-effort").equals(policy.keySet())) {
-            throw new IllegalStateException(context + " keys are invalid");
-        }
-        var providerType = string(policy, "provider-type", context);
-        var modelNames = strings(policy.get("model-names"), context + " model-names");
-        if (modelNames.size() > 8 || hasDuplicates(modelNames)) {
-            throw new IllegalStateException(context + " model-names are invalid");
-        }
-        var reasoningEffort = string(policy, "reasoning-effort", context);
-        PracticeAiReasoningEffort typedReasoningEffort;
-        try {
-            typedReasoningEffort = PracticeAiReasoningEffort.fromWireValue(reasoningEffort);
-        } catch (IllegalArgumentException exception) {
-            throw new IllegalStateException(context + " reasoning-effort is invalid");
-        }
-        return new GenerationProfile.RepairInferencePolicy(providerType, modelNames, typedReasoningEffort);
-    }
-
-    private GenerationProfile.GeneratorInferencePolicy generatorInferencePolicy(Map<String, Object> profile) {
-        var context = "profile generator-inference-policy";
-        var policy = map(profile.get("generator-inference-policy"), context);
+    private GenerationProfile.InferencePolicy inferencePolicy(
+            Map<String, Object> profile,
+            String policyKey
+    ) {
+        var context = "profile " + policyKey;
+        var policy = map(profile.get(policyKey), context);
         if (!Set.of("provider-type", "model-names", "reasoning-effort").equals(policy.keySet())) {
             throw new IllegalStateException(context + " keys are invalid");
         }
@@ -428,7 +406,7 @@ public class VersionedResourceRegistry {
         } catch (IllegalArgumentException exception) {
             throw new IllegalStateException(context + " reasoning-effort is invalid");
         }
-        return new GenerationProfile.GeneratorInferencePolicy(providerType, modelNames, typedReasoningEffort);
+        return new GenerationProfile.InferencePolicy(providerType, modelNames, typedReasoningEffort);
     }
 
     private static int positiveInteger(Map<String, Object> document, String key, String context) {
@@ -446,6 +424,57 @@ public class VersionedResourceRegistry {
         GENERATOR,
         JUDGE,
         REPAIR
+    }
+
+    private enum ProfileSchema {
+        V1("generation-profile-schema-v1", false, false, false, false),
+        V2("generation-profile-schema-v2", true, false, false, false),
+        V3("generation-profile-schema-v3", true, true, false, false),
+        V4("generation-profile-schema-v4", true, true, true, false),
+        V5("generation-profile-schema-v5", true, true, true, true);
+
+        private final String wireValue;
+        private final boolean qualityJudgeOutputBudget;
+        private final boolean repairInferencePolicy;
+        private final boolean generatorInferencePolicy;
+        private final boolean qualityJudgeInferencePolicy;
+
+        ProfileSchema(
+                String wireValue,
+                boolean qualityJudgeOutputBudget,
+                boolean repairInferencePolicy,
+                boolean generatorInferencePolicy,
+                boolean qualityJudgeInferencePolicy
+        ) {
+            this.wireValue = wireValue;
+            this.qualityJudgeOutputBudget = qualityJudgeOutputBudget;
+            this.repairInferencePolicy = repairInferencePolicy;
+            this.generatorInferencePolicy = generatorInferencePolicy;
+            this.qualityJudgeInferencePolicy = qualityJudgeInferencePolicy;
+        }
+
+        private static ProfileSchema fromWireValue(String wireValue) {
+            return java.util.Arrays.stream(values())
+                    .filter(schema -> schema.wireValue.equals(wireValue))
+                    .findFirst()
+                    .orElseThrow(() -> new IllegalStateException("profile schema version mismatch"));
+        }
+
+        private boolean hasQualityJudgeOutputBudget() {
+            return qualityJudgeOutputBudget;
+        }
+
+        private boolean hasRepairInferencePolicy() {
+            return repairInferencePolicy;
+        }
+
+        private boolean hasGeneratorInferencePolicy() {
+            return generatorInferencePolicy;
+        }
+
+        private boolean hasQualityJudgeInferencePolicy() {
+            return qualityJudgeInferencePolicy;
+        }
     }
 
     public record BaselineEvidenceDefinition(

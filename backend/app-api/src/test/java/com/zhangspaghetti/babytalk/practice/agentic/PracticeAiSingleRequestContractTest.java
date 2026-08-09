@@ -6,12 +6,18 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import com.zhangspaghetti.babytalk.practice.generated.contract.CompleteGeneratedBundle;
 import com.zhangspaghetti.babytalk.practice.agentic.config.PracticeAiReasoningEffort;
 import com.zhangspaghetti.babytalk.practice.agentic.config.VersionedResourceRegistry;
+import com.zhangspaghetti.babytalk.practice.generated.AgenticCustomSceneQualityJudge;
 import com.sun.net.httpserver.HttpServer;
+import com.zhangspaghetti.babytalk.practice.generated.quality.DimensionResult;
+import com.zhangspaghetti.babytalk.practice.generated.quality.JudgeDimension;
+import com.zhangspaghetti.babytalk.practice.generated.quality.JudgeVerdict;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.util.EnumMap;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -248,7 +254,7 @@ class PracticeAiSingleRequestContractTest {
 
     @ParameterizedTest
     @ValueSource(strings = {"maxTokens", "maxCompletionTokens"})
-    void typedJudgeBudgetBelowSafeMinimumFailsBeforeOutboundRequest(String tokenLimitField) throws Exception {
+    void controlledTypedJudgeBudgetBelowSafeMinimumFailsBeforeOutboundRequest(String tokenLimitField) throws Exception {
         var requestCount = new AtomicInteger();
         var server = server(requestCount, 200, openAiEnvelope("{\"answer\":\"ok\"}"));
         try {
@@ -256,7 +262,12 @@ class PracticeAiSingleRequestContractTest {
 
             var exception = org.assertj.core.api.Assertions.catchThrowableOfType(
                     () -> new PracticeAiStructuredOutputCaller().call(
-                            provider, "system", "return JSON", Answer.class, 8192),
+                            provider,
+                            "system",
+                            "return JSON",
+                            Answer.class,
+                            8192,
+                            PracticeAiReasoningEffort.NONE),
                     PracticeAiStructuredOutputCaller.OutputBudgetTooSmallException.class);
 
             assertThat(exception).hasMessage("output_budget_too_small");
@@ -403,7 +414,7 @@ class PracticeAiSingleRequestContractTest {
                     .currentGenerationProfile();
             var generatorInferencePolicy = profile.generatorInferencePolicy();
 
-            assertThat(profile.version()).isEqualTo("custom-scene-generation-v6");
+            assertThat(profile.version()).isEqualTo("custom-scene-generation-v7");
             assertThat(generatorInferencePolicy.matches(provider.providerType(), provider.modelName()))
                     .isTrue();
 
@@ -435,6 +446,78 @@ class PracticeAiSingleRequestContractTest {
 
             assertThat(CompleteGeneratedBundle.ProviderResponse.parse(completed))
                     .isEqualTo(completeBundleWire());
+            assertThat(requestCount).hasValue(2);
+            assertThat(requestBodies.get(1))
+                    .contains("\"max_tokens\":8192")
+                    .contains("\"n\":1")
+                    .contains("\"response_format\"")
+                    .contains("\"json_schema\"")
+                    .contains("\"strict\":true")
+                    .contains("\"reasoning_effort\":\"none\"");
+        } finally {
+            server.stop(0);
+        }
+    }
+
+    @Test
+    void formalQualityJudgeTruncatesWithoutCompatibilityAndCompletesWithMatchingPolicy() throws Exception {
+        var requestCount = new AtomicInteger();
+        var requestBodies = new CopyOnWriteArrayList<String>();
+        var server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+        server.createContext("/v1/chat/completions", exchange -> {
+            requestCount.incrementAndGet();
+            var body = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
+            requestBodies.add(body);
+            var compatible = body.contains("\"reasoning_effort\":\"none\"");
+            var response = compatible
+                    ? openAiEnvelope(qualityJudgeJson())
+                    : openAiEnvelope("{\"suggestedVerdict\":\"PASS\"", "length", 100, 8192);
+            var bytes = response.getBytes(StandardCharsets.UTF_8);
+            exchange.getResponseHeaders().set("Content-Type", "application/json");
+            exchange.sendResponseHeaders(200, bytes.length);
+            try (var responseBody = exchange.getResponseBody()) {
+                responseBody.write(bytes);
+            }
+        });
+        server.start();
+        try {
+            var provider = provider(server, "maxTokens", 8192, "glm-5.2");
+            var caller = new PracticeAiStructuredOutputCaller();
+            var profile = new VersionedResourceRegistry(new DefaultResourceLoader())
+                    .currentGenerationProfile();
+            var inferencePolicy = profile.qualityJudgeInferencePolicy();
+
+            assertThat(profile.version()).isEqualTo("custom-scene-generation-v7");
+            assertThat(inferencePolicy.matches(provider.providerType(), provider.modelName()))
+                    .isTrue();
+
+            assertThatThrownBy(() -> caller.call(
+                    provider,
+                    "JUDGE SYSTEM PROMPT",
+                    "formal judge payload",
+                    AgenticCustomSceneQualityJudge.JudgeWireResponse.class,
+                    profile.minimumQualityJudgeOutputTokens()))
+                    .isInstanceOf(PracticeAiStructuredOutputCaller.StructuredOutputInvalidException.class)
+                    .hasMessage("output_truncated");
+
+            assertThat(requestCount).hasValue(1);
+            assertThat(requestBodies.get(0))
+                    .contains("\"max_tokens\":8192")
+                    .contains("\"n\":1")
+                    .contains("\"response_format\"")
+                    .contains("\"json_schema\"")
+                    .contains("\"strict\":true")
+                    .doesNotContain("reasoning_effort");
+
+            var completed = caller.call(
+                    provider,
+                    "JUDGE SYSTEM PROMPT",
+                    "formal judge payload",
+                    AgenticCustomSceneQualityJudge.JudgeWireResponse.class,
+                    profile.minimumQualityJudgeOutputTokens(),
+                    inferencePolicy.reasoningEffort());
+
+            assertThat(completed).isEqualTo(qualityJudgeWire());
             assertThat(requestCount).hasValue(2);
             assertThat(requestBodies.get(1))
                     .contains("\"max_tokens\":8192")
@@ -577,6 +660,24 @@ class PracticeAiSingleRequestContractTest {
 
     private String completeBundleJson() {
         return new JsonMapper().writeValueAsString(completeBundleWire());
+    }
+
+    private String qualityJudgeJson() {
+        return new JsonMapper().writeValueAsString(qualityJudgeWire());
+    }
+
+    private AgenticCustomSceneQualityJudge.JudgeWireResponse qualityJudgeWire() {
+        var dimensions = new EnumMap<JudgeDimension, DimensionResult>(JudgeDimension.class);
+        for (var dimension : JudgeDimension.values()) {
+            dimensions.put(dimension, DimensionResult.PASS);
+        }
+        return new AgenticCustomSceneQualityJudge.JudgeWireResponse(
+                JudgeVerdict.PASS,
+                dimensions,
+                List.of(),
+                List.of(),
+                List.of(),
+                0.91d);
     }
 
     private CompleteGeneratedBundle.ProviderResponse completeBundleWire() {

@@ -556,7 +556,7 @@ class AgenticCustomSceneGeneratorTest {
                 profile.minimumCompleteBundleOutputTokens(),
                 profile.minimumQualityJudgeOutputTokens(),
                 profile.repairInferencePolicy(),
-                new GenerationProfile.GeneratorInferencePolicy(
+                new GenerationProfile.InferencePolicy(
                         "openai-compatible",
                         List.of("glm-5.2"),
                         PracticeAiReasoningEffort.NONE));

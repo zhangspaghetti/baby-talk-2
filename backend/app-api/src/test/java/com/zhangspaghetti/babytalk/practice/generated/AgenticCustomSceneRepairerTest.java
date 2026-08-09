@@ -385,7 +385,7 @@ class AgenticCustomSceneRepairerTest {
                 "schema-v1",
                 8192,
                 0,
-                new GenerationProfile.RepairInferencePolicy(
+                new GenerationProfile.InferencePolicy(
                         "openai-compatible",
                         List.of("glm-5.2"),
                         PracticeAiReasoningEffort.NONE));

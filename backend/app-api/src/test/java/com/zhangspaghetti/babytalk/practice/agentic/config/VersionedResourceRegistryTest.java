@@ -14,9 +14,9 @@ class VersionedResourceRegistryTest {
     void loadsProfileAndComputesStableCanonicalHashes() {
         var profile = registry.currentGenerationProfile();
 
-        assertThat(profile.version()).isEqualTo("custom-scene-generation-v6");
+        assertThat(profile.version()).isEqualTo("custom-scene-generation-v7");
         assertThat(profile.contentHash())
-                .isEqualTo("da4bbe0e608725f2bd94e8131560158259f0dbe29698b1cf9ae41f423afed8d7");
+                .isEqualTo("d946c7d8bb7207215b7b730b2c7ca06e4b641226362e8333f20d5f79fa97b741");
         assertThat(profile.generatorPrompt().version()).isEqualTo("custom-scene-generator-v3");
         assertThat(profile.judgePrompt().version()).isEqualTo("custom-scene-quality-judge-v3");
         assertThat(profile.repairPrompt().version()).isEqualTo("custom-scene-repair-v3");
@@ -25,16 +25,32 @@ class VersionedResourceRegistryTest {
         assertThat(profile.minimumCompleteBundleOutputTokens()).isEqualTo(8192);
         assertThat(profile.minimumQualityJudgeOutputTokens()).isEqualTo(8192);
         assertThat(profile.repairInferencePolicy()).isEqualTo(
-                new GenerationProfile.RepairInferencePolicy(
+                new GenerationProfile.InferencePolicy(
                         "openai-compatible",
                         java.util.List.of("glm-5.2"),
                         PracticeAiReasoningEffort.NONE));
         assertThat(profile.generatorInferencePolicy()).isEqualTo(
-                new GenerationProfile.GeneratorInferencePolicy(
+                new GenerationProfile.InferencePolicy(
+                        "openai-compatible",
+                        java.util.List.of("glm-5.2"),
+                        PracticeAiReasoningEffort.NONE));
+        assertThat(profile.qualityJudgeInferencePolicy()).isEqualTo(
+                new GenerationProfile.InferencePolicy(
                         "openai-compatible",
                         java.util.List.of("glm-5.2"),
                         PracticeAiReasoningEffort.NONE));
         assertThat(registry.promptText(VersionedResourceRegistry.PromptKind.GENERATOR)).contains("strict JSON");
+    }
+
+    @Test
+    void v6ProfileRemainsImmutableAndHasNoQualityJudgeInferenceOverride() {
+        var legacy = registryFor("profiles/custom-scene-generation-v6.yml")
+                .currentGenerationProfile();
+
+        assertThat(legacy.version()).isEqualTo("custom-scene-generation-v6");
+        assertThat(legacy.contentHash())
+                .isEqualTo("da4bbe0e608725f2bd94e8131560158259f0dbe29698b1cf9ae41f423afed8d7");
+        assertThat(legacy.qualityJudgeInferencePolicy()).isNull();
     }
 
     @Test
@@ -95,6 +111,20 @@ class VersionedResourceRegistryTest {
         assertThatThrownBy(() -> registryFor("fixtures/profile-generator-inference-invalid.yml"))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessage("profile generator-inference-policy reasoning-effort is invalid");
+    }
+
+    @Test
+    void v5ProfileSchemaRequiresCompleteQualityJudgeInferencePolicy() {
+        assertThatThrownBy(() -> registryFor("fixtures/profile-quality-judge-inference-missing.yml"))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("profile quality-judge-inference-policy must be a mapping");
+    }
+
+    @Test
+    void v5ProfileSchemaRejectsUnsupportedQualityJudgeReasoningEffort() {
+        assertThatThrownBy(() -> registryFor("fixtures/profile-quality-judge-inference-invalid.yml"))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("profile quality-judge-inference-policy reasoning-effort is invalid");
     }
 
     @Test

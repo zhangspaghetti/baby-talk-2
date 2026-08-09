@@ -17,6 +17,7 @@ import com.zhangspaghetti.babytalk.practice.agentic.PracticeAiOperationRunner;
 import com.zhangspaghetti.babytalk.practice.agentic.PracticeAiStructuredOutputCaller;
 import com.zhangspaghetti.babytalk.practice.agentic.ResolvedProvider;
 import com.zhangspaghetti.babytalk.practice.agentic.config.GenerationProfile;
+import com.zhangspaghetti.babytalk.practice.agentic.config.PracticeAiReasoningEffort;
 import com.zhangspaghetti.babytalk.practice.agentic.config.QualityRubric;
 import com.zhangspaghetti.babytalk.practice.agentic.config.VersionedRef;
 import com.zhangspaghetti.babytalk.practice.agentic.config.VersionedResourceRegistry;
@@ -78,19 +79,20 @@ class AgenticCustomSceneQualityJudgeTest {
 
     @Test
     @SuppressWarnings({"unchecked", "rawtypes"})
-    void runsMandatoryJudgeRoutePersistsReceiptBoundResultAndReturnsSuggestion() {
+    void modelMismatchKeepsDefaultRequestAndPersistsReceiptBoundResult() {
         var runner = mock(PracticeAiOperationRunner.class);
         var caller = mock(PracticeAiStructuredOutputCaller.class);
         var registry = mock(VersionedResourceRegistry.class);
         var auditPort = mock(JudgeResultAuditPort.class);
         var provider = new ResolvedProvider("primary", "openai-compatible", "gpt-test", mock(ChatClient.class));
         var operationCaptor = ArgumentCaptor.forClass(OperationRequest.class);
-        when(registry.currentGenerationProfile()).thenReturn(profile());
+        var profile = profileWithQualityJudgeInferencePolicy();
+        when(registry.currentGenerationProfile()).thenReturn(profile);
         when(registry.qualityRubric()).thenReturn(rubric());
         when(registry.promptText(VersionedResourceRegistry.PromptKind.JUDGE)).thenReturn("JUDGE SYSTEM PROMPT");
         when(caller.call(eq(provider), eq("JUDGE SYSTEM PROMPT"), any(String.class),
                 eq(AgenticCustomSceneQualityJudge.JudgeWireResponse.class),
-                eq(profile().minimumQualityJudgeOutputTokens()))).thenReturn(passWire());
+                eq(profile.minimumQualityJudgeOutputTokens()))).thenReturn(passWire());
         when(runner.execute(operationCaptor.capture())).thenAnswer(invocation -> {
             var operation = (OperationRequest) invocation.getArgument(0);
             var invoked = operation.invocation().invoke(provider);
@@ -120,7 +122,7 @@ class AgenticCustomSceneQualityJudgeTest {
         verify(caller).call(
                 eq(provider), eq("JUDGE SYSTEM PROMPT"), promptCaptor.capture(),
                 eq(AgenticCustomSceneQualityJudge.JudgeWireResponse.class),
-                eq(profile().minimumQualityJudgeOutputTokens()));
+                eq(profile.minimumQualityJudgeOutputTokens()));
         var prompt = promptCaptor.getValue();
         assertThat(prompt)
                 .contains(
@@ -289,6 +291,82 @@ class AgenticCustomSceneQualityJudgeTest {
                 .hasMessage("structured_output_invalid");
     }
 
+    @Test
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    void matchingQualityJudgeInferencePolicyUsesBoundedReasoningControl() {
+        var runner = mock(PracticeAiOperationRunner.class);
+        var caller = mock(PracticeAiStructuredOutputCaller.class);
+        var registry = mock(VersionedResourceRegistry.class);
+        var auditPort = mock(JudgeResultAuditPort.class);
+        var provider = new ResolvedProvider("primary", "openai-compatible", "glm-5.2", mock(ChatClient.class));
+        var profile = profileWithQualityJudgeInferencePolicy();
+        when(registry.currentGenerationProfile()).thenReturn(profile);
+        when(registry.qualityRubric()).thenReturn(rubric());
+        when(registry.promptText(VersionedResourceRegistry.PromptKind.JUDGE)).thenReturn("JUDGE SYSTEM PROMPT");
+        when(caller.call(
+                eq(provider),
+                eq("JUDGE SYSTEM PROMPT"),
+                any(String.class),
+                eq(AgenticCustomSceneQualityJudge.JudgeWireResponse.class),
+                eq(profile.minimumQualityJudgeOutputTokens()),
+                eq(PracticeAiReasoningEffort.NONE))).thenReturn(passWire());
+        when(runner.execute(any())).thenAnswer(invocation -> {
+            var operation = (OperationRequest) invocation.getArgument(0);
+            var invoked = operation.invocation().invoke(provider);
+            return new OperationResult<>(
+                    invoked.value(), OPERATION_RUN_ID, PROVIDER_CALL_ID, "primary", "glm-5.2", null);
+        });
+        var judge = new AgenticCustomSceneQualityJudge(
+                runner, caller, registry, new JudgeVerdictCalculator(), auditPort);
+
+        assertThat(judge.judge(request()).suggestedVerdict()).isEqualTo(JudgeVerdict.PASS);
+
+        verify(caller).call(
+                eq(provider),
+                eq("JUDGE SYSTEM PROMPT"),
+                any(String.class),
+                eq(AgenticCustomSceneQualityJudge.JudgeWireResponse.class),
+                eq(profile.minimumQualityJudgeOutputTokens()),
+                eq(PracticeAiReasoningEffort.NONE));
+    }
+
+    @Test
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    void providerTypeMismatchKeepsDefaultInferenceRequest() {
+        var runner = mock(PracticeAiOperationRunner.class);
+        var caller = mock(PracticeAiStructuredOutputCaller.class);
+        var registry = mock(VersionedResourceRegistry.class);
+        var auditPort = mock(JudgeResultAuditPort.class);
+        var provider = new ResolvedProvider("primary", "other-compatible", "glm-5.2", mock(ChatClient.class));
+        var profile = profileWithQualityJudgeInferencePolicy();
+        when(registry.currentGenerationProfile()).thenReturn(profile);
+        when(registry.qualityRubric()).thenReturn(rubric());
+        when(registry.promptText(VersionedResourceRegistry.PromptKind.JUDGE)).thenReturn("JUDGE SYSTEM PROMPT");
+        when(caller.call(
+                eq(provider),
+                eq("JUDGE SYSTEM PROMPT"),
+                any(String.class),
+                eq(AgenticCustomSceneQualityJudge.JudgeWireResponse.class),
+                eq(profile.minimumQualityJudgeOutputTokens()))).thenReturn(passWire());
+        when(runner.execute(any())).thenAnswer(invocation -> {
+            var operation = (OperationRequest) invocation.getArgument(0);
+            var invoked = operation.invocation().invoke(provider);
+            return new OperationResult<>(
+                    invoked.value(), OPERATION_RUN_ID, PROVIDER_CALL_ID, "primary", "glm-5.2", null);
+        });
+        var judge = new AgenticCustomSceneQualityJudge(
+                runner, caller, registry, new JudgeVerdictCalculator(), auditPort);
+
+        assertThat(judge.judge(request()).suggestedVerdict()).isEqualTo(JudgeVerdict.PASS);
+
+        verify(caller).call(
+                eq(provider),
+                eq("JUDGE SYSTEM PROMPT"),
+                any(String.class),
+                eq(AgenticCustomSceneQualityJudge.JudgeWireResponse.class),
+                eq(profile.minimumQualityJudgeOutputTokens()));
+    }
+
     private JudgeRequest request() {
         var candidate = new GeneratedPracticeContentCandidate(
                 "日常照护", "穿鞋出门", "Shoes on", "拿起鞋子。", "慢慢说。",
@@ -356,5 +434,29 @@ class AgenticCustomSceneQualityJudgeTest {
                 "schema-v1",
                 GenerationProfile.SAFE_MINIMUM_COMPLETE_BUNDLE_OUTPUT_TOKENS,
                 GenerationProfile.SAFE_MINIMUM_QUALITY_JUDGE_OUTPUT_TOKENS);
+    }
+
+    private GenerationProfile profileWithQualityJudgeInferencePolicy() {
+        var base = profile();
+        return new GenerationProfile(
+                base.version(),
+                base.contentHash(),
+                base.generatorPrompt(),
+                base.judgePrompt(),
+                base.repairPrompt(),
+                base.rubric(),
+                base.evidencePolicy(),
+                base.baselineEvidence(),
+                base.strategyVersion(),
+                base.contentSafetyPolicyVersion(),
+                base.generatedOutputSchemaVersion(),
+                base.minimumCompleteBundleOutputTokens(),
+                base.minimumQualityJudgeOutputTokens(),
+                null,
+                null,
+                new GenerationProfile.InferencePolicy(
+                        "openai-compatible",
+                        List.of("glm-5.2"),
+                        PracticeAiReasoningEffort.NONE));
     }
 }

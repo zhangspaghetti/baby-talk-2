@@ -129,11 +129,11 @@ class PracticeGeneratedContentServiceOrchestrationTest {
                 keyFactory.ownerKey("installation", "install_test"),
                 new PracticeGeneratedContentKeyFactory.RequestFingerprintMaterial(
                         "onboarding", "custom_scene", "出门前穿鞋", "m7_11", "calmer_care", "zh-CN",
-                        "custom-scene-generation-v6", "custom-scene-quality-v1", "custom-scene-evidence-v1", 1));
+                        "custom-scene-generation-v7", "custom-scene-quality-v1", "custom-scene-evidence-v1", 1));
         verify(queries).findLiveByFingerprint(
                 eq(keyFactory.ownerKey("installation", "install_test")), eq("owner-v1"),
                 eq("onboarding"), eq("custom_scene"), eq(expectedFingerprint),
-                eq("custom-scene-generation-v6"), eq(1));
+                eq("custom-scene-generation-v7"), eq(1));
         verify(orchestrator, never()).execute(any());
         verify(commands, never()).reserveDraft(any(), any());
     }

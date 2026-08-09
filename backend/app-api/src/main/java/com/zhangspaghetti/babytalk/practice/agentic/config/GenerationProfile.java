@@ -18,8 +18,9 @@ public record GenerationProfile(
         String generatedOutputSchemaVersion,
         int minimumCompleteBundleOutputTokens,
         int minimumQualityJudgeOutputTokens,
-        RepairInferencePolicy repairInferencePolicy,
-        GeneratorInferencePolicy generatorInferencePolicy
+        InferencePolicy repairInferencePolicy,
+        InferencePolicy generatorInferencePolicy,
+        InferencePolicy qualityJudgeInferencePolicy
 ) {
 
     public static final int SAFE_MINIMUM_COMPLETE_BUNDLE_OUTPUT_TOKENS = 8192;
@@ -135,7 +136,7 @@ public record GenerationProfile(
             String generatedOutputSchemaVersion,
             int minimumCompleteBundleOutputTokens,
             int minimumQualityJudgeOutputTokens,
-            RepairInferencePolicy repairInferencePolicy
+            InferencePolicy repairInferencePolicy
     ) {
         this(
                 version,
@@ -152,6 +153,43 @@ public record GenerationProfile(
                 minimumCompleteBundleOutputTokens,
                 minimumQualityJudgeOutputTokens,
                 repairInferencePolicy,
+                null,
+                null);
+    }
+
+    public GenerationProfile(
+            String version,
+            String contentHash,
+            VersionedRef generatorPrompt,
+            VersionedRef judgePrompt,
+            VersionedRef repairPrompt,
+            VersionedRef rubric,
+            VersionedRef evidencePolicy,
+            VersionedRef baselineEvidence,
+            String strategyVersion,
+            String contentSafetyPolicyVersion,
+            String generatedOutputSchemaVersion,
+            int minimumCompleteBundleOutputTokens,
+            int minimumQualityJudgeOutputTokens,
+            InferencePolicy repairInferencePolicy,
+            InferencePolicy generatorInferencePolicy
+    ) {
+        this(
+                version,
+                contentHash,
+                generatorPrompt,
+                judgePrompt,
+                repairPrompt,
+                rubric,
+                evidencePolicy,
+                baselineEvidence,
+                strategyVersion,
+                contentSafetyPolicyVersion,
+                generatedOutputSchemaVersion,
+                minimumCompleteBundleOutputTokens,
+                minimumQualityJudgeOutputTokens,
+                repairInferencePolicy,
+                generatorInferencePolicy,
                 null);
     }
 
@@ -175,51 +213,25 @@ public record GenerationProfile(
         return evidencePolicy.version();
     }
 
-    public record RepairInferencePolicy(
+    public record InferencePolicy(
             String providerType,
             List<String> modelNames,
             PracticeAiReasoningEffort reasoningEffort
     ) {
         private static final int MAX_MODEL_NAMES = 8;
 
-        public RepairInferencePolicy {
+        public InferencePolicy {
             if (providerType == null || providerType.isBlank()) {
-                throw new IllegalArgumentException("repair inference provider type is required");
+                throw new IllegalArgumentException("inference provider type is required");
             }
             modelNames = modelNames == null ? List.of() : List.copyOf(modelNames);
             if (modelNames.isEmpty()
                     || modelNames.size() > MAX_MODEL_NAMES
                     || new LinkedHashSet<>(modelNames).size() != modelNames.size()
                     || modelNames.stream().anyMatch(model -> model == null || model.isBlank())) {
-                throw new IllegalArgumentException("repair inference model names are invalid");
+                throw new IllegalArgumentException("inference model names are invalid");
             }
-            Objects.requireNonNull(reasoningEffort, "repair inference reasoning effort is required");
-        }
-
-        public boolean matches(String candidateProviderType, String candidateModelName) {
-            return providerType.equals(candidateProviderType) && modelNames.contains(candidateModelName);
-        }
-    }
-
-    public record GeneratorInferencePolicy(
-            String providerType,
-            List<String> modelNames,
-            PracticeAiReasoningEffort reasoningEffort
-    ) {
-        private static final int MAX_MODEL_NAMES = 8;
-
-        public GeneratorInferencePolicy {
-            if (providerType == null || providerType.isBlank()) {
-                throw new IllegalArgumentException("generator inference provider type is required");
-            }
-            modelNames = modelNames == null ? List.of() : List.copyOf(modelNames);
-            if (modelNames.isEmpty()
-                    || modelNames.size() > MAX_MODEL_NAMES
-                    || new LinkedHashSet<>(modelNames).size() != modelNames.size()
-                    || modelNames.stream().anyMatch(model -> model == null || model.isBlank())) {
-                throw new IllegalArgumentException("generator inference model names are invalid");
-            }
-            Objects.requireNonNull(reasoningEffort, "generator inference reasoning effort is required");
+            Objects.requireNonNull(reasoningEffort, "inference reasoning effort is required");
         }
 
         public boolean matches(String candidateProviderType, String candidateModelName) {

@@ -43,11 +43,24 @@ public class PracticeAiStructuredOutputCaller {
             String userPrompt,
             Class<T> responseType
     ) {
+        return call(provider, systemPrompt, userPrompt, responseType, null);
+    }
+
+    private <T> T call(
+            ResolvedProvider provider,
+            String systemPrompt,
+            String userPrompt,
+            Class<T> responseType,
+            PracticeAiReasoningEffort reasoningEffort
+    ) {
         var converter = strictConverter(responseType);
         var options = OpenAiChatOptions.builder()
                 .responseFormat(OpenAiChatModel.ResponseFormat.builder()
                         .jsonSchema(PracticeAiJsonSchemaPublisher.publish(converter, responseType))
                         .build());
+        if (reasoningEffort != null) {
+            options.reasoningEffort(reasoningEffort.wireValue());
+        }
         var response = provider.chatClient()
                 .prompt()
                 .options(options)
@@ -72,6 +85,27 @@ public class PracticeAiStructuredOutputCaller {
     ) {
         requireOutputBudget(provider, minimumOutputTokens);
         return call(provider, systemPrompt, userPrompt, responseType);
+    }
+
+    /**
+     * Calls one typed structured-output request with a bounded explicit reasoning control.
+     * Callers must apply provider/model compatibility policy before selecting this overload.
+     */
+    public <T> T call(
+            ResolvedProvider provider,
+            String systemPrompt,
+            String userPrompt,
+            Class<T> responseType,
+            int minimumOutputTokens,
+            PracticeAiReasoningEffort reasoningEffort
+    ) {
+        requireOutputBudget(provider, minimumOutputTokens);
+        return call(
+                provider,
+                systemPrompt,
+                userPrompt,
+                responseType,
+                Objects.requireNonNull(reasoningEffort, "reasoningEffort"));
     }
 
     /**
