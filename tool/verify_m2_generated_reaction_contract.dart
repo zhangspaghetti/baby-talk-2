@@ -63,8 +63,24 @@ void main() {
           'mobile/test/features/practice/generated/generated_practice_content_registry_test.dart',
       requiredMarkers: const [
         'generated tuple isolates exact-once trace, Garden, and Today continuity',
+        'canonical reactions activate matching support without duplicate state',
+        'recorded.currentUtterance?.audioSource',
+        'reconciled.currentUtterance?.audioSource',
+        'restored.currentUtterance?.audioSource',
+        'expect(recorded.nextSupportUtterance, isNull);',
+        'expect(restored.nextSupportUtterance, isNull);',
         'expect(generatedGardenPatch.activities.single.completedPhraseCount, 0);',
         'generatedContentId, first.generatedContentId',
+      ],
+    ),
+    _SourceCheck(
+      path:
+          'mobile/test/features/care_path/presentation/care_turn_surface_test.dart',
+      requiredMarkers: const [
+        'practiceRepository: _GeneratedBranchPracticeRepository()',
+        'startGeneratedMoment(',
+        "expect(find.text('Support.'), findsOneWidget);",
+        'audio.requested(_GeneratedBranchPracticeRepository.supportSource)',
       ],
     ),
   ];

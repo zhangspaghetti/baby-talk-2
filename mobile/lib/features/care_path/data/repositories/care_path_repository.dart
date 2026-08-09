@@ -229,10 +229,16 @@ class CarePathRepository {
           message: isGenerated ? '刚才这句话已经记下了。下一句暂时没有准备好，先这样就好。' : nextMessage,
         );
       }
+      final utteranceState = _reactionUtteranceState(
+        isGenerated: isGenerated,
+        currentUtterance: utterance,
+        matchingSupport: nextSupport,
+      );
 
       return turn.copyWith(
+        currentUtterance: utteranceState.currentUtterance,
         selectedReaction: reactionType,
-        nextSupportUtterance: nextSupport,
+        nextSupportUtterance: utteranceState.nextSupportUtterance,
         phase: CareTurnPhase.nextSupportReady,
         traceEventKey: event.eventKey,
         latestGardenImpact: latestGardenImpact,
@@ -376,15 +382,20 @@ class CarePathRepository {
               activityId: event.activityId,
             )).currentUtterance;
       final latestGardenImpact = await _loadLatestGardenImpact();
+      final utteranceState = _reactionUtteranceState(
+        isGenerated: isGenerated,
+        currentUtterance: utterance,
+        matchingSupport: nextSupport,
+      );
       return CareTurnSnapshot(
         moment: _buildMoment(
           activity: activity,
           summary: summary,
           nodeState: CarePathNodeState.current,
         ),
-        currentUtterance: utterance,
+        currentUtterance: utteranceState.currentUtterance,
         selectedReaction: event.reactionType,
-        nextSupportUtterance: nextSupport,
+        nextSupportUtterance: utteranceState.nextSupportUtterance,
         phase: nextSupport == null
             ? CareTurnPhase.heldWithFallback
             : CareTurnPhase.nextSupportReady,
@@ -413,6 +424,21 @@ class CarePathRepository {
     } catch (_) {
       return null;
     }
+  }
+
+  ({CareUtterance currentUtterance, CareUtterance? nextSupportUtterance})
+  _reactionUtteranceState({
+    required bool isGenerated,
+    required CareUtterance currentUtterance,
+    required CareUtterance? matchingSupport,
+  }) {
+    if (!isGenerated || matchingSupport == null) {
+      return (
+        currentUtterance: currentUtterance,
+        nextSupportUtterance: matchingSupport,
+      );
+    }
+    return (currentUtterance: matchingSupport, nextSupportUtterance: null);
   }
 
   Future<CareUtterance?> _loadGeneratedReactionSupport({

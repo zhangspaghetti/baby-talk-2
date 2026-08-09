@@ -111,6 +111,7 @@ void main() {
           saved.traceEventKey,
           '$practiceCharacterizationInstallationId:evt_care_path_hesitant',
         );
+        expect(saved.currentUtterance?.phraseId, 'bath_time_warm_water');
         expect(saved.nextSupportUtterance?.phraseId, 'bath_time_splash_splash');
 
         final events = await harness.repository.listEventHistory(

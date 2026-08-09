@@ -244,12 +244,14 @@ void main() {
     'generated branch transition cancels a pre-mounted starter load',
     (tester) async {
       final generatedNotifier = CarePathNotifier(
-        repository: _GeneratedBranchCarePathRepository(),
+        repository: CarePathRepository(
+          practiceRepository: _GeneratedBranchPracticeRepository(),
+        ),
       );
       addTearDown(generatedNotifier.dispose);
-      await generatedNotifier.startMoment(
-        spaceId: 'generated_space',
-        activityId: 'generated_activity',
+      await generatedNotifier.startGeneratedMoment(
+        generatedContentId:
+            _GeneratedBranchPracticeRepository.generatedContentId,
       );
       final audio = _DeferredCareAudioPlaybackController();
       await tester.pumpWidget(
@@ -257,14 +259,14 @@ void main() {
       );
 
       await tester.tap(find.byKey(const Key('care-turn-listen-once')));
-      await audio.requested(_GeneratedBranchCarePathRepository.starterSource);
+      await audio.requested(_GeneratedBranchPracticeRepository.starterSource);
       await tester.tap(find.byKey(const Key('care-turn-said-button')));
       await tester.pump();
       await tester.tap(find.byKey(const Key('care-reaction-cooperating')));
       await tester.pump();
 
       expect(audio.stopCalls, 1);
-      audio.complete(_GeneratedBranchCarePathRepository.starterSource);
+      audio.complete(_GeneratedBranchPracticeRepository.starterSource);
       await tester.pump();
       expect(audio.playedSources, isEmpty);
     },
@@ -274,12 +276,14 @@ void main() {
     'stale completion cannot finish an already-playing generated support',
     (tester) async {
       final generatedNotifier = CarePathNotifier(
-        repository: _GeneratedBranchCarePathRepository(),
+        repository: CarePathRepository(
+          practiceRepository: _GeneratedBranchPracticeRepository(),
+        ),
       );
       addTearDown(generatedNotifier.dispose);
-      await generatedNotifier.startMoment(
-        spaceId: 'generated_space',
-        activityId: 'generated_activity',
+      await generatedNotifier.startGeneratedMoment(
+        generatedContentId:
+            _GeneratedBranchPracticeRepository.generatedContentId,
       );
       final audio = _DeferredCareAudioPlaybackController();
       await tester.pumpWidget(
@@ -287,15 +291,16 @@ void main() {
       );
 
       await tester.tap(find.byKey(const Key('care-turn-listen-once')));
-      await audio.requested(_GeneratedBranchCarePathRepository.starterSource);
+      await audio.requested(_GeneratedBranchPracticeRepository.starterSource);
       await tester.tap(find.byKey(const Key('care-turn-said-button')));
       await tester.pump();
       await tester.tap(find.byKey(const Key('care-reaction-cooperating')));
       await tester.pump();
+      expect(find.text('Support.'), findsOneWidget);
       await tester.tap(find.byKey(const Key('care-turn-listen-once')));
-      await audio.requested(_GeneratedBranchCarePathRepository.supportSource);
+      await audio.requested(_GeneratedBranchPracticeRepository.supportSource);
 
-      audio.complete(_GeneratedBranchCarePathRepository.supportSource);
+      audio.complete(_GeneratedBranchPracticeRepository.supportSource);
       await tester.pump();
       final status = tester.widget<Semantics>(
         find.byKey(const Key('care-turn-audio-error')),
@@ -311,7 +316,7 @@ void main() {
       );
 
       audio.emitCompletion(
-        audio.sessionFor(_GeneratedBranchCarePathRepository.starterSource),
+        audio.sessionFor(_GeneratedBranchPracticeRepository.starterSource),
       );
       await tester.pump();
       final afterOldCompletion = tester.widget<Semantics>(
@@ -328,7 +333,7 @@ void main() {
       );
 
       audio.emitCompletion(
-        audio.sessionFor(_GeneratedBranchCarePathRepository.supportSource),
+        audio.sessionFor(_GeneratedBranchPracticeRepository.supportSource),
       );
       await tester.pump();
       expect(
@@ -338,10 +343,10 @@ void main() {
             .label,
         '已听过一次',
       );
-      audio.complete(_GeneratedBranchCarePathRepository.starterSource);
+      audio.complete(_GeneratedBranchPracticeRepository.starterSource);
       await tester.pump();
       expect(audio.playedSources, <CareAudioSource>[
-        _GeneratedBranchCarePathRepository.supportSource,
+        _GeneratedBranchPracticeRepository.supportSource,
       ]);
     },
   );
@@ -350,20 +355,22 @@ void main() {
     tester,
   ) async {
     final firstNotifier = CarePathNotifier(
-      repository: _GeneratedBranchCarePathRepository(),
+      repository: CarePathRepository(
+        practiceRepository: _GeneratedBranchPracticeRepository(),
+      ),
     );
     final replacementNotifier = CarePathNotifier(
-      repository: _GeneratedBranchCarePathRepository(),
+      repository: CarePathRepository(
+        practiceRepository: _GeneratedBranchPracticeRepository(),
+      ),
     );
     addTearDown(firstNotifier.dispose);
     addTearDown(replacementNotifier.dispose);
-    await firstNotifier.startMoment(
-      spaceId: 'generated_space',
-      activityId: 'generated_activity',
+    await firstNotifier.startGeneratedMoment(
+      generatedContentId: _GeneratedBranchPracticeRepository.generatedContentId,
     );
-    await replacementNotifier.startMoment(
-      spaceId: 'generated_space',
-      activityId: 'generated_activity',
+    await replacementNotifier.startGeneratedMoment(
+      generatedContentId: _GeneratedBranchPracticeRepository.generatedContentId,
     );
     final audio = _DeferredCareAudioPlaybackController();
     await tester.pumpWidget(
@@ -371,14 +378,14 @@ void main() {
     );
 
     await tester.tap(find.byKey(const Key('care-turn-listen-once')));
-    await audio.requested(_GeneratedBranchCarePathRepository.starterSource);
+    await audio.requested(_GeneratedBranchPracticeRepository.starterSource);
     await tester.pumpWidget(
       _generatedSurfaceTestApp(notifier: replacementNotifier, audio: audio),
     );
     await tester.pump();
 
     expect(audio.stopCalls, 1);
-    audio.complete(_GeneratedBranchCarePathRepository.starterSource);
+    audio.complete(_GeneratedBranchPracticeRepository.starterSource);
     await tester.pump();
     expect(audio.playedSources, isEmpty);
   });
@@ -387,12 +394,13 @@ void main() {
     tester,
   ) async {
     final generatedNotifier = CarePathNotifier(
-      repository: _GeneratedBranchCarePathRepository(),
+      repository: CarePathRepository(
+        practiceRepository: _GeneratedBranchPracticeRepository(),
+      ),
     );
     addTearDown(generatedNotifier.dispose);
-    await generatedNotifier.startMoment(
-      spaceId: 'generated_space',
-      activityId: 'generated_activity',
+    await generatedNotifier.startGeneratedMoment(
+      generatedContentId: _GeneratedBranchPracticeRepository.generatedContentId,
     );
     final audio = _DeferredCareAudioPlaybackController(failStop: true);
     await tester.pumpWidget(
@@ -400,7 +408,7 @@ void main() {
     );
 
     await tester.tap(find.byKey(const Key('care-turn-listen-once')));
-    await audio.requested(_GeneratedBranchCarePathRepository.starterSource);
+    await audio.requested(_GeneratedBranchPracticeRepository.starterSource);
     await tester.tap(find.byKey(const Key('care-turn-said-button')));
     await tester.pump();
     await tester.tap(find.byKey(const Key('care-reaction-cooperating')));
@@ -422,14 +430,14 @@ void main() {
       isNull,
     );
     expect(
-      audio.wasRequested(_GeneratedBranchCarePathRepository.supportSource),
+      audio.wasRequested(_GeneratedBranchPracticeRepository.supportSource),
       isFalse,
     );
 
-    audio.complete(_GeneratedBranchCarePathRepository.starterSource);
+    audio.complete(_GeneratedBranchPracticeRepository.starterSource);
     await tester.pump();
     expect(audio.playedSources, <CareAudioSource>[
-      _GeneratedBranchCarePathRepository.starterSource,
+      _GeneratedBranchPracticeRepository.starterSource,
     ]);
   });
 
@@ -740,80 +748,98 @@ class _DeferredCareAudioPlaybackController
   }
 }
 
-class _GeneratedBranchCarePathRepository extends CarePathRepository {
-  _GeneratedBranchCarePathRepository()
-    : super(practiceRepository: _MemoryPracticeRepository());
-
+class _GeneratedBranchPracticeRepository implements PracticeRepository {
+  static const generatedContentId = 'generated_1';
   static const starterSource = GeneratedCareAudioSource(
-    generatedContentId: 'generated_1',
+    generatedContentId: generatedContentId,
     utteranceId: 'starter_1',
   );
   static const supportSource = GeneratedCareAudioSource(
-    generatedContentId: 'generated_1',
+    generatedContentId: generatedContentId,
     utteranceId: 'support_cooperating_1',
   );
-  static const _moment = CareMoment(
+  static const _activity = PracticeActivitySnapshot(
     spaceId: 'generated_space',
     activityId: 'generated_activity',
-    spaceTitle: '生成照护',
     title: '生成时刻',
+    summary: '先回应宝宝。',
     sceneTag: 'generated',
-    careActionLabel: '先回应宝宝。',
     coachTip: '现在可以说。',
-    nodeState: CarePathNodeState.current,
     contentSource: PracticeContentSource.generated,
-    generatedContentId: 'generated_1',
-  );
-  static const _starter = CareUtterance(
-    phraseId: 'starter_phrase',
-    english: 'Starter.',
-    chinese: '开场。',
-    pronunciation: 'starter',
-    audioAsset: null,
-    whenToSay: '现在可以说。',
-    isFallback: false,
-    audioSource: starterSource,
-  );
-  static const _support = CareUtterance(
-    phraseId: 'support_cooperating_phrase',
-    english: 'Support.',
-    chinese: '支持。',
-    pronunciation: 'support',
-    audioAsset: null,
-    whenToSay: '现在可以说。',
-    isFallback: false,
-    audioSource: supportSource,
+    generatedContentId: generatedContentId,
+    phrases: <PracticePhrase>[
+      PracticePhrase(
+        spaceId: 'generated_space',
+        activityId: 'generated_activity',
+        phraseId: 'starter_phrase',
+        step: 1,
+        english: 'Starter.',
+        chinese: '开场。',
+        pronunciation: 'starter',
+        difficulty: 'starter',
+        audioAsset: '',
+      ),
+      PracticePhrase(
+        spaceId: 'generated_space',
+        activityId: 'generated_activity',
+        phraseId: 'support_cooperating_phrase',
+        step: 2,
+        english: 'Support.',
+        chinese: '支持。',
+        pronunciation: 'support',
+        difficulty: 'starter',
+        audioAsset: '',
+      ),
+    ],
+    utteranceIdsByPhraseId: <String, String>{
+      'starter_phrase': 'starter_1',
+      'support_cooperating_phrase': 'support_cooperating_1',
+    },
+    reactionSupportPhraseIds: <BabyReactionType, String>{
+      BabyReactionType.cooperating: 'support_cooperating_phrase',
+    },
   );
 
   @override
-  Future<CareTurnSnapshot> startMoment({
+  Future<PracticeActivitySnapshot> getGeneratedActivitySnapshot({
+    required String generatedContentId,
+  }) async => _activity;
+
+  @override
+  Future<PracticeResumeInfo> getGeneratedResumeInfo({
+    required String generatedContentId,
+  }) async => const PracticeResumeInfo(
+    activityId: 'generated_activity',
+    totalPhrases: 2,
+    completedPhraseIds: <String>[],
+    nextPhraseId: 'starter_phrase',
+    lastEventTime: null,
+  );
+
+  @override
+  Future<InteractionEventPayload> recordReaction({
     required String spaceId,
     required String activityId,
-  }) async => const CareTurnSnapshot(
-    moment: _moment,
-    currentUtterance: _starter,
-    selectedReaction: null,
-    nextSupportUtterance: null,
-    phase: CareTurnPhase.utteranceReady,
-    traceEventKey: null,
-    latestGardenImpact: null,
-    message: null,
+    required String phraseId,
+    required BabyReactionType reactionType,
+    String? generatedContentId,
+    String? utteranceId,
+    DateTime? clientTimestamp,
+    String? localEventId,
+  }) async => InteractionEventPayload(
+    localEventId: localEventId ?? 'generated_trace',
+    installationId: 'generated_surface_test',
+    spaceId: spaceId,
+    activityId: activityId,
+    phraseId: phraseId,
+    reactionType: reactionType,
+    clientTimestamp: clientTimestamp ?? DateTime.utc(2026, 8, 9),
+    generatedContentId: generatedContentId,
+    utteranceId: utteranceId,
   );
 
   @override
-  Future<CareTurnSnapshot> recordReaction({
-    required CareTurnSnapshot turn,
-    required BabyReactionType reactionType,
-    DateTime? clientTimestamp,
-    String? localEventId,
-  }) async => turn.copyWith(
-    currentUtterance: _support,
-    selectedReaction: reactionType,
-    nextSupportUtterance: _support,
-    phase: CareTurnPhase.nextSupportReady,
-    traceEventKey: 'generated_trace',
-    message: null,
-  );
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
 class _FailingReactionCarePathRepository extends CarePathRepository {

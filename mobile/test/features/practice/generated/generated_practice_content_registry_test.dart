@@ -36,6 +36,30 @@ import 'package:mobile/features/practice/presentation/practice_route_args.dart';
 
 import '../../../support/isar_test_library.dart';
 
+const _expectedSupportIdentities =
+    <BabyReactionType, ({String phraseId, String utteranceId})>{
+      BabyReactionType.cooperating: (
+        phraseId: 'phrase_cooperating',
+        utteranceId: 'utterance_cooperating',
+      ),
+      BabyReactionType.hesitant: (
+        phraseId: 'phrase_hesitant',
+        utteranceId: 'utterance_hesitant',
+      ),
+      BabyReactionType.resisting: (
+        phraseId: 'phrase_resisting',
+        utteranceId: 'utterance_resisting',
+      ),
+      BabyReactionType.noResponse: (
+        phraseId: 'phrase_noResponse',
+        utteranceId: 'utterance_noResponse',
+      ),
+      BabyReactionType.other: (
+        phraseId: 'phrase_other',
+        utteranceId: 'utterance_other',
+      ),
+    };
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
@@ -787,7 +811,7 @@ void main() {
     });
 
     test(
-      'canonical reactions branch through one event into Garden and Today',
+      'canonical reactions activate matching support without duplicate state',
       () async {
         final localDataSource = await PracticeLocalDataSource.open(
           directory: tempDir.path,
@@ -813,6 +837,7 @@ void main() {
         );
         for (var index = 0; index < BabyReactionType.values.length; index++) {
           final reaction = BabyReactionType.values[index];
+          final expectedSupport = _expectedSupportIdentities[reaction]!;
           final moment = _moment('generated_branch_${reaction.name}');
           final timestamp = DateTime.utc(2026, 5, 20, 10, 0, index);
           final localEventId = 'generated_branch_event_${reaction.name}';
@@ -840,28 +865,29 @@ void main() {
           expect(recorded.traceEventKey, isNotNull);
           expect(reconciled.traceEventKey, recorded.traceEventKey);
           expect(recorded.latestGardenImpact?.activityId, moment.activityId);
+          expect(recorded.phase, CareTurnPhase.nextSupportReady);
+          expect(recorded.selectedReaction, reaction);
+          expect(recorded.currentUtterance?.phraseId, expectedSupport.phraseId);
           expect(
-            recorded.nextSupportUtterance?.phraseId,
-            moment.reactionSupports[reaction].phraseId,
+            reconciled.currentUtterance?.phraseId,
+            expectedSupport.phraseId,
           );
           expect(
-            reconciled.nextSupportUtterance?.phraseId,
-            moment.reactionSupports[reaction].phraseId,
-          );
-          expect(
-            recorded.nextSupportUtterance?.audioSource,
+            recorded.currentUtterance?.audioSource,
             GeneratedCareAudioSource(
               generatedContentId: moment.generatedContentId,
-              utteranceId: moment.reactionSupports[reaction].utteranceId,
+              utteranceId: expectedSupport.utteranceId,
             ),
           );
           expect(
-            reconciled.nextSupportUtterance?.audioSource,
+            reconciled.currentUtterance?.audioSource,
             GeneratedCareAudioSource(
               generatedContentId: moment.generatedContentId,
-              utteranceId: moment.reactionSupports[reaction].utteranceId,
+              utteranceId: expectedSupport.utteranceId,
             ),
           );
+          expect(recorded.nextSupportUtterance, isNull);
+          expect(reconciled.nextSupportUtterance, isNull);
           expect(
             await repository.listEventHistory(
               spaceId: moment.spaceId,
@@ -906,10 +932,20 @@ void main() {
           clientTimestamp: lostTimestamp,
           localEventId: lostLocalEventId,
         );
+        final hesitantSupport =
+            _expectedSupportIdentities[BabyReactionType.hesitant]!;
         expect(
-          reconciledAfterLostResponse.nextSupportUtterance?.phraseId,
-          lostMoment.reactionSupports[BabyReactionType.hesitant].phraseId,
+          reconciledAfterLostResponse.currentUtterance?.phraseId,
+          hesitantSupport.phraseId,
         );
+        expect(
+          reconciledAfterLostResponse.currentUtterance?.audioSource,
+          GeneratedCareAudioSource(
+            generatedContentId: lostMoment.generatedContentId,
+            utteranceId: hesitantSupport.utteranceId,
+          ),
+        );
+        expect(reconciledAfterLostResponse.nextSupportUtterance, isNull);
         expect(
           await repository.listEventHistory(
             spaceId: lostMoment.spaceId,
@@ -1028,13 +1064,19 @@ void main() {
         expect(events.single.reactionType, BabyReactionType.hesitant);
 
         final restored = await carePath.restoreConfirmedReaction(events.single);
+        final hesitantSupport =
+            _expectedSupportIdentities[BabyReactionType.hesitant]!;
         expect(restored.phase, CareTurnPhase.nextSupportReady);
         expect(restored.moment.generatedContentId, first.generatedContentId);
-        expect(restored.currentUtterance?.phraseId, first.starter.phraseId);
+        expect(restored.currentUtterance?.phraseId, hesitantSupport.phraseId);
         expect(
-          restored.nextSupportUtterance?.phraseId,
-          first.reactionSupports[BabyReactionType.hesitant].phraseId,
+          restored.currentUtterance?.audioSource,
+          GeneratedCareAudioSource(
+            generatedContentId: first.generatedContentId,
+            utteranceId: hesitantSupport.utteranceId,
+          ),
         );
+        expect(restored.nextSupportUtterance, isNull);
         final mismatchedUtterance = await carePath.restoreConfirmedReaction(
           events.single.copyWith(utteranceId: 'wrong_utterance_id'),
         );
