@@ -20,6 +20,10 @@ public class GeneratedSpeechSynthesisConfiguration {
                     properties,
                     environment.getRequiredProperty(properties.apiKeyEnvironmentVariable())
             );
+            case "dashscope" -> new DashScopeGeneratedSpeechProvider(
+                    properties,
+                    environment.getRequiredProperty(properties.apiKeyEnvironmentVariable())
+            );
             default -> throw new IllegalStateException("unsupported generated speech provider mode");
         };
     }

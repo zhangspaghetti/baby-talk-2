@@ -87,6 +87,22 @@ practiceAi:
     values:
       BABY_TALK_AI_PROVIDER_DASHSCOPE_QWEN_API_KEY: change-me-kind-qa-practice-ai-api-key
 
+generatedAudio:
+  enabled: true
+  providerMode: dashscope
+  timeout: 8s
+  responseMaxBytes: 16384
+  downloadMaxBytes: 524288
+  voiceVersion: generated-dashscope-qwen-audio-v1
+  format: mp3
+  endpoint: https://dashscope.aliyuncs.com/api/v1/services/audio/tts/SpeechSynthesizer
+  apiKeyEnvironmentVariable: BABY_TALK_AI_PROVIDER_DASHSCOPE_QWEN_API_KEY
+  model: qwen-audio-3.0-tts-flash
+  voice: loongeva_v3.6
+  providerProfile: qa-formal-v1
+  allowedDownloadHosts:
+    - dashscope-result-bj.oss-cn-beijing.aliyuncs.com
+
 config:
   BABY_TALK_REDIS_HOST: babytalk-qa-infra-redis-master
   BABY_TALK_ADMIN_WEB_ORIGIN: "http://127.0.0.1:3001"

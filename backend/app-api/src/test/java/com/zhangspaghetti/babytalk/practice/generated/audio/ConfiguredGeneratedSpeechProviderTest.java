@@ -49,13 +49,15 @@ class ConfiguredGeneratedSpeechProviderTest {
                 "openai",
                 Duration.ofSeconds(5),
                 512,
+                16_384,
                 "generated-tts-v1",
                 "mp3",
                 "https://provider.example.com/v1",
                 "TEST_GENERATED_AUDIO_KEY",
                 "gpt-4o-mini-tts",
                 "alloy",
-                "uat-v1"
+                "uat-v1",
+                java.util.Set.of()
         );
     }
 }

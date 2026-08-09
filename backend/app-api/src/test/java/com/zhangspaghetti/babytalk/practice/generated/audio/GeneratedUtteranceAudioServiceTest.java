@@ -172,13 +172,15 @@ class GeneratedUtteranceAudioServiceTest {
                 "fake",
                 Duration.ofSeconds(5),
                 512,
+                16_384,
                 "generated-tts-v1",
                 "mp3",
                 null,
                 null,
                 null,
                 null,
-                "default"
+                "default",
+                java.util.Set.of()
         );
     }
 }

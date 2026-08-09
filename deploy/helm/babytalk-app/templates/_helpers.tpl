@@ -104,6 +104,95 @@ Create the name of the shared Secret.
 {{- printf "%s-practice-ai-secret" (include "babytalk-app.fullname" .) | trunc 63 | trimSuffix "-" -}}
 {{- end }}
 
+{{/* Validate generated utterance audio before rendering any workload. */}}
+{{- define "babytalk-app.validateGeneratedAudio" -}}
+{{- $audio := .Values.generatedAudio -}}
+{{- $mode := required "generatedAudio.providerMode is required" $audio.providerMode -}}
+{{- if not (has $mode (list "disabled" "fake" "openai" "dashscope")) -}}
+{{- fail "generatedAudio.providerMode must be disabled, fake, openai, or dashscope" -}}
+{{- end -}}
+{{- if ne $audio.enabled (ne $mode "disabled") -}}
+{{- fail "generatedAudio.enabled must match whether providerMode is disabled" -}}
+{{- end -}}
+{{- if not (regexMatch "^[1-8]s$" (printf "%v" $audio.timeout)) -}}
+{{- fail "generatedAudio.timeout must be between 1s and 8s" -}}
+{{- end -}}
+{{- if or (lt (int $audio.responseMaxBytes) 1) (gt (int $audio.responseMaxBytes) 65536) -}}
+{{- fail "generatedAudio.responseMaxBytes must be between 1 and 65536" -}}
+{{- end -}}
+{{- if or (lt (int $audio.downloadMaxBytes) 1) (gt (int $audio.downloadMaxBytes) 1048576) -}}
+{{- fail "generatedAudio.downloadMaxBytes must be between 1 and 1048576" -}}
+{{- end -}}
+{{- if ne (required "generatedAudio.format is required" $audio.format) "mp3" -}}
+{{- fail "generatedAudio.format must be mp3" -}}
+{{- end -}}
+{{- $voiceVersion := required "generatedAudio.voiceVersion is required" $audio.voiceVersion -}}
+{{- $providerProfile := required "generatedAudio.providerProfile is required" $audio.providerProfile -}}
+{{- if eq $mode "disabled" -}}
+{{- if or $audio.endpoint $audio.apiKeyEnvironmentVariable $audio.model $audio.voice (gt (len $audio.allowedDownloadHosts) 0) -}}
+{{- fail "disabled generated audio must not configure network provider fields" -}}
+{{- end -}}
+{{- end -}}
+{{- if eq $mode "fake" -}}
+{{- if ne .Values.practiceAi.springProfilesActive "dev" -}}
+{{- fail "fake generated audio is restricted to the dev profile" -}}
+{{- end -}}
+{{- if or $audio.endpoint $audio.apiKeyEnvironmentVariable $audio.model $audio.voice (gt (len $audio.allowedDownloadHosts) 0) -}}
+{{- fail "fake generated audio must not configure network provider fields" -}}
+{{- end -}}
+{{- end -}}
+{{- if eq $mode "openai" -}}
+{{- $endpoint := required "generatedAudio.endpoint is required" $audio.endpoint -}}
+{{- if not (regexMatch "^https?://[^/?#]+(?:/[^?#]*)?$" $endpoint) -}}
+{{- fail "OpenAI generatedAudio.endpoint must use HTTP or HTTPS" -}}
+{{- end -}}
+{{- $environmentVariable := required "generatedAudio.apiKeyEnvironmentVariable is required" $audio.apiKeyEnvironmentVariable -}}
+{{- $model := required "generatedAudio.model is required" $audio.model -}}
+{{- $voice := required "generatedAudio.voice is required" $audio.voice -}}
+{{- if gt (len $audio.allowedDownloadHosts) 0 -}}
+{{- fail "OpenAI generated audio must not configure download hosts" -}}
+{{- end -}}
+{{- $credentialMatch := dict "found" false -}}
+{{- range $_, $provider := .Values.practiceAi.providers -}}
+{{- if eq (default "" $provider.apiKeyEnvironmentVariable) $environmentVariable -}}
+{{- $_ := set $credentialMatch "found" true -}}
+{{- end -}}
+{{- end -}}
+{{- if not (get $credentialMatch "found") -}}
+{{- fail "generatedAudio must reuse a configured Practice AI credential" -}}
+{{- end -}}
+{{- end -}}
+{{- if eq $mode "dashscope" -}}
+{{- $endpoint := required "generatedAudio.endpoint is required" $audio.endpoint -}}
+{{- if not (regexMatch "^https://(dashscope\\.aliyuncs\\.com|[a-z0-9-]+\\.cn-beijing\\.maas\\.aliyuncs\\.com)/api/v1/services/audio/tts/SpeechSynthesizer$" $endpoint) -}}
+{{- fail "DashScope generatedAudio.endpoint must be the HTTPS SpeechSynthesizer endpoint" -}}
+{{- end -}}
+{{- $environmentVariable := required "generatedAudio.apiKeyEnvironmentVariable is required" $audio.apiKeyEnvironmentVariable -}}
+{{- if not (regexMatch "^BABY_TALK_AI_PROVIDER_[A-Z0-9_]+_API_KEY$" $environmentVariable) -}}
+{{- fail "generatedAudio.apiKeyEnvironmentVariable must name a dedicated Practice AI key" -}}
+{{- end -}}
+{{- $model := required "generatedAudio.model is required" $audio.model -}}
+{{- $voice := required "generatedAudio.voice is required" $audio.voice -}}
+{{- if eq (len $audio.allowedDownloadHosts) 0 -}}
+{{- fail "DashScope generated audio requires allowedDownloadHosts" -}}
+{{- end -}}
+{{- range $host := $audio.allowedDownloadHosts -}}
+{{- if not (regexMatch "^[a-z0-9](?:[a-z0-9.-]{0,251}[a-z0-9])?$" $host) -}}
+{{- fail "generatedAudio.allowedDownloadHosts must contain exact lowercase hostnames" -}}
+{{- end -}}
+{{- end -}}
+{{- $credentialMatch := dict "found" false -}}
+{{- range $_, $provider := .Values.practiceAi.providers -}}
+{{- if eq (default "" $provider.apiKeyEnvironmentVariable) $environmentVariable -}}
+{{- $_ := set $credentialMatch "found" true -}}
+{{- end -}}
+{{- end -}}
+{{- if not (get $credentialMatch "found") -}}
+{{- fail "generatedAudio must reuse a configured Practice AI credential" -}}
+{{- end -}}
+{{- end -}}
+{{- end -}}
+
 {{/*
 Create the name of the admin-web proxy ConfigMap.
 */}}

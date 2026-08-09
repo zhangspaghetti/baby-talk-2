@@ -18,19 +18,23 @@ public record GeneratedSpeechProperties(
         String providerMode,
         Duration timeout,
         Integer maxBytes,
+        Integer responseMaxBytes,
         String voiceVersion,
         String format,
         String baseUrl,
         String apiKeyEnvironmentVariable,
         String model,
         String voice,
-        String providerProfile
+        String providerProfile,
+        Set<String> allowedDownloadHosts
 ) {
 
-    private static final Set<String> PROVIDER_MODES = Set.of("disabled", "fake", "openai");
+    private static final Set<String> PROVIDER_MODES = Set.of("disabled", "fake", "openai", "dashscope");
     private static final int MAX_AUDIO_BYTES = 1_048_576;
-    private static final Duration MAX_TIMEOUT = Duration.ofSeconds(5);
+    private static final int MAX_PROVIDER_RESPONSE_BYTES = 65_536;
+    private static final Duration MAX_TIMEOUT = Duration.ofSeconds(8);
     private static final Pattern IDENTITY_VALUE = Pattern.compile("^[A-Za-z0-9][A-Za-z0-9._-]{0,119}$");
+    private static final Pattern HOST_VALUE = Pattern.compile("^[a-z0-9](?:[a-z0-9.-]{0,251}[a-z0-9])?$");
 
     public GeneratedSpeechProperties {
         providerMode = normalized(providerMode, "generated speech provider mode").toLowerCase(Locale.ROOT);
@@ -38,10 +42,14 @@ public record GeneratedSpeechProperties(
             throw new IllegalArgumentException("unsupported generated speech provider mode: " + providerMode);
         }
         if (timeout == null || timeout.isZero() || timeout.isNegative() || timeout.compareTo(MAX_TIMEOUT) > 0) {
-            throw new IllegalArgumentException("generated speech timeout must be positive and at most 5 seconds");
+            throw new IllegalArgumentException("generated speech timeout must be positive and at most 8 seconds");
         }
         if (maxBytes == null || maxBytes <= 0 || maxBytes > MAX_AUDIO_BYTES) {
             throw new IllegalArgumentException("generated speech max bytes must be between 1 and " + MAX_AUDIO_BYTES);
+        }
+        if (responseMaxBytes == null || responseMaxBytes <= 0 || responseMaxBytes > MAX_PROVIDER_RESPONSE_BYTES) {
+            throw new IllegalArgumentException(
+                    "generated speech response max bytes must be between 1 and " + MAX_PROVIDER_RESPONSE_BYTES);
         }
         voiceVersion = normalized(voiceVersion, "generated speech voice version");
         validateIdentityValue(voiceVersion, "voice version");
@@ -55,11 +63,26 @@ public record GeneratedSpeechProperties(
         if (!enabled && !"disabled".equals(providerMode)) {
             throw new IllegalArgumentException("disabled generated speech must use the disabled provider");
         }
-        if ("openai".equals(providerMode)) {
+        if ("openai".equals(providerMode) || "dashscope".equals(providerMode)) {
             baseUrl = normalized(baseUrl, "generated speech provider base URL");
             var uri = URI.create(baseUrl);
-            if (!"http".equalsIgnoreCase(uri.getScheme()) && !"https".equalsIgnoreCase(uri.getScheme())) {
+            if ("dashscope".equals(providerMode) && !"https".equalsIgnoreCase(uri.getScheme())) {
+                throw new IllegalArgumentException("DashScope generated speech provider base URL must use HTTPS");
+            }
+            if ("dashscope".equals(providerMode)
+                    && (uri.getPort() != -1
+                    || uri.getQuery() != null
+                    || !"/api/v1/services/audio/tts/SpeechSynthesizer".equals(uri.getPath())
+                    || !isOfficialDashScopeHost(uri.getHost()))) {
+                throw new IllegalArgumentException("DashScope generated speech provider endpoint is invalid");
+            }
+            if ("openai".equals(providerMode)
+                    && !"http".equalsIgnoreCase(uri.getScheme())
+                    && !"https".equalsIgnoreCase(uri.getScheme())) {
                 throw new IllegalArgumentException("generated speech provider base URL must use HTTP or HTTPS");
+            }
+            if (uri.getHost() == null || uri.getUserInfo() != null || uri.getFragment() != null) {
+                throw new IllegalArgumentException("generated speech provider base URL is invalid");
             }
             apiKeyEnvironmentVariable = normalized(
                     apiKeyEnvironmentVariable, "generated speech provider API key environment variable");
@@ -77,6 +100,7 @@ public record GeneratedSpeechProperties(
         }
         providerProfile = normalized(providerProfile == null ? "default" : providerProfile, "generated speech provider profile");
         validateIdentityValue(providerProfile, "provider profile");
+        allowedDownloadHosts = normalizeAllowedDownloadHosts(allowedDownloadHosts, providerMode);
     }
 
     public String mimeType() {
@@ -86,19 +110,51 @@ public record GeneratedSpeechProperties(
     public GeneratedSpeechConfigurationIdentity configurationIdentity() {
         return new GeneratedSpeechConfigurationIdentity(
                 providerMode,
-                "openai".equals(providerMode) ? model : providerMode,
+                "openai".equals(providerMode) || "dashscope".equals(providerMode) ? model : providerMode,
                 providerProfile,
                 sha256(String.join("\n",
                         providerMode,
                         timeout.toString(),
                         Integer.toString(maxBytes),
+                        Integer.toString(responseMaxBytes),
                         voiceVersion,
                         format,
                         providerProfile,
                         nullToEmpty(baseUrl),
                         nullToEmpty(model),
-                        nullToEmpty(voice)))
+                        nullToEmpty(voice),
+                        String.join(",", allowedDownloadHosts.stream().sorted().toList())))
         );
+    }
+
+    private static Set<String> normalizeAllowedDownloadHosts(Set<String> values, String providerMode) {
+        if (!"dashscope".equals(providerMode)) {
+            if (values != null && !values.isEmpty()) {
+                throw new IllegalArgumentException("download hosts are only valid for the DashScope generated speech provider");
+            }
+            return Set.of();
+        }
+        if (values == null || values.isEmpty()) {
+            throw new IllegalArgumentException("DashScope generated speech requires an allowed download host");
+        }
+        var normalized = values.stream()
+                .map(value -> normalized(value, "generated speech allowed download host").toLowerCase(Locale.ROOT))
+                .peek(value -> {
+                    if (!HOST_VALUE.matcher(value).matches() || value.contains("..")) {
+                        throw new IllegalArgumentException("generated speech allowed download host is invalid");
+                    }
+                })
+                .collect(java.util.stream.Collectors.toUnmodifiableSet());
+        return normalized;
+    }
+
+    private static boolean isOfficialDashScopeHost(String host) {
+        if (host == null) {
+            return false;
+        }
+        var normalizedHost = host.toLowerCase(Locale.ROOT);
+        return "dashscope.aliyuncs.com".equals(normalizedHost)
+                || normalizedHost.matches("^[a-z0-9-]+\\.cn-beijing\\.maas\\.aliyuncs\\.com$");
     }
 
     private static String normalized(String value, String field) {

@@ -32,6 +32,24 @@ practiceAi:
     rolloutVersion: ""
     values: {}
 
+# Generated utterance audio is app-api-only. Network modes reuse a named Practice AI
+# credential through the matching Practice AI provider secretKeyRef; no credential
+# value or duplicate Secret key selector belongs in this block.
+generatedAudio:
+  enabled: false
+  providerMode: disabled
+  timeout: 5s
+  responseMaxBytes: 16384
+  downloadMaxBytes: 524288
+  voiceVersion: generated-tts-v1
+  format: mp3
+  endpoint: ""
+  apiKeyEnvironmentVariable: ""
+  model: ""
+  voice: ""
+  providerProfile: default
+  allowedDownloadHosts: []
+
 appApi:
   replicaCount: 1
   image:

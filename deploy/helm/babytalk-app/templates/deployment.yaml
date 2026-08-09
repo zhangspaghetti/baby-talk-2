@@ -1,3 +1,5 @@
+{{- include "babytalk-app.validateGeneratedAudio" . -}}
+{{- $generatedAudio := .Values.generatedAudio -}}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -47,6 +49,32 @@ spec:
               value: {{ .Values.appApi.service.port | quote }}
             - name: SPRING_CONFIG_ADDITIONAL_LOCATION
               value: /config/practice-ai-runtime.yml
+            - name: BABY_TALK_GENERATED_AUDIO_ENABLED
+              value: {{ $generatedAudio.enabled | quote }}
+            - name: BABY_TALK_GENERATED_AUDIO_PROVIDER_MODE
+              value: {{ $generatedAudio.providerMode | quote }}
+            - name: BABY_TALK_GENERATED_AUDIO_TIMEOUT
+              value: {{ $generatedAudio.timeout | quote }}
+            - name: BABY_TALK_GENERATED_AUDIO_MAX_BYTES
+              value: {{ $generatedAudio.downloadMaxBytes | quote }}
+            - name: BABY_TALK_GENERATED_AUDIO_RESPONSE_MAX_BYTES
+              value: {{ $generatedAudio.responseMaxBytes | quote }}
+            - name: BABY_TALK_GENERATED_AUDIO_VOICE_VERSION
+              value: {{ $generatedAudio.voiceVersion | quote }}
+            - name: BABY_TALK_GENERATED_AUDIO_FORMAT
+              value: {{ $generatedAudio.format | quote }}
+            - name: BABY_TALK_GENERATED_AUDIO_BASE_URL
+              value: {{ $generatedAudio.endpoint | quote }}
+            - name: BABY_TALK_GENERATED_AUDIO_API_KEY_ENVIRONMENT_VARIABLE
+              value: {{ $generatedAudio.apiKeyEnvironmentVariable | quote }}
+            - name: BABY_TALK_GENERATED_AUDIO_MODEL
+              value: {{ $generatedAudio.model | quote }}
+            - name: BABY_TALK_GENERATED_AUDIO_VOICE
+              value: {{ $generatedAudio.voice | quote }}
+            - name: BABY_TALK_GENERATED_AUDIO_PROVIDER_PROFILE
+              value: {{ $generatedAudio.providerProfile | quote }}
+            - name: BABY_TALK_GENERATED_AUDIO_ALLOWED_DOWNLOAD_HOSTS
+              value: {{ join "," $generatedAudio.allowedDownloadHosts | quote }}
             {{- if .Values.practiceAi.springProfilesActive }}
             - name: SPRING_PROFILES_ACTIVE
               value: {{ .Values.practiceAi.springProfilesActive | quote }}
