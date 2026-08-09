@@ -7,6 +7,8 @@ import re
 import subprocess
 import sys
 
+import yaml
+
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
 BACKEND_ROOT = REPOSITORY_ROOT / "backend"
@@ -22,6 +24,7 @@ FOCUSED_TESTS = ",".join(
         "PracticeAiStructuredOutputCallerTest",
         "PracticeAiSingleRequestContractTest",
         "VersionedResourceRegistryTest",
+        "VersionedResourceRegistryApplicationConfigTest",
         "CustomSceneAgenticGenerationIntegrationTest",
         "CustomSceneGenerationOrchestratorTest",
         "PracticeGeneratedContentServiceOrchestrationTest",
@@ -32,6 +35,10 @@ FOCUSED_TESTS = ",".join(
 )
 SAFE_MINIMUM_COMPLETE_BUNDLE_OUTPUT_TOKENS = 8192
 SAFE_MINIMUM_QUALITY_JUDGE_OUTPUT_TOKENS = 8192
+LATEST_PROFILE = (
+    "${BABY_TALK_PRACTICE_AI_PROFILE:"
+    "classpath:config/practice-ai/profiles/custom-scene-generation-v7.yml}"
+)
 GENERATED_SOURCE_ROOT = (
     BACKEND_ROOT
     / "app-api"
@@ -44,6 +51,16 @@ GENERATED_SOURCE_ROOT = (
     / "practice"
     / "generated"
 )
+
+
+def application_profile_default(application: str) -> object:
+    document = yaml.safe_load(application)
+    if not isinstance(document, dict):
+        return None
+    try:
+        return document["babytalk"]["practice"]["agentic"]["versioned-resources"]["profile"]
+    except (KeyError, TypeError):
+        return None
 
 
 def verify_no_production_fallback() -> bool:
@@ -497,6 +514,15 @@ def verify_versioned_output_budget() -> bool:
             violations.append(
                 f"{profile_path.name}: missing bounded inference compatibility marker: {marker}"
             )
+
+    application_path = (
+        BACKEND_ROOT / "app-api" / "src" / "main" / "resources" / "application.yml"
+    )
+    application = application_path.read_text(encoding="utf-8")
+    if application_profile_default(application) != LATEST_PROFILE:
+        violations.append(
+            f"{application_path.name}: default Practice AI profile must be custom-scene-generation-v7"
+        )
 
     for relative_path in (
         Path("deploy/helm/babytalk-app/values-kind-qa.yaml"),
