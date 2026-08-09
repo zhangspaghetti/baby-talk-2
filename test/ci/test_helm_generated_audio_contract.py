@@ -28,7 +28,7 @@ class HelmGeneratedAudioContractTest(unittest.TestCase):
             "BABY_TALK_GENERATED_AUDIO_TIMEOUT": "8s",
             "BABY_TALK_GENERATED_AUDIO_MAX_BYTES": "524288",
             "BABY_TALK_GENERATED_AUDIO_RESPONSE_MAX_BYTES": "16384",
-            "BABY_TALK_GENERATED_AUDIO_VOICE_VERSION": "generated-dashscope-qwen-audio-v1",
+            "BABY_TALK_GENERATED_AUDIO_VOICE_VERSION": "generated-tts-v1",
             "BABY_TALK_GENERATED_AUDIO_FORMAT": "mp3",
             "BABY_TALK_GENERATED_AUDIO_BASE_URL": (
                 "https://dashscope.aliyuncs.com/api/v1/services/audio/tts/SpeechSynthesizer"
