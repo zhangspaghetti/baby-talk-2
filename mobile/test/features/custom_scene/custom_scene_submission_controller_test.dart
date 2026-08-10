@@ -331,6 +331,96 @@ void main() {
         );
       },
     );
+
+    test(
+      'expired foreign authentication draft restores a fresh editor',
+      () async {
+        final repository = _FakeRepository((_) async => _moment());
+        final harness = _harness(
+          tempDir: tempDir,
+          clock: () => now,
+          repository: repository,
+          registrar: _FakeRegistrar(),
+          handoff: _FakeHandoffSink(),
+        );
+        const privateTextSentinel = 'PRIVATE_SCENE_TEXT';
+        await harness.draftStore.write(
+          CustomSceneStoredDraft(
+            draftId: 'expired_draft',
+            text: privateTextSentinel,
+            entrySource: CustomSceneEntrySource.today,
+            requestIdentity: CustomSceneRequestIdentity(
+              clientRequestId: 'expired_request',
+            ),
+            state: CustomSceneStoredDraftState.awaitingAuthentication,
+            createdAt: now.subtract(const Duration(minutes: 16)),
+            expiresAt: now.subtract(const Duration(minutes: 1)),
+            expectedAccountContext: 'prior_account',
+          ),
+        );
+
+        await harness.controller.restore(accountContext: 'current_account');
+
+        expect(
+          harness.controller.state.message,
+          isNot(contains(privateTextSentinel)),
+        );
+        expect(
+          (await harness.draftStore.readResult(now: now)).status,
+          CustomSceneDraftReadStatus.notFound,
+        );
+        expect(repository.received, isEmpty);
+        expect(
+          harness.controller.state.phase,
+          CustomSceneSubmissionPhase.editing,
+        );
+      },
+    );
+
+    test(
+      'unexpired foreign authentication draft stays private and inaccessible',
+      () async {
+        final repository = _FakeRepository((_) async => _moment());
+        final harness = _harness(
+          tempDir: tempDir,
+          clock: () => now,
+          repository: repository,
+          registrar: _FakeRegistrar(),
+          handoff: _FakeHandoffSink(),
+        );
+        const privateTextSentinel = 'PRIVATE_SCENE_TEXT';
+        await harness.draftStore.write(
+          CustomSceneStoredDraft(
+            draftId: 'unexpired_draft',
+            text: privateTextSentinel,
+            entrySource: CustomSceneEntrySource.today,
+            requestIdentity: CustomSceneRequestIdentity(
+              clientRequestId: 'unexpired_request',
+            ),
+            state: CustomSceneStoredDraftState.awaitingAuthentication,
+            createdAt: now,
+            expiresAt: now.add(const Duration(minutes: 1)),
+            expectedAccountContext: 'prior_account',
+          ),
+        );
+
+        await harness.controller.restore(accountContext: 'current_account');
+
+        expect(
+          harness.controller.state.phase,
+          CustomSceneSubmissionPhase.recoverableError,
+        );
+        expect(
+          harness.controller.state.message,
+          isNot(contains(privateTextSentinel)),
+        );
+        expect(
+          (await harness.draftStore.readResult(now: now)).status,
+          CustomSceneDraftReadStatus.available,
+        );
+        expect(repository.received, isEmpty);
+      },
+    );
   });
 }
 

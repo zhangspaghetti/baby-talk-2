@@ -227,7 +227,7 @@ class CustomSceneSubmissionController extends ChangeNotifier {
       }
       if (result.status == CustomSceneDraftReadStatus.expired) {
         await _draftContinuationCoordinator.cancel();
-        _setState(_recoverable('这次描述已过期，请重新填写。'));
+        _setState(const CustomSceneSubmissionState.editing());
         return;
       }
       if (result.status != CustomSceneDraftReadStatus.available ||
