@@ -5,9 +5,11 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:isar/isar.dart';
 import 'package:mobile/core/device/installation_id_service.dart';
+import 'package:mobile/features/practice/data/generated/generated_practice_content_registry.dart';
 import 'package:mobile/features/practice/data/local/practice_local_data_source.dart';
 import 'package:mobile/features/practice/data/repositories/practice_repository.dart';
 import 'package:mobile/features/practice/data/services/asset_phrase_service.dart';
+import 'package:mobile/features/practice/domain/generated_care_turn_resume.dart';
 import 'package:mobile/features/practice/domain/models/interaction_event_payload.dart';
 import 'package:mobile/features/practice/domain/models/practice_continuity_snapshot.dart';
 import '../../support/isar_test_library.dart';
@@ -111,6 +113,67 @@ void main() {
         expect(activity.warningMessage, isNull);
         expect(activity.nextPhraseId, isNotNull);
         expect(activity.nextPhraseEnglish, isNotNull);
+      }
+    });
+
+    test('未登录时 generated projection 不可用仍返回完整 seed catalog', () async {
+      final signedOutRepository = PracticeRepository(
+        assetPhraseService: AssetPhraseService(bundle: rootBundle),
+        localDataSource: localDataSource,
+        installationIdService: InstallationIdService(
+          directoryResolver: () async => tempDir,
+          idGenerator: () => 'install_test',
+        ),
+        contentResolver: const _ThrowingPracticeContentResolver(
+          GeneratedPracticeProjectionUnavailableException(
+            GeneratedPracticeProjectionUnavailableReason.accountUnavailable,
+          ),
+        ),
+      );
+
+      final catalog = await signedOutRepository.getActivityCatalog();
+
+      expect(catalog.activities.map((activity) => activity.activityId), [
+        'bath_time',
+        'diaper_change',
+        'feeding_time',
+        'bedtime',
+      ]);
+      expect(
+        catalog.activities.where(
+          (activity) => activity.generatedContentId != null,
+        ),
+        isEmpty,
+      );
+      expect(catalog.knownEvents, 0);
+    });
+
+    test('generated projection 读取故障与未知错误继续显式失败', () async {
+      final errors = <Object>[
+        const GeneratedPracticeProjectionUnavailableException(
+          GeneratedPracticeProjectionUnavailableReason.accountLoadFailed,
+        ),
+        const GeneratedPracticeProjectionUnavailableException(
+          GeneratedPracticeProjectionUnavailableReason.contentLoadFailed,
+        ),
+        StateError('unexpected projection failure'),
+      ];
+
+      for (final error in errors) {
+        final failingRepository = PracticeRepository(
+          assetPhraseService: AssetPhraseService(bundle: rootBundle),
+          localDataSource: localDataSource,
+          installationIdService: InstallationIdService(
+            directoryResolver: () async => tempDir,
+            idGenerator: () => 'install_test',
+          ),
+          contentResolver: _ThrowingPracticeContentResolver(error),
+        );
+
+        await expectLater(
+          failingRepository.getActivityCatalog(),
+          throwsA(same(error)),
+        );
       }
     });
 
@@ -745,6 +808,40 @@ class _WriteThenThrowLocalDataSource extends PracticeLocalDataSource {
     await super.appendInteractionEvent(payload);
     throw StateError('simulated lost response after local commit');
   }
+}
+
+class _ThrowingPracticeContentResolver implements PracticeContentResolver {
+  const _ThrowingPracticeContentResolver(this.error);
+
+  final Object error;
+
+  @override
+  Future<List<PracticeActivitySnapshot>> listGeneratedActivities() async {
+    throw error;
+  }
+
+  @override
+  Future<PracticeActivitySnapshot?> resolveActivity({
+    required String spaceId,
+    required String activityId,
+  }) async => null;
+
+  @override
+  Future<PracticeActivitySnapshot?> resolveGeneratedContent({
+    required String generatedContentId,
+  }) async => null;
+
+  @override
+  Future<GeneratedCareTurnResumeMarker?>
+  loadGeneratedCareTurnResumeMarker() async => null;
+
+  @override
+  Future<void> completeGeneratedCareTurnResume({
+    required String generatedContentId,
+  }) async {}
+
+  @override
+  Future<void> clearForLifecycle() async {}
 }
 
 class _FakeAssetBundle extends CachingAssetBundle {

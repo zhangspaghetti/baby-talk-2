@@ -4,6 +4,7 @@ import 'dart:math';
 import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 import 'package:mobile/core/device/installation_id_service.dart';
+import 'package:mobile/features/practice/data/generated/generated_practice_content_registry.dart';
 import 'package:mobile/features/practice/data/local/interaction_event_entity.dart';
 import 'package:mobile/features/practice/data/local/practice_local_data_source.dart';
 import 'package:mobile/features/practice/data/services/asset_phrase_service.dart';
@@ -306,7 +307,16 @@ class PracticeRepository {
   Future<PracticeActivityCatalog> getActivityCatalog() async {
     final content = await _assetPhraseService.loadSeedContent();
     final installationId = await _safeEnsureInstallationId();
-    final generatedActivities = await getGeneratedActivitySnapshots();
+    late final List<PracticeActivitySnapshot> generatedActivities;
+    try {
+      generatedActivities = await getGeneratedActivitySnapshots();
+    } on GeneratedPracticeProjectionUnavailableException catch (error) {
+      if (error.reason !=
+          GeneratedPracticeProjectionUnavailableReason.accountUnavailable) {
+        rethrow;
+      }
+      generatedActivities = const <PracticeActivitySnapshot>[];
+    }
     final generatedByContentId = <String, PracticeActivitySnapshot>{
       for (final activity in generatedActivities)
         if (activity.generatedContentId != null)

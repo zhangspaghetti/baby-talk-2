@@ -968,6 +968,130 @@ void main() {
     );
   });
 
+  testWidgets('production signed-out account keeps bundled scenes available', (
+    WidgetTester tester,
+  ) async {
+    late OnboardingSnapshot completedSnapshot;
+    late PracticeRepository signedOutRepository;
+    const signedOutStorage = _SignedOutSecureStorage();
+    final signedOutAccountStore = AccountLocalStore(
+      secureStorage: signedOutStorage,
+    );
+    final harness = (await tester.runAsync<_AppBootHarness>(() async {
+      final created = await _createHarness();
+      completedSnapshot = await _onboardingRepositoryFor(created)
+          .completeOnboarding(
+            childDisplayName: '米米',
+            ageBucket: OnboardingAgeBucket.zeroToSix,
+            selectedSceneIds: const ['bath_time'],
+            supportGoal: OnboardingSupportGoal.firstWords,
+            starterSpaceId: 'daily_care',
+            starterActivityId: 'bath_time',
+            starterPhraseId: 'bath_time_warm_water',
+            firstTraceEventKey: 'install_signed_out:evt_onboarding_first',
+            completedAt: DateTime.utc(2026, 8, 11, 8),
+          );
+      signedOutRepository = PracticeRepository(
+        assetPhraseService: created.bootState.assetPhraseService!,
+        localDataSource: created.localDataSource,
+        installationIdService: InstallationIdService(
+          directoryResolver: () async => created.tempDir,
+          idGenerator: () => 'install_signed_out',
+        ),
+        contentResolver: GeneratedPracticeContentRegistry(
+          store: GeneratedCareMomentLocalStore(
+            directoryResolver: () async => created.tempDir,
+          ),
+          resumeStore: GeneratedCareTurnResumeMarkerStore(
+            directoryResolver: () async => created.tempDir,
+          ),
+          accountContextLoader: () async {
+            return (await signedOutAccountStore.read()).session?.accountId;
+          },
+        ),
+      );
+      return created;
+    }))!;
+    addTearDown(harness.close);
+    addTearDown(() async {
+      await _disposeWidgetTree(tester);
+    });
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          assetPhraseServiceProvider.overrideWithValue(
+            harness.bootState.assetPhraseService!,
+          ),
+          appDirectoryProvider.overrideWith((ref) => harness.tempDir),
+          mentorRepositoryProvider.overrideWith(
+            (ref) async => harness.mentorRepository,
+          ),
+          practiceRepositoryProvider.overrideWith((ref) => signedOutRepository),
+          accountRepositoryProvider.overrideWith(
+            (ref) => AccountRepository(
+              localStore: signedOutAccountStore,
+              practiceRepository: signedOutRepository,
+            ),
+          ),
+          householdRepositoryProvider.overrideWith((ref) {
+            final accountRepository = ref
+                .read(accountRepositoryProvider)
+                .requireValue;
+            return HouseholdRepository(
+              localStore: HouseholdLocalStore(
+                directoryResolver: () async => harness.tempDir,
+              ),
+              apiService: HouseholdApiService(),
+              accountSnapshotLoader: accountRepository.loadSnapshot,
+              persistRefreshedSession:
+                  accountRepository.persistRefreshedSession,
+            );
+          }),
+          onboardingRepositoryProvider.overrideWith(
+            (ref) => _onboardingRepositoryFor(harness),
+          ),
+        ],
+        child: BabyTalkApp(
+          bootState: harness.bootState,
+          audioControllerFactory: _SilentPracticeAudioController.new,
+          completedSnapshotLoader: () async => completedSnapshot,
+          practiceContinuityRefreshTimeout: Duration.zero,
+          gardenGrowthRefreshTimeout: Duration.zero,
+        ),
+      ),
+    );
+    await _pumpUntilFound(tester, find.byKey(const Key('shell-ready')));
+
+    await tester.tap(find.byKey(const Key('shell-nav-discover')));
+    await _pumpUntilFound(
+      tester,
+      find.byWidgetPredicate(
+        (widget) =>
+            widget.key == const Key('discover-phrase-list') ||
+            widget.key == const Key('discover-error-state'),
+      ),
+    );
+
+    expect(find.byKey(const Key('discover-error-state')), findsNothing);
+    expect(
+      find.byKey(const Key('discover-phrase-card-bath_time')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const Key('discover-phrase-card-diaper_change')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const Key('discover-phrase-card-feeding_time')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const Key('discover-phrase-card-bedtime')),
+      findsOneWidget,
+    );
+  });
+
   testWidgets('malformed account snapshot 只会退回未登录，不会破坏 shell route gate', (
     WidgetTester tester,
   ) async {
@@ -1495,6 +1619,21 @@ class _MalformedSecureStorage extends FlutterSecureStorage {
   }) async {
     return '{"consentState":"accepted_pending_sync","session":null}';
   }
+}
+
+class _SignedOutSecureStorage extends FlutterSecureStorage {
+  const _SignedOutSecureStorage();
+
+  @override
+  Future<String?> read({
+    required String key,
+    IOSOptions? iOptions,
+    AndroidOptions? aOptions,
+    LinuxOptions? lOptions,
+    WebOptions? webOptions,
+    MacOsOptions? mOptions,
+    WindowsOptions? wOptions,
+  }) async => null;
 }
 
 class _GeneratedProjectionAccountGate {
