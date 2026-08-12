@@ -51,10 +51,14 @@ The formal M2-13 closure-candidate verifier ran once, serially, for `1344.7` sec
 
 No `FAIL`, `BLOCKED`, or `NOT RUN` status was reinterpreted. Full CI includes the #60 real-store recovery regression and #61 public logout, official-session failure, clearance, idempotency, privacy, routing, and semantics coverage.
 
-Focused verifier, privacy, M2-11, Spring AI 2 static-source, and diff checks passed after the aggregate. Standards and Spec review passed with zero findings.
+Focused verifier, privacy, M2-11, Spring AI 2 static-source, and diff checks passed after the aggregate. Initial dual-axis review then found one Spec P1: the release-matrix verifier checked candidate tuples only against one another, not against the frozen manifest.
+
+Remediation `5f43dc16` adds a privacy-safe `candidate_manifest` reference (`candidate_id`, manifest SHA-256, and byte count) to the UAT record contract. The release-matrix verifier now requires `--manifest`, validates that manifest through the M2-13 scanner, binds every record to the exact manifest bytes and frozen nine-field tuple, and normalizes manifest `real` to record `REAL`. Focused tests prove missing, wrong, and tampered manifests plus a self-consistent non-frozen tuple all fail closed. M2-12 and M2-13 focused tests passed `48/48`; targeted analyze, privacy, M2-11, Spring AI 2 static-source, JSON parsing, and diff checks passed.
+
+The formal M2-13 verifier then reran all 13 upstream gates once, serially, on the clean remediation commit. It returned exit code `0`, zero violations, and the success marker in `139.3` seconds. This revalidation changes no APK, backend runtime, candidate tuple, or manifest bytes.
 
 ## UAT boundary
 
-The ignored manifest is the only allowed input to final UAT. This freeze does not start #40 and does not execute a final logout confirmation. Device inspection only preserved the candidate installation and identity; it does not become a human Android, human-heard audio, or TalkBack PASS.
+The ignored manifest is the only allowed candidate input to final UAT, and every final record must reference its exact ID, SHA-256, and byte count. This freeze does not start #40 and does not execute a final logout confirmation. Device inspection only preserved the candidate installation and identity; it does not become a human Android, human-heard audio, or TalkBack PASS.
 
 No raw scene, prompt, provider request or response, utterance body, audio bytes, account, phone, device serial, request identity, private identifier, credential, token, Secret value, screenshot, or private evidence is stored.

@@ -6,6 +6,27 @@ exit_code=0
 elapsed_seconds=1344.7
 interpretation=final candidate frozen for UAT; all fixed upstream machine gates passed on a clean tracked worktree
 
+remediation_commit=5f43dc16
+remediation_scope=bind machine-readable UAT records to exact frozen manifest identity and tuple
+focused_command=flutter test test/tool/verify_m2_12_release_matrix_test.dart test/tool/verify_m2_13_closure_candidate_test.dart
+focused_result=PASS 48/48
+negative_manifest_cases=missing,wrong_reference,tampered,self_consistent_non_frozen_tuple
+negative_manifest_result=all_rejected
+reanalyze_result=PASS
+privacy_result=PASS
+m2_11_result=PASS
+spring_ai_2_static_result=PASS
+json_parse_result=PASS
+diff_check_result=PASS
+formal_revalidation_command=dart run tool/verify_m2_13_closure_candidate.dart --manifest artifacts/m2-final-ff07c74cfd1a-20260812.json
+formal_revalidation_status=pass
+formal_revalidation_violations=0
+formal_revalidation_exit_code=0
+formal_revalidation_elapsed_seconds=139.3
+formal_revalidation_gate_count=13
+human_android_record_created=false
+human_audio_or_talkback_result_claimed=false
+
 candidate_id=m2-final-ff07c74cfd1a
 candidate_manifest_sha256=d1f236b358ccfc51a14228745c5285729e290e5bfaedefd7048a694fc166da57
 candidate_manifest_bytes=2685
