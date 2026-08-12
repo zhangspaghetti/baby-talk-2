@@ -7,8 +7,8 @@ judge-prompt:
   version: custom-scene-quality-judge-v3
   resource-path: config/practice-ai/prompts/custom-scene-quality-judge-v3.txt
 repair-prompt:
-  version: custom-scene-repair-v3
-  resource-path: config/practice-ai/prompts/custom-scene-repair-v3.txt
+  version: custom-scene-repair-v4
+  resource-path: config/practice-ai/prompts/custom-scene-repair-v4.txt
 rubric:
   version: custom-scene-quality-v1
   resource-path: config/practice-ai/rubrics/custom-scene-quality-v1.yml

@@ -29,6 +29,9 @@ import com.zhangspaghetti.babytalk.practice.generated.quality.TypedRepairPackage
 import com.zhangspaghetti.babytalk.practice.generated.quality.GeneratedOutputViolationCode;
 import com.zhangspaghetti.babytalk.practice.generated.evidence.EvidenceSummary;
 import com.zhangspaghetti.babytalk.practice.generated.contract.CompleteGeneratedBundle;
+import com.zhangspaghetti.babytalk.practice.discovery.CustomSceneGeneratedContentValidator;
+import com.zhangspaghetti.babytalk.practice.discovery.CustomSceneIntentClassifier;
+import com.zhangspaghetti.babytalk.practice.discovery.PracticeDiscoveryPolicyTestFixture;
 import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
@@ -162,6 +165,12 @@ class AgenticCustomSceneRepairerTest {
                         "\"contentConstraints\":{",
                         "\"maxEnglishWords\":6",
                         "\"maxEnglishChars\":40",
+                        "\"coachTipCompositionPolicy\":{",
+                        "\"maxCombinedGraphemes\":80",
+                        "\"compositionRules\":[\"trim both fields\",\"omit missing fields\","
+                                + "\"deduplicate equal fields\",\"otherwise join with one space\"]",
+                        "\"lengthUnit\":\"grapheme\"",
+                        "\"preserveMeaningWithoutTruncation\":true",
                         "\"persistenceCodePointLimits\":{",
                         "\"spaceTitleZh\":120",
                         "\"activityTitleZh\":120",
@@ -186,6 +195,106 @@ class AgenticCustomSceneRepairerTest {
                         "profileId",
                         "providerTraceId",
                         "reasoning");
+    }
+
+    @Test
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    void overflowRepairCarriesExactCombinedCoachTipConstraintWithoutPrivateInput() {
+        var runner = mock(PracticeAiOperationRunner.class);
+        var caller = mock(PracticeAiStructuredOutputCaller.class);
+        var registry = mock(VersionedResourceRegistry.class);
+        when(registry.currentGenerationProfile()).thenReturn(profile());
+        when(registry.promptText(VersionedResourceRegistry.PromptKind.REPAIR))
+                .thenReturn("REPAIR SYSTEM PROMPT");
+        var operationCaptor = ArgumentCaptor.forClass(OperationRequest.class);
+        when(runner.execute(operationCaptor.capture())).thenReturn(new OperationResult<>(
+                wire(), UUID.randomUUID(), UUID.randomUUID(), "primary", "gpt-test", null));
+        var repairer = new AgenticCustomSceneRepairer(runner, caller, registry);
+
+        repairer.repairCareMoment(requestForCoachTipOverflow(coachTipOverflowCandidate()));
+        var operation = (OperationRequest<CompleteGeneratedBundle.ProviderResponse>) operationCaptor.getValue();
+        var provider = new ResolvedProvider(
+                "primary", "openai-compatible", "gpt-test", mock(ChatClient.class));
+        when(caller.callRaw(eq(provider), eq("REPAIR SYSTEM PROMPT"), any(String.class),
+                eq(CompleteGeneratedBundle.ProviderResponse.class), eq(8192))).thenReturn(wireJson());
+        operation.invocation().invoke(provider);
+
+        var promptCaptor = ArgumentCaptor.forClass(String.class);
+        verify(caller).callRaw(eq(provider), eq("REPAIR SYSTEM PROMPT"), promptCaptor.capture(),
+                eq(CompleteGeneratedBundle.ProviderResponse.class), eq(8192));
+        assertThat(promptCaptor.getValue())
+                .contains(
+                        "PROVIDER_CONTENT_OVERFLOW",
+                        "fieldPath=coachTipZh:lengthUnit=grapheme:actualLength=84:limit=80",
+                        "\"maxCombinedGraphemes\":80",
+                        "\"preserveMeaningWithoutTruncation\":true")
+                .doesNotContain("ownerKey", "accountId", "profileId", "providerResponse");
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void coachTipOverflowRepairConvergesThroughRealValidatorWithoutTruncation() {
+        var policy = PracticeDiscoveryPolicyTestFixture.properties();
+        var validator = new CustomSceneGeneratedContentValidator(
+                policy, new CustomSceneIntentClassifier(policy));
+        var constraints = CustomSceneGenerator.ContentConstraints.defaults();
+        var overlong = coachTipOverflowCandidate();
+        var before = validator.evaluate(
+                overlong,
+                constraints,
+                new CustomSceneGeneratedContentValidator.GeneratedOutputValidationContext(
+                        "synthetic sleep care moment"));
+        assertThat(before.repairableViolations())
+                .contains(GeneratedOutputViolationCode.PROVIDER_CONTENT_OVERFLOW);
+        assertThat(before.repairableViolationDiagnostics())
+                .anySatisfy(diagnostic -> {
+                    assertThat(diagnostic.fieldPath()).isEqualTo("coachTipZh");
+                    assertThat(diagnostic.actualLength()).isEqualTo(84);
+                    assertThat(diagnostic.limit()).isEqualTo(80);
+                });
+
+        var runner = mock(PracticeAiOperationRunner.class);
+        var caller = mock(PracticeAiStructuredOutputCaller.class);
+        var registry = mock(VersionedResourceRegistry.class);
+        when(registry.currentGenerationProfile()).thenReturn(profile());
+        when(registry.promptText(VersionedResourceRegistry.PromptKind.REPAIR))
+                .thenReturn("REPAIR SYSTEM PROMPT");
+        var operationCaptor = ArgumentCaptor.forClass(OperationRequest.class);
+        var provider = new ResolvedProvider(
+                "primary", "openai-compatible", "gpt-test", mock(ChatClient.class));
+        var repairedWire = wireWithStarterCoachTip(
+                "抱稳宝宝，轻轻拍拍宝宝的后背。",
+                "轻声说，放慢节奏，等宝宝看过来，不用催，也不强求。");
+        when(caller.callRaw(eq(provider), eq("REPAIR SYSTEM PROMPT"), any(String.class),
+                eq(CompleteGeneratedBundle.ProviderResponse.class), eq(8192)))
+                .thenReturn(JSON_MAPPER.writeValueAsString(repairedWire));
+        when(runner.execute(operationCaptor.capture())).thenAnswer(invocation -> {
+            var operation = (OperationRequest<CompleteGeneratedBundle.ProviderResponse>)
+                    invocation.getArgument(0);
+            var providerResult = operation.invocation().invoke(provider);
+            return new OperationResult<>(
+                    providerResult.value(),
+                    UUID.randomUUID(),
+                    UUID.randomUUID(),
+                    "primary",
+                    "gpt-test",
+                    providerResult.providerTraceId());
+        });
+        var repairer = new AgenticCustomSceneRepairer(runner, caller, registry);
+        var repaired = repairer.repairCareMoment(requestForCoachTipOverflow(overlong)).starter();
+        var after = validator.evaluate(
+                repaired,
+                constraints,
+                new CustomSceneGeneratedContentValidator.GeneratedOutputValidationContext(
+                        "synthetic sleep care moment"));
+
+        assertThat(after.repairableViolations())
+                .doesNotContain(GeneratedOutputViolationCode.PROVIDER_CONTENT_OVERFLOW);
+        assertThat(after.normalizedCandidate().tprActionZh()).contains("抱稳宝宝", "轻轻拍拍");
+        assertThat(after.normalizedCandidate().deliveryGuidanceZh())
+                .contains("轻声说", "等宝宝", "不强求");
+        verify(caller).callRaw(eq(provider), eq("REPAIR SYSTEM PROMPT"), any(String.class),
+                eq(CompleteGeneratedBundle.ProviderResponse.class), eq(8192));
     }
 
     @ParameterizedTest
@@ -310,6 +419,35 @@ class AgenticCustomSceneRepairerTest {
                                         GeneratedOutputViolationCode.MISSING_DELIVERY_GUIDANCE))));
     }
 
+    private static CustomSceneRepairer.RepairRequest requestForCoachTipOverflow(
+            CustomSceneGenerator.GeneratedPracticeContentCandidate overlong
+    ) {
+        return new CustomSceneRepairer.RepairRequest(
+                "pgc_repair_test",
+                2,
+                EVIDENCE_BUNDLE_ID,
+                "zh-CN",
+                CustomSceneGenerator.ContentConstraints.defaults(),
+                new TypedRepairPackage(
+                        "synthetic care moment",
+                        "m7_11",
+                        "calmer_care",
+                        GeneratedCareMomentBundle.fakeFixture(overlong).completeBundle(),
+                        JudgeVerdict.REPAIR,
+                        List.of(JudgeDimension.PARENT_SPEAKABILITY),
+                        List.of(
+                                "PROVIDER_CONTENT_OVERFLOW",
+                                "starter:PROVIDER_CONTENT_OVERFLOW",
+                                "starter:PROVIDER_CONTENT_OVERFLOW:fieldPath=coachTipZh:"
+                                        + "lengthUnit=grapheme:actualLength=84:limit=80"),
+                        List.of(requirement(
+                                Branch.STARTER,
+                                GeneratedOutputViolationCode.PROVIDER_CONTENT_OVERFLOW)),
+                        List.of(RepairDirective.REPAIR_PARENT_SPEAKABILITY),
+                        List.of(new EvidenceSummary("synthetic low pressure guidance", "a".repeat(64))),
+                        profile()));
+    }
+
     private static TypedRepairPackage repairPackage(List<BranchRequirement> branchRequirements) {
         return new TypedRepairPackage(
                 "给宝宝穿鞋",
@@ -350,6 +488,36 @@ class AgenticCustomSceneRepairerTest {
                                 CompleteGeneratedBundle.Reaction.OTHER, 6)));
     }
 
+    private static CompleteGeneratedBundle.ProviderResponse wireWithStarterCoachTip(
+            String tprActionZh,
+            String deliveryGuidanceZh
+    ) {
+        return new CompleteGeneratedBundle.ProviderResponse(
+                CompleteGeneratedBundle.CURRENT_SCHEMA_VERSION,
+                new CompleteGeneratedBundle.SceneMetadata("日常照护", "安静陪伴", "Quiet settling"),
+                new CompleteGeneratedBundle.ProviderUtterances(
+                        new CompleteGeneratedBundle.ProviderUtterance(
+                                CompleteGeneratedBundle.UtteranceRole.STARTER,
+                                null,
+                                "I am here.",
+                                "我在这里。",
+                                "i am here",
+                                tprActionZh,
+                                deliveryGuidanceZh,
+                                "starter",
+                                1),
+                        utterance(CompleteGeneratedBundle.UtteranceRole.REACTION_SUPPORT,
+                                CompleteGeneratedBundle.Reaction.COOPERATING, 2),
+                        utterance(CompleteGeneratedBundle.UtteranceRole.REACTION_SUPPORT,
+                                CompleteGeneratedBundle.Reaction.HESITANT, 3),
+                        utterance(CompleteGeneratedBundle.UtteranceRole.REACTION_SUPPORT,
+                                CompleteGeneratedBundle.Reaction.RESISTING, 4),
+                        utterance(CompleteGeneratedBundle.UtteranceRole.REACTION_SUPPORT,
+                                CompleteGeneratedBundle.Reaction.NO_RESPONSE, 5),
+                        utterance(CompleteGeneratedBundle.UtteranceRole.REACTION_SUPPORT,
+                                CompleteGeneratedBundle.Reaction.OTHER, 6)));
+    }
+
     private static String wireJson() {
         return JSON_MAPPER.writeValueAsString(wire());
     }
@@ -368,6 +536,29 @@ class AgenticCustomSceneRepairerTest {
         return new CompleteGeneratedBundle.ProviderUtterance(
                 role, reaction, "Shoes on.", "穿鞋出门。", "shoes on", "拿起鞋子。", "慢慢说。",
                 "starter", displayOrder);
+    }
+
+    private static CustomSceneGenerator.GeneratedPracticeContentCandidate candidateWithCoachTip(
+            String tprActionZh,
+            String deliveryGuidanceZh
+    ) {
+        return new CustomSceneGenerator.GeneratedPracticeContentCandidate(
+                "日常照护",
+                "安静陪伴",
+                "Quiet settling",
+                tprActionZh,
+                deliveryGuidanceZh,
+                "I am here.",
+                "我在这里。",
+                "i am here",
+                "starter",
+                "agentic_search");
+    }
+
+    private static CustomSceneGenerator.GeneratedPracticeContentCandidate coachTipOverflowCandidate() {
+        return candidateWithCoachTip(
+                "抱稳" + "宝宝".repeat(19),
+                "轻声" + "等宝宝".repeat(13) + "慢慢");
     }
 
     private static GenerationProfile profile() {

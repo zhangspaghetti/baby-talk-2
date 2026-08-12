@@ -23,7 +23,7 @@ resources:
   content-hash: da4bbe0e608725f2bd94e8131560158259f0dbe29698b1cf9ae41f423afed8d7
 - version: custom-scene-generation-v7
   resource-path: config/practice-ai/profiles/custom-scene-generation-v7.yml
-  content-hash: d946c7d8bb7207215b7b730b2c7ca06e4b641226362e8333f20d5f79fa97b741
+  content-hash: c2bb511b8ed95abd51cd2dd3cf88adc542a4025903b833d13a5fb036e1bbea84
 - version: custom-scene-generator-v1
   resource-path: config/practice-ai/prompts/custom-scene-generator-v1.txt
   content-hash: f6ed4f6e4fe6f68ac1fbfbd012de6d7532333cb234be90001c521cf250087169
@@ -54,6 +54,9 @@ resources:
 - version: custom-scene-repair-v3
   resource-path: config/practice-ai/prompts/custom-scene-repair-v3.txt
   content-hash: e8c8c84cdabb15792bea2064fbd82942109e96828f13550f6c0c3a51b02c9ad5
+- version: custom-scene-repair-v4
+  resource-path: config/practice-ai/prompts/custom-scene-repair-v4.txt
+  content-hash: d42d76cedf372bb630fbe0c7a16bb3ddc68dacf86e2f773652b48ede151a99f4
 - version: family-english-baseline-v1
   resource-path: config/practice-ai/evidence/family-english-baseline-v1.yml
   content-hash: 6e49982f2461ce9233651c5fd9cb23e27f8ecc09943f4426374d4222ec92fa25

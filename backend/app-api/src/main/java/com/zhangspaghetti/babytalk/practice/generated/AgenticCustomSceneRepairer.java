@@ -9,6 +9,7 @@ import com.zhangspaghetti.babytalk.practice.agentic.config.GenerationProfile;
 import com.zhangspaghetti.babytalk.practice.agentic.config.VersionedResourceRegistry;
 import com.zhangspaghetti.babytalk.practice.generated.contract.CompleteGeneratedBundle;
 import com.zhangspaghetti.babytalk.practice.generated.evidence.EvidenceSummary;
+import com.zhangspaghetti.babytalk.practice.discovery.GeneratedCoachTipComposer;
 import com.zhangspaghetti.babytalk.practice.generated.quality.TypedRepairPackage;
 import java.util.List;
 import java.util.Objects;
@@ -30,6 +31,7 @@ public class AgenticCustomSceneRepairer implements CustomSceneRepairer {
     private final PracticeAiStructuredOutputCaller structuredOutputCaller;
     private final VersionedResourceRegistry resourceRegistry;
     private final ObjectMapper objectMapper;
+    private final GeneratedCoachTipComposer coachTipComposer;
 
     @org.springframework.beans.factory.annotation.Autowired
     public AgenticCustomSceneRepairer(
@@ -37,7 +39,8 @@ public class AgenticCustomSceneRepairer implements CustomSceneRepairer {
             PracticeAiStructuredOutputCaller structuredOutputCaller,
             VersionedResourceRegistry resourceRegistry
     ) {
-        this(operationRunner, structuredOutputCaller, resourceRegistry, new ObjectMapper());
+        this(operationRunner, structuredOutputCaller, resourceRegistry,
+                new ObjectMapper(), new GeneratedCoachTipComposer());
     }
 
     AgenticCustomSceneRepairer(
@@ -46,10 +49,22 @@ public class AgenticCustomSceneRepairer implements CustomSceneRepairer {
             VersionedResourceRegistry resourceRegistry,
             ObjectMapper objectMapper
     ) {
+        this(operationRunner, structuredOutputCaller, resourceRegistry,
+                objectMapper, new GeneratedCoachTipComposer());
+    }
+
+    AgenticCustomSceneRepairer(
+            PracticeAiOperationRunner operationRunner,
+            PracticeAiStructuredOutputCaller structuredOutputCaller,
+            VersionedResourceRegistry resourceRegistry,
+            ObjectMapper objectMapper,
+            GeneratedCoachTipComposer coachTipComposer
+    ) {
         this.operationRunner = Objects.requireNonNull(operationRunner, "operationRunner");
         this.structuredOutputCaller = Objects.requireNonNull(structuredOutputCaller, "structuredOutputCaller");
         this.resourceRegistry = Objects.requireNonNull(resourceRegistry, "resourceRegistry");
         this.objectMapper = Objects.requireNonNull(objectMapper, "objectMapper");
+        this.coachTipComposer = Objects.requireNonNull(coachTipComposer, "coachTipComposer");
     }
 
     @Override
@@ -81,6 +96,7 @@ public class AgenticCustomSceneRepairer implements CustomSceneRepairer {
                         .toList(),
                 repairPackage.repairDirectives().stream().map(Enum::name).toList(),
                 contentConstraintsPayload(request.contentConstraints()),
+                coachTipComposer.compositionPolicy(request.contentConstraints().maxCoachTipChars()),
                 CompleteGeneratedBundle.persistenceCodePointLimits(),
                 EvidenceActionConsistencyPolicyPayload.strict(),
                 repairPackage.evidenceSummaries().stream().map(EvidenceSummary::sanitizedSummary).toList(),
@@ -173,6 +189,7 @@ public class AgenticCustomSceneRepairer implements CustomSceneRepairer {
             List<BranchRequirementPayload> branchRequirements,
             List<String> repairDirectives,
             ContentConstraintsPayload contentConstraints,
+            GeneratedCoachTipComposer.CompositionPolicy coachTipCompositionPolicy,
             CompleteGeneratedBundle.PersistenceCodePointLimits persistenceCodePointLimits,
             EvidenceActionConsistencyPolicyPayload evidenceActionConsistencyPolicy,
             List<String> orderedSanitizedEvidenceSummaries,

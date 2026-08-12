@@ -16,10 +16,10 @@ class VersionedResourceRegistryTest {
 
         assertThat(profile.version()).isEqualTo("custom-scene-generation-v7");
         assertThat(profile.contentHash())
-                .isEqualTo("d946c7d8bb7207215b7b730b2c7ca06e4b641226362e8333f20d5f79fa97b741");
+                .isEqualTo("c2bb511b8ed95abd51cd2dd3cf88adc542a4025903b833d13a5fb036e1bbea84");
         assertThat(profile.generatorPrompt().version()).isEqualTo("custom-scene-generator-v3");
         assertThat(profile.judgePrompt().version()).isEqualTo("custom-scene-quality-judge-v3");
-        assertThat(profile.repairPrompt().version()).isEqualTo("custom-scene-repair-v3");
+        assertThat(profile.repairPrompt().version()).isEqualTo("custom-scene-repair-v4");
         assertThat(profile.rubricVersion()).isEqualTo("custom-scene-quality-v1");
         assertThat(profile.evidencePolicyVersion()).isEqualTo("custom-scene-evidence-v1");
         assertThat(profile.minimumCompleteBundleOutputTokens()).isEqualTo(8192);
