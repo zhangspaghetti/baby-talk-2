@@ -21,7 +21,7 @@ const _requiredCaseIds = <String>{
   'talkback_human_accessibility',
 };
 
-const _canonicalScenes = <String>{
+const _scenarioLabels = <String>{
   'shoes',
   'bath',
   'water',
@@ -42,11 +42,10 @@ const _candidateKeys = <String>{
   'configuration_fingerprint',
 };
 
-const _requiredRecordKeys = <String>{
+const _commonRequiredRecordKeys = <String>{
   'schema_version',
   'record_id',
   'case_id',
-  'canonical_scene',
   'executor',
   'executed_at',
   'timezone',
@@ -65,7 +64,23 @@ const _requiredRecordKeys = <String>{
   'branch_reviews',
 };
 
-const _allowedRecordKeys = <String>{..._requiredRecordKeys, 'accessibility'};
+const _v1RequiredRecordKeys = <String>{
+  ..._commonRequiredRecordKeys,
+  'canonical_scene',
+};
+const _v2RequiredRecordKeys = <String>{
+  ..._commonRequiredRecordKeys,
+  'input_mode',
+  'scenario_label',
+};
+const _v1AllowedRecordKeys = <String>{
+  ..._v1RequiredRecordKeys,
+  'accessibility',
+};
+const _v2AllowedRecordKeys = <String>{
+  ..._v2RequiredRecordKeys,
+  'accessibility',
+};
 
 const _requiredBranches = <String>{
   'starter',
@@ -227,25 +242,26 @@ _ParsedRecord? _validateRecord(
   String location,
   List<M212ReleaseMatrixViolation> violations,
 ) {
-  _validateKeys(
-    record,
-    _requiredRecordKeys,
-    _allowedRecordKeys,
-    location,
-    violations,
-  );
   final schemaVersion = _requiredString(
     record,
     'schema_version',
     location,
     violations,
   );
-  if (schemaVersion != null && schemaVersion != 'm2_android_uat_v1') {
+  final isHistoricalV1 = schemaVersion == 'm2_android_uat_v1';
+  _validateKeys(
+    record,
+    isHistoricalV1 ? _v1RequiredRecordKeys : _v2RequiredRecordKeys,
+    isHistoricalV1 ? _v1AllowedRecordKeys : _v2AllowedRecordKeys,
+    location,
+    violations,
+  );
+  if (schemaVersion != null && schemaVersion != 'm2_android_uat_v2') {
     _add(
       violations,
       'invalid_schema',
       location,
-      'unsupported UAT record schema',
+      'current closure requires m2_android_uat_v2',
     );
   }
   final recordId = _requiredString(record, 'record_id', location, violations);
@@ -261,18 +277,29 @@ _ParsedRecord? _validateRecord(
   if (caseId != null && !_requiredCaseIds.contains(caseId)) {
     _add(violations, 'unknown_case', location, 'unknown UAT case');
   }
-  final canonicalScene = _requiredString(
+  final inputMode = isHistoricalV1
+      ? null
+      : _requiredString(record, 'input_mode', location, violations);
+  if (!isHistoricalV1 && inputMode != null && inputMode != 'custom_scene') {
+    _add(
+      violations,
+      'invalid_input_mode',
+      location,
+      'input_mode must be custom_scene',
+    );
+  }
+  final scenarioLabel = _requiredString(
     record,
-    'canonical_scene',
+    isHistoricalV1 ? 'canonical_scene' : 'scenario_label',
     location,
     violations,
   );
-  if (canonicalScene != null && !_canonicalScenes.contains(canonicalScene)) {
+  if (scenarioLabel != null && !_scenarioLabels.contains(scenarioLabel)) {
     _add(
       violations,
-      'invalid_scene',
+      'invalid_scenario_label',
       location,
-      'scene must be an approved canonical label',
+      'scenario must be an approved controlled label',
     );
   }
   final executor = _requiredString(record, 'executor', location, violations);

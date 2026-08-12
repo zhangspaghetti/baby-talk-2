@@ -7,7 +7,7 @@ import '../../tool/verify_m2_12_release_matrix.dart' as verifier;
 
 void main() {
   group('M2-12 parsed Android UAT closure evidence', () {
-    test('schema and template publish the exact canonical scene allowlist', () {
+    test('schema and template publish the current custom-scene contract', () {
       final schema =
           jsonDecode(
                 File(
@@ -26,8 +26,9 @@ void main() {
           (schema[r'$defs'] as Map<String, dynamic>)['record']
               as Map<String, dynamic>;
       final properties = recordProperties['properties'] as Map<String, dynamic>;
-      final canonicalScene =
-          properties['canonical_scene'] as Map<String, dynamic>;
+      final inputMode = properties['input_mode'] as Map<String, dynamic>;
+      final scenarioLabel =
+          properties['scenario_label'] as Map<String, dynamic>;
 
       const expected = <String>[
         'shoes',
@@ -37,12 +38,40 @@ void main() {
         'tidying',
         'sleep',
       ];
-      expect(canonicalScene['enum'], expected);
-      expect(template['approved_canonical_scenes'], expected);
+      expect((properties['schema_version'] as Map<String, dynamic>)['enum'], [
+        'm2_android_uat_v1',
+        'm2_android_uat_v2',
+      ]);
+      final versionRules = recordProperties['allOf'] as List<dynamic>;
+      final v2Rule = versionRules.last as Map<String, dynamic>;
+      final v2Then = v2Rule['then'] as Map<String, dynamic>;
+      expect(v2Then['required'], ['input_mode', 'scenario_label']);
+      expect((v2Then['not'] as Map<String, dynamic>)['required'], [
+        'canonical_scene',
+      ]);
+      expect(inputMode['const'], 'custom_scene');
+      expect(scenarioLabel['enum'], expected);
+      expect(template['approved_scenario_labels'], expected);
+      final templateRecord =
+          template['record_template'] as Map<String, dynamic>;
+      final prerequisites = templateRecord['prerequisites'] as List<dynamic>;
+      expect(
+        prerequisites.any(
+          (value) =>
+              value is Map<String, dynamic> &&
+              value['id'] == 'approved_custom_scene_scenario' &&
+              value['status'] == 'NOT_RUN',
+        ),
+        isTrue,
+      );
+      expect(
+        (templateRecord['steps'] as List<dynamic>).first['action'],
+        'submit_custom_scene',
+      );
       expect(expected, isNot(contains('unknown')));
     });
 
-    test('complete PASS fixture has one consistent final candidate tuple', () {
+    test('manifest-bound custom-scene sleep record is closure-ready', () {
       final report = verifier.scanM212ReleaseMatrix(
         projectRoot: _repoRootPath(),
         uatRecordsPath: File(_fixturePath()).parent.path,
@@ -57,11 +86,9 @@ void main() {
     });
 
     test(
-      'manifest-bound sleep scenario is an approved canonical scene',
+      'legacy canonical-scene-only records cannot satisfy closure',
       () async {
-        final recordsPath = await _mutatedFixture((records) {
-          records.first['canonical_scene'] = 'sleep';
-        });
+        final recordsPath = await _mutatedFixture(_downgradeRecordsToV1);
         addTearDown(() => recordsPath.parent.delete(recursive: true));
 
         final report = verifier.scanM212ReleaseMatrix(
@@ -70,32 +97,49 @@ void main() {
           candidateManifestPath: _manifestFixturePath(),
         );
 
+        expect(report.passes, isFalse);
         expect(
-          report.passes,
-          isTrue,
-          reason: verifier.renderM212ReleaseMatrixReport(report),
+          verifier.renderM212ReleaseMatrixReport(report),
+          contains('current closure requires m2_android_uat_v2'),
         );
       },
     );
 
-    test('unknown canonical scene still fails closed', () async {
-      final recordsPath = await _mutatedFixture((records) {
-        records.first['canonical_scene'] = 'unknown';
+    for (final fixture in <_FixtureCase>[
+      _FixtureCase('missing_input_mode', 'missing required field: input_mode', (
+        records,
+      ) {
+        records.first.remove('input_mode');
+      }),
+      _FixtureCase('wrong_input_mode', 'input_mode must be custom_scene', (
+        records,
+      ) {
+        records.first['input_mode'] = 'canonical_scene';
+      }),
+      _FixtureCase(
+        'unknown_scenario_label',
+        'scenario must be an approved controlled label',
+        (records) {
+          records.first['scenario_label'] = 'unknown';
+        },
+      ),
+    ]) {
+      test('${fixture.name} fixture fails closed', () async {
+        final recordsPath = await _mutatedFixture(fixture.mutate);
+        addTearDown(() => recordsPath.parent.delete(recursive: true));
+        final report = verifier.scanM212ReleaseMatrix(
+          projectRoot: _repoRootPath(),
+          uatRecordsPath: recordsPath.parent.path,
+          candidateManifestPath: _manifestFixturePath(),
+        );
+
+        expect(report.passes, isFalse);
+        expect(
+          verifier.renderM212ReleaseMatrixReport(report),
+          contains(fixture.expectedDiagnostic),
+        );
       });
-      addTearDown(() => recordsPath.parent.delete(recursive: true));
-
-      final report = verifier.scanM212ReleaseMatrix(
-        projectRoot: _repoRootPath(),
-        uatRecordsPath: recordsPath.parent.path,
-        candidateManifestPath: _manifestFixturePath(),
-      );
-
-      expect(report.passes, isFalse);
-      expect(
-        verifier.renderM212ReleaseMatrixReport(report),
-        contains('scene must be an approved canonical label'),
-      );
-    });
+    }
 
     for (final fixture in <_FixtureCase>[
       _FixtureCase('missing_field', 'missing required field', (records) {
@@ -346,6 +390,16 @@ Future<File> _mutatedFixture(
   final file = File('${root.path}${Platform.pathSeparator}records.json');
   await file.writeAsString(const JsonEncoder.withIndent('  ').convert(records));
   return file;
+}
+
+void _downgradeRecordsToV1(List<dynamic> records) {
+  for (final value in records) {
+    final record = value as Map<String, dynamic>;
+    final scenario = record.remove('scenario_label');
+    record.remove('input_mode');
+    record['schema_version'] = 'm2_android_uat_v1';
+    record['canonical_scene'] = scenario;
+  }
 }
 
 String _repoRootPath() {

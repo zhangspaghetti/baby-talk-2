@@ -1,5 +1,5 @@
 {
-  "schema_version": "m2_android_uat_template_v1",
+  "schema_version": "m2_android_uat_template_v2",
   "required_case_ids": [
     "android_generated_flow",
     "response_loss_reconciliation",
@@ -7,7 +7,7 @@
     "all_reaction_audio_branches",
     "talkback_human_accessibility"
   ],
-  "approved_canonical_scenes": [
+  "approved_scenario_labels": [
     "shoes",
     "bath",
     "water",
@@ -16,10 +16,11 @@
     "sleep"
   ],
   "record_template": {
-    "schema_version": "m2_android_uat_v1",
+    "schema_version": "m2_android_uat_v2",
     "record_id": "uat_replace_with_case_id",
     "case_id": "replace_with_required_case_id",
-    "canonical_scene": "bath",
+    "input_mode": "custom_scene",
+    "scenario_label": "sleep",
     "executor": "role:qa_operator",
     "executed_at": "2026-07-28T12:00:00+08:00",
     "timezone": "Asia/Shanghai",
@@ -51,14 +52,15 @@
       "tts_provider": "REAL"
     },
     "prerequisites": [
-      {"id": "candidate_installed", "status": "NOT_RUN"}
+      {"id": "candidate_installed", "status": "NOT_RUN"},
+      {"id": "approved_custom_scene_scenario", "status": "NOT_RUN"}
     ],
     "steps": [
       {
         "index": 1,
-        "action": "replace_with_controlled_action_label",
-        "expected": "replace_with_controlled_expected_label",
-        "actual": "replace_with_controlled_actual_label",
+        "action": "submit_custom_scene",
+        "expected": "complete_bundle_registered",
+        "actual": "replace_with_observed_controlled_label",
         "status": "NOT_RUN"
       }
     ],

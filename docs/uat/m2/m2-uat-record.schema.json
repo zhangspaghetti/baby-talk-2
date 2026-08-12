@@ -19,7 +19,6 @@
         "schema_version",
         "record_id",
         "case_id",
-        "canonical_scene",
         "executor",
         "executed_at",
         "timezone",
@@ -37,7 +36,7 @@
         "branch_reviews"
       ],
       "properties": {
-        "schema_version": {"const": "m2_android_uat_v1"},
+        "schema_version": {"enum": ["m2_android_uat_v1", "m2_android_uat_v2"]},
         "record_id": {"pattern": "^[a-z][a-z0-9_]{2,100}$"},
         "case_id": {
           "enum": [
@@ -49,6 +48,8 @@
           ]
         },
         "canonical_scene": {"enum": ["shoes", "bath", "water", "teeth", "tidying", "sleep"]},
+        "input_mode": {"const": "custom_scene"},
+        "scenario_label": {"enum": ["shoes", "bath", "water", "teeth", "tidying", "sleep"]},
         "executor": {"pattern": "^role:[a-z][a-z0-9_-]{2,63}$"},
         "executed_at": {"format": "date-time"},
         "timezone": {"pattern": "^[A-Za-z]+/[A-Za-z_]+$"},
@@ -66,7 +67,23 @@
         "privacy": {"$ref": "#/$defs/privacy"},
         "branch_reviews": {"type": "array", "items": {"$ref": "#/$defs/branchReview"}},
         "accessibility": {"$ref": "#/$defs/accessibility"}
-      }
+      },
+      "allOf": [
+        {
+          "if": {"properties": {"schema_version": {"const": "m2_android_uat_v1"}}},
+          "then": {
+            "required": ["canonical_scene"],
+            "not": {"anyOf": [{"required": ["input_mode"]}, {"required": ["scenario_label"]}]}
+          }
+        },
+        {
+          "if": {"properties": {"schema_version": {"const": "m2_android_uat_v2"}}},
+          "then": {
+            "required": ["input_mode", "scenario_label"],
+            "not": {"required": ["canonical_scene"]}
+          }
+        }
+      ]
     },
     "candidateManifestReference": {
       "type": "object",

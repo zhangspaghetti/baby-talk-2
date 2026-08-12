@@ -1,9 +1,10 @@
 [
   {
-    "schema_version": "m2_android_uat_v1",
+    "schema_version": "m2_android_uat_v2",
     "record_id": "uat_android_generated_flow",
     "case_id": "android_generated_flow",
-    "canonical_scene": "sleep",
+    "input_mode": "custom_scene",
+    "scenario_label": "sleep",
     "executor": "role:qa_operator",
     "executed_at": "2026-07-28T12:00:00+08:00",
     "timezone": "Asia/Shanghai",
@@ -36,10 +37,10 @@
     },
     "prerequisites": [
       {"id": "candidate_installed", "status": "PASS"},
-      {"id": "approved_canonical_scene", "status": "PASS"}
+      {"id": "approved_custom_scene_scenario", "status": "PASS"}
     ],
     "steps": [
-      {"index": 1, "action": "submit_canonical_scene", "expected": "complete_bundle_registered", "actual": "complete_bundle_registered", "status": "PASS"},
+      {"index": 1, "action": "submit_custom_scene", "expected": "complete_bundle_registered", "actual": "complete_bundle_registered", "status": "PASS"},
       {"index": 2, "action": "open_care_turn", "expected": "starter_interactive", "actual": "starter_interactive", "status": "PASS"}
     ],
     "status": "FINAL",
@@ -56,10 +57,11 @@
     "branch_reviews": []
   },
   {
-    "schema_version": "m2_android_uat_v1",
+    "schema_version": "m2_android_uat_v2",
     "record_id": "uat_response_loss_reconciliation",
     "case_id": "response_loss_reconciliation",
-    "canonical_scene": "bath",
+    "input_mode": "custom_scene",
+    "scenario_label": "bath",
     "executor": "role:qa_operator",
     "executed_at": "2026-07-28T12:05:00+08:00",
     "timezone": "Asia/Shanghai",
@@ -95,10 +97,11 @@
     "branch_reviews": []
   },
   {
-    "schema_version": "m2_android_uat_v1",
+    "schema_version": "m2_android_uat_v2",
     "record_id": "uat_force_stop_recovery",
     "case_id": "force_stop_recovery",
-    "canonical_scene": "bath",
+    "input_mode": "custom_scene",
+    "scenario_label": "bath",
     "executor": "role:qa_operator",
     "executed_at": "2026-07-28T12:10:00+08:00",
     "timezone": "Asia/Shanghai",
@@ -134,10 +137,11 @@
     "branch_reviews": []
   },
   {
-    "schema_version": "m2_android_uat_v1",
+    "schema_version": "m2_android_uat_v2",
     "record_id": "uat_all_reaction_audio_branches",
     "case_id": "all_reaction_audio_branches",
-    "canonical_scene": "bath",
+    "input_mode": "custom_scene",
+    "scenario_label": "bath",
     "executor": "role:qa_operator",
     "executed_at": "2026-07-28T12:15:00+08:00",
     "timezone": "Asia/Shanghai",
@@ -179,10 +183,11 @@
     ]
   },
   {
-    "schema_version": "m2_android_uat_v1",
+    "schema_version": "m2_android_uat_v2",
     "record_id": "uat_talkback_human_accessibility",
     "case_id": "talkback_human_accessibility",
-    "canonical_scene": "bath",
+    "input_mode": "custom_scene",
+    "scenario_label": "bath",
     "executor": "role:qa_operator",
     "executed_at": "2026-07-28T12:20:00+08:00",
     "timezone": "Asia/Shanghai",
