@@ -1,13 +1,17 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:crypto/crypto.dart';
+
+import 'verify_m2_13_closure_candidate.dart' as closure_candidate;
+
 const m212ReleaseMatrixSuccessMarker =
     'M2-12 UAT release matrix is closure-ready.';
 
 const m212UatRecordsRelativePath = 'docs/uat/m2/records';
 
 const m212ReleaseMatrixUsage =
-    'Usage: dart tool/verify_m2_12_release_matrix.dart [--records <directory>] [--help]';
+    'Usage: dart tool/verify_m2_12_release_matrix.dart --manifest <path> [--records <directory>] [--help]';
 
 const _requiredCaseIds = <String>{
   'android_generated_flow',
@@ -39,6 +43,7 @@ const _requiredRecordKeys = <String>{
   'executor',
   'executed_at',
   'timezone',
+  'candidate_manifest',
   'candidate',
   'device',
   'authenticity',
@@ -94,6 +99,7 @@ class M212ReleaseMatrixReport {
 M212ReleaseMatrixReport scanM212ReleaseMatrix({
   String? projectRoot,
   String? uatRecordsPath,
+  String? candidateManifestPath,
 }) {
   final root = _normalize(projectRoot ?? Directory.current.path);
   final configuredRecordsPath =
@@ -104,6 +110,11 @@ M212ReleaseMatrixReport scanM212ReleaseMatrix({
   final recordsDirectory = Directory(recordsPath);
   final violations = <M212ReleaseMatrixViolation>[];
   final parsedRecords = <_ParsedRecord>[];
+  final frozenCandidate = _loadFrozenCandidate(
+    root: root,
+    candidateManifestPath: candidateManifestPath,
+    violations: violations,
+  );
 
   if (!recordsDirectory.existsSync()) {
     _add(
@@ -135,6 +146,9 @@ M212ReleaseMatrixReport scanM212ReleaseMatrix({
 
   _validateCaseCompleteness(parsedRecords, violations);
   _validateCandidateIdentity(parsedRecords, violations);
+  if (frozenCandidate != null) {
+    _validateFrozenCandidate(parsedRecords, frozenCandidate, violations);
+  }
   violations.sort((left, right) {
     final location = left.recordLocation.compareTo(right.recordLocation);
     if (location != 0) return location;
@@ -289,6 +303,19 @@ _ParsedRecord? _validateRecord(
     );
   }
 
+  final candidateManifest = _requiredObject(
+    record,
+    'candidate_manifest',
+    location,
+    violations,
+  );
+  final candidateManifestReference = candidateManifest == null
+      ? null
+      : _validateCandidateManifestReference(
+          candidateManifest,
+          location,
+          violations,
+        );
   final candidate = _requiredObject(record, 'candidate', location, violations);
   final candidateTuple = candidate == null
       ? null
@@ -353,14 +380,75 @@ _ParsedRecord? _validateRecord(
   if (recordId == null ||
       caseId == null ||
       !_requiredCaseIds.contains(caseId) ||
+      candidateManifestReference == null ||
       candidateTuple == null) {
     return null;
   }
   return _ParsedRecord(
     recordId: recordId,
     caseId: caseId,
+    candidateManifestReference: candidateManifestReference,
     candidateTuple: candidateTuple,
     location: location,
+  );
+}
+
+_CandidateManifestReference? _validateCandidateManifestReference(
+  Map<String, Object?> reference,
+  String location,
+  List<M212ReleaseMatrixViolation> violations,
+) {
+  const keys = <String>{'candidate_id', 'sha256', 'bytes'};
+  _validateKeys(reference, keys, keys, location, violations);
+  final candidateId = _requiredString(
+    reference,
+    'candidate_id',
+    location,
+    violations,
+  );
+  final manifestSha256 = _requiredString(
+    reference,
+    'sha256',
+    location,
+    violations,
+  );
+  final manifestBytes = reference['bytes'];
+  if (candidateId != null && !_candidateId.hasMatch(candidateId)) {
+    _add(
+      violations,
+      'invalid_candidate_manifest_reference',
+      location,
+      'candidate manifest identifier is invalid',
+    );
+  }
+  if (manifestSha256 != null && !_sha256.hasMatch(manifestSha256)) {
+    _add(
+      violations,
+      'invalid_candidate_manifest_reference',
+      location,
+      'candidate manifest SHA-256 is invalid',
+    );
+  }
+  if (manifestBytes is! int || manifestBytes < 1) {
+    _add(
+      violations,
+      'invalid_candidate_manifest_reference',
+      location,
+      'candidate manifest byte count is invalid',
+    );
+  }
+  if (candidateId == null ||
+      !_candidateId.hasMatch(candidateId) ||
+      manifestSha256 == null ||
+      !_sha256.hasMatch(manifestSha256) ||
+      manifestBytes is! int ||
+      manifestBytes < 1) {
+    return null;
+  }
+  return _CandidateManifestReference(
+    candidateId: candidateId,
+    sha256: manifestSha256,
+    bytes: manifestBytes,
   );
 }
 
@@ -966,6 +1054,112 @@ void _validateCandidateIdentity(
   }
 }
 
+_FrozenCandidate? _loadFrozenCandidate({
+  required String root,
+  required String? candidateManifestPath,
+  required List<M212ReleaseMatrixViolation> violations,
+}) {
+  if (candidateManifestPath == null) {
+    _add(
+      violations,
+      'missing_manifest',
+      'manifest',
+      'frozen candidate manifest is missing',
+    );
+    return null;
+  }
+  final configured = File(candidateManifestPath).isAbsolute
+      ? candidateManifestPath
+      : '$root/$candidateManifestPath';
+  final file = File(configured);
+  if (!file.existsSync()) {
+    _add(
+      violations,
+      'missing_manifest',
+      'manifest',
+      'frozen candidate manifest is missing',
+    );
+    return null;
+  }
+
+  List<int> bytes;
+  try {
+    bytes = file.readAsBytesSync();
+  } on FileSystemException {
+    _add(
+      violations,
+      'unreadable_manifest',
+      'manifest',
+      'frozen candidate manifest cannot be read',
+    );
+    return null;
+  }
+  final closureReport = closure_candidate.scanM213ClosureCandidate(
+    manifestPath: file.path,
+  );
+  if (!closureReport.passes || closureReport.manifest == null) {
+    _add(
+      violations,
+      'invalid_manifest',
+      'manifest',
+      'frozen candidate manifest is invalid',
+    );
+    return null;
+  }
+
+  final tuple = <String, String>{};
+  for (final key in _candidateKeys) {
+    final value = closureReport.manifest!.candidate[key];
+    if (value == null) {
+      _add(
+        violations,
+        'invalid_manifest',
+        'manifest',
+        'frozen candidate tuple is incomplete',
+      );
+      return null;
+    }
+    tuple[key] = key == 'provider_mode' ? value.toUpperCase() : value;
+  }
+  return _FrozenCandidate(
+    candidateId: closureReport.manifest!.candidateId,
+    sha256: sha256.convert(bytes).toString(),
+    bytes: bytes.length,
+    candidateTuple: tuple,
+  );
+}
+
+void _validateFrozenCandidate(
+  List<_ParsedRecord> records,
+  _FrozenCandidate frozenCandidate,
+  List<M212ReleaseMatrixViolation> violations,
+) {
+  for (final record in records) {
+    final reference = record.candidateManifestReference;
+    if (reference.candidateId != frozenCandidate.candidateId ||
+        reference.sha256 != frozenCandidate.sha256 ||
+        reference.bytes != frozenCandidate.bytes) {
+      _add(
+        violations,
+        'candidate_manifest_reference_mismatch',
+        record.location,
+        'record does not reference supplied manifest bytes',
+      );
+    }
+    if (!_candidateKeys.every(
+      (key) =>
+          record.candidateTuple[key] == frozenCandidate.candidateTuple[key],
+    )) {
+      _add(
+        violations,
+        'frozen_candidate_mismatch',
+        record.location,
+        'candidate does not match frozen manifest',
+      );
+    }
+  }
+}
+
 void _validateKeys(
   Map<String, Object?> value,
   Set<String> required,
@@ -1073,6 +1267,7 @@ final _forbiddenProviderTerm = RegExp(
 );
 final _modelIdentity = RegExp(r'^model_sha256:[a-f0-9]{64}$');
 final _opaqueId = RegExp(r'^[a-z][a-z0-9_]{2,100}$');
+final _candidateId = RegExp(r'^m2-final-[a-z0-9-]{3,100}$');
 final _executor = RegExp(r'^role:[a-z][a-z0-9_-]{2,63}$');
 final _rfc3339 = RegExp(
   r'^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:Z|[+-]\d{2}:\d{2})$',
@@ -1088,29 +1283,60 @@ class _ParsedRecord {
   const _ParsedRecord({
     required this.recordId,
     required this.caseId,
+    required this.candidateManifestReference,
     required this.candidateTuple,
     required this.location,
   });
 
   final String recordId;
   final String caseId;
+  final _CandidateManifestReference candidateManifestReference;
   final Map<String, String> candidateTuple;
   final String location;
+}
+
+class _CandidateManifestReference {
+  const _CandidateManifestReference({
+    required this.candidateId,
+    required this.sha256,
+    required this.bytes,
+  });
+
+  final String candidateId;
+  final String sha256;
+  final int bytes;
+}
+
+class _FrozenCandidate {
+  const _FrozenCandidate({
+    required this.candidateId,
+    required this.sha256,
+    required this.bytes,
+    required this.candidateTuple,
+  });
+
+  final String candidateId;
+  final String sha256;
+  final int bytes;
+  final Map<String, String> candidateTuple;
 }
 
 class _M212CliOptions {
   const _M212CliOptions({
     required this.recordsPath,
+    required this.manifestPath,
     required this.showHelp,
     required this.usageError,
   });
 
   final String? recordsPath;
+  final String? manifestPath;
   final bool showHelp;
   final String? usageError;
 
   factory _M212CliOptions.parse(List<String> args) {
     String? recordsPath;
+    String? manifestPath;
     var showHelp = false;
     String? usageError;
     for (var index = 0; index < args.length; index += 1) {
@@ -1126,14 +1352,26 @@ class _M212CliOptions {
             recordsPath = args[++index];
           }
           break;
+        case '--manifest':
+          if (index + 1 >= args.length || args[index + 1].startsWith('--')) {
+            usageError = '--manifest requires a path';
+          } else {
+            manifestPath = args[++index];
+          }
+          break;
         default:
           usageError = 'Unknown argument: ${args[index]}';
       }
     }
     return _M212CliOptions(
       recordsPath: recordsPath,
+      manifestPath: manifestPath,
       showHelp: showHelp,
-      usageError: usageError,
+      usageError:
+          usageError ??
+          (showHelp || manifestPath != null
+              ? null
+              : '--manifest is required for closure verification'),
     );
   }
 }
@@ -1149,7 +1387,10 @@ Future<void> main(List<String> args) async {
     stderr.writeln(m212ReleaseMatrixUsage);
     exit(64);
   }
-  final report = scanM212ReleaseMatrix(uatRecordsPath: options.recordsPath);
+  final report = scanM212ReleaseMatrix(
+    uatRecordsPath: options.recordsPath,
+    candidateManifestPath: options.manifestPath,
+  );
   stdout.write(renderM212ReleaseMatrixReport(report));
   if (!report.passes) exit(1);
   stdout.writeln(m212ReleaseMatrixSuccessMarker);

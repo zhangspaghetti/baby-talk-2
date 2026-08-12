@@ -87,10 +87,12 @@ class M213ClosureCandidateViolation {
 
 class M213ClosureCandidateManifest {
   const M213ClosureCandidateManifest({
+    required this.candidateId,
     required this.candidate,
     required this.gateIds,
   });
 
+  final String candidateId;
   final Map<String, String> candidate;
   final Set<String> gateIds;
 }
@@ -161,7 +163,11 @@ M213ClosureCandidateReport scanM213ClosureCandidate({
   return M213ClosureCandidateReport(
     violations: List.unmodifiable(violations),
     manifest: violations.isEmpty && candidate != null
-        ? M213ClosureCandidateManifest(candidate: candidate, gateIds: gateIds)
+        ? M213ClosureCandidateManifest(
+            candidateId: candidateId!,
+            candidate: candidate,
+            gateIds: gateIds,
+          )
         : null,
   );
 }

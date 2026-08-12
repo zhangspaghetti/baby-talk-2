@@ -463,6 +463,7 @@ verifier.M213ClosureCandidateManifest _candidateManifest({
   required String mobileSha,
   required String backendSha,
 }) => verifier.M213ClosureCandidateManifest(
+  candidateId: 'm2-final-synthetic-fixture',
   candidate: {'mobile_source_sha': mobileSha, 'backend_source_sha': backendSha},
   gateIds: const {},
 );

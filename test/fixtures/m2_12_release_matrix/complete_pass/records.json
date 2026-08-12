@@ -7,6 +7,11 @@
     "executor": "role:qa_operator",
     "executed_at": "2026-07-28T12:00:00+08:00",
     "timezone": "Asia/Shanghai",
+    "candidate_manifest": {
+      "candidate_id": "m2-final-synthetic-fixture",
+      "sha256": "c049d0331c8dc9cbe4cff65b5b184040ad290d46049f2387a9107bc0365ad231",
+      "bytes": 2703
+    },
     "candidate": {
       "mobile_source_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
       "mobile_apk_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
@@ -58,6 +63,11 @@
     "executor": "role:qa_operator",
     "executed_at": "2026-07-28T12:05:00+08:00",
     "timezone": "Asia/Shanghai",
+    "candidate_manifest": {
+      "candidate_id": "m2-final-synthetic-fixture",
+      "sha256": "c049d0331c8dc9cbe4cff65b5b184040ad290d46049f2387a9107bc0365ad231",
+      "bytes": 2703
+    },
     "candidate": {
       "mobile_source_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
       "mobile_apk_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
@@ -92,6 +102,11 @@
     "executor": "role:qa_operator",
     "executed_at": "2026-07-28T12:10:00+08:00",
     "timezone": "Asia/Shanghai",
+    "candidate_manifest": {
+      "candidate_id": "m2-final-synthetic-fixture",
+      "sha256": "c049d0331c8dc9cbe4cff65b5b184040ad290d46049f2387a9107bc0365ad231",
+      "bytes": 2703
+    },
     "candidate": {
       "mobile_source_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
       "mobile_apk_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
@@ -126,6 +141,11 @@
     "executor": "role:qa_operator",
     "executed_at": "2026-07-28T12:15:00+08:00",
     "timezone": "Asia/Shanghai",
+    "candidate_manifest": {
+      "candidate_id": "m2-final-synthetic-fixture",
+      "sha256": "c049d0331c8dc9cbe4cff65b5b184040ad290d46049f2387a9107bc0365ad231",
+      "bytes": 2703
+    },
     "candidate": {
       "mobile_source_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
       "mobile_apk_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
@@ -166,6 +186,11 @@
     "executor": "role:qa_operator",
     "executed_at": "2026-07-28T12:20:00+08:00",
     "timezone": "Asia/Shanghai",
+    "candidate_manifest": {
+      "candidate_id": "m2-final-synthetic-fixture",
+      "sha256": "c049d0331c8dc9cbe4cff65b5b184040ad290d46049f2387a9107bc0365ad231",
+      "bytes": 2703
+    },
     "candidate": {
       "mobile_source_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
       "mobile_apk_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",

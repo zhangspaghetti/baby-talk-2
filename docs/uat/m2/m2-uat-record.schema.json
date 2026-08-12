@@ -52,6 +52,7 @@
         "executor": {"pattern": "^role:[a-z][a-z0-9_-]{2,63}$"},
         "executed_at": {"format": "date-time"},
         "timezone": {"pattern": "^[A-Za-z]+/[A-Za-z_]+$"},
+        "candidate_manifest": {"$ref": "#/$defs/candidateManifestReference"},
         "candidate": {"$ref": "#/$defs/candidate"},
         "device": {"$ref": "#/$defs/device"},
         "authenticity": {"$ref": "#/$defs/authenticity"},
@@ -65,6 +66,16 @@
         "privacy": {"$ref": "#/$defs/privacy"},
         "branch_reviews": {"type": "array", "items": {"$ref": "#/$defs/branchReview"}},
         "accessibility": {"$ref": "#/$defs/accessibility"}
+      }
+    },
+    "candidateManifestReference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["candidate_id", "sha256", "bytes"],
+      "properties": {
+        "candidate_id": {"pattern": "^m2-final-[a-z0-9-]{3,100}$"},
+        "sha256": {"pattern": "^[a-f0-9]{64}$"},
+        "bytes": {"type": "integer", "minimum": 1}
       }
     },
     "candidate": {

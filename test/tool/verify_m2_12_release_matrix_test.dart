@@ -11,6 +11,7 @@ void main() {
       final report = verifier.scanM212ReleaseMatrix(
         projectRoot: _repoRootPath(),
         uatRecordsPath: File(_fixturePath()).parent.path,
+        candidateManifestPath: _manifestFixturePath(),
       );
 
       expect(
@@ -24,6 +25,13 @@ void main() {
       _FixtureCase('missing_field', 'missing required field', (records) {
         records.first.remove('executor');
       }),
+      _FixtureCase(
+        'missing_manifest_reference',
+        'missing required field: candidate_manifest',
+        (records) {
+          records.first.remove('candidate_manifest');
+        },
+      ),
       _FixtureCase('identity_mismatch', 'candidate identity mismatch', (
         records,
       ) {
@@ -77,6 +85,7 @@ void main() {
         final report = verifier.scanM212ReleaseMatrix(
           projectRoot: _repoRootPath(),
           uatRecordsPath: recordsPath.parent.path,
+          candidateManifestPath: _manifestFixturePath(),
         );
 
         expect(report.passes, isFalse);
@@ -107,6 +116,7 @@ void main() {
         final report = verifier.scanM212ReleaseMatrix(
           projectRoot: _repoRootPath(),
           uatRecordsPath: recordsPath.parent.path,
+          candidateManifestPath: _manifestFixturePath(),
         );
 
         expect(report.passes, isFalse);
@@ -133,6 +143,8 @@ void main() {
           '-UatOnly',
           '-UatRecordsPath',
           recordsPath.parent.path,
+          '-CandidateManifestPath',
+          _manifestFixturePath(),
         ],
         workingDirectory: _repoRootPath(),
         runInShell: false,
@@ -142,6 +154,94 @@ void main() {
       expect(result.exitCode, isNonZero, reason: output);
       expect(output, contains('record verdict must be PASS'));
       expect(output, contains('M2-12 UAT closure matrix failed'));
+    });
+
+    test('self-consistent non-frozen candidate tuple fails closed', () async {
+      final recordsPath = await _mutatedFixture((records) {
+        for (final record in records) {
+          record['candidate']['mobile_source_sha'] =
+              'eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee';
+        }
+      });
+      addTearDown(() => recordsPath.parent.delete(recursive: true));
+
+      final report = verifier.scanM212ReleaseMatrix(
+        projectRoot: _repoRootPath(),
+        uatRecordsPath: recordsPath.parent.path,
+        candidateManifestPath: _manifestFixturePath(),
+      );
+
+      expect(report.passes, isFalse);
+      expect(
+        verifier.renderM212ReleaseMatrixReport(report),
+        contains('candidate does not match frozen manifest'),
+      );
+    });
+
+    test('missing manifest fails closed', () {
+      final report = verifier.scanM212ReleaseMatrix(
+        projectRoot: _repoRootPath(),
+        uatRecordsPath: File(_fixturePath()).parent.path,
+        candidateManifestPath: '${_fixturePath()}.missing',
+      );
+
+      expect(report.passes, isFalse);
+      expect(
+        verifier.renderM212ReleaseMatrixReport(report),
+        contains('frozen candidate manifest is missing'),
+      );
+    });
+
+    test('wrong manifest reference fails closed', () async {
+      final recordsPath = await _mutatedFixture((records) {
+        for (final record in records) {
+          record['candidate_manifest']['sha256'] =
+              'ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff';
+        }
+      });
+      addTearDown(() => recordsPath.parent.delete(recursive: true));
+
+      final report = verifier.scanM212ReleaseMatrix(
+        projectRoot: _repoRootPath(),
+        uatRecordsPath: recordsPath.parent.path,
+        candidateManifestPath: _manifestFixturePath(),
+      );
+
+      expect(report.passes, isFalse);
+      expect(
+        verifier.renderM212ReleaseMatrixReport(report),
+        contains('record does not reference supplied manifest bytes'),
+      );
+    });
+
+    test('tampered manifest fails closed', () async {
+      final root = await Directory.systemTemp.createTemp(
+        'm2_12_manifest_fixture_',
+      );
+      addTearDown(() => root.delete(recursive: true));
+      final manifest =
+          jsonDecode(await File(_manifestFixturePath()).readAsString())
+              as Map<String, dynamic>;
+      manifest['candidate']['backend_source_sha'] =
+          'eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee';
+      final tampered = File(
+        '${root.path}${Platform.pathSeparator}candidate-manifest.json',
+      );
+      await tampered.writeAsString(
+        const JsonEncoder.withIndent('  ').convert(manifest),
+      );
+
+      final report = verifier.scanM212ReleaseMatrix(
+        projectRoot: _repoRootPath(),
+        uatRecordsPath: File(_fixturePath()).parent.path,
+        candidateManifestPath: tampered.path,
+      );
+
+      expect(report.passes, isFalse);
+      expect(
+        verifier.renderM212ReleaseMatrixReport(report),
+        contains('record does not reference supplied manifest bytes'),
+      );
     });
   });
 }
@@ -156,6 +256,9 @@ class _FixtureCase {
 
 String _fixturePath() =>
     '${_repoRootPath()}${Platform.pathSeparator}test${Platform.pathSeparator}fixtures${Platform.pathSeparator}m2_12_release_matrix${Platform.pathSeparator}complete_pass${Platform.pathSeparator}records.json';
+
+String _manifestFixturePath() =>
+    '${File(_fixturePath()).parent.parent.path}${Platform.pathSeparator}candidate-manifest.json';
 
 Future<File> _mutatedFixture(
   void Function(List<dynamic> records) mutate,
