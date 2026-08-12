@@ -7,6 +7,14 @@
     "all_reaction_audio_branches",
     "talkback_human_accessibility"
   ],
+  "approved_canonical_scenes": [
+    "shoes",
+    "bath",
+    "water",
+    "teeth",
+    "tidying",
+    "sleep"
+  ],
   "record_template": {
     "schema_version": "m2_android_uat_v1",
     "record_id": "uat_replace_with_case_id",

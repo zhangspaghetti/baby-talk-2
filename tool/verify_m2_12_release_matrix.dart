@@ -21,7 +21,14 @@ const _requiredCaseIds = <String>{
   'talkback_human_accessibility',
 };
 
-const _canonicalScenes = <String>{'shoes', 'bath', 'water', 'teeth', 'tidying'};
+const _canonicalScenes = <String>{
+  'shoes',
+  'bath',
+  'water',
+  'teeth',
+  'tidying',
+  'sleep',
+};
 
 const _candidateKeys = <String>{
   'mobile_source_sha',

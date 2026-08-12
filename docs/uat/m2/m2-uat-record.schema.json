@@ -48,7 +48,7 @@
             "talkback_human_accessibility"
           ]
         },
-        "canonical_scene": {"enum": ["shoes", "bath", "water", "teeth", "tidying"]},
+        "canonical_scene": {"enum": ["shoes", "bath", "water", "teeth", "tidying", "sleep"]},
         "executor": {"pattern": "^role:[a-z][a-z0-9_-]{2,63}$"},
         "executed_at": {"format": "date-time"},
         "timezone": {"pattern": "^[A-Za-z]+/[A-Za-z_]+$"},

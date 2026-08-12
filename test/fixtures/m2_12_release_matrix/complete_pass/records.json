@@ -3,7 +3,7 @@
     "schema_version": "m2_android_uat_v1",
     "record_id": "uat_android_generated_flow",
     "case_id": "android_generated_flow",
-    "canonical_scene": "bath",
+    "canonical_scene": "sleep",
     "executor": "role:qa_operator",
     "executed_at": "2026-07-28T12:00:00+08:00",
     "timezone": "Asia/Shanghai",

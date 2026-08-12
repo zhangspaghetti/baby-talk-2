@@ -7,6 +7,41 @@ import '../../tool/verify_m2_12_release_matrix.dart' as verifier;
 
 void main() {
   group('M2-12 parsed Android UAT closure evidence', () {
+    test('schema and template publish the exact canonical scene allowlist', () {
+      final schema =
+          jsonDecode(
+                File(
+                  '${_repoRootPath()}${Platform.pathSeparator}docs${Platform.pathSeparator}uat${Platform.pathSeparator}m2${Platform.pathSeparator}m2-uat-record.schema.json',
+                ).readAsStringSync(),
+              )
+              as Map<String, dynamic>;
+      final template =
+          jsonDecode(
+                File(
+                  '${_repoRootPath()}${Platform.pathSeparator}docs${Platform.pathSeparator}uat${Platform.pathSeparator}m2${Platform.pathSeparator}m2-uat-record.template.json',
+                ).readAsStringSync(),
+              )
+              as Map<String, dynamic>;
+      final recordProperties =
+          (schema[r'$defs'] as Map<String, dynamic>)['record']
+              as Map<String, dynamic>;
+      final properties = recordProperties['properties'] as Map<String, dynamic>;
+      final canonicalScene =
+          properties['canonical_scene'] as Map<String, dynamic>;
+
+      const expected = <String>[
+        'shoes',
+        'bath',
+        'water',
+        'teeth',
+        'tidying',
+        'sleep',
+      ];
+      expect(canonicalScene['enum'], expected);
+      expect(template['approved_canonical_scenes'], expected);
+      expect(expected, isNot(contains('unknown')));
+    });
+
     test('complete PASS fixture has one consistent final candidate tuple', () {
       final report = verifier.scanM212ReleaseMatrix(
         projectRoot: _repoRootPath(),
@@ -18,6 +53,47 @@ void main() {
         report.passes,
         isTrue,
         reason: verifier.renderM212ReleaseMatrixReport(report),
+      );
+    });
+
+    test(
+      'manifest-bound sleep scenario is an approved canonical scene',
+      () async {
+        final recordsPath = await _mutatedFixture((records) {
+          records.first['canonical_scene'] = 'sleep';
+        });
+        addTearDown(() => recordsPath.parent.delete(recursive: true));
+
+        final report = verifier.scanM212ReleaseMatrix(
+          projectRoot: _repoRootPath(),
+          uatRecordsPath: recordsPath.parent.path,
+          candidateManifestPath: _manifestFixturePath(),
+        );
+
+        expect(
+          report.passes,
+          isTrue,
+          reason: verifier.renderM212ReleaseMatrixReport(report),
+        );
+      },
+    );
+
+    test('unknown canonical scene still fails closed', () async {
+      final recordsPath = await _mutatedFixture((records) {
+        records.first['canonical_scene'] = 'unknown';
+      });
+      addTearDown(() => recordsPath.parent.delete(recursive: true));
+
+      final report = verifier.scanM212ReleaseMatrix(
+        projectRoot: _repoRootPath(),
+        uatRecordsPath: recordsPath.parent.path,
+        candidateManifestPath: _manifestFixturePath(),
+      );
+
+      expect(report.passes, isFalse);
+      expect(
+        verifier.renderM212ReleaseMatrixReport(report),
+        contains('scene must be an approved canonical label'),
       );
     });
 
