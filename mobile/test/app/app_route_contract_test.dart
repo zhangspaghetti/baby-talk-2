@@ -6,6 +6,8 @@ import 'package:mobile/app/router/app_go_router.dart';
 import 'package:mobile/app/router/app_router.dart';
 import 'package:mobile/features/account/data/local/account_local_store.dart';
 import 'package:mobile/features/account/data/repositories/account_repository_contract.dart';
+import 'package:mobile/features/account/domain/models/account_consent_state.dart';
+import 'package:mobile/features/account/domain/models/account_session.dart';
 import 'package:mobile/features/account/presentation/account_notifier.dart';
 import 'package:mobile/features/auth/presentation/screens/auth_screen.dart';
 import 'package:mobile/features/practice/presentation/practice_route_args.dart';
@@ -132,31 +134,85 @@ void main() {
         expect(find.text('获取验证码'), findsOneWidget);
       },
     );
+
+    testWidgets('direct /account logout returns to the signed-out shell', (
+      tester,
+    ) async {
+      final repository = _RouteAccountRepository(
+        snapshot: AccountLocalSnapshot(
+          consentState: AccountConsentState.acceptedPendingSync,
+          session: AccountSession(
+            sessionId: 'synthetic_session',
+            accountId: 'synthetic_account',
+            maskedPhoneNumber: '***',
+            createdAt: DateTime.utc(2026, 8, 12, 1),
+          ),
+        ),
+      );
+      final notifier = AccountNotifier(repository: repository);
+      await notifier.initialize();
+      final router = createAppRouter(
+        initialLocation: AppRouteNames.account,
+        accountBuilder: (_) => const AuthScreen(),
+        shellBuilder: (_) => const SizedBox(key: Key('signed-out-shell')),
+      );
+      addTearDown(router.dispose);
+      addTearDown(notifier.dispose);
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [accountNotifierProvider.overrideWith((ref) => notifier)],
+          child: MaterialApp.router(
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            routerConfig: router,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('auth-logout-button')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('auth-logout-confirm-button')));
+      await tester.pumpAndSettle();
+
+      expect(
+        router.routeInformationProvider.value.uri.path,
+        AppRouteNames.shell,
+      );
+      expect(find.byKey(const Key('signed-out-shell')), findsOneWidget);
+    });
   });
 }
 
 class _RouteAccountRepository implements AccountRepositoryContract {
+  _RouteAccountRepository({AccountLocalSnapshot? snapshot})
+    : _snapshot = snapshot ?? AccountLocalSnapshot.signedOut;
+
+  AccountLocalSnapshot _snapshot;
+
   @override
-  Future<AccountLocalSnapshot> loadSnapshot() async =>
-      AccountLocalSnapshot.signedOut;
+  Future<AccountLocalSnapshot> loadSnapshot() async => _snapshot;
 
   @override
   Future<AccountLocalSnapshot> signIn({
     required String phoneNumber,
     required String verificationCode,
-  }) async => AccountLocalSnapshot.signedOut;
+  }) async => _snapshot;
 
   @override
   Future<AccountLocalSnapshot> refreshRuntimeState({
     required AccountRuntimeTrigger trigger,
     AccountLocalSnapshot? seedSnapshot,
     bool forceBootstrap = false,
-  }) async => seedSnapshot ?? AccountLocalSnapshot.signedOut;
+  }) async => seedSnapshot ?? _snapshot;
 
   @override
   Future<AccountLocalSnapshot> clearPlaceholderSession({
     bool revertToLocalOnly = false,
-  }) async => AccountLocalSnapshot.signedOut;
+  }) async {
+    _snapshot = AccountLocalSnapshot.signedOut;
+    return _snapshot;
+  }
 
   @override
   Future<AccountLocalSnapshot> revokeConsent({

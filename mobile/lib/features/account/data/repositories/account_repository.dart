@@ -372,11 +372,11 @@ class AccountRepository implements AccountRepositoryContract {
   Future<AccountLocalSnapshot> clearPlaceholderSession({
     bool revertToLocalOnly = false,
   }) async {
-    // 真正退出账号时，先尽力通知后端使 refresh token 失效（best-effort：
-    // 离线或后端失败不应阻塞本地清理）。回到本机档案模式（revertToLocalOnly）
-    // 不属于会话注销，跳过。
+    // 真正退出账号时，先通知后端使 refresh token 失效。只有后端确认注销后
+    // 才覆盖本地 stable session，避免把仍有效的远端会话误报成已退出。
+    // 回到本机档案模式（revertToLocalOnly）不属于会话注销，跳过。
     if (!revertToLocalOnly) {
-      await _bestEffortBackendLogout();
+      await _backendLogout();
     }
     final syncSummary = await _readSyncSummarySafely();
     final snapshot = AccountLocalSnapshot(
@@ -396,20 +396,29 @@ class AccountRepository implements AccountRepositoryContract {
     return snapshot;
   }
 
-  Future<void> _bestEffortBackendLogout() async {
+  Future<void> _backendLogout() async {
     final api = _apiService;
     if (api == null) {
       return;
     }
+    final current = await _readSnapshotSafely();
+    final refreshToken = current.session?.refreshToken;
+    if (refreshToken == null || refreshToken.trim().isEmpty) {
+      return;
+    }
+    AccountLogoutResponse response;
     try {
-      final current = await _readSnapshotSafely();
-      final refreshToken = current.session?.refreshToken;
-      if (refreshToken == null || refreshToken.trim().isEmpty) {
+      response = await api.logout(refreshToken: refreshToken);
+    } on AccountApiException catch (error) {
+      if (error.code == 'refresh_token_revoked') {
         return;
       }
-      await api.logout(refreshToken: refreshToken);
-    } on Object {
-      // best-effort：忽略任何登出失败，本地清理照常进行。
+      rethrow;
+    }
+    if (!response.loggedOut) {
+      throw const AccountApiException.malformed(
+        message: 'logout response did not confirm session revocation',
+      );
     }
   }
 

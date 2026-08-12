@@ -46,6 +46,7 @@ class AccountNotifier extends ChangeNotifier with WidgetsBindingObserver {
   int _runtimeChangeToken = 0;
   Future<void>? _initializeFuture;
   Future<void>? _runtimeRefreshFuture;
+  Future<bool>? _logoutFuture;
   AccountLocalSnapshot _snapshot = AccountLocalSnapshot.localOnly;
   String? _loadErrorMessage;
   String? _submissionMessage;
@@ -237,11 +238,11 @@ class AccountNotifier extends ChangeNotifier with WidgetsBindingObserver {
       _snapshot = nextSnapshot;
       _hasLoaded = true;
       _bumpRuntimeToken();
-    } catch (error) {
+    } on Object {
       if (_disposed) {
         return;
       }
-      _loadErrorMessage = '账号状态读取失败：$error';
+      _loadErrorMessage = '账号状态读取失败，请重试。';
     } finally {
       _isLoading = false;
       notifyListeners();
@@ -498,8 +499,8 @@ class AccountNotifier extends ChangeNotifier with WidgetsBindingObserver {
       _bumpRuntimeToken();
       _submissionMessage = _buildActionMessage('登录已完成');
       return _snapshot.session != null;
-    } catch (error) {
-      _submissionMessage = '登录失败：$error';
+    } on Object {
+      _submissionMessage = '登录失败，请稍后重试。';
       return false;
     } finally {
       _isGlobalOperationBusy = false;
@@ -552,11 +553,11 @@ class AccountNotifier extends ChangeNotifier with WidgetsBindingObserver {
       if (announceIdleNoop || _snapshot.lastVisibleError != null) {
         _submissionMessage = _buildActionMessage('已刷新账号与同步状态');
       }
-    } catch (error) {
+    } on Object {
       if (_disposed) {
         return;
       }
-      _submissionMessage = '刷新同步状态失败：$error';
+      _submissionMessage = '刷新同步状态失败，请稍后重试。';
     } finally {
       _isGlobalOperationBusy = false;
       notifyListeners();
@@ -591,8 +592,8 @@ class AccountNotifier extends ChangeNotifier with WidgetsBindingObserver {
     } on AccountExternalLinkException catch (error) {
       _submissionMessage = error.message;
       return false;
-    } catch (error) {
-      _submissionMessage = '打开升级页面失败：$error';
+    } on Object {
+      _submissionMessage = '打开升级页面失败，请稍后重试。';
       return false;
     } finally {
       _isGlobalOperationBusy = false;
@@ -601,6 +602,10 @@ class AccountNotifier extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   Future<void> clearSession({bool revertToLocalOnly = false}) async {
+    if (!revertToLocalOnly) {
+      await logout();
+      return;
+    }
     if (isBusy) {
       return;
     }
@@ -626,12 +631,87 @@ class AccountNotifier extends ChangeNotifier with WidgetsBindingObserver {
           : revertToLocalOnly
           ? '已回到本机档案模式。'
           : '已退出账号；本机练习记录仍保留。';
-    } catch (error) {
-      _submissionMessage = '清理账号状态失败：$error';
+    } on Object {
+      _submissionMessage = '清理账号状态失败，请重试。';
     } finally {
       _isGlobalOperationBusy = false;
       notifyListeners();
     }
+  }
+
+  Future<bool> logout() {
+    final running = _logoutFuture;
+    if (running != null) {
+      return running;
+    }
+    if (_disposed) {
+      return Future<bool>.value(false);
+    }
+    if (!isSignedIn) {
+      return Future<bool>.value(true);
+    }
+    if (isBusy) {
+      return Future<bool>.value(false);
+    }
+
+    late final Future<bool> tracked;
+    tracked = _logoutInternal().whenComplete(() {
+      if (identical(_logoutFuture, tracked)) {
+        _logoutFuture = null;
+      }
+    });
+    _logoutFuture = tracked;
+    return tracked;
+  }
+
+  Future<bool> _logoutInternal() async {
+    _isGlobalOperationBusy = true;
+    _submissionMessage = '正在退出登录…';
+    notifyListeners();
+
+    try {
+      final signedOutSnapshot = await _repository.clearPlaceholderSession();
+      if (_disposed) {
+        return false;
+      }
+      _snapshot = signedOutSnapshot;
+      _bumpRuntimeToken();
+      _clearTransientAuthenticationInput();
+
+      LocalSensitiveDataClearanceReport? clearanceReport;
+      var clearanceFailed = false;
+      try {
+        clearanceReport = await _clearLocalSensitiveDataForLogout();
+      } on Object {
+        clearanceFailed = true;
+      }
+      final clearanceCompleted =
+          !clearanceFailed &&
+          (clearanceReport == null ||
+              clearanceReport.overallStatus ==
+                  LocalSensitiveDataClearanceOverallStatus.completed);
+      _submissionMessage = clearanceCompleted
+          ? '已退出登录。'
+          : '已退出登录，但部分本机敏感数据清理失败，请联系支持。';
+      return clearanceCompleted;
+    } on Object {
+      _submissionMessage = '退出登录失败，请重试。';
+      return false;
+    } finally {
+      _isGlobalOperationBusy = false;
+      notifyListeners();
+    }
+  }
+
+  void _clearTransientAuthenticationInput() {
+    _challengeOperationEpoch += 1;
+    _activeChallengeOperationEpoch = null;
+    _phoneNumber = '';
+    _verificationCode = '';
+    _phoneError = null;
+    _verificationCodeError = null;
+    _signInChallenge = null;
+    _challengePhoneNumber = null;
   }
 
   Future<void> revokeConsent() async {
@@ -650,8 +730,8 @@ class AccountNotifier extends ChangeNotifier with WidgetsBindingObserver {
       _submissionMessage = clearanceReport?.hasFailures == true
           ? '已撤回同意，但部分本机敏感数据清理失败。'
           : '已撤回同意；后续需重新登录并再次同意。';
-    } catch (error) {
-      _submissionMessage = '撤回同意失败：$error';
+    } on Object {
+      _submissionMessage = '撤回同意失败，请重试。';
     } finally {
       _isGlobalOperationBusy = false;
       notifyListeners();
@@ -671,15 +751,15 @@ class AccountNotifier extends ChangeNotifier with WidgetsBindingObserver {
       LocalSensitiveDataClearanceReport? clearanceReport;
       try {
         clearanceReport = await _clearLocalSensitiveDataForAccountDeletion();
-      } catch (error) {
+      } on Object {
         _bumpRuntimeToken();
-        _submissionMessage = '账号已删除，但本机敏感数据清理失败：$error';
+        _submissionMessage = '账号已删除，但本机敏感数据清理失败，请联系支持。';
         return;
       }
       _bumpRuntimeToken();
       _submissionMessage = _messageForAccountDeletion(clearanceReport);
-    } catch (error) {
-      _submissionMessage = '删除账号失败：$error';
+    } on Object {
+      _submissionMessage = '删除账号失败，请重试。';
     } finally {
       _isGlobalOperationBusy = false;
       notifyListeners();

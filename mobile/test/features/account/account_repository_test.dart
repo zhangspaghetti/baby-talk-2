@@ -366,6 +366,83 @@ void main() {
       expect(localOnly.lastSyncPhase, 'local_only');
     });
 
+    test('正式退出会在覆盖本地会话前调用后端 logout', () async {
+      await harness.seedSignedInSnapshot(refreshToken: 'synthetic_refresh');
+      final repository = harness.buildRepository();
+
+      final signedOut = await repository.clearPlaceholderSession();
+
+      expect(harness.api.logoutRefreshTokens, <String>['synthetic_refresh']);
+      expect(signedOut.consentState, AccountConsentState.signedOut);
+      expect(signedOut.session, isNull);
+    });
+
+    test('后端 logout 失败时保留本地 stable session', () async {
+      await harness.seedSignedInSnapshot(refreshToken: 'synthetic_refresh');
+      harness.api.logoutException = AccountApiException(
+        kind: AccountApiFailureKind.http,
+        statusCode: 503,
+        code: 'synthetic_logout_unavailable',
+        message: 'synthetic server unavailable',
+      );
+      final repository = harness.buildRepository();
+
+      await expectLater(
+        repository.clearPlaceholderSession(),
+        throwsA(isA<AccountApiException>()),
+      );
+
+      final persisted = await harness.accountLocalStore.read();
+      expect(persisted.consentState, AccountConsentState.acceptedPendingSync);
+      expect(persisted.session?.refreshToken, 'synthetic_refresh');
+    });
+
+    test('后端拒绝 logout 时保留本地 stable session', () async {
+      await harness.seedSignedInSnapshot(refreshToken: 'synthetic_refresh');
+      harness.api.logoutResponse = AccountLogoutResponse(
+        loggedOut: false,
+        loggedOutAt: DateTime.utc(2026, 4, 9, 2, 1),
+      );
+      final repository = harness.buildRepository();
+
+      await expectLater(
+        repository.clearPlaceholderSession(),
+        throwsA(isA<AccountApiException>()),
+      );
+
+      final persisted = await harness.accountLocalStore.read();
+      expect(persisted.consentState, AccountConsentState.acceptedPendingSync);
+      expect(persisted.session?.refreshToken, 'synthetic_refresh');
+    });
+
+    test('远端已退出但本地首次写失败时再次退出可幂等完成', () async {
+      await harness.seedSignedInSnapshot(refreshToken: 'synthetic_refresh');
+      harness.api.logoutExceptionAfterFirstSuccess = AccountApiException(
+        kind: AccountApiFailureKind.http,
+        statusCode: 401,
+        code: 'refresh_token_revoked',
+        message: 'synthetic token already revoked',
+      );
+      harness.failNextAccountSnapshotWrite();
+      final repository = harness.buildRepository();
+
+      await expectLater(
+        repository.clearPlaceholderSession(),
+        throwsA(isA<AccountLocalStoreException>()),
+      );
+      final retained = await harness.accountLocalStore.read();
+      expect(retained.session?.refreshToken, 'synthetic_refresh');
+
+      final signedOut = await repository.clearPlaceholderSession();
+
+      expect(harness.api.logoutRefreshTokens, <String>[
+        'synthetic_refresh',
+        'synthetic_refresh',
+      ]);
+      expect(signedOut.consentState, AccountConsentState.signedOut);
+      expect(signedOut.session, isNull);
+    });
+
     test('远端撤回与删除成功时会同步本地终态', () async {
       await harness.seedSignedInSnapshot();
       final repository = harness.buildRepository();
@@ -556,6 +633,10 @@ class _AccountRepositoryHarness {
   final _FakeAccountApiService api;
   final _InMemorySecureStorage _inMemoryStorage;
 
+  void failNextAccountSnapshotWrite() {
+    _inMemoryStorage.writeFailuresRemaining = 1;
+  }
+
   static Future<_AccountRepositoryHarness> create() async {
     final tempDir = await Directory.systemTemp.createTemp(
       'account_repository_test_',
@@ -673,6 +754,10 @@ class _FakeAccountApiService extends AccountApiService {
   AccountApiException? refreshException;
   AccountSessionResponse? refreshResponse;
   int refreshCallCount = 0;
+  final List<String> logoutRefreshTokens = <String>[];
+  AccountApiException? logoutException;
+  AccountApiException? logoutExceptionAfterFirstSuccess;
+  AccountLogoutResponse? logoutResponse;
 
   @override
   Future<AccountChallengeResponse> createChallenge({
@@ -718,6 +803,24 @@ class _FakeAccountApiService extends AccountApiService {
           sessionId: 'sess_seed',
           accessToken: 'access_rotated',
           refreshToken: 'refresh_rotated',
+        );
+  }
+
+  @override
+  Future<AccountLogoutResponse> logout({required String refreshToken}) async {
+    logoutRefreshTokens.add(refreshToken);
+    final exception = logoutException;
+    if (exception != null) {
+      throw exception;
+    }
+    if (logoutRefreshTokens.length > 1 &&
+        logoutExceptionAfterFirstSuccess != null) {
+      throw logoutExceptionAfterFirstSuccess!;
+    }
+    return logoutResponse ??
+        AccountLogoutResponse(
+          loggedOut: true,
+          loggedOutAt: DateTime.utc(2026, 4, 9, 2, 1),
         );
   }
 
@@ -852,6 +955,7 @@ class _InMemorySecureStorage extends FlutterSecureStorage {
   _InMemorySecureStorage();
 
   final Map<String, String> _store = {};
+  int writeFailuresRemaining = 0;
 
   @override
   Future<String?> read({
@@ -875,6 +979,10 @@ class _InMemorySecureStorage extends FlutterSecureStorage {
     MacOsOptions? mOptions,
     WindowsOptions? wOptions,
   }) async {
+    if (writeFailuresRemaining > 0) {
+      writeFailuresRemaining -= 1;
+      throw StateError('synthetic secure storage write failure');
+    }
     if (value == null) {
       _store.remove(key);
     } else {

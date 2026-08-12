@@ -18,6 +18,7 @@ GoRouter createAppRouter({
   String initialLocation = AppRouteNames.shell,
   WidgetBuilder? onboardingBuilder,
   WidgetBuilder? accountBuilder,
+  WidgetBuilder? shellBuilder,
 }) {
   final resolvedOnboardingBuilder =
       onboardingBuilder ?? (context) => const OnboardingFlowScreen();
@@ -28,7 +29,8 @@ GoRouter createAppRouter({
     routes: [
       GoRoute(
         path: AppRouteNames.shell,
-        builder: (context, state) => const AppShellScreen(),
+        builder: (context, state) =>
+            shellBuilder?.call(context) ?? const AppShellScreen(),
       ),
       GoRoute(
         path: AppRouteNames.onboarding,

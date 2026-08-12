@@ -6,11 +6,13 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:mobile/app/providers/repository_providers.dart';
 import 'package:mobile/app/router/account_entry_route_contract.dart';
+import 'package:mobile/app/router/app_route_contract.dart';
 import 'package:mobile/app/theme/app_layout_constants.dart';
 import 'package:mobile/app/theme/app_theme.dart';
 import 'package:mobile/features/account/domain/models/account_sign_in_challenge.dart';
 import 'package:mobile/l10n/app_localizations.dart';
 import 'package:pinput/pinput.dart';
+import 'package:go_router/go_router.dart';
 
 /// Auth flow mode — V11 unified entry: codeLogin merges login+register detection.
 enum AuthMode { codeLogin, register }
@@ -136,6 +138,100 @@ class AuthScreen extends HookConsumerWidget {
       }
     }
 
+    Future<void> confirmLogout() async {
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          key: const Key('auth-logout-confirm-dialog'),
+          title: Text(l.accountClearConfirmTitle),
+          content: Text(l.accountClearConfirmBody),
+          actions: [
+            TextButton(
+              key: const Key('auth-logout-cancel-button'),
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: Text(l.accountLifecycleCancel),
+            ),
+            FilledButton(
+              key: const Key('auth-logout-confirm-button'),
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              child: Text(l.accountClearConfirmAction),
+            ),
+          ],
+        ),
+      );
+      if (confirmed != true || !context.mounted) {
+        return;
+      }
+      final loggedOut = await ref
+          .read(accountNotifierProvider.notifier)
+          .logout();
+      if (loggedOut && context.mounted) {
+        final router = GoRouter.maybeOf(context);
+        if (router != null) {
+          router.go(AppRouteNames.shell);
+        } else {
+          await Navigator.of(context).maybePop();
+        }
+      }
+    }
+
+    if (notifier.isSignedIn) {
+      return Scaffold(
+        appBar: AppBar(title: Text(l.accountEntryTitle)),
+        backgroundColor: colors.bgBase,
+        body: SafeArea(
+          child: Center(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(AppLayoutConstants.spacingXl),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 520),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Icon(
+                      Icons.verified_user_outlined,
+                      size: 48,
+                      color: colors.accent,
+                    ),
+                    const SizedBox(height: AppLayoutConstants.spacingMd),
+                    Text(
+                      l.accountPrimaryActionSignedInBody,
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.bodyLarge,
+                    ),
+                    if (notifier.submissionMessage != null) ...[
+                      const SizedBox(height: AppLayoutConstants.spacingMd),
+                      Semantics(
+                        liveRegion: true,
+                        child: Text(
+                          notifier.submissionMessage!,
+                          key: const Key('auth-account-message'),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: AppLayoutConstants.spacingXl),
+                    Semantics(
+                      button: true,
+                      label: '退出登录',
+                      enabled: !notifier.isBusy,
+                      onTap: notifier.isBusy ? null : confirmLogout,
+                      excludeSemantics: true,
+                      child: OutlinedButton(
+                        key: const Key('auth-logout-button'),
+                        onPressed: notifier.isBusy ? null : confirmLogout,
+                        child: const Text('退出登录'),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
     return Scaffold(
       backgroundColor: colors.bgBase,
       body: SafeArea(
@@ -248,6 +344,15 @@ class AuthScreen extends HookConsumerWidget {
                       _StatusMessage(
                         message: infoMessage.value!,
                         isError: false,
+                      ),
+                    ],
+                    if (errorMessage.value == null &&
+                        infoMessage.value == null &&
+                        notifier.submissionMessage != null) ...[
+                      const SizedBox(height: AppLayoutConstants.spacingMd),
+                      _StatusMessage(
+                        message: notifier.submissionMessage!,
+                        isError: notifier.submissionMessage!.contains('失败'),
                       ),
                     ],
 

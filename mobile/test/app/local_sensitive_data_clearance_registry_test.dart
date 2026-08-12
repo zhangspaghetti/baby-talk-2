@@ -251,6 +251,80 @@ void main() {
         expect(await harness.installationIdService.readExisting(), isNull);
       },
     );
+
+    test('logout clears every account-scoped policy target', () async {
+      final orchestrator = createLocalSensitiveDataClearanceOrchestrator(
+        accountRepository: harness.accountRepository,
+        onboardingRepository: harness.onboardingRepository,
+        householdRepository: harness.householdRepository,
+        practiceRepository: harness.practiceRepository,
+        mentorRepository: harness.mentorRepository,
+        authContinuationCoordinator: harness.authContinuationCoordinator,
+        customSceneDraftContinuationCoordinator:
+            harness.customSceneDraftContinuationCoordinator,
+        generatedPracticeContentRegistry:
+            harness.generatedPracticeContentRegistry,
+        generatedAudioMemoryCache: harness.generatedAudioMemoryCache,
+      );
+
+      final report = await orchestrator.clear(
+        LocalSensitiveDataClearanceRequest(
+          trigger: LocalSensitiveDataClearanceTrigger.logoutSessionOnly,
+          authorization: const ReportOnlyAuthorization(
+            reason: 'synthetic logout test',
+          ),
+          correlationId: 'synthetic-logout-clearance',
+          requestedAt: DateTime.utc(2026, 5, 20, 10),
+        ),
+      );
+
+      const clearedTargets = <LocalSensitiveDataTarget>{
+        LocalSensitiveDataTarget.accountLocalSnapshot,
+        LocalSensitiveDataTarget.authContinuation,
+        LocalSensitiveDataTarget.customSceneDraft,
+        LocalSensitiveDataTarget.generatedCareMoments,
+        LocalSensitiveDataTarget.generatedAudioMemory,
+      };
+      expect(
+        report.overallStatus,
+        LocalSensitiveDataClearanceOverallStatus.completed,
+      );
+      expect(
+        report.results
+            .where(
+              (result) =>
+                  result.status ==
+                  LocalSensitiveDataTargetStatus.attemptedAndSucceeded,
+            )
+            .map((result) => result.target)
+            .toSet(),
+        clearedTargets,
+      );
+      expect(await harness.accountSnapshotIsStored(), isFalse);
+      expect(
+        File('${harness.tempDir.path}/auth_continuation.json').existsSync(),
+        isFalse,
+      );
+      expect(
+        await harness.customSceneDraftStore.read(
+          now: DateTime.utc(2026, 5, 20, 10),
+        ),
+        isNull,
+      );
+      expect(
+        await harness.generatedPracticeContentRegistry.resolveGeneratedContent(
+          generatedContentId: 'lifecycle_generated_content',
+        ),
+        isNull,
+      );
+      expect(harness.generatedAudioMemoryCache.entryCount, 0);
+      expect(
+        await harness.generatedCareTurnResumeMarkerStore.readForAccount(
+          'lifecycle_account',
+        ),
+        isNull,
+      );
+    });
   });
 }
 
