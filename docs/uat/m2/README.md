@@ -9,3 +9,5 @@ For the generated-flow record, use the controlled prerequisite `approved_custom_
 `dart tool/verify_m2_12_release_matrix.dart --records <directory> --manifest <ignored-manifest-path>` accepts individual record objects or JSON arrays. It only reports closure-ready when all five required cases are final `PASS`, reference the exact supplied manifest bytes, match its frozen nine-field candidate tuple, use real providers, include human TalkBack observations, and have no open defects. The manifest stores provider mode as `real`; UAT records use the equivalent controlled value `REAL`.
 
 `records/` starts empty intentionally. Do not copy test fixtures there. Never record prompts, payloads, utterance bodies, credentials, tokens, account/device identifiers, raw errors, or private evidence.
+
+For emulator-based completion of pending audio checks, use [Android 模拟器音频 UAT 安装](../../runbooks/android-emulator-audio-uat.md). Emulator playback still requires human listening; successful installation or machine audio inspection alone cannot satisfy the UAT record.
