@@ -696,6 +696,7 @@ class CustomSceneGenerationOrchestratorTest {
                 "attempt-completed:1:providers_exhausted",
                 "expire:generation_unavailable:true");
         assertThat(harness.repairRequests).isEmpty();
+        assertThat(harness.events).doesNotContain("activate-with-completed-attempt");
     }
 
     @Test

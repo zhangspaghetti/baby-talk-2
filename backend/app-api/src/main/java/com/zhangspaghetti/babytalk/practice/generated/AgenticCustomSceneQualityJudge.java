@@ -5,6 +5,7 @@ import com.zhangspaghetti.babytalk.practice.agentic.PracticeAiCapability;
 import com.zhangspaghetti.babytalk.practice.agentic.PracticeAiJsonSchemaPublisher;
 import com.zhangspaghetti.babytalk.practice.agentic.PracticeAiOperationRunner;
 import com.zhangspaghetti.babytalk.practice.agentic.PracticeAiStructuredOutputCaller;
+import com.zhangspaghetti.babytalk.practice.agentic.PracticeAiStructuredOutputCaller.FinishReason;
 import com.zhangspaghetti.babytalk.practice.agentic.PracticeAiStructuredOutputCaller.StructuredOutputInvalidException;
 import com.zhangspaghetti.babytalk.practice.agentic.ResolvedProvider;
 import com.zhangspaghetti.babytalk.practice.agentic.config.GenerationProfile;
@@ -120,6 +121,22 @@ public class AgenticCustomSceneQualityJudge implements CustomSceneQualityJudge {
     }
 
     private JudgeWireResponse callJudgeProvider(
+            ResolvedProvider provider,
+            String systemPrompt,
+            String userPrompt,
+            GenerationProfile profile
+    ) {
+        try {
+            return callJudgeProviderOnce(provider, systemPrompt, userPrompt, profile);
+        } catch (StructuredOutputInvalidException firstInvalidResponse) {
+            if (firstInvalidResponse.providerResponseMetadata().finishReason() != FinishReason.STOP) {
+                throw firstInvalidResponse;
+            }
+            return callJudgeProviderOnce(provider, systemPrompt, userPrompt, profile);
+        }
+    }
+
+    private JudgeWireResponse callJudgeProviderOnce(
             ResolvedProvider provider,
             String systemPrompt,
             String userPrompt,
