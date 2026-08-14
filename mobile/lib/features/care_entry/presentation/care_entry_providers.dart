@@ -27,13 +27,13 @@ final guestOnboardingConversationGatewayProvider =
       );
     });
 
-final guestAudioCapabilityVaultProvider = Provider<GuestAudioCapabilityVault>(
-  (ref) {
-    final vault = GuestAudioCapabilityVault();
-    ref.onDispose(vault.clear);
-    return vault;
-  },
-);
+final guestAudioCapabilityVaultProvider = Provider<GuestAudioCapabilityVault>((
+  ref,
+) {
+  final vault = GuestAudioCapabilityVault();
+  ref.onDispose(vault.clear);
+  return vault;
+});
 
 final guestOnboardingAudioPlayerFactoryProvider =
     Provider<GuestOnboardingAudioPlayer Function()>((ref) {
